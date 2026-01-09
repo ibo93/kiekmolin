@@ -5390,6 +5390,34 @@
                 </div>
             </div>
 
+            <!-- Quick Actions für Restaurants -->
+            <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+                <button class="dash-btn dash-btn-primary" onclick="openModal('addDishModal')" style="display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="16"/>
+                        <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    Gericht einfügen
+                </button>
+                <button class="dash-btn dash-btn-secondary" onclick="openModal('menuScannerModal')" style="display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <line x1="7" y1="8" x2="17" y2="8"/>
+                        <line x1="7" y1="12" x2="17" y2="12"/>
+                        <line x1="7" y1="16" x2="12" y2="16"/>
+                    </svg>
+                    Menü-Scanner
+                </button>
+                <button class="dash-btn dash-btn-secondary" onclick="openModal('viewDishesModal')" style="display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    Alle Gerichte anzeigen
+                </button>
+            </div>
+
             <!-- Restaurants Liste -->
             <div class="panel">
                 <div class="panel-header">
@@ -16989,4 +17017,552 @@ window.addEventListener('appinstalled', () => {
             
             <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--dark);">7. Datenschutz</h3>
             <p style="color: var(--slate); line-height: 1.6; margin-bottom: 16px; font-size: 14px;">
-                Beide Parteien verpflichten sich zur Einhaltung der DSGVO. Kundendaten werden nur zu
+                Beide Parteien verpflichten sich zur Einhaltung der DSGVO. Kundendaten werden nur zum Zweck der Reservierungsverwaltung verarbeitet.
+            </p>
+
+            <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--dark);">8. Schlussbestimmungen</h3>
+            <p style="color: var(--slate); line-height: 1.6; margin-bottom: 16px; font-size: 14px;">
+                Es gilt deutsches Recht. Gerichtsstand ist Aurich. Änderungen bedürfen der Schriftform.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('agbModal')" class="btn btn-primary" style="width: 100%;">Verstanden</button>
+        </div>
+    </div>
+</div>
+
+<!-- Gericht einfügen Modal -->
+<div class="modal-overlay" id="addDishModal">
+    <div class="modal" style="max-width: 550px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Neues Gericht einfügen</h2>
+            <button class="modal-close" onclick="closeModal('addDishModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Restaurant auswählen *</label>
+                <select class="form-input" id="dishRestaurantSelect" onchange="loadDishCategories()">
+                    <option value="">Restaurant wählen...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Kategorie *</label>
+                <select class="form-input" id="dishCategorySelect">
+                    <option value="">Kategorie wählen...</option>
+                    <option value="vorspeisen">Vorspeisen</option>
+                    <option value="hauptgerichte">Hauptgerichte</option>
+                    <option value="fisch">Fisch & Meeresfrüchte</option>
+                    <option value="fleisch">Fleischgerichte</option>
+                    <option value="vegetarisch">Vegetarisch</option>
+                    <option value="vegan">Vegan</option>
+                    <option value="desserts">Desserts</option>
+                    <option value="getraenke">Getränke</option>
+                    <option value="specials">Tagesangebote</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Gericht-Name *</label>
+                <input type="text" class="form-input" id="dishName" placeholder="z.B. Krabbensuppe nach Greetsielder Art">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Beschreibung</label>
+                <textarea class="form-input" id="dishDescription" rows="3" placeholder="Beschreiben Sie das Gericht..."></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label">Preis (€) *</label>
+                    <input type="number" class="form-input" id="dishPrice" step="0.01" placeholder="12.90">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bild-URL</label>
+                    <input type="text" class="form-input" id="dishImage" placeholder="https://...">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Allergene & Zusätze</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="gluten" class="dish-allergen"> Gluten
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="laktose" class="dish-allergen"> Laktose
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="nüsse" class="dish-allergen"> Nüsse
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="fisch" class="dish-allergen"> Fisch
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="krebstiere" class="dish-allergen"> Krebstiere
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="eier" class="dish-allergen"> Eier
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+                        <input type="checkbox" value="soja" class="dish-allergen"> Soja
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="dishVegetarian"> Vegetarisch
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; margin-top: 8px;">
+                    <input type="checkbox" id="dishVegan"> Vegan
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('addDishModal')" class="btn btn-secondary">Abbrechen</button>
+            <button onclick="saveDish()" class="btn btn-primary">Gericht speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- Menü-Scanner Modal -->
+<div class="modal-overlay" id="menuScannerModal">
+    <div class="modal" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Menü-Scanner</h2>
+            <button class="modal-close" onclick="closeModal('menuScannerModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" width="48" height="48" style="margin-bottom: 12px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                </svg>
+                <p style="color: var(--slate); font-size: 14px; margin-bottom: 16px;">
+                    Laden Sie ein Foto Ihrer Speisekarte hoch. Die Gerichte werden automatisch erkannt und können übernommen werden.
+                </p>
+                <input type="file" id="menuImageInput" accept="image/*" style="display: none;" onchange="processMenuImage(event)">
+                <button onclick="document.getElementById('menuImageInput').click()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Speisekarte hochladen
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Restaurant auswählen *</label>
+                <select class="form-input" id="scannerRestaurantSelect">
+                    <option value="">Restaurant wählen...</option>
+                </select>
+            </div>
+
+            <div id="scannerPreview" style="display: none;">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--dark);">Vorschau:</h4>
+                <img id="menuPreviewImage" src="" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;">
+            </div>
+
+            <div id="scannerResults" style="display: none;">
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--dark);">Erkannte Gerichte:</h4>
+                <div id="scannedDishesList" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Erkannte Gerichte werden hier eingefügt -->
+                </div>
+            </div>
+
+            <div id="scannerLoading" style="display: none; text-align: center; padding: 40px;">
+                <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                <p style="color: var(--slate);">Analysiere Speisekarte...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('menuScannerModal')" class="btn btn-secondary">Schließen</button>
+            <button onclick="importScannedDishes()" class="btn btn-primary" id="importScannedBtn" style="display: none;">Ausgewählte importieren</button>
+        </div>
+    </div>
+</div>
+
+<!-- Alle Gerichte anzeigen Modal -->
+<div class="modal-overlay" id="viewDishesModal">
+    <div class="modal" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Alle Gerichte</h2>
+            <button class="modal-close" onclick="closeModal('viewDishesModal')">×</button>
+        </div>
+        <div class="modal-body" style="padding: 0;">
+            <div style="padding: 16px; border-bottom: 1px solid var(--border-color);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <select class="form-input" id="viewDishesRestaurant" onchange="loadDishesForRestaurant()" style="flex: 1; min-width: 200px;">
+                        <option value="">Alle Restaurants</option>
+                    </select>
+                    <select class="form-input" id="viewDishesCategory" onchange="filterDishesByCategory()" style="flex: 1; min-width: 150px;">
+                        <option value="">Alle Kategorien</option>
+                        <option value="vorspeisen">Vorspeisen</option>
+                        <option value="hauptgerichte">Hauptgerichte</option>
+                        <option value="fisch">Fisch & Meeresfrüchte</option>
+                        <option value="fleisch">Fleischgerichte</option>
+                        <option value="vegetarisch">Vegetarisch</option>
+                        <option value="vegan">Vegan</option>
+                        <option value="desserts">Desserts</option>
+                        <option value="getraenke">Getränke</option>
+                    </select>
+                </div>
+            </div>
+            <div id="dishesListContainer" style="max-height: 500px; overflow-y: auto; padding: 16px;">
+                <p style="color: var(--slate); text-align: center; padding: 40px;">Wählen Sie ein Restaurant aus, um die Gerichte zu sehen.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('viewDishesModal')" class="btn btn-secondary">Schließen</button>
+            <button onclick="openModal('addDishModal')" class="btn btn-primary">+ Neues Gericht</button>
+        </div>
+    </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+<script>
+// ============================================
+// GERICHTE-VERWALTUNG
+// ============================================
+
+// Globale Variable für Gerichte
+let APP_DISHES = [];
+
+// Gerichte aus Supabase laden
+async function loadDishes() {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/dishes?select=*`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+        });
+        if (response.ok) {
+            APP_DISHES = await response.json();
+        }
+    } catch (e) {
+        console.log('Gerichte laden (Tabelle existiert vielleicht noch nicht):', e);
+        APP_DISHES = [];
+    }
+}
+
+// Restaurant-Dropdowns füllen
+function populateRestaurantDropdowns() {
+    const restaurants = APP_DATA.restaurants || [];
+    const selects = ['dishRestaurantSelect', 'scannerRestaurantSelect', 'viewDishesRestaurant'];
+
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Restaurant wählen...</option>';
+            restaurants.forEach(r => {
+                select.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+            });
+            if (currentValue) select.value = currentValue;
+        }
+    });
+}
+
+// Modal öffnen mit Restaurant-Dropdown gefüllt
+const originalOpenModal = typeof openModal === 'function' ? openModal : null;
+function openModal(modalId) {
+    if (originalOpenModal) {
+        originalOpenModal(modalId);
+    } else {
+        document.getElementById(modalId)?.classList.add('active');
+    }
+
+    // Restaurant-Dropdowns füllen wenn nötig
+    if (modalId === 'addDishModal' || modalId === 'menuScannerModal' || modalId === 'viewDishesModal') {
+        populateRestaurantDropdowns();
+    }
+}
+
+// Gericht speichern
+async function saveDish() {
+    const restaurantId = document.getElementById('dishRestaurantSelect')?.value;
+    const category = document.getElementById('dishCategorySelect')?.value;
+    const name = document.getElementById('dishName')?.value;
+    const description = document.getElementById('dishDescription')?.value;
+    const price = parseFloat(document.getElementById('dishPrice')?.value);
+    const image = document.getElementById('dishImage')?.value;
+    const isVegetarian = document.getElementById('dishVegetarian')?.checked;
+    const isVegan = document.getElementById('dishVegan')?.checked;
+
+    // Allergene sammeln
+    const allergens = [];
+    document.querySelectorAll('.dish-allergen:checked').forEach(cb => {
+        allergens.push(cb.value);
+    });
+
+    if (!restaurantId || !name || !price || !category) {
+        showToast('Bitte alle Pflichtfelder ausfüllen', 'error');
+        return;
+    }
+
+    const dish = {
+        restaurant_id: restaurantId,
+        category: category,
+        name: name,
+        description: description || '',
+        price: price,
+        image: image || '',
+        allergens: allergens,
+        is_vegetarian: isVegetarian || false,
+        is_vegan: isVegan || false,
+        created_at: new Date().toISOString()
+    };
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/dishes`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(dish)
+        });
+
+        if (response.ok) {
+            showToast('Gericht erfolgreich gespeichert!', 'success');
+            closeModal('addDishModal');
+
+            // Formular zurücksetzen
+            document.getElementById('dishName').value = '';
+            document.getElementById('dishDescription').value = '';
+            document.getElementById('dishPrice').value = '';
+            document.getElementById('dishImage').value = '';
+            document.getElementById('dishVegetarian').checked = false;
+            document.getElementById('dishVegan').checked = false;
+            document.querySelectorAll('.dish-allergen').forEach(cb => cb.checked = false);
+
+            // Gerichte neu laden
+            await loadDishes();
+        } else {
+            throw new Error('Fehler beim Speichern');
+        }
+    } catch (e) {
+        console.error('Gericht speichern Fehler:', e);
+        showToast('Fehler beim Speichern. Bitte versuchen Sie es erneut.', 'error');
+    }
+}
+
+// Menü-Bild verarbeiten (OCR-Simulation)
+function processMenuImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Vorschau anzeigen
+        document.getElementById('menuPreviewImage').src = e.target.result;
+        document.getElementById('scannerPreview').style.display = 'block';
+        document.getElementById('scannerLoading').style.display = 'block';
+        document.getElementById('scannerResults').style.display = 'none';
+
+        // OCR-Simulation (in echtem Einsatz würde hier ein OCR-Service verwendet)
+        setTimeout(() => {
+            simulateMenuScan();
+        }, 2000);
+    };
+    reader.readAsDataURL(file);
+}
+
+// Menü-Scan simulieren (Demo-Daten)
+function simulateMenuScan() {
+    document.getElementById('scannerLoading').style.display = 'none';
+    document.getElementById('scannerResults').style.display = 'block';
+    document.getElementById('importScannedBtn').style.display = 'inline-flex';
+
+    // Demo-Gerichte für die Simulation
+    const demoDishes = [
+        { name: 'Krabbensuppe', category: 'vorspeisen', price: 8.90, description: 'Hausgemachte Krabbensuppe nach Greetsielder Art' },
+        { name: 'Matjes mit Bratkartoffeln', category: 'fisch', price: 14.90, description: 'Marinierte Matjesfilets mit knusprigen Bratkartoffeln' },
+        { name: 'Scholle Finkenwerder Art', category: 'fisch', price: 18.50, description: 'Gebratene Scholle mit Speck und Zwiebeln' },
+        { name: 'Labskaus', category: 'hauptgerichte', price: 13.90, description: 'Traditionelles Labskaus mit Spiegelei und Rollmops' },
+        { name: 'Rote Grütze', category: 'desserts', price: 5.90, description: 'Rote Grütze mit Vanillesoße' }
+    ];
+
+    const container = document.getElementById('scannedDishesList');
+    container.innerHTML = demoDishes.map((dish, index) => `
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 10px; margin-bottom: 8px;">
+            <input type="checkbox" id="scannedDish${index}" data-dish='${JSON.stringify(dish)}' checked style="width: 20px; height: 20px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--dark);">${dish.name}</div>
+                <div style="font-size: 13px; color: var(--slate);">${dish.description}</div>
+            </div>
+            <div style="font-weight: 700; color: var(--primary);">${dish.price.toFixed(2)}€</div>
+        </div>
+    `).join('');
+}
+
+// Gescannte Gerichte importieren
+async function importScannedDishes() {
+    const restaurantId = document.getElementById('scannerRestaurantSelect')?.value;
+    if (!restaurantId) {
+        showToast('Bitte wählen Sie ein Restaurant aus', 'error');
+        return;
+    }
+
+    const checkboxes = document.querySelectorAll('#scannedDishesList input[type="checkbox"]:checked');
+    if (checkboxes.length === 0) {
+        showToast('Bitte wählen Sie mindestens ein Gericht aus', 'error');
+        return;
+    }
+
+    let imported = 0;
+    for (const cb of checkboxes) {
+        try {
+            const dish = JSON.parse(cb.dataset.dish);
+            dish.restaurant_id = restaurantId;
+            dish.created_at = new Date().toISOString();
+            dish.allergens = [];
+            dish.is_vegetarian = false;
+            dish.is_vegan = false;
+
+            await fetch(`${SUPABASE_URL}/rest/v1/dishes`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dish)
+            });
+            imported++;
+        } catch (e) {
+            console.error('Import Fehler:', e);
+        }
+    }
+
+    showToast(`${imported} Gerichte erfolgreich importiert!`, 'success');
+    closeModal('menuScannerModal');
+    await loadDishes();
+}
+
+// Gerichte für Restaurant laden
+async function loadDishesForRestaurant() {
+    const restaurantId = document.getElementById('viewDishesRestaurant')?.value;
+    const container = document.getElementById('dishesListContainer');
+
+    if (!restaurantId) {
+        container.innerHTML = '<p style="color: var(--slate); text-align: center; padding: 40px;">Wählen Sie ein Restaurant aus, um die Gerichte zu sehen.</p>';
+        return;
+    }
+
+    container.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading-spinner" style="margin: 0 auto;"></div></div>';
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/dishes?restaurant_id=eq.${restaurantId}&order=category,name`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+        });
+
+        const dishes = await response.json();
+
+        if (!dishes || dishes.length === 0) {
+            container.innerHTML = '<p style="color: var(--slate); text-align: center; padding: 40px;">Noch keine Gerichte für dieses Restaurant.</p>';
+            return;
+        }
+
+        // Nach Kategorie gruppieren
+        const grouped = {};
+        dishes.forEach(dish => {
+            const cat = dish.category || 'sonstiges';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(dish);
+        });
+
+        const categoryNames = {
+            vorspeisen: 'Vorspeisen',
+            hauptgerichte: 'Hauptgerichte',
+            fisch: 'Fisch & Meeresfrüchte',
+            fleisch: 'Fleischgerichte',
+            vegetarisch: 'Vegetarisch',
+            vegan: 'Vegan',
+            desserts: 'Desserts',
+            getraenke: 'Getränke',
+            specials: 'Tagesangebote',
+            sonstiges: 'Sonstiges'
+        };
+
+        let html = '';
+        Object.keys(grouped).forEach(cat => {
+            html += `<h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--primary);">${categoryNames[cat] || cat}</h4>`;
+            grouped[cat].forEach(dish => {
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-secondary); border-radius: 10px; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: var(--dark);">
+                                ${dish.name}
+                                ${dish.is_vegetarian ? '<span style="color: var(--success); font-size: 12px; margin-left: 4px;">🥬</span>' : ''}
+                                ${dish.is_vegan ? '<span style="color: var(--success); font-size: 12px; margin-left: 4px;">🌱</span>' : ''}
+                            </div>
+                            ${dish.description ? `<div style="font-size: 13px; color: var(--slate); margin-top: 4px;">${dish.description}</div>` : ''}
+                            ${dish.allergens && dish.allergens.length > 0 ? `<div style="font-size: 11px; color: var(--warning); margin-top: 4px;">Allergene: ${dish.allergens.join(', ')}</div>` : ''}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-weight: 700; color: var(--primary); white-space: nowrap;">${dish.price?.toFixed(2) || '0.00'}€</span>
+                            <button onclick="deleteDish('${dish.id}')" style="padding: 6px; background: rgba(255,59,48,0.1); border: none; border-radius: 6px; cursor: pointer; color: var(--error);" title="Löschen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        container.innerHTML = html;
+
+    } catch (e) {
+        console.error('Gerichte laden Fehler:', e);
+        container.innerHTML = '<p style="color: var(--error); text-align: center; padding: 40px;">Fehler beim Laden der Gerichte.</p>';
+    }
+}
+
+// Gericht nach Kategorie filtern
+function filterDishesByCategory() {
+    const category = document.getElementById('viewDishesCategory')?.value;
+    const items = document.querySelectorAll('#dishesListContainer > div');
+
+    items.forEach(item => {
+        if (!category || item.dataset.category === category) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Gericht löschen
+async function deleteDish(dishId) {
+    if (!confirm('Möchten Sie dieses Gericht wirklich löschen?')) return;
+
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${dishId}`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+        });
+
+        showToast('Gericht gelöscht', 'success');
+        loadDishesForRestaurant();
+    } catch (e) {
+        showToast('Fehler beim Löschen', 'error');
+    }
+}
+
+// Beim Laden der Seite Gerichte laden
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadDishes, 2000);
+});
+</script>
+</body>
+</html>
