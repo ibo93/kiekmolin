@@ -22409,10 +22409,12 @@ async function updateReservationStatus(reservationId, newStatus) {
         
         if (data?.success) {
             showToast(`Status: ${newStatus}`, 'success');
-            // Reload
-            const customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
-            if (customer.restaurant_id) {
-                loadGastroReservations(customer.restaurant_id);
+            // Reload - currentUser hat die restaurantId
+            const user = JSON.parse(localStorage.getItem('kmi_user') || '{}');
+            const restaurantId = user.restaurantId || user.restaurant_id;
+            if (restaurantId) {
+                loadGastroReservations(restaurantId);
+                loadGastroTables(restaurantId);
             }
         } else {
             showToast(data?.error || 'Fehler', 'error');
