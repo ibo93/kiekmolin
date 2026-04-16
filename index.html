@@ -9286,23 +9286,35 @@
                 window.resSelectedDate = new Date();
                 window.resCurrentMonth = new Date();
                 window.resAllReservations = []; // Wird von Supabase geladen
-                window.resCurrentRestaurant = 1; // Standard Restaurant ID
+                window.resCurrentRestaurant = null; // Wird beim Restaurant-Auswählen gesetzt
                 window.resLoading = false;
                 
                 // ===== SUPABASE API FUNKTIONEN =====
                 
-                // Reservierungen laden - ALLE aus Supabase (auch Online-Reservierungen)
+                // Reservierungen laden - NUR für ausgewähltes Restaurant
                 window.resLoadReservations = async function() {
                     if (window.resLoading) {
                         console.log('⏳ Laden bereits aktiv, überspringe...');
                         return;
                     }
+
+                    // Nur laden wenn ein Restaurant ausgewählt ist
+                    if (!window.resCurrentRestaurant) {
+                        console.log('⚠️ Kein Restaurant ausgewählt - Reservierungen werden nicht geladen');
+                        window.resAllReservations = [];
+                        window.resRenderCalendar();
+                        window.resRenderDaySlots();
+                        var statusText = document.getElementById('resStatusText');
+                        if (statusText) statusText.innerHTML = 'Bitte Restaurant auswählen';
+                        return;
+                    }
+
                     window.resLoading = true;
-                    console.log('🔄 Starte Laden der Reservierungen...');
-                    
+                    console.log('🔄 Starte Laden der Reservierungen für Restaurant:', window.resCurrentRestaurant);
+
                     try {
-                        // ALLE Reservierungen laden - OHNE Filter
-                        var url = SUPABASE_URL + '/rest/v1/reservations?select=*&order=reservation_date.asc,reservation_time.asc';
+                        // Reservierungen NUR für ausgewähltes Restaurant laden
+                        var url = SUPABASE_URL + '/rest/v1/reservations?select=*&restaurant_id=eq.' + window.resCurrentRestaurant + '&order=reservation_date.asc,reservation_time.asc';
                         
                         console.log('📡 Lade Reservierungen von:', url);
                         
@@ -9405,6 +9417,11 @@
                 
                 // Reservierung speichern
                 window.resSaveToDatabase = async function(reservation) {
+                    if (!window.resCurrentRestaurant) {
+                        console.log('❌ Kein Restaurant ausgewählt - kann nicht speichern');
+                        if (typeof showToast === 'function') showToast('Bitte zuerst ein Restaurant auswählen!', 'warning');
+                        return null;
+                    }
                     try {
                         var payload = {
                             restaurant_id: window.resCurrentRestaurant,
@@ -10221,7 +10238,8 @@
                     setInterval(async function() {
                         try {
                             // Nur Reservierungen die NACH dem Start erstellt wurden und nicht cancelled sind
-                            var url = SUPABASE_URL + '/rest/v1/reservations?order=created_at.desc&limit=10&status=neq.cancelled&created_at=gte.' + window.resPollingStartedAt;
+                            if (!window.resCurrentRestaurant) return; // Kein Restaurant ausgewählt
+                            var url = SUPABASE_URL + '/rest/v1/reservations?order=created_at.desc&limit=10&status=neq.cancelled&restaurant_id=eq.' + window.resCurrentRestaurant + '&created_at=gte.' + window.resPollingStartedAt;
                             
                             var response = await fetch(url, {
                                 headers: {
@@ -10625,11 +10643,17 @@
                         notes: 'Test-Buchung',
                         status: 'pending',
                         source: 'app',
-                        restaurant_id: 1
+                        restaurant_id: window.resCurrentRestaurant || 1
                     };
-                    
+
+                    if (!window.resCurrentRestaurant) {
+                        console.log('⚠️ Kein Restaurant ausgewählt für Test');
+                        if (typeof showToast === 'function') showToast('Bitte zuerst ein Restaurant auswählen!', 'warning');
+                        return;
+                    }
+
                     console.log('📅 Datum:', dateStr, 'Zeit:', localRes.time);
-                    
+
                     // DIREKT zum Array hinzufügen
                     window.resAllReservations.push(localRes);
                     console.log('✅ Hinzugefügt:', localRes);
@@ -15251,17 +15275,19 @@ async function saveReservationToSupabase(reservation) {
                     restaurant_id: r.restaurant_id
                 };
                 
-                // Zu globalem Array hinzufügen
-                if (window.resAllReservations) {
+                // Zu globalem Array hinzufügen - NUR wenn es zum aktuell ausgewählten Restaurant gehört
+                if (window.resAllReservations && (!window.resCurrentRestaurant || String(localRes.restaurant_id) === String(window.resCurrentRestaurant))) {
                     window.resAllReservations.push(localRes);
                     console.log('📅 Zum Kalender hinzugefügt:', localRes);
+                } else {
+                    console.log('📅 Reservierung gespeichert, aber gehört zu anderem Restaurant');
                 }
-                
+
                 // UI aktualisieren
                 if (typeof window.resRenderAll === 'function') {
                     window.resRenderAll();
                 }
-                
+
                 // Benachrichtigung zeigen
                 if (typeof window.resShowNewReservationAlert === 'function') {
                     window.resShowNewReservationAlert(localRes);
@@ -16357,7 +16383,7 @@ function submitReservation(e) {
     APP_DATA.reservations.push(reservation);
     saveData();
     
-    // WICHTIG: Direkt in Kalender/Tischplan Array einfügen
+    // WICHTIG: Direkt in Kalender/Tischplan Array einfügen - NUR wenn aktuell ausgewähltes Restaurant
     if (window.resAllReservations) {
         const calendarRes = {
             id: reservation.id,
@@ -16372,8 +16398,12 @@ function submitReservation(e) {
             source: 'app',
             restaurant_id: reservation.restaurantId
         };
-        window.resAllReservations.push(calendarRes);
-        console.log('✅ Online-Reservierung zu Kalender hinzugefügt:', calendarRes);
+        if (!window.resCurrentRestaurant || String(calendarRes.restaurant_id) === String(window.resCurrentRestaurant)) {
+            window.resAllReservations.push(calendarRes);
+            console.log('✅ Online-Reservierung zu Kalender hinzugefügt:', calendarRes);
+        } else {
+            console.log('📅 Online-Reservierung gespeichert, gehört zu anderem Restaurant');
+        }
         
         // UI sofort aktualisieren
         if (typeof window.resRenderAll === 'function') {
@@ -16630,11 +16660,21 @@ async function loadResRestaurantSelect() {
     }
 }
 
-// Reservierungen für Restaurant laden
+// Reservierungen für ausgewähltes Restaurant laden
 function loadReservationsForRestaurant(restaurantId) {
-    if (!restaurantId) return;
+    if (!restaurantId) {
+        window.resCurrentRestaurant = null;
+        window.resAllReservations = [];
+        if (typeof window.resRenderCalendar === 'function') window.resRenderCalendar();
+        if (typeof window.resRenderDaySlots === 'function') window.resRenderDaySlots();
+        return;
+    }
     console.log('Lade Reservierungen für Restaurant:', restaurantId);
-    // Hier können später echte Reservierungen geladen werden
+    window.resCurrentRestaurant = restaurantId;
+    // Reservierungen neu laden mit Restaurant-Filter
+    if (typeof window.resLoadReservations === 'function') {
+        window.resLoadReservations();
+    }
 }
 
 // ==================== JOBS DASHBOARD ====================
