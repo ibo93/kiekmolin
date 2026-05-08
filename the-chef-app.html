@@ -427,10 +427,100 @@
   .btn-secondary:active{transform:scale(0.97)}
 
   /* KI / Voice page */
+  .orb-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0 16px;position:relative}
+  .voice-orb-big{cursor:pointer}
+  .voice-orb-big.listening{
+    animation:orb-listen 1.2s ease-in-out infinite !important;
+    background:radial-gradient(circle at 30% 30%,#ff8a8a,#ff6b6b 50%,#7c2a2a) !important;
+    box-shadow:0 20px 60px rgba(255,107,107,0.6),0 1px 0 0 rgba(255,255,255,0.4) inset !important;
+  }
+  .voice-orb-big.thinking{
+    background:radial-gradient(circle at 30% 30%,#c4a6ff,#9c7eff 50%,#5a3a7c) !important;
+    box-shadow:0 20px 60px rgba(196,166,255,0.6),0 1px 0 0 rgba(255,255,255,0.4) inset !important;
+  }
+  .voice-orb-big.speaking{
+    animation:orb-speak 0.6s ease-in-out infinite !important;
+    background:radial-gradient(circle at 30% 30%,#8de6b1,#3a8060 50%,#1a4030) !important;
+    box-shadow:0 20px 60px rgba(141,230,177,0.6),0 1px 0 0 rgba(255,255,255,0.4) inset !important;
+  }
+  @keyframes orb-listen{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  @keyframes orb-speak{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+  .wave{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:30px;margin-top:14px;opacity:0;transition:opacity .25s}
+  .wave.active{opacity:1}
+  .wave span{
+    width:3px;background:linear-gradient(180deg,var(--gold-light),var(--gold));
+    border-radius:2px;height:20%;
+    animation:waveBar 0.6s ease-in-out infinite;
+  }
+  .wave span:nth-child(2){animation-delay:.05s}
+  .wave span:nth-child(3){animation-delay:.10s}
+  .wave span:nth-child(4){animation-delay:.15s}
+  .wave span:nth-child(5){animation-delay:.20s}
+  .wave span:nth-child(6){animation-delay:.25s}
+  .wave span:nth-child(7){animation-delay:.30s}
+  .wave span:nth-child(8){animation-delay:.25s}
+  .wave span:nth-child(9){animation-delay:.20s}
+  .wave span:nth-child(10){animation-delay:.15s}
+  .wave span:nth-child(11){animation-delay:.10s}
+  .wave span:nth-child(12){animation-delay:.05s}
+  @keyframes waveBar{0%,100%{height:20%}50%{height:100%}}
+
+  .live-transcript{
+    min-height:24px;text-align:center;
+    font-size:15px;font-weight:500;
+    color:var(--text);padding:6px 16px;
+    margin-bottom:8px;
+    transition:all .3s;
+  }
+  .live-transcript:empty{display:none}
+  .live-transcript.partial{color:var(--text-dim);font-style:italic}
+
+  .ki-controls{display:flex;justify-content:center;gap:10px;margin-bottom:16px}
+  .ki-control{
+    width:44px;height:44px;border-radius:14px;
+    background:var(--glass);
+    backdrop-filter:blur(20px);
+    border:1px solid var(--glass-border);
+    color:var(--text);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, background .15s;
+  }
+  .ki-control:active{transform:scale(0.92)}
+  .ki-control.active{background:rgba(141,230,177,0.18);border-color:rgba(141,230,177,0.4);color:var(--green)}
+  .ki-control.muted{opacity:0.4}
+
+  .cmd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .cmd-chip{
+    padding:12px 14px;
+    border-radius:14px;
+    background:var(--glass);
+    backdrop-filter:blur(20px);
+    border:1px solid var(--glass-border);
+    color:var(--text);
+    font-size:12.5px;font-weight:600;
+    text-align:left;cursor:pointer;
+    font-family:inherit;letter-spacing:-0.01em;
+    transition:transform .15s, background .15s, border-color .15s;
+  }
+  .cmd-chip:active{transform:scale(0.96);background:rgba(212,165,116,0.12);border-color:rgba(212,165,116,0.3)}
+
+  /* Inline action buttons inside AI messages */
+  .msg-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .msg-action{
+    padding:6px 12px;border-radius:100px;
+    background:rgba(212,165,116,0.18);
+    border:1px solid rgba(212,165,116,0.3);
+    color:var(--gold-light);
+    font-family:inherit;font-size:12px;font-weight:600;
+    cursor:pointer;transition:transform .15s;
+  }
+  .msg-action:active{transform:scale(0.95)}
+
   .voice-orb-big{
-    width:200px;height:200px;border-radius:50%;
+    width:170px;height:170px;border-radius:50%;
     background:radial-gradient(circle at 30% 30%,var(--gold-light),var(--gold) 50%,#8b6736);
-    margin:24px auto 32px;position:relative;
+    margin:0 auto;position:relative;
     box-shadow:0 20px 60px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;
     animation:orb-pulse 2.4s ease-in-out infinite;
     cursor:pointer;
@@ -808,20 +898,60 @@
 
       <!-- ==== KI ==== -->
       <section class="view" data-view="ki">
-        <div class="page-h"><h1>Hey <span style="background:linear-gradient(135deg,var(--gold),var(--gold-light));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Chef</span></h1><p>Sprich mit deinem Assistenten</p></div>
+        <div class="page-h" style="padding-bottom:8px"><h1>Hey <span style="background:linear-gradient(135deg,var(--gold),var(--gold-light));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Chef</span></h1><p id="kiStatus">Tippe die Kugel, dann sprich los</p></div>
 
-        <div class="voice-orb-big" onclick="startVoice()"></div>
-        <div class="voice-prompt" id="voicePrompt">Tippen zum Sprechen</div>
-        <div class="voice-sub">Frag nach Bestand, Umsatz, Vorschlägen</div>
+        <div class="orb-wrap">
+          <div class="voice-orb-big" id="voiceOrb" onclick="toggleListen()"></div>
+          <div class="wave" id="wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="live-transcript" id="liveTranscript"></div>
+
+        <div class="ki-controls">
+          <button class="ki-control" id="micBtn" onclick="toggleListen()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="ki-control" onclick="toggleVoice()" id="voiceToggle" title="Sprach-Antwort">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
+          <button class="ki-control" onclick="clearConvo()" title="Verlauf löschen">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
 
         <div class="convo" id="convo"></div>
 
-        <div class="section-h" style="margin-top:32px"><h2>Beispielfragen</h2></div>
-        <div class="list-card glass">
-          <div class="inv-row" onclick="askQuestion(0)"><div class="inv-emoji">📦</div><div><div class="inv-name">"Wie viele Pommes haben wir?"</div></div></div>
-          <div class="inv-row" onclick="askQuestion(1)"><div class="inv-emoji">📈</div><div><div class="inv-name">"Was läuft heute am besten?"</div></div></div>
-          <div class="inv-row" onclick="askQuestion(2)"><div class="inv-emoji">🚚</div><div><div class="inv-name">"Wann kommt die Lieferung?"</div></div></div>
-          <div class="inv-row" onclick="askQuestion(3)"><div class="inv-emoji">📅</div><div><div class="inv-name">"Schreib das Wochenangebot"</div></div></div>
+        <div class="section-h" style="margin-top:24px"><h2>⚡ Schnellbefehle</h2></div>
+        <div class="cmd-grid">
+          <button class="cmd-chip" onclick="askKi('Wie viele Pommes haben wir noch?')">📦 Bestand Pommes</button>
+          <button class="cmd-chip" onclick="askKi('Was läuft heute am besten?')">🥇 Top-Seller heute</button>
+          <button class="cmd-chip" onclick="askKi('Wann kommt die Lieferung?')">🚚 Nächste Lieferung</button>
+          <button class="cmd-chip" onclick="askKi('Schreib das Wochenangebot')">📅 Wochenangebot</button>
+          <button class="cmd-chip" onclick="askKi('Wie ist der Umsatz heute?')">💰 Umsatz heute</button>
+          <button class="cmd-chip" onclick="askKi('Wer ist morgen in der Schicht?')">👥 Schicht morgen</button>
+          <button class="cmd-chip" onclick="askKi('Bestelle 10 Kilo Pommes')">🛒 Pommes nachbestellen</button>
+          <button class="cmd-chip" onclick="askKi('Wie sind die Temperaturen?')">🌡️ HACCP Temperaturen</button>
+          <button class="cmd-chip" onclick="askKi('Was machen die Konkurrenten?')">🗺️ Konkurrenz-Check</button>
+          <button class="cmd-chip" onclick="askKi('Mach einen Insta-Post für heute')">📱 Insta-Post jetzt</button>
+          <button class="cmd-chip" onclick="askKi('Was läuft ab in den nächsten Tagen?')">⏰ Abläufe prüfen</button>
+          <button class="cmd-chip" onclick="askKi('Erstell die Tageskarte')">🍽️ Tageskarte</button>
+        </div>
+
+        <div class="section-h"><h2>🌟 Heute für dich</h2></div>
+        <div class="ai-card glass">
+          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Proaktive Hinweise</div></div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text">💡 Dein Lieblings-Lieferant <strong>Frische Fisch Friesland</strong> hat heute Wildlachs für €18/kg – 22% unter Marktpreis. Soll ich 5kg bestellen?</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Bestelle 5 Kilo Wildlachs bei Friesland')">Ja, bestellen</button><button class="ai-btn ai-btn-skip">Nein</button></div>
+          </div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text">📊 In 47 Min schließt das Wochenende-Sale-Fenster. Tomaten-Angebot noch nicht gepostet. Soll ich?</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Mach den Tomaten-Post fertig')">Posten</button><button class="ai-btn ai-btn-skip">Skip</button></div>
+          </div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text">⚠️ Deine Fritteuse hat heute 3× über 180°C überhitzt. Soll ich Wartung vorschlagen?</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Plan Wartung für Fritteuse')">Wartung planen</button></div>
+          </div>
         </div>
       </section>
 
@@ -960,7 +1090,7 @@
     document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===view));
     document.querySelectorAll('.tab, .tab-scan').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
     document.querySelector('main').scrollTop = 0;
-    if(view==='ki') startVoice();
+    // KI tab: ready, but don't auto-start anything
   }
   document.querySelectorAll('.tab, .tab-scan').forEach(t=>t.addEventListener('click',()=>navTo(t.dataset.view)));
 
@@ -1065,39 +1195,360 @@
     document.getElementById('scanIdle').style.display='block';
   }
 
-  // ===== Voice / KI =====
-  const dialog = [
-    {q:'Wie viele Pommes haben wir noch?', a:'Aktuell 3,8 Kilo Pommes Frites im Tiefkühler. Reicht für etwa 2 Tage. Soll ich nachbestellen?'},
-    {q:'Was läuft heute am besten?', a:'Top heute: Schnitzel mit Pommes – schon 12-mal verkauft. Marge 68%.'},
-    {q:'Wann kommt die Metro-Lieferung?', a:'Heute um 14 Uhr. 14 Artikel, Wert €412,80. Anna übernimmt die Annahme.'},
-    {q:'Schreib das Wochenangebot.', a:'Vorschlag: "Tomatensuppe mit Brot – nur diese Woche €4,90". Verhindert €30 Verschwendung, bringt geschätzt €180 Mehrumsatz.'},
-  ];
-  let voiceIdx = 0;
-  function startVoice(){
-    const convo = document.getElementById('convo');
-    if(convo.children.length>0) return;
-    voiceIdx = 0;
-    nextVoice();
+  // ====================================================
+  // ====== KI ASSISTENT · Voice + Intelligence  ========
+  // ====================================================
+
+  // --- State ---
+  let isListening = false;
+  let isSpeaking = false;
+  let voiceEnabled = JSON.parse(localStorage.getItem('chef_voice_on') ?? 'true');
+  let recognition = null;
+  let germanVoice = null;
+
+  // --- Init Speech APIs ---
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    recognition = new SR();
+    recognition.lang = 'de-DE';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) final += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      const t = document.getElementById('liveTranscript');
+      if (final) {
+        t.classList.remove('partial');
+        t.textContent = final;
+        handleUserInput(final);
+      } else {
+        t.classList.add('partial');
+        t.textContent = interim || '…';
+      }
+    };
+    recognition.onend = () => { setListening(false); };
+    recognition.onerror = (e) => {
+      setListening(false);
+      const t = document.getElementById('liveTranscript');
+      if (e.error === 'not-allowed') t.textContent = '🚫 Mikrofon-Zugriff verweigert';
+      else if (e.error === 'no-speech') t.textContent = '🤫 Nichts gehört – nochmal?';
+      else t.textContent = '';
+    };
   }
-  function nextVoice(){
-    if(voiceIdx>=dialog.length) return;
-    const {q,a} = dialog[voiceIdx++];
-    addMsg(q,'user');
-    setTimeout(()=>{ addMsg(a,'ai'); setTimeout(nextVoice,2000); },800);
+
+  // --- Pick a German voice when ready ---
+  function pickGermanVoice(){
+    const voices = speechSynthesis.getVoices();
+    germanVoice = voices.find(v => /de-DE/i.test(v.lang) && /Anna|Petra|Markus|Google/i.test(v.name))
+               || voices.find(v => /de/i.test(v.lang))
+               || voices[0];
   }
-  function addMsg(text,who){
+  if ('speechSynthesis' in window) {
+    pickGermanVoice();
+    speechSynthesis.onvoiceschanged = pickGermanVoice;
+  }
+
+  // --- UI helpers ---
+  function setListening(on) {
+    isListening = on;
+    const orb = document.getElementById('voiceOrb');
+    const wave = document.getElementById('wave');
+    const mic = document.getElementById('micBtn');
+    const status = document.getElementById('kiStatus');
+    if (!orb) return;
+    orb.classList.toggle('listening', on);
+    wave.classList.toggle('active', on);
+    mic.classList.toggle('active', on);
+    status.textContent = on ? '🎙️ Ich höre zu…' : 'Tippe die Kugel oder einen Schnellbefehl';
+    if (!on) document.getElementById('liveTranscript').classList.remove('partial');
+  }
+  function setSpeaking(on) {
+    isSpeaking = on;
+    const orb = document.getElementById('voiceOrb');
+    if (orb) orb.classList.toggle('speaking', on);
+  }
+  function setThinking(on) {
+    const orb = document.getElementById('voiceOrb');
+    if (orb) orb.classList.toggle('thinking', on);
+    document.getElementById('kiStatus').textContent = on ? '🧠 Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
+  }
+
+  function toggleListen() {
+    if (isSpeaking) { speechSynthesis.cancel(); setSpeaking(false); }
+    if (!recognition) {
+      // Fallback: prompt
+      const q = prompt('Was möchtest du fragen?');
+      if (q) handleUserInput(q);
+      return;
+    }
+    if (isListening) { recognition.stop(); return; }
+    document.getElementById('liveTranscript').textContent = '';
+    try { recognition.start(); setListening(true); }
+    catch(e){ /* already started */ }
+  }
+
+  function toggleVoice() {
+    voiceEnabled = !voiceEnabled;
+    localStorage.setItem('chef_voice_on', voiceEnabled);
+    document.getElementById('voiceToggle').classList.toggle('muted', !voiceEnabled);
+    if (!voiceEnabled) speechSynthesis.cancel();
+    toast(voiceEnabled ? '🔊 Sprach-Antwort an' : '🔇 Sprach-Antwort aus');
+  }
+
+  function speak(text) {
+    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE';
+    if (germanVoice) u.voice = germanVoice;
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    u.onstart = () => setSpeaking(true);
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    speechSynthesis.speak(u);
+  }
+
+  // --- Conversation log (persistent) ---
+  function addMsg(text, who, actions) {
     const convo = document.getElementById('convo');
     const m = document.createElement('div');
     m.className = 'msg msg-' + who;
     m.textContent = text;
+    if (actions && actions.length) {
+      const ab = document.createElement('div');
+      ab.className = 'msg-actions';
+      actions.forEach(a => {
+        const b = document.createElement('button');
+        b.className = 'msg-action';
+        b.textContent = a.label;
+        b.onclick = () => { if (a.cmd) askKi(a.cmd); else if (a.fn) a.fn(); };
+        ab.appendChild(b);
+      });
+      m.appendChild(ab);
+    }
     convo.appendChild(m);
-    document.querySelector('main').scrollTop = document.querySelector('main').scrollHeight;
+    setTimeout(() => {
+      const main = document.querySelector('main');
+      m.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 50);
+    saveConvo();
   }
-  function askQuestion(i){
-    addMsg(dialog[i].q,'user');
-    setTimeout(()=>addMsg(dialog[i].a,'ai'),800);
-    document.querySelector('main').scrollTop = 0;
+  function saveConvo() {
+    const items = [...document.querySelectorAll('#convo .msg')].slice(-30).map(m => ({
+      text: m.firstChild.nodeValue || m.textContent,
+      who: m.classList.contains('msg-user') ? 'user' : 'ai'
+    }));
+    localStorage.setItem('chef_convo', JSON.stringify(items));
   }
+  function loadConvo() {
+    try {
+      const items = JSON.parse(localStorage.getItem('chef_convo') || '[]');
+      items.forEach(({text, who}) => {
+        const m = document.createElement('div');
+        m.className = 'msg msg-' + who;
+        m.textContent = text;
+        document.getElementById('convo').appendChild(m);
+      });
+    } catch(e){}
+  }
+  function clearConvo() {
+    document.getElementById('convo').innerHTML = '';
+    localStorage.removeItem('chef_convo');
+    toast('Verlauf gelöscht');
+  }
+
+  // --- Public API for command chips ---
+  function askKi(text) {
+    handleUserInput(text);
+  }
+
+  // --- Main brain: pattern-match → response ---
+  function handleUserInput(text) {
+    addMsg(text, 'user');
+    setThinking(true);
+    setTimeout(() => {
+      const { reply, actions } = chefBrain(text);
+      setThinking(false);
+      addMsg(reply, 'ai', actions);
+      speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+    }, 600 + Math.random()*400);
+  }
+
+  // --- The brain: intent matching with rich responses ---
+  function chefBrain(input) {
+    const q = input.toLowerCase();
+    const has = (...words) => words.some(w => q.includes(w));
+
+    // Greetings
+    if (has('hey chef','hallo','moin','hi ','hey ','servus')) {
+      const h = new Date().getHours();
+      const tg = h<11?'Guten Morgen':h<18?'Mahlzeit':'N\'Abend';
+      return { reply:`${tg}, Ibrahim! Service läuft, Lager bei 87%, Marge heute 62,4%. Was kann ich tun?`,
+        actions:[{label:'Tagesüberblick',cmd:'Wie ist der Status heute?'},{label:'Lager-Check',cmd:'Was ist niedrig?'}] };
+    }
+
+    // Inventory queries
+    if (has('pommes','fritten')) {
+      return { reply:'Aktuell 3,8 Kilo Pommes Frites im Tiefkühler. Reicht für etwa 2 Tage. Letzte Bestellung kam vor 5 Tagen. Soll ich 10 Kilo nachbestellen bei Frostkönig?',
+        actions:[{label:'10 kg bestellen',cmd:'Bestelle 10 Kilo Pommes'},{label:'15 kg bestellen',cmd:'Bestelle 15 Kilo Pommes'},{label:'Lieferanten zeigen',fn:()=>openSheet('bestellungen')}] };
+    }
+    if (has('lachs','fisch')) {
+      return { reply:'5,6 Kilo Lachsfilet im Frischfisch-Kühler – heute morgen geliefert. Wildlachs heute bei Friesland im Angebot: 18 Euro pro Kilo, 22 Prozent unter Marktpreis.',
+        actions:[{label:'5 kg Wildlachs',cmd:'Bestelle 5 Kilo Wildlachs'},{label:'Lachs als Special',cmd:'Mach Lachs zum Tagesgericht'}] };
+    }
+    if (has('hack','fleisch','rind')) {
+      return { reply:'Rinderhack ist kritisch: nur noch 1,2 Kilo. Reicht maximal bis morgen Mittag. Empfehle dringend: 5 Kilo nachbestellen.',
+        actions:[{label:'5 kg bestellen',cmd:'Bestelle 5 Kilo Rinderhack'}] };
+    }
+    if (has('tomate')) {
+      return { reply:'12,4 Kilo Tomaten im Kühlhaus 1. Achtung: laufen in 3 Tagen ab. Vorschlag: Tomatensuppe als Tagesangebot. Bringt geschätzt 180 Euro Umsatz und verhindert 30 Euro Verschwendung.',
+        actions:[{label:'Auf Tageskarte',cmd:'Mach Tomatensuppe zum Tagesgericht'},{label:'Insta-Post',cmd:'Mach den Tomaten-Post fertig'}] };
+    }
+    if (has('was ist niedrig','niedriger bestand','was fehlt','knapp')) {
+      return { reply:'Drei Artikel sind kritisch: Pommes mit 3,8 Kilo, Rinderhack mit 1,2 Kilo und Currywurst mit 2,1 Kilo. Soll ich Sammel-Bestellung bei Frostkönig anlegen? Gesamt etwa 127 Euro.',
+        actions:[{label:'Sammel-Bestellung',cmd:'Bestelle alle kritischen Artikel'},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+    }
+    if (has('wie viel','wie viele','bestand','vorrat')) {
+      return { reply:'Lager insgesamt bei 87 Prozent. 47 Artikel, davon 3 niedrig, 4 in Warnung. Welcher Artikel interessiert dich konkret?',
+        actions:[{label:'Liste anzeigen',fn:()=>navTo('lager')},{label:'Was ist niedrig',cmd:'Was ist niedrig?'}] };
+    }
+
+    // Sales / Revenue
+    if (has('umsatz','einnahmen','kasse')) {
+      return { reply:'Heute 1.847 Euro – 12 Prozent über Wochenmittel. Marge bei 62,4 Prozent. Top-Seller: Schnitzel mit 12 Verkäufen. Mai gesamt: 42.180 Euro, plus 18 Prozent zum Vorjahr.',
+        actions:[{label:'Auswertungen',fn:()=>openSheet('auswertungen')},{label:'Top-Gerichte',cmd:'Was läuft heute am besten?'}] };
+    }
+    if (has('top','best','läuft','meistverkauft')) {
+      return { reply:'Heute schon 12 mal verkauft: Schnitzel mit Pommes. Danach Pizza Margherita mit 8 und Currywurst mit 7. Schnitzel hat 68 Prozent Marge – dein Geld-Magnet heute.',
+        actions:[{label:'Schnitzel hochpushen',cmd:'Mach einen Schnitzel-Insta-Post'},{label:'Auswertung',fn:()=>openSheet('auswertungen')}] };
+    }
+    if (has('marge','gewinn','profit')) {
+      return { reply:'Marge heute 62,4 Prozent. Beste Marge: Latte Macchiato mit 88, Tiramisu mit 82, Tomatensuppe mit 78. Schwächste: Lachsfilet mit 62 – Lieferpreise gestiegen. Soll ich Preise prüfen?',
+        actions:[{label:'Preis-Check Lachs',cmd:'Prüf den Lachs-Preis'}] };
+    }
+
+    // Deliveries
+    if (has('lieferung','lieferschein','metro','frostkönig','liefer kommt')) {
+      return { reply:'Heute 14 Uhr kommt die Metro-Lieferung: 14 Artikel, 412 Euro 80. Anna macht die Annahme. Morgen um 6 Uhr 30 die Frische-Fisch-Friesland-Lieferung mit Lachs und Dorade.',
+        actions:[{label:'Bestellungen',fn:()=>openSheet('bestellungen')},{label:'Friesland Status',cmd:'Wann kommt der Fisch?'}] };
+    }
+    if (has('bestelle','bestell','kauf')) {
+      let item = 'die Artikel', supplier = 'deinem Standard-Lieferanten';
+      if (has('pommes')) { item = '10 Kilo Pommes Frites'; supplier = 'Frostkönig'; }
+      else if (has('lachs')) { item = '5 Kilo Wildlachs'; supplier = 'Friesland'; }
+      else if (has('hack')) { item = '5 Kilo Rinderhack'; supplier = 'Metro'; }
+      else if (has('tomate')) { item = '10 Kilo Tomaten'; supplier = 'Metro'; }
+      else if (has('alle','sammel','kritisch')) { item = 'Pommes, Hack und Currywurst'; supplier = 'Frostkönig'; }
+      return { reply:`Klar. Ich lege ${item} bei ${supplier} in den Bestell-Entwurf. Du kriegst eine Bestätigung sobald rausgeschickt. Voraussichtliche Lieferung: morgen.`,
+        actions:[{label:'Bestätigen',fn:()=>{toast('✓ Bestellung versendet');}},{label:'Anpassen',fn:()=>openSheet('bestellungen')}] };
+    }
+
+    // Personal / Schicht
+    if (has('schicht','personal','wer ist','mitarbeiter','team')) {
+      return { reply:'Heute Mittag: Halil Küche, Anna Service. Abend: Tom Service, Mira Küche. Morgen Samstag: erweiterte Schicht – Wetter wird 22 Grad sonnig, plus 30 Prozent Gäste erwartet. Empfehle eine zusätzliche Person 12 bis 16 Uhr.',
+        actions:[{label:'Schichtplan',fn:()=>openSheet('personal')},{label:'Extra Schicht planen',cmd:'Plan eine Extra-Schicht für Samstag'}] };
+    }
+
+    // HACCP
+    if (has('temperatur','haccp','kühl','kontrolle','tiefkühl','kühlhaus','frittenbad')) {
+      return { reply:'Alle Bereiche im grünen Bereich: Kühlhaus 1 bei 4,2 Grad, Kühlhaus 2 bei 5,8 Grad, Tiefkühl bei minus 18,4 Grad. Frittenbad bei 172 Grad – 3 Grad unter Soll, beobachten. Letzte Auto-Messung vor 12 Minuten.',
+        actions:[{label:'HACCP-Detail',fn:()=>openSheet('haccp')}] };
+    }
+
+    // Marketing
+    if (has('post','insta','tiktok','social','marketing','facebook')) {
+      return { reply:'Mach ich. Vorschlag für heute: Schnitzel-Foto vom Mittagsservice, Caption über die Wiener Tradition, Hashtags Ostfriesland, Greetsiel und Schnitzelliebe. Beste Posting-Zeit: 18 Uhr 30. Soll ich planen?',
+        actions:[{label:'Posten lassen',fn:()=>{openSheet('autoMarketing');toast('Post wird vorbereitet');}},{label:'Anders schreiben',cmd:'Schreib was Lustigeres'}] };
+    }
+
+    // Tageskarte / Wochenangebot
+    if (has('tageskarte','wochenangebot','tagesgericht','special','angebot')) {
+      return { reply:'Mein Vorschlag fürs Wochenende: Tomatensuppe mit Brot 4 Euro 90, Lachsfilet mit Senfsoße 22 Euro 50, Tiramisu 6 Euro 50. Alle Zutaten im Lager, Marge zwischen 62 und 82 Prozent. Soll ich aktivieren?',
+        actions:[{label:'Aktivieren',fn:()=>toast('✓ Tageskarte aktiv')},{label:'Details ändern',cmd:'Zeig mir andere Optionen'}] };
+    }
+
+    // Krise
+    if (has('krise','sos','hilfe','notfall','problem')) {
+      return { reply:'Ich bin da. Was ist los? Personal-Ausfall, Lieferung kaputt, Strom weg, Reklamation, Kontrolle? Tippe das Szenario, ich mach sofort Plan B.',
+        actions:[{label:'Krisen-Modus öffnen',fn:()=>openSheet('krise')},{label:'Personal krank',cmd:'Personal ist krank'},{label:'Lieferung weg',cmd:'Lieferung fällt aus'}] };
+    }
+    if (has('personal krank','krank','ausfall')) {
+      return { reply:'OK, los geht\'s. Ich frage Mira ob sie übernehmen kann, schiebe Tom auf eine frühere Schicht und passe den Schichtplan in der App an. Brauchst du noch was?',
+        actions:[{label:'Anrufen Mira',fn:()=>toast('📞 Mira wird angerufen')},{label:'Kunden info',cmd:'Schick Reservierungen einen Hinweis'}] };
+    }
+
+    // Konkurrenz
+    if (has('konkurrenz','nachbar','umkreis','radar','andere restaurants')) {
+      return { reply:'Im Umkreis: Da Luigi voll mit 12 Euro Pizza, Fischhof 30 Prozent frei mit Lachs für 22, BurgerHouse hat Happy Hour minus 20 Prozent. Empfehle Konter: Lachs-Special bei dir 20 Euro 50 für 2 Stunden. Aktivieren?',
+        actions:[{label:'Lachs-Special an',fn:()=>{openSheet('radar');toast('✓ Special läuft');}},{label:'Radar öffnen',fn:()=>openSheet('radar')}] };
+    }
+
+    // Wetter
+    if (has('wetter','sonne','regen','samstag','morgen')) {
+      return { reply:'Morgen Samstag: 22 Grad und sonnig. Aus Erfahrung plus 30 Prozent Gäste. Sonntag bewölkt, normal. Schichtplan und Bestellung sind bereits angepasst.',
+        actions:[{label:'Schicht prüfen',fn:()=>openSheet('personal')}] };
+    }
+
+    // Wartung / Gerät
+    if (has('wartung','fritteuse','gerät','defekt','kaputt')) {
+      return { reply:'Deine Fritteuse hat heute 3 mal über 180 Grad gemeldet. Das ist 5 Grad über Soll. Empfehle Service-Termin in den nächsten 14 Tagen. Soll ich einen Termin bei Großküchen-Müller anfragen?',
+        actions:[{label:'Termin anfragen',fn:()=>toast('📨 Anfrage gesendet')},{label:'Später',fn:()=>{}}] };
+    }
+
+    // Ablauf prüfen
+    if (has('läuft ab','ablauf','mhd','haltbarkeit','verfällt')) {
+      return { reply:'In den nächsten Tagen: Tomaten in 3 Tagen, Mozzarella in 5, Sahne in 4, Eisbergsalat in 2. Kombiniert ist das Caprese-Salat-Material plus Soße – könnte ein Tagesgericht werden. Magst du das?',
+        actions:[{label:'Caprese-Special',cmd:'Mach Caprese zum Tagesgericht'},{label:'Lager-Übersicht',fn:()=>navTo('lager')}] };
+    }
+
+    // Tagesüberblick
+    if (has('status','überblick','übersicht','wie läufts','wie sieht')) {
+      return { reply:'Alles im Griff. 87 Gäste bisher, 1.847 Euro Umsatz, Marge 62,4 Prozent. Lager bei 87 Prozent, 3 Artikel kritisch. Personal komplett. Drei KI-Vorschläge warten auf Freigabe. Was zuerst?',
+        actions:[{label:'Vorschläge zeigen',fn:()=>navTo('home')},{label:'Auswertung',fn:()=>openSheet('auswertungen')}] };
+    }
+
+    // Danke / Beenden
+    if (has('danke','danke dir','perfekt','super','gut')) {
+      const replies = [
+        'Gern. Ich bin hier wenn du was brauchst.',
+        'Sehr gerne. Soll ich noch was checken?',
+        'Top, dann läuft\'s. Ich melde mich wenn was wichtig wird.',
+        'Immer doch. Viel Erfolg beim Service!'
+      ];
+      return { reply: replies[Math.floor(Math.random()*replies.length)], actions:[] };
+    }
+
+    // Fallback - smart "didn\'t understand"
+    return {
+      reply:`Hab "${input}" so noch nicht verstanden – ich lerne aber dazu. Wonach willst du fragen? Bestand, Umsatz, Personal, Marketing, Krise, Konkurrenz oder Lieferungen?`,
+      actions:[
+        {label:'Bestand',cmd:'Wie ist der Bestand?'},
+        {label:'Umsatz',cmd:'Wie ist der Umsatz heute?'},
+        {label:'Personal',cmd:'Wer ist heute in der Schicht?'},
+        {label:'Marketing',cmd:'Mach einen Insta-Post'}
+      ]
+    };
+  }
+
+  // Init: load convo, set voice toggle
+  loadConvo();
+  if (!voiceEnabled) document.getElementById('voiceToggle')?.classList.add('muted');
+
+  // ===== Quick voice trigger from anywhere (long-press scan tab) =====
+  const scanTab = document.querySelector('.tab-scan');
+  let pressTimer;
+  scanTab.addEventListener('pointerdown', () => {
+    pressTimer = setTimeout(() => { navTo('ki'); setTimeout(toggleListen, 200); }, 600);
+  });
+  scanTab.addEventListener('pointerup', () => clearTimeout(pressTimer));
+  scanTab.addEventListener('pointerleave', () => clearTimeout(pressTimer));
 
   // ===== Sheets =====
   const sheets = {
