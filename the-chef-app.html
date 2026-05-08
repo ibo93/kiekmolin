@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Chef · Dashboard</title>
+<title>The Chef · App</title>
 <meta name="theme-color" content="#06060a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,15 +26,14 @@
     --red:#ff8a8a;
     --orange:#ffb677;
     --blue:#7eb6ff;
+    --purple:#c4a6ff;
   }
 
   html,body{height:100%}
   body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
-    background:var(--bg);
-    color:var(--text);
-    -webkit-font-smoothing:antialiased;
-    letter-spacing:-0.01em;
+    background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
     overflow:hidden;
   }
 
@@ -44,14 +43,9 @@
   .blob-2{top:20%;right:-15%;width:700px;height:700px;background:#8b3a2e;animation-delay:-7s}
   .blob-3{bottom:-25%;left:25%;width:800px;height:800px;background:#1e3a5f;animation-delay:-14s}
   .blob-4{top:55%;left:-20%;width:500px;height:500px;background:#2d5a4f;animation-delay:-18s}
-  @keyframes float{
-    0%,100%{transform:translate(0,0) scale(1)}
-    33%{transform:translate(60px,-40px) scale(1.1)}
-    66%{transform:translate(-40px,60px) scale(0.95)}
-  }
+  @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.1)}66%{transform:translate(-40px,60px) scale(0.95)}}
   .noise{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:0.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 
-  /* Glass primitive */
   .glass{
     background:var(--glass);
     backdrop-filter:blur(40px) saturate(180%);
@@ -62,279 +56,258 @@
     position:relative;
   }
 
-  /* App layout */
-  .app{
-    display:grid;
-    grid-template-columns:240px 1fr;
-    grid-template-rows:auto 1fr;
-    height:100vh;
-    gap:14px;
-    padding:14px;
-  }
+  .app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:auto 1fr;height:100vh;gap:14px;padding:14px}
 
-  /* Sidebar */
-  aside{
-    grid-row:1 / span 2;
-    padding:18px 14px;
-    display:flex;flex-direction:column;
-    overflow:hidden;
-  }
-  .brand{
-    display:flex;align-items:center;gap:10px;
-    padding:6px 10px 18px;
-    border-bottom:1px solid var(--glass-border);
-    margin-bottom:14px;
-  }
-  .brand-logo{
-    width:32px;height:32px;border-radius:10px;
-    background:linear-gradient(135deg,var(--gold),var(--gold-light));
-    display:flex;align-items:center;justify-content:center;
-    font-weight:800;color:#0a0a0f;font-size:14px;
-    box-shadow:0 4px 12px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;
-  }
+  /* SIDEBAR */
+  aside{grid-row:1 / span 2;padding:18px 14px;display:flex;flex-direction:column;overflow:hidden}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 10px 18px;border-bottom:1px solid var(--glass-border);margin-bottom:14px}
+  .brand-logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--gold-light));display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a0a0f;font-size:14px;box-shadow:0 4px 12px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset}
   .brand-name{font-weight:700;font-size:16px;letter-spacing:-0.02em}
   .brand-name span{color:var(--gold)}
-
   .nav-section{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-faint);margin:14px 12px 8px;font-weight:600}
-  .nav-item{
-    display:flex;align-items:center;gap:12px;
-    padding:10px 12px;border-radius:10px;
-    color:var(--text-dim);text-decoration:none;
-    font-size:14px;font-weight:500;
-    cursor:pointer;
-    transition:background .15s,color .15s;
-    margin-bottom:2px;
-  }
+  .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:var(--text-dim);text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;border:none;background:transparent;width:100%;text-align:left;font-family:inherit}
   .nav-item:hover{background:rgba(255,255,255,0.05);color:var(--text)}
-  .nav-item.active{
-    background:rgba(255,255,255,0.08);
-    color:var(--text);
-    box-shadow:0 1px 0 0 rgba(255,255,255,0.1) inset;
-  }
+  .nav-item.active{background:rgba(255,255,255,0.08);color:var(--text);box-shadow:0 1px 0 0 rgba(255,255,255,0.1) inset}
   .nav-icon{width:18px;height:18px;flex-shrink:0;opacity:0.85}
-  .nav-badge{
-    margin-left:auto;
-    background:var(--gold);color:#0a0a0f;
-    font-size:10px;font-weight:700;
-    padding:2px 7px;border-radius:100px;
-  }
+  .nav-badge{margin-left:auto;background:var(--gold);color:#0a0a0f;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px}
   .sidebar-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--glass-border)}
-  .user-card{
-    display:flex;align-items:center;gap:10px;
-    padding:10px;border-radius:12px;
-    background:rgba(255,255,255,0.04);
-    border:1px solid var(--glass-border);
-  }
-  .avatar{
-    width:34px;height:34px;border-radius:50%;
-    background:linear-gradient(135deg,#8b3a2e,#d4a574);
-    display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:13px;
-  }
+  .user-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border)}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8b3a2e,#d4a574);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
   .user-info{flex:1;min-width:0}
   .user-name{font-size:13px;font-weight:600}
   .user-role{font-size:11px;color:var(--text-faint)}
 
-  /* Topbar */
-  header{
-    display:flex;align-items:center;gap:14px;
-    padding:14px 22px;
-  }
+  /* TOPBAR */
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px}
   .greet h1{font-size:22px;font-weight:700;letter-spacing:-0.02em}
   .greet p{font-size:13px;color:var(--text-dim);margin-top:2px}
   .topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
-  .icon-btn{
-    width:38px;height:38px;border-radius:12px;
-    background:rgba(255,255,255,0.05);
-    border:1px solid var(--glass-border);
-    color:var(--text);cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    transition:background .15s,transform .15s;
-    position:relative;
-  }
+  .icon-btn{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,transform .15s;position:relative}
   .icon-btn:hover{background:rgba(255,255,255,0.1);transform:translateY(-1px)}
   .icon-btn .dot{position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red)}
-  .btn-primary{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:9px 18px;border-radius:100px;
-    background:#fff;color:#0a0a0f;
-    border:none;font-family:inherit;font-weight:600;font-size:13px;
-    cursor:pointer;
-    box-shadow:0 1px 0 0 rgba(255,255,255,0.4) inset, 0 4px 14px rgba(0,0,0,0.25);
-    transition:transform .15s;
-  }
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:100px;background:#fff;color:#0a0a0f;border:none;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 1px 0 0 rgba(255,255,255,0.4) inset, 0 4px 14px rgba(0,0,0,0.25);transition:transform .15s}
   .btn-primary:hover{transform:translateY(-1px) scale(1.02)}
 
-  /* Main */
-  main{
-    overflow-y:auto;
-    padding:0 8px 8px 0;
-  }
+  /* MAIN */
+  main{overflow-y:auto;padding:0 8px 8px 0}
   main::-webkit-scrollbar{width:8px}
   main::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
 
-  /* KPI Row */
+  .view{display:none}
+  .view.active{display:block;animation:fadeIn .35s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  /* GRIDS */
   .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px}
+  .grid-2-alt{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+
   .kpi{padding:20px}
   .kpi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   .kpi-label{font-size:12px;color:var(--text-dim);font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
-  .kpi-icon{
-    width:32px;height:32px;border-radius:10px;
-    background:rgba(255,255,255,0.06);
-    border:1px solid var(--glass-border);
-    display:flex;align-items:center;justify-content:center;
-    font-size:16px;
-  }
+  .kpi-icon{width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:16px}
   .kpi-value{font-size:32px;font-weight:800;letter-spacing:-0.03em;line-height:1}
-  .kpi-trend{font-size:12px;margin-top:6px;font-weight:500;display:flex;align-items:center;gap:4px}
+  .kpi-trend{font-size:12px;margin-top:6px;font-weight:500}
   .trend-up{color:var(--green)}
   .trend-down{color:var(--red)}
   .trend-neutral{color:var(--text-dim)}
 
-  /* Two-col grid */
-  .grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px}
-  .grid-2-alt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-
-  /* Card */
   .card{padding:22px}
-  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
   .card-title{font-size:16px;font-weight:700;letter-spacing:-0.01em}
-  .card-link{font-size:12px;color:var(--gold-light);text-decoration:none;font-weight:500}
+  .card-link{font-size:12px;color:var(--gold-light);text-decoration:none;font-weight:500;cursor:pointer;background:none;border:none;font-family:inherit}
   .card-link:hover{color:var(--gold)}
 
-  /* Inventory list */
-  .inv-row{
-    display:grid;
-    grid-template-columns:32px 1fr auto auto;
-    gap:14px;align-items:center;
-    padding:12px 0;
-    border-bottom:1px solid var(--glass-border);
-  }
+  /* INVENTORY ROWS */
+  .inv-row{display:grid;grid-template-columns:32px 1fr auto 100px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--glass-border)}
   .inv-row:last-child{border-bottom:none}
   .inv-emoji{font-size:22px;text-align:center}
   .inv-name{font-size:14px;font-weight:600}
   .inv-meta{font-size:12px;color:var(--text-dim);margin-top:1px}
   .inv-amount{font-size:13px;font-weight:600;text-align:right}
-  .inv-bar-wrap{width:90px}
+  .inv-bar-wrap{width:100%}
   .inv-bar{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
   .inv-bar-fill{height:100%;border-radius:3px}
   .fill-good{background:linear-gradient(90deg,#3a8060,var(--green))}
   .fill-warn{background:linear-gradient(90deg,#a8702c,var(--orange))}
   .fill-low{background:linear-gradient(90deg,#7c2a2a,var(--red))}
 
-  /* AI suggestions */
-  .ai-card{padding:22px;position:relative;overflow:hidden}
-  .ai-card::after{
-    content:"";position:absolute;inset:0;
-    background:radial-gradient(circle at 100% 0%,rgba(212,165,116,0.18),transparent 50%);
-    pointer-events:none;
-  }
+  /* AI CARD */
+  .ai-card{padding:22px;overflow:hidden}
+  .ai-card::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 100% 0%,rgba(212,165,116,0.18),transparent 50%);pointer-events:none;border-radius:20px}
   .ai-card > *{position:relative}
   .ai-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-  .ai-pulse{
-    width:10px;height:10px;border-radius:50%;
-    background:var(--gold);
-    box-shadow:0 0 14px var(--gold);
-    animation:pulse 2s ease-in-out infinite;
-  }
+  .ai-pulse{width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);animation:pulse 2s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.4)}}
-  .ai-suggest{
-    padding:14px;border-radius:14px;
-    background:rgba(255,255,255,0.04);
-    border:1px solid var(--glass-border);
-    margin-bottom:10px;
-    transition:background .15s, border-color .15s;
-  }
+  .ai-suggest{padding:14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);margin-bottom:10px;transition:background .15s,border-color .15s}
   .ai-suggest:hover{background:rgba(255,255,255,0.07);border-color:var(--glass-border-bright)}
   .ai-suggest-text{font-size:13px;line-height:1.5}
   .ai-suggest-text strong{color:var(--gold-light);font-weight:600}
   .ai-actions{display:flex;gap:8px;margin-top:10px}
-  .ai-btn{
-    padding:6px 12px;border-radius:100px;
-    font-size:12px;font-weight:600;
-    cursor:pointer;border:none;font-family:inherit;
-    transition:transform .15s;
-  }
+  .ai-btn{padding:6px 12px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:transform .15s}
   .ai-btn:hover{transform:translateY(-1px)}
   .ai-btn-ok{background:#fff;color:#0a0a0f}
   .ai-btn-skip{background:transparent;color:var(--text-dim);border:1px solid var(--glass-border)}
 
-  /* Activity */
-  .activity-row{
-    display:flex;align-items:flex-start;gap:12px;
-    padding:10px 0;
-    border-bottom:1px solid var(--glass-border);
-  }
+  /* ACTIVITY */
+  .activity-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border)}
   .activity-row:last-child{border-bottom:none}
-  .activity-icon{
-    width:30px;height:30px;border-radius:10px;
-    flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    font-size:14px;
-    background:rgba(255,255,255,0.05);
-    border:1px solid var(--glass-border);
-  }
+  .activity-icon{width:30px;height:30px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border)}
   .activity-text{font-size:13px;line-height:1.5}
   .activity-text strong{font-weight:600}
   .activity-time{font-size:11px;color:var(--text-faint);margin-top:2px}
 
-  /* Quick actions */
+  /* QUICK GRID */
   .quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-  .quick-btn{
-    padding:18px;border-radius:14px;
-    background:rgba(255,255,255,0.04);
-    border:1px solid var(--glass-border);
-    color:var(--text);
-    text-align:left;
-    cursor:pointer;font-family:inherit;
-    transition:transform .15s, background .15s, border-color .15s;
-  }
+  .quick-btn{padding:18px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);color:var(--text);text-align:left;cursor:pointer;font-family:inherit;transition:transform .15s, background .15s, border-color .15s}
   .quick-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.08);border-color:var(--glass-border-bright)}
   .quick-emoji{font-size:24px;margin-bottom:8px;display:block}
   .quick-label{font-size:13px;font-weight:600}
   .quick-sub{font-size:11px;color:var(--text-faint);margin-top:2px}
 
-  /* Voice button - floating */
-  .voice-fab{
-    position:fixed;bottom:24px;right:24px;
-    width:60px;height:60px;border-radius:50%;
-    background:linear-gradient(135deg,var(--gold),var(--gold-light));
-    border:none;cursor:pointer;
-    color:#0a0a0f;font-size:24px;
-    box-shadow:0 8px 24px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;
-    transition:transform .2s;
-    z-index:50;
-  }
+  /* VOICE FAB */
+  .voice-fab{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));border:none;cursor:pointer;color:#0a0a0f;font-size:24px;box-shadow:0 8px 24px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;transition:transform .2s;z-index:50}
   .voice-fab:hover{transform:scale(1.08)}
-  .voice-fab:active{transform:scale(0.95)}
-  .voice-fab::before{
-    content:"";position:absolute;inset:-6px;border-radius:50%;
-    border:2px solid var(--gold);
-    opacity:0;animation:ping 2s ease-out infinite;
-  }
+  .voice-fab::before{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--gold);opacity:0;animation:ping 2s ease-out infinite}
   @keyframes ping{0%{opacity:0.6;transform:scale(0.95)}100%{opacity:0;transform:scale(1.4)}}
 
-  @media (max-width:1100px){
-    .grid-2{grid-template-columns:1fr}
-    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  /* ===== LAGER VIEW ===== */
+  .filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .filter-input{padding:9px 14px;border-radius:100px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);color:var(--text);font-family:inherit;font-size:13px;outline:none;min-width:200px}
+  .filter-input:focus{border-color:var(--gold)}
+  .chip{padding:7px 14px;border-radius:100px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);color:var(--text-dim);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
+  .chip:hover{color:var(--text)}
+  .chip.active{background:rgba(255,255,255,0.14);color:var(--text);border-color:var(--glass-border-bright)}
+
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--glass-border)}
+  td{padding:14px;border-bottom:1px solid var(--glass-border);font-size:14px}
+  tr:last-child td{border-bottom:none}
+  tr.row-low{background:rgba(255,138,138,0.04)}
+  .pill{display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.02em}
+  .pill-good{background:rgba(141,230,177,0.14);color:var(--green)}
+  .pill-warn{background:rgba(255,182,119,0.14);color:var(--orange)}
+  .pill-low{background:rgba(255,138,138,0.14);color:var(--red)}
+
+  /* ===== SCANNER VIEW ===== */
+  .scanner-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .dropzone{
+    padding:60px 32px;border-radius:20px;
+    border:2px dashed var(--glass-border-bright);
+    background:rgba(255,255,255,0.03);
+    backdrop-filter:blur(20px);
+    text-align:center;cursor:pointer;
+    transition:all .25s;
   }
-  @media (max-width:760px){
-    .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
-    aside{grid-row:auto;flex-direction:row;gap:14px;align-items:center;padding:12px 16px;overflow-x:auto}
-    aside .brand{border:none;padding:0;margin:0}
-    aside .nav-section,aside .sidebar-footer{display:none}
-    aside .nav-item{padding:8px 14px;white-space:nowrap}
-    .grid-2-alt{grid-template-columns:1fr}
+  .dropzone:hover,.dropzone.drag{border-color:var(--gold);background:rgba(212,165,116,0.06)}
+  .dropzone-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(212,165,116,0.2),rgba(212,165,116,0.05));border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:32px;box-shadow:0 1px 0 0 rgba(255,255,255,0.15) inset}
+  .dropzone h3{font-size:18px;font-weight:700;margin-bottom:6px;letter-spacing:-0.01em}
+  .dropzone p{color:var(--text-dim);font-size:13px;margin-bottom:18px}
+  .dropzone-buttons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .scan-status{padding:24px;text-align:center}
+  .scan-spinner{width:40px;height:40px;border:3px solid rgba(212,165,116,0.2);border-top-color:var(--gold);border-radius:50%;margin:0 auto 14px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .extracted-list{margin-top:8px}
+  .extract-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);margin-bottom:6px;align-items:center}
+  .extract-name{font-size:13px;font-weight:600}
+  .extract-qty{font-size:12px;color:var(--text-dim);text-align:right}
+  .extract-price{font-size:13px;font-weight:600;color:var(--gold-light);text-align:right;min-width:64px}
+  .scan-total{display:flex;justify-content:space-between;align-items:center;padding:14px;border-top:1px solid var(--glass-border);margin-top:14px;font-size:15px;font-weight:700}
+
+  /* ===== RECIPES ===== */
+  .recipe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .recipe{padding:0;overflow:hidden;cursor:pointer;transition:transform .25s}
+  .recipe:hover{transform:translateY(-3px)}
+  .recipe-img{height:140px;background:linear-gradient(135deg,#8b3a2e,#d4a574);display:flex;align-items:center;justify-content:center;font-size:54px;border-bottom:1px solid var(--glass-border)}
+  .recipe-body{padding:18px}
+  .recipe h3{font-size:16px;font-weight:700;margin-bottom:6px;letter-spacing:-0.01em}
+  .recipe-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border)}
+  .recipe-meta strong{color:var(--green);font-weight:700}
+
+  /* ===== ORDERS ===== */
+  .order-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);margin-bottom:8px}
+  .order-icon{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .order-name{font-size:14px;font-weight:600}
+  .order-meta{font-size:12px;color:var(--text-dim);margin-top:2px}
+  .order-price{font-size:14px;font-weight:700}
+
+  /* ===== HACCP ===== */
+  .haccp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .haccp-card{padding:22px}
+  .haccp-temp{font-size:38px;font-weight:800;letter-spacing:-0.03em;margin:8px 0}
+  .haccp-status{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;font-size:11px;font-weight:600}
+  .haccp-ok{background:rgba(141,230,177,0.14);color:var(--green)}
+  .haccp-warn{background:rgba(255,182,119,0.14);color:var(--orange)}
+  .haccp-meta{font-size:12px;color:var(--text-dim);margin-top:8px}
+
+  /* ===== SCHIFTPLAN ===== */
+  .schedule{display:grid;grid-template-columns:80px repeat(7,1fr);gap:6px;margin-top:8px}
+  .schedule-day{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);text-align:center;padding:8px 0;font-weight:600}
+  .schedule-time{font-size:11px;color:var(--text-faint);padding:8px 4px;text-align:right;font-weight:500}
+  .shift{padding:8px 6px;border-radius:8px;font-size:11px;font-weight:600;text-align:center;cursor:pointer}
+  .shift-empty{background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.1);color:var(--text-faint)}
+  .shift-1{background:rgba(212,165,116,0.18);border:1px solid rgba(212,165,116,0.3);color:var(--gold-light)}
+  .shift-2{background:rgba(126,182,255,0.18);border:1px solid rgba(126,182,255,0.3);color:var(--blue)}
+  .shift-3{background:rgba(141,230,177,0.18);border:1px solid rgba(141,230,177,0.3);color:var(--green)}
+  .shift-4{background:rgba(196,166,255,0.18);border:1px solid rgba(196,166,255,0.3);color:var(--purple)}
+
+  /* ===== AUSWERTUNGEN / CHART ===== */
+  .chart-bars{display:flex;align-items:flex-end;gap:10px;height:180px;padding:14px 0;border-bottom:1px solid var(--glass-border)}
+  .chart-bar{flex:1;background:linear-gradient(180deg,var(--gold-light),var(--gold));border-radius:6px 6px 0 0;position:relative;min-height:8px;cursor:pointer;transition:opacity .15s}
+  .chart-bar:hover{opacity:0.85}
+  .chart-bar::after{content:attr(data-val);position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--text-dim);white-space:nowrap}
+  .chart-labels{display:flex;gap:10px;padding:8px 0}
+  .chart-labels span{flex:1;text-align:center;font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
+
+  /* ===== VOICE MODAL ===== */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:200;display:none;align-items:center;justify-content:center;animation:fadeIn .25s ease;padding:20px}
+  .modal-overlay.show{display:flex}
+  .modal{
+    width:100%;max-width:500px;
+    background:rgba(20,20,28,0.85);
+    backdrop-filter:blur(60px) saturate(200%);
+    -webkit-backdrop-filter:blur(60px) saturate(200%);
+    border:1px solid var(--glass-border-bright);
+    border-radius:28px;
+    padding:32px;
+    box-shadow:0 1px 0 0 rgba(255,255,255,0.18) inset, 0 24px 60px rgba(0,0,0,0.5);
+    animation:slideUp .35s cubic-bezier(.2,.8,.2,1);
   }
+  @keyframes slideUp{from{transform:translateY(40px) scale(0.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  .modal-close{position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .voice-orb{
+    width:120px;height:120px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%,var(--gold-light),var(--gold) 50%,#8b6736);
+    margin:8px auto 24px;position:relative;
+    box-shadow:0 12px 40px rgba(212,165,116,0.5),0 1px 0 0 rgba(255,255,255,0.4) inset;
+    animation:orb-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes orb-pulse{0%,100%{transform:scale(1);box-shadow:0 12px 40px rgba(212,165,116,0.5),0 1px 0 0 rgba(255,255,255,0.4) inset}50%{transform:scale(1.06);box-shadow:0 16px 60px rgba(212,165,116,0.7),0 1px 0 0 rgba(255,255,255,0.5) inset}}
+  .voice-orb::before,.voice-orb::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:2px solid var(--gold);opacity:0;animation:ping 2.4s ease-out infinite}
+  .voice-orb::after{animation-delay:1.2s}
+  .modal h3{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;letter-spacing:-0.02em}
+  .modal-sub{color:var(--text-dim);font-size:14px;text-align:center;margin-bottom:24px}
+  .convo{display:flex;flex-direction:column;gap:10px;max-height:240px;overflow-y:auto}
+  .msg{padding:12px 16px;border-radius:18px;font-size:14px;line-height:1.5;max-width:85%;animation:fadeIn .35s ease}
+  .msg-user{background:rgba(255,255,255,0.95);color:#0a0a0f;align-self:flex-end;border-bottom-right-radius:6px}
+  .msg-ai{background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);align-self:flex-start;border-bottom-left-radius:6px}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(20,20,28,0.85);backdrop-filter:blur(40px);border:1px solid var(--glass-border-bright);padding:12px 22px;border-radius:100px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .35s;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:1100px){.grid-2{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.scanner-grid{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr}.schedule{grid-template-columns:60px repeat(7,1fr)}}
+  @media (max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}aside{grid-row:auto;flex-direction:row;gap:8px;align-items:center;padding:12px 16px;overflow-x:auto}aside .brand{border:none;padding:0;margin:0}aside .nav-section,aside .sidebar-footer{display:none}aside .nav-item{padding:8px 14px;white-space:nowrap}.grid-2-alt{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 
 <div class="bg-canvas">
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
-  <div class="blob blob-3"></div>
-  <div class="blob blob-4"></div>
+  <div class="blob blob-1"></div><div class="blob blob-2"></div>
+  <div class="blob blob-3"></div><div class="blob blob-4"></div>
 </div>
 <div class="noise"></div>
 
@@ -347,50 +320,53 @@
     </div>
 
     <div class="nav-section">Übersicht</div>
-    <a class="nav-item active">
+    <button class="nav-item active" data-view="dashboard">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
       Dashboard
-    </a>
-    <a class="nav-item">
+    </button>
+    <button class="nav-item" data-view="lager">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
-      Lager
-      <span class="nav-badge">3</span>
-    </a>
-    <a class="nav-item">
+      Lager <span class="nav-badge">3</span>
+    </button>
+    <button class="nav-item" data-view="scanner">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Beleg-Scanner
+    </button>
+    <button class="nav-item" data-view="bestellungen">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6c-.4.7.1 1.4.9 1.4H17"/><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
       Bestellungen
-    </a>
-    <a class="nav-item">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+    </button>
+    <button class="nav-item" data-view="rezepte">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
       Rezepte
-    </a>
+    </button>
 
     <div class="nav-section">Betrieb</div>
-    <a class="nav-item">
+    <button class="nav-item" data-view="personal">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
       Personal
-    </a>
-    <a class="nav-item">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+    </button>
+    <button class="nav-item" data-view="haccp">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4-8-12V5l8-3 8 3v5c0 8-8 12-8 12z"/><polyline points="9 12 11 14 15 10"/></svg>
       HACCP
-    </a>
-    <a class="nav-item">
+    </button>
+    <button class="nav-item" data-view="auswertungen">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Auswertungen
-    </a>
+    </button>
 
     <div class="nav-section">Account</div>
-    <a class="nav-item">
+    <button class="nav-item" data-view="settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Einstellungen
-    </a>
+    </button>
 
     <div class="sidebar-footer">
       <div class="user-card">
         <div class="avatar">IK</div>
         <div class="user-info">
           <div class="user-name">Ibrahim K.</div>
-          <div class="user-role">Inhaber · Kiekmolin</div>
+          <div class="user-role">Inhaber</div>
         </div>
       </div>
     </div>
@@ -409,8 +385,8 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
         <span class="dot"></span>
       </button>
-      <button class="btn-primary">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button class="btn-primary" onclick="navTo('scanner')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Beleg scannen
       </button>
     </div>
@@ -418,249 +394,462 @@
 
   <main>
 
-    <div class="kpi-grid">
-      <div class="kpi glass">
-        <div class="kpi-head">
-          <div class="kpi-label">Marge heute</div>
-          <div class="kpi-icon">📈</div>
-        </div>
-        <div class="kpi-value">62,4%</div>
-        <div class="kpi-trend trend-up">↑ +5,1% vs. gestern</div>
+    <!-- ============ DASHBOARD ============ -->
+    <section class="view active" data-view="dashboard">
+      <div class="kpi-grid">
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Marge heute</div><div class="kpi-icon">📈</div></div><div class="kpi-value">62,4%</div><div class="kpi-trend trend-up">↑ +5,1% vs. gestern</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Umsatz heute</div><div class="kpi-icon">💰</div></div><div class="kpi-value">€ 1.847</div><div class="kpi-trend trend-up">↑ +12% vs. Mittel</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Lager</div><div class="kpi-icon">📦</div></div><div class="kpi-value">87%</div><div class="kpi-trend trend-neutral">3 Artikel niedrig</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Verschwendung</div><div class="kpi-icon">♻️</div></div><div class="kpi-value">2,1%</div><div class="kpi-trend trend-up">↓ −0,8% vs. Vormonat</div></div>
       </div>
-      <div class="kpi glass">
-        <div class="kpi-head">
-          <div class="kpi-label">Umsatz heute</div>
-          <div class="kpi-icon">💰</div>
-        </div>
-        <div class="kpi-value">€ 1.847</div>
-        <div class="kpi-trend trend-up">↑ +12% vs. Mittel</div>
-      </div>
-      <div class="kpi glass">
-        <div class="kpi-head">
-          <div class="kpi-label">Lager</div>
-          <div class="kpi-icon">📦</div>
-        </div>
-        <div class="kpi-value">87%</div>
-        <div class="kpi-trend trend-neutral">3 Artikel niedrig</div>
-      </div>
-      <div class="kpi glass">
-        <div class="kpi-head">
-          <div class="kpi-label">Verschwendung</div>
-          <div class="kpi-icon">♻️</div>
-        </div>
-        <div class="kpi-value">2,1%</div>
-        <div class="kpi-trend trend-up">↓ −0,8% vs. Vormonat</div>
-      </div>
-    </div>
 
-    <div class="grid-2">
+      <div class="grid-2">
+        <div class="card glass">
+          <div class="card-head">
+            <div class="card-title">Warenbestand</div>
+            <button class="card-link" onclick="navTo('lager')">Alle ansehen →</button>
+          </div>
+          <div class="inv-row"><div class="inv-emoji">🍅</div><div><div class="inv-name">Tomaten (frisch)</div><div class="inv-meta">Kühlhaus 1 · Läuft ab in 3 Tagen</div></div><div class="inv-amount">12,4 kg</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:78%"></div></div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🥔</div><div><div class="inv-name">Pommes Frites</div><div class="inv-meta">Tiefkühl · Reicht für ~2 Tage</div></div><div class="inv-amount">3,8 kg</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:18%"></div></div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🧀</div><div><div class="inv-name">Mozzarella</div><div class="inv-meta">Kühlhaus 2 · Reicht für ~5 Tage</div></div><div class="inv-amount">7,2 kg</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:42%"></div></div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🐟</div><div><div class="inv-name">Lachsfilet</div><div class="inv-meta">Frischfisch · Heute frisch geliefert</div></div><div class="inv-amount">5,6 kg</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:92%"></div></div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🥩</div><div><div class="inv-name">Rinderhack</div><div class="inv-meta">Kühlhaus 1 · Reicht für ~1 Tag</div></div><div class="inv-amount">1,2 kg</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:12%"></div></div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🥛</div><div><div class="inv-name">Sahne</div><div class="inv-meta">Kühlhaus 2 · Reicht für ~4 Tage</div></div><div class="inv-amount">4,5 L</div><div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:38%"></div></div></div></div>
+        </div>
 
+        <div class="ai-card glass">
+          <div class="ai-head"><div class="ai-pulse"></div><div class="card-title">KI-Vorschläge</div></div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text">Bestand niedrig: <strong>Pommes Frites</strong> & <strong>Rinderhack</strong> reichen nicht bis zum Wochenende. Bestellung bei <strong>Frostkönig</strong> vorbereiten?</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Bestellung wird vorbereitet')">Bestellung anlegen</button><button class="ai-btn ai-btn-skip" onclick="this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
+          </div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text"><strong>Tomaten</strong> laufen in 3 Tagen ab. Vorschlag: <strong>Tomatensuppe als Tagesangebot</strong> – geschätzt €180 Umsatz.</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Auf Tageskarte gesetzt')">Auf Tageskarte</button><button class="ai-btn ai-btn-skip" onclick="this.parentElement.parentElement.style.opacity=0.4">Verwerfen</button></div>
+          </div>
+          <div class="ai-suggest">
+            <div class="ai-suggest-text">Wetter Samstag: 22° und sonnig. Erfahrung: <strong>+30% Gäste</strong>. Empfehlung: <strong>1 Person mehr</strong> in der Mittagsschicht.</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="navTo('personal');toast('✓ Schichtplan geöffnet')">Schicht planen</button><button class="ai-btn ai-btn-skip" onclick="this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2-alt">
+        <div class="card glass">
+          <div class="card-head"><div class="card-title">Aktivität heute</div></div>
+          <div class="activity-row"><div class="activity-icon">📸</div><div><div class="activity-text"><strong>Lieferschein</strong> von Metro gescannt – 14 Artikel ins Lager gebucht</div><div class="activity-time">vor 12 Min</div></div></div>
+          <div class="activity-row"><div class="activity-icon">🍽️</div><div><div class="activity-text">Verkauf: <strong>3× Schnitzel mit Pommes</strong> – Zutaten automatisch abgezogen</div><div class="activity-time">vor 28 Min</div></div></div>
+          <div class="activity-row"><div class="activity-icon">🛡️</div><div><div class="activity-text"><strong>HACCP Kühlhaus 1</strong>: 4,2°C – OK</div><div class="activity-time">vor 1 Std</div></div></div>
+          <div class="activity-row"><div class="activity-icon">⚠️</div><div><div class="activity-text"><strong>Warnung</strong>: Rinderhack-Bestand kritisch (1,2 kg)</div><div class="activity-time">vor 2 Std</div></div></div>
+        </div>
+        <div class="card glass">
+          <div class="card-head"><div class="card-title">Schnellaktionen</div></div>
+          <div class="quick-grid">
+            <button class="quick-btn" onclick="navTo('scanner')"><span class="quick-emoji">📸</span><div class="quick-label">Beleg scannen</div><div class="quick-sub">Lieferschein → Lager</div></button>
+            <button class="quick-btn" onclick="openVoice()"><span class="quick-emoji">🎙️</span><div class="quick-label">Voice-Befehl</div><div class="quick-sub">"Hey Chef, …"</div></button>
+            <button class="quick-btn" onclick="navTo('rezepte')"><span class="quick-emoji">📅</span><div class="quick-label">Tageskarte</div><div class="quick-sub">KI-Vorschlag annehmen</div></button>
+            <button class="quick-btn" onclick="navTo('haccp')"><span class="quick-emoji">🛡️</span><div class="quick-label">HACCP-Check</div><div class="quick-sub">Temperaturen erfassen</div></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LAGER ============ -->
+    <section class="view" data-view="lager">
       <div class="card glass">
         <div class="card-head">
-          <div class="card-title">Warenbestand</div>
-          <a class="card-link" href="#">Alle ansehen →</a>
-        </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🍅</div>
-          <div>
-            <div class="inv-name">Tomaten (frisch)</div>
-            <div class="inv-meta">Kühlhaus 1 · Läuft ab in 3 Tagen</div>
+          <div class="card-title">Warenbestand · 47 Artikel</div>
+          <div class="filter-bar">
+            <input class="filter-input" placeholder="Artikel suchen…" id="lagerSearch">
+            <button class="chip active" data-filter="all">Alle</button>
+            <button class="chip" data-filter="low">Niedrig</button>
+            <button class="chip" data-filter="warn">Warnung</button>
+            <button class="chip" data-filter="good">Gut</button>
           </div>
-          <div class="inv-amount">12,4 kg</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:78%"></div></div></div>
         </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🥔</div>
-          <div>
-            <div class="inv-name">Pommes Frites</div>
-            <div class="inv-meta">Tiefkühl · Reicht für ~2 Tage</div>
-          </div>
-          <div class="inv-amount">3,8 kg</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:18%"></div></div></div>
-        </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🧀</div>
-          <div>
-            <div class="inv-name">Mozzarella</div>
-            <div class="inv-meta">Kühlhaus 2 · Reicht für ~5 Tage</div>
-          </div>
-          <div class="inv-amount">7,2 kg</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:42%"></div></div></div>
-        </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🐟</div>
-          <div>
-            <div class="inv-name">Lachsfilet</div>
-            <div class="inv-meta">Frischfisch · Heute frisch geliefert</div>
-          </div>
-          <div class="inv-amount">5,6 kg</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:92%"></div></div></div>
-        </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🥩</div>
-          <div>
-            <div class="inv-name">Rinderhack</div>
-            <div class="inv-meta">Kühlhaus 1 · Reicht für ~1 Tag</div>
-          </div>
-          <div class="inv-amount">1,2 kg</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:12%"></div></div></div>
-        </div>
-
-        <div class="inv-row">
-          <div class="inv-emoji">🥛</div>
-          <div>
-            <div class="inv-name">Sahne</div>
-            <div class="inv-meta">Kühlhaus 2 · Reicht für ~4 Tage</div>
-          </div>
-          <div class="inv-amount">4,5 L</div>
-          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:38%"></div></div></div>
+        <div class="table-wrap">
+          <table id="lagerTable">
+            <thead><tr><th>Artikel</th><th>Lagerort</th><th>Bestand</th><th>Reicht für</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
+    </section>
 
-      <div class="ai-card glass">
-        <div class="ai-head">
-          <div class="ai-pulse"></div>
-          <div class="card-title">KI-Vorschläge</div>
-        </div>
-
-        <div class="ai-suggest">
-          <div class="ai-suggest-text">
-            Bestand niedrig: <strong>Pommes Frites</strong> & <strong>Rinderhack</strong> reichen nicht bis zum Wochenende. Soll ich eine Bestellung bei <strong>Frostkönig</strong> vorbereiten?
+    <!-- ============ SCANNER ============ -->
+    <section class="view" data-view="scanner">
+      <div class="scanner-grid">
+        <div class="card glass">
+          <div class="card-head"><div class="card-title">Beleg scannen</div></div>
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📸</div>
+            <h3>Lieferschein hier ablegen</h3>
+            <p>oder klicken zum Auswählen · JPG, PNG, PDF</p>
+            <div class="dropzone-buttons">
+              <button class="btn-primary" onclick="simulateScan()">Demo: Beleg scannen</button>
+              <button class="ai-btn ai-btn-skip">Foto aufnehmen</button>
+            </div>
           </div>
-          <div class="ai-actions">
-            <button class="ai-btn ai-btn-ok">Bestellung anlegen</button>
-            <button class="ai-btn ai-btn-skip">Später</button>
-          </div>
-        </div>
-
-        <div class="ai-suggest">
-          <div class="ai-suggest-text">
-            <strong>Tomaten</strong> laufen in 3 Tagen ab. Vorschlag fürs Wochenende: <strong>Tomatensuppe als Tagesangebot</strong> – bringt geschätzt €180 Umsatz.
-          </div>
-          <div class="ai-actions">
-            <button class="ai-btn ai-btn-ok">Auf Tageskarte</button>
-            <button class="ai-btn ai-btn-skip">Verwerfen</button>
+          <div class="scan-status" id="scanStatus" style="display:none">
+            <div class="scan-spinner"></div>
+            <div style="font-weight:600;font-size:14px" id="scanStep">KI analysiert Beleg…</div>
+            <div style="color:var(--text-dim);font-size:12px;margin-top:4px">Texterkennung läuft</div>
           </div>
         </div>
 
-        <div class="ai-suggest">
-          <div class="ai-suggest-text">
-            Wetter Samstag: 22° und sonnig. Erfahrung sagt: <strong>+30% Gäste</strong>. Empfehlung: <strong>1 Person mehr</strong> in der Mittagsschicht.
+        <div class="card glass" id="scanResult" style="display:none">
+          <div class="card-head">
+            <div class="card-title">Erkannte Artikel</div>
+            <span class="pill pill-good">Metro · 08.05.2026</span>
           </div>
-          <div class="ai-actions">
-            <button class="ai-btn ai-btn-ok">Schicht planen</button>
-            <button class="ai-btn ai-btn-skip">Später</button>
+          <div class="extracted-list" id="extractedList"></div>
+          <div class="scan-total"><span>Gesamtsumme</span><span id="scanTotal">€ 247,82</span></div>
+          <div style="display:flex;gap:8px;margin-top:18px">
+            <button class="btn-primary" style="flex:1" onclick="bookInventory()">Ins Lager buchen</button>
+            <button class="ai-btn ai-btn-skip" style="flex:0" onclick="resetScan()">Abbrechen</button>
+          </div>
+        </div>
+
+        <div class="card glass" id="scanEmpty">
+          <div class="card-head"><div class="card-title">So funktioniert's</div></div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;gap:14px;align-items:flex-start"><div class="activity-icon">1️⃣</div><div><div style="font-size:14px;font-weight:600">Foto vom Lieferschein</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">Einfach mit Handy oder Tablet abfotografieren – auch schräg, auch unscharf.</div></div></div>
+            <div style="display:flex;gap:14px;align-items:flex-start"><div class="activity-icon">2️⃣</div><div><div style="font-size:14px;font-weight:600">KI erkennt Artikel & Mengen</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">Texterkennung + Produkt-Matching. Lieferanten-Format wird gelernt.</div></div></div>
+            <div style="display:flex;gap:14px;align-items:flex-start"><div class="activity-icon">3️⃣</div><div><div style="font-size:14px;font-weight:600">Du bestätigst, fertig</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">Ein Klick → alles im Lager. Spart 15-30 Min pro Lieferung.</div></div></div>
           </div>
         </div>
       </div>
+    </section>
 
-    </div>
-
-    <div class="grid-2-alt">
-
-      <div class="card glass">
-        <div class="card-head">
-          <div class="card-title">Aktivität heute</div>
-          <a class="card-link" href="#">Verlauf →</a>
-        </div>
-
-        <div class="activity-row">
-          <div class="activity-icon">📸</div>
-          <div>
-            <div class="activity-text"><strong>Lieferschein</strong> von Metro gescannt – 14 Artikel ins Lager gebucht</div>
-            <div class="activity-time">vor 12 Min</div>
-          </div>
-        </div>
-        <div class="activity-row">
-          <div class="activity-icon">🍽️</div>
-          <div>
-            <div class="activity-text">Verkauf: <strong>3× Schnitzel mit Pommes</strong> – Zutaten automatisch abgezogen</div>
-            <div class="activity-time">vor 28 Min</div>
-          </div>
-        </div>
-        <div class="activity-row">
-          <div class="activity-icon">🛡️</div>
-          <div>
-            <div class="activity-text"><strong>HACCP-Check Kühlhaus 1</strong>: Temperatur 4,2°C – OK</div>
-            <div class="activity-time">vor 1 Std</div>
-          </div>
-        </div>
-        <div class="activity-row">
-          <div class="activity-icon">⚠️</div>
-          <div>
-            <div class="activity-text"><strong>Warnung</strong>: Rinderhack-Bestand kritisch (1,2 kg)</div>
-            <div class="activity-time">vor 2 Std</div>
-          </div>
-        </div>
+    <!-- ============ BESTELLUNGEN ============ -->
+    <section class="view" data-view="bestellungen">
+      <div class="grid-3">
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Offene Bestellungen</div><div class="kpi-icon">📋</div></div><div class="kpi-value">3</div><div class="kpi-trend trend-neutral">2 unterwegs · 1 vorbereitet</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Diesen Monat</div><div class="kpi-icon">📦</div></div><div class="kpi-value">€ 8.420</div><div class="kpi-trend trend-down">↓ −4% vs. Vormonat</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Bester Lieferant</div><div class="kpi-icon">🏆</div></div><div class="kpi-value" style="font-size:22px">Metro</div><div class="kpi-trend trend-up">98% Zuverlässigkeit</div></div>
       </div>
 
       <div class="card glass">
+        <div class="card-head"><div class="card-title">Aktuelle Bestellungen</div><button class="btn-primary" onclick="toast('Neue Bestellung wird angelegt')">+ Neue Bestellung</button></div>
+        <div class="order-row"><div class="order-icon">🚚</div><div><div class="order-name">Metro · Wocheneinkauf KW 19</div><div class="order-meta">Lieferung: heute 14:00 · 14 Artikel</div></div><div class="pill pill-warn">Unterwegs</div><div class="order-price">€ 412,80</div></div>
+        <div class="order-row"><div class="order-icon">🐟</div><div><div class="order-name">Frische Fisch Friesland</div><div class="order-meta">Lieferung: morgen 06:30 · 6 Artikel</div></div><div class="pill pill-warn">Unterwegs</div><div class="order-price">€ 184,20</div></div>
+        <div class="order-row"><div class="order-icon">🥶</div><div><div class="order-name">Frostkönig · KI-Vorschlag</div><div class="order-meta">Pommes, Hack, Käse · noch nicht bestätigt</div></div><div class="pill pill-low">Entwurf</div><div class="order-price">€ 127,40</div></div>
+        <div class="order-row" style="opacity:0.7"><div class="order-icon">✓</div><div><div class="order-name">Getränke Nord · KW 18</div><div class="order-meta">Geliefert vor 4 Tagen · 22 Artikel</div></div><div class="pill pill-good">Erledigt</div><div class="order-price">€ 689,30</div></div>
+        <div class="order-row" style="opacity:0.7"><div class="order-icon">✓</div><div><div class="order-name">Bäckerei Janssen · Brot</div><div class="order-meta">Geliefert heute 06:00 · täglich</div></div><div class="pill pill-good">Erledigt</div><div class="order-price">€ 48,60</div></div>
+      </div>
+    </section>
+
+    <!-- ============ REZEPTE ============ -->
+    <section class="view" data-view="rezepte">
+      <div class="card glass">
         <div class="card-head">
-          <div class="card-title">Schnellaktionen</div>
+          <div class="card-title">Rezepte · 24 Gerichte</div>
+          <button class="btn-primary" onclick="toast('Rezept-Editor öffnet sich…')">+ Neues Rezept</button>
         </div>
-        <div class="quick-grid">
-          <button class="quick-btn">
-            <span class="quick-emoji">📸</span>
-            <div class="quick-label">Beleg scannen</div>
-            <div class="quick-sub">Lieferschein → Lager</div>
-          </button>
-          <button class="quick-btn">
-            <span class="quick-emoji">🎙️</span>
-            <div class="quick-label">Voice-Befehl</div>
-            <div class="quick-sub">"Hey Chef, …"</div>
-          </button>
-          <button class="quick-btn">
-            <span class="quick-emoji">📅</span>
-            <div class="quick-label">Tageskarte</div>
-            <div class="quick-sub">KI-Vorschlag annehmen</div>
-          </button>
-          <button class="quick-btn">
-            <span class="quick-emoji">🛡️</span>
-            <div class="quick-label">HACCP-Check</div>
-            <div class="quick-sub">Temperaturen erfassen</div>
-          </button>
+        <div class="recipe-grid">
+          <div class="recipe glass" onclick="toast('Rezept: Schnitzel Wiener Art')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#d4a574)">🍖</div><div class="recipe-body"><h3>Schnitzel Wiener Art</h3><div style="font-size:12px;color:var(--text-dim)">Klassiker · 5 Zutaten</div><div class="recipe-meta"><span>VK: €18,90</span><strong>Marge: 68%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Tomatensuppe')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ff8a8a)">🍅</div><div class="recipe-body"><h3>Tomatensuppe</h3><div style="font-size:12px;color:var(--text-dim)">Vorspeise · 7 Zutaten</div><div class="recipe-meta"><span>VK: €7,50</span><strong>Marge: 78%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Lachsfilet')"><div class="recipe-img" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)">🐟</div><div class="recipe-body"><h3>Lachsfilet auf Gemüse</h3><div style="font-size:12px;color:var(--text-dim)">Hauptgericht · 9 Zutaten</div><div class="recipe-meta"><span>VK: €24,50</span><strong>Marge: 62%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Caprese')"><div class="recipe-img" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)">🥗</div><div class="recipe-body"><h3>Caprese Salat</h3><div style="font-size:12px;color:var(--text-dim)">Vorspeise · 4 Zutaten</div><div class="recipe-meta"><span>VK: €9,80</span><strong>Marge: 74%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Margherita')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ffb677)">🍕</div><div class="recipe-body"><h3>Pizza Margherita</h3><div style="font-size:12px;color:var(--text-dim)">Pizza · 5 Zutaten</div><div class="recipe-meta"><span>VK: €11,50</span><strong>Marge: 71%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Currywurst Pommes')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#ffb677)">🌭</div><div class="recipe-body"><h3>Currywurst mit Pommes</h3><div style="font-size:12px;color:var(--text-dim)">Imbiss · 4 Zutaten</div><div class="recipe-meta"><span>VK: €8,90</span><strong>Marge: 65%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Tiramisu')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#d4a574)">🍰</div><div class="recipe-body"><h3>Tiramisu</h3><div style="font-size:12px;color:var(--text-dim)">Dessert · 6 Zutaten</div><div class="recipe-meta"><span>VK: €6,50</span><strong>Marge: 82%</strong></div></div></div>
+          <div class="recipe glass" onclick="toast('Rezept: Latte Macchiato')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#a87645)">☕</div><div class="recipe-body"><h3>Latte Macchiato</h3><div style="font-size:12px;color:var(--text-dim)">Getränk · 2 Zutaten</div><div class="recipe-meta"><span>VK: €3,80</span><strong>Marge: 88%</strong></div></div></div>
         </div>
       </div>
+    </section>
 
-    </div>
+    <!-- ============ PERSONAL / SCHICHT ============ -->
+    <section class="view" data-view="personal">
+      <div class="grid-3">
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Mitarbeiter</div><div class="kpi-icon">👥</div></div><div class="kpi-value">12</div><div class="kpi-trend trend-neutral">8 aktiv · 4 in Schicht</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Stunden KW 19</div><div class="kpi-icon">⏱️</div></div><div class="kpi-value">312h</div><div class="kpi-trend trend-up">↑ +8h vs. KW 18</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Lohnkosten</div><div class="kpi-icon">💶</div></div><div class="kpi-value">€ 4.890</div><div class="kpi-trend trend-neutral">26% vom Umsatz</div></div>
+      </div>
+      <div class="card glass">
+        <div class="card-head">
+          <div class="card-title">Schichtplan · KW 19 (08.–14. Mai 2026)</div>
+          <button class="btn-primary" onclick="toast('KI optimiert Schichtplan…')">🤖 KI-Vorschlag</button>
+        </div>
+        <div class="schedule">
+          <div></div>
+          <div class="schedule-day">Mo</div><div class="schedule-day">Di</div><div class="schedule-day">Mi</div><div class="schedule-day">Do</div><div class="schedule-day">Fr</div><div class="schedule-day">Sa</div><div class="schedule-day">So</div>
+
+          <div class="schedule-time">10–14</div>
+          <div class="shift shift-1">Halil</div><div class="shift shift-1">Halil</div><div class="shift shift-2">Anna</div><div class="shift shift-1">Halil</div><div class="shift shift-1">Halil</div><div class="shift shift-2">Anna</div><div class="shift shift-empty">—</div>
+
+          <div class="schedule-time">14–18</div>
+          <div class="shift shift-2">Anna</div><div class="shift shift-3">Tom</div><div class="shift shift-2">Anna</div><div class="shift shift-3">Tom</div><div class="shift shift-2">Anna</div><div class="shift shift-3">Tom</div><div class="shift shift-3">Tom</div>
+
+          <div class="schedule-time">18–22</div>
+          <div class="shift shift-3">Tom</div><div class="shift shift-4">Mira</div><div class="shift shift-4">Mira</div><div class="shift shift-2">Anna</div><div class="shift shift-4">Mira</div><div class="shift shift-4">Mira</div><div class="shift shift-4">Mira</div>
+
+          <div class="schedule-time">22–02</div>
+          <div class="shift shift-empty">—</div><div class="shift shift-empty">—</div><div class="shift shift-empty">—</div><div class="shift shift-empty">—</div><div class="shift shift-1">Halil</div><div class="shift shift-1">Halil</div><div class="shift shift-empty">—</div>
+        </div>
+        <div style="margin-top:18px;padding:14px;background:rgba(212,165,116,0.08);border:1px solid rgba(212,165,116,0.2);border-radius:12px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:13px"><div class="ai-pulse"></div><strong>KI-Hinweis:</strong> Samstag 22° + sonnig → +30% Gäste erwartet. Empfehle 1 zusätzliche Person 12–16 Uhr.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HACCP ============ -->
+    <section class="view" data-view="haccp">
+      <div class="haccp-grid">
+        <div class="haccp-card glass"><div class="kpi-label">Kühlhaus 1</div><div class="haccp-temp">4,2°C</div><div class="haccp-status haccp-ok">● Im Sollbereich (2–7°C)</div><div class="haccp-meta">Letzte Messung: vor 12 Min · automatisch</div></div>
+        <div class="haccp-card glass"><div class="kpi-label">Kühlhaus 2</div><div class="haccp-temp">5,8°C</div><div class="haccp-status haccp-ok">● Im Sollbereich (2–7°C)</div><div class="haccp-meta">Letzte Messung: vor 8 Min · automatisch</div></div>
+        <div class="haccp-card glass"><div class="kpi-label">Tiefkühl</div><div class="haccp-temp">−18,4°C</div><div class="haccp-status haccp-ok">● Im Sollbereich (≤ −18°C)</div><div class="haccp-meta">Letzte Messung: vor 5 Min · automatisch</div></div>
+        <div class="haccp-card glass"><div class="kpi-label">Frittenbad</div><div class="haccp-temp">172°C</div><div class="haccp-status haccp-warn">● Beobachten (Soll 175°C)</div><div class="haccp-meta">Letzte Messung: vor 2 Min · Personal</div></div>
+        <div class="haccp-card glass"><div class="kpi-label">Salatbar</div><div class="haccp-temp">6,1°C</div><div class="haccp-status haccp-ok">● Im Sollbereich (≤ 7°C)</div><div class="haccp-meta">Letzte Messung: vor 22 Min · Personal</div></div>
+        <div class="haccp-card glass"><div class="kpi-label">Warmhaltetheke</div><div class="haccp-temp">68°C</div><div class="haccp-status haccp-ok">● Im Sollbereich (≥ 65°C)</div><div class="haccp-meta">Letzte Messung: vor 18 Min · Personal</div></div>
+      </div>
+      <div class="card glass">
+        <div class="card-head"><div class="card-title">Reinigungsplan heute</div><button class="card-link">Verlauf →</button></div>
+        <div class="activity-row"><div class="activity-icon">✓</div><div><div class="activity-text"><strong>Küche · Arbeitsflächen</strong> – Halil, 14:32</div><div class="activity-time">Erledigt</div></div></div>
+        <div class="activity-row"><div class="activity-icon">✓</div><div><div class="activity-text"><strong>Toiletten</strong> – Anna, 13:18</div><div class="activity-time">Erledigt</div></div></div>
+        <div class="activity-row"><div class="activity-icon">✓</div><div><div class="activity-text"><strong>Kühlhäuser-Check</strong> – Tom, 12:00</div><div class="activity-time">Erledigt</div></div></div>
+        <div class="activity-row"><div class="activity-icon">⏳</div><div><div class="activity-text"><strong>Frittierfett wechseln</strong> – ausstehend</div><div class="activity-time">Bis 22:00</div></div></div>
+        <div class="activity-row"><div class="activity-icon">⏳</div><div><div class="activity-text"><strong>Endreinigung Küche</strong> – ausstehend</div><div class="activity-time">Bis 23:30</div></div></div>
+      </div>
+    </section>
+
+    <!-- ============ AUSWERTUNGEN ============ -->
+    <section class="view" data-view="auswertungen">
+      <div class="grid-3">
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Umsatz Mai</div><div class="kpi-icon">📈</div></div><div class="kpi-value">€ 42.180</div><div class="kpi-trend trend-up">↑ +18% vs. Mai 2025</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Ø Marge</div><div class="kpi-icon">💎</div></div><div class="kpi-value">64,8%</div><div class="kpi-trend trend-up">↑ +3,2pp</div></div>
+        <div class="kpi glass"><div class="kpi-head"><div class="kpi-label">Top-Gericht</div><div class="kpi-icon">🥇</div></div><div class="kpi-value" style="font-size:22px">Schnitzel</div><div class="kpi-trend trend-neutral">238× verkauft</div></div>
+      </div>
+      <div class="card glass">
+        <div class="card-head"><div class="card-title">Umsatz · letzte 7 Tage</div><div style="display:flex;gap:6px"><button class="chip active">7 Tage</button><button class="chip">30 Tage</button><button class="chip">12 Mon.</button></div></div>
+        <div class="chart-bars">
+          <div class="chart-bar" style="height:55%" data-val="€1.420"></div>
+          <div class="chart-bar" style="height:48%" data-val="€1.280"></div>
+          <div class="chart-bar" style="height:62%" data-val="€1.580"></div>
+          <div class="chart-bar" style="height:71%" data-val="€1.760"></div>
+          <div class="chart-bar" style="height:88%" data-val="€2.180"></div>
+          <div class="chart-bar" style="height:96%" data-val="€2.380"></div>
+          <div class="chart-bar" style="height:74%" data-val="€1.847"></div>
+        </div>
+        <div class="chart-labels"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
+      </div>
+      <div class="grid-2-alt">
+        <div class="card glass"><div class="card-head"><div class="card-title">Top 5 Gerichte (Mai)</div></div>
+          <div class="inv-row"><div class="inv-emoji">🥇</div><div><div class="inv-name">Schnitzel Wiener Art</div><div class="inv-meta">238 verkauft · €4.498 Umsatz</div></div><div class="inv-amount" style="color:var(--green)">68% Marge</div><div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🥈</div><div><div class="inv-name">Pizza Margherita</div><div class="inv-meta">186 verkauft · €2.139 Umsatz</div></div><div class="inv-amount" style="color:var(--green)">71% Marge</div><div></div></div>
+          <div class="inv-row"><div class="inv-emoji">🥉</div><div><div class="inv-name">Currywurst Pommes</div><div class="inv-meta">164 verkauft · €1.460 Umsatz</div></div><div class="inv-amount" style="color:var(--green)">65% Marge</div><div></div></div>
+          <div class="inv-row"><div class="inv-emoji">4️⃣</div><div><div class="inv-name">Lachsfilet</div><div class="inv-meta">94 verkauft · €2.303 Umsatz</div></div><div class="inv-amount" style="color:var(--green)">62% Marge</div><div></div></div>
+          <div class="inv-row"><div class="inv-emoji">5️⃣</div><div><div class="inv-name">Caprese Salat</div><div class="inv-meta">82 verkauft · €804 Umsatz</div></div><div class="inv-amount" style="color:var(--green)">74% Marge</div><div></div></div>
+        </div>
+        <div class="card glass"><div class="card-head"><div class="card-title">KI-Insights</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">📊 <strong>Freitag-Effekt:</strong> Currywurst-Verkauf +47% an Freitagen. Lager bereits angepasst.</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">💡 <strong>Marge-Tipp:</strong> Tiramisu-Verkauf bei +15% Tellerpreis getestet → keine Nachfrage-Drop. Erhöhung empfohlen.</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">⚠️ <strong>Verschwendung:</strong> Rucola wird zu 23% weggeworfen. Bestellmenge automatisch reduziert.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="view" data-view="settings">
+      <div class="grid-2-alt">
+        <div class="card glass">
+          <div class="card-head"><div class="card-title">Betrieb</div></div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div><div class="kpi-label">Restaurant-Name</div><div style="font-size:15px;font-weight:600;margin-top:4px">Kiek mol in</div></div>
+            <div><div class="kpi-label">Adresse</div><div style="font-size:15px;font-weight:600;margin-top:4px">Greetsiel, Ostfriesland</div></div>
+            <div><div class="kpi-label">Sprache fürs Personal</div><div style="display:flex;gap:6px;margin-top:8px"><span class="chip active">DE</span><span class="chip">TR</span><span class="chip">EN</span><span class="chip">AR</span></div></div>
+          </div>
+        </div>
+        <div class="card glass">
+          <div class="card-head"><div class="card-title">Integrationen</div></div>
+          <div class="order-row"><div class="order-icon">💳</div><div><div class="order-name">Kasse · SumUp</div><div class="order-meta">Verbunden · Verkäufe synchronisiert</div></div><span class="pill pill-good">Aktiv</span><div></div></div>
+          <div class="order-row"><div class="order-icon">📊</div><div><div class="order-name">DATEV-Export</div><div class="order-meta">Automatischer Monatsexport</div></div><span class="pill pill-good">Aktiv</span><div></div></div>
+          <div class="order-row"><div class="order-icon">🌡️</div><div><div class="order-name">Temperatursensoren</div><div class="order-meta">3 Geräte · letzter Sync vor 5 Min</div></div><span class="pill pill-good">Aktiv</span><div></div></div>
+          <div class="order-row"><div class="order-icon">📧</div><div><div class="order-name">E-Mail-Benachrichtigungen</div><div class="order-meta">Bei kritischem Bestand & HACCP</div></div><span class="pill pill-good">Aktiv</span><div></div></div>
+        </div>
+      </div>
+    </section>
 
   </main>
 
 </div>
 
-<button class="voice-fab" title="Voice-Assistent" id="voiceFab">🎙️</button>
+<button class="voice-fab" title="Voice-Assistent" onclick="openVoice()">🎙️</button>
+
+<!-- VOICE MODAL -->
+<div class="modal-overlay" id="voiceModal" onclick="if(event.target===this)closeVoice()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeVoice()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="voice-orb"></div>
+    <h3>Hey Chef</h3>
+    <div class="modal-sub">Frag, was du wissen willst – ich höre zu.</div>
+    <div class="convo" id="convo"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-  // Greeting based on time
+  // ===== Greeting =====
   const h = new Date().getHours();
   let greet = 'Moin';
   if (h >= 11 && h < 18) greet = 'Mahlzeit';
   if (h >= 18) greet = 'N\'Abend';
   document.getElementById('greeting').textContent = greet + ', Ibrahim 👋';
-
   const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const d = new Date();
-  document.getElementById('dateline').textContent =
-    days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()] + ' · Service läuft';
+  document.getElementById('dateline').textContent = days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()] + ' · Service läuft';
 
-  // Voice fab demo
-  document.getElementById('voiceFab').addEventListener('click',()=>{
-    alert('🎙️ Voice-Assistent\n\nIn der echten App: "Hey Chef, wie viele Pommes haben wir noch?"\n→ Antwort: "3,8 kg – das reicht noch für etwa 2 Tage."');
-  });
+  // ===== Router =====
+  function navTo(view){
+    document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===view));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
+    document.querySelector('main').scrollTop = 0;
+  }
+  document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>navTo(n.dataset.view)));
 
-  // Quick action demos
-  document.querySelectorAll('.quick-btn, .ai-btn-ok, .btn-primary').forEach(b=>{
-    b.addEventListener('click',()=>{
-      b.style.transform = 'scale(0.96)';
-      setTimeout(()=>b.style.transform='',150);
-    });
+  // ===== Toast =====
+  let toastTimer;
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'),2400);
+  }
+
+  // ===== Lager Table =====
+  const lagerData = [
+    {name:'Tomaten (frisch)',emoji:'🍅',loc:'Kühlhaus 1',amount:'12,4 kg',days:'~6 Tage',status:'good'},
+    {name:'Pommes Frites',emoji:'🥔',loc:'Tiefkühl',amount:'3,8 kg',days:'~2 Tage',status:'low'},
+    {name:'Mozzarella',emoji:'🧀',loc:'Kühlhaus 2',amount:'7,2 kg',days:'~5 Tage',status:'warn'},
+    {name:'Lachsfilet',emoji:'🐟',loc:'Frischfisch',amount:'5,6 kg',days:'~2 Tage',status:'good'},
+    {name:'Rinderhack',emoji:'🥩',loc:'Kühlhaus 1',amount:'1,2 kg',days:'~1 Tag',status:'low'},
+    {name:'Sahne',emoji:'🥛',loc:'Kühlhaus 2',amount:'4,5 L',days:'~4 Tage',status:'warn'},
+    {name:'Kartoffeln',emoji:'🥔',loc:'Lager kühl',amount:'42 kg',days:'~10 Tage',status:'good'},
+    {name:'Mehl Type 405',emoji:'🌾',loc:'Trockenlager',amount:'18 kg',days:'~14 Tage',status:'good'},
+    {name:'Olivenöl',emoji:'🫒',loc:'Trockenlager',amount:'8 L',days:'~12 Tage',status:'good'},
+    {name:'Currywurst',emoji:'🌭',loc:'Tiefkühl',amount:'2,1 kg',days:'~1 Tag',status:'low'},
+    {name:'Salat (gemischt)',emoji:'🥗',loc:'Kühlhaus 2',amount:'3,4 kg',days:'~3 Tage',status:'warn'},
+    {name:'Eier',emoji:'🥚',loc:'Kühlhaus 1',amount:'180 St.',days:'~7 Tage',status:'good'},
+    {name:'Butter',emoji:'🧈',loc:'Kühlhaus 2',amount:'2,8 kg',days:'~5 Tage',status:'warn'},
+    {name:'Zwiebeln',emoji:'🧅',loc:'Lager kühl',amount:'14 kg',days:'~9 Tage',status:'good'},
+    {name:'Knoblauch',emoji:'🧄',loc:'Trockenlager',amount:'1,2 kg',days:'~14 Tage',status:'good'},
+    {name:'Cola 1L',emoji:'🥤',loc:'Getränkelager',amount:'48 Fl.',days:'~7 Tage',status:'good'},
+    {name:'Bier (Pils)',emoji:'🍺',loc:'Getränkelager',amount:'120 Fl.',days:'~12 Tage',status:'good'},
+    {name:'Mineralwasser',emoji:'💧',loc:'Getränkelager',amount:'92 Fl.',days:'~10 Tage',status:'good'},
+  ];
+  function renderLager(filter='all',search=''){
+    const tbody = document.querySelector('#lagerTable tbody');
+    tbody.innerHTML = lagerData
+      .filter(r=>filter==='all'||r.status===filter)
+      .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()))
+      .map(r=>`<tr class="${r.status==='low'?'row-low':''}">
+        <td><span style="margin-right:8px">${r.emoji}</span><strong>${r.name}</strong></td>
+        <td style="color:var(--text-dim)">${r.loc}</td>
+        <td><strong>${r.amount}</strong></td>
+        <td style="color:var(--text-dim)">${r.days}</td>
+        <td><span class="pill pill-${r.status}">${r.status==='good'?'Gut':r.status==='warn'?'Warnung':'Niedrig'}</span></td>
+      </tr>`).join('');
+  }
+  renderLager();
+  document.getElementById('lagerSearch').addEventListener('input',e=>{
+    const active = document.querySelector('.chip.active').dataset.filter;
+    renderLager(active,e.target.value);
   });
+  document.querySelectorAll('.chip[data-filter]').forEach(c=>c.addEventListener('click',()=>{
+    document.querySelectorAll('.chip[data-filter]').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    renderLager(c.dataset.filter,document.getElementById('lagerSearch').value);
+  }));
+
+  // ===== Scanner =====
+  function simulateScan(){
+    document.getElementById('scanEmpty').style.display='none';
+    document.getElementById('scanResult').style.display='none';
+    document.getElementById('scanStatus').style.display='block';
+    const steps = ['KI analysiert Beleg…','Lieferant erkannt: Metro','14 Artikel gefunden','Mengen werden geprüft…'];
+    let i = 0;
+    const stepEl = document.getElementById('scanStep');
+    stepEl.textContent = steps[0];
+    const iv = setInterval(()=>{
+      i++;
+      if(i>=steps.length){
+        clearInterval(iv);
+        showScanResult();
+      } else stepEl.textContent = steps[i];
+    },700);
+  }
+  function showScanResult(){
+    document.getElementById('scanStatus').style.display='none';
+    document.getElementById('scanResult').style.display='block';
+    const items = [
+      ['🍅 Tomaten frisch','5 kg','€12,50'],
+      ['🧀 Mozzarella','3 kg','€18,90'],
+      ['🥔 Pommes 10/10','10 kg','€21,40'],
+      ['🥩 Rinderhack','4 kg','€36,80'],
+      ['🐟 Lachsfilet','3 kg','€42,60'],
+      ['🥛 Sahne 30%','6 L','€14,20'],
+      ['🌾 Mehl Type 405','10 kg','€8,90'],
+      ['🫒 Olivenöl','5 L','€32,50'],
+      ['🥔 Kartoffeln','25 kg','€18,75'],
+      ['🧅 Zwiebeln','10 kg','€7,40'],
+      ['🥚 Eier (Größe M)','60 St.','€14,40'],
+      ['🧈 Butter','2 kg','€11,80'],
+      ['🥗 Eisbergsalat','4 St.','€4,76'],
+      ['🥒 Gurken','3 kg','€2,91'],
+    ];
+    document.getElementById('extractedList').innerHTML = items.map(([n,q,p])=>
+      `<div class="extract-row"><div class="extract-name">${n}</div><div class="extract-qty">${q}</div><div class="extract-price">${p}</div></div>`
+    ).join('');
+  }
+  function bookInventory(){
+    toast('✓ 14 Artikel ins Lager gebucht');
+    setTimeout(resetScan,800);
+  }
+  function resetScan(){
+    document.getElementById('scanResult').style.display='none';
+    document.getElementById('scanStatus').style.display='none';
+    document.getElementById('scanEmpty').style.display='block';
+  }
+  // Drop handlers
+  const dz = document.getElementById('dropzone');
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag')}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag')}));
+  dz.addEventListener('drop',()=>simulateScan());
+  dz.addEventListener('click',e=>{ if(!e.target.closest('button')) simulateScan() });
+
+  // ===== Voice Modal =====
+  const dialog = [
+    {q:'Wie viele Pommes haben wir noch?', a:'Aktuell 3,8 Kilo Pommes Frites im Tiefkühler. Reicht für etwa 2 Tage. Soll ich nachbestellen?'},
+    {q:'Was läuft heute am besten?', a:'Top-Seller heute: Schnitzel mit Pommes – schon 12-mal verkauft. Marge: 68%.'},
+    {q:'Wann kommt die Metro-Lieferung?', a:'Heute um 14 Uhr. 14 Artikel, Gesamtwert 412 Euro 80. Anna übernimmt die Annahme.'},
+    {q:'Schreib das Wochenangebot.', a:'Vorschlag: "Tomatensuppe mit Brot – nur diese Woche €4,90". Tomaten laufen sonst ab. Erwarteter Mehrumsatz: €180.'},
+  ];
+  function openVoice(){
+    const m = document.getElementById('voiceModal');
+    m.classList.add('show');
+    const convo = document.getElementById('convo');
+    convo.innerHTML = '';
+    let i = 0;
+    function next(){
+      if(i>=dialog.length) return;
+      const {q,a} = dialog[i++];
+      const u = document.createElement('div'); u.className='msg msg-user'; u.textContent=q;
+      convo.appendChild(u); convo.scrollTop=convo.scrollHeight;
+      setTimeout(()=>{
+        const ai = document.createElement('div'); ai.className='msg msg-ai'; ai.textContent=a;
+        convo.appendChild(ai); convo.scrollTop=convo.scrollHeight;
+        setTimeout(next,1800);
+      },800);
+    }
+    setTimeout(next,500);
+  }
+  function closeVoice(){ document.getElementById('voiceModal').classList.remove('show') }
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeVoice() });
 </script>
 
 </body>
