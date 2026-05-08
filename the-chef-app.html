@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Chef · Dashboard</title>
+<meta name="theme-color" content="#06060a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root{
+    --bg:#06060a;
+    --text:#fff;
+    --text-dim:rgba(255,255,255,0.62);
+    --text-faint:rgba(255,255,255,0.38);
+    --glass:rgba(255,255,255,0.06);
+    --glass-strong:rgba(255,255,255,0.10);
+    --glass-border:rgba(255,255,255,0.12);
+    --glass-border-bright:rgba(255,255,255,0.22);
+    --gold:#d4a574;
+    --gold-light:#f0d4ad;
+    --green:#8de6b1;
+    --red:#ff8a8a;
+    --orange:#ffb677;
+    --blue:#7eb6ff;
+  }
+
+  html,body{height:100%}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:-0.01em;
+    overflow:hidden;
+  }
+
+  .bg-canvas{position:fixed;inset:0;z-index:-2;background:#06060a;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(120px);opacity:0.5;animation:float 22s ease-in-out infinite;will-change:transform}
+  .blob-1{top:-15%;left:-10%;width:600px;height:600px;background:#d4a574}
+  .blob-2{top:20%;right:-15%;width:700px;height:700px;background:#8b3a2e;animation-delay:-7s}
+  .blob-3{bottom:-25%;left:25%;width:800px;height:800px;background:#1e3a5f;animation-delay:-14s}
+  .blob-4{top:55%;left:-20%;width:500px;height:500px;background:#2d5a4f;animation-delay:-18s}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(60px,-40px) scale(1.1)}
+    66%{transform:translate(-40px,60px) scale(0.95)}
+  }
+  .noise{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:0.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  /* Glass primitive */
+  .glass{
+    background:var(--glass);
+    backdrop-filter:blur(40px) saturate(180%);
+    -webkit-backdrop-filter:blur(40px) saturate(180%);
+    border:1px solid var(--glass-border);
+    border-radius:20px;
+    box-shadow:0 1px 0 0 rgba(255,255,255,0.1) inset, 0 8px 32px rgba(0,0,0,0.3);
+    position:relative;
+  }
+
+  /* App layout */
+  .app{
+    display:grid;
+    grid-template-columns:240px 1fr;
+    grid-template-rows:auto 1fr;
+    height:100vh;
+    gap:14px;
+    padding:14px;
+  }
+
+  /* Sidebar */
+  aside{
+    grid-row:1 / span 2;
+    padding:18px 14px;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    padding:6px 10px 18px;
+    border-bottom:1px solid var(--glass-border);
+    margin-bottom:14px;
+  }
+  .brand-logo{
+    width:32px;height:32px;border-radius:10px;
+    background:linear-gradient(135deg,var(--gold),var(--gold-light));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#0a0a0f;font-size:14px;
+    box-shadow:0 4px 12px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;
+  }
+  .brand-name{font-weight:700;font-size:16px;letter-spacing:-0.02em}
+  .brand-name span{color:var(--gold)}
+
+  .nav-section{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-faint);margin:14px 12px 8px;font-weight:600}
+  .nav-item{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:10px;
+    color:var(--text-dim);text-decoration:none;
+    font-size:14px;font-weight:500;
+    cursor:pointer;
+    transition:background .15s,color .15s;
+    margin-bottom:2px;
+  }
+  .nav-item:hover{background:rgba(255,255,255,0.05);color:var(--text)}
+  .nav-item.active{
+    background:rgba(255,255,255,0.08);
+    color:var(--text);
+    box-shadow:0 1px 0 0 rgba(255,255,255,0.1) inset;
+  }
+  .nav-icon{width:18px;height:18px;flex-shrink:0;opacity:0.85}
+  .nav-badge{
+    margin-left:auto;
+    background:var(--gold);color:#0a0a0f;
+    font-size:10px;font-weight:700;
+    padding:2px 7px;border-radius:100px;
+  }
+  .sidebar-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--glass-border)}
+  .user-card{
+    display:flex;align-items:center;gap:10px;
+    padding:10px;border-radius:12px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border);
+  }
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(135deg,#8b3a2e,#d4a574);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13px;
+  }
+  .user-info{flex:1;min-width:0}
+  .user-name{font-size:13px;font-weight:600}
+  .user-role{font-size:11px;color:var(--text-faint)}
+
+  /* Topbar */
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 22px;
+  }
+  .greet h1{font-size:22px;font-weight:700;letter-spacing:-0.02em}
+  .greet p{font-size:13px;color:var(--text-dim);margin-top:2px}
+  .topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .icon-btn{
+    width:38px;height:38px;border-radius:12px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);
+    color:var(--text);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s,transform .15s;
+    position:relative;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,0.1);transform:translateY(-1px)}
+  .icon-btn .dot{position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red)}
+  .btn-primary{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:9px 18px;border-radius:100px;
+    background:#fff;color:#0a0a0f;
+    border:none;font-family:inherit;font-weight:600;font-size:13px;
+    cursor:pointer;
+    box-shadow:0 1px 0 0 rgba(255,255,255,0.4) inset, 0 4px 14px rgba(0,0,0,0.25);
+    transition:transform .15s;
+  }
+  .btn-primary:hover{transform:translateY(-1px) scale(1.02)}
+
+  /* Main */
+  main{
+    overflow-y:auto;
+    padding:0 8px 8px 0;
+  }
+  main::-webkit-scrollbar{width:8px}
+  main::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
+
+  /* KPI Row */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .kpi{padding:20px}
+  .kpi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .kpi-label{font-size:12px;color:var(--text-dim);font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
+  .kpi-icon{
+    width:32px;height:32px;border-radius:10px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid var(--glass-border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;
+  }
+  .kpi-value{font-size:32px;font-weight:800;letter-spacing:-0.03em;line-height:1}
+  .kpi-trend{font-size:12px;margin-top:6px;font-weight:500;display:flex;align-items:center;gap:4px}
+  .trend-up{color:var(--green)}
+  .trend-down{color:var(--red)}
+  .trend-neutral{color:var(--text-dim)}
+
+  /* Two-col grid */
+  .grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px}
+  .grid-2-alt{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+  /* Card */
+  .card{padding:22px}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .card-title{font-size:16px;font-weight:700;letter-spacing:-0.01em}
+  .card-link{font-size:12px;color:var(--gold-light);text-decoration:none;font-weight:500}
+  .card-link:hover{color:var(--gold)}
+
+  /* Inventory list */
+  .inv-row{
+    display:grid;
+    grid-template-columns:32px 1fr auto auto;
+    gap:14px;align-items:center;
+    padding:12px 0;
+    border-bottom:1px solid var(--glass-border);
+  }
+  .inv-row:last-child{border-bottom:none}
+  .inv-emoji{font-size:22px;text-align:center}
+  .inv-name{font-size:14px;font-weight:600}
+  .inv-meta{font-size:12px;color:var(--text-dim);margin-top:1px}
+  .inv-amount{font-size:13px;font-weight:600;text-align:right}
+  .inv-bar-wrap{width:90px}
+  .inv-bar{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
+  .inv-bar-fill{height:100%;border-radius:3px}
+  .fill-good{background:linear-gradient(90deg,#3a8060,var(--green))}
+  .fill-warn{background:linear-gradient(90deg,#a8702c,var(--orange))}
+  .fill-low{background:linear-gradient(90deg,#7c2a2a,var(--red))}
+
+  /* AI suggestions */
+  .ai-card{padding:22px;position:relative;overflow:hidden}
+  .ai-card::after{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at 100% 0%,rgba(212,165,116,0.18),transparent 50%);
+    pointer-events:none;
+  }
+  .ai-card > *{position:relative}
+  .ai-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .ai-pulse{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--gold);
+    box-shadow:0 0 14px var(--gold);
+    animation:pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.4)}}
+  .ai-suggest{
+    padding:14px;border-radius:14px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border);
+    margin-bottom:10px;
+    transition:background .15s, border-color .15s;
+  }
+  .ai-suggest:hover{background:rgba(255,255,255,0.07);border-color:var(--glass-border-bright)}
+  .ai-suggest-text{font-size:13px;line-height:1.5}
+  .ai-suggest-text strong{color:var(--gold-light);font-weight:600}
+  .ai-actions{display:flex;gap:8px;margin-top:10px}
+  .ai-btn{
+    padding:6px 12px;border-radius:100px;
+    font-size:12px;font-weight:600;
+    cursor:pointer;border:none;font-family:inherit;
+    transition:transform .15s;
+  }
+  .ai-btn:hover{transform:translateY(-1px)}
+  .ai-btn-ok{background:#fff;color:#0a0a0f}
+  .ai-btn-skip{background:transparent;color:var(--text-dim);border:1px solid var(--glass-border)}
+
+  /* Activity */
+  .activity-row{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid var(--glass-border);
+  }
+  .activity-row:last-child{border-bottom:none}
+  .activity-icon{
+    width:30px;height:30px;border-radius:10px;
+    flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);
+  }
+  .activity-text{font-size:13px;line-height:1.5}
+  .activity-text strong{font-weight:600}
+  .activity-time{font-size:11px;color:var(--text-faint);margin-top:2px}
+
+  /* Quick actions */
+  .quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .quick-btn{
+    padding:18px;border-radius:14px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border);
+    color:var(--text);
+    text-align:left;
+    cursor:pointer;font-family:inherit;
+    transition:transform .15s, background .15s, border-color .15s;
+  }
+  .quick-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.08);border-color:var(--glass-border-bright)}
+  .quick-emoji{font-size:24px;margin-bottom:8px;display:block}
+  .quick-label{font-size:13px;font-weight:600}
+  .quick-sub{font-size:11px;color:var(--text-faint);margin-top:2px}
+
+  /* Voice button - floating */
+  .voice-fab{
+    position:fixed;bottom:24px;right:24px;
+    width:60px;height:60px;border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),var(--gold-light));
+    border:none;cursor:pointer;
+    color:#0a0a0f;font-size:24px;
+    box-shadow:0 8px 24px rgba(212,165,116,0.4),0 1px 0 0 rgba(255,255,255,0.4) inset;
+    transition:transform .2s;
+    z-index:50;
+  }
+  .voice-fab:hover{transform:scale(1.08)}
+  .voice-fab:active{transform:scale(0.95)}
+  .voice-fab::before{
+    content:"";position:absolute;inset:-6px;border-radius:50%;
+    border:2px solid var(--gold);
+    opacity:0;animation:ping 2s ease-out infinite;
+  }
+  @keyframes ping{0%{opacity:0.6;transform:scale(0.95)}100%{opacity:0;transform:scale(1.4)}}
+
+  @media (max-width:1100px){
+    .grid-2{grid-template-columns:1fr}
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
+    aside{grid-row:auto;flex-direction:row;gap:14px;align-items:center;padding:12px 16px;overflow-x:auto}
+    aside .brand{border:none;padding:0;margin:0}
+    aside .nav-section,aside .sidebar-footer{display:none}
+    aside .nav-item{padding:8px 14px;white-space:nowrap}
+    .grid-2-alt{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-canvas">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+</div>
+<div class="noise"></div>
+
+<div class="app">
+
+  <aside class="glass">
+    <div class="brand">
+      <div class="brand-logo">TC</div>
+      <div class="brand-name">The <span>Chef</span></div>
+    </div>
+
+    <div class="nav-section">Übersicht</div>
+    <a class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+      Lager
+      <span class="nav-badge">3</span>
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 4.6c-.4.7.1 1.4.9 1.4H17"/><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
+      Bestellungen
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+      Rezepte
+    </a>
+
+    <div class="nav-section">Betrieb</div>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Personal
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      HACCP
+    </a>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Auswertungen
+    </a>
+
+    <div class="nav-section">Account</div>
+    <a class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Einstellungen
+    </a>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="avatar">IK</div>
+        <div class="user-info">
+          <div class="user-name">Ibrahim K.</div>
+          <div class="user-role">Inhaber · Kiekmolin</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <header class="glass">
+    <div class="greet">
+      <h1 id="greeting">Moin, Ibrahim 👋</h1>
+      <p id="dateline"></p>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" title="Suchen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" title="Benachrichtigungen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="dot"></span>
+      </button>
+      <button class="btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Beleg scannen
+      </button>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="kpi-grid">
+      <div class="kpi glass">
+        <div class="kpi-head">
+          <div class="kpi-label">Marge heute</div>
+          <div class="kpi-icon">📈</div>
+        </div>
+        <div class="kpi-value">62,4%</div>
+        <div class="kpi-trend trend-up">↑ +5,1% vs. gestern</div>
+      </div>
+      <div class="kpi glass">
+        <div class="kpi-head">
+          <div class="kpi-label">Umsatz heute</div>
+          <div class="kpi-icon">💰</div>
+        </div>
+        <div class="kpi-value">€ 1.847</div>
+        <div class="kpi-trend trend-up">↑ +12% vs. Mittel</div>
+      </div>
+      <div class="kpi glass">
+        <div class="kpi-head">
+          <div class="kpi-label">Lager</div>
+          <div class="kpi-icon">📦</div>
+        </div>
+        <div class="kpi-value">87%</div>
+        <div class="kpi-trend trend-neutral">3 Artikel niedrig</div>
+      </div>
+      <div class="kpi glass">
+        <div class="kpi-head">
+          <div class="kpi-label">Verschwendung</div>
+          <div class="kpi-icon">♻️</div>
+        </div>
+        <div class="kpi-value">2,1%</div>
+        <div class="kpi-trend trend-up">↓ −0,8% vs. Vormonat</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+
+      <div class="card glass">
+        <div class="card-head">
+          <div class="card-title">Warenbestand</div>
+          <a class="card-link" href="#">Alle ansehen →</a>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🍅</div>
+          <div>
+            <div class="inv-name">Tomaten (frisch)</div>
+            <div class="inv-meta">Kühlhaus 1 · Läuft ab in 3 Tagen</div>
+          </div>
+          <div class="inv-amount">12,4 kg</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:78%"></div></div></div>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🥔</div>
+          <div>
+            <div class="inv-name">Pommes Frites</div>
+            <div class="inv-meta">Tiefkühl · Reicht für ~2 Tage</div>
+          </div>
+          <div class="inv-amount">3,8 kg</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:18%"></div></div></div>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🧀</div>
+          <div>
+            <div class="inv-name">Mozzarella</div>
+            <div class="inv-meta">Kühlhaus 2 · Reicht für ~5 Tage</div>
+          </div>
+          <div class="inv-amount">7,2 kg</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:42%"></div></div></div>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🐟</div>
+          <div>
+            <div class="inv-name">Lachsfilet</div>
+            <div class="inv-meta">Frischfisch · Heute frisch geliefert</div>
+          </div>
+          <div class="inv-amount">5,6 kg</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-good" style="width:92%"></div></div></div>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🥩</div>
+          <div>
+            <div class="inv-name">Rinderhack</div>
+            <div class="inv-meta">Kühlhaus 1 · Reicht für ~1 Tag</div>
+          </div>
+          <div class="inv-amount">1,2 kg</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:12%"></div></div></div>
+        </div>
+
+        <div class="inv-row">
+          <div class="inv-emoji">🥛</div>
+          <div>
+            <div class="inv-name">Sahne</div>
+            <div class="inv-meta">Kühlhaus 2 · Reicht für ~4 Tage</div>
+          </div>
+          <div class="inv-amount">4,5 L</div>
+          <div class="inv-bar-wrap"><div class="inv-bar"><div class="inv-bar-fill fill-warn" style="width:38%"></div></div></div>
+        </div>
+      </div>
+
+      <div class="ai-card glass">
+        <div class="ai-head">
+          <div class="ai-pulse"></div>
+          <div class="card-title">KI-Vorschläge</div>
+        </div>
+
+        <div class="ai-suggest">
+          <div class="ai-suggest-text">
+            Bestand niedrig: <strong>Pommes Frites</strong> & <strong>Rinderhack</strong> reichen nicht bis zum Wochenende. Soll ich eine Bestellung bei <strong>Frostkönig</strong> vorbereiten?
+          </div>
+          <div class="ai-actions">
+            <button class="ai-btn ai-btn-ok">Bestellung anlegen</button>
+            <button class="ai-btn ai-btn-skip">Später</button>
+          </div>
+        </div>
+
+        <div class="ai-suggest">
+          <div class="ai-suggest-text">
+            <strong>Tomaten</strong> laufen in 3 Tagen ab. Vorschlag fürs Wochenende: <strong>Tomatensuppe als Tagesangebot</strong> – bringt geschätzt €180 Umsatz.
+          </div>
+          <div class="ai-actions">
+            <button class="ai-btn ai-btn-ok">Auf Tageskarte</button>
+            <button class="ai-btn ai-btn-skip">Verwerfen</button>
+          </div>
+        </div>
+
+        <div class="ai-suggest">
+          <div class="ai-suggest-text">
+            Wetter Samstag: 22° und sonnig. Erfahrung sagt: <strong>+30% Gäste</strong>. Empfehlung: <strong>1 Person mehr</strong> in der Mittagsschicht.
+          </div>
+          <div class="ai-actions">
+            <button class="ai-btn ai-btn-ok">Schicht planen</button>
+            <button class="ai-btn ai-btn-skip">Später</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="grid-2-alt">
+
+      <div class="card glass">
+        <div class="card-head">
+          <div class="card-title">Aktivität heute</div>
+          <a class="card-link" href="#">Verlauf →</a>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">📸</div>
+          <div>
+            <div class="activity-text"><strong>Lieferschein</strong> von Metro gescannt – 14 Artikel ins Lager gebucht</div>
+            <div class="activity-time">vor 12 Min</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon">🍽️</div>
+          <div>
+            <div class="activity-text">Verkauf: <strong>3× Schnitzel mit Pommes</strong> – Zutaten automatisch abgezogen</div>
+            <div class="activity-time">vor 28 Min</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon">🛡️</div>
+          <div>
+            <div class="activity-text"><strong>HACCP-Check Kühlhaus 1</strong>: Temperatur 4,2°C – OK</div>
+            <div class="activity-time">vor 1 Std</div>
+          </div>
+        </div>
+        <div class="activity-row">
+          <div class="activity-icon">⚠️</div>
+          <div>
+            <div class="activity-text"><strong>Warnung</strong>: Rinderhack-Bestand kritisch (1,2 kg)</div>
+            <div class="activity-time">vor 2 Std</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card glass">
+        <div class="card-head">
+          <div class="card-title">Schnellaktionen</div>
+        </div>
+        <div class="quick-grid">
+          <button class="quick-btn">
+            <span class="quick-emoji">📸</span>
+            <div class="quick-label">Beleg scannen</div>
+            <div class="quick-sub">Lieferschein → Lager</div>
+          </button>
+          <button class="quick-btn">
+            <span class="quick-emoji">🎙️</span>
+            <div class="quick-label">Voice-Befehl</div>
+            <div class="quick-sub">"Hey Chef, …"</div>
+          </button>
+          <button class="quick-btn">
+            <span class="quick-emoji">📅</span>
+            <div class="quick-label">Tageskarte</div>
+            <div class="quick-sub">KI-Vorschlag annehmen</div>
+          </button>
+          <button class="quick-btn">
+            <span class="quick-emoji">🛡️</span>
+            <div class="quick-label">HACCP-Check</div>
+            <div class="quick-sub">Temperaturen erfassen</div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+<button class="voice-fab" title="Voice-Assistent" id="voiceFab">🎙️</button>
+
+<script>
+  // Greeting based on time
+  const h = new Date().getHours();
+  let greet = 'Moin';
+  if (h >= 11 && h < 18) greet = 'Mahlzeit';
+  if (h >= 18) greet = 'N\'Abend';
+  document.getElementById('greeting').textContent = greet + ', Ibrahim 👋';
+
+  const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const d = new Date();
+  document.getElementById('dateline').textContent =
+    days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()] + ' · Service läuft';
+
+  // Voice fab demo
+  document.getElementById('voiceFab').addEventListener('click',()=>{
+    alert('🎙️ Voice-Assistent\n\nIn der echten App: "Hey Chef, wie viele Pommes haben wir noch?"\n→ Antwort: "3,8 kg – das reicht noch für etwa 2 Tage."');
+  });
+
+  // Quick action demos
+  document.querySelectorAll('.quick-btn, .ai-btn-ok, .btn-primary').forEach(b=>{
+    b.addEventListener('click',()=>{
+      b.style.transform = 'scale(0.96)';
+      setTimeout(()=>b.style.transform='',150);
+    });
+  });
+</script>
+
+</body>
+</html>
