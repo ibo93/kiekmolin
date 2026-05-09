@@ -4768,6 +4768,9 @@
                 <p style="font-size: 12px; color: var(--success); margin-top: 4px;" id="connectionStatus">• Mit Supabase verbunden</p>
             </div>
             <div class="dash-actions">
+                <select id="restaurantPicker" class="dash-btn dash-btn-secondary" onchange="setActiveRestaurant(this.value)" title="Aktives Restaurant" style="padding: 8px 12px; max-width: 220px; cursor: pointer;">
+                    <option value="">Alle Restaurants</option>
+                </select>
                 <button class="dash-btn dash-btn-secondary" onclick="refreshData()" title="Daten neu laden">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
@@ -7257,6 +7260,83 @@ async function directSupabaseCall(action, table, options = {}) {
 let useSupabase = false;
 let currentAdmin = null;
 
+// Aktives Restaurant für das Dashboard (Picker-Auswahl).
+// null = "Alle Restaurants" (Super-Admin-Sicht). Sonst: Gastronom sieht nur dieses Restaurant.
+window.currentRestaurantId = localStorage.getItem('kmi_active_restaurant') || null;
+
+// Filtert eine Liste von Items nach dem aktiven Restaurant.
+// Erkennt sowohl camelCase (restaurantId) als auch snake_case (restaurant_id).
+// Wenn kein Restaurant gewählt ist, wird die Liste unverändert zurückgegeben.
+function filterByActiveRestaurant(items) {
+    if (!Array.isArray(items)) return [];
+    const id = window.currentRestaurantId;
+    if (!id) return items;
+    return items.filter(it => String(it.restaurantId ?? it.restaurant_id) === String(id));
+}
+
+function renderRestaurantPicker() {
+    const select = document.getElementById('restaurantPicker');
+    if (!select) return;
+    const restaurants = (APP_DATA && APP_DATA.restaurants) || [];
+    const current = window.currentRestaurantId;
+    let html = '<option value="">Alle Restaurants</option>';
+    restaurants.forEach(r => {
+        const sel = (String(r.id) === String(current)) ? ' selected' : '';
+        html += `<option value="${r.id}"${sel}>${r.name || 'Restaurant ' + r.id}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+async function setActiveRestaurant(id) {
+    window.currentRestaurantId = id || null;
+    if (id) {
+        localStorage.setItem('kmi_active_restaurant', id);
+    } else {
+        localStorage.removeItem('kmi_active_restaurant');
+    }
+    // Reservierungen für das gewählte Restaurant neu laden, dann Views neu rendern
+    if (typeof reloadReservationsForActiveRestaurant === 'function') {
+        await reloadReservationsForActiveRestaurant();
+    }
+    if (typeof renderReservations === 'function') renderReservations();
+    if (typeof renderReservationsPreview === 'function') renderReservationsPreview();
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    if (typeof renderRestaurantsDash === 'function') renderRestaurantsDash();
+}
+
+// Reservierungen aus Supabase neu laden – gefiltert nach aktivem Restaurant.
+async function reloadReservationsForActiveRestaurant() {
+    if (!useSupabase) return;
+    try {
+        const restaurantFilter = window.currentRestaurantId
+            ? `&restaurant_id=eq.${window.currentRestaurantId}`
+            : '';
+        const url = `${SUPABASE_URL}/rest/v1/reservations?select=*&reservation_date=eq.${TODAY}${restaurantFilter}`;
+        const response = await fetch(url, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        const reservations = await response.json();
+        if (Array.isArray(reservations)) {
+            APP_DATA.reservations = reservations.map(r => ({
+                id: r.id,
+                restaurantId: r.restaurant_id,
+                restaurantName: APP_DATA.restaurants.find(rest => rest.id === r.restaurant_id)?.name || '',
+                guestName: r.guest_name,
+                guestPhone: r.guest_phone || '',
+                date: r.reservation_date,
+                time: r.reservation_time,
+                partySize: r.party_size,
+                notes: r.notes || '',
+                status: r.status,
+                source: r.source || 'app'
+            }));
+            saveData();
+        }
+    } catch (e) {
+        console.error('Reservierungen neu laden fehlgeschlagen:', e);
+    }
+}
+
 // Session ID für Presence Tracking
 const SESSION_ID = localStorage.getItem('kmi_session_id') || (() => {
     const id = 'sess_' + Math.random().toString(36).substr(2, 9);
@@ -7866,8 +7946,11 @@ async function loadFromSupabase() {
             });
         }
         
-        // Reservierungen laden
-        const reservations = await supabaseGet('reservations', `select=*&reservation_date=eq.${TODAY}`);
+        // Reservierungen laden – wenn ein aktives Restaurant gewählt ist, nur dessen Reservierungen
+        const reservationFilter = window.currentRestaurantId
+            ? `select=*&reservation_date=eq.${TODAY}&restaurant_id=eq.${window.currentRestaurantId}`
+            : `select=*&reservation_date=eq.${TODAY}`;
+        const reservations = await supabaseGet('reservations', reservationFilter);
         if (reservations && reservations.length > 0) {
             APP_DATA.reservations = reservations.map(r => ({
                 id: r.id,
@@ -9164,7 +9247,7 @@ function renderRestaurantsDash() {
     let html = '<table class="dash-table"><thead><tr><th>Restaurant</th><th>Ort</th><th>Küche</th><th>Tische</th><th>Bewertung</th><th>Reserv. heute</th><th>Aktionen</th></tr></thead><tbody>';
     
     restaurants.forEach(r => {
-        const todayRes = (APP_DATA.reservations || []).filter(res => res.restaurant_id === r.id && res.date === new Date().toISOString().split('T')[0]).length;
+        const todayRes = (APP_DATA.reservations || []).filter(res => String(res.restaurantId) === String(r.id) && res.date === new Date().toISOString().split('T')[0]).length;
         
         html += `
             <tr>
@@ -9205,7 +9288,7 @@ function viewRestaurantReservations(restaurantId) {
     const restaurant = APP_DATA.restaurants.find(r => r.id === restaurantId);
     if (!restaurant) return;
     
-    const reservations = (APP_DATA.reservations || []).filter(r => r.restaurant_id === restaurantId);
+    const reservations = (APP_DATA.reservations || []).filter(r => String(r.restaurantId) === String(restaurantId));
     
     let html = `
         <div style="padding: 20px;">
@@ -9687,9 +9770,12 @@ function updateDashboard() {
     // Update date
     const currentDate = document.getElementById('currentDate');
     if (currentDate) currentDate.textContent = formatDate(new Date());
-    
-    // Update reservations count
-    const todayReservations = APP_DATA.reservations.filter(r => r.date === TODAY);
+
+    // Restaurant-Picker mit aktuellen Restaurants füllen (Auswahl bleibt erhalten)
+    if (typeof renderRestaurantPicker === 'function') renderRestaurantPicker();
+
+    // Update reservations count – nach aktivem Restaurant gefiltert
+    const todayReservations = filterByActiveRestaurant(APP_DATA.reservations).filter(r => r.date === TODAY);
     const dashReservationsToday = document.getElementById('dashReservationsToday');
     if (dashReservationsToday) {
         dashReservationsToday.textContent = todayReservations.length;
@@ -9764,22 +9850,26 @@ async function loadDashboardStats() {
         const statTotalRestaurants = document.getElementById('statTotalRestaurants');
         if (statTotalRestaurants) statTotalRestaurants.textContent = restaurants.length;
         
-        // Heutige Reservierungen
+        // Heutige Reservierungen – Spalten in Supabase heißen reservation_date / party_size,
+        // bei aktivem Restaurant zusätzlich nach restaurant_id filtern
         const today = new Date().toISOString().split('T')[0];
-        const resResponse = await fetch(`${SUPABASE_URL}/rest/v1/reservations?select=id,guests&date=eq.${today}`, {
+        const restaurantStatsFilter = window.currentRestaurantId
+            ? `&restaurant_id=eq.${window.currentRestaurantId}`
+            : '';
+        const resResponse = await fetch(`${SUPABASE_URL}/rest/v1/reservations?select=id,party_size&reservation_date=eq.${today}${restaurantStatsFilter}`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         const todayRes = await resResponse.json();
-        
+
         const dashReservationsToday = document.getElementById('dashReservationsToday');
         if (dashReservationsToday) dashReservationsToday.textContent = todayRes.length;
-        
+
         const reservationCount = document.getElementById('reservationCount');
         if (reservationCount) reservationCount.textContent = todayRes.length;
-        
+
         const dashGuestsToday = document.getElementById('dashGuestsToday');
         if (dashGuestsToday) {
-            const totalGuests = todayRes.reduce((sum, r) => sum + (r.guests || 2), 0);
+            const totalGuests = todayRes.reduce((sum, r) => sum + (r.party_size || 2), 0);
             dashGuestsToday.textContent = totalGuests;
         }
         
@@ -9878,17 +9968,34 @@ async function loadDashboardStats() {
 
 // Auto-Refresh: Dashboard alle 30 Sekunden aktualisieren
 setInterval(() => {
-    if (document.getElementById('dashboardView')?.classList.contains('active') || 
+    if (document.getElementById('dashboardView')?.classList.contains('active') ||
         document.querySelector('.dash-section.active')) {
         loadDashboardStats();
     }
 }, 30000);
 
+// Live-Polling: Reservierungen des aktiven Restaurants alle 15 Sekunden neu laden,
+// damit eingehende Online-Reservierungen ohne Reload sichtbar werden.
+setInterval(async () => {
+    const dashboardActive = document.getElementById('dashboardView')?.classList.contains('active') ||
+        document.querySelector('.dash-section.active');
+    if (!dashboardActive) return;
+    if (typeof reloadReservationsForActiveRestaurant !== 'function') return;
+    const before = (APP_DATA.reservations || []).length;
+    await reloadReservationsForActiveRestaurant();
+    const after = (APP_DATA.reservations || []).length;
+    renderReservations();
+    renderReservationsPreview();
+    if (after > before && typeof showToast === 'function') {
+        showToast('Neue Reservierung eingegangen!', 'success');
+    }
+}, 15000);
+
 function renderReservationsPreview() {
     const container = document.getElementById('reservationsPreview');
     if (!container) return;
-    
-    const todayReservations = APP_DATA.reservations.filter(r => r.date === TODAY);
+
+    const todayReservations = filterByActiveRestaurant(APP_DATA.reservations).filter(r => r.date === TODAY);
     
     if (todayReservations.length === 0) {
         container.innerHTML = '<p style="color: var(--slate); text-align: center; padding: 20px;">Keine Reservierungen</p>';
@@ -10033,8 +10140,8 @@ function cycleTableStatus(tableId) {
 function renderReservations() {
     const container = document.getElementById('reservationsList');
     if (!container) return;
-    
-    const todayReservations = APP_DATA.reservations.filter(r => r.date === TODAY);
+
+    const todayReservations = filterByActiveRestaurant(APP_DATA.reservations).filter(r => r.date === TODAY);
     
     // Update stats
     const dashReservationsToday = document.getElementById('dashReservationsToday');
