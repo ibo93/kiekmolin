@@ -3387,6 +3387,19 @@
     </div>
 </div>
 
+<!-- My Reservations Modal (Kundenansicht) -->
+<div class="modal-overlay" id="myReservationsModal">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Meine Reservierungen</h2>
+            <button class="modal-close" onclick="closeModal('myReservationsModal')">×</button>
+        </div>
+        <div class="modal-body" id="myReservationsContent">
+            <!-- Wird dynamisch gefüllt -->
+        </div>
+    </div>
+</div>
+
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profileModal">
     <div class="modal" style="max-width: 380px;">
@@ -7793,24 +7806,178 @@ async function initSupabase() {
         // UI aktualisieren
         renderRestaurants();
         if (typeof updateMapMarkers === 'function') updateMapMarkers();
-        
+
         // Orte aus den Daten laden
         setTimeout(() => {
             loadLocations();
             loadCustomLocations();
             updateLiveStats();
         }, 500);
-        
+
+        // Reservierungen, Tische und Angebote direkt mitladen (damit Dashboard + Kunden-Meine-Buchungen sofort funktionieren)
+        loadReservationsAndOffers().catch(e => console.warn('Reservierungen/Offers Fehler:', e));
+
+        // Realtime-Updates abonnieren (Reservierungs-Status-Änderungen)
+        if (typeof subscribeReservationRealtime === 'function') {
+            try { subscribeReservationRealtime(); } catch (e) { console.warn('Realtime Fehler:', e); }
+        }
+
         showToast(`${APP_DATA.restaurants.length} Restaurants geladen!`, 'success');
-        
+
     } catch (e) {
         console.error('[!] Supabase Fehler:', e.message);
         useSupabase = false;
-        
+
         if (statusEl) {
             statusEl.innerHTML = '○ Offline-Modus';
             statusEl.style.color = 'var(--warning)';
         }
+    }
+}
+
+async function loadReservationsAndOffers() {
+    if (!useSupabase) return;
+
+    // Tische laden (für freie-Tische-Anzeige)
+    try {
+        const tables = await supabaseGet('tables', 'select=*');
+        if (tables && Array.isArray(tables)) {
+            APP_DATA.tables = tables;
+            APP_DATA.restaurants.forEach(r => {
+                const restaurantTables = tables.filter(t => t.restaurant_id === r.id);
+                const free = restaurantTables.filter(t => t.status === 'free').length;
+                if (restaurantTables.length > 0) r.freeTables = free;
+            });
+        }
+    } catch (e) { console.warn('Tische laden Fehler:', e); }
+
+    // Reservierungen (für heute + zukunft) laden
+    try {
+        const reservations = await supabaseGet('reservations', `select=*&reservation_date=gte.${TODAY}&order=reservation_date.asc,reservation_time.asc`);
+        if (reservations && Array.isArray(reservations)) {
+            APP_DATA.reservations = reservations.map(r => ({
+                id: r.id,
+                restaurantId: r.restaurant_id,
+                restaurantName: APP_DATA.restaurants.find(rest => rest.id === r.restaurant_id)?.name || '',
+                guestName: r.guest_name || '',
+                guestPhone: r.guest_phone || '',
+                guestEmail: r.guest_email || '',
+                date: r.reservation_date,
+                time: r.reservation_time,
+                partySize: r.party_size,
+                notes: r.notes || '',
+                status: r.status || 'pending',
+                source: r.source || 'app',
+                createdAt: r.created_at
+            }));
+        }
+    } catch (e) { console.warn('Reservierungen laden Fehler:', e); }
+
+    // Angebote laden
+    try {
+        const offers = await supabaseGet('offers', 'select=*&is_active=eq.true');
+        if (offers && Array.isArray(offers)) {
+            APP_DATA.offers = offers.map(o => ({
+                id: o.id,
+                restaurantId: o.restaurant_id,
+                title: o.title,
+                discount: o.discount,
+                validUntil: o.valid_until ? new Date(o.valid_until).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : '20:00',
+                description: o.description || ''
+            }));
+            APP_DATA.restaurants.forEach(r => {
+                const offer = offers.find(o => o.restaurant_id === r.id);
+                if (offer) r.offer = { title: offer.title, discount: offer.discount, price: '' };
+            });
+        }
+    } catch (e) { console.warn('Offers laden Fehler:', e); }
+
+    // UI aktualisieren
+    renderRestaurants();
+    updateDashboard();
+    if (document.getElementById('sectionReservations')?.classList.contains('active')) {
+        renderReservations();
+    }
+    if (document.getElementById('reservationsPreview')) {
+        renderReservationsPreview();
+    }
+    if (document.getElementById('activeOffersList')) {
+        renderActiveOffers();
+    }
+
+    console.log('[OK] Reservierungen/Offers/Tische geladen:',
+        APP_DATA.reservations.length, 'Reservierungen,',
+        APP_DATA.offers.length, 'Offers');
+}
+
+// Realtime-Subscription für Reservierungs-Änderungen (Kunde sieht sofort "bestätigt")
+let reservationsChannelSub = null;
+function subscribeReservationRealtime() {
+    if (!window.supabase || !SUPABASE_URL || reservationsChannelSub) return;
+    try {
+        if (!window.__kmiRtClient) {
+            window.__kmiRtClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+        reservationsChannelSub = window.__kmiRtClient
+            .channel('kmi-reservations')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, payload => {
+                handleReservationRealtime(payload);
+            })
+            .subscribe();
+        console.log('[OK] Reservierungs-Realtime abonniert');
+    } catch (e) {
+        console.warn('Realtime subscribe Fehler:', e);
+    }
+}
+
+function handleReservationRealtime(payload) {
+    const row = payload.new || payload.old;
+    if (!row) return;
+
+    // Lokale Reservierung aktualisieren
+    if (payload.eventType === 'UPDATE' && payload.new) {
+        const existing = APP_DATA.reservations.find(r => r.id == payload.new.id);
+        if (existing) {
+            const oldStatus = existing.status;
+            existing.status = payload.new.status;
+            existing.notes = payload.new.notes || existing.notes;
+
+            // Benachrichtigung für den Kunden dieser Reservierung
+            const myEmail = currentUser?.email;
+            if (myEmail && payload.new.guest_email === myEmail && oldStatus !== payload.new.status) {
+                if (payload.new.status === 'confirmed') {
+                    showToast(`✓ Deine Reservierung um ${payload.new.reservation_time} wurde bestätigt!`, 'success');
+                    addNotification?.('Reservierung bestätigt', `${existing.restaurantName} • ${payload.new.reservation_time} Uhr`);
+                } else if (payload.new.status === 'cancelled') {
+                    showToast(`Reservierung um ${payload.new.reservation_time} wurde storniert`, 'error');
+                    addNotification?.('Reservierung storniert', `${existing.restaurantName} • ${payload.new.reservation_time} Uhr`);
+                }
+            }
+        }
+    } else if (payload.eventType === 'INSERT' && payload.new) {
+        APP_DATA.reservations.push({
+            id: payload.new.id,
+            restaurantId: payload.new.restaurant_id,
+            restaurantName: APP_DATA.restaurants.find(r => r.id === payload.new.restaurant_id)?.name || '',
+            guestName: payload.new.guest_name,
+            guestPhone: payload.new.guest_phone || '',
+            guestEmail: payload.new.guest_email || '',
+            date: payload.new.reservation_date,
+            time: payload.new.reservation_time,
+            partySize: payload.new.party_size,
+            notes: payload.new.notes || '',
+            status: payload.new.status || 'pending',
+            source: payload.new.source || 'app'
+        });
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+        APP_DATA.reservations = APP_DATA.reservations.filter(r => r.id != payload.old.id);
+    }
+
+    saveData();
+    renderReservations?.();
+    renderReservationsPreview?.();
+    if (document.getElementById('myReservationsModal')?.classList.contains('active')) {
+        renderMyReservationsList();
     }
 }
 
@@ -7918,23 +8085,40 @@ async function loadFromSupabase() {
 }
 
 async function saveReservationToSupabase(reservation) {
-    if (!useSupabase) return;
-    
+    if (!useSupabase) return null;
+
     try {
-        await supabasePost('reservations', {
-            restaurant_id: reservation.restaurantId,
-            guest_name: reservation.guestName,
-            guest_phone: reservation.guestPhone,
-            party_size: parseInt(reservation.partySize),
-            reservation_date: reservation.date,
-            reservation_time: reservation.time,
-            status: 'pending',
-            source: 'app',
-            notes: reservation.notes || ''
+        // Direct fetch mit return=representation um die echte DB-ID zu bekommen
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/reservations`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                restaurant_id: reservation.restaurantId,
+                guest_name: reservation.guestName,
+                guest_phone: reservation.guestPhone,
+                guest_email: reservation.guestEmail || null,
+                party_size: parseInt(reservation.partySize),
+                reservation_date: reservation.date,
+                reservation_time: reservation.time,
+                status: 'pending',
+                source: 'app',
+                notes: reservation.notes || ''
+            })
         });
-        console.log('[OK] Reservierung gespeichert');
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const rows = await response.json();
+        const dbId = Array.isArray(rows) && rows[0] ? rows[0].id : null;
+        console.log('[OK] Reservierung gespeichert, id=', dbId);
+        return dbId;
     } catch (e) {
         console.error('Speichern fehlgeschlagen:', e);
+        // Nicht-kritisch: guest_email-Spalte existiert evtl. noch nicht in der DB
+        return null;
     }
 }
 
@@ -7995,12 +8179,25 @@ function saveData() {
 
 function showToast(message, type = 'default') {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
+
+// HTML-Escaping für benutzergenerierte Inhalte (Restaurant-Namen, Gast-Namen, Notizen …)
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+const esc = escapeHtml;
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -8809,32 +9006,55 @@ function openReservation(restaurantId) {
     const reservationRestaurantId = document.getElementById('reservationRestaurantId');
     const reservationRestaurantName = document.getElementById('reservationRestaurantName');
     const reservationDate = document.getElementById('reservationDate');
-    
+    const guestNameInput = document.getElementById('guestName');
+    const guestPhoneInput = document.getElementById('guestPhone');
+
     if (reservationRestaurantId) reservationRestaurantId.value = restaurantId;
-    if (reservationRestaurantName) reservationRestaurantName.textContent = restaurant.name;
-    
+    // textContent ist schon XSS-sicher, aber nochmal explizit:
+    if (reservationRestaurantName) reservationRestaurantName.textContent = restaurant.name || '';
+
+    // Vorausgefüllte Nutzer-Daten wenn eingeloggt
+    if (currentUser) {
+        if (guestNameInput && !guestNameInput.value) guestNameInput.value = currentUser.name || '';
+        if (guestPhoneInput && !guestPhoneInput.value && currentUser.phone) guestPhoneInput.value = currentUser.phone;
+    } else {
+        // Fallback: letzten genutzten Namen aus localStorage
+        const savedGuestName = localStorage.getItem('kmi_guest_name');
+        const savedGuestPhone = localStorage.getItem('kmi_guest_phone');
+        if (guestNameInput && !guestNameInput.value && savedGuestName) guestNameInput.value = savedGuestName;
+        if (guestPhoneInput && !guestPhoneInput.value && savedGuestPhone) guestPhoneInput.value = savedGuestPhone;
+    }
+
     // Set default date to today
     const today = new Date().toISOString().split('T')[0];
     if (reservationDate) {
         reservationDate.value = today;
         reservationDate.min = today;
     }
-    
+
     openModal('reservationModal');
 }
 
 function submitReservation(e) {
     e.preventDefault();
-    
+
     const restaurantId = document.getElementById('reservationRestaurantId').value;
     const restaurant = APP_DATA.restaurants.find(r => r.id == restaurantId);
-    
+
+    const guestName = document.getElementById('guestName').value.trim();
+    const guestPhone = document.getElementById('guestPhone').value.trim();
+
+    // Für spätere Reservierungen merken
+    if (guestName) localStorage.setItem('kmi_guest_name', guestName);
+    if (guestPhone) localStorage.setItem('kmi_guest_phone', guestPhone);
+
     const reservation = {
         id: Date.now(),
         restaurantId: restaurantId,
         restaurantName: restaurant?.name || 'Restaurant',
-        guestName: document.getElementById('guestName').value,
-        guestPhone: document.getElementById('guestPhone').value,
+        guestName: guestName,
+        guestPhone: guestPhone,
+        guestEmail: currentUser?.email || '',
         date: document.getElementById('reservationDate').value,
         time: document.getElementById('reservationTime').value,
         partySize: document.getElementById('partySize').value,
@@ -8843,12 +9063,17 @@ function submitReservation(e) {
         source: 'app',
         createdAt: new Date().toISOString()
     };
-    
+
     APP_DATA.reservations.push(reservation);
     saveData();
-    
-    // In Supabase speichern
-    saveReservationToSupabase(reservation);
+
+    // In Supabase speichern (mit Rückgabe der echten DB-ID)
+    saveReservationToSupabase(reservation).then(dbId => {
+        if (dbId) {
+            reservation.id = dbId;
+            saveData();
+        }
+    });
     
     closeModal('reservationModal');
     document.getElementById('reservationForm').reset();
@@ -9887,38 +10112,38 @@ setInterval(() => {
 function renderReservationsPreview() {
     const container = document.getElementById('reservationsPreview');
     if (!container) return;
-    
+
     const todayReservations = APP_DATA.reservations.filter(r => r.date === TODAY);
-    
+
     if (todayReservations.length === 0) {
         container.innerHTML = '<p style="color: var(--slate); text-align: center; padding: 20px;">Keine Reservierungen</p>';
         return;
     }
-    
+
     // Show only first 3
     let html = '';
-    todayReservations.sort((a, b) => a.time.localeCompare(b.time)).slice(0, 3).forEach(r => {
+    todayReservations.sort((a, b) => (a.time || '').localeCompare(b.time || '')).slice(0, 3).forEach(r => {
         const statusClass = r.status === 'confirmed' ? 'confirmed' : r.status === 'cancelled' ? 'cancelled' : 'pending';
         const statusText = r.status === 'confirmed' ? 'Bestätigt' : r.status === 'cancelled' ? 'Storniert' : 'Ausstehend';
-        
+
         html += `
             <div class="reservation-item">
                 <div class="reservation-time">
-                    <div class="reservation-time-value">${r.time}</div>
+                    <div class="reservation-time-value">${esc(r.time || '')}</div>
                 </div>
                 <div class="reservation-info">
-                    <div class="reservation-name">${r.guestName}</div>
-                    <div class="reservation-details">${r.partySize} Pers.</div>
+                    <div class="reservation-name">${esc(r.guestName || 'Gast')}</div>
+                    <div class="reservation-details">${esc(String(r.partySize || 0))} Pers.</div>
                 </div>
                 <span class="reservation-status ${statusClass}">${statusText}</span>
             </div>
         `;
     });
-    
+
     if (todayReservations.length > 3) {
         html += `<p style="text-align: center; color: var(--primary); font-weight: 600; margin-top: 12px;">+${todayReservations.length - 3} weitere</p>`;
     }
-    
+
     container.innerHTML = html;
 }
 
@@ -10048,13 +10273,13 @@ function renderReservations() {
     }
     
     let html = '';
-    todayReservations.sort((a, b) => a.time.localeCompare(b.time)).forEach(r => {
+    todayReservations.sort((a, b) => (a.time || '').localeCompare(b.time || '')).forEach(r => {
         const statusClass = r.status === 'confirmed' ? 'confirmed' : r.status === 'cancelled' ? 'cancelled' : 'pending';
         const statusText = r.status === 'confirmed' ? 'Bestätigt' : r.status === 'cancelled' ? 'Storniert' : 'Ausstehend';
-        
+
         // Prepare WhatsApp message for guest
-        const guestPhone = r.guestPhone ? r.guestPhone.replace(/[^0-9]/g, '') : '';
-        const confirmMessage = `Hallo ${r.guestName}!
+        const guestPhoneRaw = r.guestPhone ? String(r.guestPhone).replace(/[^0-9]/g, '') : '';
+        const confirmMessage = `Hallo ${r.guestName || 'Gast'}!
 
 Ihre Reservierung ist bestätigt:
 
@@ -10062,33 +10287,33 @@ Heute um ${r.time} Uhr
 ${r.partySize} Personen
 
 Wir freuen uns auf Sie!`;
-        
+
         html += `
             <div class="reservation-item">
                 <div class="reservation-time">
-                    <div class="reservation-time-value">${r.time}</div>
+                    <div class="reservation-time-value">${esc(r.time || '')}</div>
                     <div class="reservation-time-label">Heute</div>
                 </div>
                 <div class="reservation-info">
-                    <div class="reservation-name">${r.guestName}</div>
-                    <div class="reservation-details">${r.partySize} Personen • via ${r.source === 'app' ? 'App' : 'Telefon'}${r.notes ? ' • ' + r.notes : ''}</div>
-                    ${r.guestPhone ? `<div class="reservation-details" style="margin-top: 2px; font-size: 12px;">${r.guestPhone}</div>` : ''}
+                    <div class="reservation-name">${esc(r.guestName || 'Gast')}</div>
+                    <div class="reservation-details">${esc(String(r.partySize || 0))} Personen • via ${r.source === 'app' ? 'App' : 'Telefon'}${r.notes ? ' • ' + esc(r.notes) : ''}</div>
+                    ${r.guestPhone ? `<div class="reservation-details" style="margin-top: 2px; font-size: 12px;">${esc(r.guestPhone)}</div>` : ''}
                 </div>
                 ${r.status === 'pending' ? `
                     <div class="reservation-actions">
-                        <button class="reservation-btn confirm" onclick="updateReservation('${r.id}', 'confirmed')" title="Bestätigen">
+                        <button class="reservation-btn confirm" onclick="updateReservation('${esc(String(r.id))}', 'confirmed')" title="Bestätigen">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"/>
                             </svg>
                         </button>
-                        ${guestPhone ? `
-                            <a href="https://wa.me/${guestPhone}?text=${encodeURIComponent(confirmMessage)}" target="_blank" class="reservation-btn" style="background: rgba(37,211,102,0.15); color: #25D366;" title="WhatsApp Bestätigung senden">
+                        ${guestPhoneRaw ? `
+                            <a href="https://wa.me/${guestPhoneRaw}?text=${encodeURIComponent(confirmMessage)}" target="_blank" class="reservation-btn" style="background: rgba(37,211,102,0.15); color: #25D366;" title="WhatsApp Bestätigung senden">
                                 <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
                                 </svg>
                             </a>
                         ` : ''}
-                        <button class="reservation-btn cancel" onclick="updateReservation('${r.id}', 'cancelled')" title="Stornieren">
+                        <button class="reservation-btn cancel" onclick="updateReservation('${esc(String(r.id))}', 'cancelled')" title="Stornieren">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="18" y1="6" x2="6" y2="18"/>
                                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -10101,7 +10326,7 @@ Wir freuen uns auf Sie!`;
             </div>
         `;
     });
-    
+
     container.innerHTML = html;
 }
 
@@ -11028,7 +11253,7 @@ function surpriseMe() {
         
         if (count > 12) {
             clearInterval(interval);
-            textEl.innerHTML = `<div style="font-size: 18px; opacity: 0.7; margin-bottom: 8px;">Perfekt für dich:</div><div style="font-size: 28px; font-weight: 700;">${random.name}</div>`;
+            textEl.innerHTML = `<div style="font-size: 18px; opacity: 0.7; margin-bottom: 8px;">Perfekt für dich:</div><div style="font-size: 28px; font-weight: 700;">${esc(random.name)}</div>`;
             
             // Nach 2 Sekunden Reservierung öffnen
             setTimeout(() => {
@@ -13684,56 +13909,86 @@ async function deleteCustomer(customerId, customerName) {
 }
 
 // ==================== INITIALIZATION ====================
+let APP_INITIALIZED = false;
+
 function init() {
-    // Nur App-Daten löschen, NICHT Theme-Einstellungen
-    localStorage.removeItem('kmi_favorites');
-    localStorage.removeItem('kmi_reservations');
-    localStorage.removeItem('kmi_offers');
-    localStorage.removeItem('kmi_tables');
-    console.log('[CLEAR] App-Daten zurückgesetzt (Theme behalten)');
-    
+    if (APP_INITIALIZED) {
+        console.log('[INFO] init() schon ausgeführt – Skip');
+        return;
+    }
+    APP_INITIALIZED = true;
+
+    // Gespeicherte Favoriten/Reservierungen aus localStorage rehydrieren
+    try {
+        const favs = localStorage.getItem('kmi_favorites');
+        if (favs) APP_DATA.favorites = JSON.parse(favs) || [];
+        const resv = localStorage.getItem('kmi_reservations');
+        if (resv) APP_DATA.reservations = JSON.parse(resv) || [];
+    } catch (e) {
+        console.warn('[WARN] localStorage rehydrate fehlgeschlagen:', e);
+    }
+
     renderRestaurants();
     updateDashboard();
     initMap();
-    
+
     // Supabase verbinden - Daten laden
     initSupabase();
-    
+
     // Kunden laden
     setTimeout(() => loadCustomers(), 1000);
-    
+
     // Wetter laden (Theme wird automatisch mit aktualisiert)
     loadWeather();
-    
+
     // Bind offer form live preview
     const offerTitle = document.getElementById('offerTitle');
     const offerDiscount = document.getElementById('offerDiscount');
     const offerValidUntil = document.getElementById('offerValidUntil');
-    
+
     if (offerTitle) offerTitle.addEventListener('input', updateOfferPreview);
     if (offerDiscount) offerDiscount.addEventListener('input', updateOfferPreview);
     if (offerValidUntil) offerValidUntil.addEventListener('input', updateOfferPreview);
-    
+
     // Live Stats alle 30 Sekunden aktualisieren
     setInterval(() => {
         updateLiveStats();
     }, 30000);
-    
+
     // Theme initialisieren
     initTheme();
-    
+
     // Sprache initialisieren
     initLanguage();
-    
+
     // Benachrichtigungen initialisieren
     initNotifications();
-    
+
     // Profil initialisieren
     initProfile();
-    
+
+    // Neue Features (Gezeiten, Gamification, etc.)
+    if (typeof initNewFeatures === 'function') {
+        try { initNewFeatures(); } catch (e) { console.warn('initNewFeatures Fehler:', e); }
+    }
+
+    // Supabase Auth asynchron starten (Email / Google)
+    if (typeof initSupabaseAuth === 'function') {
+        setTimeout(() => {
+            try { initSupabaseAuth(); } catch (e) { console.warn('initSupabaseAuth Fehler:', e); }
+        }, 800);
+    }
+
+    // Gerichte laden (nach Restaurants)
+    if (typeof loadDishes === 'function') {
+        setTimeout(() => {
+            try { loadDishes(); } catch (e) { console.warn('loadDishes Fehler:', e); }
+        }, 1500);
+    }
+
     // Auto-Refresh für Restaurant Updates (alle 30 Sekunden)
     setInterval(autoRefreshRestaurants, 30000);
-    
+
     console.log('Kiek mol in - App initialisiert');
 }
 
@@ -13923,16 +14178,25 @@ function renderProfileContent() {
     if (!container) return;
     
     if (currentUser) {
+        const userName = currentUser.name || '';
+        const userEmail = currentUser.email || '';
+        const userAvatar = currentUser.avatar || userName.charAt(0).toUpperCase() || '?';
+        // Echte Reservierungs-Anzahl: eigene per Email + lokal erstellte
+        const myReservationsCount = APP_DATA.reservations.filter(r =>
+            (userEmail && r.guestEmail === userEmail) ||
+            (!r.guestEmail && r.source === 'app' && r.guestName === userName)
+        ).length;
+
         // Eingeloggt
         container.innerHTML = `
             <div style="text-align: center; padding: 10px 0 20px;">
                 <div style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; color: white;">
-                    ${currentUser.avatar || currentUser.name.charAt(0).toUpperCase()}
+                    ${esc(userAvatar)}
                 </div>
-                <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">${currentUser.name}</h3>
-                <p style="font-size: 14px; color: var(--text-secondary);">${currentUser.email}</p>
+                <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">${esc(userName)}</h3>
+                <p style="font-size: 14px; color: var(--text-secondary);">${esc(userEmail)}</p>
             </div>
-            
+
             <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
                 <div onclick="showMyReservations()" style="display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-secondary); border-radius: 12px; cursor: pointer; margin-bottom: 10px;">
                     <div style="width: 40px; height: 40px; background: rgba(26, 95, 74, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
@@ -13945,7 +14209,7 @@ function renderProfileContent() {
                     </div>
                     <div style="flex: 1;">
                         <div style="font-weight: 600; color: var(--text-primary);">Meine Reservierungen</div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">${currentUser.reservations || 0} Buchungen</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">${myReservationsCount} Buchung${myReservationsCount === 1 ? '' : 'en'}</div>
                     </div>
                     <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" width="20" height="20">
                         <polyline points="9 18 15 12 9 6"/>
@@ -14050,7 +14314,8 @@ function updateProfileUI() {
     const profileBtn = document.getElementById('profileBtn');
     if (profileBtn && currentUser) {
         profileBtn.style.background = 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)';
-        profileBtn.innerHTML = `<span style="color: white; font-weight: 700; font-size: 16px;">${currentUser.name.charAt(0).toUpperCase()}</span>`;
+        const initial = (currentUser.name || '?').charAt(0).toUpperCase();
+        profileBtn.innerHTML = `<span style="color: white; font-weight: 700; font-size: 16px;">${esc(initial)}</span>`;
     }
 }
 
@@ -14530,11 +14795,7 @@ async function logout() {
     showToast('Erfolgreich abgemeldet', 'success');
 }
 
-// Init Auth when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initSupabaseAuth, 1000);
-    initNewFeatures(); // Gezeiten, Gamification, etc.
-});
+// (initSupabaseAuth + initNewFeatures werden jetzt aus init() heraus gestartet – kein separater Handler mehr)
 
 function loginWithEmail(e) {
     e.preventDefault();
@@ -14576,7 +14837,6 @@ function simulateLogin(name, email, avatar) {
         name: name,
         email: email,
         avatar: avatar,
-        reservations: Math.floor(Math.random() * 5),
         createdAt: new Date().toISOString()
     };
     
@@ -14610,10 +14870,149 @@ function logout() {
     showToast('Du wurdest abgemeldet');
 }
 
-function showMyReservations() {
+async function showMyReservations() {
     closeModal('profileModal');
-    showToast('Reservierungen werden geladen...');
-    // Hier könnte man eine Reservierungsübersicht anzeigen
+    openModal('myReservationsModal');
+    const container = document.getElementById('myReservationsContent');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--slate);">Lade Reservierungen…</div>';
+
+    // Frische Daten aus Supabase holen (damit Status immer aktuell ist)
+    if (useSupabase && currentUser?.email) {
+        try {
+            const remote = await supabaseGet('reservations',
+                `select=*&guest_email=eq.${encodeURIComponent(currentUser.email)}&order=reservation_date.desc,reservation_time.desc`);
+            if (Array.isArray(remote)) {
+                // Merge in lokales Array (nur User-Reservierungen)
+                const mapped = remote.map(r => ({
+                    id: r.id,
+                    restaurantId: r.restaurant_id,
+                    restaurantName: APP_DATA.restaurants.find(rest => rest.id === r.restaurant_id)?.name || 'Restaurant',
+                    guestName: r.guest_name,
+                    guestPhone: r.guest_phone || '',
+                    guestEmail: r.guest_email || '',
+                    date: r.reservation_date,
+                    time: r.reservation_time,
+                    partySize: r.party_size,
+                    notes: r.notes || '',
+                    status: r.status || 'pending',
+                    source: r.source || 'app'
+                }));
+                // Nicht-User-Reservierungen aus APP_DATA behalten, User-Reservierungen durch frische ersetzen
+                const myLocalIds = new Set(mapped.map(m => m.id));
+                APP_DATA.reservations = APP_DATA.reservations.filter(r => !myLocalIds.has(r.id) && r.guestEmail !== currentUser.email);
+                APP_DATA.reservations.push(...mapped);
+                saveData();
+            }
+        } catch (e) {
+            console.warn('My-reservations Fetch Fehler:', e);
+        }
+    }
+    renderMyReservationsList();
+}
+
+function renderMyReservationsList() {
+    const container = document.getElementById('myReservationsContent');
+    if (!container) return;
+
+    // Eigene Reservierungen filtern (Email match, ansonsten localStorage-Liste)
+    const myEmail = currentUser?.email;
+    let mine;
+    if (myEmail) {
+        mine = APP_DATA.reservations.filter(r => r.guestEmail === myEmail);
+    } else {
+        // Ohne Login: alle lokal gespeicherten (vom Gerät aus erstellten) zeigen
+        mine = APP_DATA.reservations.filter(r => r.source === 'app');
+    }
+
+    if (mine.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:40px 20px;color:var(--slate);">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4;">📅</div>
+                <h3 style="color:var(--text-primary);margin-bottom:8px;">Noch keine Reservierungen</h3>
+                <p style="font-size:14px;">Schau dich um und reserviere deinen Tisch!</p>
+                <button class="btn btn-primary" style="margin-top:20px;" onclick="closeModal('myReservationsModal')">Restaurants entdecken</button>
+            </div>`;
+        return;
+    }
+
+    // Nach Datum sortieren: zukünftige zuerst aufsteigend, vergangene danach absteigend
+    const now = new Date().toISOString().split('T')[0];
+    const upcoming = mine.filter(r => r.date >= now).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const past = mine.filter(r => r.date < now).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+    const renderItem = (r) => {
+        const statusInfo = {
+            confirmed: { text: 'Bestätigt', color: 'var(--success)', bg: 'rgba(52,199,89,0.12)' },
+            pending:   { text: 'Ausstehend', color: 'var(--warning)', bg: 'rgba(255,149,0,0.12)' },
+            cancelled: { text: 'Storniert', color: 'var(--danger)', bg: 'rgba(255,59,48,0.12)' }
+        }[r.status] || { text: r.status || 'Unbekannt', color: 'var(--slate)', bg: 'rgba(0,0,0,0.06)' };
+
+        const canCancel = r.status !== 'cancelled' && r.date >= now;
+        const dateDisplay = new Date(r.date + 'T' + (r.time || '12:00')).toLocaleDateString('de-DE',
+            { weekday: 'short', day: 'numeric', month: 'short' });
+
+        return `
+            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:var(--text-primary);font-size:15px;margin-bottom:4px;">${esc(r.restaurantName || 'Restaurant')}</div>
+                        <div style="font-size:13px;color:var(--text-secondary);">${esc(dateDisplay)} • ${esc(r.time)} Uhr • ${esc(String(r.partySize))} Pers.</div>
+                        ${r.notes ? `<div style="font-size:12px;color:var(--slate);margin-top:4px;">📝 ${esc(r.notes)}</div>` : ''}
+                    </div>
+                    <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;color:${statusInfo.color};background:${statusInfo.bg};white-space:nowrap;">${statusInfo.text}</span>
+                </div>
+                ${canCancel ? `
+                    <button onclick="cancelMyReservation('${esc(String(r.id))}')" style="margin-top:6px;width:100%;padding:10px;background:rgba(255,59,48,0.08);color:var(--danger);border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                        Reservierung stornieren
+                    </button>
+                ` : ''}
+            </div>`;
+    };
+
+    let html = '';
+    if (upcoming.length > 0) {
+        html += `<h4 style="font-size:13px;text-transform:uppercase;color:var(--slate);margin:4px 0 10px;letter-spacing:0.5px;">Bevorstehend (${upcoming.length})</h4>`;
+        html += upcoming.map(renderItem).join('');
+    }
+    if (past.length > 0) {
+        html += `<h4 style="font-size:13px;text-transform:uppercase;color:var(--slate);margin:18px 0 10px;letter-spacing:0.5px;">Vergangen (${past.length})</h4>`;
+        html += past.map(renderItem).join('');
+    }
+    container.innerHTML = html;
+}
+
+async function cancelMyReservation(id) {
+    if (!confirm('Reservierung wirklich stornieren?')) return;
+
+    const reservation = APP_DATA.reservations.find(r => r.id == id);
+    if (!reservation) {
+        showToast('Reservierung nicht gefunden', 'error');
+        return;
+    }
+    reservation.status = 'cancelled';
+    saveData();
+
+    if (useSupabase) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/reservations?id=eq.${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ status: 'cancelled' })
+            });
+        } catch (e) {
+            console.error('Stornierung fehlgeschlagen:', e);
+            showToast('Stornierung lokal gespeichert, Server nicht erreichbar', 'error');
+        }
+    }
+
+    renderMyReservationsList();
+    showToast('Reservierung storniert', 'success');
 }
 
 // ==================== THEME ====================
@@ -17553,10 +17952,7 @@ async function deleteDish(dishId) {
     }
 }
 
-// Beim Laden der Seite Gerichte laden
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(loadDishes, 2000);
-});
+// (loadDishes() wird jetzt aus init() heraus gestartet – kein separater Handler mehr)
 </script>
 </body>
 </html>
