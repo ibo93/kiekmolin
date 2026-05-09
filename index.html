@@ -45007,7 +45007,8 @@ async function loadDashboardOrders() {
                 notes: order.customer_notes || order.notes || '',
                 restaurant_id: order.restaurant_id,
                 restaurant_name: order.restaurant_name || '',
-                table_number: order.table_number || null
+                table_number: order.table_number || null,
+                pos_log: Array.isArray(order.pos_log) ? order.pos_log : []
             }));
 
         } else {
@@ -45217,6 +45218,9 @@ function renderDashboardOrders() {
 
     if (emptyState) emptyState.style.display = 'none';
 
+    // POS-Konfig einmalig pro Render lesen — Re-Send-Button nur wenn konfiguriert.
+    var _posCfgAll = (typeof getPOSConfig === 'function') ? getPOSConfig() : {};
+
     grid.innerHTML = filtered.map(order => {
         const statusLabels = {
             'received': 'Neu',
@@ -45230,6 +45234,32 @@ function renderDashboardOrders() {
         };
 
         const timeAgo = getTimeAgo(order.created_at);
+
+        // POS-Sync-Badge (zeigt letzten Status aus order.pos_log).
+        var posBadgeHtml = '';
+        var posLastEntry = null;
+        try {
+            if (Array.isArray(order.pos_log) && order.pos_log.length > 0) {
+                posLastEntry = order.pos_log[order.pos_log.length - 1];
+            }
+        } catch(_) {}
+        if (posLastEntry) {
+            var ok = posLastEntry.status === 'success';
+            var bg = ok ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
+            var fg = ok ? '#15803d' : '#b91c1c';
+            var label = ok ? 'Kasse' : 'Fehler';
+            var tip = (posLastEntry.message || '').replace(/"/g, '&quot;');
+            posBadgeHtml = '<span title="' + tip + '" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;background:' + bg + ';color:' + fg + ';margin-top:4px;align-self:flex-start;">📟 ' + label + '</span>';
+        }
+
+        // Re-Send-Button: nur wenn POS konfiguriert und letzter Sync fehlgeschlagen / fehlt.
+        var posResendBtn = '';
+        var _restCfg = _posCfgAll[order.restaurant_id] || _posCfgAll['default'] || null;
+        var _posActive = _restCfg && _restCfg.system && _restCfg.system !== 'none';
+        var _needsResend = !posLastEntry || posLastEntry.status !== 'success';
+        if (_posActive && _needsResend && order.status !== 'cancelled') {
+            posResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToPOS(\'' + order.id + '\')" title="An Kassensystem senden" aria-label="An Kasse senden" style="background:rgba(59,130,246,0.1);color:#1d4ed8;border-color:rgba(59,130,246,0.3);">📟 Kasse</button>';
+        }
 
         // Action Buttons je nach Status
         let actionsHtml = '';
@@ -45323,6 +45353,7 @@ function renderDashboardOrders() {
                     <div style="display:flex;flex-direction:column;">
                         <div class="kin-order-number">#${order.order_number}</div>
                         <div class="kin-order-customer-name">${order.customer_name}</div>
+                        ${posBadgeHtml}
                     </div>
                     <div class="kin-order-status ${order.status}">${statusLabels[order.status]}</div>
                 </div>
@@ -45355,6 +45386,7 @@ function renderDashboardOrders() {
                     ${order.delivery_address ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">location_on</span>' + order.delivery_address.street + ' ' + order.delivery_address.house_number + ', ' + order.delivery_address.zip + ' ' + order.delivery_address.city + '</div>' : ''}
                     <div class="kin-order-actions">
                         ${actionsHtml}
+                        ${posResendBtn}
                     </div>
                 </div>
             </div>
@@ -46628,7 +46660,7 @@ var POS_SYSTEMS = {
         keyPlaceholder: 'ready2order API Token eingeben',
         helpUrl: 'https://ready2order.com/at/schnittstellen/',
         sendOrder: function(order, config, callback) {
-            // ready2order API v1
+            // ready2order API v1 — über Server-Proxy (CORS).
             var items = (order.items || []).map(function(item) {
                 return {
                     product_name: item.name,
@@ -46645,16 +46677,24 @@ var POS_SYSTEMS = {
                 external_reference: order.order_number || order.id,
                 total: parseFloat(order.total) || 0
             };
-            fetch('https://api.ready2order.com/v1/orders', {
+            fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            }).then(function(r) {
-                if (r.ok) callback(true, 'Bestellung an ready2order gesendet');
-                else r.text().then(function(t) { callback(false, 'ready2order Fehler: ' + t); });
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'ready2order', apiKey: config.apiKey, endpoint: '/v1/orders', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json().then(function(j) { return { http: r, j: j }; }); })
+              .then(function(x) {
+                if (x.j && x.j.ok) callback(true, 'Bestellung an ready2order gesendet');
+                else callback(false, 'ready2order Fehler: ' + (x.j && x.j.body ? x.j.body : 'HTTP ' + (x.j && x.j.status)));
+              }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'ready2order', apiKey: config.apiKey, endpoint: '/v1/products?limit=1', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'ready2order: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     },
@@ -46680,16 +46720,23 @@ var POS_SYSTEMS = {
                 note: order.notes || '',
                 reference: order.order_number || order.id
             };
-            fetch(config.apiUrl || 'https://api.lightspeedhq.com/restaurant/orders', {
+            fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            }).then(function(r) {
-                if (r.ok) callback(true, 'Bestellung an Lightspeed gesendet');
-                else r.text().then(function(t) { callback(false, 'Lightspeed Fehler: ' + t); });
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'lightspeed', apiKey: config.apiKey, apiUrl: config.apiUrl || null, endpoint: '/orders', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung an Lightspeed gesendet');
+                else callback(false, 'Lightspeed Fehler: ' + (j && j.body ? j.body : 'HTTP ' + (j && j.status)));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'lightspeed', apiKey: config.apiKey, apiUrl: config.apiUrl || null, endpoint: '/restaurant', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'Lightspeed: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     },
@@ -46717,16 +46764,23 @@ var POS_SYSTEMS = {
                 reference_id: order.order_number || order.id,
                 total_cents: Math.round((parseFloat(order.total) || 0) * 100)
             };
-            fetch('https://api.orderbird.com/v2/orders', {
+            fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Token ' + config.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            }).then(function(r) {
-                if (r.ok) callback(true, 'Bestellung an orderbird gesendet');
-                else r.text().then(function(t) { callback(false, 'orderbird Fehler: ' + t); });
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'orderbird', apiKey: config.apiKey, endpoint: '/v2/orders', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung an orderbird gesendet');
+                else callback(false, 'orderbird Fehler: ' + (j && j.body ? j.body : 'HTTP ' + (j && j.status)));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'orderbird', apiKey: config.apiKey, endpoint: '/v2/menu', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'orderbird: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     },
@@ -46762,6 +46816,16 @@ var POS_SYSTEMS = {
                 if (r.ok) callback(true, 'Bestellung an Gastrofix gesendet');
                 else r.text().then(function(t) { callback(false, 'Gastrofix Fehler: ' + t); });
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'gastrofix', apiKey: config.apiKey, endpoint: '/products?limit=1', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'Gastrofix: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     },
     webhook: {
@@ -46794,14 +46858,24 @@ var POS_SYSTEMS = {
                 created_at: order.created_at,
                 payment_method: order.payment_method || ''
             };
-            fetch(config.apiKey, {
+            fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(function(r) {
-                if (r.ok) callback(true, 'Bestellung per Webhook gesendet');
-                else callback(false, 'Webhook Fehler: HTTP ' + r.status);
+                body: JSON.stringify({ system: 'webhook', apiKey: config.apiKey, endpoint: '', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung per Webhook gesendet');
+                else callback(false, 'Webhook Fehler: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
             }).catch(function(e) { callback(false, 'Webhook nicht erreichbar: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'webhook', apiKey: config.apiKey, endpoint: '', method: 'POST', payload: { test: true, source: 'kiekmolin' } })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && (j.ok || j.status === 204)) callback(true, 'Verbindung OK');
+                else callback(false, 'Webhook: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     }
 };
@@ -46850,7 +46924,7 @@ function _sendPOSWithRetry(order, config, pos, attempt) {
 }
 
 // Sync-Status pro Bestellung speichern
-function _savePOSSyncStatus(orderId, status, message) {
+async function _savePOSSyncStatus(orderId, status, message) {
     try {
         var syncLog = JSON.parse(localStorage.getItem('kin_pos_sync_log') || '{}');
         syncLog[orderId] = { status: status, message: message, timestamp: Date.now() };
@@ -46859,6 +46933,39 @@ function _savePOSSyncStatus(orderId, status, message) {
         if (keys.length > 100) { delete syncLog[keys[0]]; }
         localStorage.setItem('kin_pos_sync_log', JSON.stringify(syncLog));
     } catch(e) {}
+    // Zusätzlich in orders.pos_log JSONB schreiben (Tablet-übergreifend sichtbar).
+    if (!orderId) return;
+    // UUID-Format-Check: Test-Bestellungen ('test-...') überspringen.
+    if (typeof orderId === 'string' && orderId.indexOf('test-') === 0) return;
+    try {
+        var entry = { ts: new Date().toISOString(), status: status, message: message };
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=pos_log', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        var arr = [];
+        if (resp.ok) {
+            var data = await resp.json();
+            if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
+        }
+        arr.push(entry);
+        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ pos_log: arr })
+        });
+        // In-memory dashboardOrders ebenfalls aktualisieren, damit Badge sofort erscheint.
+        try {
+            if (Array.isArray(window.dashboardOrders)) {
+                var hit = window.dashboardOrders.find(function(o) { return o.id === orderId || o.order_number === orderId; });
+                if (hit) {
+                    if (!Array.isArray(hit.pos_log)) hit.pos_log = [];
+                    hit.pos_log.push(entry);
+                    if (hit.pos_log.length > 20) hit.pos_log = hit.pos_log.slice(-20);
+                    if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+                }
+            }
+        } catch(_) {}
+    } catch(e) { console.warn('pos_log Update fehlgeschlagen:', e); }
 }
 
 // Fehlgeschlagene Bestellungen manuell erneut senden
@@ -46876,6 +46983,33 @@ function retryFailedPOSOrders() {
     });
     _posRetryQueue = remaining;
     localStorage.setItem('kin_pos_retry_queue', JSON.stringify(remaining));
+}
+
+// Auto-Retry: Beim Page-Load + alle 5 Min prüfen, ob fehlgeschlagene Sendungen
+// in der lokalen Warteschlange liegen und diese erneut versuchen.
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        try {
+            var queue = JSON.parse(localStorage.getItem('kin_pos_retry_queue') || '[]');
+            if (queue.length > 0) retryFailedPOSOrders();
+        } catch(e) {}
+    }, 3000);
+});
+setInterval(function() {
+    try {
+        var queue = JSON.parse(localStorage.getItem('kin_pos_retry_queue') || '[]');
+        if (queue.length > 0) retryFailedPOSOrders();
+    } catch(e) {}
+}, 5 * 60 * 1000);
+
+// Bestellung manuell ans Kassensystem senden (Re-Send Button auf Order-Card).
+function resendOrderToPOS(orderId) {
+    try {
+        var order = (window.dashboardOrders || []).find(function(o) { return o.id === orderId; });
+        if (!order) { showToast('Bestellung nicht gefunden', 'error'); return; }
+        var ok = sendOrderToPOS(order);
+        if (!ok) showToast('Kein Kassensystem konfiguriert', 'warning');
+    } catch(e) { console.error(e); }
 }
 
 // POS-Einstellungen Modal
@@ -46987,7 +47121,19 @@ function testPOSConnection() {
     resultDiv.style.color = '#92400e';
     resultDiv.textContent = 'Teste Verbindung zu ' + (POS_SYSTEMS[system]?.name || system) + '...';
 
-    // Test-Bestellung senden
+    var pos = POS_SYSTEMS[system];
+    function showResult(ok, msg) {
+        resultDiv.style.background = ok ? '#f0fdf4' : '#fef2f2';
+        resultDiv.style.color = ok ? '#065f46' : '#991b1b';
+        resultDiv.innerHTML = ok
+            ? '<span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;vertical-align:-4px;">check_circle</span> ' + msg
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="14" height="14" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + msg;
+    }
+    // Bevorzugt: dedizierter testConnection (read-only Probe). Fallback: Test-Bestellung.
+    if (pos && pos.testConnection) {
+        pos.testConnection({ apiKey: apiKey }, showResult);
+        return;
+    }
     var testOrder = {
         id: 'test-' + Date.now(),
         order_number: 'TEST-001',
@@ -46999,16 +47145,8 @@ function testPOSConnection() {
         created_at: new Date().toISOString(),
         payment_method: 'cash'
     };
-
-    var pos = POS_SYSTEMS[system];
     if (pos && pos.sendOrder) {
-        pos.sendOrder(testOrder, { apiKey: apiKey }, function(ok, msg) {
-            resultDiv.style.background = ok ? '#f0fdf4' : '#fef2f2';
-            resultDiv.style.color = ok ? '#065f46' : '#991b1b';
-            resultDiv.innerHTML = ok
-                ? '<span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;">check_circle</span> ' + msg
-                : '<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="14" height="14" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + msg;
-        });
+        pos.sendOrder(testOrder, { apiKey: apiKey }, showResult);
     }
 }
 
