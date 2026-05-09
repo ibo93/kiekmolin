@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vorschau – Meine Reservierungen</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --primary: #1a5f4a;
+    --primary-light: #2d8a6b;
+    --accent: #e8a838;
+    --cream: #faf8f3;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666;
+    --slate: #5a5a5a;
+    --bg-card: #ffffff;
+    --bg-secondary: #f6f4ee;
+    --border-color: #e8e4d8;
+    --success: #34c759;
+    --warning: #ff9500;
+    --danger: #ff3b30;
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.12);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.16);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(135deg, #1a5f4a 0%, #2d8a6b 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    color: var(--text-primary);
+}
+.preview-wrapper { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; max-width: 1100px; }
+.preview-col { display: flex; flex-direction: column; gap: 16px; }
+.preview-label {
+    color: white;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+}
+.modal {
+    background: var(--bg-card);
+    border-radius: 28px;
+    width: 480px;
+    max-width: 100%;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+}
+.modal-close {
+    background: var(--bg-secondary);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--slate);
+}
+.modal-body { padding: 20px 24px 28px; }
+.btn { padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-primary { background: var(--primary); color: white; }
+h4 { font-size: 13px !important; text-transform: uppercase; color: var(--slate); margin: 4px 0 10px; letter-spacing: 0.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="preview-wrapper">
+
+<div class="preview-col">
+    <div class="preview-label">Mit Buchungen</div>
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Meine Reservierungen</h2>
+            <button class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+            <h4>Bevorstehend (2)</h4>
+
+            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:var(--text-primary);font-size:15px;margin-bottom:4px;">Restaurant Stiekelkamp</div>
+                        <div style="font-size:13px;color:var(--text-secondary);">Sa., 10. Mai &bull; 19:00 Uhr &bull; 4 Pers.</div>
+                        <div style="font-size:12px;color:var(--slate);margin-top:4px;">📝 Geburtstag, Tisch am Fenster bitte</div>
+                    </div>
+                    <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;color:var(--success);background:rgba(52,199,89,0.12);white-space:nowrap;">Bestätigt</span>
+                </div>
+                <button style="margin-top:6px;width:100%;padding:10px;background:rgba(255,59,48,0.08);color:var(--danger);border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                    Reservierung stornieren
+                </button>
+            </div>
+
+            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:var(--text-primary);font-size:15px;margin-bottom:4px;">Greetsieler Hafenstube</div>
+                        <div style="font-size:13px;color:var(--text-secondary);">So., 11. Mai &bull; 12:30 Uhr &bull; 2 Pers.</div>
+                    </div>
+                    <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;color:var(--warning);background:rgba(255,149,0,0.12);white-space:nowrap;">Ausstehend</span>
+                </div>
+                <button style="margin-top:6px;width:100%;padding:10px;background:rgba(255,59,48,0.08);color:var(--danger);border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                    Reservierung stornieren
+                </button>
+            </div>
+
+            <h4 style="margin-top:18px !important;">Vergangen (1)</h4>
+
+            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;margin-bottom:10px;opacity:0.75;">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:var(--text-primary);font-size:15px;margin-bottom:4px;">Café Norderhus</div>
+                        <div style="font-size:13px;color:var(--text-secondary);">Mi., 30. Apr &bull; 15:00 Uhr &bull; 3 Pers.</div>
+                    </div>
+                    <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;color:var(--danger);background:rgba(255,59,48,0.12);white-space:nowrap;">Storniert</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="preview-col">
+    <div class="preview-label">Leer-Zustand</div>
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Meine Reservierungen</h2>
+            <button class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+            <div style="text-align:center;padding:40px 20px;color:var(--slate);">
+                <div style="font-size:48px;margin-bottom:12px;opacity:0.4;">📅</div>
+                <h3 style="color:var(--text-primary);margin-bottom:8px;font-family:'Playfair Display',serif;">Noch keine Reservierungen</h3>
+                <p style="font-size:14px;">Schau dich um und reserviere deinen Tisch!</p>
+                <button class="btn btn-primary" style="margin-top:20px;">Restaurants entdecken</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-label" style="margin-top:24px;">Dark Mode</div>
+    <div class="modal" style="background:#1c1c1e;color:#fff;">
+        <div class="modal-header" style="border-color:#3a3a3c;">
+            <h2 class="modal-title" style="color:#fff;">Meine Reservierungen</h2>
+            <button class="modal-close" style="background:#2c2c2e;color:#aaa;">×</button>
+        </div>
+        <div class="modal-body">
+            <h4 style="color:#aaa !important;">Bevorstehend (1)</h4>
+
+            <div style="padding:16px;background:#2c2c2e;border-radius:12px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">Strandhotel Norddeich</div>
+                        <div style="font-size:13px;color:#aaa;">Fr., 9. Mai &bull; 20:00 Uhr &bull; 6 Pers.</div>
+                    </div>
+                    <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;color:var(--success);background:rgba(52,199,89,0.18);white-space:nowrap;">Bestätigt</span>
+                </div>
+                <button style="margin-top:6px;width:100%;padding:10px;background:rgba(255,59,48,0.15);color:var(--danger);border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                    Reservierung stornieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+</body>
+</html>
