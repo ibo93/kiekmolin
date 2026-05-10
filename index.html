@@ -20656,6 +20656,19 @@ function setLanguage(lang) {
     // Warenkorb neu rendern
     if (typeof renderCartItems === 'function') renderCartItems();
 
+    // Speisekarte neu rendern wenn sie gerade offen ist (Übersetzung sofort anwenden)
+    try {
+        var menuOpen = document.getElementById('restaurantLanding') || document.getElementById('menuModal');
+        if (menuOpen && typeof loadMenuItems === 'function' && typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant && currentOrderRestaurant.id) {
+            loadMenuItems(currentOrderRestaurant.id);
+        }
+    } catch(_) {}
+
+    // Active-State der Lang-Buttons im Restaurant-Landing-Header
+    ['DE','EN','NL'].forEach(function(c) {
+        var b = document.getElementById('lang' + c + '_lp');
+        if (b) b.classList.toggle('active', c.toLowerCase() === lang);
+    });
 }
 
 function initLanguage() {
@@ -34934,7 +34947,12 @@ async function showRestaurantLanding(rest) {
             </div>
             <span style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:18px;color:#003d33;letter-spacing:-0.02em;text-transform:uppercase;">KIEK MOL IN</span>
             <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;">
-                <button onclick="shareRestaurant('${rest.slug || rest.id}', '${rest.name.replace(/'/g, "\\'")}')" style="background:none;border:none;cursor:pointer;color:#003d33;padding:4px;">
+                <div class="lang-switcher" style="display:flex;align-items:center;gap:2px;background:rgba(0,61,51,0.06);border-radius:50px;padding:2px;" title="Sprache wechseln">
+                    <button onclick="setLanguage('de')" id="langDE_lp" class="lang-btn ${currentLanguage==='de'?'active':''}" style="padding:4px 8px;border-radius:50px;font-size:10px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s;" aria-label="Deutsch">DE</button>
+                    <button onclick="setLanguage('en')" id="langEN_lp" class="lang-btn ${currentLanguage==='en'?'active':''}" style="padding:4px 8px;border-radius:50px;font-size:10px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s;" aria-label="English">EN</button>
+                    <button onclick="setLanguage('nl')" id="langNL_lp" class="lang-btn ${currentLanguage==='nl'?'active':''}" style="padding:4px 8px;border-radius:50px;font-size:10px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s;" aria-label="Nederlands">NL</button>
+                </div>
+                <button onclick="shareRestaurant('${rest.slug || rest.id}', '${rest.name.replace(/'/g, "\\'")}')" style="background:none;border:none;cursor:pointer;color:#003d33;padding:4px;" aria-label="Teilen">
                     <span class="material-symbols-outlined">share</span>
                 </button>
             </div>
