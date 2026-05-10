@@ -839,12 +839,110 @@
             color: white !important;
         }
         /* NUCLEAR: Alle restlichen weissen inline-styles überschreiben */
-        .dark-mode [style*="background:white"],
-        .dark-mode [style*="background: white"],
-        .dark-mode [style*="background:#fff"],
-        .dark-mode [style*="background: #fff"] {
-            background: #1a1a1a !important;
-            color: #d0d3d1 !important;
+        .dark-mode [style*="background:white" i],
+        .dark-mode [style*="background: white" i],
+        .dark-mode [style*="background:#fff" i],
+        .dark-mode [style*="background: #fff" i],
+        .dark-mode [style*="background-color:white" i],
+        .dark-mode [style*="background-color: white" i],
+        .dark-mode [style*="background-color:#fff" i],
+        .dark-mode [style*="background-color: #fff" i],
+        .dark-mode [style*="background:rgb(255,255,255" i],
+        .dark-mode [style*="background:rgb(255, 255, 255" i],
+        .dark-mode [style*="background-color:rgb(255,255,255" i] {
+            background: var(--bg-card, #1a2e27) !important;
+            color: var(--text-primary, #e8eeec) !important;
+        }
+        /* Inline Text-Farben: dunkle Brand-Töne hell machen */
+        .dark-mode [style*="color:#191c1d" i],
+        .dark-mode [style*="color: #191c1d" i],
+        .dark-mode [style*="color:#00251e" i],
+        .dark-mode [style*="color: #00251e" i],
+        .dark-mode [style*="color:#003d33" i],
+        .dark-mode [style*="color: #003d33" i],
+        .dark-mode [style*="color:#00382f" i],
+        .dark-mode [style*="color: #00382f" i],
+        .dark-mode [style*="color:#0c1410" i],
+        .dark-mode [style*="color: #0c1410" i],
+        .dark-mode [style*="color:#404946" i],
+        .dark-mode [style*="color: #404946" i],
+        .dark-mode [style*="color:#1f2937" i],
+        .dark-mode [style*="color: #1f2937" i],
+        .dark-mode [style*="color:#111" i]:not([style*="background"]),
+        .dark-mode [style*="color: #111" i]:not([style*="background"]),
+        .dark-mode [style*="color:#000" i]:not([style*="background"]),
+        .dark-mode [style*="color: #000" i]:not([style*="background"]),
+        .dark-mode [style*="color:black" i]:not([style*="background"]),
+        .dark-mode [style*="color: black" i]:not([style*="background"]) {
+            color: var(--text-primary, #e8eeec) !important;
+        }
+        /* Inline secondary Texte */
+        .dark-mode [style*="color:rgba(64,73,70" i],
+        .dark-mode [style*="color: rgba(64,73,70" i],
+        .dark-mode [style*="color:#6b7280" i],
+        .dark-mode [style*="color: #6b7280" i],
+        .dark-mode [style*="color:#94a3b8" i],
+        .dark-mode [style*="color: #94a3b8" i] {
+            color: var(--text-secondary, #9ca8a4) !important;
+        }
+        /* Inline Borders mit weiß/hell auf dunklen Variant */
+        .dark-mode [style*="border:1px solid #e5e7eb" i],
+        .dark-mode [style*="border: 1px solid #e5e7eb" i],
+        .dark-mode [style*="border:1px solid #f0" i],
+        .dark-mode [style*="border:1px solid rgba(0,0,0,0.0" i],
+        .dark-mode [style*="border-color:#e5e7eb" i] {
+            border-color: var(--border-color, rgba(255,255,255,0.08)) !important;
+        }
+        /* Bestellkarten (kin-order-card) explizit forcieren */
+        .dark-mode .kin-order-card,
+        .dark-mode .kin-order-card * {
+            color: var(--text-primary, #e8eeec) !important;
+        }
+        .dark-mode .kin-order-card {
+            background: var(--bg-card, #1a2e27) !important;
+            border-color: var(--border-color, rgba(255,255,255,0.08)) !important;
+        }
+        .dark-mode .kin-order-card .kin-order-customer-name,
+        .dark-mode .kin-order-card .kin-order-number {
+            color: var(--text-primary, #e8eeec) !important;
+        }
+        .dark-mode .kin-order-card [style*="opacity"] {
+            color: var(--text-secondary, #9ca8a4) !important;
+        }
+        /* Action Buttons im Dark Mode lesbar */
+        .dark-mode .kin-order-btn.secondary {
+            background: rgba(255,255,255,0.04) !important;
+            color: var(--text-primary, #e8eeec) !important;
+            border-color: var(--border-color, rgba(255,255,255,0.08)) !important;
+        }
+        .dark-mode .kin-order-btn.next {
+            color: white !important;
+        }
+        /* Toast / Snackbars im Dark Mode */
+        .dark-mode .toast, .dark-mode .snackbar, .dark-mode #toast {
+            background: #2a2a2a !important;
+            color: var(--text-primary, #e8eeec) !important;
+            border-color: var(--border-color) !important;
+        }
+        /* Modal: alle inline Modale dark */
+        .dark-mode .modal-overlay .modal,
+        .dark-mode .modal {
+            background: var(--bg-card, #1a2e27) !important;
+            color: var(--text-primary, #e8eeec) !important;
+        }
+        /* Tabellen: Borders + Striping */
+        .dark-mode table tr:nth-child(even) {
+            background: rgba(255,255,255,0.02) !important;
+        }
+        .dark-mode table th, .dark-mode table td {
+            border-color: var(--border-color) !important;
+        }
+        /* Status-Badges Lesbarkeit */
+        .dark-mode .order-status-badge,
+        .dark-mode .kin-order-status,
+        .dark-mode .reservation-status,
+        .dark-mode .res-status {
+            border: 1px solid rgba(255,255,255,0.08) !important;
         }
         .dark-mode .hero-glass,
         .dark-mode [class*="hero-glass"],
@@ -45561,6 +45659,10 @@ function renderDashboardOrders() {
                         </svg>
                         Beleg
                     </button>
+                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                        Storno
+                    </button>
                     <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'preparing')">
                         <span class="material-symbols-outlined" style="font-size:18px;">light_mode</span>
                         Zubereiten
@@ -45577,6 +45679,9 @@ function renderDashboardOrders() {
                             <polyline points="6 9 6 2 18 2 18 9"/><rect x="6" y="14" width="12" height="8"/>
                         </svg>
                     </button>
+                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                    </button>
                     <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'ready')">
                         <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
                         Fertig
@@ -45586,6 +45691,9 @@ function renderDashboardOrders() {
             case 'ready':
                 if (order.order_type === 'delivery') {
                     actionsHtml = `
+                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                        </button>
                         <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'out_for_delivery')">
                             <span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span>
                             Fahrer los
@@ -45593,6 +45701,9 @@ function renderDashboardOrders() {
                     `;
                 } else if (order.order_type === 'dine_in') {
                     actionsHtml = `
+                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                        </button>
                         <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
                             <span class="material-symbols-outlined" style="font-size:14px;">restaurant</span>
                             Serviert
@@ -45600,6 +45711,9 @@ function renderDashboardOrders() {
                     `;
                 } else {
                     actionsHtml = `
+                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                        </button>
                         <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
                             <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
                             Abgeholt
@@ -45609,6 +45723,9 @@ function renderDashboardOrders() {
                 break;
             case 'out_for_delivery':
                 actionsHtml = `
+                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                    </button>
                     <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'delivered')">
                         <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
                         Geliefert
@@ -46084,6 +46201,119 @@ async function updateOrderStatus(orderId, newStatus) {
     }
 }
 
+// Storno-Dialog: Grund eingeben, dann cancelOrder()
+function openCancelOrderDialog(orderId) {
+    var order = (typeof dashboardOrders !== 'undefined') ? dashboardOrders.find(function(o) { return o.id === orderId; }) : null;
+    var orderNum = order ? ('#' + (order.order_number || orderId)) : orderId;
+
+    var presets = [
+        'Zutat nicht mehr verfügbar',
+        'Restaurant überlastet',
+        'Lieferung nicht möglich',
+        'Falsche Adresse / nicht erreichbar',
+        'Kunde hat abgesagt',
+        'Doppelte Bestellung'
+    ];
+
+    var html = '<div style="padding:24px;">' +
+        '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;margin-bottom:8px;display:flex;align-items:center;gap:8px;color:#dc2626;">' +
+            '<span class="material-symbols-outlined" style="font-size:22px;">cancel</span>' +
+            'Bestellung ' + orderNum + ' stornieren</h2>' +
+        '<p style="font-size:13px;color:var(--slate);margin-bottom:16px;">Der Kunde wird per Push-Benachrichtigung über die Stornierung informiert.</p>' +
+        '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Grund (Vorlage)</label>' +
+        '<div id="cancelPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
+            presets.map(function(p) {
+                return '<button type="button" onclick="document.getElementById(\'cancelReasonText\').value=\'' + p.replace(/'/g, '\\\'') + '\'" style="padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">' + p + '</button>';
+            }).join('') +
+        '</div>' +
+        '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Grund (frei eingebbar)</label>' +
+        '<textarea id="cancelReasonText" rows="3" placeholder="z.B. Pizza-Teig leider aus" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;font-family:Inter,sans-serif;resize:vertical;"></textarea>' +
+        '<div style="margin:12px 0;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="cancelRefund" checked> Erstattung notwendig (z.B. bei Karten-Zahlung)</label></div>' +
+        '<div style="display:flex;gap:8px;margin-top:8px;">' +
+            '<button type="button" onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Abbrechen</button>' +
+            '<button type="button" onclick="confirmCancelOrder(\'' + orderId + '\')" style="flex:1;padding:12px;background:#dc2626;color:white;border:none;border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Jetzt stornieren</button>' +
+        '</div>' +
+    '</div>';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10010;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div class="modal" style="max-width:480px;width:100%;border-radius:16px;background:var(--bg-card);display:block;">' +
+        '<div style="display:flex;justify-content:flex-end;padding:12px 16px 0;"><button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-primary);">×</button></div>' +
+        html + '</div>';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function confirmCancelOrder(orderId) {
+    var reasonEl = document.getElementById('cancelReasonText');
+    var refundEl = document.getElementById('cancelRefund');
+    var reason = (reasonEl && reasonEl.value || '').trim();
+    if (!reason) {
+        showToast('Bitte einen Grund angeben', 'error');
+        return;
+    }
+    var refundNeeded = !!(refundEl && refundEl.checked);
+    var overlay = reasonEl && reasonEl.closest('.modal-overlay');
+    if (overlay) overlay.remove();
+    await cancelOrderWithReason(orderId, reason, refundNeeded);
+}
+
+async function cancelOrderWithReason(orderId, reason, refundNeeded) {
+    var updateData = {
+        status: 'cancelled',
+        cancellation_reason: reason,
+        cancelled_at: new Date().toISOString(),
+        refund_needed: !!refundNeeded
+    };
+    try {
+        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(updateData)
+        });
+    } catch (e) {
+        console.error('Storno DB-Fehler:', e);
+    }
+
+    var order = (typeof dashboardOrders !== 'undefined') ? dashboardOrders.find(function(o) { return o.id === orderId; }) : null;
+    if (order) {
+        order.status = 'cancelled';
+        order.cancellation_reason = reason;
+        order.cancelled_at = updateData.cancelled_at;
+        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        if (typeof updateOrderStats === 'function') updateOrderStats();
+    }
+
+    // Push an Kunden senden (über Server-Function)
+    if (order) {
+        try {
+            await fetch('/.netlify/functions/push-send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    customer_phone: order.customer_phone || null,
+                    customer_email: order.customer_email || null,
+                    title: 'Bestellung storniert',
+                    body: 'Deine Bestellung #' + (order.order_number || '') + ' wurde leider storniert. Grund: ' + reason + (refundNeeded ? ' — Wir erstatten den Betrag.' : ''),
+                    url: '/orders/' + orderId,
+                    tag: 'order-cancel-' + orderId
+                })
+            });
+        } catch (e) {
+            console.warn('Push-Send Fehler:', e);
+        }
+    }
+
+    showToast('Storniert. Kunde wurde benachrichtigt.', 'success');
+}
+
 // WhatsApp Status-Update an Kunden (nur manuell verfügbar)
 function sendCustomerStatusWhatsApp(order, status) {
     var phone = order.customer_phone || '';
@@ -46138,11 +46368,18 @@ function sendCustomerStatusWhatsApp(order, status) {
 }
 
 // Bon drucken - Professionell nach §14 UStG
-function printOrder(orderId) {
+async function printOrder(orderId) {
     const order = dashboardOrders.find(o => o.id === orderId);
     if (!order) return;
 
-    // Browser-Druck direkt (synchron = kein Popup-Block)
+    // Multi-Drucker mit Rollen: an alle Customer/All-Drucker senden
+    var restId = order.restaurant_id || 'default';
+    var printers = (typeof getPrinterList === 'function') ? getPrinterList(restId) : [];
+    if (printers.length) {
+        var ok = await dispatchPrintToAll(order, 'customer');
+        if (ok) return;
+    }
+    // Fallback: Browser-Druck
     printOrderBrowser(orderId);
 }
 
@@ -46362,9 +46599,17 @@ ${order.order_type === 'delivery' && order.delivery_address ? (() => {
 }
 
 // Kuechen-Bon drucken (ohne MwSt, QR-Code, Disclaimer)
-function printKitchenBon(orderId) {
+async function printKitchenBon(orderId) {
     var order = dashboardOrders.find(function(o) { return o.id === orderId; });
     if (!order) return;
+
+    // Multi-Drucker mit Rollen: an alle Kitchen/All-Drucker senden
+    var restId = order.restaurant_id || 'default';
+    var printers = (typeof getPrinterList === 'function') ? getPrinterList(restId) : [];
+    if (printers.length) {
+        var ok = await dispatchPrintToAll(order, 'kitchen');
+        if (ok) return;
+    }
 
     // Beleg-Nr + Zeit
     var belegNr = order.order_number || ('B-' + orderId.substring(0,8).toUpperCase());
@@ -46528,6 +46773,125 @@ function printKitchenBon(orderId) {
 // Drucker-Settings
 function getPrinterSettings() {
     try { return JSON.parse(localStorage.getItem('kin_printer_settings') || '{}'); } catch(e) { return {}; }
+}
+
+// === Multi-Drucker mit Rollen (Hybrid: QZ Tray + Epson ePOS-Print) ===
+// Speicher-Format: { [restId]: { printers: [ { id, type:'qz'|'epson', name|ip, devid?, role, autoprint, roles_filter? } ] } }
+// Migration: alte Single-Printer-Configs werden beim Lesen als 1-Eintrag-Liste exposed.
+function getPrinterList(restId) {
+    var settings = getPrinterSettings();
+    var conf = settings[restId] || settings['default'] || null;
+    if (!conf) return [];
+    if (Array.isArray(conf.printers) && conf.printers.length) return conf.printers;
+    // Legacy-Migration
+    var list = [];
+    if (conf.printer) {
+        list.push({ id: 'qz-legacy', type: 'qz', name: conf.printer, role: 'all', autoprint: !!conf.autoprint });
+    }
+    if (conf.ip) {
+        list.push({ id: 'epson-legacy', type: 'epson', ip: conf.ip, devid: conf.devid || 'local_printer', role: 'all', autoprint: !!conf.autoprint });
+    }
+    return list;
+}
+function setPrinterList(restId, printers) {
+    var settings = getPrinterSettings();
+    if (!settings[restId]) settings[restId] = {};
+    settings[restId].printers = printers || [];
+    // Legacy-Felder leeren um Doppel-Verarbeitung zu vermeiden
+    delete settings[restId].printer;
+    delete settings[restId].autoprint;
+    delete settings[restId].ip;
+    delete settings[restId].devid;
+    savePrinterSettings(settings);
+}
+// Drucker-Rollen
+var PRINTER_ROLES = [
+    { id: 'all', label: 'Allgemein (alles)' },
+    { id: 'kitchen', label: 'Küche (nur Essens-Items)' },
+    { id: 'bar', label: 'Bar (nur Getränke)' },
+    { id: 'counter', label: 'Theke / Beleg' },
+    { id: 'kitchen_bon_only', label: 'Nur Küchen-Bon' },
+    { id: 'customer_only', label: 'Nur Kunden-Beleg' }
+];
+// Filtert Items basierend auf Rolle. Sehr einfaches Heuristik-Mapping basiert auf Kategorie-Namen.
+function filterItemsByRole(order, role) {
+    if (!role || role === 'all' || role === 'kitchen_bon_only' || role === 'customer_only') return order.items || [];
+    return (order.items || []).filter(function(it) {
+        var cat = ((it.category || it.category_name || '') + '').toLowerCase();
+        if (role === 'kitchen') return !/getr|drink|bar|wein|bier|wasser|cola|kaffee|saft|softdrink/.test(cat);
+        if (role === 'bar') return /getr|drink|bar|wein|bier|wasser|cola|kaffee|saft|softdrink/.test(cat);
+        if (role === 'counter') return true;
+        return true;
+    });
+}
+// Druckt eine Bestellung an alle aktiven Drucker des Restaurants. bonType: 'kitchen' | 'customer'
+async function dispatchPrintToAll(order, bonType) {
+    var restId = order.restaurant_id || 'default';
+    var printers = getPrinterList(restId).filter(function(p) { return p.autoprint || bonType === 'manual'; });
+    if (!printers.length) {
+        if (bonType === 'manual') {
+            showToast('Kein Drucker konfiguriert', 'info');
+        }
+        return false;
+    }
+    var success = 0, errors = 0;
+    for (var i = 0; i < printers.length; i++) {
+        var p = printers[i];
+        // Rollen-Filter: Bon-Typ-Restriktion
+        if (p.role === 'kitchen_bon_only' && bonType !== 'kitchen') continue;
+        if (p.role === 'customer_only' && bonType !== 'customer') continue;
+        // Item-Filter (Bar/Küche): Order-Klon mit gefilterten Items
+        var filteredItems = filterItemsByRole(order, p.role);
+        if (filteredItems.length === 0 && (p.role === 'kitchen' || p.role === 'bar')) continue;
+        var orderForPrint = Object.assign({}, order, { items: filteredItems });
+        try {
+            if (p.type === 'epson') {
+                var ok = await printToEpson(orderForPrint, p);
+                if (ok) success++; else errors++;
+            } else {
+                var okQ = printToSpecificQZ(orderForPrint, p);
+                if (okQ) success++; else errors++;
+            }
+        } catch(e) {
+            errors++;
+            console.error('Drucker-Fehler:', e);
+        }
+    }
+    if (success > 0) showToast('An ' + success + ' Drucker gesendet' + (errors ? ' (' + errors + ' Fehler)' : ''), success > 0 && errors === 0 ? 'success' : 'info');
+    else if (errors) showToast('Druckfehler bei ' + errors + ' Drucker(n)', 'error');
+    return success > 0;
+}
+// QZ Tray Print für einzelnen Drucker
+function printToSpecificQZ(order, printer) {
+    if (!window.qz || !qzConnected) {
+        showToast('QZ Tray nicht verbunden', 'error');
+        return false;
+    }
+    try {
+        var escpos = generateESCPOS(order);
+        var b64 = btoa(unescape(encodeURIComponent(escpos)));
+        var config = qz.configs.create(printer.name, { encoding: 'UTF-8' });
+        qz.print(config, [{ type: 'raw', format: 'base64', data: b64 }]).then(function() {
+            // ok
+        }).catch(function(err) { console.error('QZ Druckfehler:', err); });
+        return true;
+    } catch(e) { console.error('QZ Fehler:', e); return false; }
+}
+// Epson ePOS-Print über Netzwerk
+async function printToEpson(order, printer) {
+    if (!printer.ip) return false;
+    try {
+        var url = 'http://' + printer.ip + '/cgi-bin/epos/service.cgi?devid=' + (printer.devid || 'local_printer') + '&timeout=10000';
+        var xml = (typeof generateEposXML === 'function') ? generateEposXML(order) : null;
+        if (!xml) return false;
+        var res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': '""' },
+            body: xml,
+            signal: AbortSignal.timeout(8000)
+        });
+        return res.ok;
+    } catch(e) { console.error('Epson Fehler:', e); return false; }
 }
 function savePrinterSettings(settings) {
     localStorage.setItem('kin_printer_settings', JSON.stringify(settings));
@@ -46722,8 +47086,174 @@ function printToQZ(order, bonType) {
     return true;
 }
 
-// Drucker-Settings UI öffnen
+// Drucker-Settings UI öffnen (Multi-Drucker Hybrid)
 function openPrinterSettings() {
+    openMultiPrinterSettings();
+}
+
+function openMultiPrinterSettings() {
+    var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
+    var printers = getPrinterList(restId);
+
+    function rolesOptionsHtml(selected) {
+        return PRINTER_ROLES.map(function(r) {
+            var sel = r.id === selected ? ' selected' : '';
+            return '<option value="' + r.id + '"' + sel + '>' + r.label + '</option>';
+        }).join('');
+    }
+
+    function renderPrinterRow(p, idx) {
+        var typeQz = p.type === 'qz' ? ' selected' : '';
+        var typeEpson = p.type === 'epson' ? ' selected' : '';
+        return '<div class="multi-printer-row" data-idx="' + idx + '" style="border:1px solid var(--border-color);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--bg-secondary);">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<strong style="font-size:13px;">Drucker ' + (idx + 1) + '</strong>' +
+                '<button type="button" onclick="removeMultiPrinter(' + idx + ')" style="background:rgba(239,68,68,0.1);color:#dc2626;border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:11px;padding:4px 8px;cursor:pointer;">Entfernen</button>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+                '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Typ</label>' +
+                    '<select onchange="updateMultiPrinter(' + idx + ', \'type\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
+                        '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken)</option>' +
+                        '<option value="epson"' + typeEpson + '>Epson ePOS LAN (TM-Serie, kein PC nötig)</option>' +
+                    '</select></div>' +
+                '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Rolle</label>' +
+                    '<select onchange="updateMultiPrinter(' + idx + ', \'role\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
+                        rolesOptionsHtml(p.role || 'all') +
+                    '</select></div>' +
+            '</div>' +
+            (p.type === 'epson'
+                ? '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
+                    '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker IP-Adresse</label>' +
+                        '<input value="' + (p.ip || '') + '" oninput="updateMultiPrinter(' + idx + ', \'ip\', this.value)" placeholder="192.168.1.50" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
+                    '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Device ID</label>' +
+                        '<input value="' + (p.devid || 'local_printer') + '" oninput="updateMultiPrinter(' + idx + ', \'devid\', this.value)" placeholder="local_printer" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
+                  '</div>'
+                : '<div style="margin-bottom:8px;">' +
+                    '<label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker-Name (aus QZ Tray)</label>' +
+                    '<select onchange="updateMultiPrinter(' + idx + ', \'name\', this.value)" id="qzSelect_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
+                        '<option value="' + (p.name || '') + '">' + (p.name || 'QZ Tray wird geladen…') + '</option>' +
+                    '</select>' +
+                  '</div>') +
+            '<div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">' +
+                '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">' +
+                    '<input type="checkbox" ' + (p.autoprint ? 'checked' : '') + ' onchange="updateMultiPrinter(' + idx + ', \'autoprint\', this.checked)"> Automatisch drucken' +
+                '</label>' +
+                '<button type="button" onclick="testMultiPrinter(' + idx + ')" style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testdruck</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    var listHtml = printers.length
+        ? printers.map(function(p, i) { return renderPrinterRow(p, i); }).join('')
+        : '<div style="text-align:center;color:var(--slate);font-size:13px;padding:20px;">Noch keine Drucker konfiguriert. Klicke auf „Drucker hinzufügen".</div>';
+
+    var html = '<div style="padding:20px;max-height:80vh;overflow-y:auto;">' +
+        '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;margin-bottom:6px;display:flex;align-items:center;gap:8px;">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" width="22" height="22"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
+            'Drucker (mehrere mit Rollen)</h2>' +
+        '<p style="font-size:12px;color:var(--slate);margin-bottom:14px;">Mehrere Drucker mit Rollen (Küche, Bar, Theke). Epson TM-Serie LAN braucht kein PC. QZ Tray für andere Marken oder USB/Bluetooth. <a href="https://qz.io/download" target="_blank" style="color:var(--primary);text-decoration:underline;">QZ Tray</a></p>' +
+        '<div id="multiPrinterList">' + listHtml + '</div>' +
+        '<button type="button" onclick="addMultiPrinter()" style="width:100%;margin-top:8px;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px dashed var(--border-color);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">+ Drucker hinzufügen</button>' +
+        '<div id="multiPrinterTestResult" style="margin-top:12px;padding:10px;border-radius:12px;font-size:13px;display:none;"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button type="button" onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
+            '<button type="button" onclick="saveMultiPrinterSettings()" style="flex:1;padding:12px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Speichern</button>' +
+        '</div>' +
+    '</div>';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'multiPrinterOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10005;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div class="modal" style="max-width:560px;width:100%;border-radius:16px;background:var(--bg-card);display:block;">' +
+        '<div style="display:flex;justify-content:flex-end;padding:8px 12px 0;"><button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-primary);">×</button></div>' +
+        html + '</div>';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    overlay._multiPrinters = JSON.parse(JSON.stringify(printers));
+    overlay._restId = restId;
+    document.body.appendChild(overlay);
+
+    // QZ Tray Drucker-Liste in alle <select id=qzSelect_*> laden
+    if (typeof connectQZ === 'function') {
+        connectQZ(function(ok) {
+            if (!ok || typeof listQZPrinters !== 'function') return;
+            listQZPrinters(function(printerNames) {
+                document.querySelectorAll('[id^="qzSelect_"]').forEach(function(sel) {
+                    var current = sel.value;
+                    sel.innerHTML = '<option value="">-- Drucker wählen --</option>' +
+                        printerNames.map(function(n) { return '<option value="' + n + '"' + (n === current ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+                });
+            });
+        });
+    }
+}
+
+function _multiPrinterOverlay() {
+    return document.getElementById('multiPrinterOverlay');
+}
+function addMultiPrinter() {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    ov._multiPrinters.push({ id: 'p-' + Date.now(), type: 'epson', ip: '', devid: 'local_printer', role: 'all', autoprint: true });
+    _refreshMultiPrinterList();
+}
+function removeMultiPrinter(idx) {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    ov._multiPrinters.splice(idx, 1);
+    _refreshMultiPrinterList();
+}
+function updateMultiPrinter(idx, key, value) {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    if (!ov._multiPrinters[idx]) return;
+    ov._multiPrinters[idx][key] = value;
+    if (key === 'type') _refreshMultiPrinterList();
+}
+function _refreshMultiPrinterList() {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    // Modal neu rendern (einfachster Weg). Speichert State über ov._multiPrinters.
+    var restId = ov._restId;
+    var keep = ov._multiPrinters;
+    setPrinterList(restId, keep); // Persistieren als Snapshot — alternativ nur in-memory bis Save
+    ov.remove();
+    openMultiPrinterSettings();
+}
+function saveMultiPrinterSettings() {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    setPrinterList(ov._restId, ov._multiPrinters || []);
+    showToast('Drucker gespeichert (' + (ov._multiPrinters || []).length + ' aktiv)', 'success');
+    ov.remove();
+}
+async function testMultiPrinter(idx) {
+    var ov = _multiPrinterOverlay(); if (!ov) return;
+    var p = ov._multiPrinters[idx];
+    if (!p) return;
+    var resultDiv = document.getElementById('multiPrinterTestResult');
+    resultDiv.style.display = 'block';
+    resultDiv.style.background = '#fffbeb';
+    resultDiv.style.color = '#92400e';
+    resultDiv.textContent = 'Drucke Testbon auf Drucker ' + (idx + 1) + '...';
+    var testOrder = {
+        id: 'test-' + Date.now(),
+        order_number: 'TEST',
+        order_type: 'pickup',
+        customer_name: 'Testdruck',
+        items: [{ name: 'Test-Artikel', quantity: 1, price: 0 }],
+        total: 0,
+        notes: 'Multi-Drucker Test',
+        created_at: new Date().toISOString(),
+        payment_method: 'cash'
+    };
+    var ok = false;
+    try {
+        if (p.type === 'epson') ok = await printToEpson(testOrder, p);
+        else ok = printToSpecificQZ(testOrder, p);
+    } catch(e) { ok = false; }
+    resultDiv.style.background = ok ? '#f0fdf4' : '#fef2f2';
+    resultDiv.style.color = ok ? '#065f46' : '#991b1b';
+    resultDiv.textContent = ok ? '✓ Testbon gesendet' : '✗ Druckfehler — IP/Name prüfen';
+}
+
+// Legacy single-printer Modal (bleibt zugänglich falls jemand QZ-Setup direkt will)
+function _openLegacyPrinterSettings() {
     var settings = getPrinterSettings();
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
     var conf = settings[restId] || { printer: '', autoprint: false };
@@ -46922,6 +47452,91 @@ async function _loadPOSConfigFromSupabase() {
     } catch(e) { console.warn('POS Config laden fehlgeschlagen:', e); }
 }
 
+// Helper: alle relevanten Bestelldaten als rich payload sammeln
+// Wird von jedem POS-System genutzt (jedes System mappt dann auf sein Format)
+function buildRichPosPayload(order) {
+    var rest = null;
+    try {
+        rest = (APP_DATA && APP_DATA.restaurants || []).find(function(r) { return r.id === order.restaurant_id; });
+    } catch(e) {}
+
+    var items = (order.items || []).map(function(item) {
+        var opts = (item.selected_options || []).map(function(o) {
+            return {
+                name: o.option_name || o.name || '',
+                price_delta: parseFloat(o.price_delta || o.price || 0),
+                group: o.option_group || o.group || ''
+            };
+        });
+        var optsText = opts.map(function(o) { return o.name + (o.price_delta ? ' (+' + o.price_delta.toFixed(2) + ')' : ''); }).filter(Boolean).join(', ');
+        return {
+            id: item.menu_item_id || item.id || null,
+            name: item.name || '',
+            quantity: item.quantity || 1,
+            unit_price: parseFloat(item.base_price || item.price) || 0,
+            line_total: parseFloat(item.price) || (parseFloat(item.base_price || 0) * (item.quantity || 1)),
+            modifiers: opts,
+            modifiers_text: optsText,
+            allergens: item.allergens || [],
+            note: item.note || item.special_request || ''
+        };
+    });
+
+    return {
+        // Identifier
+        order_id: order.id,
+        order_number: order.order_number || '',
+        external_reference: order.order_number || order.id,
+
+        // Type / Channel
+        order_type: order.order_type || 'pickup',
+        source: order.source || 'online',
+
+        // Items mit Modifier, Allergenen, Notes
+        items: items,
+
+        // Customer
+        customer_name: order.customer_name || 'Online-Bestellung',
+        customer_phone: order.customer_phone || '',
+        customer_email: order.customer_email || '',
+
+        // Adresse (falls Lieferung)
+        delivery_address: order.delivery_address ? {
+            street: order.delivery_address.street || '',
+            house_number: order.delivery_address.house_number || '',
+            zip: order.delivery_address.zip || '',
+            city: order.delivery_address.city || '',
+            note: order.delivery_address.note || ''
+        } : null,
+
+        // Tisch (falls dine-in)
+        table_number: order.table_number || null,
+
+        // Notizen
+        customer_note: order.notes || order.customer_note || '',
+
+        // Zahlung
+        payment_method: order.payment_method || '',
+        payment_status: order.payment_status || '',
+
+        // Beträge
+        subtotal: parseFloat(order.subtotal || 0) || 0,
+        delivery_fee: parseFloat(order.delivery_fee || 0) || 0,
+        tip: parseFloat(order.tip || 0) || 0,
+        tax: parseFloat(order.tax || 0) || 0,
+        total: parseFloat(order.total || 0) || 0,
+        currency: 'EUR',
+
+        // Restaurant-Info
+        restaurant_id: order.restaurant_id || '',
+        restaurant_name: rest && rest.name || order.restaurant_name || '',
+
+        // Zeit
+        scheduled_at: order.scheduled_at || null,
+        created_at: order.created_at || new Date().toISOString()
+    };
+}
+
 // Unterstützte Kassensysteme
 var POS_SYSTEMS = {
     none: { name: 'Kein Kassensystem', needsKey: false },
@@ -46933,21 +47548,31 @@ var POS_SYSTEMS = {
         helpUrl: 'https://ready2order.com/at/schnittstellen/',
         sendOrder: function(order, config, callback) {
             // ready2order API v1 — über Server-Proxy (CORS).
-            var items = (order.items || []).map(function(item) {
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
                 return {
-                    product_name: item.name,
-                    quantity: item.quantity || 1,
-                    price_per_unit: parseFloat(item.price) || 0,
-                    note: (item.selected_options || []).map(function(o) { return o.option_name || o.name || ''; }).join(', ')
+                    product_name: it.name,
+                    quantity: it.quantity,
+                    price_per_unit: it.unit_price,
+                    note: [it.modifiers_text, (it.allergens || []).join(','), it.note].filter(Boolean).join(' | ')
                 };
             });
+            var noteParts = [];
+            if (rich.customer_note) noteParts.push('Kunde: ' + rich.customer_note);
+            if (rich.table_number) noteParts.push('Tisch ' + rich.table_number);
+            if (rich.delivery_address) noteParts.push('Adresse: ' + rich.delivery_address.street + ' ' + rich.delivery_address.house_number + ', ' + rich.delivery_address.zip + ' ' + rich.delivery_address.city);
+            if (rich.delivery_fee) noteParts.push('Liefergebühr: ' + rich.delivery_fee.toFixed(2) + '€');
+            if (rich.tip) noteParts.push('Trinkgeld: ' + rich.tip.toFixed(2) + '€');
+            if (rich.payment_method) noteParts.push('Zahlung: ' + rich.payment_method);
             var payload = {
                 order_type: order.order_type === 'delivery' ? 'delivery' : order.order_type === 'dine_in' ? 'dine_in' : 'takeaway',
-                customer_name: order.customer_name || 'Online-Bestellung',
+                customer_name: rich.customer_name,
+                customer_phone: rich.customer_phone,
                 items: items,
-                note: order.notes || '',
-                external_reference: order.order_number || order.id,
-                total: parseFloat(order.total) || 0
+                note: noteParts.join(' | '),
+                external_reference: rich.external_reference,
+                total: rich.total,
+                _kiekmolin_full: rich
             };
             fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
@@ -46977,20 +47602,31 @@ var POS_SYSTEMS = {
         keyPlaceholder: 'Lightspeed API Key eingeben',
         helpUrl: 'https://www.lightspeedhq.de/restaurant/',
         sendOrder: function(order, config, callback) {
-            var items = (order.items || []).map(function(item) {
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
                 return {
-                    name: item.name,
-                    quantity: item.quantity || 1,
-                    unit_price: parseFloat(item.price) || 0,
-                    modifiers: (item.selected_options || []).map(function(o) { return { name: o.option_name || o.name || '' }; })
+                    name: it.name,
+                    quantity: it.quantity,
+                    unit_price: it.unit_price,
+                    modifiers: (it.modifiers || []).map(function(m) { return { name: m.name, price: m.price_delta || 0 }; }),
+                    allergens: it.allergens,
+                    note: it.note
                 };
             });
             var payload = {
                 type: order.order_type === 'delivery' ? 'DELIVERY' : order.order_type === 'dine_in' ? 'DINE_IN' : 'TAKEAWAY',
-                customer: { name: order.customer_name || 'Online' },
+                customer: {
+                    name: rich.customer_name,
+                    phone: rich.customer_phone,
+                    email: rich.customer_email
+                },
                 items: items,
-                note: order.notes || '',
-                reference: order.order_number || order.id
+                note: rich.customer_note,
+                reference: rich.external_reference,
+                table_number: rich.table_number,
+                delivery_address: rich.delivery_address,
+                payment: { method: rich.payment_method, status: rich.payment_status },
+                amounts: { subtotal: rich.subtotal, delivery_fee: rich.delivery_fee, tip: rich.tip, tax: rich.tax, total: rich.total, currency: rich.currency }
             };
             fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
@@ -47019,22 +47655,31 @@ var POS_SYSTEMS = {
         keyPlaceholder: 'orderbird API Token eingeben',
         helpUrl: 'https://www.orderbird.com/de/',
         sendOrder: function(order, config, callback) {
-            var items = (order.items || []).map(function(item) {
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
                 return {
-                    name: item.name,
-                    amount: item.quantity || 1,
-                    price: Math.round((parseFloat(item.price) || 0) * 100),
-                    options: (item.selected_options || []).map(function(o) { return o.option_name || o.name || ''; }).join(', ')
+                    name: it.name,
+                    amount: it.quantity,
+                    price: Math.round(it.unit_price * 100),
+                    options: it.modifiers_text,
+                    allergens: it.allergens,
+                    note: it.note
                 };
             });
             var payload = {
                 source: 'kiekmolin',
                 type: order.order_type || 'pickup',
-                customer_name: order.customer_name || 'Online',
+                customer_name: rich.customer_name,
+                customer_phone: rich.customer_phone,
                 items: items,
-                comment: order.notes || '',
-                reference_id: order.order_number || order.id,
-                total_cents: Math.round((parseFloat(order.total) || 0) * 100)
+                comment: rich.customer_note,
+                reference_id: rich.external_reference,
+                table_number: rich.table_number,
+                delivery_address: rich.delivery_address,
+                payment_method: rich.payment_method,
+                tip_cents: Math.round((rich.tip || 0) * 100),
+                delivery_fee_cents: Math.round((rich.delivery_fee || 0) * 100),
+                total_cents: Math.round((rich.total || 0) * 100)
             };
             fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
@@ -47063,22 +47708,31 @@ var POS_SYSTEMS = {
         keyPlaceholder: 'Gastrofix API Key eingeben',
         helpUrl: 'https://www.gastrofix.com/',
         sendOrder: function(order, config, callback) {
-            var items = (order.items || []).map(function(item) {
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
                 return {
-                    name: item.name,
-                    quantity: item.quantity || 1,
-                    price_cents: Math.round((parseFloat(item.price) || 0) * 100),
-                    modifiers: (item.selected_options || []).map(function(o) { return o.option_name || o.name || ''; }).join(', ')
+                    name: it.name,
+                    quantity: it.quantity,
+                    price_cents: Math.round(it.unit_price * 100),
+                    modifiers: it.modifiers_text,
+                    allergens: it.allergens,
+                    note: it.note
                 };
             });
             var payload = {
                 source: 'kiekmolin',
                 type: order.order_type === 'delivery' ? 'delivery' : order.order_type === 'dine_in' ? 'dine_in' : 'takeaway',
-                customer: order.customer_name || 'Online-Bestellung',
+                customer: rich.customer_name,
+                customer_phone: rich.customer_phone,
                 items: items,
-                note: order.notes || '',
-                reference: order.order_number || order.id,
-                total_cents: Math.round((parseFloat(order.total) || 0) * 100)
+                note: rich.customer_note,
+                reference: rich.external_reference,
+                table_number: rich.table_number,
+                delivery_address: rich.delivery_address,
+                payment_method: rich.payment_method,
+                tip_cents: Math.round((rich.tip || 0) * 100),
+                delivery_fee_cents: Math.round((rich.delivery_fee || 0) * 100),
+                total_cents: Math.round((rich.total || 0) * 100)
             };
             fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
@@ -47107,29 +47761,7 @@ var POS_SYSTEMS = {
         keyPlaceholder: 'https://meine-kasse.de/api/orders',
         helpUrl: '',
         sendOrder: function(order, config, callback) {
-            var payload = {
-                source: 'kiekmolin',
-                order_id: order.id,
-                order_number: order.order_number,
-                order_type: order.order_type,
-                status: order.status,
-                customer_name: order.customer_name || '',
-                customer_phone: order.customer_phone || '',
-                items: (order.items || []).map(function(item) {
-                    return {
-                        name: item.name,
-                        quantity: item.quantity || 1,
-                        price: parseFloat(item.price) || 0,
-                        options: item.selected_options || []
-                    };
-                }),
-                total: parseFloat(order.total) || 0,
-                notes: order.notes || '',
-                delivery_address: order.delivery_address || null,
-                table_number: order.table_number || null,
-                created_at: order.created_at,
-                payment_method: order.payment_method || ''
-            };
+            var payload = Object.assign({ source: 'kiekmolin' }, buildRichPosPayload(order));
             fetch('/.netlify/functions/pos-proxy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -47147,6 +47779,37 @@ var POS_SYSTEMS = {
             }).then(function(r) { return r.json(); }).then(function(j) {
                 if (j && (j.ok || j.status === 204)) callback(true, 'Verbindung OK');
                 else callback(false, 'Webhook: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        }
+    },
+    multidata: {
+        name: 'Multidata',
+        needsKey: true,
+        keyLabel: 'API Key',
+        keyPlaceholder: 'Multidata API Key eingeben',
+        needsApiUrl: true,
+        apiUrlLabel: 'API URL',
+        apiUrlPlaceholder: 'https://api.multidata.de oder lokale IP',
+        helpUrl: 'https://www.multidata.com/',
+        sendOrder: function(order, config, callback) {
+            var payload = Object.assign({ source: 'kiekmolin' }, buildRichPosPayload(order));
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'multidata', apiKey: config.apiKey, apiUrl: config.apiUrl || null, endpoint: '/orders', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung an Multidata gesendet');
+                else callback(false, 'Multidata Fehler: ' + (j && j.body ? j.body : 'HTTP ' + (j && j.status)));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'multidata', apiKey: config.apiKey, apiUrl: config.apiUrl || null, endpoint: '/ping', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'Multidata: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     }
@@ -47309,6 +47972,10 @@ function openPOSSettings() {
             '<label id="posKeyLabel" style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">' + (currentPOS.keyLabel || 'API Key') + '</label>' +
             '<input id="posApiKey" value="' + (conf.apiKey || '') + '" placeholder="' + (currentPOS.keyPlaceholder || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;">' +
         '</div>' +
+        '<div id="posApiUrlField" style="margin-bottom:12px;display:' + (currentPOS.needsApiUrl ? 'block' : 'none') + ';">' +
+            '<label id="posApiUrlLabel" style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">' + (currentPOS.apiUrlLabel || 'API URL') + '</label>' +
+            '<input id="posApiUrl" value="' + (conf.apiUrl || '') + '" placeholder="' + (currentPOS.apiUrlPlaceholder || 'https://api.example.com') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;">' +
+        '</div>' +
         '<div id="posHelpLink" style="margin-bottom:12px;display:' + (currentPOS.helpUrl ? 'block' : 'none') + ';">' +
             '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">API-Zugang einrichten &rarr;</a>' +
         '</div>' +
@@ -47351,6 +48018,12 @@ function onPOSSystemChange() {
     if (keyInput) keyInput.placeholder = pos.keyPlaceholder || '';
     if (helpLink) helpLink.style.display = pos.helpUrl ? 'block' : 'none';
     if (helpAnchor && pos.helpUrl) helpAnchor.href = pos.helpUrl;
+    var urlField = document.getElementById('posApiUrlField');
+    var urlLabel = document.getElementById('posApiUrlLabel');
+    var urlInput = document.getElementById('posApiUrl');
+    if (urlField) urlField.style.display = pos.needsApiUrl ? 'block' : 'none';
+    if (urlLabel) urlLabel.textContent = pos.apiUrlLabel || 'API URL';
+    if (urlInput) urlInput.placeholder = pos.apiUrlPlaceholder || 'https://api.example.com';
 }
 
 // POS-Einstellungen speichern
@@ -47360,6 +48033,7 @@ function savePOSSettings() {
     allConfig[restId] = {
         system: document.getElementById('posSystemSelect')?.value || 'none',
         apiKey: document.getElementById('posApiKey')?.value?.trim() || '',
+        apiUrl: document.getElementById('posApiUrl')?.value?.trim() || '',
         autoSend: document.getElementById('posAutoSend')?.checked || false
     };
     savePOSConfig(allConfig);
@@ -47401,9 +48075,11 @@ function testPOSConnection() {
             ? '<span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;vertical-align:-4px;">check_circle</span> ' + msg
             : '<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="14" height="14" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ' + msg;
     }
+    var apiUrl = document.getElementById('posApiUrl')?.value?.trim() || '';
+    var testCfg = { apiKey: apiKey, apiUrl: apiUrl };
     // Bevorzugt: dedizierter testConnection (read-only Probe). Fallback: Test-Bestellung.
     if (pos && pos.testConnection) {
-        pos.testConnection({ apiKey: apiKey }, showResult);
+        pos.testConnection(testCfg, showResult);
         return;
     }
     var testOrder = {
@@ -47418,7 +48094,7 @@ function testPOSConnection() {
         payment_method: 'cash'
     };
     if (pos && pos.sendOrder) {
-        pos.sendOrder(testOrder, { apiKey: apiKey }, showResult);
+        pos.sendOrder(testOrder, testCfg, showResult);
     }
 }
 

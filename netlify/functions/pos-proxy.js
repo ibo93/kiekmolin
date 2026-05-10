@@ -44,6 +44,18 @@ function buildTarget(system, apiKey, apiUrl, endpoint) {
                 target: (apiKey || '') + (endpoint || ''),
                 headers: { 'Content-Type': 'application/json' }
             };
+        case 'multidata':
+            // Multidata: User gibt eigene API-URL + API-Key vor.
+            // Default-Auth: Bearer; falls API X-API-Key braucht, einfach ändern.
+            var mdBase = apiUrl || '';
+            return {
+                target: mdBase + endpoint,
+                headers: {
+                    'Authorization': 'Bearer ' + (apiKey || ''),
+                    'X-API-Key': apiKey || '',
+                    'Content-Type': 'application/json'
+                }
+            };
         default:
             return null;
     }
