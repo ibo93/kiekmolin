@@ -40693,6 +40693,7 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
                         <input type="checkbox" id="menuItemHomemade" style="display: none;">
                     </div>
                 </div>
+                <div id="newMenuItemAllergenContainer"></div>
                 <div style="display: flex; gap: 12px; margin-top: 20px;">
                     <button type="button" onclick="document.getElementById('addMenuItemModal').style.display='none';" style="flex: 1; padding: 14px; background: var(--bg-secondary); border: none; border-radius: 9999px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--dark);">
                         Abbrechen
@@ -40808,6 +40809,12 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             }
         });
 
+        var allergens = [];
+        try {
+            var allergenInp = document.getElementById('newMenuItemAllergens');
+            if (allergenInp && allergenInp.value) allergens = JSON.parse(allergenInp.value) || [];
+        } catch(e) { allergens = []; }
+
         var insertData = {
             restaurant_id: restaurantId,
             category_id: categoryId,
@@ -40815,7 +40822,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             description: description,
             base_price: price,
             is_available: true,
-            sort_order: 1
+            sort_order: 1,
+            allergens: allergens
         };
         if (imageUrl) insertData.image_url = imageUrl;
         if (sizes.length > 0) insertData.sizes = sizes;
@@ -41560,6 +41568,86 @@ var GASTRO_DICT = {
     'tagessuppe':{en:'soup of the day',nl:'dagsoep'},'hauswein':{en:'house wine',nl:'huiswijn'},
     'für':{en:'for',nl:'voor'},'personen':{en:'persons',nl:'personen'},'kalt':{en:'cold',nl:'koud'},'warm':{en:'warm',nl:'warm'}
 };
+
+// LMIV-Pflichtallergene (EU-Verordnung 1169/2011)
+var LMIV_ALLERGENS = [
+  { code: 'gluten', label: 'Gluten', full: 'Glutenhaltiges Getreide' },
+  { code: 'krebstiere', label: 'Krebstiere', full: 'Krebstiere und Erzeugnisse daraus' },
+  { code: 'eier', label: 'Eier', full: 'Eier und Erzeugnisse daraus' },
+  { code: 'fisch', label: 'Fisch', full: 'Fisch und Erzeugnisse daraus' },
+  { code: 'erdnuss', label: 'Erdnüsse', full: 'Erdnüsse und Erzeugnisse daraus' },
+  { code: 'soja', label: 'Soja', full: 'Sojabohnen und Erzeugnisse daraus' },
+  { code: 'milch', label: 'Milch', full: 'Milch und Erzeugnisse daraus (einschl. Laktose)' },
+  { code: 'schalenfruechte', label: 'Nüsse', full: 'Schalenfrüchte (Mandeln, Haselnüsse, Walnüsse, Kaschunüsse, Pekannüsse, Paranüsse, Pistazien, Macadamianüsse)' },
+  { code: 'sellerie', label: 'Sellerie', full: 'Sellerie und Erzeugnisse daraus' },
+  { code: 'senf', label: 'Senf', full: 'Senf und Erzeugnisse daraus' },
+  { code: 'sesam', label: 'Sesam', full: 'Sesamsamen und Erzeugnisse daraus' },
+  { code: 'sulfite', label: 'Sulfite', full: 'Schwefeldioxid und Sulfite >10mg/kg' },
+  { code: 'lupinen', label: 'Lupinen', full: 'Lupinen und Erzeugnisse daraus' },
+  { code: 'weichtiere', label: 'Weichtiere', full: 'Weichtiere und Erzeugnisse daraus' }
+];
+window.LMIV_ALLERGENS = LMIV_ALLERGENS;
+
+function getAllergenLabel(code) {
+  for (var i = 0; i < LMIV_ALLERGENS.length; i++) {
+    if (LMIV_ALLERGENS[i].code === code) return LMIV_ALLERGENS[i].label;
+  }
+  return code;
+}
+window.getAllergenLabel = getAllergenLabel;
+
+function buildAllergenChipsHtml(selectedArray, hiddenInputId) {
+  var selected = Array.isArray(selectedArray) ? selectedArray.slice() : [];
+  var safeJson = JSON.stringify(selected).replace(/"/g, '&quot;');
+  var html = '';
+  html += '<div class="form-group lmiv-allergen-section" style="border:1px solid var(--border-color);border-radius:16px;padding:14px;background:var(--bg-secondary);">';
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
+  html += '<label class="form-label" style="margin:0;font-weight:600;">Allergene (LMIV-Pflicht)</label>';
+  html += '<span class="material-symbols-outlined" title="Pflichtangabe nach EU-Verordnung 1169/2011. Klick zum Anhaken." style="font-size:16px;color:var(--text-secondary);cursor:help;">info</span>';
+  html += '</div>';
+  html += '<p style="font-size:11px;color:var(--text-secondary);margin:0 0 10px;">Pflichtangabe nach EU-Verordnung 1169/2011. Klick zum Anhaken.</p>';
+  html += '<div class="lmiv-chip-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">';
+  for (var i = 0; i < LMIV_ALLERGENS.length; i++) {
+    var a = LMIV_ALLERGENS[i];
+    var isOn = selected.indexOf(a.code) >= 0;
+    var bg = isOn ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'var(--bg-card, #fff)';
+    var fg = isOn ? 'var(--primary)' : 'var(--text-secondary)';
+    var bd = isOn ? 'var(--primary)' : 'var(--border-color)';
+    html += '<button type="button" class="lmiv-chip" data-code="' + a.code + '" data-target="' + hiddenInputId + '" ';
+    html += 'onclick="toggleAllergenChip(\'' + a.code + '\',\'' + hiddenInputId + '\')" ';
+    html += 'title="' + a.full.replace(/"/g, '&quot;') + '" ';
+    html += 'aria-pressed="' + (isOn ? 'true' : 'false') + '" ';
+    html += 'style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:9999px;border:1.5px solid ' + bd + ';background:' + bg + ';color:' + fg + ';font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s ease;">';
+    html += '<span class="material-symbols-outlined" style="font-size:14px;">warning</span>';
+    html += '<span>' + a.label + '</span>';
+    html += '</button>';
+  }
+  html += '</div>';
+  html += '<input type="hidden" id="' + hiddenInputId + '" value="' + safeJson + '">';
+  html += '<style>@media (max-width: 640px){ .lmiv-chip-grid { grid-template-columns: repeat(2, 1fr) !important; } }</style>';
+  html += '</div>';
+  return html;
+}
+window.buildAllergenChipsHtml = buildAllergenChipsHtml;
+
+function toggleAllergenChip(code, hiddenInputId) {
+  var input = document.getElementById(hiddenInputId);
+  if (!input) return;
+  var arr = [];
+  try { arr = JSON.parse(input.value || '[]') || []; } catch(e) { arr = []; }
+  var idx = arr.indexOf(code);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(code);
+  input.value = JSON.stringify(arr);
+  var btn = document.querySelector('button.lmiv-chip[data-code="' + code + '"][data-target="' + hiddenInputId + '"]');
+  if (btn) {
+    var isOn = arr.indexOf(code) >= 0;
+    btn.style.background = isOn ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'var(--bg-card, #fff)';
+    btn.style.color = isOn ? 'var(--primary)' : 'var(--text-secondary)';
+    btn.style.borderColor = isOn ? 'var(--primary)' : 'var(--border-color)';
+    btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+  }
+}
+window.toggleAllergenChip = toggleAllergenChip;
 
 // Kategorie-Übersetzungen (exakt)
 var CATEGORY_TRANSLATIONS = {
@@ -49934,6 +50022,12 @@ function openAddMenuItemModal(categoryId) {
         modal.style.display = 'flex';
         modal.classList.add('active');
         resetPropertyButtons(); // Property Buttons zurücksetzen
+        try {
+            var allergenHost = document.getElementById('newMenuItemAllergenContainer');
+            if (allergenHost && typeof buildAllergenChipsHtml === 'function') {
+                allergenHost.innerHTML = buildAllergenChipsHtml([], 'newMenuItemAllergens');
+            }
+        } catch(e) { console.warn('Allergen-Editor:', e); }
     } else {
         console.error('<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#ef4444;">close</span></span> addMenuItemModal nicht gefunden!');
         showToast('Fehler beim Öffnen', 'error');
@@ -50207,6 +50301,12 @@ async function addMenuItem(e) {
         return;
     }
 
+    var _allergens = [];
+    try {
+        var _allergenInp = document.getElementById('newMenuItemAllergens');
+        if (_allergenInp && _allergenInp.value) _allergens = JSON.parse(_allergenInp.value) || [];
+    } catch(_e) { _allergens = []; }
+
     const newItem = {
         id: Date.now(),
         restaurant_id: currentMenuRestaurant,
@@ -50219,7 +50319,8 @@ async function addMenuItem(e) {
         is_popular: isPopular,
         is_vegan: isVegan,
         is_spicy: isSpicy ? 1 : 0,
-        sort_order: menuItems.length + 1
+        sort_order: menuItems.length + 1,
+        allergens: _allergens
     };
 
     // In Supabase speichern
@@ -51799,7 +51900,10 @@ function showScannedResults() {
 
         // Allergene
         if (item.allergens && item.allergens.length > 0) {
-            html += '<span style="font-size: 10px; background: var(--warning-100); color: var(--warning-800); padding: 1px 6px; border-radius: 4px; font-weight: 500;" title="Allergene: ' + item.allergens.join(', ') + '"><span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> ' + item.allergens.join(',') + '</span>';
+            var _allergenLabels = item.allergens.map(function(c) {
+                return (typeof getAllergenLabel === 'function') ? getAllergenLabel(c) : c;
+            });
+            html += '<span style="font-size: 10px; background: var(--warning-100); color: var(--warning-800); padding: 1px 6px; border-radius: 4px; font-weight: 500;" title="Allergene: ' + _allergenLabels.join(', ') + '"><span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> ' + _allergenLabels.join(', ') + '</span>';
         }
         html += '</div></div>';
 
@@ -52059,6 +52163,7 @@ function editMenuItem(itemId) {
         '<input type="url" id="editItemImage" value="' + (item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         (item.image_url ? '<img src="' + item.image_url + '" alt="' + (item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
         '</div></div>' +
+        buildAllergenChipsHtml(item.allergens || [], 'editMenuItemAllergens') +
         '<button onclick="saveEditedItem(\'' + itemId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
         '</div>';
 
@@ -52077,6 +52182,11 @@ async function saveEditedItem(itemId) {
     var dishNr = (document.getElementById('editItemNr')?.value || '').trim();
     var dailyLimit = parseInt(document.getElementById('editItemDailyLimit')?.value) || null;
     var imageUrl = (document.getElementById('editItemImage')?.value || '').trim() || null;
+    var editAllergens = [];
+    try {
+        var _eAlInp = document.getElementById('editMenuItemAllergens');
+        if (_eAlInp && _eAlInp.value) editAllergens = JSON.parse(_eAlInp.value) || [];
+    } catch(_e) { editAllergens = []; }
 
     if (!name) { showToast('Name ist Pflichtfeld', 'error'); return; }
 
@@ -52094,7 +52204,8 @@ async function saveEditedItem(itemId) {
                 is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: isSpicy ? 1 : 0, is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
-                additives: additives
+                additives: additives,
+                allergens: editAllergens
             })
         });
         if (res.ok) {
