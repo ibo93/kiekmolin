@@ -21205,6 +21205,17 @@ function handleRealtimeOrder(payload) {
                         url: '/'
                     }
                 );
+                // Server-side Web Push (auch wenn Tab/Browser zu)
+                try {
+                    fetch('/.netlify/functions/push-send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: { phone: order.customer_phone || null, email: order.customer_email || null },
+                            payload: { title: 'Bestellung ' + (order.order_number || ''), body: msg, url: '/', tag: 'order-status-' + order.id, requireInteraction: true }
+                        })
+                    }).catch(function(e) { console.warn('Push-Send fehlgeschlagen:', e); });
+                } catch (e) {}
             }
         }
     }
@@ -21290,24 +21301,38 @@ function handleRealtimeReservation(payload) {
             }
 
             // Push-Notification
+            var resPushTitle = null, resPushBody = null;
             if (reservation.status === 'confirmed') {
-                sendPushNotification(
-                    'Reservierung bestätigt',
-                    'Deine Reservierung' + dateStr + ' wurde bestätigt!',
+                resPushTitle = 'Reservierung bestätigt';
+                resPushBody = 'Deine Reservierung' + dateStr + ' wurde bestätigt!';
+                sendPushNotification(resPushTitle, resPushBody,
                     { tag: 'reservation-status-' + reservation.id, type: 'reservation_status', url: '/' }
                 );
             } else if (reservation.status === 'cancelled') {
-                sendPushNotification(
-                    'Reservierung abgelehnt',
-                    'Deine Reservierung' + dateStr + ' wurde leider abgelehnt.',
+                resPushTitle = 'Reservierung abgelehnt';
+                resPushBody = 'Deine Reservierung' + dateStr + ' wurde leider abgelehnt.';
+                sendPushNotification(resPushTitle, resPushBody,
                     { tag: 'reservation-status-' + reservation.id, type: 'reservation_status', url: '/' }
                 );
             } else if (reservation.status === 'seated') {
-                sendPushNotification(
-                    'Tisch bereit',
-                    'Willkommen! Dein Tisch ist bereit.',
+                resPushTitle = 'Tisch bereit';
+                resPushBody = 'Willkommen! Dein Tisch ist bereit.';
+                sendPushNotification(resPushTitle, resPushBody,
                     { tag: 'reservation-status-' + reservation.id, type: 'reservation_status', url: '/' }
                 );
+            }
+            if (resPushTitle) {
+                // Server-side Web Push (auch wenn Tab/Browser zu)
+                try {
+                    fetch('/.netlify/functions/push-send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: { phone: reservation.guest_phone || null, email: reservation.guest_email || null },
+                            payload: { title: resPushTitle, body: resPushBody, url: '/', tag: 'reservation-status-' + reservation.id, requireInteraction: true }
+                        })
+                    }).catch(function(e) { console.warn('Push-Send fehlgeschlagen:', e); });
+                } catch (e) {}
             }
             // Live-Banner sofort aktualisieren fuer den Kunden
             if (typeof checkActiveOrderBanner === 'function') {
@@ -21321,6 +21346,119 @@ function handleRealtimeReservation(payload) {
 // Browser Push Benachrichtigungen fuer Gastronomen + Kunden
 // Funktioniert auch wenn App/Browser im Hintergrund oder geschlossen
 
+// VAPID Public Key — public, darf im Client-Code stehen.
+var VAPID_PUBLIC_KEY = 'BJrQYyobI3w0fYa3H9XvFSFtK5Oj0Ei1AaLk9p4yIul7qq4sG3B4Q2zojuqUFTxZ7yVhUxc0RrFFO4OFVC5ohDg';
+
+function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var output = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+    return output;
+}
+
+// Web Push Subscription registrieren + an Supabase senden
+function subscribeWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return Promise.resolve(null);
+    }
+    return navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.getSubscription().then(function(existing) {
+            if (existing) return existing;
+            return reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+        });
+    }).then(function(sub) {
+        if (!sub) return null;
+        var json = sub.toJSON();
+        var phone = localStorage.getItem('kmi_customer_phone') || null;
+        var email = localStorage.getItem('kmi_customer_email') || null;
+        var record = {
+            endpoint: json.endpoint,
+            p256dh_key: json.keys && json.keys.p256dh,
+            auth_key: json.keys && json.keys.auth,
+            customer_phone: phone,
+            customer_email: email,
+            user_agent: navigator.userAgent || null
+        };
+        try {
+            var _supaKey = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : ((typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : null);
+            if (typeof SUPABASE_URL !== 'undefined' && _supaKey) {
+                fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?on_conflict=endpoint', {
+                    method: 'POST',
+                    headers: {
+                        'apikey': _supaKey,
+                        'Authorization': 'Bearer ' + _supaKey,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates,return=minimal'
+                    },
+                    body: JSON.stringify(record)
+                }).catch(function(e) { console.warn('Push-Sub upsert fehlgeschlagen:', e); });
+            }
+        } catch (e) { console.warn('Push-Sub speichern fehlgeschlagen:', e); }
+        return sub;
+    }).catch(function(err) {
+        console.warn('subscribeWebPush:', err && err.message);
+        return null;
+    });
+}
+
+// HTML fuer den "Push aktivieren"-Banner (Order/Reservation-Bestaetigung)
+function renderPushOptInBanner() {
+    var ua = navigator.userAgent || '';
+    var isIosLike = /iPhone|iPad|iPod/.test(ua);
+    var isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+
+    if (isIosLike && !isStandalone) {
+        return ''
+            + '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<span style="font-size:20px;flex-shrink:0;">📱</span>'
+            +   '<div style="font-size:13px;color:#7c2d12;line-height:1.5;">'
+            +     '<strong style="display:block;margin-bottom:2px;">Für iPhone:</strong>'
+            +     'Tippe oben auf <strong>Teilen</strong> → <strong>"Zum Home-Bildschirm"</strong> — danach funktionieren Push-Benachrichtigungen auch bei geschlossener App.'
+            +   '</div>'
+            + '</div>';
+    }
+
+    var notifSupported = ('Notification' in window);
+    var perm = notifSupported ? Notification.permission : 'unsupported';
+
+    if (perm === 'granted') {
+        return ''
+            + '<div style="background:#dcfce7;border:1px solid #86efac;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<span style="font-size:18px;flex-shrink:0;">✅</span>'
+            +   '<div style="font-size:13px;color:#065f46;font-weight:600;">Push aktiv — du wirst über jede Status-Änderung benachrichtigt.</div>'
+            + '</div>';
+    }
+    if (perm === 'denied') {
+        return ''
+            + '<div style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<span style="font-size:18px;flex-shrink:0;">ℹ️</span>'
+            +   '<div style="font-size:13px;color:#374151;">Push deaktiviert — kannst du in den Browser-Einstellungen wieder aktivieren.</div>'
+            + '</div>';
+    }
+    if (!notifSupported) return '';
+
+    // default: prominent CTA
+    return ''
+        + '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:16px;padding:16px;text-align:left;font-family:Inter,sans-serif;">'
+        +   '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">'
+        +     '<span style="font-size:22px;flex-shrink:0;">🔔</span>'
+        +     '<div>'
+        +       '<div style="font-weight:700;font-size:14px;color:#78350f;margin-bottom:2px;">Aktiviere Push-Benachrichtigungen</div>'
+        +       '<div style="font-size:12px;color:#92400e;line-height:1.4;">Damit du den Status auch bei geschlossener App siehst.</div>'
+        +     '</div>'
+        +   '</div>'
+        +   '<button type="button" data-push-cta="1" onclick="(function(btn){ requestNotificationPermission().then(function(){ try { var box = btn.parentElement; if (box) box.outerHTML = renderPushOptInBanner(); } catch(e){} }); })(this);" '
+        +     'style="width:100%;padding:12px 16px;background:#003D33;color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;text-transform:uppercase;letter-spacing:1px;">'
+        +     'Benachrichtigungen aktivieren'
+        +   '</button>'
+        + '</div>';
+}
+
 // Notification Permission anfragen
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
@@ -21328,6 +21466,8 @@ function requestNotificationPermission() {
         return Promise.resolve(false);
     }
     if (Notification.permission === 'granted') {
+        // Subscription sicherstellen (z.B. nach Logout/Reinstall)
+        try { subscribeWebPush(); } catch (e) {}
         return Promise.resolve(true);
     }
     if (Notification.permission === 'denied') {
@@ -21337,6 +21477,7 @@ function requestNotificationPermission() {
     return Notification.requestPermission().then(function(perm) {
         if (perm === 'granted') {
             showToast('Benachrichtigungen aktiviert!', 'success');
+            try { subscribeWebPush(); } catch (e) {}
             return true;
         } else {
             showToast('Benachrichtigungen wurden nicht erlaubt', 'error');
@@ -25118,6 +25259,7 @@ function showReservationConfirmation(reservation) {
         +     '<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);">calendar_today</span>'
         +     'Im Kalender speichern'
         +   '</button>'
+        +   '<div id="resPushOptInBanner" style="margin-top:12px;">' + (typeof renderPushOptInBanner === 'function' ? renderPushOptInBanner() : '') + '</div>'
         + '</div>';
 
     // Animation CSS
@@ -40983,6 +41125,9 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                 <p id="confirmOrderNumber" style="color: rgba(0,61,51,0.6); font-size: 13px; margin: 0;">XX-0001</p>
             </div>
 
+            <!-- Push Opt-in Banner (dynamisch, zeigt CTA / iOS-Hinweis / Status) -->
+            <div id="ocPushOptInBanner"></div>
+
             <!-- Status Tracker (hidden, kept for JS) -->
             <div style="display:none;">
                 <div class="order-status-tracker" id="orderStatusTracker" style="display: flex; justify-content: space-between; padding: 0;">
@@ -44170,6 +44315,10 @@ async function submitOrder() {
     } catch(e) { console.error('Receipt fill error:', e); }
     
     openModal('orderConfirmationModal');
+    try {
+        var _pb = document.getElementById('ocPushOptInBanner');
+        if (_pb && typeof renderPushOptInBanner === 'function') _pb.innerHTML = renderPushOptInBanner();
+    } catch (e) {}
     showToast('Bestellung erfolgreich aufgegeben!', 'success');
 
     // Lieferadresse speichern wenn gewünscht
