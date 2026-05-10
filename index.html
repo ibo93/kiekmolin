@@ -11970,10 +11970,26 @@ setTimeout(function(){ hideSplash(); }, 6000);
 var _onboardingSteps = [
     { title:'Entdecke Restaurants', text:'Finde die besten Restaurants in Ostfriesland. Filtere nach Küche, freien Tischen und Bewertungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">search</span>' },
     { title:'Bestelle online', text:'Stöbere durch die Speisekarte, wähle deine Lieblingsgerichte und bestelle direkt über die App.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">restaurant</span>' },
+    { title:'Live-Status oben am Banner', text:'Sobald du bestellt oder reserviert hast, erscheint oben ein Banner mit Live-Status. Klick drauf für Details — automatisch aktualisiert.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">notifications_active</span>' },
+    { title:'Push-Benachrichtigungen', text:'Aktiviere Push, dann wirst du benachrichtigt wenn deine Bestellung fertig ist — auch wenn die App geschlossen ist. Auf dem iPhone: zum Home-Bildschirm hinzufügen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">phone_iphone</span>' },
     { title:'Frag Kiek', text:'Unser Assistent hilft dir bei Fragen zu Gerichten, Allergenen, Preisen und Empfehlungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">chat</span>' },
     { title:'Dein Style', text:'Passe das Design an deinen Geschmack an — Dark Mode, Farben und mehr in den Einstellungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">settings</span>' }
 ];
 var _onboardingStep = 0;
+// Erneut anzeigen — fuer User die schon einmal weggeklickt haben (via "Tutorial"-Button im Profil)
+function reshowOnboarding() {
+    localStorage.removeItem('kmi_onboarded');
+    var overlay = document.getElementById('onboardingOverlay');
+    if (overlay && !document.body.contains(overlay)) {
+        // Wurde bereits removed — neu erstellen indem wir die Seite reload
+        location.reload();
+        return;
+    }
+    if (overlay) overlay.style.display = 'flex';
+    showOnboarding();
+}
+window.reshowOnboarding = reshowOnboarding;
+
 function showOnboarding() {
     if (localStorage.getItem('kmi_onboarded')) return;
     var overlay = document.getElementById('onboardingOverlay');
@@ -32515,8 +32531,9 @@ function renderProfileContent() {
         ]);
         html += '</div>';
 
-        // ===== Abmelden (Stitch: centered pill button) =====
-        html += '<div style="padding:16px 0 32px;text-align:center;">';
+        // ===== Tutorial nochmal anzeigen + Abmelden =====
+        html += '<div style="padding:16px 0 32px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">';
+        html += '<button onclick="closeModal(\'profileModal\'); reshowOnboarding();" style="display:inline-block;padding:14px 56px;border:1px solid rgba(0,61,51,.1);border-radius:9999px;background:transparent;color:rgba(0,61,51,.6);font-family:Inter,sans-serif;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.3em;cursor:pointer;transition:all .2s;">Tutorial wieder anzeigen</button>';
         html += '<button class="profile-logout-btn" onclick="logout()">Abmelden</button>';
         html += '</div>';
 
