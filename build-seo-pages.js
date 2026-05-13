@@ -529,6 +529,174 @@ function buildPage(opts) {
     '</body></html>\n';
 }
 
+function buildRestaurantJsonLd(rest) {
+  const slug = rest.slug || rest.id;
+  const item = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    '@id': SITE_URL + '/' + slug,
+    'name': safeText(rest.name, 'Restaurant'),
+    'url': SITE_URL + '/' + slug
+  };
+  if (rest.image) item.image = rest.image;
+  if (rest.logo) item.logo = rest.logo;
+  if (rest.phone) item.telephone = rest.phone;
+  if (rest.email) item.email = rest.email;
+  if (rest.website) item.sameAs = [rest.website];
+  if (rest.description) item.description = String(rest.description).slice(0, 300);
+  if (rest.street || rest.zip || rest.city) {
+    item.address = {
+      '@type': 'PostalAddress',
+      'streetAddress': safeText(rest.street, ''),
+      'postalCode': safeText(rest.zip, ''),
+      'addressLocality': safeText(rest.city, ''),
+      'addressCountry': 'DE'
+    };
+  }
+  if (rest.lat && rest.lng) {
+    item.geo = {
+      '@type': 'GeoCoordinates',
+      'latitude': Number(rest.lat),
+      'longitude': Number(rest.lng)
+    };
+  }
+  if (rest.rating) {
+    item.aggregateRating = {
+      '@type': 'AggregateRating',
+      'ratingValue': Number(rest.rating),
+      'bestRating': 5,
+      'ratingCount': Math.max(1, Math.round(rest.rating_count || 5))
+    };
+  }
+  const cuisines = [];
+  if (rest.cuisine) cuisines.push(rest.cuisine);
+  if (Array.isArray(rest.cuisine_type)) rest.cuisine_type.forEach(function(c) { if (c) cuisines.push(c); });
+  if (cuisines.length) item.servesCuisine = cuisines;
+  item.priceRange = rest.price_range || '€€';
+  item.acceptsReservations = true;
+  // Opening hours (best effort, optional)
+  if (rest.opening_hours && typeof rest.opening_hours === 'object') {
+    const dayMap = {
+      mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
+      monday: 'Mo', tuesday: 'Tu', wednesday: 'We', thursday: 'Th',
+      friday: 'Fr', saturday: 'Sa', sunday: 'Su',
+      montag: 'Mo', dienstag: 'Tu', mittwoch: 'We', donnerstag: 'Th',
+      freitag: 'Fr', samstag: 'Sa', sonntag: 'Su'
+    };
+    const specs = [];
+    Object.keys(rest.opening_hours).forEach(function(day) {
+      const code = dayMap[String(day).toLowerCase()];
+      const v = rest.opening_hours[day];
+      if (code && v && v.open && v.close) {
+        specs.push(code + ' ' + v.open + '-' + v.close);
+      }
+    });
+    if (specs.length) item.openingHours = specs;
+  }
+  return item;
+}
+
+function detectCategoryForRest(rest) {
+  for (const c of CATEGORIES) {
+    if (c.slug !== 'restaurant' && categoryMatches(rest, c)) return c;
+  }
+  return CATEGORIES[CATEGORIES.length - 1];
+}
+
+function generateRestaurantPage(rest) {
+  const slug = rest.slug;
+  if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;   // safe filename only
+
+  const name = safeText(rest.name, 'Restaurant');
+  const cityRaw = safeText(rest.city, 'Ostfriesland');
+  const url = SITE_URL + '/' + slug;
+  const cat = detectCategoryForRest(rest);
+  const catLabel = cat.label;
+
+  // Stadt-Slug fuer Breadcrumb-Link
+  const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
+  const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+
+  const title = name + ' – ' + catLabel + ' in ' + cityRaw + ' | Speisekarte & online bestellen';
+  let description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren. ';
+  if (rest.cuisine) description += rest.cuisine + '. ';
+  description += 'Kostenlos auf ' + BRAND + ', ohne App-Download.';
+  if (description.length > 160) description = description.slice(0, 157) + '...';
+
+  const restJsonLd = buildRestaurantJsonLd(rest);
+  const breadcrumbCrumbs = [
+    { name: 'Startseite', url: SITE_URL + '/' },
+    { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
+    { name: name, url: url }
+  ];
+  const breadcrumbLd = buildBreadcrumbJsonLd(breadcrumbCrumbs);
+
+  const addrLine = [
+    rest.street ? escapeHtml(rest.street) : '',
+    rest.zip ? escapeHtml(rest.zip) : '',
+    escapeHtml(cityRaw)
+  ].filter(function(s) { return s; }).join(' ');
+
+  // SEO-Inhalt (statisch fuer Crawler), echte Nutzer werden via JS direkt in die SPA geleitet
+  const html = '<!DOCTYPE html>\n<html lang="de">\n<head>\n' +
+    '<meta charset="UTF-8">\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
+    '<title>' + escapeHtml(title) + '</title>\n' +
+    '<meta name="description" content="' + escapeAttr(description) + '">\n' +
+    '<link rel="canonical" href="' + escapeAttr(url) + '">\n' +
+    '<meta name="robots" content="index,follow,max-image-preview:large">\n' +
+    '<meta name="geo.region" content="DE-NI">\n' +
+    '<meta name="geo.placename" content="' + escapeAttr(cityRaw) + '">\n' +
+    '<meta property="og:type" content="restaurant.restaurant">\n' +
+    '<meta property="og:title" content="' + escapeAttr(title) + '">\n' +
+    '<meta property="og:description" content="' + escapeAttr(description) + '">\n' +
+    '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
+    (rest.image ? '<meta property="og:image" content="' + escapeAttr(rest.image) + '">\n' : '') +
+    '<meta property="og:locale" content="de_DE">\n' +
+    '<meta property="og:site_name" content="' + BRAND + '">\n' +
+    '<meta name="twitter:card" content="summary_large_image">\n' +
+    '<meta name="twitter:title" content="' + escapeAttr(title) + '">\n' +
+    '<meta name="twitter:description" content="' + escapeAttr(description) + '">\n' +
+    (rest.image ? '<meta name="twitter:image" content="' + escapeAttr(rest.image) + '">\n' : '') +
+    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003d33%22/%3E%3Ctext x=%2232%22 y=%2244%22 font-family=%22Arial%22 font-size=%2238%22 font-weight=%22bold%22 fill=%22%23f59e0b%22 text-anchor=%22middle%22%3EK%3C/text%3E%3C/svg%3E">\n' +
+    '<style>' + pageCss() + '</style>\n' +
+    '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
+    '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
+    '<script>(function(){try{if(typeof navigator==="undefined")return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+    '</head>\n<body>\n' +
+    renderHeader() + '\n' +
+    renderBreadcrumb(breadcrumbCrumbs) + '\n' +
+    '<main class="container">\n' +
+    '<h1>' + escapeHtml(name) + '</h1>\n' +
+    '<p class="subtitle">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
+      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') + '</p>\n' +
+    '<div class="intro">\n' +
+      (rest.description
+        ? '<p>' + escapeHtml(rest.description) + '</p>'
+        : '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
+          '. Auf ' + BRAND + ' kannst du die komplette Speisekarte ansehen, online bestellen oder einen Tisch reservieren – kostenlos und ohne App-Download.</p>') +
+      (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
+      (rest.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(rest.phone) + '">' + escapeHtml(rest.phone) + '</a></p>' : '') +
+      (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
+      (rest.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(rest.website) + '" rel="nofollow">' + escapeHtml(rest.website) + '</a></p>' : '') +
+    '</div>\n' +
+    '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
+    '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n' +
+    '<p style="margin:24px 0;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Zur Speisekarte von ' + escapeHtml(name) + '</a></p>\n' +
+    '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
+    '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
+    '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
+    renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
+    '</main>\n' +
+    renderFooter() + '\n' +
+    '</body></html>\n';
+
+  const filename = slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
+  return { filename: filename, url: url, count: 1, restaurant: true };
+}
+
 // ==================== PAGE GENERATORS ====================
 
 function generateCityCategoryPage(city, cat, restaurants) {
@@ -654,7 +822,9 @@ function writeSitemap(generated) {
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
   generated.forEach(function(g) {
-    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + today + '</lastmod><priority>0.8</priority><changefreq>weekly</changefreq></url>\n';
+    const prio = g.restaurant ? '0.9' : '0.8';
+    const freq = g.restaurant ? 'daily' : 'weekly';
+    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + today + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
   });
   xml += '</urlset>\n';
   fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), xml, 'utf8');
@@ -714,6 +884,22 @@ async function main() {
       generated.push(result);
     }
   }
+
+  // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
+  let restaurantPages = 0;
+  for (const rest of restaurants) {
+    try {
+      const result = generateRestaurantPage(rest);
+      if (result) {
+        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ')');
+        generated.push(result);
+        restaurantPages++;
+      }
+    } catch (e) {
+      console.warn('[seo] WARN: skip restaurant page for', rest && rest.name, '-', e.message);
+    }
+  }
+  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages);
 
   writeSitemap(generated);
   writeRobots();
