@@ -1,11 +1,21 @@
-// Kiek mol in — KI-Assistent via Anthropic Claude API
-// Erwartet ANTHROPIC_API_KEY in Netlify Env-Vars.
-// Body: { message: string, history?: [{role, content}], context?: {...} }
+// Kiek mol in — KI-Assistent
+// Provider-Reihenfolge (nimmt den ersten mit gesetzten ENV-Vars):
+//   1. GEMINI_API_KEY   -> Google Gemini Flash (KOSTENLOS, 1500/Tag)  ← Standard
+//   2. ANTHROPIC_API_KEY -> Claude Haiku (kostenpflichtig)
+//   3. GROQ_API_KEY     -> Groq (kostenlos, schnell)
+// Body: { message: string, history?: [{role, content}] }
 
 'use strict';
 
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5-20251001';   // schnell + günstig für Chat
+const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+
+const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
 const MAX_TOKENS = 600;
 
 const SYSTEM_PROMPT = `Du bist der "Kiek mol in"-Assistent — ein freundlicher Helfer auf der ostfriesischen Gastro-Plattform kiekmolin.de.
@@ -58,12 +68,20 @@ exports.handler = async function(event) {
     return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  // Provider auswaehlen: kostenlose zuerst
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
+  const provider = geminiKey ? 'gemini' : (groqKey ? 'groq' : (anthropicKey ? 'anthropic' : null));
+
+  if (!provider) {
     return {
       statusCode: 500,
       headers: corsHeaders(),
-      body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured', fallback: true })
+      body: JSON.stringify({
+        error: 'No AI provider configured. Set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY in Netlify env.',
+        fallback: true
+      })
     };
   }
 
@@ -84,48 +102,81 @@ exports.handler = async function(event) {
 
   // History: optional, max 6 messages (3 turns) für Kontext-Limit
   const rawHistory = Array.isArray(body.history) ? body.history.slice(-6) : [];
-  const messages = rawHistory
+  const history = rawHistory
     .filter(function(m) { return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'; })
     .map(function(m) { return { role: m.role, content: String(m.content).slice(0, 1000) }; });
-  messages.push({ role: 'user', content: message });
 
   try {
-    const res = await fetch(ANTHROPIC_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: messages
-      })
-    });
+    let reply = '';
+    let usedModel = '';
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Anthropic API error:', res.status, errText.slice(0, 300));
-      return {
-        statusCode: 502,
-        headers: corsHeaders(),
-        body: JSON.stringify({ error: 'AI service unavailable', fallback: true })
-      };
+    if (provider === 'gemini') {
+      // Gemini: System-Prompt + History als "contents" Array
+      const contents = history.map(function(m) {
+        return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] };
+      });
+      contents.push({ role: 'user', parts: [{ text: message }] });
+
+      const res = await fetch(GEMINI_API + '?key=' + encodeURIComponent(geminiKey), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: contents,
+          generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.7 }
+        })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Gemini API error:', res.status, errText.slice(0, 300));
+        return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'AI service unavailable', fallback: true }) };
+      }
+      const data = await res.json();
+      reply = (data.candidates && data.candidates[0] && data.candidates[0].content
+              && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
+              && data.candidates[0].content.parts[0].text) || '';
+      usedModel = GEMINI_MODEL;
+
+    } else if (provider === 'groq') {
+      const messages = [{ role: 'system', content: SYSTEM_PROMPT }]
+        .concat(history)
+        .concat([{ role: 'user', content: message }]);
+      const res = await fetch(GROQ_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
+        body: JSON.stringify({ model: GROQ_MODEL, messages: messages, max_tokens: MAX_TOKENS, temperature: 0.7 })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Groq API error:', res.status, errText.slice(0, 300));
+        return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'AI service unavailable', fallback: true }) };
+      }
+      const data = await res.json();
+      reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      usedModel = GROQ_MODEL;
+
+    } else {
+      // Anthropic
+      const messages = history.concat([{ role: 'user', content: message }]);
+      const res = await fetch(ANTHROPIC_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: MAX_TOKENS, system: SYSTEM_PROMPT, messages: messages })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Anthropic API error:', res.status, errText.slice(0, 300));
+        return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'AI service unavailable', fallback: true }) };
+      }
+      const data = await res.json();
+      reply = (data.content && data.content[0] && data.content[0].text) || '';
+      usedModel = ANTHROPIC_MODEL;
     }
-
-    const data = await res.json();
-    const reply = (data.content && data.content[0] && data.content[0].text) || '';
 
     return {
       statusCode: 200,
       headers: corsHeaders(),
-      body: JSON.stringify({
-        reply: reply,
-        model: data.model || MODEL,
-        usage: data.usage || null
-      })
+      body: JSON.stringify({ reply: reply, model: usedModel, provider: provider })
     };
   } catch (err) {
     console.error('chat-ai handler error:', err && err.stack ? err.stack : err);
