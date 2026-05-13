@@ -37987,6 +37987,26 @@ function sendAssistantMessage() {
         return;
     }
 
+    // Helper: handhabt response inkl. Async-Tisch-Query und KI-Fallback
+    function _handleAssistantResponse(response, originalMessage) {
+        if (response === '__ASYNC_TABLE_QUERY__') {
+            showTyping();
+            handleAsyncTableQuery().then(function(tableResponse) {
+                hideTyping();
+                addMessage(tableResponse, 'bot');
+            });
+        } else if (response === '__AI_FALLBACK__') {
+            // Kein Stichwort-Match → echte KI fragen (Claude via Netlify Function)
+            showTyping();
+            askClaudeAI(originalMessage).then(function(aiResponse) {
+                hideTyping();
+                addMessage(aiResponse, 'bot');
+            });
+        } else {
+            addMessage(response, 'bot');
+        }
+    }
+
     // Erst async Dish-Handler probieren, dann Fallback auf generateResponse
     handleDishQuery(message).then(function(dishResponse) {
         if (dishResponse) {
@@ -37995,34 +38015,15 @@ function sendAssistantMessage() {
         } else {
             setTimeout(function() {
                 hideTyping();
-                var response = generateResponse(message);
-                // Async Tisch-Query abfangen
-                if (response === '__ASYNC_TABLE_QUERY__') {
-                    showTyping();
-                    handleAsyncTableQuery().then(function(tableResponse) {
-                        hideTyping();
-                        addMessage(tableResponse, 'bot');
-                    });
-                } else {
-                    addMessage(response, 'bot');
-                }
-            }, 800 + Math.random() * 700);
+                _handleAssistantResponse(generateResponse(message), message);
+            }, 600 + Math.random() * 500);
         }
     }).catch(function(err) {
         console.error('Dish query error:', err);
         setTimeout(function() {
             hideTyping();
-            var response = generateResponse(message);
-            if (response === '__ASYNC_TABLE_QUERY__') {
-                showTyping();
-                handleAsyncTableQuery().then(function(tableResponse) {
-                    hideTyping();
-                    addMessage(tableResponse, 'bot');
-                });
-            } else {
-                addMessage(response, 'bot');
-            }
-        }, 800 + Math.random() * 700);
+            _handleAssistantResponse(generateResponse(message), message);
+        }, 600 + Math.random() * 500);
     });
 }
 
@@ -38936,7 +38937,59 @@ function generateResponse(message) {
             '</div>';
     }
 
-    return 'Das habe ich nicht verstanden. Versuch: "Was soll ich essen?", "Freie Tische" oder "Hilfe"!';
+    // Kein Stichwort-Treffer: Fallback auf echte KI (Claude via Netlify Function)
+    return '__AI_FALLBACK__';
+}
+
+// ==================== KI-FALLBACK via Anthropic Claude ====================
+var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
+
+async function askClaudeAI(userMessage) {
+    try {
+        const res = await fetch('/.netlify/functions/chat-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userMessage,
+                history: _assistantChatHistory.slice(-6)   // letzte 6 für Kontext
+            })
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (data && data.reply) {
+            // History pflegen für nächste Frage
+            _assistantChatHistory.push({ role: 'user', content: userMessage });
+            _assistantChatHistory.push({ role: 'assistant', content: data.reply });
+            // Auf max 12 begrenzen
+            if (_assistantChatHistory.length > 12) {
+                _assistantChatHistory = _assistantChatHistory.slice(-12);
+            }
+            // Markdown-Light: **bold**, Listen, Zeilenumbrüche → HTML
+            return formatAssistantReply(data.reply);
+        }
+        if (data && data.fallback) {
+            return 'Der KI-Service ist gerade nicht erreichbar. Versuch eine Stichwort-Frage wie „<strong>Wie bestelle ich?</strong>" oder „<strong>Was soll ich essen?</strong>".';
+        }
+        return 'Hmm, das hab ich nicht verstanden. Versuch z.B.: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Wer hat freie Tische?</strong>".';
+    } catch (e) {
+        console.error('KI-Fallback fehlgeschlagen:', e);
+        return 'Hmm, das hab ich nicht verstanden. Versuch: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Freie Tische</strong>".';
+    }
+}
+
+function formatAssistantReply(text) {
+    if (!text) return '';
+    // Escape HTML zuerst
+    var safe = String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    // Markdown-Light → HTML
+    safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    safe = safe.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;font-size:0.9em;">$1</code>');
+    // Zeilenumbrüche
+    safe = safe.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+    return safe;
 }
 
 // Initialize on load
