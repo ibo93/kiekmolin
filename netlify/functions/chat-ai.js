@@ -106,6 +106,57 @@ exports.handler = async function(event) {
     .filter(function(m) { return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'; })
     .map(function(m) { return { role: m.role, content: String(m.content).slice(0, 1000) }; });
 
+  // Kontext einbauen: Restaurants + aktuelles Restaurant + Menue
+  const ctx = body.context && typeof body.context === 'object' ? body.context : {};
+  let contextText = '';
+  if (ctx.userCity) {
+    contextText += '\nNUTZER-STANDORT: ' + String(ctx.userCity).slice(0, 50) + '\n';
+  }
+  if (ctx.currentRestaurant && ctx.currentRestaurant.name) {
+    const r = ctx.currentRestaurant;
+    contextText += '\nAKTUELL GEOEFFNETES RESTAURANT:\n';
+    contextText += '- Name: ' + String(r.name).slice(0, 60);
+    if (r.city) contextText += ', ' + String(r.city).slice(0, 40);
+    if (r.cuisine) contextText += ' · ' + String(r.cuisine).slice(0, 40);
+    if (r.rating) contextText += ' · Bewertung ' + r.rating + '/5';
+    contextText += '\n';
+  }
+  if (Array.isArray(ctx.currentMenu) && ctx.currentMenu.length) {
+    contextText += '\nSPEISEKARTE DIESES RESTAURANTS (Auszug):\n';
+    let lastCat = '';
+    ctx.currentMenu.slice(0, 30).forEach(function(m) {
+      if (!m || !m.name) return;
+      if (m.category && m.category !== lastCat) {
+        contextText += '  [' + String(m.category).slice(0, 40) + ']\n';
+        lastCat = m.category;
+      }
+      const price = (m.price != null && !isNaN(Number(m.price))) ? ' (' + Number(m.price).toFixed(2).replace('.', ',') + ' €)' : '';
+      const desc = m.description ? ' — ' + String(m.description).slice(0, 80) : '';
+      contextText += '  • ' + String(m.name).slice(0, 60) + price + desc + '\n';
+    });
+  }
+  if (Array.isArray(ctx.restaurants) && ctx.restaurants.length) {
+    contextText += '\nVERFUEGBARE RESTAURANTS AUF KIEK MOL IN (' + ctx.restaurants.length + '):\n';
+    ctx.restaurants.slice(0, 40).forEach(function(r) {
+      if (!r || !r.name) return;
+      let line = '- ' + String(r.name).slice(0, 60);
+      if (r.city) line += ' (' + String(r.city).slice(0, 30) + ')';
+      const tags = [];
+      if (r.cuisine) tags.push(String(r.cuisine).slice(0, 30));
+      if (r.rating) tags.push('⭐' + r.rating);
+      if (r.delivery) tags.push('liefert');
+      if (r.price_range) tags.push(String(r.price_range).slice(0, 5));
+      if (tags.length) line += ' · ' + tags.join(', ');
+      contextText += line + '\n';
+    });
+  }
+
+  // System-Prompt mit Kontext erweitern
+  const finalSystem = contextText
+    ? SYSTEM_PROMPT + '\n\n=== AKTUELLER KONTEXT (nur fuer diese Anfrage) ===' + contextText +
+      '\nNutze diesen Kontext, um konkrete Gerichte aus der Speisekarte zu empfehlen oder passende Restaurants vorzuschlagen. Erfinde NICHTS was nicht im Kontext steht.'
+    : SYSTEM_PROMPT;
+
   try {
     let reply = '';
     let usedModel = '';
@@ -121,7 +172,7 @@ exports.handler = async function(event) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: finalSystem }] },
           contents: contents,
           generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.7 }
         })
@@ -138,7 +189,7 @@ exports.handler = async function(event) {
       usedModel = GEMINI_MODEL;
 
     } else if (provider === 'groq') {
-      const messages = [{ role: 'system', content: SYSTEM_PROMPT }]
+      const messages = [{ role: 'system', content: finalSystem }]
         .concat(history)
         .concat([{ role: 'user', content: message }]);
       const res = await fetch(GROQ_API, {
@@ -161,7 +212,7 @@ exports.handler = async function(event) {
       const res = await fetch(ANTHROPIC_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: MAX_TOKENS, system: SYSTEM_PROMPT, messages: messages })
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: MAX_TOKENS, system: finalSystem, messages: messages })
       });
       if (!res.ok) {
         const errText = await res.text();

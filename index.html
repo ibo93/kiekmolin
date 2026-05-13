@@ -38964,24 +38964,76 @@ var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
 
 async function askClaudeAI(userMessage) {
     try {
+        // Kontext sammeln: alle Restaurants (Kurzform) + aktuelles Restaurant + Menue
+        var context = {};
+        try {
+            if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
+                context.restaurants = APP_DATA.restaurants
+                    .filter(function(r) { return r && r.is_active !== false; })
+                    .slice(0, 40)   // max 40 Restaurants senden
+                    .map(function(r) {
+                        return {
+                            name: r.name,
+                            city: r.city || '',
+                            cuisine: r.cuisine || '',
+                            rating: r.rating || null,
+                            slug: r.slug || '',
+                            delivery: !!r.has_delivery || !!r.delivery,
+                            pickup: r.has_pickup !== false,
+                            price_range: r.price_range || ''
+                        };
+                    });
+            }
+            // Aktuell geoeffnetes Restaurant (falls Speisekarte offen)
+            var openRid = window.currentRestaurantId || null;
+            if (openRid && window.APP_DATA && APP_DATA.restaurants) {
+                var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
+                if (openRest) {
+                    context.currentRestaurant = {
+                        name: openRest.name,
+                        city: openRest.city || '',
+                        cuisine: openRest.cuisine || '',
+                        rating: openRest.rating || null
+                    };
+                    // Menue laden falls noch nicht im Cache (await fuer frischen Stand)
+                    try {
+                        if (typeof assistantLoadDishes === 'function' &&
+                            (!window._assistantMenuCache || !_assistantMenuCache[openRid])) {
+                            await assistantLoadDishes(openRid);
+                        }
+                    } catch(loadErr) { /* ignore */ }
+                    if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
+                        context.currentMenu = _assistantMenuCache[openRid].slice(0, 25).map(function(m) {
+                            return {
+                                name: m.name,
+                                price: m.base_price != null ? m.base_price : m.price,
+                                description: m.description ? String(m.description).slice(0, 80) : '',
+                                category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
+                            };
+                        });
+                    }
+                }
+            }
+            // User-Standort (Stadt) falls bekannt
+            if (window._userCity) context.userCity = window._userCity;
+        } catch(ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
+
         const res = await fetch('/.netlify/functions/chat-ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: userMessage,
-                history: _assistantChatHistory.slice(-6)   // letzte 6 für Kontext
+                history: _assistantChatHistory.slice(-6),
+                context: context
             })
         });
         const data = await res.json().catch(function() { return {}; });
         if (data && data.reply) {
-            // History pflegen für nächste Frage
             _assistantChatHistory.push({ role: 'user', content: userMessage });
             _assistantChatHistory.push({ role: 'assistant', content: data.reply });
-            // Auf max 12 begrenzen
             if (_assistantChatHistory.length > 12) {
                 _assistantChatHistory = _assistantChatHistory.slice(-12);
             }
-            // Markdown-Light: **bold**, Listen, Zeilenumbrüche → HTML
             return formatAssistantReply(data.reply);
         }
         if (data && data.fallback) {
