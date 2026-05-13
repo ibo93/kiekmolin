@@ -13681,12 +13681,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
             <div class="assistant-suggestions" id="assistantSuggestions">
+                <button onclick="askAssistant('Hilfe zur App')">App-Hilfe</button>
+                <button onclick="askAssistant('Wie bestelle ich?')">Wie bestellen?</button>
+                <button onclick="askAssistant('Wie reserviere ich einen Tisch?')">Reservieren</button>
+                <button onclick="askAssistant('Wie bezahle ich?')">Bezahlen</button>
                 <button onclick="askAssistant('Was ist vegetarisch?')">Vegetarisch</button>
-                <button onclick="askAssistant('Was ist beliebt?')">Beliebt</button>
                 <button onclick="askAssistant('Welches Restaurant hat jetzt frei?')">Freie Tische</button>
                 <button onclick="askAssistant('Wo gibt es guten Fisch?')">Fisch</button>
-                <button onclick="askAssistant('Wie reserviere ich einen Tisch?')">Reservierung</button>
-                <button onclick="askAssistant('Meine Favoriten')">Meine Favoriten</button>
+                <button onclick="askAssistant('Meine Favoriten')">Favoriten</button>
             </div>
         </div>
 
@@ -38370,8 +38372,193 @@ function generateResponse(message) {
             '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">' +
             actionBtn('Was essen?', ico.fork, 'askAssistant(\'Was soll ich essen?\')') +
             actionBtn('Freie Tische', ico.chair, 'askAssistant(\'Wer hat freie Tische?\')') +
+            actionBtn('App-Hilfe', ico.help, 'askAssistant(\'Hilfe zur App\')') +
             actionBtn('Ausflugstipps', ico.map, 'askAssistant(\'Was kann man machen?\')') +
             '</div>';
+    }
+
+    // ==================== APP-HILFE ====================
+    // Hilfe-Übersicht / generelle Hilfe
+    if (msg.match(/^(hilfe|app.?hilfe|wie geht|wie funktion|anleitung|tutorial|how.?to|help)$/) ||
+        msg.match(/(hilfe.*app|app.*hilfe|wie.*bedien|wie.*funktioniert die app|brauch.*hilfe|kann nicht|verstehe nicht|wo finde ich)/i)) {
+        return '<strong>So bedienst du Kiek mol in:</strong>' +
+            '<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">' +
+            '<div style="background:var(--bg-secondary);padding:10px 14px;border-radius:14px;border:1px solid var(--border-color);">' +
+                '<strong>🍽️ Essen bestellen</strong><br>' +
+                '<span style="font-size:13px;color:var(--text-secondary);">Restaurant antippen → Speisekarte → Gericht in den Warenkorb → Bestellen</span>' +
+            '</div>' +
+            '<div style="background:var(--bg-secondary);padding:10px 14px;border-radius:14px;border:1px solid var(--border-color);">' +
+                '<strong>📅 Tisch reservieren</strong><br>' +
+                '<span style="font-size:13px;color:var(--text-secondary);">Restaurant öffnen → „Tisch reservieren" → Datum, Uhrzeit, Personen wählen</span>' +
+            '</div>' +
+            '<div style="background:var(--bg-secondary);padding:10px 14px;border-radius:14px;border:1px solid var(--border-color);">' +
+                '<strong>💳 Bezahlen</strong><br>' +
+                '<span style="font-size:13px;color:var(--text-secondary);">Vor Ort, PayPal, Karte oder Überweisung — je nach Restaurant</span>' +
+            '</div>' +
+            '<div style="background:var(--bg-secondary);padding:10px 14px;border-radius:14px;border:1px solid var(--border-color);">' +
+                '<strong>⭐ Favoriten speichern</strong><br>' +
+                '<span style="font-size:13px;color:var(--text-secondary);">Herz-Icon bei Restaurant oder Gericht antippen</span>' +
+            '</div>' +
+            '<div style="background:var(--bg-secondary);padding:10px 14px;border-radius:14px;border:1px solid var(--border-color);">' +
+                '<strong>👤 Konto & Login</strong><br>' +
+                '<span style="font-size:13px;color:var(--text-secondary);">Oben rechts auf Profil → Anmelden oder Registrieren</span>' +
+            '</div>' +
+            '</div>' +
+            '<br><strong>Frag mich konkret:</strong>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">' +
+            actionBtn('Wie bestellen?', ico.cart, 'askAssistant(\'Wie bestelle ich?\')') +
+            actionBtn('Reservieren', ico.cal, 'askAssistant(\'Wie reserviere ich?\')') +
+            actionBtn('Bezahlen', ico.bag, 'askAssistant(\'Wie bezahle ich?\')') +
+            actionBtn('Konto', '<span class="material-symbols-outlined" style="font-size:18px;">person</span>', 'askAssistant(\'Wie erstelle ich ein Konto?\')') +
+            '</div>';
+    }
+
+    // Bestellen
+    if (msg.match(/(wie.*(bestell|order|bestellung aufgeben)|bestell.*wie|wo.*bestell|bestell.*ablauf|kann ich.*bestell)/i)) {
+        return '<strong>So bestellst du in 4 Schritten:</strong>' +
+            '<ol style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li><strong>Restaurant wählen</strong> – tippe auf eine Karte oder nutze die Suche oben</li>' +
+            '<li><strong>Gerichte hinzufügen</strong> – Tippe „+" am Gericht, Auswahl landet im Warenkorb</li>' +
+            '<li><strong>Warenkorb prüfen</strong> – unten oder rechts oben (rotes Badge zeigt Anzahl)</li>' +
+            '<li><strong>Abschicken</strong> – Lieferung oder Abholung wählen, ggf. Adresse, dann „Bestellen"</li>' +
+            '</ol>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Push-Benachrichtigungen aktivieren — du wirst informiert sobald deine Bestellung fertig ist.</span>' +
+            '<br><br>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+            actionBtn('Restaurants zeigen', ico.fork, 'askAssistant(\'Was soll ich essen?\')') +
+            '</div>';
+    }
+
+    // Reservieren
+    if (msg.match(/(wie.*(reservier|tisch.*buch)|reservierung.*wie|tisch.*reservier|wo.*reserv)/i)) {
+        return '<strong>Tisch reservieren in 30 Sekunden:</strong>' +
+            '<ol style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>Restaurant öffnen → Button <strong>„Tisch reservieren"</strong></li>' +
+            '<li><strong>Datum</strong> und <strong>Uhrzeit</strong> auswählen</li>' +
+            '<li><strong>Personenzahl</strong> angeben</li>' +
+            '<li>Name + Telefon eingeben → <strong>Absenden</strong></li>' +
+            '</ol>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">📩 Du bekommst sofort eine Bestätigung per E-Mail.<br>❌ Stornierung: in deinen Bestellungen → Reservierung antippen → „Stornieren".</span>' +
+            '<br><br>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+            actionBtn('Freie Tische jetzt', ico.chair, 'askAssistant(\'Wer hat freie Tische?\')') +
+            '</div>';
+    }
+
+    // Bezahlen
+    if (msg.match(/(wie.*(bezahl|zahl|payment)|bezahl.*möglich|paypal|kreditkart|barzahl|rechnung|kann.*zahl)/i)) {
+        return '<strong>Bezahlmöglichkeiten:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>💵 <strong>Bar</strong> vor Ort bei Abholung/Lieferung</li>' +
+            '<li>💳 <strong>Kartenzahlung</strong> vor Ort (EC/Visa/Mastercard)</li>' +
+            '<li>🌐 <strong>PayPal</strong> direkt online beim Bestellen</li>' +
+            '<li>🏦 <strong>Banküberweisung</strong> (Vorkasse, manche Restaurants)</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">Welche Optionen verfügbar sind, siehst du im Restaurant beim Checkout. Kiek mol in nimmt <strong>keine Aufschläge</strong> – du zahlst genau den Speisekartenpreis.</span>';
+    }
+
+    // Konto / Login / Registrierung
+    if (msg.match(/(konto.*erstell|registrier|anmelde.*wie|wie.*einlogge|account|sign.?up|passwort|login)/i)) {
+        return '<strong>Konto erstellen oder einloggen:</strong>' +
+            '<ol style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>Oben rechts auf <strong>Profil-Symbol</strong> tippen</li>' +
+            '<li>„<strong>Registrieren</strong>" für neuen Account – brauchst nur E-Mail + Passwort</li>' +
+            '<li>Oder „<strong>Anmelden</strong>" wenn du schon Konto hast</li>' +
+            '<li>Bestätigungs-E-Mail aus dem Posteingang öffnen → fertig</li>' +
+            '</ol>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">🔐 <strong>Passwort vergessen?</strong> Bei Anmeldung auf „Passwort vergessen?" tippen, Reset-Link kommt per Mail.<br>💡 Bestellungen gehen auch <strong>als Gast</strong> ohne Konto – Konto ist nur für Favoriten & Bestell-Historie.</span>';
+    }
+
+    // Bestellung stornieren / Status
+    if (msg.match(/(storn|cancel|widerruf|bestellung.*ändern|abbrech|rückgab|wo.*meine.*bestell|bestell.*status|wann.*kommt)/i)) {
+        return '<strong>Bestellung stornieren oder Status checken:</strong>' +
+            '<ol style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>Profil-Symbol oben rechts → <strong>„Meine Bestellungen"</strong></li>' +
+            '<li>Bestellung antippen → <strong>Live-Status</strong> wird angezeigt (Eingegangen → In Zubereitung → Fertig)</li>' +
+            '<li>Stornieren möglich solange Status <strong>„Eingegangen"</strong> ist – Button „Stornieren" antippen</li>' +
+            '</ol>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">⚠️ Nach Start der Zubereitung nicht mehr stornierbar – direkt im Restaurant anrufen.<br>📲 Aktiviere <strong>Push-Benachrichtigungen</strong> in deinem Profil, dann kriegst du jede Status-Änderung sofort.</span>';
+    }
+
+    // Push / Benachrichtigungen
+    if (msg.match(/(push|benachrichtig|notification|melde.*kommen|wann.*fertig)/i)) {
+        return '<strong>Push-Benachrichtigungen aktivieren:</strong>' +
+            '<ol style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>Bei Bestellung → gelber Banner „<strong>Aktiviere Push</strong>" antippen</li>' +
+            '<li>Oder Profil → <strong>Einstellungen</strong> → Benachrichtigungen</li>' +
+            '<li>Browser-Popup mit „Erlauben" bestätigen</li>' +
+            '</ol>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">📱 <strong>Auf dem iPhone:</strong> Erst zum Home-Bildschirm hinzufügen (Safari → Teilen → „Zum Home-Bildschirm") – dann gehen Push-Benachrichtigungen auch bei geschlossener App.</span>';
+    }
+
+    // Lieferung / Abholung
+    if (msg.match(/(liefer.*wie|abhol.*wie|wo.*liefer|liefer.*möglich|liefer.*gebiet|mindestbestell|lieferzeit|abholzeit)/i)) {
+        return '<strong>Lieferung & Abholung:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>🚚 <strong>Lieferung</strong>: nicht alle Restaurants liefern – steht im Profil. Lieferzeit & Mindestbestellwert siehst du beim Checkout.</li>' +
+            '<li>🥡 <strong>Abholung</strong>: bei fast allen möglich. Geschätzte Wartezeit wird dir angezeigt.</li>' +
+            '<li>📍 <strong>Lieferadresse</strong>: PLZ wird geprüft – wenn das Restaurant in dein Gebiet liefert, gehts.</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Filter „Liefert" oben in der Restaurant-Liste – dann siehst du nur Anbieter die zu dir liefern.</span>';
+    }
+
+    // Favoriten
+    if (msg.match(/(favorit|merken|merkliste|speichern.*restaurant|gespeicherte|liste)/i)) {
+        return '<strong>Favoriten verwalten:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>❤️ <strong>Restaurant favorisieren</strong>: Herz oben rechts auf der Restaurant-Karte antippen</li>' +
+            '<li>🍕 <strong>Gericht favorisieren</strong>: Herz neben dem Gerichtsnamen in der Speisekarte</li>' +
+            '<li>📂 <strong>Alle Favoriten ansehen</strong>: Profil → „Favoriten"</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 Brauchst dafür ein Konto – damit deine Favoriten auch auf anderen Geräten verfügbar sind.</span>';
+    }
+
+    // Dark Mode / Sprache / Einstellungen
+    if (msg.match(/(dark.?mode|hell.*dunkel|dunkel.*hell|nachtmodus|theme|design|farbe.*ändern|sprache.*ändern|deutsch|englisch|niederländisch|nederland|english|language)/i)) {
+        return '<strong>Aussehen & Sprache:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>🌓 <strong>Dark Mode</strong>: Profil → „Erscheinungsbild" → Hell / Dunkel / Automatisch</li>' +
+            '<li>🌍 <strong>Sprache wechseln</strong>: Oben rechts neben Login → 🇩🇪 / 🇬🇧 / 🇳🇱</li>' +
+            '<li>🎨 <strong>Farb-Theme</strong>: Profil → „Erscheinungsbild" → individuelle Farbe wählen</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 „Automatisch" folgt deiner System-Einstellung (iOS/macOS Dark Mode).</span>';
+    }
+
+    // Gastronom / Restaurant anmelden
+    if (msg.match(/(gastronom|wirt|restaurant.*anmeld|restaurant.*hinzufüg|mein.*restaurant|für.*restaurant|kosten.*gastronom|gastro.?account|mitmachen|beitreten)/i)) {
+        return '<strong>Du bist Gastronom / Wirt?</strong><br>' +
+            'Super – Kiek mol in ist die regionale Plattform für Ostfriesland und nimmt <strong>keine Provisionen</strong> auf Bestellungen.<br><br>' +
+            '<strong>Was du bekommst:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>Eigenes Restaurant-Profil mit Speisekarte</li>' +
+            '<li>Online-Bestellungen (Abholung & Lieferung)</li>' +
+            '<li>Tisch-Reservierungen</li>' +
+            '<li>Kassensystem-Integration (5 Systeme)</li>' +
+            '<li>Multi-Drucker für Küche & Bar</li>' +
+            '<li>SEO-Page mit deinem Namen bei Google</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">📧 Schreib einfach an <a href="mailto:info@kiekmolin.de">info@kiekmolin.de</a> – wir richten dich ein. Üblicherweise innerhalb 48h online.</span>';
+    }
+
+    // Datenschutz / Konto löschen
+    if (msg.match(/(datenschutz|löschen.*konto|konto.*löschen|account.*löschen|daten.*löschen|dsgvo|gdpr|privacy)/i)) {
+        return '<strong>Datenschutz & Konto löschen:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>🔒 Deine Daten gehören dir – keine Weitergabe an Dritte</li>' +
+            '<li>🗑️ <strong>Konto löschen</strong>: Profil → Einstellungen → ganz unten „Konto löschen"</li>' +
+            '<li>📄 <strong>Datenschutzerklärung</strong>: <a href="/?page=datenschutz">/datenschutz</a></li>' +
+            '</ul>';
+    }
+
+    // Kontakt / Support
+    if (msg.match(/(kontakt|support|wer.*betreibt|wer.*ist|wer.*macht|impressum|über uns|info|email|telefon.*kiek)/i)) {
+        return '<strong>Kontakt & Support:</strong>' +
+            '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
+            '<li>📧 E-Mail: <a href="mailto:info@kiekmolin.de">info@kiekmolin.de</a></li>' +
+            '<li>📄 <a href="/?page=impressum">Impressum</a></li>' +
+            '<li>🌐 <strong>Kiek mol in</strong> – die regionale Gastro-Plattform für Ostfriesland</li>' +
+            '</ul>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">Wir sind ein kleines Team – Antwort meist innerhalb 24h.</span>';
     }
 
     // ==================== PERSONALISIERTE EMPFEHLUNGEN ====================
