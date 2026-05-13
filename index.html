@@ -38314,6 +38314,23 @@ function generateResponse(message) {
     const isLunchTime = hour >= 11 && hour < 14;
     const isAfternoon = hour >= 14 && hour < 17;
 
+    // === KI-FIRST: Smalltalk, Konversation, freie Fragen direkt zur echten KI ===
+    // Nur klare Daten-Befehle (Tische, Suche, Speisekarte) bleiben Stichwort-Logik
+    var isDataCommand = /^(freie? tisch|wer hat (frei|tisch)|alle (pizz|fisch|d[oö]ner|caf[eé]|restaurants?))|speisekarte|men[uü]|liefert|öffnungszeit|wo ist .{2,}|gibt es .{2,}|kennst du .{2,}|wie viele restaurants|filter:/i.test(msg);
+    var isAIQuestion = (
+        /^(wie geht|na,? wie|wie war|wie l[aä]uft|wie l[aä]uft)/i.test(msg) ||
+        /^(was kannst|was bist|wer bist|bist du.*(ki|ai|bot|echt|menschl|claude|gemini|mensch))/i.test(msg) ||
+        /^(erz[aä]hl|erkl[aä]r|sag mir|kannst du.*(erz[aä]hl|erkl[aä]r|helf))/i.test(msg) ||
+        /^(warum|wieso|weshalb|wof[uü]r|wozu)/i.test(msg) ||
+        /^(was h[aä]ltst|was meinst|was denkst|was findest)/i.test(msg) ||
+        /^(empfiehl|empfehlung|tipp(s)? f[uü]r|hast du.*tipp)/i.test(msg) ||
+        /witz|joke|spass|spa[ßs]/i.test(msg) ||
+        msg.length > 90   // lange Fragen sind meist konversationell → KI macht's besser
+    );
+    if (isAIQuestion && !isDataCommand) {
+        return '__AI_FALLBACK__';
+    }
+
     // Zeitbasierte Begrüßung
     const greeting = isMorning ? 'Guten Morgen' : (isEvening ? 'Guten Abend' : (isAfternoon ? 'Moin' : 'Hallo'));
 
@@ -38365,7 +38382,8 @@ function generateResponse(message) {
     }
 
     // ==================== BEGRÜSSUNGEN ====================
-    if (msg.match(/^(hallo|hi|hey|moin|guten|servus|grüß|na |yo)/)) {
+    // Nur PURE Begrüßung (kurz, ohne Folgefrage) — sonst zur KI für natürliche Antwort
+    if (msg.match(/^(hallo|hi|hey|moin|guten (tag|morgen|abend)|servus|grüß|na|yo)[!.\s]*$/) && msg.length < 18) {
         var timeMsg = isMorning ? 'Schon gefrühstückt? <span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">coffee</span></span>' : (isLunchTime ? 'Mittagspause? Ich zeig dir was Gutes! ' : (isAfternoon ? 'Kaffee & Kuchen?' : (isEvening ? 'Lust auf ein schönes Abendessen? <span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">dark_mode</span></span>' : '')));
         var weatherMsg = currentTemp ? '<br><span style="font-size:12px;color:var(--text-secondary);"><span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">location_on</span></span> Ostfriesland: ' + currentTemp + ', ' + currentWeather + '</span>' : '';
 
