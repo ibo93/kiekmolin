@@ -164,6 +164,39 @@ async function fetchRestaurants() {
   return await res.json();
 }
 
+async function fetchMenuItems(restaurantId) {
+  // Bis zu 30 verfuegbare Items, populaere zuerst, dann nach sort_order
+  // Fault-tolerant: bei Fehler leeres Array zurueck, Page wird trotzdem gebaut
+  if (!restaurantId) return [];
+  const url = SUPABASE_URL + '/rest/v1/menu_items'
+    + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+    + '&is_available=eq.true'
+    + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
+    + '&order=is_popular.desc,sort_order.asc'
+    + '&limit=30';
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Accept': 'application/json'
+      }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+function fmtPrice(item) {
+  const p = item.base_price != null ? item.base_price : item.price;
+  if (p == null || p === '') return '';
+  const n = Number(p);
+  if (isNaN(n)) return '';
+  return n.toFixed(2).replace('.', ',') + ' €';
+}
+
 // ==================== CONTENT ====================
 
 function buildIntro(city, cat, count) {
@@ -603,10 +636,85 @@ function detectCategoryForRest(rest) {
   return CATEGORIES[CATEGORIES.length - 1];
 }
 
-function generateRestaurantPage(rest) {
+function buildMenuJsonLd(rest, menuItems) {
+  if (!menuItems || !menuItems.length) return null;
+  const slug = rest.slug || rest.id;
+  // Items nach Kategorie gruppieren fuer schoene Section-Struktur
+  const sections = {};
+  menuItems.forEach(function(it) {
+    const catName = (it.menu_categories && it.menu_categories.name) || 'Speisekarte';
+    if (!sections[catName]) sections[catName] = [];
+    sections[catName].push(it);
+  });
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Menu',
+    'name': 'Speisekarte ' + safeText(rest.name, 'Restaurant'),
+    'url': SITE_URL + '/' + slug,
+    'hasMenuSection': Object.keys(sections).map(function(secName) {
+      return {
+        '@type': 'MenuSection',
+        'name': secName,
+        'hasMenuItem': sections[secName].map(function(it) {
+          const item = {
+            '@type': 'MenuItem',
+            'name': safeText(it.name, 'Gericht')
+          };
+          if (it.description) item.description = String(it.description).slice(0, 200);
+          const p = it.base_price != null ? it.base_price : it.price;
+          if (p != null && !isNaN(Number(p))) {
+            item.offers = {
+              '@type': 'Offer',
+              'price': Number(p).toFixed(2),
+              'priceCurrency': 'EUR'
+            };
+          }
+          if (it.image_url) item.image = it.image_url;
+          return item;
+        })
+      };
+    })
+  };
+}
+
+function renderMenuListHtml(menuItems) {
+  if (!menuItems || !menuItems.length) return '';
+  // In Sections nach Kategorie
+  const sections = {};
+  menuItems.forEach(function(it) {
+    const catName = (it.menu_categories && it.menu_categories.name) || 'Speisekarte';
+    if (!sections[catName]) sections[catName] = [];
+    sections[catName].push(it);
+  });
+
+  let html = '<div class="menu-list" style="background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
+  Object.keys(sections).forEach(function(secName) {
+    html += '<h3 style="margin:18px 0 12px;color:' + PRIMARY_COLOR + ';font-size:18px;font-weight:700;border-bottom:2px solid #eef5f3;padding-bottom:6px;">' + escapeHtml(secName) + '</h3>';
+    html += '<ul style="list-style:none;padding:0;margin:0;">';
+    sections[secName].forEach(function(it) {
+      const itName = escapeHtml(safeText(it.name, 'Gericht'));
+      const itDesc = it.description ? escapeHtml(String(it.description).slice(0, 140)) : '';
+      const itPrice = escapeHtml(fmtPrice(it));
+      html += '<li style="padding:10px 0;border-bottom:1px solid #f4f4f0;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">';
+      html +=   '<div style="flex:1;min-width:0;">';
+      html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:99px;font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
+      if (itDesc) html += '<div style="color:#666;font-size:13px;margin-top:2px;line-height:1.4;">' + itDesc + '</div>';
+      html +=   '</div>';
+      if (itPrice) html += '<div style="font-weight:700;color:' + PRIMARY_COLOR + ';font-size:15px;white-space:nowrap;">' + itPrice + '</div>';
+      html += '</li>';
+    });
+    html += '</ul>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function generateRestaurantPage(rest, menuItems) {
   const slug = rest.slug;
   if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;   // safe filename only
+
+  menuItems = menuItems || [];
 
   const name = safeText(rest.name, 'Restaurant');
   const cityRaw = safeText(rest.city, 'Ostfriesland');
@@ -618,13 +726,26 @@ function generateRestaurantPage(rest) {
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
   const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
 
-  const title = name + ' – ' + catLabel + ' in ' + cityRaw + ' | Speisekarte & online bestellen';
-  let description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren. ';
-  if (rest.cuisine) description += rest.cuisine + '. ';
-  description += 'Kostenlos auf ' + BRAND + ', ohne App-Download.';
+  const title = name + ' ' + cityRaw + ' – Online bestellen | Speisekarte ' + catLabel;
+
+  // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
+  let description;
+  if (menuItems.length >= 3) {
+    const sampleItems = menuItems.slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
+    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen.';
+  } else {
+    description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren.';
+    if (rest.cuisine) description += ' ' + rest.cuisine + '.';
+  }
   if (description.length > 160) description = description.slice(0, 157) + '...';
 
   const restJsonLd = buildRestaurantJsonLd(rest);
+  // Menu in Restaurant-JSON einhaengen wenn Items vorhanden
+  if (menuItems.length) {
+    restJsonLd.menu = SITE_URL + '/' + slug + '#speisekarte';
+    restJsonLd.hasMenu = SITE_URL + '/' + slug + '#speisekarte';
+  }
+  const menuJsonLd = buildMenuJsonLd(rest, menuItems);
   const breadcrumbCrumbs = [
     { name: 'Startseite', url: SITE_URL + '/' },
     { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
@@ -663,14 +784,16 @@ function generateRestaurantPage(rest) {
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
+    (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
     '<script>(function(){try{if(typeof navigator==="undefined")return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
     renderBreadcrumb(breadcrumbCrumbs) + '\n' +
     '<main class="container">\n' +
-    '<h1>' + escapeHtml(name) + '</h1>\n' +
+    '<h1>' + escapeHtml(name) + ' ' + escapeHtml(cityRaw) + '</h1>\n' +
     '<p class="subtitle">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
-      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') + '</p>\n' +
+      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') +
+      (menuItems.length ? ' · ' + menuItems.length + ' Gerichte online' : '') + '</p>\n' +
     '<div class="intro">\n' +
       (rest.description
         ? '<p>' + escapeHtml(rest.description) + '</p>'
@@ -681,9 +804,13 @@ function generateRestaurantPage(rest) {
       (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
       (rest.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(rest.website) + '" rel="nofollow">' + escapeHtml(rest.website) + '</a></p>' : '') +
     '</div>\n' +
-    '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
-    '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n' +
-    '<p style="margin:24px 0;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Zur Speisekarte von ' + escapeHtml(name) + '</a></p>\n' +
+    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Online bestellen bei ' + escapeHtml(name) + '</a></p>\n' +
+    (menuItems.length
+      ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
+        '<p style="margin:0 0 16px;color:#666;">Die ' + menuItems.length + ' beliebtesten Gerichte – komplette Karte mit allen Optionen in der App.</p>\n' +
+        renderMenuListHtml(menuItems) + '\n'
+      : '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
+        '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n') +
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
     '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
@@ -694,7 +821,7 @@ function generateRestaurantPage(rest) {
 
   const filename = slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
-  return { filename: filename, url: url, count: 1, restaurant: true };
+  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length };
 }
 
 // ==================== PAGE GENERATORS ====================
@@ -886,20 +1013,27 @@ async function main() {
   }
 
   // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
+  // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
+  let totalMenuItems = 0;
   for (const rest of restaurants) {
     try {
-      const result = generateRestaurantPage(rest);
+      let menuItems = [];
+      if (rest.id) {
+        menuItems = await fetchMenuItems(rest.id);
+      }
+      const result = generateRestaurantPage(rest, menuItems);
       if (result) {
-        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ')');
+        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items)');
         generated.push(result);
         restaurantPages++;
+        totalMenuItems += result.menuCount || 0;
       }
     } catch (e) {
       console.warn('[seo] WARN: skip restaurant page for', rest && rest.name, '-', e.message);
     }
   }
-  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages);
+  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· total menu items rendered:', totalMenuItems);
 
   writeSitemap(generated);
   writeRobots();
