@@ -754,6 +754,27 @@
             border-color: rgba(255,255,255,0.06) !important;
             color: #d0d3d1 !important;
         }
+        /* Push-Opt-In-Banner — Kiek-Design, Dark-Mode-aware */
+        .dark-mode .kmi-push-banner {
+            background: rgba(156,209,195,0.08) !important;
+            border-color: rgba(156,209,195,0.25) !important;
+        }
+        .dark-mode .kmi-push-banner__icon {
+            background: #9cd1c3 !important;
+        }
+        .dark-mode .kmi-push-banner__icon .material-symbols-outlined {
+            color: #003D33 !important;
+        }
+        .dark-mode .kmi-push-banner__title {
+            color: #b8eddf !important;
+        }
+        .dark-mode .kmi-push-banner__sub {
+            color: rgba(184,237,223,0.7) !important;
+        }
+        .dark-mode .kmi-push-banner__btn {
+            background: #9cd1c3 !important;
+            color: #003D33 !important;
+        }
         /* Inline-Style Overrides für weisse Backgrounds */
         .dark-mode div[style*="background:#f3f4f5"],
         .dark-mode div[style*="background: #f3f4f5"],
@@ -21556,18 +21577,20 @@ function renderPushOptInBanner() {
     }
     if (!notifSupported) return '';
 
-    // default: prominent CTA
+    // default: prominent CTA — Kiek-Design (dunkelgrün/cream, dark-mode-aware via .kmi-push-banner)
     return ''
-        + '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:16px;padding:16px;text-align:left;font-family:Inter,sans-serif;">'
-        +   '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">'
-        +     '<span style="font-size:22px;flex-shrink:0;">🔔</span>'
-        +     '<div>'
-        +       '<div style="font-weight:700;font-size:14px;color:#78350f;margin-bottom:2px;">Aktiviere Push-Benachrichtigungen</div>'
-        +       '<div style="font-size:12px;color:#92400e;line-height:1.4;">Damit du den Status auch bei geschlossener App siehst.</div>'
+        + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:16px;text-align:left;font-family:Inter,sans-serif;">'
+        +   '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">'
+        +     '<div class="kmi-push-banner__icon" style="width:36px;height:36px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        +       '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">notifications_active</span>'
+        +     '</div>'
+        +     '<div style="flex:1;">'
+        +       '<div class="kmi-push-banner__title" style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003D33;margin-bottom:3px;">Aktiviere Push-Benachrichtigungen</div>'
+        +       '<div class="kmi-push-banner__sub" style="font-size:12px;color:rgba(0,61,51,0.65);line-height:1.4;">Damit du den Status auch bei geschlossener App siehst.</div>'
         +     '</div>'
         +   '</div>'
         +   '<button type="button" data-push-cta="1" onclick="(function(btn){ requestNotificationPermission().then(function(){ try { var box = btn.parentElement; if (box) box.outerHTML = renderPushOptInBanner(); } catch(e){} }); })(this);" '
-        +     'style="width:100%;padding:12px 16px;background:#003D33;color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;text-transform:uppercase;letter-spacing:1px;">'
+        +     'class="kmi-push-banner__btn" style="width:100%;padding:12px 16px;background:#003D33;color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;text-transform:uppercase;letter-spacing:1px;">'
         +     'Benachrichtigungen aktivieren'
         +   '</button>'
         + '</div>';
@@ -55400,6 +55423,14 @@ setTimeout(function() {
 
 
 <!-- SEO Text für Google Indexierung - nur Gäste-View -->
+<style>
+    /* Hard-Garantie: SEO-Footer NUR auf Gäste-View, niemals auf Dashboard/Admin */
+    body:has(#dashboardView.active) #seoFooter,
+    body:has(.dashboard-view.active) #seoFooter,
+    body:has(.admin-dashboard) #seoFooter {
+        display: none !important;
+    }
+</style>
 <div id="seoFooter" class="seo-footer-guest" style="display:none;padding: 20px 20px 32px; font-size: 12px; line-height: 1.7; max-width: 800px; margin: 0 auto; text-align: center;">
     <h2 style="font-size: 14px; color: var(--text-primary); margin-bottom: 8px; font-weight: 700; opacity: 0.6; font-family: Epilogue, serif;">Restaurants in Ostfriesland entdecken</h2>
     <p style="color: var(--text-primary); opacity: 0.4; margin-bottom: 12px;">Finde die besten Restaurants, Cafes und Imbisse in Greetsiel, Norddeich, Norden, Aurich und Emden. Speisekarte ansehen, online bestellen und Tisch reservieren &ndash; alles kostenlos und ohne App-Download mit Kiek mol in.</p>
