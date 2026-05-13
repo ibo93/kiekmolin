@@ -5402,7 +5402,9 @@
             border-radius: 32px 32px 0 0;
             width: 100%;
             max-width: 480px;
-            max-height: 75vh;
+            height: 75vh;          /* fixiert, waechst nicht mit Inhalt */
+            min-height: 480px;
+            max-height: 720px;
             display: flex;
             flex-direction: column;
             box-shadow: 0 -24px 48px -8px rgba(0,37,30,0.12);
@@ -5412,7 +5414,9 @@
         /* Mobile: kompakter */
         @media (max-width: 640px) {
             .assistant-chat {
-                max-height: 55vh !important;
+                height: 80vh !important;        /* fix, kein max-height mehr */
+                min-height: 0 !important;
+                max-height: none !important;
                 max-width: calc(100% - 16px) !important;
                 margin: 0 8px 8px !important;
                 border-radius: 20px !important;
