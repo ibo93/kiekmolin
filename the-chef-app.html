@@ -1722,8 +1722,13 @@
     document.getElementById('kiStatus').textContent = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
   }
 
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    if (chefAudio) { try { chefAudio.pause(); } catch(e){} chefAudio = null; }
+    setSpeaking(false);
+  }
   function toggleListen() {
-    if (isSpeaking) { speechSynthesis.cancel(); setSpeaking(false); }
+    if (isSpeaking) { stopSpeaking(); }
     if (!recognition) {
       // Fallback: prompt
       const q = prompt('Was möchtest du fragen?');
@@ -1740,12 +1745,13 @@
     voiceEnabled = !voiceEnabled;
     localStorage.setItem('chef_voice_on', voiceEnabled);
     document.getElementById('voiceToggle').classList.toggle('muted', !voiceEnabled);
-    if (!voiceEnabled) speechSynthesis.cancel();
+    if (!voiceEnabled) stopSpeaking();
     toast(voiceEnabled ? '🔊 Sprach-Antwort an' : '🔇 Sprach-Antwort aus');
   }
 
-  function speak(text) {
-    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+  // Browser-Sprachausgabe (Fallback wenn ElevenLabs nicht verfügbar)
+  function speakBrowser(text) {
+    if (!('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'de-DE';
@@ -1756,6 +1762,32 @@
     u.onend = () => setSpeaking(false);
     u.onerror = () => setSpeaking(false);
     speechSynthesis.speak(u);
+  }
+  // Aktuelle Audio-Instanz (für ElevenLabs), damit man sie stoppen kann
+  let chefAudio = null;
+  async function speak(text) {
+    if (!voiceEnabled) return;
+    // 1. Versuch: ElevenLabs (echte, hochwertige Stimme über die Netlify-Function)
+    try {
+      if (chefAudio) { chefAudio.pause(); chefAudio = null; }
+      const res = await fetch('/.netlify/functions/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+      });
+      if (res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        chefAudio = new Audio(url);
+        chefAudio.onplay = () => setSpeaking(true);
+        chefAudio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
+        chefAudio.onerror = () => { setSpeaking(false); speakBrowser(text); };
+        await chefAudio.play();
+        return;
+      }
+    } catch (e) { /* offline / kein Key / lokal geöffnet → Fallback */ }
+    // 2. Fallback: Browser-Sprachausgabe (Web Speech API)
+    speakBrowser(text);
   }
 
   // --- Conversation log (persistent) ---
@@ -1823,16 +1855,66 @@
     return false;
   }
 
-  // --- Main brain: pattern-match → response ---
-  function handleUserInput(text) {
+  // --- Lage-Snapshot für die echte KI: was The Chef gerade "sieht" ---
+  function buildContextSnapshot() {
+    const low = lagerData.filter(r => r.status === 'low').map(r => r.name + ' (' + r.amount + ')');
+    const warn = lagerData.filter(r => r.status === 'warn').map(r => r.name);
+    const openTodos = todoData.filter(t => !todoDone.includes(t.id))
+      .map(t => (t.time ? t.time + ' ' : '') + t.text + ' [' + t.tag + ']');
+    return [
+      'Umsatz heute: € 1.847 (+12% vs. Wochenmittel)',
+      'Marge heute: 62,4% · Lager gesamt: 87% · Verschwendung: 2,1%',
+      'Gäste heute: 87 · Bestellungen: 142',
+      'Kritischer Bestand: ' + (low.length ? low.join(', ') : 'keiner'),
+      'In Warnung: ' + (warn.length ? warn.join(', ') : 'keiner'),
+      'Lieferungen: heute 14:00 Metro (14 Artikel, €412,80); morgen 06:30 Frische Fisch Friesland',
+      'Offene Aufgaben heute: ' + (openTodos.length ? openTodos.join('; ') : 'alles erledigt'),
+      'Personal: Halil & Anna (Mittag), Tom & Mira (Abend). Samstag sonnig, +30% Gäste erwartet.'
+    ].join('\n');
+  }
+
+  // --- Main brain: echte Claude-KI, mit Fallback auf lokale Logik ---
+  async function handleUserInput(text) {
     addMsg(text, 'user');
     setThinking(true);
+
+    // Konversations-Historie (ohne die gerade hinzugefügte User-Nachricht)
+    const msgs = [...document.querySelectorAll('#convo .msg')].slice(0, -1).slice(-12);
+    const history = msgs.map(m => ({
+      role: m.classList.contains('msg-user') ? 'user' : 'assistant',
+      text: m.firstChild ? (m.firstChild.nodeValue || m.textContent) : m.textContent
+    }));
+
+    // 1. Versuch: echte KI über die Netlify-Function
+    try {
+      const res = await fetch('/.netlify/functions/chef-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: history,
+          restaurant: { name: chefProfile.name, type: chefProfile.type },
+          context: buildContextSnapshot()
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.reply) {
+          setThinking(false);
+          addMsg(data.reply, 'ai');
+          speak(data.reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+          return;
+        }
+      }
+    } catch (e) { /* offline / lokal geöffnet / kein Key → Fallback unten */ }
+
+    // 2. Fallback: lokale Muster-Erkennung (funktioniert auch ohne Backend)
     setTimeout(() => {
       const { reply, actions } = chefBrain(text);
       setThinking(false);
       addMsg(reply, 'ai', actions);
       speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
-    }, 600 + Math.random()*400);
+    }, 500 + Math.random()*300);
   }
 
   // --- The brain: intent matching with rich responses ---
