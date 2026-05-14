@@ -1107,9 +1107,9 @@
 
         <div class="ai-card glass">
           <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Vorschläge</div></div>
-          <div class="ai-suggest" onclick="openVorschlag('bestellung')" style="cursor:pointer">
-            <div class="ai-suggest-text"><strong>Pommes</strong> & <strong>Hack</strong> reichen nicht bis Wochenende. Bestellung bei Frostkönig vorbereiten?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();openVorschlag('bestellung')">Details ansehen</button><button class="ai-btn ai-btn-skip" onclick="event.stopPropagation();this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
+          <div class="ai-suggest" onclick="openNachbestellung()" style="cursor:pointer">
+            <div class="ai-suggest-text"><strong>Mehrere Artikel</strong> sind knapp. The Chef hat eine <strong>Nachbestell-Liste</strong> nach Lieferant fertig.</div>
+            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();openNachbestellung()">Liste öffnen</button><button class="ai-btn ai-btn-skip" onclick="event.stopPropagation();this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
           </div>
           <div class="ai-suggest" onclick="openVorschlag('tomate')" style="cursor:pointer">
             <div class="ai-suggest-text"><strong>Tomaten</strong> laufen in 3 Tagen ab → <strong>Tomatensuppe</strong> als Tagesangebot? Schätzt €180.</div>
@@ -1178,6 +1178,7 @@
           <button class="chip" data-filter="good">Gut</button>
         </div>
 
+        <button class="btn-primary" onclick="openNachbestellung()" style="margin-bottom:10px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 4h-.6L5.2 1.6 3.4 2.4 4.6 5H4a1 1 0 00-1 1.2l1.6 8A2 2 0 006.6 16H17a2 2 0 002-1.9l.9-7A1 1 0 0019 6H6.2l-.5-1H7V4zm-.5 16a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm10 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg> Nachbestell-Liste öffnen</button>
         <button class="btn-secondary" onclick="openAddLager()" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg> Artikel selbst notieren</button>
 
         <div class="list-card glass" id="lagerList"></div>
@@ -1616,6 +1617,88 @@
     closeSheet();
     refreshLager();
     toast('✓ Bestand aktualisiert');
+  }
+
+  // ===== Auto-Nachbestell-Liste · gruppiert nach Lieferant =====
+  function lieferantFor(r){
+    const loc = (r.loc||'').toLowerCase();
+    const n = (r.name||'').toLowerCase();
+    if(loc.indexOf('fisch')>-1 || /lachs|dorade|fisch|garnele/.test(n)) return 'Frische Fisch Friesland';
+    if(loc.indexOf('getränk')>-1 || /cola|bier|wasser|saft|limo/.test(n)) return 'Getränke Nord';
+    if(loc.indexOf('tiefkühl')>-1) return 'Frostkönig TK';
+    return 'Metro';
+  }
+  function buildNachbestellListe(){
+    const due = lagerData.filter(r => (r.status==='low'||r.status==='warn') && !orderedItems.includes(r.name));
+    const groups = {};
+    due.forEach(r => { (groups[lieferantFor(r)] = groups[lieferantFor(r)] || []).push(r); });
+    return Object.keys(groups).map(l => ({ lieferant:l, items:groups[l] }));
+  }
+  function bestelltext(g){
+    const lines = g.items.map(r => '- ' + r.name + ' (aktuell ' + r.amount + ', reicht ' + r.days + ')');
+    return 'Hallo ' + g.lieferant + ',\n\nbitte für ' + chefProfile.name + ' liefern:\n' + lines.join('\n') + '\n\nDanke & viele Grüße';
+  }
+  function fallbackCopy(txt){
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); toast('✓ Bestelltext kopiert'); }
+    catch(e){ toast('Kopieren ging nicht – Text bitte markieren'); }
+    document.body.removeChild(ta);
+  }
+  function copyBestelltext(idx){
+    const g = buildNachbestellListe()[idx]; if(!g) return;
+    const txt = bestelltext(g);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(()=>toast('✓ Bestelltext für '+g.lieferant+' kopiert'), ()=>fallbackCopy(txt));
+    } else fallbackCopy(txt);
+  }
+  function orderGroup(idx){
+    const g = buildNachbestellListe()[idx]; if(!g) return;
+    g.items.forEach(r => { if(!orderedItems.includes(r.name)) orderedItems.push(r.name); });
+    localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+    refreshLager();
+    toast('✓ '+g.items.length+' Artikel bei '+g.lieferant+' als bestellt markiert');
+    openNachbestellung();
+  }
+  function orderAll(){
+    buildNachbestellListe().forEach(g => g.items.forEach(r => { if(!orderedItems.includes(r.name)) orderedItems.push(r.name); }));
+    localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+    refreshLager();
+    toast('✓ Alle kritischen Artikel als bestellt markiert');
+    openNachbestellung();
+  }
+  function openNachbestellung(){
+    const groups = buildNachbestellListe();
+    const total = groups.reduce((s,g)=>s+g.items.length,0);
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 4h-.6L5.2 1.6 3.4 2.4 4.6 5H4a1 1 0 00-1 1.2l1.6 8A2 2 0 006.6 16H17a2 2 0 002-1.9l.9-7A1 1 0 0019 6H6.2l-.5-1H7V4zm-.5 16a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm10 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg> Nachbestell-Liste';
+    let body = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>`;
+    if(!groups.length){
+      body += `<div class="ai-card glass" style="margin-top:8px"><div class="ai-head"><div class="ai-pulse" style="background:var(--green);box-shadow:0 0 10px var(--green)"></div><div class="ai-title">Alles bestellt</div></div><div style="font-size:13px;color:var(--text-dim);padding:0 4px;line-height:1.5">Kein kritischer Bestand offen. The Chef meldet sich, sobald wieder was knapp wird.</div></div>`;
+    } else {
+      body += `<p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">${total} Artikel sind knapp – The Chef hat sie nach Lieferant gebündelt. Text kopieren und per WhatsApp oder Mail rausschicken.</p>`;
+      groups.forEach((g,idx)=>{
+        const items = g.items.map(r =>
+          `<div class="inv-row" style="cursor:default"><div class="inv-emoji">${r.emoji}</div><div><div class="inv-name">${r.name}</div><div class="inv-meta">${r.amount} · reicht ${r.days}</div></div><div class="inv-right"><span class="pill ${r.status==='low'?'pill-low':'pill-warn'}">${r.status==='low'?'Niedrig':'Warnung'}</span></div></div>`
+        ).join('');
+        body += `
+        <div class="ai-card glass" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="ai-title">${g.lieferant}</div>
+            <span class="pill pill-good">${g.items.length} Artikel</span>
+          </div>
+          <div class="list-card glass" style="margin-bottom:12px">${items}</div>
+          <button class="btn-primary" onclick="copyBestelltext(${idx})"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 1H4a2 2 0 00-2 2v14h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z"/></svg> Bestelltext kopieren</button>
+          <div style="margin-top:8px"></div>
+          <button class="btn-secondary" onclick="orderGroup(${idx})">Als bestellt markieren</button>
+        </div>`;
+      });
+      body += `<button class="btn-secondary" onclick="orderAll()">Alle ${total} als bestellt markieren</button>`;
+    }
+    document.getElementById('sheetBody').innerHTML = body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
   }
 
   // ===== Lager-Artikel · Detail-Ansicht =====
@@ -2104,15 +2187,29 @@
       return { reply:'Heute 14 Uhr kommt die Metro-Lieferung: 14 Artikel, 412 Euro 80. Anna macht die Annahme. Morgen um 6 Uhr 30 die Frische-Fisch-Friesland-Lieferung mit Lachs und Dorade.',
         actions:[{label:'Bestellungen',fn:()=>openSheet('bestellungen')},{label:'Friesland Status',cmd:'Wann kommt der Fisch?'}] };
     }
+    if (has('nachbestell','bestell-liste','bestellliste','sammel-bestellung','sammelbestellung','was nachbestellen','was muss ich bestellen','einkaufsliste')) {
+      const groups = buildNachbestellListe();
+      if (!groups.length) {
+        return { reply:'Aktuell ist nichts kritisch – es gibt nichts nachzubestellen. Ich melde mich, sobald wieder was knapp wird.',
+          actions:[{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      }
+      const summ = groups.map(g => g.lieferant + ' (' + g.items.length + ')').join(', ');
+      const total = groups.reduce((s,g)=>s+g.items.length,0);
+      return { reply:`${total} Artikel sind knapp. Ich hab sie nach Lieferant gebündelt: ${summ}. Öffne die Nachbestell-Liste, dann kannst du den fertigen Bestelltext pro Lieferant kopieren.`,
+        actions:[{label:'Nachbestell-Liste öffnen',fn:()=>openNachbestellung()}] };
+    }
     if (has('bestelle','bestell','kauf')) {
       let item = 'die Artikel', supplier = 'deinem Standard-Lieferanten';
       if (has('pommes')) { item = '10 Kilo Pommes Frites'; supplier = 'Frostkönig'; }
       else if (has('lachs')) { item = '5 Kilo Wildlachs'; supplier = 'Friesland'; }
       else if (has('hack')) { item = '5 Kilo Rinderhack'; supplier = 'Metro'; }
       else if (has('tomate')) { item = '10 Kilo Tomaten'; supplier = 'Metro'; }
-      else if (has('alle','sammel','kritisch')) { item = 'Pommes, Hack und Currywurst'; supplier = 'Frostkönig'; }
+      else if (has('alle','sammel','kritisch')) {
+        return { reply:'Ich hab alle knappen Artikel nach Lieferant gebündelt. In der Nachbestell-Liste kannst du den fertigen Bestelltext pro Lieferant kopieren und direkt rausschicken.',
+          actions:[{label:'Nachbestell-Liste öffnen',fn:()=>openNachbestellung()}] };
+      }
       return { reply:`Klar. Ich lege ${item} bei ${supplier} in den Bestell-Entwurf. Du kriegst eine Bestätigung sobald rausgeschickt. Voraussichtliche Lieferung: morgen.`,
-        actions:[{label:'Bestätigen',fn:()=>{toast('✓ Bestellung versendet');}},{label:'Anpassen',fn:()=>openSheet('bestellungen')}] };
+        actions:[{label:'Bestätigen',fn:()=>{toast('✓ Bestellung versendet');}},{label:'Nachbestell-Liste',fn:()=>openNachbestellung()}] };
     }
 
     // Personal / Schicht
