@@ -2183,9 +2183,10 @@
     const ablauf = lagerData
       .filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; })
       .map(r => r.name + ' (' + mhdText(r) + ')');
+    const gs = lagerStats();
     return [
       'Umsatz heute: € 1.847 (+12% vs. Wochenmittel)',
-      'Marge heute: 62,4% · Lager gesamt: 87% · Verschwendung: 2,1%',
+      'Marge heute: 62,4% · Lager gesamt: ' + gs.avgPct + '% (' + gs.total + ' Artikel) · Verschwendung: 2,1%',
       'Gäste heute: 87 · Bestellungen: 142',
       'Kritischer Bestand: ' + (low.length ? low.join(', ') : 'keiner'),
       'In Warnung: ' + (warn.length ? warn.join(', ') : 'keiner'),
@@ -2249,7 +2250,8 @@
     if (has('hey chef','hallo','moin','hi ','hey ','servus')) {
       const h = new Date().getHours();
       const tg = h<11?'Guten Morgen':h<18?'Mahlzeit':'N\'Abend';
-      return { reply:`${tg}, Ibrahim! Hier ist The Chef für ${chefProfile.name}. Service läuft, Lager bei 87%, Marge heute 62,4%. Was kann ich tun?`,
+      const gs = lagerStats();
+      return { reply:`${tg}! Hier ist The Chef für ${chefProfile.name}. Lager bei ${gs.avgPct}%${gs.low?', '+gs.low+' Artikel kritisch':' – alles im grünen Bereich'}. Was kann ich tun?`,
         actions:[{label:'Tagesüberblick',cmd:'Wie ist der Status heute?'},{label:'Lager-Check',cmd:'Was ist niedrig?'}] };
     }
 
@@ -2277,8 +2279,18 @@
         actions:[{label:'Auf Tageskarte',cmd:'Mach Tomatensuppe zum Tagesgericht'},{label:'Insta-Post',cmd:'Mach den Tomaten-Post fertig'}] };
     }
     if (has('was ist niedrig','niedriger bestand','was fehlt','knapp')) {
-      return { reply:'Drei Artikel sind kritisch: Pommes mit 3,8 Kilo, Rinderhack mit 1,2 Kilo und Currywurst mit 2,1 Kilo. Soll ich Sammel-Bestellung bei Frostkönig anlegen? Gesamt etwa 127 Euro.',
-        actions:[{label:'Sammel-Bestellung',cmd:'Bestelle alle kritischen Artikel'},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      const krit = lagerData.filter(r => r.status === 'low');
+      const warnArr = lagerData.filter(r => r.status === 'warn');
+      if (!krit.length && !warnArr.length) {
+        return { reply:'Gerade ist nichts knapp – alle Artikel sind gut bestückt. Ich melde mich, sobald sich das ändert.',
+          actions:[{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      }
+      const kritTxt = krit.length
+        ? krit.map(r => r.name + ' (' + r.amount + ')').join(', ')
+        : 'keiner';
+      const warnTxt = warnArr.length ? ' In Warnung: ' + warnArr.map(r=>r.name).join(', ') + '.' : '';
+      return { reply:`Kritisch sind ${krit.length} Artikel: ${kritTxt}.${warnTxt} Soll ich dir die Nachbestell-Liste fertig machen?`,
+        actions:[{label:'Nachbestell-Liste',fn:()=>openNachbestellung()},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
     }
     if (has('läuft ab','laeuft ab','läuft bald','abgelaufen','ablauf','mhd','haltbar','haltbarkeit','verderb','wegschmeißen','wegschmeissen')) {
       const ablauf = lagerData.filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; });
@@ -2306,7 +2318,8 @@
         actions:[{label:'Reste-Retter öffnen',fn:()=>openResteRetter()},{label:top.dish+' aktivieren',fn:()=>{toast('✓ '+top.dish+' auf die Tageskarte gesetzt');}}] };
     }
     if (has('wie viel','wie viele','bestand','vorrat')) {
-      return { reply:'Lager insgesamt bei 87 Prozent. 47 Artikel, davon 3 niedrig, 4 in Warnung. Welcher Artikel interessiert dich konkret?',
+      const gs = lagerStats();
+      return { reply:`Lager insgesamt bei ${gs.avgPct} Prozent. ${gs.total} Artikel, davon ${gs.low} niedrig und ${gs.warn} in Warnung. Welcher Artikel interessiert dich konkret?`,
         actions:[{label:'Liste anzeigen',fn:()=>navTo('lager')},{label:'Was ist niedrig',cmd:'Was ist niedrig?'}] };
     }
 
@@ -2444,7 +2457,9 @@
 
     // Tagesüberblick
     if (has('status','überblick','übersicht','wie läufts','wie sieht')) {
-      return { reply:'Alles im Griff. 87 Gäste bisher, 1.847 Euro Umsatz, Marge 62,4 Prozent. Lager bei 87 Prozent, 3 Artikel kritisch. Personal komplett. Drei KI-Vorschläge warten auf Freigabe. Was zuerst?',
+      const gs = lagerStats();
+      const lagerTxt = gs.low ? `Lager bei ${gs.avgPct} Prozent, ${gs.low} Artikel kritisch` : `Lager bei ${gs.avgPct} Prozent, nichts kritisch`;
+      return { reply:`Alles im Griff. 87 Gäste bisher, 1.847 Euro Umsatz, Marge 62,4 Prozent. ${lagerTxt}. Personal komplett. Was zuerst?`,
         actions:[{label:'Vorschläge zeigen',fn:()=>navTo('home')},{label:'Auswertung',fn:()=>openSheet('auswertungen')}] };
     }
 
