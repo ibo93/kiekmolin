@@ -1,0 +1,36 @@
+# Kiek mol in - Netlify Konfiguration
+
+[build]
+  # SEO-Landing-Pages werden zur Build-Zeit aus Supabase generiert.
+  # Fault-tolerant: Bei Fehler wird trotzdem deployed.
+  command = "node build-seo-pages.js || echo 'SEO build script failed - continuing'"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Pretty URLs ohne .html
+[[redirects]]
+  from = "/pizzeria-:city"
+  to = "/pizzeria-:city.html"
+  status = 200
+
+[[redirects]]
+  from = "/doener-:city"
+  to = "/doener-:city.html"
+  status = 200
+
+[[redirects]]
+  from = "/fischrestaurant-:city"
+  to = "/fischrestaurant-:city.html"
+  status = 200
+
+[[redirects]]
+  from = "/restaurant-:city"
+  to = "/restaurant-:city.html"
+  status = 200
+
+[[redirects]]
+  from = "/restaurants-:city"
+  to = "/restaurants-:city.html"
+  status = 200
