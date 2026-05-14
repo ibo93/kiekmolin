@@ -449,6 +449,19 @@
   }
   .onboard-input:focus{border-color:rgba(94,234,212,0.5)}
   .onboard-foot{margin-top:auto}
+  .onboard-label{font-size:12px;font-weight:700;color:var(--text-dim);margin:0 0 8px 2px;text-transform:uppercase;letter-spacing:0.06em}
+  .type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+  .type-chip{
+    padding:14px 6px;border-radius:14px;
+    background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);
+    color:var(--text-dim);font-family:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    transition:all .15s;
+  }
+  .type-chip svg{width:22px;height:22px}
+  .type-chip span{font-size:11px;font-weight:700}
+  .type-chip.active{background:rgba(94,234,212,0.14);border-color:rgba(94,234,212,0.5);color:#5eead4}
+  .type-chip:active{transform:scale(0.95)}
 
   /* Pull-to-refresh */
   .ptr{
@@ -1336,6 +1349,12 @@
       <section class="view" data-view="mehr">
         <div class="page-h"><h1>Mehr</h1><p>Alle Bereiche der App</p></div>
 
+        <div class="menu-row" onclick="openProfil()" style="margin-bottom:18px">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#0d9488,#5eead4)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 7v2h20V7L12 2zM4 11v8H2v2h20v-2h-2v-8h-2v8h-3v-8h-2v8h-2v-8H9v8H6v-8H4z"/></svg></div>
+          <div class="menu-text"><div class="menu-name" id="profilName">Mein Restaurant</div><div class="menu-sub" id="profilType">Profil &amp; Einstellungen</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+
         <div class="section-h" style="margin:0 0 10px"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> AI-Lab · Weltneuheiten</h2></div>
         <div class="menu-row" onclick="openSheet('lagerVision')">
           <div class="menu-icon" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
@@ -1467,6 +1486,15 @@
         </div>
       </div>
       <div class="onboard-foot">
+        <div class="onboard-label">Was für ein Betrieb bist du?</div>
+        <div class="type-grid" id="typeGrid">
+          <button class="type-chip active" data-type="Restaurant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg><span>Restaurant</span></button>
+          <button class="type-chip" data-type="Pizzeria"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg><span>Pizzeria</span></button>
+          <button class="type-chip" data-type="Imbiss"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg><span>Imbiss</span></button>
+          <button class="type-chip" data-type="Fischrestaurant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg><span>Fisch</span></button>
+          <button class="type-chip" data-type="Café"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg><span>Café</span></button>
+          <button class="type-chip" data-type="Bar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18l-8 9v7h3v2H8v-2h3v-7L3 3zm4.7 3l2.3 2.6h4l2.3-2.6H7.7z"/></svg><span>Bar</span></button>
+        </div>
         <input type="text" class="onboard-input" id="onboardName" placeholder="Name deines Restaurants" value="Kiek mol in">
         <button class="btn-primary" onclick="finishOnboard()">Los geht's</button>
       </div>
@@ -1492,7 +1520,7 @@
   const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const d = new Date();
-  document.getElementById('dateline').textContent = days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()] + ' · Service läuft';
+  // dateline wird durch applyProfile() gesetzt (zeigt Restaurant-Name)
 
   // ===== Router =====
   function navTo(view){
@@ -1875,8 +1903,14 @@
     if (has('hey chef','hallo','moin','hi ','hey ','servus')) {
       const h = new Date().getHours();
       const tg = h<11?'Guten Morgen':h<18?'Mahlzeit':'N\'Abend';
-      return { reply:`${tg}, Ibrahim! Service läuft, Lager bei 87%, Marge heute 62,4%. Was kann ich tun?`,
+      return { reply:`${tg}, Ibrahim! Hier ist The Chef für ${chefProfile.name}. Service läuft, Lager bei 87%, Marge heute 62,4%. Was kann ich tun?`,
         actions:[{label:'Tagesüberblick',cmd:'Wie ist der Status heute?'},{label:'Lager-Check',cmd:'Was ist niedrig?'}] };
+    }
+
+    // Restaurant-Profil
+    if (has('mein restaurant','profil','betrieb','einstell','anpass')) {
+      return { reply:`Dein Profil: ${chefProfile.name}, eingerichtet als ${chefProfile.type}. Je genauer dein Profil, desto besser meine Vorschläge. Soll ich es öffnen?`,
+        actions:[{label:'Mein Restaurant öffnen',fn:()=>openProfil()}] };
     }
 
     // Inventory queries
@@ -2151,20 +2185,88 @@
     });
   })();
 
-  // ===== Onboarding =====
+  // ===== Onboarding & Restaurant-Profil =====
+  let chefProfile = {
+    name: localStorage.getItem('chef_restaurant') || 'Kiek mol in',
+    type: localStorage.getItem('chef_type') || 'Restaurant',
+  };
   if (!localStorage.getItem('chef_onboarded')) {
     document.getElementById('onboard').classList.remove('hide');
   }
+  // Typ-Auswahl im Onboarding
+  document.querySelectorAll('#typeGrid .type-chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('#typeGrid .type-chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
   function finishOnboard(){
     const name = document.getElementById('onboardName').value.trim() || 'Kiek mol in';
+    const type = document.querySelector('#typeGrid .type-chip.active')?.dataset.type || 'Restaurant';
+    chefProfile = { name, type };
     localStorage.setItem('chef_onboarded', '1');
     localStorage.setItem('chef_restaurant', name);
+    localStorage.setItem('chef_type', type);
     document.getElementById('onboard').classList.add('hide');
-    // restart count-up so the user sees it after onboarding
+    applyProfile();
     document.querySelectorAll('[data-count]').forEach(el=>{
       el.textContent = (el.dataset.prefix||'') + '0' + (el.dataset.suffix||'');
       setTimeout(()=>animateCount(el), 150);
     });
+  }
+  // Profil überall in der App anwenden
+  function applyProfile(){
+    const dl = document.getElementById('dateline');
+    const d = new Date();
+    const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+    const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    dl.textContent = chefProfile.name + ' · ' + days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()];
+    const pn = document.getElementById('profilName');
+    const pt = document.getElementById('profilType');
+    if(pn) pn.textContent = chefProfile.name;
+    if(pt) pt.textContent = chefProfile.type + ' · Profil & Einstellungen';
+  }
+  applyProfile();
+
+  const restaurantTypes = ['Restaurant','Pizzeria','Imbiss','Fischrestaurant','Café','Bar'];
+  function openProfil(){
+    const typeChips = restaurantTypes.map(t=>
+      `<button class="type-chip${t===chefProfile.type?' active':''}" data-ptype="${t}" onclick="document.querySelectorAll('#profilTypes .type-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')"><span>${t}</span></button>`
+    ).join('');
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 7v2h20V7L12 2zM4 11v8H2v2h20v-2h-2v-8h-2v8h-3v-8h-2v8h-2v-8H9v8H6v-8H4z"/></svg> Mein Restaurant';
+    document.getElementById('sheetBody').innerHTML = `
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;padding:0 4px">The Chef passt sich an deinen Betrieb an – je genauer dein Profil, desto besser die Vorschläge.</p>
+      <div class="onboard-label">Name</div>
+      <input type="text" class="onboard-input" id="profilNameInput" value="${chefProfile.name.replace(/"/g,'&quot;')}">
+      <div class="onboard-label">Betriebs-Typ</div>
+      <div class="type-grid" id="profilTypes" style="grid-template-columns:1fr 1fr 1fr">${typeChips}</div>
+      <div class="onboard-label">Öffnungszeiten</div>
+      <div class="list-card glass" style="margin-bottom:16px">
+        <div class="inv-row" style="cursor:default"><div class="inv-name">Mo – Fr</div><div></div><div class="inv-amount">11:00 – 22:00</div></div>
+        <div class="inv-row" style="cursor:default"><div class="inv-name">Sa – So</div><div></div><div class="inv-amount">12:00 – 23:00</div></div>
+      </div>
+      <div class="why-card">
+        <div class="why-head"><div class="ai-pulse"></div>So passt sich The Chef an</div>
+        <div class="why-row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg><div>KI-Vorschläge & Rezepte passend zu deinem Betriebs-Typ</div></div>
+        <div class="why-row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg><div>Schicht-Empfehlungen anhand deiner Öffnungszeiten</div></div>
+        <div class="why-row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg><div>Lager & Angebots-Radar auf deine Warengruppen zugeschnitten</div></div>
+      </div>
+      <button class="btn-primary" onclick="saveProfil()">Profil speichern</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="openSheet('settings')">Integrationen & mehr</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function saveProfil(){
+    const name = document.getElementById('profilNameInput').value.trim() || chefProfile.name;
+    const type = document.querySelector('#profilTypes .type-chip.active')?.dataset.ptype || chefProfile.type;
+    chefProfile = { name, type };
+    localStorage.setItem('chef_restaurant', name);
+    localStorage.setItem('chef_type', type);
+    applyProfile();
+    closeSheet();
+    toast('✓ Profil gespeichert – The Chef ist angepasst');
   }
 
   // ===== Animated count-up (Hero + KPIs) =====
