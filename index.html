@@ -395,28 +395,6 @@
   .pf-chip.active{background:rgba(255,255,255,0.14);color:#fff;border-color:var(--glass-border-bright)}
   .pf-chip svg{width:14px;height:14px}
 
-  /* Video-Cutter */
-  .vc-preview{aspect-ratio:9/16;max-height:280px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(160deg,#2d5a4f,#1e3a5f,#0a0e14);border:1px solid var(--glass-border);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  .vc-play{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;color:#0a0b0f;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
-  .vc-play svg{width:24px;height:24px;margin-left:3px}
-  .vc-badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:100px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);color:#fff}
-  .vc-timeline{display:flex;gap:3px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid var(--glass-border);border-radius:12px;margin-bottom:8px;overflow-x:auto}
-  .vc-clip{height:44px;border-radius:6px;flex-shrink:0;position:relative;cursor:pointer;border:2px solid transparent}
-  .vc-clip.sel{border-color:#fff}
-  .vc-clip-1{width:70px;background:linear-gradient(135deg,#3b82f6,#1e40af)}
-  .vc-clip-2{width:50px;background:linear-gradient(135deg,#34d399,#059669)}
-  .vc-clip-3{width:90px;background:linear-gradient(135deg,#fb923c,#c2410c)}
-  .vc-clip-4{width:60px;background:linear-gradient(135deg,#c084fc,#7c3aed)}
-  .vc-clip-label{position:absolute;bottom:2px;left:3px;font-size:8px;font-weight:700;color:rgba(255,255,255,0.9)}
-  .vc-music{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);margin-bottom:8px}
-  .vc-music svg{width:18px;height:18px;color:#c4a6ff;flex-shrink:0}
-  .vc-music-wave{flex:1;display:flex;align-items:center;gap:2px;height:20px}
-  .vc-music-wave span{flex:1;background:rgba(196,166,255,0.6);border-radius:1px}
-  .vc-tools{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px}
-  .vc-tool{padding:12px 6px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);color:var(--text);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .15s}
-  .vc-tool:active{transform:scale(0.95)}
-  .vc-tool svg{width:18px;height:18px;color:var(--text-dim)}
-
   /* Rezept-Kalkulator */
   .calc-result{
     padding:22px;border-radius:20px;margin-bottom:14px;text-align:center;
@@ -1952,8 +1930,7 @@
 
         <div class="mkt-tabs">
           <button class="mkt-tab active" onclick="mktTab('ideen',this)">Post-Ideen</button>
-          <button class="mkt-tab" onclick="mktTab('erstellen',this)">Erstellen</button>
-          <button class="mkt-tab" onclick="mktTab('video',this)">Video-Cutter</button>
+          <button class="mkt-tab" onclick="mktTab('erstellen',this)">Post erstellen</button>
         </div>
 
         <!-- PANEL: POST-IDEEN -->
@@ -1998,32 +1975,6 @@
             </div>
           </div>
           <button class="btn-primary" onclick="toast('✓ Post geplant für heute 18:30')">Posten / Einplanen</button>
-        </div>
-
-        <!-- PANEL: VIDEO-CUTTER -->
-        <div class="mkt-panel" data-mkt="video">
-          <div class="vc-preview">
-            <div class="vc-play" onclick="toast('Vorschau wird abgespielt…')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
-            <div class="vc-badge">0:18 · 9:16</div>
-          </div>
-          <div style="font-size:12px;font-weight:700;margin:0 4px 8px">Clips · antippen zum Auswählen</div>
-          <div class="vc-timeline">
-            <div class="vc-clip vc-clip-1 sel" onclick="this.parentElement.querySelectorAll('.vc-clip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel');toast('Clip 1 ausgewählt · 0:00–0:05')"><span class="vc-clip-label">Anlieferung</span></div>
-            <div class="vc-clip vc-clip-2" onclick="this.parentElement.querySelectorAll('.vc-clip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel');toast('Clip 2 ausgewählt · 0:05–0:09')"><span class="vc-clip-label">Schneiden</span></div>
-            <div class="vc-clip vc-clip-3" onclick="this.parentElement.querySelectorAll('.vc-clip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel');toast('Clip 3 ausgewählt · 0:09–0:15')"><span class="vc-clip-label">Anrichten</span></div>
-            <div class="vc-clip vc-clip-4" onclick="this.parentElement.querySelectorAll('.vc-clip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel');toast('Clip 4 ausgewählt · 0:15–0:18')"><span class="vc-clip-label">Serviert</span></div>
-          </div>
-          <div class="vc-music">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17a3 3 0 11-3-3V4l10-2v10a3 3 0 11-3-3V6L9 7v10z"/></svg>
-            <div class="vc-music-wave"><span style="height:40%"></span><span style="height:70%"></span><span style="height:100%"></span><span style="height:55%"></span><span style="height:85%"></span><span style="height:30%"></span><span style="height:75%"></span><span style="height:95%"></span><span style="height:50%"></span><span style="height:65%"></span></div>
-            <span style="font-size:11px;color:var(--text-dim);white-space:nowrap">Trend-Sound</span>
-          </div>
-          <div class="vc-tools">
-            <button class="vc-tool" onclick="toast('KI schneidet automatisch auf 18 Sek')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></svg>Auto-Cut</button>
-            <button class="vc-tool" onclick="toast('Untertitel werden generiert')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 12h4M14 12h4M6 15h2M12 15h6"/></svg>Untertitel</button>
-            <button class="vc-tool" onclick="toast('Filter angewendet: Warm & knackig')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>Filter</button>
-          </div>
-          <button class="btn-primary" onclick="toast('✓ Video exportiert & für TikTok eingeplant')">Video exportieren</button>
         </div>
 
         <div class="ai-card glass" style="margin-top:14px">
