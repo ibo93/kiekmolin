@@ -1206,13 +1206,13 @@
         <div id="scanResult" style="display:none">
           <div class="ai-card glass" style="margin-bottom:14px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-              <div class="ai-title">Erkannt: 14 Artikel</div>
-              <span class="pill pill-good">Metro · 08.05</span>
+              <div class="ai-title" id="scanCount">Erkannt: 0 Artikel</div>
+              <span class="pill pill-good" id="scanLieferant">Beleg</span>
             </div>
             <div id="extractedList"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;margin-top:8px;border-top:1px solid var(--glass-border);font-weight:700">
               <span>Gesamtsumme</span>
-              <span style="color:var(--gold-light);font-size:16px">€ 247,82</span>
+              <span style="color:var(--gold-light);font-size:16px" id="scanSumme">—</span>
             </div>
           </div>
           <button class="btn-primary" onclick="bookInventory()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg> Ins Lager buchen</button>
@@ -1980,67 +1980,172 @@
   }));
 
   // ===== Scanner =====
+  // Aktuell aus dem Beleg erkannte Artikel: [{ name, qty, price }]
+  let scanExtracted = [];
+
+  function escHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function parsePreis(p){
+    if(!p) return 0;
+    const m = String(p).replace(/[^0-9,.-]/g,'').replace(/\.(?=\d{3})/g,'').replace(',', '.');
+    const n = parseFloat(m);
+    return isNaN(n) ? 0 : n;
+  }
+
   function onScanFile(e){
     const file = e.target.files && e.target.files[0];
     if(!file) return;
     const url = URL.createObjectURL(file);
     const t = document.getElementById('scanTarget');
-    // show the real photo inside the scan frame, then run analysis
     t.style.backgroundImage = 'url('+url+')';
     t.style.backgroundSize = 'cover';
     t.style.backgroundPosition = 'center';
-    setTimeout(()=>{
-      simulateScan();
-      // reset bg after switching view
-      setTimeout(()=>{ t.style.backgroundImage=''; }, 500);
-      e.target.value = '';
-    }, 400);
-  }
-  function simulateScan(){
+    // Ladeansicht zeigen
     document.getElementById('scanIdle').style.display='none';
     document.getElementById('scanResult').style.display='none';
     document.getElementById('scanLoading').style.display='block';
-    const steps = ['KI analysiert Beleg…','Lieferant erkannt: Metro','14 Artikel gefunden','Mengen werden geprüft…'];
+    document.getElementById('scanStep').textContent = 'KI liest den Beleg…';
+
+    const reader = new FileReader();
+    reader.onload = async function(){
+      const dataUrl = reader.result || '';
+      const base64 = String(dataUrl).split(',')[1] || '';
+      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+      try {
+        const res = await fetch('/.netlify/functions/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mediaType: mediaType })
+        });
+        if(res.ok){
+          const data = await res.json();
+          if(data && Array.isArray(data.items) && data.items.length){
+            showScanResult(data.items, data.lieferant || 'Beleg');
+            t.style.backgroundImage = '';
+            e.target.value = '';
+            return;
+          }
+          // Beleg erkannt, aber nichts auslesbar
+          resetScan();
+          t.style.backgroundImage = '';
+          e.target.value = '';
+          toast('Kein Artikel erkannt – bitte schärfer und gerade fotografieren');
+          return;
+        }
+        throw new Error('scan ' + res.status);
+      } catch(err){
+        // Offline / kein API-Key / lokal geöffnet → Demo-Fallback
+        t.style.backgroundImage = '';
+        e.target.value = '';
+        runDemoScan(true);
+      }
+    };
+    reader.onerror = function(){
+      t.style.backgroundImage = '';
+      e.target.value = '';
+      runDemoScan(true);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Demo-Scan (Button "Ohne Foto testen" oder Fallback ohne Backend)
+  function simulateScan(){ runDemoScan(false); }
+  function runDemoScan(isFallback){
+    document.getElementById('scanIdle').style.display='none';
+    document.getElementById('scanResult').style.display='none';
+    document.getElementById('scanLoading').style.display='block';
+    const steps = isFallback
+      ? ['Kein KI-Backend erreichbar…','Zeige Demo-Beleg…']
+      : ['KI analysiert Beleg…','Lieferant erkannt: Metro','Artikel werden gelesen…'];
     let i = 0;
     const stepEl = document.getElementById('scanStep');
     stepEl.textContent = steps[0];
     const iv = setInterval(()=>{
       i++;
-      if(i>=steps.length){ clearInterval(iv); showScanResult(); }
-      else stepEl.textContent = steps[i];
-    },650);
+      if(i>=steps.length){
+        clearInterval(iv);
+        showScanResult(DEMO_BELEG.slice(), 'Metro (Demo)');
+      } else stepEl.textContent = steps[i];
+    }, 600);
   }
-  function showScanResult(){
+  const DEMO_BELEG = [
+    {name:'Tomaten frisch', qty:'5 kg',  price:'€12,50'},
+    {name:'Mozzarella',     qty:'3 kg',  price:'€18,90'},
+    {name:'Pommes Frites',  qty:'10 kg', price:'€21,40'},
+    {name:'Rinderhack',     qty:'4 kg',  price:'€36,80'},
+    {name:'Lachsfilet',     qty:'3 kg',  price:'€42,60'},
+    {name:'Sahne',          qty:'6 L',   price:'€14,20'},
+    {name:'Mehl 405',       qty:'10 kg', price:'€8,90'},
+    {name:'Olivenöl',       qty:'5 L',   price:'€32,50'},
+    {name:'Kartoffeln',     qty:'25 kg', price:'€18,75'},
+    {name:'Zwiebeln',       qty:'10 kg', price:'€7,40'},
+    {name:'Eier',           qty:'60 St.',price:'€14,40'},
+    {name:'Butter',         qty:'2 kg',  price:'€11,80'}
+  ];
+
+  function showScanResult(items, lieferant){
+    scanExtracted = items.map(it => ({
+      name: (it.name || '').toString().trim(),
+      qty: (it.qty || '').toString().trim(),
+      price: (it.price || '').toString().trim()
+    })).filter(it => it.name);
+
     document.getElementById('scanLoading').style.display='none';
     document.getElementById('scanResult').style.display='block';
-    const items = [
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg> Tomaten frisch','5 kg','€12,50'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 12L14 4l7 4v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-5zm5 1a1 1 0 100 2 1 1 0 000-2zm5-1a1 1 0 100 2 1 1 0 000-2zm5 2a1 1 0 100 2 1 1 0 000-2z"/></svg> Mozzarella','3 kg','€18,90'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3c-4 0-8 4-8 9s4 9 8 9 8-4 8-9-4-9-8-9zm-2 5a1 1 0 100 2 1 1 0 000-2zm5 3a1 1 0 100 2 1 1 0 000-2zm-3 4a1 1 0 100 2 1 1 0 000-2z"/></svg> Pommes 10/10','10 kg','€21,40'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 8a4 4 0 014-4h6a4 4 0 014 4v8a4 4 0 01-4 4H9a4 4 0 01-4-4V8zm4-2a2 2 0 00-2 2v3a2 2 0 002 2 2 2 0 002 2 2 2 0 002 2v1a2 2 0 002-2V8a2 2 0 00-2-2H9z"/></svg> Rinderhack','4 kg','€36,80'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg> Lachsfilet','3 kg','€42,60'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v3l-1 2v13a2 2 0 002 2h8a2 2 0 002-2V7l-1-2V2H7zm2 2h6v1H9V4zm0 5h6v11H9V9z"/></svg> Sahne 30%','6 L','€14,20'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L9 6l3 3 3-3-3-4zm-4 6l-3 4 3 3 3-3-3-4zm8 0l-3 4 3 3 3-3-3-4zm-4 6l-3 4 3 3 3-3-3-4zm-1 8h2v2h-2v-2z"/></svg> Mehl 405','10 kg','€8,90'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 2c-1 0-2 1-2 2 0 1-1 2-2 2-3 0-6 3-6 7s3 9 6 9 6-5 6-9c0-1-1-2-2-2 0 0 0-1 1-2s2-1 2-2-1-3-3-3z"/></svg> Olivenöl','5 L','€32,50'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3c-4 0-8 4-8 9s4 9 8 9 8-4 8-9-4-9-8-9zm-2 5a1 1 0 100 2 1 1 0 000-2zm5 3a1 1 0 100 2 1 1 0 000-2zm-3 4a1 1 0 100 2 1 1 0 000-2z"/></svg> Kartoffeln','25 kg','€18,75'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3c-4 0-7 4-7 9s3 9 7 9 7-4 7-9-3-9-7-9zm0 4c-2 0-3 3-3 5s1 5 3 5 3-3 3-5-1-5-3-5z"/></svg> Zwiebeln','10 kg','€7,40'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2C8 2 5 7 5 13a7 7 0 0014 0c0-6-3-11-7-11z"/></svg> Eier M','60 St.','€14,40'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 8l4-4h10l4 4v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm2 1v9h14V9H5z"/></svg> Butter','2 kg','€11,80'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 11h18a9 9 0 11-18 0zm9-7c-2 0-4 2-4 4 0-2-2-4-4-4 2 0 4-2 4-4 0 2 2 4 4 4z"/></svg> Eisbergsalat','4 St.','€4,76'],
-      ['<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M18 3c-2 0-3 2-4 4-2 3-8 8-10 11-1 1.5 1 4 2.5 2.5C9.5 17 14 12 16.5 9c2-1.5 4-2.5 4-4.5C20.5 3.5 19.5 3 18 3z"/></svg> Gurken','3 kg','€2,91'],
-    ];
-    document.getElementById('extractedList').innerHTML = items.map(([n,q,p])=>
-      `<div class="extract-row"><div class="extract-name">${n}</div><div class="extract-qty">${q}</div><div class="extract-price">${p}</div></div>`
+    document.getElementById('scanCount').textContent = 'Erkannt: ' + scanExtracted.length + (scanExtracted.length===1?' Artikel':' Artikel');
+    document.getElementById('scanLieferant').textContent = lieferant || 'Beleg';
+
+    document.getElementById('extractedList').innerHTML = scanExtracted.map((it,idx)=>
+      `<div class="extract-row">
+        <div class="extract-name">${escHtml(it.name)}</div>
+        <div class="extract-qty">${escHtml(it.qty) || '—'}</div>
+        <div class="extract-price">${escHtml(it.price) || '—'}</div>
+      </div>`
     ).join('');
+
+    const summe = scanExtracted.reduce((s,it)=>s+parsePreis(it.price), 0);
+    document.getElementById('scanSumme').textContent = summe > 0
+      ? '€ ' + summe.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})
+      : '—';
   }
+
   function bookInventory(){
-    toast('✓ 14 Artikel ins Lager gebucht');
-    setTimeout(()=>{ resetScan(); navTo('home'); },800);
+    if(!scanExtracted.length){ toast('Keine Artikel zum Buchen'); return; }
+    let neu = 0, aktualisiert = 0;
+    scanExtracted.forEach(it => {
+      const existing = lagerData.find(r => r.name.toLowerCase() === it.name.toLowerCase());
+      if(existing){
+        existing.amount = it.qty || existing.amount;
+        existing.pct = 90;
+        existing.status = 'good';
+        existing.days = 'frisch geliefert';
+        lagerEdits[existing.name] = { amount: existing.amount, pct: existing.pct, status: existing.status, days: existing.days, mhd: existing.mhd || null };
+        const mi = lagerManual.find(m => m.name === existing.name);
+        if(mi){ mi.amount = existing.amount; mi.pct = existing.pct; mi.status = existing.status; mi.days = existing.days; }
+        aktualisiert++;
+      } else {
+        const item = { name: it.name, emoji: ITEM_SVG, loc: 'Lager', amount: it.qty || '—', days:'frisch geliefert', pct:90, status:'good', mhd:null };
+        lagerData.push(item);
+        lagerManual.push(item);
+        neu++;
+      }
+      // gebuchte Ware ist nicht mehr "offen bestellt"
+      orderedItems = orderedItems.filter(n => n.toLowerCase() !== it.name.toLowerCase());
+    });
+    localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+    persistLager();
+    refreshLager();
+    const total = neu + aktualisiert;
+    toast('✓ ' + total + ' Artikel gebucht' + (neu?' · '+neu+' neu':'') + (aktualisiert?' · '+aktualisiert+' aufgefüllt':''));
+    scanExtracted = [];
+    setTimeout(()=>{ resetScan(); navTo('lager'); }, 800);
   }
   function resetScan(){
     document.getElementById('scanResult').style.display='none';
     document.getElementById('scanLoading').style.display='none';
     document.getElementById('scanIdle').style.display='block';
+    scanExtracted = [];
   }
 
   // ====================================================
