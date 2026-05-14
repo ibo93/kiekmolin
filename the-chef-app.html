@@ -1012,24 +1012,24 @@
 
         <div class="hero-card">
           <div class="hero-label">Umsatz heute</div>
-          <div class="hero-value">€ 1.847</div>
+          <div class="hero-value" data-count="1847" data-prefix="€ ">€ 0</div>
           <div class="hero-sub">↑ +12% vs. Wochenmittel</div>
           <div class="hero-mini">
-            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up">62,4%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val">87%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up">2,1%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" data-count="62.4" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" data-count="87" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" data-count="2.1" data-suffix="%">0%</div></div>
           </div>
         </div>
 
         <div class="kpi-row">
           <div class="kpi-tile glass">
             <div class="kpi-tile-head"><div class="kpi-tile-label">Gäste</div><div class="kpi-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg></div></div>
-            <div class="kpi-tile-val">87</div>
+            <div class="kpi-tile-val" data-count="87">0</div>
             <div class="kpi-tile-trend" style="color:var(--green)">↑ +14 vs. gestern</div>
           </div>
           <div class="kpi-tile glass">
             <div class="kpi-tile-head"><div class="kpi-tile-label">Bestellungen</div><div class="kpi-tile-icon ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg></div></div>
-            <div class="kpi-tile-val">142</div>
+            <div class="kpi-tile-val" data-count="142">0</div>
             <div class="kpi-tile-trend" style="color:var(--text-dim)">Ø 3,2 / Gast</div>
           </div>
         </div>
@@ -1149,14 +1149,17 @@
         <div class="page-h"><h1>Beleg scannen</h1><p>Lieferschein abfotografieren – KI bucht ins Lager</p></div>
 
         <div id="scanIdle">
-          <div class="scan-target">
+          <div class="scan-target" id="scanTarget">
             <div class="scan-frame"><span></span></div>
             <div class="scan-line"></div>
             <div class="scan-hint">Lieferschein im Rahmen positionieren</div>
           </div>
-          <button class="btn-primary" onclick="simulateScan()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Scan starten (Demo)</button>
+          <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(event)">
+          <button class="btn-primary" onclick="document.getElementById('scanFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen</button>
           <div style="margin-top:10px"></div>
-          <button class="btn-secondary" onclick="simulateScan()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.5"/><path d="M5 17l5-5 4 4 3-3 4 4v0H5z"/></svg> Aus Galerie wählen</button>
+          <button class="btn-secondary" onclick="document.getElementById('scanFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.5"/><path d="M5 17l5-5 4 4 3-3 4 4v0H5z"/></svg> Aus Galerie wählen</button>
+          <div style="margin-top:10px"></div>
+          <button class="btn-secondary" onclick="simulateScan()" style="opacity:0.7;font-size:13px;padding:11px">Ohne Foto testen (Demo)</button>
         </div>
 
         <div id="scanLoading" style="display:none">
@@ -1434,13 +1437,51 @@
     list.innerHTML = lagerData
       .filter(r=>filter==='all'||r.status===filter)
       .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()))
-      .map(r=>`<div class="inv-row" onclick="toast('${r.name} · ${r.amount} · ${r.days}')">
+      .map((r,i)=>`<div class="inv-row" onclick="openLagerItem(${lagerData.indexOf(r)})">
         <div class="inv-emoji">${r.emoji}</div>
         <div><div class="inv-name">${r.name}</div><div class="inv-meta">${r.loc} · ${r.days}</div></div>
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${r.status}" style="width:${r.pct}%"></div></div></div>
       </div>`).join('');
   }
   renderLager();
+
+  // ===== Lager-Artikel · Detail-Ansicht =====
+  function openLagerItem(idx){
+    const r = lagerData[idx]; if(!r) return;
+    const statusTxt = r.status==='good'?'Gut':r.status==='warn'?'Warnung':'Niedrig';
+    const statusCls = r.status==='good'?'pill-good':r.status==='warn'?'pill-warn':'pill-low';
+    // fake 7-day consumption history based on pct
+    const hist = [82,76,r.pct+18,r.pct+9,r.pct+22,r.pct+6,r.pct].map(v=>Math.max(8,Math.min(100,v)));
+    const bars = hist.map(v=>`<div class="chart-bar" style="height:${v}%"></div>`).join('');
+    const lowWarn = r.status!=='good'
+      ? `<div class="ai-card glass" style="margin-bottom:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Empfehlung</div></div><div class="ai-suggest"><div class="ai-suggest-text">${r.name} reicht nur noch <strong>${r.days}</strong>. Empfehle Nachbestellung – beim aktuellen Verbrauch wird's sonst eng.</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ ${r.name} zur Bestellliste hinzugefügt');closeSheet()">Nachbestellen</button></div></div></div>`
+      : '';
+    document.getElementById('sheetTitle').innerHTML = '<span style="display:inline-flex;width:1.1em;height:1.1em;vertical-align:-0.2em;margin-right:4px">'+r.emoji+'</span> '+r.name;
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <div class="calc-result" style="${r.status==='low'?'background:linear-gradient(135deg,rgba(255,138,138,0.16),rgba(255,138,138,0.04));border-color:rgba(255,138,138,0.3)':r.status==='warn'?'background:linear-gradient(135deg,rgba(255,182,119,0.16),rgba(255,182,119,0.04));border-color:rgba(255,182,119,0.3)':''}">
+        <div class="calc-result-label" style="${r.status==='low'?'color:var(--red)':r.status==='warn'?'color:var(--orange)':''}">Aktueller Bestand</div>
+        <div class="calc-result-val" style="${r.status==='low'?'color:var(--red)':r.status==='warn'?'color:var(--orange)':''}">${r.amount}</div>
+        <div class="calc-result-sub">reicht noch ${r.days} · <span class="pill ${statusCls}">${statusTxt}</span></div>
+        <div class="calc-meta-row">
+          <div class="calc-meta"><div class="calc-meta-l">Lagerort</div><div class="calc-meta-v" style="font-size:13px">${r.loc}</div></div>
+          <div class="calc-meta"><div class="calc-meta-l">Füllstand</div><div class="calc-meta-v">${r.pct}%</div></div>
+          <div class="calc-meta"><div class="calc-meta-l">Reicht</div><div class="calc-meta-v" style="font-size:13px">${r.days}</div></div>
+        </div>
+      </div>
+      ${lowWarn}
+      <div class="section-h"><h2>Verbrauch · 7 Tage</h2></div>
+      <div class="ai-card glass" style="padding:18px">
+        <div class="chart-bars">${bars}</div>
+        <div class="chart-labels"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
+      </div>
+      <button class="btn-primary" onclick="toast('✓ ${r.name} nachbestellt');closeSheet()">Jetzt nachbestellen</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="toast('Bestand wird per Beleg-Scan aktualisiert');closeSheet()">Bestand korrigieren</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
   document.getElementById('lagerSearch').addEventListener('input',e=>{
     const active = document.querySelector('.chip.active').dataset.filter;
     renderLager(active,e.target.value);
@@ -1452,6 +1493,22 @@
   }));
 
   // ===== Scanner =====
+  function onScanFile(e){
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const url = URL.createObjectURL(file);
+    const t = document.getElementById('scanTarget');
+    // show the real photo inside the scan frame, then run analysis
+    t.style.backgroundImage = 'url('+url+')';
+    t.style.backgroundSize = 'cover';
+    t.style.backgroundPosition = 'center';
+    setTimeout(()=>{
+      simulateScan();
+      // reset bg after switching view
+      setTimeout(()=>{ t.style.backgroundImage=''; }, 500);
+      e.target.value = '';
+    }, 400);
+  }
   function simulateScan(){
     document.getElementById('scanIdle').style.display='none';
     document.getElementById('scanResult').style.display='none';
@@ -1865,6 +1922,27 @@
   }
 
   // Init: load convo, set voice toggle
+  // ===== Animated count-up (Hero + KPIs) =====
+  function animateCount(el){
+    const target = parseFloat(el.dataset.count);
+    const prefix = el.dataset.prefix || '';
+    const suffix = el.dataset.suffix || '';
+    const isDecimal = el.dataset.count.includes('.');
+    const dur = 900;
+    const start = performance.now();
+    function tick(now){
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const val = target * eased;
+      let txt = isDecimal ? val.toFixed(1).replace('.', ',') : Math.round(val).toLocaleString('de-DE');
+      el.textContent = prefix + txt + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = prefix + (isDecimal ? target.toFixed(1).replace('.', ',') : target.toLocaleString('de-DE')) + suffix;
+    }
+    requestAnimationFrame(tick);
+  }
+  document.querySelectorAll('[data-count]').forEach(el=>setTimeout(()=>animateCount(el), 200));
+
   loadConvo();
   if (!voiceEnabled) document.getElementById('voiceToggle')?.classList.add('muted');
 
