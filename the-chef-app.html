@@ -395,6 +395,28 @@
   .pf-chip.active{background:rgba(255,255,255,0.14);color:#fff;border-color:var(--glass-border-bright)}
   .pf-chip svg{width:14px;height:14px}
 
+  /* Tagesplan / To-Do */
+  .today-card{padding:6px 18px 10px;margin-bottom:18px;border-radius:20px}
+  .today-head{display:flex;align-items:center;gap:8px;padding:14px 0 8px}
+  .today-head h2{font-size:17px;font-weight:700;letter-spacing:-0.01em;flex:1}
+  .today-count{font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;background:rgba(255,182,119,0.16);color:var(--orange)}
+  .today-count.done{background:rgba(141,230,177,0.16);color:var(--green)}
+  .todo{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer}
+  .todo:last-child{border-bottom:none}
+  .todo-check{width:24px;height:24px;border-radius:8px;flex-shrink:0;border:2px solid var(--glass-border-bright);display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:1px}
+  .todo-check svg{width:14px;height:14px;color:#0a0b0f;opacity:0}
+  .todo.done .todo-check{background:var(--green);border-color:var(--green)}
+  .todo.done .todo-check svg{opacity:1}
+  .todo-body{flex:1;min-width:0}
+  .todo-text{font-size:14px;font-weight:600;letter-spacing:-0.01em;transition:opacity .2s}
+  .todo.done .todo-text{opacity:0.4;text-decoration:line-through}
+  .todo-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
+  .todo-time{font-size:11px;font-weight:700;color:var(--orange)}
+  .todo-time.soon{color:var(--red)}
+  .todo-time.done-t{color:var(--text-faint)}
+  .todo-tag{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;font-weight:600}
+  .todo-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
   /* Onboarding */
   .onboard{
     position:absolute;inset:0;z-index:400;
@@ -1063,6 +1085,15 @@
             <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" data-count="87" data-suffix="%">0%</div></div>
             <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" data-count="2.1" data-suffix="%">0%</div></div>
           </div>
+        </div>
+
+        <div class="today-card glass">
+          <div class="today-head">
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg>
+            <h2>Heute</h2>
+            <span class="today-count" id="todayCount">0 offen</span>
+          </div>
+          <div id="todoList"></div>
         </div>
 
         <div class="kpi-row">
@@ -1888,6 +1919,17 @@
         actions:[{label:'Preis-Check Lachs',cmd:'Prüf den Lachs-Preis'}] };
     }
 
+    // Tagesplan / To-Do
+    if (has('heute','tagesplan','to-do','todo','aufgabe','was steht','was muss','was ansteht','ansteht','erinner')) {
+      const open = todoData.filter(t=>!todoDone.includes(t.id));
+      if (open.length === 0) {
+        return { reply:'Stark – für heute ist alles erledigt. Du hast den Tag im Griff.', actions:[] };
+      }
+      const liste = open.slice(0,4).map(t=>t.time ? t.time+' '+t.text : t.text).join(', ');
+      return { reply:`Heute stehen noch ${open.length} Sachen an: ${liste}. Soll ich dir den Tagesplan zeigen?`,
+        actions:[{label:'Tagesplan öffnen',fn:()=>navTo('home')},{label:'Was ist dringend?',cmd:'Was ist niedrig?'}] };
+    }
+
     // Benachrichtigungen / Alerts
     if (has('benachrichtig','meldung','alert','was ist los','was gibt','neuigkeit','wichtig')) {
       return { reply:'Zwei Sachen sind dringend: Rinderhack ist mit 1,2 Kilo kritisch und das Frittenbad läuft 3 Grad unter Soll. Außerdem kommt in einer Stunde die Metro-Lieferung. Soll ich dir alles zeigen?',
@@ -2004,6 +2046,71 @@
   }
 
   // Init: load convo, set voice toggle
+  // ===== Tagesplan / To-Do =====
+  const todoData = [
+    {id:'metro',  time:'14:00', text:'Metro-Lieferung annehmen',           tag:'Lieferant', color:'#3b82f6'},
+    {id:'tom',    time:'16:00', text:'Tom für Samstag-Schicht anrufen',     tag:'Personal',  color:'#c084fc'},
+    {id:'hack',   time:'',      text:'Rinderhack nachbestellen',            tag:'Lager',     color:'#f87171'},
+    {id:'karte',  time:'17:00', text:'Tagesgericht für morgen festlegen',   tag:'Küche',     color:'#fb923c'},
+    {id:'post',   time:'18:30', text:'Insta-Post veröffentlichen',          tag:'Marketing', color:'#f472b6'},
+    {id:'fett',   time:'22:00', text:'Frittierfett wechseln',               tag:'HACCP',     color:'#5eead4'},
+  ];
+  let todoDone = JSON.parse(localStorage.getItem('chef_todo_done') || '[]');
+  function renderTodos(){
+    const nowMin = new Date().getHours()*60 + new Date().getMinutes();
+    const list = document.getElementById('todoList');
+    // open tasks first (by time), done tasks last
+    const sorted = [...todoData].sort((a,b)=>{
+      const ad=todoDone.includes(a.id), bd=todoDone.includes(b.id);
+      if(ad!==bd) return ad?1:-1;
+      return (a.time||'99:99').localeCompare(b.time||'99:99');
+    });
+    list.innerHTML = sorted.map(t=>{
+      const done = todoDone.includes(t.id);
+      let tMin = t.time ? (+t.time.split(':')[0])*60 + (+t.time.split(':')[1]) : 9999;
+      const soon = !done && tMin < 9999 && tMin - nowMin < 60 && tMin - nowMin > -600;
+      return `<div class="todo${done?' done':''}" onclick="toggleTodo('${t.id}')">
+        <div class="todo-check"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg></div>
+        <div class="todo-body">
+          <div class="todo-text">${t.text}</div>
+          <div class="todo-meta">
+            <span class="todo-dot" style="background:${t.color}"></span>
+            ${t.time ? `<span class="todo-time${done?' done-t':soon?' soon':''}">${done?'erledigt':t.time+(soon?' · bald!':'')}</span>` : `<span class="todo-time${done?' done-t':''}">${done?'erledigt':'heute'}</span>`}
+            <span class="todo-tag">· ${t.tag}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    const openCount = todoData.length - todoDone.length;
+    const badge = document.getElementById('todayCount');
+    if(openCount===0){ badge.textContent='alles erledigt'; badge.classList.add('done'); }
+    else { badge.textContent = openCount + (openCount===1?' offen':' offen'); badge.classList.remove('done'); }
+  }
+  function toggleTodo(id){
+    if(todoDone.includes(id)) todoDone = todoDone.filter(x=>x!==id);
+    else todoDone.push(id);
+    localStorage.setItem('chef_todo_done', JSON.stringify(todoDone));
+    renderTodos();
+  }
+  renderTodos();
+
+  // Erinnerung beim App-Start: offene/bald fällige Aufgaben
+  function remindTodos(){
+    const open = todoData.filter(t=>!todoDone.includes(t.id));
+    if(open.length===0) return;
+    const nowMin = new Date().getHours()*60 + new Date().getMinutes();
+    const soon = open.filter(t=>{
+      if(!t.time) return false;
+      const tMin = (+t.time.split(':')[0])*60 + (+t.time.split(':')[1]);
+      return tMin - nowMin < 90 && tMin - nowMin > -30;
+    });
+    setTimeout(()=>{
+      if(soon.length>0) toast('⏰ Erinnerung: '+soon[0].text+(soon[0].time?' um '+soon[0].time:''));
+      else toast('Heute noch '+open.length+' Aufgaben offen – tippe "Heute" für den Plan');
+    }, 2200);
+  }
+  remindTodos();
+
   // ===== Pull-to-Refresh =====
   (function(){
     const main = document.querySelector('main');
