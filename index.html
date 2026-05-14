@@ -14124,7 +14124,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="res-restaurant-pill">
                             <span class="material-symbols-outlined" style="font-size:18px;">restaurant</span>
-                            <select id="resRestaurantSelect" onchange="if(this.value){window.resCurrentRestaurant=this.value;if(typeof resLoadReservations==='function')resLoadReservations();if(typeof loadReservationsForRestaurant==='function')loadReservationsForRestaurant(this.value);}">
+                            <select id="resRestaurantSelect" onchange="if(this.value){window.resCurrentRestaurant=this.value;if(typeof resLoadReservations==='function')resLoadReservations();if(typeof loadReservationsForRestaurant==='function')loadReservationsForRestaurant(this.value);if(typeof loadResSettingsUI==='function')loadResSettingsUI();}">
                                 <option value="">Restaurant wählen...</option>
                             </select>
                         </div>
@@ -24671,6 +24671,7 @@ function subtractMinutes(timeStr, mins) {
 
 var resSettingsInterval = 30;
 var resDisabledSlots = []; // Manuell deaktivierte Slots
+var _resSettingsLoadedFor = null; // welches Restaurant ist gerade in der Settings-UI
 
 function loadResSettingsUI() {
     var rid = window.resCurrentRestaurant;
@@ -24678,7 +24679,8 @@ function loadResSettingsUI() {
     if (APP_DATA && APP_DATA.restaurants) {
         restaurant = APP_DATA.restaurants.find(function(r) { return r.id === rid; });
     }
-    if (!restaurant) return;
+    if (!restaurant) { _resSettingsLoadedFor = null; return; }
+    _resSettingsLoadedFor = rid;
 
     var startEl = document.getElementById('resSettingsStart');
     var endEl = document.getElementById('resSettingsEnd');
@@ -24791,6 +24793,14 @@ function updateResPreview() {
 async function saveResSettings() {
     var rid = window.resCurrentRestaurant;
     if (!rid) { showToast('Kein Restaurant ausgewählt', 'error'); return; }
+
+    // Sicherung: UI muss fuer GENAU dieses Restaurant geladen sein,
+    // sonst wuerden Zeiten eines anderen Restaurants gespeichert werden
+    if (_resSettingsLoadedFor && _resSettingsLoadedFor !== rid) {
+        loadResSettingsUI();
+        showToast('Einstellungen für das gewählte Restaurant neu geladen — bitte erneut speichern', 'error');
+        return;
+    }
 
     var start = document.getElementById('resSettingsStart')?.value || '11:00';
     var end = document.getElementById('resSettingsEnd')?.value || '21:30';
