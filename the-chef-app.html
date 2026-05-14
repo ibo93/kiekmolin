@@ -366,6 +366,28 @@
   @keyframes pinDrop{from{transform:translateY(-30px);opacity:0}}
   .radar-pin span{position:absolute;left:100%;top:0;background:rgba(20,20,28,0.9);backdrop-filter:blur(10px);border:1px solid var(--glass-border);padding:4px 8px;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap;margin-left:6px;color:var(--text)}
 
+  /* Rezept-Kalkulator */
+  .calc-result{
+    padding:22px;border-radius:20px;margin-bottom:14px;text-align:center;
+    background:linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.04));
+    border:1px solid rgba(52,211,153,0.3);
+    box-shadow:0 1px 0 0 rgba(255,255,255,0.18) inset,0 8px 28px rgba(0,0,0,0.3);
+  }
+  .calc-result-label{font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:#34d399;font-weight:700;margin-bottom:6px}
+  .calc-result-val{font-size:42px;font-weight:800;letter-spacing:-0.04em;line-height:1;color:#8de6b1;font-variant-numeric:tabular-nums}
+  .calc-result-sub{font-size:13px;color:var(--text-dim);margin-top:8px}
+  .calc-meta-row{display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)}
+  .calc-meta{flex:1;text-align:center}
+  .calc-meta-l{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);font-weight:600}
+  .calc-meta-v{font-size:16px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+  .calc-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+  .calc-row:last-child{border-bottom:none}
+  .calc-ing{font-size:14px;font-weight:600}
+  .calc-qty{font-size:11px;color:var(--text-dim);margin-top:1px}
+  .calc-cost{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+  .calc-src{font-size:10px;color:var(--text-faint);text-align:right;margin-top:1px}
+  .calc-sum{display:flex;justify-content:space-between;align-items:center;padding:14px;margin-top:8px;border-top:1px solid var(--glass-border);font-weight:700;font-size:15px}
+
   /* Benachrichtigungen */
   .notif-row{
     display:flex;gap:12px;align-items:flex-start;
@@ -644,6 +666,32 @@
   }
   .cmd-chip svg{color:rgba(255,255,255,0.7);flex-shrink:0;width:16px;height:16px}
   .cmd-chip:active{transform:scale(0.96);background:rgba(212,165,116,0.12);border-color:rgba(212,165,116,0.3)}
+
+  /* KI text input bar */
+  .ki-input{
+    display:flex;gap:8px;align-items:center;
+    margin-top:14px;padding:6px 6px 6px 16px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--glass-border);
+    border-radius:100px;
+    backdrop-filter:blur(20px);
+    transition:border-color .2s;
+  }
+  .ki-input:focus-within{border-color:rgba(255,255,255,0.35)}
+  .ki-input input{
+    flex:1;background:none;border:none;outline:none;
+    color:var(--text);font-family:inherit;font-size:14px;
+    padding:8px 0;
+  }
+  .ki-input input::placeholder{color:var(--text-faint)}
+  .ki-send{
+    width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:#fff;color:#0a0b0f;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .15s;
+  }
+  .ki-send:active{transform:scale(0.9)}
+  .ki-send svg{width:18px;height:18px;margin-left:-2px}
 
   /* Inline action buttons inside AI messages */
   .msg-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -1118,6 +1166,13 @@
 
         <div class="convo" id="convo"></div>
 
+        <form class="ki-input" id="kiForm" onsubmit="return submitKiText(event)">
+          <input type="text" id="kiTextInput" placeholder="Schreib deine Frage… oder tippe die Kugel zum Sprechen" autocomplete="off">
+          <button type="submit" class="ki-send" aria-label="Senden">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2.5-7.5L3 11z"/></svg>
+          </button>
+        </form>
+
         <div class="section-h" style="margin-top:24px"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Schnellbefehle</h2></div>
         <div class="cmd-grid">
           <button class="cmd-chip" onclick="askKi('Wie viele Pommes haben wir noch?')"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L3 6v12l9 4 9-4V6l-9-4zm0 2.4l5.5 2.4L12 9.2 6.5 6.8 12 4.4zM5 8.6l6 2.7v8.3l-6-2.7V8.6zm14 0v8.3l-6 2.7v-8.3l6-2.7z"/></svg> Bestand Pommes</button>
@@ -1570,6 +1625,17 @@
   // --- Public API for command chips ---
   function askKi(text) {
     handleUserInput(text);
+  }
+
+  // --- Text input (type instead of speak) ---
+  function submitKiText(e) {
+    e.preventDefault();
+    const inp = document.getElementById('kiTextInput');
+    const text = inp.value.trim();
+    if (!text) return false;
+    inp.value = '';
+    handleUserInput(text);
+    return false;
   }
 
   // --- Main brain: pattern-match → response ---
@@ -2118,14 +2184,14 @@
       title:'Rezepte · 24 Gerichte',
       body:`
         <div class="recipe-grid">
-          <div class="recipe" onclick="toast('Schnitzel · Marge 68%')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M14 3a5 5 0 00-3.5 8.5l-7 7c-.4.4-.4 1 0 1.4l.6.6c.4.4 1 .4 1.4 0l7-7A5 5 0 1014 3zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg></div><div class="recipe-body"><h3>Schnitzel Wiener Art</h3><div class="recipe-meta"><span>€18,90</span><strong>68%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Tomatensuppe · Marge 78%')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ff8a8a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg></div><div class="recipe-body"><h3>Tomatensuppe</h3><div class="recipe-meta"><span>€7,50</span><strong>78%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Lachsfilet · Marge 62%')"><div class="recipe-img" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg></div><div class="recipe-body"><h3>Lachsfilet</h3><div class="recipe-meta"><span>€24,50</span><strong>62%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Caprese · Marge 74%')"><div class="recipe-img" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 11h18a9 9 0 11-18 0zm9-7c-2 0-4 2-4 4 0-2-2-4-4-4 2 0 4-2 4-4 0 2 2 4 4 4z"/></svg></div><div class="recipe-body"><h3>Caprese Salat</h3><div class="recipe-meta"><span>€9,80</span><strong>74%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Margherita · Marge 71%')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg></div><div class="recipe-body"><h3>Pizza Margherita</h3><div class="recipe-meta"><span>€11,50</span><strong>71%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Currywurst · Marge 65%')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg></div><div class="recipe-body"><h3>Currywurst Pommes</h3><div class="recipe-meta"><span>€8,90</span><strong>65%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Tiramisu · Marge 82%')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2v3M4 8h16v2c0 2-1 3-3 3H7c-2 0-3-1-3-3V8zm0 6h16v8H4v-8z"/></svg></div><div class="recipe-body"><h3>Tiramisu</h3><div class="recipe-meta"><span>€6,50</span><strong>82%</strong></div></div></div>
-          <div class="recipe" onclick="toast('Latte · Marge 88%')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#a87645)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg></div><div class="recipe-body"><h3>Latte Macchiato</h3><div class="recipe-meta"><span>€3,80</span><strong>88%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Schnitzel Wiener Art')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M14 3a5 5 0 00-3.5 8.5l-7 7c-.4.4-.4 1 0 1.4l.6.6c.4.4 1 .4 1.4 0l7-7A5 5 0 1014 3zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg></div><div class="recipe-body"><h3>Schnitzel Wiener Art</h3><div class="recipe-meta"><span>€18,90</span><strong>68%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Tomatensuppe')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ff8a8a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg></div><div class="recipe-body"><h3>Tomatensuppe</h3><div class="recipe-meta"><span>€7,50</span><strong>78%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Lachsfilet')"><div class="recipe-img" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg></div><div class="recipe-body"><h3>Lachsfilet</h3><div class="recipe-meta"><span>€24,50</span><strong>62%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Caprese Salat')"><div class="recipe-img" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 11h18a9 9 0 11-18 0zm9-7c-2 0-4 2-4 4 0-2-2-4-4-4 2 0 4-2 4-4 0 2 2 4 4 4z"/></svg></div><div class="recipe-body"><h3>Caprese Salat</h3><div class="recipe-meta"><span>€9,80</span><strong>74%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Pizza Margherita')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg></div><div class="recipe-body"><h3>Pizza Margherita</h3><div class="recipe-meta"><span>€11,50</span><strong>71%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Currywurst Pommes')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg></div><div class="recipe-body"><h3>Currywurst Pommes</h3><div class="recipe-meta"><span>€8,90</span><strong>65%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Tiramisu')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2v3M4 8h16v2c0 2-1 3-3 3H7c-2 0-3-1-3-3V8zm0 6h16v8H4v-8z"/></svg></div><div class="recipe-body"><h3>Tiramisu</h3><div class="recipe-meta"><span>€6,50</span><strong>82%</strong></div></div></div>
+          <div class="recipe" onclick="openKalkulator('Latte Macchiato')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#a87645)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg></div><div class="recipe-body"><h3>Latte Macchiato</h3><div class="recipe-meta"><span>€3,80</span><strong>88%</strong></div></div></div>
         </div>
         <div style="margin-top:14px"></div>
         <button class="btn-primary" onclick="toast('Rezept-Editor öffnet sich…')">+ Neues Rezept</button>
@@ -2239,6 +2305,74 @@
     const s = sheets[key]; if(!s) return;
     document.getElementById('sheetTitle').innerHTML = s.title;
     document.getElementById('sheetBody').innerHTML = s.body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+
+  // ===== Rezept-Kalkulator =====
+  const recipes = {
+    'Schnitzel Wiener Art': { vk:18.90, mwst:19, ingredients:[
+      ['Schweineschnitzel 220g','220 g','Aldi · Angebot',2.40],
+      ['Panade (Mehl, Ei, Paniermehl)','~80 g','Aldi',0.45],
+      ['Pommes Frites 250g','250 g','Metro · Angebot −0,11€',0.52],
+      ['Frittierfett (Anteil)','—','Metro',0.30],
+      ['Beilagensalat','120 g','Lidl',0.60],
+      ['Zitrone, Gewürze','—','Metro',0.18],
+    ], tip:'Pommes bei Metro im Angebot → Wareneinsatz −0,11€, Marge heute +0,11€.' },
+    'Pizza Margherita': { vk:11.50, mwst:19, ingredients:[
+      ['Pizzateig (Mehl, Hefe, Öl)','280 g','Aldi · Mehl-Angebot',0.42],
+      ['Tomatensoße','120 g','Lidl',0.38],
+      ['Mozzarella 125g','125 g','Aldi · Angebot',0.71],
+      ['Basilikum, Olivenöl','—','Metro',0.22],
+      ['Ofen-Energie (Anteil)','—','—',0.18],
+    ], tip:'Mozzarella bei Aldi im Angebot → Marge +0,22€ pro Pizza.' },
+    'Currywurst Pommes': { vk:8.90, mwst:19, ingredients:[
+      ['Currywurst 150g','150 g','Lidl',0.95],
+      ['Currysoße','60 g','Metro',0.28],
+      ['Pommes Frites 250g','250 g','Metro · Angebot',0.52],
+      ['Frittierfett (Anteil)','—','Metro',0.30],
+      ['Currypulver','—','Aldi',0.06],
+    ], tip:'Stabile Marge – Currywurst ist dein zuverlässiger Gewinnbringer freitags.' },
+  };
+  function openKalkulator(name){
+    const r = recipes[name];
+    const titleSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 2a2 2 0 00-2 2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2-2H9zm0 2h6v2H9V4zM7 9h10v2H7V9zm0 4h6v2H7v-2z"/></svg> ';
+    if (!r) {
+      document.getElementById('sheetTitle').innerHTML = titleSvg + name;
+      document.getElementById('sheetBody').innerHTML = '<p style="font-size:14px;color:var(--text-dim);padding:20px 4px;text-align:center">Für dieses Gericht ist noch keine Rezept-Kalkulation hinterlegt.<br><br>In der Vollversion legst du jede Zutat einmal an – danach rechnet The Chef Wareneinsatz und Marge automatisch, und passt sie bei jeder Preisänderung live an.</p>';
+    } else {
+      const cost = r.ingredients.reduce((s,i)=>s+i[3],0);
+      const vkNetto = r.vk / (1 + r.mwst/100);
+      const rohertrag = vkNetto - cost;
+      const marge = (rohertrag / vkNetto) * 100;
+      const rows = r.ingredients.map(([n,q,src,c])=>
+        `<div class="calc-row"><div><div class="calc-ing">${n}</div><div class="calc-qty">${q}</div></div><div></div><div><div class="calc-cost">€ ${c.toFixed(2)}</div><div class="calc-src">${src}</div></div></div>`
+      ).join('');
+      document.getElementById('sheetTitle').innerHTML = titleSvg + name;
+      document.getElementById('sheetBody').innerHTML = `
+        <div class="calc-result">
+          <div class="calc-result-label">Rohertrag pro Portion</div>
+          <div class="calc-result-val">€ ${rohertrag.toFixed(2)}</div>
+          <div class="calc-result-sub">${marge.toFixed(0)}% Marge · bei VK € ${r.vk.toFixed(2)}</div>
+          <div class="calc-meta-row">
+            <div class="calc-meta"><div class="calc-meta-l">Wareneinsatz</div><div class="calc-meta-v">€ ${cost.toFixed(2)}</div></div>
+            <div class="calc-meta"><div class="calc-meta-l">VK netto</div><div class="calc-meta-v">€ ${vkNetto.toFixed(2)}</div></div>
+            <div class="calc-meta"><div class="calc-meta-l">MwSt ${r.mwst}%</div><div class="calc-meta-v">€ ${(r.vk-vkNetto).toFixed(2)}</div></div>
+          </div>
+        </div>
+        <div class="section-h"><h2>Zutaten & Kosten</h2></div>
+        <div class="list-card glass">${rows}
+          <div class="calc-sum"><span>Wareneinsatz gesamt</span><span style="color:#8de6b1">€ ${cost.toFixed(2)}</span></div>
+        </div>
+        <div class="ai-card glass">
+          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Hinweis</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">${r.tip}</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">Verkaufst du heute <strong>12×</strong> dieses Gericht, machst du <strong>€ ${(rohertrag*12).toFixed(2)}</strong> Rohertrag.</div></div>
+        </div>
+        <div style="margin-top:14px"></div>
+        <button class="btn-primary" onclick="toast('Rezept-Editor öffnet sich…')">Zutaten bearbeiten</button>
+      `;
+    }
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
