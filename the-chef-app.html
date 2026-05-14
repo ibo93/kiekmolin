@@ -1439,7 +1439,13 @@
           <button class="type-chip" data-type="Bar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18l-8 9v7h3v2H8v-2h3v-7L3 3zm4.7 3l2.3 2.6h4l2.3-2.6H7.7z"/></svg><span>Bar</span></button>
         </div>
         <input type="text" class="onboard-input" id="onboardName" placeholder="Name deines Restaurants" value="Kiek mol in">
-        <button class="btn-primary" onclick="finishOnboard()">Los geht's</button>
+        <div class="onboard-label" style="margin-top:14px">Wie möchtest du starten?</div>
+        <div class="type-grid" id="startGrid" style="grid-template-columns:1fr 1fr">
+          <button class="type-chip active" data-start="demo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H4V4zm2 2v8h12V6H6zm-2 12h16v2H4v-2z"/></svg><span>Mit Demo-Lager</span></button>
+          <button class="type-chip" data-start="own"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg><span>Eigenes Lager</span></button>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 0;line-height:1.4">Demo-Lager zum Ausprobieren · Eigenes Lager startet leer – du trägst deinen echten Bestand ein.</p>
+        <button class="btn-primary" onclick="finishOnboard()" style="margin-top:14px">Los geht's</button>
       </div>
     </div>
 
@@ -1485,7 +1491,9 @@
   }
 
   // ===== Lager =====
-  const lagerData = [
+  // 'own' = Gastronom hat eigenen Startbestand gewählt -> kein Demo-Lager
+  const lagerOwnMode = localStorage.getItem('chef_lager_mode') === 'own';
+  const lagerData = lagerOwnMode ? [] : [
     {name:'Tomaten frisch',emoji:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg>',loc:'Kühlhaus 1',amount:'12,4 kg',days:'~6 Tage',pct:78,status:'good'},
     {name:'Pommes Frites',emoji:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3c-4 0-8 4-8 9s4 9 8 9 8-4 8-9-4-9-8-9zm-2 5a1 1 0 100 2 1 1 0 000-2zm5 3a1 1 0 100 2 1 1 0 000-2zm-3 4a1 1 0 100 2 1 1 0 000-2z"/></svg>',loc:'Tiefkühl',amount:'3,8 kg',days:'~2 Tage',pct:18,status:'low'},
     {name:'Mozzarella',emoji:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 12L14 4l7 4v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-5zm5 1a1 1 0 100 2 1 1 0 000-2zm5-1a1 1 0 100 2 1 1 0 000-2zm5 2a1 1 0 100 2 1 1 0 000-2z"/></svg>',loc:'Kühlhaus 2',amount:'7,2 kg',days:'~5 Tage',pct:42,status:'warn'},
@@ -1587,9 +1595,17 @@
   }
   function renderLager(filter='all',search=''){
     const list = document.getElementById('lagerList');
-    list.innerHTML = lagerData
+    const rows = lagerData
       .filter(r=>filter==='all'||r.status===filter)
-      .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()));
+    if(!rows.length){
+      list.innerHTML = lagerData.length
+        ? '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:14px 0">Kein Artikel in dieser Ansicht.</div><div></div></div>'
+        : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:14px 0">Dein Lager ist noch leer – tippe oben auf „Artikel selbst notieren" oder scanne einen Lieferschein.</div><div></div></div>';
+      renderLagerStats();
+      return;
+    }
+    list.innerHTML = rows
       .map((r,i)=>{
         const isOrdered = orderedItems.includes(r.name);
         const ms = mhdState(r);
@@ -2693,19 +2709,37 @@
       c.classList.add('active');
     });
   });
+  // Start-Modus (Demo-Lager vs. eigenes Lager)
+  document.querySelectorAll('#startGrid .type-chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('#startGrid .type-chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
   function finishOnboard(){
     const name = document.getElementById('onboardName').value.trim() || 'Kiek mol in';
     const type = document.querySelector('#typeGrid .type-chip.active')?.dataset.type || 'Restaurant';
+    const startMode = document.querySelector('#startGrid .type-chip.active')?.dataset.start || 'demo';
     chefProfile = { name, type };
     localStorage.setItem('chef_onboarded', '1');
     localStorage.setItem('chef_restaurant', name);
     localStorage.setItem('chef_type', type);
+    localStorage.setItem('chef_lager_mode', startMode);
+    if (startMode === 'own') {
+      // Demo-Bestand für diese Session sofort leeren – beim nächsten Laden bleibt es leer
+      lagerData.length = 0;
+      refreshLager();
+    }
     document.getElementById('onboard').classList.add('hide');
     applyProfile();
     document.querySelectorAll('[data-count]').forEach(el=>{
       el.textContent = (el.dataset.prefix||'') + '0' + (el.dataset.suffix||'');
       setTimeout(()=>animateCount(el), 150);
     });
+    if (startMode === 'own') {
+      navTo('lager');
+      setTimeout(()=>toast('Leg los: trag deinen echten Bestand ein – "Artikel selbst notieren"'), 600);
+    }
   }
   // Profil überall in der App anwenden
   function applyProfile(){
