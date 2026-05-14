@@ -1032,14 +1032,14 @@
       <!-- ==== HOME ==== -->
       <section class="view active" data-view="home">
 
-        <div class="hero-card">
+        <div class="hero-card" onclick="openTagesDaten()" style="cursor:pointer">
           <div class="hero-label">Umsatz heute</div>
-          <div class="hero-value" data-count="1847" data-prefix="€ ">€ 0</div>
-          <div class="hero-sub">↑ +12% vs. Wochenmittel</div>
+          <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ ">€ 0</div>
+          <div class="hero-sub" id="kpiUmsatzSub">Tippen, um Tagesdaten einzutragen</div>
           <div class="hero-mini">
-            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" data-count="62.4" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" id="kpiMarge" data-count="62.4" data-suffix="%">0%</div></div>
             <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" id="lagerKpi" data-count="87" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" data-count="2.1" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" id="kpiMuell" data-count="2.1" data-suffix="%">0%</div></div>
           </div>
         </div>
 
@@ -1056,13 +1056,13 @@
         <div class="kpi-row">
           <div class="kpi-tile glass">
             <div class="kpi-tile-head"><div class="kpi-tile-label">Gäste</div><div class="kpi-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg></div></div>
-            <div class="kpi-tile-val" data-count="87">0</div>
-            <div class="kpi-tile-trend" style="color:var(--green)">↑ +14 vs. gestern</div>
+            <div class="kpi-tile-val" id="kpiGaeste" data-count="87">0</div>
+            <div class="kpi-tile-trend" id="kpiGaesteSub" style="color:var(--text-dim)">heute im Service</div>
           </div>
           <div class="kpi-tile glass">
             <div class="kpi-tile-head"><div class="kpi-tile-label">Bestellungen</div><div class="kpi-tile-icon ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg></div></div>
-            <div class="kpi-tile-val" data-count="142">0</div>
-            <div class="kpi-tile-trend" style="color:var(--text-dim)">Ø 3,2 / Gast</div>
+            <div class="kpi-tile-val" id="kpiBestell" data-count="142">0</div>
+            <div class="kpi-tile-trend" id="kpiBestellSub" style="color:var(--text-dim)">heute aufgenommen</div>
           </div>
         </div>
 
@@ -1622,6 +1622,76 @@
     renderLagerStats();
   }
   renderLager();
+
+  // ===== Tagesdaten · echte, vom Gastronomen eingetragene Kennzahlen =====
+  const tagesDatenDefault = lagerOwnMode
+    ? { umsatz:0, marge:0, muell:0, gaeste:0, bestellungen:0 }
+    : { umsatz:1847, marge:62.4, muell:2.1, gaeste:87, bestellungen:142 };
+  let tagesDaten = Object.assign({}, tagesDatenDefault, JSON.parse(localStorage.getItem('chef_tagesdaten') || '{}'));
+  const euro = n => '€ ' + Number(n||0).toLocaleString('de-DE');
+  function renderTagesDaten(){
+    const set = (id, val, suffix) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.dataset.count = String(val);
+      const dec = String(val).includes('.');
+      el.textContent = (el.dataset.prefix||'') + (dec ? Number(val).toFixed(1).replace('.',',') : Number(val).toLocaleString('de-DE')) + (suffix||el.dataset.suffix||'');
+    };
+    set('kpiUmsatz', tagesDaten.umsatz);
+    set('kpiMarge', tagesDaten.marge);
+    set('kpiMuell', tagesDaten.muell);
+    set('kpiGaeste', tagesDaten.gaeste);
+    set('kpiBestell', tagesDaten.bestellungen);
+    const sub = document.getElementById('kpiUmsatzSub');
+    if(sub) sub.textContent = tagesDaten.umsatz ? 'Heute · tippen zum Bearbeiten' : 'Tippen, um Tagesdaten einzutragen';
+    const gs = document.getElementById('kpiGaesteSub');
+    if(gs) gs.textContent = tagesDaten.gaeste ? 'heute im Service' : 'noch nichts eingetragen';
+    const bs = document.getElementById('kpiBestellSub');
+    if(bs) bs.textContent = (tagesDaten.gaeste && tagesDaten.bestellungen)
+      ? 'Ø ' + (tagesDaten.bestellungen/tagesDaten.gaeste).toFixed(1).replace('.',',') + ' / Gast'
+      : 'heute aufgenommen';
+  }
+  renderTagesDaten();
+  function openTagesDaten(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13h2v7H3v-7zm4-6h2v13H7V7zm4 3h2v10h-2V10zm4-7h2v17h-2V3zm4 9h2v8h-2v-8z"/></svg> Tagesdaten';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;padding:0 4px">Trag die Zahlen von heute ein – The Chef rechnet damit und meldet sich passend dazu.</p>
+      <div class="onboard-label">Umsatz heute (€)</div>
+      <input type="number" class="onboard-input" id="tdUmsatz" min="0" step="1" value="${tagesDaten.umsatz}">
+      <div class="onboard-label">Gäste heute</div>
+      <input type="number" class="onboard-input" id="tdGaeste" min="0" step="1" value="${tagesDaten.gaeste}">
+      <div class="onboard-label">Bestellungen heute</div>
+      <input type="number" class="onboard-input" id="tdBestell" min="0" step="1" value="${tagesDaten.bestellungen}">
+      <div class="onboard-label">Marge (%)</div>
+      <input type="number" class="onboard-input" id="tdMarge" min="0" max="100" step="0.1" value="${tagesDaten.marge}">
+      <div class="onboard-label">Verschwendung (%)</div>
+      <input type="number" class="onboard-input" id="tdMuell" min="0" max="100" step="0.1" value="${tagesDaten.muell}">
+      <button class="btn-primary" onclick="saveTagesDaten()">Speichern</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function saveTagesDaten(){
+    const num = (id, max) => {
+      let v = parseFloat(document.getElementById(id).value);
+      if(isNaN(v) || v < 0) v = 0;
+      if(max != null && v > max) v = max;
+      return v;
+    };
+    tagesDaten = {
+      umsatz: Math.round(num('tdUmsatz')),
+      gaeste: Math.round(num('tdGaeste')),
+      bestellungen: Math.round(num('tdBestell')),
+      marge: num('tdMarge', 100),
+      muell: num('tdMuell', 100)
+    };
+    localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+    renderTagesDaten();
+    closeSheet();
+    toast('✓ Tagesdaten gespeichert');
+  }
+
   function markOrdered(name){
     if(!orderedItems.includes(name)) orderedItems.push(name);
     localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
@@ -2200,10 +2270,11 @@
       .filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; })
       .map(r => r.name + ' (' + mhdText(r) + ')');
     const gs = lagerStats();
+    const td = tagesDaten;
     return [
-      'Umsatz heute: € 1.847 (+12% vs. Wochenmittel)',
-      'Marge heute: 62,4% · Lager gesamt: ' + gs.avgPct + '% (' + gs.total + ' Artikel) · Verschwendung: 2,1%',
-      'Gäste heute: 87 · Bestellungen: 142',
+      'Umsatz heute: ' + euro(td.umsatz) + (td.umsatz ? '' : ' (noch nichts eingetragen)'),
+      'Marge heute: ' + String(td.marge).replace('.',',') + '% · Lager gesamt: ' + gs.avgPct + '% (' + gs.total + ' Artikel) · Verschwendung: ' + String(td.muell).replace('.',',') + '%',
+      'Gäste heute: ' + td.gaeste + ' · Bestellungen: ' + td.bestellungen,
       'Kritischer Bestand: ' + (low.length ? low.join(', ') : 'keiner'),
       'In Warnung: ' + (warn.length ? warn.join(', ') : 'keiner'),
       'Läuft bald ab / abgelaufen: ' + (ablauf.length ? ablauf.join(', ') : 'nichts'),
@@ -2341,8 +2412,14 @@
 
     // Sales / Revenue
     if (has('umsatz','einnahmen','kasse')) {
-      return { reply:'Heute 1.847 Euro – 12 Prozent über Wochenmittel. Marge bei 62,4 Prozent. Top-Seller: Schnitzel mit 12 Verkäufen. Mai gesamt: 42.180 Euro, plus 18 Prozent zum Vorjahr.',
-        actions:[{label:'Auswertungen',fn:()=>openSheet('auswertungen')},{label:'Top-Gerichte',cmd:'Was läuft heute am besten?'}] };
+      const td = tagesDaten;
+      if (!td.umsatz && !td.gaeste) {
+        return { reply:'Für heute sind noch keine Umsatz- und Gästezahlen eingetragen. Tippe oben auf die Umsatz-Kachel, dann rechne ich mit deinen echten Zahlen.',
+          actions:[{label:'Tagesdaten eintragen',fn:()=>openTagesDaten()}] };
+      }
+      const proGast = td.gaeste ? (td.umsatz/td.gaeste).toFixed(2).replace('.',',') : '–';
+      return { reply:`Heute ${euro(td.umsatz)} bei ${td.gaeste} Gästen – das sind € ${proGast} pro Gast. Marge liegt bei ${String(td.marge).replace('.',',')} Prozent, Verschwendung bei ${String(td.muell).replace('.',',')} Prozent.`,
+        actions:[{label:'Tagesdaten bearbeiten',fn:()=>openTagesDaten()},{label:'Auswertungen',fn:()=>openSheet('auswertungen')}] };
     }
     if (has('top','best','läuft','meistverkauft')) {
       return { reply:'Heute schon 12 mal verkauft: Schnitzel mit Pommes. Danach Pizza Margherita mit 8 und Currywurst mit 7. Schnitzel hat 68 Prozent Marge – dein Geld-Magnet heute.',
@@ -2474,9 +2551,13 @@
     // Tagesüberblick
     if (has('status','überblick','übersicht','wie läufts','wie sieht')) {
       const gs = lagerStats();
+      const td = tagesDaten;
       const lagerTxt = gs.low ? `Lager bei ${gs.avgPct} Prozent, ${gs.low} Artikel kritisch` : `Lager bei ${gs.avgPct} Prozent, nichts kritisch`;
-      return { reply:`Alles im Griff. 87 Gäste bisher, 1.847 Euro Umsatz, Marge 62,4 Prozent. ${lagerTxt}. Personal komplett. Was zuerst?`,
-        actions:[{label:'Vorschläge zeigen',fn:()=>navTo('home')},{label:'Auswertung',fn:()=>openSheet('auswertungen')}] };
+      const umsatzTxt = (td.umsatz || td.gaeste)
+        ? `${td.gaeste} Gäste, ${euro(td.umsatz)} Umsatz, Marge ${String(td.marge).replace('.',',')} Prozent. `
+        : 'Umsatzzahlen für heute sind noch nicht eingetragen. ';
+      return { reply:`${umsatzTxt}${lagerTxt}. Was zuerst?`,
+        actions:[{label:'Tagesdaten',fn:()=>openTagesDaten()},{label:'Auswertung',fn:()=>openSheet('auswertungen')}] };
     }
 
     // Danke / Beenden
@@ -2589,11 +2670,19 @@
       .filter(r => (r.status === 'low' || r.status === 'warn') && !orderedItems.includes(r.name));
     const ablauf = lagerData
       .filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; });
-    const kpis = { umsatz:'€ 1.847', marge:'62,4 %', gaeste:'87', bestellungen:'142' };
+    const kpis = {
+      umsatz: euro(tagesDaten.umsatz),
+      marge: String(tagesDaten.marge).replace('.',',') + ' %',
+      gaeste: String(tagesDaten.gaeste),
+      bestellungen: String(tagesDaten.bestellungen)
+    };
 
     const parts = [];
     parts.push('Hier dein Tagesabschluss, Chef.');
-    parts.push('Heute gemacht: ' + kpis.gaeste + ' Gäste, ' + kpis.umsatz + ' Umsatz bei ' + kpis.marge + ' Marge.');
+    if(tagesDaten.umsatz || tagesDaten.gaeste)
+      parts.push('Heute gemacht: ' + kpis.gaeste + ' Gäste, ' + kpis.umsatz + ' Umsatz bei ' + kpis.marge + ' Marge.');
+    else
+      parts.push('Für heute sind noch keine Umsatz- und Gästezahlen eingetragen.');
     if(doneTodos.length) parts.push('Erledigt hast du: ' + doneTodos.map(t=>t.text).join(', ') + '.');
     if(ordered.length) parts.push('Nachbestellt: ' + ordered.join(', ') + '.');
     if(toOrder.length) parts.push('Das brauchst du noch: ' + toOrder.map(r=>r.name + ' ist mit ' + r.amount + ' knapp').join('; ') + '.');
@@ -2726,9 +2815,12 @@
     localStorage.setItem('chef_type', type);
     localStorage.setItem('chef_lager_mode', startMode);
     if (startMode === 'own') {
-      // Demo-Bestand für diese Session sofort leeren – beim nächsten Laden bleibt es leer
+      // Demo-Bestand & Demo-Tagesdaten für diese Session sofort leeren
       lagerData.length = 0;
       refreshLager();
+      tagesDaten = { umsatz:0, marge:0, muell:0, gaeste:0, bestellungen:0 };
+      localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+      renderTagesDaten();
     }
     document.getElementById('onboard').classList.add('hide');
     applyProfile();
