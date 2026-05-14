@@ -257,6 +257,7 @@
   .lab-krise{background:linear-gradient(135deg,#7c2a2a 0%,#ff6b6b 200%)}
   .lab-radar{background:linear-gradient(135deg,#2d5a4f 0%,#8de6b1 200%)}
   .lab-tagesabschluss{background:linear-gradient(135deg,#3a2e5f 0%,#f0a868 200%)}
+  .lab-reste{background:linear-gradient(135deg,#2e5f3a 0%,#a8d86a 200%)}
 
   /* Lager-Vision overlay */
   .vision-cam{aspect-ratio:9/14;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#1a1f2a,#0a0e14);border:1px solid var(--glass-border);position:relative;margin-bottom:14px}
@@ -1103,6 +1104,12 @@
             <div class="lab-title">Tagesabschluss</div>
             <div class="lab-sub">Was war heute, was fehlt – auch zum Anhören.</div>
           </button>
+          <button class="lab-card lab-reste" onclick="openResteRetter()">
+            <div class="lab-tag">SPART €</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81a5.5 5.5 0 005.96-1.21 1 1 0 000-1.42l-3.59-3.58 1.41-1.42-1.41-1.41-1.42 1.41-1.41-1.41-1.42 1.41 3.59 3.59-1.42 1.41-2.12-2.12-1.41 1.41 2.12 2.12-7.01 7.02 1.41 1.41 7.01-7.01 2.13 2.13z"/></svg></div>
+            <div class="lab-title">Reste-Retter</div>
+            <div class="lab-sub">Tagesgericht aus dem, was bald abläuft.</div>
+          </button>
         </div>
 
         <div class="ai-card glass">
@@ -1741,6 +1748,78 @@
     document.getElementById('sheet').classList.add('show');
   }
 
+  // ===== Reste-Retter · Tagesgericht aus knappen / ablaufenden Artikeln =====
+  const resteRezepte = [
+    { dish:'Caprese-Teller',          need:['tomate','mozzarella'],            marge:78, desc:'Tomaten & Mozzarella mit Basilikum – schnell, frisch, hohe Marge.' },
+    { dish:'Tomatensuppe mit Croûtons',need:['tomate'],                        marge:82, desc:'Klassiker, der reife Tomaten perfekt verwertet.' },
+    { dish:'Pizza Margherita',        need:['mehl','tomate','mozzarella'],     marge:71, desc:'Teig, Tomaten, Mozzarella – verwertet gleich drei Artikel.' },
+    { dish:'Lachs in Sahnesoße',      need:['lachs','sahne'],                  marge:64, desc:'Lachs & Sahne zusammen verarbeiten, bevor beides kippt.' },
+    { dish:'Currywurst-Pommes-Spezial',need:['currywurst','pommes'],           marge:70, desc:'Schneller Renner – rettet Currywurst und Pommes auf einmal.' },
+    { dish:'Hausgemachte Frikadellen',need:['rinderhack','zwiebel','ei'],      marge:68, desc:'Hack, Zwiebeln & Eier zu Frikadellen – verwertet drei Artikel.' },
+    { dish:'Bauernfrühstück',         need:['ei','kartoffel','zwiebel'],       marge:75, desc:'Eier, Kartoffeln & Zwiebeln in einer Pfanne.' },
+    { dish:'Rührei-Special',          need:['ei','butter'],                    marge:80, desc:'Eier & Butter schnell verarbeiten – günstig, hohe Marge.' },
+    { dish:'Kartoffelsalat',          need:['kartoffel','zwiebel'],            marge:79, desc:'Kartoffeln & Zwiebeln – gut vorzubereiten.' },
+    { dish:'Großer bunter Salat',     need:['salat'],                          marge:76, desc:'Salat verwerten, bevor er welk wird.' },
+    { dish:'Sahne-Quark-Dessert',     need:['sahne'],                          marge:84, desc:'Sahne ins Dessert – höchste Marge im Haus.' }
+  ];
+  function buildResteRetter(){
+    // "kritisch" = läuft bald ab / abgelaufen ODER niedriger/Warn-Bestand
+    const kritisch = lagerData.filter(r => {
+      const s = mhdState(r);
+      return s === 'soon' || s === 'expired' || r.status === 'low' || r.status === 'warn';
+    });
+    const lagerNamen = lagerData.map(r => r.name.toLowerCase());
+    const matchItem = (kw, list) => list.find(n => n.indexOf(kw) > -1);
+    const kritNamen = kritisch.map(r => r.name.toLowerCase());
+
+    const treffer = resteRezepte.map(rz => {
+      // Rezept ist kochbar, wenn alle Zutaten irgendwo im Lager sind
+      const kochbar = rz.need.every(kw => matchItem(kw, lagerNamen));
+      // gerettete kritische Zutaten
+      const rettet = rz.need
+        .map(kw => kritisch.find(r => r.name.toLowerCase().indexOf(kw) > -1))
+        .filter(Boolean);
+      return { ...rz, kochbar, rettet };
+    }).filter(rz => rz.kochbar && rz.rettet.length > 0);
+
+    treffer.sort((a,b) => b.rettet.length - a.rettet.length || b.marge - a.marge);
+    return { kritisch, treffer };
+  }
+  function openResteRetter(){
+    const { kritisch, treffer } = buildResteRetter();
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81a5.5 5.5 0 005.96-1.21 1 1 0 000-1.42l-3.59-3.58 1.41-1.42-1.41-1.41-1.42 1.41-1.41-1.41-1.42 1.41 3.59 3.59-1.42 1.41-2.12-2.12-1.41 1.41 2.12 2.12-7.01 7.02 1.41 1.41 7.01-7.01 2.13 2.13z"/></svg> Reste-Retter';
+    let body = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>`;
+    if(!kritisch.length){
+      body += `<div class="ai-card glass" style="margin-top:8px"><div class="ai-head"><div class="ai-pulse" style="background:var(--green);box-shadow:0 0 10px var(--green)"></div><div class="ai-title">Nichts zu retten</div></div><div style="font-size:13px;color:var(--text-dim);padding:0 4px;line-height:1.5">Gerade läuft nichts ab und nichts ist knapp. The Chef meldet sich, sobald sich was lohnt zu verarbeiten.</div></div>`;
+    } else if(!treffer.length){
+      body += `<p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Knapp/ablaufend: <strong>${kritisch.map(r=>r.name).join(', ')}</strong>. Daraus lässt sich gerade kein Standard-Gericht bauen – frag The Chef im Chat nach einer Idee.</p>
+      <button class="btn-secondary" onclick="closeSheet();navTo('ki')">The Chef fragen</button>`;
+    } else {
+      body += `<p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">The Chef hat aus deinen knappen & bald ablaufenden Artikeln ${treffer.length} Tagesgericht-Ideen gebaut – verwertet, was sonst weggekommt.</p>`;
+      treffer.forEach(rz => {
+        const rettetTxt = rz.rettet.map(r => {
+          const ms = mhdState(r);
+          const tag = ms === 'expired' ? 'abgelaufen' : ms === 'soon' ? mhdText(r) : r.days;
+          return r.name + ' <span style="color:var(--text-faint)">(' + tag + ')</span>';
+        }).join(' · ');
+        body += `
+        <div class="ai-card glass" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="ai-title">${rz.dish}</div>
+            <span class="pill pill-good">${rz.marge}% Marge</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-dim);line-height:1.5;padding:0 2px;margin-bottom:10px">${rz.desc}</div>
+          <div style="font-size:12px;padding:0 2px;margin-bottom:12px"><span style="color:var(--text-faint)">Rettet:</span> ${rettetTxt}</div>
+          <button class="btn-primary" onclick="toast('✓ ${rz.dish} auf die Tageskarte gesetzt');closeSheet()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg> Auf die Tageskarte</button>
+        </div>`;
+      });
+    }
+    document.getElementById('sheetBody').innerHTML = body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+
   // ===== Lager-Artikel · Detail-Ansicht =====
   function openLagerItem(idx){
     const r = lagerData[idx]; if(!r) return;
@@ -1757,7 +1836,7 @@
       : '');
     const ms = mhdState(r);
     const mhdCard = (ms === 'expired' || ms === 'soon')
-      ? `<div class="ai-card glass" style="margin-bottom:14px;border-color:${ms==='expired'?'rgba(255,138,138,0.35)':'rgba(255,182,119,0.35)'}"><div class="ai-head"><div class="ai-pulse" style="background:${ms==='expired'?'var(--red)':'var(--orange)'};box-shadow:0 0 10px ${ms==='expired'?'var(--red)':'var(--orange)'}"></div><div class="ai-title">${ms==='expired'?'MHD überschritten':'Läuft bald ab'}</div></div><div class="ai-suggest"><div class="ai-suggest-text">${r.name} ${mhdText(r)} (${fmtMhd(r.mhd)}). ${ms==='expired'?'Bitte prüfen und ggf. aussortieren.':'Heute/morgen einplanen – z.B. als Tagesgericht verarbeiten, bevor was wegkommt.'}</div></div></div>`
+      ? `<div class="ai-card glass" style="margin-bottom:14px;border-color:${ms==='expired'?'rgba(255,138,138,0.35)':'rgba(255,182,119,0.35)'}"><div class="ai-head"><div class="ai-pulse" style="background:${ms==='expired'?'var(--red)':'var(--orange)'};box-shadow:0 0 10px ${ms==='expired'?'var(--red)':'var(--orange)'}"></div><div class="ai-title">${ms==='expired'?'MHD überschritten':'Läuft bald ab'}</div></div><div class="ai-suggest"><div class="ai-suggest-text">${r.name} ${mhdText(r)} (${fmtMhd(r.mhd)}). ${ms==='expired'?'Bitte prüfen und ggf. aussortieren.':'Heute/morgen einplanen – z.B. als Tagesgericht verarbeiten, bevor was wegkommt.'}</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="openResteRetter()">Reste-Retter öffnen</button></div></div></div>`
       : '';
     document.getElementById('sheetTitle').innerHTML = '<span style="display:inline-flex;width:1.1em;height:1.1em;vertical-align:-0.2em;margin-right:4px">'+r.emoji+'</span> '+r.name;
     document.getElementById('sheetBody').innerHTML = `
@@ -2191,7 +2270,21 @@
       const liste = ablauf.map(r => r.name + ' ' + mhdText(r)).join(', ');
       const idx0 = lagerData.indexOf(ablauf[0]);
       return { reply:`Pass auf, das wird knapp mit der Haltbarkeit: ${liste}. Am besten heute oder morgen einplanen – z.B. als Tagesgericht verarbeiten, bevor was wegkommt.`,
-        actions:[{label:ablauf[0].name+' ansehen',fn:()=>openLagerItem(idx0)},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+        actions:[{label:'Reste-Retter öffnen',fn:()=>openResteRetter()},{label:ablauf[0].name+' ansehen',fn:()=>openLagerItem(idx0)}] };
+    }
+    if (has('reste','reste-retter','was koche','was kochen','tagesgericht','tageskarte','verwerten','aus dem lager kochen','rezeptidee','was mach ich aus')) {
+      const { kritisch, treffer } = buildResteRetter();
+      if (!kritisch.length) {
+        return { reply:'Gerade läuft nichts ab und nichts ist knapp – es gibt nichts, was dringend verwertet werden müsste.',
+          actions:[{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      }
+      if (!treffer.length) {
+        return { reply:`Knapp oder ablaufend sind: ${kritisch.map(r=>r.name).join(', ')}. Ein Standard-Gericht baue ich daraus gerade nicht – sag mir, worauf du Lust hast, dann denk ich mit.`,
+          actions:[{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      }
+      const top = treffer[0];
+      return { reply:`Mein Vorschlag: ${top.dish} – verwertet ${top.rettet.map(r=>r.name).join(' & ')} und bringt rund ${top.marge}% Marge. ${treffer.length>1?'Ich hab noch '+(treffer.length-1)+' weitere Ideen.':''} Soll ich's auf die Tageskarte setzen?`,
+        actions:[{label:'Reste-Retter öffnen',fn:()=>openResteRetter()},{label:top.dish+' aktivieren',fn:()=>{toast('✓ '+top.dish+' auf die Tageskarte gesetzt');}}] };
     }
     if (has('wie viel','wie viele','bestand','vorrat')) {
       return { reply:'Lager insgesamt bei 87 Prozent. 47 Artikel, davon 3 niedrig, 4 in Warnung. Welcher Artikel interessiert dich konkret?',
