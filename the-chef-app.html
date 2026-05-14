@@ -1136,7 +1136,7 @@
           <button class="quick-btn" onclick="navTo('scan')"><span class="quick-emoji ic-blue"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></span><div class="quick-label">Beleg scannen</div><div class="quick-sub">Lieferschein → Lager</div></button>
           <button class="quick-btn" onclick="navTo('ki')"><span class="quick-emoji ic-purple"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 11a7 7 0 0014 0h-2.2a4.8 4.8 0 01-9.6 0H5zm6 9.6V23h2v-2.4a7 7 0 01-2 0z"/></svg></span><div class="quick-label">Voice</div><div class="quick-sub">"Hey Chef, …"</div></button>
           <button class="quick-btn" onclick="openSheet('haccp')"><span class="quick-emoji ic-cyan"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L4 5v7c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg></span><div class="quick-label">HACCP</div><div class="quick-sub">Temperaturen</div></button>
-          <button class="quick-btn" onclick="openSheet('rezepte')"><span class="quick-emoji ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></span><div class="quick-label">Tageskarte</div><div class="quick-sub">KI-Vorschlag</div></button>
+          <button class="quick-btn" onclick="openRezepte()"><span class="quick-emoji ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></span><div class="quick-label">Tageskarte</div><div class="quick-sub">KI-Vorschlag</div></button>
         </div>
 
         <div class="section-h"><h2>Aktivität</h2></div>
@@ -1337,7 +1337,7 @@
           <div class="menu-text"><div class="menu-name">Bestellungen</div><div class="menu-sub">3 offen · 2 unterwegs</div></div>
           <div class="menu-arrow">›</div>
         </div>
-        <div class="menu-row" onclick="openSheet('rezepte')">
+        <div class="menu-row" onclick="openRezepte()">
           <div class="menu-icon menu-icon-2"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg></div>
           <div class="menu-text"><div class="menu-name">Rezepte</div><div class="menu-sub">24 Gerichte · Ø 68% Marge</div></div>
           <div class="menu-arrow">›</div>
@@ -3467,23 +3467,6 @@
         <button class="btn-primary" onclick="toast('✓ Optimierte Einkaufsliste erstellt – €87,40 Ersparnis')">Optimierte Einkaufsliste erstellen</button>
       `
     },
-    rezepte: {
-      title:'Rezepte · 24 Gerichte',
-      body:`
-        <div class="recipe-grid">
-          <div class="recipe" onclick="openKalkulator('Schnitzel Wiener Art')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M14 3a5 5 0 00-3.5 8.5l-7 7c-.4.4-.4 1 0 1.4l.6.6c.4.4 1 .4 1.4 0l7-7A5 5 0 1014 3zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg></div><div class="recipe-body"><h3>Schnitzel Wiener Art</h3><div class="recipe-meta"><span>€18,90</span><strong>68%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Tomatensuppe')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ff8a8a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg></div><div class="recipe-body"><h3>Tomatensuppe</h3><div class="recipe-meta"><span>€7,50</span><strong>78%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Lachsfilet')"><div class="recipe-img" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg></div><div class="recipe-body"><h3>Lachsfilet</h3><div class="recipe-meta"><span>€24,50</span><strong>62%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Caprese Salat')"><div class="recipe-img" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 11h18a9 9 0 11-18 0zm9-7c-2 0-4 2-4 4 0-2-2-4-4-4 2 0 4-2 4-4 0 2 2 4 4 4z"/></svg></div><div class="recipe-body"><h3>Caprese Salat</h3><div class="recipe-meta"><span>€9,80</span><strong>74%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Pizza Margherita')"><div class="recipe-img" style="background:linear-gradient(135deg,#8b3a2e,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg></div><div class="recipe-body"><h3>Pizza Margherita</h3><div class="recipe-meta"><span>€11,50</span><strong>71%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Currywurst Pommes')"><div class="recipe-img" style="background:linear-gradient(135deg,#a8702c,#ffb677)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg></div><div class="recipe-body"><h3>Currywurst Pommes</h3><div class="recipe-meta"><span>€8,90</span><strong>65%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Tiramisu')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#d4a574)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2v3M4 8h16v2c0 2-1 3-3 3H7c-2 0-3-1-3-3V8zm0 6h16v8H4v-8z"/></svg></div><div class="recipe-body"><h3>Tiramisu</h3><div class="recipe-meta"><span>€6,50</span><strong>82%</strong></div></div></div>
-          <div class="recipe" onclick="openKalkulator('Latte Macchiato')"><div class="recipe-img" style="background:linear-gradient(135deg,#5a3a2c,#a87645)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg></div><div class="recipe-body"><h3>Latte Macchiato</h3><div class="recipe-meta"><span>€3,80</span><strong>88%</strong></div></div></div>
-        </div>
-        <div style="margin-top:14px"></div>
-        <button class="btn-primary" onclick="toast('Rezept-Editor öffnet sich…')">+ Neues Rezept</button>
-      `
-    },
     personal: {
       title:'Personal & Schichten',
       body:`
@@ -3597,71 +3580,240 @@
   }
 
   // ===== Rezept-Kalkulator =====
-  const recipes = {
-    'Schnitzel Wiener Art': { vk:18.90, mwst:19, ingredients:[
+  // Rezepte – editierbar & persistent. ingredients: [name, menge, quelle, kosten€]
+  const RECIPE_ICONS = {
+    schnitzel:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 3a5 5 0 00-3.5 8.5l-7 7c-.4.4-.4 1 0 1.4l.6.6c.4.4 1 .4 1.4 0l7-7A5 5 0 1014 3zm0 2a3 3 0 110 6 3 3 0 010-6z"/></svg>',
+    tomate:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg>',
+    fisch:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg>',
+    salat:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11h18a9 9 0 11-18 0zm9-7c-2 0-4 2-4 4 0-2-2-4-4-4 2 0 4-2 4-4 0 2 2 4 4 4z"/></svg>',
+    pizza:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>',
+    wurst:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg>',
+    dessert:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2v3M4 8h16v2c0 2-1 3-3 3H7c-2 0-3-1-3-3V8zm0 6h16v8H4v-8z"/></svg>',
+    kaffee:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg>',
+    custom:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2a2 2 0 00-2 2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2-2H9zm0 2h6v2H9V4zM7 9h10v2H7V9zm0 4h6v2H7v-2z"/></svg>'
+  };
+  const recipesDefault = {
+    'Schnitzel Wiener Art': { vk:18.90, mwst:19, icon:'schnitzel', grad:'linear-gradient(135deg,#a8702c,#d4a574)', ingredients:[
       ['Schweineschnitzel 220g','220 g','Aldi · Angebot',2.40],
       ['Panade (Mehl, Ei, Paniermehl)','~80 g','Aldi',0.45],
-      ['Pommes Frites 250g','250 g','Metro · Angebot −0,11€',0.52],
+      ['Pommes Frites 250g','250 g','Metro · Angebot',0.52],
       ['Frittierfett (Anteil)','—','Metro',0.30],
       ['Beilagensalat','120 g','Lidl',0.60],
       ['Zitrone, Gewürze','—','Metro',0.18],
-    ], tip:'Pommes bei Metro im Angebot → Wareneinsatz −0,11€, Marge heute +0,11€.' },
-    'Pizza Margherita': { vk:11.50, mwst:19, ingredients:[
+    ], tip:'Pommes bei Metro im Angebot → Wareneinsatz niedrig, Marge stabil.' },
+    'Tomatensuppe': { vk:7.50, mwst:19, icon:'tomate', grad:'linear-gradient(135deg,#8b3a2e,#ff8a8a)', ingredients:[
+      ['Tomaten frisch','300 g','Metro',0.66],
+      ['Zwiebeln, Knoblauch','40 g','Metro',0.09],
+      ['Sahne','30 ml','Kühlhaus',0.12],
+      ['Brot / Croûtons','40 g','Bäcker',0.18],
+      ['Gewürze, Öl','—','Metro',0.10],
+    ], tip:'Top-Verwerter für reife Tomaten – sehr hohe Marge.' },
+    'Lachsfilet': { vk:24.50, mwst:19, icon:'fisch', grad:'linear-gradient(135deg,#1e3a5f,#7eb6ff)', ingredients:[
+      ['Lachsfilet 200g','200 g','Friesland',5.80],
+      ['Senfsoße (Sahne, Senf)','60 g','Kühlhaus',0.55],
+      ['Kartoffeln','250 g','Metro',0.30],
+      ['Saisongemüse','120 g','Metro',0.85],
+      ['Gewürze, Butter','—','Metro',0.25],
+    ], tip:'Lachs-Einkaufspreis schwankt stark – Marge wöchentlich prüfen.' },
+    'Caprese Salat': { vk:9.80, mwst:19, icon:'salat', grad:'linear-gradient(135deg,#2d5a4f,#8de6b1)', ingredients:[
+      ['Tomaten frisch','200 g','Metro',0.44],
+      ['Mozzarella','125 g','Aldi · Angebot',0.71],
+      ['Basilikum','—','Metro',0.15],
+      ['Olivenöl, Balsamico','—','Metro',0.28],
+    ], tip:'Schnell gemacht, hohe Marge – perfekt bei vollem Haus.' },
+    'Pizza Margherita': { vk:11.50, mwst:19, icon:'pizza', grad:'linear-gradient(135deg,#8b3a2e,#ffb677)', ingredients:[
       ['Pizzateig (Mehl, Hefe, Öl)','280 g','Aldi · Mehl-Angebot',0.42],
       ['Tomatensoße','120 g','Lidl',0.38],
-      ['Mozzarella 125g','125 g','Aldi · Angebot',0.71],
+      ['Mozzarella','125 g','Aldi · Angebot',0.71],
       ['Basilikum, Olivenöl','—','Metro',0.22],
       ['Ofen-Energie (Anteil)','—','—',0.18],
     ], tip:'Mozzarella bei Aldi im Angebot → Marge +0,22€ pro Pizza.' },
-    'Currywurst Pommes': { vk:8.90, mwst:19, ingredients:[
+    'Currywurst Pommes': { vk:8.90, mwst:19, icon:'wurst', grad:'linear-gradient(135deg,#a8702c,#ffb677)', ingredients:[
       ['Currywurst 150g','150 g','Lidl',0.95],
       ['Currysoße','60 g','Metro',0.28],
       ['Pommes Frites 250g','250 g','Metro · Angebot',0.52],
       ['Frittierfett (Anteil)','—','Metro',0.30],
       ['Currypulver','—','Aldi',0.06],
-    ], tip:'Stabile Marge – Currywurst ist dein zuverlässiger Gewinnbringer freitags.' },
+    ], tip:'Stabile Marge – dein zuverlässiger Gewinnbringer freitags.' },
+    'Tiramisu': { vk:6.50, mwst:19, icon:'dessert', grad:'linear-gradient(135deg,#5a3a2c,#d4a574)', ingredients:[
+      ['Mascarpone','80 g','Metro',0.62],
+      ['Eier, Zucker','—','Metro',0.18],
+      ['Löffelbiskuit','40 g','Aldi',0.22],
+      ['Espresso, Kakao','—','Metro',0.15],
+    ], tip:'Highest-Margin-Dessert – immer auf der Karte halten.' },
+    'Latte Macchiato': { vk:3.80, mwst:19, icon:'kaffee', grad:'linear-gradient(135deg,#5a3a2c,#a87645)', ingredients:[
+      ['Espresso (Bohnen)','16 g','Rösterei',0.22],
+      ['Milch','200 ml','Metro',0.18],
+      ['Energie / Becher (Anteil)','—','—',0.06],
+    ], tip:'Getränke tragen die Marge – aktiv anbieten.' },
   };
+  let recipes = (function(){
+    let merged = {};
+    for (const k in recipesDefault) merged[k] = recipesDefault[k];
+    try {
+      const stored = JSON.parse(localStorage.getItem('chef_recipes') || 'null');
+      if (stored && typeof stored === 'object') {
+        for (const k in stored) merged[k] = stored[k];
+      }
+    } catch(e){}
+    return merged;
+  })();
+  function saveRecipes(){ localStorage.setItem('chef_recipes', JSON.stringify(recipes)); }
+  function recipeIcon(r){ return RECIPE_ICONS[(r && r.icon) || 'custom'] || RECIPE_ICONS.custom; }
+  function recipeGrad(r){ return (r && r.grad) || 'linear-gradient(135deg,#3a4a44,#7a9b8e)'; }
+  function recipeMarge(r){
+    const cost = r.ingredients.reduce((s,i)=>s+(Number(i[3])||0),0);
+    const vkNetto = r.vk / (1 + r.mwst/100);
+    const rohertrag = vkNetto - cost;
+    return { cost, vkNetto, rohertrag, marge: vkNetto>0 ? (rohertrag/vkNetto)*100 : 0 };
+  }
+  function openRezepte(){
+    const names = Object.keys(recipes);
+    document.getElementById('sheetTitle').innerHTML = RECIPE_ICONS.custom + ' Rezepte · ' + names.length + ' Gerichte';
+    const cards = names.map(name => {
+      const r = recipes[name];
+      const m = recipeMarge(r);
+      return `<div class="recipe" onclick="openKalkulator('${name.replace(/'/g,"\\'")}')">
+        <div class="recipe-img" style="background:${recipeGrad(r)}">${recipeIcon(r)}</div>
+        <div class="recipe-body"><h3>${escHtml(name)}</h3><div class="recipe-meta"><span>€ ${r.vk.toFixed(2).replace('.',',')}</span><strong>${m.marge.toFixed(0)}%</strong></div></div>
+      </div>`;
+    }).join('');
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Tippe ein Gericht für die Kalkulation – Wareneinsatz und Marge rechnet The Chef live.</p>
+      <div class="recipe-grid">${cards}</div>
+      <div style="margin-top:14px"></div>
+      <button class="btn-primary" onclick="openRezeptEditor(null)">+ Neues Rezept</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
   function openKalkulator(name){
     const r = recipes[name];
-    const titleSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 2a2 2 0 00-2 2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2-2H9zm0 2h6v2H9V4zM7 9h10v2H7V9zm0 4h6v2H7v-2z"/></svg> ';
+    const titleSvg = RECIPE_ICONS.custom + ' ';
     if (!r) {
-      document.getElementById('sheetTitle').innerHTML = titleSvg + name;
-      document.getElementById('sheetBody').innerHTML = '<p style="font-size:14px;color:var(--text-dim);padding:20px 4px;text-align:center">Für dieses Gericht ist noch keine Rezept-Kalkulation hinterlegt.<br><br>In der Vollversion legst du jede Zutat einmal an – danach rechnet The Chef Wareneinsatz und Marge automatisch, und passt sie bei jeder Preisänderung live an.</p>';
-    } else {
-      const cost = r.ingredients.reduce((s,i)=>s+i[3],0);
-      const vkNetto = r.vk / (1 + r.mwst/100);
-      const rohertrag = vkNetto - cost;
-      const marge = (rohertrag / vkNetto) * 100;
-      const rows = r.ingredients.map(([n,q,src,c])=>
-        `<div class="calc-row"><div><div class="calc-ing">${n}</div><div class="calc-qty">${q}</div></div><div></div><div><div class="calc-cost">€ ${c.toFixed(2)}</div><div class="calc-src">${src}</div></div></div>`
-      ).join('');
-      document.getElementById('sheetTitle').innerHTML = titleSvg + name;
+      document.getElementById('sheetTitle').innerHTML = titleSvg + escHtml(name);
       document.getElementById('sheetBody').innerHTML = `
+        <button class="sheet-back" onclick="openRezepte()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
+        <p style="font-size:14px;color:var(--text-dim);padding:16px 4px;text-align:center;line-height:1.6">Für dieses Gericht ist noch keine Kalkulation hinterlegt.<br>Leg die Zutaten einmal an – danach rechnet The Chef Wareneinsatz und Marge automatisch.</p>
+        <button class="btn-primary" onclick="openRezeptEditor('${name.replace(/'/g,"\\'")}')">Rezept anlegen</button>`;
+    } else {
+      const m = recipeMarge(r);
+      const rows = r.ingredients.map(([n,q,src,c])=>
+        `<div class="calc-row"><div><div class="calc-ing">${escHtml(n)}</div><div class="calc-qty">${escHtml(q)}</div></div><div></div><div><div class="calc-cost">€ ${(Number(c)||0).toFixed(2)}</div><div class="calc-src">${escHtml(src)}</div></div></div>`
+      ).join('');
+      document.getElementById('sheetTitle').innerHTML = titleSvg + escHtml(name);
+      document.getElementById('sheetBody').innerHTML = `
+        <button class="sheet-back" onclick="openRezepte()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
         <div class="calc-result">
           <div class="calc-result-label">Rohertrag pro Portion</div>
-          <div class="calc-result-val">€ ${rohertrag.toFixed(2)}</div>
-          <div class="calc-result-sub">${marge.toFixed(0)}% Marge · bei VK € ${r.vk.toFixed(2)}</div>
+          <div class="calc-result-val">€ ${m.rohertrag.toFixed(2)}</div>
+          <div class="calc-result-sub">${m.marge.toFixed(0)}% Marge · bei VK € ${r.vk.toFixed(2)}</div>
           <div class="calc-meta-row">
-            <div class="calc-meta"><div class="calc-meta-l">Wareneinsatz</div><div class="calc-meta-v">€ ${cost.toFixed(2)}</div></div>
-            <div class="calc-meta"><div class="calc-meta-l">VK netto</div><div class="calc-meta-v">€ ${vkNetto.toFixed(2)}</div></div>
-            <div class="calc-meta"><div class="calc-meta-l">MwSt ${r.mwst}%</div><div class="calc-meta-v">€ ${(r.vk-vkNetto).toFixed(2)}</div></div>
+            <div class="calc-meta"><div class="calc-meta-l">Wareneinsatz</div><div class="calc-meta-v">€ ${m.cost.toFixed(2)}</div></div>
+            <div class="calc-meta"><div class="calc-meta-l">VK netto</div><div class="calc-meta-v">€ ${m.vkNetto.toFixed(2)}</div></div>
+            <div class="calc-meta"><div class="calc-meta-l">MwSt ${r.mwst}%</div><div class="calc-meta-v">€ ${(r.vk-m.vkNetto).toFixed(2)}</div></div>
           </div>
         </div>
         <div class="section-h"><h2>Zutaten & Kosten</h2></div>
         <div class="list-card glass">${rows}
-          <div class="calc-sum"><span>Wareneinsatz gesamt</span><span style="color:#8de6b1">€ ${cost.toFixed(2)}</span></div>
+          <div class="calc-sum"><span>Wareneinsatz gesamt</span><span style="color:#8de6b1">€ ${m.cost.toFixed(2)}</span></div>
         </div>
-        <div class="ai-card glass">
+        ${r.tip ? `<div class="ai-card glass">
           <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Hinweis</div></div>
-          <div class="ai-suggest"><div class="ai-suggest-text">${r.tip}</div></div>
-          <div class="ai-suggest"><div class="ai-suggest-text">Verkaufst du heute <strong>12×</strong> dieses Gericht, machst du <strong>€ ${(rohertrag*12).toFixed(2)}</strong> Rohertrag.</div></div>
-        </div>
+          <div class="ai-suggest"><div class="ai-suggest-text">${escHtml(r.tip)}</div></div>
+          <div class="ai-suggest"><div class="ai-suggest-text">Verkaufst du heute <strong>12×</strong> dieses Gericht, machst du <strong>€ ${(m.rohertrag*12).toFixed(2)}</strong> Rohertrag.</div></div>
+        </div>` : ''}
         <div style="margin-top:14px"></div>
-        <button class="btn-primary" onclick="toast('Rezept-Editor öffnet sich…')">Zutaten bearbeiten</button>
+        <button class="btn-primary" onclick="openRezeptEditor('${name.replace(/'/g,"\\'")}')">Zutaten bearbeiten</button>
       `;
     }
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+  }
+  // Rezept-Editor: Zutaten anlegen/ändern, Marge wird live berechnet
+  // var, damit die Inline-Handler im Editor darauf zugreifen können
+  var editorIngredients = [];
+  function rezeptDatalist(){
+    return '<datalist id="lagerNames">' + lagerData.map(r=>'<option value="'+escHtml(r.name)+'">').join('') + '</datalist>';
+  }
+  function renderEditorRows(){
+    const box = document.getElementById('editorRows');
+    if(!box) return;
+    box.innerHTML = editorIngredients.map((ing,i)=>`
+      <div class="ai-card glass" style="padding:12px;margin-bottom:10px">
+        <input type="text" class="onboard-input" list="lagerNames" style="margin-bottom:8px" placeholder="Zutat" value="${escHtml(ing[0])}" oninput="editorIngredients[${i}][0]=this.value">
+        <div style="display:flex;gap:8px">
+          <input type="text" class="onboard-input" style="margin-bottom:0;flex:1" placeholder="Menge" value="${escHtml(ing[1])}" oninput="editorIngredients[${i}][1]=this.value">
+          <input type="number" class="onboard-input" style="margin-bottom:0;width:90px" step="0.01" min="0" placeholder="€" value="${ing[3]}" oninput="editorIngredients[${i}][3]=parseFloat(this.value)||0;updateEditorMarge()">
+        </div>
+        <input type="text" class="onboard-input" style="margin:8px 0 0" placeholder="Quelle / Lieferant" value="${escHtml(ing[2])}" oninput="editorIngredients[${i}][2]=this.value">
+        <button class="btn-secondary" style="margin-top:8px;padding:8px;font-size:12px" onclick="editorIngredients.splice(${i},1);renderEditorRows();updateEditorMarge()">Zutat entfernen</button>
+      </div>`).join('') || '<p style="font-size:13px;color:var(--text-faint);padding:4px 4px 12px">Noch keine Zutat – füge die erste hinzu.</p>';
+  }
+  function updateEditorMarge(){
+    const el = document.getElementById('editorMarge');
+    if(!el) return;
+    const vk = parseFloat(document.getElementById('edVk').value) || 0;
+    const mwst = parseFloat(document.getElementById('edMwst').value) || 0;
+    const cost = editorIngredients.reduce((s,i)=>s+(Number(i[3])||0),0);
+    const vkNetto = vk / (1 + mwst/100);
+    const rohertrag = vkNetto - cost;
+    const marge = vkNetto>0 ? (rohertrag/vkNetto)*100 : 0;
+    el.innerHTML = `Wareneinsatz € ${cost.toFixed(2)} · Rohertrag € ${rohertrag.toFixed(2)} · <strong style="color:${marge<30?'var(--red)':marge<55?'var(--orange)':'var(--green)'}">${marge.toFixed(0)}% Marge</strong>`;
+  }
+  function openRezeptEditor(name){
+    const r = name ? recipes[name] : null;
+    editorIngredients = r ? r.ingredients.map(i=>[i[0],i[1],i[2],Number(i[3])||0]) : [['', '', '', 0]];
+    document.getElementById('sheetTitle').innerHTML = RECIPE_ICONS.custom + ' ' + (name ? 'Rezept bearbeiten' : 'Neues Rezept');
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="${name?`openKalkulator('${name.replace(/'/g,"\\'")}')`:'openRezepte()'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
+      ${rezeptDatalist()}
+      <div class="onboard-label">Name des Gerichts</div>
+      <input type="text" class="onboard-input" id="edName" placeholder="z.B. Bratkartoffeln" value="${name?escHtml(name):''}">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><div class="onboard-label">Verkaufspreis (€)</div><input type="number" class="onboard-input" id="edVk" step="0.10" min="0" value="${r?r.vk:''}" oninput="updateEditorMarge()"></div>
+        <div style="width:110px"><div class="onboard-label">MwSt (%)</div><input type="number" class="onboard-input" id="edMwst" step="1" min="0" max="100" value="${r?r.mwst:19}" oninput="updateEditorMarge()"></div>
+      </div>
+      <div class="why-card" style="margin:4px 0 14px"><div id="editorMarge" style="font-size:13px;padding:2px">—</div></div>
+      <div class="onboard-label">Zutaten & Kosten</div>
+      <div id="editorRows"></div>
+      <button class="btn-secondary" onclick="editorIngredients.push(['','','',0]);renderEditorRows()" style="margin-bottom:14px">+ Zutat hinzufügen</button>
+      <button class="btn-primary" onclick="saveRezept('${name?name.replace(/'/g,"\\'"):''}')">Rezept speichern</button>
+      ${name ? `<div style="margin-top:10px"></div><button class="btn-secondary" onclick="deleteRezept('${name.replace(/'/g,"\\'")}')">Rezept löschen</button>` : ''}
+    `;
+    renderEditorRows();
+    updateEditorMarge();
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function saveRezept(oldName){
+    const name = document.getElementById('edName').value.trim();
+    if(!name){ toast('Bitte einen Namen eingeben'); return; }
+    const vk = parseFloat(document.getElementById('edVk').value);
+    if(isNaN(vk) || vk <= 0){ toast('Bitte einen Verkaufspreis eingeben'); return; }
+    let mwst = parseFloat(document.getElementById('edMwst').value);
+    if(isNaN(mwst) || mwst < 0) mwst = 19;
+    const ings = editorIngredients
+      .map(i=>[String(i[0]).trim(), String(i[1]).trim(), String(i[2]).trim()||'—', Number(i[3])||0])
+      .filter(i=>i[0]);
+    const prev = oldName ? recipes[oldName] : null;
+    if(oldName && oldName !== name) delete recipes[oldName];
+    recipes[name] = {
+      vk: vk, mwst: mwst, ingredients: ings,
+      icon: (prev && prev.icon) || 'custom',
+      grad: (prev && prev.grad) || 'linear-gradient(135deg,#3a4a44,#7a9b8e)',
+      tip: (prev && prev.tip) || ''
+    };
+    saveRecipes();
+    toast('✓ Rezept gespeichert');
+    openKalkulator(name);
+  }
+  function deleteRezept(name){
+    delete recipes[name];
+    saveRecipes();
+    toast('✓ Rezept gelöscht');
+    openRezepte();
   }
   function closeSheet(){
     document.getElementById('sheetOverlay').classList.remove('show');
