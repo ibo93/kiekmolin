@@ -1038,7 +1038,7 @@
           <div class="hero-sub">↑ +12% vs. Wochenmittel</div>
           <div class="hero-mini">
             <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" data-count="62.4" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" data-count="87" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" id="lagerKpi" data-count="87" data-suffix="%">0%</div></div>
             <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" data-count="2.1" data-suffix="%">0%</div></div>
           </div>
         </div>
@@ -1129,23 +1129,7 @@
         </div>
 
         <div class="section-h"><h2>Niedriger Bestand</h2><a onclick="navTo('lager')">Alle →</a></div>
-        <div class="list-card glass">
-          <div class="inv-row" onclick="toast('Pommes Frites · 3,8 kg · ~2 Tage')">
-            <div class="inv-emoji"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3c-4 0-8 4-8 9s4 9 8 9 8-4 8-9-4-9-8-9zm-2 5a1 1 0 100 2 1 1 0 000-2zm5 3a1 1 0 100 2 1 1 0 000-2zm-3 4a1 1 0 100 2 1 1 0 000-2z"/></svg></div>
-            <div><div class="inv-name">Pommes Frites</div><div class="inv-meta">Reicht ~2 Tage · Tiefkühl</div></div>
-            <div class="inv-right"><div class="inv-amount">3,8 kg</div><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:18%"></div></div></div>
-          </div>
-          <div class="inv-row" onclick="toast('Rinderhack · 1,2 kg · ~1 Tag')">
-            <div class="inv-emoji"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 8a4 4 0 014-4h6a4 4 0 014 4v8a4 4 0 01-4 4H9a4 4 0 01-4-4V8zm4-2a2 2 0 00-2 2v3a2 2 0 002 2 2 2 0 002 2 2 2 0 002 2v1a2 2 0 002-2V8a2 2 0 00-2-2H9z"/></svg></div>
-            <div><div class="inv-name">Rinderhack</div><div class="inv-meta">Reicht ~1 Tag · Kühlhaus 1</div></div>
-            <div class="inv-right"><div class="inv-amount">1,2 kg</div><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:12%"></div></div></div>
-          </div>
-          <div class="inv-row" onclick="toast('Currywurst · 2,1 kg · ~1 Tag')">
-            <div class="inv-emoji"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 8a3 3 0 013-3h14a3 3 0 010 6 3 3 0 01-3 3H5a3 3 0 01-3-3V8zm4 1c-.5 0-.5 1 0 1h12c.5 0 .5-1 0-1H6z"/></svg></div>
-            <div><div class="inv-name">Currywurst</div><div class="inv-meta">Reicht ~1 Tag · Tiefkühl</div></div>
-            <div class="inv-right"><div class="inv-amount">2,1 kg</div><div class="inv-bar"><div class="inv-bar-fill fill-low" style="width:15%"></div></div></div>
-          </div>
-        </div>
+        <div class="list-card glass" id="homeLowList"></div>
 
         <div class="section-h"><h2>Schnellaktionen</h2></div>
         <div class="quick-row">
@@ -1166,7 +1150,7 @@
 
       <!-- ==== LAGER ==== -->
       <section class="view" data-view="lager">
-        <div class="page-h"><h1>Lager</h1><p>47 Artikel · 3 niedrig</p></div>
+        <div class="page-h"><h1>Lager</h1><p id="lagerPageSub">— Artikel</p></div>
 
         <div class="watch-banner">
           <div class="watch-dot"></div>
@@ -1180,8 +1164,8 @@
 
         <div class="chips">
           <button class="chip active" data-filter="all">Alle</button>
-          <button class="chip" data-filter="low">Niedrig (3)</button>
-          <button class="chip" data-filter="warn">Warnung (4)</button>
+          <button class="chip" data-filter="low" id="chipLow">Niedrig</button>
+          <button class="chip" data-filter="warn" id="chipWarn">Warnung</button>
           <button class="chip" data-filter="good">Gut</button>
         </div>
 
@@ -1567,6 +1551,40 @@
     renderLager(active ? active.dataset.filter : 'all', document.getElementById('lagerSearch').value);
   }
 
+  // Echte Lager-Kennzahlen – einzige Wahrheitsquelle, kein Hardcoding
+  function lagerStats(){
+    const total = lagerData.length;
+    const low = lagerData.filter(r => r.status === 'low').length;
+    const warn = lagerData.filter(r => r.status === 'warn').length;
+    const good = total - low - warn;
+    const avgPct = total ? Math.round(lagerData.reduce((s,r)=>s+(r.pct||0),0) / total) : 0;
+    return { total, low, warn, good, avgPct };
+  }
+  function renderLagerStats(){
+    const s = lagerStats();
+    const sub = document.getElementById('lagerPageSub');
+    if(sub) sub.textContent = s.total + (s.total===1?' Artikel':' Artikel') + ' · ' + s.low + ' niedrig' + (s.warn?' · '+s.warn+' Warnung':'');
+    const cl = document.getElementById('chipLow');
+    if(cl) cl.textContent = 'Niedrig (' + s.low + ')';
+    const cw = document.getElementById('chipWarn');
+    if(cw) cw.textContent = 'Warnung (' + s.warn + ')';
+    const kpi = document.getElementById('lagerKpi');
+    if(kpi){ kpi.dataset.count = String(s.avgPct); kpi.textContent = s.avgPct + '%'; }
+    const homeLow = document.getElementById('homeLowList');
+    if(homeLow){
+      const lows = lagerData
+        .filter(r => r.status === 'low' || r.status === 'warn')
+        .sort((a,b)=>a.pct-b.pct)
+        .slice(0,4);
+      homeLow.innerHTML = lows.length
+        ? lows.map(r => `<div class="inv-row" onclick="openLagerItem(${lagerData.indexOf(r)})">
+            <div class="inv-emoji">${r.emoji}</div>
+            <div><div class="inv-name">${r.name}</div><div class="inv-meta">Reicht ${r.days} · ${r.loc}</div></div>
+            <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${r.status}" style="width:${r.pct}%"></div></div></div>
+          </div>`).join('')
+        : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:10px 0">Alles im grünen Bereich – kein Artikel ist knapp.</div><div></div></div>';
+    }
+  }
   function renderLager(filter='all',search=''){
     const list = document.getElementById('lagerList');
     list.innerHTML = lagerData
@@ -1585,6 +1603,7 @@
         <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${mhdBadge}${r.loc} · ${r.days}</div></div>
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${isOrdered?'good':r.status}" style="width:${isOrdered?100:r.pct}%"></div></div></div>
       </div>`;}).join('');
+    renderLagerStats();
   }
   renderLager();
   function markOrdered(name){
