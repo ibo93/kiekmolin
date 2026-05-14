@@ -1170,6 +1170,8 @@
           <button class="chip" data-filter="good">Gut</button>
         </div>
 
+        <button class="btn-secondary" onclick="openAddLager()" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg> Artikel selbst notieren</button>
+
         <div class="list-card glass" id="lagerList"></div>
       </section>
 
@@ -1504,6 +1506,23 @@
     {name:'Mineralwasser',emoji:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2C8 8 5 11.5 5 15a7 7 0 0014 0c0-3.5-3-7-7-13z"/></svg>',loc:'Getränkelager',amount:'92 Fl.',days:'~10 Tage',pct:78,status:'good'},
   ];
   let orderedItems = JSON.parse(localStorage.getItem('chef_ordered') || '[]');
+
+  // Selbst notierte Artikel + manuelle Bestandskorrekturen (persistent)
+  const ITEM_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2zM5 9.3v6.4l6 2.7v-6.4L5 9.3zm14 0l-6 2.7v6.4l6-2.7V9.3z"/></svg>';
+  let lagerManual = JSON.parse(localStorage.getItem('chef_lager_manual') || '[]');
+  let lagerEdits = JSON.parse(localStorage.getItem('chef_lager_edits') || '{}');
+  lagerManual.forEach(it => lagerData.push(it));
+  lagerData.forEach(r => { if (lagerEdits[r.name]) Object.assign(r, lagerEdits[r.name]); });
+  function statusFromPct(p){ return p < 25 ? 'low' : p < 50 ? 'warn' : 'good'; }
+  function persistLager(){
+    localStorage.setItem('chef_lager_manual', JSON.stringify(lagerManual));
+    localStorage.setItem('chef_lager_edits', JSON.stringify(lagerEdits));
+  }
+  function refreshLager(){
+    const active = document.querySelector('.chip.active');
+    renderLager(active ? active.dataset.filter : 'all', document.getElementById('lagerSearch').value);
+  }
+
   function renderLager(filter='all',search=''){
     const list = document.getElementById('lagerList');
     list.innerHTML = lagerData
@@ -1523,6 +1542,72 @@
     localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
     const active = document.querySelector('.chip.active');
     renderLager(active?active.dataset.filter:'all', document.getElementById('lagerSearch').value);
+  }
+
+  // ===== Artikel selbst notieren =====
+  function openAddLager(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg> Artikel notieren';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;padding:0 4px">Bestand selbst eintragen – The Chef behält ihn ab sofort im Auge.</p>
+      <div class="onboard-label">Artikel</div>
+      <input type="text" class="onboard-input" id="alName" placeholder="z.B. Pilze frisch">
+      <div class="onboard-label">Menge</div>
+      <input type="text" class="onboard-input" id="alAmount" placeholder="z.B. 5 kg">
+      <div class="onboard-label">Lagerort</div>
+      <input type="text" class="onboard-input" id="alLoc" placeholder="z.B. Kühlhaus 1">
+      <div class="onboard-label">Füllstand (0–100 %)</div>
+      <input type="number" class="onboard-input" id="alPct" min="0" max="100" placeholder="z.B. 70">
+      <button class="btn-primary" onclick="saveAddLager()">Speichern</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function saveAddLager(){
+    const name = document.getElementById('alName').value.trim();
+    const amount = document.getElementById('alAmount').value.trim();
+    if(!name || !amount){ toast('Artikel und Menge bitte ausfüllen'); return; }
+    const loc = document.getElementById('alLoc').value.trim() || 'Lager';
+    let pct = parseInt(document.getElementById('alPct').value, 10);
+    if(isNaN(pct)) pct = 60;
+    pct = Math.max(0, Math.min(100, pct));
+    const item = { name, emoji: ITEM_SVG, loc, amount, days:'selbst notiert', pct, status: statusFromPct(pct) };
+    lagerManual.push(item);
+    lagerData.push(item);
+    persistLager();
+    closeSheet();
+    refreshLager();
+    toast('✓ ' + name + ' notiert');
+  }
+  function correctStock(idx){
+    const r = lagerData[idx]; if(!r) return;
+    document.getElementById('sheetTitle').innerHTML = 'Bestand korrigieren';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="openLagerItem(${idx})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;padding:0 4px">Trag den tatsächlichen Bestand von <strong>${r.name}</strong> ein.</p>
+      <div class="onboard-label">Menge</div>
+      <input type="text" class="onboard-input" id="csAmount" value="${r.amount.replace(/"/g,'&quot;')}">
+      <div class="onboard-label">Füllstand (0–100 %)</div>
+      <input type="number" class="onboard-input" id="csPct" min="0" max="100" value="${r.pct}">
+      <button class="btn-primary" onclick="saveCorrectStock(${idx})">Speichern</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function saveCorrectStock(idx){
+    const r = lagerData[idx]; if(!r) return;
+    const amount = document.getElementById('csAmount').value.trim() || r.amount;
+    let pct = parseInt(document.getElementById('csPct').value, 10);
+    if(isNaN(pct)) pct = r.pct;
+    pct = Math.max(0, Math.min(100, pct));
+    r.amount = amount; r.pct = pct; r.status = statusFromPct(pct);
+    lagerEdits[r.name] = { amount: r.amount, pct: r.pct, status: r.status, days: r.days };
+    const mi = lagerManual.find(m => m.name === r.name);
+    if(mi){ mi.amount = r.amount; mi.pct = r.pct; mi.status = r.status; }
+    persistLager();
+    closeSheet();
+    refreshLager();
+    toast('✓ Bestand aktualisiert');
   }
 
   // ===== Lager-Artikel · Detail-Ansicht =====
@@ -1559,7 +1644,7 @@
         <div class="chart-labels"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
       </div>
       ${isOrdered ? '' : `<button class="btn-primary" onclick="markOrdered('${r.name}');toast('✓ ${r.name} nachbestellt');closeSheet()">Jetzt nachbestellen</button><div style="margin-top:10px"></div>`}
-      <button class="btn-secondary" onclick="toast('Bestand wird per Beleg-Scan aktualisiert');closeSheet()">Bestand korrigieren</button>
+      <button class="btn-secondary" onclick="correctStock(${idx})">Bestand korrigieren</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
