@@ -395,6 +395,19 @@
   .pf-chip.active{background:rgba(255,255,255,0.14);color:#fff;border-color:var(--glass-border-bright)}
   .pf-chip svg{width:14px;height:14px}
 
+  /* Post-Idee Detail */
+  .sheet-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);background:none;border:none;font-family:inherit;cursor:pointer;padding:0 0 12px;font-weight:500}
+  .sheet-back svg{width:16px;height:16px}
+  .why-card{padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);margin-bottom:14px}
+  .why-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px;font-weight:700}
+  .why-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;font-size:13px;color:var(--text-dim);line-height:1.45}
+  .why-row svg{width:16px;height:16px;flex-shrink:0;margin-top:2px;color:#34d399}
+  .why-row strong{color:#fff;font-weight:600}
+  .post-forecast{display:flex;gap:8px;margin-bottom:14px}
+  .pf-tile{flex:1;padding:14px 10px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid var(--glass-border);text-align:center}
+  .pf-tile-v{font-size:20px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+  .pf-tile-l{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-top:3px}
+
   /* Rezept-Kalkulator */
   .calc-result{
     padding:22px;border-radius:20px;margin-bottom:14px;text-align:center;
@@ -1936,19 +1949,19 @@
         <!-- PANEL: POST-IDEEN -->
         <div class="mkt-panel active" data-mkt="ideen">
           <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;padding:0 4px">Die KI schlägt dir täglich Post-Ideen vor – passend zu Lager, Wetter & Trends. Antippen = direkt erstellen.</p>
-          <div class="idea-card" onclick="toast('Post-Entwurf: Wildlachs-Special')">
+          <div class="idea-card" onclick="openPostIdea('lachs')">
             <div class="idea-thumb ic-blue"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg></div>
             <div class="idea-body"><div class="idea-title">Wildlachs-Special zeigen</div><div class="idea-desc">Lachs ist heute frisch da & im Angebot – perfektes Foto-Motiv fürs Wochenende.</div><span class="idea-tag">Insta · Heute 18:30</span></div>
           </div>
-          <div class="idea-card" onclick="toast('Post-Entwurf: POV Freitag-Stress')">
+          <div class="idea-card" onclick="openPostIdea('pov')">
             <div class="idea-thumb ic-orange"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg></div>
             <div class="idea-body"><div class="idea-title">"POV: Freitag-Stress in der Küche"</div><div class="idea-desc">Schnelles TikTok hinter den Kulissen – performt aktuell stark im Food-Bereich.</div><span class="idea-tag">TikTok · Trend</span></div>
           </div>
-          <div class="idea-card" onclick="toast('Post-Entwurf: Tomatensuppe Tagesangebot')">
+          <div class="idea-card" onclick="openPostIdea('tomate')">
             <div class="idea-thumb ic-red"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg></div>
             <div class="idea-body"><div class="idea-title">Tomatensuppe als Tagesangebot</div><div class="idea-desc">Tomaten laufen in 3 Tagen ab – Post bewirbt es und verhindert Verschwendung.</div><span class="idea-tag">Insta + Google</span></div>
           </div>
-          <div class="idea-card" onclick="toast('Post-Entwurf: Team-Vorstellung')">
+          <div class="idea-card" onclick="openPostIdea('team')">
             <div class="idea-thumb ic-purple"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg></div>
             <div class="idea-body"><div class="idea-title">Team vorstellen: "Das ist Halil"</div><div class="idea-desc">Persönliche Posts bauen Stammgäste-Bindung – Gesicht hinter dem Essen zeigen.</div><span class="idea-tag">Insta Story</span></div>
           </div>
@@ -2438,6 +2451,93 @@
     document.querySelectorAll('.mkt-tab').forEach(t=>t.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('.mkt-panel').forEach(p=>p.classList.toggle('active', p.dataset.mkt===name));
+  }
+
+  // ===== Post-Ideen · Detail-Ansicht =====
+  const postIdeas = {
+    lachs: {
+      title:'Wildlachs-Special', platform:'Insta', icon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg>',
+      grad:'linear-gradient(135deg,#1e3a5f,#7eb6ff)',
+      foodIcon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg>',
+      caption:'Heute frisch aus dem Wattenmeer 🌊 Wildlachs in Senfsoße – nur dieses Wochenende. Tisch sichern, bevor\'s weg ist!',
+      tags:'#ostfriesland #greetsiel #fischrestaurant #wattenmeer #frischvomboot',
+      why:[
+        ['5,6 kg Lachsfilet heute früh geliefert – <strong>maximale Frische</strong> als Motiv.'],
+        ['Wildlachs bei Friesland im Angebot – <strong>höhere Marge</strong> diese Woche.'],
+        ['Wochenende + sonniges Wetter → <strong>+30% Gäste</strong> erwartet.'],
+      ],
+      reach:'2.800', engage:'6,4%', time:'Heute 18:30',
+    },
+    pov: {
+      title:'POV: Freitag-Stress', platform:'TikTok', icon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17a3 3 0 11-3-3V4l10-2v10a3 3 0 11-3-3V6L9 7v10z"/></svg>',
+      grad:'linear-gradient(135deg,#8b3a2e,#ffb677)',
+      foodIcon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>',
+      caption:'POV: Freitag, 19 Uhr, volles Haus 🔥 So sieht\'s bei uns hinter der Theke aus. Wer hält das Tempo aus?',
+      tags:'#foodtok #pov #gastronomie #ostfrieslandfood #fyp',
+      why:[
+        ['Behind-the-Scenes-Clips performen aktuell <strong>4× besser</strong> im Food-Bereich.'],
+        ['Freitag ist dein <strong>stärkster Tag</strong> – authentischer Content baut Vorfreude auf.'],
+        ['TikTok-Reichweite bei dir zuletzt <strong>+120%</strong> mit POV-Format.'],
+      ],
+      reach:'5.100', engage:'8,1%', time:'Freitag 12:00',
+    },
+    tomate: {
+      title:'Tomatensuppe Tagesangebot', platform:'Insta + Google', icon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg>',
+      grad:'linear-gradient(135deg,#8b3a2e,#ff8a8a)',
+      foodIcon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-5 0-9 3-9 8s4 9 9 9 9-4 9-9-4-8-9-8zm-2-3l1 4h2l1-4h-4z"/></svg>',
+      caption:'Heißer Tipp für kalte Tage: hausgemachte Tomatensuppe mit frischem Brot – diese Woche nur 4,90 €. Begrenzt verfügbar!',
+      tags:'#tagesangebot #greetsiel #hausgemacht #tomatensuppe #mittagstisch',
+      why:[
+        ['12,4 kg Tomaten laufen in <strong>3 Tagen ab</strong> – Post verhindert €30 Verschwendung.'],
+        ['Tomatensuppe hat <strong>78% Marge</strong> – einer deiner profitabelsten Posten.'],
+        ['Geschätzter Mehrumsatz durch Bewerbung: <strong>~€180</strong>.'],
+      ],
+      reach:'1.900', engage:'5,2%', time:'Heute 11:30',
+    },
+    team: {
+      title:'Team vorstellen: Halil', platform:'Insta Story', icon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg>',
+      grad:'linear-gradient(135deg,#5a3a7c,#c4a6ff)',
+      foodIcon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg>',
+      caption:'Das ist Halil – seit 4 Jahren das Herz unserer Küche 👨‍🍳 Ohne ihn läuft hier nichts. Sag mal Hallo!',
+      tags:'#team #greetsiel #küche #menschenhinterdemessen',
+      why:[
+        ['Persönliche Posts bauen <strong>Stammgäste-Bindung</strong> – Gesichter schaffen Vertrauen.'],
+        ['Team-Content hat bei dir <strong>höchste Speicher-Rate</strong> (Stammgäste merken sich das).'],
+        ['Stärkt zusätzlich das <strong>Employer-Branding</strong> – hilft bei Personalsuche.'],
+      ],
+      reach:'1.400', engage:'9,8%', time:'Heute 16:00',
+    },
+  };
+  function openPostIdea(id){
+    const p = postIdeas[id]; if(!p) return;
+    const whyRows = p.why.map(([t])=>
+      '<div class="why-row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg><div>'+t+'</div></div>'
+    ).join('');
+    document.getElementById('sheetTitle').innerHTML = p.icon + ' ' + p.title;
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="openSheet('autoMarketing')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück zu Post-Ideen</button>
+
+      <div class="post-preview" style="margin-bottom:14px">
+        <div class="post-head"><div class="post-avatar"></div><div class="post-handle">@kiekmolin_greetsiel</div><div class="post-platform">${p.icon} ${p.platform}</div></div>
+        <div class="post-img" style="background:${p.grad}">${p.foodIcon}</div>
+        <div class="post-caption"><strong>${p.title}</strong><br>${p.caption}<div class="post-tags">${p.tags}</div></div>
+      </div>
+
+      <div class="why-card">
+        <div class="why-head"><div class="ai-pulse"></div>Warum die KI das vorschlägt</div>
+        ${whyRows}
+      </div>
+
+      <div class="post-forecast">
+        <div class="pf-tile"><div class="pf-tile-v">${p.reach}</div><div class="pf-tile-l">Reichweite</div></div>
+        <div class="pf-tile"><div class="pf-tile-v">${p.engage}</div><div class="pf-tile-l">Engagement</div></div>
+        <div class="pf-tile"><div class="pf-tile-v" style="font-size:14px">${p.time}</div><div class="pf-tile-l">Beste Zeit</div></div>
+      </div>
+
+      <button class="btn-primary" onclick="toast('✓ Post geplant für ${p.time}')">Posten / Einplanen</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="toast('Entwurf im Composer geöffnet')">Bearbeiten</button>
+    `;
   }
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet() });
 </script>
