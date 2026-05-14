@@ -1522,6 +1522,34 @@
   let lagerEdits = JSON.parse(localStorage.getItem('chef_lager_edits') || '{}');
   lagerManual.forEach(it => lagerData.push(it));
   lagerData.forEach(r => { if (lagerEdits[r.name]) Object.assign(r, lagerEdits[r.name]); });
+
+  // MHD / Ablaufdatum
+  function isoPlusDays(n){ const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
+  function fmtMhd(iso){ if(!iso) return ''; const p = iso.split('-'); return p[2] + '.' + p[1] + '.'; }
+  function daysUntilMhd(r){
+    if(!r || !r.mhd) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(r.mhd + 'T00:00:00');
+    return Math.round((d - today) / 86400000);
+  }
+  function mhdState(r){
+    const d = daysUntilMhd(r);
+    if(d === null) return null;
+    if(d < 0) return 'expired';
+    if(d <= 2) return 'soon';
+    return 'ok';
+  }
+  function mhdText(r){
+    const d = daysUntilMhd(r);
+    if(d === null) return '';
+    if(d < 0) return 'abgelaufen';
+    if(d === 0) return 'läuft heute ab';
+    if(d === 1) return 'läuft morgen ab';
+    return 'MHD in ' + d + ' Tagen';
+  }
+  // Demo-MHD für verderbliche Artikel (relativ zu heute), nur falls nicht selbst gesetzt
+  const demoMhd = { 'Tomaten frisch':3, 'Lachsfilet':1, 'Mozzarella':5, 'Sahne':4, 'Salat gem.':2, 'Currywurst':6, 'Eier':12, 'Butter':9 };
+  lagerData.forEach(r => { if(r.mhd == null && demoMhd[r.name] != null) r.mhd = isoPlusDays(demoMhd[r.name]); });
   function statusFromPct(p){ return p < 25 ? 'low' : p < 50 ? 'warn' : 'good'; }
   function persistLager(){
     localStorage.setItem('chef_lager_manual', JSON.stringify(lagerManual));
@@ -1539,9 +1567,15 @@
       .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()))
       .map((r,i)=>{
         const isOrdered = orderedItems.includes(r.name);
+        const ms = mhdState(r);
+        const mhdBadge = ms === 'expired'
+          ? '<span class="pill pill-low" style="font-size:9px;padding:1px 7px">Abgelaufen</span> '
+          : ms === 'soon'
+          ? '<span class="pill pill-warn" style="font-size:9px;padding:1px 7px">' + mhdText(r) + '</span> '
+          : '';
         return `<div class="inv-row" onclick="openLagerItem(${lagerData.indexOf(r)})">
         <div class="inv-emoji">${r.emoji}</div>
-        <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${r.loc} · ${r.days}</div></div>
+        <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${mhdBadge}${r.loc} · ${r.days}</div></div>
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${isOrdered?'good':r.status}" style="width:${isOrdered?100:r.pct}%"></div></div></div>
       </div>`;}).join('');
   }
@@ -1567,6 +1601,8 @@
       <input type="text" class="onboard-input" id="alLoc" placeholder="z.B. Kühlhaus 1">
       <div class="onboard-label">Füllstand (0–100 %)</div>
       <input type="number" class="onboard-input" id="alPct" min="0" max="100" placeholder="z.B. 70">
+      <div class="onboard-label">MHD / Ablaufdatum (optional)</div>
+      <input type="date" class="onboard-input" id="alMhd">
       <button class="btn-primary" onclick="saveAddLager()">Speichern</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
@@ -1580,7 +1616,8 @@
     let pct = parseInt(document.getElementById('alPct').value, 10);
     if(isNaN(pct)) pct = 60;
     pct = Math.max(0, Math.min(100, pct));
-    const item = { name, emoji: ITEM_SVG, loc, amount, days:'selbst notiert', pct, status: statusFromPct(pct) };
+    const mhd = document.getElementById('alMhd').value || null;
+    const item = { name, emoji: ITEM_SVG, loc, amount, days:'selbst notiert', pct, status: statusFromPct(pct), mhd };
     lagerManual.push(item);
     lagerData.push(item);
     persistLager();
@@ -1598,6 +1635,8 @@
       <input type="text" class="onboard-input" id="csAmount" value="${r.amount.replace(/"/g,'&quot;')}">
       <div class="onboard-label">Füllstand (0–100 %)</div>
       <input type="number" class="onboard-input" id="csPct" min="0" max="100" value="${r.pct}">
+      <div class="onboard-label">MHD / Ablaufdatum</div>
+      <input type="date" class="onboard-input" id="csMhd" value="${r.mhd || ''}">
       <button class="btn-primary" onclick="saveCorrectStock(${idx})">Speichern</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
@@ -1609,10 +1648,11 @@
     let pct = parseInt(document.getElementById('csPct').value, 10);
     if(isNaN(pct)) pct = r.pct;
     pct = Math.max(0, Math.min(100, pct));
-    r.amount = amount; r.pct = pct; r.status = statusFromPct(pct);
-    lagerEdits[r.name] = { amount: r.amount, pct: r.pct, status: r.status, days: r.days };
+    const mhd = document.getElementById('csMhd').value || null;
+    r.amount = amount; r.pct = pct; r.status = statusFromPct(pct); r.mhd = mhd;
+    lagerEdits[r.name] = { amount: r.amount, pct: r.pct, status: r.status, days: r.days, mhd: r.mhd };
     const mi = lagerManual.find(m => m.name === r.name);
-    if(mi){ mi.amount = r.amount; mi.pct = r.pct; mi.status = r.status; }
+    if(mi){ mi.amount = r.amount; mi.pct = r.pct; mi.status = r.status; mi.mhd = r.mhd; }
     persistLager();
     closeSheet();
     refreshLager();
@@ -1715,6 +1755,10 @@
       : (r.status!=='good'
       ? `<div class="ai-card glass" style="margin-bottom:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Empfehlung</div></div><div class="ai-suggest"><div class="ai-suggest-text">${r.name} reicht nur noch <strong>${r.days}</strong>. Empfehle Nachbestellung – beim aktuellen Verbrauch wird's sonst eng.</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="markOrdered('${r.name}');toast('✓ ${r.name} bestellt');closeSheet()">Nachbestellen</button></div></div></div>`
       : '');
+    const ms = mhdState(r);
+    const mhdCard = (ms === 'expired' || ms === 'soon')
+      ? `<div class="ai-card glass" style="margin-bottom:14px;border-color:${ms==='expired'?'rgba(255,138,138,0.35)':'rgba(255,182,119,0.35)'}"><div class="ai-head"><div class="ai-pulse" style="background:${ms==='expired'?'var(--red)':'var(--orange)'};box-shadow:0 0 10px ${ms==='expired'?'var(--red)':'var(--orange)'}"></div><div class="ai-title">${ms==='expired'?'MHD überschritten':'Läuft bald ab'}</div></div><div class="ai-suggest"><div class="ai-suggest-text">${r.name} ${mhdText(r)} (${fmtMhd(r.mhd)}). ${ms==='expired'?'Bitte prüfen und ggf. aussortieren.':'Heute/morgen einplanen – z.B. als Tagesgericht verarbeiten, bevor was wegkommt.'}</div></div></div>`
+      : '';
     document.getElementById('sheetTitle').innerHTML = '<span style="display:inline-flex;width:1.1em;height:1.1em;vertical-align:-0.2em;margin-right:4px">'+r.emoji+'</span> '+r.name;
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
@@ -1725,9 +1769,10 @@
         <div class="calc-meta-row">
           <div class="calc-meta"><div class="calc-meta-l">Lagerort</div><div class="calc-meta-v" style="font-size:13px">${r.loc}</div></div>
           <div class="calc-meta"><div class="calc-meta-l">Füllstand</div><div class="calc-meta-v">${r.pct}%</div></div>
-          <div class="calc-meta"><div class="calc-meta-l">Reicht</div><div class="calc-meta-v" style="font-size:13px">${r.days}</div></div>
+          <div class="calc-meta"><div class="calc-meta-l">MHD</div><div class="calc-meta-v" style="font-size:13px;${ms==='expired'?'color:var(--red)':ms==='soon'?'color:var(--orange)':''}">${r.mhd ? fmtMhd(r.mhd) : '–'}</div></div>
         </div>
       </div>
+      ${mhdCard}
       ${lowWarn}
       <div class="section-h"><h2>Verbrauch · 7 Tage</h2></div>
       <div class="ai-card glass" style="padding:18px">
@@ -2037,12 +2082,16 @@
     const warn = lagerData.filter(r => r.status === 'warn').map(r => r.name);
     const openTodos = todoData.filter(t => !todoDone.includes(t.id))
       .map(t => (t.time ? t.time + ' ' : '') + t.text + ' [' + t.tag + ']');
+    const ablauf = lagerData
+      .filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; })
+      .map(r => r.name + ' (' + mhdText(r) + ')');
     return [
       'Umsatz heute: € 1.847 (+12% vs. Wochenmittel)',
       'Marge heute: 62,4% · Lager gesamt: 87% · Verschwendung: 2,1%',
       'Gäste heute: 87 · Bestellungen: 142',
       'Kritischer Bestand: ' + (low.length ? low.join(', ') : 'keiner'),
       'In Warnung: ' + (warn.length ? warn.join(', ') : 'keiner'),
+      'Läuft bald ab / abgelaufen: ' + (ablauf.length ? ablauf.join(', ') : 'nichts'),
       'Lieferungen: heute 14:00 Metro (14 Artikel, €412,80); morgen 06:30 Frische Fisch Friesland',
       'Offene Aufgaben heute: ' + (openTodos.length ? openTodos.join('; ') : 'alles erledigt'),
       'Personal: Halil & Anna (Mittag), Tom & Mira (Abend). Samstag sonnig, +30% Gäste erwartet.'
@@ -2132,6 +2181,17 @@
     if (has('was ist niedrig','niedriger bestand','was fehlt','knapp')) {
       return { reply:'Drei Artikel sind kritisch: Pommes mit 3,8 Kilo, Rinderhack mit 1,2 Kilo und Currywurst mit 2,1 Kilo. Soll ich Sammel-Bestellung bei Frostkönig anlegen? Gesamt etwa 127 Euro.',
         actions:[{label:'Sammel-Bestellung',cmd:'Bestelle alle kritischen Artikel'},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+    }
+    if (has('läuft ab','laeuft ab','läuft bald','abgelaufen','ablauf','mhd','haltbar','haltbarkeit','verderb','wegschmeißen','wegschmeissen')) {
+      const ablauf = lagerData.filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; });
+      if (!ablauf.length) {
+        return { reply:'Aktuell läuft nichts ab und nichts ist abgelaufen. Ich halte die Augen offen und melde mich rechtzeitig.',
+          actions:[{label:'Lager öffnen',fn:()=>navTo('lager')}] };
+      }
+      const liste = ablauf.map(r => r.name + ' ' + mhdText(r)).join(', ');
+      const idx0 = lagerData.indexOf(ablauf[0]);
+      return { reply:`Pass auf, das wird knapp mit der Haltbarkeit: ${liste}. Am besten heute oder morgen einplanen – z.B. als Tagesgericht verarbeiten, bevor was wegkommt.`,
+        actions:[{label:ablauf[0].name+' ansehen',fn:()=>openLagerItem(idx0)},{label:'Lager öffnen',fn:()=>navTo('lager')}] };
     }
     if (has('wie viel','wie viele','bestand','vorrat')) {
       return { reply:'Lager insgesamt bei 87 Prozent. 47 Artikel, davon 3 niedrig, 4 in Warnung. Welcher Artikel interessiert dich konkret?',
@@ -2365,6 +2425,18 @@
   }
   remindTodos();
 
+  // Erinnerung beim App-Start: Artikel, die bald ablaufen
+  function remindMhd(){
+    const ablauf = lagerData.filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; });
+    if(!ablauf.length) return;
+    const expired = ablauf.filter(r => mhdState(r) === 'expired');
+    setTimeout(()=>{
+      if(expired.length) toast('⚠️ ' + expired[0].name + ' ist abgelaufen – bitte prüfen');
+      else toast('⏳ ' + ablauf[0].name + ' ' + mhdText(ablauf[0]) + ' – heute einplanen');
+    }, 3800);
+  }
+  remindMhd();
+
   // ===== Tagesabschluss · was war heute, was fehlt (auch per Voice) =====
   function buildTagesabschluss(){
     const doneTodos = todoData.filter(t => todoDone.includes(t.id));
@@ -2372,6 +2444,8 @@
     const ordered = orderedItems.slice();
     const toOrder = lagerData
       .filter(r => (r.status === 'low' || r.status === 'warn') && !orderedItems.includes(r.name));
+    const ablauf = lagerData
+      .filter(r => { const s = mhdState(r); return s === 'soon' || s === 'expired'; });
     const kpis = { umsatz:'€ 1.847', marge:'62,4 %', gaeste:'87', bestellungen:'142' };
 
     const parts = [];
@@ -2381,11 +2455,12 @@
     if(ordered.length) parts.push('Nachbestellt: ' + ordered.join(', ') + '.');
     if(toOrder.length) parts.push('Das brauchst du noch: ' + toOrder.map(r=>r.name + ' ist mit ' + r.amount + ' knapp').join('; ') + '.');
     else parts.push('Beim Lager ist gerade nichts kritisch.');
+    if(ablauf.length) parts.push('Achtung Haltbarkeit: ' + ablauf.map(r=>r.name + ' ' + mhdText(r)).join('; ') + '.');
     if(openTodos.length) parts.push('Für morgen offen: ' + openTodos.map(t=>t.text + (t.time?' um '+t.time:'')).join(', ') + '.');
     else parts.push('Für morgen ist alles vorbereitet.');
     parts.push('Schönen Feierabend.');
 
-    return { doneTodos, openTodos, ordered, toOrder, kpis, spoken: parts.join(' ') };
+    return { doneTodos, openTodos, ordered, toOrder, ablauf, kpis, spoken: parts.join(' ') };
   }
   function speakTagesabschluss(){
     speak(buildTagesabschluss().spoken, true);
@@ -2402,6 +2477,7 @@
     ];
     const needList = [
       ...t.toOrder.map(r => needRow(r.name + ' nachbestellen', r.amount + ' · reicht ' + r.days)),
+      ...t.ablauf.map(r => needRow(r.name + ' verarbeiten', mhdText(r) + ' · ' + fmtMhd(r.mhd))),
       ...t.openTodos.map(x => needRow(x.text, (x.time?x.time+' · ':'') + x.tag))
     ];
 
