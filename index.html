@@ -13164,48 +13164,26 @@ document.addEventListener('DOMContentLoaded', function() {
         Keine Internetverbindung
     </div>
 
-    <!-- Willkommens-/Erklär-Banner (einmalig pro Besucher, dismissable) -->
-    <div id="kmiWelcomeBanner" style="display:none;padding:12px 16px 0;">
-        <div style="background:linear-gradient(135deg,#003D33,#1a5f4a);color:#fff;border-radius:18px;padding:16px 18px 16px 16px;display:flex;align-items:flex-start;gap:12px;position:relative;box-shadow:0 6px 20px -8px rgba(0,37,30,0.35);font-family:Inter,sans-serif;">
-            <div style="width:38px;height:38px;border-radius:50%;background:#FFD54F;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#003D33;">
-                <span class="material-symbols-outlined" style="font-size:22px;">waving_hand</span>
-            </div>
+    <!-- Live Bestellstatus Banner — Kiek Design -->
+    <style>
+        @keyframes kmiLivePulse {
+            0%, 100% { box-shadow: 0 6px 20px -6px rgba(0,37,30,0.4), 0 0 0 0 rgba(255,213,79,0.55); }
+            50%      { box-shadow: 0 6px 20px -6px rgba(0,37,30,0.4), 0 0 0 8px rgba(255,213,79,0); }
+        }
+        .kmi-live-banner-pulse { animation: kmiLivePulse 1.6s ease-out infinite; }
+    </style>
+    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:9990;cursor:pointer;padding:8px 12px;">
+        <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;border-radius:18px;box-shadow:0 6px 20px -6px rgba(0,37,30,0.3);transition:transform 0.2s;position:relative;background:linear-gradient(135deg,#003D33,#1a5f4a);" id="liveOrderBannerInner" onmouseover="this.style.transform='scale(1.005)'" onmouseout="this.style.transform='scale(1)'">
+            <button onclick="event.stopPropagation();document.getElementById('liveOrderBanner').style.display='none';" style="position:absolute;top:6px;right:8px;background:rgba(255,255,255,0.12);border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;" aria-label="Schließen">
+                <span class="material-symbols-outlined" style="font-size:12px;color:#FFD54F;">close</span>
+            </button>
+            <div id="liveOrderIcon" style="width:38px;height:38px;border-radius:12px;background:rgba(255,213,79,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>
             <div style="flex:1;min-width:0;padding-right:24px;">
-                <div style="font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;color:#fff;line-height:1.25;margin-bottom:3px;">Moin! Willkommen bei Kiek mol in</div>
-                <div style="font-size:13px;line-height:1.45;color:rgba(255,213,79,0.95);">
-                    Ostfrieslands lokale App: <strong style="color:#fff;">Speisekarte ansehen, online bestellen oder Tisch reservieren</strong> — kostenlos, ohne App-Download. Tipp unten auf <strong style="color:#fff;">Essen</strong> und leg los.
-                </div>
-            </div>
-            <button onclick="(function(){try{localStorage.setItem('kmi_welcomeBannerDismissed','1');}catch(e){}var b=document.getElementById('kmiWelcomeBanner');if(b)b.style.display='none';})()" aria-label="Banner schließen" style="position:absolute;top:8px;right:10px;background:rgba(255,255,255,0.12);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-                <span class="material-symbols-outlined" style="font-size:16px;">close</span>
-            </button>
-        </div>
-    </div>
-    <script>
-        (function(){
-            try {
-                var dismissed = localStorage.getItem('kmi_welcomeBannerDismissed');
-                if (!dismissed) {
-                    var b = document.getElementById('kmiWelcomeBanner');
-                    if (b) b.style.display = 'block';
-                }
-            } catch(e) {}
-        })();
-    </script>
-
-    <!-- Live Bestellstatus Banner -->
-    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:9990;cursor:pointer;padding:8px 16px;">
-        <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.04);transition:transform 0.2s;position:relative;" id="liveOrderBannerInner" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='scale(1)'">
-            <button onclick="event.stopPropagation();document.getElementById('liveOrderBanner').style.display='none';" style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,0.06);border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;z-index:2;" aria-label="Schließen">
-                <span class="material-symbols-outlined" style="font-size:12px;">close</span>
-            </button>
-            <div id="liveOrderIcon" style="width:36px;height:36px;border-radius:16px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>
-            <div style="flex:1;min-width:0;padding-right:20px;">
-                <div id="liveOrderText" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-                <div id="liveOrderSub" style="font-size:12px;color:var(--text-secondary);margin-top:1px;"></div>
+                <div id="liveOrderText" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#FFD54F;font-family:Epilogue,sans-serif;letter-spacing:-0.005em;"></div>
+                <div id="liveOrderSub" style="font-size:12px;color:rgba(255,213,79,0.8);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
             </div>
             <div style="flex-shrink:0;">
-                <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-secondary);">chevron_right</span>
+                <span class="material-symbols-outlined" style="font-size:16px;color:rgba(255,213,79,0.6);">chevron_right</span>
             </div>
         </div>
     </div>
@@ -50803,25 +50781,33 @@ async function loadMyOrdersFromSupabase(phone) {
 }
 
 function getOrderStatusInfo(status, minutes, oType) {
-    var svgClock = '<span class="material-symbols-outlined" style="font-size:16px;">schedule</span>';
-    var svgCheck = '<span class="material-symbols-outlined" style="font-size:24px;">check</span>';
-    var svgChef = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>';
-    var svgBell = '<span class="material-symbols-outlined" style="font-size:18px;">notifications</span>';
-    var svgTruck = '<span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span>';
-    var svgX = '<span class="material-symbols-outlined" style="font-size:18px">close</span>';
+    var svgClock = '<span class="material-symbols-outlined" style="font-size:18px;color:#FFD54F;">schedule</span>';
+    var svgCheck = '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">check</span>';
+    var svgChef = '<span class="material-symbols-outlined" style="font-size:18px;color:#FFD54F;">restaurant</span>';
+    var svgBell = '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">notifications_active</span>';
+    var svgTruck = '<span class="material-symbols-outlined" style="font-size:18px;color:#FFD54F;">delivery_dining</span>';
+    var svgDone = '<span class="material-symbols-outlined" style="font-size:18px;color:#FFD54F;">task_alt</span>';
+    var svgX = '<span class="material-symbols-outlined" style="font-size:18px;color:#fff;">close</span>';
+
+    // Kiek-Palette: Dunkelgruen + Gold (Brand-Look)
+    var kiekBg = 'linear-gradient(135deg,#003D33,#1a5f4a)';
+    var kiekReadyBg = 'linear-gradient(135deg,#1a5f4a,#003D33)';
+    var kiekText = '#FFD54F';
+    var kiekSub = 'rgba(255,213,79,0.8)';
+
     var map = {
-        'received': { icon:'', svgIcon:svgClock, text:'Warte auf Bestätigung', sub:'Das Restaurant prüft deine Bestellung', bg:'var(--bg-card)', color:'var(--text-primary)' },
-        'accepted': { icon:'', svgIcon:svgCheck, text:'Bestätigt!', sub: minutes ? 'In ca. ' + minutes + ' Min. fertig' : 'Wird bald zubereitet', bg:'var(--bg-card)', color:'#1a5f4a' },
-        'confirmed': { icon:'', svgIcon:svgCheck, text:'Bestätigt!', sub: minutes ? 'In ca. ' + minutes + ' Min. fertig' : '', bg:'var(--bg-card)', color:'#1a5f4a' },
-        'preparing': { icon:'', svgIcon:svgChef, text:'Wird zubereitet', sub: minutes ? 'Noch ca. ' + minutes + ' Min.' : '', bg:'var(--bg-card)', color:'#92400e' },
-        'ready': { icon:'', svgIcon:svgBell, text:'Dein Essen ist fertig!', sub: oType === 'delivery' ? 'Wird gleich zu dir geliefert' : (oType === 'dine_in' ? 'Wird an deinen Tisch gebracht' : 'Du kannst es jetzt abholen'), bg:'var(--bg-card)', color:'#16a34a' },
-        'out_for_delivery': { icon:'', svgIcon:svgTruck, text:'Dein Essen ist unterwegs!', sub:'In ca. 10–15 Min. bei dir', bg:'var(--bg-card)', color:'#1e40af' },
-        'picked_up': { icon:'', svgIcon:svgCheck, text:'Abgeholt', sub:'Guten Appetit!', bg:'var(--bg-card)', color:'var(--text-secondary)' },
-        'delivered': { icon:'', svgIcon:svgCheck, text:'Geliefert', sub:'Guten Appetit!', bg:'var(--bg-card)', color:'var(--text-secondary)' },
-        'completed': { icon:'', svgIcon:svgCheck, text:'Abgeschlossen', sub:'', bg:'var(--bg-card)', color:'var(--text-secondary)' },
-        'cancelled': { icon:'', svgIcon:svgX, text:'Storniert', sub:'', bg:'var(--bg-card)', color:'#ef4444' }
+        'received':         { svgIcon:svgClock, text:'Warte auf Bestätigung', sub:'Das Restaurant prüft deine Bestellung', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'accepted':         { svgIcon:svgCheck, text:'Bestätigt!', sub: minutes ? 'In ca. ' + minutes + ' Min. fertig' : 'Wird bald zubereitet', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'confirmed':        { svgIcon:svgCheck, text:'Bestätigt!', sub: minutes ? 'In ca. ' + minutes + ' Min. fertig' : '', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'preparing':        { svgIcon:svgChef, text:'Wird zubereitet', sub: minutes ? 'Noch ca. ' + minutes + ' Min.' : '', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'ready':            { svgIcon:svgBell, text:'Dein Essen ist FERTIG!', sub: oType === 'delivery' ? 'Wird gleich zu dir geliefert' : (oType === 'dine_in' ? 'Wird an deinen Tisch gebracht' : 'Du kannst es jetzt abholen'), bg:kiekReadyBg, color:kiekText, subColor:kiekSub, pulse:true },
+        'out_for_delivery': { svgIcon:svgTruck, text:'Dein Essen ist unterwegs!', sub:'In ca. 10–15 Min. bei dir', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'picked_up':        { svgIcon:svgDone, text:'Abgeholt', sub:'Guten Appetit!', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'delivered':        { svgIcon:svgDone, text:'Geliefert', sub:'Guten Appetit!', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'completed':        { svgIcon:svgDone, text:'Abgeschlossen', sub:'', bg:kiekBg, color:kiekText, subColor:kiekSub },
+        'cancelled':        { svgIcon:svgX, text:'Storniert', sub:'', bg:'linear-gradient(135deg,#7f1d1d,#991b1b)', color:'#fff', subColor:'rgba(255,255,255,0.75)' }
     };
-    return map[status] || { icon:'', svgIcon:svgClock, text:status, sub:'', bg:'linear-gradient(135deg,#f3f4f6,#e5e7eb)', color:'#6b7280' };
+    return map[status] || { svgIcon:svgClock, text:status, sub:'', bg:kiekBg, color:kiekText, subColor:kiekSub };
 }
 
 // ==================== SPEISEKARTE EDITOR ====================
@@ -55535,26 +55521,48 @@ async function checkActiveOrderBanner() {
 
     if (type === 'order') {
         var info = getOrderStatusInfo(found.status, found.estimated_minutes, found.order_type);
-        if (inner) inner.style.background = info.bg;
-        if (iconEl) iconEl.innerHTML = info.svgIcon || info.icon;
-        if (textEl) { textEl.textContent = info.text; textEl.style.color = info.color; }
+        if (inner) {
+            inner.style.background = info.bg;
+            inner.style.border = '1px solid rgba(255,213,79,0.15)';
+            inner.classList.toggle('kmi-live-banner-pulse', !!info.pulse);
+        }
+        if (iconEl) {
+            iconEl.innerHTML = info.svgIcon || info.icon;
+            iconEl.style.background = 'rgba(255,213,79,0.18)';
+        }
+        if (textEl) { textEl.textContent = info.text; textEl.style.color = info.color; textEl.style.fontFamily = 'Epilogue, sans-serif'; }
         if (subEl) {
             subEl.textContent = (found.restaurant_name || '') + (info.sub ? ' · ' + info.sub : '');
-            subEl.style.color = info.color;
+            subEl.style.color = info.subColor || info.color;
         }
     } else {
-        // Reservierung
+        // Reservierung — Kiek-Design (Dunkelgruen + Gold)
         var resDateVal = found.reservation_date || found.date || '';
         var resTimeVal = found.reservation_time || found.time || '';
         var dateStr = resDateVal ? new Date(resDateVal + 'T00:00:00').toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' }) : '';
         var timeStr = resTimeVal ? resTimeVal.substring(0,5) + ' Uhr' : '';
         var isPending = found.status === 'pending';
-        var bg = 'var(--bg-card)';
-        var color = isPending ? '#92400e' : '#1a5f4a';
-        if (inner) inner.style.background = bg;
-        if (iconEl) iconEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-        if (textEl) { textEl.textContent = isPending ? 'Reservierung wird bestätigt' : 'Reservierung bestätigt'; textEl.style.color = color; }
-        if (subEl) { subEl.textContent = dateStr + ' · ' + timeStr + ' · ' + (found.party_size || '') + ' Pers.'; subEl.style.color = color; }
+        var bg = 'linear-gradient(135deg,#003D33,#1a5f4a)';
+        var color = '#FFD54F';
+        var subColor = 'rgba(255,213,79,0.8)';
+        if (inner) {
+            inner.style.background = bg;
+            inner.style.border = '1px solid rgba(255,213,79,0.15)';
+            inner.classList.remove('kmi-live-banner-pulse');
+        }
+        if (iconEl) {
+            iconEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#FFD54F;">' + (isPending ? 'schedule' : 'event_available') + '</span>';
+            iconEl.style.background = 'rgba(255,213,79,0.18)';
+        }
+        if (textEl) {
+            textEl.textContent = isPending ? 'Reservierung wird bestätigt' : 'Reservierung bestätigt';
+            textEl.style.color = color;
+            textEl.style.fontFamily = 'Epilogue, sans-serif';
+        }
+        if (subEl) {
+            subEl.textContent = (found.restaurant_name ? found.restaurant_name + ' · ' : '') + dateStr + ' · ' + timeStr + ' · ' + (found.party_size || '') + ' Pers.';
+            subEl.style.color = subColor;
+        }
     }
 }
 
