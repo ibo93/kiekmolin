@@ -14378,7 +14378,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                         partySize: r.party_size,
                                         notes: r.notes || '',
                                         status: r.status,
-                                        source: r.source || 'app'
+                                        source: r.source || 'app',
+                                        createdAt: r.created_at
                                     };
                                 });
                             }
@@ -22763,7 +22764,8 @@ async function loadFromSupabase() {
                 partySize: r.party_size,
                 notes: r.notes || '',
                 status: r.status,
-                source: r.source || 'app'
+                source: r.source || 'app',
+                createdAt: r.created_at
             }));
         }
 
@@ -28528,6 +28530,26 @@ function cycleTableStatus(tableId) {
     showToast(`Tisch ${tableId}: ${statusNames[table.status]}`);
 }
 
+// Hilfsfunktion: "vor X Min/Std/Tagen" oder "Heute HH:MM" Format
+function formatReservationCreatedAt(createdAtStr) {
+    if (!createdAtStr) return '';
+    try {
+        var created = new Date(createdAtStr);
+        if (isNaN(created.getTime())) return '';
+        var now = new Date();
+        var diffMs = now - created;
+        var diffMin = Math.floor(diffMs / 60000);
+        if (diffMin < 1) return 'vor wenigen Sekunden';
+        if (diffMin < 60) return 'vor ' + diffMin + ' Min.';
+        var diffH = Math.floor(diffMin / 60);
+        if (diffH < 24) return 'vor ' + diffH + ' Std.';
+        var diffD = Math.floor(diffH / 24);
+        if (diffD === 1) return 'gestern';
+        if (diffD < 7) return 'vor ' + diffD + ' Tagen';
+        return created.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    } catch(e) { return ''; }
+}
+
 function renderReservations() {
     const container = document.getElementById('reservationsList');
     if (!container) return;
@@ -28561,6 +28583,12 @@ ${r.partySize} Personen
 
 Wir freuen uns auf Sie!`;
 
+        const isOnline = r.source === 'app';
+        const createdAgo = isOnline ? formatReservationCreatedAt(r.createdAt) : '';
+        const createdBadge = createdAgo
+            ? `<div class="reservation-details" style="margin-top:3px;font-size:11px;color:#1a5f4a;display:flex;align-items:center;gap:4px;font-weight:600;"><span class="material-symbols-outlined" style="font-size:13px;">schedule</span>Eingegangen ${createdAgo}</div>`
+            : '';
+
         html += `
             <div class="reservation-item">
                 <div class="reservation-time">
@@ -28569,8 +28597,9 @@ Wir freuen uns auf Sie!`;
                 </div>
                 <div class="reservation-info">
                     <div class="reservation-name">${r.guestName}</div>
-                    <div class="reservation-details">${r.partySize} Personen • via ${r.source === 'app' ? 'App' : 'Telefon'}${r.notes ? ' • ' + r.notes : ''}</div>
+                    <div class="reservation-details">${r.partySize} Personen • via ${isOnline ? 'App' : 'Telefon'}${r.notes ? ' • ' + r.notes : ''}</div>
                     ${r.guestPhone ? `<div class="reservation-details" style="margin-top: 2px; font-size: 12px;">${r.guestPhone}</div>` : ''}
+                    ${createdBadge}
                 </div>
                 ${r.status === 'pending' ? `
                     <div class="reservation-actions">
