@@ -28721,12 +28721,38 @@ Wir freuen uns auf Sie!`;
 
         const isOnline = r.source === 'app';
         const createdAgo = isOnline ? formatReservationCreatedAt(r.createdAt) : '';
-        const createdBadge = createdAgo
-            ? `<div class="reservation-details" style="margin-top:3px;font-size:11px;color:#1a5f4a;display:flex;align-items:center;gap:4px;font-weight:600;"><span class="material-symbols-outlined" style="font-size:13px;">schedule</span>Eingegangen ${createdAgo}</div>`
+        // Dringlichkeit nach Wartezeit für Pending-Online-Reservierungen
+        var waitMin = 0;
+        if (r.createdAt) {
+            try { waitMin = Math.floor((Date.now() - new Date(r.createdAt).getTime()) / 60000); } catch(e){}
+        }
+        var urgencyStyle, urgencyIcon;
+        if (r.status === 'pending' && isOnline) {
+            if (waitMin >= 20) {
+                urgencyStyle = 'background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fff;'; urgencyIcon = 'priority_high';
+            } else if (waitMin >= 10) {
+                urgencyStyle = 'background:#FFD54F;color:#003D33;'; urgencyIcon = 'schedule';
+            } else {
+                urgencyStyle = 'background:rgba(0,61,51,0.08);color:#003D33;'; urgencyIcon = 'schedule';
+            }
+        }
+        const waitingBadge = (urgencyStyle && createdAgo)
+            ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:10px;margin-bottom:8px;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.02em;${urgencyStyle}">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">${urgencyIcon}</span>
+                    Wartet ${createdAgo}
+                </div>
+                ${waitMin >= 20 ? '<span style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.9;">jetzt bearbeiten</span>' : ''}
+            </div>`
+            : '';
+        const createdBadge = (isOnline && r.status !== 'pending' && createdAgo)
+            ? `<div class="reservation-details" style="margin-top:3px;font-size:11px;color:rgba(0,61,51,0.6);display:flex;align-items:center;gap:4px;font-weight:600;"><span class="material-symbols-outlined" style="font-size:13px;">schedule</span>Eingegangen ${createdAgo}</div>`
             : '';
 
         html += `
-            <div class="reservation-item">
+            <div class="reservation-item" style="position:relative;">
+                ${waitingBadge}
+                <div style="display:flex;align-items:center;gap:12px;">
                 <div class="reservation-time">
                     <div class="reservation-time-value">${r.time}</div>
                     <div class="reservation-time-label">Heute</div>
@@ -28756,6 +28782,7 @@ Wir freuen uns auf Sie!`;
                 ` : `
                     <span class="reservation-status ${statusClass}">${statusText}</span>
                 `}
+                </div>
             </div>
         `;
     });
