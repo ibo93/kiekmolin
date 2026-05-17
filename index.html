@@ -21535,12 +21535,28 @@ function subscribeWebPush() {
         var json = sub.toJSON();
         var phone = localStorage.getItem('kmi_customer_phone') || null;
         var email = localStorage.getItem('kmi_customer_email') || null;
+        // Wenn Gastronom angemeldet: restaurant_id mitspeichern fuer Pending-Reminder
+        var gastroRestaurantId = null;
+        try {
+            if (window._gastroOnlyRestaurantId) {
+                gastroRestaurantId = window._gastroOnlyRestaurantId;
+            } else if (window.currentAdmin && window.currentAdmin.restaurant_id) {
+                gastroRestaurantId = window.currentAdmin.restaurant_id;
+            } else {
+                var adminRaw = localStorage.getItem('kmi_admin') || localStorage.getItem('currentAdmin');
+                if (adminRaw) {
+                    var adminObj = JSON.parse(adminRaw);
+                    if (adminObj && adminObj.restaurant_id) gastroRestaurantId = adminObj.restaurant_id;
+                }
+            }
+        } catch(e) {}
         var record = {
             endpoint: json.endpoint,
             p256dh_key: json.keys && json.keys.p256dh,
             auth_key: json.keys && json.keys.auth,
             customer_phone: phone,
             customer_email: email,
+            restaurant_id: gastroRestaurantId,
             user_agent: navigator.userAgent || null
         };
         try {
