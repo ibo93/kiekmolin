@@ -754,6 +754,39 @@
             border-color: rgba(255,255,255,0.06) !important;
             color: #d0d3d1 !important;
         }
+        /* Stempelkarte — Dark-Mode passend zu Kiek */
+        .dark-mode .kmi-loyalty-card {
+            background: #1a1a1a !important;
+            border-color: rgba(255,255,255,0.08) !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+        }
+        .dark-mode .kmi-stamp.filled {
+            background: #9cd1c3 !important;
+        }
+        .dark-mode .kmi-stamp.filled .material-symbols-outlined {
+            color: #003D33 !important;
+        }
+        .dark-mode .kmi-stamp.empty {
+            border-color: rgba(156,209,195,0.3) !important;
+            background: rgba(156,209,195,0.04) !important;
+        }
+        .dark-mode .kmi-stamp.empty span {
+            color: rgba(184,237,223,0.5) !important;
+        }
+        .dark-mode .kmi-loyalty-card div[style*="rgba(0,61,51,0.55)"],
+        .dark-mode .kmi-loyalty-card div[style*="rgba(0,61,51,0.65)"] {
+            color: rgba(184,237,223,0.65) !important;
+        }
+        .dark-mode .kmi-loyalty-card strong[style*="#003D33"] {
+            color: #b8eddf !important;
+        }
+        .dark-mode .kmi-loyalty-card div[style*="rgba(255,213,79,0.18)"] {
+            background: rgba(255,213,79,0.12) !important;
+            color: #FFD54F !important;
+        }
+        .dark-mode .kmi-loyalty-card div[style*="rgba(255,213,79,0.18)"] .material-symbols-outlined {
+            color: #FFD54F !important;
+        }
         /* Push-Opt-In-Banner — Kiek-Design, Dark-Mode-aware */
         .dark-mode .kmi-push-banner {
             background: rgba(156,209,195,0.08) !important;
@@ -54656,24 +54689,41 @@ function renderLoyaltyCard(phone) {
     var free = hasFreeMeal(phone, restId);
     var total = getLoyaltyData(phone, restId).orders;
 
+    // Kiek-Design: weiße Card mit subtler Border, Kiek-Grün + Gold-Akzente
     var circles = '';
     for (var i = 0; i < 10; i++) {
         if (i < stamps) {
-            circles += '<div style="width:32px;height:32px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;"><span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">check</span></span></div>';
+            circles += '<div class="kmi-stamp filled" style="width:34px;height:34px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,37,30,0.15);">'
+                + '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">check</span></div>';
         } else {
-            circles += '<div style="width:32px;height:32px;border-radius:50%;border:2px dashed var(--border-color);display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:11px;">' + (i + 1) + '</div>';
+            circles += '<div class="kmi-stamp empty" style="width:34px;height:34px;border-radius:50%;border:2px dashed rgba(0,61,51,0.25);display:flex;align-items:center;justify-content:center;background:rgba(0,61,51,0.02);">'
+                + '<span style="color:rgba(0,61,51,0.4);font-family:Epilogue,sans-serif;font-weight:700;font-size:13px;">' + (i + 1) + '</span></div>';
         }
     }
 
-    return '<div style="background:var(--bg-card);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.05);">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-        '<div style="font-weight:700;font-size:15px;"><span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13M3 12h18M8 8c0-2 1.5-4 4-4s4 2 4 4"/></svg></span> Stempelkarte</div>' +
-        '<div style="font-size:12px;color:var(--slate);">' + total + ' Bestellungen</div></div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:10px;">' + circles + '</div>' +
-        '<div style="text-align:center;font-size:12px;color:var(--slate);">' +
-        (free ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">auto_fix_high</span></span> <strong style="color:var(--primary);">Gratis-Gericht verfügbar!</strong>' :
-        stamps + '/10 Stempel – noch ' + (10 - stamps) + ' bis zum Gratis-Gericht') +
-        '</div></div>';
+    var headerRight = free
+        ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#FFD54F;color:#003D33;padding:3px 10px;border-radius:9999px;font-family:Epilogue,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;"><span class="material-symbols-outlined" style="font-size:13px;">redeem</span>Gratis!</span>'
+        : '<span style="font-family:Inter,sans-serif;font-size:11px;color:rgba(0,61,51,0.55);font-weight:600;">' + total + ' Bestellungen</span>';
+
+    var footerText = free
+        ? '<div style="text-align:center;padding:10px 14px;background:rgba(255,213,79,0.18);border-radius:12px;font-family:Epilogue,sans-serif;font-weight:700;font-size:13px;color:#003D33;display:flex;align-items:center;justify-content:center;gap:6px;">'
+            + '<span class="material-symbols-outlined" style="font-size:18px;color:#003D33;">card_giftcard</span>'
+            + 'Deine Gratis-Mahlzeit wartet — im Warenkorb einlösen</div>'
+        : '<div style="text-align:center;font-family:Inter,sans-serif;font-size:12px;color:rgba(0,61,51,0.65);font-weight:500;">'
+            + '<strong style="color:#003D33;font-family:Epilogue,sans-serif;">' + stamps + '/10</strong> Stempel · noch <strong style="color:#003D33;font-family:Epilogue,sans-serif;">' + (10 - stamps) + '</strong> bis zur Gratis-Mahlzeit</div>';
+
+    return ''
+        + '<div class="kmi-loyalty-card" style="background:#ffffff;border:1px solid rgba(0,61,51,0.08);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,37,30,0.04);">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'
+                + '<div style="display:flex;align-items:center;gap:8px;font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;color:#003D33;letter-spacing:-0.01em;">'
+                    + '<span class="material-symbols-outlined" style="font-size:20px;color:#003D33;">loyalty</span>'
+                    + 'Stempelkarte'
+                + '</div>'
+                + headerRight
+            + '</div>'
+            + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;justify-items:center;">' + circles + '</div>'
+            + footerText
+        + '</div>';
 }
 
 // ==================== FEATURE 3: KUNDENBEWERTUNGEN ====================
