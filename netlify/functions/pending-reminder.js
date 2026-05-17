@@ -18,7 +18,7 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:info@kiekmolin.de';
 
-const STALE_MINUTES = 30;   // ab wann eine Pending-Sache als ueberfaellig gilt
+const STALE_MINUTES = 20;   // ab wann eine Pending-Sache als ueberfaellig gilt
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
   try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
