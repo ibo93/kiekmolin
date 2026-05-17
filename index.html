@@ -54468,53 +54468,193 @@ function toggleCoupon(couponId) {
 
 // ==================== FEATURE 2: STAMMKUNDEN-KARTE ====================
 
-function getLoyaltyData(phone) {
-    if (!phone) return { orders: 0, freeEarned: 0, freeUsed: 0 };
-    var data = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
-    return data[phone] || { orders: 0, freeEarned: 0, freeUsed: 0 };
+// ==================== STEMPELKARTE (Supabase-basiert) ====================
+// Stempel werden PRO RESTAURANT in Supabase gespeichert (Tabelle loyalty_stamps)
+// localStorage dient nur noch als schneller Cache fuer sync UI-Render
+
+var _loyaltyCache = {};   // Key: phone|restId -> { orders, freeEarned, freeUsed, lastOrderAt }
+
+function _loyaltyKey(phone, restId) {
+    return (phone || '') + '|' + (restId || '');
 }
 
-function addLoyaltyPoint(phone, restaurantId) {
-    if (!phone) return;
-    var data = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
-    if (!data[phone]) data[phone] = { orders: 0, freeEarned: 0, freeUsed: 0 };
-    data[phone].orders++;
-    if (data[phone].orders % 10 === 0) {
-        data[phone].freeEarned++;
+// Async: holt aktuelle Stempel-Daten aus Supabase und cached sie
+async function loadLoyaltyData(phone, restId) {
+    if (!phone || !restId) return { orders: 0, freeEarned: 0, freeUsed: 0 };
+    try {
+        var url = SUPABASE_URL + '/rest/v1/loyalty_stamps'
+            + '?customer_phone=eq.' + encodeURIComponent(phone)
+            + '&restaurant_id=eq.' + encodeURIComponent(restId)
+            + '&select=stamps_count,free_meals_earned,free_meals_used,last_order_at&limit=1';
+        var res = await fetch(url, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var rows = await res.json();
+        var data;
+        if (rows && rows.length) {
+            var r = rows[0];
+            // stamps_count = totale Bestellungen (0..inf), wir leiten orders + freeEarned daraus ab
+            data = {
+                orders: r.stamps_count || 0,
+                freeEarned: r.free_meals_earned || 0,
+                freeUsed: r.free_meals_used || 0,
+                lastOrderAt: r.last_order_at || null
+            };
+        } else {
+            data = { orders: 0, freeEarned: 0, freeUsed: 0, lastOrderAt: null };
+        }
+        _loyaltyCache[_loyaltyKey(phone, restId)] = data;
+        // localStorage-Fallback auch updaten (fuer Offline)
+        try {
+            var lsAll = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
+            lsAll[phone + '@' + restId] = data;
+            localStorage.setItem('kmi_loyalty', JSON.stringify(lsAll));
+        } catch(e) {}
+        return data;
+    } catch(e) {
+        console.warn('loadLoyaltyData fallback to localStorage:', e.message);
+        try {
+            var lsAll2 = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
+            var lsRow = lsAll2[phone + '@' + restId] || lsAll2[phone] || { orders: 0, freeEarned: 0, freeUsed: 0 };
+            _loyaltyCache[_loyaltyKey(phone, restId)] = lsRow;
+            return lsRow;
+        } catch(_) {
+            return { orders: 0, freeEarned: 0, freeUsed: 0 };
+        }
     }
-    data[phone].lastRestaurant = restaurantId;
-    data[phone].lastOrder = new Date().toISOString();
-    localStorage.setItem('kmi_loyalty', JSON.stringify(data));
 }
 
-function getLoyaltyStamps(phone) {
-    var d = getLoyaltyData(phone);
+// Sync: nimmt aus Cache (muss vorher mit loadLoyaltyData geholt sein)
+function getLoyaltyData(phone, restId) {
+    if (!phone) return { orders: 0, freeEarned: 0, freeUsed: 0 };
+    // Wenn restId fehlt: aktuelles Order-Restaurant nutzen
+    if (!restId && typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant) {
+        restId = currentOrderRestaurant.id;
+    }
+    var cached = _loyaltyCache[_loyaltyKey(phone, restId)];
+    if (cached) return cached;
+    // Fallback: localStorage
+    try {
+        var lsAll = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
+        return lsAll[phone + '@' + restId] || lsAll[phone] || { orders: 0, freeEarned: 0, freeUsed: 0 };
+    } catch(e) {
+        return { orders: 0, freeEarned: 0, freeUsed: 0 };
+    }
+}
+
+// Stempel hinzufuegen — schreibt direkt in Supabase via RPC
+async function addLoyaltyPoint(phone, restaurantId) {
+    if (!phone || !restaurantId) return;
+    try {
+        // Erst aktuellen Stand holen
+        var current = await loadLoyaltyData(phone, restaurantId);
+        var newOrders = (current.orders || 0) + 1;
+        var newFreeEarned = current.freeEarned || 0;
+        // Alle 10 Bestellungen: +1 Gratis-Mahlzeit
+        if (newOrders % 10 === 0) newFreeEarned++;
+
+        var payload = {
+            customer_phone: phone,
+            restaurant_id: restaurantId,
+            stamps_count: newOrders,
+            free_meals_earned: newFreeEarned,
+            free_meals_used: current.freeUsed || 0,
+            last_order_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        var url = SUPABASE_URL + '/rest/v1/loyalty_stamps?on_conflict=customer_phone,restaurant_id';
+        var res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates,return=representation'
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).slice(0, 200));
+
+        // Cache updaten
+        _loyaltyCache[_loyaltyKey(phone, restaurantId)] = {
+            orders: newOrders,
+            freeEarned: newFreeEarned,
+            freeUsed: current.freeUsed || 0,
+            lastOrderAt: payload.last_order_at
+        };
+    } catch(e) {
+        console.warn('addLoyaltyPoint Supabase fehlgeschlagen, schreibe in localStorage:', e.message);
+        try {
+            var data = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
+            var key = phone + '@' + restaurantId;
+            if (!data[key]) data[key] = { orders: 0, freeEarned: 0, freeUsed: 0 };
+            data[key].orders++;
+            if (data[key].orders % 10 === 0) data[key].freeEarned++;
+            data[key].lastOrderAt = new Date().toISOString();
+            localStorage.setItem('kmi_loyalty', JSON.stringify(data));
+            _loyaltyCache[_loyaltyKey(phone, restaurantId)] = data[key];
+        } catch(_){}
+    }
+}
+
+function getLoyaltyStamps(phone, restId) {
+    var d = getLoyaltyData(phone, restId);
     return d.orders % 10; // 0-9 Stempel
 }
 
-function hasFreeMeal(phone) {
-    var d = getLoyaltyData(phone);
-    return d.freeEarned > d.freeUsed;
+function hasFreeMeal(phone, restId) {
+    var d = getLoyaltyData(phone, restId);
+    return (d.freeEarned || 0) > (d.freeUsed || 0);
 }
 
-function useFreeMeal(phone) {
-    var data = JSON.parse(localStorage.getItem('kmi_loyalty') || '{}');
-    if (data[phone] && data[phone].freeEarned > data[phone].freeUsed) {
-        data[phone].freeUsed++;
-        localStorage.setItem('kmi_loyalty', JSON.stringify(data));
+async function useFreeMeal(phone, restaurantId) {
+    if (!phone || !restaurantId) return false;
+    try {
+        var current = await loadLoyaltyData(phone, restaurantId);
+        if ((current.freeEarned || 0) <= (current.freeUsed || 0)) return false;
+        var newFreeUsed = (current.freeUsed || 0) + 1;
+        var url = SUPABASE_URL + '/rest/v1/loyalty_stamps?customer_phone=eq.' + encodeURIComponent(phone) + '&restaurant_id=eq.' + encodeURIComponent(restaurantId);
+        var res = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ free_meals_used: newFreeUsed, updated_at: new Date().toISOString() })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        _loyaltyCache[_loyaltyKey(phone, restaurantId)] = {
+            orders: current.orders,
+            freeEarned: current.freeEarned,
+            freeUsed: newFreeUsed,
+            lastOrderAt: current.lastOrderAt
+        };
         return true;
+    } catch(e) {
+        console.warn('useFreeMeal Supabase fehlgeschlagen:', e.message);
+        return false;
     }
-    return false;
 }
 
 function renderLoyaltyCard(phone) {
     if (!phone) return '';
-    // Feature-Check: nur rendern wenn Stempelkarte aktiviert
     var _rlcFeatures = (currentOrderRestaurant && currentOrderRestaurant.features) ? currentOrderRestaurant.features : [];
     if (_rlcFeatures.indexOf('loyalty_points') === -1) return '';
-    var stamps = getLoyaltyStamps(phone);
-    var free = hasFreeMeal(phone);
-    var total = getLoyaltyData(phone).orders;
+    var restId = currentOrderRestaurant && currentOrderRestaurant.id;
+    // Async: Daten frisch holen, dann UI re-rendern
+    if (restId && !_loyaltyCache[_loyaltyKey(phone, restId)]) {
+        loadLoyaltyData(phone, restId).then(function() {
+            var sec = document.getElementById('loyaltyCardSection');
+            if (sec) sec.innerHTML = renderLoyaltyCard(phone);
+        });
+    }
+    var stamps = getLoyaltyStamps(phone, restId);
+    var free = hasFreeMeal(phone, restId);
+    var total = getLoyaltyData(phone, restId).orders;
 
     var circles = '';
     for (var i = 0; i < 10; i++) {
