@@ -2,8 +2,8 @@
 //
 // Laeuft als Netlify Scheduled Function alle 10 Minuten (siehe netlify.toml).
 // Schickt Web Push an alle Gastronomen-Devices wenn:
-//   - Bestellung Status 'received' oder 'pending' und > 30 Min alt und reminder_sent_at NULL
-//   - Reservierung Status 'pending' und > 30 Min alt und reminder_sent_at NULL
+//   - Bestellung Status 'received' oder 'pending' und > 20 Min alt und reminder_sent_at NULL
+//   - Reservierung Status 'pending' und > 20 Min alt und reminder_sent_at NULL
 // Markiert dann reminder_sent_at = jetzt, damit nicht doppelt gesendet wird.
 //
 // ENV-Vars noetig: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
@@ -89,6 +89,8 @@ async function handleItem(kind, item, restaurantNameById) {
     body = restName + ': Reservierung von ' + (item.guest_name || 'Gast') + ' (' + when.trim() + ', ' + (item.party_size || '?') + ' Pers.) wartet seit ' + STALE_MINUTES + ' Min.';
   }
 
+  // URL fuer Klick aus der Notification (oeffnet passenden Dashboard-Tab)
+  const targetUrl = kind === 'order' ? '/?adminTab=orders' : '/?adminTab=reservations';
   const payload = {
     title: title,
     body: body,
@@ -96,7 +98,14 @@ async function handleItem(kind, item, restaurantNameById) {
     badge: '/kiek-logo.png',
     tag: 'pending-' + kind + '-' + item.id,
     requireInteraction: true,
-    data: { type: kind, id: item.id, restaurantId: restId, url: '/' }
+    vibrate: [300, 120, 300, 120, 300],
+    data: {
+      type: kind,
+      orderId: kind === 'order' ? item.id : null,
+      reservationId: kind === 'reservation' ? item.id : null,
+      restaurantId: restId,
+      url: targetUrl
+    }
   };
 
   const results = await Promise.all(subs.map(s => pushToSubscription(s, payload)));

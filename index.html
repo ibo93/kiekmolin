@@ -22303,6 +22303,10 @@ function adminLogout() {
     currentAdmin = null;
     localStorage.removeItem('kmi_admin_logged_in');
 
+    // Push-Subscription entkoppeln: restaurant_id auf null setzen,
+    // damit dieses Geraet keine Pending-Reminder fuer das Restaurant mehr kriegt.
+    try { if (typeof subscribeWebPush === 'function') subscribeWebPush(); } catch(e) {}
+
     document.getElementById('guestView').classList.remove('hidden');
     document.getElementById('dashboardView').classList.remove('active');
     document.querySelectorAll('.toggle-btn')[0].classList.add('active');
