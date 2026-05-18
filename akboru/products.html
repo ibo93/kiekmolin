@@ -53,22 +53,27 @@
 <main class="pt-20">
 
   <!-- HERO -->
-  <section class="relative min-h-[80vh] flex items-center justify-center px-margin-mobile md:px-margin-desktop overflow-hidden volumetric-light">
-    <div class="absolute inset-0 z-0 opacity-30"
+  <section class="relative min-h-[80vh] flex items-center px-margin-mobile md:px-margin-desktop overflow-hidden volumetric-light bg-hero-pipes">
+    <div class="absolute inset-0 z-0 opacity-20"
          style="background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 80px 80px;"></div>
-    <div class="relative z-10 w-full max-w-container-max mx-auto text-center mt-12">
-      <h1 class="font-display-xl text-[44px] md:text-display-xl font-extrabold tracking-tighter text-on-surface mb-6 uppercase leading-[0.9]">
-        <span data-i18n="products.hero.h1.l1">Structural</span><br /><span data-i18n="products.hero.h1.l2">Integrity</span>
-      </h1>
-      <p class="font-spec-mono text-spec-mono text-on-surface-variant uppercase tracking-widest mb-12 max-w-2xl mx-auto" data-i18n="products.hero.sub">
-        Precision Engineered Industrial Solutions. Uncompromising strength for global architecture.
-      </p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <button class="px-8 py-4 bg-white text-black font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:shadow-[0_0_20px_rgba(232,244,255,0.5)] transition-all duration-300 w-full sm:w-auto" data-i18n="cta.exploreSpecs">Explore Specifications</button>
-        <button class="px-8 py-4 glass-panel text-on-surface font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:border-ice/50 transition-all duration-300 w-full sm:w-auto flex items-center justify-center gap-2">
-          <span class="material-symbols-outlined">download</span>
-          <span data-i18n="cta.downloadCad">Download CAD</span>
-        </button>
+    <div class="relative z-10 w-full max-w-container-max mx-auto grid grid-cols-1 lg:grid-cols-12 gap-gutter items-center pt-12">
+      <div class="lg:col-span-6 flex flex-col gap-6 text-center lg:text-left">
+        <h1 class="font-display-xl text-[44px] md:text-display-xl font-extrabold tracking-tighter text-on-surface uppercase leading-[0.9]">
+          <span data-i18n="products.hero.h1.l1">Structural</span><br /><span data-i18n="products.hero.h1.l2">Integrity</span>
+        </h1>
+        <p class="font-spec-mono text-spec-mono text-on-surface-variant uppercase tracking-widest mx-auto lg:mx-0 max-w-xl" data-i18n="products.hero.sub">
+          Precision Engineered Industrial Solutions. Uncompromising strength for global architecture.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mt-4">
+          <button class="px-8 py-4 bg-white text-black font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:shadow-[0_0_20px_rgba(232,244,255,0.5)] transition-all duration-300 w-full sm:w-auto" data-i18n="cta.exploreSpecs">Explore Specifications</button>
+          <button class="px-8 py-4 glass-panel text-on-surface font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:border-ice/50 transition-all duration-300 w-full sm:w-auto flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined">download</span>
+            <span data-i18n="cta.downloadCad">Download CAD</span>
+          </button>
+        </div>
+      </div>
+      <div class="lg:col-span-6">
+        <div data-tube3d="hero" class="w-full max-w-[600px] mx-auto"></div>
       </div>
     </div>
   </section>
@@ -87,17 +92,9 @@
 
       <!-- RHS -->
       <article class="glass-panel rounded-lg overflow-hidden group relative hover:border-ice/30 transition-colors duration-500">
-        <div class="aspect-[4/3] bg-surface-container-lowest relative overflow-hidden flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent z-10"></div>
-          <svg class="w-2/3 h-auto opacity-80 group-hover:scale-105 transition-transform duration-700" viewBox="0 0 320 240" fill="none">
-            <defs>
-              <linearGradient id="chrome1" x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0%" stop-color="#f5f5f5"/><stop offset="50%" stop-color="#8a8a8a"/><stop offset="100%" stop-color="#e5e5e5"/>
-              </linearGradient>
-            </defs>
-            <rect x="60" y="80" width="200" height="100" rx="6" fill="url(#chrome1)" stroke="#fff" stroke-opacity="0.2"/>
-            <rect x="80" y="100" width="160" height="60" rx="4" fill="#0c0f0f" stroke="#fff" stroke-opacity="0.1"/>
-          </svg>
+        <div class="aspect-[4/3] bg-surface-container-lowest relative overflow-hidden flex items-center justify-center p-6">
+          <div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent z-10 pointer-events-none"></div>
+          <div data-tube3d="rhs" class="w-full max-w-[420px] z-0"></div>
         </div>
         <div class="p-8 relative z-20 -mt-16">
           <div class="flex items-center gap-3 mb-6">
@@ -128,17 +125,9 @@
 
       <!-- CHS -->
       <article class="glass-panel rounded-lg overflow-hidden group relative hover:border-ice/30 transition-colors duration-500">
-        <div class="aspect-[4/3] bg-surface-container-lowest relative overflow-hidden flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent z-10"></div>
-          <svg class="w-1/2 h-auto opacity-80 group-hover:scale-105 transition-transform duration-700" viewBox="0 0 240 240" fill="none">
-            <defs>
-              <radialGradient id="chrome2" cx="0.35" cy="0.35" r="0.7">
-                <stop offset="0%" stop-color="#f5f5f5"/><stop offset="60%" stop-color="#8a8a8a"/><stop offset="100%" stop-color="#1a1a1a"/>
-              </radialGradient>
-            </defs>
-            <circle cx="120" cy="120" r="90" fill="url(#chrome2)" stroke="#fff" stroke-opacity="0.2"/>
-            <circle cx="120" cy="120" r="60" fill="#0c0f0f" stroke="#fff" stroke-opacity="0.1"/>
-          </svg>
+        <div class="aspect-[4/3] bg-surface-container-lowest relative overflow-hidden flex items-center justify-center p-6">
+          <div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent z-10 pointer-events-none"></div>
+          <div data-tube3d="chs" class="w-full max-w-[380px] z-0"></div>
         </div>
         <div class="p-8 relative z-20 -mt-16">
           <div class="flex items-center gap-3 mb-6">
@@ -170,17 +159,9 @@
       <!-- SHS (full width on lg via colspan) -->
       <article class="glass-panel rounded-lg overflow-hidden group relative hover:border-ice/30 transition-colors duration-500 lg:col-span-2">
         <div class="grid grid-cols-1 lg:grid-cols-2">
-          <div class="aspect-[4/3] lg:aspect-auto bg-surface-container-lowest relative overflow-hidden flex items-center justify-center min-h-[260px]">
-            <div class="absolute inset-0 bg-gradient-to-r from-surface-container-lowest to-transparent z-10"></div>
-            <svg class="w-1/2 h-auto opacity-80 group-hover:scale-105 transition-transform duration-700" viewBox="0 0 240 240" fill="none">
-              <defs>
-                <linearGradient id="chrome3" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#f5f5f5"/><stop offset="50%" stop-color="#7a7a7a"/><stop offset="100%" stop-color="#e5e5e5"/>
-                </linearGradient>
-              </defs>
-              <rect x="40" y="40" width="160" height="160" rx="6" fill="url(#chrome3)" stroke="#fff" stroke-opacity="0.2"/>
-              <rect x="64" y="64" width="112" height="112" rx="4" fill="#0c0f0f" stroke="#fff" stroke-opacity="0.1"/>
-            </svg>
+          <div class="aspect-[4/3] lg:aspect-auto bg-surface-container-lowest relative overflow-hidden flex items-center justify-center min-h-[260px] p-6">
+            <div class="absolute inset-0 bg-gradient-to-r from-surface-container-lowest to-transparent z-10 pointer-events-none"></div>
+            <div data-tube3d="shs" class="w-full max-w-[360px] z-0"></div>
           </div>
           <div class="p-8 relative z-20">
             <div class="flex items-center gap-3 mb-6">
@@ -229,6 +210,7 @@
 </footer>
 
 <script src="./assets/i18n.js"></script>
+<script src="./assets/tubes.js"></script>
 <script src="./assets/widgets.js"></script>
 </body>
 </html>

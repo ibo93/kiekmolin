@@ -452,9 +452,7 @@ window.AKBORU.onLangChange = (fn) => window.AKBORU.subscribers.push(fn);
 function detectInitialLang() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved && LANGS[saved]) return saved;
-  const nav = (navigator.language || "en").slice(0, 2).toLowerCase();
-  if (LANGS[nav]) return nav;
-  return "en";
+  return "tr"; // Hauptsprache: Türkisch
 }
 
 function translate(key, lang) {

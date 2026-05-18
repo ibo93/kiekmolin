@@ -105,6 +105,67 @@ html[dir="rtl"] .uppercase { text-transform: none; }
 html[dir="rtl"] .tracking-tighter,
 html[dir="rtl"] .tracking-widest { letter-spacing: 0 !important; }
 
+/* ===== 3D Steel renderings (hero + product cards) ===== */
+.tube-3d {
+  width: 100%; height: auto;
+  filter: drop-shadow(0 30px 60px rgba(0,0,0,0.85));
+  animation: tube-float 14s ease-in-out infinite;
+  transform-origin: center;
+}
+.tube-3d.tube-static { animation: none; }
+@keyframes tube-float {
+  0%, 100% { transform: rotate(-1.5deg) translateY(0); }
+  50%      { transform: rotate(1.5deg)  translateY(-14px); }
+}
+.tube-3d .light-sweep {
+  animation: light-sweep 5s ease-in-out infinite;
+  transform-origin: center;
+  mix-blend-mode: screen;
+}
+@keyframes light-sweep {
+  0%   { transform: translateX(-30%); opacity: 0; }
+  20%  { opacity: 0.75; }
+  80%  { opacity: 0.75; }
+  100% { transform: translateX(140%);  opacity: 0; }
+}
+.tube-3d .light-sweep-circ {
+  animation: light-orbit 6s linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes light-orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Industrial hero backgrounds */
+.bg-hero-warehouse {
+  background-image:
+    linear-gradient(rgba(18,20,20,0.65), rgba(18,20,20,0.92)),
+    url('https://images.unsplash.com/photo-1565793298595-6a879b1d9492?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover; background-position: center;
+}
+.bg-hero-pipes {
+  background-image:
+    linear-gradient(rgba(18,20,20,0.55), rgba(18,20,20,0.94)),
+    url('https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover; background-position: center;
+}
+.bg-hero-foundry {
+  background-image:
+    linear-gradient(rgba(18,20,20,0.7), rgba(18,20,20,0.92)),
+    url('https://images.unsplash.com/photo-1518709268805-4e9042af2176?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover; background-position: center;
+}
+.bg-hero-engineering {
+  background-image:
+    linear-gradient(rgba(18,20,20,0.7), rgba(18,20,20,0.92)),
+    url('https://images.unsplash.com/photo-1565514020179-026b92b84bb6?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover; background-position: center;
+}
+.bg-hero-control {
+  background-image:
+    linear-gradient(rgba(18,20,20,0.55), rgba(18,20,20,0.85)),
+    url('https://images.unsplash.com/photo-1581094271901-8022df4466f9?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover; background-position: center;
+}
+
 /* ===== Map (Leaflet) — Industrial Luxury frame ===== */
 .akb-map-wrap {
   position: relative;
