@@ -50,7 +50,7 @@
     root.innerHTML = `
       <button type="button" class="fab fab-ai" aria-label="AK Assistant" data-fab="ai">
         <span class="ai-pulse"></span>
-        <span class="ai-glyph">AK</span>
+        <img src="./assets/logo-mark.png" alt="AK" class="ai-glyph-img" />
         <span class="fab-tooltip" data-i18n="ai.tooltip">AK Assistant</span>
       </button>
       <a class="fab fab-wa" href="${waUrl()}" target="_blank" rel="noopener" aria-label="WhatsApp" data-fab="wa">
@@ -67,7 +67,7 @@
     panel.setAttribute("aria-label", "AK Assistant");
     panel.innerHTML = `
       <div class="ai-header">
-        <div class="ai-avatar">AK</div>
+        <div class="ai-avatar"><img src="./assets/logo-mark.png" alt="AK" /></div>
         <div class="ai-header-text">
           <div class="ai-header-title" data-i18n="ai.title">AK Assistant</div>
           <div class="ai-header-sub" data-i18n="ai.subtitle">Engineering & Sales · Instant reply</div>
