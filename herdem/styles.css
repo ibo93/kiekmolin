@@ -1,7 +1,41 @@
 /* =====================================================================
    Herdem · Design System
-   Düşünce: Modern Markt — Serif für Hierarchie, weiches Grün, warme Akzente.
+   Modern Markt — Archivo Black für Akzente, Inter für alles andere.
+   Beide Schriften self-hosted (DSGVO-konform, keine Google-Fonts-Aufrufe).
    ===================================================================== */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/archivo-black-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/archivo-black-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
   --ink: #14241c;
@@ -29,10 +63,12 @@
   --shadow-md: 0 12px 34px rgba(20, 36, 28, 0.09);
   --shadow-lg: 0 24px 60px rgba(20, 36, 28, 0.15);
 
-  --font-display: ui-serif, "Iowan Old Style", "Apple Garamond", "Hoefler Text",
-                  "Times New Roman", Georgia, serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-               "Helvetica Neue", Arial, sans-serif;
+  --font-impact: "Archivo Black", "Inter", -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", system-ui, sans-serif;
+  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                  system-ui, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+               system-ui, "Helvetica Neue", Arial, sans-serif;
   --font-numeric: "SF Mono", ui-monospace, "Cascadia Mono", "Roboto Mono", monospace;
 
   --gutter: clamp(16px, 4vw, 40px);
@@ -194,10 +230,11 @@ body.store-paused .status-pill .dot { background: var(--amber); box-shadow: 0 0 
 }
 .brand-text strong {
   display: block;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: var(--font-impact);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
   line-height: 1;
 }
 .brand-text small {
@@ -301,11 +338,12 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 }
 .hero h1 {
   margin: 0 0 14px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.018em;
-  font-size: clamp(30px, 5.4vw, 58px);
-  line-height: 1.02;
+  font-family: var(--font-impact);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  font-size: clamp(32px, 5.8vw, 64px);
+  line-height: 0.96;
+  text-transform: uppercase;
 }
 .hero .lead {
   max-width: 620px;
@@ -491,9 +529,9 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .market-head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 800;
   font-size: clamp(24px, 3vw, 32px);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.022em;
 }
 .market-head .eyebrow { margin: 0 0 4px; color: var(--green); }
 
@@ -649,7 +687,8 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 }
 .card-price .price {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 .card-price .old {
@@ -713,9 +752,9 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .bundles > header h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 800;
   font-size: clamp(24px, 3vw, 32px);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.022em;
 }
 .bundles > header .eyebrow { color: var(--green); }
 .bundles-grid {
@@ -752,8 +791,8 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   margin: 6px 0 0;
   font-family: var(--font-display);
   font-size: 22px;
-  letter-spacing: -0.01em;
-  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-weight: 800;
 }
 .bundles-grid p { margin: 0; opacity: 0.86; font-size: 14px; line-height: 1.45; }
 .bundles-grid .btn-add {
@@ -767,7 +806,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 /* -- Recent --------------------------------------------------------- */
 .recent { margin-top: var(--section-gap); }
 .recent > header { margin-bottom: 14px; }
-.recent > header h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.recent > header h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .recent > header .eyebrow { color: var(--green); }
 .recent-row {
   display: grid;
@@ -814,8 +853,8 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   margin: 0;
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.022em;
 }
 .cart-head .eyebrow { color: var(--green); margin-bottom: 2px; }
 .cart-tools { display: inline-flex; align-items: center; gap: 4px; }
@@ -937,7 +976,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   font-size: 18px;
 }
 .line-total span { color: var(--ink); font-weight: 700; }
-.line-total strong { font-family: var(--font-display); font-size: 22px; }
+.line-total strong { font-family: var(--font-display); font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
 
 .progress {
   height: 7px;
@@ -1048,8 +1087,9 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .market-pulse > div { padding: 18px 20px; background: #fff; }
 .market-pulse strong {
   display: block;
-  font-family: var(--font-display);
-  font-size: clamp(26px, 3vw, 38px);
+  font-family: var(--font-impact);
+  font-weight: 400;
+  font-size: clamp(28px, 3.2vw, 40px);
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1084,10 +1124,10 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .delivery-copy h2 {
   margin: 0 0 12px;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(26px, 3.5vw, 38px);
-  letter-spacing: -0.015em;
-  line-height: 1.05;
+  font-weight: 800;
+  font-size: clamp(26px, 3.5vw, 40px);
+  letter-spacing: -0.025em;
+  line-height: 1.02;
 }
 .delivery-copy p { margin: 0 0 18px; color: var(--ink-soft); font-size: 15px; line-height: 1.55; }
 .delivery-copy .eyebrow { color: var(--green); }
@@ -1142,7 +1182,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   box-shadow: var(--shadow-sm);
 }
 .install .eyebrow { color: var(--amber); }
-.install strong { display: block; font-family: var(--font-display); font-size: 22px; font-weight: 700; margin: 4px 0; }
+.install strong { display: block; font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0; }
 .install span { display: block; color: rgba(255,255,255,0.75); font-size: 14px; max-width: 540px; }
 .install .btn-primary { background: #fff; color: var(--ink); box-shadow: none; }
 .install .btn-primary:hover { background: var(--cream); }
@@ -1170,8 +1210,10 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .footer-cols a:hover { color: var(--green); text-decoration: underline; }
 .footer-cols strong {
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   margin-bottom: 4px;
   color: var(--ink);
 }
@@ -1276,8 +1318,8 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(22px, 3vw, 30px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.022em;
 }
 .dlg label > span:not(.sr-only) {
   display: block;
@@ -1325,7 +1367,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   border-radius: var(--radius);
 }
 .club-card .eyebrow { color: var(--amber); margin: 0; }
-.club-card strong { font-family: var(--font-display); font-size: 38px; letter-spacing: -0.02em; line-height: 1; margin: 4px 0; }
+.club-card strong { font-family: var(--font-impact); font-weight: 400; font-size: 40px; letter-spacing: -0.025em; line-height: 1; margin: 4px 0; }
 .club-card p { margin: 6px 0 0; color: rgba(255,255,255,0.85); font-size: 14px; }
 
 .account-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -1382,7 +1424,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .detail-layout { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
 .detail-layout img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: var(--radius); }
 .detail-info .card-origin { margin-bottom: 8px; }
-.detail-info h2 { margin: 0 0 8px; font-family: var(--font-display); font-size: clamp(22px, 3vw, 30px); line-height: 1.05; }
+.detail-info h2 { margin: 0 0 8px; font-family: var(--font-display); font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.022em; line-height: 1.05; }
 .detail-info p { color: var(--muted); line-height: 1.55; }
 .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
 .detail-tags span {
@@ -1411,7 +1453,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   display: flex; align-items: baseline; gap: 12px;
   margin-bottom: 14px;
 }
-.detail-price strong { font-family: var(--font-display); font-size: 34px; font-weight: 700; }
+.detail-price strong { font-family: var(--font-display); font-size: 36px; font-weight: 800; letter-spacing: -0.025em; }
 .detail-price span { color: var(--muted); font-size: 14px; }
 
 /* Checkout */
@@ -1517,7 +1559,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   box-shadow: 0 12px 32px rgba(18,120,78,0.28);
 }
 .ok-mark svg { width: 38px; height: 38px; }
-.ok-body h2 { margin: 0; font-family: var(--font-display); font-size: clamp(24px, 3vw, 34px); font-weight: 700; line-height: 1.05; }
+.ok-body h2 { margin: 0; font-family: var(--font-display); font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -0.022em; line-height: 1.05; }
 .ok-body p { margin: 0; color: var(--muted); }
 .order-code {
   justify-self: center;
