@@ -1,52 +1,54 @@
 <!DOCTYPE html>
-<html class="dark" lang="en" dir="ltr" data-page-title-key="contact.pageTitle">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<html class="dark" lang="en" dir="ltr" data-page-title-key="contact.pageTitle"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Contact — AK BORU PROFIL</title>
-<meta name="description" content="Request a quote from AK BORU PROFIL. Share your specs and receive matching profiles, stock availability and delivery window." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Kufi+Arabic:wght@400;700;800&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<meta name="description" content="Request a quote from AK BORU PROFIL. Share your specs and receive matching profiles, stock availability and delivery window."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&amp;family=JetBrains+Mono:wght@500;700&amp;family=Noto+Kufi+Arabic:wght@400;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="./assets/tailwind.config.js"></script>
 <script>tailwind.config = window.__akboruTailwindConfig;</script>
-<link rel="stylesheet" href="./assets/main.css" />
-<link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png" />
-<link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon-64.png" />
-<link rel="icon" type="image/png" sizes="256x256" href="./assets/favicon-256.png" />
-<link rel="apple-touch-icon" href="./assets/favicon-256.png" />
-<link rel="shortcut icon" href="./assets/favicon.ico" />
 <style>
-  .field-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; font-weight: 700; text-transform: uppercase; color: #c7c6ca; }
-  .field-input,
-  .field-textarea,
-  .field-select {
-    width: 100%;
-    background: transparent;
-    color: #e2e2e2;
-    border: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-    padding: 0.75rem 0;
-    font-family: 'Inter', sans-serif;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  .field-textarea { min-height: 140px; resize: vertical; }
-  .field-select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #c7c6ca 50%), linear-gradient(135deg, #c7c6ca 50%, transparent 50%); background-position: calc(100% - 12px) center, calc(100% - 6px) center; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; padding-right: 24px; }
-  html[dir="rtl"] .field-select { background-position: 12px center, 6px center; padding-right: 0; padding-left: 24px; }
-  .field-input:focus, .field-textarea:focus, .field-select:focus { border-color: #E8F4FF; box-shadow: 0 1px 0 0 #E8F4FF; }
-  .field-input::placeholder, .field-textarea::placeholder { color: rgba(199,198,202,0.4); }
-  .field-select option { background: #1a1c1c; color: #e2e2e2; }
-</style>
+        .noise-bg { position: fixed; top:0; left:0; width:100vw; height:100vh; pointer-events: none; z-index: 9999; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        .glass-panel { background: rgba(18,20,20,0.6); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-card  { background: rgba(30,32,32,0.4); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); transition: all 0.3s ease; }
+        .glass-card:hover { border-color: rgba(232,244,255,0.2); box-shadow: inset 0 0 0 1px rgba(232,244,255,0.1); }
+        .tech-line { height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%); }
+        .field-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; font-weight: 700; text-transform: uppercase; color: #c7c6ca; }
+        .field-input, .field-textarea, .field-select {
+            width: 100%; background: transparent; color: #e2e2e2; border: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2); padding: 0.75rem 0;
+            font-family: 'Inter', sans-serif; font-size: 16px; outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .field-textarea { min-height: 140px; resize: vertical; }
+        .field-select { appearance: none; -webkit-appearance: none;
+            background-image: linear-gradient(45deg, transparent 50%, #c7c6ca 50%), linear-gradient(135deg, #c7c6ca 50%, transparent 50%);
+            background-position: calc(100% - 12px) center, calc(100% - 6px) center;
+            background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; padding-right: 24px;
+        }
+        html[dir="rtl"] .field-select { background-position: 12px center, 6px center; padding-right: 0; padding-left: 24px; }
+        .field-input:focus, .field-textarea:focus, .field-select:focus { border-color: #E8F4FF; box-shadow: 0 1px 0 0 #E8F4FF; }
+        .field-input::placeholder, .field-textarea::placeholder { color: rgba(199,198,202,0.4); }
+        .field-select option { background: #1a1c1c; color: #e2e2e2; }
+    </style>
+<link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon-64.png"/>
+<link rel="icon" type="image/png" sizes="256x256" href="./assets/favicon-256.png"/>
+<link rel="apple-touch-icon" href="./assets/favicon-256.png"/>
+<link rel="shortcut icon" href="./assets/favicon.ico"/>
+<link rel="stylesheet" href="./assets/main.css"/>
 </head>
 <body class="bg-surface text-on-surface antialiased overflow-x-hidden selection:bg-primary/30 selection:text-white">
-<div class="noise-overlay"></div>
+<div class="noise-bg"></div>
 
 <nav class="fixed top-0 inset-x-0 z-50 bg-surface/60 backdrop-blur-2xl border-b border-white/10 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-20">
-  <a href="./index.html" class="flex items-center gap-3" aria-label="AK BORU PROFIL"><img src="./assets/logo.png" alt="AK BORU PROFIL" class="h-10 md:h-12 w-auto" /></a>
+  <a href="./index.html" class="flex items-center gap-3" aria-label="AK BORU PROFIL"><img src="./assets/logo.png" alt="AK BORU PROFIL" class="h-10 md:h-12 w-auto"/></a>
   <div class="hidden md:flex items-center gap-8">
     <a href="./index.html"       class="font-spec-mono text-spec-mono uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors duration-300" data-i18n="nav.home">Home</a>
     <a href="./products.html"    class="font-spec-mono text-spec-mono uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors duration-300" data-i18n="nav.products">Products</a>
@@ -57,9 +59,7 @@
   </div>
   <div class="flex items-center gap-3">
     <div data-lang-switcher></div>
-    <button class="md:hidden text-on-surface" data-mobile-trigger aria-label="Menu">
-      <span class="material-symbols-outlined">menu</span>
-    </button>
+    <button class="md:hidden text-on-surface" data-mobile-trigger aria-label="Menu"><span class="material-symbols-outlined">menu</span></button>
   </div>
 </nav>
 <div class="mobile-menu" data-mobile-menu>
@@ -73,178 +73,135 @@
 
 <main class="pt-32 pb-margin-desktop px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto flex flex-col gap-[80px]">
 
-  <!-- HERO -->
-  <section class="flex flex-col gap-6 max-w-3xl">
-    <div class="inline-flex items-center gap-2 border border-white/10 px-3 py-1 w-fit glass-panel">
-      <span class="w-2 h-2 bg-ice rounded-full shadow-[0_0_5px_#E8F4FF]"></span>
-      <span class="font-spec-mono text-label-xs text-ice uppercase tracking-widest" data-i18n="contact.kicker">QUOTE // WITHIN 30 MIN</span>
-    </div>
-    <h1 class="font-display-xl text-[44px] md:text-display-lg font-extrabold tracking-tighter text-on-surface uppercase leading-[0.95]">
-      <span data-i18n="contact.hero.h1.l1">Your Project.</span><br /><span data-i18n="contact.hero.h1.l2">Our Tolerance.</span>
-    </h1>
-    <p class="font-body-lg text-body-lg text-on-surface-variant" data-i18n="contact.hero.sub">
-      Share your specs — our engineering team comes back within 30 minutes with matching profiles, current stock and a delivery window.
-    </p>
-  </section>
+<section class="flex flex-col gap-6 max-w-3xl">
+<div class="inline-flex items-center gap-2 border border-white/10 px-3 py-1 w-fit glass-panel">
+<span class="w-2 h-2 bg-[#E8F4FF] rounded-full shadow-[0_0_5px_#E8F4FF]"></span>
+<span class="font-spec-mono text-label-xs text-[#E8F4FF] uppercase tracking-widest" data-i18n="contact.kicker">QUOTE // WITHIN 30 MIN</span>
+</div>
+<h1 class="font-display-xl text-display-lg md:text-display-xl font-extrabold tracking-tighter text-on-surface uppercase">
+<span data-i18n="contact.hero.h1.l1">Your Project.</span><br/><span data-i18n="contact.hero.h1.l2">Our Tolerance.</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant" data-i18n="contact.hero.sub">Share your specs — our engineering team comes back within 30 minutes with matching profiles, current stock and a delivery window.</p>
+</section>
 
-  <!-- FORM + INFO -->
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
 
-    <!-- FORM -->
-    <form id="quoteForm" class="glass-panel rounded-xl p-8 md:p-10 lg:col-span-8 flex flex-col gap-6" novalidate>
-      <h2 class="font-headline-md text-headline-md-mobile font-bold tracking-tighter text-white" data-i18n="contact.form.title">Quote Request</h2>
-      <div class="tech-line"></div>
+<form id="quoteForm" class="glass-panel rounded-xl p-8 md:p-10 lg:col-span-8 flex flex-col gap-6" novalidate>
+<h2 class="font-headline-md text-headline-md-mobile font-bold tracking-tighter text-white uppercase" data-i18n="contact.form.title">Quote Request</h2>
+<div class="tech-line"></div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.name">Full Name</span><input type="text" name="name" required class="field-input" autocomplete="name"/></label>
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.company">Company</span><input type="text" name="company" required class="field-input" autocomplete="organization"/></label>
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.email">Business Email</span><input type="email" name="email" required class="field-input" autocomplete="email"/></label>
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.phone">Phone</span><input type="tel" name="phone" class="field-input" autocomplete="tel"/></label>
+<label class="flex flex-col gap-2 md:col-span-2"><span class="field-label" data-i18n="contact.form.country">Country / Site</span><input type="text" name="country" class="field-input" autocomplete="country-name"/></label>
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.product">Product</span>
+<select name="product" class="field-select">
+<option value="rhs"   data-i18n="contact.form.product.rhs">RHS — Rectangular</option>
+<option value="chs"   data-i18n="contact.form.product.chs">CHS — Circular</option>
+<option value="shs"   data-i18n="contact.form.product.shs">SHS — Square</option>
+<option value="other" data-i18n="contact.form.product.other">Other / Custom</option>
+</select>
+</label>
+<label class="flex flex-col gap-2"><span class="field-label" data-i18n="contact.form.tonnage">Estimated Tonnage</span><input type="text" name="tonnage" class="field-input" placeholder="e.g. 50 t"/></label>
+<label class="flex flex-col gap-2 md:col-span-2"><span class="field-label" data-i18n="contact.form.deadline">Required By</span><input type="date" name="deadline" class="field-input"/></label>
+<label class="flex flex-col gap-2 md:col-span-2"><span class="field-label" data-i18n="contact.form.message">Message / Specifications</span><textarea name="message" class="field-textarea" data-i18n-attr="placeholder:contact.form.message.ph"></textarea></label>
+</div>
+<label class="flex items-start gap-3 mt-2">
+<input type="checkbox" name="consent" required class="mt-1 accent-white"/>
+<span class="font-body-md text-body-md text-on-surface-variant" data-i18n="contact.form.consent">I agree to my data being processed for this request.</span>
+</label>
+<div class="flex items-center justify-between gap-4 flex-wrap">
+<p id="quoteSuccess" class="hidden font-spec-mono text-spec-mono text-[#E8F4FF]" data-i18n="contact.form.success">Request received. We'll respond within 30 minutes.</p>
+<button type="submit" class="px-8 py-4 bg-white text-black font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:shadow-[0_0_20px_rgba(232,244,255,0.5)] transition-all duration-300 flex items-center gap-2 ms-auto">
+<span data-i18n="contact.form.submit">Send Request</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</form>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.name">Full Name</span>
-          <input type="text" name="name" required class="field-input" autocomplete="name" />
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.company">Company</span>
-          <input type="text" name="company" required class="field-input" autocomplete="organization" />
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.email">Business Email</span>
-          <input type="email" name="email" required class="field-input" autocomplete="email" />
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.phone">Phone</span>
-          <input type="tel" name="phone" class="field-input" autocomplete="tel" />
-        </label>
-        <label class="flex flex-col gap-2 md:col-span-2">
-          <span class="field-label" data-i18n="contact.form.country">Country / Site</span>
-          <input type="text" name="country" class="field-input" autocomplete="country-name" />
-        </label>
+<aside class="lg:col-span-4 flex flex-col gap-4">
+<h2 class="font-headline-md text-headline-md-mobile font-bold tracking-tighter text-white mb-2 uppercase" data-i18n="contact.info.title">Direct Channels</h2>
 
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.product">Product</span>
-          <select name="product" class="field-select">
-            <option value="rhs"   data-i18n="contact.form.product.rhs">RHS — Rectangular</option>
-            <option value="chs"   data-i18n="contact.form.product.chs">CHS — Circular</option>
-            <option value="shs"   data-i18n="contact.form.product.shs">SHS — Square</option>
-            <option value="other" data-i18n="contact.form.product.other">Other / Custom</option>
-          </select>
-        </label>
-        <label class="flex flex-col gap-2">
-          <span class="field-label" data-i18n="contact.form.tonnage">Estimated Tonnage</span>
-          <input type="text" name="tonnage" class="field-input" placeholder="e.g. 50 t" />
-        </label>
-        <label class="flex flex-col gap-2 md:col-span-2">
-          <span class="field-label" data-i18n="contact.form.deadline">Required By</span>
-          <input type="date" name="deadline" class="field-input" />
-        </label>
-        <label class="flex flex-col gap-2 md:col-span-2">
-          <span class="field-label" data-i18n="contact.form.message">Message / Specifications</span>
-          <textarea name="message" class="field-textarea" data-i18n-attr="placeholder:contact.form.message.ph"></textarea>
-        </label>
-      </div>
-
-      <label class="flex items-start gap-3 mt-2">
-        <input type="checkbox" name="consent" required class="mt-1 accent-white" />
-        <span class="font-body-md text-body-md text-on-surface-variant" data-i18n="contact.form.consent">I agree to my data being processed for this request.</span>
-      </label>
-
-      <div class="flex items-center justify-between gap-4 flex-wrap">
-        <p id="quoteSuccess" class="hidden font-spec-mono text-spec-mono text-ice" data-i18n="contact.form.success">Request received. We'll respond within 30 minutes.</p>
-        <button type="submit" class="px-8 py-4 bg-white text-black font-spec-mono text-spec-mono uppercase tracking-widest rounded hover:shadow-[0_0_20px_rgba(232,244,255,0.5)] transition-all duration-300 flex items-center gap-2 ms-auto">
-          <span data-i18n="contact.form.submit">Send Request</span>
-          <span class="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
-      </div>
-    </form>
-
-    <!-- INFO -->
-    <aside class="lg:col-span-4 flex flex-col gap-4">
-      <h2 class="font-headline-md text-headline-md-mobile font-bold tracking-tighter text-white mb-2" data-i18n="contact.info.title">Direct Channels</h2>
-
-      <div class="glass-card rounded-lg p-6 flex items-start gap-4">
-        <span class="material-symbols-outlined text-ice">apartment</span>
-        <div class="flex-1 min-w-0">
-          <div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.hq">Headquarters</div>
-          <div class="font-spec-mono text-spec-mono text-white whitespace-pre-line" data-i18n="contact.info.hqVal">Akçataş OSB, 10. Cad. No 5/1
+<div class="glass-card rounded-lg p-6 flex items-start gap-4">
+<span class="material-symbols-outlined text-[#E8F4FF]">apartment</span>
+<div class="flex-1 min-w-0">
+<div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.hq">Headquarters</div>
+<div class="font-spec-mono text-spec-mono text-white whitespace-pre-line" data-i18n="contact.info.hqVal">Akçataş OSB, 10. Cad. No 5/1
 Viranşehir / Şanlıurfa, Türkiye</div>
-          <a href="https://www.google.com/maps/search/?api=1&amp;query=Ak%C3%A7ata%C5%9F+OSB+10.+Cad+No+5%2F1+Viran%C5%9Fehir+%C5%9Eanl%C4%B1urfa"
-             target="_blank" rel="noopener"
-             class="inline-flex items-center gap-2 mt-3 font-spec-mono text-label-xs text-ice uppercase tracking-widest hover:text-white transition-colors">
-            <span class="material-symbols-outlined" style="font-size:14px;">directions</span>
-            <span data-i18n="contact.info.directions">Get directions</span>
-          </a>
-        </div>
-      </div>
+<a href="https://www.google.com/maps/search/?api=1&amp;query=Ak%C3%A7ata%C5%9F+OSB+10.+Cad+No+5%2F1+Viran%C5%9Fehir+%C5%9Eanl%C4%B1urfa" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-3 font-spec-mono text-label-xs text-[#E8F4FF] uppercase tracking-widest hover:text-white transition-colors">
+<span class="material-symbols-outlined" style="font-size:14px;">directions</span>
+<span data-i18n="contact.info.directions">Get directions</span>
+</a>
+</div>
+</div>
 
-      <div class="glass-card rounded-lg p-6 flex items-start gap-4">
-        <span class="material-symbols-outlined text-ice">mail</span>
-        <div class="flex-1">
-          <div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.sales">International Sales</div>
-          <a href="mailto:sales@akboruprofil.com" class="font-spec-mono text-spec-mono text-white hover:text-ice transition-colors">sales@akboruprofil.com</a>
-        </div>
-      </div>
+<div class="glass-card rounded-lg p-6 flex items-start gap-4">
+<span class="material-symbols-outlined text-[#E8F4FF]">mail</span>
+<div class="flex-1">
+<div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.sales">International Sales</div>
+<a href="mailto:sales@akboruprofil.com" class="font-spec-mono text-spec-mono text-white hover:text-[#E8F4FF] transition-colors">sales@akboruprofil.com</a>
+</div>
+</div>
 
-      <div class="glass-card rounded-lg p-6 flex items-start gap-4">
-        <span class="material-symbols-outlined text-ice">call</span>
-        <div class="flex-1 min-w-0">
-          <div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.phone">Phone / WhatsApp</div>
-          <a href="tel:+905426607829" class="font-spec-mono text-spec-mono text-white hover:text-ice transition-colors block" dir="ltr" data-i18n="contact.info.phoneVal">+90 542 660 78 29</a>
-          <a href="https://wa.me/905426607829" target="_blank" rel="noopener"
-             class="inline-flex items-center gap-2 mt-3 font-spec-mono text-label-xs text-ice uppercase tracking-widest hover:text-white transition-colors">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.34A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/></svg>
-            <span data-i18n="wa.tooltip">Chat on WhatsApp</span>
-          </a>
-        </div>
-      </div>
+<div class="glass-card rounded-lg p-6 flex items-start gap-4">
+<span class="material-symbols-outlined text-[#E8F4FF]">call</span>
+<div class="flex-1 min-w-0">
+<div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.phone">Phone / WhatsApp</div>
+<a href="tel:+905426607829" dir="ltr" class="font-spec-mono text-spec-mono text-white hover:text-[#E8F4FF] transition-colors block" data-i18n="contact.info.phoneVal">+90 542 660 78 29</a>
+<a href="https://wa.me/905426607829" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-3 font-spec-mono text-label-xs text-[#E8F4FF] uppercase tracking-widest hover:text-white transition-colors">
+<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.34A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/></svg>
+<span data-i18n="wa.tooltip">Chat on WhatsApp</span>
+</a>
+</div>
+</div>
 
-      <div class="glass-card rounded-lg p-6 flex items-start gap-4">
-        <span class="material-symbols-outlined text-ice">schedule</span>
-        <div class="flex-1">
-          <div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.hours">Operating Hours</div>
-          <div class="font-spec-mono text-spec-mono text-white" data-i18n="contact.info.hoursVal">Mon–Sat · 08:00–18:00 (GMT+3)</div>
-        </div>
-      </div>
+<div class="glass-card rounded-lg p-6 flex items-start gap-4">
+<span class="material-symbols-outlined text-[#E8F4FF]">schedule</span>
+<div class="flex-1">
+<div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.hours">Operating Hours</div>
+<div class="font-spec-mono text-spec-mono text-white" data-i18n="contact.info.hoursVal">Mon–Sat · 08:00–18:00 (GMT+3)</div>
+</div>
+</div>
 
-      <div class="glass-card rounded-lg p-6 flex items-start gap-4 active-glow">
-        <span class="material-symbols-outlined text-ice">bolt</span>
-        <div class="flex-1">
-          <div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.lead">Response Time</div>
-          <div class="font-spec-mono text-spec-mono text-white" data-i18n="contact.info.leadVal">Within hours, usually 30 minutes.</div>
-        </div>
-      </div>
-    </aside>
-  </section>
+<div class="glass-card rounded-lg p-6 flex items-start gap-4" style="box-shadow: inset 0 0 0 1px rgba(232,244,255,0.2);">
+<span class="material-symbols-outlined text-[#E8F4FF]">bolt</span>
+<div class="flex-1">
+<div class="font-spec-mono text-label-xs text-on-surface-variant uppercase tracking-widest mb-1" data-i18n="contact.info.lead">Response Time</div>
+<div class="font-spec-mono text-spec-mono text-white" data-i18n="contact.info.leadVal">Within hours, usually 30 minutes.</div>
+</div>
+</div>
+</aside>
+</section>
 
-  <!-- MAP -->
-  <section class="flex flex-col gap-6">
-    <div class="flex items-end justify-between border-b border-white/10 pb-6 flex-wrap gap-4">
-      <div>
-        <h2 class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold tracking-tighter text-white uppercase" data-i18n="map.title">Locate the Facility</h2>
-        <p class="font-spec-mono text-spec-mono text-on-surface-variant uppercase tracking-widest mt-2" data-i18n="map.sub">Akçataş OSB · Viranşehir · Şanlıurfa</p>
-      </div>
-      <a href="https://www.google.com/maps/search/?api=1&amp;query=Ak%C3%A7ata%C5%9F+OSB+10.+Cad+No+5%2F1+Viran%C5%9Fehir+%C5%9Eanl%C4%B1urfa"
-         target="_blank" rel="noopener"
-         class="inline-flex items-center gap-2 px-5 py-3 glass-panel font-spec-mono text-label-xs uppercase tracking-widest rounded text-on-surface hover:border-ice/50 transition-all">
-        <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
-        <span data-i18n="map.openMaps">Open in Google Maps</span>
-      </a>
-    </div>
-    <div class="akb-map-wrap">
-      <div class="akb-map" data-akb-map data-akb-height="500px" data-akb-zoom="13"></div>
-    </div>
-  </section>
+<section class="flex flex-col gap-6">
+<div class="flex items-end justify-between border-b border-white/10 pb-6 flex-wrap gap-4">
+<div>
+<h2 class="font-headline-md text-headline-md-mobile md:text-headline-md font-bold tracking-tighter text-white uppercase" data-i18n="map.title">Locate the Facility</h2>
+<p class="font-spec-mono text-spec-mono text-on-surface-variant uppercase tracking-widest mt-2" data-i18n="map.sub">Akçataş OSB · Viranşehir · Şanlıurfa</p>
+</div>
+<a href="https://www.google.com/maps/search/?api=1&amp;query=Ak%C3%A7ata%C5%9F+OSB+10.+Cad+No+5%2F1+Viran%C5%9Fehir+%C5%9Eanl%C4%B1urfa" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-5 py-3 glass-panel font-spec-mono text-label-xs uppercase tracking-widest rounded text-on-surface hover:border-[#E8F4FF]/50 transition-all">
+<span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
+<span data-i18n="map.openMaps">Open in Google Maps</span>
+</a>
+</div>
+<div class="akb-map-wrap"><div class="akb-map" data-akb-map data-akb-height="500px" data-akb-zoom="13"></div></div>
+</section>
 
 </main>
 
 <footer class="w-full bg-surface-container-lowest border-t border-white/10 flex flex-col md:flex-row justify-between items-center px-margin-mobile md:px-margin-desktop py-gutter gap-gutter mt-16">
-  <div class="flex flex-col items-center md:items-start gap-1">
-    <img src="./assets/logo.png" alt="AK BORU PROFIL" class="h-8 w-auto" />
-    <div class="font-spec-mono text-label-xs uppercase tracking-widest text-on-tertiary-container text-center md:text-left" data-i18n="footer.address">Headquartered in Türkiye. Global delivery.</div>
-  </div>
-  <div class="font-spec-mono text-label-xs uppercase tracking-widest text-on-tertiary-container text-center" data-i18n="footer.tagline">© 2024 AK BORU PROFIL. PRECISION ENGINEERED INDUSTRIAL SOLUTIONS.</div>
-  <div class="flex flex-wrap justify-center gap-6 font-spec-mono text-label-xs uppercase tracking-widest text-on-surface-variant">
-    <a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.privacy">Privacy Policy</a>
-    <a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.terms">Terms of Service</a>
-    <a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.iso">ISO Certifications</a>
-    <a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.sustain">Sustainability</a>
-  </div>
+<div class="flex flex-col items-center md:items-start gap-1">
+<img src="./assets/logo.png" alt="AK BORU PROFIL" class="h-8 w-auto"/>
+<div class="font-spec-mono text-label-xs uppercase tracking-widest text-on-tertiary-container text-center md:text-left" data-i18n="footer.address">Akçataş OSB, Viranşehir / Şanlıurfa · Global delivery.</div>
+</div>
+<div class="font-spec-mono text-label-xs uppercase tracking-widest text-on-tertiary-container text-center" data-i18n="footer.tagline">© 2024 AK BORU PROFIL. PRECISION ENGINEERED INDUSTRIAL SOLUTIONS.</div>
+<div class="flex flex-wrap justify-center gap-6 font-spec-mono text-label-xs uppercase tracking-widest text-on-surface-variant">
+<a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.privacy">Privacy Policy</a>
+<a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.terms">Terms of Service</a>
+<a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.iso">ISO Certifications</a>
+<a class="hover:text-on-surface transition-colors" href="#" data-i18n="footer.sustain">Sustainability</a>
+</div>
 </footer>
 
 <script src="./assets/i18n.js"></script>
@@ -260,5 +217,4 @@ Viranşehir / Şanlıurfa, Türkiye</div>
     form.reset();
   });
 </script>
-</body>
-</html>
+</body></html>
