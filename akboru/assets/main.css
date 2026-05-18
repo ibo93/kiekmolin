@@ -112,14 +112,26 @@ html[dir="rtl"] .tracking-widest { letter-spacing: 0 !important; }
 /* ===== 3D Steel renderings (hero + product cards) ===== */
 .tube-3d {
   width: 100%; height: auto;
-  filter: drop-shadow(0 30px 60px rgba(0,0,0,0.85));
-  animation: tube-float 14s ease-in-out infinite;
+  filter: drop-shadow(0 30px 60px rgba(0,0,0,0.85)) drop-shadow(0 0 40px rgba(232,244,255,0.15));
+  animation: tube-float 10s ease-in-out infinite;
   transform-origin: center;
+  transform-style: preserve-3d;
+  perspective: 1200px;
 }
 .tube-3d.tube-static { animation: none; }
 @keyframes tube-float {
-  0%, 100% { transform: rotate(-1.5deg) translateY(0); }
-  50%      { transform: rotate(1.5deg)  translateY(-14px); }
+  0%   { transform: perspective(1200px) rotateY(-8deg) rotateX(2deg) translateY(0)    rotate(-1deg); }
+  25%  { transform: perspective(1200px) rotateY(-4deg) rotateX(0deg) translateY(-10px) rotate(0deg); }
+  50%  { transform: perspective(1200px) rotateY(8deg)  rotateX(-2deg) translateY(-14px) rotate(1deg); }
+  75%  { transform: perspective(1200px) rotateY(4deg)  rotateX(0deg) translateY(-10px) rotate(0deg); }
+  100% { transform: perspective(1200px) rotateY(-8deg) rotateX(2deg) translateY(0)    rotate(-1deg); }
+}
+.tube-3d.tube-spin {
+  animation: tube-spin 18s linear infinite;
+}
+@keyframes tube-spin {
+  from { transform: perspective(1400px) rotateY(0deg)   rotateX(4deg); }
+  to   { transform: perspective(1400px) rotateY(360deg) rotateX(4deg); }
 }
 .tube-3d .light-sweep {
   animation: light-sweep 5s ease-in-out infinite;
