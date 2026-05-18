@@ -340,10 +340,87 @@ const DICT = {
   "contact.info.leadVal":{ tr: "Saatler içinde, çoğu durumda 30 dakika.",
                            de: "Innerhalb von Stunden, meist 30 Minuten.",
                            en: "Within hours, usually 30 minutes.",
-                           ar: "خلال ساعات، عادة 30 دقيقة." }
+                           ar: "خلال ساعات، عادة 30 دقيقة." },
+
+  /* -------------------- WIDGETS: WHATSAPP + AK ASSISTANT -------------------- */
+  "wa.tooltip":       { tr: "WhatsApp ile yaz", de: "Per WhatsApp schreiben",
+                        en: "Chat on WhatsApp", ar: "تواصل عبر واتساب" },
+  "wa.prefill":       { tr: "Merhaba AK BORU ekibi, ürünleriniz hakkında bilgi almak istiyorum.",
+                        de: "Hallo AK BORU Team, ich interessiere mich für Ihre Produkte.",
+                        en: "Hi AK BORU team, I'd like more information about your products.",
+                        ar: "مرحباً فريق AK BORU، أود الاستفسار عن منتجاتكم." },
+
+  "ai.tooltip":       { tr: "AK Asistan", de: "AK-Assistent", en: "AK Assistant", ar: "مساعد AK" },
+  "ai.title":         { tr: "AK Asistan",  de: "AK-Assistent",  en: "AK Assistant",  ar: "مساعد AK" },
+  "ai.subtitle":      { tr: "Mühendislik & Satış · Anlık yanıt",
+                        de: "Engineering & Sales · Sofort-Antwort",
+                        en: "Engineering & Sales · Instant reply",
+                        ar: "هندسة ومبيعات · رد فوري" },
+  "ai.input.ph":      { tr: "Soru yazın… (örn. RHS toleransı)",
+                        de: "Frage stellen … (z. B. RHS-Toleranz)",
+                        en: "Ask anything… (e.g. RHS tolerance)",
+                        ar: "اكتب سؤالك… (مثل تفاوت RHS)" },
+  "ai.send":          { tr: "Gönder", de: "Senden", en: "Send", ar: "إرسال" },
+  "ai.greeting":      { tr: "Merhaba, ben AK Asistan. Ürünler, toleranslar, standartlar ve teslimat hakkında yardımcı olabilirim. Ne sormak istersiniz?",
+                        de: "Hallo, ich bin der AK-Assistent. Ich helfe bei Produkten, Toleranzen, Standards und Lieferzeiten. Was möchten Sie wissen?",
+                        en: "Hi, I'm the AK Assistant. I can help with products, tolerances, standards and delivery. What would you like to know?",
+                        ar: "مرحباً، أنا مساعد AK. يمكنني المساعدة في المنتجات والتفاوتات والمعايير والتسليم. ماذا تريد أن تعرف؟" },
+
+  "ai.chip.products": { tr: "Ürünler", de: "Produkte", en: "Products", ar: "المنتجات" },
+  "ai.chip.standards":{ tr: "Standartlar", de: "Standards", en: "Standards", ar: "المعايير" },
+  "ai.chip.lead":     { tr: "Teslimat", de: "Lieferzeit", en: "Lead time", ar: "زمن التسليم" },
+  "ai.chip.custom":   { tr: "Özel ölçü", de: "Sondermaß", en: "Custom size", ar: "مقاس مخصص" },
+  "ai.chip.quote":    { tr: "Teklif al", de: "Angebot",   en: "Get quote", ar: "اطلب عرضاً" },
+
+  "ai.r.products":    { tr: "Üç ana ürün ailemiz var: RHS (dikdörtgen, 20×10 mm – 400×300 mm), CHS (yuvarlak, Ø 13 mm – Ø 323.9 mm) ve SHS (kare, 10×10 mm – 400×400 mm). Et kalınlığı 0.5–16 mm. Hangisi sizi ilgilendiriyor?",
+                        de: "Wir haben drei Hauptlinien: RHS (rechteckig, 20×10 mm – 400×300 mm), CHS (rund, Ø 13 mm – Ø 323,9 mm) und SHS (quadratisch, 10×10 mm – 400×400 mm). Wandstärke 0,5–16 mm. Welche interessiert Sie?",
+                        en: "We have three main lines: RHS (rectangular, 20×10 mm – 400×300 mm), CHS (circular, Ø 13 mm – Ø 323.9 mm) and SHS (square, 10×10 mm – 400×400 mm). Wall thickness 0.5–16 mm. Which one fits your project?",
+                        ar: "لدينا ثلاث عائلات منتجات: RHS (مستطيل، 20×10 مم – 400×300 مم)، CHS (دائري، Ø 13 مم – Ø 323.9 مم) وSHS (مربع، 10×10 مم – 400×400 مم). سمك الجدار 0.5–16 مم. أيها يناسب مشروعك؟" },
+  "ai.r.standards":   { tr: "Üretim EN 10219-1/2 ve EN 10210 standartlarına uygundur. Kalite yönetimi ISO 9001:2015 sertifikalıdır. Çelik kaliteleri: S235JR, S275JR, S355J2H. Sertifikalar QR ile doğrulanabilir.",
+                        de: "Wir fertigen nach EN 10219-1/2 und EN 10210. Qualitätsmanagement ist ISO 9001:2015 zertifiziert. Stahlgüten: S235JR, S275JR, S355J2H. Zertifikate sind per QR überprüfbar.",
+                        en: "We manufacture to EN 10219-1/2 and EN 10210. Quality system is ISO 9001:2015 certified. Steel grades: S235JR, S275JR, S355J2H. Certificates are QR-verifiable.",
+                        ar: "نُصنّع وفق EN 10219-1/2 وEN 10210. نظام الجودة معتمد ISO 9001:2015. درجات الفولاذ: S235JR وS275JR وS355J2H. الشهادات قابلة للتحقق عبر QR." },
+  "ai.r.lead":        { tr: "Standart stok kalemleri için sevkiyat 5–10 iş günü içinde başlar. Üretime özel siparişler 3–4 hafta. Ülkenizi yazarsanız tahmini varış süresi verebilirim.",
+                        de: "Lagerware verlässt das Werk in 5–10 Werktagen. Sonderfertigung 3–4 Wochen. Nennen Sie Ihr Land — ich kann eine grobe Ankunftszeit nennen.",
+                        en: "Stock items ship within 5–10 working days. Made-to-order: 3–4 weeks. Tell me your country and I can estimate arrival time.",
+                        ar: "تشحن المواد المخزّنة خلال 5–10 أيام عمل. الطلبات الخاصة 3–4 أسابيع. أخبرني ببلدك وأستطيع تقدير وقت الوصول." },
+  "ai.r.custom":      { tr: "Evet, özel ölçü ve özel kesim destekliyoruz. Boyut, et kalınlığı, kalite ve adet bilgisi verirseniz, mühendislik ekibi 30 dk içinde dönüş yapar. WhatsApp'tan veya formdan iletmek ister misiniz?",
+                        de: "Ja, Sonderabmessungen und Sonderzuschnitte sind möglich. Geben Sie Maß, Wandstärke, Güte und Stückzahl an — das Engineering meldet sich binnen 30 min. Lieber WhatsApp oder Formular?",
+                        en: "Yes, custom dimensions and cut-to-length are supported. Share size, wall thickness, grade and quantity — engineering replies within 30 min. WhatsApp or form?",
+                        ar: "نعم، ندعم الأبعاد المخصصة والقطع حسب الطول. شارك المقاس وسمك الجدار والدرجة والكمية — الفريق الهندسي يرد خلال 30 دقيقة. واتساب أم نموذج؟" },
+  "ai.r.quote":       { tr: "Bağlayıcı teklif için kısa formu doldurun ya da WhatsApp'ta yazın — 30 dk içinde fiyat, stok ve teslimat ile dönüş yaparız.",
+                        de: "Für ein verbindliches Angebot bitte kurz das Formular ausfüllen oder WhatsApp schreiben — wir melden uns in 30 min mit Preis, Bestand und Liefertermin.",
+                        en: "For a binding quote, fill the short form or message us on WhatsApp — we reply within 30 min with price, stock and delivery.",
+                        ar: "للحصول على عرض ملزم، املأ النموذج القصير أو راسلنا على واتساب — نرد خلال 30 دقيقة بالسعر والمخزون والتسليم." },
+  "ai.r.sustain":     { tr: "Hurda geri dönüşüm oranımız %98. Çelik özelliğini kaybetmeden sınırsız geri dönüştürülebilir — bu yüzden döngüsel mühendislik bizim için sloganik değil ekonomik.",
+                        de: "Unsere Schrott-Recyclingquote liegt bei 98 %. Stahl ist unendlich oft recycelbar ohne Eigenschaftsverlust — Kreislaufwirtschaft ist für uns kein Slogan, sondern Ökonomie.",
+                        en: "Our scrap recycling rate is 98%. Steel is infinitely recyclable without loss of properties — circular engineering is economics for us, not a slogan.",
+                        ar: "نسبة إعادة تدوير الخردة لدينا 98%. الفولاذ قابل لإعادة التدوير إلى ما لا نهاية دون فقدان خواصه — الاقتصاد الدائري عندنا اقتصاد، لا شعار." },
+  "ai.r.location":    { tr: "Üretim ve genel merkez Türkiye'de. 40'tan fazla ülkeye ihracat yapıyoruz — Avrupa, MENA, Orta Asya. Yükleme limanı ve hedef ülkeyi söylerseniz teslimat seçeneklerini özetleyebilirim.",
+                        de: "Produktion und Hauptsitz in der Türkei. Wir exportieren in über 40 Länder — Europa, MENA, Zentralasien. Nennen Sie Ladehafen und Ziel — ich fasse Lieferoptionen zusammen.",
+                        en: "Production and HQ in Türkiye. We export to 40+ countries — Europe, MENA, Central Asia. Tell me your loading port and destination and I'll outline delivery options.",
+                        ar: "الإنتاج والمقر الرئيسي في تركيا. نصدّر لأكثر من 40 دولة — أوروبا، الشرق الأوسط وشمال إفريقيا، وآسيا الوسطى. أخبرني بميناء التحميل والوجهة وأرتّب خيارات التسليم." },
+  "ai.r.fallback":    { tr: "Bunu tam anlamadım. Şu konularda yardımcı olabilirim: ürünler, standartlar, teslimat süresi, özel ölçüler, fiyat teklifi, sürdürülebilirlik, lokasyon. Ya da doğrudan WhatsApp'a geçelim mi?",
+                        de: "Das habe ich nicht ganz verstanden. Ich kann zu Produkten, Standards, Lieferzeit, Sonderabmessungen, Angebot, Nachhaltigkeit oder Standort helfen. Oder direkt zu WhatsApp wechseln?",
+                        en: "I didn't quite catch that. I can help with products, standards, lead time, custom sizes, quotes, sustainability or location. Or jump straight to WhatsApp?",
+                        ar: "لم أفهم تماماً. يمكنني المساعدة في المنتجات والمعايير وزمن التسليم والمقاسات المخصصة والعروض والاستدامة والموقع. أو ننتقل مباشرة إلى واتساب؟" },
+
+  "ai.cta.wa":        { tr: "WhatsApp'a geç",  de: "Zu WhatsApp wechseln",  en: "Open WhatsApp",     ar: "فتح واتساب" },
+  "ai.cta.form":      { tr: "Formu aç",         de: "Formular öffnen",        en: "Open form",          ar: "فتح النموذج" },
+  "ai.disclaimer":    { tr: "Cevaplar bilgilendirme amaçlıdır. Bağlayıcı teklif için ekibimiz dönüş yapar.",
+                        de: "Antworten sind unverbindlich. Für ein verbindliches Angebot meldet sich unser Team.",
+                        en: "Answers are informational. Our team confirms binding offers.",
+                        ar: "الإجابات للاسترشاد فقط. يقوم فريقنا بتأكيد العروض الملزمة." }
 };
 
 const STORAGE_KEY = "akboru.lang";
+
+window.AKBORU = window.AKBORU || {};
+window.AKBORU.LANGS = LANGS;
+window.AKBORU.DICT = DICT;
+window.AKBORU.getLang = () => localStorage.getItem(STORAGE_KEY) || "en";
+window.AKBORU.subscribers = [];
+window.AKBORU.onLangChange = (fn) => window.AKBORU.subscribers.push(fn);
 
 function detectInitialLang() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -358,6 +435,7 @@ function translate(key, lang) {
   if (!entry) return key;
   return entry[lang] || entry.en || key;
 }
+window.AKBORU.translate = translate;
 
 function applyLang(lang) {
   const meta = LANGS[lang];
@@ -392,7 +470,9 @@ function applyLang(lang) {
   if (titleKey) document.title = translate(titleKey, lang);
 
   localStorage.setItem(STORAGE_KEY, lang);
+  (window.AKBORU.subscribers || []).forEach((fn) => { try { fn(lang); } catch (e) {} });
 }
+window.AKBORU.applyLang = applyLang;
 
 function buildSwitcher() {
   const containers = document.querySelectorAll("[data-lang-switcher]");
