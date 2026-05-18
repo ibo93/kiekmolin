@@ -352,6 +352,10 @@ const DICT = {
                           ar: "مصنع حديث للتشكيل على البارد داخل أكجاطاش OSB. توصيل لأكثر من 40 دولة عبر الموانئ والطرق." }
   "contact.info.sales":{ tr: "Uluslararası Satış", de: "Internationaler Vertrieb",
                          en: "International Sales", ar: "المبيعات الدولية" },
+  "contact.info.phone":{ tr: "Telefon / WhatsApp", de: "Telefon / WhatsApp",
+                         en: "Phone / WhatsApp",   ar: "الهاتف / واتساب" },
+  "contact.info.phoneVal":{ tr: "+90 542 660 78 29", de: "+90 542 660 78 29",
+                            en: "+90 542 660 78 29", ar: "+90 542 660 78 29" },
   "contact.info.hours":{ tr: "Çalışma Saatleri", de: "Geschäftszeiten",
                          en: "Operating Hours", ar: "ساعات العمل" },
   "contact.info.hoursVal":{ tr: "Pzt–Cmt · 08:00–18:00 (GMT+3)",

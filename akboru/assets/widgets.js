@@ -2,7 +2,7 @@
    Depends on i18n.js (window.AKBORU.translate / .getLang / .onLangChange).
 */
 (function () {
-  const WA_NUMBER = "+905550000000"; // PLATZHALTER — auf echte Firmen-Nummer ändern
+  const WA_NUMBER = "+905426607829";
   const WA_DIGITS = WA_NUMBER.replace(/[^0-9]/g, "");
 
   function t(key) {
