@@ -6,7 +6,7 @@
 "use strict";
 
 /* ---------- Product catalog ---------- */
-const products = [
+let products = [
   { id: "sucuk",       category: "fleisch",   price: 7.99, oldPrice: 9.49,
     unit: "15,98 € / kg", popularity: 98, tags: ["Helal", "Angebot"],
     origin: "Helal Metzgerei", name: { de: "Egetürk Rinder Sucuk · Parmak 500g", tr: "Egetürk Dana Sucuk · Parmak 500g" },
@@ -89,15 +89,94 @@ const products = [
   },
 ];
 
-const bundles = {
+let bundles = {
   grillTable:  ["sucuk", "huhn", "gemuese", "ayran", "joghurt"],
   mezzeTable:  ["fladenbrot", "oliven", "feta", "gemuese", "olivenoel"],
   sweetTable:  ["baklava", "tee", "joghurt", "granatapfel"],
   breakfast:   ["fladenbrot", "feta", "oliven", "tee"],
 };
 
-const productImage = (id) => `assets/products/${id}.svg`;
+let bundleMeta = {};
+
 const FALLBACK_IMG = "assets/logo.svg";
+const productImage = (idOrObj) => {
+  if (typeof idOrObj === "object") return idOrObj.image || `assets/products/${idOrObj.id}.svg`;
+  const p = products.find(x => x.id === idOrObj);
+  return (p && p.image) || `assets/products/${idOrObj}.svg`;
+};
+
+/* ---------- CMS overrides (set by admin under /admin/) ---------- */
+let cmsCopy = {};
+let cmsSettings = {
+  storeName: "Herdem",
+  addrStreet: "Beispielstraße 1", addrZip: "60311", addrCity: "Frankfurt am Main",
+  phone: "+49 69 0000 0000", email: "hallo@herdem.example.com",
+  hours: "Mo–Sa 08:00–22:00",
+  minOrder: 15, feeDelivery: 3.9, freeDelivery: 39, feeShipping: 4.9, freeShipping: 49,
+  zipList: ["60311","60313","60314","60316","60318","60320","60322","60325","60327","60329","60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"],
+  storeOpen: true,
+  promos: [
+    { code: "HERDEM10", type: "percent", value: 10, min: 0, max: 10 },
+    { code: "FRISCH5",  type: "fixed",   value: 5,  min: 25, max: 5 },
+  ],
+};
+
+function loadCms() {
+  try {
+    const sp = localStorage.getItem("herdem.cms.products");
+    if (sp) {
+      const arr = JSON.parse(sp);
+      if (Array.isArray(arr) && arr.length) {
+        products = arr.filter(p => p && p.id);
+      }
+    }
+    const sb = localStorage.getItem("herdem.cms.bundles");
+    if (sb) {
+      const obj = JSON.parse(sb);
+      if (obj && typeof obj === "object") {
+        bundles = {};
+        bundleMeta = {};
+        Object.values(obj).forEach(b => {
+          if (b && b.key) {
+            bundles[b.key] = b.productIds || [];
+            bundleMeta[b.key] = b;
+          }
+        });
+      }
+    }
+    const sc = localStorage.getItem("herdem.cms.copy");
+    if (sc) cmsCopy = JSON.parse(sc) || {};
+    const ss = localStorage.getItem("herdem.cms.settings");
+    if (ss) cmsSettings = { ...cmsSettings, ...(JSON.parse(ss) || {}) };
+  } catch (e) {
+    console.warn("CMS load failed:", e);
+  }
+}
+loadCms();
+
+/* Apply cmsCopy overrides into the i18n dicts */
+function applyCmsCopyToI18n() {
+  if (!cmsCopy) return;
+  const map = {
+    heroEyebrow: "heroEyebrow", heroTitle: "heroTitle", heroLead: "heroLead",
+    promise1Title: "p1Title", promise1Text: "p1Text",
+    promise2Title: "p2Title", promise2Text: "p2Text",
+    promise3Title: "p3Title", promise3Text: "p3Text",
+    footerTagline: "footerTagline",
+    tagline: "storeTagline",
+  };
+  Object.entries(map).forEach(([i18nKey, cmsKey]) => {
+    const de = cmsCopy[cmsKey + "De"];
+    const tr = cmsCopy[cmsKey + "Tr"];
+    if (de && i18n.de) i18n.de[i18nKey] = de;
+    if (tr && i18n.tr) i18n.tr[i18nKey] = tr;
+  });
+  // Settings tagline override
+  if (cmsSettings.storeTaglineDe) i18n.de.tagline = cmsSettings.storeTaglineDe;
+  if (cmsSettings.storeTaglineTr) i18n.tr.tagline = cmsSettings.storeTaglineTr;
+}
+
+function activeProducts() { return products.filter(p => p.active !== false); }
 
 /* ---------- i18n ---------- */
 const i18n = {
@@ -421,7 +500,7 @@ const state = {
   address: lsGet("herdem.address", null),
   slot: localStorage.getItem("herdem.slot") || "",
   pay: localStorage.getItem("herdem.pay") || "card",
-  storeOpen: localStorage.getItem("herdem.storeOpen") !== "0",
+  storeOpen: cmsSettings.storeOpen !== false,
   installPrompt: null,
   toastTimer: 0,
   lastReceipt: null,
@@ -547,7 +626,7 @@ const TAG_CLASS = {
 
 function filteredProducts() {
   const q = normalize(state.query.trim());
-  const items = products.filter(p => {
+  const items = activeProducts().filter(p => {
     const inCat =
       state.category === "all" ||
       (state.category === "favorites" && state.favorites.includes(p.id)) ||
@@ -662,16 +741,25 @@ function serviceFee(subtotal) {
   if (!state.storeOpen) return 0;
   if (state.service === "pickup") return 0;
   if (subtotal === 0) return 0;
-  const limit = state.service === "shipping" ? 49 : 39;
+  const limit = state.service === "shipping" ? (cmsSettings.freeShipping ?? 49) : (cmsSettings.freeDelivery ?? 39);
   if (subtotal >= limit) return 0;
-  return state.service === "shipping" ? 4.9 : 3.9;
+  return state.service === "shipping" ? (cmsSettings.feeShipping ?? 4.9) : (cmsSettings.feeDelivery ?? 3.9);
+}
+
+function findPromo(code) {
+  return (cmsSettings.promos || []).find(p => p.code === code);
 }
 
 function promoDiscount(subtotal) {
   if (!state.promo) return 0;
-  if (state.promo === "HERDEM10") return Math.min(subtotal * 0.1, 10);
-  if (state.promo === "FRISCH5" && subtotal >= 25) return 5;
-  return 0;
+  const promo = findPromo(state.promo);
+  if (!promo) return 0;
+  if (subtotal < (promo.min || 0)) return 0;
+  if (promo.type === "percent") {
+    const raw = subtotal * (promo.value / 100);
+    return promo.max ? Math.min(raw, promo.max) : raw;
+  }
+  return promo.value; // fixed
 }
 
 function totals() {
@@ -1051,10 +1139,6 @@ function applyAddress(street, city) {
 }
 
 /* ---------- ZIP check ---------- */
-const ZIP_ACTIVE = new Set([
-  "60311","60313","60314","60316","60318","60320","60322","60325","60327","60329",
-  "60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"
-]);
 function checkZip() {
   const v = els.zipInput.value.trim();
   if (!/^\d{5}$/.test(v)) {
@@ -1062,7 +1146,8 @@ function checkZip() {
     els.zipResult.classList.add("error");
     return;
   }
-  if (ZIP_ACTIVE.has(v)) {
+  const list = cmsSettings.zipList || [];
+  if (list.includes(v)) {
     els.zipResult.textContent = t("zipActive", v);
     els.zipResult.classList.remove("error");
   } else {
@@ -1286,6 +1371,7 @@ $("#placeOrder").addEventListener("click", () => {
   $("#orderCode").textContent = code;
   els.checkoutDialog.close();
   els.successDialog.showModal();
+  pushOrderToCms(state.lastReceipt);
 });
 
 /* Download receipt */
@@ -1328,6 +1414,7 @@ els.langToggle.addEventListener("click", () => {
   localStorage.setItem("herdem.lang", state.lang);
   applyI18n();
   buildSlots();
+  renderBundlesGrid();
   renderProducts();
   renderCart();
   showToast(t("toastLang"));
@@ -1366,6 +1453,68 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+/* ---------- Bundles render ---------- */
+const DEFAULT_BUNDLE_ORDER = ["grillTable", "mezzeTable", "sweetTable", "breakfast"];
+function renderBundlesGrid() {
+  const grid = document.querySelector(".bundles-grid");
+  if (!grid) return;
+  const metaEntries = Object.values(bundleMeta);
+  const keys = metaEntries.length
+    ? metaEntries.map(m => m.key)
+    : DEFAULT_BUNDLE_ORDER;
+  grid.innerHTML = keys.map(k => {
+    const m = bundleMeta[k];
+    let eyebrow, title, desc;
+    if (m) {
+      eyebrow = m.eyebrow || "Paket";
+      title = (state.lang === "tr" && m.titleTr) || m.titleDe || k;
+      desc = (state.lang === "tr" && m.descTr) || m.descDe || "";
+    } else {
+      // i18n fallback
+      const fallback = {
+        grillTable: ["Grill", "bundleGrillTitle", "bundleGrillText"],
+        mezzeTable: ["Mezze", "bundleMezzeTitle", "bundleMezzeText"],
+        sweetTable: ["Teezeit", "bundleTeaTitle", "bundleTeaText"],
+        breakfast:  ["Kahvaltı", "bundleBreakfastTitle", "bundleBreakfastText"],
+      }[k] || ["Paket", "", ""];
+      eyebrow = fallback[0];
+      title = t(fallback[1]) || k;
+      desc = t(fallback[2]) || "";
+    }
+    return `
+      <article data-bundle="${k}">
+        <span class="badge-soft">${eyebrow}</span>
+        <h3>${title}</h3>
+        <p>${desc}</p>
+        <button class="btn-add" type="button" data-bundle="${k}">${t("bundleAdd")}</button>
+      </article>
+    `;
+  }).join("");
+}
+
+/* ---------- Push order to CMS ---------- */
+function pushOrderToCms(receipt) {
+  try {
+    const raw = localStorage.getItem("herdem.cms.orders");
+    const arr = raw ? JSON.parse(raw) : [];
+    arr.unshift({
+      code: receipt.code,
+      at: Date.now(),
+      status: "new",
+      entries: receipt.entries.map(e => ({ id: e.id, qty: e.qty, price: e.price, name: e.name })),
+      subtotal: receipt.subtotal,
+      discount: receipt.discount,
+      tip: receipt.tip,
+      fee: receipt.fee,
+      total: receipt.total,
+      slot: receipt.slot,
+      address: receipt.address,
+      note: $("#orderNote")?.value?.trim() || "",
+    });
+    localStorage.setItem("herdem.cms.orders", JSON.stringify(arr.slice(0, 200)));
+  } catch (_) { /* quota */ }
+}
+
 /* ---------- Init ---------- */
 function init() {
   // Address restore
@@ -1376,9 +1525,11 @@ function init() {
       const accAddr = $("#accountAddress"); if (accAddr) accAddr.textContent = els.addressLabel.textContent;
     }
   }
+  applyCmsCopyToI18n();
   buildSlots();
   applyI18n();
   renderStoreStatus();
+  renderBundlesGrid();
   renderProducts();
   renderCart();
   // sync language URL param if explicit
