@@ -25,7 +25,7 @@
     { key: "ai.r.custom",     words: ["custom","special","sonder","özel","ozel","maß","mass","cut","kesim","zuschnitt","مخصص","قطع"] },
     { key: "ai.r.quote",      words: ["quote","price","offer","preis","angebot","fiyat","teklif","kosten","cost","سعر","عرض","تكلفة"] },
     { key: "ai.r.sustain",    words: ["sustain","nachhalt","recycl","reciklaj","sürdürül","surdurul","carbon","co2","استدام","تدوير"] },
-    { key: "ai.r.location",   words: ["location","where","wo ","nerede","türkiye","turkey","türkei","turkei","export","ihrac","موقع","تركيا","تصدير"] }
+    { key: "ai.r.location",   words: ["location","address","where","wo ","wo?","adres","nerede","türkiye","turkey","türkei","turkei","export","ihrac","şanlıurfa","sanliurfa","urfa","viranşehir","viransehir","akçataş","akcatas","osb","موقع","عنوان","تركيا","تصدير","شانلي","أورفا","فيران"] }
   ];
 
   function classify(text) {
