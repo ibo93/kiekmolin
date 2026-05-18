@@ -312,6 +312,14 @@ const i18n = {
     toastOffline: "Du bist offline — gespeicherte Inhalte werden angezeigt.",
     toastOnline: "Wieder online.",
     storeClosedAlert: "Der Shop ist gerade pausiert. Du kannst sammeln und später bestellen.",
+    trackOrder: "Verfolgen",
+    deliveryArriving: (code, min) => `Bestellung ${code} unterwegs`,
+    deliveryInMin: (min) => `Ankunft in ${min} min`,
+    deliveryArrivedSoon: "Fahrer ist gleich da",
+    deliveryArrived: "Geliefert · Afiyet olsun",
+    actBought: (n, q, p, ago) => `${n} hat gerade ${q}× ${p} bestellt · vor ${ago} min`,
+    actDelivered: (n, ago) => `${n} hat die Bestellung erhalten · vor ${ago} min`,
+    actRated: (n, p, ago) => `${n} hat ${p} mit 5★ bewertet · vor ${ago} min`,
     detailAllergens: "Allergene", detailStorage: "Lagerung", detailOrigin: "Herkunft",
     allergenDairy: "Milch/Laktose möglich", allergenCheck: "Bitte Etikett prüfen",
     storageCool: "Gekühlt lagern (2–7 °C)", storageMeat: "Gekühlt verarbeiten", storageDry: "Trocken und dunkel lagern",
@@ -449,6 +457,14 @@ const i18n = {
     toastOffline: "Çevrim dışısın — kayıtlı içerik gösteriliyor.",
     toastOnline: "Tekrar çevrim içi.",
     storeClosedAlert: "Mağaza şu anda molada. Sepeti dolduran sonra sipariş verebilir.",
+    trackOrder: "Takip et",
+    deliveryArriving: (code, min) => `${code} yolda`,
+    deliveryInMin: (min) => `${min} dk sonra varır`,
+    deliveryArrivedSoon: "Kurye birazdan kapında",
+    deliveryArrived: "Teslim edildi · Afiyet olsun",
+    actBought: (n, q, p, ago) => `${n} ${q}× ${p} sipariş etti · ${ago} dk önce`,
+    actDelivered: (n, ago) => `${n} siparişini aldı · ${ago} dk önce`,
+    actRated: (n, p, ago) => `${n} ${p} ürününe 5★ verdi · ${ago} dk önce`,
     detailAllergens: "Alerjenler", detailStorage: "Saklama", detailOrigin: "Menşe",
     allergenDairy: "Süt/laktoz içerebilir", allergenCheck: "Etiketi kontrol et",
     storageCool: "Soğukta sakla (2–7 °C)", storageMeat: "Soğukta işle", storageDry: "Kuru ve karanlıkta sakla",
@@ -564,6 +580,17 @@ const els = {
   zipInput: $("#zipInput"),
   zipResult: $("#zipResult"),
   copyYear: $("#copyYear"),
+  stickyBar: $("#stickyCartBar"),
+  scbCount: $("#scbCount"),
+  scbTotal: $("#scbTotal"),
+  scbGo: $("#scbGo"),
+  deliveryTracker: $("#deliveryTracker"),
+  dtTitle: $("#dtTitle"),
+  dtSub: $("#dtSub"),
+  dtMin: $("#dtMin"),
+  dtTrack: $("#dtTrack"),
+  dtClose: $("#dtClose"),
+  activityMsg: $("#activityMsg"),
 };
 
 /* ---------- Slot generation ---------- */
@@ -878,6 +905,7 @@ function renderCart() {
 
   // Persist
   lsSet("herdem.cart", state.cart);
+  updateStickyBar?.();
 }
 
 /* ---------- Render: recent ---------- */
@@ -1160,6 +1188,10 @@ function checkZip() {
 document.addEventListener("click", (ev) => {
   const t1 = ev.target.closest("[data-increase]");
   if (t1) {
+    // Fly-to-cart only on initial-add gestures from product cards (not mini-stepper in cart)
+    if (t1.closest(".card") || t1.closest(".upsell-item") || t1.closest(".recent-card")) {
+      flyToCart(t1);
+    }
     changeQty(t1.dataset.increase, 1);
     showToast(t("toastAdded"));
     if (t1.dataset.closeAfter === "1") els.productDialog.close();
@@ -1372,6 +1404,8 @@ $("#placeOrder").addEventListener("click", () => {
   els.checkoutDialog.close();
   els.successDialog.showModal();
   pushOrderToCms(state.lastReceipt);
+  setActiveDelivery(code);
+  fireConfetti();
 });
 
 /* Download receipt */
@@ -1515,6 +1549,189 @@ function pushOrderToCms(receipt) {
   } catch (_) { /* quota */ }
 }
 
+/* =====================================================================
+   DESIGN ENHANCEMENTS · Sticky bar, fly-to-cart, ticker, tracker, confetti
+   ===================================================================== */
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- Sticky cart bar (mobile) ---------- */
+function updateStickyBar() {
+  if (!els.stickyBar) return;
+  const T = totals();
+  if (T.itemCount === 0 || !state.storeOpen) {
+    els.stickyBar.classList.remove("is-on");
+    return;
+  }
+  els.stickyBar.hidden = false;
+  els.scbCount.textContent = t("items", T.itemCount);
+  els.scbTotal.textContent = money(T.total);
+  const hero = document.querySelector(".hero");
+  const past = hero ? window.scrollY > hero.offsetTop + hero.offsetHeight - 100 : true;
+  els.stickyBar.classList.toggle("is-on", past);
+}
+els.scbGo?.addEventListener("click", () => {
+  if (!state.storeOpen) { showToast(t("storeClosedAlert")); return; }
+  renderCheckoutSummary();
+  els.checkoutDialog.showModal();
+});
+let scrollRaf = 0;
+window.addEventListener("scroll", () => {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; updateStickyBar(); });
+}, { passive: true });
+
+/* ---------- Fly-to-cart animation ---------- */
+function flyToCart(triggerEl) {
+  if (reducedMotion()) return;
+  const card = triggerEl.closest(".card") || triggerEl.closest(".upsell-item") || triggerEl.closest(".recent-card");
+  if (!card) return;
+  const srcImg = card.querySelector("img");
+  if (!srcImg || !srcImg.complete) return;
+  const cartIcon = $("#openCart");
+  if (!cartIcon) return;
+
+  const srcRect = srcImg.getBoundingClientRect();
+  const dstRect = cartIcon.getBoundingClientRect();
+  if (!srcRect.width || !dstRect.width) return;
+
+  const clone = document.createElement("img");
+  clone.src = srcImg.src;
+  clone.alt = "";
+  clone.className = "fly-clone";
+  Object.assign(clone.style, {
+    left: srcRect.left + "px",
+    top: srcRect.top + "px",
+    width: srcRect.width + "px",
+    height: srcRect.height + "px",
+  });
+  document.body.appendChild(clone);
+
+  requestAnimationFrame(() => {
+    const tx = dstRect.left + dstRect.width/2 - srcRect.left - srcRect.width/2;
+    const ty = dstRect.top + dstRect.height/2 - srcRect.top - srcRect.height/2;
+    clone.style.transform = `translate(${tx}px, ${ty}px) scale(0.18)`;
+    clone.style.opacity = "0.4";
+  });
+
+  setTimeout(() => {
+    clone.remove();
+    cartIcon.classList.add("is-bumped");
+    setTimeout(() => cartIcon.classList.remove("is-bumped"), 420);
+  }, 620);
+}
+
+/* ---------- Activity ticker ---------- */
+const TICKER_NAMES = ["Aylin", "Mehmet", "Yusuf", "Zeynep", "Emre", "Selin", "Burak", "Ayşe", "Cem", "Defne", "Ali", "Ece", "Berk", "Deniz", "Furkan", "Leyla"];
+const TICKER_PRODUCTS = {
+  de: ["Sucuk", "Baklava", "Ayran", "Tomatenmark", "Fladenbrot", "Olivenöl", "Granatapfel", "Çay", "Joghurt", "Lahmacun", "Feta", "Oliven"],
+  tr: ["Sucuk", "Baklava", "Ayran", "Salça", "Pide", "Zeytinyağı", "Nar", "Çay", "Yoğurt", "Lahmacun", "Beyaz peynir", "Zeytin"],
+};
+let tickerIdx = Math.floor(Math.random() * TICKER_NAMES.length);
+let tickerTimer = 0;
+function tickActivity() {
+  if (!els.activityMsg) return;
+  const name = TICKER_NAMES[tickerIdx % TICKER_NAMES.length];
+  const products = TICKER_PRODUCTS[state.lang] || TICKER_PRODUCTS.de;
+  const product = products[(tickerIdx * 5) % products.length];
+  const qty = 1 + (tickerIdx % 4);
+  const ago = 1 + ((tickerIdx * 7) % 11);
+  tickerIdx++;
+  // Mix of verbs: 70% bought, 20% delivered, 10% rated
+  const r = tickerIdx % 10;
+  let msg;
+  if (r < 7) msg = t("actBought", name, qty, product, ago);
+  else if (r < 9) msg = t("actDelivered", name, ago);
+  else msg = t("actRated", name, product, ago);
+  els.activityMsg.classList.add("fade");
+  setTimeout(() => {
+    els.activityMsg.textContent = msg;
+    els.activityMsg.classList.remove("fade");
+  }, 280);
+}
+
+/* ---------- Active delivery tracker ---------- */
+const DELIVERY_KEY = "herdem.activeDelivery";
+
+function readActiveDelivery() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DELIVERY_KEY) || "null");
+    if (!d || d.dismissed) return null;
+    const elapsedMin = Math.floor((Date.now() - d.placedAt) / 60000);
+    if (elapsedMin > d.arrivalMinutes + 45) {
+      localStorage.removeItem(DELIVERY_KEY);
+      return null;
+    }
+    return { ...d, elapsedMin };
+  } catch { return null; }
+}
+
+function setActiveDelivery(code) {
+  const d = { code, placedAt: Date.now(), arrivalMinutes: 18 + Math.floor(Math.random() * 8), dismissed: false };
+  localStorage.setItem(DELIVERY_KEY, JSON.stringify(d));
+  renderDeliveryTracker();
+}
+
+function renderDeliveryTracker() {
+  if (!els.deliveryTracker) return;
+  const d = readActiveDelivery();
+  if (!d) {
+    els.deliveryTracker.classList.remove("is-on");
+    setTimeout(() => { if (els.deliveryTracker) els.deliveryTracker.hidden = true; }, 280);
+    return;
+  }
+  els.deliveryTracker.hidden = false;
+  const remaining = Math.max(0, d.arrivalMinutes - d.elapsedMin);
+  if (remaining > 0) {
+    els.dtTitle.textContent = d.code + " · " + (state.lang === "tr" ? "yolda" : "unterwegs");
+    els.dtSub.innerHTML = state.lang === "tr"
+      ? `<em>${remaining}</em> dk sonra varır`
+      : `Ankunft in <em>${remaining}</em> min`;
+  } else if (d.elapsedMin <= d.arrivalMinutes + 5) {
+    els.dtTitle.textContent = d.code + " · " + t("deliveryArrivedSoon");
+    els.dtSub.textContent = state.lang === "tr" ? "Hazır olun" : "Bitte bereit halten";
+  } else {
+    els.dtTitle.textContent = d.code + " · " + t("deliveryArrived");
+    els.dtSub.textContent = state.lang === "tr" ? "Afiyet olsun" : "Afiyet olsun";
+  }
+  requestAnimationFrame(() => els.deliveryTracker.classList.add("is-on"));
+}
+
+els.dtClose?.addEventListener("click", () => {
+  const raw = localStorage.getItem(DELIVERY_KEY);
+  if (raw) {
+    try {
+      const d = JSON.parse(raw);
+      d.dismissed = true;
+      localStorage.setItem(DELIVERY_KEY, JSON.stringify(d));
+    } catch { /* ignore */ }
+  }
+  els.deliveryTracker.classList.remove("is-on");
+  setTimeout(() => els.deliveryTracker.hidden = true, 280);
+});
+
+els.dtTrack?.addEventListener("click", () => {
+  els.successDialog.showModal();
+});
+
+/* ---------- Confetti ---------- */
+function fireConfetti() {
+  if (reducedMotion()) return;
+  const colors = ["#12784e", "#f0b429", "#c33d2e", "#2a6da3", "#fff", "#0a5335"];
+  for (let i = 0; i < 50; i++) {
+    const c = document.createElement("span");
+    c.className = "confetti";
+    c.style.left = (Math.random() * 100) + "vw";
+    c.style.backgroundColor = colors[i % colors.length];
+    c.style.animationDelay = (Math.random() * 250) + "ms";
+    c.style.transform = `rotate(${Math.random() * 360}deg)`;
+    c.style.width = (5 + Math.random() * 6) + "px";
+    c.style.height = (10 + Math.random() * 8) + "px";
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 3000);
+  }
+}
+
 /* ---------- Init ---------- */
 function init() {
   // Address restore
@@ -1532,6 +1749,12 @@ function init() {
   renderBundlesGrid();
   renderProducts();
   renderCart();
+  // Design enhancements
+  tickActivity();
+  tickerTimer = setInterval(tickActivity, 5500);
+  renderDeliveryTracker();
+  setInterval(renderDeliveryTracker, 60_000);
+  updateStickyBar();
   // sync language URL param if explicit
   if (params.get("lang") && params.get("lang") !== state.lang) {
     history.replaceState(null, "", location.pathname + location.hash);

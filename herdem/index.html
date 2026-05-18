@@ -139,6 +139,11 @@
         </div>
       </section>
 
+      <section class="activity-ticker" id="activityTicker" aria-label="Live-Aktivität">
+        <span class="at-pulse" aria-hidden="true"></span>
+        <p id="activityMsg">&nbsp;</p>
+      </section>
+
       <section class="promise" aria-label="Versprechen">
         <div><strong data-i18n="promise1Title">Frischetheke</strong><span data-i18n="promise1Text">Fleisch, Brot und Gemüse täglich vorbereitet</span></div>
         <div><strong data-i18n="promise2Title">Helal Sortiment</strong><span data-i18n="promise2Text">Klare Kennzeichnung, ausgewählte Marken</span></div>
@@ -401,6 +406,31 @@
       <button type="button" data-dock="help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 17h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span data-i18n="dockHelp">Hilfe</span></button>
       <button type="button" data-dock="cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.7H8.5A2 2 0 0 1 6.5 18z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span data-i18n="dockCart">Korb</span><em id="dockCartCount" hidden>0</em></button>
     </nav>
+
+    <!-- Sticky cart bar (mobile, when cart not empty + scrolled) -->
+    <div class="sticky-cart-bar" id="stickyCartBar" hidden>
+      <div class="scb-info">
+        <strong id="scbCount">0 Artikel</strong>
+        <span id="scbTotal">0,00 €</span>
+      </div>
+      <button class="scb-go" type="button" id="scbGo">
+        <span data-i18n="toCheckout">Zur Kasse</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Active delivery tracker (after order placed) -->
+    <aside class="delivery-tracker" id="deliveryTracker" hidden aria-label="Aktive Bestellung">
+      <div class="dt-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="dt-body">
+        <strong id="dtTitle">Bestellung unterwegs</strong>
+        <span id="dtSub">Ankunft in <em id="dtMin">18</em> min</span>
+      </div>
+      <button class="dt-track" type="button" id="dtTrack" data-i18n="trackOrder">Verfolgen</button>
+      <button class="dt-close" type="button" id="dtClose" aria-label="Ausblenden">×</button>
+    </aside>
 
     <!-- Backdrop for mobile cart drawer -->
     <div class="backdrop" id="cartBackdrop" hidden></div>
