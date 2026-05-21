@@ -1766,3 +1766,35 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
+/* ---------- Stat counters (Referenz-Echo: ruhiges Hochzaehlen) ---------- */
+(function countUpStats() {
+  const nodes = document.querySelectorAll("[data-count]");
+  if (!nodes.length) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fmt = (el, v) => {
+    el.textContent = String(Math.round(v)) + (el.dataset.suffix || "");
+  };
+  if (reduce || !("IntersectionObserver" in window)) {
+    nodes.forEach(el => fmt(el, Number(el.dataset.count) || 0));
+    return;
+  }
+  const run = (el) => {
+    const target = Number(el.dataset.count) || 0;
+    const dur = 1100;
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      fmt(el, target * eased);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { run(e.target); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.4 });
+  nodes.forEach(el => io.observe(el));
+})();
