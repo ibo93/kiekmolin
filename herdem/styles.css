@@ -349,6 +349,16 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
+/* Girih star lattice — Kuran/orientalisches Geometriemuster */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("assets/patterns/girih.svg") 0 0 / 64px 64px repeat;
+  opacity: 0.16;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
 /* Soft inner glow + edge for depth */
 .hero::after {
   content: "";
@@ -359,6 +369,19 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   pointer-events: none;
 }
 .hero-copy { position: relative; z-index: 2; max-width: 720px; }
+
+/* Ornamentale Gold-Trenner unter Sektionstiteln */
+.market-head h2::after,
+.bundles header h2::after,
+.delivery h2::after,
+.recent header h2::after {
+  content: "";
+  display: block;
+  width: 72px;
+  height: 12px;
+  margin-top: 10px;
+  background: url("assets/patterns/divider.svg") left center / auto 12px repeat-x;
+}
 .eyebrow {
   margin: 0 0 8px;
   color: var(--amber);
