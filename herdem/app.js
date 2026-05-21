@@ -1822,3 +1822,85 @@ if (document.readyState === "loading") {
     grid.style.setProperty("--py", "0");
   });
 })();
+
+/* ---------- Cinematic hero canvas: drifting warm light ---------- */
+(function heroCanvas() {
+  const cv = document.querySelector(".hero-canvas");
+  if (!cv) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ctx = cv.getContext("2d");
+  if (!ctx) return;
+  const COLORS = [
+    [31, 156, 102],   // green
+    [240, 180, 41],   // amber
+    [255, 138, 92],   // warm orange
+    [18, 120, 78],    // deep green
+    [120, 200, 150],  // mint
+  ];
+  let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let blobs = [];
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    w = r.width; h = r.height;
+    cv.width = Math.max(1, Math.round(w * dpr));
+    cv.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!blobs.length) {
+      const n = w < 640 ? 5 : 7;
+      for (let i = 0; i < n; i++) {
+        const c = COLORS[i % COLORS.length];
+        blobs.push({
+          x: Math.random() * w, y: Math.random() * h,
+          r: (Math.min(w, h) * (0.32 + Math.random() * 0.3)),
+          vx: (Math.random() - 0.5) * 0.16,
+          vy: (Math.random() - 0.5) * 0.16,
+          c, a: 0.16 + Math.random() * 0.10,
+        });
+      }
+    }
+  }
+  function frame() {
+    ctx.clearRect(0, 0, w, h);
+    for (const b of blobs) {
+      b.x += b.vx; b.y += b.vy;
+      if (b.x < -b.r) b.x = w + b.r; if (b.x > w + b.r) b.x = -b.r;
+      if (b.y < -b.r) b.y = h + b.r; if (b.y > h + b.r) b.y = -b.r;
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      const [r, gr, bl] = b.c;
+      g.addColorStop(0, `rgba(${r},${gr},${bl},${b.a})`);
+      g.addColorStop(1, `rgba(${r},${gr},${bl},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (running) raf = requestAnimationFrame(frame);
+  }
+  let raf = 0, running = false;
+  function start() { if (!running) { running = true; raf = requestAnimationFrame(frame); } }
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); }
+  resize();
+  if (reduce) { frame(); return; } // paint one static frame, no motion
+  start();
+  window.addEventListener("resize", () => { dpr = Math.min(window.devicePixelRatio || 1, 2); resize(); }, { passive: true });
+  document.addEventListener("visibilitychange", () => { document.hidden ? stop() : start(); });
+})();
+
+/* ---------- Scroll reveal: the page comes alive ---------- */
+(function scrollReveal() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!("IntersectionObserver" in window)) return;
+  const targets = document.querySelectorAll(
+    ".promise, .market-head, .bundles, .trust-strip, .market-pulse, .delivery, .install, .bundles-grid > article, .trust-strip > article"
+  );
+  if (!targets.length) return;
+  targets.forEach(el => el.classList.add("reveal-init"));
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add("is-in"); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+  targets.forEach(el => io.observe(el));
+  // Safety net: reveal everything after 2s no matter what
+  setTimeout(() => targets.forEach(el => el.classList.add("is-in")), 2000);
+})();
