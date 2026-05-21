@@ -318,15 +318,14 @@ body.store-paused .status-pill .dot { background: var(--amber); box-shadow: 0 0 
 /* -- Main spacing ---------------------------------------------------- */
 main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 
-/* -- Hero (hell & premium) ------------------------------------------ */
+/* -- Hero (hell & cinematic) ---------------------------------------- */
 .hero {
   position: relative;
   margin: 0 var(--gutter);
-  padding: clamp(32px, 5vw, 64px) clamp(24px, 5vw, 64px);
+  padding: clamp(40px, 6vw, 88px) clamp(24px, 5vw, 64px);
+  min-height: clamp(420px, 54vw, 600px);
   color: var(--ink);
-  background:
-    radial-gradient(120% 130% at 100% 0%, rgba(18,120,78,0.10), transparent 58%),
-    linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -337,6 +336,25 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   gap: clamp(28px, 4vw, 64px);
 }
 @media (max-width: 820px) { .hero { grid-template-columns: 1fr; } }
+/* Animated colour mesh — quiet drifting light */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 42% at 16% 22%, rgba(31,156,102,0.22), transparent 60%),
+    radial-gradient(32% 38% at 86% 14%, rgba(240,180,41,0.20), transparent 60%),
+    radial-gradient(48% 52% at 80% 90%, rgba(18,120,78,0.16), transparent 62%),
+    radial-gradient(40% 44% at 6% 88%, rgba(255,138,92,0.12), transparent 60%);
+  animation: meshDrift 20s ease-in-out infinite alternate;
+}
+.hero > * { position: relative; z-index: 2; }
+@keyframes meshDrift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(2.5%, 2%, 0) scale(1.1); }
+}
 
 .hero-copy { position: relative; z-index: 2; max-width: 600px; }
 .eyebrow {
@@ -349,12 +367,12 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 }
 .hero .eyebrow { color: var(--green); }
 .hero h1 {
-  margin: 0 0 18px;
+  margin: 0 0 20px;
   font-family: var(--font-impact);
   font-weight: 400;
-  letter-spacing: -0.035em;
-  font-size: clamp(36px, 5.6vw, 64px);
-  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-size: clamp(40px, 6.4vw, 78px);
+  line-height: 0.94;
   text-transform: uppercase;
   color: var(--ink);
 }
@@ -380,46 +398,59 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .hero-trust li { display: inline-flex; align-items: center; gap: 8px; }
 .hero-trust svg { width: 16px; height: 16px; color: var(--green); }
 
-/* Hero visual — curated produce tiles with soft depth */
-.hero-visual { position: relative; z-index: 1; justify-self: end; width: 100%; max-width: 460px; }
-@media (max-width: 820px) { .hero-visual { justify-self: center; margin-top: 4px; } }
-.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px, 1.4vw, 16px); }
+/* Hero visual — floating produce tiles, parallax stage */
+.hero-visual {
+  position: relative; z-index: 2; justify-self: end; width: 100%; max-width: 480px;
+  animation: heroFade 800ms ease both;
+}
+@media (max-width: 820px) { .hero-visual { justify-self: center; margin-top: 6px; } }
+.hero-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 1.6vw, 18px);
+  transform: translate3d(calc(var(--px,0) * 1px), calc(var(--py,0) * 1px), 0);
+  transition: transform 400ms cubic-bezier(0.16,0.84,0.34,1);
+}
 .hero-tile {
   aspect-ratio: 1 / 1;
-  border-radius: 20px;
+  border-radius: 22px;
   overflow: hidden;
   background: #fff;
   border: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-card);
-  animation: heroReveal 720ms cubic-bezier(0.16, 0.84, 0.34, 1) both;
+  box-shadow: var(--shadow-card-hover);
+  animation: floaty 7s ease-in-out infinite;
+  will-change: transform;
 }
 .hero-tile img { width: 100%; height: 100%; object-fit: cover; }
-.hero-tile:nth-child(1) { transform: translateY(-12px); animation-delay: 40ms; }
-.hero-tile:nth-child(2) { animation-delay: 120ms; }
-.hero-tile:nth-child(3) { animation-delay: 200ms; }
-.hero-tile:nth-child(4) { transform: translateY(-12px); animation-delay: 280ms; }
+.hero-tile:nth-child(1) { animation-delay: -0.4s; }
+.hero-tile:nth-child(2) { animation-delay: -2.4s; }
+.hero-tile:nth-child(3) { animation-delay: -3.6s; }
+.hero-tile:nth-child(4) { animation-delay: -1.5s; }
 .hero-float {
   position: absolute;
-  left: -10px;
-  bottom: 6px;
+  left: -12px;
+  bottom: 2px;
+  z-index: 3;
   display: grid;
   gap: 1px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--line-soft);
-  border-radius: 14px;
+  padding: 13px 17px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 15px;
   box-shadow: var(--shadow-md);
-  animation: heroReveal 720ms cubic-bezier(0.16, 0.84, 0.34, 1) both;
-  animation-delay: 380ms;
+  animation: heroFade 800ms ease both; animation-delay: 260ms;
 }
-.hero-float strong { font-family: var(--font-impact); font-weight: 400; font-size: 20px; letter-spacing: -0.02em; line-height: 1; }
+.hero-float strong { font-family: var(--font-impact); font-weight: 400; font-size: 21px; letter-spacing: -0.02em; line-height: 1; }
 .hero-float span { font-size: 11.5px; color: var(--muted); }
-@keyframes heroReveal {
-  from { opacity: 0; transform: translateY(16px); }
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
 }
+@keyframes heroFade { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: reduce) {
-  .hero-tile, .hero-float { animation: none; }
+  .hero::before { animation: none; }
+  .hero-tile, .hero-visual, .hero-float { animation: none; }
+  .hero-grid { transform: none; }
 }
 
 /* -- Buttons (global) ----------------------------------------------- */

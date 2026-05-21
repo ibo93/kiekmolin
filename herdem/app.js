@@ -1798,3 +1798,27 @@ if (document.readyState === "loading") {
   }, { threshold: 0.4 });
   nodes.forEach(el => io.observe(el));
 })();
+
+/* ---------- Hero mouse parallax (subtle, premium) ---------- */
+(function heroParallax() {
+  const hero = document.querySelector(".hero");
+  const grid = document.querySelector(".hero-grid");
+  if (!hero || !grid) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (window.matchMedia("(hover: none)").matches) return; // skip touch
+  let raf = 0;
+  hero.addEventListener("mousemove", (e) => {
+    const r = hero.getBoundingClientRect();
+    const dx = (e.clientX - r.left) / r.width - 0.5;
+    const dy = (e.clientY - r.top) / r.height - 0.5;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      grid.style.setProperty("--px", (dx * 18).toFixed(1));
+      grid.style.setProperty("--py", (dy * 18).toFixed(1));
+    });
+  });
+  hero.addEventListener("mouseleave", () => {
+    grid.style.setProperty("--px", "0");
+    grid.style.setProperty("--py", "0");
+  });
+})();
