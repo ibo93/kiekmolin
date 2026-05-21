@@ -631,27 +631,30 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   flex-direction: column;
   background: #fff;
   border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  box-shadow: var(--shadow-card);
+  transition: transform 220ms cubic-bezier(0.16,0.84,0.34,1), box-shadow 220ms ease, border-color 220ms ease;
 }
 .card:hover {
-  transform: translateY(-2px);
-  border-color: var(--line);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-4px);
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 .card.is-saved { border-color: rgba(240,180,41,0.55); }
 
 .card-media {
   position: relative;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   background: var(--soft);
   border-bottom: 1px solid var(--line-soft);
 }
 .card-media img {
   width: 100%; height: 100%;
   object-fit: cover;
+  transition: transform 400ms cubic-bezier(0.16,0.84,0.34,1);
 }
+.card:hover .card-media img { transform: scale(1.045); }
 .badge-row { position: absolute; left: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
 .badge {
   padding: 3px 9px;
@@ -748,9 +751,10 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   margin-top: 2px;
 }
 .card-price .price {
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-impact);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -828,43 +832,45 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 .bundles-grid article {
   display: grid;
   gap: 8px;
-  padding: 22px 20px;
-  background: linear-gradient(155deg, var(--green-deep), var(--green) 90%);
-  color: #fff;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  padding: 24px 22px;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(18,120,78,0.06), transparent 60%),
+    #fff;
+  color: var(--ink);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   align-content: start;
+  transition: transform 220ms cubic-bezier(0.16,0.84,0.34,1), box-shadow 220ms ease;
 }
-.bundles-grid article:nth-child(2) { background: linear-gradient(155deg, #6e1c14, var(--red)); }
-.bundles-grid article:nth-child(3) { background: linear-gradient(155deg, #8a5b0e, var(--amber)); color: var(--ink); }
-.bundles-grid article:nth-child(4) { background: linear-gradient(155deg, #1f4d72, var(--blue)); }
+.bundles-grid article:hover { transform: translateY(-4px); box-shadow: var(--shadow-card-hover); }
 .badge-soft {
   display: inline-block;
   padding: 4px 10px;
-  background: rgba(255,255,255,0.18);
+  background: rgba(18,120,78,0.10);
+  color: var(--green-deep);
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   width: max-content;
 }
-.bundles-grid article:nth-child(3) .badge-soft { background: rgba(0,0,0,0.12); }
 .bundles-grid h3 {
   margin: 6px 0 0;
-  font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: -0.02em;
-  font-weight: 800;
+  font-family: var(--font-impact);
+  font-size: 21px;
+  letter-spacing: -0.025em;
+  font-weight: 400;
 }
-.bundles-grid p { margin: 0; opacity: 0.86; font-size: 14px; line-height: 1.45; }
+.bundles-grid p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .bundles-grid .btn-add {
-  background: rgba(255,255,255,0.16);
-  border: 1px solid rgba(255,255,255,0.3);
+  background: var(--green);
+  color: #fff;
   align-self: start;
   margin-top: 6px;
 }
-.bundles-grid article:nth-child(3) .btn-add { background: var(--ink); color: #fff; border-color: var(--ink); }
+.bundles-grid .btn-add:hover { background: var(--green-hover); }
 
 /* -- Recent --------------------------------------------------------- */
 .recent { margin-top: var(--section-gap); }
@@ -1988,3 +1994,4 @@ body.store-paused .btn-checkout:hover { background: var(--muted); transform: non
   .stepper { grid-template-columns: 30px 32px 30px; height: 36px; }
   .bundles-grid { grid-template-columns: 1fr; }
 }
+
