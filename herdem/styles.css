@@ -1356,44 +1356,64 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   font-size: 13px;
 }
 
-/* -- Mobile dock ---------------------------------------------------- */
+/* -- Mobile dock (Bottom-Tab-Bar, App-Gefühl) ----------------------- */
 .mobile-dock {
   display: none;
   position: fixed;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  left: 10px;
-  right: 10px;
+  left: 0; right: 0; bottom: 0;
   z-index: 28;
-  background: rgba(255,255,255,0.96);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  padding: 6px;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-top: 1px solid var(--line-soft);
+  box-shadow: 0 -8px 28px rgba(20,36,28,0.08);
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   grid-template-columns: repeat(5, 1fr);
+  align-items: end;
   gap: 2px;
 }
 .mobile-dock button {
   display: grid;
-  grid-template-rows: 22px auto;
+  grid-template-rows: 24px auto;
   place-items: center;
-  gap: 2px;
-  padding: 8px 4px;
+  gap: 3px;
+  padding: 4px 2px;
   border-radius: var(--radius-sm);
+  background: none;
   color: var(--muted);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   position: relative;
-  transition: background 120ms, color 120ms;
+  transition: color 140ms ease;
 }
-.mobile-dock button:hover,
-.mobile-dock button.is-active { color: var(--green-deep); background: var(--soft); }
-.mobile-dock svg { width: 22px; height: 22px; color: currentColor; }
+.mobile-dock button:active { transform: scale(0.94); }
+.mobile-dock button.is-active { color: var(--green-deep); }
+.mobile-dock svg { width: 23px; height: 23px; color: currentColor; }
+
+/* Central, raised cart */
+.mobile-dock .dock-cart {
+  grid-template-rows: auto auto;
+  gap: 4px;
+  color: var(--muted);
+}
+.mobile-dock .dock-fab {
+  display: grid; place-items: center;
+  width: 54px; height: 54px;
+  margin-top: -26px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(18,120,78,0.36), 0 0 0 4px var(--paper);
+  position: relative;
+  transition: background 140ms ease;
+}
+.mobile-dock .dock-cart:active .dock-fab { background: var(--green-hover); }
+.mobile-dock .dock-fab svg { width: 24px; height: 24px; }
 .mobile-dock em {
   position: absolute;
-  top: 4px; right: 22%;
-  background: var(--red);
-  color: #fff;
+  top: -4px; right: -4px;
+  background: var(--amber);
+  color: var(--green-deep);
   font-size: 10px;
   font-weight: 800;
   font-style: normal;
@@ -1402,6 +1422,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   border-radius: 999px;
   display: grid; place-items: center;
   padding: 0 5px;
+  box-shadow: 0 0 0 2px var(--paper);
 }
 
 /* -- Backdrop ------------------------------------------------------- */
@@ -1783,7 +1804,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 /* -- Sticky cart bar (mobile) -------------------------------------- */
 .sticky-cart-bar {
   position: fixed;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0));
+  bottom: calc(98px + env(safe-area-inset-bottom, 0));
   left: 14px;
   right: 14px;
   z-index: 26;
@@ -1835,7 +1856,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
   position: fixed;
   z-index: 27;
   left: 14px; right: 14px;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0));
+  bottom: calc(98px + env(safe-area-inset-bottom, 0));
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto auto;
   gap: 12px;
@@ -1908,7 +1929,7 @@ main { display: grid; gap: var(--section-gap); padding: 24px 0 64px; }
 /* When sticky cart bar visible, push delivery tracker up */
 .sticky-cart-bar.is-on ~ .delivery-tracker.is-on,
 body:has(.sticky-cart-bar.is-on) .delivery-tracker.is-on {
-  bottom: calc(146px + env(safe-area-inset-bottom, 0));
+  bottom: calc(168px + env(safe-area-inset-bottom, 0));
 }
 @media (min-width: 821px) {
   body:has(.sticky-cart-bar.is-on) .delivery-tracker.is-on { bottom: 24px; }
@@ -2030,7 +2051,7 @@ body.store-paused .btn-checkout:hover { background: var(--muted); transform: non
   .install { flex-direction: column; align-items: flex-start; }
 
   .mobile-dock { display: grid; }
-  body { padding-bottom: 86px; }
+  body { padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
 
   .co-layout { grid-template-columns: 1fr; }
   .co-fields { grid-template-columns: 1fr; }

@@ -266,6 +266,7 @@ const i18n = {
     footerTagline: "Türkisch-mediterrane Frische, geliefert in 38 Minuten.",
     footerNote: "Frische, ehrlich gepackt.",
     dockHome: "Start", dockSearch: "Suche", dockAccount: "Konto", dockHelp: "Hilfe", dockCart: "Korb",
+    dockCategories: "Kategorien", dockOrders: "Bestellungen",
     addrDialogTitle: "Wohin liefern wir?",
     addrStreet: "Straße & Hausnummer",
     addrCity: "PLZ & Stadt",
@@ -411,6 +412,7 @@ const i18n = {
     footerTagline: "Türk-Akdeniz tazeliği, 38 dakikada teslim.",
     footerNote: "Taze, dürüstçe paketlenmiş.",
     dockHome: "Ana", dockSearch: "Ara", dockAccount: "Hesap", dockHelp: "Yardım", dockCart: "Sepet",
+    dockCategories: "Kategoriler", dockOrders: "Siparişler",
     addrDialogTitle: "Nereye teslim?",
     addrStreet: "Sokak ve numara",
     addrCity: "Posta kodu ve şehir",
@@ -1238,7 +1240,9 @@ document.addEventListener("click", (ev) => {
     const a = dock.dataset.dock;
     if (a === "top") window.scrollTo({ top: 0, behavior: "smooth" });
     if (a === "search") { els.search.focus(); els.search.scrollIntoView({ block: "center" }); }
+    if (a === "categories") { document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (a === "cart") openCart();
+    if (a === "orders") els.accountDialog.showModal();
     if (a === "account") els.accountDialog.showModal();
     if (a === "help") els.supportDialog.showModal();
     return;
