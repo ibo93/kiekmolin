@@ -44,6 +44,8 @@
   --blue:      #4a93cf;
   --radius: 12px;
   --radius-lg: 18px;
+  --mono: "SF Mono", ui-monospace, "Cascadia Mono", "Roboto Mono", monospace;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.30), 0 10px 26px rgba(0,0,0,0.28);
 }
 
 * { box-sizing: border-box; }
@@ -100,7 +102,7 @@ svg { display: block; }
 }
 .gate-card p { margin: 0; color: var(--ink-soft); }
 .gate-card label { display: grid; gap: 4px; text-align: left; }
-.gate-card label span { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.gate-card label span { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .gate-card input { font-size: 16px; }
 .gate-card button {
   margin-top: 6px;
@@ -108,8 +110,8 @@ svg { display: block; }
   background: var(--green);
   color: var(--bg);
   border-radius: 10px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   transition: background 140ms;
 }
 .gate-card button:hover { background: #4ad394; }
@@ -194,7 +196,7 @@ svg { display: block; }
   background: var(--green);
   color: var(--bg);
   border-radius: 9px;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.01em;
   transition: background 140ms;
@@ -271,11 +273,12 @@ svg { display: block; }
   text-transform: uppercase;
 }
 .eyebrow {
-  margin: 0 0 4px;
+  margin: 0 0 5px;
   color: var(--green);
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .panel-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
@@ -290,7 +293,8 @@ svg { display: block; }
   overflow: auto;
   background: var(--bg-card);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 .data-table {
   width: 100%;
@@ -303,8 +307,9 @@ svg { display: block; }
   border-bottom: 1px solid var(--line);
 }
 .data-table th {
-  font-size: 11px;
-  font-weight: 800;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -312,6 +317,7 @@ svg { display: block; }
   position: sticky; top: 0;
   user-select: none;
 }
+.data-table tr td { transition: background 140ms ease; }
 .data-table th[data-sort] { cursor: pointer; }
 .data-table th[data-sort]:hover { color: var(--ink); }
 .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -325,8 +331,9 @@ svg { display: block; }
 }
 .tag-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .tag-pills span {
+  font-family: var(--mono);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 500;
   padding: 2px 7px;
   border-radius: 999px;
   background: var(--bg-soft);
@@ -344,8 +351,9 @@ svg { display: block; }
 .status-pill {
   display: inline-block;
   padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 800;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
   border-radius: 999px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -384,8 +392,9 @@ svg { display: block; }
 .bundle-card[data-color="blue"] { box-shadow: inset 4px 0 0 var(--blue); }
 .bundle-card[data-color="green"] { box-shadow: inset 4px 0 0 var(--green); }
 .bundle-card .bc-eyebrow {
+  font-family: var(--mono);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -436,10 +445,11 @@ svg { display: block; }
   gap: 12px;
 }
 .copy-form legend, .settings-form legend {
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--green);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 0 6px;
 }
@@ -448,8 +458,9 @@ svg { display: block; }
   gap: 4px;
 }
 .copy-form label span, .settings-form label span {
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -513,8 +524,8 @@ svg { display: block; }
   border-radius: var(--radius);
 }
 .order-row .o-code {
-  font-family: ui-monospace, "Cascadia Mono", monospace;
-  font-weight: 800;
+  font-family: var(--mono);
+  font-weight: 600;
   color: var(--green);
   letter-spacing: 0.04em;
 }
@@ -596,8 +607,9 @@ svg { display: block; }
 .adlg .grid-2 label { display: grid; gap: 4px; }
 .adlg .grid-2 label span,
 .adlg .grid-2 fieldset legend {
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.04em;
   text-transform: uppercase;
