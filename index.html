@@ -991,6 +991,9 @@
   }
 
   /* ================= PREMIUM · Glow-Edges, Orb, Politur ================= */
+  /* Laufende Lichtkante: ein Lichtpunkt wandert beim Hover/Tippen um die Card */
+  @property --chef-edge { syntax:"<angle>"; inherits:false; initial-value:0deg; }
+  @keyframes chefEdgeRun { to { --chef-edge:360deg; } }
   /* Leuchtende Kanten: dezent in Ruhe, hell beim Drübergehen/Antippen */
   .glass, .lab-card, .recipe, .menu-row, .cmd-chip, .quick-emoji,
   .ki-control, .order-row, .haccp-card, .offer-row, .crisis-row,
@@ -1005,12 +1008,17 @@
     pointer-events:none; opacity:.22; transition:opacity .25s, filter .25s;
     z-index:2;
   }
-  /* Hover (Desktop) + Press (Touch) → Kante leuchtet auf */
+  /* Hover (Desktop) + Press (Touch) → Lichtpunkt läuft um die Kante */
   .glass:hover::after, .lab-card:hover::after, .recipe:hover::after, .menu-row:hover::after,
   .cmd-chip:hover::after, .quick-btn:hover .quick-emoji::after, .ki-control:hover::after,
   .glass:active::after, .lab-card:active::after, .recipe:active::after, .menu-row:active::after,
   .cmd-chip:active::after, .quick-btn:active .quick-emoji::after, .ki-control:active::after {
-    opacity:1; filter:drop-shadow(0 0 6px rgba(255,150,90,.55)) drop-shadow(0 0 14px rgba(255,95,174,.35));
+    opacity:1;
+    background:conic-gradient(from var(--chef-edge),
+      transparent 0deg, var(--edge1) 36deg, #fff6e2 66deg, var(--edge2) 104deg, transparent 168deg,
+      transparent 196deg, var(--edge3) 250deg, #fff6e2 280deg, var(--edge2) 320deg, transparent 360deg);
+    animation:chefEdgeRun 2.4s linear infinite;
+    filter:drop-shadow(0 0 6px rgba(255,150,90,.6)) drop-shadow(0 0 15px rgba(255,95,174,.4));
   }
   .lab-card::after, .recipe::after, .cmd-chip::after, .quick-emoji::after { z-index:3; }
 
