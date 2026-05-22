@@ -3155,6 +3155,47 @@
     }, 500 + Math.random()*300);
   }
 
+  // --- Grounding-Helfer: chefBrain antwortet aus echten Daten, nicht aus erfundenen Zahlen ---
+  const LAGER_ALIASES = {
+    fritten:'pommes', frites:'pommes', fisch:'lachs', wildlachs:'lachs',
+    rind:'rinderhack', hack:'rinderhack', hackfleisch:'rinderhack', gehacktes:'rinderhack',
+    kaese:'mozzarella', käse:'mozzarella', salat:'salat', öl:'olivenöl', oel:'olivenöl',
+    pils:'bier', wasser:'mineralwasser', kartoffel:'kartoffeln', zwiebel:'zwiebeln'
+  };
+  const LAGER_STOP = ['der','die','das','wie','viel','viele','noch','haben','wir','ist','sind','von','ein','eine','und','im','lager','bestand','vorrat','meine','habe','ich','wieviel','noch','was','vom','den','mein'];
+  function findLagerItems(q){
+    let words = q.toLowerCase().split(/[^a-zäöüß0-9]+/).filter(w => w.length > 2 && !LAGER_STOP.includes(w));
+    words = words.map(w => LAGER_ALIASES[w] || w);
+    const hits = [];
+    for(const r of lagerData){
+      const nm = r.name.toLowerCase();
+      const head = nm.split(/[\s.]/)[0];
+      if(words.some(w => nm.includes(w) || (head.length > 3 && w.includes(head)))){
+        if(!hits.includes(r)) hits.push(r);
+      }
+    }
+    return hits;
+  }
+  function describeLagerItem(r){
+    const st = r.status === 'low' ? 'kritisch' : r.status === 'warn' ? 'knapp' : 'gut bestückt';
+    const ms = mhdState(r);
+    const mhdTxt = (ms === 'soon' || ms === 'expired') ? ' Achtung: ' + mhdText(r) + '.' : '';
+    return `${r.name}: ${r.amount} in ${r.loc}, reicht ${r.days} (${st}).${mhdTxt}`;
+  }
+  // Rangliste der Gerichte nach echter Marge (aus recipes + recipeMarge)
+  function marginRanking(){
+    return Object.keys(recipes)
+      .map(n => ({ name:n, m:recipeMarge(recipes[n]), vk:recipes[n].vk }))
+      .sort((a,b) => b.m.marge - a.m.marge);
+  }
+  // Heutige Schichten als lesbarer Satz (aus shiftData)
+  function todayShiftSentence(){
+    const idx = todayWdIdx();
+    const list = shiftData.filter(s => s.day === idx).sort((a,b)=>a.start.localeCompare(b.start));
+    if(!list.length) return 'Für heute (' + WD[idx] + ') ist noch keine Schicht eingetragen.';
+    return 'Heute (' + WD[idx] + '): ' + list.map(s => s.name + ' ' + s.start + '–' + s.end).join(', ') + '.';
+  }
+
   // --- The brain: intent matching with rich responses ---
   function chefBrain(input) {
     const q = input.toLowerCase();
@@ -3175,23 +3216,6 @@
         actions:[{label:'Mein Restaurant öffnen',fn:()=>openProfil()}] };
     }
 
-    // Inventory queries
-    if (has('pommes','fritten')) {
-      return { reply:'Aktuell 3,8 Kilo Pommes Frites im Tiefkühler. Reicht für etwa 2 Tage. Letzte Bestellung kam vor 5 Tagen. Soll ich 10 Kilo nachbestellen bei Frostkönig?',
-        actions:[{label:'10 kg bestellen',cmd:'Bestelle 10 Kilo Pommes'},{label:'15 kg bestellen',cmd:'Bestelle 15 Kilo Pommes'},{label:'Lieferanten zeigen',fn:()=>openBestellungen()}] };
-    }
-    if (has('lachs','fisch')) {
-      return { reply:'5,6 Kilo Lachsfilet im Frischfisch-Kühler – heute morgen geliefert. Wildlachs heute bei Friesland im Angebot: 18 Euro pro Kilo, 22 Prozent unter Marktpreis.',
-        actions:[{label:'5 kg Wildlachs',cmd:'Bestelle 5 Kilo Wildlachs'},{label:'Lachs als Special',cmd:'Mach Lachs zum Tagesgericht'}] };
-    }
-    if (has('hack','fleisch','rind')) {
-      return { reply:'Rinderhack ist kritisch: nur noch 1,2 Kilo. Reicht maximal bis morgen Mittag. Empfehle dringend: 5 Kilo nachbestellen.',
-        actions:[{label:'5 kg bestellen',cmd:'Bestelle 5 Kilo Rinderhack'}] };
-    }
-    if (has('tomate')) {
-      return { reply:'12,4 Kilo Tomaten im Kühlhaus 1. Achtung: laufen in 3 Tagen ab. Vorschlag: Tomatensuppe als Tagesangebot. Bringt geschätzt 180 Euro Umsatz und verhindert 30 Euro Verschwendung.',
-        actions:[{label:'Auf Tageskarte',cmd:'Mach Tomatensuppe zum Tagesgericht'},{label:'Insta-Post',cmd:'Mach den Tomaten-Post fertig'}] };
-    }
     if (has('was ist niedrig','niedriger bestand','was fehlt','knapp')) {
       const krit = lagerData.filter(r => r.status === 'low');
       const warnArr = lagerData.filter(r => r.status === 'warn');
@@ -3232,6 +3256,15 @@
         actions:[{label:'Reste-Retter öffnen',fn:()=>openResteRetter()},{label:top.dish+' aktivieren',fn:()=>{toast('✓ '+top.dish+' auf die Tageskarte gesetzt');}}] };
     }
     if (has('wie viel','wie viele','bestand','vorrat')) {
+      const f = findLagerItems(q);
+      if (f.length) {
+        const top = f.slice(0, 3);
+        const critical = top.find(r => r.status === 'low');
+        const idx0 = lagerData.indexOf(top[0]);
+        const acts = [{ label: top[0].name + ' ansehen', fn:()=>openLagerItem(idx0) }];
+        if (critical) acts.push({ label:'Nachbestell-Liste', fn:()=>openNachbestellung() });
+        return { reply: top.map(describeLagerItem).join(' ') + (critical ? ' Soll ich nachbestellen?' : ''), actions: acts };
+      }
       const gs = lagerStats();
       return { reply:`Lager insgesamt bei ${gs.avgPct} Prozent. ${gs.total} Artikel, davon ${gs.low} niedrig und ${gs.warn} in Warnung. Welcher Artikel interessiert dich konkret?`,
         actions:[{label:'Liste anzeigen',fn:()=>navTo('lager')},{label:'Was ist niedrig',cmd:'Was ist niedrig?'}] };
@@ -3248,13 +3281,27 @@
       return { reply:`Heute ${euro(td.umsatz)} bei ${td.gaeste} Gästen – das sind € ${proGast} pro Gast. Marge liegt bei ${String(td.marge).replace('.',',')} Prozent, Verschwendung bei ${String(td.muell).replace('.',',')} Prozent.`,
         actions:[{label:'Tagesdaten bearbeiten',fn:()=>openTagesDaten()},{label:'Auswertungen',fn:()=>openAuswertungen()}] };
     }
-    if (has('top','best','läuft','meistverkauft')) {
-      return { reply:'Heute schon 12 mal verkauft: Schnitzel mit Pommes. Danach Pizza Margherita mit 8 und Currywurst mit 7. Schnitzel hat 68 Prozent Marge – dein Geld-Magnet heute.',
-        actions:[{label:'Schnitzel hochpushen',cmd:'Mach einen Schnitzel-Insta-Post'},{label:'Auswertung',fn:()=>openAuswertungen()}] };
+    if (has('top','best','läuft','meistverkauft','geld-magnet','gewinnbringer')) {
+      const rank = marginRanking();
+      if (!rank.length) {
+        return { reply:'Du hast noch keine Gerichte angelegt. Sobald du Rezepte mit Preisen einträgst, zeige ich dir, welche am meisten Marge bringen.',
+          actions:[{label:'Rezepte öffnen',fn:()=>openRezepte()}] };
+      }
+      const top3 = rank.slice(0,3);
+      const liste = top3.map(t => `${t.name} (${t.m.marge.toFixed(0)}%)`).join(', ');
+      return { reply:`Deine margenstärksten Gerichte: ${liste}. ${top3[0].name} ist mit ${top3[0].m.marge.toFixed(0)}% dein Geld-Magnet – den würde ich heute aktiv anbieten.`,
+        actions:[{label:top3[0].name+' pushen',cmd:'Mach einen Insta-Post für '+top3[0].name},{label:'Auswertungen',fn:()=>openAuswertungen()}] };
     }
-    if (has('marge','gewinn','profit')) {
-      return { reply:'Marge heute 62,4 Prozent. Beste Marge: Latte Macchiato mit 88, Tiramisu mit 82, Tomatensuppe mit 78. Schwächste: Lachsfilet mit 62 – Lieferpreise gestiegen. Soll ich Preise prüfen?',
-        actions:[{label:'Preis-Check Lachs',cmd:'Prüf den Lachs-Preis'}] };
+    if (has('marge','gewinn','profit','rendite')) {
+      const rank = marginRanking();
+      if (!rank.length) {
+        return { reply:'Noch keine Gerichte hinterlegt, daher kann ich keine Marge rechnen. Leg Rezepte mit Verkaufspreis und Zutaten an, dann kalkuliere ich live.',
+          actions:[{label:'Rezepte öffnen',fn:()=>openRezepte()}] };
+      }
+      const avg = rank.reduce((s,t)=>s+t.m.marge,0) / rank.length;
+      const best = rank[0], worst = rank[rank.length-1];
+      return { reply:`Durchschnittsmarge über ${rank.length} Gerichte: ${avg.toFixed(0)}%. Beste: ${best.name} mit ${best.m.marge.toFixed(0)}%. Schwächste: ${worst.name} mit ${worst.m.marge.toFixed(0)}% – da lohnt ein Preis- oder Einkaufs-Check.`,
+        actions:[{label:worst.name+' kalkulieren',fn:()=>openKalkulator(worst.name)},{label:'Auswertungen',fn:()=>openAuswertungen()}] };
     }
 
     // Tagesabschluss / Feierabend
@@ -3265,7 +3312,8 @@
     }
 
     // Tagesplan / To-Do
-    if (has('heute','tagesplan','to-do','todo','aufgabe','was steht','was muss','was ansteht','ansteht','erinner')) {
+    if (has('heute','tagesplan','to-do','todo','aufgabe','was steht','was muss','was ansteht','ansteht','erinner')
+        && !has('wer','schicht','personal','mitarbeiter','dienst','team')) {
       const open = todoData.filter(t=>!todoDone.includes(t.id));
       if (open.length === 0) {
         return { reply:'Stark – für heute ist alles erledigt. Du hast den Tag im Griff.', actions:[] };
@@ -3318,9 +3366,10 @@
     }
 
     // Personal / Schicht
-    if (has('schicht','personal','wer ist','mitarbeiter','team')) {
-      return { reply:'Heute Mittag: Halil Küche, Anna Service. Abend: Tom Service, Mira Küche. Morgen Samstag: erweiterte Schicht – Wetter wird 22 Grad sonnig, plus 30 Prozent Gäste erwartet. Empfehle eine zusätzliche Person 12 bis 16 Uhr.',
-        actions:[{label:'Schichtplan',fn:()=>openPersonal()},{label:'Extra Schicht planen',cmd:'Plan eine Extra-Schicht für Samstag'}] };
+    if (has('schicht','personal','wer ist','wer arbeitet','mitarbeiter','team','dienst')) {
+      const teamTxt = teamData.length ? teamData.length + ' im Team' : 'noch kein Team eingetragen';
+      return { reply:`${todayShiftSentence()} (${teamTxt}.) Im Schichtplan kannst du Schichten mit Uhrzeit eintragen oder ändern. Soll ich ihn öffnen?`,
+        actions:[{label:'Schichtplan öffnen',fn:()=>openPersonal()}] };
     }
 
     // HACCP
@@ -3353,8 +3402,15 @@
 
     // Konkurrenz
     if (has('konkurr','nachbar','umkreis','radar','andere restaurants','wettbewerb')) {
-      return { reply:'Im Umkreis: Da Luigi voll mit 12 Euro Pizza, Fischhof 30 Prozent frei mit Lachs für 22, BurgerHouse hat Happy Hour minus 20 Prozent. Empfehle Konter: Lachs-Special bei dir 20 Euro 50 für 2 Stunden. Aktivieren?',
-        actions:[{label:'Lachs-Special an',fn:()=>{openRadar();toast('✓ Special läuft');}},{label:'Radar öffnen',fn:()=>openRadar()}] };
+      const comps = radarCompetitors();
+      const reds = comps.filter(c => radarThreat(c) === 'red');
+      const liste = comps.slice().sort((a,b)=>a.dist-b.dist).slice(0,3)
+        .map(c => `${c.name} (${c.dist} m, ${c.busy})`).join(', ');
+      const head = reds.length
+        ? `${reds.length === 1 ? '1 Laden ist' : reds.length + ' Läden sind'} gerade akut: ${reds.map(c=>c.name).join(', ')}. `
+        : 'Im Umkreis ist gerade kein akuter Druck. ';
+      return { reply:`${head}In Reichweite: ${liste}. Im Radar zeige ich dir die Karte und schlage Konter auf Basis deiner Preise vor.`,
+        actions:[{label:'Radar öffnen',fn:()=>openRadar()}] };
     }
 
     // Wetter
@@ -3369,10 +3425,16 @@
         actions:[{label:'Termin anfragen',fn:()=>toast('📨 Anfrage gesendet')},{label:'Später',fn:()=>{}}] };
     }
 
-    // Ablauf prüfen
-    if (has('läuft ab','ablauf','mhd','haltbarkeit','verfällt')) {
-      return { reply:'In den nächsten Tagen: Tomaten in 3 Tagen, Mozzarella in 5, Sahne in 4, Eisbergsalat in 2. Kombiniert ist das Caprese-Salat-Material plus Soße – könnte ein Tagesgericht werden. Magst du das?',
-        actions:[{label:'Caprese-Special',cmd:'Mach Caprese zum Tagesgericht'},{label:'Lager-Übersicht',fn:()=>navTo('lager')}] };
+    // Generischer Artikel-Lookup: echte Bestände statt erfundener Zahlen
+    const found = findLagerItems(q);
+    if (found.length) {
+      const top = found.slice(0, 3);
+      const reply = top.map(describeLagerItem).join(' ');
+      const critical = top.find(r => r.status === 'low');
+      const idx0 = lagerData.indexOf(top[0]);
+      const acts = [{ label: top[0].name + ' ansehen', fn:()=>openLagerItem(idx0) }];
+      if (critical) acts.push({ label:'Nachbestell-Liste', fn:()=>openNachbestellung() });
+      return { reply: reply + (critical ? ' Soll ich das auf die Nachbestell-Liste setzen?' : ''), actions: acts };
     }
 
     // Tagesüberblick
