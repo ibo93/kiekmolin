@@ -16,44 +16,48 @@
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
   :root{
-    /* Kiek mol in — helles Design */
-    --bg:#fafaf7;
-    --surface:#ffffff;
-    --text:#1a1a1a;
-    --text-dim:rgba(26,26,26,0.62);
-    --text-faint:rgba(26,26,26,0.40);
-    /* Brand: Forest-Green + Amber */
-    --brand:#003d33;
-    --brand-deep:#002a23;
-    --brand-tint:#eef5f3;
-    --brand-tint-2:#e6f0ee;
-    --brand-tint-3:#cfe0dc;
-    --amber:#f59e0b;
-    /* "Glass" auf hell = weiße Cards mit weichem Schatten */
-    --glass:#ffffff;
-    --glass-strong:#ffffff;
-    --glass-border:rgba(0,61,51,0.10);
-    --glass-border-bright:rgba(0,61,51,0.18);
-    --glass-edge-top:rgba(255,255,255,0.9);
-    --glass-edge-bot:rgba(0,0,0,0.04);
-    --card-shadow:0 1px 2px rgba(0,61,51,0.04), 0 6px 20px rgba(0,61,51,0.07);
-    /* Status colors (auf hell abgestimmt) */
-    --green:#1a8f5c;
-    --red:#e0463c;
-    --orange:#e08a2e;
-    --blue:#2f6fd0;
-    --purple:#7c5cd0;
-    /* Akzent-Aliase (Gold → Amber/Brand, für Altbestand) */
-    --accent:#003d33;
-    --accent-dim:rgba(0,61,51,0.85);
-    --gold:#003d33;
-    --gold-light:#003d33;
-    --gold-deep:#002a23;
+    /* The Chef — Premium "Kitchen Instrument" (dunkel) */
+    --bg:#0a0c10;
+    --surface:#14171d;
+    --text:#f3f5f4;
+    --text-dim:rgba(243,245,244,0.60);
+    --text-faint:rgba(243,245,244,0.38);
+    /* Brand: Service-Heat Amber */
+    --brand:#f5a623;
+    --brand-deep:#c77410;
+    --brand-tint:#181b22;
+    --brand-tint-2:#1f232b;
+    --brand-tint-3:#272c36;
+    --amber:#f5a623;
+    /* "Glass" = dunkle Edelstahl-Cards */
+    --glass:#14171d;
+    --glass-strong:#191d24;
+    --glass-border:rgba(255,255,255,0.08);
+    --glass-border-bright:rgba(255,255,255,0.16);
+    --glass-edge-top:rgba(255,255,255,0.06);
+    --glass-edge-bot:rgba(0,0,0,0.4);
+    --card-shadow:0 1px 2px rgba(0,0,0,0.5), 0 16px 40px rgba(0,0,0,0.5);
+    /* Status colors (auf dunkel abgestimmt) */
+    --green:#2ee6a6;
+    --red:#ff5a4d;
+    --orange:#ffb454;
+    --blue:#5b9cf0;
+    --purple:#b08cff;
+    /* Akzent-Aliase → Amber-Heat */
+    --accent:#f5a623;
+    --accent-dim:rgba(245,166,35,0.85);
+    --gold:#f5a623;
+    --gold-light:#ffc878;
+    --gold-deep:#c77410;
+    /* Iridescent glow-edge (Amber → Pink → Violett) */
+    --edge1:#ffb55a;
+    --edge2:#ff5fae;
+    --edge3:#9b7bff;
     --safe-top:env(safe-area-inset-top, 0px);
     --safe-bot:env(safe-area-inset-bottom, 0px);
   }
 
-  html,body{height:100%;overflow:hidden;background:#e8ebe9}
+  html,body{height:100%;overflow:hidden;background:#05060a}
   body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro',sans-serif;
     color:var(--text);
@@ -67,7 +71,7 @@
   .stage{
     position:fixed;inset:0;
     display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(circle at 50% 30%,#dfe6e3 0%,#cdd6d2 70%);
+    background:radial-gradient(circle at 50% 25%,#11141b 0%,#05060a 72%);
     overflow:hidden;
   }
 
@@ -985,6 +989,77 @@
     .phone{border-radius:0;border:none;box-shadow:none;max-height:100vh;width:100vw;height:100vh}
     .phone::before{display:none}
   }
+
+  /* ================= PREMIUM · Glow-Edges, Orb, Politur ================= */
+  /* Leuchtende Kanten: dezent in Ruhe, hell beim Drübergehen/Antippen */
+  .glass, .lab-card, .recipe, .menu-row, .cmd-chip, .quick-emoji,
+  .ki-control, .order-row, .haccp-card, .offer-row, .crisis-row,
+  .idea-card, .why-card, .pf-tile, .store-cell, .ai-suggest, .extract-row { position:relative; }
+
+  .glass::after, .lab-card::after, .recipe::after, .menu-row::after,
+  .cmd-chip::after, .quick-emoji::after, .ki-control::after, .tabbar-inner::after {
+    content:""; position:absolute; inset:0; border-radius:inherit; padding:1.3px;
+    background:linear-gradient(135deg, var(--edge1), var(--edge2) 48%, var(--edge3));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    pointer-events:none; opacity:.22; transition:opacity .25s, filter .25s;
+    z-index:2;
+  }
+  /* Hover (Desktop) + Press (Touch) → Kante leuchtet auf */
+  .glass:hover::after, .lab-card:hover::after, .recipe:hover::after, .menu-row:hover::after,
+  .cmd-chip:hover::after, .quick-btn:hover .quick-emoji::after, .ki-control:hover::after,
+  .glass:active::after, .lab-card:active::after, .recipe:active::after, .menu-row:active::after,
+  .cmd-chip:active::after, .quick-btn:active .quick-emoji::after, .ki-control:active::after {
+    opacity:1; filter:drop-shadow(0 0 6px rgba(255,150,90,.55)) drop-shadow(0 0 14px rgba(255,95,174,.35));
+  }
+  .lab-card::after, .recipe::after, .cmd-chip::after, .quick-emoji::after { z-index:3; }
+
+  /* Hero = glühendes Heat-Panel mit Edelstahl-Look */
+  .hero-card{ background:linear-gradient(160deg,#1d2026 0%,#111318 100%); border:1px solid var(--glass-border); box-shadow:0 18px 44px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); }
+  .hero-card::before{ display:block; content:""; position:absolute; top:0; left:24px; right:24px; height:1px; background:linear-gradient(90deg,transparent,rgba(245,166,35,.8),transparent); pointer-events:none; }
+  .hero-card::after{ top:-30%; right:-12%; width:300px; height:300px; background:radial-gradient(circle,rgba(245,166,35,.28),transparent 68%); }
+  .hero-label{ color:rgba(245,166,35,.85); }
+  .hero-value{ background:linear-gradient(135deg,#ffe1a6,#f5a623 55%,#ec8a1c); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 16px rgba(245,166,35,.35)); }
+
+  /* Buttons: Amber-Heat mit Glow, dunkler Text für Kontrast */
+  .btn-primary{ color:#1c1206; box-shadow:0 8px 22px rgba(245,166,35,.34), inset 0 1px 0 rgba(255,255,255,.5); }
+  .btn-primary:hover{ box-shadow:0 10px 30px rgba(245,166,35,.5), inset 0 1px 0 rgba(255,255,255,.6); }
+  .msg-user{ color:#1c1206; }
+  .ai-suggest-text strong{ color:var(--gold-light); }
+
+  /* Tabbar schwebt mit feiner Glow-Linie */
+  .tabbar-inner{ box-shadow:0 10px 34px rgba(0,0,0,.55), 0 0 24px rgba(245,166,35,.08); }
+  .tabbar-inner::after{ opacity:.3; }
+  .tab.active{ box-shadow:inset 0 0 0 1px rgba(245,166,35,.25), 0 0 18px rgba(245,166,35,.12); }
+
+  /* ===== Premium Voice-Kugel: geschmolzener Kern + rotierender Iris-Ring ===== */
+  .voice-orb-big{
+    background:radial-gradient(circle at 38% 30%, #fff2d4 0%, #ffd27a 13%, #f5a623 38%, #d9711a 64%, #3a1c06 100%);
+    box-shadow:0 0 60px rgba(245,166,35,.45), 0 0 130px rgba(245,166,35,.2),
+      inset 0 -16px 34px rgba(0,0,0,.55), inset 0 12px 26px rgba(255,255,255,.2);
+  }
+  .voice-orb-big::before{
+    content:""; position:absolute; inset:-16px; border-radius:50%; z-index:-1;
+    background:conic-gradient(from 0deg, var(--edge1), var(--edge2), var(--edge3), var(--edge1));
+    filter:blur(12px); opacity:.6; animation:orbSpin 6s linear infinite; border:none;
+  }
+  .voice-orb-big::after{
+    content:""; position:absolute; inset:0; border-radius:50%; opacity:1;
+    background:radial-gradient(circle at 36% 26%, rgba(255,255,255,.55), transparent 44%);
+    pointer-events:none; animation:none; border:none;
+  }
+  @keyframes orbSpin{ to{ transform:rotate(360deg); } }
+
+  /* ===== Onboarding: Amber-Akzente auf Dunkel ===== */
+  .onboard h1 span{ background:linear-gradient(135deg,#ffd27a,#ff5fae 60%,#9b7bff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .onboard-logo{ background:radial-gradient(circle at 50% 36%, #2a2d33, #15181c 72%); border:1px solid rgba(255,255,255,.12); box-shadow:0 0 0 6px rgba(245,166,35,.06), 0 0 38px rgba(245,166,35,.4), inset 0 -8px 16px rgba(0,0,0,.6); animation:orb-pulse 3.4s ease-in-out infinite; }
+  .onboard-logo svg{ color:#ffd9a0; filter:drop-shadow(0 0 6px rgba(245,166,35,.6)); }
+  .onboard-label{ color:rgba(245,166,35,.85); }
+  .onboard-input:focus{ border-color:rgba(245,166,35,.55); box-shadow:0 0 0 3px rgba(245,166,35,.12); }
+  .type-chip.active{ background:linear-gradient(180deg,rgba(245,166,35,.18),rgba(245,166,35,.05)); border-color:rgba(245,166,35,.6); color:#ffd27a; box-shadow:0 0 0 1px rgba(245,166,35,.3), 0 0 22px rgba(245,166,35,.22); }
+
+  /* Scan-Rahmen leuchtet */
+  .scan-frame{ box-shadow:0 0 24px rgba(245,166,35,.3); }
 </style>
 </head>
 <body>
