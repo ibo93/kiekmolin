@@ -2607,7 +2607,7 @@
     orb.classList.toggle('listening', on);
     wave.classList.toggle('active', on);
     mic.classList.toggle('active', on);
-    status.textContent = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 11a7 7 0 0014 0h-2.2a4.8 4.8 0 01-9.6 0H5zm6 9.6V23h2v-2.4a7 7 0 01-2 0z"/></svg> Ich höre zu…' : 'Tippe die Kugel oder einen Schnellbefehl';
+    status.innerHTML = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 11a7 7 0 0014 0h-2.2a4.8 4.8 0 01-9.6 0H5zm6 9.6V23h2v-2.4a7 7 0 01-2 0z"/></svg> Ich höre zu…' : 'Tippe die Kugel oder einen Schnellbefehl';
     if (!on) document.getElementById('liveTranscript').classList.remove('partial');
   }
   function setSpeaking(on) {
@@ -2618,7 +2618,7 @@
   function setThinking(on) {
     const orb = document.getElementById('voiceOrb');
     if (orb) orb.classList.toggle('thinking', on);
-    document.getElementById('kiStatus').textContent = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
+    document.getElementById('kiStatus').innerHTML = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
   }
 
   function stopSpeaking() {
