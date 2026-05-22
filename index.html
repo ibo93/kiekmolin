@@ -1539,6 +1539,20 @@
 </div>
 
 <script>
+  // ===== Speicher-Absicherung: nie crashen, auch wenn localStorage blockiert ist =====
+  (function(){
+    try { var t='__chef_test__'; window.localStorage.setItem(t,'1'); window.localStorage.removeItem(t); }
+    catch(e){
+      var mem = {};
+      var shim = {
+        getItem:function(k){ return Object.prototype.hasOwnProperty.call(mem,k) ? mem[k] : null; },
+        setItem:function(k,v){ mem[k] = String(v); },
+        removeItem:function(k){ delete mem[k]; }
+      };
+      try { Object.defineProperty(window,'localStorage',{ value:shim, configurable:true }); } catch(_){ window.localStorage = shim; }
+    }
+  })();
+
   // ===== Status bar time =====
   function tickTime(){
     const d = new Date();
