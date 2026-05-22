@@ -4177,10 +4177,11 @@
     const ki = await ping('/.netlify/functions/chef-ai');
     const voice = await ping('/.netlify/functions/voice');
     const scan = await ping('/.netlify/functions/scan');
+    const salesScan = await ping('/.netlify/functions/scan-sales');
     if(!box) return;
     const line = (ok,label) => `<div style="display:flex;justify-content:space-between;padding:4px 2px"><span>${label}</span><span class="pill ${ok?'pill-good':'pill-low'}">${ok?'Erreichbar':'Offline'}</span></div>`;
-    const anyOk = ki || voice || scan;
-    box.innerHTML = line(ki,'Claude-KI (Chat)') + line(voice,'ElevenLabs (Stimme)') + line(scan,'Beleg-Scan')
+    const anyOk = ki || voice || scan || salesScan;
+    box.innerHTML = line(ki,'Claude-KI (Chat)') + line(voice,'ElevenLabs (Stimme)') + line(scan,'Beleg-Scan') + line(salesScan,'Kassenbericht-Scan')
       + `<div style="font-size:12px;color:var(--text-dim);margin-top:8px;line-height:1.45">${anyOk
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
@@ -4345,6 +4346,66 @@
     if(!verkaufCart[name]) delete verkaufCart[name];
     openVerkauf();
   }
+  // Kassenbericht-Namen unscharf einem eigenen Rezept zuordnen
+  function normName(s){ return String(s||'').toLowerCase().replace(/[^a-zäöüß0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+  function matchRecipeName(name){
+    const target = normName(name);
+    if(!target) return null;
+    const tWords = target.split(' ').filter(w=>w.length>2);
+    let best=null, bestScore=0;
+    Object.keys(recipes).forEach(key=>{
+      const k = normName(key);
+      const kWords = k.split(' ').filter(w=>w.length>2);
+      let score = 0;
+      if(k===target) score = 100;
+      else if(k.includes(target) || target.includes(k)) score = 80;
+      else tWords.forEach(w=>{ if(kWords.some(kw=>kw===w||kw.includes(w)||w.includes(kw))) score += 20; });
+      if(score > bestScore){ bestScore = score; best = key; }
+    });
+    return bestScore >= 20 ? best : null;
+  }
+  function startSalesScan(){ const inp = document.getElementById('salesScanFile'); if(inp) inp.click(); }
+  function onSalesScanFile(e){
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    e.target.value = '';
+    toast('KI liest den Kassenbericht…');
+    const reader = new FileReader();
+    reader.onload = async function(){
+      const dataUrl = reader.result || '';
+      const base64 = String(dataUrl).split(',')[1] || '';
+      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+      try {
+        const res = await fetch('/.netlify/functions/scan-sales', {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ image: base64, mediaType: mediaType })
+        });
+        if(res.ok){
+          const data = await res.json();
+          if(data && Array.isArray(data.items) && data.items.length){ applySalesScan(data.items); return; }
+          toast('Keine Verkäufe erkannt – bitte schärfer und gerade fotografieren'); return;
+        }
+        throw new Error('scan-sales ' + res.status);
+      } catch(err){
+        toast('Kein KI-Backend erreichbar – Scan geht nur online (Netlify)');
+      }
+    };
+    reader.onerror = function(){ toast('Bild konnte nicht gelesen werden'); };
+    reader.readAsDataURL(file);
+  }
+  function applySalesScan(items){
+    let matched = 0; const unmatched = [];
+    items.forEach(it=>{
+      const key = matchRecipeName(it.name);
+      if(key){ verkaufCart[key] = (verkaufCart[key]||0) + (it.qty||1); matched++; }
+      else unmatched.push(it.name);
+    });
+    openVerkauf();
+    toast(matched ? ('✓ ' + matched + ' Positionen erkannt – prüfen & buchen') : 'Erkannt, aber keinem Rezept zugeordnet');
+    if(unmatched.length){
+      setTimeout(()=>toast('Nicht zugeordnet: ' + unmatched.slice(0,3).join(', ') + (unmatched.length>3?' …':'')), 1300);
+    }
+  }
   function verkaufTotalCount(){ return Object.keys(verkaufCart).reduce((s,n)=>s+verkaufCart[n],0); }
   function bookVerkauf(){
     const names = Object.keys(verkaufCart).filter(n=>verkaufCart[n]>0);
@@ -4384,7 +4445,9 @@
     const sum = Object.keys(verkaufCart).reduce((s,n)=>s+(recipes[n]?recipes[n].vk*verkaufCart[n]:0),0);
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Tippe <strong>+</strong> für jede verkaufte Portion. The Chef zieht die Zutaten automatisch vom Lager ab und bucht den Umsatz.</p>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Tippe <strong>+</strong> für jede verkaufte Portion – oder scanne deinen Kassenbericht, dann füllt The Chef die Liste automatisch. Beim Buchen werden die Zutaten vom Lager abgezogen und der Umsatz gebucht.</p>
+      <input type="file" id="salesScanFile" accept="image/*" capture="environment" style="display:none" onchange="onSalesScanFile(event)">
+      <button class="btn-secondary" onclick="startSalesScan()" style="margin-bottom:14px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Kassenbericht scannen</button>
       <div class="list-card glass" style="margin-bottom:14px">${rows}</div>
       <button class="btn-primary" onclick="bookVerkauf()"${cnt?'':' disabled style="opacity:.45"'}>Verkauf buchen${cnt?' · '+cnt+' Portionen · '+euro(Math.round(sum)):''}</button>
     `;
