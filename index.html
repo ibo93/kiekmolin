@@ -885,6 +885,20 @@
   .shift-2{background:rgba(126,182,255,0.18);border:1px solid rgba(126,182,255,0.3);color:var(--blue)}
   .shift-3{background:rgba(141,230,177,0.18);border:1px solid rgba(141,230,177,0.3);color:var(--green)}
   .shift-4{background:rgba(196,166,255,0.18);border:1px solid rgba(196,166,255,0.3);color:var(--purple)}
+  /* Editierbarer Schichtplan */
+  .sched-day{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--glass-border)}
+  .sched-day:last-child{border-bottom:none}
+  .sched-day.is-today .sched-day-name{color:var(--gold-light)}
+  .sched-day-name{width:32px;flex-shrink:0;font-weight:800;font-size:12px;color:var(--text-dim);padding-top:5px;text-transform:uppercase;letter-spacing:.04em}
+  .sched-chips{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:center}
+  .sched-chip{display:inline-flex;align-items:center;gap:7px;padding:5px 6px 5px 10px;border-radius:9px;font-size:11.5px;font-weight:700}
+  .sched-chip em{font-style:normal;font-weight:600;opacity:.85}
+  .sched-chip-x{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14);font-size:13px;line-height:1;cursor:pointer}
+  .sched-empty-day{font-size:11.5px;color:var(--text-faint);padding-top:5px}
+  .sc-1{background:rgba(245,166,35,.16);border:1px solid rgba(245,166,35,.32);color:var(--gold-light)}
+  .sc-2{background:rgba(126,182,255,.16);border:1px solid rgba(126,182,255,.32);color:var(--blue)}
+  .sc-3{background:rgba(46,230,166,.16);border:1px solid rgba(46,230,166,.32);color:#8df3c8}
+  .sc-4{background:rgba(196,166,255,.16);border:1px solid rgba(196,166,255,.32);color:var(--purple)}
 
   /* Order rows */
   .order-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--brand-tint);border:1px solid var(--glass-border);margin-bottom:8px}
@@ -2397,17 +2411,93 @@
     return teamDefault.slice();
   })();
   function saveTeam(){ localStorage.setItem('chef_team', JSON.stringify(teamData)); }
+
+  // ===== Schichtplan · echte, editierbare Schichten =====
+  const WD = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  function todayWdIdx(){ return (new Date().getDay()+6)%7; } // Mo=0 … So=6
+  const shiftDefault = lagerOwnMode ? [] : [
+    { id:1, day:0, name:'Halil', start:'10:00', end:'18:00' },
+    { id:2, day:0, name:'Anna',  start:'17:00', end:'23:00' },
+    { id:3, day:1, name:'Tom',   start:'11:00', end:'19:00' },
+    { id:4, day:4, name:'Mira',  start:'17:00', end:'23:00' },
+    { id:5, day:5, name:'Halil', start:'12:00', end:'22:00' }
+  ];
+  let shiftData = (function(){
+    try { const s = JSON.parse(localStorage.getItem('chef_shifts') || 'null'); if(Array.isArray(s)) return s; } catch(e){}
+    return shiftDefault.slice();
+  })();
+  let shiftSeq = shiftData.reduce((m,s)=>Math.max(m, s.id||0), 0) + 1;
+  function saveShifts(){ localStorage.setItem('chef_shifts', JSON.stringify(shiftData)); }
+  function shiftColor(name){
+    const i = teamData.findIndex(m => m.name === name);
+    if(i >= 0) return (i % 4) + 1;
+    let h = 0; for(let k=0;k<name.length;k++) h = (h*31 + name.charCodeAt(k)) >>> 0;
+    return (h % 4) + 1;
+  }
+  function shiftHours(s){
+    const a = s.start.split(':'), b = s.end.split(':');
+    let mins = (b[0]*60 + (+b[1])) - (a[0]*60 + (+a[1]));
+    if(mins < 0) mins += 24*60; // über Mitternacht
+    return mins / 60;
+  }
+  function addShift(){
+    const emp = document.getElementById('shEmp');
+    const name = emp ? (emp.value||'').trim() : '';
+    if(!name){ toast('Bitte einen Mitarbeiter wählen'); return; }
+    const day = +document.getElementById('shDay').value;
+    const start = document.getElementById('shStart').value || '10:00';
+    const end = document.getElementById('shEnd').value || '18:00';
+    shiftData.push({ id: shiftSeq++, day, name, start, end });
+    saveShifts();
+    logActivity('<strong>Schicht eingetragen</strong> – '+name+' '+WD[day]+' '+start+'–'+end, 'check');
+    openPersonal();
+    toast('✓ '+name+': '+WD[day]+' '+start+'–'+end);
+  }
+  function removeShift(id){
+    shiftData = shiftData.filter(s => s.id !== id);
+    saveShifts();
+    openPersonal();
+    toast('✓ Schicht entfernt');
+  }
   const BEISPIEL_HINT = '<div style="font-size:11.5px;color:var(--text-faint);background:var(--brand-tint);border:1px solid var(--glass-border);border-radius:12px;padding:9px 12px;margin-bottom:14px;line-height:1.4">Beispiel-Ansicht – diese Daten dienen zur Orientierung.</div>';
   function openPersonal(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg> Personal';
     const teamRows = teamData.length
       ? teamData.map((m,i)=>`<div class="inv-row" style="cursor:default"><div class="inv-emoji">${escHtml((m.name||'?').slice(0,1).toUpperCase())}</div><div><div class="inv-name">${escHtml(m.name)}</div><div class="inv-meta">${escHtml(m.rolle||'')}</div></div><div class="inv-right"><button class="ai-btn ai-btn-skip" style="padding:4px 10px" onclick="removeTeam(${i})">Entfernen</button></div></div>`).join('')
       : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:10px 0">Noch kein Teammitglied – füge dein Team hinzu.</div><div></div></div>';
+    // Schichtplan: pro Wochentag die eingetragenen Schichten
+    const tIdx = todayWdIdx();
+    const dayRows = WD.map((d, di) => {
+      const list = shiftData.filter(s => s.day === di).sort((a,b)=>a.start.localeCompare(b.start));
+      const chips = list.length
+        ? list.map(s => `<span class="sched-chip sc-${shiftColor(s.name)}">${escHtml(s.name)} <em>${s.start}–${s.end}</em><span class="sched-chip-x" onclick="removeShift(${s.id})">×</span></span>`).join('')
+        : '<span class="sched-empty-day">frei</span>';
+      return `<div class="sched-day${di===tIdx?' is-today':''}"><div class="sched-day-name">${d}</div><div class="sched-chips">${chips}</div></div>`;
+    }).join('');
+    const todayCount = shiftData.filter(s => s.day === tIdx).length;
+    const weekHours = shiftData.reduce((sum,s)=>sum+shiftHours(s), 0);
+    const empOptions = teamData.length
+      ? teamData.map(m=>`<option value="${escHtml(m.name)}">${escHtml(m.name)}</option>`).join('')
+      : '';
+    const dayOptions = WD.map((d,di)=>`<option value="${di}"${di===tIdx?' selected':''}>${d}</option>`).join('');
+    const addForm = teamData.length
+      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+           <select class="onboard-input" id="shEmp" style="margin-bottom:0;flex:1;min-width:120px">${empOptions}</select>
+           <select class="onboard-input" id="shDay" style="margin-bottom:0;width:88px">${dayOptions}</select>
+         </div>
+         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+           <input type="time" class="onboard-input" id="shStart" value="10:00" style="margin-bottom:0;flex:1">
+           <span style="color:var(--text-faint);font-size:13px">bis</span>
+           <input type="time" class="onboard-input" id="shEnd" value="18:00" style="margin-bottom:0;flex:1">
+         </div>
+         <button class="btn-primary" onclick="addShift()">+ Schicht eintragen</button>`
+      : '<div class="sched-empty-day" style="padding:6px 2px">Füge zuerst oben dein Team hinzu, dann kannst du Schichten eintragen.</div>';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
       <div class="kpi-row" style="margin-bottom:14px">
         <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Mitarbeiter</div></div><div class="kpi-tile-val">${teamData.length}</div></div>
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Heute im Dienst</div></div><div class="kpi-tile-val">${Math.min(teamData.length,4)}</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Heute im Dienst</div></div><div class="kpi-tile-val">${todayCount}</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Std./Woche</div></div><div class="kpi-tile-val">${weekHours % 1 === 0 ? weekHours : weekHours.toFixed(1)}</div></div>
       </div>
       <div class="section-h"><h2>Mein Team</h2></div>
       <div class="list-card glass" style="margin-bottom:12px">${teamRows}</div>
@@ -2417,17 +2507,9 @@
       </div>
       <button class="btn-primary" onclick="addTeam()">+ Teammitglied hinzufügen</button>
       <div class="section-h"><h2>Schichtplan</h2></div>
-      ${BEISPIEL_HINT}
-      <div class="schedule">
-        <div></div>
-        <div class="sched-d">Mo</div><div class="sched-d">Di</div><div class="sched-d">Mi</div><div class="sched-d">Do</div><div class="sched-d">Fr</div><div class="sched-d">Sa</div><div class="sched-d">So</div>
-        <div class="sched-t">10–14</div>
-        <div class="shift shift-1">Früh</div><div class="shift shift-1">Früh</div><div class="shift shift-2">Früh</div><div class="shift shift-1">Früh</div><div class="shift shift-1">Früh</div><div class="shift shift-2">Früh</div><div class="shift shift-empty">—</div>
-        <div class="sched-t">14–18</div>
-        <div class="shift shift-2">Mittel</div><div class="shift shift-3">Mittel</div><div class="shift shift-2">Mittel</div><div class="shift shift-3">Mittel</div><div class="shift shift-2">Mittel</div><div class="shift shift-3">Mittel</div><div class="shift shift-3">Mittel</div>
-        <div class="sched-t">18–22</div>
-        <div class="shift shift-3">Spät</div><div class="shift shift-4">Spät</div><div class="shift shift-4">Spät</div><div class="shift shift-2">Spät</div><div class="shift shift-4">Spät</div><div class="shift shift-4">Spät</div><div class="shift shift-4">Spät</div>
-      </div>
+      <p style="font-size:12.5px;color:var(--text-dim);margin:-2px 4px 12px;line-height:1.4">Trag pro Tag ein, wer wann arbeitet. Tippe das <strong>×</strong> auf einer Schicht, um sie zu löschen.</p>
+      <div class="list-card glass" style="margin-bottom:12px;padding:4px 14px">${dayRows}</div>
+      ${addForm}
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
