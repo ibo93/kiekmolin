@@ -1222,7 +1222,7 @@
             <div class="lab-title">Krisen-Modus</div>
             <div class="lab-sub">Plan B in einem Tap. Jede Krise gemeistert.</div>
           </button>
-          <button class="lab-card lab-radar" onclick="openSheet('radar')">
+          <button class="lab-card lab-radar" onclick="openRadar()">
             <div class="lab-tag">LIVE</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg></div>
             <div class="lab-title">Konkurrenz-Radar</div>
@@ -1444,7 +1444,7 @@
           <div class="menu-text"><div class="menu-name">Krisen-Modus</div><div class="menu-sub">Plan B in einem Tap</div></div>
           <div class="menu-arrow">›</div>
         </div>
-        <div class="menu-row" onclick="openSheet('radar')">
+        <div class="menu-row" onclick="openRadar()">
           <div class="menu-icon" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg></div>
           <div class="menu-text"><div class="menu-name">Konkurrenz-Radar</div><div class="menu-sub">Was macht die Konkurrenz?</div></div>
           <div class="menu-arrow">›</div>
@@ -2158,6 +2158,110 @@
       if(normal.length){ body += `<div style="font-size:13px;font-weight:700;margin:18px 4px 10px;color:var(--orange)">Bald wichtig</div>` + normal.map(rowHtml).join(''); }
     }
     document.getElementById('sheetBody').innerHTML = body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+
+  // ===== Konkurrenz-Radar · datengetrieben & schlau =====
+  const RADAR_SVGS = {
+    pizza:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>',
+    fisch:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg>',
+    doener:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13c0-5 4-9 9-9s9 4 9 9-4 7-9 7-9-2-9-7z"/></svg>',
+    cafe:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg>',
+    burger:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 4c-5 0-9 2-9 5h18c0-3-4-5-9-5zM3 11h18v2H3v-2zm0 4c0 3 4 4 9 4s9-1 9-4H3z"/></svg>',
+    bolt:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
+    post:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg>'
+  };
+  function radarCompetitors(){
+    const hr = new Date().getHours();
+    const peak = (hr>=11&&hr<14) || (hr>=18&&hr<21); // Stoßzeit
+    return [
+      { name:'Fischhof',            dist:350, key:'lachs',  price:22.0, busy:peak?'voll':'30% frei', x:60, y:22, icon:RADAR_SVGS.fisch },
+      { name:'Da Luigi',            dist:220, key:'pizza',  price:12.0, busy:peak?'voll':'normal',   x:25, y:30, icon:RADAR_SVGS.pizza },
+      { name:'BurgerHouse',         dist:180, key:'burger', price:0,    busy:'Happy Hour −20%',       x:15, y:55, icon:RADAR_SVGS.burger },
+      { name:'Mustafa Imbiss',      dist:500, key:'döner',  price:7.0,  busy:'normal',                x:75, y:55, icon:RADAR_SVGS.doener },
+      { name:'Café Klabautermann',  dist:300, key:'kuchen', price:0,    busy:peak?'normal':'leer',    x:35, y:70, icon:RADAR_SVGS.cafe }
+    ];
+  }
+  // Findet ein eigenes Rezept, das zum Konkurrenz-Gericht passt (z.B. "lachs")
+  function ownDishFor(key){
+    const names = Object.keys(recipes);
+    const hit = names.find(n => n.toLowerCase().includes(key));
+    if(!hit) return null;
+    const m = recipeMarge(recipes[hit]);
+    return { name:hit, vk:recipes[hit].vk, cost:m.cost, marge:m.marge };
+  }
+  function hasStockFor(key){
+    return lagerData.find(r => r.name.toLowerCase().includes(key) && r.status!=='low');
+  }
+  function buildRadarTips(){
+    const tips = [];
+    const hr = new Date().getHours();
+    radarCompetitors().forEach(c => {
+      // Konter bei Preis-Unterbietung, wenn wir das Gericht selbst anbieten
+      if(c.price > 0){
+        const mine = ownDishFor(c.key);
+        if(mine && mine.vk > c.price){
+          // Konterpreis: knapp unter Konkurrenz, aber nie unter Kosten+15%
+          const floor = mine.cost * 1.15;
+          let counter = Math.max(floor, c.price - 0.5);
+          counter = Math.round(counter*2)/2; // auf 0,50 runden
+          const stock = hasStockFor(c.key);
+          tips.push({
+            icon:RADAR_SVGS.bolt,
+            text:`<strong>${c.name}</strong> (${c.dist} m) bietet ${mine.name.split(' ')[0]} für ${euro(c.price)} – du nimmst ${euro(mine.vk)}.${stock?' Du hast '+stock.name+' im Lager.':''} Konter: <strong>${mine.name} ${euro(counter)}</strong> für 2 Std (Marge bleibt ~${Math.round((1-mine.cost/(counter/1.19))*100)}%).`,
+            okLabel:'Special aktivieren',
+            fn:`toast('✓ ${mine.name}-Special für 2 Std aktiv');logActivity('<strong>Konter-Special</strong> – ${mine.name} ${euro(counter)} (2 Std)','chart');closeSheet()`
+          });
+        }
+      }
+      // Voll → Überlaufgäste abfangen
+      if(c.busy==='voll'){
+        tips.push({
+          icon:RADAR_SVGS.post,
+          text:`<strong>${c.name}</strong> ist voll → Überlauf-Gäste suchen einen Tisch. Jetzt einen <strong>"Freier Tisch"-Post</strong> raushauen und sie abfangen.`,
+          okLabel:'Post vorbereiten',
+          fn:`openSheet('autoMarketing')`
+        });
+      }
+      // Happy Hour → Konter-Angebot
+      if(/happy hour/i.test(c.busy)){
+        tips.push({
+          icon:RADAR_SVGS.bolt,
+          text:`<strong>${c.name}</strong> hat Happy Hour. Konter passend zur Uhrzeit: ${hr<17?'Mittags-Deal':'Aperitif + Gruß aus der Küche'} ab sofort bewerben.`,
+          okLabel:'Konter posten',
+          fn:`openSheet('autoMarketing')`
+        });
+      }
+    });
+    if(!tips.length){
+      tips.push({ icon:RADAR_SVGS.bolt, text:'Im Umkreis gerade keine akute Konkurrenz-Aktion. The Chef beobachtet weiter und meldet sich, sobald jemand unterbietet oder voll ist.', okLabel:'Lager öffnen', fn:`navTo('lager')` });
+    }
+    return tips.slice(0,4);
+  }
+  function openRadar(){
+    const comps = radarCompetitors();
+    const tips = buildRadarTips();
+    const pins = comps.map((c,i) => `<div class="radar-pin" style="left:${c.x}%;top:${c.y}%;animation-delay:${0.2+i*0.2}s">${c.icon}<span>${c.name} · ${c.busy}${c.price?' · '+euro(c.price):''}</span></div>`).join('');
+    const tipRows = tips.map(t => `<div class="ai-suggest"><div class="ai-suggest-text">${t.icon} ${t.text}</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="${t.fn}">${t.okLabel}</button><button class="ai-btn ai-btn-skip">Später</button></div></div>`).join('');
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg> Konkurrenz-Radar';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Live-Übersicht im Umkreis. The Chef vergleicht mit <strong>deinem Lager & deinen Preisen</strong> und schlägt Konter vor.</p>
+      <div class="radar-map">
+        <div class="radar-rings"><div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div></div>
+        <div class="radar-center"></div>
+        ${pins}
+      </div>
+      <div class="ai-card glass" style="margin-bottom:10px">
+        <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Schlaue Konter (${tips.length})</div></div>
+        ${tipRows}
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Im Umkreis</div></div><div class="kpi-tile-val">${comps.length}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">Restaurants</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Voll gerade</div></div><div class="kpi-tile-val">${comps.filter(c=>c.busy==='voll').length}</div><div class="kpi-tile-trend" style="color:var(--green)">Chance für dich</div></div>
+      </div>
+    `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
@@ -3052,7 +3156,7 @@
     // Konkurrenz
     if (has('konkurr','nachbar','umkreis','radar','andere restaurants','wettbewerb')) {
       return { reply:'Im Umkreis: Da Luigi voll mit 12 Euro Pizza, Fischhof 30 Prozent frei mit Lachs für 22, BurgerHouse hat Happy Hour minus 20 Prozent. Empfehle Konter: Lachs-Special bei dir 20 Euro 50 für 2 Stunden. Aktivieren?',
-        actions:[{label:'Lachs-Special an',fn:()=>{openSheet('radar');toast('✓ Special läuft');}},{label:'Radar öffnen',fn:()=>openSheet('radar')}] };
+        actions:[{label:'Lachs-Special an',fn:()=>{openRadar();toast('✓ Special läuft');}},{label:'Radar öffnen',fn:()=>openRadar()}] };
     }
 
     // Wetter
@@ -3613,47 +3717,6 @@
         </div>
 
         <div class="crisis-row" onclick="toast('Plan: Lebensmittelaufsicht-Doku in 30 Sek bereit. HACCP-Logbuch komplett.')"><div class="crisis-icon ic-purple"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L4 5v7c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg></div><div><div style="font-size:14px;font-weight:600">Kontrolle steht vor der Tür</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">→ Komplette HACCP-Doku in 30 Sek, Reinigungsplan, Schulungsnachweise</div></div>
-        </div>
-      `
-    },
-    radar: {
-      title:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg> Konkurrenz-Radar',
-      body:`
-        <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Live-Übersicht: was machen die Restaurants im Umkreis gerade? KI schlägt dir Konter-Angebote vor.</p>
-
-        <div class="radar-map">
-          <div class="radar-rings">
-            <div class="radar-ring"></div>
-            <div class="radar-ring"></div>
-            <div class="radar-ring"></div>
-          </div>
-          <div class="radar-center"></div>
-          <div class="radar-pin" style="left:25%;top:30%;animation-delay:0.2s"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg><span>Da Luigi · voll · 12€ Pizza</span></div>
-          <div class="radar-pin" style="left:60%;top:22%;animation-delay:0.4s"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg><span>Fischhof · 30% frei · Lachs 22€</span></div>
-          <div class="radar-pin" style="left:75%;top:55%;animation-delay:0.6s"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13c0-5 4-9 9-9s9 4 9 9-4 7-9 7-9-2-9-7z"/></svg><span>Mustafa Imbiss · normal · Döner 7€</span></div>
-          <div class="radar-pin" style="left:35%;top:70%;animation-delay:0.8s"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg><span>Café Klabautermann · leer</span></div>
-          <div class="radar-pin" style="left:15%;top:55%;animation-delay:1s"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 4c-5 0-9 2-9 5h18c0-3-4-5-9-5zM3 11h18v2H3v-2zm0 4c0 3 4 4 9 4s9-1 9-4H3z"/></svg><span>BurgerHouse · Happy Hour −20%</span></div>
-        </div>
-
-        <div class="ai-card glass" style="margin-bottom:10px">
-          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Empfehlungen</div></div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> <strong>Fischhof</strong> (350m) hat Lachs für €22 – du verkaufst für €24,50. Empfehle: <strong>Lachs-Special €20,50</strong> für 2h, um Gäste abzufangen.</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Special aktiviert (2h)')">Aktivieren</button><button class="ai-btn ai-btn-skip">Skip</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a4 4 0 00-4 4h2a2 2 0 014 0h2a4 4 0 00-4-4zM5 8a7 7 0 0114 0v6l1.5 3a1 1 0 01-.9 1.4H4.4a1 1 0 01-.9-1.4L5 14V8zm5 12a2 2 0 004 0h-4z"/></svg> <strong>BurgerHouse</strong> (180m) hat Happy Hour. Ihre Insta-Posts +200% Engagement letzte Stunde. Konter: <strong>Tomatensuppe gratis ab 18 Uhr</strong>?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Posts auf Insta/TikTok aktiviert')">Klar</button><button class="ai-btn ai-btn-skip">Nö</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg> <strong>Da Luigi</strong> ist voll → Überlauf-Gäste suchen Tisch. Empfehle: <strong>"Freier Tisch"-Post</strong> auf Insta jetzt.</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Post wird automatisch erstellt')">Posten</button></div>
-          </div>
-        </div>
-
-        <div class="kpi-row">
-          <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Im Umkreis</div><div class="kpi-tile-icon ic-teal"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 4a3 3 0 110 6 3 3 0 010-6z"/></svg></div></div><div class="kpi-tile-val">12</div><div class="kpi-tile-trend" style="color:var(--text-dim)">Restaurants</div></div>
-          <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Dein Rang</div><div class="kpi-tile-icon ic-amber"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 3h14v3a5 5 0 01-4 4.9V14h2a3 3 0 013 3v1H4v-1a3 3 0 013-3h2v-3.1A5 5 0 015 6V3zm-3 1h2v2a3 3 0 01-2-2.8V4zm18 0v-.8A3 3 0 0118 6V4h2zM8 19h8v2H8v-2z"/></svg></div></div><div class="kpi-tile-val">#3</div><div class="kpi-tile-trend" style="color:var(--green)">↑ von #5</div></div>
         </div>
       `
     },
