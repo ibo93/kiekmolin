@@ -1114,6 +1114,59 @@
   .scan-frame::before,.scan-frame::after,.scan-frame > span:first-child::before,.scan-frame > span:first-child::after{ width:30px; height:30px; border-width:2px; border-color:var(--gold); filter:drop-shadow(0 0 5px rgba(245,166,35,.6)); }
   .scan-line{ height:2px; background:linear-gradient(90deg,transparent,var(--gold-light) 50%,transparent); box-shadow:0 0 22px var(--gold), 0 0 6px #fff; }
   .scan-hint{ border:1px solid rgba(245,166,35,.3); color:var(--gold-light); }
+
+  /* ===== Konkurrenz-Radar · echte Karten-Optik ===== */
+  .rdr-map{ position:relative; aspect-ratio:1/1; border-radius:20px; overflow:hidden; margin-bottom:14px;
+    border:1px solid var(--glass-border-bright);
+    background:#0b1016;
+    box-shadow:inset 0 0 80px rgba(0,0,0,.7), 0 16px 40px rgba(0,0,0,.5); }
+  /* Straßen-Layer (stilisierte Karte) */
+  .rdr-streets{ position:absolute; inset:0;
+    background:
+      linear-gradient(90deg, transparent 48.5%, rgba(255,255,255,.07) 48.5%, rgba(255,255,255,.07) 51.5%, transparent 51.5%),
+      linear-gradient(0deg, transparent 48.5%, rgba(255,255,255,.07) 48.5%, rgba(255,255,255,.07) 51.5%, transparent 51.5%),
+      linear-gradient(58deg, transparent 69%, rgba(255,255,255,.05) 69%, rgba(255,255,255,.05) 72%, transparent 72%),
+      linear-gradient(-58deg, transparent 28%, rgba(255,255,255,.05) 28%, rgba(255,255,255,.05) 31%, transparent 31%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 38px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.022) 0 1px, transparent 1px 38px),
+      radial-gradient(circle at 50% 50%, #121925 0%, #0a0e14 70%); }
+  .rdr-sweep{ position:absolute; left:50%; top:50%; width:200%; height:200%; transform:translate(-50%,-50%);
+    background:conic-gradient(from 0deg, rgba(46,230,166,.22), transparent 32%, transparent 100%);
+    animation:rdrSweep 4s linear infinite; pointer-events:none; }
+  @keyframes rdrSweep{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+  .rdr-ring{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%;
+    border:1px dashed rgba(46,230,166,.28); pointer-events:none; }
+  .rdr-ring.r1{ width:48%; height:48%; } .rdr-ring.r2{ width:84%; height:84%; }
+  .rdr-ring span{ position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+    font-size:9px; font-weight:700; color:rgba(46,230,166,.7); background:#0b1016; padding:0 5px; letter-spacing:.04em; }
+  .rdr-me{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5;
+    width:16px; height:16px; border-radius:50%; background:var(--gold);
+    box-shadow:0 0 0 4px rgba(245,166,35,.22), 0 0 18px rgba(245,166,35,.7); }
+  .rdr-me::after{ content:"Du"; position:absolute; top:18px; left:50%; transform:translateX(-50%);
+    font-size:10px; font-weight:800; color:var(--gold-light); white-space:nowrap; text-shadow:0 1px 3px #000; }
+  .rdr-me::before{ content:""; position:absolute; inset:-4px; border-radius:50%; border:2px solid rgba(245,166,35,.5);
+    animation:ping 2.6s ease-out infinite; }
+  .rdr-pin{ position:absolute; transform:translate(-50%,-50%); z-index:4; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .rdr-pin .rdr-dot{ width:30px; height:30px; border-radius:50% 50% 50% 2px; transform:rotate(45deg);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,.6); }
+  .rdr-pin .rdr-dot svg{ transform:rotate(-45deg); width:15px; height:15px; color:#0a0e14; }
+  .rdr-pin .rdr-lab{ background:rgba(8,12,18,.9); border:1px solid var(--glass-border-bright); border-radius:7px;
+    padding:2px 7px; font-size:9.5px; font-weight:700; white-space:nowrap; backdrop-filter:blur(8px); box-shadow:0 4px 12px rgba(0,0,0,.55); }
+  .rdr-pin .rdr-lab em{ font-style:normal; color:var(--text-dim); font-weight:600; }
+  .rdr-pin.t-red .rdr-dot{ background:linear-gradient(135deg,#ff8a7a,#ff5a4d); }
+  .rdr-pin.t-amber .rdr-dot{ background:linear-gradient(135deg,#ffd27a,#f5a623); }
+  .rdr-pin.t-green .rdr-dot{ background:linear-gradient(135deg,#8df3c8,#2ee6a6); }
+  .rdr-pin.t-red .rdr-lab{ color:#ff8a7a; } .rdr-pin.t-amber .rdr-lab{ color:var(--gold-light); } .rdr-pin.t-green .rdr-lab{ color:#8df3c8; }
+  /* Konkurrenz-Liste */
+  .rdr-item{ display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--glass-border); }
+  .rdr-item:last-child{ border-bottom:none; }
+  .rdr-badge{ width:38px; height:38px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#0a0e14; }
+  .rdr-badge svg{ width:18px; height:18px; }
+  .rdr-badge.t-red{ background:linear-gradient(135deg,#ff8a7a,#ff5a4d); } .rdr-badge.t-amber{ background:linear-gradient(135deg,#ffd27a,#f5a623); } .rdr-badge.t-green{ background:linear-gradient(135deg,#8df3c8,#2ee6a6); }
+  .rdr-name{ font-size:14px; font-weight:700; }
+  .rdr-meta{ font-size:12px; color:var(--text-dim); margin-top:1px; }
+  .rdr-tag{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:99px; }
+  .rdr-tag.t-red{ background:rgba(255,90,77,.16); color:#ff8a7a; } .rdr-tag.t-amber{ background:rgba(245,166,35,.16); color:var(--gold-light); } .rdr-tag.t-green{ background:rgba(46,230,166,.16); color:#8df3c8; }
 </style>
 </head>
 <body>
@@ -2239,27 +2292,90 @@
     }
     return tips.slice(0,4);
   }
+  // Bewertet, wie bedrohlich ein Konkurrent gerade ist (rot/gelb/grün)
+  function radarThreat(c){
+    const mine = c.price > 0 ? ownDishFor(c.key) : null;
+    const undercut = !!(mine && mine.vk > c.price);          // unterbietet uns
+    if(c.busy==='voll' || undercut) return 'red';
+    if(/leer/i.test(c.busy)) return 'green';
+    return 'amber';
+  }
+  function radarStatusText(c){
+    const t = radarThreat(c);
+    if(c.busy==='voll') return 'Voll – Überlauf abfangen';
+    const mine = c.price > 0 ? ownDishFor(c.key) : null;
+    if(mine && mine.vk > c.price) return 'Unterbietet dich';
+    if(/happy hour/i.test(c.busy)) return 'Happy Hour aktiv';
+    if(t==='green') return 'Ruhig – kein Druck';
+    return 'Beobachten';
+  }
+  // Smarter Konter-Preis (nie unter Kosten+15%, knapp unter Konkurrenz)
+  function radarCounterFor(c){
+    const mine = c.price > 0 ? ownDishFor(c.key) : null;
+    if(!(mine && mine.vk > c.price)) return null;
+    const floor = mine.cost * 1.15;
+    let counter = Math.max(floor, c.price - 0.5);
+    counter = Math.round(counter*2)/2;
+    return { mine, counter };
+  }
   function openRadar(){
     const comps = radarCompetitors();
     const tips = buildRadarTips();
-    const pins = comps.map((c,i) => `<div class="radar-pin" style="left:${c.x}%;top:${c.y}%;animation-delay:${0.2+i*0.2}s">${c.icon}<span>${c.name} · ${c.busy}${c.price?' · '+euro(c.price):''}</span></div>`).join('');
+    const peakNow = comps.some(c=>c.busy==='voll');
+    // Karten-Pins, nach Bedrohung eingefärbt
+    const pins = comps.map((c,i) => {
+      const t = radarThreat(c);
+      return `<div class="rdr-pin t-${t}" style="left:${c.x}%;top:${c.y}%" onclick="toast('${escHtml(c.name)} · ${c.dist} m · ${escHtml(c.busy)}')">
+        <div class="rdr-dot">${c.icon}</div>
+        <div class="rdr-lab">${escHtml(c.name)} <em>${c.dist} m</em></div>
+      </div>`;
+    }).join('');
+    // Detail-Liste mit Konter-Buttons
+    const rows = comps.slice().sort((a,b)=>a.dist-b.dist).map(c => {
+      const t = radarThreat(c);
+      const tagTxt = t==='red' ? 'Achtung' : t==='green' ? 'ruhig' : 'beobachten';
+      const ko = radarCounterFor(c);
+      const priceLine = c.price>0 ? `${escHtml(c.key)} ${euro(c.price)}` : 'kein Preis sichtbar';
+      let action = '';
+      if(ko){
+        const fn = `toast('✓ ${escHtml(ko.mine.name)}-Special für 2 Std aktiv');logActivity('<strong>Konter-Special</strong> – ${escHtml(ko.mine.name)} ${euro(ko.counter)} (2 Std)','chart');closeSheet()`;
+        action = `<button class="ai-btn ai-btn-ok" style="margin-top:7px;padding:5px 11px" onclick="${fn}">Konter ${euro(ko.counter)}</button>`;
+      } else if(c.busy==='voll'){
+        action = `<button class="ai-btn ai-btn-ok" style="margin-top:7px;padding:5px 11px" onclick="openSheet('autoMarketing')">Überlauf-Post</button>`;
+      }
+      return `<div class="rdr-item">
+        <div class="rdr-badge t-${t}">${c.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="rdr-name">${escHtml(c.name)}</span><span class="rdr-tag t-${t}">${tagTxt}</span></div>
+          <div class="rdr-meta">${c.dist} m · ${priceLine} · ${escHtml(radarStatusText(c))}</div>
+          ${action}
+        </div>
+      </div>`;
+    }).join('');
     const tipRows = tips.map(t => `<div class="ai-suggest"><div class="ai-suggest-text">${t.icon} ${t.text}</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="${t.fn}">${t.okLabel}</button><button class="ai-btn ai-btn-skip">Später</button></div></div>`).join('');
+    const reds = comps.filter(c=>radarThreat(c)==='red').length;
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg> Konkurrenz-Radar';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Live-Übersicht im Umkreis. The Chef vergleicht mit <strong>deinem Lager & deinen Preisen</strong> und schlägt Konter vor.</p>
-      <div class="radar-map">
-        <div class="radar-rings"><div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div></div>
-        <div class="radar-center"></div>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Live-Karte im Umkreis von 500 m. The Chef vergleicht jeden Laden mit <strong>deinem Lager & deinen Preisen</strong> – rot heißt akute Konkurrenz.</p>
+      <div class="rdr-map">
+        <div class="rdr-streets"></div>
+        <div class="rdr-sweep"></div>
+        <div class="rdr-ring r1"><span>250 m</span></div>
+        <div class="rdr-ring r2"><span>500 m</span></div>
         ${pins}
+        <div class="rdr-me"></div>
       </div>
-      <div class="ai-card glass" style="margin-bottom:10px">
+      <div class="kpi-row" style="margin-bottom:14px">
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Im Umkreis</div></div><div class="kpi-tile-val">${comps.length}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">Restaurants</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Akut</div></div><div class="kpi-tile-val" style="color:#ff8a7a">${reds}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">rot markiert</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Stoßzeit</div></div><div class="kpi-tile-val">${peakNow?'ja':'nein'}</div><div class="kpi-tile-trend" style="color:var(--green)">${peakNow?'Chance':'ruhig'}</div></div>
+      </div>
+      <div class="section-h"><h2>Wer ist da?</h2></div>
+      <div class="list-card glass" style="margin-bottom:14px">${rows}</div>
+      <div class="ai-card glass">
         <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Schlaue Konter (${tips.length})</div></div>
         ${tipRows}
-      </div>
-      <div class="kpi-row">
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Im Umkreis</div></div><div class="kpi-tile-val">${comps.length}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">Restaurants</div></div>
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Voll gerade</div></div><div class="kpi-tile-val">${comps.filter(c=>c.busy==='voll').length}</div><div class="kpi-tile-trend" style="color:var(--green)">Chance für dich</div></div>
       </div>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
