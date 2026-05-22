@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="The Chef">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -262,6 +265,9 @@
   .lab-radar{background:linear-gradient(135deg,#2d5a4f 0%,#8de6b1 200%)}
   .lab-tagesabschluss{background:linear-gradient(135deg,#3a2e5f 0%,#f0a868 200%)}
   .lab-reste{background:linear-gradient(135deg,#2e5f3a 0%,#a8d86a 200%)}
+  .lab-verkauf{background:linear-gradient(135deg,#7c5a1e 0%,#f5c25a 200%)}
+  .vk-step{width:30px;height:30px;border-radius:9px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:18px;font-weight:800;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .vk-step:active{transform:scale(0.92)}
 
   /* Lager-Vision overlay */
   .vision-cam{aspect-ratio:9/14;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#1a1f2a,#0a0e14);border:1px solid var(--glass-border);position:relative;margin-bottom:14px}
@@ -1265,6 +1271,12 @@
 
         <div class="section-h"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> AI-Lab · Weltneuheiten</h2><a onclick="toast('Alle Features aktiv')">Beta</a></div>
         <div class="lab-scroll">
+          <button class="lab-card lab-verkauf" onclick="openVerkauf()">
+            <div class="lab-tag">LIVE</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg></div>
+            <div class="lab-title">Verkauf buchen</div>
+            <div class="lab-sub">Portionen tippen → Zutaten gehen automatisch vom Lager ab.</div>
+          </button>
           <button class="lab-card lab-vision" onclick="openSheet('lagerVision')">
             <div class="lab-tag">NEU</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
@@ -2057,6 +2069,13 @@
       navigator.clipboard.writeText(txt).then(()=>toast('✓ Bestelltext für '+g.lieferant+' kopiert'), ()=>fallbackCopy(txt));
     } else fallbackCopy(txt);
   }
+  // 1-Klick: Bestelltext direkt in WhatsApp öffnen (Kontakt wählt der Wirt)
+  function waOrder(idx){
+    const g = buildNachbestellListe()[idx]; if(!g) return;
+    const url = 'https://wa.me/?text=' + encodeURIComponent(bestelltext(g));
+    window.open(url, '_blank');
+    logActivity('<strong>' + g.lieferant + '</strong> – Bestellung über WhatsApp geöffnet', 'cart');
+  }
   function orderGroup(idx){
     const g = buildNachbestellListe()[idx]; if(!g) return;
     g.items.forEach(r => { if(!orderedItems.includes(r.name)) orderedItems.push(r.name); });
@@ -2095,7 +2114,9 @@
             <span class="pill pill-good">${g.items.length} Artikel</span>
           </div>
           <div class="list-card glass" style="margin-bottom:12px">${items}</div>
-          <button class="btn-primary" onclick="copyBestelltext(${idx})"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 1H4a2 2 0 00-2 2v14h2V3h12V1zm3 4H8a2 2 0 00-2 2v14a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z"/></svg> Bestelltext kopieren</button>
+          <button class="btn-primary" onclick="waOrder(${idx})"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 00-8.6 15l-1.3 4.8 5-1.3A10 10 0 1012 2zm5.6 14.2c-.2.7-1.4 1.3-1.9 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.6-.6-2.9-1.3-4.7-4.2-4.9-4.4-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.5c-.2.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.6-.1l1.9.9c.3.1.4.2.5.3.1.2.1.7-.1 1.2z"/></svg> Per WhatsApp senden</button>
+          <div style="margin-top:8px"></div>
+          <button class="btn-secondary" onclick="copyBestelltext(${idx})">Text kopieren</button>
           <div style="margin-top:8px"></div>
           <button class="btn-secondary" onclick="orderGroup(${idx})">Als bestellt markieren</button>
         </div>`;
@@ -4126,6 +4147,13 @@
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Temperatur-Sensoren</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">HACCP automatisch</div></div><span class="pill pill-warn">Geplant</span></div>
       </div>
 
+      <div class="section-h"><h2>App</h2></div>
+      <div class="list-card glass" style="margin-bottom:10px">
+        <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Auf dem Startbildschirm</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">The Chef wie eine echte App installieren – läuft dann auch offline.</div></div></div>
+      </div>
+      <button class="btn-secondary" id="installBtn" onclick="installApp()"${deferredInstall?'':' style="display:none"'}>App installieren</button>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 0;line-height:1.45">Tipp: Falls kein Button erscheint, im Browser-Menü „Zum Startbildschirm hinzufügen“ wählen.</p>
+
       <div class="section-h"><h2>Deine Daten</h2></div>
       <div class="list-card glass" style="margin-bottom:10px">
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Speicherung</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Lokal auf diesem Gerät (localStorage)</div></div></div>
@@ -4267,6 +4295,101 @@
     const vkNetto = r.vk / (1 + r.mwst/100);
     const rohertrag = vkNetto - cost;
     return { cost, vkNetto, rohertrag, marge: vkNetto>0 ? (rohertrag/vkNetto)*100 : 0 };
+  }
+  // ===== Verkauf buchen → Zutaten automatisch aus dem Lager abziehen =====
+  let verkaufCart = {};
+  function parseQty(str){
+    const m = String(str||'').replace(',', '.').match(/(-?\d+(?:\.\d+)?)\s*([^\d\s,]+)?/);
+    if(!m) return null;
+    const rawUnit = (m[2]||'').trim();
+    return { num: parseFloat(m[1]), unit: rawUnit.toLowerCase().replace(/\./g,''), rawUnit: rawUnit };
+  }
+  function qtyBase(q){
+    if(!q) return null;
+    const u = q.unit;
+    if(u==='kg') return { n:q.num*1000, base:'g' };
+    if(u==='g')  return { n:q.num, base:'g' };
+    if(u==='l')  return { n:q.num*1000, base:'ml' };
+    if(u==='ml') return { n:q.num, base:'ml' };
+    return { n:q.num, base:'st' }; // St., Fl., Stk ...
+  }
+  function fromBase(n, cur){
+    if(cur.unit==='kg' || cur.unit==='l') return n/1000;
+    return n; // g, ml, st
+  }
+  function fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
+  // Zieht die Zutaten von "count" Portionen eines Gerichts vom Lager ab.
+  function sellDish(name, count){
+    const r = recipes[name]; if(!r || count<=0) return [];
+    const touched = [];
+    r.ingredients.forEach(ing => {
+      const q = parseQty(ing[1]); if(!q || !(q.num>0)) return;
+      const hits = findLagerItems(ing[0]); const item = hits.length ? hits[0] : null; if(!item) return;
+      const cur = parseQty(item.amount); if(!cur || !(cur.num>0)) return;
+      const useB = qtyBase(q), curB = qtyBase(cur);
+      if(!useB || !curB || useB.base !== curB.base) return; // Einheiten passen nicht → überspringen
+      const newBaseN = Math.max(0, curB.n - useB.n * count);
+      const ratio = curB.n>0 ? newBaseN/curB.n : 0;
+      item.amount = fmtNum(fromBase(newBaseN, cur)) + (cur.rawUnit ? ' ' + cur.rawUnit : '');
+      item.pct = Math.max(0, Math.round(item.pct * ratio));
+      item.status = statusFromPct(item.pct);
+      lagerEdits[item.name] = { amount:item.amount, pct:item.pct, status:item.status, days:item.days, mhd:item.mhd||null };
+      const mi = lagerManual.find(m => m.name === item.name);
+      if(mi){ mi.amount=item.amount; mi.pct=item.pct; mi.status=item.status; }
+      touched.push(item.name);
+    });
+    return touched;
+  }
+  function verkaufStep(name, d){
+    verkaufCart[name] = Math.max(0, (verkaufCart[name]||0) + d);
+    if(!verkaufCart[name]) delete verkaufCart[name];
+    openVerkauf();
+  }
+  function verkaufTotalCount(){ return Object.keys(verkaufCart).reduce((s,n)=>s+verkaufCart[n],0); }
+  function bookVerkauf(){
+    const names = Object.keys(verkaufCart).filter(n=>verkaufCart[n]>0);
+    if(!names.length){ toast('Erst Gerichte auswählen'); return; }
+    let umsatz = 0, portionen = 0;
+    names.forEach(n => { const c = verkaufCart[n]; sellDish(n, c); umsatz += (recipes[n].vk||0) * c; portionen += c; });
+    persistLager();
+    tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + umsatz);
+    tagesDaten.bestellungen = (tagesDaten.bestellungen||0) + portionen;
+    localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+    renderTagesDaten();
+    refreshLager();
+    const summary = names.map(n=>verkaufCart[n]+'× '+n).join(', ');
+    logActivity('<strong>Verkauf gebucht</strong> – ' + summary + ' · ' + euro(Math.round(umsatz)), 'cart');
+    verkaufCart = {};
+    toast('✓ ' + portionen + ' Portionen gebucht · ' + euro(Math.round(umsatz)) + ' Umsatz');
+    const nowLow = lagerData.filter(r => r.status==='low');
+    if(nowLow.length){ setTimeout(()=>toast('Achtung: ' + nowLow.length + ' Artikel jetzt kritisch – nachbestellen?'), 1100); }
+    openVerkauf();
+  }
+  function openVerkauf(){
+    const names = Object.keys(recipes);
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg> Verkauf buchen';
+    const rows = names.map(name => {
+      const r = recipes[name]; const c = verkaufCart[name]||0; const safe = name.replace(/'/g,"\\'");
+      return `<div class="inv-row" style="cursor:default">
+        <div class="inv-emoji">${recipeIcon(r)}</div>
+        <div><div class="inv-name">${escHtml(name)}</div><div class="inv-meta">€ ${r.vk.toFixed(2).replace('.',',')}</div></div>
+        <div class="inv-right" style="display:flex;align-items:center;gap:10px">
+          <button class="vk-step" onclick="verkaufStep('${safe}',-1)">−</button>
+          <span style="min-width:18px;text-align:center;font-weight:800;color:${c?'var(--gold-light)':'var(--text-faint)'}">${c}</span>
+          <button class="vk-step" onclick="verkaufStep('${safe}',1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+    const cnt = verkaufTotalCount();
+    const sum = Object.keys(verkaufCart).reduce((s,n)=>s+(recipes[n]?recipes[n].vk*verkaufCart[n]:0),0);
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Tippe <strong>+</strong> für jede verkaufte Portion. The Chef zieht die Zutaten automatisch vom Lager ab und bucht den Umsatz.</p>
+      <div class="list-card glass" style="margin-bottom:14px">${rows}</div>
+      <button class="btn-primary" onclick="bookVerkauf()"${cnt?'':' disabled style="opacity:.45"'}>Verkauf buchen${cnt?' · '+cnt+' Portionen · '+euro(Math.round(sum)):''}</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
   }
   function openRezepte(){
     const names = Object.keys(recipes);
@@ -4622,6 +4745,27 @@
     `;
   }
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet() });
+
+  // ===== PWA: installierbar machen (nur über http/https, nie über file://) =====
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){ /* offline/lokal egal */ });
+    });
+  }
+  // "Installieren"-Button anbieten, wenn der Browser es erlaubt
+  let deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredInstall = e;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = '';
+  });
+  function installApp(){
+    if (!deferredInstall) { toast('Über das Browser-Menü „Zum Startbildschirm hinzufügen“ installieren.'); return; }
+    deferredInstall.prompt();
+    deferredInstall.userChoice.then(function(){ deferredInstall = null; const b=document.getElementById('installBtn'); if(b) b.style.display='none'; });
+  }
+  window.addEventListener('appinstalled', function(){ toast('✓ The Chef ist installiert'); });
 </script>
 
 </body>
