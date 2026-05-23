@@ -115,7 +115,7 @@ exports.handler = async function (event) {
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-7',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       // effort steuert Tiefe/Token-Verbrauch. "medium" = guter Kompromiss
       // aus Antwortqualität und Latenz für einen Echtzeit-Chat-Assistenten.
