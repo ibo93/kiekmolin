@@ -3008,6 +3008,43 @@
     u.onerror = () => setSpeaking(false);
     speechSynthesis.speak(u);
   }
+  // Auswählbare ElevenLabs-Stimmen (Standard-Stimmen; eigene kommen via /voices dazu)
+  const VOICE_PRESETS = [
+    { id:'pNInz6obpgDQGcFmaJgB', name:'Adam · männlich, ruhig' },
+    { id:'ErXwobaYiN019PkySvjV', name:'Antoni · männlich, warm' },
+    { id:'TxGEqnHWrfWFTfGW9XjX', name:'Josh · männlich, jung' },
+    { id:'VR6AewLTigWG4xSOukaG', name:'Arnold · männlich, kräftig' },
+    { id:'yoZ06aMxZJJ28mfd3POQ', name:'Sam · männlich, neutral' },
+    { id:'21m00Tcm4TlvDq8ikWAM', name:'Rachel · weiblich, ruhig' },
+    { id:'EXAVITQu4vr4xnSDxMaL', name:'Bella · weiblich, weich' },
+    { id:'AZnzlk1XvdvUeBnXmlld', name:'Domi · weiblich, energisch' },
+    { id:'MF3mGyEYCl7XYWbV9V6O', name:'Elli · weiblich, jung' }
+  ];
+  let selectedVoiceId = localStorage.getItem('chef_voice_id') || '';
+  function voiceOptionsHtml(list){
+    return '<option value="">Standard (Server-Stimme)</option>' +
+      list.map(v => `<option value="${escHtml(v.id)}"${v.id===selectedVoiceId?' selected':''}>${escHtml(v.name)}</option>`).join('');
+  }
+  function selectVoice(id){
+    selectedVoiceId = id || '';
+    localStorage.setItem('chef_voice_id', selectedVoiceId);
+    toast(selectedVoiceId ? '✓ Stimme gewählt – „Stimme anhören" zum Testen' : '✓ Standard-Stimme aktiv');
+  }
+  function testVoice(){ speak('Moin! Hier spricht The Chef – so klingt diese Stimme.', true); }
+  async function loadVoices(){
+    const sel = document.getElementById('voiceSelect');
+    if(!sel) return;
+    try {
+      const res = await fetch('/.netlify/functions/voices');
+      if(res.ok){
+        const data = await res.json();
+        if(data && Array.isArray(data.voices) && data.voices.length){
+          const list = data.voices.map(v => ({ id:v.id, name: v.name + (v.category==='cloned' ? ' (eigene)' : '') }));
+          sel.innerHTML = voiceOptionsHtml(list);
+        }
+      }
+    } catch(e){ /* offline / kein Key → Presets bleiben */ }
+  }
   // Aktuelle Audio-Instanz (für ElevenLabs), damit man sie stoppen kann
   let chefAudio = null;
   async function speak(text, force) {
@@ -3015,10 +3052,12 @@
     // 1. Versuch: ElevenLabs (echte, hochwertige Stimme über die Netlify-Function)
     try {
       if (chefAudio) { chefAudio.pause(); chefAudio = null; }
+      const body = { text: text };
+      if (selectedVoiceId) body.voiceId = selectedVoiceId;
       const res = await fetch('/.netlify/functions/voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
+        body: JSON.stringify(body)
       });
       if (res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1) {
         const blob = await res.blob();
@@ -4130,7 +4169,10 @@
         </div>
         <button class="btn-secondary" onclick="checkBackend()">Verbindung testen</button>
       </div>
-      <p style="font-size:11.5px;color:var(--text-faint);margin:0 2px 14px;line-height:1.45">Einrichtung (einmalig durch Admin): In den Netlify-Umgebungsvariablen <strong>ANTHROPIC_API_KEY</strong> und <strong>ELEVENLABS_API_KEY</strong> setzen. Ohne Keys läuft die App mit lokaler Logik und Browser-Stimme weiter.</p>
+      <div class="onboard-label" style="margin-top:6px">Stimme (ElevenLabs)</div>
+      <select class="onboard-input" id="voiceSelect" onchange="selectVoice(this.value)" style="margin-bottom:8px">${voiceOptionsHtml(VOICE_PRESETS)}</select>
+      <button class="btn-secondary" onclick="testVoice()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 1.2v2.1a7 7 0 010 13.4v2.1a9 9 0 000-17.6z"/></svg> Stimme anhören</button>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 14px;line-height:1.45">Wähle die Stimme von The Chef. Eigene ElevenLabs-Stimmen werden automatisch geladen, sobald das Backend verbunden ist. Einrichtung (einmalig durch Admin): In den Netlify-Umgebungsvariablen <strong>ANTHROPIC_API_KEY</strong> und <strong>ELEVENLABS_API_KEY</strong> setzen. Ohne Keys läuft die App mit lokaler Logik und Browser-Stimme weiter.</p>
 
       <div class="section-h"><h2>Integrationen</h2></div>
       <div class="list-card glass">
@@ -4154,6 +4196,7 @@
       <div style="margin-top:10px"></div>
       <button class="btn-secondary" onclick="resetDaten()" style="color:var(--red)">Alle Daten zurücksetzen</button>
     `;
+    loadVoices();
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
@@ -4170,6 +4213,7 @@
     const voice = await ping('/.netlify/functions/voice');
     const scan = await ping('/.netlify/functions/scan');
     const salesScan = await ping('/.netlify/functions/scan-sales');
+    loadVoices();
     if(!box) return;
     const line = (ok,label) => `<div style="display:flex;justify-content:space-between;padding:4px 2px"><span>${label}</span><span class="pill ${ok?'pill-good':'pill-low'}">${ok?'Erreichbar':'Offline'}</span></div>`;
     const anyOk = ki || voice || scan || salesScan;
@@ -4178,7 +4222,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_voice_on','chef_convo','chef_activity'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_convo','chef_activity'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
