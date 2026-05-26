@@ -1,3 +1,153 @@
+# Apply zu `ibrahimkuran93-cyber/kiekmolin` Branch `main`
+
+Alle Änderungen in einer Datei. 5 Schritte. Danach committen → Netlify deployed automatisch.
+
+---
+
+## 1. NEUE Datei: `package.json` (im Root)
+
+```json
+{
+  "name": "kiekmolin",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
+```
+
+Dann `npm install --package-lock-only` ausführen → `package-lock.json` entsteht → beide committen.
+
+---
+
+## 2. `netlify.toml` — am Ende anhängen
+
+```toml
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+---
+
+## 3. `index.html` — Push-Banner Kiek-Design
+
+### 3a) Suchen:
+
+```
+        + '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:16px;padding:16px;text-align:left;font-family:Inter,sans-serif;">'
+        +   '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">'
+        +     '<span style="font-size:22px;flex-shrink:0;">🔔</span>'
+        +     '<div>'
+        +       '<div style="font-weight:700;font-size:14px;color:#78350f;margin-bottom:2px;">Aktiviere Push-Benachrichtigungen</div>'
+        +       '<div style="font-size:12px;color:#92400e;line-height:1.4;">Damit du den Status auch bei geschlossener App siehst.</div>'
+        +     '</div>'
+        +   '</div>'
+```
+
+### 3b) Ersetzen mit:
+
+```
+        + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:16px;text-align:left;font-family:Inter,sans-serif;">'
+        +   '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">'
+        +     '<div class="kmi-push-banner__icon" style="width:36px;height:36px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        +       '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">notifications_active</span>'
+        +     '</div>'
+        +     '<div style="flex:1;">'
+        +       '<div class="kmi-push-banner__title" style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003D33;margin-bottom:3px;">Aktiviere Push-Benachrichtigungen</div>'
+        +       '<div class="kmi-push-banner__sub" style="font-size:12px;color:rgba(0,61,51,0.65);line-height:1.4;">Damit du den Status auch bei geschlossener App siehst.</div>'
+        +     '</div>'
+        +   '</div>'
+```
+
+### 3c) 2 Zeilen drunter im selben Block — Suchen:
+
+```
+        +     'style="width:100%;padding:12px 16px;background:#003D33;color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;text-transform:uppercase;letter-spacing:1px;">'
+```
+
+### 3d) Ersetzen mit:
+
+```
+        +     'class="kmi-push-banner__btn" style="width:100%;padding:12px 16px;background:#003D33;color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Epilogue,sans-serif;text-transform:uppercase;letter-spacing:1px;">'
+```
+
+---
+
+## 4. `index.html` — Dark-Mode CSS einfügen
+
+### Nach dieser Stelle:
+
+```css
+        .dark-mode .restaurant-card, .dark-mode .stat-card, .dark-mode .panel,
+        .dark-mode .res-settings-card, .dark-mode .modal, .dark-mode .card,
+        .dark-mode .dash-header, .dark-mode .stat-box {
+            background: #1a1a1a !important;
+            border-color: rgba(255,255,255,0.06) !important;
+            color: #d0d3d1 !important;
+        }
+```
+
+### Diesen Block einfügen:
+
+```css
+        /* Push-Opt-In-Banner — Kiek-Design, Dark-Mode-aware */
+        .dark-mode .kmi-push-banner {
+            background: rgba(156,209,195,0.08) !important;
+            border-color: rgba(156,209,195,0.25) !important;
+        }
+        .dark-mode .kmi-push-banner__icon {
+            background: #9cd1c3 !important;
+        }
+        .dark-mode .kmi-push-banner__icon .material-symbols-outlined {
+            color: #003D33 !important;
+        }
+        .dark-mode .kmi-push-banner__title {
+            color: #b8eddf !important;
+        }
+        .dark-mode .kmi-push-banner__sub {
+            color: rgba(184,237,223,0.7) !important;
+        }
+        .dark-mode .kmi-push-banner__btn {
+            background: #9cd1c3 !important;
+            color: #003D33 !important;
+        }
+```
+
+---
+
+## 5. `index.html` — Footer aus Dashboard ausblenden
+
+### Suchen:
+
+```html
+<!-- SEO Text für Google Indexierung - nur Gäste-View -->
+<div id="seoFooter"
+```
+
+### Ersetzen mit:
+
+```html
+<!-- SEO Text für Google Indexierung - nur Gäste-View -->
+<style>
+    body:has(#dashboardView.active) #seoFooter,
+    body:has(.dashboard-view.active) #seoFooter,
+    body:has(.admin-dashboard) #seoFooter {
+        display: none !important;
+    }
+</style>
+<div id="seoFooter"
+```
+
+---
+
+## 6. `build-seo-pages.js` — KOMPLETT ersetzen
+
+Bitte den ganzen Inhalt der Datei `build-seo-pages.js` durch den folgenden ersetzen:
+
+```javascript
 #!/usr/bin/env node
 /**
  * Kiek mol in - SEO Landing Pages Generator
@@ -162,39 +312,6 @@ async function fetchRestaurants() {
     throw new Error('Supabase HTTP ' + res.status + ': ' + (await res.text()).slice(0, 200));
   }
   return await res.json();
-}
-
-async function fetchMenuItems(restaurantId) {
-  // Bis zu 30 verfuegbare Items, populaere zuerst, dann nach sort_order
-  // Fault-tolerant: bei Fehler leeres Array zurueck, Page wird trotzdem gebaut
-  if (!restaurantId) return [];
-  const url = SUPABASE_URL + '/rest/v1/menu_items'
-    + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
-    + '&is_available=eq.true'
-    + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
-    + '&order=is_popular.desc,sort_order.asc'
-    + '&limit=30';
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Accept': 'application/json'
-      }
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (e) {
-    return [];
-  }
-}
-
-function fmtPrice(item) {
-  const p = item.base_price != null ? item.base_price : item.price;
-  if (p == null || p === '') return '';
-  const n = Number(p);
-  if (isNaN(n)) return '';
-  return n.toFixed(2).replace('.', ',') + ' €';
 }
 
 // ==================== CONTENT ====================
@@ -636,85 +753,10 @@ function detectCategoryForRest(rest) {
   return CATEGORIES[CATEGORIES.length - 1];
 }
 
-function buildMenuJsonLd(rest, menuItems) {
-  if (!menuItems || !menuItems.length) return null;
-  const slug = rest.slug || rest.id;
-  // Items nach Kategorie gruppieren fuer schoene Section-Struktur
-  const sections = {};
-  menuItems.forEach(function(it) {
-    const catName = (it.menu_categories && it.menu_categories.name) || 'Speisekarte';
-    if (!sections[catName]) sections[catName] = [];
-    sections[catName].push(it);
-  });
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Menu',
-    'name': 'Speisekarte ' + safeText(rest.name, 'Restaurant'),
-    'url': SITE_URL + '/' + slug,
-    'hasMenuSection': Object.keys(sections).map(function(secName) {
-      return {
-        '@type': 'MenuSection',
-        'name': secName,
-        'hasMenuItem': sections[secName].map(function(it) {
-          const item = {
-            '@type': 'MenuItem',
-            'name': safeText(it.name, 'Gericht')
-          };
-          if (it.description) item.description = String(it.description).slice(0, 200);
-          const p = it.base_price != null ? it.base_price : it.price;
-          if (p != null && !isNaN(Number(p))) {
-            item.offers = {
-              '@type': 'Offer',
-              'price': Number(p).toFixed(2),
-              'priceCurrency': 'EUR'
-            };
-          }
-          if (it.image_url) item.image = it.image_url;
-          return item;
-        })
-      };
-    })
-  };
-}
-
-function renderMenuListHtml(menuItems) {
-  if (!menuItems || !menuItems.length) return '';
-  // In Sections nach Kategorie
-  const sections = {};
-  menuItems.forEach(function(it) {
-    const catName = (it.menu_categories && it.menu_categories.name) || 'Speisekarte';
-    if (!sections[catName]) sections[catName] = [];
-    sections[catName].push(it);
-  });
-
-  let html = '<div class="menu-list" style="background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
-  Object.keys(sections).forEach(function(secName) {
-    html += '<h3 style="margin:18px 0 12px;color:' + PRIMARY_COLOR + ';font-size:18px;font-weight:700;border-bottom:2px solid #eef5f3;padding-bottom:6px;">' + escapeHtml(secName) + '</h3>';
-    html += '<ul style="list-style:none;padding:0;margin:0;">';
-    sections[secName].forEach(function(it) {
-      const itName = escapeHtml(safeText(it.name, 'Gericht'));
-      const itDesc = it.description ? escapeHtml(String(it.description).slice(0, 140)) : '';
-      const itPrice = escapeHtml(fmtPrice(it));
-      html += '<li style="padding:10px 0;border-bottom:1px solid #f4f4f0;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">';
-      html +=   '<div style="flex:1;min-width:0;">';
-      html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:99px;font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
-      if (itDesc) html += '<div style="color:#666;font-size:13px;margin-top:2px;line-height:1.4;">' + itDesc + '</div>';
-      html +=   '</div>';
-      if (itPrice) html += '<div style="font-weight:700;color:' + PRIMARY_COLOR + ';font-size:15px;white-space:nowrap;">' + itPrice + '</div>';
-      html += '</li>';
-    });
-    html += '</ul>';
-  });
-  html += '</div>';
-  return html;
-}
-
-function generateRestaurantPage(rest, menuItems) {
+function generateRestaurantPage(rest) {
   const slug = rest.slug;
   if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;   // safe filename only
-
-  menuItems = menuItems || [];
 
   const name = safeText(rest.name, 'Restaurant');
   const cityRaw = safeText(rest.city, 'Ostfriesland');
@@ -726,26 +768,13 @@ function generateRestaurantPage(rest, menuItems) {
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
   const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
 
-  const title = name + ' ' + cityRaw + ' – Online bestellen | Speisekarte ' + catLabel;
-
-  // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
-  let description;
-  if (menuItems.length >= 3) {
-    const sampleItems = menuItems.slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
-    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen.';
-  } else {
-    description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren.';
-    if (rest.cuisine) description += ' ' + rest.cuisine + '.';
-  }
+  const title = name + ' – ' + catLabel + ' in ' + cityRaw + ' | Speisekarte & online bestellen';
+  let description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren. ';
+  if (rest.cuisine) description += rest.cuisine + '. ';
+  description += 'Kostenlos auf ' + BRAND + ', ohne App-Download.';
   if (description.length > 160) description = description.slice(0, 157) + '...';
 
   const restJsonLd = buildRestaurantJsonLd(rest);
-  // Menu in Restaurant-JSON einhaengen wenn Items vorhanden
-  if (menuItems.length) {
-    restJsonLd.menu = SITE_URL + '/' + slug + '#speisekarte';
-    restJsonLd.hasMenu = SITE_URL + '/' + slug + '#speisekarte';
-  }
-  const menuJsonLd = buildMenuJsonLd(rest, menuItems);
   const breadcrumbCrumbs = [
     { name: 'Startseite', url: SITE_URL + '/' },
     { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
@@ -784,16 +813,14 @@ function generateRestaurantPage(rest, menuItems) {
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
-    (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
     '<script>(function(){try{if(typeof navigator==="undefined")return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
     renderBreadcrumb(breadcrumbCrumbs) + '\n' +
     '<main class="container">\n' +
-    '<h1>' + escapeHtml(name) + ' ' + escapeHtml(cityRaw) + '</h1>\n' +
+    '<h1>' + escapeHtml(name) + '</h1>\n' +
     '<p class="subtitle">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
-      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') +
-      (menuItems.length ? ' · ' + menuItems.length + ' Gerichte online' : '') + '</p>\n' +
+      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') + '</p>\n' +
     '<div class="intro">\n' +
       (rest.description
         ? '<p>' + escapeHtml(rest.description) + '</p>'
@@ -804,13 +831,9 @@ function generateRestaurantPage(rest, menuItems) {
       (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
       (rest.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(rest.website) + '" rel="nofollow">' + escapeHtml(rest.website) + '</a></p>' : '') +
     '</div>\n' +
-    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Online bestellen bei ' + escapeHtml(name) + '</a></p>\n' +
-    (menuItems.length
-      ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
-        '<p style="margin:0 0 16px;color:#666;">Die ' + menuItems.length + ' beliebtesten Gerichte – komplette Karte mit allen Optionen in der App.</p>\n' +
-        renderMenuListHtml(menuItems) + '\n'
-      : '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
-        '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n') +
+    '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
+    '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n' +
+    '<p style="margin:24px 0;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Zur Speisekarte von ' + escapeHtml(name) + '</a></p>\n' +
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
     '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
@@ -821,7 +844,7 @@ function generateRestaurantPage(rest, menuItems) {
 
   const filename = slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
-  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length };
+  return { filename: filename, url: url, count: 1, restaurant: true };
 }
 
 // ==================== PAGE GENERATORS ====================
@@ -962,63 +985,6 @@ function writeRobots() {
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robots, 'utf8');
 }
 
-// Injiziert ALLE aktiven Restaurants als crawlbare Links in index.html
-// (Footer-Liste + noscript-Liste). Faellt still zurueck auf die fest
-// verdrahteten Links, wenn keine Daten/Marker vorhanden sind.
-function injectHomepageRestaurantLinks(restaurants) {
-  const indexPath = path.join(OUT_DIR, 'index.html');
-  if (!fs.existsSync(indexPath)) return;
-
-  const valid = (restaurants || []).filter(function(r) {
-    const s = r && (r.slug || r.id);
-    return s && typeof s === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(s);
-  });
-  if (!valid.length) return; // nichts ueberschreiben, wenn keine Daten
-
-  valid.sort(function(a, b) {
-    const ca = safeText(a.city, ''), cb = safeText(b.city, '');
-    if (ca !== cb) return ca.localeCompare(cb);
-    return safeText(a.name, '').localeCompare(safeText(b.name, ''));
-  });
-
-  function displayName(r) {
-    const name = safeText(r.name, 'Restaurant');
-    const city = safeText(r.city, '');
-    if (city && normalize(name).indexOf(normalize(city)) === -1) return name + ' ' + city;
-    return name;
-  }
-
-  const footerLinks = valid.map(function(r) {
-    const slug = r.slug || r.id;
-    return '        <a href="/' + encodeURIComponent(slug) + '" onclick="openRestaurantBySlug(\'' + escapeAttr(slug) + '\');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">' + escapeHtml(displayName(r)) + '</a>';
-  }).join('\n');
-
-  const noscriptLinks = valid.map(function(r) {
-    const slug = r.slug || r.id;
-    const cat = detectCategoryForRest(r);
-    const desc = r.description
-      ? String(r.description).slice(0, 160)
-      : cat.label + ' in ' + safeText(r.city, 'Ostfriesland') + ' – Speisekarte ansehen, online bestellen & Tisch reservieren auf ' + BRAND + '.';
-    return '            <li><a href="/' + encodeURIComponent(slug) + '"><strong>' + escapeHtml(displayName(r)) + '</strong> &ndash; ' + escapeHtml(desc) + '</a></li>';
-  }).join('\n');
-
-  let html = fs.readFileSync(indexPath, 'utf8');
-  const before = html;
-  html = html.replace(/<!--KMI:REST-LINKS-START-->[\s\S]*?<!--KMI:REST-LINKS-END-->/, function() {
-    return '<!--KMI:REST-LINKS-START-->\n' + footerLinks + '\n<!--KMI:REST-LINKS-END-->';
-  });
-  html = html.replace(/<!--KMI:REST-NOSCRIPT-START-->[\s\S]*?<!--KMI:REST-NOSCRIPT-END-->/, function() {
-    return '<!--KMI:REST-NOSCRIPT-START-->\n' + noscriptLinks + '\n<!--KMI:REST-NOSCRIPT-END-->';
-  });
-
-  if (html !== before) {
-    fs.writeFileSync(indexPath, html, 'utf8');
-    console.log('[seo] index.html: ' + valid.length + ' Restaurant-Links injiziert (Footer + noscript)');
-  } else {
-    console.warn('[seo] WARN: index.html Marker nicht gefunden - Links unveraendert');
-  }
-}
-
 // ==================== MAIN ====================
 
 async function main() {
@@ -1070,33 +1036,20 @@ async function main() {
   }
 
   // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
-  // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
-  let totalMenuItems = 0;
   for (const rest of restaurants) {
     try {
-      let menuItems = [];
-      if (rest.id) {
-        menuItems = await fetchMenuItems(rest.id);
-      }
-      const result = generateRestaurantPage(rest, menuItems);
+      const result = generateRestaurantPage(rest);
       if (result) {
-        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items)');
+        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ')');
         generated.push(result);
         restaurantPages++;
-        totalMenuItems += result.menuCount || 0;
       }
     } catch (e) {
       console.warn('[seo] WARN: skip restaurant page for', rest && rest.name, '-', e.message);
     }
   }
-  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· total menu items rendered:', totalMenuItems);
-
-  try {
-    injectHomepageRestaurantLinks(restaurants);
-  } catch (e) {
-    console.warn('[seo] WARN: injectHomepageRestaurantLinks failed -', e.message);
-  }
+  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages);
 
   writeSitemap(generated);
   writeRobots();
@@ -1110,3 +1063,30 @@ main().catch(function(err) {
   // fault tolerant: deploy soll nicht scheitern
   process.exit(0);
 });
+
+```
+
+---
+
+## 7. Commit & Push auf `main`
+
+Commit-Message:
+
+```
+Push-Banner Kiek-Design + Footer Dashboard-Guard + SEO-Pages pro Restaurant
+
+- package.json/package-lock.json mit web-push für Netlify Functions
+- netlify.toml SPA-Fallback /*
+- Push-Banner in Kiek-Farben (dunkelgrün/cream, dark-mode-aware)
+- SEO-Footer hart aus Dashboard via :has() CSS-Selector
+- build-seo-pages.js: generiert eigene HTML-Page pro aktivem Restaurant
+- Sitemap mit prio 0.9 für Restaurant-Pages (daily refresh)
+```
+
+Netlify wird automatisch deployen. Build-Log zeigt:
+
+```
+[seo] + la-piazza-greetsiel.html (restaurant: La Piazza)
+[seo] + greetsiler-boerse.html (restaurant: ...)
+[seo] Restaurant-Detail-Pages: N
+```

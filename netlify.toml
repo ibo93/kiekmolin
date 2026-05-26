@@ -34,3 +34,21 @@
   from = "/restaurants-:city"
   to = "/restaurants-:city.html"
   status = 200
+
+# Restaurant-Slug -> generierte SEO-Page (falls vorhanden), sonst SPA
+# Pretty URLs: Netlify serviert automatisch /lapiazza.html bei Aufruf /lapiazza
+# Dieser Catch-All ist der SPA-Fallback fuer Routen ohne generierte HTML-Datei.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Scheduled Function: alle 10 Min ueberfaellige Pending-Bestellungen/Reservierungen
+# erinnern (Push an Gastronomen-Geraete wenn nicht innerhalb 30 Min bestaetigt/abgelehnt)
+[functions."pending-reminder"]
+  schedule = "*/10 * * * *"
+
+# Stempelkarten-Push: alle 4h Kunden re-engagen
+# (9/10 Stempel, 10/10 Belohnung wartet, 2/7 Tage inaktiv)
+[functions."loyalty-push"]
+  schedule = "0 */4 * * *"
