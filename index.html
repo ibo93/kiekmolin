@@ -4186,6 +4186,8 @@
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Auf dem Startbildschirm</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">The Chef wie eine echte App installieren – läuft dann auch offline.</div></div></div>
       </div>
       <button class="btn-secondary" id="installBtn" onclick="installApp()"${deferredInstall?'':' style="display:none"'}>App installieren</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="(window.__chefLogout?window.__chefLogout():toast('Kein Login aktiv'))">Abmelden</button>
       <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 0;line-height:1.45">Tipp: Falls kein Button erscheint, im Browser-Menü „Zum Startbildschirm hinzufügen“ wählen.</p>
 
       <div class="section-h"><h2>Deine Daten</h2></div>
@@ -4865,6 +4867,102 @@
     deferredInstall.userChoice.then(function(){ deferredInstall = null; const b=document.getElementById('installBtn'); if(b) b.style.display='none'; });
   }
   window.addEventListener('appinstalled', function(){ toast('✓ The Chef ist installiert'); });
+</script>
+
+<!-- ===== Login-/Datenbank-Overlay (Supabase) ===== -->
+<div id="authGate" style="display:none;position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 50% 28%,#11141b,#05060a 72%);align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif">
+  <div style="width:100%;max-width:360px">
+    <div style="width:64px;height:64px;margin:0 auto 18px;border-radius:20px;background:radial-gradient(circle at 50% 36%,#2a2d33,#15181c 72%);border:1px solid rgba(255,255,255,.12);box-shadow:0 0 38px rgba(245,166,35,.4);display:flex;align-items:center;justify-content:center">
+      <svg viewBox="0 0 24 24" fill="#ffd9a0" style="width:30px;height:30px"><path d="M12 2a5 5 0 00-5 5c0 .7.15 1.36.41 1.96C6.03 9.78 5 11.27 5 13a5 5 0 005 5v3a1 1 0 001 1h2a1 1 0 001-1v-3a5 5 0 005-5c0-1.73-1.03-3.22-2.41-4.04.26-.6.41-1.26.41-1.96a5 5 0 00-5-5z"/></svg>
+    </div>
+    <h1 style="font-size:26px;font-weight:800;text-align:center;color:#fff;letter-spacing:-.02em">The <span style="color:#f5a623">Chef</span></h1>
+    <p style="font-size:13.5px;color:#9aa0aa;text-align:center;margin:8px 0 24px;line-height:1.5">Melde dich an, damit deine Daten sicher gespeichert und auf allen Geräten verfügbar sind.</p>
+    <input type="email" id="authEmail" placeholder="E-Mail" autocomplete="email" style="width:100%;margin-bottom:10px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:15px;outline:none">
+    <input type="password" id="authPass" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="current-password" style="width:100%;margin-bottom:6px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff;font-size:15px;outline:none">
+    <div id="authMsg" style="font-size:12.5px;min-height:18px;margin:4px 2px 12px;color:#ff8a7a"></div>
+    <button id="authLoginBtn" onclick="__chefAuth('login')" style="width:100%;margin-bottom:10px;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#f5a623,#ffc45a);color:#1a1205;font-size:15px;font-weight:800;cursor:pointer">Anmelden</button>
+    <button id="authSignupBtn" onclick="__chefAuth('signup')" style="width:100%;padding:13px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:transparent;color:#cfd3da;font-size:14px;font-weight:600;cursor:pointer">Neues Konto erstellen</button>
+  </div>
+</div>
+
+<script>
+  // ===== Supabase: Login + Datenbank-Sync (offline-sicher; bei Fehler läuft die App lokal weiter) =====
+  (function(){
+    var SUPA_URL = 'https://vssnmnossctkgcvvrijm.supabase.co';
+    var SUPA_KEY = 'sb_publishable_U-bWzeohZQk_6WfzkGxh-g_zg0bvJCd';
+    var sb = null;
+    function gate(show){ var g = document.getElementById('authGate'); if (g) g.style.display = show ? 'flex' : 'none'; }
+    function setMsg(t, isErr){ var m = document.getElementById('authMsg'); if (m){ m.textContent = t || ''; m.style.color = isErr ? '#ff8a7a' : '#8df3c8'; } }
+
+    var pushTimers = {};
+    function schedulePush(k){
+      clearTimeout(pushTimers[k]);
+      pushTimers[k] = setTimeout(function(){ pushKey(k); }, 1200);
+    }
+    async function pushKey(k){
+      if (!sb || !window.__chefUser) return;
+      try {
+        await sb.from('chef_state').upsert(
+          { user_id: window.__chefUser.id, k: k, v: localStorage.getItem(k), updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,k' }
+        );
+      } catch(e){ /* offline → wird beim nächsten Mal nachgezogen */ }
+    }
+    function wrapSetItem(){
+      try {
+        var raw = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = function(k, val){ raw(k, val); if (typeof k === 'string' && k.indexOf('chef_') === 0) schedulePush(k); };
+      } catch(e){}
+    }
+    async function pullAll(uid){
+      var res = await sb.from('chef_state').select('k,v').eq('user_id', uid);
+      if (res.error || !res.data) return;
+      var raw = localStorage.setItem.bind(localStorage);
+      res.data.forEach(function(row){ if (row.v != null) raw(row.k, row.v); });
+    }
+
+    window.__chefAuth = async function(mode){
+      if (!sb){ setMsg('Verbindung wird noch aufgebaut – kurz warten und erneut versuchen.', true); return; }
+      var email = (document.getElementById('authEmail').value || '').trim();
+      var pass = document.getElementById('authPass').value || '';
+      if (!email || !pass){ setMsg('Bitte E-Mail und Passwort eingeben.', true); return; }
+      setMsg('Bitte warten…', false);
+      try {
+        var res = mode === 'signup'
+          ? await sb.auth.signUp({ email: email, password: pass })
+          : await sb.auth.signInWithPassword({ email: email, password: pass });
+        if (res.error){ setMsg(res.error.message, true); return; }
+        if (mode === 'signup' && !res.data.session){ setMsg('Konto erstellt – bitte E-Mail bestätigen, dann anmelden.', false); return; }
+        sessionStorage.removeItem('chef_synced');
+        location.reload();
+      } catch(e){ setMsg('Fehler: ' + (e && e.message ? e.message : e), true); }
+    };
+    window.__chefLogout = async function(){
+      try { if (sb) await sb.auth.signOut(); } catch(e){}
+      sessionStorage.removeItem('chef_synced');
+      location.reload();
+    };
+
+    async function boot(){
+      var mod;
+      try { mod = await import('https://esm.sh/@supabase/supabase-js@2'); }
+      catch(e){ return; } // kein Backend erreichbar → App läuft rein lokal weiter
+      try { sb = mod.createClient(SUPA_URL, SUPA_KEY); } catch(e){ return; }
+      var sess;
+      try { sess = (await sb.auth.getSession()).data.session; } catch(e){ return; }
+      if (!sess){ gate(true); return; }
+      window.__chefUser = sess.user;
+      gate(false);
+      if (!sessionStorage.getItem('chef_synced')){
+        try { await pullAll(sess.user.id); } catch(e){}
+        sessionStorage.setItem('chef_synced', '1');
+        location.reload();
+        return;
+      }
+      wrapSetItem();
+    }
+    boot();
+  })();
 </script>
 
 </body>
