@@ -1269,7 +1269,7 @@
             <div class="lab-title">Verkauf buchen</div>
             <div class="lab-sub">Bon scannen oder tippen – Lager & Umsatz automatisch.</div>
           </button>
-          <button class="lab-card lab-vision" onclick="openSheet('lagerVision')">
+          <button class="lab-card lab-vision" onclick="openLagerVision()">
             <div class="lab-tag">NEU</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
             <div class="lab-title">Lager-Vision</div>
@@ -1495,7 +1495,7 @@
         </div>
 
         <div class="section-h" style="margin:0 0 10px"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> AI-Lab · Weltneuheiten</h2></div>
-        <div class="menu-row" onclick="openSheet('lagerVision')">
+        <div class="menu-row" onclick="openLagerVision()">
           <div class="menu-icon" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
           <div class="menu-text"><div class="menu-name">Lager-Vision</div><div class="menu-sub">Visueller KI-Bestandszähler</div></div>
           <div class="menu-arrow">›</div>
@@ -2376,6 +2376,75 @@
         tips.map(function(t){ return '<div class="ai-suggest"><div class="ai-suggest-text">'+t.icon+' '+t.text+'</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="'+t.fn+'">'+t.okLabel+'</button><button class="ai-btn ai-btn-skip">Später</button></div></div>'; }).join('') +
         '</div>';
     }
+  }
+
+  // ===== Lager-Vision · ECHT: Regal-Foto -> Claude zählt Produkte =====
+  let visionItems = [];
+  function openLagerVision(){
+    visionItems = [];
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Lager-Vision';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Richte das Handy aufs Regal und mach ein Foto – die KI erkennt die Produkte, zählt sie und legt sie ins Lager.</p>
+      <input type="file" id="visionFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onVisionFile(event)">
+      <button class="btn-primary" onclick="document.getElementById('visionFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto vom Regal aufnehmen</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="document.getElementById('visionFile').click()">Aus Galerie wählen</button>
+      <div id="visionStatus" style="font-size:13px;color:var(--text-dim);padding:12px 4px 0;line-height:1.5"></div>
+      <div id="visionResult" style="margin-top:14px"></div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function onVisionFile(e){
+    const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
+    const status = document.getElementById('visionStatus'); if(status) status.textContent = 'KI erkennt die Produkte …';
+    const reader = new FileReader();
+    reader.onload = async function(){
+      const dataUrl = reader.result || '';
+      const base64 = String(dataUrl).split(',')[1] || '';
+      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+      try {
+        const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType }) });
+        if(res.ok){
+          const data = await res.json();
+          if(data && Array.isArray(data.items) && data.items.length){ visionItems = data.items; renderVision(); if(status) status.textContent = data.items.length + ' Produkte erkannt – prüfen und übernehmen.'; return; }
+          if(status) status.textContent = 'Keine Produkte erkannt – näher heran und schärfer fotografieren.'; return;
+        }
+        throw new Error('scan-lager ' + res.status);
+      } catch(err){ if(status) status.textContent = 'KI-Backend nicht erreichbar – Lager-Vision braucht den Online-Build mit Claude-Key.'; }
+    };
+    reader.onerror = function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; };
+    reader.readAsDataURL(file);
+  }
+  function renderVision(){
+    const el = document.getElementById('visionResult'); if(!el) return;
+    el.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + visionItems.map(function(it,i){
+      return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">'+ITEM_SVG+'</div><div><div class="inv-name">'+escHtml(it.name)+'</div><div class="inv-meta">'+it.count+' Stück erkannt</div></div><div class="inv-right"><button class="ai-btn ai-btn-skip" style="padding:4px 10px" onclick="removeVision('+i+')">×</button></div></div>';
+    }).join('') + '</div><button class="btn-primary" onclick="applyVision()">Ins Lager übernehmen</button>';
+  }
+  function removeVision(i){ visionItems.splice(i,1); if(visionItems.length) renderVision(); else { const el=document.getElementById('visionResult'); if(el) el.innerHTML=''; const s=document.getElementById('visionStatus'); if(s) s.textContent=''; } }
+  function applyVision(){
+    if(!visionItems.length){ toast('Nichts zu übernehmen'); return; }
+    let neu=0, upd=0;
+    visionItems.forEach(function(it){
+      const existing = lagerData.find(r => r.name.toLowerCase() === it.name.toLowerCase());
+      const amount = it.count + ' Stk';
+      const pct = Math.min(100, Math.max(40, it.count*5));
+      if(existing){
+        existing.amount=amount; existing.pct=pct; existing.status=statusFromPct(pct); existing.days='per Foto gezählt';
+        lagerEdits[existing.name]={ amount:existing.amount, pct:existing.pct, status:existing.status, days:existing.days, mhd:existing.mhd||null };
+        const mi=lagerManual.find(m=>m.name===existing.name); if(mi){ mi.amount=existing.amount; mi.pct=existing.pct; mi.status=existing.status; }
+        upd++;
+      } else {
+        const item={ name:it.name, emoji:ITEM_SVG, loc:'Lager', amount:amount, days:'per Foto gezählt', pct:pct, status:statusFromPct(pct), mhd:null };
+        lagerData.push(item); lagerManual.push(item); neu++;
+      }
+    });
+    persistLager(); refreshLager();
+    logActivity('<strong>Lager-Vision</strong> – ' + visionItems.length + ' Produkte per Foto erfasst', 'box');
+    toast('✓ ' + neu + ' neu, ' + upd + ' aktualisiert');
+    visionItems=[]; closeSheet(); navTo('lager');
   }
 
   // ===== Personal · echtes, editierbares Team =====
