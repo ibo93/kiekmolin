@@ -962,6 +962,63 @@ function writeRobots() {
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robots, 'utf8');
 }
 
+// Injiziert ALLE aktiven Restaurants als crawlbare Links in index.html
+// (Footer-Liste + noscript-Liste). Faellt still zurueck auf die fest
+// verdrahteten Links, wenn keine Daten/Marker vorhanden sind.
+function injectHomepageRestaurantLinks(restaurants) {
+  const indexPath = path.join(OUT_DIR, 'index.html');
+  if (!fs.existsSync(indexPath)) return;
+
+  const valid = (restaurants || []).filter(function(r) {
+    const s = r && (r.slug || r.id);
+    return s && typeof s === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(s);
+  });
+  if (!valid.length) return; // nichts ueberschreiben, wenn keine Daten
+
+  valid.sort(function(a, b) {
+    const ca = safeText(a.city, ''), cb = safeText(b.city, '');
+    if (ca !== cb) return ca.localeCompare(cb);
+    return safeText(a.name, '').localeCompare(safeText(b.name, ''));
+  });
+
+  function displayName(r) {
+    const name = safeText(r.name, 'Restaurant');
+    const city = safeText(r.city, '');
+    if (city && normalize(name).indexOf(normalize(city)) === -1) return name + ' ' + city;
+    return name;
+  }
+
+  const footerLinks = valid.map(function(r) {
+    const slug = r.slug || r.id;
+    return '        <a href="/' + encodeURIComponent(slug) + '" onclick="openRestaurantBySlug(\'' + escapeAttr(slug) + '\');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">' + escapeHtml(displayName(r)) + '</a>';
+  }).join('\n');
+
+  const noscriptLinks = valid.map(function(r) {
+    const slug = r.slug || r.id;
+    const cat = detectCategoryForRest(r);
+    const desc = r.description
+      ? String(r.description).slice(0, 160)
+      : cat.label + ' in ' + safeText(r.city, 'Ostfriesland') + ' – Speisekarte ansehen, online bestellen & Tisch reservieren auf ' + BRAND + '.';
+    return '            <li><a href="/' + encodeURIComponent(slug) + '"><strong>' + escapeHtml(displayName(r)) + '</strong> &ndash; ' + escapeHtml(desc) + '</a></li>';
+  }).join('\n');
+
+  let html = fs.readFileSync(indexPath, 'utf8');
+  const before = html;
+  html = html.replace(/<!--KMI:REST-LINKS-START-->[\s\S]*?<!--KMI:REST-LINKS-END-->/, function() {
+    return '<!--KMI:REST-LINKS-START-->\n' + footerLinks + '\n<!--KMI:REST-LINKS-END-->';
+  });
+  html = html.replace(/<!--KMI:REST-NOSCRIPT-START-->[\s\S]*?<!--KMI:REST-NOSCRIPT-END-->/, function() {
+    return '<!--KMI:REST-NOSCRIPT-START-->\n' + noscriptLinks + '\n<!--KMI:REST-NOSCRIPT-END-->';
+  });
+
+  if (html !== before) {
+    fs.writeFileSync(indexPath, html, 'utf8');
+    console.log('[seo] index.html: ' + valid.length + ' Restaurant-Links injiziert (Footer + noscript)');
+  } else {
+    console.warn('[seo] WARN: index.html Marker nicht gefunden - Links unveraendert');
+  }
+}
+
 // ==================== MAIN ====================
 
 async function main() {
@@ -1034,6 +1091,12 @@ async function main() {
     }
   }
   console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· total menu items rendered:', totalMenuItems);
+
+  try {
+    injectHomepageRestaurantLinks(restaurants);
+  } catch (e) {
+    console.warn('[seo] WARN: injectHomepageRestaurantLinks failed -', e.message);
+  }
 
   writeSitemap(generated);
   writeRobots();
