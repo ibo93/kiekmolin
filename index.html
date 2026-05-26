@@ -2349,15 +2349,23 @@
   function radarInitMap(lat,lon){
     const el=document.getElementById('rdrMap'); if(!el||!window.L) return;
     if(_radarMap){ try{ _radarMap.remove(); }catch(e){} _radarMap=null; }
-    _radarMap = L.map(el).setView([lat,lon],16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap' }).addTo(_radarMap);
-    L.circleMarker([lat,lon],{ radius:9, color:'#f5a623', fillColor:'#f5a623', fillOpacity:1, weight:3 }).addTo(_radarMap).bindPopup('Du bist hier');
+    _radarMap = L.map(el,{ zoomControl:true }).setView([lat,lon],16);
+    // Dunkles Premium-Karten-Design (CARTO dark, kostenlos, kein Key)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{ maxZoom:20, subdomains:'abcd', attribution:'© OpenStreetMap, © CARTO' }).addTo(_radarMap);
+    // Umkreis-Ring (500 m)
+    L.circle([lat,lon],{ radius:500, color:'#2ee6a6', weight:1, opacity:0.5, fill:false, dashArray:'4 7' }).addTo(_radarMap);
+    // "Du"-Marker – amber, leuchtend
+    const meIcon = L.divIcon({ className:'', html:'<div style="width:16px;height:16px;border-radius:50%;background:#f5a623;box-shadow:0 0 0 4px rgba(245,166,35,.25),0 0 16px rgba(245,166,35,.85)"></div>', iconSize:[16,16], iconAnchor:[8,8] });
+    L.marker([lat,lon],{ icon:meIcon, zIndexOffset:1000 }).addTo(_radarMap).bindPopup('Du bist hier');
     setTimeout(function(){ try{ _radarMap.invalidateSize(); }catch(e){} },250);
+  }
+  function radarCompIcon(){
+    return L.divIcon({ className:'', html:'<div style="width:13px;height:13px;border-radius:50%;background:#2ee6a6;border:2px solid #0b1016;box-shadow:0 0 8px rgba(46,230,166,.75)"></div>', iconSize:[13,13], iconAnchor:[6.5,6.5] });
   }
   function radarRender(lat,lon,places){
     if(window.L && _radarMap){
       places.forEach(function(p){
-        L.marker([p.lat,p.lon]).addTo(_radarMap).bindPopup('<b>'+escHtml(p.name)+'</b><br>'+radarTypeLabel(p.amenity)+(p.cuisine?' · '+escHtml(p.cuisine):'')+'<br>'+p.dist+' m');
+        L.marker([p.lat,p.lon],{ icon:radarCompIcon() }).addTo(_radarMap).bindPopup('<b>'+escHtml(p.name)+'</b><br>'+radarTypeLabel(p.amenity)+(p.cuisine?' · '+escHtml(p.cuisine):'')+'<br>'+p.dist+' m');
       });
     }
     const list=document.getElementById('rdrList');
