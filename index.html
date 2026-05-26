@@ -1206,7 +1206,7 @@
     <!-- Top Header -->
     <div class="topbar" id="topbar">
       <div class="greet">
-        <h1 id="greeting">Moin, <span class="accent">Ibrahim</span></h1>
+        <h1 id="greeting">Moin, <span class="accent">Chef</span></h1>
         <p id="dateline">·</p>
       </div>
       <div class="topbar-actions">
@@ -1675,7 +1675,7 @@
   let g = 'Moin';
   if (h>=11 && h<18) g = 'Mahlzeit';
   if (h>=18) g = "N'Abend";
-  document.getElementById('greeting').innerHTML = g + ', <span class="accent">Ibrahim</span>';
+  document.getElementById('greeting').innerHTML = g + ', <span class="accent">Chef</span>';
   const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const d = new Date();
@@ -3781,6 +3781,8 @@
     const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
     const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
     dl.textContent = chefProfile.name + ' · ' + days[d.getDay()] + ', ' + d.getDate() + '. ' + months[d.getMonth()];
+    const gr = document.getElementById('greeting');
+    if(gr) gr.innerHTML = g + ', <span class="accent">' + escHtml(chefProfile.name) + '</span>';
     const pn = document.getElementById('profilName');
     const pt = document.getElementById('profilType');
     if(pn) pn.textContent = chefProfile.name;
@@ -3899,7 +3901,7 @@
         <div class="brain-stat"><span>Persönlichkeits-Match</span><div class="brain-bar"><div class="brain-bar-fill"></div></div><strong style="color:var(--purple)">78%</strong></div>
 
         <div class="ai-card glass" style="margin-bottom:10px">
-          <div class="ai-head"><div class="ai-pulse" style="background:var(--purple);box-shadow:0 0 10px var(--purple)"></div><div class="ai-title">Was würde Ibrahim heute kochen?</div></div>
+          <div class="ai-head"><div class="ai-pulse" style="background:var(--purple);box-shadow:0 0 10px var(--purple)"></div><div class="ai-title">Was würde der Chef heute kochen?</div></div>
           <div class="ai-suggest">
             <div class="ai-suggest-text">Aus 87 deiner letzten Entscheidungen erkannt: <strong>Du bevorzugst frischen Fisch an Donnerstagen</strong>, weil Lieferung morgens kommt. Heute ist Donnerstag → Vorschlag: <strong>Lachs in Senfsoße</strong> als Tagesgericht.</div>
             <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="toast('✓ Ins Tagesangebot übernommen')">Klingt nach mir</button></div>
