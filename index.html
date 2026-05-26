@@ -2242,28 +2242,12 @@
     document.getElementById('sheet').classList.add('show');
   }
 
-  // ===== Konkurrenz-Radar · datengetrieben & schlau =====
+  // ===== Konkurrenz-Radar · ECHT: GPS + echte Karte + echte Lokale =====
   const RADAR_SVGS = {
-    pizza:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L2 12c0 5 4 10 10 10s10-5 10-10L12 2zm-3 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm6 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-3 4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>',
-    fisch:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 12c2-3 5-5 9-5s7 2 9 5c-2 3-5 5-9 5s-7-2-9-5zm14 0a1 1 0 102 0 1 1 0 00-2 0zM4 8l-2 4 2 4 3-2v-4L4 8z"/></svg>',
-    doener:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13c0-5 4-9 9-9s9 4 9 9-4 7-9 7-9-2-9-7z"/></svg>',
-    cafe:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 5h14v8a4 4 0 01-4 4H7a4 4 0 01-4-4V5zm14 2v4h2a2 2 0 000-4h-2zM5 19h14v2H5v-2z"/></svg>',
-    burger:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 4c-5 0-9 2-9 5h18c0-3-4-5-9-5zM3 11h18v2H3v-2zm0 4c0 3 4 4 9 4s9-1 9-4H3z"/></svg>',
-    bolt:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
-    post:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg>'
+    fork:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg>',
+    bolt:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>'
   };
-  function radarCompetitors(){
-    const hr = new Date().getHours();
-    const peak = (hr>=11&&hr<14) || (hr>=18&&hr<21); // Stoßzeit
-    return [
-      { name:'Fischhof',            dist:350, key:'lachs',  price:22.0, busy:peak?'voll':'30% frei', x:60, y:22, icon:RADAR_SVGS.fisch },
-      { name:'Da Luigi',            dist:220, key:'pizza',  price:12.0, busy:peak?'voll':'normal',   x:25, y:30, icon:RADAR_SVGS.pizza },
-      { name:'BurgerHouse',         dist:180, key:'burger', price:0,    busy:'Happy Hour −20%',       x:15, y:55, icon:RADAR_SVGS.burger },
-      { name:'Mustafa Imbiss',      dist:500, key:'döner',  price:7.0,  busy:'normal',                x:75, y:55, icon:RADAR_SVGS.doener },
-      { name:'Café Klabautermann',  dist:300, key:'kuchen', price:0,    busy:peak?'normal':'leer',    x:35, y:70, icon:RADAR_SVGS.cafe }
-    ];
-  }
-  // Findet ein eigenes Rezept, das zum Konkurrenz-Gericht passt (z.B. "lachs")
+  // Findet ein eigenes Rezept, das zu einem Stichwort passt (z.B. "lachs")
   function ownDishFor(key){
     const names = Object.keys(recipes);
     const hit = names.find(n => n.toLowerCase().includes(key));
@@ -2274,139 +2258,124 @@
   function hasStockFor(key){
     return lagerData.find(r => r.name.toLowerCase().includes(key) && r.status!=='low');
   }
-  function buildRadarTips(){
-    const tips = [];
-    const hr = new Date().getHours();
-    radarCompetitors().forEach(c => {
-      // Konter bei Preis-Unterbietung, wenn wir das Gericht selbst anbieten
-      if(c.price > 0){
-        const mine = ownDishFor(c.key);
-        if(mine && mine.vk > c.price){
-          // Konterpreis: knapp unter Konkurrenz, aber nie unter Kosten+15%
-          const floor = mine.cost * 1.15;
-          let counter = Math.max(floor, c.price - 0.5);
-          counter = Math.round(counter*2)/2; // auf 0,50 runden
-          const stock = hasStockFor(c.key);
-          tips.push({
-            icon:RADAR_SVGS.bolt,
-            text:`<strong>${c.name}</strong> (${c.dist} m) bietet ${mine.name.split(' ')[0]} für ${euro(c.price)} – du nimmst ${euro(mine.vk)}.${stock?' Du hast '+stock.name+' im Lager.':''} Konter: <strong>${mine.name} ${euro(counter)}</strong> für 2 Std (Marge bleibt ~${Math.round((1-mine.cost/(counter/1.19))*100)}%).`,
-            okLabel:'Special aktivieren',
-            fn:`toast('✓ ${mine.name}-Special für 2 Std aktiv');logActivity('<strong>Konter-Special</strong> – ${mine.name} ${euro(counter)} (2 Std)','chart');closeSheet()`
-          });
-        }
-      }
-      // Voll → Überlaufgäste abfangen
-      if(c.busy==='voll'){
-        tips.push({
-          icon:RADAR_SVGS.post,
-          text:`<strong>${c.name}</strong> ist voll → Überlauf-Gäste suchen einen Tisch. Jetzt einen <strong>"Freier Tisch"-Post</strong> raushauen und sie abfangen.`,
-          okLabel:'Post vorbereiten',
-          fn:`openSheet('autoMarketing')`
-        });
-      }
-      // Happy Hour → Konter-Angebot
-      if(/happy hour/i.test(c.busy)){
-        tips.push({
-          icon:RADAR_SVGS.bolt,
-          text:`<strong>${c.name}</strong> hat Happy Hour. Konter passend zur Uhrzeit: ${hr<17?'Mittags-Deal':'Aperitif + Gruß aus der Küche'} ab sofort bewerben.`,
-          okLabel:'Konter posten',
-          fn:`openSheet('autoMarketing')`
-        });
-      }
+  function radarDist(lat1,lon1,lat2,lon2){
+    const R=6371000, t=Math.PI/180;
+    const a=Math.sin((lat2-lat1)*t/2)**2 + Math.cos(lat1*t)*Math.cos(lat2*t)*Math.sin((lon2-lon1)*t/2)**2;
+    return Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+  }
+  let _leafletPromise=null, _radarMap=null;
+  function loadLeaflet(){
+    if(window.L) return Promise.resolve();
+    if(_leafletPromise) return _leafletPromise;
+    _leafletPromise = new Promise(function(res,rej){
+      const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+      const s=document.createElement('script'); s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.onload=function(){ res(); }; s.onerror=function(){ rej(new Error('leaflet')); };
+      document.head.appendChild(s);
     });
-    if(!tips.length){
-      tips.push({ icon:RADAR_SVGS.bolt, text:'Im Umkreis gerade keine akute Konkurrenz-Aktion. The Chef beobachtet weiter und meldet sich, sobald jemand unterbietet oder voll ist.', okLabel:'Lager öffnen', fn:`navTo('lager')` });
+    return _leafletPromise;
+  }
+  async function radarFetchNearby(lat,lon){
+    const q='[out:json][timeout:20];(node["amenity"~"restaurant|fast_food|cafe|bar|pub"](around:700,'+lat+','+lon+');way["amenity"~"restaurant|fast_food|cafe"](around:700,'+lat+','+lon+'););out center 60;';
+    const res = await fetch('https://overpass-api.de/api/interpreter',{ method:'POST', body:'data='+encodeURIComponent(q) });
+    if(!res.ok) throw new Error('overpass '+res.status);
+    const data = await res.json();
+    const seen={};
+    return (data.elements||[]).map(function(e){
+      const la = e.lat != null ? e.lat : (e.center && e.center.lat);
+      const lo = e.lon != null ? e.lon : (e.center && e.center.lon);
+      if(la==null||lo==null||!e.tags||!e.tags.name) return null;
+      return { name:e.tags.name, amenity:e.tags.amenity||'restaurant', cuisine:(e.tags.cuisine||'').replace(/_/g,' ').replace(/;/g,', '), lat:la, lon:lo, dist:radarDist(lat,lon,la,lo) };
+    }).filter(function(p){ if(!p) return false; if(seen[p.name+p.dist]) return false; seen[p.name+p.dist]=1; return true; })
+      .sort(function(a,b){ return a.dist-b.dist; });
+  }
+  function radarTypeLabel(a){ return a==='cafe'?'Café':a==='fast_food'?'Imbiss':a==='bar'?'Bar':a==='pub'?'Pub':'Restaurant'; }
+  function buildRadarTipsReal(places){
+    const tips=[];
+    if(!places.length){
+      tips.push({ icon:RADAR_SVGS.bolt, text:'In deiner direkten Umgebung sind gerade keine Lokale erfasst – wenig direkte Konkurrenz. Nutze das für Stammgäste-Aktionen und sei der erste Treffer bei Google.', okLabel:'Marketing öffnen', fn:"openSheet('autoMarketing')" });
+      return tips;
+    }
+    const counts={};
+    places.forEach(function(p){ const k=(p.cuisine||'').split(',')[0].trim() || radarTypeLabel(p.amenity); if(k) counts[k]=(counts[k]||0)+1; });
+    const top=Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; })[0];
+    if(top && counts[top]>=2){
+      tips.push({ icon:RADAR_SVGS.bolt, text:'<strong>'+counts[top]+'×</strong> '+escHtml(top)+' in deiner Nähe – dort ist der Wettbewerb am größten. Heb dich mit einem eigenen Signature-Gericht ab.', okLabel:'Rezepte öffnen', fn:'openRezepte()' });
+    }
+    const n=places[0];
+    tips.push({ icon:RADAR_SVGS.bolt, text:'Nächstes Lokal: <strong>'+escHtml(n.name)+'</strong> ('+n.dist+' m). Beobachte deren Mittagsangebot und kontere mit deinem stärksten Gericht.', okLabel:'Auswertungen', fn:'openAuswertungen()' });
+    const rank = (typeof marginRanking==='function') ? marginRanking() : [];
+    if(rank.length){
+      tips.push({ icon:RADAR_SVGS.bolt, text:'Dein Trumpf: <strong>'+escHtml(rank[0].name)+'</strong> mit '+rank[0].m.marge.toFixed(0)+'% Marge – aktiv bewerben.', okLabel:'Special posten', fn:"openSheet('autoMarketing')" });
     }
     return tips.slice(0,4);
   }
-  // Bewertet, wie bedrohlich ein Konkurrent gerade ist (rot/gelb/grün)
-  function radarThreat(c){
-    const mine = c.price > 0 ? ownDishFor(c.key) : null;
-    const undercut = !!(mine && mine.vk > c.price);          // unterbietet uns
-    if(c.busy==='voll' || undercut) return 'red';
-    if(/leer/i.test(c.busy)) return 'green';
-    return 'amber';
-  }
-  function radarStatusText(c){
-    const t = radarThreat(c);
-    if(c.busy==='voll') return 'Voll – Überlauf abfangen';
-    const mine = c.price > 0 ? ownDishFor(c.key) : null;
-    if(mine && mine.vk > c.price) return 'Unterbietet dich';
-    if(/happy hour/i.test(c.busy)) return 'Happy Hour aktiv';
-    if(t==='green') return 'Ruhig – kein Druck';
-    return 'Beobachten';
-  }
-  // Smarter Konter-Preis (nie unter Kosten+15%, knapp unter Konkurrenz)
-  function radarCounterFor(c){
-    const mine = c.price > 0 ? ownDishFor(c.key) : null;
-    if(!(mine && mine.vk > c.price)) return null;
-    const floor = mine.cost * 1.15;
-    let counter = Math.max(floor, c.price - 0.5);
-    counter = Math.round(counter*2)/2;
-    return { mine, counter };
-  }
   function openRadar(){
-    const comps = radarCompetitors();
-    const tips = buildRadarTips();
-    const peakNow = comps.some(c=>c.busy==='voll');
-    // Karten-Pins, nach Bedrohung eingefärbt
-    const pins = comps.map((c,i) => {
-      const t = radarThreat(c);
-      return `<div class="rdr-pin t-${t}" style="left:${c.x}%;top:${c.y}%" onclick="toast('${escHtml(c.name)} · ${c.dist} m · ${escHtml(c.busy)}')">
-        <div class="rdr-dot">${c.icon}</div>
-        <div class="rdr-lab">${escHtml(c.name)} <em>${c.dist} m</em></div>
-      </div>`;
-    }).join('');
-    // Detail-Liste mit Konter-Buttons
-    const rows = comps.slice().sort((a,b)=>a.dist-b.dist).map(c => {
-      const t = radarThreat(c);
-      const tagTxt = t==='red' ? 'Achtung' : t==='green' ? 'ruhig' : 'beobachten';
-      const ko = radarCounterFor(c);
-      const priceLine = c.price>0 ? `${escHtml(c.key)} ${euro(c.price)}` : 'kein Preis sichtbar';
-      let action = '';
-      if(ko){
-        const fn = `toast('✓ ${escHtml(ko.mine.name)}-Special für 2 Std aktiv');logActivity('<strong>Konter-Special</strong> – ${escHtml(ko.mine.name)} ${euro(ko.counter)} (2 Std)','chart');closeSheet()`;
-        action = `<button class="ai-btn ai-btn-ok" style="margin-top:7px;padding:5px 11px" onclick="${fn}">Konter ${euro(ko.counter)}</button>`;
-      } else if(c.busy==='voll'){
-        action = `<button class="ai-btn ai-btn-ok" style="margin-top:7px;padding:5px 11px" onclick="openSheet('autoMarketing')">Überlauf-Post</button>`;
-      }
-      return `<div class="rdr-item">
-        <div class="rdr-badge t-${t}">${c.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="rdr-name">${escHtml(c.name)}</span><span class="rdr-tag t-${t}">${tagTxt}</span></div>
-          <div class="rdr-meta">${c.dist} m · ${priceLine} · ${escHtml(radarStatusText(c))}</div>
-          ${action}
-        </div>
-      </div>`;
-    }).join('');
-    const tipRows = tips.map(t => `<div class="ai-suggest"><div class="ai-suggest-text">${t.icon} ${t.text}</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="${t.fn}">${t.okLabel}</button><button class="ai-btn ai-btn-skip">Später</button></div></div>`).join('');
-    const reds = comps.filter(c=>radarThreat(c)==='red').length;
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg> Konkurrenz-Radar';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Live-Karte im Umkreis von 500 m. The Chef vergleicht jeden Laden mit <strong>deinem Lager & deinen Preisen</strong> – rot heißt akute Konkurrenz.</p>
-      <div class="rdr-map">
-        <div class="rdr-streets"></div>
-        <div class="rdr-sweep"></div>
-        <div class="rdr-ring r1"><span>250 m</span></div>
-        <div class="rdr-ring r2"><span>500 m</span></div>
-        ${pins}
-        <div class="rdr-me"></div>
-      </div>
-      <div class="kpi-row" style="margin-bottom:14px">
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Im Umkreis</div></div><div class="kpi-tile-val">${comps.length}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">Restaurants</div></div>
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Akut</div></div><div class="kpi-tile-val" style="color:#ff8a7a">${reds}</div><div class="kpi-tile-trend" style="color:var(--text-dim)">rot markiert</div></div>
-        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Stoßzeit</div></div><div class="kpi-tile-val">${peakNow?'ja':'nein'}</div><div class="kpi-tile-trend" style="color:var(--green)">${peakNow?'Chance':'ruhig'}</div></div>
-      </div>
-      <div class="section-h"><h2>Wer ist da?</h2></div>
-      <div class="list-card glass" style="margin-bottom:14px">${rows}</div>
-      <div class="ai-card glass">
-        <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Schlaue Konter (${tips.length})</div></div>
-        ${tipRows}
-      </div>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Echte Karte deiner Umgebung. Gib deinen Standort frei – The Chef zeigt die <strong>tatsächlichen Lokale</strong> um dich herum (Live-Daten von OpenStreetMap).</p>
+      <div id="rdrMap" style="height:300px;border-radius:18px;overflow:hidden;margin-bottom:12px;background:#0b1016;border:1px solid var(--glass-border-bright)"></div>
+      <div id="rdrStatus" style="font-size:13px;color:var(--text-dim);padding:0 4px 12px;line-height:1.5">Tippe unten, um deinen Standort zu nutzen.</div>
+      <button class="btn-primary" onclick="radarLocate()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg> Standort freigeben & Umgebung laden</button>
+      <div id="rdrList" style="margin-top:14px"></div>
+      <div id="rdrTips"></div>
     `;
+    _radarMap = null;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+  }
+  function radarLocate(){
+    const status = document.getElementById('rdrStatus');
+    if(!navigator.geolocation){ if(status) status.textContent='Dein Browser unterstützt keine Standortbestimmung.'; return; }
+    if(status) status.textContent='Standort wird ermittelt … bitte „Erlauben" tippen.';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      const lat=pos.coords.latitude, lon=pos.coords.longitude;
+      loadLeaflet().then(function(){
+        radarInitMap(lat,lon);
+        if(status) status.textContent='Lokale in der Nähe werden gesucht …';
+        radarFetchNearby(lat,lon).then(function(places){
+          radarRender(lat,lon,places);
+          if(status) status.textContent = places.length ? (places.length+' Lokale im Umkreis von 700 m gefunden.') : 'Keine Lokale in der Nähe erfasst.';
+        }).catch(function(){
+          if(status) status.textContent='Umgebungs-Daten konnten nicht geladen werden – die Karte zeigt aber deinen echten Standort.';
+          radarRender(lat,lon,[]);
+        });
+      }).catch(function(){ if(status) status.textContent='Karte konnte nicht geladen werden (offline?).'; });
+    }, function(){
+      if(status) status.textContent='Standort nicht freigegeben. Bitte im Browser erlauben (Schloss-Symbol in der Adresszeile) und erneut tippen.';
+    }, { enableHighAccuracy:true, timeout:12000, maximumAge:60000 });
+  }
+  function radarInitMap(lat,lon){
+    const el=document.getElementById('rdrMap'); if(!el||!window.L) return;
+    if(_radarMap){ try{ _radarMap.remove(); }catch(e){} _radarMap=null; }
+    _radarMap = L.map(el).setView([lat,lon],16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap' }).addTo(_radarMap);
+    L.circleMarker([lat,lon],{ radius:9, color:'#f5a623', fillColor:'#f5a623', fillOpacity:1, weight:3 }).addTo(_radarMap).bindPopup('Du bist hier');
+    setTimeout(function(){ try{ _radarMap.invalidateSize(); }catch(e){} },250);
+  }
+  function radarRender(lat,lon,places){
+    if(window.L && _radarMap){
+      places.forEach(function(p){
+        L.marker([p.lat,p.lon]).addTo(_radarMap).bindPopup('<b>'+escHtml(p.name)+'</b><br>'+radarTypeLabel(p.amenity)+(p.cuisine?' · '+escHtml(p.cuisine):'')+'<br>'+p.dist+' m');
+      });
+    }
+    const list=document.getElementById('rdrList');
+    if(list){
+      list.innerHTML = '<div class="section-h"><h2>Wer ist da? ('+places.length+')</h2></div>' +
+        (places.length
+          ? '<div class="list-card glass">'+places.slice(0,25).map(function(p){
+              return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">'+RADAR_SVGS.fork+'</div><div><div class="inv-name">'+escHtml(p.name)+'</div><div class="inv-meta">'+radarTypeLabel(p.amenity)+(p.cuisine?' · '+escHtml(p.cuisine):'')+' · '+p.dist+' m</div></div></div>';
+            }).join('')+'</div>'
+          : '<p style="font-size:13px;color:var(--text-dim);padding:0 4px">Keine Lokale in der Nähe erfasst.</p>');
+    }
+    const tips=buildRadarTipsReal(places);
+    const tEl=document.getElementById('rdrTips');
+    if(tEl && tips.length){
+      tEl.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Schlaue Tipps ('+tips.length+')</div></div>' +
+        tips.map(function(t){ return '<div class="ai-suggest"><div class="ai-suggest-text">'+t.icon+' '+t.text+'</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="'+t.fn+'">'+t.okLabel+'</button><button class="ai-btn ai-btn-skip">Später</button></div></div>'; }).join('') +
+        '</div>';
+    }
   }
 
   // ===== Personal · echtes, editierbares Team =====
@@ -3454,14 +3423,7 @@
 
     // Konkurrenz
     if (has('konkurr','nachbar','umkreis','radar','andere restaurants','wettbewerb')) {
-      const comps = radarCompetitors();
-      const reds = comps.filter(c => radarThreat(c) === 'red');
-      const liste = comps.slice().sort((a,b)=>a.dist-b.dist).slice(0,3)
-        .map(c => `${c.name} (${c.dist} m, ${c.busy})`).join(', ');
-      const head = reds.length
-        ? `${reds.length === 1 ? '1 Laden ist' : reds.length + ' Läden sind'} gerade akut: ${reds.map(c=>c.name).join(', ')}. `
-        : 'Im Umkreis ist gerade kein akuter Druck. ';
-      return { reply:`${head}In Reichweite: ${liste}. Im Radar zeige ich dir die Karte und schlage Konter auf Basis deiner Preise vor.`,
+      return { reply:'Im Konkurrenz-Radar siehst du auf einer echten Karte die tatsächlichen Lokale um dich herum (Live-Standort). Gib einmal deinen Standort frei – dann zeige ich dir, wer in der Nähe ist, und gebe Tipps auf Basis deiner eigenen Rezepte.',
         actions:[{label:'Radar öffnen',fn:()=>openRadar()}] };
     }
 
