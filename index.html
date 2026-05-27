@@ -2893,20 +2893,29 @@
             t.style.backgroundImage = ''; e.target.value = '';
             return;
           }
-          resetScan();
           t.style.backgroundImage = ''; e.target.value = '';
-          toast('Kein Artikel erkannt – bitte schärfer und gerade fotografieren');
+          scanError('Kein Artikel erkannt. Bitte den Beleg formatfüllend, hell und gerade fotografieren – dann nochmal.');
           return;
         }
-        throw new Error('scan ' + res.status);
+        let why = 'Fehler ' + res.status;
+        if(res.status === 503) why = 'Claude-Key fehlt in Netlify (ANTHROPIC_API_KEY).';
+        else if(res.status === 502 || res.status === 504) why = 'Zeitüberschreitung – nochmal versuchen.';
+        else if(res.status === 404) why = 'Funktion nicht gefunden – über die Online-Seite (GitHub-Build/Functions) öffnen.';
+        throw new Error(why);
       } catch(err){
         t.style.backgroundImage = ''; e.target.value = '';
-        runDemoScan(true);
+        scanError('Scan nicht möglich: ' + (err && err.message ? err.message : 'Backend nicht erreichbar') + ' (Online-Seite + Keys nötig)');
       }
     }).catch(function(){
       t.style.backgroundImage = ''; e.target.value = '';
-      runDemoScan(true);
+      scanError('Bild konnte nicht gelesen werden – anderes Foto versuchen.');
     });
+  }
+  function scanError(msg){
+    document.getElementById('scanLoading').style.display = 'none';
+    document.getElementById('scanResult').style.display = 'none';
+    document.getElementById('scanIdle').style.display = 'block';
+    toast(msg);
   }
 
   // Demo-Scan (Button "Ohne Foto testen" oder Fallback ohne Backend)
