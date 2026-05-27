@@ -1795,7 +1795,9 @@
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm2 4h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg> Tagesbuch';
     let body = '<button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>'
       + '<p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Automatisches Betriebstagebuch – jede Aktion und KI-Entscheidung wird mit Datum & Uhrzeit protokolliert. Für Doku, Übergabe und Nachweis.</p>'
-      + '<button class="btn-secondary" style="margin-bottom:14px" onclick="exportTagebuch()">Tagesbuch exportieren (kopieren)</button>';
+      + '<button class="btn-secondary" style="margin-bottom:8px" onclick="printTagebuch()">Als PDF / Drucken</button>'
+      + '<div style="margin-bottom:8px"></div>'
+      + '<button class="btn-secondary" style="margin-bottom:14px" onclick="exportTagebuch()">Als Text kopieren</button>';
     if(!tagebuch.length){
       body += '<div class="inv-row" style="cursor:default;border:none"><div></div><div class="inv-meta" style="padding:10px 0">Noch keine Einträge – sobald du etwas tust oder mit der KI sprichst, wird es hier protokolliert.</div><div></div></div>';
     } else {
@@ -1818,6 +1820,23 @@
     const txt = 'Betriebstagebuch · '+name+'\n\n'+lines.join('\n');
     if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ toast('✓ Tagesbuch kopiert'); }, function(){ fallbackCopy(txt); }); }
     else fallbackCopy(txt);
+  }
+  // Öffnet ein sauberes Druck-Dokument -> Browser „Als PDF speichern"/Drucken
+  function printDoc(title, innerHtml){
+    const w = window.open('', '_blank');
+    if(!w){ toast('Bitte Pop-ups erlauben, um als PDF zu speichern/drucken'); return; }
+    const css = '<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;max-width:720px;margin:0 auto}h1{font-size:20px;margin:0 0 2px}h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}.row{display:flex;gap:12px;padding:3px 0;font-size:13px;border-bottom:1px solid #eee}.t{width:64px;color:#555;flex-shrink:0}.muted{color:#666;font-size:12px;margin-bottom:8px}@media print{.noprint{display:none}}</style>';
+    w.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>'+title+'</title>'+css+'</head><body>'+innerHtml+'<div class="noprint" style="margin-top:24px;text-align:center"><button onclick="window.print()" style="padding:10px 22px;font-size:15px;cursor:pointer">Drucken / Als PDF speichern</button></div></body></html>');
+    w.document.close();
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500);
+  }
+  function printTagebuch(){
+    if(!tagebuch.length){ toast('Tagesbuch ist leer'); return; }
+    const name = (typeof chefProfile!=='undefined' && chefProfile.name) ? chefProfile.name : 'The Chef';
+    let h = '<h1>Betriebstagebuch</h1><div class="muted">'+escHtml(name)+' · Stand '+new Date().toLocaleString('de-DE')+'</div>';
+    let lastDay = null;
+    tagebuch.slice().forEach(function(e){ const day = tbDayLabel(e.ts); if(day !== lastDay){ h += '<h2>'+escHtml(day)+'</h2>'; lastDay = day; } h += '<div class="row"><div class="t">'+tbTime(e.ts)+'</div><div>'+escHtml(e.text)+'</div></div>'; });
+    printDoc('Betriebstagebuch', h);
   }
 
   // Selbst notierte Artikel + manuelle Bestandskorrekturen (persistent)
@@ -4339,10 +4358,20 @@
       <div class="list-card glass" style="margin-bottom:14px">${tempRows}</div>
       <div class="section-h"><h2>Reinigungsplan</h2></div>
       <div class="list-card glass" style="margin-bottom:14px">${taskRows}</div>
+      <button class="btn-secondary" onclick="printHaccp()">Als PDF / Drucken</button>
+      <div style="margin-top:8px"></div>
       <button class="btn-secondary" onclick="haccpReset()">Neuer Tag – alles zurücksetzen</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+  }
+  function printHaccp(){
+    const name = (typeof chefProfile!=='undefined' && chefProfile.name) ? chefProfile.name : 'The Chef';
+    let h = '<h1>HACCP-Dokumentation</h1><div class="muted">'+escHtml(name)+' · '+new Date().toLocaleString('de-DE')+'</div><h2>Temperaturen</h2>';
+    HACCP_ZONES.forEach(function(z){ const rec = haccpData.temps[z]; h += '<div class="row"><div style="width:170px;flex-shrink:0">'+escHtml(z)+'</div><div>'+(rec?escHtml(String(rec.v))+' °C — '+escHtml(haccpTime(rec.ts)):'nicht erfasst')+'</div></div>'; });
+    h += '<h2>Reinigung</h2>';
+    HACCP_TASKS.forEach(function(t){ const rec = haccpData.tasks[t]; h += '<div class="row"><div style="width:210px;flex-shrink:0">'+escHtml(t)+'</div><div>'+(rec&&rec.done?'erledigt — '+escHtml(haccpTime(rec.ts)):'offen')+'</div></div>'; });
+    printDoc('HACCP-Dokumentation', h);
   }
   function haccpSaveTemp(i){
     const z = HACCP_ZONES[i]; const el = document.getElementById('hac'+i);
