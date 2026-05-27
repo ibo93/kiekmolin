@@ -3296,11 +3296,34 @@
     ].concat(styleLines).join('\n');
   }
 
+  // --- The Chef führt sichere Befehle direkt aus (und protokolliert sie) ---
+  function chefExecute(text){
+    const q = (text||'').toLowerCase();
+    if(!/bestell|nachbestell|kauf|order/.test(q)) return false;
+    // Sammelbestellung: "alles/alle nachbestellen"
+    if(/(alle|alles|sammel)/.test(q) && typeof buildNachbestellListe === 'function' && buildNachbestellListe().length){
+      orderAll(); return true;
+    }
+    // Einzelnen Artikel als bestellt markieren
+    const hits = (typeof findLagerItems === 'function') ? findLagerItems(q) : [];
+    const item = hits.find(function(r){ return !orderedItems.includes(r.name); }) || hits[0];
+    if(item){
+      if(!orderedItems.includes(item.name)) orderedItems.push(item.name);
+      localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+      if(typeof refreshLager === 'function') refreshLager();
+      logActivity('<strong>' + item.name + '</strong> als bestellt markiert (per Chat)', 'cart');
+      toast('✓ ' + item.name + ' als bestellt markiert');
+      return true;
+    }
+    return false;
+  }
+
   // --- Main brain: echte Claude-KI, mit Fallback auf lokale Logik ---
   async function handleUserInput(text) {
     addMsg(text, 'user');
     setThinking(true);
     logBook('Frage an The Chef: ' + text, 'chat');
+    chefExecute(text);
 
     // Konversations-Historie (ohne die gerade hinzugefügte User-Nachricht)
     const msgs = [...document.querySelectorAll('#convo .msg')].slice(0, -1).slice(-12);
@@ -4386,11 +4409,23 @@
       <select class="onboard-input" id="mkDish" style="margin-bottom:10px">${dishOpts}</select>
       <div class="onboard-label">Plattform</div>
       <select class="onboard-input" id="mkPlatform" style="margin-bottom:14px">${platOpts}</select>
+      <input type="file" id="mkPhotoFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onMkPhoto(event)">
+      <div id="mkPhotoPrev" style="display:none;height:150px;border-radius:14px;background-size:cover;background-position:center;margin-bottom:10px;border:1px solid var(--glass-border-bright)"></div>
+      <button class="btn-secondary" onclick="mkPhoto()" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto vom Gericht hinzufügen</button>
       <button class="btn-primary" onclick="generateMarketing()">Post schreiben lassen</button>
       <div id="mkResult"></div>
     `;
+    window.__mkPhotoFile = null;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+  }
+  function mkPhoto(){ const inp = document.getElementById('mkPhotoFile'); if(inp) inp.click(); }
+  function onMkPhoto(e){
+    const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value = '';
+    window.__mkPhotoFile = f;
+    const url = URL.createObjectURL(f);
+    const p = document.getElementById('mkPhotoPrev'); if(p){ p.style.backgroundImage = 'url('+url+')'; p.style.display = 'block'; }
+    toast('✓ Foto hinzugefügt – wird beim Teilen mitgeschickt');
   }
   async function generateMarketing(){
     const dish = document.getElementById('mkDish').value;
@@ -4412,12 +4447,29 @@
     window.__mkText = text;
     const out = document.getElementById('mkResult'); if(!out) return;
     out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Dein Post</div></div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap;padding:0 2px;color:var(--text)">' + escHtml(text) + '</div></div>' +
-      '<button class="btn-primary" style="margin-top:12px" onclick="copyMarketing()">Text kopieren</button>' +
+      '<button class="btn-primary" style="margin-top:12px" onclick="shareMarketing()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M18 8a3 3 0 10-2.8-4H15a3 3 0 00.2 1.1L8.9 8.5a3 3 0 100 7l6.3 3.6A3 3 0 1018 17l-6.3-3.6a3 3 0 000-2.8L18 8z"/></svg> Teilen (Instagram, TikTok, …)</button>' +
       '<div style="margin-top:8px"></div>' +
-      '<button class="btn-secondary" onclick="waMarketing()">Per WhatsApp teilen</button>';
+      '<button class="btn-secondary" onclick="copyMarketing()">Nur Text kopieren</button>' +
+      '<div style="margin-top:8px"></div>' +
+      '<button class="btn-secondary" onclick="waMarketing()">Per WhatsApp</button>';
+    logBook('Marketing-Post erstellt: ' + text.slice(0,80), 'chart');
   }
   function copyMarketing(){ const t = window.__mkText || ''; if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Post kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t); }
   function waMarketing(){ const t = window.__mkText || ''; window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); }
+  async function shareMarketing(){
+    const t = window.__mkText || '';
+    const f = window.__mkPhotoFile;
+    try {
+      if(navigator.share){
+        const data = { text: t };
+        if(f && navigator.canShare && navigator.canShare({ files:[f] })) data.files = [f];
+        await navigator.share(data);
+        return;
+      }
+    } catch(e){ if(e && e.name === 'AbortError') return; }
+    copyMarketing();
+    toast('Direkt-Teilen hier nicht möglich – Text kopiert, Foto manuell anhängen.');
+  }
 
   // ===== Chef-Brain · Personalisierung (die App passt sich dem Wirt an) =====
   let chefStyle = (function(){ try{ const s=JSON.parse(localStorage.getItem('chef_style')||'null'); if(s&&typeof s==='object') return { tone:s.tone||'locker', specials:s.specials||'', notes:s.notes||'' }; }catch(e){} return { tone:'locker', specials:'', notes:'' }; })();
