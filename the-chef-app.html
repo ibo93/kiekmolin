@@ -1443,7 +1443,10 @@
         <div class="convo" id="convo"></div>
 
         <form class="ki-input" id="kiForm" onsubmit="return submitKiText(event)">
-          <input type="text" id="kiTextInput" placeholder="Schreib deine Frage… oder tippe die Kugel zum Sprechen" autocomplete="off">
+          <input type="text" id="kiTextInput" placeholder="Schreib deine Frage… oder tippe das Mikro zum Sprechen" autocomplete="off">
+          <button type="button" class="ki-send" id="kiMicBtn" onclick="kiVoiceInput()" aria-label="Sprechen" style="background:var(--brand-tint);color:var(--text);margin-right:6px">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg>
+          </button>
           <button type="submit" class="ki-send" aria-label="Senden">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 11l18-8-8 18-2.5-7.5L3 11z"/></svg>
           </button>
@@ -3177,6 +3180,29 @@
   // --- Public API for command chips ---
   function askKi(text) {
     handleUserInput(text);
+  }
+  // Spracheingabe direkt im Chat (Mikro-Button neben dem Senden-Button)
+  let kiMicRec = null;
+  function kiVoiceInput(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const inp = document.getElementById('kiTextInput');
+    const btn = document.getElementById('kiMicBtn');
+    const reset = function(){ kiMicRec = null; if(btn){ btn.style.background = 'var(--brand-tint)'; btn.style.color = 'var(--text)'; } if(inp) inp.placeholder = 'Schreib deine Frage… oder tippe das Mikro zum Sprechen'; };
+    if(!SR){ toast('Spracheingabe wird in diesem Browser nicht unterstützt'); return; }
+    if(kiMicRec){ try{ kiMicRec.stop(); }catch(e){} reset(); return; }
+    let rec; try{ rec = new SR(); }catch(e){ toast('Spracheingabe nicht verfügbar'); return; }
+    kiMicRec = rec; rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+    if(btn){ btn.style.background = 'rgba(46,230,166,.22)'; btn.style.color = '#8df3c8'; }
+    if(inp) inp.placeholder = 'Sprich jetzt…';
+    rec.onresult = function(e){
+      let final = '', interim = '';
+      for(let i=e.resultIndex; i<e.results.length; i++){ const r=e.results[i]; if(r.isFinal) final += r[0].transcript; else interim += r[0].transcript; }
+      if(inp) inp.value = final || interim;
+      if(final){ const t = final.trim(); if(inp) inp.value = ''; reset(); if(t) handleUserInput(t); }
+    };
+    rec.onend = function(){ reset(); };
+    rec.onerror = function(ev){ reset(); if(ev && ev.error === 'not-allowed') toast('Bitte Mikrofon-Zugriff erlauben'); };
+    try{ rec.start(); }catch(e){}
   }
 
   // --- Text input (type instead of speak) ---

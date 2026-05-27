@@ -13,7 +13,8 @@ var CORS_HEADERS = {
 // Standard-Stimme: ruhige deutsche Stimme. Über ELEVENLABS_VOICE_ID
 // oder das Feld voiceId im Request überschreibbar.
 var DEFAULT_VOICE = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
-var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
+// turbo v2.5: deutlich geringere Latenz, weiterhin mehrsprachig (Deutsch).
+var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_turbo_v2_5';
 
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') {

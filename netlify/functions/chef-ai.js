@@ -120,7 +120,8 @@ exports.handler = async function (event) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
-        output_config: { effort: 'medium' },
+        // 'low' = schnellste Antwort für den Echtzeit-Chat (geringere Latenz).
+        output_config: { effort: 'low' },
         system: [
           { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
           { type: 'text', text: restaurantContext }
