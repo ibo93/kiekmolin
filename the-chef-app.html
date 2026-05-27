@@ -4095,55 +4095,99 @@
   scanTab.addEventListener('pointerup', () => { clearTimeout(pressTimer); if(!longFired) openEye(); });
   scanTab.addEventListener('pointerleave', () => clearTimeout(pressTimer));
 
-  // ===== KI-Auge · ein Foto, die KI erkennt selbst was es ist =====
+  // ===== KI-Auge · Live-Kamera, draufhalten & auslösen =====
+  let _eyeStream = null;
+  function stopEyeCam(){ if(_eyeStream){ try{ _eyeStream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} _eyeStream = null; } }
   function openEye(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg> KI-Auge';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Mach ein Foto – The Chef erkennt <strong>selbst</strong>, was es ist: Lieferschein → ins Lager, Regal → Bestand zählen, Thermometer → HACCP.</p>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Halt die Kamera drauf und tippe auf den großen Knopf – The Chef erkennt <strong>selbst</strong>, was es ist (Lieferschein, Regal, Thermometer).</p>
+      <div style="position:relative;border-radius:18px;overflow:hidden;background:#0b1016;aspect-ratio:3/4;margin-bottom:12px;border:1px solid var(--glass-border-bright)">
+        <video id="eyeVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;display:none"></video>
+        <div id="eyeCamHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-dim);font-size:13px;padding:24px;line-height:1.5">Kamera wird gestartet … bitte „Erlauben" tippen.</div>
+        <button id="eyeShutterBtn" onclick="eyeShutter()" style="display:none;position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.45);box-shadow:0 4px 18px rgba(0,0,0,.5);cursor:pointer"></button>
+      </div>
       <input type="file" id="eyeFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onEyeFile(event)">
-      <button class="btn-primary" onclick="document.getElementById('eyeFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen</button>
-      <div style="margin-top:10px"></div>
-      <button class="btn-secondary" onclick="document.getElementById('eyeFile').click()">Aus Galerie wählen</button>
+      <button class="btn-secondary" onclick="document.getElementById('eyeFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen / aus Galerie</button>
       <div id="eyeStatus" style="font-size:13px;color:var(--text-dim);padding:12px 4px 0;line-height:1.5"></div>
       <div id="eyeResult" style="margin-top:14px"></div>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+    eyeStartCam();
+  }
+  function eyeStartCam(){
+    const video = document.getElementById('eyeVideo'), hint = document.getElementById('eyeCamHint'), shutter = document.getElementById('eyeShutterBtn');
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ if(hint) hint.textContent = 'Live-Kamera hier nicht verfügbar – tippe „Foto aufnehmen" unten.'; return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }).then(function(stream){
+      _eyeStream = stream;
+      if(video){ video.srcObject = stream; video.style.display = 'block'; try{ video.play(); }catch(e){} }
+      if(hint) hint.style.display = 'none';
+      if(shutter) shutter.style.display = 'block';
+    }).catch(function(){
+      if(hint) hint.textContent = 'Kamera nicht freigegeben – tippe „Foto aufnehmen" unten (dort die Kamera erlauben).';
+    });
+  }
+  function eyeShutter(){
+    const video = document.getElementById('eyeVideo');
+    if(!video || !video.videoWidth){ toast('Kamera noch nicht bereit'); return; }
+    const w = video.videoWidth, h = video.videoHeight, scale = Math.min(1, 1568 / Math.max(w, h));
+    const cv = document.createElement('canvas'); cv.width = Math.round(w*scale); cv.height = Math.round(h*scale);
+    cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
+    const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+    stopEyeCam(); if(video) video.style.display = 'none';
+    const sh = document.getElementById('eyeShutterBtn'); if(sh) sh.style.display = 'none';
+    const hint = document.getElementById('eyeCamHint'); if(hint){ hint.style.display = 'flex'; hint.textContent = 'The Chef schaut sich das an …'; }
+    eyeProcess(dataUrl.split(',')[1] || '', 'image/jpeg');
   }
   function onEyeFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
+    stopEyeCam();
     const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das Bild an …';
-    chefResizeImage(file, 1568, 0.8).then(async function(img){
-      try {
-        const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
-        if(res.ok){ const data = await res.json(); eyeRender(data); return; }
-        throw new Error('eye ' + res.status);
-      } catch(err){ if(status) status.textContent = 'Das KI-Auge braucht die Online-Seite mit Claude-Key.'; }
-    }).catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
+    chefResizeImage(file, 1568, 0.8).then(function(img){ eyeProcess(img.base64, img.mediaType); })
+      .catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
+  }
+  async function eyeProcess(base64, mediaType){
+    const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das an …';
+    try {
+      const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType }) });
+      if(res.ok){ const data = await res.json(); eyeRender(data); return; }
+      let why = 'Fehler ' + res.status;
+      if(res.status === 503) why = 'Claude-Key fehlt in Netlify.';
+      else if(res.status === 502 || res.status === 504) why = 'Zeitüberschreitung – nochmal versuchen.';
+      else if(res.status === 404) why = 'Funktion nicht gefunden – über die Online-Seite öffnen.';
+      if(status) status.textContent = why;
+    } catch(err){ if(status) status.textContent = 'Backend nicht erreichbar (Online-Seite + Key nötig).'; }
   }
   function eyeRender(data){
     const status = document.getElementById('eyeStatus'), out = document.getElementById('eyeResult');
     if(!out) return;
+    let spoken = '';
     if(data.kind === 'beleg'){
       const items = data.items || [];
       if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel.';
+      spoken = items.length ? ('Ich sehe einen Lieferschein mit ' + items.length + ' Artikeln. Soll ich sie ins Lager buchen?') : 'Das sieht aus wie ein Beleg, aber ich konnte keine Artikel lesen.';
       scanExtracted = items;
       out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + escHtml(it.qty||'') + (it.price?' · '+escHtml(it.price):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
     } else if(data.kind === 'lager'){
       const items = data.items || [];
       if(status) status.textContent = 'Erkannt: Regal/Lager – ' + items.length + ' Produkte.';
+      spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal.') : 'Ich konnte keine Produkte erkennen.';
       visionItems = items;
       out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
     } else if(data.kind === 'temperatur'){
       window.__eyeTemp = data.value;
       if(status) status.textContent = 'Erkannt: Temperatur ' + (data.value||'?') + ' °C.';
+      spoken = data.value ? ('Ich lese ' + data.value + ' Grad. Für welche Zone?') : 'Ich konnte die Temperatur nicht ablesen.';
       const zoneOpts = HACCP_ZONES.map(function(z){ return '<option value="'+escHtml(z)+'">'+escHtml(z)+'</option>'; }).join('');
       out.innerHTML = '<div class="onboard-label">Für welche Zone?</div><select class="onboard-input" id="eyeZone" style="margin-bottom:12px">' + zoneOpts + '</select><button class="btn-primary" onclick="eyeSaveTemp()">' + (data.value||'') + ' °C speichern</button>';
     } else {
-      if(status) status.textContent = 'Konnte nichts Eindeutiges erkennen – bitte näher und schärfer fotografieren.';
-      out.innerHTML = '';
+      if(status) status.textContent = 'Konnte nichts Eindeutiges erkennen – näher dran, gutes Licht, gerade halten und nochmal.';
+      spoken = 'Ich konnte nichts Eindeutiges erkennen. Bitte näher heran und nochmal.';
+      out.innerHTML = '<button class="btn-secondary" onclick="openEye()">Nochmal versuchen</button>';
     }
+    if(spoken){ try{ speak(spoken); }catch(e){} }
   }
   function eyeSaveTemp(){
     const sel = document.getElementById('eyeZone'); const z = sel ? sel.value : HACCP_ZONES[0]; const v = window.__eyeTemp;
@@ -5316,6 +5360,7 @@
     openRezepte();
   }
   function closeSheet(){
+    if(typeof stopEyeCam === 'function') stopEyeCam();
     document.getElementById('sheetOverlay').classList.remove('show');
     document.getElementById('sheet').classList.remove('show');
   }
