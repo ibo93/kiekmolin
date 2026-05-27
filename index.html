@@ -1583,7 +1583,7 @@
           <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="3" width="20" height="6" rx="1.5"/><rect x="3" y="11" width="8" height="10" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/></svg>
           <span class="tab-label">Lager</span>
         </button>
-        <button class="tab-scan" data-view="scan" onclick="navTo('scan')">
+        <button class="tab-scan" aria-label="KI-Auge">
           <svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"><path d="M9 3l-2 3H3a1 1 0 00-1 1v13a1 1 0 001 1h18a1 1 0 001-1V7a1 1 0 00-1-1h-4l-2-3H9zm3 5.5a5 5 0 100 10 5 5 0 000-10zm0 2.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5z"/></svg>
         </button>
         <button class="tab" data-view="ki">
@@ -1694,11 +1694,11 @@
   // ===== Router =====
   function navTo(view){
     document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===view));
-    document.querySelectorAll('.tab, .tab-scan').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
     document.querySelector('main').scrollTop = 0;
     // KI tab: ready, but don't auto-start anything
   }
-  document.querySelectorAll('.tab, .tab-scan').forEach(t=>t.addEventListener('click',()=>navTo(t.dataset.view)));
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>navTo(t.dataset.view)));
 
   // ===== Toast =====
   let toastTimer;
@@ -4051,12 +4051,71 @@
 
   // ===== Quick voice trigger from anywhere (long-press scan tab) =====
   const scanTab = document.querySelector('.tab-scan');
-  let pressTimer;
+  let pressTimer, longFired = false;
   scanTab.addEventListener('pointerdown', () => {
-    pressTimer = setTimeout(() => { navTo('ki'); setTimeout(toggleListen, 200); }, 600);
+    longFired = false;
+    pressTimer = setTimeout(() => { longFired = true; navTo('ki'); setTimeout(toggleListen, 200); }, 600);
   });
-  scanTab.addEventListener('pointerup', () => clearTimeout(pressTimer));
+  scanTab.addEventListener('pointerup', () => { clearTimeout(pressTimer); if(!longFired) openEye(); });
   scanTab.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+
+  // ===== KI-Auge · ein Foto, die KI erkennt selbst was es ist =====
+  function openEye(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg> KI-Auge';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Mach ein Foto – The Chef erkennt <strong>selbst</strong>, was es ist: Lieferschein → ins Lager, Regal → Bestand zählen, Thermometer → HACCP.</p>
+      <input type="file" id="eyeFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onEyeFile(event)">
+      <button class="btn-primary" onclick="document.getElementById('eyeFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen</button>
+      <div style="margin-top:10px"></div>
+      <button class="btn-secondary" onclick="document.getElementById('eyeFile').click()">Aus Galerie wählen</button>
+      <div id="eyeStatus" style="font-size:13px;color:var(--text-dim);padding:12px 4px 0;line-height:1.5"></div>
+      <div id="eyeResult" style="margin-top:14px"></div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function onEyeFile(e){
+    const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
+    const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das Bild an …';
+    chefResizeImage(file, 1568, 0.82).then(async function(img){
+      try {
+        const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
+        if(res.ok){ const data = await res.json(); eyeRender(data); return; }
+        throw new Error('eye ' + res.status);
+      } catch(err){ if(status) status.textContent = 'Das KI-Auge braucht die Online-Seite mit Claude-Key.'; }
+    }).catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
+  }
+  function eyeRender(data){
+    const status = document.getElementById('eyeStatus'), out = document.getElementById('eyeResult');
+    if(!out) return;
+    if(data.kind === 'beleg'){
+      const items = data.items || [];
+      if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel.';
+      scanExtracted = items;
+      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + escHtml(it.qty||'') + (it.price?' · '+escHtml(it.price):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
+    } else if(data.kind === 'lager'){
+      const items = data.items || [];
+      if(status) status.textContent = 'Erkannt: Regal/Lager – ' + items.length + ' Produkte.';
+      visionItems = items;
+      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+    } else if(data.kind === 'temperatur'){
+      window.__eyeTemp = data.value;
+      if(status) status.textContent = 'Erkannt: Temperatur ' + (data.value||'?') + ' °C.';
+      const zoneOpts = HACCP_ZONES.map(function(z){ return '<option value="'+escHtml(z)+'">'+escHtml(z)+'</option>'; }).join('');
+      out.innerHTML = '<div class="onboard-label">Für welche Zone?</div><select class="onboard-input" id="eyeZone" style="margin-bottom:12px">' + zoneOpts + '</select><button class="btn-primary" onclick="eyeSaveTemp()">' + (data.value||'') + ' °C speichern</button>';
+    } else {
+      if(status) status.textContent = 'Konnte nichts Eindeutiges erkennen – bitte näher und schärfer fotografieren.';
+      out.innerHTML = '';
+    }
+  }
+  function eyeSaveTemp(){
+    const sel = document.getElementById('eyeZone'); const z = sel ? sel.value : HACCP_ZONES[0]; const v = window.__eyeTemp;
+    if(!z || v == null || v === ''){ toast('Kein Wert erkannt'); return; }
+    haccpData.temps[z] = { v: String(v), ts: Date.now() }; saveHaccp();
+    logActivity('<strong>HACCP</strong> – ' + z + ': ' + v + ' °C (KI-Auge)', 'check');
+    toast('✓ ' + z + ': ' + v + ' °C gespeichert'); closeSheet();
+  }
 
   // ===== Sheets =====
   const sheets = {
