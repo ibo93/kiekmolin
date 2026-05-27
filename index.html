@@ -3104,7 +3104,7 @@
 
   function stopSpeaking() {
     if ('speechSynthesis' in window) speechSynthesis.cancel();
-    if (chefAudio) { try { chefAudio.pause(); } catch(e){} chefAudio = null; }
+    try { chefAudioEl.pause(); } catch(e){}
     setSpeaking(false);
   }
   function toggleListen() {
@@ -3180,13 +3180,26 @@
       }
     } catch(e){ /* offline / kein Key → Presets bleiben */ }
   }
-  // Aktuelle Audio-Instanz (für ElevenLabs), damit man sie stoppen kann
-  let chefAudio = null;
+  // EIN dauerhaftes Audio-Element + Freischaltung bei erster Berührung,
+  // damit die Stimme auch nach Netzwerk-Antworten abspielt (Autoplay-Sperre umgehen).
+  const chefAudioEl = new Audio();
+  chefAudioEl.preload = 'auto';
+  let audioUnlocked = false;
+  function unlockAudio(){
+    if (audioUnlocked) return; audioUnlocked = true;
+    try {
+      chefAudioEl.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      const p = chefAudioEl.play();
+      if (p && p.then) p.then(function(){ chefAudioEl.pause(); chefAudioEl.currentTime = 0; }).catch(function(){});
+    } catch(e){}
+  }
+  document.addEventListener('pointerdown', unlockAudio, { once: true });
+  document.addEventListener('click', unlockAudio, { once: true });
   async function speak(text, force) {
     if (!voiceEnabled && !force) return;
     // 1. Versuch: ElevenLabs (echte, hochwertige Stimme über die Netlify-Function)
     try {
-      if (chefAudio) { chefAudio.pause(); chefAudio = null; }
+      try { chefAudioEl.pause(); } catch(e){}
       const body = { text: text };
       if (selectedVoiceId) body.voiceId = selectedVoiceId;
       const res = await fetch('/.netlify/functions/voice', {
@@ -3197,11 +3210,11 @@
       if (res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        chefAudio = new Audio(url);
-        chefAudio.onplay = () => setSpeaking(true);
-        chefAudio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-        chefAudio.onerror = () => { setSpeaking(false); speakBrowser(text); };
-        await chefAudio.play();
+        chefAudioEl.onplay = () => setSpeaking(true);
+        chefAudioEl.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
+        chefAudioEl.onerror = () => { setSpeaking(false); speakBrowser(text); };
+        chefAudioEl.src = url;
+        await chefAudioEl.play();
         return;
       }
     } catch (e) { /* offline / kein Key / lokal geöffnet → Fallback */ }
