@@ -2505,7 +2505,7 @@
   function onVisionFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const status = document.getElementById('visionStatus'); if(status) status.textContent = 'KI erkennt die Produkte …';
-    chefResizeImage(file, 2000, 0.85).then(async function(img){
+    chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){
@@ -2879,7 +2879,7 @@
     document.getElementById('scanLoading').style.display='block';
     document.getElementById('scanStep').textContent = 'KI liest den Beleg…';
 
-    chefResizeImage(file, 2000, 0.85).then(async function(img){
+    chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan', {
           method: 'POST',
@@ -3384,11 +3384,14 @@
       text: m.firstChild ? (m.firstChild.nodeValue || m.textContent) : m.textContent
     }));
 
-    // 1. Versuch: echte KI über die Netlify-Function
+    // 1. Versuch: echte KI über die Netlify-Function (mit Zeitlimit, damit nichts hängt)
     try {
+      const ctrl = new AbortController();
+      const to = setTimeout(function(){ ctrl.abort(); }, 14000);
       const res = await fetch('/.netlify/functions/chef-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
         body: JSON.stringify({
           message: text,
           history: history,
@@ -3396,6 +3399,7 @@
           context: buildContextSnapshot()
         })
       });
+      clearTimeout(to);
       if (res.ok) {
         const data = await res.json();
         if (data && data.reply) {
@@ -4088,7 +4092,7 @@
   function onEyeFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das Bild an …';
-    chefResizeImage(file, 2000, 0.85).then(async function(img){
+    chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){ const data = await res.json(); eyeRender(data); return; }
@@ -4486,7 +4490,7 @@
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const i = haccpPhotoZone; if(i < 0) return; const z = HACCP_ZONES[i];
     toast('Foto wird gelesen …');
-    chefResizeImage(file, 2000, 0.85).then(async function(img){
+    chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/read-temp', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){
@@ -5062,7 +5066,7 @@
     if(!file) return;
     e.target.value = '';
     toast('KI liest den Kassenbericht…');
-    chefResizeImage(file, 2000, 0.85).then(async function(img){
+    chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan-sales', {
           method:'POST', headers:{ 'Content-Type':'application/json' },

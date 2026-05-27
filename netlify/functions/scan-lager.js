@@ -63,9 +63,9 @@ exports.handler = async function (event) {
 
   try {
     const response = await callClaude({
-      model: 'claude-opus-4-7',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
-      output_config: { effort: 'high' },
+      output_config: { effort: 'medium' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }
       ],
