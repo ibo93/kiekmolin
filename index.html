@@ -2505,7 +2505,7 @@
   function onVisionFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const status = document.getElementById('visionStatus'); if(status) status.textContent = 'KI erkennt die Produkte …';
-    chefResizeImage(file, 1568, 0.82).then(async function(img){
+    chefResizeImage(file, 2000, 0.85).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){
@@ -2879,7 +2879,7 @@
     document.getElementById('scanLoading').style.display='block';
     document.getElementById('scanStep').textContent = 'KI liest den Beleg…';
 
-    chefResizeImage(file, 1568, 0.82).then(async function(img){
+    chefResizeImage(file, 2000, 0.85).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan', {
           method: 'POST',
@@ -4088,7 +4088,7 @@
   function onEyeFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das Bild an …';
-    chefResizeImage(file, 1568, 0.82).then(async function(img){
+    chefResizeImage(file, 2000, 0.85).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){ const data = await res.json(); eyeRender(data); return; }
@@ -4486,7 +4486,7 @@
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const i = haccpPhotoZone; if(i < 0) return; const z = HACCP_ZONES[i];
     toast('Foto wird gelesen …');
-    chefResizeImage(file, 1568, 0.82).then(async function(img){
+    chefResizeImage(file, 2000, 0.85).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/read-temp', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){
@@ -4650,6 +4650,20 @@
     else toast('Schon bekannt oder zu kurz');
   }
   function cbRemoveFact(i){ chefFacts.splice(i,1); saveChefFacts(); openChefBrain(); }
+  function cbVoiceFact(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ toast('Spracheingabe wird in diesem Browser nicht unterstützt'); return; }
+    let rec; try{ rec = new SR(); }catch(e){ toast('Spracheingabe nicht verfügbar'); return; }
+    rec.lang = 'de-DE'; rec.interimResults = false; rec.maxAlternatives = 1;
+    toast('Sprich, was The Chef sich merken soll …');
+    rec.onresult = function(ev){
+      const t = (ev.results[0][0].transcript || '').trim();
+      const el = document.getElementById('cbFact'); if(el) el.value = t;
+      if(addFact(t)){ logBook('The Chef merkt sich: ' + t, 'check'); openChefBrain(); toast('✓ Merke ich mir'); }
+    };
+    rec.onerror = function(){ toast('Spracheingabe fehlgeschlagen – Mikrofon erlauben'); };
+    try{ rec.start(); }catch(e){}
+  }
   function openChefBrain(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Chef-Brain · Dein Stil';
     const tones = [['locker','Locker & freundschaftlich'],['herzlich','Herzlich & persönlich'],['sachlich','Sachlich & knapp'],['professionell','Professionell & seriös']];
@@ -4666,6 +4680,7 @@
       <div class="list-card glass" style="margin-bottom:8px">${factRows}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <input type="text" class="onboard-input" id="cbFact" style="margin-bottom:0;flex:1" placeholder="z.B. Freitags ist Fischtag">
+        <button class="btn-secondary" style="width:auto;padding:0 13px" title="Einsprechen" onclick="cbVoiceFact()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg></button>
         <button class="btn-secondary" style="width:auto;padding:0 16px" onclick="cbAddFact()">Merken</button>
       </div>
       <div class="onboard-label">Tonfall</div>
@@ -4699,7 +4714,7 @@
     out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef antwortet in deinem Stil …</div></div></div>';
     try {
       const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: 'Begrüße mich kurz in meinem gewünschten Stil und nenne mir meinen wichtigsten To-do für heute.', restaurant:{ name:chefProfile.name, type:chefProfile.type }, context: buildContextSnapshot() }) });
-      if(res.ok){ const d = await res.json(); if(d && d.reply){ out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">So klingt The Chef für dich</div></div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap;color:var(--text)">' + escHtml(d.reply) + '</div></div>'; logBook('Chef-Brain Live-Test (Stil: ' + chefStyle.tone + ')', 'chat'); return; } }
+      if(res.ok){ const d = await res.json(); if(d && d.reply){ out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">So klingt The Chef für dich</div></div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap;color:var(--text)">' + escHtml(d.reply) + '</div></div>'; logBook('Chef-Brain Live-Test (Stil: ' + chefStyle.tone + ')', 'chat'); try{ speak(d.reply.replace(/[*_~`]/g,'')); }catch(e){} return; } }
       throw new Error('cb');
     } catch(e){
       out.innerHTML = '<p style="font-size:12.5px;color:var(--text-faint);margin-top:12px;padding:0 2px;line-height:1.5">Der Live-Test braucht die Online-Seite mit Claude-Key. Deine Einstellung ist aber gespeichert und wirkt sofort im KI-Chat.</p>';
@@ -5047,7 +5062,7 @@
     if(!file) return;
     e.target.value = '';
     toast('KI liest den Kassenbericht…');
-    chefResizeImage(file, 1568, 0.82).then(async function(img){
+    chefResizeImage(file, 2000, 0.85).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan-sales', {
           method:'POST', headers:{ 'Content-Type':'application/json' },
