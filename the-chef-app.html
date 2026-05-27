@@ -3306,6 +3306,9 @@
       if (chefStyle.specials) styleLines.push('Spezialitäten/Schwerpunkt des Wirts: ' + chefStyle.specials);
       if (chefStyle.notes) styleLines.push('Besonderheiten / No-Gos beachten: ' + chefStyle.notes);
     }
+    if (typeof chefFacts !== 'undefined' && chefFacts.length) {
+      styleLines.push('Was du über den Wirt gelernt hast (berücksichtigen): ' + chefFacts.slice(0,20).map(function(f){ return f.text; }).join('; '));
+    }
     return [
       'Umsatz heute: ' + euro(td.umsatz) + (td.umsatz ? '' : ' (noch nichts eingetragen)'),
       'Marge heute: ' + String(td.marge).replace('.',',') + '% · Lager gesamt: ' + gs.avgPct + '% (' + gs.total + ' Artikel) · Verschwendung: ' + String(td.muell).replace('.',',') + '%',
@@ -3320,6 +3323,13 @@
   // --- The Chef STEUERT die App: öffnet Bereiche, navigiert, führt Aktionen aus ---
   function chefExecute(text){
     const q = (text||'').toLowerCase();
+
+    // 0) "merk dir ..." -> The Chef lernt einen Fakt über den Wirt
+    const fm = (text||'').match(/(?:merke?\s*dir(?:\s*mal)?|notiere?\s*dir|denk(?:e)?\s*d(?:a)?ran)[,:]?\s*(?:dass\s+)?(.+)/i);
+    if(fm && fm[1]){
+      if(addFact(fm[1])){ logBook('The Chef merkt sich: ' + fm[1].trim(), 'check'); toast('✓ Merke ich mir'); }
+      return true;
+    }
 
     // 1) Navigation / Bereiche öffnen – nur bei klarer Befehls-Sprache
     if(/(öffne|öffnen|zeig|zeige|zeig mir|geh zu|gehe zu|starte|mach .*auf|bring mich|wechsel)/.test(q)){
@@ -4623,13 +4633,41 @@
   // ===== Chef-Brain · Personalisierung (die App passt sich dem Wirt an) =====
   let chefStyle = (function(){ try{ const s=JSON.parse(localStorage.getItem('chef_style')||'null'); if(s&&typeof s==='object') return { tone:s.tone||'locker', specials:s.specials||'', notes:s.notes||'' }; }catch(e){} return { tone:'locker', specials:'', notes:'' }; })();
   function saveChefStyle(){ localStorage.setItem('chef_style', JSON.stringify(chefStyle)); }
+  // Chef-Brain merkt sich Fakten über den Wirt -> wächst zur Beziehung
+  let chefFacts = (function(){ try{ const s=JSON.parse(localStorage.getItem('chef_facts')||'null'); if(Array.isArray(s)) return s; }catch(e){} return []; })();
+  function saveChefFacts(){ localStorage.setItem('chef_facts', JSON.stringify(chefFacts)); }
+  function addFact(text){
+    const t = String(text||'').trim().replace(/\s+/g,' ');
+    if(t.length < 2) return false;
+    if(chefFacts.some(function(f){ return (f.text||'').toLowerCase() === t.toLowerCase(); })) return false;
+    chefFacts.unshift({ text: t.slice(0,160), ts: Date.now() });
+    chefFacts = chefFacts.slice(0, 100); saveChefFacts();
+    return true;
+  }
+  function cbAddFact(){
+    const el = document.getElementById('cbFact'); const t = el ? el.value : '';
+    if(addFact(t)){ logBook('The Chef merkt sich: ' + t, 'check'); openChefBrain(); toast('✓ The Chef merkt sich das'); }
+    else toast('Schon bekannt oder zu kurz');
+  }
+  function cbRemoveFact(i){ chefFacts.splice(i,1); saveChefFacts(); openChefBrain(); }
   function openChefBrain(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Chef-Brain · Dein Stil';
     const tones = [['locker','Locker & freundschaftlich'],['herzlich','Herzlich & persönlich'],['sachlich','Sachlich & knapp'],['professionell','Professionell & seriös']];
     const toneOpts = tones.map(function(t){ return '<option value="'+t[0]+'"'+(chefStyle.tone===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('');
+    const lvl = chefFacts.length >= 20 ? 'Ihr kennt euch richtig gut' : chefFacts.length >= 8 ? 'Ihr werdet ein eingespieltes Team' : chefFacts.length >= 1 ? 'The Chef lernt dich gerade kennen' : 'Noch lernt The Chef dich kennen';
+    const factRows = chefFacts.length
+      ? chefFacts.map(function(f,i){ return '<div class="inv-row" style="cursor:default"><div style="flex:1;min-width:0"><div style="font-size:13.5px;line-height:1.45">'+escHtml(f.text)+'</div></div><div class="inv-right"><button class="ai-btn ai-btn-skip" style="padding:4px 9px" onclick="cbRemoveFact('+i+')">×</button></div></div>'; }).join('')
+      : '<div class="inv-row" style="cursor:default;border:none"><div></div><div class="inv-meta" style="padding:8px 0">Sag im Chat „merk dir …" oder trag unten ein, was The Chef über dich wissen soll.</div><div></div></div>';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Stell ein, wie The Chef für dich klingt und worauf er achten soll – der KI-Chat passt sich daran an.</p>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">The Chef lernt dich mit der Zeit immer besser kennen – je mehr er weiß, desto persönlicher hilft er.</p>
+      <div class="section-h"><h2>Was The Chef über dich weiß (${chefFacts.length})</h2></div>
+      <div style="font-size:12.5px;color:var(--gold-light);margin:-4px 4px 10px">${lvl}</div>
+      <div class="list-card glass" style="margin-bottom:8px">${factRows}</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input type="text" class="onboard-input" id="cbFact" style="margin-bottom:0;flex:1" placeholder="z.B. Freitags ist Fischtag">
+        <button class="btn-secondary" style="width:auto;padding:0 16px" onclick="cbAddFact()">Merken</button>
+      </div>
       <div class="onboard-label">Tonfall</div>
       <select class="onboard-input" id="cbTone" style="margin-bottom:12px">${toneOpts}</select>
       <div class="onboard-label">Deine Spezialitäten / Schwerpunkt</div>
@@ -4825,7 +4863,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_convo','chef_activity'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
