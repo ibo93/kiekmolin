@@ -10,9 +10,9 @@ var CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type'
 };
 
-// Standard-Stimme: ruhige deutsche Stimme. Über ELEVENLABS_VOICE_ID
+// Standard-Stimme: warme, natürliche Stimme (Antoni). Über ELEVENLABS_VOICE_ID
 // oder das Feld voiceId im Request überschreibbar.
-var DEFAULT_VOICE = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+var DEFAULT_VOICE = process.env.ELEVENLABS_VOICE_ID || 'ErXwobaYiN019PkySvjV';
 // multilingual_v2: höchste Qualität & natürlichste deutsche Stimme.
 var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
 
