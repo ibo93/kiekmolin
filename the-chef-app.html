@@ -4208,7 +4208,9 @@
     const tempRows = HACCP_ZONES.map(function(z,i){
       const rec = haccpData.temps[z];
       const meta = rec ? ('zuletzt: '+escHtml(String(rec.v))+' °C · '+haccpTime(rec.ts)) : 'noch nicht erfasst';
-      return '<div class="inv-row" style="cursor:default"><div style="flex:1;min-width:0"><div class="inv-name">'+escHtml(z)+'</div><div class="inv-meta">'+meta+'</div></div><div class="inv-right" style="display:flex;gap:6px;align-items:center"><input type="number" step="0.1" id="hac'+i+'" placeholder="°C" style="width:62px;padding:8px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13px"><button class="ai-btn ai-btn-ok" style="padding:6px 11px" onclick="haccpSaveTemp('+i+')">OK</button></div></div>';
+      const cam = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg>';
+      const mic = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg>';
+      return '<div class="inv-row" style="cursor:default"><div style="flex:1;min-width:0"><div class="inv-name">'+escHtml(z)+'</div><div class="inv-meta">'+meta+'</div></div><div class="inv-right" style="display:flex;gap:5px;align-items:center"><input type="number" step="0.1" id="hac'+i+'" placeholder="°C" style="width:50px;padding:8px 6px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13px"><button class="ai-btn ai-btn-ok" style="padding:6px 9px" onclick="haccpSaveTemp('+i+')">OK</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Foto vom Thermometer" onclick="haccpPhoto('+i+')">'+cam+'</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Wert einsprechen" onclick="haccpVoice('+i+')">'+mic+'</button></div></div>';
     }).join('');
     const taskRows = HACCP_TASKS.map(function(t,i){
       const rec = haccpData.tasks[t]; const done = rec && rec.done;
@@ -4223,7 +4225,9 @@
         <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Temp. erfasst</div></div><div class="kpi-tile-val">${tempCount}/${HACCP_ZONES.length}</div></div>
         <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Reinigung</div></div><div class="kpi-tile-val">${taskDone}/${HACCP_TASKS.length}</div></div>
       </div>
+      <input type="file" id="haccpPhotoFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onHaccpPhotoFile(event)">
       <div class="section-h"><h2>Temperaturen</h2></div>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:-2px 4px 8px">Tippen, Foto vom Thermometer (Kamera-Symbol) oder Wert einsprechen (Mikrofon).</p>
       <div class="list-card glass" style="margin-bottom:14px">${tempRows}</div>
       <div class="section-h"><h2>Reinigungsplan</h2></div>
       <div class="list-card glass" style="margin-bottom:14px">${taskRows}</div>
@@ -4247,6 +4251,42 @@
     saveHaccp(); openHaccp();
   }
   function haccpReset(){ haccpData = { temps:{}, tasks:{} }; saveHaccp(); openHaccp(); toast('✓ Neuer Tag – HACCP zurückgesetzt'); }
+  let haccpPhotoZone = -1;
+  function haccpPhoto(i){ haccpPhotoZone = i; const inp = document.getElementById('haccpPhotoFile'); if(inp) inp.click(); }
+  function onHaccpPhotoFile(e){
+    const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
+    const i = haccpPhotoZone; if(i < 0) return; const z = HACCP_ZONES[i];
+    toast('Foto wird gelesen …');
+    chefResizeImage(file, 1568, 0.82).then(async function(img){
+      try {
+        const res = await fetch('/.netlify/functions/read-temp', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
+        if(res.ok){
+          const data = await res.json();
+          if(data && data.value){ haccpData.temps[z] = { v:String(data.value), ts:Date.now() }; saveHaccp(); logActivity('<strong>HACCP</strong> – '+z+': '+data.value+' °C (Foto)', 'check'); openHaccp(); toast('✓ '+z+': '+data.value+' °C erkannt'); return; }
+          toast('Keine Temperatur erkannt – direkt aufs Display halten'); return;
+        }
+        throw new Error('read-temp ' + res.status);
+      } catch(err){ toast('Foto-Lesen geht nur online mit Claude-Key'); }
+    }).catch(function(){ toast('Bild konnte nicht gelesen werden'); });
+  }
+  function haccpVoice(i){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ toast('Spracheingabe wird in diesem Browser nicht unterstützt'); return; }
+    const z = HACCP_ZONES[i];
+    let rec; try { rec = new SR(); } catch(e){ toast('Spracheingabe nicht verfügbar'); return; }
+    rec.lang = 'de-DE'; rec.interimResults = false; rec.maxAlternatives = 1;
+    toast('Sprich den Wert, z.B. „minus 18 Komma 4"');
+    rec.onresult = function(ev){
+      let txt = (ev.results[0][0].transcript || '').toLowerCase();
+      txt = txt.replace(/komma/g, '.').replace(/minus/g, '-').replace(/grad|°c|celsius/g, '').replace(/\s+/g, '');
+      const mm = txt.match(/-?\d+(?:\.\d+)?/);
+      if(!mm){ toast('Konnte keine Zahl verstehen – nochmal versuchen'); return; }
+      const v = mm[0];
+      haccpData.temps[z] = { v:v, ts:Date.now() }; saveHaccp(); logActivity('<strong>HACCP</strong> – '+z+': '+v+' °C (Sprache)', 'check'); openHaccp(); toast('✓ '+z+': '+v+' °C');
+    };
+    rec.onerror = function(){ toast('Spracheingabe fehlgeschlagen – Mikrofon erlauben'); };
+    try { rec.start(); } catch(e){}
+  }
 
   // ===== Einstellungen · KI-Status, Daten-Export & Reset =====
   function openSettings(){
