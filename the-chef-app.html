@@ -4432,10 +4432,18 @@
     const platform = document.getElementById('mkPlatform').value || 'Instagram';
     const out = document.getElementById('mkResult');
     if(!dish){ toast('Bitte ein Gericht wählen'); return; }
-    if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef schreibt …</div></div></div>';
+    const photo = window.__mkPhotoFile;
+    if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">' + (photo ? 'The Chef schaut sich dein Foto an …' : 'The Chef schreibt …') + '</div></div></div>';
     const r = recipes[dish];
-    const msg = 'Schreibe einen fertigen ' + platform + '-Post für mein Restaurant. Gericht: "' + dish + '"' + (r ? ' (Verkaufspreis ' + euro(r.vk) + ')' : '') + '. Gib eine kurze, mitreißende Caption auf Deutsch und darunter 6-8 passende Hashtags. Kein Vorwort, nur der fertige Post.';
     try {
+      if(photo){
+        // Caption auf Basis des echten Fotos (Vision)
+        const img = await chefResizeImage(photo, 1568, 0.82);
+        const res = await fetch('/.netlify/functions/caption', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, dish: dish, restaurant: chefProfile.name, type: chefProfile.type, platform: platform }) });
+        if(res.ok){ const data = await res.json(); if(data && data.reply){ showMarketing(data.reply); return; } }
+        throw new Error('caption');
+      }
+      const msg = 'Schreibe einen fertigen ' + platform + '-Post für mein Restaurant. Gericht: "' + dish + '"' + (r ? ' (Verkaufspreis ' + euro(r.vk) + ')' : '') + '. Gib eine kurze, mitreißende Caption auf Deutsch und darunter 6-8 passende Hashtags. Kein Vorwort, nur der fertige Post.';
       const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: msg, restaurant:{ name:chefProfile.name, type:chefProfile.type } }) });
       if(res.ok){ const data = await res.json(); if(data && data.reply){ showMarketing(data.reply); return; } }
       throw new Error('mk');
