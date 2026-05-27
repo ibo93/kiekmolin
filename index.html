@@ -4442,6 +4442,8 @@
       <div id="mkPhotoPrev" style="display:none;height:150px;border-radius:14px;background-size:cover;background-position:center;margin-bottom:10px;border:1px solid var(--glass-border-bright)"></div>
       <button class="btn-secondary" onclick="mkPhoto()" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto vom Gericht hinzufügen</button>
       <button class="btn-primary" onclick="generateMarketing()">Post schreiben lassen</button>
+      <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="generateWeek()">Wochen-Posts (bis 5 Gerichte)</button>
       <div id="mkResult"></div>
     `;
     window.__mkPhotoFile = null;
@@ -4493,6 +4495,34 @@
   }
   function copyMarketing(){ const t = window.__mkText || ''; if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Post kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t); }
   function waMarketing(){ const t = window.__mkText || ''; window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); }
+  async function generateWeek(){
+    const names = Object.keys(recipes).slice(0, 5);
+    if(!names.length){ toast('Erst Rezepte anlegen'); return; }
+    const platform = document.getElementById('mkPlatform').value || 'Instagram';
+    const out = document.getElementById('mkResult');
+    window.__weekPosts = [];
+    if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef erstellt ' + names.length + ' Posts …</div></div></div>';
+    for(let i=0; i<names.length; i++){
+      const dish = names[i]; const r = recipes[dish]; let text = '';
+      try {
+        const msg = 'Schreibe einen kurzen ' + platform + '-Post (Caption + 5 Hashtags) auf Deutsch für "' + dish + '"' + (r ? ' (Preis ' + euro(r.vk) + ')' : '') + '. Kein Vorwort, nur der Post.';
+        const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: msg, restaurant:{ name:chefProfile.name, type:chefProfile.type } }) });
+        if(res.ok){ const d = await res.json(); text = (d && d.reply) || ''; }
+      } catch(e){}
+      if(!text) text = 'Heute frisch: ' + dish + ' bei ' + chefProfile.name + '! #' + dish.replace(/\s+/g,'') + ' #lecker #foodie';
+      window.__weekPosts.push({ dish: dish, text: text });
+      renderWeek();
+    }
+    logBook('Wochen-Marketing: ' + names.length + ' Posts erstellt', 'chart');
+    toast('✓ ' + names.length + ' Wochen-Posts erstellt');
+  }
+  function renderWeek(){
+    const out = document.getElementById('mkResult'); if(!out || !window.__weekPosts) return;
+    out.innerHTML = window.__weekPosts.map(function(p,i){
+      return '<div class="ai-card glass" style="margin-top:12px"><div class="ai-title" style="margin-bottom:6px">' + escHtml(p.dish) + '</div><div style="font-size:13.5px;white-space:pre-wrap;line-height:1.5;color:var(--text)">' + escHtml(p.text) + '</div><button class="ai-btn ai-btn-ok" style="margin-top:8px;padding:5px 12px" onclick="copyWeek('+i+')">Kopieren</button></div>';
+    }).join('');
+  }
+  function copyWeek(i){ const p = window.__weekPosts && window.__weekPosts[i]; if(!p) return; const t = p.text; if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t); }
   async function shareMarketing(){
     const t = window.__mkText || '';
     const f = window.__mkPhotoFile;
