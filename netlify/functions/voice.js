@@ -13,8 +13,8 @@ var CORS_HEADERS = {
 // Standard-Stimme: ruhige deutsche Stimme. Über ELEVENLABS_VOICE_ID
 // oder das Feld voiceId im Request überschreibbar.
 var DEFAULT_VOICE = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
-// turbo v2.5: deutlich geringere Latenz, weiterhin mehrsprachig (Deutsch).
-var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_turbo_v2_5';
+// multilingual_v2: höchste Qualität & natürlichste deutsche Stimme.
+var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
 
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') {
@@ -71,7 +71,7 @@ exports.handler = async function (event) {
       body: JSON.stringify({
         text: text,
         model_id: MODEL_ID,
-        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true }
+        voice_settings: { stability: 0.45, similarity_boost: 0.85, style: 0.35, use_speaker_boost: true }
       })
     });
 
