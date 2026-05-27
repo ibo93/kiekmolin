@@ -2404,26 +2404,43 @@
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
+  // Verkleinert/komprimiert ein Foto vor dem Upload (Handy-Fotos sind sonst zu groß
+  // für die Function und Claude Vision) → max. Kante 1568px, JPEG.
+  function chefResizeImage(file, maxDim, quality){
+    return new Promise(function(resolve, reject){
+      try {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function(){
+          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if(!w || !h){ URL.revokeObjectURL(url); reject(new Error('size')); return; }
+          const scale = Math.min(1, (maxDim||1568) / Math.max(w, h));
+          w = Math.max(1, Math.round(w*scale)); h = Math.max(1, Math.round(h*scale));
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          const dataUrl = cv.toDataURL('image/jpeg', quality || 0.82);
+          resolve({ base64: (dataUrl.split(',')[1] || ''), mediaType: 'image/jpeg' });
+        };
+        img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('img')); };
+        img.src = url;
+      } catch(e){ reject(e); }
+    });
+  }
   function onVisionFile(e){
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     const status = document.getElementById('visionStatus'); if(status) status.textContent = 'KI erkennt die Produkte …';
-    const reader = new FileReader();
-    reader.onload = async function(){
-      const dataUrl = reader.result || '';
-      const base64 = String(dataUrl).split(',')[1] || '';
-      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+    chefResizeImage(file, 1568, 0.82).then(async function(img){
       try {
-        const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType }) });
+        const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
         if(res.ok){
           const data = await res.json();
           if(data && Array.isArray(data.items) && data.items.length){ visionItems = data.items; renderVision(); if(status) status.textContent = data.items.length + ' Produkte erkannt – prüfen und übernehmen.'; return; }
-          if(status) status.textContent = 'Keine Produkte erkannt – näher heran und schärfer fotografieren.'; return;
+          if(status) status.textContent = 'Keine Produkte erkannt – näher heran und bei gutem Licht fotografieren.'; return;
         }
         throw new Error('scan-lager ' + res.status);
       } catch(err){ if(status) status.textContent = 'KI-Backend nicht erreichbar – Lager-Vision braucht den Online-Build mit Claude-Key.'; }
-    };
-    reader.onerror = function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; };
-    reader.readAsDataURL(file);
+    }).catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
   }
   function renderVision(){
     const el = document.getElementById('visionResult'); if(!el) return;
@@ -2787,46 +2804,34 @@
     document.getElementById('scanLoading').style.display='block';
     document.getElementById('scanStep').textContent = 'KI liest den Beleg…';
 
-    const reader = new FileReader();
-    reader.onload = async function(){
-      const dataUrl = reader.result || '';
-      const base64 = String(dataUrl).split(',')[1] || '';
-      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+    chefResizeImage(file, 1568, 0.82).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mediaType: mediaType })
+          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType })
         });
         if(res.ok){
           const data = await res.json();
           if(data && Array.isArray(data.items) && data.items.length){
             showScanResult(data.items, data.lieferant || 'Beleg');
-            t.style.backgroundImage = '';
-            e.target.value = '';
+            t.style.backgroundImage = ''; e.target.value = '';
             return;
           }
-          // Beleg erkannt, aber nichts auslesbar
           resetScan();
-          t.style.backgroundImage = '';
-          e.target.value = '';
+          t.style.backgroundImage = ''; e.target.value = '';
           toast('Kein Artikel erkannt – bitte schärfer und gerade fotografieren');
           return;
         }
         throw new Error('scan ' + res.status);
       } catch(err){
-        // Offline / kein API-Key / lokal geöffnet → Demo-Fallback
-        t.style.backgroundImage = '';
-        e.target.value = '';
+        t.style.backgroundImage = ''; e.target.value = '';
         runDemoScan(true);
       }
-    };
-    reader.onerror = function(){
-      t.style.backgroundImage = '';
-      e.target.value = '';
+    }).catch(function(){
+      t.style.backgroundImage = ''; e.target.value = '';
       runDemoScan(true);
-    };
-    reader.readAsDataURL(file);
+    });
   }
 
   // Demo-Scan (Button "Ohne Foto testen" oder Fallback ohne Backend)
@@ -4449,15 +4454,11 @@
     if(!file) return;
     e.target.value = '';
     toast('KI liest den Kassenbericht…');
-    const reader = new FileReader();
-    reader.onload = async function(){
-      const dataUrl = reader.result || '';
-      const base64 = String(dataUrl).split(',')[1] || '';
-      const mediaType = (String(dataUrl).match(/^data:(.*?);/) || [])[1] || file.type || 'image/jpeg';
+    chefResizeImage(file, 1568, 0.82).then(async function(img){
       try {
         const res = await fetch('/.netlify/functions/scan-sales', {
           method:'POST', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ image: base64, mediaType: mediaType })
+          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType })
         });
         if(res.ok){
           const data = await res.json();
@@ -4468,9 +4469,7 @@
       } catch(err){
         toast('Kein KI-Backend erreichbar – Scan geht nur online (Netlify)');
       }
-    };
-    reader.onerror = function(){ toast('Bild konnte nicht gelesen werden'); };
-    reader.readAsDataURL(file);
+    }).catch(function(){ toast('Bild konnte nicht gelesen werden'); });
   }
   function applySalesScan(items){
     let matched = 0; const unmatched = [];
