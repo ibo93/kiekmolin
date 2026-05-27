@@ -909,17 +909,19 @@
   /* BOTTOM TAB BAR */
   .tabbar{
     position:absolute;bottom:0;left:0;right:0;z-index:100;
-    padding:10px 14px calc(14px + var(--safe-bot));
+    padding:0;
     pointer-events:none;
   }
-  @media (min-width:560px){.tabbar{padding:10px 14px 14px}}
+  @media (min-width:560px){.tabbar{padding:0}}
+  /* Fest angedockt am unteren Rand, Oberkante als Halbkreis-Bogen */
   .tabbar-inner{
     display:flex;align-items:center;justify-content:space-around;
-    height:62px;padding:0 10px;
+    padding:12px 20px calc(12px + var(--safe-bot));
     background:var(--surface);
     border:1px solid var(--glass-border);
-    border-radius:99px;
-    box-shadow:0 6px 28px rgba(0,61,51,0.15), 0 1px 3px rgba(0,61,51,0.06);
+    border-bottom:none;
+    border-radius:50% 50% 0 0 / 30px 30px 0 0;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.28);
     pointer-events:auto;
     position:relative;
   }
@@ -1048,7 +1050,7 @@
   .ai-suggest-text strong{ color:var(--gold-light); }
 
   /* Tabbar schwebt mit feiner Glow-Linie */
-  .tabbar-inner{ box-shadow:0 10px 34px rgba(0,0,0,.55), 0 0 24px rgba(245,166,35,.08); }
+  .tabbar-inner{ box-shadow:0 -8px 34px rgba(0,0,0,.55), 0 0 24px rgba(245,166,35,.08); }
   .tabbar-inner::after{ opacity:.3; }
   .tab.active{ box-shadow:inset 0 0 0 1px rgba(245,166,35,.25), 0 0 18px rgba(245,166,35,.12); }
 
