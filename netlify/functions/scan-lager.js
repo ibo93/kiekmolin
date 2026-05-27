@@ -5,7 +5,6 @@
 // Erwartet POST mit JSON: { image: "<base64>", mediaType: "image/jpeg" }
 // Antwort: { items: [{ name, count }] }
 
-const Anthropic = require('@anthropic-ai/sdk');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +13,11 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json'
 };
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+async function callClaude(body){
+  const r = await fetch("https://api.anthropic.com/v1/messages",{ method:"POST", headers:{ "x-api-key":process.env.ANTHROPIC_API_KEY, "anthropic-version":"2023-06-01", "content-type":"application/json" }, body:JSON.stringify(body) });
+  if(!r.ok){ const t=await r.text(); const e=new Error(t.slice(0,300)); e.status=r.status; throw e; }
+  return r.json();
+}
 
 const SYSTEM_PROMPT = `Du bist eine Lager-Erkennung für eine Gastronomie-App.
 Du bekommst das Foto eines Regals, Kühlschranks oder einer Lager-Ablage.
@@ -59,7 +62,7 @@ exports.handler = async function (event) {
   const mediaType = (payload.mediaType || 'image/jpeg').toString();
 
   try {
-    const response = await client.messages.create({
+    const response = await callClaude({
       model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       output_config: { effort: 'low' },

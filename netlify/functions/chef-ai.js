@@ -10,8 +10,6 @@
 //   }
 // Antwort: { reply: "..." }
 
-const Anthropic = require('@anthropic-ai/sdk');
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -54,8 +52,6 @@ Du bist der digitale Sous-Chef und Betriebsleiter-Assistent. Du hilfst dem Wirt,
 - Bei rechtlichen, steuerlichen oder lebensmittelrechtlichen Detailfragen: gib eine sinnvolle erste Einschätzung und empfiehl, im Zweifel Fachleute/Behörden zu fragen.
 
 Bleib immer in der Rolle von "The Chef".`;
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') {
@@ -114,25 +110,31 @@ exports.handler = async function (event) {
     : 'Kein zusätzlicher Kontext übergeben.';
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      // effort steuert Tiefe/Token-Verbrauch. "medium" = guter Kompromiss
-      // aus Antwortqualität und Latenz für einen Echtzeit-Chat-Assistenten.
-      output_config: { effort: 'medium' },
-      system: [
-        // Frozen prefix – identisch über ALLE Requests/Restaurants -> cachebar.
-        // Hinweis: Prompt-Caching greift erst ab ~4096 Token Prefix (Opus 4.7).
-        // Solange der Prompt kürzer ist, schadet das Breakpoint nicht, greift
-        // aber noch nicht – wächst der Prompt, cacht es automatisch.
-        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        // Volatiler Teil – pro Restaurant/Anfrage unterschiedlich, NICHT gecacht.
-        { type: 'text', text: restaurantContext }
-      ],
-      messages: messages
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        output_config: { effort: 'medium' },
+        system: [
+          { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: restaurantContext }
+        ],
+        messages: messages
+      })
     });
+    if (!apiRes.ok) {
+      const t = await apiRes.text();
+      const e = new Error(t.slice(0, 300)); e.status = apiRes.status; throw e;
+    }
+    const response = await apiRes.json();
 
-    const reply = response.content
+    const reply = (response.content || [])
       .filter(function (b) { return b.type === 'text'; })
       .map(function (b) { return b.text; })
       .join('\n')
