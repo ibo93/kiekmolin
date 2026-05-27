@@ -4557,17 +4557,35 @@
       <div class="onboard-label">Besonderheiten / No-Gos</div>
       <input type="text" class="onboard-input" id="cbNotes" style="margin-bottom:16px" placeholder="z.B. kein Schweinefleisch, regional einkaufen" value="${escHtml(chefStyle.notes).replace(/"/g,'&quot;')}">
       <button class="btn-primary" onclick="saveChefBrain()">Speichern – The Chef anpassen</button>
+      <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="testChefBrain()">Live testen – wie klingt The Chef für dich?</button>
+      <div id="cbTest"></div>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
-  function saveChefBrain(){
+  function readChefStyleFromForm(){
     chefStyle.tone = document.getElementById('cbTone').value || 'locker';
     chefStyle.specials = (document.getElementById('cbSpecials').value || '').trim();
     chefStyle.notes = (document.getElementById('cbNotes').value || '').trim();
     saveChefStyle();
+  }
+  function saveChefBrain(){
+    readChefStyleFromForm();
     toast('✓ The Chef ist jetzt auf dich eingestellt');
     closeSheet();
+  }
+  async function testChefBrain(){
+    readChefStyleFromForm();
+    const out = document.getElementById('cbTest'); if(!out) return;
+    out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef antwortet in deinem Stil …</div></div></div>';
+    try {
+      const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: 'Begrüße mich kurz in meinem gewünschten Stil und nenne mir meinen wichtigsten To-do für heute.', restaurant:{ name:chefProfile.name, type:chefProfile.type }, context: buildContextSnapshot() }) });
+      if(res.ok){ const d = await res.json(); if(d && d.reply){ out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">So klingt The Chef für dich</div></div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap;color:var(--text)">' + escHtml(d.reply) + '</div></div>'; logBook('Chef-Brain Live-Test (Stil: ' + chefStyle.tone + ')', 'chat'); return; } }
+      throw new Error('cb');
+    } catch(e){
+      out.innerHTML = '<p style="font-size:12.5px;color:var(--text-faint);margin-top:12px;padding:0 2px;line-height:1.5">Der Live-Test braucht die Online-Seite mit Claude-Key. Deine Einstellung ist aber gespeichert und wirkt sofort im KI-Chat.</p>';
+    }
   }
 
   // ===== Krisen-Modus · echte, datengetriebene Szenarien =====
