@@ -1421,7 +1421,7 @@
 
       <!-- ==== KI ==== -->
       <section class="view" data-view="ki">
-        <div class="page-h" style="padding-bottom:8px"><h1>Hey <span style="background:linear-gradient(135deg,var(--gold),var(--gold-light));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Chef</span></h1><p id="kiStatus">Tippe die Kugel, dann sprich los</p></div>
+        <div class="page-h" style="padding-bottom:8px"><h1>Hey <span style="background:linear-gradient(135deg,var(--gold),var(--gold-light));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Chef</span></h1><p id="kiStatus">Frag mich alles – oder steuere die App: „öffne Lager", „bestelle Pommes"</p></div>
 
         <div class="orb-wrap">
           <div class="voice-orb-big" id="voiceOrb" onclick="toggleListen()"></div>
@@ -3317,24 +3317,45 @@
     ].concat(styleLines).join('\n');
   }
 
-  // --- The Chef führt sichere Befehle direkt aus (und protokolliert sie) ---
+  // --- The Chef STEUERT die App: öffnet Bereiche, navigiert, führt Aktionen aus ---
   function chefExecute(text){
     const q = (text||'').toLowerCase();
-    if(!/bestell|nachbestell|kauf|order/.test(q)) return false;
-    // Sammelbestellung: "alles/alle nachbestellen"
-    if(/(alle|alles|sammel)/.test(q) && typeof buildNachbestellListe === 'function' && buildNachbestellListe().length){
-      orderAll(); return true;
+
+    // 1) Navigation / Bereiche öffnen – nur bei klarer Befehls-Sprache
+    if(/(öffne|öffnen|zeig|zeige|zeig mir|geh zu|gehe zu|starte|mach .*auf|bring mich|wechsel)/.test(q)){
+      const go = function(fn, label){ try{ fn(); }catch(e){} toast('✓ ' + label); logBook('The Chef öffnet: ' + label, 'check'); return true; };
+      if(/lager.?vision|regal/.test(q)) return go(openLagerVision, 'Lager-Vision');
+      if(/tagebuch|protokoll/.test(q)) return go(openTagebuch, 'Tagesbuch');
+      if(/haccp|temperatur|hygiene/.test(q)) return go(openHaccp, 'HACCP');
+      if(/radar|konkurr|nachbar|umkreis/.test(q)) return go(openRadar, 'Konkurrenz-Radar');
+      if(/marketing|insta|tiktok|post|werb/.test(q)) return go(openAutoMarketing, 'Auto-Marketing');
+      if(/krise|notfall|sos/.test(q)) return go(openKrise, 'Krisen-Modus');
+      if(/angebot/.test(q)) return go(openAngebote, 'Angebote');
+      if(/rezept|kalkul|gericht/.test(q)) return go(openRezepte, 'Rezepte');
+      if(/schicht|personal|team/.test(q)) return go(openPersonal, 'Schichtplan');
+      if(/auswert|umsatz|statistik|zahlen/.test(q)) return go(openAuswertungen, 'Auswertungen');
+      if(/tagesabschluss|feierabend/.test(q)) return go(openTagesabschluss, 'Tagesabschluss');
+      if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
+      if(/verkauf|buchen/.test(q)) return go(openVerkauf, 'Verkauf buchen');
+      if(/nachbestell|bestell-?liste|einkaufsliste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
+      if(/beleg|scan/.test(q)) return go(function(){ navTo('scan'); }, 'Beleg-Scan');
+      if(/einstellung|profil|chef.?brain|stil/.test(q)) return go(openSettings, 'Einstellungen');
+      if(/lager|bestand/.test(q)) return go(function(){ navTo('lager'); }, 'Lager');
     }
-    // Einzelnen Artikel als bestellt markieren
-    const hits = (typeof findLagerItems === 'function') ? findLagerItems(q) : [];
-    const item = hits.find(function(r){ return !orderedItems.includes(r.name); }) || hits[0];
-    if(item){
-      if(!orderedItems.includes(item.name)) orderedItems.push(item.name);
-      localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
-      if(typeof refreshLager === 'function') refreshLager();
-      logActivity('<strong>' + item.name + '</strong> als bestellt markiert (per Chat)', 'cart');
-      toast('✓ ' + item.name + ' als bestellt markiert');
-      return true;
+
+    // 2) Bestellungen ausführen
+    if(/bestell|nachbestell|kauf|order/.test(q)){
+      if(/(alle|alles|sammel)/.test(q) && typeof buildNachbestellListe === 'function' && buildNachbestellListe().length){ orderAll(); return true; }
+      const hits = (typeof findLagerItems === 'function') ? findLagerItems(q) : [];
+      const item = hits.find(function(r){ return !orderedItems.includes(r.name); }) || hits[0];
+      if(item){
+        if(!orderedItems.includes(item.name)) orderedItems.push(item.name);
+        localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+        if(typeof refreshLager === 'function') refreshLager();
+        logActivity('<strong>' + item.name + '</strong> als bestellt markiert (per Chat)', 'cart');
+        toast('✓ ' + item.name + ' als bestellt markiert');
+        return true;
+      }
     }
     return false;
   }
