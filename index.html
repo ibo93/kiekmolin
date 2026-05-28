@@ -45942,8 +45942,11 @@ async function loadDashboardOrders() {
         const filterEnd = getTimeFilterEnd(ordersTimeFilter);
         var filterPart = `&created_at=gte.${filterStart.toISOString()}`;
         if (filterEnd) filterPart += `&created_at=lt.${filterEnd.toISOString()}`;
-        // Restaurant-Filter: nur wenn ein spezifisches Restaurant gewählt ist
-        var activeRestFilter = ordersRestaurantFilter || RESTAURANT_ID;
+        // Restaurant-Filter: nur wenn ein spezifisches Restaurant gewählt ist.
+        // KEIN hartcodierter Fallback mehr (war Greetsiler Börse 888dc5bc und liess
+        // bei leerem Filter faelschlich nur Greetsiler-Bestellungen erscheinen).
+        // Leer = alle Restaurants; Gastronom hat ordersRestaurantFilter ohnehin gesetzt.
+        var activeRestFilter = ordersRestaurantFilter || (window._gastroOnlyRestaurantId || '');
         if (activeRestFilter) filterPart += `&restaurant_id=eq.${activeRestFilter}`;
         filterPart += '&order=created_at.desc';
 
@@ -56841,7 +56844,7 @@ async function refreshKitchenOrders() {
     var colDone = document.getElementById('kdsColDone');
     if (!colNew || !colPrep || !colDone) return;
 
-    var restaurantId = window._kitchenRestaurantId || RESTAURANT_ID || (APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
+    var restaurantId = window._kitchenRestaurantId || window._gastroOnlyRestaurantId || (APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
     if (!restaurantId) return;
 
     try {
