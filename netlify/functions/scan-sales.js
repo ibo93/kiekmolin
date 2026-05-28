@@ -80,12 +80,13 @@ exports.handler = async function (event) {
   const mediaBlock = mediaType === 'application/pdf'
     ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image } }
     : { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } };
+  const model = ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5'].indexOf(payload.model) !== -1 ? payload.model : 'claude-opus-4-7';
 
   try {
     const response = await callClaude({
-      model: 'claude-opus-4-7',
+      model: model,
       max_tokens: 2000,
-      output_config: { effort: 'high' },
+      output_config: model === 'claude-haiku-4-5' ? undefined : { effort: 'high' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }
       ],

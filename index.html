@@ -2508,6 +2508,20 @@
       } catch(e){ reject(e); }
     });
   }
+  // Wählbares KI-Modell für die Erkennung (Einstellungen). Default: beste Erkennung.
+  const AI_MODELS = [
+    { id:'claude-opus-4-7', name:'Opus 4.7 · beste Erkennung (teurer)' },
+    { id:'claude-sonnet-4-6', name:'Sonnet 4.6 · schnell & günstiger' },
+    { id:'claude-haiku-4-5', name:'Haiku 4.5 · am günstigsten' }
+  ];
+  let aiModel = localStorage.getItem('chef_ai_model') || 'claude-opus-4-7';
+  if(!AI_MODELS.some(function(m){ return m.id === aiModel; })) aiModel = 'claude-opus-4-7';
+  function setAiModel(v){
+    aiModel = AI_MODELS.some(function(m){ return m.id === v; }) ? v : 'claude-opus-4-7';
+    localStorage.setItem('chef_ai_model', aiModel);
+    const lbl = (AI_MODELS.find(function(m){ return m.id === aiModel; })||{}).name || aiModel;
+    toast('✓ KI-Modell: ' + lbl);
+  }
   function chefReadBase64(file){
     return new Promise(function(resolve, reject){
       const fr = new FileReader();
@@ -2528,7 +2542,7 @@
     const status = document.getElementById('visionStatus'); if(status) status.textContent = 'KI erkennt die Produkte …';
     chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
-        const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
+        const res = await fetch('/.netlify/functions/scan-lager', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, model: aiModel }) });
         if(res.ok){
           const data = await res.json();
           if(data && Array.isArray(data.items) && data.items.length){ visionItems = data.items; renderVision(); if(status) status.textContent = data.items.length + ' Produkte erkannt – prüfen und übernehmen.'; return; }
@@ -2908,7 +2922,7 @@
         const res = await fetch('/.netlify/functions/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType })
+          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, model: aiModel })
         });
         if(res.ok){
           const data = await res.json();
@@ -4311,7 +4325,7 @@
   async function eyeProcess(base64, mediaType){
     const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das an …';
     try {
-      const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType }) });
+      const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType, model: aiModel }) });
       if(res.ok){ const data = await res.json(); eyeRender(data); return; }
       let why = 'Fehler ' + res.status;
       if(res.status === 503) why = 'Claude-Key fehlt in Netlify.';
@@ -4718,7 +4732,7 @@
     toast('Foto wird gelesen …');
     chefResizeImage(file, 1568, 0.8).then(async function(img){
       try {
-        const res = await fetch('/.netlify/functions/read-temp', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
+        const res = await fetch('/.netlify/functions/read-temp', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, model: aiModel }) });
         if(res.ok){
           const data = await res.json();
           if(data && data.value){ haccpData.temps[z] = { v:String(data.value), ts:Date.now() }; saveHaccp(); logActivity('<strong>HACCP</strong> – '+z+': '+data.value+' °C (Foto)', 'check'); openHaccp(); toast('✓ '+z+': '+data.value+' °C erkannt'); return; }
@@ -5145,6 +5159,9 @@
         </div>
         <button class="btn-secondary" onclick="checkBackend()">Verbindung testen</button>
       </div>
+      <div class="onboard-label" style="margin-top:6px">KI-Modell für Erkennung</div>
+      <select class="onboard-input" id="aiModelSel" onchange="setAiModel(this.value)" style="margin-bottom:6px">${AI_MODELS.map(function(m){ return '<option value="'+escHtml(m.id)+'"'+(m.id===aiModel?' selected':'')+'>'+escHtml(m.name)+'</option>'; }).join('')}</select>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:2px 2px 14px;line-height:1.45">Gilt für Beleg-, Kassenbericht-, Lager-, Speisekarten- und KI-Auge-Erkennung. Opus erkennt am besten, kostet aber mehr pro Scan; Sonnet/Haiku sind günstiger und schneller.</p>
       <div class="onboard-label" style="margin-top:6px">Stimme (ElevenLabs)</div>
       <select class="onboard-input" id="voiceSelect" onchange="selectVoice(this.value)" style="margin-bottom:8px">${voiceOptionsHtml(VOICE_PRESETS)}</select>
       <div class="onboard-label" style="margin-top:4px">Sprach-Modus</div>
@@ -5217,7 +5234,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
@@ -5439,7 +5456,7 @@
       try {
         const res = await fetch('/.netlify/functions/scan-sales', {
           method:'POST', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType })
+          body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, model: aiModel })
         });
         if(res.ok){
           const data = await res.json();
@@ -5545,7 +5562,7 @@
     document.getElementById('sheetBody').innerHTML = '<button class="sheet-back" onclick="openRezepte()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button><div class="ai-card glass" style="margin-top:8px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef liest deine Speisekarte …</div></div><div style="font-size:13px;color:var(--text-dim);padding:0 4px;line-height:1.5">Gerichte, Preise und typische Zutaten werden erkannt.</div></div>';
     chefFileForUpload(file, 1568, 0.82).then(async function(img){
       try {
-        const res = await fetch('/.netlify/functions/scan-menu', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType }) });
+        const res = await fetch('/.netlify/functions/scan-menu', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: img.base64, mediaType: img.mediaType, model: aiModel }) });
         if(res.ok){ const data = await res.json(); if(data && Array.isArray(data.dishes) && data.dishes.length){ showMenuResult(data.dishes); return; } toast('Keine Gerichte erkannt – schärfer & gerade fotografieren'); openRezepte(); return; }
         throw new Error('scan-menu ' + res.status);
       } catch(err){ toast('Kein KI-Backend erreichbar – Scan geht nur online'); openRezepte(); }
