@@ -77,6 +77,9 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Feld "image" fehlt' }) };
   }
   const mediaType = (payload.mediaType || 'image/jpeg').toString();
+  const mediaBlock = mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image } }
+    : { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } };
 
   try {
     const response = await callClaude({
@@ -89,7 +92,7 @@ exports.handler = async function (event) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
+          mediaBlock,
           { type: 'text', text: 'Lies diesen Kassenbericht aus und gib das JSON zurück.' }
         ]
       }]
