@@ -34,11 +34,23 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in genau dieser Form:
   ]
 }
 
+So liest du den Bericht sicher:
+- Die Stückzahl steht oft in einer eigenen Spalte – meist LINKS vom Namen
+  ("12 Schnitzel", "12x Schnitzel") oder RECHTS ("Schnitzel ........ 12").
+  Verwechsle die Stückzahl NICHT mit dem Preis (€-Beträge, Beträge mit Komma/Punkt
+  und Nachkommastellen sind Preise, KEINE Stückzahlen).
+- Erkenne auch Spaltenüberschriften wie "Anz", "Anzahl", "Menge", "Stk", "Qty".
+- Fasse mehrfach auftauchende, gleiche Artikel zu EINER Zeile zusammen und addiere
+  die Stückzahlen.
+- Lies auch leicht schräge, gedruckte ODER handschriftliche Berichte so gut wie möglich.
+
 Regeln:
 - name: der Artikel-/Gerichtsname so wie auf dem Bon (z.B. "Schnitzel Wiener Art").
-- qty: die verkaufte Stückzahl als ganze Zahl. Wenn keine Zahl erkennbar: 1.
+- qty: die VERKAUFTE Stückzahl als ganze Zahl (nicht der Preis!). Wenn wirklich keine
+  Stückzahl erkennbar ist: 1.
 - Nur echte Verkaufspositionen (Speisen/Getränke). KEINE Summen, Zwischensummen,
-  MwSt-Zeilen, Trinkgeld, Storno- oder Zahlungszeilen.
+  Gesamt/Total, MwSt-/Steuer-Zeilen, Trinkgeld, Rabatt, Storno- oder Zahlungszeilen
+  (Bar, EC, Karte), keine Tisch-/Bon-Nummern.
 - Wenn das Bild kein Kassenbericht ist oder nichts lesbar: { "items": [] }.
 - Kein Text vor oder nach dem JSON. Keine Code-Fences.`;
 
@@ -70,7 +82,7 @@ exports.handler = async function (event) {
     const response = await callClaude({
       model: 'claude-sonnet-4-6',
       max_tokens: 1500,
-      output_config: { effort: 'medium' },
+      output_config: { effort: 'high' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }
       ],

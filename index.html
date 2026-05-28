@@ -3941,12 +3941,16 @@
       bestellungen: String(tagesDaten.bestellungen)
     };
 
+    const sold = verkaufToday();
+    const soldCount = Object.keys(sold.items||{}).reduce(function(s,n){ return s + sold.items[n]; }, 0);
+
     const parts = [];
     parts.push('Hier dein Tagesabschluss, Chef.');
     if(tagesDaten.umsatz || tagesDaten.gaeste)
       parts.push('Heute gemacht: ' + kpis.gaeste + ' Gäste, ' + kpis.umsatz + ' Umsatz bei ' + kpis.marge + ' Marge.');
     else
       parts.push('Für heute sind noch keine Umsatz- und Gästezahlen eingetragen.');
+    if(soldCount) parts.push('Verkauft und vom Lager abgezogen: ' + soldCount + ' Portionen.');
     if(doneTodos.length) parts.push('Erledigt hast du: ' + doneTodos.map(t=>t.text).join(', ') + '.');
     if(ordered.length) parts.push('Nachbestellt: ' + ordered.join(', ') + '.');
     if(toOrder.length) parts.push('Das brauchst du noch: ' + toOrder.map(r=>r.name + ' ist mit ' + r.amount + ' knapp').join('; ') + '.');
@@ -3956,7 +3960,7 @@
     else parts.push('Für morgen ist alles vorbereitet.');
     parts.push('Schönen Feierabend.');
 
-    return { doneTodos, openTodos, ordered, toOrder, ablauf, kpis, spoken: parts.join(' ') };
+    return { doneTodos, openTodos, ordered, toOrder, ablauf, kpis, sold, soldCount, spoken: parts.join(' ') };
   }
   function speakTagesabschluss(){
     speak(buildTagesabschluss().spoken, true);
@@ -3995,6 +3999,8 @@
       ...t.ablauf.map(r => needRow(r.name + ' verarbeiten', mhdText(r) + ' · ' + fmtMhd(r.mhd))),
       ...t.openTodos.map(x => needRow(x.text, (x.time?x.time+' · ':'') + x.tag))
     ];
+    const soldItems = t.sold && t.sold.items ? t.sold.items : {};
+    const soldRows = Object.keys(soldItems).map(function(n){ return row(soldItems[n] + '× ' + n, recipes[n] ? euro((recipes[n].vk||0) * soldItems[n]) : 'Zutaten abgezogen'); });
 
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3a9 9 0 109 9h-2a7 7 0 11-7-7V3z"/></svg> Tagesabschluss';
     document.getElementById('sheetBody').innerHTML = `
@@ -4026,6 +4032,11 @@
           <div class="calc-meta"><div class="calc-meta-l">Bestellungen</div><div class="calc-meta-v">${t.kpis.bestellungen}</div></div>
         </div>
       </div>
+
+      <div class="section-h"><h2>Heute verkauft & vom Lager abgezogen</h2></div>
+      <div class="list-card glass">${soldRows.length ? soldRows.join('') : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:6px 0">Noch keine Verkäufe gebucht. Buche Verkäufe oder lass sie aus dem Umsatz schätzen.</div><div></div></div>'}</div>
+      <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="estimateVerkaufFromUmsatz()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg> Verbrauch aus Umsatz schätzen & abziehen</button>
 
       <div class="section-h"><h2>Das haben wir heute gemacht</h2></div>
       <div class="list-card glass">${doneList.length ? doneList.join('') : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:6px 0">Noch nichts abgehakt – heute ist noch was zu tun.</div><div></div></div>'}</div>
@@ -5183,7 +5194,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
@@ -5296,6 +5307,40 @@
   }
   // ===== Verkauf buchen → Zutaten automatisch aus dem Lager abziehen =====
   let verkaufCart = {};
+  // Verkaufs-Historie pro Tag (für Tagesabschluss-Bericht + Schätzung)
+  let verkaufLog = (function(){ try{ const s = JSON.parse(localStorage.getItem('chef_verkauf_log')||'{}'); return (s && typeof s === 'object') ? s : {}; }catch(e){ return {}; } })();
+  function saveVerkaufLog(){ localStorage.setItem('chef_verkauf_log', JSON.stringify(verkaufLog)); }
+  function verkaufDayKey(){ const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
+  function verkaufToday(){ return verkaufLog[verkaufDayKey()] || { items:{}, umsatz:0 }; }
+  function logVerkauf(counts, umsatz){
+    const k = verkaufDayKey();
+    const day = verkaufLog[k] || (verkaufLog[k] = { items:{}, umsatz:0 });
+    Object.keys(counts).forEach(function(n){ if(counts[n] > 0) day.items[n] = (day.items[n]||0) + counts[n]; });
+    day.umsatz = Math.round((day.umsatz||0) + (umsatz||0));
+    const keys = Object.keys(verkaufLog);
+    if(keys.length > 90){ keys.map(function(kk){ return { kk:kk, t:new Date(kk).getTime()||0 }; }).sort(function(a,b){ return a.t - b.t; }).slice(0, keys.length-90).forEach(function(o){ delete verkaufLog[o.kk]; }); }
+    saveVerkaufLog();
+  }
+  // Schätzt aus noch nicht gebuchtem Umsatz die verkauften Portionen und zieht sie ab.
+  function estimateVerkaufFromUmsatz(){
+    const names = Object.keys(recipes);
+    if(!names.length){ toast('Erst Rezepte anlegen'); return; }
+    const target = tagesDaten.umsatz || 0;
+    const remaining = target - (verkaufToday().umsatz || 0);
+    if(remaining < 1){ toast('Umsatz ist bereits durch Verkäufe gedeckt'); return; }
+    const share = remaining / names.length;
+    const counts = {}; let estUmsatz = 0;
+    names.forEach(function(n){ const vk = recipes[n].vk || 0; if(vk <= 0) return; const c = Math.round(share / vk); if(c > 0){ counts[n] = c; estUmsatz += c * vk; } });
+    const total = Object.keys(counts).reduce(function(s,n){ return s + counts[n]; }, 0);
+    if(!total){ toast('Konnte nichts schätzen – Verkaufspreise prüfen'); return; }
+    if(!confirm('The Chef schätzt ' + total + ' Portionen aus ' + euro(Math.round(remaining)) + ' noch nicht gebuchtem Umsatz und zieht die Zutaten vom Lager ab. Fortfahren?')) return;
+    Object.keys(counts).forEach(function(n){ sellDish(n, counts[n]); });
+    persistLager(); refreshLager();
+    logVerkauf(counts, estUmsatz);
+    logActivity('<strong>Verbrauch geschätzt</strong> – ' + total + ' Portionen aus Umsatz', 'cart');
+    toast('✓ ' + total + ' Portionen geschätzt & vom Lager abgezogen');
+    openTagesabschluss();
+  }
   function parseQty(str){
     const m = String(str||'').replace(',', '.').match(/(-?\d+(?:\.\d+)?)\s*([^\d\s,]+)?/);
     if(!m) return null;
@@ -5411,6 +5456,8 @@
     refreshLager();
     const summary = names.map(n=>verkaufCart[n]+'× '+n).join(', ');
     logActivity('<strong>Verkauf gebucht</strong> – ' + summary + ' · ' + euro(Math.round(umsatz)), 'cart');
+    const snap = {}; names.forEach(n => { snap[n] = verkaufCart[n]; });
+    logVerkauf(snap, umsatz);
     verkaufCart = {};
     toast('✓ ' + portionen + ' Portionen gebucht · ' + euro(Math.round(umsatz)) + ' Umsatz');
     const nowLow = lagerData.filter(r => r.status==='low');
