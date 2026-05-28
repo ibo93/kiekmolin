@@ -3145,20 +3145,28 @@
   }
   // Auswählbare ElevenLabs-Stimmen (Standard-Stimmen; eigene kommen via /voices dazu)
   const VOICE_PRESETS = [
-    { id:'pNInz6obpgDQGcFmaJgB', name:'Adam · männlich, ruhig' },
-    { id:'ErXwobaYiN019PkySvjV', name:'Antoni · männlich, warm' },
-    { id:'TxGEqnHWrfWFTfGW9XjX', name:'Josh · männlich, jung' },
-    { id:'VR6AewLTigWG4xSOukaG', name:'Arnold · männlich, kräftig' },
-    { id:'yoZ06aMxZJJ28mfd3POQ', name:'Sam · männlich, neutral' },
-    { id:'21m00Tcm4TlvDq8ikWAM', name:'Rachel · weiblich, ruhig' },
-    { id:'EXAVITQu4vr4xnSDxMaL', name:'Bella · weiblich, weich' },
-    { id:'AZnzlk1XvdvUeBnXmlld', name:'Domi · weiblich, energisch' },
-    { id:'MF3mGyEYCl7XYWbV9V6O', name:'Elli · weiblich, jung' }
+    { id:'ErXwobaYiN019PkySvjV', name:'Antoni · warm & freundlich', gender:'m' },
+    { id:'pNInz6obpgDQGcFmaJgB', name:'Adam · ruhig & seriös', gender:'m' },
+    { id:'TxGEqnHWrfWFTfGW9XjX', name:'Josh · jung & locker', gender:'m' },
+    { id:'VR6AewLTigWG4xSOukaG', name:'Arnold · kräftig & markant', gender:'m' },
+    { id:'yoZ06aMxZJJ28mfd3POQ', name:'Sam · neutral & sachlich', gender:'m' },
+    { id:'21m00Tcm4TlvDq8ikWAM', name:'Rachel · ruhig & klar', gender:'f' },
+    { id:'EXAVITQu4vr4xnSDxMaL', name:'Bella · weich & sanft', gender:'f' },
+    { id:'AZnzlk1XvdvUeBnXmlld', name:'Domi · energisch & lebhaft', gender:'f' },
+    { id:'MF3mGyEYCl7XYWbV9V6O', name:'Elli · jung & freundlich', gender:'f' }
   ];
   let selectedVoiceId = localStorage.getItem('chef_voice_id') || '';
+  let voiceQuality = localStorage.getItem('chef_voice_quality') || 'fast';
+  function setVoiceQuality(q){ voiceQuality = (q === 'best' ? 'best' : 'fast'); localStorage.setItem('chef_voice_quality', voiceQuality); toast(voiceQuality === 'best' ? '✓ Beste Qualität (etwas langsamer)' : '✓ Schnell (empfohlen)'); }
   function voiceOptionsHtml(list){
-    return '<option value="">Standard (Server-Stimme)</option>' +
-      list.map(v => `<option value="${escHtml(v.id)}"${v.id===selectedVoiceId?' selected':''}>${escHtml(v.name)}</option>`).join('');
+    const opt = v => `<option value="${escHtml(v.id)}"${v.id===selectedVoiceId?' selected':''}>${escHtml(v.name)}</option>`;
+    const g = { m:[], f:[], o:[] };
+    list.forEach(v => { (g[v.gender] || g.o).push(v); });
+    let out = '<option value="">Standard (Server-Stimme)</option>';
+    if(g.m.length) out += '<optgroup label="Männlich">' + g.m.map(opt).join('') + '</optgroup>';
+    if(g.f.length) out += '<optgroup label="Weiblich">' + g.f.map(opt).join('') + '</optgroup>';
+    if(g.o.length) out += '<optgroup label="Weitere / eigene">' + g.o.map(opt).join('') + '</optgroup>';
+    return out;
   }
   function selectVoice(id){
     selectedVoiceId = id || '';
@@ -3195,31 +3203,50 @@
   }
   document.addEventListener('pointerdown', unlockAudio, { once: true });
   document.addEventListener('click', unlockAudio, { once: true });
+  // Text für TTS säubern: Emojis/Markdown raus (klingt sonst holprig & kostet Zeit).
+  function ttsClean(text){
+    return String(text || '')
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}️]/gu, '')
+      .replace(/[*_#`>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  // Kleiner Cache: gleiche Sätze (z.B. „Erledigt") spielen sofort ab, ohne neu zu laden.
+  const ttsCache = new Map();
+  function ttsCachePut(k, blob){ ttsCache.set(k, blob); if (ttsCache.size > 25){ ttsCache.delete(ttsCache.keys().next().value); } }
   async function speak(text, force) {
     if (!voiceEnabled && !force) return;
-    // 1. Versuch: ElevenLabs (echte, hochwertige Stimme über die Netlify-Function)
+    const clean = ttsClean(text);
+    if (!clean) return;
+    const key = (selectedVoiceId || 'def') + '|' + voiceQuality + '|' + clean;
+    // 1. Versuch: ElevenLabs (echte Stimme über die Netlify-Function, mit Cache + Timeout)
     try {
       try { chefAudioEl.pause(); } catch(e){}
-      const body = { text: text };
-      if (selectedVoiceId) body.voiceId = selectedVoiceId;
-      const res = await fetch('/.netlify/functions/voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        chefAudioEl.onplay = () => setSpeaking(true);
-        chefAudioEl.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-        chefAudioEl.onerror = () => { setSpeaking(false); speakBrowser(text); };
-        chefAudioEl.src = url;
-        await chefAudioEl.play();
-        return;
+      let blob = ttsCache.get(key);
+      if (!blob) {
+        const ctrl = new AbortController();
+        const to = setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, 12000);
+        const body = { text: clean, quality: voiceQuality };
+        if (selectedVoiceId) body.voiceId = selectedVoiceId;
+        const res = await fetch('/.netlify/functions/voice', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), signal: ctrl.signal
+        });
+        clearTimeout(to);
+        if (!(res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1)) throw new Error('no-audio');
+        blob = await res.blob();
+        ttsCachePut(key, blob);
       }
-    } catch (e) { /* offline / kein Key / lokal geöffnet → Fallback */ }
+      const url = URL.createObjectURL(blob);
+      chefAudioEl.onplay = () => setSpeaking(true);
+      chefAudioEl.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
+      chefAudioEl.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); speakBrowser(clean); };
+      chefAudioEl.src = url;
+      await chefAudioEl.play();
+      return;
+    } catch (e) { /* offline / kein Key / Timeout / lokal geöffnet → Fallback */ }
     // 2. Fallback: Browser-Sprachausgabe (Web Speech API)
-    speakBrowser(text);
+    speakBrowser(clean);
   }
 
   // --- Conversation log (persistent) ---
@@ -4987,6 +5014,11 @@
       </div>
       <div class="onboard-label" style="margin-top:6px">Stimme (ElevenLabs)</div>
       <select class="onboard-input" id="voiceSelect" onchange="selectVoice(this.value)" style="margin-bottom:8px">${voiceOptionsHtml(VOICE_PRESETS)}</select>
+      <div class="onboard-label" style="margin-top:4px">Sprach-Modus</div>
+      <select class="onboard-input" id="voiceQualitySel" onchange="setVoiceQuality(this.value)" style="margin-bottom:8px">
+        <option value="fast"${voiceQuality!=='best'?' selected':''}>Schnell (empfohlen)</option>
+        <option value="best"${voiceQuality==='best'?' selected':''}>Beste Qualität · etwas langsamer</option>
+      </select>
       <button class="btn-secondary" onclick="testVoice()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 1.2v2.1a7 7 0 010 13.4v2.1a9 9 0 000-17.6z"/></svg> Stimme anhören</button>
       <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 14px;line-height:1.45">Wähle die Stimme von The Chef. Eigene ElevenLabs-Stimmen werden automatisch geladen, sobald das Backend verbunden ist. Einrichtung (einmalig durch Admin): In den Netlify-Umgebungsvariablen <strong>ANTHROPIC_API_KEY</strong> und <strong>ELEVENLABS_API_KEY</strong> setzen. Ohne Keys läuft die App mit lokaler Logik und Browser-Stimme weiter.</p>
 
@@ -5040,7 +5072,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });

@@ -13,8 +13,10 @@ var CORS_HEADERS = {
 // Standard-Stimme: warme, natürliche Stimme (Antoni). Über ELEVENLABS_VOICE_ID
 // oder das Feld voiceId im Request überschreibbar.
 var DEFAULT_VOICE = process.env.ELEVENLABS_VOICE_ID || 'ErXwobaYiN019PkySvjV';
-// multilingual_v2: höchste Qualität & natürlichste deutsche Stimme.
-var MODEL_ID = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
+// Zwei Modelle: turbo = schnell & gut (Standard), multilingual_v2 = beste Qualität, langsamer.
+var MODEL_FAST = 'eleven_turbo_v2_5';
+var MODEL_BEST = 'eleven_multilingual_v2';
+var DEFAULT_MODEL = process.env.ELEVENLABS_MODEL || MODEL_FAST;
 
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') {
@@ -58,6 +60,8 @@ exports.handler = async function (event) {
   if (text.length > 800) text = text.slice(0, 800);
 
   var voiceId = (payload.voiceId || DEFAULT_VOICE).toString();
+  var quality = (payload.quality || '').toString();
+  var modelId = payload.model ? String(payload.model) : (quality === 'best' ? MODEL_BEST : (quality === 'fast' ? MODEL_FAST : DEFAULT_MODEL));
   var endpoint = 'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId);
 
   try {
@@ -70,7 +74,7 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         text: text,
-        model_id: MODEL_ID,
+        model_id: modelId,
         voice_settings: { stability: 0.45, similarity_boost: 0.85, style: 0.35, use_speaker_boost: true }
       })
     });

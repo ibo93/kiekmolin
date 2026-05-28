@@ -1,5 +1,5 @@
 // Service Worker: macht "The Chef" installierbar & offline-fähig + Web Push.
-var CACHE = 'thechef-v1';
+var CACHE = 'thechef-v3';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', function(event) {
@@ -32,7 +32,22 @@ self.addEventListener('fetch', function(event) {
         return;
     }
 
-    // App-Shell: Cache-First, im Hintergrund aktualisieren.
+    // HTML/Navigation: Network-First, damit Updates sofort ankommen (offline -> Cache).
+    var isDoc = req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') > -1;
+    if (isDoc) {
+        event.respondWith(
+            fetch(req).then(function(res){
+                if (res && res.status === 200 && url.origin === self.location.origin) {
+                    var copy = res.clone();
+                    caches.open(CACHE).then(function(c){ c.put(req, copy); });
+                }
+                return res;
+            }).catch(function(){ return caches.match(req).then(function(c){ return c || caches.match('./index.html'); }); })
+        );
+        return;
+    }
+
+    // Statische Assets (Icons, Manifest): Cache-First, im Hintergrund aktualisieren.
     event.respondWith(
         caches.match(req).then(function(cached){
             var live = fetch(req).then(function(res){
