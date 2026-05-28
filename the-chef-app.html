@@ -1313,6 +1313,12 @@
             <div class="lab-title">Reste-Retter</div>
             <div class="lab-sub">Tagesgericht aus dem, was bald abläuft.</div>
           </button>
+          <button class="lab-card lab-preis" onclick="openPreiswaechter()">
+            <div class="lab-tag">SPART €</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
+            <div class="lab-title">Preis-Wächter</div>
+            <div class="lab-sub">Erkennt, wenn Lieferanten teurer werden.</div>
+          </button>
         </div>
 
         <div class="ai-card glass">
@@ -2979,8 +2985,67 @@
       : '—';
   }
 
+  // ===== Preis-Wächter · Preis-Historie aus gescannten Belegen =====
+  let priceHistory = (function(){ try{ const s = JSON.parse(localStorage.getItem('chef_preise')||'{}'); return (s && typeof s === 'object') ? s : {}; }catch(e){ return {}; } })();
+  function savePriceHistory(){ localStorage.setItem('chef_preise', JSON.stringify(priceHistory)); }
+  function recordPrices(items){
+    if(!Array.isArray(items)) return;
+    const now = Date.now();
+    items.forEach(function(it){
+      const p = parsePreis(it && it.price);
+      if(!(p > 0)) return;
+      const key = String(it.name||'').trim().toLowerCase();
+      if(!key) return;
+      const arr = priceHistory[key] || (priceHistory[key] = { name: String(it.name).trim(), entries: [] });
+      arr.name = String(it.name).trim();
+      const prev = arr.entries.length ? arr.entries[arr.entries.length-1].p : null;
+      arr.entries.push({ p: p, ts: now });
+      if(arr.entries.length > 12) arr.entries = arr.entries.slice(-12);
+      if(prev != null && prev > 0){
+        const pct = ((p - prev) / prev) * 100;
+        if(pct >= 5) logBook('Preis-Wächter: ' + arr.name + ' ist um ' + Math.round(pct) + '% teurer (' + euro(prev) + ' → ' + euro(p) + ').', 'chart');
+      }
+    });
+    savePriceHistory();
+  }
+  function priceTrends(){
+    return Object.keys(priceHistory).map(function(k){
+      const a = priceHistory[k]; const e = a.entries || [];
+      const last = e.length ? e[e.length-1].p : 0;
+      const prev = e.length > 1 ? e[e.length-2].p : null;
+      const pct = (prev != null && prev > 0) ? ((last - prev)/prev)*100 : null;
+      return { name: a.name || k, last: last, prev: prev, pct: pct, n: e.length };
+    }).sort(function(x,y){ return (y.pct==null?-999:y.pct) - (x.pct==null?-999:x.pct); });
+  }
+  function openPreiswaechter(){
+    const trends = priceTrends();
+    const up = trends.filter(function(t){ return t.pct != null && t.pct >= 5; });
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg> Preis-Wächter';
+    let body = '<button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>';
+    body += '<p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">The Chef merkt sich die Preise von jedem gescannten Beleg und meldet, wenn etwas teurer wird. Scanne Belege regelmäßig, dann wird das immer genauer.</p>';
+    if(!trends.length){
+      body += '<div class="ai-card glass"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Noch keine Preise erfasst</div></div><div style="font-size:13px;color:var(--text-dim);padding:0 4px;line-height:1.5">Scanne einen Lieferschein mit Preisen (Beleg-Scan oder KI-Auge) und buche ihn ins Lager – danach erscheinen hier die Preise.</div></div>';
+    } else {
+      if(up.length){
+        body += '<div style="font-size:13px;font-weight:700;margin:4px 4px 10px;color:var(--orange)">Teurer geworden</div><div class="list-card glass" style="margin-bottom:14px">';
+        body += up.map(function(t){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji" style="background:rgba(245,158,11,0.14);color:var(--orange)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div><div><div class="inv-name">'+escHtml(t.name)+'</div><div class="inv-meta">'+euro(t.prev)+' → '+euro(t.last)+'</div></div><div style="font-weight:800;color:var(--orange)">+'+Math.round(t.pct)+'%</div></div>'; }).join('');
+        body += '</div>';
+      }
+      body += '<div style="font-size:13px;font-weight:700;margin:4px 4px 10px;color:var(--text-dim)">Alle erfassten Preise</div><div class="list-card glass">';
+      body += trends.map(function(t){
+        const trend = t.pct == null ? '<span style="color:var(--text-faint)">neu</span>' : (t.pct >= 5 ? '<span style="color:var(--orange);font-weight:700">+'+Math.round(t.pct)+'%</span>' : (t.pct <= -5 ? '<span style="color:var(--green);font-weight:700">'+Math.round(t.pct)+'%</span>' : '<span style="color:var(--text-faint)">±0</span>'));
+        return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">'+ITEM_SVG+'</div><div><div class="inv-name">'+escHtml(t.name)+'</div><div class="inv-meta">'+euro(t.last)+' · '+t.n+'× erfasst</div></div><div>'+trend+'</div></div>';
+      }).join('');
+      body += '</div>';
+    }
+    document.getElementById('sheetBody').innerHTML = body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+
   function bookInventory(){
     if(!scanExtracted.length){ toast('Keine Artikel zum Buchen'); return; }
+    recordPrices(scanExtracted);
     let neu = 0, aktualisiert = 0;
     scanExtracted.forEach(it => {
       const existing = lagerData.find(r => r.name.toLowerCase() === it.name.toLowerCase());
@@ -3395,6 +3460,7 @@
       if(/auswert|umsatz|statistik|zahlen/.test(q)) return go(openAuswertungen, 'Auswertungen');
       if(/tagesabschluss|feierabend/.test(q)) return go(openTagesabschluss, 'Tagesabschluss');
       if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
+      if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
       if(/verkauf|buchen/.test(q)) return go(openVerkauf, 'Verkauf buchen');
       if(/nachbestell|bestell-?liste|einkaufsliste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
       if(/beleg|scan/.test(q)) return go(function(){ navTo('scan'); }, 'Beleg-Scan');
@@ -3896,8 +3962,27 @@
     speak(buildTagesabschluss().spoken, true);
     toast('🔊 The Chef liest dir den Tagesabschluss vor');
   }
+  function haccpTodayCount(){
+    const today = new Date(); today.setHours(0,0,0,0);
+    return HACCP_ZONES.filter(function(z){ const r = haccpData.temps[z]; return r && r.ts >= today.getTime(); }).length;
+  }
+  function tagesabschlussSave(){
+    const u = parseFloat((document.getElementById('taUmsatz')||{}).value);
+    const g = parseFloat((document.getElementById('taGaeste')||{}).value);
+    if(!isNaN(u) && u >= 0) tagesDaten.umsatz = Math.round(u);
+    if(!isNaN(g) && g >= 0) tagesDaten.gaeste = Math.round(g);
+    localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+    renderTagesDaten();
+    const t = buildTagesabschluss();
+    const hac = haccpTodayCount();
+    logBook('Tagesabschluss · ' + euro(tagesDaten.umsatz) + ' Umsatz, ' + tagesDaten.gaeste + ' Gäste, HACCP ' + hac + '/' + HACCP_ZONES.length + ' Zonen.' + (t.toOrder.length ? ' Offen: ' + t.toOrder.map(function(r){return r.name;}).join(', ') + '.' : ''), 'chart');
+    logActivity('<strong>Tagesabschluss</strong> · ' + euro(tagesDaten.umsatz), 'chart');
+    toast('✓ Tagesabschluss gespeichert & im Tagebuch');
+    speak(t.spoken, true);
+  }
   function openTagesabschluss(){
     const t = buildTagesabschluss();
+    const hac = haccpTodayCount();
     const row = (txt, sub) => `<div class="inv-row" style="cursor:default"><div class="inv-emoji" style="background:var(--brand-tint)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg></div><div><div class="inv-name">${txt}</div>${sub?`<div class="inv-meta">${sub}</div>`:''}</div><div></div></div>`;
     const needRow = (txt, sub) => `<div class="inv-row" style="cursor:default"><div class="inv-emoji" style="background:rgba(245,158,11,0.14);color:var(--orange)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M12 2L1 21h22L12 2zm0 4l7.5 13h-15L12 6zm-1 4v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg></div><div><div class="inv-name">${txt}</div>${sub?`<div class="inv-meta">${sub}</div>`:''}</div><div></div></div>`;
 
@@ -3914,9 +3999,23 @@
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3a9 9 0 109 9h-2a7 7 0 11-7-7V3z"/></svg> Tagesabschluss';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Kurz & knapp: was heute lief und was du noch brauchst. Tippe auf Vorlesen, dann erzählt's dir The Chef.</p>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Alles in einem Schritt: Zahlen eintragen, HACCP prüfen, speichern – The Chef legt's ins Tagebuch und liest dir's vor.</p>
 
-      <button class="btn-primary" onclick="speakTagesabschluss()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1A9 9 0 0014 3.2z"/></svg> Tagesabschluss vorlesen</button>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Umsatz heute (€)</div><input type="number" class="onboard-input" id="taUmsatz" min="0" step="1" value="${tagesDaten.umsatz||''}" placeholder="0"></div>
+        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Gäste heute</div><input type="number" class="onboard-input" id="taGaeste" min="0" step="1" value="${tagesDaten.gaeste||''}" placeholder="0"></div>
+      </div>
+
+      <div class="list-card glass" style="margin-bottom:12px"><div class="inv-row" style="cursor:default">
+        <div class="inv-emoji" style="background:${hac>=HACCP_ZONES.length?'rgba(34,197,94,0.14)':'rgba(245,158,11,0.14)'};color:${hac>=HACCP_ZONES.length?'var(--green)':'var(--orange)'}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M12 2a3 3 0 00-3 3v8.1a5 5 0 103.99 0V5a3 3 0 00-3-3z"/></svg></div>
+        <div><div class="inv-name">HACCP heute: ${hac}/${HACCP_ZONES.length} Zonen erfasst</div><div class="inv-meta">${hac>=HACCP_ZONES.length?'Alles dokumentiert ✓':'Noch nicht vollständig'}</div></div>
+        <div></div>
+      </div></div>
+
+      <button class="btn-primary" onclick="tagesabschlussSave()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg> Abschluss speichern & vorlesen</button>
+      <div style="margin-top:8px"></div>
+      ${hac>=HACCP_ZONES.length?'':'<button class="btn-secondary" onclick="closeSheet();openHaccp()" style="margin-bottom:8px">HACCP-Temperaturen jetzt prüfen</button>'}
+      <button class="btn-secondary" onclick="speakTagesabschluss()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1A9 9 0 0014 3.2z"/></svg> Nur vorlesen</button>
 
       <div class="calc-result" style="margin-top:14px">
         <div class="calc-result-label">Umsatz heute</div>
@@ -5072,7 +5171,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
