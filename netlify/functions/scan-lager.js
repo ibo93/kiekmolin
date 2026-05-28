@@ -28,14 +28,19 @@ wie viele Einheiten du von jedem siehst. Gib das als JSON zurück.
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau dieser Form:
 {
   "items": [
-    { "name": "Produktname", "count": 12 }
+    { "name": "Produktname", "count": 12, "gruppe": "Warengruppe", "lager": "Lagerort" }
   ]
 }
 
 Regeln:
 - name: kurzer, klarer Produktname auf Deutsch (z.B. "Cola 1L", "Tomaten", "Mehl").
 - count: geschätzte Anzahl sichtbarer Einheiten als ganze Zahl (mind. 1).
+- gruppe: GENAU EINE Warengruppe:
+  "Fleisch/Fisch", "Gemüse/Obst", "Molkerei", "Getränke", "Trockenware", "Tiefkühl", "Non-Food", "Sonstiges".
+- lager: wohin es gehört, GENAU EINES von:
+  "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
 - Fasse gleiche Produkte zu einer Zeile zusammen.
+- Erkenne ALLE sichtbaren Produkte – auch teilweise verdeckte – und lass nichts aus.
 - Nur echte Waren, keine Regale/Möbel/Deko.
 - Wenn nichts Essbares erkennbar ist: { "items": [] }.
 - Kein Text vor oder nach dem JSON. Keine Code-Fences.`;
@@ -63,9 +68,9 @@ exports.handler = async function (event) {
 
   try {
     const response = await callClaude({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
-      output_config: { effort: 'medium' },
+      model: 'claude-opus-4-7',
+      max_tokens: 2000,
+      output_config: { effort: 'high' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }
       ],
@@ -97,7 +102,12 @@ exports.handler = async function (event) {
     const items = Array.isArray(parsed.items) ? parsed.items.slice(0, 60).map(function (it) {
       let count = parseInt(it && it.count, 10);
       if (isNaN(count) || count < 1) count = 1;
-      return { name: (it && it.name ? String(it.name) : '').slice(0, 80).trim(), count: Math.min(count, 9999) };
+      return {
+        name: (it && it.name ? String(it.name) : '').slice(0, 80).trim(),
+        count: Math.min(count, 9999),
+        gruppe: (it && it.gruppe ? String(it.gruppe) : '').slice(0, 24).trim(),
+        lager: (it && it.lager ? String(it.lager) : '').slice(0, 24).trim()
+      };
     }).filter(function (it) { return it.name; }) : [];
 
     return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ items: items, usage: response.usage }) };

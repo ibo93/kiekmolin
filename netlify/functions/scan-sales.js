@@ -80,8 +80,8 @@ exports.handler = async function (event) {
 
   try {
     const response = await callClaude({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      model: 'claude-opus-4-7',
+      max_tokens: 2000,
       output_config: { effort: 'high' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }

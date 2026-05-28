@@ -30,7 +30,7 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in genau dieser Form:
 {
   "lieferant": "Name des Lieferanten oder leerer String",
   "items": [
-    { "name": "Artikelname", "qty": "Menge mit Einheit, z.B. 5 kg", "price": "Preis, z.B. €12,50 oder leerer String" }
+    { "name": "Artikelname", "qty": "Menge mit Einheit, z.B. 5 kg", "price": "Preis, z.B. €12,50 oder leerer String", "gruppe": "Warengruppe", "lager": "Lagerort" }
   ]
 }
 
@@ -38,7 +38,15 @@ Regeln:
 - name: kurz und sauber (z.B. "Tomaten frisch", nicht die komplette Belegzeile).
 - qty: Menge inkl. Einheit, so wie auf dem Beleg. Wenn unklar: leerer String.
 - price: Einzel- oder Positionspreis falls erkennbar, sonst leerer String.
+- gruppe: ordne den Artikel GENAU EINER dieser Warengruppen zu:
+  "Fleisch/Fisch", "Gemüse/Obst", "Molkerei", "Getränke", "Trockenware", "Tiefkühl", "Non-Food", "Sonstiges".
+- lager: wohin der Artikel gehört, GENAU EINES von:
+  "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
+  (frisches Fleisch/Fisch/Molkerei/frisches Gemüse -> "Kühlung"; TK-Ware -> "Tiefkühl";
+   Mehl/Öl/Konserven/Gewürze/Nudeln -> "Trockenlager"; Getränke -> "Getränkelager".)
+- lieferant: Name des Lieferanten/Großhändlers (Belegkopf/Logo), sonst leerer String.
 - Nur echte Warenpositionen, keine Zwischensummen, MwSt-Zeilen, Pfand-Summen.
+- Lies ALLE Positionen, auch mehrspaltig oder eng gedruckt – lass nichts aus.
 - Wenn das Bild kein Beleg ist oder nichts lesbar ist: { "lieferant": "", "items": [] }.
 - Kein Text vor oder nach dem JSON. Keine Code-Fences.`;
 
@@ -68,9 +76,9 @@ exports.handler = async function (event) {
 
   try {
     const response = await callClaude({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
-      output_config: { effort: 'medium' },
+      model: 'claude-opus-4-7',
+      max_tokens: 2000,
+      output_config: { effort: 'high' },
       system: [
         { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }
       ],
@@ -104,11 +112,13 @@ exports.handler = async function (event) {
       };
     }
 
-    const items = Array.isArray(parsed.items) ? parsed.items.slice(0, 40).map(function (it) {
+    const items = Array.isArray(parsed.items) ? parsed.items.slice(0, 60).map(function (it) {
       return {
         name: (it && it.name ? String(it.name) : '').slice(0, 80).trim(),
         qty: (it && it.qty ? String(it.qty) : '').slice(0, 40).trim(),
-        price: (it && it.price ? String(it.price) : '').slice(0, 24).trim()
+        price: (it && it.price ? String(it.price) : '').slice(0, 24).trim(),
+        gruppe: (it && it.gruppe ? String(it.gruppe) : '').slice(0, 24).trim(),
+        lager: (it && it.lager ? String(it.lager) : '').slice(0, 24).trim()
       };
     }).filter(function (it) { return it.name; }) : [];
 

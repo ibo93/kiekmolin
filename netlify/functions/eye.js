@@ -27,14 +27,16 @@ Mögliche Fälle:
 - "unbekannt": nichts davon klar erkennbar.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau einer dieser Formen:
-{ "kind":"beleg", "lieferant":"Name oder leer", "items":[{"name":"Artikel","qty":"Menge mit Einheit","price":"Preis oder leer"}] }
-{ "kind":"lager", "items":[{"name":"Produkt","count":12}] }
+{ "kind":"beleg", "lieferant":"Name oder leer", "items":[{"name":"Artikel","qty":"Menge mit Einheit","price":"Preis oder leer","gruppe":"Warengruppe","lager":"Lagerort"}] }
+{ "kind":"lager", "items":[{"name":"Produkt","count":12,"gruppe":"Warengruppe","lager":"Lagerort"}] }
 { "kind":"temperatur", "value":"4.2" }
 { "kind":"unbekannt" }
 
 Regeln:
 - Wähle genau EINEN Fall, der am besten passt.
-- Namen kurz & sauber auf Deutsch. Bei beleg keine Summen/MwSt/Pfand.
+- Namen kurz & sauber auf Deutsch. Bei beleg keine Summen/MwSt/Pfand. Erkenne ALLE Positionen/Produkte.
+- gruppe: GENAU EINE von "Fleisch/Fisch", "Gemüse/Obst", "Molkerei", "Getränke", "Trockenware", "Tiefkühl", "Non-Food", "Sonstiges".
+- lager: GENAU EINES von "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
 - value: Zahl mit Punkt als Dezimaltrennzeichen, Minus für Minusgrade, ohne Einheit.
 - Kein Text vor/nach dem JSON, keine Code-Fences.`;
 
@@ -52,9 +54,9 @@ exports.handler = async function (event) {
 
   try {
     const response = await callClaude({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
-      output_config: { effort: 'medium' },
+      model: 'claude-opus-4-7',
+      max_tokens: 2000,
+      output_config: { effort: 'high' },
       system: [ { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } } ],
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
@@ -70,9 +72,9 @@ exports.handler = async function (event) {
     let out = { kind: kind };
     if (kind === 'beleg') {
       out.lieferant = (p.lieferant ? String(p.lieferant) : '').slice(0, 60).trim();
-      out.items = Array.isArray(p.items) ? p.items.slice(0, 40).map(function (it) { return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), qty:(it&&it.qty?String(it.qty):'').slice(0,40).trim(), price:(it&&it.price?String(it.price):'').slice(0,24).trim() }; }).filter(function (it) { return it.name; }) : [];
+      out.items = Array.isArray(p.items) ? p.items.slice(0, 60).map(function (it) { return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), qty:(it&&it.qty?String(it.qty):'').slice(0,40).trim(), price:(it&&it.price?String(it.price):'').slice(0,24).trim(), gruppe:(it&&it.gruppe?String(it.gruppe):'').slice(0,24).trim(), lager:(it&&it.lager?String(it.lager):'').slice(0,24).trim() }; }).filter(function (it) { return it.name; }) : [];
     } else if (kind === 'lager') {
-      out.items = Array.isArray(p.items) ? p.items.slice(0, 60).map(function (it) { let c=parseInt(it&&it.count,10); if(isNaN(c)||c<1)c=1; return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), count:Math.min(c,9999) }; }).filter(function (it) { return it.name; }) : [];
+      out.items = Array.isArray(p.items) ? p.items.slice(0, 60).map(function (it) { let c=parseInt(it&&it.count,10); if(isNaN(c)||c<1)c=1; return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), count:Math.min(c,9999), gruppe:(it&&it.gruppe?String(it.gruppe):'').slice(0,24).trim(), lager:(it&&it.lager?String(it.lager):'').slice(0,24).trim() }; }).filter(function (it) { return it.name; }) : [];
     } else if (kind === 'temperatur') {
       out.value = (p.value != null ? String(p.value) : '').replace(',', '.').replace(/[^0-9.\-]/g, '').slice(0, 10);
     }

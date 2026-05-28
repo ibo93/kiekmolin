@@ -2539,11 +2539,12 @@
       const pct = Math.min(100, Math.max(40, it.count*5));
       if(existing){
         existing.amount=amount; existing.pct=pct; existing.status=statusFromPct(pct); existing.days='per Foto gezählt';
-        lagerEdits[existing.name]={ amount:existing.amount, pct:existing.pct, status:existing.status, days:existing.days, mhd:existing.mhd||null };
-        const mi=lagerManual.find(m=>m.name===existing.name); if(mi){ mi.amount=existing.amount; mi.pct=existing.pct; mi.status=existing.status; }
+        if(it.lager) existing.loc=it.lager; if(it.gruppe) existing.gruppe=it.gruppe;
+        lagerEdits[existing.name]={ amount:existing.amount, pct:existing.pct, status:existing.status, days:existing.days, mhd:existing.mhd||null, loc:existing.loc, gruppe:existing.gruppe||null };
+        const mi=lagerManual.find(m=>m.name===existing.name); if(mi){ mi.amount=existing.amount; mi.pct=existing.pct; mi.status=existing.status; if(it.lager) mi.loc=it.lager; if(it.gruppe) mi.gruppe=it.gruppe; }
         upd++;
       } else {
-        const item={ name:it.name, emoji:ITEM_SVG, loc:'Lager', amount:amount, days:'per Foto gezählt', pct:pct, status:statusFromPct(pct), mhd:null };
+        const item={ name:it.name, emoji:ITEM_SVG, loc:it.lager||'Lager', gruppe:it.gruppe||'', amount:amount, days:'per Foto gezählt', pct:pct, status:statusFromPct(pct), mhd:null };
         lagerData.push(item); lagerManual.push(item); neu++;
       }
     });
@@ -2963,7 +2964,9 @@
     scanExtracted = items.map(it => ({
       name: (it.name || '').toString().trim(),
       qty: (it.qty || '').toString().trim(),
-      price: (it.price || '').toString().trim()
+      price: (it.price || '').toString().trim(),
+      gruppe: (it.gruppe || '').toString().trim(),
+      lager: (it.lager || '').toString().trim()
     })).filter(it => it.name);
 
     document.getElementById('scanLoading').style.display='none';
@@ -2971,13 +2974,14 @@
     document.getElementById('scanCount').textContent = 'Erkannt: ' + scanExtracted.length + (scanExtracted.length===1?' Artikel':' Artikel');
     document.getElementById('scanLieferant').textContent = lieferant || 'Beleg';
 
-    document.getElementById('extractedList').innerHTML = scanExtracted.map((it,idx)=>
-      `<div class="extract-row">
-        <div class="extract-name">${escHtml(it.name)}</div>
+    document.getElementById('extractedList').innerHTML = scanExtracted.map((it,idx)=>{
+      const tag = [it.gruppe, it.lager].filter(Boolean).join(' · ');
+      return `<div class="extract-row">
+        <div class="extract-name">${escHtml(it.name)}${tag?`<div style="font-size:11px;color:var(--text-dim);font-weight:500;margin-top:1px">${escHtml(tag)}</div>`:''}</div>
         <div class="extract-qty">${escHtml(it.qty) || '—'}</div>
         <div class="extract-price">${escHtml(it.price) || '—'}</div>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
 
     const summe = scanExtracted.reduce((s,it)=>s+parsePreis(it.price), 0);
     document.getElementById('scanSumme').textContent = summe > 0
@@ -3054,12 +3058,14 @@
         existing.pct = 90;
         existing.status = 'good';
         existing.days = 'frisch geliefert';
-        lagerEdits[existing.name] = { amount: existing.amount, pct: existing.pct, status: existing.status, days: existing.days, mhd: existing.mhd || null };
+        if(it.lager) existing.loc = it.lager;
+        if(it.gruppe) existing.gruppe = it.gruppe;
+        lagerEdits[existing.name] = { amount: existing.amount, pct: existing.pct, status: existing.status, days: existing.days, mhd: existing.mhd || null, loc: existing.loc, gruppe: existing.gruppe || null };
         const mi = lagerManual.find(m => m.name === existing.name);
-        if(mi){ mi.amount = existing.amount; mi.pct = existing.pct; mi.status = existing.status; mi.days = existing.days; }
+        if(mi){ mi.amount = existing.amount; mi.pct = existing.pct; mi.status = existing.status; mi.days = existing.days; if(it.lager) mi.loc = it.lager; if(it.gruppe) mi.gruppe = it.gruppe; }
         aktualisiert++;
       } else {
-        const item = { name: it.name, emoji: ITEM_SVG, loc: 'Lager', amount: it.qty || '—', days:'frisch geliefert', pct:90, status:'good', mhd:null };
+        const item = { name: it.name, emoji: ITEM_SVG, loc: it.lager || 'Lager', gruppe: it.gruppe || '', amount: it.qty || '—', days:'frisch geliefert', pct:90, status:'good', mhd:null };
         lagerData.push(item);
         lagerManual.push(item);
         neu++;
@@ -4306,13 +4312,13 @@
       if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel.';
       spoken = items.length ? ('Ich sehe einen Lieferschein mit ' + items.length + ' Artikeln. Soll ich sie ins Lager buchen?') : 'Das sieht aus wie ein Beleg, aber ich konnte keine Artikel lesen.';
       scanExtracted = items;
-      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + escHtml(it.qty||'') + (it.price?' · '+escHtml(it.price):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
+      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + escHtml(it.qty||'') + (it.price?' · '+escHtml(it.price):'') + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
     } else if(data.kind === 'lager'){
       const items = data.items || [];
       if(status) status.textContent = 'Erkannt: Regal/Lager – ' + items.length + ' Produkte.';
       spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal.') : 'Ich konnte keine Produkte erkennen.';
       visionItems = items;
-      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück' + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
     } else if(data.kind === 'temperatur'){
       window.__eyeTemp = data.value;
       if(status) status.textContent = 'Erkannt: Temperatur ' + (data.value||'?') + ' °C.';
