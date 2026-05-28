@@ -45919,19 +45919,26 @@ async function loadDashboardOrders() {
         // Zeitraum-Filter anwenden
         const filterStart = getTimeFilterStart(ordersTimeFilter);
         const filterEnd = getTimeFilterEnd(ordersTimeFilter);
-        var queryUrl = `${SUPABASE_URL}/rest/v1/orders?select=*,order_items(*)&created_at=gte.${filterStart.toISOString()}`;
-        if (filterEnd) queryUrl += `&created_at=lt.${filterEnd.toISOString()}`;
+        var filterPart = `&created_at=gte.${filterStart.toISOString()}`;
+        if (filterEnd) filterPart += `&created_at=lt.${filterEnd.toISOString()}`;
         // Restaurant-Filter: nur wenn ein spezifisches Restaurant gewählt ist
         var activeRestFilter = ordersRestaurantFilter || RESTAURANT_ID;
-        if (activeRestFilter) queryUrl += `&restaurant_id=eq.${activeRestFilter}`;
-        queryUrl += '&order=created_at.desc';
+        if (activeRestFilter) filterPart += `&restaurant_id=eq.${activeRestFilter}`;
+        filterPart += '&order=created_at.desc';
 
-        const response = await fetch(queryUrl, {
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
-            }
-        });
+        const _ordHeaders = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+        };
+        // 1. Versuch MIT order_items-Verknuepfung (Detail-Gerichte).
+        let response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*,order_items(*)` + filterPart, { headers: _ordHeaders });
+        if (!response.ok) {
+            // Fehlt der Foreign Key order_items->orders, liefert PostgREST 400 und die
+            // GANZE Liste wuerde leer bleiben. Fallback: ohne Verknuepfung laden
+            // (die Gerichte stehen als JSONB-Spalte "items" direkt in der Bestellung).
+            console.warn('Orders-Query mit order_items fehlgeschlagen (' + response.status + ') – lade ohne Verknuepfung');
+            response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*` + filterPart, { headers: _ordHeaders });
+        }
 
         if (response.ok) {
             const data = await response.json();
@@ -56805,12 +56812,23 @@ async function refreshKitchenOrders() {
         if (!client) return;
 
         // Alle aktiven Bestellungen laden (inkl. ready)
+        var _activeStatus = ['received', 'accepted', 'confirmed', 'preparing', 'ready'];
         var { data: orders, error } = await client.from('orders').select('*, order_items(*)')
             .eq('restaurant_id', restaurantId)
-            .in('status', ['received', 'accepted', 'confirmed', 'preparing', 'ready'])
+            .in('status', _activeStatus)
             .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+            // Fehlt der Foreign Key order_items->orders, schlaegt die Verknuepfung fehl.
+            // Fallback: ohne order_items laden (Gerichte stehen als JSONB "items" in der Bestellung).
+            console.warn('KDS-Query mit order_items fehlgeschlagen – lade ohne Verknuepfung:', error.message || error);
+            var _retry = await client.from('orders').select('*')
+                .eq('restaurant_id', restaurantId)
+                .in('status', _activeStatus)
+                .order('created_at', { ascending: true });
+            if (_retry.error) throw _retry.error;
+            orders = _retry.data;
+        }
         if (!orders) orders = [];
 
         // Sound bei neuen Bestellungen
