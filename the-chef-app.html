@@ -5131,7 +5131,7 @@
         <div style="flex:1"><div class="onboard-label" style="margin-top:0">Morgens (HACCP)</div><input type="time" class="onboard-input" value="${reminderState.morning}" onchange="setReminderTime('m',this.value)"></div>
         <div style="flex:1"><div class="onboard-label" style="margin-top:0">Abends (Abschluss)</div><input type="time" class="onboard-input" value="${reminderState.evening}" onchange="setReminderTime('e',this.value)"></div>
       </div>
-      <p style="font-size:11.5px;color:var(--text-faint);margin:4px 2px 16px;line-height:1.45">The Chef erinnert dich zu diesen Zeiten – zuverlässig, solange die App geöffnet ist, und holt verpasste Erinnerungen beim nächsten Öffnen nach. Für Benachrichtigungen bei komplett geschlossener App ist später eine Server-Anbindung nötig.</p>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:4px 2px 16px;line-height:1.45">The Chef erinnert dich zu diesen Zeiten – als echte Push-Benachrichtigung, auch wenn die App geschlossen ist (sobald der Server eingerichtet ist), und zusätzlich in der App. Am besten The Chef auf dem Startbildschirm installieren und Benachrichtigungen erlauben.</p>
 
       <div class="section-h"><h2>Integrationen</h2></div>
       <div class="list-card glass">
@@ -5835,20 +5835,51 @@
     checkReminders();
     _reminderTimer = setInterval(checkReminders, 60000);
   }
+  function urlB64ToUint8(base64String){
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64); const arr = new Uint8Array(raw.length);
+    for(let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+  // Server-Push registrieren, damit Erinnerungen auch bei geschlossener App kommen.
+  async function syncReminderServer(){
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if(!sub){
+        if(!reminderState.on) return; // ohne Abo nichts zu tun, wenn aus
+        const kr = await fetch('/.netlify/functions/push-key'); if(!kr.ok) return;
+        const kd = await kr.json(); if(!kd || !kd.key) return;
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(kd.key) });
+      }
+      const j = sub.toJSON();
+      await fetch('/.netlify/functions/push-register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: { endpoint: j.endpoint, keys: j.keys },
+          morning: reminderState.morning, evening: reminderState.evening,
+          tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin'),
+          on: reminderState.on
+        })
+      });
+    } catch(e){ /* kein Backend / nicht unterstützt → lokale Erinnerungen greifen weiter */ }
+  }
   async function toggleReminders(){
     if(!reminderState.on){
       if('Notification' in window && Notification.permission !== 'granted'){
         try { const p = await Notification.requestPermission(); if(p !== 'granted') toast('Tipp: Erinnerungen erscheinen, solange die App offen ist – für volle Benachrichtigungen bitte erlauben.'); } catch(e){}
       }
-      reminderState.on = true; saveReminders(); setupReminders(); toast('🔔 Erinnerungen an');
+      reminderState.on = true; saveReminders(); setupReminders(); syncReminderServer(); toast('🔔 Erinnerungen an');
     } else {
-      reminderState.on = false; saveReminders(); setupReminders(); toast('🔕 Erinnerungen aus');
+      reminderState.on = false; saveReminders(); setupReminders(); syncReminderServer(); toast('🔕 Erinnerungen aus');
     }
     if(document.getElementById('voiceSelect')) openSettings();
   }
   function setReminderTime(which, val){
     if(which === 'm') reminderState.morning = val || '08:30'; else reminderState.evening = val || '21:00';
-    saveReminders(); setupReminders();
+    saveReminders(); setupReminders(); syncReminderServer();
   }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkReminders(); });
   setupReminders();
