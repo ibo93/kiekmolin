@@ -44835,82 +44835,103 @@ async function submitOrder() {
 
     // In Supabase speichern
     try {
-        const response = await fetch(SUPABASE_URL + '/rest/v1/orders', {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-                order_number: orderNumber,
-                restaurant_id: currentOrderRestaurant?.id,
-                restaurant_name: currentOrderRestaurant?.name || '',
-                status: 'received',
-                order_type: orderType,
-                customer_name: name,
-                customer_phone: phone,
-                customer_email: order.customer_email || null,
-                delivery_address: deliveryAddress,
-                delivery_notes: order.delivery_notes || null,
-                items: orderCart.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.total_price,
-                    unit_price: item.unit_price || item.base_price || 0,
-                    options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
-                })),
-                subtotal: subtotal,
-                delivery_fee: deliveryFee,
-                tip: tip,
-                total: total,
-                payment_method: paymentMethod,
-                table_number: tableNumber || null,
-                customer_notes: (tableNumber ? '[Tisch ' + tableNumber + '] ' : '') + (order.notes || ''),
-                coupon_code: activeCoupon ? activeCoupon.code : null,
-                discount: couponDiscount || 0,
-                requested_time: window._requestedTimeForOrder || null
-            })
+        // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, lehnt PostgREST
+        // die GANZE Bestellung ab. Wir lesen den Spaltennamen aus der Fehlermeldung,
+        // lassen die Spalte weg und versuchen erneut — bis es gespeichert ist.
+        const _resilientInsert = async (table, payload) => {
+            var body = Object.assign({}, payload);
+            var lastStatus = 0, lastText = '';
+            for (var _attempt = 0; _attempt < 18; _attempt++) {
+                var res = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    var data = null; try { data = await res.json(); } catch(e) {}
+                    return { ok: true, data: data };
+                }
+                lastStatus = res.status;
+                try { lastText = await res.text(); } catch(e) { lastText = ''; }
+                // Unbekannte Spalte aus der Meldung extrahieren und entfernen
+                var m = lastText.match(/Could not find the '([^']+)'/)
+                     || lastText.match(/'([^']+)' column/)
+                     || lastText.match(/column "?([a-zA-Z_]+)"? .*does not exist/i);
+                if (res.status === 400 && m && m[1] && Object.prototype.hasOwnProperty.call(body, m[1])) {
+                    console.warn('[' + table + '] Spalte "' + m[1] + '" fehlt in der DB – wird weggelassen und erneut versucht');
+                    delete body[m[1]];
+                    continue;
+                }
+                break; // anderer Fehler (z.B. RLS / Rechte) -> nicht durch Spalten-Strip loesbar
+            }
+            return { ok: false, status: lastStatus, text: lastText };
+        };
+
+        const _orderRes = await _resilientInsert('orders', {
+            order_number: orderNumber,
+            restaurant_id: currentOrderRestaurant?.id,
+            restaurant_name: currentOrderRestaurant?.name || '',
+            status: 'received',
+            order_type: orderType,
+            customer_name: name,
+            customer_phone: phone,
+            customer_email: order.customer_email || null,
+            delivery_address: deliveryAddress,
+            delivery_notes: order.delivery_notes || null,
+            items: orderCart.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.total_price,
+                unit_price: item.unit_price || item.base_price || 0,
+                options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
+            })),
+            subtotal: subtotal,
+            delivery_fee: deliveryFee,
+            tip: tip,
+            total: total,
+            payment_method: paymentMethod,
+            table_number: tableNumber || null,
+            customer_notes: (tableNumber ? '[Tisch ' + tableNumber + '] ' : '') + (order.notes || ''),
+            coupon_code: activeCoupon ? activeCoupon.code : null,
+            discount: couponDiscount || 0,
+            requested_time: window._requestedTimeForOrder || null
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            order.id = data[0]?.id || order.id;
+        if (_orderRes.ok) {
+            order.id = (_orderRes.data && _orderRes.data[0] && _orderRes.data[0].id) || order.id;
 
-            // Order Items speichern
+            // Order Items speichern (sekundaer – Dashboard nutzt sonst die items-Spalte)
             var _failedItems = 0;
             for (const item of orderCart) {
                 try {
-                    var _itemRes = await fetch(SUPABASE_URL + '/rest/v1/order_items', {
-                        method: 'POST',
-                        headers: {
-                            'apikey': SUPABASE_KEY,
-                            'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            order_id: order.id,
-                            item_name: item.name,
-                            quantity: item.quantity,
-                            base_price: item.base_price || item.unit_price || 0,
-                            unit_price: item.unit_price || item.base_price || 0,
-                            total_price: item.total_price || 0,
-                            selected_options: item.selected_options || []
-                        })
+                    var _ir = await _resilientInsert('order_items', {
+                        order_id: order.id,
+                        item_name: item.name,
+                        quantity: item.quantity,
+                        base_price: item.base_price || item.unit_price || 0,
+                        unit_price: item.unit_price || item.base_price || 0,
+                        total_price: item.total_price || 0,
+                        selected_options: item.selected_options || []
                     });
-                    if (!_itemRes.ok) _failedItems++;
+                    if (!_ir.ok) _failedItems++;
                 } catch(e) { _failedItems++; }
             }
             if (_failedItems > 0) console.error(_failedItems + ' order_items konnten nicht gespeichert werden');
         } else {
-            var orderErrText = await response.text();
-            console.error('Order API:', response.status, orderErrText);
-            showToast('Bestellung lokal gespeichert, Server-Sync ausstehend (' + response.status + ')', 'info');
+            console.error('Order API:', _orderRes.status, _orderRes.text);
+            var _hint = (_orderRes.status === 401 || _orderRes.status === 403)
+                ? 'Datenbank lehnt das Speichern ab (Rechte/RLS).'
+                : ('Server-Fehler ' + _orderRes.status + '.');
+            showToast('Bestellung konnte nicht gespeichert werden: ' + _hint, 'error');
         }
     } catch(e) {
-        console.error('Order Save Error (continuing locally):', e);
-        showToast('Bestellung lokal gespeichert, Server-Sync ausstehend', 'info');
+        console.error('Order Save Error:', e);
+        showToast('Bestellung konnte nicht gespeichert werden: ' + (e.message || 'Netzwerkfehler'), 'error');
     }
 
     // Button wieder aktivieren
