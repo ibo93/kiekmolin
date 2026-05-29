@@ -48631,6 +48631,15 @@ function openPOSSettings() {
         '<div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:16px;font-size:12px;color:var(--slate);">' +
             '<strong>So geht\'s:</strong> 1. Kassensystem auswählen. 2. API-Key / Token aus deinem Kassensystem holen. 3. Hier einfügen und speichern. Bestellungen werden dann automatisch weitergeleitet.' +
         '</div>' +
+        '<div style="margin-top:20px;border-top:1px solid var(--border-color);padding-top:16px;">' +
+            '<h3 style="font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;">' +
+                '<span class="material-symbols-outlined" style="font-size:18px;color:var(--primary)">sync_alt</span>' +
+                'Abruf-Schnittstelle (für jedes Kassensystem)</h3>' +
+            '<p style="font-size:12px;color:var(--slate);margin-bottom:10px;">Funktioniert mit jeder Kassen-Software, die Bestellungen von einer Internet-Adresse abholen kann. Du bekommst eine feste URL + einen Schlüssel, die du im Kassenprogramm einträgst.</p>' +
+            '<button onclick="showPosPullInfo()" style="width:100%;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+                '<span class="material-symbols-outlined" style="font-size:18px;">key</span>Zugangsdaten anzeigen</button>' +
+            '<div id="posPullInfo" style="margin-top:12px;display:none;"></div>' +
+        '</div>' +
     '</div>';
 
     var overlay = document.createElement('div');
@@ -48680,6 +48689,72 @@ function savePOSSettings() {
     savePOSConfig(allConfig);
     var posName = POS_SYSTEMS[allConfig[restId].system]?.name || 'Kein';
     showToast('Kassensystem gespeichert: ' + posName, 'success');
+}
+
+// --- Abruf-Schnittstelle (Pull) ---
+function _escPos(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+}
+function _posCopy(text) {
+    try {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('Kopiert', 'success');
+        }, function() { showToast('Konnte nicht kopieren', 'error'); });
+    } catch(e) { showToast('Konnte nicht kopieren', 'error'); }
+}
+function _renderPosPullInfo(box, j) {
+    var fieldStyle = 'width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px;box-sizing:border-box;word-break:break-all;';
+    var btnStyle = 'padding:6px 10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;';
+    box.innerHTML =
+        '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;">' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Abruf-URL</label>' +
+            '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+                '<div style="' + fieldStyle + '" id="posPullUrl">' + _escPos(j.pull_url) + '</div>' +
+                '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPullUrl\').textContent)">Kopieren</button>' +
+            '</div>' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Zugriffs-Schlüssel</label>' +
+            '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+                '<div style="' + fieldStyle + '" id="posPullKey">' + _escPos(j.key) + '</div>' +
+                '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPullKey\').textContent)">Kopieren</button>' +
+            '</div>' +
+            '<p style="font-size:11px;color:var(--slate);margin:0 0 8px;">Diese URL + Schlüssel im Kassenprogramm als Bestell-Quelle eintragen. Die Kasse ruft damit regelmäßig die neuen Bestellungen ab. Bei Lieferung/Abholung sind alle Daten (Artikel, Extras, Adresse, Beträge) enthalten.</p>' +
+            '<button onclick="if(confirm(\'Neuen Schlüssel erzeugen? Der alte wird ungültig — du musst ihn dann im Kassensystem neu eintragen.\')) showPosPullInfo(true)" style="background:none;border:none;color:#b91c1c;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Schlüssel neu erzeugen</button>' +
+        '</div>';
+}
+async function showPosPullInfo(rotate) {
+    var box = document.getElementById('posPullInfo');
+    if (!box) return;
+    box.style.display = 'block';
+    box.innerHTML = '<div style="font-size:13px;color:var(--slate);">Lade Zugangsdaten…</div>';
+    var token = null;
+    try {
+        if (window.supabaseClient && supabaseClient.auth) {
+            var s = await supabaseClient.auth.getSession();
+            token = s && s.data && s.data.session && s.data.session.access_token;
+        }
+    } catch(e) {}
+    if (!token) {
+        box.innerHTML = '<div style="font-size:13px;color:#b91c1c;">Bitte zuerst als Gastronom einloggen, dann erneut versuchen.</div>';
+        return;
+    }
+    var sel = document.getElementById('ordersRestaurantSelect');
+    var restId = sel ? sel.value : '';
+    var url = '/.netlify/functions/pos-orders?action=key' +
+        (restId && restId !== 'default' ? '&restaurant=' + encodeURIComponent(restId) : '') +
+        (rotate ? '&rotate=1' : '');
+    try {
+        var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        var j = await res.json();
+        if (!j || !j.ok) {
+            box.innerHTML = '<div style="font-size:13px;color:#b91c1c;">Fehler: ' + _escPos((j && j.error) || ('HTTP ' + res.status)) + '</div>';
+            return;
+        }
+        _renderPosPullInfo(box, j);
+    } catch(e) {
+        box.innerHTML = '<div style="font-size:13px;color:#b91c1c;">Verbindungsfehler: ' + _escPos(e.message) + '. Ist die Seite schon live deployt?</div>';
+    }
 }
 
 // POS-Verbindung testen
