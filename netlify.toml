@@ -3,7 +3,7 @@
 [build]
   # SEO-Landing-Pages werden zur Build-Zeit aus Supabase generiert.
   # Fault-tolerant: Bei Fehler wird trotzdem deployed.
-  command = "node build-seo-pages.js || echo 'SEO build script failed - continuing'"
+  command = "node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'"
   publish = "."
 
 [build.environment]
