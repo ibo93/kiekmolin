@@ -10,14 +10,20 @@
 //        GET  /.netlify/functions/pos-orders?action=key[&rotate=1]
 //        Header: Authorization: Bearer <supabase-login-token>
 //
-// ENV-Vars noetig: SUPABASE_URL, SUPABASE_SERVICE_KEY
+// ENV-Vars optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (bevorzugt). Fehlen sie,
+// nutzt die Funktion automatisch die oeffentlichen anon-Zugangsdaten als Fallback.
 
 'use strict';
 
 var crypto = require('crypto');
 
-var SUPABASE_URL = process.env.SUPABASE_URL;
-var SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
+// Netlify nicht gesetzt sind, Fallback auf die ohnehin oeffentlichen anon-Daten
+// (identisch zu build-seo-pages.js / index.html) — damit die Schnittstelle auch
+// ganz ohne Env-Setup laeuft.
+var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 
 var CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -37,8 +43,8 @@ var ORDER_COLUMNS = [
 
 function svcHeaders() {
     return {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_SERVICE_KEY,
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
         'Content-Type': 'application/json'
     };
 }
@@ -83,7 +89,7 @@ function safeEqual(a, b) {
 async function restaurantIdsForToken(token) {
     if (!token) return null;
     var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
-        headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': 'Bearer ' + token }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token }
     });
     if (!res.ok) return null;
     var user = await res.json();
@@ -155,10 +161,6 @@ exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 204, headers: CORS_HEADERS, body: '' };
     }
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-        return json(500, { ok: false, error: 'Server nicht konfiguriert (SUPABASE_URL / SUPABASE_SERVICE_KEY fehlen).' });
-    }
-
     var q = event.queryStringParameters || {};
 
     try {
