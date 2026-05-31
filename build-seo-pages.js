@@ -142,6 +142,12 @@ function fmtRating(rating) {
   return r.toFixed(1).replace('.', ',');
 }
 
+function capitalize(s) {
+  if (!s) return '';
+  s = String(s);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function safeText(s, fallback) {
   if (s == null || s === '') return fallback || '';
   return String(s);
@@ -726,15 +732,40 @@ function generateRestaurantPage(rest, menuItems) {
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
   const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
 
-  const title = name + ' ' + cityRaw + ' – Online bestellen | Speisekarte ' + catLabel;
+  // Features beachten: wenn no_reservations / no_ordering gesetzt, nicht in SEO werben
+  const restFeatures = Array.isArray(rest.features) ? rest.features : [];
+  const hasReservations = restFeatures.indexOf('no_reservations') === -1;
+  const hasOrdering = restFeatures.indexOf('no_ordering') === -1;
 
-  // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
+  // Title: alle relevanten Aktionen rein, max 60 Zeichen fuer Google
+  // Beispiele:
+  //   "La Piazza Greetsiel – Bestellen, Reservieren & Speisekarte"
+  //   "Eis-Cafe Norden – Speisekarte ansehen | Kiek mol in"
+  const actionParts = [];
+  if (hasOrdering)     actionParts.push('Bestellen');
+  if (hasReservations) actionParts.push('Reservieren');
+  actionParts.push('Speisekarte');
+  let title = name + ' ' + cityRaw + ' – ' + actionParts.join(' · ');
+  if (title.length > 60) {
+    // Faellt zurueck auf kurze Variante wenn zu lang
+    title = name + ' ' + cityRaw + ' – ' + (hasOrdering ? 'Bestellen' : 'Speisekarte') + (hasReservations ? ' & Reservieren' : '');
+  }
+  if (title.length > 70) title = name + ' ' + cityRaw + ' | ' + BRAND;
+
+  // Meta-Description: alle Aktionen + Menue-Items wenn vorhanden
   let description;
   if (menuItems.length >= 3) {
-    const sampleItems = menuItems.slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
-    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen.';
+    const sampleItems = menuItems.slice(0, 4).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
+    const verbs = [];
+    if (hasOrdering) verbs.push('online bestellen');
+    if (hasReservations) verbs.push('Tisch reservieren');
+    verbs.push('Speisekarte ansehen');
+    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. ' + capitalize(verbs.join(', ')) + '.';
   } else {
-    description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren.';
+    const verbs2 = ['Speisekarte ansehen'];
+    if (hasOrdering) verbs2.push('online bestellen');
+    if (hasReservations) verbs2.push('Tisch reservieren');
+    description = name + ' in ' + cityRaw + ' – ' + verbs2.join(', ') + '.';
     if (rest.cuisine) description += ' ' + rest.cuisine + '.';
   }
   if (description.length > 160) description = description.slice(0, 157) + '...';
