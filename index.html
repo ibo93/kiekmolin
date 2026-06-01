@@ -108,7 +108,8 @@
     <link rel="manifest" href="manifest.json">
 
     <!-- App Icons -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003d33%22/%3E%3Ctext x=%2232%22 y=%2244%22 font-family=%22Arial%22 font-size=%2238%22 font-weight=%22bold%22 fill=%22%23f59e0b%22 text-anchor=%22middle%22%3EK%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
     <!-- Preload kritische Assets fuer Performance -->
@@ -21621,7 +21622,7 @@ function handleRealtimeReservation(payload) {
 // Funktioniert auch wenn App/Browser im Hintergrund oder geschlossen
 
 // VAPID Public Key — public, darf im Client-Code stehen.
-var VAPID_PUBLIC_KEY = 'BJrQYyobI3w0fYa3H9XvFSFtK5Oj0Ei1AaLk9p4yIul7qq4sG3B4Q2zojuqUFTxZ7yVhUxc0RrFFO4OFVC5ohDg';
+var VAPID_PUBLIC_KEY = 'BAc2TBVJNhpCtnmVeFSgfdHYSUZzBDGh2GbzZ0xQSiCsLSc_scksrJ5_zxdI6dZUbJ0co_u-zGBXpA9xNV10oUg';
 
 function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -56214,62 +56215,15 @@ setTimeout(function() {
     }
 }, 2500);
 
-// ==================== CODE-SCHUTZ ====================
+// ==================== CODE-SCHUTZ (abgespeckt) ====================
+// Aggressive Sperren entfernt (DevTools-Shortcuts, DevTools-Erkennung,
+// selectstart, user-select-CSS) — die hatten echte UX-Bugs verursacht
+// (Paste-Bug in Formularen, Adresse nicht markierbar) und schuetzten faktisch
+// nichts. Nur sanfte Hemmnisse fuer Casual-Snooper bleiben.
 (function() {
-    // 1. Rechtsklick deaktivieren
+    // Rechtsklick deaktivieren — aber in Eingabefeldern erlauben (Einfuegen,
+    // Auswaehlen, Rueckgaengig sollen weiterhin gehen).
     document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        return false;
-    });
-
-    // 2. DevTools-Shortcuts blockieren (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
-    document.addEventListener('keydown', function(e) {
-        // F12
-        if (e.key === 'F12' || e.keyCode === 123) {
-            e.preventDefault();
-            return false;
-        }
-        // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
-            e.preventDefault();
-            return false;
-        }
-        // Ctrl+U (Quelltext)
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u') && !e.shiftKey) {
-            e.preventDefault();
-            return false;
-        }
-        // Ctrl+S (Speichern)
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'S' || e.key === 's') && !e.shiftKey) {
-            e.preventDefault();
-            return false;
-        }
-    });
-
-    // 3. DevTools-Erkennung
-    var devtoolsOpen = false;
-    var devtoolsCheck = function() {
-        var widthThreshold = window.outerWidth - window.innerWidth > 160;
-        var heightThreshold = window.outerHeight - window.innerHeight > 160;
-        if (widthThreshold || heightThreshold) {
-            if (!devtoolsOpen) {
-                devtoolsOpen = true;
-                console.clear();
-                console.log('%c⚠ WARNUNG ⚠', 'color:red;font-size:40px;font-weight:bold;');
-                console.log('%cDiese Website ist urheberrechtlich geschuetzt.', 'color:red;font-size:16px;');
-                console.log('%c© 2026 Kiek mol in – Alle Rechte vorbehalten.', 'font-size:12px;color:#666;');
-            }
-        } else {
-            devtoolsOpen = false;
-        }
-    };
-    // DevTools-Check nur einmal beim Laden, nicht jede Sekunde (Performance)
-    devtoolsCheck();
-
-    // Debugger-Trap entfernt (blockierte Browser bei offenen DevTools)
-
-    // 4. Text-Selektion deaktivieren (außer Inputs)
-    document.addEventListener('selectstart', function(e) {
         var tag = e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) {
             return true;
@@ -56278,12 +56232,7 @@ setTimeout(function() {
         return false;
     });
 
-    // CSS user-select
-    var styleProtect = document.createElement('style');
-    styleProtect.textContent = 'body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}input,textarea,select,[contenteditable="true"]{-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;}';
-    document.head.appendChild(styleProtect);
-
-    // 5. Drag & Drop deaktivieren
+    // Drag-Save von Bildern und Links bremsen (sanft, kein echter Schutz)
     document.addEventListener('dragstart', function(e) {
         if (e.target.tagName === 'IMG' || e.target.tagName === 'A') {
             e.preventDefault();
@@ -56291,7 +56240,7 @@ setTimeout(function() {
         }
     });
 
-    // 6. Console-Warnung (wird sofort angezeigt)
+    // Konsole-Hinweis — wer DevTools schon offen hat, sieht das. Kostet nichts.
     console.clear();
     console.log('%c🛑 STOPP!', 'color:red;font-size:48px;font-weight:bold;text-shadow:2px 2px 0 #000;');
     console.log('%cDies ist eine geschuetzte Anwendung.', 'color:#333;font-size:18px;font-weight:bold;');
