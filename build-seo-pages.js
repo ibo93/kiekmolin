@@ -43,33 +43,45 @@ const CATEGORIES = [
     slug: 'pizzeria',
     label: 'Pizzeria',
     plural: 'Pizzerien',
+    labelEn: 'Pizzeria',
+    pluralEn: 'Pizzerias',
     keywords: ['pizza', 'pizzeria', 'italienisch'],
     description: 'frische Pizza und italienische Spezialitaeten',
-    descriptionDe: 'frische Pizza und italienische Spezialitäten'
+    descriptionDe: 'frische Pizza und italienische Spezialitäten',
+    descriptionEn: 'fresh pizza and Italian specialties'
   },
   {
     slug: 'doener',
     label: 'Döner',
     plural: 'Döner-Imbisse',
+    labelEn: 'Kebab',
+    pluralEn: 'Kebab places',
     keywords: ['doener', 'döner', 'türkisch', 'turkish', 'kebab'],
     description: 'Doener Kebab und tuerkische Gerichte',
-    descriptionDe: 'Döner Kebab und türkische Gerichte'
+    descriptionDe: 'Döner Kebab und türkische Gerichte',
+    descriptionEn: 'doner kebab and Turkish dishes'
   },
   {
     slug: 'fischrestaurant',
     label: 'Fischrestaurant',
     plural: 'Fischrestaurants',
+    labelEn: 'Fish restaurant',
+    pluralEn: 'Fish restaurants',
     keywords: ['fisch', 'fischrestaurant', 'meeresfrüchte', 'meeresfruechte', 'krabben', 'seafood'],
     description: 'frischer Fisch und Krabben aus der Nordsee',
-    descriptionDe: 'frischer Fisch und Krabben aus der Nordsee'
+    descriptionDe: 'frischer Fisch und Krabben aus der Nordsee',
+    descriptionEn: 'fresh fish and North Sea shrimp'
   },
   {
     slug: 'restaurant',
     label: 'Restaurant',
     plural: 'Restaurants',
+    labelEn: 'Restaurant',
+    pluralEn: 'Restaurants',
     keywords: [],   // leer => matcht alle
     description: 'gemuetliche Restaurants mit deutscher und internationaler Kueche',
-    descriptionDe: 'gemütliche Restaurants mit deutscher und internationaler Küche'
+    descriptionDe: 'gemütliche Restaurants mit deutscher und internationaler Küche',
+    descriptionEn: 'cozy restaurants with German and international cuisine'
   }
 ];
 
@@ -267,6 +279,80 @@ function buildFaqs(city, cat) {
     {
       q: 'Kann ich bei ' + plural + ' in ' + cityName + ' reservieren?',
       a: 'Ja – viele ' + plural + ' in ' + cityName + ' bieten online Tisch-Reservierung an. Klick einfach auf das gewuenschte Restaurant und waehle Datum, Uhrzeit und Personenzahl. Bestaetigung kommt sofort.'
+    }
+  ];
+}
+
+// ==================== ENGLISCHE VARIANTEN ====================
+
+function buildIntroEn(city, cat, count) {
+  const cityName = city.name;
+  const region = city.region || 'East Frisia';
+  const plural = cat.pluralEn || cat.plural;
+  const label = cat.labelEn || cat.label;
+  const desc = cat.descriptionEn || cat.description;
+
+  const isRestaurant = cat.slug === 'restaurant';
+  const isFish = cat.slug === 'fischrestaurant';
+  const isPizza = cat.slug === 'pizzeria';
+  const isDoener = cat.slug === 'doener';
+
+  let regionText;
+  if (region === 'Krummhoern' || region === 'Krummhörn') {
+    regionText = 'Greetsiel is one of the most picturesque fishing villages of the Krummhörn on the East Frisian North Sea coast. Between the twin windmills and the harbour you will find a surprisingly dense selection of places to eat.';
+  } else if (cityName === 'Norddeich') {
+    regionText = 'Norddeich is the gateway to the islands of Juist and Norderney — right by the Wadden Sea. Anyone who has eaten here knows: fresh North Sea produce is not marketing here, it is standard.';
+  } else if (cityName === 'Norden') {
+    regionText = 'Norden is the culinary heart of the north-western East Frisian peninsula. From the historic market square to the Tea Museum quarter you will find dishes for every taste.';
+  } else if (cityName === 'Aurich') {
+    regionText = 'Aurich, the unofficial capital of East Frisia, combines North German coziness with a colourful culinary scene — from traditional inns to modern kitchens.';
+  } else if (cityName === 'Emden') {
+    regionText = 'Emden, the largest city in East Frisia and a harbour town with character, offers a surprisingly diverse gastronomy scene between Delft, Ratsdelft and the city centre.';
+  } else {
+    regionText = cityName + ' lies in the heart of ' + region + ' and offers East Frisian hospitality with real character.';
+  }
+
+  let categoryText;
+  if (isPizza) {
+    categoryText = 'Italian cuisine has long been part of daily life in ' + cityName + '. From thin Roman pizza to Neapolitan wood-fired ovens to the classic family pizzeria — the choice is wider than many people think. Many pizzerias also deliver to your home or holiday house on the coast.';
+  } else if (isDoener) {
+    categoryText = 'Doner kebab in ' + cityName + ' comes in every variation — from the classic veal kebab to vegetarian falafel wraps. Many shops are open late and also deliver to the surrounding area.';
+  } else if (isFish) {
+    categoryText = 'Fresh fish and North Sea shrimp are THE culinary specialty of ' + cityName + '. Many fish restaurants source their catch directly from the harbour, and the shrimp sandwiches are often in a league that day visitors simply cannot imagine.';
+  } else {
+    categoryText = 'From hearty East Frisian home cooking to modern bistro food to international specialties: the restaurants in ' + cityName + ' cover every taste. Many also offer online reservation and delivery.';
+  }
+
+  const countText = count > 0
+    ? 'Right now ' + BRAND + ' lists <strong>' + count + ' ' + (count === 1 ? label : plural) + '</strong> in ' + cityName + ' that are available online. You can view the menu, order online and — where available — book a table directly. No hidden fees.'
+    : '';
+
+  return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
+         '<p>' + countText + '</p>' +
+         '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no high commissions. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the money stays in the region.</p>';
+}
+
+function buildFaqsEn(city, cat) {
+  const cityName = city.name;
+  const plural = cat.pluralEn || cat.plural;
+  const label = cat.labelEn || cat.label;
+
+  return [
+    {
+      q: 'Which ' + plural + ' deliver in ' + cityName + '?',
+      a: 'On ' + BRAND + ' you can see which ' + plural + ' in ' + cityName + ' currently deliver. Filter by "Delivery" and you get every option that delivers to your postcode — including minimum order value and delivery time.'
+    },
+    {
+      q: 'How much does a ' + label.toLowerCase() + ' cost in ' + cityName + '?',
+      a: 'Prices vary by restaurant. You can find up-to-date prices on the menu of each ' + plural.toLowerCase() + '. ' + BRAND + ' does not add any mark-ups — you pay exactly what is listed in the restaurant.'
+    },
+    {
+      q: 'Which ' + plural + ' are open today?',
+      a: 'Opening hours are shown on each restaurant profile. ' + BRAND + ' shows you live which ' + plural + ' in ' + cityName + ' are open right now and accepting orders.'
+    },
+    {
+      q: 'Can I book a table at ' + plural + ' in ' + cityName + '?',
+      a: 'Yes — many ' + plural + ' in ' + cityName + ' offer online table reservations. Click the restaurant of your choice and pick the date, time and number of guests. Confirmation is instant.'
     }
   ];
 }
@@ -521,13 +607,22 @@ function buildPage(opts) {
     : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau spaeter wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
 
   const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
+  const lang = opts.lang || 'de';
+  // hreflang-Paare fuer Google: jede Seite verlinkt auf ihre andersprachige
+  // Variante. canonical zeigt auf die Sprachversion der aktuellen Seite.
+  const hreflangBlock = opts.altDe || opts.altEn
+    ? (opts.altDe ? '<link rel="alternate" hreflang="de" href="' + escapeAttr(opts.altDe) + '">\n' : '') +
+      (opts.altEn ? '<link rel="alternate" hreflang="en" href="' + escapeAttr(opts.altEn) + '">\n' : '') +
+      '<link rel="alternate" hreflang="x-default" href="' + escapeAttr(opts.altDe || opts.altEn) + '">\n'
+    : '';
 
-  return '<!DOCTYPE html>\n<html lang="de">\n<head>\n' +
+  return '<!DOCTYPE html>\n<html lang="' + lang + '">\n<head>\n' +
     '<meta charset="UTF-8">\n' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
     '<title>' + escapeHtml(opts.title) + '</title>\n' +
     '<meta name="description" content="' + escapeAttr(opts.description) + '">\n' +
     '<link rel="canonical" href="' + escapeAttr(opts.canonical) + '">\n' +
+    hreflangBlock +
     '<meta name="robots" content="index,follow,max-image-preview:large">\n' +
     '<meta name="geo.region" content="DE-NI">\n' +
     '<meta name="geo.placename" content="' + escapeAttr(opts.city ? opts.city.name : 'Ostfriesland') + '">\n' +
@@ -535,7 +630,7 @@ function buildPage(opts) {
     '<meta property="og:title" content="' + escapeAttr(opts.title) + '">\n' +
     '<meta property="og:description" content="' + escapeAttr(opts.description) + '">\n' +
     '<meta property="og:url" content="' + escapeAttr(opts.canonical) + '">\n' +
-    '<meta property="og:locale" content="de_DE">\n' +
+    '<meta property="og:locale" content="' + (lang === 'en' ? 'en_GB' : 'de_DE') + '">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
     '<meta name="twitter:card" content="summary_large_image">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(opts.title) + '">\n' +
@@ -826,119 +921,188 @@ function generateRestaurantPage(rest, menuItems) {
 
 // ==================== PAGE GENERATORS ====================
 
-function generateCityCategoryPage(city, cat, restaurants) {
+function generateCityCategoryPage(city, cat, restaurants, lang) {
   const matched = restaurants.filter(function(r) {
     return cityMatches(r, city) && categoryMatches(r, cat);
   });
-  // Sort by rating desc
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
-
   if (matched.length === 0) return null;
 
+  lang = lang || 'de';
+  const isEn = lang === 'en';
   const slug = cat.slug + '-' + city.slug;
-  const url = SITE_URL + '/' + slug;
-  const title = cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND;
-  const description = 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
-    cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
-    '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
+  const deUrl = SITE_URL + '/' + slug;
+  const enUrl = SITE_URL + '/en/' + slug;
+  const url = isEn ? enUrl : deUrl;
+  const pluralL = isEn ? (cat.pluralEn || cat.plural) : cat.plural;
+  const labelL = isEn ? (cat.labelEn || cat.label) : cat.label;
+  const descEn = cat.descriptionEn || cat.description;
+
+  const title = isEn
+    ? pluralL + ' in ' + city.name + ' – order online | ' + BRAND
+    : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND;
+  const description = isEn
+    ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
+      descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
+    : 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
+      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
+      '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
 
   const html = buildPage({
+    lang: lang,
+    altDe: deUrl,
+    altEn: enUrl,
     title: title,
     description: description.length > 165 ? description.slice(0, 162) + '...' : description,
     canonical: url,
-    h1: 'Die besten ' + cat.plural + ' in ' + city.name,
-    subtitle: matched.length + ' ' + (matched.length === 1 ? cat.label : cat.plural) + ' in ' + city.name + ' – Speisekarten, Bewertungen, online bestellen',
-    intro: buildIntro(city, cat, matched.length),
+    h1: (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name,
+    subtitle: matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name +
+      (isEn ? ' – menus, reviews, order online' : ' – Speisekarten, Bewertungen, online bestellen'),
+    intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
     restaurants: matched,
-    faqs: buildFaqs(city, cat),
+    faqs: isEn ? buildFaqsEn(city, cat) : buildFaqs(city, cat),
     breadcrumbs: [
-      { name: 'Startseite', url: SITE_URL + '/' },
-      { name: city.name, url: SITE_URL + '/restaurants-' + city.slug },
-      { name: cat.plural + ' in ' + city.name, url: url }
+      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
+      { name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug },
+      { name: pluralL + ' in ' + city.name, url: url }
     ],
     city: city,
     category: cat,
-    gridHeading: 'Top-' + cat.plural + ' in ' + city.name
+    gridHeading: (isEn ? 'Top ' : 'Top-') + pluralL + ' in ' + city.name
   });
 
-  const filename = slug + '.html';
-  fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
-  return { filename: filename, url: url, count: matched.length };
+  if (isEn) {
+    const enDir = path.join(OUT_DIR, 'en');
+    if (!fs.existsSync(enDir)) fs.mkdirSync(enDir, { recursive: true });
+  }
+  const relpath = (isEn ? 'en/' : '') + slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
+  return { filename: relpath, url: url, count: matched.length };
 }
 
-function generateCityOverview(city, restaurants) {
+function generateCityOverview(city, restaurants, lang) {
   const matched = restaurants.filter(function(r) { return cityMatches(r, city); });
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
   if (matched.length === 0) return null;
 
-  const cat = CATEGORIES[CATEGORIES.length - 1];   // 'restaurant' Kategorie
+  lang = lang || 'de';
+  const isEn = lang === 'en';
+  const cat = CATEGORIES[CATEGORIES.length - 1];
   const slug = 'restaurants-' + city.slug;
-  const url = SITE_URL + '/' + slug;
-  const title = 'Restaurants in ' + city.name + ' – online bestellen & reservieren | ' + BRAND;
-  const description = 'Alle ' + matched.length + ' Restaurants in ' + city.name + ' auf einen Blick. Pizzerien, Doener, Fischrestaurants & mehr. Speisekarte, Bewertungen, online bestellen & reservieren.';
+  const deUrl = SITE_URL + '/' + slug;
+  const enUrl = SITE_URL + '/en/' + slug;
+  const url = isEn ? enUrl : deUrl;
+
+  const title = isEn
+    ? 'Restaurants in ' + city.name + ' – order & book online | ' + BRAND
+    : 'Restaurants in ' + city.name + ' – online bestellen & reservieren | ' + BRAND;
+  const description = isEn
+    ? 'All ' + matched.length + ' restaurants in ' + city.name + ' at a glance. Pizzerias, kebabs, fish restaurants & more. Menus, reviews, order online & book a table.'
+    : 'Alle ' + matched.length + ' Restaurants in ' + city.name + ' auf einen Blick. Pizzerien, Doener, Fischrestaurants & mehr. Speisekarte, Bewertungen, online bestellen & reservieren.';
 
   const html = buildPage({
+    lang: lang,
+    altDe: deUrl,
+    altEn: enUrl,
     title: title,
     description: description.length > 160 ? description.slice(0, 157) + '...' : description,
     canonical: url,
     h1: 'Restaurants in ' + city.name,
-    subtitle: matched.length + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
-    intro: buildIntro(city, cat, matched.length),
+    subtitle: isEn
+      ? matched.length + ' restaurants, pizzerias, snack bars & cafés in ' + city.name
+      : matched.length + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
+    intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
     restaurants: matched,
-    faqs: buildFaqs(city, cat),
+    faqs: isEn ? buildFaqsEn(city, cat) : buildFaqs(city, cat),
     breadcrumbs: [
-      { name: 'Startseite', url: SITE_URL + '/' },
+      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
       { name: city.name, url: url }
     ],
     city: city,
     category: cat,
-    gridHeading: 'Beliebte Restaurants in ' + city.name
+    gridHeading: (isEn ? 'Popular restaurants in ' : 'Beliebte Restaurants in ') + city.name
   });
-  fs.writeFileSync(path.join(OUT_DIR, slug + '.html'), html, 'utf8');
-  return { filename: slug + '.html', url: url, count: matched.length };
+
+  if (isEn) {
+    const enDir = path.join(OUT_DIR, 'en');
+    if (!fs.existsSync(enDir)) fs.mkdirSync(enDir, { recursive: true });
+  }
+  const relpath = (isEn ? 'en/' : '') + slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
+  return { filename: relpath, url: url, count: matched.length };
 }
 
-function generateCategoryOverview(cat, restaurants) {
+function generateCategoryOverview(cat, restaurants, lang) {
   const matched = restaurants.filter(function(r) { return categoryMatches(r, cat); });
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
   if (matched.length === 0) return null;
 
+  lang = lang || 'de';
+  const isEn = lang === 'en';
   const slug = cat.slug + '-ostfriesland';
-  const url = SITE_URL + '/' + slug;
-  const title = cat.plural + ' in Ostfriesland – online bestellen | ' + BRAND;
-  const description = 'Alle ' + cat.plural + ' in Ostfriesland: ' + cat.descriptionDe + '. Speisekarte, Bewertungen, online bestellen & Tisch reservieren auf ' + BRAND + ' – kostenlos.';
+  const deUrl = SITE_URL + '/' + slug;
+  const enUrl = SITE_URL + '/en/' + slug;
+  const url = isEn ? enUrl : deUrl;
+  const pluralL = isEn ? (cat.pluralEn || cat.plural) : cat.plural;
+  const descLocal = isEn ? (cat.descriptionEn || cat.description) : cat.descriptionDe;
+  const pseudoCity = { slug: 'ostfriesland', name: isEn ? 'East Frisia' : 'Ostfriesland', region: isEn ? 'East Frisia' : 'Ostfriesland' };
 
-  // Pseudo-City fuer Region
-  const pseudoCity = { slug: 'ostfriesland', name: 'Ostfriesland', region: 'Ostfriesland' };
+  const title = isEn
+    ? pluralL + ' in East Frisia – order online | ' + BRAND
+    : cat.plural + ' in Ostfriesland – online bestellen | ' + BRAND;
+  const description = isEn
+    ? 'All ' + pluralL + ' in East Frisia: ' + descLocal + '. Menus, reviews, order online & book a table on ' + BRAND + ' – free.'
+    : 'Alle ' + cat.plural + ' in Ostfriesland: ' + cat.descriptionDe + '. Speisekarte, Bewertungen, online bestellen & Tisch reservieren auf ' + BRAND + ' – kostenlos.';
+
+  const introHtml = isEn
+    ? '<p>East Frisia is more than tea, the Wadden Sea and twin windmills — the region has a surprisingly diverse food scene. ' +
+      descLocal.charAt(0).toUpperCase() + descLocal.slice(1) + ' can be found in every larger town.</p>' +
+      '<p>Right now ' + BRAND + ' lists <strong>' + matched.length + ' ' + pluralL + '</strong> in East Frisia. You can order online, view a menu or book a table directly.</p>' +
+      '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no high commissions. What you order comes from the region, and the money stays here.</p>'
+    : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmuehlen – die Region hat eine erstaunlich vielfaeltige Gastro-Szene. ' +
+      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder groesseren Stadt.</p>' +
+      '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfuegbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
+      '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
+
+  const faqs = isEn ? [
+    { q: 'Where do I find the best ' + pluralL + ' in East Frisia?', a: 'On ' + BRAND + ' you can find a selection of the best ' + pluralL + ' in Greetsiel, Norden, Norddeich, Aurich and Emden — sorted by rating so you immediately see where it is worth going.' },
+    { q: 'Do all ' + pluralL + ' in East Frisia deliver?', a: 'No, not all ' + pluralL + ' offer delivery. On each restaurant page you can see who delivers, who offers pickup, and who serves on-site only.' },
+    { q: 'Which towns are featured on ' + BRAND + '?', a: BRAND + ' currently covers Greetsiel, Norden, Norddeich, Aurich and Emden — with plans to expand into further East Frisian towns.' }
+  ] : [
+    { q: 'Wo gibt es die besten ' + cat.plural + ' in Ostfriesland?', a: 'Auf ' + BRAND + ' findest du eine Auswahl der besten ' + cat.plural + ' in Greetsiel, Norden, Norddeich, Aurich und Emden. Sortiert nach Bewertung – damit du sofort siehst, wo es sich lohnt.' },
+    { q: 'Liefern alle ' + cat.plural + ' in Ostfriesland?', a: 'Nein, nicht alle ' + cat.plural + ' bieten Lieferung an. Auf den einzelnen Restaurant-Seiten siehst du, welche Anbieter liefern, abholen oder nur vor Ort servieren.' },
+    { q: 'Welche Staedte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
+  ];
 
   const html = buildPage({
+    lang: lang,
+    altDe: deUrl,
+    altEn: enUrl,
     title: title,
     description: description.length > 160 ? description.slice(0, 157) + '...' : description,
     canonical: url,
-    h1: cat.plural + ' in Ostfriesland',
-    subtitle: matched.length + ' ' + cat.plural + ' in Greetsiel, Norden, Norddeich, Aurich, Emden & Umgebung',
-    intro: '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmuehlen – die Region hat eine erstaunlich vielfaeltige Gastro-Szene. ' +
-           cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder groesseren Stadt.</p>' +
-           '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfuegbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
-           '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>',
+    h1: pluralL + (isEn ? ' in East Frisia' : ' in Ostfriesland'),
+    subtitle: matched.length + ' ' + pluralL + (isEn ? ' in Greetsiel, Norden, Norddeich, Aurich, Emden & surroundings' : ' in Greetsiel, Norden, Norddeich, Aurich, Emden & Umgebung'),
+    intro: introHtml,
     restaurants: matched,
-    faqs: [
-      { q: 'Wo gibt es die besten ' + cat.plural + ' in Ostfriesland?', a: 'Auf ' + BRAND + ' findest du eine Auswahl der besten ' + cat.plural + ' in Greetsiel, Norden, Norddeich, Aurich und Emden. Sortiert nach Bewertung – damit du sofort siehst, wo es sich lohnt.' },
-      { q: 'Liefern alle ' + cat.plural + ' in Ostfriesland?', a: 'Nein, nicht alle ' + cat.plural + ' bieten Lieferung an. Auf den einzelnen Restaurant-Seiten siehst du, welche Anbieter liefern, abholen oder nur vor Ort servieren.' },
-      { q: 'Welche Staedte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
-    ],
+    faqs: faqs,
     breadcrumbs: [
-      { name: 'Startseite', url: SITE_URL + '/' },
-      { name: 'Ostfriesland', url: SITE_URL + '/' },
-      { name: cat.plural, url: url }
+      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
+      { name: isEn ? 'East Frisia' : 'Ostfriesland', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
+      { name: pluralL, url: url }
     ],
     city: pseudoCity,
     category: cat,
-    gridHeading: 'Top-' + cat.plural + ' in Ostfriesland'
+    gridHeading: (isEn ? 'Top ' : 'Top-') + pluralL + (isEn ? ' in East Frisia' : ' in Ostfriesland')
   });
 
-  fs.writeFileSync(path.join(OUT_DIR, slug + '.html'), html, 'utf8');
-  return { filename: slug + '.html', url: url, count: matched.length };
+  if (isEn) {
+    const enDir = path.join(OUT_DIR, 'en');
+    if (!fs.existsSync(enDir)) fs.mkdirSync(enDir, { recursive: true });
+  }
+  const relpath = (isEn ? 'en/' : '') + slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
+  return { filename: relpath, url: url, count: matched.length };
 }
 
 // ==================== SITEMAP + ROBOTS ====================
@@ -1039,33 +1203,40 @@ async function main() {
   const generated = [];
   let skipped = 0;
 
+  // Pro Stadt × Kategorie: DE + EN
+  const LANGS = ['de', 'en'];
   for (const city of CITIES) {
     for (const cat of CATEGORIES) {
-      // skip restaurant-<city> here, handled by city overview
       if (cat.slug === 'restaurant') continue;
-      const result = generateCityCategoryPage(city, cat, restaurants);
-      if (result) {
-        console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
-        generated.push(result);
-      } else {
-        skipped++;
+      for (const lng of LANGS) {
+        const result = generateCityCategoryPage(city, cat, restaurants, lng);
+        if (result) {
+          console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+          generated.push(result);
+        } else if (lng === 'de') {
+          skipped++;
+        }
       }
     }
   }
 
   for (const city of CITIES) {
-    const result = generateCityOverview(city, restaurants);
-    if (result) {
-      console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
-      generated.push(result);
+    for (const lng of LANGS) {
+      const result = generateCityOverview(city, restaurants, lng);
+      if (result) {
+        console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+        generated.push(result);
+      }
     }
   }
 
   for (const cat of CATEGORIES) {
-    const result = generateCategoryOverview(cat, restaurants);
-    if (result) {
-      console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
-      generated.push(result);
+    for (const lng of LANGS) {
+      const result = generateCategoryOverview(cat, restaurants, lng);
+      if (result) {
+        console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+        generated.push(result);
+      }
     }
   }
 
