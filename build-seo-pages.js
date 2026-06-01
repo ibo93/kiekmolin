@@ -31,11 +31,12 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const OUT_DIR = __dirname;
 
 const CITIES = [
-  { slug: 'greetsiel', name: 'Greetsiel', zipPrefix: '267', region: 'Krummhoern' },
-  { slug: 'norddeich', name: 'Norddeich', zipPrefix: '267', region: 'Norden' },
-  { slug: 'norden',    name: 'Norden',    zipPrefix: '267', region: 'Ostfriesland' },
-  { slug: 'aurich',    name: 'Aurich',    zipPrefix: '267', region: 'Ostfriesland' },
-  { slug: 'emden',     name: 'Emden',     zipPrefix: '267', region: 'Ostfriesland' }
+  { slug: 'greetsiel',     name: 'Greetsiel',     zipPrefix: '267', region: 'Krummhoern' },
+  { slug: 'norddeich',     name: 'Norddeich',     zipPrefix: '267', region: 'Norden' },
+  { slug: 'norden',        name: 'Norden',        zipPrefix: '267', region: 'Ostfriesland' },
+  { slug: 'aurich',        name: 'Aurich',        zipPrefix: '267', region: 'Ostfriesland' },
+  { slug: 'emden',         name: 'Emden',         zipPrefix: '267', region: 'Ostfriesland' },
+  { slug: 'carolinensiel', name: 'Carolinensiel', zipPrefix: '264', region: 'Wittmund' }
 ];
 
 const CATEGORIES = [
@@ -71,6 +72,17 @@ const CATEGORIES = [
     description: 'frischer Fisch und Krabben aus der Nordsee',
     descriptionDe: 'frischer Fisch und Krabben aus der Nordsee',
     descriptionEn: 'fresh fish and North Sea shrimp'
+  },
+  {
+    slug: 'griechisches-restaurant',
+    label: 'Griechisches Restaurant',
+    plural: 'Griechische Restaurants',
+    labelEn: 'Greek restaurant',
+    pluralEn: 'Greek restaurants',
+    keywords: ['griechisch', 'greek', 'gyros', 'souvlaki', 'rhodos', 'taverne'],
+    description: 'griechische Klassiker vom Grill',
+    descriptionDe: 'griechische Klassiker vom Grill – Gyros, Souvlaki, Bifteki und frische Salate',
+    descriptionEn: 'Greek classics from the grill – gyros, souvlaki, bifteki and fresh salads'
   },
   {
     slug: 'restaurant',
