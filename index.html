@@ -48179,6 +48179,20 @@ function buildRichPosPayload(order) {
 }
 
 // Unterstützte Kassensysteme
+// Status-Map fuer die Kassensysteme — ehrlich kennzeichnen, was wirklich
+// funktioniert. orderbird/Gastrofix haben keine oeffentlichen APIs zum
+// Reinschieben von Bestellungen; Lightspeed braucht Partner-Onboarding.
+// Wir tun nicht so, als ob das automatisch klappt.
+var POS_SYSTEM_STATUS = {
+    none:        { status: 'ready' },
+    ready2order: { status: 'ready' },
+    lightspeed:  { status: 'limited',     note: 'Lightspeed benötigt einen Partner-Zugang (OAuth). Eine Direkt-Anbindung mit nur einem API-Key reicht nicht aus — frag beim Lightspeed-Support nach einem Partner-Onboarding.' },
+    orderbird:   { status: 'unavailable', note: 'orderbird bietet aktuell keine öffentliche Schnittstelle, um Bestellungen von außen einzuspielen. Stattdessen nutze die universelle Abruf-Schnittstelle unten — sie funktioniert mit jedem Kassensystem, das eine URL abrufen kann.' },
+    gastrofix:   { status: 'unavailable', note: 'Gastrofix (Lightspeed K-Serie) bietet keine öffentliche API zum Reinschieben von Bestellungen. Stattdessen die Abruf-Schnittstelle unten nutzen.' },
+    webhook:     { status: 'ready' },
+    multidata:   { status: 'ready' }
+};
+
 var POS_SYSTEMS = {
     none: { name: 'Kein Kassensystem', needsKey: false },
     ready2order: {
@@ -48596,10 +48610,15 @@ function openPOSSettings() {
 
     var systemOptions = Object.keys(POS_SYSTEMS).map(function(key) {
         var sel = key === conf.system ? ' selected' : '';
-        return '<option value="' + key + '"' + sel + '>' + POS_SYSTEMS[key].name + '</option>';
+        var st = (POS_SYSTEM_STATUS[key] || {}).status;
+        var label = POS_SYSTEMS[key].name;
+        if (st === 'unavailable') label += ' — nicht verfügbar';
+        else if (st === 'limited') label += ' — Partner-Zugang nötig';
+        return '<option value="' + key + '"' + sel + '>' + label + '</option>';
     }).join('');
 
     var currentPOS = POS_SYSTEMS[conf.system] || POS_SYSTEMS.none;
+    var currentStatus = (POS_SYSTEM_STATUS[conf.system] || { status: 'ready' });
 
     var html = '<div style="padding:24px;">' +
         '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">' +
@@ -48609,6 +48628,7 @@ function openPOSSettings() {
         '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Kassensystem</label>' +
         '<select id="posSystemSelect" onchange="onPOSSystemChange()" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;">' +
         systemOptions + '</select></div>' +
+        '<div id="posStatusWarning" style="margin-bottom:12px;display:' + (currentStatus.status === 'ready' ? 'none' : 'block') + ';padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;' + (currentStatus.status === 'unavailable' ? 'background:#fef2f2;color:#7f1d1d;border:1px solid #fecaca;' : 'background:#fffbeb;color:#78350f;border:1px solid #fde68a;') + '">' + (currentStatus.note || '') + '</div>' +
         '<div id="posKeyField" style="margin-bottom:12px;display:' + (currentPOS.needsKey ? 'block' : 'none') + ';">' +
             '<label id="posKeyLabel" style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">' + (currentPOS.keyLabel || 'API Key') + '</label>' +
             '<input id="posApiKey" value="' + (conf.apiKey || '') + '" placeholder="' + (currentPOS.keyPlaceholder || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;">' +
@@ -48674,6 +48694,22 @@ function onPOSSystemChange() {
     if (urlField) urlField.style.display = pos.needsApiUrl ? 'block' : 'none';
     if (urlLabel) urlLabel.textContent = pos.apiUrlLabel || 'API URL';
     if (urlInput) urlInput.placeholder = pos.apiUrlPlaceholder || 'https://api.example.com';
+
+    // Status-Hinweis (rot = nicht verfuegbar, gelb = eingeschraenkt)
+    var warn = document.getElementById('posStatusWarning');
+    if (warn) {
+        var st = POS_SYSTEM_STATUS[system] || { status: 'ready' };
+        if (st.status === 'unavailable') {
+            warn.style.cssText = 'margin-bottom:12px;display:block;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;background:#fef2f2;color:#7f1d1d;border:1px solid #fecaca;';
+            warn.textContent = st.note || '';
+        } else if (st.status === 'limited') {
+            warn.style.cssText = 'margin-bottom:12px;display:block;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;background:#fffbeb;color:#78350f;border:1px solid #fde68a;';
+            warn.textContent = st.note || '';
+        } else {
+            warn.style.display = 'none';
+            warn.textContent = '';
+        }
+    }
 }
 
 // POS-Einstellungen speichern
