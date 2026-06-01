@@ -726,13 +726,13 @@ function generateRestaurantPage(rest, menuItems) {
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
   const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
 
-  const title = name + ' ' + cityRaw + ' – Online bestellen | Speisekarte ' + catLabel;
+  const title = name + ' ' + cityRaw + ' – Online bestellen & Tisch reservieren | ' + catLabel;
 
   // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
   let description;
   if (menuItems.length >= 3) {
     const sampleItems = menuItems.slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
-    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen.';
+    description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen & Tisch reservieren.';
   } else {
     description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren.';
     if (rest.cuisine) description += ' ' + rest.cuisine + '.';

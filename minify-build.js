@@ -5,6 +5,7 @@
 // faellt pro Block auf das Original zurueck, wenn terser nicht parsen kann.
 
 const fs = require('fs');
+const path = require('path');
 const { minify } = require('terser');
 
 const FILE = process.argv[2] || 'index.html';
@@ -44,4 +45,23 @@ const FILE = process.argv[2] || 'index.html';
   console.log('[minify] ' + ok + ' JS-Bloecke minifiziert, ' + skipped + ' uebersprungen. '
     + before + ' -> ' + out.length + ' Bytes (-' + (saved / 1024).toFixed(0) + ' KB, -'
     + ((saved / before) * 100).toFixed(1) + '%)');
+
+  // sw.js mit aktuellem Build-Zeitstempel versehen. Dadurch aendern sich die
+  // Bytes der Datei bei jedem Deploy, der Browser erkennt "neuer Service-Worker"
+  // -> existierender updatefound-Handler in index.html reloadet die Seite
+  // automatisch und der Nutzer sieht ohne Cache-Aerger die neue Version.
+  try {
+    const swPath = path.join(path.dirname(path.resolve(FILE)), 'sw.js');
+    if (fs.existsSync(swPath)) {
+      let sw = fs.readFileSync(swPath, 'utf8');
+      sw = sw.replace(/^\/\/ build-version: [^\n]*\n/, '');
+      const stamp = '// build-version: ' + new Date().toISOString() + '\n';
+      fs.writeFileSync(swPath, stamp + sw, 'utf8');
+      console.log('[minify] sw.js gestempelt: ' + stamp.trim());
+    } else {
+      console.log('[minify] sw.js nicht gefunden – uebersprungen');
+    }
+  } catch (e) {
+    console.warn('[minify] sw.js Stempel fehlgeschlagen: ' + e.message);
+  }
 })();
