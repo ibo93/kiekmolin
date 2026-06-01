@@ -13898,6 +13898,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="material-symbols-outlined" style="font-size:20px;">campaign</span>
                 Marketing
             </div>
+            <div class="dash-nav-item" id="navEvents" onclick="openEventsModal()">
+                <span class="material-symbols-outlined" style="font-size:20px;">history</span>
+                Ereignisse
+            </div>
             <div class="dash-nav-item admin-only-nav" id="navCustomers" onclick="showDashboardSection('customers')" style="display:none;">
                 <span class="material-symbols-outlined" style="font-size:20px;">group</span>
                 Kunden
@@ -19320,7 +19324,15 @@ window.resAllReservations = window.resAllReservations || [];
 })();
 
 // ==================== MEHRSPRACHIGKEIT ====================
-let currentLanguage = localStorage.getItem('kmi_language') || 'de';
+// Sprache: gespeicherte Wahl, sonst Browser-Sprache (EN/NL automatisch erkannt
+// fuer Touristen), Fallback DE.
+let currentLanguage = localStorage.getItem('kmi_language') || (function() {
+    try {
+        var nav = (navigator.language || navigator.userLanguage || '').slice(0, 2).toLowerCase();
+        if (nav === 'en' || nav === 'nl') return nav;
+    } catch (e) {}
+    return 'de';
+})();
 
 const translations = {
     de: {
@@ -44928,6 +44940,12 @@ async function submitOrder() {
                 ? 'Datenbank lehnt das Speichern ab (Rechte/RLS).'
                 : ('Server-Fehler ' + _orderRes.status + '.');
             showToast('Bestellung konnte nicht gespeichert werden: ' + _hint, 'error');
+            if (typeof logRestaurantEvent === 'function') {
+                logRestaurantEvent(currentOrderRestaurant && currentOrderRestaurant.id, 'order_save_failed',
+                    'Bestellung speichern fehlgeschlagen (' + _orderRes.status + '): ' + _hint,
+                    null,
+                    { http_status: _orderRes.status, response: String(_orderRes.text || '').slice(0, 200), order_number: orderNumber });
+            }
         }
     } catch(e) {
         console.error('Order Save Error:', e);
@@ -47499,7 +47517,15 @@ async function dispatchPrintToAll(order, bonType) {
         }
     }
     if (success > 0) showToast('An ' + success + ' Drucker gesendet' + (errors ? ' (' + errors + ' Fehler)' : ''), success > 0 && errors === 0 ? 'success' : 'info');
-    else if (errors) showToast('Druckfehler bei ' + errors + ' Drucker(n)', 'error');
+    else if (errors) {
+        showToast('Druckfehler bei ' + errors + ' Drucker(n)', 'error');
+        if (typeof logRestaurantEvent === 'function') {
+            logRestaurantEvent(order && order.restaurant_id, 'print_failed',
+                'Druck fehlgeschlagen bei ' + errors + ' Drucker(n) für Bestellung #' + (order && (order.order_number || order.id)),
+                order && order.id || null,
+                { drucker_anzahl: printers.length, fehler: errors, erfolg: success });
+        }
+    }
     return success > 0;
 }
 // QZ Tray Print für einzelnen Drucker
@@ -48508,6 +48534,13 @@ function _sendPOSWithRetry(order, config, pos, attempt) {
                 // In Warteschlange speichern für manuellen Retry
                 _posRetryQueue.push({ order: order, config: config, system: config.system, error: msg, timestamp: Date.now() });
                 localStorage.setItem('kin_pos_retry_queue', JSON.stringify(_posRetryQueue));
+                // Event-Log fuer Dashboard-Sichtbarkeit
+                if (typeof logRestaurantEvent === 'function') {
+                    logRestaurantEvent(order.restaurant_id, 'pos_send_failed',
+                        'POS-Versand endgültig fehlgeschlagen (' + (config.system || '?') + '): ' + msg,
+                        order.id || null,
+                        { order_number: order.order_number || null, system: config.system });
+                }
             }
         }
     });
@@ -48790,6 +48823,122 @@ async function showPosPullInfo(rotate) {
         _renderPosPullInfo(box, j);
     } catch(e) {
         box.innerHTML = '<div style="font-size:13px;color:#b91c1c;">Verbindungsfehler: ' + _escPos(e.message) + '. Ist die Seite schon live deployt?</div>';
+    }
+}
+
+// ==================== EREIGNIS-PROTOKOLL ====================
+// Loggt Fehler/Hinweise pro Restaurant. SQL einmalig anlegen:
+//   CREATE TABLE IF NOT EXISTS restaurant_events (
+//     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//     restaurant_id uuid REFERENCES restaurants(id) ON DELETE CASCADE,
+//     type text NOT NULL,
+//     message text NOT NULL,
+//     order_id uuid,
+//     payload jsonb,
+//     created_at timestamptz DEFAULT now()
+//   );
+
+function logRestaurantEvent(restId, type, message, orderId, payload) {
+    try {
+        if (!restId) return;
+        fetch(SUPABASE_URL + '/rest/v1/restaurant_events', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                restaurant_id: restId,
+                type: type || 'general',
+                message: String(message || '').slice(0, 500),
+                order_id: orderId || null,
+                payload: payload || null
+            })
+        }).catch(function() { /* still — Logging soll nie laut sein */ });
+    } catch(e) { /* still */ }
+}
+
+function _escEventHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+}
+
+function openEventsModal() {
+    var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
+    var restId = customer.restaurant_id || '';
+    if (!restId) { if (typeof showToast === 'function') showToast('Bitte zuerst einloggen', 'error'); return; }
+
+    var existing = document.getElementById('eventsModalOverlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'eventsModalOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10005;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div class="modal" style="max-width:640px;width:100%;max-height:85vh;overflow-y:auto;border-radius:16px;background:var(--bg-card);padding:24px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+            '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;margin:0;display:flex;align-items:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:22px;color:var(--primary)">history</span>Ereignisse' +
+            '</h2>' +
+            '<button onclick="document.getElementById(\'eventsModalOverlay\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-primary);padding:0;">×</button>' +
+        '</div>' +
+        '<p style="font-size:12px;color:var(--slate);margin:0 0 12px;">Fehler und Hinweise der letzten 7 Tage. Sortiert nach Aktualität.</p>' +
+        '<button onclick="loadEventsIntoList()" style="margin-bottom:12px;padding:6px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">' +
+            '<span class="material-symbols-outlined" style="font-size:14px;">refresh</span>Neu laden</button>' +
+        '<div id="eventsListContainer"><div style="color:var(--slate);font-size:13px;padding:20px;text-align:center;">Wird geladen…</div></div>' +
+    '</div>';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    loadEventsIntoList();
+}
+
+async function loadEventsIntoList() {
+    var container = document.getElementById('eventsListContainer');
+    if (!container) return;
+    container.innerHTML = '<div style="color:var(--slate);font-size:13px;padding:20px;text-align:center;">Wird geladen…</div>';
+    try {
+        var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
+        var restId = customer.restaurant_id;
+        if (!restId) {
+            container.innerHTML = '<div style="color:#b91c1c;font-size:13px;">Kein Restaurant verknüpft.</div>';
+            return;
+        }
+        var since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        var url = SUPABASE_URL + '/rest/v1/restaurant_events?restaurant_id=eq.' + encodeURIComponent(restId) +
+            '&created_at=gte.' + encodeURIComponent(since) +
+            '&order=created_at.desc&limit=100&select=*';
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        if (!res.ok) {
+            var msg = res.status === 404 || res.status === 400
+                ? 'Tabelle <code>restaurant_events</code> ist in der Datenbank noch nicht angelegt. SQL siehe Code-Kommentar.'
+                : 'Fehler beim Laden (HTTP ' + res.status + ')';
+            container.innerHTML = '<div style="color:#b91c1c;font-size:13px;padding:14px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">' + msg + '</div>';
+            return;
+        }
+        var events = await res.json();
+        if (!events.length) {
+            container.innerHTML = '<div style="color:var(--slate);font-size:13px;padding:24px;text-align:center;">Keine Ereignisse in den letzten 7 Tagen. 🎉</div>';
+            return;
+        }
+        container.innerHTML = events.map(function(ev) {
+            var isErr = /fail|error|fehler/i.test(ev.type || '');
+            var color = isErr ? '#b91c1c' : '#1e40af';
+            var bg = isErr ? '#fef2f2' : '#eff6ff';
+            var border = isErr ? '#fecaca' : '#bfdbfe';
+            var dt = new Date(ev.created_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+            return '<div style="padding:10px 12px;background:' + bg + ';border:1px solid ' + border + ';border-radius:10px;margin-bottom:8px;">' +
+                '<div style="display:flex;justify-content:space-between;font-size:11px;color:' + color + ';font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' +
+                    '<span>' + _escEventHtml(ev.type || 'event') + '</span>' +
+                    '<span style="color:var(--slate);font-weight:500;letter-spacing:0;text-transform:none;">' + dt + '</span>' +
+                '</div>' +
+                '<div style="font-size:13px;color:var(--text-primary);line-height:1.45;">' + _escEventHtml(ev.message) + '</div>' +
+            '</div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div style="color:#b91c1c;font-size:13px;">Fehler: ' + _escEventHtml(e.message) + '</div>';
     }
 }
 
