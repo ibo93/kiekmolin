@@ -647,7 +647,9 @@ function buildPage(opts) {
     '<meta name="twitter:card" content="summary_large_image">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(opts.title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(opts.description) + '">\n' +
-    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003d33%22/%3E%3Ctext x=%2232%22 y=%2244%22 font-family=%22Arial%22 font-size=%2238%22 font-weight=%22bold%22 fill=%22%23f59e0b%22 text-anchor=%22middle%22%3EK%3C/text%3E%3C/svg%3E">\n' +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
+    '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
+    '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumb) + '</script>\n' +
     (opts.restaurants && opts.restaurants.length ? '<script type="application/ld+json">' + jsonEscape(itemList) + '</script>\n' : '') +
@@ -887,7 +889,9 @@ function generateRestaurantPage(rest, menuItems) {
     '<meta name="twitter:title" content="' + escapeAttr(title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(description) + '">\n' +
     (rest.image ? '<meta name="twitter:image" content="' + escapeAttr(rest.image) + '">\n' : '') +
-    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%23003d33%22/%3E%3Ctext x=%2232%22 y=%2244%22 font-family=%22Arial%22 font-size=%2238%22 font-weight=%22bold%22 fill=%22%23f59e0b%22 text-anchor=%22middle%22%3EK%3C/text%3E%3C/svg%3E">\n' +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
+    '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
+    '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
