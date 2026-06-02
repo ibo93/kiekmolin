@@ -48971,10 +48971,35 @@ function _escEventHtml(s) {
     });
 }
 
+function _resolveEventsRestaurantId() {
+    // 1) Admin-Dashboard-Auswahl bevorzugen (Super-Admins sehen mehrere Restaurants)
+    var sel = document.getElementById('ordersRestaurantSelect');
+    if (sel && sel.value && sel.value !== 'default' && sel.value !== 'all') return sel.value;
+    // 2) Eingeloggter Gastronom (Restaurant-Inhaber)
+    try {
+        var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
+        if (customer.restaurant_id) return customer.restaurant_id;
+    } catch (e) {}
+    // 3) Super-Admin-User mit Restaurant-Verknuepfung
+    try {
+        var u = JSON.parse(localStorage.getItem('kmi_user') || '{}');
+        if (u.restaurantId) return u.restaurantId;
+    } catch (e) {}
+    // 4) Fallback: erstes Restaurant aus APP_DATA
+    try {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants) && APP_DATA.restaurants[0]) {
+            return APP_DATA.restaurants[0].id;
+        }
+    } catch (e) {}
+    return '';
+}
+
 function openEventsModal() {
-    var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
-    var restId = customer.restaurant_id || '';
-    if (!restId) { if (typeof showToast === 'function') showToast('Bitte zuerst einloggen', 'error'); return; }
+    var restId = _resolveEventsRestaurantId();
+    if (!restId) {
+        if (typeof showToast === 'function') showToast('Kein Restaurant ausgewählt. Wähle oben ein Restaurant.', 'error');
+        return;
+    }
 
     var existing = document.getElementById('eventsModalOverlay');
     if (existing) existing.remove();
@@ -49005,8 +49030,7 @@ async function loadEventsIntoList() {
     if (!container) return;
     container.innerHTML = '<div style="color:var(--slate);font-size:13px;padding:20px;text-align:center;">Wird geladen…</div>';
     try {
-        var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
-        var restId = customer.restaurant_id;
+        var restId = _resolveEventsRestaurantId();
         if (!restId) {
             container.innerHTML = '<div style="color:#b91c1c;font-size:13px;">Kein Restaurant verknüpft.</div>';
             return;
