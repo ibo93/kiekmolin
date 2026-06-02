@@ -18128,8 +18128,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <script>
                 document.getElementById('menuScannerBtn2').addEventListener('click', function() {
-                    var modal = document.getElementById('menuScannerModal');
-                    if (modal) { modal.style.display = 'flex'; modal.classList.add('active'); }
+                    // Ueber openMenuScannerModal() damit Tesseract + PDF.js lazy nachgeladen werden
+                    if (typeof openMenuScannerModal === 'function') {
+                        openMenuScannerModal();
+                    } else {
+                        var modal = document.getElementById('menuScannerModal');
+                        if (modal) { modal.style.display = 'flex'; modal.classList.add('active'); }
+                    }
                 });
                 document.getElementById('addCategoryBtn2').addEventListener('click', function() {
                     var modal = document.getElementById('addCategoryModal');
@@ -53488,6 +53493,11 @@ async function handlePdfTextExtract(event) {
     statusMsg.textContent = file.name + ' wird gelesen...';
 
     try {
+        // Defensives Nachladen falls Lazy-Load nicht gefeuert hat
+        if (!window.pdfjsLib && typeof loadOCRLibs === 'function') {
+            statusMsg.textContent = 'PDF-Modul wird geladen...';
+            await new Promise(function(res) { loadOCRLibs(function() { res(); }); });
+        }
         var pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) throw new Error('PDF.js nicht geladen');
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
