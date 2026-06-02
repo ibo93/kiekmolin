@@ -22063,7 +22063,14 @@ function handleRealtimeRestaurant(payload) {
             }
         }
     } else if (type === 'INSERT') {
-        APP_DATA.restaurants.push(data);
+        // Realtime kommt parallel zur lokalen .push() in addRestaurant — Duplikate vermeiden:
+        // wenn die ID schon im Array ist, nur aktualisieren statt nochmal pushen.
+        var existingIdx = APP_DATA.restaurants.findIndex(function(r) { return r.id === data.id; });
+        if (existingIdx === -1) {
+            APP_DATA.restaurants.push(data);
+        } else {
+            APP_DATA.restaurants[existingIdx] = Object.assign(APP_DATA.restaurants[existingIdx], data);
+        }
         if (typeof renderRestaurants === 'function') {
             renderRestaurants();
         }
@@ -30086,7 +30093,8 @@ async function addRestaurant(e) {
         'Norddeich': { lat: 53.6108, lng: 7.1542 },
         'Norden': { lat: 53.5967, lng: 7.2058 },
         'Aurich': { lat: 53.4714, lng: 7.4808 },
-        'Emden': { lat: 53.3594, lng: 7.2060 }
+        'Emden': { lat: 53.3594, lng: 7.2060 },
+        'Carolinensiel': { lat: 53.6973, lng: 7.7942 }
     };
     const coords = cityCoords[city] || { lat: 53.5021, lng: 7.0965 };
 
