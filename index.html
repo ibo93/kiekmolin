@@ -53516,10 +53516,41 @@ async function handlePdfTextExtract(event) {
 
         allText = allText.trim();
 
+        // Fallback: PDF ohne lesbaren Text (z.B. gescannte Speisekarte) -> OCR
         if (allText.length < 20) {
-            // PDF hat keinen Text (z.B. gescanntes Bild-PDF)
-            statusMsg.textContent = 'PDF enthält keinen Text. Nutze stattdessen den Text- oder Foto-Tab.';
-            showToast('PDF enthält keinen lesbaren Text. Bitte Text manuell einfügen oder ein Foto machen.', 'info');
+            statusMsg.textContent = 'PDF enthält keinen Text – wechsle auf OCR (das dauert etwas länger)...';
+            if (typeof Tesseract === 'undefined') {
+                statusMsg.textContent = 'Texterkennung wird noch geladen. Bitte kurz warten und erneut versuchen.';
+                showToast('OCR-Modul wird noch geladen. Bitte kurz warten und erneut versuchen.', 'info');
+                setTimeout(function() { statusDiv.style.display = 'none'; }, 4000);
+                return;
+            }
+            allText = '';
+            for (var op = 1; op <= maxPages; op++) {
+                statusMsg.textContent = 'OCR Seite ' + op + '/' + maxPages + ' (gescannte PDFs sind langsamer)...';
+                var ocrPage = await pdf.getPage(op);
+                // 2x Skalierung -> bessere OCR-Qualitaet bei kleinen Schriften
+                var viewport = ocrPage.getViewport({ scale: 2.0 });
+                var canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                var ctx = canvas.getContext('2d');
+                await ocrPage.render({ canvasContext: ctx, viewport: viewport }).promise;
+                var pageDataUrl = canvas.toDataURL('image/png');
+                try {
+                    var ocrText = await ocrImage(pageDataUrl, statusMsg, op, maxPages);
+                    allText += ocrText + '\n\n';
+                } catch (ocrErr) {
+                    console.warn('OCR Seite ' + op + ' fehlgeschlagen:', ocrErr);
+                }
+            }
+            allText = allText.trim();
+        }
+
+        if (allText.length < 20) {
+            // Auch OCR brachte keinen lesbaren Text
+            statusMsg.textContent = 'Kein Text erkannt — die PDF-Qualitaet ist zu niedrig.';
+            showToast('Kein Text erkannt. Bitte ein klares Foto der Speisekarte machen.', 'info');
             setTimeout(function() { statusDiv.style.display = 'none'; }, 3000);
             return;
         }
