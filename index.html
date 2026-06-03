@@ -1250,18 +1250,7 @@
           <button class="btn-secondary" onclick="openTagesabschluss()" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3a9 9 0 109 9h-2a7 7 0 11-7-7V3zm1 1.05V11h6.95A7.01 7.01 0 0013 4.05zM7 19h10v2H7v-2z"/></svg> Tagesabschluss machen</button>
         </div>
 
-        <div class="kpi-row">
-          <div class="kpi-tile glass">
-            <div class="kpi-tile-head"><div class="kpi-tile-label">Gäste</div><div class="kpi-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg></div></div>
-            <div class="kpi-tile-val" id="kpiGaeste" data-count="87">0</div>
-            <div class="kpi-tile-trend" id="kpiGaesteSub" style="color:var(--text-dim)">heute im Service</div>
-          </div>
-          <div class="kpi-tile glass">
-            <div class="kpi-tile-head"><div class="kpi-tile-label">Bestellungen</div><div class="kpi-tile-icon ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg></div></div>
-            <div class="kpi-tile-val" id="kpiBestell" data-count="142">0</div>
-            <div class="kpi-tile-trend" id="kpiBestellSub" style="color:var(--text-dim)">heute aufgenommen</div>
-          </div>
-        </div>
+        <div class="kpi-row" style="display:none"></div>
 
         <div class="section-h"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> AI-Lab · Weltneuheiten</h2><a onclick="toast('Alle Features aktiv')">Beta</a></div>
         <div class="lab-scroll">
@@ -1886,6 +1875,15 @@
     localStorage.setItem('chef_lager_manual', JSON.stringify(lagerManual));
     localStorage.setItem('chef_lager_edits', JSON.stringify(lagerEdits));
   }
+  function setLagerEk(idx, value){
+    const r = lagerData[idx]; if(!r) return;
+    const v = parseFloat(String(value||'').replace(',', '.'));
+    r.ek = (!isNaN(v) && v >= 0) ? Math.round(v*100)/100 : 0;
+    const ex = lagerEdits[r.name] || {};
+    ex.ek = r.ek; lagerEdits[r.name] = ex;
+    const mi = lagerManual.find(function(m){ return m.name === r.name; }); if(mi) mi.ek = r.ek;
+    persistLager();
+  }
   function refreshLager(){
     const active = document.querySelector('.chip.active');
     renderLager(active ? active.dataset.filter : 'all', document.getElementById('lagerSearch').value);
@@ -1949,7 +1947,7 @@
           : '';
         return `<div class="inv-row" onclick="openLagerItem(${lagerData.indexOf(r)})">
         <div class="inv-emoji">${r.emoji}</div>
-        <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${mhdBadge}${r.loc} · ${r.days}</div></div>
+        <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${mhdBadge}${r.loc} · ${r.days}${r.ek>0?' · EK '+euro(r.ek):''}</div></div>
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${isOrdered?'good':r.status}" style="width:${isOrdered?100:r.pct}%"></div></div></div>
       </div>`;}).join('');
     renderLagerStats();
@@ -1992,10 +1990,6 @@
       <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;padding:0 4px">Trag die Zahlen von heute ein – The Chef rechnet damit und meldet sich passend dazu.</p>
       <div class="onboard-label">Umsatz heute (€)</div>
       <input type="number" class="onboard-input" id="tdUmsatz" min="0" step="1" value="${tagesDaten.umsatz}">
-      <div class="onboard-label">Gäste heute</div>
-      <input type="number" class="onboard-input" id="tdGaeste" min="0" step="1" value="${tagesDaten.gaeste}">
-      <div class="onboard-label">Bestellungen heute</div>
-      <input type="number" class="onboard-input" id="tdBestell" min="0" step="1" value="${tagesDaten.bestellungen}">
       <div class="onboard-label">Marge (%)</div>
       <input type="number" class="onboard-input" id="tdMarge" min="0" max="100" step="0.1" value="${tagesDaten.marge}">
       <div class="onboard-label">Verschwendung (%)</div>
@@ -2006,18 +2000,19 @@
     document.getElementById('sheet').classList.add('show');
   }
   function saveTagesDaten(){
-    const num = (id, max) => {
-      let v = parseFloat(document.getElementById(id).value);
+    const num = (id, fallback, max) => {
+      const el = document.getElementById(id); if(!el) return fallback;
+      let v = parseFloat(el.value);
       if(isNaN(v) || v < 0) v = 0;
       if(max != null && v > max) v = max;
       return v;
     };
     tagesDaten = {
-      umsatz: Math.round(num('tdUmsatz')),
-      gaeste: Math.round(num('tdGaeste')),
-      bestellungen: Math.round(num('tdBestell')),
-      marge: num('tdMarge', 100),
-      muell: num('tdMuell', 100)
+      umsatz: Math.round(num('tdUmsatz', tagesDaten.umsatz||0)),
+      gaeste: Math.round(num('tdGaeste', tagesDaten.gaeste||0)),
+      bestellungen: Math.round(num('tdBestell', tagesDaten.bestellungen||0)),
+      marge: num('tdMarge', tagesDaten.marge||0, 100),
+      muell: num('tdMuell', tagesDaten.muell||0, 100)
     };
     localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
     renderTagesDaten();
@@ -2864,6 +2859,9 @@
           <div class="calc-meta"><div class="calc-meta-l">MHD</div><div class="calc-meta-v" style="font-size:13px;${ms==='expired'?'color:var(--red)':ms==='soon'?'color:var(--orange)':''}">${r.mhd ? fmtMhd(r.mhd) : '–'}</div></div>
         </div>
       </div>
+      <div class="list-card glass" style="margin:14px 0">
+        <div class="setting-row" style="gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:600">Einkaufspreis je Einheit</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">Für Wareneinsatz, Marge & Preis-Wächter.</div></div><div style="display:flex;align-items:center;gap:4px">€ <input type="number" step="0.01" min="0" value="${r.ek||''}" placeholder="0,00" oninput="setLagerEk(${idx},this.value)" style="width:80px;padding:8px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:14px;text-align:right"></div></div>
+      </div>
       ${mhdCard}
       ${lowWarn}
       <div class="section-h"><h2>Verbrauch · 7 Tage</h2></div>
@@ -2991,6 +2989,19 @@
     {name:'Butter',         qty:'2 kg',  price:'€11,80'}
   ];
 
+  function scanEdit(idx, field, value){
+    const it = scanExtracted[idx]; if(!it) return;
+    it[field] = String(value || '');
+    if(field === 'price'){
+      const summe = scanExtracted.reduce(function(s,x){ return s + parsePreis(x.price); }, 0);
+      const el = document.getElementById('scanSumme'); if(el) el.textContent = summe > 0 ? '€ ' + summe.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    }
+  }
+  function scanRemove(idx){
+    scanExtracted.splice(idx, 1);
+    const list = document.getElementById('extractedList');
+    if(list){ const lf = document.getElementById('scanLieferant'); showScanResult(scanExtracted.slice(), lf ? lf.textContent : ''); }
+  }
   function showScanResult(items, lieferant){
     scanExtracted = items.map(it => ({
       name: (it.name || '').toString().trim(),
@@ -3007,10 +3018,15 @@
 
     document.getElementById('extractedList').innerHTML = scanExtracted.map((it,idx)=>{
       const tag = [it.gruppe, it.lager].filter(Boolean).join(' · ');
-      return `<div class="extract-row">
-        <div class="extract-name">${escHtml(it.name)}${tag?`<div style="font-size:11px;color:var(--text-dim);font-weight:500;margin-top:1px">${escHtml(tag)}</div>`:''}</div>
-        <div class="extract-qty">${escHtml(it.qty) || '—'}</div>
-        <div class="extract-price">${escHtml(it.price) || '—'}</div>
+      const inp = 'padding:7px 9px;border-radius:9px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13.5px;width:100%;box-sizing:border-box';
+      return `<div class="extract-row" style="display:block">
+        <input style="${inp};margin-bottom:6px;font-weight:600" value="${escHtml(it.name)}" oninput="scanEdit(${idx},'name',this.value)">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input style="${inp};flex:1.1" placeholder="Menge" value="${escHtml(it.qty)}" oninput="scanEdit(${idx},'qty',this.value)">
+          <input style="${inp};flex:1" placeholder="Preis" value="${escHtml(it.price)}" oninput="scanEdit(${idx},'price',this.value)">
+          <button onclick="scanRemove(${idx})" title="Entfernen" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 6px;line-height:1">×</button>
+        </div>
+        ${tag?`<div style="font-size:11px;color:var(--text-dim);margin-top:5px">${escHtml(tag)}</div>`:''}
       </div>`;
     }).join('');
 
@@ -3259,7 +3275,11 @@
   ];
   let selectedVoiceId = localStorage.getItem('chef_voice_id') || '';
   let voiceQuality = localStorage.getItem('chef_voice_quality') || 'fast';
-  function setVoiceQuality(q){ voiceQuality = (q === 'best' ? 'best' : 'fast'); localStorage.setItem('chef_voice_quality', voiceQuality); toast(voiceQuality === 'best' ? '✓ Beste Qualität (etwas langsamer)' : '✓ Schnell (empfohlen)'); }
+  function setVoiceQuality(q){
+    voiceQuality = (q === 'best' || q === 'flash' || q === 'fast') ? q : 'fast';
+    localStorage.setItem('chef_voice_quality', voiceQuality);
+    toast(voiceQuality === 'best' ? '✓ Beste Qualität · etwas langsamer' : (voiceQuality === 'flash' ? '⚡ Blitzschnell aktiviert' : '✓ Schnell (empfohlen)'));
+  }
   function voiceOptionsHtml(list){
     const opt = v => `<option value="${escHtml(v.id)}"${v.id===selectedVoiceId?' selected':''}>${escHtml(v.name)}</option>`;
     const g = { m:[], f:[], o:[] };
@@ -3983,10 +4003,10 @@
 
     const parts = [];
     parts.push('Hier dein Tagesabschluss, Chef.');
-    if(tagesDaten.umsatz || tagesDaten.gaeste)
-      parts.push('Heute gemacht: ' + kpis.gaeste + ' Gäste, ' + kpis.umsatz + ' Umsatz bei ' + kpis.marge + ' Marge.');
+    if(tagesDaten.umsatz)
+      parts.push('Heute gemacht: ' + kpis.umsatz + ' Umsatz bei ' + kpis.marge + ' Marge.');
     else
-      parts.push('Für heute sind noch keine Umsatz- und Gästezahlen eingetragen.');
+      parts.push('Für heute ist noch kein Umsatz eingetragen.');
     if(soldCount) parts.push('Verkauft und vom Lager abgezogen: ' + soldCount + ' Portionen.');
     if(doneTodos.length) parts.push('Erledigt hast du: ' + doneTodos.map(t=>t.text).join(', ') + '.');
     if(ordered.length) parts.push('Nachbestellt: ' + ordered.join(', ') + '.');
@@ -4044,10 +4064,8 @@
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
       <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Alles in einem Schritt: Zahlen eintragen, HACCP prüfen, speichern – The Chef legt's ins Tagebuch und liest dir's vor.</p>
 
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Umsatz heute (€)</div><input type="number" class="onboard-input" id="taUmsatz" min="0" step="1" value="${tagesDaten.umsatz||''}" placeholder="0"></div>
-        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Gäste heute</div><input type="number" class="onboard-input" id="taGaeste" min="0" step="1" value="${tagesDaten.gaeste||''}" placeholder="0"></div>
-      </div>
+      <div class="onboard-label" style="margin-top:0">Umsatz heute (€)</div>
+      <input type="number" class="onboard-input" id="taUmsatz" min="0" step="1" value="${tagesDaten.umsatz||''}" placeholder="0" style="margin-bottom:10px">
 
       <div class="list-card glass" style="margin-bottom:12px"><div class="inv-row" style="cursor:default">
         <div class="inv-emoji" style="background:${hac>=HACCP_ZONES.length?'rgba(34,197,94,0.14)':'rgba(245,158,11,0.14)'};color:${hac>=HACCP_ZONES.length?'var(--green)':'var(--orange)'}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M12 2a3 3 0 00-3 3v8.1a5 5 0 103.99 0V5a3 3 0 00-3-3z"/></svg></div>
@@ -4065,8 +4083,6 @@
         <div class="calc-result-val">${t.kpis.umsatz}</div>
         <div class="calc-meta-row">
           <div class="calc-meta"><div class="calc-meta-l">Marge</div><div class="calc-meta-v">${t.kpis.marge}</div></div>
-          <div class="calc-meta"><div class="calc-meta-l">Gäste</div><div class="calc-meta-v">${t.kpis.gaeste}</div></div>
-          <div class="calc-meta"><div class="calc-meta-l">Bestellungen</div><div class="calc-meta-v">${t.kpis.bestellungen}</div></div>
         </div>
       </div>
 
@@ -4282,8 +4298,8 @@
         <div id="eyeCamHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-dim);font-size:13px;padding:24px;line-height:1.5">Kamera wird gestartet … bitte „Erlauben" tippen.</div>
         <button id="eyeShutterBtn" onclick="eyeShutter()" style="display:none;position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.45);box-shadow:0 4px 18px rgba(0,0,0,.5);cursor:pointer"></button>
       </div>
-      <input type="file" id="eyeFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onEyeFile(event)">
-      <button class="btn-secondary" onclick="document.getElementById('eyeFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen / aus Galerie</button>
+      <input type="file" id="eyeFile" accept="image/*,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onEyeFile(event)">
+      <button class="btn-primary" onclick="document.getElementById('eyeFile').click()" style="margin-bottom:8px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zm2 4h4v6H7V9zm6 0h6v3h-6V9zm0 4h6v2h-6v-2z"/></svg> Foto / PDF aus Galerie wählen</button>
       <div id="eyeStatus" style="font-size:13px;color:var(--text-dim);padding:12px 4px 0;line-height:1.5"></div>
       <div id="eyeResult" style="margin-top:14px"></div>
     `;
@@ -4306,10 +4322,10 @@
   function eyeShutter(){
     const video = document.getElementById('eyeVideo');
     if(!video || !video.videoWidth){ toast('Kamera noch nicht bereit'); return; }
-    const w = video.videoWidth, h = video.videoHeight, scale = Math.min(1, 1568 / Math.max(w, h));
+    const w = video.videoWidth, h = video.videoHeight, scale = Math.min(1, 2400 / Math.max(w, h));
     const cv = document.createElement('canvas'); cv.width = Math.round(w*scale); cv.height = Math.round(h*scale);
     cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
-    const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+    const dataUrl = cv.toDataURL('image/jpeg', 0.9);
     stopEyeCam(); if(video) video.style.display = 'none';
     const sh = document.getElementById('eyeShutterBtn'); if(sh) sh.style.display = 'none';
     const hint = document.getElementById('eyeCamHint'); if(hint){ hint.style.display = 'flex'; hint.textContent = 'The Chef schaut sich das an …'; }
@@ -4319,7 +4335,7 @@
     const file = e.target.files && e.target.files[0]; if(!file) return; e.target.value = '';
     stopEyeCam();
     const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das Bild an …';
-    chefResizeImage(file, 1568, 0.8).then(function(img){ eyeProcess(img.base64, img.mediaType); })
+    chefFileForUpload(file, 2400, 0.9).then(function(img){ eyeProcess(img.base64, img.mediaType); })
       .catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
   }
   async function eyeProcess(base64, mediaType){
@@ -4343,7 +4359,8 @@
       if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel.';
       spoken = items.length ? ('Ich sehe einen Lieferschein mit ' + items.length + ' Artikeln. Soll ich sie ins Lager buchen?') : 'Das sieht aus wie ein Beleg, aber ich konnte keine Artikel lesen.';
       scanExtracted = items;
-      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + escHtml(it.qty||'') + (it.price?' · '+escHtml(it.price):'') + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
+      const inp = 'padding:7px 9px;border-radius:9px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13.5px;width:100%;box-sizing:border-box';
+      out.innerHTML = items.map(function(it, idx){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="list-card glass" style="margin-bottom:8px;padding:10px"><input style="'+inp+';margin-bottom:6px;font-weight:600" value="'+escHtml(it.name)+'" oninput="scanEdit('+idx+',\'name\',this.value)"><div style="display:flex;gap:6px;align-items:center"><input style="'+inp+';flex:1.1" placeholder="Menge" value="'+escHtml(it.qty||'')+'" oninput="scanEdit('+idx+',\'qty\',this.value)"><input style="'+inp+';flex:1" placeholder="Preis" value="'+escHtml(it.price||'')+'" oninput="scanEdit('+idx+',\'price\',this.value)"><button onclick="scanRemove('+idx+');eyeRender({kind:\'beleg\',lieferant:'+JSON.stringify(data.lieferant||'')+',items:scanExtracted})" title="Entfernen" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 6px;line-height:1">×</button></div>'+(tag?'<div style="font-size:11px;color:var(--text-dim);margin-top:5px">'+escHtml(tag)+'</div>':'')+'</div>'; }).join('') + (items.length ? '<button class="btn-primary" style="margin-top:6px" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
     } else if(data.kind === 'lager'){
       const items = data.items || [];
       if(status) status.textContent = 'Erkannt: Regal/Lager – ' + items.length + ' Produkte.';
@@ -4661,7 +4678,22 @@
   }
 
   // ===== HACCP · echte, speicherbare Temperatur- & Reinigungs-Doku =====
-  const HACCP_ZONES = ['Kühlhaus 1','Kühlhaus 2','Tiefkühl','Frittenbad','Salatbar','Warmtheke'];
+  let HACCP_ZONES = (function(){ try{ const s = JSON.parse(localStorage.getItem('chef_haccp_zones')||'null'); if(Array.isArray(s) && s.length) return s; }catch(e){} return ['Kühlhaus 1','Kühlhaus 2','Tiefkühl','Frittenbad','Salatbar','Warmtheke']; })();
+  function saveHaccpZones(){ localStorage.setItem('chef_haccp_zones', JSON.stringify(HACCP_ZONES)); }
+  function addHaccpZone(){
+    const n = prompt('Name des Geräts / der Zone (z.B. „Kühlhaus 3", „Pizzaofen")');
+    if(!n) return;
+    const v = n.trim().slice(0, 40);
+    if(!v) return;
+    if(HACCP_ZONES.indexOf(v) !== -1){ toast('Schon vorhanden'); return; }
+    HACCP_ZONES.push(v); saveHaccpZones(); openHaccp(); toast('✓ ' + v + ' hinzugefügt');
+  }
+  function removeHaccpZone(z){
+    if(!confirm('Gerät „' + z + '" entfernen?')) return;
+    HACCP_ZONES = HACCP_ZONES.filter(function(x){ return x !== z; });
+    if(haccpData.temps[z]) { delete haccpData.temps[z]; saveHaccp(); }
+    saveHaccpZones(); openHaccp(); toast('✓ ' + z + ' entfernt');
+  }
   const HACCP_TASKS = ['Arbeitsflächen Küche','Toiletten','Kühlhäuser-Check','Frittierfett wechseln','Endreinigung Küche'];
   let haccpData = (function(){ try{ const s=JSON.parse(localStorage.getItem('chef_haccp')||'null'); if(s&&typeof s==='object') return { temps:s.temps||{}, tasks:s.tasks||{} }; }catch(e){} return { temps:{}, tasks:{} }; })();
   function saveHaccp(){ localStorage.setItem('chef_haccp', JSON.stringify(haccpData)); }
@@ -4673,7 +4705,8 @@
       const meta = rec ? ('zuletzt: '+escHtml(String(rec.v))+' °C · '+haccpTime(rec.ts)) : 'noch nicht erfasst';
       const cam = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg>';
       const mic = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg>';
-      return '<div class="inv-row" style="cursor:default"><div style="flex:1;min-width:0"><div class="inv-name">'+escHtml(z)+'</div><div class="inv-meta">'+meta+'</div></div><div class="inv-right" style="display:flex;gap:5px;align-items:center"><input type="number" step="0.1" id="hac'+i+'" placeholder="°C" style="width:50px;padding:8px 6px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13px"><button class="ai-btn ai-btn-ok" style="padding:6px 9px" onclick="haccpSaveTemp('+i+')">OK</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Foto vom Thermometer" onclick="haccpPhoto('+i+')">'+cam+'</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Wert einsprechen" onclick="haccpVoice('+i+')">'+mic+'</button></div></div>';
+      const safeZ = z.replace(/'/g, "\\'");
+      return '<div class="inv-row" style="cursor:default"><div style="flex:1;min-width:0"><div class="inv-name">'+escHtml(z)+' <button onclick="removeHaccpZone(\''+safeZ+'\')" title="Gerät entfernen" style="background:none;border:none;color:var(--text-faint);font-size:14px;cursor:pointer;padding:0 4px;margin-left:2px">✕</button></div><div class="inv-meta">'+meta+'</div></div><div class="inv-right" style="display:flex;gap:5px;align-items:center"><input type="number" step="0.1" id="hac'+i+'" placeholder="°C" style="width:50px;padding:8px 6px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13px"><button class="ai-btn ai-btn-ok" style="padding:6px 9px" onclick="haccpSaveTemp('+i+')">OK</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Foto vom Thermometer" onclick="haccpPhoto('+i+')">'+cam+'</button><button class="ai-btn ai-btn-skip" style="padding:6px 8px" title="Wert einsprechen" onclick="haccpVoice('+i+')">'+mic+'</button></div></div>';
     }).join('');
     const taskRows = HACCP_TASKS.map(function(t,i){
       const rec = haccpData.tasks[t]; const done = rec && rec.done;
@@ -4691,7 +4724,8 @@
       <input type="file" id="haccpPhotoFile" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onHaccpPhotoFile(event)">
       <div class="section-h"><h2>Temperaturen</h2></div>
       <p style="font-size:11.5px;color:var(--text-faint);margin:-2px 4px 8px">Tippen, Foto vom Thermometer (Kamera-Symbol) oder Wert einsprechen (Mikrofon).</p>
-      <div class="list-card glass" style="margin-bottom:14px">${tempRows}</div>
+      <div class="list-card glass" style="margin-bottom:8px">${tempRows}</div>
+      <button class="btn-secondary" onclick="addHaccpZone()" style="margin-bottom:14px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 5v6H5v2h6v6h2v-6h6v-2h-6V5z"/></svg> Gerät / Zone hinzufügen</button>
       <div class="section-h"><h2>Reinigungsplan</h2></div>
       <div class="list-card glass" style="margin-bottom:14px">${taskRows}</div>
       <button class="btn-secondary" onclick="printHaccp()">Als PDF / Drucken</button>
@@ -5166,7 +5200,8 @@
       <select class="onboard-input" id="voiceSelect" onchange="selectVoice(this.value)" style="margin-bottom:8px">${voiceOptionsHtml(VOICE_PRESETS)}</select>
       <div class="onboard-label" style="margin-top:4px">Sprach-Modus</div>
       <select class="onboard-input" id="voiceQualitySel" onchange="setVoiceQuality(this.value)" style="margin-bottom:8px">
-        <option value="fast"${voiceQuality!=='best'?' selected':''}>Schnell (empfohlen)</option>
+        <option value="flash"${voiceQuality==='flash'?' selected':''}>Blitzschnell · Flash (~75 ms)</option>
+        <option value="fast"${voiceQuality==='fast'?' selected':''}>Schnell (empfohlen)</option>
         <option value="best"${voiceQuality==='best'?' selected':''}>Beste Qualität · etwas langsamer</option>
       </select>
       <button class="btn-secondary" onclick="testVoice()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 1.2v2.1a7 7 0 010 13.4v2.1a9 9 0 000-17.6z"/></svg> Stimme anhören</button>
@@ -5234,7 +5269,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
