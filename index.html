@@ -5420,7 +5420,15 @@
     const m = String(str||'').replace(',', '.').match(/(-?\d+(?:\.\d+)?)\s*([^\d\s,]+)?/);
     if(!m) return null;
     const rawUnit = (m[2]||'').trim();
-    return { num: parseFloat(m[1]), unit: rawUnit.toLowerCase().replace(/\./g,''), rawUnit: rawUnit };
+    const u = rawUnit.toLowerCase().replace(/\./g,'').replace(/ü/g,'u');
+    const map = {
+      kg:'kg', kgs:'kg', kilo:'kg', kilos:'kg', kilogramm:'kg', kilogramme:'kg',
+      g:'g', gr:'g', gramm:'g', gramme:'g',
+      l:'l', ltr:'l', liter:'l', litre:'l', litres:'l',
+      ml:'ml', milliliter:'ml', millilitre:'ml'
+    };
+    const unit = map[u] || u;
+    return { num: parseFloat(m[1]), unit: unit, rawUnit: rawUnit };
   }
   function qtyBase(q){
     if(!q) return null;
