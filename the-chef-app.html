@@ -5648,6 +5648,8 @@
       <div style="margin-top:8px"></div>
       <button class="btn-secondary" onclick="openEinkaufsliste()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 18a2 2 0 11-.001 4.001A2 2 0 017 18zm10 0a2 2 0 11-.001 4.001A2 2 0 0117 18zM7.16 14l1.4-2H17a1 1 0 00.9-.55l3-6A1 1 0 0020 4H5.2L4.27 2H1v2h2l3.6 7.6L5.25 14a1 1 0 00.85 1.5H19v-2H7.16z"/></svg> Einkaufsliste aus Karte</button>
       <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="printAllergenMenu()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg> Speisekarte als PDF (mit Allergenen)</button>
+      <div style="margin-top:8px"></div>
       <button class="btn-secondary" onclick="openRezeptEditor(null)">+ Neues Rezept</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
@@ -5768,6 +5770,74 @@
   }
   function waEinkauf(){ const t = einkaufText(); window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); }
   function copyEinkauf(){ const t = einkaufText(); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Liste kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t); }
+
+  // ===== Allergen-Speisekarte (DE-Kennzeichnungspflicht, A–N + R) =====
+  const ALLERGEN_KEYWORDS = {
+    A: ['mehl','weizen','roggen','gerste','hafer','brot','panade','nudel','pasta','brötchen','pizza','teig','crouton','keks','biskuit','löffelbiskuit','baguette','dinkel','grieß'],
+    B: ['garnele','krabbe','hummer','languste','shrimp','scampi'],
+    C: ['ei ','eier','rührei','panade','mayonnaise'],
+    D: ['lachs','thunfisch','kabeljau','hering','sardine','fisch','dorade','seelachs','forelle','barsch','makrele','anchovi','sardelle'],
+    E: ['erdnuss','peanut'],
+    F: ['soja','tofu','edamame'],
+    G: ['milch','sahne','butter','käse','joghurt','quark','mozzarella','mascarpone','parmesan','feta','gouda','schmand','crème','creme fraiche','crème fraîche','laktose'],
+    H: ['mandel','haselnuss','walnuss',' nuss','pistazie','cashew','pekan','macadamia','paranuss'],
+    L: ['sellerie'],
+    M: ['senf'],
+    N: ['sesam','tahini'],
+    O: ['wein','sulfit','prosecco','sekt'],
+    P: ['lupine'],
+    R: ['muschel','oktopus','tintenfisch','calamari','venusmuschel','jakobsmuschel']
+  };
+  const ALLERGEN_LABELS = {
+    A:'Glutenhaltiges Getreide', B:'Krebstiere', C:'Eier', D:'Fisch', E:'Erdnüsse',
+    F:'Sojabohnen', G:'Milch (Laktose)', H:'Schalenfrüchte', L:'Sellerie', M:'Senf',
+    N:'Sesamsamen', O:'Schwefeldioxid / Sulfite', P:'Lupinen', R:'Weich-/Schalentiere'
+  };
+  function detectAllergens(recipe){
+    const text = ' ' + (recipe.ingredients||[]).map(function(i){ return String(i[0]||''); }).join(' ').toLowerCase() + ' ';
+    const found = [];
+    Object.keys(ALLERGEN_KEYWORDS).forEach(function(code){
+      if(ALLERGEN_KEYWORDS[code].some(function(kw){ return text.indexOf(kw.toLowerCase()) !== -1; })) found.push(code);
+    });
+    return found;
+  }
+  function recipeCategory(r){
+    const i = (r && r.icon) || 'custom';
+    if(i === 'salat' || i === 'tomate') return 'Vorspeisen / Salate / Suppen';
+    if(i === 'dessert') return 'Desserts';
+    if(i === 'kaffee') return 'Getränke';
+    return 'Hauptgerichte';
+  }
+  function buildAllergenMenuHTML(){
+    const cats = {};
+    Object.keys(recipes).forEach(function(name){
+      const r = recipes[name]; const c = recipeCategory(r);
+      (cats[c] = cats[c] || []).push({ name: name, r: r, allergens: detectAllergens(r) });
+    });
+    const order = ['Vorspeisen / Salate / Suppen','Hauptgerichte','Desserts','Getränke'];
+    let html = '<h1>' + escHtml(chefProfile.name || 'Speisekarte') + '</h1>';
+    html += '<div class="muted">Stand: ' + new Date().toLocaleDateString('de-DE') + '</div>';
+    let any = false;
+    order.forEach(function(cat){
+      const list = cats[cat]; if(!list || !list.length) return;
+      any = true;
+      html += '<h2>' + cat + '</h2>';
+      list.forEach(function(d){
+        const a = d.allergens.length ? ' <span class="muted">(' + d.allergens.join(', ') + ')</span>' : '';
+        html += '<div class="row"><div style="flex:1"><strong>' + escHtml(d.name) + '</strong>' + a + '</div><div>' + euro(d.r.vk || 0) + '</div></div>';
+      });
+    });
+    if(!any) html += '<p class="muted">Noch keine Rezepte angelegt.</p>';
+    html += '<h2>Allergen-Hinweise (gem. LMIV)</h2>';
+    Object.keys(ALLERGEN_LABELS).forEach(function(code){
+      html += '<div class="row"><div style="width:40px"><strong>' + code + '</strong></div><div>' + ALLERGEN_LABELS[code] + '</div></div>';
+    });
+    html += '<p class="muted" style="margin-top:14px">Die Allergen-Zuordnung wird aus den hinterlegten Zutaten automatisch abgeleitet. Bitte vor Druck prüfen und bei Bedarf manuell ergänzen.</p>';
+    return html;
+  }
+  function printAllergenMenu(){
+    printDoc('Speisekarte – ' + (chefProfile.name || 'The Chef'), buildAllergenMenuHTML());
+  }
   function openKalkulator(name){
     const r = recipes[name];
     const titleSvg = RECIPE_ICONS.custom + ' ';
