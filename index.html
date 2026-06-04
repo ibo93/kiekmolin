@@ -5382,8 +5382,21 @@
   function saveRecipes(){ localStorage.setItem('chef_recipes', JSON.stringify(recipes)); }
   function recipeIcon(r){ return RECIPE_ICONS[(r && r.icon) || 'custom'] || RECIPE_ICONS.custom; }
   function recipeGrad(r){ return (r && r.grad) || 'linear-gradient(135deg,#3a4a44,#7a9b8e)'; }
+  // Wareneinsatz pro Zutat: explizit gesetzt > 0 gewinnt; sonst aus dem EK
+  // des passenden Lagerartikels abgeleitet (€/Lagereinheit * Verbrauch).
+  function ingredientCost(ing){
+    const explicit = Number(ing && ing[3]);
+    if(!isNaN(explicit) && explicit > 0) return explicit;
+    const useQ = parseQty(ing && ing[1]); if(!useQ || !(useQ.num > 0)) return 0;
+    const hits = findLagerItems(ing && ing[0]); const item = hits && hits[0]; if(!item || !(item.ek > 0)) return 0;
+    const cur = parseQty(item.amount); if(!cur || !(cur.num > 0)) return 0;
+    const useB = qtyBase(useQ), curB = qtyBase(cur);
+    if(!useB || !curB || useB.base !== curB.base) return 0;
+    const usageInItemUnit = fromBase(useB.n, cur);
+    return Math.round(item.ek * usageInItemUnit * 100) / 100;
+  }
   function recipeMarge(r){
-    const cost = r.ingredients.reduce((s,i)=>s+(Number(i[3])||0),0);
+    const cost = r.ingredients.reduce((s,i)=>s+ingredientCost(i),0);
     const vkNetto = r.vk / (1 + r.mwst/100);
     const rohertrag = vkNetto - cost;
     return { cost, vkNetto, rohertrag, marge: vkNetto>0 ? (rohertrag/vkNetto)*100 : 0 };
@@ -6106,19 +6119,36 @@
       const d = await r.json();
       if(!d || !Array.isArray(d.events) || !d.events.length) return;
       let lastTs = since, totalSale = 0, sales = 0;
+      let bookedItems = 0; const bookedCounts = {};
       d.events.forEach(function(e){
         if(e.ts > lastTs) lastTs = e.ts;
         if(e.type === 'sale' && e.data){
           const u = parseFloat(e.data.umsatz);
           if(!isNaN(u) && u > 0){ totalSale += u; sales++; }
+          if(Array.isArray(e.data.items)){
+            e.data.items.forEach(function(it){
+              const key = (typeof matchRecipeName === 'function') ? matchRecipeName(String(it && it.name || '')) : null;
+              const qty = parseInt(it && it.qty, 10) || 1;
+              if(key && recipes[key] && qty > 0){
+                sellDish(key, qty);
+                bookedCounts[key] = (bookedCounts[key]||0) + qty;
+                bookedItems += qty;
+              }
+            });
+          }
         }
       });
+      if(bookedItems > 0){
+        persistLager(); refreshLager();
+        logVerkauf(bookedCounts, 0);
+        logActivity('<strong>Kasse</strong> – ' + bookedItems + ' Portion(en) live vom Lager abgezogen', 'cart');
+      }
       if(totalSale > 0){
         tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + totalSale);
         localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
         renderTagesDaten();
         logActivity('<strong>Kasse</strong> – ' + sales + ' Event(s), +' + euro(Math.round(totalSale)) + ' Umsatz', 'chart');
-        toast('Kasse: +' + euro(Math.round(totalSale)));
+        toast('Kasse: +' + euro(Math.round(totalSale)) + (bookedItems?' · '+bookedItems+' Portion(en) abgezogen':''));
       }
       localStorage.setItem('chef_pos_since', String(lastTs));
     } catch(e){}
