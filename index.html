@@ -3542,7 +3542,8 @@
       if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
       if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
       if(/verkauf|buchen/.test(q)) return go(openVerkauf, 'Verkauf buchen');
-      if(/nachbestell|bestell-?liste|einkaufsliste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
+      if(/nachbestell|bestell-?liste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
+      if(/einkaufsliste|einkaufen|waren\s*liste|speisekarten?-?liste/.test(q)) return go(openEinkaufsliste, 'Einkaufsliste');
       if(/beleg|scan/.test(q)) return go(function(){ navTo('scan'); }, 'Beleg-Scan');
       if(/einstellung|profil|chef.?brain|stil/.test(q)) return go(openSettings, 'Einstellungen');
       if(/lager|bestand/.test(q)) return go(function(){ navTo('lager'); }, 'Lager');
@@ -5305,7 +5306,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones','chef_pos_token','chef_pos_since'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones','chef_pos_token','chef_pos_since','chef_einkauf_portions'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
@@ -5643,6 +5644,8 @@
       <input type="file" id="menuScanFile" accept="image/*,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none" onchange="onMenuScanFile(event)">
       <button class="btn-primary" onclick="scanMenu()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Speisekarte scannen</button>
       <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="openEinkaufsliste()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 18a2 2 0 11-.001 4.001A2 2 0 017 18zm10 0a2 2 0 11-.001 4.001A2 2 0 0117 18zM7.16 14l1.4-2H17a1 1 0 00.9-.55l3-6A1 1 0 0020 4H5.2L4.27 2H1v2h2l3.6 7.6L5.25 14a1 1 0 00.85 1.5H19v-2H7.16z"/></svg> Einkaufsliste aus Karte</button>
+      <div style="margin-top:8px"></div>
       <button class="btn-secondary" onclick="openRezeptEditor(null)">+ Neues Rezept</button>
     `;
     document.getElementById('sheetOverlay').classList.add('show');
@@ -5693,8 +5696,76 @@
     logBook('Speisekarte gescannt: ' + (neu+upd) + ' Gerichte als Rezepte übernommen (' + neu + ' neu).', 'chart');
     _menuDishes = [];
     toast('✓ ' + neu + ' neu, ' + upd + ' aktualisiert');
-    openRezepte();
+    openEinkaufsliste();
   }
+
+  // ===== Einkaufsliste · summiert Zutaten aller Rezepte für X Portionen =====
+  function buildShoppingFromRecipes(portionsPerDish){
+    const p = Math.max(1, Math.round(Number(portionsPerDish)||10));
+    const agg = {};
+    Object.keys(recipes).forEach(function(dish){
+      const r = recipes[dish];
+      (r.ingredients||[]).forEach(function(ing){
+        const name = String(ing[0]||'').trim(); if(!name) return;
+        const k = name.toLowerCase();
+        const slot = agg[k] || (agg[k] = { name: name, byBase: { g:0, ml:0, st:0 }, count: 0, dishes: [] });
+        if(slot.dishes.indexOf(dish) === -1) slot.dishes.push(dish);
+        slot.count++;
+        const q = parseQty(ing[1]); if(!q || !(q.num > 0)) return;
+        const b = qtyBase(q); if(!b) return;
+        slot.byBase[b.base] = (slot.byBase[b.base]||0) + b.n * p;
+      });
+    });
+    function fmt(base, n){
+      if(base === 'g')  return n >= 1000 ? (Math.round(n/100)/10).toString().replace('.',',') + ' kg' : Math.round(n) + ' g';
+      if(base === 'ml') return n >= 1000 ? (Math.round(n/100)/10).toString().replace('.',',') + ' L' : Math.round(n) + ' ml';
+      return Math.round(n) + ' Stk';
+    }
+    const items = Object.keys(agg).map(function(k){
+      const a = agg[k];
+      const parts = ['g','ml','st'].filter(function(b){ return a.byBase[b] > 0; }).map(function(b){ return fmt(b, a.byBase[b]); });
+      let qty = parts.join(' + ');
+      if(!qty) qty = '× ' + a.count + ' (Menge nicht angegeben)';
+      return { name: a.name, qty: qty, dishes: a.dishes };
+    }).sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+    return { items: items, portions: p };
+  }
+  function openEinkaufsliste(){
+    const portions = Number(localStorage.getItem('chef_einkauf_portions')||'10') || 10;
+    const list = buildShoppingFromRecipes(portions);
+    const rows = list.items.map(function(it){
+      return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">'+ITEM_SVG+'</div><div><div class="inv-name">'+escHtml(it.name)+'</div><div class="inv-meta">'+escHtml(it.qty)+' · für '+it.dishes.length+' Gericht'+(it.dishes.length===1?'':'e')+'</div></div></div>';
+    }).join('');
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 18a2 2 0 11-.001 4.001A2 2 0 017 18zm10 0a2 2 0 11-.001 4.001A2 2 0 0117 18zM7.16 14l1.4-2H17a1 1 0 00.9-.55l3-6A1 1 0 0020 4H5.2L4.27 2H1v2h2l3.6 7.6L5.25 14a1 1 0 00.85 1.5H19v-2H7.16z"/></svg> Einkaufsliste';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="openRezepte()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Was du brauchst, um deine ganze Karte ${list.portions}× pro Gericht zu kochen – Zutaten aller Rezepte zusammengezählt.</p>
+      <div class="onboard-label" style="margin-top:0">Portionen je Gericht</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+        <input type="number" id="einkaufP" min="1" step="1" value="${list.portions}" class="onboard-input" style="flex:1;margin-bottom:0">
+        <button class="ai-btn ai-btn-ok" style="padding:9px 14px" onclick="changeEinkaufPortions()">Neu rechnen</button>
+      </div>
+      ${list.items.length ? `<div class="list-card glass" style="margin-bottom:14px">${rows}</div>
+        <button class="btn-primary" onclick="waEinkauf()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 00-8.6 15l-1.3 4.8 5-1.3A10 10 0 1012 2zm5.6 14.2c-.2.7-1.4 1.3-1.9 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.6-.6-2.9-1.3-4.7-4.2-4.9-4.4-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.5c-.2.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.6-.1l1.9.9c.3.1.4.2.5.3.1.2.1.7-.1 1.2z"/></svg> Per WhatsApp senden</button>
+        <div style="margin-top:8px"></div>
+        <button class="btn-secondary" onclick="copyEinkauf()">Liste kopieren</button>` : '<div class="ai-card glass"><div class="ai-title">Noch keine Rezepte</div><div style="font-size:13px;color:var(--text-dim);padding:6px 0;line-height:1.5">Scanne deine Speisekarte (Rezepte → „Speisekarte scannen") oder leg ein Rezept an, damit The Chef die Einkaufsliste daraus bauen kann.</div></div>'}
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function changeEinkaufPortions(){
+    const el = document.getElementById('einkaufP'); if(!el) return;
+    const v = parseInt(el.value, 10);
+    if(!isNaN(v) && v > 0){ localStorage.setItem('chef_einkauf_portions', String(v)); openEinkaufsliste(); }
+  }
+  function einkaufText(){
+    const portions = Number(localStorage.getItem('chef_einkauf_portions')||'10') || 10;
+    const list = buildShoppingFromRecipes(portions);
+    const head = 'Einkaufsliste – ' + (chefProfile.name || 'The Chef') + ' (' + portions + ' Portionen je Gericht):\n\n';
+    return head + list.items.map(function(it){ return '• ' + it.name + ': ' + it.qty; }).join('\n');
+  }
+  function waEinkauf(){ const t = einkaufText(); window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); }
+  function copyEinkauf(){ const t = einkaufText(); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Liste kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t); }
   function openKalkulator(name){
     const r = recipes[name];
     const titleSvg = RECIPE_ICONS.custom + ' ';
