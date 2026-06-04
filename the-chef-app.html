@@ -2104,7 +2104,45 @@
   }
 
   // ===== Auto-Nachbestell-Liste · gruppiert nach Lieferant =====
+  // ===== Lieferanten-Adressbuch (Name, Telefon, E-Mail) =====
+  let lieferantenDB = (function(){ try{ const s = JSON.parse(localStorage.getItem('chef_lieferanten')||'null'); if(Array.isArray(s)) return s; }catch(e){} return []; })();
+  function saveLieferanten(){ localStorage.setItem('chef_lieferanten', JSON.stringify(lieferantenDB)); }
+  function addLieferantPrompt(){
+    const name = prompt('Lieferanten-Name (z.B. „Metro Emden")'); if(!name || !name.trim()) return;
+    const phone = (prompt('WhatsApp-Telefon mit Ländervorwahl (z.B. +49 173 1234567)') || '').replace(/[^0-9+]/g,'');
+    const email = (prompt('E-Mail (optional)') || '').trim();
+    const id = 'l_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
+    lieferantenDB.push({ id: id, name: name.trim().slice(0,50), phone: phone.slice(0,20), email: email.slice(0,80) });
+    saveLieferanten(); toast('✓ Lieferant gespeichert'); openSettings();
+  }
+  function removeLieferantPrompt(id){
+    const l = lieferantenDB.find(function(x){ return x.id === id; }); if(!l) return;
+    if(!confirm('Lieferant „' + l.name + '" entfernen?')) return;
+    lieferantenDB = lieferantenDB.filter(function(x){ return x.id !== id; });
+    saveLieferanten(); openSettings();
+  }
+  function setLagerSupplier(idx, id){
+    const r = lagerData[idx]; if(!r) return;
+    r.supplier = id || '';
+    const ex = lagerEdits[r.name] || {}; ex.supplier = r.supplier; lagerEdits[r.name] = ex;
+    const mi = lagerManual.find(function(m){ return m.name === r.name; }); if(mi) mi.supplier = r.supplier;
+    persistLager();
+  }
+  function lieferantPhoneFor(group){
+    const named = lieferantenDB.find(function(x){ return x.name.toLowerCase() === String(group.lieferant||'').toLowerCase(); });
+    if(named && named.phone) return named.phone;
+    const first = group.items && group.items[0]; if(first && first.supplier){
+      const l = lieferantenDB.find(function(x){ return x.id === first.supplier; });
+      if(l && l.phone) return l.phone;
+    }
+    return '';
+  }
+
   function lieferantFor(r){
+    if(r.supplier){
+      const l = lieferantenDB.find(function(x){ return x.id === r.supplier; });
+      if(l) return l.name;
+    }
     const loc = (r.loc||'').toLowerCase();
     const n = (r.name||'').toLowerCase();
     if(loc.indexOf('fisch')>-1 || /lachs|dorade|fisch|garnele/.test(n)) return 'Frische Fisch Friesland';
@@ -2140,7 +2178,8 @@
   // 1-Klick: Bestelltext direkt in WhatsApp öffnen (Kontakt wählt der Wirt)
   function waOrder(idx){
     const g = buildNachbestellListe()[idx]; if(!g) return;
-    const url = 'https://wa.me/?text=' + encodeURIComponent(bestelltext(g));
+    const phone = lieferantPhoneFor(g).replace(/[^0-9]/g, '');
+    const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(bestelltext(g));
     window.open(url, '_blank');
     logActivity('<strong>' + g.lieferant + '</strong> – Bestellung über WhatsApp geöffnet', 'cart');
   }
@@ -2885,6 +2924,8 @@
       <div class="list-card glass" style="margin:14px 0">
         <div class="setting-row" style="gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:600">Einkaufspreis je Einheit</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">Für Wareneinsatz, Marge & Preis-Wächter.</div></div><div style="display:flex;align-items:center;gap:4px">€ <input type="number" step="0.01" min="0" value="${r.ek||''}" placeholder="0,00" oninput="setLagerEk(${idx},this.value)" style="width:80px;padding:8px;border-radius:10px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:14px;text-align:right"></div></div>
       </div>
+      <div class="onboard-label" style="margin-top:0">Lieferant</div>
+      <select class="onboard-input" onchange="setLagerSupplier(${idx}, this.value)" style="margin-bottom:14px"><option value="">— nicht zugeordnet —</option>${lieferantenDB.map(function(l){ return '<option value="'+escHtml(l.id)+'"'+(r.supplier===l.id?' selected':'')+'>'+escHtml(l.name)+'</option>'; }).join('')}</select>
       ${mhdCard}
       ${lowWarn}
       <div class="section-h"><h2>Verbrauch · 7 Tage</h2></div>
@@ -5257,6 +5298,10 @@
       <button class="btn-secondary" onclick="posTest()" style="margin-bottom:6px">Test-Event senden (12,50 €)</button>
       <p style="font-size:11px;color:var(--text-faint);margin:4px 2px 16px;line-height:1.5">JSON-Schema: <code style="font-size:10.5px;background:var(--brand-tint);padding:1px 4px;border-radius:4px">POST {"type":"sale","data":{"umsatz":12.50}}</code> – pro Event wird der Tagesumsatz live aktualisiert.</p>
 
+      <div class="section-h"><h2>Lieferanten · Adressbuch</h2></div>
+      <div class="list-card glass" style="margin-bottom:8px">${lieferantenDB.length ? lieferantenDB.map(function(l){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div><div style="flex:1;min-width:0"><div class="inv-name">'+escHtml(l.name)+'</div><div class="inv-meta">'+escHtml(l.phone||'kein Telefon')+(l.email?' · '+escHtml(l.email):'')+'</div></div><button onclick="removeLieferantPrompt(\''+escHtml(l.id)+'\')" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:0 6px">✕</button></div>'; }).join('') : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:6px 0">Noch keine Lieferanten – tipp unten „Hinzufügen", damit Bestellungen direkt zur richtigen Nummer gehen.</div><div></div></div>'}</div>
+      <button class="btn-secondary" onclick="addLieferantPrompt()" style="margin-bottom:16px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 5v6H5v2h6v6h2v-6h6v-2h-6V5z"/></svg> Lieferant hinzufügen</button>
+
       <div class="section-h"><h2>Integrationen</h2></div>
       <div class="list-card glass">
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">DATEV-Export</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Buchhaltung</div></div><span class="pill pill-warn">Geplant</span></div>
@@ -5308,7 +5353,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones','chef_pos_token','chef_pos_since','chef_einkauf_portions','chef_tour_done'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones','chef_pos_token','chef_pos_since','chef_einkauf_portions','chef_tour_done','chef_lieferanten'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
