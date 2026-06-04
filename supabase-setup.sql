@@ -49,3 +49,19 @@ create table if not exists public.chef_reminders (
 alter table public.chef_reminders enable row level security;
 -- Keine Policies => anon/authenticated haben keinen Zugriff; nur der Service-Key
 -- (in den Netlify-Functions) umgeht RLS und darf lesen/schreiben.
+
+
+-- ===== POS-Webhook: Echtzeit-Umsatz / Verkäufe aus dem Kassensystem =====
+-- Pro Gastronom ein zufälliger Token; das Kassensystem (oder Zapier/Make) pusht
+-- Events an /.netlify/functions/pos-webhook?token=… , das Frontend pollt sie.
+create table if not exists public.chef_pos_events (
+  id     bigserial primary key,
+  token  text        not null,
+  type   text        not null,
+  data   jsonb       not null default '{}'::jsonb,
+  ts     timestamptz not null default now()
+);
+create index if not exists chef_pos_events_token_ts on public.chef_pos_events (token, ts);
+
+alter table public.chef_pos_events enable row level security;
+-- Keine Policies => nur Service-Key darf lesen/schreiben.

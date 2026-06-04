@@ -5219,9 +5219,17 @@
       </div>
       <p style="font-size:11.5px;color:var(--text-faint);margin:4px 2px 16px;line-height:1.45">The Chef erinnert dich zu diesen Zeiten – als echte Push-Benachrichtigung, auch wenn die App geschlossen ist (sobald der Server eingerichtet ist), und zusätzlich in der App. Am besten The Chef auf dem Startbildschirm installieren und Benachrichtigungen erlauben.</p>
 
+      <div class="section-h"><h2>Kasse · POS-Anbindung</h2></div>
+      <div class="list-card glass" style="margin-bottom:8px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">Webhook-URL für dein Kassensystem</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;line-height:1.45">Lass dein Kassensystem (oder Zapier/Make) Verkäufe an diese URL pushen – The Chef bucht den Umsatz dann in Echtzeit.</div>
+        <div style="display:flex;gap:6px"><input id="posUrl" readonly value="${posWebhookUrl()}" style="flex:1;font-size:11px;padding:7px 8px;border-radius:8px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text)"><button onclick="copyPosUrl()" class="ai-btn ai-btn-ok" style="padding:7px 11px">Kopieren</button></div>
+      </div>
+      <button class="btn-secondary" onclick="posTest()" style="margin-bottom:6px">Test-Event senden (12,50 €)</button>
+      <p style="font-size:11px;color:var(--text-faint);margin:4px 2px 16px;line-height:1.5">JSON-Schema: <code style="font-size:10.5px;background:var(--brand-tint);padding:1px 4px;border-radius:4px">POST {"type":"sale","data":{"umsatz":12.50}}</code> – pro Event wird der Tagesumsatz live aktualisiert.</p>
+
       <div class="section-h"><h2>Integrationen</h2></div>
       <div class="list-card glass">
-        <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Kassensystem (POS)</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Automatische Umsatzübernahme</div></div><span class="pill pill-warn">Geplant</span></div>
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">DATEV-Export</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Buchhaltung</div></div><span class="pill pill-warn">Geplant</span></div>
         <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Temperatur-Sensoren</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">HACCP automatisch</div></div><span class="pill pill-warn">Geplant</span></div>
       </div>
@@ -5269,7 +5277,7 @@
         ? 'Backend erreichbar. Falls Antworten trotzdem aus der lokalen Logik kommen, ist der jeweilige API-Key in Netlify noch nicht gesetzt.'
         : 'Kein Backend erreichbar – die App läuft mit lokaler Logik und Browser-Stimme. Das ist normal, wenn die Datei lokal geöffnet ist.'}</div>`;
   }
-  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones'];
+  const DATA_KEYS = ['chef_onboarded','chef_restaurant','chef_type','chef_lager_mode','chef_lager_manual','chef_lager_edits','chef_ordered','chef_tagesdaten','chef_todo_done','chef_recipes','chef_team','chef_shifts','chef_voice_on','chef_voice_id','chef_voice_quality','chef_haccp','chef_style','chef_angebote','chef_tagebuch','chef_facts','chef_convo','chef_activity','chef_preise','chef_reminders','chef_verkauf_log','chef_ai_model','chef_haccp_zones','chef_pos_token','chef_pos_since'];
   function exportDaten(){
     const dump = { exportiert: new Date().toISOString(), version: 1, daten: {} };
     DATA_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v !== null) dump.daten[k] = v; });
@@ -6063,6 +6071,61 @@
   }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkReminders(); });
   setupReminders();
+
+  // ===== Kasse / POS-Anbindung (Webhook + Polling) =====
+  let posToken = localStorage.getItem('chef_pos_token') || '';
+  function ensurePosToken(){
+    if(!posToken){
+      try {
+        const a = new Uint8Array(24);
+        (window.crypto || crypto).getRandomValues(a);
+        posToken = Array.from(a).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      } catch(e){ posToken = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 48); }
+      localStorage.setItem('chef_pos_token', posToken);
+    }
+    return posToken;
+  }
+  function posWebhookUrl(){ return location.origin + '/.netlify/functions/pos-webhook?token=' + ensurePosToken(); }
+  function copyPosUrl(){
+    const u = posWebhookUrl();
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(function(){ toast('✓ URL kopiert'); }, function(){ fallbackCopy(u); }); } else fallbackCopy(u);
+  }
+  async function posTest(){
+    try {
+      const r = await fetch(posWebhookUrl(), { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ type:'sale', data:{ umsatz: 12.50, source: 'test' } }) });
+      if(r.ok){ toast('✓ Test-Event gesendet'); setTimeout(loadPosEvents, 1500); }
+      else toast('Fehler ' + r.status + ' – ist die Supabase-Tabelle angelegt?');
+    } catch(e){ toast('Backend nicht erreichbar'); }
+  }
+  async function loadPosEvents(){
+    const tok = ensurePosToken();
+    const since = localStorage.getItem('chef_pos_since') || '1970-01-01T00:00:00Z';
+    try {
+      const r = await fetch('/.netlify/functions/pos-events?token=' + encodeURIComponent(tok) + '&since=' + encodeURIComponent(since));
+      if(!r.ok) return;
+      const d = await r.json();
+      if(!d || !Array.isArray(d.events) || !d.events.length) return;
+      let lastTs = since, totalSale = 0, sales = 0;
+      d.events.forEach(function(e){
+        if(e.ts > lastTs) lastTs = e.ts;
+        if(e.type === 'sale' && e.data){
+          const u = parseFloat(e.data.umsatz);
+          if(!isNaN(u) && u > 0){ totalSale += u; sales++; }
+        }
+      });
+      if(totalSale > 0){
+        tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + totalSale);
+        localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+        renderTagesDaten();
+        logActivity('<strong>Kasse</strong> – ' + sales + ' Event(s), +' + euro(Math.round(totalSale)) + ' Umsatz', 'chart');
+        toast('Kasse: +' + euro(Math.round(totalSale)));
+      }
+      localStorage.setItem('chef_pos_since', String(lastTs));
+    } catch(e){}
+  }
+  setInterval(loadPosEvents, 60000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) loadPosEvents(); });
+  loadPosEvents();
 
   // ===== PWA: installierbar machen (nur über http/https, nie über file://) =====
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
