@@ -1314,6 +1314,30 @@
             <div class="lab-title">Bewertung beantworten</div>
             <div class="lab-sub">Google/Tripadvisor-Bewertung rein – passende Antwort raus.</div>
           </button>
+          <button class="lab-card lab-brain" onclick="openWochenplan()">
+            <div class="lab-tag">KI</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></div>
+            <div class="lab-title">Wochenplan</div>
+            <div class="lab-sub">Was kochen wir nächste Woche – aus Lager, Marge & Top-Sellern.</div>
+          </button>
+          <button class="lab-card lab-vision" onclick="openInventur()">
+            <div class="lab-tag">LIVE</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2z"/></svg></div>
+            <div class="lab-title">Inventur</div>
+            <div class="lab-sub">Geführter Bestands-Check – Artikel für Artikel.</div>
+          </button>
+          <button class="lab-card lab-tagesabschluss" onclick="openWareneinsatzBericht()">
+            <div class="lab-tag">REPORT</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-6 6-4-4-7 7 1.4 1.4z"/></svg></div>
+            <div class="lab-title">Wareneinsatz · Monat</div>
+            <div class="lab-sub">30-Tage-Auswertung + EK-Trend pro Artikel.</div>
+          </button>
+          <button class="lab-card lab-preis" onclick="openDatevExport()">
+            <div class="lab-tag">EXPORT</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h4v6h5.34V9h4L12 2z" transform="rotate(180 12 12)"/></svg></div>
+            <div class="lab-title">DATEV / Buchhaltung</div>
+            <div class="lab-sub">Tagesumsätze als CSV für deinen Steuerberater.</div>
+          </button>
         </div>
 
         <div class="ai-card glass">
@@ -3641,6 +3665,10 @@
       if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
       if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
       if(/bewertung|rezension|google|tripadvisor/.test(q)) return go(openBewertungAntwort, 'Bewertung beantworten');
+      if(/wochenplan|wochen-?plan|menü-?planung/.test(q)) return go(openWochenplan, 'Wochenplan');
+      if(/inventur|bestands-?check/.test(q)) return go(openInventur, 'Inventur');
+      if(/wareneinsatz|monats-?bericht|food-?cost/.test(q)) return go(openWareneinsatzBericht, 'Wareneinsatz-Bericht');
+      if(/datev|buchhaltung|steuerberater|csv-?export/.test(q)) return go(openDatevExport, 'DATEV-Export');
       if(/verkauf|buchen/.test(q)) return go(openVerkauf, 'Verkauf buchen');
       if(/nachbestell|bestell-?liste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
       if(/einkaufsliste|einkaufen|waren\s*liste|speisekarten?-?liste/.test(q)) return go(openEinkaufsliste, 'Einkaufsliste');
@@ -5992,6 +6020,208 @@
   function copyBewertung(){
     const t = window.__bwText || '';
     if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Antwort kopiert – in Google/Tripadvisor einfügen'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t);
+  }
+
+  // ===== Wochenplan · KI plant 7 Tagesgerichte aus Lager+Marge+Verkäufen =====
+  function openWochenplan(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg> Wochenplan';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">The Chef plant 7 Tagesgerichte (Mo–So) anhand deiner Rezepte, Margen, Lagerbestand und letzter Top-Seller.</p>
+      <button class="btn-primary" onclick="generateWochenplan()">Wochenplan erstellen</button>
+      <div id="wpResult"></div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  async function generateWochenplan(){
+    const recNames = Object.keys(recipes);
+    const out = document.getElementById('wpResult');
+    if(recNames.length < 2){ toast('Mindestens 2 Rezepte für einen Wochenplan'); return; }
+    if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef plant deine Woche …</div></div></div>';
+    const rezeptList = recNames.map(function(n){ const m = recipeMarge(recipes[n]); return n + ' (' + m.marge.toFixed(0) + '% Marge, ' + euro(recipes[n].vk||0) + ')'; }).join('; ');
+    const lagerKurz = lagerData.slice(0, 25).map(function(r){ const s = mhdState(r); return r.name + (s==='soon'?' (läuft bald ab)':s==='expired'?' (abgelaufen)':''); }).join(', ');
+    const top7 = (function(){
+      const now = new Date(); const acc = {};
+      for(let i=0;i<7;i++){ const d=new Date(now); d.setDate(now.getDate()-i); const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); const day=verkaufLog[k]; if(day && day.items) Object.keys(day.items).forEach(function(n){ acc[n]=(acc[n]||0)+day.items[n]; }); }
+      return Object.keys(acc).sort(function(a,b){return acc[b]-acc[a];}).slice(0,5).join(', ') || 'keine';
+    })();
+    const msg = 'Erstelle einen 7-Tage-Wochenplan (Montag bis Sonntag) mit jeweils EINEM Tagesgericht für mein ' + (chefProfile.type||'Restaurant') + ' "' + (chefProfile.name||'') + '".\n\nVerfügbare Rezepte: ' + rezeptList + '\nLager-Stichprobe: ' + lagerKurz + '\nTop-Seller letzte 7 Tage: ' + top7 + '\n\nRegeln: Wähle nur aus den verfügbaren Rezepten. Bevorzuge hohe Margen und Rezepte, die bald ablaufende Zutaten verwerten. Sorge für Abwechslung. Antworte AUSSCHLIESSLICH mit gültigem JSON in genau dieser Form, ohne Vorwort oder Code-Fences:\n{"plan":[{"day":"Mo","dish":"Rezeptname","grund":"kurze Begründung"},{"day":"Di",...},...,{"day":"So",...}]}';
+    try {
+      const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: msg, restaurant:{ name: chefProfile.name, type: chefProfile.type } }) });
+      if(res.ok){
+        const d = await res.json();
+        const raw = (d && d.reply) || '';
+        const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+        if(s !== -1 && e !== -1){
+          const parsed = JSON.parse(raw.slice(s, e+1));
+          if(parsed && Array.isArray(parsed.plan)){ renderWochenplan(parsed.plan); return; }
+        }
+      }
+      throw new Error('wp');
+    } catch(err){ if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-title">Konnte keinen Plan erstellen</div><div style="font-size:13px;color:var(--text-dim);padding:6px 0">Bitte später nochmal versuchen.</div></div>'; }
+  }
+  function renderWochenplan(plan){
+    const out = document.getElementById('wpResult'); if(!out) return;
+    const rows = plan.slice(0,7).map(function(p){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji" style="width:34px;background:var(--brand-tint);color:var(--text);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">' + escHtml(String(p.day||'').slice(0,2)) + '</div><div><div class="inv-name">' + escHtml(p.dish||'') + '</div><div class="inv-meta">' + escHtml(p.grund||'') + '</div></div></div>'; }).join('');
+    out.innerHTML = '<div class="list-card glass" style="margin-top:14px;margin-bottom:12px">' + rows + '</div><button class="btn-secondary" onclick="copyWochenplan()">Plan kopieren</button>';
+    window.__wpPlan = plan;
+    logBook('Wochenplan erstellt: ' + plan.map(function(p){return p.day+': '+p.dish;}).join(', '), 'check');
+  }
+  function copyWochenplan(){
+    const p = window.__wpPlan || []; if(!p.length) return;
+    const t = 'Wochenplan – ' + (chefProfile.name||'The Chef') + ':\n\n' + p.map(function(x){ return x.day + ': ' + x.dish + (x.grund?' – '+x.grund:''); }).join('\n');
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Wochenplan kopiert'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t);
+  }
+
+  // ===== Inventur-Modus · Artikel für Artikel durchgehen =====
+  let _invIdx = 0;
+  function openInventur(){
+    if(!lagerData.length){ toast('Lager ist leer'); return; }
+    _invIdx = 0; renderInventur();
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function renderInventur(){
+    if(_invIdx >= lagerData.length){ finishInventur(); return; }
+    const r = lagerData[_invIdx]; const n = lagerData.length;
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg> Inventur ' + (_invIdx+1) + ' / ' + n;
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Inventur abbrechen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Artikel ${_invIdx+1} von ${n}. Trag den jetzt gemessenen Bestand ein und tipp „Weiter".</p>
+      <div class="calc-result" style="margin-bottom:14px">
+        <div class="calc-result-label">${escHtml(r.name)}</div>
+        <div class="calc-result-val" style="font-size:24px">${escHtml(r.amount||'')}</div>
+        <div class="calc-result-sub">${escHtml(r.loc||'')} · zuletzt: ${escHtml(r.days||'')}</div>
+      </div>
+      <div class="onboard-label" style="margin-top:0">Neuer Bestand (inkl. Einheit, z.B. „1,8 kg")</div>
+      <input type="text" class="onboard-input" id="invAmount" value="${escHtml(r.amount||'')}" style="margin-bottom:10px">
+      <button class="btn-primary" onclick="inventurNext(false)">Weiter</button>
+      <div style="margin-top:8px"></div>
+      <button class="btn-secondary" onclick="inventurNext(true)">Überspringen</button>
+    `;
+  }
+  function inventurNext(skip){
+    if(!skip){
+      const el = document.getElementById('invAmount');
+      const val = el ? String(el.value||'').trim() : '';
+      const r = lagerData[_invIdx];
+      if(val && r){
+        r.amount = val;
+        const ex = lagerEdits[r.name] || {}; ex.amount = val; lagerEdits[r.name] = ex;
+        const mi = lagerManual.find(function(m){ return m.name === r.name; }); if(mi) mi.amount = val;
+      }
+    }
+    _invIdx++; renderInventur();
+  }
+  function finishInventur(){
+    persistLager(); refreshLager();
+    const n = lagerData.length;
+    logBook('Inventur durchgeführt: ' + n + ' Artikel geprüft', 'check');
+    logActivity('<strong>Inventur</strong> – ' + n + ' Artikel geprüft', 'check');
+    closeSheet(); toast('✓ Inventur abgeschlossen · ' + n + ' Artikel');
+  }
+
+  // ===== Wareneinsatz-Bericht · 30 Tage + EK-Trend pro Artikel =====
+  function openWareneinsatzBericht(){
+    const days = 30; const cutoff = Date.now() - days*86400000;
+    let totalUmsatz = 0, totalCost = 0, portions = 0;
+    const dishCost = {}, dishPortions = {};
+    Object.keys(verkaufLog).forEach(function(k){
+      const t = new Date(k).getTime(); if(isNaN(t) || t < cutoff) return;
+      const day = verkaufLog[k]; totalUmsatz += Number(day.umsatz||0);
+      Object.keys(day.items||{}).forEach(function(n){
+        const cnt = day.items[n]; if(!cnt || !recipes[n]) return;
+        const cost = recipes[n].ingredients.reduce(function(s,i){ return s + ingredientCost(i); }, 0) * cnt;
+        totalCost += cost; portions += cnt;
+        dishCost[n] = (dishCost[n]||0) + cost;
+        dishPortions[n] = (dishPortions[n]||0) + cnt;
+      });
+    });
+    const netto = totalUmsatz / 1.19;
+    const marge = netto > 0 ? (1 - totalCost/netto) * 100 : 0;
+    const topDishes = Object.keys(dishPortions).sort(function(a,b){return dishPortions[b]-dishPortions[a];}).slice(0,5).map(function(n){
+      return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ((recipes[n] && RECIPE_ICONS[recipes[n].icon])||RECIPE_ICONS.custom) + '</div><div><div class="inv-name">' + escHtml(n) + '</div><div class="inv-meta">' + dishPortions[n] + ' Portionen · WE ' + euro(Math.round(dishCost[n])) + '</div></div></div>';
+    }).join('');
+    const trends = Object.keys(priceHistory||{}).map(function(k){
+      const a = priceHistory[k]; const e = (a.entries||[]).filter(function(x){ return x.ts >= cutoff; });
+      if(e.length < 2) return null;
+      const first = e[0].p, last = e[e.length-1].p, pct = first>0 ? ((last-first)/first)*100 : 0;
+      return { name: a.name||k, first, last, pct };
+    }).filter(Boolean).sort(function(a,b){ return Math.abs(b.pct) - Math.abs(a.pct); }).slice(0,8);
+    const trendRows = trends.length ? trends.map(function(t){
+      const color = t.pct >= 5 ? 'var(--orange)' : (t.pct <= -5 ? 'var(--green)' : 'var(--text-faint)');
+      const sign = t.pct > 0 ? '+' : '';
+      return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">'+ITEM_SVG+'</div><div><div class="inv-name">' + escHtml(t.name) + '</div><div class="inv-meta">' + euro(t.first) + ' → ' + euro(t.last) + '</div></div><div style="font-weight:800;color:'+color+'">' + sign + Math.round(t.pct) + '%</div></div>';
+    }).join('') : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:6px 0">Noch keine Preis-Trends – scanne öfter Belege.</div><div></div></div>';
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-6 6-4-4-7 7 1.4 1.4z"/></svg> Wareneinsatz · 30 Tage';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <div class="kpi-row" style="margin-bottom:10px">
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Umsatz</div></div><div class="kpi-tile-val">${euro(Math.round(totalUmsatz))}</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Wareneinsatz</div></div><div class="kpi-tile-val">${euro(Math.round(totalCost))}</div></div>
+      </div>
+      <div class="kpi-row" style="margin-bottom:14px">
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Ø Marge</div></div><div class="kpi-tile-val">${marge.toFixed(0)}%</div></div>
+        <div class="kpi-tile glass"><div class="kpi-tile-head"><div class="kpi-tile-label">Portionen</div></div><div class="kpi-tile-val">${portions}</div></div>
+      </div>
+      <div class="section-h"><h2>Top-Gerichte (Portionen)</h2></div>
+      <div class="list-card glass" style="margin-bottom:14px">${topDishes || '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:6px 0">Keine Verkäufe im Zeitraum.</div><div></div></div>'}</div>
+      <div class="section-h"><h2>EK-Trend (größte Änderungen)</h2></div>
+      <div class="list-card glass">${trendRows}</div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+
+  // ===== DATEV/Buchhaltung · Tagesumsätze als CSV =====
+  function openDatevExport(){
+    const today = new Date();
+    const monthAgo = new Date(today); monthAgo.setDate(today.getDate()-30);
+    const iso = function(d){ return d.toISOString().slice(0,10); };
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> DATEV / Buchhaltung';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Exportiert die Tagesumsätze als CSV-Datei – kompatibel zu DATEV/Lexware/Buchhaltungs-Tools.</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Von</div><input type="date" class="onboard-input" id="dvFrom" value="${iso(monthAgo)}"></div>
+        <div style="flex:1"><div class="onboard-label" style="margin-top:0">Bis</div><input type="date" class="onboard-input" id="dvTo" value="${iso(today)}"></div>
+      </div>
+      <div class="onboard-label">Erlöskonto (SKR03 üblicherweise 8400 für 19% USt)</div>
+      <input type="text" class="onboard-input" id="dvKonto" value="8400" style="margin-bottom:14px">
+      <button class="btn-primary" onclick="exportDatevCsv()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> CSV herunterladen</button>
+      <p style="font-size:11.5px;color:var(--text-faint);margin:8px 2px 0;line-height:1.45">Format: Belegdatum;Buchungstext;Betrag;Soll;Haben;BelegNr (Komma als Dezimaltrennzeichen, Semikolon als Spaltentrenner).</p>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function exportDatevCsv(){
+    const from = (document.getElementById('dvFrom')||{}).value || '';
+    const to = (document.getElementById('dvTo')||{}).value || '';
+    const konto = ((document.getElementById('dvKonto')||{}).value || '8400').replace(/[^0-9]/g,'') || '8400';
+    if(!from || !to){ toast('Bitte Zeitraum wählen'); return; }
+    const fromT = new Date(from).getTime(), toT = new Date(to).getTime() + 86400000;
+    const lines = ['Belegdatum;Buchungstext;Betrag;Soll;Haben;BelegNr'];
+    let count = 0, sum = 0;
+    Object.keys(verkaufLog).forEach(function(k){
+      const t = new Date(k).getTime(); if(isNaN(t) || t < fromT || t >= toT) return;
+      const u = Number(verkaufLog[k].umsatz||0); if(!(u > 0)) return;
+      const d = new Date(k); const dd = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
+      const text = ('Tagesumsatz ' + (chefProfile.name||'')).replace(/;/g,',').slice(0,60);
+      const betrag = u.toFixed(2).replace('.', ',');
+      const beleg = 'TU-' + k.replace(/-/g,'');
+      lines.push(dd + ';' + text + ';' + betrag + ';' + konto + ';1200;' + beleg);
+      count++; sum += u;
+    });
+    if(count === 0){ toast('Keine Umsätze im Zeitraum'); return; }
+    const csv = '﻿' + lines.join('\r\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'umsatz_' + from + '_bis_' + to + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    logBook('DATEV-Export: ' + count + ' Tage, ' + euro(Math.round(sum)) + ', Zeitraum ' + from + ' bis ' + to, 'chart');
+    toast('✓ ' + count + ' Tage exportiert · ' + euro(Math.round(sum)));
   }
   function openKalkulator(name){
     const r = recipes[name];
