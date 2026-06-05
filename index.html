@@ -1308,6 +1308,12 @@
             <div class="lab-title">Preis-Wächter</div>
             <div class="lab-sub">Erkennt, wenn Lieferanten teurer werden.</div>
           </button>
+          <button class="lab-card lab-marketing" onclick="openBewertungAntwort()">
+            <div class="lab-tag">KI</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
+            <div class="lab-title">Bewertung beantworten</div>
+            <div class="lab-sub">Google/Tripadvisor-Bewertung rein – passende Antwort raus.</div>
+          </button>
         </div>
 
         <div class="ai-card glass">
@@ -3634,6 +3640,7 @@
       if(/tagesabschluss|feierabend/.test(q)) return go(openTagesabschluss, 'Tagesabschluss');
       if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
       if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
+      if(/bewertung|rezension|google|tripadvisor/.test(q)) return go(openBewertungAntwort, 'Bewertung beantworten');
       if(/verkauf|buchen/.test(q)) return go(openVerkauf, 'Verkauf buchen');
       if(/nachbestell|bestell-?liste/.test(q)) return go(openNachbestellung, 'Nachbestell-Liste');
       if(/einkaufsliste|einkaufen|waren\s*liste|speisekarten?-?liste/.test(q)) return go(openEinkaufsliste, 'Einkaufsliste');
@@ -5934,6 +5941,57 @@
   }
   function printAllergenMenu(){
     printDoc('Speisekarte – ' + (chefProfile.name || 'The Chef'), buildAllergenMenuHTML());
+  }
+
+  // ===== Bewertungs-Antwort · höfliche Reply auf Google/Tripadvisor =====
+  function openBewertungAntwort(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg> Bewertung beantworten';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Kopier die Google- oder Tripadvisor-Bewertung hier rein. The Chef schreibt eine höfliche Antwort in deinem Stil.</p>
+      <div class="onboard-label" style="margin-top:0">Sterne</div>
+      <select class="onboard-input" id="bwStars" style="margin-bottom:10px">
+        <option value="5">★★★★★ (5 / 5)</option>
+        <option value="4">★★★★☆ (4 / 5)</option>
+        <option value="3">★★★☆☆ (3 / 5)</option>
+        <option value="2">★★☆☆☆ (2 / 5)</option>
+        <option value="1">★☆☆☆☆ (1 / 5)</option>
+      </select>
+      <div class="onboard-label">Text der Bewertung</div>
+      <textarea id="bwText" class="onboard-input" rows="6" style="margin-bottom:10px;resize:vertical;min-height:120px" placeholder="„Essen war super, Service nur okay …"></textarea>
+      <button class="btn-primary" onclick="generateBewertungAntwort()">Antwort schreiben lassen</button>
+      <div id="bwResult"></div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  async function generateBewertungAntwort(){
+    const stars = parseInt(document.getElementById('bwStars').value, 10) || 5;
+    const review = (document.getElementById('bwText').value || '').trim();
+    const out = document.getElementById('bwResult');
+    if(!review){ toast('Bitte Bewertungstext einfügen'); return; }
+    if(out) out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">The Chef schreibt …</div></div></div>';
+    const tone = (chefStyle && chefStyle.tone) || 'locker';
+    const msg = 'Schreibe eine HÖFLICHE und PROFESSIONELLE öffentliche Antwort auf folgende Gäste-Bewertung. Sterne: ' + stars + '/5. Ton meines Hauses: ' + tone + '. Restaurant: "' + (chefProfile.name||'') + '". Bedanke dich kurz fürs Feedback. Bei Kritik (≤3 Sterne) zeige Verständnis, ohne dich zu rechtfertigen, deute eine Verbesserung an oder lade zum erneuten Besuch ein. Bei guten Bewertungen (≥4 Sterne) freue dich ehrlich. KEINE Werbung, KEINE Namen die nicht in der Bewertung stehen. Maximal 4–5 kurze Sätze. Antworte AUSSCHLIESSLICH mit dem Antworttext, ohne Vorwort.\n\nBEWERTUNG:\n' + review;
+    try {
+      const res = await fetch('/.netlify/functions/chef-ai', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: msg, restaurant:{ name: chefProfile.name, type: chefProfile.type } }) });
+      if(res.ok){ const d = await res.json(); if(d && d.reply){ showBewertungAntwort(d.reply); return; } }
+      throw new Error('bw');
+    } catch(e){
+      const dank = stars >= 4 ? 'Vielen Dank für deine tolle Bewertung – wir freuen uns sehr und sehen dich gern bald wieder im ' + (chefProfile.name||'Haus') + '!' : 'Vielen Dank für dein ehrliches Feedback. Wir nehmen das ernst und arbeiten daran. Komm gern wieder, wir möchten dich beim nächsten Mal überzeugen.';
+      showBewertungAntwort(dank);
+    }
+  }
+  function showBewertungAntwort(text){
+    window.__bwText = text;
+    const out = document.getElementById('bwResult'); if(!out) return;
+    out.innerHTML = '<div class="ai-card glass" style="margin-top:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Deine Antwort</div></div><div style="font-size:14px;line-height:1.55;white-space:pre-wrap;padding:0 2px;color:var(--text)">' + escHtml(text) + '</div></div>' +
+      '<button class="btn-primary" style="margin-top:12px" onclick="copyBewertung()">Antwort kopieren</button>';
+    logBook('Bewertungs-Antwort geschrieben: ' + text.slice(0,80), 'chart');
+  }
+  function copyBewertung(){
+    const t = window.__bwText || '';
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('✓ Antwort kopiert – in Google/Tripadvisor einfügen'); }, function(){ fallbackCopy(t); }); } else fallbackCopy(t);
   }
   function openKalkulator(name){
     const r = recipes[name];
