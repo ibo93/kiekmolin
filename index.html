@@ -937,66 +937,60 @@
   /* Fest angedockt am unteren Rand, Oberkante als Halbkreis-Bogen */
   .tabbar-inner{
     display:flex;align-items:flex-end;justify-content:space-around;
-    padding:14px 16px calc(14px + var(--safe-bot));
-    background:linear-gradient(180deg,#1a1d24 0%,#13161c 100%);
-    border:1px solid var(--glass-border);
-    border-bottom:none;
-    border-radius:50% 50% 0 0 / 56px 56px 0 0;
-    box-shadow:0 -10px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+    padding:10px 14px calc(10px + var(--safe-bot));
+    background:rgba(10,11,14,0.92);
+    border-top:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 -12px 30px rgba(0,0,0,0.5);
     pointer-events:auto;
     position:relative;
-    backdrop-filter:blur(12px);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
   }
-  /* Gold-Linie oben am Bogen */
-  .tabbar-inner::before{display:block;content:"";position:absolute;top:0;left:24%;right:24%;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,90,0.6),transparent);pointer-events:none}
+  .tabbar-inner::before{display:none}
   .tabbar-inner::after{display:none}
   .tab{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    background:none;border:none;color:var(--text-faint);
+    background:none;border:none;color:rgba(255,255,255,0.42);
     font-family:inherit;cursor:pointer;
-    padding:9px 4px 7px;border-radius:14px;
-    transition:color .2s, transform .15s, background .25s;
+    padding:8px 4px 6px;border-radius:10px;
+    transition:color .18s ease, transform .12s ease;
     position:relative;
-    min-height:54px;
+    min-height:50px;
   }
-  .tab:active{transform:scale(0.92)}
-  .tab.active{
-    color:var(--brand);
-    background:linear-gradient(180deg,rgba(245,166,35,0.16),rgba(245,166,35,0.04));
-    box-shadow:inset 0 1px 0 rgba(245,200,90,0.18);
+  .tab:active{transform:scale(0.94)}
+  .tab.active{ color:var(--brand); }
+  .tab.active .tab-icon{ color:var(--brand); }
+  .tab.active .tab-label::after{
+    content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:-4px;
+    width:4px;height:4px;border-radius:50%;background:var(--brand);
+    box-shadow:0 0 8px rgba(245,166,35,0.7);
   }
-  .tab.active::before{
-    content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);
-    width:28px;height:3px;border-radius:0 0 4px 4px;
-    background:linear-gradient(180deg,#f5c25a,#c77410);
-    box-shadow:0 0 10px rgba(245,166,35,0.7);
-  }
-  .tab.active .tab-icon{color:var(--brand);filter:drop-shadow(0 0 6px rgba(245,166,35,0.45))}
-  .tab-icon{width:23px;height:23px;transition:color .2s,filter .2s}
-  .tab-label{font-size:11px;font-weight:700;letter-spacing:0.02em}
+  .tab-icon{width:22px;height:22px;transition:color .18s}
+  .tab-label{font-size:10.5px;font-weight:600;letter-spacing:0.01em;position:relative}
 
-  /* Center scan tab - prominenter Hauptknopf */
+  /* Center scan tab - sauberer Hauptknopf, kein Label, kein Ring */
   .tab-scan{
     position:relative;
-    width:64px;height:64px;border-radius:50%;
-    background:linear-gradient(150deg,#ffd285 0%,#f5a623 50%,#b97f24 100%);
+    width:58px;height:58px;border-radius:50%;
+    background:linear-gradient(160deg,#ffd285 0%,#f5a623 55%,#b97f24 100%);
     color:#1c1206 !important;
     border:none;
     cursor:pointer;
     display:flex;align-items:center;justify-content:center;
-    margin-top:-30px;
+    margin:-26px 8px 0;
     box-shadow:
-      0 10px 26px rgba(245,166,35,0.45),
-      0 0 0 5px var(--bg),
-      inset 0 1px 0 rgba(255,255,255,0.5);
-    transition:transform .15s, box-shadow .2s;
+      0 6px 18px rgba(245,166,35,0.4),
+      0 0 0 4px var(--bg),
+      inset 0 1px 0 rgba(255,255,255,0.45);
+    transition:transform .15s;
     flex:0 0 auto;
   }
-  .tab-scan:active{transform:scale(0.92)}
-  .tab-scan:hover{box-shadow:0 14px 36px rgba(245,166,35,0.6),0 0 0 5px var(--bg),inset 0 1px 0 rgba(255,255,255,0.55)}
-  .tab-scan svg{width:28px;height:28px;color:#1c1206;opacity:1}
-  .tab-scan::before{content:"";position:absolute;inset:-6px;border-radius:50%;border:1.5px solid rgba(245,166,35,0.7);opacity:0;animation:ping 3.5s ease-out infinite}
-  .tab-scan::after{content:"Auge";position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--brand);letter-spacing:0.08em;text-transform:uppercase}
+  .tab-scan:active{transform:scale(0.93)}
+  .tab-scan svg{width:25px;height:25px;color:#1c1206;opacity:1}
+  .tab-scan::before{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid rgba(245,166,35,0.6);opacity:0;animation:ping 3.5s ease-out infinite}
+
+  /* Laufender Conic-Glow soll NICHT auf der TabBar laufen (würde flackern) */
+  .tabbar-inner::after{display:none !important}
 
   /* Toast */
   .toast{position:absolute;bottom:120px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--brand);color:#fff;border:none;padding:11px 20px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .35s;z-index:300;box-shadow:0 8px 24px rgba(0,61,51,0.3);white-space:nowrap;max-width:90%;text-align:center}
