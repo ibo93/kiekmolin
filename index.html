@@ -692,9 +692,54 @@
   .extract-qty{font-size:11px;color:var(--text-dim);text-align:right}
   .extract-price{font-size:13px;font-weight:700;color:var(--gold-light);text-align:right;min-width:60px}
 
+  /* Hero-Background-Chart (Heute-Verlauf) */
+  .hero-chart-bg{position:absolute !important;left:0;right:0;bottom:0;width:100%;height:90px;pointer-events:none;opacity:0.55;mix-blend-mode:screen}
+
+  /* Empty-State mit Auge-Avatar */
+  .empty-auge{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 24px;margin:8px 0}
+  .empty-auge-orb{
+    width:62px;height:62px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffd285,#d28f1a 60%,#7a4a0a);
+    display:flex;align-items:center;justify-content:center;color:#1c1206;
+    box-shadow:0 8px 22px rgba(245,166,35,0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+    margin-bottom:14px;animation:pulse 3s ease-in-out infinite;flex-shrink:0;
+  }
+  .empty-auge-orb svg{width:30px;height:30px}
+  .empty-auge-msg{font-size:14px;line-height:1.55;color:var(--text);max-width:280px;margin-bottom:14px}
+  .empty-auge-msg b{color:var(--gold-light);font-weight:700}
+  .empty-auge-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .empty-auge-btn{
+    padding:9px 16px;border-radius:99px;background:rgba(245,166,35,0.12);
+    border:1px solid rgba(245,166,35,0.3);color:var(--gold-light);
+    font-family:inherit;font-size:12px;font-weight:700;letter-spacing:0.04em;
+    cursor:pointer;transition:background .15s;
+  }
+  .empty-auge-btn:active{background:rgba(245,166,35,0.22)}
+
+  /* Long-Press Quick-Actions Popup */
+  .qa-menu{
+    position:fixed;z-index:10000;
+    background:rgba(20,22,28,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border:1px solid rgba(245,166,35,0.25);border-radius:14px;
+    padding:6px;display:flex;flex-direction:column;min-width:180px;
+    box-shadow:0 18px 50px rgba(0,0,0,0.6);
+    opacity:0;transform:translate(-50%, -94%) scale(0.9);transform-origin:bottom center;
+    transition:opacity .15s, transform .18s cubic-bezier(.2,1.2,.4,1);
+    pointer-events:auto;
+  }
+  .qa-menu.show{opacity:1;transform:translate(-50%, -100%) scale(1)}
+  .qa-menu button{
+    background:none;border:none;color:#fff;font-family:inherit;font-size:14px;font-weight:600;
+    text-align:left;padding:10px 14px;border-radius:10px;cursor:pointer;
+    display:flex;align-items:center;gap:10px;
+  }
+  .qa-menu button:active{background:rgba(245,166,35,0.15)}
+  .qa-menu button .qa-ico{width:18px;height:18px;flex-shrink:0;color:var(--gold-light)}
+  .qa-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px);opacity:0;animation:fadeIn .15s forwards}
+  @keyframes fadeIn{to{opacity:1}}
+
   /* Slide-to-Confirm (Premium-Action) */
-  .slide-confirm{position:relative;height:56px;background:rgba(255,255,255,0.06);border:1px solid rgba(245,166,35,0.18);border-radius:99px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
-  .slide-confirm-track{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.65);font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;pointer-events:none;z-index:1;padding-left:30px}
+  .slide-confirm{position:relative;height:56px;background:rgba(255,255,255,0.06);border:1px solid rgba(245,166,35,0.18);border-radius:99px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}  .slide-confirm-track{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.65);font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;pointer-events:none;z-index:1;padding-left:30px}
   .slide-confirm-fill{position:absolute;left:0;top:0;bottom:0;width:56px;background:linear-gradient(120deg,#f5c25a,#c77410);border-radius:99px;transition:width 0.25s ease-out;z-index:1}
   .slide-confirm-handle{position:absolute;top:4px;left:4px;width:48px;height:48px;border-radius:50%;background:linear-gradient(160deg,#fff,#f0e4cf);border:none;display:flex;align-items:center;justify-content:center;color:#1c1206;box-shadow:0 4px 12px rgba(0,0,0,0.4);cursor:grab;transition:transform 0.25s ease-out;z-index:2;font-family:inherit}
   .slide-confirm.dragging .slide-confirm-handle,
@@ -1258,6 +1303,15 @@
       <section class="view active" data-view="home">
 
         <div class="hero-card" onclick="openTagesDaten()" style="cursor:pointer">
+          <svg class="hero-chart-bg" id="heroChartSvg" viewBox="0 0 280 60" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="heroChartGrad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#f5c25a" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#f5c25a" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path id="heroChartPath" d="M0 60 L280 60 Z" fill="url(#heroChartGrad)" stroke="#f5c25a" stroke-opacity="0.55" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>
           <div class="hero-label">Umsatz heute</div>
           <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ " data-cents=",40">€ 0</div>
           <div class="hero-sub" id="kpiUmsatzSub">Tippen, um Tagesdaten einzutragen</div>
@@ -1987,9 +2041,23 @@
       .filter(r=>filter==='all'||r.status===filter)
       .filter(r=>r.name.toLowerCase().includes(search.toLowerCase()));
     if(!rows.length){
+      const augeEye = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5C7 5 3 12 3 12s4 7 9 7 9-7 9-7-4-7-9-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg>';
       list.innerHTML = lagerData.length
-        ? '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:14px 0">Kein Artikel in dieser Ansicht.</div><div></div></div>'
-        : '<div class="inv-row" style="cursor:default"><div></div><div class="inv-meta" style="padding:14px 0">Dein Lager ist noch leer – tippe oben auf „Artikel selbst notieren" oder scanne einen Lieferschein.</div><div></div></div>';
+        ? `<div class="empty-auge">
+             <div class="empty-auge-orb">${augeEye}</div>
+             <div class="empty-auge-msg">Hier ist gerade <b>nichts zu sehen</b>.<br>Vielleicht passt ein anderer Filter besser?</div>
+             <div class="empty-auge-actions">
+               <button class="empty-auge-btn" onclick="document.querySelector('.chip[data-filter=&quot;all&quot;]')?.click()">Alle zeigen</button>
+             </div>
+           </div>`
+        : `<div class="empty-auge">
+             <div class="empty-auge-orb">${augeEye}</div>
+             <div class="empty-auge-msg">Dein <b>Lager ist noch leer</b>.<br>Leg den ersten Artikel an oder scanne deinen Lieferschein – ich kümmer mich um den Rest.</div>
+             <div class="empty-auge-actions">
+               <button class="empty-auge-btn" onclick="openAddLager()">Artikel anlegen</button>
+               <button class="empty-auge-btn" onclick="navTo('scan');setTimeout(function(){var f=document.getElementById('scanFile');if(f)f.click();},250)">Beleg scannen</button>
+             </div>
+           </div>`;
       renderLagerStats();
       return;
     }
@@ -2008,6 +2076,7 @@
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${isOrdered?'good':r.status}" style="width:${isOrdered?100:r.pct}%"></div></div></div>
       </div>`;}).join('');
     renderLagerStats();
+    if (typeof bindLongPress === 'function') bindLongPress();
   }
   renderLager();
 
@@ -4439,6 +4508,139 @@
   }
 
   // ===== Animated count-up (Hero + KPIs) =====
+  function haptic(pattern){
+    if (!navigator.vibrate) return;
+    try { navigator.vibrate(pattern || 8); } catch(e){}
+  }
+
+  function drawHeroChart(){
+    const path = document.getElementById('heroChartPath');
+    if (!path || typeof path.setAttribute !== 'function') return;
+    const N = 26, W = 280, H = 60;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const trend = 54 - Math.pow(t, 1.35) * 46;
+      const noise = Math.sin(i * 0.85) * 4 + Math.cos(i * 1.4) * 3;
+      const y = Math.max(8, Math.min(H - 2, trend + noise));
+      pts.push([t * W, y]);
+    }
+    let d = `M0 ${H} L${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < N; i++) {
+      const [px, py] = pts[i - 1], [cx, cy] = pts[i];
+      const mx = (px + cx) / 2;
+      d += ` Q${px.toFixed(1)} ${py.toFixed(1)} ${mx.toFixed(1)} ${((py + cy) / 2).toFixed(1)}`;
+    }
+    const last = pts[N - 1];
+    d += ` L${last[0].toFixed(1)} ${last[1].toFixed(1)} L${W} ${H} Z`;
+    path.setAttribute('d', d);
+  }
+
+  // ===== Long-Press Quick-Actions auf Lager-Items =====
+  function closeQuickActions(){
+    document.querySelectorAll('.qa-menu, .qa-backdrop').forEach(n => n.remove());
+  }
+  function showQuickActions(row){
+    closeQuickActions();
+    const m = row.getAttribute('onclick')?.match(/openLagerItem\((\d+)\)/);
+    if (!m) return;
+    const idx = parseInt(m[1]);
+    const item = lagerData[idx];
+    if (!item) return;
+    const isOrdered = orderedItems.includes(item.name);
+    const back = document.createElement('div');
+    back.className = 'qa-backdrop';
+    back.onclick = closeQuickActions;
+    const menu = document.createElement('div');
+    menu.className = 'qa-menu';
+    menu.innerHTML = `
+      <button data-act="order">
+        <svg class="qa-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M20 7l-9 9-5-5 1.4-1.4L11 13.2 18.6 5.6 20 7z"/></svg>
+        ${isOrdered ? 'Bestellung zurücknehmen' : 'Als bestellt markieren'}
+      </button>
+      <button data-act="edit">
+        <svg class="qa-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Bearbeiten
+      </button>
+      <button data-act="ask">
+        <svg class="qa-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm-1 14h2v-2h-2v2zm2-3.5V14h-2v-1.5c0-1.5 2-1.8 2-3.5a1.5 1.5 0 10-3 0H8a3.5 3.5 0 117 0c0 2-2 2.5-2 3.5z"/></svg>
+        Auge fragen
+      </button>`;
+    document.body.appendChild(back);
+    document.body.appendChild(menu);
+    const rect = row.getBoundingClientRect();
+    menu.style.top = (rect.top - 8) + 'px';
+    menu.style.left = (rect.left + rect.width / 2) + 'px';
+    requestAnimationFrame(() => menu.classList.add('show'));
+    menu.querySelectorAll('button').forEach(b => {
+      b.onclick = ev => {
+        ev.stopPropagation();
+        haptic(6);
+        const act = b.dataset.act;
+        closeQuickActions();
+        if (act === 'order') {
+          if (isOrdered) {
+            orderedItems = orderedItems.filter(n => n !== item.name);
+          } else {
+            orderedItems.push(item.name);
+          }
+          localStorage.setItem('chef_ordered', JSON.stringify(orderedItems));
+          refreshLager();
+        } else if (act === 'edit') {
+          openLagerItem(idx);
+        } else if (act === 'ask') {
+          navTo('chat');
+          setTimeout(() => {
+            const ti = document.getElementById('chatInput');
+            if (ti) { ti.value = 'Was sagst du zu ' + item.name + '?'; ti.focus(); }
+          }, 300);
+        }
+      };
+    });
+  }
+  function bindLongPress(){
+    document.querySelectorAll('#lagerList .inv-row[onclick]').forEach(row => {
+      if (row.dataset.lpBound) return;
+      row.dataset.lpBound = '1';
+      let timer = null, fired = false, sx = 0, sy = 0;
+      const getPos = e => e.touches ? e.touches[0] : e;
+      const start = e => {
+        const t = getPos(e);
+        sx = t.clientX; sy = t.clientY; fired = false;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          fired = true;
+          haptic([0, 18, 28, 18]);
+          showQuickActions(row);
+        }, 480);
+      };
+      const move = e => {
+        const t = getPos(e);
+        if (Math.abs(t.clientX - sx) > 8 || Math.abs(t.clientY - sy) > 8) {
+          clearTimeout(timer);
+        }
+      };
+      const end = e => {
+        clearTimeout(timer);
+        if (fired) { e.preventDefault?.(); e.stopPropagation?.(); }
+      };
+      row.addEventListener('touchstart', start, { passive: true });
+      row.addEventListener('touchmove', move, { passive: true });
+      row.addEventListener('touchend', end);
+      row.addEventListener('touchcancel', () => clearTimeout(timer));
+      row.addEventListener('mousedown', start);
+      row.addEventListener('mousemove', move);
+      row.addEventListener('mouseup', end);
+      row.addEventListener('mouseleave', () => clearTimeout(timer));
+      const originalClick = row.getAttribute('onclick');
+      row.onclick = ev => {
+        if (fired) { ev.preventDefault(); fired = false; return; }
+        new Function(originalClick).call(row);
+      };
+      row.removeAttribute('onclick');
+    });
+  }
+
   function bindSlideConfirm(el){
     const handle = el.querySelector('.slide-confirm-handle');
     const fill = el.querySelector('.slide-confirm-fill');
@@ -4466,6 +4668,7 @@
         el.classList.add('confirmed');
         handle.style.transform = `translateX(${maxX}px)`;
         fill.style.width = '100%';
+        haptic([0,20,40,20]);
         const action = el.dataset.action;
         if (action && typeof window[action] === 'function') {
           setTimeout(()=>window[action](), 220);
@@ -4512,6 +4715,8 @@
   document.querySelectorAll('[data-count]').forEach(el=>setTimeout(()=>animateCount(el), 200));
 
   document.querySelectorAll('.slide-confirm').forEach(bindSlideConfirm);
+  drawHeroChart();
+  bindLongPress();
 
   loadConvo();
   if (!voiceEnabled) document.getElementById('voiceToggle')?.classList.add('muted');
