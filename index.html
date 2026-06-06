@@ -20,7 +20,7 @@
 
   :root{
     /* The Chef — Premium "Kitchen Instrument" (dunkel) */
-    --bg:#0a0c10;
+    --bg:#000;
     --surface:#14171d;
     --text:#f5f6f5;
     --text-dim:rgba(243,245,244,0.70);
@@ -196,7 +196,8 @@
   .hero-card::before{display:none}
   .hero-card > *{position:relative}
   .hero-label{font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.6);font-weight:600;margin-bottom:10px}
-  .hero-value{font-size:52px;font-weight:800;letter-spacing:-0.045em;line-height:0.95;font-variant-numeric:tabular-nums;color:#fff}
+  .hero-value{font-size:64px;font-weight:700;letter-spacing:-0.05em;line-height:0.95;font-variant-numeric:tabular-nums;color:#fff;display:flex;align-items:flex-start;gap:2px}
+  .hero-cents{font-size:24px;font-weight:600;letter-spacing:-0.02em;margin-top:8px;opacity:0.75}
   .hero-sub{font-size:14px;color:rgba(255,255,255,0.7);margin-top:10px;font-weight:500}
   .hero-mini{display:flex;gap:14px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.15)}
   .hero-mini-item{flex:1}
@@ -690,6 +691,16 @@
   .extract-name{font-size:13px;font-weight:600}
   .extract-qty{font-size:11px;color:var(--text-dim);text-align:right}
   .extract-price{font-size:13px;font-weight:700;color:var(--gold-light);text-align:right;min-width:60px}
+
+  /* Slide-to-Confirm (Premium-Action) */
+  .slide-confirm{position:relative;height:56px;background:rgba(255,255,255,0.06);border:1px solid rgba(245,166,35,0.18);border-radius:99px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+  .slide-confirm-track{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.65);font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;pointer-events:none;z-index:1;padding-left:30px}
+  .slide-confirm-fill{position:absolute;left:0;top:0;bottom:0;width:56px;background:linear-gradient(120deg,#f5c25a,#c77410);border-radius:99px;transition:width 0.25s ease-out;z-index:1}
+  .slide-confirm-handle{position:absolute;top:4px;left:4px;width:48px;height:48px;border-radius:50%;background:linear-gradient(160deg,#fff,#f0e4cf);border:none;display:flex;align-items:center;justify-content:center;color:#1c1206;box-shadow:0 4px 12px rgba(0,0,0,0.4);cursor:grab;transition:transform 0.25s ease-out;z-index:2;font-family:inherit}
+  .slide-confirm.dragging .slide-confirm-handle,
+  .slide-confirm.dragging .slide-confirm-fill{transition:none}
+  .slide-confirm.confirmed .slide-confirm-track{color:#1c1206}
+  .slide-confirm-handle:active{cursor:grabbing}
 
   /* Buttons */
   .btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;border-radius:14px;background:var(--brand);color:#fff;border:none;font-family:inherit;font-weight:700;font-size:15px;cursor:pointer;width:100%;box-shadow:0 4px 14px rgba(0,61,51,0.22);transition:transform .15s;letter-spacing:-0.01em}
@@ -1254,7 +1265,7 @@
 
         <div class="hero-card" onclick="openTagesDaten()" style="cursor:pointer">
           <div class="hero-label">Umsatz heute</div>
-          <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ ">€ 0</div>
+          <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ " data-cents=",40">€ 0</div>
           <div class="hero-sub" id="kpiUmsatzSub">Tippen, um Tagesdaten einzutragen</div>
           <div class="hero-mini">
             <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" id="kpiMarge" data-count="62.4" data-suffix="%">0%</div></div>
@@ -1270,7 +1281,13 @@
             <span class="today-count" id="todayCount">0 offen</span>
           </div>
           <div id="todoList"></div>
-          <button class="btn-secondary" onclick="openTagesabschluss()" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3a9 9 0 109 9h-2a7 7 0 11-7-7V3zm1 1.05V11h6.95A7.01 7.01 0 0013 4.05zM7 19h10v2H7v-2z"/></svg> Tagesabschluss machen</button>
+          <div class="slide-confirm" data-action="openTagesabschluss" style="margin-top:14px">
+            <div class="slide-confirm-fill"></div>
+            <div class="slide-confirm-track">Wischen für Tagesabschluss</div>
+            <button class="slide-confirm-handle" aria-label="Tagesabschluss starten">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M8.6 5.4L7.2 6.8 12.4 12l-5.2 5.2 1.4 1.4L15.2 12z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="kpi-row" style="display:none"></div>
@@ -2012,7 +2029,10 @@
       if(!el) return;
       el.dataset.count = String(val);
       const dec = String(val).includes('.');
-      el.textContent = (el.dataset.prefix||'') + (dec ? Number(val).toFixed(1).replace('.',',') : Number(val).toLocaleString('de-DE')) + (suffix||el.dataset.suffix||'');
+      const cents = el.dataset.cents || '';
+      const txt = (el.dataset.prefix||'') + (dec ? Number(val).toFixed(1).replace('.',',') : Number(val).toLocaleString('de-DE')) + (suffix||el.dataset.suffix||'');
+      if (cents) el.innerHTML = '<span>' + txt + '</span><span class="hero-cents">' + cents + '</span>';
+      else el.textContent = txt;
     };
     set('kpiUmsatz', tagesDaten.umsatz);
     set('kpiMarge', tagesDaten.marge);
@@ -4425,25 +4445,79 @@
   }
 
   // ===== Animated count-up (Hero + KPIs) =====
+  function bindSlideConfirm(el){
+    const handle = el.querySelector('.slide-confirm-handle');
+    const fill = el.querySelector('.slide-confirm-fill');
+    if(!handle || !fill) return;
+    let dragging=false, startX=0, curX=0, maxX=0;
+    const pos = e => (e.touches ? e.touches[0].clientX : e.clientX);
+    const reset = () => { handle.style.transform=''; fill.style.width=''; curX=0; };
+    function down(e){
+      dragging=true; el.classList.add('dragging');
+      startX = pos(e);
+      maxX = el.clientWidth - handle.clientWidth - 8;
+      e.preventDefault();
+    }
+    function move(e){
+      if(!dragging) return;
+      curX = Math.max(0, Math.min(maxX, pos(e) - startX));
+      handle.style.transform = `translateX(${curX}px)`;
+      fill.style.width = (curX + handle.clientWidth + 4) + 'px';
+      e.preventDefault();
+    }
+    function up(){
+      if(!dragging) return;
+      dragging=false; el.classList.remove('dragging');
+      if(curX >= maxX*0.82){
+        el.classList.add('confirmed');
+        handle.style.transform = `translateX(${maxX}px)`;
+        fill.style.width = '100%';
+        const action = el.dataset.action;
+        if (action && typeof window[action] === 'function') {
+          setTimeout(()=>window[action](), 220);
+        }
+        setTimeout(()=>{ el.classList.remove('confirmed'); reset(); }, 900);
+      } else {
+        reset();
+      }
+    }
+    handle.addEventListener('mousedown', down);
+    handle.addEventListener('touchstart', down, {passive:false});
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
+    window.addEventListener('touchcancel', up);
+  }
+
   function animateCount(el){
     const target = parseFloat(el.dataset.count);
     const prefix = el.dataset.prefix || '';
     const suffix = el.dataset.suffix || '';
+    const cents = el.dataset.cents || '';
     const isDecimal = el.dataset.count.includes('.');
     const dur = 900;
     const start = performance.now();
+    function render(val, final){
+      const txt = isDecimal ? val.toFixed(1).replace('.', ',') : Math.round(val).toLocaleString('de-DE');
+      if (cents) {
+        el.innerHTML = '<span>' + prefix + txt + '</span><span class="hero-cents">' + cents + '</span>' + suffix;
+      } else {
+        el.textContent = prefix + txt + suffix;
+      }
+    }
     function tick(now){
       const p = Math.min((now - start) / dur, 1);
       const eased = 1 - Math.pow(1 - p, 3);
-      const val = target * eased;
-      let txt = isDecimal ? val.toFixed(1).replace('.', ',') : Math.round(val).toLocaleString('de-DE');
-      el.textContent = prefix + txt + suffix;
+      render(target * eased);
       if (p < 1) requestAnimationFrame(tick);
-      else el.textContent = prefix + (isDecimal ? target.toFixed(1).replace('.', ',') : target.toLocaleString('de-DE')) + suffix;
+      else render(target, true);
     }
     requestAnimationFrame(tick);
   }
   document.querySelectorAll('[data-count]').forEach(el=>setTimeout(()=>animateCount(el), 200));
+
+  document.querySelectorAll('.slide-confirm').forEach(bindSlideConfirm);
 
   loadConvo();
   if (!voiceEnabled) document.getElementById('voiceToggle')?.classList.add('muted');
