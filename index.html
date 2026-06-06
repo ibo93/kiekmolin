@@ -1038,8 +1038,22 @@
   .tabbar-inner::after{display:none !important}
 
   /* Toast */
-  .toast{position:absolute;bottom:120px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--brand);color:#fff;border:none;padding:11px 20px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .35s;z-index:300;box-shadow:0 8px 24px rgba(0,61,51,0.3);white-space:nowrap;max-width:90%;text-align:center}
+  .toast{position:fixed;top:calc(env(safe-area-inset-top, 0px) + 14px);bottom:auto;left:50%;transform:translateX(-50%) translateY(-200%);background:rgba(15,17,22,0.92);color:#fff;border:1px solid rgba(255,255,255,0.08);padding:11px 22px;border-radius:99px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:transform .4s cubic-bezier(.2,1.2,.4,1), opacity .25s;z-index:10000;box-shadow:0 16px 44px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(245,166,35,0.18), inset 0 1px 0 rgba(255,255,255,0.06);white-space:nowrap;max-width:90vw;text-align:center;backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);letter-spacing:-0.01em}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* Skeleton-Shimmer (KI denkt) */
+  .msg-shimmer{display:inline-flex !important;gap:5px;padding:14px 18px !important;align-items:center}
+  .msg-shimmer .sd{width:7px;height:7px;border-radius:50%;background:var(--gold-light);opacity:0.4;animation:shimmer 1.2s ease-in-out infinite}
+  .msg-shimmer .sd:nth-child(2){animation-delay:0.18s}
+  .msg-shimmer .sd:nth-child(3){animation-delay:0.36s}
+  @keyframes shimmer{0%,80%,100%{opacity:0.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+
+  /* Aktivitäts-Streifen unter Hero */
+  .activity-ticker{display:flex;align-items:center;gap:10px;margin:-6px 0 16px;padding:9px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(245,166,35,0.12);border-radius:99px;font-size:12px;color:rgba(255,255,255,0.72);overflow:hidden;font-weight:500}
+  .activity-dot{width:6px;height:6px;border-radius:50%;background:var(--gold-light);box-shadow:0 0 8px rgba(245,166,35,0.7);flex-shrink:0;animation:pulse 1.8s ease-in-out infinite}
+  .activity-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .35s}
+  .activity-text.fade{opacity:0}
+  .activity-time{font-size:10px;color:rgba(255,255,255,0.4);font-variant-numeric:tabular-nums;flex-shrink:0;letter-spacing:0.04em}
 
   /* Sheet (modal) */
   .sheet-overlay{position:absolute;inset:0;background:rgba(0,40,33,0.12);backdrop-filter:blur(8px);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
@@ -1336,6 +1350,12 @@
               <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M8.6 5.4L7.2 6.8 12.4 12l-5.2 5.2 1.4 1.4L15.2 12z"/></svg>
             </button>
           </div>
+        </div>
+
+        <div class="activity-ticker" id="activityTicker">
+          <span class="activity-dot"></span>
+          <span class="activity-text" id="activityText">Lädt…</span>
+          <span class="activity-time" id="activityTime">jetzt</span>
         </div>
 
         <div class="kpi-row" style="display:none"></div>
@@ -3462,7 +3482,20 @@
   function setThinking(on) {
     const orb = document.getElementById('voiceOrb');
     if (orb) orb.classList.toggle('thinking', on);
-    document.getElementById('kiStatus').innerHTML = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
+    const kis = document.getElementById('kiStatus');
+    if (kis) kis.innerHTML = on ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg> Denke nach…' : 'Tippe die Kugel oder einen Schnellbefehl';
+    const convo = document.getElementById('convo');
+    if (!convo) return;
+    const existing = convo.querySelector('.msg-shimmer');
+    if (on && !existing) {
+      const s = document.createElement('div');
+      s.className = 'msg msg-ai msg-shimmer';
+      s.innerHTML = '<span class="sd"></span><span class="sd"></span><span class="sd"></span>';
+      convo.appendChild(s);
+      setTimeout(() => s.scrollIntoView({ behavior:'smooth', block:'end' }), 30);
+    } else if (!on && existing) {
+      existing.remove();
+    }
   }
 
   function stopSpeaking() {
@@ -4329,8 +4362,13 @@
         <div></div>
       </div></div>
 
-      <button class="btn-primary" onclick="tagesabschlussSave()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg> Abschluss speichern & vorlesen</button>
-      <div style="margin-top:8px"></div>
+      <div class="slide-confirm" data-action="tagesabschlussSave" style="margin-top:4px;margin-bottom:10px">
+        <div class="slide-confirm-fill"></div>
+        <div class="slide-confirm-track">Wischen zum Speichern & Vorlesen</div>
+        <button class="slide-confirm-handle" aria-label="Speichern">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg>
+        </button>
+      </div>
       ${hac>=HACCP_ZONES.length?'':'<button class="btn-secondary" onclick="closeSheet();openHaccp()" style="margin-bottom:8px">HACCP-Temperaturen jetzt prüfen</button>'}
       <button class="btn-secondary" onclick="speakTagesabschluss()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1A9 9 0 0014 3.2z"/></svg> Nur vorlesen</button>
 
@@ -4358,6 +4396,7 @@
     `;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+    document.querySelectorAll('#sheetBody .slide-confirm').forEach(bindSlideConfirm);
   }
 
   // ===== Pull-to-Refresh =====
@@ -4511,6 +4550,53 @@
   function haptic(pattern){
     if (!navigator.vibrate) return;
     try { navigator.vibrate(pattern || 8); } catch(e){}
+  }
+
+  function applyTimeOfDayGold(){
+    const root = document.documentElement;
+    if (!root || !root.style || typeof root.style.setProperty !== 'function') return;
+    const h = new Date().getHours();
+    let lt = '#ffc878', gold = '#f5a623';
+    if (h >= 6 && h < 11)        { lt = '#ffd9a3'; gold = '#e8a92e'; }
+    else if (h >= 11 && h < 17)  { lt = '#ffc878'; gold = '#f5a623'; }
+    else if (h >= 17 && h < 22)  { lt = '#f5b370'; gold = '#d28920'; }
+    else                          { lt = '#d4a55a'; gold = '#a87a1c'; }
+    root.style.setProperty('--gold-light', lt);
+    root.style.setProperty('--gold', gold);
+  }
+
+  // ===== Aktivitäts-Ticker (rotierende Live-Events) =====
+  function startActivityTicker(){
+    const txt = document.getElementById('activityText');
+    const time = document.getElementById('activityTime');
+    if (!txt || !time) return;
+    function buildEvents(){
+      const out = [];
+      const tt = (window.tagesDaten || {});
+      if (tt.bestellungen) out.push({t:'gerade jetzt verkauft · ' + tt.bestellungen + ' Bestellungen heute', ago:'jetzt'});
+      if (tt.umsatz) out.push({t:'Umsatz heute · € ' + (tt.umsatz).toLocaleString('de-DE'), ago:'live'});
+      const low = (window.lagerData || []).filter(r => r.status === 'low');
+      if (low.length) out.push({t:low[0].name + ' wird knapp · ' + low[0].amount, ago:'vor 2 Min'});
+      const warn = (window.lagerData || []).filter(r => r.status === 'warn');
+      if (warn.length) out.push({t:warn[0].name + ' bald nachbestellen', ago:'heute'});
+      if (tt.marge) out.push({t:'Marge stabil bei ' + tt.marge + '%', ago:'live'});
+      if (!out.length) out.push({t:'Bereit · alles im grünen Bereich', ago:'jetzt'});
+      return out;
+    }
+    let events = buildEvents(), i = 0;
+    function show(){
+      events = buildEvents();
+      const ev = events[i % events.length];
+      txt.classList.add('fade');
+      setTimeout(() => {
+        txt.textContent = ev.t;
+        time.textContent = ev.ago;
+        txt.classList.remove('fade');
+      }, 200);
+      i++;
+    }
+    show();
+    setInterval(show, 4200);
   }
 
   function drawHeroChart(){
@@ -4715,8 +4801,10 @@
   document.querySelectorAll('[data-count]').forEach(el=>setTimeout(()=>animateCount(el), 200));
 
   document.querySelectorAll('.slide-confirm').forEach(bindSlideConfirm);
+  applyTimeOfDayGold();
   drawHeroChart();
   bindLongPress();
+  startActivityTicker();
 
   loadConvo();
   if (!voiceEnabled) document.getElementById('voiceToggle')?.classList.add('muted');
