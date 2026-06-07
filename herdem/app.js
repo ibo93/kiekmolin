@@ -113,6 +113,8 @@ let cmsSettings = {
   phone: "+49 69 0000 0000", email: "hallo@herdem.example.com",
   hours: "Mo–Sa 08:00–22:00",
   minOrder: 15, feeDelivery: 3.9, freeDelivery: 39, feeShipping: 4.9, freeShipping: 49,
+  whatsappNumber: "", paypalHandle: "",
+  iban: "", bic: "", accountHolder: "",
   zipList: ["60311","60313","60314","60316","60318","60320","60322","60325","60327","60329","60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"],
   storeOpen: true,
   promos: [
@@ -291,6 +293,19 @@ const i18n = {
     stepCart: "Warenkorb", stepAddr: "Adresse", stepPay: "Zahlung",
     coName: "Name", coPhone: "Telefon", coHint: "Hinweis für den Fahrer",
     payCard: "Karte", payCash: "Bar bei Lieferung",
+    payWhatsapp: "WhatsApp", payTransfer: "Überweisung", payPaypal: "PayPal.me",
+    payHintCash: "Du bezahlst dem Fahrer bei Lieferung — bitte den Betrag möglichst passend bereithalten.",
+    payHintWhatsapp: "Wir öffnen WhatsApp mit deiner Bestellung. Du sendest die Nachricht ab, der Shop bestätigt und liefert.",
+    payHintTransfer: "Du bekommst nach der Bestellung Kontodaten und Bestellnummer als Verwendungszweck. Lieferung startet nach Zahlungseingang.",
+    payHintPaypal: "Du wirst zu PayPal.me mit dem Betrag weitergeleitet. Schließe die Zahlung dort ab.",
+    trTitle: "Überweisung", trIntro: "Bitte den Betrag auf folgendes Konto überweisen — wichtig: Bestellnummer als Verwendungszweck angeben, sonst kann die Bestellung nicht zugeordnet werden.",
+    trHolder: "Kontoinhaber", trAmount: "Betrag", trRef: "Verwendungszweck",
+    trCopy: "Kopieren", trCopied: "Kopiert ✓", trDone: "Überweisung erledigt",
+    waOrderHeader: (code) => `Hallo Herdem, ich möchte folgende Bestellung aufgeben (Code: ${code}):`,
+    waOrderFooter: (slot, address) => `\nLieferzeit: ${slot}\nAdresse: ${address}`,
+    waNotConfigured: "WhatsApp-Bestellung ist aktuell nicht hinterlegt. Bitte Bar oder Überweisung wählen.",
+    paypalNotConfigured: "PayPal.me ist aktuell nicht hinterlegt. Bitte Bar oder Überweisung wählen.",
+    transferNotConfigured: "Kontodaten für Überweisung sind aktuell nicht hinterlegt. Bitte Bar wählen.",
     coOverview: "Übersicht",
     coPlace: "Bestellung abschicken",
     coLegal: "Mit der Bestellung akzeptierst du die AGB.",
@@ -436,6 +451,19 @@ const i18n = {
     stepCart: "Sepet", stepAddr: "Adres", stepPay: "Ödeme",
     coName: "Ad Soyad", coPhone: "Telefon", coHint: "Kuryeye not",
     payCard: "Kart", payCash: "Kapıda nakit",
+    payWhatsapp: "WhatsApp", payTransfer: "Havale", payPaypal: "PayPal.me",
+    payHintCash: "Tutarı kuryeye teslimde ödersin — mümkünse net hazır bulundur.",
+    payHintWhatsapp: "Siparişin WhatsApp'ta açılır. Mesajı gönder, mağaza onaylar ve hazırlar.",
+    payHintTransfer: "Sipariş sonrası hesap bilgileri ve sipariş kodu açıklama olarak gösterilir. Ödeme alındıktan sonra teslimat başlar.",
+    payHintPaypal: "PayPal.me sayfasına tutarla yönlendirileceksin. Ödemeyi orada tamamla.",
+    trTitle: "Havale", trIntro: "Lütfen tutarı aşağıdaki hesaba gönder — sipariş kodunu açıklamaya yazmayı unutma, aksi halde sipariş eşleştirilemez.",
+    trHolder: "Hesap sahibi", trAmount: "Tutar", trRef: "Açıklama",
+    trCopy: "Kopyala", trCopied: "Kopyalandı ✓", trDone: "Havaleyi gönderdim",
+    waOrderHeader: (code) => `Merhaba Herdem, şu siparişi vermek istiyorum (Kod: ${code}):`,
+    waOrderFooter: (slot, address) => `\nTeslimat zamanı: ${slot}\nAdres: ${address}`,
+    waNotConfigured: "WhatsApp siparişi şu an aktif değil. Lütfen kapıda nakit veya havale seç.",
+    paypalNotConfigured: "PayPal.me şu an aktif değil. Lütfen kapıda nakit veya havale seç.",
+    transferNotConfigured: "Havale için hesap bilgileri henüz girilmedi. Lütfen kapıda nakit seç.",
     coOverview: "Özet",
     coPlace: "Siparişi gönder",
     coLegal: "Sipariş vererek koşulları kabul edersin.",
@@ -515,7 +543,7 @@ const state = {
   lang: detectLang(),
   address: lsGet("herdem.address", null),
   slot: localStorage.getItem("herdem.slot") || "",
-  pay: localStorage.getItem("herdem.pay") || "card",
+  pay: localStorage.getItem("herdem.pay") || "cash",
   storeOpen: cmsSettings.storeOpen !== false,
   installPrompt: null,
   toastTimer: 0,
@@ -1270,6 +1298,27 @@ document.addEventListener("click", (ev) => {
     state.pay = pay.dataset.pay;
     localStorage.setItem("herdem.pay", state.pay);
     $$("[data-pay]").forEach(b => b.classList.toggle("is-selected", b === pay));
+    updatePayHint();
+    return;
+  }
+
+  const cpy = ev.target.closest("[data-copy]");
+  if (cpy) {
+    const target = document.getElementById(cpy.dataset.copy);
+    if (!target) return;
+    const txt = target.textContent.trim();
+    if (!txt || txt === "—") return;
+    (navigator.clipboard?.writeText(txt) || Promise.reject()).then(() => {
+      const orig = cpy.textContent;
+      cpy.textContent = t("trCopied");
+      cpy.classList.add("is-copied");
+      setTimeout(() => { cpy.textContent = orig; cpy.classList.remove("is-copied"); }, 1400);
+    }).catch(() => {
+      // Fallback: select the text so user can manually copy
+      const r = document.createRange(); r.selectNodeContents(target);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      showToast(t("trCopy"));
+    });
     return;
   }
 
@@ -1386,6 +1435,56 @@ els.checkout.addEventListener("click", () => {
   els.checkoutDialog.showModal();
 });
 
+/* ---------- Payment helpers ---------- */
+function updatePayHint() {
+  const hintEl = document.getElementById("payHint");
+  if (!hintEl) return;
+  const key = "payHint" + state.pay.charAt(0).toUpperCase() + state.pay.slice(1);
+  const text = t(key);
+  hintEl.textContent = text || t("payHintCash");
+}
+
+function syncPaySelection() {
+  $$("[data-pay]").forEach(b => b.classList.toggle("is-selected", b.dataset.pay === state.pay));
+  updatePayHint();
+}
+
+function buildWhatsAppOrderText(receipt) {
+  const header = t("waOrderHeader", receipt.code);
+  const lines = receipt.entries.map(e => `• ${e.qty}× ${e.name[state.lang] || e.name.de} — ${money(e.price * e.qty)}`);
+  const total = `\n${state.lang === "tr" ? "Toplam" : "Gesamt"}: ${money(receipt.total)}`;
+  const footer = t("waOrderFooter", receipt.slot, receipt.address);
+  return [header, "", ...lines, total, footer].join("\n");
+}
+
+function buildWhatsAppUrl(receipt) {
+  const num = (cmsSettings.whatsappNumber || "").replace(/[^\d]/g, "");
+  if (!num) return null;
+  const text = encodeURIComponent(buildWhatsAppOrderText(receipt));
+  return `https://wa.me/${num}?text=${text}`;
+}
+
+function buildPaypalUrl(receipt) {
+  const handle = (cmsSettings.paypalHandle || "").trim().replace(/^@/, "");
+  if (!handle) return null;
+  const amount = receipt.total.toFixed(2);
+  return `https://www.paypal.me/${encodeURIComponent(handle)}/${amount}EUR`;
+}
+
+function openTransferDialog(receipt) {
+  const holder = cmsSettings.accountHolder || cmsSettings.storeName || "";
+  const iban = cmsSettings.iban || "";
+  const bic = cmsSettings.bic || "";
+  if (!iban || !holder) return false;
+  document.getElementById("trHolder").textContent = holder;
+  document.getElementById("trIban").textContent = iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
+  document.getElementById("trBic").textContent = bic || "—";
+  document.getElementById("trAmount").textContent = money(receipt.total);
+  document.getElementById("trRef").textContent = receipt.code;
+  document.getElementById("transferDialog").showModal();
+  return true;
+}
+
 /* Place order */
 $("#placeOrder").addEventListener("click", () => {
   const form = $("#checkoutForm");
@@ -1393,20 +1492,82 @@ $("#placeOrder").addEventListener("click", () => {
   const T = totals();
   if (T.entries.length === 0) return;
   const code = "HDM-" + String(Math.floor(1000 + Math.random() * 9000));
-  state.lastReceipt = {
+  const receipt = {
     code,
     entries: T.entries.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
     subtotal: T.subtotal, discount: T.discount, fee: T.fee, tip: T.tip, total: T.total,
     slot: els.slot.selectedOptions[0]?.textContent || "",
     address: els.addressLabel.textContent,
+    payment: state.pay,
   };
+
+  // Validate prerequisites per payment method
+  if (state.pay === "whatsapp" && !cmsSettings.whatsappNumber) {
+    showToast(t("waNotConfigured"));
+    return;
+  }
+  if (state.pay === "paypal" && !cmsSettings.paypalHandle) {
+    showToast(t("paypalNotConfigured"));
+    return;
+  }
+  if (state.pay === "transfer" && (!cmsSettings.iban || !cmsSettings.accountHolder)) {
+    showToast(t("transferNotConfigured"));
+    return;
+  }
+
+  state.lastReceipt = receipt;
   $("#orderCode").textContent = code;
+  pushOrderToCms(receipt);
+
+  // Branch by payment method
+  if (state.pay === "whatsapp") {
+    const url = buildWhatsAppUrl(receipt);
+    els.checkoutDialog.close();
+    if (url) window.open(url, "_blank", "noopener");
+    els.successDialog.showModal();
+    setActiveDelivery(code);
+    fireConfetti();
+    return;
+  }
+
+  if (state.pay === "paypal") {
+    const url = buildPaypalUrl(receipt);
+    els.checkoutDialog.close();
+    if (url) window.open(url, "_blank", "noopener");
+    els.successDialog.showModal();
+    setActiveDelivery(code);
+    fireConfetti();
+    return;
+  }
+
+  if (state.pay === "transfer") {
+    els.checkoutDialog.close();
+    if (!openTransferDialog(receipt)) {
+      // Fallback if accidentally cleared between validate and open
+      els.successDialog.showModal();
+    }
+    // Confetti + tracker fire only AFTER user confirms transfer (handled by trDone listener below)
+    return;
+  }
+
+  // Default: cash on delivery
   els.checkoutDialog.close();
   els.successDialog.showModal();
-  pushOrderToCms(state.lastReceipt);
   setActiveDelivery(code);
   fireConfetti();
 });
+
+/* After user confirms transfer, show success + tracker */
+document.addEventListener("close", (ev) => {
+  if (ev.target?.id === "transferDialog" && state.lastReceipt && state.pay === "transfer") {
+    // returnValue is "ok" only when "Überweisung erledigt" submitted
+    if (ev.target.returnValue === "ok") {
+      els.successDialog.showModal();
+      setActiveDelivery(state.lastReceipt.code);
+      fireConfetti();
+    }
+  }
+}, true);
 
 /* Download receipt */
 $("#downloadReceipt").addEventListener("click", () => {
@@ -1755,6 +1916,7 @@ function init() {
   renderDeliveryTracker();
   setInterval(renderDeliveryTracker, 60_000);
   updateStickyBar();
+  syncPaySelection();
   // sync language URL param if explicit
   if (params.get("lang") && params.get("lang") !== state.lang) {
     history.replaceState(null, "", location.pathname + location.hash);

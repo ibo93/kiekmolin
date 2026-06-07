@@ -124,6 +124,11 @@ const SEED_SETTINGS = {
   freeDelivery: 39,
   feeShipping: 4.9,
   freeShipping: 49,
+  whatsappNumber: "",
+  paypalHandle: "",
+  accountHolder: "",
+  iban: "",
+  bic: "",
   zipList: ["60311","60313","60314","60316","60318","60320","60322","60325","60327","60329","60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"],
   storeOpen: true,
   promos: [
@@ -641,7 +646,7 @@ $("#promoList").addEventListener("click", (e) => {
 
 $("#saveSettings").addEventListener("click", () => {
   const f = $("#settingsForm").elements;
-  ["storeName","storeTaglineDe","storeTaglineTr","addrStreet","addrZip","addrCity","phone","email","hours"]
+  ["storeName","storeTaglineDe","storeTaglineTr","addrStreet","addrZip","addrCity","phone","email","hours","whatsappNumber","paypalHandle","accountHolder","iban","bic"]
     .forEach(k => { if (f[k]) state.settings[k] = f[k].value.trim(); });
   ["minOrder","feeDelivery","freeDelivery","feeShipping","freeShipping"]
     .forEach(k => { if (f[k]) state.settings[k] = parseFloat(f[k].value) || 0; });

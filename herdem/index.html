@@ -527,11 +527,24 @@
             <label><span data-i18n="coPhone">Telefon</span><input type="tel" name="phone" required autocomplete="tel" placeholder="+49 …" /></label>
             <label class="wide"><span data-i18n="coHint">Hinweis für den Fahrer</span><input type="text" name="hint" placeholder="z. B. 3. Stock, Klingel Yılmaz" /></label>
             <div class="pay-row" role="radiogroup" aria-label="Zahlungsart">
-              <button type="button" class="is-selected" data-pay="card" data-i18n="payCard">Karte</button>
-              <button type="button" data-pay="paypal">PayPal</button>
-              <button type="button" data-pay="klarna">Klarna</button>
-              <button type="button" data-pay="cash" data-i18n="payCash">Bar bei Lieferung</button>
+              <button type="button" class="is-selected" data-pay="cash" data-i18n="payCash">
+                <span class="pay-icon" aria-hidden="true">💶</span>
+                <span class="pay-label">Bar bei Lieferung</span>
+              </button>
+              <button type="button" data-pay="whatsapp" data-i18n="payWhatsapp">
+                <span class="pay-icon" aria-hidden="true">💬</span>
+                <span class="pay-label">WhatsApp</span>
+              </button>
+              <button type="button" data-pay="transfer" data-i18n="payTransfer">
+                <span class="pay-icon" aria-hidden="true">🏦</span>
+                <span class="pay-label">Überweisung</span>
+              </button>
+              <button type="button" data-pay="paypal" data-i18n="payPaypal">
+                <span class="pay-icon" aria-hidden="true">🅿️</span>
+                <span class="pay-label">PayPal.me</span>
+              </button>
             </div>
+            <p class="pay-hint" id="payHint" data-i18n="payHintCash">Du bezahlst dem Fahrer bei Lieferung.</p>
           </div>
           <aside class="co-summary">
             <p class="eyebrow" data-i18n="coOverview">Übersicht</p>
@@ -539,6 +552,47 @@
             <button class="btn-checkout full" id="placeOrder" type="button" data-i18n="coPlace">Bestellung abschicken</button>
             <p class="legal-mini" data-i18n="coLegal">Mit der Bestellung akzeptierst du die AGB.</p>
           </aside>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Überweisungsdetails-Dialog -->
+    <dialog class="dlg dlg-transfer" id="transferDialog" aria-labelledby="trTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="trTitle" data-i18n="trTitle">Überweisung</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <div class="tr-body">
+          <p class="tr-intro" data-i18n="trIntro">Bitte den Betrag auf folgendes Konto überweisen — wichtig: Bestellnummer als Verwendungszweck angeben, sonst kann die Bestellung nicht zugeordnet werden.</p>
+          <ul class="tr-list">
+            <li>
+              <span class="tr-key" data-i18n="trHolder">Kontoinhaber</span>
+              <strong class="tr-val" id="trHolder">—</strong>
+              <button type="button" class="tr-copy" data-copy="trHolder" data-i18n="trCopy">Kopieren</button>
+            </li>
+            <li>
+              <span class="tr-key">IBAN</span>
+              <strong class="tr-val" id="trIban">—</strong>
+              <button type="button" class="tr-copy" data-copy="trIban" data-i18n="trCopy">Kopieren</button>
+            </li>
+            <li>
+              <span class="tr-key">BIC</span>
+              <strong class="tr-val" id="trBic">—</strong>
+              <button type="button" class="tr-copy" data-copy="trBic" data-i18n="trCopy">Kopieren</button>
+            </li>
+            <li>
+              <span class="tr-key" data-i18n="trAmount">Betrag</span>
+              <strong class="tr-val" id="trAmount">—</strong>
+              <button type="button" class="tr-copy" data-copy="trAmount" data-i18n="trCopy">Kopieren</button>
+            </li>
+            <li class="tr-emph">
+              <span class="tr-key" data-i18n="trRef">Verwendungszweck</span>
+              <strong class="tr-val" id="trRef">—</strong>
+              <button type="button" class="tr-copy" data-copy="trRef" data-i18n="trCopy">Kopieren</button>
+            </li>
+          </ul>
+          <button type="submit" value="ok" class="btn-checkout full" id="trDone" data-i18n="trDone">Überweisung erledigt</button>
         </div>
       </form>
     </dialog>
