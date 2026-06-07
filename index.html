@@ -2374,7 +2374,7 @@
         </div>
         <div class="section-h"><h2>Integrationen</h2></div>
         <div class="list-card glass">
-          <div class="setting-row"><div class="setting-icon menu-icon-1"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm2 0v3h16V6H4zm0 6v6h16v-6H4z"/></svg></div><div style="flex:1"><div style="font-size:14px;font-weight:600">Kasse SumUp</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Verkäufe synchronisiert</div></div><span class="pill pill-good">Aktiv</span></div>
+          <div class="setting-row" id="kasseRow" onclick="openKasseSheet()" style="cursor:pointer"><div class="setting-icon menu-icon-1"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm2 0v3h16V6H4zm0 6v6h16v-6H4z"/></svg></div><div style="flex:1"><div style="font-size:14px;font-weight:600" id="kasseLabel">Kasse verbinden</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px" id="kasseSub">Bestellungen automatisch in die Kasse</div></div><span class="pill" id="kassePill" style="background:var(--surface);color:var(--text-dim)">Tippen</span></div>
           <div class="setting-row"><div class="setting-icon menu-icon-3"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg></div><div style="flex:1"><div style="font-size:14px;font-weight:600">DATEV-Export</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Monatlich automatisch</div></div><span class="pill pill-good">Aktiv</span></div>
           <div class="setting-row"><div class="setting-icon menu-icon-4"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M11 3a3 3 0 00-3 3v8.4a5 5 0 106 0V6a3 3 0 00-3-3zm-1 3a1 1 0 012 0v8.6l.6.4a3 3 0 11-3.2 0l.6-.4V6z"/></svg></div><div style="flex:1"><div style="font-size:14px;font-weight:600">Sensoren</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">3 Geräte verbunden</div></div><span class="pill pill-good">Aktiv</span></div>
           <div class="setting-row"><div class="setting-icon menu-icon-5"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm2 0l8 5.5L20 6H4zm0 1.5V18h16V7.5l-8 5.5-8-5.5z"/></svg></div><div style="flex:1"><div style="font-size:14px;font-weight:600">E-Mail-Alerts</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Bestand & HACCP</div></div><span class="pill pill-good">Aktiv</span></div>
@@ -2389,6 +2389,187 @@
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
   }
+
+  // ===== Kassen-Anbindung (echt: localStorage + HTTP-Test) =====
+  const KASSE_SYSTEMS = {
+    'wimi':   { name:'WIMI-SYS',         urlPlaceholder:'http://192.168.1.50:8080/api/orders', keyLabel:'API-Token',  note:'Pull-Modul muss in WIMI freigeschaltet sein.' },
+    'sumup':  { name:'SumUp Solo/Air',    urlPlaceholder:'https://api.sumup.com/v0.1/me/transactions', keyLabel:'Access-Token', note:'OAuth-Token aus dem SumUp-Developer-Portal.' },
+    'r2o':    { name:'ready2order',       urlPlaceholder:'https://api.ready2order.com/v1/document/invoice', keyLabel:'API-Key', note:'Account → Mein Konto → Mein Account → API.' },
+    'orderb': { name:'orderbird',         urlPlaceholder:'https://api.orderbird.com/...', keyLabel:'Token', note:'Partner-Zugang nötig (orderbird Partner-Programm).' },
+    'gastrofix': { name:'Gastrofix',      urlPlaceholder:'https://api.gastrofix.com/...', keyLabel:'API-Schlüssel', note:'Partner-Anbindung über Gastrofix Connect.' },
+    'kiekmolin': { name:'Kiek mol in Pull', urlPlaceholder:'https://kiekmolin.de/.netlify/functions/pos-orders?restaurant=…&key=…', keyLabel:'Schlüssel (im Dashboard)', note:'Wenn du gleichzeitig kiekmolin nutzt — synct die Online-Bestellungen.' },
+    'custom': { name:'Eigener Webhook / URL', urlPlaceholder:'https://meine-kasse.example.com/orders', keyLabel:'API-Key (optional)', note:'Generischer HTTP-Endpoint mit JSON-Antwort.' }
+  };
+  function getKasseConfig(){
+    try { return JSON.parse(localStorage.getItem('chef_kasse') || '{}'); } catch(e){ return {}; }
+  }
+  function refreshKasseRow(){
+    const cfg = getKasseConfig();
+    const lbl = document.getElementById('kasseLabel');
+    const sub = document.getElementById('kasseSub');
+    const pill = document.getElementById('kassePill');
+    if (!lbl) return;
+    if (cfg.system && cfg.url) {
+      const sys = KASSE_SYSTEMS[cfg.system];
+      lbl.textContent = 'Kasse · ' + (sys ? sys.name : cfg.system);
+      sub.textContent = cfg.autoSync ? 'Auto-Sync aktiv · Bestellungen werden gezogen' : 'Verbunden · Sync manuell';
+      pill.className = 'pill pill-good';
+      pill.textContent = 'Aktiv';
+      pill.style = '';
+    } else {
+      lbl.textContent = 'Kasse verbinden';
+      sub.textContent = 'Bestellungen automatisch in die Kasse';
+      pill.className = 'pill';
+      pill.textContent = 'Tippen';
+      pill.style.background = 'var(--surface)';
+      pill.style.color = 'var(--text-dim)';
+    }
+  }
+  function openKasseSheet(){
+    const cfg = getKasseConfig();
+    const sysOptions = Object.keys(KASSE_SYSTEMS).map(k => {
+      const sel = k === cfg.system ? ' selected' : '';
+      return '<option value="' + k + '"' + sel + '>' + KASSE_SYSTEMS[k].name + '</option>';
+    }).join('');
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm2 0v3h16V6H4zm0 6v6h16v-6H4z"/></svg> Kasse verbinden';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">The Chef holt deine Bestellungen direkt von der Kasse und kann sie ins Lager + Tagesabschluss einrechnen. Du brauchst nur URL + Schlüssel deiner Kassensoftware.</p>
+
+      <div class="onboard-label" style="margin-top:0">Kassensystem</div>
+      <select id="kasseSys" onchange="onKasseSysChange()" class="onboard-input" style="margin-bottom:12px">
+        ${sysOptions}
+      </select>
+
+      <div id="kasseHint" style="font-size:12px;color:var(--text-dim);padding:0 4px;margin-bottom:10px"></div>
+
+      <div class="onboard-label">API-URL</div>
+      <input type="url" class="onboard-input" id="kasseUrl" value="${cfg.url ? String(cfg.url).replace(/"/g,'&quot;') : ''}" placeholder="" style="margin-bottom:12px">
+
+      <div class="onboard-label" id="kasseKeyLbl">API-Key</div>
+      <input type="text" class="onboard-input" id="kasseKey" value="${cfg.key ? String(cfg.key).replace(/"/g,'&quot;') : ''}" placeholder="" style="margin-bottom:14px">
+
+      <label class="setting-row" style="cursor:pointer;padding:10px 14px;background:rgba(245,166,35,0.06);border-radius:12px;margin-bottom:14px">
+        <input type="checkbox" id="kasseAuto" ${cfg.autoSync ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--brand)">
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">Auto-Sync</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Alle 60 Sek. neue Bestellungen ziehen</div></div>
+      </label>
+
+      <div id="kasseTestRes" style="font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:10px;display:none"></div>
+
+      <button class="btn-secondary" onclick="testKasseConnection()" style="margin-bottom:10px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1 15l-5-5 1.4-1.4L11 14.2l6.6-6.6L19 9l-8 8z"/></svg> Verbindung testen</button>
+
+      <button class="btn-primary" onclick="saveKasseConfig()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4zM12 19a3 3 0 110-6 3 3 0 010 6zM5 9V5h10v4H5z"/></svg> Speichern</button>
+
+      ${cfg.system ? '<button class="btn-secondary" onclick="disconnectKasse()" style="margin-top:10px;color:#ff8a7a">Verbindung trennen</button>' : ''}
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+    onKasseSysChange();
+  }
+  function onKasseSysChange(){
+    const sel = document.getElementById('kasseSys');
+    const url = document.getElementById('kasseUrl');
+    const key = document.getElementById('kasseKey');
+    const keyLbl = document.getElementById('kasseKeyLbl');
+    const hint = document.getElementById('kasseHint');
+    if (!sel) return;
+    const sys = KASSE_SYSTEMS[sel.value];
+    if (!sys) return;
+    url.placeholder = sys.urlPlaceholder;
+    key.placeholder = sys.keyLabel + ' eingeben';
+    keyLbl.textContent = sys.keyLabel;
+    hint.textContent = sys.note;
+  }
+  function _kasseRes(ok, msg){
+    const r = document.getElementById('kasseTestRes');
+    if (!r) return;
+    r.style.display = 'block';
+    if (ok) { r.style.background='rgba(46,230,166,0.12)'; r.style.color='#8df3c8'; r.style.border='1px solid rgba(46,230,166,0.3)'; }
+    else    { r.style.background='rgba(255,90,77,0.12)'; r.style.color='#ff8a7a'; r.style.border='1px solid rgba(255,90,77,0.3)'; }
+    r.textContent = msg;
+  }
+  async function testKasseConnection(){
+    const sys = document.getElementById('kasseSys').value;
+    const url = document.getElementById('kasseUrl').value.trim();
+    const key = document.getElementById('kasseKey').value.trim();
+    if (!url) { _kasseRes(false, 'Bitte eine API-URL eintragen.'); return; }
+    _kasseRes(true, 'Verbinde …');
+    try {
+      const headers = { 'Accept': 'application/json' };
+      if (key) {
+        headers['X-API-Key'] = key;
+        headers['Authorization'] = 'Bearer ' + key;
+      }
+      const ctrl = new AbortController();
+      const to = setTimeout(()=>ctrl.abort(), 8000);
+      const res = await fetch(url, { headers, signal: ctrl.signal });
+      clearTimeout(to);
+      if (res.ok) {
+        let count = '';
+        try {
+          const j = await res.json();
+          const list = Array.isArray(j) ? j : (j.orders || j.data || []);
+          if (Array.isArray(list)) count = ' · ' + list.length + ' Bestellungen erkannt';
+        } catch(e){}
+        _kasseRes(true, 'Verbindung OK (HTTP ' + res.status + ')' + count);
+      } else {
+        _kasseRes(false, 'Antwort vom Server: HTTP ' + res.status + ' ' + res.statusText);
+      }
+    } catch(e) {
+      _kasseRes(false, 'Verbindung fehlgeschlagen: ' + (e.message || e));
+    }
+  }
+  function saveKasseConfig(){
+    const cfg = {
+      system: document.getElementById('kasseSys').value,
+      url:    document.getElementById('kasseUrl').value.trim(),
+      key:    document.getElementById('kasseKey').value.trim(),
+      autoSync: document.getElementById('kasseAuto').checked,
+      savedAt: Date.now()
+    };
+    if (!cfg.url) { toast('Bitte URL eintragen.'); return; }
+    localStorage.setItem('chef_kasse', JSON.stringify(cfg));
+    refreshKasseRow();
+    toast('Kasse gespeichert · ' + (KASSE_SYSTEMS[cfg.system]?.name || cfg.system));
+    closeSheet();
+    if (cfg.autoSync) startKasseAutoSync();
+  }
+  function disconnectKasse(){
+    if (!confirm('Verbindung wirklich trennen?')) return;
+    localStorage.removeItem('chef_kasse');
+    refreshKasseRow();
+    toast('Kasse getrennt.');
+    closeSheet();
+    stopKasseAutoSync();
+  }
+  let _kasseTimer = null;
+  function stopKasseAutoSync(){ if (_kasseTimer) { clearInterval(_kasseTimer); _kasseTimer = null; } }
+  function startKasseAutoSync(){
+    stopKasseAutoSync();
+    const cfg = getKasseConfig();
+    if (!cfg.url || !cfg.autoSync) return;
+    _kasseTimer = setInterval(async function(){
+      try {
+        const h = { 'Accept':'application/json' };
+        if (cfg.key) { h['X-API-Key'] = cfg.key; h['Authorization'] = 'Bearer ' + cfg.key; }
+        const r = await fetch(cfg.url, { headers: h });
+        if (!r.ok) return;
+        const j = await r.json();
+        const list = Array.isArray(j) ? j : (j.orders || j.data || []);
+        if (Array.isArray(list) && list.length) {
+          const last = JSON.parse(localStorage.getItem('chef_kasse_last') || '0');
+          const newest = list.filter(o => new Date(o.created_at || 0).getTime() > last);
+          if (newest.length) {
+            toast(newest.length + ' neue Bestellung(en) von der Kasse');
+            const max = Math.max(...list.map(o => new Date(o.created_at||0).getTime()));
+            localStorage.setItem('chef_kasse_last', JSON.stringify(max));
+          }
+        }
+      } catch(e){}
+    }, 60000);
+  }
+  setTimeout(refreshKasseRow, 200);
+  setTimeout(startKasseAutoSync, 1500);
 
   // ===== Rezept-Kalkulator =====
   const recipes = {
