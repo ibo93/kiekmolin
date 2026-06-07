@@ -1317,23 +1317,14 @@
       <!-- ==== HOME ==== -->
       <section class="view active" data-view="home">
 
-        <div class="hero-card" onclick="openTagesDaten()" style="cursor:pointer">
-          <svg class="hero-chart-bg" id="heroChartSvg" viewBox="0 0 280 60" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="heroChartGrad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#f5c25a" stop-opacity="0.45"/>
-                <stop offset="100%" stop-color="#f5c25a" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path id="heroChartPath" d="M0 60 L280 60 Z" fill="url(#heroChartGrad)" stroke="#f5c25a" stroke-opacity="0.55" stroke-width="1.2" stroke-linejoin="round"/>
-          </svg>
-          <div class="hero-label">Umsatz heute</div>
-          <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ " data-cents=",40">€ 0</div>
-          <div class="hero-sub" id="kpiUmsatzSub">Tippen, um Tagesdaten einzutragen</div>
+        <div class="hero-card" id="focusCard" style="cursor:pointer">
+          <div class="hero-label" id="focusKicker">Heute wichtig</div>
+          <div class="hero-value" id="focusTitle" style="font-size:34px;line-height:1.1;letter-spacing:-0.02em">Lädt …</div>
+          <div class="hero-sub" id="focusSub" style="margin-top:14px;line-height:1.5">The Chef schaut sich gerade deine Daten an.</div>
           <div class="hero-mini">
-            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" id="kpiMarge" data-count="62.4" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" id="lagerKpi" data-count="87" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" id="kpiMuell" data-count="2.1" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Läuft ab</div><div class="hero-mini-val" id="focusMhd">—</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Knapp</div><div class="hero-mini-val" id="focusKnapp">—</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Top-Marge</div><div class="hero-mini-val up" id="focusMarge">—</div></div>
           </div>
         </div>
 
@@ -1904,6 +1895,7 @@
   function refreshLager(){
     const active = document.querySelector('.chip.active');
     renderLager(active ? active.dataset.filter : 'all', document.getElementById('lagerSearch').value);
+    try{ renderHomeFocus(); }catch(e){}
   }
 
   // Echte Lager-Kennzahlen – einzige Wahrheitsquelle, kein Hardcoding
@@ -2016,8 +2008,80 @@
     if(bs) bs.textContent = (tagesDaten.gaeste && tagesDaten.bestellungen)
       ? 'Ø ' + (tagesDaten.bestellungen/tagesDaten.gaeste).toFixed(1).replace('.',',') + ' / Gast'
       : 'heute aufgenommen';
+    renderHomeFocus();
   }
   renderTagesDaten();
+
+  // "Heute wichtig"-Fokuskarte: leitet aus echten Daten (MHD, Bestand, Uhrzeit) die wichtigste Aktion ab
+  function pickHomeFocus(){
+    const now = new Date(), h = now.getHours() + now.getMinutes()/60;
+    // 1) Verderbliches
+    const expiring = (lagerData||[]).filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 1; });
+    if(expiring.length === 1){
+      const r = expiring[0];
+      return { kicker:'Jetzt verarbeiten', title:r.name + (daysUntilMhd(r) < 0 ? ' abgelaufen' : ' läuft ab'), sub:'Mach ein Tagesgericht draus – der Reste-Retter schlägt passende Gerichte vor.', cta:'Reste-Retter öffnen', action:function(){ try{ openResteRetter(); }catch(e){} } };
+    }
+    if(expiring.length > 1){
+      const names = expiring.slice(0,3).map(function(r){ return r.name; }).join(', ');
+      return { kicker:'Jetzt verarbeiten', title:expiring.length + ' Artikel laufen ab', sub:names + (expiring.length>3 ? ' u.a.' : '') + ' – verarbeiten, bevor Verlust draus wird.', cta:'Reste-Retter öffnen', action:function(){ try{ openResteRetter(); }catch(e){} } };
+    }
+    // 2) Kritisch knapp
+    const critical = (lagerData||[]).filter(function(r){ return r.status === 'low' || (r.pct != null && r.pct < 15); });
+    if(critical.length === 1){
+      return { kicker:'Knapp im Lager', title:critical[0].name + ' ist alle', sub:'Nachbestellen, sonst fällt das Gericht aus.', cta:'Nachbestellen', action:function(){ try{ openNachbestellung(); }catch(e){} } };
+    }
+    if(critical.length > 1){
+      const names = critical.slice(0,3).map(function(r){ return r.name; }).join(', ');
+      return { kicker:'Knapp im Lager', title:critical.length + ' Artikel kritisch', sub:names + (critical.length>3 ? ' u.a.' : '') + ' – jetzt nachbestellen.', cta:'Nachbestell-Liste', action:function(){ try{ openNachbestellung(); }catch(e){} } };
+    }
+    // 3) Service-Fenster
+    if(h >= 9 && h < 12){
+      const mins = Math.max(1, Math.round((12 - h) * 60));
+      return { kicker:'Mittagsservice', title:'Service in ' + (mins>=60 ? Math.round(mins/60)+' h' : mins + ' min'), sub:'Karte raus, Lager prüfen – alles bereit für den Mittag?', cta:'Lager prüfen', action:function(){ try{ navTo('lager'); }catch(e){} } };
+    }
+    if(h >= 16 && h < 18){
+      const mins = Math.max(1, Math.round((18 - h) * 60));
+      return { kicker:'Abendservice', title:'Service in ' + (mins>=60 ? Math.round(mins/60)+' h' : mins + ' min'), sub:'Schichtplan und Lager checken – noch was offen?', cta:'Schichtplan', action:function(){ try{ openPersonal(); }catch(e){} } };
+    }
+    if(h >= 20 && h < 24){
+      return { kicker:'Feierabend', title:'Tagesabschluss', sub:'Umsatz eintragen, speichern, fertig. The Chef liest dir den Tag vor.', cta:'Jetzt abschließen', action:function(){ try{ openTagesabschluss(); }catch(e){} } };
+    }
+    // 4) Top-Marge als positive Idee
+    const recipesSafe = (typeof recipes !== 'undefined') ? recipes : {};
+    const margeOf = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; };
+    const ranked = Object.keys(recipesSafe).map(function(n){ try{ return { n:n, m:margeOf(recipesSafe[n]).marge }; }catch(e){ return null; } }).filter(Boolean).sort(function(a,b){ return b.m - a.m; });
+    if(ranked.length){
+      const top = ranked[0];
+      return { kicker:'Heute', title:'Alles ruhig', sub:'„' + top.n + '" liefert dir aktuell die beste Marge (' + Math.round(top.m) + '%). Push das Gericht heute.', cta:'Rezept ansehen', action:function(){ try{ openRezepte(); }catch(e){} } };
+    }
+    return { kicker:'Heute', title:'Alles ruhig', sub:'Keine dringenden Aktionen – Zeit, deine Karte zu schärfen.', cta:'Rezepte öffnen', action:function(){ try{ openRezepte(); }catch(e){} } };
+  }
+  function renderHomeFocus(){
+    const card = document.getElementById('focusCard'); if(!card) return;
+    const f = pickHomeFocus();
+    const elK = document.getElementById('focusKicker'); if(elK) elK.textContent = f.kicker;
+    const elT = document.getElementById('focusTitle'); if(elT) elT.textContent = f.title;
+    const elS = document.getElementById('focusSub'); if(elS) elS.textContent = f.sub;
+    card.onclick = f.action;
+    card.setAttribute('aria-label', f.kicker + ': ' + f.title + ' – ' + f.cta);
+    // Mini-Stats live aus Daten
+    const expiringSoon = (lagerData||[]).filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 2; }).length;
+    const knapp = (lagerData||[]).filter(function(r){ return r.status === 'low' || (r.pct != null && r.pct < 25); }).length;
+    const recipesSafe2 = (typeof recipes !== 'undefined') ? recipes : {};
+    const margeOf2 = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; };
+    const topM = Object.values(recipesSafe2).map(function(r){ try{ return margeOf2(r).marge; }catch(e){ return 0; } }).sort(function(a,b){ return b - a; })[0] || 0;
+    const set = function(id, val){ const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('focusMhd',   expiringSoon);
+    set('focusKnapp', knapp);
+    set('focusMarge', topM ? Math.round(topM) + '%' : '—');
+    // Farben je nach Dringlichkeit
+    const mhdEl = document.getElementById('focusMhd');
+    if(mhdEl) mhdEl.style.color = expiringSoon>0 ? '#ff9b8f' : '';
+    const knappEl = document.getElementById('focusKnapp');
+    if(knappEl) knappEl.style.color = knapp>0 ? '#ff9b8f' : '';
+  }
+  // Minütlich aktualisieren (für Zeit-basierte Fokuskarte)
+  setInterval(function(){ try{ renderHomeFocus(); }catch(e){} }, 60000);
   function openTagesDaten(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13h2v7H3v-7zm4-6h2v13H7V7zm4 3h2v10h-2V10zm4-7h2v17h-2V3zm4 9h2v8h-2v-8z"/></svg> Tagesdaten';
     document.getElementById('sheetBody').innerHTML = `
@@ -4378,29 +4442,6 @@
     setInterval(show, 4200);
   }
 
-  function drawHeroChart(){
-    const path = document.getElementById('heroChartPath');
-    if (!path || typeof path.setAttribute !== 'function') return;
-    const N = 26, W = 280, H = 60;
-    const pts = [];
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      const trend = 54 - Math.pow(t, 1.35) * 46;
-      const noise = Math.sin(i * 0.85) * 4 + Math.cos(i * 1.4) * 3;
-      const y = Math.max(8, Math.min(H - 2, trend + noise));
-      pts.push([t * W, y]);
-    }
-    let d = `M0 ${H} L${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-    for (let i = 1; i < N; i++) {
-      const [px, py] = pts[i - 1], [cx, cy] = pts[i];
-      const mx = (px + cx) / 2;
-      d += ` Q${px.toFixed(1)} ${py.toFixed(1)} ${mx.toFixed(1)} ${((py + cy) / 2).toFixed(1)}`;
-    }
-    const last = pts[N - 1];
-    d += ` L${last[0].toFixed(1)} ${last[1].toFixed(1)} L${W} ${H} Z`;
-    path.setAttribute('d', d);
-  }
-
   // ===== Long-Press Quick-Actions auf Lager-Items =====
   function closeQuickActions(){
     document.querySelectorAll('.qa-menu, .qa-backdrop').forEach(n => n.remove());
@@ -4581,8 +4622,8 @@
 
   document.querySelectorAll('.slide-confirm').forEach(bindSlideConfirm);
   applyTimeOfDayGold();
-  drawHeroChart();
   bindLongPress();
+  try{ renderHomeFocus(); }catch(e){}
   startActivityTicker();
 
   loadConvo();
