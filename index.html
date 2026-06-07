@@ -2000,12 +2000,15 @@
     if(bs) bs.textContent = (tagesDaten.gaeste && tagesDaten.bestellungen)
       ? 'Ø ' + (tagesDaten.bestellungen/tagesDaten.gaeste).toFixed(1).replace('.',',') + ' / Gast'
       : 'heute aufgenommen';
-    renderHomeFocus();
+    try{ renderHomeFocus(); }catch(e){}
   }
   renderTagesDaten();
 
   // "Heute wichtig"-Fokuskarte: leitet aus echten Daten (MHD, Bestand, Uhrzeit) die wichtigste Aktion ab
   function pickHomeFocus(){
+    // Defensiver Zugriff auf `recipes` (TDZ – wird weiter unten via `let` deklariert)
+    let recipesSafe = {}; try { recipesSafe = recipes || {}; } catch(_){ }
+    let margeOf; try { margeOf = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; }; } catch(_){ margeOf = function(){ return { marge:0 }; }; }
     const now = new Date(), h = now.getHours() + now.getMinutes()/60;
     // 1) Verderbliches
     const expiring = (lagerData||[]).filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 1; });
@@ -2038,9 +2041,7 @@
     if(h >= 20 && h < 24){
       return { kicker:'Feierabend', title:'Tagesabschluss', sub:'Umsatz eintragen, speichern, fertig. The Chef liest dir den Tag vor.', cta:'Jetzt abschließen', action:function(){ try{ openTagesabschluss(); }catch(e){} } };
     }
-    // 4) Top-Marge als positive Idee
-    const recipesSafe = (typeof recipes !== 'undefined') ? recipes : {};
-    const margeOf = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; };
+    // 4) Top-Marge als positive Idee (recipesSafe/margeOf wurden ganz oben in der Funktion TDZ-sicher initialisiert)
     const ranked = Object.keys(recipesSafe).map(function(n){ try{ return { n:n, m:margeOf(recipesSafe[n]).marge }; }catch(e){ return null; } }).filter(Boolean).sort(function(a,b){ return b.m - a.m; });
     if(ranked.length){
       const top = ranked[0];
@@ -2059,8 +2060,8 @@
     // Mini-Stats live aus Daten
     const expiringSoon = (lagerData||[]).filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 2; }).length;
     const knapp = (lagerData||[]).filter(function(r){ return r.status === 'low' || (r.pct != null && r.pct < 25); }).length;
-    const recipesSafe2 = (typeof recipes !== 'undefined') ? recipes : {};
-    const margeOf2 = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; };
+    let recipesSafe2 = {}; try { recipesSafe2 = recipes || {}; } catch(_){ }
+    let margeOf2; try { margeOf2 = (typeof recipeMarge === 'function') ? recipeMarge : function(){ return { marge:0 }; }; } catch(_){ margeOf2 = function(){ return { marge:0 }; }; }
     const topM = Object.values(recipesSafe2).map(function(r){ try{ return margeOf2(r).marge; }catch(e){ return 0; } }).sort(function(a,b){ return b - a; })[0] || 0;
     const set = function(id, val){ const el = document.getElementById(id); if(el) el.textContent = val; };
     set('focusMhd',   expiringSoon);
@@ -2078,8 +2079,8 @@
   // KI-Tab: gleiche Logik wie Home-Focus, aber mehrere Karten (echte Daten, keine Demo-Strings)
   function buildKiSignals(){
     const signals = [];
-    const lager = (typeof lagerData !== 'undefined') ? lagerData : [];
-    const rec = (typeof recipes !== 'undefined') ? recipes : {};
+    let lager = []; try { if(typeof lagerData !== 'undefined') lager = lagerData; } catch(_){ }
+    let rec = {};   try { rec = recipes || {}; } catch(_){ }
     // 1) Ablaufende Artikel
     const expiring = lager.filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 1; });
     if(expiring.length){
