@@ -897,6 +897,8 @@
   .msg{padding:11px 16px;border-radius:20px;font-size:14px;line-height:1.45;max-width:85%;animation:fadeIn .35s ease}
   .msg-user{background:var(--brand);color:#fff;align-self:flex-end;border-bottom-right-radius:6px;font-weight:500}
   .msg-ai{background:var(--surface);border:1px solid var(--glass-border);align-self:flex-start;border-bottom-left-radius:6px;backdrop-filter:blur(20px)}
+  .msg-streaming::after{content:"▍";display:inline-block;margin-left:1px;color:var(--gold-light);animation:streamBlink 0.7s steps(1) infinite}
+  @keyframes streamBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
 
   /* Mehr menu */
   .menu-row{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--glass-border);margin-bottom:8px;cursor:pointer;transition:transform .15s}
@@ -1524,19 +1526,8 @@
 
         <div class="section-h"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2l2.4 6.8L21 9.5l-5 4.5 1.5 7-5.5-3.5L6.5 21l1.5-7-5-4.5 6.6-.7z"/></svg> Heute für dich</h2></div>
         <div class="ai-card glass">
-          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Proaktive Hinweise</div></div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 21h6v-1H9v1zm3-19a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg> Dein Lieblings-Lieferant <strong>Frische Fisch Friesland</strong> hat heute Wildlachs für €18/kg – 22% unter Marktpreis. Soll ich 5kg bestellen?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Bestelle 5 Kilo Wildlachs bei Friesland')">Ja, bestellen</button><button class="ai-btn ai-btn-skip">Nein</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg> In 47 Min schließt das Wochenende-Sale-Fenster. Tomaten-Angebot noch nicht gepostet. Soll ich?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Mach den Tomaten-Post fertig')">Posten</button><button class="ai-btn ai-btn-skip">Skip</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L1 21h22L12 2zm0 6.5l7.5 13H4.5L12 8.5zM11 12v5h2v-5h-2zm0 6v2h2v-2h-2z"/></svg> Deine Fritteuse hat heute 3× über 180°C überhitzt. Soll ich Wartung vorschlagen?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Plan Wartung für Fritteuse')">Wartung planen</button></div>
-          </div>
+          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title" id="kiFocusTitle">Proaktive Hinweise</div></div>
+          <div id="kiFocusCards"></div>
         </div>
       </section>
 
@@ -1896,6 +1887,7 @@
     const active = document.querySelector('.chip.active');
     renderLager(active ? active.dataset.filter : 'all', document.getElementById('lagerSearch').value);
     try{ renderHomeFocus(); }catch(e){}
+    try{ renderKiFocus(); }catch(e){}
   }
 
   // Echte Lager-Kennzahlen – einzige Wahrheitsquelle, kein Hardcoding
@@ -2081,7 +2073,107 @@
     if(knappEl) knappEl.style.color = knapp>0 ? '#ff9b8f' : '';
   }
   // Minütlich aktualisieren (für Zeit-basierte Fokuskarte)
-  setInterval(function(){ try{ renderHomeFocus(); }catch(e){} }, 60000);
+  setInterval(function(){ try{ renderHomeFocus(); renderKiFocus(); }catch(e){} }, 60000);
+
+  // KI-Tab: gleiche Logik wie Home-Focus, aber mehrere Karten (echte Daten, keine Demo-Strings)
+  function buildKiSignals(){
+    const signals = [];
+    const lager = (typeof lagerData !== 'undefined') ? lagerData : [];
+    const rec = (typeof recipes !== 'undefined') ? recipes : {};
+    // 1) Ablaufende Artikel
+    const expiring = lager.filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 1; });
+    if(expiring.length){
+      signals.push({
+        icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 110 16 8 8 0 010-16zm-1 3v6l4 2.4.8-1.4-3.3-2V7H11z"/></svg>',
+        text: '<strong>' + (expiring.length===1 ? escHtml(expiring[0].name) : expiring.length + ' Artikel') + '</strong> ' + (expiring.length===1 ? 'läuft ab' : 'laufen ab') + ' – mach ein Tagesgericht draus, bevor Verlust draus wird.',
+        actions:[
+          { label:'Reste-Retter öffnen', fn:function(){ try{ openResteRetter(); }catch(e){} } },
+          { label:'Vorschläge holen', cmd:'Was kann ich aus den ablaufenden Artikeln machen?' }
+        ]
+      });
+    }
+    // 2) Kritisch knapp
+    const critical = lager.filter(function(r){ return r.status === 'low' || (r.pct != null && r.pct < 15); });
+    if(critical.length){
+      const names = critical.slice(0,3).map(function(r){ return r.name; }).join(', ');
+      signals.push({
+        icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h10v8H2V6zm14 1h3l3 3v4h-2.2a2.5 2.5 0 01-4.6 0H16V7zM6.5 16a2 2 0 100 4 2 2 0 000-4zm11 0a2 2 0 100 4 2 2 0 000-4z"/></svg>',
+        text: '<strong>' + critical.length + (critical.length===1 ? ' Artikel' : ' Artikel') + ' kritisch:</strong> ' + escHtml(names) + (critical.length>3 ? ' u.a.' : '') + ' – jetzt nachbestellen?',
+        actions:[
+          { label:'Nachbestell-Liste', fn:function(){ try{ openNachbestellung(); }catch(e){} } },
+          { label:'Alles bestellen', cmd:'Bestelle alle kritischen Artikel' }
+        ]
+      });
+    }
+    // 3) Service-Fenster
+    const now = new Date(), h = now.getHours() + now.getMinutes()/60;
+    if(h >= 9 && h < 12 && !expiring.length && !critical.length){
+      const mins = Math.max(1, Math.round((12 - h) * 60));
+      signals.push({
+        icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M6.5 1.5l-.7.7L6.8 3.3a8 8 0 00-2.8 12.4l1.4-1.4A6 6 0 1117 17l1.4 1.4A8 8 0 008.5 4.5L9.6 3.4 8.9 2.7 6.5 1.5zM12 7v6h5v-2h-3V7h-2z"/></svg>',
+        text: '<strong>Mittagsservice in ' + (mins>=60 ? Math.round(mins/60)+' h' : mins + ' min') + '</strong> – Tageskarte raus, Lager prüfen, alles bereit?',
+        actions:[
+          { label:'Lager prüfen', fn:function(){ try{ navTo('lager'); }catch(e){} } },
+          { label:'Tageskarte vorschlagen', cmd:'Schlag mir 3 Tagesgerichte für heute vor' }
+        ]
+      });
+    }
+    if(h >= 20 && h < 24 && !expiring.length && !critical.length){
+      signals.push({
+        icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
+        text: '<strong>Feierabend</strong> – Tagesabschluss machen? The Chef liest dir den Tag vor.',
+        actions:[
+          { label:'Jetzt abschließen', fn:function(){ try{ openTagesabschluss(); }catch(e){} } }
+        ]
+      });
+    }
+    // 4) Top-Marge als positive Idee – nur wenn noch nichts Dringendes da
+    if(!signals.length){
+      const ranked = Object.keys(rec).map(function(n){ try{ return { n:n, m:recipeMarge(rec[n]).marge }; }catch(e){ return null; } }).filter(Boolean).sort(function(a,b){ return b.m - a.m; });
+      if(ranked.length){
+        const top = ranked[0];
+        signals.push({
+          icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2l2.4 6.8L21 9.5l-5 4.5 1.5 7-5.5-3.5L6.5 21l1.5-7-5-4.5 6.6-.7z"/></svg>',
+          text: '<strong>' + escHtml(top.n) + '</strong> liefert dir die beste Marge (' + Math.round(top.m) + '%). Push das Gericht heute – wir können einen Post oder Special vorbereiten.',
+          actions:[
+            { label:'Rezept ansehen', fn:function(){ try{ openRezepte(); }catch(e){} } },
+            { label:'Tipp für Push', cmd:'Wie verkaufe ich heute mehr ' + top.n + '?' }
+          ]
+        });
+      } else {
+        signals.push({
+          icon:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z"/></svg>',
+          text: '<strong>Alles ruhig.</strong> Frag mich was – ich sehe dein Lager, deine Rezepte, deine Schichten und kann dir konkrete Tipps geben.',
+          actions:[
+            { label:'Was kannst du?', cmd:'Was kannst du alles für mich tun?' },
+            { label:'Tagesüberblick', cmd:'Wie ist der Status heute?' }
+          ]
+        });
+      }
+    }
+    return signals;
+  }
+  function renderKiFocus(){
+    const box = document.getElementById('kiFocusCards'); if(!box) return;
+    const signals = buildKiSignals();
+    box.innerHTML = signals.map(function(s, idx){
+      const acts = (s.actions||[]).map(function(a, j){
+        const handler = a.cmd
+          ? "askKi('" + String(a.cmd).replace(/'/g,"\\'") + "')"
+          : "_kiFocusAction(" + idx + "," + j + ")";
+        const cls = j === 0 ? 'ai-btn ai-btn-ok' : 'ai-btn ai-btn-skip';
+        return '<button class="' + cls + '" onclick="' + handler + '">' + escHtml(a.label) + '</button>';
+      }).join('');
+      return '<div class="ai-suggest"><div class="ai-suggest-text">' + s.icon + ' ' + s.text + '</div><div class="ai-actions">' + acts + '</div></div>';
+    }).join('');
+    _kiFocusCache = signals;
+  }
+  let _kiFocusCache = [];
+  function _kiFocusAction(i, j){
+    try{ const a = _kiFocusCache[i].actions[j]; if(a && a.fn) a.fn(); else if(a && a.cmd) askKi(a.cmd); }catch(e){}
+  }
+  // Initial-Render + nach Lager-Aenderung
+  setTimeout(function(){ try{ renderKiFocus(); }catch(e){} }, 50);
   function openTagesDaten(){
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 13h2v7H3v-7zm4-6h2v13H7V7zm4 3h2v10h-2V10zm4-7h2v17h-2V3zm4 9h2v8h-2v-8z"/></svg> Tagesdaten';
     document.getElementById('sheetBody').innerHTML = `
@@ -2575,8 +2667,25 @@
 
   // ===== Gericht-Kalkulator · Teller-Foto -> Claude schätzt Zutaten + EK + VK =====
   let dishData = null;
+  // Vom Auge ausgeloest: oeffnet Kalkulator und springt direkt in die Auswertung
+  function dishOpenFromEye(){
+    const d = window.__eyeDish; if(!d || !d.dish){ toast('Kein Gericht erkannt'); return; }
+    dishData = { dish:d.dish, ingredients:d.ingredients.slice(), vk:d.vk||0, mwst:d.mwst||19, hinweis:d.hinweis||'' };
+    closeSheet();
+    setTimeout(function(){
+      openGerichtKalkulator();
+      setTimeout(function(){
+        const status = document.getElementById('dishStatus'); if(status) status.textContent = dishData.ingredients.length + ' Zutaten vom Auge erkannt – pruefen und anpassen.';
+        renderDishKalk();
+      }, 60);
+    }, 200);
+  }
   function openGerichtKalkulator(){
-    dishData = null;
+    if(window.__eyeDish && dishData && dishData.dish === window.__eyeDish.dish){
+      // dishData wurde gerade durch dishOpenFromEye gesetzt - nicht zuruecksetzen
+    } else {
+      dishData = null;
+    }
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2C7 2 3 6 3 11h2a7 7 0 0114 0h2c0-5-4-9-9-9zm-1 6v5l4 2 .7-1.3-3.2-1.9V8H11zM2 13a10 10 0 0020 0h-2a8 8 0 01-16 0H2z"/></svg> Gericht-Kalkulator';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
@@ -3342,6 +3451,7 @@
     isSpeaking = on;
     const orb = document.getElementById('voiceOrb');
     if (orb) orb.classList.toggle('speaking', on);
+    if(!on) maybeAutoListen();
   }
   function setThinking(on) {
     const orb = document.getElementById('voiceOrb');
@@ -3367,18 +3477,33 @@
     try { chefAudioEl.pause(); } catch(e){}
     setSpeaking(false);
   }
+  let _voiceLoop = false; // bleibt an, bis User explizit stoppt -> auto-listen nach jeder Antwort
   function toggleListen() {
     if (isSpeaking) { stopSpeaking(); }
     if (!recognition) {
       const q = prompt('Was möchtest du fragen?');
-      if (q) handleUserInput(q);
+      if (q) { _voiceLoop = true; handleUserInput(q); }
       return;
     }
-    if (isListening) { _wantListen = false; recognition.stop(); return; }
+    if (isListening) { _wantListen = false; _voiceLoop = false; recognition.stop(); return; }
     _wantListen = true;
+    _voiceLoop = true; // Dialog-Modus: nach Antwort wieder anschalten
     document.getElementById('liveTranscript').textContent = '';
     try { recognition.start(); setListening(true); }
     catch(e){ /* already started */ }
+  }
+  // Nach Chef-Antwort: wenn der Voice-Loop laeuft, automatisch wieder zuhoeren
+  function maybeAutoListen(){
+    if(!_voiceLoop) return;
+    if(!voiceEnabled) return;
+    if(isListening || isSpeaking) return;
+    if(!recognition) return;
+    setTimeout(function(){
+      if(!_voiceLoop || isListening || isSpeaking) return;
+      _wantListen = true;
+      const t = document.getElementById('liveTranscript'); if(t) t.textContent = '';
+      try { recognition.start(); setListening(true); } catch(e){}
+    }, 500);
   }
 
   function toggleVoice() {
@@ -3525,24 +3650,51 @@
     const m = document.createElement('div');
     m.className = 'msg msg-' + who;
     m.textContent = text;
-    if (actions && actions.length) {
-      const ab = document.createElement('div');
-      ab.className = 'msg-actions';
-      actions.forEach(a => {
-        const b = document.createElement('button');
-        b.className = 'msg-action';
-        b.textContent = a.label;
-        b.onclick = () => { if (a.cmd) askKi(a.cmd); else if (a.fn) a.fn(); };
-        ab.appendChild(b);
-      });
-      m.appendChild(ab);
-    }
+    if (actions && actions.length) appendMsgActions(m, actions);
     convo.appendChild(m);
-    setTimeout(() => {
-      const main = document.querySelector('main');
-      m.scrollIntoView({ behavior:'smooth', block:'center' });
-    }, 50);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
     saveConvo();
+  }
+  function appendMsgActions(m, actions){
+    const ab = document.createElement('div');
+    ab.className = 'msg-actions';
+    actions.forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'msg-action';
+      b.textContent = a.label;
+      b.onclick = () => { if (a.cmd) askKi(a.cmd); else if (a.fn) a.fn(); };
+      ab.appendChild(b);
+    });
+    m.appendChild(ab);
+  }
+  // Streaming-Reveal: Antwort erscheint Wort-fuer-Wort wie ein Mensch der tippt
+  let _streamSkip = null;
+  function streamMsg(text, who, actions){
+    const convo = document.getElementById('convo');
+    const m = document.createElement('div');
+    m.className = 'msg msg-' + who + ' msg-streaming';
+    const span = document.createElement('span'); m.appendChild(span);
+    convo.appendChild(m);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
+    const tokens = String(text||'').split(/(\s+)/); // splittet bei Whitespace, behält Trenner
+    let i = 0;
+    const tick = function(){
+      if(_streamSkip === m){ span.textContent = text; finalize(); return; }
+      if(i >= tokens.length){ finalize(); return; }
+      span.textContent += tokens[i++];
+      if(i % 4 === 0){ try{ m.scrollIntoView({ behavior:'smooth', block:'end' }); }catch(e){} }
+      setTimeout(tick, 22);
+    };
+    const finalize = function(){
+      m.classList.remove('msg-streaming');
+      _streamSkip = null;
+      if(actions && actions.length) appendMsgActions(m, actions);
+      saveConvo();
+    };
+    _streamSkip = null;
+    tick();
+    // Tap auf die Nachricht ueberspringt den Reveal
+    m.onclick = function(){ _streamSkip = m; };
   }
   function saveConvo() {
     const items = [...document.querySelectorAll('#convo .msg')].slice(-30).map(m => ({
@@ -3724,7 +3876,7 @@
         const data = await res.json();
         if (data && data.reply) {
           setThinking(false);
-          addMsg(data.reply, 'ai');
+          streamMsg(data.reply, 'ai');
           logBook('The Chef: ' + data.reply, 'chat');
           speak(data.reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
           return;
@@ -3735,7 +3887,7 @@
     // 2. Fallback: lokale Muster-Erkennung – sofort, kein künstliches Delay
     const { reply, actions } = chefBrain(text);
     setThinking(false);
-    addMsg(reply, 'ai', actions);
+    streamMsg(reply, 'ai', actions);
     logBook('The Chef: ' + reply, 'chat');
     speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
   }
@@ -4696,11 +4848,14 @@
   async function eyeProcess(base64, mediaType){
     const status = document.getElementById('eyeStatus');
     const t0 = performance.now();
-    if(status) status.textContent = 'Analysiere …';
+    if(status){ status.textContent = '📤 Bild geht an Claude …'; status.style.color = 'var(--text-dim)'; }
+    // Phasen-Anzeige: nach 800ms wechseln auf "Analysiere", nach 3000ms auf "lese genau hin"
+    const phaseT1 = setTimeout(function(){ if(status) status.textContent = '👁  Claude schaut sich das an …'; }, 800);
+    const phaseT2 = setTimeout(function(){ if(status) status.textContent = '🔍 Lese genau hin – gleich da …'; }, 3000);
     try {
-      // Ratenschuss: 10s Hartlimit – falls Backend zickt, fail fast
+      // Ratenschuss: 15s Hartlimit – Gericht-Detail braucht etwas mehr Zeit
       const ctrl = new AbortController();
-      const to = setTimeout(()=>ctrl.abort(), 10000);
+      const to = setTimeout(()=>ctrl.abort(), 15000);
       const res = await fetch('/.netlify/functions/eye', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -4708,10 +4863,11 @@
         body: JSON.stringify({ image: base64, mediaType: mediaType, model: aiModel })
       });
       clearTimeout(to);
+      clearTimeout(phaseT1); clearTimeout(phaseT2);
       const ms = Math.round(performance.now() - t0);
       if(res.ok){
         const data = await res.json();
-        if(status) status.textContent = '✓ Erkannt in ' + (ms/1000).toFixed(1) + ' s';
+        if(status){ status.textContent = '✓ Erkannt in ' + (ms/1000).toFixed(1) + ' s'; status.style.color = 'var(--green)'; }
         eyeRender(data);
         return;
       }
@@ -4721,8 +4877,9 @@
       else if(res.status === 404) why = 'Funktion nicht gefunden – über die Online-Seite öffnen.';
       if(status) status.textContent = why + ' (' + ms + ' ms)';
     } catch(err){
+      clearTimeout(phaseT1); clearTimeout(phaseT2);
       const ms = Math.round(performance.now() - t0);
-      if(status) status.textContent = (err.name === 'AbortError' ? '⏱ Timeout nach 10 s – Aufnahme wiederholen' : '⚠️ Backend offline') + ' (' + ms + ' ms)';
+      if(status){ status.textContent = (err.name === 'AbortError' ? '⏱ Timeout nach 15 s – noch mal probieren' : '⚠️ Backend offline') + ' (' + ms + ' ms)'; status.style.color = 'var(--orange)'; }
     }
   }
   function eyeRender(data){
@@ -4742,6 +4899,19 @@
       spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal.') : 'Ich konnte keine Produkte erkennen.';
       visionItems = items;
       out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück' + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+    } else if(data.kind === 'gericht'){
+      const ing = Array.isArray(data.ingredients) ? data.ingredients : [];
+      const cost = ing.reduce(function(s,i){ return s+(Number(i.ek)||0); },0);
+      const vk = Number(data.vk_vorschlag)||0;
+      const marge = vk > 0 ? Math.max(0, (vk/1.19 - cost) / (vk/1.19) * 100) : 0;
+      if(status) status.textContent = 'Erkannt: Gericht „' + (data.dish||'?') + '" – ' + ing.length + ' Zutaten geschätzt.';
+      spoken = data.dish ? ('Ich erkenne ' + data.dish + ' mit ' + ing.length + ' Zutaten. Marge geschätzt bei ' + Math.round(marge) + ' Prozent.') : 'Ich sehe ein Gericht, kann es aber nicht klar benennen.';
+      const margeColor = marge<30?'var(--red)':marge<55?'var(--orange)':'var(--green)';
+      out.innerHTML = '<div class="calc-result"><div class="calc-result-label">' + escHtml(data.dish||'Gericht') + '</div><div class="calc-result-val" style="color:' + margeColor + '">' + Math.round(marge) + '%</div><div class="calc-result-sub">geschätzte Marge bei VK € ' + vk.toFixed(2) + ' · EK € ' + cost.toFixed(2) + '</div></div>'
+        + '<button class="btn-primary" style="margin-top:14px;font-size:15px" onclick="dishOpenFromEye()">Im Gericht-Kalkulator öffnen</button>'
+        + '<div style="margin-top:8px"></div>'
+        + '<button class="btn-secondary" onclick="openEye()">Nochmal scannen</button>';
+      window.__eyeDish = { dish:data.dish||'', ingredients:ing, vk:vk, mwst:19, hinweis:data.hinweis||'' };
     } else if(data.kind === 'temperatur'){
       if(status) status.textContent = 'Erkannt: ' + (data.value||'?') + ' °C.';
       spoken = data.value ? ('Ich lese ' + data.value + ' Grad.') : 'Ich konnte die Temperatur nicht ablesen.';

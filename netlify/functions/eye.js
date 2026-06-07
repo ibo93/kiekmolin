@@ -23,12 +23,14 @@ erkennst SELBST, worum es sich handelt, und gibst die passenden Daten zurück.
 Mögliche Fälle:
 - "beleg": Lieferschein/Rechnung eines Lebensmittel-Lieferanten.
 - "lager": Regal/Kühlschrank/Lager-Ablage mit Produkten.
+- "gericht": Ein fertig angerichtetes Gericht/Teller (Restaurant- oder Foodfoto).
 - "temperatur": Thermometer/Display mit einer Temperatur.
 - "unbekannt": nichts davon klar erkennbar.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau einer dieser Formen:
 { "kind":"beleg", "lieferant":"Name oder leer", "items":[{"name":"Artikel","qty":"Menge mit Einheit","price":"Preis oder leer","gruppe":"Warengruppe","lager":"Lagerort"}] }
 { "kind":"lager", "items":[{"name":"Produkt","count":12,"gruppe":"Warengruppe","lager":"Lagerort"}] }
+{ "kind":"gericht", "dish":"Gerichtname", "ingredients":[{"name":"Zutat","menge":"150 g","ek":1.20}], "vk_vorschlag":18.5, "hinweis":"kurzer Tipp zur Marge" }
 { "kind":"temperatur", "value":"4.2" }
 { "kind":"unbekannt" }
 
@@ -38,6 +40,7 @@ Regeln:
 - gruppe: GENAU EINE von "Fleisch/Fisch", "Gemüse/Obst", "Molkerei", "Getränke", "Trockenware", "Tiefkühl", "Non-Food", "Sonstiges".
 - lager: GENAU EINES von "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
 - value: Zahl mit Punkt als Dezimaltrennzeichen, Minus für Minusgrade, ohne Einheit.
+- Bei "gericht": 4-12 Zutaten mit Mengen (g/ml/Stk/EL), realistische Gastro-Einkaufspreise DE pro Zutat (keine Endkundenpreise), vk_vorschlag = marktüblicher Brutto-VK in einem normalen Restaurant. Berücksichtige auch unsichtbare Standardzutaten (Öl, Salz, Gewürze, Sauce).
 - Kein Text vor/nach dem JSON, keine Code-Fences.`;
 
 exports.handler = async function (event) {
