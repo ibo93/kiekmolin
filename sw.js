@@ -1,17 +1,65 @@
-// Falls deployed sw.js andere Logik hat, push-event handler unten reinmergen, nicht ersetzen.
-// Minimaler Service Worker fuer Web Push (kein eigenes Caching, damit nichts mit
-// existierender Netlify-sw.js kollidiert).
+// Service Worker: macht "The Chef" installierbar & offline-fähig + Web Push.
+var CACHE = 'thechef-v3';
+var SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', function(event) {
-    self.skipWaiting();
+    event.waitUntil(
+        caches.open(CACHE)
+            .then(function(c){ return c.addAll(SHELL); })
+            .catch(function(){})
+            .then(function(){ return self.skipWaiting(); })
+    );
 });
 
 self.addEventListener('activate', function(event) {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        caches.keys().then(function(keys){
+            return Promise.all(keys.filter(function(k){ return k !== CACHE; }).map(function(k){ return caches.delete(k); }));
+        }).then(function(){ return self.clients.claim(); })
+    );
 });
 
 self.addEventListener('fetch', function(event) {
-    // Browser-Standard-Verhalten — nichts abfangen
+    var req = event.request;
+    if (req.method !== 'GET') return;
+    var url = new URL(req.url);
+
+    // KI-/Voice-/Scan-Functions nie cachen — immer live.
+    if (url.pathname.indexOf('/.netlify/functions/') > -1) {
+        event.respondWith(fetch(req).catch(function(){
+            return new Response('{"error":"offline"}', { status: 503, headers: { 'Content-Type': 'application/json' } });
+        }));
+        return;
+    }
+
+    // HTML/Navigation: Network-First, damit Updates sofort ankommen (offline -> Cache).
+    var isDoc = req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') > -1;
+    if (isDoc) {
+        event.respondWith(
+            fetch(req).then(function(res){
+                if (res && res.status === 200 && url.origin === self.location.origin) {
+                    var copy = res.clone();
+                    caches.open(CACHE).then(function(c){ c.put(req, copy); });
+                }
+                return res;
+            }).catch(function(){ return caches.match(req).then(function(c){ return c || caches.match('./index.html'); }); })
+        );
+        return;
+    }
+
+    // Statische Assets (Icons, Manifest): Cache-First, im Hintergrund aktualisieren.
+    event.respondWith(
+        caches.match(req).then(function(cached){
+            var live = fetch(req).then(function(res){
+                if (res && res.status === 200 && url.origin === self.location.origin) {
+                    var copy = res.clone();
+                    caches.open(CACHE).then(function(c){ c.put(req, copy); });
+                }
+                return res;
+            }).catch(function(){ return cached; });
+            return cached || live;
+        })
+    );
 });
 
 self.addEventListener('push', function(event) {

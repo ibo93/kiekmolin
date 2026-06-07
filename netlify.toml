@@ -1,36 +1,19 @@
-# Kiek mol in - Netlify Konfiguration
+# The Chef – Netlify Konfiguration
 
 [build]
-  # SEO-Landing-Pages werden zur Build-Zeit aus Supabase generiert.
-  # Fault-tolerant: Bei Fehler wird trotzdem deployed.
-  command = "node build-seo-pages.js || echo 'SEO build script failed - continuing'"
+  # Kein Build nötig: index.html wird direkt ausgeliefert, Functions werden
+  # automatisch gebündelt (Dependencies aus netlify/functions/package.json).
+  command = "echo 'The Chef – kein Build-Schritt nötig'"
   publish = "."
 
 [build.environment]
   NODE_VERSION = "18"
 
-# Pretty URLs ohne .html
-[[redirects]]
-  from = "/pizzeria-:city"
-  to = "/pizzeria-:city.html"
-  status = 200
+# Serverless-Functions (The Chef: KI-Chat, Stimme, Beleg-/Kassen-/Lager-Scan)
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
-[[redirects]]
-  from = "/doener-:city"
-  to = "/doener-:city.html"
-  status = 200
-
-[[redirects]]
-  from = "/fischrestaurant-:city"
-  to = "/fischrestaurant-:city.html"
-  status = 200
-
-[[redirects]]
-  from = "/restaurant-:city"
-  to = "/restaurant-:city.html"
-  status = 200
-
-[[redirects]]
-  from = "/restaurants-:city"
-  to = "/restaurants-:city.html"
-  status = 200
+# Geplante Funktion: prüft alle 15 Minuten fällige Erinnerungen und schickt Push.
+[functions."reminders-cron"]
+  schedule = "*/15 * * * *"
