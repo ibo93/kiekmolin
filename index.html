@@ -3842,7 +3842,7 @@
     return false;
   }
 
-  // --- Main brain: echte Claude-KI, mit Fallback auf lokale Logik ---
+  // --- Main brain: echte Claude-KI mit Streaming, mit Fallback auf lokale Logik ---
   async function handleUserInput(text) {
     addMsg(text, 'user');
     setThinking(true);
@@ -3855,8 +3855,20 @@
       role: m.classList.contains('msg-user') ? 'user' : 'assistant',
       text: m.firstChild ? (m.firstChild.nodeValue || m.textContent) : m.textContent
     }));
+    const requestBody = {
+      message: text,
+      history: history,
+      restaurant: { name: chefProfile.name, type: chefProfile.type },
+      context: buildContextSnapshot()
+    };
 
-    // 1. Versuch: echte KI über die Netlify-Function (Ratenschuss: 7s Limit, dann sofort Fallback)
+    // 1. Versuch: echtes SSE-Streaming via chef-ai-stream (erster Token in ~400ms)
+    try {
+      const ok = await streamFromChef(requestBody);
+      if(ok) return;
+    } catch(e){ /* Stream nicht verfuegbar oder mid-stream gerissen -> Fallback */ }
+
+    // 2. Versuch: chef-ai (nicht-streamend, eine ganze Antwort)
     try {
       const ctrl = new AbortController();
       const to = setTimeout(function(){ ctrl.abort(); }, 7000);
@@ -3864,12 +3876,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: ctrl.signal,
-        body: JSON.stringify({
-          message: text,
-          history: history,
-          restaurant: { name: chefProfile.name, type: chefProfile.type },
-          context: buildContextSnapshot()
-        })
+        body: JSON.stringify(requestBody)
       });
       clearTimeout(to);
       if (res.ok) {
@@ -3884,12 +3891,92 @@
       }
     } catch (e) { /* offline / Timeout → sofort lokaler Fallback */ }
 
-    // 2. Fallback: lokale Muster-Erkennung – sofort, kein künstliches Delay
+    // 3. Fallback: lokale Muster-Erkennung
     const { reply, actions } = chefBrain(text);
     setThinking(false);
     streamMsg(reply, 'ai', actions);
     logBook('The Chef: ' + reply, 'chat');
     speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+  }
+
+  // Echtes SSE-Streaming: Tokens kommen live an, werden direkt in die Bubble geschrieben
+  async function streamFromChef(body){
+    const ctrl = new AbortController();
+    const firstTokenTimeout = setTimeout(function(){ ctrl.abort(); }, 6000); // erster Token muss innerhalb 6s da sein
+    let res;
+    try {
+      res = await fetch('/.netlify/functions/chef-ai-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        signal: ctrl.signal,
+        body: JSON.stringify(body)
+      });
+    } catch(e){ clearTimeout(firstTokenTimeout); throw e; }
+    if(!res.ok || !res.body){ clearTimeout(firstTokenTimeout); throw new Error('stream-not-ok ' + res.status); }
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+    if(ct.indexOf('text/event-stream') === -1){ clearTimeout(firstTokenTimeout); throw new Error('not-sse'); }
+
+    // Bubble vorbereiten – Thinking-Shimmer raus, leere Streaming-Bubble rein
+    setThinking(false);
+    const convo = document.getElementById('convo');
+    const m = document.createElement('div');
+    m.className = 'msg msg-ai msg-streaming';
+    const span = document.createElement('span'); m.appendChild(span);
+    convo.appendChild(m);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 30);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+    let firstByte = false;
+    let scrollCounter = 0;
+
+    try {
+      while(true){
+        const { done, value } = await reader.read();
+        if(!firstByte){ firstByte = true; clearTimeout(firstTokenTimeout); }
+        if(done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE-Events sind durch \n\n getrennt
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for(const ev of events){
+          // Format: "event: name\ndata: {...}"
+          const dataLine = ev.split('\n').find(function(l){ return l.startsWith('data: '); });
+          if(!dataLine) continue;
+          const payload = dataLine.slice(6).trim();
+          if(payload === '[DONE]') continue;
+          let obj;
+          try { obj = JSON.parse(payload); } catch(e){ continue; }
+          if(obj && obj.type === 'content_block_delta' && obj.delta && obj.delta.type === 'text_delta' && obj.delta.text){
+            const chunk = obj.delta.text;
+            fullText += chunk;
+            span.textContent += chunk;
+            scrollCounter += chunk.length;
+            if(scrollCounter > 60){ scrollCounter = 0; try{ m.scrollIntoView({ behavior:'smooth', block:'end' }); }catch(e){} }
+          }
+          if(obj && obj.type === 'error'){
+            // Mid-stream Fehler -> abbrechen, Fallback uebernimmt
+            throw new Error('stream-error: ' + (obj.error && obj.error.message || 'unknown'));
+          }
+        }
+      }
+    } catch(e){
+      m.remove(); // Bubble aufraeumen, damit Fallback eine frische erstellen kann
+      throw e;
+    }
+
+    if(!fullText.trim()){
+      m.remove();
+      throw new Error('stream-empty');
+    }
+
+    m.classList.remove('msg-streaming');
+    saveConvo();
+    logBook('The Chef: ' + fullText, 'chat');
+    speak(fullText.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+    return true;
   }
 
   // --- Grounding-Helfer: chefBrain antwortet aus echten Daten, nicht aus erfundenen Zahlen ---
