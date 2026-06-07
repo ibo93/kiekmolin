@@ -1512,10 +1512,11 @@
 
   // --- Init Speech APIs ---
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let _wantListen = false;
   if (SR) {
     recognition = new SR();
     recognition.lang = 'de-DE';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
@@ -1530,18 +1531,27 @@
       if (final) {
         t.classList.remove('partial');
         t.textContent = final;
-        handleUserInput(final);
+        handleUserInput(final.trim());
       } else {
         t.classList.add('partial');
         t.textContent = interim || '…';
       }
     };
-    recognition.onend = () => { setListening(false); };
+    recognition.onend = () => {
+      if (_wantListen) {
+        try { recognition.start(); return; } catch(e){}
+      }
+      setListening(false);
+    };
     recognition.onerror = (e) => {
+      if (e.error === 'no-speech' && _wantListen) {
+        try { recognition.start(); return; } catch(_){}
+      }
+      _wantListen = false;
       setListening(false);
       const t = document.getElementById('liveTranscript');
       if (e.error === 'not-allowed') t.textContent = '🚫 Mikrofon-Zugriff verweigert';
-      else if (e.error === 'no-speech') t.textContent = '🤫 Nichts gehört – nochmal?';
+      else if (e.error === 'no-speech') t.textContent = '';
       else t.textContent = '';
     };
   }
@@ -1586,12 +1596,12 @@
   function toggleListen() {
     if (isSpeaking) { speechSynthesis.cancel(); setSpeaking(false); }
     if (!recognition) {
-      // Fallback: prompt
       const q = prompt('Was möchtest du fragen?');
       if (q) handleUserInput(q);
       return;
     }
-    if (isListening) { recognition.stop(); return; }
+    if (isListening) { _wantListen = false; recognition.stop(); return; }
+    _wantListen = true;
     document.getElementById('liveTranscript').textContent = '';
     try { recognition.start(); setListening(true); }
     catch(e){ /* already started */ }
@@ -1608,15 +1618,22 @@
   function speak(text) {
     if (!voiceEnabled || !('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'de-DE';
-    if (germanVoice) u.voice = germanVoice;
-    u.rate = 1.05;
-    u.pitch = 1.0;
-    u.onstart = () => setSpeaking(true);
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    speechSynthesis.speak(u);
+    // Satzweise queuen → erster Satz spielt sofort, Rest kommt nahtlos hinterher
+    const clean = text.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
+    const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+    sentences.forEach((s, i) => {
+      const u = new SpeechSynthesisUtterance(s.trim());
+      u.lang = 'de-DE';
+      if (germanVoice) u.voice = germanVoice;
+      u.rate = 1.2;
+      u.pitch = 1.0;
+      if (i === 0) u.onstart = () => setSpeaking(true);
+      if (i === sentences.length - 1) {
+        u.onend = () => setSpeaking(false);
+        u.onerror = () => setSpeaking(false);
+      }
+      speechSynthesis.speak(u);
+    });
   }
 
   // --- Conversation log (persistent) ---
@@ -1684,16 +1701,17 @@
     return false;
   }
 
-  // --- Main brain: pattern-match → response ---
+  // --- Main brain: pattern-match → response (Ratenschuss-Modus: sofort, kein künstliches Delay) ---
   function handleUserInput(text) {
     addMsg(text, 'user');
     setThinking(true);
-    setTimeout(() => {
+    // requestAnimationFrame statt setTimeout — eine Frame Verzögerung damit Thinking-Status sichtbar wird
+    requestAnimationFrame(() => {
       const { reply, actions } = chefBrain(text);
       setThinking(false);
       addMsg(reply, 'ai', actions);
-      speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
-    }, 600 + Math.random()*400);
+      speak(reply);
+    });
   }
 
   // --- The brain: intent matching with rich responses ---
@@ -1880,27 +1898,26 @@
   // ===== Sheets =====
   const sheets = {
     lagerVision: {
-      title:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Lager-Vision',
+      title:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Auge · Live-Kamera',
       body:`
-        <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Richte das Handy aufs Regal – die KI zählt automatisch alles, was sie sieht. Kein Scannen, kein Tippen.</p>
-        <div class="vision-cam">
-          <div class="vision-grid"></div>
-          <div class="vision-shelf"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2h10l-1 8a4 4 0 01-3 4v6h2v2H9v-2h2v-6a4 4 0 01-3-4l-1-8z"/></svg></div>
-          <div class="vision-scan-line"></div>
-          <div class="vision-bracket" style="top:18%;left:14%;width:22%;height:28%"><span class="vision-label">12× Cola</span></div>
-          <div class="vision-bracket" style="top:18%;left:42%;width:22%;height:28%;animation-delay:0.3s"><span class="vision-label">8× Bier</span></div>
-          <div class="vision-bracket" style="top:18%;left:70%;width:22%;height:28%;animation-delay:0.6s"><span class="vision-label">5× Wasser</span></div>
-          <div class="vision-bracket" style="top:55%;left:14%;width:38%;height:32%;animation-delay:0.9s"><span class="vision-label">3 Kartons Mehl</span></div>
-          <div class="vision-bracket" style="top:55%;left:58%;width:34%;height:32%;animation-delay:1.2s"><span class="vision-label">14 Dosen Tomaten</span></div>
+        <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Richte das Handy aufs Regal — das Auge analysiert was es sieht. Tipp auf <strong>Erfassen</strong> für eine Schnellanalyse.</p>
+        <div class="vision-cam" style="background:#000">
+          <video id="visionVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
+          <div class="vision-grid" style="z-index:2"></div>
+          <div class="vision-scan-line" style="z-index:3"></div>
+          <div class="vision-bracket" style="top:18%;left:14%;width:22%;height:28%;z-index:3"></div>
+          <div class="vision-bracket" style="top:18%;left:42%;width:22%;height:28%;animation-delay:0.3s;z-index:3"></div>
+          <div class="vision-bracket" style="top:18%;left:70%;width:22%;height:28%;animation-delay:0.6s;z-index:3"></div>
+          <div class="vision-bracket" style="top:55%;left:14%;width:38%;height:32%;animation-delay:0.9s;z-index:3"></div>
+          <div class="vision-bracket" style="top:55%;left:58%;width:34%;height:32%;animation-delay:1.2s;z-index:3"></div>
         </div>
-        <div class="vision-stat-row"><span><strong>42 Artikel</strong> erkannt</span><span style="color:var(--text-dim)">in 2,8 Sek</span></div>
-        <div class="vision-stat-row"><span><strong>97%</strong> Konfidenz</span><span style="color:var(--text-dim)">Computer Vision v3</span></div>
-        <div class="vision-stat-row"><span>Vergleich zu Soll-Bestand</span><span><strong>+3</strong> über Plan</span></div>
-        <button class="btn-primary" style="margin-top:14px" onclick="toast('✓ 42 Artikel im Lager aktualisiert')">Bestand übernehmen</button>
+        <div class="vision-stat-row" id="visionStatus" style="display:block;font-size:13px;text-align:center"><span>Kamera startet …</span></div>
+        <button class="btn-primary" style="margin-top:14px" onclick="augeAnalyseFrame()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto erfassen & analysieren</button>
+        <button class="btn-secondary" style="margin-top:8px" onclick="closeSheet()">Schließen</button>
         <div class="ai-card glass" style="margin-top:14px">
-          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">So gibt's das nirgends</div></div>
+          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Wie das funktioniert</div></div>
           <div style="font-size:13px;color:var(--text-dim);line-height:1.5;padding:0 4px">
-            Andere Apps brauchen Barcodes oder manuelles Tippen. Lager-Vision erkennt Produkte <strong style="color:var(--gold-light)">visuell</strong> – auch ohne Etiketten, auch hinterm Glas, auch in Kartons. Spart 4–6 Stunden pro Inventur.
+            Die Hinter-Kamera startet automatisch sobald du den Auge-Knopf antippst. Mit <strong style="color:var(--gold-light)">Foto erfassen</strong> schießt das Auge einen Schnappschuss und schickt ihn an Claude Vision — innerhalb 2–3 Sekunden Antwort, was im Bild ist (Produkte, Mengen, Allergene, MHD).
           </div>
         </div>
       `
@@ -2388,6 +2405,9 @@
     document.getElementById('sheetBody').innerHTML = s.body;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+    if (key === 'lagerVision') {
+      setTimeout(startVisionCamera, 50);
+    }
   }
 
   // ===== Kassen-Anbindung (echt: localStorage + HTTP-Test) =====
@@ -2641,6 +2661,68 @@
   function closeSheet(){
     document.getElementById('sheetOverlay').classList.remove('show');
     document.getElementById('sheet').classList.remove('show');
+    stopVisionCamera();
+  }
+
+  // ===== Auge: echte Handy-Kamera =====
+  let _visionStream = null;
+  async function startVisionCamera(){
+    const v = document.getElementById('visionVideo');
+    if (!v) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      _visionStream = stream;
+      v.srcObject = stream;
+      v.play().catch(()=>{});
+      const status = document.getElementById('visionStatus');
+      if (status) status.textContent = 'Kamera aktiv · richte das Handy aufs Regal';
+    } catch (err) {
+      const status = document.getElementById('visionStatus');
+      if (status) status.textContent = '🚫 Kein Kamera-Zugriff (' + (err.name || 'Fehler') + ')';
+    }
+  }
+  function stopVisionCamera(){
+    if (_visionStream) {
+      _visionStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+      _visionStream = null;
+    }
+    const v = document.getElementById('visionVideo');
+    if (v) { try { v.pause(); v.srcObject = null; } catch(e){} }
+  }
+  function captureVisionFrame(){
+    const v = document.getElementById('visionVideo');
+    if (!v || !v.videoWidth) { toast('Kamera nicht bereit.'); return null; }
+    const c = document.createElement('canvas');
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    return c.toDataURL('image/jpeg', 0.82);
+  }
+  async function augeAnalyseFrame(){
+    const dataUrl = captureVisionFrame();
+    if (!dataUrl) return;
+    const status = document.getElementById('visionStatus');
+    const t0 = performance.now();
+    if (status) status.textContent = '📸 Bild erfasst · analysiere …';
+    try {
+      const res = await fetch('/.netlify/functions/chef-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'vision', image: dataUrl, restaurant: chefProfile, context: 'lager-inventur' })
+      });
+      const ms = Math.round(performance.now() - t0);
+      if (res.ok) {
+        const j = await res.json();
+        if (status) status.textContent = '✓ Analyse fertig in ' + (ms/1000).toFixed(1) + ' s · ' + (j.reply || 'keine Daten').slice(0, 80);
+        if (j.reply) { addMsg('Auge: ' + j.reply, 'ai'); speak(j.reply); }
+      } else {
+        if (status) status.textContent = '⚠️ Backend offline · Bild lokal gespeichert (' + ms + ' ms)';
+      }
+    } catch (e) {
+      if (status) status.textContent = '⚠️ Offline · Bild lokal gespeichert';
+    }
   }
 
   // ===== Marketing-Studio Tabs =====
