@@ -1299,6 +1299,11 @@ function checkZip() {
   }
 }
 
+/* Stitch-Modus: ab hier sind alle Event-Listener für das alte DOM —
+   im Stitch-HTML übernimmt stitch-bridge.js. */
+const __SKIP_LEGACY_LISTENERS = !!document.getElementById("view-home");
+if (!__SKIP_LEGACY_LISTENERS) {
+
 /* ---------- Event delegation ---------- */
 document.addEventListener("click", (ev) => {
   const t1 = ev.target.closest("[data-increase]");
@@ -2020,8 +2025,21 @@ function init() {
   }
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
+} // Ende __SKIP_LEGACY_LISTENERS Guard
+
+// Skip full UI-init wenn wir im Stitch-Modus laufen (eigene Render-Logik via stitch-bridge.js).
+// Datenschicht (products, state, CMS) ist bereits oben geladen — Bridge nutzt sie.
+const __isStitch = !!document.getElementById("view-home");
+
+function safeInit() {
+  try { init(); }
+  catch (e) { console.warn("[app.js] Legacy-init übersprungen:", e.message); }
+}
+
+if (!__isStitch) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", safeInit);
+  } else {
+    safeInit();
+  }
 }

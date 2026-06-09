@@ -59,7 +59,7 @@
 <div class="px-4">
 <div class="relative group">
 <svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5 1.49-1.49-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
-<input class="w-full h-14 pl-12 pr-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Suche nach Sucuk, Oliven..." type="text"/>
+<input class="w-full h-14 pl-12 pr-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Suche nach Sucuk, Oliven..." type="text" id="home-search"/>
 </div>
 </div>
 <!-- Category Navigation -->
@@ -76,7 +76,7 @@
 <h3 class="font-headline-md text-xl text-ink">Beliebte Klassiker</h3>
 <button class="text-primary font-bold text-xs hover:underline" onclick="switchView('explore')">Alle ansehen</button>
 </div>
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-4" id="home-popular-grid">
 <!-- Card 1: Sucuk -->
 <div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative" onclick="openProduct('sucuk')">
 <div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3">
@@ -104,7 +104,7 @@
 <!-- Frisch vom Bäcker -->
 <section class="px-4 pb-8 overflow-hidden">
 <h3 class="font-headline-md text-xl text-ink mb-4">Frisch vom Bäcker</h3>
-<div class="flex gap-4 overflow-x-auto no-scrollbar">
+<div class="flex gap-4 overflow-x-auto no-scrollbar" id="home-fresh-scroll">
 <div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group">
 <div class="h-40 overflow-hidden">
 <img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="assets/products/sucuk.svg"/>
@@ -137,10 +137,10 @@
 <!-- EXPLORE VIEW (Offers Grid) -->
 <section class="view-fade-in p-4 space-y-6 hide" id="view-explore">
 <div class="flex justify-between items-center">
-<h2 class="font-headline-lg text-2xl text-primary">Angebote</h2>
+<h2 class="font-headline-lg text-2xl text-primary" id="explore-title">Alle Produkte</h2>
 <button class="p-2.5 bg-soft rounded-xl text-muted"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></svg></button>
 </div>
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-4" id="explore-grid">
 <div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group" onclick="openProduct('oliven')">
 <div class="relative aspect-square">
 <img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="assets/products/oliven.svg"/>
@@ -172,13 +172,13 @@
 <!-- FAVORITES VIEW -->
 <section class="view-fade-in p-4 space-y-6 hide" id="view-favorites">
 <h2 class="font-headline-lg text-2xl text-primary font-bold">Favoriten</h2>
-<div class="bg-surface-container-low p-12 rounded-[32px] text-center flex flex-col items-center gap-4">
+<div id="favorites-content"><div class="bg-surface-container-low p-12 rounded-[32px] text-center flex flex-col items-center gap-4">
 <div class="w-20 h-20 bg-soft rounded-full flex items-center justify-center mb-2">
 <svg class="icon-24 text-4xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
 </div>
 <p class="text-muted text-sm font-medium">Noch keine Favoriten gespeichert.</p>
 <button class="bg-primary text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20" onclick="switchView('explore')">Jetzt entdecken</button>
-</div>
+</div></div>
 </section>
 <!-- PROFILE VIEW -->
 <section class="view-fade-in hide" id="view-profile">
@@ -191,13 +191,13 @@
 <p class="text-[10px] font-black text-muted uppercase tracking-[0.2em] mt-1">Premium Kunde seit 2022</p>
 </div>
 <div class="p-6 space-y-4">
-<button class="w-full bg-primary text-on-primary p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-primary/10 active:scale-[0.98] transition-all" onclick="toggleAdminMode()">
+<a class="w-full bg-primary text-on-primary p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-primary/10 active:scale-[0.98] transition-all no-underline" href="admin/" target="_blank">
 <div class="flex items-center gap-3">
 <svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M17 11c.34 0 .67.04 1 .09V6.27L10.5 3 3 6.27v4.91c0 4.54 3.2 8.79 7.5 9.82.55-.13 1.08-.32 1.6-.55-.69-.98-1.1-2.17-1.1-3.45 0-3.31 2.69-6 6-6zm0 2c-2.21 0-4 1.79-4 4 0 2.22 1.78 4 4 4s4-1.78 4-4-1.78-4-4-4zm0 6.5a1 1 0 0 1-1-1 1 1 0 0 1 1-1 1 1 0 0 1 1 1 1 1 0 0 1-1 1zm.5-3h-1V14h1v2.5z"/></svg>
-<span>Admin-Modus wechseln</span>
+<span>Admin-Bereich öffnen ↗</span>
 </div>
 <svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-</button>
+</a>
 <div class="bg-white border border-line rounded-2xl overflow-hidden divide-y divide-line shadow-sm">
 <button class="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-soft transition-colors">
 <div class="flex items-center gap-4 text-muted">
@@ -221,9 +221,9 @@
 <section class="view-fade-in p-4 space-y-6 hide" id="view-cart">
 <div class="flex justify-between items-center">
 <h2 class="font-headline-lg text-2xl text-primary font-bold">Warenkorb</h2>
-<span class="text-muted text-[10px] font-bold uppercase tracking-wider">3 Artikel</span>
+<span class="text-muted text-[10px] font-bold uppercase tracking-wider" id="cart-summary-label">0 Artikel</span>
 </div>
-<div class="space-y-4">
+<div class="space-y-4" id="cart-items">
 <div class="bg-white p-4 rounded-2xl border border-line/30 flex gap-4 shadow-sm items-center">
 <img class="w-16 h-16 rounded-xl object-contain bg-soft p-2" src="assets/products/oliven.svg"/>
 <div class="flex-1">
@@ -237,10 +237,10 @@
 </div>
 </div>
 </div>
-<div class="pt-6 border-t border-line/30 space-y-4">
-<div class="flex justify-between text-muted text-sm font-medium"><span>Zwischensumme</span><span>13,17 €</span></div>
-<div class="flex justify-between text-xl font-headline-md text-primary font-black"><span>Gesamt</span><span>13,17 €</span></div>
-<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 mt-4 active:scale-95 transition-all">Zur Kasse gehen</button>
+<div class="pt-6 border-t border-line/30 space-y-4" id="cart-footer">
+<div class="flex justify-between text-muted text-sm font-medium"><span>Zwischensumme</span><span id="cart-subtotal">0,00 €</span></div>
+<div class="flex justify-between text-xl font-headline-md text-primary font-black"><span>Gesamt</span><span id="cart-total">0,00 €</span></div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 mt-4 active:scale-95 transition-all" id="cart-checkout-btn">Zur Kasse gehen</button>
 </div>
 </section>
 <!-- PRODUCT DETAILS -->
