@@ -1,647 +1,546 @@
-<!doctype html>
-<html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#063b29" />
-    <meta name="color-scheme" content="light" />
-    <meta name="description" content="Herdem · Türkisch-mediterrane Frische, geliefert in 38 Minuten. Helal Fleisch, knackiges Gemüse, türkische Klassiker. Lieferung, Abholung und Versand in Frankfurt und Offenbach." />
+<!DOCTYPE html>
 
-    <title>Herdem · Türkisch-mediterrane Frische, geliefert</title>
+<html class="h-full" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Herdem · Türkisch-mediterrane Frische, geliefert</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#063b29" />
+<link rel="stylesheet" href="stitch.css" />
 
-    <link rel="canonical" href="https://herdem.example.com/" />
-    <link rel="alternate" hreflang="de" href="https://herdem.example.com/" />
-    <link rel="alternate" hreflang="tr" href="https://herdem.example.com/?lang=tr" />
-    <link rel="alternate" hreflang="x-default" href="https://herdem.example.com/" />
 
-    <meta property="og:type" content="website" />
-    <meta property="og:locale" content="de_DE" />
-    <meta property="og:site_name" content="Herdem" />
-    <meta property="og:title" content="Herdem · Türkisch-mediterrane Frische, geliefert" />
-    <meta property="og:description" content="Helal Fleisch, frisches Gemüse und türkische Klassiker. Lieferung in 38 Minuten." />
-    <meta property="og:url" content="https://herdem.example.com/" />
-    <meta property="og:image" content="https://herdem.example.com/assets/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
 
-    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-    <link rel="manifest" href="manifest.webmanifest" />
 
-    <link rel="preload" as="image" href="assets/illustrations/hero.svg" fetchpriority="high" />
-    <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-black-latin.woff2" crossorigin="anonymous" />
-    <link rel="preload" as="font" type="font/woff2" href="fonts/inter-latin.woff2" crossorigin="anonymous" />
-    <link rel="stylesheet" href="styles.css" />
 
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "GroceryStore",
-      "name": "Herdem",
-      "image": "https://herdem.example.com/assets/og-image.png",
-      "description": "Türkisch-mediterraner Online-Supermarkt mit Lieferung, Abholung und Versand.",
-      "url": "https://herdem.example.com/",
-      "telephone": "+49-69-0000-0000",
-      "priceRange": "€",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "Beispielstraße 1",
-        "postalCode": "60311",
-        "addressLocality": "Frankfurt am Main",
-        "addressCountry": "DE"
-      },
-      "openingHoursSpecification": [{
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
-        "opens": "08:00",
-        "closes": "22:00"
-      }],
-      "areaServed": ["Frankfurt am Main", "Offenbach am Main"],
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "reviewCount": "312"
-      }
-    }
+<style>
+        .view-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .hide { display: none !important; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .nav-active { color: #002417 !important; font-weight: 700; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-icon { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-surface h-full font-body-base text-on-surface select-none overflow-hidden">
+<div class="flex flex-col h-full max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden" id="app-container">
+<!-- Integrated Header -->
+<header class="flex items-center justify-between px-4 h-16 bg-white/95 backdrop-blur-xl border-b border-line/10 sticky top-0 z-50 shrink-0" id="top-bar">
+<div class="flex items-center gap-1 cursor-pointer active:scale-95 transition-all flex-1" id="location-picker">
+<svg class="icon-21 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+<span class="text-[11px] font-bold text-primary truncate" id="header-location-text">Frankfurt, 60311</span>
+</div>
+<h1 class="font-display-hero-mobile text-2xl text-primary tracking-tighter flex-none" id="app-logo">Herdem</h1>
+<div class="flex justify-end flex-1" id="header-actions">
+<button class="relative p-2 rounded-full hover:bg-soft transition-colors active:scale-95" id="cart-icon-btn" onclick="switchView('cart')">
+<svg class="icon-24 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="absolute top-1 right-1 bg-error text-white text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold" id="cart-count">3</span>
+</button>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-24 no-scrollbar" id="main-content">
+<!-- HOME VIEW -->
+<section class="view-fade-in space-y-6 pt-4" id="view-home">
+<!-- Offer Banner -->
+<div class="px-4">
+<div class="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-md group">
+<img class="w-full h-full object-contain bg-soft p-2 transition-transform duration-1000 group-hover:scale-105" src="assets/products/sucuk.svg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
+<span class="text-white/90 font-eyebrow text-[10px] mb-2 uppercase tracking-[0.2em] font-black">Frische-Garantie</span>
+<h2 class="text-white font-headline-lg-mobile text-2xl leading-tight max-w-[200px]">Frische, die ankommt. In 30-60 Min.</h2>
+</div>
+</div>
+</div>
+<!-- Search -->
+<div class="px-4">
+<div class="relative group">
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5 1.49-1.49-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+<input class="w-full h-14 pl-12 pr-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Suche nach Sucuk, Oliven..." type="text"/>
+</div>
+</div>
+<!-- Category Navigation -->
+<div class="flex overflow-x-auto no-scrollbar px-4 gap-3">
+<button class="flex-none px-5 py-2.5 bg-primary text-on-primary rounded-xl text-[13px] font-bold shadow-sm">Angebote</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Fleisch</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Obst</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Milch</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Backwaren</button>
+</div>
+<!-- Beliebte Klassiker -->
+<section class="px-4">
+<div class="flex justify-between items-end mb-4">
+<h3 class="font-headline-md text-xl text-ink">Beliebte Klassiker</h3>
+<button class="text-primary font-bold text-xs hover:underline" onclick="switchView('explore')">Alle ansehen</button>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Card 1: Sucuk -->
+<div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative" onclick="openProduct('sucuk')">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all duration-500" src="assets/products/sucuk.svg"/>
+</div>
+<p class="text-sm font-bold text-ink mb-0.5">Egetürk Sucuk</p>
+<div class="flex justify-between items-end">
+<p class="font-price-lg text-lg text-primary">4,99 €</p>
+<button class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md active:scale-90 transition-all"><svg class="icon-21 text-xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+</div>
+<!-- Card 2: Ayran -->
+<div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative" onclick="openProduct('ayran')">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all duration-500" src="assets/products/ayran.svg"/>
+</div>
+<p class="text-sm font-bold text-ink mb-0.5">Frischer Ayran</p>
+<div class="flex justify-between items-end">
+<p class="font-price-lg text-lg text-primary">1,29 €</p>
+<button class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md active:scale-90 transition-all"><svg class="icon-21 text-xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+</div>
+</div>
+</section>
+<!-- Frisch vom Bäcker -->
+<section class="px-4 pb-8 overflow-hidden">
+<h3 class="font-headline-md text-xl text-ink mb-4">Frisch vom Bäcker</h3>
+<div class="flex gap-4 overflow-x-auto no-scrollbar">
+<div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group">
+<div class="h-40 overflow-hidden">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="assets/products/sucuk.svg"/>
+</div>
+<div class="p-4">
+<span class="px-2 py-0.5 bg-primary text-white text-[9px] font-black rounded-md uppercase tracking-widest">Täglich frisch</span>
+<h4 class="font-headline-md text-lg text-ink mt-2">Klassische Pide</h4>
+<div class="flex justify-between items-center mt-3">
+<p class="font-price-lg text-lg text-primary">3,50 €</p>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs active:scale-95">Hinzufügen</button>
+</div>
+</div>
+</div>
+<div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group">
+<div class="h-40 overflow-hidden">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="assets/products/sucuk.svg"/>
+</div>
+<div class="p-4">
+<span class="px-2 py-0.5 bg-primary text-white text-[9px] font-black rounded-md uppercase tracking-widest">Bestseller</span>
+<h4 class="font-headline-md text-lg text-ink mt-2">Frischer Simit</h4>
+<div class="flex justify-between items-center mt-3">
+<p class="font-price-lg text-lg text-primary">1,10 €</p>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs active:scale-95">Hinzufügen</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<!-- EXPLORE VIEW (Offers Grid) -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-explore">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary">Angebote</h2>
+<button class="p-2.5 bg-soft rounded-xl text-muted"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></svg></button>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group" onclick="openProduct('oliven')">
+<div class="relative aspect-square">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="assets/products/oliven.svg"/>
+<div class="absolute top-2 left-2 bg-error text-white text-[9px] font-black px-2 py-1 rounded-full uppercase">-20%</div>
+</div>
+<div class="p-3">
+<h4 class="text-sm font-bold text-ink truncate">Premium Oliven Mix</h4>
+<div class="flex justify-between items-center mt-2">
+<p class="font-price-lg text-lg text-primary">3,19 €</p>
+<button class="bg-primary text-white p-2 rounded-xl active:scale-90 transition-transform"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3zm-4 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg></button>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group" onclick="openProduct('baklava')">
+<div class="relative aspect-square">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="assets/products/baklava.svg"/>
+<div class="absolute top-2 left-2 bg-secondary-container text-on-secondary-container text-[9px] font-black px-2 py-1 rounded-full uppercase">Aktion</div>
+</div>
+<div class="p-3">
+<h4 class="text-sm font-bold text-ink truncate">Hausgemachte Baklava</h4>
+<div class="flex justify-between items-center mt-2">
+<p class="font-price-lg text-lg text-primary">6,50 €</p>
+<button class="bg-primary text-white p-2 rounded-xl active:scale-90 transition-transform"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3zm-4 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg></button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- FAVORITES VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-favorites">
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Favoriten</h2>
+<div class="bg-surface-container-low p-12 rounded-[32px] text-center flex flex-col items-center gap-4">
+<div class="w-20 h-20 bg-soft rounded-full flex items-center justify-center mb-2">
+<svg class="icon-24 text-4xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
+</div>
+<p class="text-muted text-sm font-medium">Noch keine Favoriten gespeichert.</p>
+<button class="bg-primary text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20" onclick="switchView('explore')">Jetzt entdecken</button>
+</div>
+</section>
+<!-- PROFILE VIEW -->
+<section class="view-fade-in hide" id="view-profile">
+<div class="p-8 bg-white flex flex-col items-center text-center border-b border-line/20">
+<div class="relative mb-4">
+<img class="w-24 h-24 rounded-full border-4 border-cream shadow-xl object-contain bg-soft p-2" src="assets/products/sucuk.svg"/>
+<button class="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full border-2 border-white shadow-lg"><svg class="icon-24 text-sm" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M9 2 7.17 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3.17L15 2zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg></button>
+</div>
+<h2 class="font-headline-lg text-xl text-primary font-bold">Lukas Müller</h2>
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.2em] mt-1">Premium Kunde seit 2022</p>
+</div>
+<div class="p-6 space-y-4">
+<button class="w-full bg-primary text-on-primary p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-primary/10 active:scale-[0.98] transition-all" onclick="toggleAdminMode()">
+<div class="flex items-center gap-3">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M17 11c.34 0 .67.04 1 .09V6.27L10.5 3 3 6.27v4.91c0 4.54 3.2 8.79 7.5 9.82.55-.13 1.08-.32 1.6-.55-.69-.98-1.1-2.17-1.1-3.45 0-3.31 2.69-6 6-6zm0 2c-2.21 0-4 1.79-4 4 0 2.22 1.78 4 4 4s4-1.78 4-4-1.78-4-4-4zm0 6.5a1 1 0 0 1-1-1 1 1 0 0 1 1-1 1 1 0 0 1 1 1 1 1 0 0 1-1 1zm.5-3h-1V14h1v2.5z"/></svg>
+<span>Admin-Modus wechseln</span>
+</div>
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</button>
+<div class="bg-white border border-line rounded-2xl overflow-hidden divide-y divide-line shadow-sm">
+<button class="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-soft transition-colors">
+<div class="flex items-center gap-4 text-muted">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+<span>Adressverwaltung</span>
+</div>
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</button>
+<button class="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-soft transition-colors">
+<div class="flex items-center gap-4 text-muted">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M2 6h20v12H2z M22 16H2v2h20zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+<span>Zahlungsmethoden</span>
+</div>
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</button>
+</div>
+<button class="w-full py-4 text-error font-bold text-sm bg-error/5 rounded-2xl border border-error/10 mt-4">Abmelden</button>
+</div>
+</section>
+<!-- CART VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-cart">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Warenkorb</h2>
+<span class="text-muted text-[10px] font-bold uppercase tracking-wider">3 Artikel</span>
+</div>
+<div class="space-y-4">
+<div class="bg-white p-4 rounded-2xl border border-line/30 flex gap-4 shadow-sm items-center">
+<img class="w-16 h-16 rounded-xl object-contain bg-soft p-2" src="assets/products/oliven.svg"/>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Premium Oliven Mix</h4>
+<p class="font-price-lg text-primary">3,19 €</p>
+</div>
+<div class="flex items-center gap-3 bg-soft p-1 rounded-full font-bold">
+<button class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary active:scale-90">−</button>
+<span class="text-sm">1</span>
+<button class="w-8 h-8 rounded-full bg-primary text-white shadow-sm flex items-center justify-center active:scale-90">+</button>
+</div>
+</div>
+</div>
+<div class="pt-6 border-t border-line/30 space-y-4">
+<div class="flex justify-between text-muted text-sm font-medium"><span>Zwischensumme</span><span>13,17 €</span></div>
+<div class="flex justify-between text-xl font-headline-md text-primary font-black"><span>Gesamt</span><span>13,17 €</span></div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 mt-4 active:scale-95 transition-all">Zur Kasse gehen</button>
+</div>
+</section>
+<!-- PRODUCT DETAILS -->
+<section class="view-fade-in hide" id="view-product-details">
+<div class="relative">
+<button class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-lg" onclick="switchView('home')"><svg class="icon-24 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg></button>
+<img class="w-full aspect-square object-contain bg-soft p-2" id="detail-img" src=""/>
+</div>
+<div class="px-4 py-6 space-y-4">
+<div>
+<h2 class="font-headline-lg text-2xl text-primary font-black" id="detail-title"></h2>
+<p class="text-muted text-sm mt-1" id="detail-subtitle"></p>
+</div>
+<p class="text-on-surface-variant text-sm leading-relaxed" id="detail-desc"></p>
+<div class="flex items-center justify-between bg-soft p-4 rounded-2xl border border-line/20">
+<div class="flex items-center gap-6">
+<button class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-line text-xl font-bold text-primary active:scale-90">－</button>
+<span class="text-xl font-headline-md font-black" id="detail-qty">1</span>
+<button class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-sm text-xl font-bold active:scale-90">＋</button>
+</div>
+<span class="text-2xl font-price-lg text-primary font-black" id="detail-price"></span>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98] transition-transform" onclick="switchView('cart')">In den Warenkorb</button>
+</div>
+</section>
+<!-- ADMIN DASHBOARD -->
+<section class="view-fade-in space-y-6 hide" id="view-admin-dashboard">
+<div class="p-6">
+<p class="font-eyebrow text-[10px] text-secondary uppercase tracking-[0.2em] font-black">Performance Overview</p>
+<h2 class="font-headline-lg text-2xl text-ink mt-1 font-black">Willkommen, Admin</h2>
+</div>
+<div class="px-4 grid grid-cols-1 gap-4">
+<div class="bg-white p-5 rounded-2xl shadow-sm border border-line/30 group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 bg-soft text-primary rounded-xl">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M2 6h20v12H2z M22 16H2v2h20zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+</div>
+<span class="text-[10px] font-black text-primary bg-primary-fixed px-3 py-1 rounded-full uppercase">+12.5%</span>
+</div>
+<p class="text-muted text-xs font-bold uppercase tracking-wider">Umsatz heute</p>
+<p class="font-price-lg text-2xl text-ink mt-1">4.280,50 €</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white p-5 rounded-2xl border border-line/30">
+<p class="text-muted text-[10px] font-black uppercase tracking-widest">Bestellungen</p>
+<p class="text-2xl font-headline-md text-ink mt-1">24</p>
+</div>
+<div class="bg-white p-5 rounded-2xl border border-line/30">
+<p class="text-muted text-[10px] font-black uppercase tracking-widest">Neue Kunden</p>
+<p class="text-2xl font-headline-md text-ink mt-1">112</p>
+</div>
+</div>
+<!-- Chart Placeholder -->
+<div class="bg-white p-6 rounded-2xl border border-line/30">
+<h3 class="font-black text-sm mb-6 uppercase tracking-widest text-ink">Wochenumsatz</h3>
+<div class="h-40 flex items-end justify-between gap-3 px-1">
+<div class="flex-1 bg-soft rounded-t-lg h-[65%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[45%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[85%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[70%]"></div>
+<div class="flex-1 bg-primary rounded-t-lg h-[95%] shadow-lg shadow-primary/20"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[30%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[20%]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- ADMIN ORDERS -->
+<section class="view-fade-in p-4 space-y-4 hide" id="view-admin-orders">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Bestellungen</h2>
+<div class="space-y-3">
+<div class="bg-white p-4 rounded-2xl border border-line/30 shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<p class="text-[10px] text-muted font-black uppercase tracking-widest">#HRD-9421</p>
+<h4 class="font-bold text-sm">Markus Köhler</h4>
+</div>
+<span class="bg-primary-fixed text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Geliefert</span>
+</div>
+<div class="flex justify-between items-center pt-3 border-t border-line/10">
+<span class="text-[11px] text-muted font-medium">Heute, 14:24</span>
+<span class="font-bold text-primary">84,50 €</span>
+</div>
+</div>
+</div>
+</section>
+<!-- ADMIN SORTIMENT (Products) -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-admin-products">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Sortiment</h2>
+<button class="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+<div class="bg-white rounded-2xl border border-line/30 divide-y divide-line/10 overflow-hidden shadow-sm">
+<div class="p-4 flex items-center gap-4">
+<img class="w-14 h-14 rounded-xl object-contain bg-soft p-2" src="assets/products/sucuk.svg"/>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm truncate">Egetürk Sucuk</p>
+<p class="text-[10px] font-black text-muted uppercase tracking-widest">142 Einheiten auf Lager</p>
+</div>
+<div class="text-right font-bold text-primary">4,99 €</div>
+</div>
+<div class="p-4 flex items-center gap-4">
+<img class="w-14 h-14 rounded-xl object-contain bg-soft p-2" src="assets/products/oliven.svg"/>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm truncate">Premium Oliven Mix</p>
+<p class="text-[10px] font-black text-muted uppercase tracking-widest">85 Einheiten auf Lager</p>
+</div>
+<div class="text-right font-bold text-primary">3,19 €</div>
+</div>
+</div>
+</section>
+<!-- ADMIN SETTINGS -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-admin-settings">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Shop-Einstellungen</h2>
+<div class="bg-white rounded-2xl border border-line/30 divide-y divide-line/10 overflow-hidden shadow-sm">
+<div class="p-4 flex items-center justify-between">
+<div>
+<p class="font-bold text-sm">Shop Geöffnet</p>
+<p class="text-[10px] text-muted">Aktueller Status: Online</p>
+</div>
+<div class="w-12 h-6 bg-primary rounded-full relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="p-4 flex items-center justify-between">
+<div>
+<p class="font-bold text-sm">Push-Benachrichtigungen</p>
+<p class="text-[10px] text-muted">Kunden bei neuen Angeboten informieren</p>
+</div>
+<div class="w-12 h-6 bg-primary rounded-full relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 text-error font-bold text-sm bg-error/5 rounded-2xl border border-error/10" onclick="toggleAdminMode()">Admin-Modus verlassen</button>
+</section>
+</main>
+<!-- Customer Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 bg-white/95 backdrop-blur-xl border-t border-line/10 z-50 transition-all duration-300" id="customer-nav">
+<button class="flex flex-col items-center justify-center nav-active group" data-nav="home" onclick="switchView('home')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 4 9.5V21h5v-7h6v7h5V9.5z"/></svg>
+<span class="text-[10px] font-bold mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="explore" onclick="switchView('explore')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19zM12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
+<span class="text-[10px] font-bold mt-1">Entdecken</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="favorites" onclick="switchView('favorites')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
+<span class="text-[10px] font-bold mt-1">Favoriten</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group relative" data-nav="cart" onclick="switchView('cart')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="text-[10px] font-bold mt-1">Warenkorb</span>
+<div class="absolute top-0 right-1/4 w-1.5 h-1.5 bg-error rounded-full"></div>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="profile" onclick="switchView('profile')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-3.3 0-9 1.6-9 5v3h18v-3c0-3.4-5.7-5-9-5z"/></svg>
+<span class="text-[10px] font-bold mt-1">Profil</span>
+</button>
+</nav>
+<!-- Admin Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 bg-primary text-white border-t border-primary z-50 hide" id="admin-nav">
+<button class="flex flex-col items-center justify-center" onclick="switchAdminView('dashboard')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('orders')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Bestellungen</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('products')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zM15 14H9v-2h6v2zm5-7H4V4l16-.02V7z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Sortiment</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('settings')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54A.48.48 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.48.42l-.36 2.54a7 7 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.48a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .32.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.39.31.59.22l2.39-.96c.5.39 1.05.7 1.62.94l.36 2.54c.05.24.25.42.48.42h3.84c.25 0 .44-.18.48-.42l.36-2.54a7 7 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Shop</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="toggleAdminMode()">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Exit</span>
+</button>
+</nav>
+</div>
+<script>
+        let isAdminMode = false;
+        const stitchProducts = {
+            sucuk: { title: "Egetürk Sucuk", subtitle: "Knoblauchwurst, ca. 500g", price: "4,99 €", desc: "Traditionell hergestellt nach altem Familienrezept. Perfekt für das Frühstück mit Eiern.", img: "assets/products/sucuk.svg" },
+            ayran: { title: "Frischer Ayran", subtitle: "Gekühlt, 0.3l", price: "1,29 €", desc: "Unser hausgemachter Ayran wird täglich frisch zubereitet mit hochwertigem Joghurt.", img: "assets/products/ayran.svg" },
+            oliven: { title: "Premium Oliven Mix", subtitle: "Bowl, ca. 250g", price: "3,19 €", desc: "Feine Auswahl an mediterranen Oliven, mariniert mit feinen Kräutern.", img: "assets/products/oliven.svg" },
+            baklava: { title: "Hausgemachte Baklava", subtitle: "Pistazie, 4er Set", price: "6,50 €", desc: "Hauchdünne Teigschichten mit edlen Pistazien und feinem Zuckersirup.", img: "assets/products/baklava.svg" }
+        };
+
+        function switchView(viewId) {
+            const customerViews = ['home', 'explore', 'favorites', 'profile', 'cart', 'product-details'];
+            customerViews.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hide');
+                
+                const navBtn = document.querySelector(`[data-nav="${v}"]`);
+                if(navBtn) {
+                    navBtn.classList.remove('nav-active');
+                    navBtn.classList.add('text-muted');
+                    navBtn.querySelector('span').classList.remove('active-icon');
+                }
+            });
+
+            const targetView = document.getElementById(`view-${viewId}`);
+            if(targetView) targetView.classList.remove('hide');
+
+            const activeBtn = document.querySelector(`[data-nav="${viewId}"]`);
+            if(activeBtn) {
+                activeBtn.classList.add('nav-active');
+                activeBtn.classList.remove('text-muted');
+                activeBtn.querySelector('span').classList.add('active-icon');
+            }
+
+            // Hide bottom nav for product details
+            const cNav = document.getElementById('customer-nav');
+            if(viewId === 'product-details') {
+                cNav.classList.add('translate-y-24');
+            } else {
+                cNav.classList.remove('translate-y-24');
+            }
+
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        function switchAdminView(viewId) {
+            const adminViews = ['dashboard', 'orders', 'products', 'settings'];
+            adminViews.forEach(v => {
+                const el = document.getElementById(`view-admin-${v}`);
+                if(el) el.classList.add('hide');
+            });
+            document.getElementById(`view-admin-${viewId}`).classList.remove('hide');
+            
+            // Highlight active admin nav
+            const adminNav = document.getElementById('admin-nav');
+            const btns = adminNav.querySelectorAll('button');
+            btns.forEach((btn, idx) => {
+                if(idx < adminViews.length) {
+                   if(adminViews[idx] === viewId) {
+                       btn.classList.remove('opacity-60');
+                   } else {
+                       btn.classList.add('opacity-60');
+                   }
+                }
+            });
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        function openProduct(key) {
+            const p = stitchProducts[key];
+            document.getElementById('detail-img').src = p.img;
+            document.getElementById('detail-title').innerText = p.title;
+            document.getElementById('detail-subtitle').innerText = p.subtitle;
+            document.getElementById('detail-price').innerText = p.price;
+            document.getElementById('detail-desc').innerText = p.desc;
+            switchView('product-details');
+        }
+
+        function toggleAdminMode() {
+            isAdminMode = !isAdminMode;
+            const logo = document.getElementById('app-logo');
+            const header = document.getElementById('top-bar');
+            const cNav = document.getElementById('customer-nav');
+            const aNav = document.getElementById('admin-nav');
+            const loc = document.getElementById('location-picker');
+            const actions = document.getElementById('header-actions');
+
+            // Reset all possible views
+            const allViews = ['home', 'explore', 'favorites', 'profile', 'cart', 'product-details', 'admin-dashboard', 'admin-orders', 'admin-products', 'admin-settings'];
+            allViews.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hide');
+            });
+
+            if(isAdminMode) {
+                logo.innerText = 'Admin Pro';
+                header.classList.add('bg-primary-container');
+                logo.classList.replace('text-primary', 'text-white');
+                loc.classList.add('opacity-0');
+                actions.classList.add('opacity-0');
+                cNav.classList.add('hide');
+                aNav.classList.remove('hide');
+                switchAdminView('dashboard');
+            } else {
+                logo.innerText = 'Herdem';
+                header.classList.remove('bg-primary-container');
+                logo.classList.replace('text-white', 'text-primary');
+                loc.classList.remove('opacity-0');
+                actions.classList.remove('opacity-0');
+                cNav.classList.remove('hide');
+                aNav.classList.add('hide');
+                switchView('profile');
+            }
+        }
     </script>
-  </head>
-  <body>
-    <a class="skip-link" href="#shop">Zum Sortiment springen</a>
 
-    <div class="service-bar" role="region" aria-label="Service">
-      <button class="addr-btn" id="addressButton" type="button">
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s-7-7.58-7-13a7 7 0 1 1 14 0c0 5.42-7 13-7 13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-        <span>
-          <small data-i18n="addressLabel">Lieferadresse</small>
-          <strong id="addressLabel" data-i18n="addressEmpty">Adresse wählen</strong>
-        </span>
-      </button>
-
-      <div class="service-tabs" role="tablist" aria-label="Bestellart">
-        <button class="service-tab is-active" type="button" role="tab" aria-selected="true" data-service="delivery" data-i18n="serviceDelivery">Lieferung</button>
-        <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pickup" data-i18n="servicePickup">Abholung</button>
-        <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="shipping" data-i18n="serviceShipping">Versand</button>
-      </div>
-
-      <div class="service-meta">
-        <span class="status-pill" id="storeStatus" data-i18n="storeOpen">
-          <span class="dot" aria-hidden="true"></span>
-          Heute bis 22 Uhr
-        </span>
-        <button class="lang-toggle" id="langToggle" type="button" aria-label="Sprache wechseln">TR</button>
-      </div>
-    </div>
-
-    <header class="app-header">
-      <a class="brand" href="#" aria-label="Herdem Startseite">
-        <img class="brand-mark" src="assets/logo.svg" width="44" height="44" alt="" />
-        <span class="brand-text">
-          <strong>Herdem</strong>
-          <small data-i18n="tagline">Türkisch-mediterrane Frische</small>
-        </span>
-      </a>
-
-      <form class="search-shell" role="search" id="searchForm" onsubmit="return false">
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <input id="searchInput" type="search" data-i18n-attr="placeholder:searchPlaceholder" placeholder="Sucuk, Oliven, Bulgur suchen…" autocomplete="off" enterkeyhint="search" />
-        <button class="search-clear" id="searchClear" type="button" hidden aria-label="Suche löschen">×</button>
-      </form>
-
-      <div class="header-actions">
-        <button class="icon-action" id="openAccount" type="button" aria-label="Konto">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </button>
-        <button class="cart-pill" id="openCart" type="button" aria-label="Warenkorb öffnen">
-          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.7H8.5A2 2 0 0 1 6.5 18z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 7V5a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-          <span class="cart-label" data-i18n="cart">Warenkorb</span>
-          <em id="cartCountBadge" hidden>0</em>
-          <strong id="cartTotalPill">0,00 €</strong>
-        </button>
-      </div>
-    </header>
-
-    <main id="main">
-      <section class="hero" aria-label="Willkommen">
-        <div class="hero-copy">
-          <p class="eyebrow" data-i18n="heroEyebrow">Heute frisch gepackt</p>
-          <h1 id="heroTitle" data-i18n="heroTitle">Türkisch-mediterrane Frische, geliefert in 38 Minuten.</h1>
-          <p class="lead" id="heroLead" data-i18n="heroLead">Helal-Fleisch von der Theke, knackiges Gemüse vom Tagesmarkt, Baklava aus der Süßwarenecke — eine App, ein sauberer Flow.</p>
-          <div class="hero-cta">
-            <button class="btn-primary" type="button" data-jump="shop" data-i18n="heroCtaPrimary">Jetzt einkaufen</button>
-            <button class="btn-ghost" type="button" data-category-jump="angebote" data-i18n="heroCtaSecondary">Angebote ansehen</button>
-          </div>
-          <ul class="hero-trust" aria-label="Vorteile">
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustHelal">Helal geprüft</span></li>
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustCold">Kühlkette gesichert</span></li>
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustLocal">Frankfurt &amp; Offenbach</span></li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="activity-ticker" id="activityTicker" aria-label="Live-Aktivität">
-        <span class="at-pulse" aria-hidden="true"></span>
-        <p id="activityMsg">&nbsp;</p>
-      </section>
-
-      <section class="promise" aria-label="Versprechen">
-        <div><strong data-i18n="promise1Title">Frischetheke</strong><span data-i18n="promise1Text">Fleisch, Brot und Gemüse täglich vorbereitet</span></div>
-        <div><strong data-i18n="promise2Title">Helal Sortiment</strong><span data-i18n="promise2Text">Klare Kennzeichnung, ausgewählte Marken</span></div>
-        <div><strong data-i18n="promise3Title">Drei Wege, ein Flow</strong><span data-i18n="promise3Text">Lieferung, Abholung oder Versand in einem Klick</span></div>
-      </section>
-
-      <section class="quick-jump" aria-label="Schnellzugriff">
-        <button type="button" data-query="sucuk">Sucuk</button>
-        <button type="button" data-query="baklava">Baklava</button>
-        <button type="button" data-query="oliven">Oliven</button>
-        <button type="button" data-query="ayran">Ayran</button>
-        <button type="button" data-query="bulgur">Bulgur</button>
-        <button type="button" data-query="tee">Tee</button>
-        <button type="button" data-category-jump="favorites" data-i18n="favorites">Gemerkte</button>
-      </section>
-
-      <section class="strip strip-popular" aria-label="Beliebte Klassiker">
-        <header class="strip-head">
-          <h2 data-i18n="stripPopular">Beliebte Klassiker</h2>
-          <button type="button" class="strip-link" data-category-jump="all" data-i18n="stripAllPopular">Alle ansehen →</button>
-        </header>
-        <div class="strip-grid" id="stripPopular"></div>
-      </section>
-
-      <section class="strip strip-fresh" aria-label="Frisch heute">
-        <header class="strip-head">
-          <h2 data-i18n="stripFresh">Frisch heute</h2>
-          <button type="button" class="strip-link" data-tag-jump="Frisch" data-i18n="stripAllFresh">Alle ansehen →</button>
-        </header>
-        <div class="strip-scroll" id="stripFresh" role="list"></div>
-      </section>
-
-      <section class="shop" id="shop" aria-label="Sortiment">
-        <aside class="categories" aria-label="Kategorien">
-          <button class="cat is-active" type="button" data-category="all"><span data-i18n="catAll">Alle</span><small data-i18n="catAllSub">Shop</small></button>
-          <button class="cat" type="button" data-category="angebote"><span data-i18n="catOffers">Angebote</span><small data-i18n="catOffersSub">heute</small></button>
-          <button class="cat" type="button" data-category="obst"><span data-i18n="catProduce">Obst &amp; Gemüse</span><small data-i18n="catProduceSub">frisch</small></button>
-          <button class="cat" type="button" data-category="fleisch"><span data-i18n="catMeat">Fleisch &amp; Helal</span><small data-i18n="catMeatSub">Theke</small></button>
-          <button class="cat" type="button" data-category="milch"><span data-i18n="catDairy">Milchprodukte</span><small data-i18n="catDairySub">Kühlung</small></button>
-          <button class="cat" type="button" data-category="gewuerze"><span data-i18n="catPantry">Gewürze &amp; Öl</span><small data-i18n="catPantrySub">Vorrat</small></button>
-          <button class="cat" type="button" data-category="snacks"><span data-i18n="catSnacks">Snacks &amp; Süßes</span><small data-i18n="catSnacksSub">Baklava</small></button>
-          <button class="cat" type="button" data-category="getraenke"><span data-i18n="catDrinks">Getränke</span><small data-i18n="catDrinksSub">Ayran &amp; Tee</small></button>
-          <button class="cat" type="button" data-category="favorites"><span data-i18n="catSaved">Gemerkte</span><small id="favoriteCount">0</small></button>
-        </aside>
-
-        <section class="market" aria-live="polite">
-          <header class="market-head">
-            <div>
-              <p class="eyebrow" id="resultKicker" data-i18n="catAll">Alle Kategorien</p>
-              <h2 id="resultTitle" data-i18n="resultPopular">Beliebt heute</h2>
-            </div>
-            <div class="market-tools">
-              <div class="filter-row" role="group" aria-label="Filter">
-                <button class="is-active" type="button" data-filter="all" data-i18n="filterAll">Alle</button>
-                <button type="button" data-filter="Helal">Helal</button>
-                <button type="button" data-filter="Vegan">Vegan</button>
-                <button type="button" data-filter="Frisch" data-i18n="filterFresh">Frisch</button>
-                <button type="button" data-filter="Angebot" data-i18n="filterDeals">Deals</button>
-              </div>
-              <label class="sort">
-                <span class="sr-only" data-i18n="sortLabel">Sortierung</span>
-                <select id="sortSelect" aria-label="Sortierung">
-                  <option value="popular" data-i18n="sortPopular">Beliebtheit</option>
-                  <option value="price-asc" data-i18n="sortAsc">Preis aufsteigend</option>
-                  <option value="price-desc" data-i18n="sortDesc">Preis absteigend</option>
-                </select>
-              </label>
-            </div>
-          </header>
-
-          <div class="grid" id="productGrid"></div>
-
-          <section class="bundles" aria-label="Pakete">
-            <header>
-              <p class="eyebrow" data-i18n="bundlesEyebrow">Schnell ein ganzer Tisch</p>
-              <h2 data-i18n="bundlesTitle">Pakete für den Anlass</h2>
-            </header>
-            <div class="bundles-grid">
-              <article data-bundle="grillTable">
-                <span class="badge-soft">Grill</span>
-                <h3 data-i18n="bundleGrillTitle">Grillabend</h3>
-                <p data-i18n="bundleGrillText">Sucuk, Hähnchen, Salatgemüse, Ayran &amp; Joghurt.</p>
-                <button class="btn-add" type="button" data-bundle="grillTable" data-i18n="bundleAdd">Paket hinzufügen</button>
-              </article>
-              <article data-bundle="mezzeTable">
-                <span class="badge-soft">Mezze</span>
-                <h3 data-i18n="bundleMezzeTitle">Mezze-Tisch</h3>
-                <p data-i18n="bundleMezzeText">Fladenbrot, Oliven, Feta, Gemüse, Olivenöl.</p>
-                <button class="btn-add" type="button" data-bundle="mezzeTable" data-i18n="bundleAdd">Paket hinzufügen</button>
-              </article>
-              <article data-bundle="sweetTable">
-                <span class="badge-soft">Tee&shy;zeit</span>
-                <h3 data-i18n="bundleTeaTitle">Teezeit</h3>
-                <p data-i18n="bundleTeaText">Baklava, Çay, Joghurt, Granatapfel.</p>
-                <button class="btn-add" type="button" data-bundle="sweetTable" data-i18n="bundleAdd">Paket hinzufügen</button>
-              </article>
-              <article data-bundle="breakfast">
-                <span class="badge-soft">Kahvaltı</span>
-                <h3 data-i18n="bundleBreakfastTitle">Frühstück</h3>
-                <p data-i18n="bundleBreakfastText">Fladenbrot, Feta, Oliven und Çay.</p>
-                <button class="btn-add" type="button" data-bundle="breakfast" data-i18n="bundleAdd">Paket hinzufügen</button>
-              </article>
-            </div>
-          </section>
-
-          <section class="recent" id="recentSection" hidden aria-label="Zuletzt angesehen">
-            <header>
-              <p class="eyebrow" data-i18n="recentEyebrow">Weiter einkaufen</p>
-              <h2 data-i18n="recentTitle">Zuletzt angesehen</h2>
-            </header>
-            <div class="recent-row" id="recentGrid"></div>
-          </section>
-        </section>
-
-        <aside class="cart-panel" id="cartPanel" aria-label="Warenkorb">
-          <header class="cart-head">
-            <div>
-              <p class="eyebrow" data-i18n="cartEyebrow">Deine Bestellung</p>
-              <h2 id="cartHeading" data-i18n="cart">Warenkorb</h2>
-            </div>
-            <div class="cart-tools">
-              <button class="link-btn" id="clearCart" type="button" data-i18n="clearCart">Leeren</button>
-              <button class="icon-action mobile-only" id="closeCart" type="button" aria-label="Schließen">×</button>
-            </div>
-          </header>
-
-          <div class="cart-delivery">
-            <label>
-              <span data-i18n="slotLabel">Lieferzeit</span>
-              <select id="slotSelect"></select>
-            </label>
-            <div class="cart-prefs">
-              <label><input id="substituteToggle" type="checkbox" checked /> <span data-i18n="prefSubstitute">Ersatzartikel erlauben</span></label>
-              <label><input id="contactlessToggle" type="checkbox" /> <span data-i18n="prefContactless">Kontaktlos liefern</span></label>
-            </div>
-            <label class="note-label">
-              <span data-i18n="noteLabel">Hinweis für den Fahrer</span>
-              <textarea id="orderNote" rows="2" data-i18n-attr="placeholder:notePlaceholder" placeholder="z. B. Bitte nicht klingeln."></textarea>
-            </label>
-          </div>
-
-          <div class="cart-items" id="cartItems"></div>
-          <div class="cart-empty" id="emptyCart">
-            <strong data-i18n="cartEmptyTitle">Noch nichts im Korb</strong>
-            <span data-i18n="cartEmptyText">Tippe bei einem Produkt auf das Plus.</span>
-          </div>
-
-          <section class="upsell" id="cartUpsell" hidden></section>
-
-          <div class="cart-summary">
-            <div class="line line-meta"><span id="cartCountText">0 Artikel</span><strong id="cartSavings">0,00 € gespart</strong></div>
-            <div class="progress" aria-hidden="true"><span id="progressFill"></span></div>
-            <p class="progress-text" id="freeLine" data-i18n="freeBase">Kostenlose Lieferung ab dem Mindestwert</p>
-            <div class="promo">
-              <input id="promoInput" type="text" placeholder="HERDEM10" aria-label="Gutscheincode" />
-              <button id="applyPromo" type="button" data-i18n="apply">Einlösen</button>
-            </div>
-            <p class="promo-msg" id="promoMessage" data-i18n="promoHint">Codes: HERDEM10 (10 %) oder FRISCH5 (5 € ab 25 €)</p>
-            <div class="tip">
-              <span data-i18n="tipLabel">Trinkgeld für den Fahrer</span>
-              <div class="tip-row">
-                <button class="is-active" type="button" data-tip="0">0 €</button>
-                <button type="button" data-tip="1">1 €</button>
-                <button type="button" data-tip="2">2 €</button>
-              </div>
-            </div>
-            <div class="line"><span data-i18n="subtotal">Zwischensumme</span><strong id="subtotal">0,00 €</strong></div>
-            <div class="line"><span data-i18n="discount">Gutschein</span><strong id="discountTotal">0,00 €</strong></div>
-            <div class="line"><span data-i18n="tipShort">Trinkgeld</span><strong id="tipTotal">0,00 €</strong></div>
-            <div class="line"><span data-i18n="serviceFee">Service &amp; Lieferung</span><strong id="deliveryFee">3,90 €</strong></div>
-            <div class="line line-total"><span data-i18n="grandTotal">Gesamt</span><strong id="grandTotal">0,00 €</strong></div>
-            <button class="btn-checkout" id="checkoutButton" type="button" disabled data-i18n="toCheckout">Zur Kasse</button>
-            <p class="secure-note" data-i18n="secureNote">Sicher: Preise, Ersatzartikel und Slot bleiben bis zur Bestellung sichtbar.</p>
-          </div>
-        </aside>
-      </section>
-
-      <section class="trust-strip" aria-label="Qualität">
-        <article>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          <strong data-i18n="trust1Title">Helal geprüft</strong>
-          <span data-i18n="trust1Text">Markierte Fleisch- und Wurstwaren. Nachweis im Filialaushang.</span>
-        </article>
-        <article>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-          <strong data-i18n="trust2Title">Kühlkette</strong>
-          <span data-i18n="trust2Text">Frischeprodukte werden separat in Isolierboxen verpackt.</span>
-        </article>
-        <article>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 12c0-4 4-8 8-8s8 4 8 8M4 12c0 4 4 8 8 8s8-4 8-8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-          <strong data-i18n="trust3Title">Lokale Auswahl</strong>
-          <span data-i18n="trust3Text">Bäcker, Metzger und Hofläden aus dem Rhein-Main-Gebiet.</span>
-        </article>
-        <article>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          <strong data-i18n="trust4Title">Live-Status</strong>
-          <span data-i18n="trust4Text">Vom Korb bis an die Tür: jeder Schritt sichtbar.</span>
-        </article>
-      </section>
-
-      <section class="market-pulse" aria-label="Live-Zahlen">
-        <div><strong>32</strong><span data-i18n="pulse1">frische Körbe heute</span></div>
-        <div><strong>98%</strong><span data-i18n="pulse2">Verfügbarkeit im Sortiment</span></div>
-        <div><strong>38<em>min</em></strong><span data-i18n="pulse3">Ø Ankunft</span></div>
-        <div><strong>4,8<em>★</em></strong><span data-i18n="pulse4">aus 312 Bewertungen</span></div>
-      </section>
-
-      <section class="delivery" aria-label="Liefergebiet">
-        <div class="delivery-copy">
-          <p class="eyebrow" data-i18n="deliveryEyebrow">Liefergebiet</p>
-          <h2 data-i18n="deliveryTitle">Wir liefern dort, wo der Kunde wirklich wohnt.</h2>
-          <p data-i18n="deliveryText">Frankfurt Innenstadt, Westend, Nordend und Offenbach Zentrum. Mindestbestellwert 15&nbsp;€. Servicegebühr 3,90&nbsp;€ — ab 39&nbsp;€ gratis.</p>
-          <form class="zip-check" onsubmit="return false">
-            <input id="zipInput" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="PLZ z. B. 60311" aria-label="Postleitzahl" />
-            <button class="btn-primary" id="checkZip" type="submit" data-i18n="check">Prüfen</button>
-          </form>
-          <p class="zip-result" id="zipResult" data-i18n="zipDefault">Frankfurt und Offenbach sind aktiv. Heute lieferbar bis 22 Uhr.</p>
-          <ul class="address-info">
-            <li><strong>Filiale:</strong> Beispielstraße 1, 60311 Frankfurt am Main</li>
-            <li><strong>Telefon:</strong> <a href="tel:+4969000000">+49 69 0000 0000</a></li>
-            <li><strong>Öffnungszeiten:</strong> Mo–Sa 08:00–22:00 Uhr</li>
-          </ul>
-        </div>
-        <div class="delivery-map" aria-hidden="true">
-          <img src="assets/illustrations/map.svg" alt="" width="400" height="280" loading="lazy" />
-        </div>
-      </section>
-
-      <section class="install" id="installSection" aria-label="App-Installation">
-        <div>
-          <p class="eyebrow">Herdem als App</p>
-          <strong data-i18n="installTitle">Auf dem Homescreen, ohne Store</strong>
-          <span data-i18n="installText">Schneller Start, Offline-Hülle und Bestell-Verlauf direkt in der App.</span>
-        </div>
-        <button class="btn-primary" id="installButton" type="button" data-i18n="installCta">App installieren</button>
-      </section>
-    </main>
-
-    <footer class="app-footer">
-      <div class="footer-cols">
-        <div>
-          <img class="footer-mark" src="assets/logo.svg" width="42" height="42" alt="" />
-          <strong>Herdem</strong>
-          <p data-i18n="footerTagline">Türkisch-mediterrane Frische, geliefert in 38&nbsp;Minuten.</p>
-        </div>
-        <div>
-          <strong data-i18n="footerService">Service</strong>
-          <a href="#shop" data-i18n="footerShop">Sortiment</a>
-          <a href="#" data-action="openSupport" data-i18n="footerHelp">Hilfe &amp; Kontakt</a>
-          <a href="#" data-action="openAccount" data-i18n="footerAccount">Konto</a>
-        </div>
-        <div>
-          <strong data-i18n="footerLegal">Rechtliches</strong>
-          <a href="legal/impressum.html">Impressum</a>
-          <a href="legal/datenschutz.html">Datenschutz</a>
-          <a href="legal/agb.html">AGB</a>
-          <a href="legal/widerruf.html">Widerrufsrecht</a>
-        </div>
-        <div>
-          <strong data-i18n="footerContact">Kontakt</strong>
-          <span>Beispielstraße 1<br />60311 Frankfurt am Main</span>
-          <a href="tel:+4969000000">+49 69 0000 0000</a>
-          <a href="mailto:hallo@herdem.example.com">hallo@herdem.example.com</a>
-        </div>
-      </div>
-      <div class="footer-base">
-        <span>© <span id="copyYear">2026</span> Herdem · <span data-i18n="footerNote">Frische, ehrlich gepackt.</span></span>
-        <span class="footer-payments" aria-label="Zahlungsarten">Karte · PayPal · Klarna · Bar</span>
-      </div>
-    </footer>
-
-    <nav class="mobile-dock" aria-label="Navigation mobil">
-      <button type="button" data-dock="top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span data-i18n="dockHome">Start</span></button>
-      <button type="button" data-dock="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span data-i18n="dockSearch">Suche</span></button>
-      <button type="button" data-dock="favorites" aria-label="Favoriten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.5-9.5-9C1.2 8.6 2.4 5 6 5c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span data-i18n="dockFav">Favoriten</span><em id="dockFavCount" hidden>0</em></button>
-      <button type="button" data-dock="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span data-i18n="dockAccount">Konto</span></button>
-      <button type="button" data-dock="cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.7H8.5A2 2 0 0 1 6.5 18z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span data-i18n="dockCart">Korb</span><em id="dockCartCount" hidden>0</em></button>
-    </nav>
-
-    <!-- Sticky cart bar (mobile, when cart not empty + scrolled) -->
-    <div class="sticky-cart-bar" id="stickyCartBar" hidden>
-      <div class="scb-info">
-        <strong id="scbCount">0 Artikel</strong>
-        <span id="scbTotal">0,00 €</span>
-      </div>
-      <button class="scb-go" type="button" id="scbGo">
-        <span data-i18n="toCheckout">Zur Kasse</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-    </div>
-
-    <!-- Active delivery tracker (after order placed) -->
-    <aside class="delivery-tracker" id="deliveryTracker" hidden aria-label="Aktive Bestellung">
-      <div class="dt-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="dt-body">
-        <strong id="dtTitle">Bestellung unterwegs</strong>
-        <span id="dtSub">Ankunft in <em id="dtMin">18</em> min</span>
-      </div>
-      <button class="dt-track" type="button" id="dtTrack" data-i18n="trackOrder">Verfolgen</button>
-      <button class="dt-close" type="button" id="dtClose" aria-label="Ausblenden">×</button>
-    </aside>
-
-    <!-- Backdrop for mobile cart drawer -->
-    <div class="backdrop" id="cartBackdrop" hidden></div>
-
-    <!-- ===== Dialogs ===== -->
-    <dialog class="dlg dlg-address" id="addressDialog" aria-labelledby="addrTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="addrTitle" data-i18n="addrDialogTitle">Wohin liefern wir?</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <label><span data-i18n="addrStreet">Straße &amp; Hausnummer</span><input id="streetInput" type="text" placeholder="Kaiserstraße 12" /></label>
-        <label><span data-i18n="addrCity">PLZ &amp; Stadt</span><input id="cityInput" type="text" placeholder="60311 Frankfurt" /></label>
-        <div class="presets">
-          <button type="button" data-address="Frankfurt">Frankfurt</button>
-          <button type="button" data-address="Offenbach">Offenbach</button>
-          <button type="button" data-address="Abholung" data-i18n="servicePickup">Abholung</button>
-        </div>
-        <button class="btn-primary full" id="saveAddress" value="default" type="submit" data-i18n="addrSave">Adresse übernehmen</button>
-      </form>
-    </dialog>
-
-    <dialog class="dlg dlg-account" id="accountDialog" aria-labelledby="accTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="accTitle" data-i18n="accTitle">Mein Herdem</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <div class="account-grid">
-          <article class="club-card">
-            <span class="eyebrow" data-i18n="clubLabel">Herdem Club</span>
-            <strong>1.240</strong>
-            <span data-i18n="clubPoints">Punkte gesammelt</span>
-            <p data-i18n="clubReward">Bei der nächsten Bestellung 5,00 € Bonus.</p>
-          </article>
-          <ul class="account-list">
-            <li><strong data-i18n="savedAddress">Gespeicherte Adresse</strong><span id="accountAddress" data-i18n="noAddress">Noch keine Adresse</span></li>
-            <li><strong data-i18n="favService">Lieblings-Service</strong><span data-i18n="evening">Lieferung am Abend</span></li>
-            <li><strong data-i18n="lastOrder">Letzte Bestellung</strong><span>Köfte-Set · Baklava &amp; Çay</span></li>
-          </ul>
-        </div>
-        <button class="btn-primary full" id="reorderLast" type="submit" value="default" data-i18n="reorder">Bestellung erneut</button>
-      </form>
-    </dialog>
-
-    <dialog class="dlg dlg-support" id="supportDialog" aria-labelledby="supTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="supTitle" data-i18n="supTitle">Wir helfen weiter</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <div class="sup-msgs" id="supportMessages" aria-live="polite">
-          <div class="bubble" data-i18n="supWelcome">Merhaba! Wähle ein Thema — Lieferzeit, Zahlung, Frische oder Reklamation.</div>
-        </div>
-        <div class="sup-quick">
-          <button type="button" data-support="delivery" data-i18n="supDelivery">Lieferzeit</button>
-          <button type="button" data-support="payment" data-i18n="supPayment">Zahlung</button>
-          <button type="button" data-support="fresh" data-i18n="supFresh">Frische</button>
-          <button type="button" data-support="refund" data-i18n="supRefund">Reklamation</button>
-        </div>
-        <p class="sup-contact">
-          <span data-i18n="supContactText">Lieber persönlich?</span>
-          <a href="tel:+4969000000">+49 69 0000 0000</a>
-          ·
-          <a href="mailto:hallo@herdem.example.com">hallo@herdem.example.com</a>
-        </p>
-      </form>
-    </dialog>
-
-    <dialog class="dlg dlg-product" id="productDialog" aria-labelledby="prodTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="prodTitle" class="sr-only">Produkt</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <div id="productDetail"></div>
-      </form>
-    </dialog>
-
-    <dialog class="dlg dlg-checkout" id="checkoutDialog" aria-labelledby="coTitle">
-      <form method="dialog" id="checkoutForm">
-        <header class="dlg-head">
-          <h2 id="coTitle" data-i18n="coTitle">Bestellung abschließen</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <ol class="steps" aria-label="Schritte">
-          <li class="done" data-i18n="stepCart">Warenkorb</li>
-          <li class="active" data-i18n="stepAddr">Adresse</li>
-          <li data-i18n="stepPay">Zahlung</li>
-        </ol>
-        <div class="co-layout">
-          <div class="co-fields">
-            <label><span data-i18n="coName">Name</span><input type="text" name="name" required autocomplete="name" placeholder="Vor- und Nachname" /></label>
-            <label><span data-i18n="coPhone">Telefon</span><input type="tel" name="phone" required autocomplete="tel" placeholder="+49 …" /></label>
-            <label class="wide"><span data-i18n="coHint">Hinweis für den Fahrer</span><input type="text" name="hint" placeholder="z. B. 3. Stock, Klingel Yılmaz" /></label>
-            <div class="pay-row" role="radiogroup" aria-label="Zahlungsart">
-              <button type="button" class="is-selected" data-pay="cash" data-i18n="payCash">
-                <span class="pay-icon" aria-hidden="true">💶</span>
-                <span class="pay-label">Bar bei Lieferung</span>
-              </button>
-              <button type="button" data-pay="whatsapp" data-i18n="payWhatsapp">
-                <span class="pay-icon" aria-hidden="true">💬</span>
-                <span class="pay-label">WhatsApp</span>
-              </button>
-              <button type="button" data-pay="transfer" data-i18n="payTransfer">
-                <span class="pay-icon" aria-hidden="true">🏦</span>
-                <span class="pay-label">Überweisung</span>
-              </button>
-              <button type="button" data-pay="paypal" data-i18n="payPaypal">
-                <span class="pay-icon" aria-hidden="true">🅿️</span>
-                <span class="pay-label">PayPal.me</span>
-              </button>
-            </div>
-            <p class="pay-hint" id="payHint" data-i18n="payHintCash">Du bezahlst dem Fahrer bei Lieferung.</p>
-          </div>
-          <aside class="co-summary">
-            <p class="eyebrow" data-i18n="coOverview">Übersicht</p>
-            <div id="checkoutSummary"></div>
-            <button class="btn-checkout full" id="placeOrder" type="button" data-i18n="coPlace">Bestellung abschicken</button>
-            <p class="legal-mini" data-i18n="coLegal">Mit der Bestellung akzeptierst du die AGB.</p>
-          </aside>
-        </div>
-      </form>
-    </dialog>
-
-    <!-- Überweisungsdetails-Dialog -->
-    <dialog class="dlg dlg-transfer" id="transferDialog" aria-labelledby="trTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="trTitle" data-i18n="trTitle">Überweisung</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <div class="tr-body">
-          <p class="tr-intro" data-i18n="trIntro">Bitte den Betrag auf folgendes Konto überweisen — wichtig: Bestellnummer als Verwendungszweck angeben, sonst kann die Bestellung nicht zugeordnet werden.</p>
-          <ul class="tr-list">
-            <li>
-              <span class="tr-key" data-i18n="trHolder">Kontoinhaber</span>
-              <strong class="tr-val" id="trHolder">—</strong>
-              <button type="button" class="tr-copy" data-copy="trHolder" data-i18n="trCopy">Kopieren</button>
-            </li>
-            <li>
-              <span class="tr-key">IBAN</span>
-              <strong class="tr-val" id="trIban">—</strong>
-              <button type="button" class="tr-copy" data-copy="trIban" data-i18n="trCopy">Kopieren</button>
-            </li>
-            <li>
-              <span class="tr-key">BIC</span>
-              <strong class="tr-val" id="trBic">—</strong>
-              <button type="button" class="tr-copy" data-copy="trBic" data-i18n="trCopy">Kopieren</button>
-            </li>
-            <li>
-              <span class="tr-key" data-i18n="trAmount">Betrag</span>
-              <strong class="tr-val" id="trAmount">—</strong>
-              <button type="button" class="tr-copy" data-copy="trAmount" data-i18n="trCopy">Kopieren</button>
-            </li>
-            <li class="tr-emph">
-              <span class="tr-key" data-i18n="trRef">Verwendungszweck</span>
-              <strong class="tr-val" id="trRef">—</strong>
-              <button type="button" class="tr-copy" data-copy="trRef" data-i18n="trCopy">Kopieren</button>
-            </li>
-          </ul>
-          <button type="submit" value="ok" class="btn-checkout full" id="trDone" data-i18n="trDone">Überweisung erledigt</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog class="dlg dlg-success" id="successDialog" aria-labelledby="okTitle">
-      <form method="dialog">
-        <header class="dlg-head">
-          <h2 id="okTitle" class="sr-only">Bestellt</h2>
-          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
-        </header>
-        <div class="ok-body">
-          <span class="ok-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <p class="eyebrow" data-i18n="okEyebrow">Bestätigt</p>
-          <h2 data-i18n="okTitle">Danke, deine Bestellung läuft.</h2>
-          <p data-i18n="okText">Wir packen frisch und schicken den Fahrer los, sobald alles bereit ist.</p>
-          <div class="order-code" id="orderCode">HDM-0000</div>
-          <ol class="timeline">
-            <li class="active"><strong data-i18n="tlConfirmed">Bestätigt</strong><span data-i18n="tlConfirmedSub">Warenkorb geprüft</span></li>
-            <li><strong data-i18n="tlPacking">Wird gepackt</strong><span data-i18n="tlPackingSub">Frischetheke und Lager</span></li>
-            <li><strong data-i18n="tlOnway">Unterwegs</strong><span data-i18n="tlOnwaySub">Fahrer auf Route</span></li>
-            <li><strong data-i18n="tlDelivered">Geliefert</strong><span data-i18n="tlDeliveredSub">Afiyet olsun</span></li>
-          </ol>
-          <button class="link-btn" id="downloadReceipt" type="button" data-i18n="receipt">Beleg als Datei</button>
-          <button class="btn-checkout full" id="finishOrder" type="submit" value="default" data-i18n="finish">Schließen</button>
-        </div>
-      </form>
-    </dialog>
-
-    <!-- Toast -->
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-    <script src="app.js" defer></script>
-  </body>
-</html>
+  <script src="app.js" defer></script>
+  <script src="stitch-bridge.js" defer></script>
+</body></html>
