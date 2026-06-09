@@ -113,9 +113,9 @@ const SEED_SETTINGS = {
   storeName: "Herdem",
   storeTaglineDe: "Türkisch-mediterrane Frische",
   storeTaglineTr: "Türk-Akdeniz tazeliği",
-  addrStreet: "Beispielstraße 1",
-  addrZip: "60311",
-  addrCity: "Frankfurt am Main",
+  addrStreet: "Brückstraße 5",
+  addrZip: "26409",
+  addrCity: "Wittmund",
   phone: "+49 69 0000 0000",
   email: "hallo@herdem.example.com",
   hours: "Mo–Sa 08:00–22:00",
@@ -129,7 +129,7 @@ const SEED_SETTINGS = {
   accountHolder: "",
   iban: "",
   bic: "",
-  zipList: ["60311","60313","60314","60316","60318","60320","60322","60325","60327","60329","60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"],
+  zipList: ["26409","26427","26434","26441","26446","26452","26489","26486","26345","26506"],
   storeOpen: true,
   promos: [
     { code: "HERDEM10", type: "percent", value: 10, min: 0, max: 10 },
@@ -141,16 +141,16 @@ const SEED_ORDERS = [
   { code:"HDM-4218", at: Date.now()-3*3600*1000, status:"packing", entries:[
     {id:"sucuk", qty:2, price:7.99, name:{de:"Sucuk 500g", tr:"Sucuk 500g"}},
     {id:"ayran", qty:6, price:0.79, name:{de:"Ayran 250ml", tr:"Ayran 250ml"}},
-  ], subtotal: 20.72, fee:3.9, tip:1, discount:0, total:25.62, slot:"Heute 18:00–20:00", address:"Kaiserstraße 12, 60311 Frankfurt", note:"Klingel Yılmaz" },
+  ], subtotal: 20.72, fee:3.9, tip:1, discount:0, total:25.62, slot:"Heute 18:00–20:00", address:"Drostenstraße 8, 26409 Wittmund", note:"Klingel Yılmaz" },
   { code:"HDM-5521", at: Date.now()-90*60*1000, status:"onway", entries:[
     {id:"baklava", qty:1, price:8.49, name:{de:"Baklava 500g", tr:"Baklava 500g"}},
     {id:"tee",     qty:1, price:6.99, name:{de:"Türk Çayı 1kg", tr:"Türk Çayı 1kg"}},
-  ], subtotal:15.48, fee:3.9, tip:0, discount:0, total:19.38, slot:"Heute 19:00–21:00", address:"Berliner Str. 80, 63065 Offenbach", note:"" },
+  ], subtotal:15.48, fee:3.9, tip:0, discount:0, total:19.38, slot:"Heute 19:00–21:00", address:"Burhafer Weg 14, 26427 Esens", note:"" },
   { code:"HDM-6180", at: Date.now()-15*60*1000, status:"new", entries:[
     {id:"gemuese", qty:1, price:8.95, name:{de:"Gemüsekorb", tr:"Sebze Sepeti"}},
     {id:"feta",    qty:1, price:5.79, name:{de:"Beyaz Peynir 800g", tr:"Beyaz Peynir 800g"}},
     {id:"oliven",  qty:1, price:4.99, name:{de:"Gemlik Oliven", tr:"Gemlik Zeytin"}},
-  ], subtotal:19.73, fee:0, tip:0, discount:0, total:19.73, slot:"Heute 20:00–22:00", address:"Eschersheimer Landstr. 14, 60322 Frankfurt", note:"3. Stock" },
+  ], subtotal:19.73, fee:0, tip:0, discount:0, total:19.73, slot:"Heute 20:00–22:00", address:"Auricher Straße 23, 26441 Jever", note:"3. Stock" },
 ];
 
 const STATUS_LABELS = {

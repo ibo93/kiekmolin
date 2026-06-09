@@ -32,7 +32,7 @@
 <header class="flex items-center justify-between px-4 h-16 bg-white/95 backdrop-blur-xl border-b border-line/10 sticky top-0 z-50 shrink-0" id="top-bar">
 <div class="flex items-center gap-1 cursor-pointer active:scale-95 transition-all flex-1" id="location-picker">
 <svg class="icon-21 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-<span class="text-[11px] font-bold text-primary truncate" id="header-location-text">Frankfurt, 60311</span>
+<span class="text-[11px] font-bold text-primary truncate" id="header-location-text">Wittmund, 26409</span>
 </div>
 <h1 class="font-display-hero-mobile text-2xl text-primary tracking-tighter flex-none" id="app-logo">Herdem</h1>
 <div class="flex justify-end flex-1" id="header-actions">
@@ -257,14 +257,136 @@
 <p class="text-on-surface-variant text-sm leading-relaxed" id="detail-desc"></p>
 <div class="flex items-center justify-between bg-soft p-4 rounded-2xl border border-line/20">
 <div class="flex items-center gap-6">
-<button class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-line text-xl font-bold text-primary active:scale-90">－</button>
+<button class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-line text-xl font-bold text-primary active:scale-90" id="detail-dec">－</button>
 <span class="text-xl font-headline-md font-black" id="detail-qty">1</span>
-<button class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-sm text-xl font-bold active:scale-90">＋</button>
+<button class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-sm text-xl font-bold active:scale-90" id="detail-inc">＋</button>
 </div>
 <span class="text-2xl font-price-lg text-primary font-black" id="detail-price"></span>
 </div>
-<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98] transition-transform" onclick="switchView('cart')">In den Warenkorb</button>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98] transition-transform" id="detail-add-btn">In den Warenkorb</button>
 </div>
+</section>
+
+<!-- CHECKOUT VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-checkout">
+<div class="flex items-center gap-3">
+<button class="bg-soft p-2 rounded-xl text-primary active:scale-90" onclick="switchView('cart')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+</button>
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Zur Kasse</h2>
+</div>
+
+<!-- Bestell-Zusammenfassung -->
+<div class="bg-soft rounded-2xl p-4">
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em] mb-2">Deine Bestellung</p>
+<div id="checkout-summary" class="space-y-1.5"></div>
+<div class="flex justify-between pt-3 mt-3 border-t border-line/40 font-headline-md text-lg text-primary font-black">
+<span>Gesamt</span><span id="checkout-total">0,00 €</span>
+</div>
+</div>
+
+<!-- Lieferadresse -->
+<form id="checkout-form" class="space-y-4">
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em]">Lieferadresse</p>
+<div class="space-y-2.5">
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Vor- und Nachname" name="name" required autocomplete="name"/>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Telefon (für Rückfragen)" name="phone" type="tel" required autocomplete="tel"/>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Straße + Hausnummer" name="street" required autocomplete="street-address"/>
+<div class="grid grid-cols-3 gap-2.5">
+<input class="col-span-1 h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="PLZ" name="zip" inputmode="numeric" maxlength="5" required autocomplete="postal-code"/>
+<input class="col-span-2 h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Stadt" name="city" required autocomplete="address-level2"/>
+</div>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Hinweis für den Fahrer (z. B. 3. Stock, Klingel Yılmaz)" name="hint"/>
+</div>
+
+<!-- Zahlungsmethode -->
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em] pt-2">Bezahlung</p>
+<div class="grid grid-cols-2 gap-2.5" id="checkout-pay-grid">
+<button type="button" class="flex flex-col items-start gap-1 p-3.5 rounded-2xl bg-primary text-on-primary text-left shadow-md active:scale-[0.97]" data-pay="cash">
+<span class="text-lg">💶</span>
+<span class="font-bold text-sm">Bar bei Lieferung</span>
+</button>
+<button type="button" class="flex flex-col items-start gap-1 p-3.5 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="whatsapp">
+<span class="text-lg">💬</span>
+<span class="font-bold text-sm">WhatsApp</span>
+</button>
+<button type="button" class="flex flex-col items-start gap-1 p-3.5 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="transfer">
+<span class="text-lg">🏦</span>
+<span class="font-bold text-sm">Überweisung</span>
+</button>
+<button type="button" class="flex flex-col items-start gap-1 p-3.5 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="paypal">
+<span class="text-lg">🅿️</span>
+<span class="font-bold text-sm">PayPal.me</span>
+</button>
+</div>
+<p class="text-xs text-muted text-center px-2" id="checkout-pay-hint">Du bezahlst dem Fahrer bei Lieferung.</p>
+
+<button type="submit" class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">Bestellung abschicken</button>
+</form>
+</section>
+
+<!-- TRANSFER VIEW (Überweisungsdaten) -->
+<section class="view-fade-in p-4 space-y-4 hide" id="view-transfer">
+<div class="flex items-center gap-3">
+<button class="bg-soft p-2 rounded-xl text-primary active:scale-90" onclick="switchView('checkout')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+</button>
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Überweisung</h2>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary p-4 rounded-r-2xl text-sm leading-relaxed">
+Bitte den Betrag auf folgendes Konto überweisen — <strong>Bestellnummer als Verwendungszweck</strong> angeben, sonst kann die Bestellung nicht zugeordnet werden.
+</div>
+<div class="space-y-2.5">
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">Kontoinhaber</p><p class="font-mono font-bold text-sm truncate" id="tr-holder">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-holder">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">IBAN</p><p class="font-mono font-bold text-sm break-all" id="tr-iban">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90 shrink-0" data-tr-copy="tr-iban">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">BIC</p><p class="font-mono font-bold text-sm" id="tr-bic">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-bic">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">Betrag</p><p class="font-mono font-bold text-sm" id="tr-amount">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-amount">Kopieren</button>
+</div>
+<div class="bg-primary/8 border-2 border-primary p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-primary uppercase tracking-[0.1em]">Verwendungszweck</p><p class="font-mono font-bold text-sm text-primary" id="tr-ref">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-ref">Kopieren</button>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 active:scale-95 transition-all" id="tr-done-btn">Überweisung erledigt</button>
+</section>
+
+<!-- SUCCESS VIEW -->
+<section class="view-fade-in p-6 space-y-5 hide" id="view-success">
+<div class="text-center pt-8">
+<div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary/30">
+<svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+</div>
+<p class="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-1">Bestätigt</p>
+<h2 class="font-headline-lg text-2xl text-primary font-black">Danke, deine Bestellung läuft.</h2>
+<p class="text-sm text-muted mt-2">Wir packen frisch und schicken den Fahrer los, sobald alles bereit ist.</p>
+<div class="inline-block mt-4 px-4 py-2 bg-soft rounded-full font-mono font-bold text-primary text-sm" id="success-code">HDM-0000</div>
+</div>
+<div class="space-y-2.5">
+<div class="bg-primary text-white p-4 rounded-2xl border-2 border-primary">
+<p class="font-bold text-sm">Bestätigt</p><p class="text-xs opacity-80">Warenkorb geprüft</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Wird gepackt</p><p class="text-xs text-muted">Frischetheke und Lager</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Unterwegs</p><p class="text-xs text-muted">Fahrer auf Route</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Geliefert</p><p class="text-xs text-muted">Afiyet olsun</p>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl active:scale-95 transition-all" id="success-close-btn">Weiter einkaufen</button>
 </section>
 <!-- ADMIN DASHBOARD -->
 <section class="view-fade-in space-y-6 hide" id="view-admin-dashboard">

@@ -109,13 +109,13 @@ const productImage = (idOrObj) => {
 let cmsCopy = {};
 let cmsSettings = {
   storeName: "Herdem",
-  addrStreet: "Beispielstraße 1", addrZip: "60311", addrCity: "Frankfurt am Main",
+  addrStreet: "Brückstraße 5", addrZip: "26409", addrCity: "Wittmund",
   phone: "+49 69 0000 0000", email: "hallo@herdem.example.com",
   hours: "Mo–Sa 08:00–22:00",
   minOrder: 15, feeDelivery: 3.9, freeDelivery: 39, feeShipping: 4.9, freeShipping: 49,
   whatsappNumber: "", paypalHandle: "",
   iban: "", bic: "", accountHolder: "",
-  zipList: ["60311","60313","60314","60316","60318","60320","60322","60325","60327","60329","60385","60486","60594","60596","63065","63067","63069","63071","63073","63075"],
+  zipList: ["26409","26427","26434","26441","26446","26452","26489","26486","26345","26506"],
   storeOpen: true,
   promos: [
     { code: "HERDEM10", type: "percent", value: 10, min: 0, max: 10 },
@@ -194,7 +194,7 @@ const i18n = {
     heroTitle: "Türkisch-mediterrane Frische, geliefert in 38 Minuten.",
     heroLead: "Helal-Fleisch von der Theke, knackiges Gemüse vom Tagesmarkt, Baklava aus der Süßwarenecke — eine App, ein sauberer Flow.",
     heroCtaPrimary: "Jetzt einkaufen", heroCtaSecondary: "Angebote ansehen",
-    trustHelal: "Helal geprüft", trustCold: "Kühlkette gesichert", trustLocal: "Frankfurt & Offenbach",
+    trustHelal: "Helal geprüft", trustCold: "Kühlkette gesichert", trustLocal: "Wittmund & Ostfriesland",
     promise1Title: "Frischetheke", promise1Text: "Fleisch, Brot und Gemüse täglich vorbereitet",
     promise2Title: "Helal Sortiment", promise2Text: "Klare Kennzeichnung, ausgewählte Marken",
     promise3Title: "Drei Wege, ein Flow", promise3Text: "Lieferung, Abholung oder Versand in einem Klick",
@@ -250,9 +250,9 @@ const i18n = {
     pulse1: "frische Körbe heute", pulse2: "Verfügbarkeit im Sortiment", pulse3: "Ø Ankunft", pulse4: "aus 312 Bewertungen",
     deliveryEyebrow: "Liefergebiet",
     deliveryTitle: "Wir liefern dort, wo der Kunde wirklich wohnt.",
-    deliveryText: "Frankfurt Innenstadt, Westend, Nordend und Offenbach Zentrum. Mindestbestellwert 15 €. Servicegebühr 3,90 € — ab 39 € gratis.",
+    deliveryText: "Wittmund Stadtgebiet sowie Esens, Jever, Wangerland und Friedeburg. Mindestbestellwert 15 €. Servicegebühr 3,90 € — ab 39 € gratis.",
     check: "Prüfen",
-    zipDefault: "Frankfurt und Offenbach sind aktiv. Heute lieferbar bis 22 Uhr.",
+    zipDefault: "Wittmund und Umgebung sind aktiv. Heute lieferbar bis 22 Uhr.",
     zipActive: (p) => `${p} ist im Liefergebiet — heute lieferbar.`,
     zipInactive: (p) => `${p} ist (noch) nicht im Liefergebiet. Abholung bleibt möglich.`,
     zipEmpty: "Bitte eine 5-stellige PLZ eingeben.",
@@ -354,7 +354,7 @@ const i18n = {
     heroTitle: "Türk-Akdeniz tazeliği, 38 dakikada kapına.",
     heroLead: "Helal et, tezgâhtan; taze sebze, günlük pazardan; baklava, tatlı köşesinden — tek bir akış.",
     heroCtaPrimary: "Hemen alışveriş", heroCtaSecondary: "Fırsatları gör",
-    trustHelal: "Helal sertifikalı", trustCold: "Soğuk zincir", trustLocal: "Frankfurt & Offenbach",
+    trustHelal: "Helal sertifikalı", trustCold: "Soğuk zincir", trustLocal: "Wittmund & Ostfriesland",
     promise1Title: "Taze Tezgâh", promise1Text: "Et, ekmek ve sebze her gün hazırlanır",
     promise2Title: "Helal Ürün Yelpazesi", promise2Text: "Açık etiketleme, seçilmiş markalar",
     promise3Title: "Üç yol, tek akış", promise3Text: "Teslimat, mağazadan al veya kargo — tek tıkla",
@@ -410,9 +410,9 @@ const i18n = {
     pulse1: "bugünkü taze sepet", pulse2: "ürün bulunabilirlik", pulse3: "ortalama varış", pulse4: "312 değerlendirme",
     deliveryEyebrow: "Teslimat bölgesi",
     deliveryTitle: "Müşterinin yaşadığı yere teslim ediyoruz.",
-    deliveryText: "Frankfurt merkez, Westend, Nordend ve Offenbach. Asgari 15 €. Servis 3,90 € — 39 € üzerinde ücretsiz.",
+    deliveryText: "Wittmund şehri ile Esens, Jever, Wangerland ve Friedeburg. Asgari 15 €. Servis 3,90 € — 39 € üzerinde ücretsiz.",
     check: "Sorgula",
-    zipDefault: "Frankfurt ve Offenbach aktif. Bugün 22:00'ye kadar.",
+    zipDefault: "Wittmund ve çevresi aktif. Bugün 22:00'ye kadar.",
     zipActive: (p) => `${p} teslimat bölgesinde — bugün teslim edilir.`,
     zipInactive: (p) => `${p} henüz teslimat bölgemizde değil. Mağazadan alabilirsin.`,
     zipEmpty: "Lütfen 5 haneli posta kodu girin.",
@@ -1424,9 +1424,9 @@ document.addEventListener("click", (ev) => {
   const addr = ev.target.closest("[data-address]");
   if (addr) {
     const presets = {
-      Frankfurt: ["Kaiserstraße 12", "60311 Frankfurt"],
-      Offenbach: ["Berliner Straße 80", "63065 Offenbach"],
-      Abholung: ["Beispielstraße 1", "60311 Frankfurt (Abholung)"]
+      Wittmund: ["Drostenstraße 8", "26409 Wittmund"],
+      Esens: ["Burhafer Weg 14", "26427 Esens"],
+      Abholung: ["Brückstraße 5", "26409 Wittmund (Abholung)"]
     };
     const [s, c] = presets[addr.dataset.address] || [];
     $("#streetInput").value = s; $("#cityInput").value = c;
