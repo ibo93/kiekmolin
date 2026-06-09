@@ -99,10 +99,22 @@ let bundles = {
 let bundleMeta = {};
 
 const FALLBACK_IMG = "assets/logo.svg";
+
+// Liste der Produkte mit echten Fotos (auf JPG umgestellt)
+const PRODUCTS_WITH_PHOTOS = new Set([
+  "gemuese", "fladenbrot", "huhn", "feta", "tomatenmark",
+  "baklava", "linsen", "ayran", "tee", "oliven"
+]);
+
 const productImage = (idOrObj) => {
-  if (typeof idOrObj === "object") return idOrObj.image || `assets/products/${idOrObj.id}.svg`;
-  const p = products.find(x => x.id === idOrObj);
-  return (p && p.image) || `assets/products/${idOrObj}.svg`;
+  const id = typeof idOrObj === "object" ? idOrObj.id : idOrObj;
+  // Admin-übergebenes Custom-Bild hat Vorrang
+  if (typeof idOrObj === "object" && idOrObj.image) return idOrObj.image;
+  const p = typeof idOrObj === "object" ? idOrObj : products.find(x => x.id === id);
+  if (p && p.image) return p.image;
+  // Echte Foto-Datei (JPG) wenn vorhanden, sonst SVG-Illustration
+  if (PRODUCTS_WITH_PHOTOS.has(id)) return `assets/products/${id}.jpg`;
+  return `assets/products/${id}.svg`;
 };
 
 /* ---------- CMS overrides (set by admin under /admin/) ---------- */

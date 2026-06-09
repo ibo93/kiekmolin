@@ -35,7 +35,7 @@
     return `
       <div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative cursor-pointer" data-product="${p.id}">
         <div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3 relative">
-          <img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all duration-500" src="${productImage(p.id)}" alt="${p.name.de}"/>
+          <img class="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" src="${productImage(p.id)}" alt="${p.name.de}"/>
           <button class="absolute top-2 right-2 bg-white/90 backdrop-blur p-1.5 rounded-full shadow ${fav ? 'text-error' : 'text-muted'}" data-fav="${p.id}" aria-label="Favorit">
             <svg class="icon-21" viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
           </button>
@@ -63,7 +63,7 @@
     return `
       <div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group cursor-pointer" data-product="${p.id}">
         <div class="h-40 overflow-hidden">
-          <img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="${productImage(p.id)}" alt="${p.name.de}"/>
+          <img class="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" src="${productImage(p.id)}" alt="${p.name.de}"/>
         </div>
         <div class="p-4">
           <span class="px-2 py-0.5 bg-primary text-white text-[9px] font-black rounded-md uppercase tracking-widest">Täglich frisch</span>
@@ -86,7 +86,7 @@
     return `
       <div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group cursor-pointer" data-product="${p.id}">
         <div class="relative aspect-square">
-          <img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="${productImage(p.id)}" alt="${p.name.de}"/>
+          <img class="w-full h-full object-cover group-hover:scale-110 transition-all" src="${productImage(p.id)}" alt="${p.name.de}"/>
           ${hasDiscount ? `<div class="absolute top-2 left-2 bg-error text-white text-[9px] font-black px-2 py-1 rounded-full uppercase">-${discountPct}%</div>` : ""}
         </div>
         <div class="p-3">
@@ -115,7 +115,7 @@
   function cartRow(p, qty) {
     return `
       <div class="bg-white p-4 rounded-2xl border border-line/30 flex gap-4 shadow-sm items-center" data-cart-row="${p.id}">
-        <img class="w-16 h-16 rounded-xl object-contain bg-soft p-2" src="${productImage(p.id)}" alt=""/>
+        <img class="w-16 h-16 rounded-xl object-cover" src="${productImage(p.id)}" alt=""/>
         <div class="flex-1 min-w-0">
           <h4 class="font-bold text-sm truncate">${p.name.de}</h4>
           <p class="font-price-lg text-primary">${money(p.price)}</p>
