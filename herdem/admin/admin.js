@@ -272,17 +272,79 @@ $("#logoutBtn").addEventListener("click", () => {
 /* ============================================================
    TABS
    ============================================================ */
-$$(".nav-item").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const tab = btn.dataset.tab;
-    $$(".nav-item").forEach(b => b.classList.toggle("is-active", b === btn));
-    $$(".panel").forEach(p => p.hidden = p.dataset.panel !== tab);
-    if (tab === "products") renderProducts();
-    if (tab === "bundles") renderBundles();
-    if (tab === "copy") fillCopyForm();
-    if (tab === "settings") fillSettingsForm();
-    if (tab === "orders") renderOrders();
+/* Tab switching — works on bn-item (bottom nav) AND any element with data-tab */
+function switchTab(tab) {
+  $$("[data-tab]").forEach(b => {
+    if (b.matches(".bn-item")) b.classList.toggle("is-active", b.dataset.tab === tab);
   });
+  $$(".panel").forEach(p => p.hidden = p.dataset.panel !== tab);
+  if (tab === "dashboard") renderDashboard();
+  if (tab === "products") renderProducts();
+  if (tab === "bundles") renderBundles();
+  if (tab === "copy") fillCopyForm();
+  if (tab === "settings") fillSettingsForm();
+  if (tab === "orders") renderOrders();
+  // close action drawer on tab switch
+  closeActionDrawer();
+  // scroll to top on tab change
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+
+document.addEventListener("click", (ev) => {
+  const tabBtn = ev.target.closest("[data-tab]");
+  if (tabBtn) {
+    ev.preventDefault();
+    switchTab(tabBtn.dataset.tab);
+  }
+});
+
+/* Settings tab serves as "Optionen" entry: when clicked from bottom-nav,
+   we land on settings AND open the action drawer for global actions */
+$('.bn-item[data-tab="settings"]')?.addEventListener("click", () => {
+  // already navigated; in addition reveal global actions after a moment
+  setTimeout(() => {}, 0);
+});
+
+/* ============================================================
+   MORE / ACTION DRAWER
+   ============================================================ */
+function openActionDrawer() {
+  const drawer = $("#actionDrawer");
+  const scrim = $("#actionScrim");
+  if (!drawer) return;
+  drawer.hidden = false;
+  scrim.hidden = false;
+  requestAnimationFrame(() => {
+    drawer.classList.add("is-open");
+    scrim.classList.add("is-open");
+  });
+  $("#moreMenuBtn")?.setAttribute("aria-expanded", "true");
+}
+function closeActionDrawer() {
+  const drawer = $("#actionDrawer");
+  const scrim = $("#actionScrim");
+  if (!drawer || drawer.hidden) return;
+  drawer.classList.remove("is-open");
+  scrim.classList.remove("is-open");
+  $("#moreMenuBtn")?.setAttribute("aria-expanded", "false");
+  setTimeout(() => { drawer.hidden = true; scrim.hidden = true; }, 200);
+}
+$("#moreMenuBtn")?.addEventListener("click", () => {
+  const drawer = $("#actionDrawer");
+  if (drawer.hidden) openActionDrawer();
+  else closeActionDrawer();
+});
+$("#actionScrim")?.addEventListener("click", closeActionDrawer);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeActionDrawer();
+});
+
+/* ============================================================
+   QUICK ACTIONS
+   ============================================================ */
+$("#qaAddProduct")?.addEventListener("click", () => {
+  switchTab("products");
+  setTimeout(() => openProductDialog(null), 80);
 });
 
 /* ============================================================
@@ -340,7 +402,7 @@ function renderProducts() {
       </td>
     </tr>
   `).join("");
-  $("#navProductCount").textContent = state.products.length;
+  updateNavBadges();
 }
 
 function categoryLabel(key) {
@@ -516,7 +578,7 @@ function renderBundles() {
       </footer>
     </article>
   `).join("");
-  $("#navBundleCount").textContent = arr.length;
+  updateNavBadges();
 }
 
 $("#addBundle").addEventListener("click", () => openBundleDialog(null));
@@ -677,6 +739,98 @@ function renderStoreStatus() {
 /* ============================================================
    ORDERS
    ============================================================ */
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function renderDashboard() {
+  // Greeting + Date
+  const h = new Date().getHours();
+  const greet = h < 11 ? "Guten Morgen" : h < 14 ? "Servus" : h < 18 ? "Guten Tag" : "Guten Abend";
+  $("#dashGreet").textContent = greet;
+  const today = new Date();
+  $("#dashDate").textContent = today.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+  // Date math
+  const startOfDay = (d) => { const x = new Date(d); x.setHours(0,0,0,0); return x.getTime(); };
+  const todayStart = startOfDay(Date.now());
+  const yesterdayStart = todayStart - 24*3600*1000;
+
+  const ordersToday = state.orders.filter(o => o.at >= todayStart);
+  const ordersYesterday = state.orders.filter(o => o.at >= yesterdayStart && o.at < todayStart);
+
+  const revenueOf = (arr) => arr.filter(o => o.status !== "cancelled").reduce((s, o) => s + (o.total || 0), 0);
+  const todayRevenue = revenueOf(ordersToday);
+  const yesterdayRevenue = revenueOf(ordersYesterday);
+
+  $("#kpiOrdersToday").textContent = ordersToday.length;
+  $("#kpiRevenueToday").textContent = money(todayRevenue);
+
+  const dOrders = ordersToday.length - ordersYesterday.length;
+  $("#kpiOrdersDelta").textContent = `vs. gestern: ${dOrders >= 0 ? "+" : ""}${dOrders}`;
+  $("#kpiOrdersDelta").style.color = dOrders > 0 ? "var(--green-deep)" : dOrders < 0 ? "var(--red)" : "var(--muted)";
+
+  const dRev = todayRevenue - yesterdayRevenue;
+  $("#kpiRevenueDelta").textContent = `vs. gestern: ${dRev >= 0 ? "+" : ""}${money(dRev).replace("€", "€")}`;
+  $("#kpiRevenueDelta").style.color = dRev > 0 ? "var(--green-deep)" : dRev < 0 ? "var(--red)" : "var(--muted)";
+
+  const open = state.orders.filter(o => o.status === "new" || o.status === "packing" || o.status === "onway").length;
+  $("#kpiOpen").textContent = open;
+
+  const activeCount = state.products.filter(p => p.active !== false).length;
+  const inactiveCount = state.products.length - activeCount;
+  $("#kpiActiveProducts").textContent = activeCount;
+  $("#kpiInactiveProducts").textContent = `Inaktiv: ${inactiveCount}`;
+
+  // 7-day chart
+  drawChart7d();
+
+  // Recent orders (max 5)
+  const recent = state.orders.slice().sort((a, b) => b.at - a.at).slice(0, 5);
+  const list = $("#dashRecentOrders");
+  if (!recent.length) {
+    list.innerHTML = `<div class="ds-empty">Noch keine Bestellungen.</div>`;
+  } else {
+    list.innerHTML = recent.map(o => `
+      <div class="ds-row" data-order-detail="${esc(o.code)}">
+        <span class="o-code">${esc(o.code)}</span>
+        <div class="o-meta">
+          <strong>${o.entries.reduce((s,e)=>s+e.qty,0)} Artikel · ${esc(STATUS_LABELS[o.status] || o.status)}</strong>
+          <span>${esc(relTime(o.at))}</span>
+        </div>
+        <span class="o-amount">${money(o.total)}</span>
+      </div>
+    `).join("");
+  }
+}
+
+function drawChart7d() {
+  const days = 7;
+  const buckets = Array.from({ length: days }, (_, i) => {
+    const dayStart = new Date(); dayStart.setHours(0,0,0,0); dayStart.setDate(dayStart.getDate() - (days-1-i));
+    const dayEnd = dayStart.getTime() + 24*3600*1000;
+    return {
+      ts: dayStart.getTime(),
+      label: dayStart.toLocaleDateString("de-DE", { weekday: "short" }).slice(0, 2),
+      count: state.orders.filter(o => o.at >= dayStart.getTime() && o.at < dayEnd).length
+    };
+  });
+  const max = Math.max(1, ...buckets.map(b => b.count));
+  const W = 320, H = 100, pad = 6;
+  const stepX = (W - 2*pad) / (days - 1);
+  const pts = buckets.map((b, i) => {
+    const x = pad + i * stepX;
+    const y = H - pad - (b.count / max) * (H - 2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const line = pts.join(" ");
+  const area = `${pad},${H-pad} ${line} ${(W-pad).toFixed(1)},${H-pad}`;
+  $("#chartLine").setAttribute("points", line);
+  $("#chartArea").setAttribute("points", area);
+  $("#chartLabels").innerHTML = buckets.map(b => `<span>${b.label}</span>`).join("");
+  const sum7 = buckets.reduce((s, b) => s + b.count, 0);
+  $("#chartSum").textContent = `${sum7} Bestellungen`;
+}
+
 function renderOrders() {
   const filter = state.orderFilter;
   const list = state.orders
@@ -707,7 +861,7 @@ function renderOrders() {
       `;
     }).join("");
   }
-  $("#navOrderCount").textContent = state.orders.filter(o => o.status === "new" || o.status === "packing").length;
+  updateNavBadges();
 }
 
 function relTime(ts) {
@@ -821,13 +975,21 @@ $("#resetBtn").addEventListener("click", () => {
 /* ============================================================
    INIT
    ============================================================ */
+function updateNavBadges() {
+  const setBadge = (id, n) => {
+    const el = $("#" + id); if (!el) return;
+    el.textContent = n; el.hidden = n === 0;
+  };
+  setBadge("navProductCount", state.products.length);
+  setBadge("navBundleCount", Object.keys(state.bundles).length);
+  setBadge("navOrderCount", state.orders.filter(o => o.status === "new" || o.status === "packing").length);
+}
+
 function init() {
   loadAll();
-  renderProducts();
   renderStoreStatus();
-  $("#navProductCount").textContent = state.products.length;
-  $("#navBundleCount").textContent = Object.keys(state.bundles).length;
-  $("#navOrderCount").textContent = state.orders.filter(o => o.status === "new" || o.status === "packing").length;
+  renderDashboard();
+  updateNavBadges();
 }
 
 checkAuth();

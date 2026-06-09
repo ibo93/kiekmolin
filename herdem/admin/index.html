@@ -32,50 +32,125 @@
       <header class="topbar">
         <a class="brand" href="../" title="Zur Kundenansicht">
           <img src="../assets/logo.svg" alt="" width="36" height="36" />
-          <strong>HERDEM</strong>
-          <small>Admin</small>
+          <span class="brand-text"><strong>HERDEM</strong><small>Admin</small></span>
         </a>
         <div class="topbar-status" id="topStatus">
           <span class="dot"></span>
           <span id="storeStatusText">Shop offen</span>
         </div>
-        <div class="topbar-actions">
-          <button class="t-btn" id="exportBtn" type="button">Export JSON</button>
-          <label class="t-btn" for="importInput">Import JSON</label>
-          <input id="importInput" type="file" accept="application/json" hidden />
-          <button class="t-btn ghost" id="resetBtn" type="button">Reset</button>
-          <a class="t-btn ghost" href="../" target="_blank">Vorschau ↗</a>
-          <button class="t-btn ghost" id="logoutBtn" type="button">Logout</button>
-        </div>
+        <button class="t-icon" id="moreMenuBtn" type="button" aria-label="Mehr Aktionen" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg>
+        </button>
       </header>
 
-      <div class="layout">
-        <nav class="sidebar" aria-label="Admin-Bereiche">
-          <button class="nav-item is-active" data-tab="products">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z M4 7l2-4h12l2 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            <span>Produkte</span><em id="navProductCount">0</em>
-          </button>
-          <button class="nav-item" data-tab="bundles">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v9H3z M3 10l3-5h12l3 5 M12 5v14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            <span>Pakete</span><em id="navBundleCount">0</em>
-          </button>
-          <button class="nav-item" data-tab="copy">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l4 4v12H5z M16 4v4h4 M8 12h8 M8 16h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            <span>Texte</span>
-          </button>
-          <button class="nav-item" data-tab="settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1A2 2 0 1 1 4.3 17l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.3l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1A2 2 0 1 1 19.7 7l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
-            <span>Einstellungen</span>
-          </button>
-          <button class="nav-item" data-tab="orders">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6 M9 17h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            <span>Bestellungen</span><em id="navOrderCount">0</em>
-          </button>
-        </nav>
+      <!-- Action drawer (Mehr) -->
+      <div class="action-drawer" id="actionDrawer" hidden role="menu" aria-label="Aktionen">
+        <button class="ad-item" id="exportBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12 M7 11l5 5 5-5 M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Export JSON</span>
+        </button>
+        <label class="ad-item" for="importInput" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V8 M7 13l5-5 5 5 M5 4h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Import JSON</span>
+        </label>
+        <input id="importInput" type="file" accept="application/json" hidden />
+        <a class="ad-item" href="../" target="_blank" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6 M20 4l-9 9 M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Shop ansehen ↗</span>
+        </a>
+        <hr/>
+        <button class="ad-item danger" id="resetBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7 M3 4v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Auf Standard zurücksetzen</span>
+        </button>
+        <button class="ad-item danger" id="logoutBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3 M11 16l-4-4 4-4 M7 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Ausloggen</span>
+        </button>
+      </div>
+      <div class="action-scrim" id="actionScrim" hidden></div>
 
-        <main class="content">
+      <main class="content">
+          <!-- ============= DASHBOARD ============= -->
+          <section class="panel" data-panel="dashboard">
+            <header class="panel-head dash-head">
+              <div>
+                <p class="eyebrow" id="dashGreet">Servus</p>
+                <h2 id="dashTitle">Dashboard</h2>
+                <small class="dash-sub" id="dashDate"></small>
+              </div>
+            </header>
+
+            <div class="kpi-grid">
+              <article class="kpi-card kpi-green">
+                <span class="kpi-label">Heute Bestellungen</span>
+                <strong class="kpi-value" id="kpiOrdersToday">0</strong>
+                <small class="kpi-foot" id="kpiOrdersDelta">vs. gestern: —</small>
+              </article>
+              <article class="kpi-card kpi-amber">
+                <span class="kpi-label">Heute Umsatz</span>
+                <strong class="kpi-value" id="kpiRevenueToday">0,00 €</strong>
+                <small class="kpi-foot" id="kpiRevenueDelta">vs. gestern: —</small>
+              </article>
+              <article class="kpi-card kpi-blue">
+                <span class="kpi-label">Offene Bestellungen</span>
+                <strong class="kpi-value" id="kpiOpen">0</strong>
+                <small class="kpi-foot">Neu + Wird gepackt + Unterwegs</small>
+              </article>
+              <article class="kpi-card kpi-ink">
+                <span class="kpi-label">Aktive Produkte</span>
+                <strong class="kpi-value" id="kpiActiveProducts">0</strong>
+                <small class="kpi-foot" id="kpiInactiveProducts">Inaktiv: 0</small>
+              </article>
+            </div>
+
+            <article class="dash-chart">
+              <header>
+                <h3>Bestellungen · letzte 7 Tage</h3>
+                <span class="chart-sum" id="chartSum">—</span>
+              </header>
+              <svg id="chart7d" viewBox="0 0 320 100" preserveAspectRatio="none" aria-label="Bestellungen-Chart 7 Tage">
+                <polyline id="chartLine" fill="none" stroke="currentColor" stroke-width="2" points=""/>
+                <polygon id="chartArea" fill="currentColor" fill-opacity="0.08" stroke="none" points=""/>
+              </svg>
+              <footer class="chart-labels" id="chartLabels"></footer>
+            </article>
+
+            <article class="dash-section">
+              <header class="ds-head">
+                <h3>Neueste Bestellungen</h3>
+                <button class="link-btn" type="button" data-tab="orders">Alle ansehen →</button>
+              </header>
+              <div class="ds-list" id="dashRecentOrders"></div>
+            </article>
+
+            <article class="dash-section">
+              <header class="ds-head">
+                <h3>Schnellzugriff</h3>
+              </header>
+              <div class="quick-actions">
+                <button class="qa" type="button" id="qaAddProduct">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14 M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  <span>Neues Produkt</span>
+                </button>
+                <button class="qa" type="button" data-tab="orders">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span>Bestellungen</span>
+                </button>
+                <button class="qa" type="button" data-tab="settings">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 4v3 M12 17v3 M4 12h3 M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  <span>Einstellungen</span>
+                </button>
+                <button class="qa" type="button" data-tab="copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l4 4v12H5z M8 12h8 M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span>Texte</span>
+                </button>
+              </div>
+            </article>
+          </section>
+
           <!-- ============= PRODUCTS ============= -->
-          <section class="panel" data-panel="products">
+          <section class="panel" data-panel="products" hidden>
             <header class="panel-head">
               <div>
                 <p class="eyebrow">Sortiment</p>
@@ -272,8 +347,34 @@
             </header>
             <div class="orders-list" id="ordersList"></div>
           </section>
-        </main>
-      </div>
+      </main>
+
+      <!-- Mobile-first Bottom Navigation -->
+      <nav class="bottom-nav" aria-label="Admin-Bereiche">
+        <button class="bn-item is-active" data-tab="dashboard" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6V3H3z M11 8h10V3H11z M11 21h10V10H11z M3 21h6v-7H3z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="bn-item" data-tab="orders" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Bestellungen</span>
+          <em class="bn-badge" id="navOrderCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="products" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z M4 7l2-4h12l2 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Sortiment</span>
+          <em class="bn-badge bn-badge-mute" id="navProductCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="bundles" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v9H3z M3 10l3-5h12l3 5 M12 5v14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Pakete</span>
+          <em class="bn-badge bn-badge-mute" id="navBundleCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="settings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v3 M12 17v3 M4 12h3 M17 12h3 M6.3 6.3l2 2 M15.7 15.7l2 2 M6.3 17.7l2-2 M15.7 8.3l2-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span>Optionen</span>
+        </button>
+      </nav>
     </div>
 
     <!-- Product edit dialog -->
