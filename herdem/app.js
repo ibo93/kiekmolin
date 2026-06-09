@@ -100,10 +100,11 @@ let bundleMeta = {};
 
 const FALLBACK_IMG = "assets/logo.svg";
 
-// Liste der Produkte mit echten Fotos (auf JPG umgestellt)
+// Alle 16 Produkte haben jetzt echte HD-Fotos (JPG)
 const PRODUCTS_WITH_PHOTOS = new Set([
-  "gemuese", "fladenbrot", "huhn", "feta", "tomatenmark",
-  "baklava", "linsen", "ayran", "tee", "oliven"
+  "sucuk", "huhn", "gemuese", "fladenbrot", "granatapfel",
+  "tomatenmark", "bulgur", "oliven", "linsen", "olivenoel",
+  "feta", "joghurt", "ayran", "tee", "baklava", "lahmacun"
 ]);
 
 const productImage = (idOrObj) => {
