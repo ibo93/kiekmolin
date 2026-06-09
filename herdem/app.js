@@ -267,7 +267,9 @@ const i18n = {
     footerLegal: "Rechtliches", footerContact: "Kontakt",
     footerTagline: "Türkisch-mediterrane Frische, geliefert in 38 Minuten.",
     footerNote: "Frische, ehrlich gepackt.",
-    dockHome: "Start", dockSearch: "Suche", dockAccount: "Konto", dockHelp: "Hilfe", dockCart: "Korb",
+    dockHome: "Start", dockSearch: "Suche", dockFav: "Favoriten", dockAccount: "Konto", dockHelp: "Hilfe", dockCart: "Korb",
+    stripPopular: "Beliebte Klassiker", stripFresh: "Frisch heute",
+    stripAllPopular: "Alle ansehen →", stripAllFresh: "Alles frische →",
     addrDialogTitle: "Wohin liefern wir?",
     addrStreet: "Straße & Hausnummer",
     addrCity: "PLZ & Stadt",
@@ -425,7 +427,9 @@ const i18n = {
     footerLegal: "Hukuki", footerContact: "İletişim",
     footerTagline: "Türk-Akdeniz tazeliği, 38 dakikada teslim.",
     footerNote: "Taze, dürüstçe paketlenmiş.",
-    dockHome: "Ana", dockSearch: "Ara", dockAccount: "Hesap", dockHelp: "Yardım", dockCart: "Sepet",
+    dockHome: "Ana", dockSearch: "Ara", dockFav: "Favoriler", dockAccount: "Hesap", dockHelp: "Yardım", dockCart: "Sepet",
+    stripPopular: "Popüler Klasikler", stripFresh: "Bugün taze",
+    stripAllPopular: "Tümünü gör →", stripAllFresh: "Hepsi taze →",
     addrDialogTitle: "Nereye teslim?",
     addrStreet: "Sokak ve numara",
     addrCity: "Posta kodu ve şehir",
@@ -712,7 +716,7 @@ function renderProducts() {
     state.query ? `${list.length} ${state.lang === "tr" ? "sonuç" : "Treffer"}` :
     t("resultPopular");
 
-  els.favoriteCount.textContent = state.favorites.length;
+  updateFavoriteBadges();
 
   if (!list.length) {
     els.grid.innerHTML = `
@@ -827,6 +831,73 @@ function totals() {
   const tip = state.tip;
   const total = Math.max(0, subtotal - discount) + fee + tip;
   return { entries, subtotal, itemCount, savings, fee, discount, tip, total };
+}
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function renderCuratedStrips() {
+  const popular = activeProducts()
+    .slice()
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    .slice(0, 4);
+  const fresh = activeProducts().filter(p => p.tags.includes("Frisch")).slice(0, 8);
+
+  const popEl = document.getElementById("stripPopular");
+  if (popEl) {
+    popEl.innerHTML = popular.map(p => {
+      const inCart = state.cart[p.id] || 0;
+      return `
+        <article class="strip-card" data-id="${p.id}">
+          <a class="sc-image" href="#" data-detail="${p.id}" aria-label="${esc(p.name[state.lang] || p.name.de)}">
+            <img src="${productImage(p.id)}" alt="" width="180" height="180" loading="lazy" decoding="async"
+                 onerror="this.onerror=null;this.src='${FALLBACK_IMG}'">
+          </a>
+          <div class="sc-body">
+            <p class="sc-name">${esc(p.name[state.lang] || p.name.de)}</p>
+            <div class="sc-foot">
+              <span class="sc-price">${money(p.price)}</span>
+              ${inCart
+                ? `<div class="sc-step">
+                    <button class="sc-mini" data-decrease="${p.id}" aria-label="−">−</button>
+                    <span>${inCart}</span>
+                    <button class="sc-mini sc-plus" data-increase="${p.id}" aria-label="+">+</button>
+                   </div>`
+                : `<button class="sc-add" type="button" data-increase="${p.id}" aria-label="${state.lang === "tr" ? "Sepete ekle" : "In den Warenkorb"}">+</button>`
+              }
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  const freshEl = document.getElementById("stripFresh");
+  if (freshEl) {
+    freshEl.innerHTML = fresh.map(p => {
+      const isFav = state.favorites.includes(p.id);
+      return `
+        <article class="strip-h-card" role="listitem" data-id="${p.id}">
+          <div class="shc-media">
+            <a class="shc-image" href="#" data-detail="${p.id}" aria-label="${esc(p.name[state.lang] || p.name.de)}">
+              <img src="${productImage(p.id)}" alt="" width="200" height="160" loading="lazy" decoding="async"
+                   onerror="this.onerror=null;this.src='${FALLBACK_IMG}'">
+            </a>
+            <button class="shc-fav ${isFav ? "is-fav" : ""}" type="button" data-favorite="${p.id}" aria-label="Favorit" aria-pressed="${isFav}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.5-9.5-9C1.2 8.6 2.4 5 6 5c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z" fill="${isFav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            </button>
+            <span class="shc-tag">${state.lang === "tr" ? "Bugün taze" : "Heute frisch"}</span>
+          </div>
+          <div class="shc-body">
+            <p class="shc-name">${esc(p.name[state.lang] || p.name.de)}</p>
+            <div class="shc-foot">
+              <span class="shc-price">${money(p.price)}</span>
+              <button class="shc-add" type="button" data-increase="${p.id}">${state.lang === "tr" ? "Sepete ekle" : "In den Warenkorb"}</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
 }
 
 function renderCart() {
@@ -969,6 +1040,11 @@ function changeQty(id, delta) {
     const fresh = buildCard(p);
     card.replaceWith(fresh);
   }
+  // Refresh curated strips' steppers (if the changed product is shown there)
+  if (document.getElementById("stripPopular")?.querySelector(`[data-id="${id}"]`) ||
+      document.getElementById("stripFresh")?.querySelector(`[data-id="${id}"]`)) {
+    renderCuratedStrips();
+  }
   renderCart();
   lsSet("herdem.cart", state.cart);
 }
@@ -983,11 +1059,22 @@ function addBundle(id) {
   lsSet("herdem.cart", state.cart);
 }
 
+function setActiveDock(name) {
+  $$(".mobile-dock [data-dock]").forEach(b => b.classList.toggle("is-active", b.dataset.dock === name));
+}
+
+function updateFavoriteBadges() {
+  const n = state.favorites.length;
+  if (els.favoriteCount) els.favoriteCount.textContent = n;
+  const dock = document.getElementById("dockFavCount");
+  if (dock) { dock.textContent = n; dock.hidden = n === 0; }
+}
+
 function toggleFavorite(id) {
   const was = state.favorites.includes(id);
   state.favorites = was ? state.favorites.filter(x => x !== id) : [...state.favorites, id];
   lsSet("herdem.favorites", state.favorites);
-  els.favoriteCount.textContent = state.favorites.length;
+  updateFavoriteBadges();
   const card = els.grid.querySelector(`.card[data-id="${id}"]`);
   if (card) {
     const p = products.find(x => x.id === id);
@@ -1268,7 +1355,14 @@ document.addEventListener("click", (ev) => {
     if (a === "search") { els.search.focus(); els.search.scrollIntoView({ block: "center" }); }
     if (a === "cart") openCart();
     if (a === "account") els.accountDialog.showModal();
-    if (a === "help") els.supportDialog.showModal();
+    if (a === "favorites") {
+      state.category = "favorites";
+      renderProducts();
+      $$('[data-category]').forEach(b => b.classList.toggle("is-selected", b.dataset.category === "favorites"));
+      const grid = document.querySelector(".product-grid, .shop-grid, .shop");
+      if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveDock(a);
     return;
   }
 
@@ -1610,6 +1704,7 @@ els.langToggle.addEventListener("click", () => {
   applyI18n();
   buildSlots();
   renderBundlesGrid();
+  renderCuratedStrips();
   renderProducts();
   renderCart();
   showToast(t("toastLang"));
@@ -1908,8 +2003,10 @@ function init() {
   applyI18n();
   renderStoreStatus();
   renderBundlesGrid();
+  renderCuratedStrips();
   renderProducts();
   renderCart();
+  updateFavoriteBadges();
   // Design enhancements
   tickActivity();
   tickerTimer = setInterval(tickActivity, 5500);
