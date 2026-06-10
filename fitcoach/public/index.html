@@ -40,27 +40,16 @@
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></symbol>
   </svg>
 
-  <!-- ============ AUTH ============ -->
+  <!-- ============ START / VERBINDUNG ============ -->
   <section id="view-auth" class="view" hidden>
     <div class="auth-wrap">
       <div class="logo-ring"><svg class="icon xl"><use href="#i-dumbbell"/></svg></div>
       <h1 class="app-title">FitCoach</h1>
       <p class="app-subtitle">Dein Coach für Abnehmen & Muskelaufbau</p>
-      <div class="glass card">
-        <div class="tabs">
-          <button id="tab-login" class="tab active">Anmelden</button>
-          <button id="tab-register" class="tab">Registrieren</button>
-        </div>
-        <form id="auth-form">
-          <label>E-Mail
-            <input type="email" id="auth-email" required autocomplete="email" placeholder="du@example.de">
-          </label>
-          <label>Passwort
-            <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" placeholder="••••••••">
-          </label>
-          <button type="submit" class="btn primary full" id="auth-submit">Anmelden</button>
-        </form>
-        <p id="auth-message" class="hint" hidden></p>
+      <div class="glass card stack center-text">
+        <div class="loader" id="auth-loader"></div>
+        <p id="auth-message" class="hint">Wird gestartet …</p>
+        <button class="btn primary" id="auth-retry" hidden>Erneut versuchen</button>
       </div>
     </div>
   </section>
@@ -356,9 +345,6 @@
       </label>
     </div>
 
-    <div class="glass card stack">
-      <button class="btn ghost full" id="logout">Abmelden</button>
-    </div>
   </section>
 
   <!-- ============ MANUELLER EINTRAG (Modal) ============ -->
