@@ -84,6 +84,32 @@ export function toast(msg) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2800);
 }
 
+// Dezentes haptisches Feedback, wo der Browser es unterstützt (Android).
+// iOS Safari kennt navigator.vibrate nicht – dann passiert einfach nichts.
+export function haptik(ms = 12) {
+  try { navigator.vibrate?.(ms); } catch { /* nicht unterstützt */ }
+}
+
+const reduzierteBewegung = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+// Zahl weich hochzählen lassen (Micro-Interaction für den Kalorien-Ring).
+export function animiereZahl(el, ziel) {
+  const start = parseInt(el.textContent, 10) || 0;
+  if (start === ziel || reduzierteBewegung.matches) {
+    el.textContent = ziel;
+    return;
+  }
+  const dauer = 550;
+  const t0 = performance.now();
+  function tick(t) {
+    const f = Math.min(1, (t - t0) / dauer);
+    const eased = 1 - Math.pow(1 - f, 3); // ease-out
+    el.textContent = Math.round(start + (ziel - start) * eased);
+    if (f < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])

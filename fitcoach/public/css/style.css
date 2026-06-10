@@ -143,8 +143,8 @@ select option { background: var(--surface-2); }
 }
 .btn.ghost { background: transparent; }
 .btn.full { width: 100%; }
-.btn.small { padding: 8px 14px; font-size: 0.85rem; border-radius: 11px; }
-.btn.icon { padding: 8px 14px; font-size: 1.2rem; line-height: 1; }
+.btn.small { padding: 10px 16px; font-size: 0.85rem; border-radius: 12px; min-height: 44px; }
+.btn.icon { padding: 8px 14px; font-size: 1.2rem; line-height: 1; min-height: 44px; min-width: 44px; }
 .btn.big-btn { padding: 16px; font-size: 1.05rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn:focus-visible, .nav-btn:focus-visible, .swatch:focus-visible {
@@ -246,6 +246,14 @@ select option { background: var(--surface-2); }
 .goal-countdown .big { color: var(--accent); }   /* Hervorhebungs-Zahl */
 .bar-fill.goal { background: var(--accent); }     /* Ziel-Fortschritt: Akzent */
 
+/* ---------- Leer-Zustand ---------- */
+.empty-state {
+  display: flex; gap: 14px; align-items: flex-start;
+  margin-bottom: 14px;
+}
+.empty-state > .icon { width: 26px; height: 26px; color: var(--accent); margin-top: 2px; }
+.empty-state h3 { margin-bottom: 2px; }
+
 /* ---------- Mahlzeiten ---------- */
 .meal-card { margin-bottom: 14px; }
 .meal-head { display: flex; justify-content: space-between; align-items: center; }
@@ -261,7 +269,9 @@ select option { background: var(--surface-2); }
 .meal-entry .entry-meta { color: var(--text-muted); font-size: 0.75rem; }
 .meal-entry .entry-del {
   background: none; border: none; color: var(--text-muted);
-  font-size: 1.1rem; cursor: pointer; padding: 4px;
+  cursor: pointer;
+  /* 44px-Trefffläche ohne mehr sichtbaren Platz zu belegen */
+  padding: 12px; margin: -8px;
 }
 .pending-badge { color: var(--warn); font-size: 0.7rem; }
 
@@ -312,12 +322,12 @@ select option { background: var(--surface-2); }
 .template-card { cursor: pointer; }
 .template-card .exercises { color: var(--text-muted); font-size: 0.82rem; margin-top: 4px; }
 .set-row {
-  display: grid; grid-template-columns: 34px 1fr 1fr 44px;
+  display: grid; grid-template-columns: 30px 1fr 1fr 44px;
   gap: 8px; align-items: center;
 }
-.set-row input { padding: 9px 10px; text-align: center; }
+.set-row input { padding: 11px 10px; text-align: center; }
 .set-row .set-check {
-  width: 34px; height: 34px; border-radius: 10px;
+  width: 44px; height: 44px; border-radius: 12px;
   border: 1.5px solid var(--hairline);
   background: transparent; color: var(--text); cursor: pointer; font-size: 1rem;
 }
@@ -462,4 +472,13 @@ select option { background: var(--surface-2); }
 
 @media (min-width: 640px) {
   .view { padding-top: 32px; }
+}
+
+/* Sehr schmale Geräte (320 px): Zahlenreihen kompakter, nichts bricht um */
+@media (max-width: 360px) {
+  .kcal-row { gap: 14px; }
+  .result-grid { gap: 5px; }
+  .result-grid .big { font-size: 1.2rem; }
+  .ring-wrap { width: 168px; height: 168px; }
+  .water-btns .btn.small { padding: 10px 12px; }
 }

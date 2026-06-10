@@ -1,7 +1,7 @@
 // Kalorien-Tracker: Tagesübersicht, Ring, Makros, Mahlzeiten, Wasser.
 import {
   sb, state, toast, escapeHtml, todayISO, formatDate, verschiebeDatum,
-  fetchMitTimeout, onViewShow, queueInsert, getQueued,
+  fetchMitTimeout, onViewShow, queueInsert, getQueued, haptik, animiereZahl,
 } from './state.js';
 import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
 import { wochenBis, zielFortschritt } from './calc.js';
@@ -96,11 +96,11 @@ function renderZusammenfassung(entries) {
   const kcal = sum('kalorien');
   const rest = p.kalorienziel - kcal;
 
-  document.getElementById('kcal-eaten').textContent = kcal;
+  animiereZahl(document.getElementById('kcal-eaten'), kcal);
   document.getElementById('kcal-goal').textContent = p.kalorienziel;
   document.getElementById('kcal-burned').textContent = '—';
   const restEl = document.getElementById('kcal-rest');
-  restEl.textContent = Math.abs(rest);
+  animiereZahl(restEl, Math.abs(rest));
   restEl.classList.toggle('over', rest < 0);
   document.getElementById('kcal-rest-label').textContent = rest >= 0 ? 'kcal übrig' : 'kcal drüber';
 
@@ -129,7 +129,18 @@ function renderWasser(ml) {
 
 function renderMahlzeiten(entries) {
   const container = document.getElementById('meals');
-  container.innerHTML = MAHLZEITEN.map(({ key, label, icon }) => {
+
+  // Designter Leer-Zustand statt vier leerer Karten
+  const leerHinweis = entries.length === 0 ? `
+    <div class="glass card empty-state">
+      <svg class="icon"><use href="#i-sparkle"/></svg>
+      <div>
+        <h3>Noch nichts getrackt ${state.date === todayISO() ? 'heute' : 'an diesem Tag'}</h3>
+        <p class="muted">Scanne dein Gericht mit der Kamera unten – oder trag es oben von Hand ein.</p>
+      </div>
+    </div>` : '';
+
+  container.innerHTML = leerHinweis + MAHLZEITEN.map(({ key, label, icon }) => {
     const list = entries.filter((e) => e.mahlzeit === key);
     const kcal = Math.round(list.reduce((s, e) => s + Number(e.kalorien), 0));
     const items = list.map((e) => `
@@ -171,6 +182,7 @@ export async function speichereEintrag(row) {
   } else {
     queueInsert('food_entries', row);
   }
+  haptik();
   return true;
 }
 
@@ -354,6 +366,7 @@ export function initTracker() {
       } else {
         queueInsert('water_entries', row);
       }
+      haptik();
       refreshTracker();
     });
   });

@@ -1,5 +1,5 @@
 // Training: Plan-Vorlagen (Push/Pull/Beine, Ganzkörper), Sätze loggen, abhaken.
-import { sb, state, toast, escapeHtml, todayISO, onViewShow } from './state.js';
+import { sb, state, toast, escapeHtml, todayISO, onViewShow, haptik } from './state.js';
 
 const VORLAGEN = [
   {
@@ -131,6 +131,7 @@ async function beendeWorkout(abgebrochen) {
     await sb.from('workouts').delete().eq('id', aktivesWorkout.id); // löscht Sätze per Cascade
   } else {
     await sb.from('workouts').update({ abgeschlossen: true }).eq('id', aktivesWorkout.id);
+    haptik(25);
     toast('Workout abgeschlossen – stark!');
   }
   aktivesWorkout = null;
@@ -190,6 +191,7 @@ export function initWorkout() {
       const s = aktivesWorkout.sets.find((x) => x.id === setId);
       s.erledigt = !s.erledigt;
       check.classList.toggle('done', s.erledigt);
+      if (s.erledigt) haptik();
       await sb.from('workout_sets').update({ erledigt: s.erledigt }).eq('id', setId);
     }
   });

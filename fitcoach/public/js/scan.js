@@ -1,6 +1,6 @@
 // KI-Foto-Scan: Bild verkleinern, an die Netlify Function schicken,
 // Schätzung anzeigen, Portionsgröße anpassen, ins Protokoll speichern.
-import { sb, state, toast, showView, todayISO, fetchMitTimeout } from './state.js';
+import { sb, state, toast, showView, todayISO, fetchMitTimeout, haptik } from './state.js';
 import { refreshTracker } from './tracker.js';
 import { sprich } from './speech.js';
 
@@ -153,6 +153,7 @@ async function speichere() {
     toast('Speichern fehlgeschlagen: ' + error.message);
     return;
   }
+  haptik();
   toast(`${basis.gericht} eingetragen ✓`);
   zeigeSchritt('start');
   document.getElementById('scan-file').value = '';
