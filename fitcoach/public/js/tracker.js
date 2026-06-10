@@ -210,6 +210,7 @@ function zeigeFoodTab(tab) {
 async function ladeFavoriten() {
   const ziel = document.getElementById('food-favs');
   if (!navigator.onLine) { ziel.innerHTML = '<p class="muted">Offline nicht verfügbar.</p>'; return; }
+  ziel.innerHTML = '<p class="muted">Lädt …</p>'; // Zustand bei langsamem Netz
   const { data } = await sb.from('favorites').select('*').order('name');
   favoriten = data || [];
   ziel.innerHTML = favoriten.length
@@ -221,6 +222,7 @@ let zuletzt = [];
 async function ladeZuletzt() {
   const ziel = document.getElementById('food-recent');
   if (!navigator.onLine) { ziel.innerHTML = '<p class="muted">Offline nicht verfügbar.</p>'; return; }
+  ziel.innerHTML = '<p class="muted">Lädt …</p>'; // Zustand bei langsamem Netz
   const { data } = await sb.from('food_entries')
     .select('name, menge_g, kalorien, protein_g, carbs_g, fett_g')
     .order('created_at', { ascending: false })
@@ -391,36 +393,43 @@ export function initTracker() {
     if (item) übernehmeVorlage(item.dataset.ref);
   });
 
-  // Manueller Eintrag
+  // Manueller Eintrag (Doppel-Tap-Schutz: Button sperren, solange gespeichert wird)
   document.getElementById('food-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('food-name').value.trim();
-    const row = {
-      mahlzeit: gewaehlteMahlzeit(),
-      name,
-      menge_g: parseFloat(document.getElementById('food-menge').value) || null,
-      kalorien: parseFloat(document.getElementById('food-kcal').value) || 0,
-      protein_g: parseFloat(document.getElementById('food-protein').value) || 0,
-      carbs_g: parseFloat(document.getElementById('food-carbs').value) || 0,
-      fett_g: parseFloat(document.getElementById('food-fett').value) || 0,
-      quelle: 'manuell',
-    };
-    const ok = await speichereEintrag(row);
-    if (!ok) return;
+    const submitBtn = document.getElementById('food-submit');
+    if (submitBtn.disabled) return;
+    submitBtn.disabled = true;
+    try {
+      const name = document.getElementById('food-name').value.trim();
+      const row = {
+        mahlzeit: gewaehlteMahlzeit(),
+        name,
+        menge_g: parseFloat(document.getElementById('food-menge').value) || null,
+        kalorien: parseFloat(document.getElementById('food-kcal').value) || 0,
+        protein_g: parseFloat(document.getElementById('food-protein').value) || 0,
+        carbs_g: parseFloat(document.getElementById('food-carbs').value) || 0,
+        fett_g: parseFloat(document.getElementById('food-fett').value) || 0,
+        quelle: 'manuell',
+      };
+      const ok = await speichereEintrag(row);
+      if (!ok) return;
 
-    if (document.getElementById('food-fav').checked && navigator.onLine) {
-      await sb.from('favorites').upsert(
-        {
-          user_id: state.user.id, name,
-          menge_g: row.menge_g, kalorien: row.kalorien,
-          protein_g: row.protein_g, carbs_g: row.carbs_g, fett_g: row.fett_g,
-        },
-        { onConflict: 'user_id,name' }
-      );
+      if (document.getElementById('food-fav').checked && navigator.onLine) {
+        await sb.from('favorites').upsert(
+          {
+            user_id: state.user.id, name,
+            menge_g: row.menge_g, kalorien: row.kalorien,
+            protein_g: row.protein_g, carbs_g: row.carbs_g, fett_g: row.fett_g,
+          },
+          { onConflict: 'user_id,name' }
+        );
+      }
+
+      document.getElementById('food-modal').close();
+      toast('Eintrag gespeichert ✓');
+      refreshTracker();
+    } finally {
+      submitBtn.disabled = false;
     }
-
-    document.getElementById('food-modal').close();
-    toast('Eintrag gespeichert ✓');
-    refreshTracker();
   });
 }

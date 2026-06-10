@@ -1,5 +1,5 @@
 // Sichtbare App-Version (eine Quelle – wird beim Start in die UI geschrieben).
-export const APP_VERSION = '10';
+export const APP_VERSION = '11';
 
 // Supabase-Zugangsdaten (öffentlich, nur Anon-Key – Sicherheit kommt von RLS).
 export const SUPABASE_URL = 'https://xhqucheyqhxaaaoqoohm.supabase.co';

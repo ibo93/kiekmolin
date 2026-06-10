@@ -43,7 +43,14 @@ async function analysiere(file) {
   zeigeSchritt('loading');
 
   try {
-    fotoBlob = await komprimiereBild(file);
+    try {
+      fotoBlob = await komprimiereBild(file);
+    } catch {
+      // z. B. defekte Datei oder nicht unterstütztes Format (HEIC auf manchen Browsern)
+      toast('Dieses Bild kann nicht gelesen werden – bitte wähle ein anderes Foto');
+      zeigeSchritt('start');
+      return;
+    }
     const vorschauUrl = URL.createObjectURL(fotoBlob);
     document.getElementById('scan-preview').src = vorschauUrl;
     document.getElementById('scan-result-img').src = vorschauUrl;
