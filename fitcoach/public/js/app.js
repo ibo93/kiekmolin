@@ -1,5 +1,6 @@
 // Einstiegspunkt: Auth, Navigation, Offline-Sync, Service Worker.
 import { sb, state, showView, toast, flushQueue, onViewShow } from './state.js';
+import { initTheme, applyAccent } from './theme.js';
 import { initOnboarding } from './onboarding.js';
 import { initTracker, refreshTracker } from './tracker.js';
 import { initScan } from './scan.js';
@@ -99,6 +100,8 @@ document.getElementById('profile-edit').addEventListener('click', () => showView
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle();
   state.profile = data;
+  // Im Profil gespeicherte Akzentfarbe übernehmen (gleiches Theme auf jedem Gerät)
+  if (data?.akzentfarbe) applyAccent(data.akzentfarbe);
   return data;
 }
 
@@ -119,6 +122,7 @@ async function handleSession(session) {
 }
 
 // Module initialisieren (Event-Handler einmalig verdrahten)
+initTheme();
 initOnboarding();
 initTracker();
 initScan();

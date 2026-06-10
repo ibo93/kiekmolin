@@ -54,7 +54,9 @@ function renderZusammenfassung(entries) {
   document.getElementById('kcal-eaten').textContent = kcal;
   document.getElementById('kcal-goal').textContent = p.kalorienziel;
   document.getElementById('kcal-burned').textContent = '—';
-  document.getElementById('kcal-rest').textContent = Math.abs(rest);
+  const restEl = document.getElementById('kcal-rest');
+  restEl.textContent = Math.abs(rest);
+  restEl.classList.toggle('over', rest < 0);
   document.getElementById('kcal-rest-label').textContent = rest >= 0 ? 'kcal übrig' : 'kcal drüber';
 
   const ring = document.getElementById('kcal-ring-fg');

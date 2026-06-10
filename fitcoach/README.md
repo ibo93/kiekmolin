@@ -19,6 +19,7 @@ per **KI-Foto-Scan** (Claude Vision) erfassen, Fortschritt sichtbar machen.
 | **Tracker** | Kalorien-Ring, Makro-Balken, 4 Mahlzeiten, manuelle Eingabe, Favoriten, „zuletzt gegessen“, Wasser-Tracker, Offline-Queue |
 | **Fortschritt** | Gewichts-Chart mit Ziellinie, Wochen-Auswertung (Ø kcal, Protein-Tage, Workouts, kg-Trend), privater Vorher/Nachher-Foto-Vergleich |
 | **Training** | Vorlagen (Push/Pull/Beine, 2× Ganzkörper), Gewichte/Wiederholungen loggen mit Vorbelegung vom letzten Mal, Sätze abhaken |
+| **Theme** | Akzentfarbe wählbar (Acid-Lime, Elektro-Orange, Cyan, Hot-Pink, Violett + eigener Farbwähler) – live im ganzen UI, gespeichert im Supabase-Profil. Gesamtes CSS auf Variablen (`--accent`, `--bg`, `--surface`, `--hairline`, …); Akzent nur an Ring, Primär-Buttons und Hervorhebungs-Zahlen, Rest Graustufen |
 
 ---
 

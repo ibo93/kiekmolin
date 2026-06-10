@@ -1,7 +1,7 @@
 // Service Worker: cached die App-Shell, damit der Tracker auch offline lädt.
 // Daten-Requests (Supabase, Netlify Functions) gehen immer ans Netz.
 
-const CACHE = 'fitcoach-v1';
+const CACHE = 'fitcoach-v2';
 
 const SHELL = [
   '/',
@@ -10,6 +10,7 @@ const SHELL = [
   '/js/app.js',
   '/js/config.js',
   '/js/state.js',
+  '/js/theme.js',
   '/js/calc.js',
   '/js/onboarding.js',
   '/js/tracker.js',

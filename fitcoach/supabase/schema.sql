@@ -26,9 +26,15 @@ create table if not exists public.profiles (
   carbs_g         int not null,
   fett_g          int not null,
   wasserziel_ml   int not null default 2500,
+  -- Theme: gewählte Akzentfarbe, auf jedem Gerät gleich
+  akzentfarbe     text not null default '#C8FF00' check (akzentfarbe ~ '^#[0-9a-fA-F]{6}$'),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+
+-- Für bestehende Installationen (create table if not exists ändert nichts):
+alter table public.profiles
+  add column if not exists akzentfarbe text not null default '#C8FF00';
 
 alter table public.profiles enable row level security;
 
