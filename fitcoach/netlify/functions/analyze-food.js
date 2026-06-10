@@ -1,23 +1,13 @@
-// KI-Foto-Scan: nimmt ein Base64-Foto entgegen, lässt Claude Vision das
-// Gericht analysieren und gibt Kalorien + Makros als JSON zurück.
+// KI-Foto-Scan: schickt ein Base64-Foto an Claude Vision und gibt
+// Kalorien + Makros als JSON zurück.
+// Bewusst OHNE npm-Paket (nur fetch) – damit die Function auch bei
+// Netlify-Drag-&-Drop läuft, ohne Build/Installation.
 // Der Anthropic-API-Key bleibt serverseitig (Env: ANTHROPIC_API_KEY).
-// Zugriff nur mit gültigem Supabase-Login (Bearer-Token wird verifiziert).
 
-const Anthropic = require('@anthropic-ai/sdk');
-
-// Client auf Modul-Ebene: wird bei warmen Function-Aufrufen wiederverwendet
-const client = new Anthropic();
-
-// Das Schema zwingt die KI, das Gericht in Zutaten mit Einzelwerten zu
-// zerlegen – komponentenweises Schätzen ist deutlich genauer als eine
-// Gesamtzahl aus dem Bauch.
 const FOOD_SCHEMA = {
   type: 'object',
   properties: {
-    erkannt: {
-      type: 'boolean',
-      description: 'true wenn auf dem Foto Essen erkennbar ist',
-    },
+    erkannt: { type: 'boolean', description: 'true wenn auf dem Foto Essen erkennbar ist' },
     gericht: { type: 'string', description: 'Name des Gerichts auf Deutsch' },
     zutaten: {
       type: 'array',
@@ -25,34 +15,21 @@ const FOOD_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Zutat/Komponente auf Deutsch' },
-          menge_g: { type: 'integer', description: 'Geschätzte Menge in Gramm' },
-          kalorien: { type: 'integer', description: 'Kalorien dieser Komponente' },
+          name: { type: 'string' },
+          menge_g: { type: 'integer' },
+          kalorien: { type: 'integer' },
         },
         required: ['name', 'menge_g', 'kalorien'],
         additionalProperties: false,
       },
     },
-    portionsgroesse_g: {
-      type: 'integer',
-      description: 'Gesamtgewicht der Portion in Gramm (Summe der Zutaten)',
-    },
-    kalorien: {
-      type: 'integer',
-      description: 'Gesamtkalorien (muss zur Summe der Zutaten passen)',
-    },
+    portionsgroesse_g: { type: 'integer', description: 'Gesamtgewicht der Portion in Gramm' },
+    kalorien: { type: 'integer', description: 'Gesamtkalorien' },
     protein_g: { type: 'integer', description: 'Protein gesamt in Gramm' },
     carbs_g: { type: 'integer', description: 'Kohlenhydrate gesamt in Gramm' },
     fett_g: { type: 'integer', description: 'Fett gesamt in Gramm' },
-    sicherheit: {
-      type: 'string',
-      enum: ['hoch', 'mittel', 'niedrig'],
-      description: 'Wie sicher ist die Schätzung',
-    },
-    hinweis: {
-      type: 'string',
-      description: 'Kurzer Hinweis, z. B. zu unsichtbaren Zutaten oder Unsicherheiten',
-    },
+    sicherheit: { type: 'string', enum: ['hoch', 'mittel', 'niedrig'] },
+    hinweis: { type: 'string', description: 'Kurzer Hinweis zur Schätzung' },
   },
   required: [
     'erkannt', 'gericht', 'zutaten', 'portionsgroesse_g', 'kalorien',
@@ -67,27 +44,30 @@ Vorgehen:
 1. Nutze Referenzobjekte im Bild für die Größenschätzung: Standardteller ≈ 26 cm, Gabel ≈ 19 cm, Glas ≈ 200–300 ml, Hand, Dose (330 ml).
 2. Zerlege das Gericht in seine Komponenten und schätze jede einzeln (Gramm + Kalorien) – die Gesamtwerte müssen zur Summe passen.
 3. Rechne unsichtbare Zutaten realistisch ein: Bratöl/Butter (typisch 10–15 g pro gebratener Komponente), Zucker und Fett in Soßen/Dressings, Marinade.
-4. Du kennst dich mit deutscher, türkischer, italienischer und internationaler Küche aus (Döner, Currywurst, Pasta, Bowls, Fast Food, Markenprodukte). Erkenne Marken/Ketten wenn sichtbar und nutze deren typische Nährwerte.
+4. Du kennst dich mit deutscher, türkischer, italienischer und internationaler Küche aus (Döner, Currywurst, Pasta, Bowls, Fast Food, Markenprodukte). Erkenne Marken/Ketten wenn sichtbar.
 5. Bei Auflauf/Eintopf/verdeckten Schichten: kalkuliere die nicht sichtbaren Anteile mit ein und setze sicherheit auf "mittel" oder "niedrig".
-6. Schätze lieber die ganze sichtbare Portion (so wie serviert), nicht eine Norm-Portion.
+6. Schätze die ganze sichtbare Portion (so wie serviert), nicht eine Norm-Portion.
 
 Antworte auf Deutsch. Wenn kein Essen erkennbar ist: erkannt=false, alle Werte 0, leeres zutaten-Array.`;
 
 async function verifyUser(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      Authorization: authHeader,
-      apikey: process.env.SUPABASE_ANON_KEY,
-    },
-  });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: process.env.SUPABASE_ANON_KEY },
+    });
+    return res.ok ? res.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
   }
 
   const user = await verifyUser(event.headers.authorization);
@@ -107,52 +87,56 @@ exports.handler = async (event) => {
   if (!imageBase64 || !allowedTypes.includes(mediaType)) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Bild fehlt oder Format nicht unterstützt' }) };
   }
-  // ~7 MB Base64 ≈ 5 MB Bild — Claude-Limit und Netlify-Payload-Grenze
   if (imageBase64.length > 7_000_000) {
     return { statusCode: 413, body: JSON.stringify({ error: 'Bild zu groß – bitte verkleinern' }) };
   }
 
   try {
-    const response = await client.messages.create({
-      // Sonnet 4.6: schnelle, starke Bilderkennung – bleibt im Netlify-Zeitlimit
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: imageBase64 },
-            },
-            {
-              type: 'text',
-              text: 'Analysiere dieses Gericht komponentenweise und gib die Gesamt-Nährwerte der ganzen sichtbaren Portion zurück.',
-            },
-          ],
-        },
-      ],
-      output_config: {
-        format: { type: 'json_schema', schema: FOOD_SCHEMA },
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
       },
+      body: JSON.stringify({
+        // Sonnet 4.6: schnelle, starke Bilderkennung – bleibt im Netlify-Zeitlimit
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+              { type: 'text', text: 'Analysiere dieses Gericht komponentenweise und gib die Gesamt-Nährwerte der ganzen sichtbaren Portion zurück.' },
+            ],
+          },
+        ],
+        output_config: { format: { type: 'json_schema', schema: FOOD_SCHEMA } },
+      }),
     });
 
-    const textBlock = response.content.find((b) => b.type === 'text');
+    if (res.status === 429) {
+      return { statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
+    }
+    if (!res.ok) {
+      console.error('Claude-API-Fehler:', res.status, await res.text());
+      return { statusCode: 502, body: JSON.stringify({ error: 'KI-Analyse fehlgeschlagen' }) };
+    }
+
+    const data = await res.json();
+    const textBlock = (data.content || []).find((b) => b.type === 'text');
     if (!textBlock) {
       return { statusCode: 502, body: JSON.stringify({ error: 'Keine Antwort vom KI-Modell' }) };
     }
-
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: textBlock.text, // bereits valides JSON laut Schema
     };
   } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
-    }
-    console.error('Claude-API-Fehler:', err);
+    console.error('Fehler:', err);
     return { statusCode: 502, body: JSON.stringify({ error: 'KI-Analyse fehlgeschlagen' }) };
   }
 };

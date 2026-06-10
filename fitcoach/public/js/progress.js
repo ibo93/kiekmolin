@@ -16,7 +16,9 @@ async function ladeAlles() {
 async function ladeGewicht() {
   const { data } = await sb.from('weight_entries').select('datum, gewicht_kg').order('datum');
   const eintraege = data || [];
+  // Leeres Diagramm ausblenden, damit keine große schwarze Lücke entsteht
   document.getElementById('weight-empty').hidden = eintraege.length > 0;
+  document.getElementById('weight-chart').style.display = eintraege.length ? '' : 'none';
   zeichneChart(eintraege);
 }
 

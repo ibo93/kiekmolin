@@ -21,7 +21,6 @@ const MAHLZEITEN = [
 
 const RING_UMFANG = 2 * Math.PI * 52; // r=52 aus dem SVG
 
-let aktuelleMahlzeit = 'snack';
 let favoriten = [];
 
 // ---------- Tagesdaten laden & rendern ----------
@@ -172,9 +171,23 @@ export async function speichereEintrag(row) {
 
 // ---------- Modal: manuell / Favoriten / zuletzt gegessen ----------
 
+// Mahlzeit anhand der Uhrzeit vorschlagen
+function mahlzeitNachUhrzeit() {
+  const h = new Date().getHours();
+  if (h < 11) return 'fruehstueck';
+  if (h < 15) return 'mittag';
+  if (h < 21) return 'abend';
+  return 'snack';
+}
+
+// Aktuell im Dropdown gewählte Mahlzeit
+function gewaehlteMahlzeit() {
+  return document.getElementById('food-mahlzeit').value;
+}
+
 function öffneFoodModal(mahlzeit) {
-  aktuelleMahlzeit = mahlzeit;
   document.getElementById('food-form').reset();
+  document.getElementById('food-mahlzeit').value = mahlzeit || mahlzeitNachUhrzeit();
   zeigeFoodTab('manual');
   ladeFavoriten();
   ladeZuletzt();
@@ -228,7 +241,7 @@ async function übernehmeVorlage(ref) {
   const f = (art === 'fav' ? favoriten : zuletzt)[Number(idx)];
   if (!f) return;
   const ok = await speichereEintrag({
-    mahlzeit: aktuelleMahlzeit,
+    mahlzeit: gewaehlteMahlzeit(),
     name: f.name,
     menge_g: f.menge_g,
     kalorien: f.kalorien,
@@ -351,6 +364,9 @@ export function initTracker() {
     }
   });
 
+  // Großer „+ Essen eintragen"-Button (Mahlzeit nach Uhrzeit vorgewählt)
+  document.getElementById('add-food-quick').addEventListener('click', () => öffneFoodModal());
+
   // Spracheingabe + KI-Schätzung
   const micBtn = document.getElementById('food-mic');
   micBtn.hidden = !sprachEingabeVerfuegbar;
@@ -376,7 +392,7 @@ export function initTracker() {
     e.preventDefault();
     const name = document.getElementById('food-name').value.trim();
     const row = {
-      mahlzeit: aktuelleMahlzeit,
+      mahlzeit: gewaehlteMahlzeit(),
       name,
       menge_g: parseFloat(document.getElementById('food-menge').value) || null,
       kalorien: parseFloat(document.getElementById('food-kcal').value) || 0,
