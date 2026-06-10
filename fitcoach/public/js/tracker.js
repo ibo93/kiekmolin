@@ -228,8 +228,11 @@ async function schaetzePerKI() {
 
   const btn = document.getElementById('food-ki');
   btn.disabled = true;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Nicht eingeloggt');
     const res = await fetch('/api/analyze-text', {
       method: 'POST',
       headers: {
@@ -237,6 +240,7 @@ async function schaetzePerKI() {
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ text }),
+      signal: controller.signal,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -254,8 +258,9 @@ async function schaetzePerKI() {
     toast('KI-Schätzung übernommen – prüfe die Werte');
     sprich(`${e.gericht}, geschätzt ${e.kalorien} Kilokalorien und ${e.protein_g} Gramm Protein.`);
   } catch (err) {
-    toast('KI-Schätzung fehlgeschlagen: ' + err.message);
+    toast('KI-Schätzung fehlgeschlagen: ' + (err.name === 'AbortError' ? 'Zeitüberschreitung' : err.message));
   } finally {
+    clearTimeout(timeout);
     btn.disabled = false;
   }
 }

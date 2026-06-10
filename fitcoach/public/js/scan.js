@@ -50,22 +50,40 @@ async function analysiere(file) {
 
     const base64 = await blobZuBase64(fotoBlob);
     const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Nicht eingeloggt – bitte neu anmelden');
 
-    const res = await fetch('/api/analyze-food', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ image_base64: base64, media_type: 'image/jpeg' }),
-    });
+    // Harter Timeout: bricht ab, falls der Server nicht antwortet,
+    // damit die Vorschau nicht ewig lädt.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
+    let res;
+    try {
+      res = await fetch('/api/analyze-food', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ image_base64: base64, media_type: 'image/jpeg' }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      throw new Error(e.name === 'AbortError'
+        ? 'Zeitüberschreitung – Server antwortet nicht'
+        : 'Keine Verbindung zum Server');
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Fehler ${res.status}`);
     }
 
-    const ergebnis = await res.json();
+    const ergebnis = await res.json().catch(() => {
+      throw new Error('Ungültige Antwort – ist die KI-Function deployt?');
+    });
     if (!ergebnis.erkannt) {
       toast('Kein Essen erkannt – probiere ein anderes Foto');
       zeigeSchritt('start');

@@ -3,6 +3,21 @@
 import { sb, toast } from './state.js';
 
 const VOICE_KEY = 'fc_voice_output';
+const VOICE_ID_KEY = 'fc_voice_id';
+
+// Auswählbare ElevenLabs-Stimmen (alle für Deutsch über eleven_multilingual_v2)
+export const STIMMEN = [
+  { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (weiblich, ruhig)' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella (weiblich, sanft)' },
+  { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli (weiblich, jung)' },
+  { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam (männlich, tief)' },
+  { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni (männlich, warm)' },
+  { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold (männlich, kräftig)' },
+];
+
+export function gewaehlteStimme() {
+  return localStorage.getItem(VOICE_ID_KEY) || STIMMEN[0].id;
+}
 
 // ---------- Spracheingabe (Diktat) ----------
 
@@ -53,7 +68,7 @@ export async function sprich(text) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ text: text.slice(0, 400) }),
+      body: JSON.stringify({ text: text.slice(0, 400), voice_id: gewaehlteStimme() }),
     });
     if (!res.ok) {
       if (res.status === 503) {
@@ -82,4 +97,19 @@ export function initSpeech() {
     setStimmeAktiv(cb.checked);
     if (cb.checked) sprich('Coach-Stimme ist aktiv. Lass uns loslegen!');
   });
+
+  // Stimmen-Auswahl füllen
+  const sel = document.getElementById('voice-select');
+  if (sel) {
+    sel.innerHTML = STIMMEN.map((s) =>
+      `<option value="${s.id}">${s.name}</option>`
+    ).join('');
+    sel.value = gewaehlteStimme();
+    sel.addEventListener('change', () => {
+      localStorage.setItem(VOICE_ID_KEY, sel.value);
+      // Stimme aktivieren falls noch aus, damit man die Probe hört
+      if (!stimmeAktiv()) { setStimmeAktiv(true); cb.checked = true; }
+      sprich('So klinge ich. Gefällt dir diese Stimme?');
+    });
+  }
 }

@@ -34,8 +34,11 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Text fehlt oder ist zu lang (max. 400 Zeichen)' }) };
   }
 
-  // Standard-Stimme „Rachel" – über ELEVENLABS_VOICE_ID austauschbar
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+  // Stimme: vom Client gewählt (nur saubere IDs zulassen), sonst Default
+  const gewuenscht = payload.voice_id;
+  const voiceId = (typeof gewuenscht === 'string' && /^[A-Za-z0-9]{16,32}$/.test(gewuenscht))
+    ? gewuenscht
+    : (process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM');
 
   try {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
