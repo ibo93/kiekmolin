@@ -58,7 +58,8 @@ exports.handler = async (event) => {
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-8',
+      // Sonnet 4.6: schnell genug fürs Netlify-Zeitlimit
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system:
         'Du bist ein Ernährungsexperte. Der Nutzer beschreibt ein Gericht in Worten ' +

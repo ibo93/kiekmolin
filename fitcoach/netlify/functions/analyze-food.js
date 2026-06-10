@@ -114,8 +114,9 @@ exports.handler = async (event) => {
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-8',
-      max_tokens: 1500,
+      // Sonnet 4.6: schnelle, starke Bilderkennung – bleibt im Netlify-Zeitlimit
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [
         {
