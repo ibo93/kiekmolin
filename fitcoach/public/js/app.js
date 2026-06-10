@@ -80,7 +80,12 @@ async function handleSession(session) {
   }
   state.user = session.user;
   const profile = await loadProfile();
-  showView(profile ? 'tracker' : 'onboarding');
+  // App-Shortcut (Homescreen) kann eine Ziel-Ansicht mitgeben, z. B. /?view=scan
+  const wunsch = new URLSearchParams(location.search).get('view');
+  const zielView = profile && ['scan', 'tracker', 'progress', 'workout'].includes(wunsch)
+    ? wunsch
+    : (profile ? 'tracker' : 'onboarding');
+  showView(zielView);
 }
 
 // Anonyme Anmeldung – ganz ohne E-Mail/Passwort. Die Session bleibt im

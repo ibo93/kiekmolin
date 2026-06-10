@@ -26,7 +26,11 @@ let favoriten = [];
 // ---------- Tagesdaten laden & rendern ----------
 
 export async function refreshTracker() {
-  document.getElementById('tracker-date-label').textContent = formatDate(state.date);
+  // Kopfzeile: "Mittwoch, 10. Juni" + Begrüßung (bzw. Datum beim Blättern)
+  document.getElementById('tracker-date-long').textContent =
+    new Date(state.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('tracker-date-label').textContent =
+    state.date === todayISO() ? 'Moin!' : formatDate(state.date);
   document.getElementById('date-next').disabled = state.date >= todayISO();
 
   let entries = [];
