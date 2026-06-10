@@ -46131,7 +46131,8 @@ async function loadDashboardOrders() {
                 restaurant_id: order.restaurant_id,
                 restaurant_name: order.restaurant_name || '',
                 table_number: order.table_number || null,
-                pos_log: Array.isArray(order.pos_log) ? order.pos_log : []
+                pos_log: Array.isArray(order.pos_log) ? order.pos_log : [],
+                printed_at: order.printed_at || null
             }));
             window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: activeRestFilter, time: ordersTimeFilter };
 
@@ -46400,6 +46401,17 @@ function renderDashboardOrders() {
             posResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToPOS(\'' + order.id + '\')" title="An Kassensystem senden" aria-label="An Kasse senden" style="background:rgba(59,130,246,0.1);color:#1d4ed8;border-color:rgba(59,130,246,0.3);">📟 Kasse</button>';
         }
 
+        // Bon-Nachdruck-Button: zeigt Status + lass den Drucker beim naechsten Poll erneut drucken.
+        var printBtn = '';
+        if (order.status !== 'cancelled') {
+            var printed = !!order.printed_at;
+            var printTitle = printed
+                ? 'Bon wurde am ' + new Date(order.printed_at).toLocaleString('de-DE') + ' gedruckt. Klicken zum Nachdrucken.'
+                : 'Bon noch nicht gedruckt — klicken um Drucker anzuregen.';
+            var printIcon = printed ? '🖨' : '🟧 🖨';
+            printBtn = '<button class="kin-order-btn secondary" onclick="reprintBon(\'' + order.id + '\')" title="' + printTitle + '" aria-label="Bon nachdrucken" style="background:' + (printed ? 'rgba(34,197,94,0.1);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(234,88,12,0.1);color:#9a3412;border-color:rgba(234,88,12,0.3)') + ';">' + printIcon + ' Bon</button>';
+        }
+
         // Action Buttons je nach Status
         let actionsHtml = '';
         switch(order.status) {
@@ -46545,6 +46557,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-actions">
                         ${actionsHtml}
                         ${posResendBtn}
+                        ${printBtn}
                     </div>
                 </div>
             </div>
@@ -48745,6 +48758,35 @@ function resendOrderToPOS(orderId) {
     } catch(e) { console.error(e); }
 }
 
+// Bon erneut drucken: setzt printed_at zurueck, der Epson-Drucker holt
+// den Bon beim naechsten Poll automatisch erneut ab.
+async function reprintBon(orderId) {
+    try {
+        var token = null;
+        if (window.supabaseClient && supabaseClient.auth) {
+            var s = await supabaseClient.auth.getSession();
+            token = s && s.data && s.data.session && s.data.session.access_token;
+        }
+        if (!token) { showToast('Bitte als Gastronom einloggen', 'error'); return; }
+        var res = await fetch('/.netlify/functions/pos-print?action=reprint&order=' + encodeURIComponent(orderId), {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var j = await res.json();
+        if (j && j.ok) {
+            // Lokal printed_at zuruecksetzen damit der Button sofort umspringt
+            var orderIdx = (window.dashboardOrders || []).findIndex(function(o) { return o.id === orderId; });
+            if (orderIdx >= 0) window.dashboardOrders[orderIdx].printed_at = null;
+            if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+            showToast('Bon wird beim nächsten Druckabruf erneut ausgegeben (max. 15 Sek).', 'success');
+        } else {
+            showToast('Fehler: ' + ((j && j.error) || 'unbekannt'), 'error');
+        }
+    } catch (e) {
+        showToast('Verbindungsfehler: ' + e.message, 'error');
+    }
+}
+
 // POS-Einstellungen Modal
 function openPOSSettings() {
     var allConfig = getPOSConfig();
@@ -48886,21 +48928,45 @@ function _posCopy(text) {
 function _renderPosPullInfo(box, j) {
     var fieldStyle = 'width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px;box-sizing:border-box;word-break:break-all;';
     var btnStyle = 'padding:6px 10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;';
+
+    // Drucker-URL aus pull_url ableiten (gleicher Schluessel, anderer Endpoint)
+    var printUrl = (j.pull_url || '').replace('/.netlify/functions/pos-orders', '/.netlify/functions/pos-print');
+
     box.innerHTML =
-        '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;">' +
+        '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;margin-bottom:10px;">' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);margin-bottom:6px;letter-spacing:0.5px;">Kassensystem / Bestell-Abruf</div>' +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Abruf-URL</label>' +
             '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
                 '<div style="' + fieldStyle + '" id="posPullUrl">' + _escPos(j.pull_url) + '</div>' +
                 '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPullUrl\').textContent)">Kopieren</button>' +
             '</div>' +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Zugriffs-Schlüssel</label>' +
-            '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+            '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
                 '<div style="' + fieldStyle + '" id="posPullKey">' + _escPos(j.key) + '</div>' +
                 '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPullKey\').textContent)">Kopieren</button>' +
             '</div>' +
-            '<p style="font-size:11px;color:var(--slate);margin:0 0 8px;">Diese URL + Schlüssel im Kassenprogramm als Bestell-Quelle eintragen. Die Kasse ruft damit regelmäßig die neuen Bestellungen ab. Bei Lieferung/Abholung sind alle Daten (Artikel, Extras, Adresse, Beträge) enthalten.</p>' +
-            '<button onclick="if(confirm(\'Neuen Schlüssel erzeugen? Der alte wird ungültig — du musst ihn dann im Kassensystem neu eintragen.\')) showPosPullInfo(true)" style="background:none;border:none;color:#b91c1c;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Schlüssel neu erzeugen</button>' +
-        '</div>';
+            '<p style="font-size:11px;color:var(--slate);margin:0;">URL + Schlüssel im Kassenprogramm als Bestell-Quelle eintragen. Die Kasse holt damit regelmäßig neue Bestellungen ab.</p>' +
+        '</div>' +
+        '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;margin-bottom:10px;">' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#9a3412;margin-bottom:6px;letter-spacing:0.5px;">🖨 Bondrucker (Epson Server Direct Print)</div>' +
+            '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Druck-URL</label>' +
+            '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
+                '<div style="' + fieldStyle + '" id="posPrintUrl">' + _escPos(printUrl) + '</div>' +
+                '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPrintUrl\').textContent)">Kopieren</button>' +
+            '</div>' +
+            '<details style="font-size:11px;color:var(--slate);">' +
+                '<summary style="cursor:pointer;font-weight:600;color:var(--text-primary);">Einrichtung am Epson-Drucker</summary>' +
+                '<ol style="margin:8px 0 0 16px;padding:0;line-height:1.6;">' +
+                    '<li>Im Browser <strong>http://&lt;Drucker-IP&gt;/</strong> öffnen (z.B. 192.168.1.50).</li>' +
+                    '<li>Menü <strong>„ePOS Server Direct Print"</strong> → aktivieren.</li>' +
+                    '<li>Server-URL: oben <strong>kopieren und einfügen</strong>.</li>' +
+                    '<li>Intervall: <strong>5-15 Sekunden</strong> (je kürzer = schneller, etwas mehr Strom).</li>' +
+                    '<li>Speichern. Bons drucken jetzt automatisch sobald Bestellungen reinkommen.</li>' +
+                '</ol>' +
+                '<p style="margin:8px 0 0;color:var(--slate);">Keinen PC und keine Browser-Software nötig. Funktioniert mit TM-m30II, TM-T88VI, TM-T20III u.a.</p>' +
+            '</details>' +
+        '</div>' +
+        '<button onclick="if(confirm(\'Neuen Schlüssel erzeugen? Der alte wird ungültig — du musst ihn dann in Kasse UND Drucker neu eintragen.\')) showPosPullInfo(true)" style="background:none;border:none;color:#b91c1c;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Schlüssel neu erzeugen (Kasse + Drucker)</button>';
 }
 async function showPosPullInfo(rotate) {
     var box = document.getElementById('posPullInfo');
