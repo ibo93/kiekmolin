@@ -86,7 +86,14 @@ exports.handler = async (event) => {
       return { statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
     }
     if (!res.ok) {
-      console.error('Claude-API-Fehler:', res.status, await res.text());
+      const fehlerText = await res.text();
+      console.error('Claude-API-Fehler:', res.status, fehlerText);
+      if (/credit balance/i.test(fehlerText)) {
+        return { statusCode: 402, body: JSON.stringify({ error: 'Kein Guthaben auf dem Anthropic-Konto – auf console.anthropic.com unter Billing aufladen' }) };
+      }
+      if (res.status === 401) {
+        return { statusCode: 502, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY ist ungültig – bei Netlify prüfen' }) };
+      }
       return { statusCode: 502, body: JSON.stringify({ error: 'KI-Analyse fehlgeschlagen' }) };
     }
 
