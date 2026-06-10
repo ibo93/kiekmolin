@@ -1,5 +1,6 @@
 // Einstiegspunkt: automatische Anmeldung, Navigation, Offline-Sync, Service Worker.
-import { sb, state, showView, toast, flushQueue, onViewShow } from './state.js';
+import { sb, state, showView, toast, flushQueue, onViewShow, cacheProfil, gecachtesProfil } from './state.js';
+import { APP_VERSION } from './config.js';
 import { initTheme, applyAccent } from './theme.js';
 import { initSpeech } from './speech.js';
 import { initOnboarding } from './onboarding.js';
@@ -65,7 +66,14 @@ document.getElementById('profile-edit').addEventListener('click', () => showView
 
 // ---------- Start: Session prüfen, Profil laden ----------
 async function loadProfile() {
-  const { data } = await sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle();
+  let { data } = await sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle();
+  if (data) {
+    cacheProfil(data); // für Offline-Starts merken
+  } else if (!navigator.onLine) {
+    // Offline-Start: zuletzt geladenes Profil verwenden, statt fälschlich
+    // im Onboarding zu landen
+    data = gecachtesProfil();
+  }
   state.profile = data;
   if (data?.akzentfarbe) applyAccent(data.akzentfarbe);
   return data;
@@ -126,8 +134,16 @@ initScan();
 initProgress();
 initWorkout();
 
-sb.auth.onAuthStateChange((_event, session) => {
+sb.auth.onAuthStateChange((event, session) => {
+  // INITIAL_SESSION behandeln wir unten selbst – sonst lädt das Profil
+  // bei jedem Start doppelt
+  if (event === 'INITIAL_SESSION') return;
   handleSession(session);
+});
+
+// Versionsnummer zentral eintragen (eine Quelle statt verstreuter Labels)
+document.querySelectorAll('[data-version]').forEach((el) => {
+  el.textContent = 'Version ' + APP_VERSION;
 });
 
 zeigeStartStatus('Wird gestartet …');

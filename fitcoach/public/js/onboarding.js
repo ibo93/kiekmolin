@@ -1,5 +1,5 @@
 // Onboarding: Daten erfassen, Ziele live berechnen, Profil speichern.
-import { sb, state, showView, toast, onViewShow, todayISO } from './state.js';
+import { sb, state, showView, toast, onViewShow, todayISO, cacheProfil } from './state.js';
 import { berechneZiele, schaetzeZeitfenster, zieldatum } from './calc.js';
 
 function leseFormular() {
@@ -105,6 +105,7 @@ export function initOnboarding() {
       return;
     }
     state.profile = row;
+    cacheProfil(row);
 
     // Startgewicht direkt in den Verlauf übernehmen
     await sb.from('weight_entries').upsert(

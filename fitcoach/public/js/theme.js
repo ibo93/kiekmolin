@@ -1,6 +1,6 @@
 // Theme-System: Akzentfarbe per CSS-Variable, live umschaltbar.
 // Auswahl landet in localStorage (sofort beim Start, auch offline)
-// und im Supabase-Profil (gleiches Theme auf jedem Gerät).
+// und zusätzlich im Supabase-Profil.
 import { sb, state, toast } from './state.js';
 
 export const ACCENTS = [

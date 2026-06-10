@@ -102,6 +102,15 @@ fitcoach/
         └── workout.js            # Trainingspläne + Logging
 ```
 
+## Anmeldung (Anonymous-Modus)
+
+Die App hat **keinen Login**: Beim ersten Start meldet sie sich automatisch
+anonym bei Supabase an (dazu in Supabase **Authentication → Sign In / Providers
+→ Anonymous sign-ins** einschalten). Die Identität hängt am Browser dieser
+Site – **Website-Daten löschen oder ein anderes Gerät bedeutet ein frisches
+Konto** ohne die bisherigen Einträge. Für Mehrgeräte-Sync müsste man später
+auf E-Mail-Login umstellen.
+
 ## Sicherheit
 
 - **RLS auf allen Tabellen** – jede Policy prüft `auth.uid() = user_id`.

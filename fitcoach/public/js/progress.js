@@ -1,9 +1,10 @@
 // Fortschritt: Gewichts-Chart (SVG), Wochen-Auswertung, privater Foto-Vergleich.
-import { sb, state, toast, todayISO, onViewShow } from './state.js';
+import { sb, state, toast, todayISO, onViewShow, cacheProfil } from './state.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 async function ladeAlles() {
+  if (!state.profile) return;
   if (!navigator.onLine) {
     toast('Fortschritt braucht eine Internetverbindung');
     return;
@@ -18,7 +19,7 @@ async function ladeGewicht() {
   const eintraege = data || [];
   // Leeres Diagramm ausblenden, damit keine große schwarze Lücke entsteht
   document.getElementById('weight-empty').hidden = eintraege.length > 0;
-  document.getElementById('weight-chart').style.display = eintraege.length ? '' : 'none';
+  document.getElementById('weight-chart').hidden = !eintraege.length;
   zeichneChart(eintraege);
 }
 
@@ -212,6 +213,7 @@ export function initProgress() {
     // aktuelles Gewicht auch im Profil nachziehen
     await sb.from('profiles').update({ gewicht_kg: gewicht }).eq('id', state.user.id);
     state.profile.gewicht_kg = gewicht;
+    cacheProfil(state.profile);
     document.getElementById('weight-modal').close();
     toast('Gewicht gespeichert ✓');
     ladeGewicht();

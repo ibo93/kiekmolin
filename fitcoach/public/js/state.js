@@ -17,6 +17,36 @@ export function todayISO(offsetDays = 0) {
   return d.toISOString().slice(0, 10);
 }
 
+export function verschiebeDatum(iso, tage) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + tage);
+  return d.toISOString().slice(0, 10);
+}
+
+// Fetch mit hartem Timeout – wirft verständliche Fehler statt ewig zu hängen.
+export async function fetchMitTimeout(url, options = {}, ms = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    throw new Error(e.name === 'AbortError'
+      ? 'Zeitüberschreitung – Server antwortet nicht'
+      : 'Keine Verbindung zum Server');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Profil lokal vorhalten, damit die App auch offline startklar ist.
+const PROFILE_KEY = 'fc_profile';
+export function cacheProfil(p) {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* voll/gesperrt */ }
+}
+export function gecachtesProfil() {
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch { return null; }
+}
+
 export function formatDate(iso) {
   const today = todayISO();
   if (iso === today) return 'Heute';

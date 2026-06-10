@@ -1,6 +1,6 @@
 // KI-Foto-Scan: Bild verkleinern, an die Netlify Function schicken,
 // Schätzung anzeigen, Portionsgröße anpassen, ins Protokoll speichern.
-import { sb, state, toast, showView, todayISO } from './state.js';
+import { sb, state, toast, showView, todayISO, fetchMitTimeout } from './state.js';
 import { refreshTracker } from './tracker.js';
 import { sprich } from './speech.js';
 
@@ -52,29 +52,15 @@ async function analysiere(file) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Nicht eingeloggt – bitte neu anmelden');
 
-    // Harter Timeout: bricht ab, falls der Server nicht antwortet,
-    // damit die Vorschau nicht ewig lädt.
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-
-    let res;
-    try {
-      res = await fetch('/api/analyze-food', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ image_base64: base64, media_type: 'image/jpeg' }),
-        signal: controller.signal,
-      });
-    } catch (e) {
-      throw new Error(e.name === 'AbortError'
-        ? 'Zeitüberschreitung – Server antwortet nicht'
-        : 'Keine Verbindung zum Server');
-    } finally {
-      clearTimeout(timeout);
-    }
+    // Harter Timeout, damit die Vorschau nicht ewig lädt
+    const res = await fetchMitTimeout('/api/analyze-food', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ image_base64: base64, media_type: 'image/jpeg' }),
+    });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

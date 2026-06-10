@@ -1,7 +1,10 @@
 // Service Worker: cached die App-Shell, damit der Tracker auch offline lädt.
 // Daten-Requests (Supabase, Netlify Functions) gehen immer ans Netz.
 
-const CACHE = 'fitcoach-v9';
+const CACHE = 'fitcoach-v10';
+
+// Externe Bibliothek separat: ihr Ausfall darf die Installation nicht stoppen
+const CDN_SUPABASE = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
 
 const SHELL = [
   '/',
@@ -21,12 +24,17 @@ const SHELL = [
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(async (cache) => {
+        await cache.addAll(SHELL);
+        // Best effort – CDN-Ausfall darf die Installation nicht scheitern lassen
+        try { await cache.add(CDN_SUPABASE); } catch { /* wird später nachgecacht */ }
+      })
+      .then(() => self.skipWaiting())
   );
 });
 

@@ -1,7 +1,7 @@
 // Kalorien-Tracker: Tagesübersicht, Ring, Makros, Mahlzeiten, Wasser.
 import {
-  sb, state, toast, escapeHtml, todayISO, formatDate,
-  onViewShow, queueInsert, getQueued,
+  sb, state, toast, escapeHtml, todayISO, formatDate, verschiebeDatum,
+  fetchMitTimeout, onViewShow, queueInsert, getQueued,
 } from './state.js';
 import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
 import { wochenBis, zielFortschritt } from './calc.js';
@@ -26,6 +26,7 @@ let favoriten = [];
 // ---------- Tagesdaten laden & rendern ----------
 
 export async function refreshTracker() {
+  if (!state.profile) return; // Ansicht ist ohne Profil nicht sinnvoll
   // Kopfzeile: "Mittwoch, 10. Juni" + Begrüßung (bzw. Datum beim Blättern)
   document.getElementById('tracker-date-long').textContent =
     new Date(state.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -137,7 +138,7 @@ function renderMahlzeiten(entries) {
           <div>${escapeHtml(e.name)} ${e._pending ? '<span class="pending-badge">ausstehend</span>' : ''}</div>
           <div class="entry-meta">
             ${e.menge_g ? Math.round(e.menge_g) + ' g · ' : ''}P ${Math.round(e.protein_g)} · C ${Math.round(e.carbs_g)} · F ${Math.round(e.fett_g)}
-            ${e.quelle === 'ki_scan' ? ' · KI-Scan' : ''}${e.quelle === 'ki_text' ? ' · KI' : ''}
+            ${e.quelle === 'ki_scan' ? ' · KI-Scan' : ''}
           </div>
         </div>
         <div class="row">
@@ -292,19 +293,16 @@ async function schaetzePerKI() {
 
   const btn = document.getElementById('food-ki');
   btn.disabled = true;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Nicht eingeloggt');
-    const res = await fetch('/api/analyze-text', {
+    const res = await fetchMitTimeout('/api/analyze-text', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ text }),
-      signal: controller.signal,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -322,9 +320,8 @@ async function schaetzePerKI() {
     toast('KI-Schätzung übernommen – prüfe die Werte');
     sprich(`${e.gericht}, geschätzt ${e.kalorien} Kilokalorien und ${e.protein_g} Gramm Protein.`);
   } catch (err) {
-    toast('KI-Schätzung fehlgeschlagen: ' + (err.name === 'AbortError' ? 'Zeitüberschreitung' : err.message));
+    toast('KI-Schätzung fehlgeschlagen: ' + err.message);
   } finally {
-    clearTimeout(timeout);
     btn.disabled = false;
   }
 }
@@ -336,16 +333,12 @@ export function initTracker() {
 
   // Datum blättern
   document.getElementById('date-prev').addEventListener('click', () => {
-    const d = new Date(state.date);
-    d.setDate(d.getDate() - 1);
-    state.date = d.toISOString().slice(0, 10);
+    state.date = verschiebeDatum(state.date, -1);
     refreshTracker();
   });
   document.getElementById('date-next').addEventListener('click', () => {
     if (state.date >= todayISO()) return;
-    const d = new Date(state.date);
-    d.setDate(d.getDate() + 1);
-    state.date = d.toISOString().slice(0, 10);
+    state.date = verschiebeDatum(state.date, 1);
     refreshTracker();
   });
 
