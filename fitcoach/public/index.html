@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0e14">
+  <meta name="description" content="FitCoach – dein persönlicher Coach für Abnehmen und Muskelaufbau. Kalorien tracken mit KI-Foto-Scan.">
+  <title>FitCoach</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+  <!-- ============ AUTH ============ -->
+  <section id="view-auth" class="view" hidden>
+    <div class="auth-wrap">
+      <div class="logo-ring">🏋️</div>
+      <h1 class="app-title">FitCoach</h1>
+      <p class="app-subtitle">Dein Coach für Abnehmen & Muskelaufbau</p>
+      <div class="glass card">
+        <div class="tabs">
+          <button id="tab-login" class="tab active">Anmelden</button>
+          <button id="tab-register" class="tab">Registrieren</button>
+        </div>
+        <form id="auth-form">
+          <label>E-Mail
+            <input type="email" id="auth-email" required autocomplete="email" placeholder="du@example.de">
+          </label>
+          <label>Passwort
+            <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" placeholder="••••••••">
+          </label>
+          <button type="submit" class="btn primary full" id="auth-submit">Anmelden</button>
+        </form>
+        <p id="auth-message" class="hint" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ONBOARDING ============ -->
+  <section id="view-onboarding" class="view" hidden>
+    <header class="page-head">
+      <h2>Dein Ziel-Setup</h2>
+      <p class="muted">Wir berechnen dein persönliches Kalorienziel</p>
+    </header>
+    <form id="onboarding-form" class="stack">
+      <div class="glass card stack">
+        <h3>Über dich</h3>
+        <div class="grid-2">
+          <label>Alter
+            <input type="number" id="ob-alter" min="10" max="120" required inputmode="numeric" placeholder="28">
+          </label>
+          <label>Geschlecht
+            <select id="ob-geschlecht" required>
+              <option value="m">Männlich</option>
+              <option value="w">Weiblich</option>
+            </select>
+          </label>
+          <label>Größe (cm)
+            <input type="number" id="ob-groesse" min="100" max="250" required inputmode="numeric" placeholder="180">
+          </label>
+          <label>Gewicht (kg)
+            <input type="number" id="ob-gewicht" min="30" max="350" step="0.1" required inputmode="decimal" placeholder="82">
+          </label>
+        </div>
+        <label>Aktivitätslevel
+          <select id="ob-aktivitaet" required>
+            <option value="1.2">Sitzend (Büro, kaum Bewegung)</option>
+            <option value="1.375">Leicht aktiv (1–3× Sport/Woche)</option>
+            <option value="1.55" selected>Mäßig aktiv (3–5× Sport/Woche)</option>
+            <option value="1.725">Sehr aktiv (6–7× Sport/Woche)</option>
+            <option value="1.9">Extrem aktiv (körperliche Arbeit + Sport)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="glass card stack">
+        <h3>Dein Ziel</h3>
+        <div class="goal-picker" id="ob-ziel">
+          <button type="button" class="goal-btn" data-ziel="abnehmen">
+            <span class="goal-icon">🔥</span><span>Abnehmen</span>
+            <small>−500 kcal/Tag</small>
+          </button>
+          <button type="button" class="goal-btn" data-ziel="muskelaufbau">
+            <span class="goal-icon">💪</span><span>Muskelaufbau</span>
+            <small>+300 kcal/Tag</small>
+          </button>
+          <button type="button" class="goal-btn" data-ziel="rekomposition">
+            <span class="goal-icon">⚖️</span><span>Rekomposition</span>
+            <small>Erhaltungskalorien</small>
+          </button>
+        </div>
+        <label>Zielgewicht (kg)
+          <input type="number" id="ob-zielgewicht" min="30" max="350" step="0.1" inputmode="decimal" placeholder="75">
+        </label>
+      </div>
+
+      <div class="glass card stack" id="ob-result" hidden>
+        <h3>Dein Plan</h3>
+        <div class="result-grid">
+          <div><span class="big" id="ob-res-kcal">–</span><small>kcal/Tag</small></div>
+          <div><span class="big" id="ob-res-protein">–</span><small>g Protein</small></div>
+          <div><span class="big" id="ob-res-carbs">–</span><small>g Carbs</small></div>
+          <div><span class="big" id="ob-res-fett">–</span><small>g Fett</small></div>
+        </div>
+        <p class="muted" id="ob-res-info"></p>
+      </div>
+
+      <button type="submit" class="btn primary full big-btn">Los geht's 🚀</button>
+    </form>
+  </section>
+
+  <!-- ============ DASHBOARD / TRACKER ============ -->
+  <section id="view-tracker" class="view" hidden>
+    <header class="page-head row">
+      <div>
+        <h2 id="tracker-date-label">Heute</h2>
+        <p class="muted" id="tracker-greeting">Bleib dran! 💪</p>
+      </div>
+      <div class="date-nav">
+        <button class="btn icon" id="date-prev" aria-label="Vorheriger Tag">‹</button>
+        <button class="btn icon" id="date-next" aria-label="Nächster Tag">›</button>
+      </div>
+    </header>
+
+    <div class="glass card center stack">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120" class="ring" id="kcal-ring" aria-label="Kalorien-Fortschritt">
+          <circle cx="60" cy="60" r="52" class="ring-bg"/>
+          <circle cx="60" cy="60" r="52" class="ring-fg" id="kcal-ring-fg"/>
+        </svg>
+        <div class="ring-center">
+          <span class="big" id="kcal-rest">–</span>
+          <small id="kcal-rest-label">kcal übrig</small>
+        </div>
+      </div>
+      <div class="kcal-row">
+        <div><small>Gegessen</small><strong id="kcal-eaten">0</strong></div>
+        <div><small>Ziel</small><strong id="kcal-goal">0</strong></div>
+        <div><small>Training</small><strong id="kcal-burned">0</strong></div>
+      </div>
+      <div class="macros">
+        <div class="macro">
+          <div class="macro-head"><span>Protein</span><span id="macro-p-label">0/0 g</span></div>
+          <div class="bar"><div class="bar-fill p" id="macro-p-bar"></div></div>
+        </div>
+        <div class="macro">
+          <div class="macro-head"><span>Carbs</span><span id="macro-c-label">0/0 g</span></div>
+          <div class="bar"><div class="bar-fill c" id="macro-c-bar"></div></div>
+        </div>
+        <div class="macro">
+          <div class="macro-head"><span>Fett</span><span id="macro-f-label">0/0 g</span></div>
+          <div class="bar"><div class="bar-fill f" id="macro-f-bar"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wasser -->
+    <div class="glass card">
+      <div class="row">
+        <div>
+          <h3>💧 Wasser</h3>
+          <p class="muted"><span id="water-current">0</span> / <span id="water-goal">2500</span> ml</p>
+        </div>
+        <div class="water-btns">
+          <button class="btn small" data-water="250">+250</button>
+          <button class="btn small" data-water="500">+500</button>
+        </div>
+      </div>
+      <div class="bar water-bar"><div class="bar-fill w" id="water-bar"></div></div>
+    </div>
+
+    <!-- Mahlzeiten -->
+    <div id="meals"></div>
+  </section>
+
+  <!-- ============ KI-SCAN ============ -->
+  <section id="view-scan" class="view" hidden>
+    <header class="page-head">
+      <h2>📸 KI-Foto-Scan</h2>
+      <p class="muted">Fotografiere dein Gericht – die KI schätzt Kalorien & Makros</p>
+    </header>
+
+    <div class="glass card stack" id="scan-start">
+      <label class="photo-drop" id="photo-drop">
+        <input type="file" id="scan-file" accept="image/*" capture="environment" hidden>
+        <span class="photo-drop-icon">📷</span>
+        <span>Foto aufnehmen oder hochladen</span>
+      </label>
+      <p class="hint center-text">Funktioniert nur online · max. 5 MB</p>
+    </div>
+
+    <div class="glass card stack" id="scan-loading" hidden>
+      <img id="scan-preview" class="scan-preview" alt="Vorschau des Gerichts">
+      <div class="loader"></div>
+      <p class="center-text">Claude analysiert dein Gericht …</p>
+    </div>
+
+    <div id="scan-result" hidden>
+      <div class="glass card stack">
+        <img id="scan-result-img" class="scan-preview" alt="Dein Gericht">
+        <h3 id="scan-gericht">–</h3>
+        <p class="muted" id="scan-zutaten"></p>
+        <p class="hint" id="scan-hinweis"></p>
+
+        <label>Portionsgröße anpassen: <strong id="scan-portion-label">0 g</strong>
+          <input type="range" id="scan-portion" min="25" max="300" value="100" step="5">
+        </label>
+
+        <div class="result-grid">
+          <div><span class="big" id="scan-kcal">0</span><small>kcal</small></div>
+          <div><span class="big" id="scan-protein">0</span><small>g Protein</small></div>
+          <div><span class="big" id="scan-carbs">0</span><small>g Carbs</small></div>
+          <div><span class="big" id="scan-fett">0</span><small>g Fett</small></div>
+        </div>
+
+        <label>Mahlzeit
+          <select id="scan-mahlzeit">
+            <option value="fruehstueck">Frühstück</option>
+            <option value="mittag">Mittag</option>
+            <option value="abend">Abend</option>
+            <option value="snack">Snack</option>
+          </select>
+        </label>
+
+        <button class="btn primary full" id="scan-save">Ins Tagesprotokoll speichern ✓</button>
+        <button class="btn ghost full" id="scan-retry">Neues Foto</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FORTSCHRITT ============ -->
+  <section id="view-progress" class="view" hidden>
+    <header class="page-head">
+      <h2>📈 Fortschritt</h2>
+      <p class="muted">Dranbleiben zahlt sich aus</p>
+    </header>
+
+    <div class="glass card stack">
+      <div class="row">
+        <h3>Gewichtsverlauf</h3>
+        <button class="btn small" id="weight-add">+ Wiegen</button>
+      </div>
+      <svg id="weight-chart" viewBox="0 0 320 160" class="chart" aria-label="Gewichtsverlauf"></svg>
+      <p class="muted center-text" id="weight-empty" hidden>Noch keine Einträge – wiege dich 1× pro Woche.</p>
+    </div>
+
+    <div class="glass card stack">
+      <h3>Wochen-Auswertung</h3>
+      <div class="result-grid">
+        <div><span class="big" id="week-avg-kcal">–</span><small>Ø kcal/Tag</small></div>
+        <div><span class="big" id="week-protein-days">–</span><small>Tage Protein-Ziel</small></div>
+        <div><span class="big" id="week-workouts">–</span><small>Workouts</small></div>
+        <div><span class="big" id="week-weight-diff">–</span><small>kg Δ Woche</small></div>
+      </div>
+      <p class="muted" id="week-summary"></p>
+    </div>
+
+    <div class="glass card stack">
+      <div class="row">
+        <h3>Foto-Vergleich</h3>
+        <label class="btn small" for="progress-photo-input">+ Foto</label>
+        <input type="file" id="progress-photo-input" accept="image/*" hidden>
+      </div>
+      <p class="hint">Privat gespeichert – nur du siehst deine Fotos.</p>
+      <div class="photo-grid" id="photo-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============ TRAINING ============ -->
+  <section id="view-workout" class="view" hidden>
+    <header class="page-head">
+      <h2>🏋️ Training</h2>
+      <p class="muted">Wähle einen Plan und leg los</p>
+    </header>
+    <div id="workout-templates" class="stack"></div>
+    <div id="workout-active" hidden></div>
+    <div class="glass card stack">
+      <h3>Letzte Workouts</h3>
+      <div id="workout-history"><p class="muted">Noch keine Workouts.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ PROFIL ============ -->
+  <section id="view-profile" class="view" hidden>
+    <header class="page-head">
+      <h2>⚙️ Profil</h2>
+    </header>
+    <div class="glass card stack">
+      <div class="result-grid">
+        <div><span class="big" id="profile-kcal">–</span><small>kcal-Ziel</small></div>
+        <div><span class="big" id="profile-tdee">–</span><small>TDEE</small></div>
+        <div><span class="big" id="profile-bmr">–</span><small>Grundumsatz</small></div>
+        <div><span class="big" id="profile-zielgewicht">–</span><small>Zielgewicht kg</small></div>
+      </div>
+      <button class="btn full" id="profile-edit">Ziele neu berechnen</button>
+      <button class="btn ghost full" id="logout">Abmelden</button>
+    </div>
+  </section>
+
+  <!-- ============ MANUELLER EINTRAG (Modal) ============ -->
+  <dialog id="food-modal" class="glass modal">
+    <form id="food-form" class="stack" method="dialog">
+      <h3 id="food-modal-title">Eintrag hinzufügen</h3>
+      <div class="tabs">
+        <button type="button" id="food-tab-manual" class="tab active">Manuell</button>
+        <button type="button" id="food-tab-favs" class="tab">Favoriten</button>
+        <button type="button" id="food-tab-recent" class="tab">Zuletzt</button>
+      </div>
+      <div id="food-manual" class="stack">
+        <label>Gericht
+          <input type="text" id="food-name" required placeholder="z. B. Haferflocken mit Banane">
+        </label>
+        <div class="grid-2">
+          <label>Kalorien (kcal)
+            <input type="number" id="food-kcal" min="0" max="5000" required inputmode="numeric">
+          </label>
+          <label>Menge (g)
+            <input type="number" id="food-menge" min="0" max="5000" inputmode="numeric">
+          </label>
+          <label>Protein (g)
+            <input type="number" id="food-protein" min="0" max="500" value="0" inputmode="numeric">
+          </label>
+          <label>Carbs (g)
+            <input type="number" id="food-carbs" min="0" max="500" value="0" inputmode="numeric">
+          </label>
+          <label>Fett (g)
+            <input type="number" id="food-fett" min="0" max="500" value="0" inputmode="numeric">
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="food-fav"> Als Favorit speichern
+          </label>
+        </div>
+      </div>
+      <div id="food-favs" class="stack" hidden></div>
+      <div id="food-recent" class="stack" hidden></div>
+      <div class="row gap">
+        <button type="button" class="btn ghost" id="food-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary" id="food-submit">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ WIEGEN (Modal) ============ -->
+  <dialog id="weight-modal" class="glass modal">
+    <form id="weight-form" class="stack" method="dialog">
+      <h3>Gewicht eintragen</h3>
+      <label>Gewicht (kg)
+        <input type="number" id="weight-input" min="30" max="350" step="0.1" required inputmode="decimal">
+      </label>
+      <div class="row gap">
+        <button type="button" class="btn ghost" id="weight-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ NAVIGATION ============ -->
+  <nav id="bottom-nav" hidden>
+    <button data-view="tracker" class="nav-btn active"><span>🏠</span><small>Heute</small></button>
+    <button data-view="progress" class="nav-btn"><span>📈</span><small>Fortschritt</small></button>
+    <button data-view="scan" class="nav-btn nav-scan"><span>📸</span></button>
+    <button data-view="workout" class="nav-btn"><span>🏋️</span><small>Training</small></button>
+    <button data-view="profile" class="nav-btn"><span>⚙️</span><small>Profil</small></button>
+  </nav>
+
+  <div id="toast" hidden></div>
+  <div id="offline-banner" hidden>📡 Offline – Einträge werden synchronisiert, sobald du online bist</div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
