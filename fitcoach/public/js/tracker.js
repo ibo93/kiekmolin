@@ -261,6 +261,13 @@ async function übernehmeVorlage(ref) {
 
 async function starteDiktat() {
   const micBtn = document.getElementById('food-mic');
+  // Falls der Browser keine eigene Spracherkennung hat (häufig iPhone/Safari):
+  // Eingabefeld fokussieren, damit der Nutzer das Tastatur-Mikrofon nutzt.
+  if (!sprachEingabeVerfuegbar) {
+    document.getElementById('food-name').focus();
+    toast('Tippe ins Feld und nutze das Mikrofon-Symbol auf deiner Tastatur zum Diktieren');
+    return;
+  }
   try {
     const text = await hoereZu({
       onStart: () => micBtn.classList.add('listening'),
@@ -367,10 +374,10 @@ export function initTracker() {
   // Großer „+ Essen eintragen"-Button (Mahlzeit nach Uhrzeit vorgewählt)
   document.getElementById('add-food-quick').addEventListener('click', () => öffneFoodModal());
 
-  // Spracheingabe + KI-Schätzung
-  const micBtn = document.getElementById('food-mic');
-  micBtn.hidden = !sprachEingabeVerfuegbar;
-  micBtn.addEventListener('click', starteDiktat);
+  // Spracheingabe + KI-Schätzung – Mikro-Button immer sichtbar
+  // (auf iPhone/Safari springt er aufs Tastatur-Mikrofon, siehe starteDiktat)
+  document.getElementById('food-mic').hidden = false;
+  document.getElementById('food-mic').addEventListener('click', starteDiktat);
   document.getElementById('food-ki').addEventListener('click', schaetzePerKI);
 
   // Modal-Tabs
