@@ -86,6 +86,9 @@ export function initOnboarding() {
       aktivitaetslevel: f.aktivitaet,
       ziel: f.ziel,
       zielgewicht_kg: f.zielgewicht,
+      // Startgewicht nur beim ersten Setup festhalten (Basis für Fortschritt),
+      // bei späterer Neuberechnung nicht überschreiben.
+      startgewicht_kg: state.profile?.startgewicht_kg ?? f.gewicht,
       zieldatum: zeit ? zieldatum(zeit.wochen) : null,
       grundumsatz: z.grundumsatz,
       tdee: z.tdee,

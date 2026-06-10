@@ -1,5 +1,6 @@
 // Einstiegspunkt: Auth, Navigation, Offline-Sync, Service Worker.
 import { sb, state, showView, toast, flushQueue, onViewShow } from './state.js';
+import { SINGLE_USER, AUTO_LOGIN } from './config.js';
 import { initTheme, applyAccent } from './theme.js';
 import { initSpeech } from './speech.js';
 import { initOnboarding } from './onboarding.js';
@@ -110,6 +111,11 @@ async function handleSession(session) {
   if (!session) {
     state.user = null;
     state.profile = null;
+    // Single-User-Modus: nicht den Login zeigen, sondern automatisch anmelden
+    if (SINGLE_USER) {
+      await autoLogin();
+      return;
+    }
     showView('auth');
     return;
   }
@@ -120,6 +126,54 @@ async function handleSession(session) {
   } else {
     showView('tracker');
   }
+}
+
+// Meldet sich im Single-User-Modus automatisch an. Existiert das Konto
+// noch nicht, wird es einmalig angelegt. Läuft nur online.
+let autoLoginLaeuft = false;
+async function autoLogin() {
+  if (autoLoginLaeuft) return;
+  autoLoginLaeuft = true;
+  try {
+    if (!navigator.onLine) {
+      showView('auth');
+      document.getElementById('auth-message').textContent =
+        'Beim ersten Mal brauchst du eine Internetverbindung.';
+      document.getElementById('auth-message').hidden = false;
+      return;
+    }
+    let { error } = await sb.auth.signInWithPassword(AUTO_LOGIN);
+    if (error) {
+      // Konto existiert noch nicht → anlegen, dann einloggen
+      const { error: signUpErr } = await sb.auth.signUp(AUTO_LOGIN);
+      if (signUpErr && !/already registered/i.test(signUpErr.message)) {
+        zeigeAutoLoginFehler(signUpErr.message);
+        return;
+      }
+      ({ error } = await sb.auth.signInWithPassword(AUTO_LOGIN));
+      if (error) { zeigeAutoLoginFehler(error.message); return; }
+    }
+    // Erfolg → onAuthStateChange übernimmt das Weiterleiten
+  } finally {
+    autoLoginLaeuft = false;
+  }
+}
+
+function zeigeAutoLoginFehler(msg) {
+  showView('auth');
+  const el = document.getElementById('auth-message');
+  el.hidden = false;
+  if (/email not confirmed/i.test(msg)) {
+    el.textContent = 'Schalte in Supabase „Confirm email" aus (Authentication → Providers → Email), dann neu laden.';
+  } else {
+    el.textContent = 'Automatische Anmeldung fehlgeschlagen: ' + msg;
+  }
+}
+
+// Im Single-User-Modus den Abmelden-Button ausblenden (nicht nötig)
+if (SINGLE_USER) {
+  const lo = document.getElementById('logout');
+  if (lo) lo.hidden = true;
 }
 
 // Module initialisieren (Event-Handler einmalig verdrahten)

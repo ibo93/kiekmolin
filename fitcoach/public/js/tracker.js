@@ -4,6 +4,13 @@ import {
   onViewShow, queueInsert, getQueued,
 } from './state.js';
 import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
+import { wochenBis, zielFortschritt } from './calc.js';
+
+const ZIEL_LABEL = {
+  abnehmen: 'Abnehmen',
+  muskelaufbau: 'Muskelaufbau',
+  rekomposition: 'Rekomposition',
+};
 
 const MAHLZEITEN = [
   { key: 'fruehstueck', label: 'Frühstück', icon: 'i-sunrise' },
@@ -44,6 +51,39 @@ export async function refreshTracker() {
   renderZusammenfassung(entries);
   renderWasser(wasser);
   renderMahlzeiten(entries);
+  renderZiel();
+}
+
+// Ziel-Karte mit Zeitfenster: Wochen bis Ziel + Fortschrittsbalken.
+function renderZiel() {
+  const p = state.profile;
+  const card = document.getElementById('goal-card');
+  if (!p.zielgewicht_kg || !p.zieldatum || p.ziel === 'rekomposition') {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const wochen = wochenBis(p.zieldatum);
+  const aktuell = Number(p.gewicht_kg);
+  const start = p.startgewicht_kg != null ? Number(p.startgewicht_kg) : aktuell;
+  const ziel = Number(p.zielgewicht_kg);
+  const offen = Math.abs(ziel - aktuell).toFixed(1);
+
+  document.getElementById('goal-label').textContent =
+    `${ZIEL_LABEL[p.ziel]} · Ziel ${ziel} kg`;
+  document.getElementById('goal-title').textContent =
+    wochen === 0 ? 'Endspurt!' : `Noch ${offen} kg`;
+  document.getElementById('goal-weeks').textContent = wochen;
+
+  const fortschritt = zielFortschritt({ start, aktuell, ziel });
+  document.getElementById('goal-bar').style.width =
+    (fortschritt != null ? Math.round(fortschritt * 100) : 0) + '%';
+
+  const geschafft = Math.abs(aktuell - start).toFixed(1);
+  document.getElementById('goal-sub').textContent = fortschritt != null
+    ? `${geschafft} kg geschafft · ${start} → ${ziel} kg · Zieldatum ${formatDate(p.zieldatum)}`
+    : `Zieldatum ${formatDate(p.zieldatum)}`;
 }
 
 function renderZusammenfassung(entries) {

@@ -56,3 +56,18 @@ export function zieldatum(wochen) {
   d.setDate(d.getDate() + wochen * 7);
   return d.toISOString().slice(0, 10);
 }
+
+// Verbleibende Wochen bis zum Zieldatum (nie negativ).
+export function wochenBis(isoDatum) {
+  if (!isoDatum) return null;
+  const tage = (new Date(isoDatum) - new Date()) / 86400000;
+  return Math.max(0, Math.ceil(tage / 7));
+}
+
+// Fortschritt 0..1 vom Start- zum Zielgewicht, anhand des aktuellen Gewichts.
+export function zielFortschritt({ start, aktuell, ziel }) {
+  if (start == null || ziel == null || start === ziel) return null;
+  const gesamt = ziel - start;          // negativ beim Abnehmen
+  const geschafft = aktuell - start;
+  return Math.max(0, Math.min(1, geschafft / gesamt));
+}

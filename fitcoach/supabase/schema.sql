@@ -17,6 +17,7 @@ create table if not exists public.profiles (
   aktivitaetslevel numeric not null check (aktivitaetslevel between 1.2 and 1.9),
   ziel            text    not null check (ziel in ('abnehmen', 'muskelaufbau', 'rekomposition')),
   zielgewicht_kg  numeric check (zielgewicht_kg between 30 and 350),
+  startgewicht_kg numeric check (startgewicht_kg between 30 and 350),
   zieldatum       date,
   -- Berechnete Werte (Mifflin-St-Jeor → TDEE → Ziel)
   grundumsatz     int not null,
@@ -35,6 +36,8 @@ create table if not exists public.profiles (
 -- Für bestehende Installationen (create table if not exists ändert nichts):
 alter table public.profiles
   add column if not exists akzentfarbe text not null default '#C8FF00';
+alter table public.profiles
+  add column if not exists startgewicht_kg numeric;
 
 alter table public.profiles enable row level security;
 
