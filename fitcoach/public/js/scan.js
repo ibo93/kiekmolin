@@ -2,6 +2,7 @@
 // Schätzung anzeigen, Portionsgröße anpassen, ins Protokoll speichern.
 import { sb, state, toast, showView, todayISO } from './state.js';
 import { refreshTracker } from './tracker.js';
+import { sprich } from './speech.js';
 
 let basis = null;        // KI-Schätzung bei 100 % Portion
 let fotoBlob = null;     // komprimiertes Foto für den Storage-Upload
@@ -12,11 +13,11 @@ function zeigeSchritt(schritt) {
   document.getElementById('scan-result').hidden = schritt !== 'result';
 }
 
-// Bild auf max. 1280 px verkleinern und als JPEG komprimieren –
-// spart Upload-Zeit und API-Kosten.
+// Bild auf max. 1024 px verkleinern und als JPEG komprimieren –
+// schnellerer Upload, schnellere Analyse, für die Erkennung mehr als genug.
 async function komprimiereBild(file) {
   const bitmap = await createImageBitmap(file);
-  const maxKante = 1280;
+  const maxKante = 1024;
   const faktor = Math.min(1, maxKante / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * faktor);
@@ -66,7 +67,7 @@ async function analysiere(file) {
 
     const ergebnis = await res.json();
     if (!ergebnis.erkannt) {
-      toast('Kein Essen erkannt – probiere ein anderes Foto 🤔');
+      toast('Kein Essen erkannt – probiere ein anderes Foto');
       zeigeSchritt('start');
       return;
     }
@@ -80,12 +81,19 @@ async function analysiere(file) {
 
 function zeigeErgebnis() {
   document.getElementById('scan-gericht').textContent = basis.gericht;
-  document.getElementById('scan-zutaten').textContent = (basis.zutaten || []).join(' · ');
+  // Zutaten kommen als Objekte mit Einzelschätzung: "Reis (180 g) · Hähnchen (150 g)"
+  document.getElementById('scan-zutaten').textContent = (basis.zutaten || [])
+    .map((z) => (z && typeof z === 'object') ? `${z.name} (${z.menge_g} g)` : String(z))
+    .join(' · ');
   document.getElementById('scan-hinweis').textContent =
     `${basis.hinweis || ''} (Sicherheit: ${basis.sicherheit})`.trim();
   document.getElementById('scan-portion').value = 100;
   aktualisiereWerte();
   zeigeSchritt('result');
+  sprich(
+    `Erkannt: ${basis.gericht}. Geschätzt ${basis.kalorien} Kilokalorien, ` +
+    `${basis.protein_g} Gramm Protein. Du kannst die Portionsgröße noch anpassen.`
+  );
 }
 
 // Portionsgrößen-Slider skaliert alle Werte linear (100 % = KI-Schätzung)

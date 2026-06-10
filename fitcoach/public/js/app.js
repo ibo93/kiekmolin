@@ -1,6 +1,7 @@
 // Einstiegspunkt: Auth, Navigation, Offline-Sync, Service Worker.
 import { sb, state, showView, toast, flushQueue, onViewShow } from './state.js';
 import { initTheme, applyAccent } from './theme.js';
+import { initSpeech } from './speech.js';
 import { initOnboarding } from './onboarding.js';
 import { initTracker, refreshTracker } from './tracker.js';
 import { initScan } from './scan.js';
@@ -123,6 +124,7 @@ async function handleSession(session) {
 
 // Module initialisieren (Event-Handler einmalig verdrahten)
 initTheme();
+initSpeech();
 initOnboarding();
 initTracker();
 initScan();

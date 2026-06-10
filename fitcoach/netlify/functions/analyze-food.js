@@ -5,6 +5,12 @@
 
 const Anthropic = require('@anthropic-ai/sdk');
 
+// Client auf Modul-Ebene: wird bei warmen Function-Aufrufen wiederverwendet
+const client = new Anthropic();
+
+// Das Schema zwingt die KI, das Gericht in Zutaten mit Einzelwerten zu
+// zerlegen – komponentenweises Schätzen ist deutlich genauer als eine
+// Gesamtzahl aus dem Bauch.
 const FOOD_SCHEMA = {
   type: 'object',
   properties: {
@@ -13,19 +19,31 @@ const FOOD_SCHEMA = {
       description: 'true wenn auf dem Foto Essen erkennbar ist',
     },
     gericht: { type: 'string', description: 'Name des Gerichts auf Deutsch' },
-    portionsgroesse_g: {
-      type: 'integer',
-      description: 'Geschätzte Portionsgröße in Gramm',
-    },
-    kalorien: { type: 'integer', description: 'Kalorien der ganzen Portion (kcal)' },
-    protein_g: { type: 'integer', description: 'Protein in Gramm' },
-    carbs_g: { type: 'integer', description: 'Kohlenhydrate in Gramm' },
-    fett_g: { type: 'integer', description: 'Fett in Gramm' },
     zutaten: {
       type: 'array',
-      items: { type: 'string' },
-      description: 'Erkennbare Hauptzutaten auf Deutsch',
+      description: 'Alle erkennbaren Komponenten mit Einzelschätzung',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Zutat/Komponente auf Deutsch' },
+          menge_g: { type: 'integer', description: 'Geschätzte Menge in Gramm' },
+          kalorien: { type: 'integer', description: 'Kalorien dieser Komponente' },
+        },
+        required: ['name', 'menge_g', 'kalorien'],
+        additionalProperties: false,
+      },
     },
+    portionsgroesse_g: {
+      type: 'integer',
+      description: 'Gesamtgewicht der Portion in Gramm (Summe der Zutaten)',
+    },
+    kalorien: {
+      type: 'integer',
+      description: 'Gesamtkalorien (muss zur Summe der Zutaten passen)',
+    },
+    protein_g: { type: 'integer', description: 'Protein gesamt in Gramm' },
+    carbs_g: { type: 'integer', description: 'Kohlenhydrate gesamt in Gramm' },
+    fett_g: { type: 'integer', description: 'Fett gesamt in Gramm' },
     sicherheit: {
       type: 'string',
       enum: ['hoch', 'mittel', 'niedrig'],
@@ -33,18 +51,28 @@ const FOOD_SCHEMA = {
     },
     hinweis: {
       type: 'string',
-      description: 'Kurzer Hinweis zur Schätzung, z. B. unsichtbare Zutaten wie Öl',
+      description: 'Kurzer Hinweis, z. B. zu unsichtbaren Zutaten oder Unsicherheiten',
     },
   },
   required: [
-    'erkannt', 'gericht', 'portionsgroesse_g', 'kalorien',
-    'protein_g', 'carbs_g', 'fett_g', 'zutaten', 'sicherheit', 'hinweis',
+    'erkannt', 'gericht', 'zutaten', 'portionsgroesse_g', 'kalorien',
+    'protein_g', 'carbs_g', 'fett_g', 'sicherheit', 'hinweis',
   ],
   additionalProperties: false,
 };
 
-// Prüft das Supabase-JWT gegen die Auth-API, damit nur eingeloggte
-// Nutzer den (kostenpflichtigen) Claude-Call auslösen können.
+const SYSTEM_PROMPT = `Du bist ein erfahrener Ernährungsexperte und analysierst Fotos von Gerichten so präzise wie möglich.
+
+Vorgehen:
+1. Nutze Referenzobjekte im Bild für die Größenschätzung: Standardteller ≈ 26 cm, Gabel ≈ 19 cm, Glas ≈ 200–300 ml, Hand, Dose (330 ml).
+2. Zerlege das Gericht in seine Komponenten und schätze jede einzeln (Gramm + Kalorien) – die Gesamtwerte müssen zur Summe passen.
+3. Rechne unsichtbare Zutaten realistisch ein: Bratöl/Butter (typisch 10–15 g pro gebratener Komponente), Zucker und Fett in Soßen/Dressings, Marinade.
+4. Du kennst dich mit deutscher, türkischer, italienischer und internationaler Küche aus (Döner, Currywurst, Pasta, Bowls, Fast Food, Markenprodukte). Erkenne Marken/Ketten wenn sichtbar und nutze deren typische Nährwerte.
+5. Bei Auflauf/Eintopf/verdeckten Schichten: kalkuliere die nicht sichtbaren Anteile mit ein und setze sicherheit auf "mittel" oder "niedrig".
+6. Schätze lieber die ganze sichtbare Portion (so wie serviert), nicht eine Norm-Portion.
+
+Antworte auf Deutsch. Wenn kein Essen erkennbar ist: erkannt=false, alle Werte 0, leeres zutaten-Array.`;
+
 async function verifyUser(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
@@ -84,17 +112,11 @@ exports.handler = async (event) => {
     return { statusCode: 413, body: JSON.stringify({ error: 'Bild zu groß – bitte verkleinern' }) };
   }
 
-  const client = new Anthropic();
-
   try {
     const response = await client.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 2048,
-      system:
-        'Du bist ein Ernährungsexperte. Analysiere Fotos von Gerichten und schätze ' +
-        'Portionsgröße, Kalorien und Makronährstoffe realistisch. Berücksichtige ' +
-        'unsichtbare Zutaten (Öl, Butter, Zucker in Soßen). Antworte auf Deutsch. ' +
-        'Wenn kein Essen erkennbar ist, setze erkannt=false und alle Werte auf 0.',
+      max_tokens: 1500,
+      system: SYSTEM_PROMPT,
       messages: [
         {
           role: 'user',
@@ -105,7 +127,7 @@ exports.handler = async (event) => {
             },
             {
               type: 'text',
-              text: 'Analysiere dieses Gericht: erkenne es, schätze die Portionsgröße in Gramm sowie Kalorien, Protein, Kohlenhydrate und Fett der ganzen Portion.',
+              text: 'Analysiere dieses Gericht komponentenweise und gib die Gesamt-Nährwerte der ganzen sichtbaren Portion zurück.',
             },
           ],
         },

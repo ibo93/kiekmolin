@@ -140,7 +140,7 @@ async function ladeWoche() {
       ? `Stark! Du liegst im Schnitt ${ziel - avgKcal} kcal unter deinem Ziel. `
       : `Du liegst im Schnitt ${avgKcal - ziel} kcal über deinem Ziel – bleib dran. `;
     fazit += proteinTage >= 5
-      ? 'Protein-Ziel meistens erreicht 💪'
+      ? 'Protein-Ziel meistens erreicht.'
       : `Protein-Ziel an ${proteinTage} von 7 Tagen erreicht – da geht mehr.`;
   } else {
     fazit = 'Tracke deine Mahlzeiten, um eine Auswertung zu sehen.';

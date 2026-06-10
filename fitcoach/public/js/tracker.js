@@ -3,12 +3,13 @@ import {
   sb, state, toast, escapeHtml, todayISO, formatDate,
   onViewShow, queueInsert, getQueued,
 } from './state.js';
+import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
 
 const MAHLZEITEN = [
-  { key: 'fruehstueck', label: '🌅 Frühstück' },
-  { key: 'mittag', label: '🍝 Mittag' },
-  { key: 'abend', label: '🌙 Abend' },
-  { key: 'snack', label: '🍎 Snacks' },
+  { key: 'fruehstueck', label: 'Frühstück', icon: 'i-sunrise' },
+  { key: 'mittag', label: 'Mittag', icon: 'i-sun' },
+  { key: 'abend', label: 'Abend', icon: 'i-moon' },
+  { key: 'snack', label: 'Snacks', icon: 'i-cookie' },
 ];
 
 const RING_UMFANG = 2 * Math.PI * 52; // r=52 aus dem SVG
@@ -84,27 +85,27 @@ function renderWasser(ml) {
 
 function renderMahlzeiten(entries) {
   const container = document.getElementById('meals');
-  container.innerHTML = MAHLZEITEN.map(({ key, label }) => {
+  container.innerHTML = MAHLZEITEN.map(({ key, label, icon }) => {
     const list = entries.filter((e) => e.mahlzeit === key);
     const kcal = Math.round(list.reduce((s, e) => s + Number(e.kalorien), 0));
     const items = list.map((e) => `
       <div class="meal-entry">
         <div>
-          <div>${escapeHtml(e.name)} ${e._pending ? '<span class="pending-badge">⏳ ausstehend</span>' : ''}</div>
+          <div>${escapeHtml(e.name)} ${e._pending ? '<span class="pending-badge">ausstehend</span>' : ''}</div>
           <div class="entry-meta">
             ${e.menge_g ? Math.round(e.menge_g) + ' g · ' : ''}P ${Math.round(e.protein_g)} · C ${Math.round(e.carbs_g)} · F ${Math.round(e.fett_g)}
-            ${e.quelle === 'ki_scan' ? ' · 📸' : ''}
+            ${e.quelle === 'ki_scan' ? ' · KI-Scan' : ''}${e.quelle === 'ki_text' ? ' · KI' : ''}
           </div>
         </div>
         <div class="row">
           <strong>${Math.round(e.kalorien)}</strong>
-          ${e.id ? `<button class="entry-del" data-id="${e.id}" aria-label="Löschen">✕</button>` : ''}
+          ${e.id ? `<button class="entry-del" data-id="${e.id}" aria-label="Löschen"><svg class="icon sm"><use href="#i-x"/></svg></button>` : ''}
         </div>
       </div>`).join('');
     return `
       <div class="glass card meal-card">
         <div class="meal-head">
-          <div><h3>${label}</h3><small>${kcal} kcal</small></div>
+          <div><h3><svg class="icon"><use href="#${icon}"/></svg> ${label}</h3><small>${kcal} kcal</small></div>
           <button class="btn small" data-add-meal="${key}">+ Hinzufügen</button>
         </div>
         ${items ? `<div class="meal-entries">${items}</div>` : ''}
@@ -203,6 +204,62 @@ async function übernehmeVorlage(ref) {
   }
 }
 
+// ---------- Spracheingabe + KI-Schätzung im Modal ----------
+
+async function starteDiktat() {
+  const micBtn = document.getElementById('food-mic');
+  try {
+    const text = await hoereZu({
+      onStart: () => micBtn.classList.add('listening'),
+      onEnd: () => micBtn.classList.remove('listening'),
+    });
+    document.getElementById('food-name').value = text;
+    schaetzePerKI(); // direkt schätzen – eine Handbewegung weniger
+  } catch (err) {
+    micBtn.classList.remove('listening');
+    toast(err.message);
+  }
+}
+
+async function schaetzePerKI() {
+  const text = document.getElementById('food-name').value.trim();
+  if (!text) { toast('Beschreibe zuerst das Gericht'); return; }
+  if (!navigator.onLine) { toast('KI-Schätzung braucht Internet'); return; }
+
+  const btn = document.getElementById('food-ki');
+  btn.disabled = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch('/api/analyze-text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Fehler ${res.status}`);
+    }
+    const e = await res.json();
+    if (!e.erkannt) { toast('Das klingt nicht nach Essen – beschreibe es genauer'); return; }
+
+    document.getElementById('food-name').value = e.gericht;
+    document.getElementById('food-menge').value = e.portionsgroesse_g;
+    document.getElementById('food-kcal').value = e.kalorien;
+    document.getElementById('food-protein').value = e.protein_g;
+    document.getElementById('food-carbs').value = e.carbs_g;
+    document.getElementById('food-fett').value = e.fett_g;
+    toast('KI-Schätzung übernommen – prüfe die Werte');
+    sprich(`${e.gericht}, geschätzt ${e.kalorien} Kilokalorien und ${e.protein_g} Gramm Protein.`);
+  } catch (err) {
+    toast('KI-Schätzung fehlgeschlagen: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ---------- Initialisierung ----------
 
 export function initTracker() {
@@ -248,6 +305,12 @@ export function initTracker() {
       refreshTracker();
     }
   });
+
+  // Spracheingabe + KI-Schätzung
+  const micBtn = document.getElementById('food-mic');
+  micBtn.hidden = !sprachEingabeVerfuegbar;
+  micBtn.addEventListener('click', starteDiktat);
+  document.getElementById('food-ki').addEventListener('click', schaetzePerKI);
 
   // Modal-Tabs
   document.getElementById('food-tab-manual').addEventListener('click', () => zeigeFoodTab('manual'));

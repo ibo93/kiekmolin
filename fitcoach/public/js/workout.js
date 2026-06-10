@@ -99,7 +99,7 @@ function renderAktiv() {
   wrap.innerHTML = `
     <div class="glass card stack">
       <div class="row">
-        <h3>🔥 ${escapeHtml(aktivesWorkout.plan_name)}</h3>
+        <h3><svg class="icon"><use href="#i-flame"/></svg> ${escapeHtml(aktivesWorkout.plan_name)}</h3>
         <button class="btn small ghost" id="workout-abort">Abbrechen</button>
       </div>
       ${uebungen.map((u) => `
@@ -131,7 +131,7 @@ async function beendeWorkout(abgebrochen) {
     await sb.from('workouts').delete().eq('id', aktivesWorkout.id); // löscht Sätze per Cascade
   } else {
     await sb.from('workouts').update({ abgeschlossen: true }).eq('id', aktivesWorkout.id);
-    toast('Workout abgeschlossen – stark! 💪');
+    toast('Workout abgeschlossen – stark!');
   }
   aktivesWorkout = null;
   document.getElementById('workout-active').hidden = true;

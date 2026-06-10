@@ -21,6 +21,21 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ---------- Icons (Stroke-SVG, erben currentColor) ---------- */
+.icon {
+  width: 20px; height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.22em;
+  flex-shrink: 0;
+}
+.icon.sm { width: 16px; height: 16px; }
+.icon.xl { width: 34px; height: 34px; }
+h3 .icon { width: 18px; height: 18px; margin-right: 2px; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -153,7 +168,7 @@ select option { background: var(--surface-2); }
   cursor: pointer; font-size: 0.82rem; font-weight: 600;
 }
 .goal-btn small { color: var(--text-muted); font-weight: 400; font-size: 0.7rem; }
-.goal-btn .goal-icon { font-size: 1.5rem; }
+.goal-btn .goal-icon { width: 24px; height: 24px; margin-bottom: 2px; }
 .goal-btn.active {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
@@ -224,7 +239,7 @@ select option { background: var(--surface-2); }
   padding: 44px 16px;
   cursor: pointer; color: var(--text-muted); font-weight: 600;
 }
-.photo-drop-icon { font-size: 2.6rem; }
+.photo-drop .icon.xl { width: 44px; height: 44px; stroke-width: 1.5; }
 .scan-preview { width: 100%; border-radius: 14px; max-height: 260px; object-fit: cover; }
 .loader {
   width: 38px; height: 38px; margin: 0 auto;
@@ -348,10 +363,12 @@ select option { background: var(--surface-2); }
 }
 .nav-btn {
   background: none; border: none; color: var(--text-muted);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 1.25rem; cursor: pointer; padding: 6px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 6px 10px;
   -webkit-tap-highlight-color: transparent;
 }
+.nav-btn .icon { width: 22px; height: 22px; vertical-align: 0; }
+.nav-scan .icon { width: 26px; height: 26px; }
 .nav-btn small { font-size: 0.62rem; font-weight: 600; }
 .nav-btn.active { color: var(--text); }
 .nav-scan {
@@ -361,9 +378,32 @@ select option { background: var(--surface-2); }
   width: 54px; height: 54px;
   border-radius: 50%;
   justify-content: center;
-  font-size: 1.5rem;
   margin-top: -22px;
   box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ---------- Spracheingabe ---------- */
+.input-row { display: flex; gap: 8px; align-items: stretch; }
+.input-row input { flex: 1; }
+.mic-btn {
+  width: 48px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mic-btn.listening {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px transparent; }
 }
 
 /* ---------- Toast & Offline ---------- */

@@ -109,7 +109,7 @@ export function initOnboarding() {
       { onConflict: 'user_id,datum' }
     );
 
-    toast('Dein Plan steht! 💪');
+    toast('Dein Plan steht!');
     showView('tracker');
   });
 }

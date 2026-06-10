@@ -15,7 +15,8 @@ per **KI-Foto-Scan** (Claude Vision) erfassen, Fortschritt sichtbar machen.
 | Bereich | Funktionen |
 |---|---|
 | **Onboarding** | Alter, Größe, Gewicht, Geschlecht, Aktivitätslevel · Ziel (Abnehmen / Muskelaufbau / Rekomposition) · Mifflin-St-Jeor-Grundumsatz, TDEE, Kalorienziel + Makros · Zielgewicht mit realistischem Zeitfenster |
-| **KI-Foto-Scan** | Foto aufnehmen/hochladen → Claude erkennt Gericht + Zutaten, schätzt Portion, Kalorien & Makros → Portionsgröße per Slider korrigieren → direkt ins Tagesprotokoll |
+| **KI-Foto-Scan** | Foto aufnehmen/hochladen → Claude erkennt Gericht + Zutaten (komponentenweise Schätzung mit Referenzgrößen) → Portionsgröße per Slider korrigieren → direkt ins Tagesprotokoll |
+| **KI-Voice** | Gericht per Sprache diktieren (Web Speech API, de-DE) → Claude schätzt Kalorien & Makros aus der Beschreibung. Optional liest die Coach-Stimme (ElevenLabs) Scan-Ergebnisse vor |
 | **Tracker** | Kalorien-Ring, Makro-Balken, 4 Mahlzeiten, manuelle Eingabe, Favoriten, „zuletzt gegessen“, Wasser-Tracker, Offline-Queue |
 | **Fortschritt** | Gewichts-Chart mit Ziellinie, Wochen-Auswertung (Ø kcal, Protein-Tage, Workouts, kg-Trend), privater Vorher/Nachher-Foto-Vergleich |
 | **Training** | Vorlagen (Push/Pull/Beine, 2× Ganzkörper), Gewichte/Wiederholungen loggen mit Vorbelegung vom letzten Mal, Sätze abhaken |
@@ -58,6 +59,8 @@ export const SUPABASE_ANON_KEY = 'eyJ...';
 | `ANTHROPIC_API_KEY` | `sk-ant-…` (von [console.anthropic.com](https://console.anthropic.com)) | Claude-Vision-Call – bleibt serverseitig, landet nie im Frontend |
 | `SUPABASE_URL` | wie in config.js | Token-Verifizierung in der Function |
 | `SUPABASE_ANON_KEY` | wie in config.js | Token-Verifizierung in der Function |
+| `ELEVENLABS_API_KEY` | optional (von [elevenlabs.io](https://elevenlabs.io)) | Coach-Stimme: liest Scan-Ergebnisse vor. Ohne Key bleibt die App einfach stumm |
+| `ELEVENLABS_VOICE_ID` | optional | Andere ElevenLabs-Stimme als der Standard |
 
 4. Deployen. Fertig 🎉
 
@@ -79,8 +82,10 @@ fitcoach/
 │   └── schema.sql                # Tabellen + RLS + Storage-Policies (im SQL-Editor ausführen)
 ├── netlify/functions/
 │   └── analyze-food.js           # Claude Vision: Gericht → Kalorien/Makros als JSON
+│   ├── analyze-text.js           # Claude: Text-/Sprach-Beschreibung → Kalorien/Makros
+│   └── speak.js                  # ElevenLabs: Coach-Stimme (optional)
 └── public/
-    ├── index.html                # App-Shell (alle Views)
+    ├── index.html                # App-Shell (alle Views, SVG-Icon-Set)
     ├── manifest.webmanifest      # PWA-Manifest
     ├── sw.js                     # Service Worker (Offline-Shell)
     ├── css/style.css             # Dunkles Glassmorphism-Design
