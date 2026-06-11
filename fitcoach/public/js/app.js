@@ -125,14 +125,26 @@ async function autoLogin() {
   }
 }
 
-// Module initialisieren (Event-Handler einmalig verdrahten)
-initTheme();
-initSpeech();
-initOnboarding();
-initTracker();
-initScan();
-initProgress();
-initWorkout();
+// Module initialisieren (Event-Handler einmalig verdrahten).
+// Schutzwand: Wenn ein Modul beim Start crasht, blockiert es nicht die
+// anderen – und der Fehler wird sichtbar gemacht statt verschluckt.
+for (const init of [initTheme, initSpeech, initOnboarding, initTracker, initScan, initProgress, initWorkout]) {
+  try {
+    init();
+  } catch (err) {
+    console.error('Init-Fehler:', init.name, err);
+    toast(`Fehler in ${init.name}: ${err.message}`);
+  }
+}
+
+// Unerwartete Fehler auf dem Bildschirm zeigen (zum Abfotografieren),
+// statt Buttons stumm sterben zu lassen.
+window.addEventListener('error', (e) => {
+  toast(`Fehler: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  toast('Fehler: ' + (e.reason?.message || e.reason));
+});
 
 sb.auth.onAuthStateChange((event, session) => {
   // INITIAL_SESSION behandeln wir unten selbst – sonst lädt das Profil
