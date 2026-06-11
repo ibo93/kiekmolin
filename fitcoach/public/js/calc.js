@@ -10,6 +10,16 @@ export function berechneTDEE(grundumsatz, aktivitaetsfaktor) {
   return Math.round(grundumsatz * aktivitaetsfaktor);
 }
 
+// Makro-Verteilung für ein gegebenes Kalorienziel:
+// Protein hoch (Sättigung + Muskelerhalt), Fett-Minimum, Rest Kohlenhydrate.
+export function makros(kalorienziel, gewicht, ziel) {
+  const proteinProKg = ziel === 'muskelaufbau' ? 2.0 : 2.2;
+  const protein = Math.round(proteinProKg * gewicht);
+  const fett = Math.round(0.9 * gewicht);
+  const carbs = Math.max(0, Math.round((kalorienziel - protein * 4 - fett * 9) / 4));
+  return { protein, carbs, fett };
+}
+
 export function berechneZiele({ gewicht, groesse, alter, geschlecht, aktivitaet, ziel }) {
   const grundumsatz = berechneGrundumsatz({ gewicht, groesse, alter, geschlecht });
   const tdee = berechneTDEE(grundumsatz, aktivitaet);
@@ -24,14 +34,49 @@ export function berechneZiele({ gewicht, groesse, alter, geschlecht, aktivitaet,
     kalorienziel = tdee; // Rekomposition: Erhaltung
   }
 
-  // Protein hoch halten (Sättigung + Muskelerhalt), Fett-Minimum sichern,
-  // Rest mit Kohlenhydraten auffüllen.
-  const proteinProKg = ziel === 'muskelaufbau' ? 2.0 : 2.2;
-  const protein = Math.round(proteinProKg * gewicht);
-  const fett = Math.round(0.9 * gewicht);
-  const carbs = Math.max(0, Math.round((kalorienziel - protein * 4 - fett * 9) / 4));
+  return { grundumsatz, tdee, kalorienziel, ...makros(kalorienziel, gewicht, ziel) };
+}
 
-  return { grundumsatz, tdee, kalorienziel, protein, carbs, fett };
+// Eigener Zeitraum: "X kg in Y Wochen" → nötige Tagesbilanz und Kalorienziel.
+// Deckelt auf gesunde Grenzen und meldet, wenn der Wunsch zu schnell ist.
+export function kalorienzielFuerZeitraum({ gewicht, zielgewicht, wochen, tdee, geschlecht }) {
+  const diffKg = zielgewicht - gewicht;          // negativ = abnehmen
+  if (!wochen || wochen < 1 || diffKg === 0) return null;
+
+  const bilanz = (diffKg * 7700) / (wochen * 7); // kcal/Tag, negativ = Defizit
+  const minKcal = geschlecht === 'm' ? 1500 : 1200;
+  const rateProWoche = Math.abs(diffKg) / wochen;
+  const maxRate = Math.max(0.4, gewicht * 0.01); // max ~1 % Körpergewicht/Woche
+
+  let kalorienziel = Math.round(tdee + bilanz);
+  let status = 'ok';
+  let sichereWochen = null;
+
+  if (diffKg < 0) {
+    if (rateProWoche > maxRate || kalorienziel < minKcal) {
+      status = 'zu_schnell';
+      sichereWochen = Math.ceil(Math.abs(diffKg) / maxRate);
+      kalorienziel = Math.max(kalorienziel, minKcal);
+    } else if (rateProWoche > gewicht * 0.0075) {
+      status = 'ambitioniert';
+    }
+  } else {
+    // Aufbau: mehr als +500 kcal/Tag wird überwiegend Fett
+    if (bilanz > 500) {
+      status = 'zu_schnell';
+      sichereWochen = Math.ceil((diffKg * 7700) / (500 * 7));
+      kalorienziel = tdee + 500;
+    }
+  }
+
+  return {
+    kalorienziel,
+    bilanz: Math.round(bilanz),
+    rate: rateProWoche,
+    status,
+    sichereWochen,
+    minKcal,
+  };
 }
 
 // Realistisches Zeitfenster bis zum Zielgewicht (1 kg Fett ≈ 7700 kcal).

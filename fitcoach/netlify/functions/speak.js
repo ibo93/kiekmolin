@@ -11,11 +11,14 @@ async function verifyUser(authHeader) {
   return res.json();
 }
 
+// Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
+const TTS_KEY = process.env.ELEVENLABS_API_KEY || process.env.ELEVENLABELS_API_KEY;
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
   }
-  if (!process.env.ELEVENLABS_API_KEY) {
+  if (!TTS_KEY) {
     return { statusCode: 503, body: JSON.stringify({ error: 'Sprachausgabe nicht konfiguriert' }) };
   }
   const user = await verifyUser(event.headers.authorization);
@@ -44,7 +47,7 @@ exports.handler = async (event) => {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
-        'xi-api-key': process.env.ELEVENLABS_API_KEY,
+        'xi-api-key': TTS_KEY,
         'Content-Type': 'application/json',
         Accept: 'audio/mpeg',
       },

@@ -1,6 +1,9 @@
 // Onboarding: Daten erfassen, Ziele live berechnen, Profil speichern.
 import { sb, state, showView, toast, onViewShow, todayISO, cacheProfil } from './state.js';
-import { berechneZiele, schaetzeZeitfenster, zieldatum } from './calc.js';
+import {
+  berechneZiele, schaetzeZeitfenster, zieldatum,
+  kalorienzielFuerZeitraum, makros,
+} from './calc.js';
 
 function leseFormular() {
   const ziel = document.querySelector('#ob-ziel .goal-btn.active')?.dataset.ziel;
@@ -11,18 +14,64 @@ function leseFormular() {
     gewicht: parseFloat(document.getElementById('ob-gewicht').value),
     aktivitaet: parseFloat(document.getElementById('ob-aktivitaet').value),
     zielgewicht: parseFloat(document.getElementById('ob-zielgewicht').value) || null,
+    tempo: document.getElementById('ob-tempo').value,
+    wochen: parseInt(document.getElementById('ob-wochen').value, 10) || null,
     ziel,
   };
 }
 
+// Plan aus den Formularwerten: entweder empfohlenes Tempo oder der vom
+// Nutzer gewählte Zeitraum ("X kg in Y Wochen"), mit ehrlicher Prüfung.
+function berechnePlan(f) {
+  const basis = berechneZiele(f);
+  const eigenAktiv = f.tempo === 'eigen' && f.zielgewicht && f.wochen && f.ziel !== 'rekomposition';
+  if (!eigenAktiv) return { ...basis, eigenerZeitraum: null };
+
+  const z = kalorienzielFuerZeitraum({
+    gewicht: f.gewicht, zielgewicht: f.zielgewicht,
+    wochen: f.wochen, tdee: basis.tdee, geschlecht: f.geschlecht,
+  });
+  if (!z) return { ...basis, eigenerZeitraum: null };
+
+  return {
+    ...basis,
+    kalorienziel: z.kalorienziel,
+    ...makros(z.kalorienziel, f.gewicht, f.ziel),
+    eigenerZeitraum: z,
+  };
+}
+
+function tempoHinweis(z, f) {
+  const el = document.getElementById('ob-tempo-check');
+  if (!z) { el.hidden = true; return; }
+  el.hidden = false;
+  const diff = Math.abs(f.zielgewicht - f.gewicht).toFixed(1);
+  if (z.status === 'zu_schnell') {
+    el.textContent = `${diff} kg in ${f.wochen} Wochen ist zu schnell, um gesund zu bleiben. `
+      + `Ich plane mit dem sicheren Maximum: realistisch sind ca. ${z.sichereWochen} Wochen.`;
+    el.style.color = 'var(--danger)';
+  } else if (z.status === 'ambitioniert') {
+    el.textContent = `Sportlich, aber machbar: ${z.bilanz} kcal/Tag Bilanz (~${z.rate.toFixed(2)} kg/Woche). Zieh es konsequent durch.`;
+    el.style.color = 'var(--warn)';
+  } else {
+    el.textContent = `Gut machbar: ${z.bilanz} kcal/Tag Bilanz, ~${z.rate.toFixed(2)} kg/Woche.`;
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
 function aktualisiereVorschau() {
   const f = leseFormular();
+  document.getElementById('ob-wochen-wrap').hidden = f.tempo !== 'eigen';
+
   const resultCard = document.getElementById('ob-result');
   if (!f.alter || !f.groesse || !f.gewicht || !f.ziel) {
     resultCard.hidden = true;
+    document.getElementById('ob-tempo-check').hidden = true;
     return;
   }
-  const z = berechneZiele(f);
+  const z = berechnePlan(f);
+  tempoHinweis(z.eigenerZeitraum, f);
+
   resultCard.hidden = false;
   document.getElementById('ob-res-kcal').textContent = z.kalorienziel;
   document.getElementById('ob-res-protein').textContent = z.protein;
@@ -30,11 +79,17 @@ function aktualisiereVorschau() {
   document.getElementById('ob-res-fett').textContent = z.fett;
 
   let info = `Grundumsatz ${z.grundumsatz} kcal · TDEE ${z.tdee} kcal.`;
-  const zeit = schaetzeZeitfenster({ ...f, tdee: z.tdee, kalorienziel: z.kalorienziel });
-  if (zeit) {
-    info += ` Realistisch erreichst du ${f.zielgewicht} kg in ca. ${zeit.wochen} Wochen (~${zeit.rate} kg/Woche).`;
-  } else if (f.zielgewicht) {
-    info += ' Hinweis: Dein Zielgewicht passt nicht zur gewählten Kalorienbilanz.';
+  if (z.eigenerZeitraum) {
+    const e = z.eigenerZeitraum;
+    const wochen = e.status === 'zu_schnell' ? e.sichereWochen : f.wochen;
+    info += ` Dein Weg: ${z.kalorienziel} kcal/Tag → ${f.zielgewicht} kg in ca. ${wochen} Wochen.`;
+  } else {
+    const zeit = schaetzeZeitfenster({ ...f, tdee: z.tdee, kalorienziel: z.kalorienziel });
+    if (zeit) {
+      info += ` Realistisch erreichst du ${f.zielgewicht} kg in ca. ${zeit.wochen} Wochen (~${zeit.rate} kg/Woche).`;
+    } else if (f.zielgewicht) {
+      info += ' Hinweis: Dein Zielgewicht passt nicht zur gewählten Kalorienbilanz.';
+    }
   }
   document.getElementById('ob-res-info').textContent = info;
 }
@@ -74,8 +129,18 @@ export function initOnboarding() {
       toast('Bitte wähle ein Ziel aus');
       return;
     }
-    const z = berechneZiele(f);
-    const zeit = schaetzeZeitfenster({ ...f, tdee: z.tdee, kalorienziel: z.kalorienziel });
+    const z = berechnePlan(f);
+    // Zieldatum: eigener Zeitraum (ggf. auf das gesunde Maximum verlängert)
+    // oder die automatische Schätzung
+    let planWochen = null;
+    if (z.eigenerZeitraum) {
+      planWochen = z.eigenerZeitraum.status === 'zu_schnell'
+        ? z.eigenerZeitraum.sichereWochen
+        : f.wochen;
+    } else {
+      const zeit = schaetzeZeitfenster({ ...f, tdee: z.tdee, kalorienziel: z.kalorienziel });
+      planWochen = zeit ? zeit.wochen : null;
+    }
 
     const row = {
       id: state.user.id,
@@ -89,7 +154,7 @@ export function initOnboarding() {
       // Startgewicht nur beim ersten Setup festhalten (Basis für Fortschritt),
       // bei späterer Neuberechnung nicht überschreiben.
       startgewicht_kg: state.profile?.startgewicht_kg ?? f.gewicht,
-      zieldatum: zeit ? zieldatum(zeit.wochen) : null,
+      zieldatum: planWochen ? zieldatum(planWochen) : null,
       grundumsatz: z.grundumsatz,
       tdee: z.tdee,
       kalorienziel: z.kalorienziel,

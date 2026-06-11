@@ -23,6 +23,9 @@ const RING_UMFANG = 2 * Math.PI * 52; // r=52 aus dem SVG
 
 let favoriten = [];
 
+// Tagesrest (Ziel minus gegessen) – Grundlage für die Coach-Vorschläge
+let tagesRest = { kcal: 0, protein: 0, carbs: 0, fett: 0 };
+
 // ---------- Tagesdaten laden & rendern ----------
 
 export async function refreshTracker() {
@@ -112,6 +115,13 @@ function renderZusammenfassung(entries) {
   setMakro('p', sum('protein_g'), p.protein_g);
   setMakro('c', sum('carbs_g'), p.carbs_g);
   setMakro('f', sum('fett_g'), p.fett_g);
+
+  tagesRest = {
+    kcal: rest,
+    protein: p.protein_g - sum('protein_g'),
+    carbs: p.carbs_g - sum('carbs_g'),
+    fett: p.fett_g - sum('fett_g'),
+  };
 }
 
 function setMakro(kürzel, ist, soll) {
@@ -340,9 +350,93 @@ async function schaetzePerKI() {
   }
 }
 
+// ---------- Coach: "Was soll ich heute noch essen?" ----------
+
+let coachVorschlaege = [];
+
+async function oeffneCoach() {
+  if (!navigator.onLine) { toast('Der Coach braucht eine Internetverbindung'); return; }
+  const status = document.getElementById('coach-status');
+  const liste = document.getElementById('coach-list');
+  liste.innerHTML = '';
+  status.textContent = 'Dein Coach überlegt …';
+  document.getElementById('coach-modal').showModal();
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Nicht eingeloggt');
+    const res = await fetchMitTimeout('/api/coach', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        ziel: state.profile.ziel,
+        kalorienziel: state.profile.kalorienziel,
+        rest_kalorien: tagesRest.kcal,
+        rest_protein: tagesRest.protein,
+        rest_carbs: tagesRest.carbs,
+        rest_fett: tagesRest.fett,
+        uhrzeit: new Date().getHours(),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Fehler ${res.status}`);
+    }
+    const data = await res.json();
+    coachVorschlaege = data.vorschlaege || [];
+    status.textContent = data.hinweis || '';
+    liste.innerHTML = coachVorschlaege.map((v, i) => `
+      <div class="coach-item">
+        <div class="row">
+          <strong>${escapeHtml(v.gericht)}</strong>
+          <span class="coach-kcal">${Math.round(v.kalorien)} kcal</span>
+        </div>
+        <p class="muted">${escapeHtml(v.beschreibung)}</p>
+        <div class="row">
+          <small class="muted">P ${Math.round(v.protein_g)} · C ${Math.round(v.carbs_g)} · F ${Math.round(v.fett_g)}</small>
+          <button type="button" class="btn small" data-coach="${i}">+ Eintragen</button>
+        </div>
+      </div>`).join('');
+  } catch (err) {
+    status.textContent = 'Coach gerade nicht erreichbar: ' + err.message;
+  }
+}
+
+async function uebernehmeCoachVorschlag(i) {
+  const v = coachVorschlaege[i];
+  if (!v) return;
+  const ok = await speichereEintrag({
+    mahlzeit: mahlzeitNachUhrzeit(),
+    name: v.gericht,
+    menge_g: null,
+    kalorien: v.kalorien,
+    protein_g: v.protein_g,
+    carbs_g: v.carbs_g,
+    fett_g: v.fett_g,
+    quelle: 'manuell',
+  });
+  if (ok) {
+    document.getElementById('coach-modal').close();
+    toast(`${v.gericht} eingetragen ✓`);
+    refreshTracker();
+  }
+}
+
 // ---------- Initialisierung ----------
 
 export function initTracker() {
+  // Coach-Vorschläge
+  document.getElementById('coach-btn').addEventListener('click', oeffneCoach);
+  document.getElementById('coach-close').addEventListener('click', () =>
+    document.getElementById('coach-modal').close()
+  );
+  document.getElementById('coach-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-coach]');
+    if (btn) uebernehmeCoachVorschlag(Number(btn.dataset.coach));
+  });
   onViewShow('tracker', refreshTracker);
 
   // Datum blättern

@@ -62,11 +62,14 @@ async function verifyUser(authHeader) {
   }
 }
 
+// Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
+const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY;
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!API_KEY) {
     return { statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
   }
 
@@ -95,7 +98,7 @@ exports.handler = async (event) => {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': API_KEY,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
