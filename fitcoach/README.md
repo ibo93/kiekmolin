@@ -1,12 +1,12 @@
-# 🏋️ FitCoach – Fitness- & Ernährungs-PWA
+# FitCoach – Fitness- & Ernährungs-PWA
 
 Persönlicher Coach für **Abnehmen und Muskelaufbau**: Kalorien tracken, Gerichte
 per **KI-Foto-Scan** (Claude Vision) erfassen, Fortschritt sichtbar machen.
 
-- **Frontend:** Vanilla JS, mobile-first, dunkles Glassmorphism-Design, PWA (installierbar, offline-fähiger Tracker)
+- **Frontend:** Vanilla JS, mobile-first, dunkles OLED-Design (Space Grotesk Display-Font), PWA (installierbar, offline-fähiger Tracker)
 - **Backend:** Supabase (Auth, Postgres mit Row Level Security, Storage für Fotos)
 - **Hosting:** Netlify (statische Site + Netlify Function für den Claude-API-Call)
-- **KI:** Claude API (`claude-opus-4-8`) mit Vision + strukturiertem JSON-Output
+- **KI:** Claude API (`claude-sonnet-4-6`) mit Vision + strukturiertem JSON-Output, ElevenLabs TTS mit lokalem Audio-Cache
 
 ---
 

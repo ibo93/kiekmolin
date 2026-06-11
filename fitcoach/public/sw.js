@@ -1,7 +1,7 @@
 // Service Worker: cached die App-Shell, damit der Tracker auch offline lädt.
 // Daten-Requests (Supabase, Netlify Functions) gehen immer ans Netz.
 
-const CACHE = 'fitcoach-v12';
+const CACHE = 'fitcoach-v15';
 
 // Externe Bibliothek separat: ihr Ausfall darf die Installation nicht stoppen
 const CDN_SUPABASE = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
@@ -16,6 +16,7 @@ const SHELL = [
   '/js/theme.js',
   '/js/speech.js',
   '/js/calc.js',
+  '/js/foods.js',
   '/js/onboarding.js',
   '/js/tracker.js',
   '/js/scan.js',

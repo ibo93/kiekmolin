@@ -5,6 +5,7 @@ import {
 } from './state.js';
 import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
 import { wochenBis, zielFortschritt } from './calc.js';
+import { sucheLebensmittel, naehrwerteFuer } from './foods.js';
 
 const ZIEL_LABEL = {
   abnehmen: 'Abnehmen',
@@ -485,6 +486,68 @@ export function initTracker() {
   document.getElementById('food-mic').hidden = false;
   document.getElementById('food-mic').addEventListener('click', starteDiktat);
   document.getElementById('food-ki').addEventListener('click', schaetzePerKI);
+
+  // ---------- Eingebaute Lebensmittel-Suche ----------
+  // Beim Tippen Treffer aus der lokalen Datenbank zeigen (offline, ohne KI).
+  // Tap übernimmt Name + Portion + Nährwerte; Mengen-Änderung rechnet live mit.
+  let dbAuswahl = null; // aktuell gewähltes DB-Lebensmittel (Basis pro 100 g)
+  const nameInput = document.getElementById('food-name');
+  const mengeInput = document.getElementById('food-menge');
+  const suggestBox = document.getElementById('food-suggest');
+
+  function zeigeVorschlaege() {
+    const q = nameInput.value;
+    const treffer = q.trim().length >= 2 ? sucheLebensmittel(q) : [];
+    suggestBox.hidden = !treffer.length;
+    suggestBox.innerHTML = treffer.map((f, i) => `
+      <button type="button" class="suggest-item" data-suggest="${i}">
+        <span>${escapeHtml(f.name)}</span>
+        <small>${f.kcal} kcal · ${f.protein} P / 100 g</small>
+      </button>`).join('');
+    suggestBox._treffer = treffer;
+  }
+
+  function setzeWerte(food, gramm) {
+    const w = naehrwerteFuer(food, gramm);
+    document.getElementById('food-kcal').value = w.kalorien;
+    document.getElementById('food-protein').value = w.protein_g;
+    document.getElementById('food-carbs').value = w.carbs_g;
+    document.getElementById('food-fett').value = w.fett_g;
+  }
+
+  nameInput.addEventListener('input', () => {
+    dbAuswahl = null; // Nutzer tippt selbst → Kopplung an DB-Eintrag lösen
+    zeigeVorschlaege();
+  });
+
+  suggestBox.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-suggest]');
+    if (!btn) return;
+    const food = suggestBox._treffer?.[Number(btn.dataset.suggest)];
+    if (!food) return;
+    dbAuswahl = food;
+    nameInput.value = food.name;
+    mengeInput.value = food.portion; // übliche Portion vorbelegen
+    setzeWerte(food, food.portion);
+    suggestBox.hidden = true;
+    suggestBox.innerHTML = `<p class="suggest-hint">Werte pro ${food.portion} g – Menge anpassen, Rest rechnet mit.</p>`;
+    suggestBox.hidden = false;
+    haptik();
+  });
+
+  // Menge geändert? Solange ein DB-Eintrag gewählt ist, alles neu berechnen.
+  mengeInput.addEventListener('input', () => {
+    if (!dbAuswahl) return;
+    const g = parseFloat(mengeInput.value);
+    if (g > 0 && g <= 5000) setzeWerte(dbAuswahl, g);
+  });
+
+  // Beim Öffnen des Modals Suche zurücksetzen
+  document.getElementById('food-modal').addEventListener('close', () => {
+    dbAuswahl = null;
+    suggestBox.hidden = true;
+    suggestBox.innerHTML = '';
+  });
 
   // Modal-Tabs
   document.getElementById('food-tab-manual').addEventListener('click', () => zeigeFoodTab('manual'));

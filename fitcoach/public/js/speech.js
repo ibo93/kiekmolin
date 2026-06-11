@@ -55,10 +55,63 @@ export function setStimmeAktiv(an) {
 }
 
 let aktuellesAudio = null;
+let aktuelleUrl = null;
+
+// ---------- TTS-Cache ----------
+// Wiederkehrende kurze Phrasen ("Eintrag gespeichert") werden nur EINMAL
+// bei ElevenLabs generiert und danach lokal aus der Cache API bedient.
+// Spart API-Kosten und macht die Stimme ab dem zweiten Mal verzögerungsfrei.
+
+const TTS_CACHE = 'fc-tts-v1';
+const CACHE_MAX_LEN = 160; // nur kurze, wiederkehrende Phrasen cachen
+
+// Kleiner, stabiler String-Hash (djb2) für den Cache-Schlüssel
+function ttsKey(voiceId, text) {
+  let h = 5381;
+  const s = `${voiceId}|${text}`;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return `/tts-cache/${h.toString(36)}`;
+}
+
+async function ausCache(key) {
+  if (!('caches' in window)) return null;
+  try {
+    const cache = await caches.open(TTS_CACHE);
+    const hit = await cache.match(key);
+    return hit ? hit.blob() : null;
+  } catch { return null; }
+}
+
+async function inCache(key, res) {
+  if (!('caches' in window)) return;
+  try {
+    const cache = await caches.open(TTS_CACHE);
+    await cache.put(key, res);
+  } catch { /* Cache voll/gesperrt – dann eben nicht */ }
+}
+
+function spieleAb(blob) {
+  aktuellesAudio?.pause();
+  if (aktuelleUrl) URL.revokeObjectURL(aktuelleUrl); // Memory-Leak vermeiden
+  aktuelleUrl = URL.createObjectURL(blob);
+  aktuellesAudio = new Audio(aktuelleUrl);
+  aktuellesAudio.play().catch(() => {});
+}
 
 // Spricht einen kurzen Text – scheitert leise (Feature ist optional).
 export async function sprich(text) {
-  if (!stimmeAktiv() || !navigator.onLine || !text) return;
+  if (!stimmeAktiv() || !text) return;
+  const voiceId = gewaehlteStimme();
+  const kurz = text.length <= CACHE_MAX_LEN;
+  const key = ttsKey(voiceId, text);
+
+  // 1. Cache-Treffer? Dann kein API-Call – funktioniert sogar offline.
+  if (kurz) {
+    const gecacht = await ausCache(key);
+    if (gecacht) { spieleAb(gecacht); return; }
+  }
+
+  if (!navigator.onLine) return;
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
@@ -68,7 +121,7 @@ export async function sprich(text) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ text: text.slice(0, 400), voice_id: gewaehlteStimme() }),
+      body: JSON.stringify({ text: text.slice(0, 400), voice_id: voiceId }),
     });
     if (!res.ok) {
       if (res.status === 503) {
@@ -80,10 +133,10 @@ export async function sprich(text) {
       }
       return;
     }
+    // 2. Kurze Phrasen für das nächste Mal merken
+    if (kurz) await inCache(key, res.clone());
     const blob = await res.blob();
-    aktuellesAudio?.pause();
-    aktuellesAudio = new Audio(URL.createObjectURL(blob));
-    aktuellesAudio.play().catch(() => {});
+    spieleAb(blob);
   } catch { /* still bleiben */ }
 }
 

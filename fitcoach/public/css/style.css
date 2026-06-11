@@ -17,8 +17,8 @@
   --warn: #fbbf24;
   --radius: 20px;
   --nav-h: 68px;
-  /* Display-Schrift für große Zahlen (Serifen wie im Design) */
-  --font-display: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  /* Display-Schrift für große Zahlen (Space Grotesk wie im Design-Konzept) */
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -407,6 +407,18 @@ select option { background: var(--surface-2); }
   border: none; color: var(--text); font-family: inherit; width: 100%; text-align: left;
 }
 .fav-item small { color: var(--text-muted); }
+
+/* ---------- Lebensmittel-Suche (eingebaute Datenbank) ---------- */
+.suggest { display: flex; flex-direction: column; gap: 6px; }
+.suggest-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 0.5px solid var(--hairline);
+  border-radius: 12px; padding: 9px 12px; cursor: pointer; font-size: 0.88rem;
+  color: var(--text); font-family: inherit; width: 100%; text-align: left;
+}
+.suggest-item:active { border-color: var(--accent); }
+.suggest-item small { color: var(--text-muted); white-space: nowrap; }
+.suggest-hint { font-size: 0.78rem; color: var(--text-muted); padding: 0 2px; }
 
 /* ---------- Navigation ---------- */
 #bottom-nav {

@@ -13,6 +13,9 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -388,12 +391,14 @@
       <div id="food-manual" class="stack">
         <label>Gericht – tippen oder diktieren
           <div class="input-row">
-            <input type="text" id="food-name" required placeholder="z. B. 200 g Reis mit Hähnchen">
+            <input type="text" id="food-name" required placeholder="z. B. Hähnchenbrust, Döner, Magerquark …" autocomplete="off">
             <button type="button" class="mic-btn" id="food-mic" aria-label="Per Sprache eingeben">
               <svg class="icon"><use href="#i-mic"/></svg>
             </button>
           </div>
         </label>
+        <!-- Treffer aus der eingebauten Lebensmittel-Datenbank (offline, ohne KI) -->
+        <div id="food-suggest" class="suggest" hidden></div>
         <button type="button" class="btn full" id="food-ki">
           <svg class="icon"><use href="#i-sparkle"/></svg> Kalorien & Makros per KI schätzen
         </button>
