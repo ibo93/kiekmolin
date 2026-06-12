@@ -145,6 +145,7 @@ select option { background: var(--surface-2); }
   background: var(--accent);
   color: var(--accent-contrast);
   border: none;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .btn.ghost { background: transparent; }
 .btn.full { width: 100%; }
@@ -240,7 +241,11 @@ select option { background: var(--surface-2); }
 .macro-head { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px; }
 .bar { height: 8px; border-radius: 6px; background: var(--bar-track); overflow: hidden; }
 .bar-fill { height: 100%; width: 0; border-radius: 6px; transition: width 0.5s ease; background: var(--bar-fill); }
-.water-bar { margin-top: 12px; }
+.water-bar {
+  margin-top: 12px;
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(12.5% - 3px), transparent calc(12.5% - 3px) 12.5%);
+  mask: repeating-linear-gradient(90deg, #000 0 calc(12.5% - 3px), transparent calc(12.5% - 3px) 12.5%);
+}
 .water-btns { display: flex; gap: 8px; }
 
 /* ---------- Ziel-Karte (Zeitfenster) ---------- */
@@ -250,6 +255,14 @@ select option { background: var(--surface-2); }
 .goal-countdown { text-align: right; line-height: 1.1; }
 .goal-countdown .big { color: var(--accent); }   /* Hervorhebungs-Zahl */
 .bar-fill.goal { background: var(--accent); }     /* Ziel-Fortschritt: Akzent */
+
+/* ---------- Tages-Tipp ---------- */
+#tages-tipp {
+  font-size: 0.85rem;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  width: 100%;
+}
 
 /* ---------- Leer-Zustand ---------- */
 .empty-state {
@@ -444,7 +457,13 @@ select option { background: var(--surface-2); }
 .nav-btn .icon { width: 22px; height: 22px; vertical-align: 0; }
 .nav-scan .icon { width: 26px; height: 26px; }
 .nav-btn small { font-size: 0.62rem; font-weight: 600; }
-.nav-btn.active { color: var(--text); }
+.nav-btn.active { color: var(--text); position: relative; }
+.nav-btn.active::after {
+  content: '';
+  position: absolute; bottom: -2px;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--accent);
+}
 .nav-scan {
   /* Primär-Button: einzige Akzentfläche der Navigation */
   background: var(--accent);
@@ -486,6 +505,7 @@ select option { background: var(--surface-2); }
   transform: translateX(-50%);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent);
   border-radius: 14px;
   padding: 12px 20px;
   font-size: 0.9rem; font-weight: 600;

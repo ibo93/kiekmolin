@@ -23,6 +23,46 @@ function ladeGewicht() {
   document.getElementById('weight-empty').hidden = eintraege.length > 0;
   document.getElementById('weight-chart').hidden = !eintraege.length;
   zeichneChart(eintraege);
+  renderPrognose(eintraege);
+}
+
+// Schlaue Prognose: linearer Trend der letzten Wiegungen → wann ist das
+// Ziel erreicht? Ehrlich, wenn der Trend in die falsche Richtung zeigt.
+function renderPrognose(eintraege) {
+  const el = document.getElementById('weight-forecast');
+  const ziel = Number(state.profile?.zielgewicht_kg);
+  const punkte = eintraege.slice(-6);
+  if (!ziel || punkte.length < 3) { el.hidden = true; return; }
+
+  // Lineare Regression über (Tage seit erstem Punkt, Gewicht)
+  const t0 = new Date(punkte[0].datum).getTime();
+  const xs = punkte.map((p) => (new Date(p.datum).getTime() - t0) / 86400000);
+  const ys = punkte.map((p) => Number(p.gewicht_kg));
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b) / n;
+  const my = ys.reduce((a, b) => a + b) / n;
+  const steigung = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0)
+    / (xs.reduce((s, x) => s + (x - mx) ** 2, 0) || 1); // kg pro Tag
+
+  const aktuell = ys[ys.length - 1];
+  const benoetigt = ziel - aktuell;              // negativ = abnehmen nötig
+  const proWoche = steigung * 7;
+
+  el.hidden = false;
+  if (Math.abs(proWoche) < 0.05) {
+    el.textContent = 'Dein Gewicht ist gerade stabil – für eine Prognose braucht es etwas Bewegung im Trend.';
+  } else if (benoetigt * steigung <= 0) {
+    el.textContent = `Achtung: Dein Trend zeigt gerade ${proWoche > 0 ? 'nach oben' : 'nach unten'} (${Math.abs(proWoche).toFixed(1)} kg/Woche) – entgegen deinem Ziel. Bleib bei deinem Kalorienziel.`;
+  } else {
+    const tage = Math.round(benoetigt / steigung);
+    if (tage > 0 && tage < 400) {
+      const datum = new Date(Date.now() + tage * 86400000)
+        .toLocaleDateString('de-DE', { day: 'numeric', month: 'long' });
+      el.textContent = `Prognose: Bei deinem Tempo (${Math.abs(proWoche).toFixed(1)} kg/Woche) erreichst du ${ziel} kg um den ${datum}.`;
+    } else {
+      el.hidden = true;
+    }
+  }
 }
 
 function zeichneChart(eintraege) {

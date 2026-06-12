@@ -38,6 +38,7 @@ Regeln für deine 3 Vorschläge:
 - Wenn kaum noch Kalorien übrig sind: kleine, proteinreiche Snacks (Magerquark, Skyr, Eier, Gemüse)
 - Wenn das Tagesziel überschritten ist: ehrlich sagen, nur sehr leichte Optionen oder "heute reicht es" empfehlen
 - Mengenangaben konkret in Gramm/Stück, Kalorien realistisch
+- Schlage NICHTS vor, was der Nutzer heute schon gegessen hat – sorge für Abwechslung
 - Deutsch, direkt, motivierend ohne Floskeln`;
 
 // Einfacher App-Schlüssel statt Login: Der Client schickt x-app-key,
@@ -78,6 +79,9 @@ exports.handler = async (event) => {
     rest_carbs: zahl(payload.rest_carbs),
     rest_fett: zahl(payload.rest_fett),
     uhrzeit: zahl(payload.uhrzeit),
+    gegessen: Array.isArray(payload.heute_gegessen)
+      ? payload.heute_gegessen.filter((x) => typeof x === 'string').map((x) => x.slice(0, 60)).slice(0, 6)
+      : [],
   };
 
   try {
@@ -99,6 +103,7 @@ exports.handler = async (event) => {
               `Mein Ziel: ${lage.ziel}. Tagesziel ${lage.kalorienziel} kcal. ` +
               `Heute noch übrig: ${lage.rest_kalorien} kcal, ${lage.rest_protein} g Protein, ` +
               `${lage.rest_carbs} g Carbs, ${lage.rest_fett} g Fett. Es ist ${lage.uhrzeit} Uhr. ` +
+              (lage.gegessen.length ? `Heute habe ich schon gegessen: ${lage.gegessen.join(', ')}. ` : '') +
               'Was soll ich heute noch essen?',
           },
         ],

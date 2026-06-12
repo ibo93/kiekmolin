@@ -47,6 +47,50 @@ export async function refreshTracker() {
   renderWasser(wasser);
   renderMahlzeiten(entries);
   renderZiel();
+  renderTagesTipp(entries, wasser);
+}
+
+// Wie viele Tage in Folge wurde getrackt? (heute zählt mit, sobald 1 Eintrag da ist)
+function trackingSerie() {
+  const tage = new Set(db.alle('food_entries').map((e) => e.datum));
+  let serie = 0;
+  let tag = tage.has(todayISO()) ? todayISO() : todayISO(-1);
+  while (tage.has(tag) && serie < 365) {
+    serie++;
+    tag = verschiebeDatum(tag, -1);
+  }
+  return serie;
+}
+
+// Die App denkt mit: EIN relevanter Hinweis zur aktuellen Lage – keine Floskeln.
+function renderTagesTipp(entries, wasser) {
+  const el = document.getElementById('tages-tipp');
+  if (state.date !== todayISO()) { el.hidden = true; return; }
+
+  const p = state.profile;
+  const stunde = new Date().getHours();
+  const serie = trackingSerie();
+  let tipp = '';
+
+  if (tagesRest.kcal < 0) {
+    tipp = 'Heute drüber – kein Drama. Die Wochenbilanz entscheidet, morgen geht es weiter.';
+  } else if (entries.length === 0 && stunde >= 12) {
+    tipp = 'Noch nichts getrackt – ein Foto-Scan dauert keine 10 Sekunden.';
+  } else if (tagesRest.protein > 30 && stunde >= 16) {
+    tipp = `Noch ${Math.round(tagesRest.protein)} g Protein offen – Magerquark, Skyr oder Eier schließen die Lücke.`;
+  } else if (wasser < (p.wasserziel_ml || 2500) * 0.5 && stunde >= 15) {
+    tipp = 'Du liegst beim Wasser unter der Hälfte – ein großes Glas jetzt hilft.';
+  } else if (serie >= 3) {
+    tipp = `${serie} Tage in Folge getrackt – genau so entsteht ein Ergebnis.`;
+  }
+
+  el.textContent = tipp;
+  el.hidden = !tipp;
+
+  // Serie dezent in der Kopfzeile zeigen
+  if (serie >= 2) {
+    document.getElementById('tracker-date-long').textContent += ` · Serie: ${serie} Tage`;
+  }
 }
 
 // Ziel-Karte mit Zeitfenster: Wochen bis Ziel + Fortschrittsbalken.
@@ -340,6 +384,9 @@ async function oeffneCoach() {
         rest_carbs: tagesRest.carbs,
         rest_fett: tagesRest.fett,
         uhrzeit: new Date().getHours(),
+        // damit der Coach nichts vorschlägt, was es heute schon gab
+        heute_gegessen: db.alle('food_entries', (e) => e.datum === todayISO())
+          .map((e) => e.name).slice(0, 6),
       }),
     });
     if (!res.ok) {
