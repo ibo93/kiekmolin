@@ -13,17 +13,34 @@ function zeigeSchritt(schritt) {
   document.getElementById('scan-result').hidden = schritt !== 'result';
 }
 
-// Bild auf max. 1024 px verkleinern und als JPEG komprimieren –
-// schnellerer Upload, schnellere Analyse, für die Erkennung mehr als genug.
+// Bild auf max. 1024 px verkleinern und als JPEG komprimieren.
+// Bewusst über <img> + decode() statt createImageBitmap: das ist der
+// iOS-sichere Weg – iPhone-Fotos (12–48 MP, oft HEIC) bringen
+// createImageBitmap auf Safari zum Hängen oder Scheitern.
 async function komprimiereBild(file) {
-  const bitmap = await createImageBitmap(file);
-  const maxKante = 1024;
-  const faktor = Math.min(1, maxKante / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * faktor);
-  canvas.height = Math.round(bitmap.height * faktor);
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode(); // wartet bis Safari das Foto (inkl. HEIC) dekodiert hat
+
+    const maxKante = 1024;
+    const faktor = Math.min(1, maxKante / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * faktor));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * faktor));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('Bild konnte nicht verarbeitet werden'))),
+        'image/jpeg',
+        0.82
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function blobZuBase64(blob) {

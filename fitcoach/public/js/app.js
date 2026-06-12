@@ -12,6 +12,15 @@ import { initWorkout } from './workout.js';
 // ---------- Service Worker ----------
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+  // Auto-Update: Übernimmt ein neuer Service Worker die Seite, einmal neu
+  // laden – damit nie wieder eine alte Version "festklebt" (das berüchtigte
+  // 2×-neu-laden-Ritual entfällt).
+  let neuGeladen = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (neuGeladen) return; // Schleifen-Schutz
+    neuGeladen = true;
+    location.reload();
+  });
 }
 
 // ---------- Offline-Anzeige + Sync ----------
