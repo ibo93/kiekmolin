@@ -130,7 +130,7 @@ function aktualisiereWerte() {
   document.getElementById('scan-fett').textContent = Math.round(basis.fett_g * prozent);
 }
 
-async function speichere() {
+async function speichereScan() {
   const prozent = Number(document.getElementById('scan-portion').value) / 100;
 
   db.insert('food_entries', {
@@ -167,7 +167,7 @@ export function initScan() {
   });
 
   document.getElementById('scan-portion').addEventListener('input', aktualisiereWerte);
-  document.getElementById('scan-save').addEventListener('click', speichere);
+  document.getElementById('scan-save').addEventListener('click', speichereScan);
   document.getElementById('scan-retry').addEventListener('click', () => {
     document.getElementById('scan-file').value = '';
     zeigeSchritt('start');

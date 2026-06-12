@@ -51,23 +51,33 @@ function autorisiert(event) {
 // Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
 const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY;
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-app-key',
+};
+
 exports.handler = async (event) => {
+  // Preflight (kommt z. B. von der Standalone-Testdatei)
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: CORS, body: '' };
+  }
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
+    return { headers: CORS, statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
   }
   if (!API_KEY) {
-    return { statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
+    return { headers: CORS, statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
   }
 
   if (!autorisiert(event)) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'App-Schlüssel fehlt oder falsch' }) };
+    return { headers: CORS, statusCode: 401, body: JSON.stringify({ error: 'App-Schlüssel fehlt oder falsch' }) };
   }
 
   let payload;
   try {
     payload = JSON.parse(event.body);
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Ungültiger Request-Body' }) };
+    return { headers: CORS, statusCode: 400, body: JSON.stringify({ error: 'Ungültiger Request-Body' }) };
   }
 
   const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
@@ -112,29 +122,29 @@ exports.handler = async (event) => {
     });
 
     if (res.status === 429) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
+      return { headers: CORS, statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
     }
     if (!res.ok) {
       const fehlerText = await res.text();
       console.error('Claude-API-Fehler:', res.status, fehlerText);
       if (/credit balance/i.test(fehlerText)) {
-        return { statusCode: 402, body: JSON.stringify({ error: 'Kein Guthaben auf dem Anthropic-Konto – auf console.anthropic.com unter Billing aufladen' }) };
+        return { headers: CORS, statusCode: 402, body: JSON.stringify({ error: 'Kein Guthaben auf dem Anthropic-Konto – auf console.anthropic.com unter Billing aufladen' }) };
       }
-      return { statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
+      return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
     }
 
     const data = await res.json();
     const textBlock = (data.content || []).find((b) => b.type === 'text');
     if (!textBlock) {
-      return { statusCode: 502, body: JSON.stringify({ error: 'Keine Antwort vom KI-Modell' }) };
+      return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Keine Antwort vom KI-Modell' }) };
     }
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...CORS, 'Content-Type': 'application/json' },
       body: textBlock.text,
     };
   } catch (err) {
     console.error('Fehler:', err);
-    return { statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
+    return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
   }
 };
