@@ -38,7 +38,9 @@ export function berechneZiele({ gewicht, groesse, alter, geschlecht, aktivitaet,
 }
 
 // Eigener Zeitraum: "X kg in Y Wochen" → nötige Tagesbilanz und Kalorienziel.
-// Deckelt auf gesunde Grenzen und meldet, wenn der Wunsch zu schnell ist.
+// Grundsatz: Der Wunsch des Nutzers wird ANGENOMMEN und die App arbeitet
+// darauf hin – mit ehrlicher Warnung, wenn es hart wird. Einzige harte
+// Grenze: unter das Kalorien-Minimum wird nicht geplant ('begrenzt').
 export function kalorienzielFuerZeitraum({ gewicht, zielgewicht, wochen, tdee, geschlecht }) {
   const diffKg = zielgewicht - gewicht;          // negativ = abnehmen
   if (!wochen || wochen < 1 || diffKg === 0) return null;
@@ -46,26 +48,28 @@ export function kalorienzielFuerZeitraum({ gewicht, zielgewicht, wochen, tdee, g
   const bilanz = (diffKg * 7700) / (wochen * 7); // kcal/Tag, negativ = Defizit
   const minKcal = geschlecht === 'm' ? 1500 : 1200;
   const rateProWoche = Math.abs(diffKg) / wochen;
-  const maxRate = Math.max(0.4, gewicht * 0.01); // max ~1 % Körpergewicht/Woche
 
   let kalorienziel = Math.round(tdee + bilanz);
   let status = 'ok';
   let sichereWochen = null;
 
   if (diffKg < 0) {
-    if (rateProWoche > maxRate || kalorienziel < minKcal) {
-      status = 'zu_schnell';
-      sichereWochen = Math.ceil(Math.abs(diffKg) / maxRate);
-      kalorienziel = Math.max(kalorienziel, minKcal);
+    if (kalorienziel < minKcal) {
+      // Physisch nicht über Essen allein planbar → frühestmögliches Datum
+      status = 'begrenzt';
+      kalorienziel = minKcal;
+      sichereWochen = Math.ceil((Math.abs(diffKg) * 7700) / ((tdee - minKcal) * 7));
+    } else if (rateProWoche > gewicht * 0.011) {
+      status = 'hart';            // angenommen, aber klare Warnung
     } else if (rateProWoche > gewicht * 0.0075) {
       status = 'ambitioniert';
     }
   } else {
     // Aufbau: mehr als +500 kcal/Tag wird überwiegend Fett
     if (bilanz > 500) {
-      status = 'zu_schnell';
-      sichereWochen = Math.ceil((diffKg * 7700) / (500 * 7));
+      status = 'begrenzt';
       kalorienziel = tdee + 500;
+      sichereWochen = Math.ceil((diffKg * 7700) / (500 * 7));
     }
   }
 

@@ -46,15 +46,19 @@ function tempoHinweis(z, f) {
   if (!z) { el.hidden = true; return; }
   el.hidden = false;
   const diff = Math.abs(f.zielgewicht - f.gewicht).toFixed(1);
-  if (z.status === 'zu_schnell') {
-    el.textContent = `${diff} kg in ${f.wochen} Wochen ist zu schnell, um gesund zu bleiben. `
-      + `Ich plane mit dem sicheren Maximum: realistisch sind ca. ${z.sichereWochen} Wochen.`;
+  if (z.status === 'begrenzt') {
+    el.textContent = `${diff} kg in ${f.wochen} Wochen geht über Essen allein nicht – selbst am Minimum (${z.minKcal} kcal) `
+      + `braucht es ca. ${z.sichereWochen} Wochen. Ich plane das Minimum; mit Training und vielen Schritten kannst du schneller sein.`;
+    el.style.color = 'var(--danger)';
+  } else if (z.status === 'hart') {
+    el.textContent = `Angenommen: ${diff} kg in ${f.wochen} Wochen = ${z.kalorienziel} kcal/Tag (~${z.rate.toFixed(2)} kg/Woche). `
+      + 'Das ist HART – Protein hoch halten und Krafttraining, sonst geht Muskel mit verloren. Aber es ist dein Ziel, und wir arbeiten darauf hin.';
     el.style.color = 'var(--danger)';
   } else if (z.status === 'ambitioniert') {
-    el.textContent = `Sportlich, aber machbar: ${z.bilanz} kcal/Tag Bilanz (~${z.rate.toFixed(2)} kg/Woche). Zieh es konsequent durch.`;
+    el.textContent = `Angenommen: ${z.bilanz} kcal/Tag Bilanz (~${z.rate.toFixed(2)} kg/Woche). Sportlich, aber machbar – zieh es konsequent durch.`;
     el.style.color = 'var(--warn)';
   } else {
-    el.textContent = `Gut machbar: ${z.bilanz} kcal/Tag Bilanz, ~${z.rate.toFixed(2)} kg/Woche.`;
+    el.textContent = `Angenommen: ${z.bilanz} kcal/Tag Bilanz, ~${z.rate.toFixed(2)} kg/Woche – gut machbar.`;
     el.style.color = 'var(--text-muted)';
   }
 }
@@ -81,7 +85,7 @@ function aktualisiereVorschau() {
   let info = `Grundumsatz ${z.grundumsatz} kcal · TDEE ${z.tdee} kcal.`;
   if (z.eigenerZeitraum) {
     const e = z.eigenerZeitraum;
-    const wochen = e.status === 'zu_schnell' ? e.sichereWochen : f.wochen;
+    const wochen = e.status === 'begrenzt' ? e.sichereWochen : f.wochen;
     info += ` Dein Weg: ${z.kalorienziel} kcal/Tag → ${f.zielgewicht} kg in ca. ${wochen} Wochen.`;
   } else {
     const zeit = schaetzeZeitfenster({ ...f, tdee: z.tdee, kalorienziel: z.kalorienziel });
@@ -134,7 +138,9 @@ export function initOnboarding() {
     // oder die automatische Schätzung
     let planWochen = null;
     if (z.eigenerZeitraum) {
-      planWochen = z.eigenerZeitraum.status === 'zu_schnell'
+      // Dein Zeitraum gilt – nur wenn er physisch nicht planbar ist
+      // ('begrenzt'), nehmen wir das frühestmögliche Datum
+      planWochen = z.eigenerZeitraum.status === 'begrenzt'
         ? z.eigenerZeitraum.sichereWochen
         : f.wochen;
     } else {
