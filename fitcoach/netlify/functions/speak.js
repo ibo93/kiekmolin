@@ -2,13 +2,11 @@
 // ELEVENLABS_API_KEY bleibt serverseitig; ohne Key antwortet die Function
 // mit 503 und die App bleibt einfach stumm (Feature ist optional).
 
-async function verifyUser(authHeader) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authHeader, apikey: process.env.SUPABASE_ANON_KEY },
-  });
-  if (!res.ok) return null;
-  return res.json();
+// Einfacher App-Schlüssel statt Login: Der Client schickt x-app-key,
+// das muss zur Netlify-Variable APP_KEY passen.
+function autorisiert(event) {
+  const key = event.headers['x-app-key'];
+  return Boolean(key && process.env.APP_KEY && key === process.env.APP_KEY);
 }
 
 // Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
@@ -21,9 +19,8 @@ exports.handler = async (event) => {
   if (!TTS_KEY) {
     return { statusCode: 503, body: JSON.stringify({ error: 'Sprachausgabe nicht konfiguriert' }) };
   }
-  const user = await verifyUser(event.headers.authorization);
-  if (!user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Nicht eingeloggt' }) };
+  if (!autorisiert(event)) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'App-Schlüssel fehlt oder falsch' }) };
   }
 
   let payload;

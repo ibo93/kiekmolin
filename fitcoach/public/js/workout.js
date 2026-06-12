@@ -1,5 +1,6 @@
 // Training: Plan-Vorlagen (Push/Pull/Beine, Ganzkörper), Sätze loggen, abhaken.
-import { sb, state, toast, escapeHtml, todayISO, onViewShow, haptik } from './state.js';
+// Alles lokal auf dem Gerät – sofort da, auch offline.
+import { db, toast, escapeHtml, todayISO, onViewShow, haptik } from './state.js';
 
 const VORLAGEN = [
   {
@@ -49,44 +50,38 @@ function renderVorlagen() {
 
 // ---------- Workout starten ----------
 
-async function starteWorkout(vorlage) {
-  if (!navigator.onLine) { toast('Workout-Logging braucht Internet'); return; }
-
-  const { data: workout, error } = await sb.from('workouts')
-    .insert({ user_id: state.user.id, datum: todayISO(), plan_name: vorlage.name })
-    .select()
-    .single();
-  if (error) { toast('Fehler: ' + error.message); return; }
+function starteWorkout(vorlage) {
+  const workout = db.insert('workouts', {
+    datum: todayISO(),
+    plan_name: vorlage.name,
+    abgeschlossen: false,
+  });
 
   // Letzte Gewichte derselben Übungen als Vorbelegung laden
-  const { data: letzte } = await sb.from('workout_sets')
-    .select('uebung, gewicht_kg, wiederholungen, created_at')
-    .in('uebung', vorlage.uebungen)
-    .order('created_at', { ascending: false })
-    .limit(100);
+  const alleSets = db.alle('workout_sets')
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   const vorbelegung = {};
-  for (const s of letzte || []) {
-    vorbelegung[s.uebung] ||= { gewicht: s.gewicht_kg, wdh: s.wiederholungen };
+  for (const s of alleSets) {
+    if (vorlage.uebungen.includes(s.uebung) && !vorbelegung[s.uebung]) {
+      vorbelegung[s.uebung] = { gewicht: s.gewicht_kg, wdh: s.wiederholungen };
+    }
   }
 
   const sets = [];
   for (const uebung of vorlage.uebungen) {
     for (let nr = 1; nr <= SAETZE_PRO_UEBUNG; nr++) {
-      sets.push({
+      sets.push(db.insert('workout_sets', {
         workout_id: workout.id,
-        user_id: state.user.id,
         uebung,
         satz_nr: nr,
         gewicht_kg: vorbelegung[uebung]?.gewicht ?? null,
         wiederholungen: vorbelegung[uebung]?.wdh ?? null,
         erledigt: false,
-      });
+      }));
     }
   }
-  const { data: inserted, error: setErr } = await sb.from('workout_sets').insert(sets).select();
-  if (setErr) { toast('Fehler: ' + setErr.message); return; }
 
-  aktivesWorkout = { ...workout, sets: inserted };
+  aktivesWorkout = { ...workout, sets };
   renderAktiv();
 }
 
@@ -119,18 +114,19 @@ function renderAktiv() {
     </div>`;
 }
 
-async function speichereSatz(setId, feld, wert) {
+function speichereSatz(setId, feld, wert) {
   const s = aktivesWorkout.sets.find((x) => x.id === setId);
   if (!s) return;
   s[feld] = wert;
-  await sb.from('workout_sets').update({ [feld]: wert }).eq('id', setId);
+  db.update('workout_sets', setId, { [feld]: wert });
 }
 
-async function beendeWorkout(abgebrochen) {
+function beendeWorkout(abgebrochen) {
   if (abgebrochen) {
-    await sb.from('workouts').delete().eq('id', aktivesWorkout.id); // löscht Sätze per Cascade
+    db.delete('workouts', aktivesWorkout.id);
+    db.deleteWo('workout_sets', (s) => s.workout_id === aktivesWorkout.id);
   } else {
-    await sb.from('workouts').update({ abgeschlossen: true }).eq('id', aktivesWorkout.id);
+    db.update('workouts', aktivesWorkout.id, { abgeschlossen: true });
     haptik(25);
     toast('Workout abgeschlossen – stark!');
   }
@@ -142,13 +138,10 @@ async function beendeWorkout(abgebrochen) {
 
 // ---------- Historie ----------
 
-async function ladeHistorie() {
-  if (!navigator.onLine) return;
-  const { data } = await sb.from('workouts')
-    .select('datum, plan_name, abgeschlossen')
-    .order('datum', { ascending: false })
-    .limit(10);
-  const liste = (data || []).filter((w) => w.abgeschlossen);
+function ladeHistorie() {
+  const liste = db.alle('workouts', (w) => w.abgeschlossen)
+    .sort((a, b) => b.datum.localeCompare(a.datum))
+    .slice(0, 10);
   document.getElementById('workout-history').innerHTML = liste.length
     ? liste.map((w) => `
         <div class="history-entry">
@@ -179,7 +172,7 @@ export function initWorkout() {
     speichereSatz(setId, input.dataset.field, wert);
   });
 
-  aktiv.addEventListener('click', async (e) => {
+  aktiv.addEventListener('click', (e) => {
     if (e.target.id === 'workout-finish') { beendeWorkout(false); return; }
     if (e.target.id === 'workout-abort') {
       if (confirm('Workout abbrechen? Die Sätze werden verworfen.')) beendeWorkout(true);
@@ -192,7 +185,7 @@ export function initWorkout() {
       s.erledigt = !s.erledigt;
       check.classList.toggle('done', s.erledigt);
       if (s.erledigt) haptik();
-      await sb.from('workout_sets').update({ erledigt: s.erledigt }).eq('id', setId);
+      db.update('workout_sets', setId, { erledigt: s.erledigt });
     }
   });
 }

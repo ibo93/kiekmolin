@@ -1,5 +1,5 @@
 // Onboarding: Daten erfassen, Ziele live berechnen, Profil speichern.
-import { sb, state, showView, toast, onViewShow, todayISO, cacheProfil } from './state.js';
+import { db, state, showView, toast, onViewShow, todayISO, setProfil } from './state.js';
 import {
   berechneZiele, schaetzeZeitfenster, zieldatum,
   kalorienzielFuerZeitraum, makros,
@@ -122,12 +122,8 @@ export function initOnboarding() {
     aktualisiereVorschau();
   });
 
-  document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+  document.getElementById('onboarding-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!state.user) {
-      toast('Noch nicht mit der Datenbank verbunden – in Supabase „Anonymous sign-ins" einschalten und App neu laden');
-      return;
-    }
     const f = leseFormular();
     if (!f.ziel) {
       toast('Bitte wähle ein Ziel aus');
@@ -147,7 +143,6 @@ export function initOnboarding() {
     }
 
     const row = {
-      id: state.user.id,
       alter: f.alter,
       groesse_cm: f.groesse,
       gewicht_kg: f.gewicht,
@@ -168,25 +163,11 @@ export function initOnboarding() {
       wasserziel_ml: Math.round(f.gewicht * 33 / 50) * 50, // ~33 ml/kg, auf 50 ml gerundet
     };
 
-    let { error } = await sb.from('profiles').upsert(row);
-    if (error && /column|schema/i.test(error.message)) {
-      // Ältere Datenbank ohne die neuen Spalten (startgewicht_kg/akzentfarbe):
-      // ohne optionale Felder erneut speichern, damit nichts blockiert.
-      const { startgewicht_kg, ...basisRow } = row;
-      ({ error } = await sb.from('profiles').upsert(basisRow));
-    }
-    if (error) {
-      toast('Speichern fehlgeschlagen: ' + error.message);
-      return;
-    }
-    state.profile = row;
-    cacheProfil(row);
+    // Akzentfarbe behalten, falls schon gewählt
+    setProfil({ ...row, akzentfarbe: state.profile?.akzentfarbe });
 
     // Startgewicht direkt in den Verlauf übernehmen
-    await sb.from('weight_entries').upsert(
-      { user_id: state.user.id, datum: todayISO(), gewicht_kg: f.gewicht },
-      { onConflict: 'user_id,datum' }
-    );
+    db.upsert('weight_entries', { datum: todayISO(), gewicht_kg: f.gewicht }, ['datum']);
 
     toast('Dein Plan steht!');
     showView('tracker');

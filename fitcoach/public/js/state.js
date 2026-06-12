@@ -1,26 +1,79 @@
-// Gemeinsamer App-Zustand, Supabase-Client und kleine UI-Helfer.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-
-export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Gemeinsamer App-Zustand, lokale Datenbank und kleine UI-Helfer.
+// Alle Daten leben auf dem Gerät (localStorage) – keine Einrichtung,
+// keine Anmeldung, funktioniert komplett offline.
+import { APP_KEY } from './config.js';
 
 export const state = {
-  user: null,
   profile: null,
   date: todayISO(),      // aktuell angezeigter Tag im Tracker
 };
 
-// Datum in lokaler Zeitzone (UTC würde abends auf den falschen Tag kippen)
-export function todayISO(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
+// ---------- Lokale Datenbank ----------
+// Einfacher Dokument-Speicher pro "Tabelle" (Array von Zeilen mit id).
+
+function lade(tabelle) {
+  try { return JSON.parse(localStorage.getItem('fcdb_' + tabelle)) || []; }
+  catch { return []; }
+}
+function speichere(tabelle, zeilen) {
+  localStorage.setItem('fcdb_' + tabelle, JSON.stringify(zeilen));
+}
+function neueId() {
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);
 }
 
-export function verschiebeDatum(iso, tage) {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + tage);
-  return d.toISOString().slice(0, 10);
+export const db = {
+  alle(tabelle, filter) {
+    const zeilen = lade(tabelle);
+    return filter ? zeilen.filter(filter) : zeilen;
+  },
+  insert(tabelle, zeile) {
+    const zeilen = lade(tabelle);
+    const neu = { id: neueId(), created_at: new Date().toISOString(), ...zeile };
+    zeilen.push(neu);
+    speichere(tabelle, zeilen);
+    return neu;
+  },
+  // Aktualisiert die Zeile, bei der alle keys übereinstimmen – sonst neu anlegen
+  upsert(tabelle, zeile, keys) {
+    const zeilen = lade(tabelle);
+    const i = zeilen.findIndex((z) => keys.every((k) => z[k] === zeile[k]));
+    if (i >= 0) {
+      zeilen[i] = { ...zeilen[i], ...zeile };
+      speichere(tabelle, zeilen);
+      return zeilen[i];
+    }
+    return db.insert(tabelle, zeile);
+  },
+  update(tabelle, id, patch) {
+    const zeilen = lade(tabelle);
+    const i = zeilen.findIndex((z) => z.id === id);
+    if (i >= 0) {
+      zeilen[i] = { ...zeilen[i], ...patch };
+      speichere(tabelle, zeilen);
+    }
+  },
+  delete(tabelle, id) {
+    speichere(tabelle, lade(tabelle).filter((z) => z.id !== id));
+  },
+  deleteWo(tabelle, filter) {
+    speichere(tabelle, lade(tabelle).filter((z) => !filter(z)));
+  },
+};
+
+// ---------- Profil ----------
+const PROFILE_KEY = 'fc_profile';
+export function setProfil(p) {
+  state.profile = p;
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* voll */ }
+}
+export function geladenesProfil() {
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch { return null; }
+}
+
+// ---------- KI-Aufrufe ----------
+export function authHeaders() {
+  return { 'x-app-key': APP_KEY };
 }
 
 // Fetch mit hartem Timeout – wirft verständliche Fehler statt ewig zu hängen.
@@ -38,13 +91,19 @@ export async function fetchMitTimeout(url, options = {}, ms = 45000) {
   }
 }
 
-// Profil lokal vorhalten, damit die App auch offline startklar ist.
-const PROFILE_KEY = 'fc_profile';
-export function cacheProfil(p) {
-  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* voll/gesperrt */ }
+// ---------- Datum ----------
+// Datum in lokaler Zeitzone (UTC würde abends auf den falschen Tag kippen)
+export function todayISO(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }
-export function gecachtesProfil() {
-  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch { return null; }
+
+export function verschiebeDatum(iso, tage) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + tage);
+  return d.toISOString().slice(0, 10);
 }
 
 export function formatDate(iso) {
@@ -55,6 +114,7 @@ export function formatDate(iso) {
   return `${d}.${m}.${y}`;
 }
 
+// ---------- Views ----------
 const VIEWS = ['auth', 'onboarding', 'tracker', 'scan', 'progress', 'workout', 'profile'];
 const viewListeners = {};
 
@@ -75,6 +135,7 @@ export function showView(name) {
   for (const fn of viewListeners[name] || []) fn();
 }
 
+// ---------- UI-Helfer ----------
 let toastTimer;
 export function toast(msg) {
   const el = document.getElementById('toast');
@@ -85,7 +146,6 @@ export function toast(msg) {
 }
 
 // Dezentes haptisches Feedback, wo der Browser es unterstützt (Android).
-// iOS Safari kennt navigator.vibrate nicht – dann passiert einfach nichts.
 export function haptik(ms = 12) {
   try { navigator.vibrate?.(ms); } catch { /* nicht unterstützt */ }
 }
@@ -114,34 +174,4 @@ export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
   );
-}
-
-// ---------- Offline-Warteschlange ----------
-// Einfache Einträge (Essen, Wasser) funktionieren auch offline:
-// sie landen in localStorage und werden gesendet, sobald wieder online.
-
-const QUEUE_KEY = 'fc_offline_queue';
-
-export function queueInsert(table, row) {
-  const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  q.push({ table, row });
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-}
-
-export function getQueued(table, datum) {
-  const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  return q.filter((e) => e.table === table && e.row.datum === datum).map((e) => e.row);
-}
-
-export async function flushQueue() {
-  const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-  if (!q.length || !navigator.onLine) return 0;
-  const rest = [];
-  let sent = 0;
-  for (const item of q) {
-    const { error } = await sb.from(item.table).insert(item.row);
-    if (error) rest.push(item); else sent++;
-  }
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(rest));
-  return sent;
 }

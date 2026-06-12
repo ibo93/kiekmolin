@@ -4,7 +4,7 @@ Persönlicher Coach für **Abnehmen und Muskelaufbau**: Kalorien tracken, Gerich
 per **KI-Foto-Scan** (Claude Vision) erfassen, Fortschritt sichtbar machen.
 
 - **Frontend:** Vanilla JS, mobile-first, dunkles OLED-Design (Space Grotesk Display-Font), PWA (installierbar, offline-fähiger Tracker)
-- **Backend:** Supabase (Auth, Postgres mit Row Level Security, Storage für Fotos)
+- **Daten:** komplett lokal auf dem Gerät (localStorage) – keine Anmeldung, keine Datenbank-Einrichtung, offline-fähig
 - **Hosting:** Netlify (statische Site + Netlify Function für den Claude-API-Call)
 - **KI:** Claude API (`claude-sonnet-4-6`) mit Vision + strukturiertem JSON-Output, ElevenLabs TTS mit lokalem Audio-Cache
 
@@ -24,53 +24,22 @@ per **KI-Foto-Scan** (Claude Vision) erfassen, Fortschritt sichtbar machen.
 
 ---
 
-## Setup (einmalig, ~15 Minuten)
+## Setup (einmalig, ~5 Minuten)
 
-### 1. Supabase-Projekt anlegen
+Keine Datenbank, kein Login – nur Netlify:
 
-1. Auf [supabase.com](https://supabase.com) ein neues Projekt erstellen.
-2. **SQL Editor** öffnen und den kompletten Inhalt von [`supabase/schema.sql`](supabase/schema.sql) ausführen.
-   Das legt alle Tabellen, RLS-Policies und die privaten Storage-Buckets (`food-photos`, `progress-photos`) an.
-3. Unter **Project Settings → API** die Werte `Project URL` und `anon public key` kopieren.
-4. Optional: Unter **Authentication → Providers → Email** „Confirm email“ deaktivieren,
-   wenn du ohne E-Mail-Bestätigung testen willst.
+1. Den Ordner `fitcoach` auf Netlify deployen (Drag & Drop auf den
+   Deploys-Tab der Site oder via Git mit Base directory `fitcoach`).
+2. Environment-Variablen der Site:
 
-### 2. Frontend konfigurieren
+| Variable | Wozu |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude (Foto-Scan, Text-Schätzung, Coach) |
+| `APP_KEY` | Muss zum Wert in `public/js/config.js` passen (schützt die KI-Funktionen) |
+| `ELEVENLABS_API_KEY` | optional – Coach-Stimme |
 
-In [`public/js/config.js`](public/js/config.js) eintragen:
-
-```js
-export const SUPABASE_URL = 'https://xyzxyz.supabase.co';
-export const SUPABASE_ANON_KEY = 'eyJ...';
-```
-
-> Der Anon-Key darf öffentlich sein – die Datensicherheit kommt von Row Level
-> Security: jeder User sieht ausschließlich seine eigenen Daten.
-
-### 3. Netlify-Site anlegen
-
-1. Neues Netlify-Projekt aus diesem Repo erstellen.
-2. **Base directory:** `fitcoach` (wichtig – die App liegt im Unterordner).
-   Publish directory und Functions werden über `fitcoach/netlify.toml` gesetzt.
-3. Unter **Site settings → Environment variables** drei Variablen anlegen:
-
-| Variable | Wert | Wozu |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-…` (von [console.anthropic.com](https://console.anthropic.com)) | Claude-Vision-Call – bleibt serverseitig, landet nie im Frontend |
-| `SUPABASE_URL` | wie in config.js | Token-Verifizierung in der Function |
-| `SUPABASE_ANON_KEY` | wie in config.js | Token-Verifizierung in der Function |
-| `ELEVENLABS_API_KEY` | optional (von [elevenlabs.io](https://elevenlabs.io)) | Coach-Stimme: liest Scan-Ergebnisse vor. Ohne Key bleibt die App einfach stumm |
-| `ELEVENLABS_VOICE_ID` | optional | Andere ElevenLabs-Stimme als der Standard |
-
-4. Deployen. Fertig 🎉
-
-### 4. Auf dem Handy installieren
-
-Seite im Browser öffnen → „Zum Startbildschirm hinzufügen“. Die App läuft dann
-im Vollbild; der Tracker funktioniert dank Service Worker auch offline
-(Einträge werden synchronisiert, sobald du wieder online bist).
-
----
+3. App öffnen, fertig. Alle Daten liegen lokal im Browser der Site –
+   Website-Daten löschen heißt: App startet bei Null.
 
 ## Projektstruktur
 
@@ -102,18 +71,8 @@ fitcoach/
         └── workout.js            # Trainingspläne + Logging
 ```
 
-## Anmeldung (Anonymous-Modus)
+## Sicherheit & Grenzen
 
-Die App hat **keinen Login**: Beim ersten Start meldet sie sich automatisch
-anonym bei Supabase an (dazu in Supabase **Authentication → Sign In / Providers
-→ Anonymous sign-ins** einschalten). Die Identität hängt am Browser dieser
-Site – **Website-Daten löschen oder ein anderes Gerät bedeutet ein frisches
-Konto** ohne die bisherigen Einträge. Für Mehrgeräte-Sync müsste man später
-auf E-Mail-Login umstellen.
-
-## Sicherheit
-
-- **RLS auf allen Tabellen** – jede Policy prüft `auth.uid() = user_id`.
-- **Private Storage-Buckets** – Fotos liegen unter `<user_id>/…`; Policies erlauben nur den eigenen Ordner, Anzeige über kurzlebige signierte URLs.
-- **Claude-API-Key nur serverseitig** in der Netlify Function; die Function verifiziert zusätzlich das Supabase-JWT, damit nur eingeloggte Nutzer den (kostenpflichtigen) KI-Call auslösen können.
-- Bilder werden clientseitig auf 1280 px komprimiert (schnellerer Upload, geringere API-Kosten).
+- Der Anthropic-Key bleibt serverseitig; die Functions verlangen den `APP_KEY`-Header.
+- Daten sind privat, weil sie das Gerät nie verlassen (außer Fotos zur KI-Analyse).
+- Kein Geräte-Sync: Daten gehören zum Browser dieser Site.

@@ -1,7 +1,7 @@
 // Kalorien-Tracker: Tagesübersicht, Ring, Makros, Mahlzeiten, Wasser.
 import {
-  sb, state, toast, escapeHtml, todayISO, formatDate, verschiebeDatum,
-  fetchMitTimeout, onViewShow, queueInsert, getQueued, haptik, animiereZahl,
+  db, state, toast, escapeHtml, todayISO, formatDate, verschiebeDatum,
+  fetchMitTimeout, authHeaders, onViewShow, haptik, animiereZahl,
 } from './state.js';
 import { hoereZu, sprachEingabeVerfuegbar, sprich } from './speech.js';
 import { wochenBis, zielFortschritt } from './calc.js';
@@ -38,23 +38,10 @@ export async function refreshTracker() {
     state.date === todayISO() ? 'Moin!' : formatDate(state.date);
   document.getElementById('date-next').disabled = state.date >= todayISO();
 
-  let entries = [];
-  let wasser = 0;
-
-  if (navigator.onLine) {
-    const [foodRes, waterRes] = await Promise.all([
-      sb.from('food_entries').select('*').eq('datum', state.date).order('created_at'),
-      sb.from('water_entries').select('menge_ml').eq('datum', state.date),
-    ]);
-    entries = foodRes.data || [];
-    wasser = (waterRes.data || []).reduce((s, w) => s + w.menge_ml, 0);
-  }
-
-  // Offline erfasste, noch nicht synchronisierte Einträge ergänzen
-  const queuedFood = getQueued('food_entries', state.date).map((r) => ({ ...r, _pending: true }));
-  const queuedWater = getQueued('water_entries', state.date);
-  entries = entries.concat(queuedFood);
-  wasser += queuedWater.reduce((s, w) => s + w.menge_ml, 0);
+  // Alles lokal – sofort da, auch offline
+  const entries = db.alle('food_entries', (e) => e.datum === state.date);
+  const wasser = db.alle('water_entries', (w) => w.datum === state.date)
+    .reduce((s, w) => s + w.menge_ml, 0);
 
   renderZusammenfassung(entries);
   renderWasser(wasser);
@@ -157,7 +144,7 @@ function renderMahlzeiten(entries) {
     const items = list.map((e) => `
       <div class="meal-entry">
         <div>
-          <div>${escapeHtml(e.name)} ${e._pending ? '<span class="pending-badge">ausstehend</span>' : ''}</div>
+          <div>${escapeHtml(e.name)}</div>
           <div class="entry-meta">
             ${e.menge_g ? Math.round(e.menge_g) + ' g · ' : ''}P ${Math.round(e.protein_g)} · C ${Math.round(e.carbs_g)} · F ${Math.round(e.fett_g)}
             ${e.quelle === 'ki_scan' ? ' · KI-Scan' : ''}
@@ -179,20 +166,10 @@ function renderMahlzeiten(entries) {
   }).join('');
 }
 
-// ---------- Eintrag speichern (online direkt, offline in die Queue) ----------
+// ---------- Eintrag speichern (lokal, sofort) ----------
 
 export async function speichereEintrag(row) {
-  row.user_id = state.user.id;
-  row.datum = state.date;
-  if (navigator.onLine) {
-    const { error } = await sb.from('food_entries').insert(row);
-    if (error) {
-      toast('Fehler: ' + error.message);
-      return false;
-    }
-  } else {
-    queueInsert('food_entries', row);
-  }
+  db.insert('food_entries', { ...row, datum: state.date });
   haptik();
   return true;
 }
@@ -230,29 +207,22 @@ function zeigeFoodTab(tab) {
   document.getElementById('food-submit').hidden = tab !== 'manual';
 }
 
-async function ladeFavoriten() {
+function ladeFavoriten() {
   const ziel = document.getElementById('food-favs');
-  if (!navigator.onLine) { ziel.innerHTML = '<p class="muted">Offline nicht verfügbar.</p>'; return; }
-  ziel.innerHTML = '<p class="muted">Lädt …</p>'; // Zustand bei langsamem Netz
-  const { data } = await sb.from('favorites').select('*').order('name');
-  favoriten = data || [];
+  favoriten = db.alle('favorites').sort((a, b) => a.name.localeCompare(b.name));
   ziel.innerHTML = favoriten.length
     ? favoriten.map((f, i) => favHtml(f, `fav:${i}`)).join('')
     : '<p class="muted">Noch keine Favoriten. Hake beim manuellen Eintrag „Als Favorit speichern" an.</p>';
 }
 
 let zuletzt = [];
-async function ladeZuletzt() {
+function ladeZuletzt() {
   const ziel = document.getElementById('food-recent');
-  if (!navigator.onLine) { ziel.innerHTML = '<p class="muted">Offline nicht verfügbar.</p>'; return; }
-  ziel.innerHTML = '<p class="muted">Lädt …</p>'; // Zustand bei langsamem Netz
-  const { data } = await sb.from('food_entries')
-    .select('name, menge_g, kalorien, protein_g, carbs_g, fett_g')
-    .order('created_at', { ascending: false })
-    .limit(30);
+  const alle = db.alle('food_entries')
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   // Duplikate nach Name entfernen
   const seen = new Set();
-  zuletzt = (data || []).filter((e) => !seen.has(e.name) && seen.add(e.name)).slice(0, 12);
+  zuletzt = alle.filter((e) => !seen.has(e.name) && seen.add(e.name)).slice(0, 12);
   ziel.innerHTML = zuletzt.length
     ? zuletzt.map((f, i) => favHtml(f, `recent:${i}`)).join('')
     : '<p class="muted">Noch keine Einträge.</p>';
@@ -319,14 +289,9 @@ async function schaetzePerKI() {
   const btn = document.getElementById('food-ki');
   btn.disabled = true;
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Nicht eingeloggt');
     const res = await fetchMitTimeout('/api/analyze-text', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ text }),
     });
     if (!res.ok) {
@@ -364,14 +329,9 @@ async function oeffneCoach() {
   document.getElementById('coach-modal').showModal();
 
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Nicht eingeloggt');
     const res = await fetchMitTimeout('/api/coach', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         ziel: state.profile.ziel,
         kalorienziel: state.profile.kalorienziel,
@@ -453,14 +413,8 @@ export function initTracker() {
 
   // Wasser-Buttons
   document.querySelectorAll('[data-water]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const row = { user_id: state.user.id, datum: state.date, menge_ml: Number(btn.dataset.water) };
-      if (navigator.onLine) {
-        const { error } = await sb.from('water_entries').insert(row);
-        if (error) { toast('Fehler: ' + error.message); return; }
-      } else {
-        queueInsert('water_entries', row);
-      }
+    btn.addEventListener('click', () => {
+      db.insert('water_entries', { datum: state.date, menge_ml: Number(btn.dataset.water) });
       haptik();
       refreshTracker();
     });
@@ -473,7 +427,7 @@ export function initTracker() {
 
     const delBtn = e.target.closest('.entry-del');
     if (delBtn) {
-      await sb.from('food_entries').delete().eq('id', delBtn.dataset.id);
+      db.delete('food_entries', delBtn.dataset.id);
       refreshTracker();
     }
   });
@@ -584,15 +538,12 @@ export function initTracker() {
       const ok = await speichereEintrag(row);
       if (!ok) return;
 
-      if (document.getElementById('food-fav').checked && navigator.onLine) {
-        await sb.from('favorites').upsert(
-          {
-            user_id: state.user.id, name,
-            menge_g: row.menge_g, kalorien: row.kalorien,
-            protein_g: row.protein_g, carbs_g: row.carbs_g, fett_g: row.fett_g,
-          },
-          { onConflict: 'user_id,name' }
-        );
+      if (document.getElementById('food-fav').checked) {
+        db.upsert('favorites', {
+          name,
+          menge_g: row.menge_g, kalorien: row.kalorien,
+          protein_g: row.protein_g, carbs_g: row.carbs_g, fett_g: row.fett_g,
+        }, ['name']);
       }
 
       document.getElementById('food-modal').close();

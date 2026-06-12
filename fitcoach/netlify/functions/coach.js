@@ -40,16 +40,11 @@ Regeln für deine 3 Vorschläge:
 - Mengenangaben konkret in Gramm/Stück, Kalorien realistisch
 - Deutsch, direkt, motivierend ohne Floskeln`;
 
-async function verifyUser(authHeader) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  try {
-    const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: authHeader, apikey: process.env.SUPABASE_ANON_KEY },
-    });
-    return res.ok ? res.json() : null;
-  } catch {
-    return null;
-  }
+// Einfacher App-Schlüssel statt Login: Der Client schickt x-app-key,
+// das muss zur Netlify-Variable APP_KEY passen.
+function autorisiert(event) {
+  const key = event.headers['x-app-key'];
+  return Boolean(key && process.env.APP_KEY && key === process.env.APP_KEY);
 }
 
 // Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
@@ -63,9 +58,8 @@ exports.handler = async (event) => {
     return { statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
   }
 
-  const user = await verifyUser(event.headers.authorization);
-  if (!user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Nicht eingeloggt' }) };
+  if (!autorisiert(event)) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'App-Schlüssel fehlt oder falsch' }) };
   }
 
   let payload;

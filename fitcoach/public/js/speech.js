@@ -1,6 +1,6 @@
 // KI-Voice: Spracheingabe (Web Speech API, läuft im Browser) und
 // Coach-Stimme (ElevenLabs über die Netlify Function /api/speak).
-import { sb, toast } from './state.js';
+import { toast, authHeaders } from './state.js';
 
 const VOICE_KEY = 'fc_voice_output';
 const VOICE_ID_KEY = 'fc_voice_id';
@@ -113,14 +113,9 @@ export async function sprich(text) {
 
   if (!navigator.onLine) return;
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;
     const res = await fetch('/api/speak', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ text: text.slice(0, 400), voice_id: voiceId }),
     });
     if (!res.ok) {

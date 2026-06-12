@@ -1,6 +1,6 @@
 // KI-Foto-Scan: Bild verkleinern, an die Netlify Function schicken,
 // Schätzung anzeigen, Portionsgröße anpassen, ins Protokoll speichern.
-import { sb, state, toast, showView, todayISO, fetchMitTimeout, haptik } from './state.js';
+import { db, state, toast, showView, todayISO, fetchMitTimeout, authHeaders, haptik } from './state.js';
 import { refreshTracker } from './tracker.js';
 import { sprich } from './speech.js';
 
@@ -73,16 +73,11 @@ async function analysiere(file) {
     document.getElementById('scan-result-img').src = vorschauUrl;
 
     const base64 = await blobZuBase64(fotoBlob);
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Nicht eingeloggt – bitte neu anmelden');
 
     // Harter Timeout, damit die Vorschau nicht ewig lädt
     const res = await fetchMitTimeout('/api/analyze-food', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ image_base64: base64, media_type: 'image/jpeg' }),
     });
 
@@ -136,22 +131,9 @@ function aktualisiereWerte() {
 }
 
 async function speichere() {
-  const btn = document.getElementById('scan-save');
-  btn.disabled = true;
   const prozent = Number(document.getElementById('scan-portion').value) / 100;
 
-  // Foto privat in Supabase Storage ablegen (optional – Eintrag klappt auch ohne)
-  let fotoPfad = null;
-  try {
-    const pfad = `${state.user.id}/${Date.now()}.jpg`;
-    const { error } = await sb.storage.from('food-photos').upload(pfad, fotoBlob, {
-      contentType: 'image/jpeg',
-    });
-    if (!error) fotoPfad = pfad;
-  } catch { /* Upload-Fehler ignorieren */ }
-
-  const { error } = await sb.from('food_entries').insert({
-    user_id: state.user.id,
+  db.insert('food_entries', {
     datum: todayISO(),
     mahlzeit: document.getElementById('scan-mahlzeit').value,
     name: basis.gericht,
@@ -161,15 +143,9 @@ async function speichere() {
     carbs_g: Math.round(basis.carbs_g * prozent),
     fett_g: Math.round(basis.fett_g * prozent),
     quelle: 'ki_scan',
-    foto_pfad: fotoPfad,
     ki_details: basis,
   });
 
-  btn.disabled = false;
-  if (error) {
-    toast('Speichern fehlgeschlagen: ' + error.message);
-    return;
-  }
   haptik();
   toast(`${basis.gericht} eingetragen ✓`);
   zeigeSchritt('start');

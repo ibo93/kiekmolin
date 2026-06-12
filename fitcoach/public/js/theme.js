@@ -1,7 +1,7 @@
 // Theme-System: Akzentfarbe per CSS-Variable, live umschaltbar.
 // Auswahl landet in localStorage (sofort beim Start, auch offline)
 // und zusätzlich im Supabase-Profil.
-import { sb, state, toast } from './state.js';
+import { state, setProfil } from './state.js';
 
 export const ACCENTS = [
   { name: 'Acid-Lime', hex: '#C8FF00' },
@@ -35,18 +35,9 @@ export function applyAccent(hex) {
 }
 
 // Anwenden + im Profil speichern
-export async function setAccent(hex) {
+export function setAccent(hex) {
   applyAccent(hex);
-  if (state.user && navigator.onLine) {
-    const { error } = await sb.from('profiles')
-      .update({ akzentfarbe: hex })
-      .eq('id', state.user.id);
-    if (error) {
-      toast('Theme konnte nicht gespeichert werden');
-      return;
-    }
-    if (state.profile) state.profile.akzentfarbe = hex;
-  }
+  if (state.profile) setProfil({ ...state.profile, akzentfarbe: hex });
 }
 
 function markiereAuswahl(hex) {

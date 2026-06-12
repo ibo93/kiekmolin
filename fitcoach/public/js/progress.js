@@ -1,22 +1,24 @@
-// Fortschritt: Gewichts-Chart (SVG), Wochen-Auswertung, privater Foto-Vergleich.
-import { sb, state, toast, todayISO, onViewShow, cacheProfil } from './state.js';
+// Fortschritt: Gewichts-Chart (SVG), Wochen-Auswertung, Foto-Vergleich.
+// Alles lokal auf dem Gerät – sofort da, auch offline.
+import { db, state, toast, todayISO, onViewShow, setProfil, haptik } from './state.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-async function ladeAlles() {
+function ladeAlles() {
   if (!state.profile) return;
-  if (!navigator.onLine) {
-    toast('Fortschritt braucht eine Internetverbindung');
-    return;
-  }
-  await Promise.all([ladeGewicht(), ladeWoche(), ladeFotos()]);
+  ladeGewicht();
+  ladeWoche();
+  ladeFotos();
 }
 
 // ---------- Gewichtsverlauf ----------
 
-async function ladeGewicht() {
-  const { data } = await sb.from('weight_entries').select('datum, gewicht_kg').order('datum');
-  const eintraege = data || [];
+function gewichtsEintraege() {
+  return db.alle('weight_entries').sort((a, b) => a.datum.localeCompare(b.datum));
+}
+
+function ladeGewicht() {
+  const eintraege = gewichtsEintraege();
   // Leeres Diagramm ausblenden, damit keine große schwarze Lücke entsteht
   document.getElementById('weight-empty').hidden = eintraege.length > 0;
   document.getElementById('weight-chart').hidden = !eintraege.length;
@@ -90,7 +92,7 @@ function zeichneChart(eintraege) {
     letztes.setAttribute('x', W - padR); letztes.setAttribute('y', H - 6);
     letztes.setAttribute('text-anchor', 'end');
     letztes.setAttribute('class', 'axis-label');
-    letztes.textContent = kurzDatum(eintraege.at(-1).datum);
+    letztes.textContent = kurzDatum(eintraege[eintraege.length - 1].datum);
     svg.appendChild(letztes);
   }
 }
@@ -102,16 +104,14 @@ function kurzDatum(iso) {
 
 // ---------- Wochen-Auswertung ----------
 
-async function ladeWoche() {
+function ladeWoche() {
   const seit = todayISO(-6);
-  const [foodRes, workoutRes, weightRes] = await Promise.all([
-    sb.from('food_entries').select('datum, kalorien, protein_g').gte('datum', seit),
-    sb.from('workouts').select('id').gte('datum', seit).eq('abgeschlossen', true),
-    sb.from('weight_entries').select('datum, gewicht_kg').gte('datum', todayISO(-13)).order('datum'),
-  ]);
+  const food = db.alle('food_entries', (e) => e.datum >= seit);
+  const workouts = db.alle('workouts', (w) => w.datum >= seit && w.abgeschlossen);
+  const gewichte = gewichtsEintraege().filter((g) => g.datum >= todayISO(-13));
 
   const proTag = {};
-  for (const e of foodRes.data || []) {
+  for (const e of food) {
     proTag[e.datum] ||= { kcal: 0, protein: 0 };
     proTag[e.datum].kcal += Number(e.kalorien);
     proTag[e.datum].protein += Number(e.protein_g);
@@ -122,13 +122,12 @@ async function ladeWoche() {
 
   document.getElementById('week-avg-kcal').textContent = avgKcal ?? '–';
   document.getElementById('week-protein-days').textContent = `${proteinTage}/7`;
-  document.getElementById('week-workouts').textContent = (workoutRes.data || []).length;
+  document.getElementById('week-workouts').textContent = workouts.length;
 
   // Gewichtstrend: letzter Wert vs. Wert vor ≥ 7 Tagen
-  const gewichte = weightRes.data || [];
   let diff = null;
   if (gewichte.length >= 2) {
-    const letzter = gewichte.at(-1);
+    const letzter = gewichte[gewichte.length - 1];
     const vorWoche = [...gewichte].reverse().find((g) => g.datum <= todayISO(-6));
     if (vorWoche && vorWoche.datum !== letzter.datum) {
       diff = (Number(letzter.gewicht_kg) - Number(vorWoche.gewicht_kg)).toFixed(1);
@@ -151,43 +150,55 @@ async function ladeWoche() {
   document.getElementById('week-summary').textContent = fazit;
 }
 
-// ---------- Fortschrittsfotos ----------
+// ---------- Fortschrittsfotos (lokal als kleines JPEG gespeichert) ----------
 
-async function ladeFotos() {
+function ladeFotos() {
   const grid = document.getElementById('photo-grid');
-  const { data } = await sb.from('progress_photos')
-    .select('id, datum, storage_pfad')
-    .order('datum', { ascending: false })
-    .limit(8);
-  const fotos = data || [];
+  const fotos = db.alle('progress_photos')
+    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))
+    .slice(0, 8);
   if (!fotos.length) {
     grid.innerHTML = '<p class="muted">Lade ein „Vorher"-Foto hoch – in 8 Wochen wirst du den Unterschied sehen.</p>';
     return;
   }
-  // Private Buckets: signierte URLs mit kurzer Lebensdauer
-  const { data: signed } = await sb.storage.from('progress-photos')
-    .createSignedUrls(fotos.map((f) => f.storage_pfad), 3600);
-  grid.innerHTML = fotos.map((f, i) => `
+  grid.innerHTML = fotos.map((f) => `
     <div class="photo-item">
-      <img src="${signed?.[i]?.signedUrl || ''}" alt="Fortschrittsfoto vom ${f.datum}" loading="lazy">
+      <img src="${f.bild}" alt="Fortschrittsfoto vom ${f.datum}" loading="lazy">
       <span class="photo-date">${kurzDatum(f.datum)}${f.datum.slice(0, 4)}</span>
-      <button class="photo-del" data-id="${f.id}" data-pfad="${f.storage_pfad}">✕</button>
+      <button class="photo-del" data-id="${f.id}">✕</button>
     </div>`).join('');
 }
 
+// Foto auf 700 px verkleinern und als Daten-URL speichern (passt in den
+// lokalen Speicher; iOS-sicher über <img> + decode statt createImageBitmap)
+async function fotoVerkleinern(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const maxKante = 700;
+    const faktor = Math.min(1, maxKante / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * faktor));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * faktor));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 async function fotoHochladen(file) {
-  const pfad = `${state.user.id}/${Date.now()}.jpg`;
-  const { error: upErr } = await sb.storage.from('progress-photos').upload(pfad, file, {
-    contentType: file.type || 'image/jpeg',
-  });
-  if (upErr) { toast('Upload fehlgeschlagen: ' + upErr.message); return; }
-  const { error } = await sb.from('progress_photos').insert({
-    user_id: state.user.id,
-    storage_pfad: pfad,
-  });
-  if (error) { toast('Fehler: ' + error.message); return; }
-  toast('Foto gespeichert ✓');
-  ladeFotos();
+  try {
+    const bild = await fotoVerkleinern(file);
+    db.insert('progress_photos', { datum: todayISO(), bild });
+    haptik();
+    toast('Foto gespeichert ✓');
+    ladeFotos();
+  } catch {
+    toast('Dieses Bild kann nicht gelesen werden – bitte wähle ein anderes Foto');
+  }
 }
 
 // ---------- Initialisierung ----------
@@ -202,19 +213,20 @@ export function initProgress() {
   document.getElementById('weight-cancel').addEventListener('click', () =>
     document.getElementById('weight-modal').close()
   );
-  document.getElementById('weight-form').addEventListener('submit', async (e) => {
+  document.getElementById('weight-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const gewicht = parseFloat(document.getElementById('weight-input').value);
-    const { error } = await sb.from('weight_entries').upsert(
-      { user_id: state.user.id, datum: todayISO(), gewicht_kg: gewicht },
-      { onConflict: 'user_id,datum' }
-    );
-    if (error) { toast('Fehler: ' + error.message); return; }
+    if (!(gewicht >= 30 && gewicht <= 350)) {
+      toast('Bitte ein Gewicht zwischen 30 und 350 kg eingeben');
+      return;
+    }
+    db.upsert('weight_entries', { datum: todayISO(), gewicht_kg: gewicht }, ['datum']);
     // aktuelles Gewicht auch im Profil nachziehen
-    await sb.from('profiles').update({ gewicht_kg: gewicht }).eq('id', state.user.id);
-    state.profile.gewicht_kg = gewicht;
-    cacheProfil(state.profile);
+    if (state.profile) {
+      setProfil({ ...state.profile, gewicht_kg: gewicht });
+    }
     document.getElementById('weight-modal').close();
+    haptik();
     toast('Gewicht gespeichert ✓');
     ladeGewicht();
     ladeWoche();
@@ -226,12 +238,11 @@ export function initProgress() {
     e.target.value = '';
   });
 
-  document.getElementById('photo-grid').addEventListener('click', async (e) => {
+  document.getElementById('photo-grid').addEventListener('click', (e) => {
     const del = e.target.closest('.photo-del');
     if (!del) return;
     if (!confirm('Foto wirklich löschen?')) return;
-    await sb.storage.from('progress-photos').remove([del.dataset.pfad]);
-    await sb.from('progress_photos').delete().eq('id', del.dataset.id);
+    db.delete('progress_photos', del.dataset.id);
     ladeFotos();
   });
 }

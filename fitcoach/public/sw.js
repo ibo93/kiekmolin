@@ -1,10 +1,8 @@
 // Service Worker: cached die App-Shell, damit der Tracker auch offline lädt.
-// Daten-Requests (Supabase, Netlify Functions) gehen immer ans Netz.
+// KI-Aufrufe (/api/*) gehen immer ans Netz.
 
-const CACHE = 'fitcoach-v19';
+const CACHE = 'fitcoach-v20';
 
-// Externe Bibliothek separat: ihr Ausfall darf die Installation nicht stoppen
-const CDN_SUPABASE = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
 
 const SHELL = [
   '/',
@@ -30,11 +28,7 @@ const SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
-      .then(async (cache) => {
-        await cache.addAll(SHELL);
-        // Best effort – CDN-Ausfall darf die Installation nicht scheitern lassen
-        try { await cache.add(CDN_SUPABASE); } catch { /* wird später nachgecacht */ }
-      })
+      .then((cache) => cache.addAll(SHELL))
       .then(() => self.skipWaiting())
   );
 });
@@ -54,8 +48,7 @@ self.addEventListener('fetch', (event) => {
   if (
     event.request.method !== 'GET' ||
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/.netlify/') ||
-    url.hostname.endsWith('.supabase.co')
+    url.pathname.startsWith('/.netlify/')
   ) {
     return;
   }
@@ -80,7 +73,7 @@ self.addEventListener('fetch', (event) => {
       (cached) =>
         cached ||
         fetch(event.request).then((res) => {
-          if (res.ok && (url.origin === location.origin || url.hostname === 'cdn.jsdelivr.net')) {
+          if (res.ok && url.origin === location.origin) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(event.request, copy));
           }
