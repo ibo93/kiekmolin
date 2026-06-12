@@ -1,7 +1,7 @@
 // Service Worker: cached die App-Shell, damit der Tracker auch offline lädt.
 // KI-Aufrufe (/api/*) gehen immer ans Netz.
 
-const CACHE = 'fitcoach-v20';
+const CACHE = 'fitcoach-v21';
 
 
 const SHELL = [
@@ -20,6 +20,7 @@ const SHELL = [
   '/js/scan.js',
   '/js/progress.js',
   '/js/workout.js',
+  '/js/backup.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

@@ -9,6 +9,7 @@ import { initTracker } from './tracker.js';
 import { initScan } from './scan.js';
 import { initProgress } from './progress.js';
 import { initWorkout } from './workout.js';
+import { initBackup } from './backup.js';
 
 // ---------- Service Worker ----------
 if ('serviceWorker' in navigator) {
@@ -43,7 +44,7 @@ document.getElementById('profile-edit').addEventListener('click', () => showView
 // ---------- Module initialisieren ----------
 // Schutzwand: Wenn ein Modul beim Start crasht, blockiert es nicht die
 // anderen – und der Fehler wird sichtbar gemacht statt verschluckt.
-for (const init of [initTheme, initSpeech, initOnboarding, initTracker, initScan, initProgress, initWorkout]) {
+for (const init of [initTheme, initSpeech, initOnboarding, initTracker, initScan, initProgress, initWorkout, initBackup]) {
   try {
     init();
   } catch (err) {
