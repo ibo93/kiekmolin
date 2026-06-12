@@ -124,6 +124,10 @@ export function initOnboarding() {
 
   document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!state.user) {
+      toast('Noch nicht mit der Datenbank verbunden – in Supabase „Anonymous sign-ins" einschalten und App neu laden');
+      return;
+    }
     const f = leseFormular();
     if (!f.ziel) {
       toast('Bitte wähle ein Ziel aus');

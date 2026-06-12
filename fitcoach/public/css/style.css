@@ -23,6 +23,11 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* WICHTIG: hidden muss IMMER gewinnen – sonst überschreiben display-Regeln
+   (z. B. .view{display:flex}) das Verstecken, und alle Seiten liegen
+   gleichzeitig übereinander ("Buttons reagieren nicht"). */
+[hidden] { display: none !important; }
+
 /* ---------- Icons (Stroke-SVG, erben currentColor) ---------- */
 .icon {
   width: 20px; height: 20px;
