@@ -41,10 +41,14 @@ alter table public.profiles
 
 alter table public.profiles enable row level security;
 
-create policy "Eigenes Profil lesen"    on public.profiles for select using (auth.uid() = id);
-create policy "Eigenes Profil anlegen"  on public.profiles for insert with check (auth.uid() = id);
-create policy "Eigenes Profil ändern"   on public.profiles for update using (auth.uid() = id);
-create policy "Eigenes Profil löschen"  on public.profiles for delete using (auth.uid() = id);
+drop policy if exists "Eigenes Profil lesen" on public.profiles;
+create policy "Eigenes Profil lesen" on public.profiles for select using (auth.uid() = id);
+drop policy if exists "Eigenes Profil anlegen" on public.profiles;
+create policy "Eigenes Profil anlegen" on public.profiles for insert with check (auth.uid() = id);
+drop policy if exists "Eigenes Profil ändern" on public.profiles;
+create policy "Eigenes Profil ändern" on public.profiles for update using (auth.uid() = id);
+drop policy if exists "Eigenes Profil löschen" on public.profiles;
+create policy "Eigenes Profil löschen" on public.profiles for delete using (auth.uid() = id);
 
 -- ------------------------------------------------------------
 -- 2. MAHLZEITEN-PROTOKOLL (manuell + KI-Scan)
@@ -70,9 +74,13 @@ create index if not exists food_entries_user_datum on public.food_entries (user_
 
 alter table public.food_entries enable row level security;
 
-create policy "Eigene Einträge lesen"   on public.food_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Einträge lesen" on public.food_entries;
+create policy "Eigene Einträge lesen" on public.food_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Einträge anlegen" on public.food_entries;
 create policy "Eigene Einträge anlegen" on public.food_entries for insert with check (auth.uid() = user_id);
-create policy "Eigene Einträge ändern"  on public.food_entries for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Einträge ändern" on public.food_entries;
+create policy "Eigene Einträge ändern" on public.food_entries for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Einträge löschen" on public.food_entries;
 create policy "Eigene Einträge löschen" on public.food_entries for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
@@ -93,9 +101,13 @@ create table if not exists public.favorites (
 
 alter table public.favorites enable row level security;
 
-create policy "Eigene Favoriten lesen"   on public.favorites for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Favoriten lesen" on public.favorites;
+create policy "Eigene Favoriten lesen" on public.favorites for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Favoriten anlegen" on public.favorites;
 create policy "Eigene Favoriten anlegen" on public.favorites for insert with check (auth.uid() = user_id);
-create policy "Eigene Favoriten ändern"  on public.favorites for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Favoriten ändern" on public.favorites;
+create policy "Eigene Favoriten ändern" on public.favorites for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Favoriten löschen" on public.favorites;
 create policy "Eigene Favoriten löschen" on public.favorites for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
@@ -113,8 +125,11 @@ create index if not exists water_entries_user_datum on public.water_entries (use
 
 alter table public.water_entries enable row level security;
 
-create policy "Eigenes Wasser lesen"   on public.water_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigenes Wasser lesen" on public.water_entries;
+create policy "Eigenes Wasser lesen" on public.water_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigenes Wasser anlegen" on public.water_entries;
 create policy "Eigenes Wasser anlegen" on public.water_entries for insert with check (auth.uid() = user_id);
+drop policy if exists "Eigenes Wasser löschen" on public.water_entries;
 create policy "Eigenes Wasser löschen" on public.water_entries for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
@@ -131,9 +146,13 @@ create table if not exists public.weight_entries (
 
 alter table public.weight_entries enable row level security;
 
-create policy "Eigenes Gewicht lesen"   on public.weight_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigenes Gewicht lesen" on public.weight_entries;
+create policy "Eigenes Gewicht lesen" on public.weight_entries for select using (auth.uid() = user_id);
+drop policy if exists "Eigenes Gewicht anlegen" on public.weight_entries;
 create policy "Eigenes Gewicht anlegen" on public.weight_entries for insert with check (auth.uid() = user_id);
-create policy "Eigenes Gewicht ändern"  on public.weight_entries for update using (auth.uid() = user_id);
+drop policy if exists "Eigenes Gewicht ändern" on public.weight_entries;
+create policy "Eigenes Gewicht ändern" on public.weight_entries for update using (auth.uid() = user_id);
+drop policy if exists "Eigenes Gewicht löschen" on public.weight_entries;
 create policy "Eigenes Gewicht löschen" on public.weight_entries for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
@@ -150,9 +169,12 @@ create table if not exists public.progress_photos (
 
 alter table public.progress_photos enable row level security;
 
-create policy "Eigene Fotos lesen"    on public.progress_photos for select using (auth.uid() = user_id);
-create policy "Eigene Fotos anlegen"  on public.progress_photos for insert with check (auth.uid() = user_id);
-create policy "Eigene Fotos löschen"  on public.progress_photos for delete using (auth.uid() = user_id);
+drop policy if exists "Eigene Fotos lesen" on public.progress_photos;
+create policy "Eigene Fotos lesen" on public.progress_photos for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Fotos anlegen" on public.progress_photos;
+create policy "Eigene Fotos anlegen" on public.progress_photos for insert with check (auth.uid() = user_id);
+drop policy if exists "Eigene Fotos löschen" on public.progress_photos;
+create policy "Eigene Fotos löschen" on public.progress_photos for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
 -- 7. WORKOUTS (abgehakte Trainingseinheiten)
@@ -170,9 +192,13 @@ create index if not exists workouts_user_datum on public.workouts (user_id, datu
 
 alter table public.workouts enable row level security;
 
-create policy "Eigene Workouts lesen"   on public.workouts for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Workouts lesen" on public.workouts;
+create policy "Eigene Workouts lesen" on public.workouts for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Workouts anlegen" on public.workouts;
 create policy "Eigene Workouts anlegen" on public.workouts for insert with check (auth.uid() = user_id);
-create policy "Eigene Workouts ändern"  on public.workouts for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Workouts ändern" on public.workouts;
+create policy "Eigene Workouts ändern" on public.workouts for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Workouts löschen" on public.workouts;
 create policy "Eigene Workouts löschen" on public.workouts for delete using (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
@@ -194,9 +220,13 @@ create index if not exists workout_sets_workout on public.workout_sets (workout_
 
 alter table public.workout_sets enable row level security;
 
-create policy "Eigene Sätze lesen"   on public.workout_sets for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Sätze lesen" on public.workout_sets;
+create policy "Eigene Sätze lesen" on public.workout_sets for select using (auth.uid() = user_id);
+drop policy if exists "Eigene Sätze anlegen" on public.workout_sets;
 create policy "Eigene Sätze anlegen" on public.workout_sets for insert with check (auth.uid() = user_id);
-create policy "Eigene Sätze ändern"  on public.workout_sets for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Sätze ändern" on public.workout_sets;
+create policy "Eigene Sätze ändern" on public.workout_sets for update using (auth.uid() = user_id);
+drop policy if exists "Eigene Sätze löschen" on public.workout_sets;
 create policy "Eigene Sätze löschen" on public.workout_sets for delete using (auth.uid() = user_id);
 
 -- ============================================================
@@ -213,17 +243,23 @@ insert into storage.buckets (id, name, public)
 values ('progress-photos', 'progress-photos', false)
 on conflict (id) do nothing;
 
+drop policy if exists "Eigene Food-Fotos lesen" on storage.objects;
 create policy "Eigene Food-Fotos lesen" on storage.objects for select
   using (bucket_id = 'food-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists "Eigene Food-Fotos hochladen" on storage.objects;
 create policy "Eigene Food-Fotos hochladen" on storage.objects for insert
   with check (bucket_id = 'food-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists "Eigene Food-Fotos löschen" on storage.objects;
 create policy "Eigene Food-Fotos löschen" on storage.objects for delete
   using (bucket_id = 'food-photos' and auth.uid()::text = (storage.foldername(name))[1]);
 
+drop policy if exists "Eigene Progress-Fotos lesen" on storage.objects;
 create policy "Eigene Progress-Fotos lesen" on storage.objects for select
   using (bucket_id = 'progress-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists "Eigene Progress-Fotos hochladen" on storage.objects;
 create policy "Eigene Progress-Fotos hochladen" on storage.objects for insert
   with check (bucket_id = 'progress-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists "Eigene Progress-Fotos löschen" on storage.objects;
 create policy "Eigene Progress-Fotos löschen" on storage.objects for delete
   using (bucket_id = 'progress-photos' and auth.uid()::text = (storage.foldername(name))[1]);
 

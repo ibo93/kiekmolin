@@ -164,7 +164,13 @@ export function initOnboarding() {
       wasserziel_ml: Math.round(f.gewicht * 33 / 50) * 50, // ~33 ml/kg, auf 50 ml gerundet
     };
 
-    const { error } = await sb.from('profiles').upsert(row);
+    let { error } = await sb.from('profiles').upsert(row);
+    if (error && /column|schema/i.test(error.message)) {
+      // Ältere Datenbank ohne die neuen Spalten (startgewicht_kg/akzentfarbe):
+      // ohne optionale Felder erneut speichern, damit nichts blockiert.
+      const { startgewicht_kg, ...basisRow } = row;
+      ({ error } = await sb.from('profiles').upsert(basisRow));
+    }
     if (error) {
       toast('Speichern fehlgeschlagen: ' + error.message);
       return;
