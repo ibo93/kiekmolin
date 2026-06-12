@@ -1,6 +1,7 @@
 // Fortschritt: Gewichts-Chart (SVG), Wochen-Auswertung, Foto-Vergleich.
 // Alles lokal auf dem Gerät – sofort da, auch offline.
 import { db, state, toast, todayISO, onViewShow, setProfil, haptik } from './state.js';
+import { makros } from './calc.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -26,6 +27,20 @@ function ladeGewicht() {
   renderPrognose(eintraege);
 }
 
+// Linearer Trend der letzten Wiegungen in kg/Woche (+ = zunehmen)
+function gewichtsTrend(punkte) {
+  if (punkte.length < 2) return null;
+  const t0 = new Date(punkte[0].datum).getTime();
+  const xs = punkte.map((p) => (new Date(p.datum).getTime() - t0) / 86400000);
+  const ys = punkte.map((p) => Number(p.gewicht_kg));
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b) / n;
+  const my = ys.reduce((a, b) => a + b) / n;
+  const steigung = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0)
+    / (xs.reduce((s, x) => s + (x - mx) ** 2, 0) || 1);
+  return steigung * 7;
+}
+
 // Schlaue Prognose: linearer Trend der letzten Wiegungen → wann ist das
 // Ziel erreicht? Ehrlich, wenn der Trend in die falsche Richtung zeigt.
 function renderPrognose(eintraege) {
@@ -34,19 +49,10 @@ function renderPrognose(eintraege) {
   const punkte = eintraege.slice(-6);
   if (!ziel || punkte.length < 3) { el.hidden = true; return; }
 
-  // Lineare Regression über (Tage seit erstem Punkt, Gewicht)
-  const t0 = new Date(punkte[0].datum).getTime();
-  const xs = punkte.map((p) => (new Date(p.datum).getTime() - t0) / 86400000);
-  const ys = punkte.map((p) => Number(p.gewicht_kg));
-  const n = xs.length;
-  const mx = xs.reduce((a, b) => a + b) / n;
-  const my = ys.reduce((a, b) => a + b) / n;
-  const steigung = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0)
-    / (xs.reduce((s, x) => s + (x - mx) ** 2, 0) || 1); // kg pro Tag
-
-  const aktuell = ys[ys.length - 1];
+  const proWoche = gewichtsTrend(punkte);
+  const steigung = proWoche / 7; // kg pro Tag
+  const aktuell = Number(punkte[punkte.length - 1].gewicht_kg);
   const benoetigt = ziel - aktuell;              // negativ = abnehmen nötig
-  const proWoche = steigung * 7;
 
   el.hidden = false;
   if (Math.abs(proWoche) < 0.05) {
@@ -241,6 +247,112 @@ async function fotoHochladen(file) {
   }
 }
 
+// ---------- Wiege-Check-in: die App reagiert auf deine Wiegung ----------
+// Vergleicht dein echtes Tempo mit dem nötigen Tempo bis zum Zieldatum.
+// Lob auf Kurs, Klartext bei Stillstand, Druck wenn die Zeit knapp wird –
+// und auf Wunsch passt sie das Tagesziel per Tap an.
+
+function wiegeCheckIn() {
+  const p = state.profile;
+  const ziel = Number(p?.zielgewicht_kg);
+  if (!ziel || p.ziel === 'rekomposition') return;
+
+  const punkte = gewichtsEintraege().slice(-6);
+  if (punkte.length < 2) return; // noch kein Trend möglich
+
+  const aktuell = Number(punkte[punkte.length - 1].gewicht_kg);
+  const offen = ziel - aktuell;                       // negativ = abnehmen nötig
+  const richtung = Math.sign(offen) || 1;
+  const rate = gewichtsTrend(punkte);                 // kg/Woche, + = zunehmen
+
+  // Verbleibende Zeit bis zum Zieldatum
+  const wochenLeft = p.zieldatum
+    ? Math.max(0, (new Date(p.zieldatum) - Date.now()) / (7 * 86400000))
+    : null;
+  const noetig = wochenLeft > 0.5 ? offen / wochenLeft : null; // kg/Woche nötig
+
+  const fortschrittGut = rate * richtung;             // >0 = richtige Richtung
+  const minKcal = p.geschlecht === 'm' ? 1500 : 1200;
+  const zielWort = richtung < 0 ? 'abnehmen' : 'aufbauen';
+
+  let titel, text, dringend = false;
+  const aktionen = [];
+
+  if (Math.abs(offen) <= 0.5) {
+    titel = 'Ziel erreicht!';
+    text = `${aktuell} kg – du bist da. Stark durchgezogen! Zeit für ein neues Ziel im Profil.`;
+  } else if (fortschrittGut < 0.05) {
+    // Stillstand oder falsche Richtung
+    titel = fortschrittGut < -0.1 ? 'Falsche Richtung.' : 'Stillstand.';
+    text = `Dein Trend: ${rate >= 0 ? '+' : ''}${rate.toFixed(1)} kg/Woche – du willst aber ${zielWort}. `
+      + 'Die häufigsten Gründe: untracktes Essen (Soßen, Snacks, Getränke), zu großzügige Schätzungen, Wochenende. '
+      + 'Die Hebel: 3 Tage ALLES tracken (auch den Schuss Öl), Protein hoch, 8.000+ Schritte täglich.';
+    aktionen.push('kcal');
+    dringend = wochenLeft !== null && wochenLeft < 6;
+  } else if (noetig !== null && fortschrittGut < Math.abs(noetig) * 0.65) {
+    // Richtige Richtung, aber zu langsam fürs Zieldatum
+    const wochenBrauchst = Math.ceil(Math.abs(offen) / fortschrittGut);
+    titel = wochenLeft < 5 ? 'Es wird knapp – Gas geben!' : 'Zu langsam für dein Zieldatum.';
+    text = `Noch ${Math.abs(offen).toFixed(1)} kg in ${Math.ceil(wochenLeft)} Wochen = ${Math.abs(noetig).toFixed(2)} kg/Woche nötig. `
+      + `Aktuell schaffst du ${fortschrittGut.toFixed(2)} kg/Woche – so brauchst du ca. ${wochenBrauchst} Wochen. `
+      + (wochenLeft < 5
+        ? 'Jetzt zählt jede Mahlzeit: kein untracktes Essen mehr, Protein zuerst, Alkohol streichen.'
+        : 'Entweder Tempo erhöhen oder das Zieldatum ehrlich anpassen – beides ist okay, nur Selbstbetrug nicht.');
+    aktionen.push('kcal', 'datum');
+    dringend = wochenLeft < 5;
+  } else {
+    titel = 'Voll auf Kurs!';
+    text = `${fortschrittGut.toFixed(1)} kg/Woche in die richtige Richtung – noch ${Math.abs(offen).toFixed(1)} kg. `
+      + 'Genau so weitermachen: gleiche Routinen, gleiche Konsequenz.';
+  }
+
+  // Modal befüllen
+  document.getElementById('checkin-label').textContent = dringend ? 'Check-in · Zeit wird knapp' : 'Wiege-Check-in';
+  document.getElementById('checkin-titel').textContent = titel;
+  document.getElementById('checkin-text').textContent = text;
+
+  const wrap = document.getElementById('checkin-actions');
+  wrap.innerHTML = '';
+  if (aktionen.includes('kcal')) {
+    const delta = richtung < 0 ? -150 : 150;
+    const neu = richtung < 0 ? Math.max(minKcal, p.kalorienziel + delta) : p.kalorienziel + delta;
+    if (neu !== p.kalorienziel) {
+      const b = document.createElement('button');
+      b.className = 'btn primary full';
+      b.textContent = `Tagesziel anpassen: ${p.kalorienziel} → ${neu} kcal`;
+      b.onclick = () => {
+        setProfil({ ...p, kalorienziel: neu, ...prefixMakros(makros(neu, aktuell, p.ziel)) });
+        toast(`Neues Tagesziel: ${neu} kcal – Makros angepasst`);
+        haptik(20);
+        document.getElementById('checkin-modal').close();
+      };
+      wrap.appendChild(b);
+    }
+  }
+  if (aktionen.includes('datum') && fortschrittGut > 0.05) {
+    const wochenNeu = Math.ceil(Math.abs(offen) / fortschrittGut);
+    const datumNeu = new Date(Date.now() + wochenNeu * 7 * 86400000).toISOString().slice(0, 10);
+    const b = document.createElement('button');
+    b.className = 'btn full';
+    b.textContent = `Zieldatum ehrlich anpassen (+${wochenNeu} Wochen)`;
+    b.onclick = () => {
+      setProfil({ ...state.profile, zieldatum: datumNeu });
+      toast('Zieldatum angepasst – realistisch schlägt perfekt');
+      document.getElementById('checkin-modal').close();
+      ladeGewicht();
+    };
+    wrap.appendChild(b);
+  }
+
+  document.getElementById('checkin-modal').showModal();
+  haptik(dringend ? 30 : 12);
+}
+
+// makros() liefert {protein, carbs, fett} – das Profil braucht *_g-Namen
+function prefixMakros(m) {
+  return { protein_g: m.protein, carbs_g: m.carbs, fett_g: m.fett };
+}
+
 // ---------- Initialisierung ----------
 
 export function initProgress() {
@@ -270,7 +382,13 @@ export function initProgress() {
     toast('Gewicht gespeichert ✓');
     ladeGewicht();
     ladeWoche();
+    // Die App reagiert: Kurs-Check mit Empfehlungen direkt nach dem Wiegen
+    wiegeCheckIn();
   });
+
+  document.getElementById('checkin-close').addEventListener('click', () =>
+    document.getElementById('checkin-modal').close()
+  );
 
   document.getElementById('progress-photo-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
