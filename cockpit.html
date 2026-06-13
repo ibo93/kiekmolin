@@ -2088,12 +2088,28 @@ function setupPWA(){
     // Service Worker via Blob — cached die App-Shell + CDN (Fonts, Chart.js) für Offline
     if("serviceWorker" in navigator && location.protocol!=="file:"){
       const swCode=`
-        const CACHE="kurani-cc-v1";
+        const CACHE="kurani-cc-v3";
         self.addEventListener("install",e=>{ self.skipWaiting(); });
-        self.addEventListener("activate",e=>{ e.waitUntil(self.clients.claim()); });
+        self.addEventListener("activate",e=>{ e.waitUntil((async()=>{
+          const keys=await caches.keys();
+          await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
+          await self.clients.claim();
+        })()); });
         self.addEventListener("fetch",e=>{
           const req=e.request;
           if(req.method!=="GET") return;
+          const isDoc = req.mode==="navigate" || (req.destination==="document");
+          if(isDoc){
+            // Seite: NETWORK-FIRST -> neue Deploys sind sofort sichtbar, Offline-Fallback aus Cache
+            e.respondWith(
+              fetch(req).then(res=>{
+                if(res && res.status===200){ const c=res.clone(); caches.open(CACHE).then(ca=>ca.put(req,c)); }
+                return res;
+              }).catch(()=> caches.match(req).then(h=> h || caches.match("/index.html")))
+            );
+            return;
+          }
+          // Übrige Assets (Fonts/Chart.js): stale-while-revalidate
           e.respondWith(
             caches.open(CACHE).then(cache=>
               cache.match(req).then(hit=>{
