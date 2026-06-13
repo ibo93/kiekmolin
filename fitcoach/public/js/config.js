@@ -1,5 +1,5 @@
 // Sichtbare App-Version (eine Quelle – wird beim Start in die UI geschrieben).
-export const APP_VERSION = '26';
+export const APP_VERSION = '27';
 
 // Schlüssel für die KI-Funktionen (muss mit der Netlify-Variable APP_KEY
 // übereinstimmen – ist dort bereits gesetzt).

@@ -77,16 +77,29 @@ function zeichneChart(eintraege) {
   if (eintraege.length === 0) return;
 
   const W = 320, H = 160, padL = 34, padR = 10, padT = 12, padB = 22;
+  const p = state.profile || {};
+  const zeit = (iso) => new Date(iso).getTime();
+
+  // Die Reise: Start → Ziel als Zeitachse, deine Wiegungen darauf
+  const startDatum = p.startdatum || eintraege[0].datum;
+  const startGewicht = p.startgewicht_kg != null ? Number(p.startgewicht_kg) : Number(eintraege[0].gewicht_kg);
+  const zielGewicht = Number(p.zielgewicht_kg) || null;
+  const planAktiv = Boolean(zielGewicht && p.zieldatum);
+
+  const t0 = Math.min(zeit(startDatum), zeit(eintraege[0].datum));
+  const t1 = Math.max(
+    planAktiv ? zeit(p.zieldatum) : 0,
+    zeit(eintraege[eintraege.length - 1].datum),
+    t0 + 7 * 86400000 // mindestens eine Woche Spannweite
+  );
+
   const werte = eintraege.map((e) => Number(e.gewicht_kg));
-  const ziel = Number(state.profile?.zielgewicht_kg) || null;
-  let min = Math.min(...werte, ziel ?? Infinity);
-  let max = Math.max(...werte, ziel ?? -Infinity);
+  let min = Math.min(...werte, planAktiv ? zielGewicht : Infinity, startGewicht);
+  let max = Math.max(...werte, planAktiv ? zielGewicht : -Infinity, startGewicht);
   if (max - min < 2) { min -= 1; max += 1; }
   const spanne = max - min;
 
-  const x = (i) => eintraege.length === 1
-    ? (padL + W - padR) / 2
-    : padL + (i / (eintraege.length - 1)) * (W - padL - padR);
+  const x = (t) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR);
   const y = (v) => padT + (1 - (v - min) / spanne) * (H - padT - padB);
 
   // Horizontale Gitterlinien + Beschriftung
@@ -105,42 +118,57 @@ function zeichneChart(eintraege) {
     svg.appendChild(label);
   }
 
-  // Ziellinie
-  if (ziel) {
-    const tl = document.createElementNS(SVG_NS, 'line');
-    tl.setAttribute('x1', padL); tl.setAttribute('x2', W - padR);
-    tl.setAttribute('y1', y(ziel)); tl.setAttribute('y2', y(ziel));
-    tl.setAttribute('class', 'target-line');
-    svg.appendChild(tl);
+  // Plan-Linie: die Soll-Gerade von (Start, Startgewicht) zu (Zieldatum, Ziel)
+  if (planAktiv) {
+    const plan = document.createElementNS(SVG_NS, 'line');
+    plan.setAttribute('x1', x(zeit(startDatum))); plan.setAttribute('y1', y(startGewicht));
+    plan.setAttribute('x2', x(zeit(p.zieldatum))); plan.setAttribute('y2', y(zielGewicht));
+    plan.setAttribute('class', 'target-line');
+    svg.appendChild(plan);
   }
 
-  // Linie + Punkte
+  // Heute-Marker: wo im Zeitraum stehst du gerade?
+  const jetzt = Date.now();
+  if (jetzt > t0 && jetzt < t1) {
+    const heute = document.createElementNS(SVG_NS, 'line');
+    heute.setAttribute('x1', x(jetzt)); heute.setAttribute('x2', x(jetzt));
+    heute.setAttribute('y1', padT); heute.setAttribute('y2', H - padB);
+    heute.setAttribute('class', 'today-line');
+    svg.appendChild(heute);
+    const hl = document.createElementNS(SVG_NS, 'text');
+    hl.setAttribute('x', Math.min(x(jetzt) + 3, W - 40)); hl.setAttribute('y', padT + 8);
+    hl.setAttribute('class', 'axis-label');
+    hl.textContent = 'heute';
+    svg.appendChild(hl);
+  }
+
+  // Ist-Linie + Punkte (auf der Zeitachse)
   const poly = document.createElementNS(SVG_NS, 'polyline');
-  poly.setAttribute('points', werte.map((v, i) => `${x(i)},${y(v)}`).join(' '));
+  poly.setAttribute('points', eintraege.map((e) => `${x(zeit(e.datum))},${y(Number(e.gewicht_kg))}`).join(' '));
   poly.setAttribute('class', 'line');
   svg.appendChild(poly);
 
-  werte.forEach((v, i) => {
+  eintraege.forEach((e) => {
     const dot = document.createElementNS(SVG_NS, 'circle');
-    dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(v)); dot.setAttribute('r', 3.2);
+    dot.setAttribute('cx', x(zeit(e.datum))); dot.setAttribute('cy', y(Number(e.gewicht_kg))); dot.setAttribute('r', 3.2);
     dot.setAttribute('class', 'dot');
     svg.appendChild(dot);
   });
 
-  // Datums-Labels (erstes + letztes)
+  // Datums-Labels: Start links, Ziel (oder letzte Wiegung) rechts
   const erstes = document.createElementNS(SVG_NS, 'text');
   erstes.setAttribute('x', padL); erstes.setAttribute('y', H - 6);
   erstes.setAttribute('class', 'axis-label');
-  erstes.textContent = kurzDatum(eintraege[0].datum);
+  erstes.textContent = 'Start ' + kurzDatum(startDatum);
   svg.appendChild(erstes);
-  if (eintraege.length > 1) {
-    const letztes = document.createElementNS(SVG_NS, 'text');
-    letztes.setAttribute('x', W - padR); letztes.setAttribute('y', H - 6);
-    letztes.setAttribute('text-anchor', 'end');
-    letztes.setAttribute('class', 'axis-label');
-    letztes.textContent = kurzDatum(eintraege[eintraege.length - 1].datum);
-    svg.appendChild(letztes);
-  }
+  const letztes = document.createElementNS(SVG_NS, 'text');
+  letztes.setAttribute('x', W - padR); letztes.setAttribute('y', H - 6);
+  letztes.setAttribute('text-anchor', 'end');
+  letztes.setAttribute('class', 'axis-label');
+  letztes.textContent = planAktiv
+    ? `Ziel ${kurzDatum(p.zieldatum)}`
+    : kurzDatum(eintraege[eintraege.length - 1].datum);
+  svg.appendChild(letztes);
 }
 
 function kurzDatum(iso) {

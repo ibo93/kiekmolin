@@ -123,6 +123,23 @@ function renderZiel() {
   document.getElementById('goal-sub').textContent = fortschritt != null
     ? `${geschafft} kg geschafft · ${start} → ${ziel} kg · Zieldatum ${formatDate(p.zieldatum)}`
     : `Zieldatum ${formatDate(p.zieldatum)}`;
+
+  // Soll vs. Ist: Wo müsstest du laut Plan HEUTE stehen – und wo stehst du?
+  const planEl = document.getElementById('goal-plan');
+  if (p.startdatum && p.zieldatum) {
+    const t0 = new Date(p.startdatum).getTime();
+    const t1 = new Date(p.zieldatum).getTime();
+    const f = Math.max(0, Math.min(1, (Date.now() - t0) / Math.max(1, t1 - t0)));
+    const soll = start + (ziel - start) * f;
+    const delta = aktuell - soll;
+    const richtungGut = ziel < start ? delta <= 0 : delta >= 0;
+    planEl.hidden = false;
+    planEl.textContent = `Plan heute: ${soll.toFixed(1)} kg · Du: ${aktuell.toFixed(1)} kg → `
+      + `${Math.abs(delta).toFixed(1)} kg ${richtungGut ? 'voraus' : 'hinter dem Plan'}`;
+    planEl.style.color = richtungGut ? 'var(--accent)' : 'var(--danger)';
+  } else {
+    planEl.hidden = true;
+  }
 }
 
 function renderZusammenfassung(entries) {
