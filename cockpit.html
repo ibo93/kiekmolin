@@ -568,6 +568,127 @@ html[data-theme="dark"] .fab{background:var(--accent);color:#fff}
 /* feine Linie unter der Topbar beim Scrollen */
 .topbar{border-bottom:1px solid transparent}
 .main.scrolled .topbar{border-bottom-color:var(--line)}
+
+/* =====================================================================
+   v3 — CHAMPIONS LEAGUE  ·  Premium-Designschicht
+   Verfeinert Palette, Typografie, Tiefe & Micro-Interaktionen.
+   ===================================================================== */
+:root{
+  --bg:#F4F3EF;                                   /* warmes Papier */
+  --bg-grad:
+    radial-gradient(1100px 760px at 88% -12%, rgba(0,122,255,0.07), transparent 58%),
+    radial-gradient(820px 560px at -8% 112%, rgba(20,23,28,0.05), transparent 55%);
+  --surface:rgba(255,255,255,0.80);
+  --surface-solid:#FFFFFF;
+  --surface-2:rgba(255,255,255,0.60);
+  --ink:#14171C;
+  --ink-soft:#5B616B;
+  --ink-faint:#9AA0A8;
+  --accent:#007AFF;
+  --accent-soft:rgba(0,122,255,0.11);
+  --line:rgba(20,23,28,0.075);
+  --line-strong:rgba(20,23,28,0.14);
+  --radius:20px;--radius-sm:13px;--radius-lg:26px;
+  --transition:0.22s cubic-bezier(.2,.7,.3,1);
+  --shadow-sm:0 1px 2px rgba(16,18,23,.05), 0 3px 10px rgba(16,18,23,.05);
+  --shadow:0 1px 2px rgba(16,18,23,.04), 0 10px 26px rgba(16,18,23,.07), 0 28px 56px rgba(16,18,23,.05);
+  --shadow-lg:0 2px 6px rgba(16,18,23,.06), 0 36px 70px rgba(16,18,23,.18);
+}
+html[data-theme="dark"]{
+  --bg:#0B0C0F;
+  --bg-grad:
+    radial-gradient(1100px 760px at 88% -12%, rgba(0,122,255,0.12), transparent 58%),
+    radial-gradient(820px 560px at -8% 112%, rgba(255,255,255,0.04), transparent 55%);
+  --surface:rgba(22,24,29,0.72);
+  --surface-solid:#15171C;
+  --surface-2:rgba(36,39,46,0.55);
+  --ink:#F3F4F2;
+  --ink-soft:#A2A8B2;
+  --ink-faint:#6B717B;
+  --accent:#3A92FF;
+  --accent-soft:rgba(58,146,255,0.16);
+  --line:rgba(255,255,255,0.085);
+  --line-strong:rgba(255,255,255,0.16);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4), 0 3px 12px rgba(0,0,0,.35);
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 14px 34px rgba(0,0,0,.5);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.5), 0 40px 80px rgba(0,0,0,.62);
+}
+
+/* Typografie mit mehr Charakter */
+body{font-feature-settings:"ss01","cv01","kern";letter-spacing:-0.005em}
+.topbar h1{font-weight:600;letter-spacing:-0.03em}
+.sec-title,.modal-head h2,.empty h3{letter-spacing:-0.02em}
+.kpi-label,.field label,thead th,.fg label,.detail-sec h4,.tile-stat span{
+  text-transform:uppercase;letter-spacing:.07em;font-weight:600
+}
+
+/* Karten: feine Doppelkante + Innen-Highlight für echte Tiefe */
+.card{
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);
+  background:var(--surface);
+}
+html[data-theme="light"] .card,:root .card{
+  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.6);
+}
+html[data-theme="dark"] .card{ box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.04); }
+
+/* Sidebar edler */
+.sidebar{background:linear-gradient(180deg,var(--surface),var(--surface-2))}
+.brand-mark{border-radius:13px;box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.18)}
+.nav-item{font-weight:500}
+.nav-item.active{box-shadow:var(--shadow-sm)}
+html[data-theme="light"] .nav-item.active,:root .nav-item.active{
+  background:linear-gradient(135deg,#1b1e24,#2c3036)
+}
+
+/* KPI-Karten: Hairline-Akzent oben, edle Hero-Zahl */
+.kpi{overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--line-strong),transparent);opacity:.6}
+.kpi.accent::before{background:linear-gradient(90deg,var(--accent),transparent);opacity:.9}
+.kpi-value{font-weight:600;letter-spacing:-0.035em}
+
+/* Buttons: Verlauf + präzise Schatten + sauberes Press-Feedback */
+.btn{letter-spacing:-0.01em;border-radius:13px}
+.btn-primary{
+  background:linear-gradient(135deg,#0a84ff,#0064e0);
+  box-shadow:0 1px 2px rgba(0,60,160,.3), 0 8px 20px rgba(0,122,255,.28);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,60,160,.3), 0 12px 26px rgba(0,122,255,.34)}
+.btn-dark{background:linear-gradient(135deg,#1c1f25,#101216)}
+html[data-theme="dark"] .btn-dark{background:linear-gradient(135deg,#2a2e35,#1a1d22)}
+.btn-ghost{backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+
+/* Pillen klarer */
+.pill{letter-spacing:.01em;border:1px solid transparent}
+.pill.green{border-color:rgba(52,199,89,.25)}
+.pill.yellow{border-color:rgba(255,149,0,.28)}
+.pill.red{border-color:rgba(255,59,48,.25)}
+
+/* Tabellen: ruhiger, mit weichem Zebra beim Hover */
+thead th{font-size:11px;color:var(--ink-faint)}
+tbody td{font-size:14px}
+tbody tr:hover{background:linear-gradient(90deg,var(--accent-soft),transparent)}
+
+/* Fokus-Ringe einheitlich & elegant */
+.input:focus,.select:focus,.fg .input:focus,.fg .select:focus,.fg textarea:focus,.ai-input-row:focus-within{
+  box-shadow:0 0 0 4px var(--accent-soft);border-color:var(--accent)
+}
+
+/* FAB: Premium-Pille */
+.fab{box-shadow:0 2px 6px rgba(0,0,0,.18), 0 18px 40px rgba(0,0,0,.22)}
+html[data-theme="dark"] .fab{box-shadow:0 2px 6px rgba(0,0,0,.5), 0 18px 44px rgba(0,90,200,.45)}
+
+/* Kanban-Karten heben sauberer ab */
+.kcard{border-radius:14px}
+.kcard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+
+/* Modale: großzügiger Radius, satterer Schatten */
+.modal{box-shadow:var(--shadow-lg)}
+
+/* sanftes Erscheinen der Sektionen */
+.view{animation:rise .4s cubic-bezier(.2,.7,.3,1)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
