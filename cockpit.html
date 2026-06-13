@@ -478,6 +478,73 @@ tbody tr:hover .row-actions{opacity:1}
 @media (max-width:420px){
   .kpi-grid{grid-template-columns:1fr}
 }
+
+/* =====================================================================
+   KI: Assistent-Drawer, FAB, Beleg-Scan  (Phase 2)
+   ===================================================================== */
+.fab{
+  position:fixed;right:24px;bottom:24px;z-index:80;
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 18px;border-radius:30px;
+  background:var(--ink);color:var(--bg);font-weight:600;font-size:14px;
+  box-shadow:var(--shadow-lg);transition:var(--transition);
+}
+html[data-theme="dark"] .fab{background:var(--accent);color:#fff}
+.fab:hover{transform:translateY(-2px) scale(1.02)}
+.fab svg{width:20px;height:20px;stroke-width:2}
+@media (max-width:760px){ .fab{bottom:84px;right:16px;padding:13px 16px} .fab .fab-label{display:none} }
+
+.ai-drawer{
+  position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(420px,100vw);z-index:130;
+  background:var(--surface-solid);border-left:1px solid var(--line);box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;transform:translateX(105%);transition:transform .28s cubic-bezier(.2,.8,.3,1);
+}
+.ai-drawer.open{transform:none}
+.ai-head{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.ai-head .ai-mark{width:36px;height:36px;border-radius:11px;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.ai-head .ai-mark svg{width:20px;height:20px;stroke-width:1.8}
+.ai-head h3{font-family:var(--font-display);font-size:18px}
+.ai-head .ai-sub{font-size:11.5px;color:var(--ink-soft)}
+.ai-msgs{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.ai-msg{max-width:88%;padding:11px 14px;border-radius:15px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+.ai-msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:5px}
+.ai-msg.bot{align-self:flex-start;background:var(--surface-2);color:var(--ink);border-bottom-left-radius:5px}
+.ai-msg.bot.think{color:var(--ink-soft);font-style:italic}
+.ai-suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.ai-chip{padding:7px 12px;border-radius:20px;border:1px solid var(--line);background:var(--surface-2);font-size:12.5px;color:var(--ink-soft);transition:var(--transition);text-align:left}
+.ai-chip:hover{border-color:var(--accent);color:var(--accent)}
+.ai-foot{padding:14px 16px;border-top:1px solid var(--line)}
+.ai-input-row{display:flex;align-items:flex-end;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:6px 6px 6px 14px;transition:var(--transition)}
+.ai-input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ai-input-row textarea{flex:1;border:none;background:none;outline:none;resize:none;font-size:14px;max-height:120px;padding:6px 0;color:var(--ink);line-height:1.4}
+.ai-btn{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;transition:var(--transition)}
+.ai-btn svg{width:19px;height:19px;stroke-width:1.9}
+.ai-btn.send{background:var(--accent);color:#fff}
+.ai-btn.send:hover{filter:brightness(1.08)}
+.ai-btn.mic{background:var(--surface-2);color:var(--ink-soft)}
+.ai-btn.mic:hover{background:var(--line-strong);color:var(--ink)}
+.ai-btn.mic.rec{background:var(--danger);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.5)}50%{box-shadow:0 0 0 8px rgba(255,59,48,0)}}
+.ai-disc{font-size:10.5px;color:var(--ink-faint);text-align:center;margin-top:8px;line-height:1.4}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing span{width:7px;height:7px;border-radius:50%;background:var(--ink-faint);animation:typing 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+
+/* Live-Kalkulation im Auftrag-Modal */
+.calc-box{grid-column:1/-1;background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.calc-box .cb-item{font-size:12px;color:var(--ink-soft)}
+.calc-box .cb-item b{display:block;font-size:17px;font-family:var(--font-display);color:var(--ink);margin-top:2px;font-variant-numeric:tabular-nums}
+.calc-box .cb-item.gain b{color:var(--success)}
+.calc-box .cb-item.loss b{color:var(--danger)}
+
+/* Scan-Overlay */
+.scan-busy{position:fixed;inset:0;z-index:140;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center}
+.scan-busy.show{display:flex}
+.scan-busy .sb-card{background:var(--surface-solid);border-radius:var(--radius-lg);padding:32px 40px;text-align:center;box-shadow:var(--shadow-lg)}
+.scan-busy .sb-card .spin{width:42px;height:42px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scan-busy .sb-card b{font-size:15px}.scan-busy .sb-card span{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:4px}
 </style>
 </head>
 <body>
@@ -536,6 +603,37 @@ tbody tr:hover .row-actions{opacity:1}
 <!-- Overlays -->
 <div class="overlay" id="overlay"><div id="modalHost"></div></div>
 
+<!-- KI: Floating-Button + Assistent-Drawer -->
+<button class="fab" data-ai-open id="fab">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3a9 9 0 0 0-9 9 9 9 0 0 0 9 9c.7 0 1.4-.08 2-.23L21 21l-1.2-4A9 9 0 0 0 12 3z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg>
+  <span class="fab-label">KI-Assistent</span>
+</button>
+
+<aside class="ai-drawer" id="aiDrawer" aria-hidden="true">
+  <div class="ai-head">
+    <div class="ai-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3a9 9 0 0 0-9 9 9 9 0 0 0 9 9c.7 0 1.4-.08 2-.23L21 21l-1.2-4A9 9 0 0 0 12 3z"/></svg></div>
+    <div style="flex:1"><h3>Finanz-Assistent</h3><div class="ai-sub">Kalkuliert &amp; beantwortet deine Finanzen · §19</div></div>
+    <button class="mini-btn" data-ai-close title="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="ai-msgs" id="aiMsgs"></div>
+  <div class="ai-foot">
+    <div class="ai-input-row">
+      <textarea id="aiInput" rows="1" placeholder="Frag etwas — z.B. „Lohnt sich ein Auftrag für 600 €?“"></textarea>
+      <button class="ai-btn mic" id="aiMic" title="Sprechen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button class="ai-btn send" id="aiSend" title="Senden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12l16-8-6 16-3-6-7-2z"/></svg>
+      </button>
+    </div>
+    <div class="ai-disc">Hilfe, kein Steuerberater. Beträge ohne USt (§19).</div>
+  </div>
+</aside>
+
+<!-- Beleg-Scan: verstecktes Datei-/Kamera-Input + Lade-Overlay -->
+<input type="file" id="scanInput" accept="image/*" capture="environment" style="display:none">
+<div class="scan-busy" id="scanBusy"><div class="sb-card"><div class="spin"></div><b>Beleg wird gelesen…</b><span>Die KI erkennt Betrag, Datum &amp; Händler</span></div></div>
+
 <!-- Toasts -->
 <div class="toasts" id="toasts"></div>
 
@@ -586,6 +684,9 @@ const I = {
   inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6L5 5z"/></svg>',
   building:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/></svg>',
   phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 4h4l1.5 4-2 2a12 12 0 0 0 5.5 5.5l2-2 4 1.5V20a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+  camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.2"/></svg>',
+  wa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21l1.6-4.2A8 8 0 1 1 8 19.4L3 21z"/><path d="M9 9c.3 2 1.8 4.5 4 5.5l1.2-1.2 2 .9V16c-2.6 1-6.5-1.4-7.8-4.6L9 9z"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/></svg>',
 };
 
 /* ---------- State ---------- */
@@ -1092,6 +1193,7 @@ function viewFinance(){
       ${state.kunden.map(k=>`<option value="${k.id}" ${f.kunde===k.id?"selected":""}>${escapeHtml(k.name)}</option>`).join("")}
     </select>
     <div class="spacer"></div>
+    <button class="btn btn-ghost" data-scan title="Beleg/Rechnung fotografieren – KI liest die Daten">${I.camera}<span class="hide-mobile">Beleg scannen</span></button>
     <button class="btn btn-ghost" data-act="export-csv">${I.csv}<span class="hide-mobile">CSV</span></button>
   </div>
 
@@ -1271,6 +1373,17 @@ function viewSettings(){
     </div>
 
     <div class="card panel">
+      <h3 style="margin-bottom:8px">KI-Assistent &amp; Beleg-Scan</h3>
+      <div class="panel-sub" style="line-height:1.6">
+        Der Finanz-Assistent und der KI-Beleg-Scan laufen über eine sichere Server-Funktion auf <b>deiner Netlify-Adresse</b>.
+        Einmalig einrichten: bei Netlify unter <b>Site settings → Environment variables</b> eine Variable
+        <b>ANTHROPIC_API_KEY</b> mit deinem Anthropic-Schlüssel anlegen, dann neu deployen.
+        Der Schlüssel bleibt serverseitig — nie im Browser. Kosten: ca. 1–4&nbsp;Cent pro Anfrage.
+        <br><br>Bei lokal geöffneter Datei (file://) ist die KI deaktiviert — sie braucht die Online-Adresse.
+      </div>
+    </div>
+
+    <div class="card panel">
       <h3 style="margin-bottom:8px">Als App installieren</h3>
       <div class="panel-sub" style="line-height:1.6">
         Diese Seite ist eine PWA. Auf dem <b>iPhone</b>: in Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm".
@@ -1337,18 +1450,40 @@ function modalJob(id, presetKundeId){
       <div class="fg"><label>Status</label><select class="select" name="status">${AUFTRAG_STATUS.map(s=>`<option ${a.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
       <div class="fg"><label>Eingangsdatum</label><input class="input" type="date" name="eingangsdatum" value="${a.eingangsdatum||todayISO()}"></div>
       <div class="fg"><label>Deadline</label><input class="input" type="date" name="deadline" value="${a.deadline||""}"></div>
-      <div class="fg"><label>Betrag (€)</label><input class="input" type="number" step="0.01" min="0" name="betrag" value="${a.betrag!=null?a.betrag:""}"></div>
+      <div class="fg"><label>Angebots-/Preis (€)</label><input class="input calc-in" type="number" step="0.01" min="0" name="betrag" value="${a.betrag!=null?a.betrag:""}"></div>
+      <div class="fg"><label>Materialkosten (€)</label><input class="input calc-in" type="number" step="0.01" min="0" name="material" value="${a.material!=null?a.material:""}"></div>
+      <div class="fg"><label>Arbeitsstunden</label><input class="input calc-in" type="number" step="0.25" min="0" name="stunden" value="${a.stunden!=null?a.stunden:""}"></div>
+      <div class="fg"><label>Stundensatz (€)</label><input class="input calc-in" type="number" step="0.01" min="0" name="stundensatz" value="${a.stundensatz!=null?a.stundensatz:""}"></div>
+      <div class="calc-box" id="jobCalc">
+        <div class="cb-item">Aufwand<b id="ccAufwand">—</b></div>
+        <div class="cb-item" id="ccGainItem">Gewinn<b id="ccGewinn">—</b></div>
+        <div class="cb-item" id="ccMargeItem">Marge<b id="ccMarge">—</b></div>
+      </div>
       <div class="fg full"><label>Notizen</label><textarea name="notizen">${escapeHtml(a.notizen||"")}</textarea></div>
     </div></div>
     <div class="modal-foot"><button type="button" class="btn btn-ghost" data-close>Abbrechen</button>
       <button type="submit" class="btn btn-primary">${I.check}Speichern</button></div>
   </form></div>`);
   const frm = document.getElementById("frm");
-  if(state.kunden.length===0){ /* Hinweis, falls kein Kunde da */ }
+  // Live-Gewinn-Rechner
+  const updateCalc = ()=>{
+    const g = name=>parseFloat(frm.querySelector(`[name="${name}"]`)?.value)||0;
+    const c = calcAuftrag({betrag:g("betrag"), material:g("material"), stunden:g("stunden"), stundensatz:g("stundensatz")});
+    document.getElementById("ccAufwand").textContent = fmtEur(c.aufwand);
+    document.getElementById("ccGewinn").textContent = fmtEur(c.gewinn);
+    document.getElementById("ccMarge").textContent = (c.betrag||+g("betrag"))>0 ? c.marge.toFixed(0)+" %" : "—";
+    const cls = c.gewinn>=0?"gain":"loss";
+    document.getElementById("ccGainItem").className = "cb-item "+cls;
+    document.getElementById("ccMargeItem").className = "cb-item "+cls;
+  };
+  frm.querySelectorAll(".calc-in").forEach(el=>el.addEventListener("input", updateCalc));
+  updateCalc();
   frm.addEventListener("submit",e=>{
     e.preventDefault();
     if(!validate(e.target,["titel","kundeId"])) return;
-    const d=formData(e.target); d.betrag=parseFloat(d.betrag)||0;
+    const d=formData(e.target);
+    d.betrag=parseFloat(d.betrag)||0;
+    d.material=parseFloat(d.material)||0; d.stunden=parseFloat(d.stunden)||0; d.stundensatz=parseFloat(d.stundensatz)||0;
     if(id){ Object.assign(auftragById(id),d); toast("Auftrag aktualisiert"); }
     else { state.auftraege.push(Object.assign({id:uid(),createdAt:new Date().toISOString()},d)); toast("Auftrag angelegt"); }
     save(); closeModal(); render();
@@ -1443,17 +1578,25 @@ function modalJobDetail(id){
         <div><div class="k">Deadline</div><div class="v" style="${over?"color:var(--danger)":""}">${fmtDate(a.deadline)}</div></div>
         <div><div class="k">Kunde</div><div class="v">${escapeHtml(kundeName(a.kundeId))}${k&&k.ort?" · "+escapeHtml(k.ort):""}</div></div>
       </div>
+      ${(()=>{const c=calcAuftrag(a);return c.hasData?`<div class="detail-sec"><h4>Gewinn-Rechner</h4>
+        <div class="calc-box">
+          <div class="cb-item">Aufwand<b>${fmtEur(c.aufwand)}</b><span style="font-size:11px">${c.material?fmtEur(c.material)+" Material":""}${c.stunden?(c.material?" · ":"")+c.stunden+" h × "+fmtEur(c.satz):""}</span></div>
+          <div class="cb-item ${c.gewinn>=0?"gain":"loss"}">Gewinn<b>${fmtEur(c.gewinn)}</b></div>
+          <div class="cb-item ${c.gewinn>=0?"gain":"loss"}">Marge<b>${c.marge.toFixed(0)} %</b></div>
+        </div></div>`:""})()}
       ${a.notizen?`<div class="detail-sec"><h4>Notizen</h4><div style="font-size:14px;white-space:pre-wrap">${escapeHtml(a.notizen)}</div></div>`:""}
       <div class="detail-sec"><h4>Rechnungen zu diesem Auftrag</h4>
         ${invs.length?`<div class="mini-list">${invs.map(r=>{const eff=rechnungStatusEffektiv(r);const cls=eff==="bezahlt"?"green":eff==="ueberfaellig"?"red":eff==="storniert"?"gray":"yellow";return `<div class="ml-item">${I.invoice.replace('width="24" height="24"','')} <span>${escapeHtml(r.nummer)}</span><span class="pill ${cls}" style="font-size:11px;padding:1px 8px">${eff==="ueberfaellig"?"überfällig":eff}</span><span class="ml-amt">${fmtEur(r.betrag)}</span></div>`;}).join("")}</div>`
           :`<div style="font-size:13px;color:var(--ink-soft)">Noch keine Rechnung.</div>`}
       </div>
     </div>
-    <div class="modal-foot">
+    <div class="modal-foot" style="flex-wrap:wrap">
       <button type="button" class="btn btn-danger" data-del-job="${a.id}">${I.trash}Löschen</button>
       <div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" data-send-offer-wa="${a.id}" title="Angebot per WhatsApp">${I.wa}Angebot</button>
+      <button type="button" class="btn btn-ghost" data-send-offer-mail="${a.id}" title="Angebot per E-Mail">${I.mail}Angebot</button>
       <button type="button" class="btn btn-ghost" data-edit-job="${a.id}">${I.edit}Bearbeiten</button>
-      <button type="button" class="btn btn-primary" data-invoice-from-job="${a.id}">${I.invoice}Rechnung erstellen</button>
+      <button type="button" class="btn btn-primary" data-invoice-from-job="${a.id}">${I.invoice}Rechnung</button>
     </div>
   </div>`);
 }
@@ -1477,9 +1620,11 @@ function modalInvoiceDetail(id){
       </div>
       ${r.notizen?`<div class="detail-sec"><h4>Notizen</h4><div style="font-size:14px;white-space:pre-wrap">${escapeHtml(r.notizen)}</div></div>`:""}
     </div>
-    <div class="modal-foot">
+    <div class="modal-foot" style="flex-wrap:wrap">
       <button type="button" class="btn btn-danger" data-del-invoice="${r.id}">${I.trash}Löschen</button>
       <div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" data-send-inv-wa="${r.id}" title="Per WhatsApp senden">${I.wa}WhatsApp</button>
+      <button type="button" class="btn btn-ghost" data-send-inv-mail="${r.id}" title="Per E-Mail senden">${I.mail}E-Mail</button>
       ${r.status==="offen"?`<button type="button" class="btn btn-ghost" data-pay-invoice="${r.id}">${I.check}Als bezahlt</button>`:""}
       <button type="button" class="btn btn-primary" data-edit-invoice="${r.id}">${I.edit}Bearbeiten</button>
     </div>
@@ -1643,11 +1788,11 @@ function seedDemo(){
     const isoBack=(d)=>{const x=new Date(now);x.setDate(x.getDate()-d);return x.toISOString().slice(0,10);};
     const isoFwd=(d)=>{const x=new Date(now);x.setDate(x.getDate()+d);return x.toISOString().slice(0,10);};
     const ca=(d)=>{const x=new Date(now);x.setDate(x.getDate()-d);return x.toISOString();};
-    const a1=mk({kundeId:k1.id,titel:"Neue Speisekarte A4",kategorie:"Speisekarte",status:"In Druck",eingangsdatum:isoBack(20),deadline:isoFwd(4),betrag:480,notizen:"6 Seiten, Hochglanz.",createdAt:ca(20)});
+    const a1=mk({kundeId:k1.id,titel:"Neue Speisekarte A4",kategorie:"Speisekarte",status:"In Druck",eingangsdatum:isoBack(20),deadline:isoFwd(4),betrag:480,material:90,stunden:6,stundensatz:45,notizen:"6 Seiten, Hochglanz.",createdAt:ca(20)});
     const a2=mk({kundeId:k2.id,titel:"Leuchtschild Eingang",kategorie:"Schild/Werbetechnik",status:"Wartet auf Freigabe",eingangsdatum:isoBack(14),deadline:isoFwd(10),betrag:1250,notizen:"",createdAt:ca(14)});
     const a3=mk({kundeId:k3.id,titel:"Schaufenster-Folierung Sommer",kategorie:"Folie/Plot",status:"Anfrage",eingangsdatum:isoBack(3),deadline:isoFwd(20),betrag:640,notizen:"Maße noch klären.",createdAt:ca(3)});
     const a4=mk({kundeId:k1.id,titel:"Flyer Mittagstisch",kategorie:"Flyer",status:"Abgerechnet",eingangsdatum:isoBack(60),deadline:isoBack(40),betrag:220,notizen:"",createdAt:ca(60)});
-    const a5=mk({kundeId:k4.id,titel:"Logo-Redesign",kategorie:"Logo",status:"In Arbeit",eingangsdatum:isoBack(8),deadline:isoFwd(14),betrag:900,notizen:"Moodboard versendet.",createdAt:ca(8)});
+    const a5=mk({kundeId:k4.id,titel:"Logo-Redesign",kategorie:"Logo",status:"In Arbeit",eingangsdatum:isoBack(8),deadline:isoFwd(14),betrag:900,material:0,stunden:14,stundensatz:55,notizen:"Moodboard versendet.",createdAt:ca(8)});
     const a6=mk({kundeId:k4.id,titel:"Speisekarte digital (Web)",kategorie:"Web/App",status:"Fertig",eingangsdatum:isoBack(35),deadline:isoBack(5),betrag:1500,notizen:"kiekmolin.de Eintrag.",createdAt:ca(35)});
     state.auftraege=[a1,a2,a3,a4,a5,a6];
 
@@ -1705,9 +1850,18 @@ function toast(msg,type){
    EVENT-DELEGATION
    ===================================================================== */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline]");
+  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail]");
   if(!t) return;
   const d=t.dataset;
+
+  if("aiOpen" in d){ openAI(); return; }
+  if("aiClose" in d){ closeAI(); return; }
+  if(d.aiSuggest){ aiSend(d.aiSuggest); return; }
+  if("scan" in d){ triggerScan(); return; }
+  if(d.sendInvWa){ sendInvoice(d.sendInvWa,"wa"); return; }
+  if(d.sendInvMail){ sendInvoice(d.sendInvMail,"mail"); return; }
+  if(d.sendOfferWa){ sendOffer(d.sendOfferWa,"wa"); return; }
+  if(d.sendOfferMail){ sendOffer(d.sendOfferMail,"mail"); return; }
 
   if(d.nav){ go(d.nav); return; }
   if("close" in d){ closeModal(); return; }
@@ -1760,7 +1914,7 @@ document.addEventListener("click",e=>{
 
 // Overlay-Klick schließt Modal
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeModal(); closeAI(); } });
 // Dark-Toggle (Settings-Switch)
 document.addEventListener("change",e=>{ if(e.target.id==="darkToggle") toggleTheme(); });
 
@@ -1824,12 +1978,237 @@ function appIcon(size){
 }
 
 /* =====================================================================
+   PHASE 2 — KI-ASSISTENT, VOICE, BELEG-SCAN, SENDEN, GEWINN-RECHNER
+   ===================================================================== */
+const AI_ENDPOINT = (location.protocol === "file:") ? null : "/.netlify/functions/ai";
+let aiHistory = [];      // [{role, content}]
+let aiBusy = false;
+
+async function aiFetch(payload){
+  if(!AI_ENDPOINT) throw new Error("offline");
+  const r = await fetch(AI_ENDPOINT, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify(payload) });
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw Object.assign(new Error(data.error||("HTTP "+r.status)), { needsKey:data.needsKey });
+  return data;
+}
+
+/* ---------- Finanz-Kontext für den Assistenten ---------- */
+function buildFinanceContext(){
+  const k = calcKpis();
+  const lines = [];
+  lines.push(`Umsatz dieser Monat (bezahlt): ${fmtEur(k.umsatzMonat)}`);
+  lines.push(`Umsatz dieses Jahr (bezahlt): ${fmtEur(k.umsatzJahr)}`);
+  lines.push(`Offene Posten: ${fmtEur(k.offen)} · davon überfällig: ${fmtEur(k.ueberSum)} (${k.ueberCount} Rechnung[en])`);
+  lines.push(`Aktive Aufträge: ${k.aktiveJobs}`);
+  lines.push(`Kunden gesamt: ${state.kunden.length}, Aufträge gesamt: ${state.auftraege.length}, Rechnungen gesamt: ${state.rechnungen.length}`);
+  // Offene/überfällige Rechnungen konkret
+  const offen = state.rechnungen.filter(r=>r.status==="offen").slice(0,15);
+  if(offen.length){
+    lines.push("\nOffene Rechnungen:");
+    offen.forEach(r=>lines.push(`- ${r.nummer} · ${kundeName(r.kundeId)} · ${fmtEur(r.betrag)} · fällig ${fmtDate(r.faelligkeit)}${isUeberfaellig(r)?" (ÜBERFÄLLIG)":""}`));
+  }
+  // Top-Kunden nach Umsatz
+  const byK = state.kunden.map(c=>({n:c.name, ...clientStats(c.id)})).sort((a,b)=>b.umsatz-a.umsatz).slice(0,8);
+  if(byK.length){
+    lines.push("\nKunden (Umsatz / offen / Aufträge):");
+    byK.forEach(c=>lines.push(`- ${c.n}: ${fmtEur(c.umsatz)} / ${fmtEur(c.offen)} / ${c.jobs}`));
+  }
+  return lines.join("\n");
+}
+
+/* ---------- Drawer ---------- */
+function openAI(){
+  const d = document.getElementById("aiDrawer");
+  d.classList.add("open"); d.setAttribute("aria-hidden","false");
+  if(aiHistory.length===0) greetAI();
+  setTimeout(()=>document.getElementById("aiInput")?.focus(), 300);
+}
+function closeAI(){
+  const d = document.getElementById("aiDrawer");
+  d.classList.remove("open"); d.setAttribute("aria-hidden","true");
+}
+function greetAI(){
+  const host = document.getElementById("aiMsgs");
+  const k = calcKpis();
+  const hello = AI_ENDPOINT
+    ? `Moin Ibo! Ich kenne deine aktuellen Zahlen — offene Posten ${fmtEur(k.offen)}, Umsatz dieses Jahr ${fmtEur(k.umsatzJahr)}. Frag mich was, oder tippe auf einen Vorschlag.`
+    : `Der Assistent läuft nur online (über deine Netlify-Adresse), nicht bei lokal geöffneter Datei.`;
+  host.innerHTML = `<div class="ai-msg bot">${escapeHtml(hello)}</div>`;
+  if(AI_ENDPOINT){
+    const sugg = ["Welche Rechnungen sind überfällig und was soll ich tun?","Lohnt sich ein Auftrag für 600 € bei 8 Stunden Arbeit?","Wie lief mein Umsatz dieses Jahr?","Formuliere eine freundliche Zahlungserinnerung."];
+    const wrap = document.createElement("div"); wrap.className="ai-suggest";
+    wrap.innerHTML = sugg.map(s=>`<button class="ai-chip" data-ai-suggest="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("");
+    host.appendChild(wrap);
+  }
+}
+function addAiMsg(role, text){
+  const host = document.getElementById("aiMsgs");
+  const el = document.createElement("div");
+  el.className = "ai-msg " + (role==="user"?"user":"bot");
+  el.textContent = text;
+  host.appendChild(el); host.scrollTop = host.scrollHeight;
+  return el;
+}
+async function aiSend(text){
+  text = (text||"").trim();
+  if(!text || aiBusy) return;
+  if(!AI_ENDPOINT){ toast("KI nur online verfügbar","error"); return; }
+  document.querySelectorAll(".ai-suggest").forEach(e=>e.remove());
+  addAiMsg("user", text);
+  aiHistory.push({role:"user", content:text});
+  const inp = document.getElementById("aiInput"); if(inp){ inp.value=""; inp.style.height="auto"; }
+  aiBusy = true;
+  const typing = addAiMsg("bot",""); typing.innerHTML = `<div class="typing"><span></span><span></span><span></span></div>`;
+  try{
+    const res = await aiFetch({ action:"chat", messages:aiHistory, context:buildFinanceContext() });
+    typing.textContent = res.reply || "(keine Antwort)";
+    aiHistory.push({role:"assistant", content:res.reply||""});
+  }catch(e){
+    typing.classList.remove("bot"); typing.classList.add("bot");
+    typing.textContent = e.needsKey
+      ? "KI ist noch nicht eingerichtet: Bitte in den Netlify-Einstellungen den ANTHROPIC_API_KEY hinterlegen."
+      : "Verbindung zur KI fehlgeschlagen. " + (e.message==="offline"?"(Nur online verfügbar)":"");
+  }finally{
+    aiBusy = false;
+    document.getElementById("aiMsgs").scrollTop = 1e9;
+  }
+}
+
+/* ---------- Voice (Web Speech API) ---------- */
+let recog = null, recOn = false;
+function setupVoice(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = document.getElementById("aiMic");
+  if(!SR){ if(mic) mic.style.display="none"; return; }
+  recog = new SR(); recog.lang="de-DE"; recog.interimResults=true; recog.continuous=false;
+  let finalText="";
+  recog.onresult = e=>{
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t; else interim+=t;
+    }
+    const inp=document.getElementById("aiInput");
+    if(inp){ inp.value=(finalText+interim).trim(); inp.style.height="auto"; inp.style.height=inp.scrollHeight+"px"; }
+  };
+  recog.onend = ()=>{ recOn=false; mic.classList.remove("rec"); };
+  recog.onerror = ()=>{ recOn=false; mic.classList.remove("rec"); };
+  mic.addEventListener("click", ()=>{
+    if(recOn){ recog.stop(); return; }
+    finalText=""; try{ recog.start(); recOn=true; mic.classList.add("rec"); toast("Sprich jetzt…"); }catch(e){}
+  });
+}
+
+/* ---------- Drawer-Setup (einmalig) ---------- */
+function setupAI(){
+  const inp = document.getElementById("aiInput");
+  const send = document.getElementById("aiSend");
+  if(send) send.addEventListener("click", ()=>aiSend(inp.value));
+  if(inp){
+    inp.addEventListener("input", ()=>{ inp.style.height="auto"; inp.style.height=Math.min(120,inp.scrollHeight)+"px"; });
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); aiSend(inp.value); } });
+  }
+  setupVoice();
+  // Beleg-Scan
+  const scan = document.getElementById("scanInput");
+  if(scan) scan.addEventListener("change", handleScanFile);
+}
+
+/* ---------- Beleg-Scan ---------- */
+function triggerScan(){
+  if(!AI_ENDPOINT){ toast("Scan nur online verfügbar","error"); return; }
+  document.getElementById("scanInput").click();
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(String(r.result).split(",")[1]);
+    r.onerror=reject; r.readAsDataURL(file);
+  });
+}
+async function handleScanFile(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value="";
+  if(!file) return;
+  const busy = document.getElementById("scanBusy"); busy.classList.add("show");
+  try{
+    const b64 = await fileToBase64(file);
+    const res = await aiFetch({ action:"scan", imageBase64:b64, mediaType:file.type||"image/jpeg" });
+    const d = res.data || {};
+    busy.classList.remove("show");
+    // Kunde anhand Partnername finden (falls vorhanden)
+    let kundeId = "";
+    if(d.partner){ const m=state.kunden.find(k=>k.name.toLowerCase().includes(d.partner.toLowerCase())||d.partner.toLowerCase().includes(k.name.toLowerCase())); if(m) kundeId=m.id; }
+    modalInvoice(null, {
+      kundeId, betrag:d.betrag||0,
+      rechnungsdatum:(d.datum&&/^\d{4}-\d{2}-\d{2}$/.test(d.datum))?d.datum:todayISO(),
+      nummer:d.nummer||nextInvoiceNumber(),
+      notizen:[d.partner?("Partner: "+d.partner):"", d.kategorie?("Kategorie: "+d.kategorie):"", d.notiz||""].filter(Boolean).join(" · "),
+      status:"offen"
+    });
+    toast("Beleg erkannt — bitte prüfen & speichern");
+  }catch(err){
+    busy.classList.remove("show");
+    toast(err.needsKey?"KI nicht eingerichtet (API-Key fehlt)":"Scan fehlgeschlagen","error");
+  }
+}
+
+/* ---------- Senden: WhatsApp / E-Mail ---------- */
+function normalizePhone(p){ let s=(p||"").replace(/[^\d+]/g,""); if(s.startsWith("+")) return s.slice(1); if(s.startsWith("00")) return s.slice(2); if(s.startsWith("0")) return "49"+s.slice(1); return s; }
+function waLink(phone, text){ const n=normalizePhone(phone); return "https://wa.me/"+(n?n:"")+"?text="+encodeURIComponent(text); }
+function mailLink(email, subject, body){ return "mailto:"+encodeURIComponent(email||"")+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body); }
+
+function invoiceText(r){
+  const k = kundeById(r.kundeId);
+  return `Hallo${k&&k.ansprechpartner?" "+k.ansprechpartner:""},\n\n`
+    +`anbei meine Rechnung ${r.nummer} vom ${fmtDate(r.rechnungsdatum)} über ${fmtEur(r.betrag)}.\n`
+    +`Zahlbar bis ${fmtDate(r.faelligkeit)}.\n\n`
+    +`Als Kleinunternehmer nach §19 UStG weise ich keine Umsatzsteuer aus.\n\n`
+    +`Vielen Dank & beste Grüße\nKurani Design`;
+}
+function offerText(a){
+  const k = kundeById(a.kundeId);
+  return `Hallo${k&&k.ansprechpartner?" "+k.ansprechpartner:""},\n\n`
+    +`gern unterbreite ich Ihnen ein Angebot für „${a.titel}“:\n\n`
+    +`Leistung: ${a.kategorie}\n`
+    +`Preis: ${fmtEur(a.betrag)} (§19 UStG, ohne USt)\n`
+    +(a.deadline?`Möglicher Liefertermin: ${fmtDate(a.deadline)}\n`:"")
+    +`\nBei Fragen melden Sie sich gern.\n\nBeste Grüße\nKurani Design`;
+}
+function sendInvoice(id, how){
+  const r = state.rechnungen.find(x=>x.id===id); if(!r) return;
+  const k = kundeById(r.kundeId);
+  const txt = invoiceText(r);
+  if(how==="wa") window.open(waLink(k&&k.telefon, txt), "_blank");
+  else window.open(mailLink(k&&k.email, `Rechnung ${r.nummer} — Kurani Design`, txt), "_blank");
+}
+function sendOffer(jobId, how){
+  const a = auftragById(jobId); if(!a) return;
+  const k = kundeById(a.kundeId);
+  const txt = offerText(a);
+  if(how==="wa") window.open(waLink(k&&k.telefon, txt), "_blank");
+  else window.open(mailLink(k&&k.email, `Angebot: ${a.titel} — Kurani Design`, txt), "_blank");
+}
+
+/* ---------- Gewinn-Rechner ---------- */
+function calcAuftrag(a){
+  const material = +a.material||0;
+  const stunden = +a.stunden||0;
+  const satz = +a.stundensatz||0;
+  const aufwand = material + stunden*satz;
+  const gewinn = (+a.betrag||0) - aufwand;
+  const marge = (+a.betrag>0) ? (gewinn/(+a.betrag))*100 : 0;
+  return { material, stunden, satz, aufwand, gewinn, marge, hasData: material>0||stunden>0||satz>0 };
+}
+
+/* =====================================================================
    START
    ===================================================================== */
 function boot(){
   load();
   applyTheme();
   setupPWA();
+  setupAI();
   // Chart.js per CDN nachladen (defer); Dashboard rendert auch ohne, Charts kommen nach
   const hash=location.hash.replace("#","");
   ui.view = VIEW_META[hash] ? hash : "dashboard";
