@@ -507,9 +507,28 @@ tbody tr:hover .row-actions{opacity:1}
       </div>
       <div class="topbar-actions" id="topActions"></div>
     </div>
-    <div class="view" id="view"></div>
+    <div class="view" id="view">
+      <!-- Statischer Fallback: wird durch JS ersetzt. Sichtbar, falls JS lädt/blockiert. -->
+      <div class="card panel" id="bootFallback" style="padding:0">
+        <div class="empty">
+          <div class="empty-ico">K</div>
+          <h3>Command Center wird geladen…</h3>
+          <p>Falls dauerhaft nichts erscheint, öffne diese Datei bitte direkt in einem Browser (Safari oder Chrome) — nicht in einer Datei- oder Chat-Vorschau, da diese kein JavaScript ausführen.</p>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
+
+<!-- Hinweis, falls JavaScript komplett deaktiviert ist -->
+<noscript>
+  <div style="position:fixed;inset:0;background:#1A1A1A;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif;z-index:999">
+    <div style="max-width:420px">
+      <h2 style="font-size:22px;margin-bottom:12px">JavaScript ist deaktiviert</h2>
+      <p style="line-height:1.6;opacity:.85">Das Kurani Command Center braucht JavaScript. Bitte öffne die Datei in einem Browser (Safari, Chrome, Firefox) mit aktiviertem JavaScript.</p>
+    </div>
+  </div>
+</noscript>
 
 <!-- Bottom nav (mobile) -->
 <nav class="bottomnav" id="bottomnav"></nav>
