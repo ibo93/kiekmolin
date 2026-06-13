@@ -545,6 +545,29 @@ html[data-theme="dark"] .fab{background:var(--accent);color:#fff}
 .scan-busy .sb-card .spin{width:42px;height:42px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .scan-busy .sb-card b{font-size:15px}.scan-busy .sb-card span{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:4px}
+
+/* =====================================================================
+   EDITORIAL-FEINSCHLIFF (v2.1) — ruhig, hochwertig, eigenständig
+   ===================================================================== */
+.topbar h1{letter-spacing:-0.025em}
+.topbar h1::first-letter{ } /* Platzhalter, keine Wirkung */
+/* Akzent-Strich vor Panel-/Sektionstiteln */
+.panel-head h3, .sec-title{position:relative}
+.panel-head h3{padding-left:14px}
+.panel-head h3::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:4px;height:16px;border-radius:3px;background:var(--accent);opacity:.85}
+.sec-title{padding-left:14px}
+.sec-title::before{content:"";position:absolute;left:0;top:8px;width:4px;height:18px;border-radius:3px;background:var(--accent)}
+/* KPI-Hero edler */
+.kpi-value{letter-spacing:-0.03em}
+.kpi.accent .kpi-value{background:linear-gradient(120deg,var(--ink),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+/* Karten-Hover dezent anheben */
+.card.kpi,.card.panel{transition:transform var(--transition),box-shadow var(--transition)}
+.card.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+/* Empty-State-Untertitel mit Serif-Akzent */
+.empty p em{font-family:var(--font-display);font-style:italic;color:var(--ink)}
+/* feine Linie unter der Topbar beim Scrollen */
+.topbar{border-bottom:1px solid transparent}
+.main.scrolled .topbar{border-bottom-color:var(--line)}
 </style>
 </head>
 <body>
@@ -2112,6 +2135,9 @@ function setupAI(){
   // Beleg-Scan
   const scan = document.getElementById("scanInput");
   if(scan) scan.addEventListener("change", handleScanFile);
+  // Feine Topbar-Linie beim Scrollen
+  const main = document.getElementById("main");
+  if(main) main.addEventListener("scroll", ()=>{ main.classList.toggle("scrolled", main.scrollTop>4); }, {passive:true});
 }
 
 /* ---------- Beleg-Scan ---------- */
