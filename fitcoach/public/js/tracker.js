@@ -215,7 +215,45 @@ function renderMahlzeiten(entries) {
 export async function speichereEintrag(row) {
   db.insert('food_entries', { ...row, datum: state.date });
   haptik();
+  eintragsToast(row.name, row.protein_g);
   return true;
+}
+
+// Sprechende Bestätigung: sagt sofort, ob das Essen ins Tagesziel passt –
+// inklusive ehrlicher Ansage, wenn du damit drüber bist.
+export function eintragsToast(name, protein = 0) {
+  const p = state.profile;
+  if (!p) { toast(`${name} eingetragen ✓`); return; }
+  const gegessen = db.alle('food_entries', (e) => e.datum === todayISO())
+    .reduce((s, e) => s + Number(e.kalorien || 0), 0);
+  const rest = p.kalorienziel - gegessen; // Eintrag ist schon drin
+
+  if (rest < -250) {
+    toast(`${name}: damit bist du ${Math.abs(Math.round(rest))} kcal ÜBER dem Ziel – das war zu viel. Morgen wieder voll im Plan.`);
+  } else if (rest < 0) {
+    toast(`${name} eingetragen – ${Math.abs(Math.round(rest))} kcal über dem Tagesziel. Den Rest des Tages leicht halten.`);
+  } else if (Number(protein) >= 25) {
+    toast(`${name}: starke ${Math.round(protein)} g Protein. Noch ${Math.round(rest)} kcal übrig.`);
+  } else {
+    toast(`${name} eingetragen – passt. Noch ${Math.round(rest)} kcal übrig.`);
+  }
+}
+
+// Live-Vorschau im Eintrag-Dialog: passt das, was gerade in den Feldern
+// steht, noch in den Tag?
+function aktualisiereFit() {
+  const el = document.getElementById('food-fit');
+  const kcal = parseFloat(document.getElementById('food-kcal').value);
+  if (!state.profile || !(kcal > 0) || state.date !== todayISO()) { el.hidden = true; return; }
+  const restNach = tagesRest.kcal - kcal;
+  el.hidden = false;
+  if (restNach >= 0) {
+    el.textContent = `Passt ins Tagesziel – danach noch ${Math.round(restNach)} kcal übrig.`;
+    el.style.color = 'var(--text-muted)';
+  } else {
+    el.textContent = `Achtung: Damit wärst du ${Math.abs(Math.round(restNach))} kcal über deinem Tagesziel.`;
+    el.style.color = 'var(--danger)';
+  }
 }
 
 // ---------- Modal: manuell / Favoriten / zuletzt gegessen ----------
@@ -236,6 +274,7 @@ function gewaehlteMahlzeit() {
 
 function öffneFoodModal(mahlzeit) {
   document.getElementById('food-form').reset();
+  document.getElementById('food-fit').hidden = true;
   document.getElementById('food-mahlzeit').value = mahlzeit || mahlzeitNachUhrzeit();
   zeigeFoodTab('manual');
   ladeFavoriten();
@@ -296,7 +335,6 @@ async function übernehmeVorlage(ref) {
   });
   if (ok) {
     document.getElementById('food-modal').close();
-    toast(`${f.name} eingetragen ✓`);
     refreshTracker();
   }
 }
@@ -351,6 +389,7 @@ async function schaetzePerKI() {
     document.getElementById('food-protein').value = e.protein_g;
     document.getElementById('food-carbs').value = e.carbs_g;
     document.getElementById('food-fett').value = e.fett_g;
+    aktualisiereFit();
     toast('KI-Schätzung übernommen – prüfe die Werte');
     sprich(`${e.gericht}, geschätzt ${e.kalorien} Kilokalorien und ${e.protein_g} Gramm Protein.`);
   } catch (err) {
@@ -428,7 +467,6 @@ async function uebernehmeCoachVorschlag(i) {
   });
   if (ok) {
     document.getElementById('coach-modal').close();
-    toast(`${v.gericht} eingetragen ✓`);
     refreshTracker();
   }
 }
@@ -487,6 +525,7 @@ export function initTracker() {
   document.getElementById('food-mic').hidden = false;
   document.getElementById('food-mic').addEventListener('click', starteDiktat);
   document.getElementById('food-ki').addEventListener('click', schaetzePerKI);
+  document.getElementById('food-kcal').addEventListener('input', aktualisiereFit);
 
   // ---------- Eingebaute Lebensmittel-Suche ----------
   // Beim Tippen Treffer aus der lokalen Datenbank zeigen (offline, ohne KI).
@@ -514,6 +553,7 @@ export function initTracker() {
     document.getElementById('food-protein').value = w.protein_g;
     document.getElementById('food-carbs').value = w.carbs_g;
     document.getElementById('food-fett').value = w.fett_g;
+    aktualisiereFit();
   }
 
   nameInput.addEventListener('input', () => {
@@ -594,7 +634,6 @@ export function initTracker() {
       }
 
       document.getElementById('food-modal').close();
-      toast('Eintrag gespeichert ✓');
       refreshTracker();
     } finally {
       submitBtn.disabled = false;

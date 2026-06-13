@@ -1,7 +1,7 @@
 // KI-Foto-Scan: Bild verkleinern, an die Netlify Function schicken,
 // Schätzung anzeigen, Portionsgröße anpassen, ins Protokoll speichern.
 import { db, state, toast, showView, todayISO, fetchMitTimeout, authHeaders, haptik } from './state.js';
-import { refreshTracker } from './tracker.js';
+import { refreshTracker, eintragsToast } from './tracker.js';
 import { sprich } from './speech.js';
 
 let basis = null;        // KI-Schätzung bei 100 % Portion
@@ -128,6 +128,22 @@ function aktualisiereWerte() {
   document.getElementById('scan-protein').textContent = Math.round(basis.protein_g * prozent);
   document.getElementById('scan-carbs').textContent = Math.round(basis.carbs_g * prozent);
   document.getElementById('scan-fett').textContent = Math.round(basis.fett_g * prozent);
+
+  // Passt die Portion noch in den Tag? Live mit dem Slider mitrechnen.
+  const fit = document.getElementById('scan-fit');
+  const p = state.profile;
+  if (p) {
+    const gegessen = db.alle('food_entries', (e) => e.datum === todayISO())
+      .reduce((s, e) => s + Number(e.kalorien || 0), 0);
+    const restNach = p.kalorienziel - gegessen - Math.round(basis.kalorien * prozent);
+    if (restNach >= 0) {
+      fit.textContent = `Passt ins Tagesziel – danach noch ${Math.round(restNach)} kcal übrig.`;
+      fit.style.color = 'var(--text-muted)';
+    } else {
+      fit.textContent = `Achtung: Damit wärst du ${Math.abs(Math.round(restNach))} kcal über deinem Tagesziel.`;
+      fit.style.color = 'var(--danger)';
+    }
+  }
 }
 
 async function speichereScan() {
@@ -147,7 +163,7 @@ async function speichereScan() {
   });
 
   haptik();
-  toast(`${basis.gericht} eingetragen ✓`);
+  eintragsToast(basis.gericht, Math.round(basis.protein_g * prozent));
   zeigeSchritt('start');
   document.getElementById('scan-file').value = '';
   state.date = todayISO();
