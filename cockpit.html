@@ -983,7 +983,7 @@ let ui = { view:"dashboard", jobsMode:"kanban", finFilter:{}, finMonth:null,
 
 function blankState(){
   return { kunden:[], auftraege:[], rechnungen:[], kiekNotizen:[],
-           settings:{ darkMode:true, lastBackup:null, demo:false } };
+           settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"" } };
 }
 
 /* ---------- Persistenz (robust) ---------- */
@@ -1749,6 +1749,11 @@ function viewSettings(){
         Der Schlüssel bleibt serverseitig — nie im Browser. Kosten: ca. 1–4&nbsp;Cent pro Anfrage.
         <br><br>Bei lokal geöffneter Datei (file://) ist die KI deaktiviert — sie braucht die Online-Adresse.
       </div>
+      <div class="set-row"><div class="lab"><b>Natürliche Stimme (ElevenLabs)</b><span>Echte KI-Stimme statt Browser-Stimme</span></div>
+        <label class="switch"><input type="checkbox" id="elevenToggle" ${state.settings.ttsEleven?"checked":""}><span class="track"></span></label></div>
+      <div class="set-row"><div class="lab"><b>Stimme (Voice-ID)</b><span>ElevenLabs Voice-ID — leer = Standard</span></div>
+        <input class="input" id="elevenVoice" style="max-width:230px" placeholder="z. B. 21m00Tcm4TlvDq8ikWAM" value="${escapeHtml(state.settings.elevenVoice||"")}"></div>
+      <div class="note" style="margin-top:6px">${I.info}<div>Für die natürliche Stimme bei Netlify zusätzlich <b>ELEVENLABS_API_KEY</b> als Environment-Variable anlegen (von elevenlabs.io). Die <b>Voice-ID</b> findest du in deinem ElevenLabs-Konto unter „Voices" → Stimme → ID kopieren.</div></div>
     </div>
 
     <div class="card panel">
@@ -2290,7 +2295,11 @@ document.addEventListener("click",e=>{
 document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeModal(); closeAI(); } });
 // Dark-Toggle (Settings-Switch)
-document.addEventListener("change",e=>{ if(e.target.id==="darkToggle") toggleTheme(); });
+document.addEventListener("change",e=>{
+  if(e.target.id==="darkToggle") toggleTheme();
+  if(e.target.id==="elevenToggle"){ state.settings.ttsEleven=e.target.checked; save(); toast(e.target.checked?"Natürliche Stimme an":"Browser-Stimme"); }
+});
+document.addEventListener("input",e=>{ if(e.target.id==="elevenVoice"){ state.settings.elevenVoice=e.target.value.trim(); save(); } });
 
 /* =====================================================================
    PWA: Manifest + Service Worker (inline, via Blob — Single-File)
@@ -2469,20 +2478,41 @@ async function aiSend(text, opts){
 /* ---------- Voice (Web Speech API) ---------- */
 let recog = null, recOn = false, voiceMode = false, speaking = false, voiceGreeted = false;
 try{ if("speechSynthesis" in window){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices(); } }catch(e){}
+let currentAudio = null;
 function startMic(){ if(!recog||recOn||speaking)return; try{ recog.start(); }catch(e){} }
+function afterSpeak(){ speaking=false; if(voiceMode) setTimeout(startMic,250); }
 function speak(text){
-  if(!voiceMode || !("speechSynthesis" in window)) return;
+  text=String(text||"").slice(0,800);
+  if(!voiceMode || !text) return;
+  // 1) ElevenLabs (natürliche Stimme), wenn aktiviert
+  if(state.settings.ttsEleven && AI_ENDPOINT){
+    speaking=true;
+    aiFetch({action:"tts", text, voiceId:state.settings.elevenVoice||""})
+      .then(res=>{
+        if(!res.audio) throw new Error("noaudio");
+        const a=new Audio("data:"+(res.mime||"audio/mpeg")+";base64,"+res.audio);
+        currentAudio=a;
+        a.onended=afterSpeak; a.onerror=()=>browserSpeak(text);
+        a.play().catch(()=>browserSpeak(text));
+      })
+      .catch(()=>browserSpeak(text));
+    return;
+  }
+  browserSpeak(text);
+}
+function browserSpeak(text){
+  if(!("speechSynthesis" in window)){ afterSpeak(); return; }
   try{
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(String(text).slice(0,600));
     u.lang="de-DE"; u.rate=1.04; u.pitch=1;
     const v=speechSynthesis.getVoices().find(v=>/de/i.test(v.lang)); if(v)u.voice=v;
     speaking=true;
-    u.onend=()=>{ speaking=false; if(voiceMode) setTimeout(startMic,250); };  // Freisprech: danach wieder zuhören
-    u.onerror=()=>{ speaking=false; };
+    u.onend=afterSpeak; u.onerror=()=>{ speaking=false; };
     speechSynthesis.speak(u);
   }catch(e){ speaking=false; }
 }
+function stopSpeaking(){ try{speechSynthesis.cancel()}catch(e){}; if(currentAudio){try{currentAudio.pause()}catch(e){}; currentAudio=null;} speaking=false; }
 function setupVoice(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = document.getElementById("aiMic");
@@ -2509,7 +2539,7 @@ function setupVoice(){
   recog.onerror = ()=>{ recOn=false; mic.classList.remove("rec"); };
   // Tippen aufs Mikro: Freisprech-Modus an/aus
   mic.addEventListener("click", ()=>{
-    if(recOn || speaking || voiceMode){ voiceMode=false; speaking=false; try{recog.stop()}catch(e){}; try{speechSynthesis.cancel()}catch(e){}; mic.classList.remove("rec","vmode"); toast("Voice aus"); return; }
+    if(recOn || speaking || voiceMode){ voiceMode=false; try{recog.stop()}catch(e){}; stopSpeaking(); mic.classList.remove("rec","vmode"); toast("Voice aus"); return; }
     voiceMode=true; mic.classList.add("vmode"); finalText="";
     if(AI_ENDPOINT && !voiceGreeted){
       voiceGreeted=true; toast("Coach meldet sich…");

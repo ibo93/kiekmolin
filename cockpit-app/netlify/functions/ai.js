@@ -23,20 +23,23 @@ exports.handler = async (event) => {
     return json(405, { error: "Nur POST erlaubt." });
   }
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+
+  let body;
+  try { body = JSON.parse(event.body || "{}"); }
+  catch { return json(400, { error: "Ungültige Anfrage." }); }
+
+  // ElevenLabs-TTS braucht keinen Anthropic-Key; alles andere schon.
+  if (body.action !== "tts" && !apiKey) {
     return json(503, {
       error: "KI nicht konfiguriert. Bitte ANTHROPIC_API_KEY in den Netlify-Umgebungsvariablen setzen.",
       needsKey: true,
     });
   }
 
-  let body;
-  try { body = JSON.parse(event.body || "{}"); }
-  catch { return json(400, { error: "Ungültige Anfrage." }); }
-
   try {
     if (body.action === "scan")  return await handleScan(body, apiKey);
     if (body.action === "chat")  return await handleChat(body, apiKey);
+    if (body.action === "tts")   return await handleTTS(body);
     return json(400, { error: "Unbekannte Aktion." });
   } catch (e) {
     return json(502, { error: "KI-Aufruf fehlgeschlagen: " + (e.message || String(e)) });
@@ -126,6 +129,27 @@ async function handleChat(body, apiKey) {
   if (res.stop_reason === "refusal") return json(200, { reply: "Das kann ich leider nicht beantworten." });
   const reply = (res.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
   return json(200, { reply: reply || "(keine Antwort)", usage: res.usage });
+}
+
+/* ---------- Sprachausgabe (ElevenLabs TTS) ---------- */
+async function handleTTS(body) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) return json(503, { error: "ElevenLabs nicht konfiguriert (ELEVENLABS_API_KEY).", noTTS: true });
+  const text = String(body.text || "").slice(0, 1500);
+  if (!text) return json(400, { error: "Kein Text." });
+  const voice = (body.voiceId || "").trim() || "21m00Tcm4TlvDq8ikWAM"; // Default-Stimme
+  const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice), {
+    method: "POST",
+    headers: { "xi-api-key": key, "accept": "audio/mpeg", "content-type": "application/json" },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true },
+    }),
+  });
+  if (!r.ok) { const t = await r.text().catch(() => ""); return json(502, { error: "ElevenLabs-Fehler " + r.status + ": " + t.slice(0, 200) }); }
+  const buf = Buffer.from(await r.arrayBuffer());
+  return json(200, { audio: buf.toString("base64"), mime: "audio/mpeg" });
 }
 
 /* ---------- Helfer ---------- */
