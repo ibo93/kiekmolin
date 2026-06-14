@@ -984,7 +984,7 @@ let ui = { view:"dashboard", jobsMode:"kanban", finFilter:{}, finMonth:null,
 function blankState(){
   return { kunden:[], auftraege:[], rechnungen:[], ausgaben:[], kiekNotizen:[],
            settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"",
-             profile:{ firma:"Kurani Design", inhaber:"", strasse:"", plz:"", ort:"Norden", telefon:"", email:"", web:"kiekmolin.de", steuernr:"", iban:"", bank:"" } } };
+             profile:{ firma:"Kurani Design", inhaber:"", strasse:"", plz:"", ort:"Norden", telefon:"", email:"", web:"kiekmolin.de", steuernr:"", iban:"", bic:"", bank:"" } } };
 }
 
 /* ---------- Persistenz (robust) ---------- */
@@ -1763,6 +1763,7 @@ function viewSettings(){
         ${f("ort","Ort")}
         ${f("steuernr","Steuernummer")}
         ${f("bank","Bank")}
+        ${f("bic","BIC")}
         ${f("iban","IBAN",true,"DE.. .... .... .... .... ..")}
       </div>
     </div>`;})()}
@@ -2727,58 +2728,63 @@ function printHTML(html){
   // kurz warten, bis Inhalt/Fonts da sind
   setTimeout(go, 350);
 }
-const PDF_ACCENT = "#9a6a3a"; // warmer, editorialer Bronze-Akzent
 const pdfStyle = `
-  @page{margin:20mm}
+  @page{margin:14mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{font-family:"Helvetica Neue",Arial,sans-serif;color:#161616;font-size:12.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  .lh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px}
-  .lh-name{font-family:Georgia,"Times New Roman",serif;font-size:25px;font-weight:600;letter-spacing:-.01em;color:#0f0f0f}
-  .lh-name span{display:block;font-family:"Helvetica Neue",Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:${PDF_ACCENT};margin-top:9px}
-  .lh-contact{text-align:right;font-size:10.5px;color:#666;line-height:1.7}
-  .docrow{display:flex;justify-content:space-between;align-items:flex-end;border-top:2px solid #161616;padding-top:14px;margin-bottom:26px}
-  .docrow .eyebrow{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:${PDF_ACCENT};font-weight:700}
-  .docrow h1{font-family:Georgia,serif;font-size:29px;font-weight:600;margin:6px 0 0;letter-spacing:-.01em}
-  .meta{font-size:11px;color:#555;text-align:right;line-height:1.9}
-  .meta b{color:#161616;font-weight:600}
-  .sender{font-size:9px;color:#9a9a9a;letter-spacing:.02em;margin-bottom:7px}
-  .bill{margin-bottom:30px;line-height:1.65}
-  .bill .lbl{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#9a9a9a;margin-bottom:5px}
-  .bill b{font-size:14.5px;color:#0f0f0f}
-  table{width:100%;border-collapse:collapse;margin:6px 0 0}
-  thead th{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a;text-align:left;padding:0 8px 11px;border-bottom:1.5px solid #161616}
-  tbody td{padding:14px 8px;border-bottom:1px solid #ededed;vertical-align:top;font-size:12.5px}
-  tbody td .sub{display:block;color:#8a8a8a;font-size:10.5px;margin-top:3px}
+  body{font-family:"Helvetica Neue",Arial,Helvetica,sans-serif;color:#1a1a1a;font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .band{background:#111;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:30px;margin-bottom:32px}
+  .band .logo{font-size:32px;font-weight:800;letter-spacing:.01em;line-height:1}
+  .band .logo span{display:block;font-size:11px;font-weight:600;letter-spacing:.55em;color:#bdbdbd;margin-top:8px}
+  .band .doc{font-size:25px;font-weight:800;letter-spacing:.05em}
+  .cols{display:flex;gap:48px;margin-bottom:28px}
+  .cols .c{flex:1}
+  .lbl{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:#9a9a9a;font-weight:700;margin-bottom:8px}
+  .cols .c b{font-size:13.5px;color:#111}
+  .cols .c .ln{color:#3a3a3a}
+  .metaband{display:flex;gap:48px;background:#f4f4f4;padding:16px 22px;margin-bottom:30px}
+  .metaband .m{flex:1}
+  .metaband .v{font-weight:700;font-size:13.5px;margin-top:5px}
+  .intro{color:#444;margin-bottom:14px;font-size:12px}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:#111;color:#fff;font-size:9px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:12px 13px;font-weight:700}
+  thead th.r{text-align:right}
+  tbody td{padding:15px 13px;border-bottom:1px solid #e8e8e8;vertical-align:top}
+  tbody td.pos{color:#b0b0b0;width:34px}
+  tbody td .d{font-weight:700;color:#111}
+  tbody td .sub{color:#8a8a8a;font-style:italic;font-size:11px;margin-top:3px}
   .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .totals{margin-top:18px;display:flex;justify-content:flex-end}
-  .totals .box{width:58%;max-width:320px}
-  .totals .line{display:flex;justify-content:space-between;padding:6px 8px;font-size:12px;color:#555}
-  .totals .grand{display:flex;justify-content:space-between;border-top:2px solid #161616;margin-top:4px;padding:13px 8px 0;font-family:Georgia,serif;font-size:18px;font-weight:600;color:#0f0f0f}
-  .terms{margin-top:32px;font-size:11px;color:#555;line-height:1.7;max-width:78%}
-  .terms .h{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#9a9a9a;margin-bottom:5px}
-  .ftr{margin-top:40px;border-top:1px solid #e8e8e8;padding-top:13px;display:flex;gap:26px;font-size:9px;color:#9a9a9a;line-height:1.65}
-  .ftr div{flex:1}
-  .ftr b{color:#666;display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+  .sum{margin-top:22px;display:flex;justify-content:flex-end}
+  .sum .box{width:52%;max-width:330px}
+  .sum .row{display:flex;justify-content:space-between;padding:9px 14px;color:#444;font-size:12.5px}
+  .sum .row.bdr{border-bottom:1px solid #e8e8e8}
+  .sum .grand{display:flex;justify-content:space-between;align-items:center;background:#111;color:#fff;padding:15px 16px;margin-top:8px}
+  .sum .grand .t{font-size:13px;font-weight:700;letter-spacing:.1em}
+  .sum .grand .a{font-size:21px;font-weight:800}
+  .pay{background:#f4f4f4;border-left:4px solid #111;padding:18px 20px;margin-top:34px;font-size:11.5px;color:#444;line-height:1.7}
+  .pay h4{margin:0 0 7px;font-size:12.5px;color:#111}
+  .pay .k{color:#9a9a9a;font-weight:700;font-size:9.5px;letter-spacing:.06em}
+  .pay .note{margin-top:10px;font-style:italic;color:#666}
+  .ftr{margin-top:46px;border-top:1px solid #e2e2e2;padding-top:13px;text-align:center;font-size:9px;color:#a0a0a0;letter-spacing:.02em}
 `;
-function pdfLetterhead(){
-  const p = state.settings.profile||{};
-  const contact = [p.telefon?("T "+escapeHtml(p.telefon)):"", p.email?escapeHtml(p.email):"", p.web?escapeHtml(p.web):""].filter(Boolean).join("<br>");
-  return `<div class="lh">
-    <div class="lh-name">${escapeHtml(p.firma||"Kurani Design")}<span>Grafikdesign &amp; Werbetechnik</span></div>
-    <div class="lh-contact">${contact||"Norden · Ostfriesland"}</div>
-  </div>`;
+function pdfLogo(){
+  const p=state.settings.profile||{}; const parts=(p.firma||"Kurani Design").split(/\s+/);
+  const big=(parts[0]||"KURANI").toUpperCase(); const sub=(parts.slice(1).join(" ")||"Design").toUpperCase();
+  return `<div class="logo">${escapeHtml(big)}<span>${escapeHtml(sub)}</span></div>`;
 }
-function pdfSenderLine(){
-  const p = state.settings.profile||{};
-  return [p.firma, p.strasse, [p.plz,p.ort].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+function pdfBand(doctype){ return `<div class="band">${pdfLogo()}<div class="doc">${doctype}</div></div>`; }
+function pdfVon(){
+  const p=state.settings.profile||{};
+  const ln=[p.strasse, [p.plz,p.ort].filter(Boolean).join(" "), p.telefon?("Tel. "+p.telefon):"", p.steuernr?("Steuernr. "+p.steuernr):""]
+    .filter(Boolean).map(x=>`<div class="ln">${escapeHtml(x)}</div>`).join("");
+  return `<div class="c"><div class="lbl">Von</div><b>${escapeHtml(p.firma||"Kurani Design")}</b>${ln}</div>`;
 }
-function pdfFooter(){
-  const p = state.settings.profile||{};
-  const kontakt = [p.firma, p.inhaber, [p.strasse].filter(Boolean).join(""), [p.plz,p.ort].filter(Boolean).join(" "), p.telefon, p.email].filter(Boolean).map(escapeHtml).join("<br>");
-  const steuer = ["§19 UStG — Kleinunternehmer", p.steuernr?("Steuernr. "+escapeHtml(p.steuernr)):""].filter(Boolean).join("<br>");
-  const bank = [p.bank?escapeHtml(p.bank):"", p.iban?("IBAN "+escapeHtml(p.iban)):""].filter(Boolean).join("<br>") || "—";
-  return `<div class="ftr"><div><b>Kontakt</b>${kontakt}</div><div><b>Steuer</b>${steuer}</div><div><b>Bank</b>${bank}</div></div>`;
+function pdfFootLine(){
+  const p=state.settings.profile||{};
+  const parts=[p.firma, [p.strasse, [p.plz,p.ort].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+    p.steuernr?("Steuernr. "+p.steuernr):"", p.iban?("IBAN "+p.iban):"", "§ 19 UStG"]
+    .filter(Boolean).map(escapeHtml).join("&nbsp;&nbsp;·&nbsp;&nbsp;");
+  return `<div class="ftr">${parts}</div>`;
 }
 function invoicePdf(id){
   const r = state.rechnungen.find(x=>x.id===id); if(!r) return;
@@ -2786,27 +2792,32 @@ function invoicePdf(id){
   const p = state.settings.profile||{};
   const desc = escapeHtml(r.notizen || "Design- / Werbetechnik-Leistung");
   const bezahlt = r.status==="bezahlt";
-  const zahlung = bezahlt
-    ? `Diese Rechnung wurde am ${fmtDate(r.bezahltAm)} vollständig beglichen. Vielen Dank!`
-    : `Bitte überweisen Sie den Betrag bis zum <b>${fmtDate(r.faelligkeit)}</b>${p.iban?` auf folgendes Konto: <b>${escapeHtml(p.iban)}</b>${p.bank?` (${escapeHtml(p.bank)})`:""}`:""}.`;
+  const billLines = [k&&k.ansprechpartner, k&&k.ort].filter(Boolean).map(x=>`<div class="ln">${escapeHtml(x)}</div>`).join("");
+  const pay = bezahlt
+    ? `<h4>Zahlungseingang</h4>Diese Rechnung wurde am <b>${fmtDate(r.bezahltAm)}</b> vollständig beglichen. Herzlichen Dank!`
+    : `<h4>Zahlungsbedingungen</h4>Bitte überweisen Sie den Rechnungsbetrag bis zum <b>${fmtDate(r.faelligkeit)}</b> unter Angabe der Rechnungsnummer <b>${escapeHtml(r.nummer)}</b> auf folgendes Konto:`
+      + (p.iban?`<div style="margin-top:9px"><span class="k">IBAN</span> ${escapeHtml(p.iban)}${p.bic?`&nbsp;&nbsp;&nbsp;<span class="k">BIC</span> ${escapeHtml(p.bic)}`:""}</div>`:"")
+      + (p.bank?`<div><span class="k">Bank</span> ${escapeHtml(p.bank)}</div>`:"");
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ${escapeHtml(r.nummer)}</title><style>${pdfStyle}</style></head><body>
-    ${pdfLetterhead()}
-    <div class="docrow"><div><div class="eyebrow">Rechnung</div><h1>${escapeHtml(r.nummer)}</h1></div>
-      <div class="meta"><div>Datum&nbsp;&nbsp;<b>${fmtDate(r.rechnungsdatum)}</b></div><div>Fällig&nbsp;&nbsp;<b>${fmtDate(r.faelligkeit)}</b></div>${bezahlt?`<div style="color:${PDF_ACCENT}"><b>BEZAHLT</b></div>`:""}</div>
+    ${pdfBand("RECHNUNG")}
+    <div class="cols">${pdfVon()}
+      <div class="c"><div class="lbl">Rechnung an</div><b>${escapeHtml(kundeName(r.kundeId))}</b>${billLines}</div>
     </div>
-    <div class="bill"><div class="sender">${escapeHtml(pdfSenderLine())}</div>
-      <div class="lbl">Rechnung an</div>
-      <b>${escapeHtml(kundeName(r.kundeId))}</b>${k&&k.ansprechpartner?"<br>"+escapeHtml(k.ansprechpartner):""}${k&&k.ort?"<br>"+escapeHtml(k.ort):""}
+    <div class="metaband">
+      <div class="m"><div class="lbl">Rechnungsnummer</div><div class="v">${escapeHtml(r.nummer)}</div></div>
+      <div class="m"><div class="lbl">Rechnungsdatum</div><div class="v">${fmtDate(r.rechnungsdatum)}</div></div>
+      <div class="m"><div class="lbl">${bezahlt?"Bezahlt am":"Fällig am"}</div><div class="v">${fmtDate(bezahlt?r.bezahltAm:r.faelligkeit)}</div></div>
     </div>
-    <table><thead><tr><th>Beschreibung</th><th class="r">Betrag</th></tr></thead>
-      <tbody><tr><td>${desc}<span class="sub">Leistungszeitraum / Auftrag ${escapeHtml(r.nummer)}</span></td><td class="r">${fmtEur(r.betrag)}</td></tr></tbody></table>
-    <div class="totals"><div class="box">
-      <div class="line"><span>Zwischensumme</span><span>${fmtEur(r.betrag)}</span></div>
-      <div class="line"><span>Umsatzsteuer (§19 UStG)</span><span>0,00 €</span></div>
-      <div class="grand"><span>Gesamt</span><span>${fmtEur(r.betrag)}</span></div>
+    <div class="intro">Vielen Dank für Ihren Auftrag. Wir berechnen Ihnen folgende Leistungen:</div>
+    <table><thead><tr><th>Pos.</th><th>Beschreibung</th><th class="r">Menge</th><th class="r">Einzelpreis</th><th class="r">Betrag</th></tr></thead>
+      <tbody><tr><td class="pos">1</td><td><div class="d">${desc}</div></td><td class="r">1</td><td class="r">${fmtEur(r.betrag)}</td><td class="r">${fmtEur(r.betrag)}</td></tr></tbody></table>
+    <div class="sum"><div class="box">
+      <div class="row bdr"><span>Zwischensumme</span><span>${fmtEur(r.betrag)}</span></div>
+      <div class="row"><span>Umsatzsteuer (§ 19 UStG)</span><span>0,00 €</span></div>
+      <div class="grand"><span class="t">GESAMT</span><span class="a">${fmtEur(r.betrag)}</span></div>
     </div></div>
-    <div class="terms"><div class="h">Zahlungshinweis</div>${zahlung}<br>Gemäß §19 UStG wird keine Umsatzsteuer ausgewiesen.</div>
-    ${pdfFooter()}
+    <div class="pay">${pay}<div class="note">Hinweis gemäß § 19 UStG: Kein Ausweis von Umsatzsteuer, da Kleinunternehmerregelung angewendet wird.</div></div>
+    ${pdfFootLine()}
   </body></html>`;
   printHTML(html);
   toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
@@ -2820,14 +2831,17 @@ function financePdf(){
     return `<tr><td>${escapeHtml(r.nummer)}</td><td>${escapeHtml(kundeName(r.kundeId))}</td><td>${fmtDate(r.rechnungsdatum)}</td><td>${fmtDate(r.faelligkeit)}</td><td>${eff==="ueberfaellig"?"überfällig":eff}</td><td class="r">${fmtEur(r.betrag)}</td></tr>`;
   }).join("");
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Finanz-Übersicht</title><style>${pdfStyle}</style></head><body>
-    ${pdfLetterhead()}
-    <div class="docrow"><div><div class="eyebrow">Finanz-Übersicht</div><h1>Rechnungen</h1></div>
-      <div class="meta"><div>Stand&nbsp;&nbsp;<b>${fmtDate(todayISO())}</b></div><div>${rows.length} Einträge</div></div></div>
+    ${pdfBand("ÜBERSICHT")}
+    <div class="metaband">
+      <div class="m"><div class="lbl">Stand</div><div class="v">${fmtDate(todayISO())}</div></div>
+      <div class="m"><div class="lbl">Rechnungen</div><div class="v">${rows.length}</div></div>
+      <div class="m"><div class="lbl">Summe</div><div class="v">${fmtEur(total)}</div></div>
+    </div>
     <table><thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th>Fällig</th><th>Status</th><th class="r">Betrag</th></tr></thead>
       <tbody>${body}</tbody></table>
-    <div class="totals"><div class="box"><div class="grand"><span>Summe</span><span>${fmtEur(total)}</span></div></div></div>
-    <div class="terms"><div class="h">Hinweis</div>§19 UStG — alle Beträge ohne Umsatzsteuer.</div>
-    ${pdfFooter()}
+    <div class="sum"><div class="box"><div class="grand"><span class="t">SUMME</span><span class="a">${fmtEur(total)}</span></div></div></div>
+    <div class="pay"><h4>Hinweis</h4><div class="note">§ 19 UStG — alle Beträge ohne Umsatzsteuer.</div></div>
+    ${pdfFootLine()}
   </body></html>`;
   printHTML(html);
   toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
@@ -2912,21 +2926,27 @@ function angebotText(o){
     +`Bei Fragen melden Sie sich gern.\n\nBeste Grüße\nKurani Design`;
 }
 function angebotPdf(o){
-  const body = o.items.map(it=>`<tr><td>${escapeHtml(it.desc)}</td><td class="r">${it.qty}</td><td class="r">${fmtEur(it.price)}</td><td class="r">${fmtEur(it.qty*it.price)}</td></tr>`).join("");
+  const body = o.items.map((it,i)=>`<tr><td class="pos">${i+1}</td><td><div class="d">${escapeHtml(it.desc)}</div></td><td class="r">${it.qty}</td><td class="r">${fmtEur(it.price)}</td><td class="r">${fmtEur(it.qty*it.price)}</td></tr>`).join("");
+  const billLines=[o.k&&o.k.ansprechpartner, o.k&&o.k.ort].filter(Boolean).map(x=>`<div class="ln">${escapeHtml(x)}</div>`).join("");
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Angebot</title><style>${pdfStyle}</style></head><body>
-    ${pdfLetterhead()}
-    <div class="docrow"><div><div class="eyebrow">Angebot</div><h1>${escapeHtml(o.titel||"Angebot")}</h1></div>
-      <div class="meta"><div>Datum&nbsp;&nbsp;<b>${fmtDate(todayISO())}</b></div><div>Gültig 30 Tage</div></div></div>
-    <div class="bill"><div class="sender">${escapeHtml(pdfSenderLine())}</div>
-      <div class="lbl">Angebot für</div><b>${escapeHtml(o.name)}</b>${o.k&&o.k.ansprechpartner?"<br>"+escapeHtml(o.k.ansprechpartner):""}${o.k&&o.k.ort?"<br>"+escapeHtml(o.k.ort):""}</div>
-    <table><thead><tr><th>Beschreibung</th><th class="r">Menge</th><th class="r">Einzel</th><th class="r">Gesamt</th></tr></thead>
+    ${pdfBand("ANGEBOT")}
+    <div class="cols">${pdfVon()}
+      <div class="c"><div class="lbl">Angebot für</div><b>${escapeHtml(o.name)}</b>${billLines}</div>
+    </div>
+    <div class="metaband">
+      <div class="m"><div class="lbl">Betreff</div><div class="v">${escapeHtml(o.titel||"Angebot")}</div></div>
+      <div class="m"><div class="lbl">Datum</div><div class="v">${fmtDate(todayISO())}</div></div>
+      <div class="m"><div class="lbl">Gültig bis</div><div class="v">${fmtDate(addDays(todayISO(),30))}</div></div>
+    </div>
+    <div class="intro">Gern unterbreiten wir Ihnen folgendes Angebot:</div>
+    <table><thead><tr><th>Pos.</th><th>Beschreibung</th><th class="r">Menge</th><th class="r">Einzelpreis</th><th class="r">Betrag</th></tr></thead>
       <tbody>${body}</tbody></table>
-    <div class="totals"><div class="box">
-      <div class="line"><span>Umsatzsteuer (§19 UStG)</span><span>0,00 €</span></div>
-      <div class="grand"><span>Angebotssumme</span><span>${fmtEur(o.total)}</span></div>
+    <div class="sum"><div class="box">
+      <div class="row bdr"><span>Umsatzsteuer (§ 19 UStG)</span><span>0,00 €</span></div>
+      <div class="grand"><span class="t">ANGEBOTSSUMME</span><span class="a">${fmtEur(o.total)}</span></div>
     </div></div>
-    <div class="terms"><div class="h">Hinweis</div>Angebot freibleibend, gültig 30 Tage. Gemäß §19 UStG wird keine Umsatzsteuer ausgewiesen. Wir freuen uns auf die Zusammenarbeit.</div>
-    ${pdfFooter()}
+    <div class="pay"><h4>Hinweis</h4>Angebot freibleibend, gültig 30 Tage. Wir freuen uns auf die Zusammenarbeit.<div class="note">Gemäß § 19 UStG (Kleinunternehmerregelung) wird keine Umsatzsteuer ausgewiesen.</div></div>
+    ${pdfFootLine()}
   </body></html>`;
   printHTML(html);
   toast("Angebots-PDF wird erstellt");
