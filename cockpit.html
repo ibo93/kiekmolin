@@ -725,6 +725,30 @@ html[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,#1f8f74,#
 /* Karten runder & weicher */
 .card{border-radius:var(--radius)}
 .kpi{border-radius:var(--radius-lg)}
+
+/* ===== Balance-Hero-Karte + große Action-Karten (wie Referenz) ===== */
+.hero-ai{margin-left:auto;width:44px;height:44px;border-radius:50%;flex:none;background:var(--ink);color:var(--bg);display:grid;place-items:center;box-shadow:var(--shadow-sm);transition:var(--transition)}
+.hero-ai:hover{transform:translateY(-2px)}
+.hero-ai svg{width:20px;height:20px;stroke-width:1.8}
+.balance{position:relative;border-radius:28px;overflow:hidden;min-height:220px;display:flex;align-items:flex-end;padding:16px;margin-bottom:16px;box-shadow:var(--shadow-lg);
+  background:radial-gradient(120% 90% at 18% 8%,#27a487 0,transparent 52%),radial-gradient(110% 100% at 92% 4%,#0E6B57 0,transparent 50%),radial-gradient(130% 130% at 75% 95%,#06110e 0,transparent 60%),linear-gradient(135deg,#0b1714,#0E6B57)}
+.balance::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.12) 1px,transparent 1.7px);background-size:13px 13px;mix-blend-mode:overlay;opacity:.55}
+.balance::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(4,10,8,.35))}
+.balance .btop{position:absolute;top:16px;left:18px;z-index:2;color:#fff;font-weight:700;font-size:14px}
+.balance .btop span{display:block;font-size:11.5px;color:rgba(255,255,255,.7);font-weight:500;margin-top:2px}
+.balance .bcard{position:relative;z-index:2;width:100%;background:rgba(6,14,11,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:18px 20px;color:#fff}
+.balance .blabel{font-size:12.5px;color:rgba(255,255,255,.72)}
+.balance .bnum{font-family:var(--font-display);font-weight:800;font-size:40px;letter-spacing:-0.045em;line-height:1;margin:8px 0}
+.balance .bnum .kpi-dec{color:rgba(255,255,255,.45);-webkit-text-fill-color:rgba(255,255,255,.45)}
+.balance .bsub{font-size:12.5px;color:rgba(255,255,255,.62)}
+.act-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.act-card{position:relative;border-radius:22px;padding:16px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);cursor:pointer;transition:var(--transition)}
+.act-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.act-card .ac-ic{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#1d2220,#101513)}
+.act-card.accent .ac-ic{background:linear-gradient(135deg,#0E6B57,#003D33)}
+.act-card .ac-ic svg{width:20px;height:20px;stroke-width:2}
+.act-card .ac-lb{font-weight:700;font-size:15px;color:var(--ink)}
+@media(max-width:520px){.act-cards{grid-template-columns:1fr}.balance .bnum{font-size:34px}}
 </style>
 </head>
 <body>
@@ -1054,13 +1078,24 @@ function viewDashboard(){
   <div class="hero">
     <div class="hero-av">K</div>
     <div class="hero-txt"><div class="h-hi">${gruss}</div><h2>${escapeHtml(sub)}</h2></div>
+    <button class="hero-ai" data-ai-open title="KI-Assistent">${chat}</button>
   </div>
-  <div class="quick">
-    <div class="qbtn accent" data-act="new-job"><div class="qic">${I.plus}</div><span>Auftrag</span></div>
-    <div class="qbtn" data-act="new-invoice"><div class="qic">${I.invoice}</div><span>Rechnung</span></div>
-    <div class="qbtn" data-scan><div class="qic">${I.camera}</div><span>Beleg scannen</span></div>
-    <div class="qbtn" data-ai-open><div class="qic">${chat}</div><span>KI-Assistent</span></div>
+
+  <div class="balance">
+    <div class="btop">Kurani Design<span>${monName} ${now.getFullYear()} · §19 ohne USt.</span></div>
+    <div class="bcard">
+      <div class="blabel">Offener Betrag · kommt noch rein</div>
+      <div class="bnum" data-count="${k.offen}">${fmtEur(0)}</div>
+      <div class="bsub">Umsatz ${now.getFullYear()}: ${fmtEur(k.umsatzJahr)} · ${k.ueberCount>0?('<span style="color:#ffd9d4">'+k.ueberCount+' überfällig</span>'):'alles bezahlt ✓'}</div>
+    </div>
   </div>
+
+  <div class="act-cards">
+    <div class="act-card accent" data-act="new-job"><div class="ac-ic">${I.plus}</div><div class="ac-lb">Neuer Auftrag</div></div>
+    <div class="act-card" data-act="new-invoice"><div class="ac-ic">${I.invoice}</div><div class="ac-lb">Neue Rechnung</div></div>
+    <div class="act-card" data-scan><div class="ac-ic">${I.camera}</div><div class="ac-lb">Beleg scannen</div></div>
+  </div>
+
   <div class="kpi-grid">
     ${kpiCard("Umsatz "+monName,I.euro,k.umsatzMonat,"bezahlte Rechnungen diesen Monat",null,true)}
     ${kpiCard("Umsatz "+now.getFullYear(),I.euro,k.umsatzJahr,"bezahlt seit Jahresbeginn")}
