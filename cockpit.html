@@ -1674,7 +1674,11 @@ function clientStats(id){
   const invs = state.rechnungen.filter(r=>r.kundeId===id);
   const umsatz = sum(invs.filter(r=>r.status==="bezahlt"),"betrag");
   const offen = sum(invs.filter(r=>r.status==="offen"),"betrag");
-  return {jobs:jobs.length, umsatz, offen, invs:invs.length};
+  const ueber = sum(invs.filter(isUeberfaellig),"betrag");
+  let gewinn=0, hatCalc=false;
+  jobs.forEach(j=>{ const c=calcAuftrag(j); if(c.hasData){ hatCalc=true; gewinn+=c.gewinn; } });
+  const marge = (hatCalc && umsatz>0) ? (gewinn/sum(jobs,"betrag")*100) : 0;
+  return {jobs:jobs.length, umsatz, offen, ueber, invs:invs.length, gewinn, marge, hatCalc};
 }
 function viewClients(){
   if(state.kunden.length===0){
@@ -1685,14 +1689,15 @@ function viewClients(){
       <div class="btn-row"><button class="btn btn-primary" data-act="new-client">${I.plus}Neuer Kunde</button></div>
     </div></div>`;
   }
-  const sorted = [...state.kunden].sort((a,b)=>a.name.localeCompare(b.name));
-  return `<div class="tiles">${sorted.map(k=>{
-    const s=clientStats(k.id);
+  const withStats = state.kunden.map(k=>({k, s:clientStats(k.id)}));
+  withStats.sort((a,b)=> (b.s.ueber-a.s.ueber) || (b.s.offen-a.s.offen) || a.k.name.localeCompare(b.k.name));
+  return `<div class="tiles">${withStats.map(({k,s})=>{
     return `<div class="card tile" data-open-client="${k.id}">
       <div class="tile-head">
         <div class="tile-avatar">${escapeHtml((k.name||"?").trim().charAt(0).toUpperCase())}</div>
-        <div><div class="tile-name">${escapeHtml(k.name)}</div>
+        <div style="flex:1"><div class="tile-name">${escapeHtml(k.name)}</div>
           <div class="tile-sub">${escapeHtml(k.typ||"—")}${k.ort?" · "+escapeHtml(k.ort):""}</div></div>
+        ${s.ueber>0?`<span class="pill red" style="font-size:10.5px;padding:2px 8px">überfällig</span>`:""}
       </div>
       <div class="tile-stats">
         <div class="tile-stat"><b>${s.jobs}</b><span>Aufträge</span></div>
@@ -2040,11 +2045,16 @@ function modalClientDetail(id){
         <div><h2>${escapeHtml(k.name)}</h2><div class="sub">${escapeHtml(k.typ||"")}${k.ort?" · "+escapeHtml(k.ort):""}</div></div>
       </div><button type="button" class="mini-btn" data-close>${I.close}</button></div>
     <div class="modal-body">
-      <div class="tile-stats" style="margin-bottom:18px">
+      <div class="tile-stats" style="margin-bottom:14px;grid-template-columns:repeat(2,1fr)">
         <div class="tile-stat"><b>${s.jobs}</b><span>Aufträge</span></div>
         <div class="tile-stat"><b>${fmtEur(s.umsatz)}</b><span>Umsatz</span></div>
         <div class="tile-stat ${s.offen>0?"warn":""}"><b>${fmtEur(s.offen)}</b><span>Offen</span></div>
+        <div class="tile-stat ${s.ueber>0?"warn":""}"><b>${fmtEur(s.ueber)}</b><span>Überfällig</span></div>
       </div>
+      ${s.hatCalc?`<div class="calc-box" style="margin-bottom:16px">
+        <div class="cb-item ${s.gewinn>=0?"gain":"loss"}">Gewinn (kalkuliert)<b>${fmtEur(s.gewinn)}</b></div>
+        <div class="cb-item ${s.gewinn>=0?"gain":"loss"}">Marge<b>${s.marge.toFixed(0)} %</b></div>
+      </div>`:""}
       <div class="kv">
         ${k.ansprechpartner?`<div><div class="k">Ansprechpartner</div><div class="v">${escapeHtml(k.ansprechpartner)}</div></div>`:""}
         ${k.telefon?`<div><div class="k">Telefon</div><div class="v">${escapeHtml(k.telefon)}</div></div>`:""}
