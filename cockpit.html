@@ -1052,7 +1052,7 @@ async function doPush(){
   if(!syncOn()||syncBusy) return; syncBusy=true; setSyncStatus("Sichern…");
   try{ const r=await syncFetch({action:"push", code:state.settings.sync.code, data:syncData()});
     state.settings._stamp=r.updated_at; localStorage.setItem(STORE_KEY, JSON.stringify(state)); setSyncStatus("Gesichert ✓");
-  }catch(e){ setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet":"Sync-Fehler"); }
+  }catch(e){ setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet — Keys fehlen":("Fehler: "+(e.message||""))); }
   finally{ syncBusy=false; }
 }
 async function doPull(silent){
@@ -1064,7 +1064,7 @@ async function doPull(silent){
       applySyncData(r.data); state.settings._stamp=r.updated_at; localStorage.setItem(STORE_KEY, JSON.stringify(state));
       renderNav(); render(); setSyncStatus("Aktuell ✓");
     } else { setSyncStatus("Aktuell ✓"); }
-  }catch(e){ if(!silent) setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet":"Sync-Fehler"); }
+  }catch(e){ if(!silent) setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet — Keys fehlen":("Fehler: "+(e.message||""))); }
   finally{ syncBusy=false; }
 }
 let syncPoll=null;
@@ -2417,7 +2417,7 @@ document.addEventListener("click",e=>{
     case "export-pdf": financePdf(); break;
     case "new-offer": modalAngebot(); break;
     case "new-expense": modalAusgabe(); break;
-    case "sync-now": if(!syncOn()){ toast("Sync aus oder Code fehlt","error"); } else { (async()=>{ await doPull(); await doPush(); toast("Synchronisiert"); })(); } break;
+    case "sync-now": if(!syncOn()){ toast("Sync aus oder Code fehlt","error"); } else { (async()=>{ await doPull(); await doPush(); const s=document.getElementById("syncStatus"); toast(s&&/Fehler|nicht/.test(s.textContent)?("Sync: "+s.textContent):"Synchronisiert ✓", s&&/Fehler|nicht/.test(s.textContent)?"error":undefined); })(); } break;
     case "load-seed": confirmDialog("Deine Daten laden?","Das ersetzt die aktuellen Daten durch deine eingespielten Kunden/Aufträge/Rechnungen.",()=>{ applySeed(); save(); go("dashboard"); toast("Deine Daten geladen"); },true); break;
     case "seed-demo": seedDemo(); break;
     case "wipe": wipeAll(); break;

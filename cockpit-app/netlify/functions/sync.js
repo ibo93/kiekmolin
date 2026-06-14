@@ -20,9 +20,11 @@
  */
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return json(405, { error: "Nur POST." });
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) return json(503, { error: "Sync nicht konfiguriert (SUPABASE_URL / SUPABASE_SERVICE_KEY).", needsSetup: true });
+  const env = process.env;
+  const url = env.SUPABASE_URL || env.SUPABASE_REST_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || env.SUPABASE_PROJECT_URL;
+  const key = env.SUPABASE_SERVICE_KEY || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE || env.SUPABASE_KEY
+            || env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return json(503, { error: "Sync nicht konfiguriert: SUPABASE_URL und SUPABASE_SERVICE_KEY (oder SUPABASE_SERVICE_ROLE_KEY) als Netlify-Variablen setzen.", needsSetup: true });
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return json(400, { error: "Ungültige Anfrage." }); }
