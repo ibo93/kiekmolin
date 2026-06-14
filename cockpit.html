@@ -1967,7 +1967,16 @@ function modalJob(id, presetKundeId){
     d.betrag=parseFloat(d.betrag)||0;
     d.material=parseFloat(d.material)||0; d.stunden=parseFloat(d.stunden)||0; d.stundensatz=parseFloat(d.stundensatz)||0;
     if(id){ Object.assign(auftragById(id),d); toast("Auftrag aktualisiert"); }
-    else { state.auftraege.push(Object.assign({id:uid(),createdAt:new Date().toISOString()},d)); toast("Auftrag angelegt"); }
+    else {
+      const newA = Object.assign({id:uid(),createdAt:new Date().toISOString()}, d);
+      state.auftraege.push(newA);
+      if((+newA.betrag)>0){
+        state.rechnungen.push({ id:uid(), nummer:nextInvoiceNumber(), kundeId:newA.kundeId, auftragId:newA.id,
+          rechnungsdatum:newA.eingangsdatum||todayISO(), faelligkeit:newA.deadline||addDays(todayISO(),14),
+          betrag:+newA.betrag||0, status:"offen", bezahltAm:null, notizen:newA.titel, createdAt:new Date().toISOString() });
+        toast("Auftrag + offene Rechnung angelegt");
+      } else { toast("Auftrag angelegt"); }
+    }
     save(); closeModal(); render();
   });
 }
