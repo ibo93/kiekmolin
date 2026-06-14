@@ -718,8 +718,8 @@ html[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,#F59E0B,#
 .kpi-value{font-weight:800}
 /* Schwebende Pillen-Navigation (mobil) */
 @media(max-width:760px){
-  .bottomnav{left:14px;right:14px;bottom:14px;border-radius:28px;border:1px solid var(--line);
-    box-shadow:var(--shadow-lg);padding:9px 8px calc(9px + env(safe-area-inset-bottom))}
+  .bottomnav{left:14px;right:14px;bottom:calc(6px + env(safe-area-inset-bottom));border-radius:26px;border:1px solid var(--line);
+    box-shadow:var(--shadow-lg);padding:8px 8px}
   .bn-item.active{color:var(--accent)}
 }
 /* Karten runder & weicher */
@@ -806,6 +806,12 @@ html[data-theme="dark"] .act-card.accent .ac-ic{background:#fff;border:none;colo
   .bn-center svg{width:22px;height:22px;stroke-width:2.2}
 }
 @media(min-width:761px){.bn-center{display:none}}
+
+/* Safe-Area oben (Handy-Uhr/Notch) + saubere Datums-Kopfzeile */
+.topbar{padding-top:calc(20px + env(safe-area-inset-top))}
+.topbar.dash h1{font-size:13px;font-weight:600;color:var(--ink-soft);letter-spacing:0;text-transform:none}
+.topbar.dash .sub{display:none}
+.hero{margin-top:2px}
 </style>
 </head>
 <body>
@@ -1058,7 +1064,10 @@ function go(view){
   ui.view = view;
   const m = VIEW_META[view];
   const isDash = view==="dashboard";
-  document.getElementById("viewTitle").textContent = isDash ? "" : m.title;
+  const topEl = document.querySelector(".topbar");
+  if(topEl) topEl.classList.toggle("dash", isDash);
+  const dateStr = new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("viewTitle").textContent = isDash ? dateStr : m.title;
   document.getElementById("viewSub").textContent = isDash ? "" : m.sub;
   renderNav();
   render();
