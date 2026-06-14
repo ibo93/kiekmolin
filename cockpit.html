@@ -1930,10 +1930,11 @@ function modalJob(id, presetKundeId){
       <div class="fg" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" data-act="new-client-inline">${I.plus}Kunde neu</button></div>
       <div class="fg"><label>Kategorie</label><select class="select" name="kategorie">${KATEGORIEN.map(c=>`<option ${a.kategorie===c?"selected":""}>${c}</option>`).join("")}</select></div>
       <div class="fg"><label>Status</label><select class="select" name="status">${AUFTRAG_STATUS.map(s=>`<option ${a.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
-      <div class="fg"><label>Zahlung</label><select class="select" name="zahlung">
-        <option value="offen" ${a.id&&auftragPay(a).st==="bezahlt"?"":"selected"}>Offen / unbezahlt</option>
-        <option value="bezahlt" ${a.id&&auftragPay(a).st==="bezahlt"?"selected":""}>Bezahlt</option>
-      </select></div>
+      <div class="fg"><label>Zahlung</label>${(()=>{const cur=a.id?auftragPay(a).st:"offen";const sel=s=>cur===s?"selected":"";return `<select class="select" name="zahlung">
+        <option value="offen" ${cur==="bezahlt"||cur==="storniert"?"":"selected"}>Offen / unbezahlt</option>
+        <option value="bezahlt" ${sel("bezahlt")}>Bezahlt</option>
+        <option value="storniert" ${sel("storniert")}>Storniert</option>
+      </select>`;})()}</div>
       <div class="fg"><label>Eingangsdatum</label><input class="input" type="date" name="eingangsdatum" value="${a.eingangsdatum||todayISO()}"></div>
       <div class="fg"><label>Deadline</label><input class="input" type="date" name="deadline" value="${a.deadline||""}"></div>
       <div class="fg"><label>Angebots-/Preis (€)</label><input class="input calc-in" type="number" step="0.01" min="0" name="betrag" value="${a.betrag!=null?a.betrag:""}"></div>
@@ -1970,11 +1971,11 @@ function modalJob(id, presetKundeId){
     const d=formData(e.target);
     d.betrag=parseFloat(d.betrag)||0;
     d.material=parseFloat(d.material)||0; d.stunden=parseFloat(d.stunden)||0; d.stundensatz=parseFloat(d.stundensatz)||0;
-    const paid = d.zahlung==="bezahlt"; delete d.zahlung;   // Zahlung wird über Rechnung gesteuert, nicht am Auftrag gespeichert
+    const zahlung = d.zahlung||"offen"; delete d.zahlung;   // Zahlung wird über Rechnung gesteuert, nicht am Auftrag gespeichert
     let jobId;
     if(id){ Object.assign(auftragById(id),d); jobId=id; }
     else { const newA=Object.assign({id:uid(),createdAt:new Date().toISOString()},d); state.auftraege.push(newA); jobId=newA.id; }
-    applyPayment(jobId, paid);   // legt offene/bezahlte Rechnung an bzw. aktualisiert sie → erscheint in Finanzen
+    applyPayment(jobId, zahlung);   // legt offene/bezahlte/stornierte Rechnung an bzw. aktualisiert sie → erscheint in Finanzen
     save(); closeModal(); render();
     toast(id?"Auftrag aktualisiert":"Auftrag angelegt");
   });
@@ -2066,8 +2067,9 @@ function modalJobDetail(id){
       ${(()=>{const pp=auftragPay(a);return `<div class="detail-sec" style="margin-top:0"><h4>Zahlung</h4>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${pp.st!=="bezahlt"?`<button type="button" class="btn btn-primary" data-job-paid="${a.id}">${I.check}Als bezahlt</button>`:""}
-          ${pp.st!=="offen"&&pp.st!=="ueberfaellig"?`<button type="button" class="btn btn-ghost" data-job-open="${a.id}">Auf offen setzen</button>`:""}
-          ${pp.st==="keine"?`<span style="font-size:12.5px;color:var(--ink-soft);align-self:center">Noch keine Rechnung — „Als bezahlt/offen" erstellt automatisch eine.</span>`:""}
+          ${(pp.st==="bezahlt"||pp.st==="storniert")?`<button type="button" class="btn btn-ghost" data-job-open="${a.id}">Auf offen setzen</button>`:""}
+          ${pp.st!=="storniert"?`<button type="button" class="btn btn-ghost" data-job-storno="${a.id}">Stornieren</button>`:""}
+          ${pp.st==="keine"?`<span style="font-size:12.5px;color:var(--ink-soft);align-self:center;width:100%">Noch keine Rechnung — „Als bezahlt/offen" erstellt automatisch eine.</span>`:""}
         </div></div>`;})()}
       <div class="kv">
         <div><div class="k">Betrag</div><div class="v">${fmtEur(a.betrag)}</div></div>
@@ -2358,12 +2360,13 @@ function toast(msg,type){
    EVENT-DELEGATION
    ===================================================================== */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail],[data-pdf-invoice],[data-new-offer],[data-edit-expense],[data-del-expense],[data-job-paid],[data-job-open]");
+  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail],[data-pdf-invoice],[data-new-offer],[data-edit-expense],[data-del-expense],[data-job-paid],[data-job-open],[data-job-storno]");
   if(!t) return;
   const d=t.dataset;
 
-  if(d.jobPaid){ setJobPayment(d.jobPaid,true); render(); modalJobDetail(d.jobPaid); return; }
-  if(d.jobOpen){ setJobPayment(d.jobOpen,false); render(); modalJobDetail(d.jobOpen); return; }
+  if(d.jobPaid){ setJobPayment(d.jobPaid,"bezahlt"); render(); modalJobDetail(d.jobPaid); return; }
+  if(d.jobOpen){ setJobPayment(d.jobOpen,"offen"); render(); modalJobDetail(d.jobOpen); return; }
+  if(d.jobStorno){ setJobPayment(d.jobStorno,"storniert"); render(); modalJobDetail(d.jobStorno); return; }
   if(d.editExpense){ modalAusgabe(d.editExpense); return; }
   if(d.delExpense){ confirmDialog("Ausgabe löschen?","Diese Ausgabe wird entfernt.",()=>{ state.ausgaben=state.ausgaben.filter(x=>x.id!==d.delExpense); save(); closeModal(); render(); toast("Ausgabe gelöscht"); },true); return; }
 
@@ -3073,32 +3076,36 @@ function calcAuftrag(a){
 
 /* ---------- Zahlungsstatus eines Auftrags (aus verknüpfter Rechnung) ---------- */
 function auftragPay(a){
-  const invs = state.rechnungen.filter(r=>r.auftragId===a.id && r.status!=="storniert");
-  if(!invs.length) return {st:"keine"};
-  if(invs.some(isUeberfaellig)) return {st:"ueberfaellig", invs};
-  if(invs.some(r=>r.status==="offen")) return {st:"offen", invs};
-  return {st:"bezahlt", invs};
+  const all = state.rechnungen.filter(r=>r.auftragId===a.id);
+  if(!all.length) return {st:"keine"};
+  const active = all.filter(r=>r.status!=="storniert");
+  if(!active.length) return {st:"storniert", invs:all};
+  if(active.some(isUeberfaellig)) return {st:"ueberfaellig", invs:active};
+  if(active.some(r=>r.status==="offen")) return {st:"offen", invs:active};
+  return {st:"bezahlt", invs:active};
 }
 function payPill(st, small){
   const cls = st==="bezahlt"?"green":st==="ueberfaellig"?"red":st==="offen"?"yellow":"gray";
-  const lbl = st==="ueberfaellig"?"überfällig":st==="bezahlt"?"bezahlt":st==="offen"?"offen":"keine Rg.";
+  const lbl = st==="ueberfaellig"?"überfällig":st==="bezahlt"?"bezahlt":st==="offen"?"offen":st==="storniert"?"storniert":"keine Rg.";
   return `<span class="pill ${cls}" ${small?'style="font-size:10px;padding:1px 8px"':""}>${lbl}</span>`;
 }
-function applyPayment(jobId, paid){
+function applyPayment(jobId, st){   // st: "offen" | "bezahlt" | "storniert"
   const a = auftragById(jobId); if(!a) return;
-  let invs = state.rechnungen.filter(r=>r.auftragId===jobId && r.status!=="storniert");
+  const paid = st==="bezahlt";
+  let invs = state.rechnungen.filter(r=>r.auftragId===jobId);
   if(!invs.length){
     if((+a.betrag)>0) state.rechnungen.push({ id:uid(), nummer:nextInvoiceNumber(), kundeId:a.kundeId, auftragId:a.id,
       rechnungsdatum:a.eingangsdatum||todayISO(), faelligkeit:a.deadline||addDays(todayISO(),14), betrag:+a.betrag||0,
-      status:paid?"bezahlt":"offen", bezahltAm:paid?todayISO():null, notizen:a.titel, createdAt:new Date().toISOString() });
+      status:st, bezahltAm:paid?todayISO():null, notizen:a.titel, createdAt:new Date().toISOString() });
   } else {
-    invs.forEach(r=>{ r.status=paid?"bezahlt":"offen"; r.bezahltAm=paid?(r.bezahltAm||todayISO()):null; });
+    invs.forEach(r=>{ r.status=st; r.bezahltAm=paid?(r.bezahltAm||todayISO()):null; });
   }
 }
-function setJobPayment(jobId, paid){
-  applyPayment(jobId, paid);
-  const a=auftragById(jobId); if(a && paid && a.status!=="Abgerechnet") a.status="Abgerechnet";  // Schnell-Knopf: auf Abgerechnet
-  save(); toast(paid?"Als bezahlt markiert ✓":"Auf offen gesetzt");
+function setJobPayment(jobId, st){
+  applyPayment(jobId, st);
+  const a=auftragById(jobId); if(a && st==="bezahlt" && a.status!=="Abgerechnet") a.status="Abgerechnet";  // Schnell-Knopf
+  save();
+  toast(st==="bezahlt"?"Als bezahlt markiert ✓":st==="storniert"?"Storniert":"Auf offen gesetzt");
 }
 
 /* =====================================================================
