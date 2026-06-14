@@ -355,7 +355,7 @@ tbody tr:hover .row-actions{opacity:1}
 .overlay.open{display:flex;animation:fade .2s ease}
 .modal{
   background:var(--surface-solid);border:1px solid var(--line);border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:90vh;overflow:hidden;
+  box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:90vh;max-height:90dvh;overflow:hidden;
   display:flex;flex-direction:column;animation:pop .25s cubic-bezier(.2,.8,.3,1);
 }
 .modal.wide{max-width:760px}
@@ -363,7 +363,7 @@ tbody tr:hover .row-actions{opacity:1}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:22px 24px 16px;border-bottom:1px solid var(--line)}
 .modal-head h2{font-family:var(--font-display);font-size:22px;font-weight:600}
 .modal-head .sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
-.modal-body{padding:22px 24px;overflow-y:auto}
+.modal-body{padding:22px 24px;overflow-y:auto;flex:1 1 auto;min-height:0;max-height:calc(90vh - 150px);max-height:calc(90dvh - 150px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:var(--surface-2)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-grid .full{grid-column:1/-1}
@@ -1122,7 +1122,7 @@ function render(){
 }
 
 function topActionsFor(view){
-  const demo = state.settings.demo ? `<span class="demo-banner show">${I.warn}Demodaten</span>` : "";
+  const demo = "";
   let btn = "";
   if(view==="jobs") btn = `<button class="btn btn-primary" data-act="new-job">${I.plus}<span class="hide-mobile">Neuer Auftrag</span></button>`;
   if(view==="finance") btn = `<button class="btn btn-primary" data-act="new-invoice">${I.plus}<span class="hide-mobile">Neue Rechnung</span></button>`;
@@ -1314,9 +1314,9 @@ function emptyDashboard(){
     <div class="empty">
       <div class="empty-ico">${I.dash}</div>
       <h3>Willkommen im Command Center</h3>
-      <p>Hier siehst du gleich deine Aufträge, Kunden, Rechnungen und den Umsatz. Starte leer oder fülle die App mit Demodaten, um das Layout kennenzulernen.</p>
+      <p>Hier siehst du gleich deine Aufträge, Kunden, Rechnungen und den Umsatz.</p>
       <div class="btn-row">
-        <button class="btn btn-primary" data-act="seed-demo">${I.board}Mit Demodaten füllen</button>
+        <button class="btn btn-primary" data-act="load-seed">${I.download}Meine Daten laden</button>
         <button class="btn btn-ghost" data-act="new-client">${I.plus}Ersten Kunden anlegen</button>
       </div>
     </div>
@@ -1761,8 +1761,6 @@ function viewSettings(){
         <label class="switch"><input type="checkbox" id="darkToggle" ${state.settings.darkMode?"checked":""}><span class="track"></span></label></div>
       <div class="set-row"><div class="lab"><b>Meine Kundendaten laden</b><span>Deine echten Kunden/Aufträge/Rechnungen einspielen</span></div>
         <button class="btn btn-dark" data-act="load-seed">${I.download}Laden</button></div>
-      <div class="set-row"><div class="lab"><b>Demodaten laden</b><span>Beispieldaten zum Ausprobieren ${state.settings.demo?"(aktiv)":""}</span></div>
-        <button class="btn btn-ghost" data-act="seed-demo">${I.board}Laden</button></div>
       <div class="set-row"><div class="lab"><b>Alle Daten löschen</b><span>Unwiderruflich — bitte vorher exportieren</span></div>
         <button class="btn btn-danger" data-act="wipe">${I.trash}Löschen</button></div>
       <div class="set-row"><div class="lab"><b>App-Version</b><span>Kurani Command Center · ${STORE_KEY}</span></div></div>
