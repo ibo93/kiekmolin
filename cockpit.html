@@ -813,6 +813,23 @@ html[data-theme="dark"] .act-card.accent .ac-ic{background:#fff;border:none;colo
 .topbar.dash .sub{display:none}
 .hero{margin-top:2px}
 .ai-btn.mic.vmode{background:var(--accent);color:#fff}
+
+/* Übersicht: Status-Zeile + Monatsbalken (immer sichtbar, ohne CDN) */
+.mrow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+.mstat{padding:16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm)}
+.mstat .ml{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.mstat .mv{font-family:var(--font-display);font-size:20px;font-weight:800;margin-top:7px;font-variant-numeric:tabular-nums;line-height:1}
+.mstat.paid .mv{color:#34C759}.mstat.open .mv{color:#FF9500}.mstat.over .mv{color:#FF3B30}
+.mstat .mc{font-size:11px;color:var(--ink-soft);margin-top:5px}
+@media(max-width:520px){.mstat .mv{font-size:17px}}
+.mbars{display:flex;flex-direction:column;gap:11px;margin-top:4px}
+.mbar{display:grid;grid-template-columns:58px 1fr 92px;gap:10px;align-items:center}
+.mbar .mlab{font-size:12px;color:var(--ink-soft)}
+.mbar .mtrack{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.mbar .mfill{height:100%;border-radius:6px;background:linear-gradient(90deg,#f59e0b,#ea580c);min-width:2px;transition:width .5s ease}
+.mbar.cur .mfill{background:linear-gradient(90deg,#fb923c,#ea580c);box-shadow:0 0 10px rgba(234,88,12,.4)}
+.mbar .mamt{font-size:12.5px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.mbar.cur .mlab,.mbar.cur .mamt{color:var(--ink);font-weight:700}
 </style>
 </head>
 <body>
@@ -1137,11 +1154,28 @@ function calcKpis(){
   return {umsatzMonat,umsatzJahr,offen,ueberCount,ueberSum,aktiveJobs};
 }
 
+/* Monats-Umsatz (bezahlt) als selbstgezeichnete Balkenliste — immer sichtbar */
+function monthBarsHTML(n){
+  const months = lastNMonths(n);
+  const cur = new Date().toISOString().slice(0,7);
+  const data = months.map(mk=>({mk, label:monthLabel(mk).replace(/ 20/," "), paid:sum(state.rechnungen.filter(r=>r.status==="bezahlt" && monthKey(r.bezahltAm)===mk),"betrag")}));
+  const max = Math.max(1, ...data.map(d=>d.paid));
+  return data.map(d=>`
+    <div class="mbar ${d.mk===cur?"cur":""}">
+      <div class="mlab">${d.label}</div>
+      <div class="mtrack"><div class="mfill" style="width:${Math.round(d.paid/max*100)}%"></div></div>
+      <div class="mamt">${fmtEur(d.paid)}</div>
+    </div>`).join("");
+}
+
 function viewDashboard(){
   if(state.auftraege.length===0 && state.rechnungen.length===0 && state.kunden.length===0){
     return emptyDashboard();
   }
   const k = calcKpis();
+  const paidR = state.rechnungen.filter(r=>r.status==="bezahlt");
+  const openR = state.rechnungen.filter(r=>r.status==="offen");
+  const paidSum = sum(paidR,"betrag");
   const kpiCard = (label,icon,value,hint,hintCls,accent,money=true)=>`
     <div class="card kpi ${accent?"accent":""}">
       <div class="kpi-label">${icon}${label}</div>
@@ -1186,11 +1220,23 @@ function viewDashboard(){
     ${kpiCard("Offene Posten",I.invoice,k.offen,(state.rechnungen.filter(r=>r.status==="offen").length)+" offene Rechnung(en)")}
     ${kpiCard("Überfällig",I.warn,k.ueberSum, k.ueberCount>0?(k.ueberCount+" überfällig — nachhaken"):"alles bezahlt", k.ueberCount>0?"danger":"success")}
     ${kpiCard("Aktive Aufträge",I.jobs,String(k.aktiveJobs),"nicht abgerechnet",null,false,false)}
+    ${kpiCard("Kunden",I.users,String(state.kunden.length),"insgesamt",null,false,false)}
+  </div>
+
+  <div class="mrow">
+    <div class="mstat paid"><div class="ml">Bezahlt</div><div class="mv">${fmtEur(paidSum)}</div><div class="mc">${paidR.length} Rechnung(en)</div></div>
+    <div class="mstat open"><div class="ml">Offen</div><div class="mv">${fmtEur(k.offen)}</div><div class="mc">${openR.length} offen</div></div>
+    <div class="mstat over"><div class="ml">Überfällig</div><div class="mv">${fmtEur(k.ueberSum)}</div><div class="mc">${k.ueberCount} überfällig</div></div>
+  </div>
+
+  <div class="card panel" style="margin-bottom:22px">
+    <div class="panel-head"><div><h3>Umsatz pro Monat</h3><div class="panel-sub">bezahlt · letzte 8 Monate</div></div></div>
+    <div class="mbars">${monthBarsHTML(8)}</div>
   </div>
 
   <div class="grid-2">
     <div class="card panel">
-      <div class="panel-head"><div><h3>Umsatz pro Monat</h3><div class="panel-sub">Letzte 12 Monate · bezahlt vs. offen</div></div></div>
+      <div class="panel-head"><div><h3>Verlauf (Diagramm)</h3><div class="panel-sub">bezahlt vs. offen · benötigt Internet</div></div></div>
       <div class="chart-wrap"><canvas id="chRevenue"></canvas></div>
     </div>
     <div class="card panel">
