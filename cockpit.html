@@ -984,6 +984,7 @@ let ui = { view:"dashboard", jobsMode:"kanban", finFilter:{}, finMonth:null,
 function blankState(){
   return { kunden:[], auftraege:[], rechnungen:[], ausgaben:[], kiekNotizen:[],
            settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"",
+             sync:{ on:false, code:"" }, _stamp:null,
              profile:{ firma:"Kurani Design", inhaber:"", strasse:"", plz:"", ort:"Norden", telefon:"", email:"", web:"kiekmolin.de", steuernr:"", iban:"", bic:"", bank:"" } } };
 }
 
@@ -994,7 +995,10 @@ function applySeed(){
     const keepDark = state.settings ? state.settings.darkMode : true;
     state = Object.assign(blankState(), JSON.parse(JSON.stringify(SEED_DATA)));
     for(const k of ["kunden","auftraege","rechnungen","ausgaben","kiekNotizen"]) if(!Array.isArray(state[k])) state[k]=[];
-    if(!state.settings || typeof state.settings!=="object") state.settings = blankState().settings;
+    const seedSettings = (state.settings && typeof state.settings==="object") ? state.settings : {};
+    state.settings = Object.assign(blankState().settings, seedSettings);
+    state.settings.profile = Object.assign(blankState().settings.profile, seedSettings.profile||{});
+    state.settings.sync = Object.assign(blankState().settings.sync, seedSettings.sync||{});
     state.settings.darkMode = keepDark;
   }
 }
@@ -1013,6 +1017,7 @@ function load(){
       // Neue Settings-Felder nachrüsten (z.B. Geschäftsdaten/Profil)
       state.settings = Object.assign(blankState().settings, state.settings);
       state.settings.profile = Object.assign(blankState().settings.profile, state.settings.profile||{});
+      state.settings.sync = Object.assign(blankState().settings.sync, state.settings.sync||{});
     }
   }catch(e){
     console.warn("localStorage defekt — starte leer.", e);
@@ -1022,7 +1027,48 @@ function load(){
 function save(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
   catch(e){ toast("Speichern fehlgeschlagen (Speicher voll?)","error"); }
+  schedulePush();
 }
+
+/* ---------- Geräte-Sync (Cloud, persönlicher Sync-Code) ---------- */
+const SYNC_ENDPOINT = (location.protocol==="file:") ? null : "/.netlify/functions/sync";
+let syncTimer=null, syncBusy=false;
+function syncOn(){ return !!(SYNC_ENDPOINT && state.settings.sync && state.settings.sync.on && state.settings.sync.code); }
+async function syncFetch(payload){
+  const r = await fetch(SYNC_ENDPOINT, { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify(payload) });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw Object.assign(new Error(d.error||("HTTP "+r.status)), { needsSetup:d.needsSetup });
+  return d;
+}
+function syncData(){ return { kunden:state.kunden, auftraege:state.auftraege, rechnungen:state.rechnungen, ausgaben:state.ausgaben, kiekNotizen:state.kiekNotizen, profile:state.settings.profile }; }
+function applySyncData(d){
+  if(!d||typeof d!=="object") return;
+  ["kunden","auftraege","rechnungen","ausgaben","kiekNotizen"].forEach(k=>{ if(Array.isArray(d[k])) state[k]=d[k]; });
+  if(d.profile) state.settings.profile = Object.assign(blankState().settings.profile, d.profile);
+}
+function setSyncStatus(t){ const el=document.getElementById("syncStatus"); if(el) el.textContent=t; }
+function schedulePush(){ if(!syncOn()) return; clearTimeout(syncTimer); syncTimer=setTimeout(doPush, 1500); }
+async function doPush(){
+  if(!syncOn()||syncBusy) return; syncBusy=true; setSyncStatus("Sichern…");
+  try{ const r=await syncFetch({action:"push", code:state.settings.sync.code, data:syncData()});
+    state.settings._stamp=r.updated_at; localStorage.setItem(STORE_KEY, JSON.stringify(state)); setSyncStatus("Gesichert ✓");
+  }catch(e){ setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet":"Sync-Fehler"); }
+  finally{ syncBusy=false; }
+}
+async function doPull(silent){
+  if(!syncOn()||syncBusy) return; syncBusy=true; if(!silent) setSyncStatus("Lade…");
+  try{
+    const r=await syncFetch({action:"pull", code:state.settings.sync.code});
+    if(r.empty){ syncBusy=false; doPush(); return; }
+    if(r.updated_at && (!state.settings._stamp || r.updated_at > state.settings._stamp)){
+      applySyncData(r.data); state.settings._stamp=r.updated_at; localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      renderNav(); render(); setSyncStatus("Aktuell ✓");
+    } else { setSyncStatus("Aktuell ✓"); }
+  }catch(e){ if(!silent) setSyncStatus(e.needsSetup?"Cloud nicht eingerichtet":"Sync-Fehler"); }
+  finally{ syncBusy=false; }
+}
+let syncPoll=null;
+function startSyncPoll(){ if(syncPoll) clearInterval(syncPoll); if(syncOn()) syncPoll=setInterval(()=>doPull(true), 25000); }
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : "id-"+Date.now()+"-"+Math.random().toString(16).slice(2));
 
 /* ---------- Formatierung ---------- */
@@ -1808,6 +1854,18 @@ function viewSettings(){
     </div>
 
     <div class="card panel">
+      <h3 style="margin-bottom:8px">Geräte-Sync (Handy ↔ PC)</h3>
+      <div class="panel-sub" style="margin-bottom:14px;line-height:1.6">Mit einem persönlichen <b>Sync-Code</b> haben Handy und PC denselben Stand. Auf beiden Geräten denselben Code eintragen.</div>
+      <div class="set-row"><div class="lab"><b>Sync aktiv</b><span>Automatisch sichern &amp; abgleichen</span></div>
+        <label class="switch"><input type="checkbox" id="syncToggle" ${state.settings.sync&&state.settings.sync.on?"checked":""}><span class="track"></span></label></div>
+      <div class="set-row"><div class="lab"><b>Sync-Code</b><span>Geheimes Wort — auf allen Geräten gleich</span></div>
+        <input class="input" id="syncCode" style="max-width:200px" placeholder="z. B. kurani-2026-x7" value="${escapeHtml(state.settings.sync?state.settings.sync.code:"")}"></div>
+      <div class="set-row"><div class="lab"><b>Status</b><span id="syncStatus">${syncOn()?"bereit":"aus"}</span></div>
+        <button class="btn btn-dark" data-act="sync-now">${I.download}Jetzt synchronisieren</button></div>
+      <div class="note" style="margin-top:6px">${I.info}<div>Einmal einrichten: Netlify-Variablen <b>SUPABASE_URL</b> &amp; <b>SUPABASE_SERVICE_KEY</b> setzen und in Supabase die Tabelle <b>cockpit_sync</b> anlegen (SQL in der ANLEITUNG). Ohne das funktioniert die App weiterhin lokal — nur ohne automatischen Abgleich.</div></div>
+    </div>
+
+    <div class="card panel">
       <h3 style="margin-bottom:8px">Als App installieren</h3>
       <div class="panel-sub" style="line-height:1.6">
         Diese Seite ist eine PWA. Auf dem <b>iPhone</b>: in Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm".
@@ -2359,6 +2417,7 @@ document.addEventListener("click",e=>{
     case "export-pdf": financePdf(); break;
     case "new-offer": modalAngebot(); break;
     case "new-expense": modalAusgabe(); break;
+    case "sync-now": if(!syncOn()){ toast("Sync aus oder Code fehlt","error"); } else { (async()=>{ await doPull(); await doPush(); toast("Synchronisiert"); })(); } break;
     case "load-seed": confirmDialog("Deine Daten laden?","Das ersetzt die aktuellen Daten durch deine eingespielten Kunden/Aufträge/Rechnungen.",()=>{ applySeed(); save(); go("dashboard"); toast("Deine Daten geladen"); },true); break;
     case "seed-demo": seedDemo(); break;
     case "wipe": wipeAll(); break;
@@ -2372,9 +2431,11 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeModal(); clo
 document.addEventListener("change",e=>{
   if(e.target.id==="darkToggle") toggleTheme();
   if(e.target.id==="elevenToggle"){ state.settings.ttsEleven=e.target.checked; save(); toast(e.target.checked?"Natürliche Stimme an":"Browser-Stimme"); }
+  if(e.target.id==="syncToggle"){ if(!state.settings.sync)state.settings.sync={on:false,code:""}; state.settings.sync.on=e.target.checked; save(); if(syncOn()){ doPull(); startSyncPoll(); setSyncStatus("bereit"); } else { if(syncPoll)clearInterval(syncPoll); setSyncStatus("aus"); } }
 });
 document.addEventListener("input",e=>{
   if(e.target.id==="elevenVoice"){ state.settings.elevenVoice=e.target.value.trim(); save(); }
+  if(e.target.id==="syncCode"){ if(!state.settings.sync)state.settings.sync={on:false,code:""}; state.settings.sync.code=e.target.value.trim(); save(); }
   if(e.target.dataset && e.target.dataset.prof){ if(!state.settings.profile)state.settings.profile={}; state.settings.profile[e.target.dataset.prof]=e.target.value; save(); }
 });
 
@@ -3041,6 +3102,9 @@ function boot(){
   const hash=location.hash.replace("#","");
   ui.view = VIEW_META[hash] ? hash : "dashboard";
   go(ui.view);
+  // Geräte-Sync: beim Start abgleichen + regelmäßig prüfen; bei Rückkehr in den Vordergrund
+  if(syncOn()){ doPull(); startSyncPoll(); }
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden && syncOn()) doPull(true); });
 }
 // Chart.js geladen? → Dashboard-Charts nachziehen
 window.addEventListener("chartjs-ready",()=>{ if(ui.view==="dashboard") afterDashboard(); });
