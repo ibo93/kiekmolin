@@ -741,7 +741,7 @@ html[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,#F59E0B,#
 .balance .bnum{font-family:var(--font-display);font-weight:800;font-size:40px;letter-spacing:-0.045em;line-height:1;margin:8px 0}
 .balance .bnum .kpi-dec{color:rgba(255,255,255,.45);-webkit-text-fill-color:rgba(255,255,255,.45)}
 .balance .bsub{font-size:12.5px;color:rgba(255,255,255,.62)}
-.act-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.act-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
 .act-card{position:relative;border-radius:22px;padding:16px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);cursor:pointer;transition:var(--transition)}
 .act-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
 .act-card .ac-ic{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#1d2220,#101513)}
@@ -812,6 +812,7 @@ html[data-theme="dark"] .act-card.accent .ac-ic{background:#fff;border:none;colo
 .topbar.dash h1{font-size:13px;font-weight:600;color:var(--ink-soft);letter-spacing:0;text-transform:none}
 .topbar.dash .sub{display:none}
 .hero{margin-top:2px}
+.ai-btn.mic.vmode{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
@@ -1165,6 +1166,7 @@ function viewDashboard(){
   <div class="act-cards">
     <div class="act-card accent" data-act="new-job"><div class="ac-ic">${I.plus}</div><div class="ac-lb">Neuer Auftrag</div></div>
     <div class="act-card" data-act="new-invoice"><div class="ac-ic">${I.invoice}</div><div class="ac-lb">Neue Rechnung</div></div>
+    <div class="act-card" data-new-offer><div class="ac-ic">${I.invoice}</div><div class="ac-lb">Angebot erstellen</div></div>
     <div class="act-card" data-scan><div class="ac-ic">${I.camera}</div><div class="ac-lb">Beleg scannen</div></div>
   </div>
 
@@ -1500,6 +1502,7 @@ function viewFinance(){
     </select>
     <div class="spacer"></div>
     <button class="btn btn-ghost" data-scan title="Beleg/Rechnung fotografieren – KI liest die Daten">${I.camera}<span class="hide-mobile">Beleg scannen</span></button>
+    <button class="btn btn-ghost" data-act="export-pdf" title="Übersicht als PDF">${I.download}<span class="hide-mobile">PDF</span></button>
     <button class="btn btn-ghost" data-act="export-csv">${I.csv}<span class="hide-mobile">CSV</span></button>
   </div>
 
@@ -1931,6 +1934,7 @@ function modalInvoiceDetail(id){
       <div style="flex:1"></div>
       <button type="button" class="btn btn-ghost" data-send-inv-wa="${r.id}" title="Per WhatsApp senden">${I.wa}WhatsApp</button>
       <button type="button" class="btn btn-ghost" data-send-inv-mail="${r.id}" title="Per E-Mail senden">${I.mail}E-Mail</button>
+      <button type="button" class="btn btn-ghost" data-pdf-invoice="${r.id}" title="Als PDF erstellen">${I.download}PDF</button>
       ${r.status==="offen"?`<button type="button" class="btn btn-ghost" data-pay-invoice="${r.id}">${I.check}Als bezahlt</button>`:""}
       <button type="button" class="btn btn-primary" data-edit-invoice="${r.id}">${I.edit}Bearbeiten</button>
     </div>
@@ -2156,7 +2160,7 @@ function toast(msg,type){
    EVENT-DELEGATION
    ===================================================================== */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail]");
+  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail],[data-pdf-invoice],[data-new-offer]");
   if(!t) return;
   const d=t.dataset;
 
@@ -2168,6 +2172,8 @@ document.addEventListener("click",e=>{
   if(d.sendInvMail){ sendInvoice(d.sendInvMail,"mail"); return; }
   if(d.sendOfferWa){ sendOffer(d.sendOfferWa,"wa"); return; }
   if(d.sendOfferMail){ sendOffer(d.sendOfferMail,"mail"); return; }
+  if(d.pdfInvoice){ invoicePdf(d.pdfInvoice); return; }
+  if("newOffer" in d){ modalAngebot(); return; }
 
   if(d.nav){ go(d.nav); return; }
   if("close" in d){ closeModal(); return; }
@@ -2213,6 +2219,8 @@ document.addEventListener("click",e=>{
     case "export-json": exportJSON(); break;
     case "import-json": importJSON(); break;
     case "export-csv": exportCSV(); break;
+    case "export-pdf": financePdf(); break;
+    case "new-offer": modalAngebot(); break;
     case "seed-demo": seedDemo(); break;
     case "wipe": wipeAll(); break;
   }
@@ -2385,6 +2393,7 @@ async function aiSend(text){
     const res = await aiFetch({ action:"chat", messages:aiHistory, context:buildFinanceContext() });
     typing.textContent = res.reply || "(keine Antwort)";
     aiHistory.push({role:"assistant", content:res.reply||""});
+    speak(res.reply||"");   // Sprachausgabe (Freisprech-Modus)
   }catch(e){
     typing.classList.remove("bot"); typing.classList.add("bot");
     typing.textContent = e.needsKey
@@ -2397,13 +2406,28 @@ async function aiSend(text){
 }
 
 /* ---------- Voice (Web Speech API) ---------- */
-let recog = null, recOn = false;
+let recog = null, recOn = false, voiceMode = false, speaking = false;
+function startMic(){ if(!recog||recOn||speaking)return; try{ recog.start(); }catch(e){} }
+function speak(text){
+  if(!voiceMode || !("speechSynthesis" in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(String(text).slice(0,600));
+    u.lang="de-DE"; u.rate=1.04; u.pitch=1;
+    const v=speechSynthesis.getVoices().find(v=>/de/i.test(v.lang)); if(v)u.voice=v;
+    speaking=true;
+    u.onend=()=>{ speaking=false; if(voiceMode) setTimeout(startMic,250); };  // Freisprech: danach wieder zuhören
+    u.onerror=()=>{ speaking=false; };
+    speechSynthesis.speak(u);
+  }catch(e){ speaking=false; }
+}
 function setupVoice(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const mic = document.getElementById("aiMic");
   if(!SR){ if(mic) mic.style.display="none"; return; }
   recog = new SR(); recog.lang="de-DE"; recog.interimResults=true; recog.continuous=false;
   let finalText="";
+  recog.onstart = ()=>{ recOn=true; mic.classList.add("rec"); };
   recog.onresult = e=>{
     let interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -2413,11 +2437,18 @@ function setupVoice(){
     const inp=document.getElementById("aiInput");
     if(inp){ inp.value=(finalText+interim).trim(); inp.style.height="auto"; inp.style.height=inp.scrollHeight+"px"; }
   };
-  recog.onend = ()=>{ recOn=false; mic.classList.remove("rec"); };
+  recog.onend = ()=>{
+    recOn=false; mic.classList.remove("rec");
+    const inp=document.getElementById("aiInput");
+    const txt=(inp&&inp.value||"").trim();
+    finalText="";
+    if(voiceMode && txt){ aiSend(txt); }   // Freisprech: automatisch senden
+  };
   recog.onerror = ()=>{ recOn=false; mic.classList.remove("rec"); };
+  // Tippen aufs Mikro: Freisprech-Modus an/aus
   mic.addEventListener("click", ()=>{
-    if(recOn){ recog.stop(); return; }
-    finalText=""; try{ recog.start(); recOn=true; mic.classList.add("rec"); toast("Sprich jetzt…"); }catch(e){}
+    if(recOn || speaking){ voiceMode=false; speaking=false; try{recog.stop()}catch(e){}; try{speechSynthesis.cancel()}catch(e){}; mic.classList.remove("rec","vmode"); toast("Voice aus"); return; }
+    voiceMode=true; mic.classList.add("vmode"); finalText=""; startMic(); toast("Freisprech an — sprich einfach");
   });
 }
 
@@ -2513,6 +2544,168 @@ function sendOffer(jobId, how){
   const txt = offerText(a);
   if(how==="wa") window.open(waLink(k&&k.telefon, txt), "_blank");
   else window.open(mailLink(k&&k.email, `Angebot: ${a.titel} — Kurani Design`, txt), "_blank");
+}
+
+/* ---------- PDF-Export (über Druckdialog → „Als PDF sichern") ---------- */
+function printHTML(html){
+  const f = document.createElement("iframe");
+  f.setAttribute("aria-hidden","true");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0";
+  document.body.appendChild(f);
+  const d = f.contentWindow.document;
+  d.open(); d.write(html); d.close();
+  const go = ()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(), 1500); };
+  // kurz warten, bis Inhalt/Fonts da sind
+  setTimeout(go, 350);
+}
+const pdfStyle = `
+  @page{margin:22mm 18mm}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;font-size:13px;line-height:1.55;margin:0}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:26px}
+  .brand{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .brand small{display:block;font-size:11px;font-weight:400;color:#666;margin-top:5px}
+  .doc{ text-align:right;font-size:12px;color:#666 }
+  .doc b{display:block;color:#111;font-size:15px;margin-top:3px}
+  .addr{margin-bottom:16px}.addr b{font-size:14px}
+  .meta{color:#555;font-size:12px;margin-bottom:22px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #e2e2e2;font-size:12.5px}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#666;border-bottom:1.5px solid #111}
+  .r{text-align:right;font-variant-numeric:tabular-nums}
+  .total{font-size:18px;font-weight:800;text-align:right;margin-top:10px}
+  .note{margin-top:30px;color:#555;font-size:11.5px;border-top:1px solid #e2e2e2;padding-top:14px}
+`;
+function invoicePdf(id){
+  const r = state.rechnungen.find(x=>x.id===id); if(!r) return;
+  const k = kundeById(r.kundeId);
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ${escapeHtml(r.nummer)}</title><style>${pdfStyle}</style></head><body>
+    <div class="head">
+      <div class="brand">Kurani Design<small>Grafikdesign &amp; Werbetechnik · Norden/Ostfriesland</small></div>
+      <div class="doc">RECHNUNG<b>${escapeHtml(r.nummer)}</b></div>
+    </div>
+    <div class="addr"><b>${escapeHtml(kundeName(r.kundeId))}</b>${k&&k.ansprechpartner?"<br>"+escapeHtml(k.ansprechpartner):""}${k&&k.ort?"<br>"+escapeHtml(k.ort):""}${k&&k.email?"<br>"+escapeHtml(k.email):""}</div>
+    <div class="meta">Rechnungsdatum: ${fmtDate(r.rechnungsdatum)}&nbsp;&nbsp;·&nbsp;&nbsp;Fällig: ${fmtDate(r.faelligkeit)}${r.status==="bezahlt"&&r.bezahltAm?"&nbsp;&nbsp;·&nbsp;&nbsp;Bezahlt am: "+fmtDate(r.bezahltAm):""}</div>
+    <table><thead><tr><th>Beschreibung</th><th class="r">Betrag</th></tr></thead>
+      <tbody><tr><td>${escapeHtml(r.notizen||("Leistung – Rechnung "+r.nummer))}</td><td class="r">${fmtEur(r.betrag)}</td></tr></tbody></table>
+    <div class="total">Gesamt: ${fmtEur(r.betrag)}</div>
+    <div class="note">Gemäß §19 UStG (Kleinunternehmer) wird keine Umsatzsteuer ausgewiesen.<br>Vielen Dank für Ihren Auftrag &amp; Ihr Vertrauen.</div>
+  </body></html>`;
+  printHTML(html);
+  toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
+}
+function financePdf(){
+  const rows = filteredInvoices();
+  if(rows.length===0){ toast("Keine Rechnungen für PDF","error"); return; }
+  const total = sum(rows,"betrag");
+  const body = rows.map(r=>{
+    const eff = rechnungStatusEffektiv(r);
+    return `<tr><td>${escapeHtml(r.nummer)}</td><td>${escapeHtml(kundeName(r.kundeId))}</td><td>${fmtDate(r.rechnungsdatum)}</td><td>${fmtDate(r.faelligkeit)}</td><td>${eff==="ueberfaellig"?"überfällig":eff}</td><td class="r">${fmtEur(r.betrag)}</td></tr>`;
+  }).join("");
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Finanz-Übersicht</title><style>${pdfStyle}</style></head><body>
+    <div class="head"><div class="brand">Kurani Design<small>Finanz-Übersicht · Stand ${fmtDate(todayISO())}</small></div>
+      <div class="doc">RECHNUNGEN<b>${rows.length} Stück</b></div></div>
+    <table><thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th>Fällig</th><th>Status</th><th class="r">Betrag</th></tr></thead>
+      <tbody>${body}</tbody></table>
+    <div class="total">Summe: ${fmtEur(total)}</div>
+    <div class="note">§19 UStG — alle Beträge ohne Umsatzsteuer.</div>
+  </body></html>`;
+  printHTML(html);
+  toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
+}
+
+/* ---------- Angebots-Kalkulator + Angebote erstellen ---------- */
+function offerRow(desc="",qty=1,price=""){
+  return `<div class="off-row" style="display:grid;grid-template-columns:1fr 64px 90px 32px;gap:8px;align-items:center;margin-bottom:8px">
+    <input class="input off-desc" placeholder="Position / Leistung" value="${escapeHtml(desc)}">
+    <input class="input off-qty" type="number" min="0" step="1" value="${qty}" title="Menge">
+    <input class="input off-price" type="number" min="0" step="0.01" placeholder="€" value="${price}" title="Einzelpreis">
+    <button type="button" class="mini-btn off-del" title="Zeile löschen">${I.trash}</button>
+  </div>`;
+}
+function modalAngebot(presetKundeId){
+  const kundenOpts = state.kunden.map(k=>`<option value="${k.id}" ${presetKundeId===k.id?"selected":""}>${escapeHtml(k.name)}</option>`).join("");
+  openModal(`<div class="modal wide"><div>
+    <div class="modal-head"><div><h2>Angebot erstellen</h2><div class="sub">Positionen kalkulieren · §19 ohne USt.</div></div>
+      <button type="button" class="mini-btn" data-close>${I.close}</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fg"><label>Kunde</label><select class="select" id="offKunde"><option value="">— frei eingeben —</option>${kundenOpts}</select></div>
+        <div class="fg"><label>oder Name (frei)</label><input class="input" id="offName" placeholder="z. B. La Piazza"></div>
+        <div class="fg full"><label>Betreff</label><input class="input" id="offTitel" placeholder="z. B. Speisekarten-Neugestaltung"></div>
+      </div>
+      <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin:14px 0 10px">Positionen</h4>
+      <div style="display:grid;grid-template-columns:1fr 64px 90px 32px;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:6px">
+        <span>Beschreibung</span><span>Menge</span><span>Einzel €</span><span></span></div>
+      <div id="offRows">${offerRow("",1,"")}${offerRow("",1,"")}</div>
+      <button type="button" class="btn btn-ghost" id="offAdd" style="margin-top:4px">${I.plus}Position</button>
+      <div class="calc-box" style="margin-top:16px">
+        <div class="cb-item">Positionen<b id="offCount">0</b></div>
+        <div class="cb-item gain">Angebotssumme<b id="offTotal">0,00 €</b></div>
+      </div>
+    </div>
+    <div class="modal-foot" style="flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" data-close>Schließen</button>
+      <div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" id="offWa">${I.wa}WhatsApp</button>
+      <button type="button" class="btn btn-ghost" id="offMail">${I.mail}E-Mail</button>
+      <button type="button" class="btn btn-primary" id="offPdf">${I.download}Als PDF</button>
+    </div>
+  </div></div>`);
+  const host = document.getElementById("offRows");
+  const recalc = ()=>{
+    let total=0, cnt=0;
+    host.querySelectorAll(".off-row").forEach(r=>{
+      const q=parseFloat(r.querySelector(".off-qty").value)||0;
+      const p=parseFloat(r.querySelector(".off-price").value)||0;
+      if(p>0){ total+=q*p; cnt++; }
+    });
+    document.getElementById("offTotal").textContent = fmtEur(total);
+    document.getElementById("offCount").textContent = cnt;
+  };
+  host.addEventListener("input", recalc);
+  host.addEventListener("click", e=>{ const b=e.target.closest(".off-del"); if(b){ if(host.querySelectorAll(".off-row").length>1) b.closest(".off-row").remove(); recalc(); } });
+  document.getElementById("offAdd").addEventListener("click", ()=>{ host.insertAdjacentHTML("beforeend", offerRow()); recalc(); });
+  recalc();
+  const collect = ()=>{
+    const kid = document.getElementById("offKunde").value;
+    const name = kid ? kundeName(kid) : (document.getElementById("offName").value.trim() || "Kunde");
+    const k = kid ? kundeById(kid) : null;
+    const titel = document.getElementById("offTitel").value.trim() || "Angebot";
+    const items=[]; let total=0;
+    host.querySelectorAll(".off-row").forEach(r=>{
+      const desc=r.querySelector(".off-desc").value.trim();
+      const q=parseFloat(r.querySelector(".off-qty").value)||0;
+      const p=parseFloat(r.querySelector(".off-price").value)||0;
+      if(desc||p>0){ items.push({desc:desc||"Position",qty:q||1,price:p}); total+=(q||1)*p; }
+    });
+    return {name,k,titel,items,total};
+  };
+  document.getElementById("offPdf").addEventListener("click", ()=>{ angebotPdf(collect()); });
+  document.getElementById("offWa").addEventListener("click", ()=>{ const o=collect(); window.open(waLink(o.k&&o.k.telefon, angebotText(o)),"_blank"); });
+  document.getElementById("offMail").addEventListener("click", ()=>{ const o=collect(); window.open(mailLink(o.k&&o.k.email, "Angebot: "+o.titel+" — Kurani Design", angebotText(o)),"_blank"); });
+}
+function angebotText(o){
+  const lines = o.items.map(it=>`• ${it.desc}${it.qty>1?" ×"+it.qty:""}: ${fmtEur(it.qty*it.price)}`).join("\n");
+  return `Hallo${o.k&&o.k.ansprechpartner?" "+o.k.ansprechpartner:""},\n\n`
+    +`gern unterbreite ich Ihnen folgendes Angebot — „${o.titel}“:\n\n${lines}\n\n`
+    +`Gesamt: ${fmtEur(o.total)} (§19 UStG, ohne USt)\n\n`
+    +`Bei Fragen melden Sie sich gern.\n\nBeste Grüße\nKurani Design`;
+}
+function angebotPdf(o){
+  const body = o.items.map(it=>`<tr><td>${escapeHtml(it.desc)}</td><td class="r">${it.qty}</td><td class="r">${fmtEur(it.price)}</td><td class="r">${fmtEur(it.qty*it.price)}</td></tr>`).join("");
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Angebot</title><style>${pdfStyle}</style></head><body>
+    <div class="head"><div class="brand">Kurani Design<small>Grafikdesign &amp; Werbetechnik · Norden/Ostfriesland</small></div>
+      <div class="doc">ANGEBOT<b>${fmtDate(todayISO())}</b></div></div>
+    <div class="addr"><b>${escapeHtml(o.name)}</b>${o.k&&o.k.ort?"<br>"+escapeHtml(o.k.ort):""}</div>
+    <div class="meta">Betreff: ${escapeHtml(o.titel)}</div>
+    <table><thead><tr><th>Beschreibung</th><th class="r">Menge</th><th class="r">Einzel</th><th class="r">Gesamt</th></tr></thead>
+      <tbody>${body}</tbody></table>
+    <div class="total">Angebotssumme: ${fmtEur(o.total)}</div>
+    <div class="note">Gemäß §19 UStG (Kleinunternehmer) wird keine Umsatzsteuer ausgewiesen. Angebot freibleibend, gültig 30 Tage.</div>
+  </body></html>`;
+  printHTML(html);
+  toast("Angebots-PDF wird erstellt");
 }
 
 /* ---------- Gewinn-Rechner ---------- */
