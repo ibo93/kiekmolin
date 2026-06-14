@@ -1930,6 +1930,10 @@ function modalJob(id, presetKundeId){
       <div class="fg" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" data-act="new-client-inline">${I.plus}Kunde neu</button></div>
       <div class="fg"><label>Kategorie</label><select class="select" name="kategorie">${KATEGORIEN.map(c=>`<option ${a.kategorie===c?"selected":""}>${c}</option>`).join("")}</select></div>
       <div class="fg"><label>Status</label><select class="select" name="status">${AUFTRAG_STATUS.map(s=>`<option ${a.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
+      <div class="fg"><label>Zahlung</label><select class="select" name="zahlung">
+        <option value="offen" ${a.id&&auftragPay(a).st==="bezahlt"?"":"selected"}>Offen / unbezahlt</option>
+        <option value="bezahlt" ${a.id&&auftragPay(a).st==="bezahlt"?"selected":""}>Bezahlt</option>
+      </select></div>
       <div class="fg"><label>Eingangsdatum</label><input class="input" type="date" name="eingangsdatum" value="${a.eingangsdatum||todayISO()}"></div>
       <div class="fg"><label>Deadline</label><input class="input" type="date" name="deadline" value="${a.deadline||""}"></div>
       <div class="fg"><label>Angebots-/Preis (€)</label><input class="input calc-in" type="number" step="0.01" min="0" name="betrag" value="${a.betrag!=null?a.betrag:""}"></div>
@@ -1966,18 +1970,13 @@ function modalJob(id, presetKundeId){
     const d=formData(e.target);
     d.betrag=parseFloat(d.betrag)||0;
     d.material=parseFloat(d.material)||0; d.stunden=parseFloat(d.stunden)||0; d.stundensatz=parseFloat(d.stundensatz)||0;
-    if(id){ Object.assign(auftragById(id),d); toast("Auftrag aktualisiert"); }
-    else {
-      const newA = Object.assign({id:uid(),createdAt:new Date().toISOString()}, d);
-      state.auftraege.push(newA);
-      if((+newA.betrag)>0){
-        state.rechnungen.push({ id:uid(), nummer:nextInvoiceNumber(), kundeId:newA.kundeId, auftragId:newA.id,
-          rechnungsdatum:newA.eingangsdatum||todayISO(), faelligkeit:newA.deadline||addDays(todayISO(),14),
-          betrag:+newA.betrag||0, status:"offen", bezahltAm:null, notizen:newA.titel, createdAt:new Date().toISOString() });
-        toast("Auftrag + offene Rechnung angelegt");
-      } else { toast("Auftrag angelegt"); }
-    }
+    const paid = d.zahlung==="bezahlt"; delete d.zahlung;   // Zahlung wird über Rechnung gesteuert, nicht am Auftrag gespeichert
+    let jobId;
+    if(id){ Object.assign(auftragById(id),d); jobId=id; }
+    else { const newA=Object.assign({id:uid(),createdAt:new Date().toISOString()},d); state.auftraege.push(newA); jobId=newA.id; }
+    applyPayment(jobId, paid);   // legt offene/bezahlte Rechnung an bzw. aktualisiert sie → erscheint in Finanzen
     save(); closeModal(); render();
+    toast(id?"Auftrag aktualisiert":"Auftrag angelegt");
   });
 }
 
@@ -3085,17 +3084,20 @@ function payPill(st, small){
   const lbl = st==="ueberfaellig"?"überfällig":st==="bezahlt"?"bezahlt":st==="offen"?"offen":"keine Rg.";
   return `<span class="pill ${cls}" ${small?'style="font-size:10px;padding:1px 8px"':""}>${lbl}</span>`;
 }
-function setJobPayment(jobId, paid){
+function applyPayment(jobId, paid){
   const a = auftragById(jobId); if(!a) return;
   let invs = state.rechnungen.filter(r=>r.auftragId===jobId && r.status!=="storniert");
   if(!invs.length){
-    state.rechnungen.push({ id:uid(), nummer:nextInvoiceNumber(), kundeId:a.kundeId, auftragId:a.id,
-      rechnungsdatum:todayISO(), faelligkeit:addDays(todayISO(),14), betrag:+a.betrag||0,
+    if((+a.betrag)>0) state.rechnungen.push({ id:uid(), nummer:nextInvoiceNumber(), kundeId:a.kundeId, auftragId:a.id,
+      rechnungsdatum:a.eingangsdatum||todayISO(), faelligkeit:a.deadline||addDays(todayISO(),14), betrag:+a.betrag||0,
       status:paid?"bezahlt":"offen", bezahltAm:paid?todayISO():null, notizen:a.titel, createdAt:new Date().toISOString() });
   } else {
     invs.forEach(r=>{ r.status=paid?"bezahlt":"offen"; r.bezahltAm=paid?(r.bezahltAm||todayISO()):null; });
   }
   if(paid && a.status!=="Abgerechnet") a.status="Abgerechnet";
+}
+function setJobPayment(jobId, paid){
+  applyPayment(jobId, paid);
   save(); toast(paid?"Als bezahlt markiert ✓":"Auf offen gesetzt");
 }
 
