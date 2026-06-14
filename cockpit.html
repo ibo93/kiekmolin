@@ -983,7 +983,8 @@ let ui = { view:"dashboard", jobsMode:"kanban", finFilter:{}, finMonth:null,
 
 function blankState(){
   return { kunden:[], auftraege:[], rechnungen:[], ausgaben:[], kiekNotizen:[],
-           settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"" } };
+           settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"",
+             profile:{ firma:"Kurani Design", inhaber:"", strasse:"", plz:"", ort:"Norden", telefon:"", email:"", web:"kiekmolin.de", steuernr:"", iban:"", bank:"" } } };
 }
 
 /* ---------- Persistenz (robust) ---------- */
@@ -1009,6 +1010,9 @@ function load(){
         if(!Array.isArray(state[k])) state[k] = [];
       }
       if(!state.settings || typeof state.settings!=="object") state.settings = blankState().settings;
+      // Neue Settings-Felder nachrüsten (z.B. Geschäftsdaten/Profil)
+      state.settings = Object.assign(blankState().settings, state.settings);
+      state.settings.profile = Object.assign(blankState().settings.profile, state.settings.profile||{});
     }
   }catch(e){
     console.warn("localStorage defekt — starte leer.", e);
@@ -1744,6 +1748,25 @@ function viewSettings(){
   const lb = state.settings.lastBackup ? fmtDate(state.settings.lastBackup)+" um "+new Date(state.settings.lastBackup).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "noch nie";
   const counts = `${state.kunden.length} Kunden · ${state.auftraege.length} Aufträge · ${state.rechnungen.length} Rechnungen · ${state.kiekNotizen.length} Kiek-Einträge`;
   return `<div class="set-grid">
+    ${(()=>{const p=state.settings.profile||{};const f=(key,lab,full,ph)=>`<div class="fg ${full?"full":""}"><label>${lab}</label><input class="input" data-prof="${key}" value="${escapeHtml(p[key]||"")}" placeholder="${ph||""}"></div>`;
+    return `<div class="card panel">
+      <h3 style="margin-bottom:6px">Geschäftsdaten (für Rechnungen)</h3>
+      <div class="panel-sub" style="margin-bottom:14px">Erscheinen im Briefkopf, in der Fußzeile und als Bankverbindung auf Rechnungen/Angeboten.</div>
+      <div class="form-grid">
+        ${f("firma","Firma",true,"Kurani Design")}
+        ${f("inhaber","Inhaber/in")}
+        ${f("telefon","Telefon")}
+        ${f("email","E-Mail")}
+        ${f("web","Web")}
+        ${f("strasse","Straße & Nr.",true)}
+        ${f("plz","PLZ")}
+        ${f("ort","Ort")}
+        ${f("steuernr","Steuernummer")}
+        ${f("bank","Bank")}
+        ${f("iban","IBAN",true,"DE.. .... .... .... .... ..")}
+      </div>
+    </div>`;})()}
+
     <div class="card panel">
       <h3 style="margin-bottom:6px">Datensicherung</h3>
       <div class="panel-sub" style="margin-bottom:16px">${counts}</div>
@@ -2339,7 +2362,10 @@ document.addEventListener("change",e=>{
   if(e.target.id==="darkToggle") toggleTheme();
   if(e.target.id==="elevenToggle"){ state.settings.ttsEleven=e.target.checked; save(); toast(e.target.checked?"Natürliche Stimme an":"Browser-Stimme"); }
 });
-document.addEventListener("input",e=>{ if(e.target.id==="elevenVoice"){ state.settings.elevenVoice=e.target.value.trim(); save(); } });
+document.addEventListener("input",e=>{
+  if(e.target.id==="elevenVoice"){ state.settings.elevenVoice=e.target.value.trim(); save(); }
+  if(e.target.dataset && e.target.dataset.prof){ if(!state.settings.profile)state.settings.profile={}; state.settings.profile[e.target.dataset.prof]=e.target.value; save(); }
+});
 
 /* =====================================================================
    PWA: Manifest + Service Worker (inline, via Blob — Single-File)
@@ -2701,38 +2727,86 @@ function printHTML(html){
   // kurz warten, bis Inhalt/Fonts da sind
   setTimeout(go, 350);
 }
+const PDF_ACCENT = "#9a6a3a"; // warmer, editorialer Bronze-Akzent
 const pdfStyle = `
-  @page{margin:22mm 18mm}
+  @page{margin:20mm}
   *{box-sizing:border-box}
-  body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;font-size:13px;line-height:1.55;margin:0}
-  .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:26px}
-  .brand{font-size:22px;font-weight:800;letter-spacing:-.02em}
-  .brand small{display:block;font-size:11px;font-weight:400;color:#666;margin-top:5px}
-  .doc{ text-align:right;font-size:12px;color:#666 }
-  .doc b{display:block;color:#111;font-size:15px;margin-top:3px}
-  .addr{margin-bottom:16px}.addr b{font-size:14px}
-  .meta{color:#555;font-size:12px;margin-bottom:22px}
-  table{width:100%;border-collapse:collapse;margin:16px 0}
-  th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #e2e2e2;font-size:12.5px}
-  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#666;border-bottom:1.5px solid #111}
-  .r{text-align:right;font-variant-numeric:tabular-nums}
-  .total{font-size:18px;font-weight:800;text-align:right;margin-top:10px}
-  .note{margin-top:30px;color:#555;font-size:11.5px;border-top:1px solid #e2e2e2;padding-top:14px}
+  html,body{margin:0;padding:0}
+  body{font-family:"Helvetica Neue",Arial,sans-serif;color:#161616;font-size:12.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .lh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px}
+  .lh-name{font-family:Georgia,"Times New Roman",serif;font-size:25px;font-weight:600;letter-spacing:-.01em;color:#0f0f0f}
+  .lh-name span{display:block;font-family:"Helvetica Neue",Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:${PDF_ACCENT};margin-top:9px}
+  .lh-contact{text-align:right;font-size:10.5px;color:#666;line-height:1.7}
+  .docrow{display:flex;justify-content:space-between;align-items:flex-end;border-top:2px solid #161616;padding-top:14px;margin-bottom:26px}
+  .docrow .eyebrow{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:${PDF_ACCENT};font-weight:700}
+  .docrow h1{font-family:Georgia,serif;font-size:29px;font-weight:600;margin:6px 0 0;letter-spacing:-.01em}
+  .meta{font-size:11px;color:#555;text-align:right;line-height:1.9}
+  .meta b{color:#161616;font-weight:600}
+  .sender{font-size:9px;color:#9a9a9a;letter-spacing:.02em;margin-bottom:7px}
+  .bill{margin-bottom:30px;line-height:1.65}
+  .bill .lbl{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#9a9a9a;margin-bottom:5px}
+  .bill b{font-size:14.5px;color:#0f0f0f}
+  table{width:100%;border-collapse:collapse;margin:6px 0 0}
+  thead th{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a;text-align:left;padding:0 8px 11px;border-bottom:1.5px solid #161616}
+  tbody td{padding:14px 8px;border-bottom:1px solid #ededed;vertical-align:top;font-size:12.5px}
+  tbody td .sub{display:block;color:#8a8a8a;font-size:10.5px;margin-top:3px}
+  .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .totals{margin-top:18px;display:flex;justify-content:flex-end}
+  .totals .box{width:58%;max-width:320px}
+  .totals .line{display:flex;justify-content:space-between;padding:6px 8px;font-size:12px;color:#555}
+  .totals .grand{display:flex;justify-content:space-between;border-top:2px solid #161616;margin-top:4px;padding:13px 8px 0;font-family:Georgia,serif;font-size:18px;font-weight:600;color:#0f0f0f}
+  .terms{margin-top:32px;font-size:11px;color:#555;line-height:1.7;max-width:78%}
+  .terms .h{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#9a9a9a;margin-bottom:5px}
+  .ftr{margin-top:40px;border-top:1px solid #e8e8e8;padding-top:13px;display:flex;gap:26px;font-size:9px;color:#9a9a9a;line-height:1.65}
+  .ftr div{flex:1}
+  .ftr b{color:#666;display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
 `;
+function pdfLetterhead(){
+  const p = state.settings.profile||{};
+  const contact = [p.telefon?("T "+escapeHtml(p.telefon)):"", p.email?escapeHtml(p.email):"", p.web?escapeHtml(p.web):""].filter(Boolean).join("<br>");
+  return `<div class="lh">
+    <div class="lh-name">${escapeHtml(p.firma||"Kurani Design")}<span>Grafikdesign &amp; Werbetechnik</span></div>
+    <div class="lh-contact">${contact||"Norden · Ostfriesland"}</div>
+  </div>`;
+}
+function pdfSenderLine(){
+  const p = state.settings.profile||{};
+  return [p.firma, p.strasse, [p.plz,p.ort].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+}
+function pdfFooter(){
+  const p = state.settings.profile||{};
+  const kontakt = [p.firma, p.inhaber, [p.strasse].filter(Boolean).join(""), [p.plz,p.ort].filter(Boolean).join(" "), p.telefon, p.email].filter(Boolean).map(escapeHtml).join("<br>");
+  const steuer = ["§19 UStG — Kleinunternehmer", p.steuernr?("Steuernr. "+escapeHtml(p.steuernr)):""].filter(Boolean).join("<br>");
+  const bank = [p.bank?escapeHtml(p.bank):"", p.iban?("IBAN "+escapeHtml(p.iban)):""].filter(Boolean).join("<br>") || "—";
+  return `<div class="ftr"><div><b>Kontakt</b>${kontakt}</div><div><b>Steuer</b>${steuer}</div><div><b>Bank</b>${bank}</div></div>`;
+}
 function invoicePdf(id){
   const r = state.rechnungen.find(x=>x.id===id); if(!r) return;
   const k = kundeById(r.kundeId);
+  const p = state.settings.profile||{};
+  const desc = escapeHtml(r.notizen || "Design- / Werbetechnik-Leistung");
+  const bezahlt = r.status==="bezahlt";
+  const zahlung = bezahlt
+    ? `Diese Rechnung wurde am ${fmtDate(r.bezahltAm)} vollständig beglichen. Vielen Dank!`
+    : `Bitte überweisen Sie den Betrag bis zum <b>${fmtDate(r.faelligkeit)}</b>${p.iban?` auf folgendes Konto: <b>${escapeHtml(p.iban)}</b>${p.bank?` (${escapeHtml(p.bank)})`:""}`:""}.`;
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ${escapeHtml(r.nummer)}</title><style>${pdfStyle}</style></head><body>
-    <div class="head">
-      <div class="brand">Kurani Design<small>Grafikdesign &amp; Werbetechnik · Norden/Ostfriesland</small></div>
-      <div class="doc">RECHNUNG<b>${escapeHtml(r.nummer)}</b></div>
+    ${pdfLetterhead()}
+    <div class="docrow"><div><div class="eyebrow">Rechnung</div><h1>${escapeHtml(r.nummer)}</h1></div>
+      <div class="meta"><div>Datum&nbsp;&nbsp;<b>${fmtDate(r.rechnungsdatum)}</b></div><div>Fällig&nbsp;&nbsp;<b>${fmtDate(r.faelligkeit)}</b></div>${bezahlt?`<div style="color:${PDF_ACCENT}"><b>BEZAHLT</b></div>`:""}</div>
     </div>
-    <div class="addr"><b>${escapeHtml(kundeName(r.kundeId))}</b>${k&&k.ansprechpartner?"<br>"+escapeHtml(k.ansprechpartner):""}${k&&k.ort?"<br>"+escapeHtml(k.ort):""}${k&&k.email?"<br>"+escapeHtml(k.email):""}</div>
-    <div class="meta">Rechnungsdatum: ${fmtDate(r.rechnungsdatum)}&nbsp;&nbsp;·&nbsp;&nbsp;Fällig: ${fmtDate(r.faelligkeit)}${r.status==="bezahlt"&&r.bezahltAm?"&nbsp;&nbsp;·&nbsp;&nbsp;Bezahlt am: "+fmtDate(r.bezahltAm):""}</div>
+    <div class="bill"><div class="sender">${escapeHtml(pdfSenderLine())}</div>
+      <div class="lbl">Rechnung an</div>
+      <b>${escapeHtml(kundeName(r.kundeId))}</b>${k&&k.ansprechpartner?"<br>"+escapeHtml(k.ansprechpartner):""}${k&&k.ort?"<br>"+escapeHtml(k.ort):""}
+    </div>
     <table><thead><tr><th>Beschreibung</th><th class="r">Betrag</th></tr></thead>
-      <tbody><tr><td>${escapeHtml(r.notizen||("Leistung – Rechnung "+r.nummer))}</td><td class="r">${fmtEur(r.betrag)}</td></tr></tbody></table>
-    <div class="total">Gesamt: ${fmtEur(r.betrag)}</div>
-    <div class="note">Gemäß §19 UStG (Kleinunternehmer) wird keine Umsatzsteuer ausgewiesen.<br>Vielen Dank für Ihren Auftrag &amp; Ihr Vertrauen.</div>
+      <tbody><tr><td>${desc}<span class="sub">Leistungszeitraum / Auftrag ${escapeHtml(r.nummer)}</span></td><td class="r">${fmtEur(r.betrag)}</td></tr></tbody></table>
+    <div class="totals"><div class="box">
+      <div class="line"><span>Zwischensumme</span><span>${fmtEur(r.betrag)}</span></div>
+      <div class="line"><span>Umsatzsteuer (§19 UStG)</span><span>0,00 €</span></div>
+      <div class="grand"><span>Gesamt</span><span>${fmtEur(r.betrag)}</span></div>
+    </div></div>
+    <div class="terms"><div class="h">Zahlungshinweis</div>${zahlung}<br>Gemäß §19 UStG wird keine Umsatzsteuer ausgewiesen.</div>
+    ${pdfFooter()}
   </body></html>`;
   printHTML(html);
   toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
@@ -2746,12 +2820,14 @@ function financePdf(){
     return `<tr><td>${escapeHtml(r.nummer)}</td><td>${escapeHtml(kundeName(r.kundeId))}</td><td>${fmtDate(r.rechnungsdatum)}</td><td>${fmtDate(r.faelligkeit)}</td><td>${eff==="ueberfaellig"?"überfällig":eff}</td><td class="r">${fmtEur(r.betrag)}</td></tr>`;
   }).join("");
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Finanz-Übersicht</title><style>${pdfStyle}</style></head><body>
-    <div class="head"><div class="brand">Kurani Design<small>Finanz-Übersicht · Stand ${fmtDate(todayISO())}</small></div>
-      <div class="doc">RECHNUNGEN<b>${rows.length} Stück</b></div></div>
+    ${pdfLetterhead()}
+    <div class="docrow"><div><div class="eyebrow">Finanz-Übersicht</div><h1>Rechnungen</h1></div>
+      <div class="meta"><div>Stand&nbsp;&nbsp;<b>${fmtDate(todayISO())}</b></div><div>${rows.length} Einträge</div></div></div>
     <table><thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th>Fällig</th><th>Status</th><th class="r">Betrag</th></tr></thead>
       <tbody>${body}</tbody></table>
-    <div class="total">Summe: ${fmtEur(total)}</div>
-    <div class="note">§19 UStG — alle Beträge ohne Umsatzsteuer.</div>
+    <div class="totals"><div class="box"><div class="grand"><span>Summe</span><span>${fmtEur(total)}</span></div></div></div>
+    <div class="terms"><div class="h">Hinweis</div>§19 UStG — alle Beträge ohne Umsatzsteuer.</div>
+    ${pdfFooter()}
   </body></html>`;
   printHTML(html);
   toast("PDF wird erstellt — im Dialog „Als PDF sichern“");
@@ -2838,14 +2914,19 @@ function angebotText(o){
 function angebotPdf(o){
   const body = o.items.map(it=>`<tr><td>${escapeHtml(it.desc)}</td><td class="r">${it.qty}</td><td class="r">${fmtEur(it.price)}</td><td class="r">${fmtEur(it.qty*it.price)}</td></tr>`).join("");
   const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Angebot</title><style>${pdfStyle}</style></head><body>
-    <div class="head"><div class="brand">Kurani Design<small>Grafikdesign &amp; Werbetechnik · Norden/Ostfriesland</small></div>
-      <div class="doc">ANGEBOT<b>${fmtDate(todayISO())}</b></div></div>
-    <div class="addr"><b>${escapeHtml(o.name)}</b>${o.k&&o.k.ort?"<br>"+escapeHtml(o.k.ort):""}</div>
-    <div class="meta">Betreff: ${escapeHtml(o.titel)}</div>
+    ${pdfLetterhead()}
+    <div class="docrow"><div><div class="eyebrow">Angebot</div><h1>${escapeHtml(o.titel||"Angebot")}</h1></div>
+      <div class="meta"><div>Datum&nbsp;&nbsp;<b>${fmtDate(todayISO())}</b></div><div>Gültig 30 Tage</div></div></div>
+    <div class="bill"><div class="sender">${escapeHtml(pdfSenderLine())}</div>
+      <div class="lbl">Angebot für</div><b>${escapeHtml(o.name)}</b>${o.k&&o.k.ansprechpartner?"<br>"+escapeHtml(o.k.ansprechpartner):""}${o.k&&o.k.ort?"<br>"+escapeHtml(o.k.ort):""}</div>
     <table><thead><tr><th>Beschreibung</th><th class="r">Menge</th><th class="r">Einzel</th><th class="r">Gesamt</th></tr></thead>
       <tbody>${body}</tbody></table>
-    <div class="total">Angebotssumme: ${fmtEur(o.total)}</div>
-    <div class="note">Gemäß §19 UStG (Kleinunternehmer) wird keine Umsatzsteuer ausgewiesen. Angebot freibleibend, gültig 30 Tage.</div>
+    <div class="totals"><div class="box">
+      <div class="line"><span>Umsatzsteuer (§19 UStG)</span><span>0,00 €</span></div>
+      <div class="grand"><span>Angebotssumme</span><span>${fmtEur(o.total)}</span></div>
+    </div></div>
+    <div class="terms"><div class="h">Hinweis</div>Angebot freibleibend, gültig 30 Tage. Gemäß §19 UStG wird keine Umsatzsteuer ausgewiesen. Wir freuen uns auf die Zusammenarbeit.</div>
+    ${pdfFooter()}
   </body></html>`;
   printHTML(html);
   toast("Angebots-PDF wird erstellt");
