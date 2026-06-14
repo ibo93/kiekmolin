@@ -2439,12 +2439,13 @@ function addAiMsg(role, text){
   host.appendChild(el); host.scrollTop = host.scrollHeight;
   return el;
 }
-async function aiSend(text){
+async function aiSend(text, opts){
+  opts = opts||{};
   text = (text||"").trim();
   if(!text || aiBusy) return;
   if(!AI_ENDPOINT){ toast("KI nur online verfügbar","error"); return; }
   document.querySelectorAll(".ai-suggest").forEach(e=>e.remove());
-  addAiMsg("user", text);
+  if(!opts.silent) addAiMsg("user", text);   // stiller Voice-Kickoff zeigt keine User-Blase
   aiHistory.push({role:"user", content:text});
   const inp = document.getElementById("aiInput"); if(inp){ inp.value=""; inp.style.height="auto"; }
   aiBusy = true;
@@ -2466,7 +2467,8 @@ async function aiSend(text){
 }
 
 /* ---------- Voice (Web Speech API) ---------- */
-let recog = null, recOn = false, voiceMode = false, speaking = false;
+let recog = null, recOn = false, voiceMode = false, speaking = false, voiceGreeted = false;
+try{ if("speechSynthesis" in window){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices(); } }catch(e){}
 function startMic(){ if(!recog||recOn||speaking)return; try{ recog.start(); }catch(e){} }
 function speak(text){
   if(!voiceMode || !("speechSynthesis" in window)) return;
@@ -2507,8 +2509,14 @@ function setupVoice(){
   recog.onerror = ()=>{ recOn=false; mic.classList.remove("rec"); };
   // Tippen aufs Mikro: Freisprech-Modus an/aus
   mic.addEventListener("click", ()=>{
-    if(recOn || speaking){ voiceMode=false; speaking=false; try{recog.stop()}catch(e){}; try{speechSynthesis.cancel()}catch(e){}; mic.classList.remove("rec","vmode"); toast("Voice aus"); return; }
-    voiceMode=true; mic.classList.add("vmode"); finalText=""; startMic(); toast("Freisprech an — sprich einfach");
+    if(recOn || speaking || voiceMode){ voiceMode=false; speaking=false; try{recog.stop()}catch(e){}; try{speechSynthesis.cancel()}catch(e){}; mic.classList.remove("rec","vmode"); toast("Voice aus"); return; }
+    voiceMode=true; mic.classList.add("vmode"); finalText="";
+    if(AI_ENDPOINT && !voiceGreeted){
+      voiceGreeted=true; toast("Coach meldet sich…");
+      aiSend("Begrüße mich ganz kurz mit Namen, sag mir meinen aktuellen Stand in EINEM Satz (Umsatz, offen, überfällig) und gib mir genau einen konkreten Tipp. Dann frag, was ich als Erstes angehen will.", {silent:true});
+    } else {
+      startMic(); toast("Freisprech an — sprich einfach");
+    }
   });
 }
 
