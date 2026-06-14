@@ -982,7 +982,7 @@ let ui = { view:"dashboard", jobsMode:"kanban", finFilter:{}, finMonth:null,
            tableSort:{key:"deadline",dir:1}, dragId:null };
 
 function blankState(){
-  return { kunden:[], auftraege:[], rechnungen:[], kiekNotizen:[],
+  return { kunden:[], auftraege:[], rechnungen:[], ausgaben:[], kiekNotizen:[],
            settings:{ darkMode:true, lastBackup:null, demo:false, ttsEleven:false, elevenVoice:"" } };
 }
 
@@ -992,7 +992,7 @@ function applySeed(){
   if(typeof SEED_DATA==="object" && SEED_DATA){
     const keepDark = state.settings ? state.settings.darkMode : true;
     state = Object.assign(blankState(), JSON.parse(JSON.stringify(SEED_DATA)));
-    for(const k of ["kunden","auftraege","rechnungen","kiekNotizen"]) if(!Array.isArray(state[k])) state[k]=[];
+    for(const k of ["kunden","auftraege","rechnungen","ausgaben","kiekNotizen"]) if(!Array.isArray(state[k])) state[k]=[];
     if(!state.settings || typeof state.settings!=="object") state.settings = blankState().settings;
     state.settings.darkMode = keepDark;
   }
@@ -1005,7 +1005,7 @@ function load(){
     if(data && typeof data === "object"){
       state = Object.assign(blankState(), data);
       // Sicherstellen, dass alle Arrays existieren (defektes Storage abfangen)
-      for(const k of ["kunden","auftraege","rechnungen","kiekNotizen"]){
+      for(const k of ["kunden","auftraege","rechnungen","ausgaben","kiekNotizen"]){
         if(!Array.isArray(state[k])) state[k] = [];
       }
       if(!state.settings || typeof state.settings!=="object") state.settings = blankState().settings;
@@ -1176,6 +1176,10 @@ function viewDashboard(){
   const paidR = state.rechnungen.filter(r=>r.status==="bezahlt");
   const openR = state.rechnungen.filter(r=>r.status==="offen");
   const paidSum = sum(paidR,"betrag");
+  const curYear = String(new Date().getFullYear());
+  const ausgabenJahr = sum(state.ausgaben.filter(x=>(x.datum||"").slice(0,4)===curYear),"betrag");
+  const gewinnJahr = k.umsatzJahr - ausgabenJahr;
+  const margeJahr = k.umsatzJahr>0 ? (gewinnJahr/k.umsatzJahr*100) : 0;
   const kpiCard = (label,icon,value,hint,hintCls,accent,money=true)=>`
     <div class="card kpi ${accent?"accent":""}">
       <div class="kpi-label">${icon}${label}</div>
@@ -1213,6 +1217,7 @@ function viewDashboard(){
     <div class="act-card" data-act="new-invoice"><div class="ac-ic">${I.invoice}</div><div class="ac-lb">Neue Rechnung</div></div>
     <div class="act-card" data-new-offer><div class="ac-ic">${I.invoice}</div><div class="ac-lb">Angebot erstellen</div></div>
     <div class="act-card" data-scan><div class="ac-ic">${I.camera}</div><div class="ac-lb">Beleg scannen</div></div>
+    <div class="act-card" data-act="new-expense"><div class="ac-ic">${I.euro}</div><div class="ac-lb">Ausgabe erfassen</div></div>
   </div>
 
   <div class="kpi-grid">
@@ -1229,10 +1234,28 @@ function viewDashboard(){
     <div class="mstat over"><div class="ml">Überfällig</div><div class="mv">${fmtEur(k.ueberSum)}</div><div class="mc">${k.ueberCount} überfällig</div></div>
   </div>
 
+  <div class="mrow">
+    <div class="mstat paid"><div class="ml">Einnahmen ${curYear}</div><div class="mv">${fmtEur(k.umsatzJahr)}</div><div class="mc">bezahlt</div></div>
+    <div class="mstat over"><div class="ml">Ausgaben ${curYear}</div><div class="mv">${fmtEur(ausgabenJahr)}</div><div class="mc">${state.ausgaben.length} Beleg(e)</div></div>
+    <div class="mstat ${gewinnJahr>=0?"paid":"over"}"><div class="ml">Gewinn</div><div class="mv">${fmtEur(gewinnJahr)}</div><div class="mc">Marge ${margeJahr.toFixed(0)} %</div></div>
+  </div>
+
   <div class="card panel" style="margin-bottom:22px">
     <div class="panel-head"><div><h3>Umsatz pro Monat</h3><div class="panel-sub">bezahlt · letzte 8 Monate</div></div></div>
     <div class="mbars">${monthBarsHTML(8)}</div>
   </div>
+
+  ${state.ausgaben.length?`<div class="card panel" style="margin-bottom:22px">
+    <div class="panel-head"><div><h3>Letzte Ausgaben</h3><div class="panel-sub">${state.ausgaben.length} gesamt</div></div>
+      <button class="btn btn-ghost" data-act="new-expense">${I.plus}<span class="hide-mobile">Ausgabe</span></button></div>
+    <div class="act-list">${[...state.ausgaben].sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")).slice(0,5).map(x=>`
+      <div class="act-item" data-edit-expense="${x.id}">
+        <div class="act-ico">${I.euro}</div>
+        <div class="act-main"><div class="act-title">${escapeHtml(x.haendler||x.kategorie||"Ausgabe")}</div>
+        <div class="act-meta">${fmtDate(x.datum)}${x.kategorie?" · "+escapeHtml(x.kategorie):""}</div></div>
+        <div class="act-amt" style="color:var(--danger)">−${fmtEur(x.betrag)}</div>
+      </div>`).join("")}</div>
+  </div>`:""}
 
   <div class="grid-2">
     <div class="card panel">
@@ -2101,7 +2124,7 @@ function importJSON(){
         const data = parsed.data && parsed.__app ? parsed.data : parsed; // toleranter Import
         if(!data || typeof data!=="object") throw new Error("Format");
         const imp = Object.assign(blankState(), data);
-        for(const k of ["kunden","auftraege","rechnungen","kiekNotizen"]) if(!Array.isArray(imp[k])) imp[k]=[];
+        for(const k of ["kunden","auftraege","rechnungen","ausgaben","kiekNotizen"]) if(!Array.isArray(imp[k])) imp[k]=[];
         openModal(`<div class="modal" style="max-width:460px">
           <div class="modal-head"><h2>Backup importieren</h2><button type="button" class="mini-btn" data-close>${I.close}</button></div>
           <div class="modal-body"><p style="font-size:14px;line-height:1.6;color:var(--ink-soft)">
@@ -2117,7 +2140,7 @@ function importJSON(){
           state=imp; save(); applyTheme(); closeModal(); go("dashboard"); toast("Daten ersetzt");
         });
         document.getElementById("impMerge").addEventListener("click",()=>{
-          mergeArr("kunden",imp.kunden); mergeArr("auftraege",imp.auftraege);
+          mergeArr("kunden",imp.kunden); mergeArr("auftraege",imp.auftraege); mergeArr("ausgaben",imp.ausgaben||[]);
           mergeArr("rechnungen",imp.rechnungen); mergeArr("kiekNotizen",imp.kiekNotizen);
           save(); closeModal(); go("dashboard"); toast("Daten zusammengeführt");
         });
@@ -2182,6 +2205,11 @@ function seedDemo(){
       mk({titel:"Café Deichblick onboarden",link:"https://kiekmolin.de/cafe-deichblick",status:"In Arbeit",notiz:"Fotos fehlen noch."}),
       mk({titel:"Idee: Reservierungs-Widget",link:"",status:"Idee",notiz:"Mit Backend später möglich."}),
     ];
+    state.ausgaben=[
+      mk({datum:isoBack(10),betrag:240,kategorie:"Druck",haendler:"WIRmachenDRUCK",notiz:"Flyer-Druck",createdAt:ca(10)}),
+      mk({datum:isoBack(22),betrag:89,kategorie:"Software",haendler:"Adobe",notiz:"Creative Cloud",createdAt:ca(22)}),
+      mk({datum:isoBack(35),betrag:520,kategorie:"Material",haendler:"Folien-Großhandel",notiz:"Plotterfolie",createdAt:ca(35)}),
+    ];
     state.settings.demo=true;
     save(); go("dashboard"); toast("Demodaten geladen");
   };
@@ -2224,9 +2252,12 @@ function toast(msg,type){
    EVENT-DELEGATION
    ===================================================================== */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail],[data-pdf-invoice],[data-new-offer]");
+  const t=e.target.closest("[data-nav],[data-act],[data-jobsmode],[data-sort],[data-open-job],[data-open-invoice],[data-open-client],[data-edit-job],[data-del-job],[data-edit-invoice],[data-del-invoice],[data-pay-invoice],[data-edit-client],[data-del-client],[data-edit-kiek],[data-del-kiek],[data-new-job-for],[data-invoice-from-job],[data-close],[data-new-client-inline],[data-ai-open],[data-ai-close],[data-ai-suggest],[data-scan],[data-send-inv-wa],[data-send-inv-mail],[data-send-offer-wa],[data-send-offer-mail],[data-pdf-invoice],[data-new-offer],[data-edit-expense],[data-del-expense]");
   if(!t) return;
   const d=t.dataset;
+
+  if(d.editExpense){ modalAusgabe(d.editExpense); return; }
+  if(d.delExpense){ confirmDialog("Ausgabe löschen?","Diese Ausgabe wird entfernt.",()=>{ state.ausgaben=state.ausgaben.filter(x=>x.id!==d.delExpense); save(); closeModal(); render(); toast("Ausgabe gelöscht"); },true); return; }
 
   if("aiOpen" in d){ openAI(); return; }
   if("aiClose" in d){ closeAI(); return; }
@@ -2285,6 +2316,7 @@ document.addEventListener("click",e=>{
     case "export-csv": exportCSV(); break;
     case "export-pdf": financePdf(); break;
     case "new-offer": modalAngebot(); break;
+    case "new-expense": modalAusgabe(); break;
     case "load-seed": confirmDialog("Deine Daten laden?","Das ersetzt die aktuellen Daten durch deine eingespielten Kunden/Aufträge/Rechnungen.",()=>{ applySeed(); save(); go("dashboard"); toast("Deine Daten geladen"); },true); break;
     case "seed-demo": seedDemo(); break;
     case "wipe": wipeAll(); break;
@@ -2590,17 +2622,22 @@ async function handleScanFile(e){
     const res = await aiFetch({ action:"scan", imageBase64:b64, mediaType:file.type||"image/jpeg" });
     const d = res.data || {};
     busy.classList.remove("show");
-    // Kunde anhand Partnername finden (falls vorhanden)
-    let kundeId = "";
-    if(d.partner){ const m=state.kunden.find(k=>k.name.toLowerCase().includes(d.partner.toLowerCase())||d.partner.toLowerCase().includes(k.name.toLowerCase())); if(m) kundeId=m.id; }
-    modalInvoice(null, {
-      kundeId, betrag:d.betrag||0,
-      rechnungsdatum:(d.datum&&/^\d{4}-\d{2}-\d{2}$/.test(d.datum))?d.datum:todayISO(),
-      nummer:d.nummer||nextInvoiceNumber(),
-      notizen:[d.partner?("Partner: "+d.partner):"", d.kategorie?("Kategorie: "+d.kategorie):"", d.notiz||""].filter(Boolean).join(" · "),
-      status:"offen"
-    });
-    toast("Beleg erkannt — bitte prüfen & speichern");
+    const datum = (d.datum&&/^\d{4}-\d{2}-\d{2}$/.test(d.datum))?d.datum:todayISO();
+    if(d.richtung==="eingang"){
+      // Lieferantenbeleg = Ausgabe
+      modalAusgabe(null, { betrag:d.betrag||0, datum, haendler:d.partner||"", kategorie:d.kategorie||"Material", notiz:d.notiz||"" });
+      toast("Ausgabe erkannt — bitte prüfen & speichern");
+    } else {
+      // eigene Rechnung an Kunde
+      let kundeId = "";
+      if(d.partner){ const m=state.kunden.find(k=>k.name.toLowerCase().includes(d.partner.toLowerCase())||d.partner.toLowerCase().includes(k.name.toLowerCase())); if(m) kundeId=m.id; }
+      modalInvoice(null, {
+        kundeId, betrag:d.betrag||0, rechnungsdatum:datum, nummer:d.nummer||nextInvoiceNumber(),
+        notizen:[d.partner?("Partner: "+d.partner):"", d.kategorie?("Kategorie: "+d.kategorie):"", d.notiz||""].filter(Boolean).join(" · "),
+        status:"offen"
+      });
+      toast("Rechnung erkannt — bitte prüfen & speichern");
+    }
   }catch(err){
     busy.classList.remove("show");
     toast(err.needsKey?"KI nicht eingerichtet (API-Key fehlt)":"Scan fehlgeschlagen","error");
@@ -2804,6 +2841,34 @@ function angebotPdf(o){
   </body></html>`;
   printHTML(html);
   toast("Angebots-PDF wird erstellt");
+}
+
+/* ---------- Ausgaben ---------- */
+const AUSGABE_KAT=["Material","Druck","Fahrzeug","Büro","Software","Werbung","Sonstige"];
+function modalAusgabe(id, preset){
+  const x = id?state.ausgaben.find(a=>a.id===id):Object.assign({datum:todayISO(),kategorie:"Material"}, preset||{});
+  openModal(`<div class="modal"><form id="frm">
+    <div class="modal-head"><div><h2>${id?"Ausgabe bearbeiten":"Ausgabe erfassen"}</h2><div class="sub">Mindert deinen Gewinn</div></div>
+      <button type="button" class="mini-btn" data-close>${I.close}</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="fg"><label>Betrag (€) <span class="req">*</span></label><input class="input" type="number" step="0.01" min="0" name="betrag" value="${x.betrag!=null?x.betrag:""}" required><span class="err-msg">Bitte Betrag.</span></div>
+      <div class="fg"><label>Datum</label><input class="input" type="date" name="datum" value="${x.datum||todayISO()}"></div>
+      <div class="fg"><label>Händler/Lieferant</label><input class="input" name="haendler" value="${escapeHtml(x.haendler||"")}"></div>
+      <div class="fg"><label>Kategorie</label><select class="select" name="kategorie">${AUSGABE_KAT.map(c=>`<option ${x.kategorie===c?"selected":""}>${c}</option>`).join("")}</select></div>
+      <div class="fg full"><label>Notiz</label><textarea name="notiz">${escapeHtml(x.notiz||"")}</textarea></div>
+    </div></div>
+    <div class="modal-foot">${id?`<button type="button" class="btn btn-danger" data-del-expense="${id}">${I.trash}Löschen</button>`:""}<div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" data-close>Abbrechen</button>
+      <button type="submit" class="btn btn-primary">${I.check}Speichern</button></div>
+  </form></div>`);
+  document.getElementById("frm").addEventListener("submit",e=>{
+    e.preventDefault();
+    if(!validate(e.target,["betrag"])) return;
+    const d=formData(e.target); d.betrag=parseFloat(d.betrag)||0;
+    if(id){ Object.assign(state.ausgaben.find(a=>a.id===id),d); toast("Ausgabe aktualisiert"); }
+    else { state.ausgaben.push(Object.assign({id:uid(),createdAt:new Date().toISOString()},d)); toast("Ausgabe erfasst"); }
+    save(); closeModal(); render();
+  });
 }
 
 /* ---------- Gewinn-Rechner ---------- */
