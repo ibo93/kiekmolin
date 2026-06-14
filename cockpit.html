@@ -1516,7 +1516,7 @@ function jobsKanban(){
 function jobCard(a){
   const over = a.deadline && a.deadline<todayISO() && a.status!=="Fertig" && a.status!=="Abgerechnet";
   const pay = auftragPay(a);
-  return `<div class="kcard" draggable="true" data-job="${a.id}">
+  return `<div class="kcard" draggable="true" data-job="${a.id}" data-open-job="${a.id}">
     <div class="kcard-title">${escapeHtml(a.titel)}</div>
     <div class="kcard-kunde">${I.users.replace('width="24" height="24"','')}${escapeHtml(kundeName(a.kundeId))}</div>
     <div class="kcard-foot">
@@ -3094,10 +3094,10 @@ function applyPayment(jobId, paid){
   } else {
     invs.forEach(r=>{ r.status=paid?"bezahlt":"offen"; r.bezahltAm=paid?(r.bezahltAm||todayISO()):null; });
   }
-  if(paid && a.status!=="Abgerechnet") a.status="Abgerechnet";
 }
 function setJobPayment(jobId, paid){
   applyPayment(jobId, paid);
+  const a=auftragById(jobId); if(a && paid && a.status!=="Abgerechnet") a.status="Abgerechnet";  // Schnell-Knopf: auf Abgerechnet
   save(); toast(paid?"Als bezahlt markiert ✓":"Auf offen gesetzt");
 }
 
