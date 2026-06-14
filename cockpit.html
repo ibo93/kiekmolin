@@ -697,6 +697,34 @@ html[data-theme="dark"] .brand-mark{background:linear-gradient(135deg,#0E6B57,#0
 :root .nav-item.active,html[data-theme="light"] .nav-item.active{background:linear-gradient(135deg,#0E6B57,#003D33)!important}
 .btn-dark{background:linear-gradient(135deg,#0E6B57,#003D33)!important}
 html[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,#1f8f74,#0E5C49)!important}
+
+/* ===== Fintech-Look (Greeting, Quick-Actions, zweifarbige Zahlen, Float-Nav) ===== */
+:root{--radius:22px;--radius-lg:30px}
+.hero{display:flex;align-items:center;gap:14px;margin:4px 0 24px}
+.hero-av{width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:19px;background:linear-gradient(135deg,#0E6B57,#003D33);box-shadow:var(--shadow-sm)}
+.hero-txt .h-hi{font-size:13px;color:var(--ink-soft);font-weight:500}
+.hero-txt h2{font-family:var(--font-display);font-size:30px;font-weight:800;letter-spacing:-0.035em;line-height:1.05;margin-top:1px}
+@media(max-width:760px){.hero-txt h2{font-size:24px}}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.qbtn{display:flex;flex-direction:column;align-items:center;gap:11px;padding:18px 8px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);transition:var(--transition);cursor:pointer}
+.qbtn:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.qbtn .qic{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);background:linear-gradient(135deg,#1d2220,#101513)}
+.qbtn.accent .qic{background:linear-gradient(135deg,#0E6B57,#003D33)}
+.qbtn .qic svg{width:21px;height:21px;stroke-width:2}
+.qbtn span{font-size:12.5px;font-weight:600;color:var(--ink)}
+@media(max-width:520px){.quick{grid-template-columns:repeat(2,1fr)}}
+/* Zweifarbige Hero-Zahlen (Cent gedämpft) */
+.kpi-dec{font-weight:600;color:var(--ink-faint);-webkit-text-fill-color:var(--ink-faint)}
+.kpi-value{font-weight:800}
+/* Schwebende Pillen-Navigation (mobil) */
+@media(max-width:760px){
+  .bottomnav{left:14px;right:14px;bottom:14px;border-radius:28px;border:1px solid var(--line);
+    box-shadow:var(--shadow-lg);padding:9px 8px calc(9px + env(safe-area-inset-bottom))}
+  .bn-item.active{color:var(--accent)}
+}
+/* Karten runder & weicher */
+.card{border-radius:var(--radius)}
+.kpi{border-radius:var(--radius-lg)}
 </style>
 </head>
 <body>
@@ -1018,7 +1046,21 @@ function viewDashboard(){
     </div>`;
   const now = new Date();
   const monName = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"][now.getMonth()];
+  const hrs = now.getHours();
+  const gruss = hrs<11?"Guten Morgen!":hrs<18?"Guten Tag!":"Guten Abend!";
+  const sub = k.ueberCount>0 ? `${k.ueberCount} Rechnung(en) überfällig — Zeit zum Nachhaken.` : "Alles im grünen Bereich. Leg los.";
+  const chat = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3a9 9 0 0 0-9 9 9 9 0 0 0 9 9c.7 0 1.4-.08 2-.23L21 21l-1.2-4A9 9 0 0 0 12 3z"/></svg>';
   return `
+  <div class="hero">
+    <div class="hero-av">K</div>
+    <div class="hero-txt"><div class="h-hi">${gruss}</div><h2>${escapeHtml(sub)}</h2></div>
+  </div>
+  <div class="quick">
+    <div class="qbtn accent" data-act="new-job"><div class="qic">${I.plus}</div><span>Auftrag</span></div>
+    <div class="qbtn" data-act="new-invoice"><div class="qic">${I.invoice}</div><span>Rechnung</span></div>
+    <div class="qbtn" data-scan><div class="qic">${I.camera}</div><span>Beleg scannen</span></div>
+    <div class="qbtn" data-ai-open><div class="qic">${chat}</div><span>KI-Assistent</span></div>
+  </div>
   <div class="kpi-grid">
     ${kpiCard("Umsatz "+monName,I.euro,k.umsatzMonat,"bezahlte Rechnungen diesen Monat",null,true)}
     ${kpiCard("Umsatz "+now.getFullYear(),I.euro,k.umsatzJahr,"bezahlt seit Jahresbeginn")}
@@ -1180,6 +1222,12 @@ function lastNMonths(n){
 }
 function sum(arr,key){ return arr.reduce((s,o)=>s+(+o[key]||0),0); }
 
+function eurTwoTone(n){
+  const s = fmtEur(n);
+  const i = s.lastIndexOf(",");
+  if(i<0) return escapeHtml(s);
+  return escapeHtml(s.slice(0,i)) + '<span class="kpi-dec">' + escapeHtml(s.slice(i)) + '</span>';
+}
 function animateCounts(){
   document.querySelectorAll("[data-count]").forEach(el=>{
     const target = parseFloat(el.getAttribute("data-count"));
@@ -1187,7 +1235,7 @@ function animateCounts(){
     const dur=700, start=performance.now();
     function step(t){
       const p=Math.min(1,(t-start)/dur), e=1-Math.pow(1-p,3);
-      el.textContent = fmtEur(target*e);
+      el.innerHTML = eurTwoTone(target*e);
       if(p<1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
