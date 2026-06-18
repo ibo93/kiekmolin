@@ -142,6 +142,23 @@ body.no3d #scene-fallback{ display:block; }
 .nav .cta{ color:var(--accent); }
 .brand, .nav .cta{ transition:transform .35s var(--ease); }
 .marquee{ transition:transform .25s ease-out; }
+
+/* Hintergrund-Glow, folgt dem Cursor & nimmt die Kapitelfarbe an */
+.glow{ position:fixed; top:0; left:50%; width:62vmax; height:62vmax; border-radius:50%;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:1; opacity:.45; filter:blur(46px); mix-blend-mode:screen;
+  background:radial-gradient(circle, color-mix(in srgb, var(--accent) 32%, transparent) 0%, transparent 62%);
+  transition:background .6s var(--ease); }
+
+/* Sektions-Indikator rechts (Kapitel-Punkte) */
+.dots{ position:fixed; right:20px; top:50%; transform:translateY(-50%); z-index:45; display:flex; flex-direction:column; gap:15px; }
+.dots a{ width:9px; height:9px; border-radius:50%; border:1px solid var(--cream-mute); position:relative;
+  transition:transform .3s var(--ease), background-color .3s var(--ease), border-color .3s var(--ease), box-shadow .3s var(--ease); }
+.dots a.active{ background:var(--accent); border-color:var(--accent); transform:scale(1.35); box-shadow:0 0 14px var(--accent); }
+.dots a::after{ content:attr(data-label); position:absolute; right:20px; top:50%; transform:translateY(-50%);
+  font-family:"Space Mono",monospace; font-size:.6rem; letter-spacing:.15em; text-transform:uppercase; color:var(--cream-soft);
+  opacity:0; white-space:nowrap; transition:opacity .3s var(--ease); }
+.dots a:hover::after, .dots a.active::after{ opacity:1; }
+@media (max-width:760px){ .dots{ display:none; } }
 @media (max-width:720px){ .nav nav .hide-sm{ display:none; } }
 
 /* 1 · HERO (über dem 3D, kein Panel) */
@@ -273,6 +290,14 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 </div>
 
 <div class="grain" aria-hidden="true"></div>
+<div class="glow" id="glow" aria-hidden="true"></div>
+<nav class="dots" id="dots" aria-label="Sektionen">
+  <a href="#hero" data-label="Start"></a>
+  <a href="#arbeiten" data-label="Arbeiten"></a>
+  <a href="#leistungen" data-label="Leistungen"></a>
+  <a href="#kiekmolin" data-label="Kiek mol in"></a>
+  <a href="#kontakt" data-label="Kontakt"></a>
+</nav>
 
 <!-- ============ FIXE 3D-BÜHNE ============ -->
 <div id="scene" aria-hidden="true"></div>
@@ -425,6 +450,15 @@ if(!reduceMotion && window.matchMedia('(hover:hover) and (pointer:fine)').matche
   });
 }
 
+/* ---------- Hintergrund-Glow folgt dem Cursor ---------- */
+(function(){
+  const glow=document.getElementById('glow'); if(!glow) return;
+  if(reduceMotion){ glow.style.top='32%'; return; }
+  let gx=innerWidth/2, gy=innerHeight*0.4, tx=gx, ty=gy;
+  window.addEventListener('pointermove',e=>{ tx=e.clientX; ty=e.clientY; },{passive:true});
+  (function gl(){ requestAnimationFrame(gl); gx+=(tx-gx)*0.06; gy+=(ty-gy)*0.06; glow.style.transform=`translate(${gx}px,${gy}px) translate(-50%,-50%)`; })();
+})();
+
 /* ---------- Ghost-Parallax + Marquee-Skew (kinetisch) ---------- */
 if(!reduceMotion){
   const ghosts=[...document.querySelectorAll('.ghost')];
@@ -523,6 +557,7 @@ const themeIO = new IntersectionObserver((es)=>{
     const th=SEC_THEMES[e.target.id]; if(!th) return;
     document.documentElement.style.setProperty('--accent', th[0]);
     setSceneTheme(th[1], th[0]);
+    document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id));
   }});
 }, { threshold:0.5 });
 ['hero','arbeiten','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) themeIO.observe(el); });
