@@ -38,7 +38,7 @@
   --cream:#FFEDD7; --cream-soft:rgba(255,237,215,.64); --cream-mute:rgba(255,237,215,.40);
   --cream-faint:rgba(255,237,215,.22); --line:rgba(255,237,215,.14); --line-soft:rgba(255,237,215,.07);
   --accent:#E23A17; --accent-2:#FF5A2C;
-  --maxw:1320px; --gut:clamp(22px,5vw,84px); --r:14px;
+  --maxw:1320px; --gut:clamp(22px,5vw,84px); --r:24px;
   --t-display:clamp(3.2rem,13vw,11rem); --t-h2:clamp(2.1rem,6vw,4.6rem);
   --t-h3:clamp(1.3rem,2.4vw,1.9rem); --t-lead:clamp(1.08rem,1.6vw,1.45rem);
   --ease:cubic-bezier(.22,.61,.36,1);
@@ -143,9 +143,21 @@ body.no3d #scene-fallback{ display:block; }
 .brand, .nav .cta{ transition:transform .35s var(--ease); }
 .marquee{ transition:transform .25s ease-out; }
 
+/* Lebendige Aurora — driftende Farb-Blobs, die "sprühen" */
+.aurora{ position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden; mix-blend-mode:screen; opacity:.6; filter:blur(72px); }
+.blob{ position:absolute; width:56vmax; height:56vmax; border-radius:50%; will-change:transform; }
+.b1{ background:radial-gradient(circle, #E23A17, transparent 60%); top:-12%; left:-6%; animation:drift1 22s ease-in-out infinite; }
+.b2{ background:radial-gradient(circle, #6E8BFF, transparent 60%); top:24%; right:-12%; animation:drift2 28s ease-in-out infinite; }
+.b3{ background:radial-gradient(circle, #5EE0C8, transparent 62%); bottom:-16%; left:22%; animation:drift3 25s ease-in-out infinite; }
+@keyframes drift1{ 50%{ transform:translate(22vw,16vh) scale(1.2); } }
+@keyframes drift2{ 50%{ transform:translate(-20vw,12vh) scale(1.15); } }
+@keyframes drift3{ 50%{ transform:translate(12vw,-14vh) scale(1.28); } }
+@media (max-width:760px){ .aurora{ filter:blur(48px); opacity:.5; } }
+@media (prefers-reduced-motion:reduce){ .blob{ animation:none; } }
+
 /* Hintergrund-Glow, folgt dem Cursor & nimmt die Kapitelfarbe an */
 .glow{ position:fixed; top:0; left:50%; width:62vmax; height:62vmax; border-radius:50%;
-  transform:translate(-50%,-50%); pointer-events:none; z-index:1; opacity:.45; filter:blur(46px); mix-blend-mode:screen;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:1; opacity:.3; filter:blur(46px); mix-blend-mode:screen;
   background:radial-gradient(circle, color-mix(in srgb, var(--accent) 32%, transparent) 0%, transparent 62%);
   transition:background .6s var(--ease); }
 
@@ -289,6 +301,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <span class="loader-bar" id="loaderBar"></span>
 </div>
 
+<div class="aurora" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
 <div class="grain" aria-hidden="true"></div>
 <div class="glow" id="glow" aria-hidden="true"></div>
 <nav class="dots" id="dots" aria-label="Sektionen">
