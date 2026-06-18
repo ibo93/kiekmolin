@@ -184,14 +184,19 @@ body.no3d #scene-fallback{ display:block; }
 /* Hero: schwebende Marken-Bilder (statt der Flyer) */
 .hero .mono, .hero .display, .hero-lead, .hero-meta, .scroll-hint{ position:relative; z-index:2; }
 .hero-float{ position:absolute; inset:0; z-index:1; pointer-events:none; }
-.hero-float .ff{ position:absolute; border-radius:18px; border:1px solid var(--line);
-  box-shadow:0 30px 80px rgba(0,0,0,.55); object-fit:cover; opacity:.95; will-change:transform,translate;
-  animation:floaty 9s ease-in-out infinite; }
-.hero-float .ff1{ width:min(34vw,440px); aspect-ratio:4/3; top:9%; right:-2%; }
-.hero-float .ff2{ width:min(20vw,250px); aspect-ratio:4/3; top:42%; left:-4%; animation-duration:11s; animation-delay:-3s; }
-.hero-float .ff3{ width:min(17vw,210px); aspect-ratio:3/4; bottom:12%; right:16%; animation-duration:10s; animation-delay:-5s; }
-@media(max-width:760px){ .hero-float .ff2,.hero-float .ff3{ display:none; } .hero-float .ff1{ width:62vw; top:7%; right:2%; opacity:.55; } }
+.hero-float .ff{ position:absolute; object-fit:contain; will-change:transform,translate;
+  filter:drop-shadow(0 26px 60px rgba(0,0,0,.6)); animation:spin3d 12s ease-in-out infinite; }
+.hero-float .ff1{ width:min(36vw,460px); aspect-ratio:4/3; top:8%; right:-3%; }
+.hero-float .ff2{ width:min(21vw,260px); aspect-ratio:4/3; top:42%; left:-4%; animation-duration:14s; animation-delay:-3s; }
+.hero-float .ff3{ width:min(17vw,210px); aspect-ratio:3/4; bottom:11%; right:15%; animation-duration:13s; animation-delay:-6s; }
+@media(max-width:760px){ .hero-float .ff2,.hero-float .ff3{ display:none; } .hero-float .ff1{ width:66vw; top:6%; right:0; } }
 @media (prefers-reduced-motion:reduce){ .hero-float .ff{ animation:none; } }
+/* echte 3D-Rotation/Schweben für freigestellte Objekte */
+@keyframes spin3d{
+  0%   { transform:perspective(1000px) translateY(0)     rotateY(-17deg) rotateX(7deg); }
+  50%  { transform:perspective(1000px) translateY(-16px) rotateY(17deg)  rotateX(-5deg); }
+  100% { transform:perspective(1000px) translateY(0)     rotateY(-17deg) rotateX(7deg); }
+}
 .scroll-hint{ position:absolute; right:var(--gut); bottom:34px; display:flex; align-items:center; gap:.7rem;
   color:var(--cream-mute); font-family:"Space Mono",monospace; font-size:.68rem; letter-spacing:.22em; text-transform:uppercase; }
 .scroll-hint .bar{ width:40px; height:1px; background:var(--line); position:relative; overflow:hidden; }
@@ -251,8 +256,8 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .exp-sticky{ position:relative; min-height:100svh; display:grid; place-items:center; padding-block:clamp(80px,12vw,140px); }
 .exp-stage{ position:relative; width:100%; }
 .exp-inner{ display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(24px,5vw,64px); align-items:center; width:min(92vw,1120px); margin-inline:auto; }
-.exp-shot{ border-radius:var(--r); overflow:hidden; border:1px solid var(--line); aspect-ratio:4/3; position:relative; box-shadow:0 34px 90px rgba(0,0,0,.55); }
-.exp-shot img{ width:100%; height:100%; object-fit:cover; }
+.exp-shot{ aspect-ratio:4/3; position:relative; }
+.exp-shot img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 30px 70px rgba(0,0,0,.55)); }
 .exp-text h3{ font-size:clamp(2rem,5vw,3.8rem); margin-top:.5rem; }
 .exp-desc{ color:var(--cream-soft); max-width:36ch; margin-top:1rem; font-size:var(--t-lead); line-height:1.5; }
 .exp-label{ position:absolute; left:var(--gut); bottom:26px; display:flex; gap:.6rem; align-items:center; color:var(--cream-mute); }
@@ -292,8 +297,8 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
   background:linear-gradient(120deg, transparent 42%, rgba(255,235,215,.12) 50%, transparent 58%);
   transform:translateX(-130%); animation:sheen 7.5s ease-in-out infinite; }
 @keyframes sheen{ 0%,100%{ transform:translateX(-130%); } 50%{ transform:translateX(130%); } }
-.feature__visual img.shot{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
-.feature__visual .km{ position:relative; z-index:0; }
+.feature__visual img.shot{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:1; filter:drop-shadow(0 28px 70px rgba(0,0,0,.5)); }
+.feature__visual .km{ display:none; }
 @media (prefers-reduced-motion:reduce){ .work,.feature__visual{ animation:none; } .work__media::after{ animation:none; opacity:0; } }
 
 /* 4 · LEISTUNGEN */
@@ -316,8 +321,7 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .feature__stats span{ font-size:.78rem; color:var(--cream-mute); }
 .btn{ display:inline-flex; align-items:center; gap:.7rem; margin-top:2rem; background:var(--accent); color:#fff; padding:1rem 1.7rem; border-radius:999px; font-weight:500; transition:transform .4s var(--ease), box-shadow .4s var(--ease); }
 .btn:hover{ transform:translateY(-2px); box-shadow:0 14px 44px rgba(226,58,23,.42); }
-.feature__visual{ border-radius:var(--r); border:1px solid var(--line); aspect-ratio:4/3; position:relative; overflow:hidden; display:grid; place-content:center;
-  background:radial-gradient(120% 120% at 30% 20%, rgba(226,58,23,.3), transparent 60%), rgba(255,237,215,.02); }
+.feature__visual{ aspect-ratio:4/3; position:relative; display:grid; place-content:center; }
 .feature__visual .km{ font-family:"Archivo Black",serif; font-weight:300; font-size:clamp(1.7rem,4vw,2.8rem); text-align:center; }
 .feature__visual .km small{ display:block; font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cream-mute); margin-top:.6rem; }
 
@@ -392,9 +396,9 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <!-- 1 · HERO -->
   <section id="hero" class="hero wrap snap" aria-label="Intro">
     <div class="hero-float" aria-hidden="true">
-      <img class="ff ff1" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125929_83dbf054-7daf-4267-9d19-84ca42f7c97d.png" alt="" loading="lazy">
-      <img class="ff ff2" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png" alt="" loading="lazy">
-      <img class="ff ff3" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_134720_62c735bc-3057-46a9-9710-a576892fd072.png" alt="" loading="lazy">
+      <img class="ff ff1" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144750_f176d132-92fa-4781-ac19-a7df3fddd2ed.png" alt="" loading="lazy">
+      <img class="ff ff2" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144804_fd2f3ccf-3582-46a3-9f8d-97b78a80dc05.png" alt="" loading="lazy">
+      <img class="ff ff3" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144807_9e449eb1-40a2-4b07-b877-7e54d070d9f2.png" alt="" loading="lazy">
     </div>
     <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
     <h1 class="display text-clip">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
@@ -427,7 +431,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
       <div class="exp-stage">
         <article class="exp-item">
           <div class="exp-inner">
-            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125929_83dbf054-7daf-4267-9d19-84ca42f7c97d.png" alt="Speisekarte — La Piazza, Greetsiel" loading="lazy"></div>
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144750_f176d132-92fa-4781-ac19-a7df3fddd2ed.png" alt="Speisekarte — La Piazza, Greetsiel" loading="lazy"></div>
             <div class="exp-text">
               <p class="kicker mono">01 / 04 · Print &amp; Speisekarten</p>
               <h3>La Piazza</h3>
@@ -437,7 +441,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         </article>
         <article class="exp-item">
           <div class="exp-inner">
-            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png" alt="Schild &amp; Werbetechnik — Greetsieler Börse" loading="lazy"></div>
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144804_fd2f3ccf-3582-46a3-9f8d-97b78a80dc05.png" alt="Schild &amp; Werbetechnik — Greetsieler Börse" loading="lazy"></div>
             <div class="exp-text">
               <p class="kicker mono">02 / 04 · Schilder &amp; Werbetechnik</p>
               <h3>Greetsieler Börse</h3>
@@ -447,7 +451,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         </article>
         <article class="exp-item">
           <div class="exp-inner">
-            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125934_03d2fd4f-e845-4d91-9491-aed1da0712b5.jpeg" alt="Großformat &amp; Banner — Herdem Frischmarkt" loading="lazy"></div>
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144753_607ba7c2-43ae-4e18-be5d-600e90ac995e.png" alt="Großformat &amp; Banner — Herdem Frischmarkt" loading="lazy"></div>
             <div class="exp-text">
               <p class="kicker mono">03 / 04 · Großformat &amp; Banner</p>
               <h3>Herdem Frischmarkt</h3>
@@ -457,7 +461,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         </article>
         <article class="exp-item">
           <div class="exp-inner">
-            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125931_31acce18-a991-44cf-ae1b-b8b67fe40c40.png" alt="Markenauftritt — De Haven Steakhus" loading="lazy"></div>
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144755_38631281-0055-42c4-9156-f5d7bb945489.png" alt="Markenauftritt — De Haven Steakhus" loading="lazy"></div>
             <div class="exp-text">
               <p class="kicker mono">04 / 04 · Logo &amp; Markenauftritt</p>
               <h3>De Haven Steakhus</h3>
@@ -491,7 +495,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         <div class="feature__stats"><div><b data-count="25" data-prefix="~">~25</b><span>Betriebe</span></div><div><b data-count="2024">2024</b><span>gestartet</span></div><div><b data-count="1">1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="feature__visual tilt"><img class="shot" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_134720_62c735bc-3057-46a9-9710-a576892fd072.png" alt="Kiek mol in — App" loading="lazy" onerror="this.remove()"><div class="km" aria-hidden="true">Kiek mol in<small>kiekmolin.de</small></div></div>
+      <div class="feature__visual tilt"><img class="shot" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144807_9e449eb1-40a2-4b07-b877-7e54d070d9f2.png" alt="Kiek mol in — App" loading="lazy" onerror="this.remove()"><div class="km" aria-hidden="true">Kiek mol in<small>kiekmolin.de</small></div></div>
     </div>
   </div></section>
 
