@@ -203,7 +203,6 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 
 /* Vollbild-Sektionen mit Scroll-Snap (Kino-Kapitel pro Screen) */
 .snap{ min-height:100svh; scroll-snap-align:start; position:relative; }
-.page > section{ transform-origin:center center; backface-visibility:hidden; }
 @media (min-width:861px){ .snap{ display:flex; flex-direction:column; justify-content:center; } }
 .snap > .wrap{ position:relative; z-index:1; width:100%; }
 
@@ -483,28 +482,6 @@ if(!reduceMotion){
     for(const g of ghosts){ const r=g.parentElement.getBoundingClientRect(); g.style.transform=`translateY(${(r.top/window.innerHeight)*-70}px)`; }
     if(marquee){ vel += ((window.scrollY-lastS)-vel)*0.12; lastS=window.scrollY;
       marquee.style.transform=`skewX(${Math.max(-7,Math.min(7,vel*0.35))}deg)`; }
-  })();
-}
-
-/* ---------- Scroll = in die Tiefe „hineinfliegen" ----------
-   Sektionen kommen aus der Tiefe auf dich zu; die Kamera fliegt durch die
-   aktuelle Sektion hindurch (Perspektive + Z-Zoom an den Scroll gekoppelt). */
-if(!reduceMotion){
-  const secs=[...document.querySelectorAll('.page > section')];
-  secs.forEach(s=>{ s.style.willChange='transform,opacity'; });
-  (function depth(){
-    requestAnimationFrame(depth);
-    const vh=window.innerHeight, cz=vh/2;
-    for(const s of secs){
-      const r=s.getBoundingClientRect();
-      let p=((r.top+r.height/2)-cz)/vh;        // 0 = mittig im Blick
-      p=Math.max(-1.2,Math.min(1.2,p));
-      let tz,sc,op;
-      if(p<0){ const a=-p; tz=a*640; sc=1+a*0.45; op=1-a*1.25; }   // verlassen -> durchfliegen + ausblenden
-      else   { tz=-p*560;  sc=1-p*0.12; op=1-p*0.45; }             // kommend -> aus der Tiefe
-      s.style.transform=`perspective(1100px) translateZ(${tz}px) scale(${sc})`;
-      s.style.opacity=Math.max(0,Math.min(1,op)).toFixed(3);
-    }
   })();
 }
 
