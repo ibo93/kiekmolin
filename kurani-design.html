@@ -254,6 +254,18 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .work__foot .tag{ color:var(--cream-mute); font-size:.85rem; }
 .work__foot .arrow{ color:var(--accent); }
 
+/* Floating-Showcase — Objekte schweben elegant, Licht wandert (Sheen) */
+.work, .feature__visual{ animation:floaty 8.5s ease-in-out infinite; }
+.gallery .work:nth-of-type(2){ animation-delay:-2.1s } .gallery .work:nth-of-type(3){ animation-delay:-4.2s } .gallery .work:nth-of-type(4){ animation-delay:-6.3s }
+@keyframes floaty{ 0%,100%{ transform:translateY(0) rotate(-.5deg); } 50%{ transform:translateY(-13px) rotate(.5deg); } }
+.work__media::after{ content:""; position:absolute; inset:0; pointer-events:none; z-index:2; mix-blend-mode:screen;
+  background:linear-gradient(120deg, transparent 42%, rgba(255,235,215,.12) 50%, transparent 58%);
+  transform:translateX(-130%); animation:sheen 7.5s ease-in-out infinite; }
+@keyframes sheen{ 0%,100%{ transform:translateX(-130%); } 50%{ transform:translateX(130%); } }
+.feature__visual img.shot{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+.feature__visual .km{ position:relative; z-index:0; }
+@media (prefers-reduced-motion:reduce){ .work,.feature__visual{ animation:none; } .work__media::after{ animation:none; opacity:0; } }
+
 /* 4 · LEISTUNGEN */
 .services{ border-top:1px solid var(--line); }
 .svc{ display:grid; grid-template-columns:auto 1fr; gap:1rem 2rem; align-items:baseline; padding-block:clamp(26px,3.8vw,42px); border-bottom:1px solid var(--line); transition:padding-left .5s var(--ease); }
@@ -378,10 +390,10 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <section id="arbeiten" class="panel snap"><span class="ghost" aria-hidden="true">01</span><div class="wrap">
     <div class="section-head reveal"><p class="kicker mono">01 — Arbeiten</p><h2 class="anim-words">Ausgewählte Projekte aus der Region.</h2></div>
     <div class="gallery">
-      <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal tilt"><div class="work__media"><img class="shot" src="bilder/speisekarte.jpg" alt="Speisekarte — La Piazza, Greetsiel" loading="lazy" onerror="this.remove()"><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/speisekarte.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1 tilt"><div class="work__media"><img class="shot" src="bilder/markenauftritt.jpg" alt="Markenauftritt — De Haven Steakhus" loading="lazy" onerror="this.remove()"><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/markenauftritt.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal tilt"><div class="work__media"><img class="shot" src="bilder/schild.jpg" alt="Schild & Werbetechnik — Greetsieler Börse" loading="lazy" onerror="this.remove()"><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/schild.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1 tilt"><div class="work__media"><img class="shot" src="bilder/banner.jpg" alt="Großformat & Banner — Herdem Frischmarkt" loading="lazy" onerror="this.remove()"><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/banner.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
     </div>
     <div class="gallery-hint"><span class="ln"></span> seitlich scrollen / wischen</div>
   </div></section>
@@ -407,7 +419,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         <div class="feature__stats"><div><b data-count="25" data-prefix="~">~25</b><span>Betriebe</span></div><div><b data-count="2024">2024</b><span>gestartet</span></div><div><b data-count="1">1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="feature__visual tilt" aria-hidden="true"><div class="km">Kiek mol in<small>kiekmolin.de</small></div></div>
+      <div class="feature__visual tilt"><img class="shot" src="bilder/app.jpg" alt="Kiek mol in — App" loading="lazy" onerror="this.remove()"><div class="km" aria-hidden="true">Kiek mol in<small>kiekmolin.de</small></div></div>
     </div>
   </div></section>
 

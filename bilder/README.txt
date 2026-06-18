@@ -1,10 +1,16 @@
-Bilder für die Landingpage:
+Bilder für die Kurani-Design-Landingpage.
 
-  farbfaecher.png   – statisches Hero-Bild (Mobile-Fallback statt 3D)
-  la-piazza.jpg     – Arbeit: La Piazza, Greetsiel
-  de-haven.jpg      – Arbeit: De Haven Steakhus
-  greetsieler-boerse.jpg – Arbeit: Greetsieler Börse
-  herdem.jpg        – Arbeit: Herdem Frischmarkt
+Lege deine 5 Marken-Renderings GENAU unter diesen Namen hier ab —
+dann erscheinen sie automatisch (vorher zeigen die Kacheln einen Platzhalter):
 
-Die Bild-Slots sind in kurani-design.html als HTML-Kommentar markiert
-(Suchbegriff: "FOTO-PLATZHALTER").
+  speisekarte.jpg     – schwebende Speisekarte (Arbeiten: La Piazza · Print & Speisekarten)
+  markenauftritt.jpg  – Marken-/Briefpapier-Set (Arbeiten: De Haven · Markenauftritt)
+  schild.jpg          – Leuchtschild / Logo-Schild (Arbeiten: Greetsieler Börse · Werbetechnik)
+  banner.jpg          – ausgerollter Banner (Arbeiten: Herdem · Großformat & Banner)
+  app.jpg             – Restaurant-App auf dem Handy (Kiek mol in · Feature-Visual)
+
+Optional fürs Social-Sharing/Hero-Fallback:
+  hero-speisekarte.png
+
+Format: JPG (oder PNG), dunkler Hintergrund passt am besten zur Bühne,
+Seitenverhältnis ~4:3 wirkt in den Kacheln optimal.
