@@ -86,6 +86,19 @@ body.no3d #scene-fallback{ display:block; }
 .reveal.d1{ transition-delay:.08s } .reveal.d2{ transition-delay:.16s } .reveal.d3{ transition-delay:.24s }
 @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } }
 
+/* Schrift-Effekte: Wörter steigen gemaskt auf */
+.anim-words .word{ display:inline-block; overflow:hidden; vertical-align:top; line-height:1.04; padding-bottom:.04em; }
+.anim-words .word>span{ display:inline-block; transform:translateY(118%); transition:transform .95s var(--ease); }
+.anim-words.in .word>span{ transform:none; }
+/* Clip-Wipe für große Headlines */
+.text-clip{ clip-path:inset(-14% 0 100% 0); transform:translateY(.14em); transition:clip-path 1.15s var(--ease), transform 1.15s var(--ease); }
+.text-clip.in{ clip-path:inset(-14% 0 -14% 0); transform:none; }
+/* 3D-Tilt-Karten (folgen der Maus) */
+.tilt{ transition:transform .5s var(--ease); transform-style:preserve-3d; will-change:transform; }
+@media (prefers-reduced-motion:reduce){
+  .anim-words .word>span{ transform:none; } .text-clip{ clip-path:none; transform:none; }
+}
+
 /* Nav */
 .nav{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
   padding:20px var(--gut); background:linear-gradient(180deg, rgba(16,9,4,.75), transparent); }
@@ -221,7 +234,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <!-- 1 · HERO -->
   <section class="hero wrap" aria-label="Intro">
     <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
-    <h1 class="display reveal d1">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
+    <h1 class="display text-clip">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
     <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte bis zur Fassade.
       Ein Studio, das Druck, Schild und Auftritt aus einer Hand denkt.</p>
     <div class="hero-meta mono reveal d3"><span>Norden</span><i class="sep" aria-hidden="true"></i><span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i><span>seit 2024</span></div>
@@ -240,18 +253,18 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 
   <!-- 3 · ARBEITEN -->
   <section id="arbeiten" class="panel"><div class="wrap">
-    <div class="section-head reveal"><p class="kicker mono">Arbeiten</p><h2>Ausgewählte Projekte aus der Region.</h2></div>
+    <div class="section-head reveal"><p class="kicker mono">Arbeiten</p><h2 class="anim-words">Ausgewählte Projekte aus der Region.</h2></div>
     <div class="works">
-      <article class="work reveal"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal d1"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
-      <article class="work reveal d1"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
     </div>
   </div></section>
 
   <!-- 4 · LEISTUNGEN -->
   <section id="leistungen" class="panel"><div class="wrap">
-    <div class="section-head reveal"><p class="kicker mono">Leistungen</p><h2>Vier Disziplinen, ein Handschlag.</h2></div>
+    <div class="section-head reveal"><p class="kicker mono">Leistungen</p><h2 class="anim-words">Vier Disziplinen, ein Handschlag.</h2></div>
     <div class="services">
       <div class="svc reveal"><span class="svc__no">01</span><div class="svc__main"><h3>Print &amp; Speisekarten</h3><p class="svc__desc">Vom Flyer bis zur Karte, die zum Bestellen verführt — sauber gesetzt, sauber gedruckt.</p></div></div>
       <div class="svc reveal"><span class="svc__no">02</span><div class="svc__main"><h3>Schilder &amp; Werbetechnik</h3><p class="svc__desc">Außenwerbung, Beschriftung und Montage — sichtbar bei jedem ostfriesischen Wetter.</p></div></div>
@@ -270,14 +283,14 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         <div class="feature__stats"><div><b>~25</b><span>Betriebe</span></div><div><b>2024</b><span>gestartet</span></div><div><b>1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="feature__visual" aria-hidden="true"><div class="km">Kiek mol in<small>kiekmolin.de</small></div></div>
+      <div class="feature__visual tilt" aria-hidden="true"><div class="km">Kiek mol in<small>kiekmolin.de</small></div></div>
     </div>
   </div></section>
 
   <!-- 6 · KONTAKT -->
   <section id="kontakt" class="panel contact"><div class="wrap">
     <p class="kicker mono reveal">Kontakt</p>
-    <h2 class="claim reveal">Gestaltung, die man <em>fühlt.</em></h2>
+    <h2 class="claim text-clip">Gestaltung, die man <em>fühlt.</em></h2>
     <div class="contact-grid">
       <div class="reveal"><h4>Schreib uns</h4><a class="big ul" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
       <div class="reveal d1"><h4>Studio</h4><address>Bahnhofstr. 2<br>26506 Norden<br>Ostfriesland</address></div>
@@ -327,6 +340,36 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
     entries.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
   }, { threshold: 0.16, rootMargin: '0px 0px -8% 0px' });
   reveals.forEach(el => io.observe(el));
+}
+
+/* ============================================================
+   Schrift-Effekte (Wort-Rise + Clip-Wipe) & 3D-Tilt-Karten
+   ============================================================ */
+function splitWords(el){
+  const txt=el.textContent; el.textContent='';
+  txt.split(/(\s+)/).forEach((p,i)=>{
+    if(/^\s+$/.test(p)){ el.appendChild(document.createTextNode(' ')); return; }
+    const w=document.createElement('span'); w.className='word';
+    const s=document.createElement('span'); s.textContent=p; s.style.transitionDelay=(i*0.03)+'s';
+    w.appendChild(s); el.appendChild(w);
+  });
+}
+if (reduceMotion) {
+  document.querySelectorAll('.anim-words, .text-clip').forEach(el=>el.classList.add('in'));
+} else {
+  document.querySelectorAll('.anim-words').forEach(splitWords);
+  const tio=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); tio.unobserve(e.target); } }); }, { threshold:0.3 });
+  document.querySelectorAll('.anim-words, .text-clip').forEach(el=>tio.observe(el));
+
+  /* 3D-Tilt: Karten folgen der Maus */
+  document.querySelectorAll('.tilt').forEach(card=>{
+    card.addEventListener('pointermove',(e)=>{
+      const r=card.getBoundingClientRect();
+      const px=(e.clientX-r.left)/r.width-0.5, py=(e.clientY-r.top)/r.height-0.5;
+      card.style.transform=`perspective(900px) rotateY(${px*9}deg) rotateX(${-py*9}deg)`;
+    });
+    card.addEventListener('pointerleave',()=>{ card.style.transform=''; });
+  });
 }
 
 /* ============================================================
