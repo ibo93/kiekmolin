@@ -321,7 +321,8 @@ import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
    >> Self-Hosten: GLB herunterladen, als modelle/farbfaecher.glb ablegen
       und MODEL_URL unten auf 'modelle/farbfaecher.glb' setzen.
    ============================================================ */
-const MODEL_URL = 'https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/05fc0daf-2c21-4018-87d9-7c8cce1b1ed0.glb';
+const MODEL_LOCAL = 'modelle/farbfaecher.glb';
+const MODEL_CDN   = 'https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/05fc0daf-2c21-4018-87d9-7c8cce1b1ed0.glb';
 
 /* ---------- Jahr + Marquee ---------- */
 document.getElementById('year').textContent = new Date().getFullYear();
@@ -419,9 +420,12 @@ function init3D(){
     depthWrite:false, blending:THREE.AdditiveBlending }));
   scene.add(particles);
 
-  /* EIN echtes Produkt — das Speisekarten-3D-Modell. Keine Platzhalter-Karten. */
+  /* EIN echtes Produkt — das Speisekarten-3D-Modell. Keine Platzhalter-Karten.
+     Lädt zuerst lokal (modelle/farbfaecher.glb), Rückfall = CDN. Scheitert beides
+     (z.B. CORS), bleibt die Partikel-Atmosphäre — niemals ein Standbild. */
   let model = null;
-  new GLTFLoader().load(MODEL_URL, (gltf)=>{
+  const loader = new GLTFLoader();
+  function onModel(gltf){
     model = gltf.scene;
     model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; if(o.material){ o.material.envMapIntensity=0.6; } } });
     const box=new THREE.Box3().setFromObject(model);
@@ -429,7 +433,10 @@ function init3D(){
     model.position.sub(center);
     const maxDim=Math.max(size.x,size.y,size.z)||1; model.scale.setScalar(3.6/maxDim);
     root.add(model);
-  }, undefined, ()=>{ /* GLB nicht ladbar (CORS o.ä.) -> die Partikel-Atmosphäre bleibt, kein Standbild */ });
+  }
+  loader.load(MODEL_LOCAL, onModel, undefined,
+    ()=> loader.load(MODEL_CDN, onModel, undefined,
+      ()=>{ /* nichts ladbar -> Atmosphäre bleibt */ }));
 
   /* Post-Processing: Bloom (glüht auf Schwarz nur Helles/Zinnober) */
   const composer = new EffectComposer(renderer);
