@@ -24,10 +24,10 @@
 <meta name="twitter:description" content="Grafikdesign & Werbetechnik in Norden, Ostfriesland." />
 <meta name="twitter:image" content="https://kurani-design.de/bilder/hero-speisekarte.png" />
 
-<!-- Hausschrift: Fraunces (Display) · Inter Tight (Body) · Space Mono (Labels) -->
+<!-- Hausschrift (modern): Space Grotesk (Display) · Inter (Body) · Space Mono (Labels) -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200..600;1,9..144,300..500&family=Inter+Tight:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
 <style>
 /* ============================================================
@@ -49,15 +49,15 @@ html{ -webkit-text-size-adjust:100%; }
 .lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
 .lenis.lenis-stopped{ overflow:hidden; }
 body{ margin:0; background:var(--bg); color:var(--cream);
-  font-family:"Inter Tight",system-ui,sans-serif; font-size:1.04rem; line-height:1.6;
+  font-family:"Inter",system-ui,sans-serif; font-size:1.04rem; line-height:1.6;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden; }
 ::selection{ background:var(--accent); color:#fff; }
 a{ color:inherit; text-decoration:none; }
 img{ max-width:100%; display:block; }
 .wrap{ max-width:var(--maxw); margin-inline:auto; padding-inline:var(--gut); }
 .mono{ font-family:"Space Mono",ui-monospace,monospace; font-size:.76rem; letter-spacing:.26em; text-transform:uppercase; color:var(--cream-soft); }
-h1,h2,h3{ font-family:"Fraunces",Georgia,serif; font-weight:300; line-height:1.0; letter-spacing:-.02em; margin:0; }
-.display{ font-size:var(--t-display); line-height:.9; letter-spacing:-.04em; font-weight:200; }
+h1,h2,h3{ font-family:"Space Grotesk",system-ui,sans-serif; font-weight:500; line-height:1.02; letter-spacing:-.03em; margin:0; }
+.display{ font-size:var(--t-display); line-height:.92; letter-spacing:-.045em; font-weight:600; }
 
 /* Film-Grain */
 .grain{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
@@ -86,24 +86,28 @@ body.no3d #scene-fallback{ display:block; }
 .reveal.d1{ transition-delay:.08s } .reveal.d2{ transition-delay:.16s } .reveal.d3{ transition-delay:.24s }
 @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } }
 
-/* Schrift-Effekte: Wörter steigen gemaskt auf */
-.anim-words .word{ display:inline-block; overflow:hidden; vertical-align:top; line-height:1.04; padding-bottom:.04em; }
-.anim-words .word>span{ display:inline-block; transform:translateY(118%); transition:transform .95s var(--ease); }
-.anim-words.in .word>span{ transform:none; }
-/* Clip-Wipe für große Headlines */
-.text-clip{ clip-path:inset(-14% 0 100% 0); transform:translateY(.14em); transition:clip-path 1.15s var(--ease), transform 1.15s var(--ease); }
-.text-clip.in{ clip-path:inset(-14% 0 -14% 0); transform:none; }
-/* 3D-Tilt-Karten (folgen der Maus) */
-.tilt{ transition:transform .5s var(--ease); transform-style:preserve-3d; will-change:transform; }
+/* Schrift-Effekte: Wörter steigen gemaskt auf (nur wenn JS aktiv -> sonst sichtbar) */
+.anim-words .word{ display:inline-block; overflow:hidden; vertical-align:top; line-height:1.04; padding-bottom:.06em; }
+.js .anim-words .word>span{ display:inline-block; transform:translateY(120%); transition:transform .95s var(--ease); }
+.js .anim-words.in .word>span{ transform:none; }
+/* Clip-Wipe für große Headlines (JS-gegated, damit nichts dauerhaft versteckt bleibt) */
+.js .text-clip{ clip-path:inset(-14% 0 105% 0); transform:translateY(.12em); transition:clip-path 1.15s var(--ease), transform 1.15s var(--ease); }
+.js .text-clip.in{ clip-path:inset(-14% 0 -14% 0); transform:none; }
+/* 3D-Tilt-Karten + leuchtender Rahmen beim Hovern/Touchen */
+.tilt{ transition:transform .5s var(--ease), border-color .45s var(--ease), box-shadow .45s var(--ease); transform-style:preserve-3d; will-change:transform; }
+.tilt:hover, .tilt.lit{
+  border-color:rgba(226,58,23,.7);
+  box-shadow:0 0 0 1px rgba(226,58,23,.45), 0 0 40px rgba(226,58,23,.30), inset 0 0 28px rgba(226,58,23,.10);
+}
 @media (prefers-reduced-motion:reduce){
-  .anim-words .word>span{ transform:none; } .text-clip{ clip-path:none; transform:none; }
+  .js .anim-words .word>span{ transform:none; } .js .text-clip{ clip-path:none; transform:none; }
 }
 
 /* Nav */
 .nav{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
   padding:20px var(--gut); background:linear-gradient(180deg, rgba(16,9,4,.75), transparent); }
 .brand{ display:flex; align-items:center; gap:.6rem; }
-.brand b{ font-family:"Fraunces",serif; font-weight:400; font-size:1.2rem; letter-spacing:-.01em; }
+.brand b{ font-family:"Space Grotesk",serif; font-weight:400; font-size:1.2rem; letter-spacing:-.01em; }
 .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 16px var(--accent); }
 .nav nav{ display:flex; gap:1.8rem; align-items:center; }
 .nav nav a{ font-size:.84rem; color:var(--cream-soft); transition:color .3s var(--ease); }
@@ -131,8 +135,8 @@ body.no3d #scene-fallback{ display:block; }
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); }
 .marquee-track{ display:inline-flex; animation:slide 38s linear infinite; will-change:transform; }
 .marquee:hover .marquee-track{ animation-play-state:paused; }
-.marquee-track span{ font-family:"Fraunces",serif; font-weight:200; font-size:clamp(1.6rem,3.8vw,2.8rem); display:inline-flex; align-items:center; padding-inline:1.6rem; }
-.marquee-track .star{ color:var(--accent); font-family:"Inter Tight",sans-serif; font-size:.75em; }
+.marquee-track span{ font-family:"Space Grotesk",sans-serif; font-weight:500; font-size:clamp(1.6rem,3.8vw,2.8rem); display:inline-flex; align-items:center; padding-inline:1.6rem; }
+.marquee-track .star{ color:var(--accent); font-family:"Inter",sans-serif; font-size:.75em; }
 @keyframes slide{ to{ transform:translateX(-50%); } }
 @media (prefers-reduced-motion:reduce){ .marquee-track{ animation:none; } }
 
@@ -174,13 +178,13 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .feature h2{ font-size:var(--t-h2); margin-top:1rem; } .feature h2 em{ color:var(--accent); font-style:italic; }
 .feature p{ color:var(--cream-soft); max-width:48ch; margin-top:1.2rem; }
 .feature__stats{ display:flex; gap:2.6rem; margin-top:2rem; flex-wrap:wrap; }
-.feature__stats b{ font-family:"Fraunces",serif; font-weight:300; font-size:2.3rem; display:block; }
+.feature__stats b{ font-family:"Space Grotesk",serif; font-weight:300; font-size:2.3rem; display:block; }
 .feature__stats span{ font-size:.78rem; color:var(--cream-mute); }
 .btn{ display:inline-flex; align-items:center; gap:.7rem; margin-top:2rem; background:var(--accent); color:#fff; padding:1rem 1.7rem; border-radius:999px; font-weight:500; transition:transform .4s var(--ease), box-shadow .4s var(--ease); }
 .btn:hover{ transform:translateY(-2px); box-shadow:0 14px 44px rgba(226,58,23,.42); }
 .feature__visual{ border-radius:var(--r); border:1px solid var(--line); aspect-ratio:4/3; position:relative; overflow:hidden; display:grid; place-content:center;
   background:radial-gradient(120% 120% at 30% 20%, rgba(226,58,23,.3), transparent 60%), rgba(255,237,215,.02); }
-.feature__visual .km{ font-family:"Fraunces",serif; font-weight:300; font-size:clamp(1.7rem,4vw,2.8rem); text-align:center; }
+.feature__visual .km{ font-family:"Space Grotesk",serif; font-weight:300; font-size:clamp(1.7rem,4vw,2.8rem); text-align:center; }
 .feature__visual .km small{ display:block; font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cream-mute); margin-top:.6rem; }
 
 /* 6 · KONTAKT */
@@ -190,7 +194,7 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 @media (min-width:680px){ .contact-grid{ grid-template-columns:repeat(3,1fr); } }
 .contact-grid h4{ font-family:"Space Mono",monospace; font-weight:400; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cream-mute); margin:0 0 .6rem; }
 .contact-grid a, .contact-grid address{ font-style:normal; font-size:1.12rem; }
-.contact-grid .big{ font-family:"Fraunces",serif; font-weight:300; font-size:1.45rem; }
+.contact-grid .big{ font-family:"Space Grotesk",serif; font-weight:300; font-size:1.45rem; }
 .contact-grid .ul{ border-bottom:1px solid var(--accent); padding-bottom:2px; }
 
 footer{ border-top:1px solid var(--line); padding-block:34px; }
@@ -345,6 +349,7 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
 /* ============================================================
    Schrift-Effekte (Wort-Rise + Clip-Wipe) & 3D-Tilt-Karten
    ============================================================ */
+document.documentElement.classList.add('js');   // aktiviert die versteckten Start-Zustände
 function splitWords(el){
   const txt=el.textContent; el.textContent='';
   txt.split(/(\s+)/).forEach((p,i)=>{
@@ -354,21 +359,27 @@ function splitWords(el){
     w.appendChild(s); el.appendChild(w);
   });
 }
+const textEls = () => document.querySelectorAll('.anim-words, .text-clip');
 if (reduceMotion) {
-  document.querySelectorAll('.anim-words, .text-clip').forEach(el=>el.classList.add('in'));
+  textEls().forEach(el=>el.classList.add('in'));
 } else {
   document.querySelectorAll('.anim-words').forEach(splitWords);
-  const tio=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); tio.unobserve(e.target); } }); }, { threshold:0.3 });
-  document.querySelectorAll('.anim-words, .text-clip').forEach(el=>tio.observe(el));
+  const near = (el)=>{ const r=el.getBoundingClientRect(); return r.top < window.innerHeight*0.92 && r.bottom > 0; };
+  const tio=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); tio.unobserve(e.target); } }); }, { threshold:0.25 });
+  textEls().forEach(el=>{ if(near(el)){ el.classList.add('in'); } else { tio.observe(el); } }); // Hero sofort sichtbar
+  // Sicherheitsnetz: nach 2.2s nichts mehr versteckt lassen
+  setTimeout(()=> textEls().forEach(el=>el.classList.add('in')), 2200);
 
-  /* 3D-Tilt: Karten folgen der Maus */
+  /* 3D-Tilt: Karten folgen der Maus + leuchtender Rahmen (.lit für Touch) */
   document.querySelectorAll('.tilt').forEach(card=>{
     card.addEventListener('pointermove',(e)=>{
       const r=card.getBoundingClientRect();
       const px=(e.clientX-r.left)/r.width-0.5, py=(e.clientY-r.top)/r.height-0.5;
       card.style.transform=`perspective(900px) rotateY(${px*9}deg) rotateX(${-py*9}deg)`;
+      card.classList.add('lit');
     });
-    card.addEventListener('pointerleave',()=>{ card.style.transform=''; });
+    card.addEventListener('pointerdown',()=> card.classList.add('lit'));
+    card.addEventListener('pointerleave',()=>{ card.style.transform=''; card.classList.remove('lit'); });
   });
 }
 
