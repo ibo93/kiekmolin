@@ -407,6 +407,18 @@ function init3D(){
 
   const root = new THREE.Group(); scene.add(root);
 
+  /* Atmosphäre: schwebende Lichtpartikel — immer da, gibt der Szene Raum & Emotion.
+     Die Kamera fliegt beim Scrollen durch dieses Feld (Gefühl von Tiefe/Bewegung). */
+  const PCOUNT = 1500;
+  const pgeo = new THREE.BufferGeometry();
+  const ppos = new Float32Array(PCOUNT*3);
+  for(let i=0;i<PCOUNT;i++){ ppos[i*3]=(Math.random()-0.5)*30; ppos[i*3+1]=(Math.random()-0.5)*20; ppos[i*3+2]=(Math.random()-0.5)*30; }
+  pgeo.setAttribute('position', new THREE.BufferAttribute(ppos,3));
+  const particles = new THREE.Points(pgeo, new THREE.PointsMaterial({
+    color:0xFFD9A8, size:0.035, sizeAttenuation:true, transparent:true, opacity:0.8,
+    depthWrite:false, blending:THREE.AdditiveBlending }));
+  scene.add(particles);
+
   /* EIN echtes Produkt — das Speisekarten-3D-Modell. Keine Platzhalter-Karten. */
   let model = null;
   new GLTFLoader().load(MODEL_URL, (gltf)=>{
@@ -417,7 +429,7 @@ function init3D(){
     model.position.sub(center);
     const maxDim=Math.max(size.x,size.y,size.z)||1; model.scale.setScalar(3.6/maxDim);
     root.add(model);
-  }, undefined, ()=>{ document.body.classList.add('no3d'); /* GLB nicht ladbar -> Render-Bild statt 3D */ });
+  }, undefined, ()=>{ /* GLB nicht ladbar (CORS o.ä.) -> die Partikel-Atmosphäre bleibt, kein Standbild */ });
 
   /* Post-Processing: Bloom (glüht auf Schwarz nur Helles/Zinnober) */
   const composer = new EffectComposer(renderer);
@@ -457,6 +469,11 @@ function init3D(){
     root.position.y = Math.sin(t*0.7)*0.08;                      // Schweben
     const s = 1 + Math.sin(sp*Math.PI)*0.06;                     // sanftes Atmen der Größe
     root.scale.setScalar(s);
+
+    /* Atmosphäre lebt: leichtes Driften + Parallax */
+    particles.rotation.y += dt*0.012;
+    particles.rotation.x = mouse.y*0.05;
+    particles.position.y = -sp*3.0;                              // Feld zieht beim Scrollen
 
     composer.render();
   }
