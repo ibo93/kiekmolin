@@ -77,9 +77,14 @@ h1,h2,h3{ font-family:"Space Grotesk",system-ui,sans-serif; font-weight:500; lin
 body.no3d #scene-fallback{ display:block; }
 
 .page{ position:relative; z-index:2; }
-.panel{ background:linear-gradient(180deg, rgba(16,9,4,.64), rgba(16,9,4,.86));
-  backdrop-filter:saturate(120%) blur(16px); -webkit-backdrop-filter:saturate(120%) blur(16px);
+.panel{ background:linear-gradient(180deg, rgba(16,9,4,.40), rgba(16,9,4,.66));
+  backdrop-filter:saturate(125%) blur(22px); -webkit-backdrop-filter:saturate(125%) blur(22px);
   border-top:1px solid var(--line-soft); }
+/* weiche Akzent-Übergänge beim Kapitel-Farbwechsel */
+.kicker::before, .svc__no, .work__foot .arrow, .hero .accent, .contact .claim em, .feature h2 em,
+.btn, .contact-grid .ul, .svc__main h3, .ghost, .brand .dot{
+  transition: color .6s var(--ease), background-color .6s var(--ease), border-color .6s var(--ease), box-shadow .6s var(--ease);
+}
 
 /* Reveal */
 .reveal{ opacity:0; transform:translateY(30px); transition:opacity 1.1s var(--ease), transform 1.1s var(--ease); }
@@ -152,7 +157,7 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 /* Editorial: große Geister-Indexnummer im Hintergrund */
 .ghost{ position:absolute; top:6vh; right:max(2vw,16px); z-index:0; pointer-events:none;
   font-family:"Space Grotesk",sans-serif; font-weight:700; letter-spacing:-.06em;
-  font-size:clamp(8rem,26vw,24rem); line-height:.8; color:rgba(255,237,215,.045); }
+  font-size:clamp(8rem,26vw,24rem); line-height:.8; color:color-mix(in srgb, var(--accent) 11%, transparent); }
 .kicker{ font-weight:700; }
 
 /* Horizontale Projekt-Galerie */
@@ -257,7 +262,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 <div class="page" id="top">
 
   <!-- 1 · HERO -->
-  <section class="hero wrap snap" aria-label="Intro">
+  <section id="hero" class="hero wrap snap" aria-label="Intro">
     <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
     <h1 class="display text-clip">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
     <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte bis zur Fassade.
@@ -422,18 +427,40 @@ const host = document.getElementById('scene');
 const isMobile = window.matchMedia('(max-width: 760px)').matches;
 function webglOK(){ try{ const c=document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
 
+let setSceneTheme = ()=>{};   // wird von init3D gesetzt (3D-Hintergrund + Akzent pro Kapitel)
 if (isMobile || reduceMotion || !webglOK()) {
   document.body.classList.add('no3d');
 } else {
   init3D();
 }
 
+/* Farb-Themes pro Kapitel: Akzent (CSS) + 3D-Hintergrund wechseln beim Scrollen */
+const SEC_THEMES = {
+  hero:      ['#E23A17','#170F08'],   // Zinnober / warmes Schwarz
+  arbeiten:  ['#FF5A2C','#150A18'],   // Koralle / Aubergine
+  leistungen:['#E8B84B','#08130F'],   // Amber / Tiefes Teal
+  kiekmolin: ['#4C8DFF','#0A0E1E'],   // Blau / Mitternacht
+  kontakt:   ['#FF7A3C','#150904']    // Orange / Schwarz
+};
+const themeIO = new IntersectionObserver((es)=>{
+  es.forEach(e=>{ if(e.isIntersecting){
+    const th=SEC_THEMES[e.target.id]; if(!th) return;
+    document.documentElement.style.setProperty('--accent', th[0]);
+    setSceneTheme(th[1], th[0]);
+  }});
+}, { threshold:0.5 });
+['hero','arbeiten','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) themeIO.observe(el); });
+
 function init3D(){
   const W=()=>window.innerWidth, H=()=>window.innerHeight;
 
   const scene = new THREE.Scene();
-  scene.background = gradTex('#170F08','#080402');
-  scene.fog = new THREE.FogExp2(0x080402, 0.055);
+  const bgCol = new THREE.Color('#170F08');                 // wird pro Kapitel sanft umgefärbt
+  const bgTarget = new THREE.Color('#170F08');
+  const accTarget = new THREE.Color('#E23A17');
+  scene.background = bgCol;
+  scene.fog = new THREE.FogExp2(bgCol.getHex(), 0.055);
+  setSceneTheme = (bgHex, accHex)=>{ bgTarget.set(bgHex); accTarget.set(accHex); };
 
   const camera = new THREE.PerspectiveCamera(46, W()/H(), 0.1, 100);
   camera.position.set(0,0,9);
@@ -514,6 +541,10 @@ function init3D(){
     /* Partikel ziehen mit */
     particles.rotation.y += dt*0.01;
     particles.position.z = mod(t*1.2 + sp*28, 42) - 21;
+
+    /* Kapitel-Farbe sanft überblenden (Hintergrund, Nebel, Akzent-Licht) */
+    bgCol.lerp(bgTarget, 0.045); scene.fog.color.copy(bgCol);
+    rim.color.lerp(accTarget, 0.045);
 
     composer.render();
   }
