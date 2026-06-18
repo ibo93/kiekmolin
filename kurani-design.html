@@ -181,6 +181,17 @@ body.no3d #scene-fallback{ display:block; }
 .hero-lead{ max-width:40ch; margin-top:1.8rem; font-size:var(--t-lead); color:var(--cream-soft); line-height:1.5; text-shadow:0 2px 30px rgba(0,0,0,.7); }
 .hero-meta{ display:flex; flex-wrap:wrap; gap:.7rem 1.5rem; margin-top:2.4rem; align-items:center; }
 .hero-meta .sep{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
+/* Hero: schwebende Marken-Bilder (statt der Flyer) */
+.hero .mono, .hero .display, .hero-lead, .hero-meta, .scroll-hint{ position:relative; z-index:2; }
+.hero-float{ position:absolute; inset:0; z-index:1; pointer-events:none; }
+.hero-float .ff{ position:absolute; border-radius:18px; border:1px solid var(--line);
+  box-shadow:0 30px 80px rgba(0,0,0,.55); object-fit:cover; opacity:.95; will-change:transform,translate;
+  animation:floaty 9s ease-in-out infinite; }
+.hero-float .ff1{ width:min(34vw,440px); aspect-ratio:4/3; top:9%; right:-2%; }
+.hero-float .ff2{ width:min(20vw,250px); aspect-ratio:4/3; top:42%; left:-4%; animation-duration:11s; animation-delay:-3s; }
+.hero-float .ff3{ width:min(17vw,210px); aspect-ratio:3/4; bottom:12%; right:16%; animation-duration:10s; animation-delay:-5s; }
+@media(max-width:760px){ .hero-float .ff2,.hero-float .ff3{ display:none; } .hero-float .ff1{ width:62vw; top:7%; right:2%; opacity:.55; } }
+@media (prefers-reduced-motion:reduce){ .hero-float .ff{ animation:none; } }
 .scroll-hint{ position:absolute; right:var(--gut); bottom:34px; display:flex; align-items:center; gap:.7rem;
   color:var(--cream-mute); font-family:"Space Mono",monospace; font-size:.68rem; letter-spacing:.22em; text-transform:uppercase; }
 .scroll-hint .bar{ width:40px; height:1px; background:var(--line); position:relative; overflow:hidden; }
@@ -380,6 +391,11 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 
   <!-- 1 · HERO -->
   <section id="hero" class="hero wrap snap" aria-label="Intro">
+    <div class="hero-float" aria-hidden="true">
+      <img class="ff ff1" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125929_83dbf054-7daf-4267-9d19-84ca42f7c97d.png" alt="" loading="lazy">
+      <img class="ff ff2" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png" alt="" loading="lazy">
+      <img class="ff ff3" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_134720_62c735bc-3057-46a9-9710-a576892fd072.png" alt="" loading="lazy">
+    </div>
     <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
     <h1 class="display text-clip">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
     <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte bis zur Fassade.
@@ -570,6 +586,16 @@ function countUp(el){
   nums.forEach(el=>cio.observe(el));
 })();
 
+/* ---------- Hero: schwebende Bilder folgen der Maus (Parallax) ---------- */
+(function(){
+  const ffs=[...document.querySelectorAll('.hero-float .ff')];
+  if(!ffs.length || reduceMotion) return;
+  let mx=0,my=0,tx=0,ty=0;
+  window.addEventListener('pointermove',e=>{ tx=(e.clientX/window.innerWidth-0.5); ty=(e.clientY/window.innerHeight-0.5); },{passive:true});
+  (function loop(){ requestAnimationFrame(loop); mx+=(tx-mx)*0.06; my+=(ty-my)*0.06;
+    ffs.forEach((im,i)=>{ const d=(i+1)*16; im.style.translate=`${mx*d}px ${my*d}px`; }); })();
+})();
+
 /* ---------- Hintergrund-Glow folgt dem Cursor ---------- */
 (function(){
   const glow=document.getElementById('glow'); if(!glow) return;
@@ -749,19 +775,7 @@ function init3D(){
   const particles=new THREE.Points(pgeo, new THREE.PointsMaterial({ color:0xFFD9A8, size:0.03, sizeAttenuation:true, transparent:true, opacity:0.7, depthWrite:false, blending:THREE.AdditiveBlending }));
   scene.add(particles);
 
-  /* === FLIEGENDE FLYER === */
-  const stageGroup = new THREE.Group(); scene.add(stageGroup);
-  const NEAR=7, DEPTH=30, FAR=NEAR-DEPTH;          // Flug-Korridor entlang z
-  const flyers=[];
-  const geo=new THREE.PlaneGeometry(1,1.414);       // DIN-Format
-  for(let i=0;i<10;i++){
-    const mat=new THREE.MeshStandardMaterial({ map:flyerTexture(i%5), roughness:0.78, metalness:0.0, side:THREE.DoubleSide });
-    const m=new THREE.Mesh(geo,mat);
-    m.scale.setScalar(1.7+Math.random()*1.2);
-    m.userData={ baseX:(Math.random()-0.5)*9, baseY:(Math.random()-0.5)*6.5, z:FAR+Math.random()*DEPTH,
-      rot:(Math.random()-0.5)*0.8, spin:(Math.random()-0.5)*0.3, phase:Math.random()*6.28, floatA:0.3+Math.random()*0.5 };
-    stageGroup.add(m); flyers.push(m);
-  }
+  /* (Flyer entfernt — die schwebenden Bilder liegen jetzt als DOM-Layer im Hero) */
 
   /* Post-Processing: dezenter Bloom (Zinnober glüht) */
   const composer=new EffectComposer(renderer);
@@ -784,23 +798,6 @@ function init3D(){
     sp += (spTarget-sp)*0.06;                       // Trägheit
     mouse.x += (mouse.tx-mouse.x)*0.06;
     mouse.y += (mouse.ty-mouse.y)*0.06;
-
-    /* SCROLL: Flyer fliegen den Korridor entlang an dir vorbei (+ steter Drift) */
-    const travel = sp*46 + t*0.8;
-    for(const m of flyers){
-      const u=m.userData;
-      const z = FAR + mod(u.z + travel - FAR, DEPTH);
-      m.position.set(
-        u.baseX + Math.sin(t*0.4+u.phase)*u.floatA,
-        u.baseY + Math.cos(t*0.5+u.phase)*u.floatA,
-        z
-      );
-      m.rotation.set(0.14*Math.sin(t*0.3+u.phase)+mouse.y*0.25, u.rot + t*u.spin + mouse.x*0.3, 0.05*Math.cos(t*0.4+u.phase));
-    }
-
-    /* MAUS: bewegt die ganze Bühne sichtbar (Parallax) */
-    stageGroup.position.x += ((mouse.x*-1.6)-stageGroup.position.x)*0.05;
-    stageGroup.position.y += ((mouse.y* 1.0)-stageGroup.position.y)*0.05;
 
     /* Partikel ziehen mit */
     particles.rotation.y += dt*0.01;
