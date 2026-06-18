@@ -586,7 +586,13 @@ footer{ border-top:1px solid var(--line); padding-block:32px; }
 
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader }        from 'three/addons/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment }    from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer }     from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }         from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }    from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }         from 'three/addons/postprocessing/OutputPass.js';
 
 /* ---------- Jahr ---------- */
 document.getElementById('year').textContent = new Date().getFullYear();
@@ -637,92 +643,129 @@ function init3D(host){
 
   const scene = new THREE.Scene();
 
-  const camera = new THREE.PerspectiveCamera(35, W()/H(), 0.1, 100);
-  camera.position.set(0, 0.3, 6.4);
+  /* ----- Hintergrund: weicher Papier-Verlauf (damit Bloom sauber sitzt) ----- */
+  scene.background = makeGradientTexture('#EFEAE0', '#DCD3C2');
+  scene.fog = new THREE.Fog(0xDCD3C2, 7.5, 13.5); // Tiefen-Schimmer
 
-  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  const camera = new THREE.PerspectiveCamera(34, W()/H(), 0.1, 100);
+  camera.position.set(0, 0.35, 6.6);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(W(), H());
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
 
+  /* ----- PBR-Umgebung für edle, weiche Reflexe ----- */
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
   /* ----- Edle Beleuchtung ----- */
-  // weiche Grundhelligkeit (Papierraum)
-  const hemi = new THREE.HemisphereLight(0xfff4e6, 0xcfc6b6, 0.85);
+  const hemi = new THREE.HemisphereLight(0xfff4e6, 0xd6cdbb, 0.55);
   scene.add(hemi);
-  // warmer Key-Light (oben rechts)
-  const key = new THREE.DirectionalLight(0xffe7c4, 2.1);
-  key.position.set(3.2, 4.0, 3.0);
+  // warmer Key-Light (oben rechts) — wirft weiche Schatten
+  const key = new THREE.DirectionalLight(0xffe7c4, 2.4);
+  key.position.set(3.4, 4.4, 3.2);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 1; key.shadow.camera.far = 16;
+  key.shadow.camera.left = -4; key.shadow.camera.right = 4;
+  key.shadow.camera.top = 4;   key.shadow.camera.bottom = -4;
+  key.shadow.bias = -0.0004;
+  key.shadow.radius = 6;
   scene.add(key);
-  // zinnoberroter Rim-Light (hinten links)
-  const rim = new THREE.DirectionalLight(0xe23a17, 2.4);
-  rim.position.set(-3.5, 1.2, -2.5);
+  // zinnoberroter Rim-Light (hinten links) — der eine Akzent
+  const rim = new THREE.DirectionalLight(0xe23a17, 3.0);
+  rim.position.set(-3.8, 1.4, -2.8);
   scene.add(rim);
-  // dezenter Fill
-  const fill = new THREE.DirectionalLight(0xffffff, 0.4);
-  fill.position.set(-1.5, -1.0, 2.0);
+  // dezenter kühler Fill von vorne unten
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  fill.position.set(-1.5, -1.2, 2.4);
   scene.add(fill);
+
+  /* ----- Schatten-Fänger (unsichtbarer Boden) ----- */
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(30, 30),
+    new THREE.ShadowMaterial({ opacity: 0.16 })
+  );
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = -2.1;
+  ground.receiveShadow = true;
+  scene.add(ground);
 
   /* ----- Wurzel-Gruppe (alles dreht sich hier drin) ----- */
   const root = new THREE.Group();
   scene.add(root);
 
+  // Zinnober für die Glühwelle (als Konstante, einmal angelegt)
+  const VERMILION = new THREE.Color(0xE23A17);
+  const BLACK = new THREE.Color(0x000000);
+
   /* ============================================================
-     PLATZHALTER-FAECHER (procedural)
+     PLATZHALTER-FAECHER (procedural) — der „atmende" Pantone-Fächer
      -> Wird genutzt, solange modelle/farbfaecher.glb fehlt.
         Sobald das GLB geladen werden kann, wird dieser Platzhalter
         entfernt und durch dein Modell ersetzt. Du musst dann
         NICHTS hier ändern — einfach die GLB-Datei ablegen.
+
+     Signatur-Animation:
+       · Karten sind gerundet (RoundedBox), werfen weiche Schatten
+       · der Fächer „atmet" (Öffnungswinkel pulsiert sanft)
+       · pro Karte ein leichter Versatz -> Welle läuft durch den Fächer
+       · eine zinnoberrote Glühwelle wandert über die Karten (Emissive+Bloom)
      ============================================================ */
+  const fanCards = [];          // { mesh, t } für die Animation
+  let placeholder = null;
+
   function buildPlaceholderFan(){
     const fan = new THREE.Group();
-    const COUNT = 9;
-    const spread = THREE.MathUtils.degToRad(96); // Öffnungswinkel
-    // Palette: Papiertöne, Akzent-Karte in Zinnoberrot (Studio-hell)
-    const paper = [0xF4F0E8, 0xECE7DC, 0xE3DCCD, 0xEFE9DD, 0xE7E0D2];
-    const cardGeo = new THREE.BoxGeometry(0.42, 1.7, 0.035);
-    cardGeo.translate(0, 0.85, 0); // Pivot ans untere Ende (wie ein Fächer-Niet)
+    const COUNT = 14;
+    // Papiertöne, fein abgestuft
+    const paper = [0xF4F0E8, 0xEFE9DD, 0xECE7DC, 0xE7E0D2, 0xE3DCCD];
+    // gerundete, leicht „karten-flache" Box -> wirkt wie ein Swatch
+    const cardGeo = new RoundedBoxGeometry(0.5, 1.85, 0.045, 4, 0.06);
+    cardGeo.translate(0, 0.95, 0); // Pivot ans untere Ende (Fächer-Niet)
 
     for (let i = 0; i < COUNT; i++){
-      const t = i / (COUNT - 1);
-      const isAccent = (i === COUNT - 1); // eine zinnoberrote Karte
-      const mat = new THREE.MeshStandardMaterial({
-        color: isAccent ? 0xE23A17 : paper[i % paper.length],
-        roughness: isAccent ? 0.45 : 0.75,
-        metalness: 0.04
+      const t = COUNT === 1 ? 0.5 : i / (COUNT - 1);
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: paper[i % paper.length],
+        roughness: 0.62,
+        metalness: 0.0,
+        clearcoat: 0.5,           // leichter Lack -> edler Schimmer
+        clearcoatRoughness: 0.35,
+        emissive: VERMILION.clone(),
+        emissiveIntensity: 0.0    // wird in der Animation gesetzt (Glühwelle)
       });
       const card = new THREE.Mesh(cardGeo, mat);
-      // Tip-Akzent: kleine zinnoberrote Spitze auf jeder Papierkarte
-      if (!isAccent){
-        const tipGeo = new THREE.BoxGeometry(0.42, 0.16, 0.037);
-        tipGeo.translate(0, 1.62, 0);
-        const tip = new THREE.Mesh(tipGeo, new THREE.MeshStandardMaterial({
-          color:0xE23A17, roughness:0.5, metalness:0.05
-        }));
-        card.add(tip);
-      }
-      const ang = -spread/2 + spread * t;
-      card.rotation.z = ang;
-      card.position.y = -0.6;
+      card.castShadow = true;
+      card.receiveShadow = true;
+      card.position.y = -0.95;
+      card.userData.baseColor = new THREE.Color(paper[i % paper.length]);
       fan.add(card);
+      fanCards.push({ mesh: card, t });
     }
-    // Niet/Achse unten
+
+    // Metall-Niet/Achse unten (das Scharnier des Fächers)
     const pin = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.09, 0.09, 0.16, 24),
-      new THREE.MeshStandardMaterial({ color:0x1C1814, roughness:0.4, metalness:0.6 })
+      new THREE.CylinderGeometry(0.11, 0.11, 0.42, 32),
+      new THREE.MeshStandardMaterial({ color:0x2A2520, roughness:0.28, metalness:0.85 })
     );
     pin.rotation.x = Math.PI/2;
-    pin.position.y = -0.6;
+    pin.position.y = -0.95;
+    pin.castShadow = true;
     fan.add(pin);
 
-    fan.rotation.x = -0.12;
+    fan.rotation.x = -0.10;
     fan.userData.placeholder = true;
     return fan;
   }
 
-  let placeholder = buildPlaceholderFan();
+  placeholder = buildPlaceholderFan();
   root.add(placeholder);
 
   /* ----- GLB laden (bevorzugt) ----- */
@@ -731,15 +774,16 @@ function init3D(host){
     'modelle/farbfaecher.glb',
     (gltf) => {
       // Erfolg: Platzhalter raus, echtes Modell rein
-      if (placeholder){ root.remove(placeholder); disposeGroup(placeholder); placeholder = null; }
+      if (placeholder){ root.remove(placeholder); disposeGroup(placeholder); placeholder = null; fanCards.length = 0; }
       const model = gltf.scene;
+      model.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
       // automatisch zentrieren & auf sinnvolle Größe skalieren
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
       model.position.sub(center);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      model.scale.setScalar(3.0 / maxDim);
+      model.scale.setScalar(3.2 / maxDim);
       root.add(model);
     },
     undefined,
@@ -748,6 +792,16 @@ function init3D(host){
       // console.info('farbfaecher.glb noch nicht vorhanden – Platzhalter aktiv.');
     }
   );
+
+  /* ----- Post-Processing: dezenter Bloom (nur das Zinnober glüht) ----- */
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(W(), H()), 0.42, 0.65, 0.86);
+  // strength 0.42 · radius 0.65 · threshold 0.86 -> weicher Studio-Diffusions-Glow;
+  // die hell aufleuchtende Zinnober-Welle (hohe Emissive-Intensität) bekommt
+  // dadurch einen edlen Halo, ohne dass das Papier ausbrennt.
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
 
   /* ----- Maus-Folgen (sanft) ----- */
   const target = { x: 0, y: 0 };
@@ -760,17 +814,48 @@ function init3D(host){
   /* ----- Render-Loop ----- */
   let mx = 0, my = 0;
   const clock = new THREE.Clock();
+  const tmp = new THREE.Color();
+
   function animate(){
     requestAnimationFrame(animate);
-    const dt = clock.getDelta();
-    // langsame Eigendrehung
-    root.rotation.y += dt * 0.45;
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const t  = clock.elapsedTime;
+
+    // langsame Eigendrehung des ganzen Objekts
+    root.rotation.y += dt * 0.4;
+
+    // „Atmen": Öffnungswinkel des Fächers pulsiert sanft
+    if (placeholder && fanCards.length){
+      const spread = THREE.MathUtils.degToRad(78 + Math.sin(t * 0.5) * 26); // 52°..104°
+      const wavePos = (Math.sin(t * 0.35) * 0.5 + 0.5);  // 0..1, wandert hin und her
+      for (const c of fanCards){
+        // Grundfächerung + feine, durchlaufende Welle pro Karte
+        const ang = -spread/2 + spread * c.t;
+        c.mesh.rotation.z = ang + Math.sin(t * 1.1 + c.t * 6.0) * 0.018;
+        // sanftes „Auffächern" in der Tiefe für 3D-Staffelung
+        c.mesh.position.z = Math.sin(c.t * Math.PI) * 0.05;
+
+        // Zinnober-Glühwelle: schmale leuchtende Bande wandert über den Fächer
+        const d = Math.abs(c.t - wavePos);
+        const glow = Math.max(0, 1 - d * 7.0);          // scharfe, schmale Bande
+        const g = glow * glow;                           // weicher Falloff
+        c.mesh.material.emissiveIntensity = g * 1.7;
+        // Grundfarbe leicht Richtung Zinnober ziehen, wo es glüht
+        tmp.copy(c.mesh.userData.baseColor).lerp(VERMILION, g * 0.85);
+        c.mesh.material.color.copy(tmp);
+      }
+    }
+
+    // sanftes Schweben
+    root.position.y = Math.sin(t * 0.8) * 0.06;
+
     // sanftes Maus-Folgen (gedämpft per lerp)
-    mx += (target.x - mx) * 0.04;
-    my += (target.y - my) * 0.04;
-    root.rotation.x = -0.12 + my * 0.25;
-    root.position.x = mx * 0.18;
-    renderer.render(scene, camera);
+    mx += (target.x - mx) * 0.045;
+    my += (target.y - my) * 0.045;
+    root.rotation.x = -0.10 + my * 0.22;
+    root.position.x = mx * 0.22;
+
+    composer.render();
   }
   animate();
 
@@ -778,8 +863,23 @@ function init3D(host){
   const onResize = () => {
     camera.aspect = W()/H(); camera.updateProjectionMatrix();
     renderer.setSize(W(), H());
+    composer.setSize(W(), H());
+    bloom.setSize(W(), H());
   };
   window.addEventListener('resize', onResize);
+
+  /* ----- Helfer: vertikaler Verlauf als Textur ----- */
+  function makeGradientTexture(top, bottom){
+    const c = document.createElement('canvas');
+    c.width = 4; c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, top); grad.addColorStop(1, bottom);
+    g.fillStyle = grad; g.fillRect(0, 0, 4, 256);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
 
   function disposeGroup(g){
     g.traverse(o => {
