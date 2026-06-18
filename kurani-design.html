@@ -44,7 +44,8 @@
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 *{ box-sizing:border-box; }
-html{ -webkit-text-size-adjust:100%; }
+html{ -webkit-text-size-adjust:100%; scroll-snap-type:y proximity; scroll-behavior:smooth; }
+@media (prefers-reduced-motion:reduce){ html{ scroll-snap-type:none; scroll-behavior:auto; } }
 .lenis.lenis-smooth{ scroll-behavior:auto !important; }
 .lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
 .lenis.lenis-stopped{ overflow:hidden; }
@@ -142,6 +143,26 @@ body.no3d #scene-fallback{ display:block; }
 
 /* Sektionen */
 section{ padding-block:clamp(80px,13vw,180px); position:relative; }
+
+/* Vollbild-Sektionen mit Scroll-Snap (Kino-Kapitel pro Screen) */
+.snap{ min-height:100svh; scroll-snap-align:start; position:relative; }
+@media (min-width:861px){ .snap{ display:flex; flex-direction:column; justify-content:center; } }
+.snap > .wrap{ position:relative; z-index:1; width:100%; }
+
+/* Editorial: große Geister-Indexnummer im Hintergrund */
+.ghost{ position:absolute; top:6vh; right:max(2vw,16px); z-index:0; pointer-events:none;
+  font-family:"Space Grotesk",sans-serif; font-weight:700; letter-spacing:-.06em;
+  font-size:clamp(8rem,26vw,24rem); line-height:.8; color:rgba(255,237,215,.045); }
+.kicker{ font-weight:700; }
+
+/* Horizontale Projekt-Galerie */
+.gallery{ display:flex; gap:clamp(18px,2.4vw,32px); overflow-x:auto; scroll-snap-type:x mandatory;
+  padding:6px 0 24px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.gallery::-webkit-scrollbar{ display:none; }
+.gallery .work{ flex:0 0 min(82vw,460px); scroll-snap-align:center; }
+.gallery-hint{ display:flex; align-items:center; gap:.7rem; margin-top:8px;
+  color:var(--cream-mute); font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; }
+.gallery-hint .ln{ width:34px; height:1px; background:var(--line); }
 .kicker{ display:flex; align-items:center; gap:.8rem; margin-bottom:1.6rem; }
 .kicker::before{ content:""; width:30px; height:1px; background:var(--accent); }
 .section-head{ max-width:32ch; margin-bottom:clamp(44px,6vw,80px); }
@@ -236,7 +257,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 <div class="page" id="top">
 
   <!-- 1 · HERO -->
-  <section class="hero wrap" aria-label="Intro">
+  <section class="hero wrap snap" aria-label="Intro">
     <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
     <h1 class="display text-clip">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
     <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte bis zur Fassade.
@@ -256,19 +277,20 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   </div>
 
   <!-- 3 · ARBEITEN -->
-  <section id="arbeiten" class="panel"><div class="wrap">
-    <div class="section-head reveal"><p class="kicker mono">Arbeiten</p><h2 class="anim-words">Ausgewählte Projekte aus der Region.</h2></div>
-    <div class="works">
+  <section id="arbeiten" class="panel snap"><span class="ghost" aria-hidden="true">01</span><div class="wrap">
+    <div class="section-head reveal"><p class="kicker mono">01 — Arbeiten</p><h2 class="anim-words">Ausgewählte Projekte aus der Region.</h2></div>
+    <div class="gallery">
       <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
       <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
       <article class="work reveal tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
       <article class="work reveal d1 tilt"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
     </div>
+    <div class="gallery-hint"><span class="ln"></span> seitlich scrollen / wischen</div>
   </div></section>
 
   <!-- 4 · LEISTUNGEN -->
-  <section id="leistungen" class="panel"><div class="wrap">
-    <div class="section-head reveal"><p class="kicker mono">Leistungen</p><h2 class="anim-words">Vier Disziplinen, ein Handschlag.</h2></div>
+  <section id="leistungen" class="panel snap"><span class="ghost" aria-hidden="true">02</span><div class="wrap">
+    <div class="section-head reveal"><p class="kicker mono">02 — Leistungen</p><h2 class="anim-words">Vier Disziplinen, ein Handschlag.</h2></div>
     <div class="services">
       <div class="svc reveal"><span class="svc__no">01</span><div class="svc__main"><h3>Print &amp; Speisekarten</h3><p class="svc__desc">Vom Flyer bis zur Karte, die zum Bestellen verführt — sauber gesetzt, sauber gedruckt.</p></div></div>
       <div class="svc reveal"><span class="svc__no">02</span><div class="svc__main"><h3>Schilder &amp; Werbetechnik</h3><p class="svc__desc">Außenwerbung, Beschriftung und Montage — sichtbar bei jedem ostfriesischen Wetter.</p></div></div>
@@ -278,10 +300,10 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   </div></section>
 
   <!-- 5 · KIEK MOL IN -->
-  <section id="kiekmolin" class="panel"><div class="wrap">
+  <section id="kiekmolin" class="panel snap"><span class="ghost" aria-hidden="true">03</span><div class="wrap">
     <div class="feature reveal">
       <div>
-        <p class="mono">Eigenes Produkt</p>
+        <p class="mono">03 — Eigenes Produkt</p>
         <h2>Kiek mol in — <em>die Restaurant-Plattform</em> für die Region.</h2>
         <p>Aus dem Studio entstanden: eine Plattform, auf der Gäste die Betriebe der Region entdecken, Karten durchblättern und reinschauen, bevor sie reingehen. Gestaltung und Technik aus einer Hand.</p>
         <div class="feature__stats"><div><b>~25</b><span>Betriebe</span></div><div><b>2024</b><span>gestartet</span></div><div><b>1</b><span>Region</span></div></div>
@@ -292,8 +314,8 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   </div></section>
 
   <!-- 6 · KONTAKT -->
-  <section id="kontakt" class="panel contact"><div class="wrap">
-    <p class="kicker mono reveal">Kontakt</p>
+  <section id="kontakt" class="panel contact snap"><span class="ghost" aria-hidden="true">04</span><div class="wrap">
+    <p class="kicker mono reveal">04 — Kontakt</p>
     <h2 class="claim text-clip">Gestaltung, die man <em>fühlt.</em></h2>
     <div class="contact-grid">
       <div class="reveal"><h4>Schreib uns</h4><a class="big ul" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
@@ -384,20 +406,11 @@ if (reduceMotion) {
 }
 
 /* ============================================================
-   Smooth-Scroll (Lenis) -> liefert den Scroll-Fortschritt fürs 3D
+   Scroll-Fortschritt fürs 3D (nativ — harmoniert mit CSS-Scroll-Snap)
    ============================================================ */
 let scrollPx = window.scrollY;
 const scrollMax = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-if (!reduceMotion) {
-  import('https://unpkg.com/lenis@1.1.14/dist/lenis.mjs').then(({ default: Lenis }) => {
-    const lenis = new Lenis({ duration:1.15, smoothWheel:true, easing:(t)=>Math.min(1,1.001-Math.pow(2,-10*t)) });
-    lenis.on('scroll', (e)=>{ scrollPx = e.scroll; });
-    function raf(time){ lenis.raf(time); requestAnimationFrame(raf); }
-    requestAnimationFrame(raf);
-  }).catch(()=>{ window.addEventListener('scroll',()=>{ scrollPx=window.scrollY; },{passive:true}); });
-} else {
-  window.addEventListener('scroll',()=>{ scrollPx=window.scrollY; },{passive:true});
-}
+window.addEventListener('scroll', ()=>{ scrollPx = window.scrollY; }, { passive:true });
 
 /* ============================================================
    3D-Szene · FLIEGENDE FLYER (prozedural, kein externes Asset)
