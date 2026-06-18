@@ -115,6 +115,8 @@ body.no3d #scene-fallback{ display:block; }
 .brand{ display:flex; align-items:center; gap:.6rem; }
 .brand b{ font-family:"Space Grotesk",serif; font-weight:400; font-size:1.2rem; letter-spacing:-.01em; }
 .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 16px var(--accent); }
+.nav-right{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+.nav-meta{ font-size:.64rem; letter-spacing:.18em; color:var(--cream-mute); }
 .nav nav{ display:flex; gap:1.8rem; align-items:center; }
 .nav nav a{ font-size:.84rem; color:var(--cream-soft); transition:color .3s var(--ease); }
 .nav nav a:hover{ color:var(--cream); }
@@ -251,12 +253,15 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 <!-- ============ NAV ============ -->
 <header class="nav">
   <a class="brand" href="#top" aria-label="Kurani Design — Startseite"><span class="dot" aria-hidden="true"></span><b>Kurani Design</b></a>
-  <nav>
-    <a class="hide-sm" href="#arbeiten">Arbeiten</a>
-    <a class="hide-sm" href="#leistungen">Leistungen</a>
-    <a class="hide-sm" href="#kiekmolin">Kiek mol in</a>
-    <a class="cta" href="#kontakt">Kontakt</a>
-  </nav>
+  <div class="nav-right">
+    <span class="nav-meta mono">Norden, Ostfriesland · <time id="clock">--:--</time></span>
+    <nav>
+      <a class="hide-sm" href="#arbeiten">Arbeiten</a>
+      <a class="hide-sm" href="#leistungen">Leistungen</a>
+      <a class="hide-sm" href="#kiekmolin">Kiek mol in</a>
+      <a class="cta" href="#kontakt">Kontakt</a>
+    </nav>
+  </div>
 </header>
 
 <div class="page" id="top">
@@ -355,8 +360,10 @@ import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass }from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
-/* ---------- Jahr + Marquee ---------- */
+/* ---------- Jahr + Live-Uhr + Marquee ---------- */
 document.getElementById('year').textContent = new Date().getFullYear();
+const clockEl = document.getElementById('clock');
+if (clockEl){ const tick=()=>{ clockEl.textContent=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }; tick(); setInterval(tick,20000); }
 const track = document.getElementById('marqueeTrack');
 if (track) track.innerHTML += track.innerHTML;
 
@@ -436,11 +443,11 @@ if (isMobile || reduceMotion || !webglOK()) {
 
 /* Farb-Themes pro Kapitel: Akzent (CSS) + 3D-Hintergrund wechseln beim Scrollen */
 const SEC_THEMES = {
-  hero:      ['#E23A17','#170F08'],   // Zinnober / warmes Schwarz
-  arbeiten:  ['#FF5A2C','#150A18'],   // Koralle / Aubergine
-  leistungen:['#E8B84B','#08130F'],   // Amber / Tiefes Teal
-  kiekmolin: ['#4C8DFF','#0A0E1E'],   // Blau / Mitternacht
-  kontakt:   ['#FF7A3C','#150904']    // Orange / Schwarz
+  hero:      ['#E23A17','#160D07'],   // Zinnober / warmes Schwarz
+  arbeiten:  ['#E9E778','#10130A'],   // Chartreuse (Floema) / Grün-Schwarz
+  leistungen:['#5EE0C8','#06140F'],   // Mint / Tiefes Teal
+  kiekmolin: ['#6E8BFF','#090C1E'],   // Elektrisch-Blau / Mitternacht
+  kontakt:   ['#FF3D6E','#15060A']    // Pink / Schwarz
 };
 const themeIO = new IntersectionObserver((es)=>{
   es.forEach(e=>{ if(e.isIntersecting){
