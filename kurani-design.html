@@ -212,6 +212,20 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
   font-size:clamp(8rem,26vw,24rem); line-height:.8; color:color-mix(in srgb, var(--accent) 11%, transparent); }
 .kicker{ font-weight:700; }
 
+/* Statement / Manifest — emotionale Vollbild-Aussage */
+.statement .st-line{ font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:clamp(2.1rem,6.5vw,5rem);
+  line-height:1.04; letter-spacing:-.03em; max-width:20ch; }
+.statement .st-line .hl{ color:var(--accent); }
+.statement .st-sub{ margin-top:1.8rem; max-width:46ch; color:var(--cream-soft); font-size:var(--t-lead); line-height:1.5; }
+.statement .ghost{ font-size:clamp(9rem,30vw,28rem); }
+
+/* Micro-Interaktion: animierte Link-Unterstreichung */
+.nav nav a, .contact-grid a.big, .foot a{ position:relative; }
+.nav nav a::after, .contact-grid a.big::after{ content:""; position:absolute; left:0; bottom:-3px; height:1px; width:100%;
+  background:currentColor; transform:scaleX(0); transform-origin:right; transition:transform .45s var(--ease); }
+.nav nav a:hover::after, .contact-grid a.big:hover::after{ transform:scaleX(1); transform-origin:left; }
+.contact-grid a.big.ul{ border-bottom:none; }
+
 /* Horizontale Projekt-Galerie */
 .gallery{ display:flex; gap:clamp(18px,2.4vw,32px); overflow-x:auto; scroll-snap-type:x mandatory;
   padding:6px 0 24px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
@@ -306,6 +320,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 <div class="glow" id="glow" aria-hidden="true"></div>
 <nav class="dots" id="dots" aria-label="Sektionen">
   <a href="#hero" data-label="Start"></a>
+  <a href="#haltung" data-label="Haltung"></a>
   <a href="#arbeiten" data-label="Arbeiten"></a>
   <a href="#leistungen" data-label="Leistungen"></a>
   <a href="#kiekmolin" data-label="Kiek mol in"></a>
@@ -352,6 +367,13 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
     </div>
   </div>
 
+  <!-- Haltung / Statement -->
+  <section id="haltung" class="panel snap statement"><span class="ghost" aria-hidden="true">✺</span><div class="wrap">
+    <p class="kicker mono">Haltung</p>
+    <h2 class="st-line anim-words">Eine Marke ist ein Gefühl — lange bevor sie ein Logo ist.</h2>
+    <p class="st-sub reveal">Wir gestalten so, dass Gäste sich willkommen fühlen, bevor sie die Tür öffnen — vom ersten Strich bis zur fertigen Fassade, in Norden, Greetsiel und an der ganzen Küste.</p>
+  </div></section>
+
   <!-- 3 · ARBEITEN -->
   <section id="arbeiten" class="panel snap"><span class="ghost" aria-hidden="true">01</span><div class="wrap">
     <div class="section-head reveal"><p class="kicker mono">01 — Arbeiten</p><h2 class="anim-words">Ausgewählte Projekte aus der Region.</h2></div>
@@ -382,7 +404,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         <p class="mono">03 — Eigenes Produkt</p>
         <h2>Kiek mol in — <em>die Restaurant-Plattform</em> für die Region.</h2>
         <p>Aus dem Studio entstanden: eine Plattform, auf der Gäste die Betriebe der Region entdecken, Karten durchblättern und reinschauen, bevor sie reingehen. Gestaltung und Technik aus einer Hand.</p>
-        <div class="feature__stats"><div><b>~25</b><span>Betriebe</span></div><div><b>2024</b><span>gestartet</span></div><div><b>1</b><span>Region</span></div></div>
+        <div class="feature__stats"><div><b data-count="25" data-prefix="~">~25</b><span>Betriebe</span></div><div><b data-count="2024">2024</b><span>gestartet</span></div><div><b data-count="1">1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
       <div class="feature__visual tilt" aria-hidden="true"><div class="km">Kiek mol in<small>kiekmolin.de</small></div></div>
@@ -462,6 +484,23 @@ if(!reduceMotion && window.matchMedia('(hover:hover) and (pointer:fine)').matche
     el.addEventListener('pointerleave',()=>{ el.style.transform=''; });
   });
 }
+
+/* ---------- Zahlen hochzählen (beim Reinscrollen) ---------- */
+function countUp(el){
+  const target=+el.dataset.count, pre=el.dataset.prefix||'', suf=el.dataset.suffix||'';
+  let start=null; const dur=1300;
+  (function step(ts){ if(!start)start=ts; const p=Math.min(1,(ts-start)/dur); const e=1-Math.pow(1-p,3);
+    el.textContent=pre+Math.round(target*e)+suf; if(p<1) requestAnimationFrame(step); })(performance.now());
+}
+(function(){
+  const nums=[...document.querySelectorAll('[data-count]')];
+  if(!nums.length) return;
+  if(reduceMotion || !('IntersectionObserver' in window)){
+    nums.forEach(el=>el.textContent=(el.dataset.prefix||'')+el.dataset.count+(el.dataset.suffix||'')); return;
+  }
+  const cio=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ countUp(e.target); cio.unobserve(e.target); } }); }, { threshold:0.6 });
+  nums.forEach(el=>cio.observe(el));
+})();
 
 /* ---------- Hintergrund-Glow folgt dem Cursor ---------- */
 (function(){
@@ -560,6 +599,7 @@ if (isMobile || reduceMotion || !webglOK()) {
 /* Farb-Themes pro Kapitel: Akzent (CSS) + 3D-Hintergrund wechseln beim Scrollen */
 const SEC_THEMES = {
   hero:      ['#E23A17','#160D07'],   // Zinnober / warmes Schwarz
+  haltung:   ['#FF5A2C','#170A06'],   // Koralle / warmes Schwarz
   arbeiten:  ['#E9E778','#10130A'],   // Chartreuse (Floema) / Grün-Schwarz
   leistungen:['#5EE0C8','#06140F'],   // Mint / Tiefes Teal
   kiekmolin: ['#6E8BFF','#090C1E'],   // Elektrisch-Blau / Mitternacht
@@ -573,7 +613,7 @@ const themeIO = new IntersectionObserver((es)=>{
     document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id));
   }});
 }, { threshold:0.5 });
-['hero','arbeiten','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) themeIO.observe(el); });
+['hero','haltung','arbeiten','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) themeIO.observe(el); });
 
 function init3D(){
   const W=()=>window.innerWidth, H=()=>window.innerHeight;
