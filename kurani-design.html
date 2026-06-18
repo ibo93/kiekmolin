@@ -24,79 +24,73 @@
 <meta name="twitter:description" content="Grafikdesign & Werbetechnik in Norden, Ostfriesland." />
 <meta name="twitter:image" content="https://kurani-design.de/bilder/hero-speisekarte.png" />
 
-<!-- Hausschrift: Fraunces (Display-Serif) · Inter Tight (Body) · Space Mono (Meta/Labels) -->
+<!-- Hausschrift: Fraunces (Display) · Inter Tight (Body) · Space Mono (Labels) -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200..600;1,9..144,300..500&family=Inter+Tight:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
 <style>
 /* ============================================================
-   KURANI DESIGN · Dark Cinematic (Render-Hero + Motion)
+   KURANI DESIGN · Dark Cinematic · echtes 3D + Scroll-Effekte
    ============================================================ */
 :root{
-  --bg:         #100904;
-  --bg-2:       #19100a;
-  --cream:      #FFEDD7;
-  --cream-soft: rgba(255,237,215,.64);
-  --cream-mute: rgba(255,237,215,.40);
-  --cream-faint:rgba(255,237,215,.22);
-  --line:       rgba(255,237,215,.14);
-  --line-soft:  rgba(255,237,215,.07);
-  --accent:     #E23A17;
-  --accent-2:   #FF5A2C;
-
-  --maxw: 1320px;
-  --gut: clamp(22px, 5vw, 84px);
-  --r: 14px;
-
-  --t-display: clamp(3.2rem, 13vw, 11rem);
-  --t-h2:      clamp(2.1rem, 6vw, 4.6rem);
-  --t-h3:      clamp(1.3rem, 2.4vw, 1.9rem);
-  --t-lead:    clamp(1.08rem, 1.6vw, 1.45rem);
-
-  --ease: cubic-bezier(.22,.61,.36,1);
+  --bg:#100904; --bg-2:#19100a;
+  --cream:#FFEDD7; --cream-soft:rgba(255,237,215,.64); --cream-mute:rgba(255,237,215,.40);
+  --cream-faint:rgba(255,237,215,.22); --line:rgba(255,237,215,.14); --line-soft:rgba(255,237,215,.07);
+  --accent:#E23A17; --accent-2:#FF5A2C;
+  --maxw:1320px; --gut:clamp(22px,5vw,84px); --r:14px;
+  --t-display:clamp(3.2rem,13vw,11rem); --t-h2:clamp(2.1rem,6vw,4.6rem);
+  --t-h3:clamp(1.3rem,2.4vw,1.9rem); --t-lead:clamp(1.08rem,1.6vw,1.45rem);
+  --ease:cubic-bezier(.22,.61,.36,1);
 }
-
 *{ box-sizing:border-box; }
 html{ -webkit-text-size-adjust:100%; }
-html.lenis, html.lenis body{ height:auto; }
 .lenis.lenis-smooth{ scroll-behavior:auto !important; }
 .lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain; }
 .lenis.lenis-stopped{ overflow:hidden; }
-body{
-  margin:0; background:var(--bg); color:var(--cream);
-  font-family:"Inter Tight", system-ui, sans-serif;
-  font-size:1.04rem; line-height:1.6;
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-  overflow-x:hidden;
-}
+body{ margin:0; background:var(--bg); color:var(--cream);
+  font-family:"Inter Tight",system-ui,sans-serif; font-size:1.04rem; line-height:1.6;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden; }
 ::selection{ background:var(--accent); color:#fff; }
 a{ color:inherit; text-decoration:none; }
 img{ max-width:100%; display:block; }
 .wrap{ max-width:var(--maxw); margin-inline:auto; padding-inline:var(--gut); }
-
-.mono{ font-family:"Space Mono", ui-monospace, monospace; font-size:.76rem;
-  letter-spacing:.26em; text-transform:uppercase; color:var(--cream-soft); }
-h1,h2,h3{ font-family:"Fraunces", Georgia, serif; font-weight:300; line-height:1.0;
-  letter-spacing:-.02em; margin:0; }
+.mono{ font-family:"Space Mono",ui-monospace,monospace; font-size:.76rem; letter-spacing:.26em; text-transform:uppercase; color:var(--cream-soft); }
+h1,h2,h3{ font-family:"Fraunces",Georgia,serif; font-weight:300; line-height:1.0; letter-spacing:-.02em; margin:0; }
 .display{ font-size:var(--t-display); line-height:.9; letter-spacing:-.04em; font-weight:200; }
 
-/* Film-Grain über allem (Kino-Textur) */
+/* Film-Grain */
 .grain{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* ============================================================
+   Fixe 3D-Bühne hinter allem
+   ============================================================ */
+#scene{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+#scene canvas{ display:block; width:100%; height:100%; }
+#scene::after{ content:""; position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(125% 95% at 50% 38%, transparent 42%, rgba(0,0,0,.6) 100%); }
+/* Ladезустanд / Mobile-Fallback */
+#scene-fallback{ position:fixed; inset:0; z-index:0; display:none; background:center/cover no-repeat;
+  background-image:url("https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_070316_7cccd7fb-2d43-41a7-b57a-0aa7b9012dba.png"); }
+body.no3d #scene-fallback{ display:block; }
+body.no3d #scene-fallback::after{ content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, rgba(16,9,4,.9), rgba(16,9,4,.3) 60%, rgba(16,9,4,.5)); }
+
+.page{ position:relative; z-index:2; }
+.panel{ background:linear-gradient(180deg, rgba(16,9,4,.64), rgba(16,9,4,.86));
+  backdrop-filter:saturate(120%) blur(16px); -webkit-backdrop-filter:saturate(120%) blur(16px);
+  border-top:1px solid var(--line-soft); }
 
 /* Reveal */
 .reveal{ opacity:0; transform:translateY(30px); transition:opacity 1.1s var(--ease), transform 1.1s var(--ease); }
 .reveal.in{ opacity:1; transform:none; }
-.reveal.d1{ transition-delay:.08s } .reveal.d2{ transition-delay:.16s } .reveal.d3{ transition-delay:.24s } .reveal.d4{ transition-delay:.32s }
+.reveal.d1{ transition-delay:.08s } .reveal.d2{ transition-delay:.16s } .reveal.d3{ transition-delay:.24s }
 @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } }
 
-/* ============================================================
-   Navigation
-   ============================================================ */
-.nav{ position:fixed; top:0; left:0; right:0; z-index:50;
-  display:flex; align-items:center; justify-content:space-between; padding:20px var(--gut);
-  background:linear-gradient(180deg, rgba(16,9,4,.75), transparent); }
+/* Nav */
+.nav{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
+  padding:20px var(--gut); background:linear-gradient(180deg, rgba(16,9,4,.75), transparent); }
 .brand{ display:flex; align-items:center; gap:.6rem; }
 .brand b{ font-family:"Fraunces",serif; font-weight:400; font-size:1.2rem; letter-spacing:-.01em; }
 .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 16px var(--accent); }
@@ -106,57 +100,32 @@ h1,h2,h3{ font-family:"Fraunces", Georgia, serif; font-weight:300; line-height:1
 .nav .cta{ color:var(--accent); }
 @media (max-width:720px){ .nav nav .hide-sm{ display:none; } }
 
-/* ============================================================
-   1 · HERO  (Render-Bild + Parallax)
-   ============================================================ */
-.hero{ position:relative; min-height:100svh; display:flex; align-items:flex-end;
-  padding-block:0 clamp(60px,10vh,120px); overflow:hidden; }
-.hero-bg{ position:absolute; inset:-12% -2% -2% -2%; z-index:0; will-change:transform;
-  /* HERO-BILD (Entwurf A — schwebende Speisekarte).
-     Aktuell direkt von der CDN eingebunden, damit es sofort live ist.
-     >> Zum Self-Hosten: Bild herunterladen, als bilder/hero-speisekarte.png
-        ablegen und die URL unten durch url('bilder/hero-speisekarte.png') ersetzen. */
-  background:
-    url("https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_070316_7cccd7fb-2d43-41a7-b57a-0aa7b9012dba.png")
-    center/cover no-repeat;
-}
-.hero-overlay{ position:absolute; inset:0; z-index:1; pointer-events:none;
-  background:
-    linear-gradient(90deg, rgba(16,9,4,.92) 0%, rgba(16,9,4,.5) 42%, rgba(16,9,4,.12) 72%, rgba(16,9,4,.4) 100%),
-    linear-gradient(0deg, var(--bg) 2%, rgba(16,9,4,.0) 38%),
-    radial-gradient(120% 90% at 50% 30%, transparent 45%, rgba(0,0,0,.5) 100%); }
-.hero-content{ position:relative; z-index:2; width:100%; }
-.hero-content .mono{ color:var(--cream-soft); }
-.hero .display{ margin-top:1.1rem; }
+/* 1 · HERO (über dem 3D, kein Panel) */
+.hero{ min-height:100svh; display:flex; flex-direction:column; justify-content:flex-end;
+  padding-block:clamp(120px,18vh,200px) clamp(60px,10vh,120px); position:relative; }
+.hero .display{ margin-top:1.1rem; text-shadow:0 2px 50px rgba(0,0,0,.6); }
 .hero .accent{ color:var(--accent); font-style:italic; }
-.hero-lead{ max-width:40ch; margin-top:1.8rem; font-size:var(--t-lead); color:var(--cream-soft); line-height:1.5; }
+.hero-lead{ max-width:40ch; margin-top:1.8rem; font-size:var(--t-lead); color:var(--cream-soft); line-height:1.5; text-shadow:0 2px 30px rgba(0,0,0,.7); }
 .hero-meta{ display:flex; flex-wrap:wrap; gap:.7rem 1.5rem; margin-top:2.4rem; align-items:center; }
 .hero-meta .sep{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
-.scroll-hint{ position:absolute; right:var(--gut); bottom:34px; z-index:2; display:flex; align-items:center; gap:.7rem;
+.scroll-hint{ position:absolute; right:var(--gut); bottom:34px; display:flex; align-items:center; gap:.7rem;
   color:var(--cream-mute); font-family:"Space Mono",monospace; font-size:.68rem; letter-spacing:.22em; text-transform:uppercase; }
 .scroll-hint .bar{ width:40px; height:1px; background:var(--line); position:relative; overflow:hidden; }
 .scroll-hint .bar::after{ content:""; position:absolute; inset:0; background:var(--accent); transform:translateX(-100%); animation:sweep 2.6s var(--ease) infinite; }
 @keyframes sweep{ 0%{transform:translateX(-100%)} 60%,100%{transform:translateX(100%)} }
 @media (prefers-reduced-motion:reduce){ .scroll-hint .bar::after{ animation:none; } }
 
-/* ============================================================
-   2 · MARQUEE
-   ============================================================ */
-.marquee{ border-block:1px solid var(--line); background:var(--bg-2);
-  padding-block:22px; overflow:hidden; white-space:nowrap;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
-          mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); }
+/* 2 · MARQUEE */
+.marquee{ border-block:1px solid var(--line); background:var(--bg-2); padding-block:22px; overflow:hidden; white-space:nowrap;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); }
 .marquee-track{ display:inline-flex; animation:slide 38s linear infinite; will-change:transform; }
 .marquee:hover .marquee-track{ animation-play-state:paused; }
-.marquee-track span{ font-family:"Fraunces",serif; font-weight:200; font-size:clamp(1.6rem,3.8vw,2.8rem);
-  display:inline-flex; align-items:center; padding-inline:1.6rem; }
+.marquee-track span{ font-family:"Fraunces",serif; font-weight:200; font-size:clamp(1.6rem,3.8vw,2.8rem); display:inline-flex; align-items:center; padding-inline:1.6rem; }
 .marquee-track .star{ color:var(--accent); font-family:"Inter Tight",sans-serif; font-size:.75em; }
 @keyframes slide{ to{ transform:translateX(-50%); } }
 @media (prefers-reduced-motion:reduce){ .marquee-track{ animation:none; } }
 
-/* ============================================================
-   Sektions-Basis
-   ============================================================ */
+/* Sektionen */
 section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .kicker{ display:flex; align-items:center; gap:.8rem; margin-bottom:1.6rem; }
 .kicker::before{ content:""; width:30px; height:1px; background:var(--accent); }
@@ -164,26 +133,11 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 .section-head h2{ font-size:var(--t-h2); }
 
 /* 3 · ARBEITEN */
-.works-feature{ position:relative; border-radius:var(--r); overflow:hidden; border:1px solid var(--line);
-  margin-bottom:clamp(20px,3vw,36px); aspect-ratio:21/9; }
-.works-feature .wf-bg{ position:absolute; inset:0; z-index:0; will-change:transform;
-  /* ARBEITEN-VISUAL (Entwurf B — Marken-Set). Self-Hosten: bilder/arbeiten-set.png */
-  background:
-    url("https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_070318_8508767e-ac10-4453-9d87-6d45dd58fff1.png")
-    center/cover no-repeat; }
-.works-feature .wf-grad{ position:absolute; inset:0; z-index:1;
-  background:linear-gradient(0deg, rgba(16,9,4,.85), transparent 60%), linear-gradient(90deg, rgba(16,9,4,.6), transparent 50%); }
-.works-feature .wf-cap{ position:absolute; left:clamp(20px,3vw,40px); bottom:clamp(20px,3vw,34px); z-index:2; }
-.works-feature .wf-cap h3{ font-size:clamp(1.5rem,3vw,2.4rem); }
-.works-feature .wf-cap span{ color:var(--cream-mute); font-size:.85rem; }
-
 .works{ display:grid; gap:clamp(20px,3vw,36px); grid-template-columns:1fr; }
 @media (min-width:680px){ .works{ grid-template-columns:1fr 1fr; } }
 .work{ position:relative; border-radius:var(--r); overflow:hidden; border:1px solid var(--line); background:rgba(255,237,215,.03); }
-.work__media{ aspect-ratio:4/3; position:relative; overflow:hidden;
-  background:linear-gradient(135deg, rgba(255,237,215,.06), rgba(255,237,215,.01)); }
-.work__media::before{ content:""; position:absolute; inset:0;
-  background-image:repeating-linear-gradient(135deg, var(--line-soft) 0 1px, transparent 1px 24px); opacity:.6; }
+.work__media{ aspect-ratio:4/3; position:relative; overflow:hidden; background:linear-gradient(135deg, rgba(255,237,215,.06), rgba(255,237,215,.01)); }
+.work__media::before{ content:""; position:absolute; inset:0; background-image:repeating-linear-gradient(135deg, var(--line-soft) 0 1px, transparent 1px 24px); opacity:.6; }
 .work__media .ph-mark{ position:absolute; inset:0; display:grid; place-content:center; text-align:center; gap:.3rem;
   color:var(--cream-faint); font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; }
 .work img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:transform 1s var(--ease); }
@@ -195,43 +149,35 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
 
 /* 4 · LEISTUNGEN */
 .services{ border-top:1px solid var(--line); }
-.svc{ display:grid; grid-template-columns:auto 1fr; gap:1rem 2rem; align-items:baseline;
-  padding-block:clamp(26px,3.8vw,42px); border-bottom:1px solid var(--line); transition:padding-left .5s var(--ease); }
-.svc:hover{ padding-left:14px; }
-.svc:hover h3{ color:var(--accent); }
+.svc{ display:grid; grid-template-columns:auto 1fr; gap:1rem 2rem; align-items:baseline; padding-block:clamp(26px,3.8vw,42px); border-bottom:1px solid var(--line); transition:padding-left .5s var(--ease); }
+.svc:hover{ padding-left:14px; } .svc:hover h3{ color:var(--accent); }
 .svc__no{ font-family:"Space Mono",monospace; color:var(--accent); font-size:.85rem; }
 .svc__main{ display:flex; flex-wrap:wrap; align-items:baseline; gap:.4rem 1.5rem; justify-content:space-between; }
 .svc__main h3{ font-size:clamp(1.7rem,3.8vw,2.8rem); transition:color .4s var(--ease); }
 .svc__desc{ color:var(--cream-mute); max-width:40ch; font-size:.98rem; }
 
 /* 5 · KIEK MOL IN */
-.feature{ border:1px solid var(--line); border-radius:calc(var(--r) + 6px);
-  padding:clamp(34px,6vw,84px); display:grid; gap:clamp(28px,5vw,56px); align-items:center; grid-template-columns:1fr;
+.feature{ border:1px solid var(--line); border-radius:calc(var(--r)+6px); padding:clamp(34px,6vw,84px); display:grid; gap:clamp(28px,5vw,56px); align-items:center; grid-template-columns:1fr;
   background:linear-gradient(135deg, rgba(226,58,23,.12), rgba(255,237,215,.02)); }
 @media (min-width:880px){ .feature{ grid-template-columns:1.1fr .9fr; } }
-.feature h2{ font-size:var(--t-h2); margin-top:1rem; }
-.feature h2 em{ color:var(--accent); font-style:italic; }
+.feature h2{ font-size:var(--t-h2); margin-top:1rem; } .feature h2 em{ color:var(--accent); font-style:italic; }
 .feature p{ color:var(--cream-soft); max-width:48ch; margin-top:1.2rem; }
 .feature__stats{ display:flex; gap:2.6rem; margin-top:2rem; flex-wrap:wrap; }
 .feature__stats b{ font-family:"Fraunces",serif; font-weight:300; font-size:2.3rem; display:block; }
 .feature__stats span{ font-size:.78rem; color:var(--cream-mute); }
-.btn{ display:inline-flex; align-items:center; gap:.7rem; margin-top:2rem; background:var(--accent); color:#fff;
-  padding:1rem 1.7rem; border-radius:999px; font-weight:500; transition:transform .4s var(--ease), box-shadow .4s var(--ease); }
+.btn{ display:inline-flex; align-items:center; gap:.7rem; margin-top:2rem; background:var(--accent); color:#fff; padding:1rem 1.7rem; border-radius:999px; font-weight:500; transition:transform .4s var(--ease), box-shadow .4s var(--ease); }
 .btn:hover{ transform:translateY(-2px); box-shadow:0 14px 44px rgba(226,58,23,.42); }
-.feature__visual{ border-radius:var(--r); border:1px solid var(--line); aspect-ratio:4/3; position:relative; overflow:hidden;
-  display:grid; place-content:center;
+.feature__visual{ border-radius:var(--r); border:1px solid var(--line); aspect-ratio:4/3; position:relative; overflow:hidden; display:grid; place-content:center;
   background:radial-gradient(120% 120% at 30% 20%, rgba(226,58,23,.3), transparent 60%), rgba(255,237,215,.02); }
 .feature__visual .km{ font-family:"Fraunces",serif; font-weight:300; font-size:clamp(1.7rem,4vw,2.8rem); text-align:center; }
-.feature__visual .km small{ display:block; font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em;
-  text-transform:uppercase; color:var(--cream-mute); margin-top:.6rem; }
+.feature__visual .km small{ display:block; font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cream-mute); margin-top:.6rem; }
 
 /* 6 · KONTAKT */
 .contact .claim{ font-size:clamp(2.8rem,10vw,8rem); line-height:.94; letter-spacing:-.045em; max-width:13ch; }
 .contact .claim em{ color:var(--accent); font-style:italic; }
 .contact-grid{ display:grid; gap:2rem; margin-top:clamp(44px,6vw,80px); grid-template-columns:1fr; }
 @media (min-width:680px){ .contact-grid{ grid-template-columns:repeat(3,1fr); } }
-.contact-grid h4{ font-family:"Space Mono",monospace; font-weight:400; font-size:.72rem; letter-spacing:.2em;
-  text-transform:uppercase; color:var(--cream-mute); margin:0 0 .6rem; }
+.contact-grid h4{ font-family:"Space Mono",monospace; font-weight:400; font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cream-mute); margin:0 0 .6rem; }
 .contact-grid a, .contact-grid address{ font-style:normal; font-size:1.12rem; }
 .contact-grid .big{ font-family:"Fraunces",serif; font-weight:300; font-size:1.45rem; }
 .contact-grid .ul{ border-bottom:1px solid var(--accent); padding-bottom:2px; }
@@ -241,23 +187,15 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 .foot small{ color:var(--cream-faint); font-size:.82rem; }
 </style>
 
-<!-- Strukturierte Daten · LocalBusiness -->
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
-  "@type": "ProfessionalService",
-  "name": "Kurani Design",
-  "description": "Grafikdesign & Werbetechnik in Norden, Ostfriesland. Print & Speisekarten, Schilder & Werbetechnik, Großformat & Banner, Logo & Markenauftritt.",
-  "slogan": "Gestaltung, die man fühlt.",
-  "url": "https://kurani-design.de/",
-  "email": "hallo@kurani-design.de",
-  "foundingDate": "2024",
-  "image": "https://kurani-design.de/bilder/hero-speisekarte.png",
-  "areaServed": "Ostfriesland",
-  "address": { "@type": "PostalAddress", "streetAddress": "Bahnhofstr. 2", "postalCode": "26506",
-    "addressLocality": "Norden", "addressRegion": "Niedersachsen", "addressCountry": "DE" },
-  "knowsAbout": ["Print & Speisekarten","Schilder & Werbetechnik","Großformat & Banner","Logo & Markenauftritt"],
-  "makesOffer": { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Kiek mol in — Restaurant-Plattform", "url": "https://kiekmolin.de" } }
+  "@context":"https://schema.org","@type":"ProfessionalService","name":"Kurani Design",
+  "description":"Grafikdesign & Werbetechnik in Norden, Ostfriesland. Print & Speisekarten, Schilder & Werbetechnik, Großformat & Banner, Logo & Markenauftritt.",
+  "slogan":"Gestaltung, die man fühlt.","url":"https://kurani-design.de/","email":"hallo@kurani-design.de","foundingDate":"2024",
+  "image":"https://kurani-design.de/bilder/hero-speisekarte.png","areaServed":"Ostfriesland",
+  "address":{"@type":"PostalAddress","streetAddress":"Bahnhofstr. 2","postalCode":"26506","addressLocality":"Norden","addressRegion":"Niedersachsen","addressCountry":"DE"},
+  "knowsAbout":["Print & Speisekarten","Schilder & Werbetechnik","Großformat & Banner","Logo & Markenauftritt"],
+  "makesOffer":{"@type":"Offer","itemOffered":{"@type":"Service","name":"Kiek mol in — Restaurant-Plattform","url":"https://kiekmolin.de"}}
 }
 </script>
 </head>
@@ -265,11 +203,13 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 
 <div class="grain" aria-hidden="true"></div>
 
+<!-- ============ FIXE 3D-BÜHNE ============ -->
+<div id="scene" aria-hidden="true"></div>
+<div id="scene-fallback" aria-hidden="true"></div>
+
 <!-- ============ NAV ============ -->
 <header class="nav">
-  <a class="brand" href="#top" aria-label="Kurani Design — Startseite">
-    <span class="dot" aria-hidden="true"></span><b>Kurani Design</b>
-  </a>
+  <a class="brand" href="#top" aria-label="Kurani Design — Startseite"><span class="dot" aria-hidden="true"></span><b>Kurani Design</b></a>
   <nav>
     <a class="hide-sm" href="#arbeiten">Arbeiten</a>
     <a class="hide-sm" href="#leistungen">Leistungen</a>
@@ -278,27 +218,19 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   </nav>
 </header>
 
-<main id="top">
+<div class="page" id="top">
 
-  <!-- ============ 1 · HERO ============ -->
-  <section class="hero" aria-label="Intro">
-    <div class="hero-bg" id="heroBg" aria-hidden="true"></div>
-    <div class="hero-overlay" aria-hidden="true"></div>
-    <div class="hero-content wrap">
-      <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
-      <h1 class="display reveal d1">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
-      <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der
-        Speisekarte bis zur Fassade. Ein Studio, das Druck, Schild und Auftritt aus einer Hand denkt.</p>
-      <div class="hero-meta mono reveal d3">
-        <span>Norden</span><i class="sep" aria-hidden="true"></i>
-        <span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i>
-        <span>seit 2024</span>
-      </div>
-    </div>
-    <div class="scroll-hint" aria-hidden="true"><span class="bar"></span> Scrollen</div>
+  <!-- 1 · HERO -->
+  <section class="hero wrap" aria-label="Intro">
+    <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
+    <h1 class="display reveal d1">Gestaltung,<br>die man <span class="accent">fühlt.</span></h1>
+    <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte bis zur Fassade.
+      Ein Studio, das Druck, Schild und Auftritt aus einer Hand denkt.</p>
+    <div class="hero-meta mono reveal d3"><span>Norden</span><i class="sep" aria-hidden="true"></i><span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i><span>seit 2024</span></div>
+    <div class="scroll-hint" aria-hidden="true"><span class="bar"></span> Scrollen für 3D</div>
   </section>
 
-  <!-- ============ 2 · MARQUEE ============ -->
+  <!-- 2 · MARQUEE -->
   <div class="marquee" aria-hidden="true">
     <div class="marquee-track" id="marqueeTrack">
       <span>Print &amp; Speisekarten</span><span class="star">✶</span>
@@ -308,91 +240,44 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
     </div>
   </div>
 
-  <!-- ============ 3 · ARBEITEN ============ -->
-  <section id="arbeiten"><div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker mono">Arbeiten</p>
-      <h2>Ausgewählte Projekte aus der Region.</h2>
-    </div>
-
-    <!-- Großes Marken-Set-Visual (Entwurf B) -->
-    <div class="works-feature reveal">
-      <div class="wf-bg" id="wfBg" aria-hidden="true"></div>
-      <div class="wf-grad" aria-hidden="true"></div>
-      <div class="wf-cap"><h3>Markenauftritt aus einer Hand</h3><span>Print · Drucksachen · Corporate Design</span></div>
-    </div>
-
+  <!-- 3 · ARBEITEN -->
+  <section id="arbeiten" class="panel"><div class="wrap">
+    <div class="section-head reveal"><p class="kicker mono">Arbeiten</p><h2>Ausgewählte Projekte aus der Region.</h2></div>
     <div class="works">
-      <article class="work reveal">
-        <div class="work__media">
-          <!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> -->
-          <div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div>
-        </div>
-        <div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div>
-      </article>
-      <article class="work reveal d1">
-        <div class="work__media">
-          <!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> -->
-          <div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div>
-        </div>
-        <div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div>
-      </article>
-      <article class="work reveal">
-        <div class="work__media">
-          <!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> -->
-          <div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div>
-        </div>
-        <div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div>
-      </article>
-      <article class="work reveal d1">
-        <div class="work__media">
-          <!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> -->
-          <div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div>
-        </div>
-        <div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div>
-      </article>
+      <article class="work reveal"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/la-piazza.jpg" alt="La Piazza, Greetsiel"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/la-piazza.jpg</span></div></div><div class="work__foot"><h3>La Piazza</h3><span class="tag">Greetsiel · Speisekarte <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/de-haven.jpg" alt="De Haven Steakhus"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/de-haven.jpg</span></div></div><div class="work__foot"><h3>De Haven Steakhus</h3><span class="tag">Markenauftritt <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/greetsieler-boerse.jpg" alt="Greetsieler Börse"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/greetsieler-boerse.jpg</span></div></div><div class="work__foot"><h3>Greetsieler Börse</h3><span class="tag">Schild &amp; Werbetechnik <span class="arrow">↗</span></span></div></article>
+      <article class="work reveal d1"><div class="work__media"><!-- FOTO-PLATZHALTER: <img src="bilder/herdem.jpg" alt="Herdem Frischmarkt"> --><div class="ph-mark"><span>Foto-Platzhalter</span><span>bilder/herdem.jpg</span></div></div><div class="work__foot"><h3>Herdem Frischmarkt</h3><span class="tag">Großformat &amp; Banner <span class="arrow">↗</span></span></div></article>
     </div>
   </div></section>
 
-  <!-- ============ 4 · LEISTUNGEN ============ -->
-  <section id="leistungen"><div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker mono">Leistungen</p>
-      <h2>Vier Disziplinen, ein Handschlag.</h2>
-    </div>
+  <!-- 4 · LEISTUNGEN -->
+  <section id="leistungen" class="panel"><div class="wrap">
+    <div class="section-head reveal"><p class="kicker mono">Leistungen</p><h2>Vier Disziplinen, ein Handschlag.</h2></div>
     <div class="services">
-      <div class="svc reveal"><span class="svc__no">01</span><div class="svc__main">
-        <h3>Print &amp; Speisekarten</h3><p class="svc__desc">Vom Flyer bis zur Karte, die zum Bestellen verführt — sauber gesetzt, sauber gedruckt.</p></div></div>
-      <div class="svc reveal"><span class="svc__no">02</span><div class="svc__main">
-        <h3>Schilder &amp; Werbetechnik</h3><p class="svc__desc">Außenwerbung, Beschriftung und Montage — sichtbar bei jedem ostfriesischen Wetter.</p></div></div>
-      <div class="svc reveal"><span class="svc__no">03</span><div class="svc__main">
-        <h3>Großformat &amp; Banner</h3><p class="svc__desc">Banner, Planen und Fassaden in groß — Farbe, die auf Distanz funktioniert.</p></div></div>
-      <div class="svc reveal"><span class="svc__no">04</span><div class="svc__main">
-        <h3>Logo &amp; Markenauftritt</h3><p class="svc__desc">Ein Zeichen, ein Gefühl, ein roter Faden — vom Logo bis zum kompletten Auftritt.</p></div></div>
+      <div class="svc reveal"><span class="svc__no">01</span><div class="svc__main"><h3>Print &amp; Speisekarten</h3><p class="svc__desc">Vom Flyer bis zur Karte, die zum Bestellen verführt — sauber gesetzt, sauber gedruckt.</p></div></div>
+      <div class="svc reveal"><span class="svc__no">02</span><div class="svc__main"><h3>Schilder &amp; Werbetechnik</h3><p class="svc__desc">Außenwerbung, Beschriftung und Montage — sichtbar bei jedem ostfriesischen Wetter.</p></div></div>
+      <div class="svc reveal"><span class="svc__no">03</span><div class="svc__main"><h3>Großformat &amp; Banner</h3><p class="svc__desc">Banner, Planen und Fassaden in groß — Farbe, die auf Distanz funktioniert.</p></div></div>
+      <div class="svc reveal"><span class="svc__no">04</span><div class="svc__main"><h3>Logo &amp; Markenauftritt</h3><p class="svc__desc">Ein Zeichen, ein Gefühl, ein roter Faden — vom Logo bis zum kompletten Auftritt.</p></div></div>
     </div>
   </div></section>
 
-  <!-- ============ 5 · KIEK MOL IN ============ -->
-  <section id="kiekmolin"><div class="wrap">
+  <!-- 5 · KIEK MOL IN -->
+  <section id="kiekmolin" class="panel"><div class="wrap">
     <div class="feature reveal">
       <div>
         <p class="mono">Eigenes Produkt</p>
         <h2>Kiek mol in — <em>die Restaurant-Plattform</em> für die Region.</h2>
-        <p>Aus dem Studio entstanden: eine Plattform, auf der Gäste die Betriebe der Region entdecken,
-          Karten durchblättern und reinschauen, bevor sie reingehen. Gestaltung und Technik aus einer Hand.</p>
-        <div class="feature__stats">
-          <div><b>~25</b><span>Betriebe</span></div>
-          <div><b>2024</b><span>gestartet</span></div>
-          <div><b>1</b><span>Region</span></div>
-        </div>
+        <p>Aus dem Studio entstanden: eine Plattform, auf der Gäste die Betriebe der Region entdecken, Karten durchblättern und reinschauen, bevor sie reingehen. Gestaltung und Technik aus einer Hand.</p>
+        <div class="feature__stats"><div><b>~25</b><span>Betriebe</span></div><div><b>2024</b><span>gestartet</span></div><div><b>1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
       <div class="feature__visual" aria-hidden="true"><div class="km">Kiek mol in<small>kiekmolin.de</small></div></div>
     </div>
   </div></section>
 
-  <!-- ============ 6 · KONTAKT ============ -->
-  <section id="kontakt" class="contact"><div class="wrap">
+  <!-- 6 · KONTAKT -->
+  <section id="kontakt" class="panel contact"><div class="wrap">
     <p class="kicker mono reveal">Kontakt</p>
     <h2 class="claim reveal">Gestaltung, die man <em>fühlt.</em></h2>
     <div class="contact-grid">
@@ -402,24 +287,50 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
     </div>
   </div></section>
 
-</main>
+  <footer class="panel"><div class="wrap foot">
+    <span class="brand"><span class="dot" aria-hidden="true"></span><b>Kurani Design</b></span>
+    <small>© <span id="year"></span> Kurani Design · Norden, Ostfriesland · Gestaltung, die man fühlt.</small>
+  </div></footer>
 
-<footer><div class="wrap foot">
-  <span class="brand"><span class="dot" aria-hidden="true"></span><b>Kurani Design</b></span>
-  <small>© <span id="year"></span> Kurani Design · Norden, Ostfriesland · Gestaltung, die man fühlt.</small>
-</div></footer>
+</div><!-- /.page -->
+
+<!-- ============================================================
+     Three.js r160 · ES-Module
+     ============================================================ -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 
 <script type="module">
-/* ---------- Jahr ---------- */
-document.getElementById('year').textContent = new Date().getFullYear();
+import * as THREE from 'three';
+import { GLTFLoader }     from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment }from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
-/* ---------- Marquee verdoppeln (nahtloser Loop) ---------- */
+/* ============================================================
+   3D-Modell der Speisekarte (aus dem gerenderten Entwurf erzeugt).
+   Wird direkt von der CDN geladen, damit es sofort live ist.
+   >> Self-Hosten: GLB herunterladen, als modelle/farbfaecher.glb ablegen
+      und MODEL_URL unten auf 'modelle/farbfaecher.glb' setzen.
+   ============================================================ */
+const MODEL_URL = 'https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/05fc0daf-2c21-4018-87d9-7c8cce1b1ed0.glb';
+
+/* ---------- Jahr + Marquee ---------- */
+document.getElementById('year').textContent = new Date().getFullYear();
 const track = document.getElementById('marqueeTrack');
 if (track) track.innerHTML += track.innerHTML;
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---------- Reveal-on-scroll ---------- */
+/* ---------- Reveal ---------- */
 const reveals = document.querySelectorAll('.reveal');
 if (reduceMotion || !('IntersectionObserver' in window)) {
   reveals.forEach(el => el.classList.add('in'));
@@ -431,38 +342,133 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
 }
 
 /* ============================================================
-   Smooth-Scroll (Lenis) + Parallax — kinoreife Bewegung
+   Smooth-Scroll (Lenis) -> liefert den Scroll-Fortschritt fürs 3D
    ============================================================ */
-let scrollY = window.scrollY;
-
+let scrollPx = window.scrollY;
+const scrollMax = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
 if (!reduceMotion) {
-  import('https://unpkg.com/lenis@1.1.14/dist/lenis.mjs')
-    .then(({ default: Lenis }) => {
-      const lenis = new Lenis({ duration: 1.15, smoothWheel: true,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
-      lenis.on('scroll', (e) => { scrollY = e.scroll; });
-      function raf(time){ lenis.raf(time); requestAnimationFrame(raf); }
-      requestAnimationFrame(raf);
-    })
-    .catch(() => { /* Lenis nicht ladbar -> natives Scrollen, Parallax läuft trotzdem */ });
+  import('https://unpkg.com/lenis@1.1.14/dist/lenis.mjs').then(({ default: Lenis }) => {
+    const lenis = new Lenis({ duration:1.15, smoothWheel:true, easing:(t)=>Math.min(1,1.001-Math.pow(2,-10*t)) });
+    lenis.on('scroll', (e)=>{ scrollPx = e.scroll; });
+    function raf(time){ lenis.raf(time); requestAnimationFrame(raf); }
+    requestAnimationFrame(raf);
+  }).catch(()=>{ window.addEventListener('scroll',()=>{ scrollPx=window.scrollY; },{passive:true}); });
+} else {
+  window.addEventListener('scroll',()=>{ scrollPx=window.scrollY; },{passive:true});
 }
 
-/* Parallax-Loop (entkoppelt, mit sanftem Nachziehen für „Gewicht") */
-const heroBg = document.getElementById('heroBg');
-const wfBg   = document.getElementById('wfBg');
-let cur = window.scrollY;
-function parallax(){
-  requestAnimationFrame(parallax);
-  const targetY = reduceMotion ? window.scrollY : scrollY;
-  cur += (targetY - cur) * 0.12;                 // Trägheit
-  if (heroBg) heroBg.style.transform = `translate3d(0, ${cur * 0.18}px, 0) scale(1.06)`;
-  if (wfBg){
-    const r = wfBg.parentElement.getBoundingClientRect();
-    const p = (r.top + r.height/2 - window.innerHeight/2) / window.innerHeight; // -1..1
-    wfBg.style.transform = `translate3d(0, ${p * -28}px, 0) scale(1.12)`;
-  }
+/* ============================================================
+   3D-Szene
+   ============================================================ */
+const host = document.getElementById('scene');
+const isMobile = window.matchMedia('(max-width: 760px)').matches;
+function webglOK(){ try{ const c=document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
+
+if (isMobile || reduceMotion || !webglOK()) {
+  document.body.classList.add('no3d');
+} else {
+  init3D();
 }
-if (!reduceMotion) parallax();
+
+function init3D(){
+  const W=()=>window.innerWidth, H=()=>window.innerHeight;
+
+  const scene = new THREE.Scene();
+  scene.background = gradTex('#1B120B','#0A0503');
+  scene.fog = new THREE.FogExp2(0x0A0503, 0.05);
+
+  const camera = new THREE.PerspectiveCamera(40, W()/H(), 0.1, 100);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W(),H());
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  host.appendChild(renderer.domElement);
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+
+  /* Licht — Chiaroscuro */
+  scene.add(new THREE.AmbientLight(0xffe7c4, 0.35));
+  const key = new THREE.DirectionalLight(0xffe2b0, 3.0);
+  key.position.set(3.6,5.0,3.6); key.castShadow = true;
+  key.shadow.mapSize.set(2048,2048); key.shadow.camera.near=1; key.shadow.camera.far=24;
+  key.shadow.camera.left=-6; key.shadow.camera.right=6; key.shadow.camera.top=6; key.shadow.camera.bottom=-6;
+  key.shadow.bias=-0.0004; key.shadow.radius=8; scene.add(key);
+  const rim = new THREE.DirectionalLight(0xe23a17, 4.0); rim.position.set(-4.6,1.4,-3.4); scene.add(rim);
+  const spark = new THREE.PointLight(0xff5a2c, 0.7, 30); spark.position.set(-1.6,-1.2,3.4); scene.add(spark);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60,60), new THREE.ShadowMaterial({ opacity:0.4 }));
+  ground.rotation.x=-Math.PI/2; ground.position.y=-2.6; ground.receiveShadow=true; scene.add(ground);
+
+  const root = new THREE.Group(); scene.add(root);
+
+  /* EIN echtes Produkt — das Speisekarten-3D-Modell. Keine Platzhalter-Karten. */
+  let model = null;
+  new GLTFLoader().load(MODEL_URL, (gltf)=>{
+    model = gltf.scene;
+    model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; if(o.material){ o.material.envMapIntensity=0.6; } } });
+    const box=new THREE.Box3().setFromObject(model);
+    const size=box.getSize(new THREE.Vector3()); const center=box.getCenter(new THREE.Vector3());
+    model.position.sub(center);
+    const maxDim=Math.max(size.x,size.y,size.z)||1; model.scale.setScalar(3.6/maxDim);
+    root.add(model);
+  }, undefined, ()=>{ document.body.classList.add('no3d'); /* GLB nicht ladbar -> Render-Bild statt 3D */ });
+
+  /* Post-Processing: Bloom (glüht auf Schwarz nur Helles/Zinnober) */
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(W(),H()), 0.6, 0.8, 0.6);
+  composer.addPass(bloom); composer.addPass(new OutputPass());
+
+  /* Maus (mit Trägheit) */
+  const mouse={tx:0,ty:0,x:0,y:0};
+  window.addEventListener('pointermove',(e)=>{ mouse.tx=(e.clientX/window.innerWidth-0.5)*2; mouse.ty=(e.clientY/window.innerHeight-0.5)*2; },{passive:true});
+
+  let sp=0;                       // geglätteter Scroll-Fortschritt (0..1)
+  const clock=new THREE.Clock();
+  const camTarget=new THREE.Vector3();
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
+
+    /* Eingaben träge nachziehen (Gewicht) */
+    const spTarget = Math.min(1, Math.max(0, scrollPx/scrollMax()));
+    sp += (spTarget - sp) * 0.06;
+    mouse.x += (mouse.tx-mouse.x)*0.05;
+    mouse.y += (mouse.ty-mouse.y)*0.05;
+
+    /* === SCROLL-EFFEKT: Kamera fliegt um das Objekt === */
+    const azim   = -0.4 + sp*2.3 + mouse.x*0.4;     // Umkreisung
+    const radius = 6.8 + sp*4.0;                      // Dolly nach hinten
+    const camY   = 0.7 - sp*1.8 - mouse.y*0.6;        // Höhe
+    camTarget.set(Math.sin(azim)*radius, camY, Math.cos(azim)*radius);
+    camera.position.lerp(camTarget, 0.09);
+    camera.lookAt(0, -0.1 + sp*0.3, 0);
+
+    /* === SCROLL-EFFEKT: Objekt dreht & kippt beim Scrollen === */
+    root.rotation.y = t*0.16 + sp*Math.PI*2.2 + mouse.x*0.25;   // dreht sich mit dem Scroll
+    root.rotation.x = -0.06 + Math.sin(sp*Math.PI)*0.45 + mouse.y*0.12;
+    root.position.y = Math.sin(t*0.7)*0.08;                      // Schweben
+    const s = 1 + Math.sin(sp*Math.PI)*0.06;                     // sanftes Atmen der Größe
+    root.scale.setScalar(s);
+
+    composer.render();
+  }
+  animate();
+
+  window.addEventListener('resize',()=>{ camera.aspect=W()/H(); camera.updateProjectionMatrix(); renderer.setSize(W(),H()); composer.setSize(W(),H()); bloom.setSize(W(),H()); });
+
+  /* ---- Helfer ---- */
+  function gradTex(top,bottom){ const c=document.createElement('canvas'); c.width=4;c.height=256; const x=c.getContext('2d');
+    const gr=x.createLinearGradient(0,0,0,256); gr.addColorStop(0,top); gr.addColorStop(1,bottom); x.fillStyle=gr; x.fillRect(0,0,4,256);
+    const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; return tx; }
+}
 </script>
 
 </body>
