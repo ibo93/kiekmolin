@@ -64,6 +64,25 @@ h1,h2,h3{ font-family:"Space Grotesk",system-ui,sans-serif; font-weight:500; lin
 .grain{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
+/* Intro-Loader (Floema-Idee: Zähler 0–100) */
+.loader{ display:none; }
+.js .loader{ display:flex; position:fixed; inset:0; z-index:200; background:var(--bg);
+  align-items:flex-end; justify-content:space-between; padding:var(--gut);
+  transition:opacity .8s var(--ease), visibility .8s; }
+.loader.done{ opacity:0; visibility:hidden; }
+.loader-brand{ font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:clamp(1.3rem,4vw,2.4rem); letter-spacing:-.02em; }
+.loader-count{ font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:clamp(4.5rem,20vw,14rem); line-height:.78; color:var(--accent); letter-spacing:-.05em; }
+.loader-bar{ position:absolute; left:0; bottom:0; height:2px; width:0; background:var(--accent); }
+
+/* Custom-Cursor (nur Hover-Geräte) */
+.cursor{ position:fixed; top:0; left:0; width:32px; height:32px; border:1.5px solid var(--accent); border-radius:50%;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:150; will-change:transform,width,height;
+  transition:width .3s var(--ease), height .3s var(--ease), background-color .3s var(--ease), opacity .3s; opacity:0; }
+.cursor.on{ opacity:1; }
+.cursor.grow{ width:70px; height:70px; background:color-mix(in srgb, var(--accent) 22%, transparent); }
+@media (hover:hover) and (pointer:fine){ body.cursor-on{ cursor:none; } body.cursor-on a, body.cursor-on .tilt, body.cursor-on .btn{ cursor:none; } }
+@media (hover:none){ .cursor{ display:none; } }
+
 /* ============================================================
    Fixe 3D-Bühne hinter allem
    ============================================================ */
@@ -244,6 +263,13 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 </head>
 <body>
 
+<!-- Intro-Loader -->
+<div class="loader" id="loader" aria-hidden="true">
+  <span class="loader-brand">Kurani Design</span>
+  <span class="loader-count" id="loaderCount">0</span>
+  <span class="loader-bar" id="loaderBar"></span>
+</div>
+
 <div class="grain" aria-hidden="true"></div>
 
 <!-- ============ FIXE 3D-BÜHNE ============ -->
@@ -368,6 +394,27 @@ const track = document.getElementById('marqueeTrack');
 if (track) track.innerHTML += track.innerHTML;
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Intro-Loader (Floema-Idee) ---------- */
+(function(){
+  const loader=document.getElementById('loader'), lc=document.getElementById('loaderCount'), lb=document.getElementById('loaderBar');
+  if(!loader) return;
+  if(reduceMotion){ loader.classList.add('done'); return; }
+  let n=0; const iv=setInterval(()=>{ n=Math.min(100,n+Math.ceil(Math.random()*9)); lc.textContent=n; if(lb) lb.style.width=n+'%';
+    if(n>=100){ clearInterval(iv); setTimeout(()=>loader.classList.add('done'),320); } }, 50);
+  setTimeout(()=>loader.classList.add('done'), 3500); // Sicherheitsnetz
+})();
+
+/* ---------- Custom-Cursor (nur Maus-Geräte) ---------- */
+if(!reduceMotion && window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+  const cur=document.createElement('div'); cur.className='cursor'; document.body.appendChild(cur);
+  document.body.classList.add('cursor-on');
+  let cx=innerWidth/2, cy=innerHeight/2, tx=cx, ty=cy, shown=false;
+  window.addEventListener('pointermove',e=>{ tx=e.clientX; ty=e.clientY; if(!shown){ shown=true; cur.classList.add('on'); } });
+  (function loop(){ cx+=(tx-cx)*0.2; cy+=(ty-cy)*0.2; cur.style.transform=`translate(${cx}px,${cy}px) translate(-50%,-50%)`; requestAnimationFrame(loop); })();
+  const grow=()=>cur.classList.add('grow'), shrink=()=>cur.classList.remove('grow');
+  document.querySelectorAll('a, .tilt, .btn').forEach(el=>{ el.addEventListener('pointerenter',grow); el.addEventListener('pointerleave',shrink); });
+}
 
 /* ---------- Reveal ---------- */
 const reveals = document.querySelectorAll('.reveal');
