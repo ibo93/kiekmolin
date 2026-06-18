@@ -70,12 +70,10 @@ h1,h2,h3{ font-family:"Fraunces",Georgia,serif; font-weight:300; line-height:1.0
 #scene canvas{ display:block; width:100%; height:100%; }
 #scene::after{ content:""; position:fixed; inset:0; z-index:1; pointer-events:none;
   background:radial-gradient(125% 95% at 50% 38%, transparent 42%, rgba(0,0,0,.6) 100%); }
-/* Ladезустanд / Mobile-Fallback */
-#scene-fallback{ position:fixed; inset:0; z-index:0; display:none; background:center/cover no-repeat;
-  background-image:url("https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_070316_7cccd7fb-2d43-41a7-b57a-0aa7b9012dba.png"); }
+/* Mobile-Fallback (kein 3D) — dunkler Verlauf, kein Bild */
+#scene-fallback{ position:fixed; inset:0; z-index:0; display:none;
+  background:radial-gradient(130% 100% at 60% 28%, #1B120B, #080402); }
 body.no3d #scene-fallback{ display:block; }
-body.no3d #scene-fallback::after{ content:""; position:absolute; inset:0;
-  background:linear-gradient(90deg, rgba(16,9,4,.9), rgba(16,9,4,.3) 60%, rgba(16,9,4,.5)); }
 
 .page{ position:relative; z-index:2; }
 .panel{ background:linear-gradient(180deg, rgba(16,9,4,.64), rgba(16,9,4,.86));
@@ -308,21 +306,10 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader }     from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment }from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass }from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
-
-/* ============================================================
-   3D-Modell der Speisekarte (aus dem gerenderten Entwurf erzeugt).
-   Wird direkt von der CDN geladen, damit es sofort live ist.
-   >> Self-Hosten: GLB herunterladen, als modelle/farbfaecher.glb ablegen
-      und MODEL_URL unten auf 'modelle/farbfaecher.glb' setzen.
-   ============================================================ */
-const MODEL_LOCAL = 'modelle/farbfaecher.glb';
-const MODEL_CDN   = 'https://d3u0tzju9qaucj.cloudfront.net/7d051b5a-7bfe-49fe-a484-24e7b3a9458a/05fc0daf-2c21-4018-87d9-7c8cce1b1ed0.glb';
 
 /* ---------- Jahr + Marquee ---------- */
 document.getElementById('year').textContent = new Date().getFullYear();
@@ -359,7 +346,10 @@ if (!reduceMotion) {
 }
 
 /* ============================================================
-   3D-Szene
+   3D-Szene · FLIEGENDE FLYER (prozedural, kein externes Asset)
+   - mehrere designte Flyer fliegen durch den dunklen Raum
+   - beim SCROLLEN fliegen sie an dir vorbei
+   - die MAUS bewegt die ganze Bühne sichtbar (Parallax + Neigung)
    ============================================================ */
 const host = document.getElementById('scene');
 const isMobile = window.matchMedia('(max-width: 760px)').matches;
@@ -375,112 +365,88 @@ function init3D(){
   const W=()=>window.innerWidth, H=()=>window.innerHeight;
 
   const scene = new THREE.Scene();
-  scene.background = gradTex('#1B120B','#0A0503');
-  scene.fog = new THREE.FogExp2(0x0A0503, 0.05);
+  scene.background = gradTex('#170F08','#080402');
+  scene.fog = new THREE.FogExp2(0x080402, 0.055);
 
-  const camera = new THREE.PerspectiveCamera(40, W()/H(), 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(46, W()/H(), 0.1, 100);
+  camera.position.set(0,0,9);
 
   const renderer = new THREE.WebGLRenderer({ antialias:true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   renderer.setSize(W(),H());
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMappingExposure = 1.12;
   host.appendChild(renderer.domElement);
 
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+  /* Licht — warm + zinnoberroter Rim */
+  scene.add(new THREE.AmbientLight(0xffe7c4, 0.55));
+  const key = new THREE.DirectionalLight(0xffe2b0, 2.4); key.position.set(3,4,6); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xe23a17, 2.4); rim.position.set(-5,1,-2); scene.add(rim);
 
-  /* Licht — Chiaroscuro */
-  scene.add(new THREE.AmbientLight(0xffe7c4, 0.35));
-  const key = new THREE.DirectionalLight(0xffe2b0, 3.0);
-  key.position.set(3.6,5.0,3.6); key.castShadow = true;
-  key.shadow.mapSize.set(2048,2048); key.shadow.camera.near=1; key.shadow.camera.far=24;
-  key.shadow.camera.left=-6; key.shadow.camera.right=6; key.shadow.camera.top=6; key.shadow.camera.bottom=-6;
-  key.shadow.bias=-0.0004; key.shadow.radius=8; scene.add(key);
-  const rim = new THREE.DirectionalLight(0xe23a17, 4.0); rim.position.set(-4.6,1.4,-3.4); scene.add(rim);
-  const spark = new THREE.PointLight(0xff5a2c, 0.7, 30); spark.position.set(-1.6,-1.2,3.4); scene.add(spark);
-
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60,60), new THREE.ShadowMaterial({ opacity:0.4 }));
-  ground.rotation.x=-Math.PI/2; ground.position.y=-2.6; ground.receiveShadow=true; scene.add(ground);
-
-  const root = new THREE.Group(); scene.add(root);
-
-  /* Atmosphäre: schwebende Lichtpartikel — immer da, gibt der Szene Raum & Emotion.
-     Die Kamera fliegt beim Scrollen durch dieses Feld (Gefühl von Tiefe/Bewegung). */
-  const PCOUNT = 1500;
-  const pgeo = new THREE.BufferGeometry();
-  const ppos = new Float32Array(PCOUNT*3);
-  for(let i=0;i<PCOUNT;i++){ ppos[i*3]=(Math.random()-0.5)*30; ppos[i*3+1]=(Math.random()-0.5)*20; ppos[i*3+2]=(Math.random()-0.5)*30; }
+  /* Partikel-Atmosphäre (Tiefe & Stimmung) */
+  const PCOUNT=1200; const pgeo=new THREE.BufferGeometry(); const ppos=new Float32Array(PCOUNT*3);
+  for(let i=0;i<PCOUNT;i++){ ppos[i*3]=(Math.random()-0.5)*36; ppos[i*3+1]=(Math.random()-0.5)*24; ppos[i*3+2]=(Math.random()-0.5)*42; }
   pgeo.setAttribute('position', new THREE.BufferAttribute(ppos,3));
-  const particles = new THREE.Points(pgeo, new THREE.PointsMaterial({
-    color:0xFFD9A8, size:0.035, sizeAttenuation:true, transparent:true, opacity:0.8,
-    depthWrite:false, blending:THREE.AdditiveBlending }));
+  const particles=new THREE.Points(pgeo, new THREE.PointsMaterial({ color:0xFFD9A8, size:0.03, sizeAttenuation:true, transparent:true, opacity:0.7, depthWrite:false, blending:THREE.AdditiveBlending }));
   scene.add(particles);
 
-  /* EIN echtes Produkt — das Speisekarten-3D-Modell. Keine Platzhalter-Karten.
-     Lädt zuerst lokal (modelle/farbfaecher.glb), Rückfall = CDN. Scheitert beides
-     (z.B. CORS), bleibt die Partikel-Atmosphäre — niemals ein Standbild. */
-  let model = null;
-  const loader = new GLTFLoader();
-  function onModel(gltf){
-    model = gltf.scene;
-    model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; if(o.material){ o.material.envMapIntensity=0.6; } } });
-    const box=new THREE.Box3().setFromObject(model);
-    const size=box.getSize(new THREE.Vector3()); const center=box.getCenter(new THREE.Vector3());
-    model.position.sub(center);
-    const maxDim=Math.max(size.x,size.y,size.z)||1; model.scale.setScalar(3.6/maxDim);
-    root.add(model);
+  /* === FLIEGENDE FLYER === */
+  const stageGroup = new THREE.Group(); scene.add(stageGroup);
+  const NEAR=7, DEPTH=30, FAR=NEAR-DEPTH;          // Flug-Korridor entlang z
+  const flyers=[];
+  const geo=new THREE.PlaneGeometry(1,1.414);       // DIN-Format
+  for(let i=0;i<10;i++){
+    const mat=new THREE.MeshStandardMaterial({ map:flyerTexture(i%5), roughness:0.78, metalness:0.0, side:THREE.DoubleSide });
+    const m=new THREE.Mesh(geo,mat);
+    m.scale.setScalar(1.7+Math.random()*1.2);
+    m.userData={ baseX:(Math.random()-0.5)*9, baseY:(Math.random()-0.5)*6.5, z:FAR+Math.random()*DEPTH,
+      rot:(Math.random()-0.5)*0.8, spin:(Math.random()-0.5)*0.3, phase:Math.random()*6.28, floatA:0.3+Math.random()*0.5 };
+    stageGroup.add(m); flyers.push(m);
   }
-  loader.load(MODEL_LOCAL, onModel, undefined,
-    ()=> loader.load(MODEL_CDN, onModel, undefined,
-      ()=>{ /* nichts ladbar -> Atmosphäre bleibt */ }));
 
-  /* Post-Processing: Bloom (glüht auf Schwarz nur Helles/Zinnober) */
-  const composer = new EffectComposer(renderer);
+  /* Post-Processing: dezenter Bloom (Zinnober glüht) */
+  const composer=new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene,camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(W(),H()), 0.6, 0.8, 0.6);
+  const bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()), 0.5, 0.7, 0.72);
   composer.addPass(bloom); composer.addPass(new OutputPass());
 
-  /* Maus (mit Trägheit) */
+  /* Maus (träge) */
   const mouse={tx:0,ty:0,x:0,y:0};
   window.addEventListener('pointermove',(e)=>{ mouse.tx=(e.clientX/window.innerWidth-0.5)*2; mouse.ty=(e.clientY/window.innerHeight-0.5)*2; },{passive:true});
 
-  let sp=0;                       // geglätteter Scroll-Fortschritt (0..1)
-  const clock=new THREE.Clock();
-  const camTarget=new THREE.Vector3();
+  let sp=0; const clock=new THREE.Clock();
+  const mod=(n,m)=>((n%m)+m)%m;
 
   function animate(){
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
 
-    /* Eingaben träge nachziehen (Gewicht) */
-    const spTarget = Math.min(1, Math.max(0, scrollPx/scrollMax()));
-    sp += (spTarget - sp) * 0.06;
-    mouse.x += (mouse.tx-mouse.x)*0.05;
-    mouse.y += (mouse.ty-mouse.y)*0.05;
+    const spTarget=Math.min(1,Math.max(0,scrollPx/scrollMax()));
+    sp += (spTarget-sp)*0.06;                       // Trägheit
+    mouse.x += (mouse.tx-mouse.x)*0.06;
+    mouse.y += (mouse.ty-mouse.y)*0.06;
 
-    /* === SCROLL-EFFEKT: Kamera fliegt um das Objekt === */
-    const azim   = -0.4 + sp*2.3 + mouse.x*0.4;     // Umkreisung
-    const radius = 6.8 + sp*4.0;                      // Dolly nach hinten
-    const camY   = 0.7 - sp*1.8 - mouse.y*0.6;        // Höhe
-    camTarget.set(Math.sin(azim)*radius, camY, Math.cos(azim)*radius);
-    camera.position.lerp(camTarget, 0.09);
-    camera.lookAt(0, -0.1 + sp*0.3, 0);
+    /* SCROLL: Flyer fliegen den Korridor entlang an dir vorbei (+ steter Drift) */
+    const travel = sp*46 + t*0.8;
+    for(const m of flyers){
+      const u=m.userData;
+      const z = FAR + mod(u.z + travel - FAR, DEPTH);
+      m.position.set(
+        u.baseX + Math.sin(t*0.4+u.phase)*u.floatA,
+        u.baseY + Math.cos(t*0.5+u.phase)*u.floatA,
+        z
+      );
+      m.rotation.set(0.14*Math.sin(t*0.3+u.phase)+mouse.y*0.25, u.rot + t*u.spin + mouse.x*0.3, 0.05*Math.cos(t*0.4+u.phase));
+    }
 
-    /* === SCROLL-EFFEKT: Objekt dreht & kippt beim Scrollen === */
-    root.rotation.y = t*0.16 + sp*Math.PI*2.2 + mouse.x*0.25;   // dreht sich mit dem Scroll
-    root.rotation.x = -0.06 + Math.sin(sp*Math.PI)*0.45 + mouse.y*0.12;
-    root.position.y = Math.sin(t*0.7)*0.08;                      // Schweben
-    const s = 1 + Math.sin(sp*Math.PI)*0.06;                     // sanftes Atmen der Größe
-    root.scale.setScalar(s);
+    /* MAUS: bewegt die ganze Bühne sichtbar (Parallax) */
+    stageGroup.position.x += ((mouse.x*-1.6)-stageGroup.position.x)*0.05;
+    stageGroup.position.y += ((mouse.y* 1.0)-stageGroup.position.y)*0.05;
 
-    /* Atmosphäre lebt: leichtes Driften + Parallax */
-    particles.rotation.y += dt*0.012;
-    particles.rotation.x = mouse.y*0.05;
-    particles.position.y = -sp*3.0;                              // Feld zieht beim Scrollen
+    /* Partikel ziehen mit */
+    particles.rotation.y += dt*0.01;
+    particles.position.z = mod(t*1.2 + sp*28, 42) - 21;
 
     composer.render();
   }
@@ -488,10 +454,38 @@ function init3D(){
 
   window.addEventListener('resize',()=>{ camera.aspect=W()/H(); camera.updateProjectionMatrix(); renderer.setSize(W(),H()); composer.setSize(W(),H()); bloom.setSize(W(),H()); });
 
-  /* ---- Helfer ---- */
   function gradTex(top,bottom){ const c=document.createElement('canvas'); c.width=4;c.height=256; const x=c.getContext('2d');
     const gr=x.createLinearGradient(0,0,0,256); gr.addColorStop(0,top); gr.addColorStop(1,bottom); x.fillStyle=gr; x.fillRect(0,0,4,256);
     const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; return tx; }
+}
+
+/* ---- Flyer-Texturen: echte Mini-Layouts, prozedural gezeichnet (5 Varianten) ---- */
+function flyerTexture(v){
+  const W=520,H=735,c=document.createElement('canvas'); c.width=W;c.height=H; const g=c.getContext('2d');
+  const cream='#F4ECDD', ink='#1C1814', verm='#E23A17', bar='rgba(28,24,20,0.16)';
+  g.fillStyle=cream; g.fillRect(0,0,W,H);
+  const m=52;
+  const lines=(x,y,w,n,lh,h)=>{ g.fillStyle=bar; for(let i=0;i<n;i++){ const ww=(i===n-1)?w*0.6:w; g.fillRect(x,y+i*lh,ww,h||10); } };
+  if(v===0){
+    g.fillStyle=ink; g.font='600 70px Georgia'; g.fillText('Speise-',m,150); g.fillText('karte',m,224);
+    g.fillStyle=verm; g.fillRect(m,250,130,9); lines(m,312,W-2*m,9,30,11);
+  } else if(v===1){
+    g.fillStyle=verm; g.fillRect(0,0,W,210); g.fillStyle=cream; g.font='600 64px Georgia'; g.fillText('Neu',m,118); g.fillText('eröffnet',m,182);
+    g.fillStyle=ink; lines(m,272,W-2*m,7,34,12); g.fillStyle=verm; g.fillRect(m,H-150,170,54);
+  } else if(v===2){
+    g.fillStyle=ink; g.font='italic 56px Georgia'; g.fillText('Marken-',m,140); g.fillText('auftritt',m,202);
+    g.fillStyle=bar; g.fillRect(m,248,W-2*m,2); lines(m,300,(W-2*m)*0.46,9,30,10); lines(W/2+6,300,(W-2*m)*0.46,9,30,10);
+    g.fillStyle=verm; g.beginPath(); g.arc(W-m-28,H-m-28,26,0,6.29); g.fill();
+  } else if(v===3){
+    g.fillStyle=ink; g.font='700 130px Georgia'; g.fillText('K',m,190); g.fillStyle=verm; g.fillRect(m,214,86,9);
+    g.fillStyle=ink; g.font='500 26px Georgia'; g.fillText('Kurani Design',m,300); lines(m,344,W-2*m,8,30,9);
+  } else {
+    g.fillStyle=ink; g.font='600 58px Georgia'; g.fillText('Großformat',m,150);
+    g.fillStyle=verm; g.fillRect(0,250,W,118); g.fillStyle=cream; g.font='600 40px Georgia'; g.fillText('& Banner',m,326);
+    g.fillStyle=ink; lines(m,420,W-2*m,7,32,11);
+  }
+  g.fillStyle=ink; g.font='15px monospace'; g.fillText('KURANI DESIGN — NORDEN',m,H-46);
+  const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8; return tx;
 }
 </script>
 
