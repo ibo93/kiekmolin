@@ -140,6 +140,8 @@ body.no3d #scene-fallback{ display:block; }
 .nav nav a{ font-size:.84rem; color:var(--cream-soft); transition:color .3s var(--ease); }
 .nav nav a:hover{ color:var(--cream); }
 .nav .cta{ color:var(--accent); }
+.brand, .nav .cta{ transition:transform .35s var(--ease); }
+.marquee{ transition:transform .25s ease-out; }
 @media (max-width:720px){ .nav nav .hide-sm{ display:none; } }
 
 /* 1 · HERO (über dem 3D, kein Panel) */
@@ -414,6 +416,26 @@ if(!reduceMotion && window.matchMedia('(hover:hover) and (pointer:fine)').matche
   (function loop(){ cx+=(tx-cx)*0.2; cy+=(ty-cy)*0.2; cur.style.transform=`translate(${cx}px,${cy}px) translate(-50%,-50%)`; requestAnimationFrame(loop); })();
   const grow=()=>cur.classList.add('grow'), shrink=()=>cur.classList.remove('grow');
   document.querySelectorAll('a, .tilt, .btn').forEach(el=>{ el.addEventListener('pointerenter',grow); el.addEventListener('pointerleave',shrink); });
+
+  /* Magnetische Elemente: ziehen sanft zum Cursor */
+  document.querySelectorAll('.btn, .nav .cta, .brand').forEach(el=>{
+    el.addEventListener('pointermove',e=>{ const r=el.getBoundingClientRect();
+      el.style.transform=`translate(${(e.clientX-(r.left+r.width/2))*0.3}px, ${(e.clientY-(r.top+r.height/2))*0.5}px)`; });
+    el.addEventListener('pointerleave',()=>{ el.style.transform=''; });
+  });
+}
+
+/* ---------- Ghost-Parallax + Marquee-Skew (kinetisch) ---------- */
+if(!reduceMotion){
+  const ghosts=[...document.querySelectorAll('.ghost')];
+  const marquee=document.querySelector('.marquee');
+  let lastS=window.scrollY, vel=0;
+  (function fx(){
+    requestAnimationFrame(fx);
+    for(const g of ghosts){ const r=g.parentElement.getBoundingClientRect(); g.style.transform=`translateY(${(r.top/window.innerHeight)*-70}px)`; }
+    if(marquee){ vel += ((window.scrollY-lastS)-vel)*0.12; lastS=window.scrollY;
+      marquee.style.transform=`skewX(${Math.max(-7,Math.min(7,vel*0.35))}deg)`; }
+  })();
 }
 
 /* ---------- Reveal ---------- */
