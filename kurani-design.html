@@ -110,6 +110,30 @@ section{ padding-block:clamp(64px,10vw,128px); position:relative; }
 .section-head h2{ font-size:var(--t-h2); font-weight:300; }
 .section-head h2 em{ color:var(--red); font-style:italic; }
 
+/* Über uns / Studio */
+.about-grid{ display:grid; grid-template-columns:1fr; gap:clamp(24px,5vw,56px); align-items:start; }
+@media(min-width:880px){ .about-grid{ grid-template-columns:1.1fr .9fr; } }
+.about-lead{ font-family:"Fraunces",serif; font-weight:300; font-size:clamp(1.5rem,3.2vw,2.4rem); line-height:1.18; letter-spacing:-.01em; }
+.about-lead em{ color:var(--red); font-style:italic; }
+.about-text{ color:var(--ink-soft); max-width:46ch; margin-top:1.4rem; }
+.about-stats{ display:flex; gap:2.6rem; flex-wrap:wrap; margin-top:2rem; }
+.about-stats b{ font-family:"Fraunces",serif; font-weight:300; font-size:2.6rem; display:block; line-height:1; }
+.about-stats span{ font-size:.78rem; color:var(--ink-soft); letter-spacing:.04em; }
+
+/* Vollflächiger Bild-Band (photographic) */
+.bleed{ position:relative; height:clamp(48vh,64vh,78vh); overflow:hidden; border-radius:var(--r); margin-top:clamp(36px,6vw,64px); }
+.bleed img{ width:100%; height:100%; object-fit:cover; transform:scale(1.04); transition:transform 1.4s var(--ease); }
+.bleed:hover img{ transform:scale(1.0); }
+.bleed figcaption{ position:absolute; left:clamp(18px,3vw,40px); bottom:clamp(16px,3vw,30px); color:var(--paper);
+  font-family:"Space Mono",monospace; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 2px 14px rgba(0,0,0,.5); }
+
+/* Großes Typo-Statement (Sakazuki: Typography Honors) */
+.statement-band{ text-align:center; padding-block:clamp(90px,15vw,210px); }
+.statement-band p{ font-family:"Fraunces",serif; font-weight:300; font-size:clamp(2.6rem,9vw,7.5rem);
+  line-height:1.0; letter-spacing:-.035em; max-width:15ch; margin-inline:auto; }
+.statement-band em{ color:var(--red); font-style:italic; }
+.statement-band .mono{ display:block; margin-bottom:1.4rem; }
+
 /* Arbeiten */
 .works{ display:grid; gap:clamp(28px,5vw,64px); grid-template-columns:1fr; }
 @media (min-width:760px){ .works{ grid-template-columns:1fr 1fr; } }
@@ -181,6 +205,7 @@ footer{ border-top:1px solid var(--line); padding-block:30px; }
 <header class="nav">
   <a class="brand" href="#top"><span class="dot" aria-hidden="true"></span>Kurani Design</a>
   <nav>
+    <a class="hide-sm" href="#studio">Studio</a>
     <a class="hide-sm" href="#arbeiten">Arbeiten</a>
     <a class="hide-sm" href="#leistungen">Leistungen</a>
     <a class="hide-sm" href="#kiekmolin">Kiek mol in</a>
@@ -216,6 +241,26 @@ footer{ border-top:1px solid var(--line); padding-block:30px; }
       <span>Logo &amp; Markenauftritt</span><span class="star">✶</span>
     </div>
   </div>
+
+  <!-- ÜBER UNS / STUDIO -->
+  <section id="studio" class="wrap">
+    <div class="section-head reveal"><p class="kicker mono">Studio</p><h2>Aus Norden, <em>für die Küste.</em></h2></div>
+    <div class="about-grid">
+      <p class="about-lead reveal">Ein kleines Studio in <em>Norden</em>, das Marken aus Ostfriesland sichtbar macht — vom ersten Strich bis zur fertigen Fassade.</p>
+      <div class="reveal d1">
+        <p class="about-text">Seit 2024 gestalten wir Print, Schilder, Großformat und komplette Markenauftritte — und denken Druck, Werbetechnik und digitalen Auftritt aus einer Hand. Persönlich, regional, mit Liebe zum Detail.</p>
+        <div class="about-stats">
+          <div><b>~25</b><span>Betriebe</span></div>
+          <div><b>2024</b><span>gegründet</span></div>
+          <div><b>1</b><span>Region · Ostfriesland</span></div>
+        </div>
+      </div>
+    </div>
+    <figure class="bleed reveal">
+      <img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png" alt="Schild &amp; Werbetechnik — Kurani Design" loading="lazy" />
+      <figcaption>Schilder &amp; Werbetechnik · Ostfriesland</figcaption>
+    </figure>
+  </section>
 
   <!-- ARBEITEN -->
   <section id="arbeiten" class="wrap">
@@ -278,10 +323,15 @@ footer{ border-top:1px solid var(--line); padding-block:30px; }
     </div>
   </section>
 
+  <!-- STATEMENT -->
+  <section class="statement-band wrap">
+    <p class="reveal"><span class="mono">Haltung</span>Eine Marke ist ein <em>Gefühl</em>, lange bevor sie ein Logo ist.</p>
+  </section>
+
   <!-- KONTAKT -->
   <section id="kontakt" class="wrap contact">
     <p class="kicker mono reveal">Kontakt</p>
-    <h2 class="claim reveal">Gestaltung, die man <em>fühlt.</em></h2>
+    <h2 class="claim reveal">Sprechen <em>wir.</em></h2>
     <div class="contact-grid">
       <div class="reveal"><h4>Schreib uns</h4><a class="big ul" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
       <div class="reveal d1"><h4>Studio</h4><address>Bahnhofstr. 2<br>26506 Norden<br>Ostfriesland</address></div>
