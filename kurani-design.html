@@ -362,6 +362,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 </div>
 
 <div class="grain" aria-hidden="true"></div>
+<div id="scene" aria-hidden="true"></div>
 <nav class="dots" id="dots" aria-label="Sektionen">
   <a href="#hero" data-label="Start"></a>
   <a href="#haltung" data-label="Haltung"></a>
@@ -626,6 +627,73 @@ if (reduceMotion) {
 })();
 
 
+</script>
+
+<!-- WebGL-Shader-Hintergrund (fließendes dunkles Feld + Zinnober-Glut, reagiert auf Maus & Scroll) -->
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+(function(){
+  const host=document.getElementById('scene'); if(!host) return;
+  function webglOK(){ try{ const c=document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
+  if(!webglOK()) return;
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const renderer=new THREE.WebGLRenderer({ antialias:false, powerPreference:'low-power' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  host.appendChild(renderer.domElement);
+
+  const scene=new THREE.Scene();
+  const cam=new THREE.Camera();
+  const uniforms={
+    uTime:{value:0}, uMouse:{value:new THREE.Vector2(0,0)}, uScroll:{value:0},
+    uRes:{value:new THREE.Vector2(window.innerWidth, window.innerHeight)}
+  };
+  const frag=`
+    precision highp float;
+    uniform float uTime; uniform vec2 uMouse; uniform float uScroll; uniform vec2 uRes;
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+      float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
+      return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
+    float fbm(vec2 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.02; a*=0.5; } return v; }
+    void main(){
+      vec2 uv=gl_FragCoord.xy/uRes.xy;
+      vec2 p=uv; p.x*=uRes.x/uRes.y;
+      float t=uTime*0.04;
+      vec2 q=vec2(fbm(p+t+uMouse*0.35), fbm(p-t+uScroll*0.6));
+      float n=fbm(p + q*1.6 + vec2(0.0, uScroll*0.8));
+      vec3 base=vec3(0.055,0.032,0.018);
+      vec3 accent=vec3(0.886,0.227,0.090);
+      float glow=smoothstep(0.55,0.96,n);
+      vec3 col=mix(base, accent, glow*0.45);
+      col+=accent*pow(glow,3.0)*0.45;
+      float vig=smoothstep(1.25,0.25,length(uv-0.5));
+      col*=vig;
+      gl_FragColor=vec4(col,1.0);
+    }`;
+  const mat=new THREE.ShaderMaterial({ uniforms,
+    vertexShader:`void main(){ gl_Position=vec4(position,1.0); }`, fragmentShader:frag });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+  let mx=0,my=0,tmx=0,tmy=0;
+  window.addEventListener('pointermove',e=>{ tmx=e.clientX/window.innerWidth-0.5; tmy=e.clientY/window.innerHeight-0.5; },{passive:true});
+  const clock=new THREE.Clock();
+  function render(){
+    requestAnimationFrame(render);
+    mx+=(tmx-mx)*0.04; my+=(tmy-my)*0.04;
+    uniforms.uMouse.value.set(mx,my);
+    const max=Math.max(1, document.documentElement.scrollHeight-window.innerHeight);
+    uniforms.uScroll.value=window.scrollY/max;
+    uniforms.uTime.value = reduce ? 8.0 : clock.getElapsedTime();
+    renderer.render(scene,cam);
+  }
+  render();
+  window.addEventListener('resize',()=>{ renderer.setSize(window.innerWidth,window.innerHeight); uniforms.uRes.value.set(window.innerWidth,window.innerHeight); });
+})();
 </script>
 
 </body>
