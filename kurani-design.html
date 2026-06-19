@@ -361,9 +361,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <span class="loader-bar" id="loaderBar"></span>
 </div>
 
-<div class="aurora" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
 <div class="grain" aria-hidden="true"></div>
-<div class="glow" id="glow" aria-hidden="true"></div>
 <nav class="dots" id="dots" aria-label="Sektionen">
   <a href="#hero" data-label="Start"></a>
   <a href="#haltung" data-label="Haltung"></a>
@@ -372,10 +370,6 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
   <a href="#kiekmolin" data-label="Kiek mol in"></a>
   <a href="#kontakt" data-label="Kontakt"></a>
 </nav>
-
-<!-- ============ FIXE 3D-BÜHNE ============ -->
-<div id="scene" aria-hidden="true"></div>
-<div id="scene-fallback" aria-hidden="true"></div>
 
 <!-- ============ NAV ============ -->
 <header class="nav">
@@ -495,7 +489,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
         <div class="feature__stats"><div><b data-count="25" data-prefix="~">~25</b><span>Betriebe</span></div><div><b data-count="2024">2024</b><span>gestartet</span></div><div><b data-count="1">1</b><span>Region</span></div></div>
         <a class="btn" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de besuchen <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="feature__visual tilt"><img class="shot" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144807_9e449eb1-40a2-4b07-b877-7e54d070d9f2.png" alt="Kiek mol in — App" loading="lazy" onerror="this.remove()"><div class="km" aria-hidden="true">Kiek mol in<small>kiekmolin.de</small></div></div>
+      <div class="feature__visual"><img class="shot" src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144807_9e449eb1-40a2-4b07-b877-7e54d070d9f2.png" alt="Kiek mol in — App" loading="lazy" onerror="this.remove()"><div class="km" aria-hidden="true">Kiek mol in<small>kiekmolin.de</small></div></div>
     </div>
   </div></section>
 
@@ -517,25 +511,7 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
 
 </div><!-- /.page -->
 
-<!-- ============================================================
-     Three.js r160 · ES-Module
-     ============================================================ -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-
 <script type="module">
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass }from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
-
 /* ---------- Jahr + Live-Uhr + Marquee ---------- */
 document.getElementById('year').textContent = new Date().getFullYear();
 const clockEl = document.getElementById('clock');
@@ -554,24 +530,6 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
     if(n>=100){ clearInterval(iv); setTimeout(()=>loader.classList.add('done'),320); } }, 50);
   setTimeout(()=>loader.classList.add('done'), 3500); // Sicherheitsnetz
 })();
-
-/* ---------- Custom-Cursor (nur Maus-Geräte) ---------- */
-if(!reduceMotion && window.matchMedia('(hover:hover) and (pointer:fine)').matches){
-  const cur=document.createElement('div'); cur.className='cursor'; document.body.appendChild(cur);
-  document.body.classList.add('cursor-on');
-  let cx=innerWidth/2, cy=innerHeight/2, tx=cx, ty=cy, shown=false;
-  window.addEventListener('pointermove',e=>{ tx=e.clientX; ty=e.clientY; if(!shown){ shown=true; cur.classList.add('on'); } });
-  (function loop(){ cx+=(tx-cx)*0.2; cy+=(ty-cy)*0.2; cur.style.transform=`translate(${cx}px,${cy}px) translate(-50%,-50%)`; requestAnimationFrame(loop); })();
-  const grow=()=>cur.classList.add('grow'), shrink=()=>cur.classList.remove('grow');
-  document.querySelectorAll('a, .tilt, .btn').forEach(el=>{ el.addEventListener('pointerenter',grow); el.addEventListener('pointerleave',shrink); });
-
-  /* Magnetische Elemente: ziehen sanft zum Cursor */
-  document.querySelectorAll('.btn, .nav .cta, .brand').forEach(el=>{
-    el.addEventListener('pointermove',e=>{ const r=el.getBoundingClientRect();
-      el.style.transform=`translate(${(e.clientX-(r.left+r.width/2))*0.3}px, ${(e.clientY-(r.top+r.height/2))*0.5}px)`; });
-    el.addEventListener('pointerleave',()=>{ el.style.transform=''; });
-  });
-}
 
 /* ---------- Zahlen hochzählen (beim Reinscrollen) ---------- */
 function countUp(el){
@@ -599,28 +557,6 @@ function countUp(el){
   (function loop(){ requestAnimationFrame(loop); mx+=(tx-mx)*0.06; my+=(ty-my)*0.06;
     ffs.forEach((im,i)=>{ const d=(i+1)*16; im.style.translate=`${mx*d}px ${my*d}px`; }); })();
 })();
-
-/* ---------- Hintergrund-Glow folgt dem Cursor ---------- */
-(function(){
-  const glow=document.getElementById('glow'); if(!glow) return;
-  if(reduceMotion){ glow.style.top='32%'; return; }
-  let gx=innerWidth/2, gy=innerHeight*0.4, tx=gx, ty=gy;
-  window.addEventListener('pointermove',e=>{ tx=e.clientX; ty=e.clientY; },{passive:true});
-  (function gl(){ requestAnimationFrame(gl); gx+=(tx-gx)*0.06; gy+=(ty-gy)*0.06; glow.style.transform=`translate(${gx}px,${gy}px) translate(-50%,-50%)`; })();
-})();
-
-/* ---------- Ghost-Parallax + Marquee-Skew (kinetisch) ---------- */
-if(!reduceMotion){
-  const ghosts=[...document.querySelectorAll('.ghost')];
-  const marquee=document.querySelector('.marquee');
-  let lastS=window.scrollY, vel=0;
-  (function fx(){
-    requestAnimationFrame(fx);
-    for(const g of ghosts){ const r=g.parentElement.getBoundingClientRect(); g.style.transform=`translateY(${(r.top/window.innerHeight)*-70}px)`; }
-    if(marquee){ vel += ((window.scrollY-lastS)-vel)*0.12; lastS=window.scrollY;
-      marquee.style.transform=`skewX(${Math.max(-7,Math.min(7,vel*0.35))}deg)`; }
-  })();
-}
 
 /* ---------- Reveal ---------- */
 const reveals = document.querySelectorAll('.reveal');
@@ -654,64 +590,15 @@ if (reduceMotion) {
   const near = (el)=>{ const r=el.getBoundingClientRect(); return r.top < window.innerHeight*0.92 && r.bottom > 0; };
   const tio=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); tio.unobserve(e.target); } }); }, { threshold:0.25 });
   textEls().forEach(el=>{ if(near(el)){ el.classList.add('in'); } else { tio.observe(el); } }); // Hero sofort sichtbar
-  // Sicherheitsnetz: nach 2.2s nichts mehr versteckt lassen
-  setTimeout(()=> textEls().forEach(el=>el.classList.add('in')), 2200);
-
-  /* 3D-Tilt: Karten folgen der Maus + leuchtender Rahmen (.lit für Touch) */
-  document.querySelectorAll('.tilt').forEach(card=>{
-    card.addEventListener('pointermove',(e)=>{
-      const r=card.getBoundingClientRect();
-      const px=(e.clientX-r.left)/r.width-0.5, py=(e.clientY-r.top)/r.height-0.5;
-      card.style.transform=`perspective(900px) rotateY(${px*9}deg) rotateX(${-py*9}deg)`;
-      card.classList.add('lit');
-    });
-    card.addEventListener('pointerdown',()=> card.classList.add('lit'));
-    card.addEventListener('pointerleave',()=>{ card.style.transform=''; card.classList.remove('lit'); });
-  });
+  setTimeout(()=> textEls().forEach(el=>el.classList.add('in')), 2200); // Sicherheitsnetz
 }
 
-/* ============================================================
-   Scroll-Fortschritt fürs 3D (nativ — harmoniert mit CSS-Scroll-Snap)
-   ============================================================ */
-let scrollPx = window.scrollY;
-const scrollMax = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-window.addEventListener('scroll', ()=>{ scrollPx = window.scrollY; }, { passive:true });
-
-/* ============================================================
-   3D-Szene · FLIEGENDE FLYER (prozedural, kein externes Asset)
-   - mehrere designte Flyer fliegen durch den dunklen Raum
-   - beim SCROLLEN fliegen sie an dir vorbei
-   - die MAUS bewegt die ganze Bühne sichtbar (Parallax + Neigung)
-   ============================================================ */
-const host = document.getElementById('scene');
-const isMobile = window.matchMedia('(max-width: 760px)').matches;
-function webglOK(){ try{ const c=document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
-
-let setSceneTheme = ()=>{};   // wird von init3D gesetzt (3D-Hintergrund + Akzent pro Kapitel)
-if (isMobile || reduceMotion || !webglOK()) {
-  document.body.classList.add('no3d');
-} else {
-  init3D();
-}
-
-/* Farb-Themes pro Kapitel: Akzent (CSS) + 3D-Hintergrund wechseln beim Scrollen */
-const SEC_THEMES = {
-  hero:      ['#E23A17','#160D07'],   // Zinnober / warmes Schwarz
-  haltung:   ['#FF5A2C','#170A06'],   // Koralle / warmes Schwarz
-  arbeiten:  ['#E9E778','#10130A'],   // Chartreuse (Floema) / Grün-Schwarz
-  leistungen:['#5EE0C8','#06140F'],   // Mint / Tiefes Teal
-  kiekmolin: ['#6E8BFF','#090C1E'],   // Elektrisch-Blau / Mitternacht
-  kontakt:   ['#FF3D6E','#15060A']    // Pink / Schwarz
-};
-const themeIO = new IntersectionObserver((es)=>{
-  es.forEach(e=>{ if(e.isIntersecting){
-    const th=SEC_THEMES[e.target.id]; if(!th) return;
-    document.documentElement.style.setProperty('--accent', th[0]);
-    setSceneTheme(th[1], th[0]);
-    document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id));
-  }});
-}, { threshold:0.5 });
-['hero','haltung','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) themeIO.observe(el); });
+/* ---------- Aktiver Sektions-Punkt (rechts) ---------- */
+(function(){
+  const setActive=(id)=>document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+id));
+  const io=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting) setActive(e.target.id); }); }, { threshold:0.4 });
+  ['hero','haltung','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) io.observe(el); });
+})();
 
 /* ===== Arbeiten · Scroll-Erlebnis: Objekte fliegen nacheinander aus der Tiefe ===== */
 (function(){
@@ -738,118 +625,12 @@ const themeIO = new IntersectionObserver((es)=>{
     });
     const r=exp.getBoundingClientRect();
     if(r.top<window.innerHeight*0.5 && r.bottom>window.innerHeight*0.5){
-      document.documentElement.style.setProperty('--accent', SEC_THEMES.arbeiten[0]);
-      setSceneTheme(SEC_THEMES.arbeiten[1], SEC_THEMES.arbeiten[0]);
       document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#arbeiten'));
     }
   })();
 })();
 
-function init3D(){
-  const W=()=>window.innerWidth, H=()=>window.innerHeight;
 
-  const scene = new THREE.Scene();
-  const bgCol = new THREE.Color('#170F08');                 // wird pro Kapitel sanft umgefärbt
-  const bgTarget = new THREE.Color('#170F08');
-  const accTarget = new THREE.Color('#E23A17');
-  scene.background = bgCol;
-  scene.fog = new THREE.FogExp2(bgCol.getHex(), 0.055);
-  setSceneTheme = (bgHex, accHex)=>{ bgTarget.set(bgHex); accTarget.set(accHex); };
-
-  const camera = new THREE.PerspectiveCamera(46, W()/H(), 0.1, 100);
-  camera.position.set(0,0,9);
-
-  const renderer = new THREE.WebGLRenderer({ antialias:true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  renderer.setSize(W(),H());
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
-  host.appendChild(renderer.domElement);
-
-  /* Licht — warm + zinnoberroter Rim */
-  scene.add(new THREE.AmbientLight(0xffe7c4, 0.55));
-  const key = new THREE.DirectionalLight(0xffe2b0, 2.4); key.position.set(3,4,6); scene.add(key);
-  const rim = new THREE.DirectionalLight(0xe23a17, 2.4); rim.position.set(-5,1,-2); scene.add(rim);
-
-  /* Partikel-Atmosphäre (Tiefe & Stimmung) */
-  const PCOUNT=1200; const pgeo=new THREE.BufferGeometry(); const ppos=new Float32Array(PCOUNT*3);
-  for(let i=0;i<PCOUNT;i++){ ppos[i*3]=(Math.random()-0.5)*36; ppos[i*3+1]=(Math.random()-0.5)*24; ppos[i*3+2]=(Math.random()-0.5)*42; }
-  pgeo.setAttribute('position', new THREE.BufferAttribute(ppos,3));
-  const particles=new THREE.Points(pgeo, new THREE.PointsMaterial({ color:0xFFD9A8, size:0.03, sizeAttenuation:true, transparent:true, opacity:0.7, depthWrite:false, blending:THREE.AdditiveBlending }));
-  scene.add(particles);
-
-  /* (Flyer entfernt — die schwebenden Bilder liegen jetzt als DOM-Layer im Hero) */
-
-  /* Post-Processing: dezenter Bloom (Zinnober glüht) */
-  const composer=new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene,camera));
-  const bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()), 0.5, 0.7, 0.72);
-  composer.addPass(bloom); composer.addPass(new OutputPass());
-
-  /* Maus (träge) */
-  const mouse={tx:0,ty:0,x:0,y:0};
-  window.addEventListener('pointermove',(e)=>{ mouse.tx=(e.clientX/window.innerWidth-0.5)*2; mouse.ty=(e.clientY/window.innerHeight-0.5)*2; },{passive:true});
-
-  let sp=0; const clock=new THREE.Clock();
-  const mod=(n,m)=>((n%m)+m)%m;
-
-  function animate(){
-    requestAnimationFrame(animate);
-    const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
-
-    const spTarget=Math.min(1,Math.max(0,scrollPx/scrollMax()));
-    sp += (spTarget-sp)*0.06;                       // Trägheit
-    mouse.x += (mouse.tx-mouse.x)*0.06;
-    mouse.y += (mouse.ty-mouse.y)*0.06;
-
-    /* Partikel ziehen mit */
-    particles.rotation.y += dt*0.01;
-    particles.position.z = mod(t*1.2 + sp*28, 42) - 21;
-
-    /* Kapitel-Farbe sanft überblenden (Hintergrund, Nebel, Akzent-Licht) */
-    bgCol.lerp(bgTarget, 0.045); scene.fog.color.copy(bgCol);
-    rim.color.lerp(accTarget, 0.045);
-
-    composer.render();
-  }
-  animate();
-
-  window.addEventListener('resize',()=>{ camera.aspect=W()/H(); camera.updateProjectionMatrix(); renderer.setSize(W(),H()); composer.setSize(W(),H()); bloom.setSize(W(),H()); });
-
-  function gradTex(top,bottom){ const c=document.createElement('canvas'); c.width=4;c.height=256; const x=c.getContext('2d');
-    const gr=x.createLinearGradient(0,0,0,256); gr.addColorStop(0,top); gr.addColorStop(1,bottom); x.fillStyle=gr; x.fillRect(0,0,4,256);
-    const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; return tx; }
-}
-
-/* ---- Flyer-Texturen: echte Mini-Layouts, prozedural gezeichnet (5 Varianten) ---- */
-function flyerTexture(v){
-  const W=520,H=735,c=document.createElement('canvas'); c.width=W;c.height=H; const g=c.getContext('2d');
-  const cream='#F4ECDD', ink='#1C1814', verm='#E23A17', bar='rgba(28,24,20,0.16)';
-  g.fillStyle=cream; g.fillRect(0,0,W,H);
-  const m=52;
-  const lines=(x,y,w,n,lh,h)=>{ g.fillStyle=bar; for(let i=0;i<n;i++){ const ww=(i===n-1)?w*0.6:w; g.fillRect(x,y+i*lh,ww,h||10); } };
-  if(v===0){
-    g.fillStyle=ink; g.font='600 70px Georgia'; g.fillText('Speise-',m,150); g.fillText('karte',m,224);
-    g.fillStyle=verm; g.fillRect(m,250,130,9); lines(m,312,W-2*m,9,30,11);
-  } else if(v===1){
-    g.fillStyle=verm; g.fillRect(0,0,W,210); g.fillStyle=cream; g.font='600 64px Georgia'; g.fillText('Neu',m,118); g.fillText('eröffnet',m,182);
-    g.fillStyle=ink; lines(m,272,W-2*m,7,34,12); g.fillStyle=verm; g.fillRect(m,H-150,170,54);
-  } else if(v===2){
-    g.fillStyle=ink; g.font='italic 56px Georgia'; g.fillText('Marken-',m,140); g.fillText('auftritt',m,202);
-    g.fillStyle=bar; g.fillRect(m,248,W-2*m,2); lines(m,300,(W-2*m)*0.46,9,30,10); lines(W/2+6,300,(W-2*m)*0.46,9,30,10);
-    g.fillStyle=verm; g.beginPath(); g.arc(W-m-28,H-m-28,26,0,6.29); g.fill();
-  } else if(v===3){
-    g.fillStyle=ink; g.font='700 130px Georgia'; g.fillText('K',m,190); g.fillStyle=verm; g.fillRect(m,214,86,9);
-    g.fillStyle=ink; g.font='500 26px Georgia'; g.fillText('Kurani Design',m,300); lines(m,344,W-2*m,8,30,9);
-  } else {
-    g.fillStyle=ink; g.font='600 58px Georgia'; g.fillText('Großformat',m,150);
-    g.fillStyle=verm; g.fillRect(0,250,W,118); g.fillStyle=cream; g.font='600 40px Georgia'; g.fillText('& Banner',m,326);
-    g.fillStyle=ink; lines(m,420,W-2*m,7,32,11);
-  }
-  g.fillStyle=ink; g.font='15px monospace'; g.fillText('KURANI DESIGN — NORDEN',m,H-46);
-  const tx=new THREE.CanvasTexture(c); tx.colorSpace=THREE.SRGBColorSpace; tx.anisotropy=8; return tx;
-}
 </script>
 
 </body>
