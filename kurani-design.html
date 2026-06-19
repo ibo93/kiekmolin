@@ -251,56 +251,24 @@ section{ padding-block:clamp(80px,13vw,180px); position:relative; }
   color:var(--cream-mute); font-family:"Space Mono",monospace; font-size:.7rem; letter-spacing:.2em; text-transform:uppercase; }
 .gallery-hint .ln{ width:34px; height:1px; background:var(--line); }
 
-/* ===== Arbeiten · steven.com-Style WebGL-Projekt-Slider ===== */
-.slider{ position:relative; padding:0; }                  /* tall section, height set by JS (N*100vh) */
-.slider .slider-sticky{ position:sticky; top:0; height:100svh; height:100dvh; overflow:hidden; }
-.slider .slider-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:1; }
-/* Scrim für Lesbarkeit (links/unten) */
-.slider .slider-scrim{ position:absolute; inset:0; z-index:2; pointer-events:none;
-  background:
-    linear-gradient(180deg, rgba(16,9,4,.42) 0%, transparent 26%, transparent 52%, rgba(16,9,4,.78) 100%),
-    linear-gradient(90deg, rgba(16,9,4,.66) 0%, transparent 46%); }
-/* Overlay-Texte */
-.slider .slider-ui{ position:absolute; inset:0; z-index:3; pointer-events:none;
-  padding:clamp(80px,12vh,140px) var(--gut) clamp(44px,9vh,90px); display:flex; flex-direction:column; justify-content:space-between; }
-.slider .su-top{ display:flex; align-items:center; gap:.8rem; }
-.slider .su-top .ln{ width:30px; height:1px; background:var(--accent); }
-.slider .su-bottom{ position:relative; max-width:min(92vw,1120px); }
-.slider .su-cat{ display:block; margin-bottom:.9rem; }
-.slider .su-slide{ position:absolute; inset:auto auto 0 0; will-change:transform,opacity; }
-.slider .su-slide .su-name{ font-family:"Archivo Black",sans-serif; font-weight:400;
-  font-size:clamp(2.6rem,11vw,9rem); line-height:.92; letter-spacing:-.02em; text-shadow:0 4px 60px rgba(0,0,0,.6); }
-.slider .su-slide .su-desc{ color:var(--cream-soft); max-width:38ch; margin-top:1.1rem;
-  font-size:var(--t-lead); line-height:1.5; text-shadow:0 2px 24px rgba(0,0,0,.7); }
-/* Fortschritts-Anzeige 01—04 */
-.slider .su-progress{ position:absolute; right:var(--gut); bottom:clamp(44px,9vh,90px); z-index:3;
-  display:flex; align-items:center; gap:.8rem; pointer-events:none; }
-.slider .su-progress .pno{ font-family:"Space Mono",monospace; font-size:.78rem; letter-spacing:.22em;
-  color:var(--cream-mute); transition:color .4s var(--ease); }
-.slider .su-progress .pno.on{ color:var(--accent); }
-.slider .su-progress .pln{ width:46px; height:1px; background:var(--line); position:relative; overflow:hidden; }
-.slider .su-progress .pln i{ position:absolute; inset:0; background:var(--accent); transform-origin:left; transform:scaleX(0); }
+/* ===== Arbeiten · Scroll-Erlebnis (Objekte kommen aus der Tiefe) ===== */
+.exp{ position:relative; }
+.exp-sticky{ position:relative; min-height:100svh; display:grid; place-items:center; padding-block:clamp(80px,12vw,140px); }
+.exp-stage{ position:relative; width:100%; }
+.exp-inner{ display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(24px,5vw,64px); align-items:center; width:min(92vw,1120px); margin-inline:auto; }
+.exp-shot{ aspect-ratio:4/3; position:relative; }
+.exp-shot img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 30px 70px rgba(0,0,0,.55)); }
+.exp-text h3{ font-size:clamp(2rem,5vw,3.8rem); margin-top:.5rem; }
+.exp-desc{ color:var(--cream-soft); max-width:36ch; margin-top:1rem; font-size:var(--t-lead); line-height:1.5; }
+.exp-label{ position:absolute; left:var(--gut); bottom:26px; display:flex; gap:.6rem; align-items:center; color:var(--cream-mute); }
+.exp-label .ln{ width:30px; height:1px; background:var(--line); }
+.exp-item + .exp-item{ margin-top:8vh; }                 /* Abstand im statischen Fallback */
+@media(max-width:760px){ .exp-inner{ grid-template-columns:1fr; gap:20px; } }
 
-/* DOM-Fallback-Slides (für CORS/WebGL-Ausfall + Mobile/Reduced-Motion) */
-.slider .slider-fallback{ display:none; }
-.slider .sf-item{ position:relative; }
-.slider .sf-item + .sf-item{ margin-top:clamp(60px,10vh,120px); }
-.slider .sf-shot{ position:relative; aspect-ratio:16/10; overflow:hidden; border-radius:var(--r); border:1px solid var(--line); background:var(--bg-2); }
-.slider .sf-shot img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.slider .sf-shot::after{ content:""; position:absolute; inset:0; pointer-events:none;
-  background:linear-gradient(180deg, transparent 40%, rgba(16,9,4,.72) 100%); }
-.slider .sf-text{ position:absolute; left:clamp(18px,3vw,42px); bottom:clamp(16px,3vw,34px); right:clamp(18px,3vw,42px); z-index:2; }
-.slider .sf-text h3{ font-size:clamp(1.8rem,5vw,3.4rem); margin-top:.4rem; text-shadow:0 3px 30px rgba(0,0,0,.6); }
-.slider .sf-text .sf-desc{ color:var(--cream-soft); max-width:40ch; margin-top:.6rem; font-size:1rem; }
-/* aktivierter Fallback */
-.slider.is-fallback{ height:auto !important; padding-block:clamp(80px,13vw,180px); }
-.slider.is-fallback .slider-sticky{ position:static; height:auto; overflow:visible; }
-.slider.is-fallback .slider-canvas,
-.slider.is-fallback .slider-scrim,
-.slider.is-fallback .slider-ui,
-.slider.is-fallback .su-progress{ display:none !important; }
-.slider.is-fallback .slider-fallback{ display:block; width:min(92vw,1120px); margin-inline:auto; }
-@media(max-width:760px){ .slider .su-slide .su-name{ font-size:clamp(2.2rem,13vw,3.4rem); } }
+/* Gepinnte Variante (JS aktiv): Objekte gestapelt, fliegen sequenziell rein */
+.exp.pinned .exp-sticky{ position:sticky; top:0; height:100svh; overflow:hidden; padding-block:0; display:block; }
+.exp.pinned .exp-stage{ position:absolute; inset:0; height:100%; perspective:1200px; }
+.exp.pinned .exp-item{ position:absolute; inset:0; display:grid; place-items:center; opacity:0; will-change:transform,opacity; margin-top:0; }
 .kicker{ display:flex; align-items:center; gap:.8rem; margin-bottom:1.6rem; }
 .kicker::before{ content:""; width:30px; height:1px; background:var(--accent); }
 .section-head{ max-width:32ch; margin-bottom:clamp(44px,6vw,80px); }
@@ -447,48 +415,52 @@ footer{ border-top:1px solid var(--line); padding-block:34px; }
     <p class="st-sub reveal">Wir gestalten so, dass Gäste sich willkommen fühlen, bevor sie die Tür öffnen — vom ersten Strich bis zur fertigen Fassade, in Norden, Greetsiel und an der ganzen Küste.</p>
   </div></section>
 
-  <!-- 3 · ARBEITEN — steven.com-Style WebGL-Projekt-Slider (Distortion-Übergänge) -->
-  <section id="arbeiten" class="slider" aria-label="Arbeiten">
-    <div class="slider-sticky">
-      <canvas class="slider-canvas" id="sliderCanvas" aria-hidden="true"></canvas>
-      <div class="slider-scrim" aria-hidden="true"></div>
-
-      <!-- Overlay-UI (vom JS synchronisiert) -->
-      <div class="slider-ui">
-        <div class="su-top mono"><span class="ln"></span> 03 — Arbeiten</div>
-        <div class="su-bottom">
-          <span class="su-cat mono" id="suCat">01 / 04 · Print &amp; Speisekarten</span>
-          <div id="suSlides">
-            <div class="su-slide"><h3 class="su-name">La Piazza</h3><p class="su-desc">Speisekarten, die Appetit machen — sauber gesetzt, edel gedruckt. Greetsiel.</p></div>
-            <div class="su-slide"><h3 class="su-name">Greetsieler Börse</h3><p class="su-desc">Schilder &amp; Werbetechnik, die bei jedem ostfriesischen Wetter strahlen.</p></div>
-            <div class="su-slide"><h3 class="su-name">Herdem Frischmarkt</h3><p class="su-desc">Großformat &amp; Banner — Farbe und Wirkung, die auf Distanz funktionieren.</p></div>
-            <div class="su-slide"><h3 class="su-name">De Haven Steakhus</h3><p class="su-desc">Ein Markenauftritt mit rotem Faden — vom Logo bis zur Speisekarte.</p></div>
+  <!-- 3 · ARBEITEN — Scroll-Erlebnis (gepinnt, Objekte kommen aus der Tiefe) -->
+  <section id="arbeiten" class="exp">
+    <div class="exp-sticky">
+      <div class="exp-stage">
+        <article class="exp-item">
+          <div class="exp-inner">
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144750_f176d132-92fa-4781-ac19-a7df3fddd2ed.png" alt="Speisekarte — La Piazza, Greetsiel" loading="lazy"></div>
+            <div class="exp-text">
+              <p class="kicker mono">01 / 04 · Print &amp; Speisekarten</p>
+              <h3>La Piazza</h3>
+              <p class="exp-desc">Speisekarten, die Appetit machen — sauber gesetzt, edel gedruckt. Greetsiel.</p>
+            </div>
           </div>
-        </div>
+        </article>
+        <article class="exp-item">
+          <div class="exp-inner">
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144804_fd2f3ccf-3582-46a3-9f8d-97b78a80dc05.png" alt="Schild &amp; Werbetechnik — Greetsieler Börse" loading="lazy"></div>
+            <div class="exp-text">
+              <p class="kicker mono">02 / 04 · Schilder &amp; Werbetechnik</p>
+              <h3>Greetsieler Börse</h3>
+              <p class="exp-desc">Schilder &amp; Werbetechnik, die bei jedem ostfriesischen Wetter strahlen.</p>
+            </div>
+          </div>
+        </article>
+        <article class="exp-item">
+          <div class="exp-inner">
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144753_607ba7c2-43ae-4e18-be5d-600e90ac995e.png" alt="Großformat &amp; Banner — Herdem Frischmarkt" loading="lazy"></div>
+            <div class="exp-text">
+              <p class="kicker mono">03 / 04 · Großformat &amp; Banner</p>
+              <h3>Herdem Frischmarkt</h3>
+              <p class="exp-desc">Großformat &amp; Banner — Farbe und Wirkung, die auf Distanz funktionieren.</p>
+            </div>
+          </div>
+        </article>
+        <article class="exp-item">
+          <div class="exp-inner">
+            <div class="exp-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_144755_38631281-0055-42c4-9156-f5d7bb945489.png" alt="Markenauftritt — De Haven Steakhus" loading="lazy"></div>
+            <div class="exp-text">
+              <p class="kicker mono">04 / 04 · Logo &amp; Markenauftritt</p>
+              <h3>De Haven Steakhus</h3>
+              <p class="exp-desc">Ein Markenauftritt mit rotem Faden — vom Logo bis zur Speisekarte.</p>
+            </div>
+          </div>
+        </article>
       </div>
-      <div class="su-progress" id="suProgress" aria-hidden="true">
-        <span class="pno on">01</span><span class="pln"><i></i></span><span class="pno">04</span>
-      </div>
-
-      <!-- DOM-Fallback (CORS/WebGL-Ausfall · Mobile · Reduced-Motion): einfache <img>-Galerie -->
-      <div class="slider-fallback" id="sliderFallback">
-        <article class="sf-item">
-          <div class="sf-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125929_83dbf054-7daf-4267-9d19-84ca42f7c97d.png" alt="Speisekarte — La Piazza, Greetsiel" crossorigin="anonymous" loading="lazy"></div>
-          <div class="sf-text"><p class="kicker mono">01 / 04 · Print &amp; Speisekarten</p><h3>La Piazza</h3><p class="sf-desc">Speisekarten, die Appetit machen — sauber gesetzt, edel gedruckt. Greetsiel.</p></div>
-        </article>
-        <article class="sf-item">
-          <div class="sf-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png" alt="Schild — Greetsieler Börse" crossorigin="anonymous" loading="lazy"></div>
-          <div class="sf-text"><p class="kicker mono">02 / 04 · Schilder &amp; Werbetechnik</p><h3>Greetsieler Börse</h3><p class="sf-desc">Schilder &amp; Werbetechnik, die bei jedem ostfriesischen Wetter strahlen.</p></div>
-        </article>
-        <article class="sf-item">
-          <div class="sf-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125934_03d2fd4f-e845-4d91-9491-aed1da0712b5.jpeg" alt="Banner — Herdem Frischmarkt" crossorigin="anonymous" loading="lazy"></div>
-          <div class="sf-text"><p class="kicker mono">03 / 04 · Großformat &amp; Banner</p><h3>Herdem Frischmarkt</h3><p class="sf-desc">Großformat &amp; Banner — Farbe und Wirkung, die auf Distanz funktionieren.</p></div>
-        </article>
-        <article class="sf-item">
-          <div class="sf-shot"><img src="https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125931_31acce18-a991-44cf-ae1b-b8b67fe40c40.png" alt="Markenauftritt — De Haven Steakhus" crossorigin="anonymous" loading="lazy"></div>
-          <div class="sf-text"><p class="kicker mono">04 / 04 · Logo &amp; Markenauftritt</p><h3>De Haven Steakhus</h3><p class="sf-desc">Ein Markenauftritt mit rotem Faden — vom Logo bis zur Speisekarte.</p></div>
-        </article>
-      </div>
+      <div class="exp-label mono"><span class="ln"></span> Arbeiten — weiter scrollen</div>
     </div>
   </section>
 
@@ -627,234 +599,35 @@ if (reduceMotion) {
   ['hero','haltung','leistungen','kiekmolin','kontakt'].forEach(id=>{ const el=document.getElementById(id); if(el) io.observe(el); });
 })();
 
-/* ===== Arbeiten · steven.com-Style WebGL-Projekt-Slider =====
-   Eine Vollbild-Plane, die zwischen 4 Projekt-Texturen mit Distortion-Crossfade
-   morpht; Scroll-Fortschritt steuert den aktiven Index. DOM-Fallback bei
-   CORS/WebGL-Ausfall, Mobile und Reduced-Motion. */
-import('three').then((THREE)=>{ initSlider(THREE); }).catch(()=>{ initSlider(null); });
-
-function initSlider(THREE){
-  const sec=document.getElementById('arbeiten'); if(!sec) return;
-  const N=4;
-  const IMAGES=[
-    'https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125929_83dbf054-7daf-4267-9d19-84ca42f7c97d.png',
-    'https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125933_550fcc38-cac9-48e2-82e1-97f7920c4fbd.png',
-    'https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125934_03d2fd4f-e845-4d91-9491-aed1da0712b5.jpeg',
-    'https://d8j0ntlcm91z4.cloudfront.net/user_3F2liplvj01cNdLbzciwUWdtEZH/hf_20260618_125931_31acce18-a991-44cf-ae1b-b8b67fe40c40.png'
-  ];
-  const CATS=['Print & Speisekarten','Schilder & Werbetechnik','Großformat & Banner','Logo & Markenauftritt'];
-  const canvas=document.getElementById('sliderCanvas');
-  const slides=[...document.querySelectorAll('#suSlides .su-slide')];
-  const catEl=document.getElementById('suCat');
-  const prog=document.getElementById('suProgress');
-  const progFill=prog?prog.querySelector('.pln i'):null;
-  const progNos=prog?[...prog.querySelectorAll('.pno')]:[];
+/* ===== Arbeiten · Scroll-Erlebnis: Objekte fliegen nacheinander aus der Tiefe ===== */
+(function(){
+  const exp=document.getElementById('arbeiten'); if(!exp) return;
+  const items=[...exp.querySelectorAll('.exp-item')]; const n=items.length; if(!n) return;
+  if(reduceMotion){ items.forEach(it=>{ it.style.opacity='1'; }); return; }   // statischer Fallback
+  exp.classList.add('pinned');
+  exp.style.height=(n*100+30)+'vh';
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const isMobile=window.matchMedia('(max-width:760px)').matches;
-
-  function webglOK(){ try{ const c=document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
-
-  function fallback(){
-    sec.classList.add('is-fallback');
-    sec.style.height='';
-  }
-
-  // Mobile / Reduced-Motion / kein WebGL / Three nicht geladen -> statische Galerie
-  if(isMobile || reduceMotion || !THREE || !webglOK()){ fallback(); return; }
-
-  // Section-Höhe (N Screens + etwas Halt)
-  sec.style.height=(N*100+20)+'vh';
-
-  let renderer;
-  try{
-    renderer=new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false, powerPreference:'high-performance' });
-  }catch(e){ fallback(); return; }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  if(THREE.SRGBColorSpace) renderer.outputColorSpace=THREE.SRGBColorSpace;
-
-  const scene=new THREE.Scene();
-  const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-
-  // Texturen laden (crossOrigin), bei Fehler -> DOM-Fallback
-  const loader=new THREE.TextureLoader();
-  loader.setCrossOrigin('anonymous');
-  const textures=new Array(N).fill(null);
-  const sizes=new Array(N).fill(null);
-  let loaded=0, failed=false;
-
-  IMAGES.forEach((src,i)=>{
-    loader.load(src, (tex)=>{
-      if(THREE.SRGBColorSpace) tex.colorSpace=THREE.SRGBColorSpace;
-      tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
-      tex.minFilter=THREE.LinearMipmapLinearFilter;
-      tex.magFilter=THREE.LinearFilter;
-      tex.generateMipmaps=true;
-      if(renderer.capabilities && renderer.capabilities.getMaxAnisotropy) tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
-      const img=tex.image;
-      sizes[i]=new THREE.Vector2(img.naturalWidth||img.width||1, img.naturalHeight||img.height||1);
-      textures[i]=tex;
-      loaded++;
-      if(loaded===N && !failed) start();
-    }, undefined, ()=>{
-      if(failed) return;
-      failed=true; teardown(); fallback();
+  (function loop(){
+    requestAnimationFrame(loop);
+    const total=exp.offsetHeight-window.innerHeight;
+    const passed=clamp(-exp.getBoundingClientRect().top,0,Math.max(1,total));
+    const p=total>0?passed/total:0;
+    const seg=1/n;
+    items.forEach((it,i)=>{
+      const t=(p-i*seg)/seg;                       // <0 noch nicht · 0..1 aktiv · >1 vorbei
+      const inn=clamp(t/0.24,0,1), out=clamp((1-t)/0.24,0,1);
+      const op=(t<0||t>1)?0:Math.min(inn,out);
+      const tz=-360*(1-inn)+300*(1-out);
+      const sc=0.84+0.16*inn;
+      it.style.opacity=op.toFixed(3);
+      it.style.transform=`translateZ(${tz}px) scale(${sc})`;
     });
-  });
-
-  function teardown(){
-    cancelAnimationFrame(raf);
-    try{ renderer.dispose(); }catch(e){}
-    textures.forEach(t=>{ if(t) try{ t.dispose(); }catch(e){} });
-  }
-
-  // Distortion-Crossfade-Material: blendet texA -> texB, UVs nach cover korrigiert
-  const uniforms={
-    texA:{value:null}, texB:{value:null},
-    resA:{value:new THREE.Vector2(1,1)}, resB:{value:new THREE.Vector2(1,1)},
-    uMix:{value:0}, uRes:{value:new THREE.Vector2(1,1)},
-    uMouse:{value:new THREE.Vector2(0,0)}, uTime:{value:0}
-  };
-  const vert=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`;
-  const frag=`
-    precision highp float;
-    varying vec2 vUv;
-    uniform sampler2D texA, texB;
-    uniform vec2 resA, resB, uRes, uMouse;
-    uniform float uMix, uTime;
-    // cover-UV: füllt den Viewport ohne Verzerrung
-    vec2 coverUV(vec2 uv, vec2 res){
-      float sa=uRes.x/uRes.y, ia=res.x/res.y;
-      vec2 s=vec2(1.0);
-      if(sa>ia){ s.y=ia/sa; } else { s.x=sa/ia; }
-      return (uv-0.5)*s+0.5;
+    const r=exp.getBoundingClientRect();
+    if(r.top<window.innerHeight*0.5 && r.bottom>window.innerHeight*0.5){
+      document.querySelectorAll('#dots a').forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#arbeiten'));
     }
-    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-    float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
-      float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
-      return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
-    void main(){
-      float m=uMix;
-      // sanftes Ease in/out für den Übergang
-      float em=m*m*(3.0-2.0*m);
-      // Displacement-Stärke ist in der Mitte des Übergangs am größten
-      float amp=sin(em*3.14159)*0.16;
-      float n=noise(vUv*3.0 + uTime*0.05);
-      vec2 disp=vec2(n-0.5, noise(vUv*3.0+13.0)-0.5)*amp;
-      // leichte Maus-Parallax
-      vec2 par=uMouse*0.012;
-
-      vec2 uvA=coverUV(vUv + disp*em + par, resA);
-      vec2 uvB=coverUV(vUv - disp*(1.0-em) + par, resB);
-
-      // RGB-Shift, am stärksten in der Mitte
-      float sh=amp*0.6;
-      vec3 ca, cb;
-      ca.r=texture2D(texA, uvA+vec2(sh,0.0)).r;
-      ca.g=texture2D(texA, uvA).g;
-      ca.b=texture2D(texA, uvA-vec2(sh,0.0)).b;
-      cb.r=texture2D(texB, uvB+vec2(sh,0.0)).r;
-      cb.g=texture2D(texB, uvB).g;
-      cb.b=texture2D(texB, uvB-vec2(sh,0.0)).b;
-
-      vec3 col=mix(ca, cb, em);
-      gl_FragColor=vec4(col,1.0);
-    }`;
-  const mat=new THREE.ShaderMaterial({ uniforms, vertexShader:vert, fragmentShader:frag });
-  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
-
-  function resize(){
-    const w=window.innerWidth, h=window.innerHeight;
-    renderer.setSize(w,h,false);
-    uniforms.uRes.value.set(w,h);
-  }
-
-  let mx=0,my=0,tmx=0,tmy=0;
-  window.addEventListener('pointermove',e=>{ tmx=e.clientX/window.innerWidth-0.5; tmy=e.clientY/window.innerHeight-0.5; },{passive:true});
-
-  let raf=0;
-  const clock=new THREE.Clock();
-  let curIndex=-1;
-
-  function setActiveDot(active){
-    document.querySelectorAll('#dots a').forEach(a=>{
-      if(a.getAttribute('href')==='#arbeiten') a.classList.toggle('active',active);
-    });
-  }
-
-  function updateUI(idx, localT){
-    if(idx!==curIndex){
-      curIndex=idx;
-      const ci=clamp(idx,0,N-1);
-      if(catEl) catEl.textContent=('0'+(ci+1))+' / 0'+N+' · '+CATS[ci];
-      slides.forEach((s,i)=>{
-        const on=(i===ci);
-        s.style.opacity=on?'1':'0';
-        s.style.transform=on?'translateY(0)':'translateY(28px)';
-        s.style.transition='opacity .6s var(--ease), transform .6s var(--ease)';
-        s.style.pointerEvents='none';
-      });
-      progNos.forEach((p,i)=>{
-        // erste Zahl wird zur aktuellen Nummer, letzte bleibt 0N
-        if(i===0) p.textContent=('0'+(ci+1));
-        p.classList.toggle('on', i===0);
-      });
-    }
-  }
-
-  function start(){
-    resize();
-    window.addEventListener('resize', resize, {passive:true});
-    // Start-Sichtbarkeit der Slides
-    slides.forEach((s,i)=>{ s.style.opacity=i===0?'1':'0'; s.style.transform=i===0?'translateY(0)':'translateY(28px)'; });
-
-    (function loop(){
-      raf=requestAnimationFrame(loop);
-      mx+=(tmx-mx)*0.05; my+=(tmy-my)*0.05;
-      uniforms.uMouse.value.set(mx,my);
-      uniforms.uTime.value=clock.getElapsedTime();
-
-      const rect=sec.getBoundingClientRect();
-      const total=sec.offsetHeight-window.innerHeight;
-      const passed=clamp(-rect.top,0,Math.max(1,total));
-      const p=total>0?passed/total:0;          // 0..1 über die ganze Sektion
-
-      // p auf N-1 Übergänge mappen; jedes Segment: Halten + Morphen
-      const f=p*(N-1);                          // 0 .. N-1
-      let i=Math.floor(f);
-      if(i>=N-1){ i=N-2; }
-      if(i<0){ i=0; }
-      let seg=f-i;                              // 0..1 innerhalb des Segments
-      // Halten am Anfang jedes Segments, dann morphen (steven-idiom)
-      const hold=0.45;
-      let mix;
-      if(seg<hold){ mix=0; }
-      else { mix=(seg-hold)/(1.0-hold); }
-
-      uniforms.texA.value=textures[i];
-      uniforms.texB.value=textures[i+1];
-      uniforms.resA.value.copy(sizes[i]);
-      uniforms.resB.value.copy(sizes[i+1]);
-      uniforms.uMix.value=mix;
-
-      // aktiver Index für UI (nach Mitte des Morph wechseln)
-      const activeIdx=(mix>0.5)?(i+1):i;
-      updateUI(activeIdx, seg);
-
-      if(progFill){
-        const fillP=(N>1)?(p):0;
-        progFill.style.transform='scaleX('+fillP.toFixed(3)+')';
-      }
-
-      // aktiver Sektions-Punkt
-      setActiveDot(rect.top<window.innerHeight*0.5 && rect.bottom>window.innerHeight*0.5);
-
-      renderer.render(scene,cam);
-    })();
-  }
-
-  // Sicherheitsnetz: falls Texturen nach 8s nicht geladen sind -> Fallback
-  setTimeout(()=>{ if(loaded<N && !failed){ failed=true; teardown(); fallback(); } }, 8000);
-}
+  })();
+})();
 
 
 </script>
