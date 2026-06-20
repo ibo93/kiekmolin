@@ -49430,31 +49430,95 @@ function testPOSConnection() {
 
 // ==================== NETZWERK-DRUCKER (Epson ePOS) ====================
 function generateEposXML(order) {
-    var belegNr = order.order_number || ('B-' + (order.id || '').substring(0,8).toUpperCase());
+    var belegNr = order.order_number || ('B-' + (order.id || '').substring(0, 8).toUpperCase());
     var datum = new Date(order.created_at);
-    var zeitStr = datum.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-    var datumStr = datum.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+    var zeitStr = datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    var datumStr = datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // Restaurant-Header (falls Daten verfuegbar) — wichtig fuer Laeden ohne
+    // separate Kasse, weil der Bon dann das primaere Beleg-Dokument ist.
+    var restName = '';
+    var restAddr = '';
+    try {
+        var rest = (window.APP_DATA && APP_DATA.restaurants || []).find(function(r) { return r.id === order.restaurant_id; });
+        if (rest) {
+            restName = rest.name || '';
+            var line1 = [rest.street].filter(Boolean).join('');
+            var line2 = [rest.zip, rest.city].filter(Boolean).join(' ');
+            restAddr = [line1, line2].filter(Boolean).join(', ');
+        }
+    } catch (e) {}
+
+    var typeLabel = order.order_type === 'dine_in' ? 'HIER ESSEN'
+        : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG';
+
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
     xml += '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">';
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
     xml += '<text lang="de" smooth="true"/>';
+
+    // Restaurant-Header (gross)
+    if (restName) {
+        xml += '<text align="center" width="2" height="2"><![CDATA[' + restName + ']]>&#10;</text>';
+    }
+    if (restAddr) {
+        xml += '<text align="center"><![CDATA[' + restAddr + ']]>&#10;</text>';
+    }
+    if (restName || restAddr) xml += '<text>&#10;</text>';
+
+    // Beleg-Nummer + Zeit
     xml += '<text align="center" font="font_a" width="2" height="2">' + belegNr + '&#10;</text>';
     xml += '<text align="center">' + datumStr + ' ' + zeitStr + '&#10;&#10;</text>';
-    xml += '<text align="center" width="2" height="2">' + (order.order_type === 'dine_in' ? 'HIER ESSEN' : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG') + '&#10;</text>';
+
+    // Order-Typ + Tisch
+    xml += '<text align="center" width="2" height="2">' + typeLabel + '&#10;</text>';
     if (order.table_number) xml += '<text align="center" width="2" height="2">Tisch ' + order.table_number + '&#10;</text>';
-    xml += '<text>&#10;</text><text>--------------------------------&#10;</text>';
+
+    xml += '<text>&#10;</text><text>================================&#10;</text>';
+
+    // Items
     (order.items || []).forEach(function(item) {
         var qty = item.quantity || 1;
         var name = item.name || '';
-        xml += '<text>' + qty + 'x ' + name + '&#10;</text>';
+        xml += '<text width="1" height="2">' + qty + 'x ' + name + '&#10;</text>';
         if (item.options) xml += '<text>  &gt; ' + item.options + '&#10;</text>';
     });
-    xml += '<text>--------------------------------&#10;</text>';
-    xml += '<text align="right" width="2" height="2">GESAMT: ' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' EUR&#10;</text>';
+
+    xml += '<text>================================&#10;</text>';
     xml += '<text>&#10;</text>';
-    if (order.customer_name) xml += '<text>Kunde: ' + order.customer_name + '&#10;</text>';
-    if (order.notes || order.delivery_notes) xml += '<text>Hinweis: ' + (order.notes || order.delivery_notes) + '&#10;</text>';
-    xml += '<feed unit="24"/><cut type="feed"/>';
+
+    // Total — extra gross damit's nicht zu uebersehen ist
+    xml += '<text align="right" width="3" height="3"><![CDATA[' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' EUR]]>&#10;</text>';
+    xml += '<text align="right">GESAMT&#10;</text>';
+    xml += '<text>&#10;</text>';
+
+    // Zahlart
+    if (order.payment_method) {
+        var pm = order.payment_method === 'cash' ? 'BAR' : order.payment_method.toUpperCase();
+        xml += '<text align="center" width="2" height="2">' + pm + '&#10;</text>';
+        xml += '<text>&#10;</text>';
+    }
+
+    // Kunde + Adresse
+    if (order.customer_name) xml += '<text>Kunde:   <![CDATA[' + order.customer_name + ']]>&#10;</text>';
+    if (order.customer_phone) xml += '<text>Telefon: ' + order.customer_phone + '&#10;</text>';
+    if (order.delivery_address && typeof order.delivery_address === 'object') {
+        var a = order.delivery_address;
+        var addrLine = [a.street, a.house_number].filter(Boolean).join(' ');
+        var cityLine = [a.zip, a.city].filter(Boolean).join(' ');
+        if (addrLine) xml += '<text>Adresse: <![CDATA[' + addrLine + ']]>&#10;</text>';
+        if (cityLine) xml += '<text>         <![CDATA[' + cityLine + ']]>&#10;</text>';
+    }
+    if (order.notes || order.delivery_notes || order.customer_notes) {
+        xml += '<text>&#10;</text>';
+        xml += '<text width="1" height="2">Hinweis:&#10;</text>';
+        xml += '<text width="1" height="2"><![CDATA[' + (order.customer_notes || order.notes || order.delivery_notes) + ']]>&#10;</text>';
+    }
+
+    xml += '<feed unit="30"/>';
+    xml += '<text align="center">--- Vielen Dank! ---&#10;</text>';
+    xml += '<text align="center">kiekmolin.de&#10;</text>';
+    xml += '<feed unit="36"/><cut type="feed"/>';
     xml += '</epos-print></s:Body></s:Envelope>';
     return xml;
 }
@@ -49527,21 +49591,47 @@ function playOrderSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Lauter Dreifach-Ding: 800Hz → 1000Hz → 1200Hz
-        [0, 0.2, 0.4].forEach(function(offset, i) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime([800, 1000, 1200][i], now + offset);
-            gain.gain.setValueAtTime(0.7, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.45);
-            osc.start(now + offset);
-            osc.stop(now + offset + 0.45);
-        });
+        // Lauter, laenger, unueberhoerbar: 3 Glocken-Wellen hintereinander,
+        // jede mit aufsteigender Tonfolge + Oberton-Stacking fuer wahrgenommene Lautstaerke.
+        var WAVES = 3;       // Anzahl der Glocken-Wellen
+        var WAVE_GAP = 1.1;  // Sekunden Pause zwischen den Wellen
+        var NOTES = [
+            { freq: 880,  dur: 0.55 },  // A5
+            { freq: 1108, dur: 0.55 },  // C#6
+            { freq: 1318, dur: 0.85 }   // E6 (laenger ausklingen)
+        ];
+        var NOTE_GAP = 0.18; // Sekunden zwischen den Noten in einer Welle
 
-        setTimeout(function() { ctx.close(); }, 2000);
+        function chime(t0) {
+            var noteStart = t0;
+            NOTES.forEach(function(note) {
+                // Grundton + Oberton (Oktave drueber) fuer staerkeren wahrgenommenen Klang
+                [1, 2].forEach(function(harmonic, hIdx) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = hIdx === 0 ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(note.freq * harmonic, noteStart);
+                    // Maximaler Gain (1.0 ist Web-Audio-Maximum ohne Compressor-Limiting)
+                    var peak = hIdx === 0 ? 1.0 : 0.35;
+                    gain.gain.setValueAtTime(0, noteStart);
+                    gain.gain.linearRampToValueAtTime(peak, noteStart + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + note.dur);
+                    osc.start(noteStart);
+                    osc.stop(noteStart + note.dur + 0.05);
+                });
+                noteStart += NOTE_GAP;
+            });
+        }
+
+        for (var w = 0; w < WAVES; w++) {
+            chime(now + w * WAVE_GAP);
+        }
+
+        // Gesamtdauer: WAVES * WAVE_GAP + letzte Note. Context erst danach schliessen.
+        var totalMs = (WAVES * WAVE_GAP + 1.0) * 1000;
+        setTimeout(function() { try { ctx.close(); } catch (e) {} }, totalMs);
     } catch(e) {}
 }
 
