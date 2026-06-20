@@ -46131,7 +46131,8 @@ async function loadDashboardOrders() {
                 restaurant_id: order.restaurant_id,
                 restaurant_name: order.restaurant_name || '',
                 table_number: order.table_number || null,
-                pos_log: Array.isArray(order.pos_log) ? order.pos_log : []
+                pos_log: Array.isArray(order.pos_log) ? order.pos_log : [],
+                printed_at: order.printed_at || null
             }));
             window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: activeRestFilter, time: ordersTimeFilter };
 
@@ -46400,6 +46401,17 @@ function renderDashboardOrders() {
             posResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToPOS(\'' + order.id + '\')" title="An Kassensystem senden" aria-label="An Kasse senden" style="background:rgba(59,130,246,0.1);color:#1d4ed8;border-color:rgba(59,130,246,0.3);">📟 Kasse</button>';
         }
 
+        // Bon-Nachdruck-Button: zeigt Status + lass den Drucker beim naechsten Poll erneut drucken.
+        var printBtn = '';
+        if (order.status !== 'cancelled') {
+            var printed = !!order.printed_at;
+            var printTitle = printed
+                ? 'Bon wurde am ' + new Date(order.printed_at).toLocaleString('de-DE') + ' gedruckt. Klicken zum Nachdrucken.'
+                : 'Bon noch nicht gedruckt — klicken um Drucker anzuregen.';
+            var printIcon = printed ? '🖨' : '🟧 🖨';
+            printBtn = '<button class="kin-order-btn secondary" onclick="reprintBon(\'' + order.id + '\')" title="' + printTitle + '" aria-label="Bon nachdrucken" style="background:' + (printed ? 'rgba(34,197,94,0.1);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(234,88,12,0.1);color:#9a3412;border-color:rgba(234,88,12,0.3)') + ';">' + printIcon + ' Bon</button>';
+        }
+
         // Action Buttons je nach Status
         let actionsHtml = '';
         switch(order.status) {
@@ -46545,6 +46557,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-actions">
                         ${actionsHtml}
                         ${posResendBtn}
+                        ${printBtn}
                     </div>
                 </div>
             </div>
@@ -47614,7 +47627,12 @@ async function dispatchPrintToAll(order, bonType) {
         if (filteredItems.length === 0 && (p.role === 'kitchen' || p.role === 'bar')) continue;
         var orderForPrint = Object.assign({}, order, { items: filteredItems });
         try {
-            if (p.type === 'epson') {
+            if (p.type === 'server-direct') {
+                // Drucker pollt selbst — keine aktive Aktion noetig. printed_at bleibt
+                // null, beim naechsten Abruf druckt der Drucker den Bon automatisch.
+                // Zaehlt als success (der "Auftrag" ist erteilt, der Drucker holt ihn).
+                success++;
+            } else if (p.type === 'epson') {
                 var ok = await printToEpson(orderForPrint, p);
                 if (ok) success++; else errors++;
             } else {
@@ -47882,40 +47900,62 @@ function openMultiPrinterSettings() {
     function renderPrinterRow(p, idx) {
         var typeQz = p.type === 'qz' ? ' selected' : '';
         var typeEpson = p.type === 'epson' ? ' selected' : '';
+        var typeSDP = p.type === 'server-direct' ? ' selected' : '';
+        var typeBadge = p.type === 'server-direct'
+            ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:600;">empfohlen</span>'
+            : '';
+
+        // Konfigurations-Block je nach Typ
+        var configBlock;
+        if (p.type === 'epson') {
+            configBlock = '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
+                '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker IP-Adresse</label>' +
+                    '<input value="' + (p.ip || '') + '" oninput="updateMultiPrinter(' + idx + ', \'ip\', this.value)" placeholder="192.168.1.50" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
+                '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Device ID</label>' +
+                    '<input value="' + (p.devid || 'local_printer') + '" oninput="updateMultiPrinter(' + idx + ', \'devid\', this.value)" placeholder="local_printer" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
+              '</div>' +
+              '<div style="font-size:11px;color:#9a3412;background:#fef3c7;padding:6px 8px;border-radius:6px;margin-bottom:8px;">⚠ Direkt-Druck wird auf HTTPS oft blockiert (Mixed Content). Falls Bons nicht kommen: auf „Server Direct Print" wechseln.</div>';
+        } else if (p.type === 'server-direct') {
+            configBlock = '<div style="background:var(--bg-card);border:1px dashed var(--border-color);border-radius:8px;padding:10px;margin-bottom:8px;">' +
+                '<div style="font-size:11px;color:var(--slate);margin-bottom:6px;">Der Drucker holt sich Bons selbst — keine IP, kein PC, kein HTTPS-Problem. Einmal am Drucker eintragen, danach laeuft alles automatisch.</div>' +
+                '<button type="button" onclick="showServerDirectPrintInfo(' + idx + ')" style="width:100%;padding:8px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+                    '<span class="material-symbols-outlined" style="font-size:14px;">key</span>Drucker-URL + Anleitung anzeigen' +
+                '</button>' +
+              '</div>';
+        } else {
+            configBlock = '<div style="margin-bottom:8px;">' +
+                '<label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker-Name (aus QZ Tray)</label>' +
+                '<select onchange="updateMultiPrinter(' + idx + ', \'name\', this.value)" id="qzSelect_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
+                    '<option value="' + (p.name || '') + '">' + (p.name || 'QZ Tray wird geladen…') + '</option>' +
+                '</select>' +
+              '</div>';
+        }
+
         return '<div class="multi-printer-row" data-idx="' + idx + '" style="border:1px solid var(--border-color);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--bg-secondary);">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-                '<strong style="font-size:13px;">Drucker ' + (idx + 1) + '</strong>' +
+                '<strong style="font-size:13px;">Drucker ' + (idx + 1) + typeBadge + '</strong>' +
                 '<button type="button" onclick="removeMultiPrinter(' + idx + ')" style="background:rgba(239,68,68,0.1);color:#dc2626;border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:11px;padding:4px 8px;cursor:pointer;">Entfernen</button>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Typ</label>' +
                     '<select onchange="updateMultiPrinter(' + idx + ', \'type\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
-                        '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken)</option>' +
-                        '<option value="epson"' + typeEpson + '>Epson ePOS LAN (TM-Serie, kein PC nötig)</option>' +
+                        '<option value="server-direct"' + typeSDP + '>Server Direct Print (Epson, empfohlen — kein PC)</option>' +
+                        '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken — PC nötig)</option>' +
+                        '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (HTTPS-Probleme möglich)</option>' +
                     '</select></div>' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Rolle</label>' +
                     '<select onchange="updateMultiPrinter(' + idx + ', \'role\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
                         rolesOptionsHtml(p.role || 'all') +
                     '</select></div>' +
             '</div>' +
-            (p.type === 'epson'
-                ? '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
-                    '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker IP-Adresse</label>' +
-                        '<input value="' + (p.ip || '') + '" oninput="updateMultiPrinter(' + idx + ', \'ip\', this.value)" placeholder="192.168.1.50" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
-                    '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Device ID</label>' +
-                        '<input value="' + (p.devid || 'local_printer') + '" oninput="updateMultiPrinter(' + idx + ', \'devid\', this.value)" placeholder="local_printer" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
-                  '</div>'
-                : '<div style="margin-bottom:8px;">' +
-                    '<label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker-Name (aus QZ Tray)</label>' +
-                    '<select onchange="updateMultiPrinter(' + idx + ', \'name\', this.value)" id="qzSelect_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
-                        '<option value="' + (p.name || '') + '">' + (p.name || 'QZ Tray wird geladen…') + '</option>' +
-                    '</select>' +
-                  '</div>') +
+            configBlock +
             '<div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">' +
                 '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">' +
-                    '<input type="checkbox" ' + (p.autoprint ? 'checked' : '') + ' onchange="updateMultiPrinter(' + idx + ', \'autoprint\', this.checked)"> Automatisch drucken' +
+                    '<input type="checkbox" ' + (p.autoprint !== false ? 'checked' : '') + ' onchange="updateMultiPrinter(' + idx + ', \'autoprint\', this.checked)"> Automatisch drucken' +
                 '</label>' +
-                '<button type="button" onclick="testMultiPrinter(' + idx + ')" style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testdruck</button>' +
+                (p.type === 'server-direct'
+                    ? '<span style="font-size:11px;color:var(--slate);">Druck startet durch Drucker-Polling</span>'
+                    : '<button type="button" onclick="testMultiPrinter(' + idx + ')" style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testdruck</button>') +
             '</div>' +
         '</div>';
     }
@@ -47970,7 +48010,8 @@ function _multiPrinterOverlay() {
 }
 function addMultiPrinter() {
     var ov = _multiPrinterOverlay(); if (!ov) return;
-    ov._multiPrinters.push({ id: 'p-' + Date.now(), type: 'epson', ip: '', devid: 'local_printer', role: 'all', autoprint: true });
+    // Default: 'server-direct' — funktioniert ohne PC und ohne HTTPS-Probleme
+    ov._multiPrinters.push({ id: 'p-' + Date.now(), type: 'server-direct', role: 'all', autoprint: true });
     _refreshMultiPrinterList();
 }
 function removeMultiPrinter(idx) {
@@ -48745,6 +48786,35 @@ function resendOrderToPOS(orderId) {
     } catch(e) { console.error(e); }
 }
 
+// Bon erneut drucken: setzt printed_at zurueck, der Epson-Drucker holt
+// den Bon beim naechsten Poll automatisch erneut ab.
+async function reprintBon(orderId) {
+    try {
+        var token = null;
+        if (window.supabaseClient && supabaseClient.auth) {
+            var s = await supabaseClient.auth.getSession();
+            token = s && s.data && s.data.session && s.data.session.access_token;
+        }
+        if (!token) { showToast('Bitte als Gastronom einloggen', 'error'); return; }
+        var res = await fetch('/.netlify/functions/pos-print?action=reprint&order=' + encodeURIComponent(orderId), {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var j = await res.json();
+        if (j && j.ok) {
+            // Lokal printed_at zuruecksetzen damit der Button sofort umspringt
+            var orderIdx = (window.dashboardOrders || []).findIndex(function(o) { return o.id === orderId; });
+            if (orderIdx >= 0) window.dashboardOrders[orderIdx].printed_at = null;
+            if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+            showToast('Bon wird beim nächsten Druckabruf erneut ausgegeben (max. 15 Sek).', 'success');
+        } else {
+            showToast('Fehler: ' + ((j && j.error) || 'unbekannt'), 'error');
+        }
+    } catch (e) {
+        showToast('Verbindungsfehler: ' + e.message, 'error');
+    }
+}
+
 // POS-Einstellungen Modal
 function openPOSSettings() {
     var allConfig = getPOSConfig();
@@ -48902,6 +48972,92 @@ function _renderPosPullInfo(box, j) {
             '<button onclick="if(confirm(\'Neuen Schlüssel erzeugen? Der alte wird ungültig — du musst ihn dann im Kassensystem neu eintragen.\')) showPosPullInfo(true)" style="background:none;border:none;color:#b91c1c;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Schlüssel neu erzeugen</button>' +
         '</div>';
 }
+// Server Direct Print: Setup-Info-Modal pro Drucker-Zeile.
+// Zeigt die fertige Druck-URL + Schluessel + Schritt-fuer-Schritt-Anleitung
+// fuer den Epson-Drucker. Holt sich den restaurant-spezifischen pos_pull_key
+// vom Server (mit Supabase-Login-Token autorisiert).
+async function showServerDirectPrintInfo(printerIdx) {
+    // Bestehendes Modal entfernen
+    var existing = document.getElementById('sdpInfoOverlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'sdpInfoOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10010;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = '<div class="modal" style="max-width:560px;width:100%;max-height:85vh;overflow-y:auto;border-radius:16px;background:var(--bg-card);padding:24px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+            '<h2 style="font-family:Epilogue,sans-serif;font-size:18px;margin:0;display:flex;align-items:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:20px;color:var(--primary)">print</span>Drucker einrichten' +
+            '</h2>' +
+            '<button onclick="document.getElementById(\'sdpInfoOverlay\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-primary);">×</button>' +
+        '</div>' +
+        '<div id="sdpInfoContent"><div style="font-size:13px;color:var(--slate);padding:20px;text-align:center;">Lade Zugangsdaten…</div></div>' +
+    '</div>';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+
+    // Login-Token holen
+    var token = null;
+    try {
+        if (window.supabaseClient && supabaseClient.auth) {
+            var s = await supabaseClient.auth.getSession();
+            token = s && s.data && s.data.session && s.data.session.access_token;
+        }
+    } catch (e) {}
+    if (!token) {
+        document.getElementById('sdpInfoContent').innerHTML =
+            '<div style="font-size:13px;color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;">Bitte zuerst als Gastronom einloggen.</div>';
+        return;
+    }
+
+    // Restaurant aus dem Dashboard-Selector
+    var sel = document.getElementById('ordersRestaurantSelect');
+    var restId = sel ? sel.value : '';
+    var url = '/.netlify/functions/pos-orders?action=key' +
+        (restId && restId !== 'default' ? '&restaurant=' + encodeURIComponent(restId) : '');
+
+    try {
+        var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        var j = await res.json();
+        if (!j || !j.ok) {
+            document.getElementById('sdpInfoContent').innerHTML =
+                '<div style="font-size:13px;color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;">Fehler: ' + _escPos((j && j.error) || ('HTTP ' + res.status)) + '</div>';
+            return;
+        }
+        var printUrl = (j.pull_url || '').replace('/.netlify/functions/pos-orders', '/.netlify/functions/pos-print');
+        var fieldStyle = 'width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px;box-sizing:border-box;word-break:break-all;font-family:monospace;';
+        var btnStyle = 'padding:8px 12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;';
+
+        document.getElementById('sdpInfoContent').innerHTML =
+            '<p style="font-size:13px;color:var(--slate);margin:0 0 14px;">Einmal diese URL beim Epson-Drucker eintragen — danach druckt er alle Bons selbst, ohne PC, ohne kiekmolin-App im Hintergrund.</p>' +
+            '<label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);display:block;margin-bottom:4px;letter-spacing:0.5px;">Druck-URL</label>' +
+            '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+                '<div style="' + fieldStyle + '" id="sdpUrl">' + _escPos(printUrl) + '</div>' +
+                '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'sdpUrl\').textContent)">Kopieren</button>' +
+            '</div>' +
+            '<details open style="font-size:13px;color:var(--text-primary);background:var(--bg-secondary);border-radius:10px;padding:12px;">' +
+                '<summary style="cursor:pointer;font-weight:700;color:var(--primary);">Schritt-für-Schritt am Drucker</summary>' +
+                '<ol style="margin:12px 0 0 18px;padding:0;line-height:1.7;">' +
+                    '<li>Drucker einschalten und sicherstellen, dass er im selben Netzwerk wie das Tablet hängt.</li>' +
+                    '<li>Im Browser <strong>http://&lt;Drucker-IP&gt;</strong> öffnen (z.B. <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">http://192.168.1.50</code>). Die IP steht auf dem Selbsttest-Beleg, den der Drucker beim Einschalten ausgibt (Knopf auf der Rückseite drücken).</li>' +
+                    '<li>Menü <strong>„ePOS Server Direct Print"</strong> → aktivieren (manche Modelle heißen das „TM-Intelligent Print" oder ähnlich).</li>' +
+                    '<li><strong>Server-URL</strong>: oben die kopierte URL einfügen.</li>' +
+                    '<li><strong>Abfrage-Intervall</strong>: <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">5</code> bis <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">15</code> Sekunden — kürzer = schneller, länger = sanfter zum Drucker.</li>' +
+                    '<li><strong>Speichern</strong> und Drucker neu starten.</li>' +
+                    '<li>Fertig — Drucker fragt jetzt selbständig alle paar Sekunden bei kiekmolin nach Bons.</li>' +
+                '</ol>' +
+                '<p style="margin:12px 0 0;color:var(--slate);font-size:12px;">⚠ Die URL enthält einen geheimen Schlüssel. Nicht weitergeben.</p>' +
+            '</details>' +
+            '<div style="margin-top:14px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#15803d;">' +
+                '✓ Funktioniert mit allen Epson TM-Modellen mit „Server Direct Print"-Firmware (TM-m30II, TM-T88VI, TM-T20III, TM-T70II u.a.). Kein PC, kein Tablet, kein App-Hintergrundprozess nötig.' +
+            '</div>';
+    } catch (e) {
+        document.getElementById('sdpInfoContent').innerHTML =
+            '<div style="font-size:13px;color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;">Verbindungsfehler: ' + _escPos(e.message) + '</div>';
+    }
+}
+
 async function showPosPullInfo(rotate) {
     var box = document.getElementById('posPullInfo');
     if (!box) return;
