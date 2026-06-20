@@ -48362,16 +48362,49 @@ function buildRichPosPayload(order) {
 // Wir tun nicht so, als ob das automatisch klappt.
 var POS_SYSTEM_STATUS = {
     none:        { status: 'ready' },
+    email:       { status: 'ready', note: 'Universell: funktioniert mit jeder Kasse, die Lieferando-/Uber-Eats-Bestellungen per Email empfangen kann (orderbird, Vectron, GastroSoft, Hypersoft u.v.m.). Falls deine Kasse Email nicht importiert, landet die Bestellung als Notification auf dem Handy — du kannst sie in 10 Sek manuell eintippen.' },
     ready2order: { status: 'ready' },
     lightspeed:  { status: 'limited',     note: 'Lightspeed benötigt einen Partner-Zugang (OAuth). Eine Direkt-Anbindung mit nur einem API-Key reicht nicht aus — frag beim Lightspeed-Support nach einem Partner-Onboarding.' },
-    orderbird:   { status: 'unavailable', note: 'orderbird bietet aktuell keine öffentliche Schnittstelle, um Bestellungen von außen einzuspielen. Stattdessen nutze die universelle Abruf-Schnittstelle unten — sie funktioniert mit jedem Kassensystem, das eine URL abrufen kann.' },
-    gastrofix:   { status: 'unavailable', note: 'Gastrofix (Lightspeed K-Serie) bietet keine öffentliche API zum Reinschieben von Bestellungen. Stattdessen die Abruf-Schnittstelle unten nutzen.' },
+    orderbird:   { status: 'unavailable', note: 'orderbird bietet aktuell keine öffentliche Schnittstelle, um Bestellungen von außen einzuspielen. → Stattdessen „Email an Kasse" wählen — orderbird kann Lieferando-Bestellungen per Email importieren.' },
+    gastrofix:   { status: 'unavailable', note: 'Gastrofix (Lightspeed K-Serie) bietet keine öffentliche API zum Reinschieben von Bestellungen. → Stattdessen „Email an Kasse" wählen — Gastrofix unterstützt Email-Import.' },
     webhook:     { status: 'ready' },
     multidata:   { status: 'ready' }
 };
 
 var POS_SYSTEMS = {
     none: { name: 'Kein Kassensystem', needsKey: false },
+    email: {
+        name: '📧 Email an Kasse (universell)',
+        needsKey: true,
+        keyLabel: 'Empfänger-Email der Kasse',
+        keyPlaceholder: 'kasse@dein-restaurant.de',
+        helpUrl: '',
+        sendOrder: function(order, config, callback) {
+            var rich = buildRichPosPayload(order);
+            fetch('/.netlify/functions/pos-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: config.apiKey,
+                    restaurant_name: rich.restaurant_name || '',
+                    order: rich
+                })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung per Email an ' + config.apiKey + ' gesendet');
+                else callback(false, 'Email-Versand: ' + ((j && j.error) || 'unbekannter Fehler'));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: config.apiKey, test: true })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Test-Email an ' + config.apiKey + ' gesendet — schau bitte ins Postfach.');
+                else callback(false, 'Email-Fehler: ' + ((j && j.error) || 'unbekannt'));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        }
+    },
     ready2order: {
         name: 'ready2order',
         needsKey: true,
