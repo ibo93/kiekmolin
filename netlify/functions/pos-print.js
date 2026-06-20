@@ -252,6 +252,15 @@ exports.handler = async function (event) {
                     'items,total';
         var orders = await sbGet(orderPath);
 
+        // Last-Poll-Tracker: bei jedem Abruf vom Drucker den Zeitstempel
+        // updaten. Dashboard kann darauf einen 'Drucker online'-Indikator
+        // bauen. Fire-and-forget -- sollte die XML-Auslieferung nicht blockieren.
+        sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), {
+            printer_last_poll_at: new Date().toISOString()
+        }).catch(function(e) {
+            console.warn('[pos-print] printer_last_poll_at update fehlgeschlagen:', e.message);
+        });
+
         if (!orders.length) {
             return xmlResponse(emptyEposResponse());
         }
