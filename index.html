@@ -48729,12 +48729,54 @@ function sendOrderToPOS(order) {
     return true;
 }
 
+// Wenn die Kasse die Steuerung uebernimmt: nach erfolgreichem Push die
+// Bestellung auf kiekmolin headless als 'accepted' markieren, damit der
+// Kunde sofort die Bestaetigung sieht. Gastronom muss kiekmolin nie oeffnen
+// und arbeitet komplett aus der Kasse.
+async function _autoAcceptAfterPosPush(order, config) {
+    if (!order || !order.id || order.status !== 'received') return;
+    var minutes = parseInt(config && config.autoAcceptMinutes, 10) || 30;
+    if (minutes < 5) minutes = 5;
+    if (minutes > 180) minutes = 180;
+    try {
+        const resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + order.id, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                status: 'accepted',
+                estimated_minutes: minutes,
+                estimated_time: new Date(Date.now() + minutes * 60000).toISOString(),
+                accepted_at: new Date().toISOString()
+            })
+        });
+        if (!resp.ok) { console.warn('[kasseControls] PATCH fehlgeschlagen:', resp.status); return; }
+        order.status = 'accepted';
+        order.estimated_minutes = minutes;
+        order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        if (typeof updateOrderStats === 'function') updateOrderStats();
+        if (typeof autoPrintKitchenBon !== 'undefined' && autoPrintKitchenBon) {
+            setTimeout(function() { printKitchenBon(order.id); }, 500);
+        }
+    } catch (e) { console.error('[kasseControls] Fehler:', e); }
+}
+
 function _sendPOSWithRetry(order, config, pos, attempt) {
     pos.sendOrder(order, config, function(ok, msg) {
         if (ok) {
             showToast(msg, 'success');
             // Sync-Status speichern
             _savePOSSyncStatus(order.id || order.order_number, 'success', msg);
+            // Wenn Kasse die Steuerung uebernehmen soll: kiekmolin auto-acceptet
+            // jetzt (Kunde kriegt Bestaetigung, Gastronom arbeitet nur in Kasse).
+            if (config && config.kasseControls) {
+                _autoAcceptAfterPosPush(order, config);
+            }
         } else {
             console.error('POS Fehler (Versuch ' + (attempt + 1) + '/' + _posMaxRetries + '):', msg);
             if (attempt < _posMaxRetries - 1) {
@@ -48969,7 +49011,7 @@ async function copyOrderForKasse(orderId) {
 function openPOSSettings() {
     var allConfig = getPOSConfig();
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
-    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false };
+    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false, kasseControls: false, autoAcceptMinutes: 30 };
 
     var systemOptions = Object.keys(POS_SYSTEMS).map(function(key) {
         var sel = key === conf.system ? ' selected' : '';
@@ -49003,12 +49045,24 @@ function openPOSSettings() {
         '<div id="posHelpLink" style="margin-bottom:12px;display:' + (currentPOS.helpUrl ? 'block' : 'none') + ';">' +
             '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">API-Zugang einrichten &rarr;</a>' +
         '</div>' +
-        '<div style="margin-bottom:16px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
+        '<div style="margin-bottom:10px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
             '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
                 '<input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + ' style="margin-top:2px;">' +
                 '<span>Sofort an Kasse senden wenn Bestellung reinkommt<br>' +
-                '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch. Du nimmst sie auf kiekmolin weiterhin manuell an (Wartezeit-Wahl).</span></span>' +
+                '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch.</span></span>' +
             '</label>' +
+        '</div>' +
+        '<div style="margin-bottom:16px;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:12px;">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#1e3a8a;">' +
+                '<input type="checkbox" id="posKasseControls" ' + (conf.kasseControls ? 'checked' : '') + ' style="margin-top:2px;">' +
+                '<span>Kasse uebernimmt die Steuerung<br>' +
+                '<span style="font-weight:400;color:#1e40af;font-size:11px;">Sobald die Kasse die Bestellung erhalten hat, markiert kiekmolin sie automatisch als angenommen (Kunde sieht Bestaetigung). Du arbeitest komplett aus der Kasse, kiekmolin musst du nicht oeffnen.</span></span>' +
+            '</label>' +
+            '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:13px;">' +
+                '<span style="color:#1e3a8a;">Standard-Wartezeit:</span>' +
+                '<input type="number" id="posAutoAcceptMinutes" min="5" max="180" step="5" value="' + (conf.autoAcceptMinutes || 30) + '" style="width:70px;padding:6px 8px;border:1px solid #93c5fd;border-radius:6px;background:white;color:#1e3a8a;font-size:13px;">' +
+                '<span style="color:#1e3a8a;">Minuten</span>' +
+            '</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;">' +
             '<button onclick="testPOSConnection()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
@@ -49089,7 +49143,9 @@ function savePOSSettings() {
         system: document.getElementById('posSystemSelect')?.value || 'none',
         apiKey: document.getElementById('posApiKey')?.value?.trim() || '',
         apiUrl: document.getElementById('posApiUrl')?.value?.trim() || '',
-        autoSend: document.getElementById('posAutoSend')?.checked || false
+        autoSend: document.getElementById('posAutoSend')?.checked || false,
+        kasseControls: document.getElementById('posKasseControls')?.checked || false,
+        autoAcceptMinutes: parseInt(document.getElementById('posAutoAcceptMinutes')?.value, 10) || 30
     };
     savePOSConfig(allConfig);
     var posName = POS_SYSTEMS[allConfig[restId].system]?.name || 'Kein';
