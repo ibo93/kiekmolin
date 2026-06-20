@@ -8474,6 +8474,38 @@
             animation: orderPulse 2s infinite;
         }
 
+        /* Dasselbe fuer die kin-order-card (das ist die aktuell verwendete Klasse) */
+        .kin-order-card.status-received {
+            border-color: #ef4444 !important;
+            border-width: 2px !important;
+            animation: kinOrderPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes kinOrderPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6), 0 2px 8px rgba(0,0,0,0.04); }
+            50%      { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0), 0 2px 8px rgba(0,0,0,0.04); }
+        }
+
+        .kin-new-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ef4444;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+            animation: kinNewBadgePulse 1.2s ease-in-out infinite;
+            z-index: 5;
+        }
+        @keyframes kinNewBadgePulse {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.08); }
+        }
+
         @keyframes orderPulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
             50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
@@ -46515,8 +46547,24 @@ function renderDashboardOrders() {
                 break;
         }
 
+        // "Fuer Kasse kopieren"-Button: kopiert Bestelltext in Zwischenablage zum
+        // schnellen Eintippen in die Kasse. Markiert die Bestellung danach als
+        // "in Kasse uebertragen" (ueber pos_log → posBadgeHtml zeigt es an).
+        var copyForKasseBtn = '';
+        if (order.status !== 'cancelled') {
+            var alreadyCopied = posLastEntry && (posLastEntry.type === 'manual_copied' || posLastEntry.status === 'success');
+            var copyTitle = alreadyCopied
+                ? 'Schon kopiert — nochmal kopieren?'
+                : 'Bestellung als sauberen Text in Zwischenablage kopieren — dann in Kasse einfügen.';
+            copyForKasseBtn = '<button class="kin-order-btn secondary" onclick="copyOrderForKasse(\'' + order.id + '\')" title="' + copyTitle + '" style="background:' + (alreadyCopied ? 'rgba(34,197,94,0.10);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.10);color:#4338ca;border-color:rgba(99,102,241,0.3)') + ';">' +
+                '<span class="material-symbols-outlined" style="font-size:14px;">' + (alreadyCopied ? 'check' : 'content_copy') + '</span>' +
+                (alreadyCopied ? 'Kopiert' : 'Für Kasse') +
+            '</button>';
+        }
+
         return `
             <div class="kin-order-card status-${order.status}" style="position:relative;overflow:hidden;">
+                ${order.status === 'received' ? '<div class="kin-new-badge">NEU</div>' : ''}
                 ${order.status === 'received' ? '<div style="position:absolute;top:-32px;right:-32px;width:128px;height:128px;background:rgba(254,214,91,0.10);border-radius:0 0 0 100%;pointer-events:none;"></div>' : ''}
                 <!-- Stitch Header: Order # + Customer Name left, Status right -->
                 <div class="kin-order-header">
@@ -46557,6 +46605,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-actions">
                         ${actionsHtml}
                         ${posResendBtn}
+                        ${copyForKasseBtn}
                         ${printBtn}
                     </div>
                 </div>
@@ -48812,6 +48861,94 @@ async function reprintBon(orderId) {
         }
     } catch (e) {
         showToast('Verbindungsfehler: ' + e.message, 'error');
+    }
+}
+
+// Bestellung als sauberen Plain-Text in die Zwischenablage kopieren —
+// fuer den Gastronom, der die Bestellung manuell in seine Kasse eintippt.
+// Markiert die Bestellung danach via pos_log als "manuell uebertragen",
+// damit man auf einen Blick sieht, was schon verbucht wurde.
+async function copyOrderForKasse(orderId) {
+    try {
+        var order = (window.dashboardOrders || []).find(function(o) { return o.id === orderId; });
+        if (!order) { showToast('Bestellung nicht gefunden', 'error'); return; }
+
+        // Plain-Text Format mit ausgerichteten Spalten — direkt eintippbar
+        var lines = [];
+        var typeLabel = order.order_type === 'delivery' ? 'LIEFERUNG'
+            : order.order_type === 'dine_in' ? 'HIER ESSEN' : 'ABHOLUNG';
+        lines.push('Beleg #' + (order.order_number || (order.id || '').substring(0, 6)) + ' — ' + typeLabel +
+            (order.table_number ? ' (Tisch ' + order.table_number + ')' : ''));
+        if (order.customer_name) lines.push(order.customer_name +
+            (order.customer_phone ? ' · ' + order.customer_phone : ''));
+        lines.push('');
+
+        (order.items || []).forEach(function(item) {
+            var qty = item.quantity || 1;
+            var name = item.name || '';
+            var price = parseFloat(item.price || item.total_price || 0).toFixed(2).replace('.', ',') + ' €';
+            var left = qty + 'x  ' + name;
+            // Punkte auffuellen damit Preis rechts in einer Linie steht
+            var fillLen = Math.max(2, 36 - left.length - price.length);
+            lines.push(left + ' ' + new Array(fillLen + 1).join('.') + ' ' + price);
+            if (item.options) lines.push('     › ' + item.options);
+        });
+        lines.push('');
+        lines.push('Gesamt: ' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' € · ' +
+            (order.payment_method === 'cash' ? 'Bar' : order.payment_method || 'Karte'));
+        if (order.customer_notes || order.delivery_notes || order.notes) {
+            lines.push('Hinweis: ' + (order.customer_notes || order.delivery_notes || order.notes));
+        }
+        var text = lines.join('\n');
+
+        // In Zwischenablage kopieren
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            // Fallback fuer alte Browser
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+
+        // pos_log Eintrag in Supabase setzen — damit Badge "Kasse" gruen wird
+        try {
+            var entry = {
+                ts: new Date().toISOString(),
+                status: 'success',
+                type: 'manual_copied',
+                message: 'Manuell zum Eintippen in die Kasse kopiert'
+            };
+            var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=pos_log', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            var arr = [];
+            if (resp.ok) {
+                var data = await resp.json();
+                if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
+            }
+            arr.push(entry);
+            await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ pos_log: arr })
+            });
+            // Lokal aktualisieren damit Badge sofort umspringt
+            if (Array.isArray(order.pos_log)) order.pos_log.push(entry);
+            else order.pos_log = [entry];
+            if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        } catch (e) {
+            console.warn('pos_log Update fehlgeschlagen:', e);
+        }
+
+        showToast('In Zwischenablage kopiert — jetzt in der Kasse einfügen oder abtippen.', 'success');
+    } catch (e) {
+        console.error('copyOrderForKasse:', e);
+        showToast('Kopieren fehlgeschlagen: ' + e.message, 'error');
     }
 }
 
