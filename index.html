@@ -21563,19 +21563,20 @@ function handleRealtimeOrder(payload) {
             }
         );
 
-        // Auto-Accept: wenn fuer dieses Restaurant aktiviert, Bestellung
-        // sofort headless annehmen -> triggert Bondruck + Kassen-Push.
-        // Mitarbeiter muss nichts klicken, Bestellung erscheint direkt in
-        // der Kasse als offener Tisch / Beleg.
+        // Sofort an die Kasse pushen (unabhaengig vom Accept-Klick).
+        // Der Gastronom nimmt die Bestellung im kiekmolin-Dashboard weiterhin
+        // manuell an (Wartezeit-Modal, Status-Update zum Kunden) -- die Kasse
+        // bekommt die Bestellung aber schon im Moment des Eingangs als
+        // offenen Tisch / Beleg, ohne auf den Accept zu warten.
         try {
             if (order.status === 'received' && typeof getPOSConfig === 'function') {
                 var _posAll = getPOSConfig();
                 var _posR = _posAll[order.restaurant_id] || _posAll['default'] || {};
-                if (_posR.autoAccept) {
-                    autoAcceptOrderHeadless(order, _posR.autoAcceptMinutes || 30);
+                if (_posR.autoSend && _posR.system && _posR.system !== 'none' && typeof sendOrderToPOS === 'function') {
+                    setTimeout(function() { sendOrderToPOS(order); }, 800);
                 }
             }
-        } catch(e) { console.warn('[autoAccept] Skip:', e); }
+        } catch(e) { console.warn('[posPush] Skip:', e); }
     } else if (type === 'UPDATE') {
         // Status-Update - Dashboard aktualisieren
         if (typeof loadDashboardOrders === 'function') {
@@ -46890,55 +46891,6 @@ function selectTimeOption(btn, minutes) {
 }
 
 // Bestellung mit Zeit bestätigen
-// Auto-Accept (headless): nimmt Bestellung ohne Modal an, druckt Bon, pusht
-// an Kasse. Mitarbeiter muss nichts klicken. Wird vom Realtime-Handler
-// gerufen wenn posRestConf.autoAccept = true.
-async function autoAcceptOrderHeadless(order, minutes) {
-    if (!order || !order.id) return;
-    minutes = parseInt(minutes, 10) || 30;
-    if (minutes < 5) minutes = 5;
-    if (minutes > 180) minutes = 180;
-    try {
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-            method: 'PATCH',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-                status: 'accepted',
-                estimated_minutes: minutes,
-                estimated_time: new Date(Date.now() + minutes * 60000).toISOString(),
-                accepted_at: new Date().toISOString()
-            })
-        });
-        if (!resp.ok) {
-            console.warn('[autoAccept] PATCH fehlgeschlagen:', resp.status);
-            return;
-        }
-        order.status = 'accepted';
-        order.estimated_minutes = minutes;
-        order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
-        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
-        if (typeof updateOrderStats === 'function') updateOrderStats();
-        showToast('Bestellung automatisch angenommen • ' + minutes + ' Min', 'success');
-
-        // Bondruck + Kassen-Push parallel (gleiche Side-Effects wie manueller Accept)
-        if (typeof autoPrintKitchenBon !== 'undefined' && autoPrintKitchenBon) {
-            setTimeout(function() { printKitchenBon(order.id); }, 500);
-        }
-        var posConf = getPOSConfig();
-        var posRestConf = posConf[order.restaurant_id] || posConf['default'] || {};
-        if (posRestConf.autoSend && posRestConf.system && posRestConf.system !== 'none') {
-            setTimeout(function() { sendOrderToPOS(order); }, 1000);
-        }
-    } catch (e) {
-        console.error('[autoAccept] Fehler:', e);
-    }
-}
-
 async function confirmAcceptOrder() {
     try {
     if (!currentAcceptOrderId) return;
@@ -46998,12 +46950,10 @@ async function confirmAcceptOrder() {
                 setTimeout(function() { printKitchenBon(currentAcceptOrderId); }, 500);
             }
 
-            // Auto-Send: Bestellung ans Kassensystem senden
-            var posConf = getPOSConfig();
-            var posRestConf = posConf[order.restaurant_id] || posConf['default'] || {};
-            if (posRestConf.autoSend && posRestConf.system && posRestConf.system !== 'none') {
-                setTimeout(function() { sendOrderToPOS(order); }, 1000);
-            }
+            // Kassen-Push erfolgt bereits beim Bestellungs-Eingang im
+            // Realtime-Handler (handleRealtimeOrder INSERT). Hier nicht mehr
+            // noetig -- sonst wuerde die Bestellung doppelt in der Kasse
+            // landen.
         } else {
             showToast('Fehler beim Annehmen', 'error');
         }
@@ -49019,7 +48969,7 @@ async function copyOrderForKasse(orderId) {
 function openPOSSettings() {
     var allConfig = getPOSConfig();
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
-    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false, autoAccept: false, autoAcceptMinutes: 30 };
+    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false };
 
     var systemOptions = Object.keys(POS_SYSTEMS).map(function(key) {
         var sel = key === conf.system ? ' selected' : '';
@@ -49053,18 +49003,12 @@ function openPOSSettings() {
         '<div id="posHelpLink" style="margin-bottom:12px;display:' + (currentPOS.helpUrl ? 'block' : 'none') + ';">' +
             '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">API-Zugang einrichten &rarr;</a>' +
         '</div>' +
-        '<div style="margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + '> Automatisch an Kasse senden wenn Bestellung angenommen wird</label></div>' +
-        '<div style="margin-bottom:10px;padding:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;">' +
-            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#78350f;">' +
-                '<input type="checkbox" id="posAutoAccept" ' + (conf.autoAccept ? 'checked' : '') + ' style="margin-top:2px;">' +
-                '<span>Bestellungen automatisch annehmen<br>' +
-                '<span style="font-weight:400;color:#92400e;font-size:11px;">Mitarbeiter muss nicht klicken. Bestellung erscheint sofort in der Kasse + Bon druckt.</span></span>' +
+        '<div style="margin-bottom:16px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
+                '<input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + ' style="margin-top:2px;">' +
+                '<span>Sofort an Kasse senden wenn Bestellung reinkommt<br>' +
+                '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch. Du nimmst sie auf kiekmolin weiterhin manuell an (Wartezeit-Wahl).</span></span>' +
             '</label>' +
-            '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:13px;">' +
-                '<span style="color:#78350f;">Standard-Wartezeit:</span>' +
-                '<input type="number" id="posAutoAcceptMinutes" min="5" max="180" step="5" value="' + (conf.autoAcceptMinutes || 30) + '" style="width:70px;padding:6px 8px;border:1px solid #fcd34d;border-radius:6px;background:white;color:#78350f;font-size:13px;">' +
-                '<span style="color:#78350f;">Minuten</span>' +
-            '</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;">' +
             '<button onclick="testPOSConnection()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
@@ -49145,9 +49089,7 @@ function savePOSSettings() {
         system: document.getElementById('posSystemSelect')?.value || 'none',
         apiKey: document.getElementById('posApiKey')?.value?.trim() || '',
         apiUrl: document.getElementById('posApiUrl')?.value?.trim() || '',
-        autoSend: document.getElementById('posAutoSend')?.checked || false,
-        autoAccept: document.getElementById('posAutoAccept')?.checked || false,
-        autoAcceptMinutes: parseInt(document.getElementById('posAutoAcceptMinutes')?.value, 10) || 30
+        autoSend: document.getElementById('posAutoSend')?.checked || false
     };
     savePOSConfig(allConfig);
     var posName = POS_SYSTEMS[allConfig[restId].system]?.name || 'Kein';
