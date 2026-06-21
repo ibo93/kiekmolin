@@ -899,6 +899,8 @@
   .msg-ai{background:var(--surface);border:1px solid var(--glass-border);align-self:flex-start;border-bottom-left-radius:6px;backdrop-filter:blur(20px)}
   .msg-streaming::after{content:"▍";display:inline-block;margin-left:1px;color:var(--gold-light);animation:streamBlink 0.7s steps(1) infinite}
   @keyframes streamBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  .stock-pulse{animation:stockPulse 1.4s ease-out 1}
+  @keyframes stockPulse{0%{box-shadow:inset 0 0 0 2px #8de6b1cc, 0 0 0 0 #8de6b133;background:#8de6b115}45%{box-shadow:inset 0 0 0 2px #8de6b166, 0 0 0 14px #8de6b100;background:#8de6b110}100%{box-shadow:inset 0 0 0 0 #8de6b100,0 0 0 0 #8de6b100;background:transparent}}
 
   /* Mehr menu */
   .menu-row{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--glass-border);margin-bottom:8px;cursor:pointer;transition:transform .15s}
@@ -1300,6 +1302,7 @@
       <div class="greet">
         <h1 id="greeting">Moin, <span class="accent">Chef</span></h1>
         <p id="dateline">·</p>
+        <span id="posLiveBadge" onclick="openSettings()" style="display:none;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:0.04em;padding:3px 9px;border-radius:99px;border:1px solid #2222;cursor:pointer;margin-top:6px;font-variant-numeric:tabular-nums">● POS</span>
       </div>
       <div class="topbar-actions">
         <button class="icon-btn" title="Suchen" onclick="navTo('lager');setTimeout(function(){var s=document.getElementById('lagerSearch');if(s)s.focus();},350)">
@@ -1374,6 +1377,12 @@
             <div class="lab-title">Gericht-Kalkulator</div>
             <div class="lab-sub">Foto vom Teller → Zutaten, EK & Marge sofort.</div>
           </button>
+          <button class="lab-card lab-verkauf" id="posSetupCard" onclick="openPosSetup()" style="display:none">
+            <div class="lab-tag">SETUP</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19.4 13a7.5 7.5 0 000-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L15 3.5h-4l-.3 2.5a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 000 2l-2 1.6 2 3.4 2.4-1c.5.4 1.1.7 1.7 1l.3 2.5h4l.3-2.5c.6-.3 1.2-.6 1.7-1l2.4 1 2-3.4-2-1.6zM12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></svg></div>
+            <div class="lab-title">Kasse anbinden</div>
+            <div class="lab-sub">Bon → Lager in Echtzeit. Einmal eingerichtet.</div>
+          </button>
         </div>
 
         <div class="ai-card glass">
@@ -1400,7 +1409,7 @@
           <button class="quick-btn" onclick="navTo('scan');setTimeout(function(){var f=document.getElementById('scanFile');if(f)f.click();},250)"><span class="quick-emoji ic-blue"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></span><div class="quick-label">Beleg scannen</div><div class="quick-sub">Foto/PDF → Lager</div></button>
           <button class="quick-btn" onclick="navTo('ki')"><span class="quick-emoji ic-purple"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM5 11a7 7 0 0014 0h-2.2a4.8 4.8 0 01-9.6 0H5zm6 9.6V23h2v-2.4a7 7 0 01-2 0z"/></svg></span><div class="quick-label">Voice</div><div class="quick-sub">"Hey Chef, …"</div></button>
           <button class="quick-btn" onclick="openGerichtKalkulator()"><span class="quick-emoji ic-cyan"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2C7 2 3 6 3 11h2a7 7 0 0114 0h2c0-5-4-9-9-9zm-1 6v5l4 2 .7-1.3-3.2-1.9V8H11z"/></svg></span><div class="quick-label">Gericht-Foto</div><div class="quick-sub">→ Marge</div></button>
-          <button class="quick-btn" onclick="openRezepte()"><span class="quick-emoji ic-green"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></span><div class="quick-label">Tageskarte</div><div class="quick-sub">KI-Vorschlag</div></button>
+          <button class="quick-btn" onclick="openVerkauf();setTimeout(startSalesScan,300)"><span class="quick-emoji ic-amber"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg></span><div class="quick-label">Bon scannen</div><div class="quick-sub">Z-Bon → Lager</div></button>
         </div>
 
         <div class="section-h"><h2>Aktivität</h2></div>
@@ -1582,6 +1591,11 @@
         <div class="menu-row" onclick="openInventur()">
           <div class="menu-icon" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2z"/></svg></div>
           <div class="menu-text"><div class="menu-name">Inventur</div><div class="menu-sub">Geführter Bestands-Check</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openPosSetup()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#7a5a1c,#f5c25a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Kasse anbinden</div><div class="menu-sub">POS-Webhook · Live-Bestand</div></div>
           <div class="menu-arrow">›</div>
         </div>
 
@@ -1960,7 +1974,7 @@
           : ms === 'soon'
           ? '<span class="pill pill-warn" style="font-size:9px;padding:1px 7px">' + mhdText(r) + '</span> '
           : '';
-        return `<div class="inv-row" onclick="openLagerItem(${lagerData.indexOf(r)})">
+        return `<div class="inv-row" data-lager-name="${escHtml(r.name)}" onclick="openLagerItem(${lagerData.indexOf(r)})">
         <div class="inv-emoji">${r.emoji}</div>
         <div><div class="inv-name">${r.name}</div><div class="inv-meta">${isOrdered ? '<span class="pill pill-good" style="font-size:9px;padding:1px 7px">Bestellt</span> ' : ''}${mhdBadge}${r.loc} · ${r.days}${r.ek>0?' · EK '+euro(r.ek):''}</div></div>
         <div class="inv-right"><div class="inv-amount">${r.amount}</div><div class="inv-bar"><div class="inv-bar-fill fill-${isOrdered?'good':r.status}" style="width:${isOrdered?100:r.pct}%"></div></div></div>
@@ -4864,6 +4878,7 @@
   applyTimeOfDayGold();
   bindLongPress();
   try{ renderHomeFocus(); }catch(e){}
+  try{ renderPosSetupCard(); }catch(e){}
   startActivityTicker();
 
   loadConvo();
@@ -5492,6 +5507,7 @@
       res.skipped.forEach(s => allSkipped.push({ dish: n, ingredient: s.ingredient, reason: s.reason }));
     });
     persistLager(); refreshLager();
+    flashStockChange(Object.keys(allDeducted));
     try{ renderHomeFocus(); }catch(e){}
     try{ renderKiFocus(); }catch(e){}
     logVerkauf(counts, estUmsatz);
@@ -5647,6 +5663,7 @@
     localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
     renderTagesDaten();
     refreshLager();
+    flashStockChange(Object.keys(allDeducted));
     try{ renderHomeFocus(); }catch(e){}
     try{ renderKiFocus(); }catch(e){}
     const summary = names.map(n=>verkaufCart[n]+'× '+n).join(', ');
@@ -5659,6 +5676,24 @@
     const nowLow = lagerData.filter(r => r.status==='low');
     if(nowLow.length){ setTimeout(()=>toast('Achtung: ' + nowLow.length + ' Artikel jetzt kritisch – nachbestellen?'), 1100); }
     openVerkauf();
+  }
+  // Lager-Items kurz pulsen lassen wenn etwas abgezogen wurde - visueller Live-Effekt
+  function flashStockChange(names){
+    if(!names || !names.length) return;
+    requestAnimationFrame(function(){
+      names.forEach(function(n){
+        const escSel = String(n).replace(/(["\\])/g, '\\$1');
+        try {
+          const el = document.querySelector('.inv-row[data-lager-name="' + escSel + '"]');
+          if(el){
+            el.classList.remove('stock-pulse');
+            // reflow erzwingen, damit Animation neu startet
+            void el.offsetWidth;
+            el.classList.add('stock-pulse');
+          }
+        } catch(e){}
+      });
+    });
   }
   // Zeigt nach einem Verkauf einen klaren Report: was wurde wirklich vom Lager abgezogen,
   // was konnte nicht zugeordnet werden. Kein silent fail mehr.
@@ -6524,18 +6559,97 @@
   async function posTest(){
     try {
       const r = await fetch(posWebhookUrl(), { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ type:'sale', data:{ umsatz: 12.50, source: 'test' } }) });
-      if(r.ok){ toast('✓ Test-Event gesendet'); setTimeout(loadPosEvents, 1500); }
+      if(r.ok){
+        localStorage.setItem('chef_pos_tested', '1');
+        toast('✓ Test-Bon gesendet · in ~6 Sek wirst du das Echo sehen');
+        setTimeout(loadPosEvents, 1500);
+        setTimeout(function(){ try{ renderHomeFocus(); renderPosSetupCard(); }catch(e){} }, 1600);
+        const sts = document.getElementById('posSetupStatus');
+        if(sts){ sts.textContent = '✓ Webhook erreichbar – Live-Modus aktiv. Trag die URL jetzt in deinem Kassensystem ein.'; sts.style.color = 'var(--green)'; }
+      }
       else toast('Fehler ' + r.status + ' – ist die Supabase-Tabelle angelegt?');
     } catch(e){ toast('Backend nicht erreichbar'); }
+  }
+  function isPosLive(){ return !!(posToken && localStorage.getItem('chef_pos_tested') === '1'); }
+  function openPosSetup(){
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg> Kasse anbinden';
+    const isLive = isPosLive();
+    const u = posWebhookUrl();
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">In 3 Schritten zu echter Live-Bestandsführung: Kasse schickt jeden Bon → The Chef zieht die Zutaten in Sekunden vom Lager ab.</p>
+
+      <div class="ai-card glass" style="margin-bottom:12px;padding:14px">
+        <div style="font-size:11px;color:var(--gold-light);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">SCHRITT 1</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">Webhook-URL kopieren</div>
+        <div style="display:flex;gap:6px"><input id="posUrl2" readonly value="${u}" style="flex:1;font-size:11px;padding:8px 10px;border-radius:9px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text)"><button onclick="copyPosUrl()" class="ai-btn ai-btn-ok" style="padding:8px 14px">Kopieren</button></div>
+      </div>
+
+      <div class="ai-card glass" style="margin-bottom:12px;padding:14px">
+        <div style="font-size:11px;color:var(--gold-light);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">SCHRITT 2</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">In deiner Kasse eintragen</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55">Die meisten modernen Kassen können Webhooks senden:
+          <ul style="margin:6px 0 0;padding-left:18px;line-height:1.7">
+            <li><strong>Orderbird</strong>: Einstellungen → Schnittstellen → Webhook</li>
+            <li><strong>Vectron / Gastronovi</strong>: API-Modul → Verkaufs-Event POST</li>
+            <li><strong>Lightspeed / Square / SumUp</strong>: über Zapier oder Make verbinden</li>
+            <li><strong>Klassisch / kein Webhook</strong>: nimm Schritt 3 – Z-Bon abends scannen</li>
+          </ul>
+          Format: <code style="font-size:10.5px;background:var(--brand-tint);padding:1px 5px;border-radius:4px">POST { "type":"sale", "data":{ "umsatz":12.50, "items":[{"name":"Schnitzel","qty":1}] } }</code>
+        </div>
+      </div>
+
+      <div class="ai-card glass" style="margin-bottom:12px;padding:14px">
+        <div style="font-size:11px;color:var(--gold-light);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">SCHRITT 3</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">Verbindung testen</div>
+        <button class="btn-primary" onclick="posTest()">Test-Bon senden (12,50 €)</button>
+        <div id="posSetupStatus" style="font-size:12.5px;color:var(--text-dim);margin-top:10px;line-height:1.5">${isLive ? '✓ Verbindung schon einmal erfolgreich getestet. Wenn du echte Bons aus der Kasse siehst, ist Live-Modus aktiv.' : 'Noch nicht getestet – tipp den Knopf, dann siehst du das Echo in der Lager-Liste.'}</div>
+      </div>
+
+      <div style="margin-top:14px"></div>
+      <button class="btn-secondary" onclick="openVerkauf();setTimeout(startSalesScan,250)">Lieber Z-Bon abends scannen</button>
+      <div style="margin-top:6px"></div>
+      <button class="btn-secondary" onclick="closeSheet();openVerkauf()">Manuell buchen</button>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  // Live-Status fuer POS: letzte erfolgreiche Poll-Antwort + letztes Sale-Event
+  let _posLastPollTs = 0;
+  let _posLastSaleTs = 0;
+  let _posPollFailed = false;
+  function renderPosLive(){
+    const badge = document.getElementById('posLiveBadge'); if(!badge) return;
+    if(!posToken){ badge.style.display = 'none'; return; }
+    badge.style.display = 'inline-flex';
+    const now = Date.now();
+    const sinceSale = _posLastSaleTs ? Math.round((now - _posLastSaleTs)/1000) : null;
+    let color, label;
+    if(_posPollFailed){ color = '#ff8a7a'; label = 'POS · offline'; }
+    else if(!_posLastSaleTs){ color = '#7eb6ff'; label = 'POS · verbunden'; }
+    else if(sinceSale < 60){ color = '#8de6b1'; label = 'LIVE · ' + sinceSale + ' s'; }
+    else if(sinceSale < 1800){ color = '#8de6b1'; label = 'LIVE · ' + Math.round(sinceSale/60) + ' min'; }
+    else { color = '#f5c25a'; label = 'POS · ' + Math.round(sinceSale/60) + ' min still'; }
+    badge.style.color = color;
+    badge.style.borderColor = color + '55';
+    badge.textContent = '● ' + label;
+  }
+  setInterval(renderPosLive, 5000);
+  function renderPosSetupCard(){
+    const card = document.getElementById('posSetupCard');
+    if(!card) return;
+    card.style.display = isPosLive() ? 'none' : '';
   }
   async function loadPosEvents(){
     const tok = ensurePosToken();
     const since = localStorage.getItem('chef_pos_since') || '1970-01-01T00:00:00Z';
     try {
       const r = await fetch('/.netlify/functions/pos-events?token=' + encodeURIComponent(tok) + '&since=' + encodeURIComponent(since));
-      if(!r.ok) return;
+      if(!r.ok){ _posPollFailed = true; renderPosLive(); return; }
+      _posPollFailed = false;
+      _posLastPollTs = Date.now();
       const d = await r.json();
-      if(!d || !Array.isArray(d.events) || !d.events.length) return;
+      if(!d || !Array.isArray(d.events) || !d.events.length){ renderPosLive(); return; }
       let lastTs = since, totalSale = 0, sales = 0;
       let bookedItems = 0; const bookedCounts = {};
       const posDeducted = {}, posSkipped = [];
@@ -6565,6 +6679,7 @@
       });
       if(bookedItems > 0){
         persistLager(); refreshLager();
+        flashStockChange(Object.keys(posDeducted));
         try{ renderHomeFocus(); }catch(e){}
         try{ renderKiFocus(); }catch(e){}
         logVerkauf(bookedCounts, 0);
@@ -6579,11 +6694,23 @@
         toast('Kasse: +' + euro(Math.round(totalSale)) + (bookedItems?' · '+bookedItems+' Portion(en) abgezogen':''));
       }
       localStorage.setItem('chef_pos_since', String(lastTs));
-    } catch(e){}
+      if(sales > 0 || bookedItems > 0) _posLastSaleTs = Date.now();
+      renderPosLive();
+    } catch(e){ _posPollFailed = true; renderPosLive(); }
   }
-  setInterval(loadPosEvents, 60000);
-  document.addEventListener('visibilitychange', function(){ if(!document.hidden) loadPosEvents(); });
+  // Live-Polling: 6s wenn Tab sichtbar, 30s wenn Tab im Hintergrund (Akku-schonend)
+  let _posPollInt = null;
+  function startPosPoll(fast){
+    if(_posPollInt) clearInterval(_posPollInt);
+    _posPollInt = setInterval(loadPosEvents, fast ? 6000 : 30000);
+  }
+  startPosPoll(true);
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){ startPosPoll(true); loadPosEvents(); }
+    else { startPosPoll(false); }
+  });
   loadPosEvents();
+  renderPosLive();
 
   // ===== PWA: installierbar machen (nur über http/https, nie über file://) =====
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
