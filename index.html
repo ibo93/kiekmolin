@@ -5481,11 +5481,22 @@
     const total = Object.keys(counts).reduce(function(s,n){ return s + counts[n]; }, 0);
     if(!total){ toast('Konnte nichts schätzen – Verkaufspreise prüfen'); return; }
     if(!confirm('The Chef schätzt ' + total + ' Portionen aus ' + euro(Math.round(remaining)) + ' noch nicht gebuchtem Umsatz und zieht die Zutaten vom Lager ab. Fortfahren?')) return;
-    Object.keys(counts).forEach(function(n){ sellDish(n, counts[n]); });
+    const allDeducted = {}, allSkipped = [];
+    Object.keys(counts).forEach(function(n){
+      const res = sellDish(n, counts[n]);
+      res.deducted.forEach(d => {
+        if(!allDeducted[d.name]) allDeducted[d.name] = { used: [], newAmount: d.newAmount };
+        allDeducted[d.name].used.push(d.used);
+        allDeducted[d.name].newAmount = d.newAmount;
+      });
+      res.skipped.forEach(s => allSkipped.push({ dish: n, ingredient: s.ingredient, reason: s.reason }));
+    });
     persistLager(); refreshLager();
+    try{ renderHomeFocus(); }catch(e){}
+    try{ renderKiFocus(); }catch(e){}
     logVerkauf(counts, estUmsatz);
     logActivity('<strong>Verbrauch geschätzt</strong> – ' + total + ' Portionen aus Umsatz', 'cart');
-    toast('✓ ' + total + ' Portionen geschätzt & vom Lager abgezogen');
+    showVerkaufReport(total, estUmsatz, allDeducted, allSkipped);
     openTagesabschluss();
   }
   function parseQty(str){
@@ -5517,26 +5528,39 @@
   }
   function fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
   // Zieht die Zutaten von "count" Portionen eines Gerichts vom Lager ab.
+  // Liefert { deducted:[{name, used, newAmount}], skipped:[{ingredient, reason}] }
+  // damit der Aufrufer sieht, WAS wirklich passiert ist – kein silent fail mehr.
   function sellDish(name, count){
-    const r = recipes[name]; if(!r || count<=0) return [];
-    const touched = [];
+    const result = { deducted: [], skipped: [] };
+    const r = recipes[name]; if(!r || count<=0) return result;
     r.ingredients.forEach(ing => {
-      const q = parseQty(ing[1]); if(!q || !(q.num>0)) return;
-      const hits = findLagerItems(ing[0]); const item = hits.length ? hits[0] : null; if(!item) return;
-      const cur = parseQty(item.amount); if(!cur || !(cur.num>0)) return;
+      const ingName = ing[0] || '';
+      const ingQty = ing[1] || '';
+      const q = parseQty(ingQty);
+      if(!q || !(q.num>0)){ result.skipped.push({ ingredient: ingName, reason: 'rezept-menge fehlt' }); return; }
+      const hits = findLagerItems(ingName);
+      const item = hits.length ? hits[0] : null;
+      if(!item){ result.skipped.push({ ingredient: ingName, reason: 'nicht im lager' }); return; }
+      const cur = parseQty(item.amount);
+      if(!cur || !(cur.num>0)){ result.skipped.push({ ingredient: ingName + ' → ' + item.name, reason: 'lager leer / menge unklar' }); return; }
       const useB = qtyBase(q), curB = qtyBase(cur);
-      if(!useB || !curB || useB.base !== curB.base) return; // Einheiten passen nicht → überspringen
-      const newBaseN = Math.max(0, curB.n - useB.n * count);
+      if(!useB || !curB || useB.base !== curB.base){
+        result.skipped.push({ ingredient: ingName + ' → ' + item.name, reason: 'einheiten passen nicht (' + q.rawUnit + ' vs ' + cur.rawUnit + ')' });
+        return;
+      }
+      const usedBaseN = useB.n * count;
+      const newBaseN = Math.max(0, curB.n - usedBaseN);
       const ratio = curB.n>0 ? newBaseN/curB.n : 0;
-      item.amount = fmtNum(fromBase(newBaseN, cur)) + (cur.rawUnit ? ' ' + cur.rawUnit : '');
+      const newAmt = fmtNum(fromBase(newBaseN, cur)) + (cur.rawUnit ? ' ' + cur.rawUnit : '');
+      item.amount = newAmt;
       item.pct = Math.max(0, Math.round(item.pct * ratio));
       item.status = statusFromPct(item.pct);
       lagerEdits[item.name] = { amount:item.amount, pct:item.pct, status:item.status, days:item.days, mhd:item.mhd||null };
       const mi = lagerManual.find(m => m.name === item.name);
       if(mi){ mi.amount=item.amount; mi.pct=item.pct; mi.status=item.status; }
-      touched.push(item.name);
+      result.deducted.push({ name: item.name, used: fmtNum(fromBase(usedBaseN, cur)) + (cur.rawUnit ? ' ' + cur.rawUnit : ''), newAmount: newAmt });
     });
-    return touched;
+    return result;
   }
   function verkaufStep(name, d){
     verkaufCart[name] = Math.max(0, (verkaufCart[name]||0) + d);
@@ -5602,22 +5626,81 @@
     const names = Object.keys(verkaufCart).filter(n=>verkaufCart[n]>0);
     if(!names.length){ toast('Erst Gerichte auswählen'); return; }
     let umsatz = 0, portionen = 0;
-    names.forEach(n => { const c = verkaufCart[n]; sellDish(n, c); umsatz += (recipes[n].vk||0) * c; portionen += c; });
+    // Sammel-Result: alles was abgezogen wurde + alles was nicht ging
+    const allDeducted = {}; // name -> {used:Array<string>, newAmount}
+    const allSkipped = []; // [{dish, ingredient, reason}]
+    names.forEach(n => {
+      const c = verkaufCart[n];
+      const res = sellDish(n, c);
+      umsatz += (recipes[n].vk||0) * c;
+      portionen += c;
+      res.deducted.forEach(d => {
+        if(!allDeducted[d.name]) allDeducted[d.name] = { used: [], newAmount: d.newAmount };
+        allDeducted[d.name].used.push(d.used);
+        allDeducted[d.name].newAmount = d.newAmount;
+      });
+      res.skipped.forEach(s => allSkipped.push({ dish: n, ingredient: s.ingredient, reason: s.reason }));
+    });
     persistLager();
     tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + umsatz);
     tagesDaten.bestellungen = (tagesDaten.bestellungen||0) + portionen;
     localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
     renderTagesDaten();
     refreshLager();
+    try{ renderHomeFocus(); }catch(e){}
+    try{ renderKiFocus(); }catch(e){}
     const summary = names.map(n=>verkaufCart[n]+'× '+n).join(', ');
     logActivity('<strong>Verkauf gebucht</strong> – ' + summary + ' · ' + euro(Math.round(umsatz)), 'cart');
     const snap = {}; names.forEach(n => { snap[n] = verkaufCart[n]; });
     logVerkauf(snap, umsatz);
     verkaufCart = {};
-    toast('✓ ' + portionen + ' Portionen gebucht · ' + euro(Math.round(umsatz)) + ' Umsatz');
+    // Detaillierter Report: was wurde abgezogen, was nicht?
+    showVerkaufReport(portionen, umsatz, allDeducted, allSkipped);
     const nowLow = lagerData.filter(r => r.status==='low');
     if(nowLow.length){ setTimeout(()=>toast('Achtung: ' + nowLow.length + ' Artikel jetzt kritisch – nachbestellen?'), 1100); }
     openVerkauf();
+  }
+  // Zeigt nach einem Verkauf einen klaren Report: was wurde wirklich vom Lager abgezogen,
+  // was konnte nicht zugeordnet werden. Kein silent fail mehr.
+  function showVerkaufReport(portionen, umsatz, deducted, skipped){
+    const deductedNames = Object.keys(deducted);
+    const okCount = deductedNames.length;
+    const failCount = skipped.length;
+    let msg = '✓ ' + portionen + ' Portionen · ' + euro(Math.round(umsatz)) + ' Umsatz';
+    if(okCount) msg += ' · ' + okCount + ' Zutaten abgezogen';
+    if(failCount) msg += ' · ' + failCount + ' nicht zuordenbar';
+    toast(msg);
+    // Auf Home als „letzter Verkauf"-Mini-Karte zeigen (8 Sekunden)
+    showLastSaleCard(deducted, skipped);
+  }
+  let _lastSaleHideT = null;
+  function showLastSaleCard(deducted, skipped){
+    let box = document.getElementById('lastSaleBox');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'lastSaleBox';
+      box.style.cssText = 'position:fixed;left:14px;right:14px;bottom:96px;z-index:90;background:linear-gradient(135deg,#1b2128,#13171c);border:1px solid var(--glass-border-bright);border-radius:18px;padding:14px 16px;box-shadow:0 16px 40px rgba(0,0,0,.55);transform:translateY(120%);transition:transform .35s cubic-bezier(.4,1.4,.5,1);max-height:50vh;overflow-y:auto';
+      document.body.appendChild(box);
+    }
+    const deductedNames = Object.keys(deducted);
+    const okHtml = deductedNames.length
+      ? '<div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;font-weight:700">Lager · live abgezogen</div>'
+        + deductedNames.map(function(n){
+            const d = deducted[n];
+            const total = d.used.join(' + ');
+            return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>' + escHtml(n) + '</span><span style="color:#8de6b1;font-variant-numeric:tabular-nums">−' + escHtml(total) + ' → ' + escHtml(d.newAmount) + '</span></div>';
+          }).join('')
+      : '';
+    const skipHtml = skipped.length
+      ? '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin:10px 0 6px;font-weight:700">Nicht zuordenbar – Rezept prüfen</div>'
+        + skipped.map(function(s){
+            return '<div style="font-size:12px;padding:2px 0;color:var(--text-dim)"><span style="color:var(--text)">' + escHtml(s.ingredient) + '</span> · ' + escHtml(s.reason) + ' <span style="color:var(--text-faint)">(' + escHtml(s.dish) + ')</span></div>';
+          }).join('')
+      : '';
+    box.innerHTML = okHtml + skipHtml + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button onclick="document.getElementById(\'lastSaleBox\').style.transform=\'translateY(120%)\'" style="background:var(--brand-tint);border:none;border-radius:9px;color:var(--text);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer">OK</button></div>';
+    requestAnimationFrame(function(){ box.style.transform = 'translateY(0)'; });
+    if(_lastSaleHideT) clearTimeout(_lastSaleHideT);
+    _lastSaleHideT = setTimeout(function(){ box.style.transform = 'translateY(120%)'; }, skipped.length ? 12000 : 6000);
   }
   function openVerkauf(){
     const names = Object.keys(recipes);
@@ -6455,6 +6538,7 @@
       if(!d || !Array.isArray(d.events) || !d.events.length) return;
       let lastTs = since, totalSale = 0, sales = 0;
       let bookedItems = 0; const bookedCounts = {};
+      const posDeducted = {}, posSkipped = [];
       d.events.forEach(function(e){
         if(e.ts > lastTs) lastTs = e.ts;
         if(e.type === 'sale' && e.data){
@@ -6465,7 +6549,13 @@
               const key = (typeof matchRecipeName === 'function') ? matchRecipeName(String(it && it.name || '')) : null;
               const qty = parseInt(it && it.qty, 10) || 1;
               if(key && recipes[key] && qty > 0){
-                sellDish(key, qty);
+                const res = sellDish(key, qty);
+                res.deducted.forEach(dd => {
+                  if(!posDeducted[dd.name]) posDeducted[dd.name] = { used: [], newAmount: dd.newAmount };
+                  posDeducted[dd.name].used.push(dd.used);
+                  posDeducted[dd.name].newAmount = dd.newAmount;
+                });
+                res.skipped.forEach(ss => posSkipped.push({ dish: key, ingredient: ss.ingredient, reason: ss.reason }));
                 bookedCounts[key] = (bookedCounts[key]||0) + qty;
                 bookedItems += qty;
               }
@@ -6475,8 +6565,11 @@
       });
       if(bookedItems > 0){
         persistLager(); refreshLager();
+        try{ renderHomeFocus(); }catch(e){}
+        try{ renderKiFocus(); }catch(e){}
         logVerkauf(bookedCounts, 0);
         logActivity('<strong>Kasse</strong> – ' + bookedItems + ' Portion(en) live vom Lager abgezogen', 'cart');
+        try{ showVerkaufReport(bookedItems, totalSale, posDeducted, posSkipped); }catch(e){}
       }
       if(totalSale > 0){
         tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + totalSale);
