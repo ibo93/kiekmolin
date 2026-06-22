@@ -1073,11 +1073,10 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
-    // KEIN Auto-Redirect mehr: Google bewertet "Cloaking" / versteckte
-    // Weiterleitungen negativ. Stattdessen sieht der Besucher die volle Seite
-    // (Hero, Bewertungen, Speisekarte) und klickt selbst auf den prominenten
-    // "Online bestellen"-Button. Das verbessert Verweildauer und Rankings
-    // und ist genau das was Lieferando, Uber Eats etc. auch machen.
+    // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
+    // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
+    // laesst sich der Redirect zum Anschauen ueberspringen.
+    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
 
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
