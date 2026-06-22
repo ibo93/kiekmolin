@@ -1073,7 +1073,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
-    '<script>(function(){try{if(typeof navigator==="undefined")return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
     renderBreadcrumb(breadcrumbCrumbs) + '\n' +
