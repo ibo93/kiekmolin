@@ -213,6 +213,34 @@ async function fetchMenuItems(restaurantId) {
   }
 }
 
+async function fetchReviews(targetId) {
+  // Bis zu 10 freigegebene Bewertungen mit Text, neueste zuerst.
+  // Speist die einzelnen Review-Schemas auf der Restaurant-Seite ->
+  // damit Google echte Bewertungen (mit Text) zeigt, nicht nur den
+  // aggregierten Durchschnitt. Fault-tolerant: bei Fehler leeres Array.
+  if (!targetId) return [];
+  const url = SUPABASE_URL + '/rest/v1/reviews'
+    + '?target_type=eq.restaurant'
+    + '&target_id=eq.' + encodeURIComponent(targetId)
+    + '&is_approved=eq.true'
+    + '&select=rating,title,comment,author_name,customer_name,created_at'
+    + '&order=created_at.desc'
+    + '&limit=10';
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Accept': 'application/json'
+      }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
 function fmtPrice(item) {
   const p = item.base_price != null ? item.base_price : item.price;
   if (p == null || p === '') return '';
@@ -671,7 +699,7 @@ function buildPage(opts) {
     '</body></html>\n';
 }
 
-function buildRestaurantJsonLd(rest) {
+function buildRestaurantJsonLd(rest, reviews) {
   const slug = rest.slug || rest.id;
   const item = {
     '@context': 'https://schema.org',
@@ -702,7 +730,44 @@ function buildRestaurantJsonLd(rest) {
       'longitude': Number(rest.lng)
     };
   }
-  if (rest.rating) {
+  // Einzelne echte Bewertungen mit Text -> Google kann Sterne + Snippets
+  // zeigen. AggregateRating MUSS durch echte Reviews gedeckt sein, sonst
+  // ignoriert/abstraft Google die Sterne. Daher: nur wenn Reviews da sind.
+  const realReviews = Array.isArray(reviews)
+    ? reviews.filter(function(rv) { return rv && Number(rv.rating) > 0; })
+    : [];
+  if (realReviews.length) {
+    item.review = realReviews.slice(0, 10).map(function(rv) {
+      const r = {
+        '@type': 'Review',
+        'reviewRating': {
+          '@type': 'Rating',
+          'ratingValue': Number(rv.rating),
+          'bestRating': 5,
+          'worstRating': 1
+        },
+        'author': {
+          '@type': 'Person',
+          'name': safeText(rv.author_name || rv.customer_name, 'Gast')
+        }
+      };
+      const body = safeText(rv.comment || rv.title, '');
+      if (body) r.reviewBody = String(body).slice(0, 500);
+      if (rv.created_at) r.datePublished = String(rv.created_at).slice(0, 10);
+      return r;
+    });
+    // ratingCount auf die Zahl echter Bewertungen stuetzen (ehrlich).
+    const ratingVals = realReviews.map(function(rv) { return Number(rv.rating); });
+    const avg = ratingVals.reduce(function(a, b) { return a + b; }, 0) / ratingVals.length;
+    item.aggregateRating = {
+      '@type': 'AggregateRating',
+      'ratingValue': Number((rest.rating ? Number(rest.rating) : avg).toFixed(1)),
+      'bestRating': 5,
+      'reviewCount': realReviews.length,
+      'ratingCount': Math.max(realReviews.length, Math.round(rest.rating_count || realReviews.length))
+    };
+  } else if (rest.rating) {
+    // Kein Review-Text vorhanden -> nur aggregierter Wert (best effort).
     item.aggregateRating = {
       '@type': 'AggregateRating',
       'ratingValue': Number(rest.rating),
@@ -818,12 +883,55 @@ function renderMenuListHtml(menuItems) {
   return html;
 }
 
-function generateRestaurantPage(rest, menuItems) {
+function renderStars(rating) {
+  const n = Math.round(Number(rating) || 0);
+  let s = '';
+  for (let i = 1; i <= 5; i++) s += i <= n ? '★' : '☆';
+  return s;
+}
+
+function renderReviewsHtml(rest, reviews) {
+  // Sichtbarer Bewertungs-Block. Muss zum Review-Schema passen (Google
+  // verlangt, dass strukturierte Daten sichtbaren Inhalt widerspiegeln).
+  const real = (Array.isArray(reviews) ? reviews : []).filter(function(rv) {
+    return rv && Number(rv.rating) > 0 && (rv.comment || rv.title);
+  });
+  if (!real.length) return '';
+  const name = escapeHtml(safeText(rest.name, 'Restaurant'));
+  const avg = real.reduce(function(a, rv) { return a + Number(rv.rating); }, 0) / real.length;
+
+  let html = '<h2 id="bewertungen">Bewertungen für ' + name + '</h2>\n';
+  html += '<p style="margin:0 0 16px;color:#666;"><strong style="color:' + ACCENT_COLOR + ';font-size:18px;">' +
+    renderStars(avg) + '</strong> ' + avg.toFixed(1).replace('.', ',') + ' von 5 · ' +
+    real.length + ' ' + (real.length === 1 ? 'Bewertung' : 'Bewertungen') + '</p>\n';
+  html += '<div class="reviews-seo" style="display:grid;gap:12px;margin:0 0 32px;">';
+  real.slice(0, 10).forEach(function(rv) {
+    const author = escapeHtml(safeText(rv.author_name || rv.customer_name, 'Gast'));
+    const text = escapeHtml(String(rv.comment || rv.title).slice(0, 500));
+    const dateStr = rv.created_at
+      ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '';
+    html += '<div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px;">';
+    html += '<strong style="color:#1a1a1a;font-size:14px;">' + author + '</strong>';
+    html += '<span style="color:' + ACCENT_COLOR + ';font-size:15px;white-space:nowrap;">' + renderStars(rv.rating) + '</span>';
+    html += '</div>';
+    if (rv.title && rv.comment) html += '<div style="font-weight:600;color:#1a1a1a;font-size:14px;margin-bottom:4px;">' + escapeHtml(String(rv.title).slice(0, 120)) + '</div>';
+    html += '<p style="color:#555;font-size:14px;line-height:1.5;margin:0;">' + text + '</p>';
+    if (dateStr) html += '<div style="color:#999;font-size:12px;margin-top:8px;">' + escapeHtml(dateStr) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function generateRestaurantPage(rest, menuItems, reviews) {
   const slug = rest.slug;
   if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;   // safe filename only
 
   menuItems = menuItems || [];
+  reviews = reviews || [];
 
   const name = safeText(rest.name, 'Restaurant');
   const cityRaw = safeText(rest.city, 'Ostfriesland');
@@ -848,7 +956,7 @@ function generateRestaurantPage(rest, menuItems) {
   }
   if (description.length > 160) description = description.slice(0, 157) + '...';
 
-  const restJsonLd = buildRestaurantJsonLd(rest);
+  const restJsonLd = buildRestaurantJsonLd(rest, reviews);
   // Menu in Restaurant-JSON einhaengen wenn Items vorhanden
   if (menuItems.length) {
     restJsonLd.menu = SITE_URL + '/' + slug + '#speisekarte';
@@ -925,6 +1033,7 @@ function generateRestaurantPage(rest, menuItems) {
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
     '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
+    renderReviewsHtml(rest, reviews) + '\n' +
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
     renderFooter() + '\n' +
@@ -1142,6 +1251,33 @@ function writeRobots() {
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robots, 'utf8');
 }
 
+// IndexNow: Suchmaschinen (Bing, Yandex u.a. -> Google liest IndexNow-Daten
+// ebenfalls aus) sofort ueber neue/geaenderte URLs informieren. Statt Wochen
+// auf den Crawler zu warten, sind neue Restaurants in Stunden im Index.
+// Schluessel liegt als <key>.txt im Web-Root. Fault-tolerant: Fehler ignorieren.
+const INDEXNOW_KEY = 'b922131c20477eae9293e34da9b9dba9';
+async function pingIndexNow(generated) {
+  try {
+    const host = SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const urlList = [SITE_URL + '/'].concat(generated.map(function(g) { return g.url; }));
+    // IndexNow akzeptiert bis 10.000 URLs pro Request.
+    const payload = {
+      host: host,
+      key: INDEXNOW_KEY,
+      keyLocation: SITE_URL + '/' + INDEXNOW_KEY + '.txt',
+      urlList: urlList.slice(0, 10000)
+    };
+    const res = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    console.log('[seo] IndexNow ping: HTTP ' + res.status + ' (' + urlList.length + ' urls)');
+  } catch (e) {
+    console.warn('[seo] WARN: IndexNow ping fehlgeschlagen -', e.message);
+  }
+}
+
 // Injiziert ALLE aktiven Restaurants als crawlbare Links in index.html
 // (Footer-Liste + noscript-Liste). Faellt still zurueck auf die fest
 // verdrahteten Links, wenn keine Daten/Marker vorhanden sind.
@@ -1260,24 +1396,28 @@ async function main() {
   // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
   let totalMenuItems = 0;
+  let totalReviews = 0;
   for (const rest of restaurants) {
     try {
       let menuItems = [];
+      let reviews = [];
       if (rest.id) {
         menuItems = await fetchMenuItems(rest.id);
+        reviews = await fetchReviews(rest.id);
       }
-      const result = generateRestaurantPage(rest, menuItems);
+      const result = generateRestaurantPage(rest, menuItems, reviews);
       if (result) {
-        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items)');
+        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items, ' + (reviews.length || 0) + ' reviews)');
         generated.push(result);
         restaurantPages++;
         totalMenuItems += result.menuCount || 0;
+        totalReviews += reviews.length || 0;
       }
     } catch (e) {
       console.warn('[seo] WARN: skip restaurant page for', rest && rest.name, '-', e.message);
     }
   }
-  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· total menu items rendered:', totalMenuItems);
+  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· menu items:', totalMenuItems, '· reviews embedded:', totalReviews);
 
   try {
     injectHomepageRestaurantLinks(restaurants);
@@ -1289,6 +1429,11 @@ async function main() {
   writeRobots();
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
   console.log('[seo] + robots.txt');
+
+  // Suchmaschinen sofort anstossen (nur wenn wirklich Seiten gebaut wurden)
+  if (generated.length) {
+    await pingIndexNow(generated);
+  }
   console.log('[seo] Done. Generated:', generated.length, 'Skipped (empty):', skipped);
 }
 
