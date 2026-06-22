@@ -1331,7 +1331,9 @@ function generateProspectPage(p, partnerRestaurants) {
     '</main>\n' +
     '<footer class="site"><div class="container row">' +
       '<div>&copy; ' + new Date().getFullYear() + ' ' + BRAND + ' – Ostfrieslands Gastro-Plattform</div>' +
-      '<div style="font-size:13px;color:#888;">Eintrag auf Basis öffentlicher Daten. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
+      '<div style="font-size:13px;color:#888;">Eintrag auf Basis öffentlicher Daten' +
+        (p.source === 'osm' ? ' · © OpenStreetMap-Mitwirkende' : '') +
+        '. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
     '</div></footer>\n' +
     '</body></html>\n';
 
