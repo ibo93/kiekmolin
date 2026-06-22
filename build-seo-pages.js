@@ -85,6 +85,17 @@ const CATEGORIES = [
     descriptionEn: 'Greek classics from the grill – gyros, souvlaki, bifteki and fresh salads'
   },
   {
+    slug: 'cafe',
+    label: 'Café',
+    plural: 'Cafés',
+    labelEn: 'Café',
+    pluralEn: 'Cafés',
+    keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
+    description: 'Kaffee, Kuchen und gemuetliche Cafes',
+    descriptionDe: 'Kaffee, hausgemachter Kuchen und gemütliche Cafés',
+    descriptionEn: 'coffee, homemade cake and cozy cafés'
+  },
+  {
     slug: 'restaurant',
     label: 'Restaurant',
     plural: 'Restaurants',
@@ -1119,6 +1130,216 @@ function generateRestaurantPage(rest, menuItems, reviews) {
   return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length };
 }
 
+// ==================== PROSPECT / VERZEICHNIS-SEITEN ====================
+// Seiten fuer Restaurants/Pizzerien/Cafes, die (noch) KEINE Kiek-mol-in-
+// Partner sind. Genau wie ostfriesland.app: nur Name, Adresse, Telefon ->
+// jede Seite rankt fuer "Pizzeria XY Stadt". Vorteile:
+//   1. Riesiger SEO-Fussabdruck (hunderte Seiten statt nur Partner)
+//   2. Lead-Magnet: laeuft die Seite gut, ruft der Vertrieb den Inhaber an
+//   3. Funnel: jede Seite verlinkt auf echte Partner in derselben Stadt
+// EHRLICH gehalten: kein Fake-"Online bestellen", klarer Inhaber-Hinweis,
+// Opt-out im Footer. Quelle = prospects.json (vom Betreiber gepflegt).
+
+// Wohin der "Bist du der Inhaber?"-Button zeigt (Partner-Anmeldung/Kontakt).
+const PROSPECT_OWNER_CTA_URL = '/?page=kontakt';
+
+function loadProspects() {
+  const file = path.join(OUT_DIR, 'prospects.json');
+  if (!fs.existsSync(file)) {
+    console.log('[seo] keine prospects.json gefunden - Verzeichnis-Seiten uebersprungen.');
+    return [];
+  }
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    console.warn('[seo] WARN: prospects.json ist kein gueltiges JSON -', e.message);
+    return [];
+  }
+  if (!Array.isArray(data)) {
+    console.warn('[seo] WARN: prospects.json muss ein Array sein.');
+    return [];
+  }
+  return data;
+}
+
+function prospectSlug(p) {
+  const raw = (p.name || '') + (p.city ? ' ' + p.city : '');
+  // normalize() macht ä->ae etc. + lowercase; NFD-Strip entfernt Rest-Akzente
+  // wie é->e, à->a, sodass aus "Café" sauber "cafe" wird statt "caf".
+  const base = normalize(raw).normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+function detectProspectCategory(p) {
+  if (p.category) {
+    const c = CATEGORIES.find(function(x) { return x.slug === p.category; });
+    if (c) return c;
+  }
+  // Aus dem Namen erkennen (z.B. "Pizzeria Castello" -> Pizzeria)
+  const synthetic = { cuisine: p.name };
+  for (const c of CATEGORIES) {
+    if (c.slug !== 'restaurant' && categoryMatches(synthetic, c)) return c;
+  }
+  return CATEGORIES[CATEGORIES.length - 1];
+}
+
+function buildProspectJsonLd(p, name, cityRaw, url, catLabel) {
+  // Bewusst OHNE aggregateRating: wir haben keine echten Bewertungen ->
+  // Fake-Sterne wuerden von Google abgestraft. Nur saubere Stammdaten.
+  const item = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    '@id': url,
+    'name': name,
+    'url': url
+  };
+  if (p.phone) item.telephone = String(p.phone);
+  if (p.website) item.sameAs = [p.website];
+  if (catLabel) item.servesCuisine = catLabel;
+  if (p.street || p.zip || cityRaw) {
+    item.address = {
+      '@type': 'PostalAddress',
+      'streetAddress': safeText(p.street, ''),
+      'postalCode': safeText(p.zip, ''),
+      'addressLocality': cityRaw,
+      'addressCountry': 'DE'
+    };
+  }
+  if (p.lat && p.lng) {
+    item.geo = { '@type': 'GeoCoordinates', 'latitude': Number(p.lat), 'longitude': Number(p.lng) };
+  }
+  return item;
+}
+
+function generateProspectPage(p, partnerRestaurants) {
+  if (!p || !p.name) return null;
+  const slug = prospectSlug(p);
+  if (!slug || slug.length < 2) return null;
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;
+
+  const isDraft = !!p.draft;
+  const name = safeText(p.name, 'Restaurant');
+  const cityRaw = safeText(p.city, 'Ostfriesland');
+  const url = SITE_URL + '/' + slug;
+  const cat = detectProspectCategory(p);
+  const catLabel = cat.label;
+
+  const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
+  const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+
+  const title = name + ' ' + cityRaw + ' – Adresse, Telefon & Öffnungszeiten | ' + catLabel;
+  let description = name + ' in ' + cityRaw + ': ' + catLabel + ' – Adresse, Telefon';
+  if (p.street) description += ', ' + p.street;
+  description += '. Jetzt anrufen oder online bestellen bei Restaurants in ' + cityRaw + '.';
+  if (description.length > 160) description = description.slice(0, 157) + '...';
+
+  const prospectLd = buildProspectJsonLd(p, name, cityRaw, url, catLabel);
+  const breadcrumbCrumbs = [
+    { name: 'Startseite', url: SITE_URL + '/' },
+    { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
+    { name: name, url: url }
+  ];
+  const breadcrumbLd = buildBreadcrumbJsonLd(breadcrumbCrumbs);
+
+  const addrLine = [
+    p.street ? escapeHtml(p.street) : '',
+    p.zip ? escapeHtml(p.zip) : '',
+    escapeHtml(cityRaw)
+  ].filter(function(s) { return s; }).join(' ');
+
+  // Echte Partner in derselben Stadt -> Funnel von Nicht-Partner-Suchen
+  const partners = (Array.isArray(partnerRestaurants) ? partnerRestaurants : [])
+    .filter(function(r) { return r && r.slug && normalize(r.city) === normalize(cityRaw); })
+    .slice(0, 6);
+
+  const robotsTag = isDraft
+    ? '<meta name="robots" content="noindex,follow">'
+    : '<meta name="robots" content="index,follow,max-image-preview:large">';
+
+  const draftBanner = isDraft
+    ? '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 16px;border-radius:8px;margin:16px 0;font-size:14px;">' +
+      '⚠️ <strong>Vorschau / Beispiel-Eintrag.</strong> Diese Seite ist als <code>draft</code> markiert (noindex) und noch nicht veröffentlicht. ' +
+      'Setze in <code>prospects.json</code> <code>"draft": false</code> sobald die Daten geprüft sind.' +
+      '</div>'
+    : '';
+
+  // Anruf-Button (echter Mehrwert fuer den Sucher) + Inhaber-Lead-CTA
+  const phoneBtn = p.phone
+    ? '<a class="cta-primary" href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">📞 ' + escapeHtml(String(p.phone)) + '</a>'
+    : '';
+
+  const ownerBox =
+    '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
+      '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
+      '<p style="margin:0 0 14px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
+      'Trag dein Restaurant <strong>kostenlos</strong> ein und nimm Online-Bestellungen & Tisch-Reservierungen entgegen – ohne App, mit fairer Provision.</p>' +
+      '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
+    '</div>';
+
+  const partnerBox = partners.length
+    ? '<section class="crosslinks"><h3>Online bestellen in ' + escapeHtml(cityRaw) + '</h3>' +
+      '<p style="margin:0 0 10px;color:#666;">Diese Restaurants in ' + escapeHtml(cityRaw) + ' kannst du direkt über ' + BRAND + ' bestellen:</p>' +
+      '<div class="links">' +
+      partners.map(function(r) {
+        return '<a href="/' + escapeAttr(r.slug) + '">' + escapeHtml(safeText(r.name, 'Restaurant')) + '</a>';
+      }).join('') +
+      '</div></section>'
+    : '';
+
+  const html = '<!DOCTYPE html>\n<html lang="de">\n<head>\n' +
+    '<meta charset="UTF-8">\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
+    '<title>' + escapeHtml(title) + '</title>\n' +
+    '<meta name="description" content="' + escapeAttr(description) + '">\n' +
+    '<link rel="canonical" href="' + escapeAttr(url) + '">\n' +
+    robotsTag + '\n' +
+    '<meta name="geo.region" content="DE-NI">\n' +
+    '<meta name="geo.placename" content="' + escapeAttr(cityRaw) + '">\n' +
+    '<meta property="og:type" content="restaurant.restaurant">\n' +
+    '<meta property="og:title" content="' + escapeAttr(title) + '">\n' +
+    '<meta property="og:description" content="' + escapeAttr(description) + '">\n' +
+    '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
+    '<meta property="og:locale" content="de_DE">\n' +
+    '<meta property="og:site_name" content="' + BRAND + '">\n' +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
+    '<style>' + pageCss() + '</style>\n' +
+    '<script type="application/ld+json">' + jsonEscape(prospectLd) + '</script>\n' +
+    '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
+    // KEIN App-Redirect: Nicht-Partner haben keinen App-Eintrag. Die Seite
+    // bleibt stehen und liefert dem Sucher Telefon/Adresse + Funnel zu Partnern.
+    '</head>\n<body>\n' +
+    renderHeader() + '\n' +
+    renderBreadcrumb(breadcrumbCrumbs) + '\n' +
+    '<main class="container">\n' +
+    draftBanner +
+    '<section class="hero hero-fallback fade"><div class="ov"></div><div class="inner">' +
+      '<h1>' + escapeHtml(name) + '</h1>' +
+      '<div class="meta">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) + '</div>' +
+      (phoneBtn ? '<div style="margin-top:18px;">' + phoneBtn + '</div>' : '') +
+    '</div></section>\n' +
+    '<div class="intro fade d1">\n' +
+      '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) + '. ' +
+      'Hier findest du Adresse und Telefonnummer auf einen Blick.</p>\n' +
+      (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
+      (p.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">' + escapeHtml(String(p.phone)) + '</a></p>' : '') +
+      (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
+    '</div>\n' +
+    ownerBox + '\n' +
+    partnerBox + '\n' +
+    renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
+    '</main>\n' +
+    '<footer class="site"><div class="container row">' +
+      '<div>&copy; ' + new Date().getFullYear() + ' ' + BRAND + ' – Ostfrieslands Gastro-Plattform</div>' +
+      '<div style="font-size:13px;color:#888;">Eintrag auf Basis öffentlicher Daten. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
+    '</div></footer>\n' +
+    '</body></html>\n';
+
+  const filename = slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
+  return { filename: filename, url: url, count: 1, prospect: true, draft: isDraft };
+}
+
 // ==================== PAGE GENERATORS ====================
 
 function generateCityCategoryPage(city, cat, restaurants, lang) {
@@ -1313,8 +1534,8 @@ function writeSitemap(generated) {
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
   generated.forEach(function(g) {
-    const prio = g.restaurant ? '0.9' : '0.8';
-    const freq = g.restaurant ? 'daily' : 'weekly';
+    const prio = g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8');
+    const freq = g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly');
     xml += '  <url><loc>' + g.url + '</loc><lastmod>' + today + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
   });
   xml += '</urlset>\n';
@@ -1416,19 +1637,46 @@ async function main() {
   console.log('[seo] Kiek mol in - SEO-Pages-Generator');
   console.log('[seo] Cities:', CITIES.length, '· Categories:', CATEGORIES.length);
 
-  let restaurants;
+  let restaurants = [];
+  let supaOk = true;
   try {
     console.log('[seo] Fetching restaurants from Supabase...');
     restaurants = await fetchRestaurants();
     console.log('[seo] Got', restaurants.length, 'active restaurants');
   } catch (err) {
+    supaOk = false;
     console.warn('[seo] WARN: Supabase fetch failed:', err.message);
-    console.warn('[seo] Skipping SEO page generation - deploy will continue without new pages.');
-    process.exit(0);
+    console.warn('[seo] Partner-Seiten werden uebersprungen - Prospect-Seiten werden trotzdem gebaut.');
   }
 
   const generated = [];
   let skipped = 0;
+
+  // Verzeichnis-/Prospect-Seiten (Nicht-Partner) - unabhaengig von Supabase
+  let prospectCount = 0, prospectDraft = 0;
+  try {
+    const prospects = loadProspects();
+    for (const p of prospects) {
+      const result = generateProspectPage(p, restaurants);
+      if (result) {
+        console.log('[seo] +', result.filename, '(prospect: ' + (p.name || '?') + (result.draft ? ' · DRAFT/noindex' : ' · live') + ')');
+        prospectCount++;
+        if (result.draft) prospectDraft++;
+        else generated.push(result);   // nur Live-Eintraege in die Sitemap
+      }
+    }
+  } catch (e) {
+    console.warn('[seo] WARN: Prospect-Generierung fehlgeschlagen -', e.message);
+  }
+  console.log('[seo] Verzeichnis-Seiten:', prospectCount, '(davon Draft/noindex: ' + prospectDraft + ')');
+
+  // Ist Supabase weg, bauen wir KEINE Partner-Seiten und ueberschreiben die
+  // Sitemap NICHT (sonst gingen alle Partner-URLs verloren). Prospect-HTML
+  // liegt aber schon auf der Platte und kommt beim naechsten guten Deploy rein.
+  if (!supaOk) {
+    console.warn('[seo] Supabase nicht erreichbar -> nur Verzeichnis-Seiten gebaut, Sitemap unveraendert.');
+    process.exit(0);
+  }
 
   // Pro Stadt × Kategorie: DE + EN
   const LANGS = ['de', 'en'];
