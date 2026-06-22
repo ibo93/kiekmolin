@@ -408,26 +408,31 @@ function pageCss() {
     a:hover{text-decoration:underline}
     img{max-width:100%;height:auto;display:block}
     .container{max-width:1200px;margin:0 auto;padding:0 20px}
-    header.site{background:${PRIMARY_COLOR};color:#fff;padding:14px 0}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .fade{animation:fadeUp .5s ease both}
+    .fade.d1{animation-delay:.06s}.fade.d2{animation-delay:.12s}.fade.d3{animation-delay:.18s}
+    header.site{background:${PRIMARY_COLOR};color:#fff;padding:14px 0;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.12)}
     header.site .row{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    header.site .logo{font-weight:700;font-size:20px;color:#fff;text-decoration:none}
+    header.site .logo{font-weight:800;font-size:21px;color:#fff;text-decoration:none;letter-spacing:-.02em}
     header.site .logo span{color:${ACCENT_COLOR}}
-    header.site nav a{color:#fff;margin-left:18px;font-size:14px}
+    header.site nav a{color:#fff;margin-left:18px;font-size:14px;opacity:.92}
+    header.site nav a:hover{opacity:1}
     .breadcrumb{font-size:13px;color:#666;padding:14px 0 0}
     .breadcrumb a{color:#666}
     .breadcrumb .sep{margin:0 6px;color:#bbb}
-    h1{font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:18px 0 8px;color:${PRIMARY_COLOR};font-weight:800}
+    h1{font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:18px 0 8px;color:${PRIMARY_COLOR};font-weight:800;letter-spacing:-.02em}
     .subtitle{font-size:18px;color:#555;margin:0 0 28px}
     .intro{background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
     .intro p{margin:0 0 12px}
     .intro p:last-child{margin-bottom:0}
-    h2{font-size:26px;margin:36px 0 18px;color:${PRIMARY_COLOR};font-weight:700}
+    h2{font-size:26px;margin:36px 0 18px;color:${PRIMARY_COLOR};font-weight:700;letter-spacing:-.01em}
     .grid{display:grid;grid-template-columns:1fr;gap:18px}
     @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
     @media(min-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
-    .card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column}
-    .card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
-    .card .img{aspect-ratio:16/10;background:#eee linear-gradient(135deg,#e6f0ee,#cfe0dc);background-size:cover;background-position:center}
+    .card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s;display:flex;flex-direction:column}
+    .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,40,30,.12)}
+    .card .img{aspect-ratio:16/10;background:#eee linear-gradient(135deg,#e6f0ee,#cfe0dc);background-size:cover;background-position:center;transition:transform .3s}
+    .card:hover .img{transform:scale(1.04)}
     .card .body{padding:16px;flex:1;display:flex;flex-direction:column;gap:8px}
     .card h3{margin:0;font-size:18px;color:${PRIMARY_COLOR};font-weight:700}
     .card .stars{color:${ACCENT_COLOR};font-size:15px;letter-spacing:1px}
@@ -437,10 +442,37 @@ function pageCss() {
     .card .tag{font-size:11px;background:#eef5f3;color:${PRIMARY_COLOR};padding:3px 9px;border-radius:99px;font-weight:500}
     .card .btn{margin-top:10px;display:inline-block;background:${PRIMARY_COLOR};color:#fff;padding:10px 14px;border-radius:8px;text-align:center;font-weight:600;font-size:14px}
     .card .btn:hover{background:#002a23;text-decoration:none;color:#fff}
+    /* Restaurant-Hero */
+    .hero{position:relative;border-radius:20px;overflow:hidden;margin:18px 0 22px;min-height:300px;display:flex;align-items:flex-end;box-shadow:0 8px 30px rgba(0,40,30,.14)}
+    .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center;transform:scale(1.02)}
+    .hero .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,40,33,.12) 0%,rgba(0,40,33,.55) 55%,rgba(0,40,33,.86) 100%)}
+    .hero .inner{position:relative;padding:28px 26px;color:#fff;width:100%}
+    .hero .inner h1{color:#fff;margin:0 0 8px}
+    .hero .meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;font-size:15px;font-weight:500}
+    .hero .meta .hstars{color:${ACCENT_COLOR};font-size:17px;letter-spacing:1px}
+    .hero .meta .dot{opacity:.5}
+    .hero-fallback{background:linear-gradient(135deg,${PRIMARY_COLOR},#00574a)}
+    /* Trust-Badges */
+    .trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
+    .trust .b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e8efed;border-radius:99px;padding:8px 15px;font-size:13px;font-weight:600;color:${PRIMARY_COLOR};box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .trust .b .i{font-size:15px}
+    /* CTA-Buttons */
+    .cta-primary{display:inline-flex;align-items:center;gap:8px;background:${PRIMARY_COLOR};color:#fff;padding:15px 30px;border-radius:12px;font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(0,40,30,.22);transition:transform .15s,box-shadow .15s}
+    .cta-primary:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,40,30,.3);text-decoration:none;color:#fff}
+    .cta-ghost{display:inline-flex;align-items:center;gap:8px;background:#fff;color:${PRIMARY_COLOR};border:2px solid ${PRIMARY_COLOR};padding:12px 26px;border-radius:12px;font-weight:700;font-size:15px;transition:background .15s,color .15s}
+    .cta-ghost:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
+    /* Reviews */
+    .reviews-seo .rv{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid #f0f3f1}
+    /* Sticky mobile bestellen-Leiste */
+    .sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #e6ece9;padding:10px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
+    .sticky-cta .lbl{font-size:13px;font-weight:700;color:${PRIMARY_COLOR};line-height:1.2}
+    .sticky-cta .lbl small{display:block;font-weight:500;color:#888;font-size:11px}
+    .sticky-cta a{flex-shrink:0}
+    @media(max-width:760px){.sticky-cta{display:flex}main.container{padding-bottom:80px}}
     .crosslinks{background:#fff;border-radius:14px;padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
-    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:99px;font-size:14px}
+    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:99px;font-size:14px;transition:background .15s,color .15s}
     .crosslinks .links a:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
     details.faq{background:#fff;border-radius:10px;padding:14px 18px;margin:0 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
     details.faq summary{cursor:pointer;font-weight:600;color:${PRIMARY_COLOR};list-style:none}
@@ -925,6 +957,43 @@ function renderReviewsHtml(rest, reviews) {
   return html;
 }
 
+function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
+  const img = rest.image || rest.logo || '';
+  const ratingTxt = fmtRating(rest.rating);
+  const stars = ratingTxt ? renderStars(rest.rating) : '';
+  const metaParts = [];
+  if (ratingTxt) metaParts.push('<span class="hstars">' + stars + '</span> ' + ratingTxt + ' / 5');
+  metaParts.push(escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw));
+  if (rest.cuisine) metaParts.push(escapeHtml(rest.cuisine));
+  if (menuItems.length) metaParts.push(menuItems.length + ' Gerichte online');
+  const meta = metaParts.join('<span class="dot"> · </span>');
+
+  return '<section class="hero' + (img ? '' : ' hero-fallback') + ' fade">' +
+    (img ? '<div class="bg" style="background-image:url(' + escapeAttr(img) + ')"></div>' : '') +
+    '<div class="ov"></div>' +
+    '<div class="inner">' +
+      '<h1>' + escapeHtml(name) + '</h1>' +
+      '<div class="meta">' + meta + '</div>' +
+      '<div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;">' +
+        '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '">🍽️ Online bestellen</a>' +
+        '<a class="cta-ghost" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.5);" href="/?r=' + escapeAttr(slug) + '&action=reserve">Tisch reservieren</a>' +
+      '</div>' +
+    '</div>' +
+  '</section>';
+}
+
+function renderTrustBadges(rest, menuItems) {
+  const badges = [];
+  badges.push({ i: '✓', t: 'Kostenlos bestellen' });
+  badges.push({ i: '⚡', t: 'Ohne App-Download' });
+  if (menuItems.length) badges.push({ i: '📋', t: menuItems.length + ' Gerichte' });
+  badges.push({ i: '📍', t: 'Aus ' + escapeHtml(safeText(rest.city, 'der Region')) });
+  badges.push({ i: '🤝', t: 'Faire Provision' });
+  return '<div class="trust fade d2">' + badges.map(function(b) {
+    return '<span class="b"><span class="i">' + b.i + '</span>' + b.t + '</span>';
+  }).join('') + '</div>';
+}
+
 function generateRestaurantPage(rest, menuItems, reviews) {
   const slug = rest.slug;
   if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
@@ -1009,11 +1078,9 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     renderHeader() + '\n' +
     renderBreadcrumb(breadcrumbCrumbs) + '\n' +
     '<main class="container">\n' +
-    '<h1>' + escapeHtml(name) + ' ' + escapeHtml(cityRaw) + '</h1>\n' +
-    '<p class="subtitle">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
-      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') +
-      (menuItems.length ? ' · ' + menuItems.length + ' Gerichte online' : '') + '</p>\n' +
-    '<div class="intro">\n' +
+    renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) + '\n' +
+    renderTrustBadges(rest, menuItems) + '\n' +
+    '<div class="intro fade d1">\n' +
       (rest.description
         ? '<p>' + escapeHtml(rest.description) + '</p>'
         : '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
@@ -1037,6 +1104,10 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
     renderFooter() + '\n' +
+    '<div class="sticky-cta">' +
+      '<div class="lbl">' + escapeHtml(name) + '<small>Abholung · Lieferung · kostenlos</small></div>' +
+      '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '" style="padding:12px 22px;font-size:15px;">Online bestellen</a>' +
+    '</div>\n' +
     '</body></html>\n';
 
   const filename = slug + '.html';
