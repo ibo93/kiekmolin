@@ -8481,8 +8481,10 @@
             animation: kinOrderPulse 1.5s ease-in-out infinite;
         }
         @keyframes kinOrderPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6), 0 2px 8px rgba(0,0,0,0.04); }
-            50%      { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0), 0 2px 8px rgba(0,0,0,0.04); }
+            /* Ring-Welle aussen + dezentes Blinken der Karte (inset-Schimmer,
+               funktioniert ueber hellem und dunklem Hintergrund) */
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6), inset 0 0 0 2000px rgba(239, 68, 68, 0), 0 2px 8px rgba(0,0,0,0.04); }
+            50%      { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0), inset 0 0 0 2000px rgba(239, 68, 68, 0.09), 0 2px 8px rgba(0,0,0,0.04); }
         }
 
         .kin-new-badge {
