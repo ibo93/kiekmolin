@@ -46694,7 +46694,7 @@ function updateOrderStats() {
             navBadge.style.background = '';
             // Sound abspielen wenn neue Bestellungen (nicht beim ersten Laden)
             if (!window._ordersFirstLoad && newCount > (window._lastOrderNewCount || 0)) {
-                playKinNotificationSound();
+                playOrderSound();
             }
             window._lastOrderNewCount = newCount;
         } else {
@@ -49949,39 +49949,42 @@ function showNewOrderAlert(order) {
     } catch(e) {}
 }
 
-// Lauter, langer "Kiek-Alarm": 5 Glocken-Wellen mit dreifachem Oberton-Stacking,
-// Kompressor (Limiter) + Makeup-Gain (durch die Lautstaerke-Einstellung skaliert).
-// Wird als waehlbare Klang-Option "Laut & Lang" genutzt -> siehe _kinSoundTypes.
+// Lauter, LANGER "Kiek-Alarm": 5 Glocken-Wellen, jede mit dreifachem Oberton-
+// Stacking + Kompressor/Makeup-Gain (durch die Lautstaerke-Einstellung skaliert).
+//
+// WICHTIG (iOS/Safari): Die Wellen werden NICHT alle auf einmal weit in die
+// Zukunft geplant -- das schneidet iOS nach der ersten Welle ab. Stattdessen
+// wird jede Welle einzeln per Timer nahe der aktuellen Zeit ausgeloest und der
+// AudioContext bei Bedarf mit resume() reaktiviert. So spielt der Ton wirklich
+// die volle Laenge (~6s) durch.
 function playLoudChime(volume) {
     if (volume == null) volume = 1;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
     try {
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var now = ctx.currentTime;
-
-        var compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-24, now);
-        compressor.knee.setValueAtTime(12, now);
-        compressor.ratio.setValueAtTime(8, now);
-        compressor.attack.setValueAtTime(0.002, now);
-        compressor.release.setValueAtTime(0.25, now);
-        var master = ctx.createGain();
-        master.gain.setValueAtTime(1.9 * volume, now); // Makeup-Gain x Lautstaerke
-        compressor.connect(master);
-        master.connect(ctx.destination);
-
+        var ctx = new AC();
         var WAVES = 5;        // Anzahl der Glocken-Wellen
-        var WAVE_GAP = 1.15;  // Sekunden Pause zwischen den Wellen
+        var GAP_MS = 1150;    // Abstand zwischen den Wellen (ms)
         var NOTES = [
             { freq: 880,  dur: 0.6 },   // A5
             { freq: 1108, dur: 0.6 },   // C#6
-            { freq: 1318, dur: 1.05 }   // E6 (laenger ausklingen)
+            { freq: 1318, dur: 1.0 }    // E6 (laenger ausklingen)
         ];
         var NOTE_GAP = 0.18; // Sekunden zwischen den Noten in einer Welle
 
-        function chime(t0) {
-            var noteStart = t0;
+        function wave() {
+            // iOS/Safari: Kontext ggf. fortsetzen, sonst kommt kein Ton.
+            try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) {}
+            var compressor = ctx.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-24, ctx.currentTime);
+            compressor.ratio.setValueAtTime(8, ctx.currentTime);
+            var master = ctx.createGain();
+            master.gain.value = 1.9 * volume; // Makeup-Gain x Lautstaerke
+            compressor.connect(master);
+            master.connect(ctx.destination);
+
+            var noteStart = ctx.currentTime + 0.02; // nahe currentTime = iOS-zuverlaessig
             NOTES.forEach(function(note) {
-                // Grundton + 2 Obertoene fuer staerkeren, volleren Klang
                 [
                     { mult: 1, type: 'triangle', peak: 1.0 },
                     { mult: 2, type: 'sine',     peak: 0.4 },
@@ -50003,22 +50006,27 @@ function playLoudChime(volume) {
             });
         }
 
-        for (var w = 0; w < WAVES; w++) {
-            chime(now + w * WAVE_GAP);
-        }
-
-        var totalMs = (WAVES * WAVE_GAP + 1.4) * 1000;
-        setTimeout(function() { try { ctx.close(); } catch (e) {} }, totalMs);
-    } catch(e) {}
+        wave(); // erste Welle sofort
+        var n = 1;
+        var iv = setInterval(function() {
+            if (n >= WAVES) {
+                clearInterval(iv);
+                setTimeout(function() { try { ctx.close(); } catch (e) {} }, 2000);
+                return;
+            }
+            wave();
+            n++;
+        }, GAP_MS);
+    } catch (e) {}
 }
 
-// Bestell-Ton bei neuer Bestellung: spielt IMMER den in den Klang-Einstellungen
-// gewaehlten Ton (inkl. Lautstaerke), damit der Restaurant-Inhaber selbst
-// bestimmen kann, was klingt.
+// Bestell-Ton bei neuer Bestellung: IMMER laut UND lang (Kiek-Alarm),
+// Lautstaerke aus den Klang-Einstellungen. So ist eine neue Bestellung
+// garantiert unueberhoerbar -- unabhaengig von der gewaehlten Ton-Option.
 function playOrderSound() {
     if (!orderSoundEnabled) return;
-    if (typeof playKinNotificationSound === 'function') { playKinNotificationSound(); return; }
-    playLoudChime(1);
+    var vol = (typeof _kinSoundVolume === 'number') ? _kinSoundVolume : 0.8;
+    playLoudChime(vol);
 }
 
 // Play notification sound (wenn neue Reservierung kommt)
