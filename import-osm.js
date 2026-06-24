@@ -33,8 +33,22 @@ const CITIES = [
   { name: 'Norden',        lat: 53.5944, lng: 7.2061, radius: 5000 },
   { name: 'Aurich',        lat: 53.4686, lng: 7.4828, radius: 6000 },
   { name: 'Emden',         lat: 53.3669, lng: 7.2061, radius: 7000 },
-  { name: 'Carolinensiel', lat: 53.6900, lng: 7.7944, radius: 4000 }
+  { name: 'Carolinensiel', lat: 53.6900, lng: 7.7944, radius: 4000 },
+  // Erweiterte Ostfriesland-Abdeckung fuer mehr Google-Reichweite
+  { name: 'Leer',          lat: 53.2316, lng: 7.4480, radius: 6000 },
+  { name: 'Wittmund',      lat: 53.5762, lng: 7.7795, radius: 4500 },
+  { name: 'Esens',         lat: 53.6470, lng: 7.6120, radius: 4000 },
+  { name: 'Wiesmoor',      lat: 53.4130, lng: 7.7340, radius: 4000 },
+  { name: 'Dornum',        lat: 53.6470, lng: 7.4280, radius: 3500 },
+  { name: 'Hage',          lat: 53.6090, lng: 7.2920, radius: 3000 },
+  { name: 'Wittmund-Burhave', lat: 53.5560, lng: 8.0050, radius: 3000 },
+  { name: 'Jever',         lat: 53.5740, lng: 7.9000, radius: 4000 }
 ];
+
+// Wie sollen importierte Eintraege markiert werden?
+// draft:false  = sofort live + von Google indexierbar (ostfriesland.app-Stil).
+// draft:true   = erst noindex, du gibst manuell frei (IMPORT_DRAFT=1 setzen).
+const IMPORT_AS_DRAFT = process.env.IMPORT_DRAFT === '1';
 
 // Welche OSM-amenity-Typen interessieren uns (Essen/Trinken zum Bestellen)
 const AMENITIES = 'restaurant|cafe|fast_food|ice_cream|biergarten';
@@ -106,7 +120,7 @@ function elementToProspect(el, fallbackCity) {
     phone: t.phone || t['contact:phone'] || '',
     website: t.website || t['contact:website'] || '',
     source: 'osm',
-    draft: true
+    draft: IMPORT_AS_DRAFT
   };
   if (lat && lng) { p.lat = lat; p.lng = lng; }
   if (!p.category) delete p.category; // Build erkennt dann selbst
@@ -128,10 +142,11 @@ async function main() {
   console.log('[osm] OSM-Importer fuer', CITIES.length, 'Staedte');
 
   const existing = loadExisting();
-  // Live-Eintraege (draft:false) NIE ueberschreiben - die hast du kuratiert.
-  const keep = existing.filter(function(p) { return p && p.draft === false; });
+  // Manuell gepflegte Eintraege (nicht aus OSM) bleiben erhalten; OSM-Daten
+  // werden bei jedem Lauf frisch geholt, damit Adresse/Telefon aktuell sind.
+  const keep = existing.filter(function(p) { return p && p.source !== 'osm'; });
   const keepSlugs = new Set(keep.map(function(p) { return slugFor(p.name, p.city); }));
-  console.log('[osm]', keep.length, 'bestehende Live-Eintraege bleiben erhalten.');
+  console.log('[osm]', keep.length, 'manuell gepflegte Eintraege bleiben erhalten.');
 
   const seen = new Set(keepSlugs);
   const imported = [];
@@ -160,8 +175,8 @@ async function main() {
 
   const out = keep.concat(imported);
   fs.writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n', 'utf8');
-  console.log('[osm] Fertig:', imported.length, 'neue Eintraege (draft) +', keep.length, 'Live =', out.length, 'gesamt.');
-  console.log('[osm] -> prospects.json geschrieben. Pruefen und "draft": false setzen zum Livegang.');
+  console.log('[osm] Fertig:', imported.length, 'OSM-Eintraege (' + (IMPORT_AS_DRAFT ? 'draft/noindex' : 'live') + ') +', keep.length, 'manuell =', out.length, 'gesamt.');
+  console.log('[osm] -> prospects.json geschrieben.' + (IMPORT_AS_DRAFT ? ' Pruefen und "draft": false setzen zum Livegang.' : ' Sofort live (von Google indexierbar).'));
   console.log('[osm] Quelle: (c) OpenStreetMap-Mitwirkende (ODbL).');
 }
 
