@@ -49875,10 +49875,14 @@ function showNewOrderAlert(order) {
             if (window._alertedOrderIds[oid]) return;
             window._alertedOrderIds[oid] = true;
         }
-        // Nur wenn das Dashboard sichtbar ist -- sonst uebernimmt der Browser-Push
+        // NUR fuer eingeloggte Gastronomen/Admins mit sichtbarem Dashboard.
+        // Wichtig: niemals beim Gast/Kunden -- currentAdmin ist nur bei einem
+        // eingeloggten Betreiber gesetzt, sonst null. Zusaetzlich muss das
+        // Dashboard wirklich sichtbar sein (getComputedStyle, nicht inline-style,
+        // weil es ueber die Klasse 'active' ein-/ausgeblendet wird).
+        if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
         var dashEl = document.getElementById('dashboardView');
-        var dashVisible = dashEl && (dashEl.classList.contains('active') || dashEl.style.display === 'block' || dashEl.style.display === '');
-        if (!dashVisible) return;
+        if (!dashEl || window.getComputedStyle(dashEl).display === 'none') return;
 
         var orderNum = order.order_number ? ('#' + order.order_number) : (oid ? ('#' + String(oid).substring(0, 6)) : '');
         var typeLabel = order.order_type === 'dine_in' ? 'Hier essen'
