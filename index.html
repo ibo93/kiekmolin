@@ -49852,32 +49852,49 @@ function playOrderSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Lauter, laenger, unueberhoerbar: 3 Glocken-Wellen hintereinander,
-        // jede mit aufsteigender Tonfolge + Oberton-Stacking fuer wahrgenommene Lautstaerke.
-        var WAVES = 3;       // Anzahl der Glocken-Wellen
-        var WAVE_GAP = 1.1;  // Sekunden Pause zwischen den Wellen
+        // Lauter, laenger, unueberhoerbar: 5 Glocken-Wellen hintereinander,
+        // jede mit aufsteigender Tonfolge + dreifachem Oberton-Stacking.
+        // Signalkette: osc -> gain -> Kompressor (Limiter) -> Makeup-Gain -> Ausgang.
+        // Der Kompressor faengt die Summenspitzen ab, der Makeup-Gain hebt danach
+        // das Gesamtsignal an -> deutlich hoehere wahrgenommene Lautstaerke,
+        // ohne haessliches Clipping.
+        var compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-24, now);
+        compressor.knee.setValueAtTime(12, now);
+        compressor.ratio.setValueAtTime(8, now);
+        compressor.attack.setValueAtTime(0.002, now);
+        compressor.release.setValueAtTime(0.25, now);
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(1.9, now); // Makeup-Gain
+        compressor.connect(master);
+        master.connect(ctx.destination);
+
+        var WAVES = 5;        // Anzahl der Glocken-Wellen (vorher 3)
+        var WAVE_GAP = 1.15;  // Sekunden Pause zwischen den Wellen
         var NOTES = [
-            { freq: 880,  dur: 0.55 },  // A5
-            { freq: 1108, dur: 0.55 },  // C#6
-            { freq: 1318, dur: 0.85 }   // E6 (laenger ausklingen)
+            { freq: 880,  dur: 0.6 },   // A5
+            { freq: 1108, dur: 0.6 },   // C#6
+            { freq: 1318, dur: 1.05 }   // E6 (laenger ausklingen)
         ];
         var NOTE_GAP = 0.18; // Sekunden zwischen den Noten in einer Welle
 
         function chime(t0) {
             var noteStart = t0;
             NOTES.forEach(function(note) {
-                // Grundton + Oberton (Oktave drueber) fuer staerkeren wahrgenommenen Klang
-                [1, 2].forEach(function(harmonic, hIdx) {
+                // Grundton + 2 Obertoene fuer staerkeren, volleren Klang
+                [
+                    { mult: 1, type: 'triangle', peak: 1.0 },
+                    { mult: 2, type: 'sine',     peak: 0.4 },
+                    { mult: 3, type: 'sine',     peak: 0.2 }
+                ].forEach(function(h) {
                     var osc = ctx.createOscillator();
                     var gain = ctx.createGain();
                     osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.type = hIdx === 0 ? 'triangle' : 'sine';
-                    osc.frequency.setValueAtTime(note.freq * harmonic, noteStart);
-                    // Maximaler Gain (1.0 ist Web-Audio-Maximum ohne Compressor-Limiting)
-                    var peak = hIdx === 0 ? 1.0 : 0.35;
+                    gain.connect(compressor);
+                    osc.type = h.type;
+                    osc.frequency.setValueAtTime(note.freq * h.mult, noteStart);
                     gain.gain.setValueAtTime(0, noteStart);
-                    gain.gain.linearRampToValueAtTime(peak, noteStart + 0.015);
+                    gain.gain.linearRampToValueAtTime(h.peak, noteStart + 0.015);
                     gain.gain.exponentialRampToValueAtTime(0.001, noteStart + note.dur);
                     osc.start(noteStart);
                     osc.stop(noteStart + note.dur + 0.05);
@@ -49891,7 +49908,7 @@ function playOrderSound() {
         }
 
         // Gesamtdauer: WAVES * WAVE_GAP + letzte Note. Context erst danach schliessen.
-        var totalMs = (WAVES * WAVE_GAP + 1.0) * 1000;
+        var totalMs = (WAVES * WAVE_GAP + 1.4) * 1000;
         setTimeout(function() { try { ctx.close(); } catch (e) {} }, totalMs);
     } catch(e) {}
 }
@@ -49904,21 +49921,39 @@ function playReservationSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Lauter Doppel-Ton: 660Hz → 990Hz
-        [0, 0.25].forEach(function(offset, i) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(i === 0 ? 660 : 990, now + offset);
-            gain.gain.setValueAtTime(0.6, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.5);
-            osc.start(now + offset);
-            osc.stop(now + offset + 0.5);
+        // Kompressor + Makeup-Gain fuer hoehere wahrgenommene Lautstaerke
+        var compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-24, now);
+        compressor.ratio.setValueAtTime(8, now);
+        compressor.attack.setValueAtTime(0.002, now);
+        compressor.release.setValueAtTime(0.25, now);
+        var master = ctx.createGain();
+        master.gain.setValueAtTime(1.8, now);
+        compressor.connect(master);
+        master.connect(ctx.destination);
+
+        // Lauter, laengerer Doppel-Ton, 2x wiederholt: 660Hz → 990Hz
+        // Jeder Ton mit Oberton fuer mehr Praesenz.
+        var STEPS = [0, 0.28, 0.85, 1.13]; // zwei Doppel-Wellen
+        STEPS.forEach(function(offset, i) {
+            var base = (i % 2 === 0) ? 660 : 990;
+            [1, 2].forEach(function(harmonic, hIdx) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(compressor);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(base * harmonic, now + offset);
+                var peak = hIdx === 0 ? 0.9 : 0.3;
+                gain.gain.setValueAtTime(0, now + offset);
+                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.6);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.6);
+            });
         });
 
-        setTimeout(function() { ctx.close(); }, 2000);
+        setTimeout(function() { try { ctx.close(); } catch(e) {} }, 2600);
     } catch(e) {}
 }
 
