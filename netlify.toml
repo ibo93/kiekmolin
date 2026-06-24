@@ -1,9 +1,12 @@
 # Kiek mol in - Netlify Konfiguration
 
 [build]
-  # SEO-Landing-Pages werden zur Build-Zeit aus Supabase generiert.
-  # Fault-tolerant: Bei Fehler wird trotzdem deployed.
-  command = "node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'"
+  # 1. OSM-Import: holt alle Gastro-Betriebe der Region frisch nach prospects.json
+  #    (Netlify-Build hat Internet -> Overpass erreichbar). Daraus baut Schritt 2
+  #    die Verzeichnis-/SEO-Seiten der Nicht-Partner (mehr Google-Reichweite).
+  # 2. SEO-Landing-Pages aus Supabase (Partner) + prospects.json (Nicht-Partner).
+  # Fault-tolerant: Schlaegt ein Schritt fehl, wird trotzdem deployed.
+  command = "node import-osm.js || echo 'OSM import failed - continuing'; node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'"
   publish = "."
 
 [build.environment]
