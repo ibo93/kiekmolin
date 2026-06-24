@@ -97,9 +97,13 @@ function generateEposBon(order, restaurantName) {
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
     xml += '<text lang="de" smooth="true"/>';
 
+    // Restaurant-Header gross — wichtig fuer Laeden ohne separate Kasse,
+    // weil der Bon dann das primaere Beleg-Dokument ist.
     if (restaurantName) {
-        xml += '<text align="center" font="font_a">' + xmlEscape(restaurantName) + '&#10;</text>';
+        xml += '<text align="center" width="2" height="2">' + xmlEscape(restaurantName) + '&#10;</text>';
+        xml += '<text>&#10;</text>';
     }
+
     xml += '<text align="center" font="font_a" width="2" height="2">' + xmlEscape(belegNr) + '&#10;</text>';
     xml += '<text align="center">' + date + ' ' + zeit + '&#10;&#10;</text>';
     xml += '<text align="center" width="2" height="2">' + orderTypeLabel + '&#10;</text>';
@@ -108,23 +112,35 @@ function generateEposBon(order, restaurantName) {
         xml += '<text align="center" width="2" height="2">Tisch ' + xmlEscape(order.table_number) + '&#10;</text>';
     }
 
-    xml += '<text>&#10;</text><text>--------------------------------&#10;</text>';
+    xml += '<text>&#10;</text><text>================================&#10;</text>';
 
     var items = Array.isArray(order.items) ? order.items : [];
     items.forEach(function (item) {
         var qty = item.quantity || 1;
         var name = item.name || '';
-        xml += '<text>' + xmlEscape(qty + 'x ' + name) + '&#10;</text>';
+        // Items in doppelter Hoehe — besser lesbar in der Kueche
+        xml += '<text width="1" height="2">' + xmlEscape(qty + 'x ' + name) + '&#10;</text>';
         if (item.options) xml += '<text>  &gt; ' + xmlEscape(item.options) + '&#10;</text>';
     });
 
-    xml += '<text>--------------------------------&#10;</text>';
-    var total = parseFloat(order.total || 0).toFixed(2).replace('.', ',');
-    xml += '<text align="right" width="2" height="2">GESAMT: ' + total + ' EUR&#10;</text>';
+    xml += '<text>================================&#10;</text>';
     xml += '<text>&#10;</text>';
 
-    if (order.customer_name) xml += '<text>Kunde: ' + xmlEscape(order.customer_name) + '&#10;</text>';
-    if (order.customer_phone) xml += '<text>Tel:   ' + xmlEscape(order.customer_phone) + '&#10;</text>';
+    // Total — extra gross (3x), damit's nicht zu uebersehen ist
+    var total = parseFloat(order.total || 0).toFixed(2).replace('.', ',');
+    xml += '<text align="right" width="3" height="3">' + total + ' EUR&#10;</text>';
+    xml += '<text align="right">GESAMT&#10;</text>';
+    xml += '<text>&#10;</text>';
+
+    // Zahlart prominent
+    if (order.payment_method) {
+        var pm = order.payment_method === 'cash' ? 'BAR' : String(order.payment_method).toUpperCase();
+        xml += '<text align="center" width="2" height="2">' + xmlEscape(pm) + '&#10;</text>';
+        xml += '<text>&#10;</text>';
+    }
+
+    if (order.customer_name) xml += '<text>Kunde:   ' + xmlEscape(order.customer_name) + '&#10;</text>';
+    if (order.customer_phone) xml += '<text>Telefon: ' + xmlEscape(order.customer_phone) + '&#10;</text>';
     if (order.delivery_address && typeof order.delivery_address === 'object') {
         var addr = order.delivery_address;
         var addrLine = [addr.street, addr.house_number].filter(Boolean).join(' ');
@@ -133,9 +149,14 @@ function generateEposBon(order, restaurantName) {
         if (cityLine) xml += '<text>         ' + xmlEscape(cityLine) + '&#10;</text>';
     }
     if (order.customer_notes || order.delivery_notes) {
-        xml += '<text>&#10;Hinweis: ' + xmlEscape(order.customer_notes || order.delivery_notes) + '&#10;</text>';
+        xml += '<text>&#10;</text>';
+        xml += '<text width="1" height="2">Hinweis:&#10;</text>';
+        xml += '<text width="1" height="2">' + xmlEscape(order.customer_notes || order.delivery_notes) + '&#10;</text>';
     }
 
+    xml += '<feed unit="30"/>';
+    xml += '<text align="center">--- Vielen Dank! ---&#10;</text>';
+    xml += '<text align="center">kiekmolin.de&#10;</text>';
     xml += '<feed unit="36"/><cut type="feed"/>';
     xml += '</epos-print></s:Body></s:Envelope>';
     return xml;
@@ -230,6 +251,15 @@ exports.handler = async function (event) {
                     'customer_name,customer_phone,customer_notes,delivery_address,delivery_notes,' +
                     'items,total';
         var orders = await sbGet(orderPath);
+
+        // Last-Poll-Tracker: bei jedem Abruf vom Drucker den Zeitstempel
+        // updaten. Dashboard kann darauf einen 'Drucker online'-Indikator
+        // bauen. Fire-and-forget -- sollte die XML-Auslieferung nicht blockieren.
+        sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), {
+            printer_last_poll_at: new Date().toISOString()
+        }).catch(function(e) {
+            console.warn('[pos-print] printer_last_poll_at update fehlgeschlagen:', e.message);
+        });
 
         if (!orders.length) {
             return xmlResponse(emptyEposResponse());

@@ -8474,6 +8474,38 @@
             animation: orderPulse 2s infinite;
         }
 
+        /* Dasselbe fuer die kin-order-card (das ist die aktuell verwendete Klasse) */
+        .kin-order-card.status-received {
+            border-color: #ef4444 !important;
+            border-width: 2px !important;
+            animation: kinOrderPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes kinOrderPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6), 0 2px 8px rgba(0,0,0,0.04); }
+            50%      { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0), 0 2px 8px rgba(0,0,0,0.04); }
+        }
+
+        .kin-new-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ef4444;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+            animation: kinNewBadgePulse 1.2s ease-in-out infinite;
+            z-index: 5;
+        }
+        @keyframes kinNewBadgePulse {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.08); }
+        }
+
         @keyframes orderPulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
             50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
@@ -17653,6 +17685,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="material-symbols-outlined" style="font-size:16px;">settings</span>
                             Drucker
                         </button>
+                        <div id="printerStatusBadge" onclick="openPrinterSettings()" title="Drucker-Verbindungsstatus (klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
+                            <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
+                            <span id="printerStatusText" style="color:#00251e;">Drucker prüfen…</span>
+                        </div>
                         <button onclick="openPOSSettings()" class="order-action-btn" title="Kassensystem verbinden" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;">
                             <span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span>
                             Kasse
@@ -21530,6 +21566,21 @@ function handleRealtimeOrder(payload) {
                 ]
             }
         );
+
+        // Sofort an die Kasse pushen (unabhaengig vom Accept-Klick).
+        // Der Gastronom nimmt die Bestellung im kiekmolin-Dashboard weiterhin
+        // manuell an (Wartezeit-Modal, Status-Update zum Kunden) -- die Kasse
+        // bekommt die Bestellung aber schon im Moment des Eingangs als
+        // offenen Tisch / Beleg, ohne auf den Accept zu warten.
+        try {
+            if (order.status === 'received' && typeof getPOSConfig === 'function') {
+                var _posAll = getPOSConfig();
+                var _posR = _posAll[order.restaurant_id] || _posAll['default'] || {};
+                if (_posR.autoSend && _posR.system && _posR.system !== 'none' && typeof sendOrderToPOS === 'function') {
+                    setTimeout(function() { sendOrderToPOS(order); }, 800);
+                }
+            }
+        } catch(e) { console.warn('[posPush] Skip:', e); }
     } else if (type === 'UPDATE') {
         // Status-Update - Dashboard aktualisieren
         if (typeof loadDashboardOrders === 'function') {
@@ -46026,6 +46077,9 @@ async function loadDashboardOrders() {
     // Bestelloptionen-Settings laden
     try { loadOrderSettings(); } catch(e) {}
 
+    // Drucker-Status-Indikator starten (oder Restaurant-Wechsel auffrischen)
+    try { if (typeof startPrinterStatusPolling === 'function') startPrinterStatusPolling(); } catch(e) {}
+
     // Restaurant Select befüllen — Gastronom sieht NUR eigenes
     const restaurantSelect = document.getElementById('ordersRestaurantSelect');
     if (restaurantSelect && APP_DATA.restaurants) {
@@ -46515,8 +46569,24 @@ function renderDashboardOrders() {
                 break;
         }
 
+        // "Fuer Kasse kopieren"-Button: kopiert Bestelltext in Zwischenablage zum
+        // schnellen Eintippen in die Kasse. Markiert die Bestellung danach als
+        // "in Kasse uebertragen" (ueber pos_log → posBadgeHtml zeigt es an).
+        var copyForKasseBtn = '';
+        if (order.status !== 'cancelled') {
+            var alreadyCopied = posLastEntry && (posLastEntry.type === 'manual_copied' || posLastEntry.status === 'success');
+            var copyTitle = alreadyCopied
+                ? 'Schon kopiert — nochmal kopieren?'
+                : 'Bestellung als sauberen Text in Zwischenablage kopieren — dann in Kasse einfügen.';
+            copyForKasseBtn = '<button class="kin-order-btn secondary" onclick="copyOrderForKasse(\'' + order.id + '\')" title="' + copyTitle + '" style="background:' + (alreadyCopied ? 'rgba(34,197,94,0.10);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.10);color:#4338ca;border-color:rgba(99,102,241,0.3)') + ';">' +
+                '<span class="material-symbols-outlined" style="font-size:14px;">' + (alreadyCopied ? 'check' : 'content_copy') + '</span>' +
+                (alreadyCopied ? 'Kopiert' : 'Für Kasse') +
+            '</button>';
+        }
+
         return `
             <div class="kin-order-card status-${order.status}" style="position:relative;overflow:hidden;">
+                ${order.status === 'received' ? '<div class="kin-new-badge">NEU</div>' : ''}
                 ${order.status === 'received' ? '<div style="position:absolute;top:-32px;right:-32px;width:128px;height:128px;background:rgba(254,214,91,0.10);border-radius:0 0 0 100%;pointer-events:none;"></div>' : ''}
                 <!-- Stitch Header: Order # + Customer Name left, Status right -->
                 <div class="kin-order-header">
@@ -46557,6 +46627,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-actions">
                         ${actionsHtml}
                         ${posResendBtn}
+                        ${copyForKasseBtn}
                         ${printBtn}
                     </div>
                 </div>
@@ -46769,6 +46840,7 @@ function loadOrdersForRestaurant(restaurantId) {
     ordersRestaurantFilter = restaurantId;
     renderDashboardOrders();
     loadOrderSettings();
+    try { if (typeof refreshPrinterStatus === 'function') refreshPrinterStatus(); } catch(e) {}
 }
 
 // Aktuelle Order ID für Modal
@@ -46886,12 +46958,10 @@ async function confirmAcceptOrder() {
                 setTimeout(function() { printKitchenBon(currentAcceptOrderId); }, 500);
             }
 
-            // Auto-Send: Bestellung ans Kassensystem senden
-            var posConf = getPOSConfig();
-            var posRestConf = posConf[order.restaurant_id] || posConf['default'] || {};
-            if (posRestConf.autoSend && posRestConf.system && posRestConf.system !== 'none') {
-                setTimeout(function() { sendOrderToPOS(order); }, 1000);
-            }
+            // Kassen-Push erfolgt bereits beim Bestellungs-Eingang im
+            // Realtime-Handler (handleRealtimeOrder INSERT). Hier nicht mehr
+            // noetig -- sonst wuerde die Bestellung doppelt in der Kasse
+            // landen.
         } else {
             showToast('Fehler beim Annehmen', 'error');
         }
@@ -47881,6 +47951,84 @@ function printToQZ(order, bonType) {
     return true;
 }
 
+// === Drucker-Status-Indikator ============================================
+// Holt restaurants.printer_last_poll_at und zeigt im Dashboard-Header live
+// an, ob der Bondrucker rein-pollt. Macht Setup-Fehler sofort sichtbar
+// (anstatt stillschweigend zu schlucken).
+var _printerStatusTimer = null;
+
+function _renderPrinterStatus(lastPollIso) {
+    var badge = document.getElementById('printerStatusBadge');
+    var dot = document.getElementById('printerStatusDot');
+    var text = document.getElementById('printerStatusText');
+    if (!badge || !dot || !text) return;
+    badge.style.display = 'flex';
+
+    if (!lastPollIso) {
+        dot.style.background = '#9ca3af';
+        text.textContent = 'Drucker nie verbunden';
+        text.style.color = '#374151';
+        badge.style.borderColor = 'rgba(156,163,175,0.5)';
+        badge.title = 'Bisher hat noch kein Drucker bei kiekmolin angefragt. Pruefe die Server-URL am Drucker.';
+        return;
+    }
+    var lastMs = new Date(lastPollIso).getTime();
+    if (isNaN(lastMs)) { dot.style.background = '#9ca3af'; text.textContent = 'Drucker-Status unbekannt'; return; }
+    var ageSec = Math.max(0, Math.round((Date.now() - lastMs) / 1000));
+
+    var label, color, border, msg;
+    if (ageSec < 30) {
+        color = '#16a34a'; border = 'rgba(22,163,74,0.5)';
+        label = 'Drucker online (' + ageSec + 's)';
+        msg = 'Drucker hat vor ' + ageSec + ' Sekunden angefragt — Verbindung aktiv.';
+    } else if (ageSec < 180) {
+        color = '#ca8a04'; border = 'rgba(202,138,4,0.5)';
+        label = 'Drucker langsam (' + ageSec + 's)';
+        msg = 'Letzte Anfrage vor ' + ageSec + ' Sekunden. Falls Bons nicht kommen: Abfrage-Intervall am Drucker senken.';
+    } else {
+        color = '#dc2626'; border = 'rgba(220,38,38,0.5)';
+        var minStr = ageSec < 3600 ? Math.round(ageSec/60) + ' Min' : Math.round(ageSec/3600) + ' Std';
+        label = 'Drucker offline (' + minStr + ')';
+        msg = 'Drucker antwortet seit ' + minStr + ' nicht. Pruefe Strom, Netzwerk, Server-URL am Drucker.';
+    }
+    dot.style.background = color;
+    text.textContent = label;
+    text.style.color = color;
+    badge.style.borderColor = border;
+    badge.title = msg;
+}
+
+async function refreshPrinterStatus() {
+    var sel = document.getElementById('ordersRestaurantSelect');
+    var restId = sel ? sel.value : '';
+    if (!restId || restId === 'default') {
+        var badge = document.getElementById('printerStatusBadge');
+        if (badge) badge.style.display = 'none';
+        return;
+    }
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (!res.ok) return;
+        var data = await res.json();
+        if (data && data[0]) {
+            _renderPrinterStatus(data[0].printer_last_poll_at || null);
+        }
+    } catch(e) { /* silent */ }
+}
+
+function startPrinterStatusPolling() {
+    if (_printerStatusTimer) return;
+    refreshPrinterStatus();
+    // alle 15 Sek auffrischen (Drucker pollt typisch 5-15 Sek)
+    _printerStatusTimer = setInterval(refreshPrinterStatus, 15000);
+}
+
+function stopPrinterStatusPolling() {
+    if (_printerStatusTimer) { clearInterval(_printerStatusTimer); _printerStatusTimer = null; }
+}
+
 // Drucker-Settings UI öffnen (Multi-Drucker Hybrid)
 function openPrinterSettings() {
     openMultiPrinterSettings();
@@ -48366,6 +48514,8 @@ var POS_SYSTEM_STATUS = {
     lightspeed:  { status: 'limited',     note: 'Lightspeed benötigt einen Partner-Zugang (OAuth). Eine Direkt-Anbindung mit nur einem API-Key reicht nicht aus — frag beim Lightspeed-Support nach einem Partner-Onboarding.' },
     orderbird:   { status: 'unavailable', note: 'orderbird bietet aktuell keine öffentliche Schnittstelle, um Bestellungen von außen einzuspielen. Stattdessen nutze die universelle Abruf-Schnittstelle unten — sie funktioniert mit jedem Kassensystem, das eine URL abrufen kann.' },
     gastrofix:   { status: 'unavailable', note: 'Gastrofix (Lightspeed K-Serie) bietet keine öffentliche API zum Reinschieben von Bestellungen. Stattdessen die Abruf-Schnittstelle unten nutzen.' },
+    tillhub:     { status: 'beta',        note: 'Tillhub-Adapter ist beta. Erstellung in der Tillhub-Konsole: Settings → API → neuen Token mit Schreibrechten anlegen. Beim ersten Live-Push pruefen, ob die Bestellung wirklich erscheint.' },
+    enfore:      { status: 'beta',        note: 'enforePAY-Adapter ist beta und braucht Partner-Zugang. Beim ersten Live-Push pruefen.' },
     webhook:     { status: 'ready' },
     multidata:   { status: 'ready' }
 };
@@ -48586,6 +48736,103 @@ var POS_SYSTEMS = {
             }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
         }
     },
+    tillhub: {
+        name: 'Tillhub',
+        needsKey: true,
+        keyLabel: 'API Token',
+        keyPlaceholder: 'Tillhub API Token (Settings -> API)',
+        helpUrl: 'https://docs.tillhub.com/',
+        sendOrder: function(order, config, callback) {
+            // Tillhub Transactions API (v1) - Scaffold nach offizieller Doku.
+            // Beim ersten Live-Push pruefen, ggf. Payload-Felder anpassen.
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
+                return {
+                    name: it.name,
+                    qty: it.quantity,
+                    amount_net: it.unit_price,
+                    note: [it.modifiers_text, (it.allergens||[]).join(','), it.note].filter(Boolean).join(' | ')
+                };
+            });
+            var payload = {
+                external_reference_id: rich.external_reference,
+                customer: { name: rich.customer_name, phone: rich.customer_phone, email: rich.customer_email },
+                items: items,
+                summary: { amount_total: rich.total, currency: rich.currency || 'EUR', tip: rich.tip || 0 },
+                payment_method: rich.payment_method,
+                source: 'kiekmolin',
+                type: order.order_type === 'delivery' ? 'delivery' : order.order_type === 'dine_in' ? 'dine_in' : 'takeaway',
+                note: rich.customer_note
+            };
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'tillhub', apiKey: config.apiKey, endpoint: '/api/v1/transactions', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung an Tillhub gesendet');
+                else callback(false, 'Tillhub Fehler: ' + (j && j.body ? j.body.slice(0,200) : 'HTTP ' + (j && j.status)));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'tillhub', apiKey: config.apiKey, endpoint: '/api/v1/users/me', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'Tillhub: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        }
+    },
+    enfore: {
+        name: 'enforePAY',
+        needsKey: true,
+        keyLabel: 'API Token (Partner-Zugang)',
+        keyPlaceholder: 'enforePAY OAuth Bearer Token',
+        helpUrl: 'https://www.enfore.com/',
+        sendOrder: function(order, config, callback) {
+            // enforePAY Sales API - Scaffold nach offizieller Doku (Partner-only).
+            // Beim ersten Live-Push pruefen, ggf. Payload-Felder anpassen.
+            var rich = buildRichPosPayload(order);
+            var items = rich.items.map(function(it) {
+                return {
+                    productName: it.name,
+                    quantity: it.quantity,
+                    unitPrice: { amount: it.unit_price, currency: rich.currency || 'EUR' },
+                    notes: [it.modifiers_text, (it.allergens||[]).join(','), it.note].filter(Boolean).join(' | ')
+                };
+            });
+            var payload = {
+                externalId: rich.external_reference,
+                channel: 'kiekmolin',
+                customer: { displayName: rich.customer_name, phone: rich.customer_phone, email: rich.customer_email },
+                lineItems: items,
+                totals: { gross: { amount: rich.total, currency: rich.currency || 'EUR' }, tip: rich.tip || 0, deliveryFee: rich.delivery_fee || 0 },
+                paymentMethod: rich.payment_method,
+                fulfillmentType: order.order_type === 'delivery' ? 'DELIVERY' : order.order_type === 'dine_in' ? 'DINE_IN' : 'PICKUP',
+                deliveryAddress: rich.delivery_address,
+                notes: rich.customer_note
+            };
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'enfore', apiKey: config.apiKey, endpoint: '/v1/sales', method: 'POST', payload: payload })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Bestellung an enforePAY gesendet');
+                else callback(false, 'enforePAY Fehler: ' + (j && j.body ? j.body.slice(0,200) : 'HTTP ' + (j && j.status)));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        },
+        testConnection: function(config, callback) {
+            fetch('/.netlify/functions/pos-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: 'enfore', apiKey: config.apiKey, endpoint: '/v1/sites', method: 'GET' })
+            }).then(function(r) { return r.json(); }).then(function(j) {
+                if (j && j.ok) callback(true, 'Verbindung OK');
+                else callback(false, 'enforePAY: HTTP ' + (j && j.status) + ' ' + (j && j.body ? j.body.slice(0,200) : ''));
+            }).catch(function(e) { callback(false, 'Verbindungsfehler: ' + e.message); });
+        }
+    },
     webhook: {
         name: 'Eigener Webhook (Custom)',
         needsKey: true,
@@ -48667,12 +48914,54 @@ function sendOrderToPOS(order) {
     return true;
 }
 
+// Wenn die Kasse die Steuerung uebernimmt: nach erfolgreichem Push die
+// Bestellung auf kiekmolin headless als 'accepted' markieren, damit der
+// Kunde sofort die Bestaetigung sieht. Gastronom muss kiekmolin nie oeffnen
+// und arbeitet komplett aus der Kasse.
+async function _autoAcceptAfterPosPush(order, config) {
+    if (!order || !order.id || order.status !== 'received') return;
+    var minutes = parseInt(config && config.autoAcceptMinutes, 10) || 30;
+    if (minutes < 5) minutes = 5;
+    if (minutes > 180) minutes = 180;
+    try {
+        const resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + order.id, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                status: 'accepted',
+                estimated_minutes: minutes,
+                estimated_time: new Date(Date.now() + minutes * 60000).toISOString(),
+                accepted_at: new Date().toISOString()
+            })
+        });
+        if (!resp.ok) { console.warn('[kasseControls] PATCH fehlgeschlagen:', resp.status); return; }
+        order.status = 'accepted';
+        order.estimated_minutes = minutes;
+        order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        if (typeof updateOrderStats === 'function') updateOrderStats();
+        if (typeof autoPrintKitchenBon !== 'undefined' && autoPrintKitchenBon) {
+            setTimeout(function() { printKitchenBon(order.id); }, 500);
+        }
+    } catch (e) { console.error('[kasseControls] Fehler:', e); }
+}
+
 function _sendPOSWithRetry(order, config, pos, attempt) {
     pos.sendOrder(order, config, function(ok, msg) {
         if (ok) {
             showToast(msg, 'success');
             // Sync-Status speichern
             _savePOSSyncStatus(order.id || order.order_number, 'success', msg);
+            // Wenn Kasse die Steuerung uebernehmen soll: kiekmolin auto-acceptet
+            // jetzt (Kunde kriegt Bestaetigung, Gastronom arbeitet nur in Kasse).
+            if (config && config.kasseControls) {
+                _autoAcceptAfterPosPush(order, config);
+            }
         } else {
             console.error('POS Fehler (Versuch ' + (attempt + 1) + '/' + _posMaxRetries + '):', msg);
             if (attempt < _posMaxRetries - 1) {
@@ -48815,11 +49104,99 @@ async function reprintBon(orderId) {
     }
 }
 
+// Bestellung als sauberen Plain-Text in die Zwischenablage kopieren —
+// fuer den Gastronom, der die Bestellung manuell in seine Kasse eintippt.
+// Markiert die Bestellung danach via pos_log als "manuell uebertragen",
+// damit man auf einen Blick sieht, was schon verbucht wurde.
+async function copyOrderForKasse(orderId) {
+    try {
+        var order = (window.dashboardOrders || []).find(function(o) { return o.id === orderId; });
+        if (!order) { showToast('Bestellung nicht gefunden', 'error'); return; }
+
+        // Plain-Text Format mit ausgerichteten Spalten — direkt eintippbar
+        var lines = [];
+        var typeLabel = order.order_type === 'delivery' ? 'LIEFERUNG'
+            : order.order_type === 'dine_in' ? 'HIER ESSEN' : 'ABHOLUNG';
+        lines.push('Beleg #' + (order.order_number || (order.id || '').substring(0, 6)) + ' — ' + typeLabel +
+            (order.table_number ? ' (Tisch ' + order.table_number + ')' : ''));
+        if (order.customer_name) lines.push(order.customer_name +
+            (order.customer_phone ? ' · ' + order.customer_phone : ''));
+        lines.push('');
+
+        (order.items || []).forEach(function(item) {
+            var qty = item.quantity || 1;
+            var name = item.name || '';
+            var price = parseFloat(item.price || item.total_price || 0).toFixed(2).replace('.', ',') + ' €';
+            var left = qty + 'x  ' + name;
+            // Punkte auffuellen damit Preis rechts in einer Linie steht
+            var fillLen = Math.max(2, 36 - left.length - price.length);
+            lines.push(left + ' ' + new Array(fillLen + 1).join('.') + ' ' + price);
+            if (item.options) lines.push('     › ' + item.options);
+        });
+        lines.push('');
+        lines.push('Gesamt: ' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' € · ' +
+            (order.payment_method === 'cash' ? 'Bar' : order.payment_method || 'Karte'));
+        if (order.customer_notes || order.delivery_notes || order.notes) {
+            lines.push('Hinweis: ' + (order.customer_notes || order.delivery_notes || order.notes));
+        }
+        var text = lines.join('\n');
+
+        // In Zwischenablage kopieren
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            // Fallback fuer alte Browser
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+
+        // pos_log Eintrag in Supabase setzen — damit Badge "Kasse" gruen wird
+        try {
+            var entry = {
+                ts: new Date().toISOString(),
+                status: 'success',
+                type: 'manual_copied',
+                message: 'Manuell zum Eintippen in die Kasse kopiert'
+            };
+            var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=pos_log', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            var arr = [];
+            if (resp.ok) {
+                var data = await resp.json();
+                if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
+            }
+            arr.push(entry);
+            await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ pos_log: arr })
+            });
+            // Lokal aktualisieren damit Badge sofort umspringt
+            if (Array.isArray(order.pos_log)) order.pos_log.push(entry);
+            else order.pos_log = [entry];
+            if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        } catch (e) {
+            console.warn('pos_log Update fehlgeschlagen:', e);
+        }
+
+        showToast('In Zwischenablage kopiert — jetzt in der Kasse einfügen oder abtippen.', 'success');
+    } catch (e) {
+        console.error('copyOrderForKasse:', e);
+        showToast('Kopieren fehlgeschlagen: ' + e.message, 'error');
+    }
+}
+
 // POS-Einstellungen Modal
 function openPOSSettings() {
     var allConfig = getPOSConfig();
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
-    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false };
+    var conf = allConfig[restId] || { system: 'none', apiKey: '', autoSend: false, kasseControls: false, autoAcceptMinutes: 30 };
 
     var systemOptions = Object.keys(POS_SYSTEMS).map(function(key) {
         var sel = key === conf.system ? ' selected' : '';
@@ -48827,6 +49204,7 @@ function openPOSSettings() {
         var label = POS_SYSTEMS[key].name;
         if (st === 'unavailable') label += ' — nicht verfügbar';
         else if (st === 'limited') label += ' — Partner-Zugang nötig';
+        else if (st === 'beta') label += ' — beta';
         return '<option value="' + key + '"' + sel + '>' + label + '</option>';
     }).join('');
 
@@ -48853,7 +49231,25 @@ function openPOSSettings() {
         '<div id="posHelpLink" style="margin-bottom:12px;display:' + (currentPOS.helpUrl ? 'block' : 'none') + ';">' +
             '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">API-Zugang einrichten &rarr;</a>' +
         '</div>' +
-        '<div style="margin-bottom:16px;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + '> Automatisch senden wenn Bestellung angenommen wird</label></div>' +
+        '<div style="margin-bottom:10px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
+                '<input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + ' style="margin-top:2px;">' +
+                '<span>Sofort an Kasse senden wenn Bestellung reinkommt<br>' +
+                '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch.</span></span>' +
+            '</label>' +
+        '</div>' +
+        '<div style="margin-bottom:16px;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:12px;">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#1e3a8a;">' +
+                '<input type="checkbox" id="posKasseControls" ' + (conf.kasseControls ? 'checked' : '') + ' style="margin-top:2px;">' +
+                '<span>Kasse uebernimmt die Steuerung<br>' +
+                '<span style="font-weight:400;color:#1e40af;font-size:11px;">Sobald die Kasse die Bestellung erhalten hat, markiert kiekmolin sie automatisch als angenommen (Kunde sieht Bestaetigung). Du arbeitest komplett aus der Kasse, kiekmolin musst du nicht oeffnen.</span></span>' +
+            '</label>' +
+            '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:13px;">' +
+                '<span style="color:#1e3a8a;">Standard-Wartezeit:</span>' +
+                '<input type="number" id="posAutoAcceptMinutes" min="5" max="180" step="5" value="' + (conf.autoAcceptMinutes || 30) + '" style="width:70px;padding:6px 8px;border:1px solid #93c5fd;border-radius:6px;background:white;color:#1e3a8a;font-size:13px;">' +
+                '<span style="color:#1e3a8a;">Minuten</span>' +
+            '</div>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;">' +
             '<button onclick="testPOSConnection()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
                 '<span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>' +
@@ -48915,7 +49311,7 @@ function onPOSSystemChange() {
         if (st.status === 'unavailable') {
             warn.style.cssText = 'margin-bottom:12px;display:block;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;background:#fef2f2;color:#7f1d1d;border:1px solid #fecaca;';
             warn.textContent = st.note || '';
-        } else if (st.status === 'limited') {
+        } else if (st.status === 'limited' || st.status === 'beta') {
             warn.style.cssText = 'margin-bottom:12px;display:block;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.45;background:#fffbeb;color:#78350f;border:1px solid #fde68a;';
             warn.textContent = st.note || '';
         } else {
@@ -48933,7 +49329,9 @@ function savePOSSettings() {
         system: document.getElementById('posSystemSelect')?.value || 'none',
         apiKey: document.getElementById('posApiKey')?.value?.trim() || '',
         apiUrl: document.getElementById('posApiUrl')?.value?.trim() || '',
-        autoSend: document.getElementById('posAutoSend')?.checked || false
+        autoSend: document.getElementById('posAutoSend')?.checked || false,
+        kasseControls: document.getElementById('posKasseControls')?.checked || false,
+        autoAcceptMinutes: parseInt(document.getElementById('posAutoAcceptMinutes')?.value, 10) || 30
     };
     savePOSConfig(allConfig);
     var posName = POS_SYSTEMS[allConfig[restId].system]?.name || 'Kein';
@@ -49293,31 +49691,95 @@ function testPOSConnection() {
 
 // ==================== NETZWERK-DRUCKER (Epson ePOS) ====================
 function generateEposXML(order) {
-    var belegNr = order.order_number || ('B-' + (order.id || '').substring(0,8).toUpperCase());
+    var belegNr = order.order_number || ('B-' + (order.id || '').substring(0, 8).toUpperCase());
     var datum = new Date(order.created_at);
-    var zeitStr = datum.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-    var datumStr = datum.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+    var zeitStr = datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    var datumStr = datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // Restaurant-Header (falls Daten verfuegbar) — wichtig fuer Laeden ohne
+    // separate Kasse, weil der Bon dann das primaere Beleg-Dokument ist.
+    var restName = '';
+    var restAddr = '';
+    try {
+        var rest = (window.APP_DATA && APP_DATA.restaurants || []).find(function(r) { return r.id === order.restaurant_id; });
+        if (rest) {
+            restName = rest.name || '';
+            var line1 = [rest.street].filter(Boolean).join('');
+            var line2 = [rest.zip, rest.city].filter(Boolean).join(' ');
+            restAddr = [line1, line2].filter(Boolean).join(', ');
+        }
+    } catch (e) {}
+
+    var typeLabel = order.order_type === 'dine_in' ? 'HIER ESSEN'
+        : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG';
+
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
     xml += '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">';
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
     xml += '<text lang="de" smooth="true"/>';
+
+    // Restaurant-Header (gross)
+    if (restName) {
+        xml += '<text align="center" width="2" height="2"><![CDATA[' + restName + ']]>&#10;</text>';
+    }
+    if (restAddr) {
+        xml += '<text align="center"><![CDATA[' + restAddr + ']]>&#10;</text>';
+    }
+    if (restName || restAddr) xml += '<text>&#10;</text>';
+
+    // Beleg-Nummer + Zeit
     xml += '<text align="center" font="font_a" width="2" height="2">' + belegNr + '&#10;</text>';
     xml += '<text align="center">' + datumStr + ' ' + zeitStr + '&#10;&#10;</text>';
-    xml += '<text align="center" width="2" height="2">' + (order.order_type === 'dine_in' ? 'HIER ESSEN' : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG') + '&#10;</text>';
+
+    // Order-Typ + Tisch
+    xml += '<text align="center" width="2" height="2">' + typeLabel + '&#10;</text>';
     if (order.table_number) xml += '<text align="center" width="2" height="2">Tisch ' + order.table_number + '&#10;</text>';
-    xml += '<text>&#10;</text><text>--------------------------------&#10;</text>';
+
+    xml += '<text>&#10;</text><text>================================&#10;</text>';
+
+    // Items
     (order.items || []).forEach(function(item) {
         var qty = item.quantity || 1;
         var name = item.name || '';
-        xml += '<text>' + qty + 'x ' + name + '&#10;</text>';
+        xml += '<text width="1" height="2">' + qty + 'x ' + name + '&#10;</text>';
         if (item.options) xml += '<text>  &gt; ' + item.options + '&#10;</text>';
     });
-    xml += '<text>--------------------------------&#10;</text>';
-    xml += '<text align="right" width="2" height="2">GESAMT: ' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' EUR&#10;</text>';
+
+    xml += '<text>================================&#10;</text>';
     xml += '<text>&#10;</text>';
-    if (order.customer_name) xml += '<text>Kunde: ' + order.customer_name + '&#10;</text>';
-    if (order.notes || order.delivery_notes) xml += '<text>Hinweis: ' + (order.notes || order.delivery_notes) + '&#10;</text>';
-    xml += '<feed unit="24"/><cut type="feed"/>';
+
+    // Total — extra gross damit's nicht zu uebersehen ist
+    xml += '<text align="right" width="3" height="3"><![CDATA[' + parseFloat(order.total || 0).toFixed(2).replace('.', ',') + ' EUR]]>&#10;</text>';
+    xml += '<text align="right">GESAMT&#10;</text>';
+    xml += '<text>&#10;</text>';
+
+    // Zahlart
+    if (order.payment_method) {
+        var pm = order.payment_method === 'cash' ? 'BAR' : order.payment_method.toUpperCase();
+        xml += '<text align="center" width="2" height="2">' + pm + '&#10;</text>';
+        xml += '<text>&#10;</text>';
+    }
+
+    // Kunde + Adresse
+    if (order.customer_name) xml += '<text>Kunde:   <![CDATA[' + order.customer_name + ']]>&#10;</text>';
+    if (order.customer_phone) xml += '<text>Telefon: ' + order.customer_phone + '&#10;</text>';
+    if (order.delivery_address && typeof order.delivery_address === 'object') {
+        var a = order.delivery_address;
+        var addrLine = [a.street, a.house_number].filter(Boolean).join(' ');
+        var cityLine = [a.zip, a.city].filter(Boolean).join(' ');
+        if (addrLine) xml += '<text>Adresse: <![CDATA[' + addrLine + ']]>&#10;</text>';
+        if (cityLine) xml += '<text>         <![CDATA[' + cityLine + ']]>&#10;</text>';
+    }
+    if (order.notes || order.delivery_notes || order.customer_notes) {
+        xml += '<text>&#10;</text>';
+        xml += '<text width="1" height="2">Hinweis:&#10;</text>';
+        xml += '<text width="1" height="2"><![CDATA[' + (order.customer_notes || order.notes || order.delivery_notes) + ']]>&#10;</text>';
+    }
+
+    xml += '<feed unit="30"/>';
+    xml += '<text align="center">--- Vielen Dank! ---&#10;</text>';
+    xml += '<text align="center">kiekmolin.de&#10;</text>';
+    xml += '<feed unit="36"/><cut type="feed"/>';
     xml += '</epos-print></s:Body></s:Envelope>';
     return xml;
 }
@@ -49390,21 +49852,47 @@ function playOrderSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Lauter Dreifach-Ding: 800Hz → 1000Hz → 1200Hz
-        [0, 0.2, 0.4].forEach(function(offset, i) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime([800, 1000, 1200][i], now + offset);
-            gain.gain.setValueAtTime(0.7, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.45);
-            osc.start(now + offset);
-            osc.stop(now + offset + 0.45);
-        });
+        // Lauter, laenger, unueberhoerbar: 3 Glocken-Wellen hintereinander,
+        // jede mit aufsteigender Tonfolge + Oberton-Stacking fuer wahrgenommene Lautstaerke.
+        var WAVES = 3;       // Anzahl der Glocken-Wellen
+        var WAVE_GAP = 1.1;  // Sekunden Pause zwischen den Wellen
+        var NOTES = [
+            { freq: 880,  dur: 0.55 },  // A5
+            { freq: 1108, dur: 0.55 },  // C#6
+            { freq: 1318, dur: 0.85 }   // E6 (laenger ausklingen)
+        ];
+        var NOTE_GAP = 0.18; // Sekunden zwischen den Noten in einer Welle
 
-        setTimeout(function() { ctx.close(); }, 2000);
+        function chime(t0) {
+            var noteStart = t0;
+            NOTES.forEach(function(note) {
+                // Grundton + Oberton (Oktave drueber) fuer staerkeren wahrgenommenen Klang
+                [1, 2].forEach(function(harmonic, hIdx) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type = hIdx === 0 ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(note.freq * harmonic, noteStart);
+                    // Maximaler Gain (1.0 ist Web-Audio-Maximum ohne Compressor-Limiting)
+                    var peak = hIdx === 0 ? 1.0 : 0.35;
+                    gain.gain.setValueAtTime(0, noteStart);
+                    gain.gain.linearRampToValueAtTime(peak, noteStart + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + note.dur);
+                    osc.start(noteStart);
+                    osc.stop(noteStart + note.dur + 0.05);
+                });
+                noteStart += NOTE_GAP;
+            });
+        }
+
+        for (var w = 0; w < WAVES; w++) {
+            chime(now + w * WAVE_GAP);
+        }
+
+        // Gesamtdauer: WAVES * WAVE_GAP + letzte Note. Context erst danach schliessen.
+        var totalMs = (WAVES * WAVE_GAP + 1.0) * 1000;
+        setTimeout(function() { try { ctx.close(); } catch (e) {} }, totalMs);
     } catch(e) {}
 }
 

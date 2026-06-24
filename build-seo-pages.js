@@ -85,6 +85,17 @@ const CATEGORIES = [
     descriptionEn: 'Greek classics from the grill – gyros, souvlaki, bifteki and fresh salads'
   },
   {
+    slug: 'cafe',
+    label: 'Café',
+    plural: 'Cafés',
+    labelEn: 'Café',
+    pluralEn: 'Cafés',
+    keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
+    description: 'Kaffee, Kuchen und gemuetliche Cafes',
+    descriptionDe: 'Kaffee, hausgemachter Kuchen und gemütliche Cafés',
+    descriptionEn: 'coffee, homemade cake and cozy cafés'
+  },
+  {
     slug: 'restaurant',
     label: 'Restaurant',
     plural: 'Restaurants',
@@ -198,6 +209,34 @@ async function fetchMenuItems(restaurantId) {
     + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
     + '&order=is_popular.desc,sort_order.asc'
     + '&limit=30';
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Accept': 'application/json'
+      }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchReviews(targetId) {
+  // Bis zu 10 freigegebene Bewertungen mit Text, neueste zuerst.
+  // Speist die einzelnen Review-Schemas auf der Restaurant-Seite ->
+  // damit Google echte Bewertungen (mit Text) zeigt, nicht nur den
+  // aggregierten Durchschnitt. Fault-tolerant: bei Fehler leeres Array.
+  if (!targetId) return [];
+  const url = SUPABASE_URL + '/rest/v1/reviews'
+    + '?target_type=eq.restaurant'
+    + '&target_id=eq.' + encodeURIComponent(targetId)
+    + '&is_approved=eq.true'
+    + '&select=rating,title,comment,author_name,customer_name,created_at'
+    + '&order=created_at.desc'
+    + '&limit=10';
   try {
     const res = await fetch(url, {
       headers: {
@@ -380,26 +419,31 @@ function pageCss() {
     a:hover{text-decoration:underline}
     img{max-width:100%;height:auto;display:block}
     .container{max-width:1200px;margin:0 auto;padding:0 20px}
-    header.site{background:${PRIMARY_COLOR};color:#fff;padding:14px 0}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .fade{animation:fadeUp .5s ease both}
+    .fade.d1{animation-delay:.06s}.fade.d2{animation-delay:.12s}.fade.d3{animation-delay:.18s}
+    header.site{background:${PRIMARY_COLOR};color:#fff;padding:14px 0;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.12)}
     header.site .row{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    header.site .logo{font-weight:700;font-size:20px;color:#fff;text-decoration:none}
+    header.site .logo{font-weight:800;font-size:21px;color:#fff;text-decoration:none;letter-spacing:-.02em}
     header.site .logo span{color:${ACCENT_COLOR}}
-    header.site nav a{color:#fff;margin-left:18px;font-size:14px}
+    header.site nav a{color:#fff;margin-left:18px;font-size:14px;opacity:.92}
+    header.site nav a:hover{opacity:1}
     .breadcrumb{font-size:13px;color:#666;padding:14px 0 0}
     .breadcrumb a{color:#666}
     .breadcrumb .sep{margin:0 6px;color:#bbb}
-    h1{font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:18px 0 8px;color:${PRIMARY_COLOR};font-weight:800}
+    h1{font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:18px 0 8px;color:${PRIMARY_COLOR};font-weight:800;letter-spacing:-.02em}
     .subtitle{font-size:18px;color:#555;margin:0 0 28px}
     .intro{background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
     .intro p{margin:0 0 12px}
     .intro p:last-child{margin-bottom:0}
-    h2{font-size:26px;margin:36px 0 18px;color:${PRIMARY_COLOR};font-weight:700}
+    h2{font-size:26px;margin:36px 0 18px;color:${PRIMARY_COLOR};font-weight:700;letter-spacing:-.01em}
     .grid{display:grid;grid-template-columns:1fr;gap:18px}
     @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
     @media(min-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
-    .card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column}
-    .card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
-    .card .img{aspect-ratio:16/10;background:#eee linear-gradient(135deg,#e6f0ee,#cfe0dc);background-size:cover;background-position:center}
+    .card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s;display:flex;flex-direction:column}
+    .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,40,30,.12)}
+    .card .img{aspect-ratio:16/10;background:#eee linear-gradient(135deg,#e6f0ee,#cfe0dc);background-size:cover;background-position:center;transition:transform .3s}
+    .card:hover .img{transform:scale(1.04)}
     .card .body{padding:16px;flex:1;display:flex;flex-direction:column;gap:8px}
     .card h3{margin:0;font-size:18px;color:${PRIMARY_COLOR};font-weight:700}
     .card .stars{color:${ACCENT_COLOR};font-size:15px;letter-spacing:1px}
@@ -409,10 +453,37 @@ function pageCss() {
     .card .tag{font-size:11px;background:#eef5f3;color:${PRIMARY_COLOR};padding:3px 9px;border-radius:99px;font-weight:500}
     .card .btn{margin-top:10px;display:inline-block;background:${PRIMARY_COLOR};color:#fff;padding:10px 14px;border-radius:8px;text-align:center;font-weight:600;font-size:14px}
     .card .btn:hover{background:#002a23;text-decoration:none;color:#fff}
+    /* Restaurant-Hero */
+    .hero{position:relative;border-radius:20px;overflow:hidden;margin:18px 0 22px;min-height:300px;display:flex;align-items:flex-end;box-shadow:0 8px 30px rgba(0,40,30,.14)}
+    .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center;transform:scale(1.02)}
+    .hero .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,40,33,.12) 0%,rgba(0,40,33,.55) 55%,rgba(0,40,33,.86) 100%)}
+    .hero .inner{position:relative;padding:28px 26px;color:#fff;width:100%}
+    .hero .inner h1{color:#fff;margin:0 0 8px}
+    .hero .meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;font-size:15px;font-weight:500}
+    .hero .meta .hstars{color:${ACCENT_COLOR};font-size:17px;letter-spacing:1px}
+    .hero .meta .dot{opacity:.5}
+    .hero-fallback{background:linear-gradient(135deg,${PRIMARY_COLOR},#00574a)}
+    /* Trust-Badges */
+    .trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
+    .trust .b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e8efed;border-radius:99px;padding:8px 15px;font-size:13px;font-weight:600;color:${PRIMARY_COLOR};box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .trust .b .i{font-size:15px}
+    /* CTA-Buttons */
+    .cta-primary{display:inline-flex;align-items:center;gap:8px;background:${PRIMARY_COLOR};color:#fff;padding:15px 30px;border-radius:12px;font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(0,40,30,.22);transition:transform .15s,box-shadow .15s}
+    .cta-primary:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,40,30,.3);text-decoration:none;color:#fff}
+    .cta-ghost{display:inline-flex;align-items:center;gap:8px;background:#fff;color:${PRIMARY_COLOR};border:2px solid ${PRIMARY_COLOR};padding:12px 26px;border-radius:12px;font-weight:700;font-size:15px;transition:background .15s,color .15s}
+    .cta-ghost:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
+    /* Reviews */
+    .reviews-seo .rv{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid #f0f3f1}
+    /* Sticky mobile bestellen-Leiste */
+    .sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #e6ece9;padding:10px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
+    .sticky-cta .lbl{font-size:13px;font-weight:700;color:${PRIMARY_COLOR};line-height:1.2}
+    .sticky-cta .lbl small{display:block;font-weight:500;color:#888;font-size:11px}
+    .sticky-cta a{flex-shrink:0}
+    @media(max-width:760px){.sticky-cta{display:flex}main.container{padding-bottom:80px}}
     .crosslinks{background:#fff;border-radius:14px;padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
-    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:99px;font-size:14px}
+    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:99px;font-size:14px;transition:background .15s,color .15s}
     .crosslinks .links a:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
     details.faq{background:#fff;border-radius:10px;padding:14px 18px;margin:0 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
     details.faq summary{cursor:pointer;font-weight:600;color:${PRIMARY_COLOR};list-style:none}
@@ -671,7 +742,7 @@ function buildPage(opts) {
     '</body></html>\n';
 }
 
-function buildRestaurantJsonLd(rest) {
+function buildRestaurantJsonLd(rest, reviews) {
   const slug = rest.slug || rest.id;
   const item = {
     '@context': 'https://schema.org',
@@ -702,7 +773,44 @@ function buildRestaurantJsonLd(rest) {
       'longitude': Number(rest.lng)
     };
   }
-  if (rest.rating) {
+  // Einzelne echte Bewertungen mit Text -> Google kann Sterne + Snippets
+  // zeigen. AggregateRating MUSS durch echte Reviews gedeckt sein, sonst
+  // ignoriert/abstraft Google die Sterne. Daher: nur wenn Reviews da sind.
+  const realReviews = Array.isArray(reviews)
+    ? reviews.filter(function(rv) { return rv && Number(rv.rating) > 0; })
+    : [];
+  if (realReviews.length) {
+    item.review = realReviews.slice(0, 10).map(function(rv) {
+      const r = {
+        '@type': 'Review',
+        'reviewRating': {
+          '@type': 'Rating',
+          'ratingValue': Number(rv.rating),
+          'bestRating': 5,
+          'worstRating': 1
+        },
+        'author': {
+          '@type': 'Person',
+          'name': safeText(rv.author_name || rv.customer_name, 'Gast')
+        }
+      };
+      const body = safeText(rv.comment || rv.title, '');
+      if (body) r.reviewBody = String(body).slice(0, 500);
+      if (rv.created_at) r.datePublished = String(rv.created_at).slice(0, 10);
+      return r;
+    });
+    // ratingCount auf die Zahl echter Bewertungen stuetzen (ehrlich).
+    const ratingVals = realReviews.map(function(rv) { return Number(rv.rating); });
+    const avg = ratingVals.reduce(function(a, b) { return a + b; }, 0) / ratingVals.length;
+    item.aggregateRating = {
+      '@type': 'AggregateRating',
+      'ratingValue': Number((rest.rating ? Number(rest.rating) : avg).toFixed(1)),
+      'bestRating': 5,
+      'reviewCount': realReviews.length,
+      'ratingCount': Math.max(realReviews.length, Math.round(rest.rating_count || realReviews.length))
+    };
+  } else if (rest.rating) {
+    // Kein Review-Text vorhanden -> nur aggregierter Wert (best effort).
     item.aggregateRating = {
       '@type': 'AggregateRating',
       'ratingValue': Number(rest.rating),
@@ -818,12 +926,92 @@ function renderMenuListHtml(menuItems) {
   return html;
 }
 
-function generateRestaurantPage(rest, menuItems) {
+function renderStars(rating) {
+  const n = Math.round(Number(rating) || 0);
+  let s = '';
+  for (let i = 1; i <= 5; i++) s += i <= n ? '★' : '☆';
+  return s;
+}
+
+function renderReviewsHtml(rest, reviews) {
+  // Sichtbarer Bewertungs-Block. Muss zum Review-Schema passen (Google
+  // verlangt, dass strukturierte Daten sichtbaren Inhalt widerspiegeln).
+  const real = (Array.isArray(reviews) ? reviews : []).filter(function(rv) {
+    return rv && Number(rv.rating) > 0 && (rv.comment || rv.title);
+  });
+  if (!real.length) return '';
+  const name = escapeHtml(safeText(rest.name, 'Restaurant'));
+  const avg = real.reduce(function(a, rv) { return a + Number(rv.rating); }, 0) / real.length;
+
+  let html = '<h2 id="bewertungen">Bewertungen für ' + name + '</h2>\n';
+  html += '<p style="margin:0 0 16px;color:#666;"><strong style="color:' + ACCENT_COLOR + ';font-size:18px;">' +
+    renderStars(avg) + '</strong> ' + avg.toFixed(1).replace('.', ',') + ' von 5 · ' +
+    real.length + ' ' + (real.length === 1 ? 'Bewertung' : 'Bewertungen') + '</p>\n';
+  html += '<div class="reviews-seo" style="display:grid;gap:12px;margin:0 0 32px;">';
+  real.slice(0, 10).forEach(function(rv) {
+    const author = escapeHtml(safeText(rv.author_name || rv.customer_name, 'Gast'));
+    const text = escapeHtml(String(rv.comment || rv.title).slice(0, 500));
+    const dateStr = rv.created_at
+      ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '';
+    html += '<div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px;">';
+    html += '<strong style="color:#1a1a1a;font-size:14px;">' + author + '</strong>';
+    html += '<span style="color:' + ACCENT_COLOR + ';font-size:15px;white-space:nowrap;">' + renderStars(rv.rating) + '</span>';
+    html += '</div>';
+    if (rv.title && rv.comment) html += '<div style="font-weight:600;color:#1a1a1a;font-size:14px;margin-bottom:4px;">' + escapeHtml(String(rv.title).slice(0, 120)) + '</div>';
+    html += '<p style="color:#555;font-size:14px;line-height:1.5;margin:0;">' + text + '</p>';
+    if (dateStr) html += '<div style="color:#999;font-size:12px;margin-top:8px;">' + escapeHtml(dateStr) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
+  const img = rest.image || rest.logo || '';
+  const ratingTxt = fmtRating(rest.rating);
+  const stars = ratingTxt ? renderStars(rest.rating) : '';
+  const metaParts = [];
+  if (ratingTxt) metaParts.push('<span class="hstars">' + stars + '</span> ' + ratingTxt + ' / 5');
+  metaParts.push(escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw));
+  if (rest.cuisine) metaParts.push(escapeHtml(rest.cuisine));
+  if (menuItems.length) metaParts.push(menuItems.length + ' Gerichte online');
+  const meta = metaParts.join('<span class="dot"> · </span>');
+
+  return '<section class="hero' + (img ? '' : ' hero-fallback') + ' fade">' +
+    (img ? '<div class="bg" style="background-image:url(' + escapeAttr(img) + ')"></div>' : '') +
+    '<div class="ov"></div>' +
+    '<div class="inner">' +
+      '<h1>' + escapeHtml(name) + '</h1>' +
+      '<div class="meta">' + meta + '</div>' +
+      '<div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;">' +
+        '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '">🍽️ Online bestellen</a>' +
+        '<a class="cta-ghost" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.5);" href="/?r=' + escapeAttr(slug) + '&action=reserve">Tisch reservieren</a>' +
+      '</div>' +
+    '</div>' +
+  '</section>';
+}
+
+function renderTrustBadges(rest, menuItems) {
+  const badges = [];
+  badges.push({ i: '✓', t: 'Kostenlos bestellen' });
+  badges.push({ i: '⚡', t: 'Ohne App-Download' });
+  if (menuItems.length) badges.push({ i: '📋', t: menuItems.length + ' Gerichte' });
+  badges.push({ i: '📍', t: 'Aus ' + escapeHtml(safeText(rest.city, 'der Region')) });
+  badges.push({ i: '🤝', t: 'Faire Provision' });
+  return '<div class="trust fade d2">' + badges.map(function(b) {
+    return '<span class="b"><span class="i">' + b.i + '</span>' + b.t + '</span>';
+  }).join('') + '</div>';
+}
+
+function generateRestaurantPage(rest, menuItems, reviews) {
   const slug = rest.slug;
   if (!slug || typeof slug !== 'string' || slug.length < 2) return null;
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;   // safe filename only
 
   menuItems = menuItems || [];
+  reviews = reviews || [];
 
   const name = safeText(rest.name, 'Restaurant');
   const cityRaw = safeText(rest.city, 'Ostfriesland');
@@ -848,7 +1036,7 @@ function generateRestaurantPage(rest, menuItems) {
   }
   if (description.length > 160) description = description.slice(0, 157) + '...';
 
-  const restJsonLd = buildRestaurantJsonLd(rest);
+  const restJsonLd = buildRestaurantJsonLd(rest, reviews);
   // Menu in Restaurant-JSON einhaengen wenn Items vorhanden
   if (menuItems.length) {
     restJsonLd.menu = SITE_URL + '/' + slug + '#speisekarte';
@@ -896,16 +1084,18 @@ function generateRestaurantPage(rest, menuItems) {
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
-    '<script>(function(){try{if(typeof navigator==="undefined")return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+    // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
+    // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
+    // laesst sich der Redirect zum Anschauen ueberspringen.
+    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
     renderBreadcrumb(breadcrumbCrumbs) + '\n' +
     '<main class="container">\n' +
-    '<h1>' + escapeHtml(name) + ' ' + escapeHtml(cityRaw) + '</h1>\n' +
-    '<p class="subtitle">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
-      (rest.cuisine ? ' · ' + escapeHtml(rest.cuisine) : '') +
-      (menuItems.length ? ' · ' + menuItems.length + ' Gerichte online' : '') + '</p>\n' +
-    '<div class="intro">\n' +
+    renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) + '\n' +
+    renderTrustBadges(rest, menuItems) + '\n' +
+    '<div class="intro fade d1">\n' +
       (rest.description
         ? '<p>' + escapeHtml(rest.description) + '</p>'
         : '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
@@ -925,14 +1115,231 @@ function generateRestaurantPage(rest, menuItems) {
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
     '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
+    renderReviewsHtml(rest, reviews) + '\n' +
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
     renderFooter() + '\n' +
+    '<div class="sticky-cta">' +
+      '<div class="lbl">' + escapeHtml(name) + '<small>Abholung · Lieferung · kostenlos</small></div>' +
+      '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '" style="padding:12px 22px;font-size:15px;">Online bestellen</a>' +
+    '</div>\n' +
     '</body></html>\n';
 
   const filename = slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
   return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length };
+}
+
+// ==================== PROSPECT / VERZEICHNIS-SEITEN ====================
+// Seiten fuer Restaurants/Pizzerien/Cafes, die (noch) KEINE Kiek-mol-in-
+// Partner sind. Genau wie ostfriesland.app: nur Name, Adresse, Telefon ->
+// jede Seite rankt fuer "Pizzeria XY Stadt". Vorteile:
+//   1. Riesiger SEO-Fussabdruck (hunderte Seiten statt nur Partner)
+//   2. Lead-Magnet: laeuft die Seite gut, ruft der Vertrieb den Inhaber an
+//   3. Funnel: jede Seite verlinkt auf echte Partner in derselben Stadt
+// EHRLICH gehalten: kein Fake-"Online bestellen", klarer Inhaber-Hinweis,
+// Opt-out im Footer. Quelle = prospects.json (vom Betreiber gepflegt).
+
+// Wohin der "Bist du der Inhaber?"-Button zeigt (Partner-Anmeldung/Kontakt).
+const PROSPECT_OWNER_CTA_URL = '/?page=kontakt';
+
+function loadProspects() {
+  const file = path.join(OUT_DIR, 'prospects.json');
+  if (!fs.existsSync(file)) {
+    console.log('[seo] keine prospects.json gefunden - Verzeichnis-Seiten uebersprungen.');
+    return [];
+  }
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    console.warn('[seo] WARN: prospects.json ist kein gueltiges JSON -', e.message);
+    return [];
+  }
+  if (!Array.isArray(data)) {
+    console.warn('[seo] WARN: prospects.json muss ein Array sein.');
+    return [];
+  }
+  return data;
+}
+
+function prospectSlug(p) {
+  const raw = (p.name || '') + (p.city ? ' ' + p.city : '');
+  // normalize() macht ä->ae etc. + lowercase; NFD-Strip entfernt Rest-Akzente
+  // wie é->e, à->a, sodass aus "Café" sauber "cafe" wird statt "caf".
+  const base = normalize(raw).normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+function detectProspectCategory(p) {
+  if (p.category) {
+    const c = CATEGORIES.find(function(x) { return x.slug === p.category; });
+    if (c) return c;
+  }
+  // Aus dem Namen erkennen (z.B. "Pizzeria Castello" -> Pizzeria)
+  const synthetic = { cuisine: p.name };
+  for (const c of CATEGORIES) {
+    if (c.slug !== 'restaurant' && categoryMatches(synthetic, c)) return c;
+  }
+  return CATEGORIES[CATEGORIES.length - 1];
+}
+
+function buildProspectJsonLd(p, name, cityRaw, url, catLabel) {
+  // Bewusst OHNE aggregateRating: wir haben keine echten Bewertungen ->
+  // Fake-Sterne wuerden von Google abgestraft. Nur saubere Stammdaten.
+  const item = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    '@id': url,
+    'name': name,
+    'url': url
+  };
+  if (p.phone) item.telephone = String(p.phone);
+  if (p.website) item.sameAs = [p.website];
+  if (catLabel) item.servesCuisine = catLabel;
+  if (p.street || p.zip || cityRaw) {
+    item.address = {
+      '@type': 'PostalAddress',
+      'streetAddress': safeText(p.street, ''),
+      'postalCode': safeText(p.zip, ''),
+      'addressLocality': cityRaw,
+      'addressCountry': 'DE'
+    };
+  }
+  if (p.lat && p.lng) {
+    item.geo = { '@type': 'GeoCoordinates', 'latitude': Number(p.lat), 'longitude': Number(p.lng) };
+  }
+  return item;
+}
+
+function generateProspectPage(p, partnerRestaurants) {
+  if (!p || !p.name) return null;
+  const slug = prospectSlug(p);
+  if (!slug || slug.length < 2) return null;
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return null;
+
+  const isDraft = !!p.draft;
+  const name = safeText(p.name, 'Restaurant');
+  const cityRaw = safeText(p.city, 'Ostfriesland');
+  const url = SITE_URL + '/' + slug;
+  const cat = detectProspectCategory(p);
+  const catLabel = cat.label;
+
+  const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
+  const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+
+  const title = name + ' ' + cityRaw + ' – Adresse, Telefon & Öffnungszeiten | ' + catLabel;
+  let description = name + ' in ' + cityRaw + ': ' + catLabel + ' – Adresse, Telefon';
+  if (p.street) description += ', ' + p.street;
+  description += '. Jetzt anrufen oder online bestellen bei Restaurants in ' + cityRaw + '.';
+  if (description.length > 160) description = description.slice(0, 157) + '...';
+
+  const prospectLd = buildProspectJsonLd(p, name, cityRaw, url, catLabel);
+  const breadcrumbCrumbs = [
+    { name: 'Startseite', url: SITE_URL + '/' },
+    { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
+    { name: name, url: url }
+  ];
+  const breadcrumbLd = buildBreadcrumbJsonLd(breadcrumbCrumbs);
+
+  const addrLine = [
+    p.street ? escapeHtml(p.street) : '',
+    p.zip ? escapeHtml(p.zip) : '',
+    escapeHtml(cityRaw)
+  ].filter(function(s) { return s; }).join(' ');
+
+  // Echte Partner in derselben Stadt -> Funnel von Nicht-Partner-Suchen
+  const partners = (Array.isArray(partnerRestaurants) ? partnerRestaurants : [])
+    .filter(function(r) { return r && r.slug && normalize(r.city) === normalize(cityRaw); })
+    .slice(0, 6);
+
+  const robotsTag = isDraft
+    ? '<meta name="robots" content="noindex,follow">'
+    : '<meta name="robots" content="index,follow,max-image-preview:large">';
+
+  const draftBanner = isDraft
+    ? '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 16px;border-radius:8px;margin:16px 0;font-size:14px;">' +
+      '⚠️ <strong>Vorschau / Beispiel-Eintrag.</strong> Diese Seite ist als <code>draft</code> markiert (noindex) und noch nicht veröffentlicht. ' +
+      'Setze in <code>prospects.json</code> <code>"draft": false</code> sobald die Daten geprüft sind.' +
+      '</div>'
+    : '';
+
+  // Anruf-Button (echter Mehrwert fuer den Sucher) + Inhaber-Lead-CTA
+  const phoneBtn = p.phone
+    ? '<a class="cta-primary" href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">📞 ' + escapeHtml(String(p.phone)) + '</a>'
+    : '';
+
+  const ownerBox =
+    '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
+      '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
+      '<p style="margin:0 0 14px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
+      'Trag dein Restaurant <strong>kostenlos</strong> ein und nimm Online-Bestellungen & Tisch-Reservierungen entgegen – ohne App, mit fairer Provision.</p>' +
+      '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
+    '</div>';
+
+  const partnerBox = partners.length
+    ? '<section class="crosslinks"><h3>Online bestellen in ' + escapeHtml(cityRaw) + '</h3>' +
+      '<p style="margin:0 0 10px;color:#666;">Diese Restaurants in ' + escapeHtml(cityRaw) + ' kannst du direkt über ' + BRAND + ' bestellen:</p>' +
+      '<div class="links">' +
+      partners.map(function(r) {
+        return '<a href="/' + escapeAttr(r.slug) + '">' + escapeHtml(safeText(r.name, 'Restaurant')) + '</a>';
+      }).join('') +
+      '</div></section>'
+    : '';
+
+  const html = '<!DOCTYPE html>\n<html lang="de">\n<head>\n' +
+    '<meta charset="UTF-8">\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
+    '<title>' + escapeHtml(title) + '</title>\n' +
+    '<meta name="description" content="' + escapeAttr(description) + '">\n' +
+    '<link rel="canonical" href="' + escapeAttr(url) + '">\n' +
+    robotsTag + '\n' +
+    '<meta name="geo.region" content="DE-NI">\n' +
+    '<meta name="geo.placename" content="' + escapeAttr(cityRaw) + '">\n' +
+    '<meta property="og:type" content="restaurant.restaurant">\n' +
+    '<meta property="og:title" content="' + escapeAttr(title) + '">\n' +
+    '<meta property="og:description" content="' + escapeAttr(description) + '">\n' +
+    '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
+    '<meta property="og:locale" content="de_DE">\n' +
+    '<meta property="og:site_name" content="' + BRAND + '">\n' +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
+    '<style>' + pageCss() + '</style>\n' +
+    '<script type="application/ld+json">' + jsonEscape(prospectLd) + '</script>\n' +
+    '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
+    // KEIN App-Redirect: Nicht-Partner haben keinen App-Eintrag. Die Seite
+    // bleibt stehen und liefert dem Sucher Telefon/Adresse + Funnel zu Partnern.
+    '</head>\n<body>\n' +
+    renderHeader() + '\n' +
+    renderBreadcrumb(breadcrumbCrumbs) + '\n' +
+    '<main class="container">\n' +
+    draftBanner +
+    '<section class="hero hero-fallback fade"><div class="ov"></div><div class="inner">' +
+      '<h1>' + escapeHtml(name) + '</h1>' +
+      '<div class="meta">' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) + '</div>' +
+      (phoneBtn ? '<div style="margin-top:18px;">' + phoneBtn + '</div>' : '') +
+    '</div></section>\n' +
+    '<div class="intro fade d1">\n' +
+      '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) + '. ' +
+      'Hier findest du Adresse und Telefonnummer auf einen Blick.</p>\n' +
+      (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
+      (p.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">' + escapeHtml(String(p.phone)) + '</a></p>' : '') +
+      (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
+    '</div>\n' +
+    ownerBox + '\n' +
+    partnerBox + '\n' +
+    renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
+    '</main>\n' +
+    '<footer class="site"><div class="container row">' +
+      '<div>&copy; ' + new Date().getFullYear() + ' ' + BRAND + ' – Ostfrieslands Gastro-Plattform</div>' +
+      '<div style="font-size:13px;color:#888;">Eintrag auf Basis öffentlicher Daten' +
+        (p.source === 'osm' ? ' · © OpenStreetMap-Mitwirkende' : '') +
+        '. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
+    '</div></footer>\n' +
+    '</body></html>\n';
+
+  const filename = slug + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
+  return { filename: filename, url: url, count: 1, prospect: true, draft: isDraft };
 }
 
 // ==================== PAGE GENERATORS ====================
@@ -1129,8 +1536,8 @@ function writeSitemap(generated) {
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
   generated.forEach(function(g) {
-    const prio = g.restaurant ? '0.9' : '0.8';
-    const freq = g.restaurant ? 'daily' : 'weekly';
+    const prio = g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8');
+    const freq = g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly');
     xml += '  <url><loc>' + g.url + '</loc><lastmod>' + today + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
   });
   xml += '</urlset>\n';
@@ -1140,6 +1547,33 @@ function writeSitemap(generated) {
 function writeRobots() {
   const robots = 'User-agent: *\nAllow: /\n\nSitemap: ' + SITE_URL + '/sitemap.xml\n';
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robots, 'utf8');
+}
+
+// IndexNow: Suchmaschinen (Bing, Yandex u.a. -> Google liest IndexNow-Daten
+// ebenfalls aus) sofort ueber neue/geaenderte URLs informieren. Statt Wochen
+// auf den Crawler zu warten, sind neue Restaurants in Stunden im Index.
+// Schluessel liegt als <key>.txt im Web-Root. Fault-tolerant: Fehler ignorieren.
+const INDEXNOW_KEY = 'b922131c20477eae9293e34da9b9dba9';
+async function pingIndexNow(generated) {
+  try {
+    const host = SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const urlList = [SITE_URL + '/'].concat(generated.map(function(g) { return g.url; }));
+    // IndexNow akzeptiert bis 10.000 URLs pro Request.
+    const payload = {
+      host: host,
+      key: INDEXNOW_KEY,
+      keyLocation: SITE_URL + '/' + INDEXNOW_KEY + '.txt',
+      urlList: urlList.slice(0, 10000)
+    };
+    const res = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    console.log('[seo] IndexNow ping: HTTP ' + res.status + ' (' + urlList.length + ' urls)');
+  } catch (e) {
+    console.warn('[seo] WARN: IndexNow ping fehlgeschlagen -', e.message);
+  }
 }
 
 // Injiziert ALLE aktiven Restaurants als crawlbare Links in index.html
@@ -1205,19 +1639,46 @@ async function main() {
   console.log('[seo] Kiek mol in - SEO-Pages-Generator');
   console.log('[seo] Cities:', CITIES.length, '· Categories:', CATEGORIES.length);
 
-  let restaurants;
+  let restaurants = [];
+  let supaOk = true;
   try {
     console.log('[seo] Fetching restaurants from Supabase...');
     restaurants = await fetchRestaurants();
     console.log('[seo] Got', restaurants.length, 'active restaurants');
   } catch (err) {
+    supaOk = false;
     console.warn('[seo] WARN: Supabase fetch failed:', err.message);
-    console.warn('[seo] Skipping SEO page generation - deploy will continue without new pages.');
-    process.exit(0);
+    console.warn('[seo] Partner-Seiten werden uebersprungen - Prospect-Seiten werden trotzdem gebaut.');
   }
 
   const generated = [];
   let skipped = 0;
+
+  // Verzeichnis-/Prospect-Seiten (Nicht-Partner) - unabhaengig von Supabase
+  let prospectCount = 0, prospectDraft = 0;
+  try {
+    const prospects = loadProspects();
+    for (const p of prospects) {
+      const result = generateProspectPage(p, restaurants);
+      if (result) {
+        console.log('[seo] +', result.filename, '(prospect: ' + (p.name || '?') + (result.draft ? ' · DRAFT/noindex' : ' · live') + ')');
+        prospectCount++;
+        if (result.draft) prospectDraft++;
+        else generated.push(result);   // nur Live-Eintraege in die Sitemap
+      }
+    }
+  } catch (e) {
+    console.warn('[seo] WARN: Prospect-Generierung fehlgeschlagen -', e.message);
+  }
+  console.log('[seo] Verzeichnis-Seiten:', prospectCount, '(davon Draft/noindex: ' + prospectDraft + ')');
+
+  // Ist Supabase weg, bauen wir KEINE Partner-Seiten und ueberschreiben die
+  // Sitemap NICHT (sonst gingen alle Partner-URLs verloren). Prospect-HTML
+  // liegt aber schon auf der Platte und kommt beim naechsten guten Deploy rein.
+  if (!supaOk) {
+    console.warn('[seo] Supabase nicht erreichbar -> nur Verzeichnis-Seiten gebaut, Sitemap unveraendert.');
+    process.exit(0);
+  }
 
   // Pro Stadt × Kategorie: DE + EN
   const LANGS = ['de', 'en'];
@@ -1260,24 +1721,28 @@ async function main() {
   // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
   let totalMenuItems = 0;
+  let totalReviews = 0;
   for (const rest of restaurants) {
     try {
       let menuItems = [];
+      let reviews = [];
       if (rest.id) {
         menuItems = await fetchMenuItems(rest.id);
+        reviews = await fetchReviews(rest.id);
       }
-      const result = generateRestaurantPage(rest, menuItems);
+      const result = generateRestaurantPage(rest, menuItems, reviews);
       if (result) {
-        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items)');
+        console.log('[seo] +', result.filename, '(restaurant: ' + (rest.name || '?') + ', ' + (result.menuCount || 0) + ' menu items, ' + (reviews.length || 0) + ' reviews)');
         generated.push(result);
         restaurantPages++;
         totalMenuItems += result.menuCount || 0;
+        totalReviews += reviews.length || 0;
       }
     } catch (e) {
       console.warn('[seo] WARN: skip restaurant page for', rest && rest.name, '-', e.message);
     }
   }
-  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· total menu items rendered:', totalMenuItems);
+  console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· menu items:', totalMenuItems, '· reviews embedded:', totalReviews);
 
   try {
     injectHomepageRestaurantLinks(restaurants);
@@ -1289,6 +1754,11 @@ async function main() {
   writeRobots();
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
   console.log('[seo] + robots.txt');
+
+  // Suchmaschinen sofort anstossen (nur wenn wirklich Seiten gebaut wurden)
+  if (generated.length) {
+    await pingIndexNow(generated);
+  }
   console.log('[seo] Done. Generated:', generated.length, 'Skipped (empty):', skipped);
 }
 

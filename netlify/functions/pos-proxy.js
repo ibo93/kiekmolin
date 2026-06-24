@@ -38,6 +38,16 @@ function buildTarget(system, apiKey, apiUrl, endpoint) {
                 target: 'https://api.orderbird.com' + endpoint,
                 headers: { 'Authorization': 'Token ' + apiKey, 'Content-Type': 'application/json' }
             };
+        case 'tillhub':
+            return {
+                target: 'https://api.tillhub.com' + endpoint,
+                headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }
+            };
+        case 'enfore':
+            return {
+                target: (apiUrl || 'https://api.enfore.com') + endpoint,
+                headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }
+            };
         case 'webhook':
             // Bei Webhook ist apiKey die volle URL; endpoint optional als Suffix.
             return {
