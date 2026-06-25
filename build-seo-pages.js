@@ -1212,7 +1212,7 @@ function buildProspectJsonLd(p, name, cityRaw, url, catLabel) {
   return item;
 }
 
-function generateProspectPage(p, partnerRestaurants) {
+function generateProspectPage(p, partnerRestaurants, allProspects) {
   if (!p || !p.name) return null;
   const slug = prospectSlug(p);
   if (!slug || slug.length < 2) return null;
@@ -1252,6 +1252,63 @@ function generateProspectPage(p, partnerRestaurants) {
   const partners = (Array.isArray(partnerRestaurants) ? partnerRestaurants : [])
     .filter(function(r) { return r && r.slug && normalize(r.city) === normalize(cityRaw); })
     .slice(0, 6);
+
+  // ----- Zusatz-Inhalt fuer bessere Google-Indexierung (kein Thin-Content) -----
+  const eName = escapeHtml(name);
+  const eCity = escapeHtml(cityRaw);
+  // Kueche aus OSM (falls vorhanden), sonst die Kategorie
+  const cuisineRaw = p.cuisine ? (String(p.cuisine).charAt(0).toUpperCase() + String(p.cuisine).slice(1)) : catLabel;
+  const eCuisine = escapeHtml(cuisineRaw);
+  const hoursLine = p.hours ? escapeHtml(String(p.hours)) : '';
+
+  // Variierter Intro-Text (3 Varianten, deterministisch je Eintrag) gegen
+  // Duplicate-Content. Bewusst ohne Genus-Artikel -> grammatikalisch sicher.
+  const introVariants = [
+    eName + ' – ' + eCuisine + ' in ' + eCity + '. Adresse, Telefon' + (hoursLine ? ' und Öffnungszeiten' : '') +
+      ' findest du hier auf einen Blick, dazu Restaurants in ' + eCity + ' zum direkten Online-Bestellen.',
+    'Du suchst ' + eCuisine + ' in ' + eCity + '? ' + eName + ' gehört zu den Gastro-Betrieben vor Ort. ' +
+      'Hier findest du Kontakt' + (hoursLine ? ' und Öffnungszeiten' : '') + ' – und welche Lokale in ' + eCity + ' Online-Bestellung oder Abholung anbieten.',
+    eName + ' in ' + eCity + ' (Ostfriesland): ' + eCuisine + '. Adresse und Telefon stehen auf dieser Seite; ' +
+      'weiter unten zeigen wir dir Restaurants aus ' + eCity + ', die du direkt über ' + BRAND + ' bestellen kannst.'
+  ];
+  const introHash = slug.split('').reduce(function(a, c) { return a + c.charCodeAt(0); }, 0);
+  const introHtml = introVariants[introHash % introVariants.length];
+
+  // Geschwister-Eintraege derselben Stadt -> internes Linknetz (gut fuer Crawling)
+  const siblings = (Array.isArray(allProspects) ? allProspects : [])
+    .filter(function(o) {
+      return o && o.name && !o.draft && normalize(o.city) === normalize(cityRaw) && prospectSlug(o) !== slug;
+    })
+    .slice(0, 8);
+  const siblingBox = siblings.length
+    ? '<section class="crosslinks"><h3>Weitere Gastro-Betriebe in ' + eCity + '</h3><div class="links">' +
+      siblings.map(function(o) {
+        return '<a href="/' + escapeAttr(prospectSlug(o)) + '">' + escapeHtml(safeText(o.name, 'Restaurant')) + '</a>';
+      }).join('') +
+      '</div></section>'
+    : '';
+
+  // FAQ (sichtbar + FAQPage-JSON-LD) - nur Fragen mit echter Antwort
+  const faqs = [];
+  faqs.push({ q: 'Welche Art von Lokal ist ' + name + '?', a: name + ' ist ' + cuisineRaw + ' in ' + cityRaw + ' (Ostfriesland).' });
+  if (p.street || p.zip) {
+    faqs.push({ q: 'Wo finde ich ' + name + '?', a: name + ' befindet sich in ' + (p.street ? p.street + ', ' : '') + (p.zip ? p.zip + ' ' : '') + cityRaw + '.' });
+  }
+  if (p.phone) {
+    faqs.push({ q: 'Wie ist die Telefonnummer von ' + name + '?', a: name + ' erreichst du telefonisch unter ' + String(p.phone) + '.' });
+  }
+  if (p.hours) {
+    faqs.push({ q: 'Wann hat ' + name + ' geöffnet?', a: 'Öffnungszeiten (laut OpenStreetMap): ' + String(p.hours) + '. Bitte vor dem Besuch direkt beim Lokal bestätigen.' });
+  }
+  faqs.push({ q: 'Kann ich bei ' + name + ' online bestellen?', a: name + ' ist aktuell noch kein Partner von ' + BRAND + '. Online bestellen oder einen Tisch reservieren kannst du bei den Partner-Restaurants in ' + cityRaw + ', die auf dieser Seite verlinkt sind.' });
+  const faqLd = buildFaqJsonLd(faqs);
+  const faqHtml = '<section class="faq fade" style="margin-top:28px;">' +
+    '<h2 style="font-size:20px;margin:0 0 12px;">Häufige Fragen zu ' + eName + '</h2>' +
+    faqs.map(function(f) {
+      return '<div style="margin:0 0 14px;"><h3 style="font-size:15px;margin:0 0 4px;">' + escapeHtml(f.q) + '</h3>' +
+        '<p style="margin:0;color:#444;">' + escapeHtml(f.a) + '</p></div>';
+    }).join('') +
+    '</section>';
 
   const robotsTag = isDraft
     ? '<meta name="robots" content="noindex,follow">'
@@ -1306,6 +1363,7 @@ function generateProspectPage(p, partnerRestaurants) {
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(prospectLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
+    '<script type="application/ld+json">' + jsonEscape(faqLd) + '</script>\n' +
     // KEIN App-Redirect: Nicht-Partner haben keinen App-Eintrag. Die Seite
     // bleibt stehen und liefert dem Sucher Telefon/Adresse + Funnel zu Partnern.
     '</head>\n<body>\n' +
@@ -1319,14 +1377,17 @@ function generateProspectPage(p, partnerRestaurants) {
       (phoneBtn ? '<div style="margin-top:18px;">' + phoneBtn + '</div>' : '') +
     '</div></section>\n' +
     '<div class="intro fade d1">\n' +
-      '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) + '. ' +
-      'Hier findest du Adresse und Telefonnummer auf einen Blick.</p>\n' +
+      '<p>' + introHtml + '</p>\n' +
       (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
       (p.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">' + escapeHtml(String(p.phone)) + '</a></p>' : '') +
+      (hoursLine ? '<p><strong>Öffnungszeiten:</strong> ' + hoursLine + ' <span style="color:#888;font-size:13px;">(laut OpenStreetMap – bitte bestätigen)</span></p>' : '') +
+      (p.cuisine ? '<p><strong>Küche:</strong> ' + eCuisine + '</p>' : '') +
       (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
     '</div>\n' +
+    faqHtml + '\n' +
     ownerBox + '\n' +
     partnerBox + '\n' +
+    siblingBox + '\n' +
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
     '<footer class="site"><div class="container row">' +
@@ -1659,7 +1720,7 @@ async function main() {
   try {
     const prospects = loadProspects();
     for (const p of prospects) {
-      const result = generateProspectPage(p, restaurants);
+      const result = generateProspectPage(p, restaurants, prospects);
       if (result) {
         console.log('[seo] +', result.filename, '(prospect: ' + (p.name || '?') + (result.draft ? ' · DRAFT/noindex' : ' · live') + ')');
         prospectCount++;

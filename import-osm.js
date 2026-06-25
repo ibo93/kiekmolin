@@ -122,6 +122,11 @@ function elementToProspect(el, fallbackCity) {
     source: 'osm',
     draft: IMPORT_AS_DRAFT
   };
+  // Zusatzdaten fuer mehr Seiteninhalt (besser fuer Google-Indexierung)
+  var hours = t.opening_hours || '';
+  if (hours) p.hours = String(hours).slice(0, 200);
+  var cuisine = (t.cuisine || '').split(';')[0].replace(/_/g, ' ').trim();
+  if (cuisine) p.cuisine = cuisine;
   if (lat && lng) { p.lat = lat; p.lng = lng; }
   if (!p.category) delete p.category; // Build erkennt dann selbst
   return p;
