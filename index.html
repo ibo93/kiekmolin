@@ -32008,40 +32008,60 @@ async function addCustomer(e) {
         const sepaMandat = document.getElementById('customerSEPAMandat')?.checked || false;
         const mandateRef = sepaMandat ? 'KMI-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : '';
 
-        const customerResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers`, {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-                name: name,
-                email: email,
-                password: password,
-                phone: phone,
-                restaurant_id: restaurantId || null,
-                monthly_fee: fee,
-                discount_percent: discount,
-                free_months: freeMonths,
-                start_date: startDate,
-                payment_status: 'pending',
-                is_active: true,
-                role: 'restaurant',
-                account_holder: accountHolder,
-                iban: iban,
-                bic: bic,
-                sepa_mandate: sepaMandat,
-                mandate_reference: mandateRef,
-                mandate_date: sepaMandat ? new Date().toISOString().split('T')[0] : null
-            })
-        });
+        // Selbst-heilender Insert: fehlt eine Spalte in der customers-Tabelle,
+        // lehnt PostgREST sonst den GANZEN Kunden ab -> er wird nicht gespeichert
+        // und taucht nicht in der Verwaltung auf. Wir lassen unbekannte Spalten
+        // weg und versuchen erneut, bis der Kunde gespeichert ist.
+        const customerPayload = {
+            name: name,
+            email: email,
+            password: password,
+            phone: phone,
+            restaurant_id: restaurantId || null,
+            monthly_fee: fee,
+            discount_percent: discount,
+            free_months: freeMonths,
+            start_date: startDate,
+            payment_status: 'pending',
+            is_active: true,
+            role: 'restaurant',
+            account_holder: accountHolder,
+            iban: iban,
+            bic: bic,
+            sepa_mandate: sepaMandat,
+            mandate_reference: mandateRef,
+            mandate_date: sepaMandat ? new Date().toISOString().split('T')[0] : null
+        };
+
+        let _custBody = Object.assign({}, customerPayload);
+        let customerResponse, _custErrText = '';
+        for (let _try = 0; _try < 18; _try++) {
+            customerResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(_custBody)
+            });
+            if (customerResponse.ok) break;
+            _custErrText = await customerResponse.text().catch(function() { return ''; });
+            const _m = _custErrText.match(/Could not find the '([^']+)'/)
+                    || _custErrText.match(/'([^']+)' column/)
+                    || _custErrText.match(/column "?([a-zA-Z_]+)"? .*does not exist/i);
+            if (customerResponse.status === 400 && _m && _m[1] && Object.prototype.hasOwnProperty.call(_custBody, _m[1])) {
+                console.warn('[customers] Spalte "' + _m[1] + '" fehlt in der DB – wird weggelassen und erneut versucht');
+                delete _custBody[_m[1]];
+                continue;
+            }
+            break; // anderer Fehler (z.B. RLS/Rechte) -> nicht durch Spalten-Strip loesbar
+        }
 
         if (!customerResponse.ok) {
-            const errorText = await customerResponse.text();
-            console.error('Kunde Fehler:', errorText);
-            throw new Error(errorText);
+            console.error('Kunde Fehler:', _custErrText);
+            throw new Error(_custErrText || ('HTTP ' + customerResponse.status));
         }
 
 
