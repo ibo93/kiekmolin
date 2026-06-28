@@ -148,6 +148,25 @@ function generateEposBon(order, restaurantName) {
         if (addrLine) xml += '<text>Adresse: ' + xmlEscape(addrLine) + '&#10;</text>';
         if (cityLine) xml += '<text>         ' + xmlEscape(cityLine) + '&#10;</text>';
     }
+    // Bei Lieferung: QR-Code der Adresse -> Fahrer scannt = Google-Maps-Navigation
+    if (order.order_type === 'delivery') {
+        var _qAddr = '';
+        if (order.delivery_address && typeof order.delivery_address === 'object') {
+            var _da = order.delivery_address;
+            _qAddr = [[_da.street, _da.house_number].filter(Boolean).join(' '), [_da.zip, _da.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+        } else if (typeof order.delivery_address === 'string') {
+            _qAddr = order.delivery_address;
+        }
+        if (_qAddr) {
+            var _mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(_qAddr);
+            xml += '<text>&#10;</text>';
+            xml += '<text align="center">Navigation zur Lieferadresse:&#10;</text>';
+            xml += '<symbol type="qrcode_model_2" level="level_m" width="6" height="6" size="0">' + xmlEscape(_mapsUrl) + '</symbol>';
+            xml += '<text>&#10;</text>';
+            xml += '<text align="center">QR scannen = Navigation&#10;</text>';
+            xml += '<text align="left"/>';
+        }
+    }
     if (order.customer_notes || order.delivery_notes) {
         xml += '<text>&#10;</text>';
         xml += '<text width="1" height="2">Hinweis:&#10;</text>';
