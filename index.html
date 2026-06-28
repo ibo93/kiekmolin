@@ -48572,11 +48572,18 @@ var POS_SYSTEM_STATUS = {
     tillhub:     { status: 'beta',        note: 'Tillhub-Adapter ist beta. Erstellung in der Tillhub-Konsole: Settings → API → neuen Token mit Schreibrechten anlegen. Beim ersten Live-Push pruefen, ob die Bestellung wirklich erscheint.' },
     enfore:      { status: 'beta',        note: 'enforePAY-Adapter ist beta und braucht Partner-Zugang. Beim ersten Live-Push pruefen.' },
     webhook:     { status: 'ready' },
-    multidata:   { status: 'ready' }
+    multidata:   { status: 'ready' },
+    winorder:    { status: 'beta', note: 'WinOrder (z.B. auf Colormetrics) HOLT die Bestellungen selbst ab (Pull) — es wird nichts gepusht. Klick unten bei „Abruf-Schnittstelle" auf „Zugangsdaten anzeigen" und trag die 🟦 WinOrder-Basis-URL in WinOrder ein: Optionen → Schnittstellen → eigener Shop, Intervall ca. 30 Sek. Einmalig in Supabase: ALTER TABLE orders ADD COLUMN IF NOT EXISTS winorder_sent_at timestamptz;' }
 };
 
 var POS_SYSTEMS = {
     none: { name: 'Kein Kassensystem', needsKey: false },
+    winorder: {
+        name: 'WinOrder (Colormetrics)',
+        needsKey: false,        // Pull: kein Key-Feld, kein Push (sendOrder fehlt absichtlich)
+        pull: true,
+        helpUrl: 'https://www.winorder.com/info/funktionen/shopschnittstelle/'
+    },
     ready2order: {
         name: 'ready2order',
         needsKey: true,
