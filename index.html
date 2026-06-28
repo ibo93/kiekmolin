@@ -54087,6 +54087,35 @@ async function aiMenuScan(payload) {
     }
 }
 
+// Langes Speisekarten-Foto in ueberlappende vertikale Streifen schneiden.
+// Jeder Streifen wird einzeln per KI gelesen -> kein Abriss bei vielen Gerichten.
+// Ueberlappung verhindert, dass ein Gericht am Schnitt verloren geht (Duplikate
+// werden serverseitig wieder entfernt).
+function splitImageVertically(dataUrl, slices) {
+    return new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () {
+            if (slices <= 1 || img.height < 1400) { resolve([dataUrl]); return; }
+            var out = [];
+            var overlap = Math.floor(img.height * 0.06);
+            var sliceH = Math.ceil(img.height / slices);
+            for (var s = 0; s < slices; s++) {
+                var y0 = Math.max(0, s * sliceH - overlap);
+                var y1 = Math.min(img.height, (s + 1) * sliceH + overlap);
+                var h = y1 - y0;
+                if (h <= 0) continue;
+                var c = document.createElement('canvas');
+                c.width = img.width; c.height = h;
+                c.getContext('2d').drawImage(img, 0, y0, img.width, h, 0, 0, img.width, h);
+                out.push(c.toDataURL('image/jpeg', 0.9));
+            }
+            resolve(out.length ? out : [dataUrl]);
+        };
+        img.onerror = function () { resolve([dataUrl]); };
+        img.src = dataUrl;
+    });
+}
+
 async function startMenuScan() {
     if (!menuScanImageData) {
         showToast('Bitte zuerst eine Datei hochladen', 'error');
@@ -54106,7 +54135,11 @@ async function startMenuScan() {
             statusEl.textContent = 'PDF wird vorbereitet...';
             try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
         } else {
-            images = [menuScanImageData];
+            // Langes Foto in Streifen schneiden -> jeder Streifen wird einzeln gescannt
+            // und zusammengefuehrt (sonst reisst die Erkennung bei vielen Gerichten ab).
+            try { images = await splitImageVertically(menuScanImageData, 3); }
+            catch (e) { images = [menuScanImageData]; }
+            if (!images || !images.length) images = [menuScanImageData];
         }
 
         if (images && images.length) {

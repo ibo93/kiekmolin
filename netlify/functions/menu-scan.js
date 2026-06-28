@@ -50,7 +50,10 @@ var PROMPT = [
     '- description: kurze Beschreibung/Zutaten von der Karte, sonst "".',
     '- is_*-Flags aus Name/Zutaten ableiten (vegetarisch, vegan, scharf; Rind/Huhn/Schwein/Fisch/Meeresfruechte).',
     '- Erfinde nichts. Nur was wirklich auf der Karte steht. Keine doppelten Eintraege.',
-    '- Wenn ein Preis unleserlich ist, lass price 0 und nimm das Gericht trotzdem auf.'
+    '- Wenn ein Preis unleserlich ist, lass price 0 und nimm das Gericht trotzdem auf.',
+    '- WICHTIG: Liste WIRKLICH JEDE Position vollstaendig auf — von der ersten bis zur',
+    '  allerletzten Zeile der Karte. NICHT kuerzen, NICHT zusammenfassen, NICHT vorzeitig',
+    '  aufhoeren. Auch bei sehr vielen Gerichten (50, 100, 200) alle ausgeben.'
 ].join('\n');
 
 function stripToJson(s) {
@@ -101,7 +104,7 @@ async function callAnthropic(key, images, text) {
     var res = await fetch(ANTHROPIC_API, {
         method: 'POST',
         headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 8000, messages: [{ role: 'user', content: content }] })
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 16000, temperature: 0, messages: [{ role: 'user', content: content }] })
     });
     if (!res.ok) { var t = await res.text(); throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200)); }
     var j = await res.json();
@@ -119,7 +122,7 @@ async function callGemini(key, images, text) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             contents: [{ role: 'user', parts: parts }],
-            generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 8192 }
+            generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 16384 }
         })
     });
     if (!res.ok) { var t = await res.text(); throw new Error('Gemini ' + res.status + ': ' + t.slice(0, 200)); }
@@ -144,17 +147,34 @@ exports.handler = async function (event) {
         return json(503, { ok: false, error: 'Keine KI konfiguriert (ANTHROPIC_API_KEY oder GEMINI_API_KEY in Netlify setzen).' });
     }
 
+    // Provider-Aufruf fuer EINEN Satz Bilder (oder Text) -> normalisierte Items
+    async function runModel(imgs, txt) {
+        var raw = anthropicKey ? await callAnthropic(anthropicKey, imgs, txt) : await callGemini(geminiKey, imgs, txt);
+        try { return normalizeItems(JSON.parse(stripToJson(raw))); } catch (e) { return []; }
+    }
+
     try {
-        var raw;
-        if (anthropicKey) raw = await callAnthropic(anthropicKey, images, text);
-        else raw = await callGemini(geminiKey, images, text);
+        var all = [];
+        if (images.length > 1) {
+            // Jede Seite/jedes Bild EINZELN scannen -> kein Abriss durch Token-Limit,
+            // danach zusammenfuehren. So werden auch lange/mehrseitige Karten komplett erfasst.
+            var perImage = await Promise.all(images.map(function (img) {
+                return runModel([img], '').catch(function () { return []; });
+            }));
+            perImage.forEach(function (list) { all = all.concat(list); });
+        } else {
+            all = await runModel(images, text);
+        }
 
-        var parsed;
-        try { parsed = JSON.parse(stripToJson(raw)); }
-        catch (e) { return json(502, { ok: false, error: 'KI-Antwort nicht lesbar' }); }
+        // Duplikate entfernen (gleicher Name + Preis + Kategorie)
+        var seen = {}, deduped = [];
+        all.forEach(function (it) {
+            var k = (it.name + '|' + it.price + '|' + it.category).toLowerCase();
+            if (!seen[k]) { seen[k] = 1; deduped.push(it); }
+        });
 
-        var items = normalizeItems(parsed);
-        return json(200, { ok: true, items: items, count: items.length });
+        if (!deduped.length) return json(502, { ok: false, error: 'Keine Gerichte erkannt' });
+        return json(200, { ok: true, items: deduped, count: deduped.length });
     } catch (e) {
         return json(502, { ok: false, error: e.message });
     }
