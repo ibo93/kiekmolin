@@ -31947,34 +31947,53 @@ async function addCustomer(e) {
             const lat = coords.lat + (Math.random() - 0.5) * 0.005;
             const lng = coords.lng + (Math.random() - 0.5) * 0.005;
 
-            // Restaurant in Supabase anlegen
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
-                },
-                body: JSON.stringify({
-                    name: restName,
-                    city: restCity,
-                    street: restStreet,
-                    cuisine_type: [restCuisine],
-                    phone: restPhone,
-                    whatsapp: restWhatsapp,
-                    website: restWebsite,
-                    facebook: restFacebook,
-                    instagram: restInstagram,
-                    menu_url: restMenu,
-                    google_maps_url: restGoogleMaps,
-                    is_active: true,
-                    is_open: true,
-                    rating: 4.5,
-                    latitude: lat,
-                    longitude: lng
-                })
-            });
+            // Restaurant in Supabase anlegen — SELBST-HEILEND: fehlt eine Spalte
+            // (z.B. facebook/instagram/menu_url/whatsapp), lehnt PostgREST sonst das
+            // GANZE Restaurant ab -> es wird nicht angelegt und taucht beim Kunden
+            // nicht auf. Unbekannte Spalten weglassen und erneut versuchen.
+            const restaurantPayload = {
+                name: restName,
+                city: restCity,
+                street: restStreet,
+                cuisine_type: [restCuisine],
+                phone: restPhone,
+                whatsapp: restWhatsapp,
+                website: restWebsite,
+                facebook: restFacebook,
+                instagram: restInstagram,
+                menu_url: restMenu,
+                google_maps_url: restGoogleMaps,
+                is_active: true,
+                is_open: true,
+                rating: 4.5,
+                latitude: lat,
+                longitude: lng
+            };
+            let _restBody = Object.assign({}, restaurantPayload);
+            let response, _restErr = '';
+            for (let _rt = 0; _rt < 18; _rt++) {
+                response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(_restBody)
+                });
+                if (response.ok) break;
+                _restErr = await response.text().catch(function () { return ''; });
+                const _rm = _restErr.match(/Could not find the '([^']+)'/)
+                        || _restErr.match(/'([^']+)' column/)
+                        || _restErr.match(/column "?([a-zA-Z_]+)"? .*does not exist/i);
+                if (response.status === 400 && _rm && _rm[1] && Object.prototype.hasOwnProperty.call(_restBody, _rm[1])) {
+                    console.warn('[restaurants] Spalte "' + _rm[1] + '" fehlt in der DB – wird weggelassen und erneut versucht');
+                    delete _restBody[_rm[1]];
+                    continue;
+                }
+                break;
+            }
 
             if (response.ok) {
                 const data = await response.json();
@@ -31998,8 +32017,7 @@ async function addCustomer(e) {
                     offer: null
                 });
             } else {
-                const error = await response.json();
-                throw new Error(error.message || 'Restaurant konnte nicht angelegt werden');
+                throw new Error(_restErr || 'Restaurant konnte nicht angelegt werden');
             }
         }
 
