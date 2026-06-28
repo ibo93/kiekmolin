@@ -49405,6 +49405,16 @@ function _posCopy(text) {
 function _renderPosPullInfo(box, j) {
     var fieldStyle = 'width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:12px;box-sizing:border-box;word-break:break-all;';
     var btnStyle = 'padding:6px 10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;';
+
+    // WinOrder-Basis-URL aus pull_url ableiten: /wo/<restaurant>/<key>
+    var woUrl = '';
+    try {
+        var u = new URL(j.pull_url, location.origin);
+        var rid = u.searchParams.get('restaurant') || 'default';
+        var k = j.key || u.searchParams.get('key') || '';
+        woUrl = u.origin + '/wo/' + encodeURIComponent(rid) + '/' + encodeURIComponent(k);
+    } catch (e) { woUrl = ''; }
+
     box.innerHTML =
         '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;">' +
             '<label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Abruf-URL</label>' +
@@ -49418,6 +49428,15 @@ function _renderPosPullInfo(box, j) {
                 '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posPullKey\').textContent)">Kopieren</button>' +
             '</div>' +
             '<p style="font-size:11px;color:var(--slate);margin:0 0 8px;">Diese URL + Schlüssel im Kassenprogramm als Bestell-Quelle eintragen. Die Kasse ruft damit regelmäßig die neuen Bestellungen ab. Bei Lieferung/Abholung sind alle Daten (Artikel, Extras, Adresse, Beträge) enthalten.</p>' +
+            (woUrl ?
+            '<div style="border-top:1px solid var(--border-color);margin:10px 0;padding-top:10px;">' +
+                '<label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">🟦 WinOrder (Colormetrics) – Basis-URL</label>' +
+                '<div style="display:flex;gap:6px;margin-bottom:6px;">' +
+                    '<div style="' + fieldStyle + '" id="posWinOrderUrl">' + _escPos(woUrl) + '</div>' +
+                    '<button style="' + btnStyle + '" onclick="_posCopy(document.getElementById(\'posWinOrderUrl\').textContent)">Kopieren</button>' +
+                '</div>' +
+                '<p style="font-size:11px;color:var(--slate);margin:0;">In WinOrder unter <strong>Optionen → Schnittstellen → eigener Shop</strong> diese Basis-URL eintragen (Poll-Intervall z.&nbsp;B. 30&nbsp;Sek). WinOrder ruft dann automatisch <code>/GetNewOrders</code> ab.</p>' +
+            '</div>' : '') +
             '<button onclick="if(confirm(\'Neuen Schlüssel erzeugen? Der alte wird ungültig — du musst ihn dann im Kassensystem neu eintragen.\')) showPosPullInfo(true)" style="background:none;border:none;color:#b91c1c;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;">Schlüssel neu erzeugen</button>' +
         '</div>';
 }

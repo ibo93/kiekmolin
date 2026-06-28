@@ -87,6 +87,13 @@
   to = "/en/restaurants-:city.html"
   status = 200
 
+# WinOrder-Kassen-Schnittstelle: WinOrder pollt /wo/<restaurant>/<key>/GetNewOrders
+# usw. -> wird auf die winorder-Function umgeschrieben. MUSS vor dem Catch-All stehen.
+[[redirects]]
+  from = "/wo/*"
+  to = "/.netlify/functions/winorder/:splat"
+  status = 200
+
 # Restaurant-Slug -> generierte SEO-Page (falls vorhanden), sonst SPA
 # Pretty URLs: Netlify serviert automatisch /lapiazza.html bei Aufruf /lapiazza
 # Dieser Catch-All ist der SPA-Fallback fuer Routen ohne generierte HTML-Datei.
