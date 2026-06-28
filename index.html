@@ -9830,7 +9830,11 @@
         }
 
         .menu-category-card.open .menu-category-items {
-            max-height: 2000px;
+            /* Voll aufklappen statt auf 2000px abschneiden — bei vielen Gerichten
+               (z.B. lange Pizza-Liste) waren die unteren sonst nicht erreichbar.
+               overflow:visible -> die Seite scrollt normal weiter. */
+            max-height: none;
+            overflow: visible;
             padding: 16px 24px 24px;
         }
 
