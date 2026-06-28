@@ -48600,7 +48600,8 @@ var POS_SYSTEMS = {
         name: 'WinOrder (Colormetrics)',
         needsKey: false,        // Pull: kein Key-Feld, kein Push (sendOrder fehlt absichtlich)
         pull: true,
-        helpUrl: 'https://www.winorder.com/info/funktionen/shopschnittstelle/'
+        helpUrl: 'https://www.winorder.com/info/funktionen/shopschnittstelle/',
+        helpLabel: 'WinOrder Shop-Schnittstelle: Anleitung &rarr;'
     },
     ready2order: {
         name: 'ready2order',
@@ -49309,7 +49310,7 @@ function openPOSSettings() {
             '<input id="posApiUrl" value="' + (conf.apiUrl || '') + '" placeholder="' + (currentPOS.apiUrlPlaceholder || 'https://api.example.com') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);color:var(--text-primary);font-size:14px;box-sizing:border-box;">' +
         '</div>' +
         '<div id="posHelpLink" style="margin-bottom:12px;display:' + (currentPOS.helpUrl ? 'block' : 'none') + ';">' +
-            '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">API-Zugang einrichten &rarr;</a>' +
+            '<a id="posHelpAnchor" href="' + (currentPOS.helpUrl || '#') + '" target="_blank" style="font-size:12px;color:var(--primary);text-decoration:underline;">' + (currentPOS.helpLabel || 'API-Zugang einrichten &rarr;') + '</a>' +
         '</div>' +
         '<div style="margin-bottom:10px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
             '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
@@ -49377,6 +49378,7 @@ function onPOSSystemChange() {
     if (keyInput) keyInput.placeholder = pos.keyPlaceholder || '';
     if (helpLink) helpLink.style.display = pos.helpUrl ? 'block' : 'none';
     if (helpAnchor && pos.helpUrl) helpAnchor.href = pos.helpUrl;
+    if (helpAnchor) helpAnchor.innerHTML = pos.helpLabel || 'API-Zugang einrichten &rarr;';
     var urlField = document.getElementById('posApiUrlField');
     var urlLabel = document.getElementById('posApiUrlLabel');
     var urlInput = document.getElementById('posApiUrl');
