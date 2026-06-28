@@ -54063,6 +54063,26 @@ function handleMenuScan(event) {
     }
 }
 
+// KI-Menuescanner: schickt Bild(er)/Text an die Vision-Function und bekommt
+// sauber kategorisierte Gerichte zurueck. Gibt null zurueck, wenn KI nicht
+// verfuegbar -> dann faellt der Aufrufer auf lokales OCR/Parsing zurueck.
+async function aiMenuScan(payload) {
+    try {
+        var res = await fetch('/.netlify/functions/menu-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        var j = await res.json();
+        if (j && j.ok && Array.isArray(j.items)) return j.items;
+        if (j && j.error) console.warn('[menu-scan]', j.error);
+        return null;
+    } catch (e) {
+        console.warn('[menu-scan] nicht erreichbar:', e.message);
+        return null;
+    }
+}
+
 async function startMenuScan() {
     if (!menuScanImageData) {
         showToast('Bitte zuerst eine Datei hochladen', 'error');
@@ -54075,7 +54095,31 @@ async function startMenuScan() {
     var statusEl = document.getElementById('menuScanStatus');
 
     try {
-        statusEl.textContent = 'Speisekarte wird analysiert...';
+        // 1) KI-Scanner (Vision) — erkennt UND kategorisiert deutlich besser als OCR
+        statusEl.textContent = '🤖 KI liest die Speisekarte...';
+        var images = [];
+        if (menuScanFileType === 'pdf') {
+            statusEl.textContent = 'PDF wird vorbereitet...';
+            try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
+        } else {
+            images = [menuScanImageData];
+        }
+
+        if (images && images.length) {
+            statusEl.textContent = '🤖 KI erkennt Gerichte & Kategorien...';
+            var aiItems = await aiMenuScan({ images: images.slice(0, 8) });
+            if (aiItems && aiItems.length) {
+                scannedMenuItems = aiItems;
+                scannedMenuItems.forEach(function (item) { item.selected = true; });
+                window.scannedMenuItems = scannedMenuItems;
+                showToast('🤖 ' + scannedMenuItems.length + ' Gerichte per KI erkannt!', 'success');
+                showScannedResults();
+                return;
+            }
+        }
+
+        // 2) Fallback: lokales OCR (Tesseract)
+        statusEl.textContent = 'KI nicht verfügbar — Texterkennung (OCR) läuft...';
         await startMenuScanTesseract();
     } catch (error) {
         console.error('Scan Error:', error);
@@ -54431,23 +54475,43 @@ async function handlePdfTextExtract(event) {
     event.target.value = '';
 }
 
-function scanFromText() {
+async function scanFromText() {
     var text = document.getElementById('menuScanTextInput')?.value?.trim();
     if (!text || text.length < 10) {
-        showToast('BitteSpeisekarte-Text eingeben', 'error');
+        showToast('Bitte Speisekarte-Text eingeben', 'error');
         return;
     }
-    
+
+    var prog = document.getElementById('menuScanProgress');
+    var upload = document.getElementById('menuScanUploadArea');
+    var statusEl = document.getElementById('menuScanStatus');
+    if (upload) upload.style.display = 'none';
+    if (prog) prog.style.display = 'block';
+    if (statusEl) statusEl.textContent = '🤖 KI ordnet die Gerichte ein...';
+
+    // 1) KI: erkennt Preise/Groessen und ordnet sauber in Kategorien ein
+    var aiItems = await aiMenuScan({ text: text });
+    if (aiItems && aiItems.length) {
+        scannedMenuItems = aiItems;
+        scannedMenuItems.forEach(function (item) { item.selected = true; });
+        window.scannedMenuItems = scannedMenuItems;
+        showToast('🤖 ' + scannedMenuItems.length + ' Gerichte erkannt!', 'success');
+        showScannedResults();
+        return;
+    }
+
+    // 2) Fallback: lokales Parsing
     scannedMenuItems = parseMenuText(text);
-    // ALLE standardmäßig auswählen
     scannedMenuItems.forEach(function(item) { item.selected = true; });
     window.scannedMenuItems = scannedMenuItems;
-    
+
     if (scannedMenuItems.length === 0) {
+        if (prog) prog.style.display = 'none';
+        if (upload) upload.style.display = 'block';
         showToast('Keine Gerichte erkannt. Format: "Gerichtname 12,90"', 'error');
         return;
     }
-    
+
     showToast(scannedMenuItems.length + ' Gerichte erkannt!', 'success');
     showScannedResults();
 }
