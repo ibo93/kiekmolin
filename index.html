@@ -29054,10 +29054,23 @@ function updateRestaurantStatus() {
     }
 }
 
+// Liefert das Restaurant, das die Dashboard-Steuerung betrifft:
+// Gastronom -> sein EIGENES Restaurant; Admin -> aktuell gewaehltes.
+// KEIN blinder Fallback aufs erste Restaurant (das war der Bug: alles
+// landete auf "Greetsieler Boerse").
+function getControlRestaurantId() {
+    if (window._gastroOnlyRestaurantId) return window._gastroOnlyRestaurantId;
+    if (typeof currentAdmin !== 'undefined' && currentAdmin && !currentAdmin.isAdmin && currentAdmin.restaurant_id) return currentAdmin.restaurant_id;
+    if (window.currentRestaurantId) return window.currentRestaurantId;
+    var sel = document.getElementById('ordersRestaurantSelect');
+    if (sel && sel.value && sel.value !== 'default') return sel.value;
+    return (APP_DATA.restaurants && APP_DATA.restaurants[0]) ? APP_DATA.restaurants[0].id : null;
+}
+
 // ===== Feature Toggles: Online-Bestellungen & Reservierungen =====
 async function toggleFeature(feature) {
-    // Finde aktuelles Restaurant
-    var restId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
+    // Richtiges Restaurant ermitteln (Gastronom = sein eigenes)
+    var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
 
     try {
@@ -29150,7 +29163,7 @@ function updateFeatureToggles(features) {
 }
 
 function initFeatureToggles() {
-    var restId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
+    var restId = getControlRestaurantId();
     if (!restId) return;
     var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function(r) { return r.id === restId; }) : null;
     if (appR) updateFeatureToggles(appR.features || []);
@@ -31942,6 +31955,24 @@ function checkStripeRedirect() {
 
 // ==================== ENDE STRIPE ====================
 
+// Echte Koordinaten zu einer Adresse holen (OpenStreetMap/Nominatim, kostenlos).
+// So landet ein neues Restaurant auf der Karte in seiner ECHTEN Stadt, nicht
+// pauschal in Greetsiel. Gibt {lat,lng} oder null zurueck.
+async function geocodeAddress(street, zip, city) {
+    try {
+        var q = [street, [zip, city].filter(Boolean).join(' '), 'Deutschland'].filter(Boolean).join(', ');
+        if (!q || q.length < 4) return null;
+        var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(q);
+        var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return null;
+        var data = await res.json();
+        if (data && data[0] && data[0].lat && data[0].lon) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+    } catch (e) {}
+    return null;
+}
+
 async function addCustomer(e) {
     e.preventDefault();
 
@@ -31982,11 +32013,32 @@ async function addCustomer(e) {
                 'Norddeich': { lat: 53.6108, lng: 7.1542 },
                 'Norden': { lat: 53.5967, lng: 7.2058 },
                 'Aurich': { lat: 53.4714, lng: 7.4808 },
-                'Emden': { lat: 53.3594, lng: 7.2060 }
+                'Emden': { lat: 53.3594, lng: 7.2060 },
+                'Leer': { lat: 53.2316, lng: 7.4480 },
+                'Wittmund': { lat: 53.5762, lng: 7.7795 },
+                'Esens': { lat: 53.6470, lng: 7.6120 },
+                'Wiesmoor': { lat: 53.4130, lng: 7.7340 },
+                'Dornum': { lat: 53.6470, lng: 7.4280 },
+                'Hage': { lat: 53.6090, lng: 7.2920 },
+                'Carolinensiel': { lat: 53.6900, lng: 7.7944 },
+                'Jever': { lat: 53.5740, lng: 7.9000 },
+                'Wilhelmshaven': { lat: 53.5299, lng: 8.1049 },
+                'Bensersiel': { lat: 53.6700, lng: 7.5800 },
+                'Marienhafe': { lat: 53.5230, lng: 7.2700 },
+                'Krummhörn': { lat: 53.3800, lng: 7.0200 },
+                'Pewsum': { lat: 53.3900, lng: 7.0900 }
             };
-            const coords = cityCoords[restCity] || { lat: 53.5021, lng: 7.0965 };
-            const lat = coords.lat + (Math.random() - 0.5) * 0.005;
-            const lng = coords.lng + (Math.random() - 0.5) * 0.005;
+            // Echte Koordinaten per Geocoding -> Restaurant landet in seiner ECHTEN
+            // Stadt (nicht pauschal Greetsiel). Fallback: Stadt-Liste, dann Region-Mitte.
+            let lat, lng;
+            const _geo = await geocodeAddress(restStreet, '', restCity);
+            if (_geo) {
+                lat = _geo.lat; lng = _geo.lng;
+            } else {
+                const coords = cityCoords[restCity] || { lat: 53.55, lng: 7.40 };
+                lat = coords.lat + (Math.random() - 0.5) * 0.005;
+                lng = coords.lng + (Math.random() - 0.5) * 0.005;
+            }
 
             // Restaurant in Supabase anlegen — SELBST-HEILEND: fehlt eine Spalte
             // (z.B. facebook/instagram/menu_url/whatsapp), lehnt PostgREST sonst das
@@ -34104,9 +34156,16 @@ async function submitGastroRegistration(e) {
             'Wilhelmshaven': { lat: 53.5299, lng: 8.1049 },
             'Jever': { lat: 53.5729, lng: 7.9002 }
         };
-        var coords = cityCoords[city] || { lat: 53.5, lng: 7.2 };
-        var lat = coords.lat + (Math.random() - 0.5) * 0.01;
-        var lng = coords.lng + (Math.random() - 0.5) * 0.01;
+        // Echte Koordinaten per Geocoding -> Restaurant landet in seiner ECHTEN Stadt
+        var lat, lng;
+        var _geoReg = await geocodeAddress(street, zip, city);
+        if (_geoReg) {
+            lat = _geoReg.lat; lng = _geoReg.lng;
+        } else {
+            var coords = cityCoords[city] || { lat: 53.55, lng: 7.40 };
+            lat = coords.lat + (Math.random() - 0.5) * 0.01;
+            lng = coords.lng + (Math.random() - 0.5) * 0.01;
+        }
 
         // Restaurant anlegen (is_active: false = pending)
         var restResp = await fetch(SUPABASE_URL + '/rest/v1/restaurants', {
