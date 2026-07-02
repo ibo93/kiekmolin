@@ -1,0 +1,39 @@
+# KURANI · KI-Agentur - Dauerbetrieb beider Dienste auf einem Server
+#
+#   docker compose up -d          beide Dienste starten
+#   docker compose logs -f        Live-Protokoll
+#   docker compose pull/build     nach einem git pull neu bauen
+#
+# Voraussetzung: die .env-Dateien sind ausgefuellt
+# (telefon-retter/.env und sichtbarkeit/.env - siehe .env.example dort).
+# Anleitung fuer den Server: DAUERBETRIEB.md
+
+services:
+  telefon-retter:
+    build:
+      context: .
+      dockerfile: telefon-retter/Dockerfile
+    env_file: telefon-retter/.env
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./telefon-retter/logs:/app/telefon-retter/logs
+    restart: unless-stopped
+
+  agentur:
+    build:
+      context: .
+      dockerfile: agentur/Dockerfile
+    env_file: sichtbarkeit/.env
+    environment:
+      # Status-Abfrage geht im Compose-Netz direkt zum Nachbar-Container
+      TELEFON_URL: http://telefon-retter:3100
+    ports:
+      - "3200:3200"
+    volumes:
+      # Kunden-Historie, Reports und Aufbereitung ueberleben Container-Neustarts
+      - ./sichtbarkeit/data:/app/sichtbarkeit/data
+      - ./sichtbarkeit/reports:/app/sichtbarkeit/reports
+      - ./sichtbarkeit/aufbereitung:/app/sichtbarkeit/aufbereitung
+      - ./telefon-retter/logs:/app/telefon-retter/logs:ro
+    restart: unless-stopped
