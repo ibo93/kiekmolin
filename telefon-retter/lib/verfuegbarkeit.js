@@ -7,6 +7,23 @@
 // Telefon-Reservierungen laufen damit durch DIESELBE Pruefung wie online -
 // kein Doppel-Booking. Wenn die App-Logik sich aendert, hier nachziehen.
 
+// Lokales Datum (JJJJ-MM-TT) - bewusst NICHT toISOString(), das waere UTC
+// und wuerde nachts zwischen 0 und 2 Uhr deutscher Zeit den Vortag liefern.
+function lokalesDatum(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// "9:00", "19.30", "19" -> "09:00", "19:30", "19:00"
+function normalisiereUhrzeit(uhrzeit) {
+  const s = String(uhrzeit || '').trim();
+  let m = s.match(/^(\d{1,2})[:.](\d{2})/);
+  if (m) return m[1].padStart(2, '0') + ':' + m[2];
+  m = s.match(/^(\d{1,2})$/);
+  if (m) return m[1].padStart(2, '0') + ':00';
+  return s.slice(0, 5);
+}
+
 function minutenAbziehen(zeit, minuten) {
   const [h, m] = zeit.split(':').map(Number);
   let gesamt = h * 60 + m - minuten;
@@ -54,7 +71,7 @@ function slotsFuer(restaurant) {
 //   tischanzahl:    aktive Tische (0 => Fallback 13, wie in der App)
 function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jetzt) {
   const alleSlots = slotsFuer(restaurant);
-  const slotZeit = String(uhrzeit).slice(0, 5);
+  const slotZeit = normalisiereUhrzeit(uhrzeit);
   const gesamtTische = tischanzahl > 0 ? tischanzahl : 13;
   jetzt = jetzt || new Date();
 
@@ -85,7 +102,7 @@ function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jet
     .filter((r) => r.status !== 'blocked')
     .map((r) => (r.reservation_time ? r.reservation_time.slice(0, 5) : ''));
 
-  const heute = jetzt.toISOString().slice(0, 10);
+  const heute = lokalesDatum(jetzt);
   const istHeute = datum === heute;
 
   const freiUm = (zeit) => {
@@ -124,4 +141,4 @@ function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jet
   return { frei: false, grund: 'Um ' + slotZeit + ' Uhr ist leider alles belegt.', alternativen };
 }
 
-module.exports = { slotsFuer, pruefeSlot, minutenAbziehen };
+module.exports = { slotsFuer, pruefeSlot, minutenAbziehen, lokalesDatum, normalisiereUhrzeit };

@@ -75,6 +75,8 @@ class AnrufSitzung {
   }
 
   async gastSagte(satz) {
+    // Nach der Verabschiedung (kurz vor dem Auflegen) kein neues Gespraech starten
+    if (this.dialog && this.dialog.beendet) return;
     this.log('GAST: ' + satz);
 
     // Barge-in: Gast spricht, waehrend wir sprechen -> eigene Ausgabe stoppen

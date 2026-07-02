@@ -15,7 +15,7 @@
 //   - Jede Bestellung wird komplett vorgelesen und muss bestaetigt werden.
 //   - Quelle wird als 'telefon' markiert.
 
-const { pruefeSlot } = require('./verfuegbarkeit');
+const { pruefeSlot, lokalesDatum, normalisiereUhrzeit } = require('./verfuegbarkeit');
 
 const WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
@@ -30,8 +30,7 @@ function euro(betrag) {
 }
 
 function datumHeute() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return lokalesDatum();
 }
 
 // --- Werkzeug-Definitionen fuer Claude -------------------------------------------
@@ -320,7 +319,7 @@ class DialogSitzung {
       this.daten.anzahlAktiveTische(this.restaurant.id)
     ]);
     const ergebnis = pruefeSlot(this.restaurant, reservierungen, tische, datum, uhrzeit);
-    if (ergebnis.frei) this.letztePruefung = datum + ' ' + String(uhrzeit).slice(0, 5);
+    if (ergebnis.frei) this.letztePruefung = datum + ' ' + normalisiereUhrzeit(uhrzeit);
     return {
       frei: ergebnis.frei,
       grund: ergebnis.grund,
@@ -343,7 +342,7 @@ class DialogSitzung {
     const ergebnis = await this.daten.neueReservierung({
       restaurant_id: this.restaurant.id,
       reservation_date: datum,
-      reservation_time: String(uhrzeit).slice(0, 5),
+      reservation_time: normalisiereUhrzeit(uhrzeit),
       guest_name: gast_name,
       guest_phone: telefon || this.anrufer || null,
       party_size: parseInt(personen, 10) || 2,
@@ -352,7 +351,7 @@ class DialogSitzung {
       notes: hinweise ? '[Telefon] ' + hinweise : '[Telefon]'
     });
     if (!ergebnis.ok) return { gespeichert: false, fehler: 'Speichern fehlgeschlagen (' + ergebnis.status + '). Biete einen Rueckruf an.' };
-    return { gespeichert: true, reservierung: { datum, uhrzeit: String(uhrzeit).slice(0, 5), personen, name: gast_name } };
+    return { gespeichert: true, reservierung: { datum, uhrzeit: normalisiereUhrzeit(uhrzeit), personen, name: gast_name } };
   }
 
   async toolRueckruf({ telefon, name, anliegen }) {
