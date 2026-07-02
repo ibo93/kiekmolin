@@ -41,9 +41,36 @@ function erkenneKategorie(restaurant) {
   return { label: 'Restaurant', gericht: 'Essen', nennform: 'ein Restaurant', superlativ: 'bestes restaurant', empfehlungsfrage: 'Welches Restaurant' };
 }
 
+// Feste Kunden-Fragenliste aus kunden/*.json (falls vorhanden).
+// So bekommt jeder Kunde massgeschneiderte Suchfragen, die trotzdem jeden
+// Monat identisch bleiben. Matching per restaurant_id oder slug/name.
+function ladeKundenFragen(restaurant) {
+  const fs = require('fs');
+  const path = require('path');
+  const ordner = path.join(__dirname, '..', 'kunden');
+  if (!fs.existsSync(ordner)) return null;
+  for (const datei of fs.readdirSync(ordner).filter((f) => f.endsWith('.json'))) {
+    let konf;
+    try { konf = JSON.parse(fs.readFileSync(path.join(ordner, datei), 'utf8')); } catch (_e) { continue; }
+    const passt =
+      (konf.restaurant_id && String(konf.restaurant_id) === String(restaurant.id)) ||
+      (konf.slug && restaurant.slug && konf.slug === restaurant.slug) ||
+      (konf.name && normalisiere(konf.name) === normalisiere(restaurant.name));
+    if (passt && Array.isArray(konf.fragen) && konf.fragen.length) {
+      return {
+        kategorie: konf.kategorie || erkenneKategorie(restaurant).label,
+        fragen: konf.fragen.map((f, i) => (typeof f === 'string' ? { id: 'kunde-' + (i + 1), frage: f } : f))
+      };
+    }
+  }
+  return null;
+}
+
 // Die Standard-Fragenliste pro Betrieb. Bewusst kurz (6 Fragen):
 // lieber wenige Fragen sauber jeden Monat testen als 50 einmalig.
 function suchfragen(restaurant) {
+  const kundenFragen = ladeKundenFragen(restaurant);
+  if (kundenFragen) return kundenFragen;
   const stadt = restaurant.city || 'Ostfriesland';
   const kat = erkenneKategorie(restaurant);
   const katKlein = kat.label.toLowerCase();
@@ -60,4 +87,4 @@ function suchfragen(restaurant) {
   return { kategorie: kat.label, fragen };
 }
 
-module.exports = { suchfragen, erkenneKategorie };
+module.exports = { suchfragen, erkenneKategorie, ladeKundenFragen };

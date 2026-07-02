@@ -62,6 +62,12 @@ Pro Betrieb wird jeden Monat **dieselbe** Fragenliste getestet
 
 - „beste pizzeria in Emden", „wo essen in Norden", „Pizza in Emden bestellen", …
 
+**Maßgeschneiderte Fragen pro Kunde:** eine Datei `kunden/<kunde>.json`
+anlegen (Matching per `restaurant_id`, `slug` oder `name`) – dann gilt deren
+Fragenliste statt der automatischen. Beispiel liegt bei:
+`kunden/greetsieler-boerse.json` (Pilotkunde). Fragen nicht umformulieren,
+sonst stimmt der Vormonats-Vergleich nicht mehr – lieber neue hinzufügen.
+
 Geprüft wird pro Frage:
 
 1. **Google** – taucht der Betrieb in den Top 10 auf? (Custom-Search-API)
