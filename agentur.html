@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>KURANI · Agentur</title>
+<!--
+  KURANI · Agentur-App - ALLES IN EINER DATEI (wie die Kiek-mol-in-App).
+  Einfach im Browser oeffnen. Laedt die Kunden direkt aus Supabase,
+  erzeugt den Monats-Report im Browser, Historie liegt im localStorage.
+  API-Keys (Claude / Google) traegt man einmal oben ein - sie bleiben
+  NUR in diesem Browser (localStorage), gehen nie an einen Server.
+-->
+<style>
+  :root { --akzent: #f59e0b; --tinte: #111; --grau: #666; --linie: #e4e4e4; --bg: #fafafa; }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: var(--tinte); background: var(--bg); }
+  header { background: #111; color: #fff; padding: 18px 28px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header .marke { font-size: 13px; letter-spacing: 3px; }
+  header .marke b { color: var(--akzent); }
+  header .untertitel { font-size: 12px; color: #aaa; }
+  header .hinweis { margin-left: auto; font-size: 11px; border: 1px solid #444; color: #ccc; padding: 3px 10px; border-radius: 999px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  h2 { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin: 26px 0 12px;
+       border-left: 4px solid var(--akzent); padding-left: 10px; }
+  .karte { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 20px; }
+  .keys { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+  .keys label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); display: block; margin-bottom: 4px; }
+  .keys input { width: 100%; padding: 9px 12px; border: 1px solid var(--linie); border-radius: 8px; font-size: 13px; }
+  .keys .ok { font-size: 12px; color: #16a34a; }
+  .suche { width: 100%; padding: 12px 16px; font-size: 15px; border: 1px solid var(--linie); border-radius: 10px; margin-bottom: 14px; background: #fff; }
+  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .kunde { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 18px; cursor: pointer; }
+  .kunde:hover { border-color: var(--akzent); }
+  .kunde h3 { font-size: 16px; margin-bottom: 2px; }
+  .kunde .meta { font-size: 12.5px; color: var(--grau); }
+  .kunde .zeile { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12.5px; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: #f1f1f1; }
+  .badge.akzent { background: var(--akzent); color: #fff; }
+  button.aktion { font-size: 14px; padding: 10px 18px; border-radius: 999px; border: none; cursor: pointer; background: var(--tinte); color: #fff; }
+  button.aktion.primaer { background: var(--akzent); }
+  button.aktion:disabled { opacity: .5; cursor: wait; }
+  .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
+  .status { font-size: 13px; color: var(--grau); margin: 10px 0; min-height: 18px; }
+  .status.fehler { color: #b00; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); border-bottom: 2px solid var(--tinte); padding: 6px 8px; }
+  td { border-bottom: 1px solid var(--linie); padding: 9px 8px; }
+  td a { color: var(--tinte); font-weight: 600; cursor: pointer; }
+  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
+  .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
+  .kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .kopf h3 { font-size: 22px; }
+  @media (max-width: 800px) { .keys { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="marke">K U R A N I &nbsp;·&nbsp; <b>AGENTUR</b></div>
+  <div class="untertitel">KI-Sichtbarkeit · Gestaltung, die man fühlt.</div>
+  <div class="hinweis" id="verbindung">verbinde…</div>
+</header>
+<main>
+  <h2>Deine API-Schlüssel <span style="text-transform:none;letter-spacing:0;color:var(--grau)">(bleiben nur in diesem Browser)</span></h2>
+  <div class="karte keys">
+    <div>
+      <label>Claude-Key (console.anthropic.com) – für den KI-Test</label>
+      <input id="keyClaude" type="password" placeholder="sk-ant-…">
+    </div>
+    <div>
+      <label>Google-API-Key – für den Google-Test</label>
+      <input id="keyGoogle" type="password" placeholder="AIza…">
+    </div>
+    <div>
+      <label>Google-Suchmaschinen-ID (CSE)</label>
+      <input id="keyCse" placeholder="a1b2c3…">
+    </div>
+    <div>
+      <button class="aktion" onclick="keysSpeichern()">Speichern</button>
+      <div class="ok" id="keysOk"></div>
+    </div>
+  </div>
+
+  <div id="listeAnsicht">
+    <h2>Kunden</h2>
+    <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)" oninput="zeichneKunden()">
+    <div class="kunden" id="kundenListe"><div class="leer">Lade Kunden…</div></div>
+  </div>
+
+  <div id="detailAnsicht" style="display:none">
+    <h2>Kunde</h2>
+    <div class="karte">
+      <button class="zurueck" onclick="zeigeListe()">← zurück zur Kundenliste</button>
+      <div class="kopf">
+        <h3 id="dName"></h3>
+        <span class="badge" id="dKategorie"></span>
+        <span style="font-size:13px;color:var(--grau)" id="dMeta"></span>
+      </div>
+      <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap">
+        <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
+      </div>
+      <div class="status" id="dStatus"></div>
+      <h2>Report-Historie <span style="text-transform:none;letter-spacing:0;color:var(--grau)">(gespeichert in diesem Browser)</span></h2>
+      <div id="dHistorie"></div>
+      <h2>Suchfragen (jeden Monat identisch)</h2>
+      <ol class="fragen" id="dFragen"></ol>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+// ==================== SUPABASE (wie in der Kiek-mol-in-App) ====================
+var SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+
+async function supaGet(pfad) {
+  var r = await fetch(SUPABASE_URL + '/rest/v1/' + pfad, { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } });
+  if (!r.ok) throw new Error('Supabase ' + r.status);
+  return r.json();
+}
+
+// ==================== KUNDEN-FRAGEN (feste Listen pro Kunde) ====================
+// Gleiche Daten wie sichtbarkeit/kunden/*.json - hier eingebaut.
+var KUNDEN_FRAGEN = {
+  '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad': {
+    kategorie: 'Restaurant · Norddeutsche Küche & Fisch',
+    fragen: ['bestes fischrestaurant in greetsiel', 'restaurant greetsiel', 'wo essen in greetsiel',
+      'krabben essen in greetsiel', 'restaurant greetsiel mit terrasse am wasser', 'Greetsieler Börse',
+      'Welches Restaurant in Greetsiel kannst du empfehlen?', 'Wo kann ich in Greetsiel gut norddeutsch essen?']
+  }
+};
+
+// Automatische Fragen (gleiche Logik wie sichtbarkeit/lib/fragen.js)
+var KATEGORIEN = [
+  { s: ['pizza','pizzeria','italienisch'], label: 'Pizzeria', gericht: 'Pizza', superlativ: 'beste pizzeria', frage: 'Welche Pizzeria' },
+  { s: ['doener','döner','tuerkisch','türkisch','kebab'], label: 'Döner-Imbiss', gericht: 'Döner', superlativ: 'bester döner', frage: 'Welchen Döner-Imbiss' },
+  { s: ['fisch','krabben','meeresfrüchte','meeresfruechte','seafood'], label: 'Fischrestaurant', gericht: 'Fisch', superlativ: 'bestes fischrestaurant', frage: 'Welches Fischrestaurant' },
+  { s: ['griechisch','gyros','souvlaki','taverne'], label: 'Griechisches Restaurant', gericht: 'Gyros', superlativ: 'bestes griechisches restaurant', frage: 'Welches griechische Restaurant' },
+  { s: ['cafe','café','kaffee','bistro','konditorei','eiscafe','eiscafé'], label: 'Café', gericht: 'Kuchen', superlativ: 'bestes café', frage: 'Welches Café' },
+  { s: ['asiatisch','sushi','china','thai','vietnam'], label: 'Asiatisches Restaurant', gericht: 'Sushi', superlativ: 'bestes asiatisches restaurant', frage: 'Welches asiatische Restaurant' }
+];
+function norm(s) { return String(s||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss'); }
+function kategorieVon(r) {
+  var text = norm((r.cuisine||'') + ' ' + (Array.isArray(r.cuisine_type)?r.cuisine_type.join(' '):'') + ' ' + r.name);
+  for (var i=0;i<KATEGORIEN.length;i++) if (KATEGORIEN[i].s.some(function(k){return text.includes(norm(k));})) return KATEGORIEN[i];
+  return { label: 'Restaurant', gericht: 'Essen', superlativ: 'bestes restaurant', frage: 'Welches Restaurant' };
+}
+function suchfragen(r) {
+  var fest = KUNDEN_FRAGEN[r.id];
+  if (fest) return { kategorie: fest.kategorie, fragen: fest.fragen.map(function(f,i){return {id:'kunde-'+(i+1), frage:f};}) };
+  var stadt = r.city || 'Ostfriesland', k = kategorieVon(r), kl = k.label.toLowerCase();
+  return { kategorie: k.label, fragen: [
+    { id:'beste-kategorie-stadt', frage: k.superlativ + ' in ' + stadt },
+    { id:'kategorie-stadt', frage: kl + ' ' + stadt },
+    { id:'wo-essen', frage: 'wo essen in ' + stadt },
+    { id:'gericht-stadt', frage: k.gericht + ' in ' + stadt + ' bestellen' },
+    { id:'name-direkt', frage: norm(r.name).includes(norm(stadt)) ? r.name : r.name + ' ' + stadt },
+    { id:'empfehlung-ki', frage: k.frage + ' in ' + stadt + ' kannst du empfehlen?' }
+  ]};
+}
+
+// ==================== KEYS (nur localStorage) ====================
+function keysLaden() {
+  document.getElementById('keyClaude').value = localStorage.getItem('kmi_ag_claude') || '';
+  document.getElementById('keyGoogle').value = localStorage.getItem('kmi_ag_google') || '';
+  document.getElementById('keyCse').value = localStorage.getItem('kmi_ag_cse') || '';
+  zeigeKeyStatus();
+}
+function keysSpeichern() {
+  localStorage.setItem('kmi_ag_claude', document.getElementById('keyClaude').value.trim());
+  localStorage.setItem('kmi_ag_google', document.getElementById('keyGoogle').value.trim());
+  localStorage.setItem('kmi_ag_cse', document.getElementById('keyCse').value.trim());
+  zeigeKeyStatus();
+}
+function zeigeKeyStatus() {
+  var c = !!localStorage.getItem('kmi_ag_claude'), g = !!(localStorage.getItem('kmi_ag_google') && localStorage.getItem('kmi_ag_cse'));
+  document.getElementById('keysOk').textContent = (c?'✓ Claude ':'') + (g?'✓ Google':'') || 'ohne Keys: Tests = „manuell prüfen"';
+}
+
+// ==================== HISTORIE (localStorage) ====================
+function monatsSchluessel(d) { d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+var MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+function monatsLabel(m) { var t=m.split('-'); return MONATE[parseInt(t[1],10)-1]+' '+t[0]; }
+function histKey(id) { return 'kmi_ag_hist_' + id; }
+function histLaden(id) { try { return JSON.parse(localStorage.getItem(histKey(id))||'{}'); } catch(e){ return {}; } }
+function histSpeichern(id, monat, daten) { var h=histLaden(id); h[monat]=daten; localStorage.setItem(histKey(id), JSON.stringify(h)); }
+function vormonatVon(id, monat) {
+  var h=histLaden(id), keys=Object.keys(h).filter(function(k){return k<monat;}).sort();
+  return keys.length ? { monat: keys[keys.length-1], daten: h[keys[keys.length-1]] } : null;
+}
+
+// ==================== CHECKS (laufen direkt im Browser) ====================
+async function checkGoogle(frage, r) {
+  var key=localStorage.getItem('kmi_ag_google'), cse=localStorage.getItem('kmi_ag_cse');
+  if (!key||!cse) return { status:'manuell', detail:'Google-Keys oben eintragen – bis dahin manuell googeln' };
+  try {
+    var a = await fetch('https://www.googleapis.com/customsearch/v1?key='+encodeURIComponent(key)+'&cx='+encodeURIComponent(cse)+'&num=10&q='+encodeURIComponent(frage));
+    if (!a.ok) throw new Error('HTTP '+a.status);
+    var d = await a.json(), items = d.items||[];
+    var platz = items.findIndex(function(t){ return norm((t.title||'')+' '+(t.snippet||'')+' '+(t.link||'')).includes(norm(r.name)) || (r.slug && String(t.link||'').includes(r.slug)); });
+    return platz>=0 ? { status:'gefunden', detail:'Platz '+(platz+1)+' in den Top 10', platz:platz+1 } : { status:'nicht-gefunden', detail:'Nicht in den Top 10' };
+  } catch(e) { return { status:'fehler', detail:'Google-API: '+e.message }; }
+}
+async function checkKI(frage, r) {
+  var key=localStorage.getItem('kmi_ag_claude');
+  if (!key) return { status:'manuell', detail:'Claude-Key oben eintragen – bis dahin Frage manuell in ChatGPT stellen' };
+  try {
+    var a = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'x-api-key':key, 'anthropic-version':'2023-06-01', 'content-type':'application/json', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model:'claude-sonnet-5', max_tokens:1024,
+        tools:[{ type:'web_search_20250305', name:'web_search', max_uses:3 }],
+        messages:[{ role:'user', content:'Du bist ein normaler Nutzer und suchst ein Lokal. Antworte kurz mit konkreten Empfehlungen (Namen). Frage: '+frage }] })
+    });
+    if (!a.ok) throw new Error('HTTP '+a.status);
+    var d = await a.json();
+    var text = (d.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n');
+    var da = norm(text).includes(norm(r.name));
+    return { status: da?'gefunden':'nicht-gefunden', detail: da?'Betrieb wird in der KI-Antwort empfohlen':'Betrieb taucht in der KI-Antwort nicht auf', antwortAuszug: text.slice(0,600) };
+  } catch(e) { return { status:'fehler', detail:'Claude-API: '+e.message }; }
+}
+async function checkKiekmolin(r) {
+  try {
+    var html = await (await fetch('https://kiekmolin.de/' + (r.slug||''))).text();
+    if (norm(html).includes(norm(r.name))) {
+      var ld = html.indexOf('application/ld+json') > -1;
+      return { status:'gefunden', detail: ld ? 'Auf kiekmolin.de gelistet, Schema.org vorhanden' : 'Gelistet, aber ohne Schema.org', jsonLd: ld };
+    }
+    return { status:'nicht-gefunden', detail:'Auf kiekmolin.de nicht auffindbar' };
+  } catch(e) { return { status:'manuell', detail:'kiekmolin.de/'+(r.slug||'')+' bitte kurz selbst öffnen (Browser blockt die Prüfung)' }; }
+}
+
+// ==================== AUSWERTUNG + REPORT (wie sichtbarkeit/lib/report.js) ====================
+function quote(erg) {
+  var g=0,t=0;
+  erg.fragen.forEach(function(f){ [f.google,f.ki].forEach(function(s){ if(s.status==='gefunden'||s.status==='nicht-gefunden'){t++; if(s.status==='gefunden')g++;} }); });
+  return { getestet:t, gefunden:g, prozent: t?Math.round(g/t*100):null };
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function chip(c){ var m={'gefunden':['gefunden','ok'],'nicht-gefunden':['nicht gefunden','nein'],'manuell':['manuell prüfen','man'],'fehler':['Fehler','man']}[c.status]||['?','man'];
+  return '<span class="chip '+m[1]+'" title="'+esc(c.detail||'')+'">'+m[0]+(c.platz?' · Platz '+c.platz:'')+'</span>'; }
+function naechsteSchritte(erg) {
+  var s=[];
+  if (erg.basis.status!=='gefunden') s.push('Eintrag auf kiekmolin.de prüfen – das ist die Basis für alles Weitere.');
+  var gv = erg.fragen.filter(function(f){return f.google.status==='nicht-gefunden';}).length;
+  if (gv) s.push('Google-Business-Profil optimieren (Kategorien, Fotos, Beiträge) – bei '+gv+' von '+erg.fragen.length+' Suchfragen noch nicht in den Top 10.');
+  var kv = erg.fragen.filter(function(f){return f.ki.status==='nicht-gefunden';}).length;
+  if (kv) s.push('Maschinenlesbare Inhalte stärken (Beschreibung, Speisekarte als Text, Schema.org) – bei '+kv+' von '+erg.fragen.length+' KI-Fragen nicht genannt.');
+  var man = erg.fragen.filter(function(f){return f.google.status==='manuell'||f.ki.status==='manuell';}).length;
+  if (man) s.push('API-Keys oben in der Agentur-App eintragen, damit alle Tests automatisch laufen ('+man+' Frage(n) diesen Monat „manuell prüfen").');
+  if (!s.length) s.push('Stand halten: Bewertungen beantworten, monatlich 1–2 Google-Beiträge, Fotos aktuell halten.');
+  return s;
+}
+function reportHtml(r, kategorie, monat, erg, vormonat) {
+  var q = quote(erg), trend = '';
+  if (vormonat && vormonat.daten.quote && vormonat.daten.quote.prozent!=null && q.prozent!=null) {
+    var diff = q.prozent - vormonat.daten.quote.prozent;
+    trend = diff>0 ? '<span class="trend ok">+'+diff+' Punkte gegenüber '+monatsLabel(vormonat.monat)+'</span>'
+          : diff<0 ? '<span class="trend nein">'+diff+' Punkte gegenüber '+monatsLabel(vormonat.monat)+'</span>'
+          : '<span class="trend neutral">unverändert gegenüber '+monatsLabel(vormonat.monat)+'</span>';
+  } else trend = '<span class="trend neutral">erster Report – ab nächstem Monat mit Vergleich</span>';
+  var zeilen = erg.fragen.map(function(f){ return '<tr><td>„'+esc(f.frage)+'“</td><td>'+chip(f.google)+'</td><td>'+chip(f.ki)+'</td></tr>'; }).join('');
+  var auszuege = erg.fragen.filter(function(f){return f.ki.antwortAuszug;}).map(function(f){
+    return '<div class="auszug"><div class="af">„'+esc(f.frage)+'“</div><div>'+esc(f.ki.antwortAuszug)+'</div></div>'; }).join('');
+  return '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>KI-Sichtbarkeit · '+esc(r.name)+'</title><style>'+
+    ':root{--akzent:#f59e0b;--grau:#666;--linie:#e2e2e2}*{box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;color:#111;max-width:800px;margin:0 auto;padding:48px 32px;line-height:1.55}'+
+    'header{border-bottom:3px solid #111;padding-bottom:16px;margin-bottom:32px}.marke{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--grau)}h1{font-size:30px;margin:8px 0 2px}'+
+    '.unter{color:var(--grau);font-size:14px}.vertraulich{float:right;font-size:11px;color:var(--grau);border:1px solid var(--linie);padding:2px 8px;border-radius:3px}'+
+    'h2{font-size:15px;letter-spacing:1.5px;text-transform:uppercase;margin:36px 0 12px;border-left:4px solid var(--akzent);padding-left:10px}'+
+    '.kacheln{display:flex;gap:16px}.kachel{flex:1;border:1px solid var(--linie);border-radius:6px;padding:16px 18px}.wert{font-size:34px;font-weight:700;color:var(--akzent)}.label{font-size:12px;color:var(--grau);text-transform:uppercase;letter-spacing:1px}'+
+    'table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--grau);border-bottom:2px solid #111;padding:6px 8px}td{border-bottom:1px solid var(--linie);padding:9px 8px;vertical-align:top}'+
+    '.chip{display:inline-block;font-size:12px;padding:2px 9px;border-radius:10px;white-space:nowrap}.chip.ok{background:var(--akzent);color:#fff}.chip.nein{background:#f0f0f0;color:#333;border:1px solid #ccc}.chip.man{background:#fff;color:var(--grau);border:1px dashed #bbb}'+
+    '.trend{font-size:13px}.trend.ok{color:var(--akzent);font-weight:600}.trend.nein{color:#b00;font-weight:600}.trend.neutral{color:var(--grau)}'+
+    '.auszug{border:1px solid var(--linie);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#333}.af{font-weight:600;margin-bottom:4px}'+
+    'ol li{margin-bottom:8px}.hinweis{font-size:12px;color:var(--grau);border-top:1px solid var(--linie);margin-top:40px;padding-top:14px}footer{margin-top:28px;font-size:12px;color:var(--grau);display:flex;justify-content:space-between}'+
+    '.drucken{position:fixed;top:14px;right:14px;background:#111;color:#fff;border:none;border-radius:999px;padding:10px 18px;font-size:13px;cursor:pointer}@media print{.drucken{display:none}body{padding:0}}'+
+    '</style></head><body>'+
+    '<button class="drucken" onclick="window.print()">Als PDF sichern / Drucken</button>'+
+    '<header><span class="vertraulich">vertraulich</span><div class="marke">Kurani · KI-Sichtbarkeit</div><h1>'+esc(r.name)+'</h1>'+
+    '<div class="unter">'+esc(kategorie)+(r.city?' · '+esc(r.city):'')+' · Monats-Report '+monatsLabel(monat)+'</div></header>'+
+    '<h2>Wo stehst du</h2><div class="kacheln">'+
+    '<div class="kachel"><div class="wert">'+(q.prozent==null?'–':q.prozent+'%')+'</div><div class="label">Sichtbarkeits-Quote</div>'+trend+'</div>'+
+    '<div class="kachel"><div class="wert" style="color:#111">'+q.gefunden+'<span style="font-size:18px;color:var(--grau)"> / '+q.getestet+'</span></div><div class="label">Tests mit Treffer</div><span class="trend neutral">automatisch getestete Suchfragen</span></div></div>'+
+    '<h2>Basis-Check</h2><table><tr><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr>'+
+    '<tr><td>Eintrag auf kiekmolin.de</td><td>'+chip(erg.basis)+'</td><td>'+esc(erg.basis.detail)+'</td></tr></table>'+
+    '<h2>Suchfragen im Test</h2><table><tr><th style="width:50%">Suchfrage</th><th>Google</th><th>KI-Assistent</th></tr>'+zeilen+'</table>'+
+    (auszuege?'<h2>So antwortet die KI (Auszüge)</h2>'+auszuege:'')+
+    '<h2>Was kommt nächsten Monat</h2><ol>'+naechsteSchritte(erg).map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ol>'+
+    '<div class="hinweis"><strong>Transparenz statt Versprechen:</strong> Sichtbarkeit bei Google und KI-Assistenten lässt sich nicht garantieren – niemand kann seriös „Platz 1“ zusagen. Dieser Report zeigt jeden Monat mit denselben Suchfragen, wo der Betrieb steht und in welche Richtung es sich entwickelt. „Manuell prüfen“-Fragen fließen nicht in die Quote ein.</div>'+
+    '<footer><span>Kurani Design · Bahnhofstr. 2 · 26506 Norden</span><span>Gestaltung, die man fühlt.</span></footer></body></html>';
+}
+
+// ==================== OBERFLAECHE ====================
+var kunden = [], aktuell = null;
+
+async function ladeKunden() {
+  try {
+    kunden = await supaGet('restaurants?is_active=eq.true&select=*&order=name');
+    document.getElementById('verbindung').textContent = '● verbunden · ' + kunden.length + ' Betriebe';
+    document.getElementById('verbindung').style.color = '#7fdc9a';
+  } catch(e) {
+    // Kein Netz / Supabase nicht erreichbar -> Beispieldaten, damit man die App sehen kann
+    kunden = [
+      { id:'888dc5bc-1649-4762-a8ee-2eb1e5e1dfad', name:'Greetsieler Börse', city:'Greetsiel', cuisine:'norddeutsch, fisch', slug:'greetsieler-boerse' },
+      { id:'demo-2', name:'La Piazza Emden', city:'Emden', cuisine:'italienisch', slug:'la-piazza-emden' }
+    ];
+    document.getElementById('verbindung').textContent = 'offline – Beispieldaten (' + e.message + ')';
+  }
+  zeichneKunden();
+}
+
+function zeichneKunden() {
+  var filter = norm(document.getElementById('suche').value);
+  var html = kunden.filter(function(k){ return norm(k.name+' '+(k.city||'')).includes(filter); }).map(function(k){
+    var h = histLaden(k.id), monate = Object.keys(h).sort(), letzter = monate.length ? h[monate[monate.length-1]] : null;
+    return '<div class="kunde" onclick="zeigeKunde(\''+k.id+'\')"><h3>'+esc(k.name)+'</h3>'+
+      '<div class="meta">'+esc(suchfragen(k).kategorie)+(k.city?' · '+esc(k.city):'')+'</div>'+
+      '<div class="zeile"><span class="badge'+(monate.length?' akzent':'')+'">'+(monate.length? monate.length+' Report'+(monate.length>1?'s':'') : 'noch kein Report')+'</span>'+
+      '<span style="color:var(--grau)">'+(letzter && letzter.quote.prozent!=null ? 'Quote '+letzter.quote.prozent+'%' : '')+'</span></div></div>';
+  }).join('');
+  document.getElementById('kundenListe').innerHTML = html || '<div class="leer">Keine Kunden gefunden.</div>';
+}
+
+function zeigeKunde(id) {
+  aktuell = kunden.find(function(k){ return String(k.id)===String(id); });
+  if (!aktuell) return;
+  document.getElementById('listeAnsicht').style.display='none';
+  document.getElementById('detailAnsicht').style.display='';
+  document.getElementById('dName').textContent = aktuell.name;
+  var sf = suchfragen(aktuell);
+  document.getElementById('dKategorie').textContent = sf.kategorie;
+  document.getElementById('dMeta').textContent = [aktuell.address, aktuell.city, aktuell.phone].filter(Boolean).join(' · ');
+  document.getElementById('dStatus').textContent='';
+  document.getElementById('dFragen').innerHTML = sf.fragen.map(function(f){ return '<li>„'+esc(f.frage)+'“</li>'; }).join('');
+  zeichneHistorie();
+}
+
+function zeichneHistorie() {
+  var h = histLaden(aktuell.id), monate = Object.keys(h).sort().reverse();
+  document.getElementById('dHistorie').innerHTML = monate.length ?
+    '<table><tr><th>Monat</th><th>Quote</th><th>Report</th></tr>'+monate.map(function(m){
+      return '<tr><td>'+monatsLabel(m)+'</td><td>'+(h[m].quote.prozent!=null? h[m].quote.prozent+'% ('+h[m].quote.gefunden+'/'+h[m].quote.getestet+')':'–')+'</td>'+
+        '<td><a onclick="reportOeffnen(\''+m+'\')">öffnen</a></td></tr>';
+    }).join('')+'</table>'
+    : '<div class="leer">Noch kein Report – oben auf „Monats-Report erzeugen" klicken.</div>';
+}
+
+function reportOeffnen(monat) {
+  var h = histLaden(aktuell.id)[monat];
+  if (!h) return;
+  var w = window.open('', '_blank');
+  w.document.write(reportHtml(aktuell, suchfragen(aktuell).kategorie, monat, h.ergebnis, vormonatVon(aktuell.id, monat)));
+  w.document.close();
+}
+
+async function reportErzeugen() {
+  var btn = document.getElementById('btnReport'), status = document.getElementById('dStatus');
+  btn.disabled = true; status.className='status';
+  var sf = suchfragen(aktuell), monat = monatsSchluessel();
+  try {
+    status.textContent = 'Basis-Check läuft…';
+    var basis = await checkKiekmolin(aktuell);
+    var fragen = [];
+    for (var i=0;i<sf.fragen.length;i++) {
+      var f = sf.fragen[i];
+      status.textContent = 'Teste Frage '+(i+1)+' von '+sf.fragen.length+': „'+f.frage+'“…';
+      var beide = await Promise.all([checkGoogle(f.frage, aktuell), checkKI(f.frage, aktuell)]);
+      fragen.push({ id: f.id, frage: f.frage, google: beide[0], ki: beide[1] });
+    }
+    var ergebnis = { basis: basis, fragen: fragen };
+    var vormonat = vormonatVon(aktuell.id, monat);
+    histSpeichern(aktuell.id, monat, { quote: quote(ergebnis), ergebnis: ergebnis, erstellt: new Date().toISOString() });
+    status.textContent = 'Fertig! Quote: ' + (quote(ergebnis).prozent==null?'keine automatischen Tests (Keys oben eintragen)':quote(ergebnis).prozent+'%');
+    var w = window.open('', '_blank');
+    w.document.write(reportHtml(aktuell, sf.kategorie, monat, ergebnis, vormonat));
+    w.document.close();
+    zeichneHistorie();
+  } catch(e) {
+    status.className='status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+function zeigeListe() {
+  document.getElementById('detailAnsicht').style.display='none';
+  document.getElementById('listeAnsicht').style.display='';
+  zeichneKunden();
+}
+
+keysLaden();
+ladeKunden();
+</script>
+</body>
+</html>
