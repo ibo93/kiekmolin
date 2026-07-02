@@ -1,0 +1,128 @@
+'use strict';
+
+// Zugriff auf die Kiek-mol-in-Datenbank ueber die Supabase-REST-API.
+//
+// GOLDENE REGEL: Der Kiek-mol-in-Code wird nicht angefasst. Dieses Projekt
+// redet NUR ueber die API mit der bestehenden Datenbank und nutzt dieselben
+// Tabellen/Felder wie die Online-Reservierung und -Bestellung.
+//
+// Der anon-Key ist public-safe (steht auch in der App selbst und in
+// build-seo-pages.js). Ueber .env laesst er sich austauschen.
+
+const STANDARD_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
+const STANDARD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+
+function konfig() {
+  return {
+    url: process.env.SUPABASE_URL || STANDARD_URL,
+    key: process.env.SUPABASE_ANON_KEY || STANDARD_KEY
+  };
+}
+
+function headers() {
+  const { key } = konfig();
+  return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+}
+
+async function supabaseGet(pfadMitQuery) {
+  const { url } = konfig();
+  const antwort = await fetch(url + '/rest/v1/' + pfadMitQuery, { headers: headers() });
+  if (!antwort.ok) throw new Error('Supabase-Fehler ' + antwort.status + ' bei ' + pfadMitQuery);
+  return antwort.json();
+}
+
+// Selbst-heilender Insert - GLEICHES Muster wie in der App (index.html):
+// Fehlt eine Spalte in der Tabelle, lehnt PostgREST den ganzen Datensatz ab.
+// Wir lesen den Spaltennamen aus der Fehlermeldung, lassen die Spalte weg
+// und versuchen erneut. So bleibt z.B. das Feld 'source' optional.
+async function resilienterInsert(tabelle, payload) {
+  const { url } = konfig();
+  const body = Object.assign({}, payload);
+  let letzterStatus = 0;
+  let letzterText = '';
+  for (let versuch = 0; versuch < 18; versuch++) {
+    const antwort = await fetch(url + '/rest/v1/' + tabelle, {
+      method: 'POST',
+      headers: Object.assign({ Prefer: 'return=representation' }, headers()),
+      body: JSON.stringify(body)
+    });
+    if (antwort.ok) {
+      let daten = null;
+      try { daten = await antwort.json(); } catch (_e) { /* leer ist ok */ }
+      return { ok: true, daten: Array.isArray(daten) ? daten[0] : daten };
+    }
+    letzterStatus = antwort.status;
+    try { letzterText = await antwort.text(); } catch (_e) { letzterText = ''; }
+    const m = letzterText.match(/Could not find the '([^']+)'/) ||
+      letzterText.match(/'([^']+)' column/) ||
+      letzterText.match(/column "?([a-zA-Z_]+)"? .*does not exist/i);
+    if (antwort.status === 400 && m && m[1] && Object.prototype.hasOwnProperty.call(body, m[1])) {
+      delete body[m[1]];
+      continue;
+    }
+    break;
+  }
+  return { ok: false, status: letzterStatus, text: letzterText };
+}
+
+// --- Lesen ---------------------------------------------------------------------
+async function findeRestaurant(idOderName) {
+  if (/^[0-9a-f-]{36}$/i.test(String(idOderName))) {
+    const treffer = await supabaseGet('restaurants?id=eq.' + idOderName + '&select=*');
+    return treffer[0] || null;
+  }
+  const alle = await supabaseGet('restaurants?is_active=eq.true&select=*&order=name');
+  const s = String(idOderName).toLowerCase();
+  return (
+    alle.find((r) => (r.slug || '').toLowerCase() === s) ||
+    alle.find((r) => (r.name || '').toLowerCase() === s) ||
+    alle.find((r) => (r.name || '').toLowerCase().includes(s)) ||
+    null
+  );
+}
+
+async function speisekarte(restaurantId) {
+  return supabaseGet(
+    'menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&is_available=eq.true' +
+    '&select=name,description,base_price,price,is_popular,menu_categories(name)' +
+    '&order=sort_order'
+  );
+}
+
+// Reservierungen eines Tages - GLEICHE Status-Menge wie die Online-Pruefung
+// (confirmed, pending, blocked), damit Telefon und App dieselbe Wahrheit sehen.
+async function reservierungenAm(restaurantId, datum) {
+  return supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&reservation_date=eq.' + encodeURIComponent(datum) +
+    '&status=in.(confirmed,pending,blocked)' +
+    '&select=reservation_time,status,table_id,party_size'
+  );
+}
+
+async function anzahlAktiveTische(restaurantId) {
+  const tische = await supabaseGet(
+    'restaurant_tables?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&is_active=eq.true&select=id'
+  );
+  return Array.isArray(tische) ? tische.length : 0;
+}
+
+// --- Schreiben (nur reservations / orders / order_items - wie online) -----------
+async function neueReservierung(payload) {
+  return resilienterInsert('reservations', payload);
+}
+
+async function neueBestellung(payload) {
+  return resilienterInsert('orders', payload);
+}
+
+async function neuerBestellArtikel(payload) {
+  return resilienterInsert('order_items', payload);
+}
+
+module.exports = {
+  findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
+  neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert
+};
