@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KURANI · Agentur</title>
+<style>
+  :root { --akzent: #f59e0b; --tinte: #111; --grau: #666; --linie: #e4e4e4; --bg: #fafafa; }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: var(--tinte); background: var(--bg); }
+  header { background: #111; color: #fff; padding: 18px 28px; display: flex; align-items: baseline; gap: 14px; }
+  header .marke { font-size: 13px; letter-spacing: 3px; }
+  header .marke b { color: var(--akzent); }
+  header .untertitel { font-size: 12px; color: #aaa; }
+  header .demo { margin-left: auto; font-size: 11px; border: 1px solid #444; color: #ccc; padding: 3px 10px; border-radius: 999px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  h2 { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin: 26px 0 12px;
+       border-left: 4px solid var(--akzent); padding-left: 10px; }
+
+  /* Telefon-Retter-Karte */
+  .telefon { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 20px;
+             display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .punkt { width: 12px; height: 12px; border-radius: 50%; background: #ccc; flex: none; }
+  .punkt.an { background: #16a34a; box-shadow: 0 0 0 4px rgba(22,163,74,.15); }
+  .telefon .info { font-size: 14px; }
+  .telefon .anrufe { margin-left: auto; font-size: 12.5px; color: var(--grau); }
+  .telefon .anrufe a { color: var(--tinte); }
+
+  /* Kundenliste */
+  .suche { width: 100%; padding: 12px 16px; font-size: 15px; border: 1px solid var(--linie); border-radius: 10px;
+           margin-bottom: 14px; background: #fff; }
+  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .kunde { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 18px;
+           cursor: pointer; transition: border-color .15s; }
+  .kunde:hover { border-color: var(--akzent); }
+  .kunde h3 { font-size: 16px; margin-bottom: 2px; }
+  .kunde .meta { font-size: 12.5px; color: var(--grau); }
+  .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font-size: 12.5px; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: #f1f1f1; }
+  .badge.akzent { background: var(--akzent); color: #fff; }
+
+  /* Detail-Ansicht */
+  .detail { background: #fff; border: 1px solid var(--linie); border-radius: 12px; padding: 22px 24px; }
+  .detail .kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .detail h3 { font-size: 22px; }
+  .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
+  .knopfleiste { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
+  button.aktion { font-size: 14px; padding: 10px 18px; border-radius: 999px; border: none; cursor: pointer;
+                  background: var(--tinte); color: #fff; }
+  button.aktion.primaer { background: var(--akzent); }
+  button.aktion:disabled { opacity: .5; cursor: wait; }
+  .status { font-size: 13px; color: var(--grau); margin: 8px 0; min-height: 18px; }
+  .status.fehler { color: #b00; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau);
+       border-bottom: 2px solid var(--tinte); padding: 6px 8px; }
+  td { border-bottom: 1px solid var(--linie); padding: 9px 8px; }
+  td a { color: var(--tinte); font-weight: 600; }
+  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
+  .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
+  .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
+</style>
+</head>
+<body>
+<header>
+  <div class="marke">K U R A N I &nbsp;·&nbsp; <b>AGENTUR</b></div>
+  <div class="untertitel">Telefon-Retter + KI-Sichtbarkeit · Gestaltung, die man fühlt.</div>
+  <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
+</header>
+<main>
+  <h2>Telefon-Retter</h2>
+  <div class="telefon" id="telefonKarte">
+    <div class="punkt" id="telefonPunkt"></div>
+    <div class="info" id="telefonInfo">Prüfe Status…</div>
+    <div class="anrufe" id="telefonAnrufe"></div>
+  </div>
+
+  <div id="listeAnsicht">
+    <h2>Kunden</h2>
+    <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)">
+    <div class="kunden" id="kundenListe"></div>
+  </div>
+
+  <div id="detailAnsicht" style="display:none">
+    <h2>Kunde</h2>
+    <div class="detail">
+      <button class="zurueck" onclick="zeigeListe()">← zurück zur Kundenliste</button>
+      <div class="kopf">
+        <h3 id="dName"></h3>
+        <span class="badge" id="dKategorie"></span>
+        <span class="meta" id="dMeta" style="font-size:13px;color:var(--grau)"></span>
+      </div>
+
+      <div class="knopfleiste">
+        <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
+        <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
+      </div>
+      <div class="status" id="dStatus"></div>
+
+      <h2>Report-Historie</h2>
+      <div id="dHistorie"></div>
+
+      <h2>Suchfragen (jeden Monat identisch)</h2>
+      <ol class="fragen" id="dFragen"></ol>
+
+      <h2>Aufbereitung (Teil A)</h2>
+      <div class="dateien" id="dAufbereitung"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+let kunden = [];
+let aktuellerKunde = null;
+
+async function api(pfad, optionen) {
+  const antwort = await fetch(pfad, optionen);
+  if (!antwort.ok) throw new Error((await antwort.json().catch(() => ({}))).fehler || 'HTTP ' + antwort.status);
+  return antwort.json();
+}
+
+// ---------------- Telefon-Retter-Status ----------------
+async function ladeTelefon() {
+  try {
+    const t = await api('/api/telefon');
+    document.getElementById('telefonPunkt').className = 'punkt' + (t.laeuft ? ' an' : '');
+    document.getElementById('telefonInfo').textContent = t.laeuft
+      ? 'Läuft · betreut "' + t.restaurant + '" · Stufe ' + t.stufe
+      : 'Server ist aus (starten: cd telefon-retter && node server.js)';
+    const a = document.getElementById('telefonAnrufe');
+    a.innerHTML = t.anrufe.length
+      ? 'Letzte Anrufe: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
+      : 'Noch keine Anruf-Protokolle';
+  } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
+}
+
+// ---------------- Kundenliste ----------------
+async function ladeKunden() {
+  kunden = await api('/api/kunden');
+  zeichneKunden();
+}
+
+function zeichneKunden() {
+  const filter = (document.getElementById('suche').value || '').toLowerCase();
+  const liste = document.getElementById('kundenListe');
+  const passende = kunden.filter(k => (k.name + ' ' + k.stadt).toLowerCase().includes(filter));
+  liste.innerHTML = passende.map(k => `
+    <div class="kunde" onclick="zeigeKunde('${k.id}')">
+      <h3>${k.name}</h3>
+      <div class="meta">${k.kategorie}${k.stadt ? ' · ' + k.stadt : ''}</div>
+      <div class="zeile">
+        <span class="badge${k.reports ? ' akzent' : ''}">${k.reports ? k.reports + ' Report' + (k.reports > 1 ? 's' : '') : 'noch kein Report'}</span>
+        <span style="color:var(--grau)">${k.letzterReport && k.letzterReport.quote && k.letzterReport.quote.prozent != null ? 'Quote ' + k.letzterReport.quote.prozent + '%' : ''}</span>
+      </div>
+    </div>`).join('') || '<div class="leer">Keine Kunden gefunden.</div>';
+}
+
+// ---------------- Detail ----------------
+async function zeigeKunde(id) {
+  aktuellerKunde = await api('/api/kunde/' + encodeURIComponent(id));
+  location.hash = aktuellerKunde.id;
+  document.getElementById('listeAnsicht').style.display = 'none';
+  document.getElementById('detailAnsicht').style.display = '';
+  document.getElementById('dName').textContent = aktuellerKunde.name;
+  document.getElementById('dKategorie').textContent = aktuellerKunde.kategorie;
+  document.getElementById('dMeta').textContent = [aktuellerKunde.adresse, aktuellerKunde.stadt, aktuellerKunde.telefon].filter(Boolean).join(' · ');
+  document.getElementById('dStatus').textContent = '';
+  document.getElementById('dFragen').innerHTML = aktuellerKunde.fragen.map(f => '<li>„' + f + '"</li>').join('');
+  zeichneHistorie();
+  zeichneAufbereitung(aktuellerKunde.aufbereitung);
+}
+
+function zeichneHistorie() {
+  const h = aktuellerKunde.historie;
+  document.getElementById('dHistorie').innerHTML = h.length ? `
+    <table><tr><th>Monat</th><th>Quote</th><th>Report</th></tr>
+    ${h.map(e => `<tr>
+      <td>${e.label}</td>
+      <td>${e.quote && e.quote.prozent != null ? e.quote.prozent + '% (' + e.quote.gefunden + '/' + e.quote.getestet + ')' : '–'}</td>
+      <td>${e.html ? '<a href="' + e.html + '" target="_blank">HTML</a>' : ''} ${e.pdf ? ' · <a href="' + e.pdf + '" target="_blank">PDF</a>' : ''}</td>
+    </tr>`).join('')}</table>`
+    : '<div class="leer">Noch kein Report – oben auf „Monats-Report erzeugen" klicken.</div>';
+}
+
+function zeichneAufbereitung(dateien) {
+  document.getElementById('dAufbereitung').innerHTML = dateien.length
+    ? dateien.map(f => '<a href="/api/aufbereitung/' + aktuellerKunde.slug + '/' + f + '" target="_blank">' + f + '</a>').join('')
+    : '<div class="leer">Noch nicht erzeugt – Knopf „Aufbereitung erzeugen" nutzen.</div>';
+}
+
+function zeigeListe() {
+  location.hash = '';
+  document.getElementById('detailAnsicht').style.display = 'none';
+  document.getElementById('listeAnsicht').style.display = '';
+  ladeKunden();
+}
+
+// ---------------- Aktionen ----------------
+async function reportErzeugen() {
+  const btn = document.getElementById('btnReport');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Report wird erzeugt…';
+  try {
+    const { jobId } = await api('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    const warten = async () => {
+      const job = await api('/api/job/' + jobId);
+      if (job.status === 'laeuft') { status.textContent = job.schritt + '…'; setTimeout(warten, 2000); return; }
+      btn.disabled = false;
+      if (job.status === 'fertig') {
+        status.textContent = 'Fertig! Quote: ' + (job.quote.prozent != null ? job.quote.prozent + '%' : 'keine automatischen Tests') + ' – Report öffnet sich.';
+        window.open(job.html, '_blank');
+        zeigeKunde(aktuellerKunde.id);
+      } else {
+        status.className = 'status fehler';
+        status.textContent = 'Fehler: ' + job.fehler;
+      }
+    };
+    warten();
+  } catch (e) {
+    btn.disabled = false;
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+}
+
+async function aufbereitungErzeugen() {
+  const btn = document.getElementById('btnAufbereitung');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Aufbereitung wird erzeugt…';
+  try {
+    const r = await api('/api/aufbereitung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.textContent = 'Fertig – liegt in ' + r.ordner;
+    zeichneAufbereitung(r.dateien);
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+// ---------------- Start ----------------
+document.getElementById('suche').addEventListener('input', zeichneKunden);
+// Deep-Link: http://localhost:3200/#<kunden-id oder name> oeffnet direkt die Detail-Ansicht
+if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(1)));
+ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
+ladeTelefon();
+setInterval(ladeTelefon, 15000);
+// Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
+fetch('/api/kunden').then(r => r.json()).then(k => {
+  if (k.some(x => String(x.id).startsWith('00000000'))) document.getElementById('demoBadge').style.display = '';
+});
+</script>
+</body>
+</html>
