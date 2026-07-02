@@ -32,8 +32,12 @@ async function alleRestaurants() {
   return supabaseGet('restaurants?is_active=eq.true&select=*&order=name');
 }
 
-// Einen Betrieb per Slug ODER Namens-Teil finden
+// Einen Betrieb per ID, Slug ODER Namens-Teil finden
 async function findeRestaurant(suchbegriff) {
+  if (/^[0-9a-f-]{36}$/i.test(String(suchbegriff))) {
+    const treffer = await supabaseGet('restaurants?id=eq.' + suchbegriff + '&select=*');
+    return treffer[0] || null;
+  }
   const alle = await alleRestaurants();
   const s = String(suchbegriff).toLowerCase();
   return (
