@@ -17655,6 +17655,14 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Pendinge Gastronom-Anfragen -->
             <div id="pendingGastroRequests" style="display:none;padding:20px;background:rgba(255,255,255,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:24px;margin:24px 0;border:1px solid rgba(245,158,11,0.25);box-shadow:0 10px 30px -5px rgba(245,158,11,0.1);"></div>
 
+            <!-- Standorte korrigieren -->
+            <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+                <button onclick="regeocodeAllRestaurants()" id="regeocodeBtn" style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);border:1px solid rgba(0,61,51,0.1);font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;" title="Alle Restaurant-Standorte anhand ihrer Adresse neu berechnen">
+                    <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
+                    <span id="regeocodeBtnText">Standorte neu berechnen</span>
+                </button>
+            </div>
+
             <!-- Restaurant Cards Grid -->
             <div id="restaurantsDashList" class="rest-card-grid" style="margin-top:24px;">
                 <div style="grid-column:1/-1;padding:60px 40px;text-align:center;background:rgba(255,255,255,0.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:32px;border:1px solid rgba(255,255,255,0.8);">
@@ -31971,6 +31979,54 @@ async function geocodeAddress(street, zip, city) {
         }
     } catch (e) {}
     return null;
+}
+
+// Bestehende Restaurants anhand ihrer Adresse neu geocodieren und korrigieren
+// (fuer die, die frueher pauschal in Greetsiel gelandet sind).
+async function regeocodeAllRestaurants() {
+    var btn = document.getElementById('regeocodeBtn');
+    var txt = document.getElementById('regeocodeBtnText');
+    if (btn && btn.disabled) return;
+    if (!await kinConfirm('Alle Restaurant-Standorte anhand ihrer Adresse neu berechnen? Das kann bei vielen Restaurants ein paar Minuten dauern (ca. 1 Sek. pro Restaurant).')) return;
+    if (btn) btn.disabled = true;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name,street,zip,city,latitude,longitude&order=name', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (!res.ok) throw new Error('Restaurants laden fehlgeschlagen');
+        var list = await res.json();
+        var updated = 0, failed = 0;
+        for (var i = 0; i < list.length; i++) {
+            var r = list[i];
+            if (txt) txt.textContent = 'Berechne ' + (i + 1) + '/' + list.length + '...';
+            if (!r.city && !r.street) continue;
+            var geo = await geocodeAddress(r.street || '', r.zip || '', r.city || '');
+            if (geo && geo.lat && geo.lng) {
+                var dLat = Math.abs((r.latitude || 0) - geo.lat);
+                var dLng = Math.abs((r.longitude || 0) - geo.lng);
+                if (dLat > 0.0005 || dLng > 0.0005) {
+                    var up = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + r.id, {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ latitude: geo.lat, longitude: geo.lng })
+                    });
+                    if (up.ok) {
+                        updated++;
+                        var appR = (APP_DATA.restaurants || []).find(function (x) { return x.id === r.id; });
+                        if (appR) { appR.lat = geo.lat; appR.lng = geo.lng; appR.latitude = geo.lat; appR.longitude = geo.lng; }
+                    } else { failed++; }
+                }
+            } else { failed++; }
+            await new Promise(function (r2) { setTimeout(r2, 1100); }); // Nominatim-Etikette
+        }
+        showToast(updated + ' Standorte korrigiert' + (failed ? (', ' + failed + ' nicht gefunden') : '') + '.', 'success');
+        if (typeof renderRestaurantsDash === 'function') renderRestaurantsDash();
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (txt) txt.textContent = 'Standorte neu berechnen';
+    }
 }
 
 async function addCustomer(e) {
