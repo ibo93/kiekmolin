@@ -31967,17 +31967,20 @@ function checkStripeRedirect() {
 // So landet ein neues Restaurant auf der Karte in seiner ECHTEN Stadt, nicht
 // pauschal in Greetsiel. Gibt {lat,lng} oder null zurueck.
 async function geocodeAddress(street, zip, city) {
-    try {
-        var q = [street, [zip, city].filter(Boolean).join(' '), 'Deutschland'].filter(Boolean).join(', ');
-        if (!q || q.length < 4) return null;
-        var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(q);
-        var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        if (!res.ok) return null;
-        var data = await res.json();
-        if (data && data[0] && data[0].lat && data[0].lon) {
-            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        }
-    } catch (e) {}
+    async function _q(query) {
+        try {
+            var res = await fetch('/.netlify/functions/geocode?q=' + encodeURIComponent(query));
+            if (!res.ok) return null;
+            var j = await res.json();
+            if (j && j.ok && j.lat && j.lng) return { lat: j.lat, lng: j.lng };
+        } catch (e) {}
+        return null;
+    }
+    var full = [street, [zip, city].filter(Boolean).join(' '), 'Deutschland'].filter(Boolean).join(', ');
+    var r = (full && full.length >= 4) ? await _q(full) : null;
+    if (r) return r;
+    // Fallback: nur Stadt -> landet wenigstens in der richtigen Stadt (nicht Greetsiel)
+    if (city) { r = await _q(city + ', Ostfriesland, Deutschland'); if (r) return r; }
     return null;
 }
 
