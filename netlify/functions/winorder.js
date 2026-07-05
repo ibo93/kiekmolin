@@ -130,10 +130,15 @@ function parseBody(event) {
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
 
-    // Pfad nach 'winorder' zerlegen: /.netlify/functions/winorder/<restaurant>/<key>/<action>
-    var parts = String(event.path || '').split('/').filter(Boolean);
+    // Pfad zerlegen. Je nach Netlify-Konfiguration bekommt die Funktion entweder
+    // den ORIGINAL-Pfad (/wo/<restaurant>/<key>/<action>) ODER den umgeschriebenen
+    // (/.netlify/functions/winorder/<restaurant>/<key>/<action>). Beide unterstuetzen:
+    // hinter dem bekannten Praefix ('winorder' oder 'wo') alles als Segmente nehmen,
+    // sonst den kompletten Pfad verwenden.
+    var parts = String(event.rawUrl ? new URL(event.rawUrl).pathname : (event.path || '')).split('/').filter(Boolean);
     var idx = parts.indexOf('winorder');
-    var seg = idx >= 0 ? parts.slice(idx + 1) : [];
+    if (idx < 0) idx = parts.indexOf('wo');
+    var seg = idx >= 0 ? parts.slice(idx + 1) : parts.slice();
     var qs = event.queryStringParameters || {};
 
     var KNOWN = { getneworders: 'GetNewOrders', sendtrackingstatus: 'SendTrackingStatus', preparationtime: 'PreparationTime' };
