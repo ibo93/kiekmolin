@@ -184,6 +184,19 @@ exports.handler = async function (event) {
                 }
                 throw e;
             }
+            // WICHTIG gegen Endlos-Flut: Bestellungen SOFORT beim Ausliefern als
+            // uebertragen markieren (nicht erst auf SendTrackingStatus warten -- das
+            // wird von WinOrder nicht zuverlaessig geschickt). Nur was erfolgreich
+            // markiert werden konnte, wird ueberhaupt ausgeliefert. Kann nicht markiert
+            // werden (z.B. Schreibrecht fehlt), liefern wir NICHTS -> keine Wiederholung.
+            if (orders.length) {
+                var ids = orders.map(function (o) { return o.id; });
+                var marked = await sbPatch('orders?id=in.(' + ids.map(encodeURIComponent).join(',') + ')',
+                    { winorder_sent_at: new Date().toISOString() });
+                if (!marked) {
+                    return json(200, { OrderList: { CreateDateTime: new Date().toISOString(), Order: [] } });
+                }
+            }
             var out = { OrderList: { CreateDateTime: new Date().toISOString(), Order: orders.map(function (o) { return mapOrder(o, rest); }) } };
             return json(200, out);
         }
