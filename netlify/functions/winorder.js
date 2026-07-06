@@ -13,6 +13,9 @@
 //
 // EINMALIG in Supabase ausfuehren:
 //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS winorder_sent_at timestamptz;
+//   -- optional, fuer die Wartezeit-Anzeige im Checkout:
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_minutes int;
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_updated_at timestamptz;
 //
 // ENV optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (sonst anon-Fallback).
 
@@ -111,8 +114,11 @@ function mapOrder(o, rest) {
     // Notizen als klar erkennbarer Hinweis-Artikel oben
     var notes = [o.customer_notes, o.delivery_notes, addr.note].filter(Boolean).join(' | ');
     if (notes) articles.unshift({ ArticleNo: '', ArticleName: 'HINWEIS', ArticleSize: '', Price: 0, Count: 1, Comment: notes });
-    // Liefergebuehr als eigener Artikel, damit die Summe in WinOrder stimmt
+    // Liefergebuehr, Trinkgeld und Rabatt als eigene Artikel, damit die
+    // Artikelsumme in WinOrder dem Total der App entspricht
     if (Number(o.delivery_fee) > 0) articles.push({ ArticleNo: '', ArticleName: 'Liefergebühr', ArticleSize: '', Price: Number(o.delivery_fee), Count: 1, Comment: '' });
+    if (Number(o.tip) > 0) articles.push({ ArticleNo: '', ArticleName: 'Trinkgeld', ArticleSize: '', Price: Number(o.tip), Count: 1, Comment: '' });
+    if (Number(o.discount) > 0) articles.push({ ArticleNo: '', ArticleName: 'Rabatt', ArticleSize: '', Price: -Number(o.discount), Count: 1, Comment: '' });
 
     var nameParts = String(o.customer_name || '').trim().split(/\s+/).filter(Boolean);
     var lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : (nameParts[0] || '');
@@ -238,7 +244,22 @@ exports.handler = async function (event) {
         }
 
         if (action === 'preparationtime') {
-            // WinOrder meldet die aktuelle Vorbereitungszeit -> nur quittieren.
+            // WinOrder meldet die aktuelle Vorbereitungszeit -> speichern, damit
+            // der Checkout dem Kunden "aktuell ca. X Min" zeigen kann. Fehlen die
+            // Spalten (optional), wird trotzdem quittiert -- WinOrder darf davon
+            // nichts merken.
+            var pbody = parseBody(event);
+            var pt = pbody.PreparationTime != null ? pbody.PreparationTime
+                : (pbody.preparationtime != null ? pbody.preparationtime
+                : (pbody.Minutes != null ? pbody.Minutes : (pbody.minutes != null ? pbody.minutes : qs.minutes)));
+            if (pt && typeof pt === 'object') pt = pt.Minutes != null ? pt.Minutes : pt.minutes;
+            var minutes = parseInt(pt, 10);
+            if (isFinite(minutes) && minutes >= 0 && minutes <= 600) {
+                try {
+                    await sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant),
+                        { pos_prep_minutes: minutes, pos_prep_updated_at: new Date().toISOString() });
+                } catch (e) { /* optional -- Quittung geht trotzdem raus */ }
+            }
             return json(200, { Result: 'OK' });
         }
 
