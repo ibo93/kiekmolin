@@ -65,6 +65,31 @@ function safeEqual(a, b) {
     try { return crypto.timingSafeEqual(ha, hb); } catch (e) { return false; }
 }
 
+// delivery_address kommt aus dem Checkout als Objekt {street, house_number,
+// zip, city, note} (jsonb), aus Altdaten evtl. als String. Beides sauber in
+// die WinOrder-Adressfelder zerlegen -- sonst landet '[object Object]' bzw.
+// alles im Feld Street und WinOrder kann keine Tour/Karte zuordnen.
+function parseAddress(da) {
+    var out = { street: '', houseNo: '', zip: '', city: '', note: '' };
+    if (!da) return out;
+    if (typeof da === 'string') {
+        try { da = JSON.parse(da); } catch (e) {
+            // Freitext: "Musterstr. 12, 26506 Norden" -> Strasse/Hausnr/PLZ/Ort raten
+            var m = String(da).match(/^\s*(.*?)\s+(\d+\s*[a-zA-Z]?(?:[-\/]\d+\s*[a-zA-Z]?)?)\s*,\s*(?:(\d{5})\s+)?(.*?)\s*$/);
+            if (m) { out.street = m[1]; out.houseNo = m[2]; out.zip = m[3] || ''; out.city = m[4]; }
+            else out.street = String(da);
+            return out;
+        }
+    }
+    if (typeof da !== 'object') { out.street = String(da); return out; }
+    out.street = String(da.street || '');
+    out.houseNo = String(da.house_number || da.houseNumber || '');
+    out.zip = String(da.zip || da.postal_code || '');
+    out.city = String(da.city || '');
+    out.note = String(da.note || '');
+    return out;
+}
+
 // kiekmolin-Bestellung -> WinOrder-Order
 function mapOrder(o, rest) {
     var items = Array.isArray(o.items) ? o.items : [];
@@ -81,8 +106,10 @@ function mapOrder(o, rest) {
         return art;
     });
 
+    var addr = parseAddress(o.delivery_address);
+
     // Notizen als klar erkennbarer Hinweis-Artikel oben
-    var notes = [o.customer_notes, o.delivery_notes].filter(Boolean).join(' | ');
+    var notes = [o.customer_notes, o.delivery_notes, addr.note].filter(Boolean).join(' | ');
     if (notes) articles.unshift({ ArticleNo: '', ArticleName: 'HINWEIS', ArticleSize: '', Price: 0, Count: 1, Comment: notes });
     // Liefergebuehr als eigener Artikel, damit die Summe in WinOrder stimmt
     if (Number(o.delivery_fee) > 0) articles.push({ ArticleNo: '', ArticleName: 'Liefergebühr', ArticleSize: '', Price: Number(o.delivery_fee), Count: 1, Comment: '' });
@@ -108,7 +135,7 @@ function mapOrder(o, rest) {
         Customer: {
             DeliveryAddress: {
                 FirstName: firstName, LastName: lastName,
-                Street: String(o.delivery_address || ''), HouseNo: '', Zip: '', City: '', Country: 'DE',
+                Street: addr.street, HouseNo: addr.houseNo, Zip: addr.zip, City: addr.city, Country: 'DE',
                 PhoneNo: String(o.customer_phone || ''), EMail: String(o.customer_email || ''), Company: '', Title: ''
             }
         },
