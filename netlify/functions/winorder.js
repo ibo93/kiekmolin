@@ -16,6 +16,8 @@
 //   -- optional, fuer die Wartezeit-Anzeige im Checkout:
 //   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_minutes int;
 //   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_updated_at timestamptz;
+//   -- optional, fuer die Kassen-Ampel im Dashboard (Kasse online/offline):
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_last_poll_at timestamptz;
 //
 // ENV optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (sonst anon-Fallback).
 
@@ -149,6 +151,34 @@ function mapOrder(o, rest) {
     };
 }
 
+// WinOrder-Trackingstatus -> kiekmolin-Bestellstatus. WinOrder schickt je nach
+// Version Klartext oder Zahlencodes; beides tolerant deuten. Unbekanntes wird
+// ignoriert (dann bleibt der Status wie er ist). Zahlencodes werden bewusst
+// NIE auf 'cancelled' gemappt -- ein faelschlich stornierter Eindruck beim
+// Kunden waere der schlimmste Fehldeutungs-Fall.
+function mapTrackingStatus(raw) {
+    if (raw == null) return '';
+    if (typeof raw === 'object') raw = raw.Status != null ? raw.Status : (raw.status != null ? raw.status : '');
+    var s = String(raw).trim().toLowerCase();
+    if (!s) return '';
+    if (/^\d+$/.test(s)) {
+        return ({ '0': 'accepted', '1': 'preparing', '2': 'out_for_delivery', '3': 'delivered' })[s] || '';
+    }
+    if (/cancel|storn|ablehn|abgelehnt|declin|reject/.test(s)) return 'cancelled';
+    if (/delivered|geliefert|zugestellt|abgeschlossen|complete|finish/.test(s)) return 'delivered';
+    if (/deliver|unterwegs|transit|fahrer|tour|versand|shipped|route/.test(s)) return 'out_for_delivery';
+    if (/ready|fertig|abholbereit/.test(s)) return 'ready';
+    if (/prepar|zubereit|kitchen|koch|produktion/.test(s)) return 'preparing';
+    if (/accept|angenommen|bestaetigt|confirm/.test(s)) return 'accepted';
+    return '';
+}
+
+// Reihenfolge der Stati -- Updates aus der Kasse duerfen nie rueckwaerts gehen
+// (z.B. 'delivered' nicht wieder auf 'preparing' zuruecksetzen).
+var TRACK_RANK = { received: 0, accepted: 1, preparing: 2, ready: 3, out_for_delivery: 4, delivered: 5, picked_up: 5 };
+// Zeitstempel-Spalten wie im Gastro-Dashboard (updateOrderStatus)
+var TRACK_TS = { preparing: 'preparing_at', ready: 'ready_at', out_for_delivery: 'out_for_delivery_at', delivered: 'completed_at', cancelled: 'cancelled_at' };
+
 function parseBody(event) {
     var raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '');
     if (!raw) return {};
@@ -205,6 +235,14 @@ exports.handler = async function (event) {
         return json(500, { error: 'Auth-Pruefung fehlgeschlagen: ' + e.message });
     }
 
+    // Lebenszeichen der Kasse stempeln -> Dashboard-Ampel "Kasse online/offline".
+    // Darf die Antwort nicht kaputt machen: Spalte pos_last_poll_at ist optional,
+    // sbPatch liefert bei fehlender Spalte nur false (kein throw).
+    try {
+        await sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant),
+            { pos_last_poll_at: new Date().toISOString() });
+    } catch (e) {}
+
     try {
         if (action === 'getneworders') {
             var orders;
@@ -239,6 +277,31 @@ exports.handler = async function (event) {
             var oid = body.OrderID || body.orderID || body.orderid || qs.OrderID || qs.orderid;
             if (oid) {
                 await sbPatch('orders?id=eq.' + encodeURIComponent(oid), { winorder_sent_at: new Date().toISOString() });
+
+                // Status aus der Kasse in die App uebernehmen -> der Kunde sieht
+                // den Fortschritt (in Zubereitung / unterwegs / geliefert) im
+                // Bestell-Tracking automatisch, ohne dass das Personal in der
+                // kiekmolin-App klicken muss.
+                var rawStatus = body.TrackingStatus != null ? body.TrackingStatus
+                    : (body.trackingstatus != null ? body.trackingstatus
+                    : (body.Status != null ? body.Status
+                    : (body.status != null ? body.status : body.OrderStatus)));
+                var mapped = mapTrackingStatus(rawStatus);
+                if (mapped) {
+                    try {
+                        var cur = await sbGet('orders?id=eq.' + encodeURIComponent(oid) + '&select=id,status');
+                        var curStatus = cur.length ? String(cur[0].status || '') : '';
+                        var curRank = TRACK_RANK[curStatus] != null ? TRACK_RANK[curStatus] : -1;
+                        var newRank = TRACK_RANK[mapped] != null ? TRACK_RANK[mapped] : -1;
+                        var allowed = cur.length && curStatus !== 'cancelled' &&
+                            (mapped === 'cancelled' ? curRank < 5 : newRank > curRank);
+                        if (allowed) {
+                            var upd = { status: mapped };
+                            if (TRACK_TS[mapped]) upd[TRACK_TS[mapped]] = new Date().toISOString();
+                            await sbPatch('orders?id=eq.' + encodeURIComponent(oid), upd);
+                        }
+                    } catch (e) { /* Status-Sync ist Bonus -- Quittung geht trotzdem raus */ }
+                }
             }
             return json(200, { Result: 'OK', trackingstatus: 0 });
         }

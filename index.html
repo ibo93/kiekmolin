@@ -17716,6 +17716,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="printerStatusText" style="color:#00251e;">Drucker prüfen…</span>
                         </div>
+                        <div id="kasseStatusBadge" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
+                            <span id="kasseStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
+                            <span id="kasseStatusText" style="color:#00251e;">Kasse prüfen…</span>
+                        </div>
                         <button onclick="openPOSSettings()" class="order-action-btn" title="Kassensystem verbinden" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;">
                             <span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span>
                             Kasse
@@ -42522,6 +42526,16 @@ async function openMenuModal(restaurantId) {
             if (hasPickup) metaParts.push(_t2.pickup || 'Abholung');
             if (hasDelivery) metaParts.push(_t2.delivery || 'Lieferung');
             if (hasDineIn) metaParts.push('Hier essen');
+            // Aktuelle Wartezeit aus der Kasse (WinOrder PreparationTime) direkt
+            // auf der Speisekarte zeigen -- der Kunde soll es VOR dem Bestellen
+            // sehen, nicht erst im Checkout. Nur wenn die Meldung frisch ist (< 3 Std).
+            try {
+                var _pp = Number(restaurant.pos_prep_minutes);
+                if (_pp > 0 && restaurant.pos_prep_updated_at &&
+                    (Date.now() - new Date(restaurant.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000) {
+                    metaParts.push('⏱ aktuell ca. ' + _pp + ' Min.');
+                }
+            } catch(e) {}
             metaEl.textContent = metaParts.length > 0 ? metaParts.join(' · ') : restaurant.city || '';
         }
     }
@@ -48276,22 +48290,71 @@ function _renderPrinterStatus(lastPollIso) {
     badge.title = msg;
 }
 
+// Kassen-Ampel (WinOrder-Pull): gleiche Logik wie die Drucker-Ampel, aber auf
+// Basis von restaurants.pos_last_poll_at (stempelt die winorder-Function bei
+// jedem Abruf). Hat die Kasse NIE gepollt, bleibt das Badge versteckt --
+// nicht jedes Restaurant nutzt WinOrder.
+function _renderKasseStatus(lastPollIso) {
+    var badge = document.getElementById('kasseStatusBadge');
+    var dot = document.getElementById('kasseStatusDot');
+    var text = document.getElementById('kasseStatusText');
+    if (!badge || !dot || !text) return;
+
+    if (!lastPollIso) { badge.style.display = 'none'; return; }
+    var lastMs = new Date(lastPollIso).getTime();
+    if (isNaN(lastMs)) { badge.style.display = 'none'; return; }
+    badge.style.display = 'flex';
+    var ageSec = Math.max(0, Math.round((Date.now() - lastMs) / 1000));
+
+    var label, color, border, msg;
+    if (ageSec < 120) {
+        color = '#16a34a'; border = 'rgba(22,163,74,0.5)';
+        label = 'Kasse online (' + (ageSec < 60 ? ageSec + 's' : Math.round(ageSec/60) + ' Min') + ')';
+        msg = 'WinOrder hat vor ' + ageSec + ' Sekunden Bestellungen abgerufen — Verbindung aktiv.';
+    } else if (ageSec < 600) {
+        color = '#ca8a04'; border = 'rgba(202,138,4,0.5)';
+        label = 'Kasse langsam (' + Math.round(ageSec/60) + ' Min)';
+        msg = 'Letzter WinOrder-Abruf vor ' + Math.round(ageSec/60) + ' Minuten. Falls Bestellungen fehlen: Abruf-Intervall in WinOrder prüfen (empfohlen ca. 30 Sek).';
+    } else {
+        color = '#dc2626'; border = 'rgba(220,38,38,0.5)';
+        var minStr = ageSec < 3600 ? Math.round(ageSec/60) + ' Min' : Math.round(ageSec/3600) + ' Std';
+        label = 'Kasse offline (' + minStr + ')';
+        msg = 'WinOrder ruft seit ' + minStr + ' nicht ab — neue Bestellungen kommen NICHT an der Kasse an! Prüfe Kassen-Terminal, Netzwerk und die Schnittstellen-URL in WinOrder.';
+    }
+    dot.style.background = color;
+    text.textContent = label;
+    text.style.color = color;
+    badge.style.borderColor = border;
+    badge.title = msg;
+}
+
 async function refreshPrinterStatus() {
     var sel = document.getElementById('ordersRestaurantSelect');
     var restId = sel ? sel.value : '';
     if (!restId || restId === 'default') {
         var badge = document.getElementById('printerStatusBadge');
         if (badge) badge.style.display = 'none';
+        var kBadge = document.getElementById('kasseStatusBadge');
+        if (kBadge) kBadge.style.display = 'none';
         return;
     }
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+        // pos_last_poll_at ist eine optionale Spalte -- fehlt sie, wuerde der
+        // kombinierte Select mit 400 fehlschlagen und auch die Drucker-Ampel
+        // lahmlegen. Deshalb: erst kombiniert versuchen, dann Fallback.
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at,pos_last_poll_at', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+            res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            if (!res.ok) return;
+        }
         var data = await res.json();
         if (data && data[0]) {
             _renderPrinterStatus(data[0].printer_last_poll_at || null);
+            _renderKasseStatus(data[0].pos_last_poll_at || null);
         }
     } catch(e) { /* silent */ }
 }
