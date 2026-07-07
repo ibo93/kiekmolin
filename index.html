@@ -35631,11 +35631,24 @@ function checkRestaurantSlugURL() {
         window._qrTableNumber = parseInt(tableFromURL);
         window._qrDineIn = true;
     }
+    // Bewertungs-Deep-Link (?review=1, kommt aus dem "Hat's geschmeckt?"-Push):
+    // nach dem Oeffnen des Restaurants direkt das Bewertungs-Modal zeigen
+    var wantsReview = urlParams.get('review') === '1';
+
     // Warte bis Restaurants geladen sind, dann öffne
     var checkInterval = setInterval(function() {
         if (APP_DATA.restaurants && APP_DATA.restaurants.length > 0) {
             clearInterval(checkInterval);
             openRestaurantBySlug(slug);
+            if (wantsReview) {
+                setTimeout(function() {
+                    try {
+                        var _s = slug.toLowerCase().trim();
+                        var _rr = APP_DATA.restaurants.find(function(r) { return r.slug === _s || r.id === _s; });
+                        if (_rr && typeof openReviewsModal === 'function') openReviewsModal('restaurant', _rr.id, _rr.name);
+                    } catch(e) {}
+                }, 1800);
+            }
         }
     }, 300);
 
@@ -45333,6 +45346,18 @@ async function submitOrder() {
         if (_orderRes.ok) {
             order.id = (_orderRes.data && _orderRes.data[0] && _orderRes.data[0].id) || order.id;
 
+            // Bestellbestaetigung per E-Mail (fire-and-forget). Die Function
+            // macht ohne RESEND_API_KEY nichts -- kostet hier also nie etwas.
+            try {
+                if (order.customer_email && String(order.id).indexOf('temp-') !== 0) {
+                    fetch('/.netlify/functions/order-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: order.id })
+                    }).catch(function() {});
+                }
+            } catch(e) {}
+
             // Order Items speichern (sekundaer – Dashboard nutzt sonst die items-Spalte)
             var _failedItems = 0;
             for (const item of orderCart) {
@@ -47161,8 +47186,19 @@ function acceptOrder(orderId) {
         `;
     }
 
-    // Standard-Zeit je nach Typ
-    const defaultTime = order.order_type === 'delivery' ? 45 : 25;
+    // Standard-Zeit je nach Typ -- hat die Kasse gerade eine frische
+    // Vorbereitungszeit gemeldet (WinOrder PreparationTime), gewinnt die:
+    // naechstgelegene Button-Option vorauswaehlen statt der Pauschale.
+    var defaultTime = order.order_type === 'delivery' ? 45 : 25;
+    try {
+        var _ar = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function(r) { return r.id === order.restaurant_id; });
+        var _pm = _ar ? Number(_ar.pos_prep_minutes) : 0;
+        if (_pm > 0 && _ar.pos_prep_updated_at &&
+            (Date.now() - new Date(_ar.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000) {
+            var _opts = Array.prototype.map.call(document.querySelectorAll('.time-option-btn'), function(b) { return parseInt(b.dataset.time); }).filter(function(t) { return !isNaN(t); });
+            if (_opts.length) defaultTime = _opts.reduce(function(best, t) { return Math.abs(t - _pm) < Math.abs(best - _pm) ? t : best; }, _opts[0]);
+        }
+    } catch(e) {}
     document.querySelectorAll('.time-option-btn').forEach(btn => {
         btn.classList.remove('selected');
         if (parseInt(btn.dataset.time) === defaultTime) {
