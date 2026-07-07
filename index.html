@@ -1336,6 +1336,20 @@
           </div>
         </div>
 
+        <!-- Morgen-Briefing: erscheint vormittags einmal taeglich, bis angetippt oder weggewischt -->
+        <div id="briefingBanner" onclick="openMorgenBriefing()" style="display:none;cursor:pointer;margin-bottom:14px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,rgba(245,166,35,0.16),rgba(245,194,90,0.06));border:1px solid rgba(245,194,90,0.35);align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:38px;height:38px;border-radius:12px;background:rgba(245,194,90,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="var(--gold-light)" style="width:20px;height:20px"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0-5h0l1 3h-2l1-3zm0 20l-1-3h2l-1 3zM2 12l3-1v2l-3-1zm20 0l-3 1v-2l3 1zM4.9 4.9l2.8 1.4-1.4 1.4L4.9 4.9zm14.2 14.2l-2.8-1.4 1.4-1.4 1.4 2.8zM4.9 19.1l1.4-2.8 1.4 1.4-2.8 1.4zM19.1 4.9l-1.4 2.8-1.4-1.4 2.8-1.4z"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:700">Dein Morgen-Briefing ist fertig</div>
+              <div id="briefingBannerSub" style="font-size:12px;color:var(--text-dim);margin-top:2px">Antippen – The Chef liest dir den Tag vor.</div>
+            </div>
+            <button onclick="event.stopPropagation();dismissBriefing()" aria-label="Ausblenden" style="background:none;border:none;color:var(--text-faint);font-size:18px;cursor:pointer;padding:4px 6px;line-height:1">×</button>
+          </div>
+        </div>
+
         <div class="today-card glass">
           <div class="today-head">
             <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg>
@@ -7013,13 +7027,131 @@
     const t = reminderToday(), hm = reminderNowHM();
     if(reminderState.morning && hm >= reminderState.morning && reminderState.lastM !== t){
       reminderState.lastM = t; saveReminders();
-      reminderNotify('Guten Morgen, Chef!', 'HACCP-Temperaturen eintragen nicht vergessen.');
+      reminderNotify('Guten Morgen, Chef!', buildMorgenBriefing().pushText);
     }
     if(reminderState.evening && hm >= reminderState.evening && reminderState.lastE !== t){
       reminderState.lastE = t; saveReminders();
       reminderNotify('Feierabend naht', 'Tagesabschluss machen & Beleg scannen?');
     }
   }
+  // ===== Morgen-Briefing · The Chef fasst den Tag zusammen, bevor er losgeht =====
+  // Alles aus echten Daten: MHD, kritischer Bestand, gestriger Umsatz, Schichten,
+  // offene Bestellungen. Kein einziger erfundener Wert.
+  function briefingYesterdayKey(){
+    const d = new Date(); d.setDate(d.getDate()-1);
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+  function buildMorgenBriefing(){
+    const sections = [];   // { icon, title, text, action?:{label, fn} }
+    const spokenParts = [];
+
+    // 1) Verderbliches zuerst - das kostet sonst Geld
+    const expiring = lagerData.filter(r => { const d = daysUntilMhd(r); return d !== null && d <= 1; });
+    if(expiring.length){
+      const names = expiring.slice(0,3).map(r=>r.name).join(', ');
+      sections.push({ icon:'clock', title: expiring.length === 1 ? '1 Artikel läuft ab' : expiring.length + ' Artikel laufen ab',
+        text: names + (expiring.length>3 ? ' u.a.' : '') + ' – heute verarbeiten, sonst wird\'s Verlust.',
+        action: { label:'Reste-Retter öffnen', fn:'openResteRetter()' } });
+      spokenParts.push(expiring.length === 1
+        ? names + ' läuft heute oder morgen ab – am besten heute verarbeiten.'
+        : expiring.length + ' Artikel laufen ab: ' + names + (expiring.length>3?' und weitere':'') + '. Am besten heute verarbeiten.');
+    }
+
+    // 2) Kritischer Bestand
+    const critical = lagerData.filter(r => r.status === 'low' && !orderedItems.includes(r.name));
+    if(critical.length){
+      const names = critical.slice(0,3).map(r=>r.name).join(', ');
+      sections.push({ icon:'cart', title: critical.length + ' Artikel kritisch',
+        text: names + (critical.length>3 ? ' u.a.' : '') + ' – Nachbestell-Liste ist fertig gebündelt.',
+        action: { label:'Nachbestellen', fn:'openNachbestellung()' } });
+      spokenParts.push(critical.length === 1
+        ? names + ' ist fast leer – Nachbestellung ist vorbereitet.'
+        : critical.length + ' Artikel sind fast leer, zum Beispiel ' + names + '. Die Nachbestell-Liste ist fertig.');
+    }
+
+    // 3) Gestriger Umsatz (nur wenn erfasst)
+    const gestern = verkaufLog[briefingYesterdayKey()];
+    if(gestern && gestern.umsatz > 0){
+      const topDish = Object.keys(gestern.items||{}).sort((a,b)=>(gestern.items[b]||0)-(gestern.items[a]||0))[0];
+      sections.push({ icon:'chart', title: 'Gestern: ' + euro(gestern.umsatz),
+        text: topDish ? ('Bestes Gericht: ' + topDish + ' (' + gestern.items[topDish] + '×).') : 'Umsatz aus den gebuchten Verkäufen.' });
+      spokenParts.push('Gestern hast du ' + euro(gestern.umsatz).replace('€','') + ' Euro gemacht' + (topDish ? (', am besten lief ' + topDish) : '') + '.');
+    }
+
+    // 4) Schichten heute
+    const shiftTxt = todayShiftSentence();
+    sections.push({ icon:'team', title:'Schichtplan', text: shiftTxt,
+      action: { label:'Schichtplan öffnen', fn:'openPersonal()' } });
+    spokenParts.push(shiftTxt);
+
+    // 5) Bestellungen unterwegs
+    if(orderedItems.length){
+      sections.push({ icon:'truck', title: orderedItems.length + ' Bestellung(en) unterwegs',
+        text: orderedItems.slice(0,3).join(', ') + (orderedItems.length>3?' u.a.':'') + ' – beim Wareneingang einfach abhaken.',
+        action: { label:'Bestellungen', fn:'openBestellungen()' } });
+      spokenParts.push(orderedItems.length + ' Bestellungen sind unterwegs.');
+    }
+
+    // Alles ruhig?
+    if(!expiring.length && !critical.length){
+      spokenParts.unshift('Sieht gut aus heute: nichts läuft ab, nichts ist kritisch.');
+    }
+
+    const spoken = 'Guten Morgen! ' + spokenParts.join(' ') + ' Guten Service!';
+    // Kurzer Text fuer die Push-Nachricht (max ~120 Zeichen)
+    const pushBits = [];
+    if(expiring.length) pushBits.push(expiring.length + '× läuft ab');
+    if(critical.length) pushBits.push(critical.length + '× kritisch');
+    if(gestern && gestern.umsatz > 0) pushBits.push('gestern ' + euro(gestern.umsatz));
+    const pushText = pushBits.length ? ('Dein Briefing: ' + pushBits.join(' · ') + ' – antippen zum Anhören.') : 'Alles im grünen Bereich – dein Briefing wartet in der App.';
+    return { sections, spoken, pushText };
+  }
+  const BRIEFING_ICONS = {
+    clock:'<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 110 16 8 8 0 010-16zm-1 3v6l4 2.4.8-1.4-3.3-2V7H11z"/>',
+    cart:'<path d="M7 4h-.6L5.2 1.6 3.4 2.4 4.6 5H4a1 1 0 00-1 1.2l1.6 8A2 2 0 006.6 16H17a2 2 0 002-1.9l.9-7A1 1 0 0019 6H6.2l-.5-1H7V4zm-.5 16a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm10 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/>',
+    chart:'<path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-6 6-4-4-7 7 1.4 1.4z"/>',
+    team:'<path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/>',
+    truck:'<path d="M2 6a2 2 0 012-2h10v8H2V6zm14 1h3l3 3v4h-2.2a2.5 2.5 0 01-4.6 0H16V7zM6.5 16a2 2 0 100 4 2 2 0 000-4zm11 0a2 2 0 100 4 2 2 0 000-4z"/>'
+  };
+  let _briefingSpoken = '';
+  function speakBriefing(){ if(_briefingSpoken) speak(_briefingSpoken, true); }
+  function openMorgenBriefing(){
+    localStorage.setItem('chef_briefing_seen', reminderToday());
+    const bb = document.getElementById('briefingBanner'); if(bb) bb.style.display = 'none';
+    const b = buildMorgenBriefing();
+    _briefingSpoken = b.spoken;
+    const rows = b.sections.map(s => `
+      <div class="inv-row" style="cursor:${s.action?'pointer':'default'}" ${s.action?('onclick="closeSheet();'+s.action.fn+'"'):''}>
+        <div class="inv-emoji"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em">${BRIEFING_ICONS[s.icon]||BRIEFING_ICONS.chart}</svg></div>
+        <div style="flex:1;min-width:0"><div class="inv-name">${escHtml(s.title)}</div><div class="inv-meta" style="white-space:normal;line-height:1.45">${escHtml(s.text)}</div></div>
+        ${s.action ? '<div class="inv-right" style="color:var(--gold-light);font-size:12px;font-weight:700;white-space:nowrap">' + escHtml(s.action.label) + ' ›</div>' : ''}
+      </div>`).join('');
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0-5h0l1 3h-2l1-3zm0 20l-1-3h2l-1 3zM2 12l3-1v2l-3-1zm20 0l-3 1v-2l3 1zM4.9 4.9l2.8 1.4-1.4 1.4L4.9 4.9zm14.2 14.2l-2.8-1.4 1.4-1.4 1.4 2.8zM4.9 19.1l1.4-2.8 1.4 1.4-2.8 1.4zM19.1 4.9l-1.4 2.8-1.4-1.4 2.8-1.4z"/></svg> Morgen-Briefing';
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">${new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})} · alles aus deinen echten Daten.</p>
+      <button class="btn-primary" onclick="speakBriefing()" style="margin-bottom:14px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1A9 9 0 0014 3.2z"/></svg> Briefing anhören</button>
+      <div class="list-card glass">${rows}</div>`;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function dismissBriefing(){
+    localStorage.setItem('chef_briefing_seen', reminderToday());
+    const bb = document.getElementById('briefingBanner'); if(bb) bb.style.display = 'none';
+  }
+  // Banner vormittags einmal taeglich zeigen (5-12 Uhr), solange nicht gesehen
+  function maybeShowBriefing(){
+    const h = new Date().getHours();
+    if(h < 5 || h >= 12) return;
+    if(localStorage.getItem('chef_briefing_seen') === reminderToday()) return;
+    const bb = document.getElementById('briefingBanner'); if(!bb) return;
+    const b = buildMorgenBriefing();
+    const sub = document.getElementById('briefingBannerSub');
+    if(sub) sub.textContent = b.pushText.replace(' – antippen zum Anhören.','').replace('Dein Briefing: ','') || 'Antippen – The Chef liest dir den Tag vor.';
+    bb.style.display = 'block';
+  }
+  setTimeout(function(){ try{ maybeShowBriefing(); }catch(e){} }, 400);
+
   let _reminderTimer = null;
   function setupReminders(){
     if(_reminderTimer){ clearInterval(_reminderTimer); _reminderTimer = null; }
