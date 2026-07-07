@@ -4355,6 +4355,8 @@
 
       <div class="onboard-label" style="margin-top:0">Umsatz heute (€)</div>
       <input type="number" class="onboard-input" id="taUmsatz" min="0" step="1" value="${tagesDaten.umsatz||''}" placeholder="0" style="margin-bottom:10px">
+      <div class="onboard-label">Gäste heute</div>
+      <input type="number" class="onboard-input" id="taGaeste" min="0" step="1" value="${tagesDaten.gaeste||''}" placeholder="0" style="margin-bottom:10px">
 
       <div class="list-card glass" style="margin-bottom:12px"><div class="inv-row" style="cursor:default">
         <div class="inv-emoji" style="background:${hac>=HACCP_ZONES.length?'rgba(34,197,94,0.14)':'rgba(245,158,11,0.14)'};color:${hac>=HACCP_ZONES.length?'var(--green)':'var(--orange)'}"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M12 2a3 3 0 00-3 3v8.1a5 5 0 103.99 0V5a3 3 0 00-3-3z"/></svg></div>
@@ -4675,9 +4677,9 @@
         } else if (act === 'edit') {
           openLagerItem(idx);
         } else if (act === 'ask') {
-          navTo('chat');
+          navTo('ki');
           setTimeout(() => {
-            const ti = document.getElementById('chatInput');
+            const ti = document.getElementById('kiTextInput');
             if (ti) { ti.value = 'Was sagst du zu ' + item.name + '?'; ti.focus(); }
           }, 300);
         }
