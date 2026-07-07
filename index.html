@@ -23109,6 +23109,20 @@ async function loadFromSupabase() {
     }
 }
 
+// Reservierungs-E-Mail an den Gast (Eingang/Bestaetigung/Absage) -- fire-and-
+// forget. Die Function prueft selbst, ob eine Gast-E-Mail vorliegt, und macht
+// ohne RESEND_API_KEY gar nichts.
+function sendReservationEmail(reservationId, eventType) {
+    try {
+        if (!reservationId || String(reservationId).indexOf('-') < 0) return;
+        fetch('/.netlify/functions/order-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservation_id: reservationId, event: eventType || 'received' })
+        }).catch(function() {});
+    } catch(e) {}
+}
+
 async function saveReservationToSupabase(reservation) {
     if (!useSupabase) {
         console.error('Supabase nicht aktiv');
@@ -23157,6 +23171,9 @@ async function saveReservationToSupabase(reservation) {
             // WICHTIG: Auch in lokales Array für Kalender/Tischplan
             if (savedRes && savedRes.length > 0) {
                 const r = savedRes[0];
+
+                // Eingangs-E-Mail an den Gast (macht ohne guest_email/Key nichts)
+                sendReservationEmail(r.id, 'received');
                 const localRes = {
                     id: r.id,
                     date: r.reservation_date,
@@ -26403,6 +26420,8 @@ async function rejectDashReservation(resId, restaurantId) {
                     })
                 });
                 showToast('Reservierung abgelehnt' + (reason ? ': ' + reason : ''), 'info');
+                // Absage-E-Mail an den Gast
+                if (typeof sendReservationEmail === 'function') sendReservationEmail(resId, 'cancelled');
                 if (restaurantId) loadReservationsForRestaurant(restaurantId);
                 if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
             } catch(e) {
@@ -34584,6 +34603,10 @@ async function updateReservationStatus(reservationId, newStatus) {
             if (result && result.success !== false) {
                 var statusLabels = { confirmed: 'Bestätigt', seated: 'Sitzt', cancelled: 'Storniert', finished: 'Fertig', pending: 'Ausstehend' };
                 showToast('Status: ' + (statusLabels[newStatus] || newStatus), 'success');
+                // E-Mail an den Gast bei Bestaetigung/Absage
+                if (newStatus === 'confirmed' || newStatus === 'cancelled') {
+                    if (typeof sendReservationEmail === 'function') sendReservationEmail(reservationId, newStatus);
+                }
                 var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
                 if (customer.restaurant_id) loadGastroReservations(customer.restaurant_id);
                 if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
@@ -34606,6 +34629,9 @@ async function updateReservationStatus(reservationId, newStatus) {
         });
         if (patchResp.ok) {
             showToast('Status aktualisiert', 'success');
+            if (newStatus === 'confirmed' || newStatus === 'cancelled') {
+                if (typeof sendReservationEmail === 'function') sendReservationEmail(reservationId, newStatus);
+            }
             var customer2 = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
             if (customer2.restaurant_id) loadGastroReservations(customer2.restaurant_id);
         } else {

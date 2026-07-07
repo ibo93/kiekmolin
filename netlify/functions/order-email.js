@@ -1,16 +1,21 @@
-// Bestellbestaetigung per E-Mail an den Kunden (via Resend, https://resend.com).
+// Bestell- und Reservierungs-E-Mails an den Kunden (via Resend, https://resend.com).
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Aufruf vom Frontend direkt nach dem Speichern der Bestellung:
+// Aufrufe vom Frontend (fire-and-forget):
 //   POST /.netlify/functions/order-email   Body: { "order_id": "<uuid>" }
+//     -> Bestellbestaetigung
+//   POST /.netlify/functions/order-email   Body: { "reservation_id": "<uuid>", "event": "received" }
+//     -> Reservierungsanfrage eingegangen (event auch: "confirmed" | "cancelled")
 //
 // Verhalten:
 //   - OHNE RESEND_API_KEY macht die Function NICHTS (200, {skipped:true}) --
 //     gefahrlos deploybar, aktiviert sich erst mit dem Key.
-//   - Duplikatschutz ueber orders.confirmation_email_sent_at: die Spalte wird
-//     atomar "beansprucht" (PATCH ... where sent_at is null). Fehlt die Spalte,
-//     wird trotzdem gesendet (das Frontend ruft nur einmal pro Bestellung an).
+//   - Duplikatschutz ueber confirmation_email_sent_at (orders bzw. reservations,
+//     nur beim Eingang): Spalte wird atomar "beansprucht". Fehlt die Spalte,
+//     wird trotzdem gesendet (das Frontend ruft nur einmal pro Ereignis an).
+//   - Bestaetigt/Abgelehnt-Mails haben keinen Spalten-Schutz -- sie werden
+//     durch die explizite Aktion des Gastronomen ausgeloest.
 //
 // ENV:
 //   RESEND_API_KEY   (Pflicht fuer den Versand; ohne -> still inaktiv)
@@ -20,6 +25,7 @@
 //
 // EMPFOHLEN einmalig in Supabase:
 //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at timestamptz;
+//   ALTER TABLE reservations ADD COLUMN IF NOT EXISTS confirmation_email_sent_at timestamptz;
 
 'use strict';
 
@@ -105,6 +111,114 @@ function buildEmail(o) {
     };
 }
 
+// Reservierungs-E-Mail: r = reservations-Zeile, rest = {name, street, city, phone}
+function buildReservationEmail(r, rest, eventType) {
+    var restName = (rest && rest.name) || 'das Restaurant';
+    var dateStr = r.reservation_date;
+    try {
+        dateStr = new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('de-DE',
+            { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {}
+    var timeStr = String(r.reservation_time || '').slice(0, 5);
+
+    var head, intro, color;
+    if (eventType === 'confirmed') {
+        head = 'Reservierung bestätigt ✅';
+        intro = 'gute Nachricht: ' + esc(restName) + ' hat deine Reservierung bestätigt. Wir freuen uns auf dich!';
+        color = '#16a34a';
+    } else if (eventType === 'cancelled') {
+        head = 'Reservierung leider nicht möglich';
+        intro = 'leider kann ' + esc(restName) + ' deine Reservierung zu diesem Zeitpunkt nicht annehmen. ' +
+            'Versuch es gern mit einer anderen Uhrzeit' + ((rest && rest.phone) ? ' oder ruf direkt an: <a href="tel:' + esc(rest.phone) + '" style="color:#003d33;">' + esc(rest.phone) + '</a>' : '') + '.';
+        color = '#b91c1c';
+    } else {
+        head = 'Reservierungsanfrage eingegangen 📩';
+        intro = 'deine Reservierungsanfrage bei ' + esc(restName) + ' ist eingegangen. Das Restaurant bestätigt sie so schnell wie möglich — du bekommst dann noch eine E-Mail.';
+        color = '#003d33';
+    }
+
+    function row(label, val) {
+        return '<tr><td style="padding:6px 12px 6px 0;color:#6b7280;white-space:nowrap;">' + label + '</td>' +
+            '<td style="padding:6px 0;font-weight:600;">' + val + '</td></tr>';
+    }
+    var details = '<table style="border-collapse:collapse;font-size:14px;margin:16px 0;">' +
+        row('Restaurant', esc(restName)) +
+        row('Datum', esc(dateStr)) +
+        row('Uhrzeit', esc(timeStr) + ' Uhr') +
+        row('Personen', esc(r.party_size || 2)) +
+        (r.occasion ? row('Anlass', esc(r.occasion)) : '') +
+        (r.notes ? row('Hinweis', esc(r.notes)) : '') +
+        ((rest && (rest.street || rest.city)) ? row('Adresse', esc(((rest.street || '') + ', ' + (rest.city || '')).replace(/^, |, $/g, ''))) : '') +
+    '</table>';
+
+    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
+        '<h1 style="font-size:20px;margin:0 0 16px;color:' + color + ';">' + head + '</h1>' +
+        '<p style="margin:0 0 4px;">Moin' + (r.guest_name ? ' ' + esc(r.guest_name) : '') + ',</p>' +
+        '<p style="margin:0 0 8px;">' + intro + '</p>' +
+        details +
+        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
+        '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
+        (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '') + '</p>' +
+    '</div>';
+
+    var subjPrefix = eventType === 'confirmed' ? 'Reservierung bestätigt'
+        : (eventType === 'cancelled' ? 'Reservierung nicht möglich' : 'Reservierungsanfrage eingegangen');
+    return { subject: subjPrefix + ' – ' + restName + ', ' + timeStr + ' Uhr', html: html };
+}
+
+async function sendViaResend(to, mail) {
+    var res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: mail.subject, html: mail.html })
+    });
+    if (!res.ok) {
+        var t = ''; try { t = await res.text(); } catch (e) {}
+        var err = new Error('Resend ' + res.status + ': ' + t.slice(0, 200));
+        err.resend = true;
+        throw err;
+    }
+}
+
+async function handleReservation(resvId, eventType) {
+    var resv = null;
+    if (eventType === 'received') {
+        // Duplikatschutz wie bei Bestellungen: atomar beanspruchen
+        var claimRes = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(resvId) +
+            '&confirmation_email_sent_at=is.null', {
+            method: 'PATCH',
+            headers: sbHeaders({ 'Prefer': 'return=representation' }),
+            body: JSON.stringify({ confirmation_email_sent_at: new Date().toISOString() })
+        });
+        if (claimRes.ok) {
+            var claimed = await claimRes.json();
+            if (!claimed.length) return json(200, { ok: true, skipped: true, reason: 'schon versendet' });
+            resv = claimed[0];
+        }
+    }
+    if (!resv) {
+        var rows = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(resvId) + '&select=*', { headers: sbHeaders() });
+        if (!rows.ok) return json(500, { error: 'Reservierung nicht lesbar (' + rows.status + ')' });
+        var data = await rows.json();
+        if (!data.length) return json(404, { error: 'Reservierung nicht gefunden' });
+        resv = data[0];
+    }
+
+    var to = String(resv.guest_email || '').trim();
+    if (!to || to.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Gast-E-Mail' });
+
+    var rest = null;
+    if (resv.restaurant_id) {
+        try {
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=name,street,city,phone', { headers: sbHeaders() });
+            if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
+        } catch (e) {}
+    }
+
+    await sendViaResend(to, buildReservationEmail(resv, rest, eventType));
+    return json(200, { ok: true, sent: true });
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { error: 'Nur POST' });
@@ -114,6 +228,20 @@ exports.handler = async function (event) {
 
     var body = {};
     try { body = JSON.parse(event.body || '{}'); } catch (e) {}
+
+    // Reservierungs-Zweig: {reservation_id, event: received|confirmed|cancelled}
+    var resvId = body.reservation_id || body.reservationId || '';
+    if (resvId) {
+        if (!/^[0-9a-f-]{10,}$/i.test(String(resvId))) return json(400, { error: 'reservation_id ungueltig' });
+        var evType = String(body.event || 'received').toLowerCase();
+        if (['received', 'confirmed', 'cancelled'].indexOf(evType) < 0) evType = 'received';
+        try {
+            return await handleReservation(resvId, evType);
+        } catch (e) {
+            return json(e.resend ? 502 : 500, { error: e.message });
+        }
+    }
+
     var orderId = body.order_id || body.orderId || '';
     if (!orderId || !/^[0-9a-f-]{10,}$/i.test(String(orderId))) return json(400, { error: 'order_id fehlt/ungueltig' });
 
@@ -144,18 +272,9 @@ exports.handler = async function (event) {
         var to = String(order.customer_email || '').trim();
         if (!to || to.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Kunden-E-Mail' });
 
-        var mail = buildEmail(order);
-        var sendRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: mail.subject, html: mail.html })
-        });
-        if (!sendRes.ok) {
-            var errText = ''; try { errText = await sendRes.text(); } catch (e) {}
-            return json(502, { error: 'Resend ' + sendRes.status + ': ' + errText.slice(0, 200) });
-        }
+        await sendViaResend(to, buildEmail(order));
         return json(200, { ok: true, sent: true });
     } catch (e) {
-        return json(500, { error: e.message });
+        return json(e.resend ? 502 : 500, { error: e.message });
     }
 };
