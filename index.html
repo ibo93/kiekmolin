@@ -15353,62 +15353,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
 
-                // ===== BENACHRICHTIGUNGS-SOUND (LAUT, alle Geräte) =====
+                // ===== BENACHRICHTIGUNGS-SOUND =====
+                // Nutzt die zentrale, saubere Klang-Funktion (mit Kompressor +
+                // Soft-Limiter und den Klang-Einstellungen des Gastronomen).
+                // Die alte Inline-Version hier hat uebersteuert (Toene bis 0.9
+                // ueberlappend ohne Limiter -> kratziger Klang) und wuerde die
+                // gute Version wieder ueberschreiben.
                 window.resPlayNotificationSound = function() {
                     try {
-                        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                        // Compressor für maximale Lautstärke auf allen Geräten
-                        var compressor = audioCtx.createDynamicsCompressor();
-                        compressor.threshold.value = -20;
-                        compressor.knee.value = 10;
-                        compressor.ratio.value = 4;
-                        compressor.attack.value = 0;
-                        compressor.release.value = 0.25;
-                        var masterGain = audioCtx.createGain();
-                        masterGain.gain.value = 1.0;
-                        masterGain.connect(compressor);
-                        compressor.connect(audioCtx.destination);
-
-                        // 3 aufsteigende Töne — laut und klar
-                        var tones = [
-                            { freq: 880, start: 0, end: 0.35, vol: 0.8 },
-                            { freq: 1174, start: 0.18, end: 0.55, vol: 0.85 },
-                            { freq: 1318, start: 0.35, end: 0.9, vol: 0.9 }
-                        ];
-                        tones.forEach(function(t) {
-                            var osc = audioCtx.createOscillator();
-                            var gain = audioCtx.createGain();
-                            osc.connect(gain);
-                            gain.connect(masterGain);
-                            osc.frequency.value = t.freq;
-                            osc.type = 'sine';
-                            gain.gain.setValueAtTime(t.vol, audioCtx.currentTime + t.start);
-                            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + t.end);
-                            osc.start(audioCtx.currentTime + t.start);
-                            osc.stop(audioCtx.currentTime + t.end);
-                        });
-
-                        // Sound 2x abspielen für Aufmerksamkeit (nach 1.2s nochmal)
-                        setTimeout(function() {
-                            try {
-                                var ctx2 = new (window.AudioContext || window.webkitAudioContext)();
-                                var comp2 = ctx2.createDynamicsCompressor();
-                                comp2.threshold.value = -20; comp2.ratio.value = 4;
-                                var mg2 = ctx2.createGain(); mg2.gain.value = 1.0;
-                                mg2.connect(comp2); comp2.connect(ctx2.destination);
-                                [{freq:880,s:0,e:0.35,v:0.8},{freq:1174,s:0.18,e:0.55,v:0.85},{freq:1318,s:0.35,e:0.9,v:0.9}].forEach(function(t) {
-                                    var o = ctx2.createOscillator(); var g = ctx2.createGain();
-                                    o.connect(g); g.connect(mg2);
-                                    o.frequency.value = t.freq; o.type = 'sine';
-                                    g.gain.setValueAtTime(t.v, ctx2.currentTime + t.s);
-                                    g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + t.e);
-                                    o.start(ctx2.currentTime + t.s); o.stop(ctx2.currentTime + t.e);
-                                });
-                            } catch(e2) {}
-                        }, 1200);
-
-                    } catch(e) {
-                    }
+                        if (typeof playKinNotificationSound === 'function') { playKinNotificationSound(); return; }
+                        if (typeof playReservationSound === 'function') playReservationSound();
+                    } catch(e) {}
                 };
 
                 // ===== VISUELLE BENACHRICHTIGUNG (Apple-Style, nur Dashboard) =====
@@ -50397,6 +50352,22 @@ function showNewOrderAlert(order) {
 // wird jede Welle einzeln per Timer nahe der aktuellen Zeit ausgeloest und der
 // AudioContext bei Bedarf mit resume() reaktiviert. So spielt der Ton wirklich
 // die volle Laenge (~6s) durch.
+// Sanfter Begrenzer gegen digitales Uebersteuern: alles ueber ~0dB wird weich
+// abgerundet (tanh) statt vom Browser hart abgeschnitten -- hartes Clipping
+// war die Ursache fuer den kratzigen/unsauberen Klang der Toene.
+function _makeSoftLimiter(ctx) {
+    var ws = ctx.createWaveShaper();
+    var n = 1024, curve = new Float32Array(n);
+    var k = 1.5, norm = Math.tanh(k);
+    for (var i = 0; i < n; i++) {
+        var x = (i / (n - 1)) * 2 - 1;
+        curve[i] = Math.tanh(k * x) / norm;
+    }
+    ws.curve = curve;
+    try { ws.oversample = '4x'; } catch (e) {}
+    return ws;
+}
+
 function playLoudChime(volume) {
     if (volume == null) volume = 1;
     var AC = window.AudioContext || window.webkitAudioContext;
@@ -50416,19 +50387,23 @@ function playLoudChime(volume) {
             // iOS/Safari: Kontext ggf. fortsetzen, sonst kommt kein Ton.
             try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) {}
             var compressor = ctx.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(-24, ctx.currentTime);
-            compressor.ratio.setValueAtTime(8, ctx.currentTime);
+            compressor.threshold.setValueAtTime(-18, ctx.currentTime);
+            compressor.ratio.setValueAtTime(6, ctx.currentTime);
+            // Pegel so gewaehlt, dass die Summe unter 1.0 bleibt (kein hartes
+            // Clipping mehr); der Soft-Limiter faengt Restspitzen weich ab.
             var master = ctx.createGain();
-            master.gain.value = 1.9 * volume; // Makeup-Gain x Lautstaerke
+            master.gain.value = 1.15 * volume;
+            var limiter = _makeSoftLimiter(ctx);
             compressor.connect(master);
-            master.connect(ctx.destination);
+            master.connect(limiter);
+            limiter.connect(ctx.destination);
 
             var noteStart = ctx.currentTime + 0.02; // nahe currentTime = iOS-zuverlaessig
             NOTES.forEach(function(note) {
                 [
-                    { mult: 1, type: 'triangle', peak: 1.0 },
-                    { mult: 2, type: 'sine',     peak: 0.4 },
-                    { mult: 3, type: 'sine',     peak: 0.2 }
+                    { mult: 1, type: 'triangle', peak: 0.55 },
+                    { mult: 2, type: 'sine',     peak: 0.18 },
+                    { mult: 3, type: 'sine',     peak: 0.07 }
                 ].forEach(function(h) {
                     var osc = ctx.createOscillator();
                     var gain = ctx.createGain();
@@ -50437,8 +50412,8 @@ function playLoudChime(volume) {
                     osc.type = h.type;
                     osc.frequency.setValueAtTime(note.freq * h.mult, noteStart);
                     gain.gain.setValueAtTime(0, noteStart);
-                    gain.gain.linearRampToValueAtTime(h.peak, noteStart + 0.015);
-                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + note.dur);
+                    gain.gain.linearRampToValueAtTime(h.peak, noteStart + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0005, noteStart + note.dur);
                     osc.start(noteStart);
                     osc.stop(noteStart + note.dur + 0.05);
                 });
@@ -50477,18 +50452,21 @@ function playReservationSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Kompressor + Makeup-Gain fuer hoehere wahrgenommene Lautstaerke
+        // Kompressor + Soft-Limiter: praesent, aber ohne hartes Clipping
+        // (die alte Kette hat mit Summe ~2.2 uebersteuert -> kratziger Klang)
         var compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-24, now);
-        compressor.ratio.setValueAtTime(8, now);
-        compressor.attack.setValueAtTime(0.002, now);
+        compressor.threshold.setValueAtTime(-18, now);
+        compressor.ratio.setValueAtTime(6, now);
+        compressor.attack.setValueAtTime(0.003, now);
         compressor.release.setValueAtTime(0.25, now);
         var master = ctx.createGain();
-        master.gain.setValueAtTime(1.8, now);
+        master.gain.setValueAtTime(1.15, now);
+        var limiter = _makeSoftLimiter(ctx);
         compressor.connect(master);
-        master.connect(ctx.destination);
+        master.connect(limiter);
+        limiter.connect(ctx.destination);
 
-        // Lauter, laengerer Doppel-Ton, 2x wiederholt: 660Hz → 990Hz
+        // Doppel-Ton, 2x wiederholt: 660Hz → 990Hz
         // Jeder Ton mit Oberton fuer mehr Praesenz.
         var STEPS = [0, 0.28, 0.85, 1.13]; // zwei Doppel-Wellen
         STEPS.forEach(function(offset, i) {
@@ -50500,12 +50478,12 @@ function playReservationSound() {
                 gain.connect(compressor);
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(base * harmonic, now + offset);
-                var peak = hIdx === 0 ? 0.9 : 0.3;
+                var peak = hIdx === 0 ? 0.55 : 0.16;
                 gain.gain.setValueAtTime(0, now + offset);
-                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.015);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.6);
+                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0005, now + offset + 0.6);
                 osc.start(now + offset);
-                osc.stop(now + offset + 0.6);
+                osc.stop(now + offset + 0.65);
             });
         });
 
@@ -51568,7 +51546,9 @@ function playNotificationSound() {
             var gain = ctx.createGain();
             osc.type = 'sine';
             osc.frequency.value = freqs[i];
-            gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
+            // kurzer Attack statt Sofort-Einsatz -- verhindert das Knacken
+            gain.gain.setValueAtTime(0, ctx.currentTime + t);
+            gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + t + 0.015);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -58679,40 +58659,37 @@ function playKinNotificationSound() {
         var type = _kinSoundTypes[_kinSoundType] || _kinSoundTypes.aufsteigend;
         // Sonderfall "Laut & Lang": eigener, langer Kiek-Alarm
         if (type.special === 'loud') { playLoudChime(vol); return; }
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var comp = ctx.createDynamicsCompressor();
-        comp.threshold.value = -20; comp.ratio.value = 4;
-        var mg = ctx.createGain(); mg.gain.value = vol;
-        mg.connect(comp); comp.connect(ctx.destination);
+        // Ein Durchgang: Toene mit festem Einzelpegel (0.5) in eine Kette aus
+        // Master-Gain (Lautstaerke-Regler) + Kompressor + Soft-Limiter.
+        // Vorher wurde vol doppelt angewendet (pro Ton UND Master) und die
+        // ueberlappenden Toene haben uebersteuert -> kratziger Klang + Knacken.
+        function pass(delayMs) {
+            setTimeout(function() {
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var comp = ctx.createDynamicsCompressor();
+                    comp.threshold.value = -18; comp.ratio.value = 6;
+                    var mg = ctx.createGain(); mg.gain.value = vol;
+                    var limiter = _makeSoftLimiter(ctx);
+                    mg.connect(comp); comp.connect(limiter); limiter.connect(ctx.destination);
 
-        type.tones.forEach(function(t) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.connect(gain); gain.connect(mg);
-            osc.frequency.value = t.f; osc.type = 'sine';
-            gain.gain.setValueAtTime(vol, ctx.currentTime + t.s);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t.e);
-            osc.start(ctx.currentTime + t.s); osc.stop(ctx.currentTime + t.e);
-        });
-
-        // 2. Durchgang nach 1.5s
-        setTimeout(function() {
-            try {
-                var ctx2 = new (window.AudioContext || window.webkitAudioContext)();
-                var comp2 = ctx2.createDynamicsCompressor();
-                comp2.threshold.value = -20; comp2.ratio.value = 4;
-                var mg2 = ctx2.createGain(); mg2.gain.value = vol;
-                mg2.connect(comp2); comp2.connect(ctx2.destination);
-                type.tones.forEach(function(t) {
-                    var o = ctx2.createOscillator(); var g = ctx2.createGain();
-                    o.connect(g); g.connect(mg2);
-                    o.frequency.value = t.f; o.type = 'sine';
-                    g.gain.setValueAtTime(vol, ctx2.currentTime + t.s);
-                    g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + t.e);
-                    o.start(ctx2.currentTime + t.s); o.stop(ctx2.currentTime + t.e);
-                });
-            } catch(e2) {}
-        }, 1500);
+                    type.tones.forEach(function(t) {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(mg);
+                        osc.frequency.value = t.f; osc.type = 'sine';
+                        gain.gain.setValueAtTime(0, ctx.currentTime + t.s);
+                        gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + t.s + 0.015);
+                        gain.gain.exponentialRampToValueAtTime(0.0005, ctx.currentTime + t.e);
+                        osc.start(ctx.currentTime + t.s); osc.stop(ctx.currentTime + t.e + 0.05);
+                    });
+                    var lastEnd = Math.max.apply(null, type.tones.map(function(t) { return t.e; }));
+                    setTimeout(function() { try { ctx.close(); } catch(e) {} }, (lastEnd + 0.5) * 1000);
+                } catch(e2) {}
+            }, delayMs);
+        }
+        pass(0);
+        pass(1500); // 2. Durchgang fuer Aufmerksamkeit
     } catch(e) {}
 }
 
