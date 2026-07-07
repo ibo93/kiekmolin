@@ -896,6 +896,8 @@
   .msg{padding:11px 16px;border-radius:20px;font-size:14px;line-height:1.45;max-width:85%;animation:fadeIn .35s ease}
   .msg-user{background:var(--brand);color:#fff;align-self:flex-end;border-bottom-right-radius:6px;font-weight:500}
   .msg-ai{background:var(--surface);border:1px solid var(--glass-border);align-self:flex-start;border-bottom-left-radius:6px;backdrop-filter:blur(20px)}
+  .msg-streaming::after{content:"▍";display:inline-block;margin-left:1px;color:var(--gold-light);animation:streamBlink 0.7s steps(1) infinite}
+  @keyframes streamBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
 
   /* Mehr menu */
   .menu-row{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--glass-border);margin-bottom:8px;cursor:pointer;transition:transform .15s}
@@ -3492,6 +3494,7 @@
     isSpeaking = on;
     const orb = document.getElementById('voiceOrb');
     if (orb) orb.classList.toggle('speaking', on);
+    if (!on) maybeAutoListen(); // Dialog-Modus: nach der Antwort wieder zuhoeren
   }
   function setThinking(on) {
     const orb = document.getElementById('voiceOrb');
@@ -3517,18 +3520,31 @@
     try { chefAudioEl.pause(); } catch(e){}
     setSpeaking(false);
   }
+  // Dialog-Modus: Mic einmal an -> nach jeder Chef-Antwort hoert er von selbst
+  // wieder zu, bis der Wirt das Mic explizit ausschaltet. Kein Tippen mehr noetig.
+  let _voiceLoop = false;
   function toggleListen() {
-    if (isSpeaking) { stopSpeaking(); }
+    if (isSpeaking) { stopSpeaking(); } // Antippen unterbricht die Chef-Stimme sofort
     if (!recognition) {
       // Fallback: prompt
       const q = prompt('Was möchtest du fragen?');
       if (q) handleUserInput(q);
       return;
     }
-    if (isListening) { recognition.stop(); return; }
+    if (isListening) { _voiceLoop = false; recognition.stop(); return; }
+    _voiceLoop = true;
     document.getElementById('liveTranscript').textContent = '';
     try { recognition.start(); setListening(true); }
     catch(e){ /* already started */ }
+  }
+  function maybeAutoListen(){
+    if(!_voiceLoop || !voiceEnabled || !recognition) return;
+    if(isListening || isSpeaking) return;
+    setTimeout(function(){
+      if(!_voiceLoop || isListening || isSpeaking) return;
+      const t = document.getElementById('liveTranscript'); if(t) t.textContent = '';
+      try { recognition.start(); setListening(true); } catch(e){}
+    }, 500);
   }
 
   function toggleVoice() {
@@ -3664,29 +3680,55 @@
   }
 
   // --- Conversation log (persistent) ---
+  function appendMsgActions(m, actions){
+    const ab = document.createElement('div');
+    ab.className = 'msg-actions';
+    actions.forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'msg-action';
+      b.textContent = a.label;
+      b.onclick = () => { if (a.cmd) askKi(a.cmd); else if (a.fn) a.fn(); };
+      ab.appendChild(b);
+    });
+    m.appendChild(ab);
+  }
   function addMsg(text, who, actions) {
     const convo = document.getElementById('convo');
     const m = document.createElement('div');
     m.className = 'msg msg-' + who;
     m.textContent = text;
-    if (actions && actions.length) {
-      const ab = document.createElement('div');
-      ab.className = 'msg-actions';
-      actions.forEach(a => {
-        const b = document.createElement('button');
-        b.className = 'msg-action';
-        b.textContent = a.label;
-        b.onclick = () => { if (a.cmd) askKi(a.cmd); else if (a.fn) a.fn(); };
-        ab.appendChild(b);
-      });
-      m.appendChild(ab);
-    }
+    if (actions && actions.length) appendMsgActions(m, actions);
     convo.appendChild(m);
-    setTimeout(() => {
-      const main = document.querySelector('main');
-      m.scrollIntoView({ behavior:'smooth', block:'center' });
-    }, 50);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
     saveConvo();
+  }
+  // Wort-fuer-Wort-Reveal fuer Antworten, die als Ganzes ankommen (Fallback-Pfade).
+  // Tap auf die Bubble ueberspringt den Reveal.
+  let _streamSkip = null;
+  function streamMsg(text, who, actions){
+    const convo = document.getElementById('convo');
+    const m = document.createElement('div');
+    m.className = 'msg msg-' + who + ' msg-streaming';
+    const span = document.createElement('span'); m.appendChild(span);
+    convo.appendChild(m);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
+    const tokens = String(text||'').split(/(\s+)/);
+    let i = 0;
+    const finalize = function(){
+      m.classList.remove('msg-streaming');
+      _streamSkip = null;
+      if(actions && actions.length) appendMsgActions(m, actions);
+      saveConvo();
+    };
+    const tick = function(){
+      if(_streamSkip === m){ span.textContent = text; finalize(); return; }
+      if(i >= tokens.length){ finalize(); return; }
+      span.textContent += tokens[i++];
+      if(i % 6 === 0){ try{ m.scrollIntoView({ behavior:'smooth', block:'end' }); }catch(e){} }
+      setTimeout(tick, 22);
+    };
+    m.onclick = function(){ _streamSkip = m; };
+    tick();
   }
   function saveConvo() {
     const items = [...document.querySelectorAll('#convo .msg')].slice(-30).map(m => ({
@@ -3853,8 +3895,20 @@
       role: m.classList.contains('msg-user') ? 'user' : 'assistant',
       text: m.firstChild ? (m.firstChild.nodeValue || m.textContent) : m.textContent
     }));
+    const requestBody = {
+      message: text,
+      history: history,
+      restaurant: { name: chefProfile.name, type: chefProfile.type },
+      context: buildContextSnapshot()
+    };
 
-    // 1. Versuch: echte KI über die Netlify-Function (mit Zeitlimit, damit nichts hängt)
+    // 1. Versuch: ECHTES Token-Streaming - erster Buchstabe nach ~400ms
+    try {
+      const ok = await streamFromChef(requestBody);
+      if(ok) return;
+    } catch(e){ /* Stream nicht verfuegbar / mid-stream gerissen -> naechste Stufe */ }
+
+    // 2. Versuch: klassische KI-Antwort als Ganzes (mit Wort-Reveal)
     try {
       const ctrl = new AbortController();
       const to = setTimeout(function(){ ctrl.abort(); }, 14000);
@@ -3862,19 +3916,14 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: ctrl.signal,
-        body: JSON.stringify({
-          message: text,
-          history: history,
-          restaurant: { name: chefProfile.name, type: chefProfile.type },
-          context: buildContextSnapshot()
-        })
+        body: JSON.stringify(requestBody)
       });
       clearTimeout(to);
       if (res.ok) {
         const data = await res.json();
         if (data && data.reply) {
           setThinking(false);
-          addMsg(data.reply, 'ai');
+          streamMsg(data.reply, 'ai');
           logBook('The Chef: ' + data.reply, 'chat');
           speak(data.reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
           return;
@@ -3882,14 +3931,81 @@
       }
     } catch (e) { /* offline / lokal geöffnet / kein Key → Fallback unten */ }
 
-    // 2. Fallback: lokale Muster-Erkennung (funktioniert auch ohne Backend)
-    setTimeout(() => {
-      const { reply, actions } = chefBrain(text);
-      setThinking(false);
-      addMsg(reply, 'ai', actions);
-      logBook('The Chef: ' + reply, 'chat');
-      speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
-    }, 500 + Math.random()*300);
+    // 3. Fallback: lokale Muster-Erkennung (funktioniert auch ohne Backend)
+    const { reply, actions } = chefBrain(text);
+    setThinking(false);
+    streamMsg(reply, 'ai', actions);
+    logBook('The Chef: ' + reply, 'chat');
+    speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+  }
+
+  // Echtes SSE-Streaming: Tokens landen live in der Bubble, waehrend Claude noch schreibt
+  async function streamFromChef(body){
+    const ctrl = new AbortController();
+    const firstTokenTimeout = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 6000);
+    let res;
+    try {
+      res = await fetch('/.netlify/functions/chef-ai-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        signal: ctrl.signal,
+        body: JSON.stringify(body)
+      });
+    } catch(e){ clearTimeout(firstTokenTimeout); throw e; }
+    if(!res.ok || !res.body){ clearTimeout(firstTokenTimeout); throw new Error('stream-not-ok ' + res.status); }
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+    if(ct.indexOf('text/event-stream') === -1){ clearTimeout(firstTokenTimeout); throw new Error('not-sse'); }
+
+    setThinking(false);
+    const convo = document.getElementById('convo');
+    const m = document.createElement('div');
+    m.className = 'msg msg-ai msg-streaming';
+    const span = document.createElement('span'); m.appendChild(span);
+    convo.appendChild(m);
+    setTimeout(() => m.scrollIntoView({ behavior:'smooth', block:'center' }), 30);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullText = '', firstByte = false, scrollCounter = 0;
+
+    try {
+      while(true){
+        const { done, value } = await reader.read();
+        if(!firstByte){ firstByte = true; clearTimeout(firstTokenTimeout); }
+        if(done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+        for(const ev of events){
+          const dataLine = ev.split('\n').find(function(l){ return l.indexOf('data: ') === 0; });
+          if(!dataLine) continue;
+          const payload = dataLine.slice(6).trim();
+          if(payload === '[DONE]') continue;
+          let obj;
+          try { obj = JSON.parse(payload); } catch(e){ continue; }
+          if(obj && obj.type === 'content_block_delta' && obj.delta && obj.delta.type === 'text_delta' && obj.delta.text){
+            fullText += obj.delta.text;
+            span.textContent += obj.delta.text;
+            scrollCounter += obj.delta.text.length;
+            if(scrollCounter > 60){ scrollCounter = 0; try{ m.scrollIntoView({ behavior:'smooth', block:'end' }); }catch(e){} }
+          }
+          if(obj && obj.type === 'error'){
+            throw new Error('stream-error: ' + (obj.error && obj.error.message || 'unknown'));
+          }
+        }
+      }
+    } catch(e){
+      m.remove(); // kaputte Bubble weg, damit die naechste Stufe frisch startet
+      throw e;
+    }
+
+    if(!fullText.trim()){ m.remove(); throw new Error('stream-empty'); }
+
+    m.classList.remove('msg-streaming');
+    saveConvo();
+    logBook('The Chef: ' + fullText, 'chat');
+    speak(fullText.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+    return true;
   }
 
   // --- Grounding-Helfer: chefBrain antwortet aus echten Daten, nicht aus erfundenen Zahlen ---
@@ -4842,7 +4958,7 @@
     document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg> KI-Auge';
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Halt die Kamera drauf und tippe auf den großen Knopf – The Chef erkennt <strong>selbst</strong>, was es ist (Lieferschein, Regal, Thermometer).</p>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Halt die Kamera drauf und tippe auf den großen Knopf – The Chef erkennt <strong>selbst</strong>, was es ist (Lieferschein, Regal, Thermometer – oder ein <strong>Gericht</strong>: dann kalkuliert er Zutaten, Wareneinsatz &amp; Marge).</p>
       <div style="position:relative;border-radius:18px;overflow:hidden;background:#0b1016;aspect-ratio:3/4;margin-bottom:12px;border:1px solid var(--glass-border-bright)">
         <video id="eyeVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;display:none"></video>
         <div id="eyeCamHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-dim);font-size:13px;padding:24px;line-height:1.5">Kamera wird gestartet … bitte „Erlauben" tippen.</div>
@@ -4889,16 +5005,33 @@
       .catch(function(){ if(status) status.textContent = 'Bild konnte nicht gelesen werden.'; });
   }
   async function eyeProcess(base64, mediaType){
-    const status = document.getElementById('eyeStatus'); if(status) status.textContent = 'The Chef schaut sich das an …';
+    const status = document.getElementById('eyeStatus');
+    const t0 = performance.now();
+    // Lebendige Phasen statt totem "schaut sich das an" - der Wirt sieht, dass was passiert
+    if(status){ status.style.color = 'var(--text-dim)'; status.textContent = '📤 Bild geht an The Chef …'; }
+    const phase1 = setTimeout(function(){ if(status) status.textContent = '👁 The Chef schaut genau hin …'; }, 900);
+    const phase2 = setTimeout(function(){ if(status) status.textContent = '🔍 Fast fertig – Details werden gelesen …'; }, 3500);
     try {
-      const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ image: base64, mediaType: mediaType, model: aiModel }) });
-      if(res.ok){ const data = await res.json(); eyeRender(data); return; }
+      const ctrl = new AbortController();
+      const hardTimeout = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 20000);
+      const res = await fetch('/.netlify/functions/eye', { method:'POST', headers:{ 'Content-Type':'application/json' }, signal: ctrl.signal, body: JSON.stringify({ image: base64, mediaType: mediaType, model: aiModel }) });
+      clearTimeout(hardTimeout); clearTimeout(phase1); clearTimeout(phase2);
+      const secs = ((performance.now() - t0)/1000).toFixed(1);
+      if(res.ok){
+        const data = await res.json();
+        if(status){ status.style.color = 'var(--green)'; status.textContent = '✓ Erkannt in ' + secs + ' s'; }
+        eyeRender(data);
+        return;
+      }
       let why = 'Fehler ' + res.status;
       if(res.status === 503) why = 'Claude-Key fehlt in Netlify.';
       else if(res.status === 502 || res.status === 504) why = 'Zeitüberschreitung – nochmal versuchen.';
       else if(res.status === 404) why = 'Funktion nicht gefunden – über die Online-Seite öffnen.';
-      if(status) status.textContent = why;
-    } catch(err){ if(status) status.textContent = 'Backend nicht erreichbar (Online-Seite + Key nötig).'; }
+      if(status){ status.style.color = 'var(--orange)'; status.textContent = why; }
+    } catch(err){
+      clearTimeout(phase1); clearTimeout(phase2);
+      if(status){ status.style.color = 'var(--orange)'; status.textContent = (err && err.name === 'AbortError') ? '⏱ Zeitüberschreitung nach 20 s – nochmal versuchen.' : 'Backend nicht erreichbar (Online-Seite + Key nötig).'; }
+    }
   }
   function eyeRender(data){
     const status = document.getElementById('eyeStatus'), out = document.getElementById('eyeResult');
@@ -4917,6 +5050,28 @@
       spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal.') : 'Ich konnte keine Produkte erkennen.';
       visionItems = items;
       out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück' + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+    } else if(data.kind === 'gericht'){
+      // Teller fotografiert -> The Chef kalkuliert das Gericht sofort durch
+      const ing = Array.isArray(data.ingredients) ? data.ingredients : [];
+      const cost = ing.reduce(function(s,i){ return s + (Number(i.ek)||0); }, 0);
+      const vk = Number(data.vk_vorschlag)||0;
+      const vkNetto = vk / 1.19;
+      const marge = vkNetto > 0 ? Math.max(0, (vkNetto - cost) / vkNetto * 100) : 0;
+      const margeColor = marge < 30 ? 'var(--red)' : marge < 55 ? 'var(--orange)' : 'var(--green)';
+      if(status) status.textContent = 'Erkannt: Gericht „' + (data.dish||'?') + '" – ' + ing.length + ' Zutaten geschätzt.';
+      spoken = 'Ich erkenne ' + (data.dish||'ein Gericht') + '. Wareneinsatz etwa ' + cost.toFixed(2).replace('.',',') + ' Euro, bei ' + vk.toFixed(2).replace('.',',') + ' Euro Verkaufspreis wären das rund ' + Math.round(marge) + ' Prozent Marge.';
+      const rows = ing.map(function(i){
+        return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--glass-border)"><span>' + escHtml(i.name) + ' <span style="color:var(--text-faint)">' + escHtml(i.menge||'') + '</span></span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">€ ' + (Number(i.ek)||0).toFixed(2).replace('.',',') + '</span></div>';
+      }).join('');
+      out.innerHTML =
+        '<div class="calc-result" style="text-align:center;padding:18px;border-radius:18px;background:var(--brand-tint);border:1px solid var(--glass-border-bright)">'
+        + '<div style="font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);font-weight:700">' + escHtml(data.dish||'Gericht') + '</div>'
+        + '<div style="font-size:44px;font-weight:800;letter-spacing:-0.03em;color:' + margeColor + ';margin:6px 0 2px">' + Math.round(marge) + '%</div>'
+        + '<div style="font-size:12.5px;color:var(--text-dim)">geschätzte Marge · EK € ' + cost.toFixed(2).replace('.',',') + ' · VK-Vorschlag € ' + vk.toFixed(2).replace('.',',') + '</div>'
+        + '</div>'
+        + '<div class="list-card glass" style="margin-top:12px;padding:10px 14px">' + rows + '</div>'
+        + (data.hinweis ? '<div class="ai-card glass" style="margin-top:12px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Hinweis</div></div><div style="font-size:13px;line-height:1.5;color:var(--text)">' + escHtml(data.hinweis) + '</div></div>' : '')
+        + '<button class="btn-secondary" style="margin-top:12px" onclick="openEye()">Nochmal scannen</button>';
     } else if(data.kind === 'temperatur'){
       window.__eyeTemp = data.value;
       if(status) status.textContent = 'Erkannt: Temperatur ' + (data.value||'?') + ' °C.';

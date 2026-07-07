@@ -23,12 +23,14 @@ erkennst SELBST, worum es sich handelt, und gibst die passenden Daten zurück.
 Mögliche Fälle:
 - "beleg": Lieferschein/Rechnung eines Lebensmittel-Lieferanten.
 - "lager": Regal/Kühlschrank/Lager-Ablage mit Produkten.
+- "gericht": Ein fertig angerichtetes Gericht auf einem Teller (Food-Foto).
 - "temperatur": Thermometer/Display mit einer Temperatur.
 - "unbekannt": nichts davon klar erkennbar.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau einer dieser Formen:
 { "kind":"beleg", "lieferant":"Name oder leer", "items":[{"name":"Artikel","qty":"Menge mit Einheit","price":"Preis oder leer","gruppe":"Warengruppe","lager":"Lagerort"}] }
 { "kind":"lager", "items":[{"name":"Produkt","count":12,"gruppe":"Warengruppe","lager":"Lagerort"}] }
+{ "kind":"gericht", "dish":"Gerichtname", "ingredients":[{"name":"Zutat","menge":"150 g","ek":1.20}], "vk_vorschlag":18.50, "hinweis":"kurzer 1-Satz-Tipp zur Marge" }
 { "kind":"temperatur", "value":"4.2" }
 { "kind":"unbekannt" }
 
@@ -38,6 +40,7 @@ Regeln:
 - gruppe: GENAU EINE von "Fleisch/Fisch", "Gemüse/Obst", "Molkerei", "Getränke", "Trockenware", "Tiefkühl", "Non-Food", "Sonstiges".
 - lager: GENAU EINES von "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
 - value: Zahl mit Punkt als Dezimaltrennzeichen, Minus für Minusgrade, ohne Einheit.
+- Bei "gericht": 4-12 Zutaten dieser EINEN Portion mit realistischen Mengen (g/ml/Stk/EL). ek = Wareneinsatz der Menge in Euro zu GASTRONOMIE-Einkaufspreisen Deutschland (nicht Endkundenpreise); Kleinmengen wie Gewürze 0.05-0.30. Auch unsichtbare Standardzutaten (Öl, Salz, Sauce) einrechnen. vk_vorschlag = marktüblicher Brutto-Verkaufspreis (inkl. 19% MwSt) in einem normalen Restaurant.
 - Kein Text vor/nach dem JSON, keine Code-Fences.`;
 
 exports.handler = async function (event) {
@@ -69,13 +72,23 @@ exports.handler = async function (event) {
     try { const s = raw.indexOf('{'), e = raw.lastIndexOf('}'); p = JSON.parse(s !== -1 && e !== -1 ? raw.slice(s, e + 1) : raw); }
     catch (e) { return { statusCode: 502, headers: CORS_HEADERS, body: JSON.stringify({ kind: 'unbekannt' }) }; }
 
-    const kind = ['beleg','lager','temperatur'].indexOf(p.kind) !== -1 ? p.kind : 'unbekannt';
+    const kind = ['beleg','lager','gericht','temperatur'].indexOf(p.kind) !== -1 ? p.kind : 'unbekannt';
     let out = { kind: kind };
     if (kind === 'beleg') {
       out.lieferant = (p.lieferant ? String(p.lieferant) : '').slice(0, 60).trim();
       out.items = Array.isArray(p.items) ? p.items.slice(0, 60).map(function (it) { return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), qty:(it&&it.qty?String(it.qty):'').slice(0,40).trim(), price:(it&&it.price?String(it.price):'').slice(0,24).trim(), gruppe:(it&&it.gruppe?String(it.gruppe):'').slice(0,24).trim(), lager:(it&&it.lager?String(it.lager):'').slice(0,24).trim() }; }).filter(function (it) { return it.name; }) : [];
     } else if (kind === 'lager') {
       out.items = Array.isArray(p.items) ? p.items.slice(0, 60).map(function (it) { let c=parseInt(it&&it.count,10); if(isNaN(c)||c<1)c=1; return { name:(it&&it.name?String(it.name):'').slice(0,80).trim(), count:Math.min(c,9999), gruppe:(it&&it.gruppe?String(it.gruppe):'').slice(0,24).trim(), lager:(it&&it.lager?String(it.lager):'').slice(0,24).trim() }; }).filter(function (it) { return it.name; }) : [];
+    } else if (kind === 'gericht') {
+      out.dish = (p.dish ? String(p.dish) : '').slice(0, 80).trim();
+      out.ingredients = Array.isArray(p.ingredients) ? p.ingredients.slice(0, 20).map(function (it) {
+        let ek = parseFloat(it && it.ek); if (isNaN(ek) || ek < 0) ek = 0;
+        return { name:(it&&it.name?String(it.name):'').slice(0,60).trim(), menge:(it&&it.menge?String(it.menge):'').slice(0,20).trim(), ek: Math.round(ek*100)/100 };
+      }).filter(function (it) { return it.name; }) : [];
+      let vk = parseFloat(p.vk_vorschlag); if (isNaN(vk) || vk < 0) vk = 0;
+      out.vk_vorschlag = Math.round(vk*100)/100;
+      out.hinweis = (p.hinweis ? String(p.hinweis) : '').slice(0, 240).trim();
+      if (!out.dish || !out.ingredients.length) out.kind = 'unbekannt';
     } else if (kind === 'temperatur') {
       out.value = (p.value != null ? String(p.value) : '').replace(',', '.').replace(/[^0-9.\-]/g, '').slice(0, 10);
     }
