@@ -1,9 +1,11 @@
 # The Chef – Netlify Konfiguration
 
 [build]
-  # Kein Build nötig: index.html wird direkt ausgeliefert, Functions werden
-  # automatisch gebündelt (Dependencies aus netlify/functions/package.json).
-  command = "echo 'The Chef – kein Build-Schritt nötig'"
+  # Kein Build noetig: index.html wird direkt ausgeliefert, Functions werden
+  # automatisch gebuendelt (Dependencies aus netlify/functions/package.json).
+  # WICHTIG: Kommando bewusst als reines ASCII halten - Sonderzeichen
+  # (Gedankenstrich, Umlaute) im command koennen den Build mit exit code 2 killen.
+  command = "echo build-ok"
   publish = "."
 
 [build.environment]
