@@ -7392,7 +7392,7 @@
   ];
   let _tourIdx = 0;
   function openTour(start){
-    _tourIdx = Math.max(0, start||0);
+    _tourIdx = Math.max(0, parseInt(start, 10) || 0);
     let ov = document.getElementById('chefTourOv');
     if(!ov){
       ov = document.createElement('div');
@@ -7406,6 +7406,7 @@
   function renderTourStep(){
     const card = document.getElementById('chefTourCard'); if(!card) return;
     const s = TOUR_STEPS[_tourIdx], n = TOUR_STEPS.length;
+    if(!s) return;
     const dots = TOUR_STEPS.map(function(_, i){ return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 3px;background:' + (i === _tourIdx ? 'var(--brand,#f5c25a)' : 'rgba(255,255,255,0.2)') + '"></span>'; }).join('');
     card.innerHTML =
       '<div style="color:var(--brand,#f5c25a);margin-bottom:12px;display:flex;justify-content:center">' + s.icon + '</div>' +
