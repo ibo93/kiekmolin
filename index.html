@@ -1270,6 +1270,103 @@
   .rdr-meta{ font-size:12px; color:var(--text-dim); margin-top:1px; }
   .rdr-tag{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:99px; }
   .rdr-tag.t-red{ background:rgba(255,90,77,.16); color:#ff8a7a; } .rdr-tag.t-amber{ background:rgba(245,166,35,.16); color:var(--gold-light); } .rdr-tag.t-green{ background:rgba(46,230,166,.16); color:#8df3c8; }
+
+  /* ===== Terrassen-Modus: helles Papier-Theme, Gold bleibt Marke ===== */
+  body.chef-light{
+    --bg:#f3eee4;
+    --surface:#ffffff;
+    --text:#1c1a16;
+    --text-dim:rgba(28,26,22,0.68);
+    --text-faint:rgba(28,26,22,0.45);
+    --brand:#b06f08;
+    --brand-deep:#8a5606;
+    --brand-tint:#f8f2e4;
+    --brand-tint-2:#f1e8d3;
+    --brand-tint-3:#e9dec3;
+    --amber:#b06f08;
+    --glass:#ffffff;
+    --glass-strong:#fdfaf2;
+    --glass-border:rgba(28,26,22,0.10);
+    --glass-border-bright:rgba(28,26,22,0.20);
+    --glass-edge-top:rgba(255,255,255,0.9);
+    --glass-edge-bot:rgba(28,26,22,0.06);
+    --card-shadow:0 1px 2px rgba(28,26,22,0.06), 0 12px 30px rgba(28,26,22,0.10);
+    --green:#0d8f5f;
+    --red:#cc3226;
+    --orange:#a8690e;
+    --blue:#2a62b8;
+    --purple:#6d4fc4;
+    --accent:#b06f08;
+    --accent-dim:rgba(176,111,8,0.85);
+    --gold:#b06f08;
+    --gold-light:#8a5606;
+  }
+  body.chef-light .lab-card{background:linear-gradient(160deg,#ffffff 0%,#f6efe0 100%);border:1px solid rgba(28,26,22,0.10);box-shadow:0 8px 22px rgba(28,26,22,0.10)}
+  /* Hero bleibt bewusst dunkel: der Marken-Moment mit Gold-Zahl */
+  body.chef-light .msg-user{color:#fff}
+  body.chef-light .noise{opacity:0.25}
+
+  /* ===== Ampel-Kugel: Farbe der Voice-Kugel = Lage des Betriebs ===== */
+  .voice-orb-big.mood-warn:not(.listening):not(.speaking):not(.thinking){
+    box-shadow:0 0 34px rgba(255,180,84,0.55), inset 0 0 22px rgba(255,180,84,0.25) !important;
+    animation:moodPulse 2.6s ease-in-out infinite;
+  }
+  .voice-orb-big.mood-crit:not(.listening):not(.speaking):not(.thinking){
+    box-shadow:0 0 38px rgba(255,90,77,0.6), inset 0 0 24px rgba(255,90,77,0.3) !important;
+    animation:moodPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes moodPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+
+  /* ===== Thermobon-Look: Berichte wie ein Kassenbon ===== */
+  .bon-card{
+    background:#fdfaf0;color:#23201a;border-radius:4px;
+    padding:18px 16px 14px;margin:0 6px 16px;
+    font-family:'Courier New',ui-monospace,monospace;font-size:13px;line-height:1.55;
+    box-shadow:0 8px 26px rgba(0,0,0,0.35);
+    position:relative;
+  }
+  .bon-card::before,.bon-card::after{
+    content:"";position:absolute;left:0;right:0;height:8px;
+    background-image:linear-gradient(45deg,transparent 33%,#fdfaf0 33%,#fdfaf0 66%,transparent 66%),linear-gradient(-45deg,transparent 33%,#fdfaf0 33%,#fdfaf0 66%,transparent 66%);
+    background-size:12px 8px;
+  }
+  .bon-card::before{top:-7px}
+  .bon-card::after{bottom:-7px;transform:scaleY(-1)}
+  .bon-h{text-align:center;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;font-size:12px;margin-bottom:2px}
+  .bon-sub{text-align:center;font-size:10.5px;color:#6d675c;margin-bottom:8px}
+  .bon-hr{border:none;border-top:1px dashed #b8b09e;margin:8px 0}
+  .bon-row{display:flex;justify-content:space-between;gap:10px}
+  .bon-row b{font-weight:700}
+  .bon-foot{text-align:center;font-size:11px;letter-spacing:0.2em;margin-top:10px;color:#6d675c}
+
+  /* ===== Service-Modus: 3 Riesen-Knoepfe fuer die Stosszeit ===== */
+  #serviceOverlay{
+    position:absolute;inset:0;z-index:80;display:none;flex-direction:column;
+    background:var(--bg);padding:26px 20px calc(30px + env(safe-area-inset-bottom));
+  }
+  #serviceOverlay.active{display:flex}
+  .svc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .svc-title{font-size:22px;font-weight:800;letter-spacing:-0.02em}
+  .svc-title span{color:var(--gold-light)}
+  .svc-exit{background:var(--brand-tint);border:1px solid var(--glass-border-bright);border-radius:99px;color:var(--text-dim);font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer}
+  .svc-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    margin-bottom:14px;border-radius:26px;border:1px solid var(--glass-border-bright);
+    background:linear-gradient(160deg,var(--glass-strong),var(--glass));
+    color:var(--text);font-size:24px;font-weight:800;letter-spacing:-0.01em;cursor:pointer;
+    box-shadow:var(--card-shadow);
+  }
+  .svc-btn svg{width:44px;height:44px}
+  .svc-btn:active{transform:scale(0.98)}
+  .svc-btn.svc-gold{background:linear-gradient(160deg,#3a2c12,#241a08);border-color:rgba(245,166,35,0.4);color:var(--gold-light)}
+  body.chef-light .svc-btn.svc-gold{background:linear-gradient(160deg,#f5e3bd,#eed9a8);color:#7a4d05}
+  .svc-sub{font-size:13px;font-weight:500;color:var(--text-dim)}
+
+  /* ===== Feinschliff: einheitliches Tap-Feedback ===== */
+  .btn-primary,.btn-secondary,.ai-btn,.msg-action,.quick-btn,.menu-row,.cmd-chip,.vk-step{transition:transform 0.12s ease, opacity 0.12s ease}
+  .btn-primary:active,.btn-secondary:active,.ai-btn:active,.msg-action:active,.cmd-chip:active{transform:scale(0.97)}
+  .quick-btn:active,.menu-row:active{transform:scale(0.98)}
+  .vk-step{min-width:38px;min-height:38px} /* groessere Touch-Flaeche fuer den Service */
 </style>
 </head>
 <body>
@@ -1755,6 +1852,29 @@
     <div class="toast" id="toast"></div>
 
     <!-- SHEET (modal) -->
+    <!-- Service-Modus: 3 Riesen-Knoepfe fuer die Stosszeit, alles andere weg -->
+    <div id="serviceOverlay">
+      <div class="svc-head">
+        <div class="svc-title">Service<span>-Modus</span></div>
+        <button class="svc-exit" onclick="exitServiceMode()">Beenden</button>
+      </div>
+      <button class="svc-btn svc-gold" onclick="openVerkauf()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg>
+        Verkauf buchen
+        <span class="svc-sub">Portionen tippen, Lager läuft mit</span>
+      </button>
+      <button class="svc-btn" onclick="svcVoice()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg>
+        Zuruf
+        <span class="svc-sub">„Buch zwei Schnitzel und ein Bier"</span>
+      </button>
+      <button class="svc-btn" onclick="exitServiceMode();navTo('lager')" style="margin-bottom:0">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2z"/></svg>
+        Lager
+        <span class="svc-sub">Bestand auf einen Blick</span>
+      </button>
+    </div>
+
     <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
     <div class="sheet" id="sheet">
       <div class="sheet-grip"></div>
@@ -4940,6 +5060,13 @@
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
       <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;padding:0 4px">Alles in einem Schritt: Zahlen eintragen, HACCP prüfen, speichern – The Chef legt's ins Tagebuch und liest dir's vor.</p>
 
+      ${bonCard('Tagesabschluss', [
+        ['Umsatz', euro(tagesDaten.umsatz || 0)],
+        ['Gäste', String(tagesDaten.gaeste || 0)],
+        ['Portionen gebucht', String(Object.values(verkaufToday().items || {}).reduce(function(s, c){ return s + c; }, 0))],
+        ['Lager kritisch', String(lagerData.filter(function(r){ return r.status === 'low'; }).length) + ' Artikel']
+      ], 'DANKE CHEF')}
+
       <div class="onboard-label" style="margin-top:0">Umsatz heute (€)</div>
       <input type="number" class="onboard-input" id="taUmsatz" min="0" step="1" value="${tagesDaten.umsatz||''}" placeholder="0" style="margin-bottom:10px">
       <div class="onboard-label">Gäste heute</div>
@@ -5599,7 +5726,9 @@
         + '</div>'
         + '<div class="list-card glass" style="margin-top:12px;padding:10px 14px">' + rows + '</div>'
         + (data.hinweis ? '<div class="ai-card glass" style="margin-top:12px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Hinweis</div></div><div style="font-size:13px;line-height:1.5;color:var(--text)">' + escHtml(data.hinweis) + '</div></div>' : '')
-        + '<button class="btn-secondary" style="margin-top:12px" onclick="openEye()">Nochmal scannen</button>';
+        + '<button class="btn-primary" style="margin-top:12px" onclick="shareGerichtCard()">Als Karte teilen</button>'
+        + '<div style="margin-top:8px"></div><button class="btn-secondary" onclick="openEye()">Nochmal scannen</button>';
+      window.__eyeDishShare = { dish: data.dish || 'Gericht', marge: marge, cost: cost, vk: vk };
     } else if(data.kind === 'temperatur'){
       window.__eyeTemp = data.value;
       if(status) status.textContent = 'Erkannt: Temperatur ' + (data.value||'?') + ' °C.';
@@ -6460,6 +6589,13 @@
       <div class="section-h"><h2>Betrieb</h2></div>
       <div class="list-card glass" style="margin-bottom:4px">
         <div class="setting-row" onclick="openProfil()" style="cursor:pointer"><div style="flex:1"><div style="font-size:14px;font-weight:600">Restaurant-Profil</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">${escHtml(chefProfile.name)} · ${escHtml(chefProfile.type)}</div></div><span style="color:var(--text-faint)">›</span></div>
+      </div>
+
+      <div class="section-h"><h2>Design & Bedienung</h2></div>
+      <div class="list-card glass" style="margin-bottom:14px">
+        <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Terrassen-Modus (hell)</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Helles Papier-Design für draußen &amp; Sonne</div></div><button class="pill ${chefTheme==='light'?'pill-good':'pill-low'}" onclick="toggleTheme();openSettings()" style="border:none;cursor:pointer">${chefTheme==='light'?'An':'Aus'}</button></div>
+        <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Service-Modus automatisch</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Zur Stoßzeit (11:30–14, 17:30–21) nur 3 große Knöpfe</div></div><button class="pill ${svcAuto?'pill-good':'pill-low'}" onclick="toggleServiceAuto();openSettings()" style="border:none;cursor:pointer">${svcAuto?'An':'Aus'}</button></div>
+        <div class="setting-row" onclick="closeSheet();enterServiceMode()" style="cursor:pointer"><div style="flex:1"><div style="font-size:14px;font-weight:600">Service-Modus jetzt starten</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Sofort in die große Ansicht wechseln</div></div><span style="color:var(--text-faint)">›</span></div>
       </div>
 
       <div class="section-h"><h2>KI & Sprachausgabe</h2></div>
@@ -7856,6 +7992,19 @@
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
       <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">${new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})} · alles aus deinen echten Daten.</p>
+      ${(function(){
+        try {
+          const exp = lagerData.filter(function(r){ const dd = daysUntilMhd(r); return dd !== null && dd <= 1; }).length;
+          const crit = lagerData.filter(function(r){ return r.status === 'low' && !orderedItems.includes(r.name); }).length;
+          const g = verkaufLog[briefingYesterdayKey()];
+          return bonCard('Morgen-Briefing', [
+            ['Läuft ab (heute/morgen)', String(exp)],
+            ['Kritischer Bestand', String(crit)],
+            ['Umsatz gestern', g && g.umsatz > 0 ? euro(g.umsatz) : '–'],
+            ['Bestellungen unterwegs', String(orderedItems.length)]
+          ], 'GUTEN SERVICE');
+        } catch(e){ return ''; }
+      })()}
       <button class="btn-primary" onclick="speakBriefing()" style="margin-bottom:14px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1A9 9 0 0014 3.2z"/></svg> Briefing anhören</button>
       <div class="list-card glass">${rows}</div>`;
     document.getElementById('sheetOverlay').classList.add('show');
@@ -7877,6 +8026,132 @@
     bb.style.display = 'block';
   }
   setTimeout(function(){ try{ maybeShowBriefing(); }catch(e){} }, 400);
+
+  // ===== Design: Terrassen-Theme, Service-Modus, Ampel-Kugel, Share-Karte =====
+  // Helles Papier-Theme fuer draussen - Gold bleibt Marke, Hero bleibt dunkel
+  let chefTheme = localStorage.getItem('chef_theme') || 'dark';
+  function applyTheme(){ document.body.classList.toggle('chef-light', chefTheme === 'light'); }
+  function toggleTheme(){
+    chefTheme = chefTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('chef_theme', chefTheme);
+    applyTheme();
+    toast(chefTheme === 'light' ? '☀️ Terrassen-Modus an' : '🌙 Dunkles Design an');
+  }
+  applyTheme();
+
+  // Service-Modus: zur Stosszeit nur 3 grosse Knoepfe. Einmal weggeklickt = weg
+  // fuer dieses Zeitfenster; per Einstellungen ganz abschaltbar.
+  let svcAuto = localStorage.getItem('chef_service_auto') !== '0';
+  function isServiceWindow(){
+    const d = new Date(), h = d.getHours() + d.getMinutes()/60;
+    return (h >= 11.5 && h < 14) || (h >= 17.5 && h < 21);
+  }
+  function svcWindowKey(){
+    const d = new Date();
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + (d.getHours() < 15 ? '-mittag' : '-abend');
+  }
+  function enterServiceMode(){ const ov = document.getElementById('serviceOverlay'); if(ov) ov.classList.add('active'); }
+  function exitServiceMode(){
+    const ov = document.getElementById('serviceOverlay'); if(ov) ov.classList.remove('active');
+    localStorage.setItem('chef_service_dismissed', svcWindowKey());
+  }
+  function svcVoice(){
+    exitServiceMode();
+    navTo('ki');
+    setTimeout(function(){ try{ toggleListen(); }catch(e){} }, 350);
+  }
+  function toggleServiceAuto(){
+    svcAuto = !svcAuto;
+    localStorage.setItem('chef_service_auto', svcAuto ? '1' : '0');
+    toast(svcAuto ? '✓ Service-Modus startet automatisch zur Stoßzeit' : 'Service-Modus: nur noch manuell');
+  }
+  function checkServiceMode(){
+    if(!svcAuto || !isServiceWindow()) return;
+    if(!localStorage.getItem('chef_onboarded')) return; // nicht ins Onboarding platzen
+    if(localStorage.getItem('chef_service_dismissed') === svcWindowKey()) return;
+    const sheetOpen = document.getElementById('sheet');
+    if(sheetOpen && sheetOpen.classList.contains('show')) return; // nichts unterbrechen
+    enterServiceMode();
+  }
+  setInterval(checkServiceMode, 60000);
+  setTimeout(checkServiceMode, 1500);
+
+  // Ampel-Kugel: die Voice-Kugel zeigt im Ruhezustand die Lage des Betriebs
+  function chefMoodClass(){
+    try {
+      const expired = lagerData.some(function(r){ const d = daysUntilMhd(r); return d !== null && d < 0; });
+      const critical = lagerData.filter(function(r){ return r.status === 'low' && !orderedItems.includes(r.name); }).length;
+      const expiring = lagerData.filter(function(r){ const d = daysUntilMhd(r); return d !== null && d >= 0 && d <= 1; }).length;
+      if(expired || critical >= 3) return 'mood-crit';
+      if(critical || expiring) return 'mood-warn';
+    } catch(e){}
+    return '';
+  }
+  function applyOrbMood(){
+    const orb = document.getElementById('voiceOrb'); if(!orb) return;
+    orb.classList.remove('mood-warn', 'mood-crit');
+    const c = chefMoodClass(); if(c) orb.classList.add(c);
+  }
+  setInterval(applyOrbMood, 60000);
+  setTimeout(applyOrbMood, 900);
+
+  // Teilbare Erfolgs-Karte: Gericht-Scan-Ergebnis als 1080x1080-Bild
+  function shareGerichtCard(){
+    const d = window.__eyeDishShare;
+    if(!d || !d.dish){ toast('Kein Gericht-Ergebnis da'); return; }
+    const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1080;
+    const x = cv.getContext('2d');
+    // Hintergrund: dunkles Edelstahl mit Gold-Glow
+    const bg = x.createLinearGradient(0, 0, 0, 1080);
+    bg.addColorStop(0, '#1c1f26'); bg.addColorStop(1, '#0b0d11');
+    x.fillStyle = bg; x.fillRect(0, 0, 1080, 1080);
+    const glow = x.createRadialGradient(540, 430, 60, 540, 430, 520);
+    glow.addColorStop(0, 'rgba(245,166,35,0.28)'); glow.addColorStop(1, 'rgba(245,166,35,0)');
+    x.fillStyle = glow; x.fillRect(0, 0, 1080, 1080);
+    // Gold-Ring um die Marge
+    x.strokeStyle = 'rgba(245,194,90,0.9)'; x.lineWidth = 10;
+    x.beginPath(); x.arc(540, 430, 250, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = 'rgba(245,194,90,0.25)'; x.lineWidth = 26;
+    x.beginPath(); x.arc(540, 430, 275, 0, Math.PI * 2); x.stroke();
+    x.textAlign = 'center'; x.fillStyle = '#f5c25a';
+    x.font = '800 190px Inter, sans-serif';
+    x.fillText(Math.round(d.marge) + '%', 540, 480);
+    x.font = '600 40px Inter, sans-serif'; x.fillStyle = 'rgba(245,246,245,0.75)';
+    x.fillText('MARGE', 540, 545);
+    // Gerichtname + Zahlen
+    x.fillStyle = '#f5f6f5'; x.font = '800 62px Inter, sans-serif';
+    const name = d.dish.length > 24 ? d.dish.slice(0, 23) + '…' : d.dish;
+    x.fillText(name, 540, 810);
+    x.fillStyle = 'rgba(245,246,245,0.65)'; x.font = '500 40px Inter, sans-serif';
+    x.fillText('Wareneinsatz € ' + d.cost.toFixed(2).replace('.', ',') + '  ·  VK € ' + d.vk.toFixed(2).replace('.', ','), 540, 875);
+    // Marken-Fuss
+    x.fillStyle = 'rgba(245,194,90,0.85)'; x.font = '700 34px Inter, sans-serif';
+    x.letterSpacing = '8px';
+    x.fillText('THE CHEF', 540, 1000);
+    cv.toBlob(function(blob){
+      if(!blob){ toast('Karte konnte nicht erstellt werden'); return; }
+      const file = new File([blob], 'the-chef-' + d.dish.replace(/[^a-z0-9äöü]+/gi, '-').toLowerCase() + '.png', { type: 'image/png' });
+      if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+        navigator.share({ files: [file], title: d.dish + ' · ' + Math.round(d.marge) + '% Marge' }).catch(function(){});
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = file.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        toast('✓ Karte gespeichert');
+      }
+    }, 'image/png');
+  }
+  // Thermobon-Baustein: Bericht im Kassenbon-Look (Screenshot-tauglich)
+  function bonCard(title, rows, foot){
+    return '<div class="bon-card">'
+      + '<div class="bon-h">' + escHtml(chefProfile.name || 'The Chef') + '</div>'
+      + '<div class="bon-sub">' + escHtml(title) + ' · ' + new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + '</div>'
+      + '<hr class="bon-hr">'
+      + rows.map(function(r){ return '<div class="bon-row"><span>' + escHtml(r[0]) + '</span><b>' + escHtml(r[1]) + '</b></div>'; }).join('')
+      + '<hr class="bon-hr">'
+      + '<div class="bon-foot">* * * ' + escHtml(foot || 'DANKE CHEF') + ' * * *</div>'
+      + '</div>';
+  }
 
   let _reminderTimer = null;
   function setupReminders(){
