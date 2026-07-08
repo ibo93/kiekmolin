@@ -15353,62 +15353,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
 
-                // ===== BENACHRICHTIGUNGS-SOUND (LAUT, alle Geräte) =====
+                // ===== BENACHRICHTIGUNGS-SOUND =====
+                // Nutzt die zentrale, saubere Klang-Funktion (mit Kompressor +
+                // Soft-Limiter und den Klang-Einstellungen des Gastronomen).
+                // Die alte Inline-Version hier hat uebersteuert (Toene bis 0.9
+                // ueberlappend ohne Limiter -> kratziger Klang) und wuerde die
+                // gute Version wieder ueberschreiben.
                 window.resPlayNotificationSound = function() {
                     try {
-                        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                        // Compressor für maximale Lautstärke auf allen Geräten
-                        var compressor = audioCtx.createDynamicsCompressor();
-                        compressor.threshold.value = -20;
-                        compressor.knee.value = 10;
-                        compressor.ratio.value = 4;
-                        compressor.attack.value = 0;
-                        compressor.release.value = 0.25;
-                        var masterGain = audioCtx.createGain();
-                        masterGain.gain.value = 1.0;
-                        masterGain.connect(compressor);
-                        compressor.connect(audioCtx.destination);
-
-                        // 3 aufsteigende Töne — laut und klar
-                        var tones = [
-                            { freq: 880, start: 0, end: 0.35, vol: 0.8 },
-                            { freq: 1174, start: 0.18, end: 0.55, vol: 0.85 },
-                            { freq: 1318, start: 0.35, end: 0.9, vol: 0.9 }
-                        ];
-                        tones.forEach(function(t) {
-                            var osc = audioCtx.createOscillator();
-                            var gain = audioCtx.createGain();
-                            osc.connect(gain);
-                            gain.connect(masterGain);
-                            osc.frequency.value = t.freq;
-                            osc.type = 'sine';
-                            gain.gain.setValueAtTime(t.vol, audioCtx.currentTime + t.start);
-                            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + t.end);
-                            osc.start(audioCtx.currentTime + t.start);
-                            osc.stop(audioCtx.currentTime + t.end);
-                        });
-
-                        // Sound 2x abspielen für Aufmerksamkeit (nach 1.2s nochmal)
-                        setTimeout(function() {
-                            try {
-                                var ctx2 = new (window.AudioContext || window.webkitAudioContext)();
-                                var comp2 = ctx2.createDynamicsCompressor();
-                                comp2.threshold.value = -20; comp2.ratio.value = 4;
-                                var mg2 = ctx2.createGain(); mg2.gain.value = 1.0;
-                                mg2.connect(comp2); comp2.connect(ctx2.destination);
-                                [{freq:880,s:0,e:0.35,v:0.8},{freq:1174,s:0.18,e:0.55,v:0.85},{freq:1318,s:0.35,e:0.9,v:0.9}].forEach(function(t) {
-                                    var o = ctx2.createOscillator(); var g = ctx2.createGain();
-                                    o.connect(g); g.connect(mg2);
-                                    o.frequency.value = t.freq; o.type = 'sine';
-                                    g.gain.setValueAtTime(t.v, ctx2.currentTime + t.s);
-                                    g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + t.e);
-                                    o.start(ctx2.currentTime + t.s); o.stop(ctx2.currentTime + t.e);
-                                });
-                            } catch(e2) {}
-                        }, 1200);
-
-                    } catch(e) {
-                    }
+                        if (typeof playKinNotificationSound === 'function') { playKinNotificationSound(); return; }
+                        if (typeof playReservationSound === 'function') playReservationSound();
+                    } catch(e) {}
                 };
 
                 // ===== VISUELLE BENACHRICHTIGUNG (Apple-Style, nur Dashboard) =====
@@ -17715,6 +17670,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div id="printerStatusBadge" onclick="openPrinterSettings()" title="Drucker-Verbindungsstatus (klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
                             <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="printerStatusText" style="color:#00251e;">Drucker prüfen…</span>
+                        </div>
+                        <div id="kasseStatusBadge" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
+                            <span id="kasseStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
+                            <span id="kasseStatusText" style="color:#00251e;">Kasse prüfen…</span>
                         </div>
                         <button onclick="openPOSSettings()" class="order-action-btn" title="Kassensystem verbinden" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;">
                             <span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span>
@@ -22650,6 +22609,30 @@ async function supabasePost(table, data) {
     return true;
 }
 
+// Koordinaten mit Stadt-Fallback: fehlt die echte Position in der DB (oder ist
+// das Geocoding fehlgeschlagen), landet das Restaurant wenigstens in seiner
+// STADT -- nicht mehr pauschal in Greetsiel. Kleiner, pro Restaurant stabiler
+// Versatz (~±250m), damit mehrere Restaurants ohne Koordinaten nicht alle
+// exakt auf demselben Punkt stapeln.
+function _restCoord(r, which) {
+    var v = parseFloat(which === 'lat' ? r.latitude : r.longitude);
+    if (v) return v;
+    var cities = (typeof knownCities === 'object' && knownCities) || {};
+    var c = null;
+    var city = String(r.city || '').trim().toLowerCase();
+    if (city) {
+        for (var k in cities) {
+            if (k.toLowerCase() === city) { c = cities[k]; break; }
+        }
+    }
+    if (!c) c = { lat: 53.5021, lng: 7.0965 };
+    var h = 0, s = String(r.id || r.name || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    var jLat = (((h % 1000) / 1000) - 0.5) * 0.005;
+    var jLng = ((((h >> 10) % 1000) / 1000) - 0.5) * 0.008;
+    return which === 'lat' ? c.lat + jLat : c.lng + jLng;
+}
+
 function mapRestaurant(r) {
     return {
         id: r.id, name: r.name,
@@ -22663,7 +22646,7 @@ function mapRestaurant(r) {
         instagram: r.instagram || r.instagram_url || '', instagram_url: r.instagram_url || '',
         facebook: r.facebook || r.facebook_url || '', facebook_url: r.facebook_url || '',
         tiktok: r.tiktok || r.tiktok_url || '', tiktok_url: r.tiktok_url || '',
-        lat: parseFloat(r.latitude) || 53.5021, lng: parseFloat(r.longitude) || 7.0965,
+        lat: _restCoord(r, 'lat'), lng: _restCoord(r, 'lng'),
         image: r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
         image_url: r.image_url || '',
         images: r.images && r.images.length > 0 ? r.images : [r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='],
@@ -23012,8 +22995,8 @@ async function loadFromSupabase() {
                 instagram: r.instagram || r.instagram_url || '',
                 facebook: r.facebook || r.facebook_url || '',
                 tiktok: r.tiktok || r.tiktok_url || '',
-                lat: parseFloat(r.latitude) || 53.5021,
-                lng: parseFloat(r.longitude) || 7.0965,
+                lat: (typeof _restCoord === 'function') ? _restCoord(r, 'lat') : (parseFloat(r.latitude) || 53.5021),
+                lng: (typeof _restCoord === 'function') ? _restCoord(r, 'lng') : (parseFloat(r.longitude) || 7.0965),
                 image: r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
                 images: r.images && r.images.length > 0 ? r.images : [r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='],
                 offer: null,
@@ -23105,6 +23088,20 @@ async function loadFromSupabase() {
     }
 }
 
+// Reservierungs-E-Mail an den Gast (Eingang/Bestaetigung/Absage) -- fire-and-
+// forget. Die Function prueft selbst, ob eine Gast-E-Mail vorliegt, und macht
+// ohne RESEND_API_KEY gar nichts.
+function sendReservationEmail(reservationId, eventType) {
+    try {
+        if (!reservationId || String(reservationId).indexOf('-') < 0) return;
+        fetch('/.netlify/functions/order-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservation_id: reservationId, event: eventType || 'received' })
+        }).catch(function() {});
+    } catch(e) {}
+}
+
 async function saveReservationToSupabase(reservation) {
     if (!useSupabase) {
         console.error('Supabase nicht aktiv');
@@ -23153,6 +23150,9 @@ async function saveReservationToSupabase(reservation) {
             // WICHTIG: Auch in lokales Array für Kalender/Tischplan
             if (savedRes && savedRes.length > 0) {
                 const r = savedRes[0];
+
+                // Eingangs-E-Mail an den Gast (macht ohne guest_email/Key nichts)
+                sendReservationEmail(r.id, 'received');
                 const localRes = {
                     id: r.id,
                     date: r.reservation_date,
@@ -26399,6 +26399,8 @@ async function rejectDashReservation(resId, restaurantId) {
                     })
                 });
                 showToast('Reservierung abgelehnt' + (reason ? ': ' + reason : ''), 'info');
+                // Absage-E-Mail an den Gast
+                if (typeof sendReservationEmail === 'function') sendReservationEmail(resId, 'cancelled');
                 if (restaurantId) loadReservationsForRestaurant(restaurantId);
                 if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
             } catch(e) {
@@ -34580,6 +34582,10 @@ async function updateReservationStatus(reservationId, newStatus) {
             if (result && result.success !== false) {
                 var statusLabels = { confirmed: 'Bestätigt', seated: 'Sitzt', cancelled: 'Storniert', finished: 'Fertig', pending: 'Ausstehend' };
                 showToast('Status: ' + (statusLabels[newStatus] || newStatus), 'success');
+                // E-Mail an den Gast bei Bestaetigung/Absage
+                if (newStatus === 'confirmed' || newStatus === 'cancelled') {
+                    if (typeof sendReservationEmail === 'function') sendReservationEmail(reservationId, newStatus);
+                }
                 var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
                 if (customer.restaurant_id) loadGastroReservations(customer.restaurant_id);
                 if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
@@ -34602,6 +34608,9 @@ async function updateReservationStatus(reservationId, newStatus) {
         });
         if (patchResp.ok) {
             showToast('Status aktualisiert', 'success');
+            if (newStatus === 'confirmed' || newStatus === 'cancelled') {
+                if (typeof sendReservationEmail === 'function') sendReservationEmail(reservationId, newStatus);
+            }
             var customer2 = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
             if (customer2.restaurant_id) loadGastroReservations(customer2.restaurant_id);
         } else {
@@ -35627,11 +35636,24 @@ function checkRestaurantSlugURL() {
         window._qrTableNumber = parseInt(tableFromURL);
         window._qrDineIn = true;
     }
+    // Bewertungs-Deep-Link (?review=1, kommt aus dem "Hat's geschmeckt?"-Push):
+    // nach dem Oeffnen des Restaurants direkt das Bewertungs-Modal zeigen
+    var wantsReview = urlParams.get('review') === '1';
+
     // Warte bis Restaurants geladen sind, dann öffne
     var checkInterval = setInterval(function() {
         if (APP_DATA.restaurants && APP_DATA.restaurants.length > 0) {
             clearInterval(checkInterval);
             openRestaurantBySlug(slug);
+            if (wantsReview) {
+                setTimeout(function() {
+                    try {
+                        var _s = slug.toLowerCase().trim();
+                        var _rr = APP_DATA.restaurants.find(function(r) { return r.slug === _s || r.id === _s; });
+                        if (_rr && typeof openReviewsModal === 'function') openReviewsModal('restaurant', _rr.id, _rr.name);
+                    } catch(e) {}
+                }, 1800);
+            }
         }
     }, 300);
 
@@ -41054,6 +41076,12 @@ document.addEventListener('error', function(e) {
         <div class="modal-body" style="flex:1;overflow-y:auto;padding:20px;padding-bottom:140px;">
             <div style="max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
 
+            <!-- Aktuelle Wartezeit: meldet die Kasse (WinOrder PreparationTime), wird in openCheckout gefuellt -->
+            <div id="checkoutPrepTimeHint" style="display:none;align-items:center;gap:10px;background:rgba(254,214,91,0.18);border:1px solid rgba(234,179,8,0.35);border-radius:32px;padding:12px 18px;font-size:13px;font-weight:600;color:#7c5e00;">
+                <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
+                <span id="checkoutPrepTimeText"></span>
+            </div>
+
             <!-- Bestellübersicht -->
             <section id="checkoutOrderSummary" style="background:rgba(255,255,255,0.7);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid rgba(255,255,255,0.8);box-shadow:0 10px 30px -5px rgba(0,61,51,0.08);border-radius:32px;padding:20px;color:#003D33;">
                 <h2 style="font-family:Epilogue,sans-serif;font-weight:700;font-size:16px;margin:0 0 20px 0;display:flex;align-items:center;gap:8px;">
@@ -42516,6 +42544,16 @@ async function openMenuModal(restaurantId) {
             if (hasPickup) metaParts.push(_t2.pickup || 'Abholung');
             if (hasDelivery) metaParts.push(_t2.delivery || 'Lieferung');
             if (hasDineIn) metaParts.push('Hier essen');
+            // Aktuelle Wartezeit aus der Kasse (WinOrder PreparationTime) direkt
+            // auf der Speisekarte zeigen -- der Kunde soll es VOR dem Bestellen
+            // sehen, nicht erst im Checkout. Nur wenn die Meldung frisch ist (< 3 Std).
+            try {
+                var _pp = Number(restaurant.pos_prep_minutes);
+                if (_pp > 0 && restaurant.pos_prep_updated_at &&
+                    (Date.now() - new Date(restaurant.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000) {
+                    metaParts.push('⏱ aktuell ca. ' + _pp + ' Min.');
+                }
+            } catch(e) {}
             metaEl.textContent = metaParts.length > 0 ? metaParts.join(' · ') : restaurant.city || '';
         }
     }
@@ -44756,6 +44794,25 @@ function openCheckout() {
     // Bestellübersicht rendern (Stitch)
     renderCheckoutOrderSummary();
 
+    // Aktuelle Wartezeit aus der Kasse anzeigen (WinOrder meldet sie ueber
+    // PreparationTime an den Server). Nur wenn die Meldung frisch ist (< 3 Std.),
+    // sonst lieber nichts anzeigen als eine veraltete Zeit.
+    try {
+        var prepEl = document.getElementById('checkoutPrepTimeHint');
+        if (prepEl) {
+            var _pr = currentOrderRestaurant || {};
+            var prepFresh = Number(_pr.pos_prep_minutes) > 0 && _pr.pos_prep_updated_at &&
+                (Date.now() - new Date(_pr.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000;
+            if (prepFresh) {
+                document.getElementById('checkoutPrepTimeText').textContent =
+                    'Aktuelle Wartezeit laut Restaurant: ca. ' + Number(_pr.pos_prep_minutes) + ' Min.';
+                prepEl.style.display = 'flex';
+            } else {
+                prepEl.style.display = 'none';
+            }
+        }
+    } catch(e) {}
+
     openModal('checkoutModal');
 }
 
@@ -45293,6 +45350,18 @@ async function submitOrder() {
 
         if (_orderRes.ok) {
             order.id = (_orderRes.data && _orderRes.data[0] && _orderRes.data[0].id) || order.id;
+
+            // Bestellbestaetigung per E-Mail (fire-and-forget). Die Function
+            // macht ohne RESEND_API_KEY nichts -- kostet hier also nie etwas.
+            try {
+                if (order.customer_email && String(order.id).indexOf('temp-') !== 0) {
+                    fetch('/.netlify/functions/order-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: order.id })
+                    }).catch(function() {});
+                }
+            } catch(e) {}
 
             // Order Items speichern (sekundaer – Dashboard nutzt sonst die items-Spalte)
             var _failedItems = 0;
@@ -46671,6 +46740,17 @@ function renderDashboardOrders() {
             posResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToPOS(\'' + order.id + '\')" title="An Kassensystem senden" aria-label="An Kasse senden" style="background:rgba(59,130,246,0.1);color:#1d4ed8;border-color:rgba(59,130,246,0.3);">📟 Kasse</button>';
         }
 
+        // WinOrder (Pull-Schnittstelle): hat die Kasse die Bestellung schon
+        // abgeholt (winorder_sent_at gesetzt), Button zum Zuruecksetzen zeigen —
+        // WinOrder holt sie dann beim naechsten Poll erneut ab. Sicherheitsnetz,
+        // falls an der Kasse nach dem Abruf etwas schiefging.
+        var woResendBtn = '';
+        if (order.winorder_sent_at && order.status !== 'cancelled') {
+            var woTime = '';
+            try { woTime = new Date(order.winorder_sent_at).toLocaleString('de-DE'); } catch(_) {}
+            woResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToWinOrder(\'' + order.id + '\')" title="Von WinOrder abgeholt: ' + woTime + '. Klicken, damit die Kasse die Bestellung beim nächsten Abruf erneut holt." aria-label="Erneut an WinOrder senden" style="background:rgba(20,184,166,0.1);color:#0f766e;border-color:rgba(20,184,166,0.3);">📟 Erneut an Kasse</button>';
+        }
+
         // Bon-Nachdruck-Button: zeigt Status + lass den Drucker beim naechsten Poll erneut drucken.
         var printBtn = '';
         if (order.status !== 'cancelled') {
@@ -46843,6 +46923,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-actions">
                         ${actionsHtml}
                         ${posResendBtn}
+                        ${woResendBtn}
                         ${copyForKasseBtn}
                         ${printBtn}
                     </div>
@@ -47110,8 +47191,19 @@ function acceptOrder(orderId) {
         `;
     }
 
-    // Standard-Zeit je nach Typ
-    const defaultTime = order.order_type === 'delivery' ? 45 : 25;
+    // Standard-Zeit je nach Typ -- hat die Kasse gerade eine frische
+    // Vorbereitungszeit gemeldet (WinOrder PreparationTime), gewinnt die:
+    // naechstgelegene Button-Option vorauswaehlen statt der Pauschale.
+    var defaultTime = order.order_type === 'delivery' ? 45 : 25;
+    try {
+        var _ar = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function(r) { return r.id === order.restaurant_id; });
+        var _pm = _ar ? Number(_ar.pos_prep_minutes) : 0;
+        if (_pm > 0 && _ar.pos_prep_updated_at &&
+            (Date.now() - new Date(_ar.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000) {
+            var _opts = Array.prototype.map.call(document.querySelectorAll('.time-option-btn'), function(b) { return parseInt(b.dataset.time); }).filter(function(t) { return !isNaN(t); });
+            if (_opts.length) defaultTime = _opts.reduce(function(best, t) { return Math.abs(t - _pm) < Math.abs(best - _pm) ? t : best; }, _opts[0]);
+        }
+    } catch(e) {}
     document.querySelectorAll('.time-option-btn').forEach(btn => {
         btn.classList.remove('selected');
         if (parseInt(btn.dataset.time) === defaultTime) {
@@ -47209,7 +47301,11 @@ async function confirmAcceptOrder() {
 
 // Order ablehnen
 async function rejectOrder(orderId) {
-    if (!await kinConfirm('Bestellung wirklich ablehnen?')) return;
+    // War die Bestellung schon an der Kasse (WinOrder-Pull)? Dann erfaehrt die
+    // Kasse vom Storno nichts -> Gastronom muss dort manuell stornieren.
+    var _rejOrder = dashboardOrders.find(o => o.id === orderId);
+    var _wasAtKasse = !!(_rejOrder && _rejOrder.winorder_sent_at);
+    if (!await kinConfirm('Bestellung wirklich ablehnen?' + (_wasAtKasse ? '\n\n⚠️ Die Bestellung wurde bereits an die Kasse (WinOrder) übertragen. Bitte dort ebenfalls manuell stornieren!' : ''))) return;
 
     try {
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
@@ -47235,6 +47331,11 @@ async function rejectOrder(orderId) {
         renderDashboardOrders();
         updateOrderStats();
         showToast('Bestellung abgelehnt', 'error');
+        if (_wasAtKasse) {
+            setTimeout(function() {
+                showToast('⚠️ Nicht vergessen: Bestellung auch in der Kasse (WinOrder) stornieren!', 'warning');
+            }, 1200);
+        }
     }
 }
 
@@ -48230,22 +48331,71 @@ function _renderPrinterStatus(lastPollIso) {
     badge.title = msg;
 }
 
+// Kassen-Ampel (WinOrder-Pull): gleiche Logik wie die Drucker-Ampel, aber auf
+// Basis von restaurants.pos_last_poll_at (stempelt die winorder-Function bei
+// jedem Abruf). Hat die Kasse NIE gepollt, bleibt das Badge versteckt --
+// nicht jedes Restaurant nutzt WinOrder.
+function _renderKasseStatus(lastPollIso) {
+    var badge = document.getElementById('kasseStatusBadge');
+    var dot = document.getElementById('kasseStatusDot');
+    var text = document.getElementById('kasseStatusText');
+    if (!badge || !dot || !text) return;
+
+    if (!lastPollIso) { badge.style.display = 'none'; return; }
+    var lastMs = new Date(lastPollIso).getTime();
+    if (isNaN(lastMs)) { badge.style.display = 'none'; return; }
+    badge.style.display = 'flex';
+    var ageSec = Math.max(0, Math.round((Date.now() - lastMs) / 1000));
+
+    var label, color, border, msg;
+    if (ageSec < 120) {
+        color = '#16a34a'; border = 'rgba(22,163,74,0.5)';
+        label = 'Kasse online (' + (ageSec < 60 ? ageSec + 's' : Math.round(ageSec/60) + ' Min') + ')';
+        msg = 'WinOrder hat vor ' + ageSec + ' Sekunden Bestellungen abgerufen — Verbindung aktiv.';
+    } else if (ageSec < 600) {
+        color = '#ca8a04'; border = 'rgba(202,138,4,0.5)';
+        label = 'Kasse langsam (' + Math.round(ageSec/60) + ' Min)';
+        msg = 'Letzter WinOrder-Abruf vor ' + Math.round(ageSec/60) + ' Minuten. Falls Bestellungen fehlen: Abruf-Intervall in WinOrder prüfen (empfohlen ca. 30 Sek).';
+    } else {
+        color = '#dc2626'; border = 'rgba(220,38,38,0.5)';
+        var minStr = ageSec < 3600 ? Math.round(ageSec/60) + ' Min' : Math.round(ageSec/3600) + ' Std';
+        label = 'Kasse offline (' + minStr + ')';
+        msg = 'WinOrder ruft seit ' + minStr + ' nicht ab — neue Bestellungen kommen NICHT an der Kasse an! Prüfe Kassen-Terminal, Netzwerk und die Schnittstellen-URL in WinOrder.';
+    }
+    dot.style.background = color;
+    text.textContent = label;
+    text.style.color = color;
+    badge.style.borderColor = border;
+    badge.title = msg;
+}
+
 async function refreshPrinterStatus() {
     var sel = document.getElementById('ordersRestaurantSelect');
     var restId = sel ? sel.value : '';
     if (!restId || restId === 'default') {
         var badge = document.getElementById('printerStatusBadge');
         if (badge) badge.style.display = 'none';
+        var kBadge = document.getElementById('kasseStatusBadge');
+        if (kBadge) kBadge.style.display = 'none';
         return;
     }
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+        // pos_last_poll_at ist eine optionale Spalte -- fehlt sie, wuerde der
+        // kombinierte Select mit 400 fehlschlagen und auch die Drucker-Ampel
+        // lahmlegen. Deshalb: erst kombiniert versuchen, dann Fallback.
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at,pos_last_poll_at', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+            res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            if (!res.ok) return;
+        }
         var data = await res.json();
         if (data && data[0]) {
             _renderPrinterStatus(data[0].printer_last_poll_at || null);
+            _renderKasseStatus(data[0].pos_last_poll_at || null);
         }
     } catch(e) { /* silent */ }
 }
@@ -49315,6 +49465,33 @@ function resendOrderToPOS(orderId) {
     } catch(e) { console.error(e); }
 }
 
+// WinOrder-Resend: Die Kasse holt Bestellungen selbst ab (Pull) und sie werden
+// dabei sofort als uebertragen markiert (winorder_sent_at). Ging danach an der
+// Kasse etwas schief (Absturz, Verbindungsabbruch), setzt dieser Button die
+// Markierung zurueck -> der naechste Poll liefert die Bestellung erneut.
+async function resendOrderToWinOrder(orderId) {
+    if (!await kinConfirm('Bestellung beim nächsten Kassen-Abruf erneut an WinOrder übertragen?\n\nNur nutzen, wenn die Bestellung in der Kasse fehlt — sonst erscheint sie dort doppelt.')) return;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ winorder_sent_at: null })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var order = (window.dashboardOrders || []).find(function(o) { return o.id === orderId; });
+        if (order) order.winorder_sent_at = null;
+        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        showToast('Kasse holt die Bestellung beim nächsten Abruf erneut ab.', 'success');
+    } catch (e) {
+        showToast('Fehler beim Zurücksetzen: ' + e.message, 'error');
+    }
+}
+
 // Bon erneut drucken: setzt printed_at zurueck, der Epson-Drucker holt
 // den Bon beim naechsten Poll automatisch erneut ab.
 async function reprintBon(orderId) {
@@ -50199,6 +50376,22 @@ function showNewOrderAlert(order) {
 // wird jede Welle einzeln per Timer nahe der aktuellen Zeit ausgeloest und der
 // AudioContext bei Bedarf mit resume() reaktiviert. So spielt der Ton wirklich
 // die volle Laenge (~6s) durch.
+// Sanfter Begrenzer gegen digitales Uebersteuern: alles ueber ~0dB wird weich
+// abgerundet (tanh) statt vom Browser hart abgeschnitten -- hartes Clipping
+// war die Ursache fuer den kratzigen/unsauberen Klang der Toene.
+function _makeSoftLimiter(ctx) {
+    var ws = ctx.createWaveShaper();
+    var n = 1024, curve = new Float32Array(n);
+    var k = 1.5, norm = Math.tanh(k);
+    for (var i = 0; i < n; i++) {
+        var x = (i / (n - 1)) * 2 - 1;
+        curve[i] = Math.tanh(k * x) / norm;
+    }
+    ws.curve = curve;
+    try { ws.oversample = '4x'; } catch (e) {}
+    return ws;
+}
+
 function playLoudChime(volume) {
     if (volume == null) volume = 1;
     var AC = window.AudioContext || window.webkitAudioContext;
@@ -50218,19 +50411,23 @@ function playLoudChime(volume) {
             // iOS/Safari: Kontext ggf. fortsetzen, sonst kommt kein Ton.
             try { if (ctx.state === 'suspended' && ctx.resume) ctx.resume(); } catch (e) {}
             var compressor = ctx.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(-24, ctx.currentTime);
-            compressor.ratio.setValueAtTime(8, ctx.currentTime);
+            compressor.threshold.setValueAtTime(-18, ctx.currentTime);
+            compressor.ratio.setValueAtTime(6, ctx.currentTime);
+            // Pegel so gewaehlt, dass die Summe unter 1.0 bleibt (kein hartes
+            // Clipping mehr); der Soft-Limiter faengt Restspitzen weich ab.
             var master = ctx.createGain();
-            master.gain.value = 1.9 * volume; // Makeup-Gain x Lautstaerke
+            master.gain.value = 1.15 * volume;
+            var limiter = _makeSoftLimiter(ctx);
             compressor.connect(master);
-            master.connect(ctx.destination);
+            master.connect(limiter);
+            limiter.connect(ctx.destination);
 
             var noteStart = ctx.currentTime + 0.02; // nahe currentTime = iOS-zuverlaessig
             NOTES.forEach(function(note) {
                 [
-                    { mult: 1, type: 'triangle', peak: 1.0 },
-                    { mult: 2, type: 'sine',     peak: 0.4 },
-                    { mult: 3, type: 'sine',     peak: 0.2 }
+                    { mult: 1, type: 'triangle', peak: 0.55 },
+                    { mult: 2, type: 'sine',     peak: 0.18 },
+                    { mult: 3, type: 'sine',     peak: 0.07 }
                 ].forEach(function(h) {
                     var osc = ctx.createOscillator();
                     var gain = ctx.createGain();
@@ -50239,8 +50436,8 @@ function playLoudChime(volume) {
                     osc.type = h.type;
                     osc.frequency.setValueAtTime(note.freq * h.mult, noteStart);
                     gain.gain.setValueAtTime(0, noteStart);
-                    gain.gain.linearRampToValueAtTime(h.peak, noteStart + 0.015);
-                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + note.dur);
+                    gain.gain.linearRampToValueAtTime(h.peak, noteStart + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0005, noteStart + note.dur);
                     osc.start(noteStart);
                     osc.stop(noteStart + note.dur + 0.05);
                 });
@@ -50279,18 +50476,21 @@ function playReservationSound() {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var now = ctx.currentTime;
 
-        // Kompressor + Makeup-Gain fuer hoehere wahrgenommene Lautstaerke
+        // Kompressor + Soft-Limiter: praesent, aber ohne hartes Clipping
+        // (die alte Kette hat mit Summe ~2.2 uebersteuert -> kratziger Klang)
         var compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-24, now);
-        compressor.ratio.setValueAtTime(8, now);
-        compressor.attack.setValueAtTime(0.002, now);
+        compressor.threshold.setValueAtTime(-18, now);
+        compressor.ratio.setValueAtTime(6, now);
+        compressor.attack.setValueAtTime(0.003, now);
         compressor.release.setValueAtTime(0.25, now);
         var master = ctx.createGain();
-        master.gain.setValueAtTime(1.8, now);
+        master.gain.setValueAtTime(1.15, now);
+        var limiter = _makeSoftLimiter(ctx);
         compressor.connect(master);
-        master.connect(ctx.destination);
+        master.connect(limiter);
+        limiter.connect(ctx.destination);
 
-        // Lauter, laengerer Doppel-Ton, 2x wiederholt: 660Hz → 990Hz
+        // Doppel-Ton, 2x wiederholt: 660Hz → 990Hz
         // Jeder Ton mit Oberton fuer mehr Praesenz.
         var STEPS = [0, 0.28, 0.85, 1.13]; // zwei Doppel-Wellen
         STEPS.forEach(function(offset, i) {
@@ -50302,12 +50502,12 @@ function playReservationSound() {
                 gain.connect(compressor);
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(base * harmonic, now + offset);
-                var peak = hIdx === 0 ? 0.9 : 0.3;
+                var peak = hIdx === 0 ? 0.55 : 0.16;
                 gain.gain.setValueAtTime(0, now + offset);
-                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.015);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.6);
+                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0005, now + offset + 0.6);
                 osc.start(now + offset);
-                osc.stop(now + offset + 0.6);
+                osc.stop(now + offset + 0.65);
             });
         });
 
@@ -51370,7 +51570,9 @@ function playNotificationSound() {
             var gain = ctx.createGain();
             osc.type = 'sine';
             osc.frequency.value = freqs[i];
-            gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
+            // kurzer Attack statt Sofort-Einsatz -- verhindert das Knacken
+            gain.gain.setValueAtTime(0, ctx.currentTime + t);
+            gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + t + 0.015);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -58481,40 +58683,37 @@ function playKinNotificationSound() {
         var type = _kinSoundTypes[_kinSoundType] || _kinSoundTypes.aufsteigend;
         // Sonderfall "Laut & Lang": eigener, langer Kiek-Alarm
         if (type.special === 'loud') { playLoudChime(vol); return; }
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var comp = ctx.createDynamicsCompressor();
-        comp.threshold.value = -20; comp.ratio.value = 4;
-        var mg = ctx.createGain(); mg.gain.value = vol;
-        mg.connect(comp); comp.connect(ctx.destination);
+        // Ein Durchgang: Toene mit festem Einzelpegel (0.5) in eine Kette aus
+        // Master-Gain (Lautstaerke-Regler) + Kompressor + Soft-Limiter.
+        // Vorher wurde vol doppelt angewendet (pro Ton UND Master) und die
+        // ueberlappenden Toene haben uebersteuert -> kratziger Klang + Knacken.
+        function pass(delayMs) {
+            setTimeout(function() {
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var comp = ctx.createDynamicsCompressor();
+                    comp.threshold.value = -18; comp.ratio.value = 6;
+                    var mg = ctx.createGain(); mg.gain.value = vol;
+                    var limiter = _makeSoftLimiter(ctx);
+                    mg.connect(comp); comp.connect(limiter); limiter.connect(ctx.destination);
 
-        type.tones.forEach(function(t) {
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.connect(gain); gain.connect(mg);
-            osc.frequency.value = t.f; osc.type = 'sine';
-            gain.gain.setValueAtTime(vol, ctx.currentTime + t.s);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t.e);
-            osc.start(ctx.currentTime + t.s); osc.stop(ctx.currentTime + t.e);
-        });
-
-        // 2. Durchgang nach 1.5s
-        setTimeout(function() {
-            try {
-                var ctx2 = new (window.AudioContext || window.webkitAudioContext)();
-                var comp2 = ctx2.createDynamicsCompressor();
-                comp2.threshold.value = -20; comp2.ratio.value = 4;
-                var mg2 = ctx2.createGain(); mg2.gain.value = vol;
-                mg2.connect(comp2); comp2.connect(ctx2.destination);
-                type.tones.forEach(function(t) {
-                    var o = ctx2.createOscillator(); var g = ctx2.createGain();
-                    o.connect(g); g.connect(mg2);
-                    o.frequency.value = t.f; o.type = 'sine';
-                    g.gain.setValueAtTime(vol, ctx2.currentTime + t.s);
-                    g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + t.e);
-                    o.start(ctx2.currentTime + t.s); o.stop(ctx2.currentTime + t.e);
-                });
-            } catch(e2) {}
-        }, 1500);
+                    type.tones.forEach(function(t) {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(mg);
+                        osc.frequency.value = t.f; osc.type = 'sine';
+                        gain.gain.setValueAtTime(0, ctx.currentTime + t.s);
+                        gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + t.s + 0.015);
+                        gain.gain.exponentialRampToValueAtTime(0.0005, ctx.currentTime + t.e);
+                        osc.start(ctx.currentTime + t.s); osc.stop(ctx.currentTime + t.e + 0.05);
+                    });
+                    var lastEnd = Math.max.apply(null, type.tones.map(function(t) { return t.e; }));
+                    setTimeout(function() { try { ctx.close(); } catch(e) {} }, (lastEnd + 0.5) * 1000);
+                } catch(e2) {}
+            }, delayMs);
+        }
+        pass(0);
+        pass(1500); // 2. Durchgang fuer Aufmerksamkeit
     } catch(e) {}
 }
 

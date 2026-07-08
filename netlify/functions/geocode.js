@@ -26,6 +26,7 @@ exports.handler = async function (event) {
     q = String(q || '').trim();
     if (q.length < 3) return json(400, { ok: false, error: 'q fehlt' });
 
+    // 1. Versuch: Nominatim (OpenStreetMap)
     try {
         var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(q);
         var res = await fetch(url, {
@@ -35,13 +36,28 @@ exports.handler = async function (event) {
                 'Accept': 'application/json'
             }
         });
-        if (!res.ok) return json(200, { ok: false });
-        var data = await res.json();
-        if (data && data[0] && data[0].lat && data[0].lon) {
-            return json(200, { ok: true, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+        if (res.ok) {
+            var data = await res.json();
+            if (data && data[0] && data[0].lat && data[0].lon) {
+                return json(200, { ok: true, lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), source: 'nominatim' });
+            }
         }
-        return json(200, { ok: false });
-    } catch (e) {
-        return json(200, { ok: false, error: e.message });
-    }
+    } catch (e) {}
+
+    // 2. Versuch: Photon (komoot) -- Nominatim blockiert Anfragen von
+    // Cloud-/Server-IPs gelegentlich komplett; Photon ist da toleranter.
+    try {
+        var purl = 'https://photon.komoot.io/api/?limit=1&lang=de&q=' + encodeURIComponent(q);
+        var pres = await fetch(purl, { headers: { 'Accept': 'application/json' } });
+        if (pres.ok) {
+            var pj = await pres.json();
+            var f = pj && pj.features && pj.features[0];
+            var cc = f && f.properties && f.properties.countrycode;
+            if (f && f.geometry && Array.isArray(f.geometry.coordinates) && (!cc || cc === 'DE')) {
+                return json(200, { ok: true, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], source: 'photon' });
+            }
+        }
+    } catch (e) {}
+
+    return json(200, { ok: false });
 };

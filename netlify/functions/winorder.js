@@ -13,6 +13,11 @@
 //
 // EINMALIG in Supabase ausfuehren:
 //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS winorder_sent_at timestamptz;
+//   -- optional, fuer die Wartezeit-Anzeige im Checkout:
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_minutes int;
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_updated_at timestamptz;
+//   -- optional, fuer die Kassen-Ampel im Dashboard (Kasse online/offline):
+//   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_last_poll_at timestamptz;
 //
 // ENV optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (sonst anon-Fallback).
 
@@ -65,6 +70,31 @@ function safeEqual(a, b) {
     try { return crypto.timingSafeEqual(ha, hb); } catch (e) { return false; }
 }
 
+// delivery_address kommt aus dem Checkout als Objekt {street, house_number,
+// zip, city, note} (jsonb), aus Altdaten evtl. als String. Beides sauber in
+// die WinOrder-Adressfelder zerlegen -- sonst landet '[object Object]' bzw.
+// alles im Feld Street und WinOrder kann keine Tour/Karte zuordnen.
+function parseAddress(da) {
+    var out = { street: '', houseNo: '', zip: '', city: '', note: '' };
+    if (!da) return out;
+    if (typeof da === 'string') {
+        try { da = JSON.parse(da); } catch (e) {
+            // Freitext: "Musterstr. 12, 26506 Norden" -> Strasse/Hausnr/PLZ/Ort raten
+            var m = String(da).match(/^\s*(.*?)\s+(\d+\s*[a-zA-Z]?(?:[-\/]\d+\s*[a-zA-Z]?)?)\s*,\s*(?:(\d{5})\s+)?(.*?)\s*$/);
+            if (m) { out.street = m[1]; out.houseNo = m[2]; out.zip = m[3] || ''; out.city = m[4]; }
+            else out.street = String(da);
+            return out;
+        }
+    }
+    if (typeof da !== 'object') { out.street = String(da); return out; }
+    out.street = String(da.street || '');
+    out.houseNo = String(da.house_number || da.houseNumber || '');
+    out.zip = String(da.zip || da.postal_code || '');
+    out.city = String(da.city || '');
+    out.note = String(da.note || '');
+    return out;
+}
+
 // kiekmolin-Bestellung -> WinOrder-Order
 function mapOrder(o, rest) {
     var items = Array.isArray(o.items) ? o.items : [];
@@ -81,11 +111,16 @@ function mapOrder(o, rest) {
         return art;
     });
 
+    var addr = parseAddress(o.delivery_address);
+
     // Notizen als klar erkennbarer Hinweis-Artikel oben
-    var notes = [o.customer_notes, o.delivery_notes].filter(Boolean).join(' | ');
+    var notes = [o.customer_notes, o.delivery_notes, addr.note].filter(Boolean).join(' | ');
     if (notes) articles.unshift({ ArticleNo: '', ArticleName: 'HINWEIS', ArticleSize: '', Price: 0, Count: 1, Comment: notes });
-    // Liefergebuehr als eigener Artikel, damit die Summe in WinOrder stimmt
+    // Liefergebuehr, Trinkgeld und Rabatt als eigene Artikel, damit die
+    // Artikelsumme in WinOrder dem Total der App entspricht
     if (Number(o.delivery_fee) > 0) articles.push({ ArticleNo: '', ArticleName: 'Liefergebühr', ArticleSize: '', Price: Number(o.delivery_fee), Count: 1, Comment: '' });
+    if (Number(o.tip) > 0) articles.push({ ArticleNo: '', ArticleName: 'Trinkgeld', ArticleSize: '', Price: Number(o.tip), Count: 1, Comment: '' });
+    if (Number(o.discount) > 0) articles.push({ ArticleNo: '', ArticleName: 'Rabatt', ArticleSize: '', Price: -Number(o.discount), Count: 1, Comment: '' });
 
     var nameParts = String(o.customer_name || '').trim().split(/\s+/).filter(Boolean);
     var lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : (nameParts[0] || '');
@@ -108,13 +143,41 @@ function mapOrder(o, rest) {
         Customer: {
             DeliveryAddress: {
                 FirstName: firstName, LastName: lastName,
-                Street: String(o.delivery_address || ''), HouseNo: '', Zip: '', City: '', Country: 'DE',
+                Street: addr.street, HouseNo: addr.houseNo, Zip: addr.zip, City: addr.city, Country: 'DE',
                 PhoneNo: String(o.customer_phone || ''), EMail: String(o.customer_email || ''), Company: '', Title: ''
             }
         },
         ArticleList: { Article: articles }
     };
 }
+
+// WinOrder-Trackingstatus -> kiekmolin-Bestellstatus. WinOrder schickt je nach
+// Version Klartext oder Zahlencodes; beides tolerant deuten. Unbekanntes wird
+// ignoriert (dann bleibt der Status wie er ist). Zahlencodes werden bewusst
+// NIE auf 'cancelled' gemappt -- ein faelschlich stornierter Eindruck beim
+// Kunden waere der schlimmste Fehldeutungs-Fall.
+function mapTrackingStatus(raw) {
+    if (raw == null) return '';
+    if (typeof raw === 'object') raw = raw.Status != null ? raw.Status : (raw.status != null ? raw.status : '');
+    var s = String(raw).trim().toLowerCase();
+    if (!s) return '';
+    if (/^\d+$/.test(s)) {
+        return ({ '0': 'accepted', '1': 'preparing', '2': 'out_for_delivery', '3': 'delivered' })[s] || '';
+    }
+    if (/cancel|storn|ablehn|abgelehnt|declin|reject/.test(s)) return 'cancelled';
+    if (/delivered|geliefert|zugestellt|abgeschlossen|complete|finish/.test(s)) return 'delivered';
+    if (/deliver|unterwegs|transit|fahrer|tour|versand|shipped|route/.test(s)) return 'out_for_delivery';
+    if (/ready|fertig|abholbereit/.test(s)) return 'ready';
+    if (/prepar|zubereit|kitchen|koch|produktion/.test(s)) return 'preparing';
+    if (/accept|angenommen|bestaetigt|confirm/.test(s)) return 'accepted';
+    return '';
+}
+
+// Reihenfolge der Stati -- Updates aus der Kasse duerfen nie rueckwaerts gehen
+// (z.B. 'delivered' nicht wieder auf 'preparing' zuruecksetzen).
+var TRACK_RANK = { received: 0, accepted: 1, preparing: 2, ready: 3, out_for_delivery: 4, delivered: 5, picked_up: 5 };
+// Zeitstempel-Spalten wie im Gastro-Dashboard (updateOrderStatus)
+var TRACK_TS = { preparing: 'preparing_at', ready: 'ready_at', out_for_delivery: 'out_for_delivery_at', delivered: 'completed_at', cancelled: 'cancelled_at' };
 
 function parseBody(event) {
     var raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '');
@@ -172,6 +235,14 @@ exports.handler = async function (event) {
         return json(500, { error: 'Auth-Pruefung fehlgeschlagen: ' + e.message });
     }
 
+    // Lebenszeichen der Kasse stempeln -> Dashboard-Ampel "Kasse online/offline".
+    // Darf die Antwort nicht kaputt machen: Spalte pos_last_poll_at ist optional,
+    // sbPatch liefert bei fehlender Spalte nur false (kein throw).
+    try {
+        await sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant),
+            { pos_last_poll_at: new Date().toISOString() });
+    } catch (e) {}
+
     try {
         if (action === 'getneworders') {
             var orders;
@@ -206,12 +277,52 @@ exports.handler = async function (event) {
             var oid = body.OrderID || body.orderID || body.orderid || qs.OrderID || qs.orderid;
             if (oid) {
                 await sbPatch('orders?id=eq.' + encodeURIComponent(oid), { winorder_sent_at: new Date().toISOString() });
+
+                // Status aus der Kasse in die App uebernehmen -> der Kunde sieht
+                // den Fortschritt (in Zubereitung / unterwegs / geliefert) im
+                // Bestell-Tracking automatisch, ohne dass das Personal in der
+                // kiekmolin-App klicken muss.
+                var rawStatus = body.TrackingStatus != null ? body.TrackingStatus
+                    : (body.trackingstatus != null ? body.trackingstatus
+                    : (body.Status != null ? body.Status
+                    : (body.status != null ? body.status : body.OrderStatus)));
+                var mapped = mapTrackingStatus(rawStatus);
+                if (mapped) {
+                    try {
+                        var cur = await sbGet('orders?id=eq.' + encodeURIComponent(oid) + '&select=id,status');
+                        var curStatus = cur.length ? String(cur[0].status || '') : '';
+                        var curRank = TRACK_RANK[curStatus] != null ? TRACK_RANK[curStatus] : -1;
+                        var newRank = TRACK_RANK[mapped] != null ? TRACK_RANK[mapped] : -1;
+                        var allowed = cur.length && curStatus !== 'cancelled' &&
+                            (mapped === 'cancelled' ? curRank < 5 : newRank > curRank);
+                        if (allowed) {
+                            var upd = { status: mapped };
+                            if (TRACK_TS[mapped]) upd[TRACK_TS[mapped]] = new Date().toISOString();
+                            await sbPatch('orders?id=eq.' + encodeURIComponent(oid), upd);
+                        }
+                    } catch (e) { /* Status-Sync ist Bonus -- Quittung geht trotzdem raus */ }
+                }
             }
             return json(200, { Result: 'OK', trackingstatus: 0 });
         }
 
         if (action === 'preparationtime') {
-            // WinOrder meldet die aktuelle Vorbereitungszeit -> nur quittieren.
+            // WinOrder meldet die aktuelle Vorbereitungszeit -> speichern, damit
+            // der Checkout dem Kunden "aktuell ca. X Min" zeigen kann. Fehlen die
+            // Spalten (optional), wird trotzdem quittiert -- WinOrder darf davon
+            // nichts merken.
+            var pbody = parseBody(event);
+            var pt = pbody.PreparationTime != null ? pbody.PreparationTime
+                : (pbody.preparationtime != null ? pbody.preparationtime
+                : (pbody.Minutes != null ? pbody.Minutes : (pbody.minutes != null ? pbody.minutes : qs.minutes)));
+            if (pt && typeof pt === 'object') pt = pt.Minutes != null ? pt.Minutes : pt.minutes;
+            var minutes = parseInt(pt, 10);
+            if (isFinite(minutes) && minutes >= 0 && minutes <= 600) {
+                try {
+                    await sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant),
+                        { pos_prep_minutes: minutes, pos_prep_updated_at: new Date().toISOString() });
+                } catch (e) { /* optional -- Quittung geht trotzdem raus */ }
+            }
             return json(200, { Result: 'OK' });
         }
 
