@@ -22609,6 +22609,30 @@ async function supabasePost(table, data) {
     return true;
 }
 
+// Koordinaten mit Stadt-Fallback: fehlt die echte Position in der DB (oder ist
+// das Geocoding fehlgeschlagen), landet das Restaurant wenigstens in seiner
+// STADT -- nicht mehr pauschal in Greetsiel. Kleiner, pro Restaurant stabiler
+// Versatz (~±250m), damit mehrere Restaurants ohne Koordinaten nicht alle
+// exakt auf demselben Punkt stapeln.
+function _restCoord(r, which) {
+    var v = parseFloat(which === 'lat' ? r.latitude : r.longitude);
+    if (v) return v;
+    var cities = (typeof knownCities === 'object' && knownCities) || {};
+    var c = null;
+    var city = String(r.city || '').trim().toLowerCase();
+    if (city) {
+        for (var k in cities) {
+            if (k.toLowerCase() === city) { c = cities[k]; break; }
+        }
+    }
+    if (!c) c = { lat: 53.5021, lng: 7.0965 };
+    var h = 0, s = String(r.id || r.name || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    var jLat = (((h % 1000) / 1000) - 0.5) * 0.005;
+    var jLng = ((((h >> 10) % 1000) / 1000) - 0.5) * 0.008;
+    return which === 'lat' ? c.lat + jLat : c.lng + jLng;
+}
+
 function mapRestaurant(r) {
     return {
         id: r.id, name: r.name,
@@ -22622,7 +22646,7 @@ function mapRestaurant(r) {
         instagram: r.instagram || r.instagram_url || '', instagram_url: r.instagram_url || '',
         facebook: r.facebook || r.facebook_url || '', facebook_url: r.facebook_url || '',
         tiktok: r.tiktok || r.tiktok_url || '', tiktok_url: r.tiktok_url || '',
-        lat: parseFloat(r.latitude) || 53.5021, lng: parseFloat(r.longitude) || 7.0965,
+        lat: _restCoord(r, 'lat'), lng: _restCoord(r, 'lng'),
         image: r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
         image_url: r.image_url || '',
         images: r.images && r.images.length > 0 ? r.images : [r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='],
@@ -22971,8 +22995,8 @@ async function loadFromSupabase() {
                 instagram: r.instagram || r.instagram_url || '',
                 facebook: r.facebook || r.facebook_url || '',
                 tiktok: r.tiktok || r.tiktok_url || '',
-                lat: parseFloat(r.latitude) || 53.5021,
-                lng: parseFloat(r.longitude) || 7.0965,
+                lat: (typeof _restCoord === 'function') ? _restCoord(r, 'lat') : (parseFloat(r.latitude) || 53.5021),
+                lng: (typeof _restCoord === 'function') ? _restCoord(r, 'lng') : (parseFloat(r.longitude) || 7.0965),
                 image: r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==',
                 images: r.images && r.images.length > 0 ? r.images : [r.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='],
                 offer: null,
