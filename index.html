@@ -1527,21 +1527,6 @@
           </button>
         </div>
 
-        <div class="ai-card glass">
-          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">KI-Vorschläge</div></div>
-          <div class="ai-suggest" onclick="openNachbestellung()" style="cursor:pointer">
-            <div class="ai-suggest-text"><strong>Mehrere Artikel</strong> sind knapp. The Chef hat eine <strong>Nachbestell-Liste</strong> nach Lieferant fertig.</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();openNachbestellung()">Liste öffnen</button><button class="ai-btn ai-btn-skip" onclick="event.stopPropagation();this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
-          </div>
-          <div class="ai-suggest" onclick="openVorschlag('tomate')" style="cursor:pointer">
-            <div class="ai-suggest-text"><strong>Tomaten</strong> laufen in 3 Tagen ab → <strong>Tomatensuppe</strong> als Tagesangebot? Schätzt €180.</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();openVorschlag('tomate')">Details ansehen</button><button class="ai-btn ai-btn-skip" onclick="event.stopPropagation();this.parentElement.parentElement.style.opacity=0.4">Verwerfen</button></div>
-          </div>
-          <div class="ai-suggest" onclick="openVorschlag('schicht')" style="cursor:pointer">
-            <div class="ai-suggest-text"><strong>Samstag</strong> wird sonnig & warm → <strong>+30% Gäste</strong> erwartet. Eine Person mehr einplanen?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();openVorschlag('schicht')">Details ansehen</button><button class="ai-btn ai-btn-skip" onclick="event.stopPropagation();this.parentElement.parentElement.style.opacity=0.4">Später</button></div>
-          </div>
-        </div>
 
         <div class="section-h"><h2>Niedriger Bestand</h2><a onclick="navTo('lager')">Alle →</a></div>
         <div class="list-card glass" id="homeLowList"></div>
@@ -2210,9 +2195,9 @@
   renderLager();
 
   // ===== Tagesdaten · echte, vom Gastronomen eingetragene Kennzahlen =====
-  const tagesDatenDefault = lagerOwnMode
-    ? { umsatz:0, marge:0, muell:0, gaeste:0, bestellungen:0 }
-    : { umsatz:1847, marge:62.4, muell:2.1, gaeste:87, bestellungen:142 };
+  // Keine Fantasie-Zahlen: der Umsatz startet IMMER bei 0 und waechst nur
+  // durch echte Eintraege / gebuchte Verkaeufe.
+  const tagesDatenDefault = { umsatz:0, marge:0, muell:0, gaeste:0, bestellungen:0 };
   let tagesDaten = Object.assign({}, tagesDatenDefault, JSON.parse(localStorage.getItem('chef_tagesdaten') || '{}'));
   const euro = n => '€ ' + Number(n||0).toLocaleString('de-DE');
   function renderTagesDaten(){
