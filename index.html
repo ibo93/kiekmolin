@@ -1382,15 +1382,6 @@
     <div class="noise"></div>
 
     <!-- iOS Status Bar -->
-    <div class="statusbar">
-      <span class="sb-time" id="sbTime">9:41</span>
-      <span class="sb-icons">
-        <svg class="sb-icon" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="5" y="5" width="3" height="7" rx="0.5"/><rect x="10" y="2" width="3" height="10" rx="0.5"/><rect x="15" y="0" width="3" height="12" rx="0.5"/></svg>
-        <svg class="sb-icon" viewBox="0 0 18 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 4.5C3.5 2.5 6 1.5 9 1.5s5.5 1 7.5 3M4 7C5.5 5.5 7 5 9 5s3.5.5 5 2M6.5 9.5C7.2 8.8 8 8.5 9 8.5s1.8.3 2.5 1"/></svg>
-        <svg class="sb-icon" style="width:24px" viewBox="0 0 24 12" fill="none"><rect x="1" y="2" width="20" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/><rect x="2.5" y="3.5" width="17" height="5" rx="1" fill="currentColor"/><rect x="22" y="4.5" width="1.5" height="3" rx="0.5" fill="currentColor" opacity="0.5"/></svg>
-      </span>
-    </div>
-
     <!-- Top Header -->
     <div class="topbar" id="topbar">
       <div class="greet">
@@ -1426,12 +1417,12 @@
             <path id="heroChartPath" d="M0 60 L280 60 Z" fill="url(#heroChartGrad)" stroke="#f5c25a" stroke-opacity="0.55" stroke-width="1.2" stroke-linejoin="round"/>
           </svg>
           <div class="hero-label">Umsatz heute</div>
-          <div class="hero-value" id="kpiUmsatz" data-count="1847" data-prefix="€ " data-cents=",40">€ 0</div>
+          <div class="hero-value" id="kpiUmsatz" data-count="0" data-prefix="€ ">€ 0</div>
           <div class="hero-sub" id="kpiUmsatzSub">Tippen, um Tagesdaten einzutragen</div>
           <div class="hero-mini">
-            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" id="kpiMarge" data-count="62.4" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" id="lagerKpi" data-count="87" data-suffix="%">0%</div></div>
-            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" id="kpiMuell" data-count="2.1" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Marge</div><div class="hero-mini-val up" id="kpiMarge" data-count="0" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Lager</div><div class="hero-mini-val" id="lagerKpi" data-count="0" data-suffix="%">0%</div></div>
+            <div class="hero-mini-item"><div class="hero-mini-label">Müll</div><div class="hero-mini-val up" id="kpiMuell" data-count="0" data-suffix="%">0%</div></div>
           </div>
         </div>
 
@@ -1489,101 +1480,25 @@
 
         <div class="section-h"><h2>Werkzeuge</h2></div>
         <div class="lab-scroll">
+          <button class="lab-card lab-vision" onclick="openEye()">
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg></div>
+            <div class="lab-title">KI-Auge</div>
+            <div class="lab-sub">Ein Foto reicht: Lieferschein, Regal, Gericht oder MHD – The Chef erkennt selbst, was es ist.</div>
+          </button>
           <button class="lab-card lab-verkauf" onclick="openVerkauf()">
-            <div class="lab-tag">LIVE</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2.5l1 4H22l-3 9H8l-.5 2h13v2H6.5l1-4H6L4 5H3V3zm5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg></div>
             <div class="lab-title">Verkauf buchen</div>
-            <div class="lab-sub">Bon scannen oder tippen – Lager & Umsatz automatisch.</div>
+            <div class="lab-sub">Portionen tippen oder zurufen – Lager und Umsatz laufen automatisch mit.</div>
           </button>
-          <button class="lab-card lab-vision" onclick="openLagerVision()">
-            <div class="lab-tag">NEU</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
-            <div class="lab-title">Lager-Vision</div>
-            <div class="lab-sub">Handy aufs Regal → KI zählt alles in 3 Sek.</div>
-          </button>
-          <button class="lab-card lab-brain" onclick="openChefBrain()">
-            <div class="lab-tag">EXKLUSIV</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg></div>
-            <div class="lab-title">Chef-Brain</div>
-            <div class="lab-sub">Dein digitaler Zwilling. Lernt deinen Stil.</div>
-          </button>
-          <button class="lab-card lab-marketing" onclick="openAutoMarketing()">
-            <div class="lab-tag">VIRAL</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 1a3 3 0 00-3 3v16a3 3 0 003 3h10a3 3 0 003-3V4a3 3 0 00-3-3H7zm0 2h10a1 1 0 011 1v15H6V4a1 1 0 011-1zm5 17a1 1 0 110 2 1 1 0 010-2z"/></svg></div>
-            <div class="lab-title">Auto-Marketing</div>
-            <div class="lab-sub">Posts für Insta/TikTok – vollautomatisch</div>
-          </button>
-          <button class="lab-card lab-krise" onclick="openKrise()">
-            <div class="lab-tag">SOS</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a4 4 0 00-4 4h2a2 2 0 014 0h2a4 4 0 00-4-4zM5 8a7 7 0 0114 0v6l1.5 3a1 1 0 01-.9 1.4H4.4a1 1 0 01-.9-1.4L5 14V8zm5 12a2 2 0 004 0h-4z"/></svg></div>
-            <div class="lab-title">Krisen-Modus</div>
-            <div class="lab-sub">Plan B in einem Tap. Jede Krise gemeistert.</div>
-          </button>
-          <button class="lab-card lab-radar" onclick="openRadar()">
-            <div class="lab-tag">LIVE</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg></div>
-            <div class="lab-title">Konkurrenz-Radar</div>
-            <div class="lab-sub">Was machen die Nachbarn gerade?</div>
-          </button>
-          <button class="lab-card lab-tagesabschluss" onclick="openTagesabschluss()">
-            <div class="lab-tag">VOICE</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M17 18a5 5 0 00-10 0H5a7 7 0 0114 0h-2zm-5-3a3 3 0 01-3-3V5a3 3 0 016 0v7a3 3 0 01-3 3zm5-3a5 5 0 01-10 0H5a7 7 0 0014 0h-2z"/></svg></div>
-            <div class="lab-title">Tagesabschluss</div>
-            <div class="lab-sub">Was war heute, was fehlt – auch zum Anhören.</div>
-          </button>
-          <button class="lab-card lab-reste" onclick="openResteRetter()">
-            <div class="lab-tag">SPART €</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81a5.5 5.5 0 005.96-1.21 1 1 0 000-1.42l-3.59-3.58 1.41-1.42-1.41-1.41-1.42 1.41-1.41-1.41-1.42 1.41 3.59 3.59-1.42 1.41-2.12-2.12-1.41 1.41 2.12 2.12-7.01 7.02 1.41 1.41 7.01-7.01 2.13 2.13z"/></svg></div>
-            <div class="lab-title">Reste-Retter</div>
-            <div class="lab-sub">Tagesgericht aus dem, was bald abläuft.</div>
-          </button>
-          <button class="lab-card lab-preis" onclick="openPreiswaechter()">
-            <div class="lab-tag">SPART €</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
-            <div class="lab-title">Preis-Wächter</div>
-            <div class="lab-sub">Wird was teurer, schlägt er den neuen VK gleich vor.</div>
-          </button>
-          <button class="lab-card lab-brain" onclick="openMenuDoktor()">
-            <div class="lab-tag">BERATER</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-8 14H7v-6h4v6zm6 0h-4V7h4v10z"/></svg></div>
-            <div class="lab-title">Speisekarten-Doktor</div>
-            <div class="lab-sub">Welches Gericht verdient Geld – und welches muss weg.</div>
+          <button class="lab-card lab-preis" onclick="openGerichtKalkulator()">
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2C7 2 3 6 3 11h2a7 7 0 0114 0h2c0-5-4-9-9-9zm-1 6v5l4 2 .7-1.3-3.2-1.9V8H11zM2 13a10 10 0 0020 0h-2a8 8 0 01-16 0H2z"/></svg></div>
+            <div class="lab-title">Gericht-Kalkulator</div>
+            <div class="lab-sub">Foto vom Teller – Zutaten, Wareneinsatz und Marge sofort.</div>
           </button>
           <button class="lab-card lab-tagesabschluss" onclick="openSprachInventur()">
-            <div class="lab-tag">VOICE</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg></div>
             <div class="lab-title">Sprach-Inventur</div>
-            <div class="lab-sub">Durchs Lager gehen, reinsprechen – Bestand aktuell.</div>
-          </button>
-          <button class="lab-card lab-marketing" onclick="openBewertungAntwort()">
-            <div class="lab-tag">KI</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
-            <div class="lab-title">Bewertung beantworten</div>
-            <div class="lab-sub">Google/Tripadvisor-Bewertung rein – passende Antwort raus.</div>
-          </button>
-          <button class="lab-card lab-brain" onclick="openWochenplan()">
-            <div class="lab-tag">KI</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></div>
-            <div class="lab-title">Wochenplan</div>
-            <div class="lab-sub">Was kochen wir nächste Woche – aus Lager, Marge & Top-Sellern.</div>
-          </button>
-          <button class="lab-card lab-vision" onclick="openInventur()">
-            <div class="lab-tag">LIVE</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2z"/></svg></div>
-            <div class="lab-title">Inventur</div>
-            <div class="lab-sub">Geführter Bestands-Check – Artikel für Artikel.</div>
-          </button>
-          <button class="lab-card lab-tagesabschluss" onclick="openWareneinsatzBericht()">
-            <div class="lab-tag">REPORT</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-6 6-4-4-7 7 1.4 1.4z"/></svg></div>
-            <div class="lab-title">Wareneinsatz · Monat</div>
-            <div class="lab-sub">30-Tage-Auswertung + EK-Trend pro Artikel.</div>
-          </button>
-          <button class="lab-card lab-preis" onclick="openDatevExport()">
-            <div class="lab-tag">EXPORT</div>
-            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h4v6h5.34V9h4L12 2z" transform="rotate(180 12 12)"/></svg></div>
-            <div class="lab-title">DATEV / Buchhaltung</div>
-            <div class="lab-sub">Tagesumsätze als CSV für deinen Steuerberater.</div>
+            <div class="lab-sub">Durchs Lager gehen und Bestände einsprechen – fertig.</div>
           </button>
         </div>
 
@@ -1659,8 +1574,7 @@
           <button class="btn-primary" onclick="document.getElementById('scanFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg> Foto aufnehmen</button>
           <div style="margin-top:10px"></div>
           <button class="btn-secondary" onclick="document.getElementById('scanFile').click()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.5"/><path d="M5 17l5-5 4 4 3-3 4 4v0H5z"/></svg> Aus Galerie wählen</button>
-          <div style="margin-top:10px"></div>
-          <button class="btn-secondary" onclick="simulateScan()" style="opacity:0.7;font-size:13px;padding:11px">Ohne Foto testen (Demo)</button>
+
         </div>
 
         <div id="scanLoading" style="display:none">
@@ -1736,21 +1650,9 @@
           <button class="cmd-chip" onclick="askKi('Was läuft ab in den nächsten Tagen?')"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2a8 8 0 110 16 8 8 0 010-16zm-1 3v6l4 2.4.8-1.4-3.3-2V7H11z"/></svg> Abläufe prüfen</button>
         </div>
 
-        <div class="section-h"><h2><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2l2.4 6.8L21 9.5l-5 4.5 1.5 7-5.5-3.5L6.5 21l1.5-7-5-4.5 6.6-.7z"/></svg> Heute für dich</h2></div>
-        <div class="ai-card glass">
-          <div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Proaktive Hinweise</div></div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 21h6v-1H9v1zm3-19a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg> Dein Lieblings-Lieferant <strong>Frische Fisch Friesland</strong> hat heute Wildlachs für €18/kg – 22% unter Marktpreis. Soll ich 5kg bestellen?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Bestelle 5 Kilo Wildlachs bei Friesland')">Ja, bestellen</button><button class="ai-btn ai-btn-skip">Nein</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 3h2v18H3V3zm4 10h2v8H7v-8zm4-6h2v14h-2V7zm4 9h2v5h-2v-5zm4-13h2v18h-2V3z"/></svg> In 47 Min schließt das Wochenende-Sale-Fenster. Tomaten-Angebot noch nicht gepostet. Soll ich?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Mach den Tomaten-Post fertig')">Posten</button><button class="ai-btn ai-btn-skip">Skip</button></div>
-          </div>
-          <div class="ai-suggest">
-            <div class="ai-suggest-text"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L1 21h22L12 2zm0 6.5l7.5 13H4.5L12 8.5zM11 12v5h2v-5h-2zm0 6v2h2v-2h-2z"/></svg> Deine Fritteuse hat heute 3× über 180°C überhitzt. Soll ich Wartung vorschlagen?</div>
-            <div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="askKi('Plan Wartung für Fritteuse')">Wartung planen</button></div>
-          </div>
+        <div class="section-h"><h2>Jetzt wichtig</h2></div>
+        <div class="ai-card glass" id="kiRealSignals">
+          <div style="font-size:13px;color:var(--text-dim);padding:2px">Lädt…</div>
         </div>
       </section>
 
@@ -1770,26 +1672,6 @@
           <div class="menu-text"><div class="menu-name">Lager-Vision</div><div class="menu-sub">Visueller KI-Bestandszähler</div></div>
           <div class="menu-arrow">›</div>
         </div>
-        <div class="menu-row" onclick="openChefBrain()">
-          <div class="menu-icon" style="background:linear-gradient(135deg,#5a3a7c,#c4a6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.5 2A3.5 3.5 0 005 5.5v.6A3.5 3.5 0 003 9.5c0 1 .4 1.9 1 2.5-.6.6-1 1.5-1 2.5a3.5 3.5 0 002 3.2V18a3 3 0 003 3 3 3 0 002.5-1.4A3 3 0 0014 21a3 3 0 003-3v-.3a3.5 3.5 0 002-3.2c0-1-.4-1.9-1-2.5.6-.6 1-1.5 1-2.5a3.5 3.5 0 00-2-3.4v-.6A3.5 3.5 0 0013.5 2c-1 0-1.9.4-2.5 1A3.5 3.5 0 008.5 2z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Chef-Brain</div><div class="menu-sub">Dein digitaler Zwilling</div></div>
-          <div class="menu-arrow">›</div>
-        </div>
-        <div class="menu-row" onclick="openAutoMarketing()">
-          <div class="menu-icon" style="background:linear-gradient(135deg,#8b3a2e,#ff8a8a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 1a3 3 0 00-3 3v16a3 3 0 003 3h10a3 3 0 003-3V4a3 3 0 00-3-3H7zm0 2h10a1 1 0 011 1v15H6V4a1 1 0 011-1zm5 17a1 1 0 110 2 1 1 0 010-2z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Auto-Marketing</div><div class="menu-sub">Insta/TikTok auf Autopilot</div></div>
-          <div class="menu-arrow">›</div>
-        </div>
-        <div class="menu-row" onclick="openKrise()">
-          <div class="menu-icon" style="background:linear-gradient(135deg,#7c2a2a,#ff6b6b)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2a4 4 0 00-4 4h2a2 2 0 014 0h2a4 4 0 00-4-4zM5 8a7 7 0 0114 0v6l1.5 3a1 1 0 01-.9 1.4H4.4a1 1 0 01-.9-1.4L5 14V8zm5 12a2 2 0 004 0h-4z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Krisen-Modus</div><div class="menu-sub">Plan B in einem Tap</div></div>
-          <div class="menu-arrow">›</div>
-        </div>
-        <div class="menu-row" onclick="openRadar()">
-          <div class="menu-icon" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zm0 2.2l5 1.7v12.9l-5-1.7V5.2zm-2 .6v12.8l-2 .7V6.4l2-.6zm10 0l2-.6v12.8l-2 .7V5.8z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Konkurrenz-Radar</div><div class="menu-sub">Was macht die Konkurrenz?</div></div>
-          <div class="menu-arrow">›</div>
-        </div>
 
         <div class="section-h"><h2>Klassisch</h2></div>
 
@@ -1800,27 +1682,67 @@
         </div>
         <div class="menu-row" onclick="openAngebote()">
           <div class="menu-icon" style="background:linear-gradient(135deg,#059669,#34d399)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M21.4 11.6l-9-9A2 2 0 0011 2H4a2 2 0 00-2 2v7c0 .5.2 1 .6 1.4l9 9a2 2 0 002.8 0l7-7a2 2 0 000-2.8zM6.5 8A1.5 1.5 0 118 6.5 1.5 1.5 0 016.5 8z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Angebots-Radar</div><div class="menu-sub">Aldi/Lidl/Metro · €87,40 sparen</div></div>
+          <div class="menu-text"><div class="menu-name">Angebots-Radar</div><div class="menu-sub">Wochenangebote deiner Lieferanten</div></div>
           <div class="menu-arrow">›</div>
         </div>
         <div class="menu-row" onclick="openBestellungen()">
           <div class="menu-icon menu-icon-1"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M2 6a2 2 0 012-2h10v8H2V6zm14 1h3l3 3v4h-2.2a2.5 2.5 0 01-4.6 0H16V7zM6.5 16a2 2 0 100 4 2 2 0 000-4zm11 0a2 2 0 100 4 2 2 0 000-4z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Bestellungen</div><div class="menu-sub">3 offen · 2 unterwegs</div></div>
+          <div class="menu-text"><div class="menu-name">Bestellungen</div><div class="menu-sub">Offene Bestellungen & Wareneingang</div></div>
           <div class="menu-arrow">›</div>
         </div>
         <div class="menu-row" onclick="openRezepte()">
           <div class="menu-icon menu-icon-2"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v8c0 1.1.9 2 2 2v10h2V12c1.1 0 2-.9 2-2V2h-1v6h-1V2h-1v6h-1V2H7zm10 0c-2 0-3 2-3 5v5h2v9h2V2z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Rezepte</div><div class="menu-sub">24 Gerichte · Ø 68% Marge</div></div>
+          <div class="menu-text"><div class="menu-name">Rezepte</div><div class="menu-sub">Deine Gerichte & Kalkulation</div></div>
           <div class="menu-arrow">›</div>
         </div>
         <div class="menu-row" onclick="openPersonal()">
           <div class="menu-icon menu-icon-3"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 4a4 4 0 100 8 4 4 0 000-8zm7 2a3 3 0 100 6 3 3 0 000-6zM3 19c0-3 2.5-5 6-5s6 2 6 5v2H3v-2zm14-3c2.4 0 4 1.5 4 4v1h-5v-2c0-1.2-.4-2.2-1-3h2z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">Personal & Schichten</div><div class="menu-sub">12 Mitarbeiter · 312h diese Woche</div></div>
+          <div class="menu-text"><div class="menu-name">Personal & Schichten</div><div class="menu-sub">Team & Schichtplan</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openMenuDoktor()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#5a3a7c,#c4a6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-8 14H7v-6h4v6zm6 0h-4V7h4v10z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Speisekarten-Doktor</div><div class="menu-sub">Welches Gericht verdient Geld – welches nicht</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openWochenplan()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#2d5a4f,#8de6b1)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M7 2v2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3V2h-2v2H9V2H7zm-3 8h16v10H4V10z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Wochenplan</div><div class="menu-sub">Tagesgerichte aus Lager & Marge</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openResteRetter()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#3a5a2d,#a8d86a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81a5.5 5.5 0 005.96-1.21 1 1 0 000-1.42l-3.59-3.58 1.41-1.42-1.41-1.41-1.42 1.41-1.41-1.41-1.42 1.41 3.59 3.59-1.42 1.41-2.12-2.12-1.41 1.41 2.12 2.12-7.01 7.02 1.41 1.41 7.01-7.01 2.13 2.13z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Reste-Retter</div><div class="menu-sub">Tagesgericht aus dem, was abläuft</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openLagerVision()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#1e3a5f,#7eb6ff)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M9 3l-2 3H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3l-2-3H9zm3 5a5 5 0 110 10 5 5 0 010-10z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Lager-Vision</div><div class="menu-sub">Regal-Foto → Bestand gezählt</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openInventur()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#7a5a1c,#f5c25a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9-1.8L6.2 7.5 12 10l5.8-2.5L12 5.2z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Inventur (geführt)</div><div class="menu-sub">Artikel für Artikel durchgehen</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openTagesabschluss()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#7a5a1c,#f5c25a)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 3a9 9 0 109 9h-2a7 7 0 11-7-7V3z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Tagesabschluss</div><div class="menu-sub">Zahlen eintragen, Feierabend-Check</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openWareneinsatzBericht()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#2d5a4f,#7ed6c2)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-6 6-4-4-7 7 1.4 1.4z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">Wareneinsatz · 30 Tage</div><div class="menu-sub">EK-Trend pro Artikel</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="menu-row" onclick="openDatevExport()">
+          <div class="menu-icon" style="background:linear-gradient(135deg,#2d5a4f,#7ed6c2)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M5 20h14v-2H5v2zm7-15.8L17.67 9h-4v6H10.33V9h-4L12 4.2z"/></svg></div>
+          <div class="menu-text"><div class="menu-name">DATEV / Buchhaltung</div><div class="menu-sub">Tagesumsätze als CSV</div></div>
           <div class="menu-arrow">›</div>
         </div>
         <div class="menu-row" onclick="openHaccp()">
           <div class="menu-icon menu-icon-4"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 2L4 5v7c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/></svg></div>
-          <div class="menu-text"><div class="menu-name">HACCP</div><div class="menu-sub">6 Bereiche · alle im Sollbereich</div></div>
+          <div class="menu-text"><div class="menu-name">HACCP</div><div class="menu-sub">Temperaturen & Reinigung dokumentieren</div></div>
           <div class="menu-arrow">›</div>
         </div>
         <div class="menu-row" onclick="openAuswertungen()">
@@ -1964,7 +1886,7 @@
   // ===== Status bar time =====
   function tickTime(){
     const d = new Date();
-    document.getElementById('sbTime').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0');
+    var _sb = document.getElementById('sbTime'); if(_sb) _sb.textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0');
   }
   tickTime(); setInterval(tickTime,30000);
 
@@ -2035,11 +1957,7 @@
   const ACT_COLOR = { box:'ic-amber', truck:'ic-blue', cart:'ic-green', chart:'ic-purple', recipe:'ic-cyan', check:'ic-green' };
   let activityLog = JSON.parse(localStorage.getItem('chef_activity') || 'null');
   if (!Array.isArray(activityLog)) {
-    activityLog = lagerOwnMode ? [] : [
-      { icon:'truck', text:'<strong>Metro-Lieferung</strong> – 14 Artikel gebucht', ts: Date.now()-12*60000 },
-      { icon:'cart',  text:'<strong>3× Schnitzel</strong> verkauft – Zutaten abgezogen', ts: Date.now()-28*60000 },
-      { icon:'check', text:'<strong>HACCP Kühlhaus 1</strong>: 4,2°C · OK', ts: Date.now()-60*60000 }
-    ];
+    activityLog = []; // keine Demo-Eintraege - Aktivitaet entsteht aus echter Nutzung
   }
   function actTimeAgo(ts){
     const min = Math.max(0, Math.round((Date.now()-ts)/60000));
@@ -2722,7 +2640,7 @@
   function buildRadarTipsReal(places){
     const tips=[];
     if(!places.length){
-      tips.push({ icon:RADAR_SVGS.bolt, text:'In deiner direkten Umgebung sind gerade keine Lokale erfasst – wenig direkte Konkurrenz. Nutze das für Stammgäste-Aktionen und sei der erste Treffer bei Google.', okLabel:'Marketing öffnen', fn:"openAutoMarketing()" });
+      tips.push({ icon:RADAR_SVGS.bolt, text:'In deiner direkten Umgebung sind gerade keine Lokale erfasst – wenig direkte Konkurrenz. Nutze das für Stammgäste-Aktionen und sei der erste Treffer bei Google.', okLabel:'', fn:null });
       return tips;
     }
     const counts={};
@@ -2735,7 +2653,7 @@
     tips.push({ icon:RADAR_SVGS.bolt, text:'Nächstes Lokal: <strong>'+escHtml(n.name)+'</strong> ('+n.dist+' m). Beobachte deren Mittagsangebot und kontere mit deinem stärksten Gericht.', okLabel:'Auswertungen', fn:'openAuswertungen()' });
     const rank = (typeof marginRanking==='function') ? marginRanking() : [];
     if(rank.length){
-      tips.push({ icon:RADAR_SVGS.bolt, text:'Dein Trumpf: <strong>'+escHtml(rank[0].name)+'</strong> mit '+rank[0].m.marge.toFixed(0)+'% Marge – aktiv bewerben.', okLabel:'Special posten', fn:"openAutoMarketing()" });
+      tips.push({ icon:RADAR_SVGS.bolt, text:'Dein Trumpf: <strong>'+escHtml(rank[0].name)+'</strong> mit '+rank[0].m.marge.toFixed(0)+'% Marge – aktiv bewerben.', okLabel:'', fn:null });
     }
     return tips.slice(0,4);
   }
@@ -4412,16 +4330,12 @@
       if(/lager.?vision|regal/.test(q)) return go(openLagerVision, 'Lager-Vision');
       if(/tagebuch|protokoll/.test(q)) return go(openTagebuch, 'Tagesbuch');
       if(/haccp|temperatur|hygiene/.test(q)) return go(openHaccp, 'HACCP');
-      if(/radar|konkurr|nachbar|umkreis/.test(q)) return go(openRadar, 'Konkurrenz-Radar');
-      if(/marketing|insta|tiktok|post|werb/.test(q)) return go(openAutoMarketing, 'Auto-Marketing');
-      if(/krise|notfall|sos/.test(q)) return go(openKrise, 'Krisen-Modus');
       if(/angebot/.test(q)) return go(openAngebote, 'Angebote');
       if(/rezept|kalkul|gericht/.test(q)) return go(openRezepte, 'Rezepte');
       if(/schicht|personal|team/.test(q)) return go(openPersonal, 'Schichtplan');
       if(/auswert|umsatz|statistik|zahlen/.test(q)) return go(openAuswertungen, 'Auswertungen');
       if(/tagesabschluss|feierabend/.test(q)) return go(openTagesabschluss, 'Tagesabschluss');
       if(/reste/.test(q)) return go(openResteRetter, 'Reste-Retter');
-      if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
       if(/bewertung|rezension|google|tripadvisor/.test(q)) return go(openBewertungAntwort, 'Bewertung beantworten');
       if(/wochenplan|wochen-?plan|menü-?planung/.test(q)) return go(openWochenplan, 'Wochenplan');
       if(/doktor|menu.?engineering|speisekarte.*(check|prüf|bewert)|karte.*(check|prüf|bewert)/.test(q)) return go(openMenuDoktor, 'Speisekarten-Doktor');
@@ -4829,7 +4743,7 @@
     // Marketing
     if (has('post','insta','tiktok','social','marketing','facebook')) {
       return { reply:'Mach ich. Vorschlag für heute: Schnitzel-Foto vom Mittagsservice, Caption über die Wiener Tradition, Hashtags Ostfriesland, Greetsiel und Schnitzelliebe. Beste Posting-Zeit: 18 Uhr 30. Soll ich planen?',
-        actions:[{label:'Posten lassen',fn:()=>{openAutoMarketing();toast('Post wird vorbereitet');}},{label:'Anders schreiben',cmd:'Schreib was Lustigeres'}] };
+        actions:[{label:'Anders schreiben',cmd:'Schreib was Lustigeres'},{label:'Kürzer',cmd:'Mach das in einem Satz'}] };
     }
 
     // Tageskarte / Wochenangebot
@@ -4841,7 +4755,7 @@
     // Krise
     if (has('krise','sos','hilfe','notfall','problem')) {
       return { reply:'Ich bin da. Was ist los? Personal-Ausfall, Lieferung kaputt, Strom weg, Reklamation, Kontrolle? Tippe das Szenario, ich mach sofort Plan B.',
-        actions:[{label:'Krisen-Modus öffnen',fn:()=>openKrise()},{label:'Personal krank',cmd:'Personal ist krank'},{label:'Lieferung weg',cmd:'Lieferung fällt aus'}] };
+        actions:[{label:'Personal krank',cmd:'Personal ist krank'},{label:'Lieferung weg',cmd:'Lieferung fällt aus'},{label:'Stromausfall',cmd:'Was tun bei Stromausfall?'}] };
     }
     if (has('personal krank','krank','ausfall')) {
       return { reply:'OK, los geht\'s. Ich frage Mira ob sie übernehmen kann, schiebe Tom auf eine frühere Schicht und passe den Schichtplan in der App an. Brauchst du noch was?',
@@ -4851,7 +4765,7 @@
     // Konkurrenz
     if (has('konkurr','nachbar','umkreis','radar','andere restaurants','wettbewerb')) {
       return { reply:'Im Konkurrenz-Radar siehst du auf einer echten Karte die tatsächlichen Lokale um dich herum (Live-Standort). Gib einmal deinen Standort frei – dann zeige ich dir, wer in der Nähe ist, und gebe Tipps auf Basis deiner eigenen Rezepte.',
-        actions:[{label:'Radar öffnen',fn:()=>openRadar()}] };
+        actions:[{label:'Nachbarn nennen',cmd:'Welche Konkurrenz ist in meiner Nähe?'}] };
     }
 
     // Wetter
@@ -4915,14 +4829,7 @@
 
   // Init: load convo, set voice toggle
   // ===== Tagesplan / To-Do =====
-  const todoData = [
-    {id:'metro',  time:'14:00', text:'Metro-Lieferung annehmen',           tag:'Lieferant', color:'#3b82f6'},
-    {id:'tom',    time:'16:00', text:'Tom für Samstag-Schicht anrufen',     tag:'Personal',  color:'#c084fc'},
-    {id:'hack',   time:'',      text:'Rinderhack nachbestellen',            tag:'Lager',     color:'#f87171'},
-    {id:'karte',  time:'17:00', text:'Tagesgericht für morgen festlegen',   tag:'Küche',     color:'#fb923c'},
-    {id:'post',   time:'18:30', text:'Insta-Post veröffentlichen',          tag:'Marketing', color:'#f472b6'},
-    {id:'fett',   time:'22:00', text:'Frittierfett wechseln',               tag:'HACCP',     color:'#5eead4'},
-  ];
+  const todoData = []; // Aufgaben kommen aus der Chef-Liste (buildAutoTasks) – keine Demo-Eintraege
   let todoDone = JSON.parse(localStorage.getItem('chef_todo_done') || '[]');
 
   // ===== Chef-Liste: Aufgaben, die sich SELBST schreiben und SELBST erledigen =====
@@ -5013,6 +4920,20 @@
     else { badge.textContent = openCount + (openCount===1?' offen':' offen'); badge.classList.remove('done'); }
   }
   setInterval(function(){ try{ renderTodos(); }catch(e){} }, 60000);
+  // KI-Tab "Jetzt wichtig": dieselben echten Signale wie die Chef-Liste - keine Fake-Karten
+  function renderKiSignals(){
+    const box = document.getElementById('kiRealSignals'); if(!box) return;
+    const tasks = buildAutoTasks();
+    if(!tasks.length){
+      box.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:4px"><div style="width:30px;height:30px;border-radius:50%;background:rgba(46,230,166,0.14);display:flex;align-items:center;justify-content:center;color:var(--green)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg></div><div style="font-size:13.5px;color:var(--text-dim)">Nichts Dringendes – frag mich, was du wissen willst.</div></div>';
+      return;
+    }
+    box.innerHTML = tasks.map(function(t){
+      return '<div class="ai-suggest" onclick="runAutoTask(\'' + t.id + '\')" style="cursor:pointer"><div class="ai-suggest-text">' + escHtml(t.text) + '</div><div class="ai-actions"><button class="ai-btn ai-btn-ok" onclick="event.stopPropagation();runAutoTask(\'' + t.id + '\')">Erledigen</button></div></div>';
+    }).join('');
+  }
+  setInterval(function(){ try{ renderKiSignals(); }catch(e){} }, 60000);
+  setTimeout(function(){ try{ renderKiSignals(); }catch(e){} }, 700);
   function toggleTodo(id){
     if(todoDone.includes(id)) todoDone = todoDone.filter(x=>x!==id);
     else todoDone.push(id);
@@ -5631,6 +5552,14 @@
   // ===== KI-Auge · Live-Kamera, draufhalten & auslösen =====
   let _eyeStream = null;
   function stopEyeCam(){ if(_eyeStream){ try{ _eyeStream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} _eyeStream = null; } }
+  // Gericht-Kalkulator = KI-Auge mit Teller-Fokus (die Erkennung ist dieselbe)
+  function openGerichtKalkulator(){
+    openEye();
+    setTimeout(function(){
+      const st = document.getElementById('eyeStatus');
+      if(st){ st.style.color = 'var(--gold-light)'; st.textContent = 'Fotografiere den fertigen Teller – ich kalkuliere Zutaten, Wareneinsatz und Marge.'; }
+    }, 80);
+  }
   // Mehrseiten-Scan: gesammelte Beleg-Positionen ueber mehrere Fotos hinweg
   let _eyePages = [], _eyeKeepPages = false, _eyePageNo = 0;
   function eyeNextPage(){ _eyeKeepPages = true; openEye(); }
