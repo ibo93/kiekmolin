@@ -1430,7 +1430,19 @@
             <div class="lab-tag">SPART €</div>
             <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
             <div class="lab-title">Preis-Wächter</div>
-            <div class="lab-sub">Erkennt, wenn Lieferanten teurer werden.</div>
+            <div class="lab-sub">Wird was teurer, schlägt er den neuen VK gleich vor.</div>
+          </button>
+          <button class="lab-card lab-brain" onclick="openMenuDoktor()">
+            <div class="lab-tag">BERATER</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-8 14H7v-6h4v6zm6 0h-4V7h4v10z"/></svg></div>
+            <div class="lab-title">Speisekarten-Doktor</div>
+            <div class="lab-sub">Welches Gericht verdient Geld – und welches muss weg.</div>
+          </button>
+          <button class="lab-card lab-tagesabschluss" onclick="openSprachInventur()">
+            <div class="lab-tag">VOICE</div>
+            <div class="lab-icon"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg></div>
+            <div class="lab-title">Sprach-Inventur</div>
+            <div class="lab-sub">Durchs Lager gehen, reinsprechen – Bestand aktuell.</div>
           </button>
           <button class="lab-card lab-marketing" onclick="openBewertungAntwort()">
             <div class="lab-tag">KI</div>
@@ -3349,6 +3361,54 @@
       return { name: a.name || k, last: last, prev: prev, pct: pct, n: e.length };
     }).sort(function(x,y){ return (y.pct==null?-999:y.pct) - (x.pct==null?-999:x.pct); });
   }
+  // ===== Preis-Autopilot: EK steigt -> betroffene Gerichte + neuer VK-Vorschlag =====
+  function normNameWords(s){ return String(s||'').toLowerCase().replace(/[^a-zäöüß0-9 ]/g,' ').split(/\s+/).filter(function(w){ return w.length > 2; }); }
+  function ingredientMatchesTrend(ingName, trendName){
+    const a = normNameWords(ingName), b = normNameWords(trendName);
+    if(!a.length || !b.length) return false;
+    return a.some(function(w){ return b.some(function(v){ return v === w || v.includes(w) || w.includes(v); }); });
+  }
+  let _autopilotSuggestions = [];
+  function buildAutopilot(upTrends){
+    const out = [];
+    upTrends.forEach(function(t){
+      Object.keys(recipes).forEach(function(name){
+        const r = recipes[name];
+        const hits = r.ingredients.filter(function(ing){ return ingredientMatchesTrend(ing[0], t.name); });
+        if(!hits.length) return;
+        const m0 = recipeMarge(r);
+        if(!(m0.vkNetto > 0)) return;
+        // Zutat-Kosten um die EK-Steigerung skalieren
+        const delta = hits.reduce(function(s, ing){ return s + ingredientCost(ing) * (t.pct/100); }, 0);
+        if(delta <= 0.001) return;
+        const newCost = m0.cost + delta;
+        const newMarge = ((m0.vkNetto - newCost) / m0.vkNetto) * 100;
+        // VK, der die alte Marge wiederherstellt (auf 10 Cent aufgerundet)
+        const margeFrac = m0.marge / 100;
+        const vkNettoNeeded = margeFrac < 0.95 ? newCost / (1 - margeFrac) : m0.vkNetto + delta;
+        const vkNeeded = Math.ceil(vkNettoNeeded * (1 + r.mwst/100) * 10) / 10;
+        if(vkNeeded <= r.vk + 0.01) return;
+        out.push({ dish: name, zutat: t.name, pct: Math.round(t.pct), altMarge: m0.marge, neuMarge: newMarge, altVk: r.vk, neuVk: vkNeeded, delta: delta, hits: hits.map(function(h){ return h[0]; }) });
+      });
+    });
+    return out.sort(function(a,b){ return (a.neuMarge - a.altMarge) - (b.neuMarge - b.altMarge); });
+  }
+  function applyAutopilot(i){
+    const s = _autopilotSuggestions[i]; if(!s) return;
+    const r = recipes[s.dish]; if(!r) return;
+    // Zutat-Kosten im Rezept mitziehen, damit die Kalkulation ehrlich bleibt
+    r.ingredients.forEach(function(ing){
+      if(ingredientMatchesTrend(ing[0], s.zutat)){
+        const c = ingredientCost(ing);
+        if(c > 0) ing[3] = Math.round(c * (1 + s.pct/100) * 100) / 100;
+      }
+    });
+    r.vk = s.neuVk;
+    saveRecipes();
+    logActivity('<strong>Preis-Autopilot</strong> – ' + s.dish + ': VK auf ' + euro(s.neuVk) + ' (wegen ' + s.zutat + ' +' + s.pct + '%)', 'chart');
+    toast('✓ ' + s.dish + ' → ' + euro(s.neuVk) + ' · Marge wieder bei ~' + Math.round(s.altMarge) + '%');
+    openPreiswaechter();
+  }
   function openPreiswaechter(){
     const trends = priceTrends();
     const up = trends.filter(function(t){ return t.pct != null && t.pct >= 5; });
@@ -3362,6 +3422,19 @@
         body += '<div style="font-size:13px;font-weight:700;margin:4px 4px 10px;color:var(--orange)">Teurer geworden</div><div class="list-card glass" style="margin-bottom:14px">';
         body += up.map(function(t){ return '<div class="inv-row" style="cursor:default"><div class="inv-emoji" style="background:rgba(245,158,11,0.14);color:var(--orange)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div><div><div class="inv-name">'+escHtml(t.name)+'</div><div class="inv-meta">'+euro(t.prev)+' → '+euro(t.last)+'</div></div><div style="font-weight:800;color:var(--orange)">+'+Math.round(t.pct)+'%</div></div>'; }).join('');
         body += '</div>';
+        // Autopilot: was bedeutet das fuer deine Gerichte?
+        _autopilotSuggestions = buildAutopilot(up);
+        if(_autopilotSuggestions.length){
+          body += '<div style="font-size:13px;font-weight:700;margin:4px 4px 10px;color:var(--gold-light)">Autopilot · Vorschläge für deine Karte</div>';
+          _autopilotSuggestions.forEach(function(s, i){
+            const mColor = s.neuMarge < 30 ? 'var(--red)' : s.neuMarge < 55 ? 'var(--orange)' : 'var(--green)';
+            body += '<div class="ai-card glass" style="margin-bottom:10px">'
+              + '<div style="font-size:14.5px;font-weight:700;margin-bottom:4px">' + escHtml(s.dish) + '</div>'
+              + '<div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:10px">' + escHtml(s.zutat) + ' +' + s.pct + '% → Marge fällt von <strong>' + Math.round(s.altMarge) + '%</strong> auf <strong style="color:' + mColor + '">' + Math.round(s.neuMarge) + '%</strong>.</div>'
+              + '<button class="btn-primary" style="padding:10px" onclick="applyAutopilot(' + i + ')">VK anheben: ' + euro(s.altVk) + ' → ' + euro(s.neuVk) + '</button>'
+              + '</div>';
+          });
+        }
       }
       body += '<div style="font-size:13px;font-weight:700;margin:4px 4px 10px;color:var(--text-dim)">Alle erfassten Preise</div><div class="list-card glass">';
       body += trends.map(function(t){
@@ -3373,6 +3446,222 @@
     document.getElementById('sheetBody').innerHTML = body;
     document.getElementById('sheetOverlay').classList.add('show');
     document.getElementById('sheet').classList.add('show');
+  }
+
+  // ===== Speisekarten-Doktor · Menu-Engineering aus echten Verkaufszahlen =====
+  // Kreuzt 30 Tage Verkaufslog mit den Rezept-Margen und sortiert jedes Gericht
+  // in die klassischen 4 Quadranten: Star / Ackergaul / Rätsel / Hund.
+  function doktorSalesCounts(days){
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - (days||30)); cutoff.setHours(0,0,0,0);
+    const counts = {}; let total = 0;
+    Object.keys(verkaufLog).forEach(function(k){
+      const p = k.split('-'); if(p.length !== 3) return;
+      const d = new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+      if(isNaN(d.getTime()) || d < cutoff) return;
+      const items = verkaufLog[k].items || {};
+      Object.keys(items).forEach(function(n){ counts[n] = (counts[n]||0) + items[n]; total += items[n]; });
+    });
+    return { counts: counts, total: total };
+  }
+  function openMenuDoktor(){
+    const names = Object.keys(recipes);
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-8 14H7v-6h4v6zm6 0h-4V7h4v10z"/></svg> Speisekarten-Doktor';
+    let body = '<button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>';
+    if(!names.length){
+      body += '<div class="ai-card glass"><div class="ai-title">Erst Rezepte anlegen</div><div style="font-size:13px;color:var(--text-dim);padding:4px;line-height:1.5">Ohne Rezepte mit Verkaufspreis kann ich deine Karte nicht bewerten.</div></div>';
+      document.getElementById('sheetBody').innerHTML = body;
+      document.getElementById('sheetOverlay').classList.add('show'); document.getElementById('sheet').classList.add('show');
+      return;
+    }
+    const sales = doktorSalesCounts(30);
+    if(sales.total < 5){
+      body += '<div class="ai-card glass"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Noch zu wenig Verkäufe</div></div><div style="font-size:13px;color:var(--text-dim);padding:0 4px;line-height:1.5">Ich brauche gebuchte Verkäufe, um deine Karte zu bewerten. Buch ein paar Tage lang deine Verkäufe (oder verbinde die Kasse) – dann sage ich dir, welches Gericht Geld verdient und welches nicht.</div></div>'
+        + '<button class="btn-primary" style="margin-top:12px" onclick="closeSheet();openVerkauf()">Verkauf buchen</button>';
+      document.getElementById('sheetBody').innerHTML = body;
+      document.getElementById('sheetOverlay').classList.add('show'); document.getElementById('sheet').classList.add('show');
+      return;
+    }
+    // Kennzahlen pro Gericht
+    const rows = names.map(function(n){
+      const m = recipeMarge(recipes[n]);
+      return { name: n, count: sales.counts[n] || 0, marge: m.marge, rohertrag: m.rohertrag, vk: recipes[n].vk };
+    });
+    const avgCount = sales.total / names.length;
+    const avgMarge = rows.reduce(function(s,r){ return s + r.marge; }, 0) / rows.length;
+    // Klassische 70%-Regel fuer Popularitaet
+    const popLimit = avgCount * 0.7;
+    const quads = { star: [], gaul: [], raetsel: [], hund: [] };
+    rows.forEach(function(r){
+      const popular = r.count >= popLimit && r.count > 0;
+      const profitable = r.marge >= avgMarge;
+      if(popular && profitable) quads.star.push(r);
+      else if(popular) quads.gaul.push(r);
+      else if(profitable) quads.raetsel.push(r);
+      else quads.hund.push(r);
+    });
+    Object.keys(quads).forEach(function(k){ quads[k].sort(function(a,b){ return b.count - a.count || b.marge - a.marge; }); });
+    const QUADS = [
+      { key:'star',    title:'Stars – behalten & pushen',        color:'var(--green)',  tipp:'Läuft oft UND verdient gut. Prominent auf der Karte lassen, aktiv empfehlen.' },
+      { key:'gaul',    title:'Ackergäule – Preis prüfen',        color:'var(--gold-light)', tipp:'Verkauft sich gut, aber die Marge ist mager. Preis vorsichtig anheben oder Wareneinsatz drücken – die Gäste bestellen es trotzdem.' },
+      { key:'raetsel', title:'Rätsel – sichtbarer machen',       color:'#7eb6ff',       tipp:'Gute Marge, aber kaum bestellt. Auf die Tageskarte, vom Service empfehlen lassen, besserer Name oder Foto.' },
+      { key:'hund',    title:'Hunde – runter von der Karte',     color:'var(--red)',    tipp:'Läuft nicht und verdient nichts. Von der Karte nehmen oder neu erfinden – jedes Gericht kostet Platz und Vorräte.' }
+    ];
+    body += '<p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">' + sales.total + ' Verkäufe der letzten 30 Tage ausgewertet · Ø-Marge deiner Karte: ' + Math.round(avgMarge) + '%</p>';
+    // Die eine wichtigste Empfehlung zuerst
+    let topTipp = '';
+    if(quads.gaul.length) topTipp = '„' + quads.gaul[0].name + '" verkauft sich ' + quads.gaul[0].count + '× im Monat, bringt aber nur ' + Math.round(quads.gaul[0].marge) + '% Marge – schon 1 € mehr VK wären ~' + euro(Math.round(quads.gaul[0].count * 0.84)) + ' Rohertrag zusätzlich pro Monat.';
+    else if(quads.hund.length) topTipp = '„' + quads.hund[0].name + '" wurde ' + (quads.hund[0].count || 'kein') + '× verkauft bei ' + Math.round(quads.hund[0].marge) + '% Marge – Kandidat Nummer eins zum Streichen.';
+    else if(quads.star.length) topTipp = 'Deine Karte ist gesund – „' + quads.star[0].name + '" ist dein stärkstes Pferd. Halt es vorne auf der Karte.';
+    if(topTipp) body += '<div class="ai-card glass" style="margin-bottom:14px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Wichtigster Hebel</div></div><div style="font-size:13.5px;line-height:1.55;color:var(--text)">' + escHtml(topTipp) + '</div></div>';
+    QUADS.forEach(function(q){
+      const list = quads[q.key];
+      if(!list.length) return;
+      body += '<div style="font-size:13px;font-weight:800;margin:14px 4px 4px;color:' + q.color + '">' + q.title + ' (' + list.length + ')</div>'
+        + '<div style="font-size:11.5px;color:var(--text-faint);margin:0 4px 8px;line-height:1.45">' + q.tipp + '</div>'
+        + '<div class="list-card glass">'
+        + list.map(function(r){
+            return '<div class="inv-row" style="cursor:pointer" onclick="openKalkulator(\'' + r.name.replace(/'/g,"\\'") + '\')">'
+              + '<div style="flex:1;min-width:0"><div class="inv-name">' + escHtml(r.name) + '</div><div class="inv-meta">' + r.count + '× verkauft · VK ' + euro(r.vk) + '</div></div>'
+              + '<div style="font-weight:800;color:' + q.color + ';font-variant-numeric:tabular-nums">' + Math.round(r.marge) + '%</div>'
+              + '</div>';
+          }).join('')
+        + '</div>';
+    });
+    document.getElementById('sheetBody').innerHTML = body;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+    logActivity('<strong>Speisekarten-Doktor</strong> – Karte ausgewertet (' + sales.total + ' Verkäufe)', 'chart');
+  }
+
+  // ===== Sprach-Inventur · durchs Lager gehen und Bestände einsprechen =====
+  const SPRACH_ZAHLEN = { ein:1, eine:1, einen:1, eins:1, zwei:2, drei:3, vier:4, fünf:5, fuenf:5, sechs:6, sieben:7, acht:8, neun:9, zehn:10, elf:11, zwölf:12, zwoelf:12, fünfzehn:15, zwanzig:20, dreißig:30, dreissig:30, vierzig:40, fünfzig:50, hundert:100, halb:0.5, anderthalb:1.5 };
+  const SPRACH_EINHEITEN = { kilo:'kg', kilogramm:'kg', kg:'kg', gramm:'g', g:'g', liter:'L', l:'L', milliliter:'ml', ml:'ml', kasten:'Kästen', kästen:'Kästen', kisten:'Kästen', kiste:'Kästen', sack:'Säcke', säcke:'Säcke', stück:'Stk', stk:'Stk', flasche:'Fl.', flaschen:'Fl.', dose:'Dosen', dosen:'Dosen', packung:'Pack.', packungen:'Pack.', päckchen:'Pack.', karton:'Kartons', kartons:'Kartons', eimer:'Eimer', becher:'Becher', glas:'Gläser', gläser:'Gläser' };
+  function parseInventurChunk(text){
+    // Dezimal-Kommas zwischen Ziffern schuetzen ("2,5 Liter"), Satzzeichen sonst raus
+    const cleaned = String(text||'').toLowerCase().replace(/(\d),(\d)/g, '$1.$2').replace(/[,!?]/g,' ').replace(/\.(?!\d)/g,' ');
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    let num = null, unit = '', nameWords = [];
+    words.forEach(function(w){
+      const asNum = parseFloat(w);
+      if(num === null && !isNaN(asNum)){ num = asNum; return; }
+      if(num === null && SPRACH_ZAHLEN[w] != null){ num = SPRACH_ZAHLEN[w]; return; }
+      // "ein halbes / ein halber" -> 0,5
+      if(num === 1 && w.indexOf('halb') === 0){ num = 0.5; return; }
+      if(!unit && SPRACH_EINHEITEN[w]){ unit = SPRACH_EINHEITEN[w]; return; }
+      if(['und','noch','dann','also','äh','ähm','wir','haben','ist','sind','da','vom','von','im','lager'].indexOf(w) !== -1) return;
+      nameWords.push(w);
+    });
+    if(num === null || !nameWords.length) return null;
+    const query = nameWords.join(' ');
+    const hits = findLagerItems(query);
+    const amountStr = fmtNum(num) + (unit ? ' ' + unit : ' Stk');
+    return { raw: text.trim(), query: query, item: hits.length ? hits[0] : null, amount: amountStr };
+  }
+  let _sprachInv = [];      // { raw, query, item, amount }
+  let _sprachRec = null;
+  function openSprachInventur(){
+    _sprachInv = [];
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg> Sprach-Inventur';
+    const hasSR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    document.getElementById('sheetBody').innerHTML = `
+      <button class="sheet-back" onclick="stopSprachInventur();closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 14px;padding:0 4px">Geh durchs Lager und sprich einfach rein: <strong>„Tomaten vier Kilo … Mehl zwei Säcke … Bier drei Kästen"</strong>. The Chef versteht, ordnet zu und du übernimmst am Ende alles mit einem Tap.</p>
+      ${hasSR
+        ? '<button class="btn-primary" id="sprachInvBtn" onclick="toggleSprachInventur()" style="margin-bottom:10px"><svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg> Aufnahme starten</button>'
+        : '<p style="font-size:12px;color:var(--orange);margin:0 0 10px;padding:0 4px">Spracherkennung wird von diesem Browser nicht unterstützt – tipp die Zeilen unten ein (eine pro Artikel).</p>'}
+      <div id="sprachInvLive" style="font-size:13px;color:var(--gold-light);padding:0 4px;min-height:20px;line-height:1.5"></div>
+      <div style="display:flex;gap:8px;margin:10px 0 4px">
+        <input type="text" class="onboard-input" id="sprachInvManual" style="margin-bottom:0;flex:1" placeholder="oder tippen: Tomaten 4 kg">
+        <button class="btn-secondary" style="width:auto;padding:0 16px" onclick="addSprachInvManual()">+</button>
+      </div>
+      <div id="sprachInvList" style="margin-top:12px"></div>
+      <div id="sprachInvApply" style="margin-top:12px"></div>
+    `;
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  }
+  function addSprachInvManual(){
+    const inp = document.getElementById('sprachInvManual'); if(!inp || !inp.value.trim()) return;
+    const p = parseInventurChunk(inp.value);
+    if(p){ _sprachInv.push(p); inp.value=''; renderSprachInv(); }
+    else toast('Nicht verstanden – Muster: „Tomaten 4 kg"');
+  }
+  function toggleSprachInventur(){
+    if(_sprachRec){ stopSprachInventur(); return; }
+    const SRi = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SRi){ toast('Keine Spracherkennung verfügbar'); return; }
+    try { _sprachRec = new SRi(); } catch(e){ toast('Spracherkennung nicht verfügbar'); return; }
+    _sprachRec.lang = 'de-DE'; _sprachRec.continuous = true; _sprachRec.interimResults = true; _sprachRec.maxAlternatives = 1;
+    const live = document.getElementById('sprachInvLive');
+    const btn = document.getElementById('sprachInvBtn');
+    if(btn){ btn.innerHTML = '⏸ Aufnahme läuft – tippen zum Stoppen'; btn.style.background = 'linear-gradient(135deg,#7a2a2a,#c0392b)'; }
+    _sprachRec.onresult = function(e){
+      let interim = '';
+      for(let i = e.resultIndex; i < e.results.length; i++){
+        const r = e.results[i];
+        if(r.isFinal){
+          const p = parseInventurChunk(r[0].transcript);
+          if(p){ _sprachInv.push(p); renderSprachInv(); }
+        } else interim += r[0].transcript;
+      }
+      if(live) live.textContent = interim ? ('… ' + interim) : '';
+    };
+    _sprachRec.onend = function(){ if(_sprachRec){ try{ _sprachRec.start(); }catch(e){ stopSprachInventur(); } } };
+    _sprachRec.onerror = function(ev){ if(ev && ev.error === 'not-allowed'){ toast('Mikrofon-Zugriff erlauben'); stopSprachInventur(); } };
+    try { _sprachRec.start(); } catch(e){}
+  }
+  function stopSprachInventur(){
+    if(_sprachRec){ const r = _sprachRec; _sprachRec = null; try{ r.onend = null; r.stop(); }catch(e){} }
+    const btn = document.getElementById('sprachInvBtn');
+    if(btn){ btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-2z"/></svg> Aufnahme starten'; btn.style.background = ''; }
+    const live = document.getElementById('sprachInvLive'); if(live) live.textContent = '';
+  }
+  function removeSprachInv(i){ _sprachInv.splice(i,1); renderSprachInv(); }
+  function renderSprachInv(){
+    const list = document.getElementById('sprachInvList'), apply = document.getElementById('sprachInvApply');
+    if(!list) return;
+    if(!_sprachInv.length){ list.innerHTML = ''; if(apply) apply.innerHTML = ''; return; }
+    list.innerHTML = '<div class="list-card glass">' + _sprachInv.map(function(p, i){
+      const ok = !!p.item;
+      return '<div class="inv-row" style="cursor:default">'
+        + '<div class="inv-emoji" style="' + (ok ? '' : 'background:rgba(245,158,11,0.14);color:var(--orange)') + '">' + ITEM_SVG + '</div>'
+        + '<div style="flex:1;min-width:0"><div class="inv-name">' + escHtml(ok ? p.item.name : p.query) + '</div>'
+        + '<div class="inv-meta">' + (ok ? ('neu: ' + escHtml(p.amount)) : 'nicht im Lager gefunden – wird übersprungen') + '</div></div>'
+        + '<div class="inv-right"><button class="ai-btn ai-btn-skip" style="padding:4px 10px" onclick="removeSprachInv(' + i + ')">×</button></div>'
+        + '</div>';
+    }).join('') + '</div>';
+    const okCount = _sprachInv.filter(function(p){ return p.item; }).length;
+    if(apply) apply.innerHTML = okCount
+      ? '<button class="btn-primary" onclick="applySprachInventur()">' + okCount + ' Bestände übernehmen</button>'
+      : '';
+  }
+  function applySprachInventur(){
+    stopSprachInventur();
+    let n = 0;
+    _sprachInv.forEach(function(p){
+      if(!p.item) return;
+      const item = p.item;
+      const oldQ = parseQty(item.amount), newQ = parseQty(p.amount);
+      // Fuellstand mitschaetzen, wenn alte und neue Menge vergleichbar sind
+      if(oldQ && newQ && oldQ.num > 0){
+        const oldB = qtyBase(oldQ), newB = qtyBase(newQ);
+        if(oldB && newB && oldB.base === newB.base && oldB.n > 0){
+          item.pct = Math.max(1, Math.min(100, Math.round(item.pct * (newB.n / oldB.n))));
+        } else item.pct = 75;
+      } else item.pct = 75;
+      item.amount = p.amount;
+      item.status = statusFromPct(item.pct);
+      item.days = 'per Sprach-Inventur';
+      lagerEdits[item.name] = { amount:item.amount, pct:item.pct, status:item.status, days:item.days, mhd:item.mhd||null };
+      const mi = lagerManual.find(function(m){ return m.name === item.name; });
+      if(mi){ mi.amount = item.amount; mi.pct = item.pct; mi.status = item.status; mi.days = item.days; }
+      n++;
+    });
+    persistLager(); refreshLager();
+    logActivity('<strong>Sprach-Inventur</strong> – ' + n + ' Bestände aktualisiert', 'check');
+    toast('✓ ' + n + ' Bestände übernommen');
+    _sprachInv = [];
+    closeSheet(); navTo('lager');
   }
 
   function bookInventory(){
@@ -3854,6 +4143,8 @@
       if(/preis|teurer|wächter|waechter/.test(q)) return go(openPreiswaechter, 'Preis-Wächter');
       if(/bewertung|rezension|google|tripadvisor/.test(q)) return go(openBewertungAntwort, 'Bewertung beantworten');
       if(/wochenplan|wochen-?plan|menü-?planung/.test(q)) return go(openWochenplan, 'Wochenplan');
+      if(/doktor|menu.?engineering|speisekarte.*(check|prüf|bewert)|karte.*(check|prüf|bewert)/.test(q)) return go(openMenuDoktor, 'Speisekarten-Doktor');
+      if(/sprach.?inventur|inventur.*(sprech|sprich|sagen)/.test(q)) return go(openSprachInventur, 'Sprach-Inventur');
       if(/inventur|bestands-?check/.test(q)) return go(openInventur, 'Inventur');
       if(/wareneinsatz|monats-?bericht|food-?cost/.test(q)) return go(openWareneinsatzBericht, 'Wareneinsatz-Bericht');
       if(/datev|buchhaltung|steuerberater|csv-?export/.test(q)) return go(openDatevExport, 'DATEV-Export');
