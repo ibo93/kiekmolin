@@ -3767,11 +3767,13 @@
 
   // --- UI helpers ---
   function setListening(on) {
+    const changed = isListening !== on;
     isListening = on;
     const orb = document.getElementById('voiceOrb');
     const wave = document.getElementById('wave');
     const mic = document.getElementById('micBtn');
     const status = document.getElementById('kiStatus');
+    if (changed) earcon(on); // Hoer-Signal: hoch = Mikro an, tief = aus
     if (!orb) return;
     orb.classList.toggle('listening', on);
     wave.classList.toggle('active', on);
@@ -3805,6 +3807,7 @@
   }
 
   function stopSpeaking() {
+    clearSpeakQueue(); // auch eingereihte Saetze verwerfen
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     try { chefAudioEl.pause(); } catch(e){}
     setSpeaking(false);
@@ -3829,8 +3832,9 @@
   function maybeAutoListen(){
     if(!_voiceLoop || !voiceEnabled || !recognition) return;
     if(isListening || isSpeaking) return;
+    if(_speakQ.length || _speakBusy) return; // erst wenn wirklich alles gesprochen ist
     setTimeout(function(){
-      if(!_voiceLoop || isListening || isSpeaking) return;
+      if(!_voiceLoop || isListening || isSpeaking || _speakQ.length || _speakBusy) return;
       const t = document.getElementById('liveTranscript'); if(t) t.textContent = '';
       try { recognition.start(); setListening(true); } catch(e){}
     }, 500);
@@ -3966,6 +3970,86 @@
     } catch (e) { /* offline / kein Key / Timeout / lokal geöffnet → Fallback */ }
     // 2. Fallback: Browser-Sprachausgabe (Web Speech API)
     speakBrowser(clean);
+  }
+
+  // --- Satz-Warteschlange: The Chef spricht schon, waehrend die Antwort noch streamt ---
+  // Der erste fertige Satz geht sofort in die Sprachausgabe, der Rest reiht sich ein.
+  let _speakQ = [], _speakBusy = false;
+  function speakOne(text){
+    return new Promise(async function(resolve){
+      const clean = ttsClean(text);
+      if(!clean){ resolve(); return; }
+      const key = (selectedVoiceId || 'def') + '|' + voiceQuality + '|' + clean;
+      try {
+        let blob = ttsCache.get(key);
+        if (!blob) {
+          const ctrl = new AbortController();
+          const to = setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, 12000);
+          const body = { text: clean, quality: voiceQuality };
+          if (selectedVoiceId) body.voiceId = selectedVoiceId;
+          const res = await fetch('/.netlify/functions/voice', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+          clearTimeout(to);
+          if (!(res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1)) throw new Error('no-audio');
+          blob = await res.blob();
+          ttsCachePut(key, blob);
+        }
+        const url = URL.createObjectURL(blob);
+        chefAudioEl.onplay = function(){ setSpeaking(true); };
+        chefAudioEl.onended = function(){ URL.revokeObjectURL(url); resolve(); };
+        chefAudioEl.onerror = function(){ URL.revokeObjectURL(url); resolve(); };
+        chefAudioEl.src = url;
+        await chefAudioEl.play();
+        return;
+      } catch(e){ /* Fallback unten */ }
+      // Browser-TTS als Fallback, Promise loest bei Ende auf
+      if(!('speechSynthesis' in window)){ resolve(); return; }
+      try {
+        const u = new SpeechSynthesisUtterance(clean);
+        u.lang = 'de-DE'; if (germanVoice) u.voice = germanVoice; u.rate = 1.15;
+        u.onstart = function(){ setSpeaking(true); };
+        u.onend = function(){ resolve(); };
+        u.onerror = function(){ resolve(); };
+        speechSynthesis.speak(u);
+      } catch(e){ resolve(); }
+    });
+  }
+  function enqueueSpeak(text){
+    if(!voiceEnabled) return;
+    const t = String(text||'').trim(); if(!t) return;
+    _speakQ.push(t);
+    pumpSpeakQueue();
+  }
+  async function pumpSpeakQueue(){
+    if(_speakBusy) return;
+    _speakBusy = true;
+    while(_speakQ.length){
+      const t = _speakQ.shift();
+      await speakOne(t);
+    }
+    _speakBusy = false;
+    setSpeaking(false); // Queue leer -> ggf. Auto-Listen (Dialog-Modus)
+  }
+  function clearSpeakQueue(){ _speakQ = []; }
+  // Nur die Kernaussage vorlesen (erste 2 Saetze) - der volle Text steht im Chat
+  function ttsShort(text){
+    const clean = String(text||'').trim();
+    const sentences = clean.match(/[^.!?]+[.!?]+/g);
+    if(!sentences || sentences.length <= 2) return clean;
+    return sentences.slice(0, 2).join(' ').trim();
+  }
+  // Kurzes Hoer-Signal beim Mikro an/aus - Orientierung ohne hinzusehen
+  let _earconCtx = null;
+  function earcon(up){
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      if(!_earconCtx) _earconCtx = new AC();
+      const o = _earconCtx.createOscillator(), g = _earconCtx.createGain();
+      o.connect(g); g.connect(_earconCtx.destination);
+      o.frequency.value = up ? 880 : 520;
+      g.gain.setValueAtTime(0.08, _earconCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, _earconCtx.currentTime + 0.12);
+      o.start(); o.stop(_earconCtx.currentTime + 0.12);
+    } catch(e){}
   }
 
   // --- Conversation log (persistent) ---
@@ -4115,6 +4199,53 @@
   }
 
   // --- The Chef STEUERT die App: öffnet Bereiche, navigiert, führt Aktionen aus ---
+  // Zuruf-Verkauf: "buch zwei Schnitzel und ein Bier" -> Portionen buchen,
+  // Lager abziehen, kurz bestaetigen. Haende bleiben frei.
+  function bookCounts(counts){
+    const names = Object.keys(counts).filter(function(n){ return counts[n] > 0; });
+    if(!names.length) return null;
+    let umsatz = 0, portionen = 0;
+    const report = { deducted: {}, skipped: [] };
+    names.forEach(function(n){
+      const c = counts[n];
+      collectSellResults(report, sellDish(n, c), n);
+      umsatz += (recipes[n].vk||0) * c; portionen += c;
+    });
+    persistLager();
+    tagesDaten.umsatz = Math.round((tagesDaten.umsatz||0) + umsatz);
+    tagesDaten.bestellungen = (tagesDaten.bestellungen||0) + portionen;
+    localStorage.setItem('chef_tagesdaten', JSON.stringify(tagesDaten));
+    renderTagesDaten(); refreshLager();
+    const summary = names.map(function(n){ return counts[n] + '× ' + n; }).join(', ');
+    logActivity('<strong>Verkauf gebucht</strong> (Zuruf) – ' + summary + ' · ' + euro(Math.round(umsatz)), 'cart');
+    logVerkauf(counts, umsatz);
+    showVerkaufReport(report.deducted, report.skipped);
+    return { summary: summary, umsatz: umsatz, portionen: portionen, skipped: report.skipped.length };
+  }
+  function sprachVerkauf(text){
+    const q = String(text||'').toLowerCase();
+    if(!/\b(buch|buche|bucht|verkauf|verkaufe|verkauft)\b/.test(q)) return null;
+    if(!Object.keys(recipes).length) return null;
+    // Befehlswort raus, Segmente an "und"/Kommas trennen
+    const rest = q.replace(/\b(buch|buche|bucht|verkaufe?|verkauft|bitte|mal|mir|noch|jetzt|chef|hey|einmal)\b/g, ' ');
+    const segments = rest.split(/\bund\b|,/).map(function(s){ return s.trim(); }).filter(Boolean);
+    const counts = {}; let found = 0;
+    segments.forEach(function(seg){
+      const words = seg.split(/\s+/).filter(Boolean);
+      let num = 1, nameWords = [];
+      words.forEach(function(w){
+        const n = parseFloat(w);
+        if(!isNaN(n)){ num = Math.max(1, Math.round(n)); return; }
+        if(SPRACH_ZAHLEN[w] != null && SPRACH_ZAHLEN[w] >= 1){ num = Math.round(SPRACH_ZAHLEN[w]); return; }
+        nameWords.push(w);
+      });
+      if(!nameWords.length) return;
+      const key = matchRecipeName(nameWords.join(' '));
+      if(key){ counts[key] = (counts[key]||0) + num; found++; }
+    });
+    if(!found) return null;
+    return bookCounts(counts);
+  }
   function chefExecute(text){
     const q = (text||'').toLowerCase();
 
@@ -4124,6 +4255,19 @@
       if(addFact(fm[1])){ logBook('The Chef merkt sich: ' + fm[1].trim(), 'check'); toast('✓ Merke ich mir'); }
       return true;
     }
+
+    // 0b) Zuruf-Verkauf: "buch zwei Schnitzel und ein Bier"
+    try {
+      const vk = sprachVerkauf(text);
+      if(vk){
+        const reply = 'Gebucht: ' + vk.summary + ' – ' + euro(Math.round(vk.umsatz)) + ' Umsatz.'
+          + (vk.skipped ? ' ' + vk.skipped + ' Zutat(en) konnte ich nicht zuordnen, schau auf die Karte unten.' : ' Lager ist abgezogen.');
+        streamMsg(reply, 'ai');
+        logBook('The Chef: ' + reply, 'chat');
+        enqueueSpeak(reply);
+        return 'final';
+      }
+    } catch(e){ /* Parser-Fehler -> normale KI-Antwort */ }
 
     // 1) Navigation / Bereiche öffnen – nur bei klarer Befehls-Sprache
     if(/(öffne|öffnen|zeig|zeige|zeig mir|geh zu|gehe zu|starte|mach .*auf|bring mich|wechsel)/.test(q)){
@@ -4176,9 +4320,11 @@
   // --- Main brain: echte Claude-KI, mit Fallback auf lokale Logik ---
   async function handleUserInput(text) {
     addMsg(text, 'user');
+    stopSpeaking(); // neue Frage schneidet die alte Antwort ab
     setThinking(true);
     logBook('Frage an The Chef: ' + text, 'chat');
-    chefExecute(text);
+    const handled = chefExecute(text);
+    if (handled === 'final') { setThinking(false); return; } // Aktion erledigt + selbst geantwortet (z.B. Zuruf-Verkauf)
 
     // Konversations-Historie (ohne die gerade hinzugefügte User-Nachricht)
     const msgs = [...document.querySelectorAll('#convo .msg')].slice(0, -1).slice(-12);
@@ -4216,7 +4362,7 @@
           setThinking(false);
           streamMsg(data.reply, 'ai');
           logBook('The Chef: ' + data.reply, 'chat');
-          speak(data.reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+          enqueueSpeak(ttsShort(data.reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')));
           return;
         }
       }
@@ -4227,7 +4373,7 @@
     setThinking(false);
     streamMsg(reply, 'ai', actions);
     logBook('The Chef: ' + reply, 'chat');
-    speak(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
+    enqueueSpeak(ttsShort(reply.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')));
   }
 
   // Echtes SSE-Streaming: Tokens landen live in der Bubble, waehrend Claude noch schreibt
@@ -4258,6 +4404,24 @@
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '', fullText = '', firstByte = false, scrollCounter = 0;
+    // Satzweise sprechen, waehrend der Text noch streamt: sobald ein Satz komplett
+    // ist, geht er in die Sprach-Warteschlange. Maximal 2 Saetze (Kernaussage).
+    let spokenSentences = 0, sentenceScanPos = 0;
+    const feedSentences = function(final){
+      if(spokenSentences >= 2) return;
+      const pending = fullText.slice(sentenceScanPos);
+      const re = /[^.!?]*[.!?]+["»)]?\s/g;
+      let mm;
+      while(spokenSentences < 2 && (mm = re.exec(pending))){
+        const s = mm[0].trim();
+        if(s.length > 3){ enqueueSpeak(s.replace(/[*_~`]/g,'')); spokenSentences++; }
+        sentenceScanPos += mm.index + mm[0].length;
+      }
+      if(final && spokenSentences < 2){
+        const rest = fullText.slice(sentenceScanPos).trim();
+        if(rest.length > 3) enqueueSpeak(rest.replace(/[*_~`]/g,''));
+      }
+    };
 
     try {
       while(true){
@@ -4277,6 +4441,7 @@
           if(obj && obj.type === 'content_block_delta' && obj.delta && obj.delta.type === 'text_delta' && obj.delta.text){
             fullText += obj.delta.text;
             span.textContent += obj.delta.text;
+            feedSentences(false);
             scrollCounter += obj.delta.text.length;
             if(scrollCounter > 60){ scrollCounter = 0; try{ m.scrollIntoView({ behavior:'smooth', block:'end' }); }catch(e){} }
           }
@@ -4287,15 +4452,16 @@
       }
     } catch(e){
       m.remove(); // kaputte Bubble weg, damit die naechste Stufe frisch startet
+      clearSpeakQueue();
       throw e;
     }
 
     if(!fullText.trim()){ m.remove(); throw new Error('stream-empty'); }
 
+    feedSentences(true);
     m.classList.remove('msg-streaming');
     saveConvo();
     logBook('The Chef: ' + fullText, 'chat');
-    speak(fullText.replace(/[*_~`]/g,'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,''));
     return true;
   }
 
@@ -5245,11 +5411,16 @@
   // ===== KI-Auge · Live-Kamera, draufhalten & auslösen =====
   let _eyeStream = null;
   function stopEyeCam(){ if(_eyeStream){ try{ _eyeStream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} _eyeStream = null; } }
+  // Mehrseiten-Scan: gesammelte Beleg-Positionen ueber mehrere Fotos hinweg
+  let _eyePages = [], _eyeKeepPages = false, _eyePageNo = 0;
+  function eyeNextPage(){ _eyeKeepPages = true; openEye(); }
   function openEye(){
-    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg> KI-Auge';
+    if(!_eyeKeepPages){ _eyePages = []; _eyePageNo = 0; }
+    _eyeKeepPages = false;
+    document.getElementById('sheetTitle').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;vertical-align:-0.18em;flex-shrink:0"><path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg> KI-Auge' + (_eyePages.length ? ' · Seite ' + (_eyePageNo + 1) : '');
     document.getElementById('sheetBody').innerHTML = `
       <button class="sheet-back" onclick="closeSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Schließen</button>
-      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Halt die Kamera drauf und tippe auf den großen Knopf – The Chef erkennt <strong>selbst</strong>, was es ist (Lieferschein, Regal, Thermometer – oder ein <strong>Gericht</strong>: dann kalkuliert er Zutaten, Wareneinsatz &amp; Marge).</p>
+      <p style="font-size:13px;color:var(--text-dim);margin:0 0 12px;padding:0 4px">Halt die Kamera drauf und tippe auf den großen Knopf – The Chef erkennt <strong>selbst</strong>, was es ist: Lieferschein, Regal, Thermometer, <strong>MHD-Etikett</strong> oder ein <strong>Gericht</strong> (dann kalkuliert er Zutaten, Wareneinsatz &amp; Marge). Nach dem Scan reicht ein gesprochenes <strong>„Ja"</strong> zum Buchen.</p>
       <div style="position:relative;border-radius:18px;overflow:hidden;background:#0b1016;aspect-ratio:3/4;margin-bottom:12px;border:1px solid var(--glass-border-bright)">
         <video id="eyeVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;display:none"></video>
         <div id="eyeCamHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-dim);font-size:13px;padding:24px;line-height:1.5">Kamera wird gestartet … bitte „Erlauben" tippen.</div>
@@ -5329,18 +5500,84 @@
     if(!out) return;
     let spoken = '';
     if(data.kind === 'beleg'){
-      const items = data.items || [];
-      if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel.';
-      spoken = items.length ? ('Ich sehe einen Lieferschein mit ' + items.length + ' Artikeln. Soll ich sie ins Lager buchen?') : 'Das sieht aus wie ein Beleg, aber ich konnte keine Artikel lesen.';
+      // Mehrseiten-Scan: neue Positionen an vorige Seiten anhaengen
+      const pageItems = data.items || [];
+      _eyePageNo = _eyePages.length ? _eyePageNo + 1 : 0;
+      const items = _eyePages.concat(pageItems);
+      _eyePages = items.slice();
+      const pageInfo = _eyePageNo > 0 ? ' (Seite ' + (_eyePageNo + 1) + ', gesamt ' + items.length + ')' : '';
+      if(status) status.textContent = 'Erkannt: Lieferschein' + (data.lieferant ? ' von ' + data.lieferant : '') + ' – ' + items.length + ' Artikel' + pageInfo + '.';
+      spoken = items.length ? ('Ich sehe ' + (_eyePageNo > 0 ? 'jetzt insgesamt ' : 'einen Lieferschein mit ') + items.length + ' Artikeln. Soll ich sie ins Lager buchen?') : 'Das sieht aus wie ein Beleg, aber ich konnte keine Artikel lesen.';
       scanExtracted = items;
       const inp = 'padding:7px 9px;border-radius:9px;border:1px solid var(--glass-border-bright);background:var(--brand-tint);color:var(--text);font-size:13.5px;width:100%;box-sizing:border-box';
-      out.innerHTML = items.map(function(it, idx){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="list-card glass" style="margin-bottom:8px;padding:10px"><input style="'+inp+';margin-bottom:6px;font-weight:600" value="'+escHtml(it.name)+'" oninput="scanEdit('+idx+',\'name\',this.value)"><div style="display:flex;gap:6px;align-items:center"><input style="'+inp+';flex:1.1" placeholder="Menge" value="'+escHtml(it.qty||'')+'" oninput="scanEdit('+idx+',\'qty\',this.value)"><input style="'+inp+';flex:1" placeholder="Preis" value="'+escHtml(it.price||'')+'" oninput="scanEdit('+idx+',\'price\',this.value)"><button onclick="scanRemove('+idx+');eyeRender({kind:\'beleg\',lieferant:'+JSON.stringify(data.lieferant||'')+',items:scanExtracted})" title="Entfernen" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 6px;line-height:1">×</button></div>'+(tag?'<div style="font-size:11px;color:var(--text-dim);margin-top:5px">'+escHtml(tag)+'</div>':'')+'</div>'; }).join('') + (items.length ? '<button class="btn-primary" style="margin-top:6px" onclick="bookInventory();closeSheet()">Ins Lager buchen</button>' : '');
+      out.innerHTML = items.map(function(it, idx){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="list-card glass" style="margin-bottom:8px;padding:10px"><input style="'+inp+';margin-bottom:6px;font-weight:600" value="'+escHtml(it.name)+'" oninput="scanEdit('+idx+',\'name\',this.value)"><div style="display:flex;gap:6px;align-items:center"><input style="'+inp+';flex:1.1" placeholder="Menge" value="'+escHtml(it.qty||'')+'" oninput="scanEdit('+idx+',\'qty\',this.value)"><input style="'+inp+';flex:1" placeholder="Preis" value="'+escHtml(it.price||'')+'" oninput="scanEdit('+idx+',\'price\',this.value)"><button onclick="scanRemove('+idx+');_eyePages=scanExtracted.slice();eyeRender({kind:\'beleg\',lieferant:'+JSON.stringify(data.lieferant||'')+',items:[]})" title="Entfernen" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 6px;line-height:1">×</button></div>'+(tag?'<div style="font-size:11px;color:var(--text-dim);margin-top:5px">'+escHtml(tag)+'</div>':'')+'</div>'; }).join('')
+        + (items.length
+          ? '<button class="btn-primary" style="margin-top:6px" onclick="bookInventory();_eyePages=[];closeSheet()">Alle ' + items.length + ' ins Lager buchen</button>'
+            + '<div style="margin-top:8px"></div>'
+            + '<button class="btn-secondary" onclick="eyeNextPage()">+ Nächste Seite fotografieren</button>'
+          : '');
+      if(items.length) eyeListenConfirm(function(){ bookInventory(); _eyePages = []; closeSheet(); });
     } else if(data.kind === 'lager'){
       const items = data.items || [];
       if(status) status.textContent = 'Erkannt: Regal/Lager – ' + items.length + ' Produkte.';
-      spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal.') : 'Ich konnte keine Produkte erkennen.';
+      spoken = items.length ? ('Ich erkenne ' + items.length + ' Produkte im Regal. Soll ich sie übernehmen?') : 'Ich konnte keine Produkte erkennen.';
       visionItems = items;
-      out.innerHTML = '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück' + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+      // Regal-Gedaechtnis: Differenz zum letzten Scan -> Verbrauch + Reichweite
+      let diffHtml = '';
+      try {
+        const last = JSON.parse(localStorage.getItem('chef_eye_lager_last') || 'null');
+        if(last && last.items && last.ts && items.length){
+          const daysBetween = Math.max(0.2, (Date.now() - last.ts) / 86400000);
+          const diffs = [];
+          items.forEach(function(it){
+            const before = last.items[it.name];
+            if(before == null || before <= it.count) return;
+            const used = before - it.count;
+            const perDay = used / daysBetween;
+            const reichweite = perDay > 0 ? it.count / perDay : null;
+            diffs.push({ name: it.name, before: before, now: it.count, used: used, reichweite: reichweite });
+          });
+          if(diffs.length){
+            diffs.sort(function(a,b){ return (a.reichweite||99) - (b.reichweite||99); });
+            diffHtml = '<div class="ai-card glass" style="margin-bottom:12px"><div class="ai-head"><div class="ai-pulse"></div><div class="ai-title">Verbrauch seit letztem Scan (' + (daysBetween < 1.5 ? 'heute' : Math.round(daysBetween) + ' Tage') + ')</div></div>'
+              + diffs.slice(0,6).map(function(d){
+                  const warn = d.reichweite != null && d.reichweite <= 4;
+                  return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0"><span>' + escHtml(d.name) + '</span><span style="font-variant-numeric:tabular-nums;color:' + (warn ? 'var(--orange)' : 'var(--text-dim)') + '">' + d.before + ' → ' + d.now + (d.reichweite != null ? ' · reicht ~' + (d.reichweite < 1 ? 'heute' : Math.round(d.reichweite) + ' Tag(e)') : '') + '</span></div>';
+                }).join('')
+              + '</div>';
+            const critical = diffs.filter(function(d){ return d.reichweite != null && d.reichweite <= 4; });
+            if(critical.length) spoken += ' Achtung: ' + critical[0].name + ' reicht bei dem Tempo nur noch etwa ' + (critical[0].reichweite < 1 ? 'bis heute Abend' : Math.round(critical[0].reichweite) + ' Tage') + '.';
+          }
+        }
+        if(items.length){
+          const snap = {}; items.forEach(function(it){ snap[it.name] = it.count; });
+          localStorage.setItem('chef_eye_lager_last', JSON.stringify({ ts: Date.now(), items: snap }));
+        }
+      } catch(e){}
+      out.innerHTML = diffHtml + '<div class="list-card glass" style="margin-bottom:12px">' + items.map(function(it){ var tag=[it.gruppe,it.lager].filter(Boolean).join(' · '); return '<div class="inv-row" style="cursor:default"><div class="inv-emoji">' + ITEM_SVG + '</div><div><div class="inv-name">' + escHtml(it.name) + '</div><div class="inv-meta">' + it.count + ' Stück' + (tag?' · '+escHtml(tag):'') + '</div></div></div>'; }).join('') + '</div>' + (items.length ? '<button class="btn-primary" onclick="applyVision();closeSheet()">Ins Lager übernehmen</button>' : '');
+      if(items.length) eyeListenConfirm(function(){ applyVision(); closeSheet(); });
+    } else if(data.kind === 'mhd'){
+      // Etikett fotografiert -> MHD am passenden Lager-Artikel speichern
+      const hits = findLagerItems(data.produkt || '');
+      const item = hits.length ? hits[0] : null;
+      const dParts = String(data.datum||'').split('-');
+      const nice = dParts.length === 3 ? (dParts[2] + '.' + dParts[1] + '.' + dParts[0]) : data.datum;
+      if(status) status.textContent = 'Erkannt: MHD ' + nice + ' auf „' + (data.produkt||'?') + '".';
+      if(item){
+        spoken = 'Ich lese Mindesthaltbarkeit ' + nice + ' für ' + item.name + '. Soll ich das speichern?';
+        window.__eyeMhd = { name: item.name, datum: data.datum };
+        out.innerHTML = '<div class="calc-result" style="text-align:center;padding:18px;border-radius:18px;background:var(--brand-tint);border:1px solid var(--glass-border-bright)">'
+          + '<div style="font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);font-weight:700">' + escHtml(item.name) + '</div>'
+          + '<div style="font-size:34px;font-weight:800;margin:6px 0 2px">MHD ' + escHtml(nice) + '</div>'
+          + '</div>'
+          + '<button class="btn-primary" style="margin-top:12px" onclick="eyeSaveMhd()">Am Artikel speichern</button>'
+          + '<div style="margin-top:8px"></div><button class="btn-secondary" onclick="openEye()">Nochmal scannen</button>';
+        eyeListenConfirm(function(){ eyeSaveMhd(); });
+      } else {
+        spoken = 'Ich lese Mindesthaltbarkeit ' + nice + ', finde aber „' + (data.produkt||'?') + '" nicht im Lager.';
+        out.innerHTML = '<div class="ai-card glass"><div class="ai-title">„' + escHtml(data.produkt||'?') + '" nicht im Lager gefunden</div><div style="font-size:13px;color:var(--text-dim);padding:4px;line-height:1.5">Leg den Artikel erst im Lager an, dann kann ich das MHD (' + escHtml(nice) + ') zuordnen.</div></div>'
+          + '<button class="btn-secondary" style="margin-top:10px" onclick="openEye()">Nochmal scannen</button>';
+      }
     } else if(data.kind === 'gericht'){
       // Teller fotografiert -> The Chef kalkuliert das Gericht sofort durch
       const ing = Array.isArray(data.ingredients) ? data.ingredients : [];
@@ -5382,6 +5619,49 @@
     haccpData.temps[z] = { v: String(v), ts: Date.now() }; saveHaccp();
     logActivity('<strong>HACCP</strong> – ' + z + ': ' + v + ' °C (KI-Auge)', 'check');
     toast('✓ ' + z + ': ' + v + ' °C gespeichert'); closeSheet();
+  }
+  // MHD vom Etikett am Lager-Artikel speichern
+  function eyeSaveMhd(){
+    const d = window.__eyeMhd; if(!d || !d.name || !d.datum){ toast('Kein MHD erkannt'); return; }
+    const item = lagerData.find(function(r){ return r.name === d.name; });
+    if(!item){ toast('Artikel nicht gefunden'); return; }
+    item.mhd = d.datum;
+    lagerEdits[item.name] = Object.assign(lagerEdits[item.name] || {}, { amount:item.amount, pct:item.pct, status:item.status, days:item.days, mhd:item.mhd });
+    const mi = lagerManual.find(function(m){ return m.name === item.name; });
+    if(mi) mi.mhd = d.datum;
+    persistLager(); refreshLager();
+    logActivity('<strong>MHD per Foto</strong> – ' + item.name + ': ' + fmtMhd(d.datum), 'check');
+    toast('✓ MHD ' + fmtMhd(d.datum) + ' für ' + item.name + ' gespeichert');
+    window.__eyeMhd = null;
+    closeSheet();
+  }
+  // Sprach-Bestaetigung nach dem Scan: The Chef fragt, ein gesprochenes "Ja" fuehrt aus.
+  // Startet nur, wenn das Mikrofon schon freigegeben ist (kein ueberraschender Prompt).
+  let _eyeConfirmRec = null;
+  function eyeListenConfirm(action){
+    const SRe = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SRe || !navigator.permissions || !navigator.permissions.query) return;
+    try { if(_eyeConfirmRec){ _eyeConfirmRec.stop(); _eyeConfirmRec = null; } } catch(e){}
+    navigator.permissions.query({ name: 'microphone' }).then(function(st){
+      if(st.state !== 'granted') return;
+      let rec; try { rec = new SRe(); } catch(e){ return; }
+      _eyeConfirmRec = rec;
+      rec.lang = 'de-DE'; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
+      const stopAll = function(){ try{ rec.stop(); }catch(e){} if(_eyeConfirmRec === rec) _eyeConfirmRec = null; };
+      const timer = setTimeout(stopAll, 6000); // 6s Fenster fuer "Ja"
+      rec.onresult = function(e){
+        clearTimeout(timer);
+        const t = String(e.results[0] && e.results[0][0] && e.results[0][0].transcript || '').toLowerCase();
+        stopAll();
+        if(/\b(ja|jo|jawohl|jap|klar|mach|buchen|übernehmen|passt)\b/.test(t)){
+          try { action(); } catch(err){}
+        }
+      };
+      rec.onerror = function(){ clearTimeout(timer); stopAll(); };
+      rec.onend = function(){ clearTimeout(timer); if(_eyeConfirmRec === rec) _eyeConfirmRec = null; };
+      // kurz warten, bis The Chef seine Frage ausgesprochen hat
+      setTimeout(function(){ if(_eyeConfirmRec === rec){ try { rec.start(); } catch(e){} } }, 2500);
+    }).catch(function(){});
   }
 
   // ===== Sheets =====

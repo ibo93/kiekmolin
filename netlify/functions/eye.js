@@ -25,6 +25,7 @@ Mögliche Fälle:
 - "lager": Regal/Kühlschrank/Lager-Ablage mit Produkten.
 - "gericht": Ein fertig angerichtetes Gericht auf einem Teller (Food-Foto).
 - "temperatur": Thermometer/Display mit einer Temperatur.
+- "mhd": Nahaufnahme eines Etiketts/einer Verpackung mit Mindesthaltbarkeitsdatum.
 - "unbekannt": nichts davon klar erkennbar.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in genau einer dieser Formen:
@@ -32,6 +33,7 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in genau einer dieser Formen:
 { "kind":"lager", "items":[{"name":"Produkt","count":12,"gruppe":"Warengruppe","lager":"Lagerort"}] }
 { "kind":"gericht", "dish":"Gerichtname", "ingredients":[{"name":"Zutat","menge":"150 g","ek":1.20}], "vk_vorschlag":18.50, "hinweis":"kurzer 1-Satz-Tipp zur Marge" }
 { "kind":"temperatur", "value":"4.2" }
+{ "kind":"mhd", "produkt":"Sahne", "datum":"2026-07-15" }
 { "kind":"unbekannt" }
 
 Regeln:
@@ -41,6 +43,7 @@ Regeln:
 - lager: GENAU EINES von "Kühlung", "Tiefkühl", "Trockenlager", "Getränkelager", "Sonstiges".
 - value: Zahl mit Punkt als Dezimaltrennzeichen, Minus für Minusgrade, ohne Einheit.
 - Bei "gericht": 4-12 Zutaten dieser EINEN Portion mit realistischen Mengen (g/ml/Stk/EL). ek = Wareneinsatz der Menge in Euro zu GASTRONOMIE-Einkaufspreisen Deutschland (nicht Endkundenpreise); Kleinmengen wie Gewürze 0.05-0.30. Auch unsichtbare Standardzutaten (Öl, Salz, Sauce) einrechnen. vk_vorschlag = marktüblicher Brutto-Verkaufspreis (inkl. 19% MwSt) in einem normalen Restaurant.
+- Bei "mhd": produkt = kurzer Produktname vom Etikett; datum IMMER als YYYY-MM-DD (deutsche Formate wie "15.07.26" oder "mindestens haltbar bis 07/2026" entsprechend umrechnen; bei Monatsangabe den Monatsletzten nehmen). Nur "mhd" waehlen, wenn ein Datum klar lesbar ist.
 - Kein Text vor/nach dem JSON, keine Code-Fences.`;
 
 exports.handler = async function (event) {
@@ -72,7 +75,7 @@ exports.handler = async function (event) {
     try { const s = raw.indexOf('{'), e = raw.lastIndexOf('}'); p = JSON.parse(s !== -1 && e !== -1 ? raw.slice(s, e + 1) : raw); }
     catch (e) { return { statusCode: 502, headers: CORS_HEADERS, body: JSON.stringify({ kind: 'unbekannt' }) }; }
 
-    const kind = ['beleg','lager','gericht','temperatur'].indexOf(p.kind) !== -1 ? p.kind : 'unbekannt';
+    const kind = ['beleg','lager','gericht','temperatur','mhd'].indexOf(p.kind) !== -1 ? p.kind : 'unbekannt';
     let out = { kind: kind };
     if (kind === 'beleg') {
       out.lieferant = (p.lieferant ? String(p.lieferant) : '').slice(0, 60).trim();
@@ -91,6 +94,14 @@ exports.handler = async function (event) {
       if (!out.dish || !out.ingredients.length) out.kind = 'unbekannt';
     } else if (kind === 'temperatur') {
       out.value = (p.value != null ? String(p.value) : '').replace(',', '.').replace(/[^0-9.\-]/g, '').slice(0, 10);
+    } else if (kind === 'mhd') {
+      out.produkt = (p.produkt ? String(p.produkt) : '').slice(0, 60).trim();
+      var d = (p.datum ? String(p.datum) : '').trim();
+      // deutsches Format zur Sicherheit serverseitig normalisieren
+      var dm = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+      if (dm) d = (dm[3].length === 2 ? '20' + dm[3] : dm[3]) + '-' + dm[2].padStart(2, '0') + '-' + dm[1].padStart(2, '0');
+      out.datum = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+      if (!out.produkt || !out.datum) out.kind = 'unbekannt';
     }
     return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(out) };
   } catch (err) {
