@@ -1406,6 +1406,31 @@
       <!-- ==== HOME ==== -->
       <section class="view active" data-view="home">
 
+        <!-- Aktivierungs-Guide: fuehrt neue Wirte in 4 Schritten zum laufenden Betrieb.
+             Verschwindet fuer immer, sobald alles erledigt ist. -->
+        <div id="setupGuide" style="display:none;margin-bottom:14px;padding:16px;border-radius:20px;background:linear-gradient(160deg,var(--glass-strong),var(--glass));border:1px solid rgba(245,194,90,0.35);box-shadow:var(--card-shadow)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:15px;font-weight:800;letter-spacing:-0.01em">Dein Betrieb in <span style="color:var(--gold-light)">4 Schritten</span></div>
+            <span id="setupProgress" style="font-size:12px;font-weight:700;color:var(--gold-light);font-variant-numeric:tabular-nums"></span>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Danach läuft The Chef von allein mit.</div>
+          <div id="setupSteps"></div>
+          <button onclick="snoozeSetupGuide()" style="background:none;border:none;color:var(--text-faint);font-size:12px;cursor:pointer;padding:8px 0 0;text-decoration:underline">Später erinnern</button>
+        </div>
+
+        <!-- Install-Hinweis: erscheint erst, wenn die App sich bewiesen hat -->
+        <div id="pwaHint" style="display:none;margin-bottom:14px;padding:13px 16px;border-radius:16px;background:var(--brand-tint);border:1px solid var(--glass-border-bright)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;border-radius:10px;background:rgba(245,194,90,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold-light);flex-shrink:0"><svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M12 2a1 1 0 011 1v10.6l3.3-3.3 1.4 1.4L12 17.4l-5.7-5.7 1.4-1.4 3.3 3.3V3a1 1 0 011-1zM5 20h14v2H5v-2z"/></svg></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:700">The Chef auf den Startbildschirm</div>
+              <div id="pwaHintSub" style="font-size:12px;color:var(--text-dim);margin-top:1px">Ein Tipp – und du öffnest ihn wie eine echte App.</div>
+            </div>
+            <button class="btn-secondary" onclick="installApp()" style="width:auto;padding:8px 14px;font-size:12.5px;margin:0">Installieren</button>
+            <button onclick="dismissPwaHint()" aria-label="Ausblenden" style="background:none;border:none;color:var(--text-faint);font-size:17px;cursor:pointer;padding:4px 2px;line-height:1">×</button>
+          </div>
+        </div>
+
         <div class="hero-card" onclick="openTagesDaten()" style="cursor:pointer">
           <svg class="hero-chart-bg" id="heroChartSvg" viewBox="0 0 280 60" preserveAspectRatio="none" aria-hidden="true">
             <defs>
@@ -2101,6 +2126,7 @@
     // Chef-Liste + Ampel-Kugel leben von denselben Signalen -> live mitziehen
     try { renderTodos(); } catch(e){}
     try { applyOrbMood(); } catch(e){}
+    try { renderSetupGuide(); } catch(e){}
   }
 
   // Echte Lager-Kennzahlen – einzige Wahrheitsquelle, kein Hardcoding
@@ -4920,6 +4946,88 @@
     else { badge.textContent = openCount + (openCount===1?' offen':' offen'); badge.classList.remove('done'); }
   }
   setInterval(function(){ try{ renderTodos(); }catch(e){} }, 60000);
+
+  // ===== Aktivierungs-Guide: der Weg zum laufenden Betrieb (Stripe-Prinzip) =====
+  // Jeder Schritt erkennt SELBST, wenn er erledigt ist - nichts wird abgehakt.
+  function buildSetupSteps(){
+    return [
+      { id:'karte',   label:'Speisekarte einlesen', sub:'Foto der Karte – Gerichte & Preise sind drin',
+        done: Object.keys(recipes).length > 0,
+        run: function(){ openRezepte(); setTimeout(function(){ try{ scanMenu(); }catch(e){} }, 400); } },
+      { id:'lager',   label:'Lager füllen', sub:'Lieferschein oder Regal fotografieren',
+        done: lagerData.length > 0,
+        run: function(){ openEye(); } },
+      { id:'verkauf', label:'Ersten Verkauf buchen', sub:'Tippen oder zurufen – Lager läuft mit',
+        done: Object.keys(verkaufLog).length > 0,
+        run: function(){ openVerkauf(); } },
+      { id:'voice',   label:'The Chef kennenlernen', sub:'Stell ihm eine Frage – er kennt deinen Betrieb',
+        done: (function(){ try { return (JSON.parse(localStorage.getItem('chef_convo')||'[]')).length > 0; } catch(e){ return false; } })(),
+        run: function(){ navTo('ki'); } }
+    ];
+  }
+  let _setupSteps = [];
+  function runSetupStep(i){ const st = _setupSteps[i]; if(st && !st.done && st.run){ try{ st.run(); }catch(e){} } }
+  function snoozeSetupGuide(){
+    localStorage.setItem('chef_setup_snooze', new Date().toDateString());
+    const g = document.getElementById('setupGuide'); if(g) g.style.display = 'none';
+  }
+  function renderSetupGuide(){
+    const g = document.getElementById('setupGuide'); if(!g) return;
+    if(localStorage.getItem('chef_setup_done')){ g.style.display = 'none'; return; }
+    if(localStorage.getItem('chef_setup_snooze') === new Date().toDateString()){ g.style.display = 'none'; return; }
+    if(!localStorage.getItem('chef_onboarded')){ g.style.display = 'none'; return; }
+    _setupSteps = buildSetupSteps();
+    const doneCount = _setupSteps.filter(function(x){ return x.done; }).length;
+    if(doneCount === _setupSteps.length){
+      localStorage.setItem('chef_setup_done', '1');
+      g.style.display = 'none';
+      toast('✓ Setup komplett – The Chef läuft jetzt mit dir mit');
+      return;
+    }
+    const prog = document.getElementById('setupProgress');
+    if(prog) prog.textContent = doneCount + ' / ' + _setupSteps.length;
+    const box = document.getElementById('setupSteps');
+    if(box) box.innerHTML = _setupSteps.map(function(st, i){
+      return '<div onclick="runSetupStep(' + i + ')" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border);cursor:' + (st.done ? 'default' : 'pointer') + (st.done ? ';opacity:0.55' : '') + '">'
+        + '<div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;' + (st.done
+            ? 'background:rgba(46,230,166,0.16);color:var(--green)'
+            : 'border:2px solid rgba(245,194,90,0.5);color:var(--gold-light);font-size:12.5px;font-weight:800') + '">'
+        + (st.done ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg>' : (i + 1))
+        + '</div>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600' + (st.done ? ';text-decoration:line-through' : '') + '">' + st.label + '</div>'
+        + (st.done ? '' : '<div style="font-size:11.5px;color:var(--text-dim);margin-top:1px">' + st.sub + '</div>') + '</div>'
+        + (st.done ? '' : '<div style="color:var(--gold-light);font-weight:700">›</div>')
+        + '</div>';
+    }).join('');
+    g.style.display = 'block';
+  }
+  setInterval(function(){ try{ renderSetupGuide(); }catch(e){} }, 60000);
+  setTimeout(function(){ try{ renderSetupGuide(); }catch(e){} }, 500);
+
+  // ===== Install-Hinweis: erst zeigen, wenn die App sich bewiesen hat =====
+  function isStandalone(){
+    try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; } catch(e){ return false; }
+  }
+  function dismissPwaHint(){
+    localStorage.setItem('chef_pwa_dismissed', '1');
+    const p = document.getElementById('pwaHint'); if(p) p.style.display = 'none';
+  }
+  function maybeShowPwaHint(){
+    const p = document.getElementById('pwaHint'); if(!p) return;
+    if(isStandalone() || localStorage.getItem('chef_pwa_dismissed')) return;
+    if(!localStorage.getItem('chef_onboarded')) return;
+    const visits = parseInt(localStorage.getItem('chef_visits') || '0', 10);
+    if(visits < 2) return; // beim allerersten Besuch nicht aufdringlich sein
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if(isIos){
+      const sub = document.getElementById('pwaHintSub');
+      if(sub) sub.textContent = 'Safari: Teilen-Symbol → „Zum Home-Bildschirm".';
+      const btn = p.querySelector('.btn-secondary'); if(btn) btn.style.display = 'none';
+    }
+    p.style.display = 'block';
+  }
+  try { localStorage.setItem('chef_visits', String(parseInt(localStorage.getItem('chef_visits') || '0', 10) + 1)); } catch(e){}
+  setTimeout(function(){ try{ maybeShowPwaHint(); }catch(e){} }, 1800);
   // KI-Tab "Jetzt wichtig": dieselben echten Signale wie die Chef-Liste - keine Fake-Karten
   function renderKiSignals(){
     const box = document.getElementById('kiRealSignals'); if(!box) return;
