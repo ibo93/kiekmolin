@@ -46544,13 +46544,25 @@ async function loadDashboardOrders() {
         if (filterEnd) filterPart += `&created_at=lt.${filterEnd.toISOString()}`;
         // Restaurant-Filter. Ein GASTRONOM wird IMMER hart auf sein eigenes
         // Restaurant gefiltert -- egal was im (deaktivierten) Auswahlfeld steht.
-        // So sieht er nie fremde Bestellungen, auch wenn die globale Variable
-        // _gastroOnlyRestaurantId beim Laden noch nicht gesetzt war.
         // Admin: leer = alle Restaurants, sonst das gewaehlte.
         var _gastroForce = (typeof currentAdmin === 'object' && currentAdmin && !currentAdmin.isAdmin)
             ? (window._gastroOnlyRestaurantId || currentAdmin.restaurant_id || '') : '';
-        var activeRestFilter = _gastroForce || ordersRestaurantFilter || '';
-        if (activeRestFilter) filterPart += `&restaurant_id=eq.${activeRestFilter}`;
+        if (_gastroForce) {
+            // WICHTIG: robust per restaurant_id ODER restaurant_name matchen.
+            // Sonst sieht der Gastronom NICHTS, wenn seine Bestellungen durch
+            // einen doppelten/alten Restaurant-Datensatz unter einer abweichenden
+            // restaurant_id gespeichert wurden (genau der La-Piazza-Fall).
+            var _gfName = String(window._gastroOnlyRestaurantName || (currentAdmin && currentAdmin.restaurant_name) || '').trim();
+            if (_gfName) {
+                filterPart += '&or=(restaurant_id.eq.' + encodeURIComponent(_gastroForce) +
+                    ',restaurant_name.eq.' + encodeURIComponent('"' + _gfName.replace(/"/g, '') + '"') + ')';
+            } else {
+                filterPart += '&restaurant_id=eq.' + encodeURIComponent(_gastroForce);
+            }
+        } else if (ordersRestaurantFilter) {
+            // Admin mit gewaehltem Restaurant: unveraendert nur per ID
+            filterPart += '&restaurant_id=eq.' + ordersRestaurantFilter;
+        }
         filterPart += '&order=created_at.desc';
 
         const _ordHeaders = {
