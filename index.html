@@ -22614,18 +22614,33 @@ async function supabasePost(table, data) {
 // STADT -- nicht mehr pauschal in Greetsiel. Kleiner, pro Restaurant stabiler
 // Versatz (~±250m), damit mehrere Restaurants ohne Koordinaten nicht alle
 // exakt auf demselben Punkt stapeln.
+//
+// WICHTIG: Bei vielen Restaurants stehen in der DB faelschlich die GREETSIEL-
+// Default-Koordinaten (53.5021/7.0965) fest gespeichert (Altlast, als der
+// Default frueher direkt gespeichert wurde). Solche Koordinaten werden als
+// ungueltig behandelt, WENN die Stadt des Restaurants nicht Greetsiel ist --
+// sonst wuerden diese Restaurants ewig in Greetsiel kleben, obwohl das
+// Geocoding laengst eine bessere Stadt-Position liefern kann.
+var _GREETSIEL = { lat: 53.5021, lng: 7.0965 };
+function _looksLikeGreetsielDefault(la, ln) {
+    return la && ln && Math.abs(la - _GREETSIEL.lat) < 0.004 && Math.abs(ln - _GREETSIEL.lng) < 0.004;
+}
 function _restCoord(r, which) {
-    var v = parseFloat(which === 'lat' ? r.latitude : r.longitude);
-    if (v) return v;
+    var la = parseFloat(r.latitude), ln = parseFloat(r.longitude);
+    var city = String(r.city || '').trim().toLowerCase();
+    var hasReal = la && ln;
+    // Greetsiel-Default trotz anderer Stadt -> als ungueltig verwerfen
+    var bogus = hasReal && city && city !== 'greetsiel' && _looksLikeGreetsielDefault(la, ln);
+    if (hasReal && !bogus) return which === 'lat' ? la : ln;
+
     var cities = (typeof knownCities === 'object' && knownCities) || {};
     var c = null;
-    var city = String(r.city || '').trim().toLowerCase();
     if (city) {
         for (var k in cities) {
             if (k.toLowerCase() === city) { c = cities[k]; break; }
         }
     }
-    if (!c) c = { lat: 53.5021, lng: 7.0965 };
+    if (!c) c = { lat: _GREETSIEL.lat, lng: _GREETSIEL.lng };
     var h = 0, s = String(r.id || r.name || '');
     for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
     var jLat = (((h % 1000) / 1000) - 0.5) * 0.005;
