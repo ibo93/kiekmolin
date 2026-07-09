@@ -5425,12 +5425,20 @@
             #ordersGrid { grid-template-columns: 1fr !important; gap: 16px !important; }
             .rest-card-grid { grid-template-columns: 1fr; gap: 16px; }
 
-            /* Karten kompakter -- 32px Innenabstand ist auf dem Handy zu breit */
-            .kin-order-card { padding: 20px; border-radius: 28px; gap: 16px; }
+            /* Karten kompakter -- 32px Innenabstand ist auf dem Handy zu breit.
+               overflow:hidden clippt das Deko-Eck (right:-32px), das sonst ueber
+               den rechten Rand ragte und die Karte "leicht abgeschnitten" wirken
+               liess. Die NEU-Badge sitzt bei top/right:10px INNEN -> bleibt sichtbar.
+               !important, weil die Basis-Regel .kin-order-card SPAETER im Code steht
+               und sonst gewinnt (Media Query erhoeht die Spezifitaet nicht). */
+            .kin-order-card { padding: 20px !important; border-radius: 28px !important; gap: 16px !important; overflow: hidden !important; max-width: 100%; box-sizing: border-box; }
+
+            /* alles in der Karte bleibt innerhalb der Kartenbreite */
+            .kin-order-card * { max-width: 100%; box-sizing: border-box; }
 
             /* Aktions-Buttons in der Karte: volle Breite, gut tippbar */
             .kin-order-actions { flex-wrap: wrap; gap: 8px; }
-            .kin-order-actions > button { flex: 1 1 calc(50% - 8px); min-height: 44px; justify-content: center; }
+            .kin-order-actions > button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 44px; justify-content: center; }
 
             /* breite Tabellen bekommen ihren eigenen horizontalen Scroll,
                statt die ganze Seite zu sprengen */
