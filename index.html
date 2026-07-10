@@ -23690,9 +23690,14 @@ function renderRestaurants(filter = 'all') {
 
         // Wartezeit berechnen (aus neuem Wartezeit-System)
         const waitTimeInfo = window.restaurantWaitTimes && window.restaurantWaitTimes[r.id] ? window.restaurantWaitTimes[r.id] : { min: 0, label: '' };
-        const dynamicWaitText = waitTimeInfo.min > 0 
+        const dynamicWaitText = waitTimeInfo.min > 0
             ? waitTimeInfo.label
             : (t.available || 'Sofort verfügbar');
+
+        // Reserviert das Restaurant ueberhaupt? Nur dann die reservierungs-basierte
+        // Verfuegbarkeit ("X Uhrzeiten verfuegbar") anzeigen -- sonst wirkt es, als
+        // koenne man reservieren, obwohl das Restaurant das gar nicht anbietet (z.B. Pronto).
+        const _cardNoRes = (r.features || []).indexOf('no_reservations') >= 0;
 
         html += `
             <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.6);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
@@ -23724,12 +23729,12 @@ function renderRestaurants(filter = 'all') {
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
                     <!-- Tisch-Verfügbarkeit (reservierungs-basiert, async geladen) -->
-                    <div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
+                    ${_cardNoRes ? '' : `<div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
                         <span class="card-slot-info" style="color:#404946;font-size:12px;display:flex;align-items:center;gap:4px;">
                             <span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>
                             <span style="color:#c0c8c4;">Verfügbarkeit wird geladen...</span>
                         </span>
-                    </div>
+                    </div>`}
                     <!-- Action Buttons -->
                     <div style="display:flex;gap:8px;margin-top:10px;">
                         ${(function(){
