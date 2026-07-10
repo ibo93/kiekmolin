@@ -45407,6 +45407,8 @@ async function submitOrder() {
     };
 
     // In Supabase speichern
+    var _saveOk = false;
+    var _saveErr = null;
     try {
         // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, lehnt PostgREST
         // die GANZE Bestellung ab. Wir lesen den Spaltennamen aus der Fehlermeldung,
@@ -45445,7 +45447,7 @@ async function submitOrder() {
             return { ok: false, status: lastStatus, text: lastText };
         };
 
-        const _orderRes = await _resilientInsert('orders', {
+        var _orderPayload = {
             order_number: orderNumber,
             restaurant_id: currentOrderRestaurant?.id,
             restaurant_name: currentOrderRestaurant?.name || '',
@@ -45473,9 +45475,32 @@ async function submitOrder() {
             coupon_code: activeCoupon ? activeCoupon.code : null,
             discount: couponDiscount || 0,
             requested_time: window._requestedTimeForOrder || null
-        });
+        };
+        var _orderRes = await _resilientInsert('orders', _orderPayload);
+
+        // Fallback: schlaegt der direkte Insert fehl (typischer Fall: RLS blockt
+        // den oeffentlichen Schluessel), serverseitig mit Service-Key speichern.
+        // So kommen Bestellungen auch bei aktiver RLS an, ohne DB-Aenderung.
+        if (!_orderRes.ok) {
+            try {
+                var _fb = await fetch('/.netlify/functions/order-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: _orderPayload })
+                });
+                var _fbj = null; try { _fbj = await _fb.json(); } catch (e) {}
+                if (_fb.ok && _fbj && _fbj.ok) {
+                    _orderRes = { ok: true, data: _fbj.id ? [{ id: _fbj.id }] : null };
+                } else {
+                    _orderRes = { ok: false, status: (_fbj && _fbj.status) || _fb.status || 0, text: (_fbj && _fbj.error) || 'Fallback fehlgeschlagen' };
+                }
+            } catch (_fbe) {
+                _orderRes = { ok: false, status: 0, text: 'Fallback nicht erreichbar: ' + _fbe.message };
+            }
+        }
 
         if (_orderRes.ok) {
+            _saveOk = true;
             order.id = (_orderRes.data && _orderRes.data[0] && _orderRes.data[0].id) || order.id;
 
             // Bestellbestaetigung per E-Mail (fire-and-forget). Die Function
@@ -45512,6 +45537,8 @@ async function submitOrder() {
             var _hint = (_orderRes.status === 401 || _orderRes.status === 403)
                 ? 'Datenbank lehnt das Speichern ab (Rechte/RLS).'
                 : ('Server-Fehler ' + _orderRes.status + '.');
+            _saveErr = { status: _orderRes.status, text: String(_orderRes.text || ''), hint: _hint };
+            window._kmiLastOrderError = _saveErr;
             showToast('Bestellung konnte nicht gespeichert werden: ' + _hint, 'error');
             if (typeof logRestaurantEvent === 'function') {
                 logRestaurantEvent(currentOrderRestaurant && currentOrderRestaurant.id, 'order_save_failed',
@@ -46621,11 +46648,11 @@ async function loadDashboardOrders() {
                 pos_log: Array.isArray(order.pos_log) ? order.pos_log : [],
                 printed_at: order.printed_at || null
             }));
-            window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: activeRestFilter, time: ordersTimeFilter };
+            window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: (_gastroForce || ordersRestaurantFilter || 'alle'), time: ordersTimeFilter };
 
         } else {
             console.error('Orders API Fehler:', response.status);
-            window._kmiOrdersDiag = { status: response.status, count: 0, rest: activeRestFilter, time: ordersTimeFilter, failed: true };
+            window._kmiOrdersDiag = { status: response.status, count: 0, rest: (_gastroForce || ordersRestaurantFilter || 'alle'), time: ordersTimeFilter, failed: true };
             // Fallback: Demo-Daten wenn keine Orders Tabelle existiert
             loadDemoOrders();
         }
