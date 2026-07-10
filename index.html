@@ -46854,18 +46854,11 @@ function renderDashboardOrders() {
     if (filtered.length === 0) {
         grid.innerHTML = '';
         if (emptyState) emptyState.style.display = 'block';
-        // Diagnose: warum leer? (Status / Treffer / gefilterte restaurant_id)
-        var _d = window._kmiOrdersDiag;
-        if (emptyState && _d) {
-            var _old = emptyState.querySelector('#ordersDiagLine');
-            if (_old) _old.remove();
-            var _line = document.createElement('div');
-            _line.id = 'ordersDiagLine';
-            _line.style.cssText = 'margin-top:14px;font-size:11px;color:var(--slate);opacity:0.7;font-family:monospace;word-break:break-all;';
-            _line.textContent = 'Diagnose · HTTP ' + _d.status + ' · geladen: ' + _d.count +
-                ' · Filter restaurant_id=' + (_d.rest || '(keiner)') + ' · Zeitraum=' + _d.time +
-                (_d.error ? ' · Fehler: ' + _d.error : '') + (_d.failed ? ' · Abfrage fehlgeschlagen' : '');
-            emptyState.appendChild(_line);
+        // (Diagnose-Zeile entfernt — Details weiterhin in window._kmiOrdersDiag,
+        //  aber nicht mehr in der Oberfläche sichtbar.)
+        if (emptyState) {
+            var _oldDiag = emptyState.querySelector('#ordersDiagLine');
+            if (_oldDiag) _oldDiag.remove();
         }
         return;
     }
