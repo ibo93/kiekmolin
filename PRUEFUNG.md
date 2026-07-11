@@ -30,14 +30,14 @@ Entscheidung oder Handlung – vor allem **Recht/DSGVO** und **Twilio-Absicherun
 
 ## 🔴 Blocker – DU musst handeln, bevor das Telefon live geht
 
-### 1. WebSocket `/media` ist ungeschützt (Kosten + Fake-Daten)
-Wer die Server-Adresse kennt, kann ohne echten Anruf direkt eine Verbindung
-öffnen, Claude/Deepgram/ElevenLabs auf deine Kosten laufen lassen und echte
-Reservierungen in die Börse-Datenbank schreiben.
-**Nötig:** Twilio-Signatur am `/anruf`-Webhook prüfen **und** ein geheimes Token
-mitgeben, das der `/media`-Handler kontrolliert. Ist ein überschaubarer
-Code-Eingriff – **sag Bescheid, dann baue ich das als Nächstes.** Bis dahin:
-Telefon-Server nicht dauerhaft öffentlich laufen lassen.
+### 1. ✅ ERLEDIGT: WebSocket `/media` und Webhook sind jetzt abgesichert
+Der `/anruf`-Webhook prüft die Twilio-Signatur (nur echte Twilio-Anfragen),
+und der Audio-Kanal `/media` akzeptiert nur Verbindungen mit einem
+kurzlebigen Token, das der Webhook selbst ausgestellt hat. Verbindungen ohne
+gültigen Start fliegen nach 10 Sekunden raus.
+**Dein einziger Handgriff:** `TWILIO_AUTH_TOKEN` in die `.env` eintragen
+(Twilio Console → Account Info → Auth Token). Ohne den Eintrag warnt der
+Server beim Start und prüft nicht.
 
 ### 2. DSGVO – bevor echte Gäste anrufen
 Der Agent verarbeitet Name, Telefonnummer, bei Lieferung die Adresse, und
@@ -52,11 +52,12 @@ Musphtervorlagen):**
   (aktuell bleiben sie unbegrenzt liegen – siehe Punkt „Logs" unten).
 - Der Wirt (Börse) und du seid hier gemeinsam verantwortlich – kurz vertraglich klären.
 
-### 3. Gesprächs-Protokolle enthalten Klartext-Personendaten
-Jeder Anruf wird als Log-Datei mit Name/Nummer/Adresse gespeichert und ist über
-die Agentur-App abrufbar. **Nötig:** automatische Löschung nach X Tagen, und die
-App nie ohne Passwortschutz öffentlich machen. Kann ich einbauen (Auto-Löschung
-nach z. B. 30 Tagen) – sag, ob du das willst.
+### 3. ✅ TEIL-ERLEDIGT: Gesprächs-Protokolle werden jetzt automatisch gelöscht
+Anruf-Protokolle werden nach 30 Tagen automatisch gelöscht (einstellbar über
+`LOG_AUFBEWAHRUNG_TAGE` in der `.env`; Prüfung beim Start und dann täglich).
+**Bleibt an dir:** die Agentur-App nie ohne Passwortschutz öffentlich machen
+(im Docker-Setup ist sie bereits nur an localhost gebunden), und die
+Löschfrist in deine Datenschutz-Unterlagen übernehmen.
 
 ### 4. Twilio: deutsche Nummer braucht Adressnachweis
 Für eine deutsche Rufnummer verlangt Twilio ein „Regulatory Bundle"

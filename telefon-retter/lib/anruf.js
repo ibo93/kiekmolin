@@ -18,12 +18,13 @@ const { DialogSitzung } = require('./dialog');
 const LOG_ORDNER = path.join(__dirname, '..', 'logs');
 
 class AnrufSitzung {
-  constructor({ twilioWs, restaurant, menue, stufe, datenquelle }) {
+  constructor({ twilioWs, restaurant, menue, stufe, datenquelle, pruefeToken }) {
     this.ws = twilioWs;
     this.restaurant = restaurant;
     this.menue = menue;
     this.stufe = stufe;
     this.datenquelle = datenquelle;
+    this.pruefeToken = pruefeToken || null;
     this.streamSid = null;
     this.anrufer = '';
     this.spricht = false;       // gerade eigene Ausgabe auf der Leitung?
@@ -36,6 +37,11 @@ class AnrufSitzung {
 
     this.ws.on('message', (roh) => this.twilioNachricht(roh));
     this.ws.on('close', () => this.aufraeumen());
+
+    // Verbindung ohne gueltigen Start binnen 10 s trennen (kein Socket-Parken)
+    this.startWaechter = setTimeout(() => {
+      if (!this.streamSid) { try { this.ws.close(); } catch (_e) {} }
+    }, 10000);
   }
 
   log(zeile) {
@@ -49,8 +55,18 @@ class AnrufSitzung {
     try { msg = JSON.parse(roh.toString()); } catch (_e) { return; }
 
     if (msg.event === 'start') {
-      this.streamSid = msg.start.streamSid;
       const params = msg.start.customParameters || {};
+
+      // Nur Streams zulassen, die unser /anruf-Webhook selbst autorisiert hat
+      // (kurzlebiges Token im <Parameter>). Alles andere: sofort trennen.
+      if (this.pruefeToken && !this.pruefeToken(params.token)) {
+        console.warn('[Anruf] Media-Stream ohne gueltiges Token abgewiesen');
+        try { this.ws.close(); } catch (_e) {}
+        return;
+      }
+
+      clearTimeout(this.startWaechter);
+      this.streamSid = msg.start.streamSid;
       this.anrufer = params.anrufer || '';
       this.log('Anruf gestartet von ' + (this.anrufer || 'unbekannt'));
 
