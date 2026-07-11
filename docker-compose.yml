@@ -14,6 +14,10 @@ services:
       context: .
       dockerfile: telefon-retter/Dockerfile
     env_file: telefon-retter/.env
+    environment:
+      # WICHTIG: sonst laeuft der Container in UTC und die Verfuegbarkeits-
+      # pruefung ("heute", Uhrzeiten) ist 1-2 Stunden verschoben.
+      TZ: Europe/Berlin
     ports:
       - "3100:3100"
     volumes:
@@ -26,10 +30,13 @@ services:
       dockerfile: agentur/Dockerfile
     env_file: sichtbarkeit/.env
     environment:
+      TZ: Europe/Berlin
       # Status-Abfrage geht im Compose-Netz direkt zum Nachbar-Container
       TELEFON_URL: http://telefon-retter:3100
     ports:
-      - "3200:3200"
+      # NUR an localhost binden - die Agentur-App hat keinen Login und darf
+      # nicht offen im Internet stehen. Zugriff per SSH-Tunnel (siehe DAUERBETRIEB.md).
+      - "127.0.0.1:3200:3200"
     volumes:
       # Kunden-Historie, Reports und Aufbereitung ueberleben Container-Neustarts
       - ./sichtbarkeit/data:/app/sichtbarkeit/data

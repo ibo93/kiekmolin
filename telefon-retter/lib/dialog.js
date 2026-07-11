@@ -228,11 +228,14 @@ class DialogSitzung {
     this.system = baueSystemPrompt(restaurant, this.stufe, this.anrufer);
     this.beendet = false;
     this.letztePruefung = null; // Merker: zuletzt als frei geprueft
+    this.buchungenGezaehlt = 0; // Reservierungen+Bestellungen in DIESEM Anruf
+    this.maxBuchungen = parseInt(process.env.MAX_BUCHUNGEN_PRO_ANRUF || '3', 10);
   }
 
   begruessung() {
-    return 'Moin, hier ist der Telefon-Assistent von ' + this.restaurant.name +
-      '. Das Team ist gerade nicht am Apparat, aber ich kann Ihnen helfen. Was kann ich fuer Sie tun?';
+    // Gibt sich sofort als KI zu erkennen (Transparenzpflicht, EU AI Act).
+    return 'Moin, hier ist der digitale KI-Assistent von ' + this.restaurant.name +
+      '. Das Team ist gerade nicht am Apparat, aber ich kann fuer Sie reservieren oder eine Nachricht aufnehmen. Was kann ich fuer Sie tun?';
   }
 
   // Ein Gespraechsschritt: Nutzertext rein -> gesprochene Antwort raus.
@@ -285,9 +288,10 @@ class DialogSitzung {
     const antwort = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(20000), // haengt die API, nicht den ganzen Anruf blockieren
       body: JSON.stringify({
         model: process.env.CLAUDE_MODELL || 'claude-sonnet-5',
-        max_tokens: 400,
+        max_tokens: 800, // genug fuer das komplette Vorlesen einer Bestellung (Stufe 3)
         system: this.system,
         tools: this.tools,
         messages: this.nachrichten
@@ -329,6 +333,10 @@ class DialogSitzung {
   }
 
   async toolReserviereTisch({ gast_name, telefon, datum, uhrzeit, personen, hinweise }) {
+    // Missbrauchsschutz: max. N Buchungen pro Anruf, danach nur noch Rueckruf.
+    if (this.buchungenGezaehlt >= this.maxBuchungen) {
+      return { gespeichert: false, fehler: 'Fuer weitere Reservierungen bitte einen Rueckruf anbieten (Limit pro Anruf erreicht).' };
+    }
     // Sicherheitsnetz: direkt vor dem Schreiben NOCHMAL pruefen (kein Doppel-Booking,
     // auch wenn zwischen Pruefung und Zusage jemand online gebucht hat).
     const [reservierungen, tische] = await Promise.all([
@@ -351,6 +359,7 @@ class DialogSitzung {
       notes: hinweise ? '[Telefon] ' + hinweise : '[Telefon]'
     });
     if (!ergebnis.ok) return { gespeichert: false, fehler: 'Speichern fehlgeschlagen (' + ergebnis.status + '). Biete einen Rueckruf an.' };
+    this.buchungenGezaehlt++;
     return { gespeichert: true, reservierung: { datum, uhrzeit: normalisiereUhrzeit(uhrzeit), personen, name: gast_name } };
   }
 
@@ -453,6 +462,9 @@ class DialogSitzung {
   }
 
   async toolSpeichereBestellung({ typ, artikel, kunde_name, telefon, adresse, vorgelesen_und_bestaetigt }) {
+    if (this.buchungenGezaehlt >= this.maxBuchungen) {
+      return { gespeichert: false, fehler: 'Fuer weitere Bestellungen bitte einen Rueckruf anbieten (Limit pro Anruf erreicht).' };
+    }
     if (!vorgelesen_und_bestaetigt) {
       return { gespeichert: false, fehler: 'Erst die komplette Bestellung mit Summe vorlesen und den Gast bestaetigen lassen!' };
     }
@@ -494,6 +506,7 @@ class DialogSitzung {
       source: 'telefon'
     });
     if (!ergebnis.ok) return { gespeichert: false, fehler: 'Speichern fehlgeschlagen (' + ergebnis.status + '). Rueckruf anbieten.' };
+    this.buchungenGezaehlt++;
 
     // order_items sekundaer speichern (Dashboard nutzt sonst die items-Spalte)
     const bestellId = ergebnis.daten && ergebnis.daten.id;

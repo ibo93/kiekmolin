@@ -15,6 +15,7 @@ async function spreche(text) {
     {
       method: 'POST',
       headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         text: text,
         model_id: process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5', // schnell + Deutsch
