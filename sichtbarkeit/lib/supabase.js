@@ -19,7 +19,8 @@ function konfig() {
 async function supabaseGet(pfadMitQuery) {
   const { url, key } = konfig();
   const antwort = await fetch(url + '/rest/v1/' + pfadMitQuery, {
-    headers: { apikey: key, Authorization: 'Bearer ' + key }
+    headers: { apikey: key, Authorization: 'Bearer ' + key },
+    signal: AbortSignal.timeout(15000)
   });
   if (!antwort.ok) {
     throw new Error('Supabase-Fehler ' + antwort.status + ' bei ' + pfadMitQuery);

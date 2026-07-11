@@ -20,7 +20,7 @@ function enthaeltNamen(text, restaurantName) {
 }
 
 async function holeText(url) {
-  const antwort = await fetch(url, { redirect: 'follow' });
+  const antwort = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15000) });
   if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
   return antwort.text();
 }
@@ -76,7 +76,7 @@ async function checkGoogle(frage, restaurant) {
   try {
     const url = 'https://www.googleapis.com/customsearch/v1?key=' + encodeURIComponent(key) +
       '&cx=' + encodeURIComponent(cse) + '&num=10&q=' + encodeURIComponent(frage);
-    const antwort = await fetch(url);
+    const antwort = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
     const daten = await antwort.json();
     const treffer = daten.items || [];
@@ -105,6 +105,7 @@ async function checkKI(frage, restaurant) {
   try {
     const antwort = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(45000), // Web-Suche kann laenger dauern
       headers: {
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
@@ -112,7 +113,7 @@ async function checkKI(frage, restaurant) {
       },
       body: JSON.stringify({
         model: modell,
-        max_tokens: 1024,
+        max_tokens: 1500,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{
           role: 'user',
