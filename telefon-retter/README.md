@@ -70,6 +70,20 @@ Beim Restaurant später: Rufumleitung „bei besetzt / keine Antwort" von der
 echten Restaurant-Nummer auf die Twilio-Nummer – der Mensch bleibt erste Wahl,
 der Agent rettet nur die verpassten Anrufe. Daher der Name.
 
+## Mehrere Restaurants auf einem Server (mandantenfähig)
+
+Ein Server bedient alle Kunden: die **angerufene** Twilio-Nummer entscheidet,
+welches Restaurant der Agent vertritt.
+
+```bash
+cp nummern.json.example nummern.json   # Zuordnung Nummer -> Restaurant-ID pflegen
+```
+
+Pro neuem Kunden: Twilio-Nummer kaufen, Webhook auf denselben Server zeigen
+lassen, eine Zeile in `nummern.json` – fertig. Nummern, die nicht zugeordnet
+sind, fallen auf das Standard-Restaurant aus der `.env` zurück; ganz ohne
+Zuordnung läuft der Ein-Kunden-Betrieb wie bisher.
+
 ## Wie eine Reservierung abläuft
 
 1. Twilio nimmt an und verbindet den Audio-Stream per WebSocket (`/media`).

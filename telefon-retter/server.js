@@ -29,19 +29,39 @@ const STUFE = parseInt(process.env.STUFE || '1', 10);
 const LOG_TAGE = parseInt(process.env.LOG_AUFBEWAHRUNG_TAGE || '30', 10);
 const LOG_ORDNER = path.join(__dirname, 'logs');
 
-// Beim Start einmal Restaurant + Speisekarte laden (und regelmaessig auffrischen)
-let restaurant = null;
-let menue = [];
+const { ladeNummernZuordnung, restaurantFuerNummer } = require('./lib/kunden');
+
+// Mandantenfaehig: alle betreuten Restaurants beim Start laden (und
+// regelmaessig auffrischen). Die angerufene Nummer waehlt das Restaurant.
+let kontexte = new Map();      // restaurantId -> { restaurant, menue }
+let nummernZuordnung = {};     // "+49..." -> restaurantId
+let standardId = null;         // Fallback aus der .env
 
 async function ladeDaten() {
+  nummernZuordnung = ladeNummernZuordnung(__dirname);
+  const ids = new Set(Object.values(nummernZuordnung));
+
   const kennung = process.env.RESTAURANT_ID || process.env.RESTAURANT_NAME;
-  if (!kennung) throw new Error('RESTAURANT_ID oder RESTAURANT_NAME in .env setzen');
-  const r = await supabase.findeRestaurant(kennung);
-  if (!r) throw new Error('Restaurant "' + kennung + '" nicht in der Datenbank gefunden');
-  restaurant = r;
-  menue = STUFE >= 2 ? await supabase.speisekarte(r.id) : [];
-  console.log('Restaurant geladen: ' + r.name + (r.city ? ' (' + r.city + ')' : '') +
-    ' · Stufe ' + STUFE + (menue.length ? ' · ' + menue.length + ' Gerichte' : ''));
+  if (kennung) {
+    const standard = await supabase.findeRestaurant(kennung);
+    if (!standard) throw new Error('Restaurant "' + kennung + '" nicht in der Datenbank gefunden');
+    standardId = String(standard.id);
+    ids.add(standardId);
+  }
+  if (!ids.size) throw new Error('RESTAURANT_ID/RESTAURANT_NAME in .env setzen oder nummern.json anlegen');
+
+  const neu = new Map();
+  for (const id of ids) {
+    const r = await supabase.findeRestaurant(id);
+    if (!r) { console.warn('Restaurant ' + id + ' nicht gefunden - wird uebersprungen'); continue; }
+    const menue = STUFE >= 2 ? await supabase.speisekarte(r.id) : [];
+    neu.set(String(r.id), { restaurant: r, menue });
+    console.log('Restaurant geladen: ' + r.name + (r.city ? ' (' + r.city + ')' : '') +
+      ' · Stufe ' + STUFE + (menue.length ? ' · ' + menue.length + ' Gerichte' : ''));
+  }
+  if (!neu.size) throw new Error('Kein einziges Restaurant konnte geladen werden');
+  kontexte = neu;
+  if (!standardId || !kontexte.has(standardId)) standardId = [...kontexte.keys()][0];
 }
 
 function xmlEscape(s) {
@@ -50,8 +70,9 @@ function xmlEscape(s) {
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/health')) {
+    const namen = [...kontexte.values()].map((k) => k.restaurant.name);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, restaurant: restaurant && restaurant.name, stufe: STUFE }));
+    res.end(JSON.stringify({ ok: true, restaurant: namen.join(', '), restaurants: namen, stufe: STUFE }));
     return;
   }
 
@@ -76,7 +97,18 @@ const server = http.createServer((req, res) => {
 
       const felder = new URLSearchParams(body);
       const anrufer = felder.get('From') || '';
-      console.log('Eingehender Anruf von ' + anrufer);
+      const angerufen = felder.get('To') || '';
+      // Die angerufene Nummer entscheidet, welches Restaurant der Agent vertritt
+      const restaurantId = restaurantFuerNummer(nummernZuordnung, angerufen, standardId);
+      const kontext = kontexte.get(String(restaurantId));
+      console.log('Eingehender Anruf von ' + anrufer + ' fuer ' +
+        (kontext ? kontext.restaurant.name : 'UNBEKANNT (' + angerufen + ')'));
+      if (!kontext) {
+        // Nummer keinem Restaurant zugeordnet -> nicht raten, sauber ablehnen
+        res.writeHead(200, { 'Content-Type': 'text/xml' });
+        res.end('<?xml version="1.0" encoding="UTF-8"?><Response><Reject/></Response>');
+        return;
+      }
 
       // BASE_URL = oeffentliche Adresse dieses Servers (z.B. ngrok oder Server-Domain)
       const basis = (process.env.BASE_URL || ('http://localhost:' + PORT))
@@ -86,6 +118,7 @@ const server = http.createServer((req, res) => {
       const twiml = '<?xml version="1.0" encoding="UTF-8"?>' +
         '<Response><Connect><Stream url="' + xmlEscape(basis + '/media') + '">' +
         '<Parameter name="anrufer" value="' + xmlEscape(anrufer) + '"/>' +
+        '<Parameter name="restaurant" value="' + xmlEscape(String(restaurantId)) + '"/>' +
         '<Parameter name="token" value="' + xmlEscape(streamTokenErzeugen()) + '"/>' +
         '</Stream></Connect></Response>';
 
@@ -101,12 +134,14 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server, path: '/media' });
 wss.on('connection', (ws) => {
-  if (!restaurant) { ws.close(); return; }
+  if (!kontexte.size) { ws.close(); return; }
   new AnrufSitzung({
-    twilioWs: ws, restaurant, menue, stufe: STUFE, datenquelle: supabase,
+    twilioWs: ws, stufe: STUFE, datenquelle: supabase,
     // Das Token aus dem TwiML-<Parameter> wird beim 'start'-Event geprueft -
     // Verbindungen ohne gueltiges Token werden sofort getrennt.
-    pruefeToken: (token) => streamTokenGueltig(token)
+    pruefeToken: (token) => streamTokenGueltig(token),
+    // Restaurant kommt pro Anruf aus dem <Parameter> (Mandantenfaehigkeit)
+    holeKontext: (restaurantId) => kontexte.get(String(restaurantId)) || kontexte.get(standardId) || null
   });
 });
 
