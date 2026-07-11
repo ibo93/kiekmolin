@@ -18,10 +18,11 @@ const { DialogSitzung } = require('./dialog');
 const LOG_ORDNER = path.join(__dirname, '..', 'logs');
 
 class AnrufSitzung {
-  constructor({ twilioWs, restaurant, menue, stufe, datenquelle, pruefeToken }) {
+  constructor({ twilioWs, restaurant, menue, stufe, datenquelle, pruefeToken, holeKontext }) {
     this.ws = twilioWs;
-    this.restaurant = restaurant;
-    this.menue = menue;
+    this.restaurant = restaurant || null;  // fest (Ein-Kunden-Betrieb/Simulator) ...
+    this.menue = menue || [];
+    this.holeKontext = holeKontext || null; // ... oder pro Anruf aus dem <Parameter> (mandantenfaehig)
     this.stufe = stufe;
     this.datenquelle = datenquelle;
     this.pruefeToken = pruefeToken || null;
@@ -65,10 +66,22 @@ class AnrufSitzung {
         return;
       }
 
+      // Mandantenfaehig: welches Restaurant vertritt dieser Anruf?
+      if (this.holeKontext) {
+        const kontext = this.holeKontext(params.restaurant);
+        if (!kontext) {
+          console.warn('[Anruf] Kein Restaurant fuer Stream-Parameter "' + params.restaurant + '" - trenne');
+          try { this.ws.close(); } catch (_e) {}
+          return;
+        }
+        this.restaurant = kontext.restaurant;
+        this.menue = kontext.menue;
+      }
+
       clearTimeout(this.startWaechter);
       this.streamSid = msg.start.streamSid;
       this.anrufer = params.anrufer || '';
-      this.log('Anruf gestartet von ' + (this.anrufer || 'unbekannt'));
+      this.log('Anruf gestartet von ' + (this.anrufer || 'unbekannt') + ' fuer ' + this.restaurant.name);
 
       this.dialog = new DialogSitzung({
         restaurant: this.restaurant,

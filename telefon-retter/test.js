@@ -107,6 +107,33 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.ok(!twilioSignaturGueltig({ signaturHeader: null, url, body, authToken }));
     assert.ok(twilioSignaturGueltig({ signaturHeader: null, url, body, authToken: '' }));
   });
+  // --- Mandantenfaehigkeit --------------------------------------------------------
+  await test('Nummern-Zuordnung: Treffer, Normalisierung, Fallback', () => {
+    const { restaurantFuerNummer, normalisiereNummer } = require('./lib/kunden');
+    const zuordnung = { '+4949261234567': 'boerse-id', '+4949317654321': 'piazza-id' };
+    assert.strictEqual(restaurantFuerNummer(zuordnung, '+4949261234567', 'std'), 'boerse-id');
+    assert.strictEqual(restaurantFuerNummer(zuordnung, '+49 4926 123 45 67', 'std'), 'boerse-id'); // Leerzeichen egal
+    assert.strictEqual(restaurantFuerNummer(zuordnung, '+491111111', 'std'), 'std'); // unbekannt -> Standard
+    assert.strictEqual(restaurantFuerNummer({}, '', null), null);
+    assert.strictEqual(normalisiereNummer('+49 (4926) 12-34'), '+4949261234');
+  });
+  await test('AnrufSitzung loest Restaurant pro Anruf auf (holeKontext)', () => {
+    const { AnrufSitzung } = require('./lib/anruf');
+    const EventEmitter = require('events');
+    class FakeWs extends EventEmitter { send() {} close() { this.zu = true; } }
+    const kontexte = new Map([['id-1', { restaurant: { name: 'Boerse' }, menue: [] }]]);
+    // bekanntes Restaurant -> Kontext gesetzt
+    const ws1 = new FakeWs();
+    const s1 = new AnrufSitzung({ twilioWs: ws1, stufe: 1, datenquelle: {}, holeKontext: (id) => kontexte.get(id) || null });
+    try { ws1.emit('message', JSON.stringify({ event: 'start', start: { streamSid: 'MZ1', customParameters: { restaurant: 'id-1', anrufer: '+49' } } })); } catch (_e) { /* Deepgram-Key fehlt - ok */ }
+    assert.strictEqual(s1.restaurant.name, 'Boerse');
+    // unbekanntes Restaurant -> Verbindung wird getrennt
+    const ws2 = new FakeWs();
+    new AnrufSitzung({ twilioWs: ws2, stufe: 1, datenquelle: {}, holeKontext: () => null });
+    ws2.emit('message', JSON.stringify({ event: 'start', start: { streamSid: 'MZ2', customParameters: { restaurant: 'gibt-es-nicht' } } }));
+    assert.ok(ws2.zu);
+  });
+
   await test('Stream-Token: frisch ok, manipuliert/abgelaufen nicht', () => {
     const t = streamTokenErzeugen();
     assert.ok(streamTokenGueltig(t));

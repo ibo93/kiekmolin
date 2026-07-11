@@ -105,10 +105,11 @@ einplanen**, sonst steht der Go-Live-Termin und die Nummer ist noch nicht frei.
 
 ## 🔮 Zukunft – Reihenfolge nach Nutzen
 
-1. **Ein Server für alle Restaurants** statt einer pro Kunde. Aktuell bedient
-   der Telefon-Retter genau ein Restaurant; für 5+ Kunden bräuchtest du 5
-   Container. Lösung: die angerufene Twilio-Nummer (`To`) bestimmt das
-   Restaurant. Mittelgroßer Umbau – lohnt sich, sobald Kunde 2 kommt.
+1. ✅ ERLEDIGT: **Ein Server für alle Restaurants** — die angerufene
+   Twilio-Nummer bestimmt das Restaurant (`nummern.json`, siehe
+   `telefon-retter/README.md`). Pro neuem Kunden: Nummer kaufen, eine Zeile
+   in die Zuordnung, fertig. Ohne Zuordnung läuft der Ein-Kunden-Betrieb
+   unverändert.
 2. ✅ ERLEDIGT: **Batch-Reports** — `node sichtbarkeit.js report --alle` bzw.
    der Knopf „Alle Monats-Reports erzeugen" in der Agentur-App.
 3. **Reports automatisch per E-Mail** an die Wirte (Cron am Monatsanfang).

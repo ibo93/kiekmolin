@@ -30,6 +30,8 @@ cd agentur && node server.js --demo    # die Agentur-App ansehen
 
 ## Weitere Anleitungen
 
+- [`marketing/`](marketing/) – Verkaufs-Einseiter (`angebot.html`, im Browser
+  öffnen → als PDF drucken) und Gesprächsleitfaden fürs Wirt-Gespräch
 - [`PILOT-GREETSIELER-BOERSE.md`](PILOT-GREETSIELER-BOERSE.md) – Fahrplan
   für den ersten Kunden
 - [`DAUERBETRIEB.md`](DAUERBETRIEB.md) – beide Dienste per Docker auf einem
