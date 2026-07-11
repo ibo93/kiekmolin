@@ -110,8 +110,13 @@ function dateiFallsVorhanden(name) {
 }
 
 // -------------------------------------------------- Report-Lauf (ein Kunde) ----
-// Laufende Jobs, damit die Oberflaeche den Fortschritt anzeigen kann
+// Laufende Jobs, damit die Oberflaeche den Fortschritt anzeigen kann.
+// Fertige Jobs werden nach 30 Minuten entsorgt (sonst waechst das Objekt ewig).
 const jobs = {};
+function jobAbschliessen(jobId, ergebnis) {
+  jobs[jobId] = ergebnis;
+  setTimeout(() => { delete jobs[jobId]; }, 30 * 60 * 1000);
+}
 
 async function starteReport(kunde) {
   const slug = effektiverSlug(kunde);
@@ -146,14 +151,48 @@ async function starteReport(kunde) {
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
       const pdfOk = report.htmlZuPdf(path.join(REPORT_ORDNER, basis + '.html'), path.join(REPORT_ORDNER, basis + '.pdf'));
 
-      jobs[jobId] = {
+      jobAbschliessen(jobId, {
         status: 'fertig', kunde: kunde.name,
         quote: report.quote(ergebnis),
         html: '/reports/' + basis + '.html',
         pdf: pdfOk ? '/reports/' + basis + '.pdf' : null
-      };
+      });
     } catch (e) {
-      jobs[jobId] = { status: 'fehler', kunde: kunde.name, fehler: e.message };
+      jobAbschliessen(jobId, { status: 'fehler', kunde: kunde.name, fehler: e.message });
+    }
+  })();
+
+  return jobId;
+}
+
+// Batch: Reports fuer ALLE Kunden nacheinander (die Monats-Routine per Klick)
+async function starteBatchReport() {
+  const jobId = 'alle-' + Date.now();
+  jobs[jobId] = { status: 'laeuft', schritt: 'Kundenliste laden', batch: true };
+
+  (async () => {
+    try {
+      const kunden = await ladeKunden();
+      const ergebnisse = [];
+      for (let i = 0; i < kunden.length; i++) {
+        const kunde = kunden[i];
+        jobs[jobId].schritt = 'Kunde ' + (i + 1) + ' von ' + kunden.length + ': ' + kunde.name;
+        try {
+          const einzelJobId = await starteReport(kunde);
+          // auf den Einzel-Job warten (Reports laufen bewusst nacheinander,
+          // damit API-Limits und der kleine Server nicht ueberlastet werden)
+          while (jobs[einzelJobId] && jobs[einzelJobId].status === 'laeuft') {
+            await new Promise((r) => setTimeout(r, 1000));
+          }
+          const einzel = jobs[einzelJobId] || {};
+          ergebnisse.push({ kunde: kunde.name, quote: einzel.quote || null, html: einzel.html || null, fehler: einzel.fehler || null });
+        } catch (e) {
+          ergebnisse.push({ kunde: kunde.name, fehler: e.message });
+        }
+      }
+      jobAbschliessen(jobId, { status: 'fertig', batch: true, ergebnisse });
+    } catch (e) {
+      jobAbschliessen(jobId, { status: 'fehler', batch: true, fehler: e.message });
     }
   })();
 
@@ -236,6 +275,13 @@ const server = http.createServer(async (req, res) => {
         historie: kundenHistorie(slug),
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
       });
+      return;
+    }
+
+    // API: Batch - Reports fuer alle Kunden
+    if (req.method === 'POST' && pfad === '/api/report-alle') {
+      const jobId = await starteBatchReport();
+      json(res, 200, { jobId });
       return;
     }
 

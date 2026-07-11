@@ -1,0 +1,34 @@
+# Laesst bei jedem Push die Tests der KI-Agentur-Projekte laufen.
+# Die Kiek-mol-in-App selbst (index.html) wird hier nicht angefasst.
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  agentur-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax-Check aller Projekt-Dateien
+        run: |
+          for f in telefon-retter/server.js telefon-retter/simulator.js telefon-retter/test.js telefon-retter/lib/*.js \
+                   sichtbarkeit/sichtbarkeit.js sichtbarkeit/test.js sichtbarkeit/lib/*.js \
+                   agentur/server.js; do
+            node --check "$f"
+          done
+
+      - name: Telefon-Retter Tests
+        run: cd telefon-retter && node test.js
+
+      - name: Sichtbarkeit Tests
+        run: cd sichtbarkeit && node test.js
+
+      - name: Sichtbarkeit Demo-Report (Rauchtest)
+        run: cd sichtbarkeit && node sichtbarkeit.js report --demo

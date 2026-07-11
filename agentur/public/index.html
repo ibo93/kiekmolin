@@ -77,7 +77,11 @@
 
   <div id="listeAnsicht">
     <h2>Kunden</h2>
-    <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)">
+    <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+      <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)" style="flex:1;margin-bottom:0">
+      <button class="aktion" id="btnAlle" onclick="alleReportsErzeugen()" title="Monats-Routine: erzeugt nacheinander den Report für jeden Kunden">Alle Monats-Reports erzeugen</button>
+    </div>
+    <div class="status" id="alleStatus"></div>
     <div class="kunden" id="kundenListe"></div>
   </div>
 
@@ -212,6 +216,38 @@ async function reportErzeugen() {
         status.textContent = 'Fertig! Quote: ' + (job.quote.prozent != null ? job.quote.prozent + '%' : 'keine automatischen Tests') + ' – Report öffnet sich.';
         window.open(job.html, '_blank');
         zeigeKunde(aktuellerKunde.id);
+      } else {
+        status.className = 'status fehler';
+        status.textContent = 'Fehler: ' + job.fehler;
+      }
+    };
+    warten();
+  } catch (e) {
+    btn.disabled = false;
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+}
+
+async function alleReportsErzeugen() {
+  const btn = document.getElementById('btnAlle');
+  const status = document.getElementById('alleStatus');
+  if (!confirm('Monats-Reports für ALLE Kunden nacheinander erzeugen? Das kann je nach Anzahl einige Minuten dauern.')) return;
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Batch startet…';
+  try {
+    const { jobId } = await api('/api/report-alle', { method: 'POST' });
+    const warten = async () => {
+      const job = await api('/api/job/' + jobId);
+      if (job.status === 'laeuft') { status.textContent = job.schritt + '…'; setTimeout(warten, 2000); return; }
+      btn.disabled = false;
+      if (job.status === 'fertig') {
+        const ok = job.ergebnisse.filter(e => !e.fehler).length;
+        const kaputt = job.ergebnisse.filter(e => e.fehler);
+        status.textContent = 'Fertig: ' + ok + ' von ' + job.ergebnisse.length + ' Reports erzeugt.' +
+          (kaputt.length ? ' Fehler bei: ' + kaputt.map(e => e.kunde).join(', ') : '');
+        ladeKunden();
       } else {
         status.className = 'status fehler';
         status.textContent = 'Fehler: ' + job.fehler;

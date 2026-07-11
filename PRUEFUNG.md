@@ -89,20 +89,17 @@ einplanen**, sonst steht der Go-Live-Termin und die Nummer ist noch nicht frei.
 
 ---
 
-## 🟡 Kleinere Bugs (Komfort/Korrektheit, keine Blocker)
+## 🟡 Kleinere Bugs — ✅ ALLE BEHOBEN
 
-- Report `speichereHistorie` überschreibt einen Monat bedingungslos – ein
-  misslungener Zweit-Lauf kann gute Monatsdaten überschreiben.
-- Vormonats-Trend vergleicht auch dann, wenn diesen Monat weniger Fragen
-  getestet wurden (z. B. Keys fehlten) → scheinbarer Absturz. Besser nur bei
-  gleicher Testbasis vergleichen.
-- Gast-Sätze, die kommen während Claude noch denkt, werden verworfen –
-  Korrekturen mitten im Satz gehen verloren.
-- `jobs{}` in `agentur/server.js` wächst unbegrenzt (nur relevant bei
-  Dauerbetrieb der Server-Variante).
-- „Google-Platz X" im Report kommt aus der Custom-Search-API, die nicht 1:1 dem
-  echten google.de-Ranking entspricht – im Kundengespräch als „Richtwert"
-  benennen, nicht als exakte Position.
+- ✅ `speichereHistorie` sichert den alten Monatsstand jetzt als `.vorher.json`,
+  bevor sie überschreibt.
+- ✅ Vormonats-Trend wird nur noch bei gleicher Testbasis verglichen; sonst
+  steht transparent „Testbasis geändert – Vergleich ausgesetzt" im Report.
+- ✅ Gast-Sätze während Claude denkt werden gemerkt und direkt danach
+  verarbeitet (Korrekturen gehen nicht mehr verloren).
+- ✅ `jobs{}` räumt fertige Jobs nach 30 Minuten auf.
+- ✅ Der Report weist die Google-Platzierung jetzt selbst als „Richtwert" aus
+  (Fußnote).
 
 ---
 
@@ -112,7 +109,8 @@ einplanen**, sonst steht der Go-Live-Termin und die Nummer ist noch nicht frei.
    der Telefon-Retter genau ein Restaurant; für 5+ Kunden bräuchtest du 5
    Container. Lösung: die angerufene Twilio-Nummer (`To`) bestimmt das
    Restaurant. Mittelgroßer Umbau – lohnt sich, sobald Kunde 2 kommt.
-2. **Batch-Reports:** alle Kunden mit einem Klick/Befehl statt 25 einzeln.
+2. ✅ ERLEDIGT: **Batch-Reports** — `node sichtbarkeit.js report --alle` bzw.
+   der Knopf „Alle Monats-Reports erzeugen" in der Agentur-App.
 3. **Reports automatisch per E-Mail** an die Wirte (Cron am Monatsanfang).
 4. **Antwort-Latenz am Telefon senken:** Streaming-TTS statt komplett puffern,
    satzweise sprechen – fühlt sich für den Gast deutlich natürlicher an.
@@ -122,8 +120,9 @@ einplanen**, sonst steht der Go-Live-Termin und die Nummer ist noch nicht frei.
    du auswerten, was Gäste wirklich fragen (Produkt-Gold).
 7. **Zwei Report-Engines zusammenführen** (`agentur.html` vs. `sichtbarkeit/`):
    aktuell gepflegt an zwei Stellen, drohen auseinanderzulaufen.
-8. **GitHub Actions:** die vorhandenen Tests bei jedem Push automatisch laufen
-   lassen.
+8. ✅ ERLEDIGT: **GitHub Actions** — 19 Tests + Demo-Rauchtest laufen jetzt bei
+   jedem Push (`.github/workflows/tests.yml`; Testdateien:
+   `telefon-retter/test.js`, `sichtbarkeit/test.js`).
 9. **Mini-Kundenverwaltung:** wer zahlt was, seit wann, Report verschickt ja/nein.
 10. **Google-Business-Profil-Automatisierung** und **Schema.org automatisch** auf
     die kiekmolin.de-Profilseiten schreiben (statt manuell einbauen).

@@ -108,7 +108,13 @@ function naechsteSchritte(ergebnis, restaurant) {
 function speichereHistorie(slug, monat, daten) {
   const ordner = path.join(DATEN_ORDNER, slug);
   fs.mkdirSync(ordner, { recursive: true });
-  fs.writeFileSync(path.join(ordner, monat + '.json'), JSON.stringify(daten, null, 2));
+  const pfad = path.join(ordner, monat + '.json');
+  // Zweitlauf im selben Monat: alten Stand als .vorher.json sichern,
+  // damit ein misslungener Re-Run (z.B. ohne Keys) gute Daten nicht vernichtet.
+  if (fs.existsSync(pfad)) {
+    try { fs.copyFileSync(pfad, path.join(ordner, monat + '.vorher.json')); } catch (_e) { /* Backup ist nice-to-have */ }
+  }
+  fs.writeFileSync(pfad, JSON.stringify(daten, null, 2));
 }
 
 function ladeVormonat(slug, aktuellerMonat) {
@@ -149,6 +155,16 @@ function statusChip(check) {
 function trendText(aktuell, vormonat) {
   if (!vormonat || vormonat.quote == null || vormonat.quote.prozent == null || aktuell.prozent == null) {
     return null;
+  }
+  // Ehrlicher Vergleich nur bei gleicher Testbasis: liefen diesen Monat mehr/
+  // weniger automatische Tests (z.B. Keys neu dazugekommen), sagt die Differenz
+  // der Prozentwerte nichts aus - dann lieber transparent aussetzen.
+  if (vormonat.quote.getestet !== aktuell.getestet) {
+    return {
+      txt: 'Testbasis geändert (' + aktuell.getestet + ' statt ' + vormonat.quote.getestet +
+        ' automatische Tests) – Vergleich zu ' + monatsLabel(vormonat.monat) + ' ausgesetzt',
+      cls: 'neutral'
+    };
   }
   const diff = aktuell.prozent - vormonat.quote.prozent;
   if (diff > 0) return { txt: '+' + diff + ' Punkte gegenüber ' + monatsLabel(vormonat.monat), cls: 'ok' };
@@ -273,6 +289,8 @@ ${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
   nicht garantieren – niemand kann seriös „Platz&nbsp;1“ zusagen. Dieser Report zeigt jeden Monat mit
   denselben Suchfragen, wo der Betrieb steht und in welche Richtung es sich entwickelt.
   Fragen mit „manuell prüfen“ wurden diesen Monat nicht automatisch getestet und fließen nicht in die Quote ein.
+  Google-Platzierungen stammen aus der offiziellen Such-API und sind ein Richtwert – das persönliche
+  Ranking auf google.de kann je nach Standort und Verlauf leicht abweichen.
 </div>
 
 <footer>
