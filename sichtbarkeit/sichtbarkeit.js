@@ -64,21 +64,8 @@ async function cmdReport(suchbegriff, optionen) {
       console.error('Betrieb "' + suchbegriff + '" nicht gefunden. Alle Betriebe: node sichtbarkeit.js liste');
       process.exit(1);
     }
-    const sf = suchfragen(restaurant);
-    kategorie = sf.kategorie;
-    fragen = sf.fragen;
-    console.log('\nReport fuer: ' + restaurant.name + (restaurant.city ? ' (' + restaurant.city + ')' : '') + ' · ' + report.monatsLabel(monat) + '\n');
-    ergebnis = await report.fuehreChecksAus(restaurant, fragen);
-    vormonat = report.ladeVormonat(slugVon(restaurant), monat);
-
-    // Historie speichern - Grundlage fuer den Vormonats-Vergleich
-    report.speichereHistorie(slugVon(restaurant), monat, {
-      monat,
-      erstellt: new Date().toISOString(),
-      restaurant: { name: restaurant.name, city: restaurant.city, slug: slugVon(restaurant) },
-      quote: report.quote(ergebnis),
-      ergebnis
-    });
+    await reportFuerRestaurant(restaurant, monat);
+    return;
   }
 
   const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat });
@@ -93,11 +80,64 @@ async function cmdReport(suchbegriff, optionen) {
     console.log('PDF geschrieben:    ' + pdfPfad);
   } else {
     console.log('Kein Chrome/Chromium gefunden - HTML im Browser oeffnen und mit Strg+P als PDF sichern.');
-    console.log('(Oder CHROME_PFAD in .env setzen.)');
   }
 
   const q = report.quote(ergebnis);
   console.log('\nSichtbarkeits-Quote: ' + (q.prozent == null ? 'keine automatischen Tests gelaufen' : q.prozent + '% (' + q.gefunden + '/' + q.getestet + ')'));
+}
+
+// Kompletter Report-Lauf fuer EINEN echten Betrieb (Checks -> Historie -> HTML/PDF)
+async function reportFuerRestaurant(restaurant, monat) {
+  const sf = suchfragen(restaurant);
+  console.log('\nReport fuer: ' + restaurant.name + (restaurant.city ? ' (' + restaurant.city + ')' : '') + ' · ' + report.monatsLabel(monat) + '\n');
+  const ergebnis = await report.fuehreChecksAus(restaurant, sf.fragen);
+  const vormonat = report.ladeVormonat(slugVon(restaurant), monat);
+
+  // Historie speichern - Grundlage fuer den Vormonats-Vergleich
+  report.speichereHistorie(slugVon(restaurant), monat, {
+    monat,
+    erstellt: new Date().toISOString(),
+    restaurant: { name: restaurant.name, city: restaurant.city, slug: slugVon(restaurant) },
+    quote: report.quote(ergebnis),
+    ergebnis
+  });
+
+  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat });
+  fs.mkdirSync(REPORT_ORDNER, { recursive: true });
+  const basisName = slugVon(restaurant) + '-' + monat;
+  const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');
+  fs.writeFileSync(htmlPfad, html);
+  console.log('Report geschrieben: ' + htmlPfad);
+
+  const pdfPfad = path.join(REPORT_ORDNER, basisName + '.pdf');
+  if (report.htmlZuPdf(htmlPfad, pdfPfad)) console.log('PDF geschrieben:    ' + pdfPfad);
+  else console.log('Kein Chrome/Chromium gefunden - HTML im Browser oeffnen und als PDF drucken.');
+
+  const q = report.quote(ergebnis);
+  console.log('Sichtbarkeits-Quote: ' + (q.prozent == null ? 'keine automatischen Tests gelaufen' : q.prozent + '% (' + q.gefunden + '/' + q.getestet + ')'));
+  return q;
+}
+
+// Batch: Monats-Reports fuer ALLE aktiven Betriebe (die Monats-Routine der Agentur)
+async function cmdReportAlle(optionen) {
+  const monat = optionen.monat || report.monatsSchluessel();
+  const alle = await supabase.alleRestaurants();
+  console.log('Batch-Lauf: ' + alle.length + ' Betriebe · ' + report.monatsLabel(monat));
+  const zusammenfassung = [];
+  for (const restaurant of alle) {
+    try {
+      const q = await reportFuerRestaurant(restaurant, monat);
+      zusammenfassung.push({ name: restaurant.name, quote: q.prozent });
+    } catch (e) {
+      console.error('FEHLER bei "' + restaurant.name + '": ' + e.message + ' - weiter mit dem naechsten.');
+      zusammenfassung.push({ name: restaurant.name, fehler: e.message });
+    }
+  }
+  console.log('\n===== Zusammenfassung ' + report.monatsLabel(monat) + ' =====');
+  for (const z of zusammenfassung) {
+    console.log('  ' + z.name.padEnd(36) + (z.fehler ? 'FEHLER: ' + z.fehler : (z.quote == null ? 'keine autom. Tests' : z.quote + '%')));
+  }
+  console.log('\nAlle Reports liegen in: ' + REPORT_ORDNER);
 }
 
 async function cmdAufbereitung(suchbegriff) {
@@ -145,12 +185,14 @@ async function cmdAufbereitung(suchbegriff) {
 
   try {
     if (befehl === 'liste') await cmdListe();
+    else if (befehl === 'report' && argv.includes('--alle')) await cmdReportAlle(optionen);
     else if (befehl === 'report') await cmdReport(suchbegriff, optionen);
     else if (befehl === 'aufbereitung') await cmdAufbereitung(suchbegriff);
     else {
       console.log('KURANI · KI-Sichtbarkeit\n');
       console.log('  node sichtbarkeit.js liste                  alle aktiven Betriebe');
       console.log('  node sichtbarkeit.js report <name|slug>     Monats-Report (HTML + PDF)');
+      console.log('  node sichtbarkeit.js report --alle          Monats-Reports fuer ALLE Betriebe (Batch)');
       console.log('  node sichtbarkeit.js report --demo          Beispiel-Report ohne Keys/Netz');
       console.log('  node sichtbarkeit.js aufbereitung <name>    JSON-LD, Texte, GBP-Checkliste');
     }

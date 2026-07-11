@@ -111,8 +111,13 @@ class AnrufSitzung {
     // Barge-in: Gast spricht, waehrend wir sprechen -> eigene Ausgabe stoppen
     if (this.spricht) this.stoppeAusgabe();
 
-    // Waehrend Claude noch denkt, weitere Saetze nicht parallel verarbeiten
-    if (this.denkt) { this.log('(verworfen, Antwort laeuft noch)'); return; }
+    // Waehrend Claude noch denkt, nicht parallel verarbeiten - aber die
+    // Aeusserung MERKEN (z.B. "Moment, doch 20 Uhr!") und danach anhaengen.
+    if (this.denkt) {
+      this.wartenderSatz = ((this.wartenderSatz || '') + ' ' + satz).trim();
+      this.log('(gemerkt, Antwort laeuft noch: "' + satz + '")');
+      return;
+    }
     this.denkt = true;
     try {
       const { text, beenden } = await this.dialog.antwortAuf(satz);
@@ -129,7 +134,17 @@ class AnrufSitzung {
       setTimeout(() => { try { this.ws.close(); } catch (_e) {} }, 15000);
     } finally {
       this.denkt = false;
+      // Hat der Gast waehrenddessen weitergesprochen? Dann jetzt verarbeiten.
+      if (this.wartenderSatz && !this.beendetGleich()) {
+        const nachzuegler = this.wartenderSatz;
+        this.wartenderSatz = null;
+        this.gastSagte(nachzuegler);
+      }
     }
+  }
+
+  beendetGleich() {
+    return (this.dialog && this.dialog.beendet) || this.auflegenNachMark;
   }
 
   // Text -> ElevenLabs -> in Stuecken als Twilio-media-Events auf die Leitung
