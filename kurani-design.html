@@ -134,6 +134,22 @@ section{ padding-block:clamp(64px,10vw,128px); position:relative; }
 .statement-band em{ color:var(--red); font-style:italic; }
 .statement-band .mono{ display:block; margin-bottom:1.4rem; }
 
+/* Wort-für-Wort-Aufstieg (nur mit JS aktiv — sonst normal sichtbar) */
+.anim-words .word{ display:inline-block; overflow:hidden; vertical-align:bottom;
+  padding:0 .05em .1em 0; margin:0 -.05em -.1em 0; }
+.js .anim-words .word>span{ display:inline-block; transform:translateY(115%); transition:transform 1s var(--ease); }
+.js .anim-words.in .word>span{ transform:none; }
+@media (prefers-reduced-motion:reduce){ .js .anim-words .word>span{ transform:none; transition:none; } }
+
+/* Kontakt als rote Fläche (Sakazuki: Rot nicht nur Akzent, sondern Bühne) */
+.contact-band{ background:var(--red); color:var(--paper); }
+.contact-band .kicker::before{ background:var(--paper); }
+.contact-band .mono{ color:color-mix(in srgb, var(--paper) 72%, transparent); }
+.contact-band .claim em{ color:var(--ink); }
+.contact-band .contact-grid h4{ color:color-mix(in srgb, var(--paper) 62%, transparent); }
+.contact-band .ul{ border-bottom-color:var(--paper); }
+.contact-band ::selection{ background:var(--ink); color:var(--paper); }
+
 /* Arbeiten */
 .works{ display:grid; gap:clamp(28px,5vw,64px); grid-template-columns:1fr; }
 @media (min-width:760px){ .works{ grid-template-columns:1fr 1fr; } }
@@ -220,7 +236,7 @@ footer{ border-top:1px solid var(--line); padding-block:30px; }
     <div class="hero-grid">
       <div>
         <p class="mono reveal">Grafikdesign &amp; Werbetechnik · Norden, Ostfriesland</p>
-        <h1 class="display reveal d1">Gestaltung,<br>die man <em>fühlt.</em></h1>
+        <h1 class="display anim-words">Gestaltung,<br>die man <em>fühlt.</em></h1>
         <p class="hero-lead reveal d2">Wir machen Marken in Ostfriesland sichtbar — von der Speisekarte
           bis zur Fassade. Ein Studio, das Druck, Schild und Auftritt aus einer Hand denkt.</p>
         <div class="hero-meta mono reveal d3"><span>Norden</span><i class="sep" aria-hidden="true"></i><span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i><span>seit 2024</span></div>
@@ -325,17 +341,19 @@ footer{ border-top:1px solid var(--line); padding-block:30px; }
 
   <!-- STATEMENT -->
   <section class="statement-band wrap">
-    <p class="reveal"><span class="mono">Haltung</span>Eine Marke ist ein <em>Gefühl</em>, lange bevor sie ein Logo ist.</p>
+    <p class="anim-words"><span class="mono">Haltung</span>Eine Marke ist ein <em>Gefühl</em>, lange bevor sie ein Logo ist.</p>
   </section>
 
-  <!-- KONTAKT -->
-  <section id="kontakt" class="wrap contact">
-    <p class="kicker mono reveal">Kontakt</p>
-    <h2 class="claim reveal">Sprechen <em>wir.</em></h2>
-    <div class="contact-grid">
-      <div class="reveal"><h4>Schreib uns</h4><a class="big ul" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
-      <div class="reveal d1"><h4>Studio</h4><address>Bahnhofstr. 2<br>26506 Norden<br>Ostfriesland</address></div>
-      <div class="reveal d2"><h4>Eigenes Produkt</h4><a class="big ul" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de ↗</a></div>
+  <!-- KONTAKT (rote Fläche) -->
+  <section id="kontakt" class="contact-band">
+    <div class="wrap contact">
+      <p class="kicker mono reveal">Kontakt</p>
+      <h2 class="claim reveal">Sprechen <em>wir.</em></h2>
+      <div class="contact-grid">
+        <div class="reveal"><h4>Schreib uns</h4><a class="big ul" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
+        <div class="reveal d1"><h4>Studio</h4><address>Bahnhofstr. 2<br>26506 Norden<br>Ostfriesland</address></div>
+        <div class="reveal d2"><h4>Eigenes Produkt</h4><a class="big ul" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de ↗</a></div>
+      </div>
     </div>
   </section>
 
@@ -364,6 +382,41 @@ if (reduce || !('IntersectionObserver' in window)) {
     entries.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
   }, { threshold: 0.14, rootMargin: '0px 0px -8% 0px' });
   reveals.forEach(el => io.observe(el));
+}
+
+/* Wort-für-Wort-Aufstieg der Headlines (erhält <em>/<br>/.mono) */
+document.documentElement.classList.add('js');
+function splitWords(el){
+  (function walk(node){
+    [...node.childNodes].forEach(child => {
+      if (child.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        child.textContent.split(/(\s+)/).forEach(part => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(' ')); return; }
+          const w = document.createElement('span'); w.className = 'word';
+          const s = document.createElement('span'); s.textContent = part;
+          w.appendChild(s); frag.appendChild(w);
+        });
+        node.replaceChild(frag, child);
+      } else if (child.nodeType === 1 && child.tagName !== 'BR' && !child.classList.contains('mono')) {
+        walk(child);
+      }
+    });
+  })(el);
+  el.querySelectorAll('.word > span').forEach((s, i) => { s.style.transitionDelay = (i * 0.05) + 's'; });
+}
+const wordEls = document.querySelectorAll('.anim-words');
+if (reduce) {
+  wordEls.forEach(el => el.classList.add('in'));
+} else {
+  wordEls.forEach(splitWords);
+  const near = el => { const r = el.getBoundingClientRect(); return r.top < innerHeight * 0.92 && r.bottom > 0; };
+  const wio = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); wio.unobserve(e.target); } });
+  }, { threshold: 0.3 });
+  wordEls.forEach(el => { if (near(el)) requestAnimationFrame(() => el.classList.add('in')); else wio.observe(el); });
+  setTimeout(() => wordEls.forEach(el => el.classList.add('in')), 2500); // Sicherheitsnetz: nichts bleibt versteckt
 }
 </script>
 
