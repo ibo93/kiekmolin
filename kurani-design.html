@@ -69,10 +69,18 @@ em{ font-style:italic; }
 
 /* ------- Loader ------- */
 .loader{ display:none; }
-.js .loader{ display:flex; position:fixed; inset:0; z-index:200; background:#070301; color:var(--cream);
+.js .loader{ display:flex; position:fixed; inset:0; z-index:200; color:var(--cream);
   align-items:flex-end; justify-content:space-between; padding:var(--gut);
-  transition:transform 1s var(--ease-io); }
-.loader.done{ transform:translateY(-101%); }
+  transition:visibility 0s linear 1.5s; }
+.loader .l-slices{ position:absolute; inset:0; z-index:-1; display:flex; }
+.loader .l-slices i{ flex:1; background:#080402; transition:transform .95s var(--ease-io); }
+.loader.done{ visibility:hidden; pointer-events:none; }
+.loader.done .l-slices i{ transform:translateY(-101%); }
+.loader.done .l-slices i:nth-child(2){ transition-delay:.07s }
+.loader.done .l-slices i:nth-child(3){ transition-delay:.14s }
+.loader.done .l-slices i:nth-child(4){ transition-delay:.21s }
+.loader.done .l-slices i:nth-child(5){ transition-delay:.28s }
+.loader.done .l-brand, .loader.done .l-count, .loader.done .l-bar{ opacity:0; transition:opacity .35s; }
 .loader .l-brand{ font-family:"Archivo Black",sans-serif; font-size:clamp(1.1rem,3.4vw,1.9rem); }
 .loader .l-brand .mono{ display:block; margin-top:.5rem; opacity:.55; color:inherit; }
 .loader .l-count{ font-family:"Archivo Black",sans-serif; font-size:clamp(4rem,18vw,12rem); line-height:.8;
@@ -212,8 +220,20 @@ em{ font-style:italic; }
 .js .exp-on .flood{ clip-path:circle(0% at 50% 118%); }
 .s-final .claim{ font-family:"Archivo Black",sans-serif; font-size:clamp(2.6rem,9.4vw,7.8rem); line-height:.98; letter-spacing:-.02em; }
 .s-final .claim em{ color:#1C0A05; }
+.s-final .sc-inner{ position:relative; z-index:1; }
+.s-final .ring{ position:absolute; right:-8vw; top:50%; width:min(48vw,560px); transform:translateY(-50%);
+  opacity:.15; pointer-events:none; z-index:0; animation:spin 42s linear infinite; }
+.s-final .ring text{ fill:#1C0A05; font-family:"Space Mono",monospace; font-size:14.5px; letter-spacing:4px; }
+@keyframes spin{ to{ transform:translateY(-50%) rotate(360deg); } }
+@media (prefers-reduced-motion:reduce){ .s-final .ring{ animation:none; } }
+.s-final .mega{ display:inline-block; font-family:"Archivo Black",sans-serif;
+  font-size:clamp(1.25rem,4.4vw,3.5rem); letter-spacing:-.01em; margin-top:clamp(20px,4vh,42px);
+  position:relative; will-change:transform; word-break:break-all; }
+.s-final .mega::after{ content:""; position:absolute; left:0; bottom:-6px; height:3px; width:100%;
+  background:var(--cream); transform:scaleX(0); transform-origin:right; transition:transform .6s var(--ease); }
+.s-final .mega:hover::after{ transform:scaleX(1); transform-origin:left; }
 .s-final .grid{ display:grid; gap:2rem; margin-top:clamp(30px,5vh,56px); grid-template-columns:1fr; }
-@media (min-width:680px){ .s-final .grid{ grid-template-columns:repeat(3,1fr); } }
+@media (min-width:680px){ .s-final .grid{ grid-template-columns:repeat(2,1fr); max-width:640px; } }
 .s-final h4{ font-family:"Space Mono",monospace; font-weight:400; font-size:.72rem; letter-spacing:.18em;
   text-transform:uppercase; color:color-mix(in srgb, var(--cream) 62%, transparent); margin:0 0 .6rem; }
 .s-final a.big{ font-family:"Archivo Black",sans-serif; font-size:1.12rem; position:relative; display:inline-block; will-change:transform; }
@@ -246,6 +266,7 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
 <div class="grain" aria-hidden="true"></div>
 
 <div class="loader" id="loader" aria-hidden="true">
+  <div class="l-slices" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
   <span class="l-brand">Kurani Design<span class="mono">Norden · Ostfriesland</span></span>
   <span class="l-count" id="loaderCount">0</span>
   <span class="l-bar" id="loaderBar"></span>
@@ -389,11 +410,15 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
   <!-- SZENE 8 · FINALE -->
   <section class="scene s-final" data-name="Kontakt" id="finalScene">
     <div class="flood" id="flood" aria-hidden="true"></div>
+    <svg class="ring" viewBox="0 0 300 300" aria-hidden="true">
+      <defs><path id="ringPath" d="M150,150 m-110,0 a110,110 0 1,1 220,0 a110,110 0 1,1 -220,0"/></defs>
+      <text><textPath href="#ringPath">GESTALTUNG, DIE MAN FÜHLT · KURANI DESIGN · NORDEN · </textPath></text>
+    </svg>
     <div class="sc-inner">
       <p class="mono" data-el="0" style="color:color-mix(in srgb, var(--cream) 74%, transparent)">Kontakt</p>
       <h2 class="claim" data-el="1" style="margin-top:1rem">Sprechen <em>wir.</em></h2>
+      <a class="mega magnetic" data-el="2" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a>
       <div class="grid">
-        <div data-el="2"><h4>Schreib uns</h4><a class="big magnetic" href="mailto:hallo@kurani-design.de">hallo@kurani-design.de</a></div>
         <div data-el="3"><h4>Studio</h4><address>Bahnhofstr. 2<br>26506 Norden<br>Ostfriesland</address></div>
         <div data-el="4"><h4>Eigenes Produkt</h4><a class="big magnetic" href="https://kiekmolin.de" target="_blank" rel="noopener">kiekmolin.de ↗</a></div>
       </div>
@@ -564,10 +589,11 @@ function heartbeat(now){
     sc.classList.toggle('live', local>.08&&local<.92);
     const dir=+(sc.dataset.dir||0);
     const els=[...sc.querySelectorAll('[data-el]')];
+    const bob=Math.sin(t*.55+i*1.3)*4*vis;      /* die aktive Szene atmet */
 
     if(sc.classList.contains('s-intro')){
       /* Intro: Buchstaben steigen einzeln, Szene hebt & löst sich beim Auszug */
-      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6).toFixed(1)}px)`;
+      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6+bob).toFixed(1)}px)`;
       sc.style.opacity=out.toFixed(3);
       els.forEach((el,j)=>{
         if(introChars.length && j>=1 && j<=3){ el.style.opacity='1'; el.style.transform='none'; return; }
@@ -584,7 +610,7 @@ function heartbeat(now){
       /* Arbeiten: Szene zieht QUER durchs Bild (Kino-Fahrt) */
       const drift=(1-inn)*dir*innerWidth*.6 - (1-out)*dir*innerWidth*.55;
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*12).toFixed(1)}px, ${(my*8).toFixed(1)}px)`;
+      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*12).toFixed(1)}px, ${(my*8+bob).toFixed(1)}px)`;
       const mediaWrap=sc.querySelector('.w-media');
       if(mediaWrap){ const cw=((1-inn)*100).toFixed(1);
         mediaWrap.style.clipPath = dir>0 ? `inset(0 ${cw}% 0 0 round 20px)` : `inset(0 0 0 ${cw}% round 20px)`; }
@@ -611,7 +637,7 @@ function heartbeat(now){
     else{
       /* Studio & Kiek: aus der Tiefe, Elemente gestaffelt */
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6).toFixed(1)}px)`;
+      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6+bob).toFixed(1)}px)`;
       const fromLeft=sc.classList.contains('s-studio');
       els.forEach((el,j)=>{
         const k=easeOut(clamp((local*2.5)-j*.22,0,1));
@@ -686,7 +712,7 @@ import * as THREE from 'three';
       vec2 q=vec2(fbm(p+t+uMouse*0.4), fbm(p-t+uScroll*1.4));
       float n=fbm(p + q*1.7 + vec2(uScroll*0.6, uScroll*1.2));
       vec3 base=vec3(0.05,0.028,0.016);
-      vec3 accent=vec3(0.886,0.227,0.090);
+      vec3 accent=mix(vec3(0.886,0.227,0.090), vec3(1.0,0.44,0.13), uScroll); /* Farbreise: Zinnober -> heisses Orange */
       float glow=smoothstep(0.56-uEnergy*0.10,0.97,n);
       vec3 col=mix(base, accent, glow*(0.5+uEnergy*0.55));
       col+=accent*pow(glow,3.0)*(0.5+uEnergy*1.3);
