@@ -65,8 +65,8 @@ em{ font-style:italic; }
   background:radial-gradient(80% 60% at 50% 50%, rgba(255,90,44,.85), rgba(226,58,23,.45) 60%, transparent 82%);
   mix-blend-mode:screen; transition:opacity .55s var(--ease); }
 @keyframes grainShift{ 0%{transform:translate(0,0)} 25%{transform:translate(-2%,1%)} 50%{transform:translate(1%,-2%)} 75%{transform:translate(-1%,2%)} 100%{transform:translate(2%,-1%)} }
-.grain{ position:fixed; inset:-4%; z-index:70; pointer-events:none; opacity:.055; mix-blend-mode:overlay;
-  animation:grainShift .85s steps(2) infinite;
+.grain{ position:fixed; inset:-4%; z-index:70; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
+  animation:grainShift 1.8s steps(2) infinite;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 @media (prefers-reduced-motion:reduce){ .grain{ animation:none; inset:0; } }
 
@@ -555,7 +555,7 @@ const flood=document.getElementById('flood');
 const kiekImg=document.getElementById('kiekImg');
 let t0=performance.now();
 let Psm=0;                               /* geglättete Zeitachse -> alles wird sanft */
-let lastIdx=-1, flashE=0, flashT=0, lastY=scrollY, vel=0, shakeE=0, floodHit=false;
+let lastIdx=-1, flashE=0, flashT=0, lastY=scrollY, vel=0;
 const flashEl=document.getElementById('flash');
 const KW=window.__K={ e:0 };             /* Energie-Kanal zum Shader */
 
@@ -602,14 +602,10 @@ function heartbeat(now){
     sc.classList.toggle('live', local>.08&&local<.92);
     const dir=+(sc.dataset.dir||0);
     const els=[...sc.querySelectorAll('[data-el]')];
-    const bob=Math.sin(t*.55+i*1.3)*4*vis;      /* die aktive Szene atmet */
-    /* Typo lehnt sich mit der Scroll-Geschwindigkeit (Velocity-Lean) */
-    const inner=sc.querySelector('.sc-inner');
-    if(inner) inner.style.transform=`skewY(${(clamp(vel*.05,-2.4,2.4)*vis).toFixed(2)}deg)`;
 
     if(sc.classList.contains('s-intro')){
       /* Intro: Buchstaben steigen einzeln, Szene hebt & löst sich beim Auszug */
-      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6+bob).toFixed(1)}px)`;
+      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*4).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
       sc.style.opacity=out.toFixed(3);
       els.forEach((el,j)=>{
         if(introChars.length && j>=1 && j<=3){ el.style.opacity='1'; el.style.transform='none'; return; }
@@ -626,12 +622,12 @@ function heartbeat(now){
       /* Arbeiten: Szene zieht QUER durchs Bild (Kino-Fahrt) */
       const drift=(1-inn)*dir*innerWidth*.6 - (1-out)*dir*innerWidth*.55;
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*12).toFixed(1)}px, ${(my*8+bob).toFixed(1)}px)`;
+      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*5).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
       const mediaWrap=sc.querySelector('.w-media');
       if(mediaWrap){ const cw=((1-inn)*100).toFixed(1);
         mediaWrap.style.clipPath = dir>0 ? `inset(0 ${cw}% 0 0 round 20px)` : `inset(0 0 0 ${cw}% round 20px)`; }
       const media=sc.querySelector('.w-media img');
-      if(media) media.style.transform=`translateX(${((local-.5)*-40)+(mx*14)}px) translateY(${(my*10).toFixed(1)}px)`;
+      if(media) media.style.transform=`translateX(${((local-.5)*-40)+(mx*8)}px) translateY(${(my*5).toFixed(1)}px)`;
       const num=sc.querySelector('.w-num');
       if(num) num.style.transform=`translate(-50%,-56%) translateX(${((1-inn)*dir*innerWidth*.25 - (local-.5)*120).toFixed(1)}px) scale(${(1+(1-inn)*.22).toFixed(3)})`;
       els.forEach((el,j)=>{
@@ -643,9 +639,7 @@ function heartbeat(now){
     else if(sc.classList.contains('s-final')){
       /* Finale: rote Flut steigt als Kreis, Einschlag + Inhalt folgt */
       sc.style.opacity=inn.toFixed(3);
-      if(local>.42 && !floodHit){ floodHit=true; shakeE=1; }
-      if(local<.25) floodHit=false;
-      sc.style.transform=`translate(${(Math.sin(t*60)*shakeE*7).toFixed(1)}px, ${(Math.cos(t*53)*shakeE*5).toFixed(1)}px)`;
+      sc.style.transform='none';
       if(flood) flood.style.clipPath=`circle(${(easeOut(clamp(local/.45,0,1))*150).toFixed(1)}% at 50% 118%)`;
       const claim=sc.querySelector('.claim');
       if(claim) claim.style.letterSpacing=(((1-easeOut(clamp(local/.5,0,1)))*.12)-.02).toFixed(3)+'em';
@@ -657,7 +651,7 @@ function heartbeat(now){
     else{
       /* Studio & Kiek: aus der Tiefe, Elemente gestaffelt */
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6+bob).toFixed(1)}px)`;
+      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)}) translate(${(mx*4).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
       const fromLeft=sc.classList.contains('s-studio');
       els.forEach((el,j)=>{
         const k=easeOut(clamp((local*2.5)-j*.22,0,1));
@@ -665,7 +659,7 @@ function heartbeat(now){
       });
       if(local>.25) sc.querySelectorAll('[data-count]').forEach(countUp);
       if(sc.classList.contains('s-kiek') && kiekImg)
-        kiekImg.style.transform=`translateY(${(Math.sin(t*.8)*9).toFixed(1)}px) rotate(${(Math.sin(t*.6)*1.4).toFixed(2)}deg)`;
+        kiekImg.style.transform=`translateY(${(Math.sin(t*.6)*6).toFixed(1)}px)`;
     }
   });
 
@@ -675,7 +669,7 @@ function heartbeat(now){
     if(lastIdx>=0 && flashEl){ flashEl.style.opacity='.15'; clearTimeout(flashT); flashT=setTimeout(()=>{ flashEl.style.opacity='0'; },80); }
     flashE=1; lastIdx=idx;
   }
-  flashE*=.93; shakeE*=.88;
+  flashE*=.93;
   const act=scenes[idx];
   const boost=act.classList.contains('s-final')?.75:act.classList.contains('s-work')?.4:act.classList.contains('s-intro')?.15:.06;
   KW.e += ((boost + Math.min(Math.abs(vel)*.02,.5) + flashE*.8) - KW.e)*.08;
