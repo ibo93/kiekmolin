@@ -60,10 +60,10 @@ em{ font-style:italic; }
 #gl canvas{ display:block; width:100%; height:100%; }
 #gl::after{ content:""; position:fixed; inset:0; pointer-events:none;
   background:radial-gradient(120% 92% at 50% 34%, transparent 40%, rgba(0,0,0,.6) 100%); }
-/* Kino-Schnitt-Blitz beim Szenenwechsel */
-#flash{ position:fixed; inset:0; z-index:80; pointer-events:none; opacity:0;
-  background:radial-gradient(80% 60% at 50% 50%, rgba(255,90,44,.85), rgba(226,58,23,.45) 60%, transparent 82%);
-  mix-blend-mode:screen; transition:opacity .55s var(--ease); }
+/* Roter Kino-Wischer beim Szenenwechsel */
+#wipe{ position:fixed; top:-10%; bottom:-10%; left:-30%; right:-30%; z-index:85; pointer-events:none;
+  background:linear-gradient(100deg, transparent 33%, var(--red) 33%, var(--red-bright) 50%, var(--red) 67%, transparent 67%);
+  transform:translateX(-140%) skewX(-14deg); will-change:transform; }
 @keyframes grainShift{ 0%{transform:translate(0,0)} 25%{transform:translate(-2%,1%)} 50%{transform:translate(1%,-2%)} 75%{transform:translate(-1%,2%)} 100%{transform:translate(2%,-1%)} }
 .grain{ position:fixed; inset:-4%; z-index:70; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
   animation:grainShift 1.8s steps(2) infinite;
@@ -269,7 +269,7 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
 <body>
 
 <div id="gl" aria-hidden="true"></div>
-<div id="flash" aria-hidden="true"></div>
+<div id="wipe" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
 
 <div class="loader" id="loader" aria-hidden="true">
@@ -555,8 +555,32 @@ const flood=document.getElementById('flood');
 const kiekImg=document.getElementById('kiekImg');
 let t0=performance.now();
 let Psm=0;                               /* geglättete Zeitachse -> alles wird sanft */
-let lastIdx=-1, flashE=0, flashT=0, lastY=scrollY, vel=0;
-const flashEl=document.getElementById('flash');
+let lastIdx=-1, flashE=0, lastY=scrollY, vel=0;
+let lastAct=performance.now(), settled=true;
+const wipeEl=document.getElementById('wipe');
+
+/* Roter Kino-Wischer (Richtung = Scrollrichtung) */
+function fireWipe(down){
+  if(!wipeEl) return;
+  wipeEl.style.transition='none';
+  wipeEl.style.transform=`translateX(${down?-140:140}%) skewX(-14deg)`;
+  void wipeEl.offsetWidth;
+  wipeEl.style.transition='transform .62s cubic-bezier(.83,0,.17,1)';
+  wipeEl.style.transform=`translateX(${down?140:-140}%) skewX(-14deg)`;
+}
+/* Szenenname entschlüsselt sich */
+function scramble(el, txt){
+  if(!el) return;
+  const chars='KURANIDESG·▪—';
+  let f=0; clearInterval(el._si);
+  el._si=setInterval(()=>{
+    f++;
+    el.textContent=txt.split('').map((c,i)=> i<f ? c : chars[(Math.random()*chars.length)|0]).join('');
+    if(f>=txt.length){ clearInterval(el._si); el.textContent=txt; }
+  }, 26);
+}
+/* Aktivität für sanftes Einrasten */
+['wheel','touchmove','keydown'].forEach(ev=>addEventListener(ev,()=>{ lastAct=performance.now(); settled=false; },{passive:true}));
 const KW=window.__K={ e:0 };             /* Energie-Kanal zum Shader */
 
 /* Intro-Buchstaben einzeln (nur im Akt) */
@@ -663,13 +687,22 @@ function heartbeat(now){
     }
   });
 
-  /* Szenenwechsel: Kino-Blitz + Energie-Impuls an den Shader */
+  /* Szenenwechsel: Kino-Wischer + Namens-Scramble + Energie-Impuls */
   const idx=clamp(Math.floor(P*n),0,n-1);
   if(idx!==lastIdx){
-    if(lastIdx>=0 && flashEl){ flashEl.style.opacity='.15'; clearTimeout(flashT); flashT=setTimeout(()=>{ flashEl.style.opacity='0'; },80); }
+    if(lastIdx>=0){ fireWipe(vel>=0); scramble(tlName, scenes[idx].dataset.name||''); }
+    else if(tlName){ tlName.textContent=scenes[idx].dataset.name||''; }
     flashE=1; lastIdx=idx;
   }
   flashE*=.93;
+
+  /* Sanftes Einrasten: nach kurzer Ruhe gleitet die Bühne in die Szenen-Mitte */
+  if(!settled && performance.now()-lastAct>430 && Math.abs(vel)<.5){
+    const idxT=clamp(Math.floor(Pt*n),0,n-1);
+    const target=((idxT+.5)/n)*total;
+    if(Math.abs(scrollY-target)>6) scrollTo({ top:target, behavior:'smooth' });
+    settled=true;
+  }
   const act=scenes[idx];
   const boost=act.classList.contains('s-final')?.75:act.classList.contains('s-work')?.4:act.classList.contains('s-intro')?.15:.06;
   KW.e += ((boost + Math.min(Math.abs(vel)*.02,.5) + flashE*.8) - KW.e)*.08;
@@ -678,7 +711,6 @@ function heartbeat(now){
   railDots.forEach((d,i)=>d.classList.toggle('on', i===idx));
   if(tlCnt) tlCnt.textContent='0'+(idx+1)+' / 0'+n;
   if(tlBar) tlBar.style.transform=`scaleX(${P.toFixed(3)})`;
-  if(tlName) tlName.textContent=scenes[idx].dataset.name||'';
 }
 requestAnimationFrame(heartbeat);
 </script>
