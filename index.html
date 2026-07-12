@@ -27022,6 +27022,11 @@ function renderRestaurantsDash() {
     container.innerHTML = restaurants.map(r => {
         const todayRes = (APP_DATA.reservations || []).filter(res => res.restaurant_id === r.id && res.date === new Date().toISOString().split('T')[0]).length;
 
+        // Feature-Status fuer die Uebersicht: an = Feature aktiv (kein no_*-Flag)
+        const _feat = r.features || [];
+        const _ordOn = _feat.indexOf('no_ordering') < 0;
+        const _resOn = _feat.indexOf('no_reservations') < 0;
+
         return `
             <div class="rest-card">
                 <div class="rest-card-img">
@@ -27063,6 +27068,27 @@ function renderRestaurantsDash() {
                     </label>
                 </div>
 
+                <div style="padding:10px 20px;display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(0,61,51,0.06);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:${_ordOn ? 'var(--primary)' : 'var(--slate)'};"><span class="material-symbols-outlined" style="font-size:16px;">shopping_bag</span>Online-Bestellungen</span>
+                        <label style="position:relative;width:48px;height:26px;cursor:pointer;">
+                            <input type="checkbox" ${_ordOn ? 'checked' : ''} onchange="toggleRestFeatureInList('${r.id}','ordering',this.checked)" style="opacity:0;width:0;height:0;">
+                            <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:${_ordOn ? 'linear-gradient(135deg,var(--primary),#1a5f4a)' : '#ccc'};border-radius:9999px;transition:0.3s;">
+                                <span style="position:absolute;top:3px;left:${_ordOn ? '24px' : '3px'};width:20px;height:20px;background:white;border-radius:50%;transition:0.3s;box-shadow:0 2px 6px rgba(0,0,0,0.15);"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:${_resOn ? 'var(--primary)' : 'var(--slate)'};"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span>Online-Reservierungen</span>
+                        <label style="position:relative;width:48px;height:26px;cursor:pointer;">
+                            <input type="checkbox" ${_resOn ? 'checked' : ''} onchange="toggleRestFeatureInList('${r.id}','reservations',this.checked)" style="opacity:0;width:0;height:0;">
+                            <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:${_resOn ? 'linear-gradient(135deg,var(--primary),#1a5f4a)' : '#ccc'};border-radius:9999px;transition:0.3s;">
+                                <span style="position:absolute;top:3px;left:${_resOn ? '24px' : '3px'};width:20px;height:20px;background:white;border-radius:50%;transition:0.3s;box-shadow:0 2px 6px rgba(0,0,0,0.15);"></span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="rest-card-actions">
                     <button onclick="editRestaurant('${r.id}')" class="rest-btn secondary">
                         <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
@@ -27086,6 +27112,52 @@ function renderRestaurantsDash() {
             </div>
         `;
     }).join('');
+}
+
+// Feature (Bestellung/Reservierung) direkt aus der Restaurant-Uebersicht pro
+// Restaurant setzen. Gleiche Mechanik wie der manuelle Schalter in der
+// Restaurant-Steuerung -- nur fuer ein explizit gewaehltes Restaurant.
+async function toggleRestFeatureInList(restId, feature, enabled) {
+    var flagName = feature === 'ordering' ? 'no_ordering' : 'no_reservations';
+    var label = feature === 'ordering' ? 'Online-Bestellungen' : 'Online-Reservierungen';
+    var appR = (APP_DATA.restaurants || []).find(function(r) { return r.id === restId; });
+    var features = (appR && Array.isArray(appR.features)) ? appR.features.slice() : [];
+
+    // enabled = Feature AN -> no_*-Flag ENTFERNEN; enabled=false -> Flag SETZEN
+    if (enabled) {
+        features = features.filter(function(f) { return f !== flagName; });
+    } else if (features.indexOf(flagName) < 0) {
+        features.push(flagName);
+    }
+
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ features: features })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        if (appR) appR.features = features;
+        showToast(label + (enabled ? ' aktiviert' : ' deaktiviert') + ' – ' + (appR ? appR.name : 'Restaurant'), enabled ? 'success' : 'warning');
+
+        // Falls die Restaurant-Steuerung dasselbe Restaurant zeigt, deren Schalter mitnehmen
+        try {
+            if (typeof getControlRestaurantId === 'function' && getControlRestaurantId() === restId
+                && typeof updateFeatureToggles === 'function') {
+                updateFeatureToggles(features);
+            }
+        } catch (e) {}
+    } catch (err) {
+        showToast('Fehler beim Speichern: ' + err.message, 'error');
+        // UI auf echten Stand zuruecksetzen
+        try { renderRestaurantsDash(); } catch (e) {}
+    }
 }
 
 function viewRestaurantReservations(restaurantId) {
