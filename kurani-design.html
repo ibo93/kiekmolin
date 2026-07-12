@@ -89,6 +89,8 @@ em{ font-style:italic; }
   padding:18px var(--gut); background:linear-gradient(180deg, rgba(7,3,1,.75), transparent); }
 .brand{ display:flex; align-items:center; gap:.55rem; font-family:"Archivo Black",sans-serif; font-size:1.02rem; }
 .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--red-bright); box-shadow:0 0 14px var(--red-bright); }
+.brand-tag{ font-size:.62rem; letter-spacing:.2em; color:var(--cream-mute); margin-left:14px; padding-left:14px; border-left:1px solid var(--line); }
+@media (max-width:720px){ .brand-tag{ display:none; } }
 .nav .cta{ font-size:.86rem; color:var(--red-bright); font-family:"Space Mono",monospace; letter-spacing:.18em; text-transform:uppercase; }
 
 /* ------- Szenen-Rail (rechts): Kapitel der Zeitachse ------- */
@@ -134,7 +136,14 @@ em{ font-style:italic; }
   font-size:clamp(3rem,11.5vw,10.5rem); line-height:.98; letter-spacing:-.02em;
   text-shadow:0 4px 60px rgba(0,0,0,.55); }
 .s-intro .line em{ color:var(--red-bright); text-shadow:0 0 44px rgba(226,58,23,.45); }
-.s-intro .meta{ display:flex; flex-wrap:wrap; gap:.7rem 1.4rem; margin-top:2.4rem; align-items:center; }
+.s-intro .sub{ max-width:52ch; margin-top:1.6rem; font-size:clamp(1.02rem,1.5vw,1.3rem); color:var(--cream-soft); line-height:1.55; }
+.s-intro .chips{ display:flex; flex-wrap:wrap; gap:10px; margin-top:1.6rem; }
+.s-intro .chip{ display:inline-flex; align-items:center; gap:.55rem; border:1px solid var(--line); border-radius:999px;
+  padding:.5rem 1.05rem; font-size:.86rem; color:var(--cream-soft); background:rgba(255,237,215,.03);
+  transition:border-color .4s var(--ease), color .4s var(--ease), box-shadow .4s var(--ease); }
+.s-intro .chip i{ width:5px; height:5px; border-radius:50%; background:var(--red-bright); }
+.s-intro .chip:hover{ border-color:rgba(226,58,23,.7); color:var(--cream); box-shadow:0 0 24px rgba(226,58,23,.22); }
+.s-intro .meta{ display:flex; flex-wrap:wrap; gap:.7rem 1.4rem; margin-top:2.2rem; align-items:center; }
 .s-intro .meta .sep{ width:5px; height:5px; border-radius:50%; background:var(--red-bright); }
 .s-intro .kick{ margin-bottom:1.6rem; }
 .ghosttype{ position:absolute; left:0; top:8%; z-index:-1; pointer-events:none; user-select:none;
@@ -237,7 +246,7 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
 </div>
 
 <header class="nav">
-  <a class="brand" href="#" id="homeBtn"><span class="dot" aria-hidden="true"></span>Kurani Design</a>
+  <a class="brand" href="#" id="homeBtn"><span class="dot" aria-hidden="true"></span>Kurani Design<span class="brand-tag mono">Grafikdesign &amp; Werbetechnik</span></a>
   <a class="cta" href="#" id="contactBtn">Kontakt</a>
 </header>
 
@@ -270,7 +279,15 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
         <span class="line"><span data-el="2">die man</span></span>
         <span class="line"><span data-el="3"><em>fühlt.</em></span></span>
       </h1>
-      <div class="meta mono" data-el="4"><span>Norden</span><i class="sep" aria-hidden="true"></i><span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i><span>seit 2024</span></div>
+      <p class="sub" data-el="4">Wir sind das Studio für <strong>Grafikdesign &amp; Werbetechnik</strong> in Ostfriesland —
+        wir gestalten Speisekarten, Schilder, Banner und komplette Markenauftritte für Gastronomie und Handel.</p>
+      <div class="chips" data-el="5" aria-hidden="true">
+        <span class="chip"><i></i>Print &amp; Speisekarten</span>
+        <span class="chip"><i></i>Schilder &amp; Werbetechnik</span>
+        <span class="chip"><i></i>Großformat &amp; Banner</span>
+        <span class="chip"><i></i>Logo &amp; Markenauftritt</span>
+      </div>
+      <div class="meta mono" data-el="6"><span>Norden</span><i class="sep" aria-hidden="true"></i><span>~25 Betriebe</span><i class="sep" aria-hidden="true"></i><span>seit 2024</span></div>
     </div>
     <div class="hint mono" aria-hidden="true"><span class="bar"></span> Scrollen — die Reise beginnt</div>
   </section>
@@ -395,7 +412,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isMobile = matchMedia('(max-width: 820px)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const easeOut = x=>1-Math.pow(1-x,3);
+const easeOut = x=>1-Math.pow(1-x,4);   /* quart: seidigere Ausläufe */
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -438,7 +455,7 @@ if(!EXP){
 }
 
 /* Der Akt: Länge der Zeitachse */
-const SCENE_VH=170;                     /* Scroll-Weg pro Szene */
+const SCENE_VH=190;                     /* Scroll-Weg pro Szene (mehr Atem) */
 if(EXP) spacer.style.height=(scenes.length*SCENE_VH)+'vh';
 
 /* Szenen-Fenster auf der Zeitachse (mit Überblendung) */
@@ -493,6 +510,7 @@ const ghost=document.getElementById('ghostType');
 const flood=document.getElementById('flood');
 const kiekImg=document.getElementById('kiekImg');
 let t0=performance.now();
+let Psm=0;                               /* geglättete Zeitachse -> alles wird sanft */
 
 function heartbeat(now){
   requestAnimationFrame(heartbeat);
@@ -502,7 +520,9 @@ function heartbeat(now){
   if(!EXP) return;
 
   const total=Math.max(1, document.documentElement.scrollHeight-innerHeight);
-  const P=clamp(scrollY/total,0,1);
+  const Pt=clamp(scrollY/total,0,1);
+  Psm+=(Pt-Psm)*.075;                    /* Trägheit: die Bühne folgt weich */
+  const P=Psm;
   const n=scenes.length;
 
   scenes.forEach((sc,i)=>{
@@ -510,8 +530,8 @@ function heartbeat(now){
     const local=(P-a)/(b-a);                 /* <0 kommt · 0..1 aktiv · >1 vorbei */
     if(local<-0.15||local>1.15){ sc.style.visibility='hidden'; sc.style.opacity='0'; sc.classList.remove('live'); return; }
     sc.style.visibility='visible';
-    const inn=easeOut(clamp(local/.3,0,1));        /* Einzug 0..1 */
-    const out=easeOut(clamp((1-local)/.3,0,1));    /* Auszug 1..0 */
+    const inn=easeOut(clamp(local/.42,0,1));       /* Einzug 0..1 (weich) */
+    const out=easeOut(clamp((1-local)/.42,0,1));   /* Auszug 1..0 (weich) */
     const vis=Math.min(inn,out);
     sc.classList.toggle('live', local>.08&&local<.92);
     const dir=+(sc.dataset.dir||0);
@@ -523,8 +543,8 @@ function heartbeat(now){
       sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)})`;
       sc.style.opacity=out.toFixed(3);
       els.forEach((el,j)=>{
-        const k=easeOut(clamp((local*3.2)-j*.28,0,1));
-        setEl(el, k, 0, (1-k)*70, 1);
+        const k=easeOut(clamp((local*2.3)-j*.26,0,1));
+        setEl(el, k, 0, (1-k)*70, 1, ` rotate(${((1-k)*2.4).toFixed(2)}deg)`);
       });
       if(ghost) ghost.style.transform=`translateX(${(-P*1400).toFixed(0)}px)`;
     }
@@ -536,10 +556,11 @@ function heartbeat(now){
       const media=sc.querySelector('.w-media img');
       if(media) media.style.transform=`translateX(${((local-.5)*-40)+(mx*14)}px) translateY(${(my*10).toFixed(1)}px)`;
       const num=sc.querySelector('.w-num');
-      if(num) num.style.transform=`translate(-50%,-56%) translateX(${((1-inn)*dir*innerWidth*.25 - (local-.5)*120).toFixed(1)}px)`;
+      if(num) num.style.transform=`translate(-50%,-56%) translateX(${((1-inn)*dir*innerWidth*.25 - (local-.5)*120).toFixed(1)}px) scale(${(1+(1-inn)*.22).toFixed(3)})`;
       els.forEach((el,j)=>{
-        const k=easeOut(clamp((local*3.4)-j*.22,0,1));
-        setEl(el, Math.min(k,out), (1-k)*dir*60, 0, 1);
+        const k=easeOut(clamp((local*2.5)-j*.24,0,1));
+        if(j===0) setEl(el, Math.min(k,out), (1-k)*dir*60, 0, .955+.045*k, ` rotate(${((1-k)*dir*4).toFixed(2)}deg)`);
+        else setEl(el, Math.min(k,out), (1-k)*dir*60, 0, 1);
       });
     }
     else if(sc.classList.contains('s-final')){
@@ -556,9 +577,10 @@ function heartbeat(now){
       /* Studio & Kiek: aus der Tiefe, Elemente gestaffelt */
       sc.style.opacity=vis.toFixed(3);
       sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)})`;
+      const fromLeft=sc.classList.contains('s-studio');
       els.forEach((el,j)=>{
-        const k=easeOut(clamp((local*3.2)-j*.2,0,1));
-        setEl(el, Math.min(k,out), 0, (1-k)*52, 1);
+        const k=easeOut(clamp((local*2.5)-j*.22,0,1));
+        setEl(el, Math.min(k,out), fromLeft?(1-k)*-64:0, fromLeft?0:(1-k)*52, 1);
       });
       if(local>.25) sc.querySelectorAll('[data-count]').forEach(countUp);
       if(sc.classList.contains('s-kiek') && kiekImg)
@@ -630,7 +652,7 @@ import * as THREE from 'three';
     vertexShader:'void main(){ gl_Position=vec4(position,1.0); }', fragmentShader:frag });
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
 
-  let mx=0,my=0,tmx=0,tmy=0;
+  let mx=0,my=0,tmx=0,tmy=0,sS=0;
   addEventListener('pointermove',e=>{ tmx=e.clientX/innerWidth-0.5; tmy=e.clientY/innerHeight-0.5; },{passive:true});
   const clock=new THREE.Clock();
   (function render(){
@@ -638,7 +660,8 @@ import * as THREE from 'three';
     mx+=(tmx-mx)*0.04; my+=(tmy-my)*0.04;
     uniforms.uMouse.value.set(mx,my);
     const max=Math.max(1, document.documentElement.scrollHeight-innerHeight);
-    uniforms.uScroll.value=scrollY/max;
+    sS+=((scrollY/max)-sS)*0.06;
+    uniforms.uScroll.value=sS;
     uniforms.uTime.value = reduce ? 8.0 : clock.getElapsedTime();
     renderer.render(scene,cam);
   })();
