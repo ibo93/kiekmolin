@@ -60,6 +60,10 @@ em{ font-style:italic; }
 #gl canvas{ display:block; width:100%; height:100%; }
 #gl::after{ content:""; position:fixed; inset:0; pointer-events:none;
   background:radial-gradient(120% 92% at 50% 34%, transparent 40%, rgba(0,0,0,.6) 100%); }
+/* Kino-Schnitt-Blitz beim Szenenwechsel */
+#flash{ position:fixed; inset:0; z-index:80; pointer-events:none; opacity:0;
+  background:radial-gradient(80% 60% at 50% 50%, rgba(255,90,44,.85), rgba(226,58,23,.45) 60%, transparent 82%);
+  mix-blend-mode:screen; transition:opacity .55s var(--ease); }
 .grain{ position:fixed; inset:0; z-index:70; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
@@ -132,6 +136,7 @@ em{ font-style:italic; }
 
 /* --- Szene 1: Intro --- */
 .s-intro .line{ overflow:hidden; }
+.s-intro .ch{ display:inline-block; will-change:transform; }
 .s-intro .line > span{ display:inline-block; font-family:"Archivo Black",sans-serif;
   font-size:clamp(3rem,11.5vw,10.5rem); line-height:.98; letter-spacing:-.02em;
   text-shadow:0 4px 60px rgba(0,0,0,.55); }
@@ -237,6 +242,7 @@ body:not(.exp-active) .s-final, html:not(.js) .s-final{ background:var(--red); }
 <body>
 
 <div id="gl" aria-hidden="true"></div>
+<div id="flash" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
 
 <div class="loader" id="loader" aria-hidden="true">
@@ -511,6 +517,27 @@ const flood=document.getElementById('flood');
 const kiekImg=document.getElementById('kiekImg');
 let t0=performance.now();
 let Psm=0;                               /* geglättete Zeitachse -> alles wird sanft */
+let lastIdx=-1, flashE=0, flashT=0, lastY=scrollY, vel=0;
+const flashEl=document.getElementById('flash');
+const KW=window.__K={ e:0 };             /* Energie-Kanal zum Shader */
+
+/* Intro-Buchstaben einzeln (nur im Akt) */
+let introChars=[];
+if(EXP){
+  document.querySelectorAll('.s-intro .line > span').forEach(sp=>{
+    (function walk(node){
+      [...node.childNodes].forEach(ch=>{
+        if(ch.nodeType===3){
+          const f=document.createDocumentFragment();
+          [...ch.textContent].forEach(c=>{ const s=document.createElement('span'); s.className='ch';
+            s.textContent=(c===' ')?' ':c; f.appendChild(s); });
+          node.replaceChild(f,ch);
+        } else if(ch.nodeType===1){ walk(ch); }
+      });
+    })(sp);
+  });
+  introChars=[...document.querySelectorAll('.s-intro .ch')];
+}
 
 function heartbeat(now){
   requestAnimationFrame(heartbeat);
@@ -524,6 +551,7 @@ function heartbeat(now){
   Psm+=(Pt-Psm)*.075;                    /* Trägheit: die Bühne folgt weich */
   const P=Psm;
   const n=scenes.length;
+  vel += ((scrollY-lastY)-vel)*.1; lastY=scrollY;
 
   scenes.forEach((sc,i)=>{
     const [a,b]=sceneWindow(i,n);
@@ -538,13 +566,17 @@ function heartbeat(now){
     const els=[...sc.querySelectorAll('[data-el]')];
 
     if(sc.classList.contains('s-intro')){
-      /* Intro: Zeilen steigen beim Einzug, Szene hebt & löst sich beim Auszug */
-      sc.style.opacity='1';
-      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)})`;
+      /* Intro: Buchstaben steigen einzeln, Szene hebt & löst sich beim Auszug */
+      sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6).toFixed(1)}px)`;
       sc.style.opacity=out.toFixed(3);
       els.forEach((el,j)=>{
+        if(introChars.length && j>=1 && j<=3){ el.style.opacity='1'; el.style.transform='none'; return; }
         const k=easeOut(clamp((local*2.3)-j*.26,0,1));
         setEl(el, k, 0, (1-k)*70, 1, ` rotate(${((1-k)*2.4).toFixed(2)}deg)`);
+      });
+      introChars.forEach((c,i)=>{
+        const k=easeOut(clamp(local*2.8 - i*.05,0,1));
+        c.style.transform=`translateY(${((1-k)*118).toFixed(1)}%) rotate(${((1-k)*10).toFixed(1)}deg)`;
       });
       if(ghost) ghost.style.transform=`translateX(${(-P*1400).toFixed(0)}px)`;
     }
@@ -552,7 +584,10 @@ function heartbeat(now){
       /* Arbeiten: Szene zieht QUER durchs Bild (Kino-Fahrt) */
       const drift=(1-inn)*dir*innerWidth*.6 - (1-out)*dir*innerWidth*.55;
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateX(${drift.toFixed(1)}px)`;
+      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*12).toFixed(1)}px, ${(my*8).toFixed(1)}px)`;
+      const mediaWrap=sc.querySelector('.w-media');
+      if(mediaWrap){ const cw=((1-inn)*100).toFixed(1);
+        mediaWrap.style.clipPath = dir>0 ? `inset(0 ${cw}% 0 0 round 20px)` : `inset(0 0 0 ${cw}% round 20px)`; }
       const media=sc.querySelector('.w-media img');
       if(media) media.style.transform=`translateX(${((local-.5)*-40)+(mx*14)}px) translateY(${(my*10).toFixed(1)}px)`;
       const num=sc.querySelector('.w-num');
@@ -576,7 +611,7 @@ function heartbeat(now){
     else{
       /* Studio & Kiek: aus der Tiefe, Elemente gestaffelt */
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)})`;
+      sc.style.transform=`translateY(${((1-inn)*8-(1-out)*7).toFixed(2)}vh) scale(${(.96+.04*inn).toFixed(3)}) translate(${(mx*10).toFixed(1)}px, ${(my*6).toFixed(1)}px)`;
       const fromLeft=sc.classList.contains('s-studio');
       els.forEach((el,j)=>{
         const k=easeOut(clamp((local*2.5)-j*.22,0,1));
@@ -588,8 +623,18 @@ function heartbeat(now){
     }
   });
 
-  /* Zeitachsen-UI */
+  /* Szenenwechsel: Kino-Blitz + Energie-Impuls an den Shader */
   const idx=clamp(Math.floor(P*n),0,n-1);
+  if(idx!==lastIdx){
+    if(lastIdx>=0 && flashEl){ flashEl.style.opacity='.15'; clearTimeout(flashT); flashT=setTimeout(()=>{ flashEl.style.opacity='0'; },80); }
+    flashE=1; lastIdx=idx;
+  }
+  flashE*=.93;
+  const act=scenes[idx];
+  const boost=act.classList.contains('s-final')?.75:act.classList.contains('s-work')?.4:act.classList.contains('s-intro')?.15:.06;
+  KW.e += ((boost + Math.min(Math.abs(vel)*.02,.5) + flashE*.8) - KW.e)*.08;
+
+  /* Zeitachsen-UI */
   railDots.forEach((d,i)=>d.classList.toggle('on', i===idx));
   if(tlCnt) tlCnt.textContent='0'+(idx+1)+' / 0'+n;
   if(tlBar) tlBar.style.transform=`scaleX(${P.toFixed(3)})`;
@@ -623,11 +668,12 @@ import * as THREE from 'three';
   const cam=new THREE.Camera();
   const uniforms={
     uTime:{value:0}, uMouse:{value:new THREE.Vector2(0,0)}, uScroll:{value:0},
+    uEnergy:{value:0},
     uRes:{value:new THREE.Vector2(innerWidth, innerHeight)}
   };
   const frag=`
     precision highp float;
-    uniform float uTime; uniform vec2 uMouse; uniform float uScroll; uniform vec2 uRes;
+    uniform float uTime; uniform vec2 uMouse; uniform float uScroll; uniform float uEnergy; uniform vec2 uRes;
     float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
       float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.));
@@ -641,9 +687,9 @@ import * as THREE from 'three';
       float n=fbm(p + q*1.7 + vec2(uScroll*0.6, uScroll*1.2));
       vec3 base=vec3(0.05,0.028,0.016);
       vec3 accent=vec3(0.886,0.227,0.090);
-      float glow=smoothstep(0.56,0.97,n);
-      vec3 col=mix(base, accent, glow*0.5);
-      col+=accent*pow(glow,3.0)*0.5;
+      float glow=smoothstep(0.56-uEnergy*0.10,0.97,n);
+      vec3 col=mix(base, accent, glow*(0.5+uEnergy*0.55));
+      col+=accent*pow(glow,3.0)*(0.5+uEnergy*1.3);
       float vig=smoothstep(1.28,0.25,length(uv-0.5));
       col*=vig;
       gl_FragColor=vec4(col,1.0);
@@ -662,6 +708,7 @@ import * as THREE from 'three';
     const max=Math.max(1, document.documentElement.scrollHeight-innerHeight);
     sS+=((scrollY/max)-sS)*0.06;
     uniforms.uScroll.value=sS;
+    uniforms.uEnergy.value=(window.__K&&window.__K.e)||0;
     uniforms.uTime.value = reduce ? 8.0 : clock.getElapsedTime();
     renderer.render(scene,cam);
   })();
