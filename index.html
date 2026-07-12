@@ -35858,9 +35858,17 @@ async function showRestaurantLanding(rest) {
     window._currentLandingRestaurantId = rest.id;
     window._currentLandingRestaurantName = rest.name;
 
+    // Bietet dieses Restaurant Online-Reservierungen an? Wenn nicht (Feature
+    // no_reservations, z.B. Pizzeria Pronto), darf weder der Seitentitel/die
+    // Beschreibung noch die Schema.org-Auszeichnung "Tisch reservieren" bewerben --
+    // sonst steht es faelschlich im Google-Treffer.
+    var _noRes = (rest.features || []).indexOf('no_reservations') >= 0;
+
     var restUrl = 'https://kiekmolin.de/' + (rest.slug || rest.id);
     var restTitle = rest.name + ' – Speisekarte & Online Bestellen | Kiek mol in';
-    var restDesc = rest.name + ' in ' + (rest.city || 'Ostfriesland') + ' – Speisekarte ansehen, online bestellen und Tisch reservieren auf Kiek mol in.';
+    var restDesc = _noRes
+        ? (rest.name + ' in ' + (rest.city || 'Ostfriesland') + ' – Speisekarte ansehen und online bestellen auf Kiek mol in.')
+        : (rest.name + ' in ' + (rest.city || 'Ostfriesland') + ' – Speisekarte ansehen, online bestellen und Tisch reservieren auf Kiek mol in.');
 
     // SEO: URL auf Restaurant-Pfad setzen (z.B. /lapiazza)
     var restSlug = rest.slug || rest.id;
@@ -35909,7 +35917,7 @@ async function showRestaurantLanding(rest) {
         "name": rest.name,
         "url": restUrl,
         "servesCuisine": rest.cuisine || "Deutsch",
-        "acceptsReservations": "True",
+        "acceptsReservations": _noRes ? "False" : "True",
         "hasMenu": restUrl,
         "priceRange": "€€",
         "paymentAccepted": "Cash, Credit Card",
@@ -35923,16 +35931,15 @@ async function showRestaurantLanding(rest) {
                 "@type": "OrderAction",
                 "target": restUrl,
                 "deliveryMethod": ["http://schema.org/OnSitePickup"]
-            },
-            {
-                "@type": "ReserveAction",
-                "target": restUrl,
-                "result": {
-                    "@type": "Reservation",
-                    "name": "Tisch reservieren bei " + rest.name
-                }
             }
-        ]
+        ].concat(_noRes ? [] : [{
+            "@type": "ReserveAction",
+            "target": restUrl,
+            "result": {
+                "@type": "Reservation",
+                "name": "Tisch reservieren bei " + rest.name
+            }
+        }])
     };
     if (rest.phone) schema.telephone = rest.phone;
     if (rest.email) schema.email = rest.email;
