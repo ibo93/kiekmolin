@@ -35941,7 +35941,12 @@ async function showRestaurantLanding(rest) {
     var _noRes = (rest.features || []).indexOf('no_reservations') >= 0;
 
     var restUrl = 'https://kiekmolin.de/' + (rest.slug || rest.id);
-    var restTitle = rest.name + ' – Speisekarte & Online Bestellen | Kiek mol in';
+    // Einheitlicher, reservierungs-bewusster Seitentitel -- Restaurants MIT
+    // Reservierung bewerben "Online bestellen & Tisch reservieren", ohne nur
+    // "Online bestellen". (Google kann den Titel trotzdem selbst umschreiben.)
+    var restTitle = _noRes
+        ? (rest.name + ' – Speisekarte & Online bestellen | Kiek mol in')
+        : (rest.name + ' – Online bestellen & Tisch reservieren | Kiek mol in');
     var restDesc = _noRes
         ? (rest.name + ' in ' + (rest.city || 'Ostfriesland') + ' – Speisekarte ansehen und online bestellen auf Kiek mol in.')
         : (rest.name + ' in ' + (rest.city || 'Ostfriesland') + ' – Speisekarte ansehen, online bestellen und Tisch reservieren auf Kiek mol in.');
@@ -35963,7 +35968,9 @@ async function showRestaurantLanding(rest) {
 
     // SEO: Open Graph dynamisch updaten
     var ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.content = rest.name + ' – Speisekarte & Online Bestellen';
+    if (ogTitle) ogTitle.content = _noRes
+        ? (rest.name + ' – Speisekarte & Online bestellen')
+        : (rest.name + ' – Online bestellen & Tisch reservieren');
     var ogDesc = document.querySelector('meta[property="og:description"]');
     if (ogDesc) ogDesc.content = restDesc;
     var ogUrl = document.querySelector('meta[property="og:url"]');
