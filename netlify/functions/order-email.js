@@ -37,7 +37,7 @@ var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json; charset=utf-8'
 };
@@ -221,6 +221,49 @@ async function handleReservation(resvId, eventType) {
 
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
+
+    // ---- Selbst-Test per Browser-Link (GET) ------------------------------
+    // Aufruf:  /.netlify/functions/order-email?test=1
+    //   -> sagt, ob RESEND_API_KEY gesetzt ist.
+    // Aufruf:  /.netlify/functions/order-email?test=1&to=deine@mail.de
+    //   -> versucht eine Test-E-Mail zu senden und zeigt das genaue Ergebnis
+    //      (inkl. Resend-Fehler, falls z.B. die Absender-Domain nicht verifiziert ist).
+    if (event.httpMethod === 'GET') {
+        var q = event.queryStringParameters || {};
+        if (!q.test) {
+            return json(200, { ok: true, hinweis: 'E-Mail-Funktion aktiv. Test: ?test=1 (Key-Check) bzw. ?test=1&to=deine@mail.de (Test-Versand).' });
+        }
+        if (!RESEND_API_KEY) {
+            return json(200, {
+                ok: false, key_gesetzt: false,
+                hinweis: 'RESEND_API_KEY ist in Netlify NICHT gesetzt -> es werden derzeit KEINE E-Mails verschickt. In Netlify unter Site configuration > Environment variables eintragen und neu deployen.'
+            });
+        }
+        var to = String(q.to || '').trim();
+        if (!to || to.indexOf('@') < 1) {
+            return json(200, {
+                ok: true, key_gesetzt: true, absender: EMAIL_FROM,
+                hinweis: 'Key ist gesetzt. Fuer einen echten Test-Versand ?to=deine@mail.de anhaengen.'
+            });
+        }
+        try {
+            await sendViaResend(to, {
+                subject: 'Kiek mol in – Test-E-Mail ✅',
+                html: '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111827;">' +
+                    '<h1 style="font-size:20px;color:#003d33;margin:0 0 12px;">Test erfolgreich ✅</h1>' +
+                    '<p style="margin:0;">Wenn du diese E-Mail siehst, funktioniert der Versand von kiekmolin.de. ' +
+                    'Bestell- und Reservierungsbestaetigungen kommen jetzt an.</p></div>'
+            });
+            return json(200, { ok: true, key_gesetzt: true, gesendet: true, an: to, absender: EMAIL_FROM });
+        } catch (e) {
+            return json(200, {
+                ok: false, key_gesetzt: true, gesendet: false, absender: EMAIL_FROM, fehler: e.message,
+                hinweis: 'Resend hat den Versand abgelehnt. Haeufigste Ursache: die Absender-Domain (' + EMAIL_FROM + ') ist bei Resend nicht verifiziert.'
+            });
+        }
+    }
+    // ----------------------------------------------------------------------
+
     if (event.httpMethod !== 'POST') return json(405, { error: 'Nur POST' });
 
     // Ohne Key: bewusst still (kein Fehler im Frontend-Log noetig)
