@@ -144,11 +144,6 @@ em{ font-style:italic; }
 /* --- Szene 1: Intro --- */
 .s-intro .line{ overflow:hidden; }
 .s-intro .ch{ display:inline-block; will-change:transform; }
-/* Buchstaben: Kontur -> Füllung beim Landen */
-.js .exp-on .s-intro .ch{ color:transparent; -webkit-text-stroke:1.4px rgba(255,237,215,.8); transition:color .4s var(--ease); }
-.js .exp-on .s-intro .line em .ch{ -webkit-text-stroke-color:rgba(255,90,44,.85); }
-.js .exp-on .s-intro .ch.filled{ color:var(--cream); }
-.js .exp-on .s-intro .line em .ch.filled{ color:var(--red-bright); }
 .s-intro .line > span{ display:inline-block; font-family:"Archivo Black",sans-serif;
   font-size:clamp(3rem,11.5vw,10.5rem); line-height:.98; letter-spacing:-.02em;
   text-shadow:0 4px 60px rgba(0,0,0,.55); }
@@ -496,8 +491,8 @@ if(!EXP){
 const SCENE_VH=190;                     /* Scroll-Weg pro Szene (mehr Atem) */
 if(EXP) spacer.style.height=(scenes.length*SCENE_VH)+'vh';
 
-/* Szenen-Fenster auf der Zeitachse — überlappend für nahtlose Übergaben */
-function sceneWindow(i,n){ const seg=1/n, ov=seg*.15; return [i*seg-ov, (i+1)*seg+ov]; }
+/* Szenen-Fenster auf der Zeitachse (mit Überblendung) */
+function sceneWindow(i,n){ const seg=1/n; return [i*seg, (i+1)*seg]; }
 
 /* Regie-Helfer: setzt Transform/Opacity eines Elements */
 function setEl(el, o, tx, ty, sc, extra){
@@ -555,7 +550,7 @@ const flood=document.getElementById('flood');
 const kiekImg=document.getElementById('kiekImg');
 let t0=performance.now();
 let Psm=0;                               /* geglättete Zeitachse -> alles wird sanft */
-let lastIdx=-1, flashE=0, lastY=scrollY, vel=0, introBoot=0;
+let lastIdx=-1, flashE=0, lastY=scrollY, vel=0;
 let lastAct=performance.now(), settled=true;
 /* Szenenname entschlüsselt sich */
 function scramble(el, txt){
@@ -617,20 +612,17 @@ function heartbeat(now){
     const els=[...sc.querySelectorAll('[data-el]')];
 
     if(sc.classList.contains('s-intro')){
-      /* Intro: baut sich nach dem Vorhang von selbst auf, Scroll übernimmt */
-      introBoot=Math.min(.62, introBoot+.007);
-      const eff=Math.max(local, introBoot);
+      /* Intro: Buchstaben steigen einzeln, Szene hebt & löst sich beim Auszug */
       sc.style.transform=`translateY(${((1-out)*-14)}vh) scale(${(1+(1-out)*.08).toFixed(3)}) translate(${(mx*4).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
       sc.style.opacity=out.toFixed(3);
       els.forEach((el,j)=>{
         if(introChars.length && j>=1 && j<=3){ el.style.opacity='1'; el.style.transform='none'; return; }
-        const k=easeOut(clamp((eff*2.3)-j*.26,0,1));
+        const k=easeOut(clamp((local*2.3)-j*.26,0,1));
         setEl(el, k, 0, (1-k)*70, 1, ` rotate(${((1-k)*2.4).toFixed(2)}deg)`);
       });
       introChars.forEach((c,i)=>{
-        const k=easeOut(clamp(eff*2.8 - i*.05,0,1));
+        const k=easeOut(clamp(local*2.8 - i*.05,0,1));
         c.style.transform=`translateY(${((1-k)*118).toFixed(1)}%) rotate(${((1-k)*10).toFixed(1)}deg)`;
-        c.classList.toggle('filled', k>.72);
       });
       if(ghost) ghost.style.transform=`translateX(${(-P*1400).toFixed(0)}px)`;
     }
@@ -638,7 +630,7 @@ function heartbeat(now){
       /* Arbeiten: Szene zieht QUER durchs Bild (Kino-Fahrt) */
       const drift=(1-inn)*dir*innerWidth*.6 - (1-out)*dir*innerWidth*.55;
       sc.style.opacity=vis.toFixed(3);
-      sc.style.transform=`translateX(${drift.toFixed(1)}px) rotate(${((1-inn)*dir*2.2-(1-out)*dir*1.6).toFixed(2)}deg) translate(${(mx*5).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
+      sc.style.transform=`translateX(${drift.toFixed(1)}px) translate(${(mx*5).toFixed(1)}px, ${(my*3).toFixed(1)}px)`;
       const mediaWrap=sc.querySelector('.w-media');
       if(mediaWrap){ const cw=((1-inn)*100).toFixed(1);
         mediaWrap.style.clipPath = dir>0 ? `inset(0 ${cw}% 0 0 round 20px)` : `inset(0 0 0 ${cw}% round 20px)`; }
