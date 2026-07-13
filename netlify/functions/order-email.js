@@ -21,6 +21,8 @@
 //   RESEND_API_KEY   (Pflicht fuer den Versand; ohne -> still inaktiv)
 //   EMAIL_FROM       optional, Default 'Kiek mol in <bestellung@kiekmolin.de>'
 //                    -- die Domain muss bei Resend verifiziert sein!
+//                    Zum Testen ohne eigene Domain: 'Kiek mol in <onboarding@resend.dev>'
+//                    (Resend-Testabsender -- liefert NUR an die eigene Resend-Konto-Adresse).
 //   SUPABASE_URL, SUPABASE_SERVICE_KEY  optional (sonst anon-Fallback)
 //
 // EMPFOHLEN einmalig in Supabase:
