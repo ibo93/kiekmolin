@@ -54746,17 +54746,19 @@ function splitImageVertically(dataUrl, slices) {
     return new Promise(function (resolve) {
         var img = new Image();
         img.onload = function () {
-            // Breite auf max. 2000px begrenzen: Handy-Fotos (4000px+) sprengen sonst
-            // das Upload-Limit der Function und der Scan schlaegt still fehl. 2000px
-            // reichen Vision-Modellen locker zum Lesen.
-            var scale = Math.min(1, 2000 / img.width);
+            // Breite auf max. 2400px begrenzen: Handy-Fotos (4000px+) sprengen sonst
+            // das Upload-Limit der Function. 2400px = beste Balance aus Lesbarkeit
+            // (kleine Schrift!) und Payload-Groesse.
+            var scale = Math.min(1, 2400 / img.width);
             var W = Math.round(img.width * scale);
             var H = Math.round(img.height * scale);
 
-            // Streifenzahl dynamisch an die Hoehe anpassen: lange Karten brauchen
-            // mehr Streifen, damit die Schrift pro Streifen gross genug bleibt.
-            if (slices === 'auto' || !slices) slices = Math.min(6, Math.max(1, Math.ceil(H / 1200)));
-            if (slices <= 1 || H < 1400) {
+            // WICHTIG: Karten NICHT mehr in viele Streifen schneiden — das zerreisst
+            // mehrspaltige Layouts und Zeilen an den Schnittkanten (falsche Preise,
+            // fehlende Gerichte). Die KI liest das GANZE Bild am Stueck am besten.
+            // Nur extrem lange Fotos (Handy-Panorama einer Karte) in 2 Haelften.
+            var parts = (H > 3200) ? 2 : 1;
+            if (parts === 1) {
                 if (scale < 1) {
                     var c0 = document.createElement('canvas');
                     c0.width = W; c0.height = H;
@@ -54768,9 +54770,9 @@ function splitImageVertically(dataUrl, slices) {
                 return;
             }
             var out = [];
-            var overlap = Math.floor(H * 0.06);
-            var sliceH = Math.ceil(H / slices);
-            for (var s = 0; s < slices; s++) {
+            var overlap = Math.floor(H * 0.07);
+            var sliceH = Math.ceil(H / parts);
+            for (var s = 0; s < parts; s++) {
                 var y0 = Math.max(0, s * sliceH - overlap);
                 var y1 = Math.min(H, (s + 1) * sliceH + overlap);
                 var h = y1 - y0;
@@ -54807,22 +54809,42 @@ async function startMenuScan() {
             statusEl.textContent = 'PDF wird vorbereitet...';
             try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
         } else {
-            // Langes Foto in Streifen schneiden -> jeder Streifen wird einzeln gescannt
-            // und zusammengefuehrt (sonst reisst die Erkennung bei vielen Gerichten ab).
-            // 'auto': Streifenzahl passt sich der Bildhoehe an.
+            // Bild optimieren (Aufloesung begrenzen); nur extrem lange Fotos
+            // werden in 2 Haelften geteilt — sonst GANZES Bild am Stueck.
             try { images = await splitImageVertically(menuScanImageData, 'auto'); }
             catch (e) { images = [menuScanImageData]; }
             if (!images || !images.length) images = [menuScanImageData];
         }
 
         if (images && images.length) {
-            statusEl.textContent = '🤖 KI erkennt Gerichte & Kategorien...';
-            var aiItems = await aiMenuScan({ images: images.slice(0, 10) });
-            if (aiItems && aiItems.length) {
+            // Jede Seite als EIGENE Anfrage: bleibt unter dem Zeitlimit der
+            // Server-Function (grosse Karten schlugen sonst still fehl) und
+            // zeigt echten Fortschritt an.
+            images = images.slice(0, 10);
+            var aiItems = [];
+            var failedPages = 0;
+            for (var pi = 0; pi < images.length; pi++) {
+                statusEl.textContent = images.length > 1
+                    ? ('🤖 KI liest Seite ' + (pi + 1) + '/' + images.length + '...')
+                    : '🤖 KI erkennt Gerichte & Kategorien...';
+                var part = await aiMenuScan({ images: [images[pi]] });
+                if (part && part.length) aiItems = aiItems.concat(part);
+                else failedPages++;
+            }
+            // Duplikate (z.B. aus ueberlappenden Haelften) entfernen: Name+Preis
+            var _seenScan = {};
+            aiItems = aiItems.filter(function (it) {
+                var k = (String(it.name) + '|' + it.price).toLowerCase().replace(/\s+/g, ' ');
+                if (_seenScan[k]) return false;
+                _seenScan[k] = 1; return true;
+            });
+            if (aiItems.length) {
                 scannedMenuItems = aiItems;
                 scannedMenuItems.forEach(function (item) { item.selected = true; });
                 window.scannedMenuItems = scannedMenuItems;
-                showToast('🤖 ' + scannedMenuItems.length + ' Gerichte per KI erkannt!', 'success');
+                var _scanMsg = '🤖 ' + scannedMenuItems.length + ' Gerichte per KI erkannt!';
+                if (failedPages > 0) _scanMsg += ' (' + failedPages + ' Seite(n) nicht lesbar — ggf. erneut scannen)';
+                showToast(_scanMsg, failedPages > 0 ? 'info' : 'success');
                 showScannedResults();
                 return;
             }
@@ -54969,7 +54991,11 @@ async function convertPdfAllPages(pdfData) {
     var maxPages = Math.min(pdf.numPages, 10);
     for (var p = 1; p <= maxPages; p++) {
         var page = await pdf.getPage(p);
-        var viewport = page.getViewport({ scale: 2.0 });
+        // Aufloesung dynamisch: Seite auf ~2200px Breite rendern (Speisekarten
+        // haben oft sehr kleine Schrift — feste scale 2.0 war dafuer zu wenig).
+        var base = page.getViewport({ scale: 1.0 });
+        var pdfScale = Math.min(3.5, Math.max(2.0, 2200 / base.width));
+        var viewport = page.getViewport({ scale: pdfScale });
         var canvas = document.createElement('canvas');
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);

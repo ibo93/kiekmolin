@@ -142,6 +142,37 @@ async function callAnthropic(key, images, text) {
     return (j.content && j.content[0] && j.content[0].text) ? j.content[0].text : '';
 }
 
+// Striktes Antwort-Schema: zwingt Gemini zu exakt diesem JSON-Format --
+// verhindert Halluzinationen im Format und abgeschnittene/kaputte Antworten.
+var GEMINI_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+        items: {
+            type: 'ARRAY',
+            items: {
+                type: 'OBJECT',
+                properties: {
+                    name: { type: 'STRING' },
+                    description: { type: 'STRING' },
+                    price: { type: 'NUMBER' },
+                    category: { type: 'STRING' },
+                    dish_number: { type: 'STRING' },
+                    is_vegetarian: { type: 'BOOLEAN' },
+                    is_vegan: { type: 'BOOLEAN' },
+                    is_spicy: { type: 'BOOLEAN' },
+                    is_beef: { type: 'BOOLEAN' },
+                    is_chicken: { type: 'BOOLEAN' },
+                    is_pork: { type: 'BOOLEAN' },
+                    is_fish: { type: 'BOOLEAN' },
+                    is_seafood: { type: 'BOOLEAN' }
+                },
+                required: ['name', 'price', 'category']
+            }
+        }
+    },
+    required: ['items']
+};
+
 async function callGeminiModel(key, model, images, text) {
     var parts = [{ text: PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') }];
     (images || []).forEach(function (d) {
@@ -151,6 +182,7 @@ async function callGeminiModel(key, model, images, text) {
     var genCfg = {
         temperature: 0,
         responseMimeType: 'application/json',
+        responseSchema: GEMINI_SCHEMA,
         // 2.5 Flash kann sehr lange Antworten; 2.0 Flash ist auf 8192 gedeckelt.
         maxOutputTokens: model.indexOf('2.5') >= 0 ? 32768 : 8192
     };
