@@ -54746,19 +54746,40 @@ function splitImageVertically(dataUrl, slices) {
     return new Promise(function (resolve) {
         var img = new Image();
         img.onload = function () {
-            if (slices <= 1 || img.height < 1400) { resolve([dataUrl]); return; }
+            // Breite auf max. 2000px begrenzen: Handy-Fotos (4000px+) sprengen sonst
+            // das Upload-Limit der Function und der Scan schlaegt still fehl. 2000px
+            // reichen Vision-Modellen locker zum Lesen.
+            var scale = Math.min(1, 2000 / img.width);
+            var W = Math.round(img.width * scale);
+            var H = Math.round(img.height * scale);
+
+            // Streifenzahl dynamisch an die Hoehe anpassen: lange Karten brauchen
+            // mehr Streifen, damit die Schrift pro Streifen gross genug bleibt.
+            if (slices === 'auto' || !slices) slices = Math.min(6, Math.max(1, Math.ceil(H / 1200)));
+            if (slices <= 1 || H < 1400) {
+                if (scale < 1) {
+                    var c0 = document.createElement('canvas');
+                    c0.width = W; c0.height = H;
+                    c0.getContext('2d').drawImage(img, 0, 0, W, H);
+                    resolve([c0.toDataURL('image/jpeg', 0.92)]);
+                } else {
+                    resolve([dataUrl]);
+                }
+                return;
+            }
             var out = [];
-            var overlap = Math.floor(img.height * 0.06);
-            var sliceH = Math.ceil(img.height / slices);
+            var overlap = Math.floor(H * 0.06);
+            var sliceH = Math.ceil(H / slices);
             for (var s = 0; s < slices; s++) {
                 var y0 = Math.max(0, s * sliceH - overlap);
-                var y1 = Math.min(img.height, (s + 1) * sliceH + overlap);
+                var y1 = Math.min(H, (s + 1) * sliceH + overlap);
                 var h = y1 - y0;
                 if (h <= 0) continue;
                 var c = document.createElement('canvas');
-                c.width = img.width; c.height = h;
-                c.getContext('2d').drawImage(img, 0, y0, img.width, h, 0, 0, img.width, h);
-                out.push(c.toDataURL('image/jpeg', 0.9));
+                c.width = W; c.height = h;
+                // Quelle in Original-Koordinaten, Ziel skaliert
+                c.getContext('2d').drawImage(img, 0, y0 / scale, img.width, h / scale, 0, 0, W, h);
+                out.push(c.toDataURL('image/jpeg', 0.92));
             }
             resolve(out.length ? out : [dataUrl]);
         };
@@ -54788,14 +54809,15 @@ async function startMenuScan() {
         } else {
             // Langes Foto in Streifen schneiden -> jeder Streifen wird einzeln gescannt
             // und zusammengefuehrt (sonst reisst die Erkennung bei vielen Gerichten ab).
-            try { images = await splitImageVertically(menuScanImageData, 3); }
+            // 'auto': Streifenzahl passt sich der Bildhoehe an.
+            try { images = await splitImageVertically(menuScanImageData, 'auto'); }
             catch (e) { images = [menuScanImageData]; }
             if (!images || !images.length) images = [menuScanImageData];
         }
 
         if (images && images.length) {
             statusEl.textContent = '🤖 KI erkennt Gerichte & Kategorien...';
-            var aiItems = await aiMenuScan({ images: images.slice(0, 8) });
+            var aiItems = await aiMenuScan({ images: images.slice(0, 10) });
             if (aiItems && aiItems.length) {
                 scannedMenuItems = aiItems;
                 scannedMenuItems.forEach(function (item) { item.selected = true; });
@@ -54955,7 +54977,9 @@ async function convertPdfAllPages(pdfData) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-        images.push(canvas.toDataURL('image/png'));
+        // JPEG statt PNG: gerenderte PDF-Seiten als PNG sind riesig (mehrere MB)
+        // und sprengen das Upload-Limit der Scan-Function -> Scan bricht still ab.
+        images.push(canvas.toDataURL('image/jpeg', 0.92));
     }
 
     return images;
