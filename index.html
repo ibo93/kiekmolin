@@ -1630,6 +1630,10 @@
           <button class="ki-control" id="micBtn" onclick="toggleListen()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5a3.5 3.5 0 00-3.5 3.5v7a3.5 3.5 0 007 0V5A3.5 3.5 0 0012 1.5zM5 11a7 7 0 0014 0h-2.2a4.8 4.8 0 01-9.6 0H5zm6 9.6V23h2v-2.4a7 7 0 01-2 0z"/></svg>
           </button>
+          <button class="ki-control" id="liveBtn" onclick="toggleLiveVoice()" title="Live-Gespräch (Speech-to-Speech)" style="position:relative">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 00-9 9h2a7 7 0 0114 0h2a9 9 0 00-9-9zm0 4a5 5 0 00-5 5h2a3 3 0 016 0h2a5 5 0 00-5-5zm0 4a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4 16v5h2v-5H4zm14 0v5h2v-5h-2z"/></svg>
+            <span id="liveDot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#ff5a4d;box-shadow:0 0 6px #ff5a4d"></span>
+          </button>
           <button class="ki-control" onclick="toggleVoice()" id="voiceToggle" title="Sprach-Antwort">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11 4.5L5.5 9H2.5a.5.5 0 00-.5.5v5a.5.5 0 00.5.5h3L11 19.5a.5.5 0 00.85-.35V4.85a.5.5 0 00-.85-.35z"/><path d="M16 8a4.5 4.5 0 010 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5a8.5 8.5 0 010 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
           </button>
@@ -3890,6 +3894,7 @@
   // wieder zu, bis der Wirt das Mic explizit ausschaltet. Kein Tippen mehr noetig.
   let _voiceLoop = false;
   function toggleListen() {
+    if (typeof isLiveVoice === 'function' && isLiveVoice()) { toast('Live-Gespräch läuft – einfach sprechen (oder Live-Knopf zum Beenden)'); return; }
     if (isSpeaking) { stopSpeaking(); } // Antippen unterbricht die Chef-Stimme sofort
     if (!recognition) {
       // Fallback: prompt
@@ -4129,6 +4134,106 @@
     localStorage.setItem('chef_bargein', on ? '1' : '0');
     toast(on ? '✓ Live-Unterbrechen an – einfach reinreden' : 'Live-Unterbrechen aus');
   }
+  // ===== Live-Voice Stufe 2: ElevenLabs Conversational AI =====
+  // Echtes Speech-to-Speech wie ChatGPT-Voice: eigene Echo-Unterdrueckung,
+  // Reaktion unter einer Sekunde, natuerliches Unterbrechen. Claude bleibt
+  // das Gehirn (Betriebsdaten kommen per Prompt-Override mit).
+  let _liveConv = null, _liveStarting = false;
+  function isLiveVoice(){ return !!_liveConv; }
+  async function toggleLiveVoice(){
+    if(_liveConv){ await stopLiveVoice(); return; }
+    if(_liveStarting) return;
+    _liveStarting = true;
+    const btn = document.getElementById('liveBtn');
+    const status = document.getElementById('kiStatus');
+    if(status) status.textContent = 'Live-Verbindung wird aufgebaut …';
+    try {
+      // Normale Erkennung pausieren - das SDK uebernimmt Mikro + Wiedergabe
+      _voiceLoop = false;
+      try { if(isListening) recognition.stop(); } catch(e){}
+      stopSpeaking();
+
+      const res = await fetch('/.netlify/functions/convai-session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voiceId: selectedVoiceId || '' })
+      });
+      if(!res.ok){
+        const d = await res.json().catch(function(){ return {}; });
+        throw new Error(d.error || ('Session ' + res.status));
+      }
+      const sess = await res.json();
+
+      const mod = await import('https://esm.sh/@elevenlabs/client@0.1.4');
+      const Conversation = mod.Conversation;
+
+      // Betriebsdaten live mitgeben - The Chef kennt SEINEN Laden
+      const liveContext = (function(){ try { return buildContextSnapshot(); } catch(e){ return ''; } })();
+      const livePrompt = 'Du bist "The Chef" – der persoenliche KI-Assistent fuer ' + (chefProfile.name || 'diesen Gastronomiebetrieb') + ', live im Gespraech. '
+        + 'Deutsch, per Du, wie ein erfahrener Kuechen-Kollege. KURZE Antworten (1-3 Saetze), es ist ein gesprochenes Gespraech. '
+        + 'Nutze fuer Zahlen/Bestaende NUR die folgenden Betriebsdaten, erfinde nichts:\n\n' + String(liveContext).slice(0, 3500);
+
+      _liveConv = await Conversation.startSession({
+        signedUrl: sess.signed_url,
+        overrides: {
+          agent: {
+            prompt: { prompt: livePrompt },
+            firstMessage: 'Moin Chef, ich bin dran – was brauchst du?',
+            language: 'de'
+          }
+        },
+        onModeChange: function(m){
+          const mode = m && m.mode;
+          setListening(mode === 'listening');
+          isSpeaking = (mode === 'speaking');
+          const orb = document.getElementById('voiceOrb');
+          if(orb) orb.classList.toggle('speaking', mode === 'speaking');
+          if(status) status.textContent = mode === 'speaking' ? 'The Chef spricht – einfach reinreden' : (mode === 'listening' ? 'Live · ich höre zu' : 'Live verbunden');
+        },
+        onMessage: function(msg){
+          try {
+            const text = (msg && (msg.message || msg.text)) || '';
+            if(!text) return;
+            const src = (msg && (msg.source || msg.role)) || '';
+            if(String(src).indexOf('user') !== -1) addMsg(text, 'user');
+            else { addMsg(text, 'ai'); logBook('The Chef (live): ' + text, 'chat'); }
+          } catch(e){}
+        },
+        onError: function(e){ console.error('Live-Voice:', e); },
+        onDisconnect: function(){ cleanupLiveVoice(); }
+      });
+
+      if(btn){ btn.classList.add('active'); }
+      const dot = document.getElementById('liveDot'); if(dot) dot.style.display = 'block';
+      earcon(true);
+      toast('🔴 Live-Gespräch aktiv – zum Beenden nochmal tippen');
+      logActivity('<strong>Live-Gespräch</strong> gestartet', 'chat');
+    } catch(err){
+      console.error('Live-Voice Start:', err);
+      const msg = String(err && err.message || err);
+      if(msg.indexOf('ELEVENLABS') !== -1) toast('ELEVENLABS_API_KEY fehlt in Netlify');
+      else if(msg.indexOf('not-allowed') !== -1 || msg.indexOf('Permission') !== -1) toast('Bitte Mikrofon-Zugriff erlauben');
+      else toast('Live-Modus nicht verfügbar – normaler Voice-Modus läuft weiter');
+      cleanupLiveVoice();
+      if(status) status.textContent = 'Tippe die Kugel oder einen Schnellbefehl';
+    }
+    _liveStarting = false;
+  }
+  async function stopLiveVoice(){
+    const c = _liveConv;
+    cleanupLiveVoice();
+    if(c){ try { await c.endSession(); } catch(e){} }
+    earcon(false);
+    toast('Live-Gespräch beendet');
+    const status = document.getElementById('kiStatus');
+    if(status) status.textContent = 'Tippe die Kugel oder einen Schnellbefehl';
+  }
+  function cleanupLiveVoice(){
+    _liveConv = null;
+    const btn = document.getElementById('liveBtn'); if(btn) btn.classList.remove('active');
+    const dot = document.getElementById('liveDot'); if(dot) dot.style.display = 'none';
+    setListening(false); setSpeaking(false);
+  }
+
   // Echo-Schutz: verwirft Transkripte, die (teilweise) die eigene Chef-Stimme sind.
   // Vergleich per Wort-Ueberlappung mit dem gerade gesprochenen Satz.
   function isEchoOfChef(text){
