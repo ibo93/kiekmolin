@@ -3801,9 +3801,17 @@
       }
       const t = document.getElementById('liveTranscript');
       if (final) {
+        const cleanFinal = final.trim();
+        // Live-Unterbrechen (wie ChatGPT): reinreden stoppt die Chef-Stimme.
+        // Echo-Schutz: was das Mikro von der eigenen Stimme aufschnappt, wird verworfen.
+        if (isSpeaking || _speakBusy) {
+          if (!bargeInEnabled()) return;
+          if (isEchoOfChef(cleanFinal)) return;
+          stopSpeaking();
+        }
         t.classList.remove('partial');
-        t.textContent = final;
-        handleUserInput(final);
+        t.textContent = cleanFinal;
+        handleUserInput(cleanFinal);
       } else {
         t.classList.add('partial');
         t.textContent = interim || '…';
@@ -4041,36 +4049,46 @@
   // --- Satz-Warteschlange: The Chef spricht schon, waehrend die Antwort noch streamt ---
   // Der erste fertige Satz geht sofort in die Sprachausgabe, der Rest reiht sich ein.
   let _speakQ = [], _speakBusy = false;
-  function speakOne(text){
-    return new Promise(async function(resolve){
-      const clean = ttsClean(text);
-      if(!clean){ resolve(); return; }
-      const key = (selectedVoiceId || 'def') + '|' + voiceQuality + '|' + clean;
-      try {
-        let blob = ttsCache.get(key);
-        if (!blob) {
-          const ctrl = new AbortController();
-          const to = setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, 12000);
-          const body = { text: clean, quality: voiceQuality };
-          if (selectedVoiceId) body.voiceId = selectedVoiceId;
-          const res = await fetch('/.netlify/functions/voice', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-          clearTimeout(to);
-          if (!(res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1)) throw new Error('no-audio');
-          blob = await res.blob();
-          ttsCachePut(key, blob);
-        }
-        const url = URL.createObjectURL(blob);
+  // TTS in zwei Schritte geteilt: Audio HOLEN und Audio SPIELEN.
+  // So laedt der naechste Satz schon, waehrend der aktuelle noch spricht -
+  // keine Denkpausen zwischen den Saetzen mehr (ChatGPT-Gefuehl).
+  function fetchTTS(text){
+    const clean = ttsClean(text);
+    if(!clean) return Promise.resolve(null);
+    const key = (selectedVoiceId || 'def') + '|' + voiceQuality + '|' + clean;
+    const cached = ttsCache.get(key);
+    if(cached) return Promise.resolve({ blob: cached, clean: clean });
+    const ctrl = new AbortController();
+    const to = setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, 12000);
+    const body = { text: clean, quality: voiceQuality };
+    if (selectedVoiceId) body.voiceId = selectedVoiceId;
+    return fetch('/.netlify/functions/voice', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body), signal: ctrl.signal })
+      .then(function(res){
+        clearTimeout(to);
+        if (!(res.ok && (res.headers.get('content-type') || '').indexOf('audio') !== -1)) throw new Error('no-audio');
+        return res.blob();
+      })
+      .then(function(blob){ ttsCachePut(key, blob); return { blob: blob, clean: clean }; })
+      .catch(function(){ clearTimeout(to); return { blob: null, clean: clean }; }); // null -> Browser-TTS
+  }
+  let _nowSpeakingText = ''; // fuer den Echo-Schutz beim Live-Unterbrechen
+  function playTTS(item){
+    return new Promise(function(resolve){
+      if(!item || !item.clean){ resolve(); return; }
+      _nowSpeakingText = item.clean;
+      if(item.blob){
+        const url = URL.createObjectURL(item.blob);
         chefAudioEl.onplay = function(){ setSpeaking(true); };
         chefAudioEl.onended = function(){ URL.revokeObjectURL(url); resolve(); };
         chefAudioEl.onerror = function(){ URL.revokeObjectURL(url); resolve(); };
         chefAudioEl.src = url;
-        await chefAudioEl.play();
+        chefAudioEl.play().catch(function(){ resolve(); });
         return;
-      } catch(e){ /* Fallback unten */ }
-      // Browser-TTS als Fallback, Promise loest bei Ende auf
+      }
+      // Browser-TTS als Fallback
       if(!('speechSynthesis' in window)){ resolve(); return; }
       try {
-        const u = new SpeechSynthesisUtterance(clean);
+        const u = new SpeechSynthesisUtterance(item.clean);
         u.lang = 'de-DE'; if (germanVoice) u.voice = germanVoice; u.rate = 1.15;
         u.onstart = function(){ setSpeaking(true); };
         u.onend = function(){ resolve(); };
@@ -4088,14 +4106,41 @@
   async function pumpSpeakQueue(){
     if(_speakBusy) return;
     _speakBusy = true;
-    while(_speakQ.length){
-      const t = _speakQ.shift();
-      await speakOne(t);
+    // Pipeline: waehrend Satz N spielt, laedt Satz N+1 bereits
+    let nextFetch = _speakQ.length ? fetchTTS(_speakQ.shift()) : null;
+    while(nextFetch){
+      const item = await nextFetch;
+      nextFetch = _speakQ.length ? fetchTTS(_speakQ.shift()) : null; // Prefetch parallel zum Abspielen
+      if(_speakStopped) break;
+      await playTTS(item);
+      if(!nextFetch && _speakQ.length) nextFetch = fetchTTS(_speakQ.shift()); // Nachzuegler
     }
+    _nowSpeakingText = '';
+    _speakStopped = false;
     _speakBusy = false;
     setSpeaking(false); // Queue leer -> ggf. Auto-Listen (Dialog-Modus)
   }
-  function clearSpeakQueue(){ _speakQ = []; }
+  let _speakStopped = false;
+  function clearSpeakQueue(){ _speakQ = []; _speakStopped = true; _nowSpeakingText = ''; }
+  // Live-Unterbrechen: standardmaessig AN (mit Echo-Schutz); in den Einstellungen abschaltbar
+  function bargeInEnabled(){ return localStorage.getItem('chef_bargein') !== '0'; }
+  function toggleBargeIn(){
+    const on = !bargeInEnabled();
+    localStorage.setItem('chef_bargein', on ? '1' : '0');
+    toast(on ? '✓ Live-Unterbrechen an – einfach reinreden' : 'Live-Unterbrechen aus');
+  }
+  // Echo-Schutz: verwirft Transkripte, die (teilweise) die eigene Chef-Stimme sind.
+  // Vergleich per Wort-Ueberlappung mit dem gerade gesprochenen Satz.
+  function isEchoOfChef(text){
+    const words = String(text||'').toLowerCase().split(/[^a-zäöüß0-9]+/).filter(function(w){ return w.length > 2; });
+    if(words.length < 2) return true; // zu kurz um sicher zu sein -> lieber ignorieren
+    if(!_nowSpeakingText) return false;
+    const spoken = {};
+    _nowSpeakingText.toLowerCase().split(/[^a-zäöüß0-9]+/).forEach(function(w){ if(w.length > 2) spoken[w] = 1; });
+    let hits = 0;
+    words.forEach(function(w){ if(spoken[w]) hits++; });
+    return (hits / words.length) > 0.5;
+  }
   // Nur die Kernaussage vorlesen (erste 2 Saetze) - der volle Text steht im Chat
   function ttsShort(text){
     const clean = String(text||'').trim();
@@ -6725,6 +6770,9 @@
       <p style="font-size:11.5px;color:var(--text-faint);margin:2px 2px 14px;line-height:1.45">Gilt für Beleg-, Kassenbericht-, Lager-, Speisekarten- und KI-Auge-Erkennung. Opus erkennt am besten, kostet aber mehr pro Scan; Sonnet/Haiku sind günstiger und schneller.</p>
       <div class="onboard-label" style="margin-top:6px">Stimme (ElevenLabs)</div>
       <select class="onboard-input" id="voiceSelect" onchange="selectVoice(this.value)" style="margin-bottom:8px">${voiceOptionsHtml(VOICE_PRESETS)}</select>
+      <div class="list-card glass" style="margin-bottom:8px">
+        <div class="setting-row"><div style="flex:1"><div style="font-size:14px;font-weight:600">Live-Unterbrechen</div><div style="font-size:12px;color:var(--text-dim);margin-top:1px">Einfach reinreden – The Chef verstummt und hört zu (wie ChatGPT)</div></div><button class="pill ${bargeInEnabled()?'pill-good':'pill-low'}" onclick="toggleBargeIn();openSettings()" style="border:none;cursor:pointer">${bargeInEnabled()?'An':'Aus'}</button></div>
+      </div>
       <div class="onboard-label" style="margin-top:4px">Sprach-Modus</div>
       <select class="onboard-input" id="voiceQualitySel" onchange="setVoiceQuality(this.value)" style="margin-bottom:8px">
         <option value="flash"${voiceQuality==='flash'?' selected':''}>Blitzschnell · Flash (~75 ms)</option>
