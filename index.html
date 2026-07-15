@@ -4170,7 +4170,10 @@
       const liveContext = (function(){ try { return buildContextSnapshot(); } catch(e){ return ''; } })();
       const livePrompt = 'Du bist "The Chef" – der persoenliche KI-Assistent fuer ' + (chefProfile.name || 'diesen Gastronomiebetrieb') + ', live im Gespraech. '
         + 'Deutsch, per Du, wie ein erfahrener Kuechen-Kollege. KURZE Antworten (1-3 Saetze), es ist ein gesprochenes Gespraech. '
-        + 'Nutze fuer Zahlen/Bestaende NUR die folgenden Betriebsdaten, erfinde nichts:\n\n' + String(liveContext).slice(0, 3500);
+        + 'Du hast WERKZEUGE und sollst sie aktiv nutzen: buche_verkauf (wenn der Wirt sagt was verkauft wurde, z.B. "zwei Schnitzel und ein Bier" – bucht wirklich und zieht das Lager ab), '
+        + 'lager_info (wenn er nach Bestand/Lager fragt), tageszahlen (wenn er nach Umsatz oder den heutigen Zahlen fragt). '
+        + 'Nach einem Werkzeug-Aufruf bestaetige das Ergebnis kurz. '
+        + 'Nutze fuer Zahlen/Bestaende NUR die Werkzeuge oder die folgenden Betriebsdaten, erfinde nichts:\n\n' + String(liveContext).slice(0, 3200);
 
       _liveConv = await Conversation.startSession({
         signedUrl: sess.signed_url,
@@ -4179,6 +4182,46 @@
             prompt: { prompt: livePrompt },
             firstMessage: 'Moin Chef, ich bin dran – was brauchst du?',
             language: 'de'
+          }
+        },
+        // Werkzeuge: der Agent HANDELT im Gespraech - buchen, Bestand, Zahlen.
+        // Rueckgabe-Strings liest er dem Wirt vor.
+        clientTools: {
+          buche_verkauf: async function(params){
+            try {
+              const counts = parseGerichtCounts(params && params.gerichte);
+              if(!counts) return 'Ich konnte kein bekanntes Gericht zuordnen. Bitte nenn das Gericht wie auf der Karte.';
+              const r = bookCounts(counts);
+              if(!r) return 'Da war nichts zu buchen.';
+              return 'Gebucht: ' + r.summary + ', macht ' + Math.round(r.umsatz) + ' Euro Umsatz. Lager ist abgezogen.'
+                + (r.skipped ? ' Achtung: ' + r.skipped + ' Zutat konnte ich nicht zuordnen.' : '');
+            } catch(e){ return 'Beim Buchen ist etwas schiefgegangen.'; }
+          },
+          lager_info: async function(params){
+            try {
+              const frage = params && params.artikel;
+              if(frage){
+                const hits = findLagerItems(String(frage));
+                if(!hits.length) return 'Dazu finde ich nichts im Lager.';
+                return hits.slice(0, 3).map(function(r){ return describeLagerItem(r); }).join(' ');
+              }
+              const low = lagerData.filter(function(r){ return r.status === 'low'; });
+              const exp = lagerData.filter(function(r){ const d = daysUntilMhd(r); return d !== null && d <= 1; });
+              if(!low.length && !exp.length) return 'Lager sieht gut aus: nichts kritisch, nichts läuft ab.';
+              let out = '';
+              if(low.length) out += 'Kritisch: ' + low.slice(0,4).map(function(r){ return r.name; }).join(', ') + '. ';
+              if(exp.length) out += 'Läuft ab: ' + exp.slice(0,4).map(function(r){ return r.name; }).join(', ') + '.';
+              return out;
+            } catch(e){ return 'Lager-Abfrage fehlgeschlagen.'; }
+          },
+          tageszahlen: async function(){
+            try {
+              const heute = verkaufToday();
+              const portionen = Object.values(heute.items || {}).reduce(function(s,c){ return s + c; }, 0);
+              const top = Object.keys(heute.items || {}).sort(function(a,b){ return (heute.items[b]||0)-(heute.items[a]||0); })[0];
+              return 'Heute: ' + Math.round(tagesDaten.umsatz || 0) + ' Euro Umsatz, ' + portionen + ' Portionen gebucht'
+                + (top ? (', am besten läuft ' + top) : '') + '.';
+            } catch(e){ return 'Tageszahlen gerade nicht verfügbar.'; }
           }
         },
         onModeChange: function(m){
@@ -4438,12 +4481,12 @@
     showVerkaufReport(report.deducted, report.skipped);
     return { summary: summary, umsatz: umsatz, portionen: portionen, skipped: report.skipped.length };
   }
-  function sprachVerkauf(text){
-    const q = String(text||'').toLowerCase();
-    if(!/\b(buch|buche|bucht|verkauf|verkaufe|verkauft)\b/.test(q)) return null;
+  // Gerichte-mit-Anzahl aus natuerlicher Sprache -> {Rezeptname: Anzahl}
+  // (gemeinsamer Parser fuer Zuruf-Verkauf UND das Live-Gespraech-Werkzeug)
+  function parseGerichtCounts(text){
     if(!Object.keys(recipes).length) return null;
-    // Befehlswort raus, Segmente an "und"/Kommas trennen
-    const rest = q.replace(/\b(buch|buche|bucht|verkaufe?|verkauft|bitte|mal|mir|noch|jetzt|chef|hey|einmal)\b/g, ' ');
+    const rest = String(text||'').toLowerCase()
+      .replace(/\b(buch|buche|bucht|verkaufe?|verkauft|bitte|mal|mir|noch|jetzt|chef|hey|einmal)\b/g, ' ');
     const segments = rest.split(/\bund\b|,/).map(function(s){ return s.trim(); }).filter(Boolean);
     const counts = {}; let found = 0;
     segments.forEach(function(seg){
@@ -4459,7 +4502,13 @@
       const key = matchRecipeName(nameWords.join(' '));
       if(key){ counts[key] = (counts[key]||0) + num; found++; }
     });
-    if(!found) return null;
+    return found ? counts : null;
+  }
+  function sprachVerkauf(text){
+    const q = String(text||'').toLowerCase();
+    if(!/\b(buch|buche|bucht|verkauf|verkaufe|verkauft)\b/.test(q)) return null;
+    const counts = parseGerichtCounts(text);
+    if(!counts) return null;
     return bookCounts(counts);
   }
   function chefExecute(text){
