@@ -99,6 +99,29 @@ test('Telefon-Zahlen: Rueckrufe raus, stornierte Bestellungen raus, ehrliche Sch
   assert.deepStrictEqual(monatsGrenzen('2026-07'), { von: '2026-07-01', bis: '2026-08-01' });
   assert.deepStrictEqual(monatsGrenzen('2026-12'), { von: '2026-12-01', bis: '2027-01-01' });
 });
+test('Verkaufsschlager: Items aggregiert, Stornos raus, Top 3', () => {
+  const { werteAus } = require('./lib/telefonzahlen');
+  const bestellungen = [
+    { total: 30, status: 'received', items: [{ name: 'Pizza Salami', quantity: 2 }, { name: 'Tiramisu', quantity: 1 }] },
+    { total: 20, status: 'completed', items: [{ name: 'Pizza Salami', quantity: 1 }, { name: 'Lasagne', quantity: 1 }] },
+    { total: 99, status: 'cancelled', items: [{ name: 'Pizza Salami', quantity: 9 }] }
+  ];
+  const z = werteAus([], bestellungen, 25);
+  assert.deepStrictEqual(z.topGerichte, [
+    { name: 'Pizza Salami', menge: 3 }, { name: 'Tiramisu', menge: 1 }, { name: 'Lasagne', menge: 1 }
+  ]);
+});
+test('Entwicklungs-Grafik: ab 2 Monaten, mit Quote- und Umsatz-Balken', () => {
+  const verlauf = [
+    { monat: '2026-06', quote: { prozent: 55 }, telefon: { gesamtGeschaetzt: 500 } },
+    { monat: '2026-07', quote: { prozent: 73 }, telefon: { gesamtGeschaetzt: 962.4 } }
+  ];
+  const html = report.verlaufSektion(verlauf);
+  assert.ok(html.includes('Deine Entwicklung') && html.includes('73%') && html.includes('962 €'));
+  assert.strictEqual(report.verlaufSektion([verlauf[0]]), '', 'ein Monat allein ist kein Verlauf');
+  const ohneUmsatz = report.verlaufSektion(verlauf.map((v) => ({ monat: v.monat, quote: v.quote, telefon: null })));
+  assert.ok(ohneUmsatz.includes('Sichtbarkeits-Quote') && !ohneUmsatz.includes('Umsatz am Telefon'));
+});
 test('Report zeigt Telefon-Umsatz nur, wenn es etwas zu zeigen gibt', () => {
   const mitZahlen = report.renderHtml({
     restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',

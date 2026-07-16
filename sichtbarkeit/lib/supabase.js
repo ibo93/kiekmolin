@@ -80,7 +80,7 @@ async function telefonBestellungen(restaurantId, vonDatum, bisDatum) {
     '&source=eq.telefon' +
     '&created_at=gte.' + encodeURIComponent(vonDatum) +
     '&created_at=lt.' + encodeURIComponent(bisDatum) +
-    '&select=total,status'
+    '&select=total,status,items'
   );
 }
 

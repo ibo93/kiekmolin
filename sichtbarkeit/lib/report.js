@@ -117,6 +117,58 @@ function speichereHistorie(slug, monat, daten) {
   fs.writeFileSync(pfad, JSON.stringify(daten, null, 2));
 }
 
+// Kompletter Verlauf eines Kunden (aufsteigend, max. letzte 6 Monate) -
+// Grundlage fuer die Entwicklungs-Grafik in Report und App. Der aktuelle
+// Monat wird aus dem frischen Lauf ergaenzt/ersetzt.
+function ladeVerlauf(slug, aktuellerMonat, aktuellerEintrag) {
+  const ordner = path.join(DATEN_ORDNER, slug);
+  const eintraege = [];
+  if (fs.existsSync(ordner)) {
+    for (const datei of fs.readdirSync(ordner).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).sort()) {
+      const monat = datei.replace('.json', '');
+      if (monat === aktuellerMonat) continue; // kommt gleich frisch dazu
+      try {
+        const d = JSON.parse(fs.readFileSync(path.join(ordner, datei), 'utf8'));
+        eintraege.push({ monat, quote: d.quote || null, telefon: d.telefon || null });
+      } catch (_e) { /* kaputte Datei ueberspringen */ }
+    }
+  }
+  eintraege.push(Object.assign({ monat: aktuellerMonat }, aktuellerEintrag));
+  return eintraege.slice(-6);
+}
+
+// Entwicklungs-Grafik: Quote und Telefon-Umsatz je Monat als Balken.
+// Der Wirt SIEHT den Fortschritt - staerkstes Argument fuer den naechsten
+// Monat. Erst ab 2 Monaten sinnvoll, sonst leer.
+function verlaufSektion(verlauf) {
+  if (!Array.isArray(verlauf) || verlauf.length < 2) return '';
+  const balken = (werte, einheit, farbe) => {
+    const max = Math.max.apply(null, werte.map((w) => w.wert || 0)) || 1;
+    return werte.map((w) => {
+      const h = w.wert == null ? 2 : Math.max(4, Math.round((w.wert / max) * 72));
+      const label = w.wert == null ? '–' : (einheit === '%' ? w.wert + '%' : Math.round(w.wert) + ' €');
+      return '<div class="vb"><div class="vb-wert">' + label + '</div>' +
+        '<div class="vb-balken" style="height:' + h + 'px;background:' + (w.wert == null ? '#e2e2e2' : farbe) + '"></div>' +
+        '<div class="vb-monat">' + esc(monatsLabel(w.monat).replace(' 20', ' ’')) + '</div></div>';
+    }).join('');
+  };
+  const quoteWerte = verlauf.map((v) => ({ monat: v.monat, wert: v.quote && v.quote.prozent != null ? v.quote.prozent : null }));
+  const umsatzWerte = verlauf.map((v) => ({ monat: v.monat, wert: v.telefon ? v.telefon.gesamtGeschaetzt || 0 : null }));
+  const zeigeUmsatz = umsatzWerte.some((w) => w.wert);
+  return `
+<h2>Deine Entwicklung</h2>
+<div class="verlauf">
+  <div class="v-block">
+    <div class="v-titel">Sichtbarkeits-Quote</div>
+    <div class="v-reihe">${balken(quoteWerte, '%', 'var(--akzent)')}</div>
+  </div>
+  ${zeigeUmsatz ? `<div class="v-block">
+    <div class="v-titel">Umsatz am Telefon (geschätzt)</div>
+    <div class="v-reihe">${balken(umsatzWerte, '€', '#111')}</div>
+  </div>` : ''}
+</div>`;
+}
+
 function ladeVormonat(slug, aktuellerMonat) {
   const ordner = path.join(DATEN_ORDNER, slug);
   if (!fs.existsSync(ordner)) return null;
@@ -208,6 +260,10 @@ function telefonSektion(telefon) {
   </div>` : ''}
 </div>
 <div class="hinweis" style="margin-top:14px;border-top:none;padding-top:0">
+  ${Array.isArray(telefon.topGerichte) && telefon.topGerichte.length
+    ? '<strong>Verkaufsschlager am Telefon:</strong> ' +
+      telefon.topGerichte.map((g) => g.menge + '× ' + esc(g.name)).join(', ') + '.<br>'
+    : ''}
   Jeder dieser Anrufe kam an, während das Team nicht ans Telefon konnte – ohne den Assistenten
   wäre er womöglich bei der Konkurrenz gelandet. Der Bestellwert ist die echte Summe der
   telefonisch aufgegebenen Bestellungen. Der Reservierungs-Umsatz ist bewusst konservativ
@@ -272,7 +328,7 @@ function radarSektion(ergebnis, vormonat) {
 </div>`;
 }
 
-function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon }) {
+function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
   const trend = trendText(q, vormonat);
@@ -333,6 +389,14 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon 
   .rauf { color: var(--akzent); font-weight: 700; font-size: 12px; }
   .runter { color: #b00; font-weight: 700; font-size: 12px; }
   .ueberholt { font-size: 11.5px; color: var(--akzent); font-weight: 600; margin-top: 3px; }
+  .verlauf { display: flex; gap: 24px; flex-wrap: wrap; }
+  .v-block { flex: 1; min-width: 260px; border: 1px solid var(--linie); border-radius: 6px; padding: 14px 16px; }
+  .v-titel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); margin-bottom: 10px; }
+  .v-reihe { display: flex; align-items: flex-end; gap: 10px; min-height: 100px; }
+  .vb { flex: 1; text-align: center; }
+  .vb-wert { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+  .vb-balken { border-radius: 3px 3px 0 0; margin: 0 auto; width: 70%; max-width: 46px; }
+  .vb-monat { font-size: 10px; color: var(--grau); margin-top: 4px; white-space: nowrap; }
   .trend { display: inline-block; margin-top: 6px; font-size: 13px; }
   .trend.ok { color: var(--akzent); font-weight: 600; }
   .trend.nein { color: #b00; font-weight: 600; }
@@ -369,6 +433,7 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon 
   </div>
 </div>
 ${telefonSektion(telefon)}
+${verlaufSektion(verlauf)}
 <h2>Basis-Check</h2>
 <table>
   <tr><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr>
@@ -436,6 +501,6 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 
 module.exports = {
   fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
-  wettbewerbsRadar, radarSektion,
+  wettbewerbsRadar, radarSektion, ladeVerlauf, verlaufSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

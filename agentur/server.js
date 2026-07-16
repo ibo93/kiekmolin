@@ -24,8 +24,7 @@ const { suchfragen } = require('../sichtbarkeit/lib/fragen');
 const report = require('../sichtbarkeit/lib/report');
 const aufbereitung = require('../sichtbarkeit/lib/aufbereitung');
 const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
-const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus } = require('./lib/automatik');
-const { baueTischkarte } = require('./lib/bewertungskit');
+const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus, istDigestFaellig } = require('./lib/automatik');
 const { bauePitchHtml } = require('./lib/pitch');
 const { bewerteKunde } = require('./lib/gesundheit');
 const versand = require('./lib/versand');
@@ -48,7 +47,7 @@ const TELEFON_URL = process.env.TELEFON_URL || 'http://localhost:3100';
 // Statusdatei, damit ein Demo-Lauf den echten Monatslauf nicht verschluckt.
 const AUTO_TAG = Math.min(28, parseInt(process.env.AUTO_REPORT_TAG || '1', 10) || 0);
 const AUTO_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'auto-lauf.json');
-const KIT_ORDNER = path.join(__dirname, 'kits');       // Bewertungs-Tischkarten
+const DIGEST_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'digest-stand.json');
 const PITCH_ORDNER = path.join(__dirname, 'pitches');  // Interessenten-Pitches
 const PROSPECTS_DATEI = path.join(__dirname, '..', 'prospects.json');
 
@@ -241,7 +240,12 @@ async function starteReport(kunde) {
       });
 
       jobs[jobId].schritt = 'Report rendern';
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon });
+      let verlauf = report.ladeVerlauf(slug, monat, { quote: report.quote(ergebnis), telefon });
+      if (DEMO) {
+        const demoV = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8')).verlauf;
+        if (demoV) verlauf = demoV;
+      }
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
@@ -328,6 +332,51 @@ async function pruefeAutomatik() {
   console.log('Monats-Automatik: starte Reports fuer alle Kunden (' + report.monatsLabel(report.monatsSchluessel(jetzt)) + ')' +
     (versand.istKonfiguriert() ? ' - Versand per E-Mail aktiv' : ' - kein E-Mail-Versand (RESEND_API_KEY fehlt)'));
   try { await starteBatchReport({ mitVersand: true }); } catch (e) { console.warn('Monats-Automatik fehlgeschlagen: ' + e.message); }
+}
+
+// ------------------------------------------------- Wochen-Digest ----
+// Jeden Montag EINE Mail an dich (AGENTUR_EMAIL): Reports-Stand, Umsatz,
+// offene Rueckrufe, Kunden in Gefahr. Du weisst Bescheid, ohne die App
+// zu oeffnen - und rote Ampeln landen direkt auf deinem Tisch.
+async function pruefeDigest() {
+  const an = process.env.AGENTUR_EMAIL;
+  if (DEMO || !an || !versand.istKonfiguriert()) return;
+  let stand = {};
+  try { stand = JSON.parse(fs.readFileSync(DIGEST_DATEI, 'utf8')); } catch (_e) { /* erster Lauf */ }
+  const jetzt = new Date();
+  if (!istDigestFaellig(jetzt, stand.letzterTag || null)) return;
+  const heute = jetzt.getFullYear() + '-' + String(jetzt.getMonth() + 1).padStart(2, '0') + '-' + String(jetzt.getDate()).padStart(2, '0');
+  try {
+    fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+    fs.writeFileSync(DIGEST_DATEI, JSON.stringify({ letzterTag: heute }));
+  } catch (_e) { /* dann kommt er notfalls doppelt */ }
+
+  try {
+    const u = await baueUebersicht();
+    const kunden = await ladeKunden();
+    const monat = report.monatsSchluessel();
+    const rot = kunden.filter((k) => bewerteKunde({ historie: kundenHistorie(effektiverSlug(k)), aktuellerMonat: monat }).stufe === 'rot');
+    const zeilen = [
+      'Moin! Deine Agentur-Lage am Montag:',
+      '',
+      '- Kunden: ' + u.kunden,
+      '- Reports diesen Monat: ' + u.reportsMonat + ' von ' + u.kunden + (u.reportsMonat < u.kunden ? ' (Rest kommt per Automatik am ' + u.automatik.tag + '.)' : ' - alle erledigt'),
+      '- Telefon-Umsatz diesen Monat (alle Kunden, geschaetzt): ' + u.telefonUmsatz.toFixed(2).replace('.', ',') + ' EUR',
+      '- Offene Rueckrufe: ' + u.offeneRueckrufe + (u.offeneRueckrufe ? ' -> heute abarbeiten!' : ''),
+      '- Kunden in Gefahr (rote Ampel): ' + (rot.length ? rot.map((k) => k.name).join(', ') + ' -> heute anrufen!' : 'keine'),
+      '',
+      'Details wie immer in der Agentur-App (http://localhost:' + PORT + ').'
+    ];
+    const ergebnis = await versand.sendeReportMail({
+      an,
+      betreff: 'Wochen-Lage deiner Agentur · ' + jetzt.toLocaleDateString('de-DE'),
+      text: zeilen.join('\n'),
+      html: '<pre style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6">' + zeilen.join('\n') + '</pre>'
+    });
+    console.log('Wochen-Digest: ' + (ergebnis.ok ? 'gesendet an ' + an : 'fehlgeschlagen - ' + ergebnis.fehler));
+  } catch (e) {
+    console.warn('Wochen-Digest fehlgeschlagen: ' + e.message);
+  }
 }
 
 // ------------------------------------------------------- Uebersicht ----
@@ -534,26 +583,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // API: Bewertungs-Tischkarte (QR) fuer einen Kunden erzeugen
-    if (req.method === 'POST' && pfad === '/api/bewertungskit') {
-      const { kennung } = await leseBody(req);
-      const kunde = await findeKunde(kennung);
-      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
-      const slug = effektiverSlug(kunde);
-      fs.mkdirSync(KIT_ORDNER, { recursive: true });
-      const datei = slug + '-tischkarte.html';
-      fs.writeFileSync(path.join(KIT_ORDNER, datei), baueTischkarte(Object.assign({}, kunde, { slug: slugVon(kunde) })));
-      json(res, 200, { ok: true, link: '/api/kit/' + datei });
-      return;
-    }
-    if (req.method === 'GET' && pfad.startsWith('/api/kit/')) {
-      const datei = path.join(KIT_ORDNER, path.basename(pfad));
-      if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(fs.readFileSync(datei));
-      return;
-    }
-
     // API: Interessenten (Neukunden-Pipeline aus prospects.json)
     if (req.method === 'GET' && pfad === '/api/interessenten') {
       let liste = [];
@@ -598,13 +627,6 @@ const server = http.createServer(async (req, res) => {
         const auf = await erzeugeAufbereitung(kunde);
         schritte.push({ schritt: 'Aufbereitung (JSON-LD, Texte, Google-Posts)', ok: true, detail: auf.dateien.length + ' Dateien' });
       } catch (e) { schritte.push({ schritt: 'Aufbereitung', ok: false, detail: e.message }); }
-      try {
-        const slug = effektiverSlug(kunde);
-        fs.mkdirSync(KIT_ORDNER, { recursive: true });
-        const datei = slug + '-tischkarte.html';
-        fs.writeFileSync(path.join(KIT_ORDNER, datei), baueTischkarte(Object.assign({}, kunde, { slug: slugVon(kunde) })));
-        schritte.push({ schritt: 'Bewertungs-Tischkarte (QR)', ok: true, link: '/api/kit/' + datei });
-      } catch (e) { schritte.push({ schritt: 'Bewertungs-Tischkarte', ok: false, detail: e.message }); }
       const jobId = await starteReport(kunde);
       schritte.push({ schritt: 'Erster Monats-Report', ok: true, detail: 'laeuft im Hintergrund' });
       schritte.push({
@@ -703,3 +725,6 @@ if (AUTO_TAG > 0) {
   setTimeout(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 15000);
   setInterval(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 60 * 60 * 1000);
 }
+// Wochen-Digest (Montags-Mail an AGENTUR_EMAIL) - gleiche stuendliche Pruefung
+setTimeout(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 20000);
+setInterval(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 60 * 60 * 1000);

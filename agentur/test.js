@@ -4,7 +4,7 @@
 // Tests fuer die Agentur-App-Automatik. Laufen ohne Keys/Netz:  node test.js
 
 const assert = require('assert');
-const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus } = require('./lib/automatik');
+const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus, istDigestFaellig } = require('./lib/automatik');
 
 let tests = 0;
 function test(name, fn) { tests++; fn(); console.log('  ok  ' + name); }
@@ -32,6 +32,15 @@ test('Naechster Lauf: diesen Monat wenn noch faellig, sonst naechsten', () => {
   assert.strictEqual(naechsterAutoLauf(t(2026, 7, 1), null, 0), null);
 });
 
+test('Wochen-Digest: nur montags, nur einmal pro Tag', () => {
+  const montag = new Date(2026, 6, 20, 9, 0);   // 20.07.2026 ist ein Montag
+  const dienstag = new Date(2026, 6, 21, 9, 0);
+  assert.strictEqual(istDigestFaellig(montag, null), true, 'erster Montag: faellig');
+  assert.strictEqual(istDigestFaellig(montag, '2026-07-20'), false, 'heute schon gesendet');
+  assert.strictEqual(istDigestFaellig(montag, '2026-07-13'), true, 'letzte Woche gesendet -> wieder faellig');
+  assert.strictEqual(istDigestFaellig(dienstag, null), false, 'Dienstag: nie');
+});
+
 test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   const zeilen = [
     JSON.stringify({ zeit: '2026-07-16T10:00:00Z', reservierungen: 1, gaeste: 4, bestellungen: 0, bestellwert: 0, rueckrufe: 0 }),
@@ -46,18 +55,6 @@ test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   });
   // leere Datei -> alles null, kein Fehler
   assert.strictEqual(werteStatistikAus([], '2026-07-16').anrufeMonat, 0);
-});
-
-test('Bewertungs-Tischkarte: QR, Kurzlink, druckfertig', () => {
-  const { baueTischkarte, bewertungsUrl } = require('./lib/bewertungskit');
-  const kunde = { name: 'La Piazza', slug: 'la-piazza-emden' };
-  assert.strictEqual(bewertungsUrl(kunde), 'https://kiekmolin.de/la-piazza-emden');
-  const html = baueTischkarte(kunde);
-  assert.ok(html.includes('api.qrserver.com'), 'QR-Bild eingebunden');
-  assert.ok(html.includes('kiekmolin.de%2Fla-piazza-emden'), 'QR zeigt auf die Profilseite');
-  assert.ok(html.includes('Hat es geschmeckt?'));
-  assert.ok(html.includes('@media print'), 'Druck-Styles vorhanden');
-  assert.strictEqual((html.match(/class="karte"/g) || []).length, 2, 'zwei Karten pro A4-Blatt');
 });
 
 test('Pitch-Seite: Luecken datengedeckt, ohne leere Versprechen', () => {

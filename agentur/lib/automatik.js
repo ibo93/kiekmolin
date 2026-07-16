@@ -26,6 +26,16 @@ function naechsterAutoLauf(jetzt, letzterLaufMonat, tag) {
   return monatVon(d) + '-' + String(tag).padStart(2, '0');
 }
 
+// Wochen-Digest: jeden Montag EINE Mail an den Betreiber mit der Lage.
+// Faellig, wenn heute Montag ist und der letzte Digest nicht von heute
+// stammt. Kein Nachholen unter der Woche - der naechste Montag kommt.
+function istDigestFaellig(jetzt, letzterTag) {
+  if (jetzt.getDay() !== 1) return false;
+  const heute = jetzt.getFullYear() + '-' +
+    String(jetzt.getMonth() + 1).padStart(2, '0') + '-' + String(jetzt.getDate()).padStart(2, '0');
+  return heute !== letzterTag;
+}
+
 // Zeilen aus telefon-retter/logs/statistik.jsonl auswerten.
 // heute = 'JJJJ-MM-TT'; gezaehlt wird der Tag und der laufende Monat.
 function werteStatistikAus(zeilen, heute) {
@@ -51,4 +61,4 @@ function werteStatistikAus(zeilen, heute) {
   return summe;
 }
 
-module.exports = { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus, monatVon };
+module.exports = { sollAutoLaufen, naechsterAutoLauf, istDigestFaellig, werteStatistikAus, monatVon };

@@ -40,6 +40,22 @@ function werteAus(reservierungen, bestellungen, bon) {
   const gueltige = alleBestellungen.filter((b) => b.status !== 'cancelled');
   const bestellwert = Math.round(gueltige.reduce((s, b) => s + (Number(b.total) || 0), 0) * 100) / 100;
   const reservierungsUmsatz = gaeste * bon;
+
+  // Verkaufsschlager am Telefon: welche Gerichte werden telefonisch am
+  // haeufigsten bestellt? Echte Insights fuer den Wirt (Top 3 nach Menge).
+  const mengen = new Map();
+  for (const b of gueltige) {
+    for (const artikel of Array.isArray(b.items) ? b.items : []) {
+      const name = artikel && artikel.name;
+      if (!name) continue;
+      mengen.set(name, (mengen.get(name) || 0) + (parseInt(artikel.quantity, 10) || 1));
+    }
+  }
+  const topGerichte = [...mengen.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name, menge]) => ({ name, menge }));
+
   return {
     reservierungen: echte.length,
     gaeste,
@@ -48,7 +64,8 @@ function werteAus(reservierungen, bestellungen, bon) {
     bestellwert,
     bonProGast: bon,
     reservierungsUmsatz,
-    gesamtGeschaetzt: Math.round((bestellwert + reservierungsUmsatz) * 100) / 100
+    gesamtGeschaetzt: Math.round((bestellwert + reservierungsUmsatz) * 100) / 100,
+    topGerichte
   };
 }
 

@@ -70,7 +70,9 @@ async function cmdReport(suchbegriff, optionen) {
     return;
   }
 
-  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon });
+  const demoDaten = optionen.demo ? JSON.parse(fs.readFileSync(path.join(__dirname, 'demo', 'demo-daten.json'), 'utf8')) : null;
+  const verlauf = demoDaten && demoDaten.verlauf ? demoDaten.verlauf : undefined;
+  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');
@@ -107,7 +109,8 @@ async function reportFuerRestaurant(restaurant, monat) {
     ergebnis
   });
 
-  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon });
+  const verlauf = report.ladeVerlauf(slugVon(restaurant), monat, { quote: report.quote(ergebnis), telefon });
+  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');

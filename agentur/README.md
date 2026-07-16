@@ -43,14 +43,17 @@ Dann im Browser: **http://localhost:3200**
   mit 4 fertigen Google-Business-Beiträgen pro Monat (aus echten Gerichten)
   und Antwort-Vorlagen auf Bewertungen
 - **Onboarding-Knopf „Komplett einrichten":** Aufbereitung + Google-Posts +
-  Bewertungs-Tischkarte + erster Monats-Report für einen Neukunden in
-  einem Rutsch
+  erster Monats-Report + Versand-Check für einen Neukunden in einem Rutsch
+- **Wochen-Digest:** jeden Montag eine Mail an dich (`AGENTUR_EMAIL`) mit
+  der Lage: Reports-Stand, Telefon-Umsatz, offene Rückrufe, Kunden in Gefahr
 
 - **Kundenliste** aus der Kiek-mol-in-Datenbank, mit Suche, Kategorie,
   Anzahl bisheriger Reports und letzter Sichtbarkeits-Quote
 - **Umsatz-Nachweis je Kunde**: „Telefon-Retter · dieser Monat" zeigt
   Reservierungen, Gäste, Bestellungen und den (transparent geschätzten)
   Umsatz am Telefon – dieselben Zahlen landen im Monats-Report
+- **Entwicklung sichtbar**: Quote- und Umsatz-Verlauf über die Monate als
+  Balken – im Report und in der Kundenansicht
 - **Kunde öffnen** → „Monats-Report erzeugen" (läuft im Hintergrund,
   Fortschritt wird angezeigt, Report öffnet sich fertig im neuen Tab)
 - **Report-Historie** pro Kunde mit HTML/PDF-Links und Quoten-Verlauf

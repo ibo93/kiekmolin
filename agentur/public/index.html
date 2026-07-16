@@ -115,7 +115,6 @@
       <div class="knopfleiste">
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
-        <button class="aktion" id="btnKit" onclick="bewertungskartErzeugen()" title="Druckfertige Tischkarte mit QR-Code: Gäste bewerten den Betrieb direkt am Tisch">Bewertungs-Tischkarte (QR)</button>
         <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
         <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:#fff;color:var(--tinte)">Komplett einrichten</button>
       </div>
@@ -254,24 +253,6 @@ async function onboardingStarten() {
   }
 }
 
-// ---------------- Bewertungs-Tischkarte ----------------
-async function bewertungskartErzeugen() {
-  const btn = document.getElementById('btnKit');
-  const status = document.getElementById('dStatus');
-  btn.disabled = true;
-  status.className = 'status';
-  status.textContent = 'Tischkarte wird erzeugt…';
-  try {
-    const r = await api('/api/bewertungskit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
-    status.textContent = 'Fertig – Tischkarte öffnet sich (Strg+P zum Drucken).';
-    window.open(r.link, '_blank');
-  } catch (e) {
-    status.className = 'status fehler';
-    status.textContent = 'Fehler: ' + e.message;
-  }
-  btn.disabled = false;
-}
-
 // ---------------- Interessenten (Neukunden-Pipeline) ----------------
 async function ladeInteressenten() {
   const ziel = document.getElementById('interessentenListe');
@@ -392,7 +373,7 @@ async function ladeTelefonZahlen(id) {
         <div class="sub">${z.gaeste} Gäste am Tisch</div></div>
       <div class="zahl"><div class="wert">${z.bestellungen}</div>
         <div class="label">Bestellungen</div>
-        <div class="sub">${euroWert(z.bestellwert)} Bestellwert (echt)</div></div>
+        <div class="sub">${euroWert(z.bestellwert)} Bestellwert (echt)${Array.isArray(z.topGerichte) && z.topGerichte.length ? '<br>Top: ' + z.topGerichte.map(g => g.menge + '× ' + g.name).join(', ') : ''}</div></div>
       <div class="zahl"><div class="wert">${z.rueckrufe || 0}</div>
         <div class="label">Rückruf-Wünsche</div>
         <div class="sub">kein Anruf ging verloren</div></div>`;
@@ -401,9 +382,32 @@ async function ladeTelefonZahlen(id) {
   }
 }
 
+// Entwicklungs-Balken: Quote (und Telefon-Umsatz) ueber die Monate -
+// der Fortschritt auf einen Blick, gleiche Daten wie im Report.
+function verlaufBalken(h) {
+  const eintraege = h.slice(0, 6).reverse(); // aelteste links
+  if (eintraege.length < 2) return '';
+  const balkenReihe = (werte, farbe, einheit) => {
+    const max = Math.max(...werte.map(w => w.wert || 0)) || 1;
+    return '<div style="display:flex;align-items:flex-end;gap:8px;min-height:76px">' + werte.map(w => {
+      const hoehe = w.wert == null ? 2 : Math.max(4, Math.round((w.wert / max) * 54));
+      const label = w.wert == null ? '–' : (einheit === '%' ? w.wert + '%' : Math.round(w.wert) + ' €');
+      return '<div style="flex:1;text-align:center"><div style="font-size:10.5px;font-weight:700">' + label + '</div>' +
+        '<div style="height:' + hoehe + 'px;background:' + (w.wert == null ? '#e4e4e4' : farbe) + ';border-radius:3px 3px 0 0;width:60%;max-width:38px;margin:2px auto 0"></div>' +
+        '<div style="font-size:9.5px;color:var(--grau);margin-top:3px;white-space:nowrap">' + w.monat.slice(5) + '/' + w.monat.slice(2, 4) + '</div></div>';
+    }).join('') + '</div>';
+  };
+  const quote = eintraege.map(e => ({ monat: e.monat, wert: e.quote && e.quote.prozent != null ? e.quote.prozent : null }));
+  const umsatz = eintraege.map(e => ({ monat: e.monat, wert: e.telefon ? (e.telefon.gesamtGeschaetzt || 0) : null }));
+  return '<div style="display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px">' +
+    '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Quote-Verlauf</div>' + balkenReihe(quote, 'var(--akzent)', '%') + '</div>' +
+    (umsatz.some(w => w.wert) ? '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Telefon-Umsatz-Verlauf</div>' + balkenReihe(umsatz, '#111', '€') + '</div>' : '') +
+    '</div>';
+}
+
 function zeichneHistorie() {
   const h = aktuellerKunde.historie;
-  document.getElementById('dHistorie').innerHTML = h.length ? `
+  document.getElementById('dHistorie').innerHTML = h.length ? verlaufBalken(h) + `
     <table><tr><th>Monat</th><th>Quote</th><th>Report</th></tr>
     ${h.map(e => `<tr>
       <td>${e.label}</td>
