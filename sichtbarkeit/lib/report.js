@@ -172,7 +172,51 @@ function trendText(aktuell, vormonat) {
   return { txt: 'unverändert gegenüber ' + monatsLabel(vormonat.monat), cls: 'neutral' };
 }
 
-function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
+function euroBetrag(n) {
+  return Number(n || 0).toFixed(2).replace('.', ',') + ' €';
+}
+
+// Sektion "Was der Telefon-Retter gebracht hat" - der Umsatz-Nachweis.
+// Wird nur gerendert, wenn Telefon-Zahlen vorliegen und der Assistent in
+// dem Monat etwas getan hat (sonst waere die Sektion irrefuehrend).
+function telefonSektion(telefon) {
+  if (!telefon) return '';
+  const aktiv = (telefon.reservierungen || 0) + (telefon.bestellungen || 0) + (telefon.rueckrufe || 0);
+  if (!aktiv) return '';
+  return `
+<h2>Was der Telefon-Retter gebracht hat</h2>
+<div class="kacheln">
+  <div class="kachel">
+    <div class="wert akzent">${euroBetrag(telefon.gesamtGeschaetzt)}</div>
+    <div class="label">Umsatz am Telefon (geschätzt)</div>
+    <span class="trend neutral">Bestellwert + Reservierungs-Schätzung</span>
+  </div>
+  <div class="kachel">
+    <div class="wert">${telefon.reservierungen}</div>
+    <div class="label">Reservierungen</div>
+    <span class="trend neutral">${telefon.gaeste} Gäste am Tisch</span>
+  </div>
+  <div class="kachel">
+    <div class="wert">${telefon.bestellungen}</div>
+    <div class="label">Bestellungen</div>
+    <span class="trend neutral">${euroBetrag(telefon.bestellwert)} Bestellwert (echt)</span>
+  </div>
+  ${telefon.rueckrufe ? `<div class="kachel">
+    <div class="wert">${telefon.rueckrufe}</div>
+    <div class="label">Rückruf-Wünsche</div>
+    <span class="trend neutral">kein Anruf ging verloren</span>
+  </div>` : ''}
+</div>
+<div class="hinweis" style="margin-top:14px;border-top:none;padding-top:0">
+  Jeder dieser Anrufe kam an, während das Team nicht ans Telefon konnte – ohne den Assistenten
+  wäre er womöglich bei der Konkurrenz gelandet. Der Bestellwert ist die echte Summe der
+  telefonisch aufgegebenen Bestellungen. Der Reservierungs-Umsatz ist bewusst konservativ
+  geschätzt: ${telefon.gaeste} Gäste × ${euroBetrag(telefon.bonProGast)} Durchschnittsbon
+  = ${euroBetrag(telefon.reservierungsUmsatz)}.
+</div>`;
+}
+
+function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
   const trend = trendText(q, vormonat);
@@ -263,7 +307,7 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
     <span class="trend neutral">automatisch getestete Suchfragen</span>
   </div>
 </div>
-
+${telefonSektion(telefon)}
 <h2>Basis-Check</h2>
 <table>
   <tr><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr>
@@ -328,6 +372,6 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 }
 
 module.exports = {
-  fuehreChecksAus, quote, naechsteSchritte, renderHtml,
+  fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

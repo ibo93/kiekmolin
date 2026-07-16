@@ -21,6 +21,9 @@ Dann im Browser: **http://localhost:3200**
 
 - **Kundenliste** aus der Kiek-mol-in-Datenbank, mit Suche, Kategorie,
   Anzahl bisheriger Reports und letzter Sichtbarkeits-Quote
+- **Umsatz-Nachweis je Kunde**: „Telefon-Retter · dieser Monat" zeigt
+  Reservierungen, Gäste, Bestellungen und den (transparent geschätzten)
+  Umsatz am Telefon – dieselben Zahlen landen im Monats-Report
 - **Kunde öffnen** → „Monats-Report erzeugen" (läuft im Hintergrund,
   Fortschritt wird angezeigt, Report öffnet sich fertig im neuen Tab)
 - **Report-Historie** pro Kunde mit HTML/PDF-Links und Quoten-Verlauf

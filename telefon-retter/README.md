@@ -36,6 +36,17 @@ Einzige npm-Dependency: `ws` (WebSockets). `npm install` genügt.
 Jede Stufe erst aktivieren, wenn die vorige sauber läuft (siehe
 `TEST-CHECKLISTE.md`).
 
+## Umsatz für den Wirt
+
+- **Zusatzverkauf (Stufe 3):** Bei jeder Bestellung schlägt der Assistent
+  **einmal** einen passenden Zusatz vor (Dessert/Getränk, sonst ein beliebtes
+  Gericht) – freundlich, nie aufdringlich, ein Nein wird sofort akzeptiert.
+- **Anruf-Statistik:** Jeder Anruf schreibt eine anonyme Ergebnis-Zeile nach
+  `logs/statistik.jsonl` (Reservierungen, Gäste, Bestellwert, Rückrufe –
+  **ohne** personenbezogene Daten, bleibt daher dauerhaft). Zusammen mit den
+  `source='telefon'`-Einträgen in der Datenbank ist das der Umsatz-Nachweis
+  für Monats-Report und Agentur-App.
+
 ## Schnellstart: erst der Simulator (ohne Telefon!)
 
 Der Simulator testet das komplette „Gehirn" als Text-Chat – nur der

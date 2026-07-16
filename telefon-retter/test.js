@@ -84,6 +84,33 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.ok(d.begruessung().includes('KI-Assistent'));
     assert.ok(resis.every((r) => r.source === 'telefon'));
   });
+  await test('Zusatzverkauf: EIN passender Vorschlag, nur einmal pro Anruf', () => {
+    const d = neuerDialog();
+    const e1 = d.toolPruefeBestellung({ typ: 'abholung', artikel: [{ name: 'Pizza Salami', menge: 1 }] });
+    assert.ok(e1.ok && e1.zusatz_vorschlag, 'erster Check schlaegt Zusatz vor');
+    assert.ok(e1.zusatz_vorschlag.artikel.includes('Tiramisu'), 'Dessert-Kategorie bevorzugt: ' + e1.zusatz_vorschlag.artikel);
+    const e2 = d.toolPruefeBestellung({ typ: 'abholung', artikel: [{ name: 'Pizza Salami', menge: 1 }] });
+    assert.ok(e2.ok && !e2.zusatz_vorschlag, 'zweiter Check schlaegt NICHT nochmal vor');
+    // Bestellt der Gast das Dessert schon selbst, wird nichts Doppeltes vorgeschlagen
+    const d2 = neuerDialog();
+    const e3 = d2.toolPruefeBestellung({ typ: 'abholung', artikel: [{ name: 'Tiramisu', menge: 2 }] });
+    assert.ok(e3.ok && (!e3.zusatz_vorschlag || !e3.zusatz_vorschlag.artikel.includes('Tiramisu')));
+  });
+  await test('Anruf-Statistik zaehlt Reservierungen, Gaeste und Bestellwert', async () => {
+    const quelle = {
+      async reservierungenAm() { return []; },
+      async anzahlAktiveTische() { return 8; },
+      async neueReservierung() { return { ok: true, daten: { id: 'r1' } }; },
+      async neueBestellung() { return { ok: true, daten: { id: 'b1' } }; },
+      async neuerBestellArtikel() { return { ok: true }; },
+      async resilienterInsert() { return { ok: true }; }
+    };
+    const d = neuerDialog(quelle);
+    await d.toolReserviereTisch({ gast_name: 'A', telefon: '1', datum: morgenDatum, uhrzeit: '19:00', personen: 4 });
+    await d.toolSpeichereBestellung({ typ: 'abholung', artikel: [{ name: 'Pizza Salami', menge: 2 }], kunde_name: 'B', telefon: '1', vorgelesen_und_bestaetigt: true });
+    await d.toolRueckruf({ telefon: '1', anliegen: 'Gruppenfeier' });
+    assert.deepStrictEqual(d.statistik, { reservierungen: 1, gaeste: 4, bestellungen: 1, bestellwert: 21, rueckrufe: 1 });
+  });
   await test('Doppel-Booking-Schutz direkt vor dem Schreiben', async () => {
     const voll = Array.from({ length: 8 }, () => ({ reservation_date: morgenDatum, reservation_time: '19:00', status: 'confirmed', table_id: null }));
     const quelle = {

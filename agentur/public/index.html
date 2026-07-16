@@ -57,6 +57,12 @@
   td { border-bottom: 1px solid var(--linie); padding: 9px 8px; }
   td a { color: var(--tinte); font-weight: 600; }
   .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
+  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .zahl { border: 1px solid var(--linie); border-radius: 10px; padding: 14px 16px; background: #fff; }
+  .zahl .wert { font-size: 26px; font-weight: 700; }
+  .zahl .wert.akzent { color: var(--akzent); }
+  .zahl .label { font-size: 11.5px; color: var(--grau); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 4px; }
   .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
   .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
 </style>
@@ -100,6 +106,9 @@
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
       </div>
       <div class="status" id="dStatus"></div>
+
+      <h2>Telefon-Retter · dieser Monat</h2>
+      <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
 
       <h2>Report-Historie</h2>
       <div id="dHistorie"></div>
@@ -172,6 +181,38 @@ async function zeigeKunde(id) {
   document.getElementById('dFragen').innerHTML = aktuellerKunde.fragen.map(f => '<li>„' + f + '"</li>').join('');
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
+  ladeTelefonZahlen(aktuellerKunde.id);
+}
+
+// ---------------- Umsatz-Nachweis des Telefon-Retters ----------------
+function euroWert(n) { return Number(n || 0).toFixed(2).replace('.', ',') + ' €'; }
+
+async function ladeTelefonZahlen(id) {
+  const ziel = document.getElementById('dTelefonZahlen');
+  ziel.innerHTML = '<div class="leer">Lade Zahlen…</div>';
+  try {
+    const z = await api('/api/telefonzahlen/' + encodeURIComponent(id));
+    const aktiv = (z.reservierungen || 0) + (z.bestellungen || 0) + (z.rueckrufe || 0);
+    if (z.keineDaten || !aktiv) {
+      ziel.innerHTML = '<div class="leer">Noch keine Telefon-Aktivität in diesem Monat – Zahlen erscheinen, sobald der Telefon-Retter Anrufe annimmt.</div>';
+      return;
+    }
+    ziel.innerHTML = `
+      <div class="zahl"><div class="wert akzent">${euroWert(z.gesamtGeschaetzt)}</div>
+        <div class="label">Umsatz am Telefon</div>
+        <div class="sub">geschätzt: Bestellwert + ${z.gaeste} Gäste × ${euroWert(z.bonProGast)}</div></div>
+      <div class="zahl"><div class="wert">${z.reservierungen}</div>
+        <div class="label">Reservierungen</div>
+        <div class="sub">${z.gaeste} Gäste am Tisch</div></div>
+      <div class="zahl"><div class="wert">${z.bestellungen}</div>
+        <div class="label">Bestellungen</div>
+        <div class="sub">${euroWert(z.bestellwert)} Bestellwert (echt)</div></div>
+      <div class="zahl"><div class="wert">${z.rueckrufe || 0}</div>
+        <div class="label">Rückruf-Wünsche</div>
+        <div class="sub">kein Anruf ging verloren</div></div>`;
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
+  }
 }
 
 function zeichneHistorie() {

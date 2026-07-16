@@ -18,6 +18,7 @@ const supabase = require('./lib/supabase');
 const { suchfragen } = require('./lib/fragen');
 const aufbereitung = require('./lib/aufbereitung');
 const report = require('./lib/report');
+const { telefonZahlen } = require('./lib/telefonzahlen');
 
 ladeEnv();
 
@@ -40,7 +41,7 @@ async function cmdListe() {
 }
 
 async function cmdReport(suchbegriff, optionen) {
-  let restaurant, ergebnis, vormonat, kategorie, fragen;
+  let restaurant, ergebnis, vormonat, kategorie, telefon;
   const monat = optionen.monat || report.monatsSchluessel();
 
   if (optionen.demo) {
@@ -53,6 +54,7 @@ async function cmdReport(suchbegriff, optionen) {
     vor.setDate(1);
     vor.setMonth(vor.getMonth() - 1);
     vormonat = { monat: report.monatsSchluessel(vor), quote: demo.vormonatQuote, ergebnis: demo.vormonatErgebnis };
+    telefon = demo.telefon || null;
     console.log('Demo-Modus: Beispieldaten fuer "' + restaurant.name + '"');
   } else {
     if (!suchbegriff) {
@@ -68,7 +70,7 @@ async function cmdReport(suchbegriff, optionen) {
     return;
   }
 
-  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat });
+  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');
@@ -92,6 +94,8 @@ async function reportFuerRestaurant(restaurant, monat) {
   console.log('\nReport fuer: ' + restaurant.name + (restaurant.city ? ' (' + restaurant.city + ')' : '') + ' · ' + report.monatsLabel(monat) + '\n');
   const ergebnis = await report.fuehreChecksAus(restaurant, sf.fragen);
   const vormonat = report.ladeVormonat(slugVon(restaurant), monat);
+  // Umsatz-Nachweis: was der Telefon-Retter diesen Monat gebracht hat
+  const telefon = await telefonZahlen(restaurant.id, monat);
 
   // Historie speichern - Grundlage fuer den Vormonats-Vergleich
   report.speichereHistorie(slugVon(restaurant), monat, {
@@ -99,10 +103,11 @@ async function reportFuerRestaurant(restaurant, monat) {
     erstellt: new Date().toISOString(),
     restaurant: { name: restaurant.name, city: restaurant.city, slug: slugVon(restaurant) },
     quote: report.quote(ergebnis),
+    telefon,
     ergebnis
   });
 
-  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat });
+  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');

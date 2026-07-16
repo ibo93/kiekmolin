@@ -23,6 +23,7 @@ const supabase = require('../sichtbarkeit/lib/supabase');
 const { suchfragen } = require('../sichtbarkeit/lib/fragen');
 const report = require('../sichtbarkeit/lib/report');
 const aufbereitung = require('../sichtbarkeit/lib/aufbereitung');
+const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
 
 ladeEnv(); // liest sichtbarkeit/.env
 
@@ -83,6 +84,16 @@ async function findeKunde(kennung) {
     alle.find((r) => (r.name || '').toLowerCase().includes(s)) || null;
 }
 
+// Umsatz-Nachweis des Telefon-Retters fuer einen Kunden und Monat.
+// Im Demo-Modus feste Beispielzahlen, damit man die Ansicht ohne Keys sieht.
+async function kundenTelefonZahlen(kunde, monat) {
+  if (DEMO) {
+    const demo = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8'));
+    return Object.assign({ monat }, demo.telefon || {});
+  }
+  return telefonZahlen(kunde.id, monat);
+}
+
 // Historie + vorhandene Report-Dateien eines Kunden
 function kundenHistorie(slug) {
   const eintraege = [];
@@ -137,15 +148,18 @@ async function starteReport(kunde) {
         ergebnis = await report.fuehreChecksAus(kunde, sf.fragen);
       }
 
+      jobs[jobId].schritt = 'Telefon-Retter-Zahlen holen';
+      const telefon = await kundenTelefonZahlen(kunde, monat);
+
       const vormonat = report.ladeVormonat(slug, monat);
       report.speichereHistorie(slug, monat, {
         monat, erstellt: new Date().toISOString(),
         restaurant: { name: kunde.name, city: kunde.city, slug },
-        quote: report.quote(ergebnis), ergebnis
+        quote: report.quote(ergebnis), telefon, ergebnis
       });
 
       jobs[jobId].schritt = 'Report rendern';
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat });
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
@@ -334,6 +348,16 @@ const server = http.createServer(async (req, res) => {
       if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Umsatz-Nachweis des Telefon-Retters (aktueller Monat) je Kunde
+    if (req.method === 'GET' && pfad.startsWith('/api/telefonzahlen/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const monat = url.searchParams.get('monat') || report.monatsSchluessel();
+      const zahlen = await kundenTelefonZahlen(kunde, monat);
+      json(res, 200, zahlen || { monat, keineDaten: true });
       return;
     }
 

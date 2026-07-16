@@ -196,7 +196,8 @@ function baueSystemPrompt(restaurant, stufe, anrufer) {
   }
   if (stufe >= 3) {
     zeilen.push('3. Bestellungen fuer Abholung und Lieferung aufnehmen: Artikel einzeln erfragen, bei Unklarheit NACHFRAGEN statt raten. Dann pruefe_bestellung aufrufen und dem Gast ALLES vorlesen: jeden Artikel mit Menge und Extras, die Summe' +
-      ', bei Lieferung die Adresse. Erst wenn der Gast JA sagt: speichere_bestellung mit vorgelesen_und_bestaetigt=true.');
+      ', bei Lieferung die Adresse. Erst wenn der Gast JA sagt: speichere_bestellung mit vorgelesen_und_bestaetigt=true.',
+    '4. Liefert pruefe_bestellung einen zusatz_vorschlag, frage EINMAL beilaeufig-freundlich, ob das noch dazu soll (z.B. "Darf es noch ein Tiramisu fuer 5,90 dazu sein?"). Sagt der Gast Nein, sofort weitermachen - nie nachhaken, nie mehrmals anbieten.');
   } else if (stufe >= 2) {
     zeilen.push('3. Bestellungen nimmst du noch NICHT auf - dafuer Rueckrufwunsch notieren.');
   }
@@ -230,6 +231,9 @@ class DialogSitzung {
     this.letztePruefung = null; // Merker: zuletzt als frei geprueft
     this.buchungenGezaehlt = 0; // Reservierungen+Bestellungen in DIESEM Anruf
     this.maxBuchungen = parseInt(process.env.MAX_BUCHUNGEN_PRO_ANRUF || '3', 10);
+    this.zusatzVorgeschlagen = false; // Zusatzverkauf: hoechstens EIN Vorschlag pro Anruf
+    // Ergebnis dieses Anrufs - Grundlage fuer den Umsatz-Nachweis im Monats-Report
+    this.statistik = { reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0 };
   }
 
   begruessung() {
@@ -360,6 +364,8 @@ class DialogSitzung {
     });
     if (!ergebnis.ok) return { gespeichert: false, fehler: 'Speichern fehlgeschlagen (' + ergebnis.status + '). Biete einen Rueckruf an.' };
     this.buchungenGezaehlt++;
+    this.statistik.reservierungen++;
+    this.statistik.gaeste += parseInt(personen, 10) || 2;
     return { gespeichert: true, reservierung: { datum, uhrzeit: normalisiereUhrzeit(uhrzeit), personen, name: gast_name } };
   }
 
@@ -377,7 +383,7 @@ class DialogSitzung {
         source: 'telefon',
         status: 'open'
       });
-      if (direkt.ok) return { notiert: true };
+      if (direkt.ok) { this.statistik.rueckrufe++; return { notiert: true }; }
     }
 
     const fallback = await this.daten.neueReservierung({
@@ -392,6 +398,7 @@ class DialogSitzung {
       notes: '[RUECKRUF ERBETEN] ' + anliegen + ' - Nummer: ' + nummer
     });
     if (!fallback.ok) return { notiert: false, fehler: 'Konnte nicht gespeichert werden - nenne dem Gast die Restaurantnummer ' + (this.restaurant.phone || '') };
+    this.statistik.rueckrufe++;
     return { notiert: true };
   }
 
@@ -444,6 +451,24 @@ class DialogSitzung {
     return { geprueft, probleme };
   }
 
+  // Zusatzverkauf: EIN passender Vorschlag (Dessert/Getraenk, sonst ein
+  // beliebtes Gericht), das noch nicht in der Bestellung ist. Hoechstens
+  // einmal pro Anruf - freundlich anbieten, ein Nein sofort akzeptieren.
+  zusatzVorschlag(geprueft) {
+    if (this.zusatzVorgeschlagen) return null;
+    const bestellt = new Set(geprueft.map((a) => normalisiere(a.name)));
+    const frei = this.menue.filter((m) => !bestellt.has(normalisiere(m.name)));
+    const istZusatz = (m) => /getraenk|drink|dessert|nachspeise|nachtisch|eis|kuchen|suess/
+      .test(normalisiere((m.menu_categories && m.menu_categories.name) || ''));
+    const kandidaten = frei.filter(istZusatz);
+    const wahl = kandidaten.find((m) => m.is_popular) || kandidaten[0] ||
+      frei.find((m) => m.is_popular) || null;
+    if (!wahl) return null;
+    this.zusatzVorgeschlagen = true;
+    const preis = Number(wahl.base_price != null ? wahl.base_price : wahl.price) || 0;
+    return { name: wahl.name, preis: euro(preis) };
+  }
+
   toolPruefeBestellung({ typ, artikel }) {
     if (!this.menue.length) return { fehler: 'Keine Speisekarte hinterlegt - Rueckruf anbieten.' };
     const { geprueft, probleme } = this.matcheArtikel(artikel || []);
@@ -451,13 +476,17 @@ class DialogSitzung {
     const zwischensumme = geprueft.reduce((s, a) => s + a.gesamt, 0);
     const liefergebuehr = typ === 'lieferung' ? (Number(this.restaurant.delivery_fee) || 0) : 0;
     const summe = zwischensumme + liefergebuehr;
+    const zusatz = this.zusatzVorschlag(geprueft);
     return {
       ok: true,
       zum_vorlesen: {
         artikel: geprueft.map((a) => a.menge + 'x ' + a.name + (a.extras ? ' (' + a.extras + ')' : '') + ' zu ' + euro(a.gesamt)),
         liefergebuehr: liefergebuehr ? euro(liefergebuehr) : null,
         gesamtsumme: euro(summe)
-      }
+      },
+      zusatz_vorschlag: zusatz
+        ? { artikel: zusatz.name + ' fuer ' + zusatz.preis, hinweis: 'VOR dem Vorlesen EINMAL freundlich fragen, ob das noch dazu soll. Ein Nein sofort akzeptieren, nicht nachhaken.' }
+        : undefined
     };
   }
 
@@ -507,6 +536,8 @@ class DialogSitzung {
     });
     if (!ergebnis.ok) return { gespeichert: false, fehler: 'Speichern fehlgeschlagen (' + ergebnis.status + '). Rueckruf anbieten.' };
     this.buchungenGezaehlt++;
+    this.statistik.bestellungen++;
+    this.statistik.bestellwert += summe;
 
     // order_items sekundaer speichern (Dashboard nutzt sonst die items-Spalte)
     const bestellId = ergebnis.daten && ergebnis.daten.id;
