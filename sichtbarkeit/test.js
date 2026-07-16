@@ -119,6 +119,35 @@ test('Report zeigt Telefon-Umsatz nur, wenn es etwas zu zeigen gibt', () => {
   assert.ok(!ganzOhne.includes('Was der Telefon-Retter gebracht hat'));
 });
 
+// --- Wettbewerbs-Radar ---------------------------------------------------------------
+test('Wettbewerber-Extraktion: nur wer VOR dem Betrieb steht, max. 3', () => {
+  const { wettbewerberVorDir } = require('./lib/checks');
+  const treffer = [
+    { title: 'Tripadvisor Top 10', link: 'https://www.tripadvisor.de/x' },
+    { title: 'Lieferando Emden', link: 'https://www.lieferando.de/y' },
+    { title: 'La Piazza', link: 'https://kiekmolin.de/la-piazza-emden' },
+    { title: 'Yelp', link: 'https://yelp.de/z' }
+  ];
+  assert.deepStrictEqual(wettbewerberVorDir(treffer, 2).map((w) => w.domain), ['tripadvisor.de', 'lieferando.de']);
+  assert.deepStrictEqual(wettbewerberVorDir(treffer, 0), []); // Platz 1: niemand davor
+  assert.strictEqual(wettbewerberVorDir(treffer, -1).length, 3); // nicht gefunden: Top 3 zeigen
+  assert.deepStrictEqual(wettbewerberVorDir([{ title: 'kaputt', link: '::nicht-url::' }], -1), []);
+});
+test('Radar im Report: Platz-Trend und Ueberholt-Erkennung', () => {
+  const radar = report.wettbewerbsRadar(demo.ergebnis, { ergebnis: demo.vormonatErgebnis });
+  const beste = radar.find((z) => z.frage === 'beste pizzeria in Emden');
+  assert.strictEqual(beste.platz, 3);
+  assert.strictEqual(beste.platzTrend, 3, 'von Platz 6 auf 3 = +3');
+  assert.deepStrictEqual(beste.ueberholt, ['yelp.de'], 'yelp stand vor uns, jetzt nicht mehr');
+  const html = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: { monat: '2026-07', quote: demo.vormonatQuote, ergebnis: demo.vormonatErgebnis }
+  });
+  assert.ok(html.includes('Wettbewerbs-Radar (Google)'));
+  assert.ok(html.includes('überholt: yelp.de'));
+  assert.ok(html.includes('niemand – Platz 1!'));
+});
+
 // --- Aufbereitung -----------------------------------------------------------------
 test('JSON-LD mit Menue-Sektionen und Beschreibung', () => {
   const menue = [

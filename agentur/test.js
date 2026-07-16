@@ -48,4 +48,28 @@ test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   assert.strictEqual(werteStatistikAus([], '2026-07-16').anrufeMonat, 0);
 });
 
+test('Bewertungs-Tischkarte: QR, Kurzlink, druckfertig', () => {
+  const { baueTischkarte, bewertungsUrl } = require('./lib/bewertungskit');
+  const kunde = { name: 'La Piazza', slug: 'la-piazza-emden' };
+  assert.strictEqual(bewertungsUrl(kunde), 'https://kiekmolin.de/la-piazza-emden');
+  const html = baueTischkarte(kunde);
+  assert.ok(html.includes('api.qrserver.com'), 'QR-Bild eingebunden');
+  assert.ok(html.includes('kiekmolin.de%2Fla-piazza-emden'), 'QR zeigt auf die Profilseite');
+  assert.ok(html.includes('Hat es geschmeckt?'));
+  assert.ok(html.includes('@media print'), 'Druck-Styles vorhanden');
+  assert.strictEqual((html.match(/class="karte"/g) || []).length, 2, 'zwei Karten pro A4-Blatt');
+});
+
+test('Pitch-Seite: Luecken datengedeckt, ohne leere Versprechen', () => {
+  const { pitchLuecken, bauePitchHtml } = require('./lib/pitch');
+  const ohneWebsite = pitchLuecken({ name: 'Pizzeria Castello', city: 'Norden', category: 'pizzeria', website: '' });
+  assert.ok(ohneWebsite.some((l) => l.titel.includes('Keine eigene Website')));
+  const mitWebsite = pitchLuecken({ name: 'X', city: 'Norden', website: 'https://x.de' });
+  assert.ok(!mitWebsite.some((l) => l.titel.includes('Keine eigene Website')), 'Website vorhanden -> Luecke entfaellt');
+  const html = bauePitchHtml({ name: 'Pizzeria Castello', city: 'Norden', category: 'pizzeria', website: '' }, { datum: 'Juli 2026' });
+  assert.ok(html.includes('Pizzeria Castello') && html.includes('Sichtbarkeits-Schnellcheck'));
+  assert.ok(html.includes('Niemand kann seriös „Platz 1 bei Google" versprechen'), 'Ehrlichkeits-Absatz drin');
+  assert.ok(html.includes('noindex'), 'Pitch-Seiten sind nicht fuer Suchmaschinen');
+});
+
 console.log('\n' + tests + ' Tests bestanden.');

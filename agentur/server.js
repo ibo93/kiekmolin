@@ -25,6 +25,8 @@ const report = require('../sichtbarkeit/lib/report');
 const aufbereitung = require('../sichtbarkeit/lib/aufbereitung');
 const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
 const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus } = require('./lib/automatik');
+const { baueTischkarte } = require('./lib/bewertungskit');
+const { bauePitchHtml } = require('./lib/pitch');
 // Rueckruf-Wuensche verwaltet das Telefon-Retter-Datenmodul (eigene Tabelle)
 const telefonDb = require('../telefon-retter/lib/supabase');
 
@@ -43,6 +45,9 @@ const TELEFON_URL = process.env.TELEFON_URL || 'http://localhost:3100';
 // Statusdatei, damit ein Demo-Lauf den echten Monatslauf nicht verschluckt.
 const AUTO_TAG = Math.min(28, parseInt(process.env.AUTO_REPORT_TAG || '1', 10) || 0);
 const AUTO_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'auto-lauf.json');
+const KIT_ORDNER = path.join(__dirname, 'kits');       // Bewertungs-Tischkarten
+const PITCH_ORDNER = path.join(__dirname, 'pitches');  // Interessenten-Pitches
+const PROSPECTS_DATEI = path.join(__dirname, '..', 'prospects.json');
 
 // ---------------------------------------------------------------- Hilfen ----
 function slugVon(restaurant) {
@@ -126,6 +131,16 @@ function kundenHistorie(slug) {
 
 function dateiFallsVorhanden(name) {
   return fs.existsSync(path.join(REPORT_ORDNER, name)) ? '/reports/' + name : null;
+}
+
+function dateiInOrdner(ordner, name) {
+  return fs.existsSync(path.join(ordner, name));
+}
+
+function pitchDateiname(prospect) {
+  return String(prospect.name || 'betrieb')
+    .toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.html';
 }
 
 // "Naechste Schritte" aus dem juengsten Report eines Kunden - dieselbe
@@ -468,6 +483,60 @@ const server = http.createServer(async (req, res) => {
       const datei = path.join(AUFBEREITUNG_ORDNER, path.basename(teile[3] || ''), path.basename(teile[4] || ''));
       if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Bewertungs-Tischkarte (QR) fuer einen Kunden erzeugen
+    if (req.method === 'POST' && pfad === '/api/bewertungskit') {
+      const { kennung } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const slug = effektiverSlug(kunde);
+      fs.mkdirSync(KIT_ORDNER, { recursive: true });
+      const datei = slug + '-tischkarte.html';
+      fs.writeFileSync(path.join(KIT_ORDNER, datei), baueTischkarte(Object.assign({}, kunde, { slug: slugVon(kunde) })));
+      json(res, 200, { ok: true, link: '/api/kit/' + datei });
+      return;
+    }
+    if (req.method === 'GET' && pfad.startsWith('/api/kit/')) {
+      const datei = path.join(KIT_ORDNER, path.basename(pfad));
+      if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Interessenten (Neukunden-Pipeline aus prospects.json)
+    if (req.method === 'GET' && pfad === '/api/interessenten') {
+      let liste = [];
+      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
+      json(res, 200, liste.map((p) => ({
+        name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
+        telefon: p.phone || '', website: p.website || '',
+        pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
+      })));
+      return;
+    }
+
+    // API: Pitch-Seite fuer einen Interessenten erzeugen
+    if (req.method === 'POST' && pfad === '/api/pitch') {
+      const { name } = await leseBody(req);
+      let liste = [];
+      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* s.o. */ }
+      const prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
+      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht in prospects.json gefunden' }); return; }
+      fs.mkdirSync(PITCH_ORDNER, { recursive: true });
+      const datei = pitchDateiname(prospect);
+      const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      fs.writeFileSync(path.join(PITCH_ORDNER, datei), bauePitchHtml(prospect, { datum }));
+      json(res, 200, { ok: true, link: '/api/pitch-seite/' + datei });
+      return;
+    }
+    if (req.method === 'GET' && pfad.startsWith('/api/pitch-seite/')) {
+      const datei = path.join(PITCH_ORDNER, path.basename(pfad));
+      if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(fs.readFileSync(datei));
       return;
     }

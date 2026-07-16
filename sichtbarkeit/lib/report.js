@@ -216,6 +216,62 @@ function telefonSektion(telefon) {
 </div>`;
 }
 
+// Wettbewerbs-Radar: pro Suchfrage der Google-Platz, der Platz-Trend zum
+// Vormonat und wer aktuell VOR dem Betrieb steht. "Ueberholt" = eine Domain,
+// die letzten Monat vor uns stand und es jetzt nicht mehr tut, waehrend sich
+// unser Platz verbessert hat - der Beweis, dass die Arbeit wirkt.
+function wettbewerbsRadar(ergebnis, vormonat) {
+  const zeilen = [];
+  for (const f of ergebnis.fragen || []) {
+    const g = f.google || {};
+    if (!Array.isArray(g.vor_dir) && g.platz == null) continue; // alte Daten/manuell
+    const vorher = vormonat && vormonat.ergebnis
+      ? ((vormonat.ergebnis.fragen || []).find((v) => v.id === f.id) || {}).google || {}
+      : {};
+    let platzTrend = null;
+    if (g.platz && vorher.platz) platzTrend = vorher.platz - g.platz; // + = besser
+    const jetztVor = new Set((g.vor_dir || []).map((w) => w.domain));
+    const ueberholt = (vorher.vor_dir || [])
+      .map((w) => w.domain)
+      .filter((d) => d && !jetztVor.has(d) && (platzTrend == null || platzTrend >= 0));
+    zeilen.push({
+      frage: f.frage,
+      platz: g.platz || null,
+      platzTrend,
+      vorDir: g.vor_dir || [],
+      ueberholt: [...new Set(ueberholt)]
+    });
+  }
+  return zeilen;
+}
+
+function radarSektion(ergebnis, vormonat) {
+  const zeilen = wettbewerbsRadar(ergebnis, vormonat);
+  if (!zeilen.length) return '';
+  const rows = zeilen.map((z) => {
+    const platzTxt = z.platz
+      ? 'Platz ' + z.platz + (z.platzTrend ? ' <span class="' + (z.platzTrend > 0 ? 'rauf' : 'runter') + '">' +
+          (z.platzTrend > 0 ? '▲ +' + z.platzTrend : '▼ ' + z.platzTrend) + '</span>' : '')
+      : 'nicht in Top 10';
+    const vorTxt = z.vorDir.length
+      ? z.vorDir.map((w) => '<span class="dom" title="' + esc(w.titel) + '">' + esc(w.domain) + '</span>').join(' ')
+      : (z.platz === 1 ? '<strong>niemand – Platz 1!</strong>' : '–');
+    const ueberholtTxt = z.ueberholt.length
+      ? '<div class="ueberholt">überholt: ' + z.ueberholt.map(esc).join(', ') + '</div>' : '';
+    return '<tr><td>„' + esc(z.frage) + '“' + ueberholtTxt + '</td><td>' + platzTxt + '</td><td>' + vorTxt + '</td></tr>';
+  }).join('\n');
+  return `
+<h2>Wettbewerbs-Radar (Google)</h2>
+<table>
+  <tr><th style="width:42%">Suchfrage</th><th>Dein Platz</th><th>Wer vor dir steht</th></tr>
+  ${rows}
+</table>
+<div class="hinweis" style="margin-top:10px;border-top:none;padding-top:0">
+  Quelle: offizielle Google-Such-API, Top&nbsp;10 pro Frage. „Überholt“ heißt: Diese Domain stand
+  letzten Monat vor dir – jetzt nicht mehr. Genau daran arbeiten wir jeden Monat.
+</div>`;
+}
+
 function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
@@ -272,6 +328,11 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon 
   .chip.nein { background: #f0f0f0; color: #333; border: 1px solid #ccc; }
   .chip.manuell { background: #fff; color: var(--grau); border: 1px dashed #bbb; }
   .neu { font-size: 11px; color: var(--akzent); font-weight: 700; margin-left: 6px; }
+  .dom { display: inline-block; font-size: 11.5px; background: #f4f4f4; border: 1px solid #e0e0e0;
+         border-radius: 8px; padding: 1px 7px; margin: 1px 2px 1px 0; white-space: nowrap; }
+  .rauf { color: var(--akzent); font-weight: 700; font-size: 12px; }
+  .runter { color: #b00; font-weight: 700; font-size: 12px; }
+  .ueberholt { font-size: 11.5px; color: var(--akzent); font-weight: 600; margin-top: 3px; }
   .trend { display: inline-block; margin-top: 6px; font-size: 13px; }
   .trend.ok { color: var(--akzent); font-weight: 600; }
   .trend.nein { color: #b00; font-weight: 600; }
@@ -320,6 +381,8 @@ ${telefonSektion(telefon)}
   <tr><th style="width:50%">Suchfrage</th><th>Google</th><th>KI-Assistent</th></tr>
   ${fragenZeilen}
 </table>
+
+${radarSektion(ergebnis, vormonat)}
 
 ${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
 
@@ -373,5 +436,6 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 
 module.exports = {
   fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
+  wettbewerbsRadar, radarSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

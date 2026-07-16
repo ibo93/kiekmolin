@@ -96,6 +96,10 @@
     </div>
     <div class="status" id="alleStatus"></div>
     <div class="kunden" id="kundenListe"></div>
+
+    <h2>Interessenten · Neukunden-Pipeline</h2>
+    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
+    <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
 
   <div id="detailAnsicht" style="display:none">
@@ -111,6 +115,7 @@
       <div class="knopfleiste">
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
+        <button class="aktion" id="btnKit" onclick="bewertungskartErzeugen()" title="Druckfertige Tischkarte mit QR-Code: Gäste bewerten den Betrieb direkt am Tisch">Bewertungs-Tischkarte (QR)</button>
       </div>
       <div class="status" id="dStatus"></div>
 
@@ -199,6 +204,53 @@ async function rueckrufErledigt(id, quelle) {
     if (zeile) zeile.remove();
     ladeUebersicht();
   } catch (e) { alert('Fehler: ' + e.message); }
+}
+
+// ---------------- Bewertungs-Tischkarte ----------------
+async function bewertungskartErzeugen() {
+  const btn = document.getElementById('btnKit');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Tischkarte wird erzeugt…';
+  try {
+    const r = await api('/api/bewertungskit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.textContent = 'Fertig – Tischkarte öffnet sich (Strg+P zum Drucken).';
+    window.open(r.link, '_blank');
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+// ---------------- Interessenten (Neukunden-Pipeline) ----------------
+async function ladeInteressenten() {
+  const ziel = document.getElementById('interessentenListe');
+  try {
+    const liste = await api('/api/interessenten');
+    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – neue Betriebe dort eintragen.</div>'; return; }
+    ziel.innerHTML = `<table><tr><th>Betrieb</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
+      ${liste.map((p, i) => `<tr>
+        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}</td>
+        <td>${p.stadt}</td>
+        <td>${p.kategorie}</td>
+        <td style="white-space:nowrap">${p.telefon ? '<a href="tel:' + p.telefon + '">' + p.telefon + '</a>' : '–'}</td>
+        <td id="pitch-${i}">${p.pitch
+          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">neu</button>'
+          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">Pitch erzeugen</button>'}</td>
+      </tr>`).join('')}</table>`;
+  } catch (e) { ziel.innerHTML = '<div class="leer">Interessenten nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+async function pitchErzeugen(name, i) {
+  const zelle = document.getElementById('pitch-' + i);
+  try {
+    zelle.textContent = 'erzeuge…';
+    const r = await api('/api/pitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    zelle.innerHTML = '<a href="' + r.link + '" target="_blank">öffnen</a>';
+    window.open(r.link, '_blank');
+  } catch (e) { zelle.textContent = 'Fehler: ' + e.message; }
 }
 
 // ---------------- Telefon-Retter-Status ----------------
@@ -403,6 +455,7 @@ ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<d
 ladeTelefon();
 ladeUebersicht();
 ladeRueckrufe();
+ladeInteressenten();
 setInterval(ladeTelefon, 15000);
 setInterval(ladeRueckrufe, 60000);
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
