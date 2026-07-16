@@ -74,6 +74,10 @@
   <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
 </header>
 <main>
+  <h2>Übersicht · <span id="uMonat"></span></h2>
+  <div class="zahlen" id="uebersicht"><div class="leer">Lade Übersicht…</div></div>
+  <div class="status" id="automatikInfo"></div>
+
   <h2>Telefon-Retter</h2>
   <div class="telefon" id="telefonKarte">
     <div class="punkt" id="telefonPunkt"></div>
@@ -82,6 +86,9 @@
   </div>
 
   <div id="listeAnsicht">
+    <h2>Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
+    <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
+
     <h2>Kunden</h2>
     <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
       <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)" style="flex:1;margin-bottom:0">
@@ -110,6 +117,9 @@
       <h2>Telefon-Retter · dieser Monat</h2>
       <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
 
+      <h2>Nächste Schritte (aus dem letzten Report)</h2>
+      <ol class="fragen" id="dSchritte"></ol>
+
       <h2>Report-Historie</h2>
       <div id="dHistorie"></div>
 
@@ -132,6 +142,65 @@ async function api(pfad, optionen) {
   return antwort.json();
 }
 
+// ---------------- Übersicht (Dashboard-Kopf) ----------------
+async function ladeUebersicht() {
+  try {
+    const u = await api('/api/uebersicht');
+    document.getElementById('uMonat').textContent = u.monatLabel;
+    document.getElementById('uebersicht').innerHTML = `
+      <div class="zahl"><div class="wert">${u.kunden}</div>
+        <div class="label">Kunden</div></div>
+      <div class="zahl"><div class="wert">${u.reportsMonat}<span style="font-size:15px;color:var(--grau)"> / ${u.kunden}</span></div>
+        <div class="label">Reports diesen Monat</div>
+        <div class="sub">${u.reportsMonat < u.kunden ? 'noch ' + (u.kunden - u.reportsMonat) + ' offen' : 'alle erledigt'}</div></div>
+      <div class="zahl"><div class="wert akzent">${euroWert(u.telefonUmsatz)}</div>
+        <div class="label">Telefon-Umsatz (alle Kunden)</div>
+        <div class="sub">geschätzt, Quelle: Telefon-Retter</div></div>
+      <div class="zahl"><div class="wert">${u.offeneRueckrufe}</div>
+        <div class="label">Offene Rückrufe</div>
+        <div class="sub">${u.offeneRueckrufe ? 'heute abarbeiten!' : 'nichts offen'}</div></div>`;
+    const auto = document.getElementById('automatikInfo');
+    auto.textContent = u.automatik.an
+      ? 'Automatik AN: Monats-Reports laufen am ' + u.automatik.tag + '. jeden Monats von selbst · nächster Lauf: ' + (u.automatik.naechsterLauf || '–') +
+        (u.automatik.letzterLaufMonat ? ' · letzter automatischer Lauf: ' + u.automatik.letzterLaufMonat : '')
+      : 'Automatik aus (AUTO_REPORT_TAG in .env setzen, z.B. 1 = am Monatsersten)';
+  } catch (e) {
+    document.getElementById('uebersicht').innerHTML = '<div class="leer">Übersicht nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+// ---------------- Offene Rückrufe ----------------
+async function ladeRueckrufe() {
+  const ziel = document.getElementById('rueckrufListe');
+  const anzahl = document.getElementById('rueckrufAnzahl');
+  try {
+    const liste = await api('/api/rueckrufe');
+    anzahl.style.display = liste.length ? '' : 'none';
+    anzahl.textContent = liste.length;
+    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine offenen Rückrufe – alles abgearbeitet.</div>'; return; }
+    ziel.innerHTML = `<table><tr><th>Wann</th><th>Restaurant</th><th>Name</th><th>Nummer</th><th>Anliegen</th><th></th></tr>
+      ${liste.map(r => `<tr id="rr-${r.id}">
+        <td style="white-space:nowrap">${r.zeit ? new Date(r.zeit).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–'}</td>
+        <td>${r.restaurant || ''}</td>
+        <td>${r.name || '–'}</td>
+        <td style="white-space:nowrap"><a href="tel:${r.telefon}">${r.telefon}</a></td>
+        <td>${r.anliegen || ''}</td>
+        <td>${r.quelle === 'callbacks'
+          ? '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="rueckrufErledigt(\'' + r.id + '\', \'' + r.quelle + '\')">Erledigt</button>'
+          : '<span style="font-size:11.5px;color:var(--grau)">im Wirt-Dashboard erledigen</span>'}</td>
+      </tr>`).join('')}</table>`;
+  } catch (e) { ziel.innerHTML = '<div class="leer">Rückrufe nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+async function rueckrufErledigt(id, quelle) {
+  try {
+    await api('/api/rueckruf-erledigt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, quelle }) });
+    const zeile = document.getElementById('rr-' + id);
+    if (zeile) zeile.remove();
+    ladeUebersicht();
+  } catch (e) { alert('Fehler: ' + e.message); }
+}
+
 // ---------------- Telefon-Retter-Status ----------------
 async function ladeTelefon() {
   try {
@@ -140,10 +209,14 @@ async function ladeTelefon() {
     document.getElementById('telefonInfo').textContent = t.laeuft
       ? 'Läuft · betreut "' + t.restaurant + '" · Stufe ' + t.stufe
       : 'Server ist aus (starten: cd telefon-retter && node server.js)';
+    const s = t.statistik || {};
+    const statistikText = s.anrufeMonat
+      ? s.anrufeHeute + ' Anruf' + (s.anrufeHeute === 1 ? '' : 'e') + ' heute · ' + s.anrufeMonat + ' diesen Monat · '
+      : '';
     const a = document.getElementById('telefonAnrufe');
-    a.innerHTML = t.anrufe.length
-      ? 'Letzte Anrufe: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
-      : 'Noch keine Anruf-Protokolle';
+    a.innerHTML = statistikText + (t.anrufe.length
+      ? 'Letzte Protokolle: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
+      : 'Noch keine Anruf-Protokolle');
   } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
 }
 
@@ -179,6 +252,9 @@ async function zeigeKunde(id) {
   document.getElementById('dMeta').textContent = [aktuellerKunde.adresse, aktuellerKunde.stadt, aktuellerKunde.telefon].filter(Boolean).join(' · ');
   document.getElementById('dStatus').textContent = '';
   document.getElementById('dFragen').innerHTML = aktuellerKunde.fragen.map(f => '<li>„' + f + '"</li>').join('');
+  document.getElementById('dSchritte').innerHTML = (aktuellerKunde.naechsteSchritte || []).length
+    ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
+    : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
@@ -325,7 +401,10 @@ document.getElementById('suche').addEventListener('input', zeichneKunden);
 if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(1)));
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
+ladeUebersicht();
+ladeRueckrufe();
 setInterval(ladeTelefon, 15000);
+setInterval(ladeRueckrufe, 60000);
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
 fetch('/api/kunden').then(r => r.json()).then(k => {
   if (k.some(x => String(x.id).startsWith('00000000'))) document.getElementById('demoBadge').style.display = '';

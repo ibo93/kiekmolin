@@ -24,6 +24,9 @@ const { suchfragen } = require('../sichtbarkeit/lib/fragen');
 const report = require('../sichtbarkeit/lib/report');
 const aufbereitung = require('../sichtbarkeit/lib/aufbereitung');
 const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
+const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus } = require('./lib/automatik');
+// Rueckruf-Wuensche verwaltet das Telefon-Retter-Datenmodul (eigene Tabelle)
+const telefonDb = require('../telefon-retter/lib/supabase');
 
 ladeEnv(); // liest sichtbarkeit/.env
 
@@ -35,6 +38,11 @@ const DATEN_ORDNER = path.join(SICHT_ORDNER, 'data');
 const AUFBEREITUNG_ORDNER = path.join(SICHT_ORDNER, 'aufbereitung');
 const TELEFON_LOGS = path.join(__dirname, '..', 'telefon-retter', 'logs');
 const TELEFON_URL = process.env.TELEFON_URL || 'http://localhost:3100';
+// Monats-Automatik: an diesem Monatstag laufen die Reports fuer ALLE Kunden
+// von selbst (1-28; 0 = Automatik aus). Der Demo-Modus hat eine EIGENE
+// Statusdatei, damit ein Demo-Lauf den echten Monatslauf nicht verschluckt.
+const AUTO_TAG = Math.min(28, parseInt(process.env.AUTO_REPORT_TAG || '1', 10) || 0);
+const AUTO_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'auto-lauf.json');
 
 // ---------------------------------------------------------------- Hilfen ----
 function slugVon(restaurant) {
@@ -118,6 +126,19 @@ function kundenHistorie(slug) {
 
 function dateiFallsVorhanden(name) {
   return fs.existsSync(path.join(REPORT_ORDNER, name)) ? '/reports/' + name : null;
+}
+
+// "Naechste Schritte" aus dem juengsten Report eines Kunden - dieselbe
+// Logik wie im Report selbst, damit App und PDF eine Sprache sprechen.
+function naechsteSchritteFuer(slug, kunde) {
+  const ordner = path.join(DATEN_ORDNER, slug);
+  if (!fs.existsSync(ordner)) return [];
+  const dateien = fs.readdirSync(ordner).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).sort();
+  if (!dateien.length) return [];
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(ordner, dateien[dateien.length - 1]), 'utf8'));
+    return d.ergebnis ? report.naechsteSchritte(d.ergebnis, kunde) : [];
+  } catch (_e) { return []; }
 }
 
 // -------------------------------------------------- Report-Lauf (ein Kunde) ----
@@ -213,9 +234,108 @@ async function starteBatchReport() {
   return jobId;
 }
 
+// ------------------------------------------------- Monats-Automatik ----
+// Einmal pro Monat (am AUTO_TAG) laufen die Reports fuer alle Kunden von
+// selbst. Der letzte Lauf steht in data/auto-lauf.json, damit ein Neustart
+// des Servers nicht zu Doppel-Laeufen fuehrt.
+function liesAutoStand() {
+  try { return JSON.parse(fs.readFileSync(AUTO_DATEI, 'utf8')); } catch (_e) { return {}; }
+}
+
+function schreibeAutoStand(stand) {
+  try {
+    fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+    fs.writeFileSync(AUTO_DATEI, JSON.stringify(stand, null, 2));
+  } catch (_e) { /* dann laeuft es notfalls doppelt - besser als gar nicht */ }
+}
+
+async function pruefeAutomatik() {
+  const jetzt = new Date();
+  const stand = liesAutoStand();
+  if (!sollAutoLaufen(jetzt, stand.letzterLaufMonat || null, AUTO_TAG)) return;
+  // Stand SOFORT schreiben (nicht erst nach dem Lauf), sonst startet die
+  // stuendliche Pruefung den Batch mehrfach parallel.
+  schreibeAutoStand({ letzterLaufMonat: report.monatsSchluessel(jetzt), gestartet: jetzt.toISOString() });
+  console.log('Monats-Automatik: starte Reports fuer alle Kunden (' + report.monatsLabel(report.monatsSchluessel(jetzt)) + ')');
+  try { await starteBatchReport(); } catch (e) { console.warn('Monats-Automatik fehlgeschlagen: ' + e.message); }
+}
+
+// ------------------------------------------------------- Uebersicht ----
+// Das Dashboard der Agentur: Kunden, Reports, Telefon-Umsatz ueber ALLE
+// Kunden, offene Rueckrufe. 10 Minuten gecacht (mehrere DB-Abfragen).
+let uebersichtCache = { zeit: 0, daten: null };
+
+async function baueUebersicht() {
+  if (uebersichtCache.daten && Date.now() - uebersichtCache.zeit < 10 * 60 * 1000) {
+    return uebersichtCache.daten;
+  }
+  const kunden = await ladeKunden();
+  const monat = report.monatsSchluessel();
+  let reportsMonat = 0;
+  for (const k of kunden) {
+    if (kundenHistorie(effektiverSlug(k)).some((h) => h.monat === monat)) reportsMonat++;
+  }
+
+  let telefonUmsatz = 0;
+  let rueckrufe = 0;
+  if (DEMO) {
+    const demo = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8'));
+    telefonUmsatz = (demo.telefon && demo.telefon.gesamtGeschaetzt) || 0;
+    rueckrufe = (demo.telefon && demo.telefon.rueckrufe) || 0;
+  } else {
+    for (const k of kunden) {
+      const z = await telefonZahlen(k.id, monat);
+      if (z) telefonUmsatz += z.gesamtGeschaetzt || 0;
+    }
+    try { rueckrufe = (await telefonDb.offeneRueckrufe()).length; } catch (_e) { /* dann 0 */ }
+  }
+
+  const stand = liesAutoStand();
+  const daten = {
+    monat,
+    monatLabel: report.monatsLabel(monat),
+    kunden: kunden.length,
+    reportsMonat,
+    telefonUmsatz: Math.round(telefonUmsatz * 100) / 100,
+    offeneRueckrufe: rueckrufe,
+    automatik: {
+      an: AUTO_TAG > 0,
+      tag: AUTO_TAG,
+      letzterLaufMonat: stand.letzterLaufMonat || null,
+      naechsterLauf: naechsterAutoLauf(new Date(), stand.letzterLaufMonat || null, AUTO_TAG)
+    }
+  };
+  uebersichtCache = { zeit: Date.now(), daten };
+  return daten;
+}
+
+// ------------------------------------------------------- Rueckrufe ----
+async function ladeRueckrufe() {
+  if (DEMO) {
+    return [
+      { id: 'demo-1', quelle: 'callbacks', restaurant_id: '00000000-0000-0000-0000-000000000002', restaurant: 'La Piazza Emden', name: 'Familie Janssen', telefon: '+49 172 5550123', anliegen: 'Feier mit 15 Personen am Samstag - bitte zurueckrufen', zeit: new Date(Date.now() - 3600000).toISOString() },
+      { id: 'demo-2', quelle: 'reservations', restaurant_id: '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad', restaurant: 'Greetsieler Börse', name: 'Herr de Vries', telefon: '+49 4926 555012', anliegen: 'Frage zur Krabben-Saison - Nummer: +49 4926 555012', zeit: new Date(Date.now() - 7200000).toISOString() }
+    ];
+  }
+  const [rueckrufe, kunden] = await Promise.all([telefonDb.offeneRueckrufe(), ladeKunden()]);
+  const namen = new Map(kunden.map((k) => [String(k.id), k.name]));
+  return rueckrufe.map((r) => Object.assign({ restaurant: namen.get(String(r.restaurant_id)) || '' }, r));
+}
+
 // ------------------------------------------------------- Telefon-Retter ----
+// Anruf-Statistik aus telefon-retter/logs/statistik.jsonl (anonym, dauerhaft)
+function anrufStatistik() {
+  if (DEMO) {
+    return { anrufeHeute: 3, anrufeMonat: 24, reservierungen: 9, gaeste: 31, bestellungen: 6, bestellwert: 187.4, rueckrufe: 2 };
+  }
+  const datei = path.join(TELEFON_LOGS, 'statistik.jsonl');
+  let zeilen = [];
+  try { zeilen = fs.readFileSync(datei, 'utf8').split('\n').filter(Boolean); } catch (_e) { /* noch keine Anrufe */ }
+  return werteStatistikAus(zeilen, new Date().toISOString().slice(0, 10));
+}
+
 async function telefonStatus() {
-  const status = { laeuft: false, restaurant: null, stufe: null, anrufe: [] };
+  const status = { laeuft: false, restaurant: null, stufe: null, anrufe: [], statistik: anrufStatistik() };
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 1500);
@@ -287,6 +407,7 @@ const server = http.createServer(async (req, res) => {
         kategorie: suchfragen(kunde).kategorie,
         fragen: suchfragen(kunde).fragen.map((f) => f.frage),
         historie: kundenHistorie(slug),
+        naechsteSchritte: naechsteSchritteFuer(slug, kunde),
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
       });
       return;
@@ -351,6 +472,32 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Uebersicht (Dashboard-Kopf)
+    if (req.method === 'GET' && pfad === '/api/uebersicht') {
+      json(res, 200, await baueUebersicht());
+      return;
+    }
+
+    // API: offene Rueckruf-Wuensche (alle Kunden)
+    if (req.method === 'GET' && pfad === '/api/rueckrufe') {
+      json(res, 200, await ladeRueckrufe());
+      return;
+    }
+
+    // API: Rueckruf als erledigt markieren (nur callbacks-Eintraege)
+    if (req.method === 'POST' && pfad === '/api/rueckruf-erledigt') {
+      const { id, quelle } = await leseBody(req);
+      if (!id) { json(res, 400, { fehler: 'id fehlt' }); return; }
+      if (quelle !== 'callbacks') {
+        json(res, 400, { fehler: 'Dieser Eintrag liegt als offene Anfrage im Kiek-mol-in-Dashboard des Wirts - dort erledigen.' });
+        return;
+      }
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      const ergebnis = await telefonDb.rueckrufErledigt(id);
+      json(res, ergebnis.ok ? 200 : 500, ergebnis.ok ? { ok: true } : { fehler: 'Konnte nicht gespeichert werden (' + ergebnis.status + ')' });
+      return;
+    }
+
     // API: Umsatz-Nachweis des Telefon-Retters (aktueller Monat) je Kunde
     if (req.method === 'GET' && pfad.startsWith('/api/telefonzahlen/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
@@ -383,4 +530,19 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log('KURANI Agentur-App' + (DEMO ? ' (DEMO-MODUS)' : '') + ':  http://localhost:' + PORT);
+  if (AUTO_TAG > 0) {
+    const stand = liesAutoStand();
+    console.log('Monats-Automatik: Reports laufen am ' + AUTO_TAG + '. jeden Monats von selbst' +
+      ' (naechster Lauf: ' + naechsterAutoLauf(new Date(), stand.letzterLaufMonat || null, AUTO_TAG) + ').' +
+      ' Abschalten: AUTO_REPORT_TAG=0');
+  } else if (!DEMO) {
+    console.log('Monats-Automatik ist AUS (AUTO_REPORT_TAG=0) - Reports nur per Klick.');
+  }
 });
+
+// Monats-Automatik: kurz nach dem Start pruefen, danach stuendlich.
+// Laeuft der Rechner am Stichtag nicht, holt der naechste Start den Lauf nach.
+if (AUTO_TAG > 0) {
+  setTimeout(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 15000);
+  setInterval(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 60 * 60 * 1000);
+}

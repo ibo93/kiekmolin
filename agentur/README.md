@@ -19,6 +19,20 @@ Dann im Browser: **http://localhost:3200**
 
 ## Was die App kann
 
+- **Übersicht (Dashboard-Kopf):** Kunden, Reports diesen Monat, Telefon-Umsatz
+  über alle Kunden und offene Rückrufe auf einen Blick
+- **Monats-Automatik:** am `AUTO_REPORT_TAG` (Standard: 1. des Monats) laufen
+  die Reports für ALLE Kunden von selbst – kein Klicken mehr. War der Rechner
+  am Stichtag aus, holt der nächste Start den Lauf automatisch nach.
+  Abschalten mit `AUTO_REPORT_TAG=0` in `sichtbarkeit/.env`.
+- **Offene Rückrufe:** alle Rückruf-Wünsche aus dem Telefon-Retter als
+  Arbeitsliste mit Anruf-Link und „Erledigt"-Knopf – jeder abgearbeitete
+  Rückruf ist ein geretteter Gast
+- **Anruf-Zähler:** Anrufe heute / diesen Monat aus der anonymen
+  Telefon-Retter-Statistik (`logs/statistik.jsonl`)
+- **Nächste Schritte je Kunde:** die Empfehlungen aus dem letzten Report
+  direkt in der App – dieselbe Logik wie im PDF
+
 - **Kundenliste** aus der Kiek-mol-in-Datenbank, mit Suche, Kategorie,
   Anzahl bisheriger Reports und letzter Sichtbarkeits-Quote
 - **Umsatz-Nachweis je Kunde**: „Telefon-Retter · dieser Monat" zeigt
