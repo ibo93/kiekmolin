@@ -19,8 +19,41 @@ Dann im Browser: **http://localhost:3200**
 
 ## Was die App kann
 
+- **Übersicht (Dashboard-Kopf):** Kunden, Reports diesen Monat, Telefon-Umsatz
+  über alle Kunden und offene Rückrufe auf einen Blick
+- **Monats-Automatik:** am `AUTO_REPORT_TAG` (Standard: 1. des Monats) laufen
+  die Reports für ALLE Kunden von selbst – kein Klicken mehr. War der Rechner
+  am Stichtag aus, holt der nächste Start den Lauf automatisch nach.
+  Abschalten mit `AUTO_REPORT_TAG=0` in `sichtbarkeit/.env`.
+- **Offene Rückrufe:** alle Rückruf-Wünsche aus dem Telefon-Retter als
+  Arbeitsliste mit Anruf-Link und „Erledigt"-Knopf – jeder abgearbeitete
+  Rückruf ist ein geretteter Gast
+- **Anruf-Zähler:** Anrufe heute / diesen Monat aus der anonymen
+  Telefon-Retter-Statistik (`logs/statistik.jsonl`)
+- **Nächste Schritte je Kunde:** die Empfehlungen aus dem letzten Report
+  direkt in der App – dieselbe Logik wie im PDF
+- **Report-Versand per E-Mail:** mit `RESEND_API_KEY` in `sichtbarkeit/.env`
+  verschickt die Monats-Automatik jeden fertigen Report automatisch an den
+  Wirt (Adresse aus der Datenbank); zusätzlich gibt es den Knopf
+  „Report per E-Mail senden" je Kunde
+- **Kunden-Gesundheits-Ampel (Churn-Schutz):** grün/gelb/rot je Kunde aus
+  der Report-Historie (Report-Lücke? Quote gefallen? Telefon inaktiv?) –
+  plus Dashboard-Kachel „Kunden in Gefahr"
+- **Google-Posts to go:** die Aufbereitung enthält jetzt `google-posts.md`
+  mit 4 fertigen Google-Business-Beiträgen pro Monat (aus echten Gerichten)
+  und Antwort-Vorlagen auf Bewertungen
+- **Onboarding-Knopf „Komplett einrichten":** Aufbereitung + Google-Posts +
+  erster Monats-Report + Versand-Check für einen Neukunden in einem Rutsch
+- **Wochen-Digest:** jeden Montag eine Mail an dich (`AGENTUR_EMAIL`) mit
+  der Lage: Reports-Stand, Telefon-Umsatz, offene Rückrufe, Kunden in Gefahr
+
 - **Kundenliste** aus der Kiek-mol-in-Datenbank, mit Suche, Kategorie,
   Anzahl bisheriger Reports und letzter Sichtbarkeits-Quote
+- **Umsatz-Nachweis je Kunde**: „Telefon-Retter · dieser Monat" zeigt
+  Reservierungen, Gäste, Bestellungen und den (transparent geschätzten)
+  Umsatz am Telefon – dieselben Zahlen landen im Monats-Report
+- **Entwicklung sichtbar**: Quote- und Umsatz-Verlauf über die Monate als
+  Balken – im Report und in der Kundenansicht
 - **Kunde öffnen** → „Monats-Report erzeugen" (läuft im Hintergrund,
   Fortschritt wird angezeigt, Report öffnet sich fertig im neuen Tab)
 - **Report-Historie** pro Kunde mit HTML/PDF-Links und Quoten-Verlauf

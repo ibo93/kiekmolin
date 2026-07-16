@@ -28,7 +28,8 @@ const ACCENT_COLOR = '#f59e0b';
 const SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
 
-const OUT_DIR = __dirname;
+// Zielordner der generierten Seiten; fuer Tests per SEO_OUT_DIR umbiegbar
+const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
 const CITIES = [
   { slug: 'greetsiel',     name: 'Greetsiel',     zipPrefix: '267', region: 'Krummhoern' },
@@ -824,7 +825,21 @@ function buildRestaurantJsonLd(rest, reviews) {
   if (cuisines.length) item.servesCuisine = cuisines;
   item.priceRange = rest.price_range || '€€';
   item.acceptsReservations = true;
-  // Opening hours (best effort, optional)
+  const oeff = parseOeffnungszeiten(rest);
+  if (oeff.specs.length) item.openingHours = oeff.specs;
+  return item;
+}
+
+// Oeffnungszeiten aus BEIDEN Datenformaten lesen:
+//  a) opening_hours als Objekt pro Wochentag ({mon:{open,close},...})
+//  b) opening_time/closing_time + Pause (das Format der Kiek-mol-in-App)
+// Liefert schema.org-Specs ('Mo-Su 11:30-22:00') UND einen lesbaren Text -
+// beides speist JSON-LD, sichtbare Seite und FAQ aus EINER Quelle.
+function parseOeffnungszeiten(rest) {
+  const leer = { specs: [], text: '' };
+  const hhmm = function(t) { return String(t || '').slice(0, 5); };
+
+  // Format a: pro Wochentag
   if (rest.opening_hours && typeof rest.opening_hours === 'object') {
     const dayMap = {
       mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
@@ -837,13 +852,82 @@ function buildRestaurantJsonLd(rest, reviews) {
     Object.keys(rest.opening_hours).forEach(function(day) {
       const code = dayMap[String(day).toLowerCase()];
       const v = rest.opening_hours[day];
-      if (code && v && v.open && v.close) {
-        specs.push(code + ' ' + v.open + '-' + v.close);
-      }
+      if (code && v && v.open && v.close) specs.push(code + ' ' + hhmm(v.open) + '-' + hhmm(v.close));
     });
-    if (specs.length) item.openingHours = specs;
+    if (specs.length) {
+      return { specs: specs, text: specs.join(', ').replace(/-/g, '–') + ' Uhr' };
+    }
   }
-  return item;
+
+  // Format b: taegliche Zeiten + optionale Mittagspause
+  if (rest.opening_time && rest.closing_time) {
+    const auf = hhmm(rest.opening_time);
+    const zu = hhmm(rest.closing_time);
+    const oh = rest.opening_hours || {};
+    const pause = oh.pause_enabled !== false && oh.pause_start && oh.pause_end
+      ? { von: hhmm(oh.pause_start), bis: hhmm(oh.pause_end) }
+      : null;
+    if (pause && pause.von > auf && pause.bis < zu) {
+      return {
+        specs: ['Mo-Su ' + auf + '-' + pause.von, 'Mo-Su ' + pause.bis + '-' + zu],
+        text: 'täglich ' + auf + '–' + pause.von + ' und ' + pause.bis + '–' + zu + ' Uhr'
+      };
+    }
+    return { specs: ['Mo-Su ' + auf + '-' + zu], text: 'täglich ' + auf + '–' + zu + ' Uhr' };
+  }
+  return leer;
+}
+
+// FAQ fuer die Restaurant-Seite - beantwortet exakt die Fragen, die Leute
+// (und Sprachassistenten) googeln: "hat X geoeffnet", "kann man bei X
+// reservieren", "liefert X". NUR Antworten, die durch echte Daten gedeckt
+// sind - keine erfundenen Angaben.
+function buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems) {
+  const faqs = [];
+  const oeff = parseOeffnungszeiten(rest);
+
+  if (oeff.text) {
+    faqs.push({
+      q: 'Wann hat ' + name + ' in ' + cityRaw + ' geöffnet?',
+      a: name + ' hat ' + oeff.text + ' geöffnet. Ob gerade offen ist und ob Bestellungen angenommen werden, zeigt das Live-Profil auf ' + BRAND + '.'
+    });
+  }
+  faqs.push({
+    q: 'Kann man bei ' + name + ' online einen Tisch reservieren?',
+    a: 'Ja – auf ' + BRAND + ' reservierst du kostenlos und ohne Anmeldung einen Tisch bei ' + name + ': Datum, Uhrzeit und Personenzahl wählen, Bestätigung kommt sofort per E-Mail.'
+  });
+  if (menuItems.length) {
+    const beliebt = menuItems.filter(function(it) { return it.is_popular; }).slice(0, 3)
+      .map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
+    faqs.push({
+      q: 'Was steht bei ' + name + ' auf der Speisekarte?',
+      a: 'Die Speisekarte von ' + name + ' umfasst online ' + menuItems.length + ' Gerichte' +
+        (beliebt.length ? ' – besonders beliebt: ' + beliebt.join(', ') + '.' : '.') +
+        ' Alle Preise und Optionen stehen auf der Profilseite bei ' + BRAND + '.'
+    });
+    faqs.push({
+      q: 'Kann man bei ' + name + ' in ' + cityRaw + ' online bestellen?',
+      a: 'Ja – Bestellungen zur Abholung' + (rest.delivery_fee != null ? ' oder Lieferung' : '') + ' gehen direkt online über ' + BRAND + ', ohne App-Download und ohne Preisaufschlag.'
+    });
+  }
+  if (rest.street || rest.zip) {
+    faqs.push({
+      q: 'Wo finde ich ' + name + ' in ' + cityRaw + '?',
+      a: name + ' liegt in ' + [safeText(rest.street, ''), safeText(rest.zip, ''), cityRaw].filter(function(s) { return s; }).join(', ') +
+        (rest.phone ? '. Telefonisch erreichbar unter ' + rest.phone + '.' : '.')
+    });
+  }
+  return faqs;
+}
+
+// Sichtbare Oeffnungszeiten auf der Restaurant-Seite (gleiche Quelle wie
+// das JSON-LD - Google mag es, wenn Markup und Seite dasselbe sagen).
+function renderOeffnungszeitenHtml(rest, name) {
+  const oeff = parseOeffnungszeiten(rest);
+  if (!oeff.text) return '';
+  return '<h2>Öffnungszeiten von ' + escapeHtml(name) + '</h2>\n' +
+    '<p>' + escapeHtml(name) + ' hat ' + escapeHtml(oeff.text) + ' geöffnet. ' +
+    'Feiertage und Betriebsferien können abweichen – das Live-Profil zeigt, ob gerade geöffnet ist.</p>\n';
 }
 
 function detectCategoryForRest(rest) {
@@ -1043,6 +1127,8 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     restJsonLd.hasMenu = SITE_URL + '/' + slug + '#speisekarte';
   }
   const menuJsonLd = buildMenuJsonLd(rest, menuItems);
+  const faqs = buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems);
+  const faqLd = buildFaqJsonLd(faqs);
   const breadcrumbCrumbs = [
     { name: 'Startseite', url: SITE_URL + '/' },
     { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
@@ -1084,6 +1170,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(restJsonLd) + '</script>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
+    (faqs.length ? '<script type="application/ld+json">' + jsonEscape(faqLd) + '</script>\n' : '') +
     // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
     // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
     // laesst sich der Redirect zum Anschauen ueberspringen.
@@ -1115,6 +1202,10 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
     '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
+    renderOeffnungszeitenHtml(rest, name) +
+    (faqs.length
+      ? '<h2>Häufige Fragen zu ' + escapeHtml(name) + '</h2>\n' + renderFaqAccordion(faqs) + '\n'
+      : '') +
     renderReviewsHtml(rest, reviews) + '\n' +
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
@@ -1127,7 +1218,15 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 
   const filename = slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
-  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length };
+  // lastmod aus den echten Daten (Google honoriert ehrliche Aenderungsdaten):
+  // juengstes Datum aus Restaurant-Aenderung und neuester Bewertung.
+  const daten = [rest.updated_at, rest.created_at]
+    .concat(reviews.map(function(rv) { return rv && rv.created_at; }))
+    .map(function(d) { return String(d || '').slice(0, 10); })
+    .filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
+    .sort();
+  const lastmod = daten.length ? daten[daten.length - 1] : null;
+  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length, lastmod: lastmod };
 }
 
 // ==================== PROSPECT / VERZEICHNIS-SEITEN ====================
@@ -1422,9 +1521,17 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
   const labelL = isEn ? (cat.labelEn || cat.label) : cat.label;
   const descEn = cat.descriptionEn || cat.description;
 
-  const title = isEn
-    ? pluralL + ' in ' + city.name + ' – order online | ' + BRAND
-    : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND;
+  // Titel mit echter Anzahl + Jahr: "Die 7 besten Pizzerien in Emden (2026)"
+  // klickt nachweislich besser als ein generischer Titel - Anzahl und Jahr
+  // sind ECHT (Anzahl = gelistete Betriebe, Jahr = Build-Zeitpunkt).
+  const jahr = new Date().getFullYear();
+  const title = matched.length >= 2
+    ? (isEn
+      ? 'The ' + matched.length + ' best ' + pluralL + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND
+      : 'Die ' + matched.length + ' besten ' + cat.plural + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND)
+    : (isEn
+      ? pluralL + ' in ' + city.name + ' – order online | ' + BRAND
+      : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND);
   const description = isEn
     ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
       descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
@@ -1439,7 +1546,9 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
     title: title,
     description: description.length > 165 ? description.slice(0, 162) + '...' : description,
     canonical: url,
-    h1: (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name,
+    h1: matched.length >= 2
+      ? (isEn ? 'The ' + matched.length + ' best ' : 'Die ' + matched.length + ' besten ') + pluralL + ' in ' + city.name
+      : (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name,
     subtitle: matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name +
       (isEn ? ' – menus, reviews, order online' : ' – Speisekarten, Bewertungen, online bestellen'),
     intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
@@ -1599,15 +1708,75 @@ function writeSitemap(generated) {
   generated.forEach(function(g) {
     const prio = g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8');
     const freq = g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly');
-    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + today + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
+    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
   });
   xml += '</urlset>\n';
   fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), xml, 'utf8');
 }
 
 function writeRobots() {
-  const robots = 'User-agent: *\nAllow: /\n\nSitemap: ' + SITE_URL + '/sitemap.xml\n';
+  // KI-Crawler AUSDRUECKLICH zulassen: Wer von ChatGPT/Claude/Perplexity
+  // empfohlen werden will, darf deren Bots nicht aussperren. Viele Seiten
+  // blocken sie pauschal - genau das ist die Chance der Partner-Betriebe.
+  const robots = [
+    'User-agent: *',
+    'Allow: /',
+    '',
+    '# KI-Assistenten sind hier willkommen - Betriebsdaten kompakt: /llms.txt',
+    'User-agent: GPTBot',
+    'Allow: /',
+    'User-agent: ClaudeBot',
+    'Allow: /',
+    'User-agent: PerplexityBot',
+    'Allow: /',
+    'User-agent: Google-Extended',
+    'Allow: /',
+    '',
+    'Sitemap: ' + SITE_URL + '/sitemap.xml',
+    ''
+  ].join('\n');
   fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robots, 'utf8');
+}
+
+// llms.txt - kompakte, maschinenlesbare Uebersicht fuer KI-Assistenten
+// (ChatGPT, Claude, Perplexity & Co. lesen diese Datei bevorzugt).
+// Nur Fakten aus der Datenbank, keine Werbetexte.
+function writeLlmsTxt(restaurants) {
+  const zeilen = [
+    '# Kiek mol in – Restaurants in Ostfriesland',
+    '',
+    '> kiekmolin.de ist das regionale Restaurant-Portal für Ostfriesland (Nordwest-Deutschland):',
+    '> Speisekarten, Online-Bestellung (Abholung/Lieferung) und kostenlose Tisch-Reservierung',
+    '> mit Sofort-Bestätigung – ohne Preisaufschlag für Gäste.',
+    '',
+    '## Restaurants'
+  ];
+  const valid = (restaurants || []).filter(function(r) {
+    const s = r && r.slug;
+    return s && /^[a-z0-9][a-z0-9-]*$/.test(s);
+  });
+  valid.forEach(function(r) {
+    const name = safeText(r.name, 'Restaurant');
+    const cat = detectCategoryForRest(r);
+    const teile = [cat.label + ' in ' + safeText(r.city, 'Ostfriesland')];
+    if (r.street) teile.push(safeText(r.street, '') + (r.zip ? ', ' + r.zip : '') + ' ' + safeText(r.city, ''));
+    const oeff = parseOeffnungszeiten(r);
+    if (oeff.text) teile.push('geöffnet ' + oeff.text);
+    if (r.phone) teile.push('Tel. ' + r.phone);
+    teile.push('Online bestellen & Tisch reservieren');
+    zeilen.push('- [' + name + '](' + SITE_URL + '/' + r.slug + '): ' + teile.join('. ') + '.');
+  });
+  zeilen.push('', '## Orte');
+  CITIES.forEach(function(c) {
+    zeilen.push('- [Restaurants in ' + c.name + '](' + SITE_URL + '/restaurants-' + c.slug + ')');
+  });
+  zeilen.push('', '## Kategorien');
+  CATEGORIES.forEach(function(c) {
+    zeilen.push('- [' + c.plural + ' in Ostfriesland](' + SITE_URL + '/' + c.slug + '-ostfriesland)');
+  });
+  zeilen.push('');
+  fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), zeilen.join('\n'), 'utf8');
+  return valid.length;
 }
 
 // IndexNow: Suchmaschinen (Bing, Yandex u.a. -> Google liest IndexNow-Daten
@@ -1814,7 +1983,13 @@ async function main() {
   writeSitemap(generated);
   writeRobots();
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
-  console.log('[seo] + robots.txt');
+  console.log('[seo] + robots.txt (KI-Crawler ausdruecklich erlaubt)');
+  try {
+    const llmsCount = writeLlmsTxt(restaurants);
+    console.log('[seo] + llms.txt (' + llmsCount + ' Betriebe fuer KI-Assistenten)');
+  } catch (e) {
+    console.warn('[seo] WARN: llms.txt fehlgeschlagen -', e.message);
+  }
 
   // Suchmaschinen sofort anstossen (nur wenn wirklich Seiten gebaut wurden)
   if (generated.length) {
@@ -1823,8 +1998,25 @@ async function main() {
   console.log('[seo] Done. Generated:', generated.length, 'Skipped (empty):', skipped);
 }
 
-main().catch(function(err) {
-  console.error('[seo] FATAL:', err && err.stack ? err.stack : err);
-  // fault tolerant: deploy soll nicht scheitern
-  process.exit(0);
-});
+// Direkt aufgerufen (Netlify-Build): Seiten bauen. Als Modul geladen
+// (test-seo.js): nur die Funktionen exportieren, nichts ausfuehren.
+if (require.main === module) {
+  main().catch(function(err) {
+    console.error('[seo] FATAL:', err && err.stack ? err.stack : err);
+    // fault tolerant: deploy soll nicht scheitern
+    process.exit(0);
+  });
+} else {
+  module.exports = {
+    parseOeffnungszeiten: parseOeffnungszeiten,
+    buildRestaurantFaqs: buildRestaurantFaqs,
+    buildRestaurantJsonLd: buildRestaurantJsonLd,
+    generateRestaurantPage: generateRestaurantPage,
+    generateCityCategoryPage: generateCityCategoryPage,
+    writeLlmsTxt: writeLlmsTxt,
+    writeSitemap: writeSitemap,
+    writeRobots: writeRobots,
+    CITIES: CITIES,
+    CATEGORIES: CATEGORIES
+  };
+}

@@ -80,6 +80,7 @@ class AnrufSitzung {
 
       clearTimeout(this.startWaechter);
       this.streamSid = msg.start.streamSid;
+      this.startZeit = Date.now();
       this.anrufer = params.anrufer || '';
       this.log('Anruf gestartet von ' + (this.anrufer || 'unbekannt') + ' fuer ' + this.restaurant.name);
 
@@ -198,6 +199,7 @@ class AnrufSitzung {
 
   aufraeumen() {
     if (this.deepgram) { this.deepgram.schliessen(); this.deepgram = null; }
+    this.statistikSchreiben();
     if (this.logZeilen.length) {
       try {
         fs.mkdirSync(LOG_ORDNER, { recursive: true });
@@ -206,6 +208,30 @@ class AnrufSitzung {
       } catch (_e) { /* Log ist nice-to-have */ }
       this.logZeilen = [];
     }
+  }
+
+  // Ergebnis des Anrufs anonym festhalten (logs/statistik.jsonl) - OHNE
+  // personenbezogene Daten, darf also dauerhaft bleiben. Grundlage fuer den
+  // Umsatz-Nachweis in Agentur-App und Monats-Report: jeder angenommene
+  // Anruf waere ohne den Telefon-Retter womoeglich ein verlorener Gast gewesen.
+  statistikSchreiben() {
+    if (!this.dialog || this.statistikGeschrieben) return;
+    this.statistikGeschrieben = true;
+    try {
+      fs.mkdirSync(LOG_ORDNER, { recursive: true });
+      const s = this.dialog.statistik || {};
+      fs.appendFileSync(path.join(LOG_ORDNER, 'statistik.jsonl'), JSON.stringify({
+        zeit: new Date().toISOString(),
+        restaurant_id: this.restaurant && this.restaurant.id || null,
+        restaurant: this.restaurant && this.restaurant.name || null,
+        dauer_s: this.startZeit ? Math.round((Date.now() - this.startZeit) / 1000) : null,
+        reservierungen: s.reservierungen || 0,
+        gaeste: s.gaeste || 0,
+        bestellungen: s.bestellungen || 0,
+        bestellwert: Math.round((s.bestellwert || 0) * 100) / 100,
+        rueckrufe: s.rueckrufe || 0
+      }) + '\n');
+    } catch (_e) { /* Statistik ist nice-to-have */ }
   }
 }
 

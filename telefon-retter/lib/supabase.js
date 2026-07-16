@@ -122,7 +122,48 @@ async function neuerBestellArtikel(payload) {
   return resilienterInsert('order_items', payload);
 }
 
+// --- Rueckruf-Wuensche (fuer die Agentur-App) ------------------------------------
+// Offene Rueckrufe aus der eigenen callbacks-Tabelle PLUS die Fallback-Eintraege,
+// die als pending-Reservierung mit RUECKRUF-Markierung gespeichert wurden.
+async function offeneRueckrufe() {
+  let callbacks = [];
+  try {
+    callbacks = (await supabaseGet('callbacks?status=eq.open&select=*&order=created_at.desc')).map((c) => ({
+      id: c.id, quelle: 'callbacks', restaurant_id: c.restaurant_id,
+      name: c.name || '', telefon: c.phone || '', anliegen: c.topic || '', zeit: c.created_at || null
+    }));
+  } catch (_e) { /* Tabelle gibt es evtl. (noch) nicht - dann nur der Fallback */ }
+
+  let fallback = [];
+  try {
+    fallback = (await supabaseGet(
+      'reservations?source=eq.telefon&status=eq.pending&guest_name=like.*RUECKRUF*&select=id,restaurant_id,guest_name,guest_phone,notes,created_at&order=created_at.desc'
+    )).map((r) => ({
+      id: r.id, quelle: 'reservations', restaurant_id: r.restaurant_id,
+      name: String(r.guest_name || '').replace(/\s*\(RUECKRUF\)\s*/, ''),
+      telefon: r.guest_phone || '',
+      anliegen: String(r.notes || '').replace(/^\[RUECKRUF ERBETEN\]\s*/, ''),
+      zeit: r.created_at || null
+    }));
+  } catch (_e) { /* dann eben nur callbacks */ }
+
+  return callbacks.concat(fallback);
+}
+
+// Rueckruf als erledigt markieren. NUR fuer die eigene callbacks-Tabelle -
+// Fallback-Eintraege in reservations verwaltet der Wirt in seinem Dashboard.
+async function rueckrufErledigt(id) {
+  const { url } = konfig();
+  const antwort = await fetch(url + '/rest/v1/callbacks?id=eq.' + encodeURIComponent(id), {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify({ status: 'done' })
+  });
+  return { ok: antwort.ok, status: antwort.status };
+}
+
 module.exports = {
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
-  neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert
+  neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,
+  offeneRueckrufe, rueckrufErledigt
 };

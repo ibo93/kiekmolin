@@ -57,6 +57,12 @@
   td { border-bottom: 1px solid var(--linie); padding: 9px 8px; }
   td a { color: var(--tinte); font-weight: 600; }
   .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
+  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .zahl { border: 1px solid var(--linie); border-radius: 10px; padding: 14px 16px; background: #fff; }
+  .zahl .wert { font-size: 26px; font-weight: 700; }
+  .zahl .wert.akzent { color: var(--akzent); }
+  .zahl .label { font-size: 11.5px; color: var(--grau); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 4px; }
   .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
   .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
 </style>
@@ -68,6 +74,10 @@
   <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
 </header>
 <main>
+  <h2>Übersicht · <span id="uMonat"></span></h2>
+  <div class="zahlen" id="uebersicht"><div class="leer">Lade Übersicht…</div></div>
+  <div class="status" id="automatikInfo"></div>
+
   <h2>Telefon-Retter</h2>
   <div class="telefon" id="telefonKarte">
     <div class="punkt" id="telefonPunkt"></div>
@@ -76,6 +86,9 @@
   </div>
 
   <div id="listeAnsicht">
+    <h2>Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
+    <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
+
     <h2>Kunden</h2>
     <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
       <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)" style="flex:1;margin-bottom:0">
@@ -83,6 +96,10 @@
     </div>
     <div class="status" id="alleStatus"></div>
     <div class="kunden" id="kundenListe"></div>
+
+    <h2>Interessenten · Neukunden-Pipeline</h2>
+    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
+    <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
 
   <div id="detailAnsicht" style="display:none">
@@ -98,8 +115,16 @@
       <div class="knopfleiste">
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
+        <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
+        <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:#fff;color:var(--tinte)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
+
+      <h2>Telefon-Retter · dieser Monat</h2>
+      <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
+
+      <h2>Nächste Schritte (aus dem letzten Report)</h2>
+      <ol class="fragen" id="dSchritte"></ol>
 
       <h2>Report-Historie</h2>
       <div id="dHistorie"></div>
@@ -123,6 +148,140 @@ async function api(pfad, optionen) {
   return antwort.json();
 }
 
+// ---------------- Übersicht (Dashboard-Kopf) ----------------
+async function ladeUebersicht() {
+  try {
+    const u = await api('/api/uebersicht');
+    document.getElementById('uMonat').textContent = u.monatLabel;
+    document.getElementById('uebersicht').innerHTML = `
+      <div class="zahl"><div class="wert">${u.kunden}</div>
+        <div class="label">Kunden</div></div>
+      <div class="zahl"><div class="wert">${u.reportsMonat}<span style="font-size:15px;color:var(--grau)"> / ${u.kunden}</span></div>
+        <div class="label">Reports diesen Monat</div>
+        <div class="sub">${u.reportsMonat < u.kunden ? 'noch ' + (u.kunden - u.reportsMonat) + ' offen' : 'alle erledigt'}</div></div>
+      <div class="zahl"><div class="wert akzent">${euroWert(u.telefonUmsatz)}</div>
+        <div class="label">Telefon-Umsatz (alle Kunden)</div>
+        <div class="sub">geschätzt, Quelle: Telefon-Retter</div></div>
+      <div class="zahl"><div class="wert">${u.offeneRueckrufe}</div>
+        <div class="label">Offene Rückrufe</div>
+        <div class="sub">${u.offeneRueckrufe ? 'heute abarbeiten!' : 'nichts offen'}</div></div>
+      <div class="zahl"><div class="wert" style="color:${u.kundenInGefahr ? '#dc2626' : 'inherit'}">${u.kundenInGefahr || 0}</div>
+        <div class="label">Kunden in Gefahr</div>
+        <div class="sub">${u.kundenInGefahr ? 'rote Ampel – heute anrufen!' : 'alle stabil'}</div></div>`;
+    const auto = document.getElementById('automatikInfo');
+    auto.textContent = (u.automatik.an
+      ? 'Automatik AN: Monats-Reports laufen am ' + u.automatik.tag + '. jeden Monats von selbst · nächster Lauf: ' + (u.automatik.naechsterLauf || '–') +
+        (u.automatik.letzterLaufMonat ? ' · letzter automatischer Lauf: ' + u.automatik.letzterLaufMonat : '')
+      : 'Automatik aus (AUTO_REPORT_TAG in .env setzen, z.B. 1 = am Monatsersten)') +
+      ' · E-Mail-Versand: ' + (u.emailVersand ? 'aktiv (Reports gehen automatisch an die Wirte)' : 'aus (RESEND_API_KEY in .env setzen)');
+  } catch (e) {
+    document.getElementById('uebersicht').innerHTML = '<div class="leer">Übersicht nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+// ---------------- Offene Rückrufe ----------------
+async function ladeRueckrufe() {
+  const ziel = document.getElementById('rueckrufListe');
+  const anzahl = document.getElementById('rueckrufAnzahl');
+  try {
+    const liste = await api('/api/rueckrufe');
+    anzahl.style.display = liste.length ? '' : 'none';
+    anzahl.textContent = liste.length;
+    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine offenen Rückrufe – alles abgearbeitet.</div>'; return; }
+    ziel.innerHTML = `<table><tr><th>Wann</th><th>Restaurant</th><th>Name</th><th>Nummer</th><th>Anliegen</th><th></th></tr>
+      ${liste.map(r => `<tr id="rr-${r.id}">
+        <td style="white-space:nowrap">${r.zeit ? new Date(r.zeit).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–'}</td>
+        <td>${r.restaurant || ''}</td>
+        <td>${r.name || '–'}</td>
+        <td style="white-space:nowrap"><a href="tel:${r.telefon}">${r.telefon}</a></td>
+        <td>${r.anliegen || ''}</td>
+        <td>${r.quelle === 'callbacks'
+          ? '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="rueckrufErledigt(\'' + r.id + '\', \'' + r.quelle + '\')">Erledigt</button>'
+          : '<span style="font-size:11.5px;color:var(--grau)">im Wirt-Dashboard erledigen</span>'}</td>
+      </tr>`).join('')}</table>`;
+  } catch (e) { ziel.innerHTML = '<div class="leer">Rückrufe nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+async function rueckrufErledigt(id, quelle) {
+  try {
+    await api('/api/rueckruf-erledigt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, quelle }) });
+    const zeile = document.getElementById('rr-' + id);
+    if (zeile) zeile.remove();
+    ladeUebersicht();
+  } catch (e) { alert('Fehler: ' + e.message); }
+}
+
+// ---------------- Report per E-Mail + Onboarding ----------------
+async function reportSenden() {
+  const btn = document.getElementById('btnMail');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Report wird gesendet…';
+  try {
+    const r = await api('/api/report-senden', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.textContent = r.hinweis || 'Report wurde per E-Mail an den Wirt gesendet.';
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = 'Senden fehlgeschlagen: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+async function onboardingStarten() {
+  const btn = document.getElementById('btnOnboarding');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Onboarding läuft (Aufbereitung + Tischkarte + erster Report)…';
+  try {
+    const r = await api('/api/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.innerHTML = r.schritte.map(s =>
+      (s.ok ? '✓' : '✗') + ' ' + s.schritt + (s.detail ? ' – ' + s.detail : '') + (s.link ? ' – <a href="' + s.link + '" target="_blank">öffnen</a>' : '')
+    ).join('<br>');
+    const warten = async () => {
+      const job = await api('/api/job/' + r.jobId);
+      if (job.status === 'laeuft') { setTimeout(warten, 2000); return; }
+      btn.disabled = false;
+      if (job.status === 'fertig') { window.open(job.html, '_blank'); zeigeKunde(aktuellerKunde.id); }
+    };
+    warten();
+  } catch (e) {
+    btn.disabled = false;
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
+}
+
+// ---------------- Interessenten (Neukunden-Pipeline) ----------------
+async function ladeInteressenten() {
+  const ziel = document.getElementById('interessentenListe');
+  try {
+    const liste = await api('/api/interessenten');
+    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – neue Betriebe dort eintragen.</div>'; return; }
+    ziel.innerHTML = `<table><tr><th>Betrieb</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
+      ${liste.map((p, i) => `<tr>
+        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}</td>
+        <td>${p.stadt}</td>
+        <td>${p.kategorie}</td>
+        <td style="white-space:nowrap">${p.telefon ? '<a href="tel:' + p.telefon + '">' + p.telefon + '</a>' : '–'}</td>
+        <td id="pitch-${i}">${p.pitch
+          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">neu</button>'
+          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">Pitch erzeugen</button>'}</td>
+      </tr>`).join('')}</table>`;
+  } catch (e) { ziel.innerHTML = '<div class="leer">Interessenten nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+async function pitchErzeugen(name, i) {
+  const zelle = document.getElementById('pitch-' + i);
+  try {
+    zelle.textContent = 'erzeuge…';
+    const r = await api('/api/pitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    zelle.innerHTML = '<a href="' + r.link + '" target="_blank">öffnen</a>';
+    window.open(r.link, '_blank');
+  } catch (e) { zelle.textContent = 'Fehler: ' + e.message; }
+}
+
 // ---------------- Telefon-Retter-Status ----------------
 async function ladeTelefon() {
   try {
@@ -131,10 +290,14 @@ async function ladeTelefon() {
     document.getElementById('telefonInfo').textContent = t.laeuft
       ? 'Läuft · betreut "' + t.restaurant + '" · Stufe ' + t.stufe
       : 'Server ist aus (starten: cd telefon-retter && node server.js)';
+    const s = t.statistik || {};
+    const statistikText = s.anrufeMonat
+      ? s.anrufeHeute + ' Anruf' + (s.anrufeHeute === 1 ? '' : 'e') + ' heute · ' + s.anrufeMonat + ' diesen Monat · '
+      : '';
     const a = document.getElementById('telefonAnrufe');
-    a.innerHTML = t.anrufe.length
-      ? 'Letzte Anrufe: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
-      : 'Noch keine Anruf-Protokolle';
+    a.innerHTML = statistikText + (t.anrufe.length
+      ? 'Letzte Protokolle: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
+      : 'Noch keine Anruf-Protokolle');
   } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
 }
 
@@ -144,18 +307,28 @@ async function ladeKunden() {
   zeichneKunden();
 }
 
+// Gesundheits-Ampel (Churn-Schutz): gruen = alles gut, gelb = hinschauen,
+// rot = Kunde in Gefahr. Die Gruende stehen im Tooltip.
+function ampel(g) {
+  if (!g) return '';
+  const farbe = { gruen: '#16a34a', gelb: '#eab308', rot: '#dc2626' }[g.stufe] || '#ccc';
+  return '<span title="' + (g.gruende || []).join(' · ').replace(/"/g, '&quot;') + '" ' +
+    'style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + farbe + ';margin-right:6px"></span>';
+}
+
 function zeichneKunden() {
   const filter = (document.getElementById('suche').value || '').toLowerCase();
   const liste = document.getElementById('kundenListe');
   const passende = kunden.filter(k => (k.name + ' ' + k.stadt).toLowerCase().includes(filter));
   liste.innerHTML = passende.map(k => `
     <div class="kunde" onclick="zeigeKunde('${k.id}')">
-      <h3>${k.name}</h3>
+      <h3>${ampel(k.gesundheit)}${k.name}</h3>
       <div class="meta">${k.kategorie}${k.stadt ? ' · ' + k.stadt : ''}</div>
       <div class="zeile">
         <span class="badge${k.reports ? ' akzent' : ''}">${k.reports ? k.reports + ' Report' + (k.reports > 1 ? 's' : '') : 'noch kein Report'}</span>
         <span style="color:var(--grau)">${k.letzterReport && k.letzterReport.quote && k.letzterReport.quote.prozent != null ? 'Quote ' + k.letzterReport.quote.prozent + '%' : ''}</span>
       </div>
+      ${k.gesundheit && k.gesundheit.stufe !== 'gruen' ? '<div style="margin-top:8px;font-size:12px;color:' + (k.gesundheit.stufe === 'rot' ? '#dc2626' : '#a16207') + '">' + (k.gesundheit.gruende[0] || '') + '</div>' : ''}
     </div>`).join('') || '<div class="leer">Keine Kunden gefunden.</div>';
 }
 
@@ -170,13 +343,71 @@ async function zeigeKunde(id) {
   document.getElementById('dMeta').textContent = [aktuellerKunde.adresse, aktuellerKunde.stadt, aktuellerKunde.telefon].filter(Boolean).join(' · ');
   document.getElementById('dStatus').textContent = '';
   document.getElementById('dFragen').innerHTML = aktuellerKunde.fragen.map(f => '<li>„' + f + '"</li>').join('');
+  document.getElementById('dSchritte').innerHTML = (aktuellerKunde.naechsteSchritte || []).length
+    ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
+    : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
+  ladeTelefonZahlen(aktuellerKunde.id);
+}
+
+// ---------------- Umsatz-Nachweis des Telefon-Retters ----------------
+function euroWert(n) { return Number(n || 0).toFixed(2).replace('.', ',') + ' €'; }
+
+async function ladeTelefonZahlen(id) {
+  const ziel = document.getElementById('dTelefonZahlen');
+  ziel.innerHTML = '<div class="leer">Lade Zahlen…</div>';
+  try {
+    const z = await api('/api/telefonzahlen/' + encodeURIComponent(id));
+    const aktiv = (z.reservierungen || 0) + (z.bestellungen || 0) + (z.rueckrufe || 0);
+    if (z.keineDaten || !aktiv) {
+      ziel.innerHTML = '<div class="leer">Noch keine Telefon-Aktivität in diesem Monat – Zahlen erscheinen, sobald der Telefon-Retter Anrufe annimmt.</div>';
+      return;
+    }
+    ziel.innerHTML = `
+      <div class="zahl"><div class="wert akzent">${euroWert(z.gesamtGeschaetzt)}</div>
+        <div class="label">Umsatz am Telefon</div>
+        <div class="sub">geschätzt: Bestellwert + ${z.gaeste} Gäste × ${euroWert(z.bonProGast)}</div></div>
+      <div class="zahl"><div class="wert">${z.reservierungen}</div>
+        <div class="label">Reservierungen</div>
+        <div class="sub">${z.gaeste} Gäste am Tisch</div></div>
+      <div class="zahl"><div class="wert">${z.bestellungen}</div>
+        <div class="label">Bestellungen</div>
+        <div class="sub">${euroWert(z.bestellwert)} Bestellwert (echt)${Array.isArray(z.topGerichte) && z.topGerichte.length ? '<br>Top: ' + z.topGerichte.map(g => g.menge + '× ' + g.name).join(', ') : ''}</div></div>
+      <div class="zahl"><div class="wert">${z.rueckrufe || 0}</div>
+        <div class="label">Rückruf-Wünsche</div>
+        <div class="sub">kein Anruf ging verloren</div></div>`;
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+// Entwicklungs-Balken: Quote (und Telefon-Umsatz) ueber die Monate -
+// der Fortschritt auf einen Blick, gleiche Daten wie im Report.
+function verlaufBalken(h) {
+  const eintraege = h.slice(0, 6).reverse(); // aelteste links
+  if (eintraege.length < 2) return '';
+  const balkenReihe = (werte, farbe, einheit) => {
+    const max = Math.max(...werte.map(w => w.wert || 0)) || 1;
+    return '<div style="display:flex;align-items:flex-end;gap:8px;min-height:76px">' + werte.map(w => {
+      const hoehe = w.wert == null ? 2 : Math.max(4, Math.round((w.wert / max) * 54));
+      const label = w.wert == null ? '–' : (einheit === '%' ? w.wert + '%' : Math.round(w.wert) + ' €');
+      return '<div style="flex:1;text-align:center"><div style="font-size:10.5px;font-weight:700">' + label + '</div>' +
+        '<div style="height:' + hoehe + 'px;background:' + (w.wert == null ? '#e4e4e4' : farbe) + ';border-radius:3px 3px 0 0;width:60%;max-width:38px;margin:2px auto 0"></div>' +
+        '<div style="font-size:9.5px;color:var(--grau);margin-top:3px;white-space:nowrap">' + w.monat.slice(5) + '/' + w.monat.slice(2, 4) + '</div></div>';
+    }).join('') + '</div>';
+  };
+  const quote = eintraege.map(e => ({ monat: e.monat, wert: e.quote && e.quote.prozent != null ? e.quote.prozent : null }));
+  const umsatz = eintraege.map(e => ({ monat: e.monat, wert: e.telefon ? (e.telefon.gesamtGeschaetzt || 0) : null }));
+  return '<div style="display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px">' +
+    '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Quote-Verlauf</div>' + balkenReihe(quote, 'var(--akzent)', '%') + '</div>' +
+    (umsatz.some(w => w.wert) ? '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Telefon-Umsatz-Verlauf</div>' + balkenReihe(umsatz, '#111', '€') + '</div>' : '') +
+    '</div>';
 }
 
 function zeichneHistorie() {
   const h = aktuellerKunde.historie;
-  document.getElementById('dHistorie').innerHTML = h.length ? `
+  document.getElementById('dHistorie').innerHTML = h.length ? verlaufBalken(h) + `
     <table><tr><th>Monat</th><th>Quote</th><th>Report</th></tr>
     ${h.map(e => `<tr>
       <td>${e.label}</td>
@@ -284,7 +515,11 @@ document.getElementById('suche').addEventListener('input', zeichneKunden);
 if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(1)));
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
+ladeUebersicht();
+ladeRueckrufe();
+ladeInteressenten();
 setInterval(ladeTelefon, 15000);
+setInterval(ladeRueckrufe, 60000);
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
 fetch('/api/kunden').then(r => r.json()).then(k => {
   if (k.some(x => String(x.id).startsWith('00000000'))) document.getElementById('demoBadge').style.display = '';

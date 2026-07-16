@@ -23,6 +23,14 @@ const supabase = require('../sichtbarkeit/lib/supabase');
 const { suchfragen } = require('../sichtbarkeit/lib/fragen');
 const report = require('../sichtbarkeit/lib/report');
 const aufbereitung = require('../sichtbarkeit/lib/aufbereitung');
+const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
+const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus, istDigestFaellig } = require('./lib/automatik');
+const { bauePitchHtml } = require('./lib/pitch');
+const { bewerteKunde } = require('./lib/gesundheit');
+const versand = require('./lib/versand');
+const gbpPosts = require('../sichtbarkeit/lib/gbp-posts');
+// Rueckruf-Wuensche verwaltet das Telefon-Retter-Datenmodul (eigene Tabelle)
+const telefonDb = require('../telefon-retter/lib/supabase');
 
 ladeEnv(); // liest sichtbarkeit/.env
 
@@ -34,6 +42,14 @@ const DATEN_ORDNER = path.join(SICHT_ORDNER, 'data');
 const AUFBEREITUNG_ORDNER = path.join(SICHT_ORDNER, 'aufbereitung');
 const TELEFON_LOGS = path.join(__dirname, '..', 'telefon-retter', 'logs');
 const TELEFON_URL = process.env.TELEFON_URL || 'http://localhost:3100';
+// Monats-Automatik: an diesem Monatstag laufen die Reports fuer ALLE Kunden
+// von selbst (1-28; 0 = Automatik aus). Der Demo-Modus hat eine EIGENE
+// Statusdatei, damit ein Demo-Lauf den echten Monatslauf nicht verschluckt.
+const AUTO_TAG = Math.min(28, parseInt(process.env.AUTO_REPORT_TAG || '1', 10) || 0);
+const AUTO_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'auto-lauf.json');
+const DIGEST_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'digest-stand.json');
+const PITCH_ORDNER = path.join(__dirname, 'pitches');  // Interessenten-Pitches
+const PROSPECTS_DATEI = path.join(__dirname, '..', 'prospects.json');
 
 // ---------------------------------------------------------------- Hilfen ----
 function slugVon(restaurant) {
@@ -83,6 +99,16 @@ async function findeKunde(kennung) {
     alle.find((r) => (r.name || '').toLowerCase().includes(s)) || null;
 }
 
+// Umsatz-Nachweis des Telefon-Retters fuer einen Kunden und Monat.
+// Im Demo-Modus feste Beispielzahlen, damit man die Ansicht ohne Keys sieht.
+async function kundenTelefonZahlen(kunde, monat) {
+  if (DEMO) {
+    const demo = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8'));
+    return Object.assign({ monat }, demo.telefon || {});
+  }
+  return telefonZahlen(kunde.id, monat);
+}
+
 // Historie + vorhandene Report-Dateien eines Kunden
 function kundenHistorie(slug) {
   const eintraege = [];
@@ -95,6 +121,7 @@ function kundenHistorie(slug) {
           monat: d.monat,
           label: report.monatsLabel(d.monat),
           quote: d.quote,
+          telefon: d.telefon || null,
           erstellt: d.erstellt,
           html: dateiFallsVorhanden(slug + '-' + d.monat + '.html'),
           pdf: dateiFallsVorhanden(slug + '-' + d.monat + '.pdf')
@@ -105,8 +132,73 @@ function kundenHistorie(slug) {
   return eintraege;
 }
 
+// Aufbereitung (Teil A) fuer einen Kunden erzeugen - inkl. der monatlichen
+// Google-Business-Beitraege und Bewertungs-Antworten (Marketing to go).
+async function erzeugeAufbereitung(kunde) {
+  let menue = [];
+  if (DEMO) {
+    menue = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'telefon-retter', 'demo', 'demo-daten.json'), 'utf8')).speisekarte;
+  } else {
+    menue = await supabase.speisekarte(kunde.id);
+  }
+  const slug = effektiverSlug(kunde);
+  const ordner = path.join(AUFBEREITUNG_ORDNER, slug);
+  fs.mkdirSync(ordner, { recursive: true });
+  const jsonLd = aufbereitung.baueJsonLd(kunde, menue);
+  fs.writeFileSync(path.join(ordner, 'schema.jsonld'), JSON.stringify(jsonLd, null, 2));
+  fs.writeFileSync(path.join(ordner, 'jsonld-snippet.html'),
+    '<script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n</script>\n');
+  fs.writeFileSync(path.join(ordner, 'beschreibung.txt'), aufbereitung.baueBeschreibung(kunde) + '\n');
+  fs.writeFileSync(path.join(ordner, 'speisekarte.txt'), aufbereitung.baueSpeisekartenText(kunde, menue) + '\n');
+  fs.writeFileSync(path.join(ordner, 'google-business-checkliste.md'), aufbereitung.baueGbpCheckliste(kunde));
+  fs.writeFileSync(path.join(ordner, 'google-posts.md'),
+    gbpPosts.bauePostsMarkdown(Object.assign({}, kunde, { slug: slugVon(kunde) }), menue, { monat: new Date().getMonth() + 1 }));
+  return { ok: true, dateien: fs.readdirSync(ordner), ordner: 'sichtbarkeit/aufbereitung/' + slug };
+}
+
+// Neuesten Report eines Kunden per E-Mail an den Wirt schicken.
+async function sendeNeuestenReport(kunde) {
+  if (!versand.istKonfiguriert()) return { ok: false, fehler: 'RESEND_API_KEY fehlt in sichtbarkeit/.env' };
+  const an = kunde.email;
+  if (!an) return { ok: false, fehler: 'Keine E-Mail-Adresse beim Kunden hinterlegt' };
+  const slug = effektiverSlug(kunde);
+  const historie = kundenHistorie(slug);
+  const neuester = historie[0];
+  if (!neuester) return { ok: false, fehler: 'Noch kein Report vorhanden - erst erzeugen' };
+  const mail = versand.baueReportMail({
+    kunde, monatLabel: neuester.label, quote: neuester.quote, telefon: neuester.telefon
+  });
+  const pdfPfad = path.join(REPORT_ORDNER, slug + '-' + neuester.monat + '.pdf');
+  const htmlPfad = path.join(REPORT_ORDNER, slug + '-' + neuester.monat + '.html');
+  const anhang = fs.existsSync(pdfPfad) ? pdfPfad : (fs.existsSync(htmlPfad) ? htmlPfad : null);
+  return versand.sendeReportMail({ an, betreff: mail.betreff, text: mail.text, html: mail.html, anhangPfad: anhang });
+}
+
 function dateiFallsVorhanden(name) {
   return fs.existsSync(path.join(REPORT_ORDNER, name)) ? '/reports/' + name : null;
+}
+
+function dateiInOrdner(ordner, name) {
+  return fs.existsSync(path.join(ordner, name));
+}
+
+function pitchDateiname(prospect) {
+  return String(prospect.name || 'betrieb')
+    .toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.html';
+}
+
+// "Naechste Schritte" aus dem juengsten Report eines Kunden - dieselbe
+// Logik wie im Report selbst, damit App und PDF eine Sprache sprechen.
+function naechsteSchritteFuer(slug, kunde) {
+  const ordner = path.join(DATEN_ORDNER, slug);
+  if (!fs.existsSync(ordner)) return [];
+  const dateien = fs.readdirSync(ordner).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).sort();
+  if (!dateien.length) return [];
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(ordner, dateien[dateien.length - 1]), 'utf8'));
+    return d.ergebnis ? report.naechsteSchritte(d.ergebnis, kunde) : [];
+  } catch (_e) { return []; }
 }
 
 // -------------------------------------------------- Report-Lauf (ein Kunde) ----
@@ -137,15 +229,23 @@ async function starteReport(kunde) {
         ergebnis = await report.fuehreChecksAus(kunde, sf.fragen);
       }
 
+      jobs[jobId].schritt = 'Telefon-Retter-Zahlen holen';
+      const telefon = await kundenTelefonZahlen(kunde, monat);
+
       const vormonat = report.ladeVormonat(slug, monat);
       report.speichereHistorie(slug, monat, {
         monat, erstellt: new Date().toISOString(),
         restaurant: { name: kunde.name, city: kunde.city, slug },
-        quote: report.quote(ergebnis), ergebnis
+        quote: report.quote(ergebnis), telefon, ergebnis
       });
 
       jobs[jobId].schritt = 'Report rendern';
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat });
+      let verlauf = report.ladeVerlauf(slug, monat, { quote: report.quote(ergebnis), telefon });
+      if (DEMO) {
+        const demoV = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8')).verlauf;
+        if (demoV) verlauf = demoV;
+      }
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
@@ -165,8 +265,11 @@ async function starteReport(kunde) {
   return jobId;
 }
 
-// Batch: Reports fuer ALLE Kunden nacheinander (die Monats-Routine per Klick)
-async function starteBatchReport() {
+// Batch: Reports fuer ALLE Kunden nacheinander (die Monats-Routine per Klick
+// oder per Automatik). mitVersand=true schickt jeden fertigen Report direkt
+// per E-Mail an den Wirt - der komplette Monat laeuft dann ohne Handarbeit.
+async function starteBatchReport(optionen) {
+  const mitVersand = !!(optionen && optionen.mitVersand);
   const jobId = 'alle-' + Date.now();
   jobs[jobId] = { status: 'laeuft', schritt: 'Kundenliste laden', batch: true };
 
@@ -185,7 +288,12 @@ async function starteBatchReport() {
             await new Promise((r) => setTimeout(r, 1000));
           }
           const einzel = jobs[einzelJobId] || {};
-          ergebnisse.push({ kunde: kunde.name, quote: einzel.quote || null, html: einzel.html || null, fehler: einzel.fehler || null });
+          let mail = null;
+          if (mitVersand && !DEMO && !einzel.fehler) {
+            const gesendet = await sendeNeuestenReport(kunde);
+            mail = gesendet.ok ? 'gesendet' : gesendet.fehler;
+          }
+          ergebnisse.push({ kunde: kunde.name, quote: einzel.quote || null, html: einzel.html || null, fehler: einzel.fehler || null, mail });
         } catch (e) {
           ergebnisse.push({ kunde: kunde.name, fehler: e.message });
         }
@@ -199,9 +307,159 @@ async function starteBatchReport() {
   return jobId;
 }
 
+// ------------------------------------------------- Monats-Automatik ----
+// Einmal pro Monat (am AUTO_TAG) laufen die Reports fuer alle Kunden von
+// selbst. Der letzte Lauf steht in data/auto-lauf.json, damit ein Neustart
+// des Servers nicht zu Doppel-Laeufen fuehrt.
+function liesAutoStand() {
+  try { return JSON.parse(fs.readFileSync(AUTO_DATEI, 'utf8')); } catch (_e) { return {}; }
+}
+
+function schreibeAutoStand(stand) {
+  try {
+    fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+    fs.writeFileSync(AUTO_DATEI, JSON.stringify(stand, null, 2));
+  } catch (_e) { /* dann laeuft es notfalls doppelt - besser als gar nicht */ }
+}
+
+async function pruefeAutomatik() {
+  const jetzt = new Date();
+  const stand = liesAutoStand();
+  if (!sollAutoLaufen(jetzt, stand.letzterLaufMonat || null, AUTO_TAG)) return;
+  // Stand SOFORT schreiben (nicht erst nach dem Lauf), sonst startet die
+  // stuendliche Pruefung den Batch mehrfach parallel.
+  schreibeAutoStand({ letzterLaufMonat: report.monatsSchluessel(jetzt), gestartet: jetzt.toISOString() });
+  console.log('Monats-Automatik: starte Reports fuer alle Kunden (' + report.monatsLabel(report.monatsSchluessel(jetzt)) + ')' +
+    (versand.istKonfiguriert() ? ' - Versand per E-Mail aktiv' : ' - kein E-Mail-Versand (RESEND_API_KEY fehlt)'));
+  try { await starteBatchReport({ mitVersand: true }); } catch (e) { console.warn('Monats-Automatik fehlgeschlagen: ' + e.message); }
+}
+
+// ------------------------------------------------- Wochen-Digest ----
+// Jeden Montag EINE Mail an dich (AGENTUR_EMAIL): Reports-Stand, Umsatz,
+// offene Rueckrufe, Kunden in Gefahr. Du weisst Bescheid, ohne die App
+// zu oeffnen - und rote Ampeln landen direkt auf deinem Tisch.
+async function pruefeDigest() {
+  const an = process.env.AGENTUR_EMAIL;
+  if (DEMO || !an || !versand.istKonfiguriert()) return;
+  let stand = {};
+  try { stand = JSON.parse(fs.readFileSync(DIGEST_DATEI, 'utf8')); } catch (_e) { /* erster Lauf */ }
+  const jetzt = new Date();
+  if (!istDigestFaellig(jetzt, stand.letzterTag || null)) return;
+  const heute = jetzt.getFullYear() + '-' + String(jetzt.getMonth() + 1).padStart(2, '0') + '-' + String(jetzt.getDate()).padStart(2, '0');
+  try {
+    fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+    fs.writeFileSync(DIGEST_DATEI, JSON.stringify({ letzterTag: heute }));
+  } catch (_e) { /* dann kommt er notfalls doppelt */ }
+
+  try {
+    const u = await baueUebersicht();
+    const kunden = await ladeKunden();
+    const monat = report.monatsSchluessel();
+    const rot = kunden.filter((k) => bewerteKunde({ historie: kundenHistorie(effektiverSlug(k)), aktuellerMonat: monat }).stufe === 'rot');
+    const zeilen = [
+      'Moin! Deine Agentur-Lage am Montag:',
+      '',
+      '- Kunden: ' + u.kunden,
+      '- Reports diesen Monat: ' + u.reportsMonat + ' von ' + u.kunden + (u.reportsMonat < u.kunden ? ' (Rest kommt per Automatik am ' + u.automatik.tag + '.)' : ' - alle erledigt'),
+      '- Telefon-Umsatz diesen Monat (alle Kunden, geschaetzt): ' + u.telefonUmsatz.toFixed(2).replace('.', ',') + ' EUR',
+      '- Offene Rueckrufe: ' + u.offeneRueckrufe + (u.offeneRueckrufe ? ' -> heute abarbeiten!' : ''),
+      '- Kunden in Gefahr (rote Ampel): ' + (rot.length ? rot.map((k) => k.name).join(', ') + ' -> heute anrufen!' : 'keine'),
+      '',
+      'Details wie immer in der Agentur-App (http://localhost:' + PORT + ').'
+    ];
+    const ergebnis = await versand.sendeReportMail({
+      an,
+      betreff: 'Wochen-Lage deiner Agentur · ' + jetzt.toLocaleDateString('de-DE'),
+      text: zeilen.join('\n'),
+      html: '<pre style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6">' + zeilen.join('\n') + '</pre>'
+    });
+    console.log('Wochen-Digest: ' + (ergebnis.ok ? 'gesendet an ' + an : 'fehlgeschlagen - ' + ergebnis.fehler));
+  } catch (e) {
+    console.warn('Wochen-Digest fehlgeschlagen: ' + e.message);
+  }
+}
+
+// ------------------------------------------------------- Uebersicht ----
+// Das Dashboard der Agentur: Kunden, Reports, Telefon-Umsatz ueber ALLE
+// Kunden, offene Rueckrufe. 10 Minuten gecacht (mehrere DB-Abfragen).
+let uebersichtCache = { zeit: 0, daten: null };
+
+async function baueUebersicht() {
+  if (uebersichtCache.daten && Date.now() - uebersichtCache.zeit < 10 * 60 * 1000) {
+    return uebersichtCache.daten;
+  }
+  const kunden = await ladeKunden();
+  const monat = report.monatsSchluessel();
+  let reportsMonat = 0;
+  let kundenInGefahr = 0;
+  for (const k of kunden) {
+    const historie = kundenHistorie(effektiverSlug(k));
+    if (historie.some((h) => h.monat === monat)) reportsMonat++;
+    if (bewerteKunde({ historie, aktuellerMonat: monat }).stufe === 'rot') kundenInGefahr++;
+  }
+
+  let telefonUmsatz = 0;
+  let rueckrufe = 0;
+  if (DEMO) {
+    const demo = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8'));
+    telefonUmsatz = (demo.telefon && demo.telefon.gesamtGeschaetzt) || 0;
+    rueckrufe = (demo.telefon && demo.telefon.rueckrufe) || 0;
+  } else {
+    for (const k of kunden) {
+      const z = await telefonZahlen(k.id, monat);
+      if (z) telefonUmsatz += z.gesamtGeschaetzt || 0;
+    }
+    try { rueckrufe = (await telefonDb.offeneRueckrufe()).length; } catch (_e) { /* dann 0 */ }
+  }
+
+  const stand = liesAutoStand();
+  const daten = {
+    monat,
+    monatLabel: report.monatsLabel(monat),
+    kunden: kunden.length,
+    reportsMonat,
+    kundenInGefahr,
+    telefonUmsatz: Math.round(telefonUmsatz * 100) / 100,
+    offeneRueckrufe: rueckrufe,
+    emailVersand: versand.istKonfiguriert(),
+    automatik: {
+      an: AUTO_TAG > 0,
+      tag: AUTO_TAG,
+      letzterLaufMonat: stand.letzterLaufMonat || null,
+      naechsterLauf: naechsterAutoLauf(new Date(), stand.letzterLaufMonat || null, AUTO_TAG)
+    }
+  };
+  uebersichtCache = { zeit: Date.now(), daten };
+  return daten;
+}
+
+// ------------------------------------------------------- Rueckrufe ----
+async function ladeRueckrufe() {
+  if (DEMO) {
+    return [
+      { id: 'demo-1', quelle: 'callbacks', restaurant_id: '00000000-0000-0000-0000-000000000002', restaurant: 'La Piazza Emden', name: 'Familie Janssen', telefon: '+49 172 5550123', anliegen: 'Feier mit 15 Personen am Samstag - bitte zurueckrufen', zeit: new Date(Date.now() - 3600000).toISOString() },
+      { id: 'demo-2', quelle: 'reservations', restaurant_id: '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad', restaurant: 'Greetsieler Börse', name: 'Herr de Vries', telefon: '+49 4926 555012', anliegen: 'Frage zur Krabben-Saison - Nummer: +49 4926 555012', zeit: new Date(Date.now() - 7200000).toISOString() }
+    ];
+  }
+  const [rueckrufe, kunden] = await Promise.all([telefonDb.offeneRueckrufe(), ladeKunden()]);
+  const namen = new Map(kunden.map((k) => [String(k.id), k.name]));
+  return rueckrufe.map((r) => Object.assign({ restaurant: namen.get(String(r.restaurant_id)) || '' }, r));
+}
+
 // ------------------------------------------------------- Telefon-Retter ----
+// Anruf-Statistik aus telefon-retter/logs/statistik.jsonl (anonym, dauerhaft)
+function anrufStatistik() {
+  if (DEMO) {
+    return { anrufeHeute: 3, anrufeMonat: 24, reservierungen: 9, gaeste: 31, bestellungen: 6, bestellwert: 187.4, rueckrufe: 2 };
+  }
+  const datei = path.join(TELEFON_LOGS, 'statistik.jsonl');
+  let zeilen = [];
+  try { zeilen = fs.readFileSync(datei, 'utf8').split('\n').filter(Boolean); } catch (_e) { /* noch keine Anrufe */ }
+  return werteStatistikAus(zeilen, new Date().toISOString().slice(0, 10));
+}
+
 async function telefonStatus() {
-  const status = { laeuft: false, restaurant: null, stufe: null, anrufe: [] };
+  const status = { laeuft: false, restaurant: null, stufe: null, anrufe: [], statistik: anrufStatistik() };
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 1500);
@@ -244,9 +502,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // API: Kundenliste inkl. Historie-Kurzinfo
+    // API: Kundenliste inkl. Historie-Kurzinfo + Gesundheits-Ampel
     if (req.method === 'GET' && pfad === '/api/kunden') {
       const kunden = await ladeKunden();
+      const monat = report.monatsSchluessel();
       json(res, 200, kunden.map((k) => {
         const slug = effektiverSlug(k);
         const historie = kundenHistorie(slug);
@@ -255,7 +514,8 @@ const server = http.createServer(async (req, res) => {
           kategorie: suchfragen(k).kategorie,
           fragenAnzahl: suchfragen(k).fragen.length,
           reports: historie.length,
-          letzterReport: historie[0] || null
+          letzterReport: historie[0] || null,
+          gesundheit: bewerteKunde({ historie, aktuellerMonat: monat })
         };
       }));
       return;
@@ -273,6 +533,7 @@ const server = http.createServer(async (req, res) => {
         kategorie: suchfragen(kunde).kategorie,
         fragen: suchfragen(kunde).fragen.map((f) => f.frage),
         historie: kundenHistorie(slug),
+        naechsteSchritte: naechsteSchritteFuer(slug, kunde),
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
       });
       return;
@@ -307,23 +568,8 @@ const server = http.createServer(async (req, res) => {
       const { kennung } = await leseBody(req);
       const kunde = await findeKunde(kennung);
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
-      let menue = [];
-      if (DEMO) {
-        menue = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'telefon-retter', 'demo', 'demo-daten.json'), 'utf8')).speisekarte;
-      } else {
-        menue = await supabase.speisekarte(kunde.id);
-      }
-      const slug = effektiverSlug(kunde);
-      const ordner = path.join(AUFBEREITUNG_ORDNER, slug);
-      fs.mkdirSync(ordner, { recursive: true });
-      const jsonLd = aufbereitung.baueJsonLd(kunde, menue);
-      fs.writeFileSync(path.join(ordner, 'schema.jsonld'), JSON.stringify(jsonLd, null, 2));
-      fs.writeFileSync(path.join(ordner, 'jsonld-snippet.html'),
-        '<script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n</script>\n');
-      fs.writeFileSync(path.join(ordner, 'beschreibung.txt'), aufbereitung.baueBeschreibung(kunde) + '\n');
-      fs.writeFileSync(path.join(ordner, 'speisekarte.txt'), aufbereitung.baueSpeisekartenText(kunde, menue) + '\n');
-      fs.writeFileSync(path.join(ordner, 'google-business-checkliste.md'), aufbereitung.baueGbpCheckliste(kunde));
-      json(res, 200, { ok: true, dateien: fs.readdirSync(ordner), ordner: 'sichtbarkeit/aufbereitung/' + slug });
+      const ergebnis = await erzeugeAufbereitung(kunde);
+      json(res, 200, ergebnis);
       return;
     }
 
@@ -334,6 +580,110 @@ const server = http.createServer(async (req, res) => {
       if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Interessenten (Neukunden-Pipeline aus prospects.json)
+    if (req.method === 'GET' && pfad === '/api/interessenten') {
+      let liste = [];
+      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
+      json(res, 200, liste.map((p) => ({
+        name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
+        telefon: p.phone || '', website: p.website || '',
+        pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
+      })));
+      return;
+    }
+
+    // API: Pitch-Seite fuer einen Interessenten erzeugen
+    if (req.method === 'POST' && pfad === '/api/pitch') {
+      const { name } = await leseBody(req);
+      let liste = [];
+      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* s.o. */ }
+      const prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
+      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht in prospects.json gefunden' }); return; }
+      fs.mkdirSync(PITCH_ORDNER, { recursive: true });
+      const datei = pitchDateiname(prospect);
+      const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      fs.writeFileSync(path.join(PITCH_ORDNER, datei), bauePitchHtml(prospect, { datum }));
+      json(res, 200, { ok: true, link: '/api/pitch-seite/' + datei });
+      return;
+    }
+    if (req.method === 'GET' && pfad.startsWith('/api/pitch-seite/')) {
+      const datei = path.join(PITCH_ORDNER, path.basename(pfad));
+      if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Onboarding - Neukunde komplett einrichten (ein Klick)
+    if (req.method === 'POST' && pfad === '/api/onboarding') {
+      const { kennung } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const schritte = [];
+      try {
+        const auf = await erzeugeAufbereitung(kunde);
+        schritte.push({ schritt: 'Aufbereitung (JSON-LD, Texte, Google-Posts)', ok: true, detail: auf.dateien.length + ' Dateien' });
+      } catch (e) { schritte.push({ schritt: 'Aufbereitung', ok: false, detail: e.message }); }
+      const jobId = await starteReport(kunde);
+      schritte.push({ schritt: 'Erster Monats-Report', ok: true, detail: 'laeuft im Hintergrund' });
+      schritte.push({
+        schritt: 'Report-Versand per E-Mail',
+        ok: versand.istKonfiguriert() && !!kunde.email,
+        detail: versand.istKonfiguriert()
+          ? (kunde.email ? 'eingerichtet (' + kunde.email + ')' : 'keine E-Mail-Adresse beim Kunden hinterlegt')
+          : 'RESEND_API_KEY fehlt in sichtbarkeit/.env'
+      });
+      json(res, 200, { jobId, schritte });
+      return;
+    }
+
+    // API: Neuesten Report per E-Mail an den Wirt senden
+    if (req.method === 'POST' && pfad === '/api/report-senden') {
+      const { kennung } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: E-Mail nur simuliert' }); return; }
+      const ergebnis = await sendeNeuestenReport(kunde);
+      json(res, ergebnis.ok ? 200 : 400, ergebnis);
+      return;
+    }
+
+    // API: Uebersicht (Dashboard-Kopf)
+    if (req.method === 'GET' && pfad === '/api/uebersicht') {
+      json(res, 200, await baueUebersicht());
+      return;
+    }
+
+    // API: offene Rueckruf-Wuensche (alle Kunden)
+    if (req.method === 'GET' && pfad === '/api/rueckrufe') {
+      json(res, 200, await ladeRueckrufe());
+      return;
+    }
+
+    // API: Rueckruf als erledigt markieren (nur callbacks-Eintraege)
+    if (req.method === 'POST' && pfad === '/api/rueckruf-erledigt') {
+      const { id, quelle } = await leseBody(req);
+      if (!id) { json(res, 400, { fehler: 'id fehlt' }); return; }
+      if (quelle !== 'callbacks') {
+        json(res, 400, { fehler: 'Dieser Eintrag liegt als offene Anfrage im Kiek-mol-in-Dashboard des Wirts - dort erledigen.' });
+        return;
+      }
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      const ergebnis = await telefonDb.rueckrufErledigt(id);
+      json(res, ergebnis.ok ? 200 : 500, ergebnis.ok ? { ok: true } : { fehler: 'Konnte nicht gespeichert werden (' + ergebnis.status + ')' });
+      return;
+    }
+
+    // API: Umsatz-Nachweis des Telefon-Retters (aktueller Monat) je Kunde
+    if (req.method === 'GET' && pfad.startsWith('/api/telefonzahlen/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const monat = url.searchParams.get('monat') || report.monatsSchluessel();
+      const zahlen = await kundenTelefonZahlen(kunde, monat);
+      json(res, 200, zahlen || { monat, keineDaten: true });
       return;
     }
 
@@ -359,4 +709,22 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log('KURANI Agentur-App' + (DEMO ? ' (DEMO-MODUS)' : '') + ':  http://localhost:' + PORT);
+  if (AUTO_TAG > 0) {
+    const stand = liesAutoStand();
+    console.log('Monats-Automatik: Reports laufen am ' + AUTO_TAG + '. jeden Monats von selbst' +
+      ' (naechster Lauf: ' + naechsterAutoLauf(new Date(), stand.letzterLaufMonat || null, AUTO_TAG) + ').' +
+      ' Abschalten: AUTO_REPORT_TAG=0');
+  } else if (!DEMO) {
+    console.log('Monats-Automatik ist AUS (AUTO_REPORT_TAG=0) - Reports nur per Klick.');
+  }
 });
+
+// Monats-Automatik: kurz nach dem Start pruefen, danach stuendlich.
+// Laeuft der Rechner am Stichtag nicht, holt der naechste Start den Lauf nach.
+if (AUTO_TAG > 0) {
+  setTimeout(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 15000);
+  setInterval(() => pruefeAutomatik().catch((e) => console.warn('Automatik-Pruefung: ' + e.message)), 60 * 60 * 1000);
+}
+// Wochen-Digest (Montags-Mail an AGENTUR_EMAIL) - gleiche stuendliche Pruefung
+setTimeout(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 20000);
+setInterval(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 60 * 60 * 1000);

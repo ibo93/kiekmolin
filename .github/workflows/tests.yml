@@ -23,7 +23,7 @@ jobs:
         run: |
           for f in telefon-retter/server.js telefon-retter/simulator.js telefon-retter/test.js telefon-retter/lib/*.js \
                    sichtbarkeit/sichtbarkeit.js sichtbarkeit/test.js sichtbarkeit/lib/*.js \
-                   agentur/server.js; do
+                   agentur/server.js agentur/test.js agentur/lib/*.js; do
             node --check "$f"
           done
 
@@ -32,6 +32,12 @@ jobs:
 
       - name: Sichtbarkeit Tests
         run: cd sichtbarkeit && node test.js
+
+      - name: Agentur Tests
+        run: cd agentur && node test.js
+
+      - name: SEO-Seiten Tests
+        run: node test-seo.js
 
       - name: Sichtbarkeit Demo-Report (Rauchtest)
         run: cd sichtbarkeit && node sichtbarkeit.js report --demo

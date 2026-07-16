@@ -67,6 +67,18 @@ async function checkEigeneWebsite(restaurant) {
 // --- Google-Sichtbarkeit ueber die offizielle Custom-Search-API --------------
 // Braucht GOOGLE_API_KEY + GOOGLE_CSE_ID in .env (siehe README).
 // Kein Scraping: das waere unzuverlaessig und verstoesst gegen Google-Regeln.
+
+// Wettbewerbs-Radar: Wer steht VOR dem Betrieb? (max. 3, nur Domain + Titel).
+// platzIndex = 0-basierter Treffer-Index des Betriebs, -1 = nicht gefunden.
+function wettbewerberVorDir(treffer, platzIndex) {
+  const bis = platzIndex >= 0 ? Math.min(platzIndex, 3) : 3;
+  return (treffer || []).slice(0, bis).map((t) => {
+    let domain = '';
+    try { domain = new URL(t.link).hostname.replace(/^www\./, ''); } catch (_e) { /* Link kaputt */ }
+    return { titel: String(t.title || '').slice(0, 80), domain };
+  }).filter((w) => w.domain);
+}
+
 async function checkGoogle(frage, restaurant) {
   const key = process.env.GOOGLE_API_KEY;
   const cse = process.env.GOOGLE_CSE_ID;
@@ -84,10 +96,11 @@ async function checkGoogle(frage, restaurant) {
       enthaeltNamen((t.title || '') + ' ' + (t.snippet || '') + ' ' + (t.link || ''), restaurant.name) ||
       (restaurant.slug && String(t.link || '').includes(restaurant.slug))
     );
+    const vorDir = wettbewerberVorDir(treffer, platz);
     if (platz >= 0) {
-      return { status: 'gefunden', detail: 'Platz ' + (platz + 1) + ' in den Top 10', platz: platz + 1 };
+      return { status: 'gefunden', detail: 'Platz ' + (platz + 1) + ' in den Top 10', platz: platz + 1, vor_dir: vorDir };
     }
-    return { status: 'nicht-gefunden', detail: 'Nicht in den Top 10' };
+    return { status: 'nicht-gefunden', detail: 'Nicht in den Top 10', vor_dir: vorDir };
   } catch (e) {
     return { status: 'fehler', detail: 'Google-API-Fehler: ' + e.message };
   }
@@ -138,4 +151,4 @@ async function checkKI(frage, restaurant) {
   }
 }
 
-module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI };
+module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI, wettbewerberVorDir };

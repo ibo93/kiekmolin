@@ -74,6 +74,119 @@ test('Historie: Zweitlauf sichert alten Stand als .vorher.json', () => {
   }
 });
 
+// --- Telefon-Retter-Umsatz-Nachweis -------------------------------------------------
+test('Telefon-Zahlen: Rueckrufe raus, stornierte Bestellungen raus, ehrliche Schaetzung', () => {
+  const { werteAus, monatsGrenzen } = require('./lib/telefonzahlen');
+  const reservierungen = [
+    { party_size: 4, guest_name: 'Meyer', notes: '[Telefon]' },
+    { party_size: 2, guest_name: 'Schulz', notes: '[Telefon] Terrasse' },
+    { party_size: 1, guest_name: 'Anrufer (RUECKRUF)', notes: '[RUECKRUF ERBETEN] Gruppenfeier' }
+  ];
+  const bestellungen = [
+    { total: 33.4, status: 'received' },
+    { total: 21.0, status: 'completed' },
+    { total: 99.0, status: 'cancelled' }
+  ];
+  const z = werteAus(reservierungen, bestellungen, 25);
+  assert.deepStrictEqual(
+    { reservierungen: z.reservierungen, gaeste: z.gaeste, rueckrufe: z.rueckrufe, bestellungen: z.bestellungen },
+    { reservierungen: 2, gaeste: 6, rueckrufe: 1, bestellungen: 2 }
+  );
+  assert.strictEqual(z.bestellwert, 54.4);
+  assert.strictEqual(z.reservierungsUmsatz, 150);
+  assert.strictEqual(z.gesamtGeschaetzt, 204.4);
+  // Monatsgrenzen inkl. Jahreswechsel
+  assert.deepStrictEqual(monatsGrenzen('2026-07'), { von: '2026-07-01', bis: '2026-08-01' });
+  assert.deepStrictEqual(monatsGrenzen('2026-12'), { von: '2026-12-01', bis: '2027-01-01' });
+});
+test('Verkaufsschlager: Items aggregiert, Stornos raus, Top 3', () => {
+  const { werteAus } = require('./lib/telefonzahlen');
+  const bestellungen = [
+    { total: 30, status: 'received', items: [{ name: 'Pizza Salami', quantity: 2 }, { name: 'Tiramisu', quantity: 1 }] },
+    { total: 20, status: 'completed', items: [{ name: 'Pizza Salami', quantity: 1 }, { name: 'Lasagne', quantity: 1 }] },
+    { total: 99, status: 'cancelled', items: [{ name: 'Pizza Salami', quantity: 9 }] }
+  ];
+  const z = werteAus([], bestellungen, 25);
+  assert.deepStrictEqual(z.topGerichte, [
+    { name: 'Pizza Salami', menge: 3 }, { name: 'Tiramisu', menge: 1 }, { name: 'Lasagne', menge: 1 }
+  ]);
+});
+test('Entwicklungs-Grafik: ab 2 Monaten, mit Quote- und Umsatz-Balken', () => {
+  const verlauf = [
+    { monat: '2026-06', quote: { prozent: 55 }, telefon: { gesamtGeschaetzt: 500 } },
+    { monat: '2026-07', quote: { prozent: 73 }, telefon: { gesamtGeschaetzt: 962.4 } }
+  ];
+  const html = report.verlaufSektion(verlauf);
+  assert.ok(html.includes('Deine Entwicklung') && html.includes('73%') && html.includes('962 €'));
+  assert.strictEqual(report.verlaufSektion([verlauf[0]]), '', 'ein Monat allein ist kein Verlauf');
+  const ohneUmsatz = report.verlaufSektion(verlauf.map((v) => ({ monat: v.monat, quote: v.quote, telefon: null })));
+  assert.ok(ohneUmsatz.includes('Sichtbarkeits-Quote') && !ohneUmsatz.includes('Umsatz am Telefon'));
+});
+test('Report zeigt Telefon-Umsatz nur, wenn es etwas zu zeigen gibt', () => {
+  const mitZahlen = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: null, telefon: demo.telefon
+  });
+  assert.ok(mitZahlen.includes('Was der Telefon-Retter gebracht hat'));
+  assert.ok(mitZahlen.includes('962,40'), 'geschaetzter Gesamt-Umsatz fehlt');
+  const ohneAktivitaet = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: null,
+    telefon: { reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0 }
+  });
+  assert.ok(!ohneAktivitaet.includes('Was der Telefon-Retter gebracht hat'), 'leere Sektion darf nicht erscheinen');
+  const ganzOhne = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: null
+  });
+  assert.ok(!ganzOhne.includes('Was der Telefon-Retter gebracht hat'));
+});
+
+// --- Wettbewerbs-Radar ---------------------------------------------------------------
+test('Wettbewerber-Extraktion: nur wer VOR dem Betrieb steht, max. 3', () => {
+  const { wettbewerberVorDir } = require('./lib/checks');
+  const treffer = [
+    { title: 'Tripadvisor Top 10', link: 'https://www.tripadvisor.de/x' },
+    { title: 'Lieferando Emden', link: 'https://www.lieferando.de/y' },
+    { title: 'La Piazza', link: 'https://kiekmolin.de/la-piazza-emden' },
+    { title: 'Yelp', link: 'https://yelp.de/z' }
+  ];
+  assert.deepStrictEqual(wettbewerberVorDir(treffer, 2).map((w) => w.domain), ['tripadvisor.de', 'lieferando.de']);
+  assert.deepStrictEqual(wettbewerberVorDir(treffer, 0), []); // Platz 1: niemand davor
+  assert.strictEqual(wettbewerberVorDir(treffer, -1).length, 3); // nicht gefunden: Top 3 zeigen
+  assert.deepStrictEqual(wettbewerberVorDir([{ title: 'kaputt', link: '::nicht-url::' }], -1), []);
+});
+test('Radar im Report: Platz-Trend und Ueberholt-Erkennung', () => {
+  const radar = report.wettbewerbsRadar(demo.ergebnis, { ergebnis: demo.vormonatErgebnis });
+  const beste = radar.find((z) => z.frage === 'beste pizzeria in Emden');
+  assert.strictEqual(beste.platz, 3);
+  assert.strictEqual(beste.platzTrend, 3, 'von Platz 6 auf 3 = +3');
+  assert.deepStrictEqual(beste.ueberholt, ['yelp.de'], 'yelp stand vor uns, jetzt nicht mehr');
+  const html = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: { monat: '2026-07', quote: demo.vormonatQuote, ergebnis: demo.vormonatErgebnis }
+  });
+  assert.ok(html.includes('Wettbewerbs-Radar (Google)'));
+  assert.ok(html.includes('überholt: yelp.de'));
+  assert.ok(html.includes('niemand – Platz 1!'));
+});
+
+// --- Google-Business-Posts -----------------------------------------------------------
+test('GBP-Posts: 4 Stueck, echtes Gericht, Saison, Antworten ohne Gutschein-Versprechen', () => {
+  const { baueGbpPosts, baueBewertungsAntworten, bauePostsMarkdown } = require('./lib/gbp-posts');
+  const restaurant = { name: 'La Piazza', city: 'Emden', cuisine: 'italienisch', slug: 'la-piazza-emden', phone: '04921 123456' };
+  const menue = [
+    { name: 'Pizza Diavola', base_price: 11.5, is_popular: true, menu_categories: { name: 'Pizza' } },
+    { name: 'Tiramisu', price: 5.9, menu_categories: { name: 'Dessert' } }
+  ];
+  assert.strictEqual(baueGbpPosts(restaurant, menue, { monat: 7 }).length, 4);
+  assert.ok(baueGbpPosts(restaurant, menue, { monat: 7 })[0].text.includes('Pizza Diavola'), 'echtes Gericht im Post');
+  assert.notStrictEqual(baueGbpPosts(restaurant, menue, { monat: 7 })[1].titel, baueGbpPosts(restaurant, menue, { monat: 1 })[1].titel, 'Sommer- und Winter-Post unterscheiden sich');
+  assert.ok(!baueBewertungsAntworten(restaurant)[2].antwort.toLowerCase().includes('gutschein'), 'keine Gutschein-Versprechen bei Beschwerden');
+  const md = bauePostsMarkdown(restaurant, menue, { monat: 7 });
+  assert.ok(md.includes('Google-Business-Beiträge') && md.includes('kiekmolin.de/la-piazza-emden') && !md.includes('undefined'));
+});
+
 // --- Aufbereitung -----------------------------------------------------------------
 test('JSON-LD mit Menue-Sektionen und Beschreibung', () => {
   const menue = [

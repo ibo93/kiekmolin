@@ -117,6 +117,58 @@ function speichereHistorie(slug, monat, daten) {
   fs.writeFileSync(pfad, JSON.stringify(daten, null, 2));
 }
 
+// Kompletter Verlauf eines Kunden (aufsteigend, max. letzte 6 Monate) -
+// Grundlage fuer die Entwicklungs-Grafik in Report und App. Der aktuelle
+// Monat wird aus dem frischen Lauf ergaenzt/ersetzt.
+function ladeVerlauf(slug, aktuellerMonat, aktuellerEintrag) {
+  const ordner = path.join(DATEN_ORDNER, slug);
+  const eintraege = [];
+  if (fs.existsSync(ordner)) {
+    for (const datei of fs.readdirSync(ordner).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).sort()) {
+      const monat = datei.replace('.json', '');
+      if (monat === aktuellerMonat) continue; // kommt gleich frisch dazu
+      try {
+        const d = JSON.parse(fs.readFileSync(path.join(ordner, datei), 'utf8'));
+        eintraege.push({ monat, quote: d.quote || null, telefon: d.telefon || null });
+      } catch (_e) { /* kaputte Datei ueberspringen */ }
+    }
+  }
+  eintraege.push(Object.assign({ monat: aktuellerMonat }, aktuellerEintrag));
+  return eintraege.slice(-6);
+}
+
+// Entwicklungs-Grafik: Quote und Telefon-Umsatz je Monat als Balken.
+// Der Wirt SIEHT den Fortschritt - staerkstes Argument fuer den naechsten
+// Monat. Erst ab 2 Monaten sinnvoll, sonst leer.
+function verlaufSektion(verlauf) {
+  if (!Array.isArray(verlauf) || verlauf.length < 2) return '';
+  const balken = (werte, einheit, farbe) => {
+    const max = Math.max.apply(null, werte.map((w) => w.wert || 0)) || 1;
+    return werte.map((w) => {
+      const h = w.wert == null ? 2 : Math.max(4, Math.round((w.wert / max) * 72));
+      const label = w.wert == null ? '–' : (einheit === '%' ? w.wert + '%' : Math.round(w.wert) + ' €');
+      return '<div class="vb"><div class="vb-wert">' + label + '</div>' +
+        '<div class="vb-balken" style="height:' + h + 'px;background:' + (w.wert == null ? '#e2e2e2' : farbe) + '"></div>' +
+        '<div class="vb-monat">' + esc(monatsLabel(w.monat).replace(' 20', ' ’')) + '</div></div>';
+    }).join('');
+  };
+  const quoteWerte = verlauf.map((v) => ({ monat: v.monat, wert: v.quote && v.quote.prozent != null ? v.quote.prozent : null }));
+  const umsatzWerte = verlauf.map((v) => ({ monat: v.monat, wert: v.telefon ? v.telefon.gesamtGeschaetzt || 0 : null }));
+  const zeigeUmsatz = umsatzWerte.some((w) => w.wert);
+  return `
+<h2>Deine Entwicklung</h2>
+<div class="verlauf">
+  <div class="v-block">
+    <div class="v-titel">Sichtbarkeits-Quote</div>
+    <div class="v-reihe">${balken(quoteWerte, '%', 'var(--akzent)')}</div>
+  </div>
+  ${zeigeUmsatz ? `<div class="v-block">
+    <div class="v-titel">Umsatz am Telefon (geschätzt)</div>
+    <div class="v-reihe">${balken(umsatzWerte, '€', '#111')}</div>
+  </div>` : ''}
+</div>`;
+}
+
 function ladeVormonat(slug, aktuellerMonat) {
   const ordner = path.join(DATEN_ORDNER, slug);
   if (!fs.existsSync(ordner)) return null;
@@ -172,7 +224,111 @@ function trendText(aktuell, vormonat) {
   return { txt: 'unverändert gegenüber ' + monatsLabel(vormonat.monat), cls: 'neutral' };
 }
 
-function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
+function euroBetrag(n) {
+  return Number(n || 0).toFixed(2).replace('.', ',') + ' €';
+}
+
+// Sektion "Was der Telefon-Retter gebracht hat" - der Umsatz-Nachweis.
+// Wird nur gerendert, wenn Telefon-Zahlen vorliegen und der Assistent in
+// dem Monat etwas getan hat (sonst waere die Sektion irrefuehrend).
+function telefonSektion(telefon) {
+  if (!telefon) return '';
+  const aktiv = (telefon.reservierungen || 0) + (telefon.bestellungen || 0) + (telefon.rueckrufe || 0);
+  if (!aktiv) return '';
+  return `
+<h2>Was der Telefon-Retter gebracht hat</h2>
+<div class="kacheln">
+  <div class="kachel">
+    <div class="wert akzent">${euroBetrag(telefon.gesamtGeschaetzt)}</div>
+    <div class="label">Umsatz am Telefon (geschätzt)</div>
+    <span class="trend neutral">Bestellwert + Reservierungs-Schätzung</span>
+  </div>
+  <div class="kachel">
+    <div class="wert">${telefon.reservierungen}</div>
+    <div class="label">Reservierungen</div>
+    <span class="trend neutral">${telefon.gaeste} Gäste am Tisch</span>
+  </div>
+  <div class="kachel">
+    <div class="wert">${telefon.bestellungen}</div>
+    <div class="label">Bestellungen</div>
+    <span class="trend neutral">${euroBetrag(telefon.bestellwert)} Bestellwert (echt)</span>
+  </div>
+  ${telefon.rueckrufe ? `<div class="kachel">
+    <div class="wert">${telefon.rueckrufe}</div>
+    <div class="label">Rückruf-Wünsche</div>
+    <span class="trend neutral">kein Anruf ging verloren</span>
+  </div>` : ''}
+</div>
+<div class="hinweis" style="margin-top:14px;border-top:none;padding-top:0">
+  ${Array.isArray(telefon.topGerichte) && telefon.topGerichte.length
+    ? '<strong>Verkaufsschlager am Telefon:</strong> ' +
+      telefon.topGerichte.map((g) => g.menge + '× ' + esc(g.name)).join(', ') + '.<br>'
+    : ''}
+  Jeder dieser Anrufe kam an, während das Team nicht ans Telefon konnte – ohne den Assistenten
+  wäre er womöglich bei der Konkurrenz gelandet. Der Bestellwert ist die echte Summe der
+  telefonisch aufgegebenen Bestellungen. Der Reservierungs-Umsatz ist bewusst konservativ
+  geschätzt: ${telefon.gaeste} Gäste × ${euroBetrag(telefon.bonProGast)} Durchschnittsbon
+  = ${euroBetrag(telefon.reservierungsUmsatz)}.
+</div>`;
+}
+
+// Wettbewerbs-Radar: pro Suchfrage der Google-Platz, der Platz-Trend zum
+// Vormonat und wer aktuell VOR dem Betrieb steht. "Ueberholt" = eine Domain,
+// die letzten Monat vor uns stand und es jetzt nicht mehr tut, waehrend sich
+// unser Platz verbessert hat - der Beweis, dass die Arbeit wirkt.
+function wettbewerbsRadar(ergebnis, vormonat) {
+  const zeilen = [];
+  for (const f of ergebnis.fragen || []) {
+    const g = f.google || {};
+    if (!Array.isArray(g.vor_dir) && g.platz == null) continue; // alte Daten/manuell
+    const vorher = vormonat && vormonat.ergebnis
+      ? ((vormonat.ergebnis.fragen || []).find((v) => v.id === f.id) || {}).google || {}
+      : {};
+    let platzTrend = null;
+    if (g.platz && vorher.platz) platzTrend = vorher.platz - g.platz; // + = besser
+    const jetztVor = new Set((g.vor_dir || []).map((w) => w.domain));
+    const ueberholt = (vorher.vor_dir || [])
+      .map((w) => w.domain)
+      .filter((d) => d && !jetztVor.has(d) && (platzTrend == null || platzTrend >= 0));
+    zeilen.push({
+      frage: f.frage,
+      platz: g.platz || null,
+      platzTrend,
+      vorDir: g.vor_dir || [],
+      ueberholt: [...new Set(ueberholt)]
+    });
+  }
+  return zeilen;
+}
+
+function radarSektion(ergebnis, vormonat) {
+  const zeilen = wettbewerbsRadar(ergebnis, vormonat);
+  if (!zeilen.length) return '';
+  const rows = zeilen.map((z) => {
+    const platzTxt = z.platz
+      ? 'Platz ' + z.platz + (z.platzTrend ? ' <span class="' + (z.platzTrend > 0 ? 'rauf' : 'runter') + '">' +
+          (z.platzTrend > 0 ? '▲ +' + z.platzTrend : '▼ ' + z.platzTrend) + '</span>' : '')
+      : 'nicht in Top 10';
+    const vorTxt = z.vorDir.length
+      ? z.vorDir.map((w) => '<span class="dom" title="' + esc(w.titel) + '">' + esc(w.domain) + '</span>').join(' ')
+      : (z.platz === 1 ? '<strong>niemand – Platz 1!</strong>' : '–');
+    const ueberholtTxt = z.ueberholt.length
+      ? '<div class="ueberholt">überholt: ' + z.ueberholt.map(esc).join(', ') + '</div>' : '';
+    return '<tr><td>„' + esc(z.frage) + '“' + ueberholtTxt + '</td><td>' + platzTxt + '</td><td>' + vorTxt + '</td></tr>';
+  }).join('\n');
+  return `
+<h2>Wettbewerbs-Radar (Google)</h2>
+<table>
+  <tr><th style="width:42%">Suchfrage</th><th>Dein Platz</th><th>Wer vor dir steht</th></tr>
+  ${rows}
+</table>
+<div class="hinweis" style="margin-top:10px;border-top:none;padding-top:0">
+  Quelle: offizielle Google-Such-API, Top&nbsp;10 pro Frage. „Überholt“ heißt: Diese Domain stand
+  letzten Monat vor dir – jetzt nicht mehr. Genau daran arbeiten wir jeden Monat.
+</div>`;
+}
+
+function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
   const trend = trendText(q, vormonat);
@@ -228,6 +384,19 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
   .chip.nein { background: #f0f0f0; color: #333; border: 1px solid #ccc; }
   .chip.manuell { background: #fff; color: var(--grau); border: 1px dashed #bbb; }
   .neu { font-size: 11px; color: var(--akzent); font-weight: 700; margin-left: 6px; }
+  .dom { display: inline-block; font-size: 11.5px; background: #f4f4f4; border: 1px solid #e0e0e0;
+         border-radius: 8px; padding: 1px 7px; margin: 1px 2px 1px 0; white-space: nowrap; }
+  .rauf { color: var(--akzent); font-weight: 700; font-size: 12px; }
+  .runter { color: #b00; font-weight: 700; font-size: 12px; }
+  .ueberholt { font-size: 11.5px; color: var(--akzent); font-weight: 600; margin-top: 3px; }
+  .verlauf { display: flex; gap: 24px; flex-wrap: wrap; }
+  .v-block { flex: 1; min-width: 260px; border: 1px solid var(--linie); border-radius: 6px; padding: 14px 16px; }
+  .v-titel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); margin-bottom: 10px; }
+  .v-reihe { display: flex; align-items: flex-end; gap: 10px; min-height: 100px; }
+  .vb { flex: 1; text-align: center; }
+  .vb-wert { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+  .vb-balken { border-radius: 3px 3px 0 0; margin: 0 auto; width: 70%; max-width: 46px; }
+  .vb-monat { font-size: 10px; color: var(--grau); margin-top: 4px; white-space: nowrap; }
   .trend { display: inline-block; margin-top: 6px; font-size: 13px; }
   .trend.ok { color: var(--akzent); font-weight: 600; }
   .trend.nein { color: #b00; font-weight: 600; }
@@ -263,7 +432,8 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
     <span class="trend neutral">automatisch getestete Suchfragen</span>
   </div>
 </div>
-
+${telefonSektion(telefon)}
+${verlaufSektion(verlauf)}
 <h2>Basis-Check</h2>
 <table>
   <tr><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr>
@@ -276,6 +446,8 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat }) {
   <tr><th style="width:50%">Suchfrage</th><th>Google</th><th>KI-Assistent</th></tr>
   ${fragenZeilen}
 </table>
+
+${radarSektion(ergebnis, vormonat)}
 
 ${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
 
@@ -328,6 +500,7 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 }
 
 module.exports = {
-  fuehreChecksAus, quote, naechsteSchritte, renderHtml,
+  fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
+  wettbewerbsRadar, radarSektion, ladeVerlauf, verlaufSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

@@ -59,4 +59,32 @@ async function speisekarte(restaurantId) {
   );
 }
 
-module.exports = { alleRestaurants, findeRestaurant, speisekarte };
+// --- Telefon-Retter-Ergebnisse (Quelle 'telefon') - weiterhin NUR lesen -------
+
+// Telefon-Reservierungen eines Zeitraums (bisDatum exklusiv)
+async function telefonReservierungen(restaurantId, vonDatum, bisDatum) {
+  return supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&source=eq.telefon' +
+    '&reservation_date=gte.' + encodeURIComponent(vonDatum) +
+    '&reservation_date=lt.' + encodeURIComponent(bisDatum) +
+    '&status=in.(confirmed,pending)' +
+    '&select=party_size,status,guest_name,notes'
+  );
+}
+
+// Telefon-Bestellungen eines Zeitraums (bisDatum exklusiv, nach created_at)
+async function telefonBestellungen(restaurantId, vonDatum, bisDatum) {
+  return supabaseGet(
+    'orders?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&source=eq.telefon' +
+    '&created_at=gte.' + encodeURIComponent(vonDatum) +
+    '&created_at=lt.' + encodeURIComponent(bisDatum) +
+    '&select=total,status,items'
+  );
+}
+
+module.exports = {
+  alleRestaurants, findeRestaurant, speisekarte,
+  telefonReservierungen, telefonBestellungen
+};

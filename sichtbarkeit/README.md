@@ -36,9 +36,20 @@ cp .env.example .env     # dann Keys eintragen (Anleitung steht in der Datei)
 | `ANTHROPIC_API_KEY` | KI-Test: stellt die Suchfragen an Claude (mit Web-Suche) und prüft, ob der Betrieb empfohlen wird | KI-Spalte = „manuell prüfen" |
 | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Google-Test über die offizielle Custom-Search-API (kein Scraping) | Google-Spalte = „manuell prüfen" |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | optional – sonst wird der public-safe anon-Key der App genutzt | funktioniert trotzdem |
+| `BON_PRO_GAST` | Durchschnittsbon in € für die Reservierungs-Umsatzschätzung im Report | Standard 25 € |
 
 „Manuell prüfen"-Fragen fließen **nicht** in die Sichtbarkeits-Quote ein –
 keine geschönten Zahlen.
+
+## Umsatz-Nachweis des Telefon-Retters
+
+Der Monats-Report enthält die Sektion **„Was der Telefon-Retter gebracht
+hat"**: Reservierungen, Gäste, Bestellungen und Bestellwert des Monats –
+gelesen aus denselben Tabellen, in die der Telefon-Retter schreibt
+(Quelle `telefon`, `lib/telefonzahlen.js`). Der Bestellwert ist **echt**,
+der Reservierungs-Umsatz eine **transparent ausgewiesene Schätzung**
+(Gäste × Durchschnittsbon). Die Sektion erscheint nur, wenn es in dem
+Monat tatsächlich Telefon-Aktivität gab.
 
 ## Die drei Befehle
 
