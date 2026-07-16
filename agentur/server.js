@@ -27,6 +27,9 @@ const { telefonZahlen } = require('../sichtbarkeit/lib/telefonzahlen');
 const { sollAutoLaufen, naechsterAutoLauf, werteStatistikAus } = require('./lib/automatik');
 const { baueTischkarte } = require('./lib/bewertungskit');
 const { bauePitchHtml } = require('./lib/pitch');
+const { bewerteKunde } = require('./lib/gesundheit');
+const versand = require('./lib/versand');
+const gbpPosts = require('../sichtbarkeit/lib/gbp-posts');
 // Rueckruf-Wuensche verwaltet das Telefon-Retter-Datenmodul (eigene Tabelle)
 const telefonDb = require('../telefon-retter/lib/supabase');
 
@@ -119,6 +122,7 @@ function kundenHistorie(slug) {
           monat: d.monat,
           label: report.monatsLabel(d.monat),
           quote: d.quote,
+          telefon: d.telefon || null,
           erstellt: d.erstellt,
           html: dateiFallsVorhanden(slug + '-' + d.monat + '.html'),
           pdf: dateiFallsVorhanden(slug + '-' + d.monat + '.pdf')
@@ -127,6 +131,48 @@ function kundenHistorie(slug) {
     }
   }
   return eintraege;
+}
+
+// Aufbereitung (Teil A) fuer einen Kunden erzeugen - inkl. der monatlichen
+// Google-Business-Beitraege und Bewertungs-Antworten (Marketing to go).
+async function erzeugeAufbereitung(kunde) {
+  let menue = [];
+  if (DEMO) {
+    menue = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'telefon-retter', 'demo', 'demo-daten.json'), 'utf8')).speisekarte;
+  } else {
+    menue = await supabase.speisekarte(kunde.id);
+  }
+  const slug = effektiverSlug(kunde);
+  const ordner = path.join(AUFBEREITUNG_ORDNER, slug);
+  fs.mkdirSync(ordner, { recursive: true });
+  const jsonLd = aufbereitung.baueJsonLd(kunde, menue);
+  fs.writeFileSync(path.join(ordner, 'schema.jsonld'), JSON.stringify(jsonLd, null, 2));
+  fs.writeFileSync(path.join(ordner, 'jsonld-snippet.html'),
+    '<script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n</script>\n');
+  fs.writeFileSync(path.join(ordner, 'beschreibung.txt'), aufbereitung.baueBeschreibung(kunde) + '\n');
+  fs.writeFileSync(path.join(ordner, 'speisekarte.txt'), aufbereitung.baueSpeisekartenText(kunde, menue) + '\n');
+  fs.writeFileSync(path.join(ordner, 'google-business-checkliste.md'), aufbereitung.baueGbpCheckliste(kunde));
+  fs.writeFileSync(path.join(ordner, 'google-posts.md'),
+    gbpPosts.bauePostsMarkdown(Object.assign({}, kunde, { slug: slugVon(kunde) }), menue, { monat: new Date().getMonth() + 1 }));
+  return { ok: true, dateien: fs.readdirSync(ordner), ordner: 'sichtbarkeit/aufbereitung/' + slug };
+}
+
+// Neuesten Report eines Kunden per E-Mail an den Wirt schicken.
+async function sendeNeuestenReport(kunde) {
+  if (!versand.istKonfiguriert()) return { ok: false, fehler: 'RESEND_API_KEY fehlt in sichtbarkeit/.env' };
+  const an = kunde.email;
+  if (!an) return { ok: false, fehler: 'Keine E-Mail-Adresse beim Kunden hinterlegt' };
+  const slug = effektiverSlug(kunde);
+  const historie = kundenHistorie(slug);
+  const neuester = historie[0];
+  if (!neuester) return { ok: false, fehler: 'Noch kein Report vorhanden - erst erzeugen' };
+  const mail = versand.baueReportMail({
+    kunde, monatLabel: neuester.label, quote: neuester.quote, telefon: neuester.telefon
+  });
+  const pdfPfad = path.join(REPORT_ORDNER, slug + '-' + neuester.monat + '.pdf');
+  const htmlPfad = path.join(REPORT_ORDNER, slug + '-' + neuester.monat + '.html');
+  const anhang = fs.existsSync(pdfPfad) ? pdfPfad : (fs.existsSync(htmlPfad) ? htmlPfad : null);
+  return versand.sendeReportMail({ an, betreff: mail.betreff, text: mail.text, html: mail.html, anhangPfad: anhang });
 }
 
 function dateiFallsVorhanden(name) {
@@ -215,8 +261,11 @@ async function starteReport(kunde) {
   return jobId;
 }
 
-// Batch: Reports fuer ALLE Kunden nacheinander (die Monats-Routine per Klick)
-async function starteBatchReport() {
+// Batch: Reports fuer ALLE Kunden nacheinander (die Monats-Routine per Klick
+// oder per Automatik). mitVersand=true schickt jeden fertigen Report direkt
+// per E-Mail an den Wirt - der komplette Monat laeuft dann ohne Handarbeit.
+async function starteBatchReport(optionen) {
+  const mitVersand = !!(optionen && optionen.mitVersand);
   const jobId = 'alle-' + Date.now();
   jobs[jobId] = { status: 'laeuft', schritt: 'Kundenliste laden', batch: true };
 
@@ -235,7 +284,12 @@ async function starteBatchReport() {
             await new Promise((r) => setTimeout(r, 1000));
           }
           const einzel = jobs[einzelJobId] || {};
-          ergebnisse.push({ kunde: kunde.name, quote: einzel.quote || null, html: einzel.html || null, fehler: einzel.fehler || null });
+          let mail = null;
+          if (mitVersand && !DEMO && !einzel.fehler) {
+            const gesendet = await sendeNeuestenReport(kunde);
+            mail = gesendet.ok ? 'gesendet' : gesendet.fehler;
+          }
+          ergebnisse.push({ kunde: kunde.name, quote: einzel.quote || null, html: einzel.html || null, fehler: einzel.fehler || null, mail });
         } catch (e) {
           ergebnisse.push({ kunde: kunde.name, fehler: e.message });
         }
@@ -271,8 +325,9 @@ async function pruefeAutomatik() {
   // Stand SOFORT schreiben (nicht erst nach dem Lauf), sonst startet die
   // stuendliche Pruefung den Batch mehrfach parallel.
   schreibeAutoStand({ letzterLaufMonat: report.monatsSchluessel(jetzt), gestartet: jetzt.toISOString() });
-  console.log('Monats-Automatik: starte Reports fuer alle Kunden (' + report.monatsLabel(report.monatsSchluessel(jetzt)) + ')');
-  try { await starteBatchReport(); } catch (e) { console.warn('Monats-Automatik fehlgeschlagen: ' + e.message); }
+  console.log('Monats-Automatik: starte Reports fuer alle Kunden (' + report.monatsLabel(report.monatsSchluessel(jetzt)) + ')' +
+    (versand.istKonfiguriert() ? ' - Versand per E-Mail aktiv' : ' - kein E-Mail-Versand (RESEND_API_KEY fehlt)'));
+  try { await starteBatchReport({ mitVersand: true }); } catch (e) { console.warn('Monats-Automatik fehlgeschlagen: ' + e.message); }
 }
 
 // ------------------------------------------------------- Uebersicht ----
@@ -287,8 +342,11 @@ async function baueUebersicht() {
   const kunden = await ladeKunden();
   const monat = report.monatsSchluessel();
   let reportsMonat = 0;
+  let kundenInGefahr = 0;
   for (const k of kunden) {
-    if (kundenHistorie(effektiverSlug(k)).some((h) => h.monat === monat)) reportsMonat++;
+    const historie = kundenHistorie(effektiverSlug(k));
+    if (historie.some((h) => h.monat === monat)) reportsMonat++;
+    if (bewerteKunde({ historie, aktuellerMonat: monat }).stufe === 'rot') kundenInGefahr++;
   }
 
   let telefonUmsatz = 0;
@@ -311,8 +369,10 @@ async function baueUebersicht() {
     monatLabel: report.monatsLabel(monat),
     kunden: kunden.length,
     reportsMonat,
+    kundenInGefahr,
     telefonUmsatz: Math.round(telefonUmsatz * 100) / 100,
     offeneRueckrufe: rueckrufe,
+    emailVersand: versand.istKonfiguriert(),
     automatik: {
       an: AUTO_TAG > 0,
       tag: AUTO_TAG,
@@ -393,9 +453,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // API: Kundenliste inkl. Historie-Kurzinfo
+    // API: Kundenliste inkl. Historie-Kurzinfo + Gesundheits-Ampel
     if (req.method === 'GET' && pfad === '/api/kunden') {
       const kunden = await ladeKunden();
+      const monat = report.monatsSchluessel();
       json(res, 200, kunden.map((k) => {
         const slug = effektiverSlug(k);
         const historie = kundenHistorie(slug);
@@ -404,7 +465,8 @@ const server = http.createServer(async (req, res) => {
           kategorie: suchfragen(k).kategorie,
           fragenAnzahl: suchfragen(k).fragen.length,
           reports: historie.length,
-          letzterReport: historie[0] || null
+          letzterReport: historie[0] || null,
+          gesundheit: bewerteKunde({ historie, aktuellerMonat: monat })
         };
       }));
       return;
@@ -457,23 +519,8 @@ const server = http.createServer(async (req, res) => {
       const { kennung } = await leseBody(req);
       const kunde = await findeKunde(kennung);
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
-      let menue = [];
-      if (DEMO) {
-        menue = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'telefon-retter', 'demo', 'demo-daten.json'), 'utf8')).speisekarte;
-      } else {
-        menue = await supabase.speisekarte(kunde.id);
-      }
-      const slug = effektiverSlug(kunde);
-      const ordner = path.join(AUFBEREITUNG_ORDNER, slug);
-      fs.mkdirSync(ordner, { recursive: true });
-      const jsonLd = aufbereitung.baueJsonLd(kunde, menue);
-      fs.writeFileSync(path.join(ordner, 'schema.jsonld'), JSON.stringify(jsonLd, null, 2));
-      fs.writeFileSync(path.join(ordner, 'jsonld-snippet.html'),
-        '<script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n</script>\n');
-      fs.writeFileSync(path.join(ordner, 'beschreibung.txt'), aufbereitung.baueBeschreibung(kunde) + '\n');
-      fs.writeFileSync(path.join(ordner, 'speisekarte.txt'), aufbereitung.baueSpeisekartenText(kunde, menue) + '\n');
-      fs.writeFileSync(path.join(ordner, 'google-business-checkliste.md'), aufbereitung.baueGbpCheckliste(kunde));
-      json(res, 200, { ok: true, dateien: fs.readdirSync(ordner), ordner: 'sichtbarkeit/aufbereitung/' + slug });
+      const ergebnis = await erzeugeAufbereitung(kunde);
+      json(res, 200, ergebnis);
       return;
     }
 
@@ -538,6 +585,47 @@ const server = http.createServer(async (req, res) => {
       if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Nicht gefunden'); return; }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(fs.readFileSync(datei));
+      return;
+    }
+
+    // API: Onboarding - Neukunde komplett einrichten (ein Klick)
+    if (req.method === 'POST' && pfad === '/api/onboarding') {
+      const { kennung } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const schritte = [];
+      try {
+        const auf = await erzeugeAufbereitung(kunde);
+        schritte.push({ schritt: 'Aufbereitung (JSON-LD, Texte, Google-Posts)', ok: true, detail: auf.dateien.length + ' Dateien' });
+      } catch (e) { schritte.push({ schritt: 'Aufbereitung', ok: false, detail: e.message }); }
+      try {
+        const slug = effektiverSlug(kunde);
+        fs.mkdirSync(KIT_ORDNER, { recursive: true });
+        const datei = slug + '-tischkarte.html';
+        fs.writeFileSync(path.join(KIT_ORDNER, datei), baueTischkarte(Object.assign({}, kunde, { slug: slugVon(kunde) })));
+        schritte.push({ schritt: 'Bewertungs-Tischkarte (QR)', ok: true, link: '/api/kit/' + datei });
+      } catch (e) { schritte.push({ schritt: 'Bewertungs-Tischkarte', ok: false, detail: e.message }); }
+      const jobId = await starteReport(kunde);
+      schritte.push({ schritt: 'Erster Monats-Report', ok: true, detail: 'laeuft im Hintergrund' });
+      schritte.push({
+        schritt: 'Report-Versand per E-Mail',
+        ok: versand.istKonfiguriert() && !!kunde.email,
+        detail: versand.istKonfiguriert()
+          ? (kunde.email ? 'eingerichtet (' + kunde.email + ')' : 'keine E-Mail-Adresse beim Kunden hinterlegt')
+          : 'RESEND_API_KEY fehlt in sichtbarkeit/.env'
+      });
+      json(res, 200, { jobId, schritte });
+      return;
+    }
+
+    // API: Neuesten Report per E-Mail an den Wirt senden
+    if (req.method === 'POST' && pfad === '/api/report-senden') {
+      const { kennung } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: E-Mail nur simuliert' }); return; }
+      const ergebnis = await sendeNeuestenReport(kunde);
+      json(res, ergebnis.ok ? 200 : 400, ergebnis);
       return;
     }
 

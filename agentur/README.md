@@ -32,6 +32,19 @@ Dann im Browser: **http://localhost:3200**
   Telefon-Retter-Statistik (`logs/statistik.jsonl`)
 - **Nächste Schritte je Kunde:** die Empfehlungen aus dem letzten Report
   direkt in der App – dieselbe Logik wie im PDF
+- **Report-Versand per E-Mail:** mit `RESEND_API_KEY` in `sichtbarkeit/.env`
+  verschickt die Monats-Automatik jeden fertigen Report automatisch an den
+  Wirt (Adresse aus der Datenbank); zusätzlich gibt es den Knopf
+  „Report per E-Mail senden" je Kunde
+- **Kunden-Gesundheits-Ampel (Churn-Schutz):** grün/gelb/rot je Kunde aus
+  der Report-Historie (Report-Lücke? Quote gefallen? Telefon inaktiv?) –
+  plus Dashboard-Kachel „Kunden in Gefahr"
+- **Google-Posts to go:** die Aufbereitung enthält jetzt `google-posts.md`
+  mit 4 fertigen Google-Business-Beiträgen pro Monat (aus echten Gerichten)
+  und Antwort-Vorlagen auf Bewertungen
+- **Onboarding-Knopf „Komplett einrichten":** Aufbereitung + Google-Posts +
+  Bewertungs-Tischkarte + erster Monats-Report für einen Neukunden in
+  einem Rutsch
 
 - **Kundenliste** aus der Kiek-mol-in-Datenbank, mit Suche, Kategorie,
   Anzahl bisheriger Reports und letzter Sichtbarkeits-Quote

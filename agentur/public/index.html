@@ -116,6 +116,8 @@
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
         <button class="aktion" id="btnKit" onclick="bewertungskartErzeugen()" title="Druckfertige Tischkarte mit QR-Code: Gäste bewerten den Betrieb direkt am Tisch">Bewertungs-Tischkarte (QR)</button>
+        <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
+        <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:#fff;color:var(--tinte)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
 
@@ -163,12 +165,16 @@ async function ladeUebersicht() {
         <div class="sub">geschätzt, Quelle: Telefon-Retter</div></div>
       <div class="zahl"><div class="wert">${u.offeneRueckrufe}</div>
         <div class="label">Offene Rückrufe</div>
-        <div class="sub">${u.offeneRueckrufe ? 'heute abarbeiten!' : 'nichts offen'}</div></div>`;
+        <div class="sub">${u.offeneRueckrufe ? 'heute abarbeiten!' : 'nichts offen'}</div></div>
+      <div class="zahl"><div class="wert" style="color:${u.kundenInGefahr ? '#dc2626' : 'inherit'}">${u.kundenInGefahr || 0}</div>
+        <div class="label">Kunden in Gefahr</div>
+        <div class="sub">${u.kundenInGefahr ? 'rote Ampel – heute anrufen!' : 'alle stabil'}</div></div>`;
     const auto = document.getElementById('automatikInfo');
-    auto.textContent = u.automatik.an
+    auto.textContent = (u.automatik.an
       ? 'Automatik AN: Monats-Reports laufen am ' + u.automatik.tag + '. jeden Monats von selbst · nächster Lauf: ' + (u.automatik.naechsterLauf || '–') +
         (u.automatik.letzterLaufMonat ? ' · letzter automatischer Lauf: ' + u.automatik.letzterLaufMonat : '')
-      : 'Automatik aus (AUTO_REPORT_TAG in .env setzen, z.B. 1 = am Monatsersten)';
+      : 'Automatik aus (AUTO_REPORT_TAG in .env setzen, z.B. 1 = am Monatsersten)') +
+      ' · E-Mail-Versand: ' + (u.emailVersand ? 'aktiv (Reports gehen automatisch an die Wirte)' : 'aus (RESEND_API_KEY in .env setzen)');
   } catch (e) {
     document.getElementById('uebersicht').innerHTML = '<div class="leer">Übersicht nicht abrufbar: ' + e.message + '</div>';
   }
@@ -204,6 +210,48 @@ async function rueckrufErledigt(id, quelle) {
     if (zeile) zeile.remove();
     ladeUebersicht();
   } catch (e) { alert('Fehler: ' + e.message); }
+}
+
+// ---------------- Report per E-Mail + Onboarding ----------------
+async function reportSenden() {
+  const btn = document.getElementById('btnMail');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Report wird gesendet…';
+  try {
+    const r = await api('/api/report-senden', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.textContent = r.hinweis || 'Report wurde per E-Mail an den Wirt gesendet.';
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = 'Senden fehlgeschlagen: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+async function onboardingStarten() {
+  const btn = document.getElementById('btnOnboarding');
+  const status = document.getElementById('dStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Onboarding läuft (Aufbereitung + Tischkarte + erster Report)…';
+  try {
+    const r = await api('/api/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    status.innerHTML = r.schritte.map(s =>
+      (s.ok ? '✓' : '✗') + ' ' + s.schritt + (s.detail ? ' – ' + s.detail : '') + (s.link ? ' – <a href="' + s.link + '" target="_blank">öffnen</a>' : '')
+    ).join('<br>');
+    const warten = async () => {
+      const job = await api('/api/job/' + r.jobId);
+      if (job.status === 'laeuft') { setTimeout(warten, 2000); return; }
+      btn.disabled = false;
+      if (job.status === 'fertig') { window.open(job.html, '_blank'); zeigeKunde(aktuellerKunde.id); }
+    };
+    warten();
+  } catch (e) {
+    btn.disabled = false;
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + e.message;
+  }
 }
 
 // ---------------- Bewertungs-Tischkarte ----------------
@@ -278,18 +326,28 @@ async function ladeKunden() {
   zeichneKunden();
 }
 
+// Gesundheits-Ampel (Churn-Schutz): gruen = alles gut, gelb = hinschauen,
+// rot = Kunde in Gefahr. Die Gruende stehen im Tooltip.
+function ampel(g) {
+  if (!g) return '';
+  const farbe = { gruen: '#16a34a', gelb: '#eab308', rot: '#dc2626' }[g.stufe] || '#ccc';
+  return '<span title="' + (g.gruende || []).join(' · ').replace(/"/g, '&quot;') + '" ' +
+    'style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + farbe + ';margin-right:6px"></span>';
+}
+
 function zeichneKunden() {
   const filter = (document.getElementById('suche').value || '').toLowerCase();
   const liste = document.getElementById('kundenListe');
   const passende = kunden.filter(k => (k.name + ' ' + k.stadt).toLowerCase().includes(filter));
   liste.innerHTML = passende.map(k => `
     <div class="kunde" onclick="zeigeKunde('${k.id}')">
-      <h3>${k.name}</h3>
+      <h3>${ampel(k.gesundheit)}${k.name}</h3>
       <div class="meta">${k.kategorie}${k.stadt ? ' · ' + k.stadt : ''}</div>
       <div class="zeile">
         <span class="badge${k.reports ? ' akzent' : ''}">${k.reports ? k.reports + ' Report' + (k.reports > 1 ? 's' : '') : 'noch kein Report'}</span>
         <span style="color:var(--grau)">${k.letzterReport && k.letzterReport.quote && k.letzterReport.quote.prozent != null ? 'Quote ' + k.letzterReport.quote.prozent + '%' : ''}</span>
       </div>
+      ${k.gesundheit && k.gesundheit.stufe !== 'gruen' ? '<div style="margin-top:8px;font-size:12px;color:' + (k.gesundheit.stufe === 'rot' ? '#dc2626' : '#a16207') + '">' + (k.gesundheit.gruende[0] || '') + '</div>' : ''}
     </div>`).join('') || '<div class="leer">Keine Kunden gefunden.</div>';
 }
 

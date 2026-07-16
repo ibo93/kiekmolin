@@ -148,6 +148,22 @@ test('Radar im Report: Platz-Trend und Ueberholt-Erkennung', () => {
   assert.ok(html.includes('niemand – Platz 1!'));
 });
 
+// --- Google-Business-Posts -----------------------------------------------------------
+test('GBP-Posts: 4 Stueck, echtes Gericht, Saison, Antworten ohne Gutschein-Versprechen', () => {
+  const { baueGbpPosts, baueBewertungsAntworten, bauePostsMarkdown } = require('./lib/gbp-posts');
+  const restaurant = { name: 'La Piazza', city: 'Emden', cuisine: 'italienisch', slug: 'la-piazza-emden', phone: '04921 123456' };
+  const menue = [
+    { name: 'Pizza Diavola', base_price: 11.5, is_popular: true, menu_categories: { name: 'Pizza' } },
+    { name: 'Tiramisu', price: 5.9, menu_categories: { name: 'Dessert' } }
+  ];
+  assert.strictEqual(baueGbpPosts(restaurant, menue, { monat: 7 }).length, 4);
+  assert.ok(baueGbpPosts(restaurant, menue, { monat: 7 })[0].text.includes('Pizza Diavola'), 'echtes Gericht im Post');
+  assert.notStrictEqual(baueGbpPosts(restaurant, menue, { monat: 7 })[1].titel, baueGbpPosts(restaurant, menue, { monat: 1 })[1].titel, 'Sommer- und Winter-Post unterscheiden sich');
+  assert.ok(!baueBewertungsAntworten(restaurant)[2].antwort.toLowerCase().includes('gutschein'), 'keine Gutschein-Versprechen bei Beschwerden');
+  const md = bauePostsMarkdown(restaurant, menue, { monat: 7 });
+  assert.ok(md.includes('Google-Business-Beiträge') && md.includes('kiekmolin.de/la-piazza-emden') && !md.includes('undefined'));
+});
+
 // --- Aufbereitung -----------------------------------------------------------------
 test('JSON-LD mit Menue-Sektionen und Beschreibung', () => {
   const menue = [

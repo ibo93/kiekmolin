@@ -166,6 +166,9 @@ async function cmdAufbereitung(suchbegriff) {
   fs.writeFileSync(path.join(ordner, 'beschreibung.txt'), aufbereitung.baueBeschreibung(restaurant) + '\n');
   fs.writeFileSync(path.join(ordner, 'speisekarte.txt'), aufbereitung.baueSpeisekartenText(restaurant, menue) + '\n');
   fs.writeFileSync(path.join(ordner, 'google-business-checkliste.md'), aufbereitung.baueGbpCheckliste(restaurant));
+  const gbpPosts = require('./lib/gbp-posts');
+  fs.writeFileSync(path.join(ordner, 'google-posts.md'),
+    gbpPosts.bauePostsMarkdown(Object.assign({}, restaurant, { slug: slugVon(restaurant) }), menue, { monat: new Date().getMonth() + 1 }));
 
   console.log('\nAufbereitung fuer "' + restaurant.name + '" liegt in: ' + ordner);
   console.log('  schema.jsonld                  maschinenlesbare Betriebsdaten');
@@ -173,6 +176,7 @@ async function cmdAufbereitung(suchbegriff) {
   console.log('  beschreibung.txt               klare Betriebsbeschreibung');
   console.log('  speisekarte.txt                Speisekarte als lesbarer Text (' + menue.length + ' Artikel)');
   console.log('  google-business-checkliste.md  personalisierte GBP-Checkliste');
+  console.log('  google-posts.md                4 fertige Google-Beitraege + Bewertungs-Antworten');
 }
 
 // --- Argumente parsen -----------------------------------------------------------
