@@ -5,27 +5,62 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KURANI · Agentur</title>
 <style>
-  :root { --akzent: #fbab1e; --tinte: #f2ede1; --grau: #94a0a0; --linie: #24313a; --bg: #0c1216;
-          --karte: #131c22; --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -10px rgba(0,0,0,.5); }
+  /* Zwei Farbwelten, EIN System: alles laeuft ueber Variablen.
+     html[data-theme] schaltet um, der Schalter merkt sich die Wahl. */
+  :root, html[data-theme="dark"] {
+    --akzent: #fbab1e; --akzent-tief: #e08c07; --tinte: #f2ede1; --grau: #94a0a0;
+    --linie: #24313a; --bg: #0c1216; --karte: #131c22; --karte2: #1b2630;
+    --side: #080d10; --side-text: #cfd6d2;
+    --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -10px rgba(0,0,0,.5);
+    --glow1: rgba(251,171,30,.09); --glow2: rgba(45,140,150,.10);
+  }
+  html[data-theme="light"] {
+    --akzent: #ea8c00; --akzent-tief: #d07c00; --tinte: #17140f; --grau: #79726a;
+    --linie: #e7e2d8; --bg: #f5f3ee; --karte: #fffdf9; --karte2: #efece2;
+    --side: #17140f; --side-text: #d8d2c6;
+    --schatten: 0 1px 2px rgba(22,19,14,.05), 0 8px 22px -10px rgba(22,19,14,.12);
+    --glow1: rgba(234,140,0,.07); --glow2: rgba(45,140,150,.06);
+  }
   * { box-sizing: border-box; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
          color: var(--tinte); font-size: 15px; -webkit-font-smoothing: antialiased;
          background:
-           radial-gradient(900px 420px at 80% -10%, rgba(251,171,30,.09), transparent 60%),
-           radial-gradient(700px 380px at 0% 8%, rgba(45,140,150,.10), transparent 60%),
-           linear-gradient(180deg, #0e161b 0%, var(--bg) 420px);
-         min-height: 100vh; }
-  header { background:
-             radial-gradient(600px 220px at 85% -40%, rgba(251,171,30,.30), transparent 70%),
-             linear-gradient(135deg, #05080a 0%, #121a20 100%);
-           color: #fff; padding: 26px 32px; display: flex; align-items: baseline; gap: 14px;
-           border-bottom: 2px solid rgba(251,171,30,.65); }
-  header .marke { font-size: 14px; letter-spacing: 5px; font-weight: 700; }
-  header .marke b { color: var(--akzent); }
-  header .untertitel { font-size: 12px; color: #a89f90; }
-  header .demo { margin-left: auto; font-size: 11px; border: 1px solid #4a4336; color: #cfc7b8; padding: 4px 12px; border-radius: 999px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 34px 24px 80px; }
-  ::selection { background: rgba(245,158,11,.25); }
+           radial-gradient(900px 420px at 85% -10%, var(--glow1), transparent 60%),
+           radial-gradient(700px 380px at 0% 10%, var(--glow2), transparent 60%),
+           var(--bg);
+         min-height: 100vh; transition: background .25s, color .25s; }
+
+  /* App-Shell: feste Seitenleiste links, Inhalt rechts */
+  .shell { display: flex; min-height: 100vh; }
+  aside.side { width: 224px; flex: none; background: var(--side); color: var(--side-text);
+               padding: 26px 18px; display: flex; flex-direction: column; gap: 6px;
+               position: sticky; top: 0; height: 100vh; }
+  .side .marke { font-size: 13px; letter-spacing: 4px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+  .side .marke b { color: var(--akzent); }
+  .side .claim { font-size: 10.5px; color: #8b857a; margin-bottom: 22px; letter-spacing: .04em; }
+  .side nav { display: flex; flex-direction: column; gap: 2px; }
+  .side nav a { color: var(--side-text); text-decoration: none; font-size: 13.5px; font-weight: 600;
+                padding: 9px 12px; border-radius: 9px; display: flex; gap: 10px; align-items: center;
+                transition: background .12s, color .12s; }
+  .side nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .side nav a::before { content: ''; width: 6px; height: 6px; border-radius: 50%;
+                        background: var(--akzent); opacity: .65; flex: none; }
+  .side .unten { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .side .demo { font-size: 10.5px; border: 1px solid rgba(255,255,255,.18); color: #b9b2a5;
+                padding: 4px 10px; border-radius: 999px; text-align: center; }
+  .theme-knopf { font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 9px;
+                 border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06);
+                 color: var(--side-text); cursor: pointer; }
+  .theme-knopf:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .inhalt { flex: 1; min-width: 0; }
+  main { max-width: 1060px; margin: 0 auto; padding: 34px 28px 80px; }
+  @media (max-width: 760px) {
+    .shell { flex-direction: column; }
+    aside.side { width: 100%; height: auto; position: static; padding: 16px 18px; }
+    .side nav { flex-direction: row; flex-wrap: wrap; }
+    .side .unten { margin-top: 8px; flex-direction: row; align-items: center; }
+  }
+  ::selection { background: rgba(245,158,11,.3); }
   h2 { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 34px 0 14px;
        color: var(--grau); font-weight: 700; display: flex; align-items: center; gap: 10px; }
   h2::before { content: ''; width: 22px; height: 3px; background: var(--akzent); border-radius: 2px; flex: none; }
@@ -52,8 +87,8 @@
   .kunde .meta { font-size: 12.5px; color: var(--grau); }
   .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12.5px; }
   .badge { display: inline-block; font-size: 11.5px; padding: 3px 11px; border-radius: 999px;
-           background: #22303a; font-weight: 700; letter-spacing: .02em; }
-  .badge.akzent { background: linear-gradient(135deg, var(--akzent), #e18a04); color: #fff;
+           background: var(--karte2); font-weight: 700; letter-spacing: .02em; }
+  .badge.akzent { background: linear-gradient(135deg, var(--akzent), var(--akzent-tief)); color: #171104;
                   box-shadow: 0 2px 6px -2px rgba(245,158,11,.55); }
   .status { font-size: 13px; }
   .leer { background: var(--karte); border: 1px dashed var(--linie); border-radius: 12px; padding: 14px 18px !important; }
@@ -65,11 +100,11 @@
   .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
   .knopfleiste { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
   button.aktion { font-size: 14px; padding: 10px 20px; border-radius: 999px; cursor: pointer;
-                  background: #1c2830; color: var(--tinte); font-weight: 600; border: 1px solid #2d3c46;
+                  background: var(--karte2); color: var(--tinte); font-weight: 600; border: 1px solid var(--linie);
                   transition: transform .12s, box-shadow .12s, border-color .12s; }
   button.aktion:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--akzent);
                   box-shadow: 0 6px 18px -6px rgba(251,171,30,.35); }
-  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), #e08c07); color: #171104;
+  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), var(--akzent-tief)); color: #171104;
                           border: none; box-shadow: 0 4px 16px -4px rgba(251,171,30,.55); }
   button.aktion:disabled { opacity: .5; cursor: wait; }
   .status { font-size: 13px; color: var(--grau); margin: 8px 0; min-height: 18px; }
@@ -77,12 +112,12 @@
   table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px;
           background: var(--karte); border-radius: 12px; overflow: hidden; box-shadow: var(--schatten); }
   th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--grau);
-       background: #17222a; padding: 10px 14px; font-weight: 700; }
+       background: var(--karte2); padding: 10px 14px; font-weight: 700; }
   td { border-bottom: 1px solid var(--linie); padding: 11px 14px; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: rgba(255,255,255,.03); }
   td a { color: var(--tinte); font-weight: 600; }
-  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #cfd6d2; }
+  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: var(--tinte); opacity:.85; }
   .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
   .zahl { border: 1px solid var(--linie); border-radius: 14px; padding: 16px 18px; background: var(--karte);
           box-shadow: var(--schatten); position: relative; overflow: hidden; }
@@ -97,19 +132,32 @@
   .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
   .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
 </style>
+<script>document.documentElement.dataset.theme = localStorage.getItem('kurani-theme') || 'dark';</script>
 </head>
 <body>
-<header>
-  <div class="marke">K U R A N I &nbsp;·&nbsp; <b>AGENTUR</b></div>
-  <div class="untertitel">Telefon-Retter + KI-Sichtbarkeit · Gestaltung, die man fühlt.</div>
-  <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
-</header>
+<div class="shell">
+<aside class="side">
+  <div class="marke">KURANI<b>·AGENTUR</b></div>
+  <div class="claim">Gestaltung, die man fühlt.</div>
+  <nav>
+    <a href="#s-uebersicht">Übersicht</a>
+    <a href="#s-telefon">Telefon-Retter</a>
+    <a href="#s-rueckrufe">Rückrufe</a>
+    <a href="#s-kunden">Kunden</a>
+    <a href="#s-pipeline">Pipeline</a>
+  </nav>
+  <div class="unten">
+    <button class="theme-knopf" id="themeKnopf" onclick="themeWechseln()">☾ / ☀ Modus wechseln</button>
+    <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
+  </div>
+</aside>
+<div class="inhalt">
 <main>
-  <h2>Übersicht · <span id="uMonat"></span></h2>
+  <h2 id="s-uebersicht">Übersicht · <span id="uMonat"></span></h2>
   <div class="zahlen" id="uebersicht"><div class="leer">Lade Übersicht…</div></div>
   <div class="status" id="automatikInfo"></div>
 
-  <h2>Telefon-Retter</h2>
+  <h2 id="s-telefon">Telefon-Retter</h2>
   <div class="telefon" id="telefonKarte">
     <div class="punkt" id="telefonPunkt"></div>
     <div class="info" id="telefonInfo">Prüfe Status…</div>
@@ -117,10 +165,10 @@
   </div>
 
   <div id="listeAnsicht">
-    <h2>Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
+    <h2 id="s-rueckrufe">Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
     <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
 
-    <h2>Kunden</h2>
+    <h2 id="s-kunden">Kunden</h2>
     <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
       <input class="suche" id="suche" placeholder="Kunde suchen… (Name oder Stadt)" style="flex:1;margin-bottom:0">
       <button class="aktion" id="btnAlle" onclick="alleReportsErzeugen()" title="Monats-Routine: erzeugt nacheinander den Report für jeden Kunden">Alle Monats-Reports erzeugen</button>
@@ -128,7 +176,7 @@
     <div class="status" id="alleStatus"></div>
     <div class="kunden" id="kundenListe"></div>
 
-    <h2>Interessenten · Neukunden-Pipeline
+    <h2 id="s-pipeline">Interessenten · Neukunden-Pipeline
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:10px" onclick="osmImport(this)" title="Holt alle Restaurants der Region aus OpenStreetMap in die Pipeline (Bestandskunden werden automatisch rausgefiltert)">Region importieren (OSM)</button>
     </h2>
     <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
@@ -170,6 +218,8 @@
     </div>
   </div>
 </main>
+</div>
+</div>
 
 <script>
 let kunden = [];
@@ -553,6 +603,13 @@ async function aufbereitungErzeugen() {
     status.textContent = 'Fehler: ' + e.message;
   }
   btn.disabled = false;
+}
+
+// ---------------- Design-Modus ----------------
+function themeWechseln() {
+  const neu = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = neu;
+  localStorage.setItem('kurani-theme', neu);
 }
 
 // ---------------- Start ----------------
