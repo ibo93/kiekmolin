@@ -161,6 +161,26 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.ok(ws2.zu);
   });
 
+  // --- No-Show-Schutz (SMS-Erinnerung) ------------------------------------------
+  await test('SMS-Erinnerung: Auswahl filtert sauber, Text ist freundlich + mit Absage-Weg', () => {
+    const { faelligeErinnerungen, baueErinnerungsText, istAktiv } = require('./lib/erinnerung');
+    const resis = [
+      { id: 'a', guest_name: 'Meyer', guest_phone: '+49 172 5550123', reservation_time: '19:00:00', party_size: 4 },
+      { id: 'b', guest_name: 'Schulz', guest_phone: '', reservation_time: '18:00:00', party_size: 2 },          // keine Nummer
+      { id: 'c', guest_name: 'Anrufer (RUECKRUF)', guest_phone: '+49123456', reservation_time: '00:00' },        // Rueckruf-Fallback
+      { id: 'd', guest_name: 'Janssen', guest_phone: '+49 4921 99', reservation_time: '20:00:00', party_size: 2 } // Nummer zu kurz? 6+ Ziffern -> ok
+    ];
+    const faellig = faelligeErinnerungen(resis, ['d']);
+    assert.deepStrictEqual(faellig.map((r) => r.id), ['a'], 'nur a: b ohne Nummer, c Rueckruf, d schon erinnert');
+    const text = baueErinnerungsText({ name: 'La Piazza', phone: '04921 123456' }, resis[0]);
+    assert.ok(text.includes('19:00') && text.includes('La Piazza') && text.includes('4'));
+    assert.ok(/absagen|dazwischenkommt|ab\b/.test(text.toLowerCase()), 'Absage-Weg ist der No-Show-Schutz');
+    assert.ok(text.length <= 320, 'maximal 2 SMS-Segmente');
+    // Opt-in: ohne SMS_ERINNERUNG=1 ist das Feature aus
+    delete process.env.SMS_ERINNERUNG;
+    assert.strictEqual(istAktiv(), false);
+  });
+
   await test('Stream-Token: frisch ok, manipuliert/abgelaufen nicht', () => {
     const t = streamTokenErzeugen();
     assert.ok(streamTokenGueltig(t));

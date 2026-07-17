@@ -583,10 +583,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // API: Interessenten (Neukunden-Pipeline aus prospects.json)
+    // API: OSM-Import anstossen - fuellt die Pipeline mit allen Betrieben
+    // der Region (import-osm.js, Overpass API). Laeuft im Hintergrund.
+    if (req.method === 'POST' && pfad === '/api/osm-import') {
+      if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: Import nur simuliert.' }); return; }
+      const { execFile } = require('child_process');
+      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 180000 }, (fehler, stdout) => {
+        console.log('[osm-import] ' + (fehler ? 'FEHLER: ' + fehler.message : String(stdout).trim().split('\n').pop()));
+      });
+      json(res, 200, { ok: true, hinweis: 'Import laeuft (1-2 Minuten) - danach Seite neu laden.' });
+      return;
+    }
+
+    // API: Interessenten (Neukunden-Pipeline aus prospects.json).
+    // Bestandskunden werden per Namens-Abgleich rausgefiltert.
     if (req.method === 'GET' && pfad === '/api/interessenten') {
       let liste = [];
       try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
+      const kundenNamen = (await ladeKunden()).map((k) => k.name);
+      const { istSchonPartner } = require('./lib/pitch');
+      liste = liste.filter((p) => !istSchonPartner(p, kundenNamen));
       json(res, 200, liste.map((p) => ({
         name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
         telefon: p.phone || '', website: p.website || '',

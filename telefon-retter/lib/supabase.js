@@ -101,6 +101,18 @@ async function reservierungenAm(restaurantId, datum) {
   );
 }
 
+// Bestaetigte Reservierungen eines Tages MIT Kontaktdaten - nur fuer die
+// SMS-Erinnerung (No-Show-Schutz). Rueckruf-Fallback-Eintraege bleiben
+// draussen (guest_name-Markierung).
+async function reservierungenFuerErinnerung(restaurantId, datum) {
+  return supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&reservation_date=eq.' + encodeURIComponent(datum) +
+    '&status=eq.confirmed' +
+    '&select=id,guest_name,guest_phone,reservation_time,party_size'
+  );
+}
+
 async function anzahlAktiveTische(restaurantId) {
   const tische = await supabaseGet(
     'restaurant_tables?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
@@ -164,6 +176,7 @@ async function rueckrufErledigt(id) {
 
 module.exports = {
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
+  reservierungenFuerErinnerung,
   neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,
   offeneRueckrufe, rueckrufErledigt
 };

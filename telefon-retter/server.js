@@ -176,6 +176,14 @@ ladeDaten()
     // Alte Gespraechs-Protokolle beim Start und dann taeglich loeschen
     alteLogsLoeschen();
     setInterval(alteLogsLoeschen, 24 * 60 * 60 * 1000);
+    // No-Show-Schutz: morgige Reservierungen per SMS erinnern (Opt-in)
+    const { erinnerungsLauf, istAktiv } = require('./lib/erinnerung');
+    if (istAktiv()) {
+      console.log('SMS-Erinnerung AN: Gaeste mit Reservierung fuer morgen werden ab ' +
+        (process.env.ERINNERUNG_AB_STUNDE || 15) + ' Uhr erinnert.');
+      setInterval(() => erinnerungsLauf(kontexte, supabase).catch((e) => console.warn('Erinnerung: ' + e.message)), 60 * 60 * 1000);
+      setTimeout(() => erinnerungsLauf(kontexte, supabase).catch((e) => console.warn('Erinnerung: ' + e.message)), 30000);
+    }
   })
   .catch((e) => {
     console.error('Start fehlgeschlagen: ' + e.message);

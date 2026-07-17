@@ -108,4 +108,21 @@ die Richtung – und den Euro-Wert der geretteten Anrufe.</div>
 </html>`;
 }
 
-module.exports = { pitchLuecken, bauePitchHtml };
+// Ist ein Interessent in Wahrheit schon Partner? (Namens-Abgleich,
+// Umlaut-tolerant) - Bestandskunden gehoeren nicht in die Pipeline.
+function normalisiereName(s) {
+  return String(s || '').toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function istSchonPartner(prospect, kundenNamen) {
+  const p = normalisiereName(prospect && prospect.name);
+  if (!p) return false;
+  return (kundenNamen || []).some((n) => {
+    const k = normalisiereName(n);
+    return k && (k === p || k.includes(p) || p.includes(k));
+  });
+}
+
+module.exports = { pitchLuecken, bauePitchHtml, istSchonPartner, normalisiereName };
