@@ -41,7 +41,7 @@ function istDigestFaellig(jetzt, letzterTag) {
 function werteStatistikAus(zeilen, heute) {
   const monat = String(heute).slice(0, 7);
   const summe = {
-    anrufeHeute: 0, anrufeMonat: 0,
+    anrufeHeute: 0, anrufeMonat: 0, ohneErgebnis: 0,
     reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0
   };
   for (const zeile of zeilen || []) {
@@ -56,8 +56,15 @@ function werteStatistikAus(zeilen, heute) {
     summe.bestellungen += d.bestellungen || 0;
     summe.bestellwert += Number(d.bestellwert) || 0;
     summe.rueckrufe += d.rueckrufe || 0;
+    // Qualitaets-Schleife: Anrufe OHNE jedes Ergebnis (keine Reservierung,
+    // keine Bestellung, kein Rueckruf) sind die Stellschraube - dort hat der
+    // Gast aufgelegt oder der Agent nicht verstanden.
+    if (!((d.reservierungen || 0) + (d.bestellungen || 0) + (d.rueckrufe || 0))) summe.ohneErgebnis++;
   }
   summe.bestellwert = Math.round(summe.bestellwert * 100) / 100;
+  summe.abschlussQuote = summe.anrufeMonat
+    ? Math.round(((summe.anrufeMonat - summe.ohneErgebnis) / summe.anrufeMonat) * 100)
+    : null;
   return summe;
 }
 

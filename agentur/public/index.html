@@ -304,7 +304,9 @@ async function ladeTelefon() {
       : 'Server ist aus (starten: cd telefon-retter && node server.js)';
     const s = t.statistik || {};
     const statistikText = s.anrufeMonat
-      ? s.anrufeHeute + ' Anruf' + (s.anrufeHeute === 1 ? '' : 'e') + ' heute · ' + s.anrufeMonat + ' diesen Monat · '
+      ? s.anrufeHeute + ' Anruf' + (s.anrufeHeute === 1 ? '' : 'e') + ' heute · ' + s.anrufeMonat + ' diesen Monat' +
+        (s.abschlussQuote != null ? ' · Abschlussquote ' + s.abschlussQuote + '%' +
+          (s.ohneErgebnis ? ' <span title="Anrufe ohne Reservierung, Bestellung oder Rückruf – Protokolle lesen und den Agenten verbessern!" style="color:' + (s.abschlussQuote < 70 ? '#dc2626' : 'var(--grau)') + '">(' + s.ohneErgebnis + ' ohne Ergebnis)</span>' : '') : '') + ' · '
       : '';
     const a = document.getElementById('telefonAnrufe');
     a.innerHTML = statistikText + (t.anrufe.length
