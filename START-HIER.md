@@ -68,14 +68,22 @@ cp .env.example .env      # Datei öffnen und ausfüllen:
 | Key | Wo bekommst du ihn | Wofür |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys | KI-Test im Report („empfiehlt ChatGPT/Claude den Betrieb?") |
-| `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Anleitung steht in der .env.example | Google-Test („Top 10 bei Google?") |
+| `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Anleitung steht in der .env.example | Google-Test + Wettbewerbs-Radar („wer steht vor dir?") |
+| `RESEND_API_KEY` + `EMAIL_FROM` | resend.com (nutzt ihr schon für die App) | Reports gehen **automatisch per E-Mail** an die Wirte |
+| `AGENTUR_EMAIL` | deine eigene Adresse | **Montags-Digest**: Lage der Agentur als Mail an dich |
 
 Dann `node server.js` (ohne `--demo`) — jetzt siehst du alle echten
 Restaurants aus deiner Datenbank. Ohne Keys läuft es auch, dann steht im
 Report „manuell prüfen" statt automatischer Ergebnisse.
 
-**Monats-Routine pro Kunde:** App öffnen → Kunde → „Monats-Report erzeugen"
-→ PDF an den Wirt schicken. Das war's.
+**Die Monats-Routine läuft von selbst:** Am 1. jeden Monats (einstellbar,
+`AUTO_REPORT_TAG`) erzeugt die App die Reports für ALLE Kunden und schickt
+sie per E-Mail an die Wirte — solange die App läuft. War der Rechner am
+Stichtag aus, wird der Lauf beim nächsten Start nachgeholt. Du musst nur
+noch: **offene Rückrufe abarbeiten** (stehen in der App mit Erledigt-Knopf)
+und bei **roter Kunden-Ampel** zum Hörer greifen. Neukunde? Ein Klick auf
+„Komplett einrichten" beim Kunden erledigt Aufbereitung + Google-Posts +
+ersten Report.
 
 ## 4. Den Telefon-Retter in Betrieb nehmen
 
