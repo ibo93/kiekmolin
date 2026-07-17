@@ -465,6 +465,11 @@ ${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
   Ranking auf google.de kann je nach Standort und Verlauf leicht abweichen.
 </div>
 
+<div class="hinweis" style="border-top:none;padding-top:0">
+  <strong>Weitersagen lohnt sich:</strong> Sie kennen einen Kollegen, dem das auch helfen würde?
+  Empfehlen Sie uns weiter – als Dankeschön geht Ihr nächster Monat auf uns.
+</div>
+
 <footer>
   <span>Kurani Design · Bahnhofstr. 2 · 26506 Norden</span>
   <span>Gestaltung, die man fühlt.</span>

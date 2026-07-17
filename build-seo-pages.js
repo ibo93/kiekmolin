@@ -37,7 +37,11 @@ const CITIES = [
   { slug: 'norden',        name: 'Norden',        zipPrefix: '267', region: 'Ostfriesland' },
   { slug: 'aurich',        name: 'Aurich',        zipPrefix: '267', region: 'Ostfriesland' },
   { slug: 'emden',         name: 'Emden',         zipPrefix: '267', region: 'Ostfriesland' },
-  { slug: 'carolinensiel', name: 'Carolinensiel', zipPrefix: '264', region: 'Wittmund' }
+  { slug: 'carolinensiel', name: 'Carolinensiel', zipPrefix: '264', region: 'Wittmund' },
+  { slug: 'leer',          name: 'Leer',          zipPrefix: '267', region: 'Ostfriesland' },
+  { slug: 'wittmund',      name: 'Wittmund',      zipPrefix: '264', region: 'Harlingerland' },
+  { slug: 'esens',         name: 'Esens',         zipPrefix: '264', region: 'Harlingerland' },
+  { slug: 'jever',         name: 'Jever',         zipPrefix: '264', region: 'Friesland' }
 ];
 
 const CATEGORIES = [
