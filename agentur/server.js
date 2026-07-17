@@ -534,6 +534,7 @@ const server = http.createServer(async (req, res) => {
         fragen: suchfragen(kunde).fragen.map((f) => f.frage),
         historie: kundenHistorie(slug),
         naechsteSchritte: naechsteSchritteFuer(slug, kunde),
+        portalLink: require('./lib/portal').istAktiv() ? '/portal/' + require('./lib/portal').portalToken(slug) : null,
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
       });
       return;
@@ -664,6 +665,33 @@ const server = http.createServer(async (req, res) => {
       if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: E-Mail nur simuliert' }); return; }
       const ergebnis = await sendeNeuestenReport(kunde);
       json(res, ergebnis.ok ? 200 : 400, ergebnis);
+      return;
+    }
+
+    // Kunden-Portal (Magic-Link): oeffentlich teilbare Ergebnis-Seite je
+    // Wirt. Nur aktiv mit PORTAL_SECRET. Token identifiziert den Kunden.
+    if (req.method === 'GET' && pfad.startsWith('/portal/')) {
+      const portal = require('./lib/portal');
+      if (!portal.istAktiv()) { res.writeHead(404); res.end('Portal nicht aktiviert (PORTAL_SECRET fehlt)'); return; }
+      const teile = pfad.split('/').filter(Boolean); // ['portal', token, ('report', monat)?]
+      const kunden = await ladeKunden();
+      const kunde = kunden.find((k) => portal.portalToken(effektiverSlug(k)) === teile[1]);
+      if (!kunde) { res.writeHead(404); res.end('Unbekannter Link'); return; }
+      const slug = effektiverSlug(kunde);
+      if (teile[2] === 'report' && /^\d{4}-\d{2}$/.test(teile[3] || '')) {
+        const datei = path.join(REPORT_ORDNER, slug + '-' + teile[3] + '.html');
+        if (!fs.existsSync(datei)) { res.writeHead(404); res.end('Report nicht gefunden'); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(fs.readFileSync(datei));
+        return;
+      }
+      const html = portal.bauePortalHtml({
+        kunde, token: teile[1],
+        zahlen: await kundenTelefonZahlen(kunde, report.monatsSchluessel()),
+        historie: kundenHistorie(slug)
+      });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
       return;
     }
 

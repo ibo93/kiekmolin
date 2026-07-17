@@ -352,7 +352,8 @@ async function zeigeKunde(id) {
   document.getElementById('detailAnsicht').style.display = '';
   document.getElementById('dName').textContent = aktuellerKunde.name;
   document.getElementById('dKategorie').textContent = aktuellerKunde.kategorie;
-  document.getElementById('dMeta').textContent = [aktuellerKunde.adresse, aktuellerKunde.stadt, aktuellerKunde.telefon].filter(Boolean).join(' · ');
+  document.getElementById('dMeta').innerHTML = [aktuellerKunde.adresse, aktuellerKunde.stadt, aktuellerKunde.telefon].filter(Boolean).map(t => t.replace(/</g, '&lt;')).join(' · ') +
+    (aktuellerKunde.portalLink ? ' · <a href="' + aktuellerKunde.portalLink + '" target="_blank">Kunden-Portal öffnen</a> (Link an den Wirt geben)' : '');
   document.getElementById('dStatus').textContent = '';
   document.getElementById('dFragen').innerHTML = aktuellerKunde.fragen.map(f => '<li>„' + f + '"</li>').join('');
   document.getElementById('dSchritte').innerHTML = (aktuellerKunde.naechsteSchritte || []).length

@@ -57,6 +57,28 @@ test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   assert.strictEqual(werteStatistikAus([], '2026-07-16').anrufeMonat, 0);
 });
 
+test('Kunden-Portal: Token stabil + geheim, Seite zeigt Zahlen, ohne Secret aus', () => {
+  delete process.env.PORTAL_SECRET;
+  const pfad = require.resolve('./lib/portal');
+  delete require.cache[pfad];
+  let portal = require('./lib/portal');
+  assert.strictEqual(portal.istAktiv(), false, 'ohne PORTAL_SECRET aus');
+  process.env.PORTAL_SECRET = 'test-geheimnis';
+  assert.strictEqual(portal.istAktiv(), true);
+  const t1 = portal.portalToken('la-piazza-emden');
+  assert.strictEqual(t1, portal.portalToken('la-piazza-emden'), 'Token ist stabil');
+  assert.notStrictEqual(t1, portal.portalToken('greetsieler-boerse'), 'je Kunde anders');
+  assert.strictEqual(t1.length, 32);
+  const html = portal.bauePortalHtml({
+    kunde: { name: 'La Piazza' }, token: t1,
+    zahlen: { gesamtGeschaetzt: 962.4, reservierungen: 9, gaeste: 31, bestellungen: 6, bestellwert: 187.4 },
+    historie: [{ monat: '2026-07', label: 'Juli 2026', quote: { prozent: 73 }, html: '/x' }, { monat: '2026-06', label: 'Juni 2026', quote: { prozent: 64 }, html: null }]
+  });
+  assert.ok(html.includes('962,40 €') && html.includes('La Piazza') && html.includes('noindex'));
+  assert.ok(html.includes('/portal/' + t1 + '/report/2026-07'), 'Report-Link laeuft durchs Portal');
+  delete process.env.PORTAL_SECRET;
+});
+
 test('Pipeline-Filter: Bestandskunden fliegen raus (Umlaut-tolerant)', () => {
   const { istSchonPartner } = require('./lib/pitch');
   const kunden = ['La Piazza Emden', 'Greetsieler Börse'];
