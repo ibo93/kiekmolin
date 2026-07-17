@@ -50,11 +50,16 @@ test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   ];
   const s = werteStatistikAus(zeilen, '2026-07-16');
   assert.deepStrictEqual(s, {
-    anrufeHeute: 1, anrufeMonat: 2,
+    anrufeHeute: 1, anrufeMonat: 2, ohneErgebnis: 0, abschlussQuote: 100,
     reservierungen: 1, gaeste: 4, bestellungen: 1, bestellwert: 26.9, rueckrufe: 0
   });
+  // Qualitaets-Schleife: Anruf ohne jedes Ergebnis drueckt die Abschlussquote
+  const mitLeer = werteStatistikAus(zeilen.concat(JSON.stringify({ zeit: '2026-07-10T12:00:00Z', reservierungen: 0, bestellungen: 0, rueckrufe: 0 })), '2026-07-16');
+  assert.strictEqual(mitLeer.ohneErgebnis, 1);
+  assert.strictEqual(mitLeer.abschlussQuote, 67, '2 von 3 mit Ergebnis');
   // leere Datei -> alles null, kein Fehler
   assert.strictEqual(werteStatistikAus([], '2026-07-16').anrufeMonat, 0);
+  assert.strictEqual(werteStatistikAus([], '2026-07-16').abschlussQuote, null);
 });
 
 test('Kunden-Portal: Token stabil + geheim, Seite zeigt Zahlen, ohne Secret aus', () => {
