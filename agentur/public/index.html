@@ -5,17 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KURANI · Agentur</title>
 <style>
-  :root { --akzent: #f59e0b; --tinte: #16130e; --grau: #7a7468; --linie: #eae6de; --bg: #f6f4ef;
-          --karte: #fffdf9; --schatten: 0 1px 2px rgba(22,19,14,.05), 0 6px 18px -8px rgba(22,19,14,.09); }
+  :root { --akzent: #fbab1e; --tinte: #f2ede1; --grau: #94a0a0; --linie: #24313a; --bg: #0c1216;
+          --karte: #131c22; --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -10px rgba(0,0,0,.5); }
   * { box-sizing: border-box; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
          color: var(--tinte); font-size: 15px; -webkit-font-smoothing: antialiased;
-         background: linear-gradient(180deg, #f1eee6 0%, var(--bg) 260px); min-height: 100vh; }
+         background:
+           radial-gradient(900px 420px at 80% -10%, rgba(251,171,30,.09), transparent 60%),
+           radial-gradient(700px 380px at 0% 8%, rgba(45,140,150,.10), transparent 60%),
+           linear-gradient(180deg, #0e161b 0%, var(--bg) 420px);
+         min-height: 100vh; }
   header { background:
-             radial-gradient(600px 200px at 85% -40%, rgba(245,158,11,.22), transparent 70%),
-             linear-gradient(135deg, #14110c 0%, #262015 100%);
+             radial-gradient(600px 220px at 85% -40%, rgba(251,171,30,.30), transparent 70%),
+             linear-gradient(135deg, #05080a 0%, #121a20 100%);
            color: #fff; padding: 26px 32px; display: flex; align-items: baseline; gap: 14px;
-           border-bottom: 3px solid var(--akzent); }
+           border-bottom: 2px solid rgba(251,171,30,.65); }
   header .marke { font-size: 14px; letter-spacing: 5px; font-weight: 700; }
   header .marke b { color: var(--akzent); }
   header .untertitel { font-size: 12px; color: #a89f90; }
@@ -48,7 +52,7 @@
   .kunde .meta { font-size: 12.5px; color: var(--grau); }
   .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12.5px; }
   .badge { display: inline-block; font-size: 11.5px; padding: 3px 11px; border-radius: 999px;
-           background: #efece4; font-weight: 700; letter-spacing: .02em; }
+           background: #22303a; font-weight: 700; letter-spacing: .02em; }
   .badge.akzent { background: linear-gradient(135deg, var(--akzent), #e18a04); color: #fff;
                   box-shadow: 0 2px 6px -2px rgba(245,158,11,.55); }
   .status { font-size: 13px; }
@@ -60,24 +64,25 @@
   .detail h3 { font-size: 22px; }
   .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
   .knopfleiste { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
-  button.aktion { font-size: 14px; padding: 10px 20px; border-radius: 999px; border: none; cursor: pointer;
-                  background: var(--tinte); color: #fff; font-weight: 600;
-                  transition: transform .12s, box-shadow .12s, opacity .12s; }
-  button.aktion:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px -6px rgba(22,19,14,.35); }
-  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), #e18a04); color: #fff;
-                          box-shadow: 0 4px 12px -4px rgba(245,158,11,.5); }
+  button.aktion { font-size: 14px; padding: 10px 20px; border-radius: 999px; cursor: pointer;
+                  background: #1c2830; color: var(--tinte); font-weight: 600; border: 1px solid #2d3c46;
+                  transition: transform .12s, box-shadow .12s, border-color .12s; }
+  button.aktion:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--akzent);
+                  box-shadow: 0 6px 18px -6px rgba(251,171,30,.35); }
+  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), #e08c07); color: #171104;
+                          border: none; box-shadow: 0 4px 16px -4px rgba(251,171,30,.55); }
   button.aktion:disabled { opacity: .5; cursor: wait; }
   .status { font-size: 13px; color: var(--grau); margin: 8px 0; min-height: 18px; }
-  .status.fehler { color: #b00; }
+  .status.fehler { color: #f87171; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px;
           background: var(--karte); border-radius: 12px; overflow: hidden; box-shadow: var(--schatten); }
   th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--grau);
-       background: #f1eee6; padding: 10px 14px; font-weight: 700; }
+       background: #17222a; padding: 10px 14px; font-weight: 700; }
   td { border-bottom: 1px solid var(--linie); padding: 11px 14px; }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #faf8f2; }
+  tr:hover td { background: rgba(255,255,255,.03); }
   td a { color: var(--tinte); font-weight: 600; }
-  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
+  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #cfd6d2; }
   .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
   .zahl { border: 1px solid var(--linie); border-radius: 14px; padding: 16px 18px; background: var(--karte);
           box-shadow: var(--schatten); position: relative; overflow: hidden; }
@@ -144,7 +149,7 @@
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
         <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
-        <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:#fff;color:var(--tinte)">Komplett einrichten</button>
+        <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:transparent;color:var(--akzent)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
 
@@ -434,7 +439,7 @@ function verlaufBalken(h) {
       const hoehe = w.wert == null ? 2 : Math.max(4, Math.round((w.wert / max) * 54));
       const label = w.wert == null ? '–' : (einheit === '%' ? w.wert + '%' : Math.round(w.wert) + ' €');
       return '<div style="flex:1;text-align:center"><div style="font-size:10.5px;font-weight:700">' + label + '</div>' +
-        '<div style="height:' + hoehe + 'px;background:' + (w.wert == null ? '#e4e4e4' : farbe) + ';border-radius:3px 3px 0 0;width:60%;max-width:38px;margin:2px auto 0"></div>' +
+        '<div style="height:' + hoehe + 'px;background:' + (w.wert == null ? '#2a3841' : farbe) + ';border-radius:3px 3px 0 0;width:60%;max-width:38px;margin:2px auto 0"></div>' +
         '<div style="font-size:9.5px;color:var(--grau);margin-top:3px;white-space:nowrap">' + w.monat.slice(5) + '/' + w.monat.slice(2, 4) + '</div></div>';
     }).join('') + '</div>';
   };
@@ -442,7 +447,7 @@ function verlaufBalken(h) {
   const umsatz = eintraege.map(e => ({ monat: e.monat, wert: e.telefon ? (e.telefon.gesamtGeschaetzt || 0) : null }));
   return '<div style="display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px">' +
     '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Quote-Verlauf</div>' + balkenReihe(quote, 'var(--akzent)', '%') + '</div>' +
-    (umsatz.some(w => w.wert) ? '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Telefon-Umsatz-Verlauf</div>' + balkenReihe(umsatz, '#111', '€') + '</div>' : '') +
+    (umsatz.some(w => w.wert) ? '<div class="zahl" style="flex:1;min-width:220px"><div class="label" style="margin-bottom:8px">Telefon-Umsatz-Verlauf</div>' + balkenReihe(umsatz, '#7fd8c8', '€') + '</div>' : '') +
     '</div>';
 }
 
