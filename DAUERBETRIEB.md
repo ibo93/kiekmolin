@@ -4,6 +4,22 @@ Damit der Telefon-Retter rund um die Uhr Anrufe annimmt, muss er auf einem
 Server laufen, nicht auf deinem Rechner. Diese Anleitung bringt beide Dienste
 auf einen kleinen Cloud-Server (z.B. Hetzner CX22, ~4 €/Monat).
 
+## Der schnelle Weg: ein Befehl
+
+Auf dem frischen Ubuntu-Server (als root), nachdem der A-Record deiner
+Telefon-Domain auf die Server-IP zeigt:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ibo93/kiekmolin/main/dauerbetrieb-setup.sh -o setup.sh
+bash setup.sh telefon.kurani-design.de
+```
+
+Das Skript installiert Docker + Caddy (HTTPS), holt das Repo nach
+`/opt/kiekmolin`, legt die `.env`-Dateien an (ohne vorhandene zu
+überschreiben), setzt `BASE_URL` und startet beide Dienste. Danach nur
+noch: Keys in die `.env`-Dateien, Twilio-Webhook setzen — steht am Ende
+der Skript-Ausgabe. Die Schritte unten sind derselbe Weg von Hand.
+
 ## 1. Server mieten und vorbereiten (einmalig, ~20 Minuten)
 
 1. Server bestellen: hetzner.com → Cloud → Ubuntu 24.04, kleinste Größe reicht.
