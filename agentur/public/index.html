@@ -5,64 +5,81 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KURANI · Agentur</title>
 <style>
-  :root { --akzent: #f59e0b; --tinte: #111; --grau: #666; --linie: #e4e4e4; --bg: #fafafa; }
+  :root { --akzent: #f59e0b; --tinte: #16130e; --grau: #7a7468; --linie: #eae6de; --bg: #f6f4ef;
+          --karte: #fffdf9; --schatten: 0 1px 2px rgba(22,19,14,.05), 0 6px 18px -8px rgba(22,19,14,.09); }
   * { box-sizing: border-box; margin: 0; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: var(--tinte); background: var(--bg); }
-  header { background: #111; color: #fff; padding: 18px 28px; display: flex; align-items: baseline; gap: 14px; }
-  header .marke { font-size: 13px; letter-spacing: 3px; }
+  body { font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+         color: var(--tinte); background: var(--bg); font-size: 15px;
+         -webkit-font-smoothing: antialiased; }
+  header { background: linear-gradient(135deg, #16130e 0%, #241e14 100%); color: #fff;
+           padding: 22px 32px; display: flex; align-items: baseline; gap: 14px;
+           border-bottom: 3px solid var(--akzent); }
+  header .marke { font-size: 13px; letter-spacing: 4px; font-weight: 600; }
   header .marke b { color: var(--akzent); }
-  header .untertitel { font-size: 12px; color: #aaa; }
-  header .demo { margin-left: auto; font-size: 11px; border: 1px solid #444; color: #ccc; padding: 3px 10px; border-radius: 999px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
-  h2 { font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin: 26px 0 12px;
-       border-left: 4px solid var(--akzent); padding-left: 10px; }
+  header .untertitel { font-size: 12px; color: #a89f90; }
+  header .demo { margin-left: auto; font-size: 11px; border: 1px solid #4a4336; color: #cfc7b8; padding: 4px 12px; border-radius: 999px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 30px 20px 70px; }
+  h2 { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 34px 0 14px;
+       color: var(--grau); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  h2::before { content: ''; width: 22px; height: 3px; background: var(--akzent); border-radius: 2px; flex: none; }
 
   /* Telefon-Retter-Karte */
-  .telefon { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 20px;
-             display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .telefon { background: var(--karte); border: 1px solid var(--linie); border-radius: 14px; padding: 18px 22px;
+             display: flex; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: var(--schatten); }
   .punkt { width: 12px; height: 12px; border-radius: 50%; background: #ccc; flex: none; }
-  .punkt.an { background: #16a34a; box-shadow: 0 0 0 4px rgba(22,163,74,.15); }
-  .telefon .info { font-size: 14px; }
+  .punkt.an { background: #16a34a; box-shadow: 0 0 0 5px rgba(22,163,74,.14); }
+  .telefon .info { font-size: 14.5px; font-weight: 500; }
   .telefon .anrufe { margin-left: auto; font-size: 12.5px; color: var(--grau); }
   .telefon .anrufe a { color: var(--tinte); }
 
   /* Kundenliste */
-  .suche { width: 100%; padding: 12px 16px; font-size: 15px; border: 1px solid var(--linie); border-radius: 10px;
-           margin-bottom: 14px; background: #fff; }
-  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-  .kunde { background: #fff; border: 1px solid var(--linie); border-radius: 10px; padding: 16px 18px;
-           cursor: pointer; transition: border-color .15s; }
-  .kunde:hover { border-color: var(--akzent); }
-  .kunde h3 { font-size: 16px; margin-bottom: 2px; }
+  .suche { width: 100%; padding: 13px 18px; font-size: 15px; border: 1px solid var(--linie); border-radius: 12px;
+           margin-bottom: 14px; background: var(--karte); box-shadow: var(--schatten); outline: none; }
+  .suche:focus { border-color: var(--akzent); }
+  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .kunde { background: var(--karte); border: 1px solid var(--linie); border-radius: 14px; padding: 18px 20px;
+           cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; box-shadow: var(--schatten); }
+  .kunde:hover { border-color: var(--akzent); transform: translateY(-2px);
+                 box-shadow: 0 2px 4px rgba(22,19,14,.06), 0 14px 28px -10px rgba(22,19,14,.14); }
+  .kunde h3 { font-size: 16.5px; margin-bottom: 2px; letter-spacing: -.01em; }
   .kunde .meta { font-size: 12.5px; color: var(--grau); }
-  .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font-size: 12.5px; }
-  .badge { display: inline-block; font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: #f1f1f1; }
+  .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12.5px; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #efece4; font-weight: 600; }
   .badge.akzent { background: var(--akzent); color: #fff; }
 
   /* Detail-Ansicht */
-  .detail { background: #fff; border: 1px solid var(--linie); border-radius: 12px; padding: 22px 24px; }
+  .detail { background: var(--karte); border: 1px solid var(--linie); border-radius: 16px; padding: 26px 28px; box-shadow: var(--schatten); }
   .detail .kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .detail h3 { font-size: 22px; }
   .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
-  .knopfleiste { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
-  button.aktion { font-size: 14px; padding: 10px 18px; border-radius: 999px; border: none; cursor: pointer;
-                  background: var(--tinte); color: #fff; }
-  button.aktion.primaer { background: var(--akzent); }
+  .knopfleiste { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
+  button.aktion { font-size: 14px; padding: 10px 20px; border-radius: 999px; border: none; cursor: pointer;
+                  background: var(--tinte); color: #fff; font-weight: 600;
+                  transition: transform .12s, box-shadow .12s, opacity .12s; }
+  button.aktion:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px -6px rgba(22,19,14,.35); }
+  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), #e18a04); color: #fff;
+                          box-shadow: 0 4px 12px -4px rgba(245,158,11,.5); }
   button.aktion:disabled { opacity: .5; cursor: wait; }
   .status { font-size: 13px; color: var(--grau); margin: 8px 0; min-height: 18px; }
   .status.fehler { color: #b00; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
-  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau);
-       border-bottom: 2px solid var(--tinte); padding: 6px 8px; }
-  td { border-bottom: 1px solid var(--linie); padding: 9px 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px;
+          background: var(--karte); border-radius: 12px; overflow: hidden; box-shadow: var(--schatten); }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--grau);
+       background: #f1eee6; padding: 10px 14px; font-weight: 700; }
+  td { border-bottom: 1px solid var(--linie); padding: 11px 14px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #faf8f2; }
   td a { color: var(--tinte); font-weight: 600; }
   .fragen li { font-size: 13.5px; margin-bottom: 4px; color: #333; }
-  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .zahl { border: 1px solid var(--linie); border-radius: 10px; padding: 14px 16px; background: #fff; }
-  .zahl .wert { font-size: 26px; font-weight: 700; }
+  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  .zahl { border: 1px solid var(--linie); border-radius: 14px; padding: 16px 18px; background: var(--karte);
+          box-shadow: var(--schatten); position: relative; overflow: hidden; }
+  .zahl::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+                 background: linear-gradient(180deg, var(--akzent), transparent); opacity: .55; }
+  .zahl .wert { font-size: 28px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .zahl .wert.akzent { color: var(--akzent); }
-  .zahl .label { font-size: 11.5px; color: var(--grau); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
-  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 4px; }
+  .zahl .label { font-size: 11px; color: var(--grau); text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; font-weight: 700; }
+  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 5px; line-height: 1.45; }
   .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
   .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
 </style>
