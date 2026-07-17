@@ -93,3 +93,13 @@ ls telefon-retter/logs/              # Anruf-Protokolle
 
 Notbremse: `docker compose stop telefon-retter` — dann greift die
 Rufumleitung ins Leere und das Telefon klingelt wieder nur beim Wirt.
+
+Kunden-Portal öffentlich machen (optional): in der Caddy-Config zusätzlich
+```
+portal.kurani-design.de {
+    reverse_proxy localhost:3200
+    @nichtPortal not path /portal/*
+    respond @nichtPortal 404
+}
+```
+So ist NUR `/portal/…` erreichbar – der Rest der Agentur-App bleibt privat.
