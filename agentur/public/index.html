@@ -9,16 +9,19 @@
           --karte: #fffdf9; --schatten: 0 1px 2px rgba(22,19,14,.05), 0 6px 18px -8px rgba(22,19,14,.09); }
   * { box-sizing: border-box; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-         color: var(--tinte); background: var(--bg); font-size: 15px;
-         -webkit-font-smoothing: antialiased; }
-  header { background: linear-gradient(135deg, #16130e 0%, #241e14 100%); color: #fff;
-           padding: 22px 32px; display: flex; align-items: baseline; gap: 14px;
+         color: var(--tinte); font-size: 15px; -webkit-font-smoothing: antialiased;
+         background: linear-gradient(180deg, #f1eee6 0%, var(--bg) 260px); min-height: 100vh; }
+  header { background:
+             radial-gradient(600px 200px at 85% -40%, rgba(245,158,11,.22), transparent 70%),
+             linear-gradient(135deg, #14110c 0%, #262015 100%);
+           color: #fff; padding: 26px 32px; display: flex; align-items: baseline; gap: 14px;
            border-bottom: 3px solid var(--akzent); }
-  header .marke { font-size: 13px; letter-spacing: 4px; font-weight: 600; }
+  header .marke { font-size: 14px; letter-spacing: 5px; font-weight: 700; }
   header .marke b { color: var(--akzent); }
   header .untertitel { font-size: 12px; color: #a89f90; }
   header .demo { margin-left: auto; font-size: 11px; border: 1px solid #4a4336; color: #cfc7b8; padding: 4px 12px; border-radius: 999px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 30px 20px 70px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 34px 24px 80px; }
+  ::selection { background: rgba(245,158,11,.25); }
   h2 { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 34px 0 14px;
        color: var(--grau); font-weight: 700; display: flex; align-items: center; gap: 10px; }
   h2::before { content: ''; width: 22px; height: 3px; background: var(--akzent); border-radius: 2px; flex: none; }
@@ -44,8 +47,12 @@
   .kunde h3 { font-size: 16.5px; margin-bottom: 2px; letter-spacing: -.01em; }
   .kunde .meta { font-size: 12.5px; color: var(--grau); }
   .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12.5px; }
-  .badge { display: inline-block; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; background: #efece4; font-weight: 600; }
-  .badge.akzent { background: var(--akzent); color: #fff; }
+  .badge { display: inline-block; font-size: 11.5px; padding: 3px 11px; border-radius: 999px;
+           background: #efece4; font-weight: 700; letter-spacing: .02em; }
+  .badge.akzent { background: linear-gradient(135deg, var(--akzent), #e18a04); color: #fff;
+                  box-shadow: 0 2px 6px -2px rgba(245,158,11,.55); }
+  .status { font-size: 13px; }
+  .leer { background: var(--karte); border: 1px dashed var(--linie); border-radius: 12px; padding: 14px 18px !important; }
 
   /* Detail-Ansicht */
   .detail { background: var(--karte); border: 1px solid var(--linie); border-radius: 16px; padding: 26px 28px; box-shadow: var(--schatten); }
@@ -76,7 +83,9 @@
           box-shadow: var(--schatten); position: relative; overflow: hidden; }
   .zahl::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
                  background: linear-gradient(180deg, var(--akzent), transparent); opacity: .55; }
-  .zahl .wert { font-size: 28px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .zahl { transition: transform .15s, box-shadow .15s; }
+  .zahl:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(22,19,14,.06), 0 14px 26px -12px rgba(22,19,14,.16); }
+  .zahl .wert { font-size: 31px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .zahl .wert.akzent { color: var(--akzent); }
   .zahl .label { font-size: 11px; color: var(--grau); text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; font-weight: 700; }
   .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 5px; line-height: 1.45; }
