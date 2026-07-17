@@ -190,7 +190,7 @@ function safeText(s, fallback) {
 // ==================== DATA FETCH ====================
 
 async function fetchRestaurants() {
-  const url = SUPABASE_URL + '/rest/v1/restaurants?is_active=eq.true&select=*';
+  const url = SUPABASE_URL + '/rest/v1/restaurants?or=(is_active.eq.true,is_active.is.null)&select=*';
   const res = await fetch(url, {
     headers: {
       'apikey': SUPABASE_KEY,

@@ -30,7 +30,7 @@ async function supabaseGet(pfadMitQuery) {
 
 // Alle aktiven Betriebe
 async function alleRestaurants() {
-  return supabaseGet('restaurants?is_active=eq.true&select=*&order=name');
+  return supabaseGet('restaurants?or=(is_active.eq.true,is_active.is.null)&select=*&order=name');
 }
 
 // Einen Betrieb per ID, Slug ODER Namens-Teil finden

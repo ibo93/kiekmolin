@@ -71,7 +71,7 @@ async function findeRestaurant(idOderName) {
     const treffer = await supabaseGet('restaurants?id=eq.' + idOderName + '&select=*');
     return treffer[0] || null;
   }
-  const alle = await supabaseGet('restaurants?is_active=eq.true&select=*&order=name');
+  const alle = await supabaseGet('restaurants?or=(is_active.eq.true,is_active.is.null)&select=*&order=name');
   const s = String(idOderName).toLowerCase();
   return (
     alle.find((r) => (r.slug || '').toLowerCase() === s) ||
