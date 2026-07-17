@@ -97,7 +97,9 @@
     <div class="status" id="alleStatus"></div>
     <div class="kunden" id="kundenListe"></div>
 
-    <h2>Interessenten · Neukunden-Pipeline</h2>
+    <h2>Interessenten · Neukunden-Pipeline
+      <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:10px" onclick="osmImport(this)" title="Holt alle Restaurants der Region aus OpenStreetMap in die Pipeline (Bestandskunden werden automatisch rausgefiltert)">Region importieren (OSM)</button>
+    </h2>
     <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
     <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
@@ -270,6 +272,16 @@ async function ladeInteressenten() {
           : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">Pitch erzeugen</button>'}</td>
       </tr>`).join('')}</table>`;
   } catch (e) { ziel.innerHTML = '<div class="leer">Interessenten nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+async function osmImport(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Import läuft…';
+  try {
+    const r = await api('/api/osm-import', { method: 'POST' });
+    btn.textContent = r.hinweis || 'Import läuft…';
+    setTimeout(() => { ladeInteressenten(); btn.disabled = false; btn.textContent = 'Region importieren (OSM)'; }, 90000);
+  } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
 }
 
 async function pitchErzeugen(name, i) {

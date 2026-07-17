@@ -57,6 +57,15 @@ test('Anruf-Statistik: heute vs. Monat, kaputte Zeilen ueberspringen', () => {
   assert.strictEqual(werteStatistikAus([], '2026-07-16').anrufeMonat, 0);
 });
 
+test('Pipeline-Filter: Bestandskunden fliegen raus (Umlaut-tolerant)', () => {
+  const { istSchonPartner } = require('./lib/pitch');
+  const kunden = ['La Piazza Emden', 'Greetsieler Börse'];
+  assert.strictEqual(istSchonPartner({ name: 'La Piazza' }, kunden), true, 'Teilname matcht');
+  assert.strictEqual(istSchonPartner({ name: 'Greetsieler Boerse' }, kunden), true, 'ohne Umlaute matcht');
+  assert.strictEqual(istSchonPartner({ name: 'Pizzeria Castello' }, kunden), false);
+  assert.strictEqual(istSchonPartner({ name: '' }, kunden), false);
+});
+
 test('Pitch-Seite: Luecken datengedeckt, ohne leere Versprechen', () => {
   const { pitchLuecken, bauePitchHtml } = require('./lib/pitch');
   const ohneWebsite = pitchLuecken({ name: 'Pizzeria Castello', city: 'Norden', category: 'pizzeria', website: '' });
