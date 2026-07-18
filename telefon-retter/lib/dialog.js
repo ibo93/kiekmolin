@@ -19,6 +19,92 @@ const { pruefeSlot, lokalesDatum, normalisiereUhrzeit } = require('./verfuegbark
 
 const WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 
+// --- Live-Streaming: sprechen, WAEHREND Claude noch denkt --------------------
+// SatzSammler bekommt Text-Stueckchen (Deltas) und meldet fertige Saetze
+// SOFORT weiter - so liegt der erste Satz schon auf der Telefonleitung,
+// bevor die Antwort komplett geschrieben ist.
+class SatzSammler {
+  constructor(onSatz) {
+    this.onSatz = onSatz;
+    this.puffer = '';
+  }
+
+  fuettere(stueck) {
+    this.puffer += stueck;
+    // Satzgrenze = .!? gefolgt von Leerraum. Punkt-Stuecke unter 15 Zeichen
+    // (Abkuerzungen wie "z.B.", Zahlen) reifen weiter, "Gerne!" darf sofort raus.
+    const grenze = /[.!?]+\s+/g;
+    let start = 0;
+    let m;
+    while ((m = grenze.exec(this.puffer))) {
+      const kandidat = this.puffer.slice(start, m.index + m[0].length).trim();
+      if (kandidat.length >= 15 || /[!?]$/.test(kandidat)) {
+        this.onSatz(kandidat);
+        start = m.index + m[0].length;
+      }
+    }
+    this.puffer = this.puffer.slice(start);
+  }
+
+  spuelen() {
+    const rest = this.puffer.trim();
+    this.puffer = '';
+    if (rest) this.onSatz(rest);
+  }
+}
+
+// Server-Sent-Events der Claude-API einsammeln und zur gewohnten Antwort-Form
+// zusammensetzen. Text-Deltas gehen SOFORT an onDelta (-> SatzSammler),
+// Werkzeug-Aufrufe werden vollstaendig gesammelt wie im Nicht-Streaming-Fall.
+async function parseSseAntwort(strom, onDelta) {
+  const decoder = new TextDecoder();
+  const bloecke = [];
+  let stopReason = null;
+  let rest = '';
+  for await (const chunk of strom) {
+    rest += decoder.decode(chunk, { stream: true });
+    let idx;
+    while ((idx = rest.indexOf('\n')) !== -1) {
+      const zeile = rest.slice(0, idx).trim();
+      rest = rest.slice(idx + 1);
+      if (!zeile.startsWith('data:')) continue;
+      let ev;
+      try { ev = JSON.parse(zeile.slice(5)); } catch (_e) { continue; }
+      if (ev.type === 'content_block_start') {
+        bloecke[ev.index] = Object.assign({}, ev.content_block);
+        if (bloecke[ev.index].type === 'tool_use') bloecke[ev.index].__json = '';
+      } else if (ev.type === 'content_block_delta') {
+        const b = bloecke[ev.index];
+        if (!b) continue;
+        if (ev.delta.type === 'text_delta') {
+          b.text = (b.text || '') + ev.delta.text;
+          if (onDelta) onDelta(ev.delta.text);
+        } else if (ev.delta.type === 'input_json_delta') {
+          b.__json += ev.delta.partial_json;
+        } else if (ev.delta.type === 'thinking_delta') {
+          // Denk-Bloecke des Modells ebenfalls zusammensetzen - sie gehoeren
+          // vollstaendig in den Gespraechsverlauf, sonst lehnt die API die
+          // naechste Runde ab. Gesprochen wird davon natuerlich nichts.
+          b.thinking = (b.thinking || '') + ev.delta.thinking;
+        } else if (ev.delta.type === 'signature_delta') {
+          b.signature = (b.signature || '') + ev.delta.signature;
+        }
+      } else if (ev.type === 'content_block_stop') {
+        const b = bloecke[ev.index];
+        if (b && b.type === 'tool_use') {
+          try { b.input = b.__json ? JSON.parse(b.__json) : (b.input || {}); } catch (_e) { b.input = b.input || {}; }
+          delete b.__json;
+        }
+      } else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) {
+        stopReason = ev.delta.stop_reason;
+      } else if (ev.type === 'error') {
+        throw new Error('Claude-Stream: ' + JSON.stringify(ev.error).slice(0, 200));
+      }
+    }
+  }
+  return { content: bloecke.filter(Boolean), stop_reason: stopReason };
+}
+
 function normalisiere(s) {
   return String(s || '').toLowerCase()
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
@@ -206,6 +292,7 @@ function baueSystemPrompt(restaurant, stufe, anrufer) {
     'EISERNE REGELN:',
     '- NIE etwas zusagen, was du nicht per Werkzeug geprueft hast. Bei Unsicherheit, Sonderfaellen (Gruppen ueber 10, Feiern, Reklamationen) oder wenn der Gast einen Menschen verlangt: rueckruf_wunsch nutzen und sauber verabschieden.',
     '- Antworten kurz halten: 1-2 Saetze, eine Frage pro Antwort. Keine Listen, keine Emojis - es wird vorgelesen.',
+    '- Wo es passt, mit einer kurzen Bestaetigung beginnen ("Gerne.", "Alles klar.", "Einen Moment.") - so hoert der Gast sofort eine Reaktion.',
     '- Uhrzeiten wie "19:30" als "halb acht abends" oder "19 Uhr 30" aussprechen.',
     '- Wenn alles erledigt ist: freundlich verabschieden und gespraech_beenden aufrufen.',
     '- Du bist ehrlich: auf Wunsch sagst du, dass du ein digitaler Assistent bist.');
@@ -243,14 +330,22 @@ class DialogSitzung {
   }
 
   // Ein Gespraechsschritt: Nutzertext rein -> gesprochene Antwort raus.
-  async antwortAuf(nutzerText) {
+  //
+  // Mit onSatz (Telefon): fertige Saetze werden SOFORT gemeldet, waehrend
+  // Claude noch schreibt - der Anrufer hoert die Antwort fast ohne Pause.
+  // Der Aufrufer spricht dann NUR die onSatz-Saetze; der Rueckgabe-Text
+  // dient als Protokoll. Ohne onSatz (Simulator, Browser-Demo): wie gehabt.
+  async antwortAuf(nutzerText, onSatz) {
     this.nachrichten.push({ role: 'user', content: nutzerText });
     let beenden = false;
     const gesagte = [];
+    let sofortGesagt = false;
+    const sammler = onSatz ? new SatzSammler((satz) => { sofortGesagt = true; onSatz(satz); }) : null;
 
     // Werkzeug-Schleife: Claude darf mehrere Tools nacheinander nutzen
     for (let runde = 0; runde < 6; runde++) {
-      const antwort = await this.claudeAnfrage();
+      const antwort = await this.claudeAnfrage(sammler ? (t) => sammler.fuettere(t) : null);
+      if (sammler) sammler.spuelen(); // Restsatz vor Werkzeug-Lauf/Ende raus
       const textTeile = antwort.content.filter((b) => b.type === 'text').map((b) => b.text);
       const toolAufrufe = antwort.content.filter((b) => b.type === 'tool_use');
       this.nachrichten.push({ role: 'assistant', content: antwort.content });
@@ -269,7 +364,12 @@ class DialogSitzung {
         }
         if (ergebnis && ergebnis.__beenden) {
           beenden = true;
-          if (ergebnis.abschiedsgruss) gesagte.push(ergebnis.abschiedsgruss);
+          if (ergebnis.abschiedsgruss) {
+            gesagte.push(ergebnis.abschiedsgruss);
+            // Abschied kommt aus dem Werkzeug, nicht aus Text-Deltas -
+            // im Streaming-Fall also direkt weiterreichen.
+            if (onSatz) { sofortGesagt = true; onSatz(ergebnis.abschiedsgruss); }
+          }
           ergebnis = { ok: true };
         }
         this.log('  -> ' + JSON.stringify(ergebnis).slice(0, 300));
@@ -280,29 +380,32 @@ class DialogSitzung {
     }
 
     if (beenden) this.beendet = true;
-    return {
-      text: gesagte.join(' ').trim() || 'Entschuldigung, das habe ich nicht verstanden. Koennen Sie das wiederholen?',
-      beenden
-    };
+    const text = gesagte.join(' ').trim() || 'Entschuldigung, das habe ich nicht verstanden. Koennen Sie das wiederholen?';
+    // Streaming-Fall ohne ein einziges Delta (z.B. leere Antwort): den
+    // Fallback-Satz trotzdem hoerbar machen.
+    if (onSatz && !sofortGesagt) onSatz(text);
+    return { text, beenden };
   }
 
-  async claudeAnfrage() {
+  async claudeAnfrage(onDelta) {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error('ANTHROPIC_API_KEY fehlt in .env');
     const antwort = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      signal: AbortSignal.timeout(20000), // haengt die API, nicht den ganzen Anruf blockieren
+      signal: AbortSignal.timeout(30000), // haengt die API, nicht den ganzen Anruf blockieren
       body: JSON.stringify({
         model: process.env.CLAUDE_MODELL || 'claude-sonnet-5',
         max_tokens: 800, // genug fuer das komplette Vorlesen einer Bestellung (Stufe 3)
         system: this.system,
         tools: this.tools,
+        stream: !!onDelta, // Telefon: Saetze schon beim Entstehen sprechen
         messages: this.nachrichten
       })
     });
     if (!antwort.ok) throw new Error('Claude-API ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
-    return antwort.json();
+    if (!onDelta) return antwort.json();
+    return parseSseAntwort(antwort.body, onDelta);
   }
 
   // --- Werkzeuge -------------------------------------------------------------------
@@ -558,4 +661,4 @@ class DialogSitzung {
   }
 }
 
-module.exports = { DialogSitzung, baueTools, baueSystemPrompt };
+module.exports = { DialogSitzung, baueTools, baueSystemPrompt, SatzSammler, parseSseAntwort };

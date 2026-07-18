@@ -189,6 +189,52 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.ok(!streamTokenGueltig(streamTokenErzeugen(Date.now() - 6 * 60 * 1000)));
   });
 
+  await test('SatzSammler: meldet Saetze sofort, Abkuerzungen reifen weiter', () => {
+    const { SatzSammler } = require('./lib/dialog');
+    const raus = [];
+    const s = new SatzSammler((satz) => raus.push(satz));
+    s.fuettere('Gerne! ');
+    assert.deepStrictEqual(raus, ['Gerne!'], 'kurzer Ausruf geht sofort raus');
+    s.fuettere('Fuer wie viele Perso');
+    assert.strictEqual(raus.length, 1, 'halber Satz wartet');
+    s.fuettere('nen darf ich reservieren? Und auf welchen Na');
+    assert.deepStrictEqual(raus[1], 'Fuer wie viele Personen darf ich reservieren?');
+    s.spuelen();
+    assert.strictEqual(raus[2], 'Und auf welchen Na', 'spuelen gibt den Rest frei');
+    const kurz = [];
+    const s2 = new SatzSammler((satz) => kurz.push(satz));
+    s2.fuettere('z.B. am Fenster waere noch frei. Passt das?');
+    s2.spuelen();
+    assert.ok(!kurz.some((x) => x === 'z.B.'), 'Abkuerzung wird nie allein gesprochen: ' + JSON.stringify(kurz));
+  });
+
+  await test('parseSseAntwort: Text-Deltas sofort, Werkzeug-Eingaben komplett', async () => {
+    const { parseSseAntwort } = require('./lib/dialog');
+    const sse = [
+      'event: content_block_start',
+      'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}',
+      'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Einen Moment, "}}',
+      'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ich pruefe das."}}',
+      'data: {"type":"content_block_stop","index":0}',
+      'data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t1","name":"pruefe_verfuegbarkeit","input":{}}}',
+      'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"datum\\":\\"2026-"}}',
+      'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"08-01\\",\\"uhrzeit\\":\\"19:00\\",\\"personen\\":4}"}}',
+      'data: {"type":"content_block_stop","index":1}',
+      'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}',
+      ''
+    ].join('\n');
+    const strom = new ReadableStream({
+      start(c) { c.enqueue(new TextEncoder().encode(sse)); c.close(); }
+    });
+    const deltas = [];
+    const antwort = await parseSseAntwort(strom, (t) => deltas.push(t));
+    assert.strictEqual(deltas.join(''), 'Einen Moment, ich pruefe das.', 'Deltas kommen sofort und vollstaendig');
+    assert.strictEqual(antwort.content[0].text, 'Einen Moment, ich pruefe das.');
+    assert.strictEqual(antwort.content[1].name, 'pruefe_verfuegbarkeit');
+    assert.deepStrictEqual(antwort.content[1].input, { datum: '2026-08-01', uhrzeit: '19:00', personen: 4 }, 'Werkzeug-JSON aus Stuecken zusammengesetzt');
+    assert.strictEqual(antwort.stop_reason, 'tool_use');
+  });
+
   await test('inSaetze: teilt fuers fluessige Sprechen, ohne Inhalt zu verlieren', () => {
     const { inSaetze } = require('./lib/elevenlabs');
     assert.deepStrictEqual(
