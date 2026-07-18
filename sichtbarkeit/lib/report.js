@@ -328,6 +328,37 @@ function radarSektion(ergebnis, vormonat) {
 </div>`;
 }
 
+// KI-Konkurrenz: Welche Namen empfiehlt die KI ueber alle Fragen hinweg?
+// Das staerkste Argument im Kundengespraech: "Die KI schickt Gaeste zu X."
+function kiKonkurrenz(ergebnis) {
+  const zaehler = new Map();
+  for (const f of ergebnis.fragen || []) {
+    for (const name of (f.ki && f.ki.empfohlen) || []) {
+      const k = String(name).toLowerCase().replace(/\s+/g, ' ').trim();
+      const e = zaehler.get(k) || { name, anzahl: 0 };
+      e.anzahl++;
+      zaehler.set(k, e);
+    }
+  }
+  return [...zaehler.values()].sort((a, b) => b.anzahl - a.anzahl).slice(0, 8);
+}
+
+function konkurrenzSektion(ergebnis) {
+  const top = kiKonkurrenz(ergebnis);
+  if (!top.length) return '';
+  const chips = top.map((t) =>
+    '<span class="dom" style="font-size:13px;padding:4px 12px">' + esc(t.name) +
+    (t.anzahl > 1 ? ' <strong>' + t.anzahl + '×</strong>' : '') + '</span>').join(' ');
+  return `
+<h2>Wen die KI stattdessen empfiehlt</h2>
+<div style="margin:4px 0 8px">${chips}</div>
+<div class="hinweis" style="margin-top:8px;border-top:none;padding-top:0">
+  Diese Namen tauchten diesen Monat in den KI-Antworten auf die Test-Fragen auf –
+  dorthin schickt die KI aktuell die Gäste. Ziel unserer Arbeit: dass dein Betrieb
+  in dieser Liste steht. Die Auszüge unten zeigen die Antworten im Wortlaut.
+</div>`;
+}
+
 function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
@@ -449,6 +480,8 @@ ${verlaufSektion(verlauf)}
 
 ${radarSektion(ergebnis, vormonat)}
 
+${konkurrenzSektion(ergebnis)}
+
 ${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
 
 <h2>Was kommt nächsten Monat</h2>
@@ -506,6 +539,6 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 
 module.exports = {
   fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
-  wettbewerbsRadar, radarSektion, ladeVerlauf, verlaufSektion,
+  wettbewerbsRadar, radarSektion, kiKonkurrenz, ladeVerlauf, verlaufSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

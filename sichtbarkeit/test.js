@@ -187,6 +187,45 @@ test('GBP-Posts: 4 Stueck, echtes Gericht, Saison, Antworten ohne Gutschein-Vers
   assert.ok(md.includes('Google-Business-Beiträge') && md.includes('kiekmolin.de/la-piazza-emden') && !md.includes('undefined'));
 });
 
+// --- KI-Konkurrenz-Analyse ----------------------------------------------------------
+test('empfohleneNamen: zieht Namen aus Listen und Fettdruck, filtert eigenen Namen und Fuellwoerter', () => {
+  const { empfohleneNamen } = require('./lib/checks');
+  const antwort = [
+    'Hier sind gute Optionen in Greetsiel:',
+    '1. **Restaurant Poggenstool** – direkt am Hafen, bekannt für Krabben',
+    '2. Zur alten Fischerhütte - gemütlich, norddeutsche Küche',
+    '- Greetsieler Börse: Fisch und Terrasse',
+    '* **Restaurant Poggenstool** (nochmal genannt)',
+    'Hinweis: Alle Angaben ohne Gewähr.'
+  ].join('\n');
+  const namen = empfohleneNamen(antwort, 'Greetsieler Börse');
+  assert.ok(namen.includes('Restaurant Poggenstool'), 'Fettdruck-Name gefunden');
+  assert.ok(namen.includes('Zur alten Fischerhütte'), 'Listen-Name gefunden');
+  assert.ok(!namen.some((n) => n.toLowerCase().includes('börse')), 'eigener Name fliegt raus');
+  assert.ok(!namen.some((n) => /^hinweis/i.test(n)), 'Fuellwoerter fliegen raus');
+  assert.strictEqual(namen.filter((n) => n === 'Restaurant Poggenstool').length, 1, 'Doppelte werden dedupliziert');
+  assert.deepStrictEqual(empfohleneNamen('', 'X'), [], 'leere Antwort = leere Liste');
+});
+
+test('kiKonkurrenz: aggregiert ueber alle Fragen und zaehlt Mehrfach-Nennungen, Sektion im Report', () => {
+  const ergebnis = {
+    basis: { kiekmolin: { status: 'gefunden', detail: '' }, website: { status: 'gefunden', detail: '' } },
+    fragen: [
+      { id: 'a', frage: 'wo essen?', google: { status: 'manuell', detail: '' }, ki: { status: 'nicht-gefunden', detail: '', empfohlen: ['Restaurant Poggenstool', 'Zur alten Fischerhütte'] } },
+      { id: 'b', frage: 'bestes fischrestaurant?', google: { status: 'manuell', detail: '' }, ki: { status: 'nicht-gefunden', detail: '', empfohlen: ['restaurant poggenstool'] } }
+    ]
+  };
+  const top = report.kiKonkurrenz(ergebnis);
+  assert.strictEqual(top[0].anzahl, 2, 'Poggenstool 2x genannt (Gross/Klein egal)');
+  assert.strictEqual(top.length, 2);
+  const html = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08', ergebnis });
+  assert.ok(html.includes('Wen die KI stattdessen empfiehlt'), 'Sektion im Report');
+  assert.ok(html.includes('Restaurant Poggenstool'), 'Konkurrent im Report sichtbar');
+  const ohne = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: { basis: ergebnis.basis, fragen: [{ id: 'a', frage: 'x', google: { status: 'manuell', detail: '' }, ki: { status: 'manuell', detail: '' } }] } });
+  assert.ok(!ohne.includes('Wen die KI stattdessen empfiehlt'), 'ohne Daten keine leere Sektion');
+});
+
 // --- Aufbereitung -----------------------------------------------------------------
 test('JSON-LD mit Menue-Sektionen und Beschreibung', () => {
   const menue = [

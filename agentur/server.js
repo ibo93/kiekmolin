@@ -29,8 +29,11 @@ const { bauePitchHtml } = require('./lib/pitch');
 const { bewerteKunde } = require('./lib/gesundheit');
 const versand = require('./lib/versand');
 const gbpPosts = require('../sichtbarkeit/lib/gbp-posts');
+const { baueKundenUpdate } = require('./lib/kunden-update');
 // Rueckruf-Wuensche verwaltet das Telefon-Retter-Datenmodul (eigene Tabelle)
 const telefonDb = require('../telefon-retter/lib/supabase');
+// Anruf-Demo: das "Denken" des Telefon-Retters direkt im Browser vorfuehren
+const { DialogSitzung } = require('../telefon-retter/lib/dialog');
 
 ladeEnv(); // liest sichtbarkeit/.env
 
@@ -479,6 +482,58 @@ async function telefonStatus() {
   return status;
 }
 
+// ------------------------------------------------------- Anruf-Demo ----------
+// Verkaufs-Werkzeug: der Telefon-Retter als Text-Chat im Browser - mit dem
+// ECHTEN Restaurant und der ECHTEN Speisekarte, aber ohne einen einzigen
+// Schreibzugriff. Reservierungen/Bestellungen landen nur im Speicher der
+// Demo-Sitzung. Perfekt, um einem Wirt am Laptop zu zeigen, wie sein
+// Telefon kuenftig klingt.
+const anrufDemos = new Map(); // sitzungsId -> { dialog, zuletzt }
+const DEMO_SITZUNG_TTL = 30 * 60 * 1000;
+
+function anrufDemoDatenquelle() {
+  const neue = []; // nur im Speicher - NIE in der echten Datenbank
+  return {
+    async reservierungenAm(rid, datum) {
+      let echte = [];
+      if (!DEMO) { try { echte = await telefonDb.reservierungenAm(rid, datum); } catch (_e) { /* Demo laeuft auch offline */ } }
+      return echte.concat(neue.filter((r) => r.reservation_date === datum));
+    },
+    async anzahlAktiveTische(rid) {
+      if (!DEMO) {
+        try {
+          const n = await telefonDb.anzahlAktiveTische(rid);
+          if (n > 0) return n;
+        } catch (_e) { /* s.o. */ }
+      }
+      return 8; // Betrieb ohne gepflegte Tische: Demo soll trotzdem vorfuehrbar sein
+    },
+    async neueReservierung(p) { neue.push(p); return { ok: true, daten: Object.assign({ id: 'demo-' + neue.length }, p) }; },
+    async neueBestellung(p) { return { ok: true, daten: Object.assign({ id: 'demo-bestellung' }, p) }; },
+    async neuerBestellArtikel() { return { ok: true }; }
+    // Kein resilienterInsert -> Rueckruf-Wuensche landen im Speicher-Fallback
+  };
+}
+
+async function starteAnrufDemo(kunde) {
+  let menue = [];
+  if (DEMO) {
+    menue = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'telefon-retter', 'demo', 'demo-daten.json'), 'utf8')).speisekarte;
+  } else {
+    try { menue = await supabase.speisekarte(kunde.id); } catch (_e) { /* ohne Karte: Stufe 1 */ }
+  }
+  const dialog = new DialogSitzung({
+    restaurant: kunde,
+    menue,
+    stufe: menue.length ? 3 : 1,
+    anrufer: '+49 0000 000000 (Browser-Demo)',
+    datenquelle: anrufDemoDatenquelle()
+  });
+  const id = require('crypto').randomBytes(8).toString('hex');
+  anrufDemos.set(id, { dialog, zuletzt: Date.now() });
+  return { sitzung: id, text: dialog.begruessung(), beenden: false };
+}
+
 // ------------------------------------------------------------------ Server ----
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -704,6 +759,50 @@ const server = http.createServer(async (req, res) => {
     // API: offene Rueckruf-Wuensche (alle Kunden)
     if (req.method === 'GET' && pfad === '/api/rueckrufe') {
       json(res, 200, await ladeRueckrufe());
+      return;
+    }
+
+    // API: Anruf-Demo - ein Gespraechsschritt (oder Start ohne Sitzung).
+    // Schreibt NIE in die echte Datenbank (siehe anrufDemoDatenquelle).
+    if (req.method === 'POST' && pfad === '/api/anruf-demo') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt - einmal "node schluessel-einrichten.js" im Hauptordner ausfuehren.' });
+        return;
+      }
+      const { kennung, sitzung, text } = await leseBody(req);
+      const jetzt = Date.now();
+      for (const [id, s] of anrufDemos) { if (jetzt - s.zuletzt > DEMO_SITZUNG_TTL) anrufDemos.delete(id); }
+
+      const eintrag = sitzung ? anrufDemos.get(sitzung) : null;
+      if (!eintrag) {
+        const kunde = await findeKunde(kennung);
+        if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+        json(res, 200, await starteAnrufDemo(kunde));
+        return;
+      }
+      eintrag.zuletzt = jetzt;
+      const antwort = await eintrag.dialog.antwortAuf(String(text || '').slice(0, 500));
+      if (antwort.beenden) anrufDemos.delete(sitzung);
+      json(res, 200, { sitzung, text: antwort.text, beenden: antwort.beenden });
+      return;
+    }
+
+    // API: WhatsApp-Kunden-Update - fertige Nachricht mit den Monats-Zahlen
+    if (req.method === 'GET' && pfad.startsWith('/api/kunden-update/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const slug = effektiverSlug(kunde);
+      const portal = require('./lib/portal');
+      const basis = (process.env.BASE_URL || 'http://localhost:' + PORT).replace(/\/$/, '');
+      json(res, 200, {
+        text: baueKundenUpdate({
+          kunde,
+          monatLabel: report.monatsLabel(report.monatsSchluessel()),
+          historie: kundenHistorie(slug),
+          telefon: await kundenTelefonZahlen(kunde, report.monatsSchluessel()),
+          portalUrl: portal.istAktiv() ? basis + '/portal/' + portal.portalToken(slug) : null
+        })
+      });
       return;
     }
 

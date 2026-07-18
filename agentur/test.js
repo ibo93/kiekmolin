@@ -128,4 +128,28 @@ test('Gesundheits-Ampel: rot bei Luecke, gelb bei fehlendem Monat, gruen bei Akt
   ], aktuellerMonat: '2026-07' }).stufe, 'gruen');
 });
 
+test('WhatsApp-Kunden-Update: Quote-Trend, Telefon-Zahlen, ehrlich ohne Aktivitaet', () => {
+  const { baueKundenUpdate } = require('./lib/kunden-update');
+  const voll = baueKundenUpdate({
+    kunde: { name: 'Greetsieler Börse' },
+    monatLabel: 'Juli 2026',
+    historie: [
+      { monat: '2026-07', quote: { prozent: 25, gefunden: 2, getestet: 8 } },
+      { monat: '2026-06', quote: { prozent: 13, gefunden: 1, getestet: 8 } }
+    ],
+    telefon: { reservierungen: 3, gaeste: 8, bestellungen: 2, bestellwert: 62.4, rueckrufe: 1, gesamtGeschaetzt: 262.4 },
+    portalUrl: 'https://agentur.example/portal/abc'
+  });
+  assert.ok(voll.includes('Greetsieler Börse') && voll.includes('Juli 2026'), 'Name und Monat drin');
+  assert.ok(voll.includes('25 %') && voll.includes('+12 Punkte'), 'Quote mit Trend zum Vormonat');
+  assert.ok(voll.includes('3 Reservierungen (8 Gäste)') && voll.includes('262,40 €'), 'Telefon-Zahlen drin');
+  assert.ok(voll.includes('geschätzt'), 'Umsatz ehrlich als geschaetzt markiert');
+  assert.ok(voll.includes('https://agentur.example/portal/abc'), 'Portal-Link drin');
+
+  const leer = baueKundenUpdate({ kunde: { name: 'X' }, monatLabel: 'Juli 2026', historie: [], telefon: {} });
+  assert.ok(leer.includes('erste Messlauf'), 'ohne Historie ehrlicher Hinweis statt Fantasie-Zahlen');
+  assert.ok(!leer.includes('Telefon-Assistent'), 'ohne Telefon-Aktivitaet keine Telefon-Zeile');
+  assert.ok(!leer.includes('undefined') && !leer.includes('NaN'), 'keine kaputten Platzhalter');
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
