@@ -224,6 +224,15 @@
           <input type="checkbox" id="demoStimme" checked> 🔊 mit Stimme antworten</label>
       </div>
 
+      <h2>Bewertungs-Retter · schlechte Google-Bewertung?</h2>
+      <div class="status" style="margin-top:-6px">Bewertung einfügen → die KI prüft sie gegen die Google-Richtlinien und liefert dir die <b>Melde-Begründung</b> (wenn löschbar) und eine <b>professionelle Antwort</b>. Ehrlich: keine Lösch-Garantie – aber immer der richtige Weg.</div>
+      <textarea id="bwText" placeholder="Die schlechte Google-Bewertung hier einfügen…" rows="3"
+        style="width:100%;padding:12px 14px;border:1px solid var(--linie);border-radius:12px;background:var(--karte);color:var(--tinte);font:inherit;font-size:14px;resize:vertical"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+        <button class="aktion" id="btnBw" onclick="bewertungPruefen()">Prüfen &amp; Texte erstellen</button>
+      </div>
+      <div id="bwErgebnis" style="display:none;margin-top:10px"></div>
+
       <h2>Nächste Schritte (aus dem letzten Report)</h2>
       <ol class="fragen" id="dSchritte"></ol>
 
@@ -664,6 +673,54 @@ async function demoAufnahmeStopp() {
   }
   mik.disabled = false;
   mik.textContent = '🎤 Halten & sprechen';
+}
+
+// ---------------- Bewertungs-Retter ----------------
+// Schlechte Google-Bewertung pruefen: Meldegrund + fertige Texte.
+function kopierKnopf(text, label) {
+  const id = 'kopie-' + Math.random().toString(36).slice(2, 8);
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = () => { navigator.clipboard.writeText(text).then(() => { el.textContent = '✓ kopiert'; setTimeout(() => { el.textContent = label; }, 1500); }).catch(() => {}); };
+  }, 0);
+  return '<button class="aktion" id="' + id + '" style="padding:6px 14px;font-size:12.5px">' + label + '</button>';
+}
+
+async function bewertungPruefen() {
+  const text = document.getElementById('bwText').value.trim();
+  const ziel = document.getElementById('bwErgebnis');
+  const btn = document.getElementById('btnBw');
+  if (!text) { ziel.style.display = ''; ziel.innerHTML = '<div class="leer">Erst die Bewertung ins Feld einfügen.</div>'; return; }
+  btn.disabled = true;
+  btn.textContent = '⏳ KI prüft…';
+  ziel.style.display = '';
+  ziel.innerHTML = '<div class="leer">Prüfe gegen die Google-Richtlinien…</div>';
+  try {
+    const d = await api('/api/bewertung-pruefen', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kennung: aktuellerKunde.id, text }) });
+    const meldbar = d.verstoss !== 'kein_verstoss';
+    const chancenFarbe = { hoch: '#16a34a', mittel: '#eab308', gering: '#dc2626' }[d.chance] || 'var(--grau)';
+    ziel.innerHTML =
+      '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Einschätzung</div>' +
+      '<div style="font-weight:700;margin-bottom:4px">' + (d.label || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--grau)">' + String(d.begruendung || '').replace(/</g, '&lt;') +
+      ' · Lösch-Chance: <b style="color:' + chancenFarbe + '">' + d.chance + '</b></div></div>' +
+      (meldbar && d.meldung ?
+        '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Begründung fürs Google-Meldeformular</div>' +
+        '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.meldung).replace(/</g, '&lt;') + '</div>' +
+        kopierKnopf(d.meldung, '📋 Begründung kopieren') +
+        '<div style="font-size:12px;color:var(--grau);margin-top:8px">Melden: Google Maps → Bewertung → ⋮ → „Bewertung melden" (mit dem Google-Konto des Wirts). Antwort von Google dauert meist einige Tage.</div></div>' : '') +
+      (d.antwort ?
+        '<div class="zahl"><div class="label" style="margin-bottom:6px">Professionelle Antwort (immer sinnvoll – auch während der Prüfung)</div>' +
+        '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.antwort).replace(/</g, '&lt;') + '</div>' +
+        kopierKnopf(d.antwort, '📋 Antwort kopieren') + '</div>' : '') +
+      (d.verstoss === 'falsche_tatsache' ?
+        '<div class="status" style="margin-top:8px">⚖️ Bei falschen Tatsachenbehauptungen kann zusätzlich der Rechtsweg helfen (Anwalt/Abmahnung an Google) – das dem Wirt als Option nennen, nicht versprechen.</div>' : '');
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Prüfung fehlgeschlagen: ' + e.message + '</div>';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Prüfen & Texte erstellen';
 }
 
 // ---------------- WhatsApp-Kunden-Update ----------------

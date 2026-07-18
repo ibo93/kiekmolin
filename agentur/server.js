@@ -904,6 +904,41 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Bewertungs-Retter - schlechte Google-Bewertung pruefen und
+    // fertige Texte liefern (Melde-Begruendung + professionelle Antwort).
+    // Ehrlich: keine Loesch-Garantie, aber der richtige Weg fuer jeden Fall.
+    if (req.method === 'POST' && pfad === '/api/bewertung-pruefen') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt - einmal "node schluessel-einrichten.js" ausfuehren.' });
+        return;
+      }
+      const { kennung, text } = await leseBody(req);
+      if (!String(text || '').trim()) { json(res, 400, { fehler: 'Bitte die Bewertung einfuegen.' }); return; }
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const retter = require('./lib/bewertungs-retter');
+      try {
+        const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          signal: AbortSignal.timeout(45000),
+          body: JSON.stringify({
+            model: process.env.KI_MODELL || 'claude-sonnet-5',
+            max_tokens: 900,
+            messages: [{ role: 'user', content: retter.bauePruefPrompt(kunde, text) }]
+          })
+        });
+        if (!antwort.ok) throw new Error('Claude-API ' + antwort.status);
+        const daten = await antwort.json();
+        const ergebnis = retter.parsePruefung((daten.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
+        ergebnis.label = retter.VERSTOSS_LABELS[ergebnis.verstoss];
+        json(res, 200, ergebnis);
+      } catch (e) {
+        json(res, 502, { fehler: 'Pruefung fehlgeschlagen: ' + e.message });
+      }
+      return;
+    }
+
     // API: WhatsApp-Kunden-Update - fertige Nachricht mit den Monats-Zahlen
     if (req.method === 'GET' && pfad.startsWith('/api/kunden-update/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
