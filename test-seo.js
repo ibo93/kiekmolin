@@ -69,6 +69,13 @@ test('Listen-Titel mit echter Anzahl und Jahr', () => {
   assert.ok(html.includes('Die 2 besten Pizzerien in Emden</h1>'));
 });
 
+test('Empfehlungs-FAQ nennt die Betriebe beim Namen (nach Bewertung sortiert)', () => {
+  const html = fs.readFileSync(path.join(OUT, 'pizzeria-emden.html'), 'utf8');
+  assert.ok(html.includes('Welche Pizzerien in Emden sind zu empfehlen?'), 'die Empfehlungs-Frage steht auf der Seite');
+  assert.ok(html.includes('La Piazza'), 'der Betrieb wird in der Antwort genannt');
+  assert.ok(/Welche Pizzerien in Emden sind zu empfehlen\?[\s\S]*FAQPage|FAQPage[\s\S]*Welche Pizzerien in Emden sind zu empfehlen\?/.test(html), 'Frage auch im FAQPage-JSON-LD');
+});
+
 test('llms.txt fuer KI-Assistenten + robots.txt mit KI-Crawler-Freigabe', () => {
   seo.writeLlmsTxt([rest]);
   const llms = fs.readFileSync(path.join(OUT, 'llms.txt'), 'utf8');

@@ -314,12 +314,39 @@ function buildIntro(city, cat, count) {
          '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gaeste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne hohe Provisionen. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt das Geld in der Region.</p>';
 }
 
-function buildFaqs(city, cat) {
+// Die Empfehlungs-Frage ist GENAU die Frage, die Gaeste (und KI-Assistenten
+// mit Web-Suche) stellen. Die Antwort nennt die Betriebe beim Namen -
+// ehrlich nach Bewertung sortiert, nur echte Daten.
+function buildEmpfehlungsFaq(cityName, plural, matched, isEn) {
+  if (!matched || !matched.length) return null;
+  const top = matched.slice().sort(function(a, b) {
+    return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+  }).slice(0, 3);
+  const namen = top.map(function(r) {
+    const rating = Number(r.rating);
+    return r.name + (rating >= 4 ? (isEn ? ' (' + fmtRating(rating) + ' of 5 stars)' : ' (' + fmtRating(rating) + ' von 5 Sternen)') : '');
+  });
+  if (isEn) {
+    return {
+      q: 'Which ' + plural + ' in ' + cityName + ' are recommended?',
+      a: 'Popular with guests on ' + BRAND + ' right now: ' + namen.join(', ') + '. ' +
+         'All with a current menu, real guest reviews and free online table booking on ' + BRAND + '.'
+    };
+  }
+  return {
+    q: 'Welche ' + plural + ' in ' + cityName + ' sind zu empfehlen?',
+    a: 'Bei Gaesten auf ' + BRAND + ' aktuell beliebt: ' + namen.join(', ') + '. ' +
+       'Alle mit aktueller Speisekarte, echten Gaeste-Bewertungen und kostenloser Online-Tischreservierung auf ' + BRAND + '.'
+  };
+}
+
+function buildFaqs(city, cat, matched) {
   const cityName = city.name;
   const plural = cat.plural;
   const label = cat.label;
+  const empfehlung = buildEmpfehlungsFaq(cityName, plural, matched, false);
 
-  return [
+  return (empfehlung ? [empfehlung] : []).concat([
     {
       q: 'Welche ' + plural + ' liefern in ' + cityName + '?',
       a: 'Auf ' + BRAND + ' siehst du direkt, welche ' + plural + ' in ' + cityName + ' aktuell liefern. Filter nach "Lieferung" und du bekommst alle Optionen, die in dein Postleitzahl-Gebiet liefern – inklusive Mindestbestellwert und Lieferzeit.'
@@ -336,7 +363,7 @@ function buildFaqs(city, cat) {
       q: 'Kann ich bei ' + plural + ' in ' + cityName + ' reservieren?',
       a: 'Ja – viele ' + plural + ' in ' + cityName + ' bieten online Tisch-Reservierung an. Klick einfach auf das gewuenschte Restaurant und waehle Datum, Uhrzeit und Personenzahl. Bestaetigung kommt sofort.'
     }
-  ];
+  ]);
 }
 
 // ==================== ENGLISCHE VARIANTEN ====================
@@ -388,12 +415,13 @@ function buildIntroEn(city, cat, count) {
          '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no high commissions. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the money stays in the region.</p>';
 }
 
-function buildFaqsEn(city, cat) {
+function buildFaqsEn(city, cat, matched) {
   const cityName = city.name;
   const plural = cat.pluralEn || cat.plural;
   const label = cat.labelEn || cat.label;
+  const empfehlung = buildEmpfehlungsFaq(cityName, plural, matched, true);
 
-  return [
+  return (empfehlung ? [empfehlung] : []).concat([
     {
       q: 'Which ' + plural + ' deliver in ' + cityName + '?',
       a: 'On ' + BRAND + ' you can see which ' + plural + ' in ' + cityName + ' currently deliver. Filter by "Delivery" and you get every option that delivers to your postcode — including minimum order value and delivery time.'
@@ -410,7 +438,7 @@ function buildFaqsEn(city, cat) {
       q: 'Can I book a table at ' + plural + ' in ' + cityName + '?',
       a: 'Yes — many ' + plural + ' in ' + cityName + ' offer online table reservations. Click the restaurant of your choice and pick the date, time and number of guests. Confirmation is instant.'
     }
-  ];
+  ]);
 }
 
 // ==================== TEMPLATE ====================
@@ -1557,7 +1585,7 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
       (isEn ? ' – menus, reviews, order online' : ' – Speisekarten, Bewertungen, online bestellen'),
     intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
     restaurants: matched,
-    faqs: isEn ? buildFaqsEn(city, cat) : buildFaqs(city, cat),
+    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildFaqs(city, cat, matched),
     breadcrumbs: [
       { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
       { name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug },
@@ -1610,7 +1638,7 @@ function generateCityOverview(city, restaurants, lang) {
       : matched.length + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
     intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
     restaurants: matched,
-    faqs: isEn ? buildFaqsEn(city, cat) : buildFaqs(city, cat),
+    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildFaqs(city, cat, matched),
     breadcrumbs: [
       { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
       { name: city.name, url: url }
