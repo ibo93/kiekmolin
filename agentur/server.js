@@ -36,6 +36,9 @@ const telefonDb = require('../telefon-retter/lib/supabase');
 const { DialogSitzung } = require('../telefon-retter/lib/dialog');
 
 ladeEnv(); // liest sichtbarkeit/.env
+// Zusaetzlich telefon-retter/.env: dort liegen die Stimm-Schluessel
+// (ElevenLabs/Deepgram) fuer die Sprach-Demo im Browser.
+require('../telefon-retter/lib/env').ladeEnv();
 
 const PORT = parseInt(process.env.AGENTUR_PORT || '3200', 10);
 const DEMO = process.argv.includes('--demo');
@@ -78,6 +81,19 @@ function leseBody(req) {
     let body = '';
     req.on('data', (d) => { body += d; });
     req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (_e) { resolve({}); } });
+  });
+}
+
+// Rohdaten (z.B. Mikrofon-Aufnahme) einsammeln - mit Groessen-Deckel
+function leseRohBody(req, maxBytes) {
+  return new Promise((resolve) => {
+    const teile = [];
+    let gesamt = 0;
+    req.on('data', (d) => {
+      gesamt += d.length;
+      if (gesamt <= (maxBytes || 8 * 1024 * 1024)) teile.push(d);
+    });
+    req.on('end', () => resolve(Buffer.concat(teile)));
   });
 }
 
@@ -515,6 +531,55 @@ function anrufDemoDatenquelle() {
   };
 }
 
+// Sprach-Demo: zuhoeren (Deepgram, fertige Aufnahme) und mit Stimme
+// antworten (ElevenLabs, bestes Klang-Modell). Faellt ohne Schluessel
+// einfach auf die Text-Demo zurueck - nie ein harter Fehler.
+async function demoHoere(audioBuffer, mime) {
+  const key = process.env.DEEPGRAM_API_KEY;
+  if (!key) return { fehler: 'DEEPGRAM_API_KEY fehlt - einmal "node schluessel-einrichten.js" ausfuehren.' };
+  const antwort = await fetch(
+    'https://api.deepgram.com/v1/listen?language=de&smart_format=true&model=' +
+    encodeURIComponent(process.env.DEEPGRAM_MODELL || 'nova-2'),
+    {
+      method: 'POST',
+      headers: { Authorization: 'Token ' + key, 'Content-Type': mime || 'audio/webm' },
+      body: audioBuffer,
+      signal: AbortSignal.timeout(30000)
+    }
+  );
+  if (!antwort.ok) return { fehler: 'Deepgram sagt ' + antwort.status };
+  const daten = await antwort.json();
+  const alt = daten.results && daten.results.channels && daten.results.channels[0] &&
+    daten.results.channels[0].alternatives && daten.results.channels[0].alternatives[0];
+  return { text: ((alt && alt.transcript) || '').trim() };
+}
+
+async function demoSpreche(text) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  const stimme = process.env.ELEVENLABS_VOICE_ID;
+  if (!key || !stimme || !text) return null;
+  try {
+    const antwort = await fetch(
+      'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(stimme) + '?output_format=mp3_44100_128',
+      {
+        method: 'POST',
+        headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+        signal: AbortSignal.timeout(30000),
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
+            similarity_boost: 0.8
+          }
+        })
+      }
+    );
+    if (!antwort.ok) return null;
+    return Buffer.from(await antwort.arrayBuffer()).toString('base64');
+  } catch (_e) { return null; /* dann eben nur Text */ }
+}
+
 async function starteAnrufDemo(kunde) {
   let menue = [];
   if (DEMO) {
@@ -780,7 +845,7 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt - einmal "node schluessel-einrichten.js" im Hauptordner ausfuehren.' });
         return;
       }
-      const { kennung, sitzung, text } = await leseBody(req);
+      const { kennung, sitzung, text, mitStimme } = await leseBody(req);
       const jetzt = Date.now();
       for (const [id, s] of anrufDemos) { if (jetzt - s.zuletzt > DEMO_SITZUNG_TTL) anrufDemos.delete(id); }
 
@@ -788,13 +853,44 @@ const server = http.createServer(async (req, res) => {
       if (!eintrag) {
         const kunde = await findeKunde(kennung);
         if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
-        json(res, 200, await starteAnrufDemo(kunde));
+        const start = await starteAnrufDemo(kunde);
+        if (mitStimme) start.audio = await demoSpreche(start.text);
+        json(res, 200, start);
         return;
       }
       eintrag.zuletzt = jetzt;
       const antwort = await eintrag.dialog.antwortAuf(String(text || '').slice(0, 500));
       if (antwort.beenden) anrufDemos.delete(sitzung);
-      json(res, 200, { sitzung, text: antwort.text, beenden: antwort.beenden });
+      json(res, 200, {
+        sitzung, text: antwort.text, beenden: antwort.beenden,
+        audio: mitStimme ? await demoSpreche(antwort.text) : null
+      });
+      return;
+    }
+
+    // API: Sprach-Demo - Mikrofon-Aufnahme rein, gesprochene Antwort raus.
+    // Wie ChatGPT-Live im Browser: zuhoeren -> denken -> mit Stimme antworten.
+    if (req.method === 'POST' && pfad === '/api/anruf-demo-sprache') {
+      const sitzungId = url.searchParams.get('sitzung') || '';
+      const eintrag = anrufDemos.get(sitzungId);
+      if (!eintrag) { json(res, 404, { fehler: 'Demo-Sitzung abgelaufen - bitte neu starten.' }); return; }
+      const roh = await leseRohBody(req);
+      if (!roh.length) { json(res, 400, { fehler: 'Kein Audio angekommen' }); return; }
+      const gehoert = await demoHoere(roh, req.headers['content-type']);
+      if (gehoert.fehler) { json(res, 400, { fehler: gehoert.fehler }); return; }
+      if (!gehoert.text) {
+        json(res, 200, { gehoert: '', text: null, hinweis: 'Ich habe nichts verstanden - bitte noch einmal sprechen.' });
+        return;
+      }
+      eintrag.zuletzt = Date.now();
+      const antwort = await eintrag.dialog.antwortAuf(gehoert.text.slice(0, 500));
+      if (antwort.beenden) anrufDemos.delete(sitzungId);
+      json(res, 200, {
+        gehoert: gehoert.text,
+        text: antwort.text,
+        audio: await demoSpreche(antwort.text),
+        beenden: antwort.beenden
+      });
       return;
     }
 
