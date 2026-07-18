@@ -205,6 +205,9 @@
       <h2>Telefon-Retter · dieser Monat</h2>
       <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
 
+      <h2 id="hKonkurrenz" style="display:none">Wen die KI stattdessen empfiehlt</h2>
+      <div id="dKonkurrenz" style="display:none"></div>
+
       <h2>Anruf-Demo · so klingt der Telefon-Retter</h2>
       <div class="status" style="margin-top:-6px">Live beim Wirt vorführen: Die KI antwortet mit der echten Speisekarte dieses Betriebs – gespeichert wird dabei <b>nichts</b>. Du spielst den Gast.</div>
       <div id="demoChat" style="display:none;border:1px solid var(--linie,#2a3841);border-radius:10px;padding:14px;margin:10px 0;max-height:340px;overflow-y:auto"></div>
@@ -453,6 +456,7 @@ async function zeigeKunde(id) {
   document.getElementById('dSchritte').innerHTML = (aktuellerKunde.naechsteSchritte || []).length
     ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
     : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
+  zeichneKonkurrenz(aktuellerKunde.kiKonkurrenz || []);
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
@@ -493,6 +497,23 @@ async function ladeTelefonZahlen(id) {
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
   }
+}
+
+// ---------------- KI-Konkurrenz (Verkaufs-Argument Nr. 1) ----------------
+// Aus dem letzten Monats-Lauf: Diese Namen empfiehlt die KI gerade statt
+// unseres Kunden. Genau diese Liste legt Ibo dem Wirt auf den Tisch.
+function zeichneKonkurrenz(top) {
+  const h = document.getElementById('hKonkurrenz');
+  const ziel = document.getElementById('dKonkurrenz');
+  if (!top.length) { h.style.display = 'none'; ziel.style.display = 'none'; return; }
+  h.style.display = '';
+  ziel.style.display = '';
+  ziel.innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' +
+    top.map(t => '<span class="badge" style="font-size:13px;padding:7px 14px">' +
+      String(t.name).replace(/</g, '&lt;') + (t.anzahl > 1 ? ' <b style="color:var(--akzent)">' + t.anzahl + '×</b>' : '') +
+      '</span>').join('') + '</div>' +
+    '<div class="status" style="margin-top:0">Dorthin schickt die KI aktuell die Gäste (aus den Antworten des letzten Reports). Ziel: dass dein Kunde in dieser Liste steht.</div>';
 }
 
 // ---------------- Anruf-Demo (Verkaufs-Werkzeug) ----------------

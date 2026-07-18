@@ -582,12 +582,23 @@ const server = http.createServer(async (req, res) => {
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
       const slug = effektiverSlug(kunde);
       const aufOrdner = path.join(AUFBEREITUNG_ORDNER, slug);
+      const historie = kundenHistorie(slug);
+      // KI-Konkurrenz aus dem neuesten Monats-Lauf: Wen empfiehlt die KI
+      // stattdessen? Das staerkste Argument - direkt in der App sichtbar.
+      let kiKonkurrenz = [];
+      if (historie[0]) {
+        try {
+          const letzter = JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, historie[0].monat + '.json'), 'utf8'));
+          if (letzter.ergebnis) kiKonkurrenz = report.kiKonkurrenz(letzter.ergebnis);
+        } catch (_e) { /* alte Historie ohne ergebnis-Block */ }
+      }
       json(res, 200, {
         id: kunde.id, name: kunde.name, stadt: kunde.city || '', slug,
         adresse: kunde.address || '', telefon: kunde.phone || '',
         kategorie: suchfragen(kunde).kategorie,
         fragen: suchfragen(kunde).fragen.map((f) => f.frage),
-        historie: kundenHistorie(slug),
+        historie,
+        kiKonkurrenz,
         naechsteSchritte: naechsteSchritteFuer(slug, kunde),
         portalLink: require('./lib/portal').istAktiv() ? '/portal/' + require('./lib/portal').portalToken(slug) : null,
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
