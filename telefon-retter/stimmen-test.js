@@ -34,8 +34,13 @@ const TEXT = process.argv.slice(2).join(' ') ||
       signal: AbortSignal.timeout(30000),
       body: JSON.stringify({
         text: TEXT,
-        model_id: process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        // Fuer die Vorfuehrung das beste Klang-Modell (multilingual_v2);
+        // am Telefon laeuft das schnelle flash-Modell (Latenz zaehlt dort).
+        model_id: process.env.ELEVENLABS_MODELL || 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
+          similarity_boost: 0.8
+        }
       })
     }
   );

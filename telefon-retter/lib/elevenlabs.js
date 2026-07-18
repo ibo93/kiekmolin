@@ -19,7 +19,12 @@ async function spreche(text) {
       body: JSON.stringify({
         text: text,
         model_id: process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5', // schnell + Deutsch
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        // Etwas niedrigere Stabilitaet = lebendigere, menschlichere Betonung.
+        // Ueber .env feinjustierbar: 0 = sehr lebendig, 1 = sehr gleichmaessig.
+        voice_settings: {
+          stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
+          similarity_boost: 0.8
+        }
       })
     }
   );
