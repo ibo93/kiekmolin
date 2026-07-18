@@ -162,13 +162,23 @@ test('Radar im Report: Platz-Trend und Ueberholt-Erkennung', () => {
   assert.strictEqual(beste.platz, 3);
   assert.strictEqual(beste.platzTrend, 3, 'von Platz 6 auf 3 = +3');
   assert.deepStrictEqual(beste.ueberholt, ['yelp.de'], 'yelp stand vor uns, jetzt nicht mehr');
+  // Standard-Report: eigener Platz + Trend ja, fremde Domains nein
+  delete process.env.REPORT_MIT_KONKURRENZ;
   const html = report.renderHtml({
     restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
     ergebnis: demo.ergebnis, vormonat: { monat: '2026-07', quote: demo.vormonatQuote, ergebnis: demo.vormonatErgebnis }
   });
-  assert.ok(html.includes('Wettbewerbs-Radar (Google)'));
-  assert.ok(html.includes('überholt: yelp.de'));
-  assert.ok(html.includes('niemand – Platz 1!'));
+  assert.ok(html.includes('Google-Platzierungen'), 'Platz-Tabelle bleibt im Report');
+  assert.ok(html.includes('▲ +3'), 'Platz-Trend bleibt sichtbar');
+  assert.ok(!html.includes('yelp.de'), 'fremde Domains standardmaessig NICHT im Kunden-Report');
+  // Mit Schalter: volle Radar-Ansicht inkl. ueberholt
+  process.env.REPORT_MIT_KONKURRENZ = '1';
+  const voll = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, vormonat: { monat: '2026-07', quote: demo.vormonatQuote, ergebnis: demo.vormonatErgebnis }
+  });
+  assert.ok(voll.includes('überholt: yelp.de') && voll.includes('niemand – Platz 1!'), 'Schalter zeigt volle Ansicht');
+  delete process.env.REPORT_MIT_KONKURRENZ;
 });
 
 // --- Google-Business-Posts -----------------------------------------------------------
@@ -234,9 +244,16 @@ test('kiKonkurrenz: aggregiert ueber alle Fragen und zaehlt Mehrfach-Nennungen, 
   const top = report.kiKonkurrenz(ergebnis);
   assert.strictEqual(top[0].anzahl, 2, 'Poggenstool 2x genannt (Gross/Klein egal)');
   assert.strictEqual(top.length, 2);
-  const html = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08', ergebnis });
-  assert.ok(html.includes('Wen die KI stattdessen empfiehlt'), 'Sektion im Report');
-  assert.ok(html.includes('Restaurant Poggenstool'), 'Konkurrent im Report sichtbar');
+  // Standard: KEINE Konkurrenten-Namen im Kunden-Report (sorgt fuer Rueckfragen)
+  delete process.env.REPORT_MIT_KONKURRENZ;
+  const standard = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08', ergebnis });
+  assert.ok(!standard.includes('Wen die KI stattdessen empfiehlt'), 'Sektion standardmaessig NICHT im Kunden-Report');
+  assert.ok(!standard.includes('Restaurant Poggenstool'), 'keine Konkurrenten-Namen im Kunden-Report');
+  // Per Schalter wieder aktivierbar
+  process.env.REPORT_MIT_KONKURRENZ = '1';
+  const mit = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08', ergebnis });
+  assert.ok(mit.includes('Wen die KI stattdessen empfiehlt') && mit.includes('Restaurant Poggenstool'), 'mit Schalter sichtbar');
+  delete process.env.REPORT_MIT_KONKURRENZ;
   const ohne = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
     ergebnis: { basis: ergebnis.basis, fragen: [{ id: 'a', frage: 'x', google: { status: 'manuell', detail: '' }, ki: { status: 'manuell', detail: '' } }] } });
   assert.ok(!ohne.includes('Wen die KI stattdessen empfiehlt'), 'ohne Daten keine leere Sektion');
