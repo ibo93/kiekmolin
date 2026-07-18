@@ -441,6 +441,16 @@ async function baueUebersicht() {
     telefonUmsatz: Math.round(telefonUmsatz * 100) / 100,
     offeneRueckrufe: rueckrufe,
     emailVersand: versand.istKonfiguriert(),
+    // Einrichtungs-Ampel: welche Bausteine sind fertig eingerichtet?
+    // (Aendert sich eine .env, zeigt der naechste Server-Start den neuen Stand.)
+    bausteine: {
+      denken: !!process.env.ANTHROPIC_API_KEY,
+      zuhoeren: !!process.env.DEEPGRAM_API_KEY,
+      stimme: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
+      telefon: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+      google: !!(process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID),
+      email: versand.istKonfiguriert()
+    },
     automatik: {
       an: AUTO_TAG > 0,
       tag: AUTO_TAG,
