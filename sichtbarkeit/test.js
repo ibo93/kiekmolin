@@ -187,6 +187,20 @@ test('GBP-Posts: 4 Stueck, echtes Gericht, Saison, Antworten ohne Gutschein-Vers
   assert.ok(md.includes('Google-Business-Beiträge') && md.includes('kiekmolin.de/la-piazza-emden') && !md.includes('undefined'));
 });
 
+// --- Serper (Google-Ergebnisse) -----------------------------------------------------
+test('serperZuTreffer: mappt organic-Ergebnisse ins Treffer-Format, leer bleibt leer', () => {
+  const { serperZuTreffer } = require('./lib/checks');
+  const treffer = serperZuTreffer({ organic: [
+    { title: 'Greetsieler Börse', snippet: 'Fisch am Hafen', link: 'https://kiekmolin.de/greetsieler-boerse', position: 1 },
+    { title: 'Restaurant Poggenstool', link: 'https://poggenstool.de' }
+  ] });
+  assert.strictEqual(treffer.length, 2);
+  assert.deepStrictEqual(treffer[0], { title: 'Greetsieler Börse', snippet: 'Fisch am Hafen', link: 'https://kiekmolin.de/greetsieler-boerse' });
+  assert.strictEqual(treffer[1].snippet, '', 'fehlendes snippet wird leerer String');
+  assert.deepStrictEqual(serperZuTreffer({}), [], 'ohne organic leere Liste');
+  assert.deepStrictEqual(serperZuTreffer(null), [], 'null vertraegt er auch');
+});
+
 // --- KI-Konkurrenz-Analyse ----------------------------------------------------------
 test('empfohleneNamen: zieht Namen aus Listen und Fettdruck, filtert eigenen Namen und Fuellwoerter', () => {
   const { empfohleneNamen } = require('./lib/checks');

@@ -34,31 +34,29 @@ cp .env.example .env     # dann Keys eintragen (Anleitung steht in der Datei)
 | Key | Wofür | Ohne Key |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | KI-Test: stellt die Suchfragen an Claude (mit Web-Suche) und prüft, ob der Betrieb empfohlen wird | KI-Spalte = „manuell prüfen" |
-| `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Google-Test über die offizielle Custom-Search-API (kein Scraping) | Google-Spalte = „manuell prüfen" |
+| `SERPER_API_KEY` | Google-Test über Serper.dev (echte Google-Ergebnisse; 2.500 Suchen gratis) | Google-Spalte = „manuell prüfen" |
+| `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Alt-Weg über Googles Custom-Search-API – **nur für Bestandskunden**, Neukunden bekommen dort 403 | – |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | optional – sonst wird der public-safe anon-Key der App genutzt | funktioniert trotzdem |
 | `BON_PRO_GAST` | Durchschnittsbon in € für die Reservierungs-Umsatzschätzung im Report | Standard 25 € |
 
 „Manuell prüfen"-Fragen fließen **nicht** in die Sichtbarkeits-Quote ein –
 keine geschönten Zahlen.
 
-### Google-Schlüssel einrichten (kostenlos, 2 Teile)
+### Google-Platzierungen einrichten (Serper.dev, kostenlos)
 
-Beide Werte fragt `node ../schluessel-einrichten.js` (Schritt 5) ab und
-prüft sie live. 100 Suchen/Tag sind gratis – reicht für alle Kunden.
+**Wichtig:** Googles eigene Custom-Search-API ist für **Neukunden
+geschlossen** (dauerhaft 403 „does not have access", egal wie korrekt man
+sie einrichtet). Der Standardweg ist deshalb **Serper.dev** – liefert echte
+Google-Ergebnisse, ein einziger Schlüssel, 2.500 Suchen gratis (reicht bei
+6–8 Fragen pro Kunde und Monat für Jahre):
 
-**Teil A – `GOOGLE_API_KEY`** (console.cloud.google.com):
-1. Mit dem Google-Konto anmelden → oben links Projekt-Auswahl →
-   **„Neues Projekt"** → Name z.B. `kurani` → Erstellen (und auswählen).
-2. Oben in die Suchleiste **„Custom Search API"** eingeben → anklicken →
-   **„Aktivieren"**.
-3. Links **„APIs und Dienste" → „Anmeldedaten"** →
-   **„+ Anmeldedaten erstellen" → „API-Schlüssel"** → kopieren.
+1. **serper.dev** → „Sign up" (geht mit dem Google-Konto).
+2. Im Dashboard den **API Key** kopieren.
+3. `node ../schluessel-einrichten.js` → Schritt 5 → Key einfügen
+   (wird mit einer echten Suche live geprüft).
 
-**Teil B – `GOOGLE_CSE_ID`** (programmablesearchengine.google.com):
-1. **„Hinzufügen"** → Name z.B. `kurani` →
-   **„Im gesamten Web suchen"** einschalten → Erstellen.
-2. In der Übersicht die **„Suchmaschinen-ID"** kopieren (kryptische
-   Zeichenkette – das ist der `cx`-Wert).
+Wer noch einen alten Zugang zur Google-API hat, kann weiter
+`GOOGLE_API_KEY` + `GOOGLE_CSE_ID` nutzen – `SERPER_API_KEY` hat Vorrang.
 
 ## Umsatz-Nachweis des Telefon-Retters
 

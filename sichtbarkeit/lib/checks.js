@@ -79,19 +79,47 @@ function wettbewerberVorDir(treffer, platzIndex) {
   }).filter((w) => w.domain);
 }
 
-async function checkGoogle(frage, restaurant) {
+// Serper.dev-Antwort in unser Treffer-Format (title/snippet/link) bringen.
+// Serper liefert echte Google-Ergebnisse - Googles eigene Custom-Search-API
+// ist fuer Neukunden geschlossen (403), deshalb ist Serper der Standardweg.
+function serperZuTreffer(daten) {
+  return ((daten && daten.organic) || []).map((o) => ({
+    title: o.title || '',
+    snippet: o.snippet || '',
+    link: o.link || ''
+  }));
+}
+
+async function holeGoogleTreffer(frage) {
+  const serperKey = process.env.SERPER_API_KEY;
+  if (serperKey) {
+    const antwort = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-KEY': serperKey, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ q: frage, gl: 'de', hl: 'de', num: 10 })
+    });
+    if (!antwort.ok) throw new Error('Serper HTTP ' + antwort.status);
+    return serperZuTreffer(await antwort.json());
+  }
+  // Alt-Weg fuer Bestandskunden der Google-API (fuer Neukunden gesperrt)
   const key = process.env.GOOGLE_API_KEY;
   const cse = process.env.GOOGLE_CSE_ID;
-  if (!key || !cse) {
-    return { status: 'manuell', detail: 'GOOGLE_API_KEY/GOOGLE_CSE_ID nicht gesetzt - bitte manuell googeln' };
+  const url = 'https://www.googleapis.com/customsearch/v1?key=' + encodeURIComponent(key) +
+    '&cx=' + encodeURIComponent(cse) + '&num=10&q=' + encodeURIComponent(frage);
+  const antwort = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
+  return ((await antwort.json()).items || []);
+}
+
+async function checkGoogle(frage, restaurant) {
+  const hatSerper = !!process.env.SERPER_API_KEY;
+  const hatGoogle = !!(process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID);
+  if (!hatSerper && !hatGoogle) {
+    return { status: 'manuell', detail: 'SERPER_API_KEY nicht gesetzt (serper.dev, kostenlos) - bitte manuell googeln' };
   }
   try {
-    const url = 'https://www.googleapis.com/customsearch/v1?key=' + encodeURIComponent(key) +
-      '&cx=' + encodeURIComponent(cse) + '&num=10&q=' + encodeURIComponent(frage);
-    const antwort = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
-    const daten = await antwort.json();
-    const treffer = daten.items || [];
+    const treffer = await holeGoogleTreffer(frage);
     const platz = treffer.findIndex((t) =>
       enthaeltNamen((t.title || '') + ' ' + (t.snippet || '') + ' ' + (t.link || ''), restaurant.name) ||
       (restaurant.slug && String(t.link || '').includes(restaurant.slug))
@@ -102,7 +130,7 @@ async function checkGoogle(frage, restaurant) {
     }
     return { status: 'nicht-gefunden', detail: 'Nicht in den Top 10', vor_dir: vorDir };
   } catch (e) {
-    return { status: 'fehler', detail: 'Google-API-Fehler: ' + e.message };
+    return { status: 'fehler', detail: 'Google-Suche-Fehler: ' + e.message };
   }
 }
 
@@ -189,4 +217,4 @@ async function checkKI(frage, restaurant) {
   }
 }
 
-module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI, wettbewerberVorDir, empfohleneNamen };
+module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI, wettbewerberVorDir, empfohleneNamen, serperZuTreffer };
