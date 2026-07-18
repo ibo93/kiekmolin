@@ -448,7 +448,7 @@ async function baueUebersicht() {
       zuhoeren: !!process.env.DEEPGRAM_API_KEY,
       stimme: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
       telefon: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-      google: !!(process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID),
+      google: !!(process.env.SERPER_API_KEY || (process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID)),
       email: versand.istKonfiguriert()
     },
     automatik: {

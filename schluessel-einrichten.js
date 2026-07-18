@@ -149,18 +149,18 @@ async function pruefeTwilio(sid, token) {
     : { ok: false, grund: 'Twilio sagt ' + antwort.status + ' - SID (beginnt mit AC) und Auth Token aus der Console -> Account Info nutzen.' };
 }
 
-async function pruefeGoogle(key, cse) {
-  const antwort = await fetch('https://www.googleapis.com/customsearch/v1?key=' + encodeURIComponent(key) +
-    '&cx=' + encodeURIComponent(cse) + '&q=test&num=1', { signal: AbortSignal.timeout(15000) });
-  if (antwort.ok) return { ok: true };
-  const text = (await antwort.text()).slice(0, 300);
-  return {
-    ok: false,
-    grund: 'Google sagt ' + antwort.status +
-      (/API_KEY_INVALID|keyInvalid/i.test(text) ? ' (Key ungueltig)'
-        : /invalid.*cx|cx.*invalid/i.test(text) ? ' (Suchmaschinen-ID/cx falsch)' : '') +
-      ' - Anleitung: sichtbarkeit/README.md.'
-  };
+// Google-Platzierungen kommen ueber Serper.dev (echte Google-Ergebnisse).
+// Googles eigene Custom-Search-API ist fuer Neukunden geschlossen (403).
+async function pruefeSerper(key) {
+  const antwort = await fetch('https://google.serper.dev/search', {
+    method: 'POST',
+    headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(15000),
+    body: JSON.stringify({ q: 'restaurant test', gl: 'de', hl: 'de', num: 1 })
+  });
+  return antwort.ok
+    ? { ok: true }
+    : { ok: false, grund: 'Serper sagt ' + antwort.status + ' - Key im Dashboard auf serper.dev pruefen/neu kopieren.' };
 }
 
 async function pruefeResend(key) {
@@ -287,26 +287,13 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
     }
   } else { console.log('    -> uebersprungen.'); }
 
-  // 5. Google (Google-Spalte + Wettbewerbs-Radar im Report)
-  console.log('\n--- 5/6 · Google Suche (Google-Spalte + Wettbewerbs-Radar) ---');
-  console.log('    Anleitung: sichtbarkeit/README.md -> Google. Zwei Werte noetig: API-Key + Suchmaschinen-ID (cx).');
-  const gKeyAlt = leseEnvWert('sichtbarkeit', 'GOOGLE_API_KEY');
-  if (gKeyAlt) console.log('    Aktuell gespeichert: ' + maskiere(gKeyAlt) + '  (Enter = so lassen)');
-  else console.log('    Noch nicht eingerichtet.  (Enter = ueberspringen)');
-  const gKey = await frage('    Google API-Key einfuegen: ');
-  if (gKey) {
-    const gCse = await frage('    Suchmaschinen-ID (cx) einfuegen: ');
-    if (gCse) {
-      process.stdout.write('    Pruefe live... ');
-      let e;
-      try { e = await pruefeGoogle(gKey, gCse); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
-      if (e.ok) {
-        console.log('GUELTIG ✓');
-        speichere('GOOGLE_API_KEY', gKey, ['sichtbarkeit']);
-        speichere('GOOGLE_CSE_ID', gCse, ['sichtbarkeit']);
-      } else { console.log('FEHLER\n    -> ' + e.grund); }
-    }
-  } else { console.log('    -> uebersprungen.'); }
+  // 5. Google-Platzierungen ueber Serper.dev (Google-Spalte + Wettbewerbs-Radar)
+  await schluesselSchritt({
+    titel: '5/6 · Google-Platzierungen via Serper (Google-Spalte + Wettbewerbs-Radar)',
+    wo: 'serper.dev -> Sign up (kostenlos, 2500 Suchen frei) -> Dashboard -> API Key kopieren',
+    name: 'SERPER_API_KEY', ordner: ['sichtbarkeit'],
+    pruefe: pruefeSerper
+  });
 
   // 6. Resend (Reports automatisch per E-Mail)
   const resend = await schluesselSchritt({
@@ -331,7 +318,7 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
   console.log('  Stimme (ElevenLabs):     ' + status('telefon-retter', 'ELEVENLABS_API_KEY') +
     ' / Stimme: ' + status('telefon-retter', 'ELEVENLABS_VOICE_ID'));
   console.log('  Telefon (Twilio):        ' + status('telefon-retter', 'TWILIO_AUTH_TOKEN'));
-  console.log('  Google-Spalte:           ' + status('sichtbarkeit', 'GOOGLE_API_KEY'));
+  console.log('  Google-Spalte (Serper):  ' + (leseEnvWert('sichtbarkeit', 'SERPER_API_KEY') || leseEnvWert('sichtbarkeit', 'GOOGLE_API_KEY') ? 'ok ✓' : 'fehlt'));
   console.log('  E-Mail-Versand (Resend): ' + status('sichtbarkeit', 'RESEND_API_KEY'));
   console.log('\nJetzt noch: Server neu starten (ctrl+C, dann node server.js) - fertig.');
   console.log('Telefon-Probelauf ohne Nummer:  cd telefon-retter && node simulator.js --demo');
