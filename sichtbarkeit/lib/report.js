@@ -304,11 +304,16 @@ function wettbewerbsRadar(ergebnis, vormonat) {
 function radarSektion(ergebnis, vormonat) {
   const zeilen = wettbewerbsRadar(ergebnis, vormonat);
   if (!zeilen.length) return '';
+  const mitNamen = konkurrenzImReport();
   const rows = zeilen.map((z) => {
     const platzTxt = z.platz
       ? 'Platz ' + z.platz + (z.platzTrend ? ' <span class="' + (z.platzTrend > 0 ? 'rauf' : 'runter') + '">' +
           (z.platzTrend > 0 ? '▲ +' + z.platzTrend : '▼ ' + z.platzTrend) + '</span>' : '')
       : 'nicht in Top 10';
+    if (!mitNamen) {
+      // Kunden-Report ohne Konkurrenten-Namen: nur der eigene Platz + Trend
+      return '<tr><td>„' + esc(z.frage) + '“</td><td>' + platzTxt + '</td></tr>';
+    }
     const vorTxt = z.vorDir.length
       ? z.vorDir.map((w) => '<span class="dom" title="' + esc(w.titel) + '">' + esc(w.domain) + '</span>').join(' ')
       : (z.platz === 1 ? '<strong>niemand – Platz 1!</strong>' : '–');
@@ -317,14 +322,14 @@ function radarSektion(ergebnis, vormonat) {
     return '<tr><td>„' + esc(z.frage) + '“' + ueberholtTxt + '</td><td>' + platzTxt + '</td><td>' + vorTxt + '</td></tr>';
   }).join('\n');
   return `
-<h2>Wettbewerbs-Radar (Google)</h2>
+<h2>Google-Platzierungen</h2>
 <table>
-  <tr><th style="width:42%">Suchfrage</th><th>Dein Platz</th><th>Wer vor dir steht</th></tr>
+  <tr><th style="width:42%">Suchfrage</th><th>Dein Platz</th>${mitNamen ? '<th>Wer vor dir steht</th>' : ''}</tr>
   ${rows}
 </table>
 <div class="hinweis" style="margin-top:10px;border-top:none;padding-top:0">
-  Quelle: offizielle Google-Such-API, Top&nbsp;10 pro Frage. „Überholt“ heißt: Diese Domain stand
-  letzten Monat vor dir – jetzt nicht mehr. Genau daran arbeiten wir jeden Monat.
+  Quelle: echte Google-Ergebnisse (Standort Deutschland), Top&nbsp;10 pro Frage.
+  ${mitNamen ? '„Überholt“ heißt: Diese Domain stand letzten Monat vor dir – jetzt nicht mehr. ' : ''}An diesen Platzierungen arbeiten wir jeden Monat.
 </div>`;
 }
 
@@ -343,7 +348,16 @@ function kiKonkurrenz(ergebnis) {
   return [...zaehler.values()].sort((a, b) => b.anzahl - a.anzahl).slice(0, 8);
 }
 
+// Konkurrenten-Namen im KUNDEN-Report? Standard: AUS - die Namen der
+// Mitbewerber im eigenen Report sorgen beim Wirt fuer Rueckfragen und
+// wirken wie Fremdwerbung. Die Agentur-App zeigt sie weiterhin (internes
+// Verkaufswerkzeug). Wieder einschalten: REPORT_MIT_KONKURRENZ=1 in .env.
+function konkurrenzImReport() {
+  return process.env.REPORT_MIT_KONKURRENZ === '1';
+}
+
 function konkurrenzSektion(ergebnis) {
+  if (!konkurrenzImReport()) return '';
   const top = kiKonkurrenz(ergebnis);
   if (!top.length) return '';
   const chips = top.map((t) =>
@@ -482,7 +496,7 @@ ${radarSektion(ergebnis, vormonat)}
 
 ${konkurrenzSektion(ergebnis)}
 
-${kiAuszuege ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
+${kiAuszuege && konkurrenzImReport() ? '<h2>So antwortet die KI (Auszüge)</h2>\n' + kiAuszuege : ''}
 
 <h2>Was kommt nächsten Monat</h2>
 <ol class="schritte">
