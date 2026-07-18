@@ -123,7 +123,13 @@ class AnrufSitzung {
       if (msg.mark && msg.mark.name === this.offeneMark) {
         this.spricht = false;
         this.offeneMark = null;
-        if (this.auflegenNachMark) { try { this.ws.close(); } catch (_e) {} }
+        if (this.auflegenNachMark) {
+          // Erst auflegen, wenn wirklich ALLES gesprochen ist: beim Streaming
+          // koennen noch Saetze in der Sprech-Kette warten.
+          this.sprechKette.then(() => {
+            if (!this.spricht) { try { this.ws.close(); } catch (_e) {} }
+          });
+        }
       }
     } else if (msg.event === 'stop') {
       this.log('Anruf beendet (Twilio stop)');
@@ -156,11 +162,16 @@ class AnrufSitzung {
       }
     }, FUELLER_NACH_MS);
     try {
-      const { text, beenden } = await this.dialog.antwortAuf(satz);
+      // Live-Streaming: jeder fertige Satz geht SOFORT auf die Leitung,
+      // waehrend Claude den Rest der Antwort noch schreibt.
+      const sofortSprechen = (teilSatz) => {
+        this.log('AGENT: ' + teilSatz);
+        this.sprich(teilSatz).catch((e) => this.log('TTS-Fehler: ' + e.message));
+      };
+      const { beenden } = await this.dialog.antwortAuf(satz, sofortSprechen);
       clearTimeout(fuellerTimer);
-      this.log('AGENT: ' + text);
       if (beenden) this.auflegenNachMark = true; // erst auflegen, wenn der Abschied FERTIG gesprochen ist
-      await this.sprich(text);
+      await this.sprechKette; // alle gestreamten Saetze sind raus, bevor Neues verarbeitet wird
       // Sicherheitsnetz, falls das mark-Echo ausbleibt (Leitung schon weg)
       if (beenden) setTimeout(() => { try { this.ws.close(); } catch (_e) {} }, 15000);
     } catch (e) {
