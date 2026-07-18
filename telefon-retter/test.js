@@ -189,5 +189,20 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.ok(!streamTokenGueltig(streamTokenErzeugen(Date.now() - 6 * 60 * 1000)));
   });
 
+  await test('inSaetze: teilt fuers fluessige Sprechen, ohne Inhalt zu verlieren', () => {
+    const { inSaetze } = require('./lib/elevenlabs');
+    assert.deepStrictEqual(
+      inSaetze('Gerne! Fuer wie viele Personen darf ich reservieren?'),
+      ['Gerne!', 'Fuer wie viele Personen darf ich reservieren?'],
+      'erster kurzer Satz geht sofort auf die Leitung');
+    assert.strictEqual(inSaetze('Passt das so fuer Sie?').length, 1, 'eine Frage bleibt ein Stueck');
+    const original = 'Ihr Tisch ist reserviert. Morgen um 19:30 Uhr fuer 4 Personen. Bis dann!';
+    const saetze = inSaetze(original);
+    assert.ok(saetze.length >= 2, 'lange Antwort wird geteilt');
+    assert.strictEqual(saetze.join(' ').replace(/\s+/g, ' '), original, 'kein Wort geht verloren');
+    assert.ok(saetze.every((s) => s.length >= 8), 'keine Mini-Schnipsel (Abkuerzungen kleben am Vorgaenger)');
+    assert.deepStrictEqual(inSaetze(''), [], 'leer bleibt leer');
+  });
+
   console.log('\n' + tests + ' Tests bestanden.');
 })().catch((e) => { console.error('\nTEST FEHLGESCHLAGEN: ' + (e && e.message)); process.exit(1); });

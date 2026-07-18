@@ -36,6 +36,21 @@ Einzige npm-Dependency: `ws` (WebSockets). `npm install` genügt.
 Jede Stufe erst aktivieren, wenn die vorige sauber läuft (siehe
 `TEST-CHECKLISTE.md`).
 
+## Flüssig wie ein Live-Gespräch
+
+Damit sich der Anruf wie ChatGPT-Live anfühlt statt wie ein Anrufbeantworter:
+
+- **Satzweise sprechen:** Die Antwort wird in Sätze geteilt und parallel
+  erzeugt – der erste Satz geht schon auf die Leitung, während der Rest
+  noch entsteht.
+- **Denk-Füller:** Dauert eine Antwort länger (z.B. Verfügbarkeits-Prüfung),
+  sagt der Agent nach ~1,3 s „Einen kleinen Moment bitte" statt zu schweigen
+  (`FUELLER_NACH_MS` in `.env` stellt die Schwelle ein).
+- **Blitz-Begrüßung:** Begrüßung und Füller werden als Audio gecached – beim
+  Abheben kommt die Stimme sofort.
+- **Barge-in:** Redet der Gast dazwischen, bricht die Ausgabe sofort ab –
+  der Gast hat immer Vorrang.
+
 ## Umsatz für den Wirt
 
 - **Zusatzverkauf (Stufe 3):** Bei jeder Bestellung schlägt der Assistent

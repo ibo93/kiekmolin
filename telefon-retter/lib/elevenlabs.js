@@ -27,4 +27,33 @@ async function spreche(text) {
   return Buffer.from(await antwort.arrayBuffer());
 }
 
-module.exports = { spreche };
+// --- Fluessig wie ein Live-Gespraech -----------------------------------------
+
+// Saetze einzeln erzeugen: der erste Satz geht schon auf die Leitung,
+// waehrend der Rest noch bei ElevenLabs entsteht. Zu kurze Schnipsel
+// (Abkuerzungen wie "z.B.", einzelne Zahlen) kleben am Vorgaenger.
+function inSaetze(text) {
+  const t = String(text || '').trim();
+  if (!t) return [];
+  const teile = (t.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [t]).map((s) => s.trim()).filter(Boolean);
+  const saetze = [];
+  for (const teil of teile) {
+    if (saetze.length && (teil.length < 12 || /^\d/.test(teil))) saetze[saetze.length - 1] += ' ' + teil;
+    else saetze.push(teil);
+  }
+  return saetze;
+}
+
+// Audio-Cache fuer Standardsaetze (Begruessung, Denk-Fueller): die kommen in
+// jedem Anruf gleich - einmal erzeugen, danach liegt das Audio sofort bereit.
+const audioCache = new Map(); // voiceId|text -> Buffer
+async function sprecheGecached(text) {
+  const schluessel = (process.env.ELEVENLABS_VOICE_ID || '') + '|' + text;
+  if (audioCache.has(schluessel)) return audioCache.get(schluessel);
+  const audio = await spreche(text);
+  if (audioCache.size >= 100) audioCache.clear(); // Notbremse, kein Speicherleck
+  audioCache.set(schluessel, audio);
+  return audio;
+}
+
+module.exports = { spreche, sprecheGecached, inSaetze };
