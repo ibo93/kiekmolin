@@ -12,10 +12,20 @@
 const fs = require('fs');
 const path = require('path');
 const { DeepgramStrom } = require('./deepgram');
-const { spreche } = require('./elevenlabs');
+const { spreche, sprecheGecached, inSaetze } = require('./elevenlabs');
 const { DialogSitzung } = require('./dialog');
 
 const LOG_ORDNER = path.join(__dirname, '..', 'logs');
+
+// Denk-Fueller: Dauert die Antwort laenger (Verfuegbarkeits-Pruefung, DB),
+// entsteht KEINE Totenstille - der Agent sagt kurz Bescheid, wie ein Mensch.
+// Werden gecached gesprochen, kosten also nach dem ersten Mal nichts mehr.
+const FUELLER = [
+  'Einen kleinen Moment bitte.',
+  'Moment, ich schaue kurz nach.',
+  'Einen Augenblick bitte.'
+];
+const FUELLER_NACH_MS = parseInt(process.env.FUELLER_NACH_MS || '1300', 10);
 
 class AnrufSitzung {
   constructor({ twilioWs, restaurant, menue, stufe, datenquelle, pruefeToken, holeKontext }) {
@@ -35,6 +45,8 @@ class AnrufSitzung {
     this.markZaehler = 0;       // eindeutige Marken fuer Twilios Playback-Echo
     this.offeneMark = null;     // Name der zuletzt gesendeten Marke
     this.auflegenNachMark = false; // nach dieser Marke auflegen (Abschied fertig gesprochen)
+    this.sprechKette = Promise.resolve(); // Ausgaben strikt nacheinander (Fueller vor Antwort)
+    this.fuellerIndex = 0;      // rotiert durch die Denk-Fueller (klingt natuerlicher)
 
     this.ws.on('message', (roh) => this.twilioNachricht(roh));
     this.ws.on('close', () => this.aufraeumen());
@@ -100,7 +112,9 @@ class AnrufSitzung {
 
       // Begruessung: Fehler abfangen, sonst crasht eine unbehandelte
       // Promise-Rejection (ElevenLabs down) den ganzen Server.
-      this.sprich(this.dialog.begruessung()).catch((e) => this.log('Begruessung-Fehler: ' + e.message));
+      // Gecached: ab dem zweiten Anruf liegt das Audio sofort bereit -
+      // der Gast hoert beim Abheben keine Sekunde Stille.
+      this.sprich(this.dialog.begruessung(), { cache: true }).catch((e) => this.log('Begruessung-Fehler: ' + e.message));
     } else if (msg.event === 'media') {
       if (this.deepgram) this.deepgram.sendeAudio(Buffer.from(msg.media.payload, 'base64'));
     } else if (msg.event === 'mark') {
@@ -133,14 +147,24 @@ class AnrufSitzung {
       return;
     }
     this.denkt = true;
+    // Denk-Fueller: kommt die Antwort nicht schnell genug, kurz Bescheid sagen
+    // statt schweigen. Faellt weg, sobald die Antwort vorher da ist.
+    const fuellerTimer = setTimeout(() => {
+      if (this.denkt && !this.spricht) {
+        const satzWahl = FUELLER[this.fuellerIndex++ % FUELLER.length];
+        this.sprich(satzWahl, { cache: true }).catch(() => { /* Fueller ist nice-to-have */ });
+      }
+    }, FUELLER_NACH_MS);
     try {
       const { text, beenden } = await this.dialog.antwortAuf(satz);
+      clearTimeout(fuellerTimer);
       this.log('AGENT: ' + text);
       if (beenden) this.auflegenNachMark = true; // erst auflegen, wenn der Abschied FERTIG gesprochen ist
       await this.sprich(text);
       // Sicherheitsnetz, falls das mark-Echo ausbleibt (Leitung schon weg)
       if (beenden) setTimeout(() => { try { this.ws.close(); } catch (_e) {} }, 15000);
     } catch (e) {
+      clearTimeout(fuellerTimer);
       this.log('FEHLER: ' + e.message);
       this.auflegenNachMark = true;
       await this.sprich('Entschuldigung, da ist etwas schiefgelaufen. Bitte rufen Sie direkt im Restaurant an' +
@@ -161,28 +185,49 @@ class AnrufSitzung {
     return (this.dialog && this.dialog.beendet) || this.auflegenNachMark;
   }
 
-  // Text -> ElevenLabs -> in Stuecken als Twilio-media-Events auf die Leitung
-  async sprich(text) {
+  // Ausgaben laufen strikt nacheinander durch eine Kette - so kann ein
+  // Denk-Fueller nie MITTEN in die eigentliche Antwort platzen.
+  sprich(text, optionen) {
+    const auftrag = this.sprechKette.then(() => this.sprichJetzt(text, optionen));
+    this.sprechKette = auftrag.catch(() => { /* Kette lebt weiter */ });
+    return auftrag;
+  }
+
+  // Text -> ElevenLabs -> in Stuecken als Twilio-media-Events auf die Leitung.
+  // Fluessig wie ein Live-Gespraech: der Text wird in Saetze geteilt, ALLE
+  // Saetze werden parallel erzeugt, und der erste geht schon auf die Leitung,
+  // waehrend die restlichen noch entstehen. Kaum noch Anlauf-Pause.
+  async sprichJetzt(text, optionen) {
     if (!text || !this.streamSid) return;
+    const cache = optionen && optionen.cache;
+    const audios = inSaetze(text).map((s) => {
+      const p = cache ? sprecheGecached(s) : spreche(s);
+      p.catch(() => {}); // falls wir per Barge-in abbrechen: Fehler gilt als behandelt
+      return p;
+    });
+    const meineMark = 'm' + (++this.markZaehler);
     try {
-      const audio = await spreche(text);
       this.spricht = true;
-      const meineMark = 'm' + (++this.markZaehler);
       this.offeneMark = meineMark;
       const stueckGroesse = 4000; // ~0,5 s pro Nachricht (mulaw 8000 Byte/s)
-      for (let i = 0; i < audio.length; i += stueckGroesse) {
-        if (!this.spricht) return; // Barge-in: abgebrochen
-        this.ws.send(JSON.stringify({
-          event: 'media',
-          streamSid: this.streamSid,
-          media: { payload: audio.subarray(i, i + stueckGroesse).toString('base64') }
-        }));
+      for (const audioVersprechen of audios) {
+        const audio = await audioVersprechen;
+        for (let i = 0; i < audio.length; i += stueckGroesse) {
+          // Barge-in oder neuere Ausgabe? Dann diese hier sofort abbrechen.
+          if (!this.spricht || this.offeneMark !== meineMark) return;
+          this.ws.send(JSON.stringify({
+            event: 'media',
+            streamSid: this.streamSid,
+            media: { payload: audio.subarray(i, i + stueckGroesse).toString('base64') }
+          }));
+        }
       }
+      if (!this.spricht || this.offeneMark !== meineMark) return;
       // spricht bleibt true, bis Twilio diese Marke zurueckmeldet (Playback wirklich
       // fertig) - so greift Barge-in die ganze Abspielzeit ueber, nicht nur beim Puffern.
       this.ws.send(JSON.stringify({ event: 'mark', streamSid: this.streamSid, mark: { name: meineMark } }));
     } catch (e) {
-      this.spricht = false;
+      if (this.offeneMark === meineMark) { this.spricht = false; this.offeneMark = null; }
       this.log('TTS-Fehler: ' + e.message);
       throw e;
     }
