@@ -152,4 +152,25 @@ test('WhatsApp-Kunden-Update: Quote-Trend, Telefon-Zahlen, ehrlich ohne Aktivita
   assert.ok(!leer.includes('undefined') && !leer.includes('NaN'), 'keine kaputten Platzhalter');
 });
 
+test('Bewertungs-Retter: Prompt ehrlich, Parser robust gegen kaputtes JSON', () => {
+  const { bauePruefPrompt, parsePruefung, VERSTOSS_LABELS } = require('./lib/bewertungs-retter');
+  const prompt = bauePruefPrompt({ name: 'Greetsieler Börse', city: 'Greetsiel' }, 'Essen kalt, nie wieder!');
+  assert.ok(prompt.includes('Greetsieler Börse') && prompt.includes('Essen kalt'), 'Restaurant und Bewertung im Prompt');
+  assert.ok(prompt.includes('KEIN Verstoss') || prompt.includes('Keine falschen Hoffnungen'), 'Ehrlichkeits-Regel im Prompt');
+
+  const ok = parsePruefung('Hier das Ergebnis: {"verstoss":"interessenkonflikt","chance":"hoch","begruendung":"Nie Gast gewesen.","meldung":"Der Verfasser...","antwort":"Vielen Dank..."}');
+  assert.strictEqual(ok.verstoss, 'interessenkonflikt');
+  assert.strictEqual(ok.chance, 'hoch');
+  assert.ok(VERSTOSS_LABELS[ok.verstoss].includes('meldenswert'));
+
+  const kaputt = parsePruefung('kein json hier');
+  assert.strictEqual(kaputt.verstoss, 'kein_verstoss', 'kaputtes JSON faellt sicher zurueck');
+  assert.strictEqual(kaputt.chance, 'gering');
+  assert.ok(kaputt.begruendung.length > 0 && kaputt.antwort === '');
+
+  const erfunden = parsePruefung('{"verstoss":"alles_loeschen","chance":"mega"}');
+  assert.strictEqual(erfunden.verstoss, 'kein_verstoss', 'erfundene Kategorien werden nicht durchgereicht');
+  assert.strictEqual(erfunden.chance, 'gering');
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
