@@ -41,6 +41,25 @@ cp .env.example .env     # dann Keys eintragen (Anleitung steht in der Datei)
 „Manuell prüfen"-Fragen fließen **nicht** in die Sichtbarkeits-Quote ein –
 keine geschönten Zahlen.
 
+### Google-Schlüssel einrichten (kostenlos, 2 Teile)
+
+Beide Werte fragt `node ../schluessel-einrichten.js` (Schritt 5) ab und
+prüft sie live. 100 Suchen/Tag sind gratis – reicht für alle Kunden.
+
+**Teil A – `GOOGLE_API_KEY`** (console.cloud.google.com):
+1. Mit dem Google-Konto anmelden → oben links Projekt-Auswahl →
+   **„Neues Projekt"** → Name z.B. `kurani` → Erstellen (und auswählen).
+2. Oben in die Suchleiste **„Custom Search API"** eingeben → anklicken →
+   **„Aktivieren"**.
+3. Links **„APIs und Dienste" → „Anmeldedaten"** →
+   **„+ Anmeldedaten erstellen" → „API-Schlüssel"** → kopieren.
+
+**Teil B – `GOOGLE_CSE_ID`** (programmablesearchengine.google.com):
+1. **„Hinzufügen"** → Name z.B. `kurani` →
+   **„Im gesamten Web suchen"** einschalten → Erstellen.
+2. In der Übersicht die **„Suchmaschinen-ID"** kopieren (kryptische
+   Zeichenkette – das ist der `cx`-Wert).
+
 ## Umsatz-Nachweis des Telefon-Retters
 
 Der Monats-Report enthält die Sektion **„Was der Telefon-Retter gebracht
