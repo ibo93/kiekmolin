@@ -156,6 +156,7 @@
   <h2 id="s-uebersicht">Übersicht · <span id="uMonat"></span></h2>
   <div class="zahlen" id="uebersicht"><div class="leer">Lade Übersicht…</div></div>
   <div class="status" id="automatikInfo"></div>
+  <div class="status" id="bausteineInfo"></div>
 
   <h2 id="s-telefon">Telefon-Retter</h2>
   <div class="telefon" id="telefonKarte">
@@ -276,6 +277,14 @@ async function ladeUebersicht() {
         (u.automatik.letzterLaufMonat ? ' · letzter automatischer Lauf: ' + u.automatik.letzterLaufMonat : '')
       : 'Automatik aus (AUTO_REPORT_TAG in .env setzen, z.B. 1 = am Monatsersten)') +
       ' · E-Mail-Versand: ' + (u.emailVersand ? 'aktiv (Reports gehen automatisch an die Wirte)' : 'aus (RESEND_API_KEY in .env setzen)');
+    // Einrichtungs-Ampel: was ist fertig, was fehlt noch?
+    const b = u.bausteine || {};
+    const teil = (ok, name) => (ok ? '✅' : '⚪') + ' ' + name;
+    const alleFertig = b.denken && b.zuhoeren && b.stimme && b.telefon;
+    document.getElementById('bausteineInfo').textContent =
+      'Einrichtung: ' + [teil(b.denken, 'Denken'), teil(b.zuhoeren, 'Zuhören'), teil(b.stimme, 'Stimme'),
+        teil(b.telefon, 'Telefon'), teil(b.google, 'Google'), teil(b.email, 'E-Mail')].join(' · ') +
+      (alleFertig ? ' — Telefon-Paket komplett! 🎉' : ' — fehlende Bausteine: im Terminal „node schluessel-einrichten.js"');
   } catch (e) {
     document.getElementById('uebersicht').innerHTML = '<div class="leer">Übersicht nicht abrufbar: ' + e.message + '</div>';
   }
