@@ -81,13 +81,34 @@ async function findeRestaurant(idOderName) {
   );
 }
 
+// Speisekarte - selbstheilend wie in sichtbarkeit/lib/supabase.js:
+// fehlt eine optionale Spalte oder die Kategorien-Verknuepfung (400),
+// werden schlankere Select-Varianten probiert.
+const SPEISEKARTE_SELECTS = [
+  'name,description,base_price,price,is_popular,menu_categories(name)',
+  'name,description,base_price,is_popular,menu_categories(name)',
+  'name,description,base_price,price,is_popular',
+  'name,description,base_price,is_popular',
+  'name,description,base_price',
+  'name,base_price'
+];
+
 async function speisekarte(restaurantId) {
-  return supabaseGet(
-    'menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
-    '&is_available=eq.true' +
-    '&select=name,description,base_price,price,is_popular,menu_categories(name)' +
-    '&order=sort_order'
-  );
+  let letzterFehler = null;
+  for (const auswahl of SPEISEKARTE_SELECTS) {
+    try {
+      return await supabaseGet(
+        'menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+        '&is_available=eq.true' +
+        '&select=' + auswahl +
+        '&order=sort_order'
+      );
+    } catch (e) {
+      letzterFehler = e;
+      if (!/ 400 /.test(e.message)) throw e; // echte Fehler nicht verschlucken
+    }
+  }
+  throw letzterFehler;
 }
 
 // Reservierungen eines Tages - GLEICHE Status-Menge wie die Online-Pruefung
