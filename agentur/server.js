@@ -659,14 +659,25 @@ const server = http.createServer(async (req, res) => {
       const aufOrdner = path.join(AUFBEREITUNG_ORDNER, slug);
       const historie = kundenHistorie(slug);
       // KI-Konkurrenz aus dem neuesten Monats-Lauf: Wen empfiehlt die KI
-      // stattdessen? Das staerkste Argument - direkt in der App sichtbar.
-      let kiKonkurrenz = [];
-      if (historie[0]) {
+      // stattdessen? Inklusive Bewegung zum Vormonat (neu/mehr/weniger) und
+      // der wichtigsten Zahl: Wie oft wird DEIN Kunde selbst genannt?
+      const ladeErgebnis = (monat) => {
         try {
-          const letzter = JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, historie[0].monat + '.json'), 'utf8'));
-          if (letzter.ergebnis) kiKonkurrenz = report.kiKonkurrenz(letzter.ergebnis);
-        } catch (_e) { /* alte Historie ohne ergebnis-Block */ }
-      }
+          return JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, monat + '.json'), 'utf8')).ergebnis || null;
+        } catch (_e) { return null; }
+      };
+      const aktuellErg = historie[0] ? ladeErgebnis(historie[0].monat) : null;
+      const vorherErg = historie[1] ? ladeErgebnis(historie[1].monat) : null;
+      const vorherListe = vorherErg ? report.kiKonkurrenz(vorherErg) : [];
+      const vorherMap = new Map(vorherListe.map((t) => [String(t.name).toLowerCase(), t.anzahl]));
+      const kiKonkurrenz = (aktuellErg ? report.kiKonkurrenz(aktuellErg) : []).map((t) => Object.assign({}, t, {
+        vorher: vorherMap.has(String(t.name).toLowerCase()) ? vorherMap.get(String(t.name).toLowerCase()) : null
+      }));
+      const zaehleKiNennungen = (erg) => {
+        if (!erg || !Array.isArray(erg.fragen)) return null;
+        const gewertet = erg.fragen.filter((f) => f.ki && (f.ki.status === 'gefunden' || f.ki.status === 'nicht-gefunden'));
+        return { genannt: gewertet.filter((f) => f.ki.status === 'gefunden').length, getestet: gewertet.length };
+      };
       json(res, 200, {
         id: kunde.id, name: kunde.name, stadt: kunde.city || '', slug,
         adresse: kunde.address || '', telefon: kunde.phone || '',
@@ -674,6 +685,7 @@ const server = http.createServer(async (req, res) => {
         fragen: suchfragen(kunde).fragen.map((f) => f.frage),
         historie,
         kiKonkurrenz,
+        kiNennungen: { aktuell: zaehleKiNennungen(aktuellErg), vormonat: zaehleKiNennungen(vorherErg) },
         naechsteSchritte: naechsteSchritteFuer(slug, kunde),
         portalLink: require('./lib/portal').istAktiv() ? '/portal/' + require('./lib/portal').portalToken(slug) : null,
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
