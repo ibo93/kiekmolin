@@ -479,7 +479,7 @@ async function zeigeKunde(id) {
   document.getElementById('dSchritte').innerHTML = (aktuellerKunde.naechsteSchritte || []).length
     ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
     : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
-  zeichneKonkurrenz(aktuellerKunde.kiKonkurrenz || []);
+  zeichneKonkurrenz(aktuellerKunde.kiKonkurrenz || [], aktuellerKunde.kiNennungen || null);
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
@@ -525,18 +525,42 @@ async function ladeTelefonZahlen(id) {
 // ---------------- KI-Konkurrenz (Verkaufs-Argument Nr. 1) ----------------
 // Aus dem letzten Monats-Lauf: Diese Namen empfiehlt die KI gerade statt
 // unseres Kunden. Genau diese Liste legt Ibo dem Wirt auf den Tisch.
-function zeichneKonkurrenz(top) {
+function zeichneKonkurrenz(top, nennungen) {
   const h = document.getElementById('hKonkurrenz');
   const ziel = document.getElementById('dKonkurrenz');
   if (!top.length) { h.style.display = 'none'; ziel.style.display = 'none'; return; }
   h.style.display = '';
   ziel.style.display = '';
-  ziel.innerHTML =
-    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' +
-    top.map(t => '<span class="badge" style="font-size:13px;padding:7px 14px">' +
+
+  // Die wichtigste Zahl zuerst: Wie oft nennt die KI DEINEN Kunden?
+  let kundenZeile = '';
+  const jetzt = nennungen && nennungen.aktuell;
+  const vorher = nennungen && nennungen.vormonat;
+  if (jetzt && jetzt.getestet) {
+    const diff = vorher && vorher.getestet ? jetzt.genannt - vorher.genannt : null;
+    const trend = diff == null ? '' :
+      diff > 0 ? ' <b style="color:#16a34a">▲ +' + diff + ' zum Vormonat!</b>' :
+      diff < 0 ? ' <b style="color:#dc2626">▼ ' + diff + ' zum Vormonat</b>' :
+      ' <span style="color:var(--grau)">(wie Vormonat)</span>';
+    kundenZeile = '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:4px">Dein Kunde in den KI-Antworten</div>' +
+      '<div style="font-size:18px;font-weight:800">' + jetzt.genannt + ' von ' + jetzt.getestet + ' Antworten' + trend + '</div>' +
+      '<div class="sub">Das ist DIE Zahl, die deine Arbeit beweist – Ziel: jeden Monat höher.</div></div>';
+  }
+
+  // Konkurrenten mit Bewegung: NEU / mehr / weniger als im Vormonat
+  const chips = top.map(t => {
+    let bewegung = '';
+    if (t.vorher == null && vorher) bewegung = ' <b style="color:#eab308">NEU</b>';
+    else if (t.vorher != null && t.anzahl > t.vorher) bewegung = ' <b style="color:#dc2626">▲</b>';
+    else if (t.vorher != null && t.anzahl < t.vorher) bewegung = ' <b style="color:#16a34a">▼</b>';
+    return '<span class="badge" style="font-size:13px;padding:7px 14px">' +
       String(t.name).replace(/</g, '&lt;') + (t.anzahl > 1 ? ' <b style="color:var(--akzent)">' + t.anzahl + '×</b>' : '') +
-      '</span>').join('') + '</div>' +
-    '<div class="status" style="margin-top:0">Dorthin schickt die KI aktuell die Gäste (aus den Antworten des letzten Reports). Ziel: dass dein Kunde in dieser Liste steht. <b>Nur für dich</b> – im Kunden-Report tauchen diese Namen nicht auf.</div>';
+      bewegung + '</span>';
+  }).join('');
+
+  ziel.innerHTML = kundenZeile +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' + chips + '</div>' +
+    '<div class="status" style="margin-top:0">Dorthin schickt die KI aktuell die Gäste. ▲/▼ = öfter/seltener genannt als im Vormonat, NEU = neu in der Liste. Ziel: dein Kunde wandert nach oben, die Konkurrenz nach unten. <b>Nur für dich</b> – im Kunden-Report tauchen diese Namen nicht auf.</div>';
 }
 
 // ---------------- Anruf-Demo (Verkaufs-Werkzeug) ----------------
