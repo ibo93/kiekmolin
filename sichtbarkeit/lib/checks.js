@@ -141,8 +141,8 @@ async function checkGoogle(frage, restaurant) {
 // Zwei Filter: komplette Fuellwoerter ("Hinweis", "Restaurants") und typische
 // Satz-Anfaenge ("Hier sind...", "Die besten..."). "Die Krabbenstube" oder
 // "Restaurant Poggenstool" bleiben dabei bewusst erlaubt.
-const KEIN_NAME_GANZ = /^(restaurants?|empfehlung(en)?|hinweis(e)?|tipps?|quellen?|fazit|adresse|telefon|preis(e)?|bewertung(en)?|oeffnungszeiten|öffnungszeiten|speisekarte|reservierung)$/i;
-const KEIN_NAME_START = /^(hier |diese |dieser |dieses |es gibt|weitere |alle |einige |basierend|leider|die besten|der beste|das beste|beste[rns]? |top \d|meine |folgende)/i;
+const KEIN_NAME_GANZ = /^(restaurants?|empfehlung(en)?|hinweis(e)?|tipps?|quellen?|fazit|adresse|telefon|preis(e)?|bewertung(en)?|oeffnungszeiten|öffnungszeiten|speisekarte|reservierung|mein tipp|geheimtipp|extra-tipp|zusammenfassung|uebersicht|übersicht)$/i;
+const KEIN_NAME_START = /^(hier |diese |dieser |dieses |es gibt|weitere |alle |einige |basierend|leider|die besten|der beste|das beste|beste[rns]? |top \d|mein |meine |unser |folgende|noch ein|zum schluss|ausserdem|außerdem)/i;
 
 function empfohleneNamen(text, eigenerName) {
   const roh = [];
@@ -157,7 +157,7 @@ function empfohleneNamen(text, eigenerName) {
   const gesehen = new Set();
   const namen = [];
   for (let name of roh) {
-    name = name.replace(/["'„“”]/g, '').replace(/[.,;!?\s]+$/, '').trim();
+    name = name.replace(/["'„“”]/g, '').replace(/[.,;:!?\s]+$/, '').trim();
     const n = norm(name);
     if (!name || name.length < 3 || name.length > 60) continue;
     if (!/[A-ZÄÖÜ]/.test(name)) continue;             // Namen sind grossgeschrieben

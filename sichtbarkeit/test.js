@@ -217,6 +217,8 @@ test('empfohleneNamen: zieht Namen aus Listen und Fettdruck, filtert eigenen Nam
   assert.ok(namen.includes('Zur alten Fischerhütte'), 'Listen-Name gefunden');
   assert.ok(!namen.some((n) => n.toLowerCase().includes('börse')), 'eigener Name fliegt raus');
   assert.ok(!namen.some((n) => /^hinweis/i.test(n)), 'Fuellwoerter fliegen raus');
+  const mitFloskeln = empfohleneNamen('- **Mein Tipp:** unbedingt reservieren\n- **Geheimtipp** am Hafen\n- **Restaurant Deichkrone** direkt am Deich', 'X');
+  assert.deepStrictEqual(mitFloskeln, ['Restaurant Deichkrone'], 'Floskeln wie "Mein Tipp" sind keine Namen: ' + JSON.stringify(mitFloskeln));
   assert.strictEqual(namen.filter((n) => n === 'Restaurant Poggenstool').length, 1, 'Doppelte werden dedupliziert');
   assert.deepStrictEqual(empfohleneNamen('', 'X'), [], 'leere Antwort = leere Liste');
 });

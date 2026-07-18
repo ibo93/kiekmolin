@@ -49,14 +49,35 @@ async function findeRestaurant(suchbegriff) {
   );
 }
 
-// Speisekarte eines Betriebs (nur verfuegbare Artikel, mit Kategorie-Namen)
+// Speisekarte eines Betriebs (nur verfuegbare Artikel, mit Kategorie-Namen).
+// Selbstheilend: Fehlt in der Datenbank eine optionale Spalte oder die
+// Kategorien-Verknuepfung, lehnt PostgREST die GANZE Abfrage mit 400 ab -
+// dann probieren wir schlankere Varianten, statt leer auszugehen.
+const SPEISEKARTE_SELECTS = [
+  'name,description,base_price,price,is_popular,menu_categories(name)',
+  'name,description,base_price,is_popular,menu_categories(name)',
+  'name,description,base_price,price,is_popular',
+  'name,description,base_price,is_popular',
+  'name,description,base_price',
+  'name,base_price'
+];
+
 async function speisekarte(restaurantId) {
-  return supabaseGet(
-    'menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
-    '&is_available=eq.true' +
-    '&select=name,description,base_price,price,is_popular,menu_categories(name)' +
-    '&order=sort_order'
-  );
+  let letzterFehler = null;
+  for (const auswahl of SPEISEKARTE_SELECTS) {
+    try {
+      return await supabaseGet(
+        'menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+        '&is_available=eq.true' +
+        '&select=' + auswahl +
+        '&order=sort_order'
+      );
+    } catch (e) {
+      letzterFehler = e;
+      if (!/ 400 /.test(e.message)) throw e; // echte Fehler nicht verschlucken
+    }
+  }
+  throw letzterFehler;
 }
 
 // --- Telefon-Retter-Ergebnisse (Quelle 'telefon') - weiterhin NUR lesen -------
