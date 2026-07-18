@@ -197,12 +197,23 @@
         <button class="aktion primaer" id="btnReport" onclick="reportErzeugen()">Monats-Report erzeugen</button>
         <button class="aktion" id="btnAufbereitung" onclick="aufbereitungErzeugen()">Aufbereitung erzeugen (Teil A)</button>
         <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
+        <button class="aktion" id="btnUpdate" onclick="kundenUpdateKopieren()" title="Fertige WhatsApp-Nachricht mit den Monats-Zahlen in die Zwischenablage kopieren – einfach im Chat mit dem Wirt einfügen">WhatsApp-Update kopieren</button>
         <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:transparent;color:var(--akzent)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
 
       <h2>Telefon-Retter · dieser Monat</h2>
       <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
+
+      <h2>Anruf-Demo · so klingt der Telefon-Retter</h2>
+      <div class="status" style="margin-top:-6px">Live beim Wirt vorführen: Die KI antwortet mit der echten Speisekarte dieses Betriebs – gespeichert wird dabei <b>nichts</b>. Du spielst den Gast.</div>
+      <div id="demoChat" style="display:none;border:1px solid var(--linie,#2a3841);border-radius:10px;padding:14px;margin:10px 0;max-height:340px;overflow-y:auto"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+        <button class="aktion" id="btnDemoStart" onclick="anrufDemoStarten()">📞 Demo-Anruf starten</button>
+        <input class="suche" id="demoEingabe" placeholder="Deine Antwort als Gast… (Enter zum Senden)"
+               style="flex:1;margin-bottom:0;display:none" onkeydown="if(event.key==='Enter')anrufDemoSenden()">
+        <button class="aktion" id="btnDemoSenden" onclick="anrufDemoSenden()" style="display:none">Senden</button>
+      </div>
 
       <h2>Nächste Schritte (aus dem letzten Report)</h2>
       <ol class="fragen" id="dSchritte"></ol>
@@ -445,6 +456,12 @@ async function zeigeKunde(id) {
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
+  // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
+  demoSitzung = null;
+  const demoChat = document.getElementById('demoChat');
+  demoChat.innerHTML = '';
+  demoChat.style.display = 'none';
+  demoEingabeZeigen(false);
 }
 
 // ---------------- Umsatz-Nachweis des Telefon-Retters ----------------
@@ -475,6 +492,99 @@ async function ladeTelefonZahlen(id) {
         <div class="sub">kein Anruf ging verloren</div></div>`;
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+// ---------------- Anruf-Demo (Verkaufs-Werkzeug) ----------------
+// Der Telefon-Retter als Text-Chat: Ibo spielt den Gast, die KI antwortet
+// mit der echten Speisekarte des Kunden. Es wird NICHTS echt gespeichert.
+let demoSitzung = null;
+
+function demoBlase(wer, text) {
+  const chat = document.getElementById('demoChat');
+  chat.style.display = '';
+  const agent = wer === 'agent';
+  chat.insertAdjacentHTML('beforeend',
+    '<div style="display:flex;justify-content:' + (agent ? 'flex-start' : 'flex-end') + ';margin:7px 0">' +
+    '<div style="max-width:80%;padding:9px 13px;border-radius:12px;font-size:13.5px;line-height:1.45;' +
+    (agent ? 'background:var(--karte2);border:1px solid var(--linie)' : 'background:var(--akzent);color:#171104') + '">' +
+    '<div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;opacity:.65;margin-bottom:3px">' +
+    (agent ? '🤖 Telefon-Retter' : 'Gast (du)') + '</div>' +
+    String(text).replace(/</g, '&lt;') + '</div></div>');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function demoEingabeZeigen(an) {
+  document.getElementById('demoEingabe').style.display = an ? '' : 'none';
+  document.getElementById('btnDemoSenden').style.display = an ? '' : 'none';
+  document.getElementById('btnDemoStart').textContent = an ? '⟳ Neu starten' : '📞 Demo-Anruf starten';
+  if (an) document.getElementById('demoEingabe').focus();
+}
+
+async function anrufDemoStarten() {
+  const chat = document.getElementById('demoChat');
+  chat.innerHTML = '';
+  demoSitzung = null;
+  demoBlase('agent', '… (Anruf wird angenommen)');
+  try {
+    const d = await api('/api/anruf-demo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+    demoSitzung = d.sitzung;
+    chat.innerHTML = '';
+    demoBlase('agent', d.text);
+    demoEingabeZeigen(true);
+  } catch (e) {
+    chat.innerHTML = '';
+    demoBlase('agent', 'Demo nicht möglich: ' + e.message);
+  }
+}
+
+async function anrufDemoSenden() {
+  const feld = document.getElementById('demoEingabe');
+  const text = feld.value.trim();
+  if (!text || !demoSitzung) return;
+  feld.value = '';
+  demoBlase('gast', text);
+  feld.disabled = true;
+  try {
+    const d = await api('/api/anruf-demo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sitzung: demoSitzung, text }) });
+    demoBlase('agent', d.text);
+    if (d.beenden) {
+      demoSitzung = null;
+      demoBlase('agent', '— Gespräch beendet (aufgelegt). Nichts wurde echt gespeichert. —');
+      demoEingabeZeigen(false);
+    }
+  } catch (e) {
+    demoBlase('agent', 'Fehler: ' + e.message);
+  }
+  feld.disabled = false;
+  if (demoSitzung) feld.focus();
+}
+
+// ---------------- WhatsApp-Kunden-Update ----------------
+async function kundenUpdateKopieren() {
+  const status = document.getElementById('dStatus');
+  status.className = 'status';
+  status.textContent = 'Erzeuge Update…';
+  try {
+    const d = await api('/api/kunden-update/' + encodeURIComponent(aktuellerKunde.id));
+    try {
+      await navigator.clipboard.writeText(d.text);
+    } catch (_e) {
+      // Fallback ohne Clipboard-Rechte: unsichtbares Feld markieren + kopieren
+      const feld = document.createElement('textarea');
+      feld.value = d.text;
+      document.body.appendChild(feld);
+      feld.select();
+      document.execCommand('copy');
+      feld.remove();
+    }
+    status.className = 'status ok';
+    status.textContent = 'WhatsApp-Update kopiert ✓ – einfach im Chat mit dem Wirt einfügen (Cmd+V).';
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = 'Update nicht möglich: ' + e.message;
   }
 }
 

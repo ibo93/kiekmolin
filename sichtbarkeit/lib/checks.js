@@ -106,6 +106,43 @@ async function checkGoogle(frage, restaurant) {
   }
 }
 
+// --- KI-Konkurrenz-Analyse: Welche Namen empfiehlt die KI (stattdessen)? ----
+// Heuristik ueber die Antwort-Struktur: Listenpunkte und Fettgedrucktes sind
+// in KI-Empfehlungen fast immer die Betriebsnamen. Eigener Name und
+// Fuellwoerter fliegen raus. Kein zweiter API-Aufruf noetig.
+// Zwei Filter: komplette Fuellwoerter ("Hinweis", "Restaurants") und typische
+// Satz-Anfaenge ("Hier sind...", "Die besten..."). "Die Krabbenstube" oder
+// "Restaurant Poggenstool" bleiben dabei bewusst erlaubt.
+const KEIN_NAME_GANZ = /^(restaurants?|empfehlung(en)?|hinweis(e)?|tipps?|quellen?|fazit|adresse|telefon|preis(e)?|bewertung(en)?|oeffnungszeiten|öffnungszeiten|speisekarte|reservierung)$/i;
+const KEIN_NAME_START = /^(hier |diese |dieser |dieses |es gibt|weitere |alle |einige |basierend|leider|die besten|der beste|das beste|beste[rns]? |top \d|meine |folgende)/i;
+
+function empfohleneNamen(text, eigenerName) {
+  const roh = [];
+  const t = String(text || '');
+  for (const m of t.matchAll(/\*\*([^*\n]{3,60})\*\*/g)) roh.push(m[1]);
+  for (const zeile of t.split('\n')) {
+    const m = zeile.match(/^\s*(?:[-*•]|\d{1,2}[.)])\s+\*{0,2}([^*:–(\n]{3,60})/);
+    if (m) roh.push(m[1].split(/ [-–] /)[0].split(',')[0]);
+  }
+  const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const eigen = norm(eigenerName);
+  const gesehen = new Set();
+  const namen = [];
+  for (let name of roh) {
+    name = name.replace(/["'„“”]/g, '').replace(/[.,;!?\s]+$/, '').trim();
+    const n = norm(name);
+    if (!name || name.length < 3 || name.length > 60) continue;
+    if (!/[A-ZÄÖÜ]/.test(name)) continue;             // Namen sind grossgeschrieben
+    if (KEIN_NAME_GANZ.test(name) || KEIN_NAME_START.test(name)) continue;
+    if (eigen && (n.includes(eigen) || eigen.includes(n))) continue;
+    if (gesehen.has(n)) continue;
+    gesehen.add(n);
+    namen.push(name);
+    if (namen.length >= 6) break;
+  }
+  return namen;
+}
+
 // --- KI-Sichtbarkeit: Wird der Betrieb von Claude (mit Web-Suche) genannt? ---
 // Wiederholbarer, dokumentierter Test: gleiche Frage, gleiches Modell,
 // Roh-Antwort wird gespeichert. Braucht ANTHROPIC_API_KEY in .env.
@@ -144,11 +181,12 @@ async function checkKI(frage, restaurant) {
     return {
       status: gefunden ? 'gefunden' : 'nicht-gefunden',
       detail: gefunden ? 'Betrieb wird in der KI-Antwort empfohlen' : 'Betrieb taucht in der KI-Antwort nicht auf',
-      antwortAuszug: text.slice(0, 600)
+      antwortAuszug: text.slice(0, 600),
+      empfohlen: empfohleneNamen(text, restaurant.name)
     };
   } catch (e) {
     return { status: 'fehler', detail: 'KI-API-Fehler: ' + e.message };
   }
 }
 
-module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI, wettbewerberVorDir };
+module.exports = { checkKiekmolinSeite, checkEigeneWebsite, checkGoogle, checkKI, wettbewerberVorDir, empfohleneNamen };
