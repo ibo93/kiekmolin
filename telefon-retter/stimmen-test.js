@@ -14,10 +14,12 @@ const { ladeEnv } = require('./lib/env');
 
 ladeEnv();
 
+// Gesprochener Text IMMER mit echten Umlauten - sonst liest die Stimme
+// woertlich "fu-er" und "Boerse" vor und klingt holprig.
 const TEXT = process.argv.slice(2).join(' ') ||
-  'Moin, hier ist der digitale KI-Assistent der Greetsieler Boerse. ' +
-  'Das Team ist gerade nicht am Apparat, aber ich kann gerne fuer Sie reservieren. ' +
-  'Fuer wie viele Personen darf es denn sein?';
+  'Moin, hier ist der digitale KI-Assistent der Greetsieler Börse. ' +
+  'Das Team ist gerade nicht am Apparat, aber ich kann gerne für Sie reservieren. ' +
+  'Für wie viele Personen darf es denn sein?';
 
 (async () => {
   const key = process.env.ELEVENLABS_API_KEY;

@@ -179,7 +179,7 @@ class AnrufSitzung {
       this.log('FEHLER: ' + e.message);
       this.auflegenNachMark = true;
       await this.sprich('Entschuldigung, da ist etwas schiefgelaufen. Bitte rufen Sie direkt im Restaurant an' +
-        (this.restaurant.phone ? ' unter ' + this.restaurant.phone : '') + '. Auf Wiederhoeren!').catch(() => {});
+        (this.restaurant.phone ? ' unter ' + this.restaurant.phone : '') + '. Auf Wiederhören!').catch(() => {});
       setTimeout(() => { try { this.ws.close(); } catch (_e) {} }, 15000);
     } finally {
       this.denkt = false;

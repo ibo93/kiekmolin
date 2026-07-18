@@ -325,8 +325,9 @@ class DialogSitzung {
 
   begruessung() {
     // Gibt sich sofort als KI zu erkennen (Transparenzpflicht, EU AI Act).
+    // Gesprochene Texte IMMER mit echten Umlauten (Aussprache!).
     return 'Moin, hier ist der digitale KI-Assistent von ' + this.restaurant.name +
-      '. Das Team ist gerade nicht am Apparat, aber ich kann fuer Sie reservieren oder eine Nachricht aufnehmen. Was kann ich fuer Sie tun?';
+      '. Das Team ist gerade nicht am Apparat, aber ich kann für Sie reservieren oder eine Nachricht aufnehmen. Was kann ich für Sie tun?';
   }
 
   // Ein Gespraechsschritt: Nutzertext rein -> gesprochene Antwort raus.
@@ -380,7 +381,7 @@ class DialogSitzung {
     }
 
     if (beenden) this.beendet = true;
-    const text = gesagte.join(' ').trim() || 'Entschuldigung, das habe ich nicht verstanden. Koennen Sie das wiederholen?';
+    const text = gesagte.join(' ').trim() || 'Entschuldigung, das habe ich nicht verstanden. Können Sie das wiederholen?';
     // Streaming-Fall ohne ein einziges Delta (z.B. leere Antwort): den
     // Fallback-Satz trotzdem hoerbar machen.
     if (onSatz && !sofortGesagt) onSatz(text);
@@ -417,7 +418,7 @@ class DialogSitzung {
       case 'speisekarten_frage': return this.toolSpeisekarte(input);
       case 'pruefe_bestellung': return this.toolPruefeBestellung(input);
       case 'speichere_bestellung': return this.toolSpeichereBestellung(input);
-      case 'gespraech_beenden': return { __beenden: true, abschiedsgruss: input.abschiedsgruss || 'Vielen Dank fuer Ihren Anruf, bis bald!' };
+      case 'gespraech_beenden': return { __beenden: true, abschiedsgruss: input.abschiedsgruss || 'Vielen Dank für Ihren Anruf, bis bald!' };
       default: return { fehler: 'Unbekanntes Werkzeug ' + name };
     }
   }
