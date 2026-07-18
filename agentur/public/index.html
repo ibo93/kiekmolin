@@ -209,13 +209,18 @@
       <div id="dKonkurrenz" style="display:none"></div>
 
       <h2>Anruf-Demo · so klingt der Telefon-Retter</h2>
-      <div class="status" style="margin-top:-6px">Live beim Wirt vorführen: Die KI antwortet mit der echten Speisekarte dieses Betriebs – gespeichert wird dabei <b>nichts</b>. Du spielst den Gast.</div>
+      <div class="status" style="margin-top:-6px">Live beim Wirt vorführen: Die KI antwortet mit der echten Speisekarte dieses Betriebs – gespeichert wird dabei <b>nichts</b>. Du spielst den Gast: <b>tippen oder 🎤 sprechen</b> – sie antwortet mit ihrer Stimme.</div>
       <div id="demoChat" style="display:none;border:1px solid var(--linie,#2a3841);border-radius:10px;padding:14px;margin:10px 0;max-height:340px;overflow-y:auto"></div>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
         <button class="aktion" id="btnDemoStart" onclick="anrufDemoStarten()">📞 Demo-Anruf starten</button>
-        <input class="suche" id="demoEingabe" placeholder="Deine Antwort als Gast… (Enter zum Senden)"
+        <button class="aktion" id="btnDemoMik" style="display:none"
+                onmousedown="demoAufnahmeStart()" onmouseup="demoAufnahmeStopp()" onmouseleave="demoAufnahmeStopp()"
+                ontouchstart="event.preventDefault();demoAufnahmeStart()" ontouchend="demoAufnahmeStopp()">🎤 Halten &amp; sprechen</button>
+        <input class="suche" id="demoEingabe" placeholder="…oder als Gast tippen (Enter zum Senden)"
                style="flex:1;margin-bottom:0;display:none" onkeydown="if(event.key==='Enter')anrufDemoSenden()">
         <button class="aktion" id="btnDemoSenden" onclick="anrufDemoSenden()" style="display:none">Senden</button>
+        <label id="demoStimmeZeile" style="display:none;font-size:12.5px;color:var(--grau);cursor:pointer">
+          <input type="checkbox" id="demoStimme" checked> 🔊 mit Stimme antworten</label>
       </div>
 
       <h2>Nächste Schritte (aus dem letzten Report)</h2>
@@ -538,8 +543,19 @@ function demoBlase(wer, text) {
 function demoEingabeZeigen(an) {
   document.getElementById('demoEingabe').style.display = an ? '' : 'none';
   document.getElementById('btnDemoSenden').style.display = an ? '' : 'none';
+  document.getElementById('demoStimmeZeile').style.display = an ? '' : 'none';
+  // Mikrofon nur zeigen, wenn der Browser es kann (Chrome auf dem Mac: ja)
+  document.getElementById('btnDemoMik').style.display =
+    an && navigator.mediaDevices && window.MediaRecorder ? '' : 'none';
   document.getElementById('btnDemoStart').textContent = an ? '⟳ Neu starten' : '📞 Demo-Anruf starten';
   if (an) document.getElementById('demoEingabe').focus();
+}
+
+function demoStimmeAn() { return document.getElementById('demoStimme').checked; }
+
+function demoAudioAbspielen(b64) {
+  if (!b64) return;
+  new Audio('data:audio/mp3;base64,' + b64).play().catch(() => { /* Autoplay blockiert - Text steht ja da */ });
 }
 
 async function anrufDemoStarten() {
@@ -549,10 +565,11 @@ async function anrufDemoStarten() {
   demoBlase('agent', '… (Anruf wird angenommen)');
   try {
     const d = await api('/api/anruf-demo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kennung: aktuellerKunde.id }) });
+      body: JSON.stringify({ kennung: aktuellerKunde.id, mitStimme: demoStimmeAn() }) });
     demoSitzung = d.sitzung;
     chat.innerHTML = '';
     demoBlase('agent', d.text);
+    demoAudioAbspielen(d.audio);
     demoEingabeZeigen(true);
   } catch (e) {
     chat.innerHTML = '';
@@ -569,8 +586,9 @@ async function anrufDemoSenden() {
   feld.disabled = true;
   try {
     const d = await api('/api/anruf-demo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sitzung: demoSitzung, text }) });
+      body: JSON.stringify({ sitzung: demoSitzung, text, mitStimme: demoStimmeAn() }) });
     demoBlase('agent', d.text);
+    demoAudioAbspielen(d.audio);
     if (d.beenden) {
       demoSitzung = null;
       demoBlase('agent', '— Gespräch beendet (aufgelegt). Nichts wurde echt gespeichert. —');
@@ -581,6 +599,62 @@ async function anrufDemoSenden() {
   }
   feld.disabled = false;
   if (demoSitzung) feld.focus();
+}
+
+// ---------------- Sprechen statt tippen (Mikrofon, halten & loslassen) ----------------
+let demoRecorder = null;
+let demoChunks = [];
+
+async function demoAufnahmeStart() {
+  if (!demoSitzung || demoRecorder) return;
+  try {
+    const strom = await navigator.mediaDevices.getUserMedia({ audio: true });
+    demoChunks = [];
+    demoRecorder = new MediaRecorder(strom, { mimeType: 'audio/webm' });
+    demoRecorder.ondataavailable = (e) => { if (e.data && e.data.size) demoChunks.push(e.data); };
+    demoRecorder.start();
+    document.getElementById('btnDemoMik').textContent = '🔴 Aufnahme… loslassen zum Senden';
+  } catch (e) {
+    demoRecorder = null;
+    demoBlase('agent', 'Mikrofon nicht verfügbar: ' + e.message + ' (im Browser oben „Zulassen" klicken)');
+  }
+}
+
+async function demoAufnahmeStopp() {
+  if (!demoRecorder) return;
+  const rec = demoRecorder;
+  demoRecorder = null;
+  document.getElementById('btnDemoMik').textContent = '🎤 Halten & sprechen';
+  const fertig = new Promise((r) => { rec.onstop = r; });
+  try { rec.stop(); } catch (_e) { return; }
+  await fertig;
+  rec.stream.getTracks().forEach((t) => t.stop());
+  const blob = new Blob(demoChunks, { type: 'audio/webm' });
+  if (blob.size < 2000 || !demoSitzung) return; // zu kurz gedrueckt
+  const mik = document.getElementById('btnDemoMik');
+  mik.disabled = true;
+  mik.textContent = '⏳ verstehe…';
+  try {
+    const antwort = await fetch('/api/anruf-demo-sprache?sitzung=' + encodeURIComponent(demoSitzung),
+      { method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+    const d = await antwort.json();
+    if (d.fehler) { demoBlase('agent', 'Fehler: ' + d.fehler); }
+    else if (!d.text) { demoBlase('agent', d.hinweis || 'Nichts verstanden – bitte nochmal.'); }
+    else {
+      demoBlase('gast', '🎤 ' + d.gehoert);
+      demoBlase('agent', d.text);
+      demoAudioAbspielen(d.audio);
+      if (d.beenden) {
+        demoSitzung = null;
+        demoBlase('agent', '— Gespräch beendet (aufgelegt). Nichts wurde echt gespeichert. —');
+        demoEingabeZeigen(false);
+      }
+    }
+  } catch (e) {
+    demoBlase('agent', 'Fehler: ' + e.message);
+  }
+  mik.disabled = false;
+  mik.textContent = '🎤 Halten & sprechen';
 }
 
 // ---------------- WhatsApp-Kunden-Update ----------------
