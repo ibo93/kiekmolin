@@ -10,22 +10,27 @@ async function spreche(text) {
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt in .env');
   if (!voiceId) throw new Error('ELEVENLABS_VOICE_ID fehlt in .env (Voice unter elevenlabs.io/voice-library aussuchen)');
 
+  const modell = process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5'; // schnell + Deutsch
+  // flash/turbo koennen die Sprache fest vorgegeben bekommen - verhindert,
+  // dass einzelne Woerter englisch ausgesprochen werden.
+  const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
+
   const antwort = await fetch(
     'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=ulaw_8000',
     {
       method: 'POST',
       headers: { 'xi-api-key': key, 'content-type': 'application/json' },
       signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         text: text,
-        model_id: process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5', // schnell + Deutsch
+        model_id: modell,
         // Etwas niedrigere Stabilitaet = lebendigere, menschlichere Betonung.
         // Ueber .env feinjustierbar: 0 = sehr lebendig, 1 = sehr gleichmaessig.
         voice_settings: {
           stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
           similarity_boost: 0.8
         }
-      })
+      }, sprachHinweis))
     }
   );
   if (!antwort.ok) throw new Error('ElevenLabs ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
