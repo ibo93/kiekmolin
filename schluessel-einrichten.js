@@ -109,9 +109,21 @@ async function pruefeElevenlabs(key) {
   const antwort = await fetch('https://api.elevenlabs.io/v1/user', {
     headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(15000)
   });
-  return antwort.ok
-    ? { ok: true }
-    : { ok: false, grund: 'ElevenLabs sagt ' + antwort.status + await fehlerText(antwort) + '\n       -> Haeufig: E-Mail-Bestaetigung fehlt, oder der Key wurde mit eingeschraenkten Rechten erstellt.' };
+  if (antwort.ok) return { ok: true };
+  let text = '';
+  try { text = await antwort.text(); } catch (_e) { /* egal */ }
+  // Eingeschraenkter Key (missing_permissions): echt, aber beim Erstellen
+  // wurden Rechte abgewaehlt. Reicht er fuer Stimmen+Sprechen, nehmen wir ihn.
+  if (/missing_permissions|missing the permission/i.test(text)) {
+    const stimmen = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(15000)
+    });
+    if (stimmen.ok) {
+      return { ok: true, hinweis: 'Key ist eingeschraenkt, reicht aber fuer die Stimmen. Falls das Sprechen spaeter fehlschlaegt: neuen Key OHNE Einschraenkungen erstellen.' };
+    }
+    return { ok: false, grund: 'Der Key wurde mit EINGESCHRAENKTEN Rechten erstellt (missing_permissions).\n       -> Neuen Key erstellen und dabei KEINE Berechtigungen abwaehlen (voller Zugriff).' };
+  }
+  return { ok: false, grund: 'ElevenLabs sagt ' + antwort.status + ' | Antwort: ' + text.slice(0, 220) + '\n       -> Haeufig: E-Mail-Bestaetigung fehlt, oder der Key wurde mit eingeschraenkten Rechten erstellt.' };
 }
 
 async function holeStimmen(key) {
