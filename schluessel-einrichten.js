@@ -90,13 +90,19 @@ async function pruefeAnthropic(key) {
   return { ok: false, grund: 'Anthropic sagt ' + antwort.status + ' - Schluessel neu erstellen und KOMPLETT kopieren.' };
 }
 
+// Antwort-Text des Anbieters mit anzeigen - dann sieht man den ECHTEN Grund
+// (z.B. "email not verified" oder fehlende Berechtigungen) statt nur "401".
+async function fehlerText(antwort) {
+  try { return ' | Antwort: ' + (await antwort.text()).slice(0, 220); } catch (_e) { return ''; }
+}
+
 async function pruefeDeepgram(key) {
   const antwort = await fetch('https://api.deepgram.com/v1/projects', {
     headers: { Authorization: 'Token ' + key }, signal: AbortSignal.timeout(15000)
   });
   return antwort.ok
     ? { ok: true }
-    : { ok: false, grund: 'Deepgram sagt ' + antwort.status + ' - Key unter console.deepgram.com -> API Keys neu erstellen.' };
+    : { ok: false, grund: 'Deepgram sagt ' + antwort.status + await fehlerText(antwort) + '\n       -> Key unter console.deepgram.com -> API Keys neu erstellen.' };
 }
 
 async function pruefeElevenlabs(key) {
@@ -105,7 +111,7 @@ async function pruefeElevenlabs(key) {
   });
   return antwort.ok
     ? { ok: true }
-    : { ok: false, grund: 'ElevenLabs sagt ' + antwort.status + ' - Key unter elevenlabs.io -> Profil -> API Keys pruefen.' };
+    : { ok: false, grund: 'ElevenLabs sagt ' + antwort.status + await fehlerText(antwort) + '\n       -> Haeufig: E-Mail-Bestaetigung fehlt, oder der Key wurde mit eingeschraenkten Rechten erstellt.' };
 }
 
 async function holeStimmen(key) {
