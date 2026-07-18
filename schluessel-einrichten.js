@@ -247,10 +247,17 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
       const wahl = await frage('    Nummer waehlen ODER Voice-ID einfuegen (Enter = ueberspringen): ');
       if (wahl) {
         const index = parseInt(wahl, 10);
-        const stimme = index >= 1 && index <= stimmen.length ? stimmen[index - 1] : null;
-        const id = stimme ? stimme.id : wahl;
-        speichere('ELEVENLABS_VOICE_ID', id, ['telefon-retter']);
-        if (stimme) console.log('    Stimme "' + stimme.name + '" eingestellt.');
+        const stimme = /^\d+$/.test(wahl) && index >= 1 && index <= stimmen.length ? stimmen[index - 1] : null;
+        // Nur echte Auswahlen speichern: eine Nummer aus der Liste oder eine
+        // Voice-ID (ein Wort, keine Leerzeichen). Versehentlich eingefuegte
+        // Befehle o.ae. werden abgelehnt statt gespeichert.
+        if (!stimme && !/^[A-Za-z0-9_-]{10,48}$/.test(wahl)) {
+          console.log('    -> Das war keine Nummer aus der Liste (1-' + Math.min(stimmen.length, 12) + ') und keine Voice-ID.');
+          console.log('       Stimme bleibt unveraendert - Helfer einfach nochmal starten.');
+        } else {
+          speichere('ELEVENLABS_VOICE_ID', stimme ? stimme.id : wahl, ['telefon-retter']);
+          if (stimme) console.log('    Stimme "' + stimme.name + '" eingestellt.');
+        }
       } else { console.log('    -> uebersprungen.'); }
     }
   }
