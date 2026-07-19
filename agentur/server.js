@@ -1024,6 +1024,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Angebots-Seite: ausdruckbare/teilbare Seite mit den drei Paketen +
+    // Preisen fuers Kundengespraech. Personalisiert auf den Betrieb.
+    if (req.method === 'GET' && pfad.startsWith('/angebot/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { res.writeHead(404); res.end('Kunde nicht gefunden'); return; }
+      const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(require('./lib/angebot').baueAngebotHtml(kunde, { datum }));
+      return;
+    }
+
     // API: WhatsApp-Kunden-Update - fertige Nachricht mit den Monats-Zahlen
     if (req.method === 'GET' && pfad.startsWith('/api/kunden-update/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
