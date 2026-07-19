@@ -193,6 +193,28 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Angebots-Seite: drei Pakete, Komplett-Rabatt, Ehrlichkeits-Absatz, .env-Preise', () => {
+  const { baueAngebotHtml, preise, bauePakete } = require('./lib/angebot');
+  const html = baueAngebotHtml({ name: 'Greetsieler Börse', city: 'Greetsiel' }, { datum: 'Juli 2026' });
+  assert.ok(html.includes('Greetsieler Börse') && html.includes('Greetsiel'), 'personalisiert');
+  assert.ok(html.includes('KI-Sichtbarkeit') && html.includes('Telefon-Retter') && html.includes('Bewertungs-Management'), 'alle drei Pakete');
+  assert.ok(html.includes('Komplett-Paket') && /Sie sparen/.test(html), 'Komplett-Paket mit Ersparnis');
+  assert.ok(/Platz 1.*versprechen|niemand kann seriös/i.test(html), 'Ehrlichkeits-Absatz drin');
+  assert.ok(html.includes('noindex'), 'nicht fuer Suchmaschinen');
+  assert.ok(html.includes('monatlich kündbar') || html.includes('Monatlich kündbar'), 'Konditionen genannt');
+
+  // Standard-Rabatt: Einzelsumme > Komplettpreis
+  const p = preise();
+  assert.ok(p.sicht + p.telefon + p.bewertung > p.komplett, 'Komplett ist guenstiger als Einzeln');
+  assert.strictEqual(p.ersparnis, (p.sicht + p.telefon + p.bewertung) - p.komplett);
+
+  // Preise per .env uebersteuerbar
+  process.env.PREIS_SICHTBARKEIT = '120';
+  assert.strictEqual(preise().sicht, 120, '.env-Preis greift');
+  delete process.env.PREIS_SICHTBARKEIT;
+  assert.strictEqual(bauePakete(preise()).length, 3);
+});
+
 test('Bewertungs-Journal: Erfolgs-Bilanz zaehlt Status korrekt', () => {
   const { journalBilanz, JOURNAL_STATUS } = require('./lib/bewertungs-retter');
   const b = journalBilanz([
