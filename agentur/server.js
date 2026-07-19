@@ -508,25 +508,52 @@ async function telefonStatus() {
   return status;
 }
 
-// ------------------------------------------------- Bewertungs-Protokoll ------
-// Nachweis der Arbeit: jede gepruefte Bewertung als anonyme Zeile
-// (nur Kategorie + Zeit, KEIN Bewertungstext - datensparsam).
+// ------------------------------------------------- Bewertungs-Journal --------
+// Nachweis der Arbeit: jede bearbeitete Bewertung als Journal-Eintrag mit
+// eigener ID, damit man ihren Status verfolgen kann (gemeldet -> geloescht/
+// abgelehnt). Datensparsam: nur Kategorie, kurzer Auszug (fuers Wiedererkennen),
+// Zeit, Status - kein voller Bewertungstext.
 function bewertungProtokollPfad(slug) {
   return path.join(DATEN_ORDNER, slug, 'bewertungen.jsonl');
 }
-function bewertungProtokoll(slug, verstoss) {
-  if (DEMO) return; // Demo-Laeufe nichts mitschreiben
+function bewertungProtokoll(slug, verstoss, auszug) {
+  if (DEMO) return null; // Demo-Laeufe nichts mitschreiben
   try {
     const pfad = bewertungProtokollPfad(slug);
     fs.mkdirSync(path.dirname(pfad), { recursive: true });
-    fs.appendFileSync(pfad, JSON.stringify({ zeit: new Date().toISOString(), verstoss }) + '\n');
-  } catch (_e) { /* Protokoll ist nice-to-have */ }
+    const eintrag = {
+      id: require('crypto').randomBytes(6).toString('hex'),
+      zeit: new Date().toISOString(),
+      verstoss,
+      auszug: String(auszug || '').replace(/\s+/g, ' ').trim().slice(0, 90),
+      status: verstoss === 'kein_verstoss' ? 'beantwortet' : 'offen'
+    };
+    fs.appendFileSync(pfad, JSON.stringify(eintrag) + '\n');
+    return eintrag;
+  } catch (_e) { return null; }
+}
+function bewertungJournal(slug) {
+  try {
+    return fs.readFileSync(bewertungProtokollPfad(slug), 'utf8')
+      .split('\n').filter((z) => z.trim())
+      .map((z) => { try { return JSON.parse(z); } catch (_e) { return null; } })
+      .filter(Boolean).reverse(); // neueste zuerst
+  } catch (_e) { return []; }
 }
 function bewertungAnzahl(slug) {
+  return bewertungJournal(slug).length;
+}
+// Status eines Journal-Eintrags aendern (gemeldet/geloescht/abgelehnt/...).
+// Wir schreiben die Datei neu - bei den ueblichen Mengen (Dutzende) unkritisch.
+function bewertungStatusSetzen(slug, id, status) {
+  const alle = bewertungJournal(slug).slice().reverse(); // wieder chronologisch
+  let gefunden = false;
+  for (const e of alle) { if (e.id === id) { e.status = status; gefunden = true; } }
+  if (!gefunden) return false;
   try {
-    const inhalt = fs.readFileSync(bewertungProtokollPfad(slug), 'utf8');
-    return inhalt.split('\n').filter((z) => z.trim()).length;
-  } catch (_e) { return 0; }
+    fs.writeFileSync(bewertungProtokollPfad(slug), alle.map((e) => JSON.stringify(e)).join('\n') + '\n');
+    return true;
+  } catch (_e) { return false; }
 }
 
 // ------------------------------------------------------- Anruf-Demo ----------
@@ -707,6 +734,7 @@ const server = http.createServer(async (req, res) => {
         historie,
         kiKonkurrenz,
         kiNennungen: { aktuell: zaehleKiNennungen(aktuellErg), vormonat: zaehleKiNennungen(vorherErg) },
+        bewertungsJournal: bewertungJournal(slug),
         naechsteSchritte: naechsteSchritteFuer(slug, kunde),
         portalLink: require('./lib/portal').istAktiv() ? '/portal/' + require('./lib/portal').portalToken(slug) : null,
         aufbereitung: fs.existsSync(aufOrdner) ? fs.readdirSync(aufOrdner) : []
@@ -971,14 +999,28 @@ const server = http.createServer(async (req, res) => {
         }
         // Beste Verteidigung immer mitgeben: mehr echte gute Bewertungen
         ergebnis.bewertungsAnfrage = retter.baueBewertungsAnfrage(kunde);
-        // Track-Record: anonymer Zaehler pro Kunde (Nachweis der Arbeit,
-        // KEIN Bewertungstext gespeichert - nur Kategorie + Zeit).
-        bewertungProtokoll(effektiverSlug(kunde), ergebnis.verstoss);
+        // Track-Record: Journal-Eintrag pro Kunde (Nachweis der Arbeit).
+        // Kurzer Auszug zum Wiedererkennen, KEIN voller Bewertungstext.
+        bewertungProtokoll(effektiverSlug(kunde), ergebnis.verstoss, text);
         ergebnis.bearbeitetGesamt = bewertungAnzahl(effektiverSlug(kunde));
         json(res, 200, ergebnis);
       } catch (e) {
         json(res, 502, { fehler: 'Pruefung fehlgeschlagen: ' + e.message });
       }
+      return;
+    }
+
+    // API: Status eines Bewertungs-Journal-Eintrags setzen (gemeldet ->
+    // geloescht/abgelehnt). So wird aus dem Nachweis eine echte Erfolgs-Bilanz.
+    if (req.method === 'POST' && pfad === '/api/bewertung-status') {
+      const { kennung, id, status } = await leseBody(req);
+      const erlaubt = ['offen', 'gemeldet', 'geloescht', 'abgelehnt', 'beantwortet'];
+      if (!id || !erlaubt.includes(status)) { json(res, 400, { fehler: 'id oder status fehlt/ungueltig' }); return; }
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      const ok = bewertungStatusSetzen(effektiverSlug(kunde), id, status);
+      json(res, ok ? 200 : 404, ok ? { ok: true } : { fehler: 'Eintrag nicht gefunden' });
       return;
     }
 
