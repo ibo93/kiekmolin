@@ -6,12 +6,13 @@
 //
 // Ehrlichkeits-Prinzip: Es gibt KEINE Loesch-Garantie (wer das verspricht,
 // ist unserioes). Was es gibt: die richtige Melde-Begruendung fuer echte
-// Richtlinien-Verstoesse, den Hinweis auf den Rechtsweg bei falschen
-// Tatsachenbehauptungen - und immer eine professionelle Antwort.
+// Richtlinien-Verstoesse, den Rechtsweg bei falschen Tatsachenbehauptungen,
+// immer eine professionelle Antwort - und die beste Verteidigung: mehr
+// echte gute Bewertungen, die eine schlechte "untergehen" lassen.
 
 function bauePruefPrompt(restaurant, bewertungsText) {
   return [
-    'Du bist Experte fuer Google-Bewertungs-Management in Deutschland.',
+    'Du bist Deutschlands bester Experte fuer Google-Bewertungs-Management in der Gastronomie.',
     'Pruefe die folgende Google-Bewertung fuer das Restaurant "' + (restaurant.name || 'das Restaurant') + '"' +
     (restaurant.city ? ' in ' + restaurant.city : '') + '.',
     '',
@@ -31,14 +32,19 @@ function bauePruefPrompt(restaurant, bewertungsText) {
     '',
     'WICHTIG: Sei ehrlich. Eine schlechte, aber echte Meinung ist KEIN Verstoss -',
     'dann ist die professionelle Antwort der richtige Weg. Keine falschen Hoffnungen.',
+    'Erkenne auch den KERN der Kritik (z.B. "Wartezeit", "Sauberkeit", "Preis"),',
+    'damit der Wirt das Problem im Betrieb wirklich abstellen kann.',
     '',
     'Antworte NUR mit einem JSON-Objekt, ohne Text davor oder danach:',
     '{',
     '  "verstoss": "<einer der Werte oben>",',
     '  "chance": "<hoch|mittel|gering>",',
+    '  "dringlichkeit": "<hoch|mittel|niedrig: wie sehr schadet diese Bewertung dem Ruf>",',
+    '  "kernproblem": "<1-3 Woerter: worum geht es wirklich, z.B. Wartezeit / Sauberkeit / Service / kein echter Besuch>",',
     '  "begruendung": "<1-2 Saetze: warum diese Einschaetzung>",',
     '  "meldung": "<Falls Verstoss: praezise Begruendung fuer das Google-Meldeformular, 2-4 Saetze, sachlich, auf die konkrete Richtlinie bezogen. Sonst leer.>",',
-    '  "antwort": "<Professionelle oeffentliche Antwort des Restaurants: ruhig, souveraen, ohne Schuldeingestaendnis, ohne Gutschein-Versprechen, max. 4 Saetze. Immer ausfuellen.>"',
+    '  "antwort_freundlich": "<Oeffentliche Antwort, warmherzig-entschuldigend (auch wenn kein Fehler vorliegt), ohne Schuldeingestaendnis, ohne Gutschein-Versprechen, max. 4 Saetze. Immer ausfuellen.>",',
+    '  "antwort_sachlich": "<Oeffentliche Antwort, kurz und sachlich-souveraen, max. 3 Saetze. Immer ausfuellen.>"',
     '}'
   ].join('\n');
 }
@@ -54,12 +60,64 @@ function parsePruefung(text) {
     try { daten = JSON.parse(roh.slice(start, ende + 1)); } catch (_e) { daten = {}; }
   }
   const gueltige = ['spam_fake', 'interessenkonflikt', 'beleidigung', 'themenfremd', 'persoenliche_daten', 'falsche_tatsache', 'kein_verstoss'];
+  const stufe = (w) => (['hoch', 'mittel', 'niedrig', 'gering'].includes(w) ? w : null);
   return {
     verstoss: gueltige.includes(daten.verstoss) ? daten.verstoss : 'kein_verstoss',
     chance: ['hoch', 'mittel', 'gering'].includes(daten.chance) ? daten.chance : 'gering',
+    dringlichkeit: stufe(daten.dringlichkeit) || 'mittel',
+    kernproblem: String(daten.kernproblem || '').slice(0, 60),
     begruendung: String(daten.begruendung || 'Keine klare Einschaetzung moeglich - im Zweifel professionell antworten.').slice(0, 500),
     meldung: String(daten.meldung || '').slice(0, 1000),
-    antwort: String(daten.antwort || '').slice(0, 1000)
+    antwort_freundlich: String(daten.antwort_freundlich || daten.antwort || '').slice(0, 1000),
+    antwort_sachlich: String(daten.antwort_sachlich || '').slice(0, 1000)
+  };
+}
+
+// Formelle Beschwerde an Google (Rechtsweg-Vorstufe) bei falschen
+// Tatsachenbehauptungen - fertig zum Abschicken ueber das Rechts-Formular.
+// Kein Anwalts-Ersatz, aber oft reicht die klare, formale Aufforderung.
+function baueBeschwerde(restaurant, bewertungsText, pruefung) {
+  const name = restaurant.name || 'unser Restaurant';
+  return [
+    'Betreff: Antrag auf Entfernung einer rechtswidrigen Google-Bewertung – ' + name,
+    '',
+    'Sehr geehrtes Google-Team,',
+    '',
+    'als Verantwortliche(r) des Unternehmens ' + name +
+    (restaurant.city ? ' in ' + restaurant.city : '') + ' beantrage ich die Entfernung der',
+    'nachfolgenden Bewertung wegen einer unwahren Tatsachenbehauptung:',
+    '',
+    '"' + String(bewertungsText || '').slice(0, 500).trim() + '"',
+    '',
+    'Die Bewertung enthaelt eine konkrete Tatsachenbehauptung, die nachweislich unzutreffend ist' +
+    (pruefung && pruefung.kernproblem ? ' (Kernpunkt: ' + pruefung.kernproblem + ')' : '') + '.',
+    'Anders als eine Meinungsaeusserung sind unwahre Tatsachenbehauptungen nicht von der',
+    'Meinungsfreiheit gedeckt und verletzen das Unternehmenspersoenlichkeitsrecht.',
+    'Ich fordere Sie daher auf, die Bewertung binnen einer Woche zu pruefen und zu entfernen.',
+    '',
+    'Gerne belege ich den tatsaechlichen Sachverhalt auf Nachfrage.',
+    '',
+    'Mit freundlichen Gruessen',
+    name
+  ].join('\n');
+}
+
+// Die beste Verteidigung: mehr echte gute Bewertungen. Fertiger Text, den
+// der Wirt zufriedenen Gaesten schickt/zeigt (mit direktem Bewertungs-Link,
+// falls die place_id bekannt ist - sonst allgemeine Anleitung).
+function baueBewertungsAnfrage(restaurant) {
+  const name = restaurant.name || 'uns';
+  const link = restaurant.google_place_id
+    ? 'https://search.google.com/local/writereview?placeid=' + restaurant.google_place_id
+    : null;
+  const kurz = 'Hat es Ihnen bei ' + name + ' geschmeckt? Ueber eine kurze Google-Bewertung freuen wir uns riesig – ' +
+    'das hilft uns mehr als jedes Trinkgeld. Danke! 🙏' + (link ? '\n' + link : '');
+  return {
+    text: kurz,
+    link,
+    hinweis: link
+      ? 'Diesen Text + Link an zufriedene Gaeste (WhatsApp, Kassenbon-Aufkleber, am Tisch). Jede echte 5-Sterne-Bewertung drueckt eine schlechte nach unten.'
+      : 'Diesen Text an zufriedene Gaeste geben. Fuer einen 1-Klick-Bewertungs-Link die Google-place_id des Betriebs hinterlegen (google_place_id).'
   };
 }
 
@@ -74,4 +132,4 @@ const VERSTOSS_LABELS = {
   kein_verstoss: 'Zulaessige Meinung - loeschen unrealistisch, professionell antworten'
 };
 
-module.exports = { bauePruefPrompt, parsePruefung, VERSTOSS_LABELS };
+module.exports = { bauePruefPrompt, parsePruefung, baueBeschwerde, baueBewertungsAnfrage, VERSTOSS_LABELS };

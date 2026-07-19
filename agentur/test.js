@@ -152,25 +152,45 @@ test('WhatsApp-Kunden-Update: Quote-Trend, Telefon-Zahlen, ehrlich ohne Aktivita
   assert.ok(!leer.includes('undefined') && !leer.includes('NaN'), 'keine kaputten Platzhalter');
 });
 
-test('Bewertungs-Retter: Prompt ehrlich, Parser robust gegen kaputtes JSON', () => {
+test('Bewertungs-Retter: Prompt ehrlich, Parser robust, zwei Antwort-Toene', () => {
   const { bauePruefPrompt, parsePruefung, VERSTOSS_LABELS } = require('./lib/bewertungs-retter');
   const prompt = bauePruefPrompt({ name: 'Greetsieler Börse', city: 'Greetsiel' }, 'Essen kalt, nie wieder!');
   assert.ok(prompt.includes('Greetsieler Börse') && prompt.includes('Essen kalt'), 'Restaurant und Bewertung im Prompt');
   assert.ok(prompt.includes('KEIN Verstoss') || prompt.includes('Keine falschen Hoffnungen'), 'Ehrlichkeits-Regel im Prompt');
+  assert.ok(prompt.includes('kernproblem') && prompt.includes('dringlichkeit'), 'Kern + Dringlichkeit werden abgefragt');
 
-  const ok = parsePruefung('Hier das Ergebnis: {"verstoss":"interessenkonflikt","chance":"hoch","begruendung":"Nie Gast gewesen.","meldung":"Der Verfasser...","antwort":"Vielen Dank..."}');
+  const ok = parsePruefung('Hier: {"verstoss":"interessenkonflikt","chance":"hoch","dringlichkeit":"hoch","kernproblem":"kein echter Besuch","begruendung":"Nie Gast gewesen.","meldung":"Der Verfasser...","antwort_freundlich":"Vielen Dank...","antwort_sachlich":"Danke."}');
   assert.strictEqual(ok.verstoss, 'interessenkonflikt');
-  assert.strictEqual(ok.chance, 'hoch');
+  assert.strictEqual(ok.dringlichkeit, 'hoch');
+  assert.strictEqual(ok.kernproblem, 'kein echter Besuch');
+  assert.ok(ok.antwort_freundlich && ok.antwort_sachlich, 'beide Antwort-Toene');
   assert.ok(VERSTOSS_LABELS[ok.verstoss].includes('meldenswert'));
+
+  // Alt-Feld "antwort" wird auf antwort_freundlich gemappt (Rueckwaerts-kompat.)
+  const alt = parsePruefung('{"verstoss":"kein_verstoss","antwort":"Danke fuer Ihr Feedback."}');
+  assert.strictEqual(alt.antwort_freundlich, 'Danke fuer Ihr Feedback.');
 
   const kaputt = parsePruefung('kein json hier');
   assert.strictEqual(kaputt.verstoss, 'kein_verstoss', 'kaputtes JSON faellt sicher zurueck');
   assert.strictEqual(kaputt.chance, 'gering');
-  assert.ok(kaputt.begruendung.length > 0 && kaputt.antwort === '');
+  assert.strictEqual(kaputt.dringlichkeit, 'mittel');
 
-  const erfunden = parsePruefung('{"verstoss":"alles_loeschen","chance":"mega"}');
+  const erfunden = parsePruefung('{"verstoss":"alles_loeschen","chance":"mega","dringlichkeit":"extrem"}');
   assert.strictEqual(erfunden.verstoss, 'kein_verstoss', 'erfundene Kategorien werden nicht durchgereicht');
-  assert.strictEqual(erfunden.chance, 'gering');
+  assert.strictEqual(erfunden.dringlichkeit, 'mittel', 'erfundene Dringlichkeit faellt zurueck');
+});
+
+test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
+  const { baueBeschwerde, baueBewertungsAnfrage } = require('./lib/bewertungs-retter');
+  const brief = baueBeschwerde({ name: 'Greetsieler Börse', city: 'Greetsiel' }, 'Die haben mich vergiftet!', { kernproblem: 'Lebensmittel' });
+  assert.ok(brief.includes('Greetsieler Börse') && /unwahre.*Tatsach|Tatsachenbehauptung/i.test(brief), 'formeller Beschwerde-Brief');
+  assert.ok(brief.includes('Meinungsfreiheit'), 'Rechts-Argument drin');
+
+  const mitLink = baueBewertungsAnfrage({ name: 'La Piazza', google_place_id: 'ChIJ123' });
+  assert.ok(mitLink.link.includes('ChIJ123') && mitLink.text.includes('La Piazza'), 'direkter Bewertungs-Link bei place_id');
+  const ohneLink = baueBewertungsAnfrage({ name: 'La Piazza' });
+  assert.strictEqual(ohneLink.link, null);
+  assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
 console.log('\n' + tests + ' Tests bestanden.');
