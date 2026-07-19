@@ -232,6 +232,7 @@
         <button class="aktion" id="btnBw" onclick="bewertungPruefen()">Prüfen &amp; Texte erstellen</button>
       </div>
       <div id="bwErgebnis" style="display:none;margin-top:10px"></div>
+      <div id="bwJournal" style="margin-top:12px"></div>
 
       <h2>Nächste Schritte (aus dem letzten Report)</h2>
       <ol class="fragen" id="dSchritte"></ol>
@@ -480,6 +481,7 @@ async function zeigeKunde(id) {
     ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
     : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
   zeichneKonkurrenz(aktuellerKunde.kiKonkurrenz || [], aktuellerKunde.kiNennungen || null);
+  zeichneBewertungsJournal(aktuellerKunde.bewertungsJournal || []);
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
@@ -759,6 +761,51 @@ async function bewertungPruefen() {
   }
   btn.disabled = false;
   btn.textContent = 'Prüfen & Texte erstellen';
+}
+
+// ---------------- Bewertungs-Journal (Arbeitsnachweis) ----------------
+const BW_STATUS = {
+  offen:       { label: 'offen',      farbe: 'var(--grau)' },
+  gemeldet:    { label: 'gemeldet',   farbe: '#eab308' },
+  geloescht:   { label: 'gelöscht ✓', farbe: '#16a34a' },
+  abgelehnt:   { label: 'abgelehnt',  farbe: '#dc2626' },
+  beantwortet: { label: 'beantwortet',farbe: '#7fd8c8' }
+};
+
+function zeichneBewertungsJournal(journal) {
+  const ziel = document.getElementById('bwJournal');
+  if (!journal.length) { ziel.innerHTML = ''; return; }
+  const geloescht = journal.filter(e => e.status === 'geloescht').length;
+  const gemeldet = journal.filter(e => e.status === 'gemeldet').length;
+  const kopf = '<div class="label" style="margin-bottom:8px">Bewertungs-Journal · ' + journal.length + ' bearbeitet' +
+    (geloescht ? ' · <b style="color:#16a34a">' + geloescht + ' gelöscht</b>' : '') +
+    (gemeldet ? ' · <b style="color:#eab308">' + gemeldet + ' bei Google gemeldet</b>' : '') + '</div>';
+  const zeilen = journal.map(e => {
+    const s = BW_STATUS[e.status] || BW_STATUS.offen;
+    const datum = (e.zeit || '').slice(0, 10).split('-').reverse().join('.');
+    const knoepfe = ['gemeldet', 'geloescht', 'abgelehnt'].map(st =>
+      '<button onclick="bewertungStatus(\'' + e.id + '\',\'' + st + '\')" ' +
+      'style="font-size:11px;padding:3px 9px;border-radius:8px;border:1px solid var(--linie);background:var(--karte2);color:var(--tinte);cursor:pointer;margin-left:4px">' +
+      BW_STATUS[st].label + '</button>').join('');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linie);flex-wrap:wrap">' +
+      '<span style="font-size:11px;color:var(--grau);min-width:66px">' + datum + '</span>' +
+      '<span style="flex:1;min-width:160px;font-size:13px">' + (e.auszug ? '„' + String(e.auszug).replace(/</g, '&lt;') + '…"' : '(ohne Auszug)') + '</span>' +
+      '<span class="badge" style="background:' + s.farbe + '22;color:' + s.farbe + ';border:1px solid ' + s.farbe + '55;font-size:11px">' + s.label + '</span>' +
+      knoepfe + '</div>';
+  }).join('');
+  ziel.innerHTML = '<div class="zahl">' + kopf + zeilen +
+    '<div class="sub" style="margin-top:8px">Status pflegen: Melden bei Google → „gemeldet". Kommt die Löschbestätigung → „gelöscht". So hast du für jedes Kundengespräch die Erfolgs-Bilanz griffbereit.</div></div>';
+}
+
+async function bewertungStatus(id, status) {
+  try {
+    await api('/api/bewertung-status', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kennung: aktuellerKunde.id, id, status }) });
+    // Journal frisch laden und neu zeichnen
+    const k = await api('/api/kunde/' + encodeURIComponent(aktuellerKunde.id));
+    aktuellerKunde.bewertungsJournal = k.bewertungsJournal;
+    zeichneBewertungsJournal(k.bewertungsJournal || []);
+  } catch (e) { alert('Status konnte nicht gesetzt werden: ' + e.message); }
 }
 
 // ---------------- WhatsApp-Kunden-Update ----------------

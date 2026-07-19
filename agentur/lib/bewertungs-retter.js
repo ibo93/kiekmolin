@@ -132,4 +132,17 @@ const VERSTOSS_LABELS = {
   kein_verstoss: 'Zulaessige Meinung - loeschen unrealistisch, professionell antworten'
 };
 
-module.exports = { bauePruefPrompt, parsePruefung, baueBeschwerde, baueBewertungsAnfrage, VERSTOSS_LABELS };
+// Erlaubte Journal-Status (Server prueft dagegen, UI zeigt sie an)
+const JOURNAL_STATUS = ['offen', 'gemeldet', 'geloescht', 'abgelehnt', 'beantwortet'];
+
+// Erfolgs-Bilanz aus dem Journal - der Nachweis fuers Kundengespraech.
+function journalBilanz(eintraege) {
+  const b = { gesamt: 0, gemeldet: 0, geloescht: 0, abgelehnt: 0, beantwortet: 0, offen: 0 };
+  for (const e of eintraege || []) {
+    b.gesamt++;
+    if (b[e.status] != null) b[e.status]++;
+  }
+  return b;
+}
+
+module.exports = { bauePruefPrompt, parsePruefung, baueBeschwerde, baueBewertungsAnfrage, journalBilanz, JOURNAL_STATUS, VERSTOSS_LABELS };

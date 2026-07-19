@@ -193,4 +193,17 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Bewertungs-Journal: Erfolgs-Bilanz zaehlt Status korrekt', () => {
+  const { journalBilanz, JOURNAL_STATUS } = require('./lib/bewertungs-retter');
+  const b = journalBilanz([
+    { status: 'geloescht' }, { status: 'geloescht' }, { status: 'gemeldet' },
+    { status: 'abgelehnt' }, { status: 'beantwortet' }, { status: 'offen' }
+  ]);
+  assert.strictEqual(b.gesamt, 6);
+  assert.strictEqual(b.geloescht, 2);
+  assert.strictEqual(b.gemeldet, 1);
+  assert.deepStrictEqual(journalBilanz([]), { gesamt: 0, gemeldet: 0, geloescht: 0, abgelehnt: 0, beantwortet: 0, offen: 0 });
+  assert.ok(JOURNAL_STATUS.includes('geloescht') && JOURNAL_STATUS.includes('gemeldet'));
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
