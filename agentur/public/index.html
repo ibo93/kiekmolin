@@ -724,22 +724,36 @@ async function bewertungPruefen() {
       body: JSON.stringify({ kennung: aktuellerKunde.id, text }) });
     const meldbar = d.verstoss !== 'kein_verstoss';
     const chancenFarbe = { hoch: '#16a34a', mittel: '#eab308', gering: '#dc2626' }[d.chance] || 'var(--grau)';
+    const dringFarbe = { hoch: '#dc2626', mittel: '#eab308', niedrig: '#16a34a' }[d.dringlichkeit] || 'var(--grau)';
+    const antwortKarte = (titel, txt, label) => txt ?
+      '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">' + titel + '</div>' +
+      '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(txt).replace(/</g, '&lt;') + '</div>' +
+      kopierKnopf(txt, label) + '</div>' : '';
     ziel.innerHTML =
-      '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Einschätzung</div>' +
+      '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Einschätzung' +
+      (d.bearbeitetGesamt ? ' · <span style="color:var(--akzent)">' + d.bearbeitetGesamt + '. bearbeitete Bewertung für diesen Kunden</span>' : '') + '</div>' +
       '<div style="font-weight:700;margin-bottom:4px">' + (d.label || '') + '</div>' +
-      '<div style="font-size:13px;color:var(--grau)">' + String(d.begruendung || '').replace(/</g, '&lt;') +
-      ' · Lösch-Chance: <b style="color:' + chancenFarbe + '">' + d.chance + '</b></div></div>' +
+      '<div style="font-size:13px;color:var(--grau)">' + String(d.begruendung || '').replace(/</g, '&lt;') + '</div>' +
+      '<div style="font-size:13px;margin-top:6px">Lösch-Chance: <b style="color:' + chancenFarbe + '">' + d.chance + '</b>' +
+      ' · Rufschaden: <b style="color:' + dringFarbe + '">' + d.dringlichkeit + '</b>' +
+      (d.kernproblem ? ' · Kern: <b>' + String(d.kernproblem).replace(/</g, '&lt;') + '</b>' : '') + '</div></div>' +
       (meldbar && d.meldung ?
-        '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Begründung fürs Google-Meldeformular</div>' +
+        '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">1. Begründung fürs Google-Meldeformular</div>' +
         '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.meldung).replace(/</g, '&lt;') + '</div>' +
         kopierKnopf(d.meldung, '📋 Begründung kopieren') +
         '<div style="font-size:12px;color:var(--grau);margin-top:8px">Melden: Google Maps → Bewertung → ⋮ → „Bewertung melden" (mit dem Google-Konto des Wirts). Antwort von Google dauert meist einige Tage.</div></div>' : '') +
-      (d.antwort ?
-        '<div class="zahl"><div class="label" style="margin-bottom:6px">Professionelle Antwort (immer sinnvoll – auch während der Prüfung)</div>' +
-        '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.antwort).replace(/</g, '&lt;') + '</div>' +
-        kopierKnopf(d.antwort, '📋 Antwort kopieren') + '</div>' : '') +
-      (d.verstoss === 'falsche_tatsache' ?
-        '<div class="status" style="margin-top:8px">⚖️ Bei falschen Tatsachenbehauptungen kann zusätzlich der Rechtsweg helfen (Anwalt/Abmahnung an Google) – das dem Wirt als Option nennen, nicht versprechen.</div>' : '');
+      antwortKarte((meldbar ? '2. ' : '') + 'Antwort – freundlich', d.antwort_freundlich, '📋 Freundliche Antwort') +
+      antwortKarte('Antwort – kurz &amp; sachlich', d.antwort_sachlich, '📋 Sachliche Antwort') +
+      (d.beschwerde ?
+        '<div class="zahl" style="margin-bottom:10px;border:2px solid ' + dringFarbe + '"><div class="label" style="margin-bottom:6px">⚖️ Formelle Beschwerde an Google (falsche Tatsache)</div>' +
+        '<div style="font-size:12.5px;margin-bottom:8px;white-space:pre-wrap;max-height:160px;overflow:auto">' + String(d.beschwerde).replace(/</g, '&lt;') + '</div>' +
+        kopierKnopf(d.beschwerde, '📋 Beschwerde kopieren') +
+        '<div style="font-size:12px;color:var(--grau);margin-top:8px">Über das Google-Rechtsformular einreichen. Hilft oft ohne Anwalt – bei Bedarf kann der Wirt zusätzlich anwaltlich nachlegen.</div></div>' : '') +
+      (d.bewertungsAnfrage ?
+        '<div class="zahl"><div class="label" style="margin-bottom:6px">🛡️ Beste Verteidigung: mehr gute Bewertungen</div>' +
+        '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.bewertungsAnfrage.text).replace(/</g, '&lt;') + '</div>' +
+        kopierKnopf(d.bewertungsAnfrage.text, '📋 Bewertungs-Bitte kopieren') +
+        '<div style="font-size:12px;color:var(--grau);margin-top:8px">' + String(d.bewertungsAnfrage.hinweis).replace(/</g, '&lt;') + '</div></div>' : '');
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Prüfung fehlgeschlagen: ' + e.message + '</div>';
   }

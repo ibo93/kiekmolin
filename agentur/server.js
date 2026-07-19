@@ -508,6 +508,27 @@ async function telefonStatus() {
   return status;
 }
 
+// ------------------------------------------------- Bewertungs-Protokoll ------
+// Nachweis der Arbeit: jede gepruefte Bewertung als anonyme Zeile
+// (nur Kategorie + Zeit, KEIN Bewertungstext - datensparsam).
+function bewertungProtokollPfad(slug) {
+  return path.join(DATEN_ORDNER, slug, 'bewertungen.jsonl');
+}
+function bewertungProtokoll(slug, verstoss) {
+  if (DEMO) return; // Demo-Laeufe nichts mitschreiben
+  try {
+    const pfad = bewertungProtokollPfad(slug);
+    fs.mkdirSync(path.dirname(pfad), { recursive: true });
+    fs.appendFileSync(pfad, JSON.stringify({ zeit: new Date().toISOString(), verstoss }) + '\n');
+  } catch (_e) { /* Protokoll ist nice-to-have */ }
+}
+function bewertungAnzahl(slug) {
+  try {
+    const inhalt = fs.readFileSync(bewertungProtokollPfad(slug), 'utf8');
+    return inhalt.split('\n').filter((z) => z.trim()).length;
+  } catch (_e) { return 0; }
+}
+
 // ------------------------------------------------------- Anruf-Demo ----------
 // Verkaufs-Werkzeug: der Telefon-Retter als Text-Chat im Browser - mit dem
 // ECHTEN Restaurant und der ECHTEN Speisekarte, aber ohne einen einzigen
@@ -944,6 +965,16 @@ const server = http.createServer(async (req, res) => {
         const daten = await antwort.json();
         const ergebnis = retter.parsePruefung((daten.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
         ergebnis.label = retter.VERSTOSS_LABELS[ergebnis.verstoss];
+        // Bei falschen Tatsachen: fertige formelle Beschwerde mitliefern
+        if (ergebnis.verstoss === 'falsche_tatsache') {
+          ergebnis.beschwerde = retter.baueBeschwerde(kunde, text, ergebnis);
+        }
+        // Beste Verteidigung immer mitgeben: mehr echte gute Bewertungen
+        ergebnis.bewertungsAnfrage = retter.baueBewertungsAnfrage(kunde);
+        // Track-Record: anonymer Zaehler pro Kunde (Nachweis der Arbeit,
+        // KEIN Bewertungstext gespeichert - nur Kategorie + Zeit).
+        bewertungProtokoll(effektiverSlug(kunde), ergebnis.verstoss);
+        ergebnis.bearbeitetGesamt = bewertungAnzahl(effektiverSlug(kunde));
         json(res, 200, ergebnis);
       } catch (e) {
         json(res, 502, { fehler: 'Pruefung fehlgeschlagen: ' + e.message });
