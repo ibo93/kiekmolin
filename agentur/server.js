@@ -556,6 +556,42 @@ function bewertungStatusSetzen(slug, id, status) {
   } catch (_e) { return false; }
 }
 
+// ------------------------------------------- Monats-Aufgaben ---------------
+// Pro Kunde: die konkreten Handgriffe des Monats, abgeleitet aus dem letzten
+// Report. Welche abgehakt sind, merken wir pro Monat in data/<slug>/
+// aufgaben-<JJJJ-MM>.json - so ist die Liste ein Arbeitsnachweis.
+function aufgabenErledigtPfad(slug, monat) {
+  return path.join(DATEN_ORDNER, slug, 'aufgaben-' + monat + '.json');
+}
+function ladeAufgabenErledigt(slug, monat) {
+  try { return JSON.parse(fs.readFileSync(aufgabenErledigtPfad(slug, monat), 'utf8')); }
+  catch (_e) { return {}; }
+}
+function speichereAufgabenErledigt(slug, monat, erledigt) {
+  if (DEMO) return;
+  try {
+    const pfad = aufgabenErledigtPfad(slug, monat);
+    fs.mkdirSync(path.dirname(pfad), { recursive: true });
+    fs.writeFileSync(pfad, JSON.stringify(erledigt, null, 2));
+  } catch (_e) { /* nice-to-have */ }
+}
+
+// Aufgaben eines Kunden fuer den aktuellen Monat (aus dem letzten Report-Lauf)
+function kundenAufgaben(kunde) {
+  const slug = effektiverSlug(kunde);
+  const monat = report.monatsSchluessel();
+  let ergebnis = null;
+  const historie = kundenHistorie(slug);
+  if (historie[0]) {
+    try {
+      ergebnis = JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, historie[0].monat + '.json'), 'utf8')).ergebnis || null;
+    } catch (_e) { /* alte Historie ohne ergebnis */ }
+  }
+  const aufgaben = require('./lib/aufgaben').baueAufgaben({ ergebnis });
+  const erledigt = ladeAufgabenErledigt(slug, monat);
+  return { monat, monatLabel: report.monatsLabel(monat), aufgaben: aufgaben.map((a) => Object.assign({}, a, { erledigt: !!erledigt[a.id] })) };
+}
+
 // ------------------------------------------------------- Anruf-Demo ----------
 // Verkaufs-Werkzeug: der Telefon-Retter als Text-Chat im Browser - mit dem
 // ECHTEN Restaurant und der ECHTEN Speisekarte, aber ohne einen einzigen
@@ -1007,6 +1043,30 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         json(res, 502, { fehler: 'Pruefung fehlgeschlagen: ' + e.message });
       }
+      return;
+    }
+
+    // API: Monats-Aufgaben eines Kunden (die konkreten Handgriffe)
+    if (req.method === 'GET' && pfad.startsWith('/api/aufgaben/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      json(res, 200, kundenAufgaben(kunde));
+      return;
+    }
+
+    // API: Aufgabe abhaken / Haken entfernen (pro Monat gemerkt)
+    if (req.method === 'POST' && pfad === '/api/aufgabe-erledigt') {
+      const { kennung, id, erledigt } = await leseBody(req);
+      if (!id) { json(res, 400, { fehler: 'id fehlt' }); return; }
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      const slug = effektiverSlug(kunde);
+      const monat = report.monatsSchluessel();
+      const stand = ladeAufgabenErledigt(slug, monat);
+      if (erledigt) stand[id] = new Date().toISOString(); else delete stand[id];
+      speichereAufgabenErledigt(slug, monat, stand);
+      json(res, 200, { ok: true });
       return;
     }
 

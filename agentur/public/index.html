@@ -204,6 +204,10 @@
       </div>
       <div class="status" id="dStatus"></div>
 
+      <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
+      <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
+      <div id="dAufgaben"><div class="leer">Lade Aufgaben…</div></div>
+
       <h2>Telefon-Retter · dieser Monat</h2>
       <div class="zahlen" id="dTelefonZahlen"><div class="leer">Lade Zahlen…</div></div>
 
@@ -482,6 +486,7 @@ async function zeigeKunde(id) {
     ? aktuellerKunde.naechsteSchritte.map(s => '<li>' + s + '</li>').join('')
     : '<div class="leer">Noch kein Report – die Schritte erscheinen nach dem ersten Monats-Report.</div>';
   zeichneKonkurrenz(aktuellerKunde.kiKonkurrenz || [], aktuellerKunde.kiNennungen || null);
+  ladeAufgaben(aktuellerKunde.id);
   zeichneBewertungsJournal(aktuellerKunde.bewertungsJournal || []);
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
@@ -523,6 +528,54 @@ async function ladeTelefonZahlen(id) {
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
   }
+}
+
+// ---------------- Monats-Aufgaben (was ist zu tun) ----------------
+const HEBEL_FARBE = { Google: '#4285f4', Sichtbarkeit: 'var(--akzent)', Bewertungen: '#16a34a' };
+const PRIO_LABEL = { hoch: 'wichtig', mittel: 'normal', niedrig: 'nice-to-have' };
+
+async function ladeAufgaben(id) {
+  const ziel = document.getElementById('dAufgaben');
+  try {
+    const d = await api('/api/aufgaben/' + encodeURIComponent(id));
+    zeichneAufgaben(d, id);
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Aufgaben nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+function zeichneAufgaben(d, id) {
+  const ziel = document.getElementById('dAufgaben');
+  const liste = d.aufgaben || [];
+  if (!liste.length) {
+    ziel.innerHTML = '<div class="leer">Noch kein Report – die Aufgaben erscheinen nach dem ersten Monats-Report.</div>';
+    return;
+  }
+  const erledigt = liste.filter(a => a.erledigt).length;
+  const kopf = '<div class="status" style="margin-top:0;margin-bottom:10px"><b>' + erledigt + ' / ' + liste.length + '</b> erledigt für ' +
+    (d.monatLabel || 'diesen Monat') + (erledigt === liste.length ? ' — alles abgehakt! 🎉' : '') + '</div>';
+  ziel.innerHTML = kopf + liste.map(a => {
+    const farbe = HEBEL_FARBE[a.hebel] || 'var(--grau)';
+    return '<label class="kunde" style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;' + (a.erledigt ? 'opacity:.55' : '') + '">' +
+      '<input type="checkbox"' + (a.erledigt ? ' checked' : '') + ' style="margin-top:3px;width:18px;height:18px;flex:none" ' +
+      'onchange="aufgabeHaken(\'' + id + '\',\'' + a.id + '\',this.checked)">' +
+      '<div style="flex:1">' +
+      '<div style="font-weight:700' + (a.erledigt ? ';text-decoration:line-through' : '') + '">' + a.titel.replace(/</g, '&lt;') + '</div>' +
+      '<div style="font-size:12.5px;color:var(--grau);margin-top:2px">' + a.warum.replace(/</g, '&lt;') + '</div>' +
+      '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' +
+      '<span class="badge" style="font-size:11px;background:' + farbe + ';color:#fff">' + a.hebel + '</span>' +
+      '<span class="badge" style="font-size:11px">' + (PRIO_LABEL[a.prio] || a.prio) + '</span>' +
+      (a.aufwand && a.aufwand !== '—' ? '<span class="badge" style="font-size:11px">⏱ ' + a.aufwand + '</span>' : '') +
+      '</div></div></label>';
+  }).join('');
+}
+
+async function aufgabeHaken(id, aufgabeId, erledigt) {
+  try {
+    await api('/api/aufgabe-erledigt', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kennung: id, id: aufgabeId, erledigt }) });
+    ladeAufgaben(id); // Zähler oben aktualisieren
+  } catch (e) { /* Haken bleibt optisch, beim naechsten Laden korrekt */ }
 }
 
 // ---------------- KI-Konkurrenz (Verkaufs-Argument Nr. 1) ----------------

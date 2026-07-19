@@ -193,6 +193,32 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Monats-Aufgaben: datengedeckt, priorisiert, mit Hebel + Aufwand', () => {
+  const { baueAufgaben, aufgabenBilanz } = require('./lib/aufgaben');
+  const ergebnis = {
+    basis: { kiekmolin: { status: 'gefunden', jsonLd: true }, website: { status: 'manuell' } },
+    fragen: [
+      { id: 'a', google: { status: 'nicht-gefunden' }, ki: { status: 'nicht-gefunden' } },
+      { id: 'b', google: { status: 'gefunden' }, ki: { status: 'nicht-gefunden' } }
+    ]
+  };
+  const auf = baueAufgaben({ ergebnis });
+  assert.ok(auf.length >= 4, 'mehrere Aufgaben');
+  assert.ok(auf.some((a) => a.id === 'google-posts' && a.prio === 'hoch'), 'Google-Posts immer dabei (hoch)');
+  assert.ok(auf.some((a) => a.id === 'bewertungen-sammeln'), 'Bewertungen sammeln dabei');
+  const gbp = auf.find((a) => a.id === 'gbp-optimieren');
+  assert.ok(gbp && gbp.warum.includes('1 von 2'), 'GBP-Aufgabe nennt die echte Zahl (1 von 2 nicht in Top 10)');
+  const ki = auf.find((a) => a.id === 'ki-inhalte');
+  assert.ok(ki && ki.warum.includes('2 von 2'), 'KI-Aufgabe nennt echte Zahl (2 von 2 nicht genannt)');
+  assert.ok(auf.some((a) => a.id === 'website-anlegen'), 'fehlende Website wird zur Aufgabe');
+  assert.strictEqual(auf[0].prio, 'hoch', 'hohe Prioritaet steht oben');
+  assert.ok(auf.every((a) => a.hebel && a.titel && a.warum), 'jede Aufgabe hat Hebel, Titel, Begruendung');
+
+  // Ohne Report: keine Aufgaben (statt erfundener)
+  assert.deepStrictEqual(baueAufgaben({ ergebnis: null }).filter((a) => a.id === 'gbp-optimieren'), []);
+  assert.strictEqual(aufgabenBilanz(auf).hoch >= 2, true);
+});
+
 test('Angebots-Seite: drei Pakete, Komplett-Rabatt, Ehrlichkeits-Absatz, .env-Preise', () => {
   const { baueAngebotHtml, preise, bauePakete } = require('./lib/angebot');
   const html = baueAngebotHtml({ name: 'Greetsieler Börse', city: 'Greetsiel' }, { datum: 'Juli 2026' });
