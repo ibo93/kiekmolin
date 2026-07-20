@@ -382,10 +382,26 @@ async function pruefeDigest() {
       '- Reports diesen Monat: ' + u.reportsMonat + ' von ' + u.kunden + (u.reportsMonat < u.kunden ? ' (Rest kommt per Automatik am ' + u.automatik.tag + '.)' : ' - alle erledigt'),
       '- Telefon-Umsatz diesen Monat (alle Kunden, geschaetzt): ' + u.telefonUmsatz.toFixed(2).replace('.', ',') + ' EUR',
       '- Offene Rueckrufe: ' + u.offeneRueckrufe + (u.offeneRueckrufe ? ' -> heute abarbeiten!' : ''),
-      '- Kunden in Gefahr (rote Ampel): ' + (rot.length ? rot.map((k) => k.name).join(', ') + ' -> heute anrufen!' : 'keine'),
-      '',
-      'Details wie immer in der Agentur-App (http://localhost:' + PORT + ').'
+      '- Kunden in Gefahr (rote Ampel): ' + (rot.length ? rot.map((k) => k.name).join(', ') + ' -> heute anrufen!' : 'keine')
     ];
+
+    // Offene Aufgaben pro Kunde: die konkreten Handgriffe dieser Woche.
+    const offeneJeKunde = [];
+    for (const k of kunden) {
+      const a = kundenAufgaben(k);
+      const offen = (a.aufgaben || []).filter((x) => !x.erledigt);
+      if (offen.length) offeneJeKunde.push({ name: k.name, offen });
+    }
+    if (offeneJeKunde.length) {
+      zeilen.push('', 'DIESE WOCHE ZU TUN (die App hat es aus den Reports abgeleitet):');
+      for (const e of offeneJeKunde) {
+        const hoch = e.offen.filter((x) => x.prio === 'hoch');
+        zeilen.push('', e.name + ' (' + e.offen.length + ' offen):');
+        (hoch.length ? hoch : e.offen).slice(0, 3).forEach((x) => zeilen.push('  - ' + x.titel));
+      }
+    }
+
+    zeilen.push('', 'Details + Abhaken in der Agentur-App (http://localhost:' + PORT + ').');
     const ergebnis = await versand.sendeReportMail({
       an,
       betreff: 'Wochen-Lage deiner Agentur · ' + jetzt.toLocaleDateString('de-DE'),
