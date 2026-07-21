@@ -21678,6 +21678,76 @@ function showNewOrderAlarm(order) {
     }, 6000);
 }
 
+// ==================== VOLLBILD-ALARM: NEUE RESERVIERUNG ====================
+// Gleiche Mechanik wie der Bestell-Alarm, damit auch Kellner im Service eine
+// neue (Online-)Reservierung sicher mitbekommen. Eigene Instanz, damit
+// Bestell- und Reservierungs-Alarm sich nicht gegenseitig ueberschreiben.
+var _resAlarmInterval = null;
+var _resAlarmCount = 0;
+
+function dismissNewReservationAlarm(openReservations) {
+    if (_resAlarmInterval) { clearInterval(_resAlarmInterval); _resAlarmInterval = null; }
+    _resAlarmCount = 0;
+    var ov = document.getElementById('newResAlarmOverlay');
+    if (ov) ov.remove();
+    if (openReservations && typeof showDashboardSection === 'function') showDashboardSection('reservations');
+}
+
+function showNewReservationAlarm(res) {
+    try { if (localStorage.getItem('kmi_res_alarm_off') === '1') return; } catch (e) {}
+    res = res || {};
+    _resAlarmCount++;
+
+    var existing = document.getElementById('newResAlarmOverlay');
+    if (existing) {
+        var cnt = document.getElementById('resAlarmTitle');
+        if (cnt) cnt.textContent = _resAlarmCount + ' neue Reservierungen!';
+        return;
+    }
+
+    var isWaitlist = String(res.notes || '').indexOf('[Warteliste]') >= 0;
+    var dateStr = res.reservation_date || '';
+    try {
+        if (dateStr) dateStr = new Date(dateStr + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch (e) {}
+    var timeStr = String(res.reservation_time || '').slice(0, 5);
+    var detailParts = [];
+    if (res.guest_name) detailParts.push(_alarmEsc(res.guest_name));
+    detailParts.push('<strong style="color:#FFD54F;">' + (res.party_size || 2) + ' Personen</strong>');
+    if (dateStr) detailParts.push(_alarmEsc(dateStr));
+    if (timeStr) detailParts.push(_alarmEsc(timeStr) + ' Uhr');
+
+    var ov = document.createElement('div');
+    ov.id = 'newResAlarmOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10049;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,25,20,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:fadeIn 0.25s ease;';
+    ov.innerHTML =
+        '<div style="max-width:420px;width:100%;background:linear-gradient(160deg,#003D33,#00251e);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:36px 28px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,0.5);">' +
+            '<div style="width:88px;height:88px;margin:0 auto 20px;border-radius:50%;background:rgba(255,213,79,0.12);display:flex;align-items:center;justify-content:center;animation:pulse 1.2s infinite;">' +
+                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">calendar_month</span>' +
+            '</div>' +
+            '<div id="resAlarmTitle" style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;color:#ffffff;letter-spacing:-0.01em;">' + (isWaitlist ? 'Wartelisten-Anfrage!' : 'Neue Reservierung!') + '</div>' +
+            '<div style="margin-top:10px;color:rgba(255,255,255,0.85);font-family:Inter,sans-serif;font-size:15px;line-height:1.5;">' + detailParts.join(' · ') + '</div>' +
+            '<button onclick="dismissNewReservationAlarm(true)" style="margin-top:24px;width:100%;padding:16px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:20px;">calendar_month</span>Reservierung ansehen' +
+            '</button>' +
+            '<button onclick="dismissNewReservationAlarm(false)" style="margin-top:10px;width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
+            '<label style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;">' +
+                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_res_alarm_off\',this.checked?\'1\':\'0\')}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
+            '</label>' +
+        '</div>';
+    document.body.appendChild(ov);
+
+    // Ton alle 8s wiederholen bis reagiert wird (max. 2 Minuten)
+    var _resAlarmStart = Date.now();
+    if (_resAlarmInterval) clearInterval(_resAlarmInterval);
+    _resAlarmInterval = setInterval(function () {
+        if (!document.getElementById('newResAlarmOverlay') || Date.now() - _resAlarmStart > 120000) {
+            clearInterval(_resAlarmInterval); _resAlarmInterval = null; return;
+        }
+        try { if (typeof playReservationSound === 'function') playReservationSound(); } catch (e) {}
+    }, 8000);
+}
+
 // ==================== BESTELLUNGEN ECHTZEIT ====================
 function handleRealtimeOrder(payload) {
     var type = payload.eventType;
@@ -21798,6 +21868,13 @@ function handleRealtimeReservation(payload) {
         if (document.getElementById('dashboardView') && document.getElementById('dashboardView').style.display !== 'none') {
             playReservationSound();
             showToast('Neue Reservierung von ' + (reservation.guest_name || 'Gast'), 'success');
+            // Vollbild-Alarm (wie bei Bestellungen), damit auch Kellner es sehen.
+            // Gastronom: nur fuer das eigene Restaurant alarmieren.
+            var _resGastroId = window._gastroOnlyRestaurantId;
+            var _resIsOwn = !_resGastroId || !reservation.restaurant_id || reservation.restaurant_id === _resGastroId;
+            if (_resIsOwn && typeof currentAdmin !== 'undefined' && currentAdmin) {
+                try { showNewReservationAlarm(reservation); } catch (e) {}
+            }
             if (typeof loadLiveNotifications === 'function') {
                 loadLiveNotifications();
             }
