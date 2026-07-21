@@ -1,14 +1,14 @@
 // Kiek mol in — Bewertungs-Nachfass: "Hat's geschmeckt?"-Push nach der Bestellung
 //
 // Laeuft als Netlify Scheduled Function stuendlich (siehe netlify.toml).
-// Findet Bestellungen, die vor 2-24 Stunden abgeschlossen wurden
+// Findet Bestellungen, die vor 18-48 Stunden abgeschlossen wurden
 // (delivered/picked_up, completed_at gesetzt) und schickt dem Kunden EINEN
 // Push mit Deep-Link direkt ins Bewertungs-Modal des Restaurants
-// (/?r=<restaurant>&review=1).
+// (/?r=<restaurant>&review=1). Der Push kommt also erst am NAECHSTEN Tag.
 //
 // Spam-Schutz:
 //   - pro Bestellung genau ein Push (orders.review_push_sent_at)
-//   - pro Kunde+Restaurant hoechstens alle 7 Tage
+//   - pro Kunde+Restaurant hoechstens 1x im MONAT
 //   - Ruhezeiten 22-10 Uhr wie loyalty-push
 //
 // EINMALIG in Supabase:
@@ -27,9 +27,12 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:info@kiekmolin.de';
 
-const MIN_AGE_HOURS = 2;        // fruehestens 2 Std nach Abschluss
-const MAX_AGE_HOURS = 24;       // spaetestens 24 Std danach (sonst wirkt es seltsam)
-const PER_CUSTOMER_GAP_DAYS = 7; // pro Kunde+Restaurant max. 1 Nachfass pro Woche
+// Bewusst zurueckhaltend: Der Nachfass kommt erst am NAECHSTEN Tag (nicht noch
+// waehrend/kurz nach dem Essen) und pro Kunde+Restaurant hoechstens 1x im Monat.
+// Zu fruehe/zu haeufige Bewertungs-Bitten nerven und schaden dem Restaurant.
+const MIN_AGE_HOURS = 18;        // fruehestens ~naechster Tag (mit Ruhezeiten: mittags)
+const MAX_AGE_HOURS = 48;        // spaetestens 2 Tage danach (sonst wirkt es seltsam)
+const PER_CUSTOMER_GAP_DAYS = 30; // pro Kunde+Restaurant max. 1 Nachfass pro Monat
 const QUIET_HOURS_START = 22;
 const QUIET_HOURS_END = 10;
 
@@ -151,8 +154,8 @@ exports.handler = async function () {
 
     const restName = o.restaurant_name || 'deinem Restaurant';
     const payload = {
-      title: '⭐ Hat’s geschmeckt?',
-      body: 'Deine Bestellung bei ' + restName + ' ist angekommen. Eine kurze Bewertung hilft dem Team riesig!',
+      title: '⭐ Wie war’s bei ' + restName + '?',
+      body: 'Wenn du magst: Eine kurze Bewertung hilft dem Team riesig – dauert 30 Sekunden.',
       icon: '/kiek-logo.png',
       badge: '/kiek-logo.png',
       tag: 'review-ask-' + o.id,

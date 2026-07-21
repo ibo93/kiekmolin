@@ -14650,7 +14650,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     notes: r.notes || '',
                                     status: r.status || 'confirmed',
                                     source: r.source || 'dashboard',
-                                    restaurant_id: r.restaurant_id
+                                    restaurant_id: r.restaurant_id,
+                                    created_at: r.created_at || null
                                 };
                             });
 
@@ -14903,6 +14904,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             if (statusPending) {
                                 badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(245,158,11,0.15);color:#d97706;font-weight:700;letter-spacing:0.02em;">Ausstehend</span>';
+                            }
+                            // Eingangszeit: WANN kam die Reservierung rein (wie bei Bestellungen)
+                            if (res.created_at) {
+                                try {
+                                    var _cAt = new Date(res.created_at);
+                                    var _cTime = _cAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                    var _cToday = _cAt.toDateString() === new Date().toDateString();
+                                    var _cLabel = _cToday ? ('Eingegangen ' + _cTime + ' Uhr')
+                                        : ('Eingegangen ' + _cAt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + _cTime + ' Uhr');
+                                    badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(0,61,51,0.06);color:#404946;font-weight:600;letter-spacing:0.02em;">' + _cLabel + '</span>';
+                                } catch (e) {}
                             }
 
                             html += '<div class="timeslot has-reservation" data-res-id="' + res.id + '" style="cursor:pointer;background:rgba(255,255,255,0.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-left:3px solid ' + borderColor + ';border-radius:32px;padding:16px 20px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.3);">';
