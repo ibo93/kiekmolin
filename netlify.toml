@@ -112,7 +112,18 @@
 [functions."loyalty-push"]
   schedule = "0 */4 * * *"
 
-# Bewertungs-Nachfass: stuendlich pruefen, welche Bestellungen vor 2-24h
-# abgeschlossen wurden -> "Hat's geschmeckt?"-Push mit Bewertungs-Deep-Link
+# Bewertungs-Nachfass: stuendlich pruefen, welche Bestellungen vor 18-48h
+# abgeschlossen wurden -> "Wie war's?"-Push mit Bewertungs-Deep-Link
 [functions."review-push"]
   schedule = "14 * * * *"
+
+# Feierabend-Report: taeglich 21:30 UTC (= 23:30 Sommer / 22:30 Winter dt. Zeit)
+# Tageszusammenfassung per E-Mail an jeden Gastronomen (Umsatz, Top-Gerichte,
+# Reservierungen morgen). Ohne RESEND_API_KEY still inaktiv.
+[functions."daily-report"]
+  schedule = "30 21 * * *"
+
+# Reservierungs-Erinnerung gegen No-Shows: stuendlich, sendet aber nur im
+# Fenster 9-11 Uhr deutscher Zeit an Gaeste mit bestaetigter Reservierung heute.
+[functions."reservation-reminder"]
+  schedule = "25 * * * *"
