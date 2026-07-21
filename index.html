@@ -13567,7 +13567,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="padding:0 20px;margin-top:20px;margin-bottom:8px;">
             <div style="background:rgba(255,255,255,0.6);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.3);border-radius:9999px;padding:12px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.04);">
                 <span class="material-symbols-outlined" style="font-size:20px;color:#404946;">search</span>
-                <input type="text" placeholder="Restaurant suchen..." id="searchInput" oninput="searchRestaurants()" style="border:none;background:transparent;outline:none;flex:1;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:#191c1d;">
+                <input type="text" placeholder="Restaurant oder Gericht suchen..." id="searchInput" oninput="searchRestaurants()" style="border:none;background:transparent;outline:none;flex:1;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;color:#191c1d;">
                 <div style="width:36px;height:36px;border-radius:50%;background:#003d33;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="searchRestaurants()">
                     <span class="material-symbols-outlined" style="font-size:16px;color:white;">tune</span>
                 </div>
@@ -23702,7 +23702,15 @@ function renderRestaurants(filter = 'all') {
         if (r.is_active === false) return;
 
         const matchesFilter = APP_DATA.currentFilter === 'all' || r.cuisine === APP_DATA.currentFilter || (r.cuisine_type && r.cuisine_type.includes(APP_DATA.currentFilter));
-        const matchesSearch = r.name.toLowerCase().includes(searchTerm);
+        // Suche: Restaurantname, Kueche, Ort — und ab 3 Zeichen auch GERICHTE
+        // aus dem lazy geladenen Gerichte-Index ("Pizza" findet Pizzerien).
+        let matchesSearch = r.name.toLowerCase().includes(searchTerm)
+            || (r.cuisine || '').toLowerCase().includes(searchTerm)
+            || (r.city || '').toLowerCase().includes(searchTerm)
+            || ((r.cuisine_type || []).join(' ').toLowerCase().includes(searchTerm));
+        if (!matchesSearch && searchTerm.length >= 3 && window._dishIndex && window._dishIndex[r.id]) {
+            matchesSearch = window._dishIndex[r.id].some(function (n) { return n.indexOf(searchTerm) >= 0; });
+        }
 
         // Öffnungszeiten prüfen
         const isOpen = checkIfOpen(r);
@@ -24055,8 +24063,39 @@ var _searchDebounce = null;
 function searchRestaurants() {
     clearTimeout(_searchDebounce);
     _searchDebounce = setTimeout(function() {
+        // Ab 3 Zeichen auch in GERICHTEN suchen ("Pizza" findet Pizzerien).
+        // Der Index (nur restaurant_id+name) wird einmalig lazy geladen.
+        var _si = document.getElementById('searchInput');
+        if (_si && _si.value.trim().length >= 3) _loadDishIndex();
         renderRestaurants(currentRestaurantFilter);
     }, 150);
+}
+
+// Leichter Gerichte-Index fuer die Startseiten-Suche: einmalig alle
+// Gericht-Namen je Restaurant laden (nur 2 Spalten, sehr klein). Danach
+// findet die Suche auch Gerichte, nicht nur Restaurantnamen.
+function _loadDishIndex() {
+    if (window._dishIndex || window._dishIndexLoading) return;
+    window._dishIndexLoading = true;
+    fetch(SUPABASE_URL + '/rest/v1/menu_items?select=restaurant_id,name&limit=6000', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    }).then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    }).then(function (rows) {
+        var idx = {};
+        (rows || []).forEach(function (m) {
+            if (!m || !m.restaurant_id || !m.name) return;
+            (idx[m.restaurant_id] = idx[m.restaurant_id] || []).push(String(m.name).toLowerCase());
+        });
+        window._dishIndex = idx;
+        window._dishIndexLoading = false;
+        // Mit Gerichte-Treffern neu rendern (falls der Nutzer noch sucht)
+        renderRestaurants(currentRestaurantFilter);
+    }).catch(function (e) {
+        window._dishIndexLoading = false;
+        console.warn('Gerichte-Index nicht ladbar:', e.message);
+    });
 }
 
 function setFilter(filter) {
@@ -25486,7 +25525,15 @@ function renderSlotsWithSuggestions(slotData, date) {
 
     if (!slotData || slotData.length === 0) {
         container.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Keine verfügbaren Zeiten</div>';
-        document.getElementById('waitlistOption').style.display = 'block';
+        var _wlBox = document.getElementById('waitlistOption');
+        if (_wlBox) {
+            // Immer mit dem Ausgangs-Knopf starten (nicht mit altem Formular/Erfolg
+            // von einem vorher gewaehlten Datum)
+            _wlBox.innerHTML =
+                '<p style="color: #003d33; margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Keine Tische verfügbar zu dieser Zeit</p>' +
+                '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+            _wlBox.style.display = 'block';
+        }
         return;
     }
 
@@ -25718,8 +25765,117 @@ function updateResSummary() {
     if (summaryArea) summaryArea.textContent = areaText;
 }
 
+// ==================== WARTELISTE (ECHT) ====================
+// Ausgebuchter Tag: Gast traegt sich in die Warteliste ein. Technisch wird eine
+// normale Reservierungsanfrage (status 'pending') mit [Warteliste]-Hinweis
+// gespeichert -- so sieht der Gastronom sie sofort in seinen Reservierungen,
+// kann bei frei werdendem Tisch einfach BESTAETIGEN und der Gast bekommt die
+// vorhandene Bestaetigungs-E-Mail. Kein neues Backend noetig.
 function showWaitlistForm() {
-    showToast('Wartelisten-Funktion kommt bald!', 'info');
+    var box = document.getElementById('waitlistOption');
+    if (!box) return;
+    var savedName = '', savedPhone = '', savedEmail = '';
+    try {
+        savedName = localStorage.getItem('kmi_customer_name') || '';
+        savedPhone = localStorage.getItem('kmi_customer_phone') || '';
+        savedEmail = localStorage.getItem('kmi_customer_email') || '';
+    } catch (e) {}
+
+    var timeOpts = '<option value="">Uhrzeit egal</option>';
+    ['12:00','12:30','13:00','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00'].forEach(function (t) {
+        timeOpts += '<option value="' + t + '">' + t + ' Uhr</option>';
+    });
+
+    box.innerHTML =
+        '<div style="text-align:left;">' +
+            '<div style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003d33;margin-bottom:4px;">Auf die Warteliste setzen</div>' +
+            '<p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">Wird ein Tisch frei, meldet sich das Restaurant bei dir.</p>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                '<select id="wlTime" class="form-select" style="border-radius:9999px;">' + timeOpts + '</select>' +
+                '<input type="text" id="wlName" class="form-input" placeholder="Name" value="' + savedName.replace(/"/g, '&quot;') + '" style="border-radius:9999px;">' +
+                '<input type="tel" id="wlPhone" class="form-input" placeholder="Telefon" value="' + savedPhone.replace(/"/g, '&quot;') + '" style="border-radius:9999px;">' +
+                '<input type="email" id="wlEmail" class="form-input" placeholder="E-Mail (für die Rückmeldung)" value="' + savedEmail.replace(/"/g, '&quot;') + '" style="border-radius:9999px;">' +
+                '<button type="button" id="wlSubmitBtn" onclick="submitWaitlistEntry()" class="btn" style="background:#003d33;color:white;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;padding:13px;">Eintragen</button>' +
+            '</div>' +
+        '</div>';
+}
+
+async function submitWaitlistEntry() {
+    var name = (document.getElementById('wlName') || {}).value || '';
+    var phone = (document.getElementById('wlPhone') || {}).value || '';
+    var email = (document.getElementById('wlEmail') || {}).value || '';
+    var wishTime = (document.getElementById('wlTime') || {}).value || '';
+    name = name.trim(); phone = phone.trim(); email = email.trim();
+    if (!name || phone.length < 5) {
+        showToast('Bitte Name und Telefonnummer angeben', 'error');
+        return;
+    }
+    var restaurantId = (document.getElementById('reservationRestaurantId') || {}).value || '';
+    var date = (document.getElementById('reservationDate') || {}).value || '';
+    var partySize = parseInt((document.getElementById('partySize') || {}).value) || 2;
+    if (!restaurantId || !date) {
+        showToast('Bitte zuerst Restaurant und Datum wählen', 'error');
+        return;
+    }
+
+    var btn = document.getElementById('wlSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Wird eingetragen...'; }
+
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                restaurant_id: restaurantId,
+                guest_name: name,
+                guest_phone: phone,
+                guest_email: email || null,
+                party_size: partySize,
+                reservation_date: date,
+                reservation_time: wishTime || '19:00',
+                status: 'pending',
+                source: 'app',
+                notes: '[Warteliste] Tag war ausgebucht' + (wishTime ? ' · Wunschzeit ' + wishTime : ' · Uhrzeit egal')
+            })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var saved = await res.json();
+
+        // Kontaktdaten fuer naechstes Mal merken
+        try {
+            localStorage.setItem('kmi_customer_name', name);
+            localStorage.setItem('kmi_customer_phone', phone);
+            if (email) localStorage.setItem('kmi_customer_email', email);
+        } catch (e) {}
+
+        // Eingangs-E-Mail an den Gast (macht ohne guest_email/Key nichts)
+        try {
+            if (saved && saved[0] && typeof sendReservationEmail === 'function') {
+                sendReservationEmail(saved[0].id, 'received');
+            }
+        } catch (e) {}
+
+        var box = document.getElementById('waitlistOption');
+        if (box) {
+            box.innerHTML =
+                '<div style="text-align:center;padding:6px 0;">' +
+                    '<span class="material-symbols-outlined" style="font-size:34px;color:#16a34a;">check_circle</span>' +
+                    '<div style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003d33;margin-top:6px;">Du stehst auf der Warteliste!</div>' +
+                    '<p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0;">Wird ein Tisch frei, meldet sich ' + 'das Restaurant unter deiner Nummer' + (email ? ' oder per E-Mail' : '') + '.</p>' +
+                '</div>';
+        }
+        showToast('Auf die Warteliste eingetragen', 'success');
+    } catch (err) {
+        console.error('Warteliste speichern fehlgeschlagen:', err);
+        showToast('Eintragen fehlgeschlagen – bitte später erneut versuchen', 'error');
+        var btn2 = document.getElementById('wlSubmitBtn');
+        if (btn2) { btn2.disabled = false; btn2.textContent = 'Eintragen'; }
+    }
 }
 
 async function loadCustomerTablePlan() {
