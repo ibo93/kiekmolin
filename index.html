@@ -21603,6 +21603,81 @@ function handleRealtimeCustomer(payload) {
     }
 }
 
+// ==================== VOLLBILD-ALARM: NEUE BESTELLUNG ====================
+// Unuebersehbarer Alarm fuers Personal: Vollbild-Overlay + wiederholter Ton,
+// bis jemand reagiert. In lauten Kuechen gehen Sound+Toast sonst unter.
+// Abschaltbar per Haken (localStorage kmi_order_alarm_off).
+var _orderAlarmInterval = null;
+var _orderAlarmCount = 0;
+
+function _alarmEsc(s) {
+    return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c];
+    });
+}
+
+function dismissNewOrderAlarm(openOrders) {
+    if (_orderAlarmInterval) { clearInterval(_orderAlarmInterval); _orderAlarmInterval = null; }
+    _orderAlarmCount = 0;
+    var ov = document.getElementById('newOrderAlarmOverlay');
+    if (ov) ov.remove();
+    if (openOrders && typeof showDashboardSection === 'function') showDashboardSection('orders');
+}
+
+function showNewOrderAlarm(order) {
+    try { if (localStorage.getItem('kmi_order_alarm_off') === '1') return; } catch (e) {}
+    order = order || {};
+    _orderAlarmCount++;
+
+    // Alarm laeuft schon: nur Zaehler hochsetzen, kein zweites Overlay
+    var existing = document.getElementById('newOrderAlarmOverlay');
+    if (existing) {
+        var cnt = document.getElementById('orderAlarmTitle');
+        if (cnt) cnt.textContent = _orderAlarmCount + ' neue Bestellungen!';
+        return;
+    }
+
+    var typeLabel = order.order_type === 'dine_in'
+        ? ('Vor Ort' + (order.table_number ? ' · Tisch ' + _alarmEsc(order.table_number) : ''))
+        : (order.order_type === 'delivery' ? 'Lieferung' : 'Abholung');
+    var totalLabel = order.total ? (parseFloat(order.total).toFixed(2).replace('.', ',') + ' €') : '';
+    var detailParts = [];
+    if (order.order_number) detailParts.push('#' + _alarmEsc(order.order_number));
+    detailParts.push(typeLabel);
+    if (order.customer_name) detailParts.push(_alarmEsc(order.customer_name));
+    if (totalLabel) detailParts.push('<strong style="color:#FFD54F;">' + totalLabel + '</strong>');
+
+    var ov = document.createElement('div');
+    ov.id = 'newOrderAlarmOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,25,20,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:fadeIn 0.25s ease;';
+    ov.innerHTML =
+        '<div style="max-width:420px;width:100%;background:linear-gradient(160deg,#003D33,#00251e);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:36px 28px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,0.5);">' +
+            '<div style="width:88px;height:88px;margin:0 auto 20px;border-radius:50%;background:rgba(255,213,79,0.12);display:flex;align-items:center;justify-content:center;animation:pulse 1.2s infinite;">' +
+                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">notifications_active</span>' +
+            '</div>' +
+            '<div id="orderAlarmTitle" style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;color:#ffffff;letter-spacing:-0.01em;">Neue Bestellung!</div>' +
+            '<div style="margin-top:10px;color:rgba(255,255,255,0.85);font-family:Inter,sans-serif;font-size:15px;line-height:1.5;">' + detailParts.join(' · ') + '</div>' +
+            '<button onclick="dismissNewOrderAlarm(true)" style="margin-top:24px;width:100%;padding:16px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:20px;">receipt_long</span>Bestellung ansehen' +
+            '</button>' +
+            '<button onclick="dismissNewOrderAlarm(false)" style="margin-top:10px;width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
+            '<label style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;">' +
+                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_order_alarm_off\',this.checked?\'1\':\'0\')}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
+            '</label>' +
+        '</div>';
+    document.body.appendChild(ov);
+
+    // Ton alle 6s wiederholen bis reagiert wird (max. 2 Minuten als Sicherung)
+    var _alarmStart = Date.now();
+    if (_orderAlarmInterval) clearInterval(_orderAlarmInterval);
+    _orderAlarmInterval = setInterval(function () {
+        if (!document.getElementById('newOrderAlarmOverlay') || Date.now() - _alarmStart > 120000) {
+            clearInterval(_orderAlarmInterval); _orderAlarmInterval = null; return;
+        }
+        try { if (typeof playOrderSound === 'function') playOrderSound(); } catch (e) {}
+    }, 6000);
+}
+
 // ==================== BESTELLUNGEN ECHTZEIT ====================
 function handleRealtimeOrder(payload) {
     var type = payload.eventType;
@@ -21619,10 +21694,14 @@ function handleRealtimeOrder(payload) {
         if (isDashboardVisible && typeof loadDashboardOrders === 'function') {
             loadDashboardOrders();
         }
-        // Sound + Toast fuer Admin im Dashboard
+        // Sound + Toast + Vollbild-Alarm fuer Admin/Gastronom im Dashboard
         if (isDashboardVisible) {
             playOrderSound();
             showToast('Neue Bestellung eingegangen!', 'success');
+            // Unuebersehbarer Vollbild-Alarm (nur fuer eingeloggte Gastronomen/Admins)
+            if (typeof currentAdmin !== 'undefined' && currentAdmin) {
+                try { showNewOrderAlarm(order); } catch (e) {}
+            }
             if (typeof loadLiveNotifications === 'function') {
                 loadLiveNotifications();
             }
@@ -42467,35 +42546,40 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             <!-- Push Opt-in Banner (dynamisch, zeigt CTA / iOS-Hinweis / Status) -->
             <div id="ocPushOptInBanner"></div>
 
-            <!-- Status Tracker (hidden, kept for JS) -->
-            <div style="display:none;">
+            <!-- Status Tracker — Live-Fortschritt (sichtbar; wird von updateOrderTrackerUI gesteuert) -->
+            <div class="oc-fade-up oc-glass-card" id="orderTrackerCard" style="padding: 20px 12px 16px;">
+                <div style="font-family: 'Epilogue', sans-serif; font-size: 12px; font-weight: 800; color: #003D33; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px; text-align: center; opacity: 0.75;">Live-Status deiner Bestellung</div>
                 <div class="order-status-tracker" id="orderStatusTracker" style="display: flex; justify-content: space-between; padding: 0;">
-                    <div class="status-step active" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: #003D33; display: flex; align-items: center; justify-content: center; color: white;">
+                    <div class="status-step active" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
+                        <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
+                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: #003D33; display: flex; align-items: center; justify-content: center; color: white; position: relative; z-index: 1;">
                             <span class="material-symbols-outlined" style="font-size: 16px; font-variation-settings: 'FILL' 1;">description</span>
                         </div>
                         <div class="status-label" style="font-size: 10px; color: #003D33; margin-top: 6px; text-align: center; font-weight: 600;">Eingegangen</div>
                     </div>
-                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35);">
+                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
+                        <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
+                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35); position: relative; z-index: 1;">
                             <span class="material-symbols-outlined" style="font-size: 16px;">check</span>
                         </div>
                         <div class="status-label" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Bestätigt</div>
                     </div>
-                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35);">
+                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
+                        <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
+                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35); position: relative; z-index: 1;">
                             <span class="material-symbols-outlined" style="font-size: 16px;">schedule</span>
                         </div>
                         <div class="status-label" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Zubereitung</div>
                     </div>
-                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35);">
+                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
+                        <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
+                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35); position: relative; z-index: 1;">
                             <span class="material-symbols-outlined" style="font-size: 16px;">notifications_active</span>
                         </div>
                         <div class="status-label" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Fertig</div>
                     </div>
-                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35);">
+                    <div class="status-step" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
+                        <div class="status-icon" style="width: 34px; height: 34px; border-radius: 50%; background: rgba(0,61,51,0.06); border: 2px solid rgba(0,61,51,0.12); display: flex; align-items: center; justify-content: center; color: rgba(0,61,51,0.35); position: relative; z-index: 1;">
                             <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span>
                         </div>
                         <div class="status-label" id="profileFinalStep" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Erledigt</div>
@@ -46130,6 +46214,14 @@ function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
             if (connector) { connector.style.background = 'var(--border-color)'; }
         }
     });
+
+    // Beschriftungen an den Bestelltyp anpassen (Lieferung/Abholung/Vor Ort)
+    try {
+        var _lblStep4 = steps[3] && steps[3].querySelector('.status-label');
+        var _lblFinal = document.getElementById('profileFinalStep');
+        if (_lblStep4) _lblStep4.textContent = isDelivery ? 'Unterwegs' : 'Fertig';
+        if (_lblFinal) _lblFinal.textContent = isDelivery ? 'Geliefert' : (window._trackingOrderType === 'dine_in' ? 'Serviert' : 'Abgeholt');
+    } catch (e) {}
 
     var timeEl = document.getElementById('confirmEstimatedTime');
     if (timeEl) {
