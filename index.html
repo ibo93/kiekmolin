@@ -59363,6 +59363,46 @@ function selectKinSound(key) {
 }
 
 // ==================== BESTELLBON ANZEIGEN (/order/NUMMER) ====================
+// 5-Stufen-Ablauf fuer den Bestellbon (gleiche Logik wie der Tracker im
+// Bestaetigungs-Modal): Eingegangen -> Bestaetigt -> Zubereitung -> Fertig/
+// Unterwegs -> Abgeholt/Geliefert/Serviert. Wird per Polling live aktualisiert.
+function _bonTrackerHtml(status, orderType) {
+    var isDelivery = orderType === 'delivery';
+    var isDineIn = orderType === 'dine_in';
+    var stepMap = { received: 0, accepted: 1, confirmed: 1, preparing: 2, ready: 3, out_for_delivery: 3, picked_up: 4, delivered: 4, completed: 4 };
+    var active = stepMap[status] !== undefined ? stepMap[status] : 0;
+    var cancelled = status === 'cancelled';
+    var steps = [
+        { icon: 'description', label: 'Eingegangen' },
+        { icon: 'check', label: 'Bestätigt' },
+        { icon: 'skillet', label: 'Zubereitung' },
+        { icon: isDelivery ? 'delivery_dining' : 'notifications_active', label: isDelivery ? 'Unterwegs' : 'Fertig' },
+        { icon: 'check_circle', label: isDelivery ? 'Geliefert' : (isDineIn ? 'Serviert' : 'Abgeholt') }
+    ];
+    var html = '<div style="background:rgba(255,255,255,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:32px;padding:20px 10px 16px;box-shadow:0 10px 30px -5px rgba(0,61,51,0.06);">' +
+        '<div style="display:flex;justify-content:space-between;">';
+    steps.forEach(function (s, idx) {
+        var done = !cancelled && idx < active;
+        var isActive = !cancelled && idx === active;
+        var iconBg = cancelled ? '#fecaca' : (done || isActive ? 'var(--primary)' : 'rgba(0,61,51,0.06)');
+        var iconColor = cancelled ? '#ef4444' : (done || isActive ? '#ffffff' : 'rgba(0,61,51,0.35)');
+        var iconBorder = (done || isActive || cancelled) ? 'none' : '2px solid rgba(0,61,51,0.12)';
+        var lblColor = cancelled ? '#ef4444' : (isActive ? 'var(--primary)' : (done ? 'var(--text-primary)' : 'var(--slate)'));
+        var connBg = (!cancelled && idx < active) ? 'var(--primary)' : 'rgba(0,61,51,0.1)';
+        html += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;position:relative;">' +
+            (idx < steps.length - 1 ? '<div style="position:absolute;top:15px;left:calc(50% + 20px);width:calc(100% - 40px);height:3px;border-radius:2px;background:' + connBg + ';z-index:0;"></div>' : '') +
+            '<div style="width:32px;height:32px;border-radius:50%;background:' + iconBg + ';border:' + iconBorder + ';display:flex;align-items:center;justify-content:center;color:' + iconColor + ';position:relative;z-index:1;' + (isActive ? 'animation:pulse 2s infinite;box-shadow:0 0 0 4px rgba(26,95,74,0.15);' : '') + '">' +
+                '<span class="material-symbols-outlined" style="font-size:15px;' + (done || isActive ? "font-variation-settings:'FILL' 1;" : '') + '">' + s.icon + '</span>' +
+            '</div>' +
+            '<div style="font-size:10px;margin-top:6px;text-align:center;font-weight:' + (isActive ? '700' : (done ? '600' : '500')) + ';color:' + lblColor + ';">' + s.label + '</div>' +
+        '</div>';
+    });
+    html += '</div>' +
+        (cancelled ? '<div style="text-align:center;margin-top:12px;font-size:13px;font-weight:600;color:#ef4444;">Diese Bestellung wurde storniert</div>' : '') +
+    '</div>';
+    return html;
+}
+
 async function showOrderBon(orderNumber) {
     // Fullscreen Bon anzeigen
     var bon = document.createElement('div');
@@ -59460,13 +59500,16 @@ async function showOrderBon(orderNumber) {
                 '<p style="font-size:13px;color:var(--slate);margin:0;">' + dateStr + ' um ' + timeStr + '</p>' +
             '</div>' +
 
-            // Status Badge
-            '<div style="display:flex;justify-content:center;margin-bottom:24px;">' +
-                '<div style="padding:10px 20px;border-radius:9999px;background:' + sc.bg + ';display:flex;align-items:center;gap:8px;">' +
-                    '<div style="width:8px;height:8px;border-radius:50%;background:' + sc.color + ';"></div>' +
-                    '<span style="font-size:14px;font-weight:700;color:' + sc.color + ';">' + sc.label + '</span>' +
+            // Status Badge (mit IDs fuer Live-Updates)
+            '<div style="display:flex;justify-content:center;margin-bottom:16px;">' +
+                '<div id="bonStatusBadge" style="padding:10px 20px;border-radius:9999px;background:' + sc.bg + ';display:flex;align-items:center;gap:8px;">' +
+                    '<div id="bonStatusDot" style="width:8px;height:8px;border-radius:50%;background:' + sc.color + ';"></div>' +
+                    '<span id="bonStatusText" style="font-size:14px;font-weight:700;color:' + sc.color + ';">' + sc.label + '</span>' +
                 '</div>' +
             '</div>' +
+
+            // Ablauf: 5-Stufen-Fortschritt (live aktualisiert)
+            '<div id="bonTracker" style="margin-bottom:24px;">' + _bonTrackerHtml(order.status, order.order_type) + '</div>' +
 
             // Restaurant + Bestellnummer
             '<div style="background:rgba(255,255,255,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:32px;padding:20px;margin-bottom:16px;box-shadow:0 10px 30px -5px rgba(0,61,51,0.06);">' +
@@ -59513,6 +59556,31 @@ async function showOrderBon(orderNumber) {
                     'Zur Startseite</a>' +
                 '<p style="font-size:11px;color:var(--slate);margin:16px 0 0;">Powered by <strong>Kiek mol in</strong></p>' +
             '</div>';
+
+        // ===== LIVE-UPDATE: Status + Ablauf alle 15s aktualisieren =====
+        // Stoppt automatisch, wenn die Seite verlassen wird oder die Bestellung
+        // einen Endstatus erreicht (geliefert/abgeholt/storniert).
+        var _bonFinal = ['delivered', 'picked_up', 'completed', 'cancelled'];
+        if (_bonFinal.indexOf(order.status) < 0) {
+            var _bonPoll = setInterval(async function () {
+                if (!document.getElementById('orderBonView')) { clearInterval(_bonPoll); return; }
+                try {
+                    var upd = await client.from('orders').select('status,order_type').eq('id', order.id).limit(1);
+                    var row = upd && upd.data && upd.data[0];
+                    if (!row) return;
+                    var nsc = statusConfig[row.status] || statusConfig.received;
+                    var badge = document.getElementById('bonStatusBadge');
+                    var dot = document.getElementById('bonStatusDot');
+                    var txt = document.getElementById('bonStatusText');
+                    if (badge) badge.style.background = nsc.bg;
+                    if (dot) dot.style.background = nsc.color;
+                    if (txt) { txt.style.color = nsc.color; txt.textContent = nsc.label; }
+                    var tr = document.getElementById('bonTracker');
+                    if (tr) tr.innerHTML = _bonTrackerHtml(row.status, row.order_type);
+                    if (_bonFinal.indexOf(row.status) >= 0) clearInterval(_bonPoll);
+                } catch (e) {}
+            }, 15000);
+        }
 
     } catch(e) {
         bon.querySelector('div').innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
