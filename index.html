@@ -15479,6 +15479,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     var dashView = document.getElementById('dashboardView');
                     if (!dashView || window.getComputedStyle(dashView).display === 'none') return;
 
+                    // Vollbild-Alarm aktiv/eingeschaltet? Dann ist diese kleine Karte
+                    // doppelt -- weglassen (Badge trotzdem hochzaehlen). Sie erscheint
+                    // nur noch als Ersatz, wenn der Gastronom den Vollbild-Alarm per
+                    // Haken deaktiviert hat.
+                    try {
+                        var _fsOff = localStorage.getItem('kmi_res_alarm_off') === '1';
+                        if ((!_fsOff && typeof showNewReservationAlarm === 'function') || document.getElementById('newResAlarmOverlay')) {
+                            if (typeof window.resUpdateDashboardBadge === 'function') window.resUpdateDashboardBadge();
+                            return;
+                        }
+                    } catch (e) {}
+
                     // Lauter Klang (wie bei Bestellungen)
                     window.resPlayNotificationSound();
 
