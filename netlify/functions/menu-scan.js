@@ -240,7 +240,20 @@ exports.handler = async function (event) {
     async function runModel(imgs, txt) {
         for (var attempt = 0; attempt < 2; attempt++) {
             try {
-                var raw = anthropicKey ? await callAnthropic(anthropicKey, imgs, txt) : await callGemini(geminiKey, imgs, txt);
+                var raw;
+                if (anthropicKey) {
+                    // Claude bevorzugt; schlaegt er fehl (Quota/Netz/Modell),
+                    // sofort auf Gemini ausweichen statt den Scan zu verlieren.
+                    try {
+                        raw = await callAnthropic(anthropicKey, imgs, txt);
+                    } catch (ae) {
+                        if (!geminiKey) throw ae;
+                        console.warn('[menu-scan] Anthropic fehlgeschlagen, weiche auf Gemini aus:', ae.message);
+                        raw = await callGemini(geminiKey, imgs, txt);
+                    }
+                } else {
+                    raw = await callGemini(geminiKey, imgs, txt);
+                }
                 var items = normalizeItems(parseItemsLoose(raw));
                 if (items.length) return items;
             } catch (e) {
