@@ -17792,6 +17792,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="material-symbols-outlined" style="font-size:16px;">tune</span>
                             Klang
                         </button>
+                        <button onclick="toggleFullscreenAlarm()" id="fsAlarmBtn" class="order-action-btn" title="Vollbild-Alarm bei neuer Bestellung/Reservierung an- oder ausschalten" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;">
+                            <span class="material-symbols-outlined" style="font-size:16px;" id="fsAlarmIcon">fullscreen</span>
+                            <span id="fsAlarmText">Alarm</span>
+                        </button>
                         <button onclick="toggleAutoPrint()" id="autoPrintBtn" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#00251e;cursor:pointer;">
                             <span class="material-symbols-outlined" style="font-size:16px;" id="autoPrintIcon">print</span>
                             <span id="autoPrintText">Auto-Druck</span>
@@ -21731,7 +21735,7 @@ function showNewOrderAlarm(order) {
             '</button>' +
             '<button onclick="dismissNewOrderAlarm(false)" style="margin-top:10px;width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
             '<label style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;">' +
-                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_order_alarm_off\',this.checked?\'1\':\'0\')}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
+                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_order_alarm_off\',this.checked?\'1\':\'0\');updateFsAlarmBtn()}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
             '</label>' +
         '</div>';
     document.body.appendChild(ov);
@@ -21746,6 +21750,38 @@ function showNewOrderAlarm(order) {
         try { if (typeof playOrderSound === 'function') playOrderSound(); } catch (e) {}
     }, 6000);
 }
+
+// ==================== VOLLBILD-ALARM AN/AUS (Dashboard-Knopf) ====================
+// Schaltet den Vollbild-Alarm fuer Bestellungen UND Reservierungen gemeinsam.
+// Wichtig: Ueber die Haken im Alarm selbst konnte man ihn nur AUSschalten --
+// dieser Knopf macht den Zustand sichtbar und schaltet ihn auch wieder EIN.
+function _fsAlarmOff() {
+    try { return localStorage.getItem('kmi_order_alarm_off') === '1' || localStorage.getItem('kmi_res_alarm_off') === '1'; } catch (e) { return false; }
+}
+
+function updateFsAlarmBtn() {
+    var btn = document.getElementById('fsAlarmBtn');
+    var icon = document.getElementById('fsAlarmIcon');
+    var txt = document.getElementById('fsAlarmText');
+    if (!btn) return;
+    var off = _fsAlarmOff();
+    if (icon) icon.textContent = off ? 'fullscreen_exit' : 'fullscreen';
+    if (txt) txt.textContent = off ? 'Alarm aus' : 'Alarm an';
+    btn.style.opacity = off ? '0.55' : '1';
+    btn.style.textDecoration = off ? 'line-through' : 'none';
+}
+
+function toggleFullscreenAlarm() {
+    var off = _fsAlarmOff();
+    try {
+        localStorage.setItem('kmi_order_alarm_off', off ? '0' : '1');
+        localStorage.setItem('kmi_res_alarm_off', off ? '0' : '1');
+    } catch (e) {}
+    updateFsAlarmBtn();
+    showToast(off ? 'Vollbild-Alarm eingeschaltet' : 'Vollbild-Alarm ausgeschaltet – nur noch kleine Hinweise', off ? 'success' : 'warning');
+}
+// Zustand beim Laden anzeigen (Knopf existiert erst, wenn das Dashboard im DOM ist)
+setTimeout(function () { try { updateFsAlarmBtn(); } catch (e) {} }, 2500);
 
 // ==================== VOLLBILD-ALARM: NEUE RESERVIERUNG ====================
 // Gleiche Mechanik wie der Bestell-Alarm, damit auch Kellner im Service eine
@@ -21801,7 +21837,7 @@ function showNewReservationAlarm(res) {
             '</button>' +
             '<button onclick="dismissNewReservationAlarm(false)" style="margin-top:10px;width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
             '<label style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;">' +
-                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_res_alarm_off\',this.checked?\'1\':\'0\')}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
+                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_res_alarm_off\',this.checked?\'1\':\'0\');updateFsAlarmBtn()}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
             '</label>' +
         '</div>';
     document.body.appendChild(ov);
