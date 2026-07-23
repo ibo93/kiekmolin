@@ -60146,16 +60146,24 @@ async function showTvMenuBoard(slug) {
 
     async function loadData() {
         try {
-            // Restaurant per Slug (Fallback: ID)
-            var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?or=(slug.eq.' + encodeURIComponent(slug) + ',id.eq.' + encodeURIComponent(slug) + ')&select=id,name,slug,city,logo&limit=1', {
+            // Restaurant robust finden: alle laden und flexibel matchen
+            // (Slug, UUID oder normalisierter Name -- "lapiazza" trifft "La Piazza").
+            // WICHTIG: kein id.eq.<slug> in der Query -- id ist UUID, ein Text
+            // wie "lapiazza" liesse die ganze Abfrage mit 400 platzen.
+            var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name,slug,city,logo&limit=300', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
+            if (!rRes.ok) throw new Error('Restaurants laden: HTTP ' + rRes.status);
             var rList = await rRes.json();
-            if (!rList || !rList.length) {
-                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;">Restaurant nicht gefunden: ' + esc(slug) + '</div>';
+            var norm = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+            var want = norm(slug);
+            restaurant = (rList || []).find(function (r) { return norm(r.slug) === want; })
+                || (rList || []).find(function (r) { return r.id === slug; })
+                || (rList || []).find(function (r) { return norm(r.name) === want; });
+            if (!restaurant) {
+                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;padding:40px;text-align:center;">Restaurant nicht gefunden: ' + esc(slug) + '<br><span style="font-size:16px;opacity:0.6;">Tipp: gleicher Name wie in der Restaurant-URL, z.B. /tv/lapiazza</span></div>';
                 return false;
             }
-            restaurant = rList[0];
 
             // Kategorien + verfuegbare Gerichte
             var cRes = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
@@ -60165,7 +60173,14 @@ async function showTvMenuBoard(slug) {
             var iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&is_available=not.is.false&select=name,description,price,category_id,sort_order&order=sort_order&limit=500', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
+            if (!iRes.ok) {
+                // Fallback: ohne is_available-Filter (falls Spalte fehlt)
+                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,price,category_id,sort_order&order=sort_order&limit=500', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+            }
             var items = await iRes.json() || [];
+            if (!Array.isArray(items)) items = [];
 
             // Gerichte den Kategorien zuordnen; leere Kategorien weglassen
             var grouped = cats.map(function (c) {
@@ -60191,6 +60206,12 @@ async function showTvMenuBoard(slug) {
             return true;
         } catch (e) {
             console.error('TV-Modus laden:', e);
+            // Fehler SICHTBAR machen statt leerem Bildschirm
+            tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px;text-align:center;">' +
+                '<div style="font-size:24px;">Speisekarte konnte nicht geladen werden</div>' +
+                '<div style="font-size:15px;opacity:0.6;">' + esc(e.message || 'Verbindungsfehler') + ' – Seite wird gleich automatisch neu versucht.</div>' +
+            '</div>';
+            setTimeout(function () { location.reload(); }, 60000);
             return false;
         }
     }
