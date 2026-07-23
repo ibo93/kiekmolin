@@ -193,6 +193,22 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Verkaufs-Leitfaden: Ablauf, Einwände, echte Zahlen, ehrlich', () => {
+  const { baueVerkaufHtml } = require('./lib/verkauf');
+  const html = baueVerkaufHtml({ name: 'Greetsieler Börse', city: 'Greetsiel' },
+    { quoteProzent: 13, kiKonkurrenz: [{ name: 'Restaurant Festland', anzahl: 5 }, { name: 'Café Lili', anzahl: 3 }] });
+  assert.ok(html.includes('Greetsieler Börse') && html.includes('Greetsiel'), 'personalisiert');
+  assert.ok(html.includes('13%'), 'echte Quote im Leitfaden');
+  assert.ok(html.includes('Restaurant Festland'), 'echte KI-Konkurrenz im Leitfaden');
+  assert.ok(html.includes('Anruf-Demo'), 'Demo als Wow-Moment im Ablauf');
+  assert.ok(/Platz 1.*lügt|wer das verspricht, lügt/i.test(html), 'Einwand-Antwort bleibt ehrlich');
+  assert.ok(html.includes('noindex'), 'nur für dich, nicht für Suchmaschinen');
+
+  // Ohne Zahlen: kein Absturz, sinnvoller Fallback-Text
+  const leer = baueVerkaufHtml({ name: 'X', city: 'Y' }, {});
+  assert.ok(leer.includes('ersten Monats-Report') && !leer.includes('undefined') && !leer.includes('null%'));
+});
+
 test('Monats-Aufgaben: datengedeckt, priorisiert, mit Hebel + Aufwand', () => {
   const { baueAufgaben, aufgabenBilanz } = require('./lib/aufgaben');
   const ergebnis = {

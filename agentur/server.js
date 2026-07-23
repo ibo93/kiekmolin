@@ -1100,6 +1100,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Verkaufs-Leitfaden: Gespraechs-Spickzettel fuer Ibo, personalisiert
+    // mit echten Zahlen (Quote, KI-Konkurrenz) des Betriebs.
+    if (req.method === 'GET' && pfad.startsWith('/leitfaden/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { res.writeHead(404); res.end('Kunde nicht gefunden'); return; }
+      const slug = effektiverSlug(kunde);
+      const historie = kundenHistorie(slug);
+      let quoteProzent = null;
+      let kiKonkurrenz = [];
+      if (historie[0]) {
+        if (historie[0].quote && historie[0].quote.prozent != null) quoteProzent = historie[0].quote.prozent;
+        try {
+          const letzter = JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, historie[0].monat + '.json'), 'utf8'));
+          if (letzter.ergebnis) kiKonkurrenz = report.kiKonkurrenz(letzter.ergebnis);
+        } catch (_e) { /* alte Historie */ }
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(require('./lib/verkauf').baueVerkaufHtml(kunde, { quoteProzent, kiKonkurrenz }));
+      return;
+    }
+
     // Angebots-Seite: ausdruckbare/teilbare Seite mit den drei Paketen +
     // Preisen fuers Kundengespraech. Personalisiert auf den Betrieb.
     if (req.method === 'GET' && pfad.startsWith('/angebot/')) {
