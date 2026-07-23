@@ -60159,6 +60159,7 @@ async function showTvMenuBoard(slug) {
     var pages = [];          // Seiten mit je 1-2 Kategorien
     var pageIdx = 0;
     var flipTimer = null;
+    var specials = [];       // Heutige Tagesangebote (Marketing) fuer den Angebots-Streifen
 
     async function loadData() {
         try {
@@ -60197,6 +60198,19 @@ async function showTvMenuBoard(slug) {
             }
             var items = await iRes.json() || [];
             if (!Array.isArray(items)) items = [];
+
+            // Marketing: heutige, aktive Tagesangebote fuer den Angebots-Streifen
+            specials = [];
+            try {
+                var _tvToday = new Date().toLocaleDateString('sv-SE');
+                var sRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurant.id + '&date=eq.' + _tvToday + '&is_active=eq.true&select=title,description,price&order=created_at.desc&limit=3', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (sRes.ok) {
+                    var sList = await sRes.json();
+                    if (Array.isArray(sList)) specials = sList;
+                }
+            } catch (e) { /* Angebote sind optional */ }
 
             // Gerichte den Kategorien zuordnen; leere Kategorien weglassen
             var grouped = cats.map(function (c) {
@@ -60259,6 +60273,21 @@ async function showTvMenuBoard(slug) {
               }).join('') + '</div>'
             : '';
 
+        // Angebots-Streifen (Marketing): heutige Tagesangebote gross und golden
+        var offerBar = '';
+        if (specials.length) {
+            var offerParts = specials.map(function (s) {
+                return '<span style="font-weight:900;">' + esc(s.title || 'Angebot') + '</span>' +
+                    (s.description ? '<span style="opacity:0.85;"> – ' + esc(String(s.description).slice(0, 70)) + '</span>' : '') +
+                    (s.price ? '<span style="font-weight:900;"> · ' + price(s.price) + '</span>' : '');
+            }).join('<span style="opacity:0.5;margin:0 18px;">•</span>');
+            offerBar =
+                '<div style="display:flex;align-items:center;gap:16px;background:linear-gradient(90deg,#FFD54F,#f0b429);color:#00251e;border-radius:18px;padding:1.4vh 2vw;margin-bottom:2.2vh;font-size:2.2vh;box-shadow:0 8px 30px rgba(255,213,79,0.25);">' +
+                    '<span class="material-symbols-outlined" style="font-size:3vh;font-variation-settings:\'FILL\' 1;">local_fire_department</span>' +
+                    '<div style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="font-family:Epilogue,sans-serif;font-weight:900;letter-spacing:0.08em;margin-right:14px;">HEUTE</span>' + offerParts + '</div>' +
+                '</div>';
+        }
+
         tv.innerHTML =
             '<div style="display:flex;flex-direction:column;height:100%;padding:3.2vh 4vw;box-sizing:border-box;animation:fadeIn 0.6s ease;">' +
                 // Kopf
@@ -60275,6 +60304,8 @@ async function showTvMenuBoard(slug) {
                         '<div style="font-size:1.5vh;color:rgba(255,255,255,0.45);">Online bestellen: kiekmolin.de</div>' +
                     '</div>' +
                 '</div>' +
+                // Angebots-Streifen (falls heute Tagesangebote aktiv sind)
+                offerBar +
                 // Speisekarte (Schriftgroesse skaliert mit Bildschirm)
                 '<div style="flex:1;display:flex;align-items:flex-start;font-size:2.3vh;overflow:hidden;">' + colsHtml + '</div>' +
                 // Fusszeile
