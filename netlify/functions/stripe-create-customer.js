@@ -15,6 +15,7 @@
 //
 // ENV-Vars (in Netlify > Site settings > Environment, bleiben ueber Deploys erhalten):
 //   STRIPE_SECRET_KEY   (Pflicht)  z.B. sk_test_... / sk_live_...
+//                       (seit Juli 2026 auf kiekmolin2 gesetzt -- live aktiv)
 //   URL                 (setzt Netlify automatisch = Haupt-Site-URL)
 
 'use strict';
