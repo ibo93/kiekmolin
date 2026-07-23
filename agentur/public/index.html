@@ -200,6 +200,7 @@
         <button class="aktion" id="btnMail" onclick="reportSenden()" title="Schickt den neuesten Report per E-Mail an den Wirt (braucht RESEND_API_KEY)">Report per E-Mail senden</button>
         <button class="aktion" id="btnUpdate" onclick="kundenUpdateKopieren()" title="Fertige WhatsApp-Nachricht mit den Monats-Zahlen in die Zwischenablage kopieren – einfach im Chat mit dem Wirt einfügen">WhatsApp-Update kopieren</button>
         <button class="aktion" id="btnAngebot" onclick="angebotOeffnen()" title="Fertige Angebots-Seite mit den drei Paketen + Preisen – zum Ausdrucken oder als Link fürs Kundengespräch" style="border:2px solid var(--akzent);background:transparent;color:var(--akzent)">Angebot erzeugen</button>
+        <button class="aktion" id="btnLeitfaden" onclick="leitfadenOeffnen()" title="Dein Gesprächs-Spickzettel fürs Erstgespräch: was zeigen, was sagen, Antworten auf Einwände – personalisiert mit den echten Zahlen dieses Kunden">Verkaufs-Leitfaden</button>
         <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:transparent;color:var(--akzent)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
@@ -865,6 +866,11 @@ async function bewertungStatus(id, status) {
 // ---------------- Angebots-Seite ----------------
 function angebotOeffnen() {
   window.open('/angebot/' + encodeURIComponent(aktuellerKunde.id), '_blank');
+}
+
+// ---------------- Verkaufs-Leitfaden ----------------
+function leitfadenOeffnen() {
+  window.open('/leitfaden/' + encodeURIComponent(aktuellerKunde.id), '_blank');
 }
 
 // ---------------- WhatsApp-Kunden-Update ----------------
