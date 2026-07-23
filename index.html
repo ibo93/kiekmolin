@@ -14069,6 +14069,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="material-symbols-outlined" style="font-size:20px;">restaurant_menu</span>
                 Küche
             </div>
+            <div class="dash-nav-item" id="navTvMode" onclick="openTvModeForRestaurant()" title="Speisekarte für den Fernseher im Laden">
+                <span class="material-symbols-outlined" style="font-size:20px;">tv</span>
+                TV-Karte
+            </div>
             <div class="dash-nav-item" id="navMarketing" onclick="showDashboardSection('marketing')">
                 <span class="material-symbols-outlined" style="font-size:20px;">campaign</span>
                 Marketing
@@ -18730,6 +18734,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
 
+            <!-- Push-Kampagne: Angebot an alle Gäste senden -->
+            <div class="dash-panel" style="margin-bottom:24px;">
+                <div class="panel-header">
+                    <h3 class="panel-title" style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">campaign</span>
+                        Angebot an alle Gäste senden
+                    </h3>
+                </div>
+                <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                    <p style="margin:0;font-size:13px;color:var(--text-secondary);">Geht als Push-Nachricht an alle Gäste dieses Restaurants, die Benachrichtigungen erlaubt haben. Max. 1 Kampagne alle 3 Tage, nur 9–21 Uhr – damit niemand genervt wird.</p>
+                    <input type="text" id="mpTitle" class="form-input" maxlength="60" placeholder="Titel, z.B. Schnitzeltag am Freitag!" style="border-radius:9999px;">
+                    <textarea id="mpMessage" class="form-textarea" maxlength="180" placeholder="Text, z.B. Alle Schnitzel mit Beilage für 12,90 € – nur diesen Freitag. Jetzt vorbestellen!" style="resize:none;height:70px;border-radius:16px;"></textarea>
+                    <button onclick="sendMarketingPushCampaign()" id="mpSendBtn" class="dash-btn dash-btn-primary" style="border-radius:9999px;padding:12px 20px;align-self:flex-start;display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">send</span>
+                        An alle Gäste senden
+                    </button>
+                </div>
+            </div>
+
             <!-- Gutscheine -->
             <div class="dash-panel" style="margin-bottom:24px;">
                 <div class="panel-header">
@@ -18756,6 +18779,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </h3>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         <button onclick="filterMarketingCustomers('all')" class="mkt-filter-btn active" data-filter="all" style="padding:6px 14px;border-radius:50px;border:1px solid rgba(0,61,51,0.06);background:rgba(255,255,255,0.6);color:var(--text-primary);font-size:12px;cursor:pointer;">Alle</button>
+                        <button onclick="filterMarketingCustomers('stamm')" class="mkt-filter-btn" data-filter="stamm" style="padding:6px 14px;border-radius:50px;border:1px solid #16a34a;background:transparent;color:#16a34a;font-size:12px;cursor:pointer;">⭐ Stammgäste</button>
                         <button onclick="filterMarketingCustomers('sleeping')" class="mkt-filter-btn" data-filter="sleeping" style="padding:6px 14px;border-radius:50px;border:1px solid #eab308;background:transparent;color:#eab308;font-size:12px;cursor:pointer;">Eingeschlafen</button>
                         <button onclick="filterMarketingCustomers('inactive')" class="mkt-filter-btn" data-filter="inactive" style="padding:6px 14px;border-radius:50px;border:1px solid #f97316;background:transparent;color:#f97316;font-size:12px;cursor:pointer;">Inaktiv</button>
                         <button onclick="filterMarketingCustomers('lost')" class="mkt-filter-btn" data-filter="lost" style="padding:6px 14px;border-radius:50px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;cursor:pointer;">Verloren</button>
@@ -22099,7 +22123,10 @@ function handleRealtimeReservation(payload) {
 // Funktioniert auch wenn App/Browser im Hintergrund oder geschlossen
 
 // VAPID Public Key — public, darf im Client-Code stehen.
-var VAPID_PUBLIC_KEY = 'BAc2TBVJNhpCtnmVeFSgfdHYSUZzBDGh2GbzZ0xQSiCsLSc_scksrJ5_zxdI6dZUbJ0co_u-zGBXpA9xNV10oUg';
+// Juli 2026: neues Schluesselpaar -- der private Teil liegt als VAPID_PRIVATE
+// in den Netlify-Env-Vars (zum alten Public-Key gab es serverseitig nie einen
+// privaten Schluessel, Pushs konnten daher nie zugestellt werden).
+var VAPID_PUBLIC_KEY = 'BMhF-LWy94av-ZdG1kf-b0BpuKFqpfO-XdO9rH_R-LNc8An-4hSkjD1ZQeR2SlW5cdv2VUmuWdGsKBYGXTNEXKU';
 
 function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -22117,7 +22144,25 @@ function subscribeWebPush() {
     }
     return navigator.serviceWorker.ready.then(function(reg) {
         return reg.pushManager.getSubscription().then(function(existing) {
-            if (existing) return existing;
+            if (existing) {
+                // Schluesselwechsel erkennen: alte Subscription (anderer
+                // applicationServerKey) abmelden und mit dem neuen Key neu
+                // registrieren -- sonst kommen nie wieder Pushs an.
+                try {
+                    var curKey = existing.options && existing.options.applicationServerKey
+                        ? new Uint8Array(existing.options.applicationServerKey) : null;
+                    var newKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+                    var same = !!curKey && curKey.length === newKey.length &&
+                        curKey.every(function (b, i) { return b === newKey[i]; });
+                    if (same) return existing;
+                    return existing.unsubscribe().then(function () {
+                        return reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                        });
+                    });
+                } catch (e) { return existing; }
+            }
             return reg.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -28235,6 +28280,51 @@ async function loadCustomerAnalytics() {
     }
 }
 
+// Push-Kampagne "an alle Gaeste" senden (Serverseite: marketing-push.js --
+// Empfaenger sind alle Push-Abonnenten, die bei diesem Restaurant bestellt haben)
+async function sendMarketingPushCampaign() {
+    var title = ((document.getElementById('mpTitle') || {}).value || '').trim();
+    var msg = ((document.getElementById('mpMessage') || {}).value || '').trim();
+    if (!title || !msg) { showToast('Bitte Titel und Text eingeben', 'error'); return; }
+
+    var restId = (document.getElementById('marketingRestaurantSelect') || {}).value || '';
+    if (!restId) restId = window._gastroOnlyRestaurantId || ((typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : '');
+    if (!restId) { showToast('Bitte oben ein Restaurant auswählen', 'error'); return; }
+
+    if (!confirm('Push-Nachricht jetzt an ALLE Gäste dieses Restaurants senden?\n\n„' + title + '"\n' + msg)) return;
+
+    var btn = document.getElementById('mpSendBtn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+    try {
+        var token = null;
+        try {
+            if (window.supabaseClient && supabaseClient.auth) {
+                var s = await supabaseClient.auth.getSession();
+                token = s && s.data && s.data.session && s.data.session.access_token;
+            }
+        } catch (e) {}
+        if (!token) { showToast('Bitte als Gastronom einloggen', 'error'); return; }
+
+        var res = await fetch('/.netlify/functions/marketing-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ restaurant_id: restId, title: title, message: msg })
+        });
+        var j = await res.json();
+        if (j && j.ok) {
+            showToast('Kampagne raus! Zugestellt an ' + j.sent + ' von ' + j.recipients + ' Geräten', 'success');
+            document.getElementById('mpTitle').value = '';
+            document.getElementById('mpMessage').value = '';
+        } else {
+            showToast((j && j.error) || 'Senden fehlgeschlagen', 'error');
+        }
+    } catch (e) {
+        showToast('Senden fehlgeschlagen: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    }
+}
+
 function filterMarketingCustomers(filter) {
     _mktFilter = filter;
     // Update filter buttons
@@ -28262,7 +28352,11 @@ function renderMarketingCustomers() {
     if (!container) return;
 
     var customers = _mktCustomers;
-    if (_mktFilter !== 'all') {
+    if (_mktFilter === 'stamm') {
+        // Echte Stammgaeste: nach HAEUFIGKEIT (ab 5 Bestellungen), nicht nur Recency
+        customers = customers.filter(function(c) { return (c.orderCount || 0) >= 5; });
+        customers = customers.slice().sort(function(a, b) { return (b.orderCount || 0) - (a.orderCount || 0); });
+    } else if (_mktFilter !== 'all') {
         customers = customers.filter(function(c) { return c.segment === _mktFilter; });
     }
 
@@ -28291,6 +28385,12 @@ function renderMarketingCustomers() {
         html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
         html += '<strong style="color:var(--text-primary);font-size:15px;">' + (c.name || 'Unbekannt') + '</strong>';
         html += '<span style="padding:2px 10px;border-radius:50px;background:' + color + '18;color:' + color + ';font-size:11px;font-weight:600;">' + label + '</span>';
+        // Echtes Stammgast-Abzeichen nach Bestellhaeufigkeit (5+ / VIP 10+)
+        if ((c.orderCount || 0) >= 10) {
+            html += '<span style="padding:2px 10px;border-radius:50px;background:rgba(254,214,91,0.25);color:#92400e;font-size:11px;font-weight:800;">👑 VIP · ' + c.orderCount + '×</span>';
+        } else if ((c.orderCount || 0) >= 5) {
+            html += '<span style="padding:2px 10px;border-radius:50px;background:rgba(22,163,74,0.12);color:#16a34a;font-size:11px;font-weight:700;">⭐ Stammgast · ' + c.orderCount + '×</span>';
+        }
         html += '</div>';
         html += '<div style="color:var(--text-secondary);font-size:13px;margin-top:4px;">';
         html += c.phone;
@@ -28583,7 +28683,7 @@ function setCouponDuration(days) {
     document.getElementById('cpValidUntil').value = end;
 }
 
-function saveNewCoupon() {
+async function saveNewCoupon() {
     var code = (document.getElementById('cpCode').value || '').trim().toUpperCase();
     var type = document.getElementById('cpType').value;
     var value = parseFloat(document.getElementById('cpValue').value) || 0;
@@ -28597,41 +28697,95 @@ function saveNewCoupon() {
     if (value <= 0) { showToast('Bitte Rabatt-Wert eingeben', 'error'); return; }
     if (!validUntil) { showToast('Bitte Gültigkeitsdatum angeben', 'error'); return; }
 
-    // Pruefe ob Code schon existiert
+    // WICHTIG: Gutscheine liegen in SUPABASE (Tabelle coupons) -- nur dann kann
+    // der KUNDE sie beim Bestellen auf SEINEM Geraet einloesen (applyCoupon
+    // liest genau diese Tabelle). localStorage war frueher der Speicher und
+    // ist nur noch Not-Fallback, falls die Tabelle fehlt.
+    try {
+        // Duplikat-Check serverseitig
+        var dupRes = await fetch(SUPABASE_URL + '/rest/v1/coupons?code=eq.' + encodeURIComponent(code) + '&select=id', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (dupRes.ok) {
+            var dup = await dupRes.json();
+            if (dup && dup.length) { showToast('Code "' + code + '" existiert bereits', 'error'); return; }
+        }
+
+        var insRes = await fetch(SUPABASE_URL + '/rest/v1/coupons', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json', 'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                code: code,
+                type: type,
+                value: value,
+                valid_from: validFrom || null,
+                valid_until: validUntil,
+                min_order: minOrder,
+                max_uses: maxUses,
+                used_count: 0,
+                restaurant_id: restaurantId || null,
+                is_active: true
+            })
+        });
+        if (!insRes.ok) throw new Error('HTTP ' + insRes.status);
+
+        document.getElementById('couponCreateModal')?.remove();
+        renderMarketingCoupons();
+        showToast('Gutschein ' + code + ' erstellt – Kunden können ihn jetzt überall einlösen', 'success');
+        return;
+    } catch (err) {
+        console.warn('Coupon-Insert in Supabase fehlgeschlagen, Fallback localStorage:', err.message);
+    }
+
+    // Fallback (Tabelle fehlt o.ä.): wie frueher lokal speichern + klarer Hinweis
     var existing = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
     if (existing.find(function(c) { return c.code === code; })) {
         showToast('Code "' + code + '" existiert bereits', 'error'); return;
     }
-
-    var coupon = {
+    existing.push({
         id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
-        code: code,
-        type: type,
-        value: value,
-        valid_from: validFrom,
-        valid_until: validUntil,
-        min_order: minOrder,
-        max_uses: maxUses,
-        used_count: 0,
-        restaurant_id: restaurantId,
-        is_active: true,
+        code: code, type: type, value: value,
+        valid_from: validFrom, valid_until: validUntil,
+        min_order: minOrder, max_uses: maxUses, used_count: 0,
+        restaurant_id: restaurantId, is_active: true,
         created_at: new Date().toISOString()
-    };
-
-    existing.push(coupon);
+    });
     localStorage.setItem('kmi_custom_coupons', JSON.stringify(existing));
-
     document.getElementById('couponCreateModal')?.remove();
     renderMarketingCoupons();
-    showToast('Gutschein ' + code + ' erstellt (' + value + (type === 'percent' ? '%' : ' EUR') + ' Rabatt)', 'success');
+    showToast('⚠ Nur lokal gespeichert (coupons-Tabelle fehlt in Supabase) – Kunden können diesen Code NICHT einlösen!', 'warning');
 }
 
-function renderMarketingCoupons() {
+async function renderMarketingCoupons() {
     var container = document.getElementById('marketingCouponList');
     if (!container) return;
 
     var selectedRest = document.getElementById('marketingRestaurantSelect')?.value || '';
-    var coupons = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
+
+    // Quelle 1: Supabase (die echten, ueberall einloesbaren Gutscheine)
+    var coupons = [];
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?select=*&order=created_at.desc&limit=100', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (res.ok) {
+            var sc = await res.json();
+            if (Array.isArray(sc)) coupons = sc;
+        }
+    } catch (e) {}
+
+    // Quelle 2: alte localStorage-Gutscheine (nur dieses Geraet) -- markieren
+    var legacy = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
+    legacy.forEach(function (c) {
+        if (!coupons.some(function (s) { return s.code === c.code; })) {
+            c._local = true;
+            coupons.push(c);
+        }
+    });
+
     // Filtere nach Restaurant wenn eins ausgewaehlt
     if (selectedRest) {
         coupons = coupons.filter(function(c) { return !c.restaurant_id || c.restaurant_id === selectedRest; });
@@ -28665,6 +28819,7 @@ function renderMarketingCoupons() {
         html += '<strong style="color:var(--text-primary);font-size:15px;letter-spacing:1px;font-family:monospace;">' + c.code + '</strong>';
         html += '<span style="padding:2px 10px;border-radius:50px;background:' + statusColor + '18;color:' + statusColor + ';font-size:11px;font-weight:600;">' + statusText + '</span>';
         html += '<span style="padding:2px 10px;border-radius:50px;background:var(--primary);color:#fff;font-size:11px;font-weight:600;">' + c.value + (c.type === 'percent' ? '%' : ' EUR') + '</span>';
+        if (c._local) html += '<span title="Liegt nur in diesem Browser – Kunden können ihn NICHT einlösen. Bitte neu erstellen." style="padding:2px 10px;border-radius:50px;background:rgba(239,68,68,0.12);color:#ef4444;font-size:11px;font-weight:700;">nur dieses Gerät ⚠</span>';
         html += '</div>';
         html += '<div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">';
         html += validFromStr + ' - ' + validUntilStr;
@@ -28676,13 +28831,13 @@ function renderMarketingCoupons() {
         // Actions
         html += '<div style="display:flex;gap:6px;flex-shrink:0;">';
         // Toggle active
-        html += '<button onclick="toggleCouponActive(\'' + c.id + '\')" title="' + (c.is_active ? 'Deaktivieren' : 'Aktivieren') + '" aria-label="' + (c.is_active ? 'Deaktivieren' : 'Aktivieren') + '" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;background:' + (c.is_active ? 'var(--bg-card)' : 'var(--bg-secondary)') + ';cursor:pointer;color:' + (c.is_active ? '#16a34a' : '#9ca3af') + ';">';
+        html += '<button onclick="toggleCouponActive(\'' + c.id + '\',' + (c._local ? 'true' : 'false') + ',' + (!c.is_active) + ')" title="' + (c.is_active ? 'Deaktivieren' : 'Aktivieren') + '" aria-label="' + (c.is_active ? 'Deaktivieren' : 'Aktivieren') + '" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;background:' + (c.is_active ? 'var(--bg-card)' : 'var(--bg-secondary)') + ';cursor:pointer;color:' + (c.is_active ? '#16a34a' : '#9ca3af') + ';">';
         html += '<span class="material-symbols-outlined" style="font-size:16px;">' + (c.is_active ? 'check' : 'close') + '</span></button>';
         // Copy code
         html += '<button onclick="navigator.clipboard.writeText(\'' + c.code + '\');showToast(\'Code kopiert: ' + c.code + '\',\'success\')" title="Code kopieren" aria-label="Code kopieren" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);cursor:pointer;color:var(--text-secondary);">';
         html += '<span class="material-symbols-outlined" style="font-size:16px;">content_copy</span></button>';
         // Delete
-        html += '<button onclick="deleteCustomCoupon(\'' + c.id + '\')" title="Löschen" aria-label="Löschen" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);cursor:pointer;color:#ef4444;">';
+        html += '<button onclick="deleteCustomCoupon(\'' + c.id + '\',' + (c._local ? 'true' : 'false') + ')" title="Löschen" aria-label="Löschen" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-card);cursor:pointer;color:#ef4444;">';
         html += '<span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>';
         html += '</div></div>';
     });
@@ -28690,23 +28845,52 @@ function renderMarketingCoupons() {
     container.innerHTML = html;
 }
 
-function toggleCouponActive(id) {
-    var coupons = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
-    var coupon = coupons.find(function(c) { return c.id === id; });
-    if (coupon) {
-        coupon.is_active = !coupon.is_active;
-        localStorage.setItem('kmi_custom_coupons', JSON.stringify(coupons));
+async function toggleCouponActive(id, isLocal, newState) {
+    if (isLocal) {
+        var coupons = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
+        var coupon = coupons.find(function(c) { return c.id === id; });
+        if (coupon) {
+            coupon.is_active = !coupon.is_active;
+            localStorage.setItem('kmi_custom_coupons', JSON.stringify(coupons));
+            renderMarketingCoupons();
+            showToast(coupon.code + (coupon.is_active ? ' aktiviert' : ' deaktiviert'), 'success');
+        }
+        return;
+    }
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(id), {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ is_active: !!newState })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         renderMarketingCoupons();
-        showToast(coupon.code + (coupon.is_active ? ' aktiviert' : ' deaktiviert'), 'success');
+        showToast(newState ? 'Gutschein aktiviert' : 'Gutschein deaktiviert', 'success');
+    } catch (e) {
+        showToast('Ändern fehlgeschlagen: ' + e.message, 'error');
     }
 }
 
-function deleteCustomCoupon(id) {
-    var coupons = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
-    coupons = coupons.filter(function(c) { return c.id !== id; });
-    localStorage.setItem('kmi_custom_coupons', JSON.stringify(coupons));
-    renderMarketingCoupons();
-    showToast('Gutschein gelöscht', 'success');
+async function deleteCustomCoupon(id, isLocal) {
+    if (isLocal) {
+        var coupons = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
+        coupons = coupons.filter(function(c) { return c.id !== id; });
+        localStorage.setItem('kmi_custom_coupons', JSON.stringify(coupons));
+        renderMarketingCoupons();
+        showToast('Gutschein gelöscht', 'success');
+        return;
+    }
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(id), {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        renderMarketingCoupons();
+        showToast('Gutschein gelöscht', 'success');
+    } catch (e) {
+        showToast('Löschen fehlgeschlagen: ' + e.message, 'error');
+    }
 }
 
 // Welcome-Back Banner Check (fuer Kundenansicht)
@@ -57871,6 +58055,15 @@ async function applyCoupon() {
         if (activeCoupon.min_order && subtotal3 < activeCoupon.min_order) {
             showCouponStatus('Mindestbestellwert: ' + formatPrice(activeCoupon.min_order), '#ef4444'); activeCoupon = null; return;
         }
+        // Nutzung serverseitig hochzaehlen (fire-and-forget; kleiner Race bei
+        // gleichzeitiger Einloesung ist fuer Rabatt-Codes verkraftbar)
+        try {
+            fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(c.id), {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ used_count: (c.used_count || 0) + 1 })
+            }).catch(function () {});
+        } catch (e) {}
         showCouponStatus(activeCoupon.code + ' eingeloest! ' + (activeCoupon.type === 'percent' ? activeCoupon.value + '% Rabatt' : formatPrice(activeCoupon.value) + ' Rabatt'), '#16a34a');
         updateCheckoutTotals();
     } catch(e) {
@@ -59934,6 +60127,18 @@ async function showOrderBon(orderNumber) {
 }
 
 // ==================== TV-MODUS: SPEISEKARTE FUER DEN FERNSEHER ====================
+// Hauptmenue-Eintrag "TV-Karte": oeffnet den TV-Modus fuers eigene Restaurant
+// in einem neuen Tab (diese URL traegt man am Fernseher ein).
+function openTvModeForRestaurant() {
+    var restId = (typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : null;
+    var r = (restId && APP_DATA.restaurants) ? APP_DATA.restaurants.find(function (x) { return x.id === restId; }) : null;
+    if (!r && APP_DATA.restaurants && APP_DATA.restaurants.length === 1) r = APP_DATA.restaurants[0];
+    if (!r) { showToast('Bitte zuerst ein Restaurant auswählen (Bestellungen → Auswahlfeld)', 'info'); return; }
+    var slug = r.slug || r.id;
+    window.open('/tv/' + encodeURIComponent(slug), '_blank');
+    showToast('TV-Karte geöffnet – diese Adresse am Fernseher eintragen: kiekmolin.de/tv/' + slug, 'info');
+}
+
 // Aufruf: kiekmolin.de/tv/<slug>  (z.B. /tv/lapiazza)
 // Vollbild-Menueboard im KIN-Design fuers Restaurant-TV: Kategorien + Gerichte
 // + Preise, blaettert bei vielen Kategorien automatisch um und laedt die Daten
@@ -59954,19 +60159,28 @@ async function showTvMenuBoard(slug) {
     var pages = [];          // Seiten mit je 1-2 Kategorien
     var pageIdx = 0;
     var flipTimer = null;
+    var specials = [];       // Heutige Tagesangebote (Marketing) fuer den Angebots-Streifen
 
     async function loadData() {
         try {
-            // Restaurant per Slug (Fallback: ID)
-            var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?or=(slug.eq.' + encodeURIComponent(slug) + ',id.eq.' + encodeURIComponent(slug) + ')&select=id,name,slug,city,logo&limit=1', {
+            // Restaurant robust finden: alle laden und flexibel matchen
+            // (Slug, UUID oder normalisierter Name -- "lapiazza" trifft "La Piazza").
+            // WICHTIG: kein id.eq.<slug> in der Query -- id ist UUID, ein Text
+            // wie "lapiazza" liesse die ganze Abfrage mit 400 platzen.
+            var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name,slug,city,logo&limit=300', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
+            if (!rRes.ok) throw new Error('Restaurants laden: HTTP ' + rRes.status);
             var rList = await rRes.json();
-            if (!rList || !rList.length) {
-                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;">Restaurant nicht gefunden: ' + esc(slug) + '</div>';
+            var norm = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+            var want = norm(slug);
+            restaurant = (rList || []).find(function (r) { return norm(r.slug) === want; })
+                || (rList || []).find(function (r) { return r.id === slug; })
+                || (rList || []).find(function (r) { return norm(r.name) === want; });
+            if (!restaurant) {
+                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;padding:40px;text-align:center;">Restaurant nicht gefunden: ' + esc(slug) + '<br><span style="font-size:16px;opacity:0.6;">Tipp: gleicher Name wie in der Restaurant-URL, z.B. /tv/lapiazza</span></div>';
                 return false;
             }
-            restaurant = rList[0];
 
             // Kategorien + verfuegbare Gerichte
             var cRes = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
@@ -59976,7 +60190,27 @@ async function showTvMenuBoard(slug) {
             var iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&is_available=not.is.false&select=name,description,price,category_id,sort_order&order=sort_order&limit=500', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
+            if (!iRes.ok) {
+                // Fallback: ohne is_available-Filter (falls Spalte fehlt)
+                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,price,category_id,sort_order&order=sort_order&limit=500', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+            }
             var items = await iRes.json() || [];
+            if (!Array.isArray(items)) items = [];
+
+            // Marketing: heutige, aktive Tagesangebote fuer den Angebots-Streifen
+            specials = [];
+            try {
+                var _tvToday = new Date().toLocaleDateString('sv-SE');
+                var sRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurant.id + '&date=eq.' + _tvToday + '&is_active=eq.true&select=title,description,price&order=created_at.desc&limit=3', {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                if (sRes.ok) {
+                    var sList = await sRes.json();
+                    if (Array.isArray(sList)) specials = sList;
+                }
+            } catch (e) { /* Angebote sind optional */ }
 
             // Gerichte den Kategorien zuordnen; leere Kategorien weglassen
             var grouped = cats.map(function (c) {
@@ -60002,6 +60236,12 @@ async function showTvMenuBoard(slug) {
             return true;
         } catch (e) {
             console.error('TV-Modus laden:', e);
+            // Fehler SICHTBAR machen statt leerem Bildschirm
+            tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px;text-align:center;">' +
+                '<div style="font-size:24px;">Speisekarte konnte nicht geladen werden</div>' +
+                '<div style="font-size:15px;opacity:0.6;">' + esc(e.message || 'Verbindungsfehler') + ' – Seite wird gleich automatisch neu versucht.</div>' +
+            '</div>';
+            setTimeout(function () { location.reload(); }, 60000);
             return false;
         }
     }
@@ -60033,6 +60273,21 @@ async function showTvMenuBoard(slug) {
               }).join('') + '</div>'
             : '';
 
+        // Angebots-Streifen (Marketing): heutige Tagesangebote gross und golden
+        var offerBar = '';
+        if (specials.length) {
+            var offerParts = specials.map(function (s) {
+                return '<span style="font-weight:900;">' + esc(s.title || 'Angebot') + '</span>' +
+                    (s.description ? '<span style="opacity:0.85;"> – ' + esc(String(s.description).slice(0, 70)) + '</span>' : '') +
+                    (s.price ? '<span style="font-weight:900;"> · ' + price(s.price) + '</span>' : '');
+            }).join('<span style="opacity:0.5;margin:0 18px;">•</span>');
+            offerBar =
+                '<div style="display:flex;align-items:center;gap:16px;background:linear-gradient(90deg,#FFD54F,#f0b429);color:#00251e;border-radius:18px;padding:1.4vh 2vw;margin-bottom:2.2vh;font-size:2.2vh;box-shadow:0 8px 30px rgba(255,213,79,0.25);">' +
+                    '<span class="material-symbols-outlined" style="font-size:3vh;font-variation-settings:\'FILL\' 1;">local_fire_department</span>' +
+                    '<div style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="font-family:Epilogue,sans-serif;font-weight:900;letter-spacing:0.08em;margin-right:14px;">HEUTE</span>' + offerParts + '</div>' +
+                '</div>';
+        }
+
         tv.innerHTML =
             '<div style="display:flex;flex-direction:column;height:100%;padding:3.2vh 4vw;box-sizing:border-box;animation:fadeIn 0.6s ease;">' +
                 // Kopf
@@ -60049,6 +60304,8 @@ async function showTvMenuBoard(slug) {
                         '<div style="font-size:1.5vh;color:rgba(255,255,255,0.45);">Online bestellen: kiekmolin.de</div>' +
                     '</div>' +
                 '</div>' +
+                // Angebots-Streifen (falls heute Tagesangebote aktiv sind)
+                offerBar +
                 // Speisekarte (Schriftgroesse skaliert mit Bildschirm)
                 '<div style="flex:1;display:flex;align-items:flex-start;font-size:2.3vh;overflow:hidden;">' + colsHtml + '</div>' +
                 // Fusszeile
