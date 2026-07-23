@@ -36381,6 +36381,15 @@ function checkRestaurantSlugURL() {
                 return;
             }
         }
+        // TV-Modus: /tv/RESTAURANT-SLUG -> Vollbild-Speisekarte fuer den
+        // Fernseher im Laden (aktualisiert sich selbst)
+        if (path.startsWith('tv/')) {
+            var tvSlug = path.replace('tv/', '');
+            if (tvSlug) {
+                setTimeout(function() { showTvMenuBoard(tvSlug); }, 300);
+                return;
+            }
+        }
         if (path && systemPaths.indexOf(path) === -1) {
             slug = path;
         }
@@ -59922,6 +59931,153 @@ async function showOrderBon(orderNumber) {
             '<a href="/" style="display:inline-block;margin-top:20px;padding:12px 24px;background:var(--primary);color:white;border-radius:48px;text-decoration:none;font-weight:600;">Zur Startseite</a>' +
         '</div>';
     }
+}
+
+// ==================== TV-MODUS: SPEISEKARTE FUER DEN FERNSEHER ====================
+// Aufruf: kiekmolin.de/tv/<slug>  (z.B. /tv/lapiazza)
+// Vollbild-Menueboard im KIN-Design fuers Restaurant-TV: Kategorien + Gerichte
+// + Preise, blaettert bei vielen Kategorien automatisch um und laedt die Daten
+// alle 5 Minuten neu -- Preis in der App aendern = TV aktualisiert sich selbst.
+async function showTvMenuBoard(slug) {
+    // Vollbild-Container (liegt ueber der ganzen App)
+    var tv = document.createElement('div');
+    tv.id = 'tvMenuBoard';
+    tv.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:linear-gradient(155deg,#00251e 0%,#003D33 60%,#0a4a3d 100%);color:#fff;font-family:Inter,sans-serif;overflow:hidden;cursor:none;';
+    tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Epilogue,sans-serif;font-size:28px;opacity:0.7;">Speisekarte wird geladen…</div>';
+    document.body.appendChild(tv);
+    try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
+
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function price(p) { return (Number(p) || 0).toFixed(2).replace('.', ',') + ' €'; }
+
+    var restaurant = null;
+    var pages = [];          // Seiten mit je 1-2 Kategorien
+    var pageIdx = 0;
+    var flipTimer = null;
+
+    async function loadData() {
+        try {
+            // Restaurant per Slug (Fallback: ID)
+            var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?or=(slug.eq.' + encodeURIComponent(slug) + ',id.eq.' + encodeURIComponent(slug) + ')&select=id,name,slug,city,logo&limit=1', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            var rList = await rRes.json();
+            if (!rList || !rList.length) {
+                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;">Restaurant nicht gefunden: ' + esc(slug) + '</div>';
+                return false;
+            }
+            restaurant = rList[0];
+
+            // Kategorien + verfuegbare Gerichte
+            var cRes = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            var cats = await cRes.json() || [];
+            var iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&is_available=not.is.false&select=name,description,price,category_id,sort_order&order=sort_order&limit=500', {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            var items = await iRes.json() || [];
+
+            // Gerichte den Kategorien zuordnen; leere Kategorien weglassen
+            var grouped = cats.map(function (c) {
+                return { name: c.name, items: items.filter(function (it) { return it.category_id === c.id; }) };
+            }).filter(function (g) { return g.items.length > 0; });
+            var orphans = items.filter(function (it) { return !cats.some(function (c) { return c.id === it.category_id; }); });
+            if (orphans.length) grouped.push({ name: 'Weitere Gerichte', items: orphans });
+
+            // Seiten bilden: max ~14 Gerichte pro Seite (gut lesbar auf TV)
+            pages = [];
+            var current = { cats: [], count: 0 };
+            grouped.forEach(function (g) {
+                if (current.count > 0 && current.count + g.items.length > 14) {
+                    pages.push(current); current = { cats: [], count: 0 };
+                }
+                current.cats.push(g); current.count += g.items.length;
+            });
+            if (current.cats.length) pages.push(current);
+            if (!pages.length) {
+                tv.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;">Noch keine Speisekarte hinterlegt.</div>';
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('TV-Modus laden:', e);
+            return false;
+        }
+    }
+
+    function renderPage() {
+        if (!pages.length || !restaurant) return;
+        if (pageIdx >= pages.length) pageIdx = 0;
+        var page = pages[pageIdx];
+
+        var colsHtml = page.cats.map(function (g) {
+            var rows = g.items.map(function (it) {
+                return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:0.55em 0;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                    '<div style="min-width:0;">' +
+                        '<div style="font-weight:700;font-size:1em;line-height:1.25;">' + esc(it.name) + '</div>' +
+                        (it.description ? '<div style="font-size:0.62em;color:rgba(255,255,255,0.55);line-height:1.3;margin-top:2px;">' + esc(String(it.description).slice(0, 90)) + '</div>' : '') +
+                    '</div>' +
+                    '<div style="font-weight:800;font-size:1em;color:#FFD54F;white-space:nowrap;">' + price(it.price) + '</div>' +
+                '</div>';
+            }).join('');
+            return '<div style="flex:1;min-width:0;">' +
+                '<div style="font-family:Epilogue,sans-serif;font-size:1.15em;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;color:#FFD54F;border-bottom:3px solid #FFD54F;padding-bottom:8px;margin-bottom:10px;">' + esc(g.name) + '</div>' +
+                rows +
+            '</div>';
+        }).join('<div style="width:56px;flex-shrink:0;"></div>');
+
+        var dots = pages.length > 1
+            ? '<div style="display:flex;gap:10px;">' + pages.map(function (_, i) {
+                return '<span style="width:12px;height:12px;border-radius:50%;background:' + (i === pageIdx ? '#FFD54F' : 'rgba(255,255,255,0.25)') + ';"></span>';
+              }).join('') + '</div>'
+            : '';
+
+        tv.innerHTML =
+            '<div style="display:flex;flex-direction:column;height:100%;padding:3.2vh 4vw;box-sizing:border-box;animation:fadeIn 0.6s ease;">' +
+                // Kopf
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5vh;">' +
+                    '<div style="display:flex;align-items:center;gap:18px;">' +
+                        (restaurant.logo ? '<img src="' + esc(restaurant.logo) + '" style="height:7vh;max-height:64px;border-radius:14px;background:#fff;padding:4px;" alt="">' : '') +
+                        '<div>' +
+                            '<div style="font-family:Epilogue,sans-serif;font-size:3.4vh;font-weight:900;letter-spacing:-0.01em;">' + esc(restaurant.name) + '</div>' +
+                            '<div style="font-size:1.7vh;color:rgba(255,255,255,0.55);">Speisekarte' + (restaurant.city ? ' · ' + esc(restaurant.city) : '') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="text-align:right;">' +
+                        '<div id="tvClock" style="font-family:Epilogue,sans-serif;font-size:3vh;font-weight:800;color:#FFD54F;"></div>' +
+                        '<div style="font-size:1.5vh;color:rgba(255,255,255,0.45);">Online bestellen: kiekmolin.de</div>' +
+                    '</div>' +
+                '</div>' +
+                // Speisekarte (Schriftgroesse skaliert mit Bildschirm)
+                '<div style="flex:1;display:flex;align-items:flex-start;font-size:2.3vh;overflow:hidden;">' + colsHtml + '</div>' +
+                // Fusszeile
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2vh;">' +
+                    dots +
+                    '<div style="font-size:1.5vh;color:rgba(255,255,255,0.35);">Kiek mol in</div>' +
+                '</div>' +
+            '</div>';
+        updateClock();
+    }
+
+    function updateClock() {
+        var el = document.getElementById('tvClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    var ok = await loadData();
+    if (!ok) return;
+    renderPage();
+
+    // Uhr jede Minute, Seiten alle 14s umblaettern, Daten alle 5 Min neu
+    setInterval(updateClock, 30000);
+    if (pages.length > 1) {
+        flipTimer = setInterval(function () { pageIdx++; renderPage(); }, 14000);
+    }
+    setInterval(async function () {
+        var reloaded = await loadData();
+        if (reloaded) renderPage();
+    }, 300000);
 }
 
 function cookieConsent(choice) {
