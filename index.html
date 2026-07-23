@@ -14069,6 +14069,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span class="material-symbols-outlined" style="font-size:20px;">restaurant_menu</span>
                 Küche
             </div>
+            <div class="dash-nav-item" id="navTvMode" onclick="openTvModeForRestaurant()" title="Speisekarte für den Fernseher im Laden">
+                <span class="material-symbols-outlined" style="font-size:20px;">tv</span>
+                TV-Karte
+            </div>
             <div class="dash-nav-item" id="navMarketing" onclick="showDashboardSection('marketing')">
                 <span class="material-symbols-outlined" style="font-size:20px;">campaign</span>
                 Marketing
@@ -60123,6 +60127,18 @@ async function showOrderBon(orderNumber) {
 }
 
 // ==================== TV-MODUS: SPEISEKARTE FUER DEN FERNSEHER ====================
+// Hauptmenue-Eintrag "TV-Karte": oeffnet den TV-Modus fuers eigene Restaurant
+// in einem neuen Tab (diese URL traegt man am Fernseher ein).
+function openTvModeForRestaurant() {
+    var restId = (typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : null;
+    var r = (restId && APP_DATA.restaurants) ? APP_DATA.restaurants.find(function (x) { return x.id === restId; }) : null;
+    if (!r && APP_DATA.restaurants && APP_DATA.restaurants.length === 1) r = APP_DATA.restaurants[0];
+    if (!r) { showToast('Bitte zuerst ein Restaurant auswählen (Bestellungen → Auswahlfeld)', 'info'); return; }
+    var slug = r.slug || r.id;
+    window.open('/tv/' + encodeURIComponent(slug), '_blank');
+    showToast('TV-Karte geöffnet – diese Adresse am Fernseher eintragen: kiekmolin.de/tv/' + slug, 'info');
+}
+
 // Aufruf: kiekmolin.de/tv/<slug>  (z.B. /tv/lapiazza)
 // Vollbild-Menueboard im KIN-Design fuers Restaurant-TV: Kategorien + Gerichte
 // + Preise, blaettert bei vielen Kategorien automatisch um und laedt die Daten
