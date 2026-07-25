@@ -51097,15 +51097,22 @@ async function showServerDirectPrintInfo(printerIdx) {
             '<details open style="font-size:13px;color:var(--text-primary);background:var(--bg-secondary);border-radius:10px;padding:12px;">' +
                 '<summary style="cursor:pointer;font-weight:700;color:var(--primary);">Schritt-für-Schritt am Drucker</summary>' +
                 '<ol style="margin:12px 0 0 18px;padding:0;line-height:1.7;">' +
-                    '<li>Drucker einschalten und sicherstellen, dass er im selben Netzwerk wie das Tablet hängt.</li>' +
-                    '<li>Im Browser <strong>http://&lt;Drucker-IP&gt;</strong> öffnen (z.B. <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">http://192.168.1.50</code>). Die IP steht auf dem Selbsttest-Beleg, den der Drucker beim Einschalten ausgibt (Knopf auf der Rückseite drücken).</li>' +
-                    '<li>Menü <strong>„ePOS Server Direct Print"</strong> → aktivieren (manche Modelle heißen das „TM-Intelligent Print" oder ähnlich).</li>' +
+                    '<li>Drucker per <strong>LAN-Kabel</strong> an denselben Router wie das Tablet.</li>' +
+                    '<li><strong>IP-Adresse herausfinden – Selbsttest drucken:</strong><br>' +
+                        'Drucker <strong>ausschalten</strong> → <strong>Papiervorschub-Taste (Feed) gedrückt halten</strong> → währenddessen <strong>einschalten</strong> → Taste loslassen, sobald er zu drucken beginnt.<br>' +
+                        'Auf dem Beleg steht die <strong>IP Address</strong>, z.B. 192.168.1.50.' +
+                    '</li>' +
+                    '<li><em>Steht dort 0.0.0.0 oder gar nichts?</em> Dann hat der Drucker keine Adresse vom Router bekommen. Meist ist er dann unter <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">192.168.192.168</code> erreichbar (Epson-Werkseinstellung). Alternativ im Router nachsehen (Fritzbox: <strong>Heimnetz → Netzwerk</strong>) – dort taucht er als „EPSON…" oder „TM-…" auf.</li>' +
+                    '<li>Im Browser <strong>http://&lt;Drucker-IP&gt;</strong> öffnen, z.B. <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">http://192.168.1.50</code>. Es erscheint die Epson-Konfigurationsseite (Login meist Benutzer <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">epson</code>, Passwort = Seriennummer oder <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">epson</code>).</li>' +
+                    '<li>Menü <strong>„ePOS Server Direct Print"</strong> → aktivieren (je nach Modell auch „Server Direct Print" oder „TM-Intelligent Print").</li>' +
                     '<li><strong>Server-URL</strong>: oben die kopierte URL einfügen.</li>' +
                     '<li><strong>Abfrage-Intervall</strong>: <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">5</code> bis <code style="background:var(--bg-card);padding:1px 4px;border-radius:3px;">15</code> Sekunden — kürzer = schneller, länger = sanfter zum Drucker.</li>' +
                     '<li><strong>Speichern</strong> und Drucker neu starten.</li>' +
-                    '<li>Fertig — Drucker fragt jetzt selbständig alle paar Sekunden bei kiekmolin nach Bons.</li>' +
                 '</ol>' +
-                '<p style="margin:12px 0 0;color:var(--slate);font-size:12px;">⚠ Die URL enthält einen geheimen Schlüssel. Nicht weitergeben.</p>' +
+                '<p style="margin:12px 0 0;padding:8px 10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:12px;color:#075985;">' +
+                    '<strong>So siehst du, ob es geklappt hat:</strong> Oben im Dashboard steht ein Drucker-Punkt. Springt er innerhalb einer Minute von grau („Drucker nie verbunden") auf grün („Drucker online"), holt der Drucker die Bons ab. Bleibt er grau, stimmt die Server-URL am Drucker nicht.' +
+                '</p>' +
+                '<p style="margin:10px 0 0;color:var(--slate);font-size:12px;">⚠ Die URL enthält einen geheimen Schlüssel. Nicht weitergeben.</p>' +
             '</details>' +
             '<div style="margin-top:14px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#15803d;">' +
                 '✓ Funktioniert mit allen Epson TM-Modellen mit „Server Direct Print"-Firmware (TM-m30II, TM-T88VI, TM-T20III, TM-T70II u.a.). Kein PC, kein Tablet, kein App-Hintergrundprozess nötig.' +
