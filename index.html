@@ -12324,15 +12324,28 @@ function hideSplash(){
     }, 400);
 }
 
-// Hide after page loads + minimum display time of 3s
+// Splash so kurz wie moeglich: er verdeckt den kompletten Bildschirm und
+// zaehlt damit voll auf die Google-Ladewertung (LCP) ein. Frueher lag die
+// Mindestanzeige bei 3s + 0,95s Ausblenden, im schlechtesten Fall ~7s --
+// auf Mobilfunk der haeufigste Absprungpunkt.
+// Wiederkehrende Besucher (heute schon da gewesen) sehen ihn gar nicht.
 var splashReady = false, splashLoaded = false;
-setTimeout(function(){ splashReady = true; if(splashLoaded) hideSplash(); }, 3000);
-window.addEventListener('load', function(){
-    splashLoaded = true;
-    if(splashReady) hideSplash();
-});
-// Safety timeout
-setTimeout(function(){ hideSplash(); }, 6000);
+var SPLASH_MIN_MS = 600;
+try {
+    if (sessionStorage.getItem('kmi_splash_seen')) SPLASH_MIN_MS = 0;
+    sessionStorage.setItem('kmi_splash_seen', '1');
+} catch (e) {}
+if (SPLASH_MIN_MS === 0) {
+    hideSplash();
+} else {
+    setTimeout(function(){ splashReady = true; if(splashLoaded) hideSplash(); }, SPLASH_MIN_MS);
+    window.addEventListener('load', function(){
+        splashLoaded = true;
+        if(splashReady) hideSplash();
+    });
+    // Sicherheitsnetz, falls 'load' nie feuert (haengendes Bild/Script)
+    setTimeout(function(){ hideSplash(); }, 2500);
+}
 </script>
 
 <!-- Onboarding Tour -->
@@ -23198,7 +23211,11 @@ async function initSupabase() {
 // Beliebteste Gerichte pro Restaurant laden
 async function loadPopularDishes() {
     try {
-        var url = SUPABASE_URL + '/rest/v1/order_items?select=name,restaurant_id&limit=500&order=created_at.desc';
+        // Spalte heisst item_name (nicht name); restaurant_id haengt an der
+        // Bestellung, nicht an der Position -> per Join holen. Die alte Abfrage
+        // lief mit zwei unbekannten Spalten in einen 400er und wurde still
+        // verschluckt: die Karten zeigten nie beliebte Gerichte.
+        var url = SUPABASE_URL + '/rest/v1/order_items?select=item_name,order_id!inner(restaurant_id)&limit=500&order=created_at.desc';
         var resp = await fetch(url, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -23209,9 +23226,11 @@ async function loadPopularDishes() {
         // Gruppieren: restaurant_id -> { dishName: count }
         var counts = {};
         items.forEach(function(item) {
-            if (!item.restaurant_id || !item.name) return;
-            if (!counts[item.restaurant_id]) counts[item.restaurant_id] = {};
-            counts[item.restaurant_id][item.name] = (counts[item.restaurant_id][item.name] || 0) + 1;
+            var rid = item.order_id && item.order_id.restaurant_id;
+            var dish = item.item_name;
+            if (!rid || !dish) return;
+            if (!counts[rid]) counts[rid] = {};
+            counts[rid][dish] = (counts[rid][dish] || 0) + 1;
         });
 
         // Top 3 pro Restaurant
@@ -23231,7 +23250,9 @@ async function loadPopularDishes() {
 // Saisonale Empfehlungen (Stitch) — beliebteste Gerichte als Scroll-Cards
 async function loadSeasonalRecommendations() {
     try {
-        var url = SUPABASE_URL + '/rest/v1/menu_items?select=id,name,price,image_url,restaurant_id&order=created_at.desc&limit=20';
+        // Preis-Spalte heisst base_price (NICHT price) -- mit 'price' kippte die
+        // Abfrage mit 400 und die ganze Empfehlungs-Sektion blieb dauerhaft leer.
+        var url = SUPABASE_URL + '/rest/v1/menu_items?select=id,name,base_price,image_url,restaurant_id&order=created_at.desc&limit=20';
         var resp = await fetch(url, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -23255,7 +23276,7 @@ async function loadSeasonalRecommendations() {
 
         var html = '';
         withImage.slice(0, 8).forEach(function(item) {
-            var price = (item.price || 0).toFixed(2).replace('.', ',');
+            var price = (Number(item.base_price != null ? item.base_price : item.price) || 0).toFixed(2).replace('.', ',');
             var restName = restMap[item.restaurant_id] || '';
             html += '<div class="spec-card" onclick="openMenuModal(\'' + item.restaurant_id + '\')">' +
                 '<div class="spec-card-img">' +
@@ -23828,16 +23849,19 @@ function closeModal(modalId) {
         modal.classList.remove('active');
         modal.style.display = 'none';
     }
-    // Wenn Menü-Modal geschlossen: Sticky Bar wieder zeigen + URL zurück
+    // Wenn Menü-Modal geschlossen: Sticky Bar wieder zeigen + URL zurück.
+    // replaceState statt pushState -- sonst wuchs der Verlauf bei jedem
+    // Oeffnen/Schliessen um zwei Eintraege und der Zurueck-Knopf des Handys
+    // musste mehrfach getippt werden, bevor sich sichtbar etwas tat.
     if (modalId === 'menuModal') {
         var stickyBar = document.getElementById('lpStickyBar');
         if (stickyBar) stickyBar.style.display = '';
         var landing = document.getElementById('restaurantLanding');
         if (landing && window.currentOrderRestaurant) {
             var slug = window.currentOrderRestaurant.slug || window.currentOrderRestaurant.id;
-            window.history.pushState({ restaurant: slug }, '', '/' + slug);
+            window.history.replaceState({ restaurant: slug }, '', '/' + slug);
         } else {
-            window.history.pushState({}, '', '/');
+            window.history.replaceState({}, '', '/');
         }
     }
 }
@@ -23946,7 +23970,14 @@ function showDashboard() {
 }
 
 // ==================== GUEST APP FUNCTIONS ====================
-function renderRestaurants(filter = 'all') {
+function renderRestaurants(filter) {
+    // Ohne Argument den AKTIVEN Filter behalten. Vorher stand hier der feste
+    // Default 'all' -- jeder der ~20 argumentlosen Aufrufe (Tischstatus nachladen,
+    // Realtime-Update, Favorit antippen) hat damit den vom Gast gewaehlten Filter
+    // still zurueckgesetzt, waehrend der Button weiter aktiv aussah.
+    if (filter === undefined) {
+        filter = (typeof currentRestaurantFilter !== 'undefined' && currentRestaurantFilter) || 'all';
+    }
     const container = document.getElementById('restaurantList');
     if (!container) return;
 
@@ -25196,6 +25227,10 @@ function openReservation(restaurantId) {
         showToast('Online-Reservierungen sind bei ' + restaurant.name + ' nicht verfügbar', 'info');
         return;
     }
+    // Fuer den Kalender merken (resCalRender braucht rest_day + opening_hours,
+    // sonst waren Ruhetage anklickbar und der Gast stand vor verschlossener Tuer).
+    window._resCurrentRestaurantData = restaurant;
+
     const reservationRestaurantId = document.getElementById('reservationRestaurantId');
     const reservationRestaurantName = document.getElementById('reservationRestaurantName');
     const reservationDate = document.getElementById('reservationDate');
@@ -25295,14 +25330,34 @@ function resCalRender() {
         var isSel = ds === _resCalSelectedDate;
         var isToday = ds === todayStr;
 
-        // Prüfe ob Restaurant an diesem Wochentag geschlossen ist
+        // Prueft, ob das Restaurant an diesem Wochentag zu hat.
+        // Die App speichert den Ruhetag in restaurant.rest_day (0=Mo .. 6=So)
+        // und Zeiten flach als opening_hours.mo_start/mo_end -- NICHT als
+        // opening_hours[tag].closed. Der alte Check las beides falsch und
+        // sperrte deshalb nie einen Tag.
         var dayKeys = ['so','mo','di','mi','do','fr','sa'];
         var dayKey = dayKeys[dt.getDay()];
         var isClosed = false;
-        if (window._resCurrentRestaurantData && window._resCurrentRestaurantData.opening_hours) {
-            var oh = typeof window._resCurrentRestaurantData.opening_hours === 'string' ? JSON.parse(window._resCurrentRestaurantData.opening_hours) : window._resCurrentRestaurantData.opening_hours;
-            if (oh && oh[dayKey] && (oh[dayKey].closed === true || oh[dayKey] === 'closed')) {
-                isClosed = true;
+        var _resRest = window._resCurrentRestaurantData;
+        if (_resRest) {
+            // 1) Ruhetag (eigene Spalte)
+            if (_resRest.rest_day !== null && _resRest.rest_day !== undefined) {
+                var restDayMap = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 }; // 0=Mo -> JS 1
+                if (dt.getDay() === restDayMap[_resRest.rest_day]) isClosed = true;
+            }
+            // 2) Tages-Oeffnungszeiten, falls gepflegt
+            if (!isClosed && _resRest.opening_hours) {
+                var oh = _resRest.opening_hours;
+                if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+                if (oh && typeof oh === 'object') {
+                    // Flaches Schema: mo_start/mo_end
+                    if (Object.prototype.hasOwnProperty.call(oh, dayKey + '_start')) {
+                        if (!oh[dayKey + '_start'] || !oh[dayKey + '_end']) isClosed = true;
+                    // Verschachteltes Schema (aeltere Datensaetze): { mo: { closed:true } }
+                    } else if (oh[dayKey] && (oh[dayKey].closed === true || oh[dayKey] === 'closed')) {
+                        isClosed = true;
+                    }
+                }
             }
         }
 
@@ -33415,7 +33470,8 @@ function renderGroupOrderActive(container) {
 
     var totalAll = 0;
     var participantsHtml = activeGroupOrder.participants.map(function(p, pIdx) {
-        var pTotal = p.items.reduce(function(s, i) { return s + (i.price * i.quantity); }, 0);
+        // i.price ist der Positions-Gesamtpreis (syncMyItemsToGroup setzt total_price)
+        var pTotal = p.items.reduce(function(s, i) { return s + (Number(i.price) || 0); }, 0);
         totalAll += pTotal;
         var itemCount = p.items.reduce(function(s, i) { return s + i.quantity; }, 0);
         var isCreator = pIdx === 0;
@@ -36614,6 +36670,19 @@ function checkRestaurantSlugURL() {
 
 // Browser-Zurück-Button: Restaurant-Landing schließen
 window.addEventListener('popstate', function(e) {
+    // Zuerst die Speisekarte: openMenuModal pusht {menu:...}, das wurde hier
+    // frueher nie ausgewertet -- der Zurueck-Knopf (auf Android die
+    // Hauptnavigation) hat die offene Karte deshalb nicht geschlossen.
+    var menuModal = document.getElementById('menuModal');
+    var menuOpen = menuModal && (menuModal.classList.contains('active') || menuModal.style.display === 'block');
+    if (menuOpen && (!e.state || !e.state.menu)) {
+        menuModal.classList.remove('active');
+        menuModal.style.display = 'none';
+        var _sb = document.getElementById('lpStickyBar');
+        if (_sb) _sb.style.display = '';
+        return;
+    }
+
     var landing = document.getElementById('restaurantLanding');
     if (landing) {
         // Wenn zurück gedrückt und Restaurant-Landing offen → schließen
@@ -45702,21 +45771,22 @@ function changeCartItemQty(itemId, delta) {
     if (item.quantity <= 0) {
         orderCart = orderCart.filter(function(i) { return i.id !== itemId; });
     } else {
-        // Preis neu berechnen
-        var basePrice = item.base_price || item.price || 0;
-        var optionsPrice = (item.selected_options || []).reduce(function(sum, o) {
-            if (o.price_type === 'replace') return o.price || 0;
-            if (o.price_type === 'add') return sum + (o.price || 0);
-            return sum;
-        }, basePrice);
-        // Falls replace-Option vorhanden, die als Basis nehmen
-        var hasReplace = (item.selected_options || []).some(function(o) { return o.price_type === 'replace'; });
-        if (hasReplace) {
-            var replacePrice = (item.selected_options || []).find(function(o) { return o.price_type === 'replace'; }).price || 0;
-            var addPrice = (item.selected_options || []).filter(function(o) { return o.price_type === 'add'; }).reduce(function(s, o) { return s + (o.price || 0); }, 0);
-            optionsPrice = replacePrice + addPrice;
+        // Gesamtpreis neu berechnen.
+        // unit_price ist der fertige Einzelpreis INKLUSIVE gewaehlter Extras
+        // (calculateItemPrice rechnet replace/add schon ein) -- Extras hier also
+        // NICHT nochmal draufrechnen. Warenkorb-Objekte haben kein base_price/
+        // price; der fruehere Zugriff darauf ergab 0 und setzte den Artikel bei
+        // jedem Plus/Minus auf 0,00 EUR.
+        var unit = item.unit_price;
+        if (unit == null) {
+            // Fallback fuer alte Warenkoerbe: Einzelpreis aus dem bisherigen
+            // Gesamtpreis ableiten.
+            var prevQty = item.quantity - delta;
+            unit = (prevQty > 0 && item.total_price) ? (item.total_price / prevQty)
+                                                     : (item.base_price || item.price || 0);
+            item.unit_price = unit;
         }
-        item.total_price = optionsPrice * item.quantity;
+        item.total_price = unit * item.quantity;
     }
     renderCartItems();
     updateCartBadges();
@@ -46499,7 +46569,8 @@ async function submitOrder() {
                     '<span style="font-weight:700;font-size:14px;color:#003D33;">' + itemName + '</span>' +
                     (i.options ? '<span style="font-size:10px;color:rgba(0,61,51,0.5);display:block;">' + i.options + '</span>' : '') +
                     '</div>' +
-                    '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003D33;white-space:nowrap;margin-left:12px;">' + (i.price * i.quantity).toFixed(2).replace('.', ',') + ' \u20ac</span></div>';
+                    // i.price ist der Positions-GESAMTpreis (item.total_price, Menge bereits drin)
+                    '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003D33;white-space:nowrap;margin-left:12px;">' + (Number(i.price) || 0).toFixed(2).replace('.', ',') + ' \u20ac</span></div>';
             }).join('');
         }
 
@@ -47044,7 +47115,8 @@ function buildOrderSummaryText(orderNumber) {
         itemsText = receiptItems.textContent.trim();
     } else {
         itemsText = items.map(function(i) { 
-            var price = i.price ? ' · ' + (i.price * i.quantity).toFixed(2).replace('.', ',') + ' €' : '';
+            // i.price = Positions-Gesamtpreis (Menge steckt schon drin)
+            var price = i.price ? ' · ' + (Number(i.price) || 0).toFixed(2).replace('.', ',') + ' €' : '';
             return '  • ' + i.quantity + 'x ' + i.name + price; 
         }).join('\n');
     }
@@ -60024,7 +60096,13 @@ async function showOrderBon(orderNumber) {
             '</div>';
         }).join('');
 
-        var subtotal = items.reduce(function(s, it) { return s + (it.total_price || it.unit_price || 0) * (it.quantity || 1); }, 0);
+        // total_price enthaelt die Menge bereits (submitOrder schreibt item.total_price).
+        // Nur beim Fallback auf unit_price muss mit der Menge multipliziert werden --
+        // sonst passt die Zwischensumme nicht zu den Positionszeilen darueber.
+        var subtotal = items.reduce(function(s, it) {
+            return s + (it.total_price != null ? Number(it.total_price)
+                                               : (Number(it.unit_price) || 0) * (it.quantity || 1));
+        }, 0);
 
         bon.querySelector('div').innerHTML =
             // Header
