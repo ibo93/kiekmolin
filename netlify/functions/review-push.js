@@ -80,7 +80,12 @@ async function pushTo(sub, payload) {
 }
 
 function inQuietHours() {
-  const h = new Date().getHours();
+  // Berliner Zeit, nicht UTC: Die Lambda laeuft mit TZ=UTC, die Ruhezeiten sind
+  // aber als deutsche Uhrzeit gemeint. Im Sommer verschob das alles um 2 Stunden --
+  // Gaeste bekamen "Wie war's bei ...?" noch um 23:14 Uhr aufs Handy.
+  const h = parseInt(new Date().toLocaleTimeString('de-DE', {
+    timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false
+  }), 10);
   if (QUIET_HOURS_START <= QUIET_HOURS_END) return h >= QUIET_HOURS_START && h < QUIET_HOURS_END;
   return h >= QUIET_HOURS_START || h < QUIET_HOURS_END;
 }

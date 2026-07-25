@@ -22008,15 +22008,20 @@ function handleRealtimeReservation(payload) {
     var type = payload.eventType;
     var reservation = payload.new || {};
 
+    // Gastronom sieht/hoert NUR das eigene Restaurant. Der Besitz-Check stand
+    // frueher erst nach Ton, Toast und Push -- bei jeder Reservierung irgendeines
+    // Betriebs auf der Plattform klingelte es, ein fremder Gastname erschien und
+    // die eigene Reservierungsliste wurde durch die fremde ersetzt.
+    var _resGastroId = window._gastroOnlyRestaurantId;
+    var _resIsOwn = !_resGastroId || !reservation.restaurant_id || reservation.restaurant_id === _resGastroId;
+
     if (type === 'INSERT') {
+        if (!_resIsOwn) return;
         if (document.getElementById('dashboardView') && document.getElementById('dashboardView').style.display !== 'none') {
             playReservationSound();
             showToast('Neue Reservierung von ' + (reservation.guest_name || 'Gast'), 'success');
             // Vollbild-Alarm (wie bei Bestellungen), damit auch Kellner es sehen.
-            // Gastronom: nur fuer das eigene Restaurant alarmieren.
-            var _resGastroId = window._gastroOnlyRestaurantId;
-            var _resIsOwn = !_resGastroId || !reservation.restaurant_id || reservation.restaurant_id === _resGastroId;
-            if (_resIsOwn && typeof currentAdmin !== 'undefined' && currentAdmin) {
+            if (typeof currentAdmin !== 'undefined' && currentAdmin) {
                 try { showNewReservationAlarm(reservation); } catch (e) {}
             }
             if (typeof loadLiveNotifications === 'function') {
@@ -22047,8 +22052,10 @@ function handleRealtimeReservation(payload) {
             loadReservationsForRestaurant(resRid);
         }
     } else if (type === 'UPDATE') {
+        // Nur die eigene Liste neu laden -- sonst ersetzt eine fremde Aenderung
+        // die angezeigten Reservierungen.
         var resRid2 = reservation.restaurant_id || window.currentRestaurantId || (APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
-        if (typeof loadReservationsForRestaurant === 'function' && resRid2) {
+        if (_resIsOwn && typeof loadReservationsForRestaurant === 'function' && resRid2) {
             loadReservationsForRestaurant(resRid2);
         }
         // Live-Banner aktualisieren
@@ -26973,7 +26980,9 @@ async function loadReservationsForRestaurant(restaurantId) {
                 var timeStr = (r.reservation_time || '').substring(0,5);
                 var dateStr = new Date(r.reservation_date + 'T00:00:00').toLocaleDateString('de-DE', {weekday:'short', day:'numeric', month:'short'});
                 var isPending = r.status === 'pending';
-                var tblNum = r.table_number || r.table_name || '-';
+                // Tischnummer haengt am Join (tables), reservations selbst hat
+                // keine Spalte table_number -- daher stand hier immer "Tisch -".
+                var tblNum = (r.tables && r.tables.table_number) || r.table_number || r.table_name || '-';
 
                 if (isPending) {
                     // Pending: Stitch Premium Card mit Annehmen/Ablehnen
@@ -29441,7 +29450,9 @@ async function loadDashboardStats() {
         // Heutige Reservierungen
         const today = new Date().toISOString().split('T')[0];
         try {
-            let _resUrl = `${SUPABASE_URL}/rest/v1/reservations?select=id,guests,party_size&reservation_date=eq.${today}`;
+            // 'guests' ist keine Spalte -- damit kippte die Abfrage mit 400 und
+            // die Kacheln "Reservierungen heute"/"Gaeste heute" standen auf 0.
+            let _resUrl = `${SUPABASE_URL}/rest/v1/reservations?select=id,party_size&reservation_date=eq.${today}`;
             if (window._gastroOnlyRestaurantId) _resUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
             const resResponse = await fetch(_resUrl, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
@@ -29641,8 +29652,16 @@ async function renderActiveOffers() {
     }
 
     try {
-        var today = new Date().toISOString().split('T')[0];
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?select=*,restaurants(name)&date=eq.' + today + '&order=created_at.desc', {
+        // Lokales Datum (nicht UTC), sonst zeigt der Bereich nach 22/23 Uhr
+        // deutscher Zeit schon die Angebote von morgen bzw. gar keine.
+        var today = new Date().toLocaleDateString('sv-SE');
+        // Nur eigene Angebote: ohne Filter sah der Gastronom die Tagesangebote
+        // aller Kollegen -- und konnte sie deaktivieren oder loeschen.
+        var _offListUrl = SUPABASE_URL + '/rest/v1/daily_specials?select=*,restaurants(name)&date=eq.' + today + '&order=created_at.desc';
+        var _offRestId = window._gastroOnlyRestaurantId ||
+            ((typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : '');
+        if (_offRestId) _offListUrl += '&restaurant_id=eq.' + _offRestId;
+        var resp = await fetch(_offListUrl, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var specials = await resp.json();
@@ -33602,7 +33621,14 @@ async function exportOrdersCSV() {
             var zeit = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             var status = o.status === 'delivered' ? 'Geliefert' : o.status === 'cancelled' ? 'Storniert' : o.status === 'preparing' ? 'In Zubereitung' : o.status === 'ready' ? 'Bereit' : o.status === 'accepted' ? 'Akzeptiert' : o.status === 'received' ? 'Eingegangen' : o.status;
             var typ = o.order_type === 'delivery' ? 'Lieferung' : 'Abholung';
-            var adresse = (o.delivery_address || '').replace(/;/g, ',').replace(/\n/g, ' ');
+            // delivery_address ist ein Objekt, kein String -- .replace darauf warf
+            // einen TypeError, der Export brach ab, sobald eine Lieferung dabei war.
+            var _adr = o.delivery_address || '';
+            if (_adr && typeof _adr === 'object') {
+                _adr = [[_adr.street, _adr.house_number].filter(Boolean).join(' '),
+                        [_adr.zip, _adr.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+            }
+            var adresse = String(_adr).replace(/;/g, ',').replace(/\n/g, ' ');
             var notes = (o.notes || '').replace(/;/g, ',').replace(/\n/g, ' ');
             csv += o.id.substring(0, 8) + ';' + datum + ';' + zeit + ';' + (o.customer_name || '') + ';' + (o.customer_phone || '') + ';' + (o.total || 0).toFixed(2).replace('.', ',') + ';' + (o.tip || 0).toFixed(2).replace('.', ',') + ';' + status + ';' + typ + ';' + adresse + ';' + notes + '\n';
         });
@@ -33621,7 +33647,10 @@ async function exportReservationsCSV() {
 
     try {
         var rid = (typeof selectedRestaurantId !== 'undefined' ? selectedRestaurantId : null) || window.currentRestaurantId || (APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
-        var query = 'select=id,date,time,customer_name,customer_phone,customer_email,party_size,status,notes,table_id&order=date.desc&limit=500';
+        // Echte Spaltennamen: reservation_date/-time und guest_* -- mit den alten
+        // (date/time/customer_*) kam ein 400 zurueck und JEDER Export endete in
+        // "Export fehlgeschlagen".
+        var query = 'select=id,reservation_date,reservation_time,guest_name,guest_phone,guest_email,party_size,status,notes,table_id&order=reservation_date.desc&limit=500';
         if (rid) query += '&restaurant_id=eq.' + rid;
 
         var res = await supabaseGet('reservations', query);
@@ -33632,10 +33661,11 @@ async function exportReservationsCSV() {
 
         var csv = 'Datum;Uhrzeit;Name;Telefon;Email;Personen;Tisch;Status;Anmerkungen\n';
         res.forEach(function(r) {
-            var datum = r.date ? new Date(r.date).toLocaleDateString('de-DE') : '';
+            var _rd = r.reservation_date || r.date;
+            var datum = _rd ? new Date(_rd).toLocaleDateString('de-DE') : '';
             var status = r.status === 'confirmed' ? 'Bestätigt' : r.status === 'cancelled' ? 'Storniert' : r.status === 'completed' ? 'Abgeschlossen' : 'Ausstehend';
             var notes = (r.notes || '').replace(/;/g, ',').replace(/\n/g, ' ');
-            csv += datum + ';' + (r.time || '') + ';' + (r.customer_name || '') + ';' + (r.customer_phone || '') + ';' + (r.customer_email || '') + ';' + (r.party_size || '') + ';' + (r.table_id || '-') + ';' + status + ';' + notes + '\n';
+            csv += datum + ';' + ((r.reservation_time || '').substring(0, 5)) + ';' + (r.guest_name || '') + ';' + (r.guest_phone || '') + ';' + (r.guest_email || '') + ';' + (r.party_size || '') + ';' + (r.table_id || '-') + ';' + status + ';' + notes + '\n';
         });
 
         downloadCSV(csv, 'Reservierungen-' + new Date().toISOString().split('T')[0] + '.csv');
@@ -33857,7 +33887,12 @@ async function updateNotificationBadgeLive() {
     var badge = document.getElementById('notificationBadge');
     if (!badge) return;
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?status=eq.received&select=id&limit=50', {
+        // Auch die Bestellungen aufs eigene Restaurant filtern -- die Zeile
+        // darunter macht es fuer Reservierungen laengst richtig. Ohne Filter
+        // zeigte die rote Glocke fremde Bestellungen mit.
+        var _badgeOrdUrl = SUPABASE_URL + '/rest/v1/orders?status=eq.received&select=id&limit=50';
+        if (window._gastroOnlyRestaurantId) _badgeOrdUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
+        var resp = await fetch(_badgeOrdUrl, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var newOrders = await resp.json();
@@ -33889,8 +33924,12 @@ async function loadLiveNotifications(container) {
     var items = [];
 
     try {
-        // Letzte 20 Bestellungen laden
-        var ordResp = await fetch(SUPABASE_URL + '/rest/v1/orders?select=id,order_number,customer_name,customer_phone,status,total,order_type,created_at,restaurant_name&order=created_at.desc&limit=20', {
+        // Letzte 20 Bestellungen laden -- nur die des eigenen Restaurants,
+        // sonst standen im Benachrichtigungs-Feed fremde Kundennamen,
+        // Telefonnummern und Betraege.
+        var _feedOrdUrl = SUPABASE_URL + '/rest/v1/orders?select=id,order_number,customer_name,customer_phone,status,total,order_type,created_at,restaurant_name&order=created_at.desc&limit=20';
+        if (window._gastroOnlyRestaurantId) _feedOrdUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
+        var ordResp = await fetch(_feedOrdUrl, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await ordResp.json();
@@ -43126,14 +43165,31 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             if (allergenInp && allergenInp.value) allergens = JSON.parse(allergenInp.value) || [];
         } catch(e) { allergens = []; }
 
+        // Eigenschaften aus dem Formular uebernehmen -- die Haken wurden bisher
+        // gar nicht ausgelesen, verschwanden also beim Speichern und mussten
+        // fuer JEDES Gericht nachtraeglich einzeln nachgetragen werden.
+        function _chk(id) { var el = document.getElementById(id); return !!(el && el.checked); }
+        // Neue Gerichte ans ENDE der Kategorie (sort_order war fest 1 und
+        // schob jedes neue Gericht vor die bestehenden).
+        var _nextSort = 1;
+        try {
+            var _sameCat = (typeof menuItems !== 'undefined' && Array.isArray(menuItems))
+                ? menuItems.filter(function(i) { return i.category_id === categoryId; }) : [];
+            _nextSort = _sameCat.reduce(function(m, i) { return Math.max(m, Number(i.sort_order) || 0); }, 0) + 1;
+        } catch(e) {}
+
         var insertData = {
             restaurant_id: restaurantId,
             category_id: categoryId,
             name: name,
             description: description,
             base_price: price,
-            is_available: true,
-            sort_order: 1,
+            is_available: document.getElementById('menuItemActive') ? _chk('menuItemActive') : true,
+            is_vegetarian: _chk('menuItemVegetarian'),
+            is_vegan: _chk('menuItemVegan'),
+            is_spicy: _chk('menuItemSpicy'),
+            is_popular: _chk('menuItemPopular'),
+            sort_order: _nextSort,
             allergens: allergens
         };
         if (imageUrl) insertData.image_url = imageUrl;
@@ -46422,6 +46478,19 @@ async function submitOrder() {
             _saveOk = true;
             order.id = (_orderRes.data && _orderRes.data[0] && _orderRes.data[0].id) || order.id;
 
+            // Gutschein-Einloesung ERST JETZT zaehlen -- die Bestellung ist
+            // gespeichert. (Frueher zaehlte schon das blosse Eintippen des
+            // Codes im Warenkorb hoch.)
+            try {
+                if (activeCoupon && activeCoupon.id) {
+                    fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(activeCoupon.id), {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ used_count: (activeCoupon.used_count || 0) + 1 })
+                    }).catch(function () {});
+                }
+            } catch (e) {}
+
             // Merker fuer die sanfte In-App-Bewertungsfrage beim naechsten Besuch
             // (fruehestens 3 Std spaeter, einmalig -- siehe maybeShowReviewAsk)
             try {
@@ -47586,7 +47655,11 @@ async function loadDashboardOrders() {
                 restaurant_name: order.restaurant_name || '',
                 table_number: order.table_number || null,
                 pos_log: Array.isArray(order.pos_log) ? order.pos_log : [],
-                printed_at: order.printed_at || null
+                printed_at: order.printed_at || null,
+                // Ohne dieses Feld erschien "Erneut an Kasse" nie und die
+                // Storno-Warnung ("bitte auch in WinOrder stornieren") blieb
+                // aus -- beides pruefte winorder_sent_at, das hier wegfiel.
+                winorder_sent_at: order.winorder_sent_at || null
             }));
             window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: (_gastroForce || ordersRestaurantFilter || 'alle'), time: ordersTimeFilter };
 
@@ -47655,8 +47728,10 @@ function setupOrdersRealtime() {
             };
             ws.send(JSON.stringify(subscribeMsg));
 
-            // Heartbeat
-            setInterval(() => {
+            // Heartbeat -- Handle merken und alten Timer abraeumen, sonst laeuft
+            // nach jedem WLAN-Wackler ein zusaetzlicher Timer weiter (Tablet-Leck).
+            if (window._ordersWsHeartbeat) clearInterval(window._ordersWsHeartbeat);
+            window._ordersWsHeartbeat = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: Date.now().toString() }));
                 }
@@ -47671,10 +47746,12 @@ function setupOrdersRealtime() {
                     const record = msg.payload.data.record;
 
                     if (msg.payload.data.type === 'INSERT') {
-                        // Neue Bestellung!
-                        playOrderSound();
-                        showToast('Neue Bestellung: #' + record.order_number, 'success');
-                        loadDashboardOrders(); // Neu laden
+                        // Nur neu laden -- Ton und Toast macht handleRealtimeOrder,
+                        // und NUR fuers eigene Restaurant. Hier klingelte es frueher
+                        // zusaetzlich (ungefiltert), zusammen mit updateOrderStats
+                        // also bis zu dreimal gleichzeitig -> verzerrter Dauerlaerm
+                        // und Toasts fuer fremde Betriebe.
+                        loadDashboardOrders();
                     } else if (msg.payload.data.type === 'UPDATE') {
                         // Status Update
                         loadDashboardOrders();
@@ -48049,8 +48126,11 @@ function updateOrderStats() {
     // Alle geladenen Orders zaehlen (sind bereits nach Zeitraum gefiltert)
     const filtered = dashboardOrders || [];
 
-    const revenue = filtered.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
-    const avgOrder = filtered.length > 0 ? revenue / filtered.length : 0;
+    // Stornierte Bestellungen zaehlen NICHT zum Umsatz -- sonst weicht die
+    // Kachel von der Feierabend-Mail ab (daily-report filtert sie raus).
+    const paidOrders = filtered.filter(o => o.status !== 'cancelled');
+    const revenue = paidOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+    const avgOrder = paidOrders.length > 0 ? revenue / paidOrders.length : 0;
 
     // Stats (mit null-checks)
     var el;
@@ -48138,7 +48218,13 @@ async function loadPeriodComparison(currentRevenue, currentCount) {
         var prevEnd = new Date(start.getTime());
         var prevStart = new Date(start.getTime() - diff);
 
+        // Vergleichszeitraum aufs eigene Restaurant eingrenzen -- ohne Filter
+        // wurde der eigene Umsatz gegen den ALLER Restaurants verglichen und der
+        // Trendpfeil zeigte dauerhaft steil nach unten.
         var url = SUPABASE_URL + '/rest/v1/orders?select=total&created_at=gte.' + prevStart.toISOString() + '&created_at=lt.' + prevEnd.toISOString() + '&status=neq.cancelled';
+        var _prevRestId = window._gastroOnlyRestaurantId ||
+            (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '') || '';
+        if (_prevRestId) url += '&restaurant_id=eq.' + _prevRestId;
         var resp = await fetch(url, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -48415,8 +48501,10 @@ async function rejectOrder(orderId) {
     var _wasAtKasse = !!(_rejOrder && _rejOrder.winorder_sent_at);
     if (!await kinConfirm('Bestellung wirklich ablehnen?' + (_wasAtKasse ? '\n\n⚠️ Die Bestellung wurde bereits an die Kasse (WinOrder) übertragen. Bitte dort ebenfalls manuell stornieren!' : ''))) return;
 
+    // Erfolg pruefen -- sonst gilt die Bestellung nur im Dashboard als
+    // abgelehnt, beim Gast laeuft sie weiter.
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
+        var _rjRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -48429,8 +48517,15 @@ async function rejectOrder(orderId) {
                 cancelled_at: new Date().toISOString()
             })
         });
+        if (!_rjRes.ok) {
+            console.error('Ablehnen fehlgeschlagen:', _rjRes.status);
+            showToast('Bestellung konnte nicht abgelehnt werden (Fehler ' + _rjRes.status + ')', 'error');
+            return;
+        }
     } catch (e) {
         console.error('Fehler:', e);
+        showToast('Keine Verbindung – Bestellung nicht abgelehnt', 'error');
+        return;
     }
 
     const order = dashboardOrders.find(o => o.id === orderId);
@@ -48462,8 +48557,12 @@ async function updateOrderStatus(orderId, newStatus) {
         updateData[timestampField[newStatus]] = new Date().toISOString();
     }
 
+    // Erfolg PRUEFEN. fetch wirft bei 400/401/403 nicht -- vorher lief der Code
+    // einfach weiter, setzte den Status nur lokal und meldete Erfolg. Nach dem
+    // naechsten Neuladen stand wieder alles auf dem alten Stand, und der Gast
+    // sah im Tracker ewig "angenommen".
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
+        var _stRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -48473,8 +48572,15 @@ async function updateOrderStatus(orderId, newStatus) {
             },
             body: JSON.stringify(updateData)
         });
+        if (!_stRes.ok) {
+            console.error('Status-Update fehlgeschlagen:', _stRes.status);
+            showToast('Status konnte nicht gespeichert werden (Fehler ' + _stRes.status + ')', 'error');
+            return;
+        }
     } catch (e) {
         console.error('Fehler:', e);
+        showToast('Keine Verbindung – Status nicht gespeichert', 'error');
+        return;
     }
 
     const order = dashboardOrders.find(o => o.id === orderId);
@@ -54179,7 +54285,9 @@ function toggleMenuCategory(categoryId) {
 function updateMenuStats() {
     document.getElementById('menuCategoryCount').textContent = menuCategories.length;
     document.getElementById('menuTotalItems').textContent = menuItems.length;
-    document.getElementById('menuActiveItems').textContent = menuItems.filter(i => i.is_active !== false).length;
+    // Spalte heisst is_available (nicht is_active) -- vorher war der Vergleich
+    // immer wahr und die Kachel zeigte stets die Gesamtzahl.
+    document.getElementById('menuActiveItems').textContent = menuItems.filter(i => i.is_available !== false).length;
     document.getElementById('menuPopularItems').textContent = menuItems.filter(i => i.is_popular).length;
     document.getElementById('menuItemCount').textContent = menuItems.length;
 }
@@ -54264,6 +54372,14 @@ function openAddMenuItemModal(categoryId) {
         modal.style.display = 'flex';
         modal.classList.add('active');
         resetPropertyButtons(); // Property Buttons zurücksetzen
+        // Angeklickte Kategorie vorauswaehlen. Der Parameter wurde bisher
+        // ignoriert, das Dropdown stand auf "Kategorie waehlen..." und das
+        // Gericht landete kommentarlos in der ERSTEN Kategorie -- der Klick
+        // unter "Desserts" speicherte also unter "Vorspeisen".
+        try {
+            var _catSel = document.getElementById('menuItemCategory');
+            if (_catSel && categoryId) _catSel.value = categoryId;
+        } catch(e) {}
         try {
             var allergenHost = document.getElementById('newMenuItemAllergenContainer');
             if (allergenHost && typeof buildAllergenChipsHtml === 'function') {
@@ -58113,6 +58229,9 @@ async function applyCoupon() {
             showCouponStatus('Ungueltiger Gutschein-Code', '#ef4444'); return;
         }
         var c = coupons[0];
+        if (c.valid_from && new Date(c.valid_from) > now) {
+            showCouponStatus('Gutschein noch nicht gültig', '#ef4444'); return;
+        }
         if (c.valid_until && new Date(c.valid_until) < now) {
             showCouponStatus('Gutschein abgelaufen', '#ef4444'); return;
         }
@@ -58127,15 +58246,11 @@ async function applyCoupon() {
         if (activeCoupon.min_order && subtotal3 < activeCoupon.min_order) {
             showCouponStatus('Mindestbestellwert: ' + formatPrice(activeCoupon.min_order), '#ef4444'); activeCoupon = null; return;
         }
-        // Nutzung serverseitig hochzaehlen (fire-and-forget; kleiner Race bei
-        // gleichzeitiger Einloesung ist fuer Rabatt-Codes verkraftbar)
-        try {
-            fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(c.id), {
-                method: 'PATCH',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ used_count: (c.used_count || 0) + 1 })
-            }).catch(function () {});
-        } catch (e) {}
+        // Nutzung NICHT hier hochzaehlen -- das passiert erst, wenn die
+        // Bestellung wirklich abgeschickt wurde (siehe _countCouponRedemption
+        // in submitOrder). Vorher reichte blosses Eintippen des Codes, um ein
+        // Kontingent von z.B. 5 Einloesungen in Sekunden zu verbrennen, ohne
+        // dass eine einzige Bestellung entstand.
         showCouponStatus(activeCoupon.code + ' eingeloest! ' + (activeCoupon.type === 'percent' ? activeCoupon.value + '% Rabatt' : formatPrice(activeCoupon.value) + ' Rabatt'), '#16a34a');
         updateCheckoutTotals();
     } catch(e) {
@@ -59207,7 +59322,12 @@ async function openDayCloseReport(selectedRestaurantId) {
     var restaurantId = window._gastroOnlyRestaurantId || selectedRestaurantId || RESTAURANT_ID || (APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
     if (!restaurantId) { showToast('Kein Restaurant ausgewählt', 'error'); return; }
 
-    var today = new Date().toISOString().split('T')[0];
+    // LOKALES Datum, nicht UTC: Wer nach Ladenschluss um 00:30 Uhr den
+    // Tagesabschluss macht, bekam sonst den von gestern; tagsueber fehlten die
+    // Bestellungen von 00:00-02:00 und die von gestern Abend waren drin.
+    var today = new Date().toLocaleDateString('sv-SE');
+    var _dayStart = new Date(); _dayStart.setHours(0, 0, 0, 0);
+    var _dayEnd = new Date(); _dayEnd.setHours(23, 59, 59, 999);
     var restName = '';
     var r = APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; });
     if (r) restName = r.name;
@@ -59217,7 +59337,7 @@ async function openDayCloseReport(selectedRestaurantId) {
     try {
         var client = sb || window.sb;
         if (client) {
-            var { data: o } = await client.from('orders').select('*').eq('restaurant_id', restaurantId).gte('created_at', today + 'T00:00:00').lte('created_at', today + 'T23:59:59');
+            var { data: o } = await client.from('orders').select('*').eq('restaurant_id', restaurantId).gte('created_at', _dayStart.toISOString()).lte('created_at', _dayEnd.toISOString());
             if (o) orders = o;
             var { data: res } = await client.from('reservations').select('*').eq('restaurant_id', restaurantId).eq('reservation_date', today);
             if (res) reservations = res;
@@ -59228,7 +59348,9 @@ async function openDayCloseReport(selectedRestaurantId) {
     var completedOrders = orders.filter(function(o) { return o.status === 'delivered' || o.status === 'ready' || o.status === 'completed'; }).length;
     var cancelledOrders = orders.filter(function(o) { return o.status === 'cancelled'; }).length;
     var revenue = orders.filter(function(o) { return o.status !== 'cancelled'; }).reduce(function(sum, o) { return sum + (parseFloat(o.total) || 0); }, 0);
-    var tips = orders.reduce(function(sum, o) { return sum + (parseFloat(o.tip) || 0); }, 0);
+    // Trinkgeld ebenfalls ohne Stornos -- es wird als Bestandteil desselben
+    // Umsatzes ausgewiesen ("davon Trinkgeld").
+    var tips = orders.filter(function(o) { return o.status !== 'cancelled'; }).reduce(function(sum, o) { return sum + (parseFloat(o.tip) || 0); }, 0);
     var avgOrder = totalOrders > 0 ? revenue / (totalOrders - cancelledOrders || 1) : 0;
     var totalRes = reservations.length;
     var confirmedRes = reservations.filter(function(r) { return r.status === 'confirmed'; }).length;
@@ -59402,15 +59524,19 @@ async function checkAutoRotateDailySpecial() {
     try {
         var client = sb || window.sb;
         if (!client) return;
-        await client.from('daily_specials').insert({
+        // Spalten heissen old_price und date (nicht original_price/valid_date) --
+        // mit den falschen Namen lief jeder Rotationsversuch in einen 400er, die
+        // Funktion war komplett wirkungslos.
+        var _rotRes = await client.from('daily_specials').insert({
             restaurant_id: restaurantId,
             title: template.title,
             description: template.description,
             price: template.price,
-            original_price: template.originalPrice,
-            valid_date: today,
+            old_price: template.originalPrice,
+            date: today,
             is_active: true
         });
+        if (_rotRes && _rotRes.error) throw new Error(_rotRes.error.message);
         localStorage.setItem('kmi_last_rotate_' + restaurantId, today);
     } catch(e) {
         console.error('Auto-Rotation fehlgeschlagen:', e);
@@ -59589,7 +59715,10 @@ function openKitchenDisplay() {
         if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
     updateKitchenTime();
-    setInterval(updateKitchenTime, 1000);
+    // Handle merken, sonst laeuft der Sekundentakt nach dem Schliessen weiter
+    // und summiert sich auf dem Kuechen-Tablet ueber den Tag auf.
+    if (window._kitchenClockInterval) clearInterval(window._kitchenClockInterval);
+    window._kitchenClockInterval = setInterval(updateKitchenTime, 1000);
 }
 
 function closeKitchenDisplay() {
@@ -59597,6 +59726,7 @@ function closeKitchenDisplay() {
     if (el) el.remove();
     clearInterval(window._kitchenInterval);
     clearInterval(window._kdsTimerInterval);
+    clearInterval(window._kitchenClockInterval);
     if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
 }
 
@@ -60425,12 +60555,22 @@ async function showTvMenuBoard(slug) {
 
     // Uhr jede Minute, Seiten alle 14s umblaettern, Daten alle 5 Min neu
     setInterval(updateClock, 30000);
-    if (pages.length > 1) {
-        flipTimer = setInterval(function () { pageIdx++; renderPage(); }, 14000);
+
+    // Blaetter-Timer passend zur aktuellen Seitenzahl setzen. Wichtig: auch nach
+    // jedem Neuladen -- startet das TV mit einer Seite und kommt spaeter eine
+    // Kategorie dazu, wurde sonst nie umgeblaettert und die neuen Gerichte
+    // waren am Fernseher nie zu sehen.
+    function syncFlipTimer() {
+        if (flipTimer) { clearInterval(flipTimer); flipTimer = null; }
+        if (pages.length > 1) {
+            flipTimer = setInterval(function () { pageIdx++; renderPage(); }, 14000);
+        }
     }
+    syncFlipTimer();
+
     setInterval(async function () {
         var reloaded = await loadData();
-        if (reloaded) renderPage();
+        if (reloaded) { renderPage(); syncFlipTimer(); }
     }, 300000);
 }
 

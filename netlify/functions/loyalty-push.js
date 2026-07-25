@@ -71,7 +71,12 @@ async function pushTo(sub, payload) {
 }
 
 function inQuietHours() {
-  const h = new Date().getHours();
+  // Berliner Zeit, nicht UTC (Lambda laeuft mit TZ=UTC). Sonst feuerte der
+  // 4-Stunden-Cron im Sommer ausgerechnet um 22:00 deutscher Zeit -- also in
+  // der Stunde, die eigentlich gesperrt sein sollte.
+  const h = parseInt(new Date().toLocaleTimeString('de-DE', {
+    timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false
+  }), 10);
   if (QUIET_HOURS_START <= QUIET_HOURS_END) {
     return h >= QUIET_HOURS_START && h < QUIET_HOURS_END;
   }
