@@ -65,14 +65,24 @@ exports.handler = async function (event) {
     try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
     catch (e) { return json(200, { ok: false, error: 'Push-Schlüssel ungültig: ' + e.message }); }
 
-    // Auth: gueltiger Supabase-Login noetig (Gastronom/Admin im Dashboard)
+    // Auth: gueltiger Supabase-Login noetig (Gastronom/Admin im Dashboard).
+    // WICHTIG: Der Login allein reicht NICHT -- es muss auch geprueft werden,
+    // ob dem eingeloggten Konto genau dieses Restaurant gehoert. Sonst koennte
+    // jeder Gastronom Werbung an die Gaeste eines fremden Betriebs schicken
+    // (und dessen 3-Tage-Sperre verbrauchen). Gleiches Muster wie pos-orders.js.
     var token = String(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
     if (!token) return json(401, { ok: false, error: 'Bitte einloggen (kein Token).' });
+    var authUser = null, allowedRestaurantIds = [];
     try {
         var uRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
             headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
         });
         if (!uRes.ok) return json(401, { ok: false, error: 'Login abgelaufen – bitte neu einloggen.' });
+        authUser = await uRes.json();
+        if (!authUser || !authUser.email) return json(401, { ok: false, error: 'Login ungültig.' });
+        var _rows = await sbGet('customers?email=eq.' + encodeURIComponent(authUser.email) +
+            '&is_active=eq.true&select=restaurant_id');
+        allowedRestaurantIds = (_rows || []).map(function (r) { return r.restaurant_id; }).filter(Boolean);
     } catch (e) {
         return json(401, { ok: false, error: 'Login-Prüfung fehlgeschlagen.' });
     }
@@ -80,6 +90,9 @@ exports.handler = async function (event) {
     var body;
     try { body = JSON.parse(event.body || '{}'); } catch (e) { return json(400, { ok: false, error: 'Ungültiger Body' }); }
     var restaurantId = String(body.restaurant_id || '').trim();
+    if (restaurantId && allowedRestaurantIds.length && allowedRestaurantIds.indexOf(restaurantId) === -1) {
+        return json(403, { ok: false, error: 'Für dieses Restaurant bist du nicht berechtigt.' });
+    }
     var title = String(body.title || '').trim().slice(0, 60);
     var message = String(body.message || '').trim().slice(0, 180);
     if (!restaurantId) return json(400, { ok: false, error: 'restaurant_id fehlt' });
@@ -158,15 +171,19 @@ exports.handler = async function (event) {
         }
     }
 
-    // Kampagnen-Marker setzen (max. 1 alle X Tage)
-    try {
-        features = features.filter(function (f) { return String(f).indexOf('last_push_campaign:') !== 0; });
-        features.push('last_push_campaign:' + berlinDateStr());
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restaurantId), {
-            method: 'PATCH', headers: sbHeaders({ 'Prefer': 'return=minimal' }),
-            body: JSON.stringify({ features: features })
-        });
-    } catch (e) {}
+    // Kampagnen-Marker nur setzen, wenn wirklich etwas zugestellt wurde.
+    // Sonst sperrt eine Kampagne, bei der nur tote Abos angeschrieben wurden,
+    // den Gastronomen grundlos fuer 3 Tage.
+    if (sent > 0) {
+        try {
+            features = features.filter(function (f) { return String(f).indexOf('last_push_campaign:') !== 0; });
+            features.push('last_push_campaign:' + berlinDateStr());
+            await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restaurantId), {
+                method: 'PATCH', headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+                body: JSON.stringify({ features: features })
+            });
+        } catch (e) {}
+    }
 
     return json(200, { ok: true, sent: sent, failed: failed, recipients: targets.length });
 };

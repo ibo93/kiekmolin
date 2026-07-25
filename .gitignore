@@ -12,10 +12,12 @@ node_modules
 /cafe-*.html
 /restaurant-*.html
 /restaurants-*.html
-/sitemap.xml
 
 # ... but the sample-page (committed) bleibt drin
 !/pizzeria-emden.html
 
-# Generierte KI-Uebersicht (build-seo-pages.js)
-/llms.txt
+# sitemap.xml und llms.txt sind BEWUSST eingecheckt:
+# Netlify baut aus einem frischen Git-Checkout. Ist Supabase beim Build kurz
+# nicht erreichbar, steigt build-seo-pages.js frueh aus -- dann existierte
+# ohne committete Datei gar keine sitemap.xml, waehrend robots.txt weiter
+# darauf verweist (404). Der Build ueberschreibt beide ohnehin bei Erfolg.
