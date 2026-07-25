@@ -1331,16 +1331,18 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
     (faqs.length ? '<script type="application/ld+json">' + jsonEscape(faqLd) + '</script>\n' : '') +
-    // KEINE User-Agent-Weiterleitung mehr.
-    // Frueher wurden echte Besucher per location.replace auf /?r=<slug>
-    // geschickt, waehrend Crawler die statische Seite sahen. Genau dieses
-    // Muster wertet Google als Cloaking / sneaky redirect und kann es mit
-    // einer manuellen Massnahme belegen. Nebenwirkung war ausserdem, dass
-    // die kanonische URL /<slug> von echten Nutzern nie erlebt wurde --
-    // alle Qualitaetssignale (Verweildauer, Interaktion) landeten auf der
-    // nicht-kanonischen ?r=-Adresse.
-    // Die statische Seite ist inhaltlich vollwertig und hat Sticky-CTA plus
-    // "Online bestellen"-Buttons; der Nutzer klickt selbst in die App.
+    // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
+    // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
+    // laesst sich die Weiterleitung zum Anschauen ueberspringen.
+    //
+    // BEWUSSTE ENTSCHEIDUNG DES BETREIBERS (Juli 2026): Gaeste sollen ohne
+    // Zwischenseite in der App-Landingpage landen -- es soll nur EINE
+    // Landingpage geben, nicht zwei verschieden aussehende unter derselben
+    // Adresse. Die Weiterleitung wurde zwischenzeitlich entfernt (Google
+    // wertet "Bot sieht A, Besucher sieht B" als Cloaking) und auf Wunsch
+    // wieder eingebaut. Falls die Google Search Console eine manuelle
+    // Massnahme wegen Cloaking meldet, ist DAS hier die Stelle.
+    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
 
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
