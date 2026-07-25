@@ -344,10 +344,12 @@
     }
     </script>
 
-    <!-- Hreflang für Mehrsprachigkeit -->
+    <!-- Hreflang für Mehrsprachigkeit
+         Hinweis: ?lang=en / ?lang=nl sind KEINE eigenen Seiten - sie
+         canonicalisieren auf "/" (siehe canonical weiter oben). hreflang-Ziele
+         muessen selbstreferenzierend kanonisch sein, sonst ignoriert Google die
+         gesamte Auszeichnung. Darum stehen hier nur echte Adressen. -->
     <link rel="alternate" hreflang="de" href="https://kiekmolin.de/">
-    <link rel="alternate" hreflang="en" href="https://kiekmolin.de/?lang=en">
-    <link rel="alternate" hreflang="nl" href="https://kiekmolin.de/?lang=nl">
     <link rel="alternate" hreflang="x-default" href="https://kiekmolin.de/">
 
     <!-- Performance: DNS-Prefetch + Preconnect -->
@@ -358,8 +360,15 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Material Symbols Outlined — Liquid Glass Icons -->
+    <!-- Textschriften nicht render-blockierend laden: der Browser zeigt sofort
+         die Systemschrift und tauscht nach (display=swap). Spart auf Mobilfunk
+         mehrere hundert Millisekunden bis zum ersten sichtbaren Inhalt --
+         Google bewertet genau das. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null;">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+    <!-- Material Symbols Outlined — Liquid Glass Icons.
+         Bewusst blockierend: laedt die Icon-Schrift verzoegert, zeigt der
+         Browser kurz die Ligatur-Namen als Text ("restaurant_menu"). -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
     <!-- SEO: Speakable fuer Voice Search -->

@@ -41,7 +41,28 @@ const CITIES = [
   { slug: 'leer',          name: 'Leer',          zipPrefix: '267', region: 'Ostfriesland' },
   { slug: 'wittmund',      name: 'Wittmund',      zipPrefix: '264', region: 'Harlingerland' },
   { slug: 'esens',         name: 'Esens',         zipPrefix: '264', region: 'Harlingerland' },
-  { slug: 'jever',         name: 'Jever',         zipPrefix: '264', region: 'Friesland' }
+  { slug: 'jever',         name: 'Jever',         zipPrefix: '264', region: 'Friesland' },
+  // Inseln -- touristisch die kaufkraeftigsten Suchen ("Restaurant Norderney",
+  // "essen bestellen Borkum") und bisher komplett ohne eigene Seite.
+  { slug: 'norderney',     name: 'Norderney',     zipPrefix: '265', region: 'Ostfriesische Inseln' },
+  { slug: 'borkum',        name: 'Borkum',        zipPrefix: '267', region: 'Ostfriesische Inseln' },
+  { slug: 'juist',         name: 'Juist',         zipPrefix: '265', region: 'Ostfriesische Inseln' },
+  { slug: 'langeoog',      name: 'Langeoog',      zipPrefix: '264', region: 'Ostfriesische Inseln' },
+  { slug: 'spiekeroog',    name: 'Spiekeroog',    zipPrefix: '264', region: 'Ostfriesische Inseln' },
+  { slug: 'baltrum',       name: 'Baltrum',       zipPrefix: '265', region: 'Ostfriesische Inseln' },
+  { slug: 'wangerooge',    name: 'Wangerooge',    zipPrefix: '264', region: 'Ostfriesische Inseln' },
+  // Weitere Orte des Einzugsgebiets (stehen laengst in areaServed der Startseite)
+  { slug: 'wiesmoor',      name: 'Wiesmoor',      zipPrefix: '266', region: 'Ostfriesland' },
+  { slug: 'krummhoern',    name: 'Krummhörn',     zipPrefix: '267', region: 'Krummhoern' },
+  { slug: 'pewsum',        name: 'Pewsum',        zipPrefix: '267', region: 'Krummhoern' },
+  { slug: 'marienhafe',    name: 'Marienhafe',    zipPrefix: '265', region: 'Brookmerland' },
+  { slug: 'dornum',        name: 'Dornum',        zipPrefix: '265', region: 'Ostfriesland' },
+  { slug: 'hage',          name: 'Hage',          zipPrefix: '265', region: 'Ostfriesland' },
+  { slug: 'grossefehn',    name: 'Großefehn',     zipPrefix: '266', region: 'Ostfriesland' },
+  { slug: 'suedbrookmerland', name: 'Südbrookmerland', zipPrefix: '266', region: 'Ostfriesland' },
+  { slug: 'ihlow',         name: 'Ihlow',         zipPrefix: '266', region: 'Ostfriesland' },
+  { slug: 'weener',        name: 'Weener',        zipPrefix: '268', region: 'Rheiderland' },
+  { slug: 'papenburg',     name: 'Papenburg',     zipPrefix: '268', region: 'Emsland' }
 ];
 
 const CATEGORIES = [
@@ -52,7 +73,7 @@ const CATEGORIES = [
     labelEn: 'Pizzeria',
     pluralEn: 'Pizzerias',
     keywords: ['pizza', 'pizzeria', 'italienisch'],
-    description: 'frische Pizza und italienische Spezialitaeten',
+    description: 'frische Pizza und italienische Spezialitäten',
     descriptionDe: 'frische Pizza und italienische Spezialitäten',
     descriptionEn: 'fresh pizza and Italian specialties'
   },
@@ -96,7 +117,7 @@ const CATEGORIES = [
     labelEn: 'Café',
     pluralEn: 'Cafés',
     keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
-    description: 'Kaffee, Kuchen und gemuetliche Cafes',
+    description: 'Kaffee, Kuchen und gemütliche Cafes',
     descriptionDe: 'Kaffee, hausgemachter Kuchen und gemütliche Cafés',
     descriptionEn: 'coffee, homemade cake and cozy cafés'
   },
@@ -107,7 +128,7 @@ const CATEGORIES = [
     labelEn: 'Restaurant',
     pluralEn: 'Restaurants',
     keywords: [],   // leer => matcht alle
-    description: 'gemuetliche Restaurants mit deutscher und internationaler Kueche',
+    description: 'gemütliche Restaurants mit deutscher und internationaler Küche',
     descriptionDe: 'gemütliche Restaurants mit deutscher und internationaler Küche',
     descriptionEn: 'cozy restaurants with German and international cuisine'
   }
@@ -205,7 +226,7 @@ async function fetchRestaurants() {
 }
 
 async function fetchMenuItems(restaurantId) {
-  // Bis zu 30 verfuegbare Items, populaere zuerst, dann nach sort_order
+  // Bis zu 30 verfügbare Items, populaere zuerst, dann nach sort_order
   // Fault-tolerant: bei Fehler leeres Array zurueck, Page wird trotzdem gebaut
   if (!restaurantId) return [];
   const url = SUPABASE_URL + '/rest/v1/menu_items'
@@ -281,32 +302,32 @@ function buildIntro(city, cat, count) {
 
   let regionText;
   if (region === 'Krummhoern' || region === 'Krummhörn') {
-    regionText = 'Greetsiel ist eines der maleristen Fischerdoerfer der Krummhörn an der ostfriesischen Nordseekueste. Zwischen Zwillingsmuehlen und Hafen findet sich hier eine ueberraschend dichte Auswahl an Gastronomie.';
+    regionText = 'Greetsiel ist eines der malerischsten Fischerdörfer der Krummhörn an der ostfriesischen Nordseeküste. Zwischen Zwillingsmuehlen und Hafen findet sich hier eine überraschend dichte Auswahl an Gastronomie.';
   } else if (cityName === 'Norddeich') {
     regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiss: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
   } else if (cityName === 'Norden') {
     regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Naehe gibt es hier Gerichte fuer jeden Geschmack.';
   } else if (cityName === 'Aurich') {
-    regionText = 'Aurich, die heimliche Hauptstadt Ostfrieslands, vereint norddeutsche Gemuetlichkeit mit kulinarischer Vielfalt – vom traditionellen Wirtshaus bis zur modernen Kueche.';
+    regionText = 'Aurich, die heimliche Hauptstadt Ostfrieslands, vereint norddeutsche Gemuetlichkeit mit kulinarischer Vielfalt – vom traditionellen Wirtshaus bis zur modernen Küche.';
   } else if (cityName === 'Emden') {
-    regionText = 'Emden, die groesste Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine ueberraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
+    regionText = 'Emden, die groesste Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine überraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
   } else {
     regionText = cityName + ' liegt mitten in ' + region + ' und bietet ostfriesische Gastlichkeit mit echtem Charakter.';
   }
 
   let categoryText;
   if (isPizza) {
-    categoryText = 'Italienische Kueche gehoert in ' + cityName + ' laengst zum Alltag. Von duenner roemischer Pizza ueber neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist groesser als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Kueste.';
+    categoryText = 'Italienische Küche gehoert in ' + cityName + ' laengst zum Alltag. Von duenner roemischer Pizza ueber neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist groesser als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Kueste.';
   } else if (isDoener) {
-    categoryText = 'Doener Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdoener bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spaet abends geoeffnet und liefern auch ins Umland.';
+    categoryText = 'Doener Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdoener bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spaet abends geöffnet und liefern auch ins Umland.';
   } else if (isFish) {
     categoryText = 'Frischer Fisch und Krabben aus der Nordsee – das ist DIE kulinarische Spezialitaet von ' + cityName + '. Viele Fischrestaurants beziehen ihren Fang direkt aus dem Hafen, und die Krabbenbroetchen sind oft in einer Liga, die Tagesgaeste sich gar nicht vorstellen koennen.';
   } else {
-    categoryText = 'Von deftiger ostfriesischer Hausmannskost ueber moderne Bistro-Kueche bis zu internationalen Spezialitaeten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
+    categoryText = 'Von deftiger ostfriesischer Hausmannskost ueber moderne Bistro-Küche bis zu internationalen Spezialitäten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
   }
 
   const countText = count > 0
-    ? 'Aktuell findest du auf ' + BRAND + ' <strong>' + count + ' ' + (count === 1 ? cat.label : plural) + '</strong> in ' + cityName + ', die online verfuegbar sind. Du kannst direkt die Speisekarte ansehen, online bestellen und – wo verfuegbar – einen Tisch reservieren. Alles ohne versteckte Gebuehren.'
+    ? 'Aktuell findest du auf ' + BRAND + ' <strong>' + count + ' ' + (count === 1 ? cat.label : plural) + '</strong> in ' + cityName + ', die online verfügbar sind. Du kannst direkt die Speisekarte ansehen, online bestellen und – wo verfügbar – einen Tisch reservieren. Alles ohne versteckte Gebuehren.'
     : '';
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
@@ -356,12 +377,12 @@ function buildFaqs(city, cat, matched) {
       a: 'Die Preise variieren je nach Anbieter. Auf den Speisekarten der einzelnen ' + plural + ' findest du tagesaktuelle Preise. ' + BRAND + ' nimmt keine Preisaufschlaege – du zahlst genau das, was auch im Restaurant ausgezeichnet ist.'
     },
     {
-      q: 'Welche ' + plural + ' haben heute geoeffnet?',
-      a: 'Die Oeffnungszeiten findest du auf jedem Restaurant-Profil. ' + BRAND + ' zeigt dir live, welche ' + plural + ' in ' + cityName + ' gerade geoeffnet haben und Bestellungen annehmen.'
+      q: 'Welche ' + plural + ' haben heute geöffnet?',
+      a: 'Die Oeffnungszeiten findest du auf jedem Restaurant-Profil. ' + BRAND + ' zeigt dir live, welche ' + plural + ' in ' + cityName + ' gerade geöffnet haben und Bestellungen annehmen.'
     },
     {
       q: 'Kann ich bei ' + plural + ' in ' + cityName + ' reservieren?',
-      a: 'Ja – viele ' + plural + ' in ' + cityName + ' bieten online Tisch-Reservierung an. Klick einfach auf das gewuenschte Restaurant und waehle Datum, Uhrzeit und Personenzahl. Bestaetigung kommt sofort.'
+      a: 'Ja – viele ' + plural + ' in ' + cityName + ' bieten online Tisch-Reservierung an. Klick einfach auf das gewuenschte Restaurant und wähle Datum, Uhrzeit und Personenzahl. Bestätigung kommt sofort.'
     }
   ]);
 }
@@ -683,25 +704,81 @@ function renderBreadcrumb(crumbs) {
     '</div>';
 }
 
+// Slugs, die in diesem Build wirklich als Datei entstehen. Wird in main()
+// VOR dem Generieren gefuellt (buildAvailableSlugs). Solange das Set leer ist,
+// verhaelt sich alles wie frueher.
+const AVAILABLE_SLUGS = new Set();
+let AVAILABLE_SLUGS_READY = false;
+
+function slugExists(slug) {
+  // Solange die Liste nicht ermittelt wurde (z.B. Aufruf ausserhalb von main),
+  // verhalten wir uns wie frueher. Ist sie ermittelt, gilt sie strikt -- auch
+  // wenn sie leer ist (dann gibt es schlicht keine verlinkbaren Seiten).
+  if (!AVAILABLE_SLUGS_READY) return true;
+  return AVAILABLE_SLUGS.has(slug);
+}
+
+// Vorab ermitteln, welche Ort-/Kategorie-Seiten ueberhaupt gebaut werden.
+// Dieselben Filter wie in den Generatoren -- eine Seite entsteht nur, wenn
+// mindestens ein Partner-Restaurant passt.
+function buildAvailableSlugs(restaurants) {
+  AVAILABLE_SLUGS.clear();
+  AVAILABLE_SLUGS_READY = true;
+  CITIES.forEach(function(city) {
+    if (restaurants.some(function(r) { return cityMatches(r, city); })) {
+      AVAILABLE_SLUGS.add('restaurants-' + city.slug);
+    }
+    CATEGORIES.forEach(function(cat) {
+      if (cat.slug === 'restaurant') return; // wird bewusst nie gebaut
+      if (restaurants.some(function(r) { return cityMatches(r, city) && categoryMatches(r, cat); })) {
+        AVAILABLE_SLUGS.add(cat.slug + '-' + city.slug);
+      }
+    });
+  });
+  CATEGORIES.forEach(function(cat) {
+    if (cat.slug === 'restaurant') return;
+    if (restaurants.some(function(r) { return categoryMatches(r, cat); })) {
+      AVAILABLE_SLUGS.add(cat.slug + '-ostfriesland');
+    }
+  });
+  return AVAILABLE_SLUGS;
+}
+
 function renderCrossLinks(currentCity, currentCat) {
   const otherCats = CATEGORIES.filter(function(c) { return c.slug !== currentCat.slug; });
   const otherCities = CITIES.filter(function(c) { return c.slug !== currentCity.slug; });
 
-  let html = '<section class="crosslinks">';
-  html += '<h3>Auch beliebt in ' + escapeHtml(currentCity.name) + '</h3>';
-  html += '<div class="links">';
-  otherCats.forEach(function(c) {
-    html += '<a href="/' + c.slug + '-' + currentCity.slug + '">' + escapeHtml(c.label) + ' in ' + escapeHtml(currentCity.name) + '</a>';
-  });
-  html += '</div>';
+  // NUR auf Seiten verlinken, die es wirklich gibt. Vorher wurde blind ueber
+  // alle Kategorien x Orte iteriert -- von 16 Links existierte teils einer.
+  // Weil der Catch-All in netlify.toml jede unbekannte URL mit Status 200 als
+  // Startseite ausliefert, sah Google dutzende Seiten mit gleichem Inhalt
+  // (Soft-404-Cluster) statt sauberer 404 -- das verbrennt Crawl-Budget und
+  // drueckt die Bewertung der ganzen Domain.
+  const catLinks = otherCats.filter(function(c) { return slugExists(c.slug + '-' + currentCity.slug); });
+  const cityLinks = otherCities.filter(function(c) { return slugExists(currentCat.slug + '-' + c.slug); });
+  const hasRegion = slugExists(currentCat.slug + '-ostfriesland');
 
-  html += '<h3 style="margin-top:18px">' + escapeHtml(currentCat.plural) + ' in der Region</h3>';
-  html += '<div class="links">';
-  otherCities.forEach(function(c) {
-    html += '<a href="/' + currentCat.slug + '-' + c.slug + '">' + escapeHtml(currentCat.label) + ' in ' + escapeHtml(c.name) + '</a>';
-  });
-  html += '<a href="/' + currentCat.slug + '-ostfriesland">Alle ' + escapeHtml(currentCat.plural) + ' in Ostfriesland</a>';
-  html += '</div>';
+  if (!catLinks.length && !cityLinks.length && !hasRegion) return '';
+
+  let html = '<section class="crosslinks">';
+  if (catLinks.length) {
+    html += '<h3>Auch beliebt in ' + escapeHtml(currentCity.name) + '</h3>';
+    html += '<div class="links">';
+    catLinks.forEach(function(c) {
+      html += '<a href="/' + c.slug + '-' + currentCity.slug + '">' + escapeHtml(c.label) + ' in ' + escapeHtml(currentCity.name) + '</a>';
+    });
+    html += '</div>';
+  }
+
+  if (cityLinks.length || hasRegion) {
+    html += '<h3 style="margin-top:18px">' + escapeHtml(currentCat.plural) + ' in der Region</h3>';
+    html += '<div class="links">';
+    cityLinks.forEach(function(c) {
+      html += '<a href="/' + currentCat.slug + '-' + c.slug + '">' + escapeHtml(currentCat.label) + ' in ' + escapeHtml(c.name) + '</a>';
+    });
+    if (hasRegion) html += '<a href="/' + currentCat.slug + '-ostfriesland">Alle ' + escapeHtml(currentCat.plural) + ' in Ostfriesland</a>';
+    html += '</div>';
+  }
   html += '</section>';
   return html;
 }
@@ -748,7 +825,14 @@ function buildPage(opts) {
     '<meta property="og:url" content="' + escapeAttr(opts.canonical) + '">\n' +
     '<meta property="og:locale" content="' + (lang === 'en' ? 'en_GB' : 'de_DE') + '">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
+    // Vorschaubild: Ohne og:image zeigt ein geteilter Link in WhatsApp,
+    // Facebook & Co. gar nichts -- obwohl twitter:card
+    // "summary_large_image" verspricht.
+    '<meta property="og:image" content="' + SITE_URL + '/og-image.png">\n' +
+    '<meta property="og:image:width" content="1200">\n' +
+    '<meta property="og:image:height" content="630">\n' +
     '<meta name="twitter:card" content="summary_large_image">\n' +
+    '<meta name="twitter:image" content="' + SITE_URL + '/og-image.png">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(opts.title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(opts.description) + '">\n' +
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
@@ -784,7 +868,9 @@ function buildRestaurantJsonLd(rest, reviews) {
     'name': safeText(rest.name, 'Restaurant'),
     'url': SITE_URL + '/' + slug
   };
-  if (rest.image) item.image = rest.image;
+  // image ist fuer LocalBusiness-Rich-Results faktisch Pflicht -- ohne Bild
+  // zeigt Google gar kein Rich Result. Daher immer ein Fallback setzen.
+  item.image = rest.image || (SITE_URL + '/og-image.png');
   if (rest.logo) item.logo = rest.logo;
   if (rest.phone) item.telephone = rest.phone;
   if (rest.email) item.email = rest.email;
@@ -856,7 +942,47 @@ function buildRestaurantJsonLd(rest, reviews) {
   if (Array.isArray(rest.cuisine_type)) rest.cuisine_type.forEach(function(c) { if (c) cuisines.push(c); });
   if (cuisines.length) item.servesCuisine = cuisines;
   item.priceRange = rest.price_range || '€€';
+  item.currenciesAccepted = 'EUR';
   item.acceptsReservations = true;
+  if (rest.lat && rest.lng) {
+    item.hasMap = 'https://www.google.com/maps/search/?api=1&query=' +
+      encodeURIComponent(Number(rest.lat) + ',' + Number(rest.lng));
+  } else if (rest.street && rest.city) {
+    item.hasMap = 'https://www.google.com/maps/search/?api=1&query=' +
+      encodeURIComponent([rest.name, rest.street, rest.city].filter(Boolean).join(' '));
+  }
+  // Bestellen/Reservieren als Aktionen auszeichnen -- genau diese loesen in
+  // Google die Buttons "Online bestellen" bzw. "Tisch reservieren" aus. Auf
+  // der Startseite standen sie laengst, auf den Detailseiten fehlten sie.
+  item.potentialAction = [
+    {
+      '@type': 'OrderAction',
+      'target': {
+        '@type': 'EntryPoint',
+        'urlTemplate': SITE_URL + '/?r=' + encodeURIComponent(slug),
+        'inLanguage': 'de-DE',
+        'actionPlatform': [
+          'http://schema.org/DesktopWebPlatform',
+          'http://schema.org/MobileWebPlatform'
+        ]
+      },
+      'deliveryMethod': ['http://purl.org/goodrelations/v1#DeliveryModePickUp',
+                         'http://purl.org/goodrelations/v1#DeliveryModeOwnFleet']
+    },
+    {
+      '@type': 'ReserveAction',
+      'target': {
+        '@type': 'EntryPoint',
+        'urlTemplate': SITE_URL + '/?r=' + encodeURIComponent(slug) + '&action=reserve',
+        'inLanguage': 'de-DE',
+        'actionPlatform': [
+          'http://schema.org/DesktopWebPlatform',
+          'http://schema.org/MobileWebPlatform'
+        ]
+      },
+      'result': { '@type': 'FoodEstablishmentReservation', 'name': 'Tischreservierung' }
+    }
+  ];
   const oeff = parseOeffnungszeiten(rest);
   if (oeff.specs.length) item.openingHours = oeff.specs;
   return item;
@@ -891,7 +1017,7 @@ function parseOeffnungszeiten(rest) {
     }
   }
 
-  // Format b: taegliche Zeiten + optionale Mittagspause
+  // Format b: tägliche Zeiten + optionale Mittagspause
   if (rest.opening_time && rest.closing_time) {
     const auf = hhmm(rest.opening_time);
     const zu = hhmm(rest.closing_time);
@@ -911,7 +1037,7 @@ function parseOeffnungszeiten(rest) {
 }
 
 // FAQ fuer die Restaurant-Seite - beantwortet exakt die Fragen, die Leute
-// (und Sprachassistenten) googeln: "hat X geoeffnet", "kann man bei X
+// (und Sprachassistenten) googeln: "hat X geöffnet", "kann man bei X
 // reservieren", "liefert X". NUR Antworten, die durch echte Daten gedeckt
 // sind - keine erfundenen Angaben.
 function buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems) {
@@ -1188,13 +1314,15 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<meta property="og:title" content="' + escapeAttr(title) + '">\n' +
     '<meta property="og:description" content="' + escapeAttr(description) + '">\n' +
     '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
-    (rest.image ? '<meta property="og:image" content="' + escapeAttr(rest.image) + '">\n' : '') +
+    // Restaurantfoto, sonst das Marken-Bild -- ein Share ohne Bild bekommt
+    // deutlich weniger Klicks.
+    '<meta property="og:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
     '<meta property="og:locale" content="de_DE">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
     '<meta name="twitter:card" content="summary_large_image">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(description) + '">\n' +
-    (rest.image ? '<meta name="twitter:image" content="' + escapeAttr(rest.image) + '">\n' : '') +
+    '<meta name="twitter:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
     '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
     '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
@@ -1203,10 +1331,16 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
     (faqs.length ? '<script type="application/ld+json">' + jsonEscape(faqLd) + '</script>\n' : '') +
-    // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
-    // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
-    // laesst sich der Redirect zum Anschauen ueberspringen.
-    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+    // KEINE User-Agent-Weiterleitung mehr.
+    // Frueher wurden echte Besucher per location.replace auf /?r=<slug>
+    // geschickt, waehrend Crawler die statische Seite sahen. Genau dieses
+    // Muster wertet Google als Cloaking / sneaky redirect und kann es mit
+    // einer manuellen Massnahme belegen. Nebenwirkung war ausserdem, dass
+    // die kanonische URL /<slug> von echten Nutzern nie erlebt wurde --
+    // alle Qualitaetssignale (Verweildauer, Interaktion) landeten auf der
+    // nicht-kanonischen ?r=-Adresse.
+    // Die statische Seite ist inhaltlich vollwertig und hat Sticky-CTA plus
+    // "Online bestellen"-Buttons; der Nutzer klickt selbst in die App.
 
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
@@ -1230,9 +1364,9 @@ function generateRestaurantPage(rest, menuItems, reviews) {
         '<p style="margin:0 0 16px;color:#666;">Die ' + menuItems.length + ' beliebtesten Gerichte – komplette Karte mit allen Optionen in der App.</p>\n' +
         renderMenuListHtml(menuItems) + '\n'
       : '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
-        '<p>Die vollstaendige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfuegbar).</p>\n') +
+        '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfügbar).</p>\n') +
     '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
-    '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestaetigung per E-Mail. Waehle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
+    '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestätigung per E-Mail. Wähle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
     '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
     renderOeffnungszeitenHtml(rest, name) +
     (faqs.length
@@ -1387,7 +1521,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
   // ----- Zusatz-Inhalt fuer bessere Google-Indexierung (kein Thin-Content) -----
   const eName = escapeHtml(name);
   const eCity = escapeHtml(cityRaw);
-  // Kueche aus OSM (falls vorhanden), sonst die Kategorie
+  // Küche aus OSM (falls vorhanden), sonst die Kategorie
   const cuisineRaw = p.cuisine ? (String(p.cuisine).charAt(0).toUpperCase() + String(p.cuisine).slice(1)) : catLabel;
   const eCuisine = escapeHtml(cuisineRaw);
   const hoursLine = p.hours ? escapeHtml(String(p.hours)) : '';
@@ -1490,6 +1624,9 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
     '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
     '<meta property="og:locale" content="de_DE">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
+    '<meta property="og:image" content="' + SITE_URL + '/og-image.png">\n' +
+    '<meta name="twitter:card" content="summary_large_image">\n' +
+    '<meta name="twitter:image" content="' + SITE_URL + '/og-image.png">\n' +
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(prospectLd) + '</script>\n' +
@@ -1686,7 +1823,7 @@ function generateCategoryOverview(cat, restaurants, lang) {
       '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no high commissions. What you order comes from the region, and the money stays here.</p>'
     : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmuehlen – die Region hat eine erstaunlich vielfaeltige Gastro-Szene. ' +
       cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder groesseren Stadt.</p>' +
-      '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfuegbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
+      '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfügbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
       '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
 
   const faqs = isEn ? [
@@ -1915,6 +2052,12 @@ async function main() {
 
   const generated = [];
   let skipped = 0;
+
+  // Ermitteln, welche Ort-/Kategorie-Seiten dieser Build ueberhaupt erzeugt.
+  // MUSS vor der ersten Seite laufen -- auch Prospect-Seiten rendern
+  // Cross-Links und duerfen nur auf real existierende Ziele zeigen.
+  buildAvailableSlugs(restaurants);
+  console.log('[seo] Verlinkbare Verzeichnis-Seiten:', AVAILABLE_SLUGS.size);
 
   // Verzeichnis-/Prospect-Seiten (Nicht-Partner) - unabhaengig von Supabase
   let prospectCount = 0, prospectDraft = 0;
