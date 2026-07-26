@@ -420,6 +420,63 @@
         if (isNaN(dt.getTime())) return '';
         return dt.toLocaleDateString('sv-SE');
     }
+
+    // ==================== E-MAIL: TIPPFEHLER ERKENNEN ====================
+    // Eine vertippte Adresse ist schlimmer als gar keine: Der Gast wartet auf
+    // eine Bestaetigung, die nie ankommt, und ruft dann im Restaurant an.
+    // Liefert einen Korrekturvorschlag oder null.
+    var _MAIL_DOMAINS = ['gmail.com','googlemail.com','web.de','gmx.de','gmx.net','t-online.de',
+        'hotmail.com','hotmail.de','outlook.com','outlook.de','live.de','yahoo.com','yahoo.de',
+        'freenet.de','aol.com','icloud.com','me.com','posteo.de','mailbox.org','ewetel.net','arcor.de'];
+
+    function _editDistance(a, b) {
+        if (Math.abs(a.length - b.length) > 2) return 99;
+        var prev = [], cur = [], i, j;
+        for (j = 0; j <= b.length; j++) prev[j] = j;
+        for (i = 1; i <= a.length; i++) {
+            cur[0] = i;
+            for (j = 1; j <= b.length; j++) {
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                    prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+            }
+            prev = cur.slice();
+        }
+        return prev[b.length];
+    }
+
+    function suggestEmailFix(email) {
+        var s = String(email || '').trim().toLowerCase();
+        var at = s.lastIndexOf('@');
+        if (at < 1) return null;
+        var local = s.slice(0, at), domain = s.slice(at + 1);
+        if (!domain) return null;
+        if (_MAIL_DOMAINS.indexOf(domain) !== -1) return null; // schon korrekt
+
+        // Fall 1 -- der mit Abstand haeufigste: richtiger Anbieter, falsche
+        // Endung (gmail.de statt gmail.com, web.com statt web.de). Der reine
+        // Zeichenabstand faengt das NICHT, weil ".de" -> ".com" schon 3 Schritte
+        // sind. Deshalb den Namensteil vor dem ersten Punkt exakt vergleichen.
+        var typedName = domain.split('.')[0];
+        var sameName = _MAIL_DOMAINS.filter(function (d) { return d.split('.')[0] === typedName; });
+        if (sameName.length) {
+            // Bei mehreren (hotmail.com/.de) die aehnlichste Endung nehmen
+            sameName.sort(function (a, b) { return _editDistance(domain, a) - _editDistance(domain, b); });
+            return local + '@' + sameName[0];
+        }
+
+        // Fall 2: verschriebener Anbietername (gmial.com, hotmal.com)
+        var best = null, bestDist = 99;
+        for (var i = 0; i < _MAIL_DOMAINS.length; i++) {
+            var d = _MAIL_DOMAINS[i];
+            var dist = _editDistance(domain, d);
+            if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        // Nur vorschlagen, wenn es wirklich nah dran ist -- sonst wuerden
+        // Firmen-Adressen (info@la-piazza.de) faelschlich "korrigiert".
+        if (best && bestDist > 0 && bestDist <= 2) return local + '@' + best;
+        return null;
+    }
+    window.suggestEmailFix = suggestEmailFix;
     function todayStrLocal() { return new Date().toLocaleDateString('sv-SE'); }
     window.localDayStr = localDayStr;
     window.todayStrLocal = todayStrLocal;
@@ -21136,7 +21193,7 @@ function setLanguage(lang) {
             'checkoutDeliveryNotes': t.deliveryNote || 'Lieferhinweis (Etage, Klingel...)',
             'checkoutName': t.fullName || 'Vor- und Nachname',
             'checkoutPhone': t.phoneNumber || 'Telefonnummer',
-            'checkoutEmail': t.emailForConfirm || 'E-Mail (für Bestätigung)',
+            'checkoutEmail': t.emailForConfirm || 'E-Mail *',
             'checkoutNotes': t.allergiesNotes || 'Allergien, Sonderwünsche...',
             'checkoutCustomTip': (t.otherAmount || 'Anderer Betrag') + ' (€)'
         };
@@ -42279,7 +42336,8 @@ document.addEventListener('error', function(e) {
                     </div>
                     <div style="position:relative;grid-column:1/-1;">
                         <input type="email" class="checkout-input-glass" id="checkoutEmail" placeholder=" " style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:#003D33;box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
-                        <label class="checkout-floating-label" for="checkoutEmail">E-Mail (optional)</label>
+                        <label class="checkout-floating-label" for="checkoutEmail">E-Mail *</label>
+                        <div style="font-size:11px;color:rgba(0,61,51,0.6);margin:6px 0 0 18px;line-height:1.4;">Für deine Bestellbestätigung und die Live-Verfolgung</div>
                     </div>
                 </div>
                 <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
@@ -46274,6 +46332,32 @@ async function submitOrder() {
     const phoneClean = phone.replace(/[\s\-\/]/g, '');
     if (phoneClean.length < 6) {
         markError('checkoutPhone', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Telefonnummer zu kurz');
+        return;
+    }
+
+    // Validierung: E-Mail (Pflicht)
+    // Ohne Adresse gibt es keine Bestellbestaetigung, keinen Verfolgen-Link und
+    // keine Bewertungs-Nachfrage -- und der Gast ruft im Zweifel im Restaurant an.
+    const emailVal = document.getElementById('checkoutEmail')?.value?.trim() || '';
+    if (!emailVal) {
+        markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Bitte E-Mail eingeben – du bekommst darüber deine Bestätigung');
+        return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
+        markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Diese E-Mail-Adresse sieht nicht richtig aus');
+        return;
+    }
+    // Tippfehler-Schutz: Eine vertippte Adresse ist SCHLIMMER als keine --
+    // der Gast wartet dann auf eine Bestaetigung, die nie ankommt.
+    // Erster Klick: Vorschlag zeigen und korrigierten Wert eintragen.
+    // Zweiter Klick: Eingabe des Gastes gilt (falls die Adresse doch stimmt).
+    var _emailHint = suggestEmailFix(emailVal);
+    if (_emailHint && window._emailTypoShownFor !== emailVal) {
+        window._emailTypoShownFor = emailVal;
+        var _emlInput = document.getElementById('checkoutEmail');
+        if (_emlInput) _emlInput.value = _emailHint;
+        try { localStorage.setItem('kmi_customer_email', _emailHint); } catch (e) {}
+        markError('checkoutEmail', 'Wir haben <b>' + _emailHint + '</b> daraus gemacht. Stimmt das? Dann nochmal auf „Bestellung abschließen" tippen.');
         return;
     }
 
@@ -53094,8 +53178,14 @@ var restaurantWaitTimes = {};
 
 async function loadWaitTimes() {
     try {
-        // Zähle offene Bestellungen pro Restaurant (status: received, accepted, preparing)
-        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id,status&status=in.(received,accepted,preparing)', {
+        // Offene Bestellungen pro Restaurant zaehlen -- ABER nur die der letzten
+        // 4 Stunden. Ohne Zeitgrenze zaehlten auch Bestellungen mit, die vor
+        // Tagen vergessen wurden abzuschliessen: die Wartezeit stieg dadurch
+        // immer weiter ("~80+ Min"), obwohl die Kueche leer war. Gaeste, die so
+        // eine Zahl sehen, bestellen woanders.
+        var _wtSince = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id,status' +
+            '&status=in.(received,accepted,preparing)&created_at=gte.' + _wtSince, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
 
