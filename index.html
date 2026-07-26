@@ -24159,10 +24159,7 @@ function renderRestaurants(filter) {
             ? `${freeT} von ${totalT} ${currentLanguage === 'en' ? 'free' : (currentLanguage === 'nl' ? 'vrij' : 'frei')}`
             : `${freeT} ${freeT === 1 ? (t.table || 'Tisch') : (t.tables || 'Tische')} ${currentLanguage === 'nl' ? 'vrij' : (currentLanguage === 'en' ? 'free' : 'frei')}`;
 
-        // Wartezeit Text
-        const waitText = r.waitTime > 0 
-            ? `~${r.waitTime} ${currentLanguage === 'en' ? 'min' : 'Min'}`
-            : (t.available || 'Sofort verfügbar');
+        // (Geschaetzte Wartezeit entfernt -- die Zeit nennt der Gastronom.)
 
         // Heute Spezial Text
         const specialLabel = currentLanguage === 'en' ? 'Special today' : (currentLanguage === 'nl' ? 'Dagspecial' : 'Heute Spezial');
@@ -24183,12 +24180,6 @@ function renderRestaurants(filter) {
         // Beste Zeit berechnen
         const bestTimeInfo = typeof getBestTime === 'function' ? getBestTime(r.id) : null;
         const bestTimeText = bestTimeInfo ? `Beste Zeit: ${bestTimeInfo.bestHour}:00` : '';
-
-        // Wartezeit berechnen (aus neuem Wartezeit-System)
-        const waitTimeInfo = window.restaurantWaitTimes && window.restaurantWaitTimes[r.id] ? window.restaurantWaitTimes[r.id] : { min: 0, label: '' };
-        const dynamicWaitText = waitTimeInfo.min > 0
-            ? waitTimeInfo.label
-            : (t.available || 'Sofort verfügbar');
 
         // Reserviert das Restaurant ueberhaupt? Nur dann die reservierungs-basierte
         // Verfuegbarkeit ("X Uhrzeiten verfuegbar") anzeigen -- sonst wirkt es, als
@@ -43501,7 +43492,13 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                         </div>
                     </div>
                     <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                        <span id="deliveryTimeDisplay" style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 30 Minuten</span>
+                        <!-- KEINE erfundene Zeitangabe mehr: hier stand fest
+                             "ca. 30 Minuten", ohne dass die Zahl je aus echten
+                             Daten kam. Die verbindliche Zeit nennt das Restaurant
+                             beim Bestaetigen -- der Gast bekommt sie per E-Mail
+                             und Benachrichtigung und kann sie live verfolgen. -->
+                        <span id="deliveryTimeDisplay" style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Das Restaurant bestätigt deine Bestellung gleich und nennt dir die Lieferzeit.</span>
+                        <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du bekommst sie per E-Mail und Benachrichtigung – und kannst den Status hier live verfolgen.</p>
                         <p id="ocDeliveryAddress" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                     </div>
                 </div>
@@ -43519,7 +43516,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     </div>
                 </div>
                 <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                    <span style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 25 Minuten</span>
+                    <span style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Das Restaurant bestätigt deine Bestellung gleich und nennt dir die Abholzeit.</span>
+                    <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du bekommst sie per E-Mail und Benachrichtigung – und kannst den Status hier live verfolgen.</p>
                     <p id="ocPickupAddress" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                 </div>
             </div>
@@ -43536,7 +43534,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     </div>
                 </div>
                 <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                    <span style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 20 Minuten</span>
+                    <span style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Die Küche bestätigt gleich und sagt dir, wann serviert wird.</span>
+                    <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du kannst den Status hier live verfolgen.</p>
                     <p id="ocDineinInfo" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                 </div>
             </div>
@@ -53172,84 +53171,17 @@ async function setAllTables(restaurantId, status) {
     }
 }
 
-// ==================== WARTEZEIT-ANZEIGE ====================
-
-var restaurantWaitTimes = {};
-
-async function loadWaitTimes() {
-    try {
-        // Offene Bestellungen pro Restaurant zaehlen -- ABER nur die der letzten
-        // 4 Stunden. Ohne Zeitgrenze zaehlten auch Bestellungen mit, die vor
-        // Tagen vergessen wurden abzuschliessen: die Wartezeit stieg dadurch
-        // immer weiter ("~80+ Min"), obwohl die Kueche leer war. Gaeste, die so
-        // eine Zahl sehen, bestellen woanders.
-        var _wtSince = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id,status' +
-            '&status=in.(received,accepted,preparing)&created_at=gte.' + _wtSince, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        });
-
-        if (!res.ok) return;
-        var orders = await res.json();
-
-        // Zähle pro Restaurant
-        var counts = {};
-        orders.forEach(function(o) {
-            if (o.restaurant_id) {
-                counts[o.restaurant_id] = (counts[o.restaurant_id] || 0) + 1;
-            }
-        });
-
-        // Berechne Wartezeit: Jede offene Bestellung ~ 5-8 Minuten
-        restaurantWaitTimes = {};
-        Object.keys(counts).forEach(function(rid) {
-            var openOrders = counts[rid];
-            var minWait = openOrders * 5;
-            var maxWait = openOrders * 8;
-            restaurantWaitTimes[rid] = {
-                orders: openOrders,
-                min: minWait,
-                max: maxWait,
-                label: openOrders <= 2 ? '~' + (minWait + 5) + ' Min' :
-                       openOrders <= 5 ? '~' + minWait + '-' + maxWait + ' Min' :
-                       '~' + maxWait + '+ Min',
-                level: openOrders <= 2 ? 'low' : openOrders <= 5 ? 'medium' : 'high'
-            };
-        });
-
-        // UI aktualisieren
-        updateWaitTimeUI();
-    } catch(e) {}
-}
-
-function updateWaitTimeUI() {
-    // Wartezeit basierend auf echten offenen Bestellungen anzeigen
-    document.querySelectorAll('[data-wait-restaurant]').forEach(function(el) {
-        var rid = el.getAttribute('data-wait-restaurant');
-        var wt = restaurantWaitTimes[rid];
-        if (wt && wt.orders > 0) {
-            var colors = { low: '#16a34a', medium: '#d97706', high: '#ef4444' };
-            var bgs = { low: '#dcfce7', medium: '#fef3c7', high: '#fef2f2' };
-            el.innerHTML = '<span class="material-symbols-outlined" style="font-size:12px;">schedule</span> ' + wt.label;
-            el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + colors[wt.level] + ';background:' + bgs[wt.level] + ';padding:3px 8px;border-radius:9999px;';
-        } else {
-            el.innerHTML = '<span class="material-symbols-outlined" style="font-size:12px;">schedule</span> ~15 Min';
-            el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:9999px;';
-        }
-    });
-
-    // Auch in APP_DATA updaten fuer Restaurant-Cards
-    (APP_DATA.restaurants || []).forEach(function(r) {
-        var wt = restaurantWaitTimes[r.id];
-        r.waitTime = wt ? wt.max : 0;
-        r.waitLabel = wt ? wt.label : '~15 Min';
-        r.waitLevel = wt ? wt.level : 'low';
-    });
-}
-
-// Wartezeiten alle 60 Sekunden aktualisieren
-setTimeout(loadWaitTimes, 3000);
-setInterval(loadWaitTimes, 60000);
+// ==================== WARTEZEIT-ANZEIGE (ENTFERNT) ====================
+// Hier stand eine GESCHAETZTE Wartezeit: alle offenen Bestellungen eines
+// Restaurants x 5-8 Minuten. Diese Zahl beruhte auf nichts Belastbarem und
+// stieg immer weiter, wenn eine Bestellung vergessen wurde abzuschliessen.
+// Angezeigt wurde sie am Ende ohnehin nirgends (die Variablen waren tot),
+// die Abfrage lief aber jede Minute gegen Supabase und kostete Traffic.
+//
+// Entscheidung des Betreibers: dem Gast wird VORAB keine Zeit mehr genannt.
+// Die verbindliche Zeit legt der Gastronom beim Bestaetigen fest; der Gast
+// bekommt sie per Benachrichtigung und E-Mail und kann sie live verfolgen.
+// Eine falsche Zahl aergert mehr, als keine Zahl fehlt.
 
 // ==================== TAGESANGEBOTE / HAPPY HOUR ====================
 
