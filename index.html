@@ -407,6 +407,80 @@
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+    // ==================== DATUM: IMMER DEUTSCHE ZEIT ====================
+    // toISOString() liefert UTC. Deutschland liegt im Sommer 2 Stunden davor --
+    // zwischen Mitternacht und 2 Uhr nachts ist das UTC-Datum noch der VORTAG.
+    // Folge im Reservierungssystem: Um 01:15 Uhr stand als frueheste Reservierung
+    // der Vortag; und ein im Kalender gewaehlter Tag (lokale Mitternacht) rutschte
+    // beim Speichern einen Tag zurueck -- die Reservierung landete am falschen Tag.
+    // Diese Helfer liefern den Kalendertag so, wie ihn der Gast sieht.
+    // 'sv-SE' ist der kuerzeste Weg zum Format YYYY-MM-DD.
+    function localDayStr(d) {
+        var dt = (d instanceof Date) ? d : (d ? new Date(d) : new Date());
+        if (isNaN(dt.getTime())) return '';
+        return dt.toLocaleDateString('sv-SE');
+    }
+
+    // ==================== E-MAIL: TIPPFEHLER ERKENNEN ====================
+    // Eine vertippte Adresse ist schlimmer als gar keine: Der Gast wartet auf
+    // eine Bestaetigung, die nie ankommt, und ruft dann im Restaurant an.
+    // Liefert einen Korrekturvorschlag oder null.
+    var _MAIL_DOMAINS = ['gmail.com','googlemail.com','web.de','gmx.de','gmx.net','t-online.de',
+        'hotmail.com','hotmail.de','outlook.com','outlook.de','live.de','yahoo.com','yahoo.de',
+        'freenet.de','aol.com','icloud.com','me.com','posteo.de','mailbox.org','ewetel.net','arcor.de'];
+
+    function _editDistance(a, b) {
+        if (Math.abs(a.length - b.length) > 2) return 99;
+        var prev = [], cur = [], i, j;
+        for (j = 0; j <= b.length; j++) prev[j] = j;
+        for (i = 1; i <= a.length; i++) {
+            cur[0] = i;
+            for (j = 1; j <= b.length; j++) {
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                    prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+            }
+            prev = cur.slice();
+        }
+        return prev[b.length];
+    }
+
+    function suggestEmailFix(email) {
+        var s = String(email || '').trim().toLowerCase();
+        var at = s.lastIndexOf('@');
+        if (at < 1) return null;
+        var local = s.slice(0, at), domain = s.slice(at + 1);
+        if (!domain) return null;
+        if (_MAIL_DOMAINS.indexOf(domain) !== -1) return null; // schon korrekt
+
+        // Fall 1 -- der mit Abstand haeufigste: richtiger Anbieter, falsche
+        // Endung (gmail.de statt gmail.com, web.com statt web.de). Der reine
+        // Zeichenabstand faengt das NICHT, weil ".de" -> ".com" schon 3 Schritte
+        // sind. Deshalb den Namensteil vor dem ersten Punkt exakt vergleichen.
+        var typedName = domain.split('.')[0];
+        var sameName = _MAIL_DOMAINS.filter(function (d) { return d.split('.')[0] === typedName; });
+        if (sameName.length) {
+            // Bei mehreren (hotmail.com/.de) die aehnlichste Endung nehmen
+            sameName.sort(function (a, b) { return _editDistance(domain, a) - _editDistance(domain, b); });
+            return local + '@' + sameName[0];
+        }
+
+        // Fall 2: verschriebener Anbietername (gmial.com, hotmal.com)
+        var best = null, bestDist = 99;
+        for (var i = 0; i < _MAIL_DOMAINS.length; i++) {
+            var d = _MAIL_DOMAINS[i];
+            var dist = _editDistance(domain, d);
+            if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        // Nur vorschlagen, wenn es wirklich nah dran ist -- sonst wuerden
+        // Firmen-Adressen (info@la-piazza.de) faelschlich "korrigiert".
+        if (best && bestDist > 0 && bestDist <= 2) return local + '@' + best;
+        return null;
+    }
+    window.suggestEmailFix = suggestEmailFix;
+    function todayStrLocal() { return new Date().toLocaleDateString('sv-SE'); }
+    window.localDayStr = localDayStr;
+    window.todayStrLocal = todayStrLocal;
+
     // GLOBALE SUPABASE - EINZIGE DEFINITION
     var SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -14844,8 +14918,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // Aktueller Monat
                     var today = new Date();
-                    var todayStr = today.toISOString().split('T')[0];
-                    var selectedStr = window.resSelectedDate.toISOString().split('T')[0];
+                    var todayStr = localDayStr(today);
+                    var selectedStr = localDayStr(window.resSelectedDate);
 
                     for (var day = 1; day <= lastDay.getDate(); day++) {
                         var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
@@ -14912,7 +14986,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var container = document.getElementById('dayReservations');
                     if (!container) return;
 
-                    var dateStr = window.resSelectedDate.toISOString().split('T')[0];
+                    var dateStr = localDayStr(window.resSelectedDate);
                     var slots = generateReservationSlots(window.resCurrentRestaurant);
 
                     // Debug: zeige alle Reservierungen für dieses Datum
@@ -15437,7 +15511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (modal) {
                                 modal.style.display = 'flex';
                                 var dateInput = document.getElementById('resDate');
-                                if (dateInput) dateInput.value = window.resSelectedDate.toISOString().split('T')[0];
+                                if (dateInput) dateInput.value = localDayStr(window.resSelectedDate);
                             }
                         });
                     }
@@ -16123,13 +16197,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 function getTodayStr() {
                     var d = new Date();
-                    return d.toISOString().split('T')[0];
+                    return localDayStr(d);
                 }
 
                 function getTomorrowStr() {
                     var d = new Date();
                     d.setDate(d.getDate() + 1);
-                    return d.toISOString().split('T')[0];
+                    return localDayStr(d);
                 }
 
                 function formatDateDE(date) {
@@ -16156,10 +16230,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     var html = '';
                     var today = new Date();
-                    var todayStr = today.toISOString().split('T')[0];
+                    var todayStr = localDayStr(today);
                     // Nutze globale Variable für Synchronisation
                     var currentFpDate = window.fpSelectedDate || fpSelectedDate || new Date();
-                    var selectedStr = currentFpDate.toISOString().split('T')[0];
+                    var selectedStr = localDayStr(currentFpDate);
 
                     // Leere Tage am Anfang
                     for (var i = 0; i < startDay; i++) {
@@ -16287,7 +16361,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Nutze globale Variable für Synchronisation
                     var currentFpDate = window.fpSelectedDate || window.resSelectedDate || new Date();
                     var currentFpTime = window.fpSelectedTime || '18:00';
-                    var dateStr = currentFpDate.toISOString().split('T')[0];
+                    var dateStr = localDayStr(currentFpDate);
                     var todayStr = getTodayStr();
 
                     // Datum anzeigen
@@ -16451,7 +16525,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var statusEl = document.getElementById('fpDetailStatus');
                     var currentResEl = document.getElementById('fpCurrentReservation');
 
-                    var dateStr = (window.fpSelectedDate || fpSelectedDate).toISOString().split('T')[0];
+                    var dateStr = localDayStr(window.fpSelectedDate || fpSelectedDate);
                     var timeStr = window.fpSelectedTime || fpSelectedTime;
 
                     // Finde Reservierung die diesen Tisch zu dieser Zeit blockiert
@@ -16746,7 +16820,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     var persons = parseInt(document.getElementById('fpQuickPersons').value);
                     var phone = document.getElementById('fpQuickPhone').value.trim();
-                    var dateStr = (window.fpSelectedDate || fpSelectedDate).toISOString().split('T')[0];
+                    var dateStr = localDayStr(window.fpSelectedDate || fpSelectedDate);
                     var timeStr = window.fpSelectedTime || fpSelectedTime;
 
                     // ===== VERFÜGBARKEITSPRÜFUNG =====
@@ -21119,7 +21193,7 @@ function setLanguage(lang) {
             'checkoutDeliveryNotes': t.deliveryNote || 'Lieferhinweis (Etage, Klingel...)',
             'checkoutName': t.fullName || 'Vor- und Nachname',
             'checkoutPhone': t.phoneNumber || 'Telefonnummer',
-            'checkoutEmail': t.emailForConfirm || 'E-Mail (für Bestätigung)',
+            'checkoutEmail': t.emailForConfirm || 'E-Mail *',
             'checkoutNotes': t.allergiesNotes || 'Allergien, Sonderwünsche...',
             'checkoutCustomTip': (t.otherAmount || 'Anderer Betrag') + ' (€)'
         };
@@ -22358,7 +22432,7 @@ function checkReservationReminders() {
             return d;
         }
 
-        var today = new Date().toISOString().split('T')[0];
+        var today = todayStrLocal();
         client.from('reservations').select('*').eq('reservation_date', today).eq('status', 'confirmed').then(function(res) {
             if (!res.data) return;
             var now = Date.now();
@@ -22800,7 +22874,7 @@ async function getTargetStats(targetType, targetId) {
 
 async function getTodayVisitors(targetType, targetId) {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStrLocal();
 
         const response = await fetch(
             `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=count`,
@@ -23738,7 +23812,7 @@ async function saveOfferToSupabase(offer) {
 
 // ==================== DATA STORE ====================
 // Get today's date in YYYY-MM-DD format
-const TODAY = new Date().toISOString().split('T')[0];
+const TODAY = todayStrLocal();
 
 // Daten aus Supabase - alles aus Supabase
 const DEFAULT_RESERVATIONS = [];
@@ -24085,10 +24159,7 @@ function renderRestaurants(filter) {
             ? `${freeT} von ${totalT} ${currentLanguage === 'en' ? 'free' : (currentLanguage === 'nl' ? 'vrij' : 'frei')}`
             : `${freeT} ${freeT === 1 ? (t.table || 'Tisch') : (t.tables || 'Tische')} ${currentLanguage === 'nl' ? 'vrij' : (currentLanguage === 'en' ? 'free' : 'frei')}`;
 
-        // Wartezeit Text
-        const waitText = r.waitTime > 0 
-            ? `~${r.waitTime} ${currentLanguage === 'en' ? 'min' : 'Min'}`
-            : (t.available || 'Sofort verfügbar');
+        // (Geschaetzte Wartezeit entfernt -- die Zeit nennt der Gastronom.)
 
         // Heute Spezial Text
         const specialLabel = currentLanguage === 'en' ? 'Special today' : (currentLanguage === 'nl' ? 'Dagspecial' : 'Heute Spezial');
@@ -24109,12 +24180,6 @@ function renderRestaurants(filter) {
         // Beste Zeit berechnen
         const bestTimeInfo = typeof getBestTime === 'function' ? getBestTime(r.id) : null;
         const bestTimeText = bestTimeInfo ? `Beste Zeit: ${bestTimeInfo.bestHour}:00` : '';
-
-        // Wartezeit berechnen (aus neuem Wartezeit-System)
-        const waitTimeInfo = window.restaurantWaitTimes && window.restaurantWaitTimes[r.id] ? window.restaurantWaitTimes[r.id] : { min: 0, label: '' };
-        const dynamicWaitText = waitTimeInfo.min > 0
-            ? waitTimeInfo.label
-            : (t.available || 'Sofort verfügbar');
 
         // Reserviert das Restaurant ueberhaupt? Nur dann die reservierungs-basierte
         // Verfuegbarkeit ("X Uhrzeiten verfuegbar") anzeigen -- sonst wirkt es, als
@@ -25265,7 +25330,7 @@ function openReservation(restaurantId) {
     }).catch(function() { window._realTableCount = 30; });
 
     // Set default date to today
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStrLocal();
     if (reservationDate) {
         reservationDate.value = today;
         reservationDate.min = today;
@@ -25302,7 +25367,7 @@ function resCalInit() {
     _resCalMonth = today.getMonth();
     _resCalYear = today.getFullYear();
     // Default: heute
-    _resCalSelectedDate = today.toISOString().split('T')[0];
+    _resCalSelectedDate = localDayStr(today);
     document.getElementById('reservationDate').value = _resCalSelectedDate;
     resCalRender();
 }
@@ -25333,7 +25398,7 @@ function resCalRender() {
     var last = new Date(_resCalYear, _resCalMonth + 1, 0);
     var startDay = first.getDay() || 7; // Mo=1
     var today = new Date();
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = localDayStr(today);
 
     var html = '';
     // Empty cells before first day
@@ -25483,7 +25548,7 @@ function generateReservationSlots(restaurantId) {
 
 // Echtzeit Tischverfügbarkeit pro Zeitslot für ein Restaurant
 async function getTableAvailabilityByTime(restaurantId) {
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     var now = new Date();
     var currentHour = now.getHours();
     var currentMin = now.getMinutes();
@@ -25850,7 +25915,7 @@ async function loadAvailableSlots() {
 
         // Vergangene Zeiten für heute ausfiltern
         var now = new Date();
-        var todayStr = now.toISOString().split('T')[0];
+        var todayStr = localDayStr(now);
         var currentHour = now.getHours();
         var currentMin = now.getMinutes();
 
@@ -26921,7 +26986,7 @@ async function loadReservationsForRestaurant(restaurantId) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Lade Reservierungen...</div>';
 
     try {
-        var today = new Date().toISOString().split('T')[0];
+        var today = todayStrLocal();
         var response = await fetch(SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc', {
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27131,7 +27196,7 @@ async function rejectDashReservation(resId, restaurantId) {
                     body: JSON.stringify({
                         p_reservation_id: resId,
                         p_guest_name: cur.guest_name || 'Gast',
-                        p_reservation_date: cur.reservation_date || new Date().toISOString().split('T')[0],
+                        p_reservation_date: cur.reservation_date || todayStrLocal(),
                         p_reservation_time: cur.reservation_time || '19:00',
                         p_party_size: cur.party_size || 2,
                         p_table_id: cur.table_id || null,
@@ -27334,7 +27399,7 @@ async function loadRestaurantsDash() {
 
     // Reservierungen heute zählen
     let todayReservations = 0;
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStrLocal();
     if (APP_DATA.reservations) {
         todayReservations = APP_DATA.reservations.filter(r => r.date === today).length;
     }
@@ -27630,7 +27695,7 @@ function renderRestaurantsDash() {
     }
 
     container.innerHTML = restaurants.map(r => {
-        const todayRes = (APP_DATA.reservations || []).filter(res => res.restaurant_id === r.id && res.date === new Date().toISOString().split('T')[0]).length;
+        const todayRes = (APP_DATA.reservations || []).filter(res => res.restaurant_id === r.id && res.date === todayStrLocal()).length;
 
         // Feature-Status fuer die Uebersicht: an = Feature aktiv (kein no_*-Flag)
         const _feat = r.features || [];
@@ -28049,7 +28114,7 @@ async function loadEventsDash() {
     const statFeatured = document.getElementById('statFeaturedEvents');
     const eventCount = document.getElementById('eventCount');
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStrLocal();
     const upcoming = events.filter(e => e.event_date >= today).length;
     const featured = events.filter(e => e.is_featured).length;
 
@@ -28075,7 +28140,7 @@ function renderEventsDash() {
     events.forEach(e => {
         const eventDate = new Date(e.event_date);
         const dateStr = eventDate.toLocaleDateString('de-DE');
-        const isPast = e.event_date < new Date().toISOString().split('T')[0];
+        const isPast = e.event_date < todayStrLocal();
 
         html += `
             <tr>
@@ -28675,8 +28740,8 @@ function executeCampaign(index) {
 
 function openCreateCouponModal() {
     var defaultCode = 'KIEK-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    var today = new Date().toISOString().split('T')[0];
-    var in30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    var today = todayStrLocal();
+    var in30 = new DatelocalDayStr(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     // Aktuell ausgewaehltes Restaurant aus Marketing-Select
     var selectedRestId = document.getElementById('marketingRestaurantSelect')?.value || '';
@@ -28750,8 +28815,8 @@ function openCreateCouponModal() {
 }
 
 function setCouponDuration(days) {
-    var today = new Date().toISOString().split('T')[0];
-    var end = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    var today = todayStrLocal();
+    var end = new DatelocalDayStr(Date.now() + days * 24 * 60 * 60 * 1000);
     document.getElementById('cpValidFrom').value = today;
     document.getElementById('cpValidUntil').value = end;
 }
@@ -29190,7 +29255,7 @@ async function renderDailyRevenueChart() {
         var now = new Date();
         var sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        var startDate = sevenDaysAgo.toISOString().split('T')[0] + 'T00:00:00';
+        var startDate = localDayStr(sevenDaysAgo) + 'T00:00:00';
         var rid = (typeof selectedRestaurantId !== 'undefined' ? selectedRestaurantId : null) || window.currentRestaurantId || (APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
         var query = 'select=total,status,created_at&created_at=gte.' + startDate + '&status=neq.cancelled&order=created_at.desc';
         if (rid) query += '&restaurant_id=eq.' + rid;
@@ -29203,7 +29268,7 @@ async function renderDailyRevenueChart() {
         for (var d = 0; d < 7; d++) {
             var day = new Date(sevenDaysAgo);
             day.setDate(day.getDate() + d);
-            var dayStr = day.toISOString().split('T')[0];
+            var dayStr = localDayStr(day);
             dailyLabels.push(dayNames[day.getDay()] + ' ' + day.getDate() + '.');
             var dayTotal = 0;
             if (orders) {
@@ -29348,7 +29413,7 @@ function updateDashboard() {
         if (!window._resReminderInterval) {
             window._resReminderInterval = setInterval(function() {
                 var reservations = (APP_DATA.reservations || []);
-                var TODAY = new Date().toISOString().split('T')[0];
+                var TODAY = todayStrLocal();
                 var staleRes = reservations.filter(function(r) {
                     if (r.status !== 'pending' || r.date !== TODAY) return false;
                     var age = Date.now() - new Date(r.created_at).getTime();
@@ -29457,7 +29522,7 @@ async function loadDashboardStats() {
         updateEl('dashRestaurants', restCount);
 
         // Heutige Reservierungen
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStrLocal();
         try {
             // 'guests' ist keine Spalte -- damit kippte die Abfrage mit 400 und
             // die Kacheln "Reservierungen heute"/"Gaeste heute" standen auf 0.
@@ -29480,7 +29545,7 @@ async function loadDashboardStats() {
 
         // Aktive Tagesangebote (aus daily_specials, nicht offers)
         try {
-            var _todayStr = new Date().toISOString().split('T')[0];
+            var _todayStr = todayStrLocal();
             var _offUrl = SUPABASE_URL + '/rest/v1/daily_specials?select=id&date=eq.' + _todayStr + '&is_active=eq.true';
             var _statsRestId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
             if (_statsRestId) _offUrl += '&restaurant_id=eq.' + _statsRestId;
@@ -29587,7 +29652,7 @@ function renderReservationsPreview() {
     if (!container) return;
 
     // Zeige heute + kommende Reservierungen (nicht nur heute)
-    var todayStr = new Date().toISOString().split('T')[0];
+    var todayStr = todayStrLocal();
     var upcoming = APP_DATA.reservations.filter(function(r) {
         return r.date >= todayStr && r.status !== 'cancelled';
     });
@@ -29722,7 +29787,7 @@ async function publishDailyOffer() {
     if (!restId) { showToast('Bitte Restaurant wählen', 'error'); return; }
     if (!title) { showToast('Bitte Titel eingeben', 'error'); return; }
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/daily_specials', {
             method: 'POST',
@@ -31472,7 +31537,7 @@ async function addRestaurant(e) {
                     is_active: true,
                     payment_status: 'pending',
                     monthly_fee: parseInt(plan) || 59,
-                    contract_start: contractStart || new Date().toISOString().split('T')[0]
+                    contract_start: contractStart || todayStrLocal()
                 };
                 await fetch(SUPABASE_URL + '/rest/v1/customers', {
                     method: 'POST',
@@ -32130,9 +32195,9 @@ function openAccommodationInquiry(accommodationId) {
     const dayAfter = new Date(today);
     dayAfter.setDate(dayAfter.getDate() + 3);
 
-    document.getElementById('inquiryCheckIn').value = tomorrow.toISOString().split('T')[0];
-    document.getElementById('inquiryCheckIn').min = today.toISOString().split('T')[0];
-    document.getElementById('inquiryCheckOut').value = dayAfter.toISOString().split('T')[0];
+    document.getElementById('inquiryCheckIn').value = localDayStr(tomorrow);
+    document.getElementById('inquiryCheckIn').min = localDayStr(today);
+    document.getElementById('inquiryCheckOut').value = localDayStr(dayAfter);
 
     // Show booking link if available
     const bookingLinkDiv = document.getElementById('accommodationBookingLink');
@@ -32681,7 +32746,7 @@ function openEditCustomerPricing(customerId) {
     document.getElementById('editCustomerFee').value = c.monthly_fee || 29.90;
     document.getElementById('editCustomerDiscount').value = c.discount_percent || 0;
     document.getElementById('editCustomerFreeMonths').value = c.free_months || 0;
-    document.getElementById('editCustomerStartDate').value = c.start_date || (c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    document.getElementById('editCustomerStartDate').value = c.start_date || (c.created_at ? c.created_at.split('T')[0] : todayStrLocal());
 
     updateEditPricingPreview();
     openModal('editCustomerPricingModal');
@@ -33070,7 +33135,7 @@ async function addCustomer(e) {
     const fee = parseFloat(document.getElementById('customerFee').value) || 29.90;
     const discount = parseFloat(document.getElementById('customerDiscount').value) || 0;
     const freeMonths = parseInt(document.getElementById('customerFreeMonths').value) || 0;
-    const startDate = document.getElementById('customerStartDate').value || new Date().toISOString().split('T')[0];
+    const startDate = document.getElementById('customerStartDate').value || todayStrLocal();
 
 
     try {
@@ -33231,7 +33296,7 @@ async function addCustomer(e) {
             bic: bic,
             sepa_mandate: sepaMandat,
             mandate_reference: mandateRef,
-            mandate_date: sepaMandat ? new Date().toISOString().split('T')[0] : null
+            mandate_date: sepaMandat ? todayStrLocal() : null
         };
 
         let _custBody = Object.assign({}, customerPayload);
@@ -33336,8 +33401,8 @@ async function recordPayment() {
             },
             body: JSON.stringify({
                 payment_status: 'paid',
-                last_payment_date: new Date().toISOString().split('T')[0],
-                next_payment_date: nextMonth.toISOString().split('T')[0]
+                last_payment_date: todayStrLocal(),
+                next_payment_date: localDayStr(nextMonth)
             })
         });
 
@@ -33398,7 +33463,7 @@ function exportSEPACSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SEPA-Lastschrift-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `SEPA-Lastschrift-${todayStrLocal()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -33642,7 +33707,7 @@ async function exportOrdersCSV() {
             csv += o.id.substring(0, 8) + ';' + datum + ';' + zeit + ';' + (o.customer_name || '') + ';' + (o.customer_phone || '') + ';' + (o.total || 0).toFixed(2).replace('.', ',') + ';' + (o.tip || 0).toFixed(2).replace('.', ',') + ';' + status + ';' + typ + ';' + adresse + ';' + notes + '\n';
         });
 
-        downloadCSV(csv, 'Bestellungen-' + new Date().toISOString().split('T')[0] + '.csv');
+        downloadCSV(csv, 'Bestellungen-' + todayStrLocal() + '.csv');
         showToast(orders.length + ' Bestellungen exportiert', 'success');
     } catch (e) {
         console.error('Export Fehler:', e);
@@ -33677,7 +33742,7 @@ async function exportReservationsCSV() {
             csv += datum + ';' + ((r.reservation_time || '').substring(0, 5)) + ';' + (r.guest_name || '') + ';' + (r.guest_phone || '') + ';' + (r.guest_email || '') + ';' + (r.party_size || '') + ';' + (r.table_id || '-') + ';' + status + ';' + notes + '\n';
         });
 
-        downloadCSV(csv, 'Reservierungen-' + new Date().toISOString().split('T')[0] + '.csv');
+        downloadCSV(csv, 'Reservierungen-' + todayStrLocal() + '.csv');
         showToast(res.length + ' Reservierungen exportiert', 'success');
     } catch (e) {
         console.error('Export Fehler:', e);
@@ -35500,7 +35565,7 @@ function renderGastroDashboardHTML(customer, restaurant) {
 async function loadGastroReservations(restaurantId) {
     if (!restaurantId) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStrLocal();
 
     try {
         // Reservierungen laden mit neuen Spaltennamen
@@ -35613,7 +35678,7 @@ async function updateReservationStatus(reservationId, newStatus) {
             body: JSON.stringify({
                 p_reservation_id: reservationId,
                 p_guest_name: cur.guest_name || 'Gast',
-                p_reservation_date: cur.reservation_date || new Date().toISOString().split('T')[0],
+                p_reservation_date: cur.reservation_date || todayStrLocal(),
                 p_reservation_time: cur.reservation_time || '19:00',
                 p_party_size: cur.party_size || 2,
                 p_table_id: cur.table_id || null,
@@ -35892,7 +35957,7 @@ async function saveGastroResEdit() {
 // Tische aus Datenbank laden
 async function loadGastroTables(restaurantId) {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStrLocal();
 
         const { data, error } = await getSupabase().rpc('get_live_table_status', {
             p_restaurant_id: restaurantId,
@@ -36542,7 +36607,7 @@ async function saveGastroOffer() {
                 restaurant_id: restaurantId,
                 title: title,
                 discount: discount,
-                valid_until: new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0]
+                valid_until: new DatelocalDayStr(Date.now() + 24*60*60*1000)
             })
         });
 
@@ -37576,7 +37641,7 @@ async function loadMyReservationsFromSupabase(phone) {
         var html = '<div style="padding:8px;">';
 
         // Aktive Reservierungen (pending/confirmed) zuerst
-        var today = new Date().toISOString().split('T')[0];
+        var today = todayStrLocal();
         var active = reservations.filter(function(r) { return (r.status === 'pending' || r.status === 'confirmed') && r.reservation_date >= today; });
         var past = reservations.filter(function(r) { return r.status === 'cancelled' || r.status === 'finished' || r.status === 'no_show' || r.reservation_date < today; });
 
@@ -37642,7 +37707,7 @@ function buildReservationCard(r) {
 }
 
 // ==================== SPERRUNGEN (BLOCKING) ====================
-var _blockSelectedDate = new Date().toISOString().split('T')[0];
+var _blockSelectedDate = todayStrLocal();
 var _blockSelectedType = 'table'; // table, slot, day
 var _blockCalMonth = new Date().getMonth();
 var _blockCalYear = new Date().getFullYear();
@@ -37689,7 +37754,7 @@ async function loadBlockingStats(restId) {
     var container = document.getElementById('blockingStats');
     if (!container) return;
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
 
     try {
         // Parallel laden: Reservierungen heute, Bestellungen heute, Tische gesamt
@@ -37791,7 +37856,7 @@ function blockCalRender() {
     // Tage
     html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
     for (var i = 0; i < startOffset; i++) html += '<div></div>';
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     for (var d = 1; d <= daysInMonth; d++) {
         var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
         var isSelected = dateStr === _blockSelectedDate;
@@ -37954,7 +38019,7 @@ async function removeBlock(blockId) {
             body: JSON.stringify({
                 p_reservation_id: blockId,
                 p_guest_name: cur.guest_name || 'GESPERRT',
-                p_reservation_date: cur.reservation_date || new Date().toISOString().split('T')[0],
+                p_reservation_date: cur.reservation_date || todayStrLocal(),
                 p_reservation_time: cur.reservation_time || '00:00',
                 p_party_size: cur.party_size || 0,
                 p_table_id: cur.table_id || null,
@@ -39433,7 +39498,7 @@ function updateMapLiveStats() {
 
     const reservationsToday = document.getElementById('mapReservationsToday');
     if (reservationsToday) {
-        const todayRes = APP_DATA.reservations?.filter(r => r.date === new Date().toISOString().split('T')[0]).length || 0;
+        const todayRes = APP_DATA.reservations?.filter(r => r.date === todayStrLocal()).length || 0;
         reservationsToday.textContent = `${todayRes} heute`;
     }
 }
@@ -39792,7 +39857,7 @@ async function handleAsyncTableQuery() {
             freeSlots.slice(0, 8).forEach(function(s) {
                 var color = s.free > 3 ? '#22c55e' : (s.free > 1 ? '#f59e0b' : '#ef4444');
                 var bg = s.free > 3 ? 'rgba(34,197,94,0.08)' : (s.free > 1 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)');
-                response += '<button onclick="closeAssistant(); setTimeout(function(){ openReservation(\'' + r.id + '\'); setTimeout(function(){ var sel=document.getElementById(\'reservationDate\'); if(sel) sel.value=\'' + new Date().toISOString().split('T')[0] + '\'; var tSel=document.getElementById(\'resTime\'); if(tSel){ tSel.value=\'' + s.time + '\'; tSel.dispatchEvent(new Event(\'change\')); } },500); },300);" style="padding:5px 12px;border-radius:9999px;border:1px solid ' + color + '30;background:' + bg + ';font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:' + color + ';cursor:pointer;transition:all 0.2s;">';
+                response += '<button onclick="closeAssistant(); setTimeout(function(){ openReservation(\'' + r.id + '\'); setTimeout(function(){ var sel=document.getElementById(\'reservationDate\'); if(sel) sel.value=\'' + todayStrLocal() + '\'; var tSel=document.getElementById(\'resTime\'); if(tSel){ tSel.value=\'' + s.time + '\'; tSel.dispatchEvent(new Event(\'change\')); } },500); },300);" style="padding:5px 12px;border-radius:9999px;border:1px solid ' + color + '30;background:' + bg + ';font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:' + color + ';cursor:pointer;transition:all 0.2s;">';
                 response += s.time + ' <span style="font-size:10px;opacity:0.7;">(' + s.free + ')</span>';
                 response += '</button>';
             });
@@ -42262,7 +42327,8 @@ document.addEventListener('error', function(e) {
                     </div>
                     <div style="position:relative;grid-column:1/-1;">
                         <input type="email" class="checkout-input-glass" id="checkoutEmail" placeholder=" " style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:#003D33;box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
-                        <label class="checkout-floating-label" for="checkoutEmail">E-Mail (optional)</label>
+                        <label class="checkout-floating-label" for="checkoutEmail">E-Mail *</label>
+                        <div style="font-size:11px;color:rgba(0,61,51,0.6);margin:6px 0 0 18px;line-height:1.4;">Für deine Bestellbestätigung und die Live-Verfolgung</div>
                     </div>
                 </div>
                 <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
@@ -43426,7 +43492,13 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                         </div>
                     </div>
                     <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                        <span id="deliveryTimeDisplay" style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 30 Minuten</span>
+                        <!-- KEINE erfundene Zeitangabe mehr: hier stand fest
+                             "ca. 30 Minuten", ohne dass die Zahl je aus echten
+                             Daten kam. Die verbindliche Zeit nennt das Restaurant
+                             beim Bestaetigen -- der Gast bekommt sie per E-Mail
+                             und Benachrichtigung und kann sie live verfolgen. -->
+                        <span id="deliveryTimeDisplay" style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Das Restaurant bestätigt deine Bestellung gleich und nennt dir die Lieferzeit.</span>
+                        <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du bekommst sie per E-Mail und Benachrichtigung – und kannst den Status hier live verfolgen.</p>
                         <p id="ocDeliveryAddress" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                     </div>
                 </div>
@@ -43444,7 +43516,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     </div>
                 </div>
                 <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                    <span style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 25 Minuten</span>
+                    <span style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Das Restaurant bestätigt deine Bestellung gleich und nennt dir die Abholzeit.</span>
+                    <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du bekommst sie per E-Mail und Benachrichtigung – und kannst den Status hier live verfolgen.</p>
                     <p id="ocPickupAddress" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                 </div>
             </div>
@@ -43461,7 +43534,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     </div>
                 </div>
                 <div style="background:rgba(0,61,51,0.05);border-radius:16px;padding:16px;text-align:center;">
-                    <span style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:30px;color:#003D33;">ca. 20 Minuten</span>
+                    <span style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Die Küche bestätigt gleich und sagt dir, wann serviert wird.</span>
+                    <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du kannst den Status hier live verfolgen.</p>
                     <p id="ocDineinInfo" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                 </div>
             </div>
@@ -46257,6 +46331,32 @@ async function submitOrder() {
     const phoneClean = phone.replace(/[\s\-\/]/g, '');
     if (phoneClean.length < 6) {
         markError('checkoutPhone', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Telefonnummer zu kurz');
+        return;
+    }
+
+    // Validierung: E-Mail (Pflicht)
+    // Ohne Adresse gibt es keine Bestellbestaetigung, keinen Verfolgen-Link und
+    // keine Bewertungs-Nachfrage -- und der Gast ruft im Zweifel im Restaurant an.
+    const emailVal = document.getElementById('checkoutEmail')?.value?.trim() || '';
+    if (!emailVal) {
+        markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Bitte E-Mail eingeben – du bekommst darüber deine Bestätigung');
+        return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
+        markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Diese E-Mail-Adresse sieht nicht richtig aus');
+        return;
+    }
+    // Tippfehler-Schutz: Eine vertippte Adresse ist SCHLIMMER als keine --
+    // der Gast wartet dann auf eine Bestaetigung, die nie ankommt.
+    // Erster Klick: Vorschlag zeigen und korrigierten Wert eintragen.
+    // Zweiter Klick: Eingabe des Gastes gilt (falls die Adresse doch stimmt).
+    var _emailHint = suggestEmailFix(emailVal);
+    if (_emailHint && window._emailTypoShownFor !== emailVal) {
+        window._emailTypoShownFor = emailVal;
+        var _emlInput = document.getElementById('checkoutEmail');
+        if (_emlInput) _emlInput.value = _emailHint;
+        try { localStorage.setItem('kmi_customer_email', _emailHint); } catch (e) {}
+        markError('checkoutEmail', 'Wir haben <b>' + _emailHint + '</b> daraus gemacht. Stimmt das? Dann nochmal auf „Bestellung abschließen" tippen.');
         return;
     }
 
@@ -53071,78 +53171,17 @@ async function setAllTables(restaurantId, status) {
     }
 }
 
-// ==================== WARTEZEIT-ANZEIGE ====================
-
-var restaurantWaitTimes = {};
-
-async function loadWaitTimes() {
-    try {
-        // Zähle offene Bestellungen pro Restaurant (status: received, accepted, preparing)
-        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id,status&status=in.(received,accepted,preparing)', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        });
-
-        if (!res.ok) return;
-        var orders = await res.json();
-
-        // Zähle pro Restaurant
-        var counts = {};
-        orders.forEach(function(o) {
-            if (o.restaurant_id) {
-                counts[o.restaurant_id] = (counts[o.restaurant_id] || 0) + 1;
-            }
-        });
-
-        // Berechne Wartezeit: Jede offene Bestellung ~ 5-8 Minuten
-        restaurantWaitTimes = {};
-        Object.keys(counts).forEach(function(rid) {
-            var openOrders = counts[rid];
-            var minWait = openOrders * 5;
-            var maxWait = openOrders * 8;
-            restaurantWaitTimes[rid] = {
-                orders: openOrders,
-                min: minWait,
-                max: maxWait,
-                label: openOrders <= 2 ? '~' + (minWait + 5) + ' Min' :
-                       openOrders <= 5 ? '~' + minWait + '-' + maxWait + ' Min' :
-                       '~' + maxWait + '+ Min',
-                level: openOrders <= 2 ? 'low' : openOrders <= 5 ? 'medium' : 'high'
-            };
-        });
-
-        // UI aktualisieren
-        updateWaitTimeUI();
-    } catch(e) {}
-}
-
-function updateWaitTimeUI() {
-    // Wartezeit basierend auf echten offenen Bestellungen anzeigen
-    document.querySelectorAll('[data-wait-restaurant]').forEach(function(el) {
-        var rid = el.getAttribute('data-wait-restaurant');
-        var wt = restaurantWaitTimes[rid];
-        if (wt && wt.orders > 0) {
-            var colors = { low: '#16a34a', medium: '#d97706', high: '#ef4444' };
-            var bgs = { low: '#dcfce7', medium: '#fef3c7', high: '#fef2f2' };
-            el.innerHTML = '<span class="material-symbols-outlined" style="font-size:12px;">schedule</span> ' + wt.label;
-            el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + colors[wt.level] + ';background:' + bgs[wt.level] + ';padding:3px 8px;border-radius:9999px;';
-        } else {
-            el.innerHTML = '<span class="material-symbols-outlined" style="font-size:12px;">schedule</span> ~15 Min';
-            el.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:9999px;';
-        }
-    });
-
-    // Auch in APP_DATA updaten fuer Restaurant-Cards
-    (APP_DATA.restaurants || []).forEach(function(r) {
-        var wt = restaurantWaitTimes[r.id];
-        r.waitTime = wt ? wt.max : 0;
-        r.waitLabel = wt ? wt.label : '~15 Min';
-        r.waitLevel = wt ? wt.level : 'low';
-    });
-}
-
-// Wartezeiten alle 60 Sekunden aktualisieren
-setTimeout(loadWaitTimes, 3000);
-setInterval(loadWaitTimes, 60000);
+// ==================== WARTEZEIT-ANZEIGE (ENTFERNT) ====================
+// Hier stand eine GESCHAETZTE Wartezeit: alle offenen Bestellungen eines
+// Restaurants x 5-8 Minuten. Diese Zahl beruhte auf nichts Belastbarem und
+// stieg immer weiter, wenn eine Bestellung vergessen wurde abzuschliessen.
+// Angezeigt wurde sie am Ende ohnehin nirgends (die Variablen waren tot),
+// die Abfrage lief aber jede Minute gegen Supabase und kostete Traffic.
+//
+// Entscheidung des Betreibers: dem Gast wird VORAB keine Zeit mehr genannt.
+// Die verbindliche Zeit legt der Gastronom beim Bestaetigen fest; der Gast
+// bekommt sie per Benachrichtigung und E-Mail und kann sie live verfolgen.
+// Eine falsche Zahl aergert mehr, als keine Zahl fehlt.
 
 // ==================== TAGESANGEBOTE / HAPPY HOUR ====================
 
@@ -53152,7 +53191,7 @@ async function loadDailySpecials() {
     if (!container) return;
 
     try {
-        var today = new Date().toISOString().split('T')[0];
+        var today = todayStrLocal();
         var res = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?select=*,restaurants(name,slug,image_url)&date=eq.' + today + '&is_active=eq.true&order=created_at.desc', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -53229,7 +53268,7 @@ async function loadDailySpecials() {
 
 // Dashboard: Tagesangebot erstellen
 function openDailySpecialForm(restaurantId) {
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     
     // Restaurant-Dropdown bauen
     var restOptions = '';
@@ -53283,7 +53322,7 @@ async function saveDailySpecial(restaurantId) {
     var title = document.getElementById('specialTitle').value.trim();
     if (!title) { showToast('Bitte Titel eingeben', 'error'); return; }
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     var isHappyHour = document.getElementById('specialIsHappyHour')?.checked;
     var titlePrefix = isHappyHour ? 'Happy Hour: ' : '';
     var specialFrom = document.getElementById('specialFrom')?.value || null;
@@ -54919,13 +54958,13 @@ try {
 }
 
 function getTodayString() {
-    return new Date().toISOString().split('T')[0];
+    return todayStrLocal();
 }
 
 function getTomorrowString() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    return localDayStr(tomorrow);
 }
 
 // Tab Navigation
@@ -54976,8 +55015,8 @@ function renderCalendar() {
 
     // Tage des aktuellen Monats
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const selectedStr = selectedCalendarDate.toISOString().split('T')[0];
+    const todayStr = localDayStr(today);
+    const selectedStr = localDayStr(selectedCalendarDate);
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -55020,7 +55059,7 @@ function selectCalendarDate(dateStr) {
 
 function renderDayReservations() {
     const container = document.getElementById('dayReservations');
-    const dateStr = selectedCalendarDate.toISOString().split('T')[0];
+    const dateStr = localDayStr(selectedCalendarDate);
 
     // Zeitslots aus Restaurant-Config
     const slots = (typeof generateReservationSlots === 'function') ? generateReservationSlots(window.resCurrentRestaurant) : ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'];
@@ -55455,9 +55494,9 @@ function filterReservationList() {
 
 // Neue Reservierung
 function openNewReservationModal() {
-    document.getElementById('resDate').value = selectedCalendarDate.toISOString().split('T')[0];
+    document.getElementById('resDate').value = localDayStr(selectedCalendarDate);
     document.getElementById('newReservationForm').reset();
-    document.getElementById('resDate').value = selectedCalendarDate.toISOString().split('T')[0];
+    document.getElementById('resDate').value = localDayStr(selectedCalendarDate);
     openModal('newReservationModal');
 }
 
@@ -57417,7 +57456,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Datum setzen
                     var dateInput = document.getElementById('resDate');
                     if (dateInput && typeof selectedCalendarDate !== 'undefined') {
-                        dateInput.value = selectedCalendarDate.toISOString().split('T')[0];
+                        dateInput.value = localDayStr(selectedCalendarDate);
                     }
                 }
             });
@@ -58562,7 +58601,7 @@ setTimeout(function() {
 // FEATURE: SOCIAL PROOF - "X Bestellungen heute"
 // ============================================================
 function loadTodayOrderCounts() {
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id&created_at=gte.' + today + 'T00:00:00', {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     }).then(function(resp) { return resp.json(); })
@@ -58948,8 +58987,8 @@ async function checkActiveOrderBanner() {
     // 2. Aktive Reservierungen prüfen (heute + morgen, pending/confirmed)
     if (!found) {
         try {
-            var today = new Date().toISOString().split('T')[0];
-            var tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+            var today = todayStrLocal();
+            var tomorrow = new DatelocalDayStr(Date.now() + 86400000);
             var resp2 = await fetch(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
@@ -59145,7 +59184,7 @@ function showDailySpecialInMenu(restaurantId) {
     var old = document.getElementById('menuDailySpecial');
     if (old) old.remove();
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurantId + '&date=eq.' + today + '&is_active=eq.true&limit=3', {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     }).then(function(r) { return r.json(); }).then(function(specials) {
@@ -59528,7 +59567,7 @@ async function checkAutoRotateDailySpecial() {
     var templates = getDailySpecialTemplates();
     if (templates.length === 0) return;
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = todayStrLocal();
     var lastRotate = localStorage.getItem('kmi_last_rotate_' + restaurantId);
     if (lastRotate === today) return; // Schon rotiert heute
 
