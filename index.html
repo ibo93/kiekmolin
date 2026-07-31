@@ -21501,78 +21501,12 @@ function filterRestaurants(filter) {
 // ==================== SUPABASE CONFIG ====================
 // SUPABASE_URL und SUPABASE_KEY sind global oben im <head> definiert
 
-// Sicherer API Wrapper - nutzt Netlify Function wenn verfügbar
-const USE_SECURE_API = window.location.hostname !== 'localhost' && window.location.protocol !== 'file:';
-
-async function secureApiCall(action, table, options = {}) {
-    const { data, filters, id } = options;
-
-    // Auf localhost direkt zu Supabase (für Entwicklung)
-    if (!USE_SECURE_API) {
-        return directSupabaseCall(action, table, options);
-    }
-
-    // Über Netlify Function (Produktion)
-    try {
-        const response = await fetch('/.netlify/functions/api', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, table, data, filters, id })
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Secure API Error:', error);
-        // Fallback zu direktem Call
-        return directSupabaseCall(action, table, options);
-    }
-}
-
-async function directSupabaseCall(action, table, options = {}) {
-    const { data, filters, id } = options;
-    let url = `${SUPABASE_URL}/rest/v1/${table}`;
-    let method = 'GET';
-    let body = null;
-
-    switch (action) {
-        case 'select':
-            if (filters) url += `?${filters}`;
-            method = 'GET';
-            break;
-        case 'insert':
-            method = 'POST';
-            body = JSON.stringify(data);
-            break;
-        case 'update':
-            if (id) url += `?id=eq.${id}`;
-            else if (filters) url += `?${filters}`;
-            method = 'PATCH';
-            body = JSON.stringify(data);
-            break;
-        case 'delete':
-            if (id) url += `?id=eq.${id}`;
-            else if (filters) url += `?${filters}`;
-            method = 'DELETE';
-            break;
-    }
-
-    const response = await fetch(url, {
-        method,
-        headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': action === 'insert' ? 'return=representation' : undefined
-        },
-        body
-    });
-
-    return await response.json().catch(() => ({}));
-}
+// Frueher stand hier ein "sicherer API-Wrapper", der ueber
+// /.netlify/functions/api gehen sollte. Diese Function existiert nicht und
+// hat nie existiert; aufgerufen wurde der Wrapper von keiner einzigen Stelle.
+// Google hat die Adresse aber beim Durchsuchen des JavaScripts gefunden und
+// meldet sie seit Monaten als 404 in der Search Console. Toter Code raus.
+// Alle Abfragen laufen direkt ueber SUPABASE_URL (siehe unten).
 
 let useSupabase = true; // Immer Supabase verwenden
 let currentAdmin = null;
