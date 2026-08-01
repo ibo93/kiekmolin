@@ -37678,8 +37678,51 @@ function buildReservationCard(r) {
     html += '<span style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">schedule</span>' + timeStr + '</span>';
     html += '<span style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">group</span>' + (r.party_size || '?') + '</span>';
     html += '</div>';
+
+    // Absagen -- nur bei kommenden, noch nicht stornierten Reservierungen.
+    // Bisher konnte der Gast hier nur zuschauen: absagen ging ausschliesslich
+    // ueber den Link in der Erinnerungs-Mail, und die kommt erst am Tag der
+    // Reservierung zwischen 9 und 11 Uhr. Wer frueher absagen wollte, musste
+    // anrufen -- und wer am selben Tag kurzfristig bucht, bekam nie einen Link.
+    if ((r.status === 'pending' || r.status === 'confirmed') && r.id) {
+        html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-color);text-align:right;">' +
+            '<button onclick="guestCancelReservation(\'' + String(r.id).replace(/'/g, '') + '\', this)" ' +
+            'style="background:transparent;border:1.5px solid rgba(239,68,68,0.4);color:#dc2626;border-radius:9999px;' +
+            'padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;">Absagen</button>' +
+        '</div>';
+    }
+
     html += '</div>';
     return html;
+}
+
+// Gast sagt seine Reservierung in der App ab.
+// Laeuft bewusst ueber dieselbe Function wie der Link in der E-Mail: nur so
+// bekommt das Restaurant die Push-Benachrichtigung ("Tisch ist wieder frei").
+async function guestCancelReservation(resId, btn) {
+    if (!resId) return;
+    if (typeof kinConfirm === 'function') {
+        if (!await kinConfirm('Reservierung wirklich absagen?\n\nDas Restaurant wird sofort informiert und kann den Tisch weitergeben.')) return;
+    } else if (!confirm('Reservierung wirklich absagen?')) {
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Wird abgesagt…'; }
+    try {
+        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        showToast('Reservierung abgesagt – danke für die Info!', 'success');
+        // Liste neu laden, damit die Karte als "Storniert" erscheint
+        var phone = '';
+        try { phone = localStorage.getItem('kmi_customer_phone') || ''; } catch (e) {}
+        if (phone && typeof loadMyReservationsFromSupabase === 'function') {
+            loadMyReservationsFromSupabase(phone);
+        }
+    } catch (e) {
+        console.error('Absage fehlgeschlagen:', e);
+        showToast('Absage hat nicht geklappt – bitte kurz im Restaurant anrufen', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Absagen'; }
+    }
 }
 
 // ==================== SPERRUNGEN (BLOCKING) ====================
