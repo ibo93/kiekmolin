@@ -9,11 +9,72 @@
 
 'use strict';
 
+var webpush = require('web-push');
+
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+var VAPID_PUBLIC = process.env.VAPID_PUBLIC || '';
+var VAPID_PRIVATE = process.env.VAPID_PRIVATE || '';
+var VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:info@kiekmolin.de';
 
 function sbHeaders(extra) {
     return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }, extra || {});
+}
+
+// Das Restaurant SOFORT informieren, wenn ein Gast selbst absagt.
+// Vorher passierte hier nichts: Der Gast las "das Team kann den Tisch jetzt
+// weitergeben", im Restaurant erfuhr davon aber niemand aktiv. Wer nicht
+// zufaellig ins Dashboard schaute, hielt den Tisch weiter frei -- am vollen
+// Samstagabend bares Geld.
+// Fehler hier duerfen die Absage NICHT scheitern lassen: der Gast hat seinen
+// Teil getan, die Stornierung steht bereits in der Datenbank.
+async function notifyRestaurant(r, restName) {
+    if (!VAPID_PUBLIC || !VAPID_PRIVATE || !r.restaurant_id) return;
+    try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
+    catch (e) { return; }
+
+    var subs = [];
+    try {
+        var sr = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?restaurant_id=eq.' +
+            encodeURIComponent(r.restaurant_id) + '&select=id,endpoint,p256dh_key,auth_key', { headers: sbHeaders() });
+        if (sr.ok) subs = await sr.json();
+    } catch (e) { return; }
+    if (!Array.isArray(subs) || !subs.length) return;
+
+    var datum = '';
+    try {
+        var d = new Date(String(r.reservation_date) + 'T12:00:00');
+        datum = isNaN(d.getTime()) ? String(r.reservation_date || '')
+                                   : d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    } catch (e) { datum = String(r.reservation_date || ''); }
+
+    var zeit = String(r.reservation_time || '').slice(0, 5);
+    var payload = JSON.stringify({
+        title: 'Reservierung abgesagt',
+        body: (r.guest_name || 'Ein Gast') + ' hat abgesagt – ' + datum + (zeit ? ' um ' + zeit + ' Uhr' : '') +
+              '. Der Tisch ist wieder frei.',
+        icon: '/kiek-logo.png',
+        badge: '/kiek-logo.png',
+        tag: 'res-cancelled-' + r.id,
+        requireInteraction: true,
+        data: { type: 'reservation_cancelled', reservationId: r.id, url: '/?dashboard=reservations' }
+    });
+
+    for (var i = 0; i < subs.length; i++) {
+        var s = subs[i];
+        try {
+            await webpush.sendNotification(
+                { endpoint: s.endpoint, keys: { p256dh: s.p256dh_key, auth: s.auth_key } }, payload);
+        } catch (err) {
+            // Tote Abos aufraeumen, damit die Liste nicht zuwaechst
+            if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+                try {
+                    await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?id=eq.' + encodeURIComponent(s.id),
+                        { method: 'DELETE', headers: sbHeaders({ 'Prefer': 'return=minimal' }) });
+                } catch (e2) {}
+            }
+        }
+    }
 }
 
 function page(title, text, ok) {
@@ -69,6 +130,10 @@ exports.handler = async function (event) {
             var rr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name', { headers: sbHeaders() });
             if (rr.ok) { var rl = await rr.json(); if (rl[0] && rl[0].name) restName = rl[0].name; }
         } catch (e) {}
+
+        // Restaurant benachrichtigen -- Fehler hier duerfen die Absage nicht kippen
+        try { await notifyRestaurant(r, restName); }
+        catch (e) { console.error('[res-cancel] Benachrichtigung fehlgeschlagen:', e.message); }
 
         return page('Reservierung abgesagt',
             'Danke für die Info' + (r.guest_name ? ', ' + String(r.guest_name).replace(/[<>&]/g, '') : '') + '! ' +

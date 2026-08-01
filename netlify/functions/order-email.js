@@ -155,11 +155,34 @@ function buildReservationEmail(r, rest, eventType) {
         ((rest && (rest.street || rest.city)) ? row('Adresse', esc(((rest.street || '') + ', ' + (rest.city || '')).replace(/^, |, $/g, ''))) : '') +
     '</table>';
 
+    // Absage-Link SOFORT mitgeben -- nicht erst in der Erinnerungs-Mail.
+    // Die kommt naemlich erst am Tag der Reservierung zwischen 9 und 11 Uhr:
+    // Wer Montag fuer Samstag bucht und Mittwoch absagen will, haette keinen
+    // Weg gehabt; wer um 18:00 fuer 19:30 desselben Tages bucht, bekommt gar
+    // keine Erinnerung mehr. Je frueher der Gast absagen kann, desto eher
+    // kriegt das Restaurant den Tisch noch weitervergeben.
+    var cancelBlock = '';
+    if (r.id && eventType !== 'cancelled') {
+        var cancelUrl = 'https://kiekmolin.de/.netlify/functions/res-cancel?id=' + encodeURIComponent(r.id);
+        cancelBlock =
+            '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:20px 0;">' +
+                '<p style="margin:0 0 10px;font-size:14px;color:#374151;">' +
+                    '<strong>Doch etwas dazwischengekommen?</strong><br>' +
+                    'Sag uns bitte kurz Bescheid – dann kann ' + esc(restName) + ' den Tisch noch weitergeben.' +
+                '</p>' +
+                '<a href="' + cancelUrl + '" style="display:inline-block;background:#ffffff;border:1.5px solid #b91c1c;color:#b91c1c;text-decoration:none;padding:10px 20px;border-radius:9999px;font-weight:600;font-size:14px;">Reservierung absagen</a>' +
+                ((rest && rest.phone)
+                    ? '<p style="margin:10px 0 0;font-size:12px;color:#6b7280;">Oder telefonisch: <a href="tel:' + esc(rest.phone) + '" style="color:#003d33;">' + esc(rest.phone) + '</a></p>'
+                    : '') +
+            '</div>';
+    }
+
     var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
         '<h1 style="font-size:20px;margin:0 0 16px;color:' + color + ';">' + head + '</h1>' +
         '<p style="margin:0 0 4px;">Moin' + (r.guest_name ? ' ' + esc(r.guest_name) : '') + ',</p>' +
         '<p style="margin:0 0 8px;">' + intro + '</p>' +
         details +
+        cancelBlock +
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
         '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
         (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '') + '</p>' +
