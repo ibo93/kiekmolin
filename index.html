@@ -21317,6 +21317,46 @@ function getVacationInfo(restaurant) {
     return null;
 }
 
+// Minuten bis Ladenschluss -- oder null, wenn nicht bestimmbar.
+// Grundlage fuer den Bestellschluss: Eine Bestellung, die 2 Minuten vor
+// Feierabend reinkommt, aergert beide Seiten (Kueche ist aus, Gast wartet).
+function minutesUntilClose(restaurant) {
+    if (!restaurant) return null;
+    var now = new Date();
+    var day = now.getDay();
+    var cur = now.getHours() * 60 + now.getMinutes();
+
+    function diffTo(closeStr) {
+        if (!closeStr) return null;
+        var close = parseTime(closeStr);
+        if (close == null || isNaN(close)) return null;
+        var d = close - cur;
+        if (d < -720) d += 1440;   // Schliessung nach Mitternacht
+        return d;
+    }
+
+    var hours = restaurant.opening_hours;
+    if (hours && typeof hours === 'object') {
+        var dayKey = ['so','mo','di','mi','do','fr','sa'][day];
+        // Die spaeteste heutige Schicht zaehlt
+        var cands = [diffTo(hours[dayKey + '_end2']), diffTo(hours[dayKey + '_end'])]
+            .filter(function (v) { return v != null && v >= -60; });
+        if (cands.length) return Math.max.apply(null, cands);
+    }
+    return diffTo(restaurant.closing_time);
+}
+
+// Wie viele Minuten vor Schliessung keine Bestellung mehr angenommen wird.
+// Ueber das features-Array pro Restaurant anpassbar: "order_stop:20"
+function getOrderStopMinutes(restaurant) {
+    var feats = (restaurant && restaurant.features) || [];
+    for (var i = 0; i < feats.length; i++) {
+        var m = /^order_stop:(\d+)$/.exec(String(feats[i]));
+        if (m) return parseInt(m[1], 10);
+    }
+    return 15; // Standard
+}
+
 function checkIfOpen(restaurant) {
     // Betriebsferien: Restaurant ist zu, egal was die Oeffnungszeiten sagen
     var _vac = getVacationInfo(restaurant);
@@ -29741,11 +29781,12 @@ async function publishDailyOffer() {
 
 async function toggleDailyOffer(id, isActive) {
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
+        var _offRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_active: isActive })
         });
+        if (!_offRes.ok) { showToast('Konnte nicht gespeichert werden (Fehler ' + _offRes.status + ')', 'error'); return; }
         showToast(isActive ? 'Angebot aktiviert <span class="ki"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;color:#16a34a;">check</span></span>' : 'Angebot deaktiviert', 'success');
         renderActiveOffers();
     } catch(e) { showToast('Fehler', 'error'); }
@@ -29754,10 +29795,11 @@ async function toggleDailyOffer(id, isActive) {
 async function deleteDailyOffer(id) {
     if (!await kinConfirm('Tagesangebot wirklich löschen?')) return;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
+        var _delRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
+        if (!_delRes.ok) { showToast('Angebot konnte nicht gelöscht werden (Fehler ' + _delRes.status + ')', 'error'); return; }
         showToast('Angebot gelöscht', 'success');
         renderActiveOffers();
     } catch(e) { showToast('Fehler', 'error'); }
@@ -42788,7 +42830,27 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
     try {
         var client = sb || window.sb;
         if (client) {
-            var { data, error } = await client.from('menu_categories').insert({ restaurant_id: rid, name: name, sort_order: (typeof menuCategories !== 'undefined' ? menuCategories.length : 0) + 1 }).select();
+            // Symbol mitspeichern. Der Symbol-Auswaehler existiert seit jeher,
+            // sein Wert wurde aber nie in die Datenbank geschrieben -- deshalb
+            // hatten ALLE Kategorien dasselbe Besteck-Symbol (renderMenuCategories
+            // liest 'icon' und faellt ohne Wert auf den Standard zurueck).
+            var _catIcon = (document.getElementById('selectedCategoryIcon') || {}).value || '';
+            var _catPayload = {
+                restaurant_id: rid,
+                name: name,
+                sort_order: (typeof menuCategories !== 'undefined' ? menuCategories.length : 0) + 1
+            };
+            if (_catIcon) _catPayload.icon = _catIcon;
+
+            var { data, error } = await client.from('menu_categories').insert(_catPayload).select();
+            // Falls die Spalte 'icon' in der Datenbank (noch) fehlt: ohne Symbol
+            // erneut versuchen, statt das Anlegen komplett scheitern zu lassen.
+            if (error && _catIcon && /icon/i.test(error.message || '')) {
+                delete _catPayload.icon;
+                var _retry = await client.from('menu_categories').insert(_catPayload).select();
+                data = _retry.data; error = _retry.error;
+                if (!error) console.warn('Kategorie ohne Symbol angelegt – Spalte "icon" fehlt in der Tabelle menu_categories.');
+            }
             if (error) throw new Error(error.message);
             // Frisch laden
             var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', rid).order('sort_order');
@@ -46294,6 +46356,41 @@ async function submitOrder() {
         return;
     }
 
+    // Bestellschluss: kurz vor Ladenschluss nichts mehr annehmen.
+    // Sonst steht eine Bestellung im System, wenn die Kueche schon aus ist --
+    // der Gast wartet, das Restaurant muss anrufen und absagen.
+    try {
+        var _osRest = currentOrderRestaurant;
+        // NUR pruefen, wenn das Restaurant echte Zeiten gepflegt hat. Ohne
+        // Daten nimmt checkIfOpen 11-22 Uhr an -- darauf duerfen wir keine
+        // Bestellung ablehnen, sonst kostet eine Datenluecke echten Umsatz.
+        var _hasHours = !!(_osRest && (_osRest.opening_hours ||
+                          (_osRest.opening_time && _osRest.closing_time)));
+        if (_osRest && _hasHours) {
+            var _osBtn = document.getElementById('submitOrderBtn');
+            var _stopMin = getOrderStopMinutes(_osRest);
+
+            // a) Laden hat bereits zu -- bisher konnte man nachts weiterbestellen,
+            //    die Bestellung sah erst am naechsten Morgen jemand.
+            if (typeof checkIfOpen === 'function' && !checkIfOpen(_osRest)) {
+                showToast((_osRest.name || 'Das Restaurant') + ' hat gerade geschlossen. ' +
+                          'Bitte zu den Öffnungszeiten bestellen.', 'error');
+                if (_osBtn) _osBtn.disabled = false;
+                return;
+            }
+
+            // b) Bestellschluss kurz vor Feierabend
+            var _restMin = minutesUntilClose(_osRest);
+            if (_restMin != null && _restMin >= 0 && _restMin < _stopMin) {
+                showToast('Bestellschluss erreicht – ' + (_osRest.name || 'das Restaurant') +
+                          ' schließt in ' + Math.max(0, Math.round(_restMin)) + ' Minuten. ' +
+                          'Bitte morgen wieder bestellen oder direkt anrufen.', 'error');
+                if (_osBtn) _osBtn.disabled = false;
+                return;
+            }
+        }
+    } catch (e) { /* im Zweifel bestellen lassen */ }
+
     // Validierung: AGB
     if (!agbAccepted) {
         markError('checkoutAgbAccepted', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Bitte AGB akzeptieren');
@@ -47865,6 +47962,13 @@ async function checkForNewOrders() {
         var pollEnd = getTimeFilterEnd(ordersTimeFilter);
         var pollUrl = SUPABASE_URL + '/rest/v1/orders?select=id,status,updated_at&created_at=gte.' + pollStart.toISOString();
         if (pollEnd) pollUrl += '&created_at=lt.' + pollEnd.toISOString();
+        // Aufs eigene Restaurant eingrenzen. Ohne Filter holte JEDES Dashboard
+        // alle 10 Sekunden die Bestellungen ALLER Restaurants: eine fremde
+        // Bestellung aenderte den Vergleichswert, die eigene Liste wurde neu
+        // geladen und flackerte -- und es kostete unnoetig Supabase-Traffic.
+        var _pollRestId = window._gastroOnlyRestaurantId ||
+            (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '') || '';
+        if (_pollRestId) pollUrl += '&restaurant_id=eq.' + encodeURIComponent(_pollRestId);
         pollUrl += '&order=created_at.desc';
         var resp = await fetch(pollUrl, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
@@ -52232,13 +52336,22 @@ async function saveMinOrderValue() {
     }
 
     // Versuche in Supabase zu speichern
+    // Erfolg pruefen: sonst meldet das Dashboard "gespeichert", obwohl der Wert
+    // nur lokal steht und beim naechsten Geraet/Neuladen wieder weg ist.
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        var _minRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ min_order_value: minOrder })
         });
-    } catch(e) { console.warn('Min order in DB speichern fehlgeschlagen, localStorage wird genutzt'); }
+        if (!_minRes.ok) {
+            showToast('Nur auf diesem Gerät gespeichert – Server meldet Fehler ' + _minRes.status, 'warning');
+            return;
+        }
+    } catch(e) {
+        showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
+        return;
+    }
 
     showToast('Mindestbestellwert: ' + (minOrder > 0 ? minOrder.toFixed(0) + ' €' : 'Kein Minimum'), 'success');
 }
@@ -54145,7 +54258,11 @@ async function saveCategoryOrder() {
         // Alle Kategorien mit neuen sort_order speichern
         for (var i = 0; i < menuCategories.length; i++) {
             var c = menuCategories[i];
-            await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id);
+            // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
+            // Ohne diese Pruefung meldete das Dashboard Erfolg, obwohl die
+            // Reihenfolge nach dem Neuladen wieder die alte war.
+            var _cr = await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id);
+            if (_cr && _cr.error) throw new Error(_cr.error.message);
         }
         showToast('Kategorien sortiert', 'success');
     } catch(e) {
@@ -54157,13 +54274,17 @@ async function saveItemOrder(movedItem, catItems) {
     try {
         var client = sb || window.sb;
         if (!client) return;
-        // movedItem updaten (category_id + sort_order)
-        await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id);
+        // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
+        // Ohne Pruefung meldete das Dashboard Erfolg, obwohl die Reihenfolge
+        // nach dem Neuladen wieder die alte war.
+        var _mr = await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id);
+        if (_mr && _mr.error) throw new Error(_mr.error.message);
         // Andere items in Kategorie updaten
         for (var i = 0; i < catItems.length; i++) {
             var it = catItems[i];
             if (it.id === movedItem.id) continue;
-            await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id);
+            var _ir = await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id);
+            if (_ir && _ir.error) throw new Error(_ir.error.message);
         }
         showToast('Gericht sortiert', 'success');
     } catch(e) {
@@ -56687,6 +56808,10 @@ async function toggleSoldOut(itemId) {
             item.is_available = newAvail;
             renderMenuCategories();
             showToast(newAvail ? item.name + ' wieder verfügbar' : item.name + ' als ausverkauft markiert', newAvail ? 'success' : 'warning');
+        } else {
+            // Fehlte komplett: ein 400/403 blieb unsichtbar, das Gericht sah im
+            // Dashboard unveraendert aus und war fuer Gaeste weiter bestellbar.
+            showToast('Konnte nicht gespeichert werden (Fehler ' + res.status + ') – Gericht ist für Gäste weiter bestellbar', 'error');
         }
     } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
 }
@@ -58125,62 +58250,14 @@ function getLastOrders(restaurantId) {
     return history;
 }
 
-function reorder(orderHistoryId) {
-    var history = JSON.parse(localStorage.getItem('kmi_order_history') || '[]');
-    var order = history.find(function(h) { return h.id === orderHistoryId; });
-    if (!order) { showToast('Bestellung nicht gefunden', 'error'); return; }
-
-    // Warenkorb leeren und mit alten Items füllen
-    orderCart = [];
-    order.items.forEach(function(item) {
-        orderCart.push({
-            name: item.name,
-            quantity: item.quantity,
-            base_price: item.base_price || item.price / item.quantity || 0,
-            unit_price: item.base_price || item.price / item.quantity || 0,
-            total_price: item.price || 0,
-            options: item.options || [],
-            selected_options: []
-        });
-    });
-
-    // Restaurant setzen
-    if (APP_DATA.restaurants) {
-        var rest = APP_DATA.restaurants.find(function(r) { return r.id === order.restaurant_id; });
-        if (rest) currentOrderRestaurant = rest;
-    }
-
-    renderCartItems();
-    updateCartCount();
-    showToast('<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">refresh</span></span> Letzte Bestellung geladen!', 'success');
-
-    // Warenkorb öffnen
-    if (typeof openCartPanel === 'function') {
-        openCartPanel();
-    } else {
-        var cp = document.getElementById('cartPanel');
-        if (cp) cp.classList.add('open');
-    }
-}
-
-function renderReorderSection(restaurantId) {
-    var orders = getLastOrders(restaurantId);
-    if (orders.length === 0) return '';
-
-    var last = orders[0];
-    var itemsText = last.items.map(function(i) { return i.quantity + 'x ' + i.name; }).join(', ');
-    var timeAgo = getTimeAgo(last.date);
-
-    return '<div style="background:var(--bg-card);border-radius:14px;padding:14px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.05);border:1px solid var(--border-color);">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-        '<div style="font-weight:700;font-size:14px;"><span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">refresh</span></span> Letzte Bestellung</div>' +
-        '<div style="font-size:11px;color:var(--slate);">' + timeAgo + '</div></div>' +
-        '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">' + itemsText + '</div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div style="font-weight:700;color:var(--primary);">' + formatPrice(last.total) + '</div>' +
-        '<button onclick="reorder(\'' + last.id + '\')" style="padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">Nochmal bestellen</button>' +
-        '</div></div>';
-}
+// Hier lagen zwei tote Funktionen: reorder() und renderReorderSection().
+// Beide wurden von nirgendwo aufgerufen -- das funktionierende Nachbestellen
+// laeuft ueber reorderLastOrder() (Banner auf der Restaurantseite) und
+// reorderFromHistory() (Bestellhistorie).
+// reorder() war zudem kaputt: Es rief updateCartCount() auf, das es nicht
+// gibt (heisst updateCartBadges), und legte Artikel OHNE id in den Warenkorb --
+// damit haetten Plus/Minus und Loeschen nicht funktioniert. Entfernt, bevor
+// jemand den Knopf verdrahtet und sich den Fehler einhandelt.
 
 </script>
 
@@ -58651,6 +58728,10 @@ function reorderLastOrder(orderIndex, forRestaurantId) {
 
     currentOrderRestaurant = rest;
     showToast(order.items.length + ' Artikel in den Warenkorb gelegt!', 'success');
+
+    // Zaehler am Warenkorb-Symbol mitziehen -- fehlte hier, dadurch blieb das
+    // Bläschen auf dem alten Stand und es sah aus, als sei nichts passiert.
+    if (typeof updateCartBadges === 'function') updateCartBadges();
 
     // Warenkorb öffnen (Cart Panel, nicht Modal)
     if (typeof openCartPanel === 'function') {
