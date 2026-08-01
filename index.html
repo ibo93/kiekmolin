@@ -54998,21 +54998,50 @@ function renderDayReservations() {
     // Zeitslots aus Restaurant-Config
     const slots = (typeof generateReservationSlots === 'function') ? generateReservationSlots(window.resCurrentRestaurant) : ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'];
 
+    // Uhrzeit auf HH:MM kuerzen -- die Datenbank liefert "19:00:00",
+    // die Slot-Liste enthaelt "19:00". Ohne das trifft der Vergleich nie zu.
+    const _hhmm = t => String(t || '').substring(0, 5);
+    const _esc = s => (typeof escapeHtml === 'function' ? escapeHtml(String(s == null ? '' : s))
+                                                       : String(s == null ? '' : s));
+
     let html = '';
     for (const time of slots) {
-        const res = demoReservations.find(r => r.date === dateStr && r.time === time);
+        // ALLE Reservierungen dieses Slots -- frueher stand hier .find(), das
+        // liefert nur den ersten Treffer. Bei zwei Tischen um 19:00 war die
+        // zweite Reservierung im Kalender unsichtbar.
+        const resList = demoReservations.filter(r =>
+            r.date === dateStr && _hhmm(r.time) === _hhmm(time) && r.status !== 'cancelled');
 
-        if (res) {
+        if (resList.length) {
+            const rows = resList.map(res => {
+                // Feld heisst persons (nicht party_size) -- sonst "undefined Personen"
+                const pers = res.persons != null ? res.persons : (res.party_size != null ? res.party_size : '?');
+                const tisch = res.table ? ' • Tisch ' + _esc(res.table) : '';
+                const pending = res.status === 'pending'
+                    ? '<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9999px;margin-left:6px;white-space:nowrap;">offen</span>'
+                    : '';
+                return `
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
+                        <div class="timeslot-info" style="flex:1;min-width:0;">
+                            <div class="timeslot-name">${_esc(res.name)}${pending}</div>
+                            <div class="timeslot-details">${_esc(pers)} Personen${tisch}${res.notes ? ' • ' + _esc(res.notes) : ''}</div>
+                        </div>
+                        <button onclick="editReservation('${_esc(res.id)}')" class="dash-btn" style="padding:6px 10px;flex-shrink:0;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                        </button>
+                    </div>`;
+            }).join('');
+
+            // Mehrere Reservierungen zur selben Zeit: Anzahl sichtbar machen,
+            // damit der Kellner auf einen Blick sieht, was ansteht.
+            const badge = resList.length > 1
+                ? `<span style="background:#003d33;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9999px;margin-left:6px;">${resList.length}×</span>`
+                : '';
+
             html += `
-                <div class="timeslot has-reservation">
-                    <div class="timeslot-time">${time}</div>
-                    <div class="timeslot-info">
-                        <div class="timeslot-name">${res.name}</div>
-                        <div class="timeslot-details">${res.party_size} Personen • Tisch ${res.table}${res.notes ? ' • ' + res.notes : ''}</div>
-                    </div>
-                    <button onclick="editReservation(${res.id})" class="dash-btn" style="padding: 6px 10px;">
-                        <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                    </button>
+                <div class="timeslot has-reservation" style="align-items:flex-start;">
+                    <div class="timeslot-time" style="flex-shrink:0;">${time}${badge}</div>
+                    <div style="flex:1;min-width:0;">${rows}</div>
                 </div>
             `;
         } else {
@@ -55067,12 +55096,19 @@ function selectFloorplanTable(tableId) {
         statusEl.className = 'table-detail-status ' + tableData.status;
         statusEl.textContent = tableData.status === 'available' ? 'Frei' : tableData.status === 'reserved' ? 'Reserviert' : 'Besetzt';
 
-        // Reservierung für heute suchen
+        // ALLE heutigen Reservierungen dieses Tisches -- vorher .find(), damit
+        // war bei Mittag- UND Abendbelegung nur die erste sichtbar.
+        // Und: das Feld heisst persons, nicht party_size (zeigte "undefinedP").
         const dateStr = getTodayString();
-        const res = demoReservations.find(r => r.date === dateStr && r.table === tableId);
-        if (res) {
+        const resToday = demoReservations
+            .filter(r => r.date === dateStr && String(r.table) === String(tableId) && r.status !== 'cancelled')
+            .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+        if (resToday.length) {
             document.getElementById('detailReservationInfo').style.display = 'flex';
-            document.getElementById('detailReservationTime').textContent = `${res.time} - ${res.name} (${res.party_size}P)`;
+            document.getElementById('detailReservationTime').textContent = resToday.map(function(r) {
+                var p = r.persons != null ? r.persons : (r.party_size != null ? r.party_size : '?');
+                return String(r.time || '').substring(0, 5) + ' - ' + (r.name || 'Gast') + ' (' + p + 'P)';
+            }).join('  ·  ');
         } else {
             document.getElementById('detailReservationInfo').style.display = 'none';
         }
