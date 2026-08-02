@@ -1331,6 +1331,9 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<script type="application/ld+json">' + jsonEscape(breadcrumbLd) + '</script>\n' +
     (menuJsonLd ? '<script type="application/ld+json">' + jsonEscape(menuJsonLd) + '</script>\n' : '') +
     (faqs.length ? '<script type="application/ld+json">' + jsonEscape(faqLd) + '</script>\n' : '') +
+    // WICHTIG: Query-String und Anker MITNEHMEN. Der Tisch-QR-Code zeigt auf
+    // /<slug>?tisch=5 -- ohne Uebergabe ging die Tischnummer bei der
+    // Weiterleitung verloren und der Gast sass 'an keinem Tisch'.
     // Echte Besucher direkt in die App leiten; Crawler (Google/Bing/...)
     // sehen den statischen Inhalt und indexieren ihn. Mit ?preview oder ?seo
     // laesst sich die Weiterleitung zum Anschauen ueberspringen.
@@ -1342,7 +1345,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     // wertet "Bot sieht A, Besucher sieht B" als Cloaking) und auf Wunsch
     // wieder eingebaut. Falls die Google Search Console eine manuelle
     // Massnahme wegen Cloaking meldet, ist DAS hier die Stelle.
-    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + '));}catch(e){}})();</script>\n' +
+    '<script>(function(){try{if(typeof navigator==="undefined")return;if(/[?&](preview|seo)\\b/i.test(location.search))return;var ua=navigator.userAgent||"";if(/bot|crawl|slurp|spider|search|google|bing|yandex|duckduck|baidu|facebookexternalhit|whatsapp|linkedinbot|twitterbot|telegrambot/i.test(ua))return;location.replace("/?r=" + encodeURIComponent(' + JSON.stringify(slug) + ') + (location.search ? "&" + location.search.slice(1) : "") + (location.hash || ""));}catch(e){}})();</script>\n' +
 
     '</head>\n<body>\n' +
     renderHeader() + '\n' +
