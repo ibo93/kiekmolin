@@ -53620,6 +53620,10 @@ function openQRCodeGenerator(restaurantId) {
     var tables = r.totalTables || r.total_tables || 8;
     var landingUrl = getQRUrl(slug);
     var prodUrl = 'https://kiekmolin.de/' + slug;
+    // Fuer die Druckfunktion merken (sie baut die Aufsteller aus diesen Daten,
+    // statt sie aus dem Vorschau-Markup zu lesen)
+    window._qrCurrentSlug = slug;
+    window._qrCurrentName = r.name;
 
     var html = '<div style="padding:24px;max-height:80vh;overflow-y:auto;">' +
         '<h2 style="font-size:20px;margin-bottom:4px;">QR-Codes - ' + r.name + '</h2>' +
@@ -53658,7 +53662,7 @@ function openQRCodeGenerator(restaurantId) {
         '<label style="font-size:12px;color:var(--slate);font-weight:600;">Anzahl:</label>' +
         '<input type="number" id="qrTableCount" value="' + tables + '" min="1" max="100" style="width:60px;padding:6px 8px;border:1px solid var(--border-color);border-radius:9999px;font-size:13px;text-align:center;font-family:Inter,sans-serif;" onchange="updateQRTables(\'' + slug + '\')">' +
         '<button onclick="updateQRTables(\'' + slug + '\')" style="padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;">Aktualisieren</button>' +
-        '<button onclick="printQRCodes()" style="padding:6px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--dark);">' +
+        '<button onclick="printQRCodes(\'' + slug + '\', \'' + String(r.name).replace(/'/g, "\\'") + '\')" style="padding:6px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--dark);">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
         'Drucken</button>' +
         '</div></div>' +
@@ -53727,32 +53731,107 @@ function updateQRTables(slug) {
     showToast(count + ' Tisch-QR-Codes generiert', 'success');
 }
 
-function printQRCodes() {
-    var grid = document.getElementById('qrCodeGrid');
-    if (!grid) return;
+// Druckfertige Tischaufsteller.
+//
+// Zwei Probleme der alten Fassung:
+//  1) Sie druckte nach festen 500 ms -- egal, ob die QR-Bilder vom externen
+//     Dienst schon geladen waren. Bei 20 Tischen kamen leere Kaestchen aus
+//     dem Drucker. Jetzt wird gewartet, bis JEDES Bild da ist (mit
+//     Sicherheitsnetz nach 15 s, damit es nie haengen bleibt).
+//  2) Sie las die Karten aus dem DOM ("div mit text-align:center"). Aendert
+//     sich das Markup der Vorschau, druckt sie stillschweigend Unsinn.
+//     Jetzt wird direkt aus Slug + Tischanzahl aufgebaut.
+//
+// Ausgabe: 2 Aufsteller pro A4-Seite, zum Falten (Knicklinie in der Mitte),
+// mit grosser Tischnummer, Restaurantname und der Adresse zum Abtippen,
+// falls der Code mal zerkratzt ist.
+function printQRCodes(slug, restName) {
+    slug = slug || (window._qrCurrentSlug || '');
+    restName = restName || (window._qrCurrentName || '');
+    var input = document.getElementById('qrTableCount');
+    var count = Math.max(1, Math.min(parseInt(input && input.value, 10) || 8, 100));
+    if (!slug) { showToast('Kein Restaurant gewählt', 'error'); return; }
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    var cards = '';
+    for (var i = 1; i <= count; i++) {
+        var url = 'https://kiekmolin.de/' + slug + '?tisch=' + i;
+        cards +=
+            '<div class="tent">' +
+                '<div class="half top">' +
+                    '<div class="rest">' + esc(restName) + '</div>' +
+                    '<div class="claim">Karte ansehen &amp; bestellen</div>' +
+                    '<img src="' + esc(getQRImageUrl(url, 500)) + '" alt="QR-Code Tisch ' + i + '">' +
+                    '<div class="tisch">Tisch ' + i + '</div>' +
+                    '<div class="url">kiekmolin.de/' + esc(slug) + '</div>' +
+                '</div>' +
+                '<div class="fold"><span>hier falten</span></div>' +
+                '<div class="half bottom">' +
+                    '<div class="rest">' + esc(restName) + '</div>' +
+                    '<div class="claim">Karte ansehen &amp; bestellen</div>' +
+                    '<img src="' + esc(getQRImageUrl(url, 500)) + '" alt="QR-Code Tisch ' + i + '">' +
+                    '<div class="tisch">Tisch ' + i + '</div>' +
+                    '<div class="url">kiekmolin.de/' + esc(slug) + '</div>' +
+                '</div>' +
+            '</div>';
+    }
+
+    var css =
+        '@page{size:A4;margin:10mm}' +
+        '*{box-sizing:border-box}' +
+        'body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;color:#00251e}' +
+        '.hint{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:12px}' +
+        /* Zwei Aufsteller pro A4: A4 = 297mm minus 2x10mm Rand = 277mm.
+           Ein Aufsteller 136mm hoch -> gefaltet ein ~68mm hoher Standfuss,
+           die uebliche Groesse fuer einen Tischaufsteller. Bei 20 Tischen
+           also 10 Blatt statt 20. */
+        '.tent{border:1px dashed #bbb;border-radius:6px;page-break-inside:avoid;break-inside:avoid;' +
+              'height:136mm;display:flex;flex-direction:column;margin-bottom:4mm}' +
+        '.half{flex:1;text-align:center;padding:5mm 6mm;display:flex;flex-direction:column;' +
+              'align-items:center;justify-content:center}' +
+        '.half.top{transform:rotate(180deg)}' +   /* gefaltet steht beides richtig herum */
+        '.rest{font-size:13pt;font-weight:800;letter-spacing:-.01em;line-height:1.15}' +
+        '.claim{font-size:8.5pt;color:#4b5563;margin:1mm 0 2.5mm}' +
+        '.half img{width:34mm;height:34mm;display:block}' +
+        '.tisch{font-size:17pt;font-weight:800;margin-top:2mm;line-height:1}' +
+        '.url{font-size:7pt;color:#6b7280;margin-top:.8mm}' +
+        '.fold{border-top:1px dashed #999;text-align:center;position:relative;height:0}' +
+        '.fold span{position:relative;top:-6px;background:#fff;padding:0 8px;font-size:7pt;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase}' +
+        '@media print{.hint{display:none}.tent{border-color:#ddd}}';
+
     var printWin = window.open('', '_blank');
-    printWin.document.write('<html><head><title>QR-Codes drucken</title><style>' +
-        'body{font-family:Arial,sans-serif;padding:20px;}' +
-        '.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}' +
-        '.card{text-align:center;border:1px solid #ddd;border-radius:16px;padding:16px;break-inside:avoid;}' +
-        '.card img{width:150px;height:150px;}' +
-        '.card .name{font-weight:700;font-size:18px;margin-top:8px;}' +
-        '.card .url{font-size:9px;color:#888;margin-top:4px;word-break:break-all;}' +
-        '@media print{.grid{grid-template-columns:repeat(3,1fr);}}' +
-        '</style></head><body>');
-    printWin.document.write('<h1 style="text-align:center;margin-bottom:20px;">QR-Codes - Tische</h1><div class="grid">');
-    grid.querySelectorAll('div[style*="text-align:center"]').forEach(function(card) {
-        var img = card.querySelector('img');
-        var name = card.querySelector('div[style*="font-weight:700"]');
-        var url = card.querySelector('div[style*="word-break"]');
-        if (img && name) {
-            printWin.document.write('<div class="card"><img src="' + img.src + '" alt="QR-Code"><div class="name">' + name.textContent + '</div>' +
-                (url ? '<div class="url">' + url.textContent + '</div>' : '') + '</div>');
-        }
-    });
-    printWin.document.write('</div></body></html>');
+    if (!printWin) { showToast('Bitte Pop-ups für kiekmolin.de erlauben', 'error'); return; }
+    printWin.document.write(
+        '<!doctype html><html lang="de"><head><meta charset="utf-8">' +
+        '<title>Tischaufsteller – ' + esc(restName) + '</title><style>' + css + '</style></head><body>' +
+        '<div class="hint"><strong>' + count + ' Tischaufsteller</strong> – auf A4 drucken, an der gestrichelten Linie falten, ' +
+        'fertig steht der Aufsteller auf dem Tisch. Am besten auf etwas festeres Papier (ab 160g).</div>' +
+        cards +
+        '</body></html>');
     printWin.document.close();
-    setTimeout(function() { printWin.print(); }, 500);
+
+    // Erst drucken, wenn wirklich alle QR-Bilder geladen sind.
+    var imgs = printWin.document.images;
+    var total = imgs.length, ready = 0, printed = false;
+    function go() {
+        if (printed) return;
+        printed = true;
+        try { printWin.focus(); printWin.print(); } catch (e) {}
+    }
+    if (!total) { go(); return; }
+    for (var k = 0; k < total; k++) {
+        var im = imgs[k];
+        if (im.complete) { ready++; continue; }
+        im.addEventListener('load',  function () { if (++ready >= total) go(); });
+        im.addEventListener('error', function () { if (++ready >= total) go(); });
+    }
+    if (ready >= total) go();
+    // Sicherheitsnetz: haengt der Bilddienst, trotzdem drucken statt ewig warten
+    setTimeout(go, 15000);
 }
 
 // ==================== RESERVIERUNGS-ERINNERUNG ====================
