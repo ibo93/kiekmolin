@@ -42137,6 +42137,17 @@ document.addEventListener('error', function(e) {
                 </button>
             </div>
         </div>
+
+        <!-- Bedienung rufen: schwebt in der Speisekarte, sobald der Gast ueber
+             den Tisch-QR gekommen ist. Bewusst HIER und nicht nur in der Kasse:
+             Man ruft die Bedienung meist OHNE bestellen zu wollen (Serviette,
+             Nachfrage, zahlen). In der Kasse waere der Knopf fuer diese Faelle
+             unerreichbar. Wird in openMenuModal ein-/ausgeblendet. -->
+        <button type="button" id="menuWaiterBtn" onclick="callWaiter('service', this)"
+            style="display:none;position:fixed;left:16px;bottom:88px;z-index:60;background:rgba(0,37,30,0.92);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:9999px;padding:12px 18px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-items:center;gap:7px;box-shadow:0 8px 24px rgba(0,0,0,0.22);backdrop-filter:blur(12px);">
+            <span class="material-symbols-outlined" style="font-size:18px;">room_service</span>
+            <span id="menuWaiterBtnLabel">Bedienung rufen</span>
+        </button>
     </div>
 </div>
 
@@ -43823,6 +43834,18 @@ async function openMenuModal(restaurantId) {
         modal.style.display = 'flex';
         modal.classList.add('active');
     }
+    // "Bedienung rufen" nur zeigen, wenn der Gast ueber den Tisch-QR kam --
+    // sonst waere der Knopf sinnlos (wir wuessten keinen Tisch) und wuerde
+    // Abholern und Lieferkunden nur im Weg stehen.
+    try {
+        var _mwBtn = document.getElementById('menuWaiterBtn');
+        if (_mwBtn) {
+            var _showWaiter = !!(window._qrDineIn && window._qrTableNumber);
+            _mwBtn.style.display = _showWaiter ? 'inline-flex' : 'none';
+            var _mwLbl = document.getElementById('menuWaiterBtnLabel');
+            if (_mwLbl && _showWaiter) _mwLbl.textContent = 'Bedienung rufen · Tisch ' + window._qrTableNumber;
+        }
+    } catch (e) {}
     // Sticky "Hier bestellen" verstecken
     var stickyBar = document.getElementById('lpStickyBar');
     if (stickyBar) stickyBar.style.display = 'none';
