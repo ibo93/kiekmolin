@@ -18219,6 +18219,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div style="font-size: 28px; font-weight: 700; color: #3b82f6;" id="statAvgTime">--</div>
                 </div>
+                <!-- Tisch-QR: zeigt, ob die gedruckten Aufsteller Bestellungen bringen -->
+                <div style="background: rgba(255,255,255,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 48px; padding: 20px; border: 1px solid rgba(255,255,255,0.2);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#735c00;">qr_code_2</span>
+                        <span style="font-size: 12px; color: var(--slate);">Per Tisch-QR</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #735c00;" id="statQrOrders">--</div>
+                    <div style="font-size: 11px; color: var(--slate); margin-top: 2px;">Umsatz: <span id="statQrRevenue">--</span></div>
+                </div>
                 <div style="background: rgba(255,255,255,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                         <span class="material-symbols-outlined" style="font-size:20px;color:#8b5cf6;">shopping_bag</span>
@@ -36750,6 +36759,19 @@ function checkRestaurantSlugURL() {
                     } catch(e) {}
                 }, 1800);
             }
+            // Tisch-QR gescannt: direkt in die Speisekarte springen.
+            // Wer am Tisch scannt, sitzt schon im Laden -- die Vorstellung des
+            // Restaurants braucht er nicht, er will die Karte. Spart einen Tipp.
+            else if (window._qrDineIn && window._qrTableNumber) {
+                setTimeout(function() {
+                    try {
+                        var _s2 = slug.toLowerCase().trim();
+                        var _r2 = APP_DATA.restaurants.find(function(r) { return r.slug === _s2 || r.id === _s2; });
+                        var _noOrder = _r2 && (_r2.features || []).indexOf('no_ordering') >= 0;
+                        if (_r2 && !_noOrder && typeof openMenuModal === 'function') openMenuModal(_r2.id);
+                    } catch(e) {}
+                }, 900);
+            }
         }
     }, 300);
 
@@ -42115,6 +42137,17 @@ document.addEventListener('error', function(e) {
                 </button>
             </div>
         </div>
+
+        <!-- Bedienung rufen: schwebt in der Speisekarte, sobald der Gast ueber
+             den Tisch-QR gekommen ist. Bewusst HIER und nicht nur in der Kasse:
+             Man ruft die Bedienung meist OHNE bestellen zu wollen (Serviette,
+             Nachfrage, zahlen). In der Kasse waere der Knopf fuer diese Faelle
+             unerreichbar. Wird in openMenuModal ein-/ausgeblendet. -->
+        <button type="button" id="menuWaiterBtn" onclick="callWaiter('service', this)"
+            style="display:none;position:fixed;left:16px;bottom:88px;z-index:60;background:rgba(0,37,30,0.92);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:9999px;padding:12px 18px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-items:center;gap:7px;box-shadow:0 8px 24px rgba(0,0,0,0.22);backdrop-filter:blur(12px);">
+            <span class="material-symbols-outlined" style="font-size:18px;">room_service</span>
+            <span id="menuWaiterBtnLabel">Bedienung rufen</span>
+        </button>
     </div>
 </div>
 
@@ -42281,7 +42314,11 @@ document.addEventListener('error', function(e) {
                 </div>
                 <div id="qrTableBanner" style="display:none;margin-top:8px;padding:10px 14px;background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:32px;color:white;font-size:13px;font-weight:600;align-items:center;gap:8px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">grid_view</span>
-                    <span id="qrTableBannerText"></span>
+                    <span id="qrTableBannerText" style="flex:1;"></span>
+                    <!-- Bedienung rufen: nur sichtbar, wenn per Tisch-QR gescannt -->
+                    <button type="button" id="waiterCallBtn" onclick="callWaiter('service', this)" style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.45);color:#fff;border-radius:9999px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;">
+                        <span class="material-symbols-outlined" style="font-size:15px;">room_service</span>Bedienung rufen
+                    </button>
                 </div>
             </section>
 
@@ -43577,6 +43614,16 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du kannst den Status hier live verfolgen.</p>
                     <p id="ocDineinInfo" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
                 </div>
+                <!-- Am Tisch ist die zweite Runde der Normalfall (Getraenke).
+                     Ohne diesen Knopf muesste der Gast den ganzen Weg zurueck. -->
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button type="button" onclick="orderMoreAtTable()" style="flex:1;background:#003d33;color:#fff;border:none;border-radius:9999px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:17px;">add</span>Noch etwas bestellen
+                    </button>
+                    <button type="button" onclick="callWaiter('service', this)" style="background:rgba(0,61,51,0.08);color:#003d33;border:1px solid rgba(0,61,51,0.18);border-radius:9999px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:17px;">room_service</span>Bedienung
+                    </button>
+                </div>
             </div>
 
             <!-- Hidden receipt elements for JS compatibility -->
@@ -43787,6 +43834,18 @@ async function openMenuModal(restaurantId) {
         modal.style.display = 'flex';
         modal.classList.add('active');
     }
+    // "Bedienung rufen" nur zeigen, wenn der Gast ueber den Tisch-QR kam --
+    // sonst waere der Knopf sinnlos (wir wuessten keinen Tisch) und wuerde
+    // Abholern und Lieferkunden nur im Weg stehen.
+    try {
+        var _mwBtn = document.getElementById('menuWaiterBtn');
+        if (_mwBtn) {
+            var _showWaiter = !!(window._qrDineIn && window._qrTableNumber);
+            _mwBtn.style.display = _showWaiter ? 'inline-flex' : 'none';
+            var _mwLbl = document.getElementById('menuWaiterBtnLabel');
+            if (_mwLbl && _showWaiter) _mwLbl.textContent = 'Bedienung rufen · Tisch ' + window._qrTableNumber;
+        }
+    } catch (e) {}
     // Sticky "Hier bestellen" verstecken
     var stickyBar = document.getElementById('lpStickyBar');
     if (stickyBar) stickyBar.style.display = 'none';
@@ -46153,10 +46212,87 @@ function saveCurrentAddress() {
     saveSavedAddresses(addrs);
 }
 
+// Nachbestellen am Tisch: Bestaetigung schliessen und direkt die Karte
+// oeffnen. Name/Telefon stehen im localStorage, die Tischnummer haelt
+// window._qrTableNumber -- der Gast tippt also nichts nochmal ein.
+function orderMoreAtTable() {
+    try { closeModal('orderConfirmationModal'); } catch (e) {}
+    try { if (typeof stopOrderTracking === 'function') stopOrderTracking(); } catch (e) {}
+    var rest = currentOrderRestaurant;
+    if (rest && rest.id && typeof openMenuModal === 'function') {
+        setTimeout(function () { openMenuModal(rest.id); }, 250);
+    }
+}
+
+// ==================== BEDIENUNG RUFEN (TISCH-QR) ====================
+// Gast sitzt am Tisch, tippt auf den Knopf -> Push an alle Geraete des
+// Restaurants: "Tisch 5 braucht kurz Hilfe". Nutzt dieselbe Push-Grundlage
+// wie der Bestell-Alarm; der Text wird serverseitig gebaut (waiter-call.js),
+// damit ueber die oeffentliche Schnittstelle keine beliebigen Meldungen ans
+// Personal geschickt werden koennen.
+var _waiterCallLast = 0;
+
+async function callWaiter(reason, btn) {
+    var table = window._qrTableNumber;
+    var rest = currentOrderRestaurant;
+    if (!table || !rest || !rest.id) {
+        showToast('Bitte den QR-Code am Tisch scannen', 'info');
+        return;
+    }
+
+    // Sperre gegen mehrfaches Tippen -- sonst klingelt es beim Personal
+    // im Sekundentakt und wird als Stoerung wahrgenommen statt als Hilfe.
+    var now = Date.now();
+    if (now - _waiterCallLast < 60000) {
+        var wait = Math.ceil((60000 - (now - _waiterCallLast)) / 1000);
+        showToast('Schon gerufen – bitte noch ' + wait + ' Sekunden warten', 'info');
+        return;
+    }
+
+    var _btnHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'Wird gerufen…'; }
+    try {
+        var res = await fetch('/.netlify/functions/waiter-call', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restaurant_id: rest.id, table: table, reason: reason || 'service' })
+        });
+        var j = await res.json().catch(function () { return null; });
+        if (j && j.ok) {
+            _waiterCallLast = Date.now();
+            showToast('Die Bedienung wurde informiert – jemand kommt gleich zu Tisch ' + table, 'success');
+            if (btn) { btn.textContent = 'Bedienung kommt'; btn.style.opacity = '0.75'; }
+            // Nach der Sperrzeit wieder freigeben
+            setTimeout(function () {
+                if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _btnHtml; }
+            }, 60000);
+            return;
+        }
+        showToast((j && j.error) || 'Konnte niemanden erreichen – bitte kurz winken', 'error');
+    } catch (e) {
+        showToast('Keine Verbindung – bitte kurz winken', 'error');
+    }
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _btnHtml; }
+}
+
 function setOrderType(type, btn) {
     orderType = type;
     document.querySelectorAll('.order-type-btn[data-type]').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
+
+    // E-Mail ist nur bei Abholung/Lieferung Pflicht. Vor Ort waere sie
+    // sinnlos (kein Verfolgen, keine Lieferung) -- Beschriftung mitziehen,
+    // damit das Sternchen nicht luegt.
+    try {
+        var _emlLbl = document.querySelector('label[for="checkoutEmail"]');
+        var _emlHint = _emlLbl && _emlLbl.nextElementSibling;
+        if (_emlLbl) _emlLbl.textContent = (type === 'dine_in') ? 'E-Mail (freiwillig)' : 'E-Mail *';
+        if (_emlHint && _emlHint.tagName === 'DIV') {
+            _emlHint.textContent = (type === 'dine_in')
+                ? 'Nur wenn du eine Bestätigung per Mail möchtest'
+                : 'Für deine Bestellbestätigung und die Live-Verfolgung';
+        }
+    } catch (e) {}
 
     // Lieferadresse ein-/ausblenden
     var deliverySec = document.getElementById('deliveryAddressSection');
@@ -46373,15 +46509,24 @@ async function submitOrder() {
         return;
     }
 
-    // Validierung: E-Mail (Pflicht)
-    // Ohne Adresse gibt es keine Bestellbestaetigung, keinen Verfolgen-Link und
-    // keine Bewertungs-Nachfrage -- und der Gast ruft im Zweifel im Restaurant an.
+    // Validierung: E-Mail
+    // Pflicht bei Abholung und Lieferung: ohne Adresse gibt es keine
+    // Bestellbestaetigung, keinen Verfolgen-Link und keine Bewertungs-Nachfrage
+    // -- und der Gast ruft im Zweifel im Restaurant an.
+    //
+    // NICHT Pflicht bei "Hier essen": Der Gast sitzt im Laden, der Kellner
+    // bringt es an seinen Tisch. Es gibt nichts zu verfolgen und nichts zu
+    // liefern -- die Tischnummer ist die Kennung. Wer fuer einen Kaffee erst
+    // Name, Telefon UND E-Mail eintippen muss, bestellt lieber gar nicht.
+    var _isDineIn = (orderType === 'dine_in') || !!window._qrDineIn;
     const emailVal = document.getElementById('checkoutEmail')?.value?.trim() || '';
-    if (!emailVal) {
+    if (!emailVal && !_isDineIn) {
         markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Bitte E-Mail eingeben – du bekommst darüber deine Bestätigung');
         return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
+    // Format und Tippfehler nur pruefen, wenn ueberhaupt etwas eingetragen ist.
+    // Vor Ort darf das Feld leer bleiben -- dann gibt es hier nichts zu pruefen.
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
         markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Diese E-Mail-Adresse sieht nicht richtig aus');
         return;
     }
@@ -46389,7 +46534,7 @@ async function submitOrder() {
     // der Gast wartet dann auf eine Bestaetigung, die nie ankommt.
     // Erster Klick: Vorschlag zeigen und korrigierten Wert eintragen.
     // Zweiter Klick: Eingabe des Gastes gilt (falls die Adresse doch stimmt).
-    var _emailHint = suggestEmailFix(emailVal);
+    var _emailHint = emailVal ? suggestEmailFix(emailVal) : null;
     if (_emailHint && window._emailTypoShownFor !== emailVal) {
         window._emailTypoShownFor = emailVal;
         var _emlInput = document.getElementById('checkoutEmail');
@@ -48328,6 +48473,22 @@ function updateOrderStats() {
     el = document.getElementById('statRevenueToday'); if (el) el.textContent = formatPrice(revenue);
     el = document.getElementById('statAvgOrder'); if (el) el.textContent = formatPrice(avgOrder);
     el = document.getElementById('statAvgTime'); if (el) el.textContent = '38 Min';
+
+    // Tisch-QR: Wie viele Bestellungen kamen vom Aufsteller auf dem Tisch?
+    // table_number wird bei jeder Bestellung mitgespeichert (aus ?tisch=N).
+    // Zeigt schwarz auf weiss, ob sich die gedruckten Aufsteller rechnen.
+    try {
+        var _qrOrders = paidOrders.filter(function (o) { return o.table_number; });
+        var _qrEl = document.getElementById('statQrOrders');
+        if (_qrEl) {
+            var _qrShare = paidOrders.length ? Math.round(_qrOrders.length / paidOrders.length * 100) : 0;
+            _qrEl.textContent = _qrOrders.length + (_qrOrders.length ? ' (' + _qrShare + '%)' : '');
+        }
+        var _qrRevEl = document.getElementById('statQrRevenue');
+        if (_qrRevEl) {
+            _qrRevEl.textContent = formatPrice(_qrOrders.reduce(function (s, o) { return s + (parseFloat(o.total) || 0); }, 0));
+        }
+    } catch (e) {}
 
     // Umsatz-Vergleich zur Vorperiode laden
     loadPeriodComparison(revenue, filtered.length);
@@ -53620,6 +53781,10 @@ function openQRCodeGenerator(restaurantId) {
     var tables = r.totalTables || r.total_tables || 8;
     var landingUrl = getQRUrl(slug);
     var prodUrl = 'https://kiekmolin.de/' + slug;
+    // Fuer die Druckfunktion merken (sie baut die Aufsteller aus diesen Daten,
+    // statt sie aus dem Vorschau-Markup zu lesen)
+    window._qrCurrentSlug = slug;
+    window._qrCurrentName = r.name;
 
     var html = '<div style="padding:24px;max-height:80vh;overflow-y:auto;">' +
         '<h2 style="font-size:20px;margin-bottom:4px;">QR-Codes - ' + r.name + '</h2>' +
@@ -53658,7 +53823,7 @@ function openQRCodeGenerator(restaurantId) {
         '<label style="font-size:12px;color:var(--slate);font-weight:600;">Anzahl:</label>' +
         '<input type="number" id="qrTableCount" value="' + tables + '" min="1" max="100" style="width:60px;padding:6px 8px;border:1px solid var(--border-color);border-radius:9999px;font-size:13px;text-align:center;font-family:Inter,sans-serif;" onchange="updateQRTables(\'' + slug + '\')">' +
         '<button onclick="updateQRTables(\'' + slug + '\')" style="padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;">Aktualisieren</button>' +
-        '<button onclick="printQRCodes()" style="padding:6px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--dark);">' +
+        '<button onclick="printQRCodes(\'' + slug + '\', \'' + String(r.name).replace(/'/g, "\\'") + '\')" style="padding:6px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--dark);">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
         'Drucken</button>' +
         '</div></div>' +
@@ -53727,32 +53892,107 @@ function updateQRTables(slug) {
     showToast(count + ' Tisch-QR-Codes generiert', 'success');
 }
 
-function printQRCodes() {
-    var grid = document.getElementById('qrCodeGrid');
-    if (!grid) return;
+// Druckfertige Tischaufsteller.
+//
+// Zwei Probleme der alten Fassung:
+//  1) Sie druckte nach festen 500 ms -- egal, ob die QR-Bilder vom externen
+//     Dienst schon geladen waren. Bei 20 Tischen kamen leere Kaestchen aus
+//     dem Drucker. Jetzt wird gewartet, bis JEDES Bild da ist (mit
+//     Sicherheitsnetz nach 15 s, damit es nie haengen bleibt).
+//  2) Sie las die Karten aus dem DOM ("div mit text-align:center"). Aendert
+//     sich das Markup der Vorschau, druckt sie stillschweigend Unsinn.
+//     Jetzt wird direkt aus Slug + Tischanzahl aufgebaut.
+//
+// Ausgabe: 2 Aufsteller pro A4-Seite, zum Falten (Knicklinie in der Mitte),
+// mit grosser Tischnummer, Restaurantname und der Adresse zum Abtippen,
+// falls der Code mal zerkratzt ist.
+function printQRCodes(slug, restName) {
+    slug = slug || (window._qrCurrentSlug || '');
+    restName = restName || (window._qrCurrentName || '');
+    var input = document.getElementById('qrTableCount');
+    var count = Math.max(1, Math.min(parseInt(input && input.value, 10) || 8, 100));
+    if (!slug) { showToast('Kein Restaurant gewählt', 'error'); return; }
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    var cards = '';
+    for (var i = 1; i <= count; i++) {
+        var url = 'https://kiekmolin.de/' + slug + '?tisch=' + i;
+        cards +=
+            '<div class="tent">' +
+                '<div class="half top">' +
+                    '<div class="rest">' + esc(restName) + '</div>' +
+                    '<div class="claim">Karte ansehen &amp; bestellen</div>' +
+                    '<img src="' + esc(getQRImageUrl(url, 500)) + '" alt="QR-Code Tisch ' + i + '">' +
+                    '<div class="tisch">Tisch ' + i + '</div>' +
+                    '<div class="url">kiekmolin.de/' + esc(slug) + '</div>' +
+                '</div>' +
+                '<div class="fold"><span>hier falten</span></div>' +
+                '<div class="half bottom">' +
+                    '<div class="rest">' + esc(restName) + '</div>' +
+                    '<div class="claim">Karte ansehen &amp; bestellen</div>' +
+                    '<img src="' + esc(getQRImageUrl(url, 500)) + '" alt="QR-Code Tisch ' + i + '">' +
+                    '<div class="tisch">Tisch ' + i + '</div>' +
+                    '<div class="url">kiekmolin.de/' + esc(slug) + '</div>' +
+                '</div>' +
+            '</div>';
+    }
+
+    var css =
+        '@page{size:A4;margin:10mm}' +
+        '*{box-sizing:border-box}' +
+        'body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;color:#00251e}' +
+        '.hint{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:12px}' +
+        /* Zwei Aufsteller pro A4: A4 = 297mm minus 2x10mm Rand = 277mm.
+           Ein Aufsteller 136mm hoch -> gefaltet ein ~68mm hoher Standfuss,
+           die uebliche Groesse fuer einen Tischaufsteller. Bei 20 Tischen
+           also 10 Blatt statt 20. */
+        '.tent{border:1px dashed #bbb;border-radius:6px;page-break-inside:avoid;break-inside:avoid;' +
+              'height:136mm;display:flex;flex-direction:column;margin-bottom:4mm}' +
+        '.half{flex:1;text-align:center;padding:5mm 6mm;display:flex;flex-direction:column;' +
+              'align-items:center;justify-content:center}' +
+        '.half.top{transform:rotate(180deg)}' +   /* gefaltet steht beides richtig herum */
+        '.rest{font-size:13pt;font-weight:800;letter-spacing:-.01em;line-height:1.15}' +
+        '.claim{font-size:8.5pt;color:#4b5563;margin:1mm 0 2.5mm}' +
+        '.half img{width:34mm;height:34mm;display:block}' +
+        '.tisch{font-size:17pt;font-weight:800;margin-top:2mm;line-height:1}' +
+        '.url{font-size:7pt;color:#6b7280;margin-top:.8mm}' +
+        '.fold{border-top:1px dashed #999;text-align:center;position:relative;height:0}' +
+        '.fold span{position:relative;top:-6px;background:#fff;padding:0 8px;font-size:7pt;color:#9ca3af;letter-spacing:.1em;text-transform:uppercase}' +
+        '@media print{.hint{display:none}.tent{border-color:#ddd}}';
+
     var printWin = window.open('', '_blank');
-    printWin.document.write('<html><head><title>QR-Codes drucken</title><style>' +
-        'body{font-family:Arial,sans-serif;padding:20px;}' +
-        '.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}' +
-        '.card{text-align:center;border:1px solid #ddd;border-radius:16px;padding:16px;break-inside:avoid;}' +
-        '.card img{width:150px;height:150px;}' +
-        '.card .name{font-weight:700;font-size:18px;margin-top:8px;}' +
-        '.card .url{font-size:9px;color:#888;margin-top:4px;word-break:break-all;}' +
-        '@media print{.grid{grid-template-columns:repeat(3,1fr);}}' +
-        '</style></head><body>');
-    printWin.document.write('<h1 style="text-align:center;margin-bottom:20px;">QR-Codes - Tische</h1><div class="grid">');
-    grid.querySelectorAll('div[style*="text-align:center"]').forEach(function(card) {
-        var img = card.querySelector('img');
-        var name = card.querySelector('div[style*="font-weight:700"]');
-        var url = card.querySelector('div[style*="word-break"]');
-        if (img && name) {
-            printWin.document.write('<div class="card"><img src="' + img.src + '" alt="QR-Code"><div class="name">' + name.textContent + '</div>' +
-                (url ? '<div class="url">' + url.textContent + '</div>' : '') + '</div>');
-        }
-    });
-    printWin.document.write('</div></body></html>');
+    if (!printWin) { showToast('Bitte Pop-ups für kiekmolin.de erlauben', 'error'); return; }
+    printWin.document.write(
+        '<!doctype html><html lang="de"><head><meta charset="utf-8">' +
+        '<title>Tischaufsteller – ' + esc(restName) + '</title><style>' + css + '</style></head><body>' +
+        '<div class="hint"><strong>' + count + ' Tischaufsteller</strong> – auf A4 drucken, an der gestrichelten Linie falten, ' +
+        'fertig steht der Aufsteller auf dem Tisch. Am besten auf etwas festeres Papier (ab 160g).</div>' +
+        cards +
+        '</body></html>');
     printWin.document.close();
-    setTimeout(function() { printWin.print(); }, 500);
+
+    // Erst drucken, wenn wirklich alle QR-Bilder geladen sind.
+    var imgs = printWin.document.images;
+    var total = imgs.length, ready = 0, printed = false;
+    function go() {
+        if (printed) return;
+        printed = true;
+        try { printWin.focus(); printWin.print(); } catch (e) {}
+    }
+    if (!total) { go(); return; }
+    for (var k = 0; k < total; k++) {
+        var im = imgs[k];
+        if (im.complete) { ready++; continue; }
+        im.addEventListener('load',  function () { if (++ready >= total) go(); });
+        im.addEventListener('error', function () { if (++ready >= total) go(); });
+    }
+    if (ready >= total) go();
+    // Sicherheitsnetz: haengt der Bilddienst, trotzdem drucken statt ewig warten
+    setTimeout(go, 15000);
 }
 
 // ==================== RESERVIERUNGS-ERINNERUNG ====================
