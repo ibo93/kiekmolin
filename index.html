@@ -18219,6 +18219,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div style="font-size: 28px; font-weight: 700; color: #3b82f6;" id="statAvgTime">--</div>
                 </div>
+                <!-- Tisch-QR: zeigt, ob die gedruckten Aufsteller Bestellungen bringen -->
+                <div style="background: rgba(255,255,255,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 48px; padding: 20px; border: 1px solid rgba(255,255,255,0.2);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#735c00;">qr_code_2</span>
+                        <span style="font-size: 12px; color: var(--slate);">Per Tisch-QR</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #735c00;" id="statQrOrders">--</div>
+                    <div style="font-size: 11px; color: var(--slate); margin-top: 2px;">Umsatz: <span id="statQrRevenue">--</span></div>
+                </div>
                 <div style="background: rgba(255,255,255,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                         <span class="material-symbols-outlined" style="font-size:20px;color:#8b5cf6;">shopping_bag</span>
@@ -36750,6 +36759,19 @@ function checkRestaurantSlugURL() {
                     } catch(e) {}
                 }, 1800);
             }
+            // Tisch-QR gescannt: direkt in die Speisekarte springen.
+            // Wer am Tisch scannt, sitzt schon im Laden -- die Vorstellung des
+            // Restaurants braucht er nicht, er will die Karte. Spart einen Tipp.
+            else if (window._qrDineIn && window._qrTableNumber) {
+                setTimeout(function() {
+                    try {
+                        var _s2 = slug.toLowerCase().trim();
+                        var _r2 = APP_DATA.restaurants.find(function(r) { return r.slug === _s2 || r.id === _s2; });
+                        var _noOrder = _r2 && (_r2.features || []).indexOf('no_ordering') >= 0;
+                        if (_r2 && !_noOrder && typeof openMenuModal === 'function') openMenuModal(_r2.id);
+                    } catch(e) {}
+                }, 900);
+            }
         }
     }, 300);
 
@@ -42281,7 +42303,11 @@ document.addEventListener('error', function(e) {
                 </div>
                 <div id="qrTableBanner" style="display:none;margin-top:8px;padding:10px 14px;background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:32px;color:white;font-size:13px;font-weight:600;align-items:center;gap:8px;">
                     <span class="material-symbols-outlined" style="font-size:16px;">grid_view</span>
-                    <span id="qrTableBannerText"></span>
+                    <span id="qrTableBannerText" style="flex:1;"></span>
+                    <!-- Bedienung rufen: nur sichtbar, wenn per Tisch-QR gescannt -->
+                    <button type="button" id="waiterCallBtn" onclick="callWaiter('service', this)" style="background:rgba(255,255,255,0.22);border:1px solid rgba(255,255,255,0.45);color:#fff;border-radius:9999px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;">
+                        <span class="material-symbols-outlined" style="font-size:15px;">room_service</span>Bedienung rufen
+                    </button>
                 </div>
             </section>
 
@@ -43576,6 +43602,16 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     <span style="font-family:'Epilogue',sans-serif;font-weight:700;font-size:16px;color:#003D33;line-height:1.45;display:block;">Die Küche bestätigt gleich und sagt dir, wann serviert wird.</span>
                     <p style="font-size:12px;color:rgba(0,61,51,0.6);margin:8px 0 0;">Du kannst den Status hier live verfolgen.</p>
                     <p id="ocDineinInfo" style="font-size:12px;color:rgba(0,61,51,0.6);margin:4px 0 0;"></p>
+                </div>
+                <!-- Am Tisch ist die zweite Runde der Normalfall (Getraenke).
+                     Ohne diesen Knopf muesste der Gast den ganzen Weg zurueck. -->
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button type="button" onclick="orderMoreAtTable()" style="flex:1;background:#003d33;color:#fff;border:none;border-radius:9999px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:17px;">add</span>Noch etwas bestellen
+                    </button>
+                    <button type="button" onclick="callWaiter('service', this)" style="background:rgba(0,61,51,0.08);color:#003d33;border:1px solid rgba(0,61,51,0.18);border-radius:9999px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:17px;">room_service</span>Bedienung
+                    </button>
                 </div>
             </div>
 
@@ -46153,10 +46189,87 @@ function saveCurrentAddress() {
     saveSavedAddresses(addrs);
 }
 
+// Nachbestellen am Tisch: Bestaetigung schliessen und direkt die Karte
+// oeffnen. Name/Telefon stehen im localStorage, die Tischnummer haelt
+// window._qrTableNumber -- der Gast tippt also nichts nochmal ein.
+function orderMoreAtTable() {
+    try { closeModal('orderConfirmationModal'); } catch (e) {}
+    try { if (typeof stopOrderTracking === 'function') stopOrderTracking(); } catch (e) {}
+    var rest = currentOrderRestaurant;
+    if (rest && rest.id && typeof openMenuModal === 'function') {
+        setTimeout(function () { openMenuModal(rest.id); }, 250);
+    }
+}
+
+// ==================== BEDIENUNG RUFEN (TISCH-QR) ====================
+// Gast sitzt am Tisch, tippt auf den Knopf -> Push an alle Geraete des
+// Restaurants: "Tisch 5 braucht kurz Hilfe". Nutzt dieselbe Push-Grundlage
+// wie der Bestell-Alarm; der Text wird serverseitig gebaut (waiter-call.js),
+// damit ueber die oeffentliche Schnittstelle keine beliebigen Meldungen ans
+// Personal geschickt werden koennen.
+var _waiterCallLast = 0;
+
+async function callWaiter(reason, btn) {
+    var table = window._qrTableNumber;
+    var rest = currentOrderRestaurant;
+    if (!table || !rest || !rest.id) {
+        showToast('Bitte den QR-Code am Tisch scannen', 'info');
+        return;
+    }
+
+    // Sperre gegen mehrfaches Tippen -- sonst klingelt es beim Personal
+    // im Sekundentakt und wird als Stoerung wahrgenommen statt als Hilfe.
+    var now = Date.now();
+    if (now - _waiterCallLast < 60000) {
+        var wait = Math.ceil((60000 - (now - _waiterCallLast)) / 1000);
+        showToast('Schon gerufen – bitte noch ' + wait + ' Sekunden warten', 'info');
+        return;
+    }
+
+    var _btnHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'Wird gerufen…'; }
+    try {
+        var res = await fetch('/.netlify/functions/waiter-call', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restaurant_id: rest.id, table: table, reason: reason || 'service' })
+        });
+        var j = await res.json().catch(function () { return null; });
+        if (j && j.ok) {
+            _waiterCallLast = Date.now();
+            showToast('Die Bedienung wurde informiert – jemand kommt gleich zu Tisch ' + table, 'success');
+            if (btn) { btn.textContent = 'Bedienung kommt'; btn.style.opacity = '0.75'; }
+            // Nach der Sperrzeit wieder freigeben
+            setTimeout(function () {
+                if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _btnHtml; }
+            }, 60000);
+            return;
+        }
+        showToast((j && j.error) || 'Konnte niemanden erreichen – bitte kurz winken', 'error');
+    } catch (e) {
+        showToast('Keine Verbindung – bitte kurz winken', 'error');
+    }
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _btnHtml; }
+}
+
 function setOrderType(type, btn) {
     orderType = type;
     document.querySelectorAll('.order-type-btn[data-type]').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
+
+    // E-Mail ist nur bei Abholung/Lieferung Pflicht. Vor Ort waere sie
+    // sinnlos (kein Verfolgen, keine Lieferung) -- Beschriftung mitziehen,
+    // damit das Sternchen nicht luegt.
+    try {
+        var _emlLbl = document.querySelector('label[for="checkoutEmail"]');
+        var _emlHint = _emlLbl && _emlLbl.nextElementSibling;
+        if (_emlLbl) _emlLbl.textContent = (type === 'dine_in') ? 'E-Mail (freiwillig)' : 'E-Mail *';
+        if (_emlHint && _emlHint.tagName === 'DIV') {
+            _emlHint.textContent = (type === 'dine_in')
+                ? 'Nur wenn du eine Bestätigung per Mail möchtest'
+                : 'Für deine Bestellbestätigung und die Live-Verfolgung';
+        }
+    } catch (e) {}
 
     // Lieferadresse ein-/ausblenden
     var deliverySec = document.getElementById('deliveryAddressSection');
@@ -46373,15 +46486,24 @@ async function submitOrder() {
         return;
     }
 
-    // Validierung: E-Mail (Pflicht)
-    // Ohne Adresse gibt es keine Bestellbestaetigung, keinen Verfolgen-Link und
-    // keine Bewertungs-Nachfrage -- und der Gast ruft im Zweifel im Restaurant an.
+    // Validierung: E-Mail
+    // Pflicht bei Abholung und Lieferung: ohne Adresse gibt es keine
+    // Bestellbestaetigung, keinen Verfolgen-Link und keine Bewertungs-Nachfrage
+    // -- und der Gast ruft im Zweifel im Restaurant an.
+    //
+    // NICHT Pflicht bei "Hier essen": Der Gast sitzt im Laden, der Kellner
+    // bringt es an seinen Tisch. Es gibt nichts zu verfolgen und nichts zu
+    // liefern -- die Tischnummer ist die Kennung. Wer fuer einen Kaffee erst
+    // Name, Telefon UND E-Mail eintippen muss, bestellt lieber gar nicht.
+    var _isDineIn = (orderType === 'dine_in') || !!window._qrDineIn;
     const emailVal = document.getElementById('checkoutEmail')?.value?.trim() || '';
-    if (!emailVal) {
+    if (!emailVal && !_isDineIn) {
         markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Bitte E-Mail eingeben – du bekommst darüber deine Bestätigung');
         return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
+    // Format und Tippfehler nur pruefen, wenn ueberhaupt etwas eingetragen ist.
+    // Vor Ort darf das Feld leer bleiben -- dann gibt es hier nichts zu pruefen.
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
         markError('checkoutEmail', '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">warning</span></span> Diese E-Mail-Adresse sieht nicht richtig aus');
         return;
     }
@@ -46389,7 +46511,7 @@ async function submitOrder() {
     // der Gast wartet dann auf eine Bestaetigung, die nie ankommt.
     // Erster Klick: Vorschlag zeigen und korrigierten Wert eintragen.
     // Zweiter Klick: Eingabe des Gastes gilt (falls die Adresse doch stimmt).
-    var _emailHint = suggestEmailFix(emailVal);
+    var _emailHint = emailVal ? suggestEmailFix(emailVal) : null;
     if (_emailHint && window._emailTypoShownFor !== emailVal) {
         window._emailTypoShownFor = emailVal;
         var _emlInput = document.getElementById('checkoutEmail');
@@ -48328,6 +48450,22 @@ function updateOrderStats() {
     el = document.getElementById('statRevenueToday'); if (el) el.textContent = formatPrice(revenue);
     el = document.getElementById('statAvgOrder'); if (el) el.textContent = formatPrice(avgOrder);
     el = document.getElementById('statAvgTime'); if (el) el.textContent = '38 Min';
+
+    // Tisch-QR: Wie viele Bestellungen kamen vom Aufsteller auf dem Tisch?
+    // table_number wird bei jeder Bestellung mitgespeichert (aus ?tisch=N).
+    // Zeigt schwarz auf weiss, ob sich die gedruckten Aufsteller rechnen.
+    try {
+        var _qrOrders = paidOrders.filter(function (o) { return o.table_number; });
+        var _qrEl = document.getElementById('statQrOrders');
+        if (_qrEl) {
+            var _qrShare = paidOrders.length ? Math.round(_qrOrders.length / paidOrders.length * 100) : 0;
+            _qrEl.textContent = _qrOrders.length + (_qrOrders.length ? ' (' + _qrShare + '%)' : '');
+        }
+        var _qrRevEl = document.getElementById('statQrRevenue');
+        if (_qrRevEl) {
+            _qrRevEl.textContent = formatPrice(_qrOrders.reduce(function (s, o) { return s + (parseFloat(o.total) || 0); }, 0));
+        }
+    } catch (e) {}
 
     // Umsatz-Vergleich zur Vorperiode laden
     loadPeriodComparison(revenue, filtered.length);
