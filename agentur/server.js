@@ -572,6 +572,17 @@ function bewertungStatusSetzen(slug, id, status) {
   } catch (_e) { return false; }
 }
 
+// ------------------------------------------------- Inbound-Leads ------------
+// Leads von der oeffentlichen Landingpage (data/leads.jsonl), neueste zuerst.
+function ladeLeads() {
+  try {
+    return fs.readFileSync(path.join(DATEN_ORDNER, 'leads.jsonl'), 'utf8')
+      .split('\n').filter((z) => z.trim())
+      .map((z) => { try { return JSON.parse(z); } catch (_e) { return null; } })
+      .filter(Boolean).reverse();
+  } catch (_e) { return []; }
+}
+
 // ------------------------------------------- Monats-Aufgaben ---------------
 // Pro Kunde: die konkreten Handgriffe des Monats, abgeleitet aus dem letzten
 // Report. Welche abgehakt sind, merken wir pro Monat in data/<slug>/
@@ -856,13 +867,20 @@ const server = http.createServer(async (req, res) => {
       let liste = [];
       try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
       const kundenNamen = (await ladeKunden()).map((k) => k.name);
-      const { istSchonPartner } = require('./lib/pitch');
+      const { istSchonPartner, leadScore } = require('./lib/pitch');
       liste = liste.filter((p) => !istSchonPartner(p, kundenNamen));
-      json(res, 200, liste.map((p) => ({
-        name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
-        telefon: p.phone || '', website: p.website || '',
-        pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
-      })));
+      const mitScore = liste.map((p) => {
+        const lead = leadScore(p);
+        return {
+          name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
+          telefon: p.phone || '', website: p.website || '',
+          heat: lead.heat, score: lead.score, gruende: lead.gruende,
+          pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
+        };
+      });
+      // Heißeste Leads zuerst - so arbeitest du die beste Liste von oben ab.
+      mitScore.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      json(res, 200, mitScore);
       return;
     }
 
@@ -1097,6 +1115,52 @@ const server = http.createServer(async (req, res) => {
       if (DEMO) { json(res, 200, { ok: true }); return; }
       const ok = bewertungStatusSetzen(effektiverSlug(kunde), id, status);
       json(res, ok ? 200 : 404, ok ? { ok: true } : { fehler: 'Eintrag nicht gefunden' });
+      return;
+    }
+
+    // Oeffentliche Landingpage: kostenloser KI-Sichtbarkeits-Check als
+    // Lead-Koeder. Wirte tragen ihr Restaurant + Kontakt ein und landen
+    // als Inbound-Lead in der Pipeline. Kein Login, oeffentlich teilbar.
+    if (req.method === 'GET' && (pfad === '/check' || pfad === '/check/')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(require('./lib/landing').baueLandingHtml());
+      return;
+    }
+
+    // Lead-Eingang von der Landingpage (oeffentlich). Speichert nach
+    // data/leads.jsonl - kommt als heisser Inbound-Lead ins Dashboard.
+    if (req.method === 'POST' && pfad === '/api/lead') {
+      const body = await leseBody(req);
+      const rein = (s) => String(s || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+      const lead = {
+        restaurant: rein(body.restaurant), ort: rein(body.ort), name: rein(body.name),
+        kontakt: rein(body.kontakt), nachricht: rein(body.nachricht),
+        zeit: new Date().toISOString(), status: 'neu'
+      };
+      if (!lead.restaurant || !lead.kontakt) { json(res, 400, { fehler: 'Restaurant und Kontakt sind Pflicht.' }); return; }
+      if (!DEMO) {
+        try {
+          fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+          fs.appendFileSync(path.join(DATEN_ORDNER, 'leads.jsonl'), JSON.stringify(lead) + '\n');
+        } catch (_e) { /* nicht kritisch fuer den Wirt */ }
+      }
+      // Sofort per E-Mail an Ibo, wenn Versand konfiguriert ist
+      if (!DEMO && process.env.AGENTUR_EMAIL && versand.istKonfiguriert()) {
+        versand.sendeReportMail({
+          an: process.env.AGENTUR_EMAIL,
+          betreff: 'Neuer Lead: ' + lead.restaurant + (lead.ort ? ' (' + lead.ort + ')' : ''),
+          text: 'Neuer Inbound-Lead über den Sichtbarkeits-Check:\n\n' +
+            'Restaurant: ' + lead.restaurant + '\nOrt: ' + lead.ort + '\nName: ' + lead.name +
+            '\nKontakt: ' + lead.kontakt + '\nNachricht: ' + lead.nachricht + '\n\nJetzt zurückrufen!'
+        }).catch(() => {});
+      }
+      json(res, 200, { ok: true });
+      return;
+    }
+
+    // Inbound-Leads fuers Dashboard (neueste zuerst)
+    if (req.method === 'GET' && pfad === '/api/leads') {
+      json(res, 200, ladeLeads());
       return;
     }
 

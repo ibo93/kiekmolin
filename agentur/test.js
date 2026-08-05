@@ -193,6 +193,26 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Neukunden-Radar: kein-Website-Lead ist heißer, Begründung datengedeckt', () => {
+  const { leadScore } = require('./lib/pitch');
+  const heiss = leadScore({ name: 'Pizzeria X', category: 'pizzeria', phone: '0491', street: 'Weg 1', website: '' });
+  const kalt = leadScore({ name: 'Sternerestaurant', category: 'restaurant', website: 'https://x.de' });
+  assert.ok(heiss.score > kalt.score, 'ohne Website + Liefer-Küche = heißer');
+  assert.strictEqual(heiss.heat, 'heiss');
+  assert.ok(heiss.gruende.some((g) => /Keine eigene Website/.test(g)), 'nennt die Website-Lücke');
+  assert.ok(kalt.gruende.some((g) => /Hat eine Website/.test(g)), 'ehrlich auch bei vorhandener Website');
+  assert.ok(['heiss', 'warm', 'kalt'].includes(kalt.heat));
+});
+
+test('Landing-Seite: Lead-Formular, ehrlich, Handy-tauglich', () => {
+  const { baueLandingHtml } = require('./lib/landing');
+  const html = baueLandingHtml();
+  assert.ok(html.includes('Sichtbarkeits-Check') && html.includes('/api/lead'), 'Check + Formular-Ziel');
+  assert.ok(html.includes('name="restaurant"') && html.includes('name="kontakt"'), 'Pflichtfelder Restaurant + Kontakt');
+  assert.ok(/kein.*Platz 1|Platz 1.*Versprechen/i.test(html), 'ehrlich – kein Platz-1-Versprechen');
+  assert.ok(html.includes('viewport'), 'Handy-tauglich (viewport)');
+});
+
 test('Verkaufs-Leitfaden: Ablauf, Einwände, echte Zahlen, ehrlich', () => {
   const { baueVerkaufHtml } = require('./lib/verkauf');
   const html = baueVerkaufHtml({ name: 'Greetsieler Börse', city: 'Greetsiel' },
