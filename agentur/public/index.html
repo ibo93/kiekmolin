@@ -157,6 +157,7 @@
   <div class="zahlen" id="uebersicht"><div class="leer">Lade Übersicht…</div></div>
   <div class="status" id="automatikInfo"></div>
   <div class="status" id="bausteineInfo"></div>
+  <div id="leadsBox"></div>
 
   <h2 id="s-telefon">Telefon-Retter</h2>
   <div class="telefon" id="telefonKarte">
@@ -338,6 +339,22 @@ async function rueckrufErledigt(id, quelle) {
   } catch (e) { alert('Fehler: ' + e.message); }
 }
 
+// ---------------- Inbound-Leads (kommen über die /check-Seite rein) ----------------
+async function ladeLeads() {
+  const box = document.getElementById('leadsBox');
+  if (!box) return;
+  try {
+    const leads = await api('/api/leads');
+    if (!leads.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h2 style="margin-top:22px">🔥 Neue Anfragen (' + leads.length + ') · von der Check-Seite</h2>' +
+      leads.map(l => `<div class="kunde" style="border-left:4px solid var(--akzent)">
+        <h3>${(l.restaurant||'').replace(/</g,'&lt;')}${l.ort ? ' <span style="font-weight:400;color:var(--grau)">· ' + l.ort.replace(/</g,'&lt;') + '</span>' : ''}</h3>
+        <div class="meta">${l.name ? l.name.replace(/</g,'&lt;') + ' · ' : ''}<b>${(l.kontakt||'').replace(/</g,'&lt;')}</b>${l.nachricht ? ' · „' + l.nachricht.replace(/</g,'&lt;') + '"' : ''}</div>
+        <div style="font-size:12px;color:var(--grau);margin-top:4px">${new Date(l.zeit).toLocaleString('de-DE')} → anrufen &amp; kostenlosen Check anbieten!</div>
+      </div>`).join('');
+  } catch (e) { box.innerHTML = ''; }
+}
+
 // ---------------- Report per E-Mail + Onboarding ----------------
 async function reportSenden() {
   const btn = document.getElementById('btnMail');
@@ -385,10 +402,17 @@ async function ladeInteressenten() {
   const ziel = document.getElementById('interessentenListe');
   try {
     const liste = await api('/api/interessenten');
-    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – neue Betriebe dort eintragen.</div>'; return; }
-    ziel.innerHTML = `<table><tr><th>Betrieb</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
+    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – „Region importieren (OSM)" nutzen oder Betriebe eintragen.</div>'; return; }
+    const heatBadge = (h) => {
+      const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
+      const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
+      return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
+    };
+    ziel.innerHTML = `<div class="status" style="margin-top:0;margin-bottom:10px">Sortiert nach <b>heißester Lead zuerst</b> – „keine Website" = größte Lücke = leichtester Einstieg. Arbeite die Liste von oben ab.</div>
+      <table><tr><th>Betrieb</th><th>Lead</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
       ${liste.map((p, i) => `<tr>
-        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}</td>
+        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}${p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + p.gruende[0].replace(/</g,'&lt;') + '</div>' : ''}</td>
+        <td>${heatBadge(p.heat)}</td>
         <td>${p.stadt}</td>
         <td>${p.kategorie}</td>
         <td style="white-space:nowrap">${p.telefon ? '<a href="tel:' + p.telefon + '">' + p.telefon + '</a>' : '–'}</td>
@@ -1040,6 +1064,7 @@ if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
 ladeUebersicht();
+ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
 setInterval(ladeTelefon, 15000);

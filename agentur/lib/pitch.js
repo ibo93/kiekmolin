@@ -125,4 +125,31 @@ function istSchonPartner(prospect, kundenNamen) {
   });
 }
 
-module.exports = { pitchLuecken, bauePitchHtml, istSchonPartner, normalisiereName };
+// Neukunden-Radar: bewertet, wie leicht ein Interessent zu gewinnen ist.
+// Je groesser die sichtbare Luecke, desto ueberzeugender der Pitch - und
+// desto "heisser" der Lead. Rein datengedeckt aus den Verzeichnis-Feldern.
+function leadScore(prospect) {
+  const p = prospect || {};
+  let score = 0;
+  const gruende = [];
+
+  if (!p.website) { score += 3; gruende.push('Keine eigene Website – größte Sichtbarkeits-Lücke, leichtester Einstieg'); }
+  else { gruende.push('Hat eine Website – Argument über KI-/Google-Sichtbarkeit statt Grundlagen'); }
+
+  if (p.phone) { score += 1; gruende.push('Telefonnummer bekannt – direkt erreichbar'); }
+  else { gruende.push('Keine Nummer hinterlegt – am besten persönlich vorbeigehen'); }
+
+  if (p.street) { score += 1; gruende.push('Feste Adresse – etablierter Betrieb'); }
+
+  // Kategorien mit typisch hohem Reservierungs-/Bestell-Aufkommen: dort
+  // zieht der Telefon-Retter besonders (mehr verpasste Anrufe = mehr Nutzen).
+  const kat = normalisiereName(p.category || p.cuisine || '');
+  if (/pizz|italien|doener|döner|asiat|sushi|burger|imbiss/.test(kat)) {
+    score += 1; gruende.push('Liefer-/Abhol-Küche – Telefon-Retter bringt hier am meisten');
+  }
+
+  const heat = score >= 5 ? 'heiss' : score >= 3 ? 'warm' : 'kalt';
+  return { score, heat, gruende };
+}
+
+module.exports = { pitchLuecken, bauePitchHtml, istSchonPartner, normalisiereName, leadScore };
