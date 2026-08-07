@@ -21,6 +21,19 @@
 //            is_vegetarian,is_vegan,is_spicy,is_beef,is_chicken,is_pork,
 //            is_fish,is_seafood}] }
 
+// OCR-VORSTUFE (optional, empfohlen):
+//   GOOGLE_VISION_API_KEY -> Google Cloud Vision, DOCUMENT_TEXT_DETECTION.
+// Das ist dieselbe OCR-Maschine, die hinter Google Lens und der Menuekarten-
+// Erkennung im Google-Unternehmensprofil steckt. Sie liefert die Zeichen EXAKT,
+// mit Position -- ein Vision-Modell allein "liest" das Bild dagegen frei und
+// vertut sich vor allem bei Preisen und mehrspaltigen Karten.
+// Wir kombinieren beides: die OCR liefert den exakten Wortlaut, das Modell
+// bekommt zusaetzlich das Bild fuer die Struktur (Spalten, Ueberschriften,
+// welcher Preis zu welchem Gericht gehoert).
+// Ohne Schluessel laeuft alles genau wie bisher weiter -- die OCR wird dann
+// einfach uebersprungen. Kein Schluessel = kein Risiko.
+// Kontingent: 1000 Bilder/Monat kostenlos, danach ca. 1,50 $ pro 1000.
+
 'use strict';
 
 var ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
@@ -132,8 +145,78 @@ function splitDataUrl(d) {
     return { media: 'image/jpeg', data: String(d || '').replace(/^data:[^,]*,/, '') };
 }
 
-async function callAnthropic(key, images, text) {
-    var content = [{ type: 'text', text: PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') }];
+// Google Cloud Vision: exakter Text eines Bildes.
+// DOCUMENT_TEXT_DETECTION (nicht TEXT_DETECTION) ist auf dichte, mehrspaltige
+// Dokumente ausgelegt -- genau der Fall Speisekarte.
+async function ocrImage(key, dataUrl) {
+    var p = splitDataUrl(dataUrl);
+    var res = await fetch('https://vision.googleapis.com/v1/images:annotate?key=' + encodeURIComponent(key), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            requests: [{
+                image: { content: p.data },
+                features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+                imageContext: { languageHints: ['de', 'en'] }
+            }]
+        })
+    });
+    if (!res.ok) { var t = await res.text(); throw new Error('Vision ' + res.status + ': ' + t.slice(0, 200)); }
+    var j = await res.json();
+    var r = j.responses && j.responses[0];
+    if (r && r.error && r.error.message) throw new Error('Vision: ' + r.error.message.slice(0, 200));
+    var txt = (r && r.fullTextAnnotation && r.fullTextAnnotation.text) || '';
+    return String(txt).slice(0, 40000);
+}
+
+// OCR fuer alle Bilder -- Fehler sind hier NIE fatal: schlaegt die OCR fehl
+// (Schluessel fehlt, API nicht aktiviert, Kontingent leer), scannen wir
+// weiter wie bisher nur mit dem Bild.
+// Merkt sich pro Function-Instanz, dass ein Schluessel keine Vision-Rechte hat.
+// Sonst laeuft bei JEDEM Scan ein von vornherein aussichtsloser Aufruf ins Leere
+// (typischer Fall: der Gemini-Schluessel wird mitbenutzt, in dessen Google-Projekt
+// die Cloud Vision API gar nicht aktiviert ist). 401/403 = Rechteproblem, das sich
+// ohne Zutun nicht aendert; alles andere (Quota, Netz) darf es weiter versuchen.
+var _visionDenied = {};
+
+async function ocrAll(key, images) {
+    if (!key || !images || !images.length) return '';
+    if (_visionDenied[key]) return '';
+    var parts = await Promise.all(images.map(function (img) {
+        return ocrImage(key, img).catch(function (e) {
+            if (/\b(401|403)\b|PERMISSION_DENIED|has not been used|is disabled/i.test(e.message)) {
+                _visionDenied[key] = 1;
+                console.warn('[menu-scan] OCR dauerhaft aus (kein Zugriff):', e.message);
+            } else {
+                console.warn('[menu-scan] OCR uebersprungen:', e.message);
+            }
+            return '';
+        });
+    }));
+    return parts.filter(Boolean).join('\n\n--- naechste Seite ---\n\n');
+}
+
+// OCR-Text so einbetten, dass das Modell ihn als Beleg nutzt statt ihn
+// blind abzuschreiben: die Zeichen stimmen, die Lesereihenfolge nicht immer.
+function ocrBlock(ocr) {
+    if (!ocr) return '';
+    return '\n\nOCR-TEXT (maschinell aus demselben Bild gelesen — die ZEICHEN und vor allem die ZAHLEN\n' +
+           'sind exakt, die Reihenfolge kann bei mehrspaltigen Karten durcheinander sein):\n' +
+           '"""\n' + ocr + '\n"""\n' +
+           'Nutze das Bild fuer die STRUKTUR (Spalten, Ueberschriften, welcher Preis zu welcher Zeile gehoert)\n' +
+           'und den OCR-Text fuer die exakte SCHREIBWEISE und die PREISE. Weichen Bild und OCR bei einer Zahl\n' +
+           'voneinander ab, gilt der OCR-Text. Steht ein Gericht im OCR-Text, muss es auch in deiner Liste stehen.';
+}
+
+// Prompt zusammensetzen. Nutzertext (eingetippte Karte) und OCR-Text sind zwei
+// verschiedene Dinge und bekommen deshalb getrennte, klar benannte Abschnitte --
+// sonst haelt das Modell den OCR-Auszug fuer die vom Wirt eingegebene Karte.
+function buildPrompt(text, extra) {
+    return PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
+}
+
+async function callAnthropic(key, images, text, extra) {
+    var content = [{ type: 'text', text: buildPrompt(text, extra) }];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
         content.push({ type: 'image', source: { type: 'base64', media_type: p.media, data: p.data } });
@@ -179,8 +262,8 @@ var GEMINI_SCHEMA = {
     required: ['items']
 };
 
-async function callGeminiModel(key, model, images, text) {
-    var parts = [{ text: PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') }];
+async function callGeminiModel(key, model, images, text, extra) {
+    var parts = [{ text: buildPrompt(text, extra) }];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
         parts.push({ inlineData: { mimeType: p.media, data: p.data } });
@@ -214,11 +297,11 @@ async function callGeminiModel(key, model, images, text) {
     return out;
 }
 
-async function callGemini(key, images, text) {
+async function callGemini(key, images, text, extra) {
     var lastErr = null;
     for (var i = 0; i < GEMINI_MODELS.length; i++) {
         try {
-            return await callGeminiModel(key, GEMINI_MODELS[i], images, text);
+            return await callGeminiModel(key, GEMINI_MODELS[i], images, text, extra);
         } catch (e) { lastErr = e; }
     }
     throw (lastErr || new Error('Gemini nicht erreichbar'));
@@ -243,8 +326,8 @@ exports.handler = async function (event) {
     // Reihenfolge der Anbieter. Gemini zuerst = der normale Scan ist kostenlos.
     // Claude ist der Notnagel und kostet nur dann etwas, wenn Gemini nichts liefert.
     var providers = [];
-    if (geminiKey)    providers.push({ name: 'Gemini',    call: function (i, t) { return callGemini(geminiKey, i, t); } });
-    if (anthropicKey) providers.push({ name: 'Claude',    call: function (i, t) { return callAnthropic(anthropicKey, i, t); } });
+    if (geminiKey)    providers.push({ name: 'Gemini',    call: function (i, t, x) { return callGemini(geminiKey, i, t, x); } });
+    if (anthropicKey) providers.push({ name: 'Claude',    call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x); } });
     if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'claude') providers.reverse();
 
     // Ein Satz Bilder (oder Text) -> normalisierte Items.
@@ -255,12 +338,12 @@ exports.handler = async function (event) {
     // Wichtig: ein LEERES Ergebnis zaehlt hier wie ein Fehler. Vorher wurde bei
     // 0 Gerichten derselbe Anbieter noch einmal gefragt und der zweite nie --
     // die Ausweichmoeglichkeit lief also nur bei einer echten Exception an.
-    async function runModel(imgs, txt) {
+    async function runModel(imgs, txt, extra) {
         var order = providers.length === 1 ? [providers[0], providers[0]] : providers;
         var lastErr = null;
         for (var i = 0; i < order.length; i++) {
             try {
-                var items = normalizeItems(parseItemsLoose(await order[i].call(imgs, txt)));
+                var items = normalizeItems(parseItemsLoose(await order[i].call(imgs, txt, extra)));
                 if (items.length) return items;
                 console.warn('[menu-scan] ' + order[i].name + ' lieferte 0 Gerichte');
             } catch (e) {
@@ -272,17 +355,26 @@ exports.handler = async function (event) {
         return [];
     }
 
+    // OCR-Vorstufe. Eigener Schluessel bevorzugt; ist keiner gesetzt, wird der
+    // Gemini-Schluessel probiert (funktioniert, wenn im selben Google-Projekt die
+    // Cloud Vision API aktiviert und der Schluessel nicht eingeschraenkt ist).
+    // Klappt beides nicht, laeuft der Scan ohne OCR weiter -- wie bisher.
+    var visionKey = process.env.GOOGLE_VISION_API_KEY || geminiKey || '';
+
     try {
         var all = [];
         if (images.length > 1) {
             // Jede Seite/jedes Bild EINZELN scannen -> kein Abriss durch Token-Limit,
             // danach zusammenfuehren. So werden auch lange/mehrseitige Karten komplett erfasst.
-            var perImage = await Promise.all(images.map(function (img) {
-                return runModel([img], '').catch(function () { return []; });
+            // OCR laeuft pro Seite, damit der Text zum jeweiligen Bild passt.
+            var perImage = await Promise.all(images.map(async function (img) {
+                var ocr = await ocrAll(visionKey, [img]);
+                return runModel([img], '', ocrBlock(ocr)).catch(function () { return []; });
             }));
             perImage.forEach(function (list) { all = all.concat(list); });
         } else {
-            all = await runModel(images, text);
+            var ocrOne = await ocrAll(visionKey, images);
+            all = await runModel(images, text, ocrBlock(ocrOne));
         }
 
         // Duplikate entfernen (gleicher Name + Preis) — Kategorie bewusst NICHT im
