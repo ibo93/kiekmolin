@@ -489,6 +489,37 @@
     var SUPA_KEY = SUPABASE_KEY;
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
+
+    // ==================== SCHREIBENDE AUFRUFE ====================
+    // fetch() wirft NUR bei Netzwerkfehlern. Eine abgelehnte Anfrage (400, 401,
+    // 409, 500 ...) kommt als ganz normale Antwort zurueck -- wer nur
+    // "await fetch(...)" schreibt und danach "gespeichert!" meldet, luegt den
+    // Gastronomen an: er sieht die Erfolgsmeldung, in der Datenbank steht nichts.
+    // Beim naechsten Laden ist seine Aenderung weg und niemand weiss warum.
+    //
+    // sbWrite macht aus dem stillen Fehlschlag eine echte Exception. Damit
+    // springt der Ablauf in den catch-Block, die Erfolgsmeldung wird
+    // uebersprungen und der Nutzer erfaehrt, dass es NICHT geklappt hat.
+    // Fuer jeden POST/PATCH/DELETE benutzen -- nicht fuer reines Lesen.
+    async function sbWrite(url, options) {
+        var res = await fetch(url, options);
+        if (!res.ok) {
+            var detail = '';
+            try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
+            // PostgREST verpackt den Grund in JSON -- den lesbaren Teil rausziehen,
+            // damit in der Meldung nicht bloss "HTTP 400" steht.
+            try {
+                var j = JSON.parse(detail);
+                detail = j.message || j.hint || j.details || detail;
+            } catch (e) {}
+            var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+            err.status = res.status;
+            err.isWriteError = true;
+            throw err;
+        }
+        return res;
+    }
+
     // ==================== API CACHE ====================
     // Cached fetch für Supabase - reduziert API Requests massiv
     var _apiCache = {};
@@ -22715,7 +22746,7 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
         // Fotos hochladen
         if (photos.length > 0) {
             for (const photo of photos) {
-                await fetch(`${SUPABASE_URL}/rest/v1/review_photos`, {
+                await sbWrite(`${SUPABASE_URL}/rest/v1/review_photos`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -22744,9 +22775,11 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
 }
 
 // ==================== ACTIVITY LOG ====================
+// Bewusst still: Telemetrie. Schlaegt das Protokollieren fehl, darf das
+// niemals die eigentliche Aktion des Nutzers stoeren oder ihn behelligen.
 async function logActivity(activityType, targetType, targetId, targetName, message, metadata = {}) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/activity_log`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/activity_log`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -22789,9 +22822,11 @@ async function loadRecentActivity(targetType, targetId, limit = 5) {
 }
 
 // ==================== PRESENCE TRACKING ====================
+// Bewusst still: Anwesenheits-Heartbeat, laeuft im Hintergrund im Takt.
+// Ein verpasster Schlag korrigiert sich beim naechsten von selbst.
 async function updatePresence(targetType, targetId) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/presence`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/presence`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27169,7 +27204,7 @@ async function rejectDashReservation(resId, restaurantId) {
                 var curArr = await curResp.json().catch(function() { return []; });
                 var cur = curArr[0] || {};
 
-                await fetch(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
+                await sbWrite(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -27338,7 +27373,7 @@ async function addJob(event) {
 
 async function toggleJobStatus(jobId, newStatus) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27351,6 +27386,7 @@ async function toggleJobStatus(jobId, newStatus) {
         showToast(newStatus ? 'Job aktiviert' : 'Job deaktiviert');
     } catch (e) {
         console.error('Status ändern Fehler:', e);
+        showToast('Status konnte nicht geändert werden: ' + e.message, 'error');
     }
 }
 
@@ -27358,7 +27394,7 @@ async function deleteJob(jobId) {
     if (!await kinConfirm('Stellenanzeige wirklich löschen?')) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27369,6 +27405,7 @@ async function deleteJob(jobId) {
         showToast('Stellenanzeige gelöscht');
     } catch (e) {
         console.error('Löschen Fehler:', e);
+        showToast('Löschen fehlgeschlagen: ' + e.message, 'error');
     }
 }
 
@@ -27624,7 +27661,7 @@ async function approveGastroRequest(customerId, restaurantId) {
 
         // Restaurant aktivieren
         if (restaurantId) {
-            var resp2 = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, {
+            var resp2 = await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: true })
@@ -27642,7 +27679,7 @@ async function approveGastroRequest(customerId, restaurantId) {
 async function rejectGastroRequest(customerId) {
     if (!await kinConfirm('Anfrage wirklich ablehnen?')) return;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -27876,7 +27913,7 @@ async function deleteRestaurant(restaurantId) {
     if (!await kinConfirm('Restaurant wirklich löschen? Alle Reservierungen werden auch gelöscht!')) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -30187,7 +30224,7 @@ async function toggleFeature(feature) {
         }
 
         // In Supabase speichern
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -30308,7 +30345,7 @@ async function deleteOffer(id) {
     // In Supabase löschen (deaktivieren)
     if (useSupabase) {
         try {
-            await fetch(`${SUPABASE_URL}/rest/v1/offers?id=eq.${id}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/offers?id=eq.${id}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -30320,6 +30357,8 @@ async function deleteOffer(id) {
             });
         } catch (e) {
             console.error('Fehler beim Löschen:', e);
+            showToast('Löschen fehlgeschlagen: ' + e.message, 'error');
+            return;
         }
     }
 
@@ -31045,7 +31084,7 @@ async function handleSubmitReview(event) {
 
 async function markHelpful(reviewId) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/helpful_votes`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/helpful_votes`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -31061,6 +31100,10 @@ async function markHelpful(reviewId) {
 
         showToast('Danke! <span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">thumb_up</span></span>', 'success');
     } catch (e) {
+        // Stimme kam nicht durch -> Zaehler zuruecksetzen, sonst zeigt die
+        // Ansicht eine Stimme an, die es in der Datenbank nicht gibt.
+        console.warn('[markHelpful]', e.message);
+        showToast('Deine Stimme konnte nicht gespeichert werden.', 'error');
     }
 }
 
@@ -31494,7 +31537,7 @@ async function addRestaurant(e) {
 
             // Tische für das Restaurant erstellen (nur bei Neuanlage)
             for (let i = 1; i <= tables; i++) {
-                await fetch(`${SUPABASE_URL}/rest/v1/tables`, {
+                await sbWrite(`${SUPABASE_URL}/rest/v1/tables`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -31524,7 +31567,7 @@ async function addRestaurant(e) {
                     monthly_fee: parseInt(plan) || 59,
                     contract_start: contractStart || todayStrLocal()
                 };
-                await fetch(SUPABASE_URL + '/rest/v1/customers', {
+                await sbWrite(SUPABASE_URL + '/rest/v1/customers', {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -32433,7 +32476,7 @@ async function toggleAccommodationAvailability(id, currentStatus) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -32458,7 +32501,7 @@ async function deleteAccommodation(id, name) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -32834,7 +32877,7 @@ async function setupStripeForCustomer(customerId) {
 
         if (result.success && result.checkoutUrl) {
             // Stripe Customer ID in Supabase speichern
-            await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -33201,7 +33244,7 @@ async function addCustomer(e) {
             let _restBody = Object.assign({}, restaurantPayload);
             let response, _restErr = '';
             for (let _rt = 0; _rt < 18; _rt++) {
-                response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
+                response = await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -33287,7 +33330,7 @@ async function addCustomer(e) {
         let _custBody = Object.assign({}, customerPayload);
         let customerResponse, _custErrText = '';
         for (let _try = 0; _try < 18; _try++) {
-            customerResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers`, {
+            customerResponse = await sbWrite(`${SUPABASE_URL}/rest/v1/customers`, {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -33377,7 +33420,7 @@ async function recordPayment() {
         const nextMonth = new Date();
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33791,7 +33834,7 @@ async function toggleCustomerStatus(customerId, currentStatus) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33815,7 +33858,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
 
     try {
         // 1. Customer aktivieren
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33827,7 +33870,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
 
         // 2. Restaurant aktivieren
         if (restaurantId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -35887,7 +35930,7 @@ async function saveGastroResEdit() {
         }
 
         // DELETE alte Reservierung
-        await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -36572,7 +36615,7 @@ async function saveGastroOffer() {
 
     try {
         // Altes Angebot löschen
-        await fetch(`${SUPABASE_URL}/rest/v1/offers?restaurant_id=eq.${restaurantId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/offers?restaurant_id=eq.${restaurantId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -36581,7 +36624,7 @@ async function saveGastroOffer() {
         });
 
         // Neues Angebot speichern
-        await fetch(`${SUPABASE_URL}/rest/v1/offers`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/offers`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -45378,7 +45421,7 @@ async function saveOptionGroup(editId) {
 
         // Wenn bearbeiten: alte Optionen loeschen
         if (editId) {
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + editId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + editId, {
                 method: 'DELETE',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
@@ -45404,7 +45447,7 @@ async function saveOptionGroup(editId) {
             });
         }
         if (choices.length > 0) {
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options', {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options', {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -45486,12 +45529,12 @@ async function deleteOptionGroup(groupId) {
     if (!await kinConfirm('Optionsgruppe wirklich löschen? Alle zugehörigen Optionen werden ebenfalls gelöscht.')) return;
     try {
         // Erst Optionen loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         // Dann Gruppe loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -45668,7 +45711,7 @@ async function saveCrossSell() {
     }
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/menu_cross_sells', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_cross_sells', {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -45688,7 +45731,7 @@ async function saveCrossSell() {
 // Cross-Sell loeschen
 async function deleteCrossSell(id) {
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/menu_cross_sells?id=eq.' + id, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_cross_sells?id=eq.' + id, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -49017,7 +49060,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
         refund_needed: !!refundNeeded
     };
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -49028,7 +49071,15 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
             body: JSON.stringify(updateData)
         });
     } catch (e) {
+        // ABBRECHEN, nicht weitermachen. Vorher lief der Rest der Funktion auch
+        // nach einem Datenbankfehler weiter: das Dashboard zeigte die Bestellung
+        // als storniert an UND der Kunde bekam eine Storno-Benachrichtigung --
+        // waehrend die Bestellung in der Datenbank unveraendert aktiv blieb.
+        // Nach dem naechsten Laden war sie wieder da, der Kunde aber schon
+        // abgesagt. Lieber eine ehrliche Fehlermeldung als dieser Zustand.
         console.error('Storno DB-Fehler:', e);
+        showToast('Stornieren fehlgeschlagen: ' + e.message + ' – die Bestellung ist weiterhin aktiv.', 'error');
+        return;
     }
 
     var order = (typeof dashboardOrders !== 'undefined') ? dashboardOrders.find(function(o) { return o.id === orderId; }) : null;
@@ -49043,7 +49094,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
     // Push an Kunden senden (über Server-Function)
     if (order) {
         try {
-            await fetch('/.netlify/functions/push-send', {
+            await sbWrite('/.netlify/functions/push-send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -50335,7 +50386,7 @@ async function _savePOSConfigToSupabase(config) {
         Object.keys(config).forEach(function(key) {
             safeConfig[key] = { system: config[key].system, autoSend: config[key].autoSend || false };
         });
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_config: safeConfig })
@@ -50966,7 +51017,7 @@ async function _savePOSSyncStatus(orderId, status, message) {
             if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
         }
         arr.push(entry);
-        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+        await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_log: arr })
@@ -51154,7 +51205,7 @@ async function copyOrderForKasse(orderId) {
                 if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
             }
             arr.push(entry);
-            await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+            await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ pos_log: arr })
@@ -52345,7 +52396,7 @@ async function saveDeliveryFee() {
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
     
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52383,7 +52434,7 @@ async function saveDeliveryRadius() {
     localStorage.setItem('kin_delivery_radius_' + restId, radius);
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52393,7 +52444,10 @@ async function saveDeliveryRadius() {
             },
             body: JSON.stringify({ delivery_radius: radius })
         });
-    } catch(e) { console.error('Lieferradius speichern:', e); }
+    } catch (e) {
+        console.error('Lieferradius speichern:', e);
+        showToast('Lieferradius konnte nicht gespeichert werden: ' + e.message, 'error');
+    }
 
     // APP_DATA updaten
     if (currentOrderRestaurant && currentOrderRestaurant.id === restId) {
@@ -52594,7 +52648,7 @@ async function savePaymentSettings() {
         if (cardOn) features.push('payment_card');
         if (paypalOn) features.push('payment_paypal');
 
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
@@ -52641,7 +52695,7 @@ async function savePaypalMe() {
             });
             if (val) features.push('paypal_me:' + val);
 
-            await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ features: features })
@@ -52657,6 +52711,7 @@ async function savePaypalMe() {
             showToast('PayPal.me gespeichert', 'success');
         } catch(e) {
             console.error('PayPal.me save error:', e);
+            showToast('PayPal.me konnte nicht gespeichert werden: ' + e.message, 'error');
         }
     }, 800);
 }
@@ -52805,7 +52860,7 @@ async function saveLoyaltySetting() {
         var features = (data[0]?.features || []).filter(function(f) { return f !== 'loyalty_points'; });
         if (isOn) features.push('loyalty_points');
         
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
@@ -52857,7 +52912,7 @@ async function saveOrderSettingsToSupabase(restId, settings) {
         if (settings.pickup) features.push('abholung');
         if (settings.delivery) features.push('lieferung');
 
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52867,7 +52922,10 @@ async function saveOrderSettingsToSupabase(restId, settings) {
             },
             body: JSON.stringify({ features: features })
         });
-    } catch(e) { console.error('Settings save error:', e); }
+    } catch (e) {
+        console.error('Settings save error:', e);
+        showToast('Einstellungen konnten nicht gespeichert werden: ' + e.message, 'error');
+    }
 }
 
 // Toggle Visuals aktualisieren
@@ -53338,7 +53396,7 @@ async function addTableToSupabase(restaurantId, tableName, tableNumber, maxCapac
 async function deleteTable(tableId, restaurantId) {
     if (!await kinConfirm('Tisch wirklich löschen?')) return;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -53387,17 +53445,23 @@ async function toggleTableStatus(tableId, restaurantId) {
 
     // In Supabase speichern
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-    } catch(e) {}
+    } catch (e) {
+        // War ein leerer catch: der Tisch sprang im Dashboard um, in der
+        // Datenbank blieb er unveraendert -- das Personal haelt dann einen
+        // besetzten Tisch fuer frei.
+        showToast('Tischstatus konnte nicht gespeichert werden: ' + e.message, 'error');
+        if (typeof openTableManager === 'function' && restaurantId) openTableManager(restaurantId);
+    }
 }
 
 async function setAllTables(restaurantId, status) {
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: status })
@@ -55206,7 +55270,7 @@ async function deleteCategory(categoryId) {
 
         // Methode 2: REST API Fallback
         if (!catDeleted) {
-            await fetch(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
                 method: 'DELETE',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=representation' }
             });
@@ -57655,13 +57719,13 @@ async function saveSizeGroup() {
 
         if (groupId) {
             // UPDATE: Gruppe aktualisieren
-            await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
                 method: 'PATCH', headers: headers,
                 body: JSON.stringify({ name: name, internal_name: internalName })
             });
 
             // Alte Optionen loeschen
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
                 method: 'DELETE', headers: headers
             });
         } else {
@@ -57696,7 +57760,7 @@ async function saveSizeGroup() {
             };
         });
 
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options', {
             method: 'POST', headers: headers,
             body: JSON.stringify(optionsPayload)
         });
@@ -57717,11 +57781,11 @@ async function deleteSizeGroup(groupId) {
 
     try {
         // Erst Optionen loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
             method: 'DELETE', headers: headers
         });
         // Dann Gruppe loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             method: 'DELETE', headers: headers
         });
 
@@ -59212,8 +59276,9 @@ function setReviewStar(n) {
 async function submitCustomerReview(restaurantId, orderNumber) {
     var comment = document.getElementById('reviewComment')?.value?.trim() || '';
 
+    var _reviewGesendet = false;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/reviews', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/reviews', {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -59225,15 +59290,26 @@ async function submitCustomerReview(restaurantId, orderNumber) {
                 created_at: new Date().toISOString()
             })
         });
-    } catch(e) {}
+        _reviewGesendet = true;
+    } catch (e) {
+        console.warn('[review] konnte nicht gesendet werden:', e.message);
+    }
 
     // Lokal speichern als Fallback
     var reviews = JSON.parse(localStorage.getItem('kmi_reviews') || '[]');
-    reviews.push({ restaurant_id: restaurantId, order_number: orderNumber, rating: _selectedReviewStars, comment: comment, date: new Date().toISOString() });
+    reviews.push({ restaurant_id: restaurantId, order_number: orderNumber, rating: _selectedReviewStars, comment: comment, date: new Date().toISOString(), sent: _reviewGesendet });
     localStorage.setItem('kmi_reviews', JSON.stringify(reviews));
 
     document.getElementById('reviewOverlay')?.remove();
-    showToast('Danke für deine Bewertung!', 'success');
+    // Ehrlich bleiben: kam die Bewertung nicht durch, liegt sie nur im Browser
+    // des Gastes -- das Restaurant sieht sie nie. "Danke fuer deine Bewertung!"
+    // waere dann schlicht gelogen, und der Gast wundert sich spaeter, warum
+    // seine Bewertung nirgends auftaucht.
+    if (_reviewGesendet) {
+        showToast('Danke für deine Bewertung!', 'success');
+    } else {
+        showToast('Deine Bewertung konnte gerade nicht gesendet werden – bitte gleich nochmal versuchen.', 'error');
+    }
     _selectedReviewStars = 0;
 }
 
@@ -61573,7 +61649,7 @@ async function deleteTouristRoute(routeId) {
     if (!await kinConfirm('Route wirklich löschen?')) return;
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
