@@ -56506,44 +56506,60 @@ function splitImageVertically(dataUrl, slices) {
     return new Promise(function (resolve) {
         var img = new Image();
         img.onload = function () {
-            // Breite auf max. 2400px begrenzen: Handy-Fotos (4000px+) sprengen sonst
-            // das Upload-Limit der Function. 2400px = beste Balance aus Lesbarkeit
-            // (kleine Schrift!) und Payload-Groesse.
-            var scale = Math.min(1, 2400 / img.width);
-            var W = Math.round(img.width * scale);
-            var H = Math.round(img.height * scale);
+            // Claude Sonnet 5 verarbeitet Bilder bis 2576 px auf der LANGEN
+            // Kante. Alles darueber skaliert Anthropic selbst herunter.
+            //
+            // Vorher wurde nach der BREITE auf 2400 begrenzt. Bei einem
+            // Handy-Hochformat (3000x4000) kam damit 2400x3200 raus -- lange
+            // Kante 3200, also nochmal auf 1932x2576 geschrumpft. Die Schrift
+            // wurde also zweimal kleiner gemacht, einmal unnoetig.
+            //
+            // Der eigentliche Hebel: eine hohe Karte in zwei ueberlappende
+            // Haelften schneiden. Jede Haelfte wird EINZELN auf 2576 skaliert
+            // -- die Schrift ist dadurch doppelt so gross wie beim Scan der
+            // ganzen Seite am Stueck. Geschnitten wird quer (Zeilen), nie
+            // laengs (Spalten): so bleibt ein mehrspaltiges Layout heil.
+            var MAX_KANTE = 2576;
+            var UEBERLAPPUNG = 0.08;   // 8 % gegen zerschnittene Zeilen
 
-            // WICHTIG: Karten NICHT mehr in viele Streifen schneiden — das zerreisst
-            // mehrspaltige Layouts und Zeilen an den Schnittkanten (falsche Preise,
-            // fehlende Gerichte). Die KI liest das GANZE Bild am Stueck am besten.
-            // Nur extrem lange Fotos (Handy-Panorama einer Karte) in 2 Haelften.
-            var parts = (H > 3200) ? 2 : 1;
-            if (parts === 1) {
-                if (scale < 1) {
-                    var c0 = document.createElement('canvas');
-                    c0.width = W; c0.height = H;
-                    c0.getContext('2d').drawImage(img, 0, 0, W, H);
-                    resolve([c0.toDataURL('image/jpeg', 0.92)]);
-                } else {
-                    resolve([dataUrl]);
-                }
+            var w = img.width, h = img.height;
+            if (!w || !h) { resolve([dataUrl]); return; }
+
+            var verhaeltnis = h / w;
+            var teile = 1;
+            if (verhaeltnis >= 1.25 && h > MAX_KANTE * 1.15) teile = 2;
+            if (verhaeltnis >= 2.4) teile = 3;                 // Panorama einer langen Karte
+
+            function stueck(y0, y1) {
+                var sh = y1 - y0;
+                var f = Math.min(1, MAX_KANTE / Math.max(w, sh));
+                var cw = Math.max(1, Math.round(w * f));
+                var ch = Math.max(1, Math.round(sh * f));
+                var c = document.createElement('canvas');
+                c.width = cw; c.height = ch;
+                var ctx = c.getContext('2d');
+                // Weisser Grund: PNG mit Transparenz wuerde sonst schwarz und
+                // die Schrift verschwindet.
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, cw, ch);
+                ctx.drawImage(img, 0, y0, w, sh, 0, 0, cw, ch);
+                return c.toDataURL('image/jpeg', 0.92);
+            }
+
+            if (teile === 1) {
+                resolve([stueck(0, h)]);
                 return;
             }
+
             var out = [];
-            var overlap = Math.floor(H * 0.07);
-            var sliceH = Math.ceil(H / parts);
-            for (var s = 0; s < parts; s++) {
-                var y0 = Math.max(0, s * sliceH - overlap);
-                var y1 = Math.min(H, (s + 1) * sliceH + overlap);
-                var h = y1 - y0;
-                if (h <= 0) continue;
-                var c = document.createElement('canvas');
-                c.width = W; c.height = h;
-                // Quelle in Original-Koordinaten, Ziel skaliert
-                c.getContext('2d').drawImage(img, 0, y0 / scale, img.width, h / scale, 0, 0, W, h);
-                out.push(c.toDataURL('image/jpeg', 0.92));
+            var hoehe = h / teile;
+            var ueber = Math.floor(h * UEBERLAPPUNG);
+            for (var i = 0; i < teile; i++) {
+                var y0 = Math.max(0, Math.round(i * hoehe) - (i > 0 ? ueber : 0));
+                var y1 = Math.min(h, Math.round((i + 1) * hoehe) + (i < teile - 1 ? ueber : 0));
+                if (y1 - y0 > 10) out.push(stueck(y0, y1));
             }
-            resolve(out.length ? out : [dataUrl]);
+            resolve(out.length ? out : [stueck(0, h)]);
         };
         img.onerror = function () { resolve([dataUrl]); };
         img.src = dataUrl;
@@ -56583,14 +56599,32 @@ async function startMenuScan() {
             images = images.slice(0, 10);
             var aiItems = [];
             var failedPages = 0;
-            for (var pi = 0; pi < images.length; pi++) {
-                statusEl.textContent = images.length > 1
-                    ? ('🤖 KI liest Seite ' + (pi + 1) + '/' + images.length + '...')
-                    : '🤖 KI erkennt Gerichte & Kategorien...';
-                var part = await aiMenuScan({ images: [images[pi]] });
+
+            // Seiten PARALLEL lesen statt nacheinander. Vorher wartete jede
+            // Seite auf die vorige -- eine 5-seitige Karte dauerte fuenfmal so
+            // lang wie eine einzelne. Jetzt dauert der ganze Scan nur so lang
+            // wie die langsamste Seite. Das wird umso wichtiger, seit hohe
+            // Seiten fuer die bessere Lesbarkeit in zwei Haelften gehen.
+            var fertig = 0;
+            statusEl.textContent = images.length > 1
+                ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
+                : '🤖 KI erkennt Gerichte & Kategorien…';
+
+            var teilErgebnisse = await Promise.all(images.map(function (bild) {
+                return aiMenuScan({ images: [bild] })
+                    .catch(function () { return []; })
+                    .then(function (r) {
+                        fertig++;
+                        if (images.length > 1) {
+                            statusEl.textContent = '🤖 ' + fertig + '/' + images.length + ' Seiten gelesen…';
+                        }
+                        return r;
+                    });
+            }));
+            teilErgebnisse.forEach(function (part) {
                 if (part && part.length) aiItems = aiItems.concat(part);
                 else failedPages++;
-            }
+            });
             // Duplikate (z.B. aus ueberlappenden Haelften) entfernen: Name+Preis
             var _seenScan = {};
             aiItems = aiItems.filter(function (it) {

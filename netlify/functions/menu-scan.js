@@ -219,7 +219,46 @@ function buildPrompt(text, extra) {
     return PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
 }
 
-async function callAnthropic(key, images, text, extra) {
+// Festes Antwortschema fuer Claude -- dasselbe, was Gemini laengst bekommt.
+// Ohne das wird Claude nur GEBETEN, JSON zu schreiben: reisst die Antwort ab
+// oder rutscht ein Kommentar hinein, muss parseItemsLoose den Rest retten und
+// die letzten Gerichte fehlen. Mit Schema ist gueltiges JSON garantiert.
+// Alle Felder sind Pflicht -- fehlende Angaben kommen als "" bzw. false, das
+// raeumt normalizeItems ohnehin auf.
+var ANTHROPIC_SCHEMA = {
+    type: 'object',
+    properties: {
+        items: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    price: { type: 'number' },
+                    category: { type: 'string' },
+                    dish_number: { type: 'string' },
+                    is_vegetarian: { type: 'boolean' },
+                    is_vegan: { type: 'boolean' },
+                    is_spicy: { type: 'boolean' },
+                    is_beef: { type: 'boolean' },
+                    is_chicken: { type: 'boolean' },
+                    is_pork: { type: 'boolean' },
+                    is_fish: { type: 'boolean' },
+                    is_seafood: { type: 'boolean' }
+                },
+                required: ['name', 'description', 'price', 'category', 'dish_number',
+                           'is_vegetarian', 'is_vegan', 'is_spicy', 'is_beef',
+                           'is_chicken', 'is_pork', 'is_fish', 'is_seafood'],
+                additionalProperties: false
+            }
+        }
+    },
+    required: ['items'],
+    additionalProperties: false
+};
+
+async function callAnthropic(key, images, text, extra, ohneSchema) {
     var content = [{ type: 'text', text: buildPrompt(text, extra) }];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
@@ -241,10 +280,20 @@ async function callAnthropic(key, images, text, extra) {
             // Abtippen einer Karte -- noch dazu mit OCR-Text daneben -- bringt
             // Nachdenken nichts und kostet nur Zeit und Tokens.
             thinking: { type: 'disabled' },
-            messages: [{ role: 'user', content: content }]
+            messages: [{ role: 'user', content: content }],
+            output_config: ohneSchema ? undefined : { format: { type: 'json_schema', schema: ANTHROPIC_SCHEMA } }
         })
     });
-    if (!res.ok) { var t = await res.text(); throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200)); }
+    if (!res.ok) {
+        var t = await res.text();
+        // Sollte das Schema aus irgendeinem Grund abgelehnt werden, lieber ohne
+        // Schema weitermachen als den Scan verlieren -- vorher ging es ja auch.
+        if (!ohneSchema && res.status === 400 && /output_config|json_schema|schema/i.test(t)) {
+            console.warn('[menu-scan] Antwortschema abgelehnt, versuche ohne:', t.slice(0, 160));
+            return callAnthropic(key, images, text, extra, true);
+        }
+        throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200));
+    }
     var j = await res.json();
     return (j.content && j.content[0] && j.content[0].text) ? j.content[0].text : '';
 }
