@@ -56673,9 +56673,31 @@ async function startMenuScan() {
                         return r;
                     });
             }));
+            // WICHTIG: in Seitenreihenfolge zusammenfuegen. Promise.all liefert
+            // die Ergebnisse in der Reihenfolge der Anfragen, nicht in der
+            // Reihenfolge des Eintreffens -- darauf beruht der naechste Schritt.
             teilErgebnisse.forEach(function (part) {
                 if (part && part.length) aiItems = aiItems.concat(part);
                 else failedPages++;
+            });
+
+            // Kategorien ueber die Seitengrenzen hinweg ergaenzen.
+            //
+            // Jede Seite (und jede Bildhaelfte) wird einzeln gelesen. Beginnt ein
+            // Abschnitt oberhalb des Schnitts, sieht die KI dort keine
+            // Ueberschrift. Frueher dachte sie sich dann eine aus -- daher die
+            // erfundenen Kategorien. Jetzt liefert sie in dem Fall "" zurueck,
+            // und hier setzen wir die zuletzt gesehene Ueberschrift fort. Genau
+            // das tut ein Mensch auch, der umblaettert.
+            var _letzteKat = '';
+            aiItems.forEach(function (it) {
+                var k = (it.category || '').trim();
+                if (k) { _letzteKat = k; return; }
+                it.category = _letzteKat;          // leer bleibt leer, wenn es noch keine gab
+            });
+            // Was jetzt noch ohne Ueberschrift ist, stand wirklich unter keiner.
+            aiItems.forEach(function (it) {
+                if (!(it.category || '').trim()) it.category = 'Sonstiges';
             });
             // Duplikate (z.B. aus ueberlappenden Haelften) entfernen: Name+Preis
             var _seenScan = {};
