@@ -68,18 +68,29 @@ var PROMPT = [
     '  oder zwei Preisspalten mit Ueberschriften), erzeuge PRO Groesse einen eigenen Eintrag',
     '  und haenge die Groesse an den Namen an, z.B. "Pizza Margherita (klein)" / "Pizza Margherita (gross)",',
     '  "Cola (0,3l)" / "Cola (0,5l)".',
-    '- category: DU ERFINDEST KEINE KATEGORIEN. Du liest sie ab.',
-    '  Die Kategorie eines Gerichts ist die UEBERSCHRIFT, die auf der Karte darueber steht --',
-    '  Wort fuer Wort so, wie sie gedruckt ist. Steht "Vom Grill" auf der Karte, dann ist die',
-    '  Kategorie "Vom Grill" und NICHT "Fleischgerichte". Steht "Von de Waterkant" da, dann',
-    '  schreibst du "Von de Waterkant". Uebersetze nicht, vereinheitliche nicht, verschoenere nicht.',
-    '  Nur die Gross-/Kleinschreibung darfst du normalisieren ("VOM GRILL" -> "Vom Grill").',
-    '- Siehst du auf DIESEM Bild keine Ueberschrift ueber dem Gericht -- etwa weil der Abschnitt',
-    '  schon auf der vorigen Seite oder oberhalb des Bildrands begonnen hat -- dann gib fuer',
-    '  category einen LEEREN STRING "" zurueck. Das ist ausdruecklich richtig und erwuenscht.',
-    '  Rate NICHT, welche Ueberschrift dort gestanden haben koennte: der Zusammenhang wird',
-    '  spaeter aus den anderen Seiten ergaenzt. Eine erfundene Kategorie richtet mehr Schaden',
-    '  an als eine leere.',
+    '- category: DU ERFINDEST KEINE KATEGORIEN. Du liest die Ueberschriften der Karte ab.',
+    '',
+    '  SO FUNKTIONIERT EINE SPEISEKARTE: Eine Ueberschrift steht EINMAL und gilt dann fuer',
+    '  ALLE Gerichte darunter, bis die naechste Ueberschrift kommt. Steht "Pizza" als',
+    '  Ueberschrift und darunter zwoelf Pizzen, bekommen ALLE ZWOELF die Kategorie "Pizza" --',
+    '  nicht nur die erste. Arbeite die Karte von oben nach unten durch und merke dir die',
+    '  zuletzt gelesene Ueberschrift; jedes Gericht bekommt diese, bis eine neue auftaucht.',
+    '',
+    '  Schreibe die Ueberschrift Wort fuer Wort so, wie sie gedruckt ist. Steht "Vom Grill"',
+    '  auf der Karte, ist die Kategorie "Vom Grill" und NICHT "Fleischgerichte". Steht',
+    '  "Von de Waterkant" da, schreibst du "Von de Waterkant". Uebersetze nicht,',
+    '  vereinheitliche nicht, verschoenere nicht. Nur die Gross-/Kleinschreibung darfst du',
+    '  normalisieren ("VOM GRILL" -> "Vom Grill").',
+    '',
+    '  NUR EIN EINZIGER FALL ergibt einen leeren String "": wenn das Bild MITTEN in einem',
+    '  Abschnitt beginnt und ueber dem ERSTEN Gericht des Bildes keine Ueberschrift steht,',
+    '  weil sie auf der vorigen Seite oder oberhalb des Bildrands liegt. Dann bekommen die',
+    '  Gerichte bis zur ersten sichtbaren Ueberschrift "" -- die App ergaenzt das aus der',
+    '  vorigen Seite. Rate in diesem Fall NICHT, wie die Ueberschrift geheissen haben koennte.',
+    '  Sobald eine Ueberschrift im Bild auftaucht, gilt wieder die Regel oben: sie gilt fuer',
+    '  alles darunter. Gib NIEMALS "" zurueck, nur weil ein Gericht nicht unmittelbar unter',
+    '  der Ueberschrift steht.',
+    '',
     '- Gibt es unten eine Liste VORHANDENER KATEGORIEN und die Ueberschrift der Karte meint',
     '  offensichtlich dasselbe, nimm die vorhandene Schreibweise (Karte "Pizza", vorhanden',
     '  "Pizzen" -> "Pizzen"). Sonst bleibt die Ueberschrift der Karte stehen.',
@@ -436,6 +447,7 @@ exports.handler = async function (event) {
     var visionKey = process.env.GOOGLE_VISION_API_KEY || process.env.GEMINI_API_KEY || '';
 
     try {
+        var _ocrZeichen = 0;
         var all = [];
         if (images.length > 1) {
             // Jede Seite/jedes Bild EINZELN scannen -> kein Abriss durch Token-Limit,
@@ -443,11 +455,13 @@ exports.handler = async function (event) {
             // OCR laeuft pro Seite, damit der Text zum jeweiligen Bild passt.
             var perImage = await Promise.all(images.map(async function (img) {
                 var ocr = await ocrAll(visionKey, [img]);
+                _ocrZeichen += ocr.length;
                 return runModel([img], '', ocrBlock(ocr)).catch(function () { return []; });
             }));
             perImage.forEach(function (list) { all = all.concat(list); });
         } else {
             var ocrOne = await ocrAll(visionKey, images);
+            _ocrZeichen += ocrOne.length;
             all = await runModel(images, text, ocrBlock(ocrOne));
         }
 
@@ -461,7 +475,21 @@ exports.handler = async function (event) {
         });
 
         if (!deduped.length) return json(502, { ok: false, error: 'Keine Gerichte erkannt' });
-        return json(200, { ok: true, items: deduped, count: deduped.length });
+        // meta: rein zur Fehlersuche. Ohne diese Angaben laesst sich hinterher
+        // nicht sagen, ob die OCR lief, wie viele Rohtreffer es gab oder wie
+        // viele Duplikate weggefallen sind -- und man raet wieder.
+        return json(200, {
+            ok: true, items: deduped, count: deduped.length,
+            meta: {
+                modell: ANTHROPIC_MODEL,
+                bilder: images.length,
+                roh: all.length,
+                duplikate: all.length - deduped.length,
+                ocr: _ocrZeichen > 0,
+                ocrZeichen: _ocrZeichen,
+                ohneKategorie: deduped.filter(function (x) { return !x.category; }).length
+            }
+        });
     } catch (e) {
         return json(502, { ok: false, error: e.message });
     }

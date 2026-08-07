@@ -56527,7 +56527,11 @@ async function aiMenuScan(payload) {
             body: JSON.stringify(payload)
         });
         var j = await res.json();
-        if (j && j.ok && Array.isArray(j.items)) { window._lastMenuScanError = null; return j.items; }
+        if (j && j.ok && Array.isArray(j.items)) {
+            window._lastMenuScanError = null;
+            if (j.meta) (window._scanMeta = window._scanMeta || []).push(j.meta);
+            return j.items;
+        }
         window._lastMenuScanError = (j && j.error) ? String(j.error) : ('HTTP ' + res.status);
         console.warn('[menu-scan]', window._lastMenuScanError);
         return null;
@@ -56658,6 +56662,9 @@ async function startMenuScan() {
                 ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
                 : '🤖 KI erkennt Gerichte & Kategorien…';
 
+            window._scanMeta = [];
+            var _scanStart = new Date().getTime();
+
             // Vorhandene Kategorien einmal laden und jeder Seite mitgeben.
             var _vorhandeneKats = await ladeVorhandeneKategorien(
                 window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
@@ -56706,6 +56713,28 @@ async function startMenuScan() {
                 if (_seenScan[k]) return false;
                 _seenScan[k] = 1; return true;
             });
+            // Scan-Bericht zusammenstellen. Ohne diese Angaben ist bei
+            // "das Ergebnis ist schlecht" nicht feststellbar WAS schlecht war --
+            // und dann wird geraten statt behoben.
+            (function () {
+                var m = window._scanMeta || [];
+                var kats = {};
+                aiItems.forEach(function (i) { kats[i.category || '(leer)'] = (kats[i.category || '(leer)'] || 0) + 1; });
+                var ohnePreis = aiItems.filter(function (i) { return !i.price; }).length;
+                window._scanBericht = {
+                    dauer: Math.round((new Date().getTime() - _scanStart) / 100) / 10 + ' s',
+                    bilder: images.length,
+                    seitenOhneErgebnis: failedPages,
+                    modell: (m[0] && m[0].modell) || '?',
+                    ocr: m.some(function (x) { return x.ocr; }) ? 'ja' : 'nein',
+                    rohTreffer: m.reduce(function (a, x) { return a + (x.roh || 0); }, 0),
+                    nachDuplikaten: aiItems.length,
+                    ohnePreis: ohnePreis,
+                    vorhandeneKategorien: _vorhandeneKats,
+                    kategorien: kats
+                };
+            })();
+
             if (aiItems.length) {
                 scannedMenuItems = aiItems;
                 scannedMenuItems.forEach(function (item) { item.selected = true; });
@@ -57293,6 +57322,57 @@ function parseMenuText(text) {
     return items;
 }
 
+// Bericht als Text in die Zwischenablage -- damit er sich in einem Zug
+// weiterschicken laesst, statt Zahlen abzutippen.
+function kopiereScanBericht(btn) {
+    var b = window._scanBericht;
+    if (!b) return;
+    var zeilen = [
+        'SCAN-BERICHT',
+        'Dauer: ' + b.dauer,
+        'Modell: ' + b.modell,
+        'Bilder/Teile: ' + b.bilder + (b.seitenOhneErgebnis ? ' (' + b.seitenOhneErgebnis + ' ohne Ergebnis)' : ''),
+        'OCR gelaufen: ' + b.ocr,
+        'Erkannt: ' + b.rohTreffer + ' -> nach Duplikaten ' + b.nachDuplikaten,
+        'Ohne Preis: ' + b.ohnePreis,
+        'Vorhandene Kategorien: ' + ((b.vorhandeneKategorien || []).join(', ') || 'keine'),
+        'Erkannte Kategorien:'
+    ];
+    Object.keys(b.kategorien || {}).forEach(function (k) {
+        zeilen.push('  ' + k + ': ' + b.kategorien[k]);
+    });
+    // Die ersten Gerichte mitgeben -- an ihnen sieht man sofort, ob Namen,
+    // Preise und Zuordnung stimmen.
+    zeilen.push('Erste 15 Gerichte:');
+    (window.scannedMenuItems || []).slice(0, 15).forEach(function (i) {
+        zeilen.push('  [' + (i.category || '-') + '] ' + i.name + ' | ' +
+                    (i.price != null ? i.price : '-') + ' EUR' +
+                    (i.allergens && i.allergens.length ? ' | ' + i.allergens.join(',') : ''));
+    });
+    var text = zeilen.join('\n');
+    function fertig() {
+        if (btn) { var alt = btn.textContent; btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = alt; }, 1500); }
+    }
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(fertig, function () { _berichtNotfall(text); });
+            return;
+        }
+    } catch (e) {}
+    _berichtNotfall(text);
+}
+
+// Rueckfall fuer Browser ohne Zwischenablage-Zugriff: Text markiert anzeigen.
+function _berichtNotfall(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;inset:10% 5%;width:90%;height:70%;z-index:99999;font-size:12px;padding:10px;';
+    ta.readOnly = true;
+    document.body.appendChild(ta);
+    ta.select();
+    ta.addEventListener('blur', function () { ta.remove(); });
+}
+
 function showScannedResults() {
 
     document.getElementById('menuScanProgress').style.display = 'none';
@@ -57308,6 +57388,31 @@ function showScannedResults() {
 
     var container = document.getElementById('menuScanItemsList');
     var html = '';
+
+    // Scan-Bericht: aufklappbar, unauffaellig, mit Kopier-Knopf.
+    // Zweck: bei "das Ergebnis ist schlecht" muss in EINEM Schritt feststellbar
+    // sein, WAS schlecht war -- gelesene Menge, Duplikate, ob die OCR lief,
+    // wie sich die Kategorien verteilen. Sonst folgt Ratephase auf Ratephase.
+    if (window._scanBericht) {
+        var b = window._scanBericht;
+        var katListe = Object.keys(b.kategorien || {}).map(function (k) {
+            return k + ' (' + b.kategorien[k] + ')';
+        }).join(', ');
+        html += '<details style="margin:0 0 10px;border:1px solid var(--border-light,#e5e7eb);border-radius:10px;background:var(--bg-secondary);">' +
+            '<summary style="cursor:pointer;padding:9px 12px;font-size:12px;color:var(--text-secondary);list-style:none;">' +
+              '&#9432; Scan-Bericht &middot; ' + b.dauer + ' &middot; ' + b.nachDuplikaten + ' Gerichte &middot; OCR: ' + b.ocr +
+            '</summary>' +
+            '<div style="padding:0 12px 12px;font-size:12px;line-height:1.7;color:var(--text-secondary);">' +
+              '<div>Modell: ' + b.modell + '</div>' +
+              '<div>Bilder/Teile: ' + b.bilder + (b.seitenOhneErgebnis ? ' (' + b.seitenOhneErgebnis + ' ohne Ergebnis)' : '') + '</div>' +
+              '<div>Erkannt: ' + b.rohTreffer + ' &rarr; nach Duplikaten ' + b.nachDuplikaten + '</div>' +
+              '<div>Ohne Preis: ' + b.ohnePreis + '</div>' +
+              '<div>Vorhandene Kategorien: ' + ((b.vorhandeneKategorien || []).join(', ') || 'keine') + '</div>' +
+              '<div>Erkannte Kategorien: ' + (katListe || '–') + '</div>' +
+              '<button type="button" onclick="kopiereScanBericht(this)" style="margin-top:10px;padding:7px 14px;border:1px solid var(--border-light,#e5e7eb);border-radius:9999px;background:var(--bg-card);font-size:12px;cursor:pointer;color:var(--text-primary);">Bericht kopieren</button>' +
+            '</div></details>';
+    }
+
     var lastCat = '';
 
     // Sortiere nach Kategorie
