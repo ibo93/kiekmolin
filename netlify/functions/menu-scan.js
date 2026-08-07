@@ -5,20 +5,19 @@
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Provider-Reihenfolge (Standard: beste Erkennung zuerst):
-//   1. ANTHROPIC_API_KEY -> Claude Sonnet 5 (beste Erkennung, kostet pro Scan
-//                           wenige Cent; hochaufloesende Bilderkennung bis
-//                           2576 px Kantenlaenge -- liest also auch das
-//                           Kleingedruckte einer Karte).
-//   2. GEMINI_API_KEY    -> Gemini 2.5 Flash (kostenloses Kontingent, Vision),
-//                           Fallback auf 2.0 Flash falls 2.5 nicht verfuegbar.
+// Modell: ANTHROPIC_API_KEY -> Claude Sonnet 5.
+// Hochaufloesende Bilderkennung bis 2576 px Kantenlaenge, liest also auch das
+// Kleingedruckte einer Karte. Kostet pro Seite wenige Cent.
 //
-// Gemini bleibt bewusst als Notnagel stehen, auch wenn normalerweise Claude
-// scannt: faellt Anthropic aus oder ist das Konto leer, laeuft der Scan weiter
-// statt zu sterben. Solange Claude funktioniert, wird Gemini nie aufgerufen und
-// kostet damit auch nichts.
-// Wer es andersherum will (kostenlos vor Qualitaet), setzt in Netlify:
-//   MENU_SCAN_PROVIDER=gemini
+// BEWUSST OHNE zweiten Anbieter. Ein stiller Rueckfall auf ein schwaecheres
+// Modell heisst, dass ein Scan mal gut und mal mittelmaessig ausfaellt, ohne
+// dass jemand erkennen kann warum -- und man sucht den Fehler dann bei der
+// Karte oder beim Foto. Ein klarer Fehler ist hier mehr wert als ein
+// unauffaellig schlechteres Ergebnis: der Scan laesst sich wiederholen,
+// eine halb falsche Speisekarte im System merkt niemand.
+//
+// Bei leerem Ergebnis wird derselbe Aufruf einmal wiederholt -- Vision-Modelle
+// sind nicht deterministisch, ein zweiter Versuch rettet haeufig den Scan.
 //
 // Body: { images?: ["data:image/...;base64,..."], text?: "..." }
 // Antwort: { ok:true, items:[{name,description,price,category,dish_number,
@@ -42,10 +41,6 @@
 
 var ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 var ANTHROPIC_MODEL = 'claude-sonnet-5';
-// Reihenfolge = Prioritaet. 2.5 Flash liest Speisekarten DEUTLICH besser als 2.0;
-// beide laufen mit demselben GEMINI_API_KEY. Schlaegt 2.5 fehl (404/Quota),
-// wird automatisch 2.0 versucht.
-var GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -298,7 +293,7 @@ function buildPrompt(text, extra, kategorien) {
     return PROMPT + kat + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
 }
 
-// Festes Antwortschema fuer Claude -- dasselbe, was Gemini laengst bekommt.
+// Festes Antwortschema fuer Claude.
 // Ohne das wird Claude nur GEBETEN, JSON zu schreiben: reisst die Antwort ab
 // oder rutscht ein Kommentar hinein, muss parseItemsLoose den Rest retten und
 // die letzten Gerichte fehlen. Mit Schema ist gueltiges JSON garantiert.
@@ -352,9 +347,9 @@ async function callAnthropic(key, images, text, extra, ohneSchema, kategorien) {
         body: JSON.stringify({
             model: ANTHROPIC_MODEL,
             max_tokens: 32000,
-            // KEIN temperature: Claude Sonnet 5 lehnt temperature/top_p/top_k mit
-            // HTTP 400 ab. Genau daran ist hier bisher JEDER Claude-Aufruf
-            // gescheitert -- gescannt hat in Wahrheit immer Gemini.
+            // KEIN temperature: Claude Sonnet 5 lehnt temperature/top_p/top_k
+            // mit HTTP 400 ab. Genau daran ist hier lange JEDER Aufruf
+            // gescheitert, ohne dass es auffiel.
             //
             // Denkschritte aus: sie zaehlen gegen dieselben max_tokens wie die
             // Antwort. Bei einer langen Karte frisst das Nachdenken das Budget
@@ -380,83 +375,7 @@ async function callAnthropic(key, images, text, extra, ohneSchema, kategorien) {
     return (j.content && j.content[0] && j.content[0].text) ? j.content[0].text : '';
 }
 
-// Striktes Antwort-Schema: zwingt Gemini zu exakt diesem JSON-Format --
-// verhindert Halluzinationen im Format und abgeschnittene/kaputte Antworten.
-var GEMINI_SCHEMA = {
-    type: 'OBJECT',
-    properties: {
-        items: {
-            type: 'ARRAY',
-            items: {
-                type: 'OBJECT',
-                properties: {
-                    name: { type: 'STRING' },
-                    description: { type: 'STRING' },
-                    price: { type: 'NUMBER' },
-                    category: { type: 'STRING' },
-                    dish_number: { type: 'STRING' },
-                    is_vegetarian: { type: 'BOOLEAN' },
-                    is_vegan: { type: 'BOOLEAN' },
-                    is_spicy: { type: 'BOOLEAN' },
-                    is_beef: { type: 'BOOLEAN' },
-                    is_chicken: { type: 'BOOLEAN' },
-                    is_pork: { type: 'BOOLEAN' },
-                    is_fish: { type: 'BOOLEAN' },
-                    is_seafood: { type: 'BOOLEAN' },
-                    allergens: { type: 'ARRAY', items: { type: 'STRING' } },
-                    additives: { type: 'ARRAY', items: { type: 'STRING' } }
-                },
-                required: ['name', 'price', 'category']
-            }
-        }
-    },
-    required: ['items']
-};
-
-async function callGeminiModel(key, model, images, text, extra, kategorien) {
-    var parts = [{ text: buildPrompt(text, extra, kategorien) }];
-    (images || []).forEach(function (d) {
-        var p = splitDataUrl(d);
-        parts.push({ inlineData: { mimeType: p.media, data: p.data } });
-    });
-    var genCfg = {
-        temperature: 0,
-        responseMimeType: 'application/json',
-        responseSchema: GEMINI_SCHEMA,
-        // 2.5 Flash kann sehr lange Antworten; 2.0 Flash ist auf 8192 gedeckelt.
-        maxOutputTokens: model.indexOf('2.5') >= 0 ? 32768 : 8192
-    };
-    if (model.indexOf('2.5') >= 0) {
-        // "Thinking" wuerde vom Output-Budget abgehen und lange Karten abreissen lassen.
-        genCfg.thinkingConfig = { thinkingBudget: 0 };
-    }
-    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + encodeURIComponent(key), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{ role: 'user', parts: parts }],
-            generationConfig: genCfg
-        })
-    });
-    if (!res.ok) { var t = await res.text(); throw new Error('Gemini(' + model + ') ' + res.status + ': ' + t.slice(0, 200)); }
-    var j = await res.json();
-    var cand = j.candidates && j.candidates[0];
-    var out = '';
-    if (cand && cand.content && Array.isArray(cand.content.parts)) {
-        cand.content.parts.forEach(function (pt) { if (pt && pt.text) out += pt.text; });
-    }
-    return out;
-}
-
-async function callGemini(key, images, text, extra, kategorien) {
-    var lastErr = null;
-    for (var i = 0; i < GEMINI_MODELS.length; i++) {
-        try {
-            return await callGeminiModel(key, GEMINI_MODELS[i], images, text, extra, kategorien);
-        } catch (e) { lastErr = e; }
-    }
-    throw (lastErr || new Error('Gemini nicht erreichbar'));
-}
+;
 
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -474,17 +393,13 @@ exports.handler = async function (event) {
     if (!images.length && !text) return json(400, { ok: false, error: 'Kein Bild und kein Text uebergeben' });
 
     var anthropicKey = process.env.ANTHROPIC_API_KEY;
-    var geminiKey = process.env.GEMINI_API_KEY;
-    if (!anthropicKey && !geminiKey) {
-        return json(503, { ok: false, error: 'Keine KI konfiguriert (ANTHROPIC_API_KEY oder GEMINI_API_KEY in Netlify setzen).' });
+    if (!anthropicKey) {
+        return json(503, { ok: false, error: 'Menuescanner nicht eingerichtet: ANTHROPIC_API_KEY fehlt in Netlify.' });
     }
 
-    // Reihenfolge der Anbieter. Claude zuerst = beste Erkennung.
-    // Gemini laeuft nur, wenn Claude gar nichts liefert -- und kostet dann nichts.
-    var providers = [];
-    if (anthropicKey) providers.push({ name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x, false, kategorien); } });
-    if (geminiKey)    providers.push({ name: 'Gemini', call: function (i, t, x) { return callGemini(geminiKey, i, t, x, kategorien); } });
-    if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'gemini') providers.reverse();
+    var providers = [
+        { name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x, false, kategorien); } }
+    ];
 
     // Ein Satz Bilder (oder Text) -> normalisierte Items.
     // Jeder Anbieter wird der Reihe nach probiert. Gibt es nur einen, bekommt er
@@ -511,11 +426,14 @@ exports.handler = async function (event) {
         return [];
     }
 
-    // OCR-Vorstufe. Eigener Schluessel bevorzugt; ist keiner gesetzt, wird der
-    // Gemini-Schluessel probiert (funktioniert, wenn im selben Google-Projekt die
-    // Cloud Vision API aktiviert und der Schluessel nicht eingeschraenkt ist).
-    // Klappt beides nicht, laeuft der Scan ohne OCR weiter -- wie bisher.
-    var visionKey = process.env.GOOGLE_VISION_API_KEY || geminiKey || '';
+    // OCR-Vorstufe. Eigener Schluessel bevorzugt.
+    // Google Cloud Vision ist ein ANDERER Dienst als das Gemini-Modell, auch
+    // wenn beide von Google sind -- deshalb steht der GEMINI_API_KEY hier noch
+    // als zweite Chance, obwohl das Gemini-Modell aus dem Scanner raus ist:
+    // er gehoert zu einem Google-Cloud-Projekt und funktioniert mit, falls in
+    // dem Projekt die Cloud Vision API aktiviert ist.
+    // Klappt beides nicht, laeuft der Scan ohne OCR weiter.
+    var visionKey = process.env.GOOGLE_VISION_API_KEY || process.env.GEMINI_API_KEY || '';
 
     try {
         var all = [];

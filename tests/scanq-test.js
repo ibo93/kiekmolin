@@ -8,7 +8,11 @@ t('Claude bekommt jetzt ein festes Antwortschema', /output_config:.*json_schema/
 t('Schema deckt alle Felder als Pflicht ab', /required: \['name', 'description', 'price', 'category', 'dish_number'/.test(fn));
 t('Schema verbietet erfundene Zusatzfelder', (fn.match(/additionalProperties: false/g)||[]).length >= 2);
 t('Rueckfall ohne Schema, falls es abgelehnt wird', /return callAnthropic\(key, images, text, extra, true, kategorien\)/.test(fn));
-t('Gemini behaelt sein Schema', /responseSchema: GEMINI_SCHEMA/.test(fn));
+
+t('Gemini ist als Modell raus (kein stiller Rueckfall)',
+  !/callGemini|GEMINI_MODELS|GEMINI_SCHEMA/.test(fn));
+t('Gemini-Schluessel bleibt nur fuer die Google-OCR erlaubt',
+  /GOOGLE_VISION_API_KEY \|\| process\.env\.GEMINI_API_KEY/.test(fn));
 
 // --- Bildaufbereitung ---
 var seg = html.slice(html.indexOf('function splitImageVertically'), html.indexOf('async function startMenuScan'));

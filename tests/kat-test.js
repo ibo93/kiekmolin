@@ -28,7 +28,6 @@ t('Prompt: Kategorie ist die gedruckte Ueberschrift, nicht frei gewaehlt',
 t('Prompt: vorhandene Schreibweise gewinnt (Karte "Pizza" -> "Pizzen")',
   /Karte "Pizza", vorhanden/.test(fn) && /"Pizzen" -> "Pizzen"/.test(fn));
 t('Claude-Schema kennt allergens + additives', /allergens: \{ type: 'array'/.test(fn) && /additives: \{ type: 'array'/.test(fn));
-t('Gemini-Schema kennt allergens + additives', /allergens: \{ type: 'ARRAY'/.test(fn) && /additives: \{ type: 'ARRAY'/.test(fn));
 t('Kategorienliste geht in den Prompt', /VORHANDENE KATEGORIEN DIESES RESTAURANTS/.test(fn));
 
 // ---- Frontend: Kategorie-Zuordnung wirklich ausfuehren ----
