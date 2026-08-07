@@ -73,14 +73,29 @@ var PROMPT = [
     '  oder zwei Preisspalten mit Ueberschriften), erzeuge PRO Groesse einen eigenen Eintrag',
     '  und haenge die Groesse an den Namen an, z.B. "Pizza Margherita (klein)" / "Pizza Margherita (gross)",',
     '  "Cola (0,3l)" / "Cola (0,5l)".',
-    '- category: passende, saubere deutsche Kategorie, z.B.: Vorspeisen, Salate, Suppen, Pizza, Pasta,',
-    '  Hauptgerichte, Fleischgerichte, Fischgerichte, Burger, Doener & Kebab, Beilagen, Desserts,',
-    '  Kindergerichte, Alkoholfreie Getraenke, Heissgetraenke, Bier, Weine, Cocktails, Spirituosen.',
-    '  Ordne jedes Gericht der besten Kategorie zu. Nutze die Ueberschriften der Karte, wenn vorhanden.',
+    '- category: Nutze die Ueberschriften der Karte. Steht unten eine Liste VORHANDENER',
+    '  KATEGORIEN, dann nimm daraus die passende und schreibe sie ZEICHENGENAU ab.',
+    '  Erfinde keine neue Kategorie, nur weil dir ein anderes Wort besser gefaellt:',
+    '  gibt es "Pizzen", schreibe "Pizzen" und nicht "Pizza".',
+    '  Nur wenn wirklich keine passt, waehle eine neue aus: Vorspeisen, Salate, Suppen, Pizza,',
+    '  Pasta, Hauptgerichte, Fleischgerichte, Fischgerichte, Burger, Doener & Kebab, Beilagen,',
+    '  Desserts, Kindergerichte, Alkoholfreie Getraenke, Heissgetraenke, Bier, Weine, Cocktails.',
     '- dish_number: Artikel-/Gerichtnummer falls vorhanden (z.B. "12" oder "12a"), sonst "".',
     '  Nummern stehen meist VOR dem Namen. Verwechsle Nummern nicht mit Preisen.',
     '- description: kurze Beschreibung/Zutaten von der Karte (auch kleingedruckte Zeilen unter dem Namen), sonst "".',
-    '  Zusatzstoff-Kennzeichnungen wie "1,2,a,c" NICHT in die Beschreibung uebernehmen.',
+    '  Die Kennzeichnungen in Klammern wie "(1,2,a,c)" gehoeren NICHT in die Beschreibung --',
+    '  die wertest du stattdessen aus (siehe ALLERGENE).',
+    '',
+    'ALLERGENE UND ZUSATZSTOFFE (deutsche Karten kennzeichnen das in Klammern):',
+    '- BUCHSTABEN = Allergene nach LMIV. Uebersetze sie in genau diese Codes:',
+    '  A=gluten B=krebstiere C=eier D=fisch E=erdnuss F=soja G=milch H=schalenfruechte',
+    '  I=sellerie J=senf K=sesam L=sulfite M=lupinen N=weichtiere',
+    '  Steht das Allergen ausgeschrieben da ("mit Milch", "enthaelt Nuesse"), nimm denselben Code.',
+    '- ZAHLEN = Zusatzstoffe. Gib sie als Ziffern zurueck: "1", "2", "11" ...',
+    '- allergens: Liste der Codes, z.B. ["gluten","milch"]. Nichts gekennzeichnet -> leere Liste.',
+    '- additives: Liste der Ziffern, z.B. ["1","2"]. Nichts gekennzeichnet -> leere Liste.',
+    '- Rate NICHT. Nur was auf der Karte gekennzeichnet ist. Dass Pizza Mehl enthaelt,',
+    '  ist kein Grund fuer "gluten", wenn die Karte es nicht kennzeichnet.',
     '- is_*-Flags aus Name/Zutaten ableiten (vegetarisch, vegan, scharf; Rind/Huhn/Schwein/Fisch/Meeresfruechte).',
     '- Deutsche Umlaute korrekt schreiben (ä, ö, ü, ß) — auch wenn die Karte GROSSBUCHSTABEN nutzt,',
     '  Namen in normaler Gross-/Kleinschreibung ausgeben ("PIZZA SALAMI" -> "Pizza Salami").',
@@ -119,6 +134,49 @@ function parseItemsLoose(raw) {
     return null;
 }
 
+// Buchstaben-Kennzeichnung der Karte -> Codes, die die App kennt.
+// Sicherheitsnetz: das Modell soll die Codes schon liefern, aber wenn doch
+// "A, C" oder "milch" zurueckkommt, landet es trotzdem richtig.
+var ALLERGEN_CODES = ['gluten','krebstiere','eier','fisch','erdnuss','soja','milch',
+                      'schalenfruechte','sellerie','senf','sesam','sulfite','lupinen','weichtiere'];
+var BUCHSTABE_ZU_CODE = { a:'gluten', b:'krebstiere', c:'eier', d:'fisch', e:'erdnuss',
+                          f:'soja', g:'milch', h:'schalenfruechte', i:'sellerie', j:'senf',
+                          k:'sesam', l:'sulfite', m:'lupinen', n:'weichtiere' };
+// Haeufige Schreibweisen, die keine Codes sind
+var WORT_ZU_CODE = { weizen:'gluten', getreide:'gluten', laktose:'milch', milchprodukte:'milch',
+                     nuesse:'schalenfruechte', nuss:'schalenfruechte', 'nüsse':'schalenfruechte',
+                     ei:'eier', schwefel:'sulfite', sulfit:'sulfite', erdnuesse:'erdnuss',
+                     'erdnüsse':'erdnuss', sojabohnen:'soja', meeresfruechte:'weichtiere' };
+
+function normAllergene(v) {
+    if (!Array.isArray(v)) return [];
+    var out = [];
+    v.forEach(function (x) {
+        var t = String(x || '').trim().toLowerCase().replace(/[().,;:]/g, '');
+        if (!t) return;
+        var code = null;
+        if (ALLERGEN_CODES.indexOf(t) >= 0) code = t;
+        else if (t.length === 1 && BUCHSTABE_ZU_CODE[t]) code = BUCHSTABE_ZU_CODE[t];
+        else if (WORT_ZU_CODE[t]) code = WORT_ZU_CODE[t];
+        if (code && out.indexOf(code) < 0) out.push(code);
+    });
+    return out.slice(0, 14);
+}
+
+// Zusatzstoffe sind reine Ziffern 1-13. Alles andere fliegt raus, damit keine
+// Buchstaben-Allergene versehentlich als Zusatzstoff landen.
+function normZusatzstoffe(v) {
+    if (!Array.isArray(v)) return [];
+    var out = [];
+    v.forEach(function (x) {
+        var t = String(x || '').replace(/[^0-9]/g, '');
+        if (!t) return;
+        var n = parseInt(t, 10);
+        if (n >= 1 && n <= 13 && out.indexOf(String(n)) < 0) out.push(String(n));
+    });
+    return out.slice(0, 13);
+}
+
 function normalizeItems(parsed) {
     var arr = (parsed && Array.isArray(parsed.items)) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
     var out = [];
@@ -137,7 +195,9 @@ function normalizeItems(parsed) {
             is_vegetarian: !!it.is_vegetarian, is_vegan: !!it.is_vegan, is_spicy: !!it.is_spicy,
             is_beef: !!it.is_beef, is_chicken: !!it.is_chicken, is_pork: !!it.is_pork,
             is_fish: !!it.is_fish, is_seafood: !!it.is_seafood,
-            is_gluten: !!it.is_gluten
+            is_gluten: !!it.is_gluten,
+            allergens: normAllergene(it.allergens),
+            additives: normZusatzstoffe(it.additives)
         });
     });
     return out;
@@ -215,12 +275,61 @@ function ocrBlock(ocr) {
 // Prompt zusammensetzen. Nutzertext (eingetippte Karte) und OCR-Text sind zwei
 // verschiedene Dinge und bekommen deshalb getrennte, klar benannte Abschnitte --
 // sonst haelt das Modell den OCR-Auszug fuer die vom Wirt eingegebene Karte.
-function buildPrompt(text, extra) {
-    return PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
+function buildPrompt(text, extra, kategorien) {
+    var kat = '';
+    if (Array.isArray(kategorien) && kategorien.length) {
+        // Zeichengenau auflisten -- das Modell soll abschreiben, nicht uebersetzen.
+        kat = '\n\nVORHANDENE KATEGORIEN DIESES RESTAURANTS (bitte genau so verwenden):\n' +
+              kategorien.slice(0, 40).map(function (k) { return '- ' + String(k).slice(0, 60); }).join('\n') +
+              '\nNur wenn ein Gericht in KEINE davon passt, eine neue Kategorie waehlen.';
+    }
+    return PROMPT + kat + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
 }
 
-async function callAnthropic(key, images, text, extra) {
-    var content = [{ type: 'text', text: buildPrompt(text, extra) }];
+// Festes Antwortschema fuer Claude -- dasselbe, was Gemini laengst bekommt.
+// Ohne das wird Claude nur GEBETEN, JSON zu schreiben: reisst die Antwort ab
+// oder rutscht ein Kommentar hinein, muss parseItemsLoose den Rest retten und
+// die letzten Gerichte fehlen. Mit Schema ist gueltiges JSON garantiert.
+// Alle Felder sind Pflicht -- fehlende Angaben kommen als "" bzw. false, das
+// raeumt normalizeItems ohnehin auf.
+var ANTHROPIC_SCHEMA = {
+    type: 'object',
+    properties: {
+        items: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    price: { type: 'number' },
+                    category: { type: 'string' },
+                    dish_number: { type: 'string' },
+                    is_vegetarian: { type: 'boolean' },
+                    is_vegan: { type: 'boolean' },
+                    is_spicy: { type: 'boolean' },
+                    is_beef: { type: 'boolean' },
+                    is_chicken: { type: 'boolean' },
+                    is_pork: { type: 'boolean' },
+                    is_fish: { type: 'boolean' },
+                    is_seafood: { type: 'boolean' },
+                    allergens: { type: 'array', items: { type: 'string' } },
+                    additives: { type: 'array', items: { type: 'string' } }
+                },
+                required: ['name', 'description', 'price', 'category', 'dish_number',
+                           'is_vegetarian', 'is_vegan', 'is_spicy', 'is_beef',
+                           'is_chicken', 'is_pork', 'is_fish', 'is_seafood',
+                           'allergens', 'additives'],
+                additionalProperties: false
+            }
+        }
+    },
+    required: ['items'],
+    additionalProperties: false
+};
+
+async function callAnthropic(key, images, text, extra, ohneSchema, kategorien) {
+    var content = [{ type: 'text', text: buildPrompt(text, extra, kategorien) }];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
         content.push({ type: 'image', source: { type: 'base64', media_type: p.media, data: p.data } });
@@ -241,10 +350,20 @@ async function callAnthropic(key, images, text, extra) {
             // Abtippen einer Karte -- noch dazu mit OCR-Text daneben -- bringt
             // Nachdenken nichts und kostet nur Zeit und Tokens.
             thinking: { type: 'disabled' },
-            messages: [{ role: 'user', content: content }]
+            messages: [{ role: 'user', content: content }],
+            output_config: ohneSchema ? undefined : { format: { type: 'json_schema', schema: ANTHROPIC_SCHEMA } }
         })
     });
-    if (!res.ok) { var t = await res.text(); throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200)); }
+    if (!res.ok) {
+        var t = await res.text();
+        // Sollte das Schema aus irgendeinem Grund abgelehnt werden, lieber ohne
+        // Schema weitermachen als den Scan verlieren -- vorher ging es ja auch.
+        if (!ohneSchema && res.status === 400 && /output_config|json_schema|schema/i.test(t)) {
+            console.warn('[menu-scan] Antwortschema abgelehnt, versuche ohne:', t.slice(0, 160));
+            return callAnthropic(key, images, text, extra, true, kategorien);
+        }
+        throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200));
+    }
     var j = await res.json();
     return (j.content && j.content[0] && j.content[0].text) ? j.content[0].text : '';
 }
@@ -271,7 +390,9 @@ var GEMINI_SCHEMA = {
                     is_chicken: { type: 'BOOLEAN' },
                     is_pork: { type: 'BOOLEAN' },
                     is_fish: { type: 'BOOLEAN' },
-                    is_seafood: { type: 'BOOLEAN' }
+                    is_seafood: { type: 'BOOLEAN' },
+                    allergens: { type: 'ARRAY', items: { type: 'STRING' } },
+                    additives: { type: 'ARRAY', items: { type: 'STRING' } }
                 },
                 required: ['name', 'price', 'category']
             }
@@ -280,8 +401,8 @@ var GEMINI_SCHEMA = {
     required: ['items']
 };
 
-async function callGeminiModel(key, model, images, text, extra) {
-    var parts = [{ text: buildPrompt(text, extra) }];
+async function callGeminiModel(key, model, images, text, extra, kategorien) {
+    var parts = [{ text: buildPrompt(text, extra, kategorien) }];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
         parts.push({ inlineData: { mimeType: p.media, data: p.data } });
@@ -315,11 +436,11 @@ async function callGeminiModel(key, model, images, text, extra) {
     return out;
 }
 
-async function callGemini(key, images, text, extra) {
+async function callGemini(key, images, text, extra, kategorien) {
     var lastErr = null;
     for (var i = 0; i < GEMINI_MODELS.length; i++) {
         try {
-            return await callGeminiModel(key, GEMINI_MODELS[i], images, text, extra);
+            return await callGeminiModel(key, GEMINI_MODELS[i], images, text, extra, kategorien);
         } catch (e) { lastErr = e; }
     }
     throw (lastErr || new Error('Gemini nicht erreichbar'));
@@ -332,6 +453,11 @@ exports.handler = async function (event) {
     var body;
     try { body = JSON.parse(event.body || '{}'); } catch (e) { return json(400, { ok: false, error: 'Ungueltiger JSON-Body' }); }
     var images = Array.isArray(body.images) ? body.images.slice(0, 10) : [];
+    // Vorhandene Kategorien des Restaurants -- damit der Scanner sie benutzt,
+    // statt daneben eigene anzulegen ("Pizza" neben "Pizzen").
+    var kategorien = Array.isArray(body.categories)
+        ? body.categories.filter(function (k) { return k && typeof k === 'string'; }).slice(0, 40)
+        : [];
     var text = body.text ? String(body.text).slice(0, 20000) : '';
     if (!images.length && !text) return json(400, { ok: false, error: 'Kein Bild und kein Text uebergeben' });
 
@@ -344,8 +470,8 @@ exports.handler = async function (event) {
     // Reihenfolge der Anbieter. Claude zuerst = beste Erkennung.
     // Gemini laeuft nur, wenn Claude gar nichts liefert -- und kostet dann nichts.
     var providers = [];
-    if (anthropicKey) providers.push({ name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x); } });
-    if (geminiKey)    providers.push({ name: 'Gemini', call: function (i, t, x) { return callGemini(geminiKey, i, t, x); } });
+    if (anthropicKey) providers.push({ name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x, false, kategorien); } });
+    if (geminiKey)    providers.push({ name: 'Gemini', call: function (i, t, x) { return callGemini(geminiKey, i, t, x, kategorien); } });
     if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'gemini') providers.reverse();
 
     // Ein Satz Bilder (oder Text) -> normalisierte Items.
