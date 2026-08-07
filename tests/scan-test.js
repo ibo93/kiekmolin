@@ -34,14 +34,17 @@ var order = e => r => r.calls.join(',') === e ? true : 'Aufrufe: ' + r.calls.joi
 
 (async function () {
   var all = true;
-  all &= await run('Claude liefert -> Gemini wird NIE gerufen', BOTH, { claude: 'good' }, order('claude'));
-  all &= await run('Claude leer -> Gemini springt ein', BOTH, { claude: 'empty', gemini: 'good' }, order('claude,gemini'));
-  all &= await run('Claude Ausfall -> Gemini springt ein', BOTH, { claude: 'error', gemini: 'good' }, order('claude,gemini'));
-  all &= await run('beide tot -> ehrlicher Fehler', BOTH, { claude: 'error', gemini: 'error' },
-    r => r.body.ok === false ? true : 'kein Fehler gemeldet');
-  all &= await run('MENU_SCAN_PROVIDER=gemini -> kostenlos zuerst',
-    Object.assign({ MENU_SCAN_PROVIDER: 'gemini' }, BOTH), { gemini: 'good' }, order('gemini'));
-  all &= await run('nur Gemini konfiguriert -> laeuft ohne Claude', { GEMINI_API_KEY: 'g' }, { gemini: 'good' }, order('gemini'));
+  all &= await run('Claude liefert -> genau ein Aufruf', BOTH, { claude: 'good' }, order('claude'));
+  all &= await run('Gemini wird NIE gerufen, auch wenn der Schluessel da ist',
+    BOTH, { claude: 'good' }, r => r.calls.indexOf('gemini') < 0 ? true : 'Gemini wurde gerufen');
+  all &= await run('leeres Ergebnis -> zweiter Versuch bei Claude',
+    BOTH, { claude: 'empty' }, order('claude,claude'));
+  all &= await run('Ausfall -> ehrlicher Fehler statt stillem Ausweichen',
+    BOTH, { claude: 'error' }, r => r.body.ok === false && r.calls.indexOf('gemini') < 0
+      ? true : 'ok=' + r.body.ok + ' Aufrufe=' + r.calls.join(','));
+  all &= await run('ohne ANTHROPIC_API_KEY: klare Ansage',
+    { GEMINI_API_KEY: 'g' }, {}, r => r.body.ok === false && /ANTHROPIC_API_KEY/.test(r.body.error || '')
+      ? true : JSON.stringify(r.body));
 
   // Das eigentliche Bugfix: Anfrage-Format an Claude
   all &= await run('Claude-Anfrage: kein temperature (sonst HTTP 400)', BOTH, { claude: 'good' },
