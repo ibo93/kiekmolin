@@ -6,10 +6,15 @@ var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 // ---- Prompt: nur ablesen ----
 t('Auswahlliste zum Erfinden ist WEG',
   !/Vorspeisen, Salate, Suppen, Pizza,/.test(fn) || !/Nur wenn wirklich keine passt/.test(fn));
-t('Kategorie = gedruckte Ueberschrift', /Die Kategorie eines Gerichts ist die UEBERSCHRIFT/.test(fn));
+t('Kategorie = gedruckte Ueberschrift', /liest die Ueberschriften der Karte ab/.test(fn));
+t('Ueberschrift gilt fuer ALLE Gerichte darunter (der Fehler von vorhin)',
+  /gilt dann fuer\s*',\s*'\s*ALLE Gerichte darunter/.test(fn) || /ALLE Gerichte darunter/.test(fn));
 t('Beispiel "Vom Grill" bleibt "Vom Grill"', /NICHT "Fleischgerichte"/.test(fn));
-t('keine Ueberschrift sichtbar -> leerer String', /LEEREN STRING "" zurueck/.test(fn));
-t('Raten ausdruecklich verboten', /Rate NICHT, welche Ueberschrift/.test(fn));
+t('leerer String nur beim Bildanfang mitten im Abschnitt',
+  /NUR EIN EINZIGER FALL ergibt einen leeren String/.test(fn));
+t('altes Missverstaendnis ausdruecklich verboten',
+  /Gib NIEMALS "" zurueck, nur weil ein Gericht nicht unmittelbar unter/.test(fn));
+t('Raten ausdruecklich verboten', /Rate in diesem Fall NICHT, wie die Ueberschrift/.test(fn));
 t('Server macht aus leer NICHT mehr "Sonstiges"',
   /category: String\(it\.category \|\| ''\)\.trim\(\)/.test(fn));
 

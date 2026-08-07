@@ -24,7 +24,7 @@ t('Prompt wirft Klammer-Codes nicht mehr weg', !/NICHT in die Beschreibung ueber
 t('Prompt erklaert die Buchstaben-Zuordnung', /A=gluten B=krebstiere C=eier/.test(fn));
 t('Prompt verbietet Raten', /Rate NICHT/.test(fn));
 t('Prompt: Kategorie ist die gedruckte Ueberschrift, nicht frei gewaehlt',
-  /DU ERFINDEST KEINE KATEGORIEN/.test(fn) && /Die Kategorie eines Gerichts ist die UEBERSCHRIFT/.test(fn));
+  /DU ERFINDEST KEINE KATEGORIEN/.test(fn) && /liest die Ueberschriften der Karte ab/.test(fn));
 t('Prompt: vorhandene Schreibweise gewinnt (Karte "Pizza" -> "Pizzen")',
   /Karte "Pizza", vorhanden/.test(fn) && /"Pizzen" -> "Pizzen"/.test(fn));
 t('Claude-Schema kennt allergens + additives', /allergens: \{ type: 'array'/.test(fn) && /additives: \{ type: 'array'/.test(fn));
