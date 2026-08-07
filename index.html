@@ -490,6 +490,87 @@
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
 
+    // ==================== FEHLER AUS DEM BETRIEB MELDEN ====================
+    // Ohne das hier erfaehrt niemand, wenn die App bei einem Gast oder einem
+    // Gastronomen kaputtgeht -- ausser er ruft an. Meistens ruft niemand an.
+    //
+    // Drei Regeln, damit der Melder nie selbst zum Problem wird:
+    //  1. Er meldet jeden Fehler-Fingerabdruck nur EINMAL pro Sitzung.
+    //  2. Er meldet hoechstens 8 Fehler pro Sitzung.
+    //  3. Er meldet NIE einen Fehler, der beim Melden entsteht (Endlosschleife).
+    var _errGemeldet = {};
+    var _errAnzahl = 0;
+    var _errMeldeLaeuft = false;
+    var ERR_MAX_PRO_SITZUNG = 8;
+
+    function meldeFehler(info) {
+        try {
+            if (_errMeldeLaeuft) return;                       // Regel 3
+            if (_errAnzahl >= ERR_MAX_PRO_SITZUNG) return;     // Regel 2
+            var msg = String(info && info.message || '').slice(0, 500);
+            if (!msg) return;
+
+            // Rauschen, das nichts ueber die App aussagt: Browser-Erweiterungen,
+            // abgebrochene Navigation, Skripte von fremden Domains.
+            if (/ResizeObserver loop|Script error\.?$|Load failed$|NetworkError when attempting/i.test(msg)) return;
+
+            var fp = (msg + '|' + (info.source || '')).replace(/\d+/g, '#');
+            if (_errGemeldet[fp]) return;                      // Regel 1
+            _errGemeldet[fp] = 1;
+            _errAnzahl++;
+
+            _errMeldeLaeuft = true;
+            var payload = {
+                message: msg,
+                kind: info.kind || 'error',
+                source: String(info.source || '').slice(0, 300),
+                stack: String(info.stack || '').slice(0, 1500),
+                area: info.area || (document.body && document.body.dataset && document.body.dataset.view) || 'app',
+                page: location.pathname + location.search,
+                status: (typeof info.status === 'number') ? info.status : null,
+                userId: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id) || null,
+                userName: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.name) || null
+            };
+            // Absichtlich reines fetch ohne Ergebnispruefung: der Melder darf
+            // nichts werfen und nichts erwarten. keepalive, damit die Meldung
+            // auch rausgeht, wenn der Nutzer die Seite gerade verlaesst.
+            fetch('/.netlify/functions/client-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                keepalive: true
+            }).catch(function () {}).finally(function () { _errMeldeLaeuft = false; });
+        } catch (e) {
+            _errMeldeLaeuft = false;
+        }
+    }
+    window.meldeFehler = meldeFehler;
+
+    window.addEventListener('error', function (e) {
+        // Bild-/Skript-Ladefehler haben kein e.error und werden anderswo
+        // abgefangen (Platzhalterbild) -- die interessieren hier nicht.
+        if (!e || !e.error) return;
+        meldeFehler({
+            message: e.message || String(e.error),
+            stack: e.error && e.error.stack,
+            source: (e.filename || '') + (e.lineno ? ':' + e.lineno : ''),
+            kind: 'error'
+        });
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+        var r = e && e.reason;
+        meldeFehler({
+            message: (r && r.message) || String(r || 'unhandled rejection'),
+            stack: r && r.stack,
+            status: r && typeof r.status === 'number' ? r.status : null,
+            // Fehlgeschlagene Schreibvorgaenge tragen isWriteError -- die sind
+            // besonders interessant, weil dahinter meist ein echtes Datenbank-
+            // oder Rechteproblem steckt und nicht ein Programmierfehler.
+            kind: (r && r.isWriteError) ? 'write' : 'unhandledrejection'
+        });
+    });
+
     // ==================== SCHREIBENDE AUFRUFE ====================
     // fetch() wirft NUR bei Netzwerkfehlern. Eine abgelehnte Anfrage (400, 401,
     // 409, 500 ...) kommt als ganz normale Antwort zurueck -- wer nur
@@ -515,6 +596,65 @@
             var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
             err.status = res.status;
             err.isWriteError = true;
+            // Hier melden, nicht erst im globalen Auffangnetz: ein
+            // fehlgeschlagener Schreibvorgang wird gleich von einem catch
+            // abgefangen und dem Nutzer angezeigt -- damit erreicht er das
+            // Auffangnetz nie. Genau diese Faelle sind aber die wichtigsten,
+            // weil dahinter fast immer ein echtes Datenbank- oder
+            // Rechteproblem steckt und kein Programmierfehler.
+            try {
+                if (typeof meldeFehler === 'function') {
+                    meldeFehler({
+                        message: 'Schreiben abgelehnt: ' + err.message,
+                        kind: 'write',
+                        status: res.status,
+                        // Nur Tabelle und Methode, keine Nutzdaten -- da koennten
+                        // Namen, Adressen oder Telefonnummern drinstehen.
+                        source: (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt',
+                        area: (options && options.method) || 'WRITE'
+                    });
+                }
+            } catch (e2) {}
+            throw err;
+        }
+        return res;
+    }
+
+    // Lesende Aufrufe. Das Gegenstueck zu sbWrite -- mit einem wichtigen
+    // Unterschied: ein fehlgeschlagenes LESEN sah bisher aus wie "es gibt
+    // nichts". Der Gast bekam "Keine Restaurants in Emden" statt "konnte nicht
+    // laden" und ging davon aus, die Plattform sei leer. Fuer ihn ist das
+    // nicht zu unterscheiden -- fuer uns ein verlorener Gast.
+    //
+    // Der Hinweis kommt hier aus dem Helfer statt aus 65 einzelnen
+    // catch-Bloecken: gedrosselt, damit eine Seite, die zehn Listen laedt,
+    // nicht zehn Meldungen uebereinanderstapelt.
+    var _leseFehlerZuletzt = 0;
+    async function sbRead(url, options) {
+        var res = await fetch(url, options);
+        if (!res.ok) {
+            var detail = '';
+            try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
+            try { var j = JSON.parse(detail); detail = j.message || j.hint || j.details || detail; } catch (e) {}
+            var tabelle = (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt';
+
+            var jetzt = new Date().getTime();
+            if (jetzt - _leseFehlerZuletzt > 8000) {
+                _leseFehlerZuletzt = jetzt;
+                try { showToast('Daten konnten nicht geladen werden – bitte neu laden.', 'error'); } catch (e) {}
+            }
+            try {
+                if (typeof meldeFehler === 'function') {
+                    meldeFehler({
+                        message: 'Lesen abgelehnt (' + tabelle + '): HTTP ' + res.status + (detail ? ': ' + detail : ''),
+                        kind: 'read', status: res.status, source: tabelle, area: 'READ'
+                    });
+                }
+            } catch (e) {}
+
+            var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+            err.status = res.status;
+            err.isReadError = true;
             throw err;
         }
         return res;
@@ -15263,7 +15403,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var restaurantId = res.restaurant_id || window.resCurrentRestaurant;
                     var tableOptions = '<option value="">Kein Tisch</option>';
                     try {
-                        var tablesResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&order=table_number', {
+                        var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&order=table_number', {
                             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                         });
                         var tables = await tablesResp.json() || [];
@@ -22880,7 +23020,7 @@ async function getPresenceCount(targetType, targetId) {
         // Nur Sessions der letzten 5 Minuten
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-        const response = await fetch(
+        const response = await sbRead(
             `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=count`,
             {
                 headers: {
@@ -22923,7 +23063,7 @@ async function getTodayVisitors(targetType, targetId) {
     try {
         const today = todayStrLocal();
 
-        const response = await fetch(
+        const response = await sbRead(
             `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=count`,
             {
                 headers: {
@@ -22993,7 +23133,7 @@ async function simpleLogin() {
 
     try {
         // Passwort aus Supabase prüfen
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
+        const response = await sbRead(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -25607,7 +25747,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     // Tische zählen
     var totalTables = 0;
     try {
-        var tResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
+        var tResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await tResp.json();
@@ -25618,7 +25758,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     // Reservierungen + Sperren für heute laden
     var existing = [];
     try {
-        var rResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,blocked)&select=reservation_time,status,table_id', {
+        var rResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,blocked)&select=reservation_time,status,table_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         existing = await rResp.json();
@@ -25917,7 +26057,7 @@ async function loadAvailableSlots() {
 
     try {
         // Bestehende Reservierungen + Sperren für diesen Tag laden
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + date + '&status=in.(confirmed,pending,blocked)&select=reservation_time,party_size,status,table_id', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + date + '&status=in.(confirmed,pending,blocked)&select=reservation_time,party_size,status,table_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var existing = await resp.json();
@@ -26174,7 +26314,7 @@ async function loadResAreas(restaurantId) {
     // Bereiche aus Tisch-Daten laden
     var areas = new Set();
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=area', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=area', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await resp.json();
@@ -26372,7 +26512,7 @@ async function loadCustomerTablePlan() {
     if (!restId) { grid.innerHTML = ''; return; }
 
     try {
-        var tablesRes = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
+        var tablesRes = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await tablesRes.json();
@@ -26384,7 +26524,7 @@ async function loadCustomerTablePlan() {
         // Bestehende Reservierungen fuer Datum/Zeit laden
         var reservedTableIds = [];
         if (date && time) {
-            var resRes = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=neq.cancelled&select=table_id,reservation_time', {
+            var resRes = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=neq.cancelled&select=table_id,reservation_time', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var reservations = await resRes.json();
@@ -27227,7 +27367,7 @@ async function rejectDashReservation(resId, restaurantId) {
             overlay.remove();
             try {
                 // RPC nutzen (umgeht RLS) — wie bei resCancelReservation
-                var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+                var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 var curArr = await curResp.json().catch(function() { return []; });
@@ -27550,7 +27690,7 @@ async function saveAssignedOwner() {
 
     try {
         // Pruefen ob Email schon in customers existiert
-        var checkResp = await fetch(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id,restaurant_id', {
+        var checkResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id,restaurant_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var existing = await checkResp.json();
@@ -29620,7 +29760,7 @@ async function loadDashboardStats() {
 
         // Kunden zählen
         try {
-            const customersResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=id,payment_status,is_active`, {
+            const customersResponse = await sbRead(`${SUPABASE_URL}/rest/v1/customers?select=id,payment_status,is_active`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const customersData = await customersResponse.json();
@@ -29637,7 +29777,7 @@ async function loadDashboardStats() {
 
         // Unterkünfte zählen
         try {
-            const accResponse = await fetch(`${SUPABASE_URL}/rest/v1/accommodations?select=id,has_availability`, {
+            const accResponse = await sbRead(`${SUPABASE_URL}/rest/v1/accommodations?select=id,has_availability`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const accData = await accResponse.json();
@@ -29653,7 +29793,7 @@ async function loadDashboardStats() {
 
         // Events zählen
         try {
-            const eventsResponse = await fetch(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
+            const eventsResponse = await sbRead(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const eventsData = await eventsResponse.json();
@@ -29670,7 +29810,7 @@ async function loadDashboardStats() {
 
         // Attraktionen zählen
         try {
-            const attrResponse = await fetch(`${SUPABASE_URL}/rest/v1/attractions?select=id,category`, {
+            const attrResponse = await sbRead(`${SUPABASE_URL}/rest/v1/attractions?select=id,category`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const attrData = await attrResponse.json();
@@ -30184,7 +30324,7 @@ async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await res.json();
@@ -30224,7 +30364,7 @@ async function toggleFeature(feature) {
 
     try {
         // Lade aktuelle features
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await res.json();
@@ -34111,7 +34251,7 @@ async function loadLiveNotifications(container) {
 
     try {
         // Pending Restaurant-Registrierungen laden
-        var regResp = await fetch(SUPABASE_URL + '/rest/v1/customers?select=id,name,email,phone,restaurant_id,created_at&is_active=eq.false&role=eq.restaurant&order=created_at.desc&limit=10', {
+        var regResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?select=id,name,email,phone,restaurant_id,created_at&is_active=eq.false&role=eq.restaurant&order=created_at.desc&limit=10', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var pendingRegs = await regResp.json();
@@ -34122,7 +34262,7 @@ async function loadLiveNotifications(container) {
                 var regRestName = '';
                 if (reg.restaurant_id) {
                     try {
-                        var rrr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + reg.restaurant_id + '&select=name', {
+                        var rrr = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + reg.restaurant_id + '&select=name', {
                             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                         });
                         var rrd = await rrr.json();
@@ -34774,7 +34914,7 @@ function handleGoogleLoginSuccess(user) {
 async function checkIfGastronom(email, googleUser) {
     try {
         // Phase 1: Prüfe ob AKTIVER Customer existiert (bestehender Flow)
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.true`, {
+        const response = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.true`, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -34789,7 +34929,7 @@ async function checkIfGastronom(email, googleUser) {
 
             // Prüfe ob Restaurant auch aktiv ist
             if (customer.restaurant_id) {
-                const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=id,name,is_active`, {
+                const restResp = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=id,name,is_active`, {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 const restData = await restResp.json();
@@ -34836,7 +34976,7 @@ async function checkIfGastronom(email, googleUser) {
         }
 
         // Phase 2: Prüfe ob PENDING Customer existiert (is_active = false)
-        const pendingResp = await fetch(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.false&role=eq.restaurant`, {
+        const pendingResp = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.false&role=eq.restaurant`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         const pendingCustomers = await pendingResp.json();
@@ -34860,7 +35000,7 @@ async function checkIfGastronom(email, googleUser) {
             var restName = 'Dein Restaurant';
             if (customer.restaurant_id) {
                 try {
-                    var rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=name`, {
+                    var rr = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=name`, {
                         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                     });
                     var rd = await rr.json();
@@ -34923,7 +35063,7 @@ async function showGastroDashboard(customer) {
 
     if (!restaurant && customer.restaurant_id) {
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}`, {
+            const response = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}`, {
                 headers: {
                     'apikey': SUPABASE_KEY,
                     'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -35352,7 +35492,7 @@ async function submitGastroRegistration(e) {
             .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
         // Slug-Duplikat prüfen
-        var slugResp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?slug=eq.' + slug + '&select=id', {
+        var slugResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?slug=eq.' + slug + '&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var slugData = await slugResp.json();
@@ -35361,7 +35501,7 @@ async function submitGastroRegistration(e) {
         }
 
         // E-Mail-Duplikat prüfen
-        var emailResp = await fetch(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id', {
+        var emailResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var emailData = await emailResp.json();
@@ -35718,7 +35858,7 @@ async function loadGastroReservations(restaurantId) {
 async function updateReservationStatus(reservationId, newStatus) {
     try {
         // Erst aktuelle Daten laden damit RPC keine Felder auf NULL setzt
-        var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+        var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var curArr = await curResp.json().catch(function() { return []; });
@@ -35797,7 +35937,7 @@ var _gastroEditTables = [];
 async function openGastroResEdit(reservationId) {
     // Reservierung aus Supabase laden
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=*', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=*', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var resArr = await resp.json();
@@ -35809,7 +35949,7 @@ async function openGastroResEdit(reservationId) {
 
         // Tische laden
         var restId = res.restaurant_id || window.currentRestaurantId;
-        var tablesResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
+        var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         _gastroEditTables = await tablesResp.json() || [];
@@ -35947,7 +36087,7 @@ async function saveGastroResEdit() {
         console.warn('RPC nicht verfügbar, nutze DELETE+INSERT Fallback');
 
         // Alte Daten holen (restaurant_id, source etc.)
-        var oldResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=restaurant_id,source,created_at,guest_email,occasion,duration_minutes', {
+        var oldResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=restaurant_id,source,created_at,guest_email,occasion,duration_minutes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var oldArr = await oldResp.json().catch(function() { return []; });
@@ -37693,7 +37833,7 @@ async function loadMyReservationsFromSupabase(phone) {
     try {
         var cleanPhone = phone.replace(/\s/g, '');
         var phoneEnd = cleanPhone.slice(-8);
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&order=reservation_date.desc,reservation_time.desc&limit=20', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&order=reservation_date.desc,reservation_time.desc&limit=20', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var reservations = await resp.json();
@@ -37919,7 +38059,7 @@ async function loadBlockTables(restId) {
     var select = document.getElementById('blockTableId');
     if (!select) return;
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await resp.json();
@@ -38075,7 +38215,7 @@ async function loadBlockList(restId, date) {
     if (!container) return;
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var blocks = await resp.json();
@@ -38116,7 +38256,7 @@ async function loadBlockList(restId, date) {
 async function removeBlock(blockId) {
     try {
         // RPC nutzen um RLS zu umgehen — Status auf 'cancelled' setzen statt DELETE
-        var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+        var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var curArr = await curResp.json().catch(function() { return []; });
@@ -41062,12 +41202,36 @@ document.addEventListener("DOMContentLoaded", function() {
 // ==================== PWA SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        // Erst alle alten Caches löschen
-        if ('caches' in window) {
-            caches.keys().then(function(names) {
-                names.forEach(function(name) { caches.delete(name); });
-            });
-        }
+        // Hier stand: "Erst alle alten Caches löschen" -- und zwar ALLE, bei
+        // jedem Seitenaufruf. Das war richtig, solange der Service Worker gar
+        // nichts cachte; jetzt wuerde es den frisch angelegten App-Cache bei
+        // jedem Laden sofort wieder wegwerfen und die App bliebe dauerhaft
+        // langsam. Das Aufraeumen alter Fassungen macht jetzt der Worker
+        // selbst in seinem activate-Schritt -- der kennt den Namen des
+        // aktuellen Caches und loescht gezielt nur die veralteten.
+        //
+        // Fremde Caches aus der Zeit davor tragen diesen Namen nicht und
+        // werden dort ebenfalls entfernt.
+
+        // Meldet der Worker eine neue Fassung, dem Nutzer einen dezenten
+        // Hinweis geben statt ihn ungefragt neu zu laden -- ein Neuladen
+        // mitten in einer Bestellung waere aergerlicher als eine Fassung
+        // Rueckstand.
+        navigator.serviceWorker.addEventListener('message', function(ev) {
+            if (!ev.data || ev.data.typ !== 'neue-version') return;
+            if (window._neueVersionGemeldet) return;
+            window._neueVersionGemeldet = true;
+            try {
+                // showToast kennt keinen Callback und blendet nach 3 Sekunden
+                // aus -- der Hinweis muss also selbst klickbar sein. Ein <span>
+                // im Text sorgt zugleich dafuer, dass showToast ihn als HTML
+                // einsetzt statt als reinen Text.
+                showToast('<span onclick="location.reload()" style="cursor:pointer;text-decoration:underline;">' +
+                          'Neue Version verfügbar – hier tippen zum Aktualisieren</span>', 'info');
+            } catch (e) {
+                console.info('[kmi] Neue Version verfügbar – Seite neu laden.');
+            }
+        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(function(registration) {
                 // Sofort updaten
@@ -43914,7 +44078,7 @@ async function openMenuModal(restaurantId) {
         }
         if (restaurant.name === 'Restaurant') {
             try {
-                var res = await fetch(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+                var res = await sbRead(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
                 var data = await res.json();
                 if (data && data[0]) restaurant = data[0];
             } catch(e) {}
@@ -45368,7 +45532,7 @@ async function loadOptionGroups() {
     }
     container.innerHTML = '<p style="padding:20px;color:var(--slate);text-align:center;">Laden...</p>';
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
@@ -45379,7 +45543,7 @@ async function loadOptionGroups() {
             for (var i = 0; i < groups.length; i++) {
                 var g = groups[i];
                 // Lade Optionen fuer diese Gruppe
-                var optRes = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
+                var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 var opts = await optRes.json();
@@ -45566,14 +45730,14 @@ async function saveOptionGroup(editId) {
 // Optionsgruppe bearbeiten
 async function openEditOptionGroupModal(groupId) {
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
         if (!groups || !groups[0]) return;
         var g = groups[0];
 
-        var optRes = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
+        var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var opts = await optRes.json();
@@ -45745,7 +45909,7 @@ async function openCreateCrossSellModal() {
 
     // Lade alle Items des Restaurants
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restId + '&is_available=eq.true&order=name', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restId + '&is_available=eq.true&order=name', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var items = await res.json();
@@ -45886,7 +46050,7 @@ async function loadMenuOptionGroups(restId) {
     var optSelect = document.getElementById('optionsRestaurantSelect');
     if (optSelect) optSelect.value = restId;
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
@@ -45897,7 +46061,7 @@ async function loadMenuOptionGroups(restId) {
         var html = '';
         for (var i = 0; i < groups.length; i++) {
             var g = groups[i];
-            var optRes2 = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
+            var optRes2 = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var opts = await optRes2.json();
@@ -47434,7 +47598,7 @@ function startOrderTracking(orderId) {
     trackingPollingInterval = setInterval(async function() {
         if (!activeTrackingOrderId) { clearInterval(trackingPollingInterval); return; }
         try {
-            var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + activeTrackingOrderId + '&select=status,estimated_minutes,order_type', {
+            var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + activeTrackingOrderId + '&select=status,estimated_minutes,order_type', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var data = await res.json();
@@ -48079,7 +48243,7 @@ async function loadDashboardOrders() {
             // GANZE Liste wuerde leer bleiben. Fallback: ohne Verknuepfung laden
             // (die Gerichte stehen als JSONB-Spalte "items" direkt in der Bestellung).
             console.warn('Orders-Query mit order_items fehlgeschlagen (' + response.status + ') – lade ohne Verknuepfung');
-            response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*` + filterPart, { headers: _ordHeaders });
+            response = await sbRead(`${SUPABASE_URL}/rest/v1/orders?select=*` + filterPart, { headers: _ordHeaders });
         }
 
         if (response.ok) {
@@ -50099,7 +50263,7 @@ async function refreshPrinterStatus() {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         if (!res.ok) {
-            res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+            res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             if (!res.ok) return;
@@ -50494,7 +50658,7 @@ async function _loadPOSConfigFromSupabase() {
         var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
         var restId = customer.restaurant_id;
         if (!restId) return;
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=pos_config', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=pos_config', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -52733,7 +52897,7 @@ async function savePaymentSettings() {
     if (paypalMeSec) paypalMeSec.style.display = paypalOn ? 'block' : 'none';
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -52782,7 +52946,7 @@ async function savePaypalMe() {
     _paypalMeSaveTimeout = setTimeout(async function() {
         try {
             // Features laden, paypal_me entfernen, neuen Wert hinzufuegen
-            var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var data = await resp.json();
@@ -52949,7 +53113,7 @@ async function saveLoyaltySetting() {
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
     
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -52997,7 +53161,7 @@ function setLoyaltyRate(rate) {
 // Supabase features aktualisieren
 async function saveOrderSettingsToSupabase(restId, settings) {
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -53354,7 +53518,7 @@ async function openTableManager(restaurantId) {
         var r = APP_DATA.restaurants.find(function(x) { return x.id === restaurantId; });
         if (!r) return;
 
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = (await res.json()) || [];
@@ -55319,7 +55483,7 @@ async function deleteMenuItem(itemId) {
         // Methode 3: Verifizieren ob gelöscht — wenn nicht, nochmal per RPC
         if (!deleted) {
             // Prüfen ob Item noch existiert
-            var checkResp = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
+            var checkResp = await sbRead(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var checkData = await checkResp.json();
@@ -55382,7 +55546,7 @@ async function deleteCategory(categoryId) {
 
         // Verifizieren
         if (!catDeleted) {
-            var check = await fetch(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
+            var check = await sbRead(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var cd = await check.json();
@@ -57158,7 +57322,7 @@ async function importScannedMenu() {
 
     // Schritt 1: Bestehende Kategorien laden
     try {
-        var catRes = await fetch(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&select=id,name', { headers: SUPA_H });
+        var catRes = await sbRead(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&select=id,name', { headers: SUPA_H });
         var existingCats = await catRes.json();
         if (Array.isArray(existingCats)) {
             existingCats.forEach(function(c) { categoryMap[c.name.toLowerCase()] = c.id; });
@@ -59517,7 +59681,7 @@ async function checkActiveOrderBanner() {
 
     try {
         // 1. Aktive Bestellungen prüfen — mit letzten 10 Ziffern
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=1', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=1', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await resp.json();
@@ -59532,7 +59696,7 @@ async function checkActiveOrderBanner() {
         try {
             var today = todayStrLocal();
             var tomorrow = new DatelocalDayStr(Date.now() + 86400000);
-            var resp2 = await fetch(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
+            var resp2 = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var reservations = await resp2.json();
@@ -59629,7 +59793,7 @@ setInterval(async function() {
     var phoneEnd = cleanPhone.slice(-8);
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=5', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=5', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await resp.json();
@@ -59653,7 +59817,7 @@ async function showAutoReviewPrompt(orderId) {
     if (reviewed.indexOf(orderId) >= 0) return;
 
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId + '&limit=1', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId + '&limit=1', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await res.json();
@@ -61000,7 +61164,7 @@ async function showTvMenuBoard(slug) {
             }
 
             // Kategorien + verfuegbare Gerichte
-            var cRes = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
+            var cRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var cats = await cRes.json() || [];
@@ -61011,13 +61175,13 @@ async function showTvMenuBoard(slug) {
             });
             if (!iRes.ok) {
                 // Fallback 1: ohne is_available-Filter (falls Spalte fehlt)
-                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
+                iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
             }
             if (!iRes.ok) {
                 // Fallback 2: alle Spalten (schuetzt vor kuenftigen Schema-Aenderungen)
-                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=*&order=sort_order&limit=500', {
+                iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=*&order=sort_order&limit=500', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
             }
@@ -61385,7 +61549,7 @@ function showTouristRoutes() {
 // Gast: Routen aus Supabase laden
 async function loadTouristRoutes() {
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?is_active=eq.true&order=created_at.desc', {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?is_active=eq.true&order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -61564,7 +61728,7 @@ async function loadTouristRoutesDash() {
     if (!list) return;
 
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?order=created_at.desc', {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -61762,7 +61926,7 @@ async function deleteTouristRoute(routeId) {
 
 async function editTouristRoute(routeId) {
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
