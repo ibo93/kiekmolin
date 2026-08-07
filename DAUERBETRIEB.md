@@ -11,7 +11,7 @@ Telefon-Domain auf die Server-IP zeigt:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ibo93/kiekmolin/main/dauerbetrieb-setup.sh -o setup.sh
-bash setup.sh telefon.kurani-design.de
+bash setup.sh telefon.kurani-design.de check.kurani-design.de
 ```
 
 Das Skript installiert Docker + Caddy (HTTPS), holt das Repo nach
@@ -19,6 +19,14 @@ Das Skript installiert Docker + Caddy (HTTPS), holt das Repo nach
 überschreiben), setzt `BASE_URL` und startet beide Dienste. Danach nur
 noch: Keys in die `.env`-Dateien, Twilio-Webhook setzen — steht am Ende
 der Skript-Ausgabe. Die Schritte unten sind derselbe Weg von Hand.
+
+**Der zweite Parameter ist die öffentliche Lead-Seite** (optional, aber
+empfohlen): Unter `https://check.deine-domain.de/check` können sich
+Restaurants selbst für den kostenlosen Sichtbarkeits-Check eintragen –
+der Link für Instagram-Bio, WhatsApp-Status und Visitenkarte. Caddy gibt
+dort **nur** `/check` und `/api/lead` frei; alle anderen Pfade der
+Agentur-App (Kundendaten, Reports, Journale) antworten mit 404. Die App
+selbst bleibt wie gehabt nur per SSH-Tunnel erreichbar.
 
 ## 1. Server mieten und vorbereiten (einmalig, ~20 Minuten)
 
