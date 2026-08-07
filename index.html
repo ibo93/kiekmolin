@@ -638,23 +638,36 @@
             try { var j = JSON.parse(detail); detail = j.message || j.hint || j.details || detail; } catch (e) {}
             var tabelle = (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt';
 
-            var jetzt = new Date().getTime();
-            if (jetzt - _leseFehlerZuletzt > 8000) {
-                _leseFehlerZuletzt = jetzt;
-                try { showToast('Daten konnten nicht geladen werden – bitte neu laden.', 'error'); } catch (e) {}
-            }
-            try {
-                if (typeof meldeFehler === 'function') {
-                    meldeFehler({
-                        message: 'Lesen abgelehnt (' + tabelle + '): HTTP ' + res.status + (detail ? ': ' + detail : ''),
-                        kind: 'read', status: res.status, source: tabelle, area: 'READ'
-                    });
+            // "Nichts gefunden" ist bei PostgREST eine ganz normale Antwort und
+            // kein Stoerfall: 406 kommt, wenn eine Einzelsatz-Abfrage keine Zeile
+            // findet, 404 bei einer leeren Einzelressource. Beides passiert im
+            // Alltag staendig ("hat dieser Gast schon ein Konto?").
+            // Wir werfen zwar weiterhin -- der aufrufende catch-Block hat das
+            // vorher auch schon behandelt -- aber wir behelligen weder den Gast
+            // mit einer Fehlermeldung noch fluten wir die Fehlerliste mit
+            // Meldungen, die gar keine sind.
+            var nichtsGefunden = (res.status === 404 || res.status === 406);
+
+            if (!nichtsGefunden) {
+                var jetzt = new Date().getTime();
+                if (jetzt - _leseFehlerZuletzt > 8000) {
+                    _leseFehlerZuletzt = jetzt;
+                    try { showToast('Daten konnten nicht geladen werden – bitte neu laden.', 'error'); } catch (e) {}
                 }
-            } catch (e) {}
+                try {
+                    if (typeof meldeFehler === 'function') {
+                        meldeFehler({
+                            message: 'Lesen abgelehnt (' + tabelle + '): HTTP ' + res.status + (detail ? ': ' + detail : ''),
+                            kind: 'read', status: res.status, source: tabelle, area: 'READ'
+                        });
+                    }
+                } catch (e) {}
+            }
 
             var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
             err.status = res.status;
             err.isReadError = true;
+            err.notFound = nichtsGefunden;
             throw err;
         }
         return res;
