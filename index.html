@@ -23046,13 +23046,20 @@ async function updatePresence(targetType, targetId) {
     }
 }
 
+// Die Anzahl kommt aus dem Content-Range-Kopf (Prefer: count=exact), NICHT aus
+// den Daten. Hier stand "select=count" -- PostgREST kennt keine Spalte "count"
+// und hat jede dieser Abfragen mit HTTP 400 abgelehnt. Die Zahl kam trotzdem
+// an, weil sie im Kopf steht, also fiel es nie auf: der Fehler war unsichtbar,
+// bis wir Lesefehler ueberhaupt gemeldet haben.
+// "select=id&limit=1" holt jetzt hoechstens eine Zeile -- gezaehlt wird
+// weiterhin serverseitig ueber den Kopf.
 async function getPresenceCount(targetType, targetId) {
     try {
         // Nur Sessions der letzten 5 Minuten
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
         const response = await sbRead(
-            `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=count`,
+            `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=id&limit=1`,
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -23095,7 +23102,7 @@ async function getTodayVisitors(targetType, targetId) {
         const today = todayStrLocal();
 
         const response = await sbRead(
-            `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=count`,
+            `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=id&limit=1`,
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
