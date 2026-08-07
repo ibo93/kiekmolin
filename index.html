@@ -56111,6 +56111,29 @@ function handleMenuScan(event) {
 // KI-Menuescanner: schickt Bild(er)/Text an die Vision-Function und bekommt
 // sauber kategorisierte Gerichte zurueck. Gibt null zurueck, wenn KI nicht
 // verfuegbar -> dann faellt der Aufrufer auf lokales OCR/Parsing zurueck.
+//
+// WICHTIG: Der Grund eines Fehlschlags landete frueher NUR in der
+// Entwicklerkonsole. Der Gastronom sah dann bloss magere Ergebnisse aus der
+// einfachen Texterkennung und wusste nicht, ob die KI aus war, das Kontingent
+// leer oder das Foto unbrauchbar. Jetzt wird der Grund gemerkt und einmal
+// verstaendlich angezeigt.
+window._lastMenuScanError = null;
+
+function _menuScanErrorText(raw) {
+    var e = String(raw || '').toLowerCase();
+    if (e.indexOf('keine ki konfiguriert') >= 0) {
+        return 'KI-Scanner ist nicht eingerichtet (Schlüssel fehlt in Netlify) – es wurde nur einfache Texterkennung genutzt.';
+    }
+    if (e.indexOf('quota') >= 0 || e.indexOf('rate') >= 0 || e.indexOf('429') >= 0) {
+        return 'KI-Kontingent gerade erschöpft – bitte in ein paar Minuten nochmal scannen.';
+    }
+    if (e.indexOf('401') >= 0 || e.indexOf('403') >= 0 || e.indexOf('api key') >= 0) {
+        return 'KI-Schlüssel wird abgelehnt – bitte in Netlify prüfen.';
+    }
+    if (e.indexOf('kein bild') >= 0) return 'Kein lesbares Bild übergeben.';
+    return 'Die KI konnte die Karte nicht lesen – es wurde nur einfache Texterkennung genutzt.';
+}
+
 async function aiMenuScan(payload) {
     try {
         var res = await fetch('/.netlify/functions/menu-scan', {
@@ -56119,13 +56142,23 @@ async function aiMenuScan(payload) {
             body: JSON.stringify(payload)
         });
         var j = await res.json();
-        if (j && j.ok && Array.isArray(j.items)) return j.items;
-        if (j && j.error) console.warn('[menu-scan]', j.error);
+        if (j && j.ok && Array.isArray(j.items)) { window._lastMenuScanError = null; return j.items; }
+        window._lastMenuScanError = (j && j.error) ? String(j.error) : ('HTTP ' + res.status);
+        console.warn('[menu-scan]', window._lastMenuScanError);
         return null;
     } catch (e) {
+        window._lastMenuScanError = e.message || 'nicht erreichbar';
         console.warn('[menu-scan] nicht erreichbar:', e.message);
         return null;
     }
+}
+
+// Einmal pro Scan-Vorgang anzeigen, warum die KI nicht gegriffen hat.
+function showMenuScanWarningIfAny() {
+    if (!window._lastMenuScanError) return;
+    var msg = _menuScanErrorText(window._lastMenuScanError);
+    window._lastMenuScanError = null;
+    try { showToast(msg, 'warning'); } catch (e) {}
 }
 
 // Langes Speisekarten-Foto in ueberlappende vertikale Streifen schneiden.
@@ -56238,6 +56271,9 @@ async function startMenuScan() {
                 showScannedResults();
                 return;
             }
+            // Kein einziges Gericht per KI: dem Gastronom sagen WARUM, bevor
+            // die einfache Texterkennung uebernimmt.
+            showMenuScanWarningIfAny();
         }
 
         // 2) Fallback: lokales OCR (Tesseract)
@@ -56627,6 +56663,7 @@ async function scanFromText() {
         showScannedResults();
         return;
     }
+    showMenuScanWarningIfAny();
 
     // 2) Fallback: lokales Parsing
     scannedMenuItems = parseMenuText(text);
