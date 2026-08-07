@@ -39871,35 +39871,40 @@ function sendAssistantMessage() {
                 hideTyping();
                 addMessage(tableResponse, 'bot');
             });
-        } else if (response === '__AI_FALLBACK__') {
-            // Kein Stichwort-Match → echte KI fragen (Claude via Netlify Function)
-            showTyping();
-            askClaudeAI(originalMessage).then(function(aiResponse) {
-                hideTyping();
-                addMessage(aiResponse, 'bot');
-            });
         } else {
-            addMessage(response, 'bot');
+            // Frueher gewannen hier rund 90 fest verdrahtete Stichwort-Antworten,
+            // und die KI kam nur dran, wenn KEINE davon passte. Der Assistent war
+            // damit ueberwiegend ein Stichwortautomat: er antwortete auf das
+            // erkannte Wort, nicht auf die tatsaechliche Frage. "Kann ich bei
+            // La Piazza glutenfrei essen?" bekam den Standardtext zu "essen".
+            //
+            // Jetzt antwortet immer die KI. Der vorgefertigte Text bleibt als
+            // Notloesung fuer den Fall, dass die KI nicht erreichbar ist -- dann
+            // ist eine grobe Antwort besser als gar keine.
+            var offline = (response === '__AI_FALLBACK__') ? null : response;
+            askKinAI(originalMessage, offline);
         }
     }
 
-    // Erst async Dish-Handler probieren, dann Fallback auf generateResponse
+    // Erst async Dish-Handler probieren, dann Fallback auf generateResponse.
+    //
+    // Das setTimeout von 600-1100 ms, das hier frueher stand, war eine
+    // KUENSTLICHE Verzoegerung -- sie sollte "tippen" vortaeuschen. Sie lief
+    // aber VOR der KI-Anfrage, hat also auf jede echte Antwort noch eine
+    // Sekunde obendrauf gelegt. Ersatzlos raus: die KI braucht ohnehin einen
+    // Moment, echtes Warten muss man nicht simulieren.
     handleDishQuery(message).then(function(dishResponse) {
         if (dishResponse) {
             hideTyping();
             addMessage(dishResponse, 'bot');
         } else {
-            setTimeout(function() {
-                hideTyping();
-                _handleAssistantResponse(generateResponse(message), message);
-            }, 600 + Math.random() * 500);
+            hideTyping();
+            _handleAssistantResponse(generateResponse(message), message);
         }
     }).catch(function(err) {
         console.error('Dish query error:', err);
-        setTimeout(function() {
-            hideTyping();
-            _handleAssistantResponse(generateResponse(message), message);
-        }, 600 + Math.random() * 500);
+        hideTyping();
+        _handleAssistantResponse(generateResponse(message), message);
     });
 }
 
@@ -40835,92 +40840,154 @@ function generateResponse(message) {
     return '__AI_FALLBACK__';
 }
 
-// ==================== KI-FALLBACK via Anthropic Claude ====================
+// ==================== KIN — die eigentliche KI ====================
 var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
 
-async function askClaudeAI(userMessage) {
+// Kontext fuer die KI einsammeln.
+// Bewusst schlank: alles hier wird bei JEDER Frage neu mitgeschickt und
+// gelesen, der Gast bezahlt es also in Wartezeit. Vorher gingen 40 Restaurants
+// mit Bewertung, Preisklasse und Abhol-Flag plus 25 Gerichte raus -- rund 2000
+// Wortteile pro Frage, von denen die KI fast nichts brauchte.
+async function _kinContext() {
+    var context = {};
     try {
-        // Kontext sammeln: alle Restaurants (Kurzform) + aktuelles Restaurant + Menue
-        var context = {};
-        try {
-            if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
-                context.restaurants = APP_DATA.restaurants
-                    .filter(function(r) { return r && r.is_active !== false; })
-                    .slice(0, 40)   // max 40 Restaurants senden
-                    .map(function(r) {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
+            context.restaurants = APP_DATA.restaurants
+                .filter(function(r) { return r && r.is_active !== false; })
+                .slice(0, 25)
+                .map(function(r) {
+                    return {
+                        name: r.name,
+                        city: r.city || '',
+                        cuisine: r.cuisine || '',
+                        delivery: !!r.has_delivery || !!r.delivery
+                    };
+                });
+        }
+        var openRid = window.currentRestaurantId || null;
+        if (openRid && window.APP_DATA && APP_DATA.restaurants) {
+            var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
+            if (openRest) {
+                context.currentRestaurant = {
+                    name: openRest.name,
+                    city: openRest.city || '',
+                    cuisine: openRest.cuisine || ''
+                };
+                try {
+                    if (typeof assistantLoadDishes === 'function' &&
+                        (!window._assistantMenuCache || !_assistantMenuCache[openRid])) {
+                        await assistantLoadDishes(openRid);
+                    }
+                } catch (loadErr) { /* ohne Speisekarte antwortet die KI trotzdem */ }
+                if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
+                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 20).map(function(m) {
                         return {
-                            name: r.name,
-                            city: r.city || '',
-                            cuisine: r.cuisine || '',
-                            rating: r.rating || null,
-                            slug: r.slug || '',
-                            delivery: !!r.has_delivery || !!r.delivery,
-                            pickup: r.has_pickup !== false,
-                            price_range: r.price_range || ''
+                            name: m.name,
+                            price: m.base_price != null ? m.base_price : m.price,
+                            category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
                         };
                     });
-            }
-            // Aktuell geoeffnetes Restaurant (falls Speisekarte offen)
-            var openRid = window.currentRestaurantId || null;
-            if (openRid && window.APP_DATA && APP_DATA.restaurants) {
-                var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
-                if (openRest) {
-                    context.currentRestaurant = {
-                        name: openRest.name,
-                        city: openRest.city || '',
-                        cuisine: openRest.cuisine || '',
-                        rating: openRest.rating || null
-                    };
-                    // Menue laden falls noch nicht im Cache (await fuer frischen Stand)
-                    try {
-                        if (typeof assistantLoadDishes === 'function' &&
-                            (!window._assistantMenuCache || !_assistantMenuCache[openRid])) {
-                            await assistantLoadDishes(openRid);
-                        }
-                    } catch(loadErr) { /* ignore */ }
-                    if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
-                        context.currentMenu = _assistantMenuCache[openRid].slice(0, 25).map(function(m) {
-                            return {
-                                name: m.name,
-                                price: m.base_price != null ? m.base_price : m.price,
-                                description: m.description ? String(m.description).slice(0, 80) : '',
-                                category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
-                            };
-                        });
-                    }
                 }
             }
-            // User-Standort (Stadt) falls bekannt
-            if (window._userCity) context.userCity = window._userCity;
-        } catch(ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
+        }
+        if (window._userCity) context.userCity = window._userCity;
+    } catch (ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
+    return context;
+}
 
-        const res = await fetch('/.netlify/functions/chat-ai', {
+// KI fragen und die Antwort Wort fuer Wort in die Sprechblase schreiben.
+// offlineFallback = vorgefertigter Text, der genommen wird, wenn die KI
+// gar nicht erreichbar ist (null = es gibt keinen passenden).
+async function askKinAI(userMessage, offlineFallback) {
+    showTyping();
+    var context = await _kinContext();
+    var payload = {
+        message: userMessage,
+        history: _assistantChatHistory.slice(-6),
+        context: context
+    };
+
+    var full = '';
+    var bubble = null;
+    function push(text) {
+        full += text;
+        if (!bubble) {
+            hideTyping();
+            // Leere Blase anlegen, in die der Text hineinwaechst.
+            var container = document.getElementById('assistantMessages');
+            if (!container) return;
+            var div = document.createElement('div');
+            div.className = 'assistant-message bot';
+            div.innerHTML = '<div class="message-content"></div>';
+            container.appendChild(div);
+            bubble = div.querySelector('.message-content');
+        }
+        bubble.innerHTML = formatAssistantReply(full);
+        var c = document.getElementById('assistantMessages');
+        if (c) c.scrollTop = c.scrollHeight;
+    }
+
+    // 1) Streamen versuchen -- so steht das erste Wort nach etwa einer Sekunde,
+    //    statt dass der Gast auf die fertige Antwort wartet.
+    try {
+        var res = await fetch('/.netlify/functions/chat-ai-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: userMessage,
-                history: _assistantChatHistory.slice(-6),
-                context: context
-            })
+            body: JSON.stringify(payload)
         });
-        const data = await res.json().catch(function() { return {}; });
-        if (data && data.reply) {
-            _assistantChatHistory.push({ role: 'user', content: userMessage });
-            _assistantChatHistory.push({ role: 'assistant', content: data.reply });
-            if (_assistantChatHistory.length > 12) {
-                _assistantChatHistory = _assistantChatHistory.slice(-12);
+        if (res.ok && res.body && typeof res.body.getReader === 'function') {
+            var reader = res.body.getReader();
+            var dec = new TextDecoder();
+            while (true) {
+                var r = await reader.read();
+                if (r.done) break;
+                push(dec.decode(r.value, { stream: true }));
             }
-            return formatAssistantReply(data.reply);
+            if (full.trim()) { _kinRemember(userMessage, full); return; }
         }
-        if (data && data.fallback) {
-            return 'Der KI-Service ist gerade nicht erreichbar. Versuch eine Stichwort-Frage wie „<strong>Wie bestelle ich?</strong>" oder „<strong>Was soll ich essen?</strong>".';
-        }
-        return 'Hmm, das hab ich nicht verstanden. Versuch z.B.: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Wer hat freie Tische?</strong>".';
     } catch (e) {
-        console.error('KI-Fallback fehlgeschlagen:', e);
-        return 'Hmm, das hab ich nicht verstanden. Versuch: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Freie Tische</strong>".';
+        console.warn('[KIN] Streamen nicht moeglich, nehme die normale Antwort:', e.message);
+    }
+
+    // 2) Kein Strom (alter Browser, puffernder Proxy, Anbieter ohne Streaming):
+    //    Antwort am Stueck holen. Langsamer, aber es funktioniert ueberall.
+    try {
+        var res2 = await fetch('/.netlify/functions/chat-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        var data = await res2.json().catch(function() { return {}; });
+        if (data && data.reply) {
+            hideTyping();
+            addMessage(formatAssistantReply(data.reply), 'bot');
+            _kinRemember(userMessage, data.reply);
+            return;
+        }
+    } catch (e) {
+        console.warn('[KIN] auch die normale Antwort ging nicht:', e.message);
+    }
+
+    // 3) KI komplett nicht erreichbar -> vorgefertigte Antwort, falls es eine gibt.
+    hideTyping();
+    if (offlineFallback) {
+        addMessage(offlineFallback, 'bot');
+    } else {
+        addMessage('Ich bin gerade nicht erreichbar. Probier es gleich nochmal – oder schreib an <strong>info@kiekmolin.de</strong>.', 'bot');
     }
 }
+
+function _kinRemember(userMessage, reply) {
+    _assistantChatHistory.push({ role: 'user', content: userMessage });
+    _assistantChatHistory.push({ role: 'assistant', content: reply });
+    if (_assistantChatHistory.length > 12) _assistantChatHistory = _assistantChatHistory.slice(-12);
+}
+
+// Alter Name -- bleibt als Weiterleitung, falls ihn noch etwas aufruft.
+async function askClaudeAI(userMessage) {
+    return askKinAI(userMessage, null);
+}
+
 
 function formatAssistantReply(text) {
     if (!text) return '';
