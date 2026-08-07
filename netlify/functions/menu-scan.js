@@ -5,10 +5,16 @@
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Provider (erster mit gesetztem Key gewinnt):
-//   1. ANTHROPIC_API_KEY -> Claude Sonnet (beste Erkennung)
-//   2. GEMINI_API_KEY    -> Gemini 2.5 Flash (kostenlos, Vision),
+// Provider-Reihenfolge (Standard: kostenlos zuerst):
+//   1. GEMINI_API_KEY    -> Gemini 2.5 Flash (kostenloses Kontingent, Vision),
 //                           Fallback auf 2.0 Flash falls 2.5 nicht verfuegbar.
+//   2. ANTHROPIC_API_KEY -> Claude Sonnet (beste Erkennung, kostet pro Scan Geld)
+//
+// Ein normaler Scan laeuft damit ueber Gemini und kostet nichts. Claude springt
+// nur ein, wenn Gemini gar nichts liefert (Quota erschoepft, Ausfall, Karte
+// unleserlich) -- lieber ein paar Cent als ein leeres Ergebnis.
+// Wer es andersherum will (Qualitaet vor Kosten), setzt in Netlify:
+//   MENU_SCAN_PROVIDER=claude
 //
 // Body: { images?: ["data:image/...;base64,..."], text?: "..." }
 // Antwort: { ok:true, items:[{name,description,price,category,dish_number,
@@ -234,32 +240,35 @@ exports.handler = async function (event) {
         return json(503, { ok: false, error: 'Keine KI konfiguriert (ANTHROPIC_API_KEY oder GEMINI_API_KEY in Netlify setzen).' });
     }
 
-    // Provider-Aufruf fuer EINEN Satz Bilder (oder Text) -> normalisierte Items.
-    // Bei leerem Ergebnis EINMAL wiederholen (Vision-Modelle sind nicht deterministisch;
-    // ein zweiter Versuch rettet haeufig einen kompletten Scan).
+    // Reihenfolge der Anbieter. Gemini zuerst = der normale Scan ist kostenlos.
+    // Claude ist der Notnagel und kostet nur dann etwas, wenn Gemini nichts liefert.
+    var providers = [];
+    if (geminiKey)    providers.push({ name: 'Gemini',    call: function (i, t) { return callGemini(geminiKey, i, t); } });
+    if (anthropicKey) providers.push({ name: 'Claude',    call: function (i, t) { return callAnthropic(anthropicKey, i, t); } });
+    if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'claude') providers.reverse();
+
+    // Ein Satz Bilder (oder Text) -> normalisierte Items.
+    // Jeder Anbieter wird der Reihe nach probiert. Gibt es nur einen, bekommt er
+    // einen zweiten Versuch -- Vision-Modelle sind nicht deterministisch, ein
+    // Wiederholen rettet haeufig einen kompletten Scan.
+    //
+    // Wichtig: ein LEERES Ergebnis zaehlt hier wie ein Fehler. Vorher wurde bei
+    // 0 Gerichten derselbe Anbieter noch einmal gefragt und der zweite nie --
+    // die Ausweichmoeglichkeit lief also nur bei einer echten Exception an.
     async function runModel(imgs, txt) {
-        for (var attempt = 0; attempt < 2; attempt++) {
+        var order = providers.length === 1 ? [providers[0], providers[0]] : providers;
+        var lastErr = null;
+        for (var i = 0; i < order.length; i++) {
             try {
-                var raw;
-                if (anthropicKey) {
-                    // Claude bevorzugt; schlaegt er fehl (Quota/Netz/Modell),
-                    // sofort auf Gemini ausweichen statt den Scan zu verlieren.
-                    try {
-                        raw = await callAnthropic(anthropicKey, imgs, txt);
-                    } catch (ae) {
-                        if (!geminiKey) throw ae;
-                        console.warn('[menu-scan] Anthropic fehlgeschlagen, weiche auf Gemini aus:', ae.message);
-                        raw = await callGemini(geminiKey, imgs, txt);
-                    }
-                } else {
-                    raw = await callGemini(geminiKey, imgs, txt);
-                }
-                var items = normalizeItems(parseItemsLoose(raw));
+                var items = normalizeItems(parseItemsLoose(await order[i].call(imgs, txt)));
                 if (items.length) return items;
+                console.warn('[menu-scan] ' + order[i].name + ' lieferte 0 Gerichte');
             } catch (e) {
-                if (attempt === 1) throw e;
+                lastErr = e;
+                console.warn('[menu-scan] ' + order[i].name + ' fehlgeschlagen:', e.message);
             }
         }
+        if (lastErr) throw lastErr;
         return [];
     }
 
