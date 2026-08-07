@@ -5,16 +5,20 @@
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Provider-Reihenfolge (Standard: kostenlos zuerst):
-//   1. GEMINI_API_KEY    -> Gemini 2.5 Flash (kostenloses Kontingent, Vision),
+// Provider-Reihenfolge (Standard: beste Erkennung zuerst):
+//   1. ANTHROPIC_API_KEY -> Claude Sonnet 5 (beste Erkennung, kostet pro Scan
+//                           wenige Cent; hochaufloesende Bilderkennung bis
+//                           2576 px Kantenlaenge -- liest also auch das
+//                           Kleingedruckte einer Karte).
+//   2. GEMINI_API_KEY    -> Gemini 2.5 Flash (kostenloses Kontingent, Vision),
 //                           Fallback auf 2.0 Flash falls 2.5 nicht verfuegbar.
-//   2. ANTHROPIC_API_KEY -> Claude Sonnet (beste Erkennung, kostet pro Scan Geld)
 //
-// Ein normaler Scan laeuft damit ueber Gemini und kostet nichts. Claude springt
-// nur ein, wenn Gemini gar nichts liefert (Quota erschoepft, Ausfall, Karte
-// unleserlich) -- lieber ein paar Cent als ein leeres Ergebnis.
-// Wer es andersherum will (Qualitaet vor Kosten), setzt in Netlify:
-//   MENU_SCAN_PROVIDER=claude
+// Gemini bleibt bewusst als Notnagel stehen, auch wenn normalerweise Claude
+// scannt: faellt Anthropic aus oder ist das Konto leer, laeuft der Scan weiter
+// statt zu sterben. Solange Claude funktioniert, wird Gemini nie aufgerufen und
+// kostet damit auch nichts.
+// Wer es andersherum will (kostenlos vor Qualitaet), setzt in Netlify:
+//   MENU_SCAN_PROVIDER=gemini
 //
 // Body: { images?: ["data:image/...;base64,..."], text?: "..." }
 // Antwort: { ok:true, items:[{name,description,price,category,dish_number,
@@ -224,7 +228,21 @@ async function callAnthropic(key, images, text, extra) {
     var res = await fetch(ANTHROPIC_API, {
         method: 'POST',
         headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 32000, temperature: 0, messages: [{ role: 'user', content: content }] })
+        body: JSON.stringify({
+            model: ANTHROPIC_MODEL,
+            max_tokens: 32000,
+            // KEIN temperature: Claude Sonnet 5 lehnt temperature/top_p/top_k mit
+            // HTTP 400 ab. Genau daran ist hier bisher JEDER Claude-Aufruf
+            // gescheitert -- gescannt hat in Wahrheit immer Gemini.
+            //
+            // Denkschritte aus: sie zaehlen gegen dieselben max_tokens wie die
+            // Antwort. Bei einer langen Karte frisst das Nachdenken das Budget
+            // auf und die Gerichteliste reisst mittendrin ab. Fuer stures
+            // Abtippen einer Karte -- noch dazu mit OCR-Text daneben -- bringt
+            // Nachdenken nichts und kostet nur Zeit und Tokens.
+            thinking: { type: 'disabled' },
+            messages: [{ role: 'user', content: content }]
+        })
     });
     if (!res.ok) { var t = await res.text(); throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200)); }
     var j = await res.json();
@@ -323,12 +341,12 @@ exports.handler = async function (event) {
         return json(503, { ok: false, error: 'Keine KI konfiguriert (ANTHROPIC_API_KEY oder GEMINI_API_KEY in Netlify setzen).' });
     }
 
-    // Reihenfolge der Anbieter. Gemini zuerst = der normale Scan ist kostenlos.
-    // Claude ist der Notnagel und kostet nur dann etwas, wenn Gemini nichts liefert.
+    // Reihenfolge der Anbieter. Claude zuerst = beste Erkennung.
+    // Gemini laeuft nur, wenn Claude gar nichts liefert -- und kostet dann nichts.
     var providers = [];
-    if (geminiKey)    providers.push({ name: 'Gemini',    call: function (i, t, x) { return callGemini(geminiKey, i, t, x); } });
-    if (anthropicKey) providers.push({ name: 'Claude',    call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x); } });
-    if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'claude') providers.reverse();
+    if (anthropicKey) providers.push({ name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x); } });
+    if (geminiKey)    providers.push({ name: 'Gemini', call: function (i, t, x) { return callGemini(geminiKey, i, t, x); } });
+    if (String(process.env.MENU_SCAN_PROVIDER || '').toLowerCase() === 'gemini') providers.reverse();
 
     // Ein Satz Bilder (oder Text) -> normalisierte Items.
     // Jeder Anbieter wird der Reihe nach probiert. Gibt es nur einen, bekommt er
