@@ -649,11 +649,29 @@
             var nichtsGefunden = (res.status === 404 || res.status === 406);
 
             if (!nichtsGefunden) {
-                var jetzt = new Date().getTime();
-                if (jetzt - _leseFehlerZuletzt > 8000) {
-                    _leseFehlerZuletzt = jetzt;
-                    try { showToast('Daten konnten nicht geladen werden – bitte neu laden.', 'error'); } catch (e) {}
-                }
+                // KEINE Meldung an den Gast.
+                //
+                // Hier stand eine rote Fehlermeldung, und das war ein Denkfehler:
+                // Der Gast blaettert im Menue und kann mit einer fehlgeschlagenen
+                // Hintergrund-Abfrage nichts anfangen -- er kann sie weder
+                // beheben noch verstehen. Eine Meldung, die staendig kommt und
+                // gegen die man nichts tun kann, wird ignoriert und nervt nur;
+                // dann uebersieht man auch die Meldungen, die wirklich zaehlen.
+                //
+                // Der Fehler gehoert zum Betreiber, nicht auf den Bildschirm des
+                // Gastes: er geht still in die Fehlerliste. Zum Suchen laesst er
+                // sich einschalten -- in der Konsole:
+                //   localStorage.kmi_debug = '1'   (mit '' wieder aus)
+                try {
+                    if (localStorage.getItem('kmi_debug') === '1') {
+                        var jetzt = new Date().getTime();
+                        if (jetzt - _leseFehlerZuletzt > 8000) {
+                            _leseFehlerZuletzt = jetzt;
+                            showToast('[debug] ' + tabelle + ': HTTP ' + res.status, 'error');
+                        }
+                    }
+                } catch (e) {}
+                console.warn('[lesen] ' + tabelle + ': HTTP ' + res.status + (detail ? ' – ' + detail : ''));
                 try {
                     if (typeof meldeFehler === 'function') {
                         meldeFehler({
@@ -23028,13 +23046,20 @@ async function updatePresence(targetType, targetId) {
     }
 }
 
+// Die Anzahl kommt aus dem Content-Range-Kopf (Prefer: count=exact), NICHT aus
+// den Daten. Hier stand "select=count" -- PostgREST kennt keine Spalte "count"
+// und hat jede dieser Abfragen mit HTTP 400 abgelehnt. Die Zahl kam trotzdem
+// an, weil sie im Kopf steht, also fiel es nie auf: der Fehler war unsichtbar,
+// bis wir Lesefehler ueberhaupt gemeldet haben.
+// "select=id&limit=1" holt jetzt hoechstens eine Zeile -- gezaehlt wird
+// weiterhin serverseitig ueber den Kopf.
 async function getPresenceCount(targetType, targetId) {
     try {
         // Nur Sessions der letzten 5 Minuten
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
         const response = await sbRead(
-            `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=count`,
+            `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=id&limit=1`,
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -23077,7 +23102,7 @@ async function getTodayVisitors(targetType, targetId) {
         const today = todayStrLocal();
 
         const response = await sbRead(
-            `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=count`,
+            `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=id&limit=1`,
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
