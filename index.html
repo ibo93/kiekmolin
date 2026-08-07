@@ -489,6 +489,190 @@
     var SUPA_KEY = SUPABASE_KEY;
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
+
+    // ==================== FEHLER AUS DEM BETRIEB MELDEN ====================
+    // Ohne das hier erfaehrt niemand, wenn die App bei einem Gast oder einem
+    // Gastronomen kaputtgeht -- ausser er ruft an. Meistens ruft niemand an.
+    //
+    // Drei Regeln, damit der Melder nie selbst zum Problem wird:
+    //  1. Er meldet jeden Fehler-Fingerabdruck nur EINMAL pro Sitzung.
+    //  2. Er meldet hoechstens 8 Fehler pro Sitzung.
+    //  3. Er meldet NIE einen Fehler, der beim Melden entsteht (Endlosschleife).
+    var _errGemeldet = {};
+    var _errAnzahl = 0;
+    var _errMeldeLaeuft = false;
+    var ERR_MAX_PRO_SITZUNG = 8;
+
+    function meldeFehler(info) {
+        try {
+            if (_errMeldeLaeuft) return;                       // Regel 3
+            if (_errAnzahl >= ERR_MAX_PRO_SITZUNG) return;     // Regel 2
+            var msg = String(info && info.message || '').slice(0, 500);
+            if (!msg) return;
+
+            // Rauschen, das nichts ueber die App aussagt: Browser-Erweiterungen,
+            // abgebrochene Navigation, Skripte von fremden Domains.
+            if (/ResizeObserver loop|Script error\.?$|Load failed$|NetworkError when attempting/i.test(msg)) return;
+
+            var fp = (msg + '|' + (info.source || '')).replace(/\d+/g, '#');
+            if (_errGemeldet[fp]) return;                      // Regel 1
+            _errGemeldet[fp] = 1;
+            _errAnzahl++;
+
+            _errMeldeLaeuft = true;
+            var payload = {
+                message: msg,
+                kind: info.kind || 'error',
+                source: String(info.source || '').slice(0, 300),
+                stack: String(info.stack || '').slice(0, 1500),
+                area: info.area || (document.body && document.body.dataset && document.body.dataset.view) || 'app',
+                page: location.pathname + location.search,
+                status: (typeof info.status === 'number') ? info.status : null,
+                userId: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id) || null,
+                userName: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.name) || null
+            };
+            // Absichtlich reines fetch ohne Ergebnispruefung: der Melder darf
+            // nichts werfen und nichts erwarten. keepalive, damit die Meldung
+            // auch rausgeht, wenn der Nutzer die Seite gerade verlaesst.
+            fetch('/.netlify/functions/client-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                keepalive: true
+            }).catch(function () {}).finally(function () { _errMeldeLaeuft = false; });
+        } catch (e) {
+            _errMeldeLaeuft = false;
+        }
+    }
+    window.meldeFehler = meldeFehler;
+
+    window.addEventListener('error', function (e) {
+        // Bild-/Skript-Ladefehler haben kein e.error und werden anderswo
+        // abgefangen (Platzhalterbild) -- die interessieren hier nicht.
+        if (!e || !e.error) return;
+        meldeFehler({
+            message: e.message || String(e.error),
+            stack: e.error && e.error.stack,
+            source: (e.filename || '') + (e.lineno ? ':' + e.lineno : ''),
+            kind: 'error'
+        });
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+        var r = e && e.reason;
+        meldeFehler({
+            message: (r && r.message) || String(r || 'unhandled rejection'),
+            stack: r && r.stack,
+            status: r && typeof r.status === 'number' ? r.status : null,
+            // Fehlgeschlagene Schreibvorgaenge tragen isWriteError -- die sind
+            // besonders interessant, weil dahinter meist ein echtes Datenbank-
+            // oder Rechteproblem steckt und nicht ein Programmierfehler.
+            kind: (r && r.isWriteError) ? 'write' : 'unhandledrejection'
+        });
+    });
+
+    // ==================== SCHREIBENDE AUFRUFE ====================
+    // fetch() wirft NUR bei Netzwerkfehlern. Eine abgelehnte Anfrage (400, 401,
+    // 409, 500 ...) kommt als ganz normale Antwort zurueck -- wer nur
+    // "await fetch(...)" schreibt und danach "gespeichert!" meldet, luegt den
+    // Gastronomen an: er sieht die Erfolgsmeldung, in der Datenbank steht nichts.
+    // Beim naechsten Laden ist seine Aenderung weg und niemand weiss warum.
+    //
+    // sbWrite macht aus dem stillen Fehlschlag eine echte Exception. Damit
+    // springt der Ablauf in den catch-Block, die Erfolgsmeldung wird
+    // uebersprungen und der Nutzer erfaehrt, dass es NICHT geklappt hat.
+    // Fuer jeden POST/PATCH/DELETE benutzen -- nicht fuer reines Lesen.
+    async function sbWrite(url, options) {
+        var res = await fetch(url, options);
+        if (!res.ok) {
+            var detail = '';
+            try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
+            // PostgREST verpackt den Grund in JSON -- den lesbaren Teil rausziehen,
+            // damit in der Meldung nicht bloss "HTTP 400" steht.
+            try {
+                var j = JSON.parse(detail);
+                detail = j.message || j.hint || j.details || detail;
+            } catch (e) {}
+            var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+            err.status = res.status;
+            err.isWriteError = true;
+            // Hier melden, nicht erst im globalen Auffangnetz: ein
+            // fehlgeschlagener Schreibvorgang wird gleich von einem catch
+            // abgefangen und dem Nutzer angezeigt -- damit erreicht er das
+            // Auffangnetz nie. Genau diese Faelle sind aber die wichtigsten,
+            // weil dahinter fast immer ein echtes Datenbank- oder
+            // Rechteproblem steckt und kein Programmierfehler.
+            try {
+                if (typeof meldeFehler === 'function') {
+                    meldeFehler({
+                        message: 'Schreiben abgelehnt: ' + err.message,
+                        kind: 'write',
+                        status: res.status,
+                        // Nur Tabelle und Methode, keine Nutzdaten -- da koennten
+                        // Namen, Adressen oder Telefonnummern drinstehen.
+                        source: (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt',
+                        area: (options && options.method) || 'WRITE'
+                    });
+                }
+            } catch (e2) {}
+            throw err;
+        }
+        return res;
+    }
+
+    // Lesende Aufrufe. Das Gegenstueck zu sbWrite -- mit einem wichtigen
+    // Unterschied: ein fehlgeschlagenes LESEN sah bisher aus wie "es gibt
+    // nichts". Der Gast bekam "Keine Restaurants in Emden" statt "konnte nicht
+    // laden" und ging davon aus, die Plattform sei leer. Fuer ihn ist das
+    // nicht zu unterscheiden -- fuer uns ein verlorener Gast.
+    //
+    // Der Hinweis kommt hier aus dem Helfer statt aus 65 einzelnen
+    // catch-Bloecken: gedrosselt, damit eine Seite, die zehn Listen laedt,
+    // nicht zehn Meldungen uebereinanderstapelt.
+    var _leseFehlerZuletzt = 0;
+    async function sbRead(url, options) {
+        var res = await fetch(url, options);
+        if (!res.ok) {
+            var detail = '';
+            try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
+            try { var j = JSON.parse(detail); detail = j.message || j.hint || j.details || detail; } catch (e) {}
+            var tabelle = (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt';
+
+            // "Nichts gefunden" ist bei PostgREST eine ganz normale Antwort und
+            // kein Stoerfall: 406 kommt, wenn eine Einzelsatz-Abfrage keine Zeile
+            // findet, 404 bei einer leeren Einzelressource. Beides passiert im
+            // Alltag staendig ("hat dieser Gast schon ein Konto?").
+            // Wir werfen zwar weiterhin -- der aufrufende catch-Block hat das
+            // vorher auch schon behandelt -- aber wir behelligen weder den Gast
+            // mit einer Fehlermeldung noch fluten wir die Fehlerliste mit
+            // Meldungen, die gar keine sind.
+            var nichtsGefunden = (res.status === 404 || res.status === 406);
+
+            if (!nichtsGefunden) {
+                var jetzt = new Date().getTime();
+                if (jetzt - _leseFehlerZuletzt > 8000) {
+                    _leseFehlerZuletzt = jetzt;
+                    try { showToast('Daten konnten nicht geladen werden – bitte neu laden.', 'error'); } catch (e) {}
+                }
+                try {
+                    if (typeof meldeFehler === 'function') {
+                        meldeFehler({
+                            message: 'Lesen abgelehnt (' + tabelle + '): HTTP ' + res.status + (detail ? ': ' + detail : ''),
+                            kind: 'read', status: res.status, source: tabelle, area: 'READ'
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            var err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+            err.status = res.status;
+            err.isReadError = true;
+            err.notFound = nichtsGefunden;
+            throw err;
+        }
+        return res;
+    }
+
     // ==================== API CACHE ====================
     // Cached fetch für Supabase - reduziert API Requests massiv
     var _apiCache = {};
@@ -5844,6 +6028,24 @@
             align-items: center;
             gap: 5px;
             margin-top: 3px;
+        }
+
+        /* KI-Kennzeichnung nach EU-KI-Verordnung Art. 50 Abs. 1.
+           Bewusst kontrastreich (gelb auf dunkelgruen) statt dezent: die
+           Kennzeichnung muss auffallen, nicht sich einfuegen. */
+        .assistant-ai-badge {
+            display: inline-block;
+            vertical-align: 2px;
+            margin-left: 6px;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #FFD54F;
+            color: #00251e;
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            line-height: 1.4;
         }
         .assistant-header-status::before {
             content: '';
@@ -14050,7 +14252,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- KI Assistent Button -->
-    <button onclick="openAssistant()" class="assistant-btn" aria-label="Kiek Assistent öffnen" id="assistantBtn">
+    <button onclick="openAssistant()" class="assistant-btn" aria-label="KIN, den KI-Assistenten, öffnen" id="assistantBtn">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
     </button>
 </div>
@@ -14067,8 +14269,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div>
-                    <div class="assistant-header-name">Kiek Assistent</div>
-                    <div class="assistant-header-status">Online</div>
+                    <!-- KI-KENNZEICHNUNG (EU-KI-Verordnung, Art. 50 Abs. 1):
+                         Wer mit einem KI-System spricht, muss das erkennen koennen,
+                         und zwar spaetestens bei der ersten Interaktion. Deshalb
+                         steht es dauerhaft in der Kopfzeile -- nicht nur einmal in
+                         einer Begruessung, die nach oben wegscrollt. -->
+                    <div class="assistant-header-name">
+                        KIN
+                        <span class="assistant-ai-badge">KI</span>
+                    </div>
+                    <div class="assistant-header-status">KI-Assistent · Antworten können Fehler enthalten</div>
                 </div>
             </div>
             <button onclick="closeAssistant()" class="assistant-close-btn">
@@ -14079,7 +14289,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="assistant-messages" id="assistantMessages">
             <div class="assistant-message bot">
                 <div class="message-content">
-                    Moin! Ich bin dein Kiek mol in Assistent. Wie kann ich dir helfen?
+                    Moin! Ich bin <strong>KIN</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
+                    sondern ein Computerprogramm. Meine Antworten können falsch sein; bei Bestellungen,
+                    Preisen und Öffnungszeiten gilt immer, was das Restaurant sagt.<br><br>
+                    Womit kann ich helfen?
                 </div>
             </div>
             <div class="assistant-suggestions" id="assistantSuggestions">
@@ -15203,7 +15416,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var restaurantId = res.restaurant_id || window.resCurrentRestaurant;
                     var tableOptions = '<option value="">Kein Tisch</option>';
                     try {
-                        var tablesResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&order=table_number', {
+                        var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&order=table_number', {
                             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                         });
                         var tables = await tablesResp.json() || [];
@@ -22715,7 +22928,7 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
         // Fotos hochladen
         if (photos.length > 0) {
             for (const photo of photos) {
-                await fetch(`${SUPABASE_URL}/rest/v1/review_photos`, {
+                await sbWrite(`${SUPABASE_URL}/rest/v1/review_photos`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -22744,9 +22957,11 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
 }
 
 // ==================== ACTIVITY LOG ====================
+// Bewusst still: Telemetrie. Schlaegt das Protokollieren fehl, darf das
+// niemals die eigentliche Aktion des Nutzers stoeren oder ihn behelligen.
 async function logActivity(activityType, targetType, targetId, targetName, message, metadata = {}) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/activity_log`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/activity_log`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -22789,9 +23004,11 @@ async function loadRecentActivity(targetType, targetId, limit = 5) {
 }
 
 // ==================== PRESENCE TRACKING ====================
+// Bewusst still: Anwesenheits-Heartbeat, laeuft im Hintergrund im Takt.
+// Ein verpasster Schlag korrigiert sich beim naechsten von selbst.
 async function updatePresence(targetType, targetId) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/presence`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/presence`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -22816,7 +23033,7 @@ async function getPresenceCount(targetType, targetId) {
         // Nur Sessions der letzten 5 Minuten
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-        const response = await fetch(
+        const response = await sbRead(
             `${SUPABASE_URL}/rest/v1/presence?target_type=eq.${targetType}&target_id=eq.${targetId}&last_seen=gte.${fiveMinAgo}&select=count`,
             {
                 headers: {
@@ -22859,7 +23076,7 @@ async function getTodayVisitors(targetType, targetId) {
     try {
         const today = todayStrLocal();
 
-        const response = await fetch(
+        const response = await sbRead(
             `${SUPABASE_URL}/rest/v1/activity_log?target_type=eq.${targetType}&target_id=eq.${targetId}&created_at=gte.${today}&select=count`,
             {
                 headers: {
@@ -22929,7 +23146,7 @@ async function simpleLogin() {
 
     try {
         // Passwort aus Supabase prüfen
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
+        const response = await sbRead(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -25543,7 +25760,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     // Tische zählen
     var totalTables = 0;
     try {
-        var tResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
+        var tResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await tResp.json();
@@ -25554,7 +25771,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     // Reservierungen + Sperren für heute laden
     var existing = [];
     try {
-        var rResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,blocked)&select=reservation_time,status,table_id', {
+        var rResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,blocked)&select=reservation_time,status,table_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         existing = await rResp.json();
@@ -25853,7 +26070,7 @@ async function loadAvailableSlots() {
 
     try {
         // Bestehende Reservierungen + Sperren für diesen Tag laden
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + date + '&status=in.(confirmed,pending,blocked)&select=reservation_time,party_size,status,table_id', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + date + '&status=in.(confirmed,pending,blocked)&select=reservation_time,party_size,status,table_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var existing = await resp.json();
@@ -26110,7 +26327,7 @@ async function loadResAreas(restaurantId) {
     // Bereiche aus Tisch-Daten laden
     var areas = new Set();
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=area', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=area', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await resp.json();
@@ -26308,7 +26525,7 @@ async function loadCustomerTablePlan() {
     if (!restId) { grid.innerHTML = ''; return; }
 
     try {
-        var tablesRes = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
+        var tablesRes = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await tablesRes.json();
@@ -26320,7 +26537,7 @@ async function loadCustomerTablePlan() {
         // Bestehende Reservierungen fuer Datum/Zeit laden
         var reservedTableIds = [];
         if (date && time) {
-            var resRes = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=neq.cancelled&select=table_id,reservation_time', {
+            var resRes = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=neq.cancelled&select=table_id,reservation_time', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var reservations = await resRes.json();
@@ -27163,13 +27380,13 @@ async function rejectDashReservation(resId, restaurantId) {
             overlay.remove();
             try {
                 // RPC nutzen (umgeht RLS) — wie bei resCancelReservation
-                var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+                var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 var curArr = await curResp.json().catch(function() { return []; });
                 var cur = curArr[0] || {};
 
-                await fetch(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
+                await sbWrite(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -27338,7 +27555,7 @@ async function addJob(event) {
 
 async function toggleJobStatus(jobId, newStatus) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27351,6 +27568,7 @@ async function toggleJobStatus(jobId, newStatus) {
         showToast(newStatus ? 'Job aktiviert' : 'Job deaktiviert');
     } catch (e) {
         console.error('Status ändern Fehler:', e);
+        showToast('Status konnte nicht geändert werden: ' + e.message, 'error');
     }
 }
 
@@ -27358,7 +27576,7 @@ async function deleteJob(jobId) {
     if (!await kinConfirm('Stellenanzeige wirklich löschen?')) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${jobId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -27369,6 +27587,7 @@ async function deleteJob(jobId) {
         showToast('Stellenanzeige gelöscht');
     } catch (e) {
         console.error('Löschen Fehler:', e);
+        showToast('Löschen fehlgeschlagen: ' + e.message, 'error');
     }
 }
 
@@ -27484,7 +27703,7 @@ async function saveAssignedOwner() {
 
     try {
         // Pruefen ob Email schon in customers existiert
-        var checkResp = await fetch(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id,restaurant_id', {
+        var checkResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id,restaurant_id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var existing = await checkResp.json();
@@ -27624,7 +27843,7 @@ async function approveGastroRequest(customerId, restaurantId) {
 
         // Restaurant aktivieren
         if (restaurantId) {
-            var resp2 = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, {
+            var resp2 = await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: true })
@@ -27642,7 +27861,7 @@ async function approveGastroRequest(customerId, restaurantId) {
 async function rejectGastroRequest(customerId) {
     if (!await kinConfirm('Anfrage wirklich ablehnen?')) return;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -27876,7 +28095,7 @@ async function deleteRestaurant(restaurantId) {
     if (!await kinConfirm('Restaurant wirklich löschen? Alle Reservierungen werden auch gelöscht!')) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -29554,7 +29773,7 @@ async function loadDashboardStats() {
 
         // Kunden zählen
         try {
-            const customersResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=id,payment_status,is_active`, {
+            const customersResponse = await sbRead(`${SUPABASE_URL}/rest/v1/customers?select=id,payment_status,is_active`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const customersData = await customersResponse.json();
@@ -29571,7 +29790,7 @@ async function loadDashboardStats() {
 
         // Unterkünfte zählen
         try {
-            const accResponse = await fetch(`${SUPABASE_URL}/rest/v1/accommodations?select=id,has_availability`, {
+            const accResponse = await sbRead(`${SUPABASE_URL}/rest/v1/accommodations?select=id,has_availability`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const accData = await accResponse.json();
@@ -29587,7 +29806,7 @@ async function loadDashboardStats() {
 
         // Events zählen
         try {
-            const eventsResponse = await fetch(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
+            const eventsResponse = await sbRead(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const eventsData = await eventsResponse.json();
@@ -29604,7 +29823,7 @@ async function loadDashboardStats() {
 
         // Attraktionen zählen
         try {
-            const attrResponse = await fetch(`${SUPABASE_URL}/rest/v1/attractions?select=id,category`, {
+            const attrResponse = await sbRead(`${SUPABASE_URL}/rest/v1/attractions?select=id,category`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             const attrData = await attrResponse.json();
@@ -30118,7 +30337,7 @@ async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await res.json();
@@ -30158,7 +30377,7 @@ async function toggleFeature(feature) {
 
     try {
         // Lade aktuelle features
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await res.json();
@@ -30187,7 +30406,7 @@ async function toggleFeature(feature) {
         }
 
         // In Supabase speichern
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -30308,7 +30527,7 @@ async function deleteOffer(id) {
     // In Supabase löschen (deaktivieren)
     if (useSupabase) {
         try {
-            await fetch(`${SUPABASE_URL}/rest/v1/offers?id=eq.${id}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/offers?id=eq.${id}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -30320,6 +30539,8 @@ async function deleteOffer(id) {
             });
         } catch (e) {
             console.error('Fehler beim Löschen:', e);
+            showToast('Löschen fehlgeschlagen: ' + e.message, 'error');
+            return;
         }
     }
 
@@ -31045,7 +31266,7 @@ async function handleSubmitReview(event) {
 
 async function markHelpful(reviewId) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/helpful_votes`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/helpful_votes`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -31061,6 +31282,10 @@ async function markHelpful(reviewId) {
 
         showToast('Danke! <span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">thumb_up</span></span>', 'success');
     } catch (e) {
+        // Stimme kam nicht durch -> Zaehler zuruecksetzen, sonst zeigt die
+        // Ansicht eine Stimme an, die es in der Datenbank nicht gibt.
+        console.warn('[markHelpful]', e.message);
+        showToast('Deine Stimme konnte nicht gespeichert werden.', 'error');
     }
 }
 
@@ -31494,7 +31719,7 @@ async function addRestaurant(e) {
 
             // Tische für das Restaurant erstellen (nur bei Neuanlage)
             for (let i = 1; i <= tables; i++) {
-                await fetch(`${SUPABASE_URL}/rest/v1/tables`, {
+                await sbWrite(`${SUPABASE_URL}/rest/v1/tables`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -31524,7 +31749,7 @@ async function addRestaurant(e) {
                     monthly_fee: parseInt(plan) || 59,
                     contract_start: contractStart || todayStrLocal()
                 };
-                await fetch(SUPABASE_URL + '/rest/v1/customers', {
+                await sbWrite(SUPABASE_URL + '/rest/v1/customers', {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -32433,7 +32658,7 @@ async function toggleAccommodationAvailability(id, currentStatus) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -32458,7 +32683,7 @@ async function deleteAccommodation(id, name) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/accommodations?id=eq.${id}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -32834,7 +33059,7 @@ async function setupStripeForCustomer(customerId) {
 
         if (result.success && result.checkoutUrl) {
             // Stripe Customer ID in Supabase speichern
-            await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -33201,7 +33426,7 @@ async function addCustomer(e) {
             let _restBody = Object.assign({}, restaurantPayload);
             let response, _restErr = '';
             for (let _rt = 0; _rt < 18; _rt++) {
-                response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
+                response = await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -33287,7 +33512,7 @@ async function addCustomer(e) {
         let _custBody = Object.assign({}, customerPayload);
         let customerResponse, _custErrText = '';
         for (let _try = 0; _try < 18; _try++) {
-            customerResponse = await fetch(`${SUPABASE_URL}/rest/v1/customers`, {
+            customerResponse = await sbWrite(`${SUPABASE_URL}/rest/v1/customers`, {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -33377,7 +33602,7 @@ async function recordPayment() {
         const nextMonth = new Date();
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33791,7 +34016,7 @@ async function toggleCustomerStatus(customerId, currentStatus) {
     if (!useSupabase) return;
 
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33815,7 +34040,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
 
     try {
         // 1. Customer aktivieren
-        await fetch(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/customers?id=eq.${customerId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -33827,7 +34052,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
 
         // 2. Restaurant aktivieren
         if (restaurantId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${restaurantId}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -34039,7 +34264,7 @@ async function loadLiveNotifications(container) {
 
     try {
         // Pending Restaurant-Registrierungen laden
-        var regResp = await fetch(SUPABASE_URL + '/rest/v1/customers?select=id,name,email,phone,restaurant_id,created_at&is_active=eq.false&role=eq.restaurant&order=created_at.desc&limit=10', {
+        var regResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?select=id,name,email,phone,restaurant_id,created_at&is_active=eq.false&role=eq.restaurant&order=created_at.desc&limit=10', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var pendingRegs = await regResp.json();
@@ -34050,7 +34275,7 @@ async function loadLiveNotifications(container) {
                 var regRestName = '';
                 if (reg.restaurant_id) {
                     try {
-                        var rrr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + reg.restaurant_id + '&select=name', {
+                        var rrr = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + reg.restaurant_id + '&select=name', {
                             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                         });
                         var rrd = await rrr.json();
@@ -34702,7 +34927,7 @@ function handleGoogleLoginSuccess(user) {
 async function checkIfGastronom(email, googleUser) {
     try {
         // Phase 1: Prüfe ob AKTIVER Customer existiert (bestehender Flow)
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.true`, {
+        const response = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.true`, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -34717,7 +34942,7 @@ async function checkIfGastronom(email, googleUser) {
 
             // Prüfe ob Restaurant auch aktiv ist
             if (customer.restaurant_id) {
-                const restResp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=id,name,is_active`, {
+                const restResp = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=id,name,is_active`, {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 const restData = await restResp.json();
@@ -34764,7 +34989,7 @@ async function checkIfGastronom(email, googleUser) {
         }
 
         // Phase 2: Prüfe ob PENDING Customer existiert (is_active = false)
-        const pendingResp = await fetch(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.false&role=eq.restaurant`, {
+        const pendingResp = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.false&role=eq.restaurant`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         const pendingCustomers = await pendingResp.json();
@@ -34788,7 +35013,7 @@ async function checkIfGastronom(email, googleUser) {
             var restName = 'Dein Restaurant';
             if (customer.restaurant_id) {
                 try {
-                    var rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=name`, {
+                    var rr = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=name`, {
                         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                     });
                     var rd = await rr.json();
@@ -34851,7 +35076,7 @@ async function showGastroDashboard(customer) {
 
     if (!restaurant && customer.restaurant_id) {
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}`, {
+            const response = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}`, {
                 headers: {
                     'apikey': SUPABASE_KEY,
                     'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -35280,7 +35505,7 @@ async function submitGastroRegistration(e) {
             .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
         // Slug-Duplikat prüfen
-        var slugResp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?slug=eq.' + slug + '&select=id', {
+        var slugResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?slug=eq.' + slug + '&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var slugData = await slugResp.json();
@@ -35289,7 +35514,7 @@ async function submitGastroRegistration(e) {
         }
 
         // E-Mail-Duplikat prüfen
-        var emailResp = await fetch(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id', {
+        var emailResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var emailData = await emailResp.json();
@@ -35646,7 +35871,7 @@ async function loadGastroReservations(restaurantId) {
 async function updateReservationStatus(reservationId, newStatus) {
     try {
         // Erst aktuelle Daten laden damit RPC keine Felder auf NULL setzt
-        var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+        var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var curArr = await curResp.json().catch(function() { return []; });
@@ -35725,7 +35950,7 @@ var _gastroEditTables = [];
 async function openGastroResEdit(reservationId) {
     // Reservierung aus Supabase laden
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=*', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=*', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var resArr = await resp.json();
@@ -35737,7 +35962,7 @@ async function openGastroResEdit(reservationId) {
 
         // Tische laden
         var restId = res.restaurant_id || window.currentRestaurantId;
-        var tablesResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
+        var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         _gastroEditTables = await tablesResp.json() || [];
@@ -35875,7 +36100,7 @@ async function saveGastroResEdit() {
         console.warn('RPC nicht verfügbar, nutze DELETE+INSERT Fallback');
 
         // Alte Daten holen (restaurant_id, source etc.)
-        var oldResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=restaurant_id,source,created_at,guest_email,occasion,duration_minutes', {
+        var oldResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=restaurant_id,source,created_at,guest_email,occasion,duration_minutes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var oldArr = await oldResp.json().catch(function() { return []; });
@@ -35887,7 +36112,7 @@ async function saveGastroResEdit() {
         }
 
         // DELETE alte Reservierung
-        await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -36572,7 +36797,7 @@ async function saveGastroOffer() {
 
     try {
         // Altes Angebot löschen
-        await fetch(`${SUPABASE_URL}/rest/v1/offers?restaurant_id=eq.${restaurantId}`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/offers?restaurant_id=eq.${restaurantId}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -36581,7 +36806,7 @@ async function saveGastroOffer() {
         });
 
         // Neues Angebot speichern
-        await fetch(`${SUPABASE_URL}/rest/v1/offers`, {
+        await sbWrite(`${SUPABASE_URL}/rest/v1/offers`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -37621,7 +37846,7 @@ async function loadMyReservationsFromSupabase(phone) {
     try {
         var cleanPhone = phone.replace(/\s/g, '');
         var phoneEnd = cleanPhone.slice(-8);
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&order=reservation_date.desc,reservation_time.desc&limit=20', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&order=reservation_date.desc,reservation_time.desc&limit=20', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var reservations = await resp.json();
@@ -37847,7 +38072,7 @@ async function loadBlockTables(restId) {
     var select = document.getElementById('blockTableId');
     if (!select) return;
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = await resp.json();
@@ -38003,7 +38228,7 @@ async function loadBlockList(restId, date) {
     if (!container) return;
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var blocks = await resp.json();
@@ -38044,7 +38269,7 @@ async function loadBlockList(restId, date) {
 async function removeBlock(blockId) {
     try {
         // RPC nutzen um RLS zu umgehen — Status auf 'cancelled' setzen statt DELETE
-        var curResp = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
+        var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var curArr = await curResp.json().catch(function() { return []; });
@@ -39828,35 +40053,40 @@ function sendAssistantMessage() {
                 hideTyping();
                 addMessage(tableResponse, 'bot');
             });
-        } else if (response === '__AI_FALLBACK__') {
-            // Kein Stichwort-Match → echte KI fragen (Claude via Netlify Function)
-            showTyping();
-            askClaudeAI(originalMessage).then(function(aiResponse) {
-                hideTyping();
-                addMessage(aiResponse, 'bot');
-            });
         } else {
-            addMessage(response, 'bot');
+            // Frueher gewannen hier rund 90 fest verdrahtete Stichwort-Antworten,
+            // und die KI kam nur dran, wenn KEINE davon passte. Der Assistent war
+            // damit ueberwiegend ein Stichwortautomat: er antwortete auf das
+            // erkannte Wort, nicht auf die tatsaechliche Frage. "Kann ich bei
+            // La Piazza glutenfrei essen?" bekam den Standardtext zu "essen".
+            //
+            // Jetzt antwortet immer die KI. Der vorgefertigte Text bleibt als
+            // Notloesung fuer den Fall, dass die KI nicht erreichbar ist -- dann
+            // ist eine grobe Antwort besser als gar keine.
+            var offline = (response === '__AI_FALLBACK__') ? null : response;
+            askKinAI(originalMessage, offline);
         }
     }
 
-    // Erst async Dish-Handler probieren, dann Fallback auf generateResponse
+    // Erst async Dish-Handler probieren, dann Fallback auf generateResponse.
+    //
+    // Das setTimeout von 600-1100 ms, das hier frueher stand, war eine
+    // KUENSTLICHE Verzoegerung -- sie sollte "tippen" vortaeuschen. Sie lief
+    // aber VOR der KI-Anfrage, hat also auf jede echte Antwort noch eine
+    // Sekunde obendrauf gelegt. Ersatzlos raus: die KI braucht ohnehin einen
+    // Moment, echtes Warten muss man nicht simulieren.
     handleDishQuery(message).then(function(dishResponse) {
         if (dishResponse) {
             hideTyping();
             addMessage(dishResponse, 'bot');
         } else {
-            setTimeout(function() {
-                hideTyping();
-                _handleAssistantResponse(generateResponse(message), message);
-            }, 600 + Math.random() * 500);
+            hideTyping();
+            _handleAssistantResponse(generateResponse(message), message);
         }
     }).catch(function(err) {
         console.error('Dish query error:', err);
-        setTimeout(function() {
-            hideTyping();
-            _handleAssistantResponse(generateResponse(message), message);
-        }, 600 + Math.random() * 500);
+        hideTyping();
+        _handleAssistantResponse(generateResponse(message), message);
     });
 }
 
@@ -40792,92 +41022,154 @@ function generateResponse(message) {
     return '__AI_FALLBACK__';
 }
 
-// ==================== KI-FALLBACK via Anthropic Claude ====================
+// ==================== KIN — die eigentliche KI ====================
 var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
 
-async function askClaudeAI(userMessage) {
+// Kontext fuer die KI einsammeln.
+// Bewusst schlank: alles hier wird bei JEDER Frage neu mitgeschickt und
+// gelesen, der Gast bezahlt es also in Wartezeit. Vorher gingen 40 Restaurants
+// mit Bewertung, Preisklasse und Abhol-Flag plus 25 Gerichte raus -- rund 2000
+// Wortteile pro Frage, von denen die KI fast nichts brauchte.
+async function _kinContext() {
+    var context = {};
     try {
-        // Kontext sammeln: alle Restaurants (Kurzform) + aktuelles Restaurant + Menue
-        var context = {};
-        try {
-            if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
-                context.restaurants = APP_DATA.restaurants
-                    .filter(function(r) { return r && r.is_active !== false; })
-                    .slice(0, 40)   // max 40 Restaurants senden
-                    .map(function(r) {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
+            context.restaurants = APP_DATA.restaurants
+                .filter(function(r) { return r && r.is_active !== false; })
+                .slice(0, 25)
+                .map(function(r) {
+                    return {
+                        name: r.name,
+                        city: r.city || '',
+                        cuisine: r.cuisine || '',
+                        delivery: !!r.has_delivery || !!r.delivery
+                    };
+                });
+        }
+        var openRid = window.currentRestaurantId || null;
+        if (openRid && window.APP_DATA && APP_DATA.restaurants) {
+            var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
+            if (openRest) {
+                context.currentRestaurant = {
+                    name: openRest.name,
+                    city: openRest.city || '',
+                    cuisine: openRest.cuisine || ''
+                };
+                try {
+                    if (typeof assistantLoadDishes === 'function' &&
+                        (!window._assistantMenuCache || !_assistantMenuCache[openRid])) {
+                        await assistantLoadDishes(openRid);
+                    }
+                } catch (loadErr) { /* ohne Speisekarte antwortet die KI trotzdem */ }
+                if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
+                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 20).map(function(m) {
                         return {
-                            name: r.name,
-                            city: r.city || '',
-                            cuisine: r.cuisine || '',
-                            rating: r.rating || null,
-                            slug: r.slug || '',
-                            delivery: !!r.has_delivery || !!r.delivery,
-                            pickup: r.has_pickup !== false,
-                            price_range: r.price_range || ''
+                            name: m.name,
+                            price: m.base_price != null ? m.base_price : m.price,
+                            category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
                         };
                     });
-            }
-            // Aktuell geoeffnetes Restaurant (falls Speisekarte offen)
-            var openRid = window.currentRestaurantId || null;
-            if (openRid && window.APP_DATA && APP_DATA.restaurants) {
-                var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
-                if (openRest) {
-                    context.currentRestaurant = {
-                        name: openRest.name,
-                        city: openRest.city || '',
-                        cuisine: openRest.cuisine || '',
-                        rating: openRest.rating || null
-                    };
-                    // Menue laden falls noch nicht im Cache (await fuer frischen Stand)
-                    try {
-                        if (typeof assistantLoadDishes === 'function' &&
-                            (!window._assistantMenuCache || !_assistantMenuCache[openRid])) {
-                            await assistantLoadDishes(openRid);
-                        }
-                    } catch(loadErr) { /* ignore */ }
-                    if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
-                        context.currentMenu = _assistantMenuCache[openRid].slice(0, 25).map(function(m) {
-                            return {
-                                name: m.name,
-                                price: m.base_price != null ? m.base_price : m.price,
-                                description: m.description ? String(m.description).slice(0, 80) : '',
-                                category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
-                            };
-                        });
-                    }
                 }
             }
-            // User-Standort (Stadt) falls bekannt
-            if (window._userCity) context.userCity = window._userCity;
-        } catch(ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
+        }
+        if (window._userCity) context.userCity = window._userCity;
+    } catch (ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
+    return context;
+}
 
-        const res = await fetch('/.netlify/functions/chat-ai', {
+// KI fragen und die Antwort Wort fuer Wort in die Sprechblase schreiben.
+// offlineFallback = vorgefertigter Text, der genommen wird, wenn die KI
+// gar nicht erreichbar ist (null = es gibt keinen passenden).
+async function askKinAI(userMessage, offlineFallback) {
+    showTyping();
+    var context = await _kinContext();
+    var payload = {
+        message: userMessage,
+        history: _assistantChatHistory.slice(-6),
+        context: context
+    };
+
+    var full = '';
+    var bubble = null;
+    function push(text) {
+        full += text;
+        if (!bubble) {
+            hideTyping();
+            // Leere Blase anlegen, in die der Text hineinwaechst.
+            var container = document.getElementById('assistantMessages');
+            if (!container) return;
+            var div = document.createElement('div');
+            div.className = 'assistant-message bot';
+            div.innerHTML = '<div class="message-content"></div>';
+            container.appendChild(div);
+            bubble = div.querySelector('.message-content');
+        }
+        bubble.innerHTML = formatAssistantReply(full);
+        var c = document.getElementById('assistantMessages');
+        if (c) c.scrollTop = c.scrollHeight;
+    }
+
+    // 1) Streamen versuchen -- so steht das erste Wort nach etwa einer Sekunde,
+    //    statt dass der Gast auf die fertige Antwort wartet.
+    try {
+        var res = await fetch('/.netlify/functions/chat-ai-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: userMessage,
-                history: _assistantChatHistory.slice(-6),
-                context: context
-            })
+            body: JSON.stringify(payload)
         });
-        const data = await res.json().catch(function() { return {}; });
-        if (data && data.reply) {
-            _assistantChatHistory.push({ role: 'user', content: userMessage });
-            _assistantChatHistory.push({ role: 'assistant', content: data.reply });
-            if (_assistantChatHistory.length > 12) {
-                _assistantChatHistory = _assistantChatHistory.slice(-12);
+        if (res.ok && res.body && typeof res.body.getReader === 'function') {
+            var reader = res.body.getReader();
+            var dec = new TextDecoder();
+            while (true) {
+                var r = await reader.read();
+                if (r.done) break;
+                push(dec.decode(r.value, { stream: true }));
             }
-            return formatAssistantReply(data.reply);
+            if (full.trim()) { _kinRemember(userMessage, full); return; }
         }
-        if (data && data.fallback) {
-            return 'Der KI-Service ist gerade nicht erreichbar. Versuch eine Stichwort-Frage wie „<strong>Wie bestelle ich?</strong>" oder „<strong>Was soll ich essen?</strong>".';
-        }
-        return 'Hmm, das hab ich nicht verstanden. Versuch z.B.: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Wer hat freie Tische?</strong>".';
     } catch (e) {
-        console.error('KI-Fallback fehlgeschlagen:', e);
-        return 'Hmm, das hab ich nicht verstanden. Versuch: „<strong>App-Hilfe</strong>", „<strong>Wie bestelle ich?</strong>" oder „<strong>Freie Tische</strong>".';
+        console.warn('[KIN] Streamen nicht moeglich, nehme die normale Antwort:', e.message);
+    }
+
+    // 2) Kein Strom (alter Browser, puffernder Proxy, Anbieter ohne Streaming):
+    //    Antwort am Stueck holen. Langsamer, aber es funktioniert ueberall.
+    try {
+        var res2 = await fetch('/.netlify/functions/chat-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        var data = await res2.json().catch(function() { return {}; });
+        if (data && data.reply) {
+            hideTyping();
+            addMessage(formatAssistantReply(data.reply), 'bot');
+            _kinRemember(userMessage, data.reply);
+            return;
+        }
+    } catch (e) {
+        console.warn('[KIN] auch die normale Antwort ging nicht:', e.message);
+    }
+
+    // 3) KI komplett nicht erreichbar -> vorgefertigte Antwort, falls es eine gibt.
+    hideTyping();
+    if (offlineFallback) {
+        addMessage(offlineFallback, 'bot');
+    } else {
+        addMessage('Ich bin gerade nicht erreichbar. Probier es gleich nochmal – oder schreib an <strong>info@kiekmolin.de</strong>.', 'bot');
     }
 }
+
+function _kinRemember(userMessage, reply) {
+    _assistantChatHistory.push({ role: 'user', content: userMessage });
+    _assistantChatHistory.push({ role: 'assistant', content: reply });
+    if (_assistantChatHistory.length > 12) _assistantChatHistory = _assistantChatHistory.slice(-12);
+}
+
+// Alter Name -- bleibt als Weiterleitung, falls ihn noch etwas aufruft.
+async function askClaudeAI(userMessage) {
+    return askKinAI(userMessage, null);
+}
+
 
 function formatAssistantReply(text) {
     if (!text) return '';
@@ -40923,12 +41215,36 @@ document.addEventListener("DOMContentLoaded", function() {
 // ==================== PWA SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        // Erst alle alten Caches löschen
-        if ('caches' in window) {
-            caches.keys().then(function(names) {
-                names.forEach(function(name) { caches.delete(name); });
-            });
-        }
+        // Hier stand: "Erst alle alten Caches löschen" -- und zwar ALLE, bei
+        // jedem Seitenaufruf. Das war richtig, solange der Service Worker gar
+        // nichts cachte; jetzt wuerde es den frisch angelegten App-Cache bei
+        // jedem Laden sofort wieder wegwerfen und die App bliebe dauerhaft
+        // langsam. Das Aufraeumen alter Fassungen macht jetzt der Worker
+        // selbst in seinem activate-Schritt -- der kennt den Namen des
+        // aktuellen Caches und loescht gezielt nur die veralteten.
+        //
+        // Fremde Caches aus der Zeit davor tragen diesen Namen nicht und
+        // werden dort ebenfalls entfernt.
+
+        // Meldet der Worker eine neue Fassung, dem Nutzer einen dezenten
+        // Hinweis geben statt ihn ungefragt neu zu laden -- ein Neuladen
+        // mitten in einer Bestellung waere aergerlicher als eine Fassung
+        // Rueckstand.
+        navigator.serviceWorker.addEventListener('message', function(ev) {
+            if (!ev.data || ev.data.typ !== 'neue-version') return;
+            if (window._neueVersionGemeldet) return;
+            window._neueVersionGemeldet = true;
+            try {
+                // showToast kennt keinen Callback und blendet nach 3 Sekunden
+                // aus -- der Hinweis muss also selbst klickbar sein. Ein <span>
+                // im Text sorgt zugleich dafuer, dass showToast ihn als HTML
+                // einsetzt statt als reinen Text.
+                showToast('<span onclick="location.reload()" style="cursor:pointer;text-decoration:underline;">' +
+                          'Neue Version verfügbar – hier tippen zum Aktualisieren</span>', 'info');
+            } catch (e) {
+                console.info('[kmi] Neue Version verfügbar – Seite neu laden.');
+            }
+        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(function(registration) {
                 // Sofort updaten
@@ -43775,7 +44091,7 @@ async function openMenuModal(restaurantId) {
         }
         if (restaurant.name === 'Restaurant') {
             try {
-                var res = await fetch(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+                var res = await sbRead(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
                 var data = await res.json();
                 if (data && data[0]) restaurant = data[0];
             } catch(e) {}
@@ -45229,7 +45545,7 @@ async function loadOptionGroups() {
     }
     container.innerHTML = '<p style="padding:20px;color:var(--slate);text-align:center;">Laden...</p>';
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
@@ -45240,7 +45556,7 @@ async function loadOptionGroups() {
             for (var i = 0; i < groups.length; i++) {
                 var g = groups[i];
                 // Lade Optionen fuer diese Gruppe
-                var optRes = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
+                var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 var opts = await optRes.json();
@@ -45378,7 +45694,7 @@ async function saveOptionGroup(editId) {
 
         // Wenn bearbeiten: alte Optionen loeschen
         if (editId) {
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + editId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + editId, {
                 method: 'DELETE',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
@@ -45404,7 +45720,7 @@ async function saveOptionGroup(editId) {
             });
         }
         if (choices.length > 0) {
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options', {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options', {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -45427,14 +45743,14 @@ async function saveOptionGroup(editId) {
 // Optionsgruppe bearbeiten
 async function openEditOptionGroupModal(groupId) {
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
         if (!groups || !groups[0]) return;
         var g = groups[0];
 
-        var optRes = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
+        var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var opts = await optRes.json();
@@ -45486,12 +45802,12 @@ async function deleteOptionGroup(groupId) {
     if (!await kinConfirm('Optionsgruppe wirklich löschen? Alle zugehörigen Optionen werden ebenfalls gelöscht.')) return;
     try {
         // Erst Optionen loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         // Dann Gruppe loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -45606,7 +45922,7 @@ async function openCreateCrossSellModal() {
 
     // Lade alle Items des Restaurants
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restId + '&is_available=eq.true&order=name', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restId + '&is_available=eq.true&order=name', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var items = await res.json();
@@ -45668,7 +45984,7 @@ async function saveCrossSell() {
     }
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/menu_cross_sells', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_cross_sells', {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -45688,7 +46004,7 @@ async function saveCrossSell() {
 // Cross-Sell loeschen
 async function deleteCrossSell(id) {
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/menu_cross_sells?id=eq.' + id, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_cross_sells?id=eq.' + id, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -45747,7 +46063,7 @@ async function loadMenuOptionGroups(restId) {
     var optSelect = document.getElementById('optionsRestaurantSelect');
     if (optSelect) optSelect.value = restId;
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var groups = await res.json();
@@ -45758,7 +46074,7 @@ async function loadMenuOptionGroups(restId) {
         var html = '';
         for (var i = 0; i < groups.length; i++) {
             var g = groups[i];
-            var optRes2 = await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
+            var optRes2 = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var opts = await optRes2.json();
@@ -47295,7 +47611,7 @@ function startOrderTracking(orderId) {
     trackingPollingInterval = setInterval(async function() {
         if (!activeTrackingOrderId) { clearInterval(trackingPollingInterval); return; }
         try {
-            var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + activeTrackingOrderId + '&select=status,estimated_minutes,order_type', {
+            var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + activeTrackingOrderId + '&select=status,estimated_minutes,order_type', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var data = await res.json();
@@ -47940,7 +48256,7 @@ async function loadDashboardOrders() {
             // GANZE Liste wuerde leer bleiben. Fallback: ohne Verknuepfung laden
             // (die Gerichte stehen als JSONB-Spalte "items" direkt in der Bestellung).
             console.warn('Orders-Query mit order_items fehlgeschlagen (' + response.status + ') – lade ohne Verknuepfung');
-            response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*` + filterPart, { headers: _ordHeaders });
+            response = await sbRead(`${SUPABASE_URL}/rest/v1/orders?select=*` + filterPart, { headers: _ordHeaders });
         }
 
         if (response.ok) {
@@ -49017,7 +49333,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
         refund_needed: !!refundNeeded
     };
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -49028,7 +49344,15 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
             body: JSON.stringify(updateData)
         });
     } catch (e) {
+        // ABBRECHEN, nicht weitermachen. Vorher lief der Rest der Funktion auch
+        // nach einem Datenbankfehler weiter: das Dashboard zeigte die Bestellung
+        // als storniert an UND der Kunde bekam eine Storno-Benachrichtigung --
+        // waehrend die Bestellung in der Datenbank unveraendert aktiv blieb.
+        // Nach dem naechsten Laden war sie wieder da, der Kunde aber schon
+        // abgesagt. Lieber eine ehrliche Fehlermeldung als dieser Zustand.
         console.error('Storno DB-Fehler:', e);
+        showToast('Stornieren fehlgeschlagen: ' + e.message + ' – die Bestellung ist weiterhin aktiv.', 'error');
+        return;
     }
 
     var order = (typeof dashboardOrders !== 'undefined') ? dashboardOrders.find(function(o) { return o.id === orderId; }) : null;
@@ -49043,7 +49367,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
     // Push an Kunden senden (über Server-Function)
     if (order) {
         try {
-            await fetch('/.netlify/functions/push-send', {
+            await sbWrite('/.netlify/functions/push-send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -49952,7 +50276,7 @@ async function refreshPrinterStatus() {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         if (!res.ok) {
-            res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
+            res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             if (!res.ok) return;
@@ -50335,7 +50659,7 @@ async function _savePOSConfigToSupabase(config) {
         Object.keys(config).forEach(function(key) {
             safeConfig[key] = { system: config[key].system, autoSend: config[key].autoSend || false };
         });
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_config: safeConfig })
@@ -50347,7 +50671,7 @@ async function _loadPOSConfigFromSupabase() {
         var customer = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
         var restId = customer.restaurant_id;
         if (!restId) return;
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=pos_config', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=pos_config', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -50966,7 +51290,7 @@ async function _savePOSSyncStatus(orderId, status, message) {
             if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
         }
         arr.push(entry);
-        await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+        await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_log: arr })
@@ -51154,7 +51478,7 @@ async function copyOrderForKasse(orderId) {
                 if (data && data[0] && Array.isArray(data[0].pos_log)) arr = data[0].pos_log.slice(-19);
             }
             arr.push(entry);
-            await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
+            await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ pos_log: arr })
@@ -52345,7 +52669,7 @@ async function saveDeliveryFee() {
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
     
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52383,7 +52707,7 @@ async function saveDeliveryRadius() {
     localStorage.setItem('kin_delivery_radius_' + restId, radius);
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52393,7 +52717,10 @@ async function saveDeliveryRadius() {
             },
             body: JSON.stringify({ delivery_radius: radius })
         });
-    } catch(e) { console.error('Lieferradius speichern:', e); }
+    } catch (e) {
+        console.error('Lieferradius speichern:', e);
+        showToast('Lieferradius konnte nicht gespeichert werden: ' + e.message, 'error');
+    }
 
     // APP_DATA updaten
     if (currentOrderRestaurant && currentOrderRestaurant.id === restId) {
@@ -52583,7 +52910,7 @@ async function savePaymentSettings() {
     if (paypalMeSec) paypalMeSec.style.display = paypalOn ? 'block' : 'none';
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -52594,7 +52921,7 @@ async function savePaymentSettings() {
         if (cardOn) features.push('payment_card');
         if (paypalOn) features.push('payment_paypal');
 
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
@@ -52632,7 +52959,7 @@ async function savePaypalMe() {
     _paypalMeSaveTimeout = setTimeout(async function() {
         try {
             // Features laden, paypal_me entfernen, neuen Wert hinzufuegen
-            var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var data = await resp.json();
@@ -52641,7 +52968,7 @@ async function savePaypalMe() {
             });
             if (val) features.push('paypal_me:' + val);
 
-            await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ features: features })
@@ -52657,6 +52984,7 @@ async function savePaypalMe() {
             showToast('PayPal.me gespeichert', 'success');
         } catch(e) {
             console.error('PayPal.me save error:', e);
+            showToast('PayPal.me konnte nicht gespeichert werden: ' + e.message, 'error');
         }
     }, 800);
 }
@@ -52798,14 +53126,14 @@ async function saveLoyaltySetting() {
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
     
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
         var features = (data[0]?.features || []).filter(function(f) { return f !== 'loyalty_points'; });
         if (isOn) features.push('loyalty_points');
         
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
@@ -52846,7 +53174,7 @@ function setLoyaltyRate(rate) {
 // Supabase features aktualisieren
 async function saveOrderSettingsToSupabase(restId, settings) {
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var data = await resp.json();
@@ -52857,7 +53185,7 @@ async function saveOrderSettingsToSupabase(restId, settings) {
         if (settings.pickup) features.push('abholung');
         if (settings.delivery) features.push('lieferung');
 
-        await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -52867,7 +53195,10 @@ async function saveOrderSettingsToSupabase(restId, settings) {
             },
             body: JSON.stringify({ features: features })
         });
-    } catch(e) { console.error('Settings save error:', e); }
+    } catch (e) {
+        console.error('Settings save error:', e);
+        showToast('Einstellungen konnten nicht gespeichert werden: ' + e.message, 'error');
+    }
 }
 
 // Toggle Visuals aktualisieren
@@ -53200,7 +53531,7 @@ async function openTableManager(restaurantId) {
         var r = APP_DATA.restaurants.find(function(x) { return x.id === restaurantId; });
         if (!r) return;
 
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var tables = (await res.json()) || [];
@@ -53338,7 +53669,7 @@ async function addTableToSupabase(restaurantId, tableName, tableNumber, maxCapac
 async function deleteTable(tableId, restaurantId) {
     if (!await kinConfirm('Tisch wirklich löschen?')) return;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
@@ -53387,17 +53718,23 @@ async function toggleTableStatus(tableId, restaurantId) {
 
     // In Supabase speichern
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-    } catch(e) {}
+    } catch (e) {
+        // War ein leerer catch: der Tisch sprang im Dashboard um, in der
+        // Datenbank blieb er unveraendert -- das Personal haelt dann einen
+        // besetzten Tisch fuer frei.
+        showToast('Tischstatus konnte nicht gespeichert werden: ' + e.message, 'error');
+        if (typeof openTableManager === 'function' && restaurantId) openTableManager(restaurantId);
+    }
 }
 
 async function setAllTables(restaurantId, status) {
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: status })
@@ -55159,7 +55496,7 @@ async function deleteMenuItem(itemId) {
         // Methode 3: Verifizieren ob gelöscht — wenn nicht, nochmal per RPC
         if (!deleted) {
             // Prüfen ob Item noch existiert
-            var checkResp = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
+            var checkResp = await sbRead(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var checkData = await checkResp.json();
@@ -55206,7 +55543,7 @@ async function deleteCategory(categoryId) {
 
         // Methode 2: REST API Fallback
         if (!catDeleted) {
-            await fetch(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
+            await sbWrite(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
                 method: 'DELETE',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=representation' }
             });
@@ -55222,7 +55559,7 @@ async function deleteCategory(categoryId) {
 
         // Verifizieren
         if (!catDeleted) {
-            var check = await fetch(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
+            var check = await sbRead(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var cd = await check.json();
@@ -56998,7 +57335,7 @@ async function importScannedMenu() {
 
     // Schritt 1: Bestehende Kategorien laden
     try {
-        var catRes = await fetch(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&select=id,name', { headers: SUPA_H });
+        var catRes = await sbRead(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&select=id,name', { headers: SUPA_H });
         var existingCats = await catRes.json();
         if (Array.isArray(existingCats)) {
             existingCats.forEach(function(c) { categoryMap[c.name.toLowerCase()] = c.id; });
@@ -57655,13 +57992,13 @@ async function saveSizeGroup() {
 
         if (groupId) {
             // UPDATE: Gruppe aktualisieren
-            await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
                 method: 'PATCH', headers: headers,
                 body: JSON.stringify({ name: name, internal_name: internalName })
             });
 
             // Alte Optionen loeschen
-            await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+            await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
                 method: 'DELETE', headers: headers
             });
         } else {
@@ -57696,7 +58033,7 @@ async function saveSizeGroup() {
             };
         });
 
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options', {
             method: 'POST', headers: headers,
             body: JSON.stringify(optionsPayload)
         });
@@ -57717,11 +58054,11 @@ async function deleteSizeGroup(groupId) {
 
     try {
         // Erst Optionen loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
             method: 'DELETE', headers: headers
         });
         // Dann Gruppe loeschen
-        await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
             method: 'DELETE', headers: headers
         });
 
@@ -59212,8 +59549,9 @@ function setReviewStar(n) {
 async function submitCustomerReview(restaurantId, orderNumber) {
     var comment = document.getElementById('reviewComment')?.value?.trim() || '';
 
+    var _reviewGesendet = false;
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/reviews', {
+        await sbWrite(SUPABASE_URL + '/rest/v1/reviews', {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -59225,15 +59563,26 @@ async function submitCustomerReview(restaurantId, orderNumber) {
                 created_at: new Date().toISOString()
             })
         });
-    } catch(e) {}
+        _reviewGesendet = true;
+    } catch (e) {
+        console.warn('[review] konnte nicht gesendet werden:', e.message);
+    }
 
     // Lokal speichern als Fallback
     var reviews = JSON.parse(localStorage.getItem('kmi_reviews') || '[]');
-    reviews.push({ restaurant_id: restaurantId, order_number: orderNumber, rating: _selectedReviewStars, comment: comment, date: new Date().toISOString() });
+    reviews.push({ restaurant_id: restaurantId, order_number: orderNumber, rating: _selectedReviewStars, comment: comment, date: new Date().toISOString(), sent: _reviewGesendet });
     localStorage.setItem('kmi_reviews', JSON.stringify(reviews));
 
     document.getElementById('reviewOverlay')?.remove();
-    showToast('Danke für deine Bewertung!', 'success');
+    // Ehrlich bleiben: kam die Bewertung nicht durch, liegt sie nur im Browser
+    // des Gastes -- das Restaurant sieht sie nie. "Danke fuer deine Bewertung!"
+    // waere dann schlicht gelogen, und der Gast wundert sich spaeter, warum
+    // seine Bewertung nirgends auftaucht.
+    if (_reviewGesendet) {
+        showToast('Danke für deine Bewertung!', 'success');
+    } else {
+        showToast('Deine Bewertung konnte gerade nicht gesendet werden – bitte gleich nochmal versuchen.', 'error');
+    }
     _selectedReviewStars = 0;
 }
 
@@ -59345,7 +59694,7 @@ async function checkActiveOrderBanner() {
 
     try {
         // 1. Aktive Bestellungen prüfen — mit letzten 10 Ziffern
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=1', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=1', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await resp.json();
@@ -59360,7 +59709,7 @@ async function checkActiveOrderBanner() {
         try {
             var today = todayStrLocal();
             var tomorrow = new DatelocalDayStr(Date.now() + 86400000);
-            var resp2 = await fetch(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
+            var resp2 = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var reservations = await resp2.json();
@@ -59457,7 +59806,7 @@ setInterval(async function() {
     var phoneEnd = cleanPhone.slice(-8);
 
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=5', {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=5', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await resp.json();
@@ -59481,7 +59830,7 @@ async function showAutoReviewPrompt(orderId) {
     if (reviewed.indexOf(orderId) >= 0) return;
 
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId + '&limit=1', {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId + '&limit=1', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
         var orders = await res.json();
@@ -60828,7 +61177,7 @@ async function showTvMenuBoard(slug) {
             }
 
             // Kategorien + verfuegbare Gerichte
-            var cRes = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
+            var cRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             var cats = await cRes.json() || [];
@@ -60839,13 +61188,13 @@ async function showTvMenuBoard(slug) {
             });
             if (!iRes.ok) {
                 // Fallback 1: ohne is_available-Filter (falls Spalte fehlt)
-                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
+                iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
             }
             if (!iRes.ok) {
                 // Fallback 2: alle Spalten (schuetzt vor kuenftigen Schema-Aenderungen)
-                iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=*&order=sort_order&limit=500', {
+                iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=*&order=sort_order&limit=500', {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
             }
@@ -61213,7 +61562,7 @@ function showTouristRoutes() {
 // Gast: Routen aus Supabase laden
 async function loadTouristRoutes() {
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?is_active=eq.true&order=created_at.desc', {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?is_active=eq.true&order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -61392,7 +61741,7 @@ async function loadTouristRoutesDash() {
     if (!list) return;
 
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?order=created_at.desc', {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
@@ -61573,7 +61922,7 @@ async function deleteTouristRoute(routeId) {
     if (!await kinConfirm('Route wirklich löschen?')) return;
 
     try {
-        await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
+        await sbWrite(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -61590,7 +61939,7 @@ async function deleteTouristRoute(routeId) {
 
 async function editTouristRoute(routeId) {
     try {
-        var response = await fetch(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
+        var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_KEY
