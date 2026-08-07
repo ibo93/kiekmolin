@@ -5876,6 +5876,24 @@
             gap: 5px;
             margin-top: 3px;
         }
+
+        /* KI-Kennzeichnung nach EU-KI-Verordnung Art. 50 Abs. 1.
+           Bewusst kontrastreich (gelb auf dunkelgruen) statt dezent: die
+           Kennzeichnung muss auffallen, nicht sich einfuegen. */
+        .assistant-ai-badge {
+            display: inline-block;
+            vertical-align: 2px;
+            margin-left: 6px;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #FFD54F;
+            color: #00251e;
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            line-height: 1.4;
+        }
         .assistant-header-status::before {
             content: '';
             width: 6px;
@@ -14081,7 +14099,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- KI Assistent Button -->
-    <button onclick="openAssistant()" class="assistant-btn" aria-label="Kiek Assistent öffnen" id="assistantBtn">
+    <button onclick="openAssistant()" class="assistant-btn" aria-label="KIN, den KI-Assistenten, öffnen" id="assistantBtn">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
     </button>
 </div>
@@ -14098,8 +14116,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div>
-                    <div class="assistant-header-name">Kiek Assistent</div>
-                    <div class="assistant-header-status">Online</div>
+                    <!-- KI-KENNZEICHNUNG (EU-KI-Verordnung, Art. 50 Abs. 1):
+                         Wer mit einem KI-System spricht, muss das erkennen koennen,
+                         und zwar spaetestens bei der ersten Interaktion. Deshalb
+                         steht es dauerhaft in der Kopfzeile -- nicht nur einmal in
+                         einer Begruessung, die nach oben wegscrollt. -->
+                    <div class="assistant-header-name">
+                        KIN
+                        <span class="assistant-ai-badge">KI</span>
+                    </div>
+                    <div class="assistant-header-status">KI-Assistent · Antworten können Fehler enthalten</div>
                 </div>
             </div>
             <button onclick="closeAssistant()" class="assistant-close-btn">
@@ -14110,7 +14136,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="assistant-messages" id="assistantMessages">
             <div class="assistant-message bot">
                 <div class="message-content">
-                    Moin! Ich bin dein Kiek mol in Assistent. Wie kann ich dir helfen?
+                    Moin! Ich bin <strong>KIN</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
+                    sondern ein Computerprogramm. Meine Antworten können falsch sein; bei Bestellungen,
+                    Preisen und Öffnungszeiten gilt immer, was das Restaurant sagt.<br><br>
+                    Womit kann ich helfen?
                 </div>
             </div>
             <div class="assistant-suggestions" id="assistantSuggestions">

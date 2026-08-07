@@ -21,6 +21,11 @@ var SYSTEM_PROMPT = [
     '- Keine Einleitung, keine Wiederholung der Frage, kein Abschlussfloskel-Satz. Direkt die Antwort.',
     '- Lieber eine Rückfrage in einem Satz als eine lange Antwort auf gut Glück.',
     '',
+    'KI-KENNZEICHNUNG (EU-KI-Verordnung, Art. 50) — nicht verhandelbar:',
+    '- Fragt jemand, ob du ein Mensch bist: sag klar und sofort, dass du ein KI-Programm bist.',
+    '- Behaupte NIE, ein Mensch zu sein, und gib dich nie als Mitarbeiter eines Restaurants aus.',
+    '- Bei Preisen, Öffnungszeiten und Bestellungen: weise darauf hin, dass die Angabe des Restaurants gilt.',
+    '',
     'TON:',
     '- "du", nie "Sie". Norddeutsch knapp. "Moin" nur bei der allerersten Begrüßung, danach nicht mehr.',
     '- Kein Marketing-Sprech, kein "Gerne!", kein "Vielen Dank für deine Frage".',
@@ -101,24 +106,46 @@ function buildContext(ctx) {
            'Empfiehl nur, was hier steht. Steht es nicht hier, sag das.\n';
 }
 
-// Anbieter-Reihenfolge: Claude Haiku zuerst.
-// Haiku 4.5 ist das schnellste Claude-Modell und versteht die Frage deutlich
-// besser als Gemini 2.0 Flash, das hier vorher lief. Bei diesen kurzen
-// Antworten kostet ein Gespraech Bruchteile eines Cents.
-// Gemini bleibt als kostenloser Notnagel, damit ein Ausfall bei Anthropic den
-// Assistenten nicht stumm schaltet.
+// Anbieter-Reihenfolge: NUR KOSTENLOSE.
+//
+// Anders als beim Menuescanner laeuft der Assistent bei jedem Gast und bei
+// jeder Frage -- hier summiert sich alles, was pro Anfrage Geld kostet.
+// Deshalb: Gemini 2.5 Flash (kostenloses Kontingent) zuerst, Groq als
+// ebenfalls kostenloser Notnagel.
+//
+// Claude wird NIE von selbst genommen, auch wenn ein ANTHROPIC_API_KEY
+// gesetzt ist (der gehoert dem Menuescanner). Nur wer ausdruecklich
+// CHAT_PROVIDER=anthropic setzt, bekommt ihn -- eine bewusste Entscheidung,
+// kein Versehen.
+//
+// Ist kein kostenloser Anbieter eingerichtet, geben wir lieber einen
+// ehrlichen Fehler zurueck als still auf einen kostenpflichtigen
+// auszuweichen. Eine ueberraschende Rechnung waere schlimmer als eine
+// klare Meldung.
+var FREE_PROVIDERS = ['gemini', 'groq'];
+
 function pickProvider(env) {
-    var wanted = String(env.CHAT_PROVIDER || '').toLowerCase();
     var have = {
         anthropic: !!env.ANTHROPIC_API_KEY,
         gemini: !!env.GEMINI_API_KEY,
         groq: !!env.GROQ_API_KEY
     };
-    if (wanted && have[wanted]) return wanted;
-    if (have.anthropic) return 'anthropic';
-    if (have.gemini) return 'gemini';
-    if (have.groq) return 'groq';
+    var wanted = String(env.CHAT_PROVIDER || '').toLowerCase();
+    if (wanted && have[wanted]) return wanted;   // ausdrueckliche Wahl gilt
+    for (var i = 0; i < FREE_PROVIDERS.length; i++) {
+        if (have[FREE_PROVIDERS[i]]) return FREE_PROVIDERS[i];
+    }
     return null;
+}
+
+// Reihenfolge fuer den Ausweichversuch, wenn der erste Anbieter ausfaellt.
+// Enthaelt bewusst nur kostenlose -- ausser der Nutzer hat sich ausdruecklich
+// fuer einen kostenpflichtigen entschieden, dann bleibt der auch drin.
+function providerOrder(env) {
+    var first = pickProvider(env);
+    if (!first) return [];
+    var rest = FREE_PROVIDERS.filter(function (p) { return p !== first; });
+    return [first].concat(rest);
 }
 
 // Eingaben pruefen und begrenzen -- die Function ist oeffentlich erreichbar.
@@ -148,4 +175,5 @@ var MODELS = {
 };
 
 module.exports = { MAX_TOKENS: MAX_TOKENS, SYSTEM_PROMPT: SYSTEM_PROMPT, MODELS: MODELS,
-                   buildContext: buildContext, pickProvider: pickProvider, readInput: readInput };
+                   buildContext: buildContext, pickProvider: pickProvider,
+                   providerOrder: providerOrder, readInput: readInput };

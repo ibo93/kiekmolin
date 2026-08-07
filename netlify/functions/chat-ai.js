@@ -1,6 +1,6 @@
 // Kiek mol in — KIN-Assistent, Antwort am Stück (Rückfallebene).
 //
-// Der schnelle Weg ist chat-ai-stream.js: dort erscheinen die Wörter sofort,
+// Der schnelle Weg ist chat-ai-stream.mjs: dort erscheinen die Wörter sofort,
 // statt dass der Gast auf die fertige Antwort wartet. Diese Function hier ist
 // die Rückfallebene, falls das Streamen beim Gast nicht funktioniert (alter
 // Browser, Proxy, der den Datenstrom puffert). Antwortformat bleibt deshalb
@@ -9,8 +9,8 @@
 // Systemprompt, Kontextaufbau und Anbieterwahl liegen in lib/chat-brain.js --
 // beide Functions nutzen dieselbe Quelle, damit sie nicht auseinanderlaufen.
 //
-// ENV: ANTHROPIC_API_KEY (bevorzugt) | GEMINI_API_KEY | GROQ_API_KEY
-//      CHAT_PROVIDER=gemini erzwingt den kostenlosen Anbieter.
+// ENV: GEMINI_API_KEY (Standard, kostenlos) | GROQ_API_KEY (kostenlos)
+//      CHAT_PROVIDER=anthropic waehlt ausdruecklich den kostenpflichtigen Weg.
 
 'use strict';
 
@@ -99,7 +99,7 @@ exports.handler = async function (event) {
 
     var provider = brain.pickProvider(process.env);
     if (!provider) {
-        return json(500, { error: 'Kein KI-Anbieter konfiguriert (ANTHROPIC_API_KEY oder GEMINI_API_KEY in Netlify setzen).', fallback: true });
+        return json(500, { error: 'Kein kostenloser KI-Anbieter konfiguriert (GEMINI_API_KEY oder GROQ_API_KEY in Netlify setzen).', fallback: true });
     }
 
     var body;
@@ -109,9 +109,10 @@ exports.handler = async function (event) {
     var input = brain.readInput(body);
     if (input.error) return json(400, { error: input.error });
 
-    // Bei einem Ausfall den anderen Anbieter probieren, statt den Assistenten
-    // stumm zu lassen -- ein stummer Assistent wirkt kaputt, egal woran es lag.
-    var order = [provider].concat(['anthropic', 'gemini', 'groq'].filter(function (p) { return p !== provider; }));
+    // Bei einem Ausfall den naechsten KOSTENLOSEN Anbieter probieren, statt den
+    // Assistenten stumm zu lassen. Die Liste kommt aus dem Hirn und enthaelt
+    // bewusst keinen kostenpflichtigen Anbieter.
+    var order = brain.providerOrder(process.env);
     var lastErr = null;
 
     for (var i = 0; i < order.length; i++) {

@@ -15,8 +15,8 @@
 // Geht hier irgendetwas schief, fällt die App auf /.netlify/functions/chat-ai
 // zurück (Antwort am Stück) -- der Assistent bleibt also in jedem Fall nutzbar.
 //
-// ENV: ANTHROPIC_API_KEY (bevorzugt) | GEMINI_API_KEY
-//      CHAT_PROVIDER=gemini erzwingt den kostenlosen Anbieter.
+// ENV: GEMINI_API_KEY (Standard, kostenlos) | GROQ_API_KEY (kostenlos)
+//      CHAT_PROVIDER=anthropic waehlt ausdruecklich den kostenpflichtigen Weg.
 
 import brain from './lib/chat-brain.js';
 
