@@ -41226,25 +41226,6 @@ if ('serviceWorker' in navigator) {
         // Fremde Caches aus der Zeit davor tragen diesen Namen nicht und
         // werden dort ebenfalls entfernt.
 
-        // Meldet der Worker eine neue Fassung, dem Nutzer einen dezenten
-        // Hinweis geben statt ihn ungefragt neu zu laden -- ein Neuladen
-        // mitten in einer Bestellung waere aergerlicher als eine Fassung
-        // Rueckstand.
-        navigator.serviceWorker.addEventListener('message', function(ev) {
-            if (!ev.data || ev.data.typ !== 'neue-version') return;
-            if (window._neueVersionGemeldet) return;
-            window._neueVersionGemeldet = true;
-            try {
-                // showToast kennt keinen Callback und blendet nach 3 Sekunden
-                // aus -- der Hinweis muss also selbst klickbar sein. Ein <span>
-                // im Text sorgt zugleich dafuer, dass showToast ihn als HTML
-                // einsetzt statt als reinen Text.
-                showToast('<span onclick="location.reload()" style="cursor:pointer;text-decoration:underline;">' +
-                          'Neue Version verfügbar – hier tippen zum Aktualisieren</span>', 'info');
-            } catch (e) {
-                console.info('[kmi] Neue Version verfügbar – Seite neu laden.');
-            }
-        });
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(function(registration) {
                 // Sofort updaten
