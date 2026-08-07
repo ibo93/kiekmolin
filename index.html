@@ -56471,6 +56471,48 @@ function _menuScanErrorText(raw) {
     return 'Die KI konnte die Karte nicht lesen – es wurde nur einfache Texterkennung genutzt.';
 }
 
+// Vorhandene Kategorien eines Restaurants -- werden dem Scanner mitgegeben,
+// damit er sie BENUTZT statt danebenzulegen ("Pizza" neben "Pizzen").
+async function ladeVorhandeneKategorien(restaurantId) {
+    if (!restaurantId) return [];
+    try {
+        var r = await sbRead(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' +
+            encodeURIComponent(restaurantId) + '&select=name&order=sort_order',
+            { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+        var rows = await r.json();
+        return Array.isArray(rows) ? rows.map(function (c) { return c.name; }).filter(Boolean) : [];
+    } catch (e) { return []; }
+}
+
+// Kategorienamen vergleichbar machen: Gross-/Kleinschreibung, Umlaute und
+// Sonderzeichen sollen keinen Unterschied machen.
+function katSchluessel(name) {
+    return String(name || '').toLowerCase()
+        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+// Passende vorhandene Kategorie finden. Erst exakt, dann mit kleiner Toleranz --
+// "Pizza" und "Pizzen" oder "Salat" und "Salate" sind dasselbe und sollen nicht
+// zu zwei Kategorien im Menue fuehren. Toleranz bewusst klein: "Suppen" und
+// "Suessspeisen" duerfen NICHT zusammenfallen.
+function findeKategorie(name, vorhandenMap) {
+    var k = katSchluessel(name);
+    if (!k) return null;
+    if (vorhandenMap[k]) return vorhandenMap[k];
+    var schluessel = Object.keys(vorhandenMap);
+    for (var i = 0; i < schluessel.length; i++) {
+        var v = schluessel[i];
+        // Nur bei aehnlicher Laenge vergleichen, sonst passt "Bier" auf "Biergarten".
+        if (Math.abs(v.length - k.length) > 2) continue;
+        var minLen = Math.min(v.length, k.length);
+        if (minLen < 4) continue;                       // zu kurz fuer eine Schaetzung
+        if (typeof _editDistance !== 'function') continue;
+        if (_editDistance(v, k) <= 2) return vorhandenMap[v];
+    }
+    return null;
+}
+
 async function aiMenuScan(payload) {
     try {
         var res = await fetch('/.netlify/functions/menu-scan', {
@@ -56610,8 +56652,12 @@ async function startMenuScan() {
                 ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
                 : '🤖 KI erkennt Gerichte & Kategorien…';
 
+            // Vorhandene Kategorien einmal laden und jeder Seite mitgeben.
+            var _vorhandeneKats = await ladeVorhandeneKategorien(
+                window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
+
             var teilErgebnisse = await Promise.all(images.map(function (bild) {
-                return aiMenuScan({ images: [bild] })
+                return aiMenuScan({ images: [bild], categories: _vorhandeneKats })
                     .catch(function () { return []; })
                     .then(function (r) {
                         fertig++;
@@ -57377,10 +57423,18 @@ async function importScannedMenu() {
     } catch(e) { console.error('Fehler:', e); }
 
     // Schritt 2: Fehlende Kategorien anlegen
+    // Vorhandene Kategorien zusaetzlich normalisiert ablegen, damit "Pizza"
+    // die bestehende "Pizzen" findet statt eine zweite Kategorie anzulegen.
+    var katNorm = {};
+    Object.keys(categoryMap).forEach(function (n) { katNorm[katSchluessel(n)] = categoryMap[n]; });
+
     var neededCategories = {};
     selectedItems.forEach(function(item) {
         var catName = item.category || 'Sonstiges';
-        if (!categoryMap[catName.toLowerCase()]) neededCategories[catName] = true;
+        if (categoryMap[catName.toLowerCase()]) return;
+        var treffer = findeKategorie(catName, katNorm);
+        if (treffer) { categoryMap[catName.toLowerCase()] = treffer; return; }
+        neededCategories[catName] = true;
     });
 
     var sortOrder = Object.keys(categoryMap).length + 1;
@@ -57394,6 +57448,7 @@ async function importScannedMenu() {
                 var newCat = await catRes2.json();
                 if (newCat && newCat[0]) {
                     categoryMap[catName.toLowerCase()] = newCat[0].id;
+                    katNorm[katSchluessel(catName)] = newCat[0].id;
                 }
             } else {
                 var catErr = await catRes2.text();
@@ -57429,7 +57484,13 @@ async function importScannedMenu() {
             is_vegan: !!item.is_vegan,
             is_spicy: item.is_spicy ? 1 : 0,
             sort_order: j + 1,
-            additives: item.dish_number ? ['nr:' + item.dish_number] : []
+            // allergens: Codes wie 'gluten', 'milch' -- dieselben, die die
+            // Gast-Ansicht und der Allergen-Filter schon verwenden.
+            allergens: Array.isArray(item.allergens) ? item.allergens : [],
+            // additives haelt zweierlei: die Gerichtnummer als 'nr:12' und die
+            // Zusatzstoff-Ziffern der Karte. Die Anzeige trennt das am Praefix.
+            additives: (item.dish_number ? ['nr:' + item.dish_number] : [])
+                .concat(Array.isArray(item.additives) ? item.additives : [])
         };
 
         try {
