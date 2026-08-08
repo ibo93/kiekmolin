@@ -56530,9 +56530,17 @@ async function aiMenuScan(payload) {
         });
         var j = null;
         try { j = await res.json(); } catch (e) { j = null; }
-        if (j && j.ok && Array.isArray(j.items)) {
+        // NICHT auf j.items pruefen. Die Function hat drei Betriebsarten und nur
+        // eine davon liefert "items": das Lesen. Der Pruefdurchgang antwortet mit
+        // "korrekturen"/"fehlend", die Abschnittsliste mit "abschnitte".
+        // Die alte Bedingung hat beide als Fehlschlag behandelt -- der zweite
+        // Blick lief also ins Leere, ohne dass es auffiel, und die Abschnitte
+        // kamen nie an. Genau diese Art stiller Fehlschlag hat uns schon einmal
+        // Tage gekostet.
+        if (j && j.ok) {
             window._lastMenuScanError = null;
             if (j.meta) (window._scanMeta = window._scanMeta || []).push(j.meta);
+            if (!Array.isArray(j.items)) j.items = [];
             return j;
         }
         window._lastMenuScanError = (j && j.error) ? String(j.error) : ('HTTP ' + res.status);
@@ -56556,14 +56564,14 @@ async function aiMenuScan(payload) {
 // Hier wird dann genau dort weitergefragt. Ergebnis: die Karte kommt komplett,
 // statt dass der Aufruf still ins Limit laeuft (genau das ist vorher passiert --
 // danach uebernahm unbemerkt die einfache Texterkennung).
-async function scanSeiteKomplett(bild, kategorien, aufFortschritt) {
+async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt) {
     var alle = [], gesehen = {}, weiter = null, protokoll = [], fehler = null;
     var MAX_RUNDEN = 20;                       // Notbremse gegen Endlosschleifen
     var wartezeiten = 0, MAX_WARTEN = 4;       // Wartepausen bei vollem Kontingent
 
     for (var runde = 1; runde <= MAX_RUNDEN; runde++) {
         var t0 = new Date().getTime();
-        var a = await aiMenuScan({ images: [bild], categories: kategorien, weiter: weiter });
+        var a = await aiMenuScan({ images: [bild], categories: kategorien, weiter: weiter, abschnitt: abschnitt || undefined });
         var ms = new Date().getTime() - t0;
 
         if (!a) {
@@ -56754,6 +56762,74 @@ async function pruefeSeite(bild, items, kategorien) {
     return { korrigiert: korrigiert, ergaenzt: ergaenzt, ms: ms, sauber: !!(a.meta && a.meta.sauber) };
 }
 
+// Eine Seite in Abschnitten GLEICHZEITIG lesen.
+//
+// Vorher lief das nacheinander: Runde 2 musste wissen, wo Runde 1 aufgehoert
+// hat. An der echten Karte von Pronto Pronto waren das acht Anfragen
+// hintereinander -- 45 Sekunden Warten.
+//
+// Die Abhaengigkeit faellt weg, wenn jede Anfrage von vornherein einen eigenen
+// Abschnitt bekommt. Also erst in einem winzigen Aufruf die Ueberschriften
+// holen, dann alle Abschnitte gleichzeitig lesen. Der Scan dauert nur noch so
+// lang wie der GROESSTE Abschnitt, nicht so lang wie die ganze Karte.
+//
+// Das Bild wird dabei NICHT zerschnitten -- jede Anfrage bekommt es ganz, der
+// Abschnitt steht nur im Text. Zerschnittene Bilder zerreissen mehrspaltige
+// Layouts; das hatten wir schon einmal und es war schlechter.
+//
+// Findet der erste Aufruf keine Ueberschriften (kurze Karte, Foto ohne
+// erkennbare Gliederung), laeuft alles wie bisher am Stueck weiter.
+async function holeAbschnitte(bild, kategorien) {
+    var a = await aiMenuScan({ images: [bild], categories: kategorien, ueberschriften: true });
+    return (a && Array.isArray(a.abschnitte)) ? a.abschnitte : [];
+}
+
+async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
+    var t0 = new Date().getTime();
+    var abschnitte = [];
+    try { abschnitte = await holeAbschnitte(bild, kategorien); } catch (e) { abschnitte = []; }
+
+    // Unter drei Abschnitten lohnt das Aufteilen nicht -- der Extra-Aufruf
+    // kostet dann mehr, als das gleichzeitige Lesen einspart.
+    if (abschnitte.length < 3) {
+        var e1 = await scanSeiteKomplett(bild, kategorien, aufFortschritt);
+        e1.protokoll.unshift({ runde: 0, ms: new Date().getTime() - t0, neu: 0,
+                               status: 'am Stück (' + abschnitte.length + ' Abschnitte erkannt)' });
+        return e1;
+    }
+
+    var zwischenstand = {};
+    function melde() {
+        if (!aufFortschritt) return;
+        var summe = 0;
+        Object.keys(zwischenstand).forEach(function (k) { summe += zwischenstand[k]; });
+        aufFortschritt(summe);
+    }
+
+    var teile = await Promise.all(abschnitte.map(function (name) {
+        return scanSeiteKomplett(bild, kategorien, function (n) { zwischenstand[name] = n; melde(); }, name)
+            .catch(function (e) {
+                return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: name + ': FEHLER ' + e.message }], fehler: e.message };
+            });
+    }));
+
+    var alle = [], gesehen = {}, protokoll = [], fehler = null;
+    protokoll.push({ runde: 0, ms: new Date().getTime() - t0, neu: 0,
+                     status: abschnitte.length + ' Abschnitte gleichzeitig: ' + abschnitte.join(', ') });
+    teile.forEach(function (t, i) {
+        if (!fehler && t.fehler) fehler = t.fehler;
+        (t.protokoll || []).forEach(function (r) {
+            protokoll.push({ runde: r.runde, ms: r.ms, neu: r.neu, status: abschnitte[i] + ': ' + r.status });
+        });
+        t.items.forEach(function (it) {
+            var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
+            if (gesehen[k]) return;
+            gesehen[k] = 1; alle.push(it);
+        });
+    });
+    return { items: alle, protokoll: protokoll, fehler: fehler };
+}
+
 async function startMenuScan() {
     if (!menuScanImageData) {
         showToast('Bitte zuerst eine Datei hochladen', 'error');
@@ -56819,7 +56895,7 @@ async function startMenuScan() {
             }
 
             var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
-                return scanSeiteKomplett(bild, _vorhandeneKats, function (n, hinweis) {
+                return scanSeiteParallel(bild, _vorhandeneKats, function (n, hinweis) {
                     _proSeite[si] = n;
                     if (hinweis) { statusEl.textContent = '\u23F3 ' + hinweis; return; }
                     _zeigeFortschritt();

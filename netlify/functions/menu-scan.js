@@ -751,6 +751,53 @@ async function callAnthropic(key, images, text, extra, kategorien, weiter, frist
 //
 // Grundregel wie beim Preis-Nachtrag: RATEN IST VERBOTEN. Eine Korrektur, die
 // selbst geraten ist, macht es schlimmer, nicht besser.
+// ABSCHNITTE: erst die Ueberschriften holen, dann alle Abschnitte GLEICHZEITIG.
+//
+// WARUM: Bisher las der Scanner die Karte von oben nach unten, Runde fuer
+// Runde, jede Runde auf die vorige wartend. An der echten Karte von Pronto
+// Pronto (140 Gerichte) waren das acht Anfragen nacheinander -- 45 Sekunden,
+// in denen der Gastronom auf einen Zaehler starrt.
+//
+// Nacheinander muss das nur sein, weil eine Runde wissen muss, wo die vorige
+// aufgehoert hat. Diese Abhaengigkeit faellt weg, wenn jede Anfrage von
+// vornherein einen EIGENEN Abschnitt bekommt: "lies nur, was unter 'Pizza'
+// steht". Dann laufen alle Abschnitte gleichzeitig, und der Scan dauert nur
+// noch so lang wie der groesste Abschnitt.
+//
+// Das Bild bekommt jede Anfrage GANZ -- es wird nichts zerschnitten. Der
+// Abschnitt steht im Text, nicht in der Schere. Genau das war der Fehler von
+// frueher: geschnittene Bilder zerreissen mehrspaltige Layouts.
+//
+// Nebenwirkung, die uns entgegenkommt: die Kategorie steht damit fest, statt
+// aus der Bildlage geraten zu werden.
+function ueberschriftenBlock() {
+    return '=== NUR DIE ABSCHNITTE ===\n' +
+        'Gib NUR die Ueberschriften dieser Speisekarte zurueck, eine pro Zeile, in der\n' +
+        'Reihenfolge, in der sie auf der Karte stehen. Nichts sonst -- keine Gerichte,\n' +
+        'keine Preise, keine Nummerierung, keine Erklaerung.\n\n' +
+        'Als Ueberschrift zaehlt, was ueber einer Gruppe von Gerichten steht: "Pizza",\n' +
+        '"Nudeln", "Vom Grill", "Getränke". Auch Zwischenueberschriften innerhalb einer\n' +
+        'Gruppe ("Spaghetti", "Rigatoni" unter "Nudeln") sind eigene Abschnitte --\n' +
+        'nimm sie einzeln auf, nicht die Gruppe darueber.\n' +
+        'Steht eine Ueberschrift mehrfach, weil der Abschnitt in der naechsten Spalte\n' +
+        'weitergeht ("Pizza (Forts.)"), nenne sie NUR EINMAL und ohne den Zusatz.\n' +
+        'Der Name des Restaurants, Fusszeilen und Hinweise sind KEINE Ueberschriften.\n' +
+        'Schreibe sie zeichengenau ab, mit Umlauten.';
+}
+
+// Anweisung, nur EINEN Abschnitt zu lesen.
+function abschnittBlock(name) {
+    return '\n\n=== NUR DIESER ABSCHNITT ===\n' +
+        'Gib AUSSCHLIESSLICH die Positionen aus, die auf der Karte unter der Ueberschrift\n' +
+        '"' + String(name).slice(0, 60) + '" stehen.\n' +
+        '- Geht der Abschnitt in einer anderen Spalte oder auf der naechsten Seite weiter\n' +
+        '  (oft mit "(Forts.)" ueberschrieben), gehoert das MIT dazu.\n' +
+        '- Alles unter anderen Ueberschriften laesst du weg -- auch wenn es direkt daneben\n' +
+        '  steht. Ein anderer Durchgang kuemmert sich darum.\n' +
+        '- In das Feld Kategorie schreibst du bei JEDER Zeile genau: ' + String(name).slice(0, 60) + '\n' +
+        '- Findest du diesen Abschnitt nicht, gib nichts zurueck.';
+}
+
 function pruefBlock(zeilen) {
     return '=== PRUEFUNG ===\n' +
         'Unten steht, was aus DIESEM Bild gelesen wurde — eine Zeile je Position im Format\n' +
@@ -858,6 +905,8 @@ exports.handler = async function (event) {
         ? body.categories.filter(function (k) { return k && typeof k === 'string'; }).slice(0, 40)
         : [];
     var text = body.text ? String(body.text).slice(0, 20000) : '';
+    // Nur diesen einen Abschnitt lesen (fuer das gleichzeitige Lesen).
+    var abschnitt = body.abschnitt ? String(body.abschnitt).slice(0, 60) : '';
     // Pruefmodus: die App schickt das bereits Gelesene zurueck und will wissen,
     // was daran nicht stimmt. Eigene Anfrage, eigenes Zeitbudget.
     var pruefen = Array.isArray(body.pruefen)
@@ -880,6 +929,28 @@ exports.handler = async function (event) {
     }
 
     var visionKey = process.env.GOOGLE_VISION_API_KEY || process.env.GEMINI_API_KEY || '';
+
+    // --- Nur die Ueberschriften ---
+    // Winzige Ausgabe, ein bis zwei Sekunden. Danach weiss die App, in wie viele
+    // Abschnitte sie die Karte zerlegen und gleichzeitig lesen kann.
+    if (body.ueberschriften && images.length) {
+        try {
+            var u = await callAnthropic(anthropicKey, images, '', ueberschriftenBlock(),
+                                        kategorien, null, frist, true);
+            var liste = String(u.roh || '').split('\n')
+                .map(function (z) { return z.replace(/^[-*\d.)\s]+/, '').trim(); })
+                .filter(function (z) { return z && z.length < 60; })
+                .filter(function (z, i, a) { return a.indexOf(z) === i; })
+                .slice(0, 30);
+            return json(200, { ok: true, abschnitte: liste,
+                               meta: { modell: ANTHROPIC_MODEL, ms: Date.now() - T0 } });
+        } catch (e) {
+            // Kein Grund, den Scan zu verlieren: ohne Abschnitte liest die App
+            // die Seite wie bisher am Stueck.
+            return json(200, { ok: true, abschnitte: [],
+                               meta: { fehler: e.message, ms: Date.now() - T0 } });
+        }
+    }
 
     // --- Pruefdurchgang ---
     if (pruefen && pruefen.length && images.length) {
@@ -912,7 +983,8 @@ exports.handler = async function (event) {
             ocr = await ocrAll(visionKey, images);
         }
 
-        var r = await callAnthropic(anthropicKey, images, text, ocrBlock(ocr), kategorien, weiter, frist);
+        var zusatz = ocrBlock(ocr) + (abschnitt ? abschnittBlock(abschnitt) : '');
+        var r = await callAnthropic(anthropicKey, images, text, zusatz, kategorien, weiter, frist);
         var alle = normalizeItems(parseAntwort(r.roh));
 
         // Ein einziger Wiederholversuch -- aber nur, wenn wirklich NICHTS kam und
@@ -920,7 +992,7 @@ exports.handler = async function (event) {
         // das hat schlicht das Zeitbudget halbiert.
         if (!alle.length && !r.abgebrochen && (frist - Date.now()) > 4000) {
             console.warn('[menu-scan] 0 Gerichte, ein zweiter Versuch');
-            r = await callAnthropic(anthropicKey, images, text, ocrBlock(ocr), kategorien, weiter, frist);
+            r = await callAnthropic(anthropicKey, images, text, zusatz, kategorien, weiter, frist);
             alle = normalizeItems(parseAntwort(r.roh));
         }
 
@@ -963,7 +1035,7 @@ exports.handler = async function (event) {
         var letzteKategorie = '';
         for (var i = deduped.length - 1; i >= 0; i--) { if (deduped[i].category) { letzteKategorie = deduped[i].category; break; } }
 
-        if (!deduped.length && !weiter) {
+        if (!deduped.length && !weiter && !abschnitt) {
             return json(502, {
                 ok: false,
                 error: r.abgebrochen ? 'Zeitlimit erreicht, bevor ein Gericht gelesen war' : 'Keine Gerichte erkannt',
@@ -986,6 +1058,7 @@ exports.handler = async function (event) {
                 abgebrochen: !!r.abgebrochen,
                 stopReason: r.stopReason || '',
                 fortsetzung: !!weiter,
+                abschnitt: abschnitt,
                 bilder: images.length,
                 roh: alle.length,
                 duplikate: alle.length - deduped.length,

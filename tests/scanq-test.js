@@ -232,5 +232,40 @@ t('Duplikat-Schluessel enthaelt die Gerichtnummer (App, beide Stellen)',
 t('der Grund steht im Code, damit ihn niemand wieder rausnimmt',
   /114\. Roma Spezial/.test(fn) && /114\. Roma Spezial/.test(html));
 
+// --- Abschnitte gleichzeitig lesen ---
+// Vorher lief der Scan nacheinander, weil jede Runde wissen musste, wo die
+// vorige aufgehoert hat. An der echten Karte (140 Gerichte, zwei Seiten):
+// 8 Anfragen nacheinander, 44,6 s. Mit Abschnitten: 13,5 s bei gleichem
+// Ergebnis (228 Eintraege, Preise/Kategorien/Nummern 226/226).
+t('Server kann nur die Ueberschriften liefern',
+  /body\.ueberschriften && images\.length/.test(fn) && /function ueberschriftenBlock/.test(fn));
+t('Server kann auf EINEN Abschnitt begrenzt lesen', /function abschnittBlock/.test(fn)
+  && /body\.abschnitt/.test(fn));
+t('Zwischenueberschriften zaehlen als eigene Abschnitte',
+  /"Spaghetti", "Rigatoni" unter "Nudeln"/.test(fn));
+t('"(Forts.)" wird nur einmal genannt und gehoert zum selben Abschnitt',
+  /nenne sie NUR EINMAL/.test(fn) && /gehoert das MIT dazu/.test(fn));
+t('das Bild wird dabei NICHT zerschnitten (steht als Warnung im Code)',
+  /Abschnitt steht im Text, nicht in der Schere/.test(fn));
+t('leeres Ergebnis eines Abschnitts ist kein Fehler',
+  /if \(!deduped\.length && !weiter && !abschnitt\)/.test(fn));
+t('App holt erst die Abschnitte, dann alle gleichzeitig',
+  /async function holeAbschnitte/.test(html) && /async function scanSeiteParallel/.test(html)
+  && /await Promise\.all\(abschnitte\.map/.test(html));
+t('unter drei Abschnitten wird am Stueck gelesen (Extra-Aufruf lohnt nicht)',
+  /if \(abschnitte\.length < 3\)/.test(html));
+t('faellt die Abschnittssuche aus, laeuft der Scan wie bisher weiter',
+  /catch \(e\) \{ abschnitte = \[\]; \}/.test(html));
+
+// --- Stiller Fehlschlag: Antworten ohne "items" ---
+// Die Function hat drei Betriebsarten; nur eine liefert "items". Die alte
+// Bedingung "j.ok && Array.isArray(j.items)" hat die beiden anderen als
+// Fehlschlag behandelt -- der zweite Blick lief ins Leere und die Abschnitte
+// kamen nie an, beides ohne jede Meldung.
+t('Antworten ohne "items" gelten nicht mehr als Fehlschlag',
+  /if \(j && j\.ok\) \{/.test(html) && !/j\.ok && Array\.isArray\(j\.items\)/.test(html));
+t('fehlendes items-Feld wird zu einer leeren Liste',
+  /if \(!Array\.isArray\(j\.items\)\) j\.items = \[\];/.test(html));
+
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);
