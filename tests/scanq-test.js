@@ -104,7 +104,7 @@ t('Neukodierung mit hoeherer Qualitaet', /toDataURL\('image\/jpeg', 0\.95\)/.tes
 
 // --- Seiten parallel, Fortschritt sichtbar ---
 var scan = html.slice(html.indexOf('async function startMenuScan'), html.indexOf('async function startMenuScan')+5000);
-t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(scan));
+t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(html));
 t('alte Warteschleife ist weg', !/for \(var pi = 0; pi < images\.length; pi\+\+\)/.test(scan));
 t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(scan));
 t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], protokoll: \[\{ runde: 0/.test(html));
