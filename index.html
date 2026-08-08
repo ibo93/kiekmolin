@@ -57096,6 +57096,7 @@ async function startMenuScan() {
 
     try {
         window._scanQuelleOCR = null;
+        window._scanExtras = null;
         // 1) KI-Scanner (Vision) — erkennt UND kategorisiert deutlich besser als OCR
         statusEl.textContent = '🤖 KI liest die Speisekarte...';
         var images = [];
@@ -57130,12 +57131,14 @@ async function startMenuScan() {
                     });
                 }
 
-                var _direkt = [], _letzteKat = '';
+                var _direkt = [], _letzteKat = '', _rohExtras = [];
                 _seiten.forEach(function (t) {
                     var teil = parseKartenText(t, _letzteKat);
                     if (teil.length) _letzteKat = teil[teil.length - 1].kat;
+                    _rohExtras = _rohExtras.concat(teil.extras || []);
                     _direkt = _direkt.concat(teil);
                 });
+                window._scanExtras = extrasZuGruppen(_rohExtras);
                 if (_direkt.length >= 5) {
                     _ohneKI = sortiereNachNummer(pdfGerichteZuItems(_direkt));
                     statusEl.textContent = 'Direkt aus dem PDF gelesen: ' + _ohneKI.length + ' Einträge';
@@ -57651,7 +57654,7 @@ function parseKartenText(text, startKategorie) {
     // (groessere oder fette Schrift), nicht aus einer Vermutung.
     function istUeberschrift(z) { return z.slice(0, 3) === '## '; }
 
-    var out = [], kat = startKategorie || '', letztes = null;
+    var out = [], extras = [], kat = startKategorie || '', letztes = null;
     for (var i = 0; i < zeilen.length; i++) {
         var z = zeilen[i];
         if (istUeberschrift(z)) {
@@ -57677,9 +57680,13 @@ function parseKartenText(text, startKategorie) {
         // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
         // "Menü-Upgrade: ... +5,00 €", "mit einer Zutat nach Wahl kostenlos".
         if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor) || /\b(Zutat|Upgrade|erhältlich|kostenlos)\b/i.test(vor)) {
-            // Hinweiszeile -- weder Gericht noch Beschreibung. Frueher wurde sie
-            // an die Beschreibung des Gerichts darueber gehaengt; dort steht
-            // dann "Extra Zutaten: klein 1,00 €" mitten in den Zutaten.
+            // Kein Gericht -- aber auch kein Muell: das sind die EXTRAS.
+            // "Extra Zutaten: klein 1,00 €, groß 1,50 €" heisst, dass der Gast
+            // bei jeder Pizza dieser Kategorie eine Zutat dazubestellen kann.
+            // Frueher landete die Zeile in der Beschreibung des Gerichts
+            // darueber, spaeter im Papierkorb. Beides falsch: sie gehoert als
+            // Option ins Menue, damit der Gast sie anklicken kann.
+            extras.push({ kat: kat, text: z });
             continue;
         }
         // Name laeuft in die naechste Zeile ("120. Pronto Pronto-Platte (für 4"
@@ -57716,7 +57723,71 @@ function parseKartenText(text, startKategorie) {
         g.besch = klammern(g.besch);
         g.allergene = alg; g.zusatz = zus;
     });
+    out.extras = extras;
     return out;
+}
+
+// Extras-Zeilen der Karte -> Optionsgruppen, die der Gast beim Bestellen
+// anklicken kann.
+//
+// Auf der Karte steht "Extra Zutaten: klein 1,00 €, groß 1,50 €" einmal unter
+// der Ueberschrift und gilt fuer den ganzen Abschnitt. In der App ist das eine
+// Optionsgruppe (menu_option_groups) mit Mehrfachauswahl, an die Kategorie
+// gebunden -- genau das, was der Gastronom sonst von Hand anlegen muesste.
+//
+// Welche Zutaten es gibt, steht auf dieser Karte nicht -- nur was sie kosten.
+// Also wird EINE Option mit dem Preis angelegt; die Namen der Zutaten traegt
+// der Wirt nach. Lieber der richtige Preis ohne Namen als gar kein Extra.
+function extrasZuGruppen(extras) {
+    var gruppen = [];
+    (extras || []).forEach(function (e) {
+        var t = String(e.text || '').replace(/\s+/g, ' ').trim();
+        var preise = (t.match(/(\d{1,3},\d{2})\s*€/g) || [])
+                     .map(function (x) { return parseFloat(x.replace(/\s*€/, '').replace(',', '.')); });
+        if (!preise.length) return;
+
+        // Groessen vor den Preisen einsammeln ("klein 1,00 €, groß 1,50 €")
+        var labels = [];
+        var re = /(klein|groß|gross|normal|\d+\s*cm|\d+\s*x\s*\d+\s*cm)\s*:?\s*\d{1,3},\d{2}\s*€/gi, m;
+        while ((m = re.exec(t))) labels.push(m[1].replace(/gross/i, 'groß'));
+
+        var name = /zutat/i.test(t) ? 'Extra Zutaten'
+                 : /upgrade|menü|menue/i.test(t) ? 'Menü-Upgrade'
+                 : 'Extras';
+        // Beschreibender Teil vor dem ersten Preis, fuer den Optionsnamen.
+        var vorn = t.slice(0, t.search(/[+]?\s*\d{1,3},\d{2}\s*€/)).replace(/[·:+]\s*$/, '').trim();
+
+        var optionen = preise.map(function (pr, i) {
+            var lab = labels[i] || (preise.length > 1 ? ('Variante ' + (i + 1)) : '');
+            var basis = /zutat/i.test(t) ? 'Extra Zutat'
+                      : (vorn.length > 3 && vorn.length <= 60 ? vorn : name);
+            return { name: basis + (lab ? ' (' + lab + ')' : ''), price: pr };
+        });
+
+        gruppen.push({ name: name, kategorie: e.kat || '', quelle: t, optionen: optionen });
+    });
+
+    // Gruppen mit gleichem Namen in derselben Kategorie zusammenfassen -- auf
+    // der Karte steht die Regel oft zweimal (einmal je Groesse der Familienpizza).
+    var nach = {}, raus = [];
+    gruppen.forEach(function (g) {
+        var k = (g.name + '|' + g.kategorie).toLowerCase();
+        if (!nach[k]) { nach[k] = g; raus.push(g); return; }
+        g.optionen.forEach(function (o) {
+            var da = nach[k].optionen.some(function (x) { return x.name === o.name && x.price === o.price; });
+            if (!da) nach[k].optionen.push(o);
+        });
+    });
+    // Innerhalb einer Gruppe gleiche Namen mit verschiedenen Preisen
+    // unterscheidbar machen ("Extra Zutat" 2,50 und 4,00).
+    raus.forEach(function (g) {
+        var namen = {};
+        g.optionen.forEach(function (o) { namen[o.name] = (namen[o.name] || 0) + 1; });
+        g.optionen.forEach(function (o) {
+            if (namen[o.name] > 1) o.name = o.name + ' (' + o.price.toFixed(2).replace('.', ',') + ' €)';
+        });
+    });
+    return raus;
 }
 
 // Parser-Ausgabe -> die Form, die der Rest der App erwartet.
@@ -58369,6 +58440,28 @@ function showScannedResults() {
             '</div>';
     }
 
+    // Extras aus der Karte -- die kann der Gast spaeter beim Bestellen
+    // anklicken ("+ Extra Zutat 1,00 €"). Sie werden beim Import als
+    // Optionsgruppe angelegt, an die jeweilige Kategorie gebunden.
+    var _ex = window._scanExtras;
+    if (_ex && _ex.length) {
+        html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #8b5cf6;'
+              + 'background:rgba(139,92,246,.08);font-size:13px;line-height:1.6;color:var(--text-primary);">'
+              + '<strong>' + _ex.length + ' Extras von der Karte</strong> — werden als Auswahl zum Dazubestellen angelegt:';
+        _ex.forEach(function (g) {
+            html += '<div style="margin-top:5px;">'
+                  + '<span style="color:#6d28d9;font-weight:600;">' + g.name + '</span>'
+                  + (g.kategorie ? ' <span style="color:var(--text-secondary);">bei ' + g.kategorie + '</span>' : '')
+                  + ': ' + g.optionen.map(function (o) {
+                        return o.name + ' +' + o.price.toFixed(2).replace('.', ',') + ' €';
+                    }).join(' · ')
+                  + '</div>';
+        });
+        html += '<div style="margin-top:6px;color:var(--text-secondary);font-size:11px;">'
+              + 'Welche Zutaten es gibt, steht nicht auf der Karte — nur was sie kosten. '
+              + 'Die Namen kannst du unter „Optionen &amp; Extras" nachtragen.</div></div>';
+    }
+
     var _pz = window._scanPruefung;
     if (_pz && (_pz.korrigiert || _pz.ergaenzt)) {
         html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #3b82f6;'
@@ -58715,6 +58808,51 @@ async function importScannedMenu() {
         }
     }
 
+    // --- Extras der Karte als Optionsgruppen anlegen ---
+    //
+    // "Extra Zutaten: klein 1,00 €, groß 1,50 €" steht auf der Karte einmal
+    // unter der Ueberschrift und gilt fuer den ganzen Abschnitt. In der App ist
+    // das eine Optionsgruppe mit Mehrfachauswahl, ueber internal_name an die
+    // Kategorie gebunden -- genau so, wie sie der Gastronom sonst von Hand
+    // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
+    var extrasAngelegt = 0;
+    var extras = window._scanExtras || [];
+    for (var e = 0; e < extras.length; e++) {
+        var g = extras[e];
+        if (!g.optionen || !g.optionen.length) continue;
+        try {
+            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify({
+                    restaurant_id: restaurantId,
+                    name: g.name,
+                    // an die Kategorie binden, damit die Extras nur dort auftauchen
+                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                    selection_type: 'multiple',
+                    min_selections: 0,
+                    max_selections: null,
+                    is_active: true
+                })
+            });
+            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
+            var grp = await grpRes.json();
+            var gid = grp && grp[0] && grp[0].id;
+            if (!gid) continue;
+
+            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify(g.optionen.map(function (o, i) {
+                    return { group_id: gid, name: o.name, price: o.price,
+                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
+                }))
+            });
+            if (optRes.ok) extrasAngelegt++;
+            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
+        } catch (ex) {
+            console.warn('[import] Extra "' + g.name + '":', ex.message);
+        }
+    }
+
     console.error('Fehler:', errors.length);
 
     // Modal schließen
@@ -58740,7 +58878,8 @@ async function importScannedMenu() {
     } else if (errors.length > 0) {
         showToast(importedCount + ' importiert, ' + errors.length + ' Fehler', 'warning');
     } else {
-        showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!', 'success');
+        showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
+            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');
     }
     scannedMenuItems = [];
 }

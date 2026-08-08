@@ -357,5 +357,40 @@ t('Restaurantname auf jeder Seite gilt als Seitenkopf, nicht als Kategorie',
 t('Vegetarier-Zeichen wird Merkmal statt Beschreibungstext',
   /var veg = \/\(\^\|\\s\)V/.test(html));
 
+// --- Extras der Karte werden zu Optionen ---
+// "Extra Zutaten: klein 1,00 €, groß 1,50 €" steht auf der Karte einmal unter
+// der Ueberschrift und gilt fuer den ganzen Abschnitt. Frueher landete die
+// Zeile in der Beschreibung des Gerichts darueber, spaeter im Papierkorb.
+// Beides falsch: der Gast soll sie beim Bestellen anklicken koennen.
+t('Extras werden eingesammelt statt weggeworfen', /extras\.push\(\{ kat: kat, text: z \}\)/.test(html));
+t('Extras werden zu Optionsgruppen', /function extrasZuGruppen/.test(html));
+t('Optionsgruppe wird an die Kategorie gebunden',
+  /internal_name: g\.kategorie \? \('cats:' \+ g\.kategorie\)/.test(html));
+t('Mehrfachauswahl, nicht Pflicht', /selection_type: 'multiple'/.test(html) && /min_selections: 0/.test(html));
+t('Preis wird aufgeschlagen, nicht ersetzt', /price_type: 'add'/.test(html));
+t('Extras stehen im Ergebnis vor dem Import', /Extras von der Karte/.test(html));
+
+var EZ = new Function(
+  (function () { var i = html.indexOf('function extrasZuGruppen('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return extrasZuGruppen;')();
+var eg = EZ([
+  { kat: 'Pizza', text: 'Alle Pizzen mit Käse · Extra Zutaten: klein 1,00 €, groß 1,50 €' },
+  { kat: 'Familienpizza', text: 'jede weitere Zutat + 2,50 €' },
+  { kat: 'Familienpizza', text: 'jede weitere Zutat + 4,00 €' },
+  { kat: 'Burger', text: 'Menü-Upgrade: Burger + Getränk + Pommes + Sauce +5,00 €' }
+]);
+t('aus vier Zeilen werden drei Gruppen (Familienpizza zusammengefasst)', eg.length === 3, eg.length);
+t('Groessen werden als eigene Optionen erkannt',
+  eg[0].name === 'Extra Zutaten' && eg[0].optionen.length === 2
+  && eg[0].optionen[0].name === 'Extra Zutat (klein)' && eg[0].optionen[0].price === 1,
+  JSON.stringify(eg[0]));
+t('gleiche Namen mit verschiedenen Preisen bleiben unterscheidbar',
+  eg[1].optionen.length === 2 && /2,50/.test(eg[1].optionen[0].name) && /4,00/.test(eg[1].optionen[1].name),
+  JSON.stringify(eg[1].optionen));
+t('Menü-Upgrade wird als eigene Gruppe erkannt',
+  eg[2].name === 'Menü-Upgrade' && eg[2].optionen[0].price === 5, JSON.stringify(eg[2]));
+t('ohne Preis kein Extra', EZ([{ kat: 'Pizza', text: 'mit einer Zutat nach Wahl kostenlos' }]).length === 0);
+
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);
