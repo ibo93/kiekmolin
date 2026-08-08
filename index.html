@@ -21980,9 +21980,123 @@ function handleRealtimeReview(payload) {
 
 function handleRealtimeActivity(payload) {
     const activity = payload.new;
+    // "Bedienung rufen" ist kein Eintrag zum spaeteren Nachlesen, sondern ein
+    // Gast, der JETZT am Tisch wartet. Deshalb hier raus aus dem Feed und
+    // direkt in den Vollbild-Alarm.
+    if (activity && activity.activity_type === 'waiter_call') {
+        try { zeigeTischRuf(activity); } catch (e) {}
+    }
     // Live-Feed aktualisieren
     updateLiveActivityFeed(activity);
 }
+
+// ==================== TISCH RUFT ====================
+// Der Gast tippt am Tisch auf "Bedienung rufen". waiter-call.js legt das als
+// Zeile in activity_log ab. Hier kommt es an -- auf zwei Wegen, weil einer
+// allein nicht verlaesslich ist:
+//   1. Echtzeit ueber Supabase (sofort, aber nur wenn die Tabelle in der
+//      Realtime-Veroeffentlichung steht)
+//   2. Nachfragen alle 15 Sekunden (langsamer, aber immer)
+// Doppelte Rufe werden ueber die Zeilen-ID aussortiert.
+var _tischRufGesehen = {};
+var _tischRufTon = null;
+var _tischRufSeit = null;
+
+// Nur fuer angemeldetes Personal. Der Gast laedt dieselbe Seite -- der darf
+// den Alarm des Restaurants natuerlich nie sehen.
+function _tischRufFuerMich(act) {
+    if (!act || act.activity_type !== 'waiter_call') return false;
+    var angemeldet = !!(window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id);
+    if (!angemeldet) return false;
+    var meins = window._gastroOnlyRestaurantId;
+    if (meins && act.target_id && act.target_id !== meins) return false;
+    return true;
+}
+
+function schliesseTischRuf(zuBestellungen) {
+    if (_tischRufTon) { clearInterval(_tischRufTon); _tischRufTon = null; }
+    var ov = document.getElementById('tischRufOverlay');
+    if (ov) ov.remove();
+    if (zuBestellungen && typeof showDashboardSection === 'function') showDashboardSection('orders');
+}
+
+function zeigeTischRuf(act) {
+    if (!_tischRufFuerMich(act)) return;
+    if (act.id) {
+        if (_tischRufGesehen[act.id]) return;
+        _tischRufGesehen[act.id] = 1;
+    }
+
+    var md = act.metadata || {};
+    var tisch = md.table || String(act.user_name || '').replace(/\D+/g, '') || '?';
+    var zahlen = md.reason === 'pay';
+
+    // Laeuft schon ein Ruf: nur den Text ergaenzen statt ein zweites Overlay
+    // uebereinanderzulegen -- sonst sieht das Personal nur den obersten.
+    var da = document.getElementById('tischRufOverlay');
+    if (da) {
+        var alt = document.getElementById('tischRufTitel');
+        if (alt) alt.textContent = 'Mehrere Tische rufen!';
+        var det = document.getElementById('tischRufDetail');
+        if (det) det.innerHTML = (det.innerHTML ? det.innerHTML + ' · ' : '') + 'Tisch ' + _alarmEsc(tisch);
+        return;
+    }
+
+    var ov = document.createElement('div');
+    ov.id = 'tischRufOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10051;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,25,20,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:fadeIn 0.25s ease;';
+    ov.innerHTML =
+        '<div style="max-width:420px;width:100%;background:linear-gradient(160deg,#003D33,#00251e);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:36px 28px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,0.5);">' +
+            '<div style="width:88px;height:88px;margin:0 auto 20px;border-radius:50%;background:rgba(255,213,79,0.12);display:flex;align-items:center;justify-content:center;animation:pulse 1.2s infinite;">' +
+                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">' + (zahlen ? 'payments' : 'room_service') + '</span>' +
+            '</div>' +
+            '<div id="tischRufTitel" style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;color:#ffffff;letter-spacing:-0.01em;">Tisch ' + _alarmEsc(tisch) + ' ruft!</div>' +
+            '<div id="tischRufDetail" style="margin-top:10px;color:rgba(255,255,255,0.85);font-family:Inter,sans-serif;font-size:15px;line-height:1.5;">' +
+                (zahlen ? 'Der Gast möchte zahlen' : 'Der Gast braucht kurz Hilfe') + '</div>' +
+            '<button onclick="schliesseTischRuf(false)" style="margin-top:24px;width:100%;padding:16px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                '<span class="material-symbols-outlined" style="font-size:20px;">check</span>Ich gehe hin' +
+            '</button>' +
+        '</div>';
+    document.body.appendChild(ov);
+
+    // Ton alle 6 Sekunden, hoechstens zwei Minuten -- wie beim Bestell-Alarm.
+    try { if (typeof playOrderSound === 'function') playOrderSound(); } catch (e) {}
+    var start = Date.now();
+    if (_tischRufTon) clearInterval(_tischRufTon);
+    _tischRufTon = setInterval(function () {
+        if (!document.getElementById('tischRufOverlay') || Date.now() - start > 120000) {
+            clearInterval(_tischRufTon); _tischRufTon = null; return;
+        }
+        try { if (typeof playOrderSound === 'function') playOrderSound(); } catch (e) {}
+    }, 6000);
+}
+
+// Nachfragen, falls die Echtzeit-Veroeffentlichung activity_log nicht
+// mitliefert. Kostet eine kleine, gefilterte Abfrage alle 15 Sekunden und
+// macht den Knopf unabhaengig von der Supabase-Konfiguration.
+async function _tischRufeNachfragen() {
+    if (!window.APP_DATA || !APP_DATA.currentUser || !APP_DATA.currentUser.id) return;
+    if (document.hidden) return;
+    try {
+        var seit = _tischRufSeit || new Date(Date.now() - 120000).toISOString();
+        var url = SUPABASE_URL + '/rest/v1/activity_log?activity_type=eq.waiter_call'
+                + '&created_at=gt.' + encodeURIComponent(seit)
+                + '&select=id,target_id,activity_type,user_name,metadata,created_at'
+                + '&order=created_at.asc&limit=20';
+        var meins = window._gastroOnlyRestaurantId;
+        if (meins) url += '&target_id=eq.' + encodeURIComponent(meins);
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        if (!res.ok) return;
+        var rows = await res.json();
+        if (!Array.isArray(rows)) return;
+        rows.forEach(function (r) {
+            if (r.created_at && (!_tischRufSeit || r.created_at > _tischRufSeit)) _tischRufSeit = r.created_at;
+            zeigeTischRuf(r);
+        });
+        if (!_tischRufSeit) _tischRufSeit = new Date().toISOString();
+    } catch (e) {}
+}
+setInterval(_tischRufeNachfragen, 15000);
 
 // ==================== KUNDEN ECHTZEIT ====================
 function handleRealtimeCustomer(payload) {
@@ -43032,10 +43146,10 @@ document.addEventListener('error', function(e) {
             </div>
 
             <!-- Info Box -->
-            <div style="background: #ede9fe; border-radius: 16px; padding: 12px; margin-top: 20px; display: flex; gap: 10px;">
-                <span class="material-symbols-outlined" style="font-size:20px;">info</span>
-                <p style="font-size: 12px; color: #5b21b6; margin: 0; line-height: 1.4;">
-                    <strong>Tipp:</strong> Fotografiere die Speisekarte bei gutem Licht. Die KI erkennt automatisch Gerichte, Beschreibungen und Preise.
+            <div style="background:rgba(0,61,51,0.05); border:1px solid rgba(0,61,51,0.15); border-radius: 16px; padding: 12px; margin-top: 20px; display: flex; gap: 10px;">
+                <span class="material-symbols-outlined" style="font-size:20px;color:#003D33;">info</span>
+                <p style="font-size: 12px; color: #003D33; margin: 0; line-height: 1.4;font-family:Inter,sans-serif;">
+                    <strong>Am besten ein PDF.</strong> Aus einem PDF vom Designer liest die App die Karte direkt aus dem Text – zeichengenau, in unter einer Sekunde, ganz ohne KI. Nur bei Fotos wird die KI gebraucht; dann bei gutem Licht und gerade von oben fotografieren.
                 </p>
             </div>
         </div>
@@ -57141,8 +57255,9 @@ async function startMenuScan() {
     try {
         window._scanQuelleOCR = null;
         window._scanExtras = null;
-        // 1) KI-Scanner (Vision) — erkennt UND kategorisiert deutlich besser als OCR
-        statusEl.textContent = '🤖 KI liest die Speisekarte...';
+        // Neutral anfangen. Ob ueberhaupt eine KI gebraucht wird, steht erst
+        // fest, wenn klar ist, ob das PDF echten Text enthaelt.
+        statusEl.textContent = 'Speisekarte wird gelesen…';
         var images = [];
         if (menuScanFileType === 'pdf') {
             // ZUERST den echten Text aus dem PDF holen.
@@ -57215,10 +57330,6 @@ async function startMenuScan() {
             // lang wie eine einzelne. Jetzt dauert der ganze Scan nur so lang
             // wie die langsamste Seite. Das wird umso wichtiger, seit hohe
             // Seiten fuer die bessere Lesbarkeit in zwei Haelften gehen.
-            statusEl.textContent = images.length > 1
-                ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
-                : '🤖 KI erkennt Gerichte & Kategorien…';
-
             window._scanMeta = [];
             var _scanStart = new Date().getTime();
             var _protokoll = [];
@@ -57267,6 +57378,15 @@ async function startMenuScan() {
                 showScannedResults();
                 return;
             }
+
+            // Ab HIER erst wird ein Modell gefragt. Der Hinweis darf keine
+            // Zeile frueher stehen: sonst blitzt bei einem PDF, das ganz ohne
+            // KI gelesen wird, trotzdem "KI liest die Karte" auf -- und der
+            // Scanner sieht aus, als laufe er weiter ueber die KI, obwohl er
+            // die Karte in unter einer Sekunde selbst gelesen hat.
+            statusEl.textContent = images.length > 1
+                ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
+                : '🤖 KI erkennt Gerichte & Kategorien…';
 
             var _wegOhneLimit = false;
             var teilErgebnisse = await Promise.all(images.map(function (bild, si) {

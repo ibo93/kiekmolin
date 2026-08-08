@@ -48,9 +48,6 @@ exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Nur POST' });
     if (!SUPABASE_KEY) return json(200, { ok: false, error: 'Server nicht eingerichtet' });
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-        return json(200, { ok: false, error: 'Push-Schlüssel fehlen – bitte im Restaurant kurz Bescheid geben.' });
-    }
 
     var body;
     try { body = JSON.parse(event.body || '{}'); }
@@ -62,7 +59,8 @@ exports.handler = async function (event) {
     var table = parseInt(body.table, 10);
     if (!(table >= 1 && table <= 200)) return json(400, { ok: false, error: 'Tischnummer ungültig' });
 
-    var reason = REASONS[String(body.reason || 'service')] || REASONS.service;
+    var reasonKey = REASONS[String(body.reason || '')] ? String(body.reason) : 'service';
+    var reason = REASONS[reasonKey];
 
     // Restaurantname (nur fuer die Meldung; scheitert das, geht es ohne weiter)
     var restName = '';
@@ -72,23 +70,54 @@ exports.handler = async function (event) {
         if (rr.ok) { var rl = await rr.json(); if (rl[0]) restName = rl[0].name || ''; }
     } catch (e) {}
 
-    // Geraete des Restaurants
-    var subs = [];
+    // ------------------------------------------------------------------
+    // ERST in die Datenbank, DANN Push.
+    //
+    // Frueher war Push der einzige Weg. Das hiess: hat niemand im Restaurant
+    // die Benachrichtigungen erlaubt -- und das ist der Normalfall, das muss
+    // jedes Geraet einmal von Hand bestaetigen -- bekam der Gast
+    // "Gerade ist kein Gerät im Restaurant erreichbar". Der Knopf war also
+    // genau dann kaputt, wenn man ihn am dringendsten braucht, und niemand
+    // im Restaurant erfuhr ueberhaupt, dass jemand gerufen hat.
+    //
+    // Jetzt landet jeder Ruf als Zeile in activity_log. Das Dashboard hoert
+    // darauf (Echtzeit + Nachfragen alle 15 Sekunden) und schlaegt Vollbild-
+    // Alarm mit Ton -- ganz ohne Push-Erlaubnis. Push kommt obendrauf, damit
+    // es auch klingelt, wenn das Dashboard gerade nicht offen ist.
+    // ------------------------------------------------------------------
+    var inDatenbank = false;
     try {
-        var sr = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?restaurant_id=eq.' +
-            encodeURIComponent(restaurantId) + '&select=id,endpoint,p256dh_key,auth_key', { headers: sbHeaders() });
-        if (!sr.ok) throw new Error('HTTP ' + sr.status);
-        subs = await sr.json();
+        var lr = await fetch(SUPABASE_URL + '/rest/v1/activity_log', {
+            method: 'POST',
+            headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+            body: JSON.stringify({
+                activity_type: 'waiter_call',
+                target_type: 'restaurant',
+                target_id: restaurantId,
+                target_name: restName || null,
+                user_name: 'Tisch ' + table,
+                message: 'Tisch ' + table + ' ' + reason.verb + '.',
+                metadata: { table: table, reason: reasonKey, at: new Date().toISOString() }
+            })
+        });
+        inDatenbank = lr.ok;
+        if (!lr.ok) console.warn('[waiter-call] activity_log HTTP ' + lr.status);
     } catch (e) {
-        return json(200, { ok: false, error: 'Konnte das Personal nicht erreichen' });
-    }
-    if (!Array.isArray(subs) || !subs.length) {
-        // Kein Geraet registriert -> ehrlich sagen, damit der Gast winkt statt zu warten
-        return json(200, { ok: false, error: 'Gerade ist kein Gerät im Restaurant erreichbar – bitte kurz winken.' });
+        console.warn('[waiter-call] activity_log:', e.message);
     }
 
-    try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
-    catch (e) { return json(200, { ok: false, error: 'Push-Schlüssel ungültig' }); }
+    // Geraete des Restaurants (Push ist ab hier nur noch die Zugabe)
+    var subs = [];
+    if (VAPID_PUBLIC && VAPID_PRIVATE) {
+        try {
+            var sr = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?restaurant_id=eq.' +
+                encodeURIComponent(restaurantId) + '&select=id,endpoint,p256dh_key,auth_key', { headers: sbHeaders() });
+            if (sr.ok) subs = await sr.json();
+        } catch (e) {}
+        try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
+        catch (e) { subs = []; }
+    }
+    if (!Array.isArray(subs)) subs = [];
 
     var payload = JSON.stringify({
         title: reason.title,
@@ -118,6 +147,10 @@ exports.handler = async function (event) {
         }
     }
 
-    if (!sent) return json(200, { ok: false, error: 'Das Personal konnte nicht erreicht werden – bitte kurz winken.' });
-    return json(200, { ok: true, sent: sent });
+    // Der Ruf gilt als angekommen, sobald er IRGENDWO angekommen ist:
+    // in der Datenbank (Dashboard schlaegt Alarm) oder auf einem Geraet.
+    if (!inDatenbank && !sent) {
+        return json(200, { ok: false, error: 'Das Personal konnte nicht erreicht werden – bitte kurz winken.' });
+    }
+    return json(200, { ok: true, sent: sent, gespeichert: inDatenbank });
 };
