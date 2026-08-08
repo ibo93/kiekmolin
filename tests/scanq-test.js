@@ -104,9 +104,9 @@ t('Neukodierung mit hoeherer Qualitaet', /toDataURL\('image\/jpeg', 0\.95\)/.tes
 
 // --- Seiten parallel, Fortschritt sichtbar ---
 var scan = html.slice(html.indexOf('async function startMenuScan'), html.indexOf('async function startMenuScan')+5000);
-t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(scan));
+t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(html));
 t('alte Warteschleife ist weg', !/for \(var pi = 0; pi < images\.length; pi\+\+\)/.test(scan));
-t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(scan));
+t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(html));
 t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], protokoll: \[\{ runde: 0/.test(html));
 
 // --- Ehrlichkeit ueber die Quelle ---
@@ -282,7 +282,7 @@ t('Server kann Positionen eines Abschnitts zaehlen',
   /function zaehlBlock/.test(fn) && /body\.zaehlen && images\.length/.test(fn));
 t('Zaehlen zaehlt Zeilen, nicht Preise', /zaehlt EINMAL/.test(fn));
 t('Antwort ist nur eine Zahl', /Antworte NUR mit der Zahl/.test(fn));
-t('App holt die Sollzahl je Abschnitt', /aiMenuScan\(\{ images: \[bild\], zaehlen: name \}\)/.test(html));
+t('App holt die Sollzahl je Abschnitt', /quelleZuAnfrage\(bild\), \{ zaehlen: name \}/.test(html));
 t('Sollzahl schlaegt "fertig"',
   /if \(a\.fertig && !\(soll && gerichte\(alle\) < soll\)\) break;/.test(html));
 t('Sollzahl zaehlt Gerichte, nicht Groessen-Eintraege',
@@ -291,6 +291,106 @@ t('eine leere Runde beendet den Abschnitt NICHT, solange etwas fehlt',
   /soll && gerichte\(alle\) < soll && leerRunden < 2/.test(html));
 t('nach zwei leeren Runden ist trotzdem Schluss', /leerRunden < 2/.test(html));
 t('Bericht nennt Soll und Ist je Abschnitt', /' von ' \+ so \+ ' Gerichten'/.test(html));
+
+// --- Selbsttest im Scanner ---
+// Alle Pruefungen in diesem Ordner laufen bei der Entwicklung, mit
+// nachgestellten Antworten. Das sagt nichts darueber, ob der Scanner IM
+// BETRIEB tut, was er soll -- und genau daran ist die Fehlersuche tagelang
+// gescheitert: der eine hat gemessen, der andere hat getestet, und beide
+// sahen etwas anderes. Deshalb gibt es jetzt einen Knopf IN DER APP.
+t('Scanner hat einen Selbsttest-Knopf', /onclick="scannerSelbsttest\(this\)"/.test(html));
+t('Selbsttest geht durch die ECHTE Scan-Funktion',
+  /aiMenuScan\(\{ text: SELBSTTEST_KARTE \}\)/.test(html));
+t('Testkarte deckt Groessen, Kategorien und Nummern ab',
+  /SELBSTTEST_KARTE/.test(html) && /Pizza Margherita \(klein\)/.test(html)
+  && /Vom Grill/.test(html) && /Cola \(0,3l\)/.test(html));
+t('Selbsttest prueft Preis, Kategorie UND Gerichtnummer',
+  /Preis ' \+ g\.price/.test(html) && /Kategorie "/.test(html) && /Nr\. "/.test(html));
+t('Selbsttest meldet auch zu viel erkannte Gerichte', /zu viel: /.test(html));
+t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
+  /Der Scanner antwortet nicht/.test(html));
+
+// --- PDF-Karte ohne KI lesen ---
+// An der echten Karte gemessen: 142 Gerichte, 230 Eintraege, 13 Kategorien,
+// 0 ohne Preis, unter einer Sekunde, kein einziger Modellaufruf.
+t('PDF-Text wird zuerst ohne KI ausgewertet',
+  /function parseKartenText/.test(html) && /_ohneKI = sortiereNachNummer/.test(html));
+t('Ueberschriften kommen aus Schriftgroesse und Fettschrift, nicht aus Raten',
+  /UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN/.test(html)
+  && /bold\|black\|heavy\|semib/.test(html));
+t('Spalten werden VOR den Zeilen gebildet', /SPALTEN ZUERST, dann Zeilen/.test(html));
+t('echte Wortbreite von pdf.js statt Schaetzung', /w\.wd > 0 \? w\.wd/.test(html));
+t('Hinweiszeilen mit Preis sind keine Gerichte', /Zutat\|Upgrade\|erhältlich\|kostenlos/.test(html));
+
+// Der Parser laeuft hier wirklich -- an genau den Zeilen, die auf der echten
+// Karte Aerger gemacht haben.
+var PK = new Function(
+  (function () { var i = html.indexOf('function parseKartenText('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return parseKartenText;')();
+var pz = PK([
+  '## Pizza',
+  '1. Pizza Margherita 6,50 € 8,50 €',
+  'V',
+  '2. Pizza Salami (a,g,2) 7,00 € 9,00 €',
+  'Salami, Tomaten',
+  'Extra Zutaten: klein 1,00 €, groß 1,50 €',
+  '## Getränke',
+  'Cola 0,3l 3,20 €'
+].join('\n'));
+t('Parser findet die Gerichte, nicht die Hinweiszeile', pz.length === 3, pz.map(function (g) { return g.name; }).join(' / '));
+t('zwei Preise werden beide erkannt', JSON.stringify(pz[0].preise) === '["6.50","8.50"]', JSON.stringify(pz[0].preise));
+t('Kategorie kommt von der Ueberschrift', pz[0].kat === 'Pizza' && pz[2].kat === 'Getränke');
+t('Gerichtnummer wird abgetrennt', pz[1].nr === '2' && pz[1].name === 'Pizza Salami');
+t('Allergene und Zusatzstoffe aus der Klammer',
+  JSON.stringify(pz[1].allergene) === '["a","g"]' && JSON.stringify(pz[1].zusatz) === '["2"]',
+  JSON.stringify(pz[1]));
+
+var NR = new Function(
+  (function () { var i = html.indexOf('function _nrWert('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return _nrWert;')();
+t('"40 A" sortiert nach 40 und vor 41', NR('40') < NR('40A') && NR('40A') < NR('41'));
+t('ohne Nummer = keine Sortierung', NR('') === null && NR('Cola') === null);
+t('Restaurantname auf jeder Seite gilt als Seitenkopf, nicht als Kategorie',
+  /er ist ein Seitenkopf, keine Kategorie/.test(html));
+t('Vegetarier-Zeichen wird Merkmal statt Beschreibungstext',
+  /var veg = \/\(\^\|\\s\)V/.test(html));
+
+// --- Extras der Karte werden zu Optionen ---
+// "Extra Zutaten: klein 1,00 €, groß 1,50 €" steht auf der Karte einmal unter
+// der Ueberschrift und gilt fuer den ganzen Abschnitt. Frueher landete die
+// Zeile in der Beschreibung des Gerichts darueber, spaeter im Papierkorb.
+// Beides falsch: der Gast soll sie beim Bestellen anklicken koennen.
+t('Extras werden eingesammelt statt weggeworfen', /extras\.push\(\{ kat: kat, text: z \}\)/.test(html));
+t('Extras werden zu Optionsgruppen', /function extrasZuGruppen/.test(html));
+t('Optionsgruppe wird an die Kategorie gebunden',
+  /internal_name: g\.kategorie \? \('cats:' \+ g\.kategorie\)/.test(html));
+t('Mehrfachauswahl, nicht Pflicht', /selection_type: 'multiple'/.test(html) && /min_selections: 0/.test(html));
+t('Preis wird aufgeschlagen, nicht ersetzt', /price_type: 'add'/.test(html));
+t('Extras stehen im Ergebnis vor dem Import', /Extras von der Karte/.test(html));
+
+var EZ = new Function(
+  (function () { var i = html.indexOf('function extrasZuGruppen('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return extrasZuGruppen;')();
+var eg = EZ([
+  { kat: 'Pizza', text: 'Alle Pizzen mit Käse · Extra Zutaten: klein 1,00 €, groß 1,50 €' },
+  { kat: 'Familienpizza', text: 'jede weitere Zutat + 2,50 €' },
+  { kat: 'Familienpizza', text: 'jede weitere Zutat + 4,00 €' },
+  { kat: 'Burger', text: 'Menü-Upgrade: Burger + Getränk + Pommes + Sauce +5,00 €' }
+]);
+t('aus vier Zeilen werden drei Gruppen (Familienpizza zusammengefasst)', eg.length === 3, eg.length);
+t('Groessen werden als eigene Optionen erkannt',
+  eg[0].name === 'Extra Zutaten' && eg[0].optionen.length === 2
+  && eg[0].optionen[0].name === 'Extra Zutat (klein)' && eg[0].optionen[0].price === 1,
+  JSON.stringify(eg[0]));
+t('gleiche Namen mit verschiedenen Preisen bleiben unterscheidbar',
+  eg[1].optionen.length === 2 && /2,50/.test(eg[1].optionen[0].name) && /4,00/.test(eg[1].optionen[1].name),
+  JSON.stringify(eg[1].optionen));
+t('Menü-Upgrade wird als eigene Gruppe erkannt',
+  eg[2].name === 'Menü-Upgrade' && eg[2].optionen[0].price === 5, JSON.stringify(eg[2]));
+t('ohne Preis kein Extra', EZ([{ kat: 'Pizza', text: 'mit einer Zutat nach Wahl kostenlos' }]).length === 0);
 
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);

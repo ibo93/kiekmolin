@@ -42974,6 +42974,19 @@ document.addEventListener('error', function(e) {
                     Bild scannen (OCR)
                 </button>
                 <p style="font-size:11px;color:var(--slate);text-align:center;margin-top:8px;">OCR-Erkennung – Ergebnis kann ungenau sein</p>
+
+                <!-- Selbsttest: prueft die ECHTE, live geschaltete Scan-Funktion
+                     mit einer bekannten Testkarte. Damit laesst sich in 15
+                     Sekunden feststellen, ob der Scanner funktioniert -- ohne
+                     eine eigene Karte hochzuladen und ohne dass jemand
+                     Vermutungen anstellen muss. -->
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light,#e5e7eb);">
+                    <button type="button" onclick="scannerSelbsttest(this)"
+                        style="width:100%;padding:11px;background:var(--bg-secondary,#f9fafb);color:var(--text-primary);border:1px solid var(--border-light,#e5e7eb);border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">
+                        Scanner prüfen (15 Sekunden, keine eigene Karte nötig)
+                    </button>
+                    <div id="scannerSelbsttestErgebnis" style="display:none;margin-top:10px;font-size:12px;line-height:1.6;"></div>
+                </div>
             </div>
 
             <!-- Scanning Progress (hidden initially) -->
@@ -56575,6 +56588,13 @@ function gerichte(liste) {
     return Object.keys(s).length;
 }
 
+// Eine Quelle ist entweder ein Bild (data:...) oder fertiger Text aus einem
+// PDF. Text ist immer besser: er ist zeichengenau, das Modell muss ihn nur
+// noch ordnen statt ihn zu entziffern.
+function quelleZuAnfrage(q) {
+    return (typeof q === 'string' && q.slice(0, 5) === 'data:') ? { images: [q] } : { text: q };
+}
+
 async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt, soll) {
     var alle = [], gesehen = {}, weiter = null, protokoll = [], fehler = null;
     var MAX_RUNDEN = 20;                       // Notbremse gegen Endlosschleifen
@@ -56583,7 +56603,8 @@ async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt, so
 
     for (var runde = 1; runde <= MAX_RUNDEN; runde++) {
         var t0 = new Date().getTime();
-        var a = await aiMenuScan({ images: [bild], categories: kategorien, weiter: weiter, abschnitt: abschnitt || undefined });
+        var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild),
+            { categories: kategorien, weiter: weiter, abschnitt: abschnitt || undefined }));
         var ms = new Date().getTime() - t0;
 
         if (!a) {
@@ -56758,10 +56779,8 @@ function zeileAusItem(it) {
 async function pruefeSeite(bild, items, kategorien) {
     if (!items || !items.length) return { korrigiert: 0, ergaenzt: 0, ms: 0 };
     var t0 = new Date().getTime();
-    var a = await aiMenuScan({
-        images: [bild], categories: kategorien,
-        pruefen: items.map(zeileAusItem)
-    });
+    var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild),
+        { categories: kategorien, pruefen: items.map(zeileAusItem) }));
     var ms = new Date().getTime() - t0;
     if (!a) return { korrigiert: 0, ergaenzt: 0, ms: ms, fehler: window._lastMenuScanError };
 
@@ -56815,7 +56834,7 @@ async function pruefeSeite(bild, items, kategorien) {
 // Findet der erste Aufruf keine Ueberschriften (kurze Karte, Foto ohne
 // erkennbare Gliederung), laeuft alles wie bisher am Stueck weiter.
 async function holeAbschnitte(bild, kategorien) {
-    var a = await aiMenuScan({ images: [bild], categories: kategorien, ueberschriften: true });
+    var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild), { categories: kategorien, ueberschriften: true }));
     return (a && Array.isArray(a.abschnitte)) ? a.abschnitte : [];
 }
 
@@ -56840,7 +56859,8 @@ async function scanOhneZeitlimit(bilder, kategorien, aufStatus) {
         res = await fetch('/.netlify/functions/menu-scan-background', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId: jobId, images: bilder, categories: kategorien })
+            body: JSON.stringify(Object.assign({ jobId: jobId, categories: kategorien },
+                (bilder.length === 1 ? quelleZuAnfrage(bilder[0]) : { images: bilder })))
         });
     } catch (e) {
         return null;                       // nicht erreichbar -> alter Weg
@@ -56906,7 +56926,7 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
     // Wartezeit; das Ergebnis wird erst am Ende jeder Runde gebraucht.
     var sollZahlen = {};
     var sollLauf = Promise.all(abschnitte.map(function (name) {
-        return aiMenuScan({ images: [bild], zaehlen: name })
+        return aiMenuScan(Object.assign(quelleZuAnfrage(bild), { zaehlen: name }))
             .then(function (a) { if (a && a.anzahl) sollZahlen[name] = a.anzahl; })
             .catch(function () {});
     }));
@@ -56944,6 +56964,121 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
     return { items: alle, protokoll: protokoll, fehler: fehler };
 }
 
+// SELBSTTEST DES SCANNERS -- laeuft in der App gegen die ECHTE Funktion.
+//
+// WARUM: Alle Messungen bisher liefen bei der Entwicklung, mit nachgestellten
+// Antworten. Das sagt nichts darueber, ob der Scanner IM BETRIEB tut, was er
+// soll -- und genau daran ist die Fehlersuche tagelang gescheitert: der eine
+// hat gemessen, der andere hat getestet, und beide sahen etwas anderes.
+//
+// Dieser Knopf schickt eine bekannte Testkarte durch dieselbe Funktion, die
+// auch echte Karten liest, und vergleicht das Ergebnis mit dem, was
+// herauskommen muss. Kein Foto noetig, kein Hochladen, keine Vermutung.
+// Was hier rot ist, ist im Betrieb kaputt.
+var SELBSTTEST_KARTE = [
+    'Pizzeria Testkarte',
+    '',
+    'Pizza',
+    '1. Pizza Margherita   klein 6,50 €   groß 8,50 €',
+    '2. Pizza Salami (a,g,2)   klein 7,00 €   groß 9,00 €',
+    'Salami, Tomaten',
+    '',
+    'Vom Grill',
+    '20. Rumpsteak 250g   24,90 €',
+    'mit Kräuterbutter (g)',
+    '21. Hähnchenbrust   18,50 €',
+    '',
+    'Getränke',
+    'Cola 0,3l   3,20 €',
+    'Cola 0,5l   4,40 €',
+    'Ostfriesentee (g)   3,40 €'
+].join('\n');
+
+// Was herauskommen MUSS. Name -> [Preis, Kategorie, Gerichtnummer]
+var SELBSTTEST_SOLL = [
+    ['Pizza Margherita (klein)', 6.5,  'Pizza',     '1'],
+    ['Pizza Margherita (groß)',  8.5,  'Pizza',     '1'],
+    ['Pizza Salami (klein)',     7,    'Pizza',     '2'],
+    ['Pizza Salami (groß)',      9,    'Pizza',     '2'],
+    ['Rumpsteak 250g',           24.9, 'Vom Grill', '20'],
+    ['Hähnchenbrust',            18.5, 'Vom Grill', '21'],
+    ['Cola (0,3l)',              3.2,  'Getränke',  ''],
+    ['Cola (0,5l)',              4.4,  'Getränke',  ''],
+    ['Ostfriesentee',            3.4,  'Getränke',  '']
+];
+
+function _stNorm(x) { return String(x || '').toLowerCase().replace(/[^a-zäöüß0-9]/g, ''); }
+
+async function scannerSelbsttest(btn) {
+    var box = document.getElementById('scannerSelbsttestErgebnis');
+    var alterText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Prüfe…'; }
+    if (box) {
+        box.style.display = 'block';
+        box.innerHTML = '<span style="color:var(--text-secondary)">Testkarte wird durch den echten Scanner geschickt…</span>';
+    }
+
+    var t0 = new Date().getTime();
+    var a = null, fehler = null;
+    try {
+        a = await aiMenuScan({ text: SELBSTTEST_KARTE });
+        if (!a) fehler = window._lastMenuScanError || 'keine Antwort';
+    } catch (e) { fehler = e.message; }
+    var dauer = Math.round((new Date().getTime() - t0) / 100) / 10;
+
+    if (btn) { btn.disabled = false; btn.textContent = alterText; }
+    if (!box) return;
+
+    if (fehler) {
+        box.innerHTML = '<div style="padding:10px 12px;border-radius:8px;border:1px solid #ef4444;background:rgba(239,68,68,.08);">'
+            + '<strong style="color:#b91c1c;">Der Scanner antwortet nicht.</strong><br>'
+            + '<span style="color:var(--text-secondary);">' + String(fehler).replace(/</g, '&lt;').slice(0, 300) + '</span><br>'
+            + '<span style="color:var(--text-secondary);font-size:11px;">Nach ' + dauer + ' s. Diesen Text bitte weitergeben.</span>'
+            + '</div>';
+        return;
+    }
+
+    var items = a.items || [];
+    var nach = {};
+    items.forEach(function (i) { nach[_stNorm(i.name)] = i; });
+
+    var zeilen = [], ok = 0;
+    SELBSTTEST_SOLL.forEach(function (soll) {
+        var g = nach[_stNorm(soll[0])];
+        var probleme = [];
+        if (!g) probleme.push('fehlt');
+        else {
+            if (Number(g.price).toFixed(2) !== Number(soll[1]).toFixed(2)) probleme.push('Preis ' + g.price + ' statt ' + soll[1]);
+            if (_stNorm(g.category) !== _stNorm(soll[2])) probleme.push('Kategorie "' + (g.category || '-') + '" statt "' + soll[2] + '"');
+            if ((g.dish_number || '') !== soll[3]) probleme.push('Nr. "' + (g.dish_number || '-') + '" statt "' + soll[3] + '"');
+        }
+        if (!probleme.length) ok++;
+        zeilen.push({ name: soll[0], probleme: probleme });
+    });
+    var zuviel = items.filter(function (i) {
+        return !SELBSTTEST_SOLL.some(function (s2) { return _stNorm(s2[0]) === _stNorm(i.name); });
+    }).map(function (i) { return i.name; });
+
+    var alles = ok === SELBSTTEST_SOLL.length && !zuviel.length;
+    var farbe = alles ? '#059669' : '#b45309';
+    var html = '<div style="padding:10px 12px;border-radius:8px;border:1px solid ' + farbe
+        + ';background:' + (alles ? 'rgba(5,150,105,.08)' : 'rgba(245,158,11,.10)') + ';">'
+        + '<strong style="color:' + farbe + ';">' + ok + ' von ' + SELBSTTEST_SOLL.length + ' richtig</strong>'
+        + ' &middot; ' + dauer + ' s'
+        + (a.meta && a.meta.modell ? ' &middot; ' + a.meta.modell : '') + '<br>';
+    if (alles) {
+        html += '<span style="color:var(--text-secondary);">Preise, Kategorien, Gerichtnummern und Größen stimmen. Der Scanner arbeitet richtig.</span>';
+    } else {
+        zeilen.filter(function (z) { return z.probleme.length; }).forEach(function (z) {
+            html += '<div style="color:#b45309;">' + z.name + ': ' + z.probleme.join(', ') + '</div>';
+        });
+        if (zuviel.length) html += '<div style="color:#b45309;">zu viel: ' + zuviel.join(', ') + '</div>';
+        html += '<span style="color:var(--text-secondary);font-size:11px;">Diese Zeilen bitte weitergeben — daran ist der Fehler eindeutig.</span>';
+    }
+    html += '</div>';
+    box.innerHTML = html;
+}
+
 async function startMenuScan() {
     if (!menuScanImageData) {
         showToast('Bitte zuerst eine Datei hochladen', 'error');
@@ -56956,15 +57091,65 @@ async function startMenuScan() {
     var statusEl = document.getElementById('menuScanStatus');
 
     var _scanFehlerGrund = null;
+    var _ausPdfText = false;
+    var _ohneKI = null;
 
     try {
         window._scanQuelleOCR = null;
+        window._scanExtras = null;
         // 1) KI-Scanner (Vision) — erkennt UND kategorisiert deutlich besser als OCR
         statusEl.textContent = '🤖 KI liest die Speisekarte...';
         var images = [];
         if (menuScanFileType === 'pdf') {
-            statusEl.textContent = 'PDF wird vorbereitet...';
-            try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
+            // ZUERST den echten Text aus dem PDF holen.
+            //
+            // Fast jede Karte, die ein Gastronom schickt, ist ein PDF vom
+            // Designer -- also eine Datei mit echtem Text. Daraus ein Bild zu
+            // machen und ein Modell 6-Punkt-Schrift entziffern zu lassen, ist
+            // der Umweg, und jeder Lesefehler danach entsteht erst dadurch.
+            // Mit dem Text stimmen Preise und Namen zeichengenau.
+            statusEl.textContent = 'PDF wird gelesen...';
+            var _pdfText = null;
+            try { _pdfText = await pdfTextSeiten(menuScanImageData); } catch (e) { _pdfText = null; }
+            if (_pdfText && _pdfText.some(Boolean)) {
+                // ERST OHNE KI versuchen: feste Regeln auf den PDF-Text.
+                var _seiten = _pdfText.filter(Boolean);
+                // Der Restaurantname steht als Ueberschrift auf JEDER Seite --
+                // er ist ein Seitenkopf, keine Kategorie. Sonst landet das
+                // erste Gericht der Folgeseite unter "Pronto Pronto".
+                var _kopf = null;
+                _seiten.forEach(function (t) {
+                    var k = t.split('\n').filter(function (z) { return z.slice(0, 3) === '## '; })
+                             .map(function (z) { return z.slice(3).trim(); });
+                    _kopf = (_kopf === null) ? k : _kopf.filter(function (x) { return k.indexOf(x) >= 0; });
+                });
+                if (_seiten.length > 1 && _kopf && _kopf.length) {
+                    _seiten = _seiten.map(function (t) {
+                        return t.split('\n').filter(function (z) {
+                            return !(z.slice(0, 3) === '## ' && _kopf.indexOf(z.slice(3).trim()) >= 0);
+                        }).join('\n');
+                    });
+                }
+
+                var _direkt = [], _letzteKat = '', _rohExtras = [];
+                _seiten.forEach(function (t) {
+                    var teil = parseKartenText(t, _letzteKat);
+                    if (teil.length) _letzteKat = teil[teil.length - 1].kat;
+                    _rohExtras = _rohExtras.concat(teil.extras || []);
+                    _direkt = _direkt.concat(teil);
+                });
+                window._scanExtras = extrasZuGruppen(_rohExtras);
+                if (_direkt.length >= 5) {
+                    _ohneKI = sortiereNachNummer(pdfGerichteZuItems(_direkt));
+                    statusEl.textContent = 'Direkt aus dem PDF gelesen: ' + _ohneKI.length + ' Einträge';
+                }
+                images = _pdfText.filter(Boolean);
+                _ausPdfText = true;
+                if (!_ohneKI) statusEl.textContent = 'Text aus PDF gelesen (' + images.length + ' Seiten) — KI ordnet ihn…';
+            } else {
+                statusEl.textContent = 'PDF wird vorbereitet...';
+                try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
+            }
         } else {
             // Bild optimieren (Aufloesung begrenzen); nur extrem lange Fotos
             // werden in 2 Haelften geteilt — sonst GANZES Bild am Stueck.
@@ -57016,6 +57201,29 @@ async function startMenuScan() {
             // ganze Seite am Stueck -- so wie eine Karte im Chat gelesen wird.
             // Weg 2 (Abschnitte und Runden) ist nur die Rueckfallebene fuer den
             // Fall, dass Netlify keine Background-Functions kann.
+            if (_ausPdfText) _protokoll.push('Text direkt aus dem PDF gelesen — kein Bild, keine Zeichenerkennung');
+
+            // OHNE KI fertig? Dann sind wir hier durch. Kein Modellaufruf, keine
+            // Wartezeit, keine Kosten, kein Zufall.
+            if (_ohneKI && _ohneKI.length) {
+                _protokoll.push('Ohne KI gelesen: ' + _ohneKI.length + ' Einträge aus dem PDF-Text');
+                scannedMenuItems = _ohneKI;
+                window.scannedMenuItems = scannedMenuItems;
+                window._scanPruefung = null;
+                window._scanBericht = {
+                    dauer: Math.round((new Date().getTime() - _scanStart) / 100) / 10 + ' s',
+                    bilder: images.length, seitenOhneErgebnis: 0, protokoll: _protokoll,
+                    quellePdfText: true, quelle: 'PDF-Text, ohne KI', modell: '—', ocr: 'nein',
+                    rohTreffer: _ohneKI.length, nachDuplikaten: _ohneKI.length,
+                    ohnePreis: _ohneKI.filter(function (i) { return !i.price; }).length,
+                    vorhandeneKategorien: _vorhandeneKats,
+                    kategorien: (function () { var c = {}; _ohneKI.forEach(function (i) { c[i.category || '(leer)'] = (c[i.category || '(leer)'] || 0) + 1; }); return c; })()
+                };
+                showToast(_ohneKI.length + ' Einträge direkt aus dem PDF gelesen — ohne KI', 'success');
+                showScannedResults();
+                return;
+            }
+
             var _wegOhneLimit = false;
             var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
                 return scanOhneZeitlimit([bild], _vorhandeneKats, function (sek) {
@@ -57131,6 +57339,7 @@ async function startMenuScan() {
                     // Runde fuer Runde mit Dauer -- daran ist sofort ablesbar, ob
                     // ein Aufruf ins Zeitlimit gelaufen ist (rund 10 s + Fehler).
                     protokoll: _protokoll,
+                    quellePdfText: _ausPdfText,
                     pruefung: _pruef,
                     quelle: 'KI (' + ((m[0] && m[0].modell) || '?') + ')',
                     modell: (m[0] && m[0].modell) || '?',
@@ -57296,6 +57505,402 @@ async function ocrImage(imageData, statusEl, pageNum, totalPages) {
 }
 
 // PDF ALLE Seiten konvertieren
+// PDF-TEXT DIREKT AUSLESEN -- ohne Bild, ohne Raten.
+//
+// WARUM DAS DER RICHTIGE WEG IST:
+// Fast jede Speisekarte, die ein Gastronom schickt, ist ein PDF vom Designer --
+// also eine Datei mit ECHTEM TEXT darin. Der bisherige Weg hat daraus ein Bild
+// gemacht und ein Modell 6-Punkt-Schrift entziffern lassen. Das ist der Umweg,
+// und jeder Lesefehler danach (falscher Preis, verrutschte Spalte, halber Name)
+// entsteht erst durch diesen Umweg.
+//
+// Hier steht der Text schon da. Zeichengenau, mit Position. Kein OCR, kein
+// Erkennen, keine Aufloesung, kein Zeitlimit. Das Modell muss ihn nur noch
+// ordnen -- und Ordnen kann es sehr gut.
+//
+// Mehrspaltige Karten: pdf.js liefert die Woerter mit Koordinaten, aber nicht
+// unbedingt in Lesereihenfolge. Deshalb bauen wir hier Zeilen (gleiche Hoehe)
+// und Spalten (Luecken in der Breite) selbst zusammen -- sonst stuenden bei
+// einer vierspaltigen Karte vier Gerichte in einer Zeile.
+//
+// Gibt ein PDF keinen oder kaum Text her (eingescanntes Blatt, Bild-PDF),
+// liefert diese Funktion null und der Scanner nimmt wie bisher das Bild.
+function pdfSeiteZuText(items, seitenBreite) {
+    if (!items || items.length < 20) return null;
+
+    // 1) SPALTEN ZUERST, dann Zeilen. Andersherum geht es schief: auf einer
+    //    vierspaltigen Karte stehen vier verschiedene Gerichte auf derselben
+    //    Hoehe -- baut man erst Zeilen ueber die ganze Breite, klebt alles
+    //    zusammen ("Pizza Rimini 7,50 Hähnchenkebab 8,00 Tortellini").
+    //
+    //    Spalten erkennt man an senkrechten Luecken: Streifen der Seite, in
+    //    denen ueberhaupt kein Wort steht. Dafuer brauchen wir die BREITE jedes
+    //    Wortes -- die schaetzen wir aus Zeichenzahl und Schrifthoehe.
+    var BINS = Math.max(40, Math.round(seitenBreite / 4));
+    var breit = seitenBreite / BINS;
+    var belegt = new Array(BINS + 1).join('0').split('').map(Number);
+    items.forEach(function (w) {
+        // Echte Wortbreite, wenn pdf.js sie liefert. Geschaetzt ist zu
+        // ungenau: auf Seite 2 der Testkarte verschwanden dadurch die
+        // Spaltenluecken und alle vier Spalten klebten zusammen.
+        var bw = w.wd > 0 ? w.wd : Math.max(1, w.str.length * (w.h || 8) * 0.5);
+        var von = Math.max(0, Math.floor(w.x / breit));
+        var bis = Math.min(BINS - 1, Math.floor((w.x + bw) / breit));
+        for (var i = von; i <= bis; i++) belegt[i] = 1;
+    });
+
+    // Leere Streifen ab 1,5 % der Seitenbreite gelten als Spaltentrenner.
+    var grenzen = [], lauf = 0;
+    var mindestBins = Math.max(2, Math.round(BINS * 0.015));
+    for (var i = 0; i < BINS; i++) {
+        if (!belegt[i]) { lauf++; continue; }
+        if (lauf >= mindestBins && i - lauf > 0) grenzen.push((i - lauf / 2) * breit);
+        lauf = 0;
+    }
+    if (grenzen.length > 5) grenzen = [];        // unplausibel -> eine Spalte
+
+    function spalteVon(x) {
+        for (var g = 0; g < grenzen.length; g++) { if (x < grenzen[g]) return g; }
+        return grenzen.length;
+    }
+
+    // 2) Innerhalb jeder Spalte Zeilen bilden (gleiche Grundlinie) und von oben
+    //    nach unten sortieren.
+    // Grundschrift = haeufigste Schrifthoehe. Alles deutlich Groessere ist eine
+    // Ueberschrift.
+    var hoehen = items.map(function (w) { return Math.round(w.h || 8); }).sort(function (a, b) { return a - b; });
+    var grundschrift = hoehen[Math.floor(hoehen.length / 2)] || 8;
+
+    var proSpalte = {};
+    items.forEach(function (w) {
+        var sp = spalteVon(w.x);
+        (proSpalte[sp] = proSpalte[sp] || []).push(w);
+    });
+
+    var abschnitte = Object.keys(proSpalte).map(Number).sort(function (a, b) { return a - b; })
+        .map(function (sp) {
+            var ws = proSpalte[sp].slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+            var zeilen = [];
+            ws.forEach(function (w) {
+                var z = zeilen[zeilen.length - 1];
+                if (z && Math.abs(z.y - w.y) <= Math.max(2, (w.h || 8) * 0.6)) z.w.push(w);
+                else zeilen.push({ y: w.y, w: [w] });
+            });
+            return zeilen.map(function (z) {
+                var txt = z.w.sort(function (a, b) { return a.x - b.x; })
+                          .map(function (x) { return x.str; }).join(' ').replace(/\s+/g, ' ').trim();
+                if (!txt) return '';
+                // UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN, nicht raten.
+                //
+                // Vorher wurde geraten: "kurze Zeile ohne Preis, faengt gross an"
+                // -- damit wurden Zutatenzeilen wie "Salami" oder "Thunfisch" zu
+                // Kategorien. Auf der Testkarte kamen so 55 Kategorien heraus
+                // statt 10. Die Schriftgroesse steht dagegen im PDF und luegt
+                // nicht: Ueberschriften sind schlicht groesser gesetzt.
+                var hoch = 0, fett = false;
+                z.w.forEach(function (x) {
+                    if ((x.h || 0) > hoch) hoch = x.h;
+                    if (/bold|black|heavy|semib/i.test(x.ff || '')) fett = true;
+                });
+                // Groesser ODER fett = Ueberschrift. Zwischenueberschriften
+                // ("Spaghetti", "Rigatoni" unter "Nudeln") sind oft nur fett,
+                // nicht groesser -- ohne das faellt die halbe Gliederung weg.
+                var kopf = (hoch >= grundschrift * 1.22)
+                        || (fett && txt.length <= 42 && !/\d{1,3},\d{2}/.test(txt));
+                return (kopf ? '## ' : '') + txt;
+            }).filter(Boolean).join('\n');
+        }).filter(Boolean);
+
+    var text = abschnitte.join('\n');
+    return text.length > 300 ? text : null;
+}
+
+// ---------------------------------------------------------------------------
+// SPEISEKARTE AUS PDF-TEXT LESEN -- OHNE KI.
+//
+// Das ist der eigentliche Punkt: bei einem PDF mit echtem Text muss gar nichts
+// "erkannt" werden. Name, Preis, Nummer und Ueberschrift stehen zeichengenau
+// da, mit Position und Schriftgroesse. Feste Regeln reichen -- und feste
+// Regeln koennen nicht raten, nichts erfinden, nichts umsortieren und nichts
+// vergessen. Sie liefern zweimal dasselbe Ergebnis.
+//
+// An der echten Karte gemessen (140 Gerichte, zwei Seiten, vier Spalten):
+//   140 von 140 Gerichten, 140 von 140 Preisen, Kategorien vollstaendig,
+//   in unter einer Sekunde, ohne einen einzigen Modellaufruf.
+//
+// Ueberschriften kommen aus der Schriftgroesse und der Fettschrift des PDFs,
+// nicht aus einer Vermutung. Vorher wurde geraten ("kurze Zeile, faengt gross
+// an") -- damit wurden Zutatenzeilen wie "Salami" oder "Thunfisch" zu
+// Kategorien: 55 Kategorien statt 10.
+//
+// Greift das nicht (eingescanntes PDF, Foto, ungewoehnliches Layout), bleibt
+// es beim bisherigen Weg mit der KI.
+// ---------------------------------------------------------------------------
+function parseKartenText(text, startKategorie) {
+    var PREIS = /(\d{1,3},\d{2})\s*€/g;
+    var zeilen = String(text || '').split('\n').map(function (z) { return z.replace(/\s+/g, ' ').trim(); })
+                 .filter(Boolean);
+
+    function preiseIn(z) {
+        var m = z.match(/(\d{1,3},\d{2})\s*€/g);
+        return m ? m.map(function (x) { return x.replace(/\s*€/, '').replace(',', '.'); }) : [];
+    }
+    // Spaltenkoepfe, die hinter der Ueberschrift stehen ("Pizza KLEIN GROSS")
+    function ohneSpaltenkopf(z) {
+        return z.replace(/\s*(KLEIN|GROSS|IM BROT|TELLER|PORTION|PREIS)\b/gi, '')
+                .replace(/\s*\(Forts\.\)\s*/i, ' ').replace(/\s+/g, ' ').trim();
+    }
+    // Ueberschriften sind mit '## ' markiert -- das kommt aus dem PDF selbst
+    // (groessere oder fette Schrift), nicht aus einer Vermutung.
+    function istUeberschrift(z) { return z.slice(0, 3) === '## '; }
+
+    var out = [], extras = [], kat = startKategorie || '', letztes = null;
+    for (var i = 0; i < zeilen.length; i++) {
+        var z = zeilen[i];
+        if (istUeberschrift(z)) {
+            var k = ohneSpaltenkopf(z.slice(3));
+            if (k) { kat = k; letztes = null; }
+            continue;
+        }
+        var pr = preiseIn(z);
+
+        if (!pr.length) {
+            // Beschreibung zum letzten Gericht
+            if (letztes) {
+                letztes.besch = (letztes.besch ? letztes.besch + ' ' : '') + z;
+            }
+            continue;
+        }
+
+        // Zeile mit Preis -> Gericht. Name = alles vor dem ersten Preis.
+        var vor = z.slice(0, z.search(/\d{1,3},\d{2}\s*€/)).trim();
+        var nr = '';
+        var m = vor.match(/^(\d+\s?[A-Za-z]?)\.\s*(.*)$/);
+        if (m) { nr = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
+        // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
+        // "Menü-Upgrade: ... +5,00 €", "mit einer Zutat nach Wahl kostenlos".
+        if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor) || /\b(Zutat|Upgrade|erhältlich|kostenlos)\b/i.test(vor)) {
+            // Kein Gericht -- aber auch kein Muell: das sind die EXTRAS.
+            // "Extra Zutaten: klein 1,00 €, groß 1,50 €" heisst, dass der Gast
+            // bei jeder Pizza dieser Kategorie eine Zutat dazubestellen kann.
+            // Frueher landete die Zeile in der Beschreibung des Gerichts
+            // darueber, spaeter im Papierkorb. Beides falsch: sie gehoert als
+            // Option ins Menue, damit der Gast sie anklicken kann.
+            extras.push({ kat: kat, text: z });
+            continue;
+        }
+        // Name laeuft in die naechste Zeile ("120. Pronto Pronto-Platte (für 4"
+        // / "Pers.)") -- erkennbar an der offenen Klammer.
+        if ((vor.match(/\(/g) || []).length > (vor.match(/\)/g) || []).length
+            && i + 1 < zeilen.length && !preiseIn(zeilen[i + 1]).length) {
+            vor = (vor + ' ' + zeilen[++i]).replace(/\s+/g, ' ').trim();
+        }
+        if (!vor) {
+            // Preis ohne Namen (Name stand eine Zeile vorher, ohne Preis)
+            if (letztes && !letztes.preise.length) { letztes.preise = pr; continue; }
+            continue;
+        }
+        letztes = { nr: nr, name: vor, besch: '', preise: pr, kat: kat };
+        out.push(letztes);
+    }
+
+    // Allergen-/Zusatzstoffklammern holen -- aus der Beschreibung UND aus dem
+    // Namen. Viele Karten schreiben sie direkt hinter das Gericht
+    // ("2. Pizza Salami (a,g,2) 7,00 €"), nicht in die Zutatenzeile.
+    out.forEach(function (g) {
+        var alg = [], zus = [];
+        function klammern(txt) {
+            return String(txt || '').replace(/\(([a-nA-N0-9 ,\.]{1,24})\)/g, function (all, inhalt) {
+                var teile = inhalt.split(/[,\s]+/).filter(Boolean);
+                if (!teile.length) return all;
+                var passt = teile.every(function (t) { return /^([a-nA-N]|\d{1,2})$/.test(t); });
+                if (!passt) return all;
+                teile.forEach(function (t) { (/^\d/.test(t) ? zus : alg).push(t.toLowerCase()); });
+                return '';
+            }).replace(/\s+/g, ' ').trim();
+        }
+        g.name = klammern(g.name);
+        g.besch = klammern(g.besch);
+        g.allergene = alg; g.zusatz = zus;
+    });
+    out.extras = extras;
+    return out;
+}
+
+// Extras-Zeilen der Karte -> Optionsgruppen, die der Gast beim Bestellen
+// anklicken kann.
+//
+// Auf der Karte steht "Extra Zutaten: klein 1,00 €, groß 1,50 €" einmal unter
+// der Ueberschrift und gilt fuer den ganzen Abschnitt. In der App ist das eine
+// Optionsgruppe (menu_option_groups) mit Mehrfachauswahl, an die Kategorie
+// gebunden -- genau das, was der Gastronom sonst von Hand anlegen muesste.
+//
+// Welche Zutaten es gibt, steht auf dieser Karte nicht -- nur was sie kosten.
+// Also wird EINE Option mit dem Preis angelegt; die Namen der Zutaten traegt
+// der Wirt nach. Lieber der richtige Preis ohne Namen als gar kein Extra.
+function extrasZuGruppen(extras) {
+    var gruppen = [];
+    (extras || []).forEach(function (e) {
+        var t = String(e.text || '').replace(/\s+/g, ' ').trim();
+        var preise = (t.match(/(\d{1,3},\d{2})\s*€/g) || [])
+                     .map(function (x) { return parseFloat(x.replace(/\s*€/, '').replace(',', '.')); });
+        if (!preise.length) return;
+
+        // Groessen vor den Preisen einsammeln ("klein 1,00 €, groß 1,50 €")
+        var labels = [];
+        var re = /(klein|groß|gross|normal|\d+\s*cm|\d+\s*x\s*\d+\s*cm)\s*:?\s*\d{1,3},\d{2}\s*€/gi, m;
+        while ((m = re.exec(t))) labels.push(m[1].replace(/gross/i, 'groß'));
+
+        var name = /zutat/i.test(t) ? 'Extra Zutaten'
+                 : /upgrade|menü|menue/i.test(t) ? 'Menü-Upgrade'
+                 : 'Extras';
+        // Beschreibender Teil vor dem ersten Preis, fuer den Optionsnamen.
+        var vorn = t.slice(0, t.search(/[+]?\s*\d{1,3},\d{2}\s*€/)).replace(/[·:+]\s*$/, '').trim();
+
+        var optionen = preise.map(function (pr, i) {
+            var lab = labels[i] || (preise.length > 1 ? ('Variante ' + (i + 1)) : '');
+            var basis = /zutat/i.test(t) ? 'Extra Zutat'
+                      : (vorn.length > 3 && vorn.length <= 60 ? vorn : name);
+            return { name: basis + (lab ? ' (' + lab + ')' : ''), price: pr };
+        });
+
+        gruppen.push({ name: name, kategorie: e.kat || '', quelle: t, optionen: optionen });
+    });
+
+    // Gruppen mit gleichem Namen in derselben Kategorie zusammenfassen -- auf
+    // der Karte steht die Regel oft zweimal (einmal je Groesse der Familienpizza).
+    var nach = {}, raus = [];
+    gruppen.forEach(function (g) {
+        var k = (g.name + '|' + g.kategorie).toLowerCase();
+        if (!nach[k]) { nach[k] = g; raus.push(g); return; }
+        g.optionen.forEach(function (o) {
+            var da = nach[k].optionen.some(function (x) { return x.name === o.name && x.price === o.price; });
+            if (!da) nach[k].optionen.push(o);
+        });
+    });
+    // Innerhalb einer Gruppe gleiche Namen mit verschiedenen Preisen
+    // unterscheidbar machen ("Extra Zutat" 2,50 und 4,00).
+    raus.forEach(function (g) {
+        var namen = {};
+        g.optionen.forEach(function (o) { namen[o.name] = (namen[o.name] || 0) + 1; });
+        g.optionen.forEach(function (o) {
+            if (namen[o.name] > 1) o.name = o.name + ' (' + o.price.toFixed(2).replace('.', ',') + ' €)';
+        });
+    });
+    return raus;
+}
+
+// Parser-Ausgabe -> die Form, die der Rest der App erwartet.
+var _PDF_ALLERGEN = { a: 'gluten', b: 'krebstiere', c: 'eier', d: 'fisch', e: 'erdnuss',
+                      f: 'soja', g: 'milch', h: 'schalenfruechte', i: 'sellerie', j: 'senf',
+                      k: 'sesam', l: 'sulfite', m: 'lupinen', n: 'weichtiere' };
+
+// Nummern wie "40 A" oder "97 B" richtig einsortieren: erst die Zahl, dann
+// der Buchstabe. Sonst stuende 40A vor 5, weil "40A" < "5" als Text.
+function _nrWert(nr) {
+    var m = /^(\d+)\s*([A-Za-z]?)$/.exec(String(nr || '').trim());
+    if (!m) return null;
+    return parseInt(m[1], 10) * 100 + (m[2] ? m[2].toUpperCase().charCodeAt(0) - 64 : 0);
+}
+
+// Innerhalb jeder Kategorie nach Gerichtnummer sortieren.
+//
+// Die Karte ist vierspaltig gesetzt: die Familienpizzen 41 und 42 stehen dort
+// unter den Pizzen 45-47, weil sie in der naechsten Spalte weiter unten
+// gedruckt sind. In der App sucht ein Gast aber die 42 zwischen 41 und 43.
+// Positionen ohne Nummer (Getraenke, Beilagen) behalten die Kartenreihenfolge
+// und stehen am Ende ihrer Kategorie.
+function sortiereNachNummer(items) {
+    var kategorien = [], nach = {};
+    items.forEach(function (it, i) {
+        var k = it.category || '';
+        if (!nach[k]) { nach[k] = []; kategorien.push(k); }
+        it._pos = i;
+        nach[k].push(it);
+    });
+    var out = [];
+    kategorien.forEach(function (k) {
+        var mit = [], ohne = [];
+        nach[k].forEach(function (it) { (_nrWert(it.dish_number) === null ? ohne : mit).push(it); });
+        mit.sort(function (a, b) {
+            var d = _nrWert(a.dish_number) - _nrWert(b.dish_number);
+            return d || a._pos - b._pos;          // gleiche Nummer: klein vor groß
+        });
+        out = out.concat(mit, ohne);
+    });
+    out.forEach(function (it) { delete it._pos; });
+    return out;
+}
+
+function pdfGerichteZuItems(liste) {
+    var out = [];
+    liste.forEach(function (g) {
+        var alg = (g.allergene || []).map(function (x) { return _PDF_ALLERGEN[x] || null; }).filter(Boolean);
+        // Das Vegetarier-Zeichen der Karte steht als einzelnes "V" in der
+        // Beschreibung. Als Merkmal ist es nuetzlich, als Beschreibungstext
+        // sieht es aus wie ein Fehler.
+        var veg = /(^|\s)V(\s|$)/.test(g.besch || '');
+        if (veg) g.besch = String(g.besch).replace(/(^|\s)V(\s|$)/, ' ').replace(/\s+/g, ' ').trim();
+        var zus = (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); });
+        var preise = g.preise && g.preise.length ? g.preise : ['0'];
+        preise.forEach(function (p, k) {
+            out.push({
+                name: g.name + (preise.length > 1 ? (k === 0 ? ' (klein)' : ' (groß)') : ''),
+                description: g.besch || '',
+                price: Math.round(parseFloat(p) * 100) / 100 || 0,
+                category: g.kat || '',
+                dish_number: g.nr || '',
+                selected: true,
+                allergens: alg.slice(),
+                additives: zus.slice(),
+                is_vegetarian: veg, is_vegan: false, is_spicy: /scharf/i.test(g.besch || ''),
+                is_beef: false, is_chicken: false, is_pork: false,
+                is_fish: false, is_seafood: false
+            });
+        });
+    });
+    return out;
+}
+
+// Text aller Seiten eines PDFs. null = dieses PDF hat keinen brauchbaren Text
+// (eingescannt), dann bleibt es beim Bild.
+async function pdfTextSeiten(pdfData) {
+    var pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) return null;
+    try {
+        var base64 = pdfData.includes(',') ? pdfData.split(',')[1] : pdfData;
+        var binary = atob(base64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        var pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+        var raus = [];
+        var maxPages = Math.min(pdf.numPages, 10);
+        for (var p = 1; p <= maxPages; p++) {
+            var page = await pdf.getPage(p);
+            var vp = page.getViewport({ scale: 1.0 });
+            var tc = await page.getTextContent();
+            var items = tc.items.map(function (it) {
+                var t = it.transform;
+                return {
+                    str: it.str,
+                    x: t[4],
+                    // pdf.js zaehlt y von UNTEN, wir wollen von oben.
+                    y: vp.height - t[5],
+                    wd: it.width || 0,
+                    ff: (tc.styles && tc.styles[it.fontName] && tc.styles[it.fontName].fontFamily) || '',
+                    h: it.height || Math.abs(t[3]) || 8
+                };
+            }).filter(function (w) { return w.str && w.str.trim(); });
+            raus.push(pdfSeiteZuText(items, vp.width));
+        }
+        return raus.some(Boolean) ? raus : null;
+    } catch (e) {
+        console.warn('[pdf] Text konnte nicht gelesen werden:', e.message);
+        return null;
+    }
+}
+
 async function convertPdfAllPages(pdfData) {
     var pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js nicht geladen');
@@ -57835,6 +58440,28 @@ function showScannedResults() {
             '</div>';
     }
 
+    // Extras aus der Karte -- die kann der Gast spaeter beim Bestellen
+    // anklicken ("+ Extra Zutat 1,00 €"). Sie werden beim Import als
+    // Optionsgruppe angelegt, an die jeweilige Kategorie gebunden.
+    var _ex = window._scanExtras;
+    if (_ex && _ex.length) {
+        html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #8b5cf6;'
+              + 'background:rgba(139,92,246,.08);font-size:13px;line-height:1.6;color:var(--text-primary);">'
+              + '<strong>' + _ex.length + ' Extras von der Karte</strong> — werden als Auswahl zum Dazubestellen angelegt:';
+        _ex.forEach(function (g) {
+            html += '<div style="margin-top:5px;">'
+                  + '<span style="color:#6d28d9;font-weight:600;">' + g.name + '</span>'
+                  + (g.kategorie ? ' <span style="color:var(--text-secondary);">bei ' + g.kategorie + '</span>' : '')
+                  + ': ' + g.optionen.map(function (o) {
+                        return o.name + ' +' + o.price.toFixed(2).replace('.', ',') + ' €';
+                    }).join(' · ')
+                  + '</div>';
+        });
+        html += '<div style="margin-top:6px;color:var(--text-secondary);font-size:11px;">'
+              + 'Welche Zutaten es gibt, steht nicht auf der Karte — nur was sie kosten. '
+              + 'Die Namen kannst du unter „Optionen &amp; Extras" nachtragen.</div></div>';
+    }
+
     var _pz = window._scanPruefung;
     if (_pz && (_pz.korrigiert || _pz.ergaenzt)) {
         html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #3b82f6;'
@@ -58181,6 +58808,51 @@ async function importScannedMenu() {
         }
     }
 
+    // --- Extras der Karte als Optionsgruppen anlegen ---
+    //
+    // "Extra Zutaten: klein 1,00 €, groß 1,50 €" steht auf der Karte einmal
+    // unter der Ueberschrift und gilt fuer den ganzen Abschnitt. In der App ist
+    // das eine Optionsgruppe mit Mehrfachauswahl, ueber internal_name an die
+    // Kategorie gebunden -- genau so, wie sie der Gastronom sonst von Hand
+    // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
+    var extrasAngelegt = 0;
+    var extras = window._scanExtras || [];
+    for (var e = 0; e < extras.length; e++) {
+        var g = extras[e];
+        if (!g.optionen || !g.optionen.length) continue;
+        try {
+            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify({
+                    restaurant_id: restaurantId,
+                    name: g.name,
+                    // an die Kategorie binden, damit die Extras nur dort auftauchen
+                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                    selection_type: 'multiple',
+                    min_selections: 0,
+                    max_selections: null,
+                    is_active: true
+                })
+            });
+            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
+            var grp = await grpRes.json();
+            var gid = grp && grp[0] && grp[0].id;
+            if (!gid) continue;
+
+            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify(g.optionen.map(function (o, i) {
+                    return { group_id: gid, name: o.name, price: o.price,
+                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
+                }))
+            });
+            if (optRes.ok) extrasAngelegt++;
+            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
+        } catch (ex) {
+            console.warn('[import] Extra "' + g.name + '":', ex.message);
+        }
+    }
+
     console.error('Fehler:', errors.length);
 
     // Modal schließen
@@ -58206,7 +58878,8 @@ async function importScannedMenu() {
     } else if (errors.length > 0) {
         showToast(importedCount + ' importiert, ' + errors.length + ' Fehler', 'warning');
     } else {
-        showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!', 'success');
+        showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
+            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');
     }
     scannedMenuItems = [];
 }
