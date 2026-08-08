@@ -1,6 +1,11 @@
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
-var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8');
+// Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
+// lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
+// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
+// muessen deshalb BEIDE Dateien sehen.
+var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
+      + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 
 // ---- Prompt: nur ablesen ----
@@ -46,7 +51,9 @@ t('Leerzeichen zaehlen als leer',
   r3[0].category === 'Sonstiges' && r3[2].category === 'Suppen',
   JSON.stringify(r3.map(function(x){return x.category;})));
 
+// Beide Wege liefern eine Liste je Seite in Seitenreihenfolge -- darauf beruht
+// die Kategorie-Fortschreibung ueber Seitengrenzen hinweg.
 t('Seitenreihenfolge ist Voraussetzung -- dokumentiert',
-  /in Seitenreihenfolge zusammenfuegen/.test(h));
+  /BEIDE WEGE liefern dasselbe: eine Liste pro Seite/.test(h));
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);

@@ -26,6 +26,7 @@ var HAELFTEN = [
     return sse(JSON.stringify(payload));
   };
   delete require.cache[require.resolve(P)];
+  delete require.cache[require.resolve('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js')];
   var handler = require(P).handler;
 
   // 1) Jede Haelfte einzeln durch die echte Server-Function

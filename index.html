@@ -56819,6 +56819,66 @@ async function holeAbschnitte(bild, kategorien) {
     return (a && Array.isArray(a.abschnitte)) ? a.abschnitte : [];
 }
 
+// DER EINFACHE WEG: ein Aufruf, die ganze Karte -- so wie im Chat.
+//
+// Alles andere in dieser Datei (Abschnitte, Runden, Zaehlen, Fortsetzen)
+// existiert nur, weil eine normale Netlify-Function nach 10 Sekunden
+// abgeschnitten wird. Eine Background-Function darf 15 Minuten laufen. Damit
+// faellt der ganze Aufwand weg: hinschicken, warten, fertig.
+//
+// Der Browser bekommt das Ergebnis nicht direkt zurueck -- die Function
+// antwortet sofort mit 202 und arbeitet danach weiter. Also fragen wir alle
+// zwei Sekunden nach dem Stand.
+//
+// Kann Netlify keine Background-Functions (aeltere Plaene), kommt 404 zurueck.
+// Dann nimmt die App den bisherigen Weg. Deshalb gibt es beide.
+async function scanOhneZeitlimit(bilder, kategorien, aufStatus) {
+    var jobId = 'scan-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+
+    var res;
+    try {
+        res = await fetch('/.netlify/functions/menu-scan-background', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: jobId, images: bilder, categories: kategorien })
+        });
+    } catch (e) {
+        return null;                       // nicht erreichbar -> alter Weg
+    }
+    // 202 = angenommen und laeuft. Alles andere heisst: dieser Weg geht hier
+    // nicht (404 auf Plaenen ohne Background-Functions).
+    if (res.status !== 202) return null;
+
+    var start = new Date().getTime();
+    var MAX_MS = 10 * 60 * 1000;
+    var runde = 0;
+    while (new Date().getTime() - start < MAX_MS) {
+        await new Promise(function (r) { setTimeout(r, runde < 5 ? 1500 : 3000); });
+        runde++;
+        var st;
+        try {
+            var r2 = await fetch('/.netlify/functions/menu-scan-status?job=' + encodeURIComponent(jobId),
+                                 { cache: 'no-store' });
+            st = await r2.json();
+        } catch (e) { continue; }          // Netzhaenger: einfach weiter fragen
+
+        if (!st || !st.ok) continue;
+        if (st.status === 'fertig') {
+            return { items: st.items || [], meta: st.meta || {},
+                     dauer: new Date().getTime() - start };
+        }
+        if (st.status === 'fehler') {
+            window._lastMenuScanError = st.fehler || 'unbekannt';
+            return { items: [], meta: st.meta || {}, fehler: st.fehler };
+        }
+        if (aufStatus) {
+            aufStatus(Math.round((new Date().getTime() - start) / 1000));
+        }
+    }
+    window._lastMenuScanError = 'Zeitüberschreitung beim Warten auf den Scan';
+    return { items: [], fehler: 'Zeitüberschreitung' };
+}
+
 async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
     var t0 = new Date().getTime();
     var abschnitte = [];
@@ -56948,28 +57008,52 @@ async function startMenuScan() {
                     + (images.length > 1 ? ' (' + images.length + ' Seiten)' : '');
             }
 
+            // BEIDE WEGE liefern dasselbe: eine Liste pro Seite. So braucht
+            // alles danach (Kategorie-Fortschreibung, Pruefung, Bericht) keine
+            // Fallunterscheidung.
+            //
+            // Weg 1 ist der einfache: ein Aufruf pro Seite, ohne Zeitlimit,
+            // ganze Seite am Stueck -- so wie eine Karte im Chat gelesen wird.
+            // Weg 2 (Abschnitte und Runden) ist nur die Rueckfallebene fuer den
+            // Fall, dass Netlify keine Background-Functions kann.
+            var _wegOhneLimit = false;
             var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
-                return scanSeiteParallel(bild, _vorhandeneKats, function (n, hinweis) {
-                    _proSeite[si] = n;
-                    if (hinweis) { statusEl.textContent = '\u23F3 ' + hinweis; return; }
-                    _zeigeFortschritt();
-                }).catch(function (e) {
-                    return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: 'FEHLER: ' + e.message }], fehler: e.message };
-                });
+                return scanOhneZeitlimit([bild], _vorhandeneKats, function (sek) {
+                    _proSeite[si] = -1;
+                    statusEl.textContent = images.length > 1
+                        ? ('\u{1F916} KI liest ' + images.length + ' Seiten am Stück… (' + sek + ' s)')
+                        : ('\u{1F916} KI liest die Karte am Stück… (' + sek + ' s)');
+                }).catch(function () { return null; });
             }));
-            // WICHTIG: in Seitenreihenfolge zusammenfuegen. Promise.all liefert
-            // die Ergebnisse in der Reihenfolge der Anfragen, nicht in der
-            // Reihenfolge des Eintreffens -- darauf beruht der naechste Schritt.
-            var _ersterFehler = null;
-            teilErgebnisse.forEach(function (part, si) {
-                if (!_ersterFehler && part.fehler) _ersterFehler = part.fehler;
-                (part.protokoll || []).forEach(function (r) {
-                    _protokoll.push('S' + (si + 1) + ' R' + r.runde + ': ' + r.neu + ' neu, '
-                                    + Math.round(r.ms / 100) / 10 + 's, ' + r.status);
+
+            if (teilErgebnisse.some(function (x) { return x && x.items && x.items.length; })) {
+                _wegOhneLimit = true;
+                teilErgebnisse = teilErgebnisse.map(function (x, si) {
+                    var n = (x && x.items) ? x.items.length : 0;
+                    return {
+                        items: (x && x.items) || [],
+                        fehler: x && x.fehler,
+                        protokoll: [{ runde: 1, ms: (x && x.dauer) || 0, neu: n,
+                                      status: 'am Stück, ohne Zeitlimit' }]
+                    };
                 });
-                if (part.items && part.items.length) aiItems = aiItems.concat(part.items);
-                else failedPages++;
-            });
+                var _m0 = teilErgebnisse.length && window._scanMeta;
+                _protokoll.push('Ein Aufruf pro Seite, ohne Zeitlimit');
+            } else {
+                // Rueckfall: Abschnitte und Runden unter dem 10-Sekunden-Limit.
+                _protokoll.push(teilErgebnisse.some(Boolean)
+                    ? 'Weg ohne Zeitlimit lieferte nichts — nehme Abschnitte und Runden'
+                    : 'Weg ohne Zeitlimit hier nicht verfügbar — nehme Abschnitte und Runden');
+                teilErgebnisse = await Promise.all(images.map(function (bild, si) {
+                    return scanSeiteParallel(bild, _vorhandeneKats, function (n, hinweis) {
+                        _proSeite[si] = n;
+                        if (hinweis) { statusEl.textContent = '\u23F3 ' + hinweis; return; }
+                        _zeigeFortschritt();
+                    }).catch(function (e) {
+                        return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: 'FEHLER: ' + e.message }], fehler: e.message };
+                    });
+                }));
+            }
 
             // Zweiter Blick, Seite fuer Seite und parallel.
             var _pruef = { korrigiert: 0, ergaenzt: 0, sauber: 0 };
