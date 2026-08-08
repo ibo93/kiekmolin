@@ -56575,6 +56575,13 @@ function gerichte(liste) {
     return Object.keys(s).length;
 }
 
+// Eine Quelle ist entweder ein Bild (data:...) oder fertiger Text aus einem
+// PDF. Text ist immer besser: er ist zeichengenau, das Modell muss ihn nur
+// noch ordnen statt ihn zu entziffern.
+function quelleZuAnfrage(q) {
+    return (typeof q === 'string' && q.slice(0, 5) === 'data:') ? { images: [q] } : { text: q };
+}
+
 async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt, soll) {
     var alle = [], gesehen = {}, weiter = null, protokoll = [], fehler = null;
     var MAX_RUNDEN = 20;                       // Notbremse gegen Endlosschleifen
@@ -56583,7 +56590,8 @@ async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt, so
 
     for (var runde = 1; runde <= MAX_RUNDEN; runde++) {
         var t0 = new Date().getTime();
-        var a = await aiMenuScan({ images: [bild], categories: kategorien, weiter: weiter, abschnitt: abschnitt || undefined });
+        var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild),
+            { categories: kategorien, weiter: weiter, abschnitt: abschnitt || undefined }));
         var ms = new Date().getTime() - t0;
 
         if (!a) {
@@ -56758,10 +56766,8 @@ function zeileAusItem(it) {
 async function pruefeSeite(bild, items, kategorien) {
     if (!items || !items.length) return { korrigiert: 0, ergaenzt: 0, ms: 0 };
     var t0 = new Date().getTime();
-    var a = await aiMenuScan({
-        images: [bild], categories: kategorien,
-        pruefen: items.map(zeileAusItem)
-    });
+    var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild),
+        { categories: kategorien, pruefen: items.map(zeileAusItem) }));
     var ms = new Date().getTime() - t0;
     if (!a) return { korrigiert: 0, ergaenzt: 0, ms: ms, fehler: window._lastMenuScanError };
 
@@ -56815,7 +56821,7 @@ async function pruefeSeite(bild, items, kategorien) {
 // Findet der erste Aufruf keine Ueberschriften (kurze Karte, Foto ohne
 // erkennbare Gliederung), laeuft alles wie bisher am Stueck weiter.
 async function holeAbschnitte(bild, kategorien) {
-    var a = await aiMenuScan({ images: [bild], categories: kategorien, ueberschriften: true });
+    var a = await aiMenuScan(Object.assign(quelleZuAnfrage(bild), { categories: kategorien, ueberschriften: true }));
     return (a && Array.isArray(a.abschnitte)) ? a.abschnitte : [];
 }
 
@@ -56840,7 +56846,8 @@ async function scanOhneZeitlimit(bilder, kategorien, aufStatus) {
         res = await fetch('/.netlify/functions/menu-scan-background', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId: jobId, images: bilder, categories: kategorien })
+            body: JSON.stringify(Object.assign({ jobId: jobId, categories: kategorien },
+                (bilder.length === 1 ? quelleZuAnfrage(bilder[0]) : { images: bilder })))
         });
     } catch (e) {
         return null;                       // nicht erreichbar -> alter Weg
@@ -56906,7 +56913,7 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
     // Wartezeit; das Ergebnis wird erst am Ende jeder Runde gebraucht.
     var sollZahlen = {};
     var sollLauf = Promise.all(abschnitte.map(function (name) {
-        return aiMenuScan({ images: [bild], zaehlen: name })
+        return aiMenuScan(Object.assign(quelleZuAnfrage(bild), { zaehlen: name }))
             .then(function (a) { if (a && a.anzahl) sollZahlen[name] = a.anzahl; })
             .catch(function () {});
     }));
@@ -56956,6 +56963,7 @@ async function startMenuScan() {
     var statusEl = document.getElementById('menuScanStatus');
 
     var _scanFehlerGrund = null;
+    var _ausPdfText = false;
 
     try {
         window._scanQuelleOCR = null;
@@ -56963,8 +56971,24 @@ async function startMenuScan() {
         statusEl.textContent = '🤖 KI liest die Speisekarte...';
         var images = [];
         if (menuScanFileType === 'pdf') {
-            statusEl.textContent = 'PDF wird vorbereitet...';
-            try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
+            // ZUERST den echten Text aus dem PDF holen.
+            //
+            // Fast jede Karte, die ein Gastronom schickt, ist ein PDF vom
+            // Designer -- also eine Datei mit echtem Text. Daraus ein Bild zu
+            // machen und ein Modell 6-Punkt-Schrift entziffern zu lassen, ist
+            // der Umweg, und jeder Lesefehler danach entsteht erst dadurch.
+            // Mit dem Text stimmen Preise und Namen zeichengenau.
+            statusEl.textContent = 'PDF wird gelesen...';
+            var _pdfText = null;
+            try { _pdfText = await pdfTextSeiten(menuScanImageData); } catch (e) { _pdfText = null; }
+            if (_pdfText && _pdfText.some(Boolean)) {
+                images = _pdfText.filter(Boolean);
+                _ausPdfText = true;
+                statusEl.textContent = 'Text aus PDF gelesen (' + images.length + ' Seiten) — KI ordnet ihn…';
+            } else {
+                statusEl.textContent = 'PDF wird vorbereitet...';
+                try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
+            }
         } else {
             // Bild optimieren (Aufloesung begrenzen); nur extrem lange Fotos
             // werden in 2 Haelften geteilt — sonst GANZES Bild am Stueck.
@@ -57016,6 +57040,7 @@ async function startMenuScan() {
             // ganze Seite am Stueck -- so wie eine Karte im Chat gelesen wird.
             // Weg 2 (Abschnitte und Runden) ist nur die Rueckfallebene fuer den
             // Fall, dass Netlify keine Background-Functions kann.
+            if (_ausPdfText) _protokoll.push('Text direkt aus dem PDF gelesen — kein Bild, keine Zeichenerkennung');
             var _wegOhneLimit = false;
             var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
                 return scanOhneZeitlimit([bild], _vorhandeneKats, function (sek) {
@@ -57131,6 +57156,7 @@ async function startMenuScan() {
                     // Runde fuer Runde mit Dauer -- daran ist sofort ablesbar, ob
                     // ein Aufruf ins Zeitlimit gelaufen ist (rund 10 s + Fehler).
                     protokoll: _protokoll,
+                    quellePdfText: _ausPdfText,
                     pruefung: _pruef,
                     quelle: 'KI (' + ((m[0] && m[0].modell) || '?') + ')',
                     modell: (m[0] && m[0].modell) || '?',
@@ -57296,6 +57322,126 @@ async function ocrImage(imageData, statusEl, pageNum, totalPages) {
 }
 
 // PDF ALLE Seiten konvertieren
+// PDF-TEXT DIREKT AUSLESEN -- ohne Bild, ohne Raten.
+//
+// WARUM DAS DER RICHTIGE WEG IST:
+// Fast jede Speisekarte, die ein Gastronom schickt, ist ein PDF vom Designer --
+// also eine Datei mit ECHTEM TEXT darin. Der bisherige Weg hat daraus ein Bild
+// gemacht und ein Modell 6-Punkt-Schrift entziffern lassen. Das ist der Umweg,
+// und jeder Lesefehler danach (falscher Preis, verrutschte Spalte, halber Name)
+// entsteht erst durch diesen Umweg.
+//
+// Hier steht der Text schon da. Zeichengenau, mit Position. Kein OCR, kein
+// Erkennen, keine Aufloesung, kein Zeitlimit. Das Modell muss ihn nur noch
+// ordnen -- und Ordnen kann es sehr gut.
+//
+// Mehrspaltige Karten: pdf.js liefert die Woerter mit Koordinaten, aber nicht
+// unbedingt in Lesereihenfolge. Deshalb bauen wir hier Zeilen (gleiche Hoehe)
+// und Spalten (Luecken in der Breite) selbst zusammen -- sonst stuenden bei
+// einer vierspaltigen Karte vier Gerichte in einer Zeile.
+//
+// Gibt ein PDF keinen oder kaum Text her (eingescanntes Blatt, Bild-PDF),
+// liefert diese Funktion null und der Scanner nimmt wie bisher das Bild.
+function pdfSeiteZuText(items, seitenBreite) {
+    if (!items || items.length < 20) return null;
+
+    // 1) SPALTEN ZUERST, dann Zeilen. Andersherum geht es schief: auf einer
+    //    vierspaltigen Karte stehen vier verschiedene Gerichte auf derselben
+    //    Hoehe -- baut man erst Zeilen ueber die ganze Breite, klebt alles
+    //    zusammen ("Pizza Rimini 7,50 Hähnchenkebab 8,00 Tortellini").
+    //
+    //    Spalten erkennt man an senkrechten Luecken: Streifen der Seite, in
+    //    denen ueberhaupt kein Wort steht. Dafuer brauchen wir die BREITE jedes
+    //    Wortes -- die schaetzen wir aus Zeichenzahl und Schrifthoehe.
+    var BINS = Math.max(40, Math.round(seitenBreite / 4));
+    var breit = seitenBreite / BINS;
+    var belegt = new Array(BINS + 1).join('0').split('').map(Number);
+    items.forEach(function (w) {
+        var bw = Math.max(1, (w.str.length * (w.h || 8) * 0.5));
+        var von = Math.max(0, Math.floor(w.x / breit));
+        var bis = Math.min(BINS - 1, Math.floor((w.x + bw) / breit));
+        for (var i = von; i <= bis; i++) belegt[i] = 1;
+    });
+
+    // Leere Streifen ab 1,5 % der Seitenbreite gelten als Spaltentrenner.
+    var grenzen = [], lauf = 0;
+    var mindestBins = Math.max(2, Math.round(BINS * 0.015));
+    for (var i = 0; i < BINS; i++) {
+        if (!belegt[i]) { lauf++; continue; }
+        if (lauf >= mindestBins && i - lauf > 0) grenzen.push((i - lauf / 2) * breit);
+        lauf = 0;
+    }
+    if (grenzen.length > 5) grenzen = [];        // unplausibel -> eine Spalte
+
+    function spalteVon(x) {
+        for (var g = 0; g < grenzen.length; g++) { if (x < grenzen[g]) return g; }
+        return grenzen.length;
+    }
+
+    // 2) Innerhalb jeder Spalte Zeilen bilden (gleiche Grundlinie) und von oben
+    //    nach unten sortieren.
+    var proSpalte = {};
+    items.forEach(function (w) {
+        var sp = spalteVon(w.x);
+        (proSpalte[sp] = proSpalte[sp] || []).push(w);
+    });
+
+    var abschnitte = Object.keys(proSpalte).map(Number).sort(function (a, b) { return a - b; })
+        .map(function (sp) {
+            var ws = proSpalte[sp].slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+            var zeilen = [];
+            ws.forEach(function (w) {
+                var z = zeilen[zeilen.length - 1];
+                if (z && Math.abs(z.y - w.y) <= Math.max(2, (w.h || 8) * 0.6)) z.w.push(w);
+                else zeilen.push({ y: w.y, w: [w] });
+            });
+            return zeilen.map(function (z) {
+                return z.w.sort(function (a, b) { return a.x - b.x; })
+                        .map(function (x) { return x.str; }).join(' ').replace(/\s+/g, ' ').trim();
+            }).filter(Boolean).join('\n');
+        }).filter(Boolean);
+
+    var text = abschnitte.join('\n');
+    return text.length > 300 ? text : null;
+}
+
+// Text aller Seiten eines PDFs. null = dieses PDF hat keinen brauchbaren Text
+// (eingescannt), dann bleibt es beim Bild.
+async function pdfTextSeiten(pdfData) {
+    var pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) return null;
+    try {
+        var base64 = pdfData.includes(',') ? pdfData.split(',')[1] : pdfData;
+        var binary = atob(base64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        var pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+        var raus = [];
+        var maxPages = Math.min(pdf.numPages, 10);
+        for (var p = 1; p <= maxPages; p++) {
+            var page = await pdf.getPage(p);
+            var vp = page.getViewport({ scale: 1.0 });
+            var tc = await page.getTextContent();
+            var items = tc.items.map(function (it) {
+                var t = it.transform;
+                return {
+                    str: it.str,
+                    x: t[4],
+                    // pdf.js zaehlt y von UNTEN, wir wollen von oben.
+                    y: vp.height - t[5],
+                    h: it.height || Math.abs(t[3]) || 8
+                };
+            }).filter(function (w) { return w.str && w.str.trim(); });
+            raus.push(pdfSeiteZuText(items, vp.width));
+        }
+        return raus.some(Boolean) ? raus : null;
+    } catch (e) {
+        console.warn('[pdf] Text konnte nicht gelesen werden:', e.message);
+        return null;
+    }
+}
+
 async function convertPdfAllPages(pdfData) {
     var pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js nicht geladen');

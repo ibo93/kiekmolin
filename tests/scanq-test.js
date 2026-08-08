@@ -282,7 +282,7 @@ t('Server kann Positionen eines Abschnitts zaehlen',
   /function zaehlBlock/.test(fn) && /body\.zaehlen && images\.length/.test(fn));
 t('Zaehlen zaehlt Zeilen, nicht Preise', /zaehlt EINMAL/.test(fn));
 t('Antwort ist nur eine Zahl', /Antworte NUR mit der Zahl/.test(fn));
-t('App holt die Sollzahl je Abschnitt', /aiMenuScan\(\{ images: \[bild\], zaehlen: name \}\)/.test(html));
+t('App holt die Sollzahl je Abschnitt', /quelleZuAnfrage\(bild\), \{ zaehlen: name \}/.test(html));
 t('Sollzahl schlaegt "fertig"',
   /if \(a\.fertig && !\(soll && gerichte\(alle\) < soll\)\) break;/.test(html));
 t('Sollzahl zaehlt Gerichte, nicht Groessen-Eintraege',
