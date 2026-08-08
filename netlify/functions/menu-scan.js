@@ -1,3 +1,21 @@
+function buildPromptVoll(text, extra, kategorien) {
+    // ACHTUNG: die vorhandenen Kategorien des Restaurants gehen bewusst NICHT
+    // mehr an das Modell.
+    //
+    // Sie standen frueher als Liste im Prompt, mit der Bitte, die vorhandene
+    // Schreibweise zu nehmen ("Karte: Pizza, vorhanden: Pizzen -> Pizzen").
+    // Gedacht war das gegen doppelte Kategorien. In der Praxis hat es dem
+    // Modell die Erlaubnis gegeben, Gerichte EINZUSORTIEREN statt Ueberschriften
+    // ABZULESEN: auf einer echten Karte landeten 48 Pizzen unter
+    // "Fleischgerichte" -- ein Wort, das auf der Karte nirgends steht.
+    //
+    // Das Zusammenfuehren mit vorhandenen Kategorien macht jetzt die App, in
+    // Code, mit einem engen Abgleich (findeKategorie, Toleranz zwei Zeichen).
+    // Der Unterschied ist entscheidend: Code kann "Pizza" und "Pizzen"
+    // zusammenfuehren, aber niemals "Pizza" zu "Fleischgerichte" machen.
+    return PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
+}
+
 // Kiek mol in — KI-Menuescanner (Vision).
 // Liest Speisekarten-Bilder (oder Text) und gibt sauber kategorisierte Gerichte
 // zurueck. Deutlich besser als reines OCR: erkennt Namen, Preise, Groessen,
@@ -216,9 +234,10 @@ var PROMPT = [
     '  NICHT, wie die Ueberschrift geheissen haben koennte. Lass die Kategorie NIEMALS leer,',
     '  nur weil ein Gericht nicht unmittelbar unter der Ueberschrift steht.',
     '',
-    '- Gibt es unten eine Liste VORHANDENER KATEGORIEN und die Ueberschrift der Karte meint',
-    '  offensichtlich dasselbe, nimm die vorhandene Schreibweise (Karte "Pizza", vorhanden',
-    '  "Pizzen" -> "Pizzen"). Sonst bleibt die Ueberschrift der Karte stehen.',
+    '- Du sortierst NICHT ein. Du schreibst ab. Ob ein Gericht inhaltlich zu einer',
+    '  anderen Ueberschrift passen wuerde, ist egal: eine Pizza mit Schinken bleibt',
+    '  unter "Pizza" und wird NICHT zu "Fleischgerichte". Es zaehlt allein, unter',
+    '  welcher gedruckten Ueberschrift die Zeile auf der Karte steht.',
     '',
     'ALLERGENE UND ZUSATZSTOFFE (deutsche Karten kennzeichnen das in Klammern):',
     '- BUCHSTABEN = Allergene nach LMIV. Uebersetze sie in genau diese Codes:',
@@ -535,14 +554,22 @@ function buildPrompt(text, extra, kategorien, nurExtra) {
 }
 
 function buildPromptVoll(text, extra, kategorien) {
-    var kat = '';
-    if (Array.isArray(kategorien) && kategorien.length) {
-        // Zeichengenau auflisten -- das Modell soll abschreiben, nicht uebersetzen.
-        kat = '\n\nVORHANDENE KATEGORIEN DIESES RESTAURANTS (bitte genau so verwenden):\n' +
-              kategorien.slice(0, 40).map(function (k) { return '- ' + String(k).slice(0, 60); }).join('\n') +
-              '\nNur wenn ein Gericht in KEINE davon passt, eine neue Kategorie waehlen.';
-    }
-    return PROMPT + kat + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
+    // ACHTUNG: die vorhandenen Kategorien des Restaurants gehen bewusst NICHT
+    // mehr an das Modell -- der Parameter bleibt nur, damit die Aufrufe gleich
+    // bleiben.
+    //
+    // Frueher standen sie als Liste im Prompt, mit der Bitte, die vorhandene
+    // Schreibweise zu nehmen ("Karte: Pizza, vorhanden: Pizzen -> Pizzen").
+    // Gedacht war das gegen doppelte Kategorien. In Wahrheit war es die
+    // Erlaubnis, Gerichte EINZUSORTIEREN statt Ueberschriften ABZULESEN: auf
+    // einer echten Karte landeten 48 Pizzen unter "Fleischgerichte" -- ein
+    // Wort, das auf der Karte nirgends steht.
+    //
+    // Das Zusammenfuehren mit vorhandenen Kategorien macht jetzt die App, in
+    // Code, mit einem engen Abgleich (findeKategorie, Toleranz zwei Zeichen).
+    // Der Unterschied ist entscheidend: Code fuehrt "Pizza" und "Pizzen"
+    // zusammen, macht aber niemals "Fleischgerichte" daraus.
+    return PROMPT + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
 }
 
 // Anweisung fuer eine FORTSETZUNG desselben Bildes.
@@ -781,7 +808,11 @@ function ueberschriftenBlock() {
         'nimm sie einzeln auf, nicht die Gruppe darueber.\n' +
         'Steht eine Ueberschrift mehrfach, weil der Abschnitt in der naechsten Spalte\n' +
         'weitergeht ("Pizza (Forts.)"), nenne sie NUR EINMAL und ohne den Zusatz.\n' +
-        'Der Name des Restaurants, Fusszeilen und Hinweise sind KEINE Ueberschriften.\n' +
+        'Der Name des Restaurants, Fusszeilen und Hinweise sind KEINE Ueberschriften.\n\n' +
+        'ERFINDE KEINE UEBERSCHRIFT. Nur Woerter, die GEDRUCKT auf der Karte stehen.\n' +
+        'Fasse nicht zusammen, benenne nicht um, ordne nicht nach Inhalt. Steht dort\n' +
+        '"Pizza", schreibst du "Pizza" -- nicht "Fleischgerichte", auch wenn Fleisch\n' +
+        'darauf ist. Findest du keine Ueberschriften, gib nichts zurueck.\n' +
         'Schreibe sie zeichengenau ab, mit Umlauten.';
 }
 
@@ -1016,6 +1047,16 @@ exports.handler = async function (event) {
         // dieselbe Nummer -- die werden weiterhin sauber zusammengefasst.
         // Kategorie bewusst NICHT im Schluessel: zwei Runden kategorisieren
         // dasselbe Gericht sonst leicht unterschiedlich und es erscheint doppelt.
+        // Im Abschnittsmodus wird die Kategorie ERZWUNGEN, nicht erbeten.
+        //
+        // Der Prompt sagt es zwar, aber eine Bitte ist keine Garantie -- und
+        // genau hier ist es schiefgegangen: 48 Pizzen kamen als
+        // "Fleischgerichte" zurueck. Wenn die App sagt "lies den Abschnitt
+        // Pizza", dann ist die Kategorie Pizza. Punkt.
+        if (abschnitt) {
+            alle.forEach(function (it) { it.category = abschnitt; });
+        }
+
         var seen = {}, deduped = [];
         alle.forEach(function (it) {
             var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
