@@ -829,6 +829,29 @@ function abschnittBlock(name) {
         '- Findest du diesen Abschnitt nicht, gib nichts zurueck.';
 }
 
+// ZAEHLEN: wie viele Positionen stehen unter dieser Ueberschrift?
+//
+// WARUM: Ein Abschnitt gilt als fertig, wenn das Modell von selbst aufhoert.
+// Das ist eine Behauptung, keine Tatsache -- und im Betrieb kamen 148 von 228
+// Eintraegen an, also ein Drittel zu wenig, ohne jede Fehlermeldung. Das Modell
+// hatte einfach frueher aufgehoert und "fertig" gemeldet.
+//
+// Zaehlen ist etwas ganz anderes als Vorlesen: die Antwort ist EINE ZAHL, dauert
+// eine Sekunde und laesst sich nicht "abkuerzen". Damit hat die App eine
+// unabhaengige Sollzahl und liest weiter, bis sie erreicht ist -- statt dem
+// Modell zu glauben.
+function zaehlBlock(name) {
+    return '=== NUR ZAEHLEN ===\n' +
+        'Zaehle, wie viele Positionen (Gerichte/Getraenke) auf dieser Karte unter der\n' +
+        'Ueberschrift "' + String(name).slice(0, 60) + '" stehen.\n' +
+        '- Geht der Abschnitt in einer anderen Spalte oder auf der naechsten Seite\n' +
+        '  weiter (oft "(Forts.)"), zaehle das MIT.\n' +
+        '- Zaehle ZEILEN, nicht Preise: ein Gericht mit zwei Preisen (klein/gross)\n' +
+        '  zaehlt EINMAL.\n' +
+        '- Ueberschriften, Hinweise und Fusszeilen zaehlen nicht mit.\n\n' +
+        'Antworte NUR mit der Zahl. Keine Erklaerung, kein Wort, nichts sonst.';
+}
+
 function pruefBlock(zeilen) {
     return '=== PRUEFUNG ===\n' +
         'Unten steht, was aus DIESEM Bild gelesen wurde — eine Zeile je Position im Format\n' +
@@ -960,6 +983,20 @@ exports.handler = async function (event) {
     }
 
     var visionKey = process.env.GOOGLE_VISION_API_KEY || process.env.GEMINI_API_KEY || '';
+
+    // --- Nur zaehlen ---
+    if (body.zaehlen && images.length) {
+        try {
+            var z = await callAnthropic(anthropicKey, images, '', zaehlBlock(body.zaehlen),
+                                        kategorien, null, frist, true);
+            var zahl = parseInt(String(z.roh || '').replace(/[^0-9]/g, '').slice(0, 4), 10);
+            return json(200, { ok: true, anzahl: isFinite(zahl) ? zahl : null,
+                               meta: { modell: ANTHROPIC_MODEL, ms: Date.now() - T0 } });
+        } catch (e) {
+            // Ohne Sollzahl laeuft alles wie bisher -- nur ohne die Absicherung.
+            return json(200, { ok: true, anzahl: null, meta: { fehler: e.message, ms: Date.now() - T0 } });
+        }
+    }
 
     // --- Nur die Ueberschriften ---
     // Winzige Ausgabe, ein bis zwei Sekunden. Danach weiss die App, in wie viele
