@@ -142,7 +142,7 @@ async function ruf(welt, body) {
     t('Dashboard hoert ueberhaupt auf waiter_call',
       /activity_type === 'waiter_call'/.test(h));
     t('Dashboard fragt zusaetzlich nach (falls Echtzeit die Tabelle nicht liefert)',
-      /activity_type=eq\.waiter_call/.test(h) && /setInterval\(_tischRufeNachfragen, 15000\)/.test(h));
+      /functions\/waiter-pending\?restaurant=/.test(h) && /setInterval\(_tischRufeNachfragen, 15000\)/.test(h));
     t('Alarm nur fuer angemeldetes Personal, nie fuer den Gast',
       /function _tischRufFuerMich/.test(h) && /if \(!angemeldet\) return false;/.test(h));
     t('Gastronom sieht nur sein eigenes Restaurant',
