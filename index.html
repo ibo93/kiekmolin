@@ -825,20 +825,63 @@
 
     <!-- Tesseract.js + PDF.js: LAZY LOAD — nur wenn Menu-Scanner geoeffnet wird -->
     <script>
-        // Lazy-Load Helfer: Script erst laden wenn gebraucht
+        // Lazy-Load Helfer: Script erst laden wenn gebraucht.
+        //
+        // FEHLER, der hier drin steckte und den Menuescanner monatelang auf den
+        // KI-Weg geschickt hat: stand das <script>-Tag schon im Dokument, rief
+        // diese Funktion sofort cb() auf -- auch wenn das Script noch gar nicht
+        // fertig geladen war. Der Aufrufer dachte "pdf.js ist da", fand
+        // window.pdfjsLib aber nicht, und der Scanner nahm den Umweg ueber Bild
+        // und Modell. Fuer den Gastronomen sah das aus, als koenne die App
+        // PDFs grundsaetzlich nicht direkt lesen.
+        var _skriptWartet = {};
         function _lazyLoadScript(url, cb) {
-            if (document.querySelector('script[src="' + url + '"]')) { if (cb) cb(); return; }
+            var da = document.querySelector('script[src="' + url + '"]');
+            if (da && da.dataset.geladen === '1') { if (cb) cb(); return; }
+            if (da) {                       // laeuft noch -> anstellen, nicht vordraengeln
+                if (cb) (_skriptWartet[url] = _skriptWartet[url] || []).push(cb);
+                return;
+            }
             var s = document.createElement('script');
             s.src = url;
-            s.onload = function() { if (cb) cb(); };
+            s.onload = function () {
+                s.dataset.geladen = '1';
+                if (cb) cb();
+                (_skriptWartet[url] || []).forEach(function (f) { try { f(); } catch (e) {} });
+                _skriptWartet[url] = [];
+            };
+            s.onerror = function () {
+                // Nicht ewig haengen lassen: der Aufrufer prueft ohnehin, ob
+                // die Bibliothek wirklich da ist.
+                if (cb) cb();
+                (_skriptWartet[url] || []).forEach(function (f) { try { f(); } catch (e) {} });
+                _skriptWartet[url] = [];
+            };
             document.head.appendChild(s);
         }
-        function loadOCRLibs(cb) {
-            _lazyLoadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js', function() {
-                _lazyLoadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js', function() {
+
+        // PDF.js ZUERST und einzeln.
+        //
+        // Vorher hing pdf.js hinter Tesseract in derselben Kette. Tesseract
+        // ist die Notloesung fuer schlechte Fotos und mehrere Megabyte gross --
+        // pdf.js ist der GUTE Weg und ein Zehntel so gross. Wer zuerst laedt,
+        // entscheidet, welchen Weg der Scanner nimmt.
+        var PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+        function ladePdfJs() {
+            return new Promise(function (fertig) {
+                if (window.pdfjsLib) return fertig(window.pdfjsLib);
+                _lazyLoadScript(PDFJS_URL, function () {
                     if (window.pdfjsLib) {
-                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
                     }
+                    fertig(window.pdfjsLib || null);
+                });
+            });
+        }
+        function loadOCRLibs(cb) {
+            ladePdfJs().then(function () {
+                _lazyLoadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js', function () {
                     if (cb) cb();
                 });
             });
@@ -22071,27 +22114,34 @@ function zeigeTischRuf(act) {
     }, 6000);
 }
 
-// Nachfragen, falls die Echtzeit-Veroeffentlichung activity_log nicht
-// mitliefert. Kostet eine kleine, gefilterte Abfrage alle 15 Sekunden und
-// macht den Knopf unabhaengig von der Supabase-Konfiguration.
+// Nachfragen ueber den SERVER, nicht direkt in der Datenbank.
+//
+// Direkt zu lesen waere kuerzer, haengt aber an den Zeilen-Regeln (RLS) von
+// Supabase: activity_log darf mit dem oeffentlichen Schluessel beschrieben
+// werden, gelesen nicht unbedingt. Ist das Lesen gesperrt, kommt still eine
+// leere Liste zurueck -- beim Gast ist der Knopf gruen, im Restaurant passiert
+// nichts, und man sieht nirgends warum. waiter-pending liest mit dem
+// Dienstschluessel und gibt nur Tischnummer, Grund und Zeit heraus.
 async function _tischRufeNachfragen() {
     if (!window.APP_DATA || !APP_DATA.currentUser || !APP_DATA.currentUser.id) return;
     if (document.hidden) return;
+    var meins = window._gastroOnlyRestaurantId
+             || (window.currentRestaurant && window.currentRestaurant.id)
+             || null;
+    if (!meins) return;                 // ohne Restaurant kein sinnvoller Ruf
     try {
-        var seit = _tischRufSeit || new Date(Date.now() - 120000).toISOString();
-        var url = SUPABASE_URL + '/rest/v1/activity_log?activity_type=eq.waiter_call'
-                + '&created_at=gt.' + encodeURIComponent(seit)
-                + '&select=id,target_id,activity_type,user_name,metadata,created_at'
-                + '&order=created_at.asc&limit=20';
-        var meins = window._gastroOnlyRestaurantId;
-        if (meins) url += '&target_id=eq.' + encodeURIComponent(meins);
-        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var url = '/.netlify/functions/waiter-pending?restaurant=' + encodeURIComponent(meins);
+        if (_tischRufSeit) url += '&seit=' + encodeURIComponent(_tischRufSeit);
+        var res = await fetch(url);
         if (!res.ok) return;
-        var rows = await res.json();
-        if (!Array.isArray(rows)) return;
-        rows.forEach(function (r) {
-            if (r.created_at && (!_tischRufSeit || r.created_at > _tischRufSeit)) _tischRufSeit = r.created_at;
-            zeigeTischRuf(r);
+        var j = await res.json();
+        if (!j || !j.ok || !Array.isArray(j.rufe)) return;
+        j.rufe.forEach(function (r) {
+            if (r.zeit && (!_tischRufSeit || r.zeit > _tischRufSeit)) _tischRufSeit = r.zeit;
+            zeigeTischRuf({
+                id: r.id, activity_type: 'waiter_call', target_id: meins,
+                metadata: { table: r.tisch, reason: r.grund }
+            });
         });
         if (!_tischRufSeit) _tischRufSeit = new Date().toISOString();
     } catch (e) {}
@@ -58087,7 +58137,15 @@ function pdfGerichteZuItems(liste) {
 // Text aller Seiten eines PDFs. null = dieses PDF hat keinen brauchbaren Text
 // (eingescannt), dann bleibt es beim Bild.
 async function pdfTextSeiten(pdfData) {
+    // WARTEN, nicht aufgeben. Frueher stand hier "if (!window.pdfjsLib) return
+    // null" -- war die Bibliothek eine Sekunde zu spaet, galt das PDF als
+    // "kein Text drin" und der ganze Scan lief ueber Bild und Modell. Das ist
+    // der Unterschied zwischen 142 zeichengenauen Gerichten in unter einer
+    // Sekunde und einem Modelldurchlauf mit Lesefehlern.
     var pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib && typeof ladePdfJs === 'function') {
+        try { pdfjsLib = await ladePdfJs(); } catch (e) { pdfjsLib = null; }
+    }
     if (!pdfjsLib) return null;
     try {
         var base64 = pdfData.includes(',') ? pdfData.split(',')[1] : pdfData;
