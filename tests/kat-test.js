@@ -25,11 +25,20 @@ t('Prompt erklaert die Buchstaben-Zuordnung', /A=gluten B=krebstiere C=eier/.tes
 t('Prompt verbietet Raten', /Rate NICHT/.test(fn));
 t('Prompt: Kategorie ist die gedruckte Ueberschrift, nicht frei gewaehlt',
   /DU ERFINDEST KEINE KATEGORIEN/.test(fn) && /liest die Ueberschriften der Karte ab/.test(fn));
-t('Prompt: vorhandene Schreibweise gewinnt (Karte "Pizza" -> "Pizzen")',
-  /Karte "Pizza", vorhanden/.test(fn) && /"Pizzen" -> "Pizzen"/.test(fn));
+// Die Liste der vorhandenen Kategorien geht NICHT mehr an das Modell.
+// Auf einer echten Karte landeten damit 48 Pizzen unter "Fleischgerichte" --
+// ein Wort, das auf der Karte nirgends steht. Das Modell liest Ueberschriften
+// ab; das Zusammenfuehren mit vorhandenen Kategorien macht die App in Code.
+t('Prompt verbietet das Einsortieren nach Inhalt',
+  /Du sortierst NICHT ein\. Du schreibst ab\./.test(fn)
+  && /wird NICHT zu "Fleischgerichte"/.test(fn));
 t('Ausgabeformat kennt Allergene und Zusatzstoffe als eigene Felder',
   /Allergene: die CODES/.test(fn) && /Zusatzstoffe: NUR Ziffern mit Komma getrennt/.test(fn));
-t('Kategorienliste geht in den Prompt', /VORHANDENE KATEGORIEN DIESES RESTAURANTS/.test(fn));
+t('Kategorienliste geht NICHT mehr in den Prompt', !/VORHANDENE KATEGORIEN/.test(fn));
+t('im Abschnittsmodus wird die Kategorie erzwungen, nicht erbeten',
+  /if \(abschnitt\) \{\n\s*alle\.forEach\(function \(it\) \{ it\.category = abschnitt; \}\);/.test(fn));
+t('Ueberschriften-Suche verbietet Erfinden ausdruecklich',
+  /ERFINDE KEINE UEBERSCHRIFT/.test(fn) && /nicht "Fleischgerichte"/.test(fn));
 
 // ---- Frontend: Kategorie-Zuordnung wirklich ausfuehren ----
 // Funktion sauber ueber Klammerzaehlung ausschneiden -- ein Regex greift zu viel.
