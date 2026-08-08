@@ -59,8 +59,8 @@ t('"Bier" trifft nicht auf "Biergarten"',
   fm.f('Biergarten', { bier: 'ID_Bier' }) === null, fm.f('Biergarten', { bier: 'ID_Bier' }));
 
 // ---- Frontend: Verdrahtung ----
-t('Kategorien werden beim Scannen mitgeschickt', /aiMenuScan\(\{ images: \[bild\], categories: kategorien, weiter: weiter \}\)/.test(html));
-t('Kategorien gehen an jede Seite', /scanSeiteKomplett\(bild, _vorhandeneKats,/.test(html));
+t('Kategorien werden beim Scannen mitgeschickt', /aiMenuScan\(\{ images: \[bild\], categories: kategorien, weiter: weiter, abschnitt:/.test(html));
+t('Kategorien gehen an jede Seite', /scanSeiteParallel\(bild, _vorhandeneKats,/.test(html));
 t('Import speichert allergens', /allergens: Array\.isArray\(item\.allergens\)/.test(html));
 t('Import haengt Zusatzstoffe an die Gerichtnummer an', /\.concat\(Array\.isArray\(item\.additives\)/.test(html));
 t('Neu angelegte Kategorien landen auch in der Zuordnung', /katNorm\[katSchluessel\(catName\)\] = newCat\[0\]\.id/.test(html));
