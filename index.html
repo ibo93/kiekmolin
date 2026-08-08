@@ -22543,12 +22543,20 @@ function renderPushOptInBanner() {
     var isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 
     if (isIosLike && !isStandalone) {
+        // Kiek-Design: dunkelgruen auf hellem Grund, wie der Rest der
+        // Bestaetigungsseite. Vorher war der Kasten orange umrandet
+        // und stach als einziges Element aus der Seite heraus -- ein Hinweis
+        // soll dazugehoeren, nicht wie eine Warnung aussehen.
         return ''
-            + '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
-            +   '<span style="font-size:20px;flex-shrink:0;">📱</span>'
-            +   '<div style="font-size:13px;color:#7c2d12;line-height:1.5;">'
-            +     '<strong style="display:block;margin-bottom:2px;">Für iPhone:</strong>'
-            +     'Tippe oben auf <strong>Teilen</strong> → <strong>"Zum Home-Bildschirm"</strong> — danach funktionieren Push-Benachrichtigungen auch bei geschlossener App.'
+            + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:16px;display:flex;align-items:flex-start;gap:12px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<div class="kmi-push-banner__icon" style="width:36px;height:36px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            +     '<span class="material-symbols-outlined" style="font-size:20px;color:#FFD54F;">ios_share</span>'
+            +   '</div>'
+            +   '<div style="flex:1;">'
+            +     '<div class="kmi-push-banner__title" style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:#003D33;margin-bottom:3px;">Auf dem iPhone</div>'
+            +     '<div class="kmi-push-banner__sub" style="font-size:12px;color:rgba(0,61,51,0.65);line-height:1.5;">'
+            +       'Tippe unten auf <strong>Teilen</strong> und dann <strong>„Zum Home-Bildschirm"</strong> — danach kommen die Benachrichtigungen auch bei geschlossener App.'
+            +     '</div>'
             +   '</div>'
             + '</div>';
     }
@@ -22558,16 +22566,16 @@ function renderPushOptInBanner() {
 
     if (perm === 'granted') {
         return ''
-            + '<div style="background:#dcfce7;border:1px solid #86efac;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
-            +   '<span style="font-size:18px;flex-shrink:0;">✅</span>'
-            +   '<div style="font-size:13px;color:#065f46;font-weight:600;">Push aktiv — du wirst über jede Status-Änderung benachrichtigt.</div>'
+            + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<span class="material-symbols-outlined" style="font-size:20px;color:#003D33;flex-shrink:0;">notifications_active</span>'
+            +   '<div class="kmi-push-banner__sub" style="font-size:13px;color:#003D33;font-weight:600;">Benachrichtigungen sind an — du siehst jede Status-Änderung.</div>'
             + '</div>';
     }
     if (perm === 'denied') {
         return ''
-            + '<div style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
-            +   '<span style="font-size:18px;flex-shrink:0;">ℹ️</span>'
-            +   '<div style="font-size:13px;color:#374151;">Push deaktiviert — kannst du in den Browser-Einstellungen wieder aktivieren.</div>'
+            + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
+            +   '<span class="material-symbols-outlined" style="font-size:20px;color:rgba(0,61,51,0.55);flex-shrink:0;">notifications_off</span>'
+            +   '<div class="kmi-push-banner__sub" style="font-size:13px;color:rgba(0,61,51,0.7);">Benachrichtigungen sind aus — in den Browser-Einstellungen wieder einschaltbar.</div>'
             + '</div>';
     }
     if (!notifSupported) return '';
@@ -46567,11 +46575,40 @@ function orderMoreAtTable() {
 // Personal geschickt werden koennen.
 var _waiterCallLast = 0;
 
+// Tischinfo aus der Sitzung wiederherstellen -- damit der "Bedienung"-Knopf
+// auch nach einem Seitenwechsel oder Neuladen weiss, wo der Gast sitzt.
+// Nach zwei Stunden verfaellt sie: der Gast ist dann laengst weg, und ein
+// falscher Tisch waere schlimmer als gar keiner.
+(function () {
+    try {
+        var roh = sessionStorage.getItem('kmi_tisch');
+        if (!roh) return;
+        var t = JSON.parse(roh);
+        if (!t || !t.tisch || !t.rid) return;
+        if (Date.now() - (t.zeit || 0) > 2 * 60 * 60 * 1000) { sessionStorage.removeItem('kmi_tisch'); return; }
+        window._letzterTisch = { tisch: t.tisch, restaurant: { id: t.rid, name: t.name || '' }, zeit: t.zeit };
+    } catch (e) {}
+})();
+
 async function callWaiter(reason, btn) {
-    var table = window._qrTableNumber;
-    var rest = currentOrderRestaurant;
+    // Tisch und Restaurant NICHT nur aus der URL nehmen.
+    //
+    // window._qrTableNumber wird beim Scannen des Tisch-QR gesetzt. Auf der
+    // Bestaetigungsseite ist es aber weg, sobald die Seite einmal neu geladen
+    // wurde -- und genau dort steht der Knopf "Bedienung". Der Gast hat gerade
+    // bestellt, sitzt am Tisch, tippt auf den Knopf, und bekommt "Bitte den
+    // QR-Code am Tisch scannen". Der Knopf sah also kaputt aus.
+    //
+    // Die gerade aufgegebene Bestellung weiss beides. Deshalb hier als
+    // Rueckfallebene, und zusaetzlich in der Sitzung gemerkt.
+    var letzte = window._letzterTisch || null;
+    var table = window._qrTableNumber || (letzte && letzte.tisch) || null;
+    var rest = currentOrderRestaurant
+            || (letzte && letzte.restaurant)
+            || window.currentOrderRestaurant || null;
+
     if (!table || !rest || !rest.id) {
-        showToast('Bitte den QR-Code am Tisch scannen', 'info');
+        showToast('Wir wissen gerade nicht, an welchem Tisch du sitzt — bitte den QR-Code am Tisch scannen', 'info');
         return;
     }
 
@@ -46932,7 +46969,14 @@ async function submitOrder() {
     }
 
     var deliveryAddress = null;
-    var tableNumber = window._qrTableNumber || null;
+    var tableNumber = window._qrTableNumber || (window._letzterTisch && window._letzterTisch.tisch) || null;
+    // Fuer den "Bedienung"-Knopf auf der Bestaetigungsseite merken, an welchem
+    // Tisch und in welchem Haus bestellt wurde. Ueberlebt einen Seitenwechsel.
+    if (tableNumber && currentOrderRestaurant && currentOrderRestaurant.id) {
+        window._letzterTisch = { tisch: tableNumber, restaurant: currentOrderRestaurant, zeit: Date.now() };
+        try { sessionStorage.setItem('kmi_tisch', JSON.stringify({
+            tisch: tableNumber, rid: currentOrderRestaurant.id, name: currentOrderRestaurant.name, zeit: Date.now() })); } catch (e) {}
+    }
 
     // Validierung: Lieferadresse bei Lieferung
     if (orderType === 'delivery') {
