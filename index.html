@@ -57112,14 +57112,32 @@ async function startMenuScan() {
             try { _pdfText = await pdfTextSeiten(menuScanImageData); } catch (e) { _pdfText = null; }
             if (_pdfText && _pdfText.some(Boolean)) {
                 // ERST OHNE KI versuchen: feste Regeln auf den PDF-Text.
+                var _seiten = _pdfText.filter(Boolean);
+                // Der Restaurantname steht als Ueberschrift auf JEDER Seite --
+                // er ist ein Seitenkopf, keine Kategorie. Sonst landet das
+                // erste Gericht der Folgeseite unter "Pronto Pronto".
+                var _kopf = null;
+                _seiten.forEach(function (t) {
+                    var k = t.split('\n').filter(function (z) { return z.slice(0, 3) === '## '; })
+                             .map(function (z) { return z.slice(3).trim(); });
+                    _kopf = (_kopf === null) ? k : _kopf.filter(function (x) { return k.indexOf(x) >= 0; });
+                });
+                if (_seiten.length > 1 && _kopf && _kopf.length) {
+                    _seiten = _seiten.map(function (t) {
+                        return t.split('\n').filter(function (z) {
+                            return !(z.slice(0, 3) === '## ' && _kopf.indexOf(z.slice(3).trim()) >= 0);
+                        }).join('\n');
+                    });
+                }
+
                 var _direkt = [], _letzteKat = '';
-                _pdfText.filter(Boolean).forEach(function (t) {
+                _seiten.forEach(function (t) {
                     var teil = parseKartenText(t, _letzteKat);
                     if (teil.length) _letzteKat = teil[teil.length - 1].kat;
                     _direkt = _direkt.concat(teil);
                 });
                 if (_direkt.length >= 5) {
-                    _ohneKI = pdfGerichteZuItems(_direkt);
+                    _ohneKI = sortiereNachNummer(pdfGerichteZuItems(_direkt));
                     statusEl.textContent = 'Direkt aus dem PDF gelesen: ' + _ohneKI.length + ' Einträge';
                 }
                 images = _pdfText.filter(Boolean);
@@ -57659,7 +57677,9 @@ function parseKartenText(text, startKategorie) {
         // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
         // "Menü-Upgrade: ... +5,00 €", "mit einer Zutat nach Wahl kostenlos".
         if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor) || /\b(Zutat|Upgrade|erhältlich|kostenlos)\b/i.test(vor)) {
-            if (letztes) letztes.besch = (letztes.besch ? letztes.besch + ' ' : '') + z;
+            // Hinweiszeile -- weder Gericht noch Beschreibung. Frueher wurde sie
+            // an die Beschreibung des Gerichts darueber gehaengt; dort steht
+            // dann "Extra Zutaten: klein 1,00 €" mitten in den Zutaten.
             continue;
         }
         // Name laeuft in die naechste Zeile ("120. Pronto Pronto-Platte (für 4"
@@ -57677,16 +57697,23 @@ function parseKartenText(text, startKategorie) {
         out.push(letztes);
     }
 
-    // Allergen-/Zusatzstoffklammern aus der Beschreibung holen
+    // Allergen-/Zusatzstoffklammern holen -- aus der Beschreibung UND aus dem
+    // Namen. Viele Karten schreiben sie direkt hinter das Gericht
+    // ("2. Pizza Salami (a,g,2) 7,00 €"), nicht in die Zutatenzeile.
     out.forEach(function (g) {
         var alg = [], zus = [];
-        g.besch = g.besch.replace(/\(([a-nA-N0-9 ,\.]{1,24})\)/g, function (all, inhalt) {
-            var teile = inhalt.split(/[,\s]+/).filter(Boolean);
-            var passt = teile.every(function (t) { return /^([a-nA-N]|\d{1,2})$/.test(t); });
-            if (!passt) return all;
-            teile.forEach(function (t) { (/^\d/.test(t) ? zus : alg).push(t.toLowerCase()); });
-            return '';
-        }).replace(/\s+/g, ' ').trim();
+        function klammern(txt) {
+            return String(txt || '').replace(/\(([a-nA-N0-9 ,\.]{1,24})\)/g, function (all, inhalt) {
+                var teile = inhalt.split(/[,\s]+/).filter(Boolean);
+                if (!teile.length) return all;
+                var passt = teile.every(function (t) { return /^([a-nA-N]|\d{1,2})$/.test(t); });
+                if (!passt) return all;
+                teile.forEach(function (t) { (/^\d/.test(t) ? zus : alg).push(t.toLowerCase()); });
+                return '';
+            }).replace(/\s+/g, ' ').trim();
+        }
+        g.name = klammern(g.name);
+        g.besch = klammern(g.besch);
         g.allergene = alg; g.zusatz = zus;
     });
     return out;
@@ -57697,10 +57724,52 @@ var _PDF_ALLERGEN = { a: 'gluten', b: 'krebstiere', c: 'eier', d: 'fisch', e: 'e
                       f: 'soja', g: 'milch', h: 'schalenfruechte', i: 'sellerie', j: 'senf',
                       k: 'sesam', l: 'sulfite', m: 'lupinen', n: 'weichtiere' };
 
+// Nummern wie "40 A" oder "97 B" richtig einsortieren: erst die Zahl, dann
+// der Buchstabe. Sonst stuende 40A vor 5, weil "40A" < "5" als Text.
+function _nrWert(nr) {
+    var m = /^(\d+)\s*([A-Za-z]?)$/.exec(String(nr || '').trim());
+    if (!m) return null;
+    return parseInt(m[1], 10) * 100 + (m[2] ? m[2].toUpperCase().charCodeAt(0) - 64 : 0);
+}
+
+// Innerhalb jeder Kategorie nach Gerichtnummer sortieren.
+//
+// Die Karte ist vierspaltig gesetzt: die Familienpizzen 41 und 42 stehen dort
+// unter den Pizzen 45-47, weil sie in der naechsten Spalte weiter unten
+// gedruckt sind. In der App sucht ein Gast aber die 42 zwischen 41 und 43.
+// Positionen ohne Nummer (Getraenke, Beilagen) behalten die Kartenreihenfolge
+// und stehen am Ende ihrer Kategorie.
+function sortiereNachNummer(items) {
+    var kategorien = [], nach = {};
+    items.forEach(function (it, i) {
+        var k = it.category || '';
+        if (!nach[k]) { nach[k] = []; kategorien.push(k); }
+        it._pos = i;
+        nach[k].push(it);
+    });
+    var out = [];
+    kategorien.forEach(function (k) {
+        var mit = [], ohne = [];
+        nach[k].forEach(function (it) { (_nrWert(it.dish_number) === null ? ohne : mit).push(it); });
+        mit.sort(function (a, b) {
+            var d = _nrWert(a.dish_number) - _nrWert(b.dish_number);
+            return d || a._pos - b._pos;          // gleiche Nummer: klein vor groß
+        });
+        out = out.concat(mit, ohne);
+    });
+    out.forEach(function (it) { delete it._pos; });
+    return out;
+}
+
 function pdfGerichteZuItems(liste) {
     var out = [];
     liste.forEach(function (g) {
         var alg = (g.allergene || []).map(function (x) { return _PDF_ALLERGEN[x] || null; }).filter(Boolean);
+        // Das Vegetarier-Zeichen der Karte steht als einzelnes "V" in der
+        // Beschreibung. Als Merkmal ist es nuetzlich, als Beschreibungstext
+        // sieht es aus wie ein Fehler.
+        var veg = /(^|\s)V(\s|$)/.test(g.besch || '');
+        if (veg) g.besch = String(g.besch).replace(/(^|\s)V(\s|$)/, ' ').replace(/\s+/g, ' ').trim();
         var zus = (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); });
         var preise = g.preise && g.preise.length ? g.preise : ['0'];
         preise.forEach(function (p, k) {
@@ -57713,7 +57782,7 @@ function pdfGerichteZuItems(liste) {
                 selected: true,
                 allergens: alg.slice(),
                 additives: zus.slice(),
-                is_vegetarian: false, is_vegan: false, is_spicy: /scharf/i.test(g.besch || ''),
+                is_vegetarian: veg, is_vegan: false, is_spicy: /scharf/i.test(g.besch || ''),
                 is_beef: false, is_chicken: false, is_pork: false,
                 is_fish: false, is_seafood: false
             });

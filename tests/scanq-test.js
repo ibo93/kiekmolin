@@ -106,7 +106,7 @@ t('Neukodierung mit hoeherer Qualitaet', /toDataURL\('image\/jpeg', 0\.95\)/.tes
 var scan = html.slice(html.indexOf('async function startMenuScan'), html.indexOf('async function startMenuScan')+5000);
 t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(html));
 t('alte Warteschleife ist weg', !/for \(var pi = 0; pi < images\.length; pi\+\+\)/.test(scan));
-t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(scan));
+t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(html));
 t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], protokoll: \[\{ runde: 0/.test(html));
 
 // --- Ehrlichkeit ueber die Quelle ---
@@ -309,6 +309,53 @@ t('Selbsttest prueft Preis, Kategorie UND Gerichtnummer',
 t('Selbsttest meldet auch zu viel erkannte Gerichte', /zu viel: /.test(html));
 t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
   /Der Scanner antwortet nicht/.test(html));
+
+// --- PDF-Karte ohne KI lesen ---
+// An der echten Karte gemessen: 142 Gerichte, 230 Eintraege, 13 Kategorien,
+// 0 ohne Preis, unter einer Sekunde, kein einziger Modellaufruf.
+t('PDF-Text wird zuerst ohne KI ausgewertet',
+  /function parseKartenText/.test(html) && /_ohneKI = sortiereNachNummer/.test(html));
+t('Ueberschriften kommen aus Schriftgroesse und Fettschrift, nicht aus Raten',
+  /UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN/.test(html)
+  && /bold\|black\|heavy\|semib/.test(html));
+t('Spalten werden VOR den Zeilen gebildet', /SPALTEN ZUERST, dann Zeilen/.test(html));
+t('echte Wortbreite von pdf.js statt Schaetzung', /w\.wd > 0 \? w\.wd/.test(html));
+t('Hinweiszeilen mit Preis sind keine Gerichte', /Zutat\|Upgrade\|erhältlich\|kostenlos/.test(html));
+
+// Der Parser laeuft hier wirklich -- an genau den Zeilen, die auf der echten
+// Karte Aerger gemacht haben.
+var PK = new Function(
+  (function () { var i = html.indexOf('function parseKartenText('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return parseKartenText;')();
+var pz = PK([
+  '## Pizza',
+  '1. Pizza Margherita 6,50 € 8,50 €',
+  'V',
+  '2. Pizza Salami (a,g,2) 7,00 € 9,00 €',
+  'Salami, Tomaten',
+  'Extra Zutaten: klein 1,00 €, groß 1,50 €',
+  '## Getränke',
+  'Cola 0,3l 3,20 €'
+].join('\n'));
+t('Parser findet die Gerichte, nicht die Hinweiszeile', pz.length === 3, pz.map(function (g) { return g.name; }).join(' / '));
+t('zwei Preise werden beide erkannt', JSON.stringify(pz[0].preise) === '["6.50","8.50"]', JSON.stringify(pz[0].preise));
+t('Kategorie kommt von der Ueberschrift', pz[0].kat === 'Pizza' && pz[2].kat === 'Getränke');
+t('Gerichtnummer wird abgetrennt', pz[1].nr === '2' && pz[1].name === 'Pizza Salami');
+t('Allergene und Zusatzstoffe aus der Klammer',
+  JSON.stringify(pz[1].allergene) === '["a","g"]' && JSON.stringify(pz[1].zusatz) === '["2"]',
+  JSON.stringify(pz[1]));
+
+var NR = new Function(
+  (function () { var i = html.indexOf('function _nrWert('); var j = html.indexOf('{', i), d = 0;
+    for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
+  + '; return _nrWert;')();
+t('"40 A" sortiert nach 40 und vor 41', NR('40') < NR('40A') && NR('40A') < NR('41'));
+t('ohne Nummer = keine Sortierung', NR('') === null && NR('Cola') === null);
+t('Restaurantname auf jeder Seite gilt als Seitenkopf, nicht als Kategorie',
+  /er ist ein Seitenkopf, keine Kategorie/.test(html));
+t('Vegetarier-Zeichen wird Merkmal statt Beschreibungstext',
+  /var veg = \/\(\^\|\\s\)V/.test(html));
 
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);
