@@ -56564,10 +56564,22 @@ async function aiMenuScan(payload) {
 // Hier wird dann genau dort weitergefragt. Ergebnis: die Karte kommt komplett,
 // statt dass der Aufruf still ins Limit laeuft (genau das ist vorher passiert --
 // danach uebernahm unbemerkt die einfache Texterkennung).
-async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt) {
+// Zaehlt Gerichte, nicht Eintraege: ein Gericht mit klein/gross ergibt zwei
+// Eintraege, auf der Karte steht aber eine Zeile. Die Sollzahl zaehlt Zeilen.
+function gerichte(liste) {
+    var s = {};
+    liste.forEach(function (i) {
+        s[(String(i.name).replace(/\s*\((klein|groß|gross|[\d,]+ ?[lL])\)\s*$/, '')
+           + '|' + (i.dish_number || '')).toLowerCase()] = 1;
+    });
+    return Object.keys(s).length;
+}
+
+async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt, soll) {
     var alle = [], gesehen = {}, weiter = null, protokoll = [], fehler = null;
     var MAX_RUNDEN = 20;                       // Notbremse gegen Endlosschleifen
     var wartezeiten = 0, MAX_WARTEN = 4;       // Wartepausen bei vollem Kontingent
+    var leerRunden = 0;                        // Runden ohne neues Gericht
 
     for (var runde = 1; runde <= MAX_RUNDEN; runde++) {
         var t0 = new Date().getTime();
@@ -56608,8 +56620,31 @@ async function scanSeiteKomplett(bild, kategorien, aufFortschritt, abschnitt) {
         protokoll.push({ runde: runde, ms: ms, neu: neu, status: a.fertig ? 'fertig' : 'weiter' });
         if (aufFortschritt) aufFortschritt(alle.length);
 
-        if (a.fertig) break;
-        if (!neu) break;                       // Stillstand -> aufhoeren
+        // "fertig" ist eine BEHAUPTUNG des Modells, keine Tatsache.
+        //
+        // Im Betrieb kamen 148 von 228 Eintraegen an -- das Modell hatte
+        // einfach frueher aufgehoert und "fertig" gemeldet, ohne Fehler. Gibt es
+        // eine unabhaengig gezaehlte Sollzahl fuer diesen Abschnitt, wird sie
+        // geglaubt und nicht das "fertig".
+        if (a.fertig && !(soll && gerichte(alle) < soll)) break;
+        if (a.fertig && soll) {
+            protokoll.push({ runde: runde, ms: 0, neu: 0,
+                             status: 'sagt fertig, es fehlen aber ' + (soll - gerichte(alle)) + ' — lese weiter' });
+        }
+        // Stillstand. Solange die gezaehlte Sollzahl noch nicht erreicht ist,
+        // ist eine leere Runde kein Grund aufzugeben -- Vision-Modelle
+        // antworten nicht jedes Mal gleich. Zwei leere Runden hintereinander
+        // heissen dann aber wirklich: da kommt nichts mehr.
+        if (!neu) {
+            if (soll && gerichte(alle) < soll && leerRunden < 2) {
+                leerRunden++;
+                protokoll.push({ runde: runde, ms: 0, neu: 0,
+                                 status: 'nichts Neues, aber ' + (soll - gerichte(alle)) + ' fehlen — noch ein Versuch' });
+                continue;
+            }
+            break;
+        }
+        leerRunden = 0;
         weiter = {
             anzahl: alle.length,
             letzte: a.letzte && a.letzte.length ? a.letzte : alle.slice(-8).map(function (x) { return x.name; }),
@@ -56806,8 +56841,20 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
         aufFortschritt(summe);
     }
 
+    // Sollzahl je Abschnitt -- unabhaengig gezaehlt, eine Zahl als Antwort,
+    // rund eine Sekunde. Laeuft gleichzeitig mit dem Lesen, kostet also keine
+    // Wartezeit; das Ergebnis wird erst am Ende jeder Runde gebraucht.
+    var sollZahlen = {};
+    var sollLauf = Promise.all(abschnitte.map(function (name) {
+        return aiMenuScan({ images: [bild], zaehlen: name })
+            .then(function (a) { if (a && a.anzahl) sollZahlen[name] = a.anzahl; })
+            .catch(function () {});
+    }));
+
     var teile = await Promise.all(abschnitte.map(function (name) {
-        return scanSeiteKomplett(bild, kategorien, function (n) { zwischenstand[name] = n; melde(); }, name)
+        return sollLauf.then(function () {
+            return scanSeiteKomplett(bild, kategorien, function (n) { zwischenstand[name] = n; melde(); }, name, sollZahlen[name]);
+        })
             .catch(function (e) {
                 return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: name + ': FEHLER ' + e.message }], fehler: e.message };
             });
@@ -56821,6 +56868,13 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
         (t.protokoll || []).forEach(function (r) {
             protokoll.push({ runde: r.runde, ms: r.ms, neu: r.neu, status: abschnitte[i] + ': ' + r.status });
         });
+        var so = sollZahlen[abschnitte[i]];
+        if (so) {
+            var ist = gerichte(t.items);
+            protokoll.push({ runde: 0, ms: 0, neu: 0,
+                status: abschnitte[i] + ': ' + ist + ' von ' + so + ' Gerichten'
+                        + (ist < so ? '  <-- ES FEHLEN ' + (so - ist) : '') });
+        }
         t.items.forEach(function (it) {
             var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
             if (gesehen[k]) return;

@@ -25,9 +25,10 @@ t('"fertig" ist nur wahr ohne Abbruch und ohne Token-Abriss',
   /var fertig = !r\.abgebrochen && r\.stopReason !== 'max_tokens'/.test(fn));
 t('Server liefert den Anker fuer die naechste Runde', /letzteKategorie: letzteKategorie/.test(fn));
 t('Client fragt so lange weiter, bis die Seite durch ist',
-  /async function scanSeiteKomplett/.test(html) && /if \(a\.fertig\) break;/.test(html));
-t('Endlosschleife ist ausgeschlossen (Rundenzahl + Stillstand)',
-  /MAX_RUNDEN = 20/.test(html) && /if \(!neu\) break;/.test(html));
+  /async function scanSeiteKomplett/.test(html)
+  && /if \(a\.fertig && !\(soll && gerichte\(alle\) < soll\)\) break;/.test(html));
+t('Endlosschleife ist ausgeschlossen (Rundenzahl + begrenzte Leerrunden)',
+  /MAX_RUNDEN = 20/.test(html) && /if \(!neu\) \{/.test(html) && /leerRunden < 2/.test(html));
 
 // --- Zwischenspeicher: macht Runde 2+ schnell und billig ---
 t('Bild steht vor dem Prompt, Marke sitzt am festen Teil',
@@ -266,6 +267,25 @@ t('Antworten ohne "items" gelten nicht mehr als Fehlschlag',
   /if \(j && j\.ok\) \{/.test(html) && !/j\.ok && Array\.isArray\(j\.items\)/.test(html));
 t('fehlendes items-Feld wird zu einer leeren Liste',
   /if \(!Array\.isArray\(j\.items\)\) j\.items = \[\];/.test(html));
+
+// --- Vollstaendigkeit: "fertig" ist eine Behauptung, keine Tatsache ---
+// Im Betrieb kamen 148 von 228 Eintraegen an -- das Modell hatte frueher
+// aufgehoert und "fertig" gemeldet, ohne Fehler. Nachgestellt mit einer
+// Attrappe, die in JEDER Runde nur 60 % liefert und "fertig" behauptet:
+// vorher 147 Eintraege, jetzt 224. Ohne Luege: 228 von 228.
+t('Server kann Positionen eines Abschnitts zaehlen',
+  /function zaehlBlock/.test(fn) && /body\.zaehlen && images\.length/.test(fn));
+t('Zaehlen zaehlt Zeilen, nicht Preise', /zaehlt EINMAL/.test(fn));
+t('Antwort ist nur eine Zahl', /Antworte NUR mit der Zahl/.test(fn));
+t('App holt die Sollzahl je Abschnitt', /aiMenuScan\(\{ images: \[bild\], zaehlen: name \}\)/.test(html));
+t('Sollzahl schlaegt "fertig"',
+  /if \(a\.fertig && !\(soll && gerichte\(alle\) < soll\)\) break;/.test(html));
+t('Sollzahl zaehlt Gerichte, nicht Groessen-Eintraege',
+  /function gerichte\(liste\)/.test(html) && /klein\|groß\|gross/.test(html));
+t('eine leere Runde beendet den Abschnitt NICHT, solange etwas fehlt',
+  /soll && gerichte\(alle\) < soll && leerRunden < 2/.test(html));
+t('nach zwei leeren Runden ist trotzdem Schluss', /leerRunden < 2/.test(html));
+t('Bericht nennt Soll und Ist je Abschnitt', /' von ' \+ so \+ ' Gerichten'/.test(html));
 
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);
