@@ -1,10 +1,19 @@
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
-var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8');
+// Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
+// lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
+// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
+// muessen deshalb BEIDE Dateien sehen.
+var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
+      + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 
 // ---- Server: Allergen-Normalisierung wirklich ausfuehren ----
-var m = fn.match(/var ALLERGEN_CODES[\s\S]*?\nfunction normZusatzstoffe[\s\S]*?\n\}/);
+// Zum AUSFUEHREN muss der Kern allein gelesen werden: menu-scan.js enthaelt
+// jetzt nur noch Zuweisungen wie "var ALLERGEN_CODES = K.ALLERGEN_CODES;",
+// und die wuerden den Ausschnitt zerreissen.
+var kern = fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
+var m = kern.match(/var ALLERGEN_CODES = \[[\s\S]*?\nfunction normZusatzstoffe[\s\S]*?\n\}/);
 var mod = new Function(m[0] + '; return { a: normAllergene, z: normZusatzstoffe };')();
 t('Codes werden uebernommen', JSON.stringify(mod.a(['gluten','milch'])) === '["gluten","milch"]');
 t('Buchstaben A/C/G werden uebersetzt',

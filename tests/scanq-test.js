@@ -5,7 +5,12 @@
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
-var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8');
+// Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
+// lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
+// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
+// muessen deshalb BEIDE Dateien sehen.
+var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
+      + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 
 // --- Zeitbudget: DAS Problem, an dem fuenf Runden Prompt-Arbeit vorbeigelaufen sind ---
 t('Function hat ein eigenes Zeitbudget', /BUDGET_MS = parseInt\(process\.env\.MENU_SCAN_MS/.test(fn));
@@ -102,7 +107,7 @@ var scan = html.slice(html.indexOf('async function startMenuScan'), html.indexOf
 t('Seiten werden parallel gelesen', /await Promise\.all\(images\.map/.test(scan));
 t('alte Warteschleife ist weg', !/for \(var pi = 0; pi < images\.length; pi\+\+\)/.test(scan));
 t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(scan));
-t('eine kaputte Seite kippt nicht den ganzen Scan', /\.catch\(function \(e\) \{\n\s*return \{ items: \[\]/.test(scan));
+t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], protokoll: \[\{ runde: 0/.test(html));
 
 // --- Ehrlichkeit ueber die Quelle ---
 t('stiller Rueckfall auf OCR ist als solcher gekennzeichnet', /_scanQuelleOCR/.test(html));
