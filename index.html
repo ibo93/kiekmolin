@@ -57697,31 +57697,57 @@ function pdfSeiteZuText(items, seitenBreite) {
     //    Hoehe -- baut man erst Zeilen ueber die ganze Breite, klebt alles
     //    zusammen ("Pizza Rimini 7,50 Hähnchenkebab 8,00 Tortellini").
     //
-    //    Spalten erkennt man an senkrechten Luecken: Streifen der Seite, in
-    //    denen ueberhaupt kein Wort steht. Dafuer brauchen wir die BREITE jedes
-    //    Wortes -- die schaetzen wir aus Zeichenzahl und Schrifthoehe.
-    var BINS = Math.max(40, Math.round(seitenBreite / 4));
-    var breit = seitenBreite / BINS;
-    var belegt = new Array(BINS + 1).join('0').split('').map(Number);
+    //    Spalten erkennt man an den LINKEN KANTEN, nicht an leeren Streifen.
+    //
+    //    Der Weg ueber leere Streifen ("wo steht ueber die ganze Seitenhoehe
+    //    kein Wort") hing an einer Schwelle: wie breit muss die Luecke sein.
+    //    An der echten Karte von Pronto Pronto war die Luecke zwischen Spalte
+    //    2 und 3 genau EIN Rasterfeld zu schmal (8 statt 12 Punkt). Ergebnis:
+    //    diese eine Grenze fehlte, Spalte 2 und 3 klebten zusammen, und die
+    //    Ueberschrift der dritten Spalte wurde an ein Gericht der zweiten
+    //    geklebt -- "29. Pizza Emden V 8,00 € 10,00 € Nudeln" stand danach als
+    //    Kategorie in der Liste. Eine Schwelle, an der die halbe Karte haengt.
+    //
+    //    Die linken Kanten sind dagegen eindeutig: in einer Spalte fangen alle
+    //    Gerichtnamen, Nummern und Beschreibungen an DERSELBEN x-Position an.
+    //    Auf der Testkarte sind das 30 / 230 / 430 / 630 mit je rund 45
+    //    Woertern -- weit vor allem anderen. Das haengt an keiner Luecke und
+    //    ueberlebt auch Karten, deren Spalten dicht beieinander stehen.
+    var RASTER = 4;
+    var kanten = {};
     items.forEach(function (w) {
-        // Echte Wortbreite, wenn pdf.js sie liefert. Geschaetzt ist zu
-        // ungenau: auf Seite 2 der Testkarte verschwanden dadurch die
-        // Spaltenluecken und alle vier Spalten klebten zusammen.
-        var bw = w.wd > 0 ? w.wd : Math.max(1, w.str.length * (w.h || 8) * 0.5);
-        var von = Math.max(0, Math.floor(w.x / breit));
-        var bis = Math.min(BINS - 1, Math.floor((w.x + bw) / breit));
-        for (var i = von; i <= bis; i++) belegt[i] = 1;
+        var k = Math.round(w.x / RASTER) * RASTER;
+        kanten[k] = (kanten[k] || 0) + 1;
+    });
+    // Schwelle NICHT absolut, sondern im Verhaeltnis zur staerksten Kante.
+    // Absolut ("mindestens N Woerter") haengt wieder an einer Zahl und kippt,
+    // sobald eine Karte mehr oder weniger Text hat. Im Verhaeltnis ist der
+    // Abstand dagegen deutlich: an einer Spaltenkante stehen alle Namen,
+    // Nummern und Beschreibungen (rund 45), an einer Preisspalte nur die
+    // Preise (rund 20). Auf beiden Seiten der Testkarte trennt 55 % genau
+    // die vier Spalten von den vier Preisspalten.
+    var staerkste = 0;
+    Object.keys(kanten).forEach(function (k) { if (kanten[k] > staerkste) staerkste = kanten[k]; });
+    var mindestWoerter = Math.max(5, staerkste * 0.55);
+    var starts = Object.keys(kanten).map(Number)
+        .filter(function (k) { return kanten[k] >= mindestWoerter; })
+        .sort(function (a, b) { return a - b; });
+
+    // Dicht beieinander liegende Kanten sind dieselbe Spalte (Einrueckungen,
+    // Rundungsfehler) -- die staerkste gewinnt.
+    var gruppen = [];
+    starts.forEach(function (k) {
+        var g = gruppen[gruppen.length - 1];
+        if (g && k - g.x <= 40) { if (kanten[k] > g.n) { g.x = k; g.n = kanten[k]; } }
+        else gruppen.push({ x: k, n: kanten[k] });
     });
 
-    // Leere Streifen ab 1,5 % der Seitenbreite gelten als Spaltentrenner.
-    var grenzen = [], lauf = 0;
-    var mindestBins = Math.max(2, Math.round(BINS * 0.015));
-    for (var i = 0; i < BINS; i++) {
-        if (!belegt[i]) { lauf++; continue; }
-        if (lauf >= mindestBins && i - lauf > 0) grenzen.push((i - lauf / 2) * breit);
-        lauf = 0;
+    var grenzen = [];
+    if (gruppen.length >= 2 && gruppen.length <= 6) {
+        // Grenze knapp VOR der naechsten Spalte: rechtsbuendige Preise gehoeren
+        // noch zur linken Spalte.
+        for (var gi = 1; gi < gruppen.length; gi++) grenzen.push(gruppen[gi].x - 2);
     }
-    if (grenzen.length > 5) grenzen = [];        // unplausibel -> eine Spalte
 
     function spalteVon(x) {
         for (var g = 0; g < grenzen.length; g++) { if (x < grenzen[g]) return g; }
@@ -57734,6 +57760,25 @@ function pdfSeiteZuText(items, seitenBreite) {
     // Ueberschrift.
     var hoehen = items.map(function (w) { return Math.round(w.h || 8); }).sort(function (a, b) { return a - b; });
     var grundschrift = hoehen[Math.floor(hoehen.length / 2)] || 8;
+
+    // ÜBERSCHRIFTEN-SCHRIFT bestimmen.
+    //
+    // Eine Karte setzt ihre Ueberschriften in einer eigenen Schrift. Welche
+    // das ist, muss man nicht raten: es ist die, in der die grossen
+    // Ueberschriften stehen. Genau diese Schrift tragen dann auch die kleinen
+    // Zwischenueberschriften -- auf der Testkarte sind "Spaghetti",
+    // "Rigatoni" und "Tortellini" 7,6 Punkt hoch und damit KLEINER als der
+    // Fliesstext (7,9). Ueber die Groesse sind sie nicht zu finden, ueber die
+    // Schrift schon.
+    var kopfSchriften = {};
+    items.forEach(function (w) {
+        if ((w.h || 0) >= grundschrift * 1.22 && w.fn) kopfSchriften[w.fn] = 1;
+    });
+    // Sicherung: eine Schrift, in der auch Preise stehen, ist der Fliesstext
+    // und keine Ueberschriften-Schrift.
+    items.forEach(function (w) {
+        if (w.fn && kopfSchriften[w.fn] && /\d{1,3},\d{2}/.test(w.str || '')) delete kopfSchriften[w.fn];
+    });
 
     var proSpalte = {};
     items.forEach(function (w) {
@@ -57761,16 +57806,20 @@ function pdfSeiteZuText(items, seitenBreite) {
                 // Kategorien. Auf der Testkarte kamen so 55 Kategorien heraus
                 // statt 10. Die Schriftgroesse steht dagegen im PDF und luegt
                 // nicht: Ueberschriften sind schlicht groesser gesetzt.
-                var hoch = 0, fett = false;
+                var hoch = 0, fett = false, nurKopfSchrift = true;
                 z.w.forEach(function (x) {
                     if ((x.h || 0) > hoch) hoch = x.h;
                     if (/bold|black|heavy|semib/i.test(x.ff || '')) fett = true;
+                    if (!x.fn || !kopfSchriften[x.fn]) nurKopfSchrift = false;
                 });
-                // Groesser ODER fett = Ueberschrift. Zwischenueberschriften
-                // ("Spaghetti", "Rigatoni" unter "Nudeln") sind oft nur fett,
-                // nicht groesser -- ohne das faellt die halbe Gliederung weg.
+                // Groesser ODER in der Ueberschriften-Schrift gesetzt.
+                // Eine Zeile mit Preis ist nie eine Ueberschrift -- das haelt
+                // die Regel auch bei Karten sauber, die ihre Preise in
+                // derselben Schrift setzen.
+                var hatPreis = /\d{1,3},\d{2}/.test(txt);
                 var kopf = (hoch >= grundschrift * 1.22)
-                        || (fett && txt.length <= 42 && !/\d{1,3},\d{2}/.test(txt));
+                        || (nurKopfSchrift && txt.length <= 60 && !hatPreis)
+                        || (fett && txt.length <= 42 && !hatPreis);
                 return (kopf ? '## ' : '') + txt;
             }).filter(Boolean).join('\n');
         }).filter(Boolean);
@@ -58005,6 +58054,15 @@ function pdfGerichteZuItems(liste) {
         // sieht es aus wie ein Fehler.
         var veg = /(^|\s)V(\s|$)/.test(g.besch || '');
         if (veg) g.besch = String(g.besch).replace(/(^|\s)V(\s|$)/, ' ').replace(/\s+/g, ' ').trim();
+        // Auf dieser Karte steht das "V" hinter dem NAMEN, direkt vor dem
+        // Preis ("1. Pizza Margherita V  6,50 €  8,50 €"). Der Name ist alles
+        // vor dem ersten Preis -- das Zeichen landet also im Namen und das
+        // Gericht heisst in der App "Pizza Margherita V". Hier abschneiden und
+        // als Merkmal setzen, wo es hingehoert.
+        if (/\sV$/.test(g.name || '')) {
+            veg = true;
+            g.name = String(g.name).replace(/\sV$/, '').trim();
+        }
         var zus = (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); });
         var preise = g.preise && g.preise.length ? g.preise : ['0'];
         preise.forEach(function (p, k) {
@@ -58053,6 +58111,16 @@ async function pdfTextSeiten(pdfData) {
                     y: vp.height - t[5],
                     wd: it.width || 0,
                     ff: (tc.styles && tc.styles[it.fontName] && tc.styles[it.fontName].fontFamily) || '',
+                    // Die SCHRIFT-KENNUNG, nicht der Schriftfamilien-Name.
+                    // pdf.js 2.16 liefert als fontFamily bei dieser Karte
+                    // ausnahmslos "sans-serif" -- damit war jede Erkennung
+                    // ueber "fett" tot, ohne dass man es sah. fontName ist
+                    // dagegen echt: die Ueberschriften der Testkarte tragen
+                    // alle dieselbe Kennung, auch die kleinen
+                    // ("Spaghetti", "Rigatoni") -- die sind sogar KLEINER
+                    // gesetzt als der Fliesstext und ueber die Groesse
+                    // grundsaetzlich nicht zu finden.
+                    fn: it.fontName || '',
                     h: it.height || Math.abs(t[3]) || 8
                 };
             }).filter(function (w) { return w.str && w.str.trim(); });
