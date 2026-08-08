@@ -1,5 +1,6 @@
 // Testet die OCR-Vorstufe von menu-scan.js ohne echte API-Aufrufe.
 var PATH = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
+var sse = require('./lib/sse').sseAntwort;
 var calls, prompts;
 
 function mk(scenario) {
@@ -13,19 +14,22 @@ function mk(scenario) {
       return { ok: true, json: async () => ({ responses: [{ fullTextAnnotation: { text: 'PIZZA SALAMI 9,50\nCOLA 0,3l 2,80' } }] }) };
     }
     calls.push('claude');
-    prompts.push(body.messages[0].content[0].text);
-    return { ok: true, json: async () => ({ content: [{ text: '{"items":[{"name":"Pizza Salami","price":9.5,"category":"Pizza"}]}' }] }) };
+    // Der Prompt steht jetzt NACH dem Bild (damit das Bild zwischengespeichert
+    // werden kann). Deshalb alle Textbloecke zusammenziehen statt content[0].
+    prompts.push(body.messages[0].content.filter(c => c.type === 'text').map(c => c.text).join('\n'));
+    return sse('{"items":[{"name":"Pizza Salami","price":9.5,"category":"Pizza"}]}');
   };
 }
 
-async function run(label, env, scenario, check) {
+async function run(label, env, scenario, check, zusatz) {
   ['GEMINI_API_KEY','ANTHROPIC_API_KEY','GOOGLE_VISION_API_KEY','MENU_SCAN_PROVIDER'].forEach(k => delete process.env[k]);
   Object.keys(env).forEach(k => process.env[k] = env[k]);
   delete require.cache[require.resolve(PATH)];
   var h = require(PATH).handler;
   calls = []; prompts = [];
   global.fetch = mk(scenario);
-  var r = await h({ httpMethod: 'POST', body: JSON.stringify({ images: ['data:image/jpeg;base64,QUJD'] }) });
+  var anfrage = Object.assign({ images: ['data:image/jpeg;base64,QUJD'] }, zusatz || {});
+  var r = await h({ httpMethod: 'POST', body: JSON.stringify(anfrage) });
   var res = check({ calls: calls, prompts: prompts, body: JSON.parse(r.body) });
   console.log((res === true ? 'OK  ' : 'FAIL') + ' | ' + label + (res === true ? '' : ' -> ' + res) + '\n       Aufrufe: ' + calls.join(','));
   return res === true;
@@ -57,6 +61,12 @@ async function run(label, env, scenario, check) {
   all &= await run('ohne OCR bleibt der Prompt exakt wie vorher',
     { ANTHROPIC_API_KEY: 'a', GOOGLE_VISION_API_KEY: 'v' }, { vision: 'denied' },
     r => /Speisekarten-Parser[\s\S]*letzte Spalte\/Seite erfasst hast\.$/.test(r.prompts[0].trim()) ? true : 'Prompt veraendert');
+
+  // Neu: die OCR darf das Zeitbudget nicht auffressen und laeuft nur in Runde 1.
+  all &= await run('Fortsetzung ruft die OCR NICHT erneut auf',
+    { ANTHROPIC_API_KEY: 'a', GOOGLE_VISION_API_KEY: 'v' }, { vision: 'ok' },
+    r => r.calls.indexOf('vision') < 0 ? true : 'OCR lief in der Fortsetzung: ' + r.calls.join(','),
+    { weiter: { anzahl: 5, letzte: ['Pizza Salami'], kategorie: 'Pizza' } });
 
   console.log(all ? '\nAlle Tests bestanden.' : '\nFEHLER.');
   process.exit(all ? 0 : 1);

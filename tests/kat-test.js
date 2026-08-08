@@ -27,7 +27,8 @@ t('Prompt: Kategorie ist die gedruckte Ueberschrift, nicht frei gewaehlt',
   /DU ERFINDEST KEINE KATEGORIEN/.test(fn) && /liest die Ueberschriften der Karte ab/.test(fn));
 t('Prompt: vorhandene Schreibweise gewinnt (Karte "Pizza" -> "Pizzen")',
   /Karte "Pizza", vorhanden/.test(fn) && /"Pizzen" -> "Pizzen"/.test(fn));
-t('Claude-Schema kennt allergens + additives', /allergens: \{ type: 'array'/.test(fn) && /additives: \{ type: 'array'/.test(fn));
+t('Ausgabeformat kennt Allergene und Zusatzstoffe als eigene Felder',
+  /Allergene: die CODES/.test(fn) && /Zusatzstoffe: NUR Ziffern mit Komma getrennt/.test(fn));
 t('Kategorienliste geht in den Prompt', /VORHANDENE KATEGORIEN DIESES RESTAURANTS/.test(fn));
 
 // ---- Frontend: Kategorie-Zuordnung wirklich ausfuehren ----
@@ -58,7 +59,8 @@ t('"Bier" trifft nicht auf "Biergarten"',
   fm.f('Biergarten', { bier: 'ID_Bier' }) === null, fm.f('Biergarten', { bier: 'ID_Bier' }));
 
 // ---- Frontend: Verdrahtung ----
-t('Kategorien werden beim Scannen mitgeschickt', /aiMenuScan\(\{ images: \[bild\], categories: _vorhandeneKats \}\)/.test(html));
+t('Kategorien werden beim Scannen mitgeschickt', /aiMenuScan\(\{ images: \[bild\], categories: kategorien, weiter: weiter \}\)/.test(html));
+t('Kategorien gehen an jede Seite', /scanSeiteKomplett\(bild, _vorhandeneKats,/.test(html));
 t('Import speichert allergens', /allergens: Array\.isArray\(item\.allergens\)/.test(html));
 t('Import haengt Zusatzstoffe an die Gerichtnummer an', /\.concat\(Array\.isArray\(item\.additives\)/.test(html));
 t('Neu angelegte Kategorien landen auch in der Zuordnung', /katNorm\[katSchluessel\(catName\)\] = newCat\[0\]\.id/.test(html));
