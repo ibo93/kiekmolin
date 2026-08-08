@@ -292,5 +292,23 @@ t('eine leere Runde beendet den Abschnitt NICHT, solange etwas fehlt',
 t('nach zwei leeren Runden ist trotzdem Schluss', /leerRunden < 2/.test(html));
 t('Bericht nennt Soll und Ist je Abschnitt', /' von ' \+ so \+ ' Gerichten'/.test(html));
 
+// --- Selbsttest im Scanner ---
+// Alle Pruefungen in diesem Ordner laufen bei der Entwicklung, mit
+// nachgestellten Antworten. Das sagt nichts darueber, ob der Scanner IM
+// BETRIEB tut, was er soll -- und genau daran ist die Fehlersuche tagelang
+// gescheitert: der eine hat gemessen, der andere hat getestet, und beide
+// sahen etwas anderes. Deshalb gibt es jetzt einen Knopf IN DER APP.
+t('Scanner hat einen Selbsttest-Knopf', /onclick="scannerSelbsttest\(this\)"/.test(html));
+t('Selbsttest geht durch die ECHTE Scan-Funktion',
+  /aiMenuScan\(\{ text: SELBSTTEST_KARTE \}\)/.test(html));
+t('Testkarte deckt Groessen, Kategorien und Nummern ab',
+  /SELBSTTEST_KARTE/.test(html) && /Pizza Margherita \(klein\)/.test(html)
+  && /Vom Grill/.test(html) && /Cola \(0,3l\)/.test(html));
+t('Selbsttest prueft Preis, Kategorie UND Gerichtnummer',
+  /Preis ' \+ g\.price/.test(html) && /Kategorie "/.test(html) && /Nr\. "/.test(html));
+t('Selbsttest meldet auch zu viel erkannte Gerichte', /zu viel: /.test(html));
+t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
+  /Der Scanner antwortet nicht/.test(html));
+
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok===n?0:1);

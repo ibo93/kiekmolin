@@ -42974,6 +42974,19 @@ document.addEventListener('error', function(e) {
                     Bild scannen (OCR)
                 </button>
                 <p style="font-size:11px;color:var(--slate);text-align:center;margin-top:8px;">OCR-Erkennung – Ergebnis kann ungenau sein</p>
+
+                <!-- Selbsttest: prueft die ECHTE, live geschaltete Scan-Funktion
+                     mit einer bekannten Testkarte. Damit laesst sich in 15
+                     Sekunden feststellen, ob der Scanner funktioniert -- ohne
+                     eine eigene Karte hochzuladen und ohne dass jemand
+                     Vermutungen anstellen muss. -->
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light,#e5e7eb);">
+                    <button type="button" onclick="scannerSelbsttest(this)"
+                        style="width:100%;padding:11px;background:var(--bg-secondary,#f9fafb);color:var(--text-primary);border:1px solid var(--border-light,#e5e7eb);border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">
+                        Scanner prüfen (15 Sekunden, keine eigene Karte nötig)
+                    </button>
+                    <div id="scannerSelbsttestErgebnis" style="display:none;margin-top:10px;font-size:12px;line-height:1.6;"></div>
+                </div>
             </div>
 
             <!-- Scanning Progress (hidden initially) -->
@@ -56949,6 +56962,121 @@ async function scanSeiteParallel(bild, kategorien, aufFortschritt) {
         });
     });
     return { items: alle, protokoll: protokoll, fehler: fehler };
+}
+
+// SELBSTTEST DES SCANNERS -- laeuft in der App gegen die ECHTE Funktion.
+//
+// WARUM: Alle Messungen bisher liefen bei der Entwicklung, mit nachgestellten
+// Antworten. Das sagt nichts darueber, ob der Scanner IM BETRIEB tut, was er
+// soll -- und genau daran ist die Fehlersuche tagelang gescheitert: der eine
+// hat gemessen, der andere hat getestet, und beide sahen etwas anderes.
+//
+// Dieser Knopf schickt eine bekannte Testkarte durch dieselbe Funktion, die
+// auch echte Karten liest, und vergleicht das Ergebnis mit dem, was
+// herauskommen muss. Kein Foto noetig, kein Hochladen, keine Vermutung.
+// Was hier rot ist, ist im Betrieb kaputt.
+var SELBSTTEST_KARTE = [
+    'Pizzeria Testkarte',
+    '',
+    'Pizza',
+    '1. Pizza Margherita   klein 6,50 €   groß 8,50 €',
+    '2. Pizza Salami (a,g,2)   klein 7,00 €   groß 9,00 €',
+    'Salami, Tomaten',
+    '',
+    'Vom Grill',
+    '20. Rumpsteak 250g   24,90 €',
+    'mit Kräuterbutter (g)',
+    '21. Hähnchenbrust   18,50 €',
+    '',
+    'Getränke',
+    'Cola 0,3l   3,20 €',
+    'Cola 0,5l   4,40 €',
+    'Ostfriesentee (g)   3,40 €'
+].join('\n');
+
+// Was herauskommen MUSS. Name -> [Preis, Kategorie, Gerichtnummer]
+var SELBSTTEST_SOLL = [
+    ['Pizza Margherita (klein)', 6.5,  'Pizza',     '1'],
+    ['Pizza Margherita (groß)',  8.5,  'Pizza',     '1'],
+    ['Pizza Salami (klein)',     7,    'Pizza',     '2'],
+    ['Pizza Salami (groß)',      9,    'Pizza',     '2'],
+    ['Rumpsteak 250g',           24.9, 'Vom Grill', '20'],
+    ['Hähnchenbrust',            18.5, 'Vom Grill', '21'],
+    ['Cola (0,3l)',              3.2,  'Getränke',  ''],
+    ['Cola (0,5l)',              4.4,  'Getränke',  ''],
+    ['Ostfriesentee',            3.4,  'Getränke',  '']
+];
+
+function _stNorm(x) { return String(x || '').toLowerCase().replace(/[^a-zäöüß0-9]/g, ''); }
+
+async function scannerSelbsttest(btn) {
+    var box = document.getElementById('scannerSelbsttestErgebnis');
+    var alterText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Prüfe…'; }
+    if (box) {
+        box.style.display = 'block';
+        box.innerHTML = '<span style="color:var(--text-secondary)">Testkarte wird durch den echten Scanner geschickt…</span>';
+    }
+
+    var t0 = new Date().getTime();
+    var a = null, fehler = null;
+    try {
+        a = await aiMenuScan({ text: SELBSTTEST_KARTE });
+        if (!a) fehler = window._lastMenuScanError || 'keine Antwort';
+    } catch (e) { fehler = e.message; }
+    var dauer = Math.round((new Date().getTime() - t0) / 100) / 10;
+
+    if (btn) { btn.disabled = false; btn.textContent = alterText; }
+    if (!box) return;
+
+    if (fehler) {
+        box.innerHTML = '<div style="padding:10px 12px;border-radius:8px;border:1px solid #ef4444;background:rgba(239,68,68,.08);">'
+            + '<strong style="color:#b91c1c;">Der Scanner antwortet nicht.</strong><br>'
+            + '<span style="color:var(--text-secondary);">' + String(fehler).replace(/</g, '&lt;').slice(0, 300) + '</span><br>'
+            + '<span style="color:var(--text-secondary);font-size:11px;">Nach ' + dauer + ' s. Diesen Text bitte weitergeben.</span>'
+            + '</div>';
+        return;
+    }
+
+    var items = a.items || [];
+    var nach = {};
+    items.forEach(function (i) { nach[_stNorm(i.name)] = i; });
+
+    var zeilen = [], ok = 0;
+    SELBSTTEST_SOLL.forEach(function (soll) {
+        var g = nach[_stNorm(soll[0])];
+        var probleme = [];
+        if (!g) probleme.push('fehlt');
+        else {
+            if (Number(g.price).toFixed(2) !== Number(soll[1]).toFixed(2)) probleme.push('Preis ' + g.price + ' statt ' + soll[1]);
+            if (_stNorm(g.category) !== _stNorm(soll[2])) probleme.push('Kategorie "' + (g.category || '-') + '" statt "' + soll[2] + '"');
+            if ((g.dish_number || '') !== soll[3]) probleme.push('Nr. "' + (g.dish_number || '-') + '" statt "' + soll[3] + '"');
+        }
+        if (!probleme.length) ok++;
+        zeilen.push({ name: soll[0], probleme: probleme });
+    });
+    var zuviel = items.filter(function (i) {
+        return !SELBSTTEST_SOLL.some(function (s2) { return _stNorm(s2[0]) === _stNorm(i.name); });
+    }).map(function (i) { return i.name; });
+
+    var alles = ok === SELBSTTEST_SOLL.length && !zuviel.length;
+    var farbe = alles ? '#059669' : '#b45309';
+    var html = '<div style="padding:10px 12px;border-radius:8px;border:1px solid ' + farbe
+        + ';background:' + (alles ? 'rgba(5,150,105,.08)' : 'rgba(245,158,11,.10)') + ';">'
+        + '<strong style="color:' + farbe + ';">' + ok + ' von ' + SELBSTTEST_SOLL.length + ' richtig</strong>'
+        + ' &middot; ' + dauer + ' s'
+        + (a.meta && a.meta.modell ? ' &middot; ' + a.meta.modell : '') + '<br>';
+    if (alles) {
+        html += '<span style="color:var(--text-secondary);">Preise, Kategorien, Gerichtnummern und Größen stimmen. Der Scanner arbeitet richtig.</span>';
+    } else {
+        zeilen.filter(function (z) { return z.probleme.length; }).forEach(function (z) {
+            html += '<div style="color:#b45309;">' + z.name + ': ' + z.probleme.join(', ') + '</div>';
+        });
+        if (zuviel.length) html += '<div style="color:#b45309;">zu viel: ' + zuviel.join(', ') + '</div>';
+        html += '<span style="color:var(--text-secondary);font-size:11px;">Diese Zeilen bitte weitergeben — daran ist der Fehler eindeutig.</span>';
+    }
+    html += '</div>';
+    box.innerHTML = html;
 }
 
 async function startMenuScan() {
