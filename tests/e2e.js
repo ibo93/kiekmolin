@@ -1,7 +1,7 @@
 // Durchlauf durch die komplette Kette mit einer realistischen 2-Seiten-Karte,
 // die in 4 Bildhaelften zerlegt wurde. Nutzt den ECHTEN Server-Code und die
 // ECHTE Client-Logik, aus den Dateien geschnitten.
-var fs=require('fs'), n=0, ok=0;
+var fs=require('fs'), sse=require('./lib/sse').sseAntwort, n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 var P='/home/user/kiekmolin/netlify/functions/menu-scan.js';
@@ -23,7 +23,7 @@ var HAELFTEN = [
   global.fetch = async function(url){
     if(String(url).indexOf('vision')>=0) return {ok:false,status:403,text:async()=>'aus'};
     var payload = HAELFTEN[idx++];
-    return {ok:true, json:async()=>({content:[{text:JSON.stringify(payload)}]})};
+    return sse(JSON.stringify(payload));
   };
   delete require.cache[require.resolve(P)];
   var handler = require(P).handler;

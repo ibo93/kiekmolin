@@ -56519,6 +56519,8 @@ function findeKategorie(name, vorhandenMap) {
     return null;
 }
 
+// Ein Aufruf an die Scan-Function. Gibt die GANZE Antwort zurueck (nicht nur
+// die Gerichte), weil die Fortsetzung 'fertig' und 'letzte' braucht.
 async function aiMenuScan(payload) {
     try {
         var res = await fetch('/.netlify/functions/menu-scan', {
@@ -56526,20 +56528,87 @@ async function aiMenuScan(payload) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        var j = await res.json();
+        var j = null;
+        try { j = await res.json(); } catch (e) { j = null; }
         if (j && j.ok && Array.isArray(j.items)) {
             window._lastMenuScanError = null;
             if (j.meta) (window._scanMeta = window._scanMeta || []).push(j.meta);
-            return j.items;
+            return j;
         }
         window._lastMenuScanError = (j && j.error) ? String(j.error) : ('HTTP ' + res.status);
+        // Kontingent-Ende ist KEIN Defekt -- die App soll warten koennen.
+        window._lastMenuScanKontingent = !!(j && j.kontingent);
         console.warn('[menu-scan]', window._lastMenuScanError);
         return null;
     } catch (e) {
         window._lastMenuScanError = e.message || 'nicht erreichbar';
+        window._lastMenuScanKontingent = false;
         console.warn('[menu-scan] nicht erreichbar:', e.message);
         return null;
     }
+}
+
+// EIN Bild vollstaendig lesen -- notfalls in mehreren Runden.
+//
+// WARUM MEHRERE RUNDEN: Die Server-Function wird nach 10 Sekunden abgeschnitten.
+// Eine volle Speisekarte schreibt kein Modell in 10 Sekunden. Die Function gibt
+// deshalb zurueck, was sie bis kurz vor dem Limit hat, und meldet "fertig:false".
+// Hier wird dann genau dort weitergefragt. Ergebnis: die Karte kommt komplett,
+// statt dass der Aufruf still ins Limit laeuft (genau das ist vorher passiert --
+// danach uebernahm unbemerkt die einfache Texterkennung).
+async function scanSeiteKomplett(bild, kategorien, aufFortschritt) {
+    var alle = [], gesehen = {}, weiter = null, protokoll = [], fehler = null;
+    var MAX_RUNDEN = 20;                       // Notbremse gegen Endlosschleifen
+    var wartezeiten = 0, MAX_WARTEN = 4;       // Wartepausen bei vollem Kontingent
+
+    for (var runde = 1; runde <= MAX_RUNDEN; runde++) {
+        var t0 = new Date().getTime();
+        var a = await aiMenuScan({ images: [bild], categories: kategorien, weiter: weiter });
+        var ms = new Date().getTime() - t0;
+
+        if (!a) {
+            fehler = window._lastMenuScanError || 'unbekannt';
+            // Kontingent erschoepft: WARTEN statt aufgeben.
+            //
+            // Das kostenlose Google-Kontingent erlaubt rund zehn Anfragen pro
+            // Minute. Eine grosse Karte (gemessen: Pizzeria mit 140 Gerichten
+            // auf zwei Seiten) braucht mehr -- und verlor bisher mitten im Scan
+            // den Rest der Karte. Der Zaehler laeuft nach einer Minute wieder,
+            // also lohnt sich Warten immer.
+            if (window._lastMenuScanKontingent && wartezeiten < MAX_WARTEN) {
+                wartezeiten++;
+                protokoll.push({ runde: runde, ms: ms, neu: 0, status: 'Kontingent voll — warte 25 s' });
+                if (aufFortschritt) aufFortschritt(alle.length, 'Google-Kontingent erreicht — warte 25 Sekunden…');
+                await new Promise(function (r) { setTimeout(r, 25000); });
+                runde--;                       // dieselbe Runde noch einmal
+                fehler = null;
+                continue;
+            }
+            protokoll.push({ runde: runde, ms: ms, neu: 0, status: 'FEHLER: ' + fehler });
+            break;
+        }
+
+        // Nur wirklich neue Gerichte uebernehmen. Wiederholt das Modell sich,
+        // bleibt "neu" bei 0 -- und das ist unser Zeichen, dass es nicht weiter
+        // kommt. Ohne diese Bremse liefe der Scan endlos im Kreis.
+        var neu = 0;
+        a.items.forEach(function (it) {
+            var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
+            if (gesehen[k]) return;
+            gesehen[k] = 1; alle.push(it); neu++;
+        });
+        protokoll.push({ runde: runde, ms: ms, neu: neu, status: a.fertig ? 'fertig' : 'weiter' });
+        if (aufFortschritt) aufFortschritt(alle.length);
+
+        if (a.fertig) break;
+        if (!neu) break;                       // Stillstand -> aufhoeren
+        weiter = {
+            anzahl: alle.length,
+            letzte: a.letzte && a.letzte.length ? a.letzte : alle.slice(-8).map(function (x) { return x.name; }),
+            kategorie: a.letzteKategorie || ''
+        };
+    }
+    return { items: alle, protokoll: protokoll, fehler: fehler };
 }
 
 // Einmal pro Scan-Vorgang anzeigen, warum die KI nicht gegriffen hat.
@@ -56558,29 +56627,28 @@ function splitImageVertically(dataUrl, slices) {
     return new Promise(function (resolve) {
         var img = new Image();
         img.onload = function () {
-            // Claude Sonnet 5 verarbeitet Bilder bis 2576 px auf der LANGEN
-            // Kante. Alles darueber skaliert Anthropic selbst herunter.
+            // WICHTIG -- BITTE NICHT WIEDER AENDERN:
+            // Karten NICHT in Teile schneiden. Das zerreisst mehrspaltige
+            // Layouts und Zeilen an den Schnittkanten; die Folge sind falsche
+            // Preise und fehlende Gerichte. Die KI liest das GANZE Bild am
+            // Stueck am besten.
             //
-            // Vorher wurde nach der BREITE auf 2400 begrenzt. Bei einem
-            // Handy-Hochformat (3000x4000) kam damit 2400x3200 raus -- lange
-            // Kante 3200, also nochmal auf 1932x2576 geschrumpft. Die Schrift
-            // wurde also zweimal kleiner gemacht, einmal unnoetig.
+            // Das stand hier schon einmal, und es wurde trotzdem geaendert --
+            // mit der Ueberlegung, dass zwei Haelften je einzeln skaliert eine
+            // groessere Schrift ergeben. Rechnerisch stimmt das, in der Praxis
+            // war das Ergebnis SCHLECHTER: was die Schrift an Groesse gewinnt,
+            // verliert das Modell an Zusammenhang. Es sieht dann halbe Zeilen,
+            // abgeschnittene Preisspalten und Abschnitte ohne Ueberschrift.
+            // Wer das erneut aendern will: vorher an einer echten Karte messen,
+            // nicht ausrechnen.
             //
-            // Der eigentliche Hebel: eine hohe Karte in zwei ueberlappende
-            // Haelften schneiden. Jede Haelfte wird EINZELN auf 2576 skaliert
-            // -- die Schrift ist dadurch doppelt so gross wie beim Scan der
-            // ganzen Seite am Stueck. Geschnitten wird quer (Zeilen), nie
-            // laengs (Spalten): so bleibt ein mehrspaltiges Layout heil.
+            // Skaliert wird auf die LANGE Kante (2576 px -- mehr verarbeitet
+            // Claude Sonnet 5 nicht, alles Groessere rechnet Anthropic ohnehin
+            // herunter). Das ist kein Zuschnitt, sondern spart nur den
+            // doppelten Verkleinerungsschritt.
             var MAX_KANTE = 2576;
-            var UEBERLAPPUNG = 0.08;   // 8 % gegen zerschnittene Zeilen
-
             var w = img.width, h = img.height;
             if (!w || !h) { resolve([dataUrl]); return; }
-
-            var verhaeltnis = h / w;
-            var teile = 1;
-            if (verhaeltnis >= 1.25 && h > MAX_KANTE * 1.15) teile = 2;
-            if (verhaeltnis >= 2.4) teile = 3;                 // Panorama einer langen Karte
 
             function stueck(y0, y1) {
                 var sh = y1 - y0;
@@ -56590,32 +56658,100 @@ function splitImageVertically(dataUrl, slices) {
                 var c = document.createElement('canvas');
                 c.width = cw; c.height = ch;
                 var ctx = c.getContext('2d');
-                // Weisser Grund: PNG mit Transparenz wuerde sonst schwarz und
-                // die Schrift verschwindet.
+                // Weisser Grund: ein PNG mit Transparenz wuerde sonst schwarz
+                // und die Schrift verschwindet.
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, cw, ch);
                 ctx.drawImage(img, 0, y0, w, sh, 0, 0, cw, ch);
-                return c.toDataURL('image/jpeg', 0.92);
+                // 0.95 statt 0.92: der Unterschied ist ein paar Kilobyte,
+                // aber bei kleiner Schrift entscheidet er ueber lesbar oder nicht.
+                return c.toDataURL('image/jpeg', 0.95);
             }
 
-            if (teile === 1) {
-                resolve([stueck(0, h)]);
-                return;
-            }
+            // Ist das Foto ohnehin klein genug, geht das ORIGINAL raus --
+            // ohne einmal durch Canvas und ein zweites Mal durch die
+            // JPEG-Kompression zu laufen. Genau das passiert naemlich, wenn man
+            // eine Karte im Chat vorlegt: die Datei kommt unveraendert an.
+            // Jedes erneute Speichern als JPEG kostet Kanten -- und Kanten sind
+            // bei 8-Punkt-Schrift genau das, worauf es ankommt.
+            if (Math.max(w, h) <= MAX_KANTE) { resolve([dataUrl]); return; }
 
-            var out = [];
-            var hoehe = h / teile;
-            var ueber = Math.floor(h * UEBERLAPPUNG);
-            for (var i = 0; i < teile; i++) {
-                var y0 = Math.max(0, Math.round(i * hoehe) - (i > 0 ? ueber : 0));
-                var y1 = Math.min(h, Math.round((i + 1) * hoehe) + (i < teile - 1 ? ueber : 0));
-                if (y1 - y0 > 10) out.push(stueck(y0, y1));
-            }
-            resolve(out.length ? out : [stueck(0, h)]);
+            // Einzige Ausnahme: ein echtes Panorama. Ab Seitenverhaeltnis 2,2
+            // waere die Schrift auf 2576 px langer Kante so klein, dass gar
+            // nichts mehr lesbar ist -- da ist ein Schnitt das kleinere Uebel.
+            // Ein Hoch- oder Querformat vom Handy faellt NICHT darunter.
+            if (h / w < 2.2) { resolve([stueck(0, h)]); return; }
+
+            var ueber = Math.floor(h * 0.08);       // gegen zerschnittene Zeilen
+            var mitte = Math.round(h / 2);
+            resolve([
+                stueck(0, Math.min(h, mitte + ueber)),
+                stueck(Math.max(0, mitte - ueber), h)
+            ]);
         };
         img.onerror = function () { resolve([dataUrl]); };
         img.src = dataUrl;
     });
+}
+
+// Zweiter Blick auf eine Seite: das Gelesene noch einmal gegen das Bild
+// pruefen lassen.
+//
+// WARUM DAS DEN UNTERSCHIED MACHT: Ein Durchgang liest eine Karte sehr gut --
+// aber wenn eine Zeile doch daneben liegt, faellt es NIEMANDEM auf. Der
+// Gastronom sieht eine plausible Liste und uebernimmt sie. Genau das ist der
+// Unterschied zu "die Karte im Chat vorlegen": dort liest ein Mensch mit.
+//
+// Die Pruefung laeuft als eigene Anfrage (eigenes Zeitlimit) und ist billig:
+// stimmt alles, antwortet das Modell mit einem Wort. Was sie korrigiert oder
+// nachtraegt, wird markiert -- der Wirt sieht also genau die Stellen, auf die
+// er schauen sollte, statt der ganzen Liste blind zu vertrauen.
+function zeileAusItem(it) {
+    return [it.dish_number || '', it.name || '', it.description || '',
+            (it.price != null ? it.price : ''), it.category || '',
+            (it.allergens || []).join(','), (it.additives || []).join(','), ''].join('|');
+}
+
+async function pruefeSeite(bild, items, kategorien) {
+    if (!items || !items.length) return { korrigiert: 0, ergaenzt: 0, ms: 0 };
+    var t0 = new Date().getTime();
+    var a = await aiMenuScan({
+        images: [bild], categories: kategorien,
+        pruefen: items.map(zeileAusItem)
+    });
+    var ms = new Date().getTime() - t0;
+    if (!a) return { korrigiert: 0, ergaenzt: 0, ms: ms, fehler: window._lastMenuScanError };
+
+    var nachName = {};
+    items.forEach(function (i) { nachName[String(i.name || '').trim().toLowerCase()] = i; });
+
+    var korrigiert = 0;
+    (a.korrekturen || []).forEach(function (k) {
+        var alt = nachName[String(k.name || '').trim().toLowerCase()];
+        if (!alt) return;
+        // Nur die Felder uebernehmen, die sich wirklich unterscheiden -- und
+        // festhalten WELCHE. Sonst waere hinterher nicht erkennbar, was der
+        // zweite Blick geaendert hat.
+        var geaendert = [];
+        ['price', 'category', 'dish_number', 'name', 'description'].forEach(function (f) {
+            if (k[f] !== undefined && String(k[f]) !== String(alt[f] || '') && String(k[f]) !== '') {
+                alt[f] = k[f]; geaendert.push(f);
+            }
+        });
+        if (k.allergens && k.allergens.length) alt.allergens = k.allergens;
+        if (k.additives && k.additives.length) alt.additives = k.additives;
+        if (geaendert.length) { alt._geprueft = geaendert; korrigiert++; }
+    });
+
+    var ergaenzt = 0;
+    (a.fehlend || []).forEach(function (f) {
+        if (!f.name) return;
+        if (nachName[String(f.name).trim().toLowerCase()]) return;
+        f.selected = true; f._nachgetragen = true;
+        items.push(f); ergaenzt++;
+    });
+
+    return { korrigiert: korrigiert, ergaenzt: ergaenzt, ms: ms, sauber: !!(a.meta && a.meta.sauber) };
 }
 
 async function startMenuScan() {
@@ -56629,7 +56765,10 @@ async function startMenuScan() {
 
     var statusEl = document.getElementById('menuScanStatus');
 
+    var _scanFehlerGrund = null;
+
     try {
+        window._scanQuelleOCR = null;
         // 1) KI-Scanner (Vision) — erkennt UND kategorisiert deutlich besser als OCR
         statusEl.textContent = '🤖 KI liest die Speisekarte...';
         var images = [];
@@ -56657,36 +56796,76 @@ async function startMenuScan() {
             // lang wie eine einzelne. Jetzt dauert der ganze Scan nur so lang
             // wie die langsamste Seite. Das wird umso wichtiger, seit hohe
             // Seiten fuer die bessere Lesbarkeit in zwei Haelften gehen.
-            var fertig = 0;
             statusEl.textContent = images.length > 1
                 ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
                 : '🤖 KI erkennt Gerichte & Kategorien…';
 
             window._scanMeta = [];
             var _scanStart = new Date().getTime();
+            var _protokoll = [];
 
             // Vorhandene Kategorien einmal laden und jeder Seite mitgeben.
             var _vorhandeneKats = await ladeVorhandeneKategorien(
                 window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
 
-            var teilErgebnisse = await Promise.all(images.map(function (bild) {
-                return aiMenuScan({ images: [bild], categories: _vorhandeneKats })
-                    .catch(function () { return []; })
-                    .then(function (r) {
-                        fertig++;
-                        if (images.length > 1) {
-                            statusEl.textContent = '🤖 ' + fertig + '/' + images.length + ' Seiten gelesen…';
-                        }
-                        return r;
-                    });
+            // Laufender Zaehler ueber ALLE Seiten -- damit waehrend eines langen
+            // Scans sichtbar ist, dass es vorangeht, statt dass minutenlang
+            // derselbe Text steht.
+            var _proSeite = images.map(function () { return 0; });
+            function _zeigeFortschritt() {
+                var summe = _proSeite.reduce(function (x, y) { return x + y; }, 0);
+                statusEl.textContent = '🤖 ' + summe + ' Gerichte gelesen…'
+                    + (images.length > 1 ? ' (' + images.length + ' Seiten)' : '');
+            }
+
+            var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
+                return scanSeiteKomplett(bild, _vorhandeneKats, function (n, hinweis) {
+                    _proSeite[si] = n;
+                    if (hinweis) { statusEl.textContent = '\u23F3 ' + hinweis; return; }
+                    _zeigeFortschritt();
+                }).catch(function (e) {
+                    return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: 'FEHLER: ' + e.message }], fehler: e.message };
+                });
             }));
             // WICHTIG: in Seitenreihenfolge zusammenfuegen. Promise.all liefert
             // die Ergebnisse in der Reihenfolge der Anfragen, nicht in der
             // Reihenfolge des Eintreffens -- darauf beruht der naechste Schritt.
-            teilErgebnisse.forEach(function (part) {
-                if (part && part.length) aiItems = aiItems.concat(part);
+            var _ersterFehler = null;
+            teilErgebnisse.forEach(function (part, si) {
+                if (!_ersterFehler && part.fehler) _ersterFehler = part.fehler;
+                (part.protokoll || []).forEach(function (r) {
+                    _protokoll.push('S' + (si + 1) + ' R' + r.runde + ': ' + r.neu + ' neu, '
+                                    + Math.round(r.ms / 100) / 10 + 's, ' + r.status);
+                });
+                if (part.items && part.items.length) aiItems = aiItems.concat(part.items);
                 else failedPages++;
             });
+
+            // Zweiter Blick, Seite fuer Seite und parallel.
+            var _pruef = { korrigiert: 0, ergaenzt: 0, sauber: 0 };
+            if (aiItems.length) {
+                statusEl.textContent = '🔍 Zweiter Blick: ' + aiItems.length + ' Gerichte werden gegen das Foto geprüft…';
+                var _pr = await Promise.all(images.map(function (bild, si) {
+                    var teil = teilErgebnisse[si];
+                    if (!teil || !teil.items || !teil.items.length) return Promise.resolve(null);
+                    return pruefeSeite(bild, teil.items, _vorhandeneKats)
+                        .catch(function () { return null; });
+                }));
+                // aiItems neu aufbauen -- pruefeSeite haengt Nachgetragenes an
+                // die Seitenliste an, und die Reihenfolge der Seiten muss bleiben.
+                aiItems = [];
+                teilErgebnisse.forEach(function (t) { if (t && t.items) aiItems = aiItems.concat(t.items); });
+                _pr.forEach(function (x, si) {
+                    if (!x) return;
+                    _pruef.korrigiert += x.korrigiert;
+                    _pruef.ergaenzt += x.ergaenzt;
+                    if (x.sauber) _pruef.sauber++;
+                    _protokoll.push('S' + (si + 1) + ' Prüfung: ' + x.korrigiert + ' korrigiert, '
+                                    + x.ergaenzt + ' ergänzt, ' + Math.round(x.ms / 100) / 10 + 's'
+                                    + (x.sauber ? ', ohne Beanstandung' : ''));
+                });
+                window._scanPruefung = _pruef;
+            }
 
             // Kategorien ueber die Seitengrenzen hinweg ergaenzen.
             //
@@ -56706,10 +56885,20 @@ async function startMenuScan() {
             aiItems.forEach(function (it) {
                 if (!(it.category || '').trim()) it.category = 'Sonstiges';
             });
-            // Duplikate (z.B. aus ueberlappenden Haelften) entfernen: Name+Preis
+            // Duplikate (z.B. aus ueberlappenden Haelften) entfernen.
+            // Duplikat-Schluessel.
+            //
+            // Er enthaelt die GERICHTNUMMER, und das ist kein Detail: auf der echten Karte
+            // von Pronto Pronto stehen "114. Roma Spezial" (Haehnchen) und "115. Roma
+            // Spezial" (Rind) -- gleicher Name, gleicher Preis, zwei verschiedene Gerichte.
+            // Ohne die Nummer im Schluessel verschwindet eines davon stillschweigend, und
+            // im Menue fehlt ein Gericht, das auf der Karte steht.
+            // Die Duplikate, gegen die dieser Schluessel wirklich hilft (dasselbe Gericht
+            // aus zwei ueberlappenden Bildhaelften oder aus zwei Runden), tragen dieselbe
+            // Nummer -- die werden weiterhin sauber zusammengefasst.
             var _seenScan = {};
             aiItems = aiItems.filter(function (it) {
-                var k = (String(it.name) + '|' + it.price).toLowerCase().replace(/\s+/g, ' ');
+                var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
                 if (_seenScan[k]) return false;
                 _seenScan[k] = 1; return true;
             });
@@ -56725,6 +56914,11 @@ async function startMenuScan() {
                     dauer: Math.round((new Date().getTime() - _scanStart) / 100) / 10 + ' s',
                     bilder: images.length,
                     seitenOhneErgebnis: failedPages,
+                    // Runde fuer Runde mit Dauer -- daran ist sofort ablesbar, ob
+                    // ein Aufruf ins Zeitlimit gelaufen ist (rund 10 s + Fehler).
+                    protokoll: _protokoll,
+                    pruefung: _pruef,
+                    quelle: 'KI (' + ((m[0] && m[0].modell) || '?') + ')',
                     modell: (m[0] && m[0].modell) || '?',
                     ocr: m.some(function (x) { return x.ocr; }) ? 'ja' : 'nein',
                     rohTreffer: m.reduce(function (a, x) { return a + (x.roh || 0); }, 0),
@@ -56747,11 +56941,22 @@ async function startMenuScan() {
             }
             // Kein einziges Gericht per KI: dem Gastronom sagen WARUM, bevor
             // die einfache Texterkennung uebernimmt.
+            // Grund JETZT sichern -- showMenuScanWarningIfAny() loescht ihn.
+            _scanFehlerGrund = _ersterFehler || window._lastMenuScanError || null;
             showMenuScanWarningIfAny();
         }
 
-        // 2) Fallback: lokales OCR (Tesseract)
-        statusEl.textContent = 'KI nicht verfügbar — Texterkennung (OCR) läuft...';
+        // 2) Rueckfall: lokale Texterkennung (Tesseract).
+        //
+        // WICHTIG: Dieser Rueckfall lief frueher STILL. Auf dem Bildschirm stand
+        // eine Sekunde lang ein Hinweis, danach sah das Ergebnis aus wie ein
+        // KI-Scan -- war aber reines OCR ohne Kategorien, ohne Allergene, mit
+        // zerrissenen Preisen. Genau daran ist die Fehlersuche wochenlang
+        // vorbeigelaufen: verbessert wurde die KI, angeschaut wurde OCR.
+        // Deshalb wird die Herkunft jetzt festgehalten und im Ergebnis
+        // ausgewiesen -- und der Grund gleich mit.
+        window._scanQuelleOCR = _scanFehlerGrund || 'KI hat nicht geantwortet';
+        statusEl.textContent = 'KI nicht verfügbar — einfache Texterkennung läuft...';
         await startMenuScanTesseract();
     } catch (error) {
         console.error('Scan Error:', error);
@@ -56803,7 +57008,11 @@ async function startMenuScanTesseract() {
         showToast('OCR-Text erkannt aber keine Gerichte gefunden. Text wurde ins Textfeld kopiert - bitte korrigieren und "Text analysieren" klicken.', 'info');
         return;
     }
-    showToast(scannedMenuItems.length + ' Gerichte erkannt!', 'success');
+    if (window._scanQuelleOCR) {
+        showToast('Ohne KI gelesen — ' + scannedMenuItems.length + ' Gerichte. Ergebnis ist deutlich ungenauer.', 'warning');
+    } else {
+        showToast(scannedMenuItems.length + ' Gerichte erkannt!', 'success');
+    }
     showScannedResults();
 }
 
@@ -57333,6 +57542,7 @@ function kopiereScanBericht(btn) {
         'Modell: ' + b.modell,
         'Bilder/Teile: ' + b.bilder + (b.seitenOhneErgebnis ? ' (' + b.seitenOhneErgebnis + ' ohne Ergebnis)' : ''),
         'OCR gelaufen: ' + b.ocr,
+        'Quelle: ' + (b.quelle || 'KI'),
         'Erkannt: ' + b.rohTreffer + ' -> nach Duplikaten ' + b.nachDuplikaten,
         'Ohne Preis: ' + b.ohnePreis,
         'Vorhandene Kategorien: ' + ((b.vorhandeneKategorien || []).join(', ') || 'keine'),
@@ -57341,6 +57551,10 @@ function kopiereScanBericht(btn) {
     Object.keys(b.kategorien || {}).forEach(function (k) {
         zeilen.push('  ' + k + ': ' + b.kategorien[k]);
     });
+    if (b.protokoll && b.protokoll.length) {
+        zeilen.push('Runden:');
+        b.protokoll.forEach(function (r) { zeilen.push('  ' + r); });
+    }
     // Die ersten Gerichte mitgeben -- an ihnen sieht man sofort, ob Namen,
     // Preise und Zuordnung stimmen.
     zeilen.push('Erste 15 Gerichte:');
@@ -57382,12 +57596,56 @@ function showScannedResults() {
     var cats = {};
     scannedMenuItems.forEach(function(i) { cats[i.category] = (cats[i.category] || 0) + 1; });
     var catCount = Object.keys(cats).length;
-    document.getElementById('menuScanCount').textContent = scannedMenuItems.length + ' Gerichte in ' + catCount + ' Kategorien';
+    var _ohnePreis = scannedMenuItems.filter(function (i) { return !i.price; }).length;
+    document.getElementById('menuScanCount').textContent =
+        scannedMenuItems.length + ' Gerichte in ' + catCount + ' Kategorien'
+        + (_ohnePreis ? ' · ' + _ohnePreis + ' ohne Preis' : '');
 
     window.scannedMenuItems = scannedMenuItems;
 
     var container = document.getElementById('menuScanItemsList');
     var html = '';
+
+    // Warnbanner, wenn NICHT die KI gelesen hat. Das muss unuebersehbar sein:
+    // ein OCR-Ergebnis sieht auf den ersten Blick aus wie ein KI-Ergebnis, ist
+    // aber ohne Kategorien, ohne Allergene und mit unsicheren Preisen. Wer das
+    // nicht sieht, importiert eine halb falsche Speisekarte -- und sucht den
+    // Fehler danach an der falschen Stelle.
+    if (window._scanQuelleOCR) {
+        html += '<div style="margin:0 0 12px;padding:12px 14px;border-radius:10px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;color:var(--text-primary);">' +
+            '<strong>Ohne KI gelesen.</strong> Das hier kommt aus der einfachen Texterkennung — ' +
+            'keine Kategorien, keine Allergene, Preise unsicher.<br>' +
+            '<span style="color:var(--text-secondary);font-size:12px;">Grund: ' +
+            String(window._scanQuelleOCR).replace(/</g, '&lt;').slice(0, 200) + '</span><br>' +
+            '<span style="color:var(--text-secondary);font-size:12px;">Bitte den Scan wiederholen, statt dieses Ergebnis zu übernehmen.</span>' +
+            '</div>';
+    }
+
+    var _pz = window._scanPruefung;
+    if (_pz && (_pz.korrigiert || _pz.ergaenzt)) {
+        html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #3b82f6;'
+              + 'background:rgba(59,130,246,.08);font-size:13px;line-height:1.55;color:var(--text-primary);">'
+              + '<strong>Zweiter Blick:</strong> '
+              + (_pz.korrigiert ? _pz.korrigiert + ' Zeile' + (_pz.korrigiert > 1 ? 'n' : '') + ' korrigiert' : '')
+              + (_pz.korrigiert && _pz.ergaenzt ? ', ' : '')
+              + (_pz.ergaenzt ? _pz.ergaenzt + ' Gericht' + (_pz.ergaenzt > 1 ? 'e' : '') + ' nachgetragen' : '')
+              + '. Diese Zeilen sind <span style="color:#1d4ed8;font-weight:600;">blau</span> markiert — bitte kurz gegenlesen.'
+              + '</div>';
+    } else if (_pz) {
+        html += '<div style="margin:0 0 10px;padding:9px 13px;border-radius:10px;border:1px solid var(--border-light,#e5e7eb);'
+              + 'background:var(--bg-secondary);font-size:12px;color:var(--text-secondary);">'
+              + 'Zweiter Blick: jede Zeile noch einmal gegen das Foto geprüft, nichts zu beanstanden.'
+              + '</div>';
+    }
+
+    if (_ohnePreis) {
+        html += '<div style="margin:0 0 10px;padding:10px 13px;border-radius:10px;border:1px solid #f59e0b;'
+              + 'background:rgba(245,158,11,.10);font-size:13px;line-height:1.55;color:var(--text-primary);">'
+              + '<strong>' + _ohnePreis + ' Gericht' + (_ohnePreis > 1 ? 'e' : '') + ' ohne Preis.</strong> '
+              + 'Diese Preise waren im Foto nicht sicher lesbar und sind unten <span style="color:#b45309;font-weight:600;">orange</span> markiert. '
+              + 'Die KI rät hier bewusst nicht — bitte kurz eintragen.'
+              + '</div>';
+    }
 
     // Scan-Bericht: aufklappbar, unauffaellig, mit Kopier-Knopf.
     // Zweck: bei "das Ergebnis ist schlecht" muss in EINEM Schritt feststellbar
@@ -57409,6 +57667,10 @@ function showScannedResults() {
               '<div>Ohne Preis: ' + b.ohnePreis + '</div>' +
               '<div>Vorhandene Kategorien: ' + ((b.vorhandeneKategorien || []).join(', ') || 'keine') + '</div>' +
               '<div>Erkannte Kategorien: ' + (katListe || '–') + '</div>' +
+              ((b.protokoll && b.protokoll.length)
+                 ? '<div style="margin-top:8px;">Runden (S=Seite, R=Runde):</div><div style="font-family:ui-monospace,monospace;font-size:11px;white-space:pre-wrap;">'
+                   + b.protokoll.join('\n').replace(/</g, '&lt;') + '</div>'
+                 : '') +
               '<button type="button" onclick="kopiereScanBericht(this)" style="margin-top:10px;padding:7px 14px;border:1px solid var(--border-light,#e5e7eb);border-radius:9999px;background:var(--bg-card);font-size:12px;cursor:pointer;color:var(--text-primary);">Bericht kopieren</button>' +
             '</div></details>';
     }
@@ -57434,7 +57696,12 @@ function showScannedResults() {
             html += '</div>';
         }
 
-        html += '<div class="menu-scan-item" style="display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-bottom: 1px solid var(--border-light, #e5e7eb);">';
+        // Der zweite Blick hat hier etwas geaendert oder ergaenzt -> hervorheben.
+        // Der Wirt soll genau DIESE Zeilen kurz ansehen, nicht die ganze Liste.
+        var _korr = item._geprueft && item._geprueft.length;
+        var _neu = item._nachgetragen;
+        html += '<div class="menu-scan-item" style="display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-bottom: 1px solid var(--border-light, #e5e7eb);'
+              + ((_korr || _neu) ? 'background:rgba(59,130,246,.07);border-left:3px solid #3b82f6;' : '') + '">';
         html += '<input type="checkbox" ' + (item.selected ? 'checked' : '') + ' onchange="window.scannedMenuItems[' + origIdx + '].selected = this.checked; scannedMenuItems[' + origIdx + '].selected = this.checked;" style="width: 18px; height: 18px; margin-top: 4px; accent-color: var(--primary); flex-shrink: 0;">';
         html += '<div style="flex: 1; min-width: 0;">';
 
@@ -57453,6 +57720,13 @@ function showScannedResults() {
 
         // Badges
         html += '<div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px;">';
+        if (_neu) {
+            html += '<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:600;" title="Beim zweiten Blick auf der Karte gefunden">+ nachgetragen</span>';
+        } else if (_korr) {
+            var _fn = {price:'Preis',category:'Kategorie',dish_number:'Nr.',name:'Name',description:'Beschreibung'};
+            var _liste = item._geprueft.map(function (f) { return _fn[f] || f; }).join(', ');
+            html += '<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:600;" title="Beim zweiten Blick korrigiert: ' + _liste + '">korrigiert: ' + _liste + '</span>';
+        }
         html += getScannedItemBadges(item);
 
         // Allergene
@@ -57466,8 +57740,22 @@ function showScannedResults() {
 
         // Preis (editierbar)
         html += '<div style="flex-shrink: 0; text-align: right;">';
-        html += '<input type="number" step="0.10" value="' + (item.price || 0).toFixed(2) + '" style="width: 70px; text-align: right; font-weight: 700; font-size: 15px; color: var(--primary); border: 1px solid var(--border-light, #e5e7eb); border-radius:9999px; padding: 4px 8px; background: var(--bg-secondary, #f9fafb);" onchange="window.scannedMenuItems[' + origIdx + '].price = parseFloat(this.value) || 0; scannedMenuItems[' + origIdx + '].price = parseFloat(this.value) || 0;">';
-        html += '<div style="font-size: 10px; color: var(--slate); text-align: right; margin-top: 2px;">€</div>';
+        // Kein Preis erkannt -> auffaellig markieren.
+        //
+        // Die KI RAET hier bewusst nicht (getestet: von sechs geratenen Preisen
+        // war einer richtig). Eine 0 sieht der Wirt und traegt sie nach, eine
+        // erfundene Zahl uebernimmt er ungeprueft in seine Karte.
+        var _fehltPreis = !item.price;
+        html += '<input type="number" step="0.10" value="' + (item.price || 0).toFixed(2) + '"'
+              + ' style="width: 70px; text-align: right; font-weight: 700; font-size: 15px;'
+              + (_fehltPreis
+                   ? ' color:#b45309; border:2px solid #f59e0b; background:rgba(245,158,11,.12);'
+                   : ' color: var(--primary); border: 1px solid var(--border-light, #e5e7eb); background: var(--bg-secondary, #f9fafb);')
+              + ' border-radius:9999px; padding: 4px 8px;"'
+              + (_fehltPreis ? ' title="Preis war im Foto nicht lesbar — bitte eintragen"' : '')
+              + ' onchange="window.scannedMenuItems[' + origIdx + '].price = parseFloat(this.value) || 0; scannedMenuItems[' + origIdx + '].price = parseFloat(this.value) || 0;">';
+        html += '<div style="font-size: 10px; text-align: right; margin-top: 2px;'
+              + (_fehltPreis ? 'color:#b45309;font-weight:600;">fehlt' : 'color: var(--slate);">€') + '</div>';
         html += '</div></div>';
     }
 
@@ -57545,6 +57833,9 @@ async function importScannedMenu() {
     var importedCount = 0;
     var errors = [];
     var categoryMap = {}; // Name → ID
+    // Spalten, die diese Datenbank nicht kennt -- einmal gemerkt, dann bei
+    // allen weiteren Gerichten gar nicht erst mitgeschickt.
+    var _unbekannteSpalten = {};
 
     // Schritt 1: Bestehende Kategorien laden
     try {
@@ -57616,6 +57907,19 @@ async function importScannedMenu() {
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,
             is_spicy: item.is_spicy ? 1 : 0,
+            // Fleisch- und Fischmerkmale MITSPEICHERN.
+            //
+            // Der Scanner hat sie die ganze Zeit erkannt -- gespeichert wurden
+            // sie nie. In der Gast-Ansicht und im Filter fehlten sie damit
+            // komplett. Fuer jemanden, der kein Schweinefleisch isst, ist das
+            // kein Schoenheitsfehler: ein Gericht ohne Kennzeichnung sieht in
+            // der App unbedenklich aus.
+            is_beef: !!item.is_beef,
+            is_chicken: !!item.is_chicken,
+            is_pork: !!item.is_pork,
+            is_lamb: !!item.is_lamb,
+            is_fish: !!item.is_fish,
+            is_seafood: !!item.is_seafood,
             sort_order: j + 1,
             // allergens: Codes wie 'gluten', 'milch' -- dieselben, die die
             // Gast-Ansicht und der Allergen-Filter schon verwenden.
@@ -57626,11 +57930,30 @@ async function importScannedMenu() {
                 .concat(Array.isArray(item.additives) ? item.additives : [])
         };
 
+        Object.keys(_unbekannteSpalten).forEach(function (k) { delete itemData[k]; });
+
         try {
             var itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
                 method: 'POST', headers: SUPA_H,
                 body: JSON.stringify(itemData)
             });
+            // Kennt die Datenbank eine Spalte nicht, meldet PostgREST das mit
+            // 400 und nennt den Spaltennamen. Frueher waere daran der GANZE
+            // Import gescheitert -- wegen eines einzigen Zusatzfeldes. Jetzt
+            // fliegt genau dieses Feld raus und der Import laeuft weiter.
+            if (!itemRes.ok && itemRes.status === 400) {
+                var t400 = await itemRes.clone().text();
+                var fehlend = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(t400);
+                var spalte = fehlend && (fehlend[1] || fehlend[2] || fehlend[3]);
+                if (spalte && (spalte in itemData)) {
+                    console.warn('[import] Spalte "' + spalte + '" gibt es nicht — wird ausgelassen');
+                    delete itemData[spalte];
+                    _unbekannteSpalten[spalte] = 1;
+                    itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
+                        method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+                    });
+                }
+            }
             if (itemRes.ok) {
                 importedCount++;
             } else {

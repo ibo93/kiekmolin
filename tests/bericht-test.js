@@ -9,16 +9,16 @@ t('Prompt erklaert, wie eine Speisekarte aufgebaut ist',
 t('Prompt: alle zwoelf Pizzen, nicht nur die erste',
   /bekommen ALLE ZWOELF die Kategorie "Pizza"/.test(fn));
 t('Prompt: leer NUR beim Bildanfang mitten im Abschnitt',
-  /NUR EIN EINZIGER FALL ergibt einen leeren String/.test(fn));
+  /NUR EIN EINZIGER FALL ergibt eine leere Kategorie/.test(fn));
 t('Prompt verbietet ausdruecklich das alte Missverstaendnis',
-  /Gib NIEMALS "" zurueck, nur weil ein Gericht nicht unmittelbar unter/.test(fn));
+  /Lass die Kategorie NIEMALS leer,/.test(fn));
 
 // --- Server liefert Diagnose ---
 t('Antwort enthaelt meta', /meta: \{[\s\S]{0,400}modell: ANTHROPIC_MODEL/.test(fn));
-t('meta zaehlt Rohtreffer und Duplikate', /roh: all\.length/.test(fn) && /duplikate: all\.length - deduped\.length/.test(fn));
-t('meta sagt, ob die OCR lief', /ocr: _ocrZeichen > 0/.test(fn));
-t('OCR-Zeichen werden in beiden Wegen gezaehlt',
-  (fn.match(/_ocrZeichen \+=/g)||[]).length === 2);
+t('meta zaehlt Rohtreffer und Duplikate', /roh: alle\.length/.test(fn) && /duplikate: alle\.length - deduped\.length/.test(fn));
+t('meta sagt, ob die OCR lief', /ocr: ocr\.length > 0/.test(fn));
+t('meta zeigt Dauer und Zeitbudget an', /ms: Date\.now\(\) - T0/.test(fn) && /budget: BUDGET_MS/.test(fn));
+t('meta sagt, ob abgebrochen wurde und warum', /abgebrochen: !!r\.abgebrochen/.test(fn) && /stopReason: r\.stopReason/.test(fn));
 
 // --- Client sammelt und zeigt ---
 t('Client hebt meta auf', /window\._scanMeta = window\._scanMeta \|\| \[\]\)\.push\(j\.meta\)/.test(h));

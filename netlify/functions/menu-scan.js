@@ -5,7 +5,7 @@
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Modell: ANTHROPIC_API_KEY -> Claude Sonnet 5.
+// Modell: ANTHROPIC_API_KEY -> Claude Sonnet 5 (MENU_SCAN_MODEL uebersteuert).
 // Hochaufloesende Bilderkennung bis 2576 px Kantenlaenge, liest also auch das
 // Kleingedruckte einer Karte. Kostet pro Seite wenige Cent.
 //
@@ -19,7 +19,9 @@
 // Bei leerem Ergebnis wird derselbe Aufruf einmal wiederholt -- Vision-Modelle
 // sind nicht deterministisch, ein zweiter Versuch rettet haeufig den Scan.
 //
-// Body: { images?: ["data:image/...;base64,..."], text?: "..." }
+// Body: { images?: ["data:image/...;base64,..."], text?: "...",
+//         categories?: ["Pizza", ...],
+//         weiter?: { anzahl, letzte:[...], kategorie } }   <- Fortsetzung
 // Antwort: { ok:true, items:[{name,description,price,category,dish_number,
 //            is_vegetarian,is_vegan,is_spicy,is_beef,is_chicken,is_pork,
 //            is_fish,is_seafood}] }
@@ -40,7 +42,59 @@
 'use strict';
 
 var ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-var ANTHROPIC_MODEL = 'claude-sonnet-5';
+
+// ============================================================================
+// DAS ZEITLIMIT IST DIE WICHTIGSTE GROESSE IN DIESER DATEI. BITTE LESEN.
+// ============================================================================
+// Eine Netlify-Function wird nach 10 Sekunden hart abgeschnitten (Standard,
+// ohne [functions]-Eintrag in netlify.toml). Bis dahin MUSS eine Antwort
+// stehen -- sonst bekommt der Browser einen Fehler, und in der App lief
+// danach still die einfache Texterkennung an. Der Gastronom sah ein
+// schlechtes Ergebnis und dachte, die KI habe es gelesen.
+//
+// Eine dichte Speisekarte mit 60 Gerichten sind rund 4000 Wortteile Ausgabe.
+// Kein Modell schreibt das in 10 Sekunden. Das heisst: ein einziger Aufruf
+// pro Seite KANN nicht funktionieren, egal wie gut der Prompt ist. Genau
+// deshalb haben fuenf Runden Prompt-Verbesserung nichts geaendert.
+//
+// Loesung: die Function liest die Antwort im DATENSTROM mit und behaelt ihr
+// eigenes Zeitbudget im Auge. Kurz vor dem Limit bricht sie den Aufruf ab und
+// gibt zurueck, was bis dahin fertig ist -- zusammen mit "fertig: false" und
+// den zuletzt gelesenen Gerichten. Die App fragt dann einfach weiter
+// ("weiter"-Feld im Body), bis die Karte durch ist. Nichts geht verloren,
+// nichts laeuft ins Limit.
+//
+// Wer hier das Modell oder die Einstellungen aendert: das Budget ist eine
+// harte Wand. Was ein Modell in der Zeit nicht schreibt, steht nicht in der
+// Karte. Nachdenken (thinking) kostet Budget, BEVOR das erste Gericht
+// herauskommt -- deshalb ist es hier aus.
+// ============================================================================
+
+// NUR CLAUDE. Google ist raus -- und zwar aus einem gemessenen Grund.
+//
+// Gemini 2.5 Flash liest Speisekarten sehr gut (an einer Testkarte: 28 von 28
+// Gerichten, Preise und Kategorien vollstaendig, in 5 Sekunden). Nur laesst
+// Google im kostenlosen Kontingent GENAU 20 ANFRAGEN PRO TAG zu:
+//
+//   quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier
+//   quotaValue: 20
+//
+// Eine echte Pizzeria-Karte (Querformat, vier Spalten, 140 Gerichte auf zwei
+// Seiten, davon 88 mit zwei Preisspalten) braucht zehn bis zwanzig Anfragen.
+// EIN Scan verbraucht also das Tageskontingent -- und mitten in der Karte war
+// Schluss. gemini-2.5-flash-lite gibt es fuer neue Nutzer nicht mehr,
+// gemini-2.0-flash hat im kostenlosen Kontingent Limit 0.
+//
+// Kostenlos ist damit fuer diesen Zweck keine Option. Der Menuescanner laeuft
+// pro Restaurant ein paar Mal, nicht bei jedem Gast -- hier ist Verlaesslichkeit
+// mehr wert als ein paar Cent. (Der KIN-Assistent bleibt kostenlos, der laeuft
+// bei jeder Frage jedes Gastes; das ist der Unterschied.)
+var ANTHROPIC_MODEL = process.env.MENU_SCAN_MODEL || 'claude-sonnet-5';
+
+// Zeitbudget der Function in Millisekunden. 8500 laesst bei 10 s Limit noch
+// Luft fuer das Zusammenbauen der Antwort. Wer das Limit in Netlify auf 26 s
+// hochsetzt, setzt hier MENU_SCAN_MS=24000 -- dann sind es weniger Runden.
+var BUDGET_MS = parseInt(process.env.MENU_SCAN_MS || '8500', 10);
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -52,27 +106,100 @@ function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.
 
 var PROMPT = [
     'Du bist ein praeziser Speisekarten-Parser fuer ein Restaurant-Bestellsystem.',
-    'Lies die Speisekarte (Bild oder Text) SORGFAELTIG und extrahiere ALLE Gerichte und Getraenke — wirklich jede Position, nichts auslassen.',
+    'Lies die Speisekarte (Bild oder Text) SORGFAELTIG und gib ALLE Gerichte und Getraenke aus — wirklich jede Position.',
     '',
-    'Gib AUSSCHLIESSLICH gueltiges JSON in genau dieser Form zurueck (keine Erklaerung, kein Markdown):',
-    '{"items":[{"name":"...","description":"...","price":0.0,"category":"...","dish_number":"",',
-    '"is_vegetarian":false,"is_vegan":false,"is_spicy":false,"is_beef":false,"is_chicken":false,',
-    '"is_pork":false,"is_fish":false,"is_seafood":false}]}',
+    // AUSGABEFORMAT: bewusst KEIN JSON.
+    //
+    // Bei JSON sind rund zwei Drittel der Zeichen reines Geruest
+    // ("description":"", "is_vegetarian":false, ...). Das Geruest muss das
+    // Modell Zeichen fuer Zeichen mitschreiben, und genau daran laeuft die
+    // Zeit ab: eine Karte mit 60 Gerichten waren ueber 19000 Zeichen, davon
+    // rund 12000 Geruest. In Zeilenform sind es rund 5000 -- derselbe Inhalt,
+    // ein Viertel der Zeit. Abgerissene Zeilen sind ausserdem harmlos: die
+    // letzte unvollstaendige Zeile faellt weg, alle davor bleiben gueltig.
+    'AUSGABEFORMAT — eine Zeile pro Position, Felder mit | getrennt, NICHTS sonst:',
+    'NR|Name|Beschreibung|Preis|Kategorie|Allergene|Zusatzstoffe|Merkmale',
+    '',
+    'Beispiel:',
+    '12|Pizza Salami|Tomate, Kaese, Salami|9.50|Pizzen|gluten,milch|1,2|s',
+    '|Ostfriesentee|mit Kluntje und Sahne|3.20|Getraenke|milch||v',
+    '',
+    'Kein JSON, keine Aufzaehlungszeichen, keine Ueberschriften, keine Erklaerung.',
+    'Fehlt ein Feld, bleibt es leer — die | stehen trotzdem alle da.',
+    'GENAU 8 Felder und GENAU 7 Trenner pro Zeile. Kein | am Zeilenende, keine leeren Felder anhaengen.',
+    'Kommt ein | im Namen oder in der Beschreibung vor, schreibe stattdessen /.',
+    'Jede Position genau EINE Zeile, keine Zeilenumbrueche innerhalb einer Zeile.',
+    '',
+    'DIE FELDER:',
+    '- NR: Artikel-/Gerichtnummer von der Karte (z.B. 12 oder 12a), sonst leer.',
+    '  Nummern stehen meist VOR dem Namen. Verwechsle Nummern nicht mit Preisen.',
+    // NICHT WIEDER "ae/oe/ue ist auch ok" schreiben. Genau das stand hier, und
+    // das Modell hat es bei einem unscharfen Foto sofort benutzt: "Getraenke",
+    // "Rote Gruetze", "Haenchenbrustfilet". Eine Kategorie "Getraenke" trifft
+    // die vorhandene "Getränke" nicht -> zwei Kategorien im Menue, genau der
+    // Fehler, ueber den sich der Wirt beschwert hat.
+    '- Name: der Name des Gerichts. Deutsche Umlaute IMMER als ä ö ü ß schreiben,',
+    '  niemals als ae/oe/ue/ss — auch nicht, wenn das Foto unscharf ist.',
+    '  Auch wenn die Karte GROSSBUCHSTABEN nutzt: normale Gross-/Kleinschreibung',
+    '  ("PIZZA SALAMI" -> "Pizza Salami").',
+    '- Beschreibung: die Zutaten-/Beschreibungszeile unter dem Namen, sonst leer.',
+    '  Die Kennzeichnungen in Klammern wie "(1,2,a,c)" gehoeren NICHT hierhin —',
+    '  die wertest du in den naechsten beiden Feldern aus.',
+    '- Preis: Zahl mit Punkt (12,90 -> 12.90). Unleserlich -> 0.',
+    '  Mehrere Groessen: klein:6.50/gross:8.50 (siehe unten).',
+    '  Preise stehen oft rechtsbuendig in einer eigenen Spalte — ordne jeden Preis',
+    '  der richtigen Zeile zu.',
+    '- Kategorie: siehe unten. Auch hier Umlaute ausschreiben ("Getränke", nicht "Getraenke").',
+    '- Allergene: die CODES (gluten, milch, ...) mit Komma getrennt, sonst leer.',
+    '  Die Buchstaben von der Karte uebersetzt du in Codes (Liste unten) und schreibst',
+    '  NUR die Codes — nicht zusaetzlich die Buchstaben.',
+    '- Zusatzstoffe: NUR Ziffern mit Komma getrennt (1,2,11), sonst leer. Hier gehoeren',
+    '  KEINE Buchstaben hinein.',
+    '- Merkmale: Buchstaben ohne Trenner, sonst leer:',
+    '  v=vegetarisch  V=vegan  s=scharf',
+    '  r=Rind  h=Haehnchen/Gefluegel  w=Schwein  L=Lamm  f=Fisch  m=Meeresfruechte',
+    '',
+    // Gemessen: bei einer Imbisskarte blieben Currywurst, Bratwurst und
+    // Schnitzel OHNE Kennzeichnung. Fuer einen Gast, der kein Schweinefleisch
+    // isst, ist genau das die gefaehrliche Richtung -- ein fehlendes Merkmal
+    // heisst in der App "unbedenklich". Deshalb hier ausdrueckliche Beispiele.
+    '  Diese Merkmale leitest du aus Name UND Zutaten ab, auch wenn die Karte',
+    '  nichts dazuschreibt. Beispiele, die oft vergessen werden:',
+    '    Currywurst, Bratwurst, Schnitzel (ohne Zusatz), Schinken, Speck, Bacon,',
+    '    Salami, Gyros, Doener vom Schwein, Kassler, Leberkaese, Frikadelle -> w',
+    '    Rumpsteak, Filetsteak, Burger, Bolognese, Tatar, Hackfleisch -> r',
+    '    Haehnchen, Pute, Chicken, Nuggets, Tavuk -> h',
+    '    Backfisch, Matjes, Lachs, Scholle, Thunfisch, Rollmops -> f',
+    '    Krabben, Garnelen, Muscheln, Calamari, Scampi -> m',
+    '  Steht ausdruecklich eine andere Fleischsorte dabei ("Schnitzel vom Kalb",',
+    '  "Gyros vom Haehnchen"), gilt DIE. Sonst die uebliche.',
+    '  Bei Schwein im Zweifel LIEBER kennzeichnen: wer kein Schweinefleisch isst,',
+    '  verlaesst sich darauf.',
     '',
     'REGELN:',
     '- Lies das Bild systematisch: Spalte fuer Spalte, von oben nach unten. Viele Karten haben',
     '  ZWEI oder MEHR SPALTEN — lies erst die linke Spalte komplett, dann die rechte.',
-    '- price: Zahl in Euro (z.B. 12.9). Komma als Dezimaltrennzeichen umwandeln (12,90 -> 12.9).',
-    '  Preise stehen oft rechtsbuendig in einer eigenen Spalte — ordne jeden Preis der richtigen Zeile zu.',
-    '- Hat ein Gericht mehrere Groessen/Preise (z.B. Pizza klein/gross, Getraenke 0,3l/0,5l,',
-    '  oder zwei Preisspalten mit Ueberschriften), erzeuge PRO Groesse einen eigenen Eintrag',
-    '  und haenge die Groesse an den Namen an, z.B. "Pizza Margherita (klein)" / "Pizza Margherita (gross)",',
-    '  "Cola (0,3l)" / "Cola (0,5l)".',
-    '- category: DU ERFINDEST KEINE KATEGORIEN. Du liest die Ueberschriften der Karte ab.',
+    // MEHRERE GROESSEN IN EINER ZEILE.
+    //
+    // Gemessen an einer echten Pizzeria-Karte (Querformat, vier Spalten, 140
+    // Gerichte, davon 88 mit zwei Preisspalten): als zwei getrennte Zeilen sind
+    // das 228 Zeilen Ausgabe. Die Zeit haengt fast nur an der Zahl der
+    // geschriebenen Zeichen -- so wurde aus einer Seite ein Scan ueber neun
+    // Runden. In einer Zeile sind es 140. Die App macht daraus wieder zwei
+    // Eintraege; das kostet dort nichts.
+    '- Hat ein Gericht MEHRERE GROESSEN (Pizza klein/gross, Getraenke 0,3l/0,5l,',
+    '  zwei Preisspalten), schreibe das in EINE Zeile. In das Preisfeld kommen dann',
+    '  die Groessen mit Doppelpunkt, getrennt durch /:',
+    '    1|Pizza Margherita||klein:6.50/gross:8.50|Pizza|gluten,milch|1,2|v',
+    '    |Cola||0,3l:3.20/0,5l:4.40|Getränke||1,3|',
+    '  Die Groessennamen nimmst du von der Karte (die Spaltenueberschriften, z.B.',
+    '  KLEIN und GROSS, oder 0,3l und 0,5l). Hat ein Gericht nur EINEN Preis,',
+    '  schreibst du nur die Zahl — ohne Doppelpunkt.',
+    '- KATEGORIE: DU ERFINDEST KEINE KATEGORIEN. Du liest die Ueberschriften der Karte ab.',
     '',
     '  SO FUNKTIONIERT EINE SPEISEKARTE: Eine Ueberschrift steht EINMAL und gilt dann fuer',
     '  ALLE Gerichte darunter, bis die naechste Ueberschrift kommt. Steht "Pizza" als',
-    '  Ueberschrift und darunter zwoelf Pizzen, bekommen ALLE ZWOELF die Kategorie "Pizza" --',
+    '  Ueberschrift und darunter zwoelf Pizzen, bekommen ALLE ZWOELF die Kategorie "Pizza" —',
     '  nicht nur die erste. Arbeite die Karte von oben nach unten durch und merke dir die',
     '  zuletzt gelesene Ueberschrift; jedes Gericht bekommt diese, bis eine neue auftaucht.',
     '',
@@ -82,39 +209,27 @@ var PROMPT = [
     '  vereinheitliche nicht, verschoenere nicht. Nur die Gross-/Kleinschreibung darfst du',
     '  normalisieren ("VOM GRILL" -> "Vom Grill").',
     '',
-    '  NUR EIN EINZIGER FALL ergibt einen leeren String "": wenn das Bild MITTEN in einem',
+    '  NUR EIN EINZIGER FALL ergibt eine leere Kategorie: wenn das Bild MITTEN in einem',
     '  Abschnitt beginnt und ueber dem ERSTEN Gericht des Bildes keine Ueberschrift steht,',
-    '  weil sie auf der vorigen Seite oder oberhalb des Bildrands liegt. Dann bekommen die',
-    '  Gerichte bis zur ersten sichtbaren Ueberschrift "" -- die App ergaenzt das aus der',
-    '  vorigen Seite. Rate in diesem Fall NICHT, wie die Ueberschrift geheissen haben koennte.',
-    '  Sobald eine Ueberschrift im Bild auftaucht, gilt wieder die Regel oben: sie gilt fuer',
-    '  alles darunter. Gib NIEMALS "" zurueck, nur weil ein Gericht nicht unmittelbar unter',
-    '  der Ueberschrift steht.',
+    '  weil sie oberhalb des Bildrands liegt. Dann bleibt das Feld bis zur ersten sichtbaren',
+    '  Ueberschrift leer — die App ergaenzt das aus der vorigen Seite. Rate in diesem Fall',
+    '  NICHT, wie die Ueberschrift geheissen haben koennte. Lass die Kategorie NIEMALS leer,',
+    '  nur weil ein Gericht nicht unmittelbar unter der Ueberschrift steht.',
     '',
     '- Gibt es unten eine Liste VORHANDENER KATEGORIEN und die Ueberschrift der Karte meint',
     '  offensichtlich dasselbe, nimm die vorhandene Schreibweise (Karte "Pizza", vorhanden',
     '  "Pizzen" -> "Pizzen"). Sonst bleibt die Ueberschrift der Karte stehen.',
-    '- dish_number: Artikel-/Gerichtnummer falls vorhanden (z.B. "12" oder "12a"), sonst "".',
-    '  Nummern stehen meist VOR dem Namen. Verwechsle Nummern nicht mit Preisen.',
-    '- description: kurze Beschreibung/Zutaten von der Karte (auch kleingedruckte Zeilen unter dem Namen), sonst "".',
-    '  Die Kennzeichnungen in Klammern wie "(1,2,a,c)" gehoeren NICHT in die Beschreibung --',
-    '  die wertest du stattdessen aus (siehe ALLERGENE).',
     '',
     'ALLERGENE UND ZUSATZSTOFFE (deutsche Karten kennzeichnen das in Klammern):',
     '- BUCHSTABEN = Allergene nach LMIV. Uebersetze sie in genau diese Codes:',
     '  A=gluten B=krebstiere C=eier D=fisch E=erdnuss F=soja G=milch H=schalenfruechte',
     '  I=sellerie J=senf K=sesam L=sulfite M=lupinen N=weichtiere',
     '  Steht das Allergen ausgeschrieben da ("mit Milch", "enthaelt Nuesse"), nimm denselben Code.',
-    '- ZAHLEN = Zusatzstoffe. Gib sie als Ziffern zurueck: "1", "2", "11" ...',
-    '- allergens: Liste der Codes, z.B. ["gluten","milch"]. Nichts gekennzeichnet -> leere Liste.',
-    '- additives: Liste der Ziffern, z.B. ["1","2"]. Nichts gekennzeichnet -> leere Liste.',
+    '- ZAHLEN = Zusatzstoffe. Als Ziffern ausgeben: 1,2,11',
     '- Rate NICHT. Nur was auf der Karte gekennzeichnet ist. Dass Pizza Mehl enthaelt,',
-    '  ist kein Grund fuer "gluten", wenn die Karte es nicht kennzeichnet.',
-    '- is_*-Flags aus Name/Zutaten ableiten (vegetarisch, vegan, scharf; Rind/Huhn/Schwein/Fisch/Meeresfruechte).',
-    '- Deutsche Umlaute korrekt schreiben (ä, ö, ü, ß) — auch wenn die Karte GROSSBUCHSTABEN nutzt,',
-    '  Namen in normaler Gross-/Kleinschreibung ausgeben ("PIZZA SALAMI" -> "Pizza Salami").',
-    '- Erfinde nichts. Nur was wirklich auf der Karte steht. Keine doppelten Eintraege.',
-    '- Wenn ein Preis unleserlich ist, lass price 0 und nimm das Gericht trotzdem auf.',
+    '  ist kein Grund fuer gluten, wenn die Karte es nicht kennzeichnet.',
+    '',
+    '- Erfinde nichts. Nur was wirklich auf der Karte steht. Keine doppelten Zeilen.',
     '- Ueberschriften, Oeffnungszeiten, Adressen, Werbetexte sind KEINE Gerichte — auslassen.',
     '- WICHTIG: Liste WIRKLICH JEDE Position vollstaendig auf — von der ersten bis zur',
     '  allerletzten Zeile der Karte. NICHT kuerzen, NICHT zusammenfassen, NICHT vorzeitig',
@@ -191,6 +306,121 @@ function normZusatzstoffe(v) {
     return out.slice(0, 13);
 }
 
+// Kompakte Zeilen -> Gerichte.
+//
+// NR|Name|Beschreibung|Preis|Kategorie|Allergene|Zusatzstoffe|Merkmale
+//
+// Robust gegen einen Abriss mitten in der Antwort: eine unvollstaendige letzte
+// Zeile hat zu wenige Trenner und faellt weg -- alles davor bleibt gueltig.
+// Das ist der Grund, warum hier keine JSON-Rettung mehr noetig ist.
+var MERKMAL = { v: 'is_vegetarian', V: 'is_vegan', s: 'is_spicy', r: 'is_beef',
+                h: 'is_chicken', w: 'is_pork', L: 'is_lamb', f: 'is_fish', m: 'is_seafood' };
+
+// "klein:6.50/gross:8.50" -> [{label:'klein',preis:'6.50'}, {label:'gross',preis:'8.50'}]
+// Nur eine Zahl oder gar kein Doppelpunkt -> null (ein ganz normaler Preis).
+function zerlegeGroessen(preisFeld) {
+    var f = String(preisFeld || '').trim();
+    if (f.indexOf(':') < 0) return null;
+    var teile = f.split('/');
+    var out = [];
+    for (var i = 0; i < teile.length; i++) {
+        var m = /^\s*([^:]{1,24}?)\s*:\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*$/.exec(teile[i]);
+        if (!m) return null;                       // unklar -> lieber unveraendert lassen
+        var label = m[1].trim();
+        // Schreibweise angleichen: die Karte schreibt GROSS, im Menue steht groß.
+        if (/^gross$/i.test(label)) label = 'groß';
+        else if (/^klein$/i.test(label)) label = 'klein';
+        out.push({ label: label, preis: m[2] });
+    }
+    return out.length > 1 ? out : null;            // eine Groesse ist keine Groesse
+}
+
+function parseZeilen(roh) {
+    if (!roh) return [];
+    var out = [];
+    String(roh).split('\n').forEach(function (z) {
+        z = z.replace(/\r$/, '').trim();
+        if (!z || z.slice(0, 3) === '```') return;
+        var t = z.split('|');
+        if (t.length < 8) return;                     // unvollstaendig -> weg
+
+        // Feldsuche statt starrer Position.
+        //
+        // WARUM: Auf einem unscharfen Foto liefert das Modell schon mal neun
+        // oder zehn Felder statt acht -- ein zusaetzliches leeres Feld, oder ein
+        // | mitten im Namen. Wurde starr nach Position gelesen, rutschte ALLES
+        // danach eine Stelle weiter: der Preis landete in der Kategorie, die
+        // Kategorie in den Allergenen. Aus einem kleinen Lesefehler wurde so
+        // eine komplett falsche Zeile.
+        //
+        // Der Preis ist das einzige Feld, das man sicher erkennt: eine nackte
+        // Zahl. Von ihm aus stehen Kategorie und der Rest fest.
+        // Als Preisfeld gilt: eine nackte Zahl ODER die Groessenform
+        // "klein:6.50/gross:8.50". Ohne den zweiten Fall wuerde bei einem
+        // Gericht mit zwei Groessen das ZUSATZSTOFF-Feld ("1,2") als Preis
+        // durchgehen -- es sieht wie eine Zahl aus. Genau das ist beim Testen
+        // passiert.
+        var pi = -1;
+        for (var i = 2; i < t.length - 1; i++) {
+            if (/^\s*\d+([.,]\d{1,2})?\s*$/.test(t[i]) || zerlegeGroessen(t[i])) { pi = i; break; }
+        }
+        if (pi < 0) pi = 3;                           // keine Zahl gefunden -> alte Ordnung
+
+        var name = (t[1] || '').trim();
+        if (!name) return;
+
+        var rest = t.slice(pi + 2);                   // alles nach der Kategorie
+        // Merkmale sind reine Buchstaben aus der festen Liste. Alles andere in
+        // diesem Bereich sind Allergene oder Zusatzstoffe -- in welchem Feld sie
+        // gelandet sind, ist egal: Ziffern sind Zusatzstoffe, Woerter/Buchstaben
+        // sind Allergene. Frueher fiel eine Ziffer im Allergen-Feld einfach weg.
+        var merkmale = '', roheCodes = [];
+        rest.forEach(function (x, k) {
+            x = (x || '').trim();
+            if (!x) return;
+            if (k === rest.length - 1 && /^[vVsrhwLfm]+$/.test(x)) { merkmale = x; return; }
+            x.split(',').forEach(function (y) { y = y.trim(); if (y) roheCodes.push(y); });
+        });
+
+        var basis = {
+            dish_number: (t[0] || '').trim(),
+            name: name,
+            description: t.slice(2, pi).join(' ').trim(),
+            price: (t[pi] || '').trim(),
+            category: (t[pi + 1] || '').trim(),
+            allergens: roheCodes.filter(function (x) { return /[a-zA-Zäöü]/.test(x); }),
+            additives: roheCodes.filter(function (x) { return /^\d+$/.test(x); })
+        };
+        for (var m = 0; m < merkmale.length; m++) { if (MERKMAL[merkmale[m]]) basis[MERKMAL[merkmale[m]]] = true; }
+
+        // "klein:6.50/gross:8.50" -> zwei Eintraege. Das Aufteilen passiert hier
+        // und nicht beim Modell: hier kostet es nichts, dort kostet es die
+        // doppelte Schreibzeit (und damit bei einer grossen Karte Runden).
+        var groessen = zerlegeGroessen(basis.price);
+        if (groessen) {
+            groessen.forEach(function (g) {
+                var kopie = {};
+                for (var k in basis) kopie[k] = Array.isArray(basis[k]) ? basis[k].slice() : basis[k];
+                kopie.name = basis.name + ' (' + g.label + ')';
+                kopie.price = g.preis;
+                out.push(kopie);
+            });
+        } else {
+            out.push(basis);
+        }
+    });
+    return out;
+}
+
+// Erst Zeilen versuchen, sonst JSON. Sollte das Modell trotz Anweisung JSON
+// liefern (aeltere Modelle tun das gern), geht der Scan trotzdem durch.
+function parseAntwort(roh) {
+    var zeilen = parseZeilen(roh);
+    if (zeilen.length) return zeilen;
+    var j = parseItemsLoose(roh);
+    return (j && Array.isArray(j.items)) ? j.items : (Array.isArray(j) ? j : []);
+}
+
 function normalizeItems(parsed) {
     var arr = (parsed && Array.isArray(parsed.items)) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
     var out = [];
@@ -212,7 +442,7 @@ function normalizeItems(parsed) {
             selected: true,
             is_vegetarian: !!it.is_vegetarian, is_vegan: !!it.is_vegan, is_spicy: !!it.is_spicy,
             is_beef: !!it.is_beef, is_chicken: !!it.is_chicken, is_pork: !!it.is_pork,
-            is_fish: !!it.is_fish, is_seafood: !!it.is_seafood,
+            is_fish: !!it.is_fish, is_seafood: !!it.is_seafood, is_lamb: !!it.is_lamb,
             is_gluten: !!it.is_gluten,
             allergens: normAllergene(it.allergens),
             additives: normZusatzstoffe(it.additives)
@@ -293,7 +523,18 @@ function ocrBlock(ocr) {
 // Prompt zusammensetzen. Nutzertext (eingetippte Karte) und OCR-Text sind zwei
 // verschiedene Dinge und bekommen deshalb getrennte, klar benannte Abschnitte --
 // sonst haelt das Modell den OCR-Auszug fuer die vom Wirt eingegebene Karte.
-function buildPrompt(text, extra, kategorien) {
+// Der Preis-Nachtrag darf den grossen Parser-Prompt NICHT mitbekommen.
+//
+// Gemessen: mit dem vollen Prompt davor hat das Modell die Nachfrage als
+// "gib die Karte nochmal aus" verstanden und Preise geraten -- von sechs
+// nachgetragenen war einer richtig. Ein falscher Preis ist schlimmer als gar
+// keiner: 0 sieht der Wirt und korrigiert es, eine falsche Zahl uebernimmt er.
+function buildPrompt(text, extra, kategorien, nurExtra) {
+    if (nurExtra) return String(extra || '');
+    return buildPromptVoll(text, extra, kategorien);
+}
+
+function buildPromptVoll(text, extra, kategorien) {
     var kat = '';
     if (Array.isArray(kategorien) && kategorien.length) {
         // Zeichengenau auflisten -- das Modell soll abschreiben, nicht uebersetzen.
@@ -304,103 +545,333 @@ function buildPrompt(text, extra, kategorien) {
     return PROMPT + kat + (text ? ('\n\nSPEISEKARTE-TEXT:\n' + text) : '') + (extra || '');
 }
 
-// Festes Antwortschema fuer Claude.
-// Ohne das wird Claude nur GEBETEN, JSON zu schreiben: reisst die Antwort ab
-// oder rutscht ein Kommentar hinein, muss parseItemsLoose den Rest retten und
-// die letzten Gerichte fehlen. Mit Schema ist gueltiges JSON garantiert.
-// Alle Felder sind Pflicht -- fehlende Angaben kommen als "" bzw. false, das
-// raeumt normalizeItems ohnehin auf.
-var ANTHROPIC_SCHEMA = {
-    type: 'object',
-    properties: {
-        items: {
-            type: 'array',
-            items: {
-                type: 'object',
-                properties: {
-                    name: { type: 'string' },
-                    description: { type: 'string' },
-                    price: { type: 'number' },
-                    category: { type: 'string' },
-                    dish_number: { type: 'string' },
-                    is_vegetarian: { type: 'boolean' },
-                    is_vegan: { type: 'boolean' },
-                    is_spicy: { type: 'boolean' },
-                    is_beef: { type: 'boolean' },
-                    is_chicken: { type: 'boolean' },
-                    is_pork: { type: 'boolean' },
-                    is_fish: { type: 'boolean' },
-                    is_seafood: { type: 'boolean' },
-                    allergens: { type: 'array', items: { type: 'string' } },
-                    additives: { type: 'array', items: { type: 'string' } }
-                },
-                required: ['name', 'description', 'price', 'category', 'dish_number',
-                           'is_vegetarian', 'is_vegan', 'is_spicy', 'is_beef',
-                           'is_chicken', 'is_pork', 'is_fish', 'is_seafood',
-                           'allergens', 'additives'],
-                additionalProperties: false
-            }
-        }
-    },
-    required: ['items'],
-    additionalProperties: false
-};
+// Anweisung fuer eine FORTSETZUNG desselben Bildes.
+//
+// Steht bewusst als eigener, LETZTER Textblock -- alles davor (Bild, Prompt,
+// OCR, Kategorien) bleibt zwischen den Runden Zeichen fuer Zeichen gleich und
+// kann deshalb zwischengespeichert werden. Das spart in Runde 2, 3, 4 ... sowohl
+// Geld als auch die Zeit, das Bild erneut zu verarbeiten.
+function weiterBlock(w) {
+    if (!w || !w.anzahl) return '';
+    var letzte = Array.isArray(w.letzte) ? w.letzte.slice(-8) : [];
+    var t = '\n\n=== FORTSETZUNG DERSELBEN KARTE ===\n' +
+        'Du hast dieses Bild bereits gelesen bis zu der Stelle, die unten steht. ' +
+        w.anzahl + ' Positionen sind schon erfasst.\n';
+    if (letzte.length) {
+        t += 'Die zuletzt erfassten Positionen waren, in dieser Reihenfolge:\n' +
+             letzte.map(function (n, i) { return (i + 1) + '. ' + String(n).slice(0, 90); }).join('\n') + '\n';
+    }
+    if (w.kategorie) {
+        t += 'Die zuletzt gueltige Ueberschrift war "' + String(w.kategorie).slice(0, 60) +
+             '". Sie gilt weiter, bis im Bild eine neue Ueberschrift kommt.\n';
+    }
+    t += 'AUFGABE JETZT: Fange GENAU NACH der zuletzt genannten Position an und lies von dort\n' +
+         'weiter bis zum Ende der Karte.\n' +
+         '- Gib die oben genannten Positionen NICHT noch einmal aus.\n' +
+         '- Fang NICHT wieder oben an.\n' +
+         '- Findest du nach dieser Stelle nichts mehr, gib {"items":[]} zurueck.';
+    return t;
+}
 
-async function callAnthropic(key, images, text, extra, ohneSchema, kategorien) {
-    var content = [{ type: 'text', text: buildPrompt(text, extra, kategorien) }];
+// Reihenfolge der Konfigurationsstufen (nur Claude).
+//
+// WARUM DAS HIER STEHT: Der Scanner war ueber Wochen tot, weil EIN einziges
+// Feld (temperature) von den neuen Claude-Modellen mit HTTP 400 abgelehnt wurde.
+// Jeder Aufruf schlug fehl, und niemand sah es. Damit das nie wieder passiert,
+// gibt es keine feste Konfiguration mehr, sondern eine Leiter: wird ein Feld
+// abgelehnt, faellt es weg und der Aufruf laeuft trotzdem. Die letzte Stufe ist
+// das absolute Minimum und funktioniert bei jedem Claude-Modell.
+var STUFEN = [
+    { effort: 'low', denkenAus: true,  cache: true  },
+    { effort: null,  denkenAus: true,  cache: true  },
+    { effort: null,  denkenAus: false, cache: true  },
+    { effort: null,  denkenAus: false, cache: false }
+];
+// Merkt sich pro Function-Instanz die erste Stufe, die durchging -- damit nicht
+// jeder Aufruf die abgelehnten Stufen erneut durchprobiert und Zeit verliert.
+var _stufeAbs = 0;
+
+function baueBody(stufe, content) {
+    var b = { model: ANTHROPIC_MODEL, max_tokens: 16000, stream: true,
+              messages: [{ role: 'user', content: content }] };
+    // Nachdenken AUS. Bei einer harten Zeitgrenze ist Nachdenken der teuerste
+    // Posten: es verbraucht Budget, BEVOR das erste Gericht herauskommt. Was
+    // das Modell nicht mehr schreibt, fehlt hinterher in der Speisekarte.
+    if (stufe.denkenAus) b.thinking = { type: 'disabled' };
+    // Kein Antwortschema: das galt fuer JSON. Die Zeilenform braucht keins --
+    // eine abgerissene Zeile faellt einfach weg, statt das ganze Dokument
+    // ungueltig zu machen. Genau dafuer war das Schema da.
+    if (stufe.effort) b.output_config = { effort: stufe.effort };
+    return b;
+}
+
+// Inhalt des Aufrufs. Reihenfolge ist Absicht:
+//   1. Bild        2. fester Prompt + OCR + Kategorien   3. Fortsetzungs-Hinweis
+// Nur Teil 3 aendert sich zwischen den Runden. Die Zwischenspeicher-Marke sitzt
+// deshalb am Ende von Teil 2: Runde 2 und alle weiteren muessen das Bild nicht
+// erneut verarbeiten -- das ist der groesste Zeitgewinn ueberhaupt.
+function baueContent(images, text, extra, kategorien, weiter, cache, nurExtra) {
+    var content = [];
     (images || []).forEach(function (d) {
         var p = splitDataUrl(d);
         content.push({ type: 'image', source: { type: 'base64', media_type: p.media, data: p.data } });
     });
-    var res = await fetch(ANTHROPIC_API, {
-        method: 'POST',
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({
-            model: ANTHROPIC_MODEL,
-            max_tokens: 32000,
-            // KEIN temperature: Claude Sonnet 5 lehnt temperature/top_p/top_k
-            // mit HTTP 400 ab. Genau daran ist hier lange JEDER Aufruf
-            // gescheitert, ohne dass es auffiel.
-            //
-            // Denkschritte aus: sie zaehlen gegen dieselben max_tokens wie die
-            // Antwort. Bei einer langen Karte frisst das Nachdenken das Budget
-            // auf und die Gerichteliste reisst mittendrin ab. Fuer stures
-            // Abtippen einer Karte -- noch dazu mit OCR-Text daneben -- bringt
-            // Nachdenken nichts und kostet nur Zeit und Tokens.
-            thinking: { type: 'disabled' },
-            messages: [{ role: 'user', content: content }],
-            output_config: ohneSchema ? undefined : { format: { type: 'json_schema', schema: ANTHROPIC_SCHEMA } }
-        })
-    });
-    if (!res.ok) {
-        var t = await res.text();
-        // Sollte das Schema aus irgendeinem Grund abgelehnt werden, lieber ohne
-        // Schema weitermachen als den Scan verlieren -- vorher ging es ja auch.
-        if (!ohneSchema && res.status === 400 && /output_config|json_schema|schema/i.test(t)) {
-            console.warn('[menu-scan] Antwortschema abgelehnt, versuche ohne:', t.slice(0, 160));
-            return callAnthropic(key, images, text, extra, true, kategorien);
-        }
-        throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200));
-    }
-    var j = await res.json();
-    return (j.content && j.content[0] && j.content[0].text) ? j.content[0].text : '';
+    var fest = { type: 'text', text: buildPrompt(text, extra, kategorien, nurExtra) };
+    // Zwischenspeicher nur, wenn ein Bild dabei ist. Ein reiner Text-Scan
+    // (eingetippte Karte) liegt unter der Mindestgroesse -- die Marke waere
+    // dort wirkungslos und nur ein zusaetzliches Feld, das schiefgehen kann.
+    if (cache && images && images.length) fest.cache_control = { type: 'ephemeral' };
+    content.push(fest);
+    var w = weiterBlock(weiter);
+    if (w) content.push({ type: 'text', text: w });
+    return content;
 }
 
-;
+// Einen Datenstrom (Server-Sent Events) bis zum Ende oder bis zum Zeitbudget
+// mitlesen. Beide Anbieter schicken SSE, nur der Inhalt der Ereignisse
+// unterscheidet sich -- deshalb steckt der Unterschied in "hole".
+async function leseStrom(res, ac, hole) {
+    var reader = res.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '', roh = '', stopReason = '', abgebrochen = false;
+    try {
+        for (;;) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+            buf += dec.decode(chunk.value, { stream: true });
+            var zeilen = buf.split('\n');
+            buf = zeilen.pop();
+            for (var zi = 0; zi < zeilen.length; zi++) {
+                var z = zeilen[zi];
+                if (z.slice(0, 5) !== 'data:') continue;
+                var nutz = z.slice(5).trim();
+                if (!nutz || nutz === '[DONE]') continue;
+                var ev;
+                try { ev = JSON.parse(nutz); } catch (e) { continue; }
+                var r = hole(ev);
+                if (r) {
+                    if (r.text) roh += r.text;
+                    if (r.stop) stopReason = r.stop;
+                    if (r.fehler) throw new Error(r.fehler);
+                }
+            }
+        }
+    } catch (e) {
+        if (ac.signal.aborted) abgebrochen = true;
+        else throw e;
+    }
+    return { roh: roh, stopReason: stopReason, abgebrochen: abgebrochen };
+}
+
+// Liest die Antwort im Datenstrom mit und bricht am Zeitbudget ab.
+async function callAnthropic(key, images, text, extra, kategorien, weiter, frist, nurExtra) {
+    var lastErr = null;
+    for (var si = _stufeAbs; si < STUFEN.length; si++) {
+        var stufe = STUFEN[si];
+        var rest = frist - Date.now();
+        // Keine Zeit mehr fuer einen weiteren Versuch. Das ist KEIN Fehler in der
+        // Konfiguration, sondern schlicht das Zeitlimit -- also auch so melden.
+        if (rest < 1200) {
+            if (lastErr) throw lastErr;
+            return { roh: '', abgebrochen: true, stufe: si };
+        }
+
+        var ac = new AbortController();
+        var timer = setTimeout(function () { ac.abort(); }, rest);
+        var res;
+        try {
+            res = await fetch(ANTHROPIC_API, {
+                method: 'POST',
+                headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+                body: JSON.stringify(baueBody(stufe, baueContent(images, text, extra, kategorien, weiter, stufe.cache, nurExtra))),
+                signal: ac.signal
+            });
+        } catch (e) {
+            clearTimeout(timer);
+            if (ac.signal.aborted) return { roh: '', abgebrochen: true, stufe: si };
+            throw e;
+        }
+
+        if (!res.ok) {
+            clearTimeout(timer);
+            var t = '';
+            try { t = await res.text(); } catch (e2) {}
+            // 400 = eine Einstellung passt diesem Modell nicht -> naechste Stufe.
+            // Alles andere (401 Schluessel, 429 Limit, 529 ueberlastet) waere mit
+            // einer anderen Einstellung genauso kaputt: sofort melden.
+            if (res.status === 400) {
+                console.warn('[menu-scan] Stufe ' + si + ' abgelehnt, versuche einfacher: ' + t.slice(0, 200));
+                lastErr = new Error('Anthropic 400: ' + t.slice(0, 200));
+                continue;
+            }
+            // 429 = zu viele Anfragen kurz hintereinander, 529 = ueberlastet.
+            // Beides geht von selbst wieder weg. Als eigener Fehlertyp, damit
+            // die App WARTET statt die halbe Karte zu verlieren -- eine grosse
+            // Karte braucht viele Anfragen hintereinander.
+            if (res.status === 429 || res.status === 529) {
+                var eW = new Error(res.status === 429
+                    ? 'Zu viele Anfragen kurz hintereinander — kurz warten.'
+                    : 'Der Dienst ist gerade überlastet — kurz warten.');
+                eW.kontingent = true;
+                throw eW;
+            }
+            throw new Error('Anthropic ' + res.status + ': ' + t.slice(0, 200));
+        }
+
+        if (si > _stufeAbs) _stufeAbs = si;            // diese Stufe geht durch
+
+        var erg = await leseStrom(res, ac, function (ev) {
+            if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') {
+                return { text: ev.delta.text };
+            }
+            if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) {
+                return { stop: ev.delta.stop_reason };
+            }
+            if (ev.type === 'error') return { fehler: 'Anthropic: ' + JSON.stringify(ev.error).slice(0, 200) };
+            return null;
+        });
+        clearTimeout(timer);
+        erg.stufe = si;
+        return erg;
+    }
+    throw (lastErr || new Error('Keine Konfiguration wurde akzeptiert'));
+}
+
+// ZWEITER BLICK: das Gelesene noch einmal gegen das Bild pruefen.
+//
+// WARUM: Ein einzelner Durchgang liest eine Karte sehr gut, aber wenn doch eine
+// Zeile daneben liegt, MERKT ES NIEMAND. Der Wirt sieht eine plausible Liste,
+// haekelt sie ab und hat einen falschen Preis in der Karte stehen. Das ist der
+// eigentliche Unterschied zu "im Chat vorlegen": dort liest ein Mensch mit.
+//
+// Diese Pruefung bekommt das Bild UND das Gelesene und soll nur eines sagen:
+// was stimmt nicht, und was fehlt. Ist alles richtig, ist die Antwort ein Wort
+// und dauert eine Sekunde. Sie laeuft als EIGENE Anfrage, hat also ihr eigenes
+// Zeitbudget und kann den Scan nicht ins Limit ziehen.
+//
+// Grundregel wie beim Preis-Nachtrag: RATEN IST VERBOTEN. Eine Korrektur, die
+// selbst geraten ist, macht es schlimmer, nicht besser.
+function pruefBlock(zeilen) {
+    return '=== PRUEFUNG ===\n' +
+        'Unten steht, was aus DIESEM Bild gelesen wurde — eine Zeile je Position im Format\n' +
+        'NR|Name|Beschreibung|Preis|Kategorie|Allergene|Zusatzstoffe|Merkmale\n\n' +
+        'Vergleiche JEDE Zeile Feld fuer Feld mit dem Bild. Achte besonders auf:\n' +
+        '- Preise (stehen oft rechtsbuendig in einer eigenen Spalte — richtige Zeile?)\n' +
+        '- Kategorie (gilt die Ueberschrift darueber wirklich fuer dieses Gericht?)\n' +
+        '- Gerichtnummern und Groessenangaben\n\n' +
+        // Gemessen: bei einer falschen Gerichtnummer hat das Modell die Zeile
+        // als "fehlt" gemeldet statt sie zu korrigieren -- es hielt die richtig
+        // nummerierte Position fuer ein anderes Gericht. Deshalb hier explizit.
+        'WICHTIG: Steht ein Gericht unten schon drin und stimmt nur ein FELD nicht\n' +
+        '(z.B. die Nummer oder der Preis), ist das eine KORREKTUR — NICHT "FEHLT".\n' +
+        '"FEHLT" ist nur fuer Gerichte, deren Name unten ueberhaupt nicht vorkommt.\n\n' +
+        'Antworte NUR so:\n' +
+        '- Fuer jede Zeile, die NICHT stimmt, die komplette korrigierte Zeile:\n' +
+        '  KORREKTUR|NR|Name|Beschreibung|Preis|Kategorie|Allergene|Zusatzstoffe|Merkmale\n' +
+        '- Fuer jede Position, die auf der Karte steht, unten aber FEHLT:\n' +
+        '  FEHLT|NR|Name|Beschreibung|Preis|Kategorie|Allergene|Zusatzstoffe|Merkmale\n' +
+        '- Stimmt alles und fehlt nichts, antworte nur mit dem Wort: OK\n\n' +
+        'RATE NICHT. Korrigiere nur, was du im Bild eindeutig ANDERS LESEN kannst.\n' +
+        'Einen Preis, den du nicht sicher lesen kannst, laesst du wie er ist.\n' +
+        'Erfinde keine Positionen. Kein Kommentar, keine Erklaerung.\n\n' +
+        'GELESEN:\n' + zeilen.join('\n');
+}
+
+// Zeilen mit Praefix (KORREKTUR|... / FEHLT|...) trennen und auswerten.
+function lesePruefung(roh) {
+    var korr = [], fehlt = [];
+    String(roh || '').split('\n').forEach(function (z) {
+        z = z.trim();
+        var m = /^(KORREKTUR|FEHLT)\s*\|(.*)$/i.exec(z);
+        if (!m) return;
+        var items = parseZeilen(m[2]);
+        if (!items.length) return;
+        (m[1].toUpperCase() === 'FEHLT' ? fehlt : korr).push(items[0]);
+    });
+    return { korr: normalizeItems(korr), fehlt: normalizeItems(fehlt) };
+}
+
+// Fehlende Preise gezielt nachschlagen.
+//
+// BEOBACHTET an einem schraeg fotografierten Foto: in der rechten Spalte kamen
+// sechs von acht Getraenken ohne Preis zurueck (0). Der Name stand da, die
+// Kategorie stand da -- nur die rechtsbuendige Preisspalte hat das Modell dort
+// nicht mehr sicher zugeordnet.
+//
+// Ein kompletter zweiter Durchgang waere dafuer Verschwendung. Diese Nachfrage
+// nennt nur die betroffenen Namen und will nur Zahlen zurueck: ein paar hundert
+// Zeichen Ausgabe, also ein bis zwei Sekunden. Das Bild liegt beim Modell
+// ohnehin schon im Zwischenspeicher.
+async function preiseNachtragen(key, images, ohnePreis, kategorien, frist) {
+    if (!images.length || !ohnePreis.length) return 0;
+    if (frist - Date.now() < 3000) return 0;
+
+    var liste = ohnePreis.slice(0, 40).map(function (it) {
+        return (it.dish_number ? it.dish_number + ' ' : '') + it.name;
+    });
+    var frage = '\n\n=== NUR PREISE NACHTRAGEN ===\n' +
+        'Bei diesen Positionen fehlt der Preis. Sieh im Bild GENAU bei diesen Zeilen nach —\n' +
+        'der Preis steht meistens rechtsbuendig am Ende derselben Zeile, oft in einer eigenen\n' +
+        'Spalte weit rechts. Achte darauf, in der RICHTIGEN Spalte zu suchen.\n\n' +
+        liste.map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n') + '\n\n' +
+        'Antworte NUR mit einer Zeile je Position, nichts sonst:\n' +
+        'Name|Preis\n' +
+        'Beispiel:  Espresso|2.40\n\n' +
+        'WICHTIG: RATE NICHT. Kannst du den Preis nicht eindeutig im Bild LESEN, schreibe 0.\n' +
+        'Ein falscher Preis ist schlimmer als gar keiner — der Wirt sieht die 0 und traegt sie\n' +
+        'selbst nach, eine erfundene Zahl uebernimmt er ungeprueft.\n' +
+        'Leite den Preis NICHT aus aehnlichen Gerichten oder ueblichen Preisen ab.';
+
+    try {
+        var r = await callAnthropic(key, images, '', frage, kategorien, null, frist, true);
+        var treffer = {};
+        String(r.roh || '').split('\n').forEach(function (z) {
+            var t = z.split('|');
+            if (t.length < 2) return;
+            var name = t[0].replace(/^\s*\d+[.)]?\s*/, '').trim().toLowerCase();
+            var pr = parseFloat(String(t[1]).replace(',', '.').replace(/[^0-9.]/g, ''));
+            if (name && isFinite(pr) && pr > 0) treffer[name] = Math.round(pr * 100) / 100;
+        });
+        var n = 0;
+        ohnePreis.forEach(function (it) {
+            var p = treffer[it.name.trim().toLowerCase()];
+            if (p) { it.price = p; n++; }
+        });
+        return n;
+    } catch (e) {
+        console.warn('[menu-scan] Preis-Nachtrag fehlgeschlagen:', e.message);
+        return 0;
+    }
+}
 
 exports.handler = async function (event) {
+    var T0 = Date.now();
+    var frist = T0 + BUDGET_MS;          // ab hier wird abgebrochen, nicht abgewartet
+
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Method Not Allowed' });
 
     var body;
     try { body = JSON.parse(event.body || '{}'); } catch (e) { return json(400, { ok: false, error: 'Ungueltiger JSON-Body' }); }
-    var images = Array.isArray(body.images) ? body.images.slice(0, 10) : [];
-    // Vorhandene Kategorien des Restaurants -- damit der Scanner sie benutzt,
-    // statt daneben eigene anzulegen ("Pizza" neben "Pizzen").
+    var images = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
     var kategorien = Array.isArray(body.categories)
         ? body.categories.filter(function (k) { return k && typeof k === 'string'; }).slice(0, 40)
         : [];
     var text = body.text ? String(body.text).slice(0, 20000) : '';
+    // Pruefmodus: die App schickt das bereits Gelesene zurueck und will wissen,
+    // was daran nicht stimmt. Eigene Anfrage, eigenes Zeitbudget.
+    var pruefen = Array.isArray(body.pruefen)
+        ? body.pruefen.filter(function (z) { return z && typeof z === 'string'; }).slice(0, 300)
+        : null;
+    // Fortsetzung: die App sagt, wie weit sie schon ist.
+    var weiter = null;
+    if (body.weiter && body.weiter.anzahl) {
+        weiter = {
+            anzahl: Math.min(2000, parseInt(body.weiter.anzahl, 10) || 0),
+            letzte: Array.isArray(body.weiter.letzte) ? body.weiter.letzte.slice(-8).map(String) : [],
+            kategorie: String(body.weiter.kategorie || '').slice(0, 60)
+        };
+    }
     if (!images.length && !text) return json(400, { ok: false, error: 'Kein Bild und kein Text uebergeben' });
 
     var anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -408,89 +879,125 @@ exports.handler = async function (event) {
         return json(503, { ok: false, error: 'Menuescanner nicht eingerichtet: ANTHROPIC_API_KEY fehlt in Netlify.' });
     }
 
-    var providers = [
-        { name: 'Claude', call: function (i, t, x) { return callAnthropic(anthropicKey, i, t, x, false, kategorien); } }
-    ];
-
-    // Ein Satz Bilder (oder Text) -> normalisierte Items.
-    // Jeder Anbieter wird der Reihe nach probiert. Gibt es nur einen, bekommt er
-    // einen zweiten Versuch -- Vision-Modelle sind nicht deterministisch, ein
-    // Wiederholen rettet haeufig einen kompletten Scan.
-    //
-    // Wichtig: ein LEERES Ergebnis zaehlt hier wie ein Fehler. Vorher wurde bei
-    // 0 Gerichten derselbe Anbieter noch einmal gefragt und der zweite nie --
-    // die Ausweichmoeglichkeit lief also nur bei einer echten Exception an.
-    async function runModel(imgs, txt, extra) {
-        var order = providers.length === 1 ? [providers[0], providers[0]] : providers;
-        var lastErr = null;
-        for (var i = 0; i < order.length; i++) {
-            try {
-                var items = normalizeItems(parseItemsLoose(await order[i].call(imgs, txt, extra)));
-                if (items.length) return items;
-                console.warn('[menu-scan] ' + order[i].name + ' lieferte 0 Gerichte');
-            } catch (e) {
-                lastErr = e;
-                console.warn('[menu-scan] ' + order[i].name + ' fehlgeschlagen:', e.message);
-            }
-        }
-        if (lastErr) throw lastErr;
-        return [];
-    }
-
-    // OCR-Vorstufe. Eigener Schluessel bevorzugt.
-    // Google Cloud Vision ist ein ANDERER Dienst als das Gemini-Modell, auch
-    // wenn beide von Google sind -- deshalb steht der GEMINI_API_KEY hier noch
-    // als zweite Chance, obwohl das Gemini-Modell aus dem Scanner raus ist:
-    // er gehoert zu einem Google-Cloud-Projekt und funktioniert mit, falls in
-    // dem Projekt die Cloud Vision API aktiviert ist.
-    // Klappt beides nicht, laeuft der Scan ohne OCR weiter.
     var visionKey = process.env.GOOGLE_VISION_API_KEY || process.env.GEMINI_API_KEY || '';
 
+    // --- Pruefdurchgang ---
+    if (pruefen && pruefen.length && images.length) {
+        try {
+            var pr = await callAnthropic(anthropicKey, images, '', pruefBlock(pruefen),
+                                      kategorien, null, frist, true);
+            var erg = lesePruefung(pr.roh);
+            return json(200, {
+                ok: true, korrekturen: erg.korr, fehlend: erg.fehlt,
+                meta: {
+                    modell: ANTHROPIC_MODEL, ms: Date.now() - T0,
+                    geprueft: pruefen.length, abgebrochen: !!pr.abgebrochen,
+                    // "OK" heisst: das Modell hat nichts zu beanstanden.
+                    sauber: /^\s*OK\s*$/i.test(String(pr.roh || '').trim())
+                }
+            });
+        } catch (e) {
+            // Eine gescheiterte Pruefung darf den Scan NICHT kippen -- das
+            // Gelesene ist ja da. Die App behaelt es dann einfach ungeprueft.
+            return json(200, { ok: true, korrekturen: [], fehlend: [], meta: { fehler: e.message, ms: Date.now() - T0 } });
+        }
+    }
+
     try {
-        var _ocrZeichen = 0;
-        var all = [];
-        if (images.length > 1) {
-            // Jede Seite/jedes Bild EINZELN scannen -> kein Abriss durch Token-Limit,
-            // danach zusammenfuehren. So werden auch lange/mehrseitige Karten komplett erfasst.
-            // OCR laeuft pro Seite, damit der Text zum jeweiligen Bild passt.
-            var perImage = await Promise.all(images.map(async function (img) {
-                var ocr = await ocrAll(visionKey, [img]);
-                _ocrZeichen += ocr.length;
-                return runModel([img], '', ocrBlock(ocr)).catch(function () { return []; });
-            }));
-            perImage.forEach(function (list) { all = all.concat(list); });
-        } else {
-            var ocrOne = await ocrAll(visionKey, images);
-            _ocrZeichen += ocrOne.length;
-            all = await runModel(images, text, ocrBlock(ocrOne));
+        // OCR-Vorstufe nur in der ERSTEN Runde und nur, wenn dafuer noch reichlich
+        // Budget da ist. In einer Fortsetzung waere sie verschenkte Zeit: das
+        // Modell hat das Bild ohnehin im Zwischenspeicher.
+        var ocr = '';
+        if (!weiter && visionKey && (frist - Date.now()) > 5000) {
+            ocr = await ocrAll(visionKey, images);
         }
 
-        // Duplikate entfernen (gleicher Name + Preis) — Kategorie bewusst NICHT im
-        // Schluessel: ueberlappende Bild-Streifen kategorisieren dasselbe Gericht
-        // sonst leicht unterschiedlich und es erscheint doppelt.
+        var r = await callAnthropic(anthropicKey, images, text, ocrBlock(ocr), kategorien, weiter, frist);
+        var alle = normalizeItems(parseAntwort(r.roh));
+
+        // Ein einziger Wiederholversuch -- aber nur, wenn wirklich NICHTS kam und
+        // noch genug Zeit ist. Frueher wurde hier IMMER ein zweites Mal gefragt;
+        // das hat schlicht das Zeitbudget halbiert.
+        if (!alle.length && !r.abgebrochen && (frist - Date.now()) > 4000) {
+            console.warn('[menu-scan] 0 Gerichte, ein zweiter Versuch');
+            r = await callAnthropic(anthropicKey, images, text, ocrBlock(ocr), kategorien, weiter, frist);
+            alle = normalizeItems(parseAntwort(r.roh));
+        }
+
+        // Fehlende Preise nachschlagen, solange Zeit ist.
+        var _nachgetragen = 0;
+        var _ohnePreis = alle.filter(function (it) { return !it.price; });
+        if (_ohnePreis.length) {
+            _nachgetragen = await preiseNachtragen(anthropicKey, images, _ohnePreis, kategorien, frist);
+        }
+
+        // Duplikat-Schluessel.
+        //
+        // Er enthaelt die GERICHTNUMMER, und das ist kein Detail: auf der echten
+        // Karte von Pronto Pronto stehen "114. Roma Spezial" (Haehnchen) und
+        // "115. Roma Spezial" (Rind) -- gleicher Name, gleicher Preis, zwei
+        // verschiedene Gerichte. Ohne die Nummer im Schluessel verschwindet eines
+        // davon stillschweigend, und im Menue fehlt ein Gericht, das auf der
+        // Karte steht.
+        // Die Duplikate, gegen die dieser Schluessel wirklich hilft (dasselbe
+        // Gericht aus zwei Runden oder zwei ueberlappenden Bildhaelften), tragen
+        // dieselbe Nummer -- die werden weiterhin sauber zusammengefasst.
+        // Kategorie bewusst NICHT im Schluessel: zwei Runden kategorisieren
+        // dasselbe Gericht sonst leicht unterschiedlich und es erscheint doppelt.
         var seen = {}, deduped = [];
-        all.forEach(function (it) {
-            var k = (it.name + '|' + it.price).toLowerCase().replace(/\s+/g, ' ');
+        alle.forEach(function (it) {
+            var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
             if (!seen[k]) { seen[k] = 1; deduped.push(it); }
         });
 
-        if (!deduped.length) return json(502, { ok: false, error: 'Keine Gerichte erkannt' });
-        // meta: rein zur Fehlersuche. Ohne diese Angaben laesst sich hinterher
-        // nicht sagen, ob die OCR lief, wie viele Rohtreffer es gab oder wie
-        // viele Duplikate weggefallen sind -- und man raet wieder.
+        // Ist die Karte an dieser Stelle zu Ende?
+        // NUR wenn das Modell von selbst fertig geworden ist. Abgebrochen (Zeit)
+        // oder am Token-Limit heisst: da kommt noch was, die App fragt weiter.
+        var fertig = !r.abgebrochen && r.stopReason !== 'max_tokens';
+
+        // Anker fuer die naechste Runde: die letzten Namen und die zuletzt
+        // gueltige Ueberschrift. Ohne die faengt das Modell wieder oben an.
+        var letzte = deduped.slice(-8).map(function (x) {
+            return (x.dish_number ? x.dish_number + ' ' : '') + x.name + (x.price ? ' ' + x.price : '');
+        });
+        var letzteKategorie = '';
+        for (var i = deduped.length - 1; i >= 0; i--) { if (deduped[i].category) { letzteKategorie = deduped[i].category; break; } }
+
+        if (!deduped.length && !weiter) {
+            return json(502, {
+                ok: false,
+                error: r.abgebrochen ? 'Zeitlimit erreicht, bevor ein Gericht gelesen war' : 'Keine Gerichte erkannt',
+                meta: { ms: Date.now() - T0, abgebrochen: !!r.abgebrochen, zeichen: (r.roh || '').length }
+            });
+        }
+
         return json(200, {
-            ok: true, items: deduped, count: deduped.length,
+            ok: true,
+            items: deduped,
+            count: deduped.length,
+            fertig: fertig,
+            letzte: letzte,
+            letzteKategorie: letzteKategorie,
             meta: {
                 modell: ANTHROPIC_MODEL,
+                stufe: r.stufe,
+                ms: Date.now() - T0,
+                budget: BUDGET_MS,
+                abgebrochen: !!r.abgebrochen,
+                stopReason: r.stopReason || '',
+                fortsetzung: !!weiter,
                 bilder: images.length,
-                roh: all.length,
-                duplikate: all.length - deduped.length,
-                ocr: _ocrZeichen > 0,
-                ocrZeichen: _ocrZeichen,
-                ohneKategorie: deduped.filter(function (x) { return !x.category; }).length
+                roh: alle.length,
+                duplikate: alle.length - deduped.length,
+                ocr: ocr.length > 0,
+                ocrZeichen: ocr.length,
+                ohneKategorie: deduped.filter(function (x) { return !x.category; }).length,
+                ohnePreis: deduped.filter(function (x) { return !x.price; }).length,
+                preiseNachgetragen: _nachgetragen
             }
         });
     } catch (e) {
-        return json(502, { ok: false, error: e.message });
+        return json(502, { ok: false, error: e.message, kontingent: !!e.kontingent,
+                           meta: { ms: Date.now() - T0 } });
     }
 };

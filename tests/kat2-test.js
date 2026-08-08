@@ -10,11 +10,11 @@ t('Kategorie = gedruckte Ueberschrift', /liest die Ueberschriften der Karte ab/.
 t('Ueberschrift gilt fuer ALLE Gerichte darunter (der Fehler von vorhin)',
   /gilt dann fuer\s*',\s*'\s*ALLE Gerichte darunter/.test(fn) || /ALLE Gerichte darunter/.test(fn));
 t('Beispiel "Vom Grill" bleibt "Vom Grill"', /NICHT "Fleischgerichte"/.test(fn));
-t('leerer String nur beim Bildanfang mitten im Abschnitt',
-  /NUR EIN EINZIGER FALL ergibt einen leeren String/.test(fn));
+t('Kategorie bleibt nur beim Bildanfang mitten im Abschnitt leer',
+  /NUR EIN EINZIGER FALL ergibt eine leere Kategorie/.test(fn));
 t('altes Missverstaendnis ausdruecklich verboten',
-  /Gib NIEMALS "" zurueck, nur weil ein Gericht nicht unmittelbar unter/.test(fn));
-t('Raten ausdruecklich verboten', /Rate in diesem Fall NICHT, wie die Ueberschrift/.test(fn));
+  /Lass die Kategorie NIEMALS leer,/.test(fn));
+t('Raten ausdruecklich verboten', /Rate NICHT/.test(fn) && /Rate in diesem Fall/.test(fn));
 t('Server macht aus leer NICHT mehr "Sonstiges"',
   /category: String\(it\.category \|\| ''\)\.trim\(\)/.test(fn));
 
