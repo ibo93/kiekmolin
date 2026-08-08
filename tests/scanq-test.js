@@ -315,11 +315,19 @@ t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
 // 0 ohne Preis, unter einer Sekunde, kein einziger Modellaufruf.
 t('PDF-Text wird zuerst ohne KI ausgewertet',
   /function parseKartenText/.test(html) && /_ohneKI = sortiereNachNummer/.test(html));
-t('Ueberschriften kommen aus Schriftgroesse und Fettschrift, nicht aus Raten',
+t('Ueberschriften kommen aus Schriftgroesse und Schrift-Kennung, nicht aus Raten',
   /UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN/.test(html)
-  && /bold\|black\|heavy\|semib/.test(html));
+  && /kopfSchriften\[x\.fn\]/.test(html));
 t('Spalten werden VOR den Zeilen gebildet', /SPALTEN ZUERST, dann Zeilen/.test(html));
-t('echte Wortbreite von pdf.js statt Schaetzung', /w\.wd > 0 \? w\.wd/.test(html));
+// Frueher: Spalten aus leeren senkrechten Streifen. Das hing an einer festen
+// Mindestbreite und kippte an der echten Karte, weil eine Luecke 8 statt 12
+// Punkt breit war. Jetzt aus den linken Kanten, mit einer Schwelle relativ
+// zur staerksten Kante -- das haengt an keiner absoluten Zahl.
+t('Spalten kommen aus den linken Kanten, nicht aus Luecken-Schwellen',
+  /Spalten erkennt man an den LINKEN KANTEN/.test(html)
+  && /staerkste \* 0\.55/.test(html));
+t('Preisspalten werden nicht mit Textspalten verwechselt',
+  /grenzen\.push\(gruppen\[gi\]\.x - 2\)/.test(html));
 t('Hinweiszeilen mit Preis sind keine Gerichte', /Zutat\|Upgrade\|erhältlich\|kostenlos/.test(html));
 
 // Der Parser laeuft hier wirklich -- an genau den Zeilen, die auf der echten

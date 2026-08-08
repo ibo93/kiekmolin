@@ -1,0 +1,168 @@
+// PDF-Karte lesen -- gegen ECHTE pdf.js-Daten.
+//
+// ============================================================================
+// WARUM DIESE DATEI EXISTIERT
+// ============================================================================
+// Der Scanner war "gruen" und lieferte im Betrieb trotzdem Muell. Der Grund:
+// alle Messungen liefen gegen Text, den ein PYTHON-Werkzeug aus dem PDF geholt
+// hatte. Im Browser laeuft aber pdf.js 2.16.105, und das liefert etwas
+// anderes:
+//
+//   * fontFamily ist bei dieser Karte AUSNAHMSLOS "sans-serif". Die
+//     Fett-Erkennung (/bold|black|heavy/) konnte also nie greifen -- die
+//     Zwischenueberschriften fielen weg. Im Python-Text hiess dieselbe Schrift
+//     "Fraunces-9ptBlack", dort funktionierte es. Der Test log.
+//   * Die Wortaufteilung ist eine andere, dadurch auch die Spaltenluecken.
+//     Zwischen Spalte 2 und 3 blieben 8 Punkt statt der geforderten 12 --
+//     eine Rasterzeile zu wenig. Diese eine fehlende Grenze klebte Spalte 2
+//     und 3 zusammen, und die Ueberschrift der dritten Spalte landete hinten
+//     an einem Gericht der zweiten: "29. Pizza Emden V 8,00 € 10,00 € Nudeln"
+//     stand danach als Kategorie in der Karte.
+//
+// tests/daten/pronto-pdfjs.json ist deshalb keine Nachbildung, sondern die
+// unveraenderte Ausgabe von pdf.js 2.16.105 fuer die echte Karte
+// "Pronto Pronto, Riepe" (zwei Seiten, vier Spalten, 142 Gerichte).
+'use strict';
+
+var fs = require('fs');
+var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var SEITEN = JSON.parse(fs.readFileSync('/home/user/kiekmolin/tests/daten/pronto-pdfjs.json', 'utf8'));
+
+function schneide(name) {
+    var i = H.indexOf('function ' + name + '(');
+    if (i < 0) throw new Error('nicht gefunden: ' + name);
+    var j = H.indexOf('{', i), d = 0;
+    for (var k = j; k < H.length; k++) {
+        if (H[k] === '{') d++;
+        else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); }
+    }
+    throw new Error('Klammern offen: ' + name);
+}
+var vorspann = H.slice(H.indexOf('var _PDF_ALLERGEN'), H.indexOf(';', H.indexOf('var _PDF_ALLERGEN')) + 1);
+var quelle = vorspann + '\n' + ['pdfSeiteZuText', 'parseKartenText', 'pdfGerichteZuItems',
+    '_nrWert', 'sortiereNachNummer'].map(schneide).join('\n');
+var F = new Function(quelle + '; return { pdfSeiteZuText: pdfSeiteZuText, parseKartenText: parseKartenText,'
+    + ' pdfGerichteZuItems: pdfGerichteZuItems, sortiereNachNummer: sortiereNachNummer };')();
+
+var n = 0, ok = 0;
+function t(label, bedingung, extra) {
+    n++;
+    var gut = bedingung === true;
+    if (gut) ok++;
+    console.log((gut ? 'OK  ' : 'FAIL') + ' | ' + label + (gut ? '' : '  -> ' + extra));
+}
+
+// --- Der Weg, den die App geht -------------------------------------------
+var texte = SEITEN.map(function (s) { return F.pdfSeiteZuText(s.items, s.w); });
+
+t('beide Seiten liefern ueberhaupt Text',
+  texte.length === 2 && texte.every(Boolean), JSON.stringify(texte.map(function (x) { return x && x.length; })));
+
+function ueberschriften(txt) {
+    return String(txt || '').split('\n').filter(function (z) { return z.slice(0, 3) === '## '; })
+           .map(function (z) { return z.slice(3).trim(); });
+}
+
+// Seitenkopf wegnehmen -- genau wie die App (Ueberschrift, die auf JEDER
+// Seite steht, ist ein Kopf und keine Kategorie).
+var seiten = texte.filter(Boolean), kopf = null;
+seiten.forEach(function (txt) {
+    var k = ueberschriften(txt);
+    kopf = (kopf === null) ? k : kopf.filter(function (x) { return k.indexOf(x) >= 0; });
+});
+t('Restaurantname wird als Seitenkopf erkannt, nicht als Kategorie',
+  kopf.length === 1 && /Pronto Pronto/.test(kopf[0]), JSON.stringify(kopf));
+if (seiten.length > 1 && kopf.length) {
+    seiten = seiten.map(function (txt) {
+        return txt.split('\n').filter(function (z) {
+            return !(z.slice(0, 3) === '## ' && kopf.indexOf(z.slice(3).trim()) >= 0);
+        }).join('\n');
+    });
+}
+
+// --- Spalten --------------------------------------------------------------
+// Der Beweis, dass die vier Spalten getrennt werden: sonst haengen
+// Ueberschrift und Gericht der Nachbarspalte in EINER Zeile.
+var alleUeber = [];
+seiten.forEach(function (s) { alleUeber = alleUeber.concat(ueberschriften(s)); });
+t('keine Ueberschrift enthaelt einen Preis (= Spalten sind getrennt)',
+  !alleUeber.some(function (u) { return /\d{1,3},\d{2}/.test(u); }),
+  JSON.stringify(alleUeber.filter(function (u) { return /\d{1,3},\d{2}/.test(u); })));
+t('keine Ueberschrift ist laenger als 40 Zeichen (= nichts zusammengeklebt)',
+  !alleUeber.some(function (u) { return u.length > 40; }),
+  JSON.stringify(alleUeber.filter(function (u) { return u.length > 40; })));
+t('genau der Fehler von frueher ist weg: "... € Nudeln" als Kategorie',
+  !alleUeber.some(function (u) { return /€\s*\S/.test(u); }), JSON.stringify(alleUeber));
+
+// --- Ueberschriften-Schrift statt Fett-Erkennung --------------------------
+// Diese drei stehen KLEINER als der Fliesstext (7,6 gegen 7,9). Ueber die
+// Schriftgroesse sind sie nicht zu finden -- nur ueber die Schrift-Kennung.
+['Spaghetti', 'Rigatoni', 'Tortellini'].forEach(function (u) {
+    t('kleine Zwischenueberschrift "' + u + '" wird gefunden',
+      alleUeber.indexOf(u) >= 0, JSON.stringify(alleUeber));
+});
+t('fontName wird ueberhaupt durchgereicht (fontFamily ist hier immer sans-serif)',
+  /fn: it\.fontName/.test(H));
+
+// --- Gerichte -------------------------------------------------------------
+var gerichte = [], letzteKat = '';
+seiten.forEach(function (txt) {
+    var teil = F.parseKartenText(txt, letzteKat);
+    if (teil.length) letzteKat = teil[teil.length - 1].kat;
+    gerichte = gerichte.concat(teil);
+});
+var items = F.sortiereNachNummer(F.pdfGerichteZuItems(gerichte));
+
+t('142 Gerichte gelesen', gerichte.length === 142, gerichte.length + ' statt 142');
+t('230 Eintraege (Gerichte mit klein/gross zaehlen doppelt)',
+  items.length === 230, items.length + ' statt 230');
+t('kein Eintrag ohne Preis',
+  items.filter(function (i) { return !i.price; }).length === 0,
+  items.filter(function (i) { return !i.price; }).length + ' ohne Preis');
+
+var kats = {};
+items.forEach(function (i) { kats[i.category || '(leer)'] = 1; });
+var katListe = Object.keys(kats);
+t('13 Kategorien, keine erfundene', katListe.length === 13, katListe.length + ': ' + katListe.join(' | '));
+t('keine leere Kategorie', katListe.indexOf('(leer)') < 0, katListe.join(' | '));
+['Pizza', 'Familienpizza', 'Spaghetti', 'Rigatoni', 'Tortellini', 'Spezialität des Hauses',
+ 'Pronto Spezial Schnitzel', 'Fleischgerichte', 'Baguette', 'Burger', 'Salate', 'Beilagen',
+ 'Gefüllte Pizzabrötchen'].forEach(function (k) {
+    t('Kategorie "' + k + '" ist da', katListe.indexOf(k) >= 0, katListe.join(' | '));
+});
+
+// --- Stichproben, zeichengenau -------------------------------------------
+function finde(nr, name) {
+    return items.filter(function (i) {
+        return String(i.dish_number) === nr && i.name.indexOf(name) === 0;
+    })[0];
+}
+var m = finde('1', 'Pizza Margherita');
+t('Nr. 1 heisst "Pizza Margherita (klein)" -- ohne angeklebtes V',
+  !!m && m.name === 'Pizza Margherita (klein)', m && m.name);
+t('das V von Nr. 1 wird zum Merkmal vegetarisch', !!m && m.is_vegetarian === true, m && m.is_vegetarian);
+t('Nr. 1 klein kostet 6,50', !!m && m.price === 6.5, m && m.price);
+t('Nr. 1 steht unter Pizza', !!m && m.category === 'Pizza', m && m.category);
+
+var xxl = finde('66A', 'Döner XXL');
+t('Nummer mit Buchstabe (66 A) bleibt erhalten', !!xxl, 'nicht gefunden');
+t('Döner XXL steht unter Fleischgerichte',
+  !!xxl && xxl.category === 'Fleischgerichte', xxl && xxl.category);
+
+var pl = items.filter(function (i) { return /Pronto Pronto-Platte/.test(i.name); })[0];
+t('Name ueber zwei Zeilen wird zusammengesetzt ("... (für 4 Pers.)")',
+  !!pl && /für 4 Pers/.test(pl.name), pl && pl.name);
+t('die Platte landet NICHT unter dem Restaurantnamen',
+  !!pl && !/Pronto Pronto Pizzeria/.test(pl.category), pl && pl.category);
+
+// Sortierung innerhalb der Kategorie: 41 und 42 stehen auf der Karte in der
+// naechsten Spalte, in der App muessen sie der Reihe nach kommen.
+var pizzaNrn = items.filter(function (i) { return i.category === 'Pizza' && i.dish_number; })
+    .map(function (i) { return parseInt(i.dish_number, 10); });
+var sortiert = pizzaNrn.slice().sort(function (a, b) { return a - b; });
+t('Pizzen stehen nach Nummer sortiert, nicht nach Druckspalte',
+  JSON.stringify(pizzaNrn) === JSON.stringify(sortiert),
+  'erste Abweichung bei ' + pizzaNrn.find(function (x, i) { return x !== sortiert[i]; }));
+
+console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
+process.exit(ok === n ? 0 : 1);
