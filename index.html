@@ -58186,6 +58186,41 @@ function sortiereNachNummer(items) {
         it._pos = i;
         nach[k].push(it);
     });
+    // AUCH DIE KATEGORIEN nach ihrer kleinsten Nummer ordnen.
+    //
+    // Innerhalb einer Kategorie stimmte die Reihenfolge schon. Die Kategorien
+    // selbst standen aber in der Reihenfolge des DRUCKBILDS -- und das ist bei
+    // einer vierspaltigen Karte etwas anderes als die Nummernfolge. Auf der
+    // Karte von Pronto Pronto kam "Pronto Spezial Schnitzel" (130-137) vor
+    // "Fleischgerichte" (60-69) und "Baguette" (51-59), weil es weiter oben
+    // gedruckt ist. Im Menue sucht ein Gast die 51 aber vor der 130.
+    //
+    // Nur wenn es eindeutig ist: jede Kategorie muss Nummern haben und die
+    // Bereiche duerfen sich nicht ueberschneiden. Sonst bleibt die
+    // Kartenreihenfolge -- eine Karte ohne durchgaengige Nummerierung (oder
+    // mit Getraenken ohne Nummer) darf nicht durcheinandergewuerfelt werden.
+    var spanne = {};
+    kategorien.forEach(function (k) {
+        var werte = nach[k].map(function (it) { return _nrWert(it.dish_number); })
+                           .filter(function (v) { return v !== null; });
+        spanne[k] = werte.length ? { von: Math.min.apply(null, werte), bis: Math.max.apply(null, werte) } : null;
+    });
+    // Ueberschneidungen sind normal und duerfen das NICHT blockieren: die
+    // Familienpizzen 41 und 42 liegen mitten im Bereich der Pizzen (1-47),
+    // weil die Karte danach mit 43 weiterlaeuft. Der erste Versuch verlangte
+    // ueberschneidungsfreie Bereiche -- damit griff die Sortierung genau bei
+    // dieser Karte nie.
+    //
+    // Sortiert wird stabil nach der kleinsten Nummer. Faengt eine Karte in
+    // jeder Kategorie wieder bei 1 an, sind alle kleinsten Nummern gleich und
+    // die Kartenreihenfolge bleibt unveraendert -- genau richtig.
+    var alleMitNummer = kategorien.every(function (k) { return spanne[k]; });
+    if (alleMitNummer) {
+        kategorien = kategorien.map(function (k, i) { return { k: k, i: i }; })
+            .sort(function (a, b) { return (spanne[a.k].von - spanne[b.k].von) || (a.i - b.i); })
+            .map(function (x) { return x.k; });
+    }
+
     var out = [];
     kategorien.forEach(function (k) {
         var mit = [], ohne = [];
@@ -58838,6 +58873,7 @@ function karteVollZeige(e) {
         + items.length + ' Einträge · ' + folge.length + ' Kategorien</div>'
         + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">'
         + (ohnePreis ? '<strong style="color:#b45309;">' + ohnePreis + ' ohne Preis</strong>' : 'alle mit Preis')
+        + ' · ' + items.filter(function (x) { return x.description; }).length + ' mit Zutaten'
         + ' · direkt aus dem PDF gelesen, ohne KI'
         + (e.bericht && e.bericht.ms ? ' · ' + (e.bericht.ms / 1000).toFixed(1) + ' s' : '')
         + '</div></div></div>';
@@ -58855,12 +58891,21 @@ function karteVollZeige(e) {
     items.slice(0, 500).forEach(function (i) {
         if (i.category !== letzte) {
             letzte = i.category;
-            html += '<div style="position:sticky;top:0;background:var(--bg-secondary);padding:5px 10px;'
+            // Undurchsichtig und ueber der Liste: mit halbdurchsichtigem Grund
+            // schoben sich beim Scrollen mehrere Ueberschriften uebereinander
+            // und man las "SalateFleischgerichteSchnitzel".
+            html += '<div style="position:sticky;top:0;z-index:2;background:#eef2f0;padding:5px 10px;'
                   + 'font-size:11px;font-weight:800;color:#003D33;">' + esc(letzte) + '</div>';
         }
-        html += '<div style="display:flex;gap:8px;padding:4px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+        // Beschreibung mitzeigen. Sie war von Anfang an da ("Pizza Bari ->
+        // Salami, Paprika"), stand aber nicht in der Liste -- und was man nicht
+        // sieht, haelt man fuer nicht vorhanden.
+        html += '<div style="display:flex;gap:8px;padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);align-items:baseline;">'
               + '<span style="width:34px;color:var(--text-secondary);flex:none;">' + esc(i.dish_number) + '</span>'
-              + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
+              + '<span style="flex:1;min-width:0;">'
+              +   '<span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
+              +   (i.description ? '<span style="display:block;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.description) + '</span>' : '')
+              + '</span>'
               + '<span style="flex:none;font-weight:700;">' + (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : '—') + '</span></div>';
     });
     html += '</div>';

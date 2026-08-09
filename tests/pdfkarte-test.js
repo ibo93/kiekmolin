@@ -164,5 +164,55 @@ t('Pizzen stehen nach Nummer sortiert, nicht nach Druckspalte',
   JSON.stringify(pizzaNrn) === JSON.stringify(sortiert),
   'erste Abweichung bei ' + pizzaNrn.find(function (x, i) { return x !== sortiert[i]; }));
 
+// --- Reihenfolge ueber die Kategorien hinweg -------------------------------
+// Innerhalb einer Kategorie stimmten die Nummern schon. Die Kategorien selbst
+// standen aber in der Reihenfolge des DRUCKBILDS: auf der vierspaltigen Karte
+// kommt "Pronto Spezial Schnitzel" (130-137) vor "Baguette" (51-59), weil es
+// weiter oben gedruckt ist. Im Menue sucht ein Gast die 51 vor der 130.
+var reihe = [];
+items.forEach(function (i) {
+    if (!reihe.length || reihe[reihe.length - 1].kat !== i.category) {
+        reihe.push({ kat: i.category, nrn: [] });
+    }
+    var w = parseInt(i.dish_number, 10);
+    if (!isNaN(w)) reihe[reihe.length - 1].nrn.push(w);
+});
+var starts = reihe.filter(function (r) { return r.nrn.length; })
+                  .map(function (r) { return Math.min.apply(null, r.nrn); });
+var aufsteigend = starts.every(function (x, i) { return i === 0 || x >= starts[i - 1]; });
+t('Kategorien stehen in der Reihenfolge ihrer Nummern, nicht des Druckbilds',
+  aufsteigend, starts.join(' '));
+t('Baguette (51) kommt vor Pronto Spezial Schnitzel (130)',
+  reihe.findIndex(function (r) { return r.kat === 'Baguette'; })
+  < reihe.findIndex(function (r) { return r.kat === 'Pronto Spezial Schnitzel'; }),
+  reihe.map(function (r) { return r.kat; }).join(' > '));
+t('Familienpizza (41) bleibt direkt hinter Pizza -- Ueberschneidung stoert nicht',
+  reihe[0].kat === 'Pizza' && reihe[1].kat === 'Familienpizza',
+  reihe.slice(0, 3).map(function (r) { return r.kat; }).join(' > '));
+
+// --- Zutaten stehen im Gericht ---------------------------------------------
+var mitBesch = items.filter(function (i) { return i.description && i.description.trim(); });
+t('Zutaten landen als Beschreibung im Gericht (>200 von 230)',
+  mitBesch.length > 200, mitBesch.length + ' von ' + items.length);
+var bari = items.filter(function (i) { return /Pizza Bari/.test(i.name); })[0];
+t('"Pizza Bari" traegt ihre Zutaten',
+  !!bari && /Salami/.test(bari.description) && /Paprika/.test(bari.description),
+  bari && bari.description);
+t('Vorschau zeigt die Beschreibung an (war da, stand aber nicht in der Liste)',
+  /Beschreibung mitzeigen/.test(H) && /esc\(i\.description\)/.test(H));
+
+// --- Allergene und Zusatzstoffe --------------------------------------------
+// Diese Karte ist die Fassung OHNE Allergene (steht im Dateinamen). Der Leser
+// zieht sie aber, sobald sie in Klammern hinter den Zutaten stehen --
+// Buchstaben a-n sind Allergene, Ziffern sind Zusatzstoffe.
+var probe = F.pdfGerichteZuItems(F.parseKartenText(
+    '## Pizza\n1. Pizza Margherita 6,50 €\nKäse, Tomaten (a,g) (1,2)', ''));
+t('Allergen-Buchstaben werden in Namen uebersetzt',
+  JSON.stringify(probe[0].allergens) === '["gluten","milch"]', JSON.stringify(probe[0].allergens));
+t('Zusatzstoff-Ziffern werden erkannt',
+  JSON.stringify(probe[0].additives) === '["1","2"]', JSON.stringify(probe[0].additives));
+t('die Klammern verschwinden aus der Beschreibung',
+  probe[0].description === 'Käse, Tomaten', probe[0].description);
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
