@@ -98,6 +98,12 @@ async function lauf(o) {
     t('PDF mit Text: keine Bilder gebaut (kein Umweg ueber Zeichenerkennung)',
       !a.bilderGebaut, 'Bilder wurden gebaut');
     t('PDF mit Text: keine Texterkennung', !a.ocrGelaufen, 'OCR lief');
+    // Eine kleine Karte muss genauso durchkommen wie eine grosse.
+    var klein = await lauf({ typ: 'pdf', pdfText: ['## Kuchen\nApfelkuchen 3,80 €\nKäsekuchen 4,20 €'] });
+    t('kleine Karte (2 Gerichte) kommt ohne KI durch',
+      klein.modellAufrufe === 0 && klein.items.length === 2,
+      klein.modellAufrufe + ' Aufrufe, ' + klein.items.length + ' Gerichte');
+
     t('PDF mit Text: 142 Gerichte (Groessen als Auswahl, nicht als eigene Gerichte)',
       a.items.length === 142, a.items.length);
     t('PDF mit Text: Ergebnis wird angezeigt', a.ergebnisGezeigt === true, 'nicht angezeigt');
@@ -120,13 +126,19 @@ async function lauf(o) {
       /enthaelt keinen Text|keinen Text/.test(b.el.menuScanStatus.textContent),
       b.el.menuScanStatus.textContent);
 
-    // --- Text da, aber kaum Gerichte: NICHT still zum Modell -----------------
-    var c = await lauf({ typ: 'pdf', pdfText: ['## Speisekarte\nEin Gericht 5,00 €\nnoch was 6,00 €' + ' x'.repeat(200)] });
-    t('Text da, kaum Gerichte: kein stiller Wechsel zum Modell',
+    // --- Text da, aber KEIN Gericht: NICHT still zum Modell ------------------
+    // Die Schwelle lag frueher bei fuenf Gerichten -- damit fiel jede kleine
+    // Karte auf den KI-Weg zurueck, obwohl ihr Text vollstaendig da war.
+    // Jetzt gilt: ein einziges gefundenes Gericht beweist, dass der Text
+    // lesbar ist. Nur wenn gar keins gefunden wird, stimmt etwas nicht --
+    // und dann gehoert der Rohtext auf den Bildschirm, nicht ein stiller
+    // Wechsel zum Modell.
+    var c = await lauf({ typ: 'pdf', pdfText: ['## Speisekarte\nHier steht nur Fliesstext ohne jeden Preis\nund noch eine Zeile' + ' x'.repeat(200)] });
+    t('Text da, kein Gericht: kein stiller Wechsel zum Modell',
       c.modellAufrufe === 0, c.modellAufrufe + ' Aufrufe');
-    t('Text da, kaum Gerichte: Rohtext landet im Textfeld',
+    t('Text da, kein Gericht: Rohtext landet im Textfeld',
       c.el.menuScanTextInput.value.length > 0, 'Textfeld leer');
-    t('Text da, kaum Gerichte: der Gastronom bekommt eine Ansage',
+    t('Text da, kein Gericht: der Gastronom bekommt eine Ansage',
       c.toasts.some(function (x) { return x.art === 'warning'; }), JSON.stringify(c.toasts));
 
     // --- WEG 3: Foto ---------------------------------------------------------

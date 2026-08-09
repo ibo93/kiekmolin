@@ -57443,7 +57443,12 @@ async function leseKartePdf(pdfData) {
         gerichte = gerichte.concat(teil);
     });
 
-    if (gerichte.length < 5) {
+    // Ein einziges gefundenes Gericht reicht als Beweis, dass der Text
+    // lesbar ist. Frueher mussten es fuenf sein -- eine kleine Karte fiel
+    // damit auf den KI-Weg zurueck, obwohl der PDF-Text vollstaendig da war.
+    // Ein eingescanntes PDF hat gar keinen Text und wird schon vorher
+    // abgefangen; diese Schwelle muss also nicht dagegen schuetzen.
+    if (gerichte.length < 1) {
         // NICHT still zum Modell wechseln. Text war da, Gerichte nicht --
         // daran stimmt etwas am Aufbau, und das muss man sehen koennen.
         ergebnis.grund = 'Text gelesen, aber nur ' + gerichte.length + ' Gerichte erkannt.';
@@ -57845,7 +57850,14 @@ async function ocrImage(imageData, statusEl, pageNum, totalPages) {
 // Gibt ein PDF keinen oder kaum Text her (eingescanntes Blatt, Bild-PDF),
 // liefert diese Funktion null und der Scanner nimmt wie bisher das Bild.
 function pdfSeiteZuText(items, seitenBreite) {
-    if (!items || items.length < 20) return null;
+    // Untergrenze bewusst niedrig. Frueher standen hier 20 Woerter -- damit
+    // fiel jede kleine Karte durch: ein Cafe mit acht Gerichten hat keine 20
+    // Woerter auf der Seite und bekam "kein Text im PDF" zu sehen, obwohl der
+    // Text da war. Gemessen an fuenf selbst gebauten Probekarten: 16 bis 23
+    // Woerter. Hier reichen ein paar Woerter, um ueberhaupt rechnen zu
+    // koennen; ob es eine Karte ist, entscheidet spaeter der Parser an den
+    // gefundenen Gerichten -- und das ist die ehrlichere Frage.
+    if (!items || items.length < 4) return null;
 
     // 1) SPALTEN ZUERST, dann Zeilen. Andersherum geht es schief: auf einer
     //    vierspaltigen Karte stehen vier verschiedene Gerichte auf derselben
@@ -57883,7 +57895,17 @@ function pdfSeiteZuText(items, seitenBreite) {
     // die vier Spalten von den vier Preisspalten.
     var staerkste = 0;
     Object.keys(kanten).forEach(function (k) { if (kanten[k] > staerkste) staerkste = kanten[k]; });
-    var mindestWoerter = Math.max(5, staerkste * 0.55);
+    // Die feste Untergrenze war der zweite Sargnagel fuer kleine Karten.
+    // "mindestens 5 Woerter an einer Kante" klingt harmlos, aber auf einer
+    // dreispaltigen Karte mit sieben Gerichten hat eine echte Spalte nur vier
+    // Eintraege. Dann fiel jede Kante bis auf eine weg, der Leser sah eine
+    // einzige Spalte und klebte alle drei zusammen -- aus "Fisch" und
+    // "Räucheraal" wurde eine Zeile.
+    //
+    // Das Verhaeltnis (55 % der staerksten Kante) traegt die Entscheidung
+    // ohnehin allein; die Untergrenze soll nur verhindern, dass bei drei
+    // Woertern auf der Seite ueberhaupt gerechnet wird.
+    var mindestWoerter = Math.max(2, staerkste * 0.55);
     var starts = Object.keys(kanten).map(Number)
         .filter(function (k) { return kanten[k] >= mindestWoerter; })
         .sort(function (a, b) { return a - b; });
@@ -57896,6 +57918,27 @@ function pdfSeiteZuText(items, seitenBreite) {
         if (g && k - g.x <= 40) { if (kanten[k] > g.n) { g.x = k; g.n = kanten[k]; } }
         else gruppen.push({ x: k, n: kanten[k] });
     });
+
+    // PREISSPALTEN AUSSORTIEREN.
+    //
+    // Eine rechtsbuendige Preisspalte sieht in der Kanten-Zaehlung aus wie
+    // eine Textspalte: viele Woerter an derselben x-Position. Trennt man
+    // dort, reisst man Name und Preis auseinander -- die Zeile
+    // "Apfelkuchen ..... 3,80 €" wird zu zwei Zeilen, und uebrig bleibt ein
+    // Preis ohne Gericht. Genau das ist an einer zweispaltigen Cafekarte
+    // passiert, nachdem die Untergrenze gesenkt war.
+    //
+    // Der Unterschied ist eindeutig und braucht keine Schwelle: an einer
+    // Preisspalte stehen ausschliesslich Preise.
+    function nurPreise(x) {
+        var dort = items.filter(function (w) { return Math.abs(w.x - x) <= 8; });
+        if (!dort.length) return false;
+        var preise = dort.filter(function (w) {
+            return /^\s*\d{1,3}[.,]\d{2}\s*€?\s*$/.test(w.str);
+        }).length;
+        return preise / dort.length >= 0.8;
+    }
+    gruppen = gruppen.filter(function (g) { return !nurPreise(g.x); });
 
     var grenzen = [];
     if (gruppen.length >= 2 && gruppen.length <= 6) {
@@ -57980,7 +58023,9 @@ function pdfSeiteZuText(items, seitenBreite) {
         }).filter(Boolean);
 
     var text = abschnitte.join('\n');
-    return text.length > 300 ? text : null;
+    // Kein Mindestmass mehr an Zeichen. 300 waren aus der Luft gegriffen und
+    // sperrten jede kurze Karte aus (Probekarten: rund 190 Zeichen).
+    return text.trim() ? text : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -58068,7 +58113,11 @@ function parseKartenText(text, startKategorie) {
         }
 
         // Zeile mit Preis -> Gericht. Name = alles vor dem ersten Preis.
-        var vor = z.slice(0, z.search(/\d{1,3},\d{2}\s*€/)).trim();
+        // Fuellzeichen abschneiden: viele Karten setzen "Apfelkuchen ........
+        // 3,80 €". Ohne das heisst das Gericht in der App
+        // "Apfelkuchen ......................".
+        var vor = z.slice(0, z.search(/\d{1,3},\d{2}\s*€/))
+                   .replace(/[.\u2026\-_\s]+$/, '').trim();
         var nr = '';
         var m = vor.match(/^(\d+\s?[A-Za-z]?)\.\s*(.*)$/);
         if (m) { nr = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
