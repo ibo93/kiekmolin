@@ -191,5 +191,26 @@ var romaAbgleich = F.abgleichen(
 t('zwei Gerichte mit gleichem Namen bleiben zwei Gerichte',
   romaAbgleich.neu.length === 2, romaAbgleich.neu.length);
 
+// --- Der Abgleich muss dieselben Datenbank-Fehler ueberstehen wie der Import
+// Hier stand nur "fehler++": kennt die Datenbank die Spalte sizes nicht oder
+// hat sie den falschen Typ, scheiterten alle 88 Groessen-Aenderungen stumm.
+// Danach wurde das Fenster geschlossen -- der einzige Ort, an dem ein Grund
+// haette stehen koennen, verschwand genau dann, wenn man ihn braucht.
+t('Abgleich laesst unbekannte Spalten weg, statt aufzugeben',
+  /Object\.keys\(_weg\)\.forEach\(function \(k\) \{ delete neuerStand\[k\]; \}\)/.test(H));
+t('Abgleich schickt bei falschem Typ als Text',
+  /_alsText\[k\] = 1; neuerStand\[k\] = JSON\.stringify\(neuerStand\[k\]\)/.test(H));
+t('einmal erkannt, gilt es fuer alle weiteren Gerichte',
+  /Object\.keys\(_alsText\)\.forEach\(function \(k\) \{\s*\n\s*if \(neuerStand\[k\]/.test(H));
+t('bei einem anderen Fehler wird der Grund gemerkt, nicht endlos wiederholt',
+  /_gruende\.push\(txt\.slice\(0, 120\)\); break;/.test(H));
+t('das Fenster bleibt OFFEN, wenn etwas schiefging',
+  /if \(wegListe\.length \|\| fehler\) \{/.test(H)
+  && /knopf2\.textContent = 'Erneut versuchen'/.test(H));
+t('und nennt die Angaben, die die Datenbank nicht kennt',
+  /Diese Angaben kennt die Datenbank nicht/.test(H));
+t('die Anleitung mit dem SQL-Befehl erscheint IM Abgleich-Fenster',
+  /ziel\.id = 'menuScanItemsList'; _zeigeSpaltenHilfe\(wegListe\)/.test(H));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

@@ -60135,16 +60135,43 @@ async function wendeKartenAbgleichAn() {
     var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
 
     // 1) Geaenderte Gerichte
+    //
+    // Mit derselben Behandlung wie beim Import: kennt die Datenbank eine
+    // Spalte nicht, fliegt sie raus; hat sie den falschen Typ, wird der Wert
+    // als Text geschickt. Vorher stand hier nur "fehler++" -- 88
+    // Groessen-Aenderungen konnten stumm scheitern, und das Fenster ging
+    // danach zu, bevor irgendjemand etwas davon lesen konnte.
+    var _weg = {}, _alsText = {}, _gruende = [];
     for (var i = 0; i < d.geaendert.length; i++) {
         var g = d.geaendert[i];
         var neuerStand = { name: g.neu.name, base_price: _abgleichPreis(g.neu) };
         if (Array.isArray(g.neu.sizes) && g.neu.sizes.length) neuerStand.sizes = g.neu.sizes;
         if ((g.neu.description || '').trim()) neuerStand.description = g.neu.description;
+        Object.keys(_weg).forEach(function (k) { delete neuerStand[k]; });
+        Object.keys(_alsText).forEach(function (k) {
+            if (neuerStand[k] && typeof neuerStand[k] === 'object') neuerStand[k] = JSON.stringify(neuerStand[k]);
+        });
         try {
             var r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
                 { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
+            var runde = 0;
+            while (!r.ok && r.status === 400 && runde < 8) {
+                runde++;
+                var txt = await r.clone().text();
+                var tr = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(txt);
+                var sp = tr && (tr[1] || tr[2] || tr[3]);
+                if (sp && (sp in neuerStand)) { _weg[sp] = 1; delete neuerStand[sp]; }
+                else if (/invalid input syntax|malformed|cannot be cast/i.test(txt)) {
+                    var obj = Object.keys(neuerStand).filter(function (k) {
+                        return neuerStand[k] && typeof neuerStand[k] === 'object'; });
+                    if (!obj.length) { _gruende.push(txt.slice(0, 120)); break; }
+                    obj.forEach(function (k) { _alsText[k] = 1; neuerStand[k] = JSON.stringify(neuerStand[k]); });
+                } else { _gruende.push(txt.slice(0, 120)); break; }
+                r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
+                    { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
+            }
             if (r.ok) geaendert++; else fehler++;
-        } catch (e) { fehler++; }
+        } catch (e) { fehler++; _gruende.push(e.message); }
     }
 
     // 2) Entfallene
@@ -60174,6 +60201,43 @@ async function wendeKartenAbgleichAn() {
         window._abgleichLaeuft = false;
         scannedMenuItems = merken;
         window.scannedMenuItems = scannedMenuItems;
+    }
+
+    // Ging etwas schief, bleibt das Fenster OFFEN und sagt was.
+    // Vorher wurde es zugemacht -- der einzige Ort, an dem der Grund stand,
+    // verschwand also genau dann, wenn man ihn gebraucht haette.
+    var wegListe = Object.keys(_weg);
+    if (wegListe.length || fehler) {
+        var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
+                         additives: 'Zusatzstoffe', description: 'Beschreibung', name: 'Name' };
+        var box = document.getElementById('kartenAbgleichInhalt');
+        if (box) {
+            box.insertAdjacentHTML('afterbegin',
+                '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid #f59e0b;'
+              + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;">'
+              + (wegListe.length
+                  ? '<strong>Diese Angaben kennt die Datenbank nicht: '
+                    + wegListe.map(function (x) { return klartext[x] || x; }).join(', ')
+                    + '</strong><br>Alles andere wurde gespeichert.'
+                  : '<strong>' + fehler + ' Änderungen sind fehlgeschlagen.</strong>')
+              + (_gruende.length ? '<div style="font-size:11px;margin-top:6px;opacity:.85;">'
+                    + _gruende.slice(0, 3).map(function (x) { return String(x).replace(/[<>&]/g, ''); }).join('<br>')
+                    + '</div>' : '')
+              + '</div>');
+        }
+        if (wegListe.length && typeof _zeigeSpaltenHilfe === 'function') {
+            // Die Anleitung mit dem SQL-Befehl -- hier ins Abgleich-Fenster,
+            // nicht in die Scanner-Liste, die gleich zugeht.
+            var merk = document.getElementById('menuScanItemsList');
+            var ziel = document.getElementById('kartenAbgleichInhalt');
+            if (ziel) { ziel.id = 'menuScanItemsList'; _zeigeSpaltenHilfe(wegListe);
+                        ziel.id = 'kartenAbgleichInhalt'; if (merk) merk.id = 'menuScanItemsList'; }
+        }
+        var knopf2 = document.getElementById('kartenAbgleichKnopf');
+        if (knopf2) { knopf2.disabled = false; knopf2.textContent = 'Erneut versuchen'; }
+        showToast(geaendert + ' übernommen, ' + fehler + ' fehlgeschlagen — Grund steht im Fenster.', 'warning');
+        if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
+        return;
     }
 
     closeModal('kartenAbgleichModal');
