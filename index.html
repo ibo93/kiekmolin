@@ -18265,9 +18265,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b;font-variation-settings:'FILL' 1;">star</span>
                         </div>
                         <div>
-                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Bestseller</span>
+                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Renner &amp; Penner</span>
                             <span id="bestsellerPeriodLabel" style="font-size: 11px; color: var(--text-secondary); display: block;">Diese Woche</span>
                         </div>
+                    </div>
+                    <div style="display:flex;gap:4px;background:var(--bg-secondary);border-radius:9999px;padding:3px;">
+                        <button type="button" id="rpNachAnzahl" onclick="setzeAuswertungsSicht('anzahl')" style="padding:5px 12px;border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Anzahl</button>
+                        <button type="button" id="rpNachUmsatz" onclick="setzeAuswertungsSicht('umsatz')" style="padding:5px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Umsatz</button>
                     </div>
                 </div>
                 <div id="bestsellerList" style="display: flex; flex-direction: column; gap: 8px;">
@@ -48811,60 +48815,213 @@ function getTimeFilterEnd(filter) {
     return null;
 }
 
-// Bestseller berechnen und anzeigen
+// ============================================================================
+// RENNER & PENNER
+// ============================================================================
+// Vorher stand hier "Bestseller": die Top 5 nach Anzahl, gerechnet aus den
+// Bestellungen. Die HALBE Auswertung -- und die unwichtigere.
+//
+// Wer wissen will, was von der Karte fliegt, braucht die Gerichte, die NICHT
+// verkauft wurden. Genau die konnten hier prinzipiell nie auftauchen: die
+// Liste entstand aus Bestellungen, also war ein Gericht mit null Verkaeufen
+// gar nicht in den Daten. Deshalb wird die Speisekarte jetzt dazugeholt.
+//
+// Und zwei Ehrlichkeitsregeln, ohne die die Liste in die Irre fuehrt:
+//   1. Bei zu wenig Bestellungen wird nichts als "Penner" gebrandmarkt. Aus
+//      drei Bestellungen laesst sich nichts ableiten, ausser dass es drei war.
+//   2. Ein Gericht, das erst seit Kurzem auf der Karte steht, ist kein Penner,
+//      sondern neu. Es wird getrennt ausgewiesen statt mitgezaehlt.
+
+var _auswertungSicht = 'anzahl';     // 'anzahl' | 'umsatz'
+
+// Ab so vielen Bestellungen im Zeitraum lohnt die Aussage ueberhaupt.
+var AUSWERTUNG_MIN_BESTELLUNGEN = 10;
+// So lange gilt ein Gericht als neu und wird nicht als Penner gewertet.
+var AUSWERTUNG_NEU_TAGE = 21;
+
+// Reine Rechnung -- Bestellungen und Karte rein, Auswertung raus.
+//
+// Zu den Preisen: im Dashboard ist item.price der POSITIONS-Gesamtpreis
+// (order_items.total_price), die Menge steckt also schon drin. Deshalb wird
+// hier NICHT noch einmal mit quantity multipliziert.
+function auswerteGerichte(orders, karte, opt) {
+    opt = opt || {};
+    var minBestellungen = opt.minBestellungen != null ? opt.minBestellungen : AUSWERTUNG_MIN_BESTELLUNGEN;
+    var neuTage = opt.neuTage != null ? opt.neuTage : AUSWERTUNG_NEU_TAGE;
+    var jetzt = opt.jetzt ? new Date(opt.jetzt).getTime() : Date.now();
+    var grenzeNeu = jetzt - neuTage * 24 * 3600 * 1000;
+
+    var gezaehlt = (orders || []).filter(function (o) { return o && o.status !== 'cancelled'; });
+    var proGericht = {};
+    function eintrag(name) {
+        var k = String(name || '').trim().toLowerCase();
+        if (!proGericht[k]) proGericht[k] = { name: String(name || 'Unbekannt').trim(), anzahl: 0, umsatz: 0 };
+        return proGericht[k];
+    }
+    gezaehlt.forEach(function (o) {
+        (o.items || []).forEach(function (it) {
+            var e = eintrag(it.name);
+            e.anzahl += (it.quantity || 1);
+            e.umsatz += (it.price || 0);
+        });
+    });
+
+    // Karte dazu: Gerichte ohne einen einzigen Verkauf kommen in den
+    // Bestellungen nicht vor und wuerden sonst fehlen.
+    var neu = [];
+    (karte || []).forEach(function (g) {
+        if (g.is_available === false) return;          // ausverkauft ist kein Penner
+        var k = String(g.name || '').trim().toLowerCase();
+        if (!k) return;
+        var angelegt = g.created_at ? new Date(g.created_at).getTime() : null;
+        if (angelegt && angelegt > grenzeNeu && !proGericht[k]) { neu.push(g.name); return; }
+        if (!proGericht[k]) proGericht[k] = { name: g.name, anzahl: 0, umsatz: 0 };
+        proGericht[k].aufKarte = true;
+    });
+
+    var liste = Object.keys(proGericht).map(function (k) { return proGericht[k]; });
+    var schluessel = opt.sicht === 'umsatz' ? 'umsatz' : 'anzahl';
+    var sortiert = liste.slice().sort(function (a, b) {
+        return (b[schluessel] - a[schluessel]) || a.name.localeCompare(b.name);
+    });
+
+    var genugDaten = gezaehlt.length >= minBestellungen;
+    var renner = sortiert.filter(function (e) { return e.anzahl > 0; }).slice(0, 5);
+    var istRenner = {};
+    renner.forEach(function (e) { istRenner[e.name] = true; });
+
+    // Penner nur aus Gerichten, die WIRKLICH auf der Karte stehen. Ein Name,
+    // der nur in alten Bestellungen vorkommt, ist meist ein umbenanntes oder
+    // geloeschtes Gericht -- den als Penner zu melden hilft niemandem.
+    //
+    // Und niemals ein Gericht, das oben schon als Renner steht. Bei einer
+    // kleinen Karte griff die Auswahl sonst bis ganz nach oben durch: der
+    // Bestseller stand gleichzeitig unter "Laeuft nicht".
+    var pennerBasis = sortiert.filter(function (e) { return e.aufKarte && !istRenner[e.name]; });
+
+    return {
+        renner: renner,
+        penner: genugDaten ? pennerBasis.slice(-5).reverse() : [],
+        ohneVerkauf: pennerBasis.filter(function (e) { return e.anzahl === 0; }).length,
+        neu: neu,
+        bestellungen: gezaehlt.length,
+        genugDaten: genugDaten,
+        minBestellungen: minBestellungen,
+        sicht: schluessel
+    };
+}
+
+function setzeAuswertungsSicht(sicht) {
+    _auswertungSicht = sicht === 'umsatz' ? 'umsatz' : 'anzahl';
+    ['anzahl', 'umsatz'].forEach(function (s2) {
+        var b = document.getElementById(s2 === 'anzahl' ? 'rpNachAnzahl' : 'rpNachUmsatz');
+        if (!b) return;
+        var an = s2 === _auswertungSicht;
+        b.style.background = an ? 'var(--ink-strong)' : 'transparent';
+        b.style.color = an ? '#fff' : 'var(--text-secondary)';
+    });
+    renderBestseller(window._dashboardOrdersFuerAuswertung || []);
+}
+
+// Die Speisekarte des Restaurants -- ohne sie gibt es keine Penner.
+async function _karteFuerAuswertung(rid) {
+    if (!rid) return [];
+    window._karteAuswertungCache = window._karteAuswertungCache || {};
+    if (window._karteAuswertungCache[rid]) return window._karteAuswertungCache[rid];
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + rid
+            + '&select=id,name,is_available,created_at&limit=500',
+            { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        if (!res.ok) return [];
+        var j = await res.json();
+        if (!Array.isArray(j)) return [];
+        window._karteAuswertungCache[rid] = j;
+        return j;
+    } catch (e) { return []; }
+}
+
 function renderBestseller(orders) {
     var section = document.getElementById('bestsellerSection');
     var list = document.getElementById('bestsellerList');
     var label = document.getElementById('bestsellerPeriodLabel');
     if (!section || !list) return;
 
+    window._dashboardOrdersFuerAuswertung = orders || [];
+
     var labels = { today: 'Heute', yesterday: 'Gestern', week: 'Diese Woche', month: 'Dieser Monat', year: 'Dieses Jahr' };
     if (label) label.textContent = labels[ordersTimeFilter] || 'Heute';
 
-    // Gerichte zaehlen (nur abgeschlossene Bestellungen)
-    var dishCount = {};
-    var completedOrders = orders.filter(function(o) {
-        return o.status !== 'cancelled';
-    });
-    completedOrders.forEach(function(o) {
-        if (!o.items) return;
-        o.items.forEach(function(item) {
-            var name = item.name || 'Unbekannt';
-            if (!dishCount[name]) dishCount[name] = { count: 0, revenue: 0 };
-            dishCount[name].count += (item.quantity || 1);
-            dishCount[name].revenue += (item.price || 0);
-        });
-    });
+    var rid = window._gastroOnlyRestaurantId
+           || (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '')
+           || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : '');
 
-    var sorted = Object.keys(dishCount).map(function(name) {
-        return { name: name, count: dishCount[name].count, revenue: dishCount[name].revenue };
-    }).sort(function(a, b) { return b.count - a.count; });
+    _karteFuerAuswertung(rid).then(function (karte) {
+        var a = auswerteGerichte(orders, karte, { sicht: _auswertungSicht });
+        if (!a.renner.length && !a.penner.length) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        list.innerHTML = _auswertungHtml(a);
+    });
+}
 
-    if (sorted.length === 0) {
-        section.style.display = 'none';
-        return;
+function _auswertungHtml(a) {
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); };
+    var wert = function (e) {
+        return a.sicht === 'umsatz'
+            ? e.umsatz.toFixed(2).replace('.', ',') + ' €'
+            : e.anzahl + '\u00d7';
+    };
+    var hoechst = Math.max.apply(null, a.renner.map(function (e) { return e[a.sicht] || 0; }).concat([1]));
+
+    function zeile(e, i, farbe, breite) {
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:16px;">'
+             + '<span style="width:18px;text-align:center;font-weight:700;font-size:12px;color:var(--text-secondary);">' + (i + 1) + '</span>'
+             + '<div style="flex:1;min-width:0;">'
+             +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+             +     '<span style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(e.name) + '</span>'
+             +     '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;margin-left:8px;">'
+             +       e.anzahl + '\u00d7 · ' + e.umsatz.toFixed(2).replace('.', ',') + ' €</span>'
+             +   '</div>'
+             +   '<div style="height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;">'
+             +     '<div style="height:100%;width:' + breite + '%;background:' + farbe + ';border-radius:2px;"></div>'
+             +   '</div>'
+             + '</div></div>';
     }
 
-    section.style.display = 'block';
-    var maxCount = sorted[0].count;
     var html = '';
-    sorted.slice(0, 5).forEach(function(item, i) {
-        var medal = i === 0 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#f59e0b;">star_border</span>' : (i === 1 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#94a3b8;">star_border</span>' : (i === 2 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#b45309;">star_border</span>' : '<span style="width:16px;display:inline-block;text-align:center;font-weight:700;font-size:12px;color:var(--text-secondary);">' + (i+1) + '</span>'));
-        var pct = Math.round((item.count / maxCount) * 100);
-        var rev = item.revenue.toFixed(2).replace('.', ',');
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:16px;">' +
-            medal +
-            '<div style="flex:1;min-width:0;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-            '<span style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.name + '</span>' +
-            '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;margin-left:8px;">' + item.count + 'x · ' + rev + ' \u20AC</span>' +
-            '</div>' +
-            '<div style="height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;">' +
-            '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--primary),#22c55e);border-radius:2px;transition:width 0.5s;"></div>' +
-            '</div>' +
-            '</div></div>';
+    a.renner.forEach(function (e, i) {
+        html += zeile(e, i, 'linear-gradient(90deg,var(--ink-strong),#22c55e)',
+                      Math.round(((e[a.sicht] || 0) / hoechst) * 100));
     });
-    list.innerHTML = html;
+
+    if (!a.genugDaten) {
+        // Lieber gar keine Aussage als eine falsche. Aus vier Bestellungen
+        // laesst sich nicht ableiten, welches Gericht von der Karte muss.
+        html += '<div style="margin-top:12px;padding:11px 13px;border-radius:14px;border:1px dashed var(--border-color);'
+              + 'font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;line-height:1.55;">'
+              + '<strong style="color:var(--text-primary);">Für die Penner-Liste ist es noch zu früh.</strong> '
+              + a.bestellungen + ' Bestellung' + (a.bestellungen === 1 ? '' : 'en') + ' in diesem Zeitraum — '
+              + 'ab ' + a.minBestellungen + ' wird sie angezeigt. Nimm einen größeren Zeitraum.'
+              + '</div>';
+    } else if (a.penner.length) {
+        html += '<div style="display:flex;align-items:center;gap:7px;margin:18px 0 8px;">'
+              + '<span class="material-symbols-outlined" style="font-size:18px;color:#b45309;">trending_down</span>'
+              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Läuft nicht</span>'
+              + (a.ohneVerkauf ? '<span style="font-size:11px;color:var(--text-secondary);">'
+                    + a.ohneVerkauf + ' Gericht' + (a.ohneVerkauf === 1 ? '' : 'e') + ' ohne einen einzigen Verkauf</span>' : '')
+              + '</div>';
+        a.penner.forEach(function (e, i) {
+            html += zeile(e, i, '#f59e0b', e.anzahl === 0 ? 2 : Math.max(2, Math.round(((e[a.sicht] || 0) / hoechst) * 100)));
+        });
+    }
+
+    if (a.neu.length) {
+        html += '<div style="margin-top:10px;font-size:11px;color:var(--text-secondary);font-family:Inter,sans-serif;">'
+              + a.neu.length + ' Gericht' + (a.neu.length === 1 ? ' ist' : 'e sind') + ' noch neu auf der Karte und '
+              + (a.neu.length === 1 ? 'wurde' : 'wurden') + ' nicht mitgewertet.'
+              + '</div>';
+    }
+    return html;
 }
 
 // Bestellungen aus Supabase laden
