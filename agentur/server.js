@@ -385,6 +385,24 @@ async function pruefeDigest() {
       '- Kunden in Gefahr (rote Ampel): ' + (rot.length ? rot.map((k) => k.name).join(', ') + ' -> heute anrufen!' : 'keine')
     ];
 
+    // Stille-Alarm: bei wem sind die Zahlen dieser Woche eingebrochen?
+    // Das gehoert ganz nach oben - da haengt eine Kuendigung dran.
+    const einbrueche = [];
+    for (const k of kunden) {
+      try {
+        const w = await fruehwarnungFuer(k);
+        if (w.stufe === 'alarm' || w.stufe === 'warnung') einbrueche.push({ name: k.name, warnung: w });
+      } catch (_e) { /* ein Kunde ohne Zahlen darf den Digest nicht kippen */ }
+    }
+    if (einbrueche.length) {
+      zeilen.push('', 'STILLE-ALARM (Zahlen diese Woche eingebrochen):');
+      for (const e of einbrueche) {
+        zeilen.push('', (e.warnung.stufe === 'alarm' ? '!! ' : '! ') + e.name + ':');
+        e.warnung.meldungen.forEach((m) => zeilen.push('  - ' + m.text));
+        zeilen.push('  -> ' + e.warnung.empfehlung);
+      }
+    }
+
     // Offene Aufgaben pro Kunde: die konkreten Handgriffe dieser Woche.
     const offeneJeKunde = [];
     for (const k of kunden) {
@@ -476,6 +494,36 @@ async function baueUebersicht() {
   };
   uebersichtCache = { zeit: Date.now(), daten };
   return daten;
+}
+
+// ------------------------------------------------- Stille-Alarm ----
+// Frueherkennung: laufen bei einem Kunden diese Woche deutlich weniger
+// Reservierungen/Bestellungen ein als in den Vorwochen? Dann meldet sich
+// die Agentur, BEVOR der Wirt selbst merkt, dass es kippt.
+// Liest LIVE aus der Kiek-mol-in-Datenbank und speichert nichts.
+async function fruehwarnungFuer(kunde, heute) {
+  const fw = require('./lib/fruehwarnung');
+  const jetzt = heute || new Date();
+  // 5 Wochen Blickfeld (aktuelle Woche + 4 Vergleichswochen), 1 Tag Puffer
+  const ab = new Date(jetzt.getTime() - 36 * 864e5).toISOString().slice(0, 10);
+  let reservierungen = [];
+  let bestellungen = [];
+  if (DEMO) {
+    const t = (tage) => new Date(jetzt.getTime() - tage * 864e5).toISOString().slice(0, 10);
+    // Demo: Vorwochen ~7 Reservierungen, diese Woche nur 2 -> Alarm
+    const demoTage = [2, 5, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33];
+    reservierungen = demoTage.map((tag) => ({ reservation_date: t(tag) }));
+    bestellungen = [3, 6, 12, 14, 18, 21, 26, 30].map((tag) => ({ created_at: t(tag) }));
+  } else {
+    [reservierungen, bestellungen] = await Promise.all([
+      supabase.gaesteReservierungen(kunde.id, ab).catch(() => []),
+      supabase.gaesteBestellungen(kunde.id, ab).catch(() => [])
+    ]);
+  }
+  return fw.pruefeKunde({
+    reservierungsDaten: reservierungen.map((r) => r.reservation_date),
+    bestellDaten: bestellungen.map((b) => b.created_at)
+  }, { heute: jetzt });
 }
 
 // ------------------------------------------------------- Rueckrufe ----
@@ -1131,6 +1179,18 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (e) {
         json(res, 502, { fehler: 'Gäste-Daten nicht abrufbar: ' + e.message });
+      }
+      return;
+    }
+
+    // API: Stille-Alarm - kippen die Zahlen dieser Woche?
+    if (req.method === 'GET' && pfad.startsWith('/api/fruehwarnung/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      try {
+        json(res, 200, await fruehwarnungFuer(kunde));
+      } catch (e) {
+        json(res, 502, { fehler: 'Zahlen nicht abrufbar: ' + e.message });
       }
       return;
     }

@@ -206,6 +206,8 @@
       </div>
       <div class="status" id="dStatus"></div>
 
+      <div id="dWarnung"></div>
+
       <h2>Gäste zurückholen · verlorener Umsatz</h2>
       <div class="status" style="margin-top:-6px">Wer war früher da und lange nicht mehr? Zurückholen kostet fast nichts – ein neuer Gast kostet Werbung.</div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -529,6 +531,7 @@ async function zeigeKunde(id) {
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
+  ladeFruehwarnung(aktuellerKunde.id);
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
@@ -566,6 +569,39 @@ async function ladeTelefonZahlen(id) {
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
   }
+}
+
+// ---------------- Stille-Alarm (Frühwarnung) ----------------
+// Zeigt nur etwas an, wenn es wirklich etwas zu sagen gibt. Bei dünner
+// Datenlage: lieber schweigen als Panik aus Zufallszahlen machen.
+async function ladeFruehwarnung(id) {
+  const ziel = document.getElementById('dWarnung');
+  ziel.innerHTML = '';
+  let w;
+  try {
+    w = await api('/api/fruehwarnung/' + encodeURIComponent(id));
+  } catch (_e) { return; } // stiller Alarm heißt auch: still bleiben, wenn nichts geht
+  if (w.stufe !== 'alarm' && w.stufe !== 'warnung' && !(w.gute || []).length) return;
+
+  if (w.stufe === 'alarm' || w.stufe === 'warnung') {
+    const alarm = w.stufe === 'alarm';
+    const farbe = alarm ? '#dc2626' : '#f59e0b';
+    ziel.innerHTML =
+      '<div style="border:2px solid ' + farbe + ';border-radius:12px;padding:14px 16px;margin:14px 0;background:rgba(220,38,38,' + (alarm ? '.08' : '.04') + ')">' +
+      '<div style="font-weight:700;color:' + farbe + ';margin-bottom:6px">' +
+      (alarm ? '🚨 Stille-Alarm: Die Zahlen sind eingebrochen' : '⚠️ Achtung: Die Zahlen gehen zurück') + '</div>' +
+      '<ul style="margin:0 0 10px 18px;font-size:13.5px">' +
+      w.meldungen.map(m => '<li>' + String(m.text).replace(/</g, '&lt;') + '</li>').join('') + '</ul>' +
+      '<div style="font-size:13.5px;line-height:1.55"><b>Was jetzt zu tun ist:</b> ' +
+      String(w.empfehlung).replace(/</g, '&lt;') + '</div></div>';
+    return;
+  }
+  // Gute Nachricht: die darf der Wirt genauso hören - das verkauft dich weiter.
+  ziel.innerHTML =
+    '<div style="border:1px solid #16a34a;border-radius:12px;padding:12px 16px;margin:14px 0">' +
+    '<div style="font-weight:700;color:#16a34a;margin-bottom:4px">📈 Gute Nachricht diese Woche</div>' +
+    '<div style="font-size:13.5px">' + w.gute.map(g => String(g).replace(/</g, '&lt;')).join(' · ') +
+    '<br><span style="color:var(--grau)">Direkt dem Wirt schicken – so sieht er, dass es wirkt.</span></div></div>';
 }
 
 // ---------------- Rückgewinnung (Gäste zurückholen) ----------------

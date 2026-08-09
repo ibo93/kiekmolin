@@ -333,4 +333,59 @@ test('Bewertungs-Journal: Erfolgs-Bilanz zaehlt Status korrekt', () => {
   assert.ok(JOURNAL_STATUS.includes('geloescht') && JOURNAL_STATUS.includes('gemeldet'));
 });
 
+test('Fruehwarnung: Wochen-Faecher zaehlen rueckwaerts ab heute', () => {
+  const { zaehleWochen } = require('./lib/fruehwarnung');
+  const heute = new Date('2026-08-09');
+  const t = (tage) => new Date(heute.getTime() - tage * 864e5).toISOString().slice(0, 10);
+  const faecher = zaehleWochen([t(0), t(3), t(6), t(7), t(10), t(20), t(99)], heute, 5);
+  assert.strictEqual(faecher[0], 3, 'letzte 7 Tage');
+  assert.strictEqual(faecher[1], 2, 'Woche davor');
+  assert.strictEqual(faecher[2], 1);
+  assert.strictEqual(faecher.length, 5);
+  // Vorausreservierungen (Zukunft) zaehlen in dieser Rueckschau nicht mit
+  const zukunft = new Date(heute.getTime() + 5 * 864e5).toISOString().slice(0, 10);
+  assert.strictEqual(zaehleWochen([zukunft], heute, 5).reduce((s, n) => s + n, 0), 0);
+  // Muell darf nicht knallen
+  assert.strictEqual(zaehleWochen([null, 'quatsch', ''], heute, 5)[0], 0);
+});
+
+test('Fruehwarnung: warnt erst ab echtem Einbruch - und schweigt bei duenner Datenlage', () => {
+  const { bewerteReihe } = require('./lib/fruehwarnung');
+  // Vorwochen ~10, diese Woche 3 -> 70 % Minus -> Alarm
+  assert.strictEqual(bewerteReihe([3, 10, 10, 10, 10]).stufe, 'alarm');
+  // 30 % Minus -> Warnung, aber kein Alarm
+  assert.strictEqual(bewerteReihe([7, 10, 10, 10, 10]).stufe, 'warnung');
+  // Normale Schwankung -> ok
+  assert.strictEqual(bewerteReihe([9, 10, 10, 10, 10]).stufe, 'ok');
+  // Deutlich mehr -> gute Nachricht
+  assert.strictEqual(bewerteReihe([14, 10, 10, 10, 10]).stufe, 'gut');
+  // EHRLICH: bei 2 Reservierungen pro Woche ist ein "Einbruch" Zufall
+  assert.strictEqual(bewerteReihe([0, 2, 2, 2, 2]).stufe, 'unklar');
+  assert.strictEqual(bewerteReihe([0]).stufe, 'unklar', 'ohne Vergleichswochen keine Aussage');
+});
+
+test('Fruehwarnung: pruefeKunde liefert Meldungen und konkrete Empfehlung', () => {
+  const { pruefeKunde } = require('./lib/fruehwarnung');
+  const heute = new Date('2026-08-09');
+  const t = (tage) => new Date(heute.getTime() - tage * 864e5).toISOString().slice(0, 10);
+  const viele = (von, bis) => { const a = []; for (let i = von; i <= bis; i++) a.push(t(i)); return a; };
+
+  // Vorwochen je 7 Tage voll, diese Woche nur 1 -> Alarm
+  const ergebnis = pruefeKunde({ reservierungsDaten: [t(1)].concat(viele(7, 34)), bestellDaten: [] }, { heute });
+  assert.strictEqual(ergebnis.stufe, 'alarm');
+  assert.ok(ergebnis.meldungen.some((m) => m.art === 'Reservierungen'), 'sagt WAS eingebrochen ist');
+  assert.ok(/anrufen/i.test(ergebnis.empfehlung), 'sagt WAS zu tun ist');
+
+  // Ohne Daten: keine Panik, sondern ehrliche Aussage
+  const leer = pruefeKunde({ reservierungsDaten: [], bestellDaten: [] }, { heute });
+  assert.strictEqual(leer.stufe, 'unklar');
+  assert.strictEqual(leer.meldungen.length, 0, 'kein Alarm ohne Basis');
+  assert.ok(/Vergleichsbasis/i.test(leer.empfehlung));
+
+  // Gleichmaessig gut -> nichts melden
+  const stabil = pruefeKunde({ reservierungsDaten: viele(0, 34), bestellDaten: [] }, { heute });
+  assert.strictEqual(stabil.stufe, 'ok');
+  assert.strictEqual(stabil.meldungen.length, 0);
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
