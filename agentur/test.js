@@ -333,4 +333,161 @@ test('Bewertungs-Journal: Erfolgs-Bilanz zaehlt Status korrekt', () => {
   assert.ok(JOURNAL_STATUS.includes('geloescht') && JOURNAL_STATUS.includes('gemeldet'));
 });
 
+test('Fruehwarnung: Wochen-Faecher zaehlen rueckwaerts ab heute', () => {
+  const { zaehleWochen } = require('./lib/fruehwarnung');
+  const heute = new Date('2026-08-09');
+  const t = (tage) => new Date(heute.getTime() - tage * 864e5).toISOString().slice(0, 10);
+  const faecher = zaehleWochen([t(0), t(3), t(6), t(7), t(10), t(20), t(99)], heute, 5);
+  assert.strictEqual(faecher[0], 3, 'letzte 7 Tage');
+  assert.strictEqual(faecher[1], 2, 'Woche davor');
+  assert.strictEqual(faecher[2], 1);
+  assert.strictEqual(faecher.length, 5);
+  // Vorausreservierungen (Zukunft) zaehlen in dieser Rueckschau nicht mit
+  const zukunft = new Date(heute.getTime() + 5 * 864e5).toISOString().slice(0, 10);
+  assert.strictEqual(zaehleWochen([zukunft], heute, 5).reduce((s, n) => s + n, 0), 0);
+  // Muell darf nicht knallen
+  assert.strictEqual(zaehleWochen([null, 'quatsch', ''], heute, 5)[0], 0);
+});
+
+test('Fruehwarnung: warnt erst ab echtem Einbruch - und schweigt bei duenner Datenlage', () => {
+  const { bewerteReihe } = require('./lib/fruehwarnung');
+  // Vorwochen ~10, diese Woche 3 -> 70 % Minus -> Alarm
+  assert.strictEqual(bewerteReihe([3, 10, 10, 10, 10]).stufe, 'alarm');
+  // 30 % Minus -> Warnung, aber kein Alarm
+  assert.strictEqual(bewerteReihe([7, 10, 10, 10, 10]).stufe, 'warnung');
+  // Normale Schwankung -> ok
+  assert.strictEqual(bewerteReihe([9, 10, 10, 10, 10]).stufe, 'ok');
+  // Deutlich mehr -> gute Nachricht
+  assert.strictEqual(bewerteReihe([14, 10, 10, 10, 10]).stufe, 'gut');
+  // EHRLICH: bei 2 Reservierungen pro Woche ist ein "Einbruch" Zufall
+  assert.strictEqual(bewerteReihe([0, 2, 2, 2, 2]).stufe, 'unklar');
+  assert.strictEqual(bewerteReihe([0]).stufe, 'unklar', 'ohne Vergleichswochen keine Aussage');
+});
+
+test('Fruehwarnung: pruefeKunde liefert Meldungen und konkrete Empfehlung', () => {
+  const { pruefeKunde } = require('./lib/fruehwarnung');
+  const heute = new Date('2026-08-09');
+  const t = (tage) => new Date(heute.getTime() - tage * 864e5).toISOString().slice(0, 10);
+  const viele = (von, bis) => { const a = []; for (let i = von; i <= bis; i++) a.push(t(i)); return a; };
+
+  // Vorwochen je 7 Tage voll, diese Woche nur 1 -> Alarm
+  const ergebnis = pruefeKunde({ reservierungsDaten: [t(1)].concat(viele(7, 34)), bestellDaten: [] }, { heute });
+  assert.strictEqual(ergebnis.stufe, 'alarm');
+  assert.ok(ergebnis.meldungen.some((m) => m.art === 'Reservierungen'), 'sagt WAS eingebrochen ist');
+  assert.ok(/anrufen/i.test(ergebnis.empfehlung), 'sagt WAS zu tun ist');
+
+  // Ohne Daten: keine Panik, sondern ehrliche Aussage
+  const leer = pruefeKunde({ reservierungsDaten: [], bestellDaten: [] }, { heute });
+  assert.strictEqual(leer.stufe, 'unklar');
+  assert.strictEqual(leer.meldungen.length, 0, 'kein Alarm ohne Basis');
+  assert.ok(/Vergleichsbasis/i.test(leer.empfehlung));
+
+  // Gleichmaessig gut -> nichts melden
+  const stabil = pruefeKunde({ reservierungsDaten: viele(0, 34), bestellDaten: [] }, { heute });
+  assert.strictEqual(stabil.stufe, 'ok');
+  assert.strictEqual(stabil.meldungen.length, 0);
+});
+
+test('Gaeste-Ursprung: rechnet ehrlich - ohne Quelle zaehlt NICHT als unser Verdienst', () => {
+  const { nachKanaelen, bilanz, kanalFuer } = require('./lib/herkunft');
+  assert.strictEqual(kanalFuer('telefon').schluessel, 'telefon');
+  assert.strictEqual(kanalFuer('WEB').schluessel, 'online', 'Gross-/Kleinschreibung egal');
+  assert.strictEqual(kanalFuer('walk_in').unser, false);
+  assert.strictEqual(kanalFuer(null).schluessel, 'unbekannt');
+  assert.strictEqual(kanalFuer('irgendwas-neues').unser, false, 'Unbekanntes nie uns anrechnen');
+
+  const kanaele = nachKanaelen({
+    reservierungen: [
+      { source: 'telefon', party_size: 4 },
+      { source: 'web', party_size: 2 },
+      { source: 'walk_in', party_size: 6 },
+      { party_size: 2 }
+    ],
+    bestellungen: [{ source: 'telefon', total: 30 }, { source: 'web', total: 20 }]
+  }, { bonProGast: 25 });
+
+  const telefon = kanaele.find((k) => k.schluessel === 'telefon');
+  assert.strictEqual(telefon.reservierungen, 1);
+  assert.strictEqual(telefon.gaeste, 4);
+  assert.strictEqual(telefon.umsatz, 130, '4 Gaeste x 25 + 30 EUR Bestellwert');
+  assert.strictEqual(kanaele[0].unser, true, 'unsere Kanaele stehen oben');
+
+  const b = bilanz(kanaele);
+  assert.strictEqual(b.vorgaengeGesamt, 6);
+  assert.strictEqual(b.vorgaengeUnser, 4, 'walk_in und ohne Quelle zaehlen nicht');
+  assert.strictEqual(b.anteilProzent, 67);
+});
+
+test('Gaeste-Ursprung: Satz fuer den Wirt bleibt bei duenner Lage ehrlich', () => {
+  const { nachKanaelen, bilanz, satzFuerWirt } = require('./lib/herkunft');
+  assert.ok(/noch keine Vorgänge/i.test(satzFuerWirt(bilanz([]), 'August 2026', 199)));
+
+  const nurDirekt = bilanz(nachKanaelen({
+    reservierungen: [{ source: 'walk_in', party_size: 2 }], bestellungen: []
+  }, {}));
+  assert.ok(/noch nichts nachweislich/i.test(satzFuerWirt(nurDirekt, 'August 2026', 199)), 'kein Schoenreden');
+
+  const stark = bilanz(nachKanaelen({
+    reservierungen: Array(20).fill({ source: 'telefon', party_size: 4 }), bestellungen: []
+  }, { bonProGast: 25 }));
+  const satz = satzFuerWirt(stark, 'August 2026', 199);
+  assert.ok(satz.includes('100 %'), 'Anteil genannt');
+  assert.ok(/Fache zurück/.test(satz), 'Verhaeltnis zum Honorar genannt');
+  // Ohne Honorar-Angabe wird nichts ueber Rentabilitaet behauptet
+  assert.ok(!/Fache/.test(satzFuerWirt(stark, 'August 2026', 0)));
+});
+
+test('Speisekarten-Doktor: findet versteckten Renner, Unterpreis und Ladenhueter', () => {
+  const { analysiere } = require('./lib/speisekarte-doktor');
+  const pizza = { menu_categories: { name: 'Pizza' } };
+  const karte = [
+    Object.assign({ name: 'Pizza Tonno', description: 'Thunfisch', base_price: 13 }, pizza),
+    Object.assign({ name: 'Pizza Vegetaria', description: 'Gemüse', base_price: 13 }, pizza),
+    Object.assign({ name: 'Pizza Quattro', description: 'Käse', base_price: 14 }, pizza),
+    Object.assign({ name: 'Pizza Margherita', description: 'Tomate, Mozzarella', base_price: 8 }, pizza)
+  ];
+  // Margherita laeuft am besten - steht aber ganz unten und ist am billigsten
+  const bestellungen = [];
+  for (let i = 0; i < 30; i++) bestellungen.push({ items: [{ name: 'Pizza Margherita', quantity: 2 }] });
+
+  const d = analysiere(karte, bestellungen);
+  assert.strictEqual(d.gerichteGesamt, 4);
+  assert.strictEqual(d.bestellungenAusgewertet, 30);
+  assert.ok(d.genugDaten);
+
+  const versteckt = d.befunde.find((b) => b.typ === 'versteckter-bestseller');
+  assert.ok(versteckt && /Margherita/.test(versteckt.gericht), 'Renner steht zu weit unten');
+
+  const preis = d.befunde.find((b) => b.typ === 'unterpreis');
+  assert.ok(preis, 'zu billiger Bestseller erkannt');
+  assert.ok(preis.potenzial > 0 && d.potenzial > 0, 'Potenzial in Euro beziffert');
+
+  const tot = d.befunde.find((b) => b.typ === 'ladenhueter');
+  assert.ok(tot && tot.gerichte.includes('Pizza Tonno'), 'nie bestellte Gerichte gelistet');
+  // Wichtigstes zuerst
+  assert.strictEqual(d.befunde[0].prio, 'hoch');
+});
+
+test('Speisekarten-Doktor: schweigt bei duenner Datenlage, nennt aber Struktur-Fehler', () => {
+  const { analysiere } = require('./lib/speisekarte-doktor');
+  const karte = [
+    { name: 'Pizza Salami', base_price: 10, description: '' },
+    { name: 'Pizza Funghi', base_price: 10, description: 'Champignons' }
+  ];
+  const d = analysiere(karte, [{ items: [{ name: 'Pizza Salami', quantity: 1 }] }]);
+  assert.strictEqual(d.genugDaten, false);
+  assert.ok(d.befunde.some((b) => b.typ === 'zu-wenig-daten'), 'sagt offen, dass Zahlen fehlen');
+  assert.ok(!d.befunde.some((b) => b.typ === 'ladenhueter'), 'kein Ladenhueter-Vorwurf ohne Basis');
+  assert.ok(d.befunde.some((b) => b.typ === 'ohne-beschreibung'), 'fehlende Beschreibung sieht man auch ohne Zahlen');
+
+  // Leere Karte darf nicht knallen
+  const leer = analysiere([], []);
+  assert.strictEqual(leer.gerichteGesamt, 0);
+  assert.strictEqual(leer.potenzial, 0);
+
+  // Zu lange Karte wird gemeldet
+  const lang = analysiere(Array.from({ length: 45 }, (_v, i) => ({ name: 'Gericht ' + i, base_price: 10, description: 'x' })), []);
+  assert.ok(lang.befunde.some((b) => b.typ === 'zu-lang'));
+});
+
 console.log('\n' + tests + ' Tests bestanden.');

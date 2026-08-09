@@ -206,6 +206,12 @@
       </div>
       <div class="status" id="dStatus"></div>
 
+      <div id="dWarnung"></div>
+
+      <h2>Woher die Gäste kommen · dein Honorar-Beleg</h2>
+      <div class="status" style="margin-top:-6px">Aus der Datenbank des Wirts gerechnet: Wie viele Reservierungen und Bestellungen laufen über unsere Kanäle? Was ohne Quelle drinsteht, rechnen wir bewusst <b>nicht</b> uns an.</div>
+      <div id="dHerkunft"><div class="leer">Lade Herkunft…</div></div>
+
       <h2>Gäste zurückholen · verlorener Umsatz</h2>
       <div class="status" style="margin-top:-6px">Wer war früher da und lange nicht mehr? Zurückholen kostet fast nichts – ein neuer Gast kostet Werbung.</div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -218,6 +224,19 @@
           </select> nicht mehr da</label>
       </div>
       <div id="dRueck"></div>
+
+      <h2>Speisekarten-Doktor · wo Geld liegen bleibt</h2>
+      <div class="status" style="margin-top:-6px">Legt die Speisekarte neben die echten Bestellungen: Welcher Renner steht zu weit unten? Was wird nie bestellt? Welcher Bestseller ist zu billig? Das sieht kein Wirt von allein.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <button class="aktion" id="btnDoktor" onclick="doktorLaden()">Speisekarte untersuchen</button>
+        <label style="font-size:12.5px;color:var(--grau)">Zeitraum
+          <select id="doktorTage" onchange="doktorLaden()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte)">
+            <option value="30">30 Tage</option>
+            <option value="90" selected>90 Tage</option>
+            <option value="180">180 Tage</option>
+          </select></label>
+      </div>
+      <div id="dDoktor"></div>
 
       <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
       <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
@@ -529,6 +548,8 @@ async function zeigeKunde(id) {
   zeichneHistorie();
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
+  ladeFruehwarnung(aktuellerKunde.id);
+  ladeHerkunft(aktuellerKunde.id);
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
@@ -566,6 +587,127 @@ async function ladeTelefonZahlen(id) {
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
   }
+}
+
+// ---------------- Stille-Alarm (Frühwarnung) ----------------
+// Zeigt nur etwas an, wenn es wirklich etwas zu sagen gibt. Bei dünner
+// Datenlage: lieber schweigen als Panik aus Zufallszahlen machen.
+async function ladeFruehwarnung(id) {
+  const ziel = document.getElementById('dWarnung');
+  ziel.innerHTML = '';
+  let w;
+  try {
+    w = await api('/api/fruehwarnung/' + encodeURIComponent(id));
+  } catch (_e) { return; } // stiller Alarm heißt auch: still bleiben, wenn nichts geht
+  if (w.stufe !== 'alarm' && w.stufe !== 'warnung' && !(w.gute || []).length) return;
+
+  if (w.stufe === 'alarm' || w.stufe === 'warnung') {
+    const alarm = w.stufe === 'alarm';
+    const farbe = alarm ? '#dc2626' : '#f59e0b';
+    ziel.innerHTML =
+      '<div style="border:2px solid ' + farbe + ';border-radius:12px;padding:14px 16px;margin:14px 0;background:rgba(220,38,38,' + (alarm ? '.08' : '.04') + ')">' +
+      '<div style="font-weight:700;color:' + farbe + ';margin-bottom:6px">' +
+      (alarm ? '🚨 Stille-Alarm: Die Zahlen sind eingebrochen' : '⚠️ Achtung: Die Zahlen gehen zurück') + '</div>' +
+      '<ul style="margin:0 0 10px 18px;font-size:13.5px">' +
+      w.meldungen.map(m => '<li>' + String(m.text).replace(/</g, '&lt;') + '</li>').join('') + '</ul>' +
+      '<div style="font-size:13.5px;line-height:1.55"><b>Was jetzt zu tun ist:</b> ' +
+      String(w.empfehlung).replace(/</g, '&lt;') + '</div></div>';
+    return;
+  }
+  // Gute Nachricht: die darf der Wirt genauso hören - das verkauft dich weiter.
+  ziel.innerHTML =
+    '<div style="border:1px solid #16a34a;border-radius:12px;padding:12px 16px;margin:14px 0">' +
+    '<div style="font-weight:700;color:#16a34a;margin-bottom:4px">📈 Gute Nachricht diese Woche</div>' +
+    '<div style="font-size:13.5px">' + w.gute.map(g => String(g).replace(/</g, '&lt;')).join(' · ') +
+    '<br><span style="color:var(--grau)">Direkt dem Wirt schicken – so sieht er, dass es wirkt.</span></div></div>';
+}
+
+// ---------------- Gäste-Ursprung (Honorar-Beleg) ----------------
+async function ladeHerkunft(id) {
+  const ziel = document.getElementById('dHerkunft');
+  ziel.innerHTML = '<div class="leer">Lade Herkunft…</div>';
+  let d;
+  try {
+    d = await api('/api/herkunft/' + encodeURIComponent(id));
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+    return;
+  }
+  const b = d.bilanz || {};
+  if (!b.vorgaengeGesamt) {
+    ziel.innerHTML = '<div class="leer">Noch keine Vorgänge in ' + d.monatLabel +
+      ' – sobald Reservierungen und Bestellungen laufen, steht hier der Anteil, der über uns kommt.</div>';
+    return;
+  }
+  const balken = (d.kanaele || []).map(k => {
+    const anteil = b.vorgaengeGesamt ? Math.round(((k.reservierungen + k.bestellungen) / b.vorgaengeGesamt) * 100) : 0;
+    const farbe = k.unser ? 'var(--akzent)' : 'var(--grau)';
+    return '<div style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">' +
+      '<span>' + (k.unser ? '✅ ' : '') + k.label + '</span>' +
+      '<span style="color:var(--grau)">' + (k.reservierungen + k.bestellungen) + ' Vorgänge · ' + euroWert(k.umsatz) + '</span></div>' +
+      '<div style="height:9px;border-radius:5px;background:var(--linie,#2a3841);overflow:hidden">' +
+      '<div style="height:100%;width:' + anteil + '%;background:' + farbe + '"></div></div>' +
+      '<div style="font-size:11.5px;color:var(--grau);margin-top:3px">' + anteil + ' % · ' + k.erklaerung + '</div></div>';
+  }).join('');
+
+  ziel.innerHTML =
+    '<div class="zahlen" style="margin-bottom:12px">' +
+    '<div class="zahl"><div class="wert akzent">' + b.anteilProzent + ' %</div>' +
+    '<div class="label">läuft über uns</div>' +
+    '<div class="sub">' + b.vorgaengeUnser + ' von ' + b.vorgaengeGesamt + ' Vorgängen in ' + d.monatLabel + '</div></div>' +
+    '<div class="zahl"><div class="wert">' + euroWert(b.umsatzUnser) + '</div>' +
+    '<div class="label">Umsatz über unsere Kanäle</div>' +
+    '<div class="sub">Bestellwert echt + ' + b.gaesteUnser + ' Gäste geschätzt</div></div></div>' +
+    balken +
+    '<div class="zahl" style="margin-top:10px"><div class="label" style="margin-bottom:6px">Satz fürs Kundengespräch</div>' +
+    '<div style="font-size:13.5px;margin-bottom:8px">' + String(d.satz).replace(/</g, '&lt;') + '</div>' +
+    kopierKnopf(d.satz, '📋 Satz kopieren') + '</div>';
+}
+
+// ---------------- Speisekarten-Doktor ----------------
+const DOKTOR_SYMBOL = {
+  'versteckter-bestseller': '⬆️', 'unterpreis': '💶', 'ladenhueter': '🗑️',
+  'ohne-beschreibung': '✍️', 'zu-lang': '📋', 'zu-wenig-daten': 'ℹ️'
+};
+
+async function doktorLaden() {
+  const ziel = document.getElementById('dDoktor');
+  const btn = document.getElementById('btnDoktor');
+  const tage = document.getElementById('doktorTage').value;
+  btn.disabled = true;
+  ziel.innerHTML = '<div class="leer">Untersuche Karte und Bestellungen…</div>';
+  try {
+    const d = await api('/api/speisekarte-doktor/' + encodeURIComponent(aktuellerKunde.id) + '?tage=' + tage);
+    if (!d.gerichteGesamt) {
+      ziel.innerHTML = '<div class="leer">Für diesen Betrieb ist noch keine Speisekarte in Kiek mol in hinterlegt – ohne Karte kann der Doktor nichts untersuchen.</div>';
+      btn.disabled = false; return;
+    }
+    const befunde = (d.befunde || []).map(b => {
+      const rand = b.prio === 'hoch' ? 'var(--akzent)' : 'var(--linie,#2a3841)';
+      const liste = (b.gerichte || []).length
+        ? '<div style="font-size:12.5px;color:var(--grau);margin-top:6px">' +
+          b.gerichte.map(g => String(g).replace(/</g, '&lt;')).join(' · ') + '</div>'
+        : '';
+      return '<div style="border:1px solid ' + rand + ';border-radius:10px;padding:12px 14px;margin-bottom:10px">' +
+        '<div style="font-size:13.5px;font-weight:600;margin-bottom:4px">' +
+        (DOKTOR_SYMBOL[b.typ] || '•') + ' ' + String(b.text).replace(/</g, '&lt;') + '</div>' +
+        '<div style="font-size:13px;line-height:1.55">' + String(b.empfehlung).replace(/</g, '&lt;') + '</div>' +
+        liste +
+        '<div style="font-size:11.5px;color:var(--grau);margin-top:6px">Aufwand: ' + b.aufwand +
+        (b.potenzial ? ' · Potenzial: ' + euroWert(b.potenzial) : '') + '</div></div>';
+    }).join('');
+
+    ziel.innerHTML =
+      '<div class="zahl" style="margin-bottom:12px"><div style="font-size:13.5px">' +
+      String(d.zusammenfassung).replace(/</g, '&lt;') + '</div>' +
+      '<div class="sub" style="margin-top:6px">' + d.gerichteGesamt + ' Gerichte · ' +
+      d.bestellungenAusgewertet + ' Bestellungen aus ' + d.zeitraumTage + ' Tagen ausgewertet</div></div>' +
+      befunde;
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Rückgewinnung (Gäste zurückholen) ----------------

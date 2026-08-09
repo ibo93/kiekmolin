@@ -129,8 +129,50 @@ async function gaesteBestellungen(restaurantId, abDatum) {
   );
 }
 
+// --- Gaeste-Ursprung: alle Vorgaenge eines Zeitraums MIT Quelle --------
+// Zeigt, welcher Anteil ueber die Agentur-Bausteine reinkommt.
+// Selbstheilend: Fehlt die Spalte 'source', antwortet PostgREST mit 400 -
+// dann fragen wir ohne sie und alles landet ehrlich unter "ohne Quelle".
+async function mitFallback(basis, mitQuelle, ohneQuelle) {
+  try {
+    return await supabaseGet(basis + mitQuelle);
+  } catch (e) {
+    if (!/ 400 /.test(e.message)) throw e;
+    return supabaseGet(basis + ohneQuelle);
+  }
+}
+
+async function herkunftReservierungen(restaurantId, vonDatum, bisDatum) {
+  const basis = 'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&reservation_date=gte.' + encodeURIComponent(vonDatum) +
+    '&reservation_date=lt.' + encodeURIComponent(bisDatum) +
+    '&status=in.(confirmed,completed,pending)';
+  return mitFallback(basis, '&select=source,party_size', '&select=party_size');
+}
+
+async function herkunftBestellungen(restaurantId, vonDatum, bisDatum) {
+  const basis = 'orders?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&created_at=gte.' + encodeURIComponent(vonDatum) +
+    '&created_at=lt.' + encodeURIComponent(bisDatum) +
+    '&status=not.eq.cancelled';
+  return mitFallback(basis, '&select=source,total', '&select=total');
+}
+
+// --- Speisekarten-Doktor: bestellte Artikel eines Zeitraums -----------
+// Nur die Positionen, nicht die Gaeste-Daten - mehr braucht die Analyse
+// nicht. Weiterhin ausschliesslich lesend.
+async function bestellArtikel(restaurantId, abDatum) {
+  return supabaseGet(
+    'orders?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&created_at=gte.' + encodeURIComponent(abDatum) +
+    '&status=not.eq.cancelled' +
+    '&select=items,created_at'
+  );
+}
+
 module.exports = {
-  alleRestaurants, findeRestaurant, speisekarte,
+  alleRestaurants, findeRestaurant, speisekarte, bestellArtikel,
   telefonReservierungen, telefonBestellungen,
-  gaesteReservierungen, gaesteBestellungen
+  gaesteReservierungen, gaesteBestellungen,
+  herkunftReservierungen, herkunftBestellungen
 };
