@@ -21363,6 +21363,27 @@ function setLanguage(lang) {
     const activeBtn = document.getElementById('lang' + lang.toUpperCase());
     if (activeBtn) activeBtn.classList.add('active');
 
+    // Sprachknoepfe in der Speisekarte (eigene Leiste, eigene Kennzeichnung)
+    document.querySelectorAll('[data-sprache]').forEach(function (b) {
+        var an = b.getAttribute('data-sprache') === lang;
+        b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
+        b.style.color = an ? '#fff' : 'var(--text-primary)';
+        b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
+        b.setAttribute('aria-pressed', an ? 'true' : 'false');
+    });
+
+    // OFFENE SPEISEKARTE NEU ZEICHNEN.
+    // Ohne das schaltet der Gast um und auf dem Bildschirm passiert nichts --
+    // die Gerichte sind ja schon gerendert. Genau der Grund, warum das Umstellen
+    // bisher nur ausserhalb der Karte etwas gebracht hat.
+    try {
+        var _mm = document.getElementById('menuModal');
+        if (_mm && _mm.style.display !== 'none' && typeof renderMenuItemsForGuest === 'function') {
+            var _liste = window._menuUngefiltert || window._menuAllItems || window._menuDisplayItems;
+            if (_liste && _liste.length) renderMenuItemsForGuest(_liste);
+        }
+    } catch (e) {}
+
     // Texte aktualisieren
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
@@ -42752,12 +42773,24 @@ document.addEventListener('error', function(e) {
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="material-symbols-outlined" style="color:var(--ink-deep);cursor:pointer;" onclick="var s=document.getElementById('menuSearchBar');s.style.display=s.style.display==='none'?'':'none';">search</span>
+                <!-- Sprache MITTEN IN DER KARTE. Vorher standen DE/EN/NL nur in
+                     der App-Kopfzeile und auf der Startseite: der Gast sass in
+                     der Speisekarte und musste erst ganz zurueck, um auf
+                     Niederlaendisch umzustellen -- und danach wieder rein. -->
+                <span class="material-symbols-outlined" id="menuSpracheKnopf" style="color:var(--ink-deep);cursor:pointer;" onclick="toggleMenuSprache()" title="Sprache / Language / Taal">language</span>
                 <div style="position:relative;cursor:pointer;" onclick="openCartPanel()">
                     <span class="material-symbols-outlined" style="color:var(--ink-deep);">shopping_bag</span>
                     <span id="menuCartBadge" style="position:absolute;top:-4px;right:-4px;background:#fed65b;color:#745c00;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;">0</span>
                 </div>
             </div>
         </header>
+
+        <!-- Sprache (versteckt by default, wie die Suche) -->
+        <div id="menuSpracheBar" style="padding:8px 20px 0;display:none;gap:6px;">
+            <button type="button" data-sprache="de" onclick="setLanguage('de')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Deutsch</button>
+            <button type="button" data-sprache="en" onclick="setLanguage('en')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">English</button>
+            <button type="button" data-sprache="nl" onclick="setLanguage('nl')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Nederlands</button>
+        </div>
 
         <!-- Suche (versteckt by default) -->
         <div id="menuSearchBar" style="padding:8px 20px 4px;position:relative;display:none;">
@@ -45414,6 +45447,25 @@ function renderMenuItemsForGuest(items) {
         return;
     }
 
+    // Die ungefilterte Liste merken. Der Essensfilter zeichnet damit neu, und
+    // die Knopfleiste zaehlt daran ab, was es ueberhaupt gibt -- sonst wuerde
+    // "Vegetarisch 3" nach dem ersten Tippen zu "Vegetarisch 3" von 3.
+    window._menuUngefiltert = items;
+    var _geteilt = teileNachFilter(items, activeAllergenFilters);
+    var _abUnklar = _geteilt.passend.length;
+    items = _geteilt.passend.concat(_geteilt.unklar);
+    var _leiste = getAllergenFilterBar(window._menuUngefiltert);
+
+    if (items.length === 0) {
+        container.innerHTML = _leiste
+            + '<div style="text-align:center;padding:48px 20px;font-family:Inter,sans-serif;">'
+            + '<span class="material-symbols-outlined" style="font-size:44px;color:var(--slate);opacity:.4">filter_alt_off</span>'
+            + '<p style="color:var(--text-primary);font-size:15px;margin:6px 0 2px;">Dazu passt hier gerade nichts</p>'
+            + '<p style="color:var(--text-secondary);font-size:13px;">Nimm einen Filter weg — oder frag kurz beim Personal nach.</p>'
+            + '</div>';
+        return;
+    }
+
     // Items global cachen für sicheren Zugriff per Index
     window._menuDisplayItems = items;
 
@@ -45421,9 +45473,21 @@ function renderMenuItemsForGuest(items) {
     var popularMap = window._menuPopularItems || {};
 
     // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
-    var html = '<div class="stitch-menu-grid">';
+    var html = _leiste + '<div class="stitch-menu-grid">';
 
     items.forEach(function(item, idx) {
+        // Trennstelle: ab hier fehlt zu mindestens einem Filter die Angabe.
+        // Diese Gerichte einfach wegzulassen waere bequem und falsch -- der
+        // Gast denkt dann, es gaebe nichts fuer ihn. Sie stehen also da, aber
+        // klar getrennt und mit der Bitte, nachzufragen.
+        if (_abUnklar && idx === _abUnklar) {
+            html += '</div>'
+                  + '<div style="display:flex;align-items:center;gap:8px;margin:22px 0 10px;font-family:Inter,sans-serif;">'
+                  + '<span class="material-symbols-outlined" style="font-size:19px;color:#b45309;">help</span>'
+                  + '<span style="font-size:13px;color:var(--text-primary);font-weight:600;">Keine Angabe zu diesen Gerichten</span>'
+                  + '<span style="font-size:12px;color:var(--text-secondary);">— bitte beim Personal nachfragen</span>'
+                  + '</div><div class="stitch-menu-grid" style="opacity:.72;">';
+        }
         var price = item.base_price || item.price || 0;
         var hasSizes = item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0;
         var displayPrice = price;
@@ -62594,70 +62658,191 @@ function getRestaurantCustomerRating(restaurantId) {
 // Wird im Checkout als Zeitauswahl eingebaut
 // Keine separate Funktion nötig - nur UI im Checkout
 
-// ==================== FEATURE 5: ALLERGEN/DIÄT-FILTER ====================
+// ==================== ESSENSFILTER FÜR DEN GAST ====================
+//
+// WAS HIER VORHER STAND UND WARUM ES NICHTS TAT
+// ---------------------------------------------
+// Es gab schon einen Allergen-Filter: getAllergenFilterBar() baute Knoepfe,
+// filterMenuByAllergens() blendete Karten aus. Nur wurde getAllergenFilterBar()
+// von NIRGENDS aufgerufen -- der Gast hat die Knoepfe nie gesehen. Und haette
+// er sie gesehen, waere die Karte beim ersten Antippen leer gewesen: gefiltert
+// wurde ueber item.dataset.tags, und dieses Attribut setzt keine einzige Karte.
+//
+// Jetzt wird auf den DATEN gefiltert, nicht auf dem Bildschirm. Damit stimmt
+// die Anzahl, "nichts gefunden" laesst sich sauber sagen, und Suche und
+// Kategoriewechsel filtern automatisch mit -- die laufen beide durch
+// renderMenuItemsForGuest.
+//
+// EIN WORT ZUR EHRLICHKEIT
+// ------------------------
+// Das hier ist Gesundheit, keine Bequemlichkeit. Ein Gericht, zu dem KEINE
+// Allergenangabe in der Datenbank steht, wird deshalb nie stillschweigend als
+// "glutenfrei" ausgegeben. Es verschwindet aber auch nicht spurlos, sonst
+// denkt der Gast, es gaebe nichts fuer ihn. Es landet unten in einem eigenen,
+// deutlich gekennzeichneten Block: "ohne Angabe -- bitte beim Personal
+// nachfragen".
 
-var activeAllergenFilters = JSON.parse(localStorage.getItem('kmi_allergen_profile') || '[]');
+var activeAllergenFilters = [];
+try { activeAllergenFilters = JSON.parse(localStorage.getItem('kmi_allergen_profile') || '[]') || []; } catch (e) { activeAllergenFilters = []; }
 
-function toggleAllergenFilter(filter) {
-    var idx = activeAllergenFilters.indexOf(filter);
-    if (idx >= 0) activeAllergenFilters.splice(idx, 1);
-    else activeAllergenFilters.push(filter);
+// Schwein steht oft nur im Text. Der Haken kann fehlen -- ein zugekauftes
+// Gericht, ein von Hand angelegtes, eine Karte ohne Kennzeichnung. Findet der
+// Text Schwein, zaehlt das staerker als ein nicht gesetzter Haken.
+// Bewusst nur in eine Richtung: der Text kann Schwein NACHWEISEN, aber nie
+// ausschliessen.
+var _SCHWEIN_WOERTER = ['schwein', 'schinken', 'speck', 'bacon', 'kassler', 'kasseler',
+    'gyros', 'mett', 'leberkäse', 'leberkaese', 'pancetta', 'prosciutto', 'chorizo',
+    'salami', 'bratwurst', 'cabanossi', 'sucuk', 'lardo'];
 
-    // Persistent speichern
-    localStorage.setItem('kmi_allergen_profile', JSON.stringify(activeAllergenFilters));
-
-    // UI aktualisieren
-    document.querySelectorAll('.allergen-chip').forEach(function(chip) {
-        var f = chip.dataset.filter;
-        chip.style.background = activeAllergenFilters.indexOf(f) >= 0 ? 'var(--primary)' : 'var(--bg-secondary)';
-        chip.style.color = activeAllergenFilters.indexOf(f) >= 0 ? 'white' : 'var(--text-primary)';
-    });
-
-    filterMenuByAllergens();
+function _textVon(item) {
+    return ((item.name || '') + ' ' + (item.description || '')).toLowerCase();
 }
 
-function filterMenuByAllergens() {
-    var items = document.querySelectorAll('.menu-item-card, [data-menu-item]');
-    items.forEach(function(item) {
-        if (activeAllergenFilters.length === 0) {
-            item.style.display = '';
-            return;
-        }
-        var tags = (item.dataset.tags || '').toLowerCase();
-        var name = (item.dataset.name || item.textContent || '').toLowerCase();
-        var show = activeAllergenFilters.every(function(f) {
-            switch(f) {
-                case 'vegetarisch': return tags.includes('vegetarisch') || tags.includes('veggie');
-                case 'vegan': return tags.includes('vegan');
-                case 'glutenfrei': return tags.includes('glutenfrei') || tags.includes('gluten-free');
-                case 'laktosefrei': return tags.includes('laktosefrei') || tags.includes('lactose-free');
-                default: return true;
-            }
-        });
-        item.style.display = show ? '' : 'none';
-    });
-}
-
-function getAllergenFilterBar() {
-    var savedFilters = activeAllergenFilters;
-    var profileBanner = '';
-    if (savedFilters.length > 0) {
-        var labels = { vegetarisch: 'Vegetarisch', vegan: 'Vegan', glutenfrei: 'Glutenfrei', laktosefrei: 'Laktosefrei' };
-        var activeNames = savedFilters.map(function(f) { return labels[f] || f; }).join(', ');
-        profileBanner = '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:16px;margin-bottom:6px;font-size:12px;">' +
-            '<span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;">check_circle</span>' +
-            '<span style="color:var(--text-secondary);">Dein Profil: <strong style="color:var(--text-primary);">' + activeNames + '</strong></span>' +
-            '<button onclick="activeAllergenFilters=[];localStorage.removeItem(\'kmi_allergen_profile\');document.querySelectorAll(\'.allergen-chip\').forEach(function(c){c.style.background=\'var(--bg-secondary)\';c.style.color=\'var(--text-primary)\';});filterMenuByAllergens();this.parentElement.remove();" style="margin-left:auto;background:none;border:none;color:var(--slate);cursor:pointer;font-size:11px;text-decoration:underline;">Zurücksetzen</button>' +
-            '</div>';
+// true = passt, false = passt nicht, null = keine Angabe
+function _hatSchwein(item) {
+    var txt = _textVon(item);
+    for (var i = 0; i < _SCHWEIN_WOERTER.length; i++) {
+        if (txt.indexOf(_SCHWEIN_WOERTER[i]) >= 0) return true;
     }
-    return profileBanner + '<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:8px;-webkit-overflow-scrolling:touch;">' +
-        ['vegetarisch', 'vegan', 'glutenfrei', 'laktosefrei'].map(function(f) {
-            var isActive = savedFilters.indexOf(f) >= 0;
-            var icons = { vegetarisch: '<span class="ki" style="color:var(--success-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22c1-6 5-12 15-14 0 5-2 9-6 12H2z"/><path d="M10 14.5c1.5-2 3.5-3.5 7-4.5"/></svg></span>', vegan: '<span class="ki" style="color:var(--success-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 20h10M12 20v-8M12 12C12 8 8 4 4 4c0 4 4 8 8 8zM12 12c0-4 4-8 8-8 0 4-4 8-8 8z"/></svg></span>', glutenfrei: '<span class="ki" style="color:var(--warning-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V10M8 6l4 4 4-4M6 10l6 4 6-4M8 14l4 4 4-4"/></svg></span>', laktosefrei: '<span class="ki" style="color:var(--info-500)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2h8l1 6H7zM7 8v10a4 4 0 004 4h2a4 4 0 004-4V8"/><path d="M10 13a2 2 0 004 0"/></svg></span>' };
-            var labels = { vegetarisch: 'Vegetarisch', vegan: 'Vegan', glutenfrei: 'Glutenfrei', laktosefrei: 'Laktosefrei' };
-            return '<button class="allergen-chip" data-filter="' + f + '" onclick="toggleAllergenFilter(\'' + f + '\')" style="padding:6px 14px;border:1px solid var(--border-color);border-radius:20px;background:' + (isActive ? 'var(--primary)' : 'var(--bg-secondary)') + ';color:' + (isActive ? 'white' : 'var(--text-primary)') + ';font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">' +
-                icons[f] + ' ' + labels[f] + '</button>';
-        }).join('') + '</div>';
+    if (item.is_pork === true) return true;
+    if (item.is_pork === false) return false;
+    return null;
+}
+
+function _ohneAllergen(item, namen) {
+    var liste = item.allergens;
+    if (!Array.isArray(liste) || !liste.length) return null;   // keine Angabe
+    var klein = liste.map(function (a) { return String(a).toLowerCase(); });
+    for (var i = 0; i < namen.length; i++) {
+        if (klein.indexOf(namen[i]) >= 0) return false;
+    }
+    return true;
+}
+
+var ESSENSFILTER = [
+    { id: 'vegetarisch', label: 'Vegetarisch',
+      pruef: function (i) { return i.is_vegetarian === true || i.is_vegan === true; } },
+    { id: 'vegan', label: 'Vegan',
+      pruef: function (i) { return i.is_vegan === true; } },
+    { id: 'ohne_schwein', label: 'Ohne Schwein',
+      pruef: function (i) { var s = _hatSchwein(i); return s === null ? null : !s; } },
+    { id: 'glutenfrei', label: 'Glutenfrei',
+      pruef: function (i) { return _ohneAllergen(i, ['gluten']); } },
+    { id: 'laktosefrei', label: 'Laktosefrei',
+      pruef: function (i) { return _ohneAllergen(i, ['milch']); } },
+    { id: 'ohne_nuesse', label: 'Ohne Nüsse',
+      pruef: function (i) { return _ohneAllergen(i, ['erdnuss', 'schalenfruechte']); } }
+];
+
+function _filterNach(id) {
+    for (var i = 0; i < ESSENSFILTER.length; i++) if (ESSENSFILTER[i].id === id) return ESSENSFILTER[i];
+    return null;
+}
+
+// Das Herzstueck -- reine Daten rein, reine Daten raus. Genau deshalb laesst es
+// sich pruefen, ohne einen Browser zu starten.
+//
+//   passend  = erfuellt ALLE aktiven Filter nachweislich
+//   unklar   = koennte passen, aber zu mindestens einem Filter fehlt die Angabe
+//   raus     = erfuellt mindestens einen Filter nachweislich nicht
+function teileNachFilter(items, aktive) {
+    var erg = { passend: [], unklar: [] };
+    items = items || [];
+    var filter = (aktive || []).map(_filterNach).filter(Boolean);
+    if (!filter.length) { erg.passend = items.slice(); return erg; }
+
+    items.forEach(function (it) {
+        var fehltAngabe = false, raus = false;
+        filter.forEach(function (f) {
+            var w = f.pruef(it);
+            if (w === false) raus = true;
+            else if (w === null) fehltAngabe = true;
+        });
+        if (raus) return;
+        if (fehltAngabe) erg.unklar.push(it);
+        else erg.passend.push(it);
+    });
+    return erg;
+}
+
+// Wie viele Gerichte ein Filter ueberhaupt uebrig laesst. Ein Knopf, der
+// garantiert zu null Treffern fuehrt, wird gar nicht erst angezeigt -- sonst
+// tippt der Gast auf "Vegan" und die Karte ist leer, obwohl das Restaurant
+// schlicht keine veganen Gerichte hat.
+function zaehleFilter(items, id) {
+    var f = _filterNach(id);
+    if (!f) return 0;
+    var n = 0;
+    (items || []).forEach(function (i) { if (f.pruef(i) === true) n++; });
+    return n;
+}
+
+function toggleAllergenFilter(id) {
+    var idx = activeAllergenFilters.indexOf(id);
+    if (idx >= 0) activeAllergenFilters.splice(idx, 1);
+    else activeAllergenFilters.push(id);
+    try { localStorage.setItem('kmi_allergen_profile', JSON.stringify(activeAllergenFilters)); } catch (e) {}
+    _filterNeuZeichnen();
+}
+
+function essensfilterZuruecksetzen() {
+    activeAllergenFilters = [];
+    try { localStorage.removeItem('kmi_allergen_profile'); } catch (e) {}
+    _filterNeuZeichnen();
+}
+
+// Neu zeichnen heisst: dieselbe Liste noch einmal durch den Renderer schicken.
+// Kein Herumschieben von style.display, keine zweite Wahrheit.
+function toggleMenuSprache() {
+    var s = document.getElementById('menuSpracheBar');
+    if (!s) return;
+    s.style.display = (s.style.display === 'none' || !s.style.display) ? 'flex' : 'none';
+    // Beim Aufklappen die aktuelle Sprache hervorheben -- setLanguage macht das
+    // sonst erst beim naechsten Umschalten.
+    if (s.style.display === 'flex') {
+        document.querySelectorAll('[data-sprache]').forEach(function (b) {
+            var an = b.getAttribute('data-sprache') === currentLanguage;
+            b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
+            b.style.color = an ? '#fff' : 'var(--text-primary)';
+            b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
+            b.setAttribute('aria-pressed', an ? 'true' : 'false');
+        });
+    }
+}
+
+function _filterNeuZeichnen() {
+    var liste = window._menuUngefiltert || window._menuAllItems || window._menuDisplayItems;
+    if (liste && typeof renderMenuItemsForGuest === 'function') renderMenuItemsForGuest(liste);
+}
+
+function getAllergenFilterBar(items) {
+    items = items || [];
+    var knoepfe = ESSENSFILTER.map(function (f) {
+        var anzahl = zaehleFilter(items, f.id);
+        var aktiv = activeAllergenFilters.indexOf(f.id) >= 0;
+        // Nichts anzubieten -> Knopf weglassen. Ausnahme: ist er gerade aktiv,
+        // muss er sichtbar bleiben, sonst kann der Gast ihn nicht ausschalten.
+        if (!anzahl && !aktiv) return '';
+        return '<button type="button" class="allergen-chip" data-filter="' + f.id + '"'
+             + ' aria-pressed="' + (aktiv ? 'true' : 'false') + '"'
+             + ' onclick="toggleAllergenFilter(\'' + f.id + '\')"'
+             + ' style="padding:7px 14px;border:1px solid ' + (aktiv ? 'var(--ink-strong)' : 'var(--border-color)')
+             + ';border-radius:9999px;background:' + (aktiv ? 'var(--ink-strong)' : 'var(--bg-secondary)')
+             + ';color:' + (aktiv ? '#fff' : 'var(--text-primary)')
+             + ';font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:Inter,sans-serif;">'
+             + f.label + ' <span style="opacity:.65;font-weight:500;">' + anzahl + '</span></button>';
+    }).filter(Boolean).join('');
+
+    if (!knoepfe) return '';
+
+    var zurueck = activeAllergenFilters.length
+        ? '<button type="button" onclick="essensfilterZuruecksetzen()" style="padding:7px 12px;border:none;'
+        + 'background:none;color:var(--text-secondary);font-size:12px;text-decoration:underline;cursor:pointer;'
+        + 'white-space:nowrap;font-family:Inter,sans-serif;">Alle zeigen</button>'
+        : '';
+
+    return '<div class="essensfilter" style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;'
+         + '-webkit-overflow-scrolling:touch;">' + knoepfe + zurueck + '</div>';
 }
 
 // ==================== FEATURE 6: WIEDERHOL-BESTELLUNG ====================
