@@ -261,8 +261,11 @@ t('Import schreibt die Groessen mit',
 t('Gast-Ansicht macht daraus die Auswahl und zeigt "ab"-Preis',
   /var hasSizes = item\.sizes && Array\.isArray\(item\.sizes\)/.test(H)
   && /pricePrefix = 'ab '/.test(H));
+// Die erste Groesse ist nicht nur optisch markiert, sie steht auch wirklich
+// in der Auswahl -- sonst geht die Bestellung ohne Groesse raus.
 t('erste Groesse ist beim Gast vorausgewaehlt',
-  /currentMenuItem\.price = parseFloat\(item\.sizes\[0\]\.price\)/.test(H));
+  /var _ersteGroesse = item\.sizes\[0\]/.test(H)
+  && /currentItemOptions\.push\(\{ group: 'item_sizes'/.test(H));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

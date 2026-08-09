@@ -45507,9 +45507,22 @@ function openItemOptions(itemId, item) {
                 sizesHtml += '</div>';
             });
             sizesHtml += '</div>';
-            // Ersten Preis als Default setzen
-            if (item.sizes[0] && item.sizes[0].price) {
-                currentMenuItem.price = parseFloat(item.sizes[0].price);
+            // Die erste Groesse ist optisch vorausgewaehlt -- sie muss auch
+            // WIRKLICH ausgewaehlt sein.
+            //
+            // Vorher wurde nur currentMenuItem.price gesetzt (was nichts tut,
+            // solange base_price existiert) und die Auswahl selbst blieb leer.
+            // Tippte der Gast keine Groesse an, ging die Bestellung ohne
+            // Groesse raus: in der Kueche stand "Pizza Margherita", und
+            // niemand wusste, ob klein oder gross gemeint war. Der Preis
+            // stimmte zufaellig, weil der Grundpreis der kleine ist.
+            var _ersteGroesse = item.sizes[0];
+            if (_ersteGroesse) {
+                var _ep = parseFloat(_ersteGroesse.price) || itemPrice;
+                currentMenuItem.price = _ep;
+                currentItemOptions = currentItemOptions.filter(function (o) { return o.group !== 'item_sizes'; });
+                currentItemOptions.push({ group: 'item_sizes', option: _ersteGroesse.name || '',
+                                          price: _ep, price_type: 'replace' });
             }
         }
 

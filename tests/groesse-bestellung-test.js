@@ -82,5 +82,23 @@ t('gewaehlte Optionen landen im Warenkorb', /selected_options: \[\.\.\.currentIt
 t('und die Auswahl merkt sich Gruppe, Name, Preis und Art',
   /currentItemOptions\.push\(\{ group, option, price, price_type: priceType \}\)/.test(H));
 
+// --- Was der Gast sieht -----------------------------------------------------
+t('die Gast-Ansicht baut die Groessen-Auswahl, sobald ein Gericht Groessen hat',
+  /if \(item\.sizes && Array\.isArray\(item\.sizes\) && item\.sizes\.length > 0\)/.test(H)
+  && /selectSize \|\| 'Größe wählen'/.test(H));
+t('jede Groesse steht mit Namen und eigenem Preis da',
+  /szPrice\.toFixed\(2\)\.replace\('\.', ','\)/.test(H)
+  && /option-name">' \+ \(sz\.name \|\| ''\)/.test(H));
+t('in der Karte steht "ab" plus guenstigster Preis',
+  /pricePrefix = 'ab '/.test(H) && /minSizePrice/.test(H));
+
+// Die erste Groesse ist optisch vorausgewaehlt -- sie muss auch wirklich
+// ausgewaehlt sein. Sonst geht die Bestellung ohne Groesse raus, und in der
+// Kueche steht "Pizza Margherita" ohne jeden Hinweis.
+t('die vorausgewaehlte Groesse landet auch in der Bestellung',
+  /currentItemOptions\.push\(\{ group: 'item_sizes', option: _ersteGroesse\.name/.test(H));
+t('und ersetzt eine vorher gewaehlte Groesse, statt sich zu stapeln',
+  /currentItemOptions\.filter\(function \(o\) \{ return o\.group !== 'item_sizes'; \}\)/.test(H));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
