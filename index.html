@@ -60190,6 +60190,55 @@ async function wendeKartenAbgleichAn() {
     if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
 }
 
+// Was in Supabase fehlt -- mit dem fertigen Befehl zum Kopieren.
+var _SPALTEN_TYP = {
+    sizes: 'jsonb', allergens: 'text[]', additives: 'text[]', dish_number: 'text',
+    is_lamb: 'boolean default false', is_beef: 'boolean default false',
+    is_pork: 'boolean default false', is_chicken: 'boolean default false',
+    is_fish: 'boolean default false', is_seafood: 'boolean default false',
+    is_vegan: 'boolean default false', is_vegetarian: 'boolean default false'
+};
+
+function _zeigeSpaltenHilfe(spalten) {
+    var bekannt = spalten.filter(function (x) { return _SPALTEN_TYP[x]; });
+    if (!bekannt.length) return;
+    var sql = bekannt.map(function (x) {
+        return 'alter table menu_items add column if not exists ' + x + ' ' + _SPALTEN_TYP[x] + ';';
+    }).join('\n');
+    window._fehlendeSpaltenSQL = sql;
+
+    var kasten = document.getElementById('menuScanItemsList');
+    if (!kasten) return;
+    kasten.insertAdjacentHTML('afterbegin',
+        '<div style="margin:0 0 12px;padding:13px 15px;border-radius:12px;border:1px solid #f59e0b;'
+      + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;">'
+      + '<strong>In der Datenbank fehlen ' + bekannt.length + ' Spalten.</strong> '
+      + 'Deshalb wurden ' + bekannt.map(function (x) { return x; }).join(', ') + ' nicht gespeichert. '
+      + 'Das ist in zwei Minuten erledigt:'
+      + '<ol style="margin:8px 0 8px 18px;padding:0;font-size:12px;">'
+      +   '<li>In Supabase auf <strong>SQL Editor</strong> gehen</li>'
+      +   '<li>Diesen Befehl einfügen und ausführen</li>'
+      +   '<li>Hier die Karte noch einmal übernehmen — der Abgleich trägt die Größen nach</li>'
+      + '</ol>'
+      + '<pre style="margin:0;padding:9px 11px;background:rgba(0,0,0,.06);border-radius:8px;'
+      + 'font-size:11px;overflow:auto;white-space:pre;">' + sql.replace(/[<>&]/g, '') + '</pre>'
+      + '<button type="button" onclick="_kopiereSpaltenSQL(this)" style="margin-top:8px;padding:7px 14px;'
+      + 'border:none;border-radius:9999px;background:#003D33;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">'
+      + 'Befehl kopieren</button>'
+      + '</div>');
+}
+
+function _kopiereSpaltenSQL(btn) {
+    var sql = window._fehlendeSpaltenSQL || '';
+    try {
+        navigator.clipboard.writeText(sql);
+        if (btn) { btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = 'Befehl kopieren'; }, 2000); }
+    } catch (e) {
+        showToast('Konnte nicht kopieren — bitte den Text von Hand markieren.', 'info');
+    }
+}
+
+
 async function importScannedMenu() {
 
     var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
@@ -60483,10 +60532,23 @@ async function importScannedMenu() {
     var verworfen = Object.keys(_unbekannteSpalten);
     if (verworfen.length) {
         var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
-                         additives: 'Zusatzstoffe', dish_number: 'Gerichtnummer' };
+                         additives: 'Zusatzstoffe', dish_number: 'Gerichtnummer',
+                         is_lamb: 'Lamm-Kennzeichnung', is_beef: 'Rind-Kennzeichnung',
+                         is_pork: 'Schwein-Kennzeichnung', is_chicken: 'Geflügel-Kennzeichnung',
+                         is_fish: 'Fisch-Kennzeichnung', is_seafood: 'Meeresfrüchte-Kennzeichnung' };
         showToast('Diese Angaben kennt die Datenbank nicht und wurden NICHT gespeichert: '
             + verworfen.map(function (x) { return klartext[x] || x; }).join(', ')
             + '. Die Gerichte sind da, diese Felder fehlen.', 'warning');
+
+        // FEHLENDE SPALTEN SIND KEINE SACKGASSE.
+        //
+        // Groessen gehoeren zwingend an das einzelne Gericht: eine
+        // Optionsgruppe haengt an der KATEGORIE und kann deshalb keine
+        // Preise je Gericht tragen (Margherita klein 6,50, Salami klein
+        // 7,00). Fehlt die Spalte, hilft kein Umweg -- sie muss angelegt
+        // werden. Also sagen wir genau WIE, statt den Gastronom mit
+        // "wird nicht gespeichert" stehen zu lassen.
+        _zeigeSpaltenHilfe(verworfen);
     }
 
     // NACHZAEHLEN. "138 importiert" sagt nichts, wenn 142 hineingingen --

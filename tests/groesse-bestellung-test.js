@@ -100,5 +100,30 @@ t('die vorausgewaehlte Groesse landet auch in der Bestellung',
 t('und ersetzt eine vorher gewaehlte Groesse, statt sich zu stapeln',
   /currentItemOptions\.filter\(function \(o\) \{ return o\.group !== 'item_sizes'; \}\)/.test(H));
 
+// --- Fehlende Spalte ist keine Sackgasse ------------------------------------
+// Groessen gehoeren zwingend an das einzelne Gericht: eine Optionsgruppe
+// haengt an der KATEGORIE und kann keine Preise je Gericht tragen (Margherita
+// klein 6,50, Salami klein 7,00). Fehlt die Spalte, hilft kein Umweg -- sie
+// muss angelegt werden. Also sagt die App genau wie.
+t('bei fehlenden Spalten kommt eine Anleitung statt einer Sackgasse',
+  /function _zeigeSpaltenHilfe/.test(H) && /In der Datenbank fehlen/.test(H));
+t('mit fertigem Befehl zum Kopieren',
+  /alter table menu_items add column if not exists/.test(H)
+  && /function _kopiereSpaltenSQL/.test(H));
+t('der Befehl kennt den richtigen Typ je Spalte',
+  /sizes: 'jsonb'/.test(H) && /allergens: 'text\[\]'/.test(H));
+t('und sagt, dass danach noch einmal uebernommen werden muss',
+  /der Abgleich trägt die Größen nach/.test(H));
+
+var vor = H.slice(H.indexOf('var _SPALTEN_TYP'), H.indexOf('function _zeigeSpaltenHilfe'));
+var bauSql = new Function(vor + 'return function (sp) { return sp.filter(function (x) { return _SPALTEN_TYP[x]; })'
+  + '.map(function (x) { return "alter table menu_items add column if not exists " + x + " " + _SPALTEN_TYP[x] + ";"; })'
+  + '.join(String.fromCharCode(10)); };')();
+t('der erzeugte Befehl ist gueltiges SQL fuer die Groessen-Spalte',
+  bauSql(['sizes']) === 'alter table menu_items add column if not exists sizes jsonb;',
+  bauSql(['sizes']));
+t('unbekannte Felder erzeugen keinen Unsinn im Befehl',
+  bauSql(['gibtsnicht']) === '', '"' + bauSql(['gibtsnicht']) + '"');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
