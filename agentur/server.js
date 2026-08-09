@@ -1195,6 +1195,50 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Gaeste-Ursprung - welcher Anteil kommt ueber uns rein?
+    // Der Beleg fuers Honorar, gerechnet aus der Datenbank des Wirts.
+    if (req.method === 'GET' && pfad.startsWith('/api/herkunft/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const herkunft = require('./lib/herkunft');
+      const { monatsGrenzen, bonProGast } = require('../sichtbarkeit/lib/telefonzahlen');
+      const monat = url.searchParams.get('monat') || report.monatsSchluessel();
+      const { von, bis } = monatsGrenzen(monat);
+      try {
+        let reservierungen = [];
+        let bestellungen = [];
+        if (DEMO) {
+          reservierungen = [
+            ...Array(9).fill({ source: 'telefon', party_size: 3 }),
+            ...Array(12).fill({ source: 'web', party_size: 2 }),
+            ...Array(14).fill({ source: 'walk_in', party_size: 2 }),
+            ...Array(5).fill({ party_size: 2 })
+          ];
+          bestellungen = [
+            ...Array(6).fill({ source: 'telefon', total: 31.2 }),
+            ...Array(11).fill({ source: 'web', total: 27.9 })
+          ];
+        } else {
+          [reservierungen, bestellungen] = await Promise.all([
+            supabase.herkunftReservierungen(kunde.id, von, bis).catch(() => []),
+            supabase.herkunftBestellungen(kunde.id, von, bis).catch(() => [])
+          ]);
+        }
+        const kanaele = herkunft.nachKanaelen({ reservierungen, bestellungen }, { bonProGast: bonProGast() });
+        const b = herkunft.bilanz(kanaele);
+        json(res, 200, {
+          monat,
+          monatLabel: report.monatsLabel(monat),
+          kanaele,
+          bilanz: b,
+          satz: herkunft.satzFuerWirt(b, report.monatsLabel(monat), kunde.honorar || process.env.HONORAR_MONAT)
+        });
+      } catch (e) {
+        json(res, 502, { fehler: 'Herkunft nicht abrufbar: ' + e.message });
+      }
+      return;
+    }
+
     // API: Monats-Aufgaben eines Kunden (die konkreten Handgriffe)
     if (req.method === 'GET' && pfad.startsWith('/api/aufgaben/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));

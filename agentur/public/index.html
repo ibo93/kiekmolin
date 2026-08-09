@@ -208,6 +208,10 @@
 
       <div id="dWarnung"></div>
 
+      <h2>Woher die Gäste kommen · dein Honorar-Beleg</h2>
+      <div class="status" style="margin-top:-6px">Aus der Datenbank des Wirts gerechnet: Wie viele Reservierungen und Bestellungen laufen über unsere Kanäle? Was ohne Quelle drinsteht, rechnen wir bewusst <b>nicht</b> uns an.</div>
+      <div id="dHerkunft"><div class="leer">Lade Herkunft…</div></div>
+
       <h2>Gäste zurückholen · verlorener Umsatz</h2>
       <div class="status" style="margin-top:-6px">Wer war früher da und lange nicht mehr? Zurückholen kostet fast nichts – ein neuer Gast kostet Werbung.</div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -532,6 +536,7 @@ async function zeigeKunde(id) {
   zeichneAufbereitung(aktuellerKunde.aufbereitung);
   ladeTelefonZahlen(aktuellerKunde.id);
   ladeFruehwarnung(aktuellerKunde.id);
+  ladeHerkunft(aktuellerKunde.id);
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
@@ -602,6 +607,49 @@ async function ladeFruehwarnung(id) {
     '<div style="font-weight:700;color:#16a34a;margin-bottom:4px">📈 Gute Nachricht diese Woche</div>' +
     '<div style="font-size:13.5px">' + w.gute.map(g => String(g).replace(/</g, '&lt;')).join(' · ') +
     '<br><span style="color:var(--grau)">Direkt dem Wirt schicken – so sieht er, dass es wirkt.</span></div></div>';
+}
+
+// ---------------- Gäste-Ursprung (Honorar-Beleg) ----------------
+async function ladeHerkunft(id) {
+  const ziel = document.getElementById('dHerkunft');
+  ziel.innerHTML = '<div class="leer">Lade Herkunft…</div>';
+  let d;
+  try {
+    d = await api('/api/herkunft/' + encodeURIComponent(id));
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+    return;
+  }
+  const b = d.bilanz || {};
+  if (!b.vorgaengeGesamt) {
+    ziel.innerHTML = '<div class="leer">Noch keine Vorgänge in ' + d.monatLabel +
+      ' – sobald Reservierungen und Bestellungen laufen, steht hier der Anteil, der über uns kommt.</div>';
+    return;
+  }
+  const balken = (d.kanaele || []).map(k => {
+    const anteil = b.vorgaengeGesamt ? Math.round(((k.reservierungen + k.bestellungen) / b.vorgaengeGesamt) * 100) : 0;
+    const farbe = k.unser ? 'var(--akzent)' : 'var(--grau)';
+    return '<div style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">' +
+      '<span>' + (k.unser ? '✅ ' : '') + k.label + '</span>' +
+      '<span style="color:var(--grau)">' + (k.reservierungen + k.bestellungen) + ' Vorgänge · ' + euroWert(k.umsatz) + '</span></div>' +
+      '<div style="height:9px;border-radius:5px;background:var(--linie,#2a3841);overflow:hidden">' +
+      '<div style="height:100%;width:' + anteil + '%;background:' + farbe + '"></div></div>' +
+      '<div style="font-size:11.5px;color:var(--grau);margin-top:3px">' + anteil + ' % · ' + k.erklaerung + '</div></div>';
+  }).join('');
+
+  ziel.innerHTML =
+    '<div class="zahlen" style="margin-bottom:12px">' +
+    '<div class="zahl"><div class="wert akzent">' + b.anteilProzent + ' %</div>' +
+    '<div class="label">läuft über uns</div>' +
+    '<div class="sub">' + b.vorgaengeUnser + ' von ' + b.vorgaengeGesamt + ' Vorgängen in ' + d.monatLabel + '</div></div>' +
+    '<div class="zahl"><div class="wert">' + euroWert(b.umsatzUnser) + '</div>' +
+    '<div class="label">Umsatz über unsere Kanäle</div>' +
+    '<div class="sub">Bestellwert echt + ' + b.gaesteUnser + ' Gäste geschätzt</div></div></div>' +
+    balken +
+    '<div class="zahl" style="margin-top:10px"><div class="label" style="margin-bottom:6px">Satz fürs Kundengespräch</div>' +
+    '<div style="font-size:13.5px;margin-bottom:8px">' + String(d.satz).replace(/</g, '&lt;') + '</div>' +
+    kopierKnopf(d.satz, '📋 Satz kopieren') + '</div>';
 }
 
 // ---------------- Rückgewinnung (Gäste zurückholen) ----------------

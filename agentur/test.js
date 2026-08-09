@@ -388,4 +388,53 @@ test('Fruehwarnung: pruefeKunde liefert Meldungen und konkrete Empfehlung', () =
   assert.strictEqual(stabil.meldungen.length, 0);
 });
 
+test('Gaeste-Ursprung: rechnet ehrlich - ohne Quelle zaehlt NICHT als unser Verdienst', () => {
+  const { nachKanaelen, bilanz, kanalFuer } = require('./lib/herkunft');
+  assert.strictEqual(kanalFuer('telefon').schluessel, 'telefon');
+  assert.strictEqual(kanalFuer('WEB').schluessel, 'online', 'Gross-/Kleinschreibung egal');
+  assert.strictEqual(kanalFuer('walk_in').unser, false);
+  assert.strictEqual(kanalFuer(null).schluessel, 'unbekannt');
+  assert.strictEqual(kanalFuer('irgendwas-neues').unser, false, 'Unbekanntes nie uns anrechnen');
+
+  const kanaele = nachKanaelen({
+    reservierungen: [
+      { source: 'telefon', party_size: 4 },
+      { source: 'web', party_size: 2 },
+      { source: 'walk_in', party_size: 6 },
+      { party_size: 2 }
+    ],
+    bestellungen: [{ source: 'telefon', total: 30 }, { source: 'web', total: 20 }]
+  }, { bonProGast: 25 });
+
+  const telefon = kanaele.find((k) => k.schluessel === 'telefon');
+  assert.strictEqual(telefon.reservierungen, 1);
+  assert.strictEqual(telefon.gaeste, 4);
+  assert.strictEqual(telefon.umsatz, 130, '4 Gaeste x 25 + 30 EUR Bestellwert');
+  assert.strictEqual(kanaele[0].unser, true, 'unsere Kanaele stehen oben');
+
+  const b = bilanz(kanaele);
+  assert.strictEqual(b.vorgaengeGesamt, 6);
+  assert.strictEqual(b.vorgaengeUnser, 4, 'walk_in und ohne Quelle zaehlen nicht');
+  assert.strictEqual(b.anteilProzent, 67);
+});
+
+test('Gaeste-Ursprung: Satz fuer den Wirt bleibt bei duenner Lage ehrlich', () => {
+  const { nachKanaelen, bilanz, satzFuerWirt } = require('./lib/herkunft');
+  assert.ok(/noch keine Vorgänge/i.test(satzFuerWirt(bilanz([]), 'August 2026', 199)));
+
+  const nurDirekt = bilanz(nachKanaelen({
+    reservierungen: [{ source: 'walk_in', party_size: 2 }], bestellungen: []
+  }, {}));
+  assert.ok(/noch nichts nachweislich/i.test(satzFuerWirt(nurDirekt, 'August 2026', 199)), 'kein Schoenreden');
+
+  const stark = bilanz(nachKanaelen({
+    reservierungen: Array(20).fill({ source: 'telefon', party_size: 4 }), bestellungen: []
+  }, { bonProGast: 25 }));
+  const satz = satzFuerWirt(stark, 'August 2026', 199);
+  assert.ok(satz.includes('100 %'), 'Anteil genannt');
+  assert.ok(/Fache zurück/.test(satz), 'Verhaeltnis zum Honorar genannt');
+  // Ohne Honorar-Angabe wird nichts ueber Rentabilitaet behauptet
+  assert.ok(!/Fache/.test(satzFuerWirt(stark, 'August 2026', 0)));
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
