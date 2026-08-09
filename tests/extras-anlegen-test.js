@@ -54,9 +54,9 @@ async function lauf(welt) {
         if (u.indexOf('menu_option_groups') >= 0) return { ok: true, json: async function () { return welt.vorhanden || []; } };
         return { ok: true, json: async function () { return []; }, text: async function () { return ''; } };
     };
-    var f = new Function('SUPA_URL', 'SUPABASE_URL', 'sbRead', 'showToast', 'window',
+    var f = new Function('SUPA_URL', 'SUPABASE_URL', 'SUPA_KEY', 'sbRead', 'showToast', 'window',
         schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
-    var erg = await f('https://x', 'https://x', function (u, o) { return fetch(u, o); },
+    var erg = await f('https://x', 'https://x', 'k', function (u, o) { return fetch(u, o); },
         function (m) { toasts.push(m); }, { _scanExtras: EXTRAS });
     return { erg: erg, gruppen: gruppen, optionen: optionen, toasts: toasts };
 }
@@ -94,6 +94,18 @@ async function lauf(welt) {
     t('vorhandene Gruppe wird uebersprungen, nicht verdoppelt',
       r5.erg.angelegt === 1 && r5.erg.uebersprungen === 1,
       'angelegt=' + r5.erg.angelegt + ' uebersprungen=' + r5.erg.uebersprungen);
+
+    // --- Die zwei Fehler, an denen es zuletzt hing -------------------------
+    var wa = H.slice(H.indexOf('async function wendeKartenAbgleichAn('));
+    wa = wa.slice(0, wa.indexOf('\n}\n') + 3);
+    t('der Abgleich legt Extras VOR dem Fehler-Zweig an',
+      wa.indexOf('legeExtrasAn') > 0 && wa.indexOf('legeExtrasAn') < wa.indexOf('\n        return;'),
+      'extras@' + wa.indexOf('legeExtrasAn') + ' return@' + wa.indexOf('\n        return;'));
+    t('legeExtrasAn setzt eigene Kopfzeilen und verlangt die Antwort',
+      /Prefer': 'return=representation'/.test(H)
+      && /SUPA_H = \{ 'apikey': SUPA_KEY/.test(H));
+    t('warum: ohne Antwort keine Gruppen-ID und damit keine Optionen',
+      /die neu angelegte\s*\n\s*\/\/ Gruppe hat keine ID/.test(H));
 
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);

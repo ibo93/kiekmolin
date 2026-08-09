@@ -60305,6 +60305,13 @@ async function wendeKartenAbgleichAn() {
         window.scannedMenuItems = scannedMenuItems;
     }
 
+    // Extras ZUERST -- unabhaengig davon, ob es neue Gerichte gab und ob beim
+    // Aendern etwas schiefging. Vorher stand dieser Aufruf hinter dem
+    // Fehler-Zweig, der mit "return" endet: schlug eine einzige Aenderung
+    // fehl, wurden gar keine Extras angelegt.
+    var exErg = { angelegt: 0, uebersprungen: 0 };
+    try { exErg = await legeExtrasAn(restaurantId, H); } catch (e) {}
+
     // Ging etwas schief, bleibt das Fenster OFFEN und sagt was.
     // Vorher wurde es zugemacht -- der einzige Ort, an dem der Grund stand,
     // verschwand also genau dann, wenn man ihn gebraucht haette.
@@ -60337,14 +60344,12 @@ async function wendeKartenAbgleichAn() {
         }
         var knopf2 = document.getElementById('kartenAbgleichKnopf');
         if (knopf2) { knopf2.disabled = false; knopf2.textContent = 'Erneut versuchen'; }
-        showToast(geaendert + ' übernommen, ' + fehler + ' fehlgeschlagen — Grund steht im Fenster.', 'warning');
+        showToast(geaendert + ' übernommen, ' + fehler + ' fehlgeschlagen'
+            + (exErg.angelegt ? ', ' + exErg.angelegt + ' Extra-Gruppen angelegt' : '')
+            + ' — Grund steht im Fenster.', 'warning');
         if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
         return;
     }
-
-    // Extras auch hier -- unabhaengig davon, ob es neue Gerichte gab.
-    var exErg = { angelegt: 0, uebersprungen: 0 };
-    try { exErg = await legeExtrasAn(restaurantId, H); } catch (e) {}
 
     closeModal('kartenAbgleichModal');
     var teile = [];
@@ -60417,6 +60422,13 @@ function _kopiereSpaltenSQL(btn) {
 // Normalfall, etwa wegen neuer Preise --, bekam deshalb nie Extras: es gab ja
 // keine neuen Gerichte, also lief der Block nicht.
 async function legeExtrasAn(restaurantId, SUPA_H) {
+    // EIGENE KOPFZEILEN. Der Aufrufer schickt teils "Prefer: return=minimal"
+    // mit -- dann antwortet die Datenbank ohne Inhalt, die neu angelegte
+    // Gruppe hat keine ID, und ohne ID lassen sich ihre Optionen nicht
+    // schreiben. Genau daran ist es gescheitert: die Gruppe entstand, die
+    // Zutaten nie.
+    SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var extrasAngelegt = 0, extrasUebersprungen = 0;
     var _extraFehler = [], _gruppenWeg = {}, _optionenWeg = {};
     var extras = window._scanExtras || [];
