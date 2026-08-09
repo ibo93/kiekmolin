@@ -614,7 +614,10 @@ function kundenAufgaben(kunde) {
       ergebnis = JSON.parse(fs.readFileSync(path.join(DATEN_ORDNER, slug, historie[0].monat + '.json'), 'utf8')).ergebnis || null;
     } catch (_e) { /* alte Historie ohne ergebnis */ }
   }
-  const aufgaben = require('./lib/aufgaben').baueAufgaben({ ergebnis });
+  const aufgaben = require('./lib/aufgaben').baueAufgaben({
+    ergebnis,
+    monatsZahl: parseInt(monat.split('-')[1], 10) // fuer die Anlaesse des Monats
+  });
   const erledigt = ladeAufgabenErledigt(slug, monat);
   return { monat, monatLabel: report.monatsLabel(monat), aufgaben: aufgaben.map((a) => Object.assign({}, a, { erledigt: !!erledigt[a.id] })) };
 }

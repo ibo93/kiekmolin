@@ -14,6 +14,7 @@
 // geoeffnet") - nur das, was wirklich in den Daten steht.
 
 const { erkenneKategorie } = require('./fragen');
+const { besterAnlass, anlaesseFuerMonat } = require('./anlaesse');
 
 const MONATSNAMEN = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -192,14 +193,46 @@ function baueBestellPost(restaurant) {
   };
 }
 
+// e) Anlass-Post: Was ist DIESEN Monat los (Muttertag, Gruenkohlzeit,
+//    Weihnachtsfeiern-Planung)? Der wirksamste Post, weil Gaeste genau
+//    dann danach suchen. Ein Gericht wird NUR genannt, wenn es wirklich
+//    auf der Speisekarte steht - sonst bleibt der Anlass der Aufhaenger.
+function baueAnlassPost(restaurant, menue, monat) {
+  const treffer = besterAnlass(monat, menue);
+  if (!treffer) return null;
+  const { anlass, gericht } = treffer;
+  const stadt = restaurant.city || 'Ostfriesland';
+  const link = kiekmolinLink(restaurant);
+
+  const teile = [anlass.aufhaenger];
+  if (gericht) {
+    const preisText = formatPreis(gericht);
+    teile.push(`Bei uns findest Du dazu ${gericht.name}${preisText ? ` für ${preisText}` : ''} auf der Karte.`);
+    if (gericht.description) teile.push(alsSatz(kuerze(gericht.description, 140)));
+  } else {
+    teile.push(`${restaurant.name} in ${stadt} ist für Dich da – schau Dir einfach an, was diesen Monat auf der Karte steht.`);
+  }
+  teile.push(`Tisch reservieren oder Speisekarte ansehen: ${link} – kostenlos, mit sofortiger Bestätigung.`);
+  teile.push('Wir freuen uns auf Dich!');
+
+  return {
+    titel: anlass.name + (gericht ? ': ' + gericht.name : ' in ' + stadt),
+    text: teile.join(' '),
+    hinweis: 'ZUERST posten – das ist der zeitkritische Beitrag des Monats. ' + anlass.tipp
+  };
+}
+
 function baueGbpPosts(restaurant, menue, optionen) {
   const monat = pruefeMonat(optionen);
-  return [
+  const anlass = baueAnlassPost(restaurant, menue, monat);
+  const posts = [
     baueGerichtPost(restaurant, menue, monat),
     baueSaisonPost(restaurant, monat),
     baueReservierungsPost(restaurant),
     baueBestellPost(restaurant)
   ];
+  // Der Anlass-Post ist zeitkritisch -> ganz nach vorn.
+  return anlass ? [anlass].concat(posts) : posts;
 }
 
 // --- 2. Antwort-Vorlagen auf Bewertungen ----------------------------------------

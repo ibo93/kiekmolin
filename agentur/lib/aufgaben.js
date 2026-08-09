@@ -43,9 +43,20 @@ function baueAufgaben(kontext) {
   }
 
   // --- Hebel 2: Google-Business-Profil (schnellster Hebel, monatlich) ---
+  // Zeitkritische Anlaesse des Monats zuerst nennen - danach suchen Gaeste.
+  const anlaesse = k.monatsZahl
+    ? require('../../sichtbarkeit/lib/anlaesse').anlaesseFuerMonat(k.monatsZahl)
+    : [];
+  if (anlaesse.length) {
+    aufgaben.push({
+      id: 'anlass-post', hebel: 'Google', prio: 'hoch', aufwand: '5 Min',
+      titel: 'Anlass-Beitrag posten: ' + anlaesse.map((a) => a.name).slice(0, 2).join(' / '),
+      warum: anlaesse[0].aufhaenger + ' ' + anlaesse[0].tipp + ' (Fertiger Text in der Aufbereitung, ganz oben.)'
+    });
+  }
   aufgaben.push({
     id: 'google-posts', hebel: 'Google', prio: 'hoch', aufwand: '5 Min',
-    titel: '4 Google-Business-Beiträge einstellen',
+    titel: 'Google-Business-Beiträge einstellen',
     warum: 'Liegen fertig in „Aufbereitung erzeugen" (google-posts.md). Aktive Profile belohnt Google in Tagen – der schnellste Hebel.'
   });
   const googleWeg = zaehle('google', 'nicht-gefunden');
