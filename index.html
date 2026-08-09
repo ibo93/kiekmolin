@@ -60342,12 +60342,17 @@ async function wendeKartenAbgleichAn() {
         return;
     }
 
+    // Extras auch hier -- unabhaengig davon, ob es neue Gerichte gab.
+    var exErg = { angelegt: 0, uebersprungen: 0 };
+    try { exErg = await legeExtrasAn(restaurantId, H); } catch (e) {}
+
     closeModal('kartenAbgleichModal');
     var teile = [];
     if (geaendert) teile.push(geaendert + ' aktualisiert');
     if (angelegt) teile.push(angelegt + ' neu');
     if (stillgelegt) teile.push(stillgelegt + ' ausverkauft');
     if (geloescht) teile.push(geloescht + ' gelöscht');
+    if (exErg.angelegt) teile.push(exErg.angelegt + ' Extra-Gruppe' + (exErg.angelegt > 1 ? 'n' : ''));
     if (!teile.length) teile.push('nichts geändert');
     showToast('Karte abgeglichen: ' + teile.join(' · ')
         + (fehler ? ' (' + fehler + ' fehlgeschlagen)' : ''), fehler ? 'warning' : 'success');
@@ -60404,6 +60409,92 @@ function _kopiereSpaltenSQL(btn) {
     }
 }
 
+
+// EXTRAS ANLEGEN -- aus beiden Wegen erreichbar.
+//
+// Das stand mitten im Import. Der Abgleich ruft den Import aber nur auf, wenn
+// es NEUE Gerichte gibt. Wer eine bekannte Karte noch einmal einliest -- der
+// Normalfall, etwa wegen neuer Preise --, bekam deshalb nie Extras: es gab ja
+// keine neuen Gerichte, also lief der Block nicht.
+async function legeExtrasAn(restaurantId, SUPA_H) {
+    var extrasAngelegt = 0, extrasUebersprungen = 0;
+    var extras = window._scanExtras || [];
+
+    // VORHANDENE GRUPPEN ERST HOLEN.
+    //
+    // Sonst legt jeder weitere Import dieselben Gruppen noch einmal an, und
+    // der Gast sieht "Extra Zutaten" dreimal untereinander -- derselbe
+    // Fehler, den es bei den Gerichten gab.
+    var _vorhandeneGruppen = {};
+    try {
+        var vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
+            + restaurantId + '&select=id,name,internal_name', { headers: SUPA_H });
+        if (vgRes.ok) {
+            (await vgRes.json() || []).forEach(function (vg) {
+                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '')).toLowerCase()] = vg.id;
+            });
+        }
+    } catch (e) {}
+
+    for (var e = 0; e < extras.length; e++) {
+        var g = extras[e];
+        if (!g.optionen || !g.optionen.length) continue;
+        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
+        if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
+        try {
+            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify({
+                    restaurant_id: restaurantId,
+                    name: g.name,
+                    // an die Kategorie binden, damit die Extras nur dort auftauchen
+                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                    selection_type: 'multiple',
+                    min_selections: 0,
+                    max_selections: null,
+                    is_active: true
+                })
+            });
+            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
+            var grp = await grpRes.json();
+            var gid = grp && grp[0] && grp[0].id;
+            if (!gid) continue;
+
+            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                method: 'POST', headers: SUPA_H,
+                body: JSON.stringify(g.optionen.map(function (o, i) {
+                    return { group_id: gid, name: o.name, price: o.price,
+                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
+                }))
+            });
+            if (optRes.ok) extrasAngelegt++;
+            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
+        } catch (ex) {
+            console.warn('[import] Extra "' + g.name + '":', ex.message);
+        }
+    }
+
+    console.error('Fehler:', errors.length);
+
+    // Modal schließen
+    var modal = document.getElementById('menuScannerModal');
+    if (modal) { modal.style.display = 'none'; modal.classList.remove('active'); }
+
+    // Menü neu laden
+    try {
+        var client = sb || window.sb;
+        if (client) {
+            var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', restaurantId).order('sort_order');
+            if (cats) { menuCategories = cats; window.menuCategories = cats; }
+            var { data: items } = await client.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order');
+            if (items) { menuItems = items; window.menuItems = items; }
+        }
+    } catch(e) { console.error('Menü neu laden:', e); }
+
+    if (typeof renderMenuCategories === 'function') renderMenuCategories();
+    if (typeof updateMenuStats === 'function') updateMenuStats();
+    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen };
+}
 
 async function importScannedMenu() {
 
@@ -60663,82 +60754,8 @@ async function importScannedMenu() {
     // das eine Optionsgruppe mit Mehrfachauswahl, ueber internal_name an die
     // Kategorie gebunden -- genau so, wie sie der Gastronom sonst von Hand
     // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
-    var extrasAngelegt = 0, extrasUebersprungen = 0;
-    var extras = window._scanExtras || [];
-
-    // VORHANDENE GRUPPEN ERST HOLEN.
-    //
-    // Sonst legt jeder weitere Import dieselben Gruppen noch einmal an, und
-    // der Gast sieht "Extra Zutaten" dreimal untereinander -- derselbe
-    // Fehler, den es bei den Gerichten gab.
-    var _vorhandeneGruppen = {};
-    try {
-        var vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
-            + restaurantId + '&select=id,name,internal_name', { headers: SUPA_H });
-        if (vgRes.ok) {
-            (await vgRes.json() || []).forEach(function (vg) {
-                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '')).toLowerCase()] = vg.id;
-            });
-        }
-    } catch (e) {}
-
-    for (var e = 0; e < extras.length; e++) {
-        var g = extras[e];
-        if (!g.optionen || !g.optionen.length) continue;
-        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
-        if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
-        try {
-            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify({
-                    restaurant_id: restaurantId,
-                    name: g.name,
-                    // an die Kategorie binden, damit die Extras nur dort auftauchen
-                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
-                    selection_type: 'multiple',
-                    min_selections: 0,
-                    max_selections: null,
-                    is_active: true
-                })
-            });
-            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
-            var grp = await grpRes.json();
-            var gid = grp && grp[0] && grp[0].id;
-            if (!gid) continue;
-
-            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify(g.optionen.map(function (o, i) {
-                    return { group_id: gid, name: o.name, price: o.price,
-                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
-                }))
-            });
-            if (optRes.ok) extrasAngelegt++;
-            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
-        } catch (ex) {
-            console.warn('[import] Extra "' + g.name + '":', ex.message);
-        }
-    }
-
-    console.error('Fehler:', errors.length);
-
-    // Modal schließen
-    var modal = document.getElementById('menuScannerModal');
-    if (modal) { modal.style.display = 'none'; modal.classList.remove('active'); }
-
-    // Menü neu laden
-    try {
-        var client = sb || window.sb;
-        if (client) {
-            var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', restaurantId).order('sort_order');
-            if (cats) { menuCategories = cats; window.menuCategories = cats; }
-            var { data: items } = await client.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order');
-            if (items) { menuItems = items; window.menuItems = items; }
-        }
-    } catch(e) { console.error('Menü neu laden:', e); }
-
-    if (typeof renderMenuCategories === 'function') renderMenuCategories();
-    if (typeof updateMenuStats === 'function') updateMenuStats();
+    var _exErg = await legeExtrasAn(restaurantId, SUPA_H);
+    var extrasAngelegt = _exErg.angelegt, extrasUebersprungen = _exErg.uebersprungen;
 
     // WEGGELASSENE SPALTEN MELDEN.
     //

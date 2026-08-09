@@ -112,5 +112,20 @@ if (uebertragen) {
       gruppen.filter(function (g) { return g.uebertragen; }).length === 1);
 }
 
+// --- Extras muessen aus BEIDEN Wegen entstehen ------------------------------
+// Sie standen mitten im Import. Der Abgleich ruft den Import aber nur auf,
+// wenn es NEUE Gerichte gibt. Wer eine bekannte Karte noch einmal einliest --
+// der Normalfall, etwa wegen neuer Preise -- bekam deshalb nie Extras.
+t('Extras-Anlage ist eine eigene Funktion, kein Teil des Imports',
+  /async function legeExtrasAn\(restaurantId, SUPA_H\)/.test(H));
+t('der Import ruft sie auf', /var _exErg = await legeExtrasAn\(restaurantId, SUPA_H\)/.test(H));
+t('der Abgleich ruft sie AUCH auf -- auch ohne neue Gerichte',
+  /exErg = await legeExtrasAn\(restaurantId, H\)/.test(H));
+var iNeu = H.indexOf('if (d.neu.length) {');
+var iEx = H.indexOf('exErg = await legeExtrasAn(restaurantId, H)');
+t('und zwar ausserhalb des "gibt es neue Gerichte"-Zweigs', iEx > iNeu && iEx > 0);
+t('die Meldung nennt die angelegten Gruppen',
+  /exErg\.angelegt \+ ' Extra-Gruppe'/.test(H));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

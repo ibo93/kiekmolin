@@ -61,7 +61,9 @@ const umw = {
   zeigeKartenAbgleich:()=>{}, window:{ menuItems: [] },
   // Die Anleitung bei fehlenden Spalten braucht das DOM -- hier nicht noetig,
   // geprueft wird sie in tests/groesse-bestellung-test.js.
-  _zeigeSpaltenHilfe:()=>{}
+  _zeigeSpaltenHilfe:()=>{},
+  // Extras sind ein eigener Weg -- geprueft in tests/extras-test.js.
+  legeExtrasAn: async () => ({ angelegt: 0, uebersprungen: 0 })
 };
 
 const gerichte = [];
