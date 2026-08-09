@@ -18637,9 +18637,9 @@ document.addEventListener('DOMContentLoaded', function() {
                          stand weiter "Menü scannen (KI)", und niemand konnte
                          wissen, dass es ihn ueberhaupt gibt. -->
                     <button type="button" id="karteEinfuegenBtn" style="flex: 1; min-width: 220px; padding: 16px 20px; background: #003D33; color: #fff; border: none; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <span class="material-symbols-outlined" style="font-size:22px;color:#FFD54F;">content_paste</span>
-                        <span>Karte einfügen</span>
-                        <span style="font-size:11px;font-weight:600;opacity:.7;">ohne KI · sofort</span>
+                        <span class="material-symbols-outlined" style="font-size:22px;color:#FFD54F;">menu_book</span>
+                        <span>Karte übernehmen</span>
+                        <span style="font-size:11px;font-weight:600;opacity:.7;">PDF · ohne KI</span>
                     </button>
                     <button type="button" id="menuScannerBtn2" style="padding: 16px 20px; background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(0,61,51,0.06); color: var(--text-primary); border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                         <span class="material-symbols-outlined" style="font-size:20px;">photo_camera</span>
@@ -43068,21 +43068,47 @@ document.addEventListener('error', function(e) {
         <div class="modal-header">
             <h2 class="modal-title" style="font-family:'Epilogue',sans-serif;display:flex;align-items:center;gap:10px;">
                 <span style="width:34px;height:34px;border-radius:50%;background:#003D33;display:inline-flex;align-items:center;justify-content:center;flex:none;">
-                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">content_paste</span>
+                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">menu_book</span>
                 </span>
-                Karte einfügen
+                Karte übernehmen
             </h2>
             <button class="modal-close" aria-label="Schließen" onclick="closeModal('karteEinfuegenModal')">×</button>
         </div>
         <div class="modal-body">
-            <p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);line-height:1.55;">
-                Karte öffnen (PDF, Word, Website) → alles markieren <strong>Strg&nbsp;+&nbsp;A</strong> → kopieren <strong>Strg&nbsp;+&nbsp;C</strong> → hier einfügen <strong>Strg&nbsp;+&nbsp;V</strong>.
-                Das Ergebnis steht sofort darunter — ohne KI, ohne Hochladen.
-            </p>
 
-            <textarea id="karteEinfuegenText" oninput="try{karteTextVorschau()}catch(e){}"
-                placeholder="Speisekarte hier einfügen…&#10;&#10;Eine Zeile, die eine Überschrift sein soll, mit # davor erzwingen:&#10;#Pizza&#10;1. Margherita 6,50 €&#10;2. Salami 7,00 €"
-                style="width:100%;min-height:150px;padding:14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:13px;font-family:Inter,monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
+            <!-- PDF ZUERST.
+                 Im PDF steckt die Schriftgroesse und die Schrift-Kennung. Genau
+                 daran erkennt der Leser die Ueberschriften -- auch die kleinen,
+                 die kleiner gesetzt sind als der Fliesstext. Beim Kopieren als
+                 Text ist diese Information weg, und dann kann niemand mehr
+                 sicher sagen, ob "Nudeln" eine Kategorie ist oder die zweite
+                 Zeile einer Zutatenliste. Deshalb ist PDF der Hauptweg und
+                 Text nur die Rueckfallebene. -->
+            <input type="file" id="karteVollPdf" accept="application/pdf,.pdf" style="display:none;" onchange="karteVollPdfGewaehlt(event)">
+            <div id="karteVollAblage" onclick="document.getElementById('karteVollPdf').click()"
+                 ondragover="event.preventDefault();this.style.borderColor='#003D33';"
+                 ondragleave="this.style.borderColor='';"
+                 ondrop="karteVollAbgelegt(event, this)"
+                 style="border:2px dashed rgba(0,61,51,0.3);border-radius:18px;padding:26px 20px;text-align:center;cursor:pointer;background:rgba(0,61,51,0.03);">
+                <span class="material-symbols-outlined" style="font-size:38px;color:#003D33;">upload_file</span>
+                <p style="font-weight:800;color:#003D33;margin:6px 0 2px;font-family:Inter,sans-serif;">PDF hier ablegen oder auswählen</p>
+                <p style="font-size:12px;color:var(--text-secondary);margin:0;">Die Karte vom Designer. Wird direkt gelesen — ohne KI, ohne Klicken, in unter einer Sekunde.</p>
+            </div>
+            <div id="karteVollStatus" style="display:none;margin-top:10px;font-size:13px;color:var(--text-secondary);text-align:center;"></div>
+
+            <!-- Text nur noch als Rueckfall, zugeklappt. -->
+            <details id="karteVollTextBereich" style="margin-top:14px;">
+                <summary style="cursor:pointer;font-size:13px;color:var(--text-secondary);font-family:Inter,sans-serif;">
+                    Kein PDF? Karte stattdessen als Text einfügen
+                </summary>
+                <p style="margin:10px 0 8px;font-size:12px;color:var(--text-secondary);line-height:1.55;">
+                    Karte öffnen → alles markieren <strong>Strg&nbsp;+&nbsp;A</strong> → kopieren <strong>Strg&nbsp;+&nbsp;C</strong> → hier einfügen.
+                    Im Text fehlt die Schrift, deshalb musst du die Überschriften einmal anklicken — beim PDF passiert das von allein.
+                </p>
+                <textarea id="karteEinfuegenText" oninput="try{karteTextVorschau()}catch(e){}"
+                    placeholder="Speisekarte hier einfügen…&#10;#Pizza&#10;1. Margherita 6,50 €"
+                    style="width:100%;min-height:130px;padding:14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:13px;font-family:Inter,monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
+            </details>
 
             <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.04);font-family:Inter,sans-serif;"></div>
 
@@ -58727,6 +58753,121 @@ function schliesseKarteEinfuegen() {
     if (m) { m.style.display = 'none'; m.classList.remove('active'); }
 }
 
+// --- PDF direkt lesen, ohne KI ----------------------------------------------
+// Der kurze Weg: Datei rein, Ergebnis raus. Kein Modell, kein Bild, keine
+// Runden. Das Ergebnis steht im selben Fenster, bevor irgendetwas uebernommen
+// wird.
+function karteVollAbgelegt(ev, kasten) {
+    ev.preventDefault();
+    if (kasten) kasten.style.borderColor = '';
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) karteVollLies(f);
+}
+
+function karteVollPdfGewaehlt(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (f) karteVollLies(f);
+}
+
+function karteVollSage(text, art) {
+    var el = document.getElementById('karteVollStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = art === 'fehler' ? '#b45309' : 'var(--text-secondary)';
+    el.textContent = text;
+}
+
+async function karteVollLies(datei) {
+    if (!/pdf$/i.test(datei.name) && datei.type !== 'application/pdf') {
+        karteVollSage('Das ist kein PDF. Für Fotos den Knopf "Foto scannen (KI)" nehmen.', 'fehler');
+        return;
+    }
+    karteVollSage('„' + datei.name + '" wird gelesen…');
+    try {
+        var daten = await new Promise(function (fertig, schief) {
+            var r = new FileReader();
+            r.onload = function () { fertig(r.result); };
+            r.onerror = function () { schief(new Error('Datei nicht lesbar')); };
+            r.readAsDataURL(datei);
+        });
+
+        var e = await leseKartePdf(daten);
+        if (!e.ok) {
+            // Kein stiller Wechsel zur KI. Steht Text drin, aber es kommen kaum
+            // Gerichte heraus, gehoert der Text ins Textfeld -- dann sieht man,
+            // was der Leser wirklich vor sich hatte.
+            karteVollSage(e.grund || 'Konnte nichts lesen.', 'fehler');
+            var feld = document.getElementById('karteEinfuegenText');
+            var auf = document.getElementById('karteVollTextBereich');
+            if (feld && e.rohtext) {
+                feld.value = e.rohtext.slice(0, 40000);
+                if (auf) auf.open = true;
+                karteTextVorschau();
+            }
+            return;
+        }
+
+        window._karteTextItems = e.items;
+        window._karteVollExtras = e.extras || null;
+        karteVollSage(e.items.length + ' Einträge aus „' + datei.name + '" gelesen — ohne KI.');
+        karteVollZeige(e);
+    } catch (fehler) {
+        karteVollSage('Fehler: ' + fehler.message, 'fehler');
+    }
+}
+
+// Ergebnis anzeigen -- dieselbe Kachel wie beim Text, damit es an einer Stelle
+// gepflegt wird.
+function karteVollZeige(e) {
+    var box = document.getElementById('karteTextVorschau');
+    if (!box) return;
+    var items = e.items;
+    var kats = {}, folge = [];
+    items.forEach(function (i) {
+        if (!kats[i.category]) { kats[i.category] = 0; folge.push(i.category); }
+        kats[i.category]++;
+    });
+    var ohnePreis = items.filter(function (i) { return !i.price; }).length;
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+
+    var html = '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">'
+        + '<span class="material-symbols-outlined" style="font-size:22px;color:#003D33;">verified</span>'
+        + '<div><div style="font-weight:800;color:#003D33;font-size:13px;">'
+        + items.length + ' Einträge · ' + folge.length + ' Kategorien</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">'
+        + (ohnePreis ? '<strong style="color:#b45309;">' + ohnePreis + ' ohne Preis</strong>' : 'alle mit Preis')
+        + ' · direkt aus dem PDF gelesen, ohne KI'
+        + (e.bericht && e.bericht.ms ? ' · ' + (e.bericht.ms / 1000).toFixed(1) + ' s' : '')
+        + '</div></div></div>';
+
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+    folge.forEach(function (k) {
+        html += '<span style="border:1px solid rgba(0,61,51,0.25);background:rgba(0,61,51,0.06);color:#003D33;'
+              + 'border-radius:9999px;padding:4px 11px;font-size:12px;font-weight:700;">'
+              + esc(k) + ' <span style="opacity:.6;font-weight:500;">' + kats[k] + '</span></span>';
+    });
+    html += '</div>';
+
+    html += '<div style="max-height:240px;overflow:auto;border:1px solid var(--border-color);border-radius:12px;">';
+    var letzte = null;
+    items.slice(0, 500).forEach(function (i) {
+        if (i.category !== letzte) {
+            letzte = i.category;
+            html += '<div style="position:sticky;top:0;background:var(--bg-secondary);padding:5px 10px;'
+                  + 'font-size:11px;font-weight:800;color:#003D33;">' + esc(letzte) + '</div>';
+        }
+        html += '<div style="display:flex;gap:8px;padding:4px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+              + '<span style="width:34px;color:var(--text-secondary);flex:none;">' + esc(i.dish_number) + '</span>'
+              + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
+              + '<span style="flex:none;font-weight:700;">' + (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : '—') + '</span></div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+
 // --- Live-Vorschau ----------------------------------------------------------
 // Laeuft bei jedem Tastendruck. Das ist der eigentliche Punkt dieses Weges:
 // man sieht das Ergebnis, bevor man irgendetwas uebernimmt.
@@ -58849,7 +58990,7 @@ function karteTextUebernehmen() {
     scannedMenuItems.forEach(function (i) { i.selected = true; });
     window.scannedMenuItems = scannedMenuItems;
     window._scanQuelleOCR = null;
-    window._scanExtras = null;
+    window._scanExtras = window._karteVollExtras || null;
     window._scanPruefung = null;
     window._scanBericht = {
         dauer: '—', bilder: 0, seitenOhneErgebnis: 0,

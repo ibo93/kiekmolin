@@ -101,8 +101,8 @@ t('Vorschau rechnet bei jedem Tastendruck', /oninput="try\{karteTextVorschau\(\)
 // Der neue Weg war ein Reiter INNERHALB des KI-Scanners. Von der
 // Speisekarten-Seite aus war er unsichtbar -- auf dem Knopf stand weiter
 // "Menü scannen (KI)". Der ganze Umbau kam beim Gastronom nie an.
-t('eigener Knopf "Karte einfügen" auf der Speisekarten-Seite',
-  /id="karteEinfuegenBtn"/.test(H) && /<span>Karte einfügen<\/span>/.test(H));
+t('eigener Knopf auf der Speisekarten-Seite',
+  /id="karteEinfuegenBtn"/.test(H) && /<span>Karte übernehmen<\/span>/.test(H));
 t('der eigene Knopf steht VOR dem KI-Scanner',
   H.indexOf('id="karteEinfuegenBtn"') < H.indexOf('id="menuScannerBtn2"'));
 t('der eigene Knopf traegt die Hausfarbe, nicht das Lila des KI-Scanners',
@@ -134,6 +134,29 @@ t('Uebernehmen-Knopf ruft den KI-freien Weg', /onclick="karteTextUebernehmen\(\)
 t('KI ist nur noch die zweite Wahl, nicht der Standard',
   H.indexOf('onclick="karteTextUebernehmen()"') < H.indexOf('onclick="scanFromText()"'));
 t('Bericht weist "ohne KI" aus', /quelle: 'Eingefügter Text, ohne KI'/.test(H));
+
+// --- PDF ist der Hauptweg, Text die Rueckfallebene -------------------------
+// Im PDF steht die Schriftgroesse und die Schrift-Kennung. Daran erkennt der
+// Leser die Ueberschriften von allein -- auch "Spaghetti" und "Rigatoni", die
+// KLEINER gesetzt sind als der Fliesstext. Im kopierten Text ist das weg, und
+// dann muss der Gastronom klicken. Also gehoert PDF nach vorn.
+t('PDF-Ablage steht im Fenster ganz oben',
+  /id="karteVollAblage"/.test(H)
+  && H.indexOf('id="karteVollAblage"') < H.indexOf('id="karteEinfuegenText"'));
+t('PDF wird angenommen, Fotos nicht', /accept="application\/pdf,\.pdf"/.test(H));
+t('Datei auch per Ziehen-und-Ablegen', /ondrop="karteVollAbgelegt/.test(H));
+t('PDF laeuft ueber leseKartePdf -- kein Modell',
+  /await leseKartePdf\(daten\)/.test(H));
+t('kein KI-Aufruf im PDF-Weg des Fensters',
+  !/karteVollLies[\s\S]{0,2600}(aiMenuScan|leseKarteKI|scanOhneZeitlimit)\(/.test(H));
+t('Text-Weg ist zugeklappt und als Rueckfall beschriftet',
+  /id="karteVollTextBereich"/.test(H) && /Kein PDF\? Karte stattdessen als Text einfügen/.test(H));
+t('Knopf heisst jetzt "Karte übernehmen" mit PDF-Hinweis',
+  /<span>Karte übernehmen<\/span>/.test(H) && /PDF · ohne KI/.test(H));
+t('Extras aus dem PDF werden mit uebernommen',
+  /window\._scanExtras = window\._karteVollExtras/.test(H));
+t('scheitert der PDF-Weg, kommt der Rohtext ins Textfeld statt der KI',
+  /feld\.value = e\.rohtext/.test(H) && /auf\.open = true/.test(H));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
