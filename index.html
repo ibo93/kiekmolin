@@ -60289,6 +60289,10 @@ async function importScannedMenu() {
     // Bisher landete das nur in der Browser-Konsole: die Meldung sagte
     // "138 importiert, 4 Fehler" und der Gastronom durfte raten, welche vier.
     var _nichtGespeichert = [];
+    // Felder, die diese Datenbank als TEXT will statt als JSON. Einmal
+    // festgestellt, gilt es fuer alle weiteren Gerichte -- sonst scheitert
+    // jedes einzelne aufs Neue.
+    var _alsTextSenden = {};
 
     // Datenbank-Meldungen in Klartext. "duplicate key value violates unique
     // constraint" hilft niemandem weiter.
@@ -60401,6 +60405,9 @@ async function importScannedMenu() {
         };
 
         Object.keys(_unbekannteSpalten).forEach(function (k) { delete itemData[k]; });
+        Object.keys(_alsTextSenden).forEach(function (k) {
+            if (itemData[k] && typeof itemData[k] === 'object') itemData[k] = JSON.stringify(itemData[k]);
+        });
 
         try {
             var itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
@@ -60430,6 +60437,33 @@ async function importScannedMenu() {
                 var t400 = await itemRes.clone().text();
                 var fehlend = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(t400);
                 var spalte = fehlend && (fehlend[1] || fehlend[2] || fehlend[3]);
+
+                // FALSCHER TYP statt fehlender Spalte.
+                //
+                // Ist "sizes" als text angelegt statt als jsonb, gibt es die
+                // Spalte -- die Datenbank lehnt nur den Wert ab ("invalid
+                // input syntax for type json" oder aehnlich). Frueher wurde
+                // hier abgebrochen und das Feld war weg, obwohl es haette
+                // gehen koennen: als Text geschrieben passt es.
+                if (!spalte) {
+                    var typFehler = /invalid input syntax|malformed|cannot be cast|invalid text representation/i.test(t400);
+                    var alsText = Object.keys(itemData).filter(function (k) {
+                        return typeof itemData[k] === 'object' && itemData[k] !== null;
+                    });
+                    if (typFehler && alsText.length) {
+                        alsText.forEach(function (k) {
+                            _alsTextSenden[k] = 1;
+                            itemData[k] = JSON.stringify(itemData[k]);
+                        });
+                        console.warn('[import] Spalte(n) ' + alsText.join(', ')
+                            + ' scheinen kein JSON zu sein — zweiter Versuch als Text.');
+                        itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
+                            method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+                        });
+                        continue;
+                    }
+                }
+
                 if (!spalte || !(spalte in itemData)) break;   // anderer Fehler -> nicht endlos
                 console.warn('[import] Spalte "' + spalte + '" kennt die Datenbank nicht — '
                              + 'sie wird ab jetzt bei allen Gerichten weggelassen.');

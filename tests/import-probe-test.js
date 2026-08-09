@@ -19,7 +19,8 @@ console.error = function () {};   // erwartete Meldungen der Attrappe
 function cut(n){let i=H.indexOf('async function '+n+'(');if(i<0)i=H.indexOf('function '+n+'(');
  const j=H.indexOf('{',i);let d=0;for(let k=j;k<H.length;k++){if(H[k]==='{')d++;else if(H[k]==='}'){d--;if(!d)return H.slice(i,k+1);}}}
 
-const FEHLT = ['sizes','is_lamb','allergens','additives'];   // kennt die DB nicht
+const FEHLT = (process.env.NUR_TYP ? [] : ['sizes','is_lamb','allergens','additives']);
+const NUR_TEXT = process.env.NUR_TYP === '1';   // Spalte da, aber text statt jsonb
 let gespeichert = [];
 
 global.fetch = async function (url, opts) {
@@ -30,6 +31,13 @@ global.fetch = async function (url, opts) {
   }
   if (u.indexOf('menu_items') >= 0 && opts && opts.method === 'POST') {
     const b = JSON.parse(opts.body);
+    // Spalte existiert, hat aber den falschen Typ: die Datenbank lehnt nur
+    // den WERT ab. Frueher war das Feld damit verloren.
+    if (NUR_TEXT && typeof b.sizes === 'object' && b.sizes !== null) {
+      return { ok:false, status:400,
+        clone: () => ({ text: async () => JSON.stringify({ message: 'invalid input syntax for type json' }) }),
+        text: async () => 'invalid input syntax for type json' };
+    }
     const treffer = FEHLT.filter(f => f in b);
     if (treffer.length) {
       return { ok:false, status:400,
@@ -74,6 +82,11 @@ for (let i = 1; i <= 10; i++) gerichte.push({ name:'Pizza '+i, price:7, category
   t('kein Gericht geht verloren, egal wieviele Spalten fehlen',
     fehlt.length === 0, 'FEHLEN: ' + fehlt.join(', '));
   t('alle 10 sind gespeichert', gespeichert.length === 10, gespeichert.length);
+  t('falscher Spaltentyp (text statt jsonb) kostet ebenfalls kein Gericht',
+    /invalid input syntax\|malformed\|cannot be cast/.test(H)
+    && /_alsTextSenden\[k\] = 1/.test(H));
+  t('die Entscheidung "als Text senden" gilt fuer ALLE weiteren Gerichte',
+    /Object\.keys\(_alsTextSenden\)\.forEach\(function \(k\) \{\s*\n\s*if \(itemData\[k\] && typeof itemData\[k\] === 'object'\)/.test(H));
   t('die Wiederholung laeuft in einer Schleife, nicht genau einmal',
     /while \(!itemRes\.ok && itemRes\.status === 400 && versuche < 12\)/.test(H));
   t('bei einem ANDEREN Fehler wird abgebrochen, nicht endlos wiederholt',
