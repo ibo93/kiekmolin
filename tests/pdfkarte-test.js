@@ -114,8 +114,17 @@ seiten.forEach(function (txt) {
 var items = F.sortiereNachNummer(F.pdfGerichteZuItems(gerichte));
 
 t('142 Gerichte gelesen', gerichte.length === 142, gerichte.length + ' statt 142');
-t('230 Eintraege (Gerichte mit klein/gross zaehlen doppelt)',
-  items.length === 230, items.length + ' statt 230');
+// EIN Gericht, mehrere Groessen -- nicht zwei fast gleiche Gerichte.
+// Auf der gedruckten Karte ist "1. Pizza Margherita 6,50 € 8,50 €" EIN
+// Gericht mit zwei Preisen. Vorher standen daraus "Pizza Margherita (klein)"
+// und "Pizza Margherita (groß)" untereinander in der Karte.
+t('142 Gerichte -- nicht 230 Eintraege', items.length === 142, items.length + ' statt 142');
+t('88 davon haben Groessen',
+  items.filter(function (i) { return i.sizes && i.sizes.length; }).length === 88,
+  items.filter(function (i) { return i.sizes && i.sizes.length; }).length);
+t('kein Gericht heisst mehr "(klein)" oder "(groß)"',
+  !items.some(function (i) { return /\((klein|groß)\)/.test(i.name); }),
+  (items.filter(function (i) { return /\((klein|groß)\)/.test(i.name); })[0] || {}).name);
 t('kein Eintrag ohne Preis',
   items.filter(function (i) { return !i.price; }).length === 0,
   items.filter(function (i) { return !i.price; }).length + ' ohne Preis');
@@ -138,8 +147,15 @@ function finde(nr, name) {
     })[0];
 }
 var m = finde('1', 'Pizza Margherita');
-t('Nr. 1 heisst "Pizza Margherita (klein)" -- ohne angeklebtes V',
-  !!m && m.name === 'Pizza Margherita (klein)', m && m.name);
+t('Nr. 1 heisst "Pizza Margherita" -- ohne angeklebtes V, ohne Groesse im Namen',
+  !!m && m.name === 'Pizza Margherita', m && m.name);
+t('Nr. 1 hat zwei Groessen, klein zuerst',
+  !!m && m.sizes && m.sizes.length === 2
+  && m.sizes[0].name === 'klein' && m.sizes[0].price === 6.5
+  && m.sizes[1].name === 'groß' && m.sizes[1].price === 8.5,
+  m && JSON.stringify(m.sizes));
+t('Grundpreis ist der guenstigste (der Gast sieht "ab 6,50 €")',
+  !!m && m.price === 6.5, m && m.price);
 t('das V von Nr. 1 wird zum Merkmal vegetarisch', !!m && m.is_vegetarian === true, m && m.is_vegetarian);
 t('Nr. 1 klein kostet 6,50', !!m && m.price === 6.5, m && m.price);
 t('Nr. 1 steht unter Pizza', !!m && m.category === 'Pizza', m && m.category);
@@ -192,8 +208,8 @@ t('Familienpizza (41) bleibt direkt hinter Pizza -- Ueberschneidung stoert nicht
 
 // --- Zutaten stehen im Gericht ---------------------------------------------
 var mitBesch = items.filter(function (i) { return i.description && i.description.trim(); });
-t('Zutaten landen als Beschreibung im Gericht (>200 von 230)',
-  mitBesch.length > 200, mitBesch.length + ' von ' + items.length);
+t('Zutaten landen als Beschreibung im Gericht (>115 von 142)',
+  mitBesch.length > 115, mitBesch.length + ' von ' + items.length);
 var bari = items.filter(function (i) { return /Pizza Bari/.test(i.name); })[0];
 t('"Pizza Bari" traegt ihre Zutaten',
   !!bari && /Salami/.test(bari.description) && /Paprika/.test(bari.description),
@@ -213,6 +229,15 @@ t('Zusatzstoff-Ziffern werden erkannt',
   JSON.stringify(probe[0].additives) === '["1","2"]', JSON.stringify(probe[0].additives));
 t('die Klammern verschwinden aus der Beschreibung',
   probe[0].description === 'Käse, Tomaten', probe[0].description);
+
+// --- Groessen kommen bis in die Datenbank ----------------------------------
+t('Import schreibt die Groessen mit',
+  /sizes: \(Array\.isArray\(item\.sizes\) && item\.sizes\.length\) \? item\.sizes : null/.test(H));
+t('Gast-Ansicht macht daraus die Auswahl und zeigt "ab"-Preis',
+  /var hasSizes = item\.sizes && Array\.isArray\(item\.sizes\)/.test(H)
+  && /pricePrefix = 'ab '/.test(H));
+t('erste Groesse ist beim Gast vorausgewaehlt',
+  /currentMenuItem\.price = parseFloat\(item\.sizes\[0\]\.price\)/.test(H));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

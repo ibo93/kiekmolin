@@ -58255,11 +58255,39 @@ function pdfGerichteZuItems(liste) {
         }
         var zus = (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); });
         var preise = g.preise && g.preise.length ? g.preise : ['0'];
-        preise.forEach(function (p, k) {
+
+        // EIN Gericht, mehrere GROESSEN -- nicht zwei Gerichte.
+        //
+        // Vorher wurde aus "1. Pizza Margherita 6,50 € 8,50 €" zweimal etwas:
+        // "Pizza Margherita (klein)" und "Pizza Margherita (groß)". In der
+        // Karte standen sie untereinander und der Gast musste zwei fast
+        // gleiche Eintraege auseinanderhalten. Auf der gedruckten Karte ist es
+        // aber EIN Gericht mit zwei Preisen.
+        //
+        // Die App kann das laengst: das Feld "sizes" wird beim Gast als
+        // Auswahl gezeigt ("ab 6,50 €", klein ist vorausgewaehlt). Genau da
+        // gehoeren die Groessen hin.
+        var groessen = null;
+        if (preise.length > 1) {
+            var namen = preise.length === 2 ? ['klein', 'groß'] : ['klein', 'mittel', 'groß'];
+            groessen = preise.map(function (p, k) {
+                return {
+                    name: namen[k] || ('Größe ' + (k + 1)),
+                    price: Math.round(parseFloat(p) * 100) / 100 || 0
+                };
+            });
+            // Guenstigste zuerst -- die ist beim Gast vorausgewaehlt und steht
+            // als "ab"-Preis in der Karte.
+            groessen.sort(function (a, b) { return a.price - b.price; });
+        }
+
+        (function () {
+            var p = preise[0];
             out.push({
-                name: g.name + (preise.length > 1 ? (k === 0 ? ' (klein)' : ' (groß)') : ''),
+                name: g.name,
+                sizes: groessen,
                 description: g.besch || '',
-                price: Math.round(parseFloat(p) * 100) / 100 || 0,
+                price: groessen ? groessen[0].price : (Math.round(parseFloat(p) * 100) / 100 || 0),
                 category: g.kat || '',
                 dish_number: g.nr || '',
                 selected: true,
@@ -58269,7 +58297,7 @@ function pdfGerichteZuItems(liste) {
                 is_beef: false, is_chicken: false, is_pork: false,
                 is_fish: false, is_seafood: false
             });
-        });
+        })();
     });
     return out;
 }
@@ -58747,11 +58775,26 @@ function karteTextZuItems(gerichte) {
         var veg = !!g.veg || /(^|\s)V(\s|$)/.test(g.name) || /vegetarisch/i.test(g.beschreibung);
         var name = g.name.replace(/\sV$/, '').trim();
         var preise = g.preise.length ? g.preise : ['0'];
-        preise.forEach(function (p, k) {
+
+        // EIN Gericht mit Groessen -- wie beim PDF-Weg, damit der Import
+        // nicht zwei Faelle kennen muss.
+        var groessen = null;
+        if (preise.length > 1) {
+            var namen = preise.length === 2 ? ['klein', 'groß'] : ['klein', 'mittel', 'groß'];
+            groessen = preise.map(function (p, k) {
+                return { name: namen[k] || ('Größe ' + (k + 1)),
+                         price: Math.round(parseFloat(p) * 100) / 100 || 0 };
+            });
+            groessen.sort(function (a, b) { return a.price - b.price; });
+        }
+
+        (function () {
+            var p = preise[0];
             raus.push({
-                name: name + (preise.length > 1 ? (k === 0 ? ' (klein)' : ' (groß)') : ''),
+                name: name,
+                sizes: groessen,
                 description: g.beschreibung || '',
-                price: Math.round(parseFloat(p) * 100) / 100 || 0,
+                price: groessen ? groessen[0].price : (Math.round(parseFloat(p) * 100) / 100 || 0),
                 category: g.kategorie || 'Sonstiges',
                 dish_number: g.nummer || '',
                 selected: true,
@@ -58761,7 +58804,7 @@ function karteTextZuItems(gerichte) {
                 is_beef: false, is_chicken: false, is_pork: false,
                 is_fish: false, is_seafood: false
             });
-        });
+        })();
     });
     return raus;
 }
@@ -58870,10 +58913,11 @@ function karteVollZeige(e) {
     var html = '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">'
         + '<span class="material-symbols-outlined" style="font-size:22px;color:#003D33;">verified</span>'
         + '<div><div style="font-weight:800;color:#003D33;font-size:13px;">'
-        + items.length + ' Einträge · ' + folge.length + ' Kategorien</div>'
+        + items.length + ' Gerichte · ' + folge.length + ' Kategorien</div>'
         + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">'
         + (ohnePreis ? '<strong style="color:#b45309;">' + ohnePreis + ' ohne Preis</strong>' : 'alle mit Preis')
         + ' · ' + items.filter(function (x) { return x.description; }).length + ' mit Zutaten'
+        + ' · ' + items.filter(function (x) { return x.sizes && x.sizes.length; }).length + ' mit Größen'
         + ' · direkt aus dem PDF gelesen, ohne KI'
         + (e.bericht && e.bericht.ms ? ' · ' + (e.bericht.ms / 1000).toFixed(1) + ' s' : '')
         + '</div></div></div>';
@@ -58906,7 +58950,14 @@ function karteVollZeige(e) {
               +   '<span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
               +   (i.description ? '<span style="display:block;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.description) + '</span>' : '')
               + '</span>'
-              + '<span style="flex:none;font-weight:700;">' + (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : '—') + '</span></div>';
+              + '<span style="flex:none;font-weight:700;text-align:right;">'
+              +   (i.sizes && i.sizes.length
+                   ? i.sizes.map(function (g) {
+                         return '<span style="font-weight:500;color:var(--text-secondary);font-size:11px;">' + esc(g.name) + '</span> '
+                              + g.price.toFixed(2).replace('.', ',') + ' €';
+                     }).join('<br>')
+                   : (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : '—'))
+              + '</span></div>';
     });
     html += '</div>';
     box.innerHTML = html;
@@ -59692,6 +59743,9 @@ async function importScannedMenu() {
             name: item.name,
             description: item.description || '',
             base_price: parseFloat(item.price) || 0,
+            // Groessen als JSON mitschreiben. Die Gast-Ansicht macht daraus
+            // die Auswahl "klein / groß" und zeigt "ab <guenstigster Preis>".
+            sizes: (Array.isArray(item.sizes) && item.sizes.length) ? item.sizes : null,
             is_available: true,
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,

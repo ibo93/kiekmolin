@@ -40,7 +40,11 @@ var items = F.zuItems(r.gerichte);
 
 // --- Die Zahlen, die zaehlen ------------------------------------------------
 t('142 Gerichte aus dem eingefuegten Text', r.gerichte.length === 142, r.gerichte.length);
-t('230 Eintraege (klein/gross zaehlen doppelt)', items.length === 230, items.length);
+t('142 Gerichte -- EIN Gericht je Karteneintrag, Groessen als Auswahl',
+  items.length === 142, items.length);
+t('kein Gericht heisst "(klein)" oder "(groß)"',
+  !items.some(function (i) { return /\((klein|groß)\)/.test(i.name); }),
+  (items.filter(function (i) { return /\((klein|groß)\)/.test(i.name); })[0] || {}).name);
 t('kein Eintrag ohne Preis', items.filter(function (i) { return !i.price; }).length === 0,
   items.filter(function (i) { return !i.price; }).length);
 
@@ -83,16 +87,19 @@ t('Gerichte landen unter der erzwungenen Ueberschrift',
 function finde(nr) { return items.filter(function (i) { return i.dish_number === nr; }); }
 var m = finde('1')[0];
 t('Merkmal vor der Nummer ("V 1. Pizza Margherita") wird abgetrennt',
-  !!m && m.name === 'Pizza Margherita (klein)', m && m.name);
+  !!m && m.name === 'Pizza Margherita', m && m.name);
 t('und wird zum Merkmal vegetarisch', !!m && m.is_vegetarian === true, m && m.is_vegetarian);
 t('Nummer wird erkannt', !!m && m.dish_number === '1', m && m.dish_number);
 t('Nummer mit Buchstabe (66A) bleibt erhalten', finde('66A').length > 0, 'fehlt');
 t('Hinweiszeile "Extra Zutaten: klein 1,00 €" ist kein Gericht',
   !items.some(function (i) { return /^Zutaten/.test(i.name); }),
   items.filter(function (i) { return /Zutaten/.test(i.name); }).map(function (i) { return i.name; }).join(', '));
-t('zwei Preise in einer Zeile werden klein/gross',
-  finde('2').length === 2 && finde('2')[0].price === 7 && finde('2')[1].price === 9,
-  JSON.stringify(finde('2').map(function (i) { return i.price; })));
+var zwei = finde('2')[0];
+t('zwei Preise in einer Zeile werden zu Groessen an EINEM Gericht',
+  !!zwei && zwei.sizes && zwei.sizes.length === 2
+  && zwei.sizes[0].price === 7 && zwei.sizes[1].price === 9,
+  zwei && JSON.stringify(zwei.sizes));
+t('Grundpreis ist der guenstigste', !!zwei && zwei.price === 7, zwei && zwei.price);
 
 // --- Oberflaeche ------------------------------------------------------------
 t('Vorschau rechnet bei jedem Tastendruck', /oninput="try\{karteTextVorschau\(\)\}catch\(e\)\{\}"/.test(H));

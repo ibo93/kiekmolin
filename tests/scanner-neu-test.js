@@ -98,7 +98,8 @@ async function lauf(o) {
     t('PDF mit Text: keine Bilder gebaut (kein Umweg ueber Zeichenerkennung)',
       !a.bilderGebaut, 'Bilder wurden gebaut');
     t('PDF mit Text: keine Texterkennung', !a.ocrGelaufen, 'OCR lief');
-    t('PDF mit Text: 230 Eintraege', a.items.length === 230, a.items.length);
+    t('PDF mit Text: 142 Gerichte (Groessen als Auswahl, nicht als eigene Gerichte)',
+      a.items.length === 142, a.items.length);
     t('PDF mit Text: Ergebnis wird angezeigt', a.ergebnisGezeigt === true, 'nicht angezeigt');
     t('PDF mit Text: Bericht sagt "ohne KI"',
       (a.fenster._scanBericht || {}).quelle === 'PDF-Text, ohne KI',
