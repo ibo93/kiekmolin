@@ -43063,6 +43063,32 @@ document.addEventListener('error', function(e) {
      Regeln laufen im Browser, das Ergebnis steht waehrend des Einfuegens
      darunter. Es gibt nichts, was unbemerkt schiefgehen kann.
      ====================================================================== -->
+<!-- ======================================================================
+     KARTE ABGLEICHEN -- was sich gegenueber der bestehenden Karte aendert.
+     Steht zwischen Einlesen und Schreiben. Ohne diesen Schritt legt der
+     Import jedes Gericht ein zweites Mal an.
+     ====================================================================== -->
+<div class="modal-overlay" id="kartenAbgleichModal" style="z-index: 10008; display: none;">
+    <div class="modal" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2 class="modal-title" style="font-family:'Epilogue',sans-serif;display:flex;align-items:center;gap:10px;">
+                <span style="width:34px;height:34px;border-radius:50%;background:#003D33;display:inline-flex;align-items:center;justify-content:center;flex:none;">
+                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">difference</span>
+                </span>
+                Karte abgleichen
+            </h2>
+            <button class="modal-close" aria-label="Schließen" onclick="closeModal('kartenAbgleichModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="kartenAbgleichInhalt"></div>
+            <button type="button" id="kartenAbgleichKnopf" onclick="wendeKartenAbgleichAn()"
+                style="width:100%;margin-top:12px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;">
+                Änderungen übernehmen
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="karteEinfuegenModal" style="z-index: 10007; display: none;">
     <div class="modal" style="max-width: 760px;">
         <div class="modal-header">
@@ -59727,6 +59753,287 @@ function testImportWithDemoData() {
     showToast('Demo-Daten geladen - klicke "Alle importieren"', 'info');
 }
 
+// ============================================================================
+// KARTE ABGLEICHEN — aktualisieren statt verdoppeln
+// ============================================================================
+// Der Import kannte bisher nur ANLEGEN. Schickt ein Wirt im Fruehjahr dieselbe
+// Karte mit neuen Preisen, stand danach jedes Gericht zweimal in der App --
+// und der Gastronom durfte 142 Zeilen von Hand loeschen. Preise aendern sich
+// zwei- bis dreimal im Jahr, das trifft jeden Kunden.
+//
+// Hier wird die eingelesene Karte gegen die bestehende gehalten. Vier Toepfe:
+//   unveraendert  -- nichts tun
+//   geaendert     -- Preis, Groessen oder Zutaten anders  -> PATCH
+//   neu           -- steht noch nicht in der App          -> POST
+//   entfallen     -- in der App, aber nicht mehr auf der Karte
+//
+// Bei "entfallen" wird NICHT geloescht, sondern auf ausverkauft gesetzt. Ein
+// Gericht kann aus vielen Gruenden fehlen -- eine zweite Seite nicht
+// mitgeschickt, ein Druckfehler, eine Saisonkarte. Ausverkauft ist
+// zurueckdrehbar, geloescht ist weg. Wer trotzdem loeschen will, kann im
+// Fenster umschalten.
+
+// Schluessel zum Wiedererkennen. Die GERICHTNUMMER zuerst: die bleibt, auch
+// wenn der Wirt "Pizza Tonno" in "Pizza Thunfisch" umbenennt. Erst ohne
+// Nummer wird der Name genommen.
+function _abgleichSchluessel(item) {
+    var nr = (typeof getDishNumber === 'function' ? getDishNumber(item) : item.dish_number) || '';
+    if (nr) return 'nr:' + String(nr).toLowerCase().replace(/\s+/g, '');
+    return 'name:' + String(item.name || '').toLowerCase()
+        .replace(/\(.*?\)/g, '').replace(/[^a-zäöüß0-9]/g, '');
+}
+
+function _abgleichPreis(item) {
+    return Math.round((parseFloat(item.base_price != null ? item.base_price : item.price) || 0) * 100) / 100;
+}
+
+function _abgleichGroessen(item) {
+    if (!Array.isArray(item.sizes) || !item.sizes.length) return '';
+    return item.sizes.map(function (g) {
+        return String(g.name) + ':' + (Math.round((parseFloat(g.price) || 0) * 100) / 100);
+    }).join('|');
+}
+
+// Vergleich. Bekommt die frisch gelesenen Gerichte und die, die schon in der
+// App stehen.
+function karteAbgleichen(neuListe, bestehendListe) {
+    var bestehend = {};
+    (bestehendListe || []).forEach(function (b) {
+        var k = _abgleichSchluessel(b);
+        if (!bestehend[k]) bestehend[k] = b;      // erster gewinnt
+    });
+
+    var unveraendert = [], geaendert = [], neu = [], gesehen = {};
+
+    (neuListe || []).forEach(function (n) {
+        var k = _abgleichSchluessel(n);
+        var alt = bestehend[k];
+        if (!alt) { neu.push(n); return; }
+        gesehen[k] = 1;
+
+        var was = [];
+        // Auch den NAMEN vergleichen. Wiedererkannt wird ueber die
+        // Gerichtnummer -- benennt der Wirt "Pizza Tonno" in "Pizza
+        // Thunfisch" um, ist es dasselbe Gericht, aber der neue Name muss
+        // ankommen. Ohne diesen Vergleich galt die Umbenennung als
+        // "unveraendert" und in der App stand weiter der alte Name.
+        if (String(alt.name || '').trim() !== String(n.name || '').trim()) {
+            was.push({ feld: 'Name', alt: alt.name, neu: n.name });
+        }
+        if (_abgleichPreis(alt) !== _abgleichPreis(n)) {
+            was.push({ feld: 'Preis', alt: _abgleichPreis(alt), neu: _abgleichPreis(n) });
+        }
+        if (_abgleichGroessen(alt) !== _abgleichGroessen(n)) {
+            was.push({ feld: 'Größen', alt: _abgleichGroessen(alt) || '—', neu: _abgleichGroessen(n) || '—' });
+        }
+        // Zutaten nur melden, wenn die neue Karte welche liefert. Eine leere
+        // Beschreibung soll eine vorhandene nicht ueberschreiben -- sonst
+        // loescht ein Scan ohne Zutatenzeilen die Arbeit von Monaten.
+        if ((n.description || '').trim()
+            && (alt.description || '').trim() !== (n.description || '').trim()) {
+            was.push({ feld: 'Zutaten', alt: alt.description || '—', neu: n.description });
+        }
+        if (was.length) geaendert.push({ alt: alt, neu: n, was: was });
+        else unveraendert.push(alt);
+    });
+
+    var entfallen = (bestehendListe || []).filter(function (b) {
+        return !gesehen[_abgleichSchluessel(b)] && b.is_available !== false;
+    });
+
+    return { unveraendert: unveraendert, geaendert: geaendert, neu: neu, entfallen: entfallen };
+}
+
+// --- Sicherung --------------------------------------------------------------
+// Vor jedem Schreiben. Bisher gab es KEIN Zurueck: weder nach einem Import
+// noch nach "alle auswaehlen -> loeschen". Die Sicherung liegt in activity_log
+// (freies Schema, keine Datenbank-Aenderung noetig) und haelt Name, Preis,
+// Groessen, Beschreibung und Verfuegbarkeit fest.
+async function sichereKarte(restaurantId, anlass) {
+    try {
+        var liste = (window.menuItems || []).map(function (i) {
+            return { id: i.id, name: i.name, base_price: i.base_price, sizes: i.sizes || null,
+                     description: i.description || '', category_id: i.category_id,
+                     is_available: i.is_available !== false };
+        });
+        if (!liste.length) return null;
+        var res = await fetch(SUPA_URL + '/rest/v1/activity_log', {
+            method: 'POST',
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+                       'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({
+                activity_type: 'menu_backup',
+                target_type: 'restaurant',
+                target_id: restaurantId,
+                message: liste.length + ' Gerichte gesichert vor: ' + anlass,
+                metadata: { anlass: anlass, anzahl: liste.length, gerichte: liste }
+            })
+        });
+        return res.ok;
+    } catch (e) {
+        console.warn('[karte] Sicherung fehlgeschlagen:', e.message);
+        return false;
+    }
+}
+
+// --- Fenster ----------------------------------------------------------------
+function zeigeKartenAbgleich(d) {
+    window._kartenAbgleich = d;
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+    var eur = function (p) { return (Math.round(p * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
+
+    var html = '<div style="font-family:Inter,sans-serif;">';
+    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">'
+          + [['unverändert', d.unveraendert.length, '#6b7280'],
+             ['Preis/Zutaten geändert', d.geaendert.length, '#003D33'],
+             ['neu', d.neu.length, '#15803d'],
+             ['nicht mehr auf der Karte', d.entfallen.length, '#b45309']]
+            .map(function (x) {
+                return '<div><div style="font-size:22px;font-weight:900;color:' + x[2] + ';">' + x[1] + '</div>'
+                     + '<div style="font-size:11px;color:var(--text-secondary);">' + x[0] + '</div></div>';
+            }).join('') + '</div>';
+
+    if (!d.geaendert.length && !d.neu.length && !d.entfallen.length) {
+        html += '<p style="font-size:13px;color:var(--text-secondary);">Die Karte in der App ist schon auf dem Stand dieser Datei. Es gibt nichts zu übernehmen.</p>';
+        html += '</div>';
+        document.getElementById('kartenAbgleichInhalt').innerHTML = html;
+        var knopf = document.getElementById('kartenAbgleichKnopf');
+        if (knopf) knopf.style.display = 'none';
+        openModal('kartenAbgleichModal');
+        return;
+    }
+
+    function block(titel, farbe, zeilen) {
+        if (!zeilen.length) return '';
+        return '<div style="margin-bottom:12px;">'
+             + '<div style="font-size:12px;font-weight:800;color:' + farbe + ';margin-bottom:4px;">' + titel + '</div>'
+             + '<div style="max-height:170px;overflow:auto;border:1px solid var(--border-color);border-radius:10px;">'
+             + zeilen.join('') + '</div></div>';
+    }
+
+    html += block('Preis oder Zutaten geändert', '#003D33', d.geaendert.map(function (g) {
+        return '<div style="padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+             + '<strong>' + esc(g.neu.name) + '</strong> '
+             + g.was.map(function (w) {
+                   return '<span style="color:var(--text-secondary);">' + w.feld + ' </span>'
+                        + '<span style="text-decoration:line-through;opacity:.6;">'
+                        + esc(w.feld === 'Preis' ? eur(w.alt) : w.alt) + '</span> → '
+                        + '<strong>' + esc(w.feld === 'Preis' ? eur(w.neu) : w.neu) + '</strong>';
+               }).join(' · ')
+             + '</div>';
+    }));
+
+    html += block('Neu auf der Karte', '#15803d', d.neu.map(function (n) {
+        return '<div style="padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+             + '<strong>' + esc(n.name) + '</strong> <span style="color:var(--text-secondary);">'
+             + esc(n.category) + '</span> · ' + eur(n.price) + '</div>';
+    }));
+
+    html += block('Nicht mehr auf der Karte', '#b45309', d.entfallen.map(function (e) {
+        return '<div style="padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+             + esc(e.name) + '</div>';
+    }));
+
+    if (d.entfallen.length) {
+        html += '<div style="border:1px solid rgba(0,61,51,0.15);border-radius:12px;padding:10px 12px;margin-bottom:10px;">'
+              + '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;cursor:pointer;">'
+              + '<input type="radio" name="kartenAbgleichEntfallen" value="ausverkauft" checked style="margin-top:2px;accent-color:#003D33;">'
+              + '<span><strong>Ausverkauft setzen</strong> — bleiben in der App, sind aber nicht bestellbar. Jederzeit zurückdrehbar.</span></label>'
+              + '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;cursor:pointer;margin-top:6px;">'
+              + '<input type="radio" name="kartenAbgleichEntfallen" value="lassen" style="margin-top:2px;accent-color:#003D33;">'
+              + '<span>Unverändert lassen</span></label>'
+              + '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;cursor:pointer;margin-top:6px;">'
+              + '<input type="radio" name="kartenAbgleichEntfallen" value="loeschen" style="margin-top:2px;accent-color:#b45309;">'
+              + '<span style="color:#b45309;"><strong>Löschen</strong> — endgültig. Die Sicherung vorher bleibt, aber es gibt keinen Knopf zum Zurückholen.</span></label>'
+              + '</div>';
+    }
+
+    html += '<p style="font-size:11px;color:var(--text-secondary);margin:0;">'
+          + 'Vor dem Schreiben wird die aktuelle Karte gesichert.</p></div>';
+
+    document.getElementById('kartenAbgleichInhalt').innerHTML = html;
+    var k2 = document.getElementById('kartenAbgleichKnopf');
+    if (k2) {
+        k2.style.display = '';
+        k2.textContent = (d.geaendert.length + d.neu.length
+            + (d.entfallen.length ? d.entfallen.length : 0)) + ' Änderungen übernehmen';
+    }
+    openModal('kartenAbgleichModal');
+}
+
+// --- Anwenden ---------------------------------------------------------------
+async function wendeKartenAbgleichAn() {
+    var d = window._kartenAbgleich;
+    if (!d) return;
+    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var wahl = (document.querySelector('input[name="kartenAbgleichEntfallen"]:checked') || {}).value || 'ausverkauft';
+
+    var knopf = document.getElementById('kartenAbgleichKnopf');
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Wird übernommen…'; }
+
+    await sichereKarte(restaurantId, 'Karte abgleichen');
+
+    var H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+              'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
+
+    // 1) Geaenderte Gerichte
+    for (var i = 0; i < d.geaendert.length; i++) {
+        var g = d.geaendert[i];
+        var neuerStand = { name: g.neu.name, base_price: _abgleichPreis(g.neu) };
+        if (Array.isArray(g.neu.sizes) && g.neu.sizes.length) neuerStand.sizes = g.neu.sizes;
+        if ((g.neu.description || '').trim()) neuerStand.description = g.neu.description;
+        try {
+            var r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
+                { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
+            if (r.ok) geaendert++; else fehler++;
+        } catch (e) { fehler++; }
+    }
+
+    // 2) Entfallene
+    for (var j = 0; j < d.entfallen.length && wahl !== 'lassen'; j++) {
+        var e = d.entfallen[j];
+        try {
+            var r2;
+            if (wahl === 'loeschen') {
+                r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id, { method: 'DELETE', headers: H });
+                if (r2.ok) geloescht++; else fehler++;
+            } else {
+                r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id,
+                    { method: 'PATCH', headers: H, body: JSON.stringify({ is_available: false }) });
+                if (r2.ok) stillgelegt++; else fehler++;
+            }
+        } catch (e2) { fehler++; }
+    }
+
+    // 3) Neue Gerichte -- ueber den vorhandenen Import, damit Kategorien,
+    //    Allergene und Extras genauso behandelt werden wie beim ersten Mal.
+    if (d.neu.length) {
+        var merken = scannedMenuItems;
+        scannedMenuItems = d.neu.map(function (n) { n.selected = true; return n; });
+        window.scannedMenuItems = scannedMenuItems;
+        window._abgleichLaeuft = true;          // verhindert die Abgleich-Schleife
+        try { await importScannedMenu(); angelegt = d.neu.length; } catch (e3) { fehler++; }
+        window._abgleichLaeuft = false;
+        scannedMenuItems = merken;
+        window.scannedMenuItems = scannedMenuItems;
+    }
+
+    closeModal('kartenAbgleichModal');
+    var teile = [];
+    if (geaendert) teile.push(geaendert + ' aktualisiert');
+    if (angelegt) teile.push(angelegt + ' neu');
+    if (stillgelegt) teile.push(stillgelegt + ' ausverkauft');
+    if (geloescht) teile.push(geloescht + ' gelöscht');
+    if (!teile.length) teile.push('nichts geändert');
+    showToast('Karte abgeglichen: ' + teile.join(' · ')
+        + (fehler ? ' (' + fehler + ' fehlgeschlagen)' : ''), fehler ? 'warning' : 'success');
+
+    try { closeModal('menuScannerModal'); } catch (e4) {}
+    if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
+}
+
 async function importScannedMenu() {
 
     var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
@@ -59742,6 +60049,22 @@ async function importScannedMenu() {
         showToast('Keine Gerichte ausgewählt!', 'error');
         return;
     }
+
+    // STEHT SCHON EINE KARTE DRIN? Dann nicht blind anlegen, sondern abgleichen.
+    //
+    // Vorher hat diese Funktion ausschliesslich POST gemacht. Der zweite
+    // Import derselben Karte -- etwa im Fruehjahr mit neuen Preisen -- hat
+    // jedes Gericht ein zweites Mal angelegt, und der Gastronom durfte 142
+    // Zeilen von Hand loeschen. Preise aendern sich mehrmals im Jahr.
+    if (!window._abgleichLaeuft && Array.isArray(window.menuItems) && window.menuItems.length) {
+        var d = karteAbgleichen(selectedItems, window.menuItems);
+        zeigeKartenAbgleich(d);
+        return;
+    }
+
+    // Erster Import in eine leere Karte: trotzdem sichern. Kostet nichts und
+    // ist das einzige Zurueck, das es gibt.
+    await sichereKarte(restaurantId, 'Karte importieren');
 
     // Button deaktivieren + Loading
     var importBtn = document.querySelector('#menuScanResults button[onclick*="importScannedMenu"]');
@@ -60267,6 +60590,12 @@ async function applyBulkPrice(type) {
 }
 
 async function bulkDeleteItems() {
+    // Sicherung zuerst. Ueber "alle auswaehlen" ist hier die ganze Karte weg,
+    // und bis hierher gab es dafuer kein Zurueck.
+    try {
+        await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID,
+                           'Gerichte löschen');
+    } catch (e) {}
     var count = Object.keys(bulkSelectedItems).length;
     if (count === 0) return;
     if (!await kinConfirm(count + ' Gerichte wirklich löschen?')) return;
