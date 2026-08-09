@@ -58013,6 +58013,28 @@ function parseKartenText(text, startKategorie) {
         var m = z.match(/(\d{1,3},\d{2})\s*€/g);
         return m ? m.map(function (x) { return x.replace(/\s*€/, '').replace(',', '.'); }) : [];
     }
+    // SPALTENKOEPFE SIND DIE NAMEN DER GROESSEN.
+    //
+    // Die Karte schreibt ueber jede Preisspalte, was sie bedeutet:
+    // "KLEIN GROSS" bei den Pizzen, "IM BROT TELLER" bei den Fleischgerichten.
+    // Vorher wurde das nur weggeworfen, und die zweite Groesse hiess dann bei
+    // JEDEM Gericht "groß" -- auch beim Döner, wo "Teller" richtig ist.
+    // Jetzt wird es je Abschnitt gemerkt und als Groessenname benutzt.
+    var SPALTENWORT = /\b(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|SCHALE|BECHER|FLASCHE|GLAS)\b/gi;
+    var SCHREIBWEISE = { 'KLEIN': 'klein', 'GROSS': 'groß', 'GROß': 'groß', 'IM BROT': 'im Brot',
+                         'TELLER': 'Teller', 'PORTION': 'Portion', 'SCHALE': 'Schale',
+                         'BECHER': 'Becher', 'FLASCHE': 'Flasche', 'GLAS': 'Glas' };
+    function spaltenNamenAus(z) {
+        var treffer = String(z).match(SPALTENWORT);
+        if (!treffer || treffer.length < 2) return null;
+        return treffer.map(function (w) { return SCHREIBWEISE[w.toUpperCase()] || w.toLowerCase(); });
+    }
+    // Zeile, die NUR aus Spaltenkoepfen besteht ("KLEIN GROSS") -- weder
+    // Gericht noch Beschreibung.
+    function istNurSpaltenkopf(z) {
+        return !!spaltenNamenAus(z) && !String(z).replace(SPALTENWORT, '').replace(/[\s|/·-]+/g, '');
+    }
+
     // Spaltenkoepfe, die hinter der Ueberschrift stehen ("Pizza KLEIN GROSS")
     function ohneSpaltenkopf(z) {
         return z.replace(/\s*(KLEIN|GROSS|IM BROT|TELLER|PORTION|PREIS)\b/gi, '')
@@ -58022,14 +58044,19 @@ function parseKartenText(text, startKategorie) {
     // (groessere oder fette Schrift), nicht aus einer Vermutung.
     function istUeberschrift(z) { return z.slice(0, 3) === '## '; }
 
-    var out = [], extras = [], kat = startKategorie || '', letztes = null;
+    var out = [], extras = [], kat = startKategorie || '', letztes = null, spalten = null;
     for (var i = 0; i < zeilen.length; i++) {
         var z = zeilen[i];
         if (istUeberschrift(z)) {
-            var k = ohneSpaltenkopf(z.slice(3));
-            if (k) { kat = k; letztes = null; }
+            var roh = z.slice(3);
+            var k = ohneSpaltenkopf(roh);
+            var sp = spaltenNamenAus(roh);
+            if (sp) spalten = sp;                 // "Pizza (Forts.) KLEIN GROSS"
+            if (k) { kat = k; letztes = null; if (!sp) spalten = null; }
             continue;
         }
+        // Eigene Zeile mit den Spaltenkoepfen ("KLEIN GROSS", "IM BROT TELLER")
+        if (istNurSpaltenkopf(z)) { spalten = spaltenNamenAus(z); continue; }
         var pr = preiseIn(z);
 
         if (!pr.length) {
@@ -58068,7 +58095,7 @@ function parseKartenText(text, startKategorie) {
             if (letztes && !letztes.preise.length) { letztes.preise = pr; continue; }
             continue;
         }
-        letztes = { nr: nr, name: vor, besch: '', preise: pr, kat: kat };
+        letztes = { nr: nr, name: vor, besch: '', preise: pr, kat: kat, spalten: spalten };
         out.push(letztes);
     }
 
@@ -58269,7 +58296,12 @@ function pdfGerichteZuItems(liste) {
         // gehoeren die Groessen hin.
         var groessen = null;
         if (preise.length > 1) {
-            var namen = preise.length === 2 ? ['klein', 'groß'] : ['klein', 'mittel', 'groß'];
+            // Namen aus den Spaltenkoepfen der Karte, wenn sie passen.
+            // Bei den Fleischgerichten steht dort "IM BROT TELLER" -- der Gast
+            // waehlt dann "im Brot" oder "Teller" statt "klein"/"groß".
+            var namen = (g.spalten && g.spalten.length === preise.length)
+                ? g.spalten
+                : (preise.length === 2 ? ['klein', 'groß'] : ['klein', 'mittel', 'groß']);
             groessen = preise.map(function (p, k) {
                 return {
                     name: namen[k] || ('Größe ' + (k + 1)),

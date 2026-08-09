@@ -230,6 +230,31 @@ t('Zusatzstoff-Ziffern werden erkannt',
 t('die Klammern verschwinden aus der Beschreibung',
   probe[0].description === 'Käse, Tomaten', probe[0].description);
 
+// --- Groessennamen kommen von der Karte, nicht aus einer Annahme -----------
+// Ueber den Pizzen steht "KLEIN GROSS", ueber den Fleischgerichten
+// "IM BROT TELLER". Vorher hiess die zweite Groesse ueberall "groß" -- auch
+// beim Döner, wo "Teller" auf der Karte steht.
+var doener = items.filter(function (i) { return i.dish_number === '61'; })[0];
+t('Döner Kebab hat die Groessen der Karte: im Brot / Teller',
+  !!doener && doener.sizes && doener.sizes.length === 2
+  && doener.sizes[0].name === 'im Brot' && doener.sizes[1].name === 'Teller',
+  doener && JSON.stringify(doener.sizes));
+t('Döner: im Brot 8,00 und Teller 11,00',
+  !!doener && doener.sizes[0].price === 8 && doener.sizes[1].price === 11,
+  doener && JSON.stringify(doener.sizes));
+t('Pizzen behalten klein / groß',
+  m.sizes[0].name === 'klein' && m.sizes[1].name === 'groß', JSON.stringify(m.sizes));
+var namensBilder = {};
+items.forEach(function (i) {
+    if (i.sizes) namensBilder[i.sizes.map(function (g) { return g.name; }).join('/')] = 1;
+});
+t('nur die beiden Bezeichnungen, die wirklich auf der Karte stehen',
+  Object.keys(namensBilder).sort().join(' + ') === 'im Brot/Teller + klein/groß',
+  Object.keys(namensBilder).join(' + '));
+t('die Spaltenkopf-Zeile ist kein Gericht',
+  !items.some(function (i) { return /^(KLEIN|GROSS|IM BROT|TELLER)/i.test(i.name); }),
+  (items.filter(function (i) { return /^(KLEIN|GROSS|IM BROT|TELLER)/i.test(i.name); })[0] || {}).name);
+
 // --- Groessen kommen bis in die Datenbank ----------------------------------
 t('Import schreibt die Groessen mit',
   /sizes: \(Array\.isArray\(item\.sizes\) && item\.sizes\.length\) \? item\.sizes : null/.test(H));
