@@ -57287,318 +57287,336 @@ async function scannerSelbsttest(btn) {
     box.innerHTML = html;
 }
 
-async function startMenuScan() {
-    if (!menuScanImageData) {
-        showToast('Bitte zuerst eine Datei hochladen', 'error');
-        return;
+// ============================================================================
+// MENUESCANNER
+// ============================================================================
+// Drei Wege, streng nacheinander. Jeder fuer sich pruefbar, und auf dem
+// Bildschirm steht immer, welcher gelaufen ist.
+//
+//   1. PDF MIT TEXT   -> feste Regeln, KEIN Modell.  Der Normalfall.
+//                        Eine Karte vom Designer ist ein PDF mit echtem Text.
+//                        Name, Preis, Nummer und Ueberschrift stehen dort
+//                        zeichengenau, mit Position und Schriftgroesse. Da
+//                        muss nichts "erkannt" werden. Dauer: unter 1 Sekunde.
+//   2. FOTO / PDF OHNE TEXT -> Modell.
+//   3. Modell nicht erreichbar -> Texterkennung, mit deutlicher Warnung.
+//
+// Was frueher schiefging und warum es jetzt anders gebaut ist:
+//   * Weg 1 und Weg 2 hingen in EINER 340-Zeilen-Funktion. Faellt Weg 1 aus,
+//     lief Weg 2 einfach weiter -- ohne dass jemand sah, dass gewechselt
+//     wurde. Der Gastronom bekam Modell-Ergebnisse und dachte, das sei der
+//     PDF-Weg. Jetzt sind es drei Funktionen, und der Wechsel wird angesagt.
+//   * Weg 1 gab auf, wenn pdf.js noch lud. Jetzt wird gewartet.
+//   * Findet Weg 1 Text, aber kaum Gerichte, wird NICHT still auf das Modell
+//     umgeschaltet -- dann stimmt etwas am Aufbau der Karte, und der Rohtext
+//     wird angezeigt, statt das Problem zu verstecken.
+
+// --- WEG 1: PDF mit Text, ohne Modell ---------------------------------------
+async function leseKartePdf(pdfData) {
+    var ergebnis = { ok: false, grund: '', items: [], extras: null,
+                     seiten: 0, rohtext: '', protokoll: [] };
+
+    var seitenText = null;
+    try { seitenText = await pdfTextSeiten(pdfData); }
+    catch (e) { ergebnis.grund = 'PDF nicht lesbar: ' + e.message; return ergebnis; }
+
+    if (!seitenText || !seitenText.some(Boolean)) {
+        ergebnis.grund = 'Dieses PDF enthaelt keinen Text (eingescannt oder als Bild gespeichert).';
+        return ergebnis;
     }
+
+    var seiten = seitenText.filter(Boolean);
+    ergebnis.seiten = seiten.length;
+    ergebnis.protokoll.push(seiten.length + ' Seiten Text aus dem PDF geholt');
+
+    // Der Restaurantname steht als Ueberschrift auf JEDER Seite -- das ist ein
+    // Seitenkopf, keine Kategorie. Ohne das landet das erste Gericht der
+    // Folgeseite unter "Pronto Pronto".
+    var kopf = null;
+    seiten.forEach(function (txt) {
+        var k = txt.split('\n').filter(function (z) { return z.slice(0, 3) === '## '; })
+                   .map(function (z) { return z.slice(3).trim(); });
+        kopf = (kopf === null) ? k : kopf.filter(function (x) { return k.indexOf(x) >= 0; });
+    });
+    if (seiten.length > 1 && kopf && kopf.length) {
+        ergebnis.protokoll.push('Seitenkopf erkannt und entfernt: ' + kopf.join(' / '));
+        seiten = seiten.map(function (txt) {
+            return txt.split('\n').filter(function (z) {
+                return !(z.slice(0, 3) === '## ' && kopf.indexOf(z.slice(3).trim()) >= 0);
+            }).join('\n');
+        });
+    }
+    ergebnis.rohtext = seiten.join('\n\n');
+
+    var gerichte = [], letzteKat = '', rohExtras = [];
+    seiten.forEach(function (txt) {
+        var teil = parseKartenText(txt, letzteKat);
+        if (teil.length) letzteKat = teil[teil.length - 1].kat;
+        rohExtras = rohExtras.concat(teil.extras || []);
+        gerichte = gerichte.concat(teil);
+    });
+
+    if (gerichte.length < 5) {
+        // NICHT still zum Modell wechseln. Text war da, Gerichte nicht --
+        // daran stimmt etwas am Aufbau, und das muss man sehen koennen.
+        ergebnis.grund = 'Text gelesen, aber nur ' + gerichte.length + ' Gerichte erkannt.';
+        return ergebnis;
+    }
+
+    ergebnis.items = sortiereNachNummer(pdfGerichteZuItems(gerichte));
+    ergebnis.extras = extrasZuGruppen(rohExtras);
+    ergebnis.protokoll.push(gerichte.length + ' Gerichte, ' + ergebnis.items.length + ' Eintraege');
+    if (ergebnis.extras && ergebnis.extras.length) {
+        ergebnis.protokoll.push(ergebnis.extras.length + ' Extra-Gruppen gefunden');
+    }
+    ergebnis.ok = true;
+    return ergebnis;
+}
+
+// --- WEG 2: Modell ----------------------------------------------------------
+async function leseKarteKI(images, vorhandeneKats, statusEl, ausPdfText) {
+    var start = new Date().getTime();
+    var protokoll = [], meta = [];
+    window._scanMeta = [];
+    if (ausPdfText) protokoll.push('Text direkt aus dem PDF gelesen — kein Bild, keine Zeichenerkennung');
+
+    statusEl.textContent = images.length > 1
+        ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
+        : '🤖 KI erkennt Gerichte & Kategorien…';
+
+    var proSeite = images.map(function () { return 0; });
+    function fortschritt() {
+        var summe = proSeite.reduce(function (x, y) { return x + y; }, 0);
+        statusEl.textContent = '🤖 ' + summe + ' Gerichte gelesen…'
+            + (images.length > 1 ? ' (' + images.length + ' Seiten)' : '');
+    }
+
+    // BEIDE WEGE liefern dasselbe: eine Liste pro Seite, in der Reihenfolge der
+    // Seiten. Darauf verlaesst sich alles danach -- vor allem die Kategorie, die
+    // ueber Seitengrenzen hinweg fortgeschrieben wird. Wer hier die Reihenfolge
+    // aufgibt (z.B. "fertig zuerst"), zerlegt die Gliederung der Karte.
+    //
+    // Weg 2a: ein Aufruf pro Seite, ohne Zeitlimit (Background-Function).
+    var teile = await Promise.all(images.map(function (bild, si) {
+        return scanOhneZeitlimit([bild], vorhandeneKats, function (sek) {
+            proSeite[si] = -1;
+            statusEl.textContent = images.length > 1
+                ? ('\u{1F916} KI liest ' + images.length + ' Seiten am Stück… (' + sek + ' s)')
+                : ('\u{1F916} KI liest die Karte am Stück… (' + sek + ' s)');
+        }).catch(function () { return null; });
+    }));
+
+    if (teile.some(function (x) { return x && x.items && x.items.length; })) {
+        protokoll.push('Ein Aufruf pro Seite, ohne Zeitlimit');
+        teile = teile.map(function (x) {
+            var n = (x && x.items) ? x.items.length : 0;
+            return { items: (x && x.items) || [], fehler: x && x.fehler,
+                     protokoll: [{ runde: 1, ms: (x && x.dauer) || 0, neu: n, status: 'am Stück, ohne Zeitlimit' }] };
+        });
+    } else {
+        // Weg 2b: Abschnitte und Runden unter dem 10-Sekunden-Limit.
+        protokoll.push(teile.some(Boolean)
+            ? 'Weg ohne Zeitlimit lieferte nichts — nehme Abschnitte und Runden'
+            : 'Weg ohne Zeitlimit hier nicht verfügbar — nehme Abschnitte und Runden');
+        teile = await Promise.all(images.map(function (bild, si) {
+            return scanSeiteParallel(bild, vorhandeneKats, function (n, hinweis) {
+                proSeite[si] = n;
+                if (hinweis) { statusEl.textContent = '⏳ ' + hinweis; return; }
+                fortschritt();
+            }).catch(function (e) {
+                return { aiItems: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: 'FEHLER: ' + e.message }], fehler: e.message };
+            });
+        }));
+    }
+
+    var ersterFehler = null, fehlSeiten = 0;
+    teile.forEach(function (t, si) {
+        if (!t) { fehlSeiten++; return; }
+        if (!t.items || !t.items.length) fehlSeiten++;
+        if (!ersterFehler && t.fehler) ersterFehler = t.fehler;
+        (t.protokoll || []).forEach(function (r) {
+            protokoll.push('S' + (si + 1) + ' R' + r.runde + ': +' + r.neu + ' in '
+                           + Math.round(r.ms / 100) / 10 + 's — ' + r.status);
+        });
+    });
+
+    var aiItems = [];
+    teile.forEach(function (t) { if (t && t.items) aiItems = aiItems.concat(t.items); });
+
+    // Zweiter Blick, Seite fuer Seite und parallel.
+    var pruef = { korrigiert: 0, ergaenzt: 0, sauber: 0 };
+    if (aiItems.length) {
+        statusEl.textContent = '🔍 Zweiter Blick: ' + aiItems.length + ' Gerichte werden gegen das Foto geprüft…';
+        var pr = await Promise.all(images.map(function (bild, si) {
+            var teil = teile[si];
+            if (!teil || !teil.items || !teil.items.length) return Promise.resolve(null);
+            return pruefeSeite(bild, teil.items, vorhandeneKats).catch(function () { return null; });
+        }));
+        aiItems = [];
+        teile.forEach(function (t) { if (t && t.items) aiItems = aiItems.concat(t.items); });
+        pr.forEach(function (x, si) {
+            if (!x) return;
+            pruef.korrigiert += x.korrigiert; pruef.ergaenzt += x.ergaenzt;
+            if (x.sauber) pruef.sauber++;
+            protokoll.push('S' + (si + 1) + ' Prüfung: ' + x.korrigiert + ' korrigiert, '
+                           + x.ergaenzt + ' ergänzt, ' + Math.round(x.ms / 100) / 10 + 's'
+                           + (x.sauber ? ', ohne Beanstandung' : ''));
+        });
+    }
+
+    // Kategorien ueber die Seitengrenzen hinweg fortschreiben. Beginnt ein
+    // Abschnitt oberhalb des Schnitts, sieht das Modell dort keine
+    // Ueberschrift und liefert "" -- dann gilt die zuletzt gesehene. Genau das
+    // tut ein Mensch auch, der umblaettert.
+    var _letzteKat = '';
+    aiItems.forEach(function (it) {
+        var k = (it.category || '').trim();
+        if (k) { _letzteKat = k; return; }
+        it.category = _letzteKat;
+    });
+    // Was jetzt noch ohne Ueberschrift ist, stand wirklich unter keiner.
+    aiItems.forEach(function (it) {
+        if (!(it.category || '').trim()) it.category = 'Sonstiges';
+    });
+
+    // Duplikate. Der Schluessel enthaelt die GERICHTNUMMER: auf der Karte von
+    // Pronto Pronto stehen "114. Roma Spezial" und "115. Roma Spezial" --
+    // gleicher Name, gleicher Preis, zwei Gerichte. Ohne Nummer verschwindet
+    // eines davon stillschweigend.
+    var _seenScan = {};
+    aiItems = aiItems.filter(function (it) {
+        var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
+        if (_seenScan[k]) return false;
+        _seenScan[k] = 1; return true;
+    });
+
+    meta = window._scanMeta || [];
+    var kats = {};
+    aiItems.forEach(function (i) { kats[i.category || '(leer)'] = (kats[i.category || '(leer)'] || 0) + 1; });
+    return {
+        items: aiItems, fehlSeiten: fehlSeiten, ersterFehler: ersterFehler, pruefung: pruef,
+        bericht: {
+            dauer: Math.round((new Date().getTime() - start) / 100) / 10 + ' s',
+            bilder: images.length, seitenOhneErgebnis: fehlSeiten, protokoll: protokoll,
+            quellePdfText: !!ausPdfText, pruefung: pruef,
+            quelle: 'KI (' + ((meta[0] && meta[0].modell) || '?') + ')',
+            modell: (meta[0] && meta[0].modell) || '?',
+            ocr: meta.some(function (x) { return x.ocr; }) ? 'ja' : 'nein',
+            rohTreffer: meta.reduce(function (a, x) { return a + (x.roh || 0); }, 0),
+            nachDuplikaten: aiItems.length,
+            ohnePreis: aiItems.filter(function (i) { return !i.price; }).length,
+            vorhandeneKategorien: vorhandeneKats, kategorien: kats
+        }
+    };
+}
+
+// --- Weg-Auswahl ------------------------------------------------------------
+async function startMenuScan() {
+    if (!menuScanImageData) { showToast('Bitte zuerst eine Datei hochladen', 'error'); return; }
 
     document.getElementById('menuScanPreview').style.display = 'none';
     document.getElementById('menuScanProgress').style.display = 'block';
-
     var statusEl = document.getElementById('menuScanStatus');
+    var start = new Date().getTime();
+    var _pdfGrund = null;
 
-    var _scanFehlerGrund = null;
-    var _ausPdfText = false;
-    var _ohneKI = null;
+    window._scanQuelleOCR = null;
+    window._scanExtras = null;
+    window._scanPruefung = null;
+    window._scanRohtext = null;
 
     try {
-        window._scanQuelleOCR = null;
-        window._scanExtras = null;
-        // Neutral anfangen. Ob ueberhaupt eine KI gebraucht wird, steht erst
-        // fest, wenn klar ist, ob das PDF echten Text enthaelt.
-        statusEl.textContent = 'Speisekarte wird gelesen…';
+        // ---------- WEG 1: PDF mit Text ----------
+        if (menuScanFileType === 'pdf') {
+            statusEl.textContent = 'PDF wird gelesen…';
+            var pdf = await leseKartePdf(menuScanImageData);
+            window._scanRohtext = pdf.rohtext || null;
+
+            if (pdf.ok) {
+                window._scanExtras = pdf.extras;
+                scannedMenuItems = pdf.items;
+                scannedMenuItems.forEach(function (i) { i.selected = true; });
+                window.scannedMenuItems = scannedMenuItems;
+                var kats = {};
+                pdf.items.forEach(function (i) { kats[i.category || '(leer)'] = (kats[i.category || '(leer)'] || 0) + 1; });
+                window._scanBericht = {
+                    dauer: Math.round((new Date().getTime() - start) / 100) / 10 + ' s',
+                    bilder: pdf.seiten, seitenOhneErgebnis: 0, protokoll: pdf.protokoll,
+                    quellePdfText: true, quelle: 'PDF-Text, ohne KI', modell: '—', ocr: 'nein',
+                    rohTreffer: pdf.items.length, nachDuplikaten: pdf.items.length,
+                    ohnePreis: pdf.items.filter(function (i) { return !i.price; }).length,
+                    vorhandeneKategorien: [], kategorien: kats
+                };
+                statusEl.textContent = 'Direkt aus dem PDF gelesen — ohne KI';
+                showToast(pdf.items.length + ' Einträge direkt aus dem PDF gelesen — ohne KI, '
+                          + Object.keys(kats).length + ' Kategorien', 'success');
+                showScannedResults();
+                return;
+            }
+
+            // PDF hatte Text, aber der Aufbau passt nicht -> NICHT still zum
+            // Modell. Rohtext zeigen, damit der Fehler sichtbar ist.
+            if (pdf.rohtext) {
+                statusEl.textContent = pdf.grund;
+                var feld = document.getElementById('menuScanTextInput');
+                if (feld) feld.value = pdf.rohtext.slice(0, 40000);
+                document.getElementById('menuScanProgress').style.display = 'none';
+                document.getElementById('menuScanUploadArea').style.display = 'block';
+                showToast(pdf.grund + ' Der gelesene Text steht im Textfeld — bitte weitergeben.', 'warning');
+                return;
+            }
+            // Grund festhalten -- die naechste Statuszeile ueberschreibt ihn
+            // sonst sofort, und dann wechselt der Scanner wieder unbemerkt den
+            // Weg. Genau das soll dieser Umbau abstellen.
+            _pdfGrund = pdf.grund;
+        }
+
+        // ---------- WEG 2: Modell ----------
         var images = [];
         if (menuScanFileType === 'pdf') {
-            // ZUERST den echten Text aus dem PDF holen.
-            //
-            // Fast jede Karte, die ein Gastronom schickt, ist ein PDF vom
-            // Designer -- also eine Datei mit echtem Text. Daraus ein Bild zu
-            // machen und ein Modell 6-Punkt-Schrift entziffern zu lassen, ist
-            // der Umweg, und jeder Lesefehler danach entsteht erst dadurch.
-            // Mit dem Text stimmen Preise und Namen zeichengenau.
-            statusEl.textContent = 'PDF wird gelesen...';
-            var _pdfText = null;
-            try { _pdfText = await pdfTextSeiten(menuScanImageData); } catch (e) { _pdfText = null; }
-            if (_pdfText && _pdfText.some(Boolean)) {
-                // ERST OHNE KI versuchen: feste Regeln auf den PDF-Text.
-                var _seiten = _pdfText.filter(Boolean);
-                // Der Restaurantname steht als Ueberschrift auf JEDER Seite --
-                // er ist ein Seitenkopf, keine Kategorie. Sonst landet das
-                // erste Gericht der Folgeseite unter "Pronto Pronto".
-                var _kopf = null;
-                _seiten.forEach(function (t) {
-                    var k = t.split('\n').filter(function (z) { return z.slice(0, 3) === '## '; })
-                             .map(function (z) { return z.slice(3).trim(); });
-                    _kopf = (_kopf === null) ? k : _kopf.filter(function (x) { return k.indexOf(x) >= 0; });
-                });
-                if (_seiten.length > 1 && _kopf && _kopf.length) {
-                    _seiten = _seiten.map(function (t) {
-                        return t.split('\n').filter(function (z) {
-                            return !(z.slice(0, 3) === '## ' && _kopf.indexOf(z.slice(3).trim()) >= 0);
-                        }).join('\n');
-                    });
-                }
-
-                var _direkt = [], _letzteKat = '', _rohExtras = [];
-                _seiten.forEach(function (t) {
-                    var teil = parseKartenText(t, _letzteKat);
-                    if (teil.length) _letzteKat = teil[teil.length - 1].kat;
-                    _rohExtras = _rohExtras.concat(teil.extras || []);
-                    _direkt = _direkt.concat(teil);
-                });
-                window._scanExtras = extrasZuGruppen(_rohExtras);
-                if (_direkt.length >= 5) {
-                    _ohneKI = sortiereNachNummer(pdfGerichteZuItems(_direkt));
-                    statusEl.textContent = 'Direkt aus dem PDF gelesen: ' + _ohneKI.length + ' Einträge';
-                }
-                images = _pdfText.filter(Boolean);
-                _ausPdfText = true;
-                if (!_ohneKI) statusEl.textContent = 'Text aus PDF gelesen (' + images.length + ' Seiten) — KI ordnet ihn…';
-            } else {
-                statusEl.textContent = 'PDF wird vorbereitet...';
-                try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
-            }
+            statusEl.textContent = (_pdfGrund ? _pdfGrund + ' ' : '') + 'PDF wird in Bilder umgewandelt…';
+            try { images = await convertPdfAllPages(menuScanImageData); } catch (e) { images = []; }
         } else {
-            // Bild optimieren (Aufloesung begrenzen); nur extrem lange Fotos
-            // werden in 2 Haelften geteilt — sonst GANZES Bild am Stueck.
             try { images = await splitImageVertically(menuScanImageData, 'auto'); }
             catch (e) { images = [menuScanImageData]; }
             if (!images || !images.length) images = [menuScanImageData];
         }
+        images = images.slice(0, 10);
 
-        if (images && images.length) {
-            // Jede Seite als EIGENE Anfrage: bleibt unter dem Zeitlimit der
-            // Server-Function (grosse Karten schlugen sonst still fehl) und
-            // zeigt echten Fortschritt an.
-            images = images.slice(0, 10);
-            var aiItems = [];
-            var failedPages = 0;
-
-            // Seiten PARALLEL lesen statt nacheinander. Vorher wartete jede
-            // Seite auf die vorige -- eine 5-seitige Karte dauerte fuenfmal so
-            // lang wie eine einzelne. Jetzt dauert der ganze Scan nur so lang
-            // wie die langsamste Seite. Das wird umso wichtiger, seit hohe
-            // Seiten fuer die bessere Lesbarkeit in zwei Haelften gehen.
-            window._scanMeta = [];
-            var _scanStart = new Date().getTime();
-            var _protokoll = [];
-
-            // Vorhandene Kategorien einmal laden und jeder Seite mitgeben.
-            var _vorhandeneKats = await ladeVorhandeneKategorien(
+        var fehlerGrund = null;
+        if (images.length) {
+            var vorhandeneKats = await ladeVorhandeneKategorien(
                 window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
+            var ki = await leseKarteKI(images, vorhandeneKats, statusEl, false);
+            window._scanBericht = ki.bericht;
+            window._scanPruefung = ki.pruefung;
 
-            // Laufender Zaehler ueber ALLE Seiten -- damit waehrend eines langen
-            // Scans sichtbar ist, dass es vorangeht, statt dass minutenlang
-            // derselbe Text steht.
-            var _proSeite = images.map(function () { return 0; });
-            function _zeigeFortschritt() {
-                var summe = _proSeite.reduce(function (x, y) { return x + y; }, 0);
-                statusEl.textContent = '🤖 ' + summe + ' Gerichte gelesen…'
-                    + (images.length > 1 ? ' (' + images.length + ' Seiten)' : '');
-            }
-
-            // BEIDE WEGE liefern dasselbe: eine Liste pro Seite. So braucht
-            // alles danach (Kategorie-Fortschreibung, Pruefung, Bericht) keine
-            // Fallunterscheidung.
-            //
-            // Weg 1 ist der einfache: ein Aufruf pro Seite, ohne Zeitlimit,
-            // ganze Seite am Stueck -- so wie eine Karte im Chat gelesen wird.
-            // Weg 2 (Abschnitte und Runden) ist nur die Rueckfallebene fuer den
-            // Fall, dass Netlify keine Background-Functions kann.
-            if (_ausPdfText) _protokoll.push('Text direkt aus dem PDF gelesen — kein Bild, keine Zeichenerkennung');
-
-            // OHNE KI fertig? Dann sind wir hier durch. Kein Modellaufruf, keine
-            // Wartezeit, keine Kosten, kein Zufall.
-            if (_ohneKI && _ohneKI.length) {
-                _protokoll.push('Ohne KI gelesen: ' + _ohneKI.length + ' Einträge aus dem PDF-Text');
-                scannedMenuItems = _ohneKI;
+            if (ki.items.length) {
+                scannedMenuItems = ki.items;
+                scannedMenuItems.forEach(function (i) { i.selected = true; });
                 window.scannedMenuItems = scannedMenuItems;
-                window._scanPruefung = null;
-                window._scanBericht = {
-                    dauer: Math.round((new Date().getTime() - _scanStart) / 100) / 10 + ' s',
-                    bilder: images.length, seitenOhneErgebnis: 0, protokoll: _protokoll,
-                    quellePdfText: true, quelle: 'PDF-Text, ohne KI', modell: '—', ocr: 'nein',
-                    rohTreffer: _ohneKI.length, nachDuplikaten: _ohneKI.length,
-                    ohnePreis: _ohneKI.filter(function (i) { return !i.price; }).length,
-                    vorhandeneKategorien: _vorhandeneKats,
-                    kategorien: (function () { var c = {}; _ohneKI.forEach(function (i) { c[i.category || '(leer)'] = (c[i.category || '(leer)'] || 0) + 1; }); return c; })()
-                };
-                showToast(_ohneKI.length + ' Einträge direkt aus dem PDF gelesen — ohne KI', 'success');
+                var msg = '🤖 ' + ki.items.length + ' Gerichte per KI erkannt!';
+                if (ki.fehlSeiten > 0) msg += ' (' + ki.fehlSeiten + ' Seite(n) nicht lesbar — ggf. erneut scannen)';
+                showToast(msg, ki.fehlSeiten > 0 ? 'info' : 'success');
                 showScannedResults();
                 return;
             }
-
-            // Ab HIER erst wird ein Modell gefragt. Der Hinweis darf keine
-            // Zeile frueher stehen: sonst blitzt bei einem PDF, das ganz ohne
-            // KI gelesen wird, trotzdem "KI liest die Karte" auf -- und der
-            // Scanner sieht aus, als laufe er weiter ueber die KI, obwohl er
-            // die Karte in unter einer Sekunde selbst gelesen hat.
-            statusEl.textContent = images.length > 1
-                ? ('🤖 KI liest ' + images.length + ' Seiten gleichzeitig…')
-                : '🤖 KI erkennt Gerichte & Kategorien…';
-
-            var _wegOhneLimit = false;
-            var teilErgebnisse = await Promise.all(images.map(function (bild, si) {
-                return scanOhneZeitlimit([bild], _vorhandeneKats, function (sek) {
-                    _proSeite[si] = -1;
-                    statusEl.textContent = images.length > 1
-                        ? ('\u{1F916} KI liest ' + images.length + ' Seiten am Stück… (' + sek + ' s)')
-                        : ('\u{1F916} KI liest die Karte am Stück… (' + sek + ' s)');
-                }).catch(function () { return null; });
-            }));
-
-            if (teilErgebnisse.some(function (x) { return x && x.items && x.items.length; })) {
-                _wegOhneLimit = true;
-                teilErgebnisse = teilErgebnisse.map(function (x, si) {
-                    var n = (x && x.items) ? x.items.length : 0;
-                    return {
-                        items: (x && x.items) || [],
-                        fehler: x && x.fehler,
-                        protokoll: [{ runde: 1, ms: (x && x.dauer) || 0, neu: n,
-                                      status: 'am Stück, ohne Zeitlimit' }]
-                    };
-                });
-                var _m0 = teilErgebnisse.length && window._scanMeta;
-                _protokoll.push('Ein Aufruf pro Seite, ohne Zeitlimit');
-            } else {
-                // Rueckfall: Abschnitte und Runden unter dem 10-Sekunden-Limit.
-                _protokoll.push(teilErgebnisse.some(Boolean)
-                    ? 'Weg ohne Zeitlimit lieferte nichts — nehme Abschnitte und Runden'
-                    : 'Weg ohne Zeitlimit hier nicht verfügbar — nehme Abschnitte und Runden');
-                teilErgebnisse = await Promise.all(images.map(function (bild, si) {
-                    return scanSeiteParallel(bild, _vorhandeneKats, function (n, hinweis) {
-                        _proSeite[si] = n;
-                        if (hinweis) { statusEl.textContent = '\u23F3 ' + hinweis; return; }
-                        _zeigeFortschritt();
-                    }).catch(function (e) {
-                        return { items: [], protokoll: [{ runde: 0, ms: 0, neu: 0, status: 'FEHLER: ' + e.message }], fehler: e.message };
-                    });
-                }));
-            }
-
-            // Zweiter Blick, Seite fuer Seite und parallel.
-            var _pruef = { korrigiert: 0, ergaenzt: 0, sauber: 0 };
-            if (aiItems.length) {
-                statusEl.textContent = '🔍 Zweiter Blick: ' + aiItems.length + ' Gerichte werden gegen das Foto geprüft…';
-                var _pr = await Promise.all(images.map(function (bild, si) {
-                    var teil = teilErgebnisse[si];
-                    if (!teil || !teil.items || !teil.items.length) return Promise.resolve(null);
-                    return pruefeSeite(bild, teil.items, _vorhandeneKats)
-                        .catch(function () { return null; });
-                }));
-                // aiItems neu aufbauen -- pruefeSeite haengt Nachgetragenes an
-                // die Seitenliste an, und die Reihenfolge der Seiten muss bleiben.
-                aiItems = [];
-                teilErgebnisse.forEach(function (t) { if (t && t.items) aiItems = aiItems.concat(t.items); });
-                _pr.forEach(function (x, si) {
-                    if (!x) return;
-                    _pruef.korrigiert += x.korrigiert;
-                    _pruef.ergaenzt += x.ergaenzt;
-                    if (x.sauber) _pruef.sauber++;
-                    _protokoll.push('S' + (si + 1) + ' Prüfung: ' + x.korrigiert + ' korrigiert, '
-                                    + x.ergaenzt + ' ergänzt, ' + Math.round(x.ms / 100) / 10 + 's'
-                                    + (x.sauber ? ', ohne Beanstandung' : ''));
-                });
-                window._scanPruefung = _pruef;
-            }
-
-            // Kategorien ueber die Seitengrenzen hinweg ergaenzen.
-            //
-            // Jede Seite (und jede Bildhaelfte) wird einzeln gelesen. Beginnt ein
-            // Abschnitt oberhalb des Schnitts, sieht die KI dort keine
-            // Ueberschrift. Frueher dachte sie sich dann eine aus -- daher die
-            // erfundenen Kategorien. Jetzt liefert sie in dem Fall "" zurueck,
-            // und hier setzen wir die zuletzt gesehene Ueberschrift fort. Genau
-            // das tut ein Mensch auch, der umblaettert.
-            var _letzteKat = '';
-            aiItems.forEach(function (it) {
-                var k = (it.category || '').trim();
-                if (k) { _letzteKat = k; return; }
-                it.category = _letzteKat;          // leer bleibt leer, wenn es noch keine gab
-            });
-            // Was jetzt noch ohne Ueberschrift ist, stand wirklich unter keiner.
-            aiItems.forEach(function (it) {
-                if (!(it.category || '').trim()) it.category = 'Sonstiges';
-            });
-            // Duplikate (z.B. aus ueberlappenden Haelften) entfernen.
-            // Duplikat-Schluessel.
-            //
-            // Er enthaelt die GERICHTNUMMER, und das ist kein Detail: auf der echten Karte
-            // von Pronto Pronto stehen "114. Roma Spezial" (Haehnchen) und "115. Roma
-            // Spezial" (Rind) -- gleicher Name, gleicher Preis, zwei verschiedene Gerichte.
-            // Ohne die Nummer im Schluessel verschwindet eines davon stillschweigend, und
-            // im Menue fehlt ein Gericht, das auf der Karte steht.
-            // Die Duplikate, gegen die dieser Schluessel wirklich hilft (dasselbe Gericht
-            // aus zwei ueberlappenden Bildhaelften oder aus zwei Runden), tragen dieselbe
-            // Nummer -- die werden weiterhin sauber zusammengefasst.
-            var _seenScan = {};
-            aiItems = aiItems.filter(function (it) {
-                var k = (it.name + '|' + it.price + '|' + (it.dish_number || '')).toLowerCase().replace(/\s+/g, ' ');
-                if (_seenScan[k]) return false;
-                _seenScan[k] = 1; return true;
-            });
-            // Scan-Bericht zusammenstellen. Ohne diese Angaben ist bei
-            // "das Ergebnis ist schlecht" nicht feststellbar WAS schlecht war --
-            // und dann wird geraten statt behoben.
-            (function () {
-                var m = window._scanMeta || [];
-                var kats = {};
-                aiItems.forEach(function (i) { kats[i.category || '(leer)'] = (kats[i.category || '(leer)'] || 0) + 1; });
-                var ohnePreis = aiItems.filter(function (i) { return !i.price; }).length;
-                window._scanBericht = {
-                    dauer: Math.round((new Date().getTime() - _scanStart) / 100) / 10 + ' s',
-                    bilder: images.length,
-                    seitenOhneErgebnis: failedPages,
-                    // Runde fuer Runde mit Dauer -- daran ist sofort ablesbar, ob
-                    // ein Aufruf ins Zeitlimit gelaufen ist (rund 10 s + Fehler).
-                    protokoll: _protokoll,
-                    quellePdfText: _ausPdfText,
-                    pruefung: _pruef,
-                    quelle: 'KI (' + ((m[0] && m[0].modell) || '?') + ')',
-                    modell: (m[0] && m[0].modell) || '?',
-                    ocr: m.some(function (x) { return x.ocr; }) ? 'ja' : 'nein',
-                    rohTreffer: m.reduce(function (a, x) { return a + (x.roh || 0); }, 0),
-                    nachDuplikaten: aiItems.length,
-                    ohnePreis: ohnePreis,
-                    vorhandeneKategorien: _vorhandeneKats,
-                    kategorien: kats
-                };
-            })();
-
-            if (aiItems.length) {
-                scannedMenuItems = aiItems;
-                scannedMenuItems.forEach(function (item) { item.selected = true; });
-                window.scannedMenuItems = scannedMenuItems;
-                var _scanMsg = '🤖 ' + scannedMenuItems.length + ' Gerichte per KI erkannt!';
-                if (failedPages > 0) _scanMsg += ' (' + failedPages + ' Seite(n) nicht lesbar — ggf. erneut scannen)';
-                showToast(_scanMsg, failedPages > 0 ? 'info' : 'success');
-                showScannedResults();
-                return;
-            }
-            // Kein einziges Gericht per KI: dem Gastronom sagen WARUM, bevor
-            // die einfache Texterkennung uebernimmt.
-            // Grund JETZT sichern -- showMenuScanWarningIfAny() loescht ihn.
-            _scanFehlerGrund = _ersterFehler || window._lastMenuScanError || null;
+            fehlerGrund = ki.ersterFehler || window._lastMenuScanError || null;
             showMenuScanWarningIfAny();
         }
 
-        // 2) Rueckfall: lokale Texterkennung (Tesseract).
-        //
-        // WICHTIG: Dieser Rueckfall lief frueher STILL. Auf dem Bildschirm stand
-        // eine Sekunde lang ein Hinweis, danach sah das Ergebnis aus wie ein
-        // KI-Scan -- war aber reines OCR ohne Kategorien, ohne Allergene, mit
-        // zerrissenen Preisen. Genau daran ist die Fehlersuche wochenlang
-        // vorbeigelaufen: verbessert wurde die KI, angeschaut wurde OCR.
-        // Deshalb wird die Herkunft jetzt festgehalten und im Ergebnis
-        // ausgewiesen -- und der Grund gleich mit.
-        window._scanQuelleOCR = _scanFehlerGrund || 'KI hat nicht geantwortet';
-        statusEl.textContent = 'KI nicht verfügbar — einfache Texterkennung läuft...';
+        // ---------- WEG 3: Texterkennung ----------
+        // Dieser Rueckfall lief frueher STILL: das Ergebnis sah aus wie ein
+        // KI-Scan, war aber reines OCR ohne Kategorien, ohne Allergene, mit
+        // zerrissenen Preisen. Deshalb wird die Herkunft festgehalten und im
+        // Ergebnis ausgewiesen -- samt Grund.
+        window._scanQuelleOCR = fehlerGrund || 'KI hat nicht geantwortet';
+        statusEl.textContent = 'KI nicht verfügbar — einfache Texterkennung läuft…';
         await startMenuScanTesseract();
     } catch (error) {
         console.error('Scan Error:', error);
         statusEl.textContent = 'Fehler: ' + error.message;
-        setTimeout(function() {
+        setTimeout(function () {
             document.getElementById('menuScanProgress').style.display = 'none';
             document.getElementById('menuScanUploadArea').style.display = 'block';
             showToast(error.message, 'error');
@@ -58714,6 +58732,39 @@ function showScannedResults() {
 
     var container = document.getElementById('menuScanItemsList');
     var html = '';
+
+    // WELCHER WEG GELAUFEN IST -- ganz oben, immer, nicht versteckt.
+    //
+    // Der Scanner hat drei Wege, und sie liefern sehr unterschiedliche
+    // Qualitaet. Bisher stand das nur in einem Bericht, den man aufklappen
+    // musste. Ergebnis: "der Scanner spinnt" liess sich nicht beantworten,
+    // weil niemand wusste, welcher Weg ueberhaupt gelaufen war -- und es wurde
+    // an der KI geschraubt, waehrend in Wahrheit die Texterkennung lief.
+    // Jetzt steht es ueber der Liste, zusammen mit den Zahlen.
+    var _b = window._scanBericht || {};
+    var _weg = window._scanQuelleOCR ? 'ocr' : (_b.quellePdfText && _b.modell === '—' ? 'pdf' : 'ki');
+    var _wegText = {
+        pdf: { titel: 'Direkt aus dem PDF gelesen — ohne KI',
+               unter: 'Feste Regeln auf den echten PDF-Text. Namen, Preise und Nummern sind zeichengenau.',
+               farbe: '#003D33', grund: 'rgba(0,61,51,0.06)', rand: 'rgba(0,61,51,0.2)', zeichen: 'description' },
+        ki:  { titel: 'Von der KI gelesen',
+               unter: 'Aus Bildern erkannt — bitte Preise und Kategorien durchsehen.',
+               farbe: '#1d4ed8', grund: 'rgba(29,78,216,0.07)', rand: 'rgba(29,78,216,0.25)', zeichen: 'smart_toy' },
+        ocr: { titel: 'Nur Texterkennung',
+               unter: 'Weder PDF-Text noch KI verfügbar — dieses Ergebnis ist deutlich ungenauer.',
+               farbe: '#b45309', grund: 'rgba(245,158,11,0.12)', rand: '#f59e0b', zeichen: 'warning' }
+    }[_weg];
+    html += '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid ' + _wegText.rand + ';'
+          + 'background:' + _wegText.grund + ';display:flex;gap:11px;align-items:flex-start;font-family:Inter,sans-serif;">'
+          + '<span class="material-symbols-outlined" style="font-size:22px;color:' + _wegText.farbe + ';">' + _wegText.zeichen + '</span>'
+          + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-weight:800;color:' + _wegText.farbe + ';font-size:13px;">' + _wegText.titel + '</div>'
+          + '<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-top:2px;">' + _wegText.unter + '</div>'
+          + '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">'
+          + scannedMenuItems.length + ' Einträge · ' + catCount + ' Kategorien'
+          + (_ohnePreis ? ' · <strong style="color:#b45309;">' + _ohnePreis + ' ohne Preis</strong>' : ' · alle mit Preis')
+          + (_b.dauer ? ' · ' + _b.dauer : '') + '</div>'
+          + '</div></div>';
 
     // Warnbanner, wenn NICHT die KI gelesen hat. Das muss unuebersehbar sein:
     // ein OCR-Ergebnis sieht auf den ersten Blick aus wie ein KI-Ergebnis, ist
