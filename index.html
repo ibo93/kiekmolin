@@ -50183,7 +50183,8 @@ async function printKitchenBon(orderId) {
         if (selOpts.length > 0) {
             selOpts.forEach(function(opt) {
                 var optName = opt.option_name || opt.option || opt.name || '';
-                var optPrice = parseFloat(opt.price) || 0;
+                // Eine Groesse ersetzt den Preis, sie kommt nicht obendrauf.
+                var optPrice = opt.price_type === 'replace' ? 0 : (parseFloat(opt.price) || 0);
                 if (optName) {
                     optionsHtml += '<div style="padding:1px 0 1px 32px;font-size:13px;color:#333;">';
                     optionsHtml += '<span style="color:#888;">&#8594;</span> ' + optName;
@@ -51175,14 +51176,19 @@ function buildRichPosPayload(order) {
     } catch(e) {}
 
     var items = (order.items || []).map(function(item) {
-        var opts = (item.selected_options || []).map(function(o) {
+        var opts = (item.selected_options || []).map(function (o) {
+            // "option" zuerst -- so heisst das Feld im Warenkorb. Fehlte es
+            // hier, stand auf dem Bon kein Wort von der Groesse.
+            var istGroesse = o.price_type === 'replace';
             return {
-                name: o.option_name || o.name || '',
-                price_delta: parseFloat(o.price_delta || o.price || 0),
+                name: o.option || o.option_name || o.name || '',
+                // Bei einer Groesse ist der Preis der GANZE Preis, kein
+                // Aufschlag. "groß (+10,00)" waere schlicht falsch.
+                price_delta: istGroesse ? 0 : parseFloat(o.price_delta || o.price || 0),
                 group: o.option_group || o.group || ''
             };
         });
-        var optsText = opts.map(function(o) { return o.name + (o.price_delta ? ' (+' + o.price_delta.toFixed(2) + ')' : ''); }).filter(Boolean).join(', ');
+        var optsText = opts.map(function (o) { return o.name + (o.price_delta ? ' (+' + o.price_delta.toFixed(2) + ')' : ''); }).filter(Boolean).join(', ');
         return {
             id: item.menu_item_id || item.id || null,
             name: item.name || '',
@@ -63631,7 +63637,14 @@ function _kdsRenderCard(o, colType) {
     var itemsHtml = items.map(function(it) {
         var optionsText = '';
         if (it.selected_options && it.selected_options.length > 0) {
-            optionsText = it.selected_options.map(function(opt) { return typeof opt === 'string' ? opt : (opt.name || ''); }).join(', ');
+            // ACHTUNG: der Warenkorb legt Optionen als { group, option, price,
+            // price_type } ab -- ein Feld "name" gibt es dort nicht. Hier
+            // wurde nur nach opt.name gesucht, also stand in der Spalte NICHTS.
+            // Der Gast bestellte "groß", die Kueche las "Pizza Margherita".
+            optionsText = it.selected_options.map(function (opt) {
+                return typeof opt === 'string' ? opt
+                     : (opt.option || opt.option_name || opt.name || '');
+            }).filter(Boolean).join(', ');
         }
         return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,61,51,0.04);">' +
             '<span style="background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;font-weight:700;font-size:12px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,61,51,0.15);">' + (it.quantity || 1) + 'x</span>' +
