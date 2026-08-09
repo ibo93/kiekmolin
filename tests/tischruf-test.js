@@ -151,10 +151,15 @@ async function ruf(welt, body) {
       /_tischRufGesehen\[act\.id\]/.test(h));
 
     // ---- Menuescanner: kein "KI liest" wenn keine KI laeuft ----
-    var i1 = h.indexOf('if (_ohneKI && _ohneKI.length)');
-    var i2 = h.indexOf("'🤖 KI liest ' + images.length");
-    t('Ohne-KI-Weg kehrt zurueck, BEVOR "KI liest" angezeigt wird',
-      i1 > 0 && i2 > i1, 'ohneKI@' + i1 + ' kiText@' + i2);
+    // Die Zusage haengt nicht mehr an der Reihenfolge im Quelltext, sondern
+    // am Ablauf: der PDF-Weg kehrt zurueck, bevor leseKarteKI ueberhaupt
+    // erwaehnt wird. tests/scanner-neu-test.js faehrt das wirklich durch.
+    var sm = h.slice(h.indexOf('async function startMenuScan()'));
+    sm = sm.slice(0, sm.indexOf('\n}\n') + 3);
+    var iPdf = sm.indexOf('showScannedResults();\n                return;');
+    var iKi = sm.indexOf('leseKarteKI(');
+    t('Ohne-KI-Weg kehrt zurueck, BEVOR die KI ueberhaupt gefragt wird',
+      iPdf > 0 && iKi > iPdf, 'pdfReturn@' + iPdf + ' ki@' + iKi);
     t('Scan startet neutral, nicht mit "KI liest die Speisekarte"',
       !/🤖 KI liest die Speisekarte/.test(h));
 

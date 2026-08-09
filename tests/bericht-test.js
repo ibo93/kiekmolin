@@ -28,10 +28,10 @@ t('meta sagt, ob abgebrochen wurde und warum', /abgebrochen: !!r\.abgebrochen/.t
 // --- Client sammelt und zeigt ---
 t('Client hebt meta auf', /window\._scanMeta = window\._scanMeta \|\| \[\]\)\.push\(j\.meta\)/.test(h));
 t('Bericht wird nach dem Scan gebaut', /window\._scanBericht = \{/.test(h));
-t('Bericht misst die Dauer', /_scanStart/.test(h));
+t('Bericht misst die Dauer', /dauer: Math\.round\(\(new Date\(\)\.getTime\(\) - start\)/.test(h));
 t('Bericht zaehlt Gerichte ohne Preis', /ohnePreis:/.test(h));
 t('Bericht zeigt vorhandene UND erkannte Kategorien',
-  /vorhandeneKategorien: _vorhandeneKats/.test(h) && /kategorien: kats/.test(h));
+  /vorhandeneKategorien: vorhandeneKats/.test(h) && /kategorien: kats/.test(h));
 t('Aufklappbarer Bericht in der Pruefliste', /Scan-Bericht/.test(h) && /<details/.test(h));
 t('Kopier-Knopf vorhanden', /kopiereScanBericht/.test(h));
 

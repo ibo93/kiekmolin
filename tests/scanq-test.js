@@ -113,8 +113,8 @@ t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], prot
 t('stiller Rueckfall auf OCR ist als solcher gekennzeichnet', /_scanQuelleOCR/.test(html));
 t('OCR-Ergebnis bekommt ein Warnbanner', /Ohne KI gelesen\.<\/strong>/.test(html));
 t('Grund des KI-Ausfalls wird vor dem Loeschen gesichert',
-  /_scanFehlerGrund = _ersterFehler \|\| window\._lastMenuScanError/.test(html));
-t('Bericht enthaelt Runde, Dauer und Ergebnis je Aufruf', /protokoll: _protokoll/.test(html));
+  /fehlerGrund = ki\.ersterFehler \|\| window\._lastMenuScanError/.test(html));
+t('Bericht enthaelt Runde, Dauer und Ergebnis je Aufruf', /protokoll: protokoll,/.test(html));
 
 // --- Parser wirklich laufen lassen ---
 var pm = fn.match(/var MERKMAL = \{[\s\S]*?\nfunction parseZeilen[\s\S]*?\n\}/)[0];
@@ -184,7 +184,7 @@ t('Nachtrag legt kein Duplikat an',
   /if \(nachName\[String\(f\.name\)\.trim\(\)\.toLowerCase\(\)\]\) return;/.test(html));
 t('korrigierte Zeilen sind in der Liste markiert',
   /item\._geprueft && item\._geprueft\.length/.test(html) && /korrigiert: /.test(html));
-t('Bericht nennt das Ergebnis der Pruefung', /pruefung: _pruef/.test(html));
+t('Bericht nennt das Ergebnis der Pruefung', /pruefung: pruef,/.test(html));
 
 // --- Mehrere Groessen in EINER Zeile ---
 // Gemessen an einer echten Pizzeria-Karte (Pronto Pronto, Riepe): 140 Gerichte
@@ -314,7 +314,9 @@ t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
 // An der echten Karte gemessen: 142 Gerichte, 230 Eintraege, 13 Kategorien,
 // 0 ohne Preis, unter einer Sekunde, kein einziger Modellaufruf.
 t('PDF-Text wird zuerst ohne KI ausgewertet',
-  /function parseKartenText/.test(html) && /_ohneKI = sortiereNachNummer/.test(html));
+  /function parseKartenText/.test(html)
+  && /ergebnis\.items = sortiereNachNummer/.test(html)
+  && /async function leseKartePdf/.test(html));
 t('Ueberschriften kommen aus Schriftgroesse und Schrift-Kennung, nicht aus Raten',
   /UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN/.test(html)
   && /kopfSchriften\[x\.fn\]/.test(html));
@@ -361,7 +363,7 @@ var NR = new Function(
 t('"40 A" sortiert nach 40 und vor 41', NR('40') < NR('40A') && NR('40A') < NR('41'));
 t('ohne Nummer = keine Sortierung', NR('') === null && NR('Cola') === null);
 t('Restaurantname auf jeder Seite gilt als Seitenkopf, nicht als Kategorie',
-  /er ist ein Seitenkopf, keine Kategorie/.test(html));
+  /Seitenkopf, keine Kategorie/.test(html));
 t('Vegetarier-Zeichen wird Merkmal statt Beschreibungstext',
   /var veg = \/\(\^\|\\s\)V/.test(html));
 
