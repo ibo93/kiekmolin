@@ -43063,34 +43063,34 @@ document.addEventListener('error', function(e) {
      Regeln laufen im Browser, das Ergebnis steht waehrend des Einfuegens
      darunter. Es gibt nichts, was unbemerkt schiefgehen kann.
      ====================================================================== -->
-<div id="karteEinfuegenModal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width:760px;width:100%;">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:6px;">
-            <div style="width:40px;height:40px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;flex:none;">
-                <span class="material-symbols-outlined" style="font-size:22px;color:#FFD54F;">content_paste</span>
-            </div>
-            <div style="flex:1;min-width:0;">
-                <h2 style="margin:0;font-family:Epilogue,sans-serif;font-size:21px;font-weight:900;color:var(--text-primary);">Karte einfügen</h2>
-                <p style="margin:2px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.5;">
-                    Karte öffnen (PDF, Word, Website) → alles markieren <strong>Strg+A</strong> → kopieren <strong>Strg+C</strong> → hier einfügen <strong>Strg+V</strong>.
-                    Das Ergebnis steht sofort darunter — ohne KI, ohne Hochladen.
-                </p>
-            </div>
-            <button type="button" onclick="schliesseKarteEinfuegen()" style="background:none;border:none;cursor:pointer;padding:4px;flex:none;">
-                <span class="material-symbols-outlined" style="color:var(--text-secondary);">close</span>
+<div class="modal-overlay" id="karteEinfuegenModal" style="z-index: 10007; display: none;">
+    <div class="modal" style="max-width: 760px;">
+        <div class="modal-header">
+            <h2 class="modal-title" style="font-family:'Epilogue',sans-serif;display:flex;align-items:center;gap:10px;">
+                <span style="width:34px;height:34px;border-radius:50%;background:#003D33;display:inline-flex;align-items:center;justify-content:center;flex:none;">
+                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">content_paste</span>
+                </span>
+                Karte einfügen
+            </h2>
+            <button class="modal-close" aria-label="Schließen" onclick="closeModal('karteEinfuegenModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);line-height:1.55;">
+                Karte öffnen (PDF, Word, Website) → alles markieren <strong>Strg&nbsp;+&nbsp;A</strong> → kopieren <strong>Strg&nbsp;+&nbsp;C</strong> → hier einfügen <strong>Strg&nbsp;+&nbsp;V</strong>.
+                Das Ergebnis steht sofort darunter — ohne KI, ohne Hochladen.
+            </p>
+
+            <textarea id="karteEinfuegenText" oninput="try{karteTextVorschau()}catch(e){}"
+                placeholder="Speisekarte hier einfügen…&#10;&#10;Eine Zeile, die eine Überschrift sein soll, mit # davor erzwingen:&#10;#Pizza&#10;1. Margherita 6,50 €&#10;2. Salami 7,00 €"
+                style="width:100%;min-height:150px;padding:14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:13px;font-family:Inter,monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
+
+            <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.04);font-family:Inter,sans-serif;"></div>
+
+            <button type="button" onclick="karteTextUebernehmen()" style="width:100%;margin-top:14px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span class="material-symbols-outlined" style="font-size:19px;">check</span>
+                Diese Karte übernehmen
             </button>
         </div>
-
-        <textarea id="karteEinfuegenText" oninput="try{karteTextVorschau()}catch(e){}"
-            placeholder="Speisekarte hier einfügen…&#10;&#10;Eine Zeile, die eine Überschrift sein soll, kannst du mit # davor erzwingen:&#10;#Pizza&#10;1. Margherita 6,50 €&#10;2. Salami 7,00 €"
-            style="width:100%;min-height:170px;margin-top:10px;padding:14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:13px;font-family:Inter,monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
-
-        <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.03);font-family:Inter,sans-serif;"></div>
-
-        <button type="button" onclick="karteTextUebernehmen()" style="width:100%;margin-top:12px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-            <span class="material-symbols-outlined" style="font-size:19px;">check</span>
-            Diese Karte übernehmen
-        </button>
     </div>
 </div>
 
@@ -58707,22 +58707,25 @@ function karteTextZuItems(gerichte) {
 
 // --- Eigenes Fenster: oeffnen und schliessen --------------------------------
 function oeffneKarteEinfuegen() {
-    var m = document.getElementById('karteEinfuegenModal');
-    if (!m) return;
-    m.style.display = 'flex';
-    m.classList.add('active');
+    // Ueber die Hausfunktionen oeffnen, nicht von Hand am style schrauben.
+    // Der erste Versuch setzte display/class selbst und benutzte dazu noch die
+    // falschen Klassen (modal statt modal-overlay) -- das Fenster hing danach
+    // unten links halb aus dem Bild.
+    if (typeof openModal === 'function') { openModal('karteEinfuegenModal'); }
+    else {
+        var m = document.getElementById('karteEinfuegenModal');
+        if (m) { m.style.display = 'flex'; m.classList.add('active'); }
+    }
     var f = document.getElementById('karteEinfuegenText');
-    if (f) setTimeout(function () { f.focus(); }, 50);
+    if (f) setTimeout(function () { f.focus(); }, 60);
     try { karteTextVorschau(); } catch (e) {}
 }
 
 function schliesseKarteEinfuegen() {
+    if (typeof closeModal === 'function') { closeModal('karteEinfuegenModal'); return; }
     var m = document.getElementById('karteEinfuegenModal');
-    if (!m) return;
-    m.style.display = 'none';
-    m.classList.remove('active');
+    if (m) { m.style.display = 'none'; m.classList.remove('active'); }
 }
-
 
 // --- Live-Vorschau ----------------------------------------------------------
 // Laeuft bei jedem Tastendruck. Das ist der eigentliche Punkt dieses Weges:

@@ -110,6 +110,18 @@ t('der eigene Knopf traegt die Hausfarbe, nicht das Lila des KI-Scanners',
 t('KI-Scanner heisst jetzt "Foto scannen (KI)" -- keine Verwechslung mehr',
   /<span>Foto scannen \(KI\)<\/span>/.test(H) && !/<span>Menü scannen \(KI\)<\/span>/.test(H));
 t('eigenes Fenster vorhanden', /id="karteEinfuegenModal"/.test(H));
+// Das Fenster hing beim ersten Versuch unten links halb aus dem Bild, weil es
+// die falschen Klassen trug: die App zentriert ueber .modal-overlay (fixed,
+// flex) und legt die weisse Karte als .modal hinein.
+t('Fenster benutzt die Fenster-Struktur der App (overlay + modal)',
+  /<div class="modal-overlay" id="karteEinfuegenModal"/.test(H));
+t('weisse Karte liegt IM Overlay, nicht daneben',
+  /id="karteEinfuegenModal"[^>]*>\s*<div class="modal"/.test(H));
+t('Kopf und Koerper wie bei den anderen Fenstern',
+  /id="karteEinfuegenModal"[\s\S]{0,900}class="modal-header"/.test(H)
+  && /id="karteEinfuegenModal"[\s\S]{0,1600}class="modal-body"/.test(H));
+t('Oeffnen und Schliessen laufen ueber openModal/closeModal',
+  /openModal\('karteEinfuegenModal'\)/.test(H) && /closeModal\('karteEinfuegenModal'\)/.test(H));
 t('eigenes Textfeld im eigenen Fenster', /id="karteEinfuegenText"/.test(H));
 t('Knopf oeffnet das eigene Fenster',
   /oeffneKarteEinfuegen\(\)/.test(H) && /function oeffneKarteEinfuegen/.test(H));
