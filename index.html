@@ -43077,15 +43077,25 @@ document.addEventListener('error', function(e) {
 
                 <!-- TAB 1: Text einfügen (Standard) -->
                 <div id="scanPanelText" style="display:block;">
-                    <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:32px;padding:12px;margin-bottom:12px;">
-                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
-                            <strong>Tipp:</strong> Öffne deineSpeisekarte (Word, PDF, Website) → markiere alles (Strg+A) → kopieren (Strg+C) → hier einfügen (Strg+V)
+                    <div style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:12px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#003D33;">content_paste</span>
+                        <p style="font-size:12px;color:#003D33;margin:0;line-height:1.55;font-family:Inter,sans-serif;">
+                            <strong>Der sicherste Weg.</strong> Karte öffnen (PDF, Word, Website) → alles markieren (Strg+A) → kopieren (Strg+C) → hier einfügen (Strg+V).
+                            Das Ergebnis steht sofort darunter — <strong>ohne KI</strong>, ohne Hochladen, ohne Warten.
+                            Eine Zeile, die eine Überschrift sein soll, kannst du mit <code style="background:rgba(0,61,51,.1);padding:1px 4px;border-radius:4px;">#</code> davor erzwingen.
                         </p>
                     </div>
-                    <textarea id="menuScanTextInput" placeholder="Speisekarte hier einfügen, z.B.:&#10;&#10;Vorspeisen&#10;Bruschetta ............ 8,90 €&#10;Tomatensuppe ......... 6,50 €&#10;&#10;Hauptgerichte&#10;Wiener Schnitzel mit Pommes .... 14,90 €&#10;Lachs mit Kartoffeln ............ 18,50 €&#10;&#10;Desserts&#10;Tiramisu .............. 6,90 €" style="width:100%;min-height:200px;padding:14px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;font-family:'Inter',monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
-                    <button type="button" onclick="scanFromText()" style="width:100%;margin-top:10px;padding:14px;background:linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 15px rgba(139,92,246,0.3);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">show_chart</span>
-                        Gerichte erkennen
+                    <textarea id="menuScanTextInput" oninput="try{karteTextVorschau()}catch(e){}" placeholder="Speisekarte hier einfügen, z.B.:&#10;&#10;Vorspeisen&#10;Bruschetta ............ 8,90 €&#10;Tomatensuppe ......... 6,50 €&#10;&#10;Hauptgerichte&#10;Wiener Schnitzel mit Pommes .... 14,90 €&#10;Lachs mit Kartoffeln ............ 18,50 €&#10;&#10;Desserts&#10;Tiramisu .............. 6,90 €" style="width:100%;min-height:200px;padding:14px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;font-family:'Inter',monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
+                    <!-- Live-Vorschau: rechnet bei jedem Tastendruck neu. Das ist der
+                         Kern dieses Weges -- man sieht das Ergebnis, BEVOR man etwas
+                         uebernimmt. Nichts kann still fehlschlagen. -->
+                    <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.03);font-family:Inter,sans-serif;"></div>
+                    <button type="button" onclick="karteTextUebernehmen()" style="width:100%;margin-top:10px;padding:14px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">check</span>
+                        Diese Karte übernehmen
+                    </button>
+                    <button type="button" onclick="scanFromText()" style="width:100%;margin-top:8px;padding:11px;background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">
+                        Stattdessen die KI fragen (langsamer, für unsauberen Text)
                     </button>
                 </div>
 
@@ -58447,6 +58457,331 @@ async function handlePdfTextExtract(event) {
     }
     // Reset input
     event.target.value = '';
+}
+
+// ============================================================================
+// KARTE AUS TEXT — ohne KI, mit Live-Vorschau
+// ============================================================================
+// Der einfachste Weg, der nicht still fehlschlagen kann.
+//
+// Datei hochladen heisst: eine Bibliothek muss laden (pdf.js), ein Bild muss
+// entstehen, ein Modell muss antworten. Jeder dieser Schritte kann ausfallen,
+// und wenn er still ausfaellt, sieht das Ergebnis trotzdem nach einem Ergebnis
+// aus. Genau daran ist es zweimal gescheitert.
+//
+// Text einfuegen hat keinen dieser Schritte. Der Text ist da, die Regeln
+// laufen im Browser, das Ergebnis steht sofort unter dem Feld -- waehrend man
+// tippt. Es gibt nichts, was unbemerkt schiefgehen kann.
+//
+// UEBERSCHRIFTEN: aus Text ist die Schriftgroesse weg, also muss die Regel aus
+// dem Text kommen. Sie ist bewusst streng und nachlesbar:
+//   Ueberschrift = kein Preis in der Zeile
+//                  UND hoechstens 40 Zeichen
+//                  UND die naechste Zeile mit Inhalt hat einen Preis
+//   ODER die Zeile faengt mit "#" an (dann immer).
+// Was die Regel falsch einsortiert, kann man mit einem Klick umdrehen -- man
+// SIEHT es ja sofort. Das ist der Unterschied zum Raten: hier korrigiert ein
+// Mensch in zwei Sekunden, was eine Regel nicht wissen kann.
+
+var KARTE_TEXT_VERSION = 'Text-Leser v1 · 09.08.2026';
+var _karteTextAus = {};        // Zeilen, die NICHT Ueberschrift sein sollen
+var _karteTextAn  = {};        // Zeilen, die der Gastronom zur Ueberschrift gemacht hat
+
+function karteTextZeilen(text) {
+    return String(text || '').split('\n')
+        .map(function (z) { return z.replace(/\s+/g, ' ').trim(); });
+}
+
+function karteTextPreise(zeile) {
+    // "8,90 €", "8,90", "8.90" -- Euro-Zeichen ist ueblich, aber nicht Pflicht.
+    var m = zeile.match(/(\d{1,3})[.,](\d{2})(?!\d)/g);
+    return m ? m.map(function (s) { return s.replace(',', '.'); }) : [];
+}
+
+// Spaltenkoepfe der Karte -- keine Kategorien.
+var KARTE_SPALTENKOPF = /^(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|PREIS|EURO|€)([ /|]+(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|PREIS|EURO|€))*$/i;
+
+function karteTextNachbar(zeilen, i, richtung) {
+    for (var k = i + richtung; k >= 0 && k < zeilen.length; k += richtung) {
+        if (zeilen[k]) return zeilen[k];
+    }
+    return '';
+}
+
+function karteTextIstKopf(zeilen, i) {
+    var z = zeilen[i];
+    if (!z) return false;
+    if (z.charAt(0) === '#') return true;                  // ausdruecklich gesetzt
+    var k = z.toLowerCase();
+    if (_karteTextAus[k]) return false;                    // ausdruecklich abgewaehlt
+    if (_karteTextAn[k]) return karteTextKopfMoeglich(zeilen, i);   // angeklickt
+    if (!karteTextKopfMoeglich(zeilen, i)) return false;
+
+    // ---- Warum hier NICHT geraten wird ----------------------------------
+    // Beim Kopieren aus einem PDF geht die Schriftgroesse verloren. Danach
+    // sieht "Nudeln" (Ueberschrift) genauso aus wie "Peperoni" (zweite Zeile
+    // einer umgebrochenen Zutatenliste): kurz, ohne Preis, ein Gericht
+    // darunter. An der echten Karte gemessen wurden aus 13 Kategorien 75 --
+    // jede Zutatenzeile eine eigene Kategorie, die Karte "durcheinander".
+    //
+    // Es gibt im Text kein Merkmal, das die beiden sicher trennt. Also wird
+    // nur uebernommen, was EINDEUTIG ist: Zeilen in Grossbuchstaben. Alles
+    // andere steht als Vorschlag darunter und ist ein Klick weit weg.
+    // Eine falsche Kategorie ist schlimmer als eine fehlende.
+    return z === z.toUpperCase() && /[A-ZÄÖÜ]/.test(z) && z.length >= 3;
+}
+
+// Formal moeglich: keine Preise, kurz, ein Gericht darunter. Das ist die
+// Grundbedingung -- sowohl fuer die automatische Erkennung als auch dafuer,
+// dass eine Zeile ueberhaupt als Vorschlag auftaucht.
+function karteTextKopfMoeglich(zeilen, i) {
+    var z = zeilen[i];
+    if (!z || karteTextPreise(z).length) return false;
+    if (z.length > 40) return false;
+    if (/[.!?,;:·]$/.test(z)) return false;
+    if (z.indexOf(',') >= 0) return false;
+    if (z.split(' ').length > 5) return false;
+    if (KARTE_SPALTENKOPF.test(karteKopfName(z))) return false;
+    return karteTextPreise(karteTextNachbar(zeilen, i, 1)).length > 0;
+}
+
+// "Pizza (Forts.) KLEIN GROSS" ist dieselbe Kategorie wie "Pizza".
+function karteKopfName(text) {
+    return String(text).replace(/^#\s*/, '')
+        .replace(/\s*\(\s*Forts\.?\s*\)\s*/ig, ' ')
+        .replace(/\s*\b(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|PREIS)\b/g, '')
+        .replace(/\s+/g, ' ').trim();
+}
+
+// Zeilen, die KEINE Ueberschrift wurden, es aber sein koennten. Werden als
+// Vorschlag angezeigt -- ein Klick genuegt. Damit kostet eine Ueberschrift,
+// die direkt hinter einem Gericht steht, zwei Sekunden statt eines Fehlers.
+function karteTextVorschlaege(zeilen) {
+    var raus = [];
+    for (var i = 0; i < zeilen.length; i++) {
+        if (karteTextIstKopf(zeilen, i)) continue;
+        if (!karteTextKopfMoeglich(zeilen, i)) continue;
+        if (raus.indexOf(zeilen[i]) < 0) raus.push(zeilen[i]);
+    }
+    return raus;
+}
+
+// Kern: Text -> Gerichte. Keine Netzwerkaufrufe, kein Modell, kein Zufall.
+function karteAusText(text) {
+    var zeilen = karteTextZeilen(text);
+    var kategorie = '', gerichte = [], koepfe = [], letztes = null;
+
+    for (var i = 0; i < zeilen.length; i++) {
+        var z = zeilen[i];
+        if (!z) { continue; }
+
+        if (karteTextIstKopf(zeilen, i)) {
+            kategorie = karteKopfName(z);
+            if (kategorie && koepfe.indexOf(kategorie) < 0) koepfe.push(kategorie);
+            letztes = null;
+            continue;
+        }
+
+        var preise = karteTextPreise(z);
+        if (!preise.length) {
+            // Zeile ohne Preis nach einem Gericht = Beschreibung dazu.
+            if (letztes) letztes.beschreibung = (letztes.beschreibung ? letztes.beschreibung + ' ' : '') + z;
+            continue;
+        }
+
+        // Name = alles vor dem ersten Preis, ohne Fuellpunkte.
+        var vor = z.slice(0, z.search(/\d{1,3}[.,]\d{2}(?!\d)/))
+                   .replace(/[.…\-_\s]+$/, '').trim();
+
+        // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
+        // "Menü-Upgrade: +5,00 €". Ohne das stehen sie als Gericht "Zutaten:
+        // klein" fuer 1,00 € in der Karte.
+        if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor)
+            || /\b(Zutat|Upgrade|Aufpreis|erhältlich|kostenlos)\b/i.test(vor)) {
+            if (letztes) letztes.beschreibung = (letztes.beschreibung ? letztes.beschreibung + ' ' : '') + z;
+            continue;
+        }
+
+        // Merkmal-Zeichen VOR der Nummer ("V 1. Pizza Margherita") -- so kommt
+        // es aus dem PDF, wenn man die Karte kopiert. Ohne das heisst das
+        // Gericht "V 1. Pizza Margherita" und hat keine Nummer.
+        var vegVorn = false;
+        var mv = /^([VvSs])\s+(?=\d)/.exec(vor);
+        if (mv) { vegVorn = /[Vv]/.test(mv[1]); vor = vor.slice(mv[0].length).trim(); }
+
+        var nummer = '';
+        var m = /^(\d+\s?[A-Za-z]?)[.)]\s*(.*)$/.exec(vor);
+        if (m) { nummer = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
+        if (!vor) {
+            // Preis allein in der Zeile -> gehoert zum Gericht davor.
+            if (letztes && !letztes.preise.length) letztes.preise = preise;
+            continue;
+        }
+
+        letztes = { nummer: nummer, name: vor, beschreibung: '', preise: preise,
+                    kategorie: kategorie, veg: vegVorn };
+        gerichte.push(letztes);
+    }
+
+    return { gerichte: gerichte, ueberschriften: koepfe, zeilen: zeilen };
+}
+
+// Gerichte -> die Form, die der Import erwartet. Mehrere Preise in einer Zeile
+// sind Groessen (klein/gross) -- wie beim PDF-Leser, damit beide Wege dasselbe
+// liefern und der Import nicht zwei Faelle kennen muss.
+function karteTextZuItems(gerichte) {
+    var raus = [];
+    gerichte.forEach(function (g) {
+        var veg = !!g.veg || /(^|\s)V(\s|$)/.test(g.name) || /vegetarisch/i.test(g.beschreibung);
+        var name = g.name.replace(/\sV$/, '').trim();
+        var preise = g.preise.length ? g.preise : ['0'];
+        preise.forEach(function (p, k) {
+            raus.push({
+                name: name + (preise.length > 1 ? (k === 0 ? ' (klein)' : ' (groß)') : ''),
+                description: g.beschreibung || '',
+                price: Math.round(parseFloat(p) * 100) / 100 || 0,
+                category: g.kategorie || 'Sonstiges',
+                dish_number: g.nummer || '',
+                selected: true,
+                allergens: [], additives: [],
+                is_vegetarian: veg, is_vegan: false,
+                is_spicy: /scharf/i.test(g.beschreibung || ''),
+                is_beef: false, is_chicken: false, is_pork: false,
+                is_fish: false, is_seafood: false
+            });
+        });
+    });
+    return raus;
+}
+
+// --- Live-Vorschau ----------------------------------------------------------
+// Laeuft bei jedem Tastendruck. Das ist der eigentliche Punkt dieses Weges:
+// man sieht das Ergebnis, bevor man irgendetwas uebernimmt.
+function karteTextVorschau() {
+    var feld = document.getElementById('menuScanTextInput');
+    var box = document.getElementById('karteTextVorschau');
+    if (!feld || !box) return;
+    var text = feld.value || '';
+    if (text.trim().length < 10) { box.style.display = 'none'; return; }
+
+    var r = karteAusText(text);
+    var items = karteTextZuItems(r.gerichte);
+    window._karteTextItems = items;
+
+    var kats = {}, reihenfolge = [];
+    items.forEach(function (i) {
+        if (!kats[i.category]) { kats[i.category] = 0; reihenfolge.push(i.category); }
+        kats[i.category]++;
+    });
+    var ohnePreis = items.filter(function (i) { return !i.price; }).length;
+    var ohneKat = items.filter(function (i) { return !i.category || i.category === 'Sonstiges'; }).length;
+
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+
+    var html = '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">'
+        + '<span class="material-symbols-outlined" style="font-size:22px;color:#003D33;">fact_check</span>'
+        + '<div><div style="font-weight:800;color:#003D33;font-size:13px;">'
+        + items.length + ' Einträge · ' + reihenfolge.length + ' Kategorien</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">'
+        + (ohnePreis ? '<strong style="color:#b45309;">' + ohnePreis + ' ohne Preis</strong> · ' : 'alle mit Preis · ')
+        + (ohneKat ? '<strong style="color:#b45309;">' + ohneKat + ' ohne Kategorie</strong>' : 'alle einsortiert')
+        + ' · ohne KI, direkt aus dem Text</div></div></div>';
+
+    if (reihenfolge.length) {
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">'
+              + 'Überschriften — zum Entfernen anklicken:</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+        reihenfolge.forEach(function (k) {
+            if (k === 'Sonstiges') return;
+            html += '<button type="button" onclick="karteTextKopfUm(' + JSON.stringify(k).replace(/"/g, '&quot;') + ', false)" '
+                  + 'style="border:1px solid rgba(0,61,51,0.25);background:rgba(0,61,51,0.06);color:#003D33;'
+                  + 'border-radius:9999px;padding:4px 11px;font-size:12px;font-weight:700;cursor:pointer;">'
+                  + esc(k) + ' <span style="opacity:.6;font-weight:500;">' + kats[k] + '</span></button>';
+        });
+        html += '</div>';
+    }
+
+    // Vorschlaege. Beim Einfuegen ist die Schriftgroesse weg -- eine
+    // Ueberschrift ist im Text nicht sicher von einer umgebrochenen
+    // Zutatenzeile zu unterscheiden. Statt zu raten (und aus 13 Kategorien 75
+    // zu machen) stehen die Kandidaten hier und sind ein Klick weit weg.
+    var vorschlaege = karteTextVorschlaege(r.zeilen);
+    if (vorschlaege.length) {
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">'
+              + 'Ist eine davon eine Überschrift? Anklicken — die Gerichte darunter werden dann einsortiert:</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;max-height:96px;overflow:auto;">';
+        vorschlaege.slice(0, 60).forEach(function (k) {
+            html += '<button type="button" onclick="karteTextKopfUm(' + JSON.stringify(k).replace(/"/g, '&quot;') + ', true)" '
+                  + 'style="border:1px dashed var(--border-color);background:transparent;color:var(--text-secondary);'
+                  + 'border-radius:9999px;padding:4px 11px;font-size:12px;cursor:pointer;">+ ' + esc(k) + '</button>';
+        });
+        html += '</div>';
+    }
+
+    var abgewaehlt = Object.keys(_karteTextAus);
+    if (abgewaehlt.length) {
+        html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">'
+              + 'Abgewählt — zum Zurückholen anklicken:</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+        abgewaehlt.forEach(function (k) {
+            html += '<button type="button" onclick="karteTextKopfUm(' + JSON.stringify(k).replace(/"/g, '&quot;') + ')" '
+                  + 'style="border:1px dashed var(--border-color);background:transparent;color:var(--text-secondary);'
+                  + 'border-radius:9999px;padding:4px 11px;font-size:12px;cursor:pointer;">' + esc(k) + '</button>';
+        });
+        html += '</div>';
+    }
+
+    html += '<div style="max-height:220px;overflow:auto;border:1px solid var(--border-color);border-radius:12px;">';
+    var letzteKat = null;
+    items.slice(0, 400).forEach(function (i) {
+        if (i.category !== letzteKat) {
+            letzteKat = i.category;
+            html += '<div style="position:sticky;top:0;background:var(--bg-secondary);padding:5px 10px;'
+                  + 'font-size:11px;font-weight:800;color:#003D33;letter-spacing:.03em;">' + esc(letzteKat) + '</div>';
+        }
+        html += '<div style="display:flex;gap:8px;padding:4px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
+              + '<span style="width:34px;color:var(--text-secondary);flex:none;">' + esc(i.dish_number) + '</span>'
+              + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
+              + '<span style="flex:none;font-weight:700;' + (i.price ? '' : 'color:#b45309;') + '">'
+              + (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : 'kein Preis') + '</span></div>';
+    });
+    html += '</div>';
+
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+
+// Eine Ueberschrift an- oder abwaehlen. Danach sofort neu rechnen -- der
+// Gastronom sieht die Wirkung im selben Moment.
+function karteTextKopfUm(name, anmachen) {
+    var k = String(name).toLowerCase();
+    if (anmachen) { _karteTextAn[k] = 1; delete _karteTextAus[k]; }
+    else { delete _karteTextAn[k]; _karteTextAus[k] = 1; }
+    karteTextVorschau();
+}
+
+function karteTextUebernehmen() {
+    var items = window._karteTextItems || [];
+    if (!items.length) { showToast('Noch keine Gerichte erkannt', 'error'); return; }
+    var kats = {};
+    items.forEach(function (i) { kats[i.category] = (kats[i.category] || 0) + 1; });
+    scannedMenuItems = items;
+    scannedMenuItems.forEach(function (i) { i.selected = true; });
+    window.scannedMenuItems = scannedMenuItems;
+    window._scanQuelleOCR = null;
+    window._scanExtras = null;
+    window._scanPruefung = null;
+    window._scanBericht = {
+        dauer: '—', bilder: 0, seitenOhneErgebnis: 0,
+        protokoll: [KARTE_TEXT_VERSION, 'Aus eingefügtem Text gelesen, ohne KI'],
+        quellePdfText: true, quelle: 'Eingefügter Text, ohne KI', modell: '—', ocr: 'nein',
+        rohTreffer: items.length, nachDuplikaten: items.length,
+        ohnePreis: items.filter(function (i) { return !i.price; }).length,
+        vorhandeneKategorien: [], kategorien: kats
+    };
+    showToast(items.length + ' Einträge übernommen — ohne KI', 'success');
+    showScannedResults();
 }
 
 async function scanFromText() {
