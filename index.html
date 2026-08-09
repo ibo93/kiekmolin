@@ -18630,9 +18630,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <!-- Action Buttons -->
                 <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; position: relative; z-index: 100;">
-                    <button type="button" id="menuScannerBtn2" style="flex: 1; min-width: 200px; padding: 16px 20px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none; border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
-                        <span class="material-symbols-outlined" style="font-size:22px;">photo_camera</span>
-                        <span>Menü scannen (KI)</span>
+                    <!-- KARTE EINFUEGEN -- der Hauptweg.
+                         Steht bewusst VOR dem KI-Scanner und traegt die Farbe des
+                         Hauses. Vorher war der neue Weg ein Reiter INNERHALB des
+                         KI-Scanners: von hier aus war er unsichtbar, auf dem Knopf
+                         stand weiter "Menü scannen (KI)", und niemand konnte
+                         wissen, dass es ihn ueberhaupt gibt. -->
+                    <button type="button" id="karteEinfuegenBtn" style="flex: 1; min-width: 220px; padding: 16px 20px; background: #003D33; color: #fff; border: none; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <span class="material-symbols-outlined" style="font-size:22px;color:#FFD54F;">content_paste</span>
+                        <span>Karte einfügen</span>
+                        <span style="font-size:11px;font-weight:600;opacity:.7;">ohne KI · sofort</span>
+                    </button>
+                    <button type="button" id="menuScannerBtn2" style="padding: 16px 20px; background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(0,61,51,0.06); color: var(--text-primary); border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">photo_camera</span>
+                        <span>Foto scannen (KI)</span>
                     </button>
                     <button type="button" id="addCategoryBtn2" style="padding: 16px 24px; background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(0,61,51,0.06); border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px; color: var(--text-primary);">
                         <span class="material-symbols-outlined" style="font-size:20px;">create_new_folder</span>
@@ -18671,6 +18682,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <script>
+                document.getElementById('karteEinfuegenBtn').addEventListener('click', function() {
+                    if (typeof oeffneKarteEinfuegen === 'function') oeffneKarteEinfuegen();
+                });
                 document.getElementById('menuScannerBtn2').addEventListener('click', function() {
                     // Ueber openMenuScannerModal() damit Tesseract + PDF.js lazy nachgeladen werden
                     if (typeof openMenuScannerModal === 'function') {
@@ -43043,6 +43057,43 @@ document.addEventListener('error', function(e) {
 </div>
 
 <!-- Menü Scanner Modal -->
+<!-- ======================================================================
+     KARTE EINFUEGEN -- eigenes Fenster, eigener Weg.
+     Kein Hochladen, keine Bibliothek, kein Modell. Der Text ist da, die
+     Regeln laufen im Browser, das Ergebnis steht waehrend des Einfuegens
+     darunter. Es gibt nichts, was unbemerkt schiefgehen kann.
+     ====================================================================== -->
+<div id="karteEinfuegenModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:760px;width:100%;">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:6px;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;flex:none;">
+                <span class="material-symbols-outlined" style="font-size:22px;color:#FFD54F;">content_paste</span>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <h2 style="margin:0;font-family:Epilogue,sans-serif;font-size:21px;font-weight:900;color:var(--text-primary);">Karte einfügen</h2>
+                <p style="margin:2px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.5;">
+                    Karte öffnen (PDF, Word, Website) → alles markieren <strong>Strg+A</strong> → kopieren <strong>Strg+C</strong> → hier einfügen <strong>Strg+V</strong>.
+                    Das Ergebnis steht sofort darunter — ohne KI, ohne Hochladen.
+                </p>
+            </div>
+            <button type="button" onclick="schliesseKarteEinfuegen()" style="background:none;border:none;cursor:pointer;padding:4px;flex:none;">
+                <span class="material-symbols-outlined" style="color:var(--text-secondary);">close</span>
+            </button>
+        </div>
+
+        <textarea id="karteEinfuegenText" oninput="try{karteTextVorschau()}catch(e){}"
+            placeholder="Speisekarte hier einfügen…&#10;&#10;Eine Zeile, die eine Überschrift sein soll, kannst du mit # davor erzwingen:&#10;#Pizza&#10;1. Margherita 6,50 €&#10;2. Salami 7,00 €"
+            style="width:100%;min-height:170px;margin-top:10px;padding:14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:13px;font-family:Inter,monospace;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;line-height:1.6;"></textarea>
+
+        <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.03);font-family:Inter,sans-serif;"></div>
+
+        <button type="button" onclick="karteTextUebernehmen()" style="width:100%;margin-top:12px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <span class="material-symbols-outlined" style="font-size:19px;">check</span>
+            Diese Karte übernehmen
+        </button>
+    </div>
+</div>
+
 <div class="modal-overlay" id="menuScannerModal" style="z-index: 10006; display: none;">
     <div class="modal" style="max-width: 520px;">
         <div class="modal-header" style="border-bottom: 1px solid var(--border-color);">
@@ -43089,7 +43140,7 @@ document.addEventListener('error', function(e) {
                     <!-- Live-Vorschau: rechnet bei jedem Tastendruck neu. Das ist der
                          Kern dieses Weges -- man sieht das Ergebnis, BEVOR man etwas
                          uebernimmt. Nichts kann still fehlschlagen. -->
-                    <div id="karteTextVorschau" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(0,61,51,0.15);border-radius:16px;background:rgba(0,61,51,0.03);font-family:Inter,sans-serif;"></div>
+                    <div id="karteTextVorschauTab" style="display:none;"></div>
                     <button type="button" onclick="karteTextUebernehmen()" style="width:100%;margin-top:10px;padding:14px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
                         <span class="material-symbols-outlined" style="font-size:18px;">check</span>
                         Diese Karte übernehmen
@@ -58654,11 +58705,36 @@ function karteTextZuItems(gerichte) {
     return raus;
 }
 
+// --- Eigenes Fenster: oeffnen und schliessen --------------------------------
+function oeffneKarteEinfuegen() {
+    var m = document.getElementById('karteEinfuegenModal');
+    if (!m) return;
+    m.style.display = 'flex';
+    m.classList.add('active');
+    var f = document.getElementById('karteEinfuegenText');
+    if (f) setTimeout(function () { f.focus(); }, 50);
+    try { karteTextVorschau(); } catch (e) {}
+}
+
+function schliesseKarteEinfuegen() {
+    var m = document.getElementById('karteEinfuegenModal');
+    if (!m) return;
+    m.style.display = 'none';
+    m.classList.remove('active');
+}
+
+
 // --- Live-Vorschau ----------------------------------------------------------
 // Laeuft bei jedem Tastendruck. Das ist der eigentliche Punkt dieses Weges:
 // man sieht das Ergebnis, bevor man irgendetwas uebernimmt.
 function karteTextVorschau() {
-    var feld = document.getElementById('menuScanTextInput');
+    // Das eigene Fenster zuerst; der Reiter im KI-Scanner bleibt als
+    // zweiter Ort bestehen, damit dort nichts kaputtgeht.
+    var feld = document.getElementById('karteEinfuegenText');
+    if (!feld || !feld.offsetParent) {
+        var alt = document.getElementById('menuScanTextInput');
+        if (alt && (!feld || alt.value)) feld = alt;
+    }
     var box = document.getElementById('karteTextVorschau');
     if (!feld || !box) return;
     var text = feld.value || '';
@@ -58781,6 +58857,13 @@ function karteTextUebernehmen() {
         vorhandeneKategorien: [], kategorien: kats
     };
     showToast(items.length + ' Einträge übernommen — ohne KI', 'success');
+    try { schliesseKarteEinfuegen(); } catch (e) {}
+    // Das Ergebnis wird im Scanner-Fenster angezeigt -- dort sitzt die
+    // Pruefliste mit Haken, Kategorien und dem Import-Knopf.
+    var sm = document.getElementById('menuScannerModal');
+    if (sm) { sm.style.display = 'flex'; sm.classList.add('active'); }
+    var ua = document.getElementById('menuScanUploadArea');
+    if (ua) ua.style.display = 'none';
     showScannedResults();
 }
 

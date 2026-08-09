@@ -96,6 +96,28 @@ t('zwei Preise in einer Zeile werden klein/gross',
 
 // --- Oberflaeche ------------------------------------------------------------
 t('Vorschau rechnet bei jedem Tastendruck', /oninput="try\{karteTextVorschau\(\)\}catch\(e\)\{\}"/.test(H));
+
+// --- Sichtbarkeit: der Fehler, der alles davor wertlos gemacht hat ---------
+// Der neue Weg war ein Reiter INNERHALB des KI-Scanners. Von der
+// Speisekarten-Seite aus war er unsichtbar -- auf dem Knopf stand weiter
+// "Menü scannen (KI)". Der ganze Umbau kam beim Gastronom nie an.
+t('eigener Knopf "Karte einfügen" auf der Speisekarten-Seite',
+  /id="karteEinfuegenBtn"/.test(H) && /<span>Karte einfügen<\/span>/.test(H));
+t('der eigene Knopf steht VOR dem KI-Scanner',
+  H.indexOf('id="karteEinfuegenBtn"') < H.indexOf('id="menuScannerBtn2"'));
+t('der eigene Knopf traegt die Hausfarbe, nicht das Lila des KI-Scanners',
+  /id="karteEinfuegenBtn"[^>]*background: #003D33/.test(H));
+t('KI-Scanner heisst jetzt "Foto scannen (KI)" -- keine Verwechslung mehr',
+  /<span>Foto scannen \(KI\)<\/span>/.test(H) && !/<span>Menü scannen \(KI\)<\/span>/.test(H));
+t('eigenes Fenster vorhanden', /id="karteEinfuegenModal"/.test(H));
+t('eigenes Textfeld im eigenen Fenster', /id="karteEinfuegenText"/.test(H));
+t('Knopf oeffnet das eigene Fenster',
+  /oeffneKarteEinfuegen\(\)/.test(H) && /function oeffneKarteEinfuegen/.test(H));
+t('Vorschau haengt genau einmal im Dokument',
+  (H.match(/id="karteTextVorschau"/g) || []).length === 1,
+  (H.match(/id="karteTextVorschau"/g) || []).length);
+t('nach dem Uebernehmen schliesst das Fenster und die Pruefliste kommt',
+  /schliesseKarteEinfuegen\(\);[\s\S]{0,400}showScannedResults\(\)/.test(H));
 t('Uebernehmen-Knopf ruft den KI-freien Weg', /onclick="karteTextUebernehmen\(\)"/.test(H));
 t('KI ist nur noch die zweite Wahl, nicht der Standard',
   H.indexOf('onclick="karteTextUebernehmen()"') < H.indexOf('onclick="scanFromText()"'));
