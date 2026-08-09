@@ -45,7 +45,8 @@ async function lauf(o) {
     var u = umgebung();
     var quelle = vorspann + '\n'
         + ['pdfSeiteZuText', 'parseKartenText', 'pdfGerichteZuItems', '_nrWert',
-           'sortiereNachNummer', 'extrasZuGruppen', 'leseKartePdf', 'startMenuScan'].map(schneide).join('\n');
+           'sortiereNachNummer', 'extrasZuGruppen', 'zutatenAusKategorie', 'extrasMitZutaten',
+           'extrasAufAlleKategorien', 'leseKartePdf', 'startMenuScan'].map(schneide).join('\n');
     var f = new Function('umw', 'return (async function () {\n'
         + 'var document = umw.document, showToast = umw.showToast;\n'
         + 'var menuScanImageData = umw.datei, menuScanFileType = umw.typ;\n'

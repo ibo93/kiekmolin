@@ -57638,7 +57638,8 @@ async function leseKartePdf(pdfData) {
     }
 
     ergebnis.items = sortiereNachNummer(pdfGerichteZuItems(gerichte));
-    ergebnis.extras = extrasZuGruppen(rohExtras);
+    ergebnis.extras = extrasAufAlleKategorien(
+        extrasMitZutaten(extrasZuGruppen(rohExtras), ergebnis.items), ergebnis.items);
     ergebnis.protokoll.push(gerichte.length + ' Gerichte, ' + ergebnis.items.length + ' Eintraege');
     if (ergebnis.extras && ergebnis.extras.length) {
         ergebnis.protokoll.push(ergebnis.extras.length + ' Extra-Gruppen gefunden');
@@ -58364,6 +58365,106 @@ function parseKartenText(text, startKategorie) {
 // Welche Zutaten es gibt, steht auf dieser Karte nicht -- nur was sie kosten.
 // Also wird EINE Option mit dem Preis angelegt; die Namen der Zutaten traegt
 // der Wirt nach. Lieber der richtige Preis ohne Namen als gar kein Extra.
+// Aus den Zutatenzeilen der Karte eine ANKLICKBARE Liste machen.
+//
+// Die Karte sagt nur, was eine Extra-Zutat kostet ("Extra Zutaten: klein
+// 1,00 €, groß 1,50 €") -- nicht, welche es gibt. Bisher legte der Import
+// deshalb eine Gruppe "Extra Zutaten" mit einer Option namens "Extra Zutat
+// (klein)" an. Damit kann ein Gast nichts anfangen: er will Paprika
+// anklicken, nicht "Extra Zutat".
+//
+// Die Namen stehen aber sehr wohl auf der Karte -- in den Beschreibungen der
+// Gerichte. Jede Pizza listet ihre Zutaten auf. Was in dieser Kategorie
+// mehrfach vorkommt, ist eine Zutat, die das Haus da hat.
+//
+// Mindestens zwei Nennungen: einmaliges wie "Lassen Sie sich überraschen!"
+// oder "teuflisch scharf" ist keine Zutat, sondern Beiwerk. An der Karte von
+// Pronto Pronto trennt diese Grenze sauber -- 13 echte Zutaten statt 32
+// Zeilen mit Ausreissern.
+function zutatenAusKategorie(items, kategorie, mindestens) {
+    var zaehler = {}, schreibweise = {};
+    (items || []).forEach(function (i) {
+        if (kategorie && i.category !== kategorie) return;
+        String(i.description || '').split(/[,·]/).forEach(function (z) {
+            var t = z.replace(/\s+/g, ' ').trim();
+            if (!t || t.length > 24 || t.length < 3) return;
+            if (/^\d/.test(t) || /€|\d{1,3},\d{2}/.test(t)) return;
+            if (/^(und|mit|oder|dazu|nach Wahl|auf Wunsch)\b/i.test(t)) return;
+            if (t.split(' ').length > 3) return;          // ganze Saetze raus
+            var k = t.toLowerCase();
+            zaehler[k] = (zaehler[k] || 0) + 1;
+            if (!schreibweise[k]) schreibweise[k] = t;
+        });
+    });
+    return Object.keys(zaehler)
+        .filter(function (k) { return zaehler[k] >= (mindestens || 2); })
+        .sort(function (a, b) { return zaehler[b] - zaehler[a] || a.localeCompare(b); })
+        .map(function (k) { return schreibweise[k]; });
+}
+
+// Die Zutatenliste auf ALLE Gerichte ausweiten.
+//
+// Auf der Karte steht die Extra-Regel nur unter den Pizzen und den Salaten.
+// Ein Gast, der ein Schnitzel oder einen Doener nimmt, moechte aber genauso
+// Kaese dazu -- und jede angeklickte Zutat ist Umsatz, der sonst nicht
+// stattfindet.
+//
+// Erfunden wird dabei nichts: die Gruppe behaelt Zutaten UND Preis von der
+// Karte. Sie gilt nur zusaetzlich fuer die Kategorien, die keine eigene
+// Extra-Regel haben. Wo das Haus einen eigenen Preis gedruckt hat (Salate
+// 0,50 €), bleibt der bestehen.
+function extrasAufAlleKategorien(gruppen, items) {
+    var alleKats = [];
+    (items || []).forEach(function (i) {
+        if (i.category && alleKats.indexOf(i.category) < 0) alleKats.push(i.category);
+    });
+    // "Eigene Regel" heisst: eine echte ZUTATENLISTE. Eine Gruppe wie
+    // "Menü-Upgrade" oder "Alle Teller mit Pommes erhältlich" ist keine --
+    // Burger und Fleischgerichte sollen die Zutaten trotzdem bekommen.
+    var mitEigener = {};
+    (gruppen || []).forEach(function (g) { if (g.kategorie && g.mehrfach) mitEigener[g.kategorie] = 1; });
+
+    // Die groesste echte Zutatenliste ist die Vorlage fuer den Rest.
+    var vorlage = null;
+    (gruppen || []).forEach(function (g) {
+        if (!g.mehrfach) return;
+        if (!vorlage || g.optionen.length > vorlage.optionen.length) vorlage = g;
+    });
+    if (!vorlage) return gruppen;
+
+    var offen = alleKats.filter(function (k) { return !mitEigener[k]; });
+    if (!offen.length) return gruppen;
+
+    // Eine Gruppe fuer alle uebrigen Kategorien -- nicht je eine pro
+    // Kategorie, sonst stehen dieselben Zutaten zwanzigmal in der Verwaltung.
+    gruppen.push({
+        name: vorlage.name,
+        kategorie: offen.join(','),
+        mehrfach: true,
+        quelle: vorlage.quelle,
+        uebertragen: true,
+        optionen: vorlage.optionen.map(function (o) { return { name: o.name, price: o.price }; })
+    });
+    return gruppen;
+}
+
+// Extras-Gruppen mit echten Zutaten fuellen.
+function extrasMitZutaten(gruppen, items) {
+    (gruppen || []).forEach(function (g) {
+        if (!/zutat/i.test(g.name)) return;               // nur "Extra Zutaten"
+        var zutaten = zutatenAusKategorie(items, g.kategorie, 2);
+        if (zutaten.length < 3) return;                    // zu wenig -> so lassen
+        // Preis: der guenstigste der Karte. Eine Option kann nur EINEN Preis
+        // haben und weiss nicht, welche Groesse der Gast genommen hat -- also
+        // der Preis, der auf der Karte fuer die kleine steht. Alles andere
+        // waere ein Aufschlag, den der Gastronom nicht gedruckt hat.
+        var preis = Math.min.apply(null, g.optionen.map(function (o) { return o.price; }));
+        g.mehrfach = true;                                 // mehrere Zutaten erlaubt
+        g.optionen = zutaten.map(function (z) { return { name: z, price: preis }; });
+    });
+    return gruppen;
+}
+
 function extrasZuGruppen(extras) {
     var gruppen = [];
     (extras || []).forEach(function (e) {
@@ -59720,8 +59821,9 @@ function showScannedResults() {
                   + '</div>';
         });
         html += '<div style="margin-top:6px;color:var(--text-secondary);font-size:11px;">'
-              + 'Welche Zutaten es gibt, steht nicht auf der Karte — nur was sie kosten. '
-              + 'Die Namen kannst du unter „Optionen &amp; Extras" nachtragen.</div></div>';
+              + 'Die Zutaten kommen aus den Beschreibungen der Gerichte dieser Kategorie — '
+              + 'alles, was dort mindestens zweimal vorkommt. Ergänzen oder löschen kannst du '
+              + 'sie unter „Optionen &amp; Extras".</div></div>';
     }
 
     var _pz = window._scanPruefung;
@@ -60561,11 +60663,30 @@ async function importScannedMenu() {
     // das eine Optionsgruppe mit Mehrfachauswahl, ueber internal_name an die
     // Kategorie gebunden -- genau so, wie sie der Gastronom sonst von Hand
     // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
-    var extrasAngelegt = 0;
+    var extrasAngelegt = 0, extrasUebersprungen = 0;
     var extras = window._scanExtras || [];
+
+    // VORHANDENE GRUPPEN ERST HOLEN.
+    //
+    // Sonst legt jeder weitere Import dieselben Gruppen noch einmal an, und
+    // der Gast sieht "Extra Zutaten" dreimal untereinander -- derselbe
+    // Fehler, den es bei den Gerichten gab.
+    var _vorhandeneGruppen = {};
+    try {
+        var vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
+            + restaurantId + '&select=id,name,internal_name', { headers: SUPA_H });
+        if (vgRes.ok) {
+            (await vgRes.json() || []).forEach(function (vg) {
+                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '')).toLowerCase()] = vg.id;
+            });
+        }
+    } catch (e) {}
+
     for (var e = 0; e < extras.length; e++) {
         var g = extras[e];
         if (!g.optionen || !g.optionen.length) continue;
+        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
+        if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
         try {
             var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
                 method: 'POST', headers: SUPA_H,
@@ -60676,7 +60797,9 @@ async function importScannedMenu() {
             + errors.length + ' nicht. Welche und warum steht oben in der Liste.', 'warning');
     } else {
         showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
-            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');
+            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : '')
+            + (extrasUebersprungen ? ' ' + extrasUebersprungen + ' Extra-Gruppe'
+               + (extrasUebersprungen > 1 ? 'n gab es' : ' gab es') + ' schon.' : ''), 'success');
     }
     // NACHSEHEN statt hoffen. Ein Import, der "erfolgreich" meldet und
     // trotzdem keine Groessen gespeichert hat, ist der schlimmste Fall: alles
