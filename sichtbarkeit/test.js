@@ -189,9 +189,12 @@ test('GBP-Posts: 4 Stueck, echtes Gericht, Saison, Antworten ohne Gutschein-Vers
     { name: 'Pizza Diavola', base_price: 11.5, is_popular: true, menu_categories: { name: 'Pizza' } },
     { name: 'Tiramisu', price: 5.9, menu_categories: { name: 'Dessert' } }
   ];
-  assert.strictEqual(baueGbpPosts(restaurant, menue, { monat: 7 }).length, 4);
-  assert.ok(baueGbpPosts(restaurant, menue, { monat: 7 })[0].text.includes('Pizza Diavola'), 'echtes Gericht im Post');
-  assert.notStrictEqual(baueGbpPosts(restaurant, menue, { monat: 7 })[1].titel, baueGbpPosts(restaurant, menue, { monat: 1 })[1].titel, 'Sommer- und Winter-Post unterscheiden sich');
+  const juli = baueGbpPosts(restaurant, menue, { monat: 7 });
+  assert.ok(juli.length >= 4, 'mindestens die vier Standard-Posts');
+  assert.ok(juli.some((p) => p.text.includes('Pizza Diavola')), 'echtes Gericht im Post');
+  const saisonPost = (posts) => posts.find((p) => /^(Sommer|Winter|Frühling|Herbst|Gemütlich)/.test(p.titel));
+  assert.notStrictEqual(saisonPost(juli).titel, saisonPost(baueGbpPosts(restaurant, menue, { monat: 1 })).titel,
+    'Sommer- und Winter-Post unterscheiden sich');
   assert.ok(!baueBewertungsAntworten(restaurant)[2].antwort.toLowerCase().includes('gutschein'), 'keine Gutschein-Versprechen bei Beschwerden');
   const md = bauePostsMarkdown(restaurant, menue, { monat: 7 });
   assert.ok(md.includes('Google-Business-Beiträge') && md.includes('kiekmolin.de/la-piazza-emden') && !md.includes('undefined'));
@@ -257,6 +260,49 @@ test('kiKonkurrenz: aggregiert ueber alle Fragen und zaehlt Mehrfach-Nennungen, 
   const ohne = report.renderHtml({ restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
     ergebnis: { basis: ergebnis.basis, fragen: [{ id: 'a', frage: 'x', google: { status: 'manuell', detail: '' }, ki: { status: 'manuell', detail: '' } }] } });
   assert.ok(!ohne.includes('Wen die KI stattdessen empfiehlt'), 'ohne Daten keine leere Sektion');
+});
+
+// --- Anlass-Kalender ---------------------------------------------------------------
+test('Anlaesse: richtiger Monat, Gericht nur wenn wirklich auf der Karte', () => {
+  const { anlaesseFuerMonat, passendesGericht, besterAnlass } = require('./lib/anlaesse');
+
+  const mai = anlaesseFuerMonat(5).map((a) => a.id);
+  assert.ok(mai.includes('muttertag') && mai.includes('spargel'), 'Mai: Muttertag + Spargel');
+  const dez = anlaesseFuerMonat(12).map((a) => a.id);
+  assert.ok(dez.includes('weihnachten') && dez.includes('gruenkohl'), 'Dezember: Weihnachten + Gruenkohl');
+  assert.strictEqual(anlaesseFuerMonat(13).length, 0, 'ungueltiger Monat = leer');
+  assert.strictEqual(anlaesseFuerMonat(11)[0].typ, 'termin', 'Termine stehen vor Saisons');
+
+  const karte = [{ name: 'Grünkohl mit Pinkel', base_price: 16.5 }, { name: 'Pizza Salami', base_price: 9 }];
+  assert.ok(passendesGericht(karte, ['gruenkohl', 'grünkohl']), 'findet Gruenkohl auf der Karte');
+  assert.strictEqual(passendesGericht(karte, ['spargel']), null, 'kein Spargel = null (nichts erfinden)');
+  assert.strictEqual(passendesGericht([], ['gruenkohl']), null, 'leere Karte = null');
+
+  // Saison MIT passendem Gericht schlaegt den Termin - der Post wird konkret
+  const mitGericht = besterAnlass(12, karte);
+  assert.strictEqual(mitGericht.anlass.id, 'gruenkohl');
+  assert.strictEqual(mitGericht.gericht.name, 'Grünkohl mit Pinkel');
+  // Ohne passendes Gericht: Termin als Aufhaenger, KEIN erfundenes Gericht
+  const ohne = besterAnlass(12, [{ name: 'Pizza Salami', base_price: 9 }]);
+  assert.strictEqual(ohne.anlass.typ, 'termin');
+  assert.strictEqual(ohne.gericht, null);
+});
+
+test('Anlass-Post steht ganz oben und erfindet keine Gerichte', () => {
+  const { baueGbpPosts } = require('./lib/gbp-posts');
+  const restaurant = { name: 'Greetsieler Börse', city: 'Greetsiel', cuisine: 'fisch', slug: 'greetsieler-boerse' };
+  const karte = [{ name: 'Grünkohl mit Pinkel', base_price: 16.5, description: 'Hausgemacht' }];
+
+  const dez = baueGbpPosts(restaurant, karte, { monat: 12 });
+  assert.strictEqual(dez.length, 5, 'Anlass-Post kommt zu den vier Standard-Posts dazu');
+  assert.ok(dez[0].titel.includes('Grünkohl'), 'Anlass-Post steht ganz oben: ' + dez[0].titel);
+  assert.ok(dez[0].text.includes('16,50 €'), 'echter Preis aus der Karte');
+  assert.ok(/ZUERST posten/.test(dez[0].hinweis), 'Hinweis markiert ihn als zeitkritisch');
+
+  // Karte ohne Saison-Gericht: Anlass bleibt, aber ohne Gericht-Behauptung
+  const ohne = baueGbpPosts(restaurant, [{ name: 'Pizza Salami', base_price: 9 }], { monat: 12 });
+  assert.ok(!/Grünkohl mit Pinkel/.test(ohne[0].text), 'kein erfundenes Gericht');
+  assert.ok(ohne[0].text.length > 50, 'trotzdem ein vollwertiger Post');
 });
 
 // --- Aufbereitung -----------------------------------------------------------------
