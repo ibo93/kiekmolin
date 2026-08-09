@@ -19224,10 +19224,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     <h1 style="font-family: 'Epilogue', sans-serif; font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.03em; color: var(--ink-deep); margin: 0 0 12px; line-height: 1.05;">Optionen & Extras</h1>
                     <p style="font-size: 18px; color: var(--text-secondary); line-height: 1.6; margin: 0;">Größen, Extras und Empfehlungen verwalten. Jedes Detail zählt für das perfekte Gästeerlebnis.</p>
                 </div>
-                <button onclick="openCreateOptionGroupModal()" style="background: #00251e; color: white; padding: 16px 32px; border: none; border-radius: 48px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 24px 48px -8px rgba(0,37,30,0.2); transition: opacity 0.2s;">
-                    <span class="material-symbols-outlined" style="font-size: 20px;">add_circle</span>
-                    Neue Gruppe
-                </button>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <!-- AUS PDF ÜBERNEHMEN -- eigener, kurzer Weg.
+                         Ueber den Scanner kamen die Extras nicht an: dort
+                         haengen sie an einer langen Kette (lesen, abgleichen,
+                         Gerichte schreiben, dann erst Extras), und jede
+                         Station kann sie verschlucken. Hier ist es ein
+                         Schritt: PDF lesen, zeigen, schreiben. -->
+                    <button onclick="oeffneExtrasAusPdf()" style="background: #003D33; color: white; padding: 16px 28px; border: none; border-radius: 48px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color:#FFD54F;">upload_file</span>
+                        Aus PDF übernehmen
+                    </button>
+                    <button onclick="openCreateOptionGroupModal()" style="background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); color: var(--text-primary); padding: 16px 28px; border: 1px solid rgba(0,61,51,0.08); border-radius: 48px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">add_circle</span>
+                        Neue Gruppe
+                    </button>
+                </div>
             </header>
 
             <!-- Restaurant Auswahl - Glass Card -->
@@ -43205,6 +43217,45 @@ document.addEventListener('error', function(e) {
      Steht zwischen Einlesen und Schreiben. Ohne diesen Schritt legt der
      Import jedes Gericht ein zweites Mal an.
      ====================================================================== -->
+<!-- ======================================================================
+     EXTRAS AUS PDF -- ein Schritt, eigener Weg.
+     ====================================================================== -->
+<div class="modal-overlay" id="extrasPdfModal" style="z-index: 10009; display: none;">
+    <div class="modal" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2 class="modal-title" style="font-family:'Epilogue',sans-serif;display:flex;align-items:center;gap:10px;">
+                <span style="width:34px;height:34px;border-radius:50%;background:#003D33;display:inline-flex;align-items:center;justify-content:center;flex:none;">
+                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">upload_file</span>
+                </span>
+                Extras aus PDF
+            </h2>
+            <button class="modal-close" aria-label="Schließen" onclick="closeModal('extrasPdfModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);line-height:1.55;">
+                Dieselbe Karte wie beim Speisekarten-Import. Gelesen werden nur die Extra-Regeln
+                („Extra Zutaten: klein 1,00 €") und die Zutaten aus den Beschreibungen der Gerichte.
+                An der Speisekarte ändert sich nichts.
+            </p>
+            <input type="file" id="extrasPdfDatei" accept="application/pdf,.pdf" style="display:none;" onchange="extrasPdfGewaehlt(event)">
+            <div onclick="document.getElementById('extrasPdfDatei').click()"
+                 ondragover="event.preventDefault();this.style.borderColor='#003D33';"
+                 ondragleave="this.style.borderColor='';"
+                 ondrop="extrasPdfAbgelegt(event, this)"
+                 style="border:2px dashed rgba(0,61,51,0.3);border-radius:18px;padding:24px 20px;text-align:center;cursor:pointer;background:rgba(0,61,51,0.03);">
+                <span class="material-symbols-outlined" style="font-size:34px;color:var(--ink-strong);">upload_file</span>
+                <p style="font-weight:800;color:var(--ink-strong);margin:6px 0 2px;font-family:Inter,sans-serif;">PDF hier ablegen oder auswählen</p>
+                <p style="font-size:12px;color:var(--text-secondary);margin:0;">Ohne KI, in unter einer Sekunde.</p>
+            </div>
+            <div id="extrasPdfStatus" style="display:none;margin-top:10px;font-size:13px;text-align:center;"></div>
+            <div id="extrasPdfVorschau" style="display:none;margin-top:12px;"></div>
+            <button type="button" id="extrasPdfKnopf" onclick="extrasPdfUebernehmen()" style="display:none;width:100%;margin-top:12px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;">
+                Diese Extras anlegen
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="kartenAbgleichModal" style="z-index: 10008; display: none;">
     <div class="modal" style="max-width: 720px;">
         <div class="modal-header">
@@ -60458,6 +60509,152 @@ function _kopiereSpaltenSQL(btn) {
 // es NEUE Gerichte gibt. Wer eine bekannte Karte noch einmal einliest -- der
 // Normalfall, etwa wegen neuer Preise --, bekam deshalb nie Extras: es gab ja
 // keine neuen Gerichte, also lief der Block nicht.
+// ============================================================================
+// EXTRAS AUS PDF -- eigener, kurzer Weg
+// ============================================================================
+// Ueber den Speisekarten-Import kamen die Extras nicht an. Dort haengen sie am
+// Ende einer langen Kette: lesen, abgleichen, Gerichte schreiben, Fehler
+// behandeln, dann erst Extras. Jede Station kann sie verschlucken -- und
+// genau das ist mehrfach passiert.
+//
+// Hier sind es drei Schritte, die man einzeln sieht: PDF lesen, Ergebnis
+// zeigen, auf Knopfdruck schreiben. Nichts anderes passiert dabei; die
+// Speisekarte bleibt unangetastet. Das manuelle Anlegen ueber "Neue Gruppe"
+// bleibt daneben bestehen.
+var _extrasPdfGefunden = null;
+
+function oeffneExtrasAusPdf() {
+    _extrasPdfGefunden = null;
+    var v = document.getElementById('extrasPdfVorschau');
+    var st = document.getElementById('extrasPdfStatus');
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (v) { v.style.display = 'none'; v.innerHTML = ''; }
+    if (st) st.style.display = 'none';
+    if (kn) kn.style.display = 'none';
+    openModal('extrasPdfModal');
+}
+
+function extrasPdfAbgelegt(ev, kasten) {
+    ev.preventDefault();
+    if (kasten) kasten.style.borderColor = '';
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) extrasPdfLesen(f);
+}
+
+function extrasPdfGewaehlt(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (f) extrasPdfLesen(f);
+}
+
+function _extrasPdfSage(text, art) {
+    var el = document.getElementById('extrasPdfStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = art === 'fehler' ? '#b45309' : 'var(--text-secondary)';
+    el.textContent = text;
+}
+
+async function extrasPdfLesen(datei) {
+    if (!/pdf$/i.test(datei.name) && datei.type !== 'application/pdf') {
+        _extrasPdfSage('Das ist kein PDF.', 'fehler');
+        return;
+    }
+    _extrasPdfSage('„' + datei.name + '" wird gelesen…');
+    try {
+        var daten = await new Promise(function (fertig, schief) {
+            var r = new FileReader();
+            r.onload = function () { fertig(r.result); };
+            r.onerror = function () { schief(new Error('Datei nicht lesbar')); };
+            r.readAsDataURL(datei);
+        });
+        var e = await leseKartePdf(daten);
+        if (!e.ok) { _extrasPdfSage(e.grund || 'Konnte nichts lesen.', 'fehler'); return; }
+
+        var gruppen = (e.extras || []).filter(function (g) { return g.optionen && g.optionen.length; });
+        if (!gruppen.length) {
+            _extrasPdfSage('In dieser Karte stehen keine Extra-Regeln (z.B. „Extra Zutaten: 1,00 €").', 'fehler');
+            return;
+        }
+        _extrasPdfGefunden = gruppen;
+        _extrasPdfSage(gruppen.length + ' Gruppen aus „' + datei.name + '" gelesen — ohne KI.');
+        _extrasPdfZeige(gruppen);
+    } catch (fehler) {
+        _extrasPdfSage('Fehler: ' + fehler.message, 'fehler');
+    }
+}
+
+function _extrasPdfZeige(gruppen) {
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+    var html = '';
+    gruppen.forEach(function (g, i) {
+        var kats = g.kategorie ? g.kategorie.split(',') : [];
+        html += '<div style="border:1px solid var(--border-color);border-radius:12px;padding:10px 12px;margin-bottom:8px;">'
+              + '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">'
+              + '<input type="checkbox" class="extrasPdfHaken" data-i="' + i + '" checked style="margin-top:3px;accent-color:var(--ink-strong);">'
+              + '<span style="flex:1;min-width:0;">'
+              +   '<span style="font-weight:800;color:var(--ink-strong);font-size:13px;">' + esc(g.name) + '</span> '
+              +   '<span style="font-size:12px;color:var(--text-secondary);">'
+              +     (kats.length ? (kats.length > 3 ? kats.length + ' Kategorien' : 'bei ' + esc(kats.join(', '))) : 'bei allen Gerichten')
+              +     ' · ' + (g.mehrfach ? 'mehrere wählbar' : 'eine Auswahl') + '</span>'
+              +   '<div style="font-size:12px;margin-top:4px;line-height:1.6;">'
+              +     g.optionen.map(function (o) {
+                        return '<span style="display:inline-block;border:1px solid rgba(0,61,51,0.2);border-radius:9999px;'
+                             + 'padding:2px 9px;margin:2px 4px 2px 0;">' + esc(o.name)
+                             + ' <strong>+' + o.price.toFixed(2).replace('.', ',') + ' €</strong></span>';
+                    }).join('')
+              +   '</div>'
+              + '</span></label></div>';
+    });
+    var v = document.getElementById('extrasPdfVorschau');
+    if (v) { v.innerHTML = html; v.style.display = 'block'; }
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (kn) { kn.style.display = 'block'; kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
+}
+
+async function extrasPdfUebernehmen() {
+    if (!_extrasPdfGefunden) return;
+    var gewaehlt = [];
+    document.querySelectorAll('.extrasPdfHaken').forEach(function (h) {
+        if (h.checked) gewaehlt.push(_extrasPdfGefunden[parseInt(h.dataset.i, 10)]);
+    });
+    if (!gewaehlt.length) { showToast('Keine Gruppe ausgewählt', 'error'); return; }
+
+    var rid = window._gastroOnlyRestaurantId || currentMenuRestaurant
+           || window.currentMenuRestaurant || RESTAURANT_ID;
+    if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt.', 'fehler'); return; }
+
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (kn) { kn.disabled = true; kn.textContent = 'Wird angelegt…'; }
+
+    // legeExtrasAn liest window._scanExtras -- kurz setzen, danach
+    // zuruecksetzen, damit ein spaeterer Speisekarten-Import nicht
+    // versehentlich dieselben Gruppen noch einmal anlegt.
+    var merk = window._scanExtras;
+    window._scanExtras = gewaehlt;
+    var erg = { angelegt: 0, uebersprungen: 0, fehler: [] }, ausnahme = null;
+    try {
+        erg = await legeExtrasAn(rid, {});
+    } catch (e) {
+        ausnahme = e && e.message ? e.message : String(e);
+        console.error('[extras-pdf]', e);
+    }
+    window._scanExtras = merk;
+
+    if (kn) { kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
+
+    if (erg.angelegt || erg.uebersprungen) {
+        _extrasPdfSage(erg.angelegt + ' angelegt' + (erg.uebersprungen ? ', ' + erg.uebersprungen + ' gab es schon' : '') + '.');
+        showToast(erg.angelegt + ' Extra-Gruppe' + (erg.angelegt === 1 ? '' : 'n') + ' angelegt', 'success');
+        closeModal('extrasPdfModal');
+        if (typeof loadOptionGroups === 'function') loadOptionGroups();
+        return;
+    }
+    // Nichts angekommen: den Grund HIER zeigen, nicht in der Konsole.
+    _extrasPdfSage('Nichts angelegt. ' + (ausnahme || (erg.fehler && erg.fehler[0]) || 'Kein Grund gemeldet.'), 'fehler');
+}
+
 async function legeExtrasAn(restaurantId, SUPA_H) {
     // EIGENE KOPFZEILEN. Der Aufrufer schickt teils "Prefer: return=minimal"
     // mit -- dann antwortet die Datenbank ohne Inhalt, die neu angelegte
