@@ -158,8 +158,20 @@ async function herkunftBestellungen(restaurantId, vonDatum, bisDatum) {
   return mitFallback(basis, '&select=source,total', '&select=total');
 }
 
+// --- Speisekarten-Doktor: bestellte Artikel eines Zeitraums -----------
+// Nur die Positionen, nicht die Gaeste-Daten - mehr braucht die Analyse
+// nicht. Weiterhin ausschliesslich lesend.
+async function bestellArtikel(restaurantId, abDatum) {
+  return supabaseGet(
+    'orders?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&created_at=gte.' + encodeURIComponent(abDatum) +
+    '&status=not.eq.cancelled' +
+    '&select=items,created_at'
+  );
+}
+
 module.exports = {
-  alleRestaurants, findeRestaurant, speisekarte,
+  alleRestaurants, findeRestaurant, speisekarte, bestellArtikel,
   telefonReservierungen, telefonBestellungen,
   gaesteReservierungen, gaesteBestellungen,
   herkunftReservierungen, herkunftBestellungen

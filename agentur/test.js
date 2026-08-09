@@ -437,4 +437,57 @@ test('Gaeste-Ursprung: Satz fuer den Wirt bleibt bei duenner Lage ehrlich', () =
   assert.ok(!/Fache/.test(satzFuerWirt(stark, 'August 2026', 0)));
 });
 
+test('Speisekarten-Doktor: findet versteckten Renner, Unterpreis und Ladenhueter', () => {
+  const { analysiere } = require('./lib/speisekarte-doktor');
+  const pizza = { menu_categories: { name: 'Pizza' } };
+  const karte = [
+    Object.assign({ name: 'Pizza Tonno', description: 'Thunfisch', base_price: 13 }, pizza),
+    Object.assign({ name: 'Pizza Vegetaria', description: 'Gemüse', base_price: 13 }, pizza),
+    Object.assign({ name: 'Pizza Quattro', description: 'Käse', base_price: 14 }, pizza),
+    Object.assign({ name: 'Pizza Margherita', description: 'Tomate, Mozzarella', base_price: 8 }, pizza)
+  ];
+  // Margherita laeuft am besten - steht aber ganz unten und ist am billigsten
+  const bestellungen = [];
+  for (let i = 0; i < 30; i++) bestellungen.push({ items: [{ name: 'Pizza Margherita', quantity: 2 }] });
+
+  const d = analysiere(karte, bestellungen);
+  assert.strictEqual(d.gerichteGesamt, 4);
+  assert.strictEqual(d.bestellungenAusgewertet, 30);
+  assert.ok(d.genugDaten);
+
+  const versteckt = d.befunde.find((b) => b.typ === 'versteckter-bestseller');
+  assert.ok(versteckt && /Margherita/.test(versteckt.gericht), 'Renner steht zu weit unten');
+
+  const preis = d.befunde.find((b) => b.typ === 'unterpreis');
+  assert.ok(preis, 'zu billiger Bestseller erkannt');
+  assert.ok(preis.potenzial > 0 && d.potenzial > 0, 'Potenzial in Euro beziffert');
+
+  const tot = d.befunde.find((b) => b.typ === 'ladenhueter');
+  assert.ok(tot && tot.gerichte.includes('Pizza Tonno'), 'nie bestellte Gerichte gelistet');
+  // Wichtigstes zuerst
+  assert.strictEqual(d.befunde[0].prio, 'hoch');
+});
+
+test('Speisekarten-Doktor: schweigt bei duenner Datenlage, nennt aber Struktur-Fehler', () => {
+  const { analysiere } = require('./lib/speisekarte-doktor');
+  const karte = [
+    { name: 'Pizza Salami', base_price: 10, description: '' },
+    { name: 'Pizza Funghi', base_price: 10, description: 'Champignons' }
+  ];
+  const d = analysiere(karte, [{ items: [{ name: 'Pizza Salami', quantity: 1 }] }]);
+  assert.strictEqual(d.genugDaten, false);
+  assert.ok(d.befunde.some((b) => b.typ === 'zu-wenig-daten'), 'sagt offen, dass Zahlen fehlen');
+  assert.ok(!d.befunde.some((b) => b.typ === 'ladenhueter'), 'kein Ladenhueter-Vorwurf ohne Basis');
+  assert.ok(d.befunde.some((b) => b.typ === 'ohne-beschreibung'), 'fehlende Beschreibung sieht man auch ohne Zahlen');
+
+  // Leere Karte darf nicht knallen
+  const leer = analysiere([], []);
+  assert.strictEqual(leer.gerichteGesamt, 0);
+  assert.strictEqual(leer.potenzial, 0);
+
+  // Zu lange Karte wird gemeldet
+  const lang = analysiere(Array.from({ length: 45 }, (_v, i) => ({ name: 'Gericht ' + i, base_price: 10, description: 'x' })), []);
+  assert.ok(lang.befunde.some((b) => b.typ === 'zu-lang'));
+});
+
 console.log('\n' + tests + ' Tests bestanden.');

@@ -1239,6 +1239,48 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Speisekarten-Doktor - wo bleibt auf der Karte Geld liegen?
+    if (req.method === 'GET' && pfad.startsWith('/api/speisekarte-doktor/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const doktor = require('./lib/speisekarte-doktor');
+      const tage = Math.min(365, Math.max(30, parseInt(url.searchParams.get('tage'), 10) || 90));
+      const ab = new Date(Date.now() - tage * 864e5).toISOString().slice(0, 10);
+      try {
+        let karte = [];
+        let bestellungen = [];
+        if (DEMO) {
+          // Beispiel-Karte mit genau den Fehlern, die es in echt gibt:
+          // Renner steht unten, ist zu billig, zwei Gerichte laufen nie.
+          const pizza = { menu_categories: { name: 'Pizza' } };
+          const pasta = { menu_categories: { name: 'Pasta' } };
+          karte = [
+            Object.assign({ name: 'Pizza Tonno', description: 'mit Thunfisch und Zwiebeln', base_price: 11.5 }, pizza),
+            Object.assign({ name: 'Pizza Quattro Formaggi', description: '', base_price: 13.5 }, pizza),
+            Object.assign({ name: 'Pizza Vegetaria', description: 'Gemüse der Saison', base_price: 12 }, pizza),
+            Object.assign({ name: 'Pasta Arrabiata', description: '', base_price: 10.5 }, pasta),
+            Object.assign({ name: 'Pasta Frutti di Mare', description: 'mit Meeresfrüchten', base_price: 15.5 }, pasta),
+            Object.assign({ name: 'Pizza Salami', description: 'Salami und Mozzarella', base_price: 9.5 }, pizza),
+            Object.assign({ name: 'Pizza Margherita', description: '', base_price: 8.5 }, pizza)
+          ];
+          bestellungen = [];
+          for (let i = 0; i < 40; i++) {
+            const name = i % 2 ? 'Pizza Margherita' : (i % 3 ? 'Pizza Salami' : 'Pizza Tonno');
+            bestellungen.push({ items: [{ name, quantity: 1 + (i % 2) }] });
+          }
+        } else {
+          [karte, bestellungen] = await Promise.all([
+            supabase.speisekarte(kunde.id).catch(() => []),
+            supabase.bestellArtikel(kunde.id, ab).catch(() => [])
+          ]);
+        }
+        json(res, 200, Object.assign({ zeitraumTage: tage }, doktor.analysiere(karte, bestellungen)));
+      } catch (e) {
+        json(res, 502, { fehler: 'Speisekarte nicht abrufbar: ' + e.message });
+      }
+      return;
+    }
+
     // API: Monats-Aufgaben eines Kunden (die konkreten Handgriffe)
     if (req.method === 'GET' && pfad.startsWith('/api/aufgaben/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));

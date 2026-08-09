@@ -225,6 +225,19 @@
       </div>
       <div id="dRueck"></div>
 
+      <h2>Speisekarten-Doktor · wo Geld liegen bleibt</h2>
+      <div class="status" style="margin-top:-6px">Legt die Speisekarte neben die echten Bestellungen: Welcher Renner steht zu weit unten? Was wird nie bestellt? Welcher Bestseller ist zu billig? Das sieht kein Wirt von allein.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <button class="aktion" id="btnDoktor" onclick="doktorLaden()">Speisekarte untersuchen</button>
+        <label style="font-size:12.5px;color:var(--grau)">Zeitraum
+          <select id="doktorTage" onchange="doktorLaden()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte)">
+            <option value="30">30 Tage</option>
+            <option value="90" selected>90 Tage</option>
+            <option value="180">180 Tage</option>
+          </select></label>
+      </div>
+      <div id="dDoktor"></div>
+
       <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
       <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
       <div id="dAufgaben"><div class="leer">Lade Aufgaben…</div></div>
@@ -650,6 +663,51 @@ async function ladeHerkunft(id) {
     '<div class="zahl" style="margin-top:10px"><div class="label" style="margin-bottom:6px">Satz fürs Kundengespräch</div>' +
     '<div style="font-size:13.5px;margin-bottom:8px">' + String(d.satz).replace(/</g, '&lt;') + '</div>' +
     kopierKnopf(d.satz, '📋 Satz kopieren') + '</div>';
+}
+
+// ---------------- Speisekarten-Doktor ----------------
+const DOKTOR_SYMBOL = {
+  'versteckter-bestseller': '⬆️', 'unterpreis': '💶', 'ladenhueter': '🗑️',
+  'ohne-beschreibung': '✍️', 'zu-lang': '📋', 'zu-wenig-daten': 'ℹ️'
+};
+
+async function doktorLaden() {
+  const ziel = document.getElementById('dDoktor');
+  const btn = document.getElementById('btnDoktor');
+  const tage = document.getElementById('doktorTage').value;
+  btn.disabled = true;
+  ziel.innerHTML = '<div class="leer">Untersuche Karte und Bestellungen…</div>';
+  try {
+    const d = await api('/api/speisekarte-doktor/' + encodeURIComponent(aktuellerKunde.id) + '?tage=' + tage);
+    if (!d.gerichteGesamt) {
+      ziel.innerHTML = '<div class="leer">Für diesen Betrieb ist noch keine Speisekarte in Kiek mol in hinterlegt – ohne Karte kann der Doktor nichts untersuchen.</div>';
+      btn.disabled = false; return;
+    }
+    const befunde = (d.befunde || []).map(b => {
+      const rand = b.prio === 'hoch' ? 'var(--akzent)' : 'var(--linie,#2a3841)';
+      const liste = (b.gerichte || []).length
+        ? '<div style="font-size:12.5px;color:var(--grau);margin-top:6px">' +
+          b.gerichte.map(g => String(g).replace(/</g, '&lt;')).join(' · ') + '</div>'
+        : '';
+      return '<div style="border:1px solid ' + rand + ';border-radius:10px;padding:12px 14px;margin-bottom:10px">' +
+        '<div style="font-size:13.5px;font-weight:600;margin-bottom:4px">' +
+        (DOKTOR_SYMBOL[b.typ] || '•') + ' ' + String(b.text).replace(/</g, '&lt;') + '</div>' +
+        '<div style="font-size:13px;line-height:1.55">' + String(b.empfehlung).replace(/</g, '&lt;') + '</div>' +
+        liste +
+        '<div style="font-size:11.5px;color:var(--grau);margin-top:6px">Aufwand: ' + b.aufwand +
+        (b.potenzial ? ' · Potenzial: ' + euroWert(b.potenzial) : '') + '</div></div>';
+    }).join('');
+
+    ziel.innerHTML =
+      '<div class="zahl" style="margin-bottom:12px"><div style="font-size:13.5px">' +
+      String(d.zusammenfassung).replace(/</g, '&lt;') + '</div>' +
+      '<div class="sub" style="margin-top:6px">' + d.gerichteGesamt + ' Gerichte · ' +
+      d.bestellungenAusgewertet + ' Bestellungen aus ' + d.zeitraumTage + ' Tagen ausgewertet</div></div>' +
+      befunde;
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Rückgewinnung (Gäste zurückholen) ----------------
