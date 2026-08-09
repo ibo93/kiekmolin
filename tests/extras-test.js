@@ -84,7 +84,10 @@ t('Kategorien ohne genug Zutaten behalten den reinen Preis',
   fam && fam.optionen.map(function (o) { return o.name; }).join(', '));
 
 // --- Import ------------------------------------------------------------------
-t('Extras werden als Mehrfachauswahl angelegt', /selection_type: 'multiple'/.test(H));
+// Zutaten sind Mehrfachauswahl, ein Menue-Upgrade nicht -- deshalb haengt es
+// jetzt an der Gruppe statt fest verdrahtet zu sein.
+t('Extras werden als Mehrfachauswahl angelegt',
+  /selection_type: g\.mehrfach === false \? 'single' : 'multiple'/.test(H));
 t('und als Aufpreis, nicht als Ersatzpreis', /price_type: 'add', is_default: false/.test(H));
 t('an die Kategorie gebunden', /internal_name: g\.kategorie \? \('cats:' \+ g\.kategorie\) : null/.test(H));
 t('vorhandene Gruppen werden NICHT ein zweites Mal angelegt',

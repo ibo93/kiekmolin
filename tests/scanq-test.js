@@ -376,7 +376,8 @@ t('Extras werden eingesammelt statt weggeworfen', /extras\.push\(\{ kat: kat, te
 t('Extras werden zu Optionsgruppen', /function extrasZuGruppen/.test(html));
 t('Optionsgruppe wird an die Kategorie gebunden',
   /internal_name: g\.kategorie \? \('cats:' \+ g\.kategorie\)/.test(html));
-t('Mehrfachauswahl, nicht Pflicht', /selection_type: 'multiple'/.test(html) && /min_selections: 0/.test(html));
+t('Mehrfachauswahl (Zutaten) bzw. Einzelauswahl (Upgrade), nicht Pflicht',
+  /selection_type: g\.mehrfach === false \? 'single' : 'multiple'/.test(html) && /min_selections: 0/.test(html));
 t('Preis wird aufgeschlagen, nicht ersetzt', /price_type: 'add'/.test(html));
 t('Extras stehen im Ergebnis vor dem Import', /Extras von der Karte/.test(html));
 

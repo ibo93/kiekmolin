@@ -60418,6 +60418,7 @@ function _kopiereSpaltenSQL(btn) {
 // keine neuen Gerichte, also lief der Block nicht.
 async function legeExtrasAn(restaurantId, SUPA_H) {
     var extrasAngelegt = 0, extrasUebersprungen = 0;
+    var _extraFehler = [], _gruppenWeg = {}, _optionenWeg = {};
     var extras = window._scanExtras || [];
 
     // VORHANDENE GRUPPEN ERST HOLEN.
@@ -60442,58 +60443,89 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
         var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
         if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
         try {
+            var _gruppenFeld = {
+                restaurant_id: restaurantId,
+                name: g.name,
+                // an die Kategorie binden, damit die Extras nur dort auftauchen
+                internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                selection_type: g.mehrfach === false ? 'single' : 'multiple',
+                min_selections: 0,
+                max_selections: null,
+                is_active: true
+            };
+            Object.keys(_gruppenWeg).forEach(function (k) { delete _gruppenFeld[k]; });
             var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify({
-                    restaurant_id: restaurantId,
-                    name: g.name,
-                    // an die Kategorie binden, damit die Extras nur dort auftauchen
-                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
-                    selection_type: 'multiple',
-                    min_selections: 0,
-                    max_selections: null,
-                    is_active: true
-                })
+                method: 'POST', headers: SUPA_H, body: JSON.stringify(_gruppenFeld)
             });
-            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
+            // Unbekannte Spalten auch hier wegnehmen statt aufzugeben.
+            // menu_option_groups kennt je nach Datenbank kein internal_name
+            // oder kein min/max_selections -- dann scheiterte das Anlegen
+            // still, und im Dashboard stand "Keine Optionsgruppen vorhanden",
+            // ohne dass irgendwo ein Grund zu finden war.
+            var gVersuch = 0;
+            while (!grpRes.ok && grpRes.status === 400 && gVersuch < 8) {
+                gVersuch++;
+                var gTxt = await grpRes.clone().text();
+                var gm = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(gTxt);
+                var gSp = gm && (gm[1] || gm[2] || gm[3]);
+                if (!gSp || !(gSp in _gruppenFeld)) { _extraFehler.push(g.name + ': ' + gTxt.slice(0, 110)); break; }
+                delete _gruppenFeld[gSp];
+                grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(_gruppenFeld)
+                });
+            }
+            if (!grpRes.ok) {
+                var gFehl = await grpRes.text();
+                console.warn('[import] Extra-Gruppe fehlgeschlagen:', gFehl);
+                if (!_extraFehler.length) _extraFehler.push(g.name + ': ' + gFehl.slice(0, 110));
+                continue;
+            }
             var grp = await grpRes.json();
             var gid = grp && grp[0] && grp[0].id;
-            if (!gid) continue;
+            if (!gid) { _extraFehler.push(g.name + ': keine ID zurückbekommen'); continue; }
 
+            function _optionen() {
+                return g.optionen.map(function (o, i) {
+                    var z = { group_id: gid, name: o.name, price: o.price,
+                              price_type: 'add', is_default: false, sort_order: i, is_available: true };
+                    Object.keys(_optionenWeg).forEach(function (k) { delete z[k]; });
+                    return z;
+                });
+            }
             var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify(g.optionen.map(function (o, i) {
-                    return { group_id: gid, name: o.name, price: o.price,
-                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
-                }))
+                method: 'POST', headers: SUPA_H, body: JSON.stringify(_optionen())
             });
+            var oVersuch = 0;
+            while (!optRes.ok && optRes.status === 400 && oVersuch < 8) {
+                oVersuch++;
+                var oTxt = await optRes.clone().text();
+                var om = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(oTxt);
+                var oSp = om && (om[1] || om[2] || om[3]);
+                if (!oSp) { _extraFehler.push(g.name + ' (Optionen): ' + oTxt.slice(0, 110)); break; }
+                _optionenWeg[oSp] = 1;
+                optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(_optionen()) });
+            }
             if (optRes.ok) extrasAngelegt++;
-            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
+            else {
+                var oFehl = await optRes.text();
+                console.warn('[import] Extra-Optionen fehlgeschlagen:', oFehl);
+                if (!_extraFehler.length) _extraFehler.push(g.name + ' (Optionen): ' + oFehl.slice(0, 110));
+            }
         } catch (ex) {
             console.warn('[import] Extra "' + g.name + '":', ex.message);
         }
     }
 
-    console.error('Fehler:', errors.length);
 
-    // Modal schließen
-    var modal = document.getElementById('menuScannerModal');
-    if (modal) { modal.style.display = 'none'; modal.classList.remove('active'); }
-
-    // Menü neu laden
-    try {
-        var client = sb || window.sb;
-        if (client) {
-            var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', restaurantId).order('sort_order');
-            if (cats) { menuCategories = cats; window.menuCategories = cats; }
-            var { data: items } = await client.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order');
-            if (items) { menuItems = items; window.menuItems = items; }
-        }
-    } catch(e) { console.error('Menü neu laden:', e); }
-
-    if (typeof renderMenuCategories === 'function') renderMenuCategories();
-    if (typeof updateMenuStats === 'function') updateMenuStats();
-    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen };
+    // Gescheiterte Gruppen SICHTBAR machen. Vorher stand der Grund nur in der
+    // Browser-Konsole, und im Dashboard hiess es schlicht "Keine
+    // Optionsgruppen vorhanden".
+    if (_extraFehler.length) {
+        showToast('Extras konnten nicht angelegt werden: ' + _extraFehler[0]
+            + (_extraFehler.length > 1 ? ' (und ' + (_extraFehler.length - 1) + ' weitere)' : ''), 'error');
+    }
+    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen, fehler: _extraFehler };
 }
 
 async function importScannedMenu() {
@@ -60756,6 +60788,23 @@ async function importScannedMenu() {
     // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
     var _exErg = await legeExtrasAn(restaurantId, SUPA_H);
     var extrasAngelegt = _exErg.angelegt, extrasUebersprungen = _exErg.uebersprungen;
+
+    // Fenster schliessen und Menue neu laden -- gehoert zum Import, nicht zu
+    // den Extras. Beim Herausloesen war es faelschlich mitgewandert und haette
+    // dem Abgleich das Scanner-Fenster unter den Fuessen weggezogen.
+    var modal = document.getElementById('menuScannerModal');
+    if (modal) { modal.style.display = 'none'; modal.classList.remove('active'); }
+    try {
+        var client = sb || window.sb;
+        if (client) {
+            var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', restaurantId).order('sort_order');
+            if (cats) { menuCategories = cats; window.menuCategories = cats; }
+            var { data: items } = await client.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order');
+            if (items) { menuItems = items; window.menuItems = items; }
+        }
+    } catch (e) { console.error('Menü neu laden:', e); }
+    if (typeof renderMenuCategories === 'function') renderMenuCategories();
+    if (typeof updateMenuStats === 'function') updateMenuStats();
 
     // WEGGELASSENE SPALTEN MELDEN.
     //
