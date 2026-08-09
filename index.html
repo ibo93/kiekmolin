@@ -60217,6 +60217,22 @@ async function importScannedMenu() {
     // Spalten, die diese Datenbank nicht kennt -- einmal gemerkt, dann bei
     // allen weiteren Gerichten gar nicht erst mitgeschickt.
     var _unbekannteSpalten = {};
+    // Welche Gerichte NICHT gespeichert wurden -- mit Namen und Grund.
+    // Bisher landete das nur in der Browser-Konsole: die Meldung sagte
+    // "138 importiert, 4 Fehler" und der Gastronom durfte raten, welche vier.
+    var _nichtGespeichert = [];
+
+    // Datenbank-Meldungen in Klartext. "duplicate key value violates unique
+    // constraint" hilft niemandem weiter.
+    function _grundKlartext(txt) {
+        var t = String(txt || '');
+        if (/duplicate key|unique constraint/i.test(t)) return 'Gericht mit diesem Namen gibt es schon';
+        if (/violates foreign key/i.test(t)) return 'Kategorie passt nicht';
+        if (/null value in column "([^"]+)"/i.test(t)) return 'Pflichtfeld fehlt: ' + RegExp.$1;
+        if (/value too long/i.test(t)) return 'Text zu lang';
+        if (/permission denied|row-level security/i.test(t)) return 'keine Schreibrechte';
+        return t.replace(/[{}"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'unbekannt';
+    }
 
     // Schritt 1: Bestehende Kategorien laden
     try {
@@ -60275,6 +60291,8 @@ async function importScannedMenu() {
         
         if (!catId) {
             errors.push(item.name + ': Keine Kategorie');
+            _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                     grund: 'keine Kategorie gefunden' });
             continue;
         }
 
@@ -60343,11 +60361,15 @@ async function importScannedMenu() {
             } else {
                 var errBody = await itemRes.text();
                 console.error('Item Fehler:', item.name, errBody);
-                errors.push(item.name + ': ' + errBody.substring(0, 80));
+                errors.push(item.name + ': ' + errBody.substring(0, 120));
+                _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                         grund: _grundKlartext(errBody) });
             }
         } catch(e) { 
             console.error('Item Import Fehler:', item.name, e);
             errors.push(item.name + ': ' + e.message);
+            _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                     grund: e.message });
         }
     }
 
@@ -60433,10 +60455,31 @@ async function importScannedMenu() {
             + '. Die Gerichte sind da, diese Felder fehlen.', 'warning');
     }
 
+    // NACHZAEHLEN. "138 importiert" sagt nichts, wenn 142 hineingingen --
+    // erst der Vergleich macht sichtbar, dass etwas fehlt, und der Name sagt
+    // WAS. Das stand bisher nur in der Konsole.
+    if (_nichtGespeichert.length) {
+        var liste = _nichtGespeichert.map(function (x) {
+            return '<div style="padding:3px 0;">' + (x.nr ? '<span style="color:var(--text-secondary);">' + x.nr + '</span> ' : '')
+                 + String(x.name).replace(/[<>&]/g, '') + ' <span style="color:var(--text-secondary);">— ' + x.grund + '</span></div>';
+        }).join('');
+        var kasten = document.getElementById('menuScanItemsList');
+        if (kasten) {
+            kasten.insertAdjacentHTML('afterbegin',
+                '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid #f59e0b;'
+              + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;">'
+              + '<strong>' + _nichtGespeichert.length + ' von ' + selectedItems.length
+              + ' Gerichten wurden NICHT gespeichert.</strong>'
+              + '<div style="margin-top:6px;font-size:12px;max-height:160px;overflow:auto;">' + liste + '</div>'
+              + '</div>');
+        }
+    }
+
     if (errors.length > 0 && importedCount === 0) {
         showToast('Import fehlgeschlagen! Prüfe Browser-Konsole (F12).', 'error');
     } else if (errors.length > 0) {
-        showToast(importedCount + ' importiert, ' + errors.length + ' Fehler', 'warning');
+        showToast(importedCount + ' von ' + selectedItems.length + ' gespeichert — '
+            + errors.length + ' nicht. Welche und warum steht oben in der Liste.', 'warning');
     } else {
         showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
             + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');

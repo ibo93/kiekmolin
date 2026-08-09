@@ -164,5 +164,32 @@ t('fehlende Groessen werden beim naechsten Abgleich nachgetragen',
   && ohneGroessen.geaendert[0].was.some(function (w) { return w.feld === 'Größen'; }),
   JSON.stringify(ohneGroessen.geaendert[0] && ohneGroessen.geaendert[0].was));
 
+// --- Fehlende Gerichte beim Namen nennen ------------------------------------
+// "138 importiert, 4 Fehler" sagt nicht, WELCHE vier. Namen und Gruende
+// standen nur in der Browser-Konsole -- fuer einen Gastronom unerreichbar.
+t('nicht gespeicherte Gerichte werden mit Namen gesammelt',
+  /_nichtGespeichert\.push\(\{ name: item\.name/.test(H));
+t('mit Gerichtnummer, damit man sie auf der Karte findet',
+  /nr: item\.dish_number \|\| ''/.test(H));
+t('Datenbank-Meldungen werden uebersetzt',
+  /function _grundKlartext/.test(H)
+  && /Gericht mit diesem Namen gibt es schon/.test(H)
+  && /keine Schreibrechte/.test(H));
+t('die Liste steht ueber dem Ergebnis, nicht in der Konsole',
+  /Gerichten wurden NICHT gespeichert/.test(H)
+  && /kasten\.insertAdjacentHTML\('afterbegin'/.test(H));
+t('die Meldung nennt beide Zahlen (wieviele rein, wieviele an)',
+  /importedCount \+ ' von ' \+ selectedItems\.length \+ ' gespeichert/.test(H));
+
+// Die Karte hat zwei Gerichte mit demselben Namen (114 und 115 "Roma
+// Spezial", einmal Haehnchen, einmal Rind). Das ist kein Lesefehler -- so
+// steht es gedruckt. Sie duerfen sich nicht gegenseitig verdraengen.
+var romaAbgleich = F.abgleichen(
+    [ausScan({ nr: '114', name: 'Roma Spezial', preis: 10, besch: 'Hähnchen' }),
+     ausScan({ nr: '115', name: 'Roma Spezial', preis: 10, besch: 'Rind' })],
+    []);
+t('zwei Gerichte mit gleichem Namen bleiben zwei Gerichte',
+  romaAbgleich.neu.length === 2, romaAbgleich.neu.length);
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
