@@ -60416,6 +60416,23 @@ async function importScannedMenu() {
     if (typeof renderMenuCategories === 'function') renderMenuCategories();
     if (typeof updateMenuStats === 'function') updateMenuStats();
 
+    // WEGGELASSENE SPALTEN MELDEN.
+    //
+    // Kennt die Datenbank ein Feld nicht, wird es hier still aus dem Payload
+    // genommen und das Gericht trotzdem gespeichert. Das ist richtig -- ein
+    // fehlendes Feld darf keinen Import kippen. Es DARF aber nicht
+    // unbemerkt bleiben: waren zum Beispiel die Groessen betroffen, hat der
+    // Gastronom hinterher Gerichte ohne klein/gross und keinen Hinweis,
+    // woran es liegt. Genau danach hat er dann gesucht.
+    var verworfen = Object.keys(_unbekannteSpalten);
+    if (verworfen.length) {
+        var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
+                         additives: 'Zusatzstoffe', dish_number: 'Gerichtnummer' };
+        showToast('Diese Angaben kennt die Datenbank nicht und wurden NICHT gespeichert: '
+            + verworfen.map(function (x) { return klartext[x] || x; }).join(', ')
+            + '. Die Gerichte sind da, diese Felder fehlen.', 'warning');
+    }
+
     if (errors.length > 0 && importedCount === 0) {
         showToast('Import fehlgeschlagen! Prüfe Browser-Konsole (F12).', 'error');
     } else if (errors.length > 0) {
@@ -60424,6 +60441,23 @@ async function importScannedMenu() {
         showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
             + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');
     }
+    // NACHSEHEN statt hoffen. Ein Import, der "erfolgreich" meldet und
+    // trotzdem keine Groessen gespeichert hat, ist der schlimmste Fall: alles
+    // sieht richtig aus, und der Fehler faellt erst beim Gast auf.
+    try {
+        var sollGroessen = selectedItems.filter(function (i) { return i.sizes && i.sizes.length; }).length;
+        if (sollGroessen) {
+            var pruefRes = await sbRead(SUPA_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId
+                + '&sizes=not.is.null&select=id&limit=1', { headers: SUPA_H });
+            var pruefListe = pruefRes.ok ? await pruefRes.json() : null;
+            if (Array.isArray(pruefListe) && pruefListe.length === 0) {
+                showToast('Achtung: ' + sollGroessen + ' Gerichte hatten Größen (klein/groß), '
+                    + 'in der Datenbank ist keine einzige angekommen. Bitte melden — '
+                    + 'der Gast sieht dann nur einen Preis.', 'error');
+            }
+        }
+    } catch (e) {}
+
     scannedMenuItems = [];
 }
 

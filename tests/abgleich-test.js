@@ -137,5 +137,32 @@ t('neue Gerichte laufen ueber den vorhandenen Import (Kategorien, Extras)',
 t('eigenes Fenster fuer den Abgleich',
   /<div class="modal-overlay" id="kartenAbgleichModal"/.test(H));
 
+// --- Der Import darf nicht still Felder verschlucken ------------------------
+// Kennt die Datenbank ein Feld nicht, wird es aus dem Payload genommen und das
+// Gericht trotzdem gespeichert -- richtig, denn ein fehlendes Feld darf keinen
+// Import kippen. Aber es darf nicht unbemerkt bleiben: waren die Groessen
+// betroffen, stehen die Gerichte danach mit nur einem Preis in der App, und
+// niemand weiss warum.
+t('weggelassene Spalten werden gemeldet, nicht verschluckt',
+  /var verworfen = Object\.keys\(_unbekannteSpalten\)/.test(H)
+  && /wurden NICHT gespeichert/.test(H));
+t('und im Klartext benannt (nicht "sizes", sondern "Größen")',
+  /sizes: 'Größen \(klein\/groß\)'/.test(H));
+t('nach dem Import wird nachgesehen, ob die Groessen wirklich da sind',
+  /sizes=not\.is\.null&select=id&limit=1/.test(H));
+t('und wenn keine einzige ankam, gibt es eine deutliche Warnung',
+  /in der Datenbank ist keine einzige angekommen/.test(H));
+
+// Genau dieser Fall repariert sich beim naechsten Einlesen von selbst:
+// fehlende Groessen sind fuer den Abgleich eine Aenderung.
+var ohneGroessen = F.abgleichen(
+    [ausScan({ nr: '7', name: 'Pizza Sicilia', preis: 8.5,
+               groessen: [{ name: 'klein', price: 8.5 }, { name: 'groß', price: 10 }] })],
+    [inDb({ id: 's', nr: '7', name: 'Pizza Sicilia', preis: 8.5, groessen: null })]);
+t('fehlende Groessen werden beim naechsten Abgleich nachgetragen',
+  ohneGroessen.geaendert.length === 1
+  && ohneGroessen.geaendert[0].was.some(function (w) { return w.feld === 'Größen'; }),
+  JSON.stringify(ohneGroessen.geaendert[0] && ohneGroessen.geaendert[0].was));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
