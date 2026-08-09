@@ -50,7 +50,10 @@ const umw = {
   document:{ querySelector:()=>null, getElementById:()=>null },
   loadMenuForRestaurant:()=>{}, katSchluessel:(x)=>String(x).toLowerCase(),
   findeKategorie:()=>null, sichereKarte:async()=>true, karteAbgleichen:()=>null,
-  zeigeKartenAbgleich:()=>{}, window:{ menuItems: [] }
+  zeigeKartenAbgleich:()=>{}, window:{ menuItems: [] },
+  // Die Anleitung bei fehlenden Spalten braucht das DOM -- hier nicht noetig,
+  // geprueft wird sie in tests/groesse-bestellung-test.js.
+  _zeigeSpaltenHilfe:()=>{}
 };
 
 const gerichte = [];
