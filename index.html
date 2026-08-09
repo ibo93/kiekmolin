@@ -60502,6 +60502,71 @@ function _kopiereSpaltenSQL(btn) {
     }
 }
 
+// Datenbank-Meldungen in Klartext.
+//
+// "new row violates row-level security policy for table" sagt einem
+// Gastronomen nichts. Die Meldung stand bisher roh im Fenster -- als JSON, an
+// der Stelle abgeschnitten, wo der Tabellenname anfing.
+function fehlerKlartext(txt) {
+    var t = String(txt || '');
+    if (/duplicate key|unique constraint/i.test(t)) return 'gibt es schon';
+    if (/violates foreign key/i.test(t)) return 'Kategorie passt nicht';
+    if (/null value in column "([^"]+)"/i.test(t)) return 'Pflichtfeld fehlt: ' + RegExp.$1;
+    if (/value too long/i.test(t)) return 'Text zu lang';
+    if (/42501|permission denied|row-level security/i.test(t)) return 'keine Schreibrechte in der Datenbank';
+    return t.replace(/[{}"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'unbekannt';
+}
+
+// Fehlt das Schreibrecht (Postgres 42501), hilft kein Neuversuch -- die
+// Datenbank laesst die Zeile grundsaetzlich nicht zu. Genau wie bei den
+// fehlenden Spalten gibt es deshalb den fertigen Befehl zum Kopieren.
+function istRechteFehler(txt) { return /42501|row-level security|permission denied/i.test(String(txt || '')); }
+
+var _RECHTE_SQL =
+    "alter table menu_option_groups enable row level security;\n" +
+    "alter table menu_options       enable row level security;\n" +
+    "\n" +
+    "create policy \"extras lesen\"  on menu_option_groups for select using (true);\n" +
+    "create policy \"extras lesen\"  on menu_options       for select using (true);\n" +
+    "\n" +
+    "create policy \"extras anlegen\" on menu_option_groups\n" +
+    "  for insert to anon, authenticated with check (true);\n" +
+    "create policy \"extras anlegen\" on menu_options\n" +
+    "  for insert to anon, authenticated with check (true);";
+
+function _zeigeRechteHilfe(elementId) {
+    var kasten = document.getElementById(elementId);
+    if (!kasten) return;
+    if (kasten.querySelector('.rechteHilfe')) return;
+    kasten.style.display = 'block';
+    kasten.insertAdjacentHTML('afterbegin',
+        '<div class="rechteHilfe" style="margin:0 0 12px;padding:13px 15px;border-radius:12px;border:1px solid #f59e0b;'
+      + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;color:var(--text-primary);">'
+      + '<strong>Die Datenbank lässt keine Extras zu.</strong> '
+      + 'Gelesen wurde alles richtig — beim Speichern sagt Supabase „keine Schreibrechte" '
+      + '(Fehler 42501). Das ist eine Einstellung, kein Fehler in der Karte:'
+      + '<ol style="margin:8px 0 8px 18px;padding:0;font-size:12px;">'
+      +   '<li>In Supabase auf <strong>SQL Editor</strong> gehen</li>'
+      +   '<li>Diesen Befehl einfügen und ausführen</li>'
+      +   '<li>Hier noch einmal auf „Diese Extras anlegen" tippen</li>'
+      + '</ol>'
+      + '<pre style="margin:0;padding:9px 11px;background:rgba(0,0,0,.06);border-radius:8px;'
+      + 'font-size:11px;overflow:auto;white-space:pre;">' + _RECHTE_SQL.replace(/[<>&]/g, '') + '</pre>'
+      + '<button type="button" onclick="_kopiereRechteSQL(this)" style="margin-top:8px;padding:7px 14px;'
+      + 'border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">'
+      + 'Befehl kopieren</button>'
+      + '</div>');
+}
+
+function _kopiereRechteSQL(btn) {
+    try {
+        navigator.clipboard.writeText(_RECHTE_SQL);
+        if (btn) { btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = 'Befehl kopieren'; }, 2000); }
+    } catch (e) {
+        showToast('Konnte nicht kopieren — bitte den Text von Hand markieren.', 'info');
+    }
+}
+
 
 // EXTRAS ANLEGEN -- aus beiden Wegen erreichbar.
 //
@@ -60633,7 +60698,7 @@ async function extrasPdfUebernehmen() {
     // versehentlich dieselben Gruppen noch einmal anlegt.
     var merk = window._scanExtras;
     window._scanExtras = gewaehlt;
-    var erg = { angelegt: 0, uebersprungen: 0, fehler: [] }, ausnahme = null;
+    var erg = { angelegt: 0, uebersprungen: 0, fehler: [], rechte: false }, ausnahme = null;
     try {
         erg = await legeExtrasAn(rid, {});
     } catch (e) {
@@ -60644,11 +60709,20 @@ async function extrasPdfUebernehmen() {
 
     if (kn) { kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
 
-    if (erg.angelegt || erg.uebersprungen) {
+    if ((erg.angelegt || erg.uebersprungen) && !erg.rechte) {
         _extrasPdfSage(erg.angelegt + ' angelegt' + (erg.uebersprungen ? ', ' + erg.uebersprungen + ' gab es schon' : '') + '.');
         showToast(erg.angelegt + ' Extra-Gruppe' + (erg.angelegt === 1 ? '' : 'n') + ' angelegt', 'success');
         closeModal('extrasPdfModal');
         if (typeof loadOptionGroups === 'function') loadOptionGroups();
+        return;
+    }
+    // Fehlt das Schreibrecht, ist "nochmal versuchen" sinnlos -- dann steht
+    // hier der fertige Supabase-Befehl statt einer Fehlermeldung.
+    if (erg.rechte || istRechteFehler(ausnahme)) {
+        _extrasPdfSage(erg.angelegt
+            ? (erg.angelegt + ' angelegt, der Rest wird von der Datenbank abgelehnt.')
+            : 'Gelesen wurde alles — die Datenbank nimmt die Extras nur nicht an.', 'fehler');
+        _zeigeRechteHilfe('extrasPdfVorschau');
         return;
     }
     // Nichts angekommen: den Grund HIER zeigen, nicht in der Konsole.
@@ -60665,6 +60739,13 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
                'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var extrasAngelegt = 0, extrasUebersprungen = 0;
     var _extraFehler = [], _gruppenWeg = {}, _optionenWeg = {};
+    // Fehlendes Schreibrecht wird getrennt gemerkt: dagegen hilft kein
+    // Neuversuch und keine andere Spalte, nur eine Regel in Supabase.
+    var _rechteFehlt = false;
+    function _merkeFehler(text, roh) {
+        if (istRechteFehler(roh)) _rechteFehlt = true;
+        _extraFehler.push(text + ': ' + fehlerKlartext(roh));
+    }
     var extras = window._scanExtras || [];
 
     // VORHANDENE GRUPPEN ERST HOLEN.
@@ -60714,7 +60795,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
                 var gTxt = await grpRes.clone().text();
                 var gm = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(gTxt);
                 var gSp = gm && (gm[1] || gm[2] || gm[3]);
-                if (!gSp || !(gSp in _gruppenFeld)) { _extraFehler.push(g.name + ': ' + gTxt.slice(0, 110)); break; }
+                if (!gSp || !(gSp in _gruppenFeld)) { _merkeFehler(g.name, gTxt); break; }
                 delete _gruppenFeld[gSp];
                 grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
                     method: 'POST', headers: SUPA_H, body: JSON.stringify(_gruppenFeld)
@@ -60723,7 +60804,8 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
             if (!grpRes.ok) {
                 var gFehl = await grpRes.text();
                 console.warn('[import] Extra-Gruppe fehlgeschlagen:', gFehl);
-                if (!_extraFehler.length) _extraFehler.push(g.name + ': ' + gFehl.slice(0, 110));
+                if (!_extraFehler.length) _merkeFehler(g.name, gFehl);
+                else if (istRechteFehler(gFehl)) _rechteFehlt = true;
                 continue;
             }
             var grp = await grpRes.json();
@@ -60747,7 +60829,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
                 var oTxt = await optRes.clone().text();
                 var om = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(oTxt);
                 var oSp = om && (om[1] || om[2] || om[3]);
-                if (!oSp) { _extraFehler.push(g.name + ' (Optionen): ' + oTxt.slice(0, 110)); break; }
+                if (!oSp) { _merkeFehler(g.name + ' (Optionen)', oTxt); break; }
                 _optionenWeg[oSp] = 1;
                 optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
                     method: 'POST', headers: SUPA_H, body: JSON.stringify(_optionen()) });
@@ -60756,7 +60838,8 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
             else {
                 var oFehl = await optRes.text();
                 console.warn('[import] Extra-Optionen fehlgeschlagen:', oFehl);
-                if (!_extraFehler.length) _extraFehler.push(g.name + ' (Optionen): ' + oFehl.slice(0, 110));
+                if (!_extraFehler.length) _merkeFehler(g.name + ' (Optionen)', oFehl);
+                else if (istRechteFehler(oFehl)) _rechteFehlt = true;
             }
         } catch (ex) {
             console.warn('[import] Extra "' + g.name + '":', ex.message);
@@ -60767,11 +60850,15 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
     // Gescheiterte Gruppen SICHTBAR machen. Vorher stand der Grund nur in der
     // Browser-Konsole, und im Dashboard hiess es schlicht "Keine
     // Optionsgruppen vorhanden".
-    if (_extraFehler.length) {
+    if (_rechteFehlt) {
+        showToast('Die Datenbank lässt keine Extras zu (keine Schreibrechte). '
+                + 'Der passende Befehl steht im Fenster.', 'error');
+    } else if (_extraFehler.length) {
         showToast('Extras konnten nicht angelegt werden: ' + _extraFehler[0]
             + (_extraFehler.length > 1 ? ' (und ' + (_extraFehler.length - 1) + ' weitere)' : ''), 'error');
     }
-    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen, fehler: _extraFehler };
+    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen,
+             fehler: _extraFehler, rechte: _rechteFehlt };
 }
 
 async function importScannedMenu() {
@@ -60832,13 +60919,9 @@ async function importScannedMenu() {
     // Datenbank-Meldungen in Klartext. "duplicate key value violates unique
     // constraint" hilft niemandem weiter.
     function _grundKlartext(txt) {
-        var t = String(txt || '');
-        if (/duplicate key|unique constraint/i.test(t)) return 'Gericht mit diesem Namen gibt es schon';
-        if (/violates foreign key/i.test(t)) return 'Kategorie passt nicht';
-        if (/null value in column "([^"]+)"/i.test(t)) return 'Pflichtfeld fehlt: ' + RegExp.$1;
-        if (/value too long/i.test(t)) return 'Text zu lang';
-        if (/permission denied|row-level security/i.test(t)) return 'keine Schreibrechte';
-        return t.replace(/[{}"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'unbekannt';
+        if (/duplicate key|unique constraint/i.test(String(txt || '')))
+            return 'Gericht mit diesem Namen gibt es schon';
+        return fehlerKlartext(txt);
     }
 
     // Schritt 1: Bestehende Kategorien laden

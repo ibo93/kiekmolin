@@ -33,9 +33,12 @@ async function lauf(welt) {
     global.fetch = async function (url, opts) {
         var u = String(url), b = opts && opts.body ? JSON.parse(opts.body) : null;
         if (u.indexOf('menu_option_groups') >= 0 && opts.method === 'POST') {
-            if (welt.hartFehler) return { ok: false, status: 400,
-                clone: function () { return { text: async function () { return 'permission denied for table menu_option_groups'; } }; },
-                text: async function () { return 'permission denied for table menu_option_groups'; } };
+            if (welt.hartFehler) {
+                var hf = welt.hartFehler === true ? 'permission denied for table menu_option_groups' : welt.hartFehler;
+                return { ok: false, status: 400,
+                    clone: function () { return { text: async function () { return hf; } }; },
+                    text: async function () { return hf; } };
+            }
             var fehlt = (welt.fehlendeGruppenSpalten || []).filter(function (f) { return f in b; });
             if (fehlt.length) return { ok: false, status: 400,
                 clone: function () { return { text: async function () { return "Could not find the '" + fehlt[0] + "' column"; } }; },
@@ -55,7 +58,8 @@ async function lauf(welt) {
         return { ok: true, json: async function () { return []; }, text: async function () { return ''; } };
     };
     var f = new Function('SUPA_URL', 'SUPABASE_URL', 'SUPA_KEY', 'sbRead', 'showToast', 'window',
-        schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
+        schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
+        + schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
     var erg = await f('https://x', 'https://x', 'k', function (u, o) { return fetch(u, o); },
         function (m) { toasts.push(m); }, { _scanExtras: EXTRAS });
     return { erg: erg, gruppen: gruppen, optionen: optionen, toasts: toasts };
@@ -83,11 +87,25 @@ async function lauf(welt) {
     // --- Geht wirklich nichts, muss man es SEHEN ---
     // Ein Fehler, der sich NICHT durch Weglassen einer Spalte beheben laesst
     // (z.B. fehlende Schreibrechte) -- der muss auf den Bildschirm.
-    var r4 = await lauf({ hartFehler: true });
+    var r4 = await lauf({ hartFehler: 'irgendwas ist kaputt' });
     t('geht es wirklich nicht, wird es gemeldet statt verschluckt',
       r4.toasts.length > 0 && /Extras konnten nicht angelegt werden/.test(r4.toasts[0]),
       JSON.stringify(r4.toasts));
     t('und der Grund steht dabei', r4.erg.fehler.length > 0, JSON.stringify(r4.erg.fehler));
+
+    // --- DER FALL AUS DEM ECHTEN BETRIEB: 42501, fehlende Schreibrechte ----
+    // Dagegen hilft kein Weglassen einer Spalte und kein zweiter Versuch.
+    // Das muss anders gemeldet werden als "irgendwas ging schief", sonst
+    // tippt der Gastronom noch zehnmal auf denselben Knopf.
+    var r4b = await lauf({ hartFehler: '{"code":"42501","message":"new row violates row-level security policy for table \\"menu_option_groups\\""}' });
+    t('fehlende Schreibrechte werden als solche erkannt', r4b.erg.rechte === true, JSON.stringify(r4b.erg));
+    t('und in Klartext gemeldet, nicht als JSON',
+      r4b.toasts.some(function (m) { return /keine Schreibrechte/.test(m) && !/42501/.test(m); }),
+      JSON.stringify(r4b.toasts));
+    t('kein rohes JSON in der Fehlerliste',
+      r4b.erg.fehler.every(function (f) { return !/\{"code/.test(f); }), JSON.stringify(r4b.erg.fehler));
+    t('ein gewoehnlicher Fehler wird NICHT als Rechte-Problem ausgegeben',
+      r4.erg.rechte === false, JSON.stringify(r4.erg));
 
     // --- Nichts doppelt ---
     var r5 = await lauf({ vorhanden: [{ id: 'x', name: 'Extra Zutaten', internal_name: 'cats:Pizza' }] });

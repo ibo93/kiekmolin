@@ -98,6 +98,92 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
     t('window._scanExtras bleibt danach unveraendert (kein Nebeneffekt auf den Import)',
       win._scanExtras === null, JSON.stringify(win._scanExtras));
 
+    // --- DER FALL, DER WIRKLICH AUFTRAT: die Datenbank verbietet das Schreiben
+    //
+    // Nach rund einem Dutzend Runden "die Extras sind leer" kam endlich eine
+    // Meldung durch -- und zwar diese:
+    //   {"code":"42501","message":"new row violates row-level security
+    //    policy for table \"menu_option_groups\""}
+    // Roh, als JSON, mitten im Satz abgeschnitten. Kein Mensch liest daraus
+    // "in Supabase fehlt eine Regel". Alle vorher gefundenen Fehler waren echt,
+    // aber keiner war der Grund.
+    var RLS = JSON.stringify({ code: '42501', details: null, hint: null,
+        message: 'new row violates row-level security policy for table "menu_option_groups"' });
+
+    function laufMitFehler(antwortText, statusCode) {
+        var toasts2 = [], status2 = [], eingefuegt = [];
+        var fetch2 = async function (url, opts) {
+            var u = String(url);
+            if (/menu_items|menu_categories/.test(u)) throw new Error('Speisekarte angefasst: ' + u);
+            if (u.indexOf('menu_option_groups') >= 0 && opts && opts.method === 'POST') {
+                return { ok: false, status: statusCode,
+                         clone: function () { return this; },
+                         text: async function () { return antwortText; } };
+            }
+            return { ok: true, json: async function () { return []; }, text: async function () { return ''; } };
+        };
+        var vorschau = { style: {}, innerHTML: '',
+            querySelector: function () { return null; },
+            insertAdjacentHTML: function (wo, html) { eingefuegt.push(html); } };
+        var doc2 = {
+            getElementById: function (id) {
+                if (id === 'extrasPdfStatus') return { style: {}, set textContent(v) { status2.push(v); }, get textContent() { return ''; } };
+                if (id === 'extrasPdfVorschau') return vorschau;
+                return { style: {}, textContent: '', disabled: false, innerHTML: '' };
+            },
+            querySelectorAll: function () { return { forEach: function (f) { haken.forEach(f); } } }
+        };
+        var f3 = new Function('document', 'window', 'showToast', 'closeModal', 'loadOptionGroups',
+            'openModal', 'currentMenuRestaurant', 'RESTAURANT_ID', 'SUPA_URL', 'SUPA_KEY',
+            'sbRead', '_extrasPdfGefunden', 'fetch',
+            schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
+            + H.slice(H.indexOf('var _RECHTE_SQL ='), H.indexOf('function _zeigeRechteHilfe', H.indexOf('var _RECHTE_SQL ='))) + '\n'
+            + schneide('_zeigeRechteHilfe') + '\n' + schneide('_extrasPdfSage') + '\n'
+            + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
+            + '; return extrasPdfUebernehmen();');
+        return f3(doc2, { _gastroOnlyRestaurantId: 'r1' }, function (m) { toasts2.push(m); },
+            function () { throw new Error('Fenster darf nicht zugehen, der Befehl steht darin'); },
+            function () {}, function () {}, null, null, 'https://x', 'k',
+            function (u, o) { return fetch2(u, o); }, gruppen, fetch2)
+            .then(function () { return { toasts: toasts2, status: status2, eingefuegt: eingefuegt }; });
+    }
+
+    var r = await laufMitFehler(RLS, 403);
+    t('kein rohes JSON mehr im Fenster',
+      !r.status.some(function (s) { return /42501|\{"code/.test(s); }), JSON.stringify(r.status));
+    t('der Grund steht in Klartext da',
+      r.status.some(function (s) { return /Datenbank nimmt die Extras nur nicht an/.test(s); }), JSON.stringify(r.status));
+    t('der fertige Supabase-Befehl wird eingeblendet',
+      r.eingefuegt.length === 1 && /create policy/.test(r.eingefuegt[0]), r.eingefuegt.length);
+    t('der Befehl setzt das Recht fuer BEIDE Tabellen',
+      /menu_option_groups[\s\S]*for insert/.test(r.eingefuegt[0])
+      && /menu_options\b[\s\S]*for insert/.test(r.eingefuegt[0]));
+    t('mit Knopf zum Kopieren', /_kopiereRechteSQL/.test(r.eingefuegt[0]));
+    t('das Fenster bleibt offen -- sonst waere der Befehl sofort wieder weg', true); // closeModal wirft
+    t('der Toast sagt, wo der Befehl steht',
+      r.toasts.some(function (m) { return /keine Schreibrechte/.test(m) && /Fenster/.test(m); }), JSON.stringify(r.toasts));
+
+    // 42501 kommt auch ohne die Zeichenfolge "row-level security" vor.
+    var r2 = await laufMitFehler('{"code":"42501","message":"permission denied for table menu_option_groups"}', 403);
+    t('auch "permission denied" fuehrt zum selben Hinweis',
+      r2.eingefuegt.length === 1 && /create policy/.test(r2.eingefuegt[0]), r2.eingefuegt.length);
+
+    // Ein ANDERER Fehler darf den Rechte-Hinweis NICHT ausloesen -- sonst
+    // schickt man den Gastronomen in Supabase eine Regel anlegen, die nichts
+    // aendert, und der echte Grund bleibt im Dunkeln.
+    var r3 = await laufMitFehler('{"code":"23505","message":"duplicate key value violates unique constraint"}', 409);
+    t('ein anderer Fehler zeigt den Rechte-Befehl NICHT',
+      r3.eingefuegt.length === 0, r3.eingefuegt.length);
+    t('er nennt trotzdem einen Grund in Klartext',
+      r3.status.some(function (s) { return /Nichts angelegt/.test(s) && !/\{"code/.test(s); }), JSON.stringify(r3.status));
+
+    // --- Der Text selbst ---------------------------------------------------
+    t('fehlerKlartext uebersetzt 42501',
+      /42501\|permission denied\|row-level security/.test(H) && /keine Schreibrechte in der Datenbank/.test(H));
+    t('der SQL-Befehl schaltet RLS nicht einfach ab (das oeffnet die ganze Tabelle)',
+      !/disable row level security/i.test(H));
+    t('Lesen bleibt fuer den Gast erlaubt', /create policy \\"extras lesen\\"/.test(H));
+
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })();
