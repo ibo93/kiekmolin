@@ -60309,14 +60309,49 @@ async function wendeKartenAbgleichAn() {
     // Aendern etwas schiefging. Vorher stand dieser Aufruf hinter dem
     // Fehler-Zweig, der mit "return" endet: schlug eine einzige Aenderung
     // fehl, wurden gar keine Extras angelegt.
-    var exErg = { angelegt: 0, uebersprungen: 0 };
-    try { exErg = await legeExtrasAn(restaurantId, H); } catch (e) {}
+    // KEIN stilles catch mehr. Hier stand "catch (e) {}" -- jeder Fehler beim
+    // Anlegen der Extras verschwand damit spurlos, und im Dashboard blieb es
+    // leer, ohne dass irgendwo etwas stand.
+    var exErg = { angelegt: 0, uebersprungen: 0, fehler: [] };
+    var exAusnahme = null;
+    try {
+        exErg = await legeExtrasAn(restaurantId, H);
+    } catch (e) {
+        exAusnahme = e && e.message ? e.message : String(e);
+        console.error('[abgleich] Extras:', e);
+    }
 
     // Ging etwas schief, bleibt das Fenster OFFEN und sagt was.
     // Vorher wurde es zugemacht -- der einzige Ort, an dem der Grund stand,
     // verschwand also genau dann, wenn man ihn gebraucht haette.
+    // EXTRAS-BILANZ IMMER ZEIGEN.
+    //
+    // "Optionen & Extras" blieb leer, und es gab keinen Ort, an dem stand
+    // warum. Jetzt steht im Fenster, wieviele Gruppen der Leser gefunden hat,
+    // wieviele davon angelegt wurden, wieviele es schon gab -- und der Grund,
+    // falls keine ankam.
+    var gefunden = (window._scanExtras || []).length;
+    var exBox = document.getElementById('kartenAbgleichInhalt');
+    if (exBox && (gefunden || exAusnahme || (exErg.fehler || []).length)) {
+        var exGut = exErg.angelegt > 0 || (exErg.uebersprungen > 0 && !exAusnahme);
+        exBox.insertAdjacentHTML('afterbegin',
+            '<div style="margin:0 0 12px;padding:11px 14px;border-radius:12px;border:1px solid '
+          + (exGut ? 'rgba(0,61,51,0.2);background:rgba(0,61,51,0.05)' : '#f59e0b;background:rgba(245,158,11,.12)')
+          + ';font-size:13px;line-height:1.6;">'
+          + '<strong>Extras:</strong> ' + gefunden + ' Gruppen auf der Karte gefunden · '
+          + exErg.angelegt + ' angelegt · ' + exErg.uebersprungen + ' gab es schon'
+          + (exAusnahme ? '<div style="margin-top:5px;color:#b45309;">Abbruch: '
+                + String(exAusnahme).replace(/[<>&]/g, '') + '</div>' : '')
+          + ((exErg.fehler || []).length ? '<div style="margin-top:5px;color:#b45309;">'
+                + exErg.fehler.slice(0, 2).map(function (x) { return String(x).replace(/[<>&]/g, ''); }).join('<br>')
+                + '</div>' : '')
+          + (gefunden && !exErg.angelegt && !exErg.uebersprungen && !exAusnahme && !(exErg.fehler || []).length
+              ? '<div style="margin-top:5px;color:#b45309;">Gefunden, aber nichts geschrieben — bitte melden.</div>' : '')
+          + '</div>');
+    }
+
     var wegListe = Object.keys(_weg);
-    if (wegListe.length || fehler) {
+    if (wegListe.length || fehler || (gefunden && !exErg.angelegt && !exErg.uebersprungen)) {
         var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
                          additives: 'Zusatzstoffe', description: 'Beschreibung', name: 'Name' };
         var box = document.getElementById('kartenAbgleichInhalt');
@@ -60324,7 +60359,9 @@ async function wendeKartenAbgleichAn() {
             box.insertAdjacentHTML('afterbegin',
                 '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid #f59e0b;'
               + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;">'
-              + (wegListe.length
+              + (!wegListe.length && !fehler
+                  ? '<strong>Die Gerichte sind übernommen.</strong> Nur bei den Extras hakt es — siehe oben.'
+                  : wegListe.length
                   ? '<strong>Diese Angaben kennt die Datenbank nicht: '
                     + wegListe.map(function (x) { return klartext[x] || x; }).join(', ')
                     + '</strong><br>Alles andere wurde gespeichert.'

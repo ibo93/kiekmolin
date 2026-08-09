@@ -205,8 +205,17 @@ t('einmal erkannt, gilt es fuer alle weiteren Gerichte',
 t('bei einem anderen Fehler wird der Grund gemerkt, nicht endlos wiederholt',
   /_gruende\.push\(txt\.slice\(0, 120\)\); break;/.test(H));
 t('das Fenster bleibt OFFEN, wenn etwas schiefging',
-  /if \(wegListe\.length \|\| fehler\) \{/.test(H)
+  /if \(wegListe\.length \|\| fehler \|\| \(gefunden && !exErg\.angelegt/.test(H)
   && /knopf2\.textContent = 'Erneut versuchen'/.test(H));
+// Auch dann, wenn nur die Extras haken -- sonst verschwindet die einzige
+// Stelle, an der der Grund steht.
+t('auch wenn NUR die Extras haken, bleibt es offen',
+  /\(gefunden && !exErg\.angelegt && !exErg\.uebersprungen\)/.test(H));
+t('kein stilles catch mehr um das Anlegen der Extras',
+  !/try \{ exErg = await legeExtrasAn\(restaurantId, H\); \} catch \(e\) \{\}/.test(H)
+  && /exAusnahme = e && e\.message/.test(H));
+t('die Bilanz steht im Fenster: gefunden, angelegt, schon vorhanden',
+  /Gruppen auf der Karte gefunden/.test(H) && /angelegt · '/.test(H));
 t('und nennt die Angaben, die die Datenbank nicht kennt',
   /Diese Angaben kennt die Datenbank nicht/.test(H));
 t('die Anleitung mit dem SQL-Befehl erscheint IM Abgleich-Fenster',
