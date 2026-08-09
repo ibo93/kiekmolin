@@ -60343,18 +60343,33 @@ async function importScannedMenu() {
             // 400 und nennt den Spaltennamen. Frueher waere daran der GANZE
             // Import gescheitert -- wegen eines einzigen Zusatzfeldes. Jetzt
             // fliegt genau dieses Feld raus und der Import laeuft weiter.
-            if (!itemRes.ok && itemRes.status === 400) {
+            // SO LANGE, BIS KEINE UNBEKANNTE SPALTE MEHR UEBRIG IST.
+            //
+            // Hier stand ein EINZIGER Wiederholversuch. Kennt die Datenbank
+            // mehrere Felder nicht -- etwa sizes UND is_lamb --, scheiterte
+            // der zweite Versuch am naechsten Feld, und das Gericht war weg.
+            // Jede unbekannte Spalte kostete genau ein Gericht, und zwar
+            // immer eines der ERSTEN: danach steht das Feld in
+            // _unbekannteSpalten und wird gar nicht mehr mitgeschickt.
+            //
+            // Genau dieses Bild kam aus dem Betrieb: "die ersten Pizzen
+            // fehlen". Nicht die mit Sonderzeichen, nicht die mit doppeltem
+            // Namen -- die ersten. Nachgestellt mit vier unbekannten Spalten:
+            // Pizza 1, 2 und 3 gingen verloren, ab Pizza 4 lief alles.
+            var versuche = 0;
+            while (!itemRes.ok && itemRes.status === 400 && versuche < 12) {
+                versuche++;
                 var t400 = await itemRes.clone().text();
                 var fehlend = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(t400);
                 var spalte = fehlend && (fehlend[1] || fehlend[2] || fehlend[3]);
-                if (spalte && (spalte in itemData)) {
-                    console.warn('[import] Spalte "' + spalte + '" gibt es nicht — wird ausgelassen');
-                    delete itemData[spalte];
-                    _unbekannteSpalten[spalte] = 1;
-                    itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
-                        method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
-                    });
-                }
+                if (!spalte || !(spalte in itemData)) break;   // anderer Fehler -> nicht endlos
+                console.warn('[import] Spalte "' + spalte + '" kennt die Datenbank nicht — '
+                             + 'sie wird ab jetzt bei allen Gerichten weggelassen.');
+                delete itemData[spalte];
+                _unbekannteSpalten[spalte] = 1;
+                itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+                });
             }
             if (itemRes.ok) {
                 importedCount++;
