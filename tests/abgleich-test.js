@@ -137,5 +137,89 @@ t('neue Gerichte laufen ueber den vorhandenen Import (Kategorien, Extras)',
 t('eigenes Fenster fuer den Abgleich',
   /<div class="modal-overlay" id="kartenAbgleichModal"/.test(H));
 
+// --- Der Import darf nicht still Felder verschlucken ------------------------
+// Kennt die Datenbank ein Feld nicht, wird es aus dem Payload genommen und das
+// Gericht trotzdem gespeichert -- richtig, denn ein fehlendes Feld darf keinen
+// Import kippen. Aber es darf nicht unbemerkt bleiben: waren die Groessen
+// betroffen, stehen die Gerichte danach mit nur einem Preis in der App, und
+// niemand weiss warum.
+t('weggelassene Spalten werden gemeldet, nicht verschluckt',
+  /var verworfen = Object\.keys\(_unbekannteSpalten\)/.test(H)
+  && /wurden NICHT gespeichert/.test(H));
+t('und im Klartext benannt (nicht "sizes", sondern "Größen")',
+  /sizes: 'Größen \(klein\/groß\)'/.test(H));
+t('nach dem Import wird nachgesehen, ob die Groessen wirklich da sind',
+  /sizes=not\.is\.null&select=id&limit=1/.test(H));
+t('und wenn keine einzige ankam, gibt es eine deutliche Warnung',
+  /in der Datenbank ist keine einzige angekommen/.test(H));
+
+// Genau dieser Fall repariert sich beim naechsten Einlesen von selbst:
+// fehlende Groessen sind fuer den Abgleich eine Aenderung.
+var ohneGroessen = F.abgleichen(
+    [ausScan({ nr: '7', name: 'Pizza Sicilia', preis: 8.5,
+               groessen: [{ name: 'klein', price: 8.5 }, { name: 'groß', price: 10 }] })],
+    [inDb({ id: 's', nr: '7', name: 'Pizza Sicilia', preis: 8.5, groessen: null })]);
+t('fehlende Groessen werden beim naechsten Abgleich nachgetragen',
+  ohneGroessen.geaendert.length === 1
+  && ohneGroessen.geaendert[0].was.some(function (w) { return w.feld === 'Größen'; }),
+  JSON.stringify(ohneGroessen.geaendert[0] && ohneGroessen.geaendert[0].was));
+
+// --- Fehlende Gerichte beim Namen nennen ------------------------------------
+// "138 importiert, 4 Fehler" sagt nicht, WELCHE vier. Namen und Gruende
+// standen nur in der Browser-Konsole -- fuer einen Gastronom unerreichbar.
+t('nicht gespeicherte Gerichte werden mit Namen gesammelt',
+  /_nichtGespeichert\.push\(\{ name: item\.name/.test(H));
+t('mit Gerichtnummer, damit man sie auf der Karte findet',
+  /nr: item\.dish_number \|\| ''/.test(H));
+t('Datenbank-Meldungen werden uebersetzt',
+  /function _grundKlartext/.test(H)
+  && /Gericht mit diesem Namen gibt es schon/.test(H)
+  && /keine Schreibrechte/.test(H));
+t('die Liste steht ueber dem Ergebnis, nicht in der Konsole',
+  /Gerichten wurden NICHT gespeichert/.test(H)
+  && /kasten\.insertAdjacentHTML\('afterbegin'/.test(H));
+t('die Meldung nennt beide Zahlen (wieviele rein, wieviele an)',
+  /importedCount \+ ' von ' \+ selectedItems\.length \+ ' gespeichert/.test(H));
+
+// Die Karte hat zwei Gerichte mit demselben Namen (114 und 115 "Roma
+// Spezial", einmal Haehnchen, einmal Rind). Das ist kein Lesefehler -- so
+// steht es gedruckt. Sie duerfen sich nicht gegenseitig verdraengen.
+var romaAbgleich = F.abgleichen(
+    [ausScan({ nr: '114', name: 'Roma Spezial', preis: 10, besch: 'Hähnchen' }),
+     ausScan({ nr: '115', name: 'Roma Spezial', preis: 10, besch: 'Rind' })],
+    []);
+t('zwei Gerichte mit gleichem Namen bleiben zwei Gerichte',
+  romaAbgleich.neu.length === 2, romaAbgleich.neu.length);
+
+// --- Der Abgleich muss dieselben Datenbank-Fehler ueberstehen wie der Import
+// Hier stand nur "fehler++": kennt die Datenbank die Spalte sizes nicht oder
+// hat sie den falschen Typ, scheiterten alle 88 Groessen-Aenderungen stumm.
+// Danach wurde das Fenster geschlossen -- der einzige Ort, an dem ein Grund
+// haette stehen koennen, verschwand genau dann, wenn man ihn braucht.
+t('Abgleich laesst unbekannte Spalten weg, statt aufzugeben',
+  /Object\.keys\(_weg\)\.forEach\(function \(k\) \{ delete neuerStand\[k\]; \}\)/.test(H));
+t('Abgleich schickt bei falschem Typ als Text',
+  /_alsText\[k\] = 1; neuerStand\[k\] = JSON\.stringify\(neuerStand\[k\]\)/.test(H));
+t('einmal erkannt, gilt es fuer alle weiteren Gerichte',
+  /Object\.keys\(_alsText\)\.forEach\(function \(k\) \{\s*\n\s*if \(neuerStand\[k\]/.test(H));
+t('bei einem anderen Fehler wird der Grund gemerkt, nicht endlos wiederholt',
+  /_gruende\.push\(txt\.slice\(0, 120\)\); break;/.test(H));
+t('das Fenster bleibt OFFEN, wenn etwas schiefging',
+  /if \(wegListe\.length \|\| fehler \|\| \(gefunden && !exErg\.angelegt/.test(H)
+  && /knopf2\.textContent = 'Erneut versuchen'/.test(H));
+// Auch dann, wenn nur die Extras haken -- sonst verschwindet die einzige
+// Stelle, an der der Grund steht.
+t('auch wenn NUR die Extras haken, bleibt es offen',
+  /\(gefunden && !exErg\.angelegt && !exErg\.uebersprungen\)/.test(H));
+t('kein stilles catch mehr um das Anlegen der Extras',
+  !/try \{ exErg = await legeExtrasAn\(restaurantId, H\); \} catch \(e\) \{\}/.test(H)
+  && /exAusnahme = e && e\.message/.test(H));
+t('die Bilanz steht im Fenster: gefunden, angelegt, schon vorhanden',
+  /Gruppen auf der Karte gefunden/.test(H) && /angelegt · '/.test(H));
+t('und nennt die Angaben, die die Datenbank nicht kennt',
+  /Diese Angaben kennt die Datenbank nicht/.test(H));
+t('die Anleitung mit dem SQL-Befehl erscheint IM Abgleich-Fenster',
+  /ziel\.id = 'menuScanItemsList'; _zeigeSpaltenHilfe\(wegListe\)/.test(H));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

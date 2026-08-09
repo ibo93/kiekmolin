@@ -18265,9 +18265,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b;font-variation-settings:'FILL' 1;">star</span>
                         </div>
                         <div>
-                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Bestseller</span>
+                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Renner &amp; Penner</span>
                             <span id="bestsellerPeriodLabel" style="font-size: 11px; color: var(--text-secondary); display: block;">Diese Woche</span>
                         </div>
+                    </div>
+                    <div style="display:flex;gap:4px;background:var(--bg-secondary);border-radius:9999px;padding:3px;">
+                        <button type="button" id="rpNachAnzahl" onclick="setzeAuswertungsSicht('anzahl')" style="padding:5px 12px;border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Anzahl</button>
+                        <button type="button" id="rpNachUmsatz" onclick="setzeAuswertungsSicht('umsatz')" style="padding:5px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Umsatz</button>
                     </div>
                 </div>
                 <div id="bestsellerList" style="display: flex; flex-direction: column; gap: 8px;">
@@ -19224,10 +19228,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     <h1 style="font-family: 'Epilogue', sans-serif; font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.03em; color: var(--ink-deep); margin: 0 0 12px; line-height: 1.05;">Optionen & Extras</h1>
                     <p style="font-size: 18px; color: var(--text-secondary); line-height: 1.6; margin: 0;">Größen, Extras und Empfehlungen verwalten. Jedes Detail zählt für das perfekte Gästeerlebnis.</p>
                 </div>
-                <button onclick="openCreateOptionGroupModal()" style="background: #00251e; color: white; padding: 16px 32px; border: none; border-radius: 48px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 24px 48px -8px rgba(0,37,30,0.2); transition: opacity 0.2s;">
-                    <span class="material-symbols-outlined" style="font-size: 20px;">add_circle</span>
-                    Neue Gruppe
-                </button>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <!-- AUS PDF ÜBERNEHMEN -- eigener, kurzer Weg.
+                         Ueber den Scanner kamen die Extras nicht an: dort
+                         haengen sie an einer langen Kette (lesen, abgleichen,
+                         Gerichte schreiben, dann erst Extras), und jede
+                         Station kann sie verschlucken. Hier ist es ein
+                         Schritt: PDF lesen, zeigen, schreiben. -->
+                    <button onclick="oeffneExtrasAusPdf()" style="background: #003D33; color: white; padding: 16px 28px; border: none; border-radius: 48px; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color:#FFD54F;">upload_file</span>
+                        Aus PDF übernehmen
+                    </button>
+                    <button onclick="openCreateOptionGroupModal()" style="background: rgba(255,255,255,0.6); backdrop-filter: blur(12px); color: var(--text-primary); padding: 16px 28px; border: 1px solid rgba(0,61,51,0.08); border-radius: 48px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">add_circle</span>
+                        Neue Gruppe
+                    </button>
+                </div>
             </header>
 
             <!-- Restaurant Auswahl - Glass Card -->
@@ -21350,6 +21366,27 @@ function setLanguage(lang) {
     });
     const activeBtn = document.getElementById('lang' + lang.toUpperCase());
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Sprachknoepfe in der Speisekarte (eigene Leiste, eigene Kennzeichnung)
+    document.querySelectorAll('[data-sprache]').forEach(function (b) {
+        var an = b.getAttribute('data-sprache') === lang;
+        b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
+        b.style.color = an ? '#fff' : 'var(--text-primary)';
+        b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
+        b.setAttribute('aria-pressed', an ? 'true' : 'false');
+    });
+
+    // OFFENE SPEISEKARTE NEU ZEICHNEN.
+    // Ohne das schaltet der Gast um und auf dem Bildschirm passiert nichts --
+    // die Gerichte sind ja schon gerendert. Genau der Grund, warum das Umstellen
+    // bisher nur ausserhalb der Karte etwas gebracht hat.
+    try {
+        var _mm = document.getElementById('menuModal');
+        if (_mm && _mm.style.display !== 'none' && typeof renderMenuItemsForGuest === 'function') {
+            var _liste = window._menuUngefiltert || window._menuAllItems || window._menuDisplayItems;
+            if (_liste && _liste.length) renderMenuItemsForGuest(_liste);
+        }
+    } catch (e) {}
 
     // Texte aktualisieren
     document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -42740,12 +42777,24 @@ document.addEventListener('error', function(e) {
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="material-symbols-outlined" style="color:var(--ink-deep);cursor:pointer;" onclick="var s=document.getElementById('menuSearchBar');s.style.display=s.style.display==='none'?'':'none';">search</span>
+                <!-- Sprache MITTEN IN DER KARTE. Vorher standen DE/EN/NL nur in
+                     der App-Kopfzeile und auf der Startseite: der Gast sass in
+                     der Speisekarte und musste erst ganz zurueck, um auf
+                     Niederlaendisch umzustellen -- und danach wieder rein. -->
+                <span class="material-symbols-outlined" id="menuSpracheKnopf" style="color:var(--ink-deep);cursor:pointer;" onclick="toggleMenuSprache()" title="Sprache / Language / Taal">language</span>
                 <div style="position:relative;cursor:pointer;" onclick="openCartPanel()">
                     <span class="material-symbols-outlined" style="color:var(--ink-deep);">shopping_bag</span>
                     <span id="menuCartBadge" style="position:absolute;top:-4px;right:-4px;background:#fed65b;color:#745c00;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;">0</span>
                 </div>
             </div>
         </header>
+
+        <!-- Sprache (versteckt by default, wie die Suche) -->
+        <div id="menuSpracheBar" style="padding:8px 20px 0;display:none;gap:6px;">
+            <button type="button" data-sprache="de" onclick="setLanguage('de')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Deutsch</button>
+            <button type="button" data-sprache="en" onclick="setLanguage('en')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">English</button>
+            <button type="button" data-sprache="nl" onclick="setLanguage('nl')" style="padding:7px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Nederlands</button>
+        </div>
 
         <!-- Suche (versteckt by default) -->
         <div id="menuSearchBar" style="padding:8px 20px 4px;position:relative;display:none;">
@@ -43205,6 +43254,45 @@ document.addEventListener('error', function(e) {
      Steht zwischen Einlesen und Schreiben. Ohne diesen Schritt legt der
      Import jedes Gericht ein zweites Mal an.
      ====================================================================== -->
+<!-- ======================================================================
+     EXTRAS AUS PDF -- ein Schritt, eigener Weg.
+     ====================================================================== -->
+<div class="modal-overlay" id="extrasPdfModal" style="z-index: 10009; display: none;">
+    <div class="modal" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2 class="modal-title" style="font-family:'Epilogue',sans-serif;display:flex;align-items:center;gap:10px;">
+                <span style="width:34px;height:34px;border-radius:50%;background:#003D33;display:inline-flex;align-items:center;justify-content:center;flex:none;">
+                    <span class="material-symbols-outlined" style="font-size:19px;color:#FFD54F;">upload_file</span>
+                </span>
+                Extras aus PDF
+            </h2>
+            <button class="modal-close" aria-label="Schließen" onclick="closeModal('extrasPdfModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);line-height:1.55;">
+                Dieselbe Karte wie beim Speisekarten-Import. Gelesen werden nur die Extra-Regeln
+                („Extra Zutaten: klein 1,00 €") und die Zutaten aus den Beschreibungen der Gerichte.
+                An der Speisekarte ändert sich nichts.
+            </p>
+            <input type="file" id="extrasPdfDatei" accept="application/pdf,.pdf" style="display:none;" onchange="extrasPdfGewaehlt(event)">
+            <div onclick="document.getElementById('extrasPdfDatei').click()"
+                 ondragover="event.preventDefault();this.style.borderColor='#003D33';"
+                 ondragleave="this.style.borderColor='';"
+                 ondrop="extrasPdfAbgelegt(event, this)"
+                 style="border:2px dashed rgba(0,61,51,0.3);border-radius:18px;padding:24px 20px;text-align:center;cursor:pointer;background:rgba(0,61,51,0.03);">
+                <span class="material-symbols-outlined" style="font-size:34px;color:var(--ink-strong);">upload_file</span>
+                <p style="font-weight:800;color:var(--ink-strong);margin:6px 0 2px;font-family:Inter,sans-serif;">PDF hier ablegen oder auswählen</p>
+                <p style="font-size:12px;color:var(--text-secondary);margin:0;">Ohne KI, in unter einer Sekunde.</p>
+            </div>
+            <div id="extrasPdfStatus" style="display:none;margin-top:10px;font-size:13px;text-align:center;"></div>
+            <div id="extrasPdfVorschau" style="display:none;margin-top:12px;"></div>
+            <button type="button" id="extrasPdfKnopf" onclick="extrasPdfUebernehmen()" style="display:none;width:100%;margin-top:12px;padding:15px;background:#003D33;color:#fff;border:none;border-radius:9999px;font-size:15px;font-weight:800;cursor:pointer;">
+                Diese Extras anlegen
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="kartenAbgleichModal" style="z-index: 10008; display: none;">
     <div class="modal" style="max-width: 720px;">
         <div class="modal-header">
@@ -44832,6 +44920,56 @@ function autoDetectItemFlags(item) {
 // ==================== SPEISEKARTE-ÜBERSETZUNG ====================
 // Gastro-Wörterbuch: DE → EN / NL (häufige Begriffe)
 var GASTRO_DICT = {
+    // Aus der echten Karte nachgetragen. Vorher kannte das Woerterbuch nur
+    // 38 von 123 Zutatenwoertern -- der Rest blieb deutsch stehen, und genau
+    // deshalb sah die Uebersetzung nach nichts aus.
+    'putenschinken':{en:'turkey ham',nl:'kalkoenham'},'gurken':{en:'cucumber',nl:'komkommer'},
+    'gurke':{en:'cucumber',nl:'komkommer'},'sauce':{en:'sauce',nl:'saus'},
+    'sahnesauce':{en:'cream sauce',nl:'roomsaus'},'tzatziki':{en:'tzatziki',nl:'tzatziki'},
+    'hähnchenfleisch':{en:'chicken',nl:'kippenvlees'},'dönerfleisch':{en:'doner meat',nl:'dönervlees'},
+    'scharfe':{en:'spicy',nl:'pittige'},'scharf':{en:'spicy',nl:'pittig'},
+    'spieß':{en:'skewer',nl:'spies'},'drehspieß':{en:'rotating spit',nl:'draaispit'},
+    'frites':{en:'fries',nl:'friet'},'pommes':{en:'fries',nl:'friet'},
+    'gemischter':{en:'mixed',nl:'gemengde'},'gemischte':{en:'mixed',nl:'gemengde'},
+    'rotkrautsalat':{en:'red cabbage salad',nl:'rodekoolsalade'},'rotkraut':{en:'red cabbage',nl:'rodekool'},
+    'peperoni':{en:'chilli peppers',nl:'pepertjes'},'hamburger':{en:'hamburger',nl:'hamburger'},
+    'broccoli':{en:'broccoli',nl:'broccoli'},'brokkoli':{en:'broccoli',nl:'broccoli'},
+    'fladenbrot':{en:'flatbread',nl:'platbrood'},'sucuk':{en:'sucuk sausage',nl:'sucuk worst'},
+    'hähnchenschnitzel':{en:'chicken schnitzel',nl:'kipschnitzel'},
+    'käseröllchen':{en:'cheese rolls',nl:'kaasrolletjes'},'patty':{en:'patty',nl:'burger'},
+    'artischocken':{en:'artichokes',nl:'artisjokken'},'ananas':{en:'pineapple',nl:'ananas'},
+    'klein':{en:'small',nl:'klein'},'gross':{en:'large',nl:'groot'},'groß':{en:'large',nl:'groot'},
+    'fleischsauce':{en:'meat sauce',nl:'vleessaus'},'hirtenkäse':{en:'feta cheese',nl:'fetakaas'},
+    'schafskäse':{en:'sheep cheese',nl:'schapenkaas'},'knoblauchwurst':{en:'garlic sausage',nl:'knoflookworst'},
+    'rigatoni':{en:'rigatoni',nl:'rigatoni'},'spaghetti':{en:'spaghetti',nl:'spaghetti'},
+    'hollandaise':{en:'hollandaise',nl:'hollandaise'},'chicken':{en:'chicken',nl:'kip'},
+    'spezialsauce':{en:'special sauce',nl:'speciale saus'},'cheddar':{en:'cheddar',nl:'cheddar'},
+    'gorgonzola':{en:'gorgonzola',nl:'gorgonzola'},'gorgonzolakäse':{en:'gorgonzola cheese',nl:'gorgonzolakaas'},
+    'oregano':{en:'oregano',nl:'oregano'},'ketchup':{en:'ketchup',nl:'ketchup'},
+    'meeresfrüchte':{en:'seafood',nl:'zeevruchten'},'eisbergsalat':{en:'iceberg lettuce',nl:'ijsbergsla'},
+    'nuggets':{en:'nuggets',nl:'nuggets'},'saure':{en:'sour',nl:'zure'},'sauer':{en:'sour',nl:'zuur'},
+    'spiegelei':{en:'fried egg',nl:'spiegelei'},'tomatensauce':{en:'tomato sauce',nl:'tomatensaus'},
+    'knoblauchöl':{en:'garlic oil',nl:'knoflookolie'},'aufgerollt':{en:'rolled',nl:'opgerold'},
+    'verfeinert':{en:'refined with',nl:'verfijnd met'},'teuflisch':{en:'devilishly',nl:'duivels'},
+    'überraschen':{en:'be surprised',nl:'verrassen'},'vegetarisch':{en:'vegetarian',nl:'vegetarisch'},
+    'fleisch':{en:'meat',nl:'vlees'},'weiß':{en:'white',nl:'wit'},'cola':{en:'cola',nl:'cola'},
+    'oder':{en:'or',nl:'of'},'alle':{en:'all',nl:'alle'},'preise':{en:'prices',nl:'prijzen'},
+    // Fusszeilen der Karte -- die stehen auch in mancher Beschreibung
+    'änderungen':{en:'changes',nl:'wijzigingen'},'druckfehler':{en:'misprints',nl:'drukfouten'},
+    'vorbehalten':{en:'reserved',nl:'voorbehouden'},'speisekarte':{en:'menu',nl:'menukaart'},
+    'seite':{en:'page',nl:'pagina'},'euro':{en:'euro',nl:'euro'},'inkl':{en:'incl.',nl:'incl.'},
+    'mwst':{en:'VAT',nl:'btw'},'forts':{en:'cont.',nl:'verv.'},
+    'champignon':{en:'mushroom',nl:'champignon'},'zwiebel':{en:'onion',nl:'ui'},
+    'jägersauce':{en:'mushroom sauce',nl:'jagersaus'},'rahmsauce':{en:'cream sauce',nl:'roomsaus'},
+    // "Zigeunersauce" heisst auf der deutschen Karte, was dort steht -- in der
+    // Uebersetzung die heute uebliche Bezeichnung, statt das Wort ins
+    // Englische und Niederlaendische weiterzutragen.
+    'zigeunersauce':{en:'paprika sauce',nl:'paprikasaus'},
+    'currysauce':{en:'curry sauce',nl:'currysaus'},'krautsalat':{en:'coleslaw',nl:'koolsalade'},
+    'döner':{en:'doner',nl:'döner'},'hawaiischnitzel':{en:'schnitzel hawaii',nl:'schnitzel hawaii'},
+    'mayo':{en:'mayo',nl:'mayo'},'chili':{en:'chilli',nl:'chili'},'cheese':{en:'cheese',nl:'kaas'},
+    'jalapeños':{en:'jalapeños',nl:'jalapeños'},'bbq':{en:'BBQ',nl:'BBQ'},'mais':{en:'corn',nl:'mais'},
+    'lassen sie sich überraschen':{en:'let yourself be surprised',nl:'laat u verrassen'},
     // Kategorien
     'vorspeisen':{en:'Starters',nl:'Voorgerechten'},'suppen':{en:'Soups',nl:'Soepen'},'salate':{en:'Salads',nl:'Salades'},
     'pizza':{en:'Pizza',nl:'Pizza'},'pasta':{en:'Pasta',nl:'Pasta'},'fischgerichte':{en:'Fish Dishes',nl:'Visgerechten'},
@@ -45060,6 +45198,9 @@ async function translateViaAPI(text, lang) {
             var t = data.responseData.translatedText;
             // Rate-Limit oder Fehler von MyMemory erkennen — dann Wörterbuch-Fallback
             if (t.toLowerCase().indexOf('mymemory warning') >= 0 || t.toLowerCase().indexOf('you used all available') >= 0 || t.toLowerCase().indexOf('no query') >= 0) {
+                // Einmal Limit heisst: fuer diesen Besuch ist Schluss. Weiter
+                // zu fragen liefert nur noch dieselbe Fehlermeldung zurueck.
+                _uebersetzerGesperrt = true;
                 return translateByDict(text, lang);
             }
             // MyMemory gibt manchmal Großbuchstaben zurück
@@ -45070,45 +45211,93 @@ async function translateViaAPI(text, lang) {
     return translateByDict(text, lang);
 }
 
-// Gericht übersetzen (sync für Name via Dict, async für Beschreibung via API)
+// GERICHTNAMEN WERDEN NICHT ÜBERSETZT.
+//
+// "Döner Teller" wurde zu "Doner Plate", "Pizza Emden" zu irgendwas -- der
+// Gast sucht dann auf der Karte nach einem Namen, den es an der Theke nicht
+// gibt, und das Personal versteht die Bestellung nicht. Echte mehrsprachige
+// Speisekarten machen es andersherum: der Name bleibt stehen, die
+// BESCHREIBUNG wird übersetzt. Genau das passiert hier.
 function getTranslatedItem(item, lang) {
-    if (!item || lang === 'de') return { name: item.name || '', description: item.description || '' };
+    var name = (item && item.name) || '';
+    if (!item || lang === 'de') return { name: name, description: (item && item.description) || '' };
     var cacheKey = item.id || item.name;
     if (_menuTransCache[cacheKey] && _menuTransCache[cacheKey][lang]) {
-        // Fehlerhafte Cache-Einträge (MyMemory Warnings) bereinigen
         var cached = _menuTransCache[cacheKey][lang];
+        // Fehlerhafte Cache-Einträge (MyMemory Warnings) bereinigen
         if (cached.description && cached.description.toLowerCase().indexOf('mymemory warning') >= 0) {
             delete _menuTransCache[cacheKey][lang];
         } else {
-            return cached;
+            // Name IMMER aus dem Original -- alte Caches tragen noch
+            // übersetzte Namen mit sich herum.
+            return { name: name, description: cached.description || '' };
         }
     }
-    // Name sofort per Wörterbuch
-    var trName = translateByDict(item.name || '', lang);
-    // Beschreibung auch erstmal per Wörterbuch (API kommt async nach)
-    var trDesc = translateByDict(item.description || '', lang);
-    return { name: trName, description: trDesc };
+    return { name: name, description: translateByDict(item.description || '', lang) };
+}
+
+// Wie viele Wörter das Wörterbuch NICHT kennt. Sind es null, ist die
+// Beschreibung fertig übersetzt und die API muss gar nicht erst gefragt werden.
+// Bei einer Karte mit 142 Gerichten spart das den Löwenanteil der Anfragen --
+// und genau daran ist es bisher gescheitert.
+function _woerterbuchLuecken(text, lang) {
+    if (!text) return 0;
+    var offen = 0;
+    text.toLowerCase().split(/[^a-zäöüß]+/).forEach(function (w) {
+        if (w.length < 4) return;                       // "mit", "und", Zahlen
+        var e = GASTRO_DICT[w];
+        if (!e || !e[lang]) offen++;
+    });
+    return offen;
+}
+
+// MyMemory ist kostenlos und hat ein hartes Tageslimit. Ist es gerissen,
+// bringt jede weitere Anfrage nur noch Müll zurück -- dann bleibt es für
+// diesen Besuch beim Wörterbuch.
+var _uebersetzerGesperrt = false;
+var _uebersetzerWarteschlange = [];
+var _uebersetzerLaeuft = 0;
+var UEBERSETZER_GLEICHZEITIG = 2;
+
+function _uebersetzerAbarbeiten() {
+    while (_uebersetzerLaeuft < UEBERSETZER_GLEICHZEITIG && _uebersetzerWarteschlange.length) {
+        var auftrag = _uebersetzerWarteschlange.shift();
+        _uebersetzerLaeuft++;
+        auftrag().then(function () { _uebersetzerLaeuft--; _uebersetzerAbarbeiten(); },
+                       function () { _uebersetzerLaeuft--; _uebersetzerAbarbeiten(); });
+    }
 }
 
 // Async: Beschreibung per API übersetzen und in Cache + DOM updaten
+//
+// Vorher wurde für JEDES Gericht sofort eine Anfrage abgeschickt. Bei 142
+// Gerichten sind das 142 gleichzeitige Anfragen an einen kostenlosen Dienst --
+// das Limit reisst nach den ersten paar, der Rest kommt als Fehlermeldung
+// zurück. Deshalb: höchstens zwei auf einmal, und nach dem ersten Limit-Treffer
+// gar keine mehr.
 function translateItemAsync(item, lang, nameEl, descEl) {
     if (!item || lang === 'de' || !item.description) return;
     var cacheKey = item.id || item.name;
     if (_menuTransCache[cacheKey] && _menuTransCache[cacheKey][lang] && _menuTransCache[cacheKey][lang]._apiDone) return;
+    if (_uebersetzerGesperrt) return;
+    // Das Wörterbuch hat alles erwischt -> keine Anfrage nötig.
+    if (_woerterbuchLuecken(item.description, lang) === 0) return;
 
-    translateViaAPI(item.description, lang).then(function(translatedDesc) {
-        if (!_menuTransCache[cacheKey]) _menuTransCache[cacheKey] = {};
-        var trName = translateByDict(item.name || '', lang);
-        _menuTransCache[cacheKey][lang] = { name: trName, description: translatedDesc, _apiDone: true };
-        // Cache speichern (max 200 Einträge)
-        try {
-            var keys = Object.keys(_menuTransCache);
-            if (keys.length > 200) { delete _menuTransCache[keys[0]]; }
-            localStorage.setItem('kmi_menu_translations', JSON.stringify(_menuTransCache));
-        } catch(e) {}
-        // DOM updaten wenn Element noch existiert
-        if (descEl && descEl.isConnected) descEl.textContent = translatedDesc;
+    _uebersetzerWarteschlange.push(function () {
+        return translateViaAPI(item.description, lang).then(function (translatedDesc) {
+            if (!_menuTransCache[cacheKey]) _menuTransCache[cacheKey] = {};
+            _menuTransCache[cacheKey][lang] = { description: translatedDesc, _apiDone: true };
+            // Cache speichern (max 200 Einträge)
+            try {
+                var keys = Object.keys(_menuTransCache);
+                if (keys.length > 200) { delete _menuTransCache[keys[0]]; }
+                localStorage.setItem('kmi_menu_translations', JSON.stringify(_menuTransCache));
+            } catch(e) {}
+            // DOM updaten wenn Element noch existiert
+            if (descEl && descEl.isConnected) descEl.textContent = translatedDesc;
+        });
     });
+    _uebersetzerAbarbeiten();
 }
 
 // Kategorie-Name übersetzen
@@ -45363,6 +45552,25 @@ function renderMenuItemsForGuest(items) {
         return;
     }
 
+    // Die ungefilterte Liste merken. Der Essensfilter zeichnet damit neu, und
+    // die Knopfleiste zaehlt daran ab, was es ueberhaupt gibt -- sonst wuerde
+    // "Vegetarisch 3" nach dem ersten Tippen zu "Vegetarisch 3" von 3.
+    window._menuUngefiltert = items;
+    var _geteilt = teileNachFilter(items, activeAllergenFilters);
+    var _abUnklar = _geteilt.passend.length;
+    items = _geteilt.passend.concat(_geteilt.unklar);
+    var _leiste = getAllergenFilterBar(window._menuUngefiltert);
+
+    if (items.length === 0) {
+        container.innerHTML = _leiste
+            + '<div style="text-align:center;padding:48px 20px;font-family:Inter,sans-serif;">'
+            + '<span class="material-symbols-outlined" style="font-size:44px;color:var(--slate);opacity:.4">filter_alt_off</span>'
+            + '<p style="color:var(--text-primary);font-size:15px;margin:6px 0 2px;">Dazu passt hier gerade nichts</p>'
+            + '<p style="color:var(--text-secondary);font-size:13px;">Nimm einen Filter weg — oder frag kurz beim Personal nach.</p>'
+            + '</div>';
+        return;
+    }
+
     // Items global cachen für sicheren Zugriff per Index
     window._menuDisplayItems = items;
 
@@ -45370,9 +45578,21 @@ function renderMenuItemsForGuest(items) {
     var popularMap = window._menuPopularItems || {};
 
     // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
-    var html = '<div class="stitch-menu-grid">';
+    var html = _leiste + '<div class="stitch-menu-grid">';
 
     items.forEach(function(item, idx) {
+        // Trennstelle: ab hier fehlt zu mindestens einem Filter die Angabe.
+        // Diese Gerichte einfach wegzulassen waere bequem und falsch -- der
+        // Gast denkt dann, es gaebe nichts fuer ihn. Sie stehen also da, aber
+        // klar getrennt und mit der Bitte, nachzufragen.
+        if (_abUnklar && idx === _abUnklar) {
+            html += '</div>'
+                  + '<div style="display:flex;align-items:center;gap:8px;margin:22px 0 10px;font-family:Inter,sans-serif;">'
+                  + '<span class="material-symbols-outlined" style="font-size:19px;color:#b45309;">help</span>'
+                  + '<span style="font-size:13px;color:var(--text-primary);font-weight:600;">Keine Angabe zu diesen Gerichten</span>'
+                  + '<span style="font-size:12px;color:var(--text-secondary);">— bitte beim Personal nachfragen</span>'
+                  + '</div><div class="stitch-menu-grid" style="opacity:.72;">';
+        }
         var price = item.base_price || item.price || 0;
         var hasSizes = item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0;
         var displayPrice = price;
@@ -45507,9 +45727,22 @@ function openItemOptions(itemId, item) {
                 sizesHtml += '</div>';
             });
             sizesHtml += '</div>';
-            // Ersten Preis als Default setzen
-            if (item.sizes[0] && item.sizes[0].price) {
-                currentMenuItem.price = parseFloat(item.sizes[0].price);
+            // Die erste Groesse ist optisch vorausgewaehlt -- sie muss auch
+            // WIRKLICH ausgewaehlt sein.
+            //
+            // Vorher wurde nur currentMenuItem.price gesetzt (was nichts tut,
+            // solange base_price existiert) und die Auswahl selbst blieb leer.
+            // Tippte der Gast keine Groesse an, ging die Bestellung ohne
+            // Groesse raus: in der Kueche stand "Pizza Margherita", und
+            // niemand wusste, ob klein oder gross gemeint war. Der Preis
+            // stimmte zufaellig, weil der Grundpreis der kleine ist.
+            var _ersteGroesse = item.sizes[0];
+            if (_ersteGroesse) {
+                var _ep = parseFloat(_ersteGroesse.price) || itemPrice;
+                currentMenuItem.price = _ep;
+                currentItemOptions = currentItemOptions.filter(function (o) { return o.group !== 'item_sizes'; });
+                currentItemOptions.push({ group: 'item_sizes', option: _ersteGroesse.name || '',
+                                          price: _ep, price_type: 'replace' });
             }
         }
 
@@ -48582,60 +48815,213 @@ function getTimeFilterEnd(filter) {
     return null;
 }
 
-// Bestseller berechnen und anzeigen
+// ============================================================================
+// RENNER & PENNER
+// ============================================================================
+// Vorher stand hier "Bestseller": die Top 5 nach Anzahl, gerechnet aus den
+// Bestellungen. Die HALBE Auswertung -- und die unwichtigere.
+//
+// Wer wissen will, was von der Karte fliegt, braucht die Gerichte, die NICHT
+// verkauft wurden. Genau die konnten hier prinzipiell nie auftauchen: die
+// Liste entstand aus Bestellungen, also war ein Gericht mit null Verkaeufen
+// gar nicht in den Daten. Deshalb wird die Speisekarte jetzt dazugeholt.
+//
+// Und zwei Ehrlichkeitsregeln, ohne die die Liste in die Irre fuehrt:
+//   1. Bei zu wenig Bestellungen wird nichts als "Penner" gebrandmarkt. Aus
+//      drei Bestellungen laesst sich nichts ableiten, ausser dass es drei war.
+//   2. Ein Gericht, das erst seit Kurzem auf der Karte steht, ist kein Penner,
+//      sondern neu. Es wird getrennt ausgewiesen statt mitgezaehlt.
+
+var _auswertungSicht = 'anzahl';     // 'anzahl' | 'umsatz'
+
+// Ab so vielen Bestellungen im Zeitraum lohnt die Aussage ueberhaupt.
+var AUSWERTUNG_MIN_BESTELLUNGEN = 10;
+// So lange gilt ein Gericht als neu und wird nicht als Penner gewertet.
+var AUSWERTUNG_NEU_TAGE = 21;
+
+// Reine Rechnung -- Bestellungen und Karte rein, Auswertung raus.
+//
+// Zu den Preisen: im Dashboard ist item.price der POSITIONS-Gesamtpreis
+// (order_items.total_price), die Menge steckt also schon drin. Deshalb wird
+// hier NICHT noch einmal mit quantity multipliziert.
+function auswerteGerichte(orders, karte, opt) {
+    opt = opt || {};
+    var minBestellungen = opt.minBestellungen != null ? opt.minBestellungen : AUSWERTUNG_MIN_BESTELLUNGEN;
+    var neuTage = opt.neuTage != null ? opt.neuTage : AUSWERTUNG_NEU_TAGE;
+    var jetzt = opt.jetzt ? new Date(opt.jetzt).getTime() : Date.now();
+    var grenzeNeu = jetzt - neuTage * 24 * 3600 * 1000;
+
+    var gezaehlt = (orders || []).filter(function (o) { return o && o.status !== 'cancelled'; });
+    var proGericht = {};
+    function eintrag(name) {
+        var k = String(name || '').trim().toLowerCase();
+        if (!proGericht[k]) proGericht[k] = { name: String(name || 'Unbekannt').trim(), anzahl: 0, umsatz: 0 };
+        return proGericht[k];
+    }
+    gezaehlt.forEach(function (o) {
+        (o.items || []).forEach(function (it) {
+            var e = eintrag(it.name);
+            e.anzahl += (it.quantity || 1);
+            e.umsatz += (it.price || 0);
+        });
+    });
+
+    // Karte dazu: Gerichte ohne einen einzigen Verkauf kommen in den
+    // Bestellungen nicht vor und wuerden sonst fehlen.
+    var neu = [];
+    (karte || []).forEach(function (g) {
+        if (g.is_available === false) return;          // ausverkauft ist kein Penner
+        var k = String(g.name || '').trim().toLowerCase();
+        if (!k) return;
+        var angelegt = g.created_at ? new Date(g.created_at).getTime() : null;
+        if (angelegt && angelegt > grenzeNeu && !proGericht[k]) { neu.push(g.name); return; }
+        if (!proGericht[k]) proGericht[k] = { name: g.name, anzahl: 0, umsatz: 0 };
+        proGericht[k].aufKarte = true;
+    });
+
+    var liste = Object.keys(proGericht).map(function (k) { return proGericht[k]; });
+    var schluessel = opt.sicht === 'umsatz' ? 'umsatz' : 'anzahl';
+    var sortiert = liste.slice().sort(function (a, b) {
+        return (b[schluessel] - a[schluessel]) || a.name.localeCompare(b.name);
+    });
+
+    var genugDaten = gezaehlt.length >= minBestellungen;
+    var renner = sortiert.filter(function (e) { return e.anzahl > 0; }).slice(0, 5);
+    var istRenner = {};
+    renner.forEach(function (e) { istRenner[e.name] = true; });
+
+    // Penner nur aus Gerichten, die WIRKLICH auf der Karte stehen. Ein Name,
+    // der nur in alten Bestellungen vorkommt, ist meist ein umbenanntes oder
+    // geloeschtes Gericht -- den als Penner zu melden hilft niemandem.
+    //
+    // Und niemals ein Gericht, das oben schon als Renner steht. Bei einer
+    // kleinen Karte griff die Auswahl sonst bis ganz nach oben durch: der
+    // Bestseller stand gleichzeitig unter "Laeuft nicht".
+    var pennerBasis = sortiert.filter(function (e) { return e.aufKarte && !istRenner[e.name]; });
+
+    return {
+        renner: renner,
+        penner: genugDaten ? pennerBasis.slice(-5).reverse() : [],
+        ohneVerkauf: pennerBasis.filter(function (e) { return e.anzahl === 0; }).length,
+        neu: neu,
+        bestellungen: gezaehlt.length,
+        genugDaten: genugDaten,
+        minBestellungen: minBestellungen,
+        sicht: schluessel
+    };
+}
+
+function setzeAuswertungsSicht(sicht) {
+    _auswertungSicht = sicht === 'umsatz' ? 'umsatz' : 'anzahl';
+    ['anzahl', 'umsatz'].forEach(function (s2) {
+        var b = document.getElementById(s2 === 'anzahl' ? 'rpNachAnzahl' : 'rpNachUmsatz');
+        if (!b) return;
+        var an = s2 === _auswertungSicht;
+        b.style.background = an ? 'var(--ink-strong)' : 'transparent';
+        b.style.color = an ? '#fff' : 'var(--text-secondary)';
+    });
+    renderBestseller(window._dashboardOrdersFuerAuswertung || []);
+}
+
+// Die Speisekarte des Restaurants -- ohne sie gibt es keine Penner.
+async function _karteFuerAuswertung(rid) {
+    if (!rid) return [];
+    window._karteAuswertungCache = window._karteAuswertungCache || {};
+    if (window._karteAuswertungCache[rid]) return window._karteAuswertungCache[rid];
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + rid
+            + '&select=id,name,is_available,created_at&limit=500',
+            { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        if (!res.ok) return [];
+        var j = await res.json();
+        if (!Array.isArray(j)) return [];
+        window._karteAuswertungCache[rid] = j;
+        return j;
+    } catch (e) { return []; }
+}
+
 function renderBestseller(orders) {
     var section = document.getElementById('bestsellerSection');
     var list = document.getElementById('bestsellerList');
     var label = document.getElementById('bestsellerPeriodLabel');
     if (!section || !list) return;
 
+    window._dashboardOrdersFuerAuswertung = orders || [];
+
     var labels = { today: 'Heute', yesterday: 'Gestern', week: 'Diese Woche', month: 'Dieser Monat', year: 'Dieses Jahr' };
     if (label) label.textContent = labels[ordersTimeFilter] || 'Heute';
 
-    // Gerichte zaehlen (nur abgeschlossene Bestellungen)
-    var dishCount = {};
-    var completedOrders = orders.filter(function(o) {
-        return o.status !== 'cancelled';
-    });
-    completedOrders.forEach(function(o) {
-        if (!o.items) return;
-        o.items.forEach(function(item) {
-            var name = item.name || 'Unbekannt';
-            if (!dishCount[name]) dishCount[name] = { count: 0, revenue: 0 };
-            dishCount[name].count += (item.quantity || 1);
-            dishCount[name].revenue += (item.price || 0);
-        });
-    });
+    var rid = window._gastroOnlyRestaurantId
+           || (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '')
+           || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : '');
 
-    var sorted = Object.keys(dishCount).map(function(name) {
-        return { name: name, count: dishCount[name].count, revenue: dishCount[name].revenue };
-    }).sort(function(a, b) { return b.count - a.count; });
+    _karteFuerAuswertung(rid).then(function (karte) {
+        var a = auswerteGerichte(orders, karte, { sicht: _auswertungSicht });
+        if (!a.renner.length && !a.penner.length) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        list.innerHTML = _auswertungHtml(a);
+    });
+}
 
-    if (sorted.length === 0) {
-        section.style.display = 'none';
-        return;
+function _auswertungHtml(a) {
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); };
+    var wert = function (e) {
+        return a.sicht === 'umsatz'
+            ? e.umsatz.toFixed(2).replace('.', ',') + ' €'
+            : e.anzahl + '\u00d7';
+    };
+    var hoechst = Math.max.apply(null, a.renner.map(function (e) { return e[a.sicht] || 0; }).concat([1]));
+
+    function zeile(e, i, farbe, breite) {
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:16px;">'
+             + '<span style="width:18px;text-align:center;font-weight:700;font-size:12px;color:var(--text-secondary);">' + (i + 1) + '</span>'
+             + '<div style="flex:1;min-width:0;">'
+             +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+             +     '<span style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(e.name) + '</span>'
+             +     '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;margin-left:8px;">'
+             +       e.anzahl + '\u00d7 · ' + e.umsatz.toFixed(2).replace('.', ',') + ' €</span>'
+             +   '</div>'
+             +   '<div style="height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;">'
+             +     '<div style="height:100%;width:' + breite + '%;background:' + farbe + ';border-radius:2px;"></div>'
+             +   '</div>'
+             + '</div></div>';
     }
 
-    section.style.display = 'block';
-    var maxCount = sorted[0].count;
     var html = '';
-    sorted.slice(0, 5).forEach(function(item, i) {
-        var medal = i === 0 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#f59e0b;">star_border</span>' : (i === 1 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#94a3b8;">star_border</span>' : (i === 2 ? '<span class="material-symbols-outlined" style="font-size:1px;color:#b45309;">star_border</span>' : '<span style="width:16px;display:inline-block;text-align:center;font-weight:700;font-size:12px;color:var(--text-secondary);">' + (i+1) + '</span>'));
-        var pct = Math.round((item.count / maxCount) * 100);
-        var rev = item.revenue.toFixed(2).replace('.', ',');
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:16px;">' +
-            medal +
-            '<div style="flex:1;min-width:0;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-            '<span style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.name + '</span>' +
-            '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;margin-left:8px;">' + item.count + 'x · ' + rev + ' \u20AC</span>' +
-            '</div>' +
-            '<div style="height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;">' +
-            '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--primary),#22c55e);border-radius:2px;transition:width 0.5s;"></div>' +
-            '</div>' +
-            '</div></div>';
+    a.renner.forEach(function (e, i) {
+        html += zeile(e, i, 'linear-gradient(90deg,var(--ink-strong),#22c55e)',
+                      Math.round(((e[a.sicht] || 0) / hoechst) * 100));
     });
-    list.innerHTML = html;
+
+    if (!a.genugDaten) {
+        // Lieber gar keine Aussage als eine falsche. Aus vier Bestellungen
+        // laesst sich nicht ableiten, welches Gericht von der Karte muss.
+        html += '<div style="margin-top:12px;padding:11px 13px;border-radius:14px;border:1px dashed var(--border-color);'
+              + 'font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;line-height:1.55;">'
+              + '<strong style="color:var(--text-primary);">Für die Penner-Liste ist es noch zu früh.</strong> '
+              + a.bestellungen + ' Bestellung' + (a.bestellungen === 1 ? '' : 'en') + ' in diesem Zeitraum — '
+              + 'ab ' + a.minBestellungen + ' wird sie angezeigt. Nimm einen größeren Zeitraum.'
+              + '</div>';
+    } else if (a.penner.length) {
+        html += '<div style="display:flex;align-items:center;gap:7px;margin:18px 0 8px;">'
+              + '<span class="material-symbols-outlined" style="font-size:18px;color:#b45309;">trending_down</span>'
+              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Läuft nicht</span>'
+              + (a.ohneVerkauf ? '<span style="font-size:11px;color:var(--text-secondary);">'
+                    + a.ohneVerkauf + ' Gericht' + (a.ohneVerkauf === 1 ? '' : 'e') + ' ohne einen einzigen Verkauf</span>' : '')
+              + '</div>';
+        a.penner.forEach(function (e, i) {
+            html += zeile(e, i, '#f59e0b', e.anzahl === 0 ? 2 : Math.max(2, Math.round(((e[a.sicht] || 0) / hoechst) * 100)));
+        });
+    }
+
+    if (a.neu.length) {
+        html += '<div style="margin-top:10px;font-size:11px;color:var(--text-secondary);font-family:Inter,sans-serif;">'
+              + a.neu.length + ' Gericht' + (a.neu.length === 1 ? ' ist' : 'e sind') + ' noch neu auf der Karte und '
+              + (a.neu.length === 1 ? 'wurde' : 'wurden') + ' nicht mitgewertet.'
+              + '</div>';
+    }
+    return html;
 }
 
 // Bestellungen aus Supabase laden
@@ -50183,7 +50569,8 @@ async function printKitchenBon(orderId) {
         if (selOpts.length > 0) {
             selOpts.forEach(function(opt) {
                 var optName = opt.option_name || opt.option || opt.name || '';
-                var optPrice = parseFloat(opt.price) || 0;
+                // Eine Groesse ersetzt den Preis, sie kommt nicht obendrauf.
+                var optPrice = opt.price_type === 'replace' ? 0 : (parseFloat(opt.price) || 0);
                 if (optName) {
                     optionsHtml += '<div style="padding:1px 0 1px 32px;font-size:13px;color:#333;">';
                     optionsHtml += '<span style="color:#888;">&#8594;</span> ' + optName;
@@ -51175,14 +51562,19 @@ function buildRichPosPayload(order) {
     } catch(e) {}
 
     var items = (order.items || []).map(function(item) {
-        var opts = (item.selected_options || []).map(function(o) {
+        var opts = (item.selected_options || []).map(function (o) {
+            // "option" zuerst -- so heisst das Feld im Warenkorb. Fehlte es
+            // hier, stand auf dem Bon kein Wort von der Groesse.
+            var istGroesse = o.price_type === 'replace';
             return {
-                name: o.option_name || o.name || '',
-                price_delta: parseFloat(o.price_delta || o.price || 0),
+                name: o.option || o.option_name || o.name || '',
+                // Bei einer Groesse ist der Preis der GANZE Preis, kein
+                // Aufschlag. "groß (+10,00)" waere schlicht falsch.
+                price_delta: istGroesse ? 0 : parseFloat(o.price_delta || o.price || 0),
                 group: o.option_group || o.group || ''
             };
         });
-        var optsText = opts.map(function(o) { return o.name + (o.price_delta ? ' (+' + o.price_delta.toFixed(2) + ')' : ''); }).filter(Boolean).join(', ');
+        var optsText = opts.map(function (o) { return o.name + (o.price_delta ? ' (+' + o.price_delta.toFixed(2) + ')' : ''); }).filter(Boolean).join(', ');
         return {
             id: item.menu_item_id || item.id || null,
             name: item.name || '',
@@ -57619,7 +58011,8 @@ async function leseKartePdf(pdfData) {
     }
 
     ergebnis.items = sortiereNachNummer(pdfGerichteZuItems(gerichte));
-    ergebnis.extras = extrasZuGruppen(rohExtras);
+    ergebnis.extras = extrasAufAlleKategorien(
+        extrasMitZutaten(extrasZuGruppen(rohExtras), ergebnis.items), ergebnis.items);
     ergebnis.protokoll.push(gerichte.length + ' Gerichte, ' + ergebnis.items.length + ' Eintraege');
     if (ergebnis.extras && ergebnis.extras.length) {
         ergebnis.protokoll.push(ergebnis.extras.length + ' Extra-Gruppen gefunden');
@@ -58345,6 +58738,106 @@ function parseKartenText(text, startKategorie) {
 // Welche Zutaten es gibt, steht auf dieser Karte nicht -- nur was sie kosten.
 // Also wird EINE Option mit dem Preis angelegt; die Namen der Zutaten traegt
 // der Wirt nach. Lieber der richtige Preis ohne Namen als gar kein Extra.
+// Aus den Zutatenzeilen der Karte eine ANKLICKBARE Liste machen.
+//
+// Die Karte sagt nur, was eine Extra-Zutat kostet ("Extra Zutaten: klein
+// 1,00 €, groß 1,50 €") -- nicht, welche es gibt. Bisher legte der Import
+// deshalb eine Gruppe "Extra Zutaten" mit einer Option namens "Extra Zutat
+// (klein)" an. Damit kann ein Gast nichts anfangen: er will Paprika
+// anklicken, nicht "Extra Zutat".
+//
+// Die Namen stehen aber sehr wohl auf der Karte -- in den Beschreibungen der
+// Gerichte. Jede Pizza listet ihre Zutaten auf. Was in dieser Kategorie
+// mehrfach vorkommt, ist eine Zutat, die das Haus da hat.
+//
+// Mindestens zwei Nennungen: einmaliges wie "Lassen Sie sich überraschen!"
+// oder "teuflisch scharf" ist keine Zutat, sondern Beiwerk. An der Karte von
+// Pronto Pronto trennt diese Grenze sauber -- 13 echte Zutaten statt 32
+// Zeilen mit Ausreissern.
+function zutatenAusKategorie(items, kategorie, mindestens) {
+    var zaehler = {}, schreibweise = {};
+    (items || []).forEach(function (i) {
+        if (kategorie && i.category !== kategorie) return;
+        String(i.description || '').split(/[,·]/).forEach(function (z) {
+            var t = z.replace(/\s+/g, ' ').trim();
+            if (!t || t.length > 24 || t.length < 3) return;
+            if (/^\d/.test(t) || /€|\d{1,3},\d{2}/.test(t)) return;
+            if (/^(und|mit|oder|dazu|nach Wahl|auf Wunsch)\b/i.test(t)) return;
+            if (t.split(' ').length > 3) return;          // ganze Saetze raus
+            var k = t.toLowerCase();
+            zaehler[k] = (zaehler[k] || 0) + 1;
+            if (!schreibweise[k]) schreibweise[k] = t;
+        });
+    });
+    return Object.keys(zaehler)
+        .filter(function (k) { return zaehler[k] >= (mindestens || 2); })
+        .sort(function (a, b) { return zaehler[b] - zaehler[a] || a.localeCompare(b); })
+        .map(function (k) { return schreibweise[k]; });
+}
+
+// Die Zutatenliste auf ALLE Gerichte ausweiten.
+//
+// Auf der Karte steht die Extra-Regel nur unter den Pizzen und den Salaten.
+// Ein Gast, der ein Schnitzel oder einen Doener nimmt, moechte aber genauso
+// Kaese dazu -- und jede angeklickte Zutat ist Umsatz, der sonst nicht
+// stattfindet.
+//
+// Erfunden wird dabei nichts: die Gruppe behaelt Zutaten UND Preis von der
+// Karte. Sie gilt nur zusaetzlich fuer die Kategorien, die keine eigene
+// Extra-Regel haben. Wo das Haus einen eigenen Preis gedruckt hat (Salate
+// 0,50 €), bleibt der bestehen.
+function extrasAufAlleKategorien(gruppen, items) {
+    var alleKats = [];
+    (items || []).forEach(function (i) {
+        if (i.category && alleKats.indexOf(i.category) < 0) alleKats.push(i.category);
+    });
+    // "Eigene Regel" heisst: eine echte ZUTATENLISTE. Eine Gruppe wie
+    // "Menü-Upgrade" oder "Alle Teller mit Pommes erhältlich" ist keine --
+    // Burger und Fleischgerichte sollen die Zutaten trotzdem bekommen.
+    var mitEigener = {};
+    (gruppen || []).forEach(function (g) { if (g.kategorie && g.mehrfach) mitEigener[g.kategorie] = 1; });
+
+    // Die groesste echte Zutatenliste ist die Vorlage fuer den Rest.
+    var vorlage = null;
+    (gruppen || []).forEach(function (g) {
+        if (!g.mehrfach) return;
+        if (!vorlage || g.optionen.length > vorlage.optionen.length) vorlage = g;
+    });
+    if (!vorlage) return gruppen;
+
+    var offen = alleKats.filter(function (k) { return !mitEigener[k]; });
+    if (!offen.length) return gruppen;
+
+    // Eine Gruppe fuer alle uebrigen Kategorien -- nicht je eine pro
+    // Kategorie, sonst stehen dieselben Zutaten zwanzigmal in der Verwaltung.
+    gruppen.push({
+        name: vorlage.name,
+        kategorie: offen.join(','),
+        mehrfach: true,
+        quelle: vorlage.quelle,
+        uebertragen: true,
+        optionen: vorlage.optionen.map(function (o) { return { name: o.name, price: o.price }; })
+    });
+    return gruppen;
+}
+
+// Extras-Gruppen mit echten Zutaten fuellen.
+function extrasMitZutaten(gruppen, items) {
+    (gruppen || []).forEach(function (g) {
+        if (!/zutat/i.test(g.name)) return;               // nur "Extra Zutaten"
+        var zutaten = zutatenAusKategorie(items, g.kategorie, 2);
+        if (zutaten.length < 3) return;                    // zu wenig -> so lassen
+        // Preis: der guenstigste der Karte. Eine Option kann nur EINEN Preis
+        // haben und weiss nicht, welche Groesse der Gast genommen hat -- also
+        // der Preis, der auf der Karte fuer die kleine steht. Alles andere
+        // waere ein Aufschlag, den der Gastronom nicht gedruckt hat.
+        var preis = Math.min.apply(null, g.optionen.map(function (o) { return o.price; }));
+        g.mehrfach = true;                                 // mehrere Zutaten erlaubt
+        g.optionen = zutaten.map(function (z) { return { name: z, price: preis }; });
+    });
+    return gruppen;
+}
+
 function extrasZuGruppen(extras) {
     var gruppen = [];
     (extras || []).forEach(function (e) {
@@ -59701,8 +60194,9 @@ function showScannedResults() {
                   + '</div>';
         });
         html += '<div style="margin-top:6px;color:var(--text-secondary);font-size:11px;">'
-              + 'Welche Zutaten es gibt, steht nicht auf der Karte — nur was sie kosten. '
-              + 'Die Namen kannst du unter „Optionen &amp; Extras" nachtragen.</div></div>';
+              + 'Die Zutaten kommen aus den Beschreibungen der Gerichte dieser Kategorie — '
+              + 'alles, was dort mindestens zweimal vorkommt. Ergänzen oder löschen kannst du '
+              + 'sie unter „Optionen &amp; Extras".</div></div>';
     }
 
     var _pz = window._scanPruefung;
@@ -60116,16 +60610,43 @@ async function wendeKartenAbgleichAn() {
     var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
 
     // 1) Geaenderte Gerichte
+    //
+    // Mit derselben Behandlung wie beim Import: kennt die Datenbank eine
+    // Spalte nicht, fliegt sie raus; hat sie den falschen Typ, wird der Wert
+    // als Text geschickt. Vorher stand hier nur "fehler++" -- 88
+    // Groessen-Aenderungen konnten stumm scheitern, und das Fenster ging
+    // danach zu, bevor irgendjemand etwas davon lesen konnte.
+    var _weg = {}, _alsText = {}, _gruende = [];
     for (var i = 0; i < d.geaendert.length; i++) {
         var g = d.geaendert[i];
         var neuerStand = { name: g.neu.name, base_price: _abgleichPreis(g.neu) };
         if (Array.isArray(g.neu.sizes) && g.neu.sizes.length) neuerStand.sizes = g.neu.sizes;
         if ((g.neu.description || '').trim()) neuerStand.description = g.neu.description;
+        Object.keys(_weg).forEach(function (k) { delete neuerStand[k]; });
+        Object.keys(_alsText).forEach(function (k) {
+            if (neuerStand[k] && typeof neuerStand[k] === 'object') neuerStand[k] = JSON.stringify(neuerStand[k]);
+        });
         try {
             var r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
                 { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
+            var runde = 0;
+            while (!r.ok && r.status === 400 && runde < 8) {
+                runde++;
+                var txt = await r.clone().text();
+                var tr = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(txt);
+                var sp = tr && (tr[1] || tr[2] || tr[3]);
+                if (sp && (sp in neuerStand)) { _weg[sp] = 1; delete neuerStand[sp]; }
+                else if (/invalid input syntax|malformed|cannot be cast/i.test(txt)) {
+                    var obj = Object.keys(neuerStand).filter(function (k) {
+                        return neuerStand[k] && typeof neuerStand[k] === 'object'; });
+                    if (!obj.length) { _gruende.push(txt.slice(0, 120)); break; }
+                    obj.forEach(function (k) { _alsText[k] = 1; neuerStand[k] = JSON.stringify(neuerStand[k]); });
+                } else { _gruende.push(txt.slice(0, 120)); break; }
+                r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
+                    { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
+            }
             if (r.ok) geaendert++; else fehler++;
-        } catch (e) { fehler++; }
+        } catch (e) { fehler++; _gruende.push(e.message); }
     }
 
     // 2) Entfallene
@@ -60157,18 +60678,509 @@ async function wendeKartenAbgleichAn() {
         window.scannedMenuItems = scannedMenuItems;
     }
 
+    // Extras ZUERST -- unabhaengig davon, ob es neue Gerichte gab und ob beim
+    // Aendern etwas schiefging. Vorher stand dieser Aufruf hinter dem
+    // Fehler-Zweig, der mit "return" endet: schlug eine einzige Aenderung
+    // fehl, wurden gar keine Extras angelegt.
+    // KEIN stilles catch mehr. Hier stand "catch (e) {}" -- jeder Fehler beim
+    // Anlegen der Extras verschwand damit spurlos, und im Dashboard blieb es
+    // leer, ohne dass irgendwo etwas stand.
+    var exErg = { angelegt: 0, uebersprungen: 0, fehler: [] };
+    var exAusnahme = null;
+    try {
+        exErg = await legeExtrasAn(restaurantId, H);
+    } catch (e) {
+        exAusnahme = e && e.message ? e.message : String(e);
+        console.error('[abgleich] Extras:', e);
+    }
+
+    // Ging etwas schief, bleibt das Fenster OFFEN und sagt was.
+    // Vorher wurde es zugemacht -- der einzige Ort, an dem der Grund stand,
+    // verschwand also genau dann, wenn man ihn gebraucht haette.
+    // EXTRAS-BILANZ IMMER ZEIGEN.
+    //
+    // "Optionen & Extras" blieb leer, und es gab keinen Ort, an dem stand
+    // warum. Jetzt steht im Fenster, wieviele Gruppen der Leser gefunden hat,
+    // wieviele davon angelegt wurden, wieviele es schon gab -- und der Grund,
+    // falls keine ankam.
+    var gefunden = (window._scanExtras || []).length;
+    var exBox = document.getElementById('kartenAbgleichInhalt');
+    if (exBox && (gefunden || exAusnahme || (exErg.fehler || []).length)) {
+        var exGut = exErg.angelegt > 0 || (exErg.uebersprungen > 0 && !exAusnahme);
+        exBox.insertAdjacentHTML('afterbegin',
+            '<div style="margin:0 0 12px;padding:11px 14px;border-radius:12px;border:1px solid '
+          + (exGut ? 'rgba(0,61,51,0.2);background:rgba(0,61,51,0.05)' : '#f59e0b;background:rgba(245,158,11,.12)')
+          + ';font-size:13px;line-height:1.6;">'
+          + '<strong>Extras:</strong> ' + gefunden + ' Gruppen auf der Karte gefunden · '
+          + exErg.angelegt + ' angelegt · ' + exErg.uebersprungen + ' gab es schon'
+          + (exAusnahme ? '<div style="margin-top:5px;color:#b45309;">Abbruch: '
+                + String(exAusnahme).replace(/[<>&]/g, '') + '</div>' : '')
+          + ((exErg.fehler || []).length ? '<div style="margin-top:5px;color:#b45309;">'
+                + exErg.fehler.slice(0, 2).map(function (x) { return String(x).replace(/[<>&]/g, ''); }).join('<br>')
+                + '</div>' : '')
+          + (gefunden && !exErg.angelegt && !exErg.uebersprungen && !exAusnahme && !(exErg.fehler || []).length
+              ? '<div style="margin-top:5px;color:#b45309;">Gefunden, aber nichts geschrieben — bitte melden.</div>' : '')
+          + '</div>');
+    }
+
+    var wegListe = Object.keys(_weg);
+    if (wegListe.length || fehler || (gefunden && !exErg.angelegt && !exErg.uebersprungen)) {
+        var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
+                         additives: 'Zusatzstoffe', description: 'Beschreibung', name: 'Name' };
+        var box = document.getElementById('kartenAbgleichInhalt');
+        if (box) {
+            box.insertAdjacentHTML('afterbegin',
+                '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid #f59e0b;'
+              + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;">'
+              + (!wegListe.length && !fehler
+                  ? '<strong>Die Gerichte sind übernommen.</strong> Nur bei den Extras hakt es — siehe oben.'
+                  : wegListe.length
+                  ? '<strong>Diese Angaben kennt die Datenbank nicht: '
+                    + wegListe.map(function (x) { return klartext[x] || x; }).join(', ')
+                    + '</strong><br>Alles andere wurde gespeichert.'
+                  : '<strong>' + fehler + ' Änderungen sind fehlgeschlagen.</strong>')
+              + (_gruende.length ? '<div style="font-size:11px;margin-top:6px;opacity:.85;">'
+                    + _gruende.slice(0, 3).map(function (x) { return String(x).replace(/[<>&]/g, ''); }).join('<br>')
+                    + '</div>' : '')
+              + '</div>');
+        }
+        if (wegListe.length && typeof _zeigeSpaltenHilfe === 'function') {
+            // Die Anleitung mit dem SQL-Befehl -- hier ins Abgleich-Fenster,
+            // nicht in die Scanner-Liste, die gleich zugeht.
+            var merk = document.getElementById('menuScanItemsList');
+            var ziel = document.getElementById('kartenAbgleichInhalt');
+            if (ziel) { ziel.id = 'menuScanItemsList'; _zeigeSpaltenHilfe(wegListe);
+                        ziel.id = 'kartenAbgleichInhalt'; if (merk) merk.id = 'menuScanItemsList'; }
+        }
+        var knopf2 = document.getElementById('kartenAbgleichKnopf');
+        if (knopf2) { knopf2.disabled = false; knopf2.textContent = 'Erneut versuchen'; }
+        showToast(geaendert + ' übernommen, ' + fehler + ' fehlgeschlagen'
+            + (exErg.angelegt ? ', ' + exErg.angelegt + ' Extra-Gruppen angelegt' : '')
+            + ' — Grund steht im Fenster.', 'warning');
+        if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
+        return;
+    }
+
     closeModal('kartenAbgleichModal');
     var teile = [];
     if (geaendert) teile.push(geaendert + ' aktualisiert');
     if (angelegt) teile.push(angelegt + ' neu');
     if (stillgelegt) teile.push(stillgelegt + ' ausverkauft');
     if (geloescht) teile.push(geloescht + ' gelöscht');
+    if (exErg.angelegt) teile.push(exErg.angelegt + ' Extra-Gruppe' + (exErg.angelegt > 1 ? 'n' : ''));
     if (!teile.length) teile.push('nichts geändert');
     showToast('Karte abgeglichen: ' + teile.join(' · ')
         + (fehler ? ' (' + fehler + ' fehlgeschlagen)' : ''), fehler ? 'warning' : 'success');
 
     try { closeModal('menuScannerModal'); } catch (e4) {}
     if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restaurantId);
+}
+
+// Was in Supabase fehlt -- mit dem fertigen Befehl zum Kopieren.
+var _SPALTEN_TYP = {
+    sizes: 'jsonb', allergens: 'text[]', additives: 'text[]', dish_number: 'text',
+    is_lamb: 'boolean default false', is_beef: 'boolean default false',
+    is_pork: 'boolean default false', is_chicken: 'boolean default false',
+    is_fish: 'boolean default false', is_seafood: 'boolean default false',
+    is_vegan: 'boolean default false', is_vegetarian: 'boolean default false'
+};
+
+function _zeigeSpaltenHilfe(spalten) {
+    var bekannt = spalten.filter(function (x) { return _SPALTEN_TYP[x]; });
+    if (!bekannt.length) return;
+    var sql = bekannt.map(function (x) {
+        return 'alter table menu_items add column if not exists ' + x + ' ' + _SPALTEN_TYP[x] + ';';
+    }).join('\n');
+    window._fehlendeSpaltenSQL = sql;
+
+    var kasten = document.getElementById('menuScanItemsList');
+    if (!kasten) return;
+    kasten.insertAdjacentHTML('afterbegin',
+        '<div style="margin:0 0 12px;padding:13px 15px;border-radius:12px;border:1px solid #f59e0b;'
+      + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;">'
+      + '<strong>In der Datenbank fehlen ' + bekannt.length + ' Spalten.</strong> '
+      + 'Deshalb wurden ' + bekannt.map(function (x) { return x; }).join(', ') + ' nicht gespeichert. '
+      + 'Das ist in zwei Minuten erledigt:'
+      + '<ol style="margin:8px 0 8px 18px;padding:0;font-size:12px;">'
+      +   '<li>In Supabase auf <strong>SQL Editor</strong> gehen</li>'
+      +   '<li>Diesen Befehl einfügen und ausführen</li>'
+      +   '<li>Hier die Karte noch einmal übernehmen — der Abgleich trägt die Größen nach</li>'
+      + '</ol>'
+      + '<pre style="margin:0;padding:9px 11px;background:rgba(0,0,0,.06);border-radius:8px;'
+      + 'font-size:11px;overflow:auto;white-space:pre;">' + sql.replace(/[<>&]/g, '') + '</pre>'
+      + '<button type="button" onclick="_kopiereSpaltenSQL(this)" style="margin-top:8px;padding:7px 14px;'
+      + 'border:none;border-radius:9999px;background:#003D33;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">'
+      + 'Befehl kopieren</button>'
+      + '</div>');
+}
+
+function _kopiereSpaltenSQL(btn) {
+    var sql = window._fehlendeSpaltenSQL || '';
+    try {
+        navigator.clipboard.writeText(sql);
+        if (btn) { btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = 'Befehl kopieren'; }, 2000); }
+    } catch (e) {
+        showToast('Konnte nicht kopieren — bitte den Text von Hand markieren.', 'info');
+    }
+}
+
+// Datenbank-Meldungen in Klartext.
+//
+// "new row violates row-level security policy for table" sagt einem
+// Gastronomen nichts. Die Meldung stand bisher roh im Fenster -- als JSON, an
+// der Stelle abgeschnitten, wo der Tabellenname anfing.
+function fehlerKlartext(txt) {
+    var t = String(txt || '');
+    if (/duplicate key|unique constraint/i.test(t)) return 'gibt es schon';
+    if (/violates foreign key/i.test(t)) return 'Kategorie passt nicht';
+    if (/null value in column "([^"]+)"/i.test(t)) return 'Pflichtfeld fehlt: ' + RegExp.$1;
+    if (/value too long/i.test(t)) return 'Text zu lang';
+    if (/42501|permission denied|row-level security/i.test(t)) return 'keine Schreibrechte in der Datenbank';
+    return t.replace(/[{}"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'unbekannt';
+}
+
+// Fehlt das Schreibrecht (Postgres 42501), hilft kein Neuversuch -- die
+// Datenbank laesst die Zeile grundsaetzlich nicht zu. Genau wie bei den
+// fehlenden Spalten gibt es deshalb den fertigen Befehl zum Kopieren.
+function istRechteFehler(txt) { return /42501|row-level security|permission denied/i.test(String(txt || '')); }
+
+var _RECHTE_SQL =
+    "alter table menu_option_groups enable row level security;\n" +
+    "alter table menu_options       enable row level security;\n" +
+    "\n" +
+    "create policy \"extras lesen\"  on menu_option_groups for select using (true);\n" +
+    "create policy \"extras lesen\"  on menu_options       for select using (true);\n" +
+    "\n" +
+    "create policy \"extras anlegen\" on menu_option_groups\n" +
+    "  for insert to anon, authenticated with check (true);\n" +
+    "create policy \"extras anlegen\" on menu_options\n" +
+    "  for insert to anon, authenticated with check (true);";
+
+function _zeigeRechteHilfe(elementId) {
+    var kasten = document.getElementById(elementId);
+    if (!kasten) return;
+    if (kasten.querySelector('.rechteHilfe')) return;
+    kasten.style.display = 'block';
+    kasten.insertAdjacentHTML('afterbegin',
+        '<div class="rechteHilfe" style="margin:0 0 12px;padding:13px 15px;border-radius:12px;border:1px solid #f59e0b;'
+      + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;color:var(--text-primary);">'
+      + '<strong>Die Datenbank lässt keine Extras zu.</strong> '
+      + 'Gelesen wurde alles richtig — beim Speichern sagt Supabase „keine Schreibrechte" '
+      + '(Fehler 42501). Das ist eine Einstellung, kein Fehler in der Karte:'
+      + '<ol style="margin:8px 0 8px 18px;padding:0;font-size:12px;">'
+      +   '<li>In Supabase auf <strong>SQL Editor</strong> gehen</li>'
+      +   '<li>Diesen Befehl einfügen und ausführen</li>'
+      +   '<li>Hier noch einmal auf „Diese Extras anlegen" tippen</li>'
+      + '</ol>'
+      + '<pre style="margin:0;padding:9px 11px;background:rgba(0,0,0,.06);border-radius:8px;'
+      + 'font-size:11px;overflow:auto;white-space:pre;">' + _RECHTE_SQL.replace(/[<>&]/g, '') + '</pre>'
+      + '<button type="button" onclick="_kopiereRechteSQL(this)" style="margin-top:8px;padding:7px 14px;'
+      + 'border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">'
+      + 'Befehl kopieren</button>'
+      + '</div>');
+}
+
+function _kopiereRechteSQL(btn) {
+    try {
+        navigator.clipboard.writeText(_RECHTE_SQL);
+        if (btn) { btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = 'Befehl kopieren'; }, 2000); }
+    } catch (e) {
+        showToast('Konnte nicht kopieren — bitte den Text von Hand markieren.', 'info');
+    }
+}
+
+
+// EXTRAS ANLEGEN -- aus beiden Wegen erreichbar.
+//
+// Das stand mitten im Import. Der Abgleich ruft den Import aber nur auf, wenn
+// es NEUE Gerichte gibt. Wer eine bekannte Karte noch einmal einliest -- der
+// Normalfall, etwa wegen neuer Preise --, bekam deshalb nie Extras: es gab ja
+// keine neuen Gerichte, also lief der Block nicht.
+// ============================================================================
+// EXTRAS AUS PDF -- eigener, kurzer Weg
+// ============================================================================
+// Ueber den Speisekarten-Import kamen die Extras nicht an. Dort haengen sie am
+// Ende einer langen Kette: lesen, abgleichen, Gerichte schreiben, Fehler
+// behandeln, dann erst Extras. Jede Station kann sie verschlucken -- und
+// genau das ist mehrfach passiert.
+//
+// Hier sind es drei Schritte, die man einzeln sieht: PDF lesen, Ergebnis
+// zeigen, auf Knopfdruck schreiben. Nichts anderes passiert dabei; die
+// Speisekarte bleibt unangetastet. Das manuelle Anlegen ueber "Neue Gruppe"
+// bleibt daneben bestehen.
+var _extrasPdfGefunden = null;
+
+function oeffneExtrasAusPdf() {
+    _extrasPdfGefunden = null;
+    var v = document.getElementById('extrasPdfVorschau');
+    var st = document.getElementById('extrasPdfStatus');
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (v) { v.style.display = 'none'; v.innerHTML = ''; }
+    if (st) st.style.display = 'none';
+    if (kn) kn.style.display = 'none';
+    openModal('extrasPdfModal');
+}
+
+function extrasPdfAbgelegt(ev, kasten) {
+    ev.preventDefault();
+    if (kasten) kasten.style.borderColor = '';
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) extrasPdfLesen(f);
+}
+
+function extrasPdfGewaehlt(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (f) extrasPdfLesen(f);
+}
+
+function _extrasPdfSage(text, art) {
+    var el = document.getElementById('extrasPdfStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = art === 'fehler' ? '#b45309' : 'var(--text-secondary)';
+    el.textContent = text;
+}
+
+async function extrasPdfLesen(datei) {
+    if (!/pdf$/i.test(datei.name) && datei.type !== 'application/pdf') {
+        _extrasPdfSage('Das ist kein PDF.', 'fehler');
+        return;
+    }
+    _extrasPdfSage('„' + datei.name + '" wird gelesen…');
+    try {
+        var daten = await new Promise(function (fertig, schief) {
+            var r = new FileReader();
+            r.onload = function () { fertig(r.result); };
+            r.onerror = function () { schief(new Error('Datei nicht lesbar')); };
+            r.readAsDataURL(datei);
+        });
+        var e = await leseKartePdf(daten);
+        if (!e.ok) { _extrasPdfSage(e.grund || 'Konnte nichts lesen.', 'fehler'); return; }
+
+        var gruppen = (e.extras || []).filter(function (g) { return g.optionen && g.optionen.length; });
+        if (!gruppen.length) {
+            _extrasPdfSage('In dieser Karte stehen keine Extra-Regeln (z.B. „Extra Zutaten: 1,00 €").', 'fehler');
+            return;
+        }
+        _extrasPdfGefunden = gruppen;
+        _extrasPdfSage(gruppen.length + ' Gruppen aus „' + datei.name + '" gelesen — ohne KI.');
+        _extrasPdfZeige(gruppen);
+    } catch (fehler) {
+        _extrasPdfSage('Fehler: ' + fehler.message, 'fehler');
+    }
+}
+
+function _extrasPdfZeige(gruppen) {
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+    var html = '';
+    gruppen.forEach(function (g, i) {
+        var kats = g.kategorie ? g.kategorie.split(',') : [];
+        html += '<div style="border:1px solid var(--border-color);border-radius:12px;padding:10px 12px;margin-bottom:8px;">'
+              + '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">'
+              + '<input type="checkbox" class="extrasPdfHaken" data-i="' + i + '" checked style="margin-top:3px;accent-color:var(--ink-strong);">'
+              + '<span style="flex:1;min-width:0;">'
+              +   '<span style="font-weight:800;color:var(--ink-strong);font-size:13px;">' + esc(g.name) + '</span> '
+              +   '<span style="font-size:12px;color:var(--text-secondary);">'
+              +     (kats.length ? (kats.length > 3 ? kats.length + ' Kategorien' : 'bei ' + esc(kats.join(', '))) : 'bei allen Gerichten')
+              +     ' · ' + (g.mehrfach ? 'mehrere wählbar' : 'eine Auswahl') + '</span>'
+              +   '<div style="font-size:12px;margin-top:4px;line-height:1.6;">'
+              +     g.optionen.map(function (o) {
+                        return '<span style="display:inline-block;border:1px solid rgba(0,61,51,0.2);border-radius:9999px;'
+                             + 'padding:2px 9px;margin:2px 4px 2px 0;">' + esc(o.name)
+                             + ' <strong>+' + o.price.toFixed(2).replace('.', ',') + ' €</strong></span>';
+                    }).join('')
+              +   '</div>'
+              + '</span></label></div>';
+    });
+    var v = document.getElementById('extrasPdfVorschau');
+    if (v) { v.innerHTML = html; v.style.display = 'block'; }
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (kn) { kn.style.display = 'block'; kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
+}
+
+async function extrasPdfUebernehmen() {
+    if (!_extrasPdfGefunden) return;
+    var gewaehlt = [];
+    document.querySelectorAll('.extrasPdfHaken').forEach(function (h) {
+        if (h.checked) gewaehlt.push(_extrasPdfGefunden[parseInt(h.dataset.i, 10)]);
+    });
+    if (!gewaehlt.length) { showToast('Keine Gruppe ausgewählt', 'error'); return; }
+
+    var rid = window._gastroOnlyRestaurantId || currentMenuRestaurant
+           || window.currentMenuRestaurant || RESTAURANT_ID;
+    if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt.', 'fehler'); return; }
+
+    var kn = document.getElementById('extrasPdfKnopf');
+    if (kn) { kn.disabled = true; kn.textContent = 'Wird angelegt…'; }
+
+    // legeExtrasAn liest window._scanExtras -- kurz setzen, danach
+    // zuruecksetzen, damit ein spaeterer Speisekarten-Import nicht
+    // versehentlich dieselben Gruppen noch einmal anlegt.
+    var merk = window._scanExtras;
+    window._scanExtras = gewaehlt;
+    var erg = { angelegt: 0, uebersprungen: 0, fehler: [], rechte: false }, ausnahme = null;
+    try {
+        erg = await legeExtrasAn(rid, {});
+    } catch (e) {
+        ausnahme = e && e.message ? e.message : String(e);
+        console.error('[extras-pdf]', e);
+    }
+    window._scanExtras = merk;
+
+    if (kn) { kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
+
+    if ((erg.angelegt || erg.uebersprungen) && !erg.rechte) {
+        _extrasPdfSage(erg.angelegt + ' angelegt' + (erg.uebersprungen ? ', ' + erg.uebersprungen + ' gab es schon' : '') + '.');
+        showToast(erg.angelegt + ' Extra-Gruppe' + (erg.angelegt === 1 ? '' : 'n') + ' angelegt', 'success');
+        closeModal('extrasPdfModal');
+        if (typeof loadOptionGroups === 'function') loadOptionGroups();
+        return;
+    }
+    // Fehlt das Schreibrecht, ist "nochmal versuchen" sinnlos -- dann steht
+    // hier der fertige Supabase-Befehl statt einer Fehlermeldung.
+    if (erg.rechte || istRechteFehler(ausnahme)) {
+        _extrasPdfSage(erg.angelegt
+            ? (erg.angelegt + ' angelegt, der Rest wird von der Datenbank abgelehnt.')
+            : 'Gelesen wurde alles — die Datenbank nimmt die Extras nur nicht an.', 'fehler');
+        _zeigeRechteHilfe('extrasPdfVorschau');
+        return;
+    }
+    // Nichts angekommen: den Grund HIER zeigen, nicht in der Konsole.
+    _extrasPdfSage('Nichts angelegt. ' + (ausnahme || (erg.fehler && erg.fehler[0]) || 'Kein Grund gemeldet.'), 'fehler');
+}
+
+async function legeExtrasAn(restaurantId, SUPA_H) {
+    // EIGENE KOPFZEILEN. Der Aufrufer schickt teils "Prefer: return=minimal"
+    // mit -- dann antwortet die Datenbank ohne Inhalt, die neu angelegte
+    // Gruppe hat keine ID, und ohne ID lassen sich ihre Optionen nicht
+    // schreiben. Genau daran ist es gescheitert: die Gruppe entstand, die
+    // Zutaten nie.
+    SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    var extrasAngelegt = 0, extrasUebersprungen = 0;
+    var _extraFehler = [], _gruppenWeg = {}, _optionenWeg = {};
+    // Fehlendes Schreibrecht wird getrennt gemerkt: dagegen hilft kein
+    // Neuversuch und keine andere Spalte, nur eine Regel in Supabase.
+    var _rechteFehlt = false;
+    function _merkeFehler(text, roh) {
+        if (istRechteFehler(roh)) _rechteFehlt = true;
+        _extraFehler.push(text + ': ' + fehlerKlartext(roh));
+    }
+    var extras = window._scanExtras || [];
+
+    // VORHANDENE GRUPPEN ERST HOLEN.
+    //
+    // Sonst legt jeder weitere Import dieselben Gruppen noch einmal an, und
+    // der Gast sieht "Extra Zutaten" dreimal untereinander -- derselbe
+    // Fehler, den es bei den Gerichten gab.
+    var _vorhandeneGruppen = {};
+    try {
+        var vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
+            + restaurantId + '&select=id,name,internal_name', { headers: SUPA_H });
+        if (vgRes.ok) {
+            (await vgRes.json() || []).forEach(function (vg) {
+                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '')).toLowerCase()] = vg.id;
+            });
+        }
+    } catch (e) {}
+
+    for (var e = 0; e < extras.length; e++) {
+        var g = extras[e];
+        if (!g.optionen || !g.optionen.length) continue;
+        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
+        if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
+        try {
+            var _gruppenFeld = {
+                restaurant_id: restaurantId,
+                name: g.name,
+                // an die Kategorie binden, damit die Extras nur dort auftauchen
+                internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                selection_type: g.mehrfach === false ? 'single' : 'multiple',
+                min_selections: 0,
+                max_selections: null,
+                is_active: true
+            };
+            Object.keys(_gruppenWeg).forEach(function (k) { delete _gruppenFeld[k]; });
+            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                method: 'POST', headers: SUPA_H, body: JSON.stringify(_gruppenFeld)
+            });
+            // Unbekannte Spalten auch hier wegnehmen statt aufzugeben.
+            // menu_option_groups kennt je nach Datenbank kein internal_name
+            // oder kein min/max_selections -- dann scheiterte das Anlegen
+            // still, und im Dashboard stand "Keine Optionsgruppen vorhanden",
+            // ohne dass irgendwo ein Grund zu finden war.
+            var gVersuch = 0;
+            while (!grpRes.ok && grpRes.status === 400 && gVersuch < 8) {
+                gVersuch++;
+                var gTxt = await grpRes.clone().text();
+                var gm = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(gTxt);
+                var gSp = gm && (gm[1] || gm[2] || gm[3]);
+                if (!gSp || !(gSp in _gruppenFeld)) { _merkeFehler(g.name, gTxt); break; }
+                delete _gruppenFeld[gSp];
+                grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(_gruppenFeld)
+                });
+            }
+            if (!grpRes.ok) {
+                var gFehl = await grpRes.text();
+                console.warn('[import] Extra-Gruppe fehlgeschlagen:', gFehl);
+                if (!_extraFehler.length) _merkeFehler(g.name, gFehl);
+                else if (istRechteFehler(gFehl)) _rechteFehlt = true;
+                continue;
+            }
+            var grp = await grpRes.json();
+            var gid = grp && grp[0] && grp[0].id;
+            if (!gid) { _extraFehler.push(g.name + ': keine ID zurückbekommen'); continue; }
+
+            function _optionen() {
+                return g.optionen.map(function (o, i) {
+                    var z = { group_id: gid, name: o.name, price: o.price,
+                              price_type: 'add', is_default: false, sort_order: i, is_available: true };
+                    Object.keys(_optionenWeg).forEach(function (k) { delete z[k]; });
+                    return z;
+                });
+            }
+            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                method: 'POST', headers: SUPA_H, body: JSON.stringify(_optionen())
+            });
+            var oVersuch = 0;
+            while (!optRes.ok && optRes.status === 400 && oVersuch < 8) {
+                oVersuch++;
+                var oTxt = await optRes.clone().text();
+                var om = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(oTxt);
+                var oSp = om && (om[1] || om[2] || om[3]);
+                if (!oSp) { _merkeFehler(g.name + ' (Optionen)', oTxt); break; }
+                _optionenWeg[oSp] = 1;
+                optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(_optionen()) });
+            }
+            if (optRes.ok) extrasAngelegt++;
+            else {
+                var oFehl = await optRes.text();
+                console.warn('[import] Extra-Optionen fehlgeschlagen:', oFehl);
+                if (!_extraFehler.length) _merkeFehler(g.name + ' (Optionen)', oFehl);
+                else if (istRechteFehler(oFehl)) _rechteFehlt = true;
+            }
+        } catch (ex) {
+            console.warn('[import] Extra "' + g.name + '":', ex.message);
+        }
+    }
+
+
+    // Gescheiterte Gruppen SICHTBAR machen. Vorher stand der Grund nur in der
+    // Browser-Konsole, und im Dashboard hiess es schlicht "Keine
+    // Optionsgruppen vorhanden".
+    if (_rechteFehlt) {
+        showToast('Die Datenbank lässt keine Extras zu (keine Schreibrechte). '
+                + 'Der passende Befehl steht im Fenster.', 'error');
+    } else if (_extraFehler.length) {
+        showToast('Extras konnten nicht angelegt werden: ' + _extraFehler[0]
+            + (_extraFehler.length > 1 ? ' (und ' + (_extraFehler.length - 1) + ' weitere)' : ''), 'error');
+    }
+    return { angelegt: extrasAngelegt, uebersprungen: extrasUebersprungen,
+             fehler: _extraFehler, rechte: _rechteFehlt };
 }
 
 async function importScannedMenu() {
@@ -60217,6 +61229,22 @@ async function importScannedMenu() {
     // Spalten, die diese Datenbank nicht kennt -- einmal gemerkt, dann bei
     // allen weiteren Gerichten gar nicht erst mitgeschickt.
     var _unbekannteSpalten = {};
+    // Welche Gerichte NICHT gespeichert wurden -- mit Namen und Grund.
+    // Bisher landete das nur in der Browser-Konsole: die Meldung sagte
+    // "138 importiert, 4 Fehler" und der Gastronom durfte raten, welche vier.
+    var _nichtGespeichert = [];
+    // Felder, die diese Datenbank als TEXT will statt als JSON. Einmal
+    // festgestellt, gilt es fuer alle weiteren Gerichte -- sonst scheitert
+    // jedes einzelne aufs Neue.
+    var _alsTextSenden = {};
+
+    // Datenbank-Meldungen in Klartext. "duplicate key value violates unique
+    // constraint" hilft niemandem weiter.
+    function _grundKlartext(txt) {
+        if (/duplicate key|unique constraint/i.test(String(txt || '')))
+            return 'Gericht mit diesem Namen gibt es schon';
+        return fehlerKlartext(txt);
+    }
 
     // Schritt 1: Bestehende Kategorien laden
     try {
@@ -60275,6 +61303,8 @@ async function importScannedMenu() {
         
         if (!catId) {
             errors.push(item.name + ': Keine Kategorie');
+            _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                     grund: 'keine Kategorie gefunden' });
             continue;
         }
 
@@ -60315,6 +61345,9 @@ async function importScannedMenu() {
         };
 
         Object.keys(_unbekannteSpalten).forEach(function (k) { delete itemData[k]; });
+        Object.keys(_alsTextSenden).forEach(function (k) {
+            if (itemData[k] && typeof itemData[k] === 'object') itemData[k] = JSON.stringify(itemData[k]);
+        });
 
         try {
             var itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
@@ -60325,29 +61358,75 @@ async function importScannedMenu() {
             // 400 und nennt den Spaltennamen. Frueher waere daran der GANZE
             // Import gescheitert -- wegen eines einzigen Zusatzfeldes. Jetzt
             // fliegt genau dieses Feld raus und der Import laeuft weiter.
-            if (!itemRes.ok && itemRes.status === 400) {
+            // SO LANGE, BIS KEINE UNBEKANNTE SPALTE MEHR UEBRIG IST.
+            //
+            // Hier stand ein EINZIGER Wiederholversuch. Kennt die Datenbank
+            // mehrere Felder nicht -- etwa sizes UND is_lamb --, scheiterte
+            // der zweite Versuch am naechsten Feld, und das Gericht war weg.
+            // Jede unbekannte Spalte kostete genau ein Gericht, und zwar
+            // immer eines der ERSTEN: danach steht das Feld in
+            // _unbekannteSpalten und wird gar nicht mehr mitgeschickt.
+            //
+            // Genau dieses Bild kam aus dem Betrieb: "die ersten Pizzen
+            // fehlen". Nicht die mit Sonderzeichen, nicht die mit doppeltem
+            // Namen -- die ersten. Nachgestellt mit vier unbekannten Spalten:
+            // Pizza 1, 2 und 3 gingen verloren, ab Pizza 4 lief alles.
+            var versuche = 0;
+            while (!itemRes.ok && itemRes.status === 400 && versuche < 12) {
+                versuche++;
                 var t400 = await itemRes.clone().text();
                 var fehlend = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(t400);
                 var spalte = fehlend && (fehlend[1] || fehlend[2] || fehlend[3]);
-                if (spalte && (spalte in itemData)) {
-                    console.warn('[import] Spalte "' + spalte + '" gibt es nicht — wird ausgelassen');
-                    delete itemData[spalte];
-                    _unbekannteSpalten[spalte] = 1;
-                    itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
-                        method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+
+                // FALSCHER TYP statt fehlender Spalte.
+                //
+                // Ist "sizes" als text angelegt statt als jsonb, gibt es die
+                // Spalte -- die Datenbank lehnt nur den Wert ab ("invalid
+                // input syntax for type json" oder aehnlich). Frueher wurde
+                // hier abgebrochen und das Feld war weg, obwohl es haette
+                // gehen koennen: als Text geschrieben passt es.
+                if (!spalte) {
+                    var typFehler = /invalid input syntax|malformed|cannot be cast|invalid text representation/i.test(t400);
+                    var alsText = Object.keys(itemData).filter(function (k) {
+                        return typeof itemData[k] === 'object' && itemData[k] !== null;
                     });
+                    if (typFehler && alsText.length) {
+                        alsText.forEach(function (k) {
+                            _alsTextSenden[k] = 1;
+                            itemData[k] = JSON.stringify(itemData[k]);
+                        });
+                        console.warn('[import] Spalte(n) ' + alsText.join(', ')
+                            + ' scheinen kein JSON zu sein — zweiter Versuch als Text.');
+                        itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
+                            method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+                        });
+                        continue;
+                    }
                 }
+
+                if (!spalte || !(spalte in itemData)) break;   // anderer Fehler -> nicht endlos
+                console.warn('[import] Spalte "' + spalte + '" kennt die Datenbank nicht — '
+                             + 'sie wird ab jetzt bei allen Gerichten weggelassen.');
+                delete itemData[spalte];
+                _unbekannteSpalten[spalte] = 1;
+                itemRes = await fetch(SUPA_URL + '/rest/v1/menu_items', {
+                    method: 'POST', headers: SUPA_H, body: JSON.stringify(itemData)
+                });
             }
             if (itemRes.ok) {
                 importedCount++;
             } else {
                 var errBody = await itemRes.text();
                 console.error('Item Fehler:', item.name, errBody);
-                errors.push(item.name + ': ' + errBody.substring(0, 80));
+                errors.push(item.name + ': ' + errBody.substring(0, 120));
+                _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                         grund: _grundKlartext(errBody) });
             }
         } catch(e) { 
             console.error('Item Import Fehler:', item.name, e);
             errors.push(item.name + ': ' + e.message);
+            _nichtGespeichert.push({ name: item.name, nr: item.dish_number || '',
+                                     grund: e.message });
         }
     }
 
@@ -60358,51 +61437,14 @@ async function importScannedMenu() {
     // das eine Optionsgruppe mit Mehrfachauswahl, ueber internal_name an die
     // Kategorie gebunden -- genau so, wie sie der Gastronom sonst von Hand
     // anlegen muesste. Der Gast kann sie beim Bestellen anklicken.
-    var extrasAngelegt = 0;
-    var extras = window._scanExtras || [];
-    for (var e = 0; e < extras.length; e++) {
-        var g = extras[e];
-        if (!g.optionen || !g.optionen.length) continue;
-        try {
-            var grpRes = await fetch(SUPA_URL + '/rest/v1/menu_option_groups', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify({
-                    restaurant_id: restaurantId,
-                    name: g.name,
-                    // an die Kategorie binden, damit die Extras nur dort auftauchen
-                    internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
-                    selection_type: 'multiple',
-                    min_selections: 0,
-                    max_selections: null,
-                    is_active: true
-                })
-            });
-            if (!grpRes.ok) { console.warn('[import] Extra-Gruppe fehlgeschlagen:', await grpRes.text()); continue; }
-            var grp = await grpRes.json();
-            var gid = grp && grp[0] && grp[0].id;
-            if (!gid) continue;
+    var _exErg = await legeExtrasAn(restaurantId, SUPA_H);
+    var extrasAngelegt = _exErg.angelegt, extrasUebersprungen = _exErg.uebersprungen;
 
-            var optRes = await fetch(SUPA_URL + '/rest/v1/menu_options', {
-                method: 'POST', headers: SUPA_H,
-                body: JSON.stringify(g.optionen.map(function (o, i) {
-                    return { group_id: gid, name: o.name, price: o.price,
-                             price_type: 'add', is_default: false, sort_order: i, is_available: true };
-                }))
-            });
-            if (optRes.ok) extrasAngelegt++;
-            else console.warn('[import] Extra-Optionen fehlgeschlagen:', await optRes.text());
-        } catch (ex) {
-            console.warn('[import] Extra "' + g.name + '":', ex.message);
-        }
-    }
-
-    console.error('Fehler:', errors.length);
-
-    // Modal schließen
+    // Fenster schliessen und Menue neu laden -- gehoert zum Import, nicht zu
+    // den Extras. Beim Herausloesen war es faelschlich mitgewandert und haette
+    // dem Abgleich das Scanner-Fenster unter den Fuessen weggezogen.
     var modal = document.getElementById('menuScannerModal');
     if (modal) { modal.style.display = 'none'; modal.classList.remove('active'); }
-
-    // Menü neu laden
     try {
         var client = sb || window.sb;
         if (client) {
@@ -60411,19 +61453,88 @@ async function importScannedMenu() {
             var { data: items } = await client.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order');
             if (items) { menuItems = items; window.menuItems = items; }
         }
-    } catch(e) { console.error('Menü neu laden:', e); }
-
+    } catch (e) { console.error('Menü neu laden:', e); }
     if (typeof renderMenuCategories === 'function') renderMenuCategories();
     if (typeof updateMenuStats === 'function') updateMenuStats();
+
+    // WEGGELASSENE SPALTEN MELDEN.
+    //
+    // Kennt die Datenbank ein Feld nicht, wird es hier still aus dem Payload
+    // genommen und das Gericht trotzdem gespeichert. Das ist richtig -- ein
+    // fehlendes Feld darf keinen Import kippen. Es DARF aber nicht
+    // unbemerkt bleiben: waren zum Beispiel die Groessen betroffen, hat der
+    // Gastronom hinterher Gerichte ohne klein/gross und keinen Hinweis,
+    // woran es liegt. Genau danach hat er dann gesucht.
+    var verworfen = Object.keys(_unbekannteSpalten);
+    if (verworfen.length) {
+        var klartext = { sizes: 'Größen (klein/groß)', allergens: 'Allergene',
+                         additives: 'Zusatzstoffe', dish_number: 'Gerichtnummer',
+                         is_lamb: 'Lamm-Kennzeichnung', is_beef: 'Rind-Kennzeichnung',
+                         is_pork: 'Schwein-Kennzeichnung', is_chicken: 'Geflügel-Kennzeichnung',
+                         is_fish: 'Fisch-Kennzeichnung', is_seafood: 'Meeresfrüchte-Kennzeichnung' };
+        showToast('Diese Angaben kennt die Datenbank nicht und wurden NICHT gespeichert: '
+            + verworfen.map(function (x) { return klartext[x] || x; }).join(', ')
+            + '. Die Gerichte sind da, diese Felder fehlen.', 'warning');
+
+        // FEHLENDE SPALTEN SIND KEINE SACKGASSE.
+        //
+        // Groessen gehoeren zwingend an das einzelne Gericht: eine
+        // Optionsgruppe haengt an der KATEGORIE und kann deshalb keine
+        // Preise je Gericht tragen (Margherita klein 6,50, Salami klein
+        // 7,00). Fehlt die Spalte, hilft kein Umweg -- sie muss angelegt
+        // werden. Also sagen wir genau WIE, statt den Gastronom mit
+        // "wird nicht gespeichert" stehen zu lassen.
+        _zeigeSpaltenHilfe(verworfen);
+    }
+
+    // NACHZAEHLEN. "138 importiert" sagt nichts, wenn 142 hineingingen --
+    // erst der Vergleich macht sichtbar, dass etwas fehlt, und der Name sagt
+    // WAS. Das stand bisher nur in der Konsole.
+    if (_nichtGespeichert.length) {
+        var liste = _nichtGespeichert.map(function (x) {
+            return '<div style="padding:3px 0;">' + (x.nr ? '<span style="color:var(--text-secondary);">' + x.nr + '</span> ' : '')
+                 + String(x.name).replace(/[<>&]/g, '') + ' <span style="color:var(--text-secondary);">— ' + x.grund + '</span></div>';
+        }).join('');
+        var kasten = document.getElementById('menuScanItemsList');
+        if (kasten) {
+            kasten.insertAdjacentHTML('afterbegin',
+                '<div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;border:1px solid #f59e0b;'
+              + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;">'
+              + '<strong>' + _nichtGespeichert.length + ' von ' + selectedItems.length
+              + ' Gerichten wurden NICHT gespeichert.</strong>'
+              + '<div style="margin-top:6px;font-size:12px;max-height:160px;overflow:auto;">' + liste + '</div>'
+              + '</div>');
+        }
+    }
 
     if (errors.length > 0 && importedCount === 0) {
         showToast('Import fehlgeschlagen! Prüfe Browser-Konsole (F12).', 'error');
     } else if (errors.length > 0) {
-        showToast(importedCount + ' importiert, ' + errors.length + ' Fehler', 'warning');
+        showToast(importedCount + ' von ' + selectedItems.length + ' gespeichert — '
+            + errors.length + ' nicht. Welche und warum steht oben in der Liste.', 'warning');
     } else {
         showToast(importedCount + ' Gerichte in ' + Object.keys(categoryMap).length + ' Kategorien importiert!'
-            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : ''), 'success');
+            + (extrasAngelegt ? ' Dazu ' + extrasAngelegt + ' Extra-Gruppe' + (extrasAngelegt > 1 ? 'n' : '') + '.' : '')
+            + (extrasUebersprungen ? ' ' + extrasUebersprungen + ' Extra-Gruppe'
+               + (extrasUebersprungen > 1 ? 'n gab es' : ' gab es') + ' schon.' : ''), 'success');
     }
+    // NACHSEHEN statt hoffen. Ein Import, der "erfolgreich" meldet und
+    // trotzdem keine Groessen gespeichert hat, ist der schlimmste Fall: alles
+    // sieht richtig aus, und der Fehler faellt erst beim Gast auf.
+    try {
+        var sollGroessen = selectedItems.filter(function (i) { return i.sizes && i.sizes.length; }).length;
+        if (sollGroessen) {
+            var pruefRes = await sbRead(SUPA_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId
+                + '&sizes=not.is.null&select=id&limit=1', { headers: SUPA_H });
+            var pruefListe = pruefRes.ok ? await pruefRes.json() : null;
+            if (Array.isArray(pruefListe) && pruefListe.length === 0) {
+                showToast('Achtung: ' + sollGroessen + ' Gerichte hatten Größen (klein/groß), '
+                    + 'in der Datenbank ist keine einzige angekommen. Bitte melden — '
+                    + 'der Gast sieht dann nur einen Preis.', 'error');
+            }
+        }
+    } catch (e) {}
+
     scannedMenuItems = [];
 }
 
@@ -61805,70 +62916,191 @@ function getRestaurantCustomerRating(restaurantId) {
 // Wird im Checkout als Zeitauswahl eingebaut
 // Keine separate Funktion nötig - nur UI im Checkout
 
-// ==================== FEATURE 5: ALLERGEN/DIÄT-FILTER ====================
+// ==================== ESSENSFILTER FÜR DEN GAST ====================
+//
+// WAS HIER VORHER STAND UND WARUM ES NICHTS TAT
+// ---------------------------------------------
+// Es gab schon einen Allergen-Filter: getAllergenFilterBar() baute Knoepfe,
+// filterMenuByAllergens() blendete Karten aus. Nur wurde getAllergenFilterBar()
+// von NIRGENDS aufgerufen -- der Gast hat die Knoepfe nie gesehen. Und haette
+// er sie gesehen, waere die Karte beim ersten Antippen leer gewesen: gefiltert
+// wurde ueber item.dataset.tags, und dieses Attribut setzt keine einzige Karte.
+//
+// Jetzt wird auf den DATEN gefiltert, nicht auf dem Bildschirm. Damit stimmt
+// die Anzahl, "nichts gefunden" laesst sich sauber sagen, und Suche und
+// Kategoriewechsel filtern automatisch mit -- die laufen beide durch
+// renderMenuItemsForGuest.
+//
+// EIN WORT ZUR EHRLICHKEIT
+// ------------------------
+// Das hier ist Gesundheit, keine Bequemlichkeit. Ein Gericht, zu dem KEINE
+// Allergenangabe in der Datenbank steht, wird deshalb nie stillschweigend als
+// "glutenfrei" ausgegeben. Es verschwindet aber auch nicht spurlos, sonst
+// denkt der Gast, es gaebe nichts fuer ihn. Es landet unten in einem eigenen,
+// deutlich gekennzeichneten Block: "ohne Angabe -- bitte beim Personal
+// nachfragen".
 
-var activeAllergenFilters = JSON.parse(localStorage.getItem('kmi_allergen_profile') || '[]');
+var activeAllergenFilters = [];
+try { activeAllergenFilters = JSON.parse(localStorage.getItem('kmi_allergen_profile') || '[]') || []; } catch (e) { activeAllergenFilters = []; }
 
-function toggleAllergenFilter(filter) {
-    var idx = activeAllergenFilters.indexOf(filter);
-    if (idx >= 0) activeAllergenFilters.splice(idx, 1);
-    else activeAllergenFilters.push(filter);
+// Schwein steht oft nur im Text. Der Haken kann fehlen -- ein zugekauftes
+// Gericht, ein von Hand angelegtes, eine Karte ohne Kennzeichnung. Findet der
+// Text Schwein, zaehlt das staerker als ein nicht gesetzter Haken.
+// Bewusst nur in eine Richtung: der Text kann Schwein NACHWEISEN, aber nie
+// ausschliessen.
+var _SCHWEIN_WOERTER = ['schwein', 'schinken', 'speck', 'bacon', 'kassler', 'kasseler',
+    'gyros', 'mett', 'leberkäse', 'leberkaese', 'pancetta', 'prosciutto', 'chorizo',
+    'salami', 'bratwurst', 'cabanossi', 'sucuk', 'lardo'];
 
-    // Persistent speichern
-    localStorage.setItem('kmi_allergen_profile', JSON.stringify(activeAllergenFilters));
-
-    // UI aktualisieren
-    document.querySelectorAll('.allergen-chip').forEach(function(chip) {
-        var f = chip.dataset.filter;
-        chip.style.background = activeAllergenFilters.indexOf(f) >= 0 ? 'var(--primary)' : 'var(--bg-secondary)';
-        chip.style.color = activeAllergenFilters.indexOf(f) >= 0 ? 'white' : 'var(--text-primary)';
-    });
-
-    filterMenuByAllergens();
+function _textVon(item) {
+    return ((item.name || '') + ' ' + (item.description || '')).toLowerCase();
 }
 
-function filterMenuByAllergens() {
-    var items = document.querySelectorAll('.menu-item-card, [data-menu-item]');
-    items.forEach(function(item) {
-        if (activeAllergenFilters.length === 0) {
-            item.style.display = '';
-            return;
-        }
-        var tags = (item.dataset.tags || '').toLowerCase();
-        var name = (item.dataset.name || item.textContent || '').toLowerCase();
-        var show = activeAllergenFilters.every(function(f) {
-            switch(f) {
-                case 'vegetarisch': return tags.includes('vegetarisch') || tags.includes('veggie');
-                case 'vegan': return tags.includes('vegan');
-                case 'glutenfrei': return tags.includes('glutenfrei') || tags.includes('gluten-free');
-                case 'laktosefrei': return tags.includes('laktosefrei') || tags.includes('lactose-free');
-                default: return true;
-            }
-        });
-        item.style.display = show ? '' : 'none';
-    });
-}
-
-function getAllergenFilterBar() {
-    var savedFilters = activeAllergenFilters;
-    var profileBanner = '';
-    if (savedFilters.length > 0) {
-        var labels = { vegetarisch: 'Vegetarisch', vegan: 'Vegan', glutenfrei: 'Glutenfrei', laktosefrei: 'Laktosefrei' };
-        var activeNames = savedFilters.map(function(f) { return labels[f] || f; }).join(', ');
-        profileBanner = '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:16px;margin-bottom:6px;font-size:12px;">' +
-            '<span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;">check_circle</span>' +
-            '<span style="color:var(--text-secondary);">Dein Profil: <strong style="color:var(--text-primary);">' + activeNames + '</strong></span>' +
-            '<button onclick="activeAllergenFilters=[];localStorage.removeItem(\'kmi_allergen_profile\');document.querySelectorAll(\'.allergen-chip\').forEach(function(c){c.style.background=\'var(--bg-secondary)\';c.style.color=\'var(--text-primary)\';});filterMenuByAllergens();this.parentElement.remove();" style="margin-left:auto;background:none;border:none;color:var(--slate);cursor:pointer;font-size:11px;text-decoration:underline;">Zurücksetzen</button>' +
-            '</div>';
+// true = passt, false = passt nicht, null = keine Angabe
+function _hatSchwein(item) {
+    var txt = _textVon(item);
+    for (var i = 0; i < _SCHWEIN_WOERTER.length; i++) {
+        if (txt.indexOf(_SCHWEIN_WOERTER[i]) >= 0) return true;
     }
-    return profileBanner + '<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:8px;-webkit-overflow-scrolling:touch;">' +
-        ['vegetarisch', 'vegan', 'glutenfrei', 'laktosefrei'].map(function(f) {
-            var isActive = savedFilters.indexOf(f) >= 0;
-            var icons = { vegetarisch: '<span class="ki" style="color:var(--success-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22c1-6 5-12 15-14 0 5-2 9-6 12H2z"/><path d="M10 14.5c1.5-2 3.5-3.5 7-4.5"/></svg></span>', vegan: '<span class="ki" style="color:var(--success-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 20h10M12 20v-8M12 12C12 8 8 4 4 4c0 4 4 8 8 8zM12 12c0-4 4-8 8-8 0 4-4 8-8 8z"/></svg></span>', glutenfrei: '<span class="ki" style="color:var(--warning-600)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V10M8 6l4 4 4-4M6 10l6 4 6-4M8 14l4 4 4-4"/></svg></span>', laktosefrei: '<span class="ki" style="color:var(--info-500)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2h8l1 6H7zM7 8v10a4 4 0 004 4h2a4 4 0 004-4V8"/><path d="M10 13a2 2 0 004 0"/></svg></span>' };
-            var labels = { vegetarisch: 'Vegetarisch', vegan: 'Vegan', glutenfrei: 'Glutenfrei', laktosefrei: 'Laktosefrei' };
-            return '<button class="allergen-chip" data-filter="' + f + '" onclick="toggleAllergenFilter(\'' + f + '\')" style="padding:6px 14px;border:1px solid var(--border-color);border-radius:20px;background:' + (isActive ? 'var(--primary)' : 'var(--bg-secondary)') + ';color:' + (isActive ? 'white' : 'var(--text-primary)') + ';font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">' +
-                icons[f] + ' ' + labels[f] + '</button>';
-        }).join('') + '</div>';
+    if (item.is_pork === true) return true;
+    if (item.is_pork === false) return false;
+    return null;
+}
+
+function _ohneAllergen(item, namen) {
+    var liste = item.allergens;
+    if (!Array.isArray(liste) || !liste.length) return null;   // keine Angabe
+    var klein = liste.map(function (a) { return String(a).toLowerCase(); });
+    for (var i = 0; i < namen.length; i++) {
+        if (klein.indexOf(namen[i]) >= 0) return false;
+    }
+    return true;
+}
+
+var ESSENSFILTER = [
+    { id: 'vegetarisch', label: 'Vegetarisch',
+      pruef: function (i) { return i.is_vegetarian === true || i.is_vegan === true; } },
+    { id: 'vegan', label: 'Vegan',
+      pruef: function (i) { return i.is_vegan === true; } },
+    { id: 'ohne_schwein', label: 'Ohne Schwein',
+      pruef: function (i) { var s = _hatSchwein(i); return s === null ? null : !s; } },
+    { id: 'glutenfrei', label: 'Glutenfrei',
+      pruef: function (i) { return _ohneAllergen(i, ['gluten']); } },
+    { id: 'laktosefrei', label: 'Laktosefrei',
+      pruef: function (i) { return _ohneAllergen(i, ['milch']); } },
+    { id: 'ohne_nuesse', label: 'Ohne Nüsse',
+      pruef: function (i) { return _ohneAllergen(i, ['erdnuss', 'schalenfruechte']); } }
+];
+
+function _filterNach(id) {
+    for (var i = 0; i < ESSENSFILTER.length; i++) if (ESSENSFILTER[i].id === id) return ESSENSFILTER[i];
+    return null;
+}
+
+// Das Herzstueck -- reine Daten rein, reine Daten raus. Genau deshalb laesst es
+// sich pruefen, ohne einen Browser zu starten.
+//
+//   passend  = erfuellt ALLE aktiven Filter nachweislich
+//   unklar   = koennte passen, aber zu mindestens einem Filter fehlt die Angabe
+//   raus     = erfuellt mindestens einen Filter nachweislich nicht
+function teileNachFilter(items, aktive) {
+    var erg = { passend: [], unklar: [] };
+    items = items || [];
+    var filter = (aktive || []).map(_filterNach).filter(Boolean);
+    if (!filter.length) { erg.passend = items.slice(); return erg; }
+
+    items.forEach(function (it) {
+        var fehltAngabe = false, raus = false;
+        filter.forEach(function (f) {
+            var w = f.pruef(it);
+            if (w === false) raus = true;
+            else if (w === null) fehltAngabe = true;
+        });
+        if (raus) return;
+        if (fehltAngabe) erg.unklar.push(it);
+        else erg.passend.push(it);
+    });
+    return erg;
+}
+
+// Wie viele Gerichte ein Filter ueberhaupt uebrig laesst. Ein Knopf, der
+// garantiert zu null Treffern fuehrt, wird gar nicht erst angezeigt -- sonst
+// tippt der Gast auf "Vegan" und die Karte ist leer, obwohl das Restaurant
+// schlicht keine veganen Gerichte hat.
+function zaehleFilter(items, id) {
+    var f = _filterNach(id);
+    if (!f) return 0;
+    var n = 0;
+    (items || []).forEach(function (i) { if (f.pruef(i) === true) n++; });
+    return n;
+}
+
+function toggleAllergenFilter(id) {
+    var idx = activeAllergenFilters.indexOf(id);
+    if (idx >= 0) activeAllergenFilters.splice(idx, 1);
+    else activeAllergenFilters.push(id);
+    try { localStorage.setItem('kmi_allergen_profile', JSON.stringify(activeAllergenFilters)); } catch (e) {}
+    _filterNeuZeichnen();
+}
+
+function essensfilterZuruecksetzen() {
+    activeAllergenFilters = [];
+    try { localStorage.removeItem('kmi_allergen_profile'); } catch (e) {}
+    _filterNeuZeichnen();
+}
+
+// Neu zeichnen heisst: dieselbe Liste noch einmal durch den Renderer schicken.
+// Kein Herumschieben von style.display, keine zweite Wahrheit.
+function toggleMenuSprache() {
+    var s = document.getElementById('menuSpracheBar');
+    if (!s) return;
+    s.style.display = (s.style.display === 'none' || !s.style.display) ? 'flex' : 'none';
+    // Beim Aufklappen die aktuelle Sprache hervorheben -- setLanguage macht das
+    // sonst erst beim naechsten Umschalten.
+    if (s.style.display === 'flex') {
+        document.querySelectorAll('[data-sprache]').forEach(function (b) {
+            var an = b.getAttribute('data-sprache') === currentLanguage;
+            b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
+            b.style.color = an ? '#fff' : 'var(--text-primary)';
+            b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
+            b.setAttribute('aria-pressed', an ? 'true' : 'false');
+        });
+    }
+}
+
+function _filterNeuZeichnen() {
+    var liste = window._menuUngefiltert || window._menuAllItems || window._menuDisplayItems;
+    if (liste && typeof renderMenuItemsForGuest === 'function') renderMenuItemsForGuest(liste);
+}
+
+function getAllergenFilterBar(items) {
+    items = items || [];
+    var knoepfe = ESSENSFILTER.map(function (f) {
+        var anzahl = zaehleFilter(items, f.id);
+        var aktiv = activeAllergenFilters.indexOf(f.id) >= 0;
+        // Nichts anzubieten -> Knopf weglassen. Ausnahme: ist er gerade aktiv,
+        // muss er sichtbar bleiben, sonst kann der Gast ihn nicht ausschalten.
+        if (!anzahl && !aktiv) return '';
+        return '<button type="button" class="allergen-chip" data-filter="' + f.id + '"'
+             + ' aria-pressed="' + (aktiv ? 'true' : 'false') + '"'
+             + ' onclick="toggleAllergenFilter(\'' + f.id + '\')"'
+             + ' style="padding:7px 14px;border:1px solid ' + (aktiv ? 'var(--ink-strong)' : 'var(--border-color)')
+             + ';border-radius:9999px;background:' + (aktiv ? 'var(--ink-strong)' : 'var(--bg-secondary)')
+             + ';color:' + (aktiv ? '#fff' : 'var(--text-primary)')
+             + ';font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:Inter,sans-serif;">'
+             + f.label + ' <span style="opacity:.65;font-weight:500;">' + anzahl + '</span></button>';
+    }).filter(Boolean).join('');
+
+    if (!knoepfe) return '';
+
+    var zurueck = activeAllergenFilters.length
+        ? '<button type="button" onclick="essensfilterZuruecksetzen()" style="padding:7px 12px;border:none;'
+        + 'background:none;color:var(--text-secondary);font-size:12px;text-decoration:underline;cursor:pointer;'
+        + 'white-space:nowrap;font-family:Inter,sans-serif;">Alle zeigen</button>'
+        : '';
+
+    return '<div class="essensfilter" style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;'
+         + '-webkit-overflow-scrolling:touch;">' + knoepfe + zurueck + '</div>';
 }
 
 // ==================== FEATURE 6: WIEDERHOL-BESTELLUNG ====================
@@ -63539,7 +64771,14 @@ function _kdsRenderCard(o, colType) {
     var itemsHtml = items.map(function(it) {
         var optionsText = '';
         if (it.selected_options && it.selected_options.length > 0) {
-            optionsText = it.selected_options.map(function(opt) { return typeof opt === 'string' ? opt : (opt.name || ''); }).join(', ');
+            // ACHTUNG: der Warenkorb legt Optionen als { group, option, price,
+            // price_type } ab -- ein Feld "name" gibt es dort nicht. Hier
+            // wurde nur nach opt.name gesucht, also stand in der Spalte NICHTS.
+            // Der Gast bestellte "groß", die Kueche las "Pizza Margherita".
+            optionsText = it.selected_options.map(function (opt) {
+                return typeof opt === 'string' ? opt
+                     : (opt.option || opt.option_name || opt.name || '');
+            }).filter(Boolean).join(', ');
         }
         return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,61,51,0.04);">' +
             '<span style="background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;font-weight:700;font-size:12px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,61,51,0.15);">' + (it.quantity || 1) + 'x</span>' +
