@@ -105,7 +105,32 @@ async function telefonBestellungen(restaurantId, vonDatum, bisDatum) {
   );
 }
 
+// --- Gaeste-Historie fuer die Rueckgewinnung (weiterhin NUR lesen) ----------
+// Alle Reservierungen bzw. Bestellungen eines Zeitraums MIT Kontaktdaten.
+// Wird nur fuer die Rueckgewinnungs-Liste im Browser genutzt und NICHT
+// gespeichert - die Daten gehoeren dem Wirt, nicht der Agentur.
+async function gaesteReservierungen(restaurantId, abDatum) {
+  return supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&reservation_date=gte.' + encodeURIComponent(abDatum) +
+    '&status=in.(confirmed,completed)' +
+    '&select=guest_name,guest_phone,reservation_date,party_size' +
+    '&order=reservation_date.desc'
+  );
+}
+
+async function gaesteBestellungen(restaurantId, abDatum) {
+  return supabaseGet(
+    'orders?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&created_at=gte.' + encodeURIComponent(abDatum) +
+    '&status=not.eq.cancelled' +
+    '&select=customer_name,customer_phone,created_at,total' +
+    '&order=created_at.desc'
+  );
+}
+
 module.exports = {
   alleRestaurants, findeRestaurant, speisekarte,
-  telefonReservierungen, telefonBestellungen
+  telefonReservierungen, telefonBestellungen,
+  gaesteReservierungen, gaesteBestellungen
 };

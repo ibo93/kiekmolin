@@ -206,6 +206,19 @@
       </div>
       <div class="status" id="dStatus"></div>
 
+      <h2>Gäste zurückholen · verlorener Umsatz</h2>
+      <div class="status" style="margin-top:-6px">Wer war früher da und lange nicht mehr? Zurückholen kostet fast nichts – ein neuer Gast kostet Werbung.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <button class="aktion" id="btnRueck" onclick="rueckgewinnungLaden()">Inaktive Gäste finden</button>
+        <label style="font-size:12.5px;color:var(--grau)">seit
+          <select id="rueckTage" onchange="rueckgewinnungLaden()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte)">
+            <option value="60">60 Tagen</option>
+            <option value="90" selected>90 Tagen</option>
+            <option value="180">180 Tagen</option>
+          </select> nicht mehr da</label>
+      </div>
+      <div id="dRueck"></div>
+
       <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
       <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
       <div id="dAufgaben"><div class="leer">Lade Aufgaben…</div></div>
@@ -553,6 +566,45 @@ async function ladeTelefonZahlen(id) {
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Zahlen nicht abrufbar: ' + e.message + '</div>';
   }
+}
+
+// ---------------- Rückgewinnung (Gäste zurückholen) ----------------
+async function rueckgewinnungLaden() {
+  const ziel = document.getElementById('dRueck');
+  const btn = document.getElementById('btnRueck');
+  const tage = document.getElementById('rueckTage').value;
+  btn.disabled = true;
+  ziel.innerHTML = '<div class="leer">Suche in den Gäste-Daten…</div>';
+  try {
+    const d = await api('/api/rueckgewinnung/' + encodeURIComponent(aktuellerKunde.id) + '?tage=' + tage);
+    const b = d.bilanz || {};
+    if (!b.anzahl) {
+      ziel.innerHTML = '<div class="leer">Keine inaktiven Gäste gefunden – entweder kommen alle regelmäßig wieder, oder es gibt noch zu wenig Reservierungs-Daten.</div>';
+      btn.disabled = false; return;
+    }
+    ziel.innerHTML =
+      '<div class="zahlen" style="margin-bottom:12px">' +
+      '<div class="zahl"><div class="wert akzent">' + euroWert(b.potenzial) + '</div>' +
+      '<div class="label">Umsatz-Potenzial</div><div class="sub">wenn alle einmal wiederkommen</div></div>' +
+      '<div class="zahl"><div class="wert">' + b.anzahl + '</div>' +
+      '<div class="label">Gäste seit ' + d.schwelleTage + '+ Tagen weg</div>' +
+      '<div class="sub">' + b.stammgaeste + ' davon waren Stammgäste</div></div></div>' +
+      '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">Fertige Nachricht (Platzhalter [NAME] ersetzen)</div>' +
+      '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(d.nachricht).replace(/</g,'&lt;') + '</div>' +
+      kopierKnopf(d.nachricht, '📋 Nachricht kopieren') +
+      '<div style="font-size:12px;color:var(--grau);margin-top:8px">⚖️ ' + String(d.rechtshinweis).replace(/</g,'&lt;') + '</div></div>' +
+      '<table><tr><th>Gast</th><th>Kontakt</th><th>Zuletzt</th><th>Besuche</th><th>Wert</th></tr>' +
+      d.gaeste.map(g => '<tr>' +
+        '<td>' + String(g.name).replace(/</g,'&lt;') + (g.stammgast ? ' <span class="badge akzent" style="font-size:10px">Stammgast</span>' : '') + '</td>' +
+        '<td style="white-space:nowrap"><a href="tel:' + g.nummer + '">' + String(g.nummer).replace(/</g,'&lt;') + '</a></td>' +
+        '<td>vor ' + g.tageHer + ' Tagen</td>' +
+        '<td>' + g.besuche + '×</td>' +
+        '<td>' + euroWert(g.wert) + '</td></tr>').join('') +
+      '</table>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Monats-Aufgaben (was ist zu tun) ----------------

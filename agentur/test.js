@@ -193,6 +193,49 @@ test('Bewertungs-Retter: Beschwerde-Brief + Bewertungs-Anfrage', () => {
   assert.ok(ohneLink.hinweis.includes('place_id'), 'Hinweis auf place_id wenn Link fehlt');
 });
 
+test('Rückgewinnung: findet Inaktive, zählt Gäste zusammen, rechnet ehrlich', () => {
+  const r = require('./lib/rueckgewinnung');
+  const heute = new Date('2026-08-05T12:00:00Z');
+  const vorTagen = (n) => new Date(heute.getTime() - n * 864e5).toISOString().slice(0, 10);
+
+  // Gleiche Nummer in verschiedenen Schreibweisen = EIN Gast
+  assert.strictEqual(r.nummerSchluessel('+49 491 123'), r.nummerSchluessel('0491/123'));
+  assert.strictEqual(r.nummerSchluessel(''), '');
+
+  const gaeste = r.fasseGaesteZusammen({
+    reservierungen: [
+      { guest_name: 'Familie Janssen', guest_phone: '0491 111', reservation_date: vorTagen(150), party_size: 4 },
+      { guest_name: 'Familie Janssen', guest_phone: '+49491111', reservation_date: vorTagen(200), party_size: 4 },
+      { guest_name: 'Familie Janssen', guest_phone: '0491111', reservation_date: vorTagen(260), party_size: 4 },
+      { guest_name: 'Frau Neu', guest_phone: '0491 999', reservation_date: vorTagen(10), party_size: 2 },
+      { guest_name: 'Ohne Nummer', guest_phone: '', reservation_date: vorTagen(300), party_size: 2 }
+    ],
+    bestellungen: [
+      { customer_name: 'Herr Bruns', customer_phone: '0491 222', created_at: vorTagen(120) + 'T18:00:00Z', total: 40 }
+    ]
+  });
+  assert.strictEqual(gaeste.length, 3, 'Janssen 3x = ein Gast; ohne Nummer fliegt raus');
+
+  const inaktive = r.findeInaktive(gaeste, { schwelleTage: 90, bonProGast: 25, heute });
+  assert.strictEqual(inaktive.length, 2, 'Frau Neu (vor 10 Tagen) ist NICHT inaktiv');
+  assert.strictEqual(inaktive[0].name, 'Familie Janssen', 'Stammgast steht oben');
+  assert.strictEqual(inaktive[0].stammgast, true);
+  assert.strictEqual(inaktive[0].besuche, 3);
+  assert.strictEqual(inaktive[0].wert, 100, '4 Personen x 25 € (kein bekannter Bon)');
+  const bruns = inaktive.find((g) => g.name === 'Herr Bruns');
+  assert.strictEqual(bruns.wert, 40, 'echter Bestellwert schlägt die Schätzung');
+
+  const b = r.bilanz(inaktive);
+  assert.strictEqual(b.anzahl, 2);
+  assert.strictEqual(b.stammgaeste, 1);
+  assert.strictEqual(b.potenzial, 140);
+
+  // Nachricht + Rechtshinweis
+  const text = r.baueNachricht({ name: 'Greetsieler Börse', slug: 'greetsieler-boerse' }, { anlass: 'Grünkohlzeit!' });
+  assert.ok(text.includes('[NAME]') && text.includes('Greetsieler Börse') && text.includes('kiekmolin.de/greetsieler-boerse'));
+  assert.ok(/Einwilligung|zugestimmt/i.test(r.RECHTSHINWEIS), 'Rechtshinweis nennt die Einwilligung');
+});
+
 test('Neukunden-Radar: kein-Website-Lead ist heißer, Begründung datengedeckt', () => {
   const { leadScore } = require('./lib/pitch');
   const heiss = leadScore({ name: 'Pizzeria X', category: 'pizzeria', phone: '0491', street: 'Weg 1', website: '' });

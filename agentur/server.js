@@ -1083,6 +1083,58 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Rueckgewinnung - welche Gaeste waren lange nicht mehr da?
+    // Liest LIVE aus der Kiek-mol-in-Datenbank, speichert nichts.
+    if (req.method === 'GET' && pfad.startsWith('/api/rueckgewinnung/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const rueck = require('./lib/rueckgewinnung');
+      const schwelle = Math.max(30, parseInt(url.searchParams.get('tage'), 10) || 90);
+      const heute = new Date();
+      // Blickfeld: die letzten 12 Monate - aeltere Gaeste holt man selten zurueck
+      const ab = new Date(heute.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      try {
+        let reservierungen = [];
+        let bestellungen = [];
+        if (DEMO) {
+          const t = (tage) => new Date(heute.getTime() - tage * 864e5).toISOString().slice(0, 10);
+          reservierungen = [
+            { guest_name: 'Familie Janssen', guest_phone: '04926 111', reservation_date: t(150), party_size: 4 },
+            { guest_name: 'Familie Janssen', guest_phone: '04926 111', reservation_date: t(210), party_size: 4 },
+            { guest_name: 'Familie Janssen', guest_phone: '04926 111', reservation_date: t(280), party_size: 5 },
+            { guest_name: 'Herr Bruns', guest_phone: '04926 222', reservation_date: t(120), party_size: 2 },
+            { guest_name: 'Frau Ubben', guest_phone: '04926 333', reservation_date: t(20), party_size: 2 }
+          ];
+          bestellungen = [
+            { customer_name: 'Herr Bruns', customer_phone: '04926 222', created_at: t(130), total: 48.5 }
+          ];
+        } else {
+          [reservierungen, bestellungen] = await Promise.all([
+            supabase.gaesteReservierungen(kunde.id, ab).catch(() => []),
+            supabase.gaesteBestellungen(kunde.id, ab).catch(() => [])
+          ]);
+        }
+        const gaeste = rueck.fasseGaesteZusammen({ reservierungen, bestellungen });
+        const inaktive = rueck.findeInaktive(gaeste, {
+          schwelleTage: schwelle,
+          bonProGast: parseFloat(process.env.BON_PRO_GAST) || 25,
+          heute
+        });
+        // Anlass des Monats als Aufhaenger in die Nachricht
+        const anlaesse = require('../sichtbarkeit/lib/anlaesse').anlaesseFuerMonat(heute.getMonth() + 1);
+        json(res, 200, {
+          schwelleTage: schwelle,
+          bilanz: rueck.bilanz(inaktive),
+          gaeste: inaktive.slice(0, 50),
+          nachricht: rueck.baueNachricht(kunde, { anlass: anlaesse.length ? anlaesse[0].aufhaenger : '' }),
+          rechtshinweis: rueck.RECHTSHINWEIS
+        });
+      } catch (e) {
+        json(res, 502, { fehler: 'Gäste-Daten nicht abrufbar: ' + e.message });
+      }
+      return;
+    }
+
     // API: Monats-Aufgaben eines Kunden (die konkreten Handgriffe)
     if (req.method === 'GET' && pfad.startsWith('/api/aufgaben/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
