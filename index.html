@@ -44916,6 +44916,56 @@ function autoDetectItemFlags(item) {
 // ==================== SPEISEKARTE-ÜBERSETZUNG ====================
 // Gastro-Wörterbuch: DE → EN / NL (häufige Begriffe)
 var GASTRO_DICT = {
+    // Aus der echten Karte nachgetragen. Vorher kannte das Woerterbuch nur
+    // 38 von 123 Zutatenwoertern -- der Rest blieb deutsch stehen, und genau
+    // deshalb sah die Uebersetzung nach nichts aus.
+    'putenschinken':{en:'turkey ham',nl:'kalkoenham'},'gurken':{en:'cucumber',nl:'komkommer'},
+    'gurke':{en:'cucumber',nl:'komkommer'},'sauce':{en:'sauce',nl:'saus'},
+    'sahnesauce':{en:'cream sauce',nl:'roomsaus'},'tzatziki':{en:'tzatziki',nl:'tzatziki'},
+    'hähnchenfleisch':{en:'chicken',nl:'kippenvlees'},'dönerfleisch':{en:'doner meat',nl:'dönervlees'},
+    'scharfe':{en:'spicy',nl:'pittige'},'scharf':{en:'spicy',nl:'pittig'},
+    'spieß':{en:'skewer',nl:'spies'},'drehspieß':{en:'rotating spit',nl:'draaispit'},
+    'frites':{en:'fries',nl:'friet'},'pommes':{en:'fries',nl:'friet'},
+    'gemischter':{en:'mixed',nl:'gemengde'},'gemischte':{en:'mixed',nl:'gemengde'},
+    'rotkrautsalat':{en:'red cabbage salad',nl:'rodekoolsalade'},'rotkraut':{en:'red cabbage',nl:'rodekool'},
+    'peperoni':{en:'chilli peppers',nl:'pepertjes'},'hamburger':{en:'hamburger',nl:'hamburger'},
+    'broccoli':{en:'broccoli',nl:'broccoli'},'brokkoli':{en:'broccoli',nl:'broccoli'},
+    'fladenbrot':{en:'flatbread',nl:'platbrood'},'sucuk':{en:'sucuk sausage',nl:'sucuk worst'},
+    'hähnchenschnitzel':{en:'chicken schnitzel',nl:'kipschnitzel'},
+    'käseröllchen':{en:'cheese rolls',nl:'kaasrolletjes'},'patty':{en:'patty',nl:'burger'},
+    'artischocken':{en:'artichokes',nl:'artisjokken'},'ananas':{en:'pineapple',nl:'ananas'},
+    'klein':{en:'small',nl:'klein'},'gross':{en:'large',nl:'groot'},'groß':{en:'large',nl:'groot'},
+    'fleischsauce':{en:'meat sauce',nl:'vleessaus'},'hirtenkäse':{en:'feta cheese',nl:'fetakaas'},
+    'schafskäse':{en:'sheep cheese',nl:'schapenkaas'},'knoblauchwurst':{en:'garlic sausage',nl:'knoflookworst'},
+    'rigatoni':{en:'rigatoni',nl:'rigatoni'},'spaghetti':{en:'spaghetti',nl:'spaghetti'},
+    'hollandaise':{en:'hollandaise',nl:'hollandaise'},'chicken':{en:'chicken',nl:'kip'},
+    'spezialsauce':{en:'special sauce',nl:'speciale saus'},'cheddar':{en:'cheddar',nl:'cheddar'},
+    'gorgonzola':{en:'gorgonzola',nl:'gorgonzola'},'gorgonzolakäse':{en:'gorgonzola cheese',nl:'gorgonzolakaas'},
+    'oregano':{en:'oregano',nl:'oregano'},'ketchup':{en:'ketchup',nl:'ketchup'},
+    'meeresfrüchte':{en:'seafood',nl:'zeevruchten'},'eisbergsalat':{en:'iceberg lettuce',nl:'ijsbergsla'},
+    'nuggets':{en:'nuggets',nl:'nuggets'},'saure':{en:'sour',nl:'zure'},'sauer':{en:'sour',nl:'zuur'},
+    'spiegelei':{en:'fried egg',nl:'spiegelei'},'tomatensauce':{en:'tomato sauce',nl:'tomatensaus'},
+    'knoblauchöl':{en:'garlic oil',nl:'knoflookolie'},'aufgerollt':{en:'rolled',nl:'opgerold'},
+    'verfeinert':{en:'refined with',nl:'verfijnd met'},'teuflisch':{en:'devilishly',nl:'duivels'},
+    'überraschen':{en:'be surprised',nl:'verrassen'},'vegetarisch':{en:'vegetarian',nl:'vegetarisch'},
+    'fleisch':{en:'meat',nl:'vlees'},'weiß':{en:'white',nl:'wit'},'cola':{en:'cola',nl:'cola'},
+    'oder':{en:'or',nl:'of'},'alle':{en:'all',nl:'alle'},'preise':{en:'prices',nl:'prijzen'},
+    // Fusszeilen der Karte -- die stehen auch in mancher Beschreibung
+    'änderungen':{en:'changes',nl:'wijzigingen'},'druckfehler':{en:'misprints',nl:'drukfouten'},
+    'vorbehalten':{en:'reserved',nl:'voorbehouden'},'speisekarte':{en:'menu',nl:'menukaart'},
+    'seite':{en:'page',nl:'pagina'},'euro':{en:'euro',nl:'euro'},'inkl':{en:'incl.',nl:'incl.'},
+    'mwst':{en:'VAT',nl:'btw'},'forts':{en:'cont.',nl:'verv.'},
+    'champignon':{en:'mushroom',nl:'champignon'},'zwiebel':{en:'onion',nl:'ui'},
+    'jägersauce':{en:'mushroom sauce',nl:'jagersaus'},'rahmsauce':{en:'cream sauce',nl:'roomsaus'},
+    // "Zigeunersauce" heisst auf der deutschen Karte, was dort steht -- in der
+    // Uebersetzung die heute uebliche Bezeichnung, statt das Wort ins
+    // Englische und Niederlaendische weiterzutragen.
+    'zigeunersauce':{en:'paprika sauce',nl:'paprikasaus'},
+    'currysauce':{en:'curry sauce',nl:'currysaus'},'krautsalat':{en:'coleslaw',nl:'koolsalade'},
+    'döner':{en:'doner',nl:'döner'},'hawaiischnitzel':{en:'schnitzel hawaii',nl:'schnitzel hawaii'},
+    'mayo':{en:'mayo',nl:'mayo'},'chili':{en:'chilli',nl:'chili'},'cheese':{en:'cheese',nl:'kaas'},
+    'jalapeños':{en:'jalapeños',nl:'jalapeños'},'bbq':{en:'BBQ',nl:'BBQ'},'mais':{en:'corn',nl:'mais'},
+    'lassen sie sich überraschen':{en:'let yourself be surprised',nl:'laat u verrassen'},
     // Kategorien
     'vorspeisen':{en:'Starters',nl:'Voorgerechten'},'suppen':{en:'Soups',nl:'Soepen'},'salate':{en:'Salads',nl:'Salades'},
     'pizza':{en:'Pizza',nl:'Pizza'},'pasta':{en:'Pasta',nl:'Pasta'},'fischgerichte':{en:'Fish Dishes',nl:'Visgerechten'},
@@ -45144,6 +45194,9 @@ async function translateViaAPI(text, lang) {
             var t = data.responseData.translatedText;
             // Rate-Limit oder Fehler von MyMemory erkennen — dann Wörterbuch-Fallback
             if (t.toLowerCase().indexOf('mymemory warning') >= 0 || t.toLowerCase().indexOf('you used all available') >= 0 || t.toLowerCase().indexOf('no query') >= 0) {
+                // Einmal Limit heisst: fuer diesen Besuch ist Schluss. Weiter
+                // zu fragen liefert nur noch dieselbe Fehlermeldung zurueck.
+                _uebersetzerGesperrt = true;
                 return translateByDict(text, lang);
             }
             // MyMemory gibt manchmal Großbuchstaben zurück
@@ -45154,45 +45207,93 @@ async function translateViaAPI(text, lang) {
     return translateByDict(text, lang);
 }
 
-// Gericht übersetzen (sync für Name via Dict, async für Beschreibung via API)
+// GERICHTNAMEN WERDEN NICHT ÜBERSETZT.
+//
+// "Döner Teller" wurde zu "Doner Plate", "Pizza Emden" zu irgendwas -- der
+// Gast sucht dann auf der Karte nach einem Namen, den es an der Theke nicht
+// gibt, und das Personal versteht die Bestellung nicht. Echte mehrsprachige
+// Speisekarten machen es andersherum: der Name bleibt stehen, die
+// BESCHREIBUNG wird übersetzt. Genau das passiert hier.
 function getTranslatedItem(item, lang) {
-    if (!item || lang === 'de') return { name: item.name || '', description: item.description || '' };
+    var name = (item && item.name) || '';
+    if (!item || lang === 'de') return { name: name, description: (item && item.description) || '' };
     var cacheKey = item.id || item.name;
     if (_menuTransCache[cacheKey] && _menuTransCache[cacheKey][lang]) {
-        // Fehlerhafte Cache-Einträge (MyMemory Warnings) bereinigen
         var cached = _menuTransCache[cacheKey][lang];
+        // Fehlerhafte Cache-Einträge (MyMemory Warnings) bereinigen
         if (cached.description && cached.description.toLowerCase().indexOf('mymemory warning') >= 0) {
             delete _menuTransCache[cacheKey][lang];
         } else {
-            return cached;
+            // Name IMMER aus dem Original -- alte Caches tragen noch
+            // übersetzte Namen mit sich herum.
+            return { name: name, description: cached.description || '' };
         }
     }
-    // Name sofort per Wörterbuch
-    var trName = translateByDict(item.name || '', lang);
-    // Beschreibung auch erstmal per Wörterbuch (API kommt async nach)
-    var trDesc = translateByDict(item.description || '', lang);
-    return { name: trName, description: trDesc };
+    return { name: name, description: translateByDict(item.description || '', lang) };
+}
+
+// Wie viele Wörter das Wörterbuch NICHT kennt. Sind es null, ist die
+// Beschreibung fertig übersetzt und die API muss gar nicht erst gefragt werden.
+// Bei einer Karte mit 142 Gerichten spart das den Löwenanteil der Anfragen --
+// und genau daran ist es bisher gescheitert.
+function _woerterbuchLuecken(text, lang) {
+    if (!text) return 0;
+    var offen = 0;
+    text.toLowerCase().split(/[^a-zäöüß]+/).forEach(function (w) {
+        if (w.length < 4) return;                       // "mit", "und", Zahlen
+        var e = GASTRO_DICT[w];
+        if (!e || !e[lang]) offen++;
+    });
+    return offen;
+}
+
+// MyMemory ist kostenlos und hat ein hartes Tageslimit. Ist es gerissen,
+// bringt jede weitere Anfrage nur noch Müll zurück -- dann bleibt es für
+// diesen Besuch beim Wörterbuch.
+var _uebersetzerGesperrt = false;
+var _uebersetzerWarteschlange = [];
+var _uebersetzerLaeuft = 0;
+var UEBERSETZER_GLEICHZEITIG = 2;
+
+function _uebersetzerAbarbeiten() {
+    while (_uebersetzerLaeuft < UEBERSETZER_GLEICHZEITIG && _uebersetzerWarteschlange.length) {
+        var auftrag = _uebersetzerWarteschlange.shift();
+        _uebersetzerLaeuft++;
+        auftrag().then(function () { _uebersetzerLaeuft--; _uebersetzerAbarbeiten(); },
+                       function () { _uebersetzerLaeuft--; _uebersetzerAbarbeiten(); });
+    }
 }
 
 // Async: Beschreibung per API übersetzen und in Cache + DOM updaten
+//
+// Vorher wurde für JEDES Gericht sofort eine Anfrage abgeschickt. Bei 142
+// Gerichten sind das 142 gleichzeitige Anfragen an einen kostenlosen Dienst --
+// das Limit reisst nach den ersten paar, der Rest kommt als Fehlermeldung
+// zurück. Deshalb: höchstens zwei auf einmal, und nach dem ersten Limit-Treffer
+// gar keine mehr.
 function translateItemAsync(item, lang, nameEl, descEl) {
     if (!item || lang === 'de' || !item.description) return;
     var cacheKey = item.id || item.name;
     if (_menuTransCache[cacheKey] && _menuTransCache[cacheKey][lang] && _menuTransCache[cacheKey][lang]._apiDone) return;
+    if (_uebersetzerGesperrt) return;
+    // Das Wörterbuch hat alles erwischt -> keine Anfrage nötig.
+    if (_woerterbuchLuecken(item.description, lang) === 0) return;
 
-    translateViaAPI(item.description, lang).then(function(translatedDesc) {
-        if (!_menuTransCache[cacheKey]) _menuTransCache[cacheKey] = {};
-        var trName = translateByDict(item.name || '', lang);
-        _menuTransCache[cacheKey][lang] = { name: trName, description: translatedDesc, _apiDone: true };
-        // Cache speichern (max 200 Einträge)
-        try {
-            var keys = Object.keys(_menuTransCache);
-            if (keys.length > 200) { delete _menuTransCache[keys[0]]; }
-            localStorage.setItem('kmi_menu_translations', JSON.stringify(_menuTransCache));
-        } catch(e) {}
-        // DOM updaten wenn Element noch existiert
-        if (descEl && descEl.isConnected) descEl.textContent = translatedDesc;
+    _uebersetzerWarteschlange.push(function () {
+        return translateViaAPI(item.description, lang).then(function (translatedDesc) {
+            if (!_menuTransCache[cacheKey]) _menuTransCache[cacheKey] = {};
+            _menuTransCache[cacheKey][lang] = { description: translatedDesc, _apiDone: true };
+            // Cache speichern (max 200 Einträge)
+            try {
+                var keys = Object.keys(_menuTransCache);
+                if (keys.length > 200) { delete _menuTransCache[keys[0]]; }
+                localStorage.setItem('kmi_menu_translations', JSON.stringify(_menuTransCache));
+            } catch(e) {}
+            // DOM updaten wenn Element noch existiert
+            if (descEl && descEl.isConnected) descEl.textContent = translatedDesc;
+        });
     });
+    _uebersetzerAbarbeiten();
 }
 
 // Kategorie-Name übersetzen
