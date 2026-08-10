@@ -59,7 +59,30 @@ function esc(s) {
 }
 function eur(n) { return (Number(n) || 0).toFixed(2).replace('.', ',') + ' €'; }
 
-function buildEmail(o) {
+// BITTE UM EINE GOOGLE-BEWERTUNG -- hier, nicht in der App.
+//
+// In der App sprangen dem Gast NACH dem Bestellen drei Fenster entgegen:
+// Sterne nach 60 Sekunden, "Google Bewertung" nach zwei Minuten, dazu noch
+// eins 30 Sekunden nach der Bestaetigung. Zu dem Zeitpunkt hatte er noch
+// nichts gegessen -- er konnte gar nicht bewerten, was er nicht kannte.
+//
+// In der E-Mail steht die Bitte einmal, ganz unten, und der Gast liest sie,
+// wenn es ihm passt. Ohne Link vom Restaurant kommt gar nichts -- eine
+// Google-SUCHE nach dem Restaurantnamen waere geraten und fuehrt oft auf die
+// falsche Seite.
+function bewertungsBlock(rest, restName) {
+    var url = rest && (rest.google_maps_url || rest.googleMapsUrl);
+    if (!url || String(url).indexOf('http') !== 0) return '';
+    return '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">' +
+        '<p style="margin:0 0 10px;font-size:14px;color:#374151;">' +
+            'Hat es geschmeckt? Eine kurze Bewertung hilft ' + esc(restName || 'dem Restaurant') + ' sehr.' +
+        '</p>' +
+        '<a href="' + esc(url) + '" style="display:inline-block;background:#ffffff;border:1.5px solid #003d33;color:#003d33;' +
+        'text-decoration:none;padding:10px 20px;border-radius:9999px;font-weight:600;font-size:14px;">Bei Google bewerten</a>' +
+    '</div>';
+}
+
+function buildEmail(o, rest) {
     var typeLabel = o.order_type === 'delivery' ? 'Lieferung'
         : (o.order_type === 'dine_in' ? 'Vor Ort' + (o.table_number ? ' · Tisch ' + esc(o.table_number) : '') : 'Abholung');
 
@@ -104,6 +127,7 @@ function buildEmail(o) {
         '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Zahlung: ' + payLabel + '</p>' +
         addr +
         (o.delivery_notes ? '<p style="margin:8px 0 0;color:#6b7280;font-size:13px;">Hinweis: ' + esc(o.delivery_notes) + '</p>' : '') +
+        bewertungsBlock(rest, o.restaurant_name) +
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
         '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese Bestätigung wurde automatisch von kiekmolin.de verschickt. Fragen zur Bestellung beantwortet das Restaurant' +
         (o.customer_phone ? '' : '') + '.</p>' +
@@ -183,6 +207,10 @@ function buildReservationEmail(r, rest, eventType) {
         '<p style="margin:0 0 8px;">' + intro + '</p>' +
         details +
         cancelBlock +
+        // Nur bei der BESTAETIGUNG. Bei einer offenen Anfrage war der Gast noch
+        // nicht da, und bei einer Absage waere die Bitte um eine Bewertung
+        // schlicht unverschaemt.
+        (eventType === 'confirmed' ? bewertungsBlock(rest, restName) : '') +
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
         '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
         (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '') + '</p>' +
@@ -237,7 +265,7 @@ async function handleReservation(resvId, eventType) {
     var rest = null;
     if (resv.restaurant_id) {
         try {
-            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=name,street,city,phone', { headers: sbHeaders() });
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=name,street,city,phone,google_maps_url', { headers: sbHeaders() });
             if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
         } catch (e) {}
     }
@@ -342,7 +370,21 @@ exports.handler = async function (event) {
         var to = String(order.customer_email || '').trim();
         if (!to || to.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Kunden-E-Mail' });
 
-        await sendViaResend(to, buildEmail(order));
+        // Das Restaurant dazuholen -- ohne seinen Google-Link bleibt der
+        // Bewertungs-Block leer. Schlaegt es fehl, geht die Bestaetigung
+        // trotzdem raus: eine Bestellbestaetigung darf nie an einer
+        // Nebensache scheitern.
+        var restOrder = null;
+        if (order.restaurant_id) {
+            try {
+                var orres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
+                    + encodeURIComponent(order.restaurant_id) + '&select=name,google_maps_url',
+                    { headers: sbHeaders() });
+                if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
+            } catch (e) {}
+        }
+
+        await sendViaResend(to, buildEmail(order, restOrder));
         return json(200, { ok: true, sent: true });
     } catch (e) {
         return json(e.resend ? 502 : 500, { error: e.message });
