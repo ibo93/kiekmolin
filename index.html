@@ -18586,6 +18586,24 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 </div>
                                 <p style="font-size: 10px; color: var(--slate); margin: 4px 0 0;">Kunden werden nach Bestellung zu PayPal weitergeleitet</p>
                             </div>
+
+                            <!-- ONLINE-ZAHLUNG (Stripe Connect) -->
+                            <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,61,51,0.08);">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                    <span class="material-symbols-outlined" style="font-size:18px;color:var(--ink-strong);">credit_card</span>
+                                    <span style="font-size:13px;font-weight:700;color:var(--text-primary);">Online bezahlen</span>
+                                    <span id="scStatusChip" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:9999px;background:var(--bg-secondary);color:var(--text-secondary);">wird geprüft…</span>
+                                </div>
+                                <p style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin:0 0 8px;">
+                                    Gäste zahlen direkt in der App mit Karte, Apple&nbsp;Pay oder Google&nbsp;Pay.
+                                    Das Geld geht <strong>direkt auf dein Konto</strong> — Kiek mol in fasst es nie an
+                                    und nimmt <strong>keine Gebühr pro Bestellung</strong>.
+                                </p>
+                                <div id="scHinweis" style="display:none;font-size:11px;line-height:1.5;margin:0 0 8px;padding:9px 11px;border-radius:12px;"></div>
+                                <button type="button" id="scKnopf" onclick="stripeConnectStarten()" style="padding:9px 16px;border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+                                    Online-Zahlung einrichten
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -53840,6 +53858,9 @@ function startCountdown() {
 
 // Settings laden (aus localStorage, pro Restaurant)
 function loadOrderSettings() {
+    // Stripe-Status gleich mitholen -- sonst steht im Kasten ewig
+    // "wird geprüft", und niemand weiss, ob Online-Zahlung laeuft.
+    try { setTimeout(stripeConnectStatus, 300); } catch (e) {}
     var restId = document.getElementById('ordersRestaurantSelect')?.value || '';
     var pickupEl = document.getElementById('settingPickup');
     var deliveryEl = document.getElementById('settingDelivery');
@@ -54160,6 +54181,143 @@ async function saveMinOrderValue() {
 }
 
 // Zahlungsarten speichern
+// ============================================================================
+// ONLINE-ZAHLUNG: RESTAURANT BEI STRIPE ANMELDEN
+// ============================================================================
+// Das Geld geht direkt auf das Konto des Restaurants. Läuft es über die
+// Plattform, ist Kiek mol in rechtlich ein Zahlungsdienstleister -- dafür
+// braucht es in Deutschland eine BaFin-Erlaubnis. Stripe Connect löst genau
+// das: Stripe hält die Rolle, wir fassen das Geld nie an.
+
+async function _scToken() {
+    try {
+        if (window.supabaseClient && supabaseClient.auth) {
+            var s = await supabaseClient.auth.getSession();
+            return (s && s.data && s.data.session && s.data.session.access_token) || null;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function _scRestaurant() {
+    return window._gastroOnlyRestaurantId
+        || (document.getElementById('ordersRestaurantSelect') || {}).value
+        || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : '');
+}
+
+function _scZeige(chipText, chipFarbe, hinweis, hinweisArt, knopfText) {
+    var chip = document.getElementById('scStatusChip');
+    if (chip) {
+        chip.textContent = chipText;
+        chip.style.background = chipFarbe === 'gruen' ? 'rgba(22,163,74,.14)'
+            : chipFarbe === 'warn' ? 'rgba(245,158,11,.16)' : 'var(--bg-secondary)';
+        chip.style.color = chipFarbe === 'gruen' ? '#16a34a'
+            : chipFarbe === 'warn' ? '#b45309' : 'var(--text-secondary)';
+    }
+    var h = document.getElementById('scHinweis');
+    if (h) {
+        if (hinweis) {
+            h.style.display = 'block';
+            h.innerHTML = hinweis;
+            h.style.background = hinweisArt === 'fehler' ? 'rgba(239,68,68,.10)' : 'rgba(245,158,11,.12)';
+            h.style.color = 'var(--text-primary)';
+        } else { h.style.display = 'none'; h.innerHTML = ''; }
+    }
+    var k = document.getElementById('scKnopf');
+    if (k) { k.textContent = knopfText || 'Online-Zahlung einrichten'; k.disabled = false; }
+}
+
+async function stripeConnectStatus() {
+    var chip = document.getElementById('scStatusChip');
+    if (!chip) return;                       // Abschnitt gar nicht auf der Seite
+    var rid = _scRestaurant();
+    if (!rid) { _scZeige('kein Restaurant', 'grau', '', '', 'Online-Zahlung einrichten'); return; }
+    var tok = await _scToken();
+    if (!tok) { _scZeige('nicht angemeldet', 'grau', '', '', 'Online-Zahlung einrichten'); return; }
+    try {
+        var res = await fetch('/.netlify/functions/stripe-connect?action=status&restaurant='
+            + encodeURIComponent(rid), { headers: { 'Authorization': 'Bearer ' + tok } });
+        var j = await res.json();
+        if (!j.ok) {
+            // Fehlt die Spalte, hilft kein zweiter Klick -- dann den fertigen
+            // Befehl zeigen, wie bei den Größen und den Extras.
+            if (j.spalteFehlt) {
+                _scZeige('Datenbank', 'warn',
+                    '<strong>In der Datenbank fehlt eine Spalte.</strong> In Supabase → SQL Editor einfügen und ausführen:'
+                    + '<pre style="margin:6px 0 0;padding:8px 10px;background:rgba(0,0,0,.06);border-radius:8px;font-size:11px;overflow:auto;">'
+                    + j.sql + '</pre>', 'warn', 'Nochmal prüfen');
+            } else {
+                _scZeige('Fehler', 'warn', esc(j.error || 'Unbekannter Fehler'), 'fehler', 'Nochmal versuchen');
+            }
+            return;
+        }
+        if (!j.angemeldet) {
+            _scZeige('nicht eingerichtet', 'grau', '', '', 'Online-Zahlung einrichten');
+        } else if (j.bereit) {
+            _scZeige('bereit', 'gruen', '', '', 'Bei Stripe verwalten');
+        } else {
+            // Angemeldet, aber Stripe braucht noch Unterlagen. Das ist der
+            // häufigste Fall und darf nicht als "geht nicht" dastehen.
+            var offen = (j.offen || []).length
+                ? '<br><span style="opacity:.8;">Stripe fragt noch nach: ' + esc(j.offen.join(', ')) + '</span>' : '';
+            _scZeige('unvollständig', 'warn',
+                '<strong>Stripe braucht noch Angaben.</strong> Ausweis oder Bankverbindung fehlen meist noch.' + offen,
+                'warn', 'Anmeldung fortsetzen');
+        }
+    } catch (e) {
+        _scZeige('offline', 'grau', '', '', 'Online-Zahlung einrichten');
+    }
+}
+
+async function stripeConnectStarten() {
+    var k = document.getElementById('scKnopf');
+    var rid = _scRestaurant();
+    if (!rid) { showToast('Bitte zuerst ein Restaurant auswählen', 'error'); return; }
+    var tok = await _scToken();
+    if (!tok) { showToast('Bitte als Gastronom einloggen', 'error'); return; }
+    if (k) { k.disabled = true; k.textContent = 'Öffnet Stripe…'; }
+    try {
+        var res = await fetch('/.netlify/functions/stripe-connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ action: 'start', restaurant: rid })
+        });
+        var j = await res.json();
+        if (!j.ok || !j.url) {
+            if (k) { k.disabled = false; k.textContent = 'Nochmal versuchen'; }
+            if (j.spalteFehlt) { stripeConnectStatus(); return; }
+            showToast('Stripe: ' + (j.error || 'Anmeldung konnte nicht gestartet werden'), 'error');
+            return;
+        }
+        // Im selben Tab -- Stripe schickt danach auf ?stripe_connect=fertig
+        // zurück. Ein neuer Tab geht auf dem Handy oft im Hintergrund unter.
+        window.location.href = j.url;
+    } catch (e) {
+        if (k) { k.disabled = false; k.textContent = 'Nochmal versuchen'; }
+        showToast('Keine Verbindung zu Stripe', 'error');
+    }
+}
+
+// Nach der Rückkehr von Stripe den Status frisch holen und die Adresse
+// aufräumen, damit ein Neuladen nicht wieder "fertig" meldet.
+(function () {
+    try {
+        var p = new URLSearchParams(window.location.search);
+        if (!p.get('stripe_connect')) return;
+        var fertig = p.get('stripe_connect') === 'fertig';
+        p.delete('stripe_connect');
+        var rest = p.toString();
+        history.replaceState({}, '', window.location.pathname + (rest ? '?' + rest : ''));
+        setTimeout(function () {
+            stripeConnectStatus();
+            if (typeof showToast === 'function') {
+                showToast(fertig ? 'Zurück von Stripe — Status wird geprüft'
+                                 : 'Anmeldung abgebrochen', fertig ? 'info' : 'warning');
+            }
+        }, 800);
+    } catch (e) {}
+})();
+
 async function savePaymentSettings() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
