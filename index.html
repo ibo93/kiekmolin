@@ -7849,6 +7849,27 @@
             display: none;
         }
 
+        /* AM RECHNER UMBRECHEN STATT SEITLICH SCROLLEN.
+           Die Leiste war overflow-x:auto MIT ausgeblendeter Scrollleiste. Am
+           Handy wischt man -- am Rechner kommt man damit an die hinteren
+           Kategorien gar nicht heran. Bei Al Porto liegen "Pizza" und "Pasta"
+           genau dort. Ab Tablet-Breite brechen die Knöpfe deshalb um: alle
+           sichtbar, alle klickbar, kein Scrollen nötig. */
+        @media (min-width: 820px) {
+            .menu-categories {
+                flex-wrap: wrap;
+                overflow-x: visible;
+                row-gap: 8px;
+            }
+        }
+
+        /* Bleibt es schmal (Handy, kleines Fenster), soll man WENIGSTENS
+           sehen, dass rechts noch etwas kommt. */
+        .menu-categories.kmi-mehr-rechts {
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+                    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+        }
+
         .menu-category-tab {
             flex: 0 0 auto;
             padding: 10px 24px;
@@ -42971,7 +42992,10 @@ document.addEventListener('error', function(e) {
         </div>
 
         <!-- Kategorie Tabs (Stitch Pill Style) -->
-        <div class="menu-categories" id="menuCategoryTabs" style="padding:8px 20px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <!-- overflow-x steht bewusst NICHT hier, sondern in .menu-categories:
+             ein Inline-Stil schlaegt jede Media-Query, und ab 820px soll die
+             Leiste umbrechen statt zu scrollen. -->
+        <div class="menu-categories" id="menuCategoryTabs" style="padding:8px 20px;-webkit-overflow-scrolling:touch;">
             <!-- Wird dynamisch gefüllt -->
         </div>
 
@@ -44983,6 +45007,9 @@ async function loadMenuCategoriesFromDB(restaurantId) {
             html += '<div class="menu-category-tab" data-cat-name="' + cat.name + '" onclick="selectMenuCategory(\'' + cat.id + '\', this)">' + translateCategory(cat.name, currentLanguage) + '</div>';
         });
         container.innerHTML = html;
+        // Die Leiste wurde gerade neu befuellt -- Mausrad und Kantenhinweis
+        // muessen danach wieder stimmen (Breite hat sich geaendert).
+        katLeisteBedienbar();
         // Items werden bereits parallel geladen (siehe unten)
         if (!window._menuItemsPreloaded) loadMenuItems(restaurantId, null);
         return;
@@ -45011,6 +45038,7 @@ function loadMenuCategories(restaurantId) {
             </div>
         `).join('')}
     `;
+    katLeisteBedienbar();
 }
 
 // Kategorie auswählen
@@ -45664,7 +45692,11 @@ function menuSearchFilter() {
     if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
 
     // Kategorie-Tabs ausblenden bei Suche
-    if (catTabs) catTabs.style.display = query.length > 0 ? 'none' : '';
+    if (catTabs) {
+        catTabs.style.display = query.length > 0 ? 'none' : '';
+        // Ausgeblendet misst der Browser 0 -- nach dem Einblenden neu messen.
+        if (!query.length) katLeisteBedienbar();
+    }
 
     // Debounce: 250ms warten nach letztem Tastendruck
     clearTimeout(_menuSearchTimeout);
@@ -45709,7 +45741,7 @@ function clearMenuSearch() {
     var catTabs = document.getElementById('menuCategoryTabs');
     if (input) { input.value = ''; input.focus(); }
     if (clearBtn) clearBtn.style.display = 'none';
-    if (catTabs) catTabs.style.display = '';
+    if (catTabs) { catTabs.style.display = ''; katLeisteBedienbar(); }
     if (window._menuAllItems) renderMenuItemsForGuest(window._menuAllItems);
 }
 
@@ -56155,6 +56187,46 @@ async function saveItemOrder(movedItem, catItems) {
     } catch(e) {
         showToast('Fehler beim Speichern', 'error');
     }
+}
+
+// KATEGORIEN-LEISTE AM RECHNER BEDIENBAR MACHEN
+//
+// Die Leiste ist overflow-x:auto, und die Scrollleiste ist per CSS
+// ausgeblendet. Am Handy wischt man. Am Rechner gibt es weder Wischen noch
+// eine sichtbare Leiste -- die hinteren Kategorien sind schlicht nicht
+// erreichbar. Bei Al Porto liegen dort "Pizza" und "Pasta".
+//
+// Zwei Dinge dagegen:
+//   1. Ab 820px brechen die Knöpfe um (CSS) -- dann gibt es nichts mehr zu
+//      scrollen, alle sind da.
+//   2. Bleibt es schmal, macht das Mausrad seitlich mit, und rechts zeigt
+//      eine weiche Kante, dass noch etwas kommt.
+function katLeisteBedienbar() {
+    var leiste = document.getElementById('menuCategoryTabs');
+    if (!leiste) return;
+
+    if (!leiste._kmiRad) {
+        leiste._kmiRad = true;
+        leiste.addEventListener('wheel', function (e) {
+            // Nur wenn wirklich seitlich zu scrollen ist -- sonst nimmt man
+            // dem Rad das normale Scrollen der Seite weg.
+            if (leiste.scrollWidth <= leiste.clientWidth + 2) return;
+            if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;   // Trackpad quer: in Ruhe lassen
+            leiste.scrollLeft += e.deltaY;
+            e.preventDefault();
+        }, { passive: false });
+        leiste.addEventListener('scroll', function () { katKanteAuffrischen(leiste); });
+        window.addEventListener('resize', function () { katKanteAuffrischen(leiste); });
+    }
+    katKanteAuffrischen(leiste);
+}
+
+function katKanteAuffrischen(leiste) {
+    leiste = leiste || document.getElementById('menuCategoryTabs');
+    if (!leiste) return;
+    var mehr = leiste.scrollWidth > leiste.clientWidth + 2
+            && leiste.scrollLeft + leiste.clientWidth < leiste.scrollWidth - 2;
+    leiste.classList.toggle('kmi-mehr-rechts', mehr);
 }
 
 function renderMenuCategories() {
