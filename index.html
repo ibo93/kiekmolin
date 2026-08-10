@@ -34291,7 +34291,9 @@ function endGroupOrder() {
                 quantity: item.quantity,
                 total_price: item.price,
                 selected_options: [],
-                notes: 'Gruppenbestellung: ' + p.name
+                notes: 'Gruppenbestellung: ' + p.name,
+                restaurant_id: currentOrderRestaurant ? currentOrderRestaurant.id : null,
+                restaurant_name: currentOrderRestaurant ? currentOrderRestaurant.name : ''
             });
         });
     });
@@ -42949,6 +42951,28 @@ document.addEventListener('error', function(e) {
 
 <!-- ==================== ONLINE BESTELLUNG MODALS ==================== -->
 
+<!-- WARENKORB GEHOERT ZU EINEM ANDEREN RESTAURANT.
+     Der Warenkorb ist eine einzige Variable fuer die ganze Sitzung. Wer bei
+     Al Porto eine Pizza einlegt und dann zur Greetsieler Boerse wechselt, hat
+     sie dort immer noch drin -- und haette sie mit abgeschickt. In der Kueche
+     der Boerse waere ein Gericht aufgelaufen, das es dort nicht gibt.
+     Deshalb wird gefragt, bevor etwas verloren geht. -->
+<div id="korbWechselModal" style="display:none;position:fixed;inset:0;z-index:10060;background:rgba(0,37,30,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)_korbWechselAntwort(false)">
+    <div style="background:var(--bg-card);border-radius:32px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 48px -8px rgba(25,28,29,0.35);">
+        <div style="background:rgba(0,37,30,0.92);padding:24px;">
+            <span style="font-size:11px;color:#fed65b;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;display:block;margin-bottom:6px;" id="korbWechselKlein">Warenkorb</span>
+            <h3 style="color:#fff;font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.02em;line-height:1.15;margin:0;" id="korbWechselTitel">Neu anfangen?</h3>
+        </div>
+        <div style="padding:24px;">
+            <p id="korbWechselText" style="font-size:15px;line-height:1.55;color:var(--text-primary);margin:0 0 20px;font-family:Inter,sans-serif;"></p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button type="button" id="korbWechselJa" onclick="_korbWechselAntwort(true)" style="background:#fed65b;color:#745c00;padding:15px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:900;font-size:14px;cursor:pointer;width:100%;"></button>
+                <button type="button" id="korbWechselNein" onclick="_korbWechselAntwort(false)" style="background:transparent;color:var(--text-secondary);padding:13px 24px;border-radius:9999px;border:1px solid var(--border-color);font-family:Inter,sans-serif;font-weight:600;font-size:14px;cursor:pointer;width:100%;"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!--Speisekarte Modal (Fullscreen) -->
 <div class="modal-overlay" id="menuModal" style="z-index: 10001; display: none; background: rgba(248,249,250,0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); padding: 0;">
     <div class="modal" style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; margin: 0; border-radius: 0; display: flex; flex-direction: column; background: transparent;">
@@ -44817,6 +44841,20 @@ async function openMenuModal(restaurantId) {
     }
 
 
+    // WARENKORB GEHOERT ZUM ALTEN RESTAURANT?
+    // Hier ist der einzige Punkt, an dem der Wechsel stattfindet -- und der
+    // letzte, an dem currentOrderRestaurant noch das ALTE Restaurant ist.
+    // Danach waere nicht mehr feststellbar, woher der Korb kommt.
+    var _korbVon = korbGehoertZu();
+    if (_korbVon && _korbVon.id && _korbVon.id !== restaurant.id) {
+        var _weiter = await frageKorbWechsel(_korbVon, restaurant);
+        if (!_weiter) return;              // Gast bleibt, wo er war
+        orderCart = [];
+        tipAmount = 1;
+        updateCartBadges();
+        if (typeof renderCartItems === 'function') renderCartItems();
+    }
+
     currentOrderRestaurant = restaurant;
     window.currentOrderRestaurant = restaurant;
 
@@ -46257,7 +46295,11 @@ function addItemToCart() {
         unit_price: unitPrice,
         total_price: unitPrice * currentItemQty,
         selected_options: [...currentItemOptions],
-        notes: notes
+        notes: notes,
+        // Jede Position merkt sich ihr Restaurant. Ohne das laesst sich
+        // spaeter nicht mehr feststellen, ob der Korb noch zusammengehoert.
+        restaurant_id: currentOrderRestaurant ? currentOrderRestaurant.id : null,
+        restaurant_name: currentOrderRestaurant ? currentOrderRestaurant.name : ''
     };
 
     orderCart.push(cartItem);
@@ -46506,7 +46548,9 @@ function quickAddCrossSell(idx, btnEl) {
         // notes ist der Sonderwunsch des GASTES und geht so auf den Bon.
         // Hier stand "Cross-Sell Aktionspreis" drin -- eine interne Notiz, die
         // in der Küche ausgedruckt worden wäre.
-        notes: ''
+        notes: '',
+        restaurant_id: currentOrderRestaurant ? currentOrderRestaurant.id : null,
+        restaurant_name: currentOrderRestaurant ? currentOrderRestaurant.name : ''
     };
 
     orderCart.push(cartItem);
@@ -47183,6 +47227,152 @@ function updateCartBadges() {
 }
 
 // Warenkorb Panel öffnen
+// ==================== EIN WARENKORB GEHOERT EINEM RESTAURANT ====================
+//
+// GEMELDET WURDE
+// --------------
+// "Der warenkorb speichert noch das Essen von anderen Restaurant, wenn ich
+//  auf andere Restaurant gehe bleibt das Gericht drin".
+//
+// DIE URSACHE
+// -----------
+// orderCart ist EINE Variable fuer die ganze Sitzung. openMenuModal() setzt
+// beim Wechsel nur currentOrderRestaurant um -- den Korb fasst es nicht an.
+// Es gibt keinen Seitenwechsel, der ihn zuruecksetzen wuerde: die App ist
+// eine einzige Seite.
+//
+// WARUM DAS MEHR IST ALS EIN SCHOENHEITSFEHLER
+// --------------------------------------------
+// Beim Abschicken wird restaurant_id aus currentOrderRestaurant genommen --
+// also aus dem NEUEN Restaurant. Die Pizza von Al Porto waere damit als
+// Bestellung bei der Greetsieler Boerse aufgelaufen: ein Gericht, das es
+// dort nicht gibt, zu einem Preis, den dort niemand kennt. Der Gast wartet,
+// die Kueche versteht den Bon nicht.
+//
+// DREI SCHICHTEN
+// --------------
+// 1. Jede Korbposition merkt sich, zu welchem Restaurant sie gehoert.
+// 2. Beim Wechsel wird GEFRAGT, bevor etwas verloren geht -- wer sich fuenf
+//    Sachen zusammengeklickt hat, soll nicht vor einem leeren Korb stehen
+//    und sich wundern.
+// 3. Beim Abschicken wird noch einmal geprueft. Sollte je wieder eine
+//    fremde Position hineinrutschen, geht sie nicht raus.
+
+// Zu welchem Restaurant gehoert der Korb gerade?
+function korbGehoertZu() {
+    if (!orderCart || !orderCart.length) return null;
+    for (var i = 0; i < orderCart.length; i++) {
+        if (orderCart[i].restaurant_id) {
+            return { id: orderCart[i].restaurant_id, name: orderCart[i].restaurant_name || '' };
+        }
+    }
+    // Positionen ohne Kennzeichnung (Korb aus einer aelteren Sitzung, die
+    // noch offen ist): dann gehoert er dem Restaurant, das gerade offen ist.
+    return currentOrderRestaurant
+        ? { id: currentOrderRestaurant.id, name: currentOrderRestaurant.name || '' }
+        : null;
+}
+
+// Liegt etwas im Korb, das NICHT zu diesem Restaurant gehoert?
+function korbFremdePositionen(restaurantId) {
+    if (!orderCart || !restaurantId) return [];
+    return orderCart.filter(function (p) {
+        return p.restaurant_id && p.restaurant_id !== restaurantId;
+    });
+}
+
+var _korbWechselFertig = null;
+
+function _korbWechselAntwort(ja) {
+    var box = document.getElementById('korbWechselModal');
+    if (box) box.style.display = 'none';
+    var fertig = _korbWechselFertig;
+    _korbWechselFertig = null;
+    if (fertig) fertig(!!ja);
+}
+
+// Fragt den Gast und liefert true (leeren und weiter) oder false (bleiben).
+// Wegklicken und Escape gelten als "bleiben" -- die sichere Antwort, denn
+// ein versehentlich geleerter Korb ist nicht wiederherstellbar.
+function frageKorbWechsel(alt, neu) {
+    return new Promise(function (antwort) {
+        var box = document.getElementById('korbWechselModal');
+        var anzahl = orderCart.reduce(function (s, p) { return s + (Number(p.quantity) || 1); }, 0);
+        var altName = (alt && alt.name) || 'einem anderen Restaurant';
+        var neuName = (neu && neu.name) || 'diesem Restaurant';
+
+        var W = {
+            de: { klein: 'Warenkorb', titel: 'Neu anfangen?',
+                  text: 'In deinem Warenkorb ' + (anzahl === 1 ? 'liegt noch 1 Gericht' : 'liegen noch ' + anzahl + ' Gerichte')
+                        + ' von ' + altName + '. Bei ' + neuName + ' kannst du ' + (anzahl === 1 ? 'das' : 'die') + ' nicht mitbestellen.',
+                  ja: 'Warenkorb leeren und hier bestellen', nein: 'Zurück zu ' + altName },
+            en: { klein: 'Cart', titel: 'Start over?',
+                  text: 'Your cart still has ' + anzahl + (anzahl === 1 ? ' dish' : ' dishes') + ' from ' + altName
+                        + '. You cannot order ' + (anzahl === 1 ? 'it' : 'them') + ' at ' + neuName + '.',
+                  ja: 'Empty cart and order here', nein: 'Back to ' + altName },
+            nl: { klein: 'Winkelmand', titel: 'Opnieuw beginnen?',
+                  text: 'In je winkelmand ' + (anzahl === 1 ? 'zit nog 1 gerecht' : 'zitten nog ' + anzahl + ' gerechten')
+                        + ' van ' + altName + '. Bij ' + neuName + ' kun je die niet meebestellen.',
+                  ja: 'Winkelmand legen en hier bestellen', nein: 'Terug naar ' + altName }
+        };
+        var w = W[currentLanguage] || W.de;
+
+        // Ohne das Fenster im Markup lieber die schlichte Systemabfrage als
+        // gar keine -- still weiterlaufen waere der schlimmste Fall.
+        if (!box) { antwort(window.confirm(w.text)); return; }
+
+        document.getElementById('korbWechselKlein').textContent = w.klein;
+        document.getElementById('korbWechselTitel').textContent = w.titel;
+        document.getElementById('korbWechselText').textContent = w.text;
+        document.getElementById('korbWechselJa').textContent = w.ja;
+        document.getElementById('korbWechselNein').textContent = w.nein;
+
+        _korbWechselFertig = antwort;
+        box.style.display = 'flex';
+    });
+}
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _korbWechselFertig) _korbWechselAntwort(false);
+});
+
+// ==================== SPRACHE IN DER SPEISEKARTE ====================
+//
+// GEMELDET WURDE
+// --------------
+// "in der Speisekarte ist die Sprache Änderung der Icon geht nicht wenn ich
+//  drauf klicke kommt nichts".
+//
+// Genau so war es: der Weltkugel-Knopf ruft toggleMenuSprache() auf -- und
+// diese Funktion gab es nicht. Eingebaut wurde damals das Markup (der Knopf
+// und die Leiste mit Deutsch/English/Nederlands), die Funktion dazu nicht.
+// Ein Klick warf eine ReferenceError in die Konsole, sichtbar passierte
+// nichts. Wieder ein stiller Fehlschlag: alles sah fertig aus.
+function toggleMenuSprache() {
+    var bar = document.getElementById('menuSpracheBar');
+    if (!bar) return;
+    var auf = bar.style.display === 'none' || bar.style.display === '';
+    bar.style.display = auf ? 'flex' : 'none';
+
+    // Nicht zwei Leisten uebereinander -- die Suche macht zu.
+    var suche = document.getElementById('menuSearchBar');
+    if (auf && suche) suche.style.display = 'none';
+
+    // Beim Aufklappen zeigen, welche Sprache gerade laeuft. Ohne das steht
+    // beim ersten Mal keine der drei hervorgehoben da.
+    if (auf) {
+        document.querySelectorAll('#menuSpracheBar [data-sprache]').forEach(function (b) {
+            var an = b.getAttribute('data-sprache') === currentLanguage;
+            b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
+            b.style.color = an ? '#fff' : 'var(--text-primary)';
+            b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
+            b.setAttribute('aria-pressed', an ? 'true' : 'false');
+        });
+    }
+    // Die Kategorieleiste ist danach woanders -- Kantenhinweis neu messen.
+    if (typeof katLeisteBedienbar === 'function') katLeisteBedienbar();
+}
+
 function openCartPanel() {
     renderCartItems();
     document.getElementById('cartPanel').classList.add('open');
@@ -47862,6 +48052,19 @@ openCheckout = function() {
 
 // Bestellung absenden - Professionelle Validierung
 async function submitOrder() {
+
+    // ===== LETZTE SICHERUNG: NICHTS FREMDES ABSCHICKEN =====
+    // Die Abfrage beim Restaurantwechsel sollte das schon verhindern. Falls
+    // je ein Weg dazukommt, der daran vorbeigeht, endet er hier -- und nicht
+    // als unverstaendlicher Bon in einer fremden Kueche.
+    var _fremd = korbFremdePositionen(currentOrderRestaurant && currentOrderRestaurant.id);
+    if (_fremd.length) {
+        showToast('Im Warenkorb liegen noch Gerichte von ' + (_fremd[0].restaurant_name || 'einem anderen Restaurant')
+                  + '. Bitte entferne sie zuerst.', 'error');
+        closeModal('checkoutModal');
+        openCartPanel();
+        return;
+    }
 
     // ===== SPAM-SCHUTZ =====
     // 1. Rate Limiting
@@ -49158,7 +49361,9 @@ function reorderFromHistory(orderId) {
             quantity: item.quantity,
             base_price: item.price / item.quantity,
             total_price: item.price,
-            options: item.options ? item.options.split(', ') : []
+            options: item.options ? item.options.split(', ') : [],
+            restaurant_id: currentOrderRestaurant ? currentOrderRestaurant.id : null,
+            restaurant_name: currentOrderRestaurant ? currentOrderRestaurant.name : ''
         });
     });
 
@@ -63815,7 +64020,11 @@ function reorderLastOrder(orderIndex, forRestaurantId) {
             unit_price: item.unit_price || item.price || 0,
             total_price: (item.unit_price || item.price || 0) * (item.quantity || 1),
             options: [],
-            selected_options: []
+            selected_options: [],
+            // rest, nicht currentOrderRestaurant: das wird erst nach der
+            // Schleife umgesetzt und zeigt hier noch aufs alte Restaurant.
+            restaurant_id: rest ? rest.id : null,
+            restaurant_name: rest ? rest.name : ''
         });
     });
 

@@ -163,10 +163,15 @@ t('nach dem Beenden der Suche wird neu gemessen',
 t('und auch, wenn das Suchfeld leergeraeumt wird',
   /catTabs\.style\.display = query\.length > 0 \? 'none' : '';[\s\S]{0,200}katLeisteBedienbar\(\);/.test(H));
 
-// Zaehlen statt hoffen: es gibt genau vier Aufrufstellen plus die Definition.
+// Die Sprachleiste klappt ueber der Kategorieleiste auf und schiebt sie nach
+// unten -- danach stimmt der Kantenhinweis sonst nicht mehr.
+t('nach dem Sprachumschalter wird ebenfalls neu gemessen',
+  /function toggleMenuSprache\(\)[\s\S]{0,1400}katLeisteBedienbar\(\);/.test(H));
+
+// Zaehlen statt hoffen: es gibt genau fuenf Aufrufstellen plus die Definition.
 var aufrufe = (H.match(/katLeisteBedienbar\(\);/g) || []).length;
-t('es sind vier Aufrufstellen -- keine Stelle vergessen, keine doppelt',
-  aufrufe === 4, aufrufe + ' Aufrufe');
+t('es sind fuenf Aufrufstellen -- keine Stelle vergessen, keine doppelt',
+  aufrufe === 5, aufrufe + ' Aufrufe');
 
 // ---- 8. Der Grund steht im Quelltext ----------------------------------------
 t('warum die Leiste am Rechner umbricht, steht in der CSS-Datei',
