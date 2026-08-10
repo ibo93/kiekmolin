@@ -46162,9 +46162,26 @@ function renderCrossSellSheet(items) {
     }, 8000);
 }
 
+// Braucht dieses Gericht eine Auswahl, bevor man es in den Korb legen kann?
+// Bei Groessen ist die Antwort immer ja: sonst landet die kleine Pizza zum
+// Grundpreis im Korb, obwohl der Gast vielleicht die grosse wollte -- und
+// merkt es erst auf der Rechnung.
+function _crossSellBrauchtAuswahl(item) {
+    return !!(item && Array.isArray(item.sizes) && item.sizes.length > 0);
+}
+
 function quickAddCrossSell(idx, btnEl) {
     var item = window._crossSellItems && window._crossSellItems[idx];
     if (!item) return;
+
+    // Gerichte mit Groessen NICHT blind hinzufuegen, sondern das normale
+    // Fenster oeffnen. Dort waehlt der Gast Groesse und Extras -- genau wie
+    // wenn er das Gericht in der Karte antippt.
+    if (_crossSellBrauchtAuswahl(item)) {
+        closeCrossSellSheet();
+        if (typeof openItemOptions === 'function') openItemOptions(item.id, item);
+        return;
+    }
 
     // Aktionspreis nutzen wenn vorhanden
     var usePrice = (item._cross_sell_price && item._cross_sell_price > 0) ? item._cross_sell_price : (item.base_price || item.price || 0);
@@ -46178,16 +46195,26 @@ function quickAddCrossSell(idx, btnEl) {
         unit_price: usePrice,
         total_price: usePrice,
         selected_options: [],
-        notes: item._cross_sell_price ? 'Cross-Sell Aktionspreis' : ''
+        // notes ist der Sonderwunsch des GASTES und geht so auf den Bon.
+        // Hier stand "Cross-Sell Aktionspreis" drin -- eine interne Notiz, die
+        // in der Kueche ausgedruckt worden waere.
+        notes: ''
     };
 
     orderCart.push(cartItem);
     updateCartBadges();
 
-    // Button-Feedback
+    // RUECKMELDUNG, OHNE DIE ZEILE ZU ZERSTOEREN.
+    //
+    // btnEl ist das ganze Zeilen-Element (onclick steht am <div>), nicht der
+    // Knopf. textContent = 'Hinzugefügt' hat damit Bild, Name, Preis und
+    // Plus-Zeichen durch nacktes Wort ersetzt -- der weisse Kasten mitten im
+    // Fenster.
     if (btnEl) {
-        btnEl.textContent = 'Hinzugefügt';
-        btnEl.classList.add('added');
+        btnEl.style.background = 'rgba(22,163,74,0.12)';
+        btnEl.style.pointerEvents = 'none';
+        var plus = btnEl.querySelectorAll('.material-symbols-outlined');
+        if (plus.length) plus[plus.length - 1].textContent = 'check';
     }
 
     showToast(item.name + ' hinzugefügt!');
@@ -46874,28 +46901,43 @@ function renderCartItems() {
         const allOptionsText = [sizeText, extrasText].filter(Boolean).join(' | ');
         const imgUrl = item.image || item.image_url || '';
 
+        // KOMPAKT. Vorher war jede Zeile eine 48px-Kachel mit 112px-Bild und
+        // 24px Abstand -- bei acht Gerichten scrollt man ewig, und die
+        // Zusammenfassung darunter hat den Rest des Bildschirms gefressen.
+        // Im Warenkorb will man aendern, nicht schmoekern; die Beschreibung
+        // steht in der Speisekarte.
+        const notiz = item.notes || '';
         html += `
-            <div style="background:rgba(255,255,255,0.65);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:20px;border-radius:48px;display:flex;gap:20px;align-items:flex-start;border:1px solid rgba(255,255,255,0.2);margin-bottom:24px;transition:all 0.5s ease;" onmouseover="this.style.boxShadow='0 12px 40px rgba(0,37,30,0.05)'" onmouseout="this.style.boxShadow='none'">
-                <div style="width:112px;height:112px;border-radius:32px;overflow:hidden;flex-shrink:0;">
-                    ${imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;transition:transform 0.7s ease;" onmouseover="this.style.transform=\'scale(1.1)\'" onmouseout="this.style.transform=\'scale(1)\'" alt="' + (item.name || '') + '" loading="lazy">' : '<div style="width:100%;height:100%;background:#e7e8e9;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:32px;color:#c0c8c4;">restaurant</span></div>'}
+            <div style="background:var(--bg-secondary);padding:12px 14px;border-radius:22px;display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-color);margin-bottom:10px;">
+                <div style="width:56px;height:56px;border-radius:16px;overflow:hidden;flex-shrink:0;">
+                    ${imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" alt="' + (item.name || '') + '" loading="lazy">' : '<div style="width:100%;height:100%;background:#e7e8e9;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#c0c8c4;">restaurant</span></div>'}
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-                        <h3 style="font-size:18px;font-weight:700;font-family:Epilogue,sans-serif;color:var(--ink-deep);line-height:1.3;">${item.dish_number ? '<span style="color:var(--ink-strong);">' + item.dish_number + '</span> ' : ''}${(currentLanguage !== 'de' && item['name_' + currentLanguage]) ? item['name_' + currentLanguage] : item.name}</h3>
-                        <span style="font-size:18px;font-weight:700;color:var(--ink-deep);white-space:nowrap;margin-left:8px;">${formatPrice(item.total_price)}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                        <h3 style="font-size:15px;font-weight:700;font-family:Epilogue,sans-serif;color:var(--ink-deep);line-height:1.25;margin:0;">${item.dish_number ? '<span style="color:var(--ink-strong);">' + item.dish_number + '</span> ' : ''}${(currentLanguage !== 'de' && item['name_' + currentLanguage]) ? item['name_' + currentLanguage] : item.name}</h3>
+                        <span style="font-size:15px;font-weight:700;color:var(--ink-deep);white-space:nowrap;">${formatPrice(item.total_price)}</span>
                     </div>
-                    ${allOptionsText ? '<p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;">' + (sizeText || '') + (extrasText ? (sizeText ? ' · + ' : '+ ') + extrasText : '') + '</p>' : ''}
-                    ${item.notes ? '<p style="font-size:13px;color:var(--text-secondary);font-style:italic;margin-bottom:8px;">' + item.notes + '</p>' : ''}
-                    <p style="color:var(--text-secondary);font-size:14px;line-height:1.625;margin-bottom:16px;">${(currentLanguage !== 'de' && item['description_' + currentLanguage]) ? item['description_' + currentLanguage] : (item.description || '')}</p>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <div style="display:flex;align-items:center;background:#e7e8e9;border-radius:9999px;padding:6px 12px;">
-                            <button onclick="changeCartItemQty('${item.id}',-1)" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;" onmouseover="this.style.color='#735c00'" onmouseout="this.style.color='#00251e'"><span class="material-symbols-outlined" style="font-size:14px;">remove</span></button>
-                            <span style="margin:0 12px;font-weight:700;font-size:14px;color:var(--ink-deep);">${item.quantity}</span>
-                            <button onclick="changeCartItemQty('${item.id}',1)" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;" onmouseover="this.style.color='#735c00'" onmouseout="this.style.color='#00251e'"><span class="material-symbols-outlined" style="font-size:14px;">add</span></button>
+                    ${allOptionsText ? '<p style="font-size:12px;color:var(--text-secondary);line-height:1.45;margin:3px 0 0;">' + (sizeText || '') + (extrasText ? (sizeText ? ' · + ' : '+ ') + extrasText : '') + '</p>' : ''}
+                    <p id="cartNoteText_${item.id}" style="font-size:12px;color:#735c00;font-style:italic;margin:3px 0 0;${notiz ? '' : 'display:none;'}">${notiz ? '\u270e ' + notiz.replace(/</g, '&lt;') : ''}</p>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                        <div style="display:flex;align-items:center;background:#e7e8e9;border-radius:9999px;padding:4px 8px;">
+                            <button onclick="changeCartItemQty('${item.id}',-1)" aria-label="weniger" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;display:flex;"><span class="material-symbols-outlined" style="font-size:16px;">remove</span></button>
+                            <span style="margin:0 10px;font-weight:700;font-size:14px;color:var(--ink-deep);">${item.quantity}</span>
+                            <button onclick="changeCartItemQty('${item.id}',1)" aria-label="mehr" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;display:flex;"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
                         </div>
-                        <button onclick="removeCartItem('${item.id}')" style="background:none;border:none;cursor:pointer;color:rgba(186,26,26,0.7);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;transition:color 0.2s;" onmouseover="this.style.color='#ba1a1a'" onmouseout="this.style.color='rgba(186,26,26,0.7)'">
-                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Entfernen
+                        <button onclick="toggleCartNote('${item.id}')" style="background:none;border:1px solid rgba(0,37,30,0.15);border-radius:9999px;padding:5px 12px;cursor:pointer;color:var(--ink-deep);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;font-family:Inter,sans-serif;">
+                            <span class="material-symbols-outlined" style="font-size:15px;">edit_note</span>${notiz ? 'Notiz ändern' : 'Notiz'}
                         </button>
+                        <button onclick="removeCartItem('${item.id}')" aria-label="entfernen" style="background:none;border:none;cursor:pointer;color:rgba(186,26,26,0.75);display:flex;align-items:center;padding:5px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
+                        </button>
+                    </div>
+                    <div id="cartNoteBox_${item.id}" style="display:none;margin-top:8px;">
+                        <textarea id="cartNoteInput_${item.id}" rows="2" maxlength="200" placeholder="z.B. ohne Zwiebeln, extra scharf" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid rgba(0,37,30,0.15);border-radius:14px;font-size:13px;font-family:Inter,sans-serif;resize:none;outline:none;background:var(--bg-card);color:var(--text-primary);">${notiz.replace(/</g, '&lt;')}</textarea>
+                        <div style="display:flex;gap:6px;margin-top:6px;">
+                            <button onclick="speichereCartNotiz('${item.id}')" style="padding:6px 14px;border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Übernehmen</button>
+                            <button onclick="toggleCartNote('${item.id}')" style="padding:6px 12px;border:none;background:none;color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:Inter,sans-serif;">Abbrechen</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -46909,17 +46951,21 @@ function renderCartItems() {
     var restDeliveryFee = (currentOrderRestaurant && currentOrderRestaurant.delivery_fee != null) ? parseFloat(currentOrderRestaurant.delivery_fee) : 0; var deliveryFee = orderType === 'delivery' ? restDeliveryFee : 0;
     const total = subtotal + deliveryFee;
 
-    // Stitch Summary: per-item line items
+    // NUR NOCH DIE ZWISCHENSUMME.
+    //
+    // Hier stand jedes Gericht ein ZWEITES Mal -- als reine Textzeile ohne
+    // Plus, Minus oder Papierkorb. Bei acht Positionen war diese Liste hoeher
+    // als der Panel-Ausschnitt darueber: sichtbar war nur noch die tote
+    // Aufzaehlung, die aenderbaren Zeilen lagen ausserhalb des Bildes. Genau
+    // das Bild, das gemeldet wurde -- "man sieht nichts mehr und kann nichts
+    // mehr bearbeiten". Die Gerichte stehen oben, dort gehoeren sie hin.
     var summaryLinesEl = document.getElementById('cartSummaryLines');
     if (summaryLinesEl) {
-        var linesHtml = '';
-        orderCart.forEach(function(ci) {
-            var displayName = (typeof currentLanguage !== 'undefined' && currentLanguage !== 'de' && ci['name_' + currentLanguage]) ? ci['name_' + currentLanguage] : ci.name;
-            linesHtml += '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-secondary);font-size:14px;">' +
-                '<span>' + displayName + ' \u00d7 ' + ci.quantity + '</span>' +
-                '<span style="font-weight:500;">' + formatPrice(ci.total_price) + '</span></div>';
-        });
-        summaryLinesEl.innerHTML = linesHtml;
+        var anzahl = orderCart.reduce(function (s2, ci) { return s2 + (ci.quantity || 1); }, 0);
+        summaryLinesEl.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-secondary);font-size:14px;">'
+          + '<span>Zwischensumme · ' + anzahl + ' Artikel</span>'
+          + '<span style="font-weight:500;">' + formatPrice(orderCart.reduce(function (s2, ci) { return s2 + ci.total_price; }, 0)) + '</span></div>';
     }
 
     var cartSubEl = document.getElementById('cartSubtotal');
@@ -46989,6 +47035,37 @@ function removeCartItem(itemId) {
     orderCart = orderCart.filter(item => item.id !== itemId);
     renderCartItems();
     updateCartBadges();
+}
+
+// NOTIZ PRO POSITION ("ohne Zwiebeln", "extra scharf")
+//
+// Das Feld item.notes gab es im Warenkorb schon -- geschrieben hat es nur der
+// Cross-Sell ("Cross-Sell Aktionspreis"). Der Gast konnte nichts eintragen,
+// und selbst wenn: notes wurde beim Abschicken an ALLEN DREI Stellen
+// weggelassen (items, Fallback-items, order_items). Die Notiz waere also
+// geschrieben worden und nie in der Kueche angekommen -- das Schlimmste, was
+// ein Sonderwunsch tun kann.
+function toggleCartNote(itemId) {
+    var box = document.getElementById('cartNoteBox_' + itemId);
+    if (!box) return;
+    var auf = box.style.display !== 'none';
+    box.style.display = auf ? 'none' : 'block';
+    if (!auf) {
+        var ta = document.getElementById('cartNoteInput_' + itemId);
+        if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+}
+
+function speichereCartNotiz(itemId) {
+    var ta = document.getElementById('cartNoteInput_' + itemId);
+    if (!ta) return;
+    var text = String(ta.value || '').trim().slice(0, 200);
+    var pos = orderCart.filter(function (i) { return String(i.id) === String(itemId); })[0];
+    if (!pos) return;
+    pos.notes = text;
+    try { if (typeof saveCartToStorage === 'function') saveCartToStorage(); } catch (e) {}
+    renderCartItems();
+    showToast(text ? 'Notiz gespeichert' : 'Notiz entfernt', 'success');
 }
 
 function changeCartItemQty(itemId, delta) {
@@ -47716,10 +47793,13 @@ async function submitOrder() {
         table_number: tableNumber,
         delivery_address: deliveryAddress,
         delivery_notes: document.getElementById('checkoutDeliveryNotes')?.value.trim() || null,
+        // notes MUSS mit. Ohne diese Zeile schreibt der Gast "ohne Zwiebeln"
+        // und die Kueche erfaehrt es nie.
         items: orderCart.map(item => ({
             name: item.name,
             quantity: item.quantity,
             price: item.total_price,
+            notes: item.notes || '',
             options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
         })),
         subtotal: subtotal,
@@ -47792,6 +47872,7 @@ async function submitOrder() {
                 quantity: item.quantity,
                 price: item.total_price,
                 unit_price: item.unit_price || item.base_price || 0,
+                notes: item.notes || '',
                 options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
             })),
             subtotal: subtotal,
@@ -47878,6 +47959,7 @@ async function submitOrder() {
                         base_price: item.base_price || item.unit_price || 0,
                         unit_price: item.unit_price || item.base_price || 0,
                         total_price: item.total_price || 0,
+                        notes: item.notes || '',
                         selected_options: item.selected_options || []
                     });
                     if (!_ir.ok) _failedItems++;
@@ -49140,6 +49222,7 @@ async function loadDashboardOrders() {
                         quantity: item.quantity,
                         options: (item.selected_options || []).map(o => o.option_name || o.option || o).join(', '),
                         selected_options: item.selected_options || [],
+                        notes: item.notes || '',
                         price: item.total_price
                     }))
                     : (order.items || []).map(item => ({
@@ -49147,6 +49230,7 @@ async function loadDashboardOrders() {
                         quantity: item.quantity,
                         options: item.options || '',
                         selected_options: item.selected_options || [],
+                        notes: item.notes || '',
                         price: item.price || item.total_price || 0
                     })),
                 subtotal: order.subtotal,
@@ -49597,7 +49681,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-items" style="display:flex;flex-direction:column;gap:16px;">
                         ${order.items.map((item, idx) => `
                             <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;${idx < order.items.length - 1 ? 'border-bottom:1px solid rgba(192,200,196,0.10);padding-bottom:16px;' : ''}">
-                                <span style="color:var(--text-secondary);font-weight:500;">${item.quantity}x ${item.name}${item.options ? ' <span style=&quot;font-size:12px;color:rgba(64,73,70,0.6);font-style:italic;&quot;>' + item.options + '</span>' : ''}</span>
+                                <span style="color:var(--text-secondary);font-weight:500;">${item.quantity}x ${item.name}${item.options ? ' <span style=&quot;font-size:12px;color:rgba(64,73,70,0.6);font-style:italic;&quot;>' + item.options + '</span>' : ''}${item.notes ? '<br><span style=&quot;font-size:12px;color:#b45309;font-weight:700;&quot;>&#9998; ' + item.notes + '</span>' : ''}</span>
                                 <span style="color:var(--ink-deep);font-weight:700;">${formatPrice(item.base_price || item.price)}</span>
                             </div>
                         `).join('')}
@@ -50375,8 +50459,11 @@ function printOrderBrowser(orderId) {
         var einzelpreis = parseFloat(item.price) / (item.quantity || 1);
         return '<tr>' +
             '<td style="text-align:left;padding:3px 0;width:30px;">' + item.quantity + '×</td>' +
-            '<td style="text-align:left;padding:3px 4px;">' + item.name + 
+            '<td style="text-align:left;padding:3px 4px;">' + item.name +
                 (item.options ? '<br><span style="font-size:10px;color:#666;">  ↳ ' + item.options + '</span>' : '') +
+                // Sonderwunsch FETT auf den Bon. Wer in der Kueche steht,
+                // ueberliest eine graue Kleinschrift.
+                (item.notes ? '<br><span style="font-size:11px;font-weight:bold;">  ↳ ' + item.notes + '</span>' : '') +
             '</td>' +
             '<td style="text-align:right;padding:3px 0;white-space:nowrap;">' + formatPrice(item.price) + '</td>' +
         '</tr>';
@@ -51584,7 +51671,11 @@ function buildRichPosPayload(order) {
             modifiers: opts,
             modifiers_text: optsText,
             allergens: item.allergens || [],
-            note: item.note || item.special_request || ''
+            // Der Warenkorb schreibt "notes", nicht "note". Ohne das erste
+            // Feld hier waere der Sonderwunsch bis zum Kassensystem gekommen
+            // und dort lautlos verschwunden -- derselbe Fehler wie damals bei
+            // den Groessen, wo die Kueche opt.name statt option gelesen hat.
+            note: item.notes || item.note || item.special_request || ''
         };
     });
 
