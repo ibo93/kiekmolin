@@ -28456,9 +28456,24 @@ function editRestaurant(restaurantId) {
 
 
     // Formular mit Daten füllen - mit null-checks
+    //
+    // ACHTUNG, HIER LAG DER RUHETAG-FEHLER.
+    //
+    // Vorher stand hier `el.value = val || ''`. Der Ruhetag wird als Zahl
+    // gespeichert, 0 = Montag -- und 0 ist in JavaScript "falsy". Aus
+    // `0 || ''` wurde also '', und das Auswahlfeld sprang auf "Kein Ruhetag".
+    //
+    // Damit war es nicht nur eine falsche Anzeige: beim naechsten Speichern
+    // las die App den leeren Wert aus dem Feld zurueck und schrieb rest_day =
+    // null in die Datenbank. Der Ruhetag hat sich also bei jedem Bearbeiten
+    // des Restaurants selbst geloescht.
+    //
+    // Betroffen war GENAU EIN Tag: Montag. Dienstag bis Sonntag sind 1..6 und
+    // damit "truthy" -- die kamen immer durch. Deshalb sah es aus, als ginge
+    // der Ruhetag mal und mal nicht.
     const setVal = (id, val) => {
         const el = document.getElementById(id);
-        if (el) el.value = val || '';
+        if (el) el.value = (val === null || val === undefined) ? '' : val;
     };
 
     setVal('newRestaurantName', restaurant.name);
@@ -28520,9 +28535,13 @@ function editRestaurant(restaurantId) {
     setVal('openSoEnd', oh.so_end || restaurant.closing_time || '22:00');
     setVal('openSoStart2', oh.so_start2 || '');
     setVal('openSoEnd2', oh.so_end2 || '');
-    if (restaurant.rest_day !== null && restaurant.rest_day !== undefined) {
-        setVal('restDaySelect', restaurant.rest_day);
-    }
+    // IMMER setzen, auch wenn kein Ruhetag hinterlegt ist.
+    //
+    // Das Formular wird nicht neu gebaut, sondern wiederverwendet. Ohne das
+    // Zuruecksetzen stand beim naechsten Restaurant noch der Ruhetag des
+    // vorigen im Feld -- und wer dann speichert, verpasst einem Betrieb einen
+    // Ruhetag, den er nie hatte.
+    setVal('restDaySelect', restaurant.rest_day);
 
     // Zahlungsdaten laden
     setVal('newRestaurantAccountHolder', restaurant.account_holder || '');
