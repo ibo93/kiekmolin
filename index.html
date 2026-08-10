@@ -338,7 +338,6 @@
         "applicationCategory": "FoodService",
         "operatingSystem": "Web",
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
-        "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "56"},
         "screenshot": "https://kiekmolin.de/og-image.png",
         "featureList": "Online Essen bestellen, Speisekarte ansehen, Tisch reservieren, KI-Assistent, Offline-Modus"
     }
@@ -23665,7 +23664,7 @@ function mapRestaurant(r) {
     return {
         id: r.id, name: r.name,
         cuisine: r.cuisine_type ? r.cuisine_type[0] : 'deutsch',
-        rating: r.rating || 4.5, reviewCount: r.review_count || 0,
+        rating: r.rating || 0, reviewCount: r.review_count || 0,
         freeTables: r.freeTables || 0, waitTime: 0,
         phone: r.phone || '', whatsapp: r.whatsapp || null,
         address: (r.address || ((r.street || '').replace(/,\s*$/, '') + ', ' + [r.zip, r.city].filter(Boolean).join(' ')).replace(/^,\s*/, '')).replace(/,{2,}/g, ','),
@@ -24073,7 +24072,7 @@ async function loadFromSupabase() {
                 id: r.id,
                 name: r.name,
                 cuisine: r.cuisine_type?.[0] || 'deutsch',
-                rating: r.rating || 4.5,
+                rating: r.rating || 0,
                 freeTables: 0,
                 waitTime: 0,
                 phone: r.phone || '',
@@ -28764,7 +28763,7 @@ function renderAttractionsDash() {
                 <td>${a.city || '-'}</td>
                 <td><span style="background: var(--cream); padding: 2px 8px; border-radius: 4px; font-size: 12px;">${a.category || 'sonstiges'}</span></td>
                 <td>
-                    <span style="color: var(--warning);">H</span> ${a.rating || 4.5}
+                    <span style="color: var(--warning);">H</span> ${a.rating > 0 ? a.rating : '–'}
                 </td>
                 <td>
                     <button onclick="deleteAttraction('${a.id}')" style="background: none; border: none; cursor: pointer; color: var(--danger);" title="Löschen" aria-label="Löschen">
@@ -28789,7 +28788,7 @@ async function addAttraction(e) {
         city: document.getElementById('attractionCity').value || 'Greetsiel',
         category: document.getElementById('attractionCategory').value,
         price_info: document.getElementById('attractionPrice').value,
-        rating: parseFloat(document.getElementById('attractionRating').value) || 4.5,
+        rating: parseFloat(document.getElementById('attractionRating').value) || 0,
         phone: document.getElementById('attractionPhone').value,
         website: document.getElementById('attractionWebsite').value,
         is_active: true
@@ -31816,7 +31815,8 @@ async function addRestaurant(e) {
     const description = document.getElementById('newRestaurantDescription')?.value || null;
     const instagram = document.getElementById('newRestaurantInstagram')?.value || '';
     const tiktok = document.getElementById('newRestaurantTiktok')?.value || '';
-    const rating = parseFloat(document.getElementById('newRestaurantRating')?.value) || 4.5;
+    // Kein Vorgabewert: was niemand eintraegt, hat auch keine Bewertung.
+    const rating = parseFloat(document.getElementById('newRestaurantRating')?.value) || 0;
     const reviewCount = parseInt(document.getElementById('newRestaurantReviewCount')?.value) || 0;
 
     // Bild: Erstes Bild aus Multi-Upload oder Default
@@ -32282,7 +32282,7 @@ function renderAttractions(filter = currentAttractionFilter) {
                 <div class="card-image" style="background-image: url('${a.image_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAB89MwAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='}');">
                     <div class="rating" style="position: absolute; top: 12px; right: 12px; background: var(--bg-card); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 4px;">
                         <span class="material-symbols-outlined" style="font-size:14px;">star_border</span>
-                        <span style="font-weight: 700; font-size: 13px; color: var(--charcoal);">${a.rating || 4.5}</span>
+                        <span style="font-weight: 700; font-size: 13px; color: var(--charcoal);">${a.rating > 0 ? a.rating : '–'}</span>
                     </div>
                 </div>
                 <div class="card-content">
@@ -33727,7 +33727,8 @@ async function addCustomer(e) {
                 google_maps_url: restGoogleMaps,
                 is_active: true,
                 is_open: true,
-                rating: 4.5,
+                // Ein frisch angelegtes Restaurant hat keine Bewertung -- 0, nicht 4,5.
+                rating: 0,
                 latitude: lat,
                 longitude: lng
             };
@@ -33766,7 +33767,7 @@ async function addCustomer(e) {
                     id: restaurantId,
                     name: restName,
                     cuisine: restCuisine,
-                    rating: 4.5,
+                    rating: 0,
                     freeTables: 8,
                     waitTime: 0,
                     phone: restPhone,
@@ -37589,9 +37590,22 @@ async function showRestaurantLanding(rest) {
     if (rest.email) schema.email = rest.email;
     if (rest.image) schema.image = rest.image;
     if (rest.logo) schema.logo = rest.logo;
-    if (rest.rating && rest.rating > 0) {
-        schema.aggregateRating = { "@type": "AggregateRating", "ratingValue": rest.rating, "bestRating": "5", "worstRating": "1", "reviewCount": rest.reviewCount || 1 };
-    }
+    // KEINE aggregateRating-Auszeichnung.
+    //
+    // Hier stand sie -- mit reviewCount "|| 1", also mindestens einer
+    // erfundenen Bewertung, und mit rest.rating, das weiter oben auf 4,5
+    // vorbelegt war, wenn gar nichts eingetragen ist. Google hat daraus
+    // Sterne in den Suchergebnissen gemacht, fuer die es keine einzige echte
+    // Bewertung gab.
+    //
+    // Google verlangt fuer Bewertungssterne Bewertungen, die auf DIESER Seite
+    // von echten Nutzern abgegeben wurden. Die Google-Bewertung eines
+    // Restaurants als eigene auszuzeichnen, ist ebenfalls nicht erlaubt --
+    // sie darf gezeigt und verlinkt werden (macht die Seite auch, mit "Auf
+    // Google ansehen"), aber nicht als eigene Kennzahl markiert.
+    //
+    // Sobald Kiek mol in eigene Gaestebewertungen sammelt, gehoert genau
+    // deren Durchschnitt und Anzahl hier hinein -- nichts anderes.
     if (rest.street || rest.city) {
         schema.address = { "@type": "PostalAddress", "streetAddress": rest.street || "", "addressLocality": rest.city || "Ostfriesland", "addressRegion": "Niedersachsen", "postalCode": rest.zip || "", "addressCountry": "DE" };
     }
@@ -37876,7 +37890,12 @@ async function showRestaurantLanding(rest) {
             for(var i=1;i<=5;i++){h+='<span class="material-symbols-outlined" style="font-size:16px;color:'+(i<=Math.round(rest.rating)?'#f59e0b':'#e5e7eb')+';font-variation-settings:\'FILL\' 1;">star</span>';}
             h += '</div>';
             h += '<span style="font-size:16px;font-weight:700;color:var(--ink-deep);font-family:Epilogue,sans-serif;">' + rest.rating + '</span>';
-            h += '<span style="font-size:14px;color:var(--text-secondary);font-family:Inter,sans-serif;">(' + (rest.reviewCount || 0) + ' Bewertungen)</span>';
+            // "(0 Bewertungen)" neben 4,2 Sternen sieht aus wie ein Fehler.
+            // Steht keine Anzahl fest, wird sie weggelassen.
+            if (rest.reviewCount > 0) {
+                h += '<span style="font-size:14px;color:var(--text-secondary);font-family:Inter,sans-serif;">(' + rest.reviewCount + ' Bewertungen)</span>';
+            }
+            h += '<span style="font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;">bei Google</span>';
             h += '</div>';
             h += '<div style="display:flex;align-items:center;gap:6px;color:var(--ink-deep);font-weight:600;font-size:14px;font-family:Inter,sans-serif;">Auf Google ansehen <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span></div>';
             h += '</a></section>';
@@ -40269,7 +40288,8 @@ function _updateMapFloatingCard(r) {
 
     document.getElementById('mapCardImg').src = r.image || '';
     document.getElementById('mapCardImg').alt = r.name || '';
-    document.getElementById('mapCardRating').textContent = (r.rating || 4.5).toFixed(1);
+    // Ohne echte Bewertung steht dort ein Strich, keine erfundene 4,5.
+    document.getElementById('mapCardRating').textContent = (r.rating > 0) ? Number(r.rating).toFixed(1) : '–';
     document.getElementById('mapCardName').textContent = (r.name || '').toUpperCase();
     document.getElementById('mapCardMeta').textContent = (r.cuisine || 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
 
