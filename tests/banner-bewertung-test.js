@@ -85,9 +85,26 @@ t('wer nur den neuen beantwortet hat, ebenso',
   welt({ kmi_consent: 'essential' }).api.schon() === true);
 
 // ---- 3. Nicht ueber die Willkommens-Tour legen -----------------------------
-t('der Banner wartet, solange die Tour laeuft',
-  /var tour = document\.getElementById\('onboardingOverlay'\)/.test(H)
-  && /if \(laeuft\) \{ setTimeout\(_cookieBannerZeigen, 1000\); return; \}/.test(H));
+// Einmal nachsehen reicht nicht: beim ersten Blick steht die Tour noch auf
+// display:none und geht erst rund eine Sekunde spaeter auf -- dann liegt der
+// Banner schon da. Genau das war nach dem ERSTEN Versuch noch zu sehen.
+t('der Banner gibt der Tour eine Anlaufzeit',
+  /var COOKIE_ANLAUF_MS = 3000;/.test(H)
+  && /if \(!_tourGesehen && \(Date\.now\(\) - _cookieStart\) < COOKIE_ANLAUF_MS\)/.test(H));
+t('und sieht danach weiter hin, bis der Gast entschieden hat',
+  /_cookieWaechter = setInterval\(pruefe, 300\)/.test(H));
+t('taucht die Tour auf, verschwindet der Banner',
+  /_tourGesehen = true;\s*\n\s*el\.style\.display = 'none';/.test(H));
+// offsetParent waere hier die naheliegende Pruefung -- und eine Falle: bei
+// position:fixed ist sie IMMER null, auch wenn das Element gross auf dem
+// Bildschirm steht. Die Tour ist fixed. Daran ist der erste Versuch
+// gescheitert, und die Kopfzeilen-Messung gleich mit.
+t('Sichtbarkeit wird nicht ueber offsetParent geprueft',
+  /function _istSichtbar\(el\)/.test(H)
+  && /r\.width > 0 && r\.height > 0/.test(H)
+  && !/onboardingOverlay'\)\.offsetParent/.test(H));
+t('auch die Kopfzeilen-Messung benutzt den verlaesslichen Test',
+  /if \(!_istSichtbar\(kopf\)\) \{ banner\.style\.top = '0px'; return; \}/.test(H));
 t('die Tour gibt es unter diesem Namen wirklich',
   /<div id="onboardingOverlay"/.test(H));
 
@@ -160,18 +177,21 @@ t('und neu gemessen, wenn sich das Fenster dreht oder aendert',
   /addEventListener\('resize', _bannerUnterKopfzeile\)/.test(H)
   && /orientationchange/.test(H));
 
+// _istSichtbar gehoert mit in die Attrappe -- die Messung benutzt es jetzt.
 var P = new Function('document', 'window',
-    H.slice(H.indexOf('function _bannerUnterKopfzeile()'),
+    H.slice(H.indexOf('function _istSichtbar(el)'), H.indexOf('var _cookieWaechter'))
+  + H.slice(H.indexOf('function _bannerUnterKopfzeile()'),
             H.indexOf("window.addEventListener('resize', _bannerUnterKopfzeile)"))
   + '; return _bannerUnterKopfzeile;');
 
 function messe(kopfUnten, kopfSichtbar) {
     var banner = { style: {} };
-    var kopf = kopfSichtbar === false ? { offsetParent: null } : {
-        offsetParent: {}, getBoundingClientRect: function () { return { bottom: kopfUnten }; }
-    };
+    var kopf = kopfSichtbar === false
+        ? { getBoundingClientRect: function () { return { bottom: 0, width: 0, height: 0 }; } }
+        : { getBoundingClientRect: function () { return { bottom: kopfUnten, width: 390, height: 60 }; } };
+    var fenster = { getComputedStyle: function () { return { display: 'flex', visibility: 'visible', opacity: '1' }; } };
     P({ getElementById: function () { return banner; },
-        querySelector: function () { return kopf; } }, {})();
+        querySelector: function () { return kopf; } }, fenster)();
     return banner.style.top;
 }
 t('unter einer 76px hohen Kopfzeile sitzt er bei 84px', messe(76) === '84px', messe(76));
