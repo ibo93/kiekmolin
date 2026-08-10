@@ -2109,6 +2109,36 @@
         /* Platzhalter während des Ladens und kleine Rückmeldungen.
            Beides respektiert die Systemeinstellung "Bewegung reduzieren" --
            wer sie gesetzt hat, hat meist einen Grund dafür. */
+
+        /* FARBE PRO KATEGORIE -- als Klassen, nicht fest im Inline-Style.
+           Ein erster Entwurf hatte die Toene direkt im style-Attribut. Das
+           laesst sich nachts nicht umschalten: helle Pastellfarben leuchten im
+           dunklen Modus. Als Klasse bekommt jede Kategorie eine helle UND eine
+           dunkle Fassung, und der Strich dreht ueber --kmi-strich mit. */
+        .kmi-ton-pizza { background:#f7ece2; --kmi-strich:#b06a3b; }
+        .kmi-ton-burger { background:#f5ecdf; --kmi-strich:#94602c; }
+        .kmi-ton-doener { background:#f3eddd; --kmi-strich:#8f6f2c; }
+        .kmi-ton-pasta { background:#f8f1df; --kmi-strich:#9c7d2b; }
+        .kmi-ton-salat { background:#e9f2ea; --kmi-strich:#3f7a52; }
+        .kmi-ton-suppe { background:#f2efe6; --kmi-strich:#7d6c40; }
+        .kmi-ton-fisch { background:#e8f0f3; --kmi-strich:#3f6a7a; }
+        .kmi-ton-getraenk { background:#e7f1ef; --kmi-strich:#2f6b60; }
+        .kmi-ton-dessert { background:#f7ecf0; --kmi-strich:#8c4a64; }
+        .kmi-ton-pommes { background:#f9f1dc; --kmi-strich:#a08327; }
+        .kmi-ton-teller { background:#eceeed; --kmi-strich:#6f7f7a; }
+
+        .dark-mode .kmi-ton-pizza { background:#2a201a; --kmi-strich:#d99e70; }
+        .dark-mode .kmi-ton-burger { background:#292118; --kmi-strich:#cf9d5e; }
+        .dark-mode .kmi-ton-doener { background:#272219; --kmi-strich:#c9a45c; }
+        .dark-mode .kmi-ton-pasta { background:#29251a; --kmi-strich:#d0ac53; }
+        .dark-mode .kmi-ton-salat { background:#1b2620; --kmi-strich:#6fb384; }
+        .dark-mode .kmi-ton-suppe { background:#26231c; --kmi-strich:#b9a471; }
+        .dark-mode .kmi-ton-fisch { background:#1b2529; --kmi-strich:#74a8ba; }
+        .dark-mode .kmi-ton-getraenk { background:#1a2523; --kmi-strich:#6bb3a5; }
+        .dark-mode .kmi-ton-dessert { background:#291d22; --kmi-strich:#c98aa2; }
+        .dark-mode .kmi-ton-pommes { background:#2a2519; --kmi-strich:#d7b556; }
+        .dark-mode .kmi-ton-teller { background:#232626; --kmi-strich:#9db1ab; }
+
         .kmi-schimmer {
             background: linear-gradient(90deg,
                 rgba(0,37,30,0.05) 25%, rgba(0,37,30,0.09) 37%, rgba(0,37,30,0.05) 63%);
@@ -45810,18 +45840,18 @@ function gerichtBild(item, stil, radius) {
         return '<img src="' + url + '" alt="' + name + '" loading="lazy" decoding="async"'
              + ' style="' + stil + 'object-fit:cover;' + (radius ? 'border-radius:' + radius + ';' : '') + '">';
     }
-    // Hell und ruhig, Haus-Grün auf Sand. Eine dunkelgrüne Fassung mit Gold
-    // war kräftiger, aber sechs schwarze Blöcke untereinander erschlagen die
-    // Speisekarte -- das Motiv soll das Gericht begleiten, nicht übertönen.
-    var d = _MOTIVE[motivFuer(item)] || _MOTIVE.teller;
-    return '<div role="img" aria-label="' + name + '" style="' + stil
-         + 'background:var(--bg-secondary);'
-         + 'background-image:linear-gradient(140deg,rgba(0,61,51,0.055),rgba(0,61,51,0.13));'
+    // Jede Kategorie ihre eigene Farbe -- eine Speisekarte in elf Tonwerten
+    // ist lebendiger als elf graue Kacheln. Die Farbe kommt aus einer Klasse
+    // (.kmi-ton-*), nicht aus dem style-Attribut: nur so gibt es zu jedem Ton
+    // auch eine dunkle Fassung fuer den Nachtmodus.
+    var art = motivFuer(item);
+    var d = _MOTIVE[art] || _MOTIVE.teller;
+    return '<div role="img" aria-label="' + name + '" class="kmi-ton-' + art + '" style="' + stil
          + (radius ? 'border-radius:' + radius + ';' : '')
          + 'display:flex;align-items:center;justify-content:center;">'
-         + '<svg viewBox="0 0 24 24" fill="none" stroke="var(--ink-strong)" stroke-width="1.15"'
+         + '<svg viewBox="0 0 24 24" fill="none" stroke="var(--kmi-strich)" stroke-width="1.15"'
          + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
-         + ' style="width:54%;height:54%;max-width:104px;max-height:104px;opacity:.5;">'
+         + ' style="width:54%;height:54%;max-width:104px;max-height:104px;opacity:.9;">'
          + d + '</svg>'
          + '</div>';
 }

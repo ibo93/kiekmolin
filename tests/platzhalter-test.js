@@ -50,10 +50,26 @@ t('ohne jede Angabe kippt nichts', P.motiv({}) === 'teller' && P.motiv(null) ===
 var zeichnungen = Object.keys(P.motive).map(function (k) { return P.motive[k]; });
 t('kein Motiv ist doppelt', new Set(zeichnungen).size === zeichnungen.length,
   zeichnungen.length - new Set(zeichnungen).size + ' doppelt');
-// Früher hatte jede Kategorie einen eigenen Pastellton -- zehn Bonbonfarben
-// nebeneinander. Jetzt EINE Farbwelt, nur die Zeichnung wechselt.
-t('die Motive tragen keine eigenen Farben mehr',
+// Jede Kategorie hat ihre eigene Farbe -- aber als KLASSE, nicht im
+// style-Attribut. Nur so gibt es zu jedem Ton auch eine dunkle Fassung; feste
+// Pastellfarben im Inline-Style haetten nachts geleuchtet.
+t('die Zeichnungen selbst tragen keine Farbe (die kommt aus der Klasse)',
   zeichnungen.every(function (z) { return typeof z === 'string' && z.indexOf('#') < 0; }));
+t('jede Kategorie bekommt ihre eigene Klasse',
+  /class="kmi-ton-' \+ art \+ '"/.test(H));
+t('und der Strich kommt aus der Klasse mit',
+  /stroke="var\(--kmi-strich\)"/.test(H));
+
+var TOENE = ['pizza','burger','doener','pasta','salat','suppe','fisch','getraenk','dessert','pommes','teller'];
+TOENE.forEach(function (k) {
+    t('Farbe fuer ' + k + ' ist hell UND dunkel hinterlegt',
+      new RegExp('\\.kmi-ton-' + k + ' \\{ background:#').test(H)
+      && new RegExp('\\.dark-mode \\.kmi-ton-' + k + ' \\{ background:#').test(H));
+});
+// Elf verschiedene Toene -- sonst waere die Aufteilung sinnlos.
+var hell = (H.match(/\n        \.kmi-ton-[a-z]+ \{ background:(#[0-9a-f]{6});/g) || [])
+    .map(function (z) { return z.slice(-8, -1); });
+t('elf verschiedene Farbtoene', new Set(hell).size === 11, new Set(hell).size + ' verschiedene von ' + hell.length);
 t('es gibt fuer alle wichtigen Kategorien eins', Object.keys(P.motive).length >= 11,
   Object.keys(P.motive).length);
 
@@ -103,9 +119,10 @@ t('jedes Motiv besteht aus mehreren Teilen',
       return (P.motive[k].match(/<(path|circle)/g) || []).length < 2; }).join(', '));
 
 // ---- Der Grund dreht im dunklen Modus mit -----------------------------------
-// Feste Pastelltöne hätten im Dunkeln geleuchtet.
-t('Grund und Strich kommen aus den Design-Variablen',
-  /background:var\(--bg-secondary\)/.test(H) && /stroke="var\(--ink-strong\)"/.test(H));
+// Feste Pastelltöne im style-Attribut hätten im Dunkeln geleuchtet -- deshalb
+// Klassen mit eigener .dark-mode-Fassung.
+t('im style-Attribut steht keine feste Farbe mehr',
+  !/aria-label="' \+ name \+ '" class="kmi-ton-' \+ art \+ '" style="' \+ stil[\s\S]{0,120}background:#/.test(H));
 
 // ---- Platzhalter während des Ladens -----------------------------------------
 var L = new Function(H.slice(H.indexOf('function ladePlatzhalter('),
