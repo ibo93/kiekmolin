@@ -1,10 +1,10 @@
-// EXTRAS ANLEGEN -- wird wirklich ausgefuehrt, gegen Datenbank-Attrappen.
+// EXTRAS ANLEGEN -- wird wirklich ausgeführt, gegen Datenbank-Attrappen.
 //
 // Im Dashboard stand "Keine Optionsgruppen vorhanden", obwohl der Scanner
 // sechs Gruppen gefunden hatte. Grund: schlug das Anlegen fehl, stand das
 // ausschliesslich in der Browser-Konsole --
 //     if (!grpRes.ok) { console.warn(...); continue; }
-// -- und die Schleife machte mit der naechsten Gruppe weiter. Kennt die
+// -- und die Schleife machte mit der nächsten Gruppe weiter. Kennt die
 // Datenbank eine Spalte nicht (etwa internal_name), scheiterten damit ALLE
 // Gruppen, ohne dass irgendwo ein Grund zu sehen war.
 'use strict';
@@ -85,7 +85,7 @@ async function lauf(welt) {
     t('unbekannte Spalte bei den Optionen ebenso', r3.erg.angelegt === 2, r3.erg.angelegt);
 
     // --- Geht wirklich nichts, muss man es SEHEN ---
-    // Ein Fehler, der sich NICHT durch Weglassen einer Spalte beheben laesst
+    // Ein Fehler, der sich NICHT durch Weglassen einer Spalte beheben lässt
     // (z.B. fehlende Schreibrechte) -- der muss auf den Bildschirm.
     var r4 = await lauf({ hartFehler: 'irgendwas ist kaputt' });
     t('geht es wirklich nicht, wird es gemeldet statt verschluckt',

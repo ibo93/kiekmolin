@@ -1,6 +1,6 @@
 // Kiek mol in — Bewertungs-Nachfass: "Hat's geschmeckt?"-Push nach der Bestellung
 //
-// Laeuft als Netlify Scheduled Function stuendlich (siehe netlify.toml).
+// Läuft als Netlify Scheduled Function stündlich (siehe netlify.toml).
 // Findet Bestellungen, die vor 18-48 Stunden abgeschlossen wurden
 // (delivered/picked_up, completed_at gesetzt) und schickt dem Kunden EINEN
 // Push mit Deep-Link direkt ins Bewertungs-Modal des Restaurants
@@ -8,7 +8,7 @@
 //
 // Spam-Schutz:
 //   - pro Bestellung genau ein Push (orders.review_push_sent_at)
-//   - pro Kunde+Restaurant hoechstens 1x im MONAT
+//   - pro Kunde+Restaurant höchstens 1x im MONAT
 //   - Ruhezeiten 22-10 Uhr wie loyalty-push
 //
 // EINMALIG in Supabase:
@@ -27,9 +27,9 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:info@kiekmolin.de';
 
-// Bewusst zurueckhaltend: Der Nachfass kommt erst am NAECHSTEN Tag (nicht noch
-// waehrend/kurz nach dem Essen) und pro Kunde+Restaurant hoechstens 1x im Monat.
-// Zu fruehe/zu haeufige Bewertungs-Bitten nerven und schaden dem Restaurant.
+// Bewusst zurückhaltend: Der Nachfass kommt erst am NAECHSTEN Tag (nicht noch
+// während/kurz nach dem Essen) und pro Kunde+Restaurant höchstens 1x im Monat.
+// Zu frühe/zu häufige Bewertungs-Bitten nerven und schaden dem Restaurant.
 const MIN_AGE_HOURS = 18;        // fruehestens ~naechster Tag (mit Ruhezeiten: mittags)
 const MAX_AGE_HOURS = 48;        // spaetestens 2 Tage danach (sonst wirkt es seltsam)
 const PER_CUSTOMER_GAP_DAYS = 30; // pro Kunde+Restaurant max. 1 Nachfass pro Monat
@@ -80,9 +80,9 @@ async function pushTo(sub, payload) {
 }
 
 function inQuietHours() {
-  // Berliner Zeit, nicht UTC: Die Lambda laeuft mit TZ=UTC, die Ruhezeiten sind
+  // Berliner Zeit, nicht UTC: Die Lambda läuft mit TZ=UTC, die Ruhezeiten sind
   // aber als deutsche Uhrzeit gemeint. Im Sommer verschob das alles um 2 Stunden --
-  // Gaeste bekamen "Wie war's bei ...?" noch um 23:14 Uhr aufs Handy.
+  // Gäste bekamen "Wie war's bei ...?" noch um 23:14 Uhr aufs Handy.
   const h = parseInt(new Date().toLocaleTimeString('de-DE', {
     timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false
   }), 10);
@@ -141,7 +141,7 @@ exports.handler = async function () {
       }
     } catch (e) { /* Pruefung optional */ }
 
-    // Kunden-Geraete (wie loyalty-push: Match ueber customer_phone)
+    // Kunden-Geräte (wie loyalty-push: Match über customer_phone)
     let subs;
     try {
       subs = await sbGet(
@@ -171,7 +171,7 @@ exports.handler = async function () {
     const results = await Promise.all(subs.map(s => pushTo(s, payload)));
     const ok = results.filter(r => r.ok).length;
 
-    // Stale Subscriptions aufraeumen
+    // Stale Subscriptions aufräumen
     for (let i = 0; i < results.length; i++) {
       if (!results[i].ok && (results[i].statusCode === 404 || results[i].statusCode === 410)) {
         try {

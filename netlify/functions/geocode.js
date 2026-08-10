@@ -1,5 +1,5 @@
-// Serverseitiges Geocoding (OpenStreetMap/Nominatim). Zuverlaessiger als direkt
-// aus dem Browser (kein CORS/Service-Worker/Netzwerk-Block). Wird vom Menue-/
+// Serverseitiges Geocoding (OpenStreetMap/Nominatim). Zuverlässiger als direkt
+// aus dem Browser (kein CORS/Service-Worker/Netzwerk-Block). Wird vom Menü-/
 // Restaurant-Anlegen genutzt, damit Restaurants an ihrer ECHTEN Adresse auf der
 // Karte landen (statt pauschal Greetsiel).
 //

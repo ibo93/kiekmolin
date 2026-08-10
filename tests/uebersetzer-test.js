@@ -5,16 +5,16 @@
 // 1. GERICHTNAMEN WURDEN UEBERSETZT. "Döner Teller" wurde zu "Doner Plate".
 //    Der Gast sucht dann einen Namen, den es an der Theke nicht gibt, und das
 //    Personal versteht die Bestellung nicht. Echte mehrsprachige Karten machen
-//    es andersherum: Name bleibt, Beschreibung wird uebersetzt.
+//    es andersherum: Name bleibt, Beschreibung wird übersetzt.
 //
-// 2. DAS WOERTERBUCH KANNTE DIE KARTE NICHT. Von 123 Zutatenwoertern der
+// 2. DAS WOERTERBUCH KANNTE DIE KARTE NICHT. Von 123 Zutatenwörtern der
 //    echten Karte standen 38 drin. Der Rest blieb deutsch stehen -- mitten im
 //    englischen Satz.
 //
-// 3. 142 GLEICHZEITIGE ANFRAGEN. Fuer jedes Gericht ging sofort eine Anfrage
+// 3. 142 GLEICHZEITIGE ANFRAGEN. Für jedes Gericht ging sofort eine Anfrage
 //    an MyMemory raus, einen kostenlosen Dienst mit hartem Limit. Nach den
-//    ersten paar kam nur noch "MYMEMORY WARNING" zurueck -- im Quelltext steht
-//    sogar schon eine Aufraeumroutine fuer genau diesen Muell im Cache.
+//    ersten paar kam nur noch "MYMEMORY WARNING" zurück -- im Quelltext steht
+//    sogar schon eine Aufräumroutine für genau diesen Müll im Cache.
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -64,13 +64,13 @@ var doener = { id: 'x1', name: 'Döner Teller', description: 'Kalbfleisch, Salat
 });
 t('auf Deutsch sowieso', U.item(doener, 'de').name === 'Döner Teller');
 
-// Namen, die das Woerterbuch frueher zerlegt haette
+// Namen, die das Wörterbuch früher zerlegt hätte
 [['Pizza Emden', 'en'], ['Hähnchenschnitzel mit Pommes', 'en'], ['Gemischter Salat', 'nl']].forEach(function (p) {
     var it = { id: 'n' + p[0], name: p[0], description: '' };
     t('"' + p[0] + '" bleibt "' + p[0] + '"', U.item(it, p[1]).name === p[0], U.item(it, p[1]).name);
 });
 
-// Alte Caches tragen noch uebersetzte Namen mit sich herum.
+// Alte Caches tragen noch übersetzte Namen mit sich herum.
 var U2 = bau(async function () { throw new Error('nein'); },
     { x1: { en: { name: 'Doner Plate', description: 'veal, salad', _apiDone: true } } });
 t('ein alter Cache mit uebersetztem Namen wird nicht mehr benutzt',
@@ -102,7 +102,7 @@ var quote = Math.round(gedeckt / Object.keys(alle).length * 100);
 t('das Woerterbuch deckt die echte Karte zu mindestens 90 % ab',
   quote >= 90, quote + ' % (' + gedeckt + '/' + Object.keys(alle).length + ')');
 
-// Frueher blieben diese hier stehen -- Wort fuer Wort nachgesehen.
+// Früher blieben diese hier stehen -- Wort für Wort nachgesehen.
 [['Putenschinken', 'en', /turkey/i], ['Gurken', 'en', /cucumber/i], ['Sahnesauce', 'nl', /roomsaus/i],
  ['Fladenbrot', 'en', /flatbread/i], ['Rotkrautsalat', 'nl', /rodekool/i]].forEach(function (p) {
     t('"' + p[0] + '" wird uebersetzt (' + p[1] + ')', p[2].test(U.byDict(p[0], p[1])), U.byDict(p[0], p[1]));

@@ -1,12 +1,12 @@
 // Serverseitiges Speichern einer Bestellung -- Fallback, wenn der direkte
-// Insert aus dem Browser (oeffentlicher anon-Key) fehlschlaegt, typischerweise
+// Insert aus dem Browser (öffentlicher anon-Key) fehlschlägt, typischerweise
 // weil RLS (Row Level Security) auf der orders-Tabelle Inserts blockiert.
 //
 // MUSS im Git-Repo liegen (sonst beim Deploy weg).
 //
-// Nutzt den SUPABASE_SERVICE_KEY (umgeht RLS). Ist der nicht gesetzt, faellt es
-// auf den anon-Key zurueck -- dann hilft es bei RLS allerdings nicht und meldet
-// den Fehler klar zurueck.
+// Nutzt den SUPABASE_SERVICE_KEY (umgeht RLS). Ist der nicht gesetzt, fällt es
+// auf den anon-Key zurück -- dann hilft es bei RLS allerdings nicht und meldet
+// den Fehler klar zurück.
 //
 // Aufruf: POST /.netlify/functions/order-save   Body: { "order": { ...felder... } }
 // Antwort: { ok:true, id } | { ok:false, status, error }
@@ -27,7 +27,7 @@ var CORS = {
 
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
 
-// Nur bekannte/sichere Felder uebernehmen -- keine willkuerlichen Spalten
+// Nur bekannte/sichere Felder übernehmen -- keine willkürlichen Spalten
 // aus dem Browser durchreichen.
 var ALLOWED = [
     'order_number', 'restaurant_id', 'restaurant_name', 'status', 'order_type',

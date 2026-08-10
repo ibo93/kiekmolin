@@ -1,12 +1,12 @@
 // DER IMPORT WIRD WIRKLICH AUSGEFUEHRT -- gegen eine Datenbank-Attrappe, die
 // vier Spalten nicht kennt.
 //
-// Der Fehler, den diese Datei festhaelt, kam so aus dem Betrieb:
+// Der Fehler, den diese Datei festhält, kam so aus dem Betrieb:
 // "beim Importieren fehlen paar ... die ersten Pizzen waren es".
 //
 // Kennt die Datenbank eine Spalte nicht, meldet PostgREST 400 und nennt sie.
 // Der Import nahm das Feld heraus und versuchte es GENAU EINMAL erneut. Bei
-// mehreren unbekannten Spalten scheiterte der zweite Versuch am naechsten
+// mehreren unbekannten Spalten scheiterte der zweite Versuch am nächsten
 // Feld -- das Gericht war weg. Jede unbekannte Spalte kostete also ein
 // Gericht, und immer eines der ERSTEN: danach war das Feld gemerkt und wurde
 // gar nicht mehr mitgeschickt.
@@ -32,7 +32,7 @@ global.fetch = async function (url, opts) {
   if (u.indexOf('menu_items') >= 0 && opts && opts.method === 'POST') {
     const b = JSON.parse(opts.body);
     // Spalte existiert, hat aber den falschen Typ: die Datenbank lehnt nur
-    // den WERT ab. Frueher war das Feld damit verloren.
+    // den WERT ab. Früher war das Feld damit verloren.
     if (NUR_TEXT && typeof b.sizes === 'object' && b.sizes !== null) {
       return { ok:false, status:400,
         clone: () => ({ text: async () => JSON.stringify({ message: 'invalid input syntax for type json' }) }),
@@ -59,10 +59,10 @@ const umw = {
   loadMenuForRestaurant:()=>{}, katSchluessel:(x)=>String(x).toLowerCase(),
   findeKategorie:()=>null, sichereKarte:async()=>true, karteAbgleichen:()=>null,
   zeigeKartenAbgleich:()=>{}, window:{ menuItems: [] },
-  // Die Anleitung bei fehlenden Spalten braucht das DOM -- hier nicht noetig,
-  // geprueft wird sie in tests/groesse-bestellung-test.js.
+  // Die Anleitung bei fehlenden Spalten braucht das DOM -- hier nicht nötig,
+  // geprüft wird sie in tests/größe-bestellung-test.js.
   _zeigeSpaltenHilfe:()=>{},
-  // Extras sind ein eigener Weg -- geprueft in tests/extras-test.js.
+  // Extras sind ein eigener Weg -- geprüft in tests/extras-test.js.
   legeExtrasAn: async () => ({ angelegt: 0, uebersprungen: 0 })
 };
 

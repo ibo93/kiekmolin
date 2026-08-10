@@ -3,7 +3,7 @@ function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g?'OK  
 var sw = fs.readFileSync('/home/user/kiekmolin/sw.js','utf8');
 var html = fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 
-// --- Service Worker gehaertet ---
+// --- Service Worker gehärtet ---
 var fetchTeil = sw.slice(sw.indexOf("addEventListener('fetch'"), sw.indexOf("addEventListener('push'"));
 t('SW: liest im fetch-Handler keinen Rumpf als Text ein (war der 1,2-MB-Fehler)',
   !/\.text\(\)/.test(fetchTeil), 'gefunden in: ' + (fetchTeil.match(/.{0,40}\.text\(\)/) || [''])[0]);

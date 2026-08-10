@@ -1,12 +1,12 @@
 // Kiek mol in — Stand eines laufenden Scans abfragen.
 //
-// Gehoert zu menu-scan-background.js: die legt ihr Ergebnis unter einer
+// Gehört zu menu-scan-background.js: die legt ihr Ergebnis unter einer
 // Auftragsnummer ab, weil sie dem Browser nicht mehr antworten kann (der hat
-// laengst ein 202 bekommen und die Verbindung ist zu). Die App fragt hier alle
+// längst ein 202 bekommen und die Verbindung ist zu). Die App fragt hier alle
 // zwei Sekunden nach.
 //
 // Antwort:
-//   { ok:true, status:'laeuft' }                      -- noch am Arbeiten
+//   { ok:true, status:'läuft' }                      -- noch am Arbeiten
 //   { ok:true, status:'fertig', items:[...], meta }   -- fertig
 //   { ok:true, status:'fehler', fehler:'...' }        -- schiefgegangen
 //
@@ -22,7 +22,7 @@ var CORS = {
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
-    // Niemals zwischenspeichern: die Antwort aendert sich ja gerade.
+    // Niemals zwischenspeichern: die Antwort ändert sich ja gerade.
     'Cache-Control': 'no-store'
 };
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
@@ -49,7 +49,7 @@ exports.handler = async function (event) {
         }
         var rows = await res.json();
         // Noch kein Eintrag = die Function arbeitet noch. Das ist der
-        // Normalfall waehrend des Scans, kein Fehler.
+        // Normalfall während des Scans, kein Fehler.
         if (!Array.isArray(rows) || !rows.length) return json(200, { ok: true, status: 'laeuft' });
 
         var m = rows[0].metadata || {};

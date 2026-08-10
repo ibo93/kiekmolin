@@ -1,20 +1,20 @@
 // Bon-Druck via Epson Server Direct Print.
 // Der Epson-Bondrucker (TM-Serie mit ePOS Server Direct) wird so konfiguriert,
-// dass er regelmaessig (alle 5-15 Sek) bei dieser URL nachfragt. Wir liefern
-// dann die naechste ungedruckte Bestellung im ePOS-Print-XML-Format aus und
+// dass er regelmässig (alle 5-15 Sek) bei dieser URL nachfragt. Wir liefern
+// dann die nächste ungedruckte Bestellung im ePOS-Print-XML-Format aus und
 // markieren sie als gedruckt.
 //
 // Modi:
 //   GET/POST /.netlify/functions/pos-print?restaurant=<id>&key=<pull_key>
-//     -> liefert XML mit der naechsten ungedruckten Bestellung (oder leer)
+//     -> liefert XML mit der nächsten ungedruckten Bestellung (oder leer)
 //     -> markiert die Bestellung als gedruckt
 //
 //   POST /.netlify/functions/pos-print?action=reprint&order=<id>
 //        Header: Authorization: Bearer <supabase-login-token>
-//     -> setzt printed_at zurueck, damit der Drucker den Bon nochmal holt
+//     -> setzt printed_at zurück, damit der Drucker den Bon nochmal holt
 //
 // ENV-Vars optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (bevorzugt).
-// Fehlen sie, fallen wir auf die oeffentlichen anon-Zugangsdaten zurueck.
+// Fehlen sie, fallen wir auf die öffentlichen anon-Zugangsdaten zurück.
 
 'use strict';
 
@@ -74,7 +74,7 @@ function xmlEscape(s) {
         .replace(/'/g, '&apos;');
 }
 
-// Empty-Response damit der Drucker beim naechsten Poll wieder fragt.
+// Empty-Response damit der Drucker beim nächsten Poll wieder fragt.
 function emptyEposResponse() {
     return '<?xml version="1.0" encoding="utf-8"?>' +
            '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
@@ -97,8 +97,8 @@ function generateEposBon(order, restaurantName) {
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
     xml += '<text lang="de" smooth="true"/>';
 
-    // Restaurant-Header gross — wichtig fuer Laeden ohne separate Kasse,
-    // weil der Bon dann das primaere Beleg-Dokument ist.
+    // Restaurant-Header groß — wichtig für Läden ohne separate Kasse,
+    // weil der Bon dann das primäre Beleg-Dokument ist.
     if (restaurantName) {
         xml += '<text align="center" width="2" height="2">' + xmlEscape(restaurantName) + '&#10;</text>';
         xml += '<text>&#10;</text>';
@@ -118,7 +118,7 @@ function generateEposBon(order, restaurantName) {
     items.forEach(function (item) {
         var qty = item.quantity || 1;
         var name = item.name || '';
-        // Items in doppelter Hoehe — besser lesbar in der Kueche
+        // Items in doppelter Höhe — besser lesbar in der Küche
         xml += '<text width="1" height="2">' + xmlEscape(qty + 'x ' + name) + '&#10;</text>';
         if (item.options) xml += '<text>  &gt; ' + xmlEscape(item.options) + '&#10;</text>';
     });
@@ -126,7 +126,7 @@ function generateEposBon(order, restaurantName) {
     xml += '<text>================================&#10;</text>';
     xml += '<text>&#10;</text>';
 
-    // Total — extra gross (3x), damit's nicht zu uebersehen ist
+    // Total — extra groß (3x), damit's nicht zu übersehen ist
     var total = parseFloat(order.total || 0).toFixed(2).replace('.', ',');
     xml += '<text align="right" width="3" height="3">' + total + ' EUR&#10;</text>';
     xml += '<text align="right">GESAMT&#10;</text>';
@@ -197,7 +197,7 @@ function jsonResponse(status, obj) {
     };
 }
 
-// Login-Token validieren (fuer Reprint-Aktion vom Dashboard)
+// Login-Token validieren (für Reprint-Aktion vom Dashboard)
 async function authedRestaurantIds(token) {
     if (!token) return null;
     var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
@@ -229,7 +229,7 @@ exports.handler = async function (event) {
             var orderId = q.order;
             if (!orderId) return jsonResponse(400, { ok: false, error: 'Order-ID fehlt.' });
 
-            // Restaurant der Bestellung pruefen
+            // Restaurant der Bestellung prüfen
             var orderRows = await sbGet('orders?id=eq.' + encodeURIComponent(orderId) +
                 '&select=id,restaurant_id');
             if (!orderRows.length) return jsonResponse(404, { ok: false, error: 'Bestellung nicht gefunden.' });
@@ -245,7 +245,7 @@ exports.handler = async function (event) {
         var restaurant = q.restaurant;
         var key = q.key || (event.headers && (event.headers['x-api-key'] || event.headers['X-API-Key']));
         if (!restaurant || !key) {
-            // Empty fuer den Drucker (keine 4xx -> Drucker meldet sonst Fehler)
+            // Empty für den Drucker (keine 4xx -> Drucker meldet sonst Fehler)
             return xmlResponse(emptyEposResponse());
         }
 
@@ -259,7 +259,7 @@ exports.handler = async function (event) {
             return xmlResponse(emptyEposResponse());
         }
 
-        // Aelteste ungedruckte Bestellung (letzte 24h, nicht storniert)
+        // Älteste ungedruckte Bestellung (letzte 24h, nicht storniert)
         var since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         var orderPath = 'orders?restaurant_id=eq.' + encodeURIComponent(restaurant) +
             '&printed_at=is.null' +

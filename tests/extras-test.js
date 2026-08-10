@@ -84,7 +84,7 @@ t('Kategorien ohne genug Zutaten behalten den reinen Preis',
   fam && fam.optionen.map(function (o) { return o.name; }).join(', '));
 
 // --- Import ------------------------------------------------------------------
-// Zutaten sind Mehrfachauswahl, ein Menue-Upgrade nicht -- deshalb haengt es
+// Zutaten sind Mehrfachauswahl, ein Menü-Upgrade nicht -- deshalb hängt es
 // jetzt an der Gruppe statt fest verdrahtet zu sein.
 t('Extras werden als Mehrfachauswahl angelegt',
   /selection_type: g\.mehrfach === false \? 'single' : 'multiple'/.test(H));
@@ -94,9 +94,9 @@ t('vorhandene Gruppen werden NICHT ein zweites Mal angelegt',
   /_vorhandeneGruppen\[_schl\]\) \{ extrasUebersprungen\+\+; continue; \}/.test(H));
 t('und die Meldung sagt, wieviele es schon gab', /gab es/.test(H) && /extrasUebersprungen/.test(H));
 
-// --- Jedes Gericht soll Extras anbieten koennen -----------------------------
+// --- Jedes Gericht soll Extras anbieten können -----------------------------
 // Auf der Karte steht die Extra-Regel nur unter Pizzen und Salaten. Ein Gast,
-// der ein Schnitzel nimmt, moechte aber genauso Kaese dazu -- und jede
+// der ein Schnitzel nimmt, möchte aber genauso Käse dazu -- und jede
 // angeklickte Zutat ist Umsatz, der sonst nicht stattfindet.
 var uebertragen = gruppen.filter(function (g) { return g.uebertragen; })[0];
 t('Kategorien ohne eigene Extra-Regel bekommen die Liste auch',
@@ -115,7 +115,7 @@ if (uebertragen) {
       gruppen.filter(function (g) { return g.uebertragen; }).length === 1);
 }
 
-// --- Extras muessen aus BEIDEN Wegen entstehen ------------------------------
+// --- Extras müssen aus BEIDEN Wegen entstehen ------------------------------
 // Sie standen mitten im Import. Der Abgleich ruft den Import aber nur auf,
 // wenn es NEUE Gerichte gibt. Wer eine bekannte Karte noch einmal einliest --
 // der Normalfall, etwa wegen neuer Preise -- bekam deshalb nie Extras.

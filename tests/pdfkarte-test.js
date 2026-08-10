@@ -3,24 +3,24 @@
 // ============================================================================
 // WARUM DIESE DATEI EXISTIERT
 // ============================================================================
-// Der Scanner war "gruen" und lieferte im Betrieb trotzdem Muell. Der Grund:
+// Der Scanner war "grün" und lieferte im Betrieb trotzdem Müll. Der Grund:
 // alle Messungen liefen gegen Text, den ein PYTHON-Werkzeug aus dem PDF geholt
-// hatte. Im Browser laeuft aber pdf.js 2.16.105, und das liefert etwas
+// hatte. Im Browser läuft aber pdf.js 2.16.105, und das liefert etwas
 // anderes:
 //
 //   * fontFamily ist bei dieser Karte AUSNAHMSLOS "sans-serif". Die
 //     Fett-Erkennung (/bold|black|heavy/) konnte also nie greifen -- die
-//     Zwischenueberschriften fielen weg. Im Python-Text hiess dieselbe Schrift
+//     Zwischenüberschriften fielen weg. Im Python-Text hiess dieselbe Schrift
 //     "Fraunces-9ptBlack", dort funktionierte es. Der Test log.
-//   * Die Wortaufteilung ist eine andere, dadurch auch die Spaltenluecken.
+//   * Die Wortaufteilung ist eine andere, dadurch auch die Spaltenlücken.
 //     Zwischen Spalte 2 und 3 blieben 8 Punkt statt der geforderten 12 --
 //     eine Rasterzeile zu wenig. Diese eine fehlende Grenze klebte Spalte 2
-//     und 3 zusammen, und die Ueberschrift der dritten Spalte landete hinten
+//     und 3 zusammen, und die Überschrift der dritten Spalte landete hinten
 //     an einem Gericht der zweiten: "29. Pizza Emden V 8,00 € 10,00 € Nudeln"
 //     stand danach als Kategorie in der Karte.
 //
 // tests/daten/pronto-pdfjs.json ist deshalb keine Nachbildung, sondern die
-// unveraenderte Ausgabe von pdf.js 2.16.105 fuer die echte Karte
+// unveränderte Ausgabe von pdf.js 2.16.105 für die echte Karte
 // "Pronto Pronto, Riepe" (zwei Seiten, vier Spalten, 142 Gerichte).
 'use strict';
 
@@ -63,7 +63,7 @@ function ueberschriften(txt) {
            .map(function (z) { return z.slice(3).trim(); });
 }
 
-// Seitenkopf wegnehmen -- genau wie die App (Ueberschrift, die auf JEDER
+// Seitenkopf wegnehmen -- genau wie die App (Überschrift, die auf JEDER
 // Seite steht, ist ein Kopf und keine Kategorie).
 var seiten = texte.filter(Boolean), kopf = null;
 seiten.forEach(function (txt) {
@@ -81,8 +81,8 @@ if (seiten.length > 1 && kopf.length) {
 }
 
 // --- Spalten --------------------------------------------------------------
-// Der Beweis, dass die vier Spalten getrennt werden: sonst haengen
-// Ueberschrift und Gericht der Nachbarspalte in EINER Zeile.
+// Der Beweis, dass die vier Spalten getrennt werden: sonst hängen
+// Überschrift und Gericht der Nachbarspalte in EINER Zeile.
 var alleUeber = [];
 seiten.forEach(function (s) { alleUeber = alleUeber.concat(ueberschriften(s)); });
 t('keine Ueberschrift enthaelt einen Preis (= Spalten sind getrennt)',
@@ -94,9 +94,9 @@ t('keine Ueberschrift ist laenger als 40 Zeichen (= nichts zusammengeklebt)',
 t('genau der Fehler von frueher ist weg: "... € Nudeln" als Kategorie',
   !alleUeber.some(function (u) { return /€\s*\S/.test(u); }), JSON.stringify(alleUeber));
 
-// --- Ueberschriften-Schrift statt Fett-Erkennung --------------------------
-// Diese drei stehen KLEINER als der Fliesstext (7,6 gegen 7,9). Ueber die
-// Schriftgroesse sind sie nicht zu finden -- nur ueber die Schrift-Kennung.
+// --- Überschriften-Schrift statt Fett-Erkennung --------------------------
+// Diese drei stehen KLEINER als der Fliesstext (7,6 gegen 7,9). Über die
+// Schriftgröße sind sie nicht zu finden -- nur über die Schrift-Kennung.
 ['Spaghetti', 'Rigatoni', 'Tortellini'].forEach(function (u) {
     t('kleine Zwischenueberschrift "' + u + '" wird gefunden',
       alleUeber.indexOf(u) >= 0, JSON.stringify(alleUeber));
@@ -114,7 +114,7 @@ seiten.forEach(function (txt) {
 var items = F.sortiereNachNummer(F.pdfGerichteZuItems(gerichte));
 
 t('142 Gerichte gelesen', gerichte.length === 142, gerichte.length + ' statt 142');
-// EIN Gericht, mehrere Groessen -- nicht zwei fast gleiche Gerichte.
+// EIN Gericht, mehrere Größen -- nicht zwei fast gleiche Gerichte.
 // Auf der gedruckten Karte ist "1. Pizza Margherita 6,50 € 8,50 €" EIN
 // Gericht mit zwei Preisen. Vorher standen daraus "Pizza Margherita (klein)"
 // und "Pizza Margherita (groß)" untereinander in der Karte.
@@ -172,7 +172,7 @@ t('die Platte landet NICHT unter dem Restaurantnamen',
   !!pl && !/Pronto Pronto Pizzeria/.test(pl.category), pl && pl.category);
 
 // Sortierung innerhalb der Kategorie: 41 und 42 stehen auf der Karte in der
-// naechsten Spalte, in der App muessen sie der Reihe nach kommen.
+// nächsten Spalte, in der App müssen sie der Reihe nach kommen.
 var pizzaNrn = items.filter(function (i) { return i.category === 'Pizza' && i.dish_number; })
     .map(function (i) { return parseInt(i.dish_number, 10); });
 var sortiert = pizzaNrn.slice().sort(function (a, b) { return a - b; });
@@ -180,11 +180,11 @@ t('Pizzen stehen nach Nummer sortiert, nicht nach Druckspalte',
   JSON.stringify(pizzaNrn) === JSON.stringify(sortiert),
   'erste Abweichung bei ' + pizzaNrn.find(function (x, i) { return x !== sortiert[i]; }));
 
-// --- Reihenfolge ueber die Kategorien hinweg -------------------------------
+// --- Reihenfolge über die Kategorien hinweg -------------------------------
 // Innerhalb einer Kategorie stimmten die Nummern schon. Die Kategorien selbst
 // standen aber in der Reihenfolge des DRUCKBILDS: auf der vierspaltigen Karte
 // kommt "Pronto Spezial Schnitzel" (130-137) vor "Baguette" (51-59), weil es
-// weiter oben gedruckt ist. Im Menue sucht ein Gast die 51 vor der 130.
+// weiter oben gedruckt ist. Im Menü sucht ein Gast die 51 vor der 130.
 var reihe = [];
 items.forEach(function (i) {
     if (!reihe.length || reihe[reihe.length - 1].kat !== i.category) {
@@ -230,9 +230,9 @@ t('Zusatzstoff-Ziffern werden erkannt',
 t('die Klammern verschwinden aus der Beschreibung',
   probe[0].description === 'Käse, Tomaten', probe[0].description);
 
-// --- Groessennamen kommen von der Karte, nicht aus einer Annahme -----------
-// Ueber den Pizzen steht "KLEIN GROSS", ueber den Fleischgerichten
-// "IM BROT TELLER". Vorher hiess die zweite Groesse ueberall "groß" -- auch
+// --- Größennamen kommen von der Karte, nicht aus einer Annahme -----------
+// Über den Pizzen steht "KLEIN GROSS", über den Fleischgerichten
+// "IM BROT TELLER". Vorher hiess die zweite Größe überall "groß" -- auch
 // beim Döner, wo "Teller" auf der Karte steht.
 var doener = items.filter(function (i) { return i.dish_number === '61'; })[0];
 t('Döner Kebab hat die Groessen der Karte: im Brot / Teller',
@@ -255,14 +255,14 @@ t('die Spaltenkopf-Zeile ist kein Gericht',
   !items.some(function (i) { return /^(KLEIN|GROSS|IM BROT|TELLER)/i.test(i.name); }),
   (items.filter(function (i) { return /^(KLEIN|GROSS|IM BROT|TELLER)/i.test(i.name); })[0] || {}).name);
 
-// --- Groessen kommen bis in die Datenbank ----------------------------------
+// --- Größen kommen bis in die Datenbank ----------------------------------
 t('Import schreibt die Groessen mit',
   /sizes: \(Array\.isArray\(item\.sizes\) && item\.sizes\.length\) \? item\.sizes : null/.test(H));
 t('Gast-Ansicht macht daraus die Auswahl und zeigt "ab"-Preis',
   /var hasSizes = item\.sizes && Array\.isArray\(item\.sizes\)/.test(H)
   && /pricePrefix = 'ab '/.test(H));
-// Die erste Groesse ist nicht nur optisch markiert, sie steht auch wirklich
-// in der Auswahl -- sonst geht die Bestellung ohne Groesse raus.
+// Die erste Größe ist nicht nur optisch markiert, sie steht auch wirklich
+// in der Auswahl -- sonst geht die Bestellung ohne Größe raus.
 t('erste Groesse ist beim Gast vorausgewaehlt',
   /var _ersteGroesse = item\.sizes\[0\]/.test(H)
   && /currentItemOptions\.push\(\{ group: 'item_sizes'/.test(H));

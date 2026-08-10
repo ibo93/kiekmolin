@@ -8,9 +8,9 @@
 
 'use strict';
 
-// Antwortlaenge. Frueher 600 -- das war der groesste Zeitfresser: die Dauer
-// haengt fast nur an der Zahl der erzeugten Wortteile, nicht am Nachdenken.
-// 280 reicht fuer drei knappe Saetze plus eine kurze Aufzaehlung.
+// Antwortlänge. Früher 600 -- das war der grösste Zeitfresser: die Dauer
+// hängt fast nur an der Zahl der erzeugten Wortteile, nicht am Nachdenken.
+// 280 reicht für drei knappe Sätze plus eine kurze Aufzählung.
 var MAX_TOKENS = 280;
 
 var SYSTEM_PROMPT = [
@@ -54,7 +54,7 @@ var SYSTEM_PROMPT = [
     '- Rechtliches/Datenschutz: verweise auf info@kiekmolin.de.'
 ].join('\n');
 
-// Kontext knapp halten. Jedes Zeichen hier verzoegert JEDE Antwort, weil der
+// Kontext knapp halten. Jedes Zeichen hier verzögert JEDE Antwort, weil der
 // ganze Block bei jeder Frage neu mitgeschickt und gelesen wird. Vorher gingen
 // 40 Restaurants und 30 Gerichte mit -- rund 2000 Wortteile, die der Nutzer in
 // Wartezeit bezahlt hat. Die Speisekarte des GEOEFFNETEN Restaurants ist fast
@@ -108,19 +108,19 @@ function buildContext(ctx) {
 
 // Anbieter-Reihenfolge: NUR KOSTENLOSE.
 //
-// Anders als beim Menuescanner laeuft der Assistent bei jedem Gast und bei
+// Anders als beim Menüscanner läuft der Assistent bei jedem Gast und bei
 // jeder Frage -- hier summiert sich alles, was pro Anfrage Geld kostet.
 // Deshalb: Gemini 2.5 Flash (kostenloses Kontingent) zuerst, Groq als
 // ebenfalls kostenloser Notnagel.
 //
 // Claude wird NIE von selbst genommen, auch wenn ein ANTHROPIC_API_KEY
-// gesetzt ist (der gehoert dem Menuescanner). Nur wer ausdruecklich
+// gesetzt ist (der gehört dem Menüscanner). Nur wer ausdrücklich
 // CHAT_PROVIDER=anthropic setzt, bekommt ihn -- eine bewusste Entscheidung,
 // kein Versehen.
 //
 // Ist kein kostenloser Anbieter eingerichtet, geben wir lieber einen
-// ehrlichen Fehler zurueck als still auf einen kostenpflichtigen
-// auszuweichen. Eine ueberraschende Rechnung waere schlimmer als eine
+// ehrlichen Fehler zurück als still auf einen kostenpflichtigen
+// auszuweichen. Eine überraschende Rechnung wäre schlimmer als eine
 // klare Meldung.
 var FREE_PROVIDERS = ['gemini', 'groq'];
 
@@ -138,9 +138,9 @@ function pickProvider(env) {
     return null;
 }
 
-// Reihenfolge fuer den Ausweichversuch, wenn der erste Anbieter ausfaellt.
-// Enthaelt bewusst nur kostenlose -- ausser der Nutzer hat sich ausdruecklich
-// fuer einen kostenpflichtigen entschieden, dann bleibt der auch drin.
+// Reihenfolge für den Ausweichversuch, wenn der erste Anbieter ausfällt.
+// Enthält bewusst nur kostenlose -- ausser der Nutzer hat sich ausdrücklich
+// für einen kostenpflichtigen entschieden, dann bleibt der auch drin.
 function providerOrder(env) {
     var first = pickProvider(env);
     if (!first) return [];
@@ -148,7 +148,7 @@ function providerOrder(env) {
     return [first].concat(rest);
 }
 
-// Eingaben pruefen und begrenzen -- die Function ist oeffentlich erreichbar.
+// Eingaben prüfen und begrenzen -- die Function ist öffentlich erreichbar.
 function readInput(body) {
     var message = (body.message || '').toString().trim();
     if (!message) return { error: 'message required' };
@@ -167,9 +167,9 @@ function readInput(body) {
 }
 
 var MODELS = {
-    // Schnellstes Claude-Modell; 200K Kontext reicht hier um Laengen.
+    // Schnellstes Claude-Modell; 200K Kontext reicht hier um Längen.
     anthropic: 'claude-haiku-4-5',
-    // 2.5 Flash statt 2.0: neuer, versteht Speisekarten und Rueckfragen besser.
+    // 2.5 Flash statt 2.0: neuer, versteht Speisekarten und Rückfragen besser.
     gemini: 'gemini-2.5-flash',
     groq: 'llama-3.3-70b-versatile'
 };

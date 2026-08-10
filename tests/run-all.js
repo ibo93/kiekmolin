@@ -1,4 +1,4 @@
-// Fuehrt alle Testdateien aus und fasst zusammen. Exit-Code 1, sobald etwas rot ist.
+// Führt alle Testdateien aus und fasst zusammen. Exit-Code 1, sobald etwas rot ist.
 var cp = require('child_process'), fs = require('fs'), path = require('path');
 var dir = __dirname;
 var dateien = fs.readdirSync(dir)
@@ -12,10 +12,10 @@ dateien.forEach(function (f) {
     var a = (out.match(/^OK  /gm) || []).length;
     var b = (out.match(/^FAIL/gm) || []).length;
 
-    // Eine Datei, die gar nicht erst laeuft (Tippfehler, Absturz beim Laden),
-    // hat frueher "0 grün" gemeldet -- also genau wie eine bestandene Datei.
+    // Eine Datei, die gar nicht erst läuft (Tippfehler, Absturz beim Laden),
+    // hat früher "0 grün" gemeldet -- also genau wie eine bestandene Datei.
     // Ein Test, der still verschwindet, ist schlimmer als gar keiner: er
-    // behauptet Sicherheit, die es nicht gibt. Deshalb zaehlt das jetzt rot.
+    // behauptet Sicherheit, die es nicht gibt. Deshalb zählt das jetzt rot.
     if (!a && !b) {
         fehl++; ges++;
         console.log('  ' + f.padEnd(18) + '  -  ' + 'ABGESTUERZT (kein einziger Test gelaufen)');

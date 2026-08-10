@@ -15,7 +15,7 @@ function mk(scenario) {
     }
     calls.push('claude');
     // Der Prompt steht jetzt NACH dem Bild (damit das Bild zwischengespeichert
-    // werden kann). Deshalb alle Textbloecke zusammenziehen statt content[0].
+    // werden kann). Deshalb alle Textblöcke zusammenziehen statt content[0].
     prompts.push(body.messages[0].content.filter(c => c.type === 'text').map(c => c.text).join('\n'));
     return sse('{"items":[{"name":"Pizza Salami","price":9.5,"category":"Pizza"}]}');
   };
@@ -63,7 +63,7 @@ async function run(label, env, scenario, check, zusatz) {
     { ANTHROPIC_API_KEY: 'a', GOOGLE_VISION_API_KEY: 'v' }, { vision: 'denied' },
     r => /Speisekarten-Parser[\s\S]*letzte Spalte\/Seite erfasst hast\.$/.test(r.prompts[0].trim()) ? true : 'Prompt veraendert');
 
-  // Neu: die OCR darf das Zeitbudget nicht auffressen und laeuft nur in Runde 1.
+  // Neu: die OCR darf das Zeitbudget nicht auffressen und läuft nur in Runde 1.
   all &= await run('Fortsetzung ruft die OCR NICHT erneut auf',
     { ANTHROPIC_API_KEY: 'a', GOOGLE_VISION_API_KEY: 'v' }, { vision: 'ok' },
     r => r.calls.indexOf('vision') < 0 ? true : 'OCR lief in der Fortsetzung: ' + r.calls.join(','),

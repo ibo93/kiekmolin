@@ -4,8 +4,8 @@
 var fs = require('fs');
 // Bilder liegen nicht im Repo. Erst erzeugen:
 //   python3 tests/testkarte.py /tmp/karten
-// Dann (kostet NICHTS, laeuft ueber den kostenlosen Gemini-Schluessel):
-//   GKEY=<gemini-schluessel> KARTEN=/tmp/karten/ node tests/beweis-pruefung.js
+// Dann (kostet NICHTS, läuft über den kostenlosen Gemini-Schlüssel):
+//   GKEY=<gemini-schlüssel> KARTEN=/tmp/karten/ node tests/beweis-prüfung.js
 var S = (process.env.KARTEN || '/tmp/karten').replace(/\/?$/, '/');
 var PFAD = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
 var BILD = 'data:image/jpeg;base64,' + fs.readFileSync(process.argv[2] ? (process.argv[2].indexOf('/') >= 0 ? process.argv[2] : S + process.argv[2]) : S + 'karte.jpg').toString('base64');

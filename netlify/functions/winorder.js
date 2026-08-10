@@ -5,18 +5,18 @@
 //
 // WinOrder pollt diese Endpunkte (base = https://kiekmolin.de/wo/<restaurant>/<key>):
 //   GET  <base>/GetNewOrders        -> neue Bestellungen als WinOrder-OrderList-JSON
-//   POST <base>/SendTrackingStatus  -> WinOrder bestaetigt Empfang (OrderID) ->
-//                                       wir markieren die Bestellung als uebertragen
+//   POST <base>/SendTrackingStatus  -> WinOrder bestätigt Empfang (OrderID) ->
+//                                       wir markieren die Bestellung als übertragen
 //   PUT  <base>/PreparationTime     -> aktuelle Vorbereitungszeit (optional, wird nur quittiert)
 //
-// <key> = restaurants.pos_pull_key (derselbe Schluessel wie bei der Abruf-/Druck-Schnittstelle).
+// <key> = restaurants.pos_pull_key (derselbe Schlüssel wie bei der Abruf-/Druck-Schnittstelle).
 //
-// EINMALIG in Supabase ausfuehren:
+// EINMALIG in Supabase ausführen:
 //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS winorder_sent_at timestamptz;
-//   -- optional, fuer die Wartezeit-Anzeige im Checkout:
+//   -- optional, für die Wartezeit-Anzeige im Checkout:
 //   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_minutes int;
 //   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_prep_updated_at timestamptz;
-//   -- optional, fuer die Kassen-Ampel im Dashboard (Kasse online/offline):
+//   -- optional, für die Kassen-Ampel im Dashboard (Kasse online/offline):
 //   ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pos_last_poll_at timestamptz;
 //
 // ENV optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (sonst anon-Fallback).
@@ -116,7 +116,7 @@ function mapOrder(o, rest) {
     // Notizen als klar erkennbarer Hinweis-Artikel oben
     var notes = [o.customer_notes, o.delivery_notes, addr.note].filter(Boolean).join(' | ');
     if (notes) articles.unshift({ ArticleNo: '', ArticleName: 'HINWEIS', ArticleSize: '', Price: 0, Count: 1, Comment: notes });
-    // Liefergebuehr, Trinkgeld und Rabatt als eigene Artikel, damit die
+    // Liefergebühr, Trinkgeld und Rabatt als eigene Artikel, damit die
     // Artikelsumme in WinOrder dem Total der App entspricht
     if (Number(o.delivery_fee) > 0) articles.push({ ArticleNo: '', ArticleName: 'Liefergebühr', ArticleSize: '', Price: Number(o.delivery_fee), Count: 1, Comment: '' });
     if (Number(o.tip) > 0) articles.push({ ArticleNo: '', ArticleName: 'Trinkgeld', ArticleSize: '', Price: Number(o.tip), Count: 1, Comment: '' });
@@ -154,8 +154,8 @@ function mapOrder(o, rest) {
 // WinOrder-Trackingstatus -> kiekmolin-Bestellstatus. WinOrder schickt je nach
 // Version Klartext oder Zahlencodes; beides tolerant deuten. Unbekanntes wird
 // ignoriert (dann bleibt der Status wie er ist). Zahlencodes werden bewusst
-// NIE auf 'cancelled' gemappt -- ein faelschlich stornierter Eindruck beim
-// Kunden waere der schlimmste Fehldeutungs-Fall.
+// NIE auf 'cancelled' gemappt -- ein fälschlich stornierter Eindruck beim
+// Kunden wäre der schlimmste Fehldeutungs-Fall.
 function mapTrackingStatus(raw) {
     if (raw == null) return '';
     if (typeof raw === 'object') raw = raw.Status != null ? raw.Status : (raw.status != null ? raw.status : '');
@@ -173,8 +173,8 @@ function mapTrackingStatus(raw) {
     return '';
 }
 
-// Reihenfolge der Stati -- Updates aus der Kasse duerfen nie rueckwaerts gehen
-// (z.B. 'delivered' nicht wieder auf 'preparing' zuruecksetzen).
+// Reihenfolge der Stati -- Updates aus der Kasse dürfen nie rückwärts gehen
+// (z.B. 'delivered' nicht wieder auf 'preparing' zurücksetzen).
 var TRACK_RANK = { received: 0, accepted: 1, preparing: 2, ready: 3, out_for_delivery: 4, delivered: 5, picked_up: 5 };
 // Zeitstempel-Spalten wie im Gastro-Dashboard (updateOrderStatus)
 var TRACK_TS = { preparing: 'preparing_at', ready: 'ready_at', out_for_delivery: 'out_for_delivery_at', delivered: 'completed_at', cancelled: 'cancelled_at' };
@@ -195,8 +195,8 @@ exports.handler = async function (event) {
 
     // Pfad zerlegen. Je nach Netlify-Konfiguration bekommt die Funktion entweder
     // den ORIGINAL-Pfad (/wo/<restaurant>/<key>/<action>) ODER den umgeschriebenen
-    // (/.netlify/functions/winorder/<restaurant>/<key>/<action>). Beide unterstuetzen:
-    // hinter dem bekannten Praefix ('winorder' oder 'wo') alles als Segmente nehmen,
+    // (/.netlify/functions/winorder/<restaurant>/<key>/<action>). Beide unterstützen:
+    // hinter dem bekannten Präfix ('winorder' oder 'wo') alles als Segmente nehmen,
     // sonst den kompletten Pfad verwenden.
     var parts = String(event.rawUrl ? new URL(event.rawUrl).pathname : (event.path || '')).split('/').filter(Boolean);
     var idx = parts.indexOf('winorder');
@@ -223,7 +223,7 @@ exports.handler = async function (event) {
 
     if (!restaurant || !key) return json(401, { error: 'restaurant/key fehlt in der URL' });
 
-    // Auth: Schluessel gegen restaurants.pos_pull_key pruefen
+    // Auth: Schlüssel gegen restaurants.pos_pull_key prüfen
     var rest;
     try {
         var rows = await sbGet('restaurants?id=eq.' + encodeURIComponent(restaurant) + '&select=id,name,pos_pull_key');
@@ -256,9 +256,9 @@ exports.handler = async function (event) {
                 throw e;
             }
             // WICHTIG gegen Endlos-Flut: Bestellungen SOFORT beim Ausliefern als
-            // uebertragen markieren (nicht erst auf SendTrackingStatus warten -- das
-            // wird von WinOrder nicht zuverlaessig geschickt). Nur was erfolgreich
-            // markiert werden konnte, wird ueberhaupt ausgeliefert. Kann nicht markiert
+            // übertragen markieren (nicht erst auf SendTrackingStatus warten -- das
+            // wird von WinOrder nicht zuverlässig geschickt). Nur was erfolgreich
+            // markiert werden konnte, wird überhaupt ausgeliefert. Kann nicht markiert
             // werden (z.B. Schreibrecht fehlt), liefern wir NICHTS -> keine Wiederholung.
             if (orders.length) {
                 var ids = orders.map(function (o) { return o.id; });
@@ -278,7 +278,7 @@ exports.handler = async function (event) {
             if (oid) {
                 await sbPatch('orders?id=eq.' + encodeURIComponent(oid), { winorder_sent_at: new Date().toISOString() });
 
-                // Status aus der Kasse in die App uebernehmen -> der Kunde sieht
+                // Status aus der Kasse in die App übernehmen -> der Kunde sieht
                 // den Fortschritt (in Zubereitung / unterwegs / geliefert) im
                 // Bestell-Tracking automatisch, ohne dass das Personal in der
                 // kiekmolin-App klicken muss.

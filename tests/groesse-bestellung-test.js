@@ -1,15 +1,15 @@
 // GROESSE IN DER BESTELLUNG -- der Weg vom Antippen bis zum Bon.
 //
-// Der Import kann Groessen noch so sauber anlegen: wenn die Bestellung sie
-// nicht mitnimmt, bestellt der Gast "groß" und die Kueche macht "klein".
+// Der Import kann Größen noch so sauber anlegen: wenn die Bestellung sie
+// nicht mitnimmt, bestellt der Gast "groß" und die Küche macht "klein".
 //
 // Zwei Fehler waren drin, beide von derselben Sorte: der Warenkorb legt eine
-// gewaehlte Option als { group, option, price, price_type } ab -- ein Feld
+// gewählte Option als { group, option, price, price_type } ab -- ein Feld
 // "name" gibt es dort NICHT. Zwei Anzeigen suchten aber nur nach opt.name
 // und zeigten deshalb gar nichts:
-//   * die Bestell-Spalten im Dashboard (was die Kueche liest)
+//   * die Bestell-Spalten im Dashboard (was die Küche liest)
 //   * der gedruckte Bon
-// Dazu wurde die Groesse als Aufpreis ausgewiesen ("groß (+10,00)"), obwohl
+// Dazu wurde die Größe als Aufpreis ausgewiesen ("groß (+10,00)"), obwohl
 // sie den Preis ERSETZT.
 'use strict';
 var fs = require('fs');
@@ -24,7 +24,7 @@ function schneide(name) {
     for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } }
 }
 
-// --- Preisrechnung: die Groesse ERSETZT den Grundpreis ----------------------
+// --- Preisrechnung: die Größe ERSETZT den Grundpreis ----------------------
 var rechne = new Function('currentMenuItem', 'currentItemOptions',
     schneide('calculateItemPrice') + '; return calculateItemPrice();');
 
@@ -39,7 +39,7 @@ t('Extras kommen weiterhin obendrauf',
   rechne({ base_price: 6.5 }, [{ group: 'item_sizes', option: 'groß', price: 8.5, price_type: 'replace' },
                                { group: 'extra', option: 'Käse', price: 1.5, price_type: 'add' }]));
 
-// --- Was die Kueche liest ---------------------------------------------------
+// --- Was die Küche liest ---------------------------------------------------
 var GROESSE = { group: 'item_sizes', option: 'groß', price: 10, price_type: 'replace' };
 var EXTRA = { group: 'extra', option: 'Extra Käse', price: 1.5, price_type: 'add' };
 
@@ -73,11 +73,11 @@ if (bon) {
       /Extra Käse \(\+1\.50\)/.test(r2.text), '"' + r2.text + '"');
 }
 
-// --- Kuechenanzeige ---------------------------------------------------------
+// --- Küchenanzeige ---------------------------------------------------------
 t('Kuechenanzeige weist die Groesse nicht als Aufpreis aus',
   /opt\.price_type === 'replace' \? 0 : \(parseFloat\(opt\.price\) \|\| 0\)/.test(H));
 
-// --- Der Warenkorb traegt die Groesse ueberhaupt mit ------------------------
+// --- Der Warenkorb trägt die Größe überhaupt mit ------------------------
 t('gewaehlte Optionen landen im Warenkorb', /selected_options: \[\.\.\.currentItemOptions\]/.test(H));
 t('und die Auswahl merkt sich Gruppe, Name, Preis und Art',
   /currentItemOptions\.push\(\{ group, option, price, price_type: priceType \}\)/.test(H));
@@ -92,17 +92,17 @@ t('jede Groesse steht mit Namen und eigenem Preis da',
 t('in der Karte steht "ab" plus guenstigster Preis',
   /pricePrefix = 'ab '/.test(H) && /minSizePrice/.test(H));
 
-// Die erste Groesse ist optisch vorausgewaehlt -- sie muss auch wirklich
-// ausgewaehlt sein. Sonst geht die Bestellung ohne Groesse raus, und in der
-// Kueche steht "Pizza Margherita" ohne jeden Hinweis.
+// Die erste Größe ist optisch vorausgewählt -- sie muss auch wirklich
+// ausgewählt sein. Sonst geht die Bestellung ohne Größe raus, und in der
+// Küche steht "Pizza Margherita" ohne jeden Hinweis.
 t('die vorausgewaehlte Groesse landet auch in der Bestellung',
   /currentItemOptions\.push\(\{ group: 'item_sizes', option: _ersteGroesse\.name/.test(H));
 t('und ersetzt eine vorher gewaehlte Groesse, statt sich zu stapeln',
   /currentItemOptions\.filter\(function \(o\) \{ return o\.group !== 'item_sizes'; \}\)/.test(H));
 
 // --- Fehlende Spalte ist keine Sackgasse ------------------------------------
-// Groessen gehoeren zwingend an das einzelne Gericht: eine Optionsgruppe
-// haengt an der KATEGORIE und kann keine Preise je Gericht tragen (Margherita
+// Größen gehören zwingend an das einzelne Gericht: eine Optionsgruppe
+// hängt an der KATEGORIE und kann keine Preise je Gericht tragen (Margherita
 // klein 6,50, Salami klein 7,00). Fehlt die Spalte, hilft kein Umweg -- sie
 // muss angelegt werden. Also sagt die App genau wie.
 t('bei fehlenden Spalten kommt eine Anleitung statt einer Sackgasse',

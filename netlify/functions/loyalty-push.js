@@ -1,13 +1,13 @@
-// Kiek mol in — Stempelkarten-Push fuer Re-Engagement
+// Kiek mol in — Stempelkarten-Push für Re-Engagement
 //
-// Laeuft als Netlify Scheduled Function (siehe netlify.toml).
-// Pruefe Stempelkarten-Status und schickt smart Push-Notifications:
+// Läuft als Netlify Scheduled Function (siehe netlify.toml).
+// Prüfe Stempelkarten-Status und schickt smart Push-Notifications:
 //   - Stempel 9/10  -> "Nur noch 1 bis zur Gratis-Belohnung!"
 //   - Stempel 10/10 -> "Deine Belohnung wartet — jetzt einlösen!"
 //   - 2 Tage inaktiv + min. 3 Stempel -> "Lust auf was Leckeres?"
 //   - 7 Tage inaktiv + min. 3 Stempel -> "Wir vermissen dich!"
 //
-// Spam-Schutz: last_push_at darf nicht juenger als 5 Tage sein.
+// Spam-Schutz: last_push_at darf nicht jünger als 5 Tage sein.
 //
 // ENV-Vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
 
@@ -71,7 +71,7 @@ async function pushTo(sub, payload) {
 }
 
 function inQuietHours() {
-  // Berliner Zeit, nicht UTC (Lambda laeuft mit TZ=UTC). Sonst feuerte der
+  // Berliner Zeit, nicht UTC (Lambda läuft mit TZ=UTC). Sonst feuerte der
   // 4-Stunden-Cron im Sommer ausgerechnet um 22:00 deutscher Zeit -- also in
   // der Stunde, die eigentlich gesperrt sein sollte.
   const h = parseInt(new Date().toLocaleTimeString('de-DE', {
@@ -143,7 +143,7 @@ exports.handler = async function() {
   }
 
   try {
-    // Alle Stempel-Eintraege holen die noch keinen Push hatten oder >5 Tage her
+    // Alle Stempel-Einträge holen die noch keinen Push hatten oder >5 Tage her
     const cutoff = new Date(Date.now() - MIN_PUSH_GAP_DAYS * 24 * 3600 * 1000).toISOString();
     const rows = await sbGet(
       'loyalty_stamps?or=(last_push_at.is.null,last_push_at.lt.' + encodeURIComponent(cutoff) + ')' +

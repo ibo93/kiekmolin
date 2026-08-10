@@ -7,8 +7,8 @@
 var fs = require('fs');
 // Bilder liegen nicht im Repo. Erst erzeugen:
 //   python3 tests/testkarte.py /tmp/karten
-// Dann (kostet NICHTS, laeuft ueber den kostenlosen Gemini-Schluessel):
-//   GKEY=<gemini-schluessel> KARTEN=/tmp/karten/ node tests/beweis-echt.js
+// Dann (kostet NICHTS, läuft über den kostenlosen Gemini-Schlüssel):
+//   GKEY=<gemini-schlüssel> KARTEN=/tmp/karten/ node tests/beweis-echt.js
 var S = (process.env.KARTEN || '/tmp/karten').replace(/\/?$/, '/');
 var HTML = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
 var PFAD = '/home/user/kiekmolin/netlify/functions/menu-scan.js';

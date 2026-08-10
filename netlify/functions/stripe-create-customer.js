@@ -1,8 +1,8 @@
 // Stripe: Kunden anlegen + Abo-Checkout starten.
 //
-// WICHTIG: Diese Datei MUSS im Git-Repo liegen. Frueher waren die Stripe-
+// WICHTIG: Diese Datei MUSS im Git-Repo liegen. Früher waren die Stripe-
 // Funktionen nur direkt auf Netlify angelegt -> jeder Git-Deploy hat sie
-// geloescht ("Verbindung geht beim Deployen verloren"). Im Repo bleiben sie
+// gelöscht ("Verbindung geht beim Deployen verloren"). Im Repo bleiben sie
 // bei jedem Deploy erhalten.
 //
 // Aufruf (aus dem Admin / index.html):
@@ -11,9 +11,9 @@
 //   Antwort: { success:true, checkoutUrl, stripeCustomerId } | { error }
 //
 // Die Preise/Konditionen kommen aus der App (getCustomerPricingInfo) -> diese
-// Funktion fuehrt nur den Stripe-Checkout aus, sie legt keine Preise selbst fest.
+// Funktion führt nur den Stripe-Checkout aus, sie legt keine Preise selbst fest.
 //
-// ENV-Vars (in Netlify > Site settings > Environment, bleiben ueber Deploys erhalten):
+// ENV-Vars (in Netlify > Site settings > Environment, bleiben über Deploys erhalten):
 //   STRIPE_SECRET_KEY   (Pflicht)  z.B. sk_test_... / sk_live_...
 //                       (seit Juli 2026 auf kiekmolin2 gesetzt -- live aktiv)
 //   URL                 (setzt Netlify automatisch = Haupt-Site-URL)

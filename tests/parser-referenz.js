@@ -1,4 +1,4 @@
-// Deterministischer Kartenparser fuer PDF-Text -- ohne Modell.
+// Deterministischer Kartenparser für PDF-Text -- ohne Modell.
 function parseKartenText(text, startKategorie) {
     var PREIS = /(\d{1,3},\d{2})\s*€/g;
     var zeilen = String(text || '').split('\n').map(function (z) { return z.replace(/\s+/g, ' ').trim(); })
@@ -8,13 +8,13 @@ function parseKartenText(text, startKategorie) {
         var m = z.match(/(\d{1,3},\d{2})\s*€/g);
         return m ? m.map(function (x) { return x.replace(/\s*€/, '').replace(',', '.'); }) : [];
     }
-    // Spaltenkoepfe, die hinter der Ueberschrift stehen ("Pizza KLEIN GROSS")
+    // Spaltenköpfe, die hinter der Überschrift stehen ("Pizza KLEIN GROSS")
     function ohneSpaltenkopf(z) {
         return z.replace(/\s*(KLEIN|GROSS|IM BROT|TELLER|PORTION|PREIS)\b/gi, '')
                 .replace(/\s*\(Forts\.\)\s*/i, ' ').replace(/\s+/g, ' ').trim();
     }
-    // Ueberschriften sind mit '## ' markiert -- das kommt aus dem PDF selbst
-    // (groessere oder fette Schrift), nicht aus einer Vermutung.
+    // Überschriften sind mit '## ' markiert -- das kommt aus dem PDF selbst
+    // (größere oder fette Schrift), nicht aus einer Vermutung.
     function istUeberschrift(z) { return z.slice(0, 3) === '## '; }
 
     var out = [], kat = startKategorie || '', letztes = null;
@@ -46,7 +46,7 @@ function parseKartenText(text, startKategorie) {
             if (letztes) letztes.besch = (letztes.besch ? letztes.besch + ' ' : '') + z;
             continue;
         }
-        // Name laeuft in die naechste Zeile ("120. Pronto Pronto-Platte (für 4"
+        // Name läuft in die nächste Zeile ("120. Pronto Pronto-Platte (für 4"
         // / "Pers.)") -- erkennbar an der offenen Klammer.
         if ((vor.match(/\(/g) || []).length > (vor.match(/\)/g) || []).length
             && i + 1 < zeilen.length && !preiseIn(zeilen[i + 1]).length) {

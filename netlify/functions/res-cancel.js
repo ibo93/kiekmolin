@@ -1,9 +1,9 @@
 // Kiek mol in — Gast sagt Reservierung selbst ab (Link aus der Erinnerungs-Mail).
 //
 // Aufruf: GET /.netlify/functions/res-cancel?id=<reservierungs-uuid>
-// Setzt status='cancelled' und zeigt eine kleine Bestaetigungs-Seite.
+// Setzt status='cancelled' und zeigt eine kleine Bestätigungs-Seite.
 // Die UUID ist nicht erratbar und wirkt damit als Token; es kann nur
-// storniert (nichts gelesen/geaendert) werden -- risikoarm.
+// storniert (nichts gelesen/geändert) werden -- risikoarm.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY
 
@@ -24,9 +24,9 @@ function sbHeaders(extra) {
 // Das Restaurant SOFORT informieren, wenn ein Gast selbst absagt.
 // Vorher passierte hier nichts: Der Gast las "das Team kann den Tisch jetzt
 // weitergeben", im Restaurant erfuhr davon aber niemand aktiv. Wer nicht
-// zufaellig ins Dashboard schaute, hielt den Tisch weiter frei -- am vollen
+// zufällig ins Dashboard schaute, hielt den Tisch weiter frei -- am vollen
 // Samstagabend bares Geld.
-// Fehler hier duerfen die Absage NICHT scheitern lassen: der Gast hat seinen
+// Fehler hier dürfen die Absage NICHT scheitern lassen: der Gast hat seinen
 // Teil getan, die Stornierung steht bereits in der Datenbank.
 async function notifyRestaurant(r, restName) {
     if (!VAPID_PUBLIC || !VAPID_PRIVATE || !r.restaurant_id) return;
@@ -66,7 +66,7 @@ async function notifyRestaurant(r, restName) {
             await webpush.sendNotification(
                 { endpoint: s.endpoint, keys: { p256dh: s.p256dh_key, auth: s.auth_key } }, payload);
         } catch (err) {
-            // Tote Abos aufraeumen, damit die Liste nicht zuwaechst
+            // Tote Abos aufräumen, damit die Liste nicht zuwächst
             if (err && (err.statusCode === 404 || err.statusCode === 410)) {
                 try {
                     await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?id=eq.' + encodeURIComponent(s.id),
@@ -124,14 +124,14 @@ exports.handler = async function (event) {
         });
         if (!upd.ok) throw new Error('HTTP ' + upd.status);
 
-        // Restaurant-Name fuer die Bestaetigung (optional)
+        // Restaurant-Name für die Bestätigung (optional)
         var restName = 'das Restaurant';
         try {
             var rr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name', { headers: sbHeaders() });
             if (rr.ok) { var rl = await rr.json(); if (rl[0] && rl[0].name) restName = rl[0].name; }
         } catch (e) {}
 
-        // Restaurant benachrichtigen -- Fehler hier duerfen die Absage nicht kippen
+        // Restaurant benachrichtigen -- Fehler hier dürfen die Absage nicht kippen
         try { await notifyRestaurant(r, restName); }
         catch (e) { console.error('[res-cancel] Benachrichtigung fehlgeschlagen:', e.message); }
 

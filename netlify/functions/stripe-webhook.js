@@ -1,9 +1,9 @@
-// Stripe Webhook: schreibt den Abo-Status zurueck nach Supabase.
+// Stripe Webhook: schreibt den Abo-Status zurück nach Supabase.
 //
 // MUSS im Git-Repo liegen (siehe stripe-create-customer.js).
 //
 // Stripe ruft diese URL nach Ereignissen auf (Checkout abgeschlossen, Abo
-// geaendert/gekuendigt). Wir aktualisieren in der customers-Tabelle:
+// geändert/gekündigt). Wir aktualisieren in der customers-Tabelle:
 //   stripe_customer_id, stripe_subscription_id, stripe_status
 // -> Genau die Felder, die das Admin-Frontend liest.
 //
@@ -15,7 +15,7 @@
 //   Signing secret -> als ENV-Var STRIPE_WEBHOOK_SECRET in Netlify hinterlegen.
 //
 // ENV-Vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (Pflicht),
-//           SUPABASE_URL, SUPABASE_SERVICE_KEY (fuer Schreibzugriff empfohlen).
+//           SUPABASE_URL, SUPABASE_SERVICE_KEY (für Schreibzugriff empfohlen).
 
 'use strict';
 
@@ -56,7 +56,7 @@ exports.handler = async function (event) {
 
     var stripe = Stripe(secret);
 
-    // Signaturpruefung braucht den ROHEN Body.
+    // Signaturprüfung braucht den ROHEN Body.
     var rawBody = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '');
     var sig = event.headers['stripe-signature'] || event.headers['Stripe-Signature'];
 
@@ -99,7 +99,7 @@ exports.handler = async function (event) {
         return { statusCode: 200, body: JSON.stringify({ received: true }) };
     } catch (err) {
         console.error('[stripe-webhook] Fehler', err && err.message);
-        // 200 zurueck, damit Stripe nicht endlos retried, der Fehler steht im Log.
+        // 200 zurück, damit Stripe nicht endlos retried, der Fehler steht im Log.
         return { statusCode: 200, body: JSON.stringify({ received: true, warning: 'handled with error' }) };
     }
 };

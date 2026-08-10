@@ -1,17 +1,17 @@
-// RENNER & PENNER -- was laeuft, was steht rum.
+// RENNER & PENNER -- was läuft, was steht rum.
 //
 // WAS VORHER DA WAR
 // -----------------
 // "Bestseller": die Top 5 nach Anzahl, gerechnet aus den Bestellungen. Die
-// halbe Auswertung -- und die unwichtigere Haelfte fehlte.
+// halbe Auswertung -- und die unwichtigere Hälfte fehlte.
 //
 // Wer wissen will, was von der Karte FLIEGT, braucht die Gerichte, die nicht
 // verkauft wurden. Genau die konnten dort prinzipiell nie auftauchen: die
-// Liste entstand aus Bestellungen, ein Gericht mit null Verkaeufen kommt darin
+// Liste entstand aus Bestellungen, ein Gericht mit null Verkäufen kommt darin
 // gar nicht vor. Kein Rechenfehler -- ein blinder Fleck.
 //
-// Diese Datei haelt vor allem die zwei Ehrlichkeitsregeln fest. Eine
-// Penner-Liste, die aus vier Bestellungen ein Urteil faellt, ist schlimmer als
+// Diese Datei hält vor allem die zwei Ehrlichkeitsregeln fest. Eine
+// Penner-Liste, die aus vier Bestellungen ein Urteil fällt, ist schlimmer als
 // keine: der Gastronom nimmt ein Gericht von der Karte, das nie eine Chance
 // hatte.
 'use strict';
@@ -51,7 +51,7 @@ var KARTE = [
     { name: 'Sommersalat',      created_at: '2026-08-01' }    // erst 8 Tage alt
 ];
 
-// 12 Bestellungen -- genug fuer eine Aussage
+// 12 Bestellungen -- genug für eine Aussage
 var BESTELLUNGEN = [];
 for (var i = 0; i < 6; i++) BESTELLUNGEN.push(best([['Pizza Margherita', 2, 17.00]]));
 for (var i = 0; i < 4; i++) BESTELLUNGEN.push(best([['Döner Teller', 1, 9.50]]));
@@ -92,7 +92,7 @@ t('es wird stattdessen getrennt ausgewiesen',
   a.neu.length === 1 && a.neu[0] === 'Sommersalat', JSON.stringify(a.neu));
 t('das steht auch im Kasten', /noch neu auf der Karte/.test(F.html(a)));
 
-// Sobald es alt genug ist, zaehlt es normal mit.
+// Sobald es alt genug ist, zählt es normal mit.
 var spaeter = F.werte(BESTELLUNGEN, KARTE, { jetzt: '2026-10-01T12:00:00Z' });
 t('zwei Monate spaeter zaehlt dasselbe Gericht ganz normal mit',
   spaeter.penner.map(function (e) { return e.name; }).indexOf('Sommersalat') >= 0,
@@ -112,7 +112,7 @@ t('ein Name, den es auf der Karte nicht mehr gibt, wird nicht als Penner gemelde
 t('er zaehlt aber weiter zum Umsatz der Renner-Liste',
   alterName.renner.some(function (e) { return e.name === 'Pizza Uralt'; }));
 
-// --- Stornos zaehlen nicht ----------------------------------------------------
+// --- Stornos zählen nicht ----------------------------------------------------
 var mitStorno = F.werte(BESTELLUNGEN.concat([best([['Lachsfilet', 9, 200]], 'cancelled')]), KARTE, { jetzt: HEUTE });
 t('stornierte Bestellungen machen aus einem Penner keinen Renner',
   mitStorno.renner.every(function (e) { return e.name !== 'Lachsfilet'; }),
@@ -120,7 +120,7 @@ t('stornierte Bestellungen machen aus einem Penner keinen Renner',
 
 // --- Nach Umsatz statt nach Anzahl -------------------------------------------
 // 4x Döner zu 9,50 = 38 €, 2x Salami zu 9,00 = 18 €. Nach Anzahl liegt Döner
-// vorn, nach Umsatz auch -- also ein Fall bauen, wo es auseinanderlaeuft.
+// vorn, nach Umsatz auch -- also ein Fall bauen, wo es auseinanderläuft.
 var teuer = [best([['Hummer', 1, 89]]), best([['Pommes', 20, 60]])];
 var nachAnzahl = F.werte(teuer, [], { jetzt: HEUTE, sicht: 'anzahl' });
 var nachUmsatz = F.werte(teuer, [], { jetzt: HEUTE, sicht: 'umsatz' });

@@ -3,15 +3,15 @@
 // WAS VORHER DA WAR UND WARUM ES NICHTS TAT
 // -----------------------------------------
 // Es gab schon einen Allergen-Filter im Quelltext. Nur:
-//   1. getAllergenFilterBar() wurde von NIRGENDS aufgerufen -- die Knoepfe
+//   1. getAllergenFilterBar() wurde von NIRGENDS aufgerufen -- die Knöpfe
 //      waren nie auf dem Bildschirm.
-//   2. Gefiltert wurde ueber item.dataset.tags. Dieses Attribut setzt keine
-//      einzige Gerichtekarte. Waere der Filter sichtbar gewesen, waere die
+//   2. Gefiltert wurde über item.dataset.tags. Dieses Attribut setzt keine
+//      einzige Gerichtekarte. Wäre der Filter sichtbar gewesen, wäre die
 //      Speisekarte beim ersten Antippen komplett leer geworden.
 //
-// Beide Fehler sehen von aussen gleich aus: nichts passiert. Deshalb pruefen
+// Beide Fehler sehen von aussen gleich aus: nichts passiert. Deshalb prüfen
 // die Tests hier BEIDES -- dass die Auswahl richtig rechnet UND dass sie
-// ueberhaupt angezeigt und benutzt wird.
+// überhaupt angezeigt und benutzt wird.
 //
 // Und der wichtigste Punkt: das hier ist Gesundheit. Ein Gericht ohne
 // Allergenangabe darf NIE als "glutenfrei" durchgehen.
@@ -74,9 +74,9 @@ t('zwei Filter zusammen wirken UND, nicht ODER', r.passend.length === 2, r.passe
 r = A.teile([{ name: 'Falafel', is_vegan: true }], ['vegetarisch']);
 t('vegan zaehlt automatisch als vegetarisch', r.passend.length === 1, r.passend.length);
 
-// --- Schwein: der Text schlaegt den fehlenden Haken -------------------------
-// In der Datenbank steht bei "Pizza Salami" kein is_pork. Fuer einen Gast, der
-// kein Schwein isst, waere "keine Angabe = in Ordnung" der schlimmste Fehler,
+// --- Schwein: der Text schlägt den fehlenden Haken -------------------------
+// In der Datenbank steht bei "Pizza Salami" kein is_pork. Für einen Gast, der
+// kein Schwein isst, wäre "keine Angabe = in Ordnung" der schlimmste Fehler,
 // den diese App machen kann.
 t('Salami wird als Schwein erkannt, auch ohne Haken', A.schwein(KARTE[1]) === true);
 t('Schnitzel mit gesetztem Haken ebenso', A.schwein(KARTE[5]) === true);
@@ -91,7 +91,7 @@ t('"ohne Schwein" laesst Salami und Schnitzel draussen',
 
 // --- Der Kern: keine Angabe ist NICHT "frei davon" -------------------------
 r = A.teile(KARTE, ['glutenfrei']);
-// Auf dieser Karte traegt JEDES Gericht mit Allergenangabe Gluten. Also darf
+// Auf dieser Karte trägt JEDES Gericht mit Allergenangabe Gluten. Also darf
 // hier NICHTS als glutenfrei durchgehen -- auch nicht der Salat, bei dem die
 // Allergenliste nur leer ist.
 t('glutenfrei zeigt nur nachweislich glutenfreie Gerichte',
@@ -133,7 +133,7 @@ var leiste = A.leiste(KARTE);
 t('die Leiste wird ueberhaupt gebaut', leiste.indexOf('allergen-chip') >= 0);
 t('die Anzahl steht am Knopf', /Vegetarisch <span[^>]*>3</.test(leiste), leiste.slice(0, 200));
 
-// Ein Knopf, der garantiert zu null Treffern fuehrt, gehoert nicht auf den
+// Ein Knopf, der garantiert zu null Treffern führt, gehört nicht auf den
 // Bildschirm -- sonst tippt der Gast drauf und die Karte ist leer.
 var nurFleisch = [{ name: 'Currywurst', is_pork: true }];
 t('Filter ohne einen einzigen Treffer wird gar nicht angeboten',
@@ -154,7 +154,7 @@ t('die Leiste wird in der Gastansicht tatsaechlich gezeichnet',
 t('gefiltert wird auf den DATEN, nicht per style.display',
   /var _geteilt = teileNachFilter\(items, activeAllergenFilters\)/.test(H));
 t('die alte DOM-Versteckerei ist weg', !/function filterMenuByAllergens/.test(H));
-// Nur den CODE pruefen, nicht den Kommentar darueber -- der darf den alten
+// Nur den CODE prüfen, nicht den Kommentar darüber -- der darf den alten
 // Fehler ruhig beim Namen nennen.
 t('die tote dataset.tags-Abfrage ist weg', !/\(item\.dataset\.tags \|\|/.test(H));
 t('leeres Ergebnis sagt es dem Gast statt weisser Flaeche',
@@ -166,7 +166,7 @@ t('die Auswahl bleibt dem Gast erhalten (localStorage)',
 
 // --- Sprache mitten in der Speisekarte --------------------------------------
 // Vorher standen DE/EN/NL nur in der App-Kopfzeile und auf der Startseite. Der
-// Gast sass in der Karte und musste erst ganz zurueck.
+// Gast sass in der Karte und musste erst ganz zurück.
 t('Sprachknopf sitzt in der Speisekarten-Kopfzeile',
   /id="menuSpracheKnopf"[\s\S]{0,120}onclick="toggleMenuSprache\(\)"/.test(H));
 t('alle drei Sprachen sind dort erreichbar',
