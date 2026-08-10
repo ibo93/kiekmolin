@@ -37843,6 +37843,20 @@ async function showRestaurantLanding(rest) {
                                 if (!appR || !appR.opening_hours) return '<p style="font-size:18px;">Keine Angabe</p>';
                                 var dayKeys = ['mo','di','mi','do','fr','sa','so'];
                                 var dayAbbr = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+                                // DER RUHETAG STEHT IN EINER EIGENEN SPALTE.
+                                //
+                                // Er wird im Dashboard ueber ein eigenes Auswahlfeld gesetzt
+                                // (restaurant.rest_day, 0=Mo .. 6=So) und loescht die Zeiten in
+                                // opening_hours NICHT. Diese Liste hier las aber nur
+                                // opening_hours -- und zeigte am Ruhetag brav die eingetragene
+                                // Uhrzeit an. Bei Al Porto stand "Mo: 11:00–22:00", waehrend
+                                // montags zu ist.
+                                //
+                                // Die Anzeige IN der App macht es laengst richtig, genauso der
+                                // Reservierungskalender. Nur diese oeffentliche Seite -- die,
+                                // die bei Google gefunden wird -- nicht.
+                                var ruheTag = (appR.rest_day !== null && appR.rest_day !== undefined)
+                                    ? Number(appR.rest_day) : -1;
                                 var hoursText = '';
                                 try {
                                     var oh = typeof appR.opening_hours === 'string' ? JSON.parse(appR.opening_hours) : appR.opening_hours;
@@ -37855,8 +37869,11 @@ async function showRestaurantLanding(rest) {
                                             var et = oh[dayKeys[di] + '_end'];
                                             var st2 = oh[dayKeys[di] + '_start2'];
                                             var et2 = oh[dayKeys[di] + '_end2'];
-                                            var second = (st2 && et2) ? ' & ' + st2 + '–' + et2 : '';
-                                            var timeStr = (st && et) ? st + '–' + et + second : 'Ruhetag';
+                                            var kurz = function (x) { return String(x || '').slice(0, 5); };
+                                            var second = (st2 && et2) ? ' & ' + kurz(st2) + '–' + kurz(et2) : '';
+                                            // Ruhetag schlaegt die eingetragene Zeit.
+                                            var timeStr = (di === ruheTag) ? 'Ruhetag'
+                                                        : ((st && et) ? kurz(st) + '–' + kurz(et) + second : 'Ruhetag');
                                             if (timeStr === lastTime && groups.length > 0) {
                                                 groups[groups.length-1].end = dayAbbr[di];
                                             } else {
