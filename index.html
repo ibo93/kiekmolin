@@ -7849,6 +7849,27 @@
             display: none;
         }
 
+        /* AM RECHNER UMBRECHEN STATT SEITLICH SCROLLEN.
+           Die Leiste war overflow-x:auto MIT ausgeblendeter Scrollleiste. Am
+           Handy wischt man -- am Rechner kommt man damit an die hinteren
+           Kategorien gar nicht heran. Bei Al Porto liegen "Pizza" und "Pasta"
+           genau dort. Ab Tablet-Breite brechen die Knöpfe deshalb um: alle
+           sichtbar, alle klickbar, kein Scrollen nötig. */
+        @media (min-width: 820px) {
+            .menu-categories {
+                flex-wrap: wrap;
+                overflow-x: visible;
+                row-gap: 8px;
+            }
+        }
+
+        /* Bleibt es schmal (Handy, kleines Fenster), soll man WENIGSTENS
+           sehen, dass rechts noch etwas kommt. */
+        .menu-categories.kmi-mehr-rechts {
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+                    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent 100%);
+        }
+
         .menu-category-tab {
             flex: 0 0 auto;
             padding: 10px 24px;
@@ -42971,7 +42992,10 @@ document.addEventListener('error', function(e) {
         </div>
 
         <!-- Kategorie Tabs (Stitch Pill Style) -->
-        <div class="menu-categories" id="menuCategoryTabs" style="padding:8px 20px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <!-- overflow-x steht bewusst NICHT hier, sondern in .menu-categories:
+             ein Inline-Stil schlaegt jede Media-Query, und ab 820px soll die
+             Leiste umbrechen statt zu scrollen. -->
+        <div class="menu-categories" id="menuCategoryTabs" style="padding:8px 20px;-webkit-overflow-scrolling:touch;">
             <!-- Wird dynamisch gefüllt -->
         </div>
 
@@ -44983,6 +45007,9 @@ async function loadMenuCategoriesFromDB(restaurantId) {
             html += '<div class="menu-category-tab" data-cat-name="' + cat.name + '" onclick="selectMenuCategory(\'' + cat.id + '\', this)">' + translateCategory(cat.name, currentLanguage) + '</div>';
         });
         container.innerHTML = html;
+        // Die Leiste wurde gerade neu befuellt -- Mausrad und Kantenhinweis
+        // muessen danach wieder stimmen (Breite hat sich geaendert).
+        katLeisteBedienbar();
         // Items werden bereits parallel geladen (siehe unten)
         if (!window._menuItemsPreloaded) loadMenuItems(restaurantId, null);
         return;
@@ -45011,6 +45038,7 @@ function loadMenuCategories(restaurantId) {
             </div>
         `).join('')}
     `;
+    katLeisteBedienbar();
 }
 
 // Kategorie auswählen
@@ -45664,7 +45692,11 @@ function menuSearchFilter() {
     if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
 
     // Kategorie-Tabs ausblenden bei Suche
-    if (catTabs) catTabs.style.display = query.length > 0 ? 'none' : '';
+    if (catTabs) {
+        catTabs.style.display = query.length > 0 ? 'none' : '';
+        // Ausgeblendet misst der Browser 0 -- nach dem Einblenden neu messen.
+        if (!query.length) katLeisteBedienbar();
+    }
 
     // Debounce: 250ms warten nach letztem Tastendruck
     clearTimeout(_menuSearchTimeout);
@@ -45709,7 +45741,7 @@ function clearMenuSearch() {
     var catTabs = document.getElementById('menuCategoryTabs');
     if (input) { input.value = ''; input.focus(); }
     if (clearBtn) clearBtn.style.display = 'none';
-    if (catTabs) catTabs.style.display = '';
+    if (catTabs) { catTabs.style.display = ''; katLeisteBedienbar(); }
     if (window._menuAllItems) renderMenuItemsForGuest(window._menuAllItems);
 }
 
@@ -45865,24 +45897,9 @@ function renderMenuItemsForGuest(items) {
         return;
     }
 
-    // Die ungefilterte Liste merken. Der Essensfilter zeichnet damit neu, und
-    // die Knopfleiste zählt daran ab, was es überhaupt gibt -- sonst würde
-    // "Vegetarisch 3" nach dem ersten Tippen zu "Vegetarisch 3" von 3.
+    // KEIN ESSENSFILTER MEHR -- siehe die Begründung weiter unten bei
+    // "ESSENSFILTER: BEWUSST ENTFERNT".
     window._menuUngefiltert = items;
-    var _geteilt = teileNachFilter(items, activeAllergenFilters);
-    var _abUnklar = _geteilt.passend.length;
-    items = _geteilt.passend.concat(_geteilt.unklar);
-    var _leiste = getAllergenFilterBar(window._menuUngefiltert);
-
-    if (items.length === 0) {
-        container.innerHTML = _leiste
-            + '<div style="text-align:center;padding:48px 20px;font-family:Inter,sans-serif;">'
-            + '<span class="material-symbols-outlined" style="font-size:44px;color:var(--slate);opacity:.4">filter_alt_off</span>'
-            + '<p style="color:var(--text-primary);font-size:15px;margin:6px 0 2px;">Dazu passt hier gerade nichts</p>'
-            + '<p style="color:var(--text-secondary);font-size:13px;">Nimm einen Filter weg — oder frag kurz beim Personal nach.</p>'
-            + '</div>';
-        return;
-    }
 
     // Items global cachen für sicheren Zugriff per Index
     window._menuDisplayItems = items;
@@ -45891,21 +45908,9 @@ function renderMenuItemsForGuest(items) {
     var popularMap = window._menuPopularItems || {};
 
     // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
-    var html = _leiste + '<div class="stitch-menu-grid">';
+    var html = '<div class="stitch-menu-grid">';
 
     items.forEach(function(item, idx) {
-        // Trennstelle: ab hier fehlt zu mindestens einem Filter die Angabe.
-        // Diese Gerichte einfach wegzulassen wäre bequem und falsch -- der
-        // Gast denkt dann, es gäbe nichts für ihn. Sie stehen also da, aber
-        // klar getrennt und mit der Bitte, nachzufragen.
-        if (_abUnklar && idx === _abUnklar) {
-            html += '</div>'
-                  + '<div style="display:flex;align-items:center;gap:8px;margin:22px 0 10px;font-family:Inter,sans-serif;">'
-                  + '<span class="material-symbols-outlined" style="font-size:19px;color:#b45309;">help</span>'
-                  + '<span style="font-size:13px;color:var(--text-primary);font-weight:600;">Keine Angabe zu diesen Gerichten</span>'
-                  + '<span style="font-size:12px;color:var(--text-secondary);">— bitte beim Personal nachfragen</span>'
-                  + '</div><div class="stitch-menu-grid" style="opacity:.72;">';
-        }
         var price = item.base_price || item.price || 0;
         var hasSizes = item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0;
         var displayPrice = price;
@@ -56184,6 +56189,46 @@ async function saveItemOrder(movedItem, catItems) {
     }
 }
 
+// KATEGORIEN-LEISTE AM RECHNER BEDIENBAR MACHEN
+//
+// Die Leiste ist overflow-x:auto, und die Scrollleiste ist per CSS
+// ausgeblendet. Am Handy wischt man. Am Rechner gibt es weder Wischen noch
+// eine sichtbare Leiste -- die hinteren Kategorien sind schlicht nicht
+// erreichbar. Bei Al Porto liegen dort "Pizza" und "Pasta".
+//
+// Zwei Dinge dagegen:
+//   1. Ab 820px brechen die Knöpfe um (CSS) -- dann gibt es nichts mehr zu
+//      scrollen, alle sind da.
+//   2. Bleibt es schmal, macht das Mausrad seitlich mit, und rechts zeigt
+//      eine weiche Kante, dass noch etwas kommt.
+function katLeisteBedienbar() {
+    var leiste = document.getElementById('menuCategoryTabs');
+    if (!leiste) return;
+
+    if (!leiste._kmiRad) {
+        leiste._kmiRad = true;
+        leiste.addEventListener('wheel', function (e) {
+            // Nur wenn wirklich seitlich zu scrollen ist -- sonst nimmt man
+            // dem Rad das normale Scrollen der Seite weg.
+            if (leiste.scrollWidth <= leiste.clientWidth + 2) return;
+            if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;   // Trackpad quer: in Ruhe lassen
+            leiste.scrollLeft += e.deltaY;
+            e.preventDefault();
+        }, { passive: false });
+        leiste.addEventListener('scroll', function () { katKanteAuffrischen(leiste); });
+        window.addEventListener('resize', function () { katKanteAuffrischen(leiste); });
+    }
+    katKanteAuffrischen(leiste);
+}
+
+function katKanteAuffrischen(leiste) {
+    leiste = leiste || document.getElementById('menuCategoryTabs');
+    if (!leiste) return;
+    var mehr = leiste.scrollWidth > leiste.clientWidth + 2
+            && leiste.scrollLeft + leiste.clientWidth < leiste.scrollWidth - 2;
+    leiste.classList.toggle('kmi-mehr-rechts', mehr);
+}
+
 function renderMenuCategories() {
         const container = document.getElementById('menuCategoriesList');
     if (!container) return;
@@ -63243,192 +63288,37 @@ function renderLoyaltyCard(phone) {
 // Wird im Checkout als Zeitauswahl eingebaut
 // Keine separate Funktion nötig - nur UI im Checkout
 
-// ==================== ESSENSFILTER FÜR DEN GAST ====================
+// ==================== ESSENSFILTER: BEWUSST ENTFERNT ====================
 //
-// WAS HIER VORHER STAND UND WARUM ES NICHTS TAT
-// ---------------------------------------------
-// Es gab schon einen Allergen-Filter: getAllergenFilterBar() baute Knöpfe,
-// filterMenuByAllergens() blendete Karten aus. Nur wurde getAllergenFilterBar()
-// von NIRGENDS aufgerufen -- der Gast hat die Knöpfe nie gesehen. Und hätte
-// er sie gesehen, wäre die Karte beim ersten Antippen leer gewesen: gefiltert
-// wurde über item.dataset.tags, und dieses Attribut setzt keine einzige Karte.
+// Hier stand ein Filter für den Gast: Vegetarisch, Vegan, Ohne Schwein,
+// Glutenfrei, Laktosefrei, Ohne Nüsse. Er hat richtig gerechnet und war auch
+// getestet. Trotzdem ist er raus -- nicht wegen eines Fehlers im Code,
+// sondern wegen der Daten darunter.
 //
-// Jetzt wird auf den DATEN gefiltert, nicht auf dem Bildschirm. Damit stimmt
-// die Anzahl, "nichts gefunden" lässt sich sauber sagen, und Suche und
-// Kategoriewechsel filtern automatisch mit -- die laufen beide durch
-// renderMenuItemsForGuest.
+// DER GRUND
+// ---------
+// Die Merkmale kommen aus der Speisekarte: is_vegetarian, allergens und so
+// weiter füllt der PDF-Import. Bei echten Kundenkarten kommt davon nur ein
+// Teil an -- viele Karten kennzeichnen gar nichts, andere nur stellenweise.
 //
-// EIN WORT ZUR EHRLICHKEIT
-// ------------------------
-// Das hier ist Gesundheit, keine Bequemlichkeit. Ein Gericht, zu dem KEINE
-// Allergenangabe in der Datenbank steht, wird deshalb nie stillschweigend als
-// "glutenfrei" ausgegeben. Es verschwindet aber auch nicht spurlos, sonst
-// denkt der Gast, es gäbe nichts für ihn. Es landet unten in einem eigenen,
-// deutlich gekennzeichneten Block: "ohne Angabe -- bitte beim Personal
-// nachfragen".
-
-var activeAllergenFilters = [];
-try { activeAllergenFilters = JSON.parse(localStorage.getItem('kmi_allergen_profile') || '[]') || []; } catch (e) { activeAllergenFilters = []; }
-
-// Schwein steht oft nur im Text. Der Haken kann fehlen -- ein zugekauftes
-// Gericht, ein von Hand angelegtes, eine Karte ohne Kennzeichnung. Findet der
-// Text Schwein, zählt das stärker als ein nicht gesetzter Haken.
-// Bewusst nur in eine Richtung: der Text kann Schwein NACHWEISEN, aber nie
-// ausschließen.
-var _SCHWEIN_WOERTER = ['schwein', 'schinken', 'speck', 'bacon', 'kassler', 'kasseler',
-    'gyros', 'mett', 'leberkäse', 'leberkaese', 'pancetta', 'prosciutto', 'chorizo',
-    'salami', 'bratwurst', 'cabanossi', 'sucuk', 'lardo'];
-
-function _textVon(item) {
-    return ((item.name || '') + ' ' + (item.description || '')).toLowerCase();
-}
-
-// true = passt, false = passt nicht, null = keine Angabe
-function _hatSchwein(item) {
-    var txt = _textVon(item);
-    for (var i = 0; i < _SCHWEIN_WOERTER.length; i++) {
-        if (txt.indexOf(_SCHWEIN_WOERTER[i]) >= 0) return true;
-    }
-    if (item.is_pork === true) return true;
-    if (item.is_pork === false) return false;
-    return null;
-}
-
-function _ohneAllergen(item, namen) {
-    var liste = item.allergens;
-    if (!Array.isArray(liste) || !liste.length) return null;   // keine Angabe
-    var klein = liste.map(function (a) { return String(a).toLowerCase(); });
-    for (var i = 0; i < namen.length; i++) {
-        if (klein.indexOf(namen[i]) >= 0) return false;
-    }
-    return true;
-}
-
-var ESSENSFILTER = [
-    { id: 'vegetarisch', label: 'Vegetarisch',
-      pruef: function (i) { return i.is_vegetarian === true || i.is_vegan === true; } },
-    { id: 'vegan', label: 'Vegan',
-      pruef: function (i) { return i.is_vegan === true; } },
-    { id: 'ohne_schwein', label: 'Ohne Schwein',
-      pruef: function (i) { var s = _hatSchwein(i); return s === null ? null : !s; } },
-    { id: 'glutenfrei', label: 'Glutenfrei',
-      pruef: function (i) { return _ohneAllergen(i, ['gluten']); } },
-    { id: 'laktosefrei', label: 'Laktosefrei',
-      pruef: function (i) { return _ohneAllergen(i, ['milch']); } },
-    { id: 'ohne_nuesse', label: 'Ohne Nüsse',
-      pruef: function (i) { return _ohneAllergen(i, ['erdnuss', 'schalenfruechte']); } }
-];
-
-function _filterNach(id) {
-    for (var i = 0; i < ESSENSFILTER.length; i++) if (ESSENSFILTER[i].id === id) return ESSENSFILTER[i];
-    return null;
-}
-
-// Das Herzstück -- reine Daten rein, reine Daten raus. Genau deshalb lässt es
-// sich prüfen, ohne einen Browser zu starten.
+// Ein Filter mit halben Daten ist schlimmer als gar keiner. Sind von 142
+// Gerichten drei als vegetarisch markiert, tippt der Gast auf "Vegetarisch",
+// sieht drei -- und denkt, mehr gibt es nicht. Bei "Ohne Nüsse" ist das nicht
+// mehr ärgerlich, sondern gefährlich.
 //
-//   passend  = erfüllt ALLE aktiven Filter nachweislich
-//   unklar   = könnte passen, aber zu mindestens einem Filter fehlt die Angabe
-//   raus     = erfüllt mindestens einen Filter nachweislich nicht
-function teileNachFilter(items, aktive) {
-    var erg = { passend: [], unklar: [] };
-    items = items || [];
-    var filter = (aktive || []).map(_filterNach).filter(Boolean);
-    if (!filter.length) { erg.passend = items.slice(); return erg; }
-
-    items.forEach(function (it) {
-        var fehltAngabe = false, raus = false;
-        filter.forEach(function (f) {
-            var w = f.pruef(it);
-            if (w === false) raus = true;
-            else if (w === null) fehltAngabe = true;
-        });
-        if (raus) return;
-        if (fehltAngabe) erg.unklar.push(it);
-        else erg.passend.push(it);
-    });
-    return erg;
-}
-
-// Wie viele Gerichte ein Filter überhaupt übrig lässt. Ein Knopf, der
-// garantiert zu null Treffern führt, wird gar nicht erst angezeigt -- sonst
-// tippt der Gast auf "Vegan" und die Karte ist leer, obwohl das Restaurant
-// schlicht keine veganen Gerichte hat.
-function zaehleFilter(items, id) {
-    var f = _filterNach(id);
-    if (!f) return 0;
-    var n = 0;
-    (items || []).forEach(function (i) { if (f.pruef(i) === true) n++; });
-    return n;
-}
-
-function toggleAllergenFilter(id) {
-    var idx = activeAllergenFilters.indexOf(id);
-    if (idx >= 0) activeAllergenFilters.splice(idx, 1);
-    else activeAllergenFilters.push(id);
-    try { localStorage.setItem('kmi_allergen_profile', JSON.stringify(activeAllergenFilters)); } catch (e) {}
-    _filterNeuZeichnen();
-}
-
-function essensfilterZuruecksetzen() {
-    activeAllergenFilters = [];
-    try { localStorage.removeItem('kmi_allergen_profile'); } catch (e) {}
-    _filterNeuZeichnen();
-}
-
-// Neu zeichnen heißt: dieselbe Liste noch einmal durch den Renderer schicken.
-// Kein Herumschieben von style.display, keine zweite Wahrheit.
-function toggleMenuSprache() {
-    var s = document.getElementById('menuSpracheBar');
-    if (!s) return;
-    s.style.display = (s.style.display === 'none' || !s.style.display) ? 'flex' : 'none';
-    // Beim Aufklappen die aktuelle Sprache hervorheben -- setLanguage macht das
-    // sonst erst beim nächsten Umschalten.
-    if (s.style.display === 'flex') {
-        document.querySelectorAll('[data-sprache]').forEach(function (b) {
-            var an = b.getAttribute('data-sprache') === currentLanguage;
-            b.style.background = an ? 'var(--ink-strong)' : 'var(--bg-secondary)';
-            b.style.color = an ? '#fff' : 'var(--text-primary)';
-            b.style.borderColor = an ? 'var(--ink-strong)' : 'var(--border-color)';
-            b.setAttribute('aria-pressed', an ? 'true' : 'false');
-        });
-    }
-}
-
-function _filterNeuZeichnen() {
-    var liste = window._menuUngefiltert || window._menuAllItems || window._menuDisplayItems;
-    if (liste && typeof renderMenuItemsForGuest === 'function') renderMenuItemsForGuest(liste);
-}
-
-function getAllergenFilterBar(items) {
-    items = items || [];
-    var knoepfe = ESSENSFILTER.map(function (f) {
-        var anzahl = zaehleFilter(items, f.id);
-        var aktiv = activeAllergenFilters.indexOf(f.id) >= 0;
-        // Nichts anzubieten -> Knopf weglassen. Ausnahme: ist er gerade aktiv,
-        // muss er sichtbar bleiben, sonst kann der Gast ihn nicht ausschalten.
-        if (!anzahl && !aktiv) return '';
-        return '<button type="button" class="allergen-chip" data-filter="' + f.id + '"'
-             + ' aria-pressed="' + (aktiv ? 'true' : 'false') + '"'
-             + ' onclick="toggleAllergenFilter(\'' + f.id + '\')"'
-             + ' style="padding:7px 14px;border:1px solid ' + (aktiv ? 'var(--ink-strong)' : 'var(--border-color)')
-             + ';border-radius:9999px;background:' + (aktiv ? 'var(--ink-strong)' : 'var(--bg-secondary)')
-             + ';color:' + (aktiv ? '#fff' : 'var(--text-primary)')
-             + ';font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:Inter,sans-serif;">'
-             + f.label + ' <span style="opacity:.65;font-weight:500;">' + anzahl + '</span></button>';
-    }).filter(Boolean).join('');
-
-    if (!knoepfe) return '';
-
-    var zurueck = activeAllergenFilters.length
-        ? '<button type="button" onclick="essensfilterZuruecksetzen()" style="padding:7px 12px;border:none;'
-        + 'background:none;color:var(--text-secondary);font-size:12px;text-decoration:underline;cursor:pointer;'
-        + 'white-space:nowrap;font-family:Inter,sans-serif;">Alle zeigen</button>'
-        : '';
-
-    return '<div class="essensfilter" style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;'
-         + '-webkit-overflow-scrolling:touch;">' + knoepfe + zurueck + '</div>';
-}
+// Es half auch nicht, Knöpfe ohne Treffer auszublenden: das Problem sind
+// nicht die leeren Filter, sondern die halb gefüllten.
+//
+// WANN ER ZURÜCKKOMMEN KANN
+// -------------------------
+// Sobald die Karten die Angaben verlässlich tragen -- entweder weil der
+// Scanner sie zuverlässig liest oder weil der Gastronom sie pflegt. Dann
+// gehört hier eine Prüfung davor: Filter nur anbieten, wenn ein ausreichend
+// grosser Teil der Karte überhaupt Angaben hat. Nicht wieder blind einbauen.
+//
+// Die Felder selbst (is_vegetarian, allergens, is_pork) bleiben in der
+// Datenbank und werden anderswo weiter benutzt -- etwa vom Assistenten, der
+// auf "zeig mir was Vegetarisches" antwortet.
 
 // ==================== FEATURE 6: WIEDERHOL-BESTELLUNG ====================
 
