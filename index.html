@@ -12827,22 +12827,50 @@ function completeOnboarding() {
     </div>
 </div>
 <script>
-function acceptCookies() {
-    localStorage.setItem('kmi_consent', 'all');
+// EIN Banner, eine Entscheidung.
+//
+// Es gab drei: dieser hier, ein zweiter mit eigenem Speicherschluessel
+// (kin_cookie_consent) und ein dritter, toter. Zwei davon zeigten sich
+// gleichzeitig und stapelten sich uebereinander -- dazu noch ueber der
+// Willkommens-Tour. Vier Knoepfe, zwei Datenschutz-Links, nichts davon
+// verstaendlich.
+//
+// Dieser Banner traegt jetzt beides: die technisch noetigen Dienste UND die
+// Einwilligung in Google Analytics. Deshalb wird auch der alte Schluessel
+// mitgeschrieben -- das Consent Mode v2 im <head> liest ihn.
+function _cookieEntscheidung(alles) {
+    localStorage.setItem('kmi_consent', alles ? 'all' : 'essential');
     localStorage.setItem('kmi_consent_date', new Date().toISOString());
-    document.getElementById('cookieConsent').style.display = 'none';
+    localStorage.setItem('kin_cookie_consent', alles ? 'accepted' : 'declined');
+    try {
+        if (alles && typeof gtag === 'function') gtag('consent', 'update', { analytics_storage: 'granted' });
+    } catch (e) {}
+    var el = document.getElementById('cookieConsent');
+    if (el) el.style.display = 'none';
 }
-function acceptEssentialOnly() {
-    localStorage.setItem('kmi_consent', 'essential');
-    localStorage.setItem('kmi_consent_date', new Date().toISOString());
-    document.getElementById('cookieConsent').style.display = 'none';
+function acceptCookies() { _cookieEntscheidung(true); }
+function acceptEssentialOnly() { _cookieEntscheidung(false); }
+
+// Wer schon entschieden hat, wird nicht noch einmal gefragt -- auch nicht,
+// wenn er nur den ALTEN Banner beantwortet hatte.
+function _cookieSchonEntschieden() {
+    return !!(localStorage.getItem('kmi_consent') || localStorage.getItem('kin_cookie_consent'));
 }
-// Banner zeigen wenn noch nicht akzeptiert
-document.addEventListener('DOMContentLoaded', function() {
-    if (!localStorage.getItem('kmi_consent')) {
-        document.getElementById('cookieConsent').style.display = 'block';
-    }
-});
+
+// NICHT UEBER DIE WILLKOMMENS-TOUR LEGEN.
+//
+// Der Banner erschien sofort beim Laden -- mitten in die Tour hinein, halb
+// darueber, halb darunter. Zwei Fenster gleichzeitig, keins richtig
+// bedienbar. Er wartet jetzt, bis die Tour durch ist.
+function _cookieBannerZeigen() {
+    if (_cookieSchonEntschieden()) return;
+    var tour = document.getElementById('onboardingOverlay') || document.getElementById('onboardingModal');
+    var laeuft = tour && tour.style.display !== 'none' && tour.offsetParent !== null;
+    if (laeuft) { setTimeout(_cookieBannerZeigen, 1000); return; }
+    var el = document.getElementById('cookieConsent');
+    if (el) el.style.display = 'block';
+}
+document.addEventListener('DOMContentLoaded', function () { setTimeout(_cookieBannerZeigen, 600); });
 </script>
 
 <!-- View Toggle -->
@@ -13841,7 +13869,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- Live Bestellstatus Banner -->
-    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:9990;cursor:pointer;padding:8px 16px;">
+    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:990;cursor:pointer;padding:8px 16px;">
         <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.04);transition:transform 0.2s;position:relative;" id="liveOrderBannerInner" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='scale(1)'">
             <button onclick="event.stopPropagation();document.getElementById('liveOrderBanner').style.display='none';" style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,0.06);border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;z-index:2;" aria-label="Schließen">
                 <span class="material-symbols-outlined" style="font-size:12px;">close</span>
@@ -42037,19 +42065,10 @@ document.addEventListener('error', function(e) {
 </style>
 
 <!-- Cookie Banner -->
-<div id="cookieBanner" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 16px 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 10000; border-top: 1px solid var(--border-color);">
-    <div style="max-width: 600px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 200px;">
-            <p style="font-size: 14px; color: var(--dark); margin: 0; line-height: 1.5;">
-                <span data-i18n="cookieText">Wir nutzen Cookies für die Funktion der App.</span> 
-                <a href="#" onclick="openModal('datenschutzModal'); return false;" style="color: var(--primary); text-decoration: underline;" data-i18n="cookieMore">Mehr erfahren</a>
-            </p>
-        </div>
-        <button onclick="acceptCookies()" style="padding: 12px 28px; background: var(--primary); color: white; border: none; border-radius: 9999px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;" data-i18n="cookieAccept">
-            Verstanden
-        </button>
-    </div>
-</div>
+<!-- Ein dritter Cookie-Banner lag hier auf display:none und wurde von
+     nirgends eingeblendet -- nur sein "Verstanden"-Knopf haette dieselbe
+     acceptCookies() aufgerufen. Entfernt, bevor ihn jemand versehentlich
+     wieder sichtbar macht. -->
 
 <!-- Impressum Modal -->
 <div class="modal-overlay" id="impressumModal">
@@ -46162,9 +46181,26 @@ function renderCrossSellSheet(items) {
     }, 8000);
 }
 
+// Braucht dieses Gericht eine Auswahl, bevor man es in den Korb legen kann?
+// Bei Groessen ist die Antwort immer ja: sonst landet die kleine Pizza zum
+// Grundpreis im Korb, obwohl der Gast vielleicht die grosse wollte -- und
+// merkt es erst auf der Rechnung.
+function _crossSellBrauchtAuswahl(item) {
+    return !!(item && Array.isArray(item.sizes) && item.sizes.length > 0);
+}
+
 function quickAddCrossSell(idx, btnEl) {
     var item = window._crossSellItems && window._crossSellItems[idx];
     if (!item) return;
+
+    // Gerichte mit Groessen NICHT blind hinzufuegen, sondern das normale
+    // Fenster oeffnen. Dort waehlt der Gast Groesse und Extras -- genau wie
+    // wenn er das Gericht in der Karte antippt.
+    if (_crossSellBrauchtAuswahl(item)) {
+        closeCrossSellSheet();
+        if (typeof openItemOptions === 'function') openItemOptions(item.id, item);
+        return;
+    }
 
     // Aktionspreis nutzen wenn vorhanden
     var usePrice = (item._cross_sell_price && item._cross_sell_price > 0) ? item._cross_sell_price : (item.base_price || item.price || 0);
@@ -46178,16 +46214,26 @@ function quickAddCrossSell(idx, btnEl) {
         unit_price: usePrice,
         total_price: usePrice,
         selected_options: [],
-        notes: item._cross_sell_price ? 'Cross-Sell Aktionspreis' : ''
+        // notes ist der Sonderwunsch des GASTES und geht so auf den Bon.
+        // Hier stand "Cross-Sell Aktionspreis" drin -- eine interne Notiz, die
+        // in der Kueche ausgedruckt worden waere.
+        notes: ''
     };
 
     orderCart.push(cartItem);
     updateCartBadges();
 
-    // Button-Feedback
+    // RUECKMELDUNG, OHNE DIE ZEILE ZU ZERSTOEREN.
+    //
+    // btnEl ist das ganze Zeilen-Element (onclick steht am <div>), nicht der
+    // Knopf. textContent = 'Hinzugefügt' hat damit Bild, Name, Preis und
+    // Plus-Zeichen durch nacktes Wort ersetzt -- der weisse Kasten mitten im
+    // Fenster.
     if (btnEl) {
-        btnEl.textContent = 'Hinzugefügt';
-        btnEl.classList.add('added');
+        btnEl.style.background = 'rgba(22,163,74,0.12)';
+        btnEl.style.pointerEvents = 'none';
+        var plus = btnEl.querySelectorAll('.material-symbols-outlined');
+        if (plus.length) plus[plus.length - 1].textContent = 'check';
     }
 
     showToast(item.name + ' hinzugefügt!');
@@ -46874,28 +46920,43 @@ function renderCartItems() {
         const allOptionsText = [sizeText, extrasText].filter(Boolean).join(' | ');
         const imgUrl = item.image || item.image_url || '';
 
+        // KOMPAKT. Vorher war jede Zeile eine 48px-Kachel mit 112px-Bild und
+        // 24px Abstand -- bei acht Gerichten scrollt man ewig, und die
+        // Zusammenfassung darunter hat den Rest des Bildschirms gefressen.
+        // Im Warenkorb will man aendern, nicht schmoekern; die Beschreibung
+        // steht in der Speisekarte.
+        const notiz = item.notes || '';
         html += `
-            <div style="background:rgba(255,255,255,0.65);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:20px;border-radius:48px;display:flex;gap:20px;align-items:flex-start;border:1px solid rgba(255,255,255,0.2);margin-bottom:24px;transition:all 0.5s ease;" onmouseover="this.style.boxShadow='0 12px 40px rgba(0,37,30,0.05)'" onmouseout="this.style.boxShadow='none'">
-                <div style="width:112px;height:112px;border-radius:32px;overflow:hidden;flex-shrink:0;">
-                    ${imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;transition:transform 0.7s ease;" onmouseover="this.style.transform=\'scale(1.1)\'" onmouseout="this.style.transform=\'scale(1)\'" alt="' + (item.name || '') + '" loading="lazy">' : '<div style="width:100%;height:100%;background:#e7e8e9;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:32px;color:#c0c8c4;">restaurant</span></div>'}
+            <div style="background:var(--bg-secondary);padding:12px 14px;border-radius:22px;display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-color);margin-bottom:10px;">
+                <div style="width:56px;height:56px;border-radius:16px;overflow:hidden;flex-shrink:0;">
+                    ${imgUrl ? '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" alt="' + (item.name || '') + '" loading="lazy">' : '<div style="width:100%;height:100%;background:#e7e8e9;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#c0c8c4;">restaurant</span></div>'}
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-                        <h3 style="font-size:18px;font-weight:700;font-family:Epilogue,sans-serif;color:var(--ink-deep);line-height:1.3;">${item.dish_number ? '<span style="color:var(--ink-strong);">' + item.dish_number + '</span> ' : ''}${(currentLanguage !== 'de' && item['name_' + currentLanguage]) ? item['name_' + currentLanguage] : item.name}</h3>
-                        <span style="font-size:18px;font-weight:700;color:var(--ink-deep);white-space:nowrap;margin-left:8px;">${formatPrice(item.total_price)}</span>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                        <h3 style="font-size:15px;font-weight:700;font-family:Epilogue,sans-serif;color:var(--ink-deep);line-height:1.25;margin:0;">${item.dish_number ? '<span style="color:var(--ink-strong);">' + item.dish_number + '</span> ' : ''}${(currentLanguage !== 'de' && item['name_' + currentLanguage]) ? item['name_' + currentLanguage] : item.name}</h3>
+                        <span style="font-size:15px;font-weight:700;color:var(--ink-deep);white-space:nowrap;">${formatPrice(item.total_price)}</span>
                     </div>
-                    ${allOptionsText ? '<p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;">' + (sizeText || '') + (extrasText ? (sizeText ? ' · + ' : '+ ') + extrasText : '') + '</p>' : ''}
-                    ${item.notes ? '<p style="font-size:13px;color:var(--text-secondary);font-style:italic;margin-bottom:8px;">' + item.notes + '</p>' : ''}
-                    <p style="color:var(--text-secondary);font-size:14px;line-height:1.625;margin-bottom:16px;">${(currentLanguage !== 'de' && item['description_' + currentLanguage]) ? item['description_' + currentLanguage] : (item.description || '')}</p>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <div style="display:flex;align-items:center;background:#e7e8e9;border-radius:9999px;padding:6px 12px;">
-                            <button onclick="changeCartItemQty('${item.id}',-1)" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;" onmouseover="this.style.color='#735c00'" onmouseout="this.style.color='#00251e'"><span class="material-symbols-outlined" style="font-size:14px;">remove</span></button>
-                            <span style="margin:0 12px;font-weight:700;font-size:14px;color:var(--ink-deep);">${item.quantity}</span>
-                            <button onclick="changeCartItemQty('${item.id}',1)" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;" onmouseover="this.style.color='#735c00'" onmouseout="this.style.color='#00251e'"><span class="material-symbols-outlined" style="font-size:14px;">add</span></button>
+                    ${allOptionsText ? '<p style="font-size:12px;color:var(--text-secondary);line-height:1.45;margin:3px 0 0;">' + (sizeText || '') + (extrasText ? (sizeText ? ' · + ' : '+ ') + extrasText : '') + '</p>' : ''}
+                    <p id="cartNoteText_${item.id}" style="font-size:12px;color:#735c00;font-style:italic;margin:3px 0 0;${notiz ? '' : 'display:none;'}">${notiz ? '\u270e ' + notiz.replace(/</g, '&lt;') : ''}</p>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                        <div style="display:flex;align-items:center;background:#e7e8e9;border-radius:9999px;padding:4px 8px;">
+                            <button onclick="changeCartItemQty('${item.id}',-1)" aria-label="weniger" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;display:flex;"><span class="material-symbols-outlined" style="font-size:16px;">remove</span></button>
+                            <span style="margin:0 10px;font-weight:700;font-size:14px;color:var(--ink-deep);">${item.quantity}</span>
+                            <button onclick="changeCartItemQty('${item.id}',1)" aria-label="mehr" style="background:none;border:none;cursor:pointer;color:var(--ink-deep);padding:2px;display:flex;"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
                         </div>
-                        <button onclick="removeCartItem('${item.id}')" style="background:none;border:none;cursor:pointer;color:rgba(186,26,26,0.7);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;transition:color 0.2s;" onmouseover="this.style.color='#ba1a1a'" onmouseout="this.style.color='rgba(186,26,26,0.7)'">
-                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Entfernen
+                        <button onclick="toggleCartNote('${item.id}')" style="background:none;border:1px solid rgba(0,37,30,0.15);border-radius:9999px;padding:5px 12px;cursor:pointer;color:var(--ink-deep);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;font-family:Inter,sans-serif;">
+                            <span class="material-symbols-outlined" style="font-size:15px;">edit_note</span>${notiz ? 'Notiz ändern' : 'Notiz'}
                         </button>
+                        <button onclick="removeCartItem('${item.id}')" aria-label="entfernen" style="background:none;border:none;cursor:pointer;color:rgba(186,26,26,0.75);display:flex;align-items:center;padding:5px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
+                        </button>
+                    </div>
+                    <div id="cartNoteBox_${item.id}" style="display:none;margin-top:8px;">
+                        <textarea id="cartNoteInput_${item.id}" rows="2" maxlength="200" placeholder="z.B. ohne Zwiebeln, extra scharf" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid rgba(0,37,30,0.15);border-radius:14px;font-size:13px;font-family:Inter,sans-serif;resize:none;outline:none;background:var(--bg-card);color:var(--text-primary);">${notiz.replace(/</g, '&lt;')}</textarea>
+                        <div style="display:flex;gap:6px;margin-top:6px;">
+                            <button onclick="speichereCartNotiz('${item.id}')" style="padding:6px 14px;border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">Übernehmen</button>
+                            <button onclick="toggleCartNote('${item.id}')" style="padding:6px 12px;border:none;background:none;color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:Inter,sans-serif;">Abbrechen</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -46909,17 +46970,21 @@ function renderCartItems() {
     var restDeliveryFee = (currentOrderRestaurant && currentOrderRestaurant.delivery_fee != null) ? parseFloat(currentOrderRestaurant.delivery_fee) : 0; var deliveryFee = orderType === 'delivery' ? restDeliveryFee : 0;
     const total = subtotal + deliveryFee;
 
-    // Stitch Summary: per-item line items
+    // NUR NOCH DIE ZWISCHENSUMME.
+    //
+    // Hier stand jedes Gericht ein ZWEITES Mal -- als reine Textzeile ohne
+    // Plus, Minus oder Papierkorb. Bei acht Positionen war diese Liste hoeher
+    // als der Panel-Ausschnitt darueber: sichtbar war nur noch die tote
+    // Aufzaehlung, die aenderbaren Zeilen lagen ausserhalb des Bildes. Genau
+    // das Bild, das gemeldet wurde -- "man sieht nichts mehr und kann nichts
+    // mehr bearbeiten". Die Gerichte stehen oben, dort gehoeren sie hin.
     var summaryLinesEl = document.getElementById('cartSummaryLines');
     if (summaryLinesEl) {
-        var linesHtml = '';
-        orderCart.forEach(function(ci) {
-            var displayName = (typeof currentLanguage !== 'undefined' && currentLanguage !== 'de' && ci['name_' + currentLanguage]) ? ci['name_' + currentLanguage] : ci.name;
-            linesHtml += '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-secondary);font-size:14px;">' +
-                '<span>' + displayName + ' \u00d7 ' + ci.quantity + '</span>' +
-                '<span style="font-weight:500;">' + formatPrice(ci.total_price) + '</span></div>';
-        });
-        summaryLinesEl.innerHTML = linesHtml;
+        var anzahl = orderCart.reduce(function (s2, ci) { return s2 + (ci.quantity || 1); }, 0);
+        summaryLinesEl.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-secondary);font-size:14px;">'
+          + '<span>Zwischensumme · ' + anzahl + ' Artikel</span>'
+          + '<span style="font-weight:500;">' + formatPrice(orderCart.reduce(function (s2, ci) { return s2 + ci.total_price; }, 0)) + '</span></div>';
     }
 
     var cartSubEl = document.getElementById('cartSubtotal');
@@ -46989,6 +47054,37 @@ function removeCartItem(itemId) {
     orderCart = orderCart.filter(item => item.id !== itemId);
     renderCartItems();
     updateCartBadges();
+}
+
+// NOTIZ PRO POSITION ("ohne Zwiebeln", "extra scharf")
+//
+// Das Feld item.notes gab es im Warenkorb schon -- geschrieben hat es nur der
+// Cross-Sell ("Cross-Sell Aktionspreis"). Der Gast konnte nichts eintragen,
+// und selbst wenn: notes wurde beim Abschicken an ALLEN DREI Stellen
+// weggelassen (items, Fallback-items, order_items). Die Notiz waere also
+// geschrieben worden und nie in der Kueche angekommen -- das Schlimmste, was
+// ein Sonderwunsch tun kann.
+function toggleCartNote(itemId) {
+    var box = document.getElementById('cartNoteBox_' + itemId);
+    if (!box) return;
+    var auf = box.style.display !== 'none';
+    box.style.display = auf ? 'none' : 'block';
+    if (!auf) {
+        var ta = document.getElementById('cartNoteInput_' + itemId);
+        if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+}
+
+function speichereCartNotiz(itemId) {
+    var ta = document.getElementById('cartNoteInput_' + itemId);
+    if (!ta) return;
+    var text = String(ta.value || '').trim().slice(0, 200);
+    var pos = orderCart.filter(function (i) { return String(i.id) === String(itemId); })[0];
+    if (!pos) return;
+    pos.notes = text;
+    try { if (typeof saveCartToStorage === 'function') saveCartToStorage(); } catch (e) {}
+    renderCartItems();
+    showToast(text ? 'Notiz gespeichert' : 'Notiz entfernt', 'success');
 }
 
 function changeCartItemQty(itemId, delta) {
@@ -47716,10 +47812,13 @@ async function submitOrder() {
         table_number: tableNumber,
         delivery_address: deliveryAddress,
         delivery_notes: document.getElementById('checkoutDeliveryNotes')?.value.trim() || null,
+        // notes MUSS mit. Ohne diese Zeile schreibt der Gast "ohne Zwiebeln"
+        // und die Kueche erfaehrt es nie.
         items: orderCart.map(item => ({
             name: item.name,
             quantity: item.quantity,
             price: item.total_price,
+            notes: item.notes || '',
             options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
         })),
         subtotal: subtotal,
@@ -47792,6 +47891,7 @@ async function submitOrder() {
                 quantity: item.quantity,
                 price: item.total_price,
                 unit_price: item.unit_price || item.base_price || 0,
+                notes: item.notes || '',
                 options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
             })),
             subtotal: subtotal,
@@ -47878,6 +47978,7 @@ async function submitOrder() {
                         base_price: item.base_price || item.unit_price || 0,
                         unit_price: item.unit_price || item.base_price || 0,
                         total_price: item.total_price || 0,
+                        notes: item.notes || '',
                         selected_options: item.selected_options || []
                     });
                     if (!_ir.ok) _failedItems++;
@@ -48083,16 +48184,9 @@ async function submitOrder() {
             addLoyaltyPoint(phone, currentOrderRestaurant.id);
         }
     } catch(e) {}
-    // Bewertung — nur EINMAL nach 60s (nicht doppelt)
-    if (!window._ratingScheduled) {
-        window._ratingScheduled = true;
-        var _rtRestId = currentOrderRestaurant ? currentOrderRestaurant.id : '';
-        var _rtRestName = currentOrderRestaurant ? currentOrderRestaurant.name : '';
-        setTimeout(function() {
-            window._ratingScheduled = false;
-            try { if (typeof showRatingPrompt === 'function') showRatingPrompt('', _rtRestId, _rtRestName, phone || ''); } catch(e) {}
-        }, 60000);
-    }
+    // Das Sterne-Fenster nach 60 Sekunden ist raus -- siehe den Block
+    // "GOOGLE-BEWERTUNG NACH DER BESTELLUNG -- ENTFERNT" weiter unten.
+    // Die Bitte um eine Bewertung steht jetzt in der Bestaetigungs-E-Mail.
 
 
     // WhatsApp-Benachrichtigung ans Restaurant senden (im Hintergrund)
@@ -49140,6 +49234,7 @@ async function loadDashboardOrders() {
                         quantity: item.quantity,
                         options: (item.selected_options || []).map(o => o.option_name || o.option || o).join(', '),
                         selected_options: item.selected_options || [],
+                        notes: item.notes || '',
                         price: item.total_price
                     }))
                     : (order.items || []).map(item => ({
@@ -49147,6 +49242,7 @@ async function loadDashboardOrders() {
                         quantity: item.quantity,
                         options: item.options || '',
                         selected_options: item.selected_options || [],
+                        notes: item.notes || '',
                         price: item.price || item.total_price || 0
                     })),
                 subtotal: order.subtotal,
@@ -49597,7 +49693,7 @@ function renderDashboardOrders() {
                     <div class="kin-order-items" style="display:flex;flex-direction:column;gap:16px;">
                         ${order.items.map((item, idx) => `
                             <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;${idx < order.items.length - 1 ? 'border-bottom:1px solid rgba(192,200,196,0.10);padding-bottom:16px;' : ''}">
-                                <span style="color:var(--text-secondary);font-weight:500;">${item.quantity}x ${item.name}${item.options ? ' <span style=&quot;font-size:12px;color:rgba(64,73,70,0.6);font-style:italic;&quot;>' + item.options + '</span>' : ''}</span>
+                                <span style="color:var(--text-secondary);font-weight:500;">${item.quantity}x ${item.name}${item.options ? ' <span style=&quot;font-size:12px;color:rgba(64,73,70,0.6);font-style:italic;&quot;>' + item.options + '</span>' : ''}${item.notes ? '<br><span style=&quot;font-size:12px;color:#b45309;font-weight:700;&quot;>&#9998; ' + item.notes + '</span>' : ''}</span>
                                 <span style="color:var(--ink-deep);font-weight:700;">${formatPrice(item.base_price || item.price)}</span>
                             </div>
                         `).join('')}
@@ -50375,8 +50471,11 @@ function printOrderBrowser(orderId) {
         var einzelpreis = parseFloat(item.price) / (item.quantity || 1);
         return '<tr>' +
             '<td style="text-align:left;padding:3px 0;width:30px;">' + item.quantity + '×</td>' +
-            '<td style="text-align:left;padding:3px 4px;">' + item.name + 
+            '<td style="text-align:left;padding:3px 4px;">' + item.name +
                 (item.options ? '<br><span style="font-size:10px;color:#666;">  ↳ ' + item.options + '</span>' : '') +
+                // Sonderwunsch FETT auf den Bon. Wer in der Kueche steht,
+                // ueberliest eine graue Kleinschrift.
+                (item.notes ? '<br><span style="font-size:11px;font-weight:bold;">  ↳ ' + item.notes + '</span>' : '') +
             '</td>' +
             '<td style="text-align:right;padding:3px 0;white-space:nowrap;">' + formatPrice(item.price) + '</td>' +
         '</tr>';
@@ -51584,7 +51683,11 @@ function buildRichPosPayload(order) {
             modifiers: opts,
             modifiers_text: optsText,
             allergens: item.allergens || [],
-            note: item.note || item.special_request || ''
+            // Der Warenkorb schreibt "notes", nicht "note". Ohne das erste
+            // Feld hier waere der Sonderwunsch bis zum Kassensystem gekommen
+            // und dort lautlos verschwunden -- derselbe Fehler wie damals bei
+            // den Groessen, wo die Kueche opt.name statt option gelesen hat.
+            note: item.notes || item.note || item.special_request || ''
         };
     });
 
@@ -62830,87 +62933,11 @@ function renderLoyaltyCard(phone) {
 
 // ==================== FEATURE 3: KUNDENBEWERTUNGEN ====================
 
-var APP_RATINGS = JSON.parse(localStorage.getItem('kmi_ratings') || '[]');
-
-function showRatingPrompt(orderId, restaurantId, restaurantName, customerPhone) {
-    var html = '<div style="padding:32px 28px;text-align:center;">' +
-        '<div style="width:56px;height:56px;border-radius:50%;background:rgba(255,213,79,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><svg viewBox="0 0 24 24" fill="#d4af37" width="28" height="28"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg></div>' +
-        '<h2 style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--primary);margin:0 0 6px;letter-spacing:-0.02em;">Wie war dein Essen?</h2>' +
-        '<p style="font-size:13px;color:var(--slate);margin:0 0 24px;font-family:Inter,sans-serif;">' + restaurantName + '</p>' +
-        '<div id="ratingStars" style="display:flex;justify-content:center;gap:10px;margin-bottom:24px;">';
-
-    for (var i = 1; i <= 5; i++) {
-        html += '<button onclick="selectRating(' + i + ')" data-star="' + i + '" style="width:48px;height:48px;border-radius:50%;border:1.5px solid rgba(0,61,51,0.1);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:24px;color:#d1d5db;">star</span></button>';
-    }
-
-    html += '</div>' +
-        '<textarea id="ratingComment" placeholder="Kommentar (optional)" style="width:100%;padding:14px 18px;border:1px solid rgba(0,61,51,0.1);border-radius:20px;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text-primary);min-height:80px;resize:none;margin-bottom:16px;box-sizing:border-box;font-family:Inter,sans-serif;font-size:14px;outline:none;"></textarea>' +
-        '<button id="submitRatingBtn" onclick="submitRating(\'' + orderId + '\',\'' + restaurantId + '\',\'' + (customerPhone || '') + '\')" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;border:none;border-radius:48px;font-size:15px;font-weight:700;cursor:pointer;opacity:0.5;font-family:Inter,sans-serif;box-shadow:0 6px 20px rgba(0,61,51,0.2);transition:all 0.3s;" disabled>Bewertung abschicken</button>' +
-        '</div>';
-
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.id = 'ratingOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,37,30,0.3);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:10005;display:flex;align-items:center;justify-content:center;padding:20px;';
-    overlay.innerHTML = '<div style="max-width:400px;width:100%;border-radius:32px;background:rgba(255,255,255,0.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.8);box-shadow:0 24px 48px -8px rgba(0,61,51,0.15);overflow:hidden;">' +
-        '<div style="display:flex;justify-content:flex-end;padding:16px 16px 0;"><button onclick="this.closest(\'.modal-overlay\').remove()" style="width:32px;height:32px;border-radius:50%;background:rgba(0,61,51,0.06);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--slate);transition:background 0.2s;" onmouseover="this.style.background=\'rgba(0,61,51,0.1)\'" onmouseout="this.style.background=\'rgba(0,61,51,0.06)\'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
-        html + '</div>';
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-var selectedRating = 0;
-function selectRating(stars) {
-    selectedRating = stars;
-    var btns = document.querySelectorAll('#ratingStars button');
-    btns.forEach(function(btn) {
-        var s = parseInt(btn.dataset.star);
-        btn.innerHTML = s <= stars ? '<span class="material-symbols-outlined" style="font-size:24px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span>' : '<span class="material-symbols-outlined" style="font-size:24px;color:#d1d5db;">star</span>';
-        btn.style.background = s <= stars ? '#fef3c7' : 'var(--bg-secondary)';
-        btn.style.borderColor = s <= stars ? '#f59e0b' : 'var(--border-color)';
-        btn.style.color = s <= stars ? '#d97706' : 'var(--slate)';
-    });
-    var submitBtn = document.getElementById('submitRatingBtn');
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
-}
-
-function submitRating(orderId, restaurantId, phone) {
-    if (!selectedRating) return;
-    var comment = (document.getElementById('ratingComment')?.value || '').trim();
-
-    var rating = {
-        id: 'rt_' + Date.now(),
-        order_id: orderId,
-        restaurant_id: restaurantId,
-        phone: phone,
-        stars: selectedRating,
-        comment: comment,
-        created_at: new Date().toISOString()
-    };
-
-    APP_RATINGS.push(rating);
-    localStorage.setItem('kmi_ratings', JSON.stringify(APP_RATINGS));
-
-    // Auch in Supabase speichern wenn online
-    try {
-        fetch(SUPABASE_URL + '/rest/v1/customer_ratings', {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify(rating)
-        }).catch(function() {});
-    } catch(e) {}
-
-    document.getElementById('ratingOverlay')?.remove();
-    showToast('Danke für deine Bewertung!', 'success');
-    selectedRating = 0;
-}
-
-function getRestaurantCustomerRating(restaurantId) {
-    var ratings = APP_RATINGS.filter(function(r) { return r.restaurant_id === restaurantId; });
-    if (ratings.length === 0) return null;
-    var avg = ratings.reduce(function(s, r) { return s + r.stars; }, 0) / ratings.length;
-    return { avg: Math.round(avg * 10) / 10, count: ratings.length };
-}
+// Hier lag das Sternebewertungs-Fenster (showRatingPrompt, selectRating,
+// submitRating) samt localStorage-Liste APP_RATINGS. Es sprang 60 Sekunden
+// nach der Bestellung auf -- das erste von drei Bewertungsfenstern. Ohne
+// seinen Aufrufer war es toter Code; entfernt, damit es niemand versehentlich
+// wieder verdrahtet. Die Bitte um eine Bewertung steht in der E-Mail.
 
 // ==================== FEATURE 4: VORBESTELLUNG MIT WUNSCHZEIT ====================
 // Wird im Checkout als Zeitauswahl eingebaut
@@ -63733,89 +63760,17 @@ setTimeout(function() {
 }, 2000);
 
 // ============================================================
-// KUNDENBEWERTUNGEN NACH BESTELLUNG
+// KUNDENBEWERTUNGEN NACH BESTELLUNG -- ENTFERNT
 // ============================================================
-function showReviewPrompt(orderNumber, restaurantName, restaurantId) {
-    var overlay = document.createElement('div');
-    overlay.id = 'reviewOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10010;display:flex;align-items:center;justify-content:center;padding:20px;';
-
-    overlay.innerHTML = '<div style="max-width:400px;width:100%;background:var(--bg-card);border-radius:20px;padding:28px;text-align:center;">' +
-        '<div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">' +
-        '<span class="material-symbols-outlined" style="font-size:28px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span></div>' +
-        '<h3 style="font-size:18px;font-weight:700;margin-bottom:4px;font-family:Epilogue,sans-serif;">Wie war dein Essen?</h3>' +
-        '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;font-family:Inter,sans-serif;">' + restaurantName + ' · #' + orderNumber + '</p>' +
-        '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;font-family:Inter,sans-serif;">Deine Meinung hilft dem Restaurant und anderen Gästen!</p>' +
-        '<button onclick="openReviewFromPrompt(\'\',\'' + restaurantId + '\',\'' + restaurantName.replace(/'/g, "\\'") + '\'); document.getElementById(\'reviewOverlay\').remove();" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;">' +
-        '<span class="material-symbols-outlined" style="font-size:18px;color:none;font-variation-settings:\'FILL\' 1;">star</span>Google Bewertung schreiben</button>' +
-        '<button onclick="document.getElementById(\'reviewOverlay\').remove()" style="width:100%;padding:10px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;margin-top:4px;font-family:Inter,sans-serif;">Später</button>' +
-    '</div>';
-
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-var _selectedReviewStars = 0;
-function setReviewStar(n) {
-    _selectedReviewStars = n;
-    document.querySelectorAll('.review-star').forEach(function(star) {
-        star.style.opacity = parseInt(star.dataset.star) <= n ? '1' : '0.3';
-    });
-    var btn = document.getElementById('submitReviewBtn');
-    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-}
-
-async function submitCustomerReview(restaurantId, orderNumber) {
-    var comment = document.getElementById('reviewComment')?.value?.trim() || '';
-
-    var _reviewGesendet = false;
-    try {
-        await sbWrite(SUPABASE_URL + '/rest/v1/reviews', {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                restaurant_id: restaurantId,
-                order_number: orderNumber,
-                rating: _selectedReviewStars,
-                comment: comment,
-                customer_name: localStorage.getItem('kmi_customer_name') || 'Gast',
-                created_at: new Date().toISOString()
-            })
-        });
-        _reviewGesendet = true;
-    } catch (e) {
-        console.warn('[review] konnte nicht gesendet werden:', e.message);
-    }
-
-    // Lokal speichern als Fallback
-    var reviews = JSON.parse(localStorage.getItem('kmi_reviews') || '[]');
-    reviews.push({ restaurant_id: restaurantId, order_number: orderNumber, rating: _selectedReviewStars, comment: comment, date: new Date().toISOString(), sent: _reviewGesendet });
-    localStorage.setItem('kmi_reviews', JSON.stringify(reviews));
-
-    document.getElementById('reviewOverlay')?.remove();
-    // Ehrlich bleiben: kam die Bewertung nicht durch, liegt sie nur im Browser
-    // des Gastes -- das Restaurant sieht sie nie. "Danke fuer deine Bewertung!"
-    // waere dann schlicht gelogen, und der Gast wundert sich spaeter, warum
-    // seine Bewertung nirgends auftaucht.
-    if (_reviewGesendet) {
-        showToast('Danke für deine Bewertung!', 'success');
-    } else {
-        showToast('Deine Bewertung konnte gerade nicht gesendet werden – bitte gleich nochmal versuchen.', 'error');
-    }
-    _selectedReviewStars = 0;
-}
-
-// Review-Prompt 30 Sekunden nach Bestellbestätigung zeigen
-function scheduleReviewPrompt(orderNumber, restaurantName, restaurantId) {
-    setTimeout(function() {
-        // Nur zeigen wenn noch kein Review für diese Bestellung
-        var reviews = JSON.parse(localStorage.getItem('kmi_reviews') || '[]');
-        var alreadyReviewed = reviews.some(function(r) { return r.order_number === orderNumber; });
-        if (!alreadyReviewed) {
-            showReviewPrompt(orderNumber, restaurantName, restaurantId);
-        }
-    }, 30000); // 30 Sekunden nach Bestätigung
-}
+// Hier lag das dritte Bewertungsfenster: 30 Sekunden nach der Bestaetigung
+// ein Overlay "Wie war dein Essen?" mit dem Knopf "Google Bewertung
+// schreiben". Zusammen mit der Sternebewertung nach 60 Sekunden und dem
+// Google-Kasten nach zwei Minuten bekam der Gast DREI Aufforderungen
+// hintereinander -- fuer ein Essen, das er zu dem Zeitpunkt noch gar nicht
+// hatte.
+//
+// Die Bitte um eine Bewertung steht jetzt einmal, unten in der
+// Bestaetigungs-E-Mail. Wer die liest, hat gegessen.
 
 // ============================================================
 // "NOCHMAL BESTELLEN" BANNER IN SPEISEKARTE
@@ -63869,33 +63824,36 @@ setTimeout(function() {
     }
 }, 2000);
 
-// Patch: Nach Bestellung Review-Prompt einplanen
-var _origSubmitForReview = null;
-setTimeout(function() {
-    var submitBtn = document.getElementById('submitOrderBtn');
-    if (submitBtn && !submitBtn._reviewPatched) {
-        var origClick = submitBtn.onclick;
-        submitBtn.addEventListener('click', function() {
-            // Warte bis Bestellung durch ist und prüfe auf Bestätigungs-Anzeige
-            var checkConfirm = setInterval(function() {
-                var confirmNum = document.getElementById('confirmOrderNumber');
-                if (confirmNum && confirmNum.textContent && confirmNum.textContent !== '') {
-                    clearInterval(checkConfirm);
-                    var orderNum = confirmNum.textContent;
-                    var restName = currentOrderRestaurant?.name || 'Restaurant';
-                    var restId = currentOrderRestaurant?.id || '';
-                    scheduleReviewPrompt(orderNum, restName, restId);
-                }
-            }, 1000);
-            setTimeout(function() { clearInterval(checkConfirm); }, 60000);
-        });
-        submitBtn._reviewPatched = true;
-    }
-}, 3000);
+// Hier haengte sich ein Patch an den Bestellknopf, um 30 Sekunden nach der
+// Bestaetigung ein drittes Bewertungsfenster zu oeffnen ("Google Bewertung
+// schreiben"). Zusammen mit den beiden anderen kamen so drei Aufforderungen
+// hintereinander. Alle drei sind raus -- die Bitte steht in der E-Mail.
 
 // ============================================================
 // LIVE STATUS BANNER - Bestellungen + Reservierungen
 // ============================================================
+// DER BANNER LAG AUF DER KOPFZEILE.
+//
+// .guest-header ist eine schwebende Leiste: position:fixed, top:16px,
+// z-index:1000. Der Bestellstatus-Banner klebte mit position:sticky bei
+// top:0 -- also GANZ oben, dort wo die Kopfzeile schwebt -- und hatte mit
+// z-index:9990 auch noch Vorrang. Beim Scrollen legte er sich damit ueber
+// Logo, Sprachwahl und Profil-Symbol.
+//
+// Feste Zahlen helfen hier nicht: die Kopfzeile ist auf dem Handy anders
+// hoch als am Rechner, und mit Notch verschiebt sie sich noch einmal.
+// Deshalb wird ihre Unterkante gemessen.
+function _bannerUnterKopfzeile() {
+    var banner = document.getElementById('liveOrderBanner');
+    if (!banner) return;
+    var kopf = document.querySelector('.guest-header');
+    if (!kopf || kopf.offsetParent === null) { banner.style.top = '0px'; return; }
+    var unten = kopf.getBoundingClientRect().bottom;
+    banner.style.top = Math.max(0, Math.round(unten) + 8) + 'px';
+}
+window.addEventListener('resize', _bannerUnterKopfzeile);
+window.addEventListener('orientationchange', function () { setTimeout(_bannerUnterKopfzeile, 250); });
+
 async function checkActiveOrderBanner() {
     var phone = localStorage.getItem('kmi_customer_phone');
     if (!phone) return;
@@ -63945,6 +63903,7 @@ async function checkActiveOrderBanner() {
     }
 
     banner.style.display = 'block';
+    _bannerUnterKopfzeile();
     window._bannerType = type;
     var inner = document.getElementById('liveOrderBannerInner');
     var iconEl = document.getElementById('liveOrderIcon');
@@ -64012,105 +63971,22 @@ setTimeout(checkActiveOrderBanner, 2000);
 window._bannerRefresh = setInterval(checkActiveOrderBanner, 15000);
 
 // ============================================================
-// AUTO-BEWERTUNG NACH BESTELLUNG
+// GOOGLE-BEWERTUNG NACH DER BESTELLUNG -- ENTFERNT
 // ============================================================
-var _previousActiveOrderIds = [];
-var _reviewPromptShown = {};
-
-// Wird in checkActiveOrderBanner integriert — hier separat prüfen
-setInterval(async function() {
-    var phone = localStorage.getItem('kmi_customer_phone');
-    if (!phone) return;
-    var cleanPhone = phone.replace(/\s/g, '');
-    var phoneEnd = cleanPhone.slice(-8);
-
-    try {
-        var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=5', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        });
-        var orders = await resp.json();
-        var currentIds = (orders || []).map(function(o) { return o.id; });
-
-        // Detect completed orders
-        var completedIds = _previousActiveOrderIds.filter(function(id) { return currentIds.indexOf(id) === -1; });
-        _previousActiveOrderIds = currentIds;
-
-        completedIds.forEach(function(orderId) {
-            var reviewed = JSON.parse(localStorage.getItem('kmi_reviewed_orders') || '[]');
-            if (reviewed.indexOf(orderId) >= 0 || _reviewPromptShown[orderId]) return;
-            _reviewPromptShown[orderId] = true;
-            setTimeout(function() { showAutoReviewPrompt(orderId); }, 120000); // 2 Min
-        });
-    } catch(e) {}
-}, 20000);
-
-async function showAutoReviewPrompt(orderId) {
-    var reviewed = JSON.parse(localStorage.getItem('kmi_reviewed_orders') || '[]');
-    if (reviewed.indexOf(orderId) >= 0) return;
-
-    try {
-        var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + orderId + '&limit=1', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        });
-        var orders = await res.json();
-        if (!orders || orders.length === 0) return;
-        var order = orders[0];
-        if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'picked_up') return;
-
-        var restaurantName = order.restaurant_name || 'dem Restaurant';
-        var restaurantId = order.restaurant_id;
-
-        var promptDiv = document.createElement('div');
-        promptDiv.id = 'reviewPrompt-' + orderId;
-        promptDiv.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;z-index:9995;background:var(--bg-card);border-radius:16px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.15);border:1px solid var(--border-color);animation:slideUpChat 0.3s ease;max-width:400px;margin:0 auto;';
-        promptDiv.innerHTML = '<div style="display:flex;align-items:center;gap:12px;">' +
-            '<div style="width:44px;height:44px;border-radius:16px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<span class="material-symbols-outlined" style="font-size:22px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span></div>' +
-            '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;color:var(--text-primary);font-family:Inter,sans-serif;">Wie war dein Essen?</div>' +
-            '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Bewerte deine Bestellung bei ' + restaurantName + '</div></div>' +
-            '<button onclick="dismissReviewPrompt(\'' + orderId + '\')" style="background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0;">' +
-            '<span class="material-symbols-outlined" style="font-size:18px;color:var(--text-secondary)">close</span></button></div>' +
-            '<div style="display:flex;gap:8px;margin-top:12px;">' +
-            '<button onclick="dismissReviewPrompt(\'' + orderId + '\')" style="flex:1;padding:10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9999px;font-size:13px;color:var(--text-secondary);cursor:pointer;font-family:Inter,sans-serif;">Später</button>' +
-            '<button onclick="openReviewFromPrompt(\'' + orderId + '\',\'' + restaurantId + '\',\'' + restaurantName.replace(/'/g, "\\'") + '\')" style="flex:1;padding:10px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;color:none;font-variation-settings:\'FILL\' 1;">star</span>Google Bewertung</button></div>';
-
-        document.body.appendChild(promptDiv);
-        setTimeout(function() { dismissReviewPrompt(orderId); }, 30000);
-    } catch(e) { console.error('Review prompt error:', e); }
-}
-
-function dismissReviewPrompt(orderId) {
-    var el = document.getElementById('reviewPrompt-' + orderId);
-    if (el) {
-        el.style.opacity = '0'; el.style.transform = 'translateY(20px)'; el.style.transition = 'all 0.3s ease';
-        setTimeout(function() { el.remove(); }, 300);
-    }
-    var reviewed = JSON.parse(localStorage.getItem('kmi_reviewed_orders') || '[]');
-    if (reviewed.indexOf(orderId) === -1) { reviewed.push(orderId); localStorage.setItem('kmi_reviewed_orders', JSON.stringify(reviewed)); }
-}
-
-function openReviewFromPrompt(orderId, restaurantId, restaurantName) {
-    dismissReviewPrompt(orderId);
-    // Google Maps URL vom Restaurant holen und oeffnen
-    var rest = (APP_DATA.restaurants || []).find(function(r) { return r.id === restaurantId; });
-    if (rest && rest.googleMapsUrl) {
-        window.open(rest.googleMapsUrl, '_blank');
-    } else {
-        // Fallback: Google Maps URL von Supabase holen
-        fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId + '&select=googleMapsUrl&limit=1', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-        }).then(function(r) { return r.json(); }).then(function(data) {
-            if (data && data[0] && data[0].googleMapsUrl) {
-                window.open(data[0].googleMapsUrl, '_blank');
-            } else {
-                // Letzter Fallback: Google Suche
-                window.open('https://www.google.com/search?q=' + encodeURIComponent(restaurantName + ' Bewertung'), '_blank');
-            }
-        }).catch(function() {
-            window.open('https://www.google.com/search?q=' + encodeURIComponent(restaurantName + ' Bewertung'), '_blank');
-        });
-    }
-}
+// Hier lagen zwei Aufforderungen, die dem Gast NACH dem Bestellen ins Bild
+// sprangen: eine Sternebewertung nach 60 Sekunden und zwei Minuten spaeter
+// noch ein Kasten "Google Bewertung". Dazu eine Abfrage, die alle 20 Sekunden
+// die Bestellungen des Gastes aus der Datenbank holte -- dauerhaft, im
+// Hintergrund, nur um den richtigen Moment fuer das Fenster zu treffen.
+//
+// Beides ist raus. Zwei Gruende:
+//   1. Zum Zeitpunkt des Bestellens hat der Gast noch nichts gegessen. Er
+//      kann gar nicht bewerten, was er noch nicht kennt.
+//   2. Es kamen zwei Fenster hintereinander. Die App war schon voll genug.
+//
+// Die Bitte um eine Google-Bewertung steht jetzt in der Bestaetigungs-E-Mail
+// (netlify/functions/order-email.js) -- unten, freundlich, einmal. Wer sie
+// liest, hat gegessen und kann etwas dazu sagen.
 
 // ============================================================
 // TAGESANGEBOT ALS TOP-EINTRAG IN SPEISEKARTE
@@ -64291,23 +64167,10 @@ setTimeout(function() {
 </noscript>
 
 <!-- Cookie Consent Banner (DSGVO) -->
-<div id="cookieConsentBanner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:999999; background:var(--bg-card, #1a1a2e); border-top:1px solid var(--border-color, rgba(255,255,255,0.1)); padding:16px 20px; box-shadow:0 -4px 20px rgba(0,0,0,0.3);">
-    <div style="max-width:900px; margin:0 auto; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:240px;">
-            <p style="margin:0; font-family:Inter,sans-serif; font-size:14px; color:var(--text-primary, #e0e0e0); line-height:1.5;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary, #4ade80)" stroke-width="2" width="16" height="16" style="vertical-align:-3px; margin-right:4px;">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <path d="M8 12h.01M12 12h.01M16 12h.01"/>
-                </svg>
-                Wir verwenden Cookies zur Analyse unserer Website. Damit helfen Sie uns, Kiek mol in zu verbessern.
-                <a href="https://kiekmolin.de/datenschutz" target="_blank" style="color:var(--primary, #4ade80); text-decoration:underline; margin-left:4px;">Datenschutz</a>
-            </p>
-        </div>
-        <div style="display:flex; gap:8px; flex-shrink:0;">
-            <button onclick="cookieConsent('declined')" style="padding:10px 20px; background:var(--bg-secondary, #2a2a3e); color:var(--text-primary, #e0e0e0); border:1px solid var(--border-color, rgba(255,255,255,0.15)); border-radius:9999px; font-family:Inter,sans-serif; font-size:14px; font-weight:600; cursor:pointer;">Ablehnen</button>
-            <button onclick="cookieConsent('accepted')" style="padding:10px 20px; background:var(--primary, #16a34a); color:white; border:none; border-radius:9999px; font-family:Inter,sans-serif; font-size:14px; font-weight:600; cursor:pointer;">Akzeptieren</button>
-        </div>
-    </div>
+<!-- Der zweite Cookie-Banner stand hier. Er lief parallel zu
+     #cookieConsent, mit eigenem Speicherschluessel (kin_cookie_consent statt
+     kmi_consent) -- deshalb erschienen beide gleichzeitig, uebereinander
+     gestapelt. Die Analyse-Einwilligung ist jetzt im einen Banner mit drin. -->
 </div>
 <script>
 // Cookie Consent Logic
@@ -65575,24 +65438,7 @@ async function showTvMenuBoard(slug) {
     }, 300000);
 }
 
-function cookieConsent(choice) {
-    localStorage.setItem('kin_cookie_consent', choice);
-    document.getElementById('cookieConsentBanner').style.display = 'none';
-    if (choice === 'accepted') {
-        gtag('consent', 'update', { analytics_storage: 'granted' });
-    }
-}
-// Banner anzeigen wenn noch keine Entscheidung
-(function() {
-    var consent = localStorage.getItem('kin_cookie_consent');
-    if (!consent) {
-        // Kurz warten bis Seite geladen
-        setTimeout(function() {
-            var banner = document.getElementById('cookieConsentBanner');
-            if (banner) banner.style.display = 'block';
-        }, 1500);
-    }
-})();
+
 
 // ==================== INSTAGRAM GALERIE ====================
 
