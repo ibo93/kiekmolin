@@ -141,5 +141,46 @@ t('Reservierung: nur bei der Bestaetigung',
 t('das Restaurant liefert dafuer den Google-Link mit',
   /select=name,street,city,phone,google_maps_url/.test(M));
 
+// ---- 6. Der obere Banner lag AUF der Kopfzeile --------------------------
+// .guest-header schwebt: position:fixed, top:16px, z-index:1000.
+// Der Bestellstatus-Banner klebte bei top:0 -- genau dort -- und hatte mit
+// z-index:9990 auch noch Vorrang. Beim Scrollen legte er sich ueber Logo,
+// Sprachwahl und Profil-Symbol.
+t('die Kopfzeile schwebt wirklich (das ist die Ursache)',
+  /\.guest-header \{[\s\S]{0,300}position: fixed;[\s\S]{0,120}z-index: 1000;/.test(H));
+t('der Banner hat keinen Vorrang mehr vor der Kopfzeile',
+  /id="liveOrderBanner"[\s\S]{0,240}z-index:990;/.test(H)
+  && !/id="liveOrderBanner"[\s\S]{0,240}z-index:9990;/.test(H));
+t('seine Position wird an der Kopfzeile gemessen',
+  /function _bannerUnterKopfzeile\(\)/.test(H)
+  && /kopf\.getBoundingClientRect\(\)\.bottom/.test(H));
+t('gemessen wird beim Einblenden',
+  /banner\.style\.display = 'block';\s*\n\s*_bannerUnterKopfzeile\(\);/.test(H));
+t('und neu gemessen, wenn sich das Fenster dreht oder aendert',
+  /addEventListener\('resize', _bannerUnterKopfzeile\)/.test(H)
+  && /orientationchange/.test(H));
+
+var P = new Function('document', 'window',
+    H.slice(H.indexOf('function _bannerUnterKopfzeile()'),
+            H.indexOf("window.addEventListener('resize', _bannerUnterKopfzeile)"))
+  + '; return _bannerUnterKopfzeile;');
+
+function messe(kopfUnten, kopfSichtbar) {
+    var banner = { style: {} };
+    var kopf = kopfSichtbar === false ? { offsetParent: null } : {
+        offsetParent: {}, getBoundingClientRect: function () { return { bottom: kopfUnten }; }
+    };
+    P({ getElementById: function () { return banner; },
+        querySelector: function () { return kopf; } }, {})();
+    return banner.style.top;
+}
+t('unter einer 76px hohen Kopfzeile sitzt er bei 84px', messe(76) === '84px', messe(76));
+t('auf einem groesseren Bildschirm entsprechend tiefer', messe(120) === '128px', messe(120));
+// Feste Zahlen haetten hier nicht gereicht: ohne Kopfzeile -- etwa im
+// Vollbild-Speisekarten-Fenster -- gehoert er wieder ganz nach oben.
+t('ohne sichtbare Kopfzeile geht er zurueck auf 0', messe(0, false) === '0px', messe(0, false));
+t('eine hochgescrollte Kopfzeile schiebt ihn nicht nach oben aus dem Bild',
+  messe(-40) === '0px', messe(-40));
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

@@ -13869,7 +13869,7 @@ document.addEventListener('DOMContentLoaded', function () { setTimeout(_cookieBa
     </div>
 
     <!-- Live Bestellstatus Banner -->
-    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:9990;cursor:pointer;padding:8px 16px;">
+    <div id="liveOrderBanner" onclick="if(window._bannerType==='order'){showMyOrders()}else if(window._bannerType==='reservation'){showMyReservations()}" style="display:none;position:sticky;top:0;z-index:990;cursor:pointer;padding:8px 16px;">
         <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.04);transition:transform 0.2s;position:relative;" id="liveOrderBannerInner" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='scale(1)'">
             <button onclick="event.stopPropagation();document.getElementById('liveOrderBanner').style.display='none';" style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,0.06);border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;z-index:2;" aria-label="Schließen">
                 <span class="material-symbols-outlined" style="font-size:12px;">close</span>
@@ -63832,6 +63832,28 @@ setTimeout(function() {
 // ============================================================
 // LIVE STATUS BANNER - Bestellungen + Reservierungen
 // ============================================================
+// DER BANNER LAG AUF DER KOPFZEILE.
+//
+// .guest-header ist eine schwebende Leiste: position:fixed, top:16px,
+// z-index:1000. Der Bestellstatus-Banner klebte mit position:sticky bei
+// top:0 -- also GANZ oben, dort wo die Kopfzeile schwebt -- und hatte mit
+// z-index:9990 auch noch Vorrang. Beim Scrollen legte er sich damit ueber
+// Logo, Sprachwahl und Profil-Symbol.
+//
+// Feste Zahlen helfen hier nicht: die Kopfzeile ist auf dem Handy anders
+// hoch als am Rechner, und mit Notch verschiebt sie sich noch einmal.
+// Deshalb wird ihre Unterkante gemessen.
+function _bannerUnterKopfzeile() {
+    var banner = document.getElementById('liveOrderBanner');
+    if (!banner) return;
+    var kopf = document.querySelector('.guest-header');
+    if (!kopf || kopf.offsetParent === null) { banner.style.top = '0px'; return; }
+    var unten = kopf.getBoundingClientRect().bottom;
+    banner.style.top = Math.max(0, Math.round(unten) + 8) + 'px';
+}
+window.addEventListener('resize', _bannerUnterKopfzeile);
+window.addEventListener('orientationchange', function () { setTimeout(_bannerUnterKopfzeile, 250); });
+
 async function checkActiveOrderBanner() {
     var phone = localStorage.getItem('kmi_customer_phone');
     if (!phone) return;
@@ -63881,6 +63903,7 @@ async function checkActiveOrderBanner() {
     }
 
     banner.style.display = 'block';
+    _bannerUnterKopfzeile();
     window._bannerType = type;
     var inner = document.getElementById('liveOrderBannerInner');
     var iconEl = document.getElementById('liveOrderIcon');
