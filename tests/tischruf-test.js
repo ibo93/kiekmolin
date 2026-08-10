@@ -1,11 +1,11 @@
 // "Bedienung rufen" -- die Function wird WIRKLICH aufgerufen, mit
-// gefaelschter Datenbank und gefaelschtem Push.
+// gefälschter Datenbank und gefälschtem Push.
 //
-// Der Fehler, den diese Datei festhaelt: der Ruf ging ausschliesslich per
+// Der Fehler, den diese Datei festhält: der Ruf ging ausschliesslich per
 // Web-Push raus. Hat im Restaurant niemand die Benachrichtigungen erlaubt --
-// und das muss jedes Geraet einmal von Hand tun -- bekam der Gast
+// und das muss jedes Gerät einmal von Hand tun -- bekam der Gast
 // "Gerade ist kein Gerät im Restaurant erreichbar", und im Restaurant erfuhr
-// niemand, dass ueberhaupt jemand gerufen hatte. Der Knopf war also nicht
+// niemand, dass überhaupt jemand gerufen hatte. Der Knopf war also nicht
 // kaputt im Sinne von "Code falsch", er war nutzlos im Normalfall.
 'use strict';
 
@@ -14,7 +14,7 @@ var fs = require('fs');
 var PFAD = '/home/user/kiekmolin/netlify/functions/waiter-call.js';
 
 // web-push ist in dieser Umgebung nicht installiert (liegt nur bei Netlify).
-// Attrappe einhaengen, damit die echte Datei geladen werden kann.
+// Attrappe einhängen, damit die echte Datei geladen werden kann.
 var pushFehler = null, pushGesendet = 0;
 var echtesLaden = Module._load;
 Module._load = function (anfrage, eltern, haupt) {
@@ -40,7 +40,7 @@ function t(label, bedingung, extra) {
 
 var RID = '11111111-2222-3333-4444-555555555555';
 
-// Gefaelschte Datenbank. `welt` steuert, was sie kann.
+// Gefälschte Datenbank. `welt` steuert, was sie kann.
 function machFetch(welt) {
     var log = { logZeilen: [], logStatus: 0 };
     global.fetch = async function (url, opts) {
@@ -131,7 +131,7 @@ async function ruf(welt, body) {
     t('fehlende Restaurant-ID wird abgelehnt',
       r.antwort.ok === false && r.code === 400, r.code + ' ' + JSON.stringify(r.antwort));
 
-    // ---- Abgemeldete Geraete werden aufgeraeumt, brechen aber nichts ----
+    // ---- Abgemeldete Geräte werden aufgeräumt, brechen aber nichts ----
     var weg = new Error('gone'); weg.statusCode = 410;
     r = await ruf({ subs: [1], pushFehler: weg });
     t('totes Geraet bricht den Ruf nicht ab (Datenbank traegt ihn)',
@@ -150,10 +150,10 @@ async function ruf(welt, body) {
     t('derselbe Ruf loest nur EINEN Alarm aus',
       /_tischRufGesehen\[act\.id\]/.test(h));
 
-    // ---- Menuescanner: kein "KI liest" wenn keine KI laeuft ----
-    // Die Zusage haengt nicht mehr an der Reihenfolge im Quelltext, sondern
-    // am Ablauf: der PDF-Weg kehrt zurueck, bevor leseKarteKI ueberhaupt
-    // erwaehnt wird. tests/scanner-neu-test.js faehrt das wirklich durch.
+    // ---- Menüscanner: kein "KI liest" wenn keine KI läuft ----
+    // Die Zusage hängt nicht mehr an der Reihenfolge im Quelltext, sondern
+    // am Ablauf: der PDF-Weg kehrt zurück, bevor leseKarteKI überhaupt
+    // erwähnt wird. tests/scanner-neu-test.js fährt das wirklich durch.
     var sm = h.slice(h.indexOf('async function startMenuScan()'));
     sm = sm.slice(0, sm.indexOf('\n}\n') + 3);
     var iPdf = sm.indexOf('showScannedResults();\n                return;');

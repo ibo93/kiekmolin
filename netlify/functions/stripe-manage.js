@@ -1,5 +1,5 @@
-// Stripe: bestehendes Abo verwalten (kuendigen / pausieren / fortsetzen /
-// Kundenportal / Preis aendern).
+// Stripe: bestehendes Abo verwalten (kündigen / pausieren / fortsetzen /
+// Kundenportal / Preis ändern).
 //
 // MUSS im Git-Repo liegen (siehe stripe-create-customer.js).
 //
@@ -84,7 +84,7 @@ exports.handler = async function (event) {
             var item = sub.items && sub.items.data && sub.items.data[0];
             if (!item) return json(400, { error: 'Abo hat keine Position' });
 
-            // Neuen Preis fuer dasselbe Produkt anlegen und die Abo-Position umstellen.
+            // Neuen Preis für dasselbe Produkt anlegen und die Abo-Position umstellen.
             var product = (item.price && item.price.product) ? item.price.product : undefined;
             var priceObj = await stripe.prices.create({
                 currency: 'eur',

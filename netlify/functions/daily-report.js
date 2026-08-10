@@ -1,12 +1,12 @@
-// Kiek mol in — Feierabend-Report: taegliche Zusammenfassung per E-Mail an
+// Kiek mol in — Feierabend-Report: tägliche Zusammenfassung per E-Mail an
 // jeden Gastronomen (Umsatz, Bestellungen, Top-Gerichte, Reservierungen morgen).
 //
-// Laeuft als Netlify Scheduled Function taeglich 21:30 UTC (= 23:30 Sommer /
+// Läuft als Netlify Scheduled Function täglich 21:30 UTC (= 23:30 Sommer /
 // 22:30 Winter deutscher Zeit), siehe netlify.toml.
 //
 // Verhalten:
 //   - OHNE RESEND_API_KEY macht die Function NICHTS (gefahrlos deploybar).
-//   - Nur Restaurants mit hinterlegter E-Mail UND Aktivitaet (Bestellungen heute
+//   - Nur Restaurants mit hinterlegter E-Mail UND Aktivität (Bestellungen heute
 //     oder Reservierungen morgen) bekommen eine Mail -- kein Spam an ruhige Tage.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY, RESEND_API_KEY, EMAIL_FROM (optional)

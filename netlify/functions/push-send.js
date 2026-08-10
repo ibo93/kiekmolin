@@ -1,5 +1,5 @@
-// Server-Endpoint fuer echte Web Push (auch bei geschlossenem Browser/Handy).
-// Wird vom Frontend aufgerufen wenn sich Order-/Reservierungs-Status aendert.
+// Server-Endpoint für echte Web Push (auch bei geschlossenem Browser/Handy).
+// Wird vom Frontend aufgerufen wenn sich Order-/Reservierungs-Status ändert.
 
 var webpush = require('web-push');
 var https = require('https');

@@ -10,7 +10,7 @@
 // beide Functions nutzen dieselbe Quelle, damit sie nicht auseinanderlaufen.
 //
 // ENV: GEMINI_API_KEY (Standard, kostenlos) | GROQ_API_KEY (kostenlos)
-//      CHAT_PROVIDER=anthropic waehlt ausdruecklich den kostenpflichtigen Weg.
+//      CHAT_PROVIDER=anthropic wählt ausdrücklich den kostenpflichtigen Weg.
 
 'use strict';
 
@@ -59,8 +59,8 @@ async function callGemini(key, input) {
             generationConfig: {
                 maxOutputTokens: brain.MAX_TOKENS,
                 temperature: 0.7,
-                // Nachdenken aus: es zaehlt gegen dasselbe Ausgabe-Budget und
-                // laesst eine kurze Chat-Antwort spuerbar spaeter erscheinen.
+                // Nachdenken aus: es zählt gegen dasselbe Ausgabe-Budget und
+                // lässt eine kurze Chat-Antwort spürbar später erscheinen.
                 thinkingConfig: { thinkingBudget: 0 }
             }
         })
@@ -109,8 +109,8 @@ exports.handler = async function (event) {
     var input = brain.readInput(body);
     if (input.error) return json(400, { error: input.error });
 
-    // Bei einem Ausfall den naechsten KOSTENLOSEN Anbieter probieren, statt den
-    // Assistenten stumm zu lassen. Die Liste kommt aus dem Hirn und enthaelt
+    // Bei einem Ausfall den nächsten KOSTENLOSEN Anbieter probieren, statt den
+    // Assistenten stumm zu lassen. Die Liste kommt aus dem Hirn und enthält
     // bewusst keinen kostenpflichtigen Anbieter.
     var order = brain.providerOrder(process.env);
     var lastErr = null;

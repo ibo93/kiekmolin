@@ -2,15 +2,15 @@
 //
 // WARUM
 // -----
-// Wo kein Foto hinterlegt war, stand ueberall dasselbe graue Besteck-Symbol --
+// Wo kein Foto hinterlegt war, stand überall dasselbe graue Besteck-Symbol --
 // in der Speisekarte, im Warenkorb, bei "Dazu passt". Und Fotos fehlen fast
-// immer: aus dem PDF-Import kommen keine mit, und kaum ein Gastronom laedt 142
+// immer: aus dem PDF-Import kommen keine mit, und kaum ein Gastronom lädt 142
 // Bilder von Hand hoch. Eine Karte ohne Fotos sah dadurch nicht schlicht aus,
 // sondern unfertig.
 //
 // Jetzt: ein ruhiges gezeichnetes Motiv passend zur Kategorie, inline, ohne
-// Nachladen. Dazu Platzhalter-Karten waehrend des Ladens und ein kurzes
-// Huepfen des Warenkorb-Zaehlers.
+// Nachladen. Dazu Platzhalter-Karten während des Ladens und ein kurzes
+// Hüpfen des Warenkorb-Zählers.
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -35,29 +35,29 @@ var P = new Function(quelle + '; return { bild: gerichtBild, motiv: motivFuer, m
       P.motiv({ name: f[0], category: f[1] }) === f[2], P.motiv({ name: f[0], category: f[1] }));
 });
 
-// Der Name schlaegt durch, auch wenn die Kategorie nichts sagt -- eine
-// "Pizza Emden" unter "Spezialitaeten" ist trotzdem eine Pizza.
+// Der Name schlägt durch, auch wenn die Kategorie nichts sagt -- eine
+// "Pizza Emden" unter "Spezialitäten" ist trotzdem eine Pizza.
 t('der Name entscheidet mit, nicht nur die Kategorie',
   P.motiv({ name: 'Pizza Emden', category: 'Spezialitäten' }) === 'pizza');
 t('unbekanntes Gericht bekommt den neutralen Teller',
   P.motiv({ name: 'Tagesgericht', category: 'Sonstiges' }) === 'teller');
 t('ohne jede Angabe kippt nichts', P.motiv({}) === 'teller' && P.motiv(null) === 'teller');
 
-// ---- Die Motive muessen sich UNTERSCHEIDEN -----------------------------------
-// Der erste Entwurf hatte fuer Pizza, Burger, Pasta und Salat viermal dieselbe
+// ---- Die Motive müssen sich UNTERSCHEIDEN -----------------------------------
+// Der erste Entwurf hatte für Pizza, Burger, Pasta und Salat viermal dieselbe
 // Kuppel. Nebeneinander war das nicht auseinanderzuhalten -- und damit
 // nutzlos.
 var zeichnungen = Object.keys(P.motive).map(function (k) { return P.motive[k]; });
 t('kein Motiv ist doppelt', new Set(zeichnungen).size === zeichnungen.length,
   zeichnungen.length - new Set(zeichnungen).size + ' doppelt');
-// Frueher hatte jede Kategorie einen eigenen Pastellton -- zehn Bonbonfarben
+// Früher hatte jede Kategorie einen eigenen Pastellton -- zehn Bonbonfarben
 // nebeneinander. Jetzt EINE Farbwelt, nur die Zeichnung wechselt.
 t('die Motive tragen keine eigenen Farben mehr',
   zeichnungen.every(function (z) { return typeof z === 'string' && z.indexOf('#') < 0; }));
 t('es gibt fuer alle wichtigen Kategorien eins', Object.keys(P.motive).length >= 11,
   Object.keys(P.motive).length);
 
-// ---- Echtes Foto schlaegt das Motiv ------------------------------------------
+// ---- Echtes Foto schlägt das Motiv ------------------------------------------
 var mitBild = P.bild({ name: 'Pizza', image_url: 'https://x/p.jpg' }, 'width:100px;height:100px;');
 t('ist ein Foto da, wird das Foto genommen', /<img src="https:\/\/x\/p\.jpg"/.test(mitBild), mitBild.slice(0, 90));
 t('das Foto laedt verzoegert', /loading="lazy"/.test(mitBild));
@@ -74,15 +74,15 @@ t('Anfuehrungszeichen im Namen brechen nichts',
 t('der Rundungsgrad wird durchgereicht',
   P.bild({ name: 'x' }, 'width:56px;', '10px').indexOf('border-radius:10px') > 0);
 
-// ---- Ueberall eingesetzt ------------------------------------------------------
+// ---- Überall eingesetzt ------------------------------------------------------
 t('die Speisekarte benutzt es',
   /html \+= gerichtBild\(item, 'width:100%;height:100%;'\);/.test(H));
 t('"Dazu passt" benutzt es',
   /var imgHtml = gerichtBild\(item, 'width:56px;height:56px;', '10px'\);/.test(H));
 t('der Warenkorb benutzt es',
   /\$\{gerichtBild\(item, 'width:100%;height:100%;'\)\}/.test(H));
-// Nur die drei Gast-Stellen pruefen -- im Dashboard darf das Besteck-Symbol
-// weiter als Symbol dienen, da steht es nicht fuer ein fehlendes Foto.
+// Nur die drei Gast-Stellen prüfen -- im Dashboard darf das Besteck-Symbol
+// weiter als Symbol dienen, da steht es nicht für ein fehlendes Foto.
 var gastTeile = H.slice(H.indexOf('function renderMenuItemsForGuest('), H.indexOf('function openItemOptions('))
               + H.slice(H.indexOf('function renderCrossSellSheet('), H.indexOf('function quickAddCrossSell('))
               + H.slice(H.indexOf('function renderCartItems('), H.indexOf('function changeCartItemQty('));
@@ -103,11 +103,11 @@ t('jedes Motiv besteht aus mehreren Teilen',
       return (P.motive[k].match(/<(path|circle)/g) || []).length < 2; }).join(', '));
 
 // ---- Der Grund dreht im dunklen Modus mit -----------------------------------
-// Feste Pastelltoene haetten im Dunkeln geleuchtet.
+// Feste Pastelltöne hätten im Dunkeln geleuchtet.
 t('Grund und Strich kommen aus den Design-Variablen',
   /background:var\(--bg-secondary\)/.test(H) && /stroke="var\(--ink-strong\)"/.test(H));
 
-// ---- Platzhalter waehrend des Ladens -----------------------------------------
+// ---- Platzhalter während des Ladens -----------------------------------------
 var L = new Function(H.slice(H.indexOf('function ladePlatzhalter('),
                              H.indexOf('// PLATZHALTER STATT GRAUER GABEL') - 80)
     + '; return ladePlatzhalter;')();
@@ -117,7 +117,7 @@ t('sechs Karten sind sechs Karten', (L(6).match(/kmi-schimmer" style="height:192
 t('sie stehen im selben Raster wie die echten', L(6).indexOf('stitch-menu-grid') >= 0);
 t('Vorlesegeraete erfahren, dass geladen wird', /aria-busy="true"/.test(L(6)));
 
-// ---- Der Zaehler huepft, aber nur nach oben ----------------------------------
+// ---- Der Zähler hüpft, aber nur nach oben ----------------------------------
 var B = new Function('setTimeout',
     H.slice(H.indexOf('var _letzteKorbzahl = 0;'), H.indexOf('function updateCartBadges()'))
   + '; return { huepf: _korbHuepfen, stand: function(){ return _letzteKorbzahl; } };')(function () {});
@@ -135,7 +135,7 @@ B.huepf(b2, 1);
 t('bleibt die Zahl gleich, huepft nichts', b2._k.length === 0, JSON.stringify(b2._k));
 var b3 = badge();
 B.huepf(b3, 0);
-// Beim Entfernen zu huepfen waere eine Belohnung fuer den falschen Vorgang.
+// Beim Entfernen zu hüpfen wäre eine Belohnung für den falschen Vorgang.
 t('beim Entfernen huepft nichts', b3._k.length === 0, JSON.stringify(b3._k));
 var b4 = badge();
 B.huepf(b4, 3);

@@ -1,5 +1,5 @@
-// Die zwei Fehler, an denen es im Betrieb haengengeblieben ist -- beide
-// unsichtbar, beide toedlich.
+// Die zwei Fehler, an denen es im Betrieb hängengeblieben ist -- beide
+// unsichtbar, beide tödlich.
 'use strict';
 var fs = require('fs');
 var Module = require('module');
@@ -36,7 +36,7 @@ var lauf = new Function('document', 'setTimeout',
     + '; return _lazyLoadScript;')(b.doc, setTimeout);
 
 (async function () {
-    // DER FEHLER: zweiter Aufruf, waehrend das Script noch laedt.
+    // DER FEHLER: zweiter Aufruf, während das Script noch lädt.
     var reihenfolge = [];
     await new Promise(function (fertig) {
         lauf('https://x/pdf.js', function () { reihenfolge.push('erster'); });
@@ -47,7 +47,7 @@ var lauf = new Function('document', 'setTimeout',
       JSON.stringify(reihenfolge));
     t('das Script wird nur EINMAL eingehaengt', b.tags.length === 1, b.tags.length + ' Tags');
 
-    // Nach dem Laden meldet der naechste Aufruf sofort.
+    // Nach dem Laden meldet der nächste Aufruf sofort.
     var sofort = false;
     lauf('https://x/pdf.js', function () { sofort = true; });
     t('nach dem Laden meldet der naechste Aufruf sofort', sofort === true, 'kam nicht');
@@ -60,7 +60,7 @@ var lauf = new Function('document', 'setTimeout',
       && /ladePdfJs\(\)\.then\(function \(\) \{\s*_lazyLoadScript\('https:\/\/cdn\.jsdelivr\.net\/npm\/tesseract/.test(h));
     t('Ladefehler blockiert nicht ewig', /s\.onerror = function \(\)/.test(h));
 
-    // --- Tischrufe kommen ueber den Server, nicht direkt aus der Datenbank --
+    // --- Tischrufe kommen über den Server, nicht direkt aus der Datenbank --
     t('Dashboard fragt waiter-pending, nicht activity_log direkt',
       /functions\/waiter-pending\?restaurant=/.test(h)
       && !/activity_type=eq\.waiter_call/.test(h));

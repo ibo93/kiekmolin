@@ -1,15 +1,15 @@
 // BEWEIS: alter Scanner gegen neuen, unter dem echten Netlify-Zeitlimit.
 //
-// Warum es diese Datei gibt: es wurde fuenf Runden lang behauptet, der Scanner
-// sei besser geworden, ohne dass jemand eine Zahl gesehen hat. Hier laeuft der
+// Warum es diese Datei gibt: es wurde fünf Runden lang behauptet, der Scanner
+// sei besser geworden, ohne dass jemand eine Zahl gesehen hat. Hier läuft der
 // ECHTE Server-Code (beide Fassungen) und der ECHTE Client-Code aus index.html
 // gegen eine Speisekarte mit 60 Gerichten -- mit einer Anthropic-Attrappe, die
 // so schnell schreibt wie das echte Modell, und mit einer Netlify-Attrappe, die
 // nach 10 Sekunden abschneidet.
 //
-// Das prueft NICHT, ob die Anthropic-API die gesendeten Felder mag (dafuer
-// braeuchte es einen Schluessel). Es prueft die Sache, an der der Scanner
-// tatsaechlich gescheitert ist: die Zeit.
+// Das prüft NICHT, ob die Anthropic-API die gesendeten Felder mag (dafür
+// bräuchte es einen Schlüssel). Es prüft die Sache, an der der Scanner
+// tatsächlich gescheitert ist: die Zeit.
 //
 // Aufruf:  node tests/beweis-zeitlimit.js
 'use strict';
@@ -70,8 +70,8 @@ function alsZeilen(liste) {
 var ALS_ZEILEN = alsZeilen(GERICHTE);
 
 // --- Anthropic-Attrappe --------------------------------------------------
-// Verhaelt sich wie das echte Modell: sie braucht Zeit zum Schreiben.
-// "alt": gibt erst die FERTIGE Antwort zurueck (so hat der alte Code gelesen).
+// Verhält sich wie das echte Modell: sie braucht Zeit zum Schreiben.
+// "alt": gibt erst die FERTIGE Antwort zurück (so hat der alte Code gelesen).
 // "neu": schickt einen Datenstrom und beachtet den Fortsetzungs-Punkt.
 function macheFetch(art, zaehler) {
     return async function (url, opts) {
@@ -98,7 +98,7 @@ function macheFetch(art, zaehler) {
             return { ok: true, json: async () => ({ content: [{ text: text }] }) };
         }
 
-        // Datenstrom, Haeppchen fuer Haeppchen -- mit realistischem Tempo.
+        // Datenstrom, Häppchen für Häppchen -- mit realistischem Tempo.
         var STUECK = 180;
         var teile = [];
         for (var i = 0; i < text.length; i += STUECK) {
@@ -164,7 +164,7 @@ async function lauf(titel, funktionsDatei, art, clientQuelle) {
     global.window = { _lastMenuScanError: null };
 
     var runden = [];
-    // Der echte Client ruft ueber fetch('/.netlify/functions/menu-scan') auf.
+    // Der echte Client ruft über fetch('/.netlify/functions/menu-scan') auf.
     // Wir leiten das auf den Handler um -- inklusive 10-Sekunden-Wand.
     var echterFetch = global.fetch;
     global.fetch = async function (url, opts) {

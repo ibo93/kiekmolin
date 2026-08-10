@@ -3,17 +3,17 @@
 // WARUM: Bisher gab es KEINE Fehlermeldung aus dem Betrieb. Wenn bei einem
 // Gastronomen in Greetsiel etwas kaputtging, erfuhr davon niemand -- ausser er
 // rief an. Meistens ruft niemand an; er benutzt die Funktion einfach nicht
-// mehr. Mit jedem neuen Restaurant waechst dieses Risiko.
+// mehr. Mit jedem neuen Restaurant wächst dieses Risiko.
 //
 // Diese Function nimmt Fehlerberichte des Browsers entgegen und schreibt sie
 // nach activity_log (activity_type = 'client_error'). Das ist bewusst eine
-// bestehende Tabelle mit freiem Schema -- so ist keine Datenbank-Aenderung
-// noetig, die erst jemand von Hand einspielen muesste.
+// bestehende Tabelle mit freiem Schema -- so ist keine Datenbank-Änderung
+// nötig, die erst jemand von Hand einspielen müsste.
 //
 // GRUNDREGEL: Diese Function darf NIE etwas kaputtmachen. Sie antwortet immer
 // mit 204, auch wenn das Schreiben scheitert. Ein Fehler beim Melden eines
 // Fehlers darf den Nutzer nicht behelligen und erst recht keine Schleife
-// ausloesen.
+// auslösen.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY
 
@@ -30,10 +30,10 @@ var CORS = {
 // Immer 204: der Browser soll nichts auswerten und nichts wiederholen.
 var OK = { statusCode: 204, headers: CORS, body: '' };
 
-// Grobe Bremse pro Function-Instanz. Ein Fehler in einer Schleife koennte sonst
+// Grobe Bremse pro Function-Instanz. Ein Fehler in einer Schleife könnte sonst
 // hunderte Zeilen pro Sekunde schreiben und die Tabelle unbrauchbar machen.
 // Die Instanz lebt nur ein paar Minuten -- das reicht, um genau solche
-// Ausbrueche abzufangen, ohne echte Meldungen zu verlieren.
+// Ausbrüche abzufangen, ohne echte Meldungen zu verlieren.
 var seen = {};          // Fingerabdruck -> { count, first }
 var FENSTER_MS = 10 * 60 * 1000;
 var MAX_PRO_FEHLER = 5;
@@ -60,7 +60,7 @@ exports.handler = async function (event) {
 
     // Fingerabdruck ohne Zeilennummern-Rauschen: gleiche Ursache, ein Eintrag.
     var fp = (message + '|' + s(b.source, 200)).toLowerCase().replace(/\d+/g, '#');
-    // Date.now() ist hier unproblematisch (laeuft auf dem Server, nicht im Build).
+    // Date.now() ist hier unproblematisch (läuft auf dem Server, nicht im Build).
     if (drosseln(fp, Date.now())) return OK;
 
     var zeile = {

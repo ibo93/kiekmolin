@@ -1,4 +1,4 @@
-// Holt sbWrite aus index.html und prueft das Verhalten bei abgelehnten Anfragen.
+// Holt sbWrite aus index.html und prüft das Verhalten bei abgelehnten Anfragen.
 var fs = require('fs');
 var html = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
 var m = html.match(/async function sbWrite\(url, options\) \{[\s\S]*?\n    \}/);

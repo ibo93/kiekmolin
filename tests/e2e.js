@@ -1,13 +1,13 @@
 // Durchlauf durch die komplette Kette mit einer realistischen 2-Seiten-Karte,
-// die in 4 Bildhaelften zerlegt wurde. Nutzt den ECHTEN Server-Code und die
+// die in 4 Bildhälften zerlegt wurde. Nutzt den ECHTEN Server-Code und die
 // ECHTE Client-Logik, aus den Dateien geschnitten.
 var fs=require('fs'), sse=require('./lib/sse').sseAntwort, n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 var P='/home/user/kiekmolin/netlify/functions/menu-scan.js';
 
-// Was das Modell pro Bildhaelfte liefert. Haelfte 2 und 4 ohne Ueberschrift --
-// genau der Fall, in dem frueher erfunden wurde.
+// Was das Modell pro Bildhälfte liefert. Hälfte 2 und 4 ohne Überschrift --
+// genau der Fall, in dem früher erfunden wurde.
 var HAELFTEN = [
  {items:[{name:'Bruschetta',description:'',price:6.5,category:'Vorspeisen',dish_number:'1',allergens:['A'],additives:['1']},
          {name:'Carpaccio', description:'',price:9.9,category:'Vorspeisen',dish_number:'2',allergens:[],additives:[]}]},
@@ -29,7 +29,7 @@ var HAELFTEN = [
   delete require.cache[require.resolve('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js')];
   var handler = require(P).handler;
 
-  // 1) Jede Haelfte einzeln durch die echte Server-Function
+  // 1) Jede Hälfte einzeln durch die echte Server-Function
   var proSeite=[];
   for (var i=0;i<HAELFTEN.length;i++){
     var r = await handler({httpMethod:'POST', body:JSON.stringify({

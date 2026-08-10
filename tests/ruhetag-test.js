@@ -4,19 +4,19 @@
 // --------------
 // "wenn ich ruhe tage eingetragen haben kommt beim öffnungzeiten geöffnet
 //  eine uhrzeit". Auf kiekmolin.de/pizzeria-alporto-oldersum stand
-// "Mo: 11:00–22:00", waehrend Al Porto montags geschlossen hat -- Google
-// zeigt fuer denselben Betrieb "Geschlossen - Öffnet Di um 16:00".
+// "Mo: 11:00–22:00", während Al Porto montags geschlossen hat -- Google
+// zeigt für denselben Betrieb "Geschlossen - Öffnet Di um 16:00".
 //
 // DIE URSACHE: ZWEI QUELLEN, EINE GELESEN
 // ---------------------------------------
-// Der Ruhetag wird im Dashboard ueber ein eigenes Auswahlfeld gesetzt und
+// Der Ruhetag wird im Dashboard über ein eigenes Auswahlfeld gesetzt und
 // landet in einer eigenen Spalte (restaurant.rest_day, 0=Mo .. 6=So). Die
 // Uhrzeiten stehen davon getrennt in opening_hours -- und werden beim Setzen
 // des Ruhetags NICHT geleert.
 //
 // Die Anzeige IN der App liest beides und zeigt richtig "Ruhetag". Der
 // Reservierungskalender ebenfalls (der wurde schon einmal genau deshalb
-// repariert). Nur die oeffentliche Seite -- die, die bei Google gefunden wird
+// repariert). Nur die öffentliche Seite -- die, die bei Google gefunden wird
 // und die der Gast zuerst sieht -- las ausschliesslich opening_hours.
 'use strict';
 var fs = require('fs');
@@ -25,7 +25,7 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
 // Den ECHTEN Erzeuger aus der Datei schneiden statt ihn nachzubauen --
-// nachgebaut wuerde der Test auch dann gruen bleiben, wenn die Seite kaputt
+// nachgebaut würde der Test auch dann grün bleiben, wenn die Seite kaputt
 // ist.
 var anf = H.indexOf("var appR = APP_DATA.restaurants.find(function(x){ return x.id === rest.id; });");
 var ende = H.indexOf("return '<p style=\"font-size:18px;line-height:1.5;\">' + (hoursText || 'Keine Angabe') + '</p>';", anf);
@@ -38,7 +38,7 @@ function zeige(oh, restDay) {
     return zeiten({ restaurants: [{ id: 'r1', opening_hours: oh, rest_day: restDay }] }, { id: 'r1' });
 }
 
-// So sieht Al Porto in der Datenbank aus: Zeiten fuer ALLE sieben Tage
+// So sieht Al Porto in der Datenbank aus: Zeiten für ALLE sieben Tage
 // gepflegt, Montag als Ruhetag im eigenen Feld.
 var ALPORTO = {
     mo_start: '11:00', mo_end: '22:00',
@@ -60,7 +60,7 @@ t('die anderen Tage bleiben unveraendert',
   /Di–Do: 16:00–22:00/.test(mitRuhe) && /Fr–Sa: 16:00–23:00/.test(mitRuhe) && /So: 16:00–22:00/.test(mitRuhe),
   mitRuhe);
 
-// ---- Ohne Ruhetag darf sich nichts aendern ----------------------------------
+// ---- Ohne Ruhetag darf sich nichts ändern ----------------------------------
 var ohneRuhe = zeige(ALPORTO, null);
 t('ohne Ruhetag steht der Montag ganz normal da',
   /Mo: 11:00–22:00/.test(ohneRuhe), ohneRuhe);
@@ -92,7 +92,7 @@ t('Montag (Feld) und Dienstag (ohne Zeiten) stehen zusammen',
   /Mo–Di: Ruhetag/.test(zeige(moDiZu, 0)), zeige(moDiZu, 0));
 
 // ---- Sekunden aus der Datenbank abschneiden ---------------------------------
-// Postgres liefert time-Spalten als "16:00:00". Ungekuerzt stuende
+// Postgres liefert time-Spalten als "16:00:00". Ungekürzt stünde
 // "16:00:00–22:00:00" auf der Seite.
 t('Sekunden werden abgeschnitten',
   /Mo: 11:00–22:00/.test(zeige({ mo_start: '11:00:00', mo_end: '22:00:00' }, null)),
@@ -116,7 +116,7 @@ t('Oeffnungszeiten als JSON-Text werden gelesen',
   /Mo: Ruhetag/.test(zeige(JSON.stringify(ALPORTO), 0)), zeige(JSON.stringify(ALPORTO), 0));
 
 // ---- Die anderen beiden Anzeigen lesen den Ruhetag weiterhin ----------------
-// Damit niemand denkt, das Feld waere nur an einer Stelle wichtig.
+// Damit niemand denkt, das Feld wäre nur an einer Stelle wichtig.
 t('die Anzeige in der App liest rest_day',
   /if \(restDay !== null && restDay !== undefined && restDayKeys\[restDay\] === d\.key\)/.test(H));
 t('der Reservierungskalender liest ihn ebenfalls',

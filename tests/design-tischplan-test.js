@@ -2,15 +2,15 @@
 //
 // Zwei Befunde, die beim Nachsehen herauskamen:
 //
-// 1. Der Variablen-Satz fuer die Farben ist gut gebaut -- aber rund 980
+// 1. Der Variablen-Satz für die Farben ist gut gebaut -- aber rund 980
 //    Farben standen FEST in style-Attributen und schalteten nie mit. Am
-//    schwersten wogen 335 dunkelgruene Textfarben (dunkelgruene Schrift auf
-//    dunklem Grund) und 49 weisse Flaechen (grelle Kaesten in der dunklen
+//    schwersten wogen 335 dunkelgrüne Textfarben (dunkelgrüne Schrift auf
+//    dunklem Grund) und 49 weiße Flächen (grelle Kästen in der dunklen
 //    Seite).
 //
-// 2. Der Tischplan zeigte acht ERFUNDENE Tische mit erfundenen Betraegen
+// 2. Der Tischplan zeigte acht ERFUNDENE Tische mit erfundenen Beträgen
 //    (87 €, 156 €, 43 €). restaurant_tables wurde nie gelesen, obwohl
-//    ueberall sonst damit gearbeitet wird. Wer den Plan einem Wirt zeigte,
+//    überall sonst damit gearbeitet wird. Wer den Plan einem Wirt zeigte,
 //    zeigte ihm Umsatz an einem Tisch, den es nicht gibt.
 'use strict';
 var fs = require('fs');
@@ -31,8 +31,8 @@ function inlineStyles() {
 var styles = inlineStyles();
 function zaehle(re) { return styles.filter(function (s) { return re.test(s); }).length; }
 
-// Auf farbigem Grund muss dunkle Schrift dunkel BLEIBEN -- helles Gruen auf
-// einem gelben Knopf waere unlesbar. Deshalb wird nur umgestellt, wo kein
+// Auf farbigem Grund muss dunkle Schrift dunkel BLEIBEN -- helles Grün auf
+// einem gelben Knopf wäre unlesbar. Deshalb wird nur umgestellt, wo kein
 // Farbhintergrund im selben style steht.
 var FARBIG = /background[^;]*(#003[dD]33|#00251e|#FFD54F|#fed65b|#8b5cf6|#7c3aed|#ef4444|#dc2626|#16a34a|#15803d|#f59e0b|#b45309|linear-gradient|rgba\(0,\s*61|rgba\(139)/i;
 var gruenRest = styles.filter(function (s) {

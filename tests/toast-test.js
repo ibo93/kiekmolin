@@ -7,7 +7,7 @@ t('Konsole nennt Tabelle und Statuscode', /console\.warn\('\[lesen\] ' \+ tabell
 t('Debug-Schalter vorhanden', /localStorage\.getItem\('kmi_debug'\) === '1'/.test(h));
 t('Debug-Meldung weiterhin gedrosselt', /_leseFehlerZuletzt > 8000/.test(h));
 t('Schreibfehler melden weiterhin (die sind gewollt)', /Löschen fehlgeschlagen/.test(h));
-// --- Bedienung rufen + Hinweiskaesten im Kiek-Design ---
+// --- Bedienung rufen + Hinweiskästen im Kiek-Design ---
 t('Bedienung-Knopf kennt den Tisch auch ohne URL',
   /window\._qrTableNumber \|\| \(letzte && letzte\.tisch\)/.test(h));
 t('Tisch wird beim Bestellen gemerkt', /sessionStorage\.setItem\('kmi_tisch'/.test(h));

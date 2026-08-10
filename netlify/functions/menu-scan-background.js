@@ -1,20 +1,20 @@
-// Kiek mol in — Menuescanner OHNE Zeitlimit.
+// Kiek mol in — Menüscanner OHNE Zeitlimit.
 //
 // ============================================================================
 // WARUM ES DIESE DATEI GIBT
 // ============================================================================
 // "Mach es so einfach wie Claude im Chat" -- das ist die richtige Forderung.
-// Im Chat legt man die Karte vor und bekommt sie zurueck. Ein Aufruf. Fertig.
+// Im Chat legt man die Karte vor und bekommt sie zurück. Ein Aufruf. Fertig.
 //
 // Hier ging das nicht, weil eine normale Netlify-Function nach 10 SEKUNDEN
-// hart abgeschnitten wird. Eine volle Speisekarte braucht laenger. Der ganze
-// Aufwand im normalen Scanner -- Abschnitte, Runden, Fortsetzungen, Zaehlen,
+// hart abgeschnitten wird. Eine volle Speisekarte braucht länger. Der ganze
+// Aufwand im normalen Scanner -- Abschnitte, Runden, Fortsetzungen, Zählen,
 // Nachlesen -- existiert AUSSCHLIESSLICH, um diese 10 Sekunden zu umgehen.
 //
 // Diese Datei nimmt die 10 Sekunden weg, statt drumherum zu bauen.
 //
 // Netlify behandelt jede Function, deren Name auf "-background" endet, anders:
-// sie antwortet dem Browser SOFORT mit 202 und laeuft danach bis zu 15 MINUTEN
+// sie antwortet dem Browser SOFORT mit 202 und läuft danach bis zu 15 MINUTEN
 // weiter. Damit ist der Scan wieder das, was er sein sollte: ein Aufruf, die
 // ganze Karte, so wie im Chat.
 //
@@ -23,10 +23,10 @@
 // und die App fragt alle zwei Sekunden bei menu-scan-status nach.
 //
 // Ablage: Tabelle activity_log, activity_type = 'menu_scan_job'. Bewusst eine
-// vorhandene Tabelle mit freiem Schema -- so ist keine Datenbank-Aenderung
-// noetig, die erst jemand von Hand einspielen muesste.
+// vorhandene Tabelle mit freiem Schema -- so ist keine Datenbank-Änderung
+// nötig, die erst jemand von Hand einspielen müsste.
 //
-// FAELLT DIESER WEG AUS (aeltere Netlify-Plaene kennen keine
+// FAELLT DIESER WEG AUS (ältere Netlify-Pläne kennen keine
 // Background-Functions), antwortet Netlify mit 404. Die App merkt das und
 // nimmt den bisherigen Weg mit Abschnitten und Runden. Kein Risiko.
 //
@@ -40,7 +40,7 @@ var scan = require('./lib/scan-kern');
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
-// Zeit bis Netlify abschneidet: 15 Minuten. Wir hoeren vorher von selbst auf,
+// Zeit bis Netlify abschneidet: 15 Minuten. Wir hören vorher von selbst auf,
 // damit auch bei einer riesigen Karte noch ein Ergebnis abgelegt wird statt
 // gar keins.
 var BUDGET_MS = parseInt(process.env.MENU_SCAN_BG_MS || '780000', 10);   // 13 min
@@ -90,8 +90,8 @@ exports.handler = async function (event) {
     var frist = T0 + BUDGET_MS;
 
     try {
-        // EIN Aufruf pro Seite, die ganze Seite am Stueck -- so wie im Chat.
-        // Seiten laufen gleichzeitig, weil sie voneinander unabhaengig sind.
+        // EIN Aufruf pro Seite, die ganze Seite am Stück -- so wie im Chat.
+        // Seiten laufen gleichzeitig, weil sie voneinander unabhängig sind.
         var proSeite = await Promise.all((images.length ? images : [null]).map(function (bild) {
             return scan.leseGanz(key, bild ? [bild] : [], text, kategorien, frist)
                 .catch(function (e) { return { items: [], fehler: e.message }; });

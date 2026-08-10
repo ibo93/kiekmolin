@@ -1,24 +1,24 @@
-// Kiek mol in — offene Tischrufe abholen (fuers Dashboard).
+// Kiek mol in — offene Tischrufe abholen (fürs Dashboard).
 //
 // WARUM ES DIESE DATEI GIBT
 // -------------------------
-// waiter-call.js legt jeden Ruf in activity_log ab. Das Dashboard koennte
-// dort direkt nachsehen -- aber nur mit dem oeffentlichen Schluessel, und ob
-// der activity_log LESEN darf, haengt an den Zeilen-Regeln (RLS) in Supabase.
-// Schreiben ist erlaubt, Lesen nicht unbedingt. Faellt das Lesen still auf
-// eine leere Liste zurueck, ist der Knopf beim Gast gruen und im Restaurant
+// waiter-call.js legt jeden Ruf in activity_log ab. Das Dashboard könnte
+// dort direkt nachsehen -- aber nur mit dem öffentlichen Schlüssel, und ob
+// der activity_log LESEN darf, hängt an den Zeilen-Regeln (RLS) in Supabase.
+// Schreiben ist erlaubt, Lesen nicht unbedingt. Fällt das Lesen still auf
+// eine leere Liste zurück, ist der Knopf beim Gast grün und im Restaurant
 // passiert trotzdem nichts -- genau das Fehlerbild, das gemeldet wurde.
 //
-// Diese Function liest mit dem Dienstschluessel. Der geht an den Zeilen-Regeln
-// vorbei, also haengt der Alarm nicht mehr an einer Datenbank-Einstellung, die
+// Diese Function liest mit dem Dienstschlüssel. Der geht an den Zeilen-Regeln
+// vorbei, also hängt der Alarm nicht mehr an einer Datenbank-Einstellung, die
 // niemand sieht.
 //
 // Aufruf: GET /.netlify/functions/waiter-pending?restaurant=<uuid>&seit=<ISO>
 // Antwort: { ok:true, rufe:[{ id, tisch, grund, zeit }] }
 //
 // Absichtlich sparsam: nur Tischnummer, Grund und Zeit. Keine Gastdaten, keine
-// Bestellungen -- die Function ist oeffentlich erreichbar. Mehr als "an Tisch 7
-// wurde gerufen" ist hier nicht zu holen, und aelter als 10 Minuten gibt es
+// Bestellungen -- die Function ist öffentlich erreichbar. Mehr als "an Tisch 7
+// wurde gerufen" ist hier nicht zu holen, und älter als 10 Minuten gibt es
 // gar nichts.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY
@@ -37,8 +37,8 @@ var CORS = {
 };
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
 
-// Aelteres wird nie zurueckgegeben: ein Ruf von vor einer Stunde ist erledigt,
-// und ein Alarm dafuer waere nur noch Laerm.
+// Älteres wird nie zurückgegeben: ein Ruf von vor einer Stunde ist erledigt,
+// und ein Alarm dafür wäre nur noch Lärm.
 var MAX_ALTER_MS = 10 * 60 * 1000;
 
 exports.handler = async function (event) {
@@ -54,7 +54,7 @@ exports.handler = async function (event) {
     var seit = frueheste;
     if (q.seit) {
         var d = new Date(String(q.seit));
-        // Nur nach vorn verschieben -- ein weit zurueckliegendes "seit" vom
+        // Nur nach vorn verschieben -- ein weit zurückliegendes "seit" vom
         // Aufrufer darf das Fenster nicht aufreissen.
         if (!isNaN(d.getTime()) && d > frueheste) seit = d;
     }

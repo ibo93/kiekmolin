@@ -3,26 +3,26 @@
 // GEMELDET WURDE
 // --------------
 // "beim warenkorb kann ich nicht mehr die gerichte bearbeiten man sieht
-//  nichts mehr" und "beim dazu passt das gericht keine nichts einfuegen wie
+//  nichts mehr" und "beim dazu passt das gericht keine nichts einfügen wie
 //  notizen".
 //
 // DREI URSACHEN, ALLE VERSCHIEDEN
 // -------------------------------
-// 1. Der Fuss des Warenkorbs listete JEDES Gericht ein zweites Mal -- als tote
+// 1. Der Fuß des Warenkorbs listete JEDES Gericht ein zweites Mal -- als tote
 //    Textzeile ohne Plus, Minus oder Papierkorb. Bei acht Positionen war diese
-//    Liste hoeher als der Ausschnitt darueber: sichtbar war nur noch die
-//    Aufzaehlung, die aenderbaren Zeilen lagen ausserhalb des Bildes.
+//    Liste höher als der Ausschnitt darüber: sichtbar war nur noch die
+//    Aufzählung, die änderbaren Zeilen lagen ausserhalb des Bildes.
 //
 // 2. Eine Notiz konnte der Gast gar nicht eintragen. Das Feld item.notes gab
 //    es, geschrieben hat es nur der Cross-Sell -- und zwar mit dem internen
-//    Text "Cross-Sell Aktionspreis", der so auf den Bon gegangen waere.
+//    Text "Cross-Sell Aktionspreis", der so auf den Bon gegangen wäre.
 //    Schlimmer: notes wurde beim Abschicken an ALLEN DREI Stellen weggelassen.
-//    Eine Notiz waere also gespeichert worden und nie in der Kueche
+//    Eine Notiz wäre also gespeichert worden und nie in der Küche
 //    angekommen.
 //
 // 3. Im "Dazu passt..."-Fenster steht das onclick am ganzen Zeilen-<div>.
 //    btnEl.textContent = 'Hinzugefügt' hat damit Bild, Name, Preis und
-//    Plus-Zeichen durch ein nacktes Wort ersetzt -- der weisse Kasten mitten
+//    Plus-Zeichen durch ein nacktes Wort ersetzt -- der weiße Kasten mitten
 //    im Fenster auf dem Bildschirmfoto.
 'use strict';
 var fs = require('fs');
@@ -38,7 +38,7 @@ function schneide(name) {
     for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } }
 }
 
-// --- 1. Die doppelte Liste im Fuss ist weg -----------------------------------
+// --- 1. Die doppelte Liste im Fuß ist weg -----------------------------------
 t('der Fuss listet die Gerichte NICHT mehr einzeln auf',
   !/linesHtml \+= '<div style="display:flex;justify-content:space-between;align-items:center;color:var\(--text-secondary\);font-size:14px;">' \+\s*\n?\s*'<span>' \+ displayName/.test(H));
 t('stattdessen steht dort eine Zwischensumme',
@@ -51,8 +51,8 @@ var render = schneide('renderCartItems');
 ['changeCartItemQty', 'removeCartItem', 'toggleCartNote'].forEach(function (f) {
     t('jede Warenkorbzeile hat ' + f, render.indexOf(f + "('${item.id}'") >= 0);
 });
-// Nur das CSS pruefen, nicht den Kommentar darueber -- der darf die alte
-// Groesse ruhig beim Namen nennen.
+// Nur das CSS prüfen, nicht den Kommentar darüber -- der darf die alte
+// Größe ruhig beim Namen nennen.
 t('die Zeilen sind kompakt genug fuer acht Gerichte (kein 112px-Bild mehr)',
   render.indexOf('width:112px;height:112px') < 0 && render.indexOf('width:56px;height:56px') >= 0);
 t('die Beschreibung faellt im Warenkorb weg -- sie steht in der Speisekarte',
@@ -93,9 +93,9 @@ t('endlos lange Notizen werden gekappt', welt.orderCart[0].notes.length === 200,
 speichere('gibtsnicht');
 t('unbekannte Position kippt nicht', true);
 
-// --- 4. DER WICHTIGSTE PUNKT: die Notiz kommt in der Kueche an ----------------
-// Eine Notiz, die der Gast schreibt und die Kueche nie sieht, ist schlimmer
-// als gar keine Notiz -- der Gast verlaesst sich darauf.
+// --- 4. DER WICHTIGSTE PUNKT: die Notiz kommt in der Küche an ----------------
+// Eine Notiz, die der Gast schreibt und die Küche nie sieht, ist schlimmer
+// als gar keine Notiz -- der Gast verlässt sich darauf.
 var bestellPayloads = H.split('items: orderCart.map(item => ({');
 t('die Bestellung schickt notes mit', bestellPayloads.length === 3, bestellPayloads.length - 1 + ' Stellen gefunden');
 [1, 2].forEach(function (i) {
@@ -112,7 +112,7 @@ t('die Bestellkarte im Dashboard zeigt sie an',
 t('auf dem Bon steht sie FETT (graue Kleinschrift wird ueberlesen)',
   /item\.notes \? '<br><span style="font-size:11px;font-weight:bold;"/.test(H));
 // Der Warenkorb schreibt "notes", das Kassensystem las nur "note" -- genau der
-// Fehler, den es bei den Groessen schon gab (Kueche las opt.name statt option).
+// Fehler, den es bei den Größen schon gab (Küche las opt.name statt option).
 t('das Kassensystem liest notes, nicht nur note',
   /note: item\.notes \|\| item\.note \|\| item\.special_request/.test(H));
 

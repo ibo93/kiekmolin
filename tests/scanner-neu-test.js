@@ -1,10 +1,10 @@
-// Der neue Menuescanner: die Weg-Auswahl wird WIRKLICH durchlaufen.
+// Der neue Menüscanner: die Weg-Auswahl wird WIRKLICH durchlaufen.
 //
 // Nachgebaut ist nur die Umgebung (DOM, pdf.js, Modell) -- der Code kommt
-// unveraendert aus index.html. Eingabe ist die echte pdf.js-Ausgabe der Karte
+// unverändert aus index.html. Eingabe ist die echte pdf.js-Ausgabe der Karte
 // "Pronto Pronto, Riepe".
 //
-// Gepruefte Zusage, an der frueher alles haengengeblieben ist:
+// Geprüfte Zusage, an der früher alles hängengeblieben ist:
 // hat ein PDF echten Text, wird NIEMALS ein Modell gefragt -- auch dann nicht,
 // wenn eines bereitsteht.
 'use strict';
@@ -99,7 +99,7 @@ async function lauf(o) {
     t('PDF mit Text: keine Bilder gebaut (kein Umweg ueber Zeichenerkennung)',
       !a.bilderGebaut, 'Bilder wurden gebaut');
     t('PDF mit Text: keine Texterkennung', !a.ocrGelaufen, 'OCR lief');
-    // Eine kleine Karte muss genauso durchkommen wie eine grosse.
+    // Eine kleine Karte muss genauso durchkommen wie eine große.
     var klein = await lauf({ typ: 'pdf', pdfText: ['## Kuchen\nApfelkuchen 3,80 €\nKäsekuchen 4,20 €'] });
     t('kleine Karte (2 Gerichte) kommt ohne KI durch',
       klein.modellAufrufe === 0 && klein.items.length === 2,
@@ -128,11 +128,11 @@ async function lauf(o) {
       b.el.menuScanStatus.textContent);
 
     // --- Text da, aber KEIN Gericht: NICHT still zum Modell ------------------
-    // Die Schwelle lag frueher bei fuenf Gerichten -- damit fiel jede kleine
-    // Karte auf den KI-Weg zurueck, obwohl ihr Text vollstaendig da war.
+    // Die Schwelle lag früher bei fünf Gerichten -- damit fiel jede kleine
+    // Karte auf den KI-Weg zurück, obwohl ihr Text vollständig da war.
     // Jetzt gilt: ein einziges gefundenes Gericht beweist, dass der Text
     // lesbar ist. Nur wenn gar keins gefunden wird, stimmt etwas nicht --
-    // und dann gehoert der Rohtext auf den Bildschirm, nicht ein stiller
+    // und dann gehört der Rohtext auf den Bildschirm, nicht ein stiller
     // Wechsel zum Modell.
     var c = await lauf({ typ: 'pdf', pdfText: ['## Speisekarte\nHier steht nur Fliesstext ohne jeden Preis\nund noch eine Zeile' + ' x'.repeat(200)] });
     t('Text da, kein Gericht: kein stiller Wechsel zum Modell',
@@ -148,7 +148,7 @@ async function lauf(o) {
     t('Foto: PDF-Weg wird gar nicht erst versucht',
       !/PDF wird gelesen/.test(d.el.menuScanStatus.textContent), d.el.menuScanStatus.textContent);
 
-    // --- Der Weg steht ueber dem Ergebnis ------------------------------------
+    // --- Der Weg steht über dem Ergebnis ------------------------------------
     t('Ergebnisseite zeigt den Weg ganz oben',
       /WELCHER WEG GELAUFEN IST/.test(H) && /Direkt aus dem PDF gelesen — ohne KI/.test(H));
     t('drei Wege sind unterscheidbar beschriftet',

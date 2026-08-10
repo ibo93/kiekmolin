@@ -1,18 +1,18 @@
 // Bauweise des Scanners: Zeitbudget, Fortsetzung, Bildaufbereitung.
 //
-// Diese Datei prueft NICHT den Wortlaut von Prompts, sondern die Eigenschaften,
+// Diese Datei prüft NICHT den Wortlaut von Prompts, sondern die Eigenschaften,
 // ohne die der Scanner im Betrieb nicht funktionieren kann.
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 // Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
 // lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
-// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
-// muessen deshalb BEIDE Dateien sehen.
+// ohne Zeitlimit und der Rückfallebene mit Abschnitten. Die Prüfungen
+// müssen deshalb BEIDE Dateien sehen.
 var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
       + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 
-// --- Zeitbudget: DAS Problem, an dem fuenf Runden Prompt-Arbeit vorbeigelaufen sind ---
+// --- Zeitbudget: DAS Problem, an dem fünf Runden Prompt-Arbeit vorbeigelaufen sind ---
 t('Function hat ein eigenes Zeitbudget', /BUDGET_MS = parseInt\(process\.env\.MENU_SCAN_MS/.test(fn));
 t('Budget bleibt unter dem 10-Sekunden-Limit von Netlify',
   /MENU_SCAN_MS \|\| '8500'/.test(fn));
@@ -48,8 +48,8 @@ t('letzte Stufe kommt ohne Sonderfelder aus',
   /\{ effort: null,  denkenAus: false, cache: false \}/.test(fn));
 t('erfolgreiche Stufe wird gemerkt (spart Zeit beim naechsten Aufruf)', /_stufeAbs/.test(fn));
 
-// --- Kompaktes Ausgabeformat: der zweite grosse Zeitfresser ---
-// Bei JSON waren rund zwei Drittel der Zeichen reines Geruest. Eine Karte mit
+// --- Kompaktes Ausgabeformat: der zweite große Zeitfresser ---
+// Bei JSON waren rund zwei Drittel der Zeichen reines Gerüst. Eine Karte mit
 // 60 Gerichten: 19362 Zeichen als JSON, 5438 als Zeilen. Bei 360 Zeichen/s sind
 // das 54 s gegen 15 s -- also 9 Runden gegen 2.
 t('Ausgabe ist die kompakte Zeilenform, kein JSON',
@@ -71,9 +71,9 @@ t('JSON bleibt als Rueckfall erlaubt, falls das Modell doch JSON liefert',
 t('kein Antwortschema mehr im Aufruf', !/json_schema/.test(fn));
 
 // Anbieterwahl: kostenlos zuerst. Gemessen an einer Testkarte mit 28 Gerichten
-// liest Gemini 2.5 Flash sie in 5,2 s vollstaendig -- Claude kostet pro Scan.
+// liest Gemini 2.5 Flash sie in 5,2 s vollständig -- Claude kostet pro Scan.
 // Google ist raus -- der Grund steht gemessen im Code, damit es niemand
-// versehentlich zurueckbaut: 20 Anfragen pro Tag im kostenlosen Kontingent.
+// versehentlich zurückbaut: 20 Anfragen pro Tag im kostenlosen Kontingent.
 t('Gemini ist als Modell raus', !/callGemini|streamGenerateContent/.test(fn));
 t('der gemessene Grund steht im Code', /quotaValue: 20/.test(fn) && /20 ANFRAGEN PRO TAG/.test(fn));
 t('Antwort wird im Datenstrom gelesen', /async function leseStrom/.test(fn) && /text_delta/.test(fn));
@@ -109,7 +109,7 @@ t('alte Warteschleife ist weg', !/for \(var pi = 0; pi < images\.length; pi\+\+\
 t('Fortschritt zeigt die laufende Zahl der Gerichte', /Gerichte gelesen/.test(html));
 t('eine kaputte Seite kippt nicht den ganzen Scan', /return \{ items: \[\], protokoll: \[\{ runde: 0/.test(html));
 
-// --- Ehrlichkeit ueber die Quelle ---
+// --- Ehrlichkeit über die Quelle ---
 t('stiller Rueckfall auf OCR ist als solcher gekennzeichnet', /_scanQuelleOCR/.test(html));
 t('OCR-Ergebnis bekommt ein Warnbanner', /Ohne KI gelesen\.<\/strong>/.test(html));
 t('Grund des KI-Ausfalls wird vor dem Loeschen gesichert',
@@ -120,7 +120,7 @@ t('Bericht enthaelt Runde, Dauer und Ergebnis je Aufruf', /protokoll: protokoll,
 var pm = fn.match(/var MERKMAL = \{[\s\S]*?\nfunction parseZeilen[\s\S]*?\n\}/)[0];
 var P = new Function(fn.match(/function zerlegeGroessen[\s\S]*?\n\}/)[0] + ';' + pm + '; return parseZeilen;')();
 // Die Zeilen unten sind KEINE Fantasie -- genau so kamen sie bei einem echten
-// Lauf gegen ein schraeg fotografiertes Kartenfoto zurueck.
+// Lauf gegen ein schräg fotografiertes Kartenfoto zurück.
 var z = P([
   '12|Pizza Salami|Tomate, Käse, Salami|9.50|Pizzen|gluten,milch|1,2|s',
   '|Ostfriesentee|mit Kluntje|3.20|Getränke|milch||v',
@@ -151,9 +151,9 @@ t('Ziffer im Allergen-Feld landet bei den Zusatzstoffen statt wegzufallen',
   JSON.stringify(z[4]));
 
 // --- Preise: lieber keiner als ein falscher ---
-// Gemessen an einem schraeg fotografierten Kartenfoto: als das Modell raten
-// durfte, waren von sechs nachgetragenen Preisen fuenf falsch. Ein falscher
-// Preis landet ungeprueft in der Speisekarte, eine 0 faellt auf.
+// Gemessen an einem schräg fotografierten Kartenfoto: als das Modell raten
+// durfte, waren von sechs nachgetragenen Preisen fünf falsch. Ein falscher
+// Preis landet ungeprüft in der Speisekarte, eine 0 fällt auf.
 t('Preis-Nachtrag verbietet Raten ausdruecklich',
   /RATE NICHT/.test(fn) && /Ein falscher Preis ist schlimmer als gar keiner/.test(fn));
 t('Preis-Nachtrag bekommt NICHT den grossen Parser-Prompt',
@@ -165,9 +165,9 @@ t('App markiert Gerichte ohne Preis',
 t('App nennt die Zahl der fehlenden Preise oben', /' ohne Preis'/.test(html));
 
 // --- Zweiter Blick ---
-// Gemessen mit echtem Bild und echtem Modellaufruf (tests/beweis-pruefung.js):
+// Gemessen mit echtem Bild und echtem Modellaufruf (tests/beweis-prüfung.js):
 // drei absichtlich falsche Felder und ein weggelassenes Gericht -> 4 von 4
-// gefunden, in 1,8 s. Bei einer korrekten Liste meldet die Pruefung NICHTS --
+// gefunden, in 1,8 s. Bei einer korrekten Liste meldet die Prüfung NICHTS --
 // sie erfindet also keine Korrekturen.
 t('Server kennt den Pruefmodus', /Array\.isArray\(body\.pruefen\)/.test(fn) && /function pruefBlock/.test(fn));
 t('Pruefung laeuft als eigene Anfrage (eigenes Zeitlimit)',
@@ -177,7 +177,7 @@ t('nur ein falsches FELD ist eine Korrektur, kein Nachtrag',
   /ist das eine KORREKTUR — NICHT "FEHLT"/.test(fn));
 t('Pruefung darf nicht raten', /RATE NICHT\. Korrigiere nur, was du im Bild eindeutig ANDERS LESEN kannst/.test(fn));
 t('eine gescheiterte Pruefung kippt den Scan NICHT',
-  /Eine gescheiterte Pruefung darf den Scan NICHT kippen/.test(fn));
+  /Eine gescheiterte Prüfung darf den Scan NICHT kippen/.test(fn));
 t('Client prueft jede Seite', /async function pruefeSeite/.test(html));
 t('Client uebernimmt nur wirklich abweichende Felder', /if \(geaendert\.length\) \{ alt\._geprueft = geaendert;/.test(html));
 t('Nachtrag legt kein Duplikat an',
@@ -186,10 +186,10 @@ t('korrigierte Zeilen sind in der Liste markiert',
   /item\._geprueft && item\._geprueft\.length/.test(html) && /korrigiert: /.test(html));
 t('Bericht nennt das Ergebnis der Pruefung', /pruefung: pruef,/.test(html));
 
-// --- Mehrere Groessen in EINER Zeile ---
+// --- Mehrere Größen in EINER Zeile ---
 // Gemessen an einer echten Pizzeria-Karte (Pronto Pronto, Riepe): 140 Gerichte
-// auf zwei Seiten, davon 88 mit zwei Preisspalten. Als getrennte Zeilen waeren
-// das 228 Zeilen Ausgabe -- neun Runden allein fuer Seite 1. In einer Zeile
+// auf zwei Seiten, davon 88 mit zwei Preisspalten. Als getrennte Zeilen wären
+// das 228 Zeilen Ausgabe -- neun Runden allein für Seite 1. In einer Zeile
 // sind es 140.
 var G = new Function(fn.match(/function zerlegeGroessen[\s\S]*?\n\}/)[0] + '; return zerlegeGroessen;')();
 t('klein/gross wird zerlegt',
@@ -217,7 +217,7 @@ t('Allergenlisten sind eigene Kopien, keine geteilte Liste',
 
 // --- Kontingent-Ende ist kein Defekt ---
 // Gemessen: das kostenlose Google-Kontingent erlaubt 20 Anfragen PRO TAG
-// (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier). Eine grosse
+// (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier). Eine große
 // Karte braucht mehr -- bisher war danach der Rest der Karte verloren.
 t('Server kennzeichnet Wartefaelle gesondert', /eW\.kontingent = true/.test(fn)
   && /kontingent: !!e\.kontingent/.test(fn));
@@ -226,11 +226,11 @@ t('App wartet dann und wiederholt dieselbe Runde',
   && /runde--;/.test(html));
 t('Wartepausen sind begrenzt', /MAX_WARTEN = 4/.test(html));
 
-// --- Duplikate: die Gerichtnummer gehoert in den Schluessel ---
+// --- Duplikate: die Gerichtnummer gehört in den Schlüssel ---
 // Auf der echten Karte von Pronto Pronto stehen "114. Roma Spezial"
-// (Haehnchen) und "115. Roma Spezial" (Rind): gleicher Name, gleicher Preis,
-// zwei verschiedene Gerichte. Ohne Nummer im Schluessel verschwand eines
-// stillschweigend -- gemessen: 226 statt 228 Eintraege.
+// (Hähnchen) und "115. Roma Spezial" (Rind): gleicher Name, gleicher Preis,
+// zwei verschiedene Gerichte. Ohne Nummer im Schlüssel verschwand eines
+// stillschweigend -- gemessen: 226 statt 228 Einträge.
 t('Duplikat-Schluessel enthaelt die Gerichtnummer (Server)',
   /\(it\.name \+ '\|' \+ it\.price \+ '\|' \+ \(it\.dish_number \|\| ''\)\)/.test(fn));
 t('Duplikat-Schluessel enthaelt die Gerichtnummer (App, beide Stellen)',
@@ -240,9 +240,9 @@ t('der Grund steht im Code, damit ihn niemand wieder rausnimmt',
 
 // --- Abschnitte gleichzeitig lesen ---
 // Vorher lief der Scan nacheinander, weil jede Runde wissen musste, wo die
-// vorige aufgehoert hat. An der echten Karte (140 Gerichte, zwei Seiten):
+// vorige aufgehört hat. An der echten Karte (140 Gerichte, zwei Seiten):
 // 8 Anfragen nacheinander, 44,6 s. Mit Abschnitten: 13,5 s bei gleichem
-// Ergebnis (228 Eintraege, Preise/Kategorien/Nummern 226/226).
+// Ergebnis (228 Einträge, Preise/Kategorien/Nummern 226/226).
 t('Server kann nur die Ueberschriften liefern',
   /body\.ueberschriften && images\.length/.test(fn) && /function ueberschriftenBlock/.test(fn));
 t('Server kann auf EINEN Abschnitt begrenzt lesen', /function abschnittBlock/.test(fn)
@@ -273,11 +273,11 @@ t('Antworten ohne "items" gelten nicht mehr als Fehlschlag',
 t('fehlendes items-Feld wird zu einer leeren Liste',
   /if \(!Array\.isArray\(j\.items\)\) j\.items = \[\];/.test(html));
 
-// --- Vollstaendigkeit: "fertig" ist eine Behauptung, keine Tatsache ---
-// Im Betrieb kamen 148 von 228 Eintraegen an -- das Modell hatte frueher
-// aufgehoert und "fertig" gemeldet, ohne Fehler. Nachgestellt mit einer
+// --- Vollständigkeit: "fertig" ist eine Behauptung, keine Tatsache ---
+// Im Betrieb kamen 148 von 228 Einträgen an -- das Modell hatte früher
+// aufgehört und "fertig" gemeldet, ohne Fehler. Nachgestellt mit einer
 // Attrappe, die in JEDER Runde nur 60 % liefert und "fertig" behauptet:
-// vorher 147 Eintraege, jetzt 224. Ohne Luege: 228 von 228.
+// vorher 147 Einträge, jetzt 224. Ohne Lüge: 228 von 228.
 t('Server kann Positionen eines Abschnitts zaehlen',
   /function zaehlBlock/.test(fn) && /body\.zaehlen && images\.length/.test(fn));
 t('Zaehlen zaehlt Zeilen, nicht Preise', /zaehlt EINMAL/.test(fn));
@@ -293,8 +293,8 @@ t('nach zwei leeren Runden ist trotzdem Schluss', /leerRunden < 2/.test(html));
 t('Bericht nennt Soll und Ist je Abschnitt', /' von ' \+ so \+ ' Gerichten'/.test(html));
 
 // --- Selbsttest im Scanner ---
-// Alle Pruefungen in diesem Ordner laufen bei der Entwicklung, mit
-// nachgestellten Antworten. Das sagt nichts darueber, ob der Scanner IM
+// Alle Prüfungen in diesem Ordner laufen bei der Entwicklung, mit
+// nachgestellten Antworten. Das sagt nichts darüber, ob der Scanner IM
 // BETRIEB tut, was er soll -- und genau daran ist die Fehlersuche tagelang
 // gescheitert: der eine hat gemessen, der andere hat getestet, und beide
 // sahen etwas anderes. Deshalb gibt es jetzt einen Knopf IN DER APP.
@@ -311,7 +311,7 @@ t('antwortet der Scanner gar nicht, sagt der Test das im Klartext',
   /Der Scanner antwortet nicht/.test(html));
 
 // --- PDF-Karte ohne KI lesen ---
-// An der echten Karte gemessen: 142 Gerichte, 230 Eintraege, 13 Kategorien,
+// An der echten Karte gemessen: 142 Gerichte, 230 Einträge, 13 Kategorien,
 // 0 ohne Preis, unter einer Sekunde, kein einziger Modellaufruf.
 t('PDF-Text wird zuerst ohne KI ausgewertet',
   /function parseKartenText/.test(html)
@@ -321,10 +321,10 @@ t('Ueberschriften kommen aus Schriftgroesse und Schrift-Kennung, nicht aus Raten
   /UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN/.test(html)
   && /kopfSchriften\[x\.fn\]/.test(html));
 t('Spalten werden VOR den Zeilen gebildet', /SPALTEN ZUERST, dann Zeilen/.test(html));
-// Frueher: Spalten aus leeren senkrechten Streifen. Das hing an einer festen
-// Mindestbreite und kippte an der echten Karte, weil eine Luecke 8 statt 12
+// Früher: Spalten aus leeren senkrechten Streifen. Das hing an einer festen
+// Mindestbreite und kippte an der echten Karte, weil eine Lücke 8 statt 12
 // Punkt breit war. Jetzt aus den linken Kanten, mit einer Schwelle relativ
-// zur staerksten Kante -- das haengt an keiner absoluten Zahl.
+// zur stärksten Kante -- das hängt an keiner absoluten Zahl.
 t('Spalten kommen aus den linken Kanten, nicht aus Luecken-Schwellen',
   /Spalten erkennt man an den LINKEN KANTEN/.test(html)
   && /staerkste \* 0\.55/.test(html));
@@ -332,8 +332,8 @@ t('Preisspalten werden nicht mit Textspalten verwechselt',
   /grenzen\.push\(gruppen\[gi\]\.x - 2\)/.test(html));
 t('Hinweiszeilen mit Preis sind keine Gerichte', /Zutat\|Upgrade\|erhältlich\|kostenlos/.test(html));
 
-// Der Parser laeuft hier wirklich -- an genau den Zeilen, die auf der echten
-// Karte Aerger gemacht haben.
+// Der Parser läuft hier wirklich -- an genau den Zeilen, die auf der echten
+// Karte Ärger gemacht haben.
 var PK = new Function(
   (function () { var i = html.indexOf('function parseKartenText('); var j = html.indexOf('{', i), d = 0;
     for (var k = j; k < html.length; k++) { if (html[k] === '{') d++; else if (html[k] === '}') { d--; if (!d) return html.slice(i, k + 1); } } })()
@@ -369,9 +369,9 @@ t('Vegetarier-Zeichen wird Merkmal statt Beschreibungstext',
 
 // --- Extras der Karte werden zu Optionen ---
 // "Extra Zutaten: klein 1,00 €, groß 1,50 €" steht auf der Karte einmal unter
-// der Ueberschrift und gilt fuer den ganzen Abschnitt. Frueher landete die
-// Zeile in der Beschreibung des Gerichts darueber, spaeter im Papierkorb.
-// Beides falsch: der Gast soll sie beim Bestellen anklicken koennen.
+// der Überschrift und gilt für den ganzen Abschnitt. Früher landete die
+// Zeile in der Beschreibung des Gerichts darüber, später im Papierkorb.
+// Beides falsch: der Gast soll sie beim Bestellen anklicken können.
 t('Extras werden eingesammelt statt weggeworfen', /extras\.push\(\{ kat: kat, text: z \}\)/.test(html));
 t('Extras werden zu Optionsgruppen', /function extrasZuGruppen/.test(html));
 t('Optionsgruppe wird an die Kategorie gebunden',

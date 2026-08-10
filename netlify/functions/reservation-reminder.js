@@ -1,14 +1,14 @@
 // Kiek mol in — Reservierungs-Erinnerung gegen No-Shows.
 //
-// Laeuft stuendlich (netlify.toml), sendet aber nur im Vormittags-Fenster
-// (9-11 Uhr deutscher Zeit): Alle Gaeste mit BESTAETIGTER Reservierung fuer
+// Läuft stündlich (netlify.toml), sendet aber nur im Vormittags-Fenster
+// (9-11 Uhr deutscher Zeit): Alle Gäste mit BESTAETIGTER Reservierung für
 // HEUTE bekommen eine freundliche Erinnerung per E-Mail -- mit Absage-Link
 // (res-cancel Function), damit das Restaurant den Tisch neu vergeben kann.
 //
 // Spam-/Fehler-Schutz:
 //   - pro Reservierung genau EINE Erinnerung (reservations.reminder_email_sent_at,
 //     wird atomar beansprucht; fehlt die Spalte -> Function beendet sich sauber)
-//   - erst ab 3 Std nach Buchung (wer heute frueh fuer heute Abend bucht,
+//   - erst ab 3 Std nach Buchung (wer heute früh für heute Abend bucht,
 //     braucht keine Erinnerung)
 //   - nur Zeiten, die noch mindestens 1 Std in der Zukunft liegen
 //
@@ -61,7 +61,7 @@ exports.handler = async function () {
     if (!RESEND_API_KEY || !SUPABASE_KEY) return { statusCode: 200, body: 'env fehlt - skipped' };
 
     var now = berlinHourMin();
-    // Sende-Fenster: 9-11 Uhr deutscher Zeit (Function laeuft stuendlich)
+    // Sende-Fenster: 9-11 Uhr deutscher Zeit (Function läuft stündlich)
     if (now.h < 9 || now.h >= 11) return { statusCode: 200, body: 'ausserhalb Sende-Fenster' };
 
     var today = berlinDateStr();

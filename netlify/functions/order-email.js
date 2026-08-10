@@ -4,21 +4,21 @@
 //
 // Aufrufe vom Frontend (fire-and-forget):
 //   POST /.netlify/functions/order-email   Body: { "order_id": "<uuid>" }
-//     -> Bestellbestaetigung
+//     -> Bestellbestätigung
 //   POST /.netlify/functions/order-email   Body: { "reservation_id": "<uuid>", "event": "received" }
 //     -> Reservierungsanfrage eingegangen (event auch: "confirmed" | "cancelled")
 //
 // Verhalten:
 //   - OHNE RESEND_API_KEY macht die Function NICHTS (200, {skipped:true}) --
 //     gefahrlos deploybar, aktiviert sich erst mit dem Key.
-//   - Duplikatschutz ueber confirmation_email_sent_at (orders bzw. reservations,
+//   - Duplikatschutz über confirmation_email_sent_at (orders bzw. reservations,
 //     nur beim Eingang): Spalte wird atomar "beansprucht". Fehlt die Spalte,
 //     wird trotzdem gesendet (das Frontend ruft nur einmal pro Ereignis an).
-//   - Bestaetigt/Abgelehnt-Mails haben keinen Spalten-Schutz -- sie werden
-//     durch die explizite Aktion des Gastronomen ausgeloest.
+//   - Bestätigt/Abgelehnt-Mails haben keinen Spalten-Schutz -- sie werden
+//     durch die explizite Aktion des Gastronomen ausgelöst.
 //
 // ENV:
-//   RESEND_API_KEY   (Pflicht fuer den Versand; ohne -> still inaktiv)
+//   RESEND_API_KEY   (Pflicht für den Versand; ohne -> still inaktiv)
 //   EMAIL_FROM       optional, Default 'Kiek mol in <bestellung@kiekmolin.de>'
 //                    -- die Domain muss bei Resend verifiziert sein!
 //                    (kiekmolin.de ist seit Juli 2026 verifiziert; EMAIL_FROM in
@@ -63,12 +63,12 @@ function eur(n) { return (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
 //
 // In der App sprangen dem Gast NACH dem Bestellen drei Fenster entgegen:
 // Sterne nach 60 Sekunden, "Google Bewertung" nach zwei Minuten, dazu noch
-// eins 30 Sekunden nach der Bestaetigung. Zu dem Zeitpunkt hatte er noch
+// eins 30 Sekunden nach der Bestätigung. Zu dem Zeitpunkt hatte er noch
 // nichts gegessen -- er konnte gar nicht bewerten, was er nicht kannte.
 //
 // In der E-Mail steht die Bitte einmal, ganz unten, und der Gast liest sie,
 // wenn es ihm passt. Ohne Link vom Restaurant kommt gar nichts -- eine
-// Google-SUCHE nach dem Restaurantnamen waere geraten und fuehrt oft auf die
+// Google-SUCHE nach dem Restaurantnamen wäre geraten und führt oft auf die
 // falsche Seite.
 function bewertungsBlock(rest, restName) {
     var url = rest && (rest.google_maps_url || rest.googleMapsUrl);
@@ -180,10 +180,10 @@ function buildReservationEmail(r, rest, eventType) {
     '</table>';
 
     // Absage-Link SOFORT mitgeben -- nicht erst in der Erinnerungs-Mail.
-    // Die kommt naemlich erst am Tag der Reservierung zwischen 9 und 11 Uhr:
-    // Wer Montag fuer Samstag bucht und Mittwoch absagen will, haette keinen
-    // Weg gehabt; wer um 18:00 fuer 19:30 desselben Tages bucht, bekommt gar
-    // keine Erinnerung mehr. Je frueher der Gast absagen kann, desto eher
+    // Die kommt nämlich erst am Tag der Reservierung zwischen 9 und 11 Uhr:
+    // Wer Montag für Samstag bucht und Mittwoch absagen will, hätte keinen
+    // Weg gehabt; wer um 18:00 für 19:30 desselben Tages bucht, bekommt gar
+    // keine Erinnerung mehr. Je früher der Gast absagen kann, desto eher
     // kriegt das Restaurant den Tisch noch weitervergeben.
     var cancelBlock = '';
     if (r.id && eventType !== 'cancelled') {
@@ -208,8 +208,8 @@ function buildReservationEmail(r, rest, eventType) {
         details +
         cancelBlock +
         // Nur bei der BESTAETIGUNG. Bei einer offenen Anfrage war der Gast noch
-        // nicht da, und bei einer Absage waere die Bitte um eine Bewertung
-        // schlicht unverschaemt.
+        // nicht da, und bei einer Absage wäre die Bitte um eine Bewertung
+        // schlicht unverschämt.
         (eventType === 'confirmed' ? bewertungsBlock(rest, restName) : '') +
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
         '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
@@ -321,7 +321,7 @@ exports.handler = async function (event) {
 
     if (event.httpMethod !== 'POST') return json(405, { error: 'Nur POST' });
 
-    // Ohne Key: bewusst still (kein Fehler im Frontend-Log noetig)
+    // Ohne Key: bewusst still (kein Fehler im Frontend-Log nötig)
     if (!RESEND_API_KEY) return json(200, { ok: true, skipped: true, reason: 'RESEND_API_KEY nicht gesetzt' });
 
     var body = {};
@@ -344,7 +344,7 @@ exports.handler = async function (event) {
     if (!orderId || !/^[0-9a-f-]{10,}$/i.test(String(orderId))) return json(400, { error: 'order_id fehlt/ungueltig' });
 
     try {
-        // Duplikatschutz: Bestellung atomar beanspruchen. 0 Zeilen zurueck =
+        // Duplikatschutz: Bestellung atomar beanspruchen. 0 Zeilen zurück =
         // schon versendet. 400 = Spalte fehlt -> trotzdem senden (Frontend
         // ruft nur einmal pro Bestellung an).
         var claimRes = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) +
@@ -371,8 +371,8 @@ exports.handler = async function (event) {
         if (!to || to.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Kunden-E-Mail' });
 
         // Das Restaurant dazuholen -- ohne seinen Google-Link bleibt der
-        // Bewertungs-Block leer. Schlaegt es fehl, geht die Bestaetigung
-        // trotzdem raus: eine Bestellbestaetigung darf nie an einer
+        // Bewertungs-Block leer. Schlägt es fehl, geht die Bestätigung
+        // trotzdem raus: eine Bestellbestätigung darf nie an einer
         // Nebensache scheitern.
         var restOrder = null;
         if (order.restaurant_id) {

@@ -1,9 +1,9 @@
 // Kiek mol in — Wochenreport: montags morgens eine Mail an jeden Gastronomen
 // mit der kompletten Vorwoche: Umsatz (vs. Woche davor), Bestellungen,
-// staerkster Tag, Top-5-Gerichte, Reservierungen.
+// stärkster Tag, Top-5-Gerichte, Reservierungen.
 //
-// Laeuft montags 06:30 UTC (= 08:30 Sommer / 07:30 Winter dt. Zeit).
-// Ohne RESEND_API_KEY still inaktiv. Nur Restaurants mit E-Mail + Aktivitaet.
+// Läuft montags 06:30 UTC (= 08:30 Sommer / 07:30 Winter dt. Zeit).
+// Ohne RESEND_API_KEY still inaktiv. Nur Restaurants mit E-Mail + Aktivität.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY, RESEND_API_KEY, EMAIL_FROM (optional)
 
@@ -95,7 +95,7 @@ exports.handler = async function () {
             diffHtml += ' <span style="color:#6b7280;font-weight:400;">vs. Vorwoche</span>';
         }
 
-        // Staerkster Tag (nach Umsatz, deutscher Wochentag)
+        // Stärkster Tag (nach Umsatz, deutscher Wochentag)
         var byDay = {};
         ro.forEach(function (o) {
             var day = new Date(o.created_at).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });

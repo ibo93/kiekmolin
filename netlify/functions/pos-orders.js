@@ -1,26 +1,26 @@
 // POS-Abruf (Pull): Kassensysteme holen sich die Bestellungen eines Restaurants
-// im standardisierten JSON-Format ab. Software-unabhaengig — egal welches
-// Kassenprogramm, es braucht nur eine URL + einen Zugriffs-Schluessel.
+// im standardisierten JSON-Format ab. Software-unabhängig — egal welches
+// Kassenprogramm, es braucht nur eine URL + einen Zugriffs-Schlüssel.
 //
 // Zwei Modi:
-//   1) Bestellungen abrufen (fuer das Kassensystem):
+//   1) Bestellungen abrufen (für das Kassensystem):
 //        GET  /.netlify/functions/pos-orders?restaurant=<id>&key=<pull_key>
 //        Optional: &since=<ISO>  &status=<csv>  &limit=<n>
-//   2) Zugangsdaten erzeugen/anzeigen (fuer den eingeloggten Gastronomen):
+//   2) Zugangsdaten erzeugen/anzeigen (für den eingeloggten Gastronomen):
 //        GET  /.netlify/functions/pos-orders?action=key[&rotate=1]
 //        Header: Authorization: Bearer <supabase-login-token>
 //
 // ENV-Vars optional: SUPABASE_URL, SUPABASE_SERVICE_KEY (bevorzugt). Fehlen sie,
-// nutzt die Funktion automatisch die oeffentlichen anon-Zugangsdaten als Fallback.
+// nutzt die Funktion automatisch die öffentlichen anon-Zugangsdaten als Fallback.
 
 'use strict';
 
 var crypto = require('crypto');
 
 // Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
-// Netlify nicht gesetzt sind, Fallback auf die ohnehin oeffentlichen anon-Daten
+// Netlify nicht gesetzt sind, Fallback auf die ohnehin öffentlichen anon-Daten
 // (identisch zu build-seo-pages.js / index.html) — damit die Schnittstelle auch
-// ganz ohne Env-Setup laeuft.
+// ganz ohne Env-Setup läuft.
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
@@ -78,14 +78,14 @@ function generateKey() {
     return crypto.randomBytes(24).toString('hex'); // 48 Zeichen
 }
 
-// Zeitkonstanter Vergleich (gegen Timing-Angriffe), laengenunabhaengig.
+// Zeitkonstanter Vergleich (gegen Timing-Angriffe), längenunabhängig.
 function safeEqual(a, b) {
     var ha = crypto.createHash('sha256').update(String(a)).digest();
     var hb = crypto.createHash('sha256').update(String(b)).digest();
     return crypto.timingSafeEqual(ha, hb);
 }
 
-// Login-Token (Supabase JWT) pruefen -> liefert die erlaubten restaurant_ids.
+// Login-Token (Supabase JWT) prüfen -> liefert die erlaubten restaurant_ids.
 async function restaurantIdsForToken(token) {
     if (!token) return null;
     var res = await fetch(SUPABASE_URL + '/auth/v1/user', {

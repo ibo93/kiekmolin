@@ -8,7 +8,7 @@
 //
 //   "aggregateRating": { "ratingValue": "4.8", "ratingCount": "56" }
 //
-// Auf JEDER Seite, fuer jedes Restaurant. Bewertet hatte das niemand.
+// Auf JEDER Seite, für jedes Restaurant. Bewertet hatte das niemand.
 //
 // Der zweite Teil war leiser, aber gleicher Art: Restaurants ohne
 // eingetragene Bewertung bekamen im Code "|| 4.5" verpasst, und das
@@ -18,10 +18,10 @@
 //
 // WARUM DAS MEHR IST ALS EIN SCHOENHEITSFEHLER
 // --------------------------------------------
-// Google verlangt fuer Bewertungssterne Bewertungen, die auf dieser Seite von
+// Google verlangt für Bewertungssterne Bewertungen, die auf dieser Seite von
 // echten Nutzern abgegeben wurden. Erfundene kosten im Ernstfall die
-// Sterne-Darstellung fuer die ganze Domain. Und in Deutschland sind erfundene
-// Bewertungen als unlautere Geschaeftspraxis ausdruecklich benannt -- fuer
+// Sterne-Darstellung für die ganze Domain. Und in Deutschland sind erfundene
+// Bewertungen als unlautere Geschäftspraxis ausdrücklich benannt -- für
 // eine App, die Gastronomen bezahlen, ist das deren Risiko.
 'use strict';
 var fs = require('fs');

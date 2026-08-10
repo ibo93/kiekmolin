@@ -3,12 +3,12 @@ function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' |
 var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 // Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
 // lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
-// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
-// muessen deshalb BEIDE Dateien sehen.
+// ohne Zeitlimit und der Rückfallebene mit Abschnitten. Die Prüfungen
+// müssen deshalb BEIDE Dateien sehen.
 var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
       + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 
-// --- Prompt: Ueberschrift gilt fuer ALLES darunter ---
+// --- Prompt: Überschrift gilt für ALLES darunter ---
 t('Prompt erklaert, wie eine Speisekarte aufgebaut ist',
   /SO FUNKTIONIERT EINE SPEISEKARTE/.test(fn));
 t('Prompt: alle zwoelf Pizzen, nicht nur die erste',
@@ -35,7 +35,7 @@ t('Bericht zeigt vorhandene UND erkannte Kategorien',
 t('Aufklappbarer Bericht in der Pruefliste', /Scan-Bericht/.test(h) && /<details/.test(h));
 t('Kopier-Knopf vorhanden', /kopiereScanBericht/.test(h));
 
-// --- Kopierfunktion wirklich ausfuehren ---
+// --- Kopierfunktion wirklich ausführen ---
 function schneide(src,name){var i=src.indexOf('function '+name+'(');var j=src.indexOf('{',i),d=0;
   for(var k=j;k<src.length;k++){if(src[k]==='{')d++;else if(src[k]==='}'){d--;if(!d)return src.slice(i,k+1);}}}
 var kopiert=null;

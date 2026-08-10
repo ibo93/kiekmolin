@@ -4,10 +4,10 @@
 // von Pronto Pronto liefert -- vier Spalten, umgebrochene Zutatenlisten,
 // Merkmal-Zeichen vor der Nummer. Kein Wunschformat.
 //
-// Der Fehler, den diese Datei festhaelt: aus 13 Kategorien wurden 75, weil
-// jede Zutatenzeile ("Salami", "Peperoni") als Ueberschrift durchging. Beim
-// Kopieren geht die Schriftgroesse verloren, und im reinen Text ist eine
-// Ueberschrift nicht sicher von einer umgebrochenen Zutatenzeile zu
+// Der Fehler, den diese Datei festhält: aus 13 Kategorien wurden 75, weil
+// jede Zutatenzeile ("Salami", "Peperoni") als Überschrift durchging. Beim
+// Kopieren geht die Schriftgröße verloren, und im reinen Text ist eine
+// Überschrift nicht sicher von einer umgebrochenen Zutatenzeile zu
 // unterscheiden. Deshalb wird hier NICHT geraten.
 'use strict';
 var fs = require('fs');
@@ -38,7 +38,7 @@ var F = frisch();
 var r = F.lesen(TEXT);
 var items = F.zuItems(r.gerichte);
 
-// --- Die Zahlen, die zaehlen ------------------------------------------------
+// --- Die Zahlen, die zählen ------------------------------------------------
 t('142 Gerichte aus dem eingefuegten Text', r.gerichte.length === 142, r.gerichte.length);
 t('142 Gerichte -- EIN Gericht je Karteneintrag, Groessen als Auswahl',
   items.length === 142, items.length);
@@ -83,7 +83,7 @@ t('Gerichte landen unter der erzwungenen Ueberschrift',
   i3[0].category === 'Pizzen' && i3[2].category === 'Getränke',
   i3.map(function (x) { return x.category; }).join('|'));
 
-// --- Einzelheiten, die frueher falsch waren --------------------------------
+// --- Einzelheiten, die früher falsch waren --------------------------------
 function finde(nr) { return items.filter(function (i) { return i.dish_number === nr; }); }
 var m = finde('1')[0];
 t('Merkmal vor der Nummer ("V 1. Pizza Margherita") wird abgetrennt',
@@ -101,7 +101,7 @@ t('zwei Preise in einer Zeile werden zu Groessen an EINEM Gericht',
   zwei && JSON.stringify(zwei.sizes));
 t('Grundpreis ist der guenstigste', !!zwei && zwei.price === 7, zwei && zwei.price);
 
-// --- Oberflaeche ------------------------------------------------------------
+// --- Oberfläche ------------------------------------------------------------
 t('Vorschau rechnet bei jedem Tastendruck', /oninput="try\{karteTextVorschau\(\)\}catch\(e\)\{\}"/.test(H));
 
 // --- Sichtbarkeit: der Fehler, der alles davor wertlos gemacht hat ---------
@@ -118,8 +118,8 @@ t('KI-Scanner heisst jetzt "Foto scannen (KI)" -- keine Verwechslung mehr',
   /<span>Foto scannen \(KI\)<\/span>/.test(H) && !/<span>Menü scannen \(KI\)<\/span>/.test(H));
 t('eigenes Fenster vorhanden', /id="karteEinfuegenModal"/.test(H));
 // Das Fenster hing beim ersten Versuch unten links halb aus dem Bild, weil es
-// die falschen Klassen trug: die App zentriert ueber .modal-overlay (fixed,
-// flex) und legt die weisse Karte als .modal hinein.
+// die falschen Klassen trug: die App zentriert über .modal-overlay (fixed,
+// flex) und legt die weiße Karte als .modal hinein.
 t('Fenster benutzt die Fenster-Struktur der App (overlay + modal)',
   /<div class="modal-overlay" id="karteEinfuegenModal"/.test(H));
 t('weisse Karte liegt IM Overlay, nicht daneben',
@@ -142,11 +142,11 @@ t('KI ist nur noch die zweite Wahl, nicht der Standard',
   H.indexOf('onclick="karteTextUebernehmen()"') < H.indexOf('onclick="scanFromText()"'));
 t('Bericht weist "ohne KI" aus', /quelle: 'Eingefügter Text, ohne KI'/.test(H));
 
-// --- PDF ist der Hauptweg, Text die Rueckfallebene -------------------------
-// Im PDF steht die Schriftgroesse und die Schrift-Kennung. Daran erkennt der
-// Leser die Ueberschriften von allein -- auch "Spaghetti" und "Rigatoni", die
+// --- PDF ist der Hauptweg, Text die Rückfallebene -------------------------
+// Im PDF steht die Schriftgröße und die Schrift-Kennung. Daran erkennt der
+// Leser die Überschriften von allein -- auch "Spaghetti" und "Rigatoni", die
 // KLEINER gesetzt sind als der Fliesstext. Im kopierten Text ist das weg, und
-// dann muss der Gastronom klicken. Also gehoert PDF nach vorn.
+// dann muss der Gastronom klicken. Also gehört PDF nach vorn.
 t('PDF-Ablage steht im Fenster ganz oben',
   /id="karteVollAblage"/.test(H)
   && H.indexOf('id="karteVollAblage"') < H.indexOf('id="karteEinfuegenText"'));

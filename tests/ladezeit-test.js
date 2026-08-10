@@ -6,23 +6,23 @@
 //   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
 //
 // Das ist der Spiel-CDN: rund 400 KB JavaScript, das die Stylesheets ERST IM
-// BROWSER erzeugt -- bei jedem Aufruf, bei jedem Gast. Solange es laeuft,
+// BROWSER erzeugt -- bei jedem Aufruf, bei jedem Gast. Solange es läuft,
 // sieht der Gast nichts. Tailwind schreibt selbst in seine Doku, dass das
 // nichts im echten Betrieb zu suchen hat.
 //
-// Nachgezaehlt: die ganze App benutzt ZEHN Tailwind-Klassen. Dafuer lief ein
+// Nachgezählt: die ganze App benutzt ZEHN Tailwind-Klassen. Dafür lief ein
 // Compiler mit.
 //
 // WARUM ES NICHT REICHT, DAS SKRIPT ZU LOESCHEN
 // ---------------------------------------------
-// Tailwind bringt Preflight mit (Grundformatierung fuer Ueberschriften,
-// Listen, Links, Knoepfe, Bilder) und ueber das forms-Plugin eine
+// Tailwind bringt Preflight mit (Grundformatierung für Überschriften,
+// Listen, Links, Knöpfe, Bilder) und über das forms-Plugin eine
 // Vereinheitlichung aller Eingabefelder. Die App baut darauf auf. Einfach
-// weglassen haette das Aussehen an vielen Stellen verschoben.
+// weglassen hätte das Aussehen an vielen Stellen verschoben.
 //
 // Deshalb wurde das CSS mit DERSELBEN Tailwind-Version und DERSELBEN
 // Konfiguration gebaut, die vorher im <head> stand, und fest eingebettet.
-// Gegengeprueft in echtem Chromium: 22 Auswahlen, 0 Unterschiede.
+// Gegengeprüft in echtem Chromium: 22 Auswahlen, 0 Unterschiede.
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -30,7 +30,7 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
 // ---- Der CDN ist weg --------------------------------------------------------
-// Der Kommentar an der Stelle DARF den alten Aufruf nennen -- geprueft wird,
+// Der Kommentar an der Stelle DARF den alten Aufruf nennen -- geprüft wird,
 // dass kein echtes Skript-Tag mehr da ist.
 t('kein Tailwind-CDN mehr im Quelltext',
   H.indexOf('cdn.tailwindcss.com?plugins=forms,container-queries"></script>') < 0
@@ -38,7 +38,7 @@ t('kein Tailwind-CDN mehr im Quelltext',
 t('auch die zugehoerige Laufzeit-Konfiguration ist weg',
   !/^\s*tailwind\.config = \{/m.test(H));
 
-// ---- Dafuer ist das fertige CSS drin ---------------------------------------
+// ---- Dafür ist das fertige CSS drin ---------------------------------------
 var stil = H.slice(H.indexOf('Tailwind: FERTIG GEBAUT'));
 stil = stil.slice(stil.indexOf('<style>') + 7, stil.indexOf('</style>'));
 t('das gebaute CSS steht an derselben Stelle', stil.length > 5000, stil.length + ' Zeichen');
@@ -51,8 +51,8 @@ t('und ist deutlich kleiner als der Compiler', stil.length < 40000, stil.length 
     t('enthaelt ' + k.replace('\\', '').replace('{', ''), stil.indexOf(k) >= 0);
 });
 
-// Preflight und das forms-Plugin -- ohne die haette sich das Aussehen
-// verschoben, und zwar ueberall.
+// Preflight und das forms-Plugin -- ohne die hätte sich das Aussehen
+// verschoben, und zwar überall.
 t('Preflight ist dabei (Grundformatierung)',
   /\*,::after,::before\{box-sizing:border-box/.test(stil) || /\*,:after,:before\{box-sizing:border-box/.test(stil),
   stil.slice(0, 80));
@@ -66,10 +66,10 @@ t('das forms-Plugin ist dabei (Eingabefelder)',
   /\[type=text\]/.test(stil) && /appearance:none/.test(stil));
 
 // ---- Der riskante Teil, den ich NICHT gemacht habe --------------------------
-// supabase-js blockiert ebenfalls. Es zu verzoegern waere naheliegend --
+// supabase-js blockiert ebenfalls. Es zu verzögern wäre naheliegend --
 // direkt darunter steht aber window.supabase.createClient(...) in einem
-// gewoehnlichen Inline-Skript. Mit defer waere die Bibliothek dort noch nicht
-// da, das try/catch haette den Fehler geschluckt und die App liefe still ueber
+// gewöhnlichen Inline-Skript. Mit defer wäre die Bibliothek dort noch nicht
+// da, das try/catch hätte den Fehler geschluckt und die App liefe still über
 // die REST-Notwege. Also bewusst gelassen.
 t('supabase-js laedt weiterhin ohne defer -- mit Begruendung im Quelltext',
   /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/.test(H)

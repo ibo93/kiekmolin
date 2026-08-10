@@ -1,9 +1,9 @@
 // KARTE ABGLEICHEN -- der Vergleich wird wirklich gerechnet.
 //
-// Der Fehler, den diese Datei festhaelt: der Import kannte nur ANLEGEN.
-// Schickte ein Wirt im Fruehjahr dieselbe Karte mit neuen Preisen, stand
-// danach jedes Gericht zweimal in der App -- 142 Zeilen von Hand loeschen.
-// Preise aendern sich zwei- bis dreimal im Jahr, das trifft jeden Kunden.
+// Der Fehler, den diese Datei festhält: der Import kannte nur ANLEGEN.
+// Schickte ein Wirt im Frühjahr dieselbe Karte mit neuen Preisen, stand
+// danach jedes Gericht zweimal in der App -- 142 Zeilen von Hand löschen.
+// Preise ändern sich zwei- bis dreimal im Jahr, das trifft jeden Kunden.
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -57,7 +57,7 @@ t('Preisaenderung wird erkannt', !!salami, d.geaendert.map(function (x) { return
 t('und zwar mit altem UND neuem Preis',
   !!salami && salami.was[0].feld === 'Preis' && salami.was[0].alt === 7 && salami.was[0].neu === 7.5,
   salami && JSON.stringify(salami.was));
-// Umbenennen ist eine Aenderung, kein "unveraendert": das Gericht wird ueber
+// Umbenennen ist eine Änderung, kein "unverändert": das Gericht wird über
 // die Nummer wiedererkannt, aber der neue Name muss in der App ankommen.
 var umbenannt = d.geaendert.filter(function (x) { return x.alt.id === 'c'; })[0];
 t('Umbenennung wird als Aenderung gemeldet',
@@ -85,7 +85,7 @@ var nochmal = F.abgleichen(neuKarte.slice(0, 3).map(function (x) { return ausSca
 t('derselbe Import zweimal legt NICHTS doppelt an',
   nochmal.neu.length === 0, nochmal.neu.map(function (x) { return x.name; }).join(', '));
 
-// --- Groessen ---------------------------------------------------------------
+// --- Größen ---------------------------------------------------------------
 var g1 = F.abgleichen(
     [ausScan({ nr: '1', name: 'Pizza Margherita', preis: 7,
                groessen: [{ name: 'klein', price: 7 }, { name: 'groß', price: 9 }] })],
@@ -95,7 +95,7 @@ t('geaenderte Groessenpreise werden erkannt',
   g1.geaendert.length === 1 && g1.geaendert[0].was.some(function (w) { return w.feld === 'Größen'; }),
   JSON.stringify(g1.geaendert[0] && g1.geaendert[0].was));
 
-// --- Zutaten duerfen nicht geloescht werden --------------------------------
+// --- Zutaten dürfen nicht gelöscht werden --------------------------------
 // Eine Karte ohne Zutatenzeilen darf gepflegte Beschreibungen nicht leeren.
 var g2 = F.abgleichen(
     [ausScan({ nr: '1', name: 'Pizza Margherita', preis: 6.5, besch: '' })],
@@ -111,7 +111,7 @@ var g3 = F.abgleichen(
 t('ohne Nummer wird ueber den Namen wiedererkannt',
   g3.geaendert.length === 1 && g3.neu.length === 0, JSON.stringify({ g: g3.geaendert.length, n: g3.neu.length }));
 
-// --- Schon ausverkaufte zaehlen nicht als "entfallen" ----------------------
+// --- Schon ausverkaufte zählen nicht als "entfallen" ----------------------
 var g4 = F.abgleichen([], [inDb({ id: 'y', nr: '5', name: 'Saisonkarte', preis: 9, aus: true })]);
 t('bereits ausverkaufte Gerichte werden nicht nochmal gemeldet',
   g4.entfallen.length === 0, g4.entfallen.length);
@@ -140,9 +140,9 @@ t('eigenes Fenster fuer den Abgleich',
 // --- Der Import darf nicht still Felder verschlucken ------------------------
 // Kennt die Datenbank ein Feld nicht, wird es aus dem Payload genommen und das
 // Gericht trotzdem gespeichert -- richtig, denn ein fehlendes Feld darf keinen
-// Import kippen. Aber es darf nicht unbemerkt bleiben: waren die Groessen
+// Import kippen. Aber es darf nicht unbemerkt bleiben: waren die Größen
 // betroffen, stehen die Gerichte danach mit nur einem Preis in der App, und
-// niemand weiss warum.
+// niemand weiß warum.
 t('weggelassene Spalten werden gemeldet, nicht verschluckt',
   /var verworfen = Object\.keys\(_unbekannteSpalten\)/.test(H)
   && /wurden NICHT gespeichert/.test(H));
@@ -153,8 +153,8 @@ t('nach dem Import wird nachgesehen, ob die Groessen wirklich da sind',
 t('und wenn keine einzige ankam, gibt es eine deutliche Warnung',
   /in der Datenbank ist keine einzige angekommen/.test(H));
 
-// Genau dieser Fall repariert sich beim naechsten Einlesen von selbst:
-// fehlende Groessen sind fuer den Abgleich eine Aenderung.
+// Genau dieser Fall repariert sich beim nächsten Einlesen von selbst:
+// fehlende Größen sind für den Abgleich eine Änderung.
 var ohneGroessen = F.abgleichen(
     [ausScan({ nr: '7', name: 'Pizza Sicilia', preis: 8.5,
                groessen: [{ name: 'klein', price: 8.5 }, { name: 'groß', price: 10 }] })],
@@ -165,8 +165,8 @@ t('fehlende Groessen werden beim naechsten Abgleich nachgetragen',
   JSON.stringify(ohneGroessen.geaendert[0] && ohneGroessen.geaendert[0].was));
 
 // --- Fehlende Gerichte beim Namen nennen ------------------------------------
-// "138 importiert, 4 Fehler" sagt nicht, WELCHE vier. Namen und Gruende
-// standen nur in der Browser-Konsole -- fuer einen Gastronom unerreichbar.
+// "138 importiert, 4 Fehler" sagt nicht, WELCHE vier. Namen und Gründe
+// standen nur in der Browser-Konsole -- für einen Gastronom unerreichbar.
 t('nicht gespeicherte Gerichte werden mit Namen gesammelt',
   /_nichtGespeichert\.push\(\{ name: item\.name/.test(H));
 t('mit Gerichtnummer, damit man sie auf der Karte findet',
@@ -182,8 +182,8 @@ t('die Meldung nennt beide Zahlen (wieviele rein, wieviele an)',
   /importedCount \+ ' von ' \+ selectedItems\.length \+ ' gespeichert/.test(H));
 
 // Die Karte hat zwei Gerichte mit demselben Namen (114 und 115 "Roma
-// Spezial", einmal Haehnchen, einmal Rind). Das ist kein Lesefehler -- so
-// steht es gedruckt. Sie duerfen sich nicht gegenseitig verdraengen.
+// Spezial", einmal Hähnchen, einmal Rind). Das ist kein Lesefehler -- so
+// steht es gedruckt. Sie dürfen sich nicht gegenseitig verdrängen.
 var romaAbgleich = F.abgleichen(
     [ausScan({ nr: '114', name: 'Roma Spezial', preis: 10, besch: 'Hähnchen' }),
      ausScan({ nr: '115', name: 'Roma Spezial', preis: 10, besch: 'Rind' })],
@@ -191,11 +191,11 @@ var romaAbgleich = F.abgleichen(
 t('zwei Gerichte mit gleichem Namen bleiben zwei Gerichte',
   romaAbgleich.neu.length === 2, romaAbgleich.neu.length);
 
-// --- Der Abgleich muss dieselben Datenbank-Fehler ueberstehen wie der Import
+// --- Der Abgleich muss dieselben Datenbank-Fehler überstehen wie der Import
 // Hier stand nur "fehler++": kennt die Datenbank die Spalte sizes nicht oder
-// hat sie den falschen Typ, scheiterten alle 88 Groessen-Aenderungen stumm.
+// hat sie den falschen Typ, scheiterten alle 88 Größen-Änderungen stumm.
 // Danach wurde das Fenster geschlossen -- der einzige Ort, an dem ein Grund
-// haette stehen koennen, verschwand genau dann, wenn man ihn braucht.
+// hätte stehen können, verschwand genau dann, wenn man ihn braucht.
 t('Abgleich laesst unbekannte Spalten weg, statt aufzugeben',
   /Object\.keys\(_weg\)\.forEach\(function \(k\) \{ delete neuerStand\[k\]; \}\)/.test(H));
 t('Abgleich schickt bei falschem Typ als Text',

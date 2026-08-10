@@ -2,7 +2,7 @@
 //
 // Der wichtigste Punkt hier ist das ZEITBUDGET. Die Function wird von Netlify
 // nach 10 Sekunden abgeschnitten. Wer diese Datei liest: die Tests unten
-// pruefen, dass die Function vorher SELBST abbricht und zurueckgibt, was sie
+// prüfen, dass die Function vorher SELBST abbricht und zurückgibt, was sie
 // hat -- statt in das Limit zu laufen. Genau daran ist der Scanner wochenlang
 // gescheitert, ohne dass es jemand sehen konnte.
 var PATH = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
@@ -86,7 +86,7 @@ var order = e => r => r.calls.join(',') === e ? true : 'Aufrufe: ' + r.calls.joi
     { ANTHROPIC_API_KEY: 'a', MENU_SCAN_MODEL: 'claude-haiku-4-5' }, { claude: 'good' },
     r => r.bodies[0].body.model === 'claude-haiku-4-5' ? true : r.bodies[0].body.model);
 
-  // --- Zeitbudget: der eigentliche Fehler, an dem alles haengengeblieben ist ---
+  // --- Zeitbudget: der eigentliche Fehler, an dem alles hängengeblieben ist ---
   all &= await run('haengender Aufruf wird beim Budget abgebrochen, nicht abgewartet',
     { ANTHROPIC_API_KEY: 'a', MENU_SCAN_MS: '2500' }, { claude: 'haengt' },
     r => r.ms > 5000 ? 'hat ' + r.ms + ' ms gewartet statt abzubrechen'
@@ -138,7 +138,7 @@ var order = e => r => r.calls.join(',') === e ? true : 'Aufrufe: ' + r.calls.joi
     r => r.body.ok === true && r.body.count === 0 ? true : JSON.stringify(r.body).slice(0, 140),
     { images: ['data:image/jpeg;base64,QUJD'], weiter: { anzahl: 30, letzte: ['Tiramisu'], kategorie: 'Desserts' } });
 
-  // --- Konfigurations-Leiter: EIN abgelehntes Feld darf den Scanner nie mehr toeten ---
+  // --- Konfigurations-Leiter: EIN abgelehntes Feld darf den Scanner nie mehr töten ---
   all &= await run('abgelehntes Feld -> einfachere Stufe statt Totalausfall',
     NUR_CLAUDE, { claude: 'ablehnt1' },
     r => r.body.ok !== true ? 'Scan gekippt: ' + r.body.error

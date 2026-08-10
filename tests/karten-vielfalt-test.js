@@ -1,27 +1,27 @@
 // GEHT DAS AUCH BEI ANDEREN KARTEN?
 //
 // Bis hierher war alles an genau EINER Karte gemessen (Pronto Pronto, Riepe).
-// Das beantwortet die Frage nicht, die zaehlt: funktioniert es bei jeder
+// Das beantwortet die Frage nicht, die zählt: funktioniert es bei jeder
 // Karte, die ein Gastronom bringt?
 //
-// Diese Datei prueft fuenf Karten in verschiedenen Layouts. Sie sind mit
+// Diese Datei prüft fünf Karten in verschiedenen Layouts. Sie sind mit
 // Chromium als echte PDFs gedruckt und dann mit pdf.js 2.16.105 gelesen --
-// derselben Fassung, die im Browser laeuft. tests/daten/proben/karten.json
-// ist diese Ausgabe, unveraendert. Die zugehoerigen PDFs liegen daneben.
+// derselben Fassung, die im Browser läuft. tests/daten/proben/karten.json
+// ist diese Ausgabe, unverändert. Die zugehörigen PDFs liegen daneben.
 //
 // Die Wahrheit ist bekannt, weil die Karten hier erzeugt wurden -- sie ist
-// keine nachtraegliche Behauptung.
+// keine nachträgliche Behauptung.
 //
-// Drei Fehler haben diese fuenf Karten aufgedeckt, die an der grossen Karte
-// nie aufgefallen waeren:
-//   1. "mindestens 20 Woerter" und "mindestens 300 Zeichen" sperrten jede
+// Drei Fehler haben diese fünf Karten aufgedeckt, die an der großen Karte
+// nie aufgefallen wären:
+//   1. "mindestens 20 Wörter" und "mindestens 300 Zeichen" sperrten jede
 //      kleine Karte aus. Ein Cafe mit acht Gerichten bekam "kein Text im
-//      PDF" -- obwohl der Text vollstaendig da war.
-//   2. "mindestens 5 Woerter an einer Spaltenkante": auf einer dreispaltigen
-//      Karte mit sieben Gerichten hat eine Spalte nur vier Eintraege. Alle
+//      PDF" -- obwohl der Text vollständig da war.
+//   2. "mindestens 5 Wörter an einer Spaltenkante": auf einer dreispaltigen
+//      Karte mit sieben Gerichten hat eine Spalte nur vier Einträge. Alle
 //      Kanten bis auf eine fielen weg, drei Spalten klebten zusammen.
-//   3. Eine rechtsbuendige Preisspalte sieht aus wie eine Textspalte. Wer
-//      dort trennt, reisst Name und Preis auseinander -- uebrig bleibt ein
+//   3. Eine rechtsbündige Preisspalte sieht aus wie eine Textspalte. Wer
+//      dort trennt, reisst Name und Preis auseinander -- übrig bleibt ein
 //      Preis ohne Gericht.
 'use strict';
 var fs = require('fs');

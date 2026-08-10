@@ -3,21 +3,21 @@
 // GEMELDET WURDE
 // --------------
 // "Der Banner nervt so da sind unsauber" (Bildschirmfoto: zwei Cookie-Banner
-// uebereinander, dazu quer ueber der Willkommens-Tour) und "das mit Google
+// übereinander, dazu quer über der Willkommens-Tour) und "das mit Google
 // Bewertung nach dem bestellen auch komplet raus es kommen 2 Sachen".
 //
 // WAS WIRKLICH DA WAR
 // -------------------
 // DREI Cookie-Banner im Quelltext:
-//   #cookieConsent       -- zeigt sich bei DOMContentLoaded  (Schluessel kmi_consent)
-//   #cookieConsentBanner -- zeigt sich nach 1,5 s            (Schluessel kin_cookie_consent)
+//   #cookieConsent       -- zeigt sich bei DOMContentLoaded  (Schlüssel kmi_consent)
+//   #cookieConsentBanner -- zeigt sich nach 1,5 s            (Schlüssel kin_cookie_consent)
 //   #cookieBanner        -- display:none, von nirgends eingeblendet
-// Zwei verschiedene Speicherschluessel heisst: wer den einen beantwortet, wird
+// Zwei verschiedene Speicherschlüssel heißt: wer den einen beantwortet, wird
 // vom anderen weiter gefragt. Deshalb standen beide gleichzeitig da.
 //
 // Und DREI Bewertungsfenster nach der Bestellung, nicht zwei:
 //   nach  30 s  showReviewPrompt      "Google Bewertung schreiben"
-//   nach  60 s  showRatingPrompt      fuenf Sterne
+//   nach  60 s  showRatingPrompt      fünf Sterne
 //   nach 120 s  showAutoReviewPrompt  "Google Bewertung"
 // Dazu eine Abfrage alle 20 Sekunden, die dauerhaft die Bestellungen des
 // Gastes aus der Datenbank holte, nur um den Moment abzupassen.
@@ -37,7 +37,7 @@ t('der tote dritte ebenfalls', !/<div id="cookieBanner"/.test(H));
 t('und die alte cookieConsent()-Funktion dazu', !/function cookieConsent\(choice\)/.test(H));
 
 // ---- 2. Der eine Banner deckt jetzt BEIDES ab ------------------------------
-// Google Analytics laeuft wirklich (G-...), also braucht es die Einwilligung.
+// Google Analytics läuft wirklich (G-...), also braucht es die Einwilligung.
 t('Google Analytics ist tatsaechlich eingebunden', /googletagmanager\.com\/gtag\/js\?id=G-/.test(H));
 t('Consent Mode steht standardmaessig auf verweigert',
   /analytics_storage: 'denied'/.test(H));
@@ -84,19 +84,26 @@ t('wer nur den alten Banner beantwortet hat, wird nicht neu gefragt',
 t('wer nur den neuen beantwortet hat, ebenso',
   welt({ kmi_consent: 'essential' }).api.schon() === true);
 
-// ---- 3. Nicht ueber die Willkommens-Tour legen -----------------------------
+// ---- 3. Nicht über die Willkommens-Tour legen -----------------------------
 // Einmal nachsehen reicht nicht: beim ersten Blick steht die Tour noch auf
-// display:none und geht erst rund eine Sekunde spaeter auf -- dann liegt der
+// display:none und geht erst rund eine Sekunde später auf -- dann liegt der
 // Banner schon da. Genau das war nach dem ERSTEN Versuch noch zu sehen.
-t('der Banner gibt der Tour eine Anlaufzeit',
-  /var COOKIE_ANLAUF_MS = 3000;/.test(H)
-  && /if \(!_tourGesehen && \(Date\.now\(\) - _cookieStart\) < COOKIE_ANLAUF_MS\)/.test(H));
+// Statt an der Zeit zu raten wird nachgesehen, OB die Tour ueberhaupt noch
+// kommt -- sie hinterlaesst "kmi_onboarded", sobald der Gast sie durch hat.
+// Eine feste Wartezeit allein hat es nur halb geloest: braucht die Tour auf
+// einem langsamen Geraet laenger, blitzte der Banner trotzdem kurz auf.
+t('der Banner wartet, solange die Tour noch kommen kann',
+  /function _tourKommtNoch\(\)/.test(H)
+  && /localStorage\.getItem\('kmi_onboarded'\)/.test(H)
+  && /if \(!_tourGesehen && _tourKommtNoch\(\) && \(Date\.now\(\) - _cookieStart\) < COOKIE_ANLAUF_MS\)/.test(H));
+t('eine Reissleine gibt es trotzdem, falls die Tour nie erscheint',
+  /var COOKIE_ANLAUF_MS = 12000;/.test(H));
 t('und sieht danach weiter hin, bis der Gast entschieden hat',
   /_cookieWaechter = setInterval\(pruefe, 300\)/.test(H));
 t('taucht die Tour auf, verschwindet der Banner',
   /_tourGesehen = true;\s*\n\s*el\.style\.display = 'none';/.test(H));
-// offsetParent waere hier die naheliegende Pruefung -- und eine Falle: bei
-// position:fixed ist sie IMMER null, auch wenn das Element gross auf dem
+// offsetParent wäre hier die naheliegende Prüfung -- und eine Falle: bei
+// position:fixed ist sie IMMER null, auch wenn das Element groß auf dem
 // Bildschirm steht. Die Tour ist fixed. Daran ist der erste Versuch
 // gescheitert, und die Kopfzeilen-Messung gleich mit.
 t('Sichtbarkeit wird nicht ueber offsetParent geprueft',
@@ -104,7 +111,7 @@ t('Sichtbarkeit wird nicht ueber offsetParent geprueft',
   && /r\.width > 0 && r\.height > 0/.test(H)
   && !/onboardingOverlay'\)\.offsetParent/.test(H));
 t('auch die Kopfzeilen-Messung benutzt den verlaesslichen Test',
-  /if \(!_istSichtbar\(kopf\)\) \{ banner\.style\.top = '0px'; return; \}/.test(H));
+  H.indexOf('if (_istSichtbar(liste[j])) return liste[j];') > 0);
 t('die Tour gibt es unter diesem Namen wirklich',
   /<div id="onboardingOverlay"/.test(H));
 
@@ -137,7 +144,7 @@ var B = new Function('esc', M.slice(M.indexOf('function bewertungsBlock('),
 
 t('ohne Google-Link kommt gar nichts', B(null, 'La Piazza') === '');
 t('auch nicht bei leerem Link', B({ google_maps_url: '' }, 'La Piazza') === '');
-// Eine Google-SUCHE nach dem Namen waere geraten und landet oft falsch.
+// Eine Google-SUCHE nach dem Namen wäre geraten und landet oft falsch.
 t('es wird KEINE Google-Suche als Ersatz gebastelt',
   M.indexOf('google.com/search') < 0);
 t('mit Link steht der Knopf drin',
@@ -161,7 +168,7 @@ t('das Restaurant liefert dafuer den Google-Link mit',
 // ---- 6. Der obere Banner lag AUF der Kopfzeile --------------------------
 // .guest-header schwebt: position:fixed, top:16px, z-index:1000.
 // Der Bestellstatus-Banner klebte bei top:0 -- genau dort -- und hatte mit
-// z-index:9990 auch noch Vorrang. Beim Scrollen legte er sich ueber Logo,
+// z-index:9990 auch noch Vorrang. Beim Scrollen legte er sich über Logo,
 // Sprachwahl und Profil-Symbol.
 t('die Kopfzeile schwebt wirklich (das ist die Ursache)',
   /\.guest-header \{[\s\S]{0,300}position: fixed;[\s\S]{0,120}z-index: 1000;/.test(H));
@@ -177,27 +184,43 @@ t('und neu gemessen, wenn sich das Fenster dreht oder aendert',
   /addEventListener\('resize', _bannerUnterKopfzeile\)/.test(H)
   && /orientationchange/.test(H));
 
-// _istSichtbar gehoert mit in die Attrappe -- die Messung benutzt es jetzt.
+// _istSichtbar und _sichtbareKopfzeile gehören mit in die Attrappe.
 var P = new Function('document', 'window',
     H.slice(H.indexOf('function _istSichtbar(el)'), H.indexOf('var _cookieWaechter'))
-  + H.slice(H.indexOf('function _bannerUnterKopfzeile()'),
+  + H.slice(H.indexOf('function _sichtbareKopfzeile()'),
             H.indexOf("window.addEventListener('resize', _bannerUnterKopfzeile)"))
   + '; return _bannerUnterKopfzeile;');
 
 function messe(kopfUnten, kopfSichtbar) {
     var banner = { style: {} };
-    var kopf = kopfSichtbar === false
-        ? { getBoundingClientRect: function () { return { bottom: 0, width: 0, height: 0 }; } }
-        : { getBoundingClientRect: function () { return { bottom: kopfUnten, width: 390, height: 60 }; } };
-    var fenster = { getComputedStyle: function () { return { display: 'flex', visibility: 'visible', opacity: '1' }; } };
+    var kopf = {
+        getBoundingClientRect: function () {
+            return kopfSichtbar === false ? { bottom: 0, width: 0, height: 0 }
+                                          : { bottom: kopfUnten, width: 390, height: 56 };
+        }
+    };
+    var fenster = { getComputedStyle: function () { return { display: 'block', visibility: 'visible', opacity: '1' }; } };
     P({ getElementById: function () { return banner; },
-        querySelector: function () { return kopf; } }, fenster)();
+        querySelectorAll: function (sel) { return sel === '#guestTopNav' ? [kopf] : []; } }, fenster)();
     return banner.style.top;
 }
-t('unter einer 76px hohen Kopfzeile sitzt er bei 84px', messe(76) === '84px', messe(76));
+
+// Es gibt DREI .guest-header, alle in versteckten Ansichten -- und die
+// Kopfzeile der Startseite heisst #guestTopNav. querySelector haette stur die
+// erste unsichtbare genommen und immer 0 gemessen.
+t('gesucht wird die SICHTBARE Kopfzeile, nicht die erste',
+  /function _sichtbareKopfzeile\(\)/.test(H)
+  && /var kandidaten = \['#guestTopNav', '\.top-nav', '\.guest-header'\]/.test(H)
+  && /if \(_istSichtbar\(liste\[j\]\)\) return liste\[j\]/.test(H));
+t('die Startseiten-Kopfzeile gibt es unter diesem Namen wirklich',
+  /id="guestTopNav"/.test(H));
+t('von .guest-header gibt es mehr als eine',
+  (H.match(/class="guest-header"/g) || []).length > 1,
+  (H.match(/class="guest-header"/g) || []).length);
+t('unter einer 56px hohen Kopfzeile sitzt er bei 64px', messe(56) === '64px', messe(56));
 t('auf einem groesseren Bildschirm entsprechend tiefer', messe(120) === '128px', messe(120));
-// Feste Zahlen haetten hier nicht gereicht: ohne Kopfzeile -- etwa im
-// Vollbild-Speisekarten-Fenster -- gehoert er wieder ganz nach oben.
+// Feste Zahlen hätten hier nicht gereicht: ohne Kopfzeile -- etwa im
+// Vollbild-Speisekarten-Fenster -- gehört er wieder ganz nach oben.
 t('ohne sichtbare Kopfzeile geht er zurueck auf 0', messe(0, false) === '0px', messe(0, false));
 t('eine hochgescrollte Kopfzeile schiebt ihn nicht nach oben aus dem Bild',
   messe(-40) === '0px', messe(-40));

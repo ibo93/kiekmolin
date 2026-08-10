@@ -3,15 +3,15 @@ function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' |
 var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 // Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
 // lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
-// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
-// muessen deshalb BEIDE Dateien sehen.
+// ohne Zeitlimit und der Rückfallebene mit Abschnitten. Die Prüfungen
+// müssen deshalb BEIDE Dateien sehen.
 var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
       + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 
-// ---- Server: Allergen-Normalisierung wirklich ausfuehren ----
-// Zum AUSFUEHREN muss der Kern allein gelesen werden: menu-scan.js enthaelt
+// ---- Server: Allergen-Normalisierung wirklich ausführen ----
+// Zum AUSFUEHREN muss der Kern allein gelesen werden: menu-scan.js enthält
 // jetzt nur noch Zuweisungen wie "var ALLERGEN_CODES = K.ALLERGEN_CODES;",
-// und die wuerden den Ausschnitt zerreissen.
+// und die würden den Ausschnitt zerreissen.
 var kern = fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 var m = kern.match(/var ALLERGEN_CODES = \[[\s\S]*?\nfunction normZusatzstoffe[\s\S]*?\n\}/);
 var mod = new Function(m[0] + '; return { a: normAllergene, z: normZusatzstoffe };')();
@@ -36,8 +36,8 @@ t('Prompt: Kategorie ist die gedruckte Ueberschrift, nicht frei gewaehlt',
   /DU ERFINDEST KEINE KATEGORIEN/.test(fn) && /liest die Ueberschriften der Karte ab/.test(fn));
 // Die Liste der vorhandenen Kategorien geht NICHT mehr an das Modell.
 // Auf einer echten Karte landeten damit 48 Pizzen unter "Fleischgerichte" --
-// ein Wort, das auf der Karte nirgends steht. Das Modell liest Ueberschriften
-// ab; das Zusammenfuehren mit vorhandenen Kategorien macht die App in Code.
+// ein Wort, das auf der Karte nirgends steht. Das Modell liest Überschriften
+// ab; das Zusammenführen mit vorhandenen Kategorien macht die App in Code.
 t('Prompt verbietet das Einsortieren nach Inhalt',
   /Du sortierst NICHT ein\. Du schreibst ab\./.test(fn)
   && /wird NICHT zu "Fleischgerichte"/.test(fn));
@@ -49,8 +49,8 @@ t('im Abschnittsmodus wird die Kategorie erzwungen, nicht erbeten',
 t('Ueberschriften-Suche verbietet Erfinden ausdruecklich',
   /ERFINDE KEINE UEBERSCHRIFT/.test(fn) && /nicht "Fleischgerichte"/.test(fn));
 
-// ---- Frontend: Kategorie-Zuordnung wirklich ausfuehren ----
-// Funktion sauber ueber Klammerzaehlung ausschneiden -- ein Regex greift zu viel.
+// ---- Frontend: Kategorie-Zuordnung wirklich ausführen ----
+// Funktion sauber über Klammerzählung ausschneiden -- ein Regex greift zu viel.
 function schneide(src, name) {
   var i = src.indexOf('function ' + name + '(');
   var j = src.indexOf('{', i), d = 0;

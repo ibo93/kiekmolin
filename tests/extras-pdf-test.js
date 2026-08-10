@@ -1,6 +1,6 @@
 // EXTRAS AUS PDF -- eigener Weg auf der Seite "Optionen & Extras".
 //
-// Ueber den Speisekarten-Import kamen die Extras nicht an. Dort haengen sie am
+// Über den Speisekarten-Import kamen die Extras nicht an. Dort hängen sie am
 // Ende einer langen Kette: lesen, abgleichen, Gerichte schreiben, Fehler
 // behandeln, dann erst Extras. Vier Stationen haben sie nacheinander
 // verschluckt -- Reihenfolge, Kopfzeilen, stilles continue, leeres catch.
@@ -23,7 +23,7 @@ function schneide(name) {
     for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } }
 }
 
-// --- Oberflaeche -------------------------------------------------------------
+// --- Oberfläche -------------------------------------------------------------
 t('Knopf "Aus PDF übernehmen" auf der Seite Optionen & Extras',
   /onclick="oeffneExtrasAusPdf\(\)"/.test(H) && /Aus PDF übernehmen/.test(H));
 t('"Neue Gruppe" bleibt daneben bestehen -- PDF ist ZUSAETZLICH',
@@ -59,7 +59,7 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
       gruppen.some(function (g) { return /Upgrade/i.test(g.name) && g.optionen[0].price === 5; }),
       gruppen.map(function (g) { return g.name; }).join(', '));
 
-    // --- Uebernehmen: schreibt, ohne die Speisekarte anzufassen ---------------
+    // --- Übernehmen: schreibt, ohne die Speisekarte anzufassen ---------------
     var geschrieben = { gruppen: [], optionen: [] }, toasts = [], status = [];
     global.fetch = async function (url, opts) {
         var u = String(url), b = opts && opts.body ? JSON.parse(opts.body) : null;
@@ -168,9 +168,9 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
     t('auch "permission denied" fuehrt zum selben Hinweis',
       r2.eingefuegt.length === 1 && /create policy/.test(r2.eingefuegt[0]), r2.eingefuegt.length);
 
-    // Ein ANDERER Fehler darf den Rechte-Hinweis NICHT ausloesen -- sonst
+    // Ein ANDERER Fehler darf den Rechte-Hinweis NICHT auslösen -- sonst
     // schickt man den Gastronomen in Supabase eine Regel anlegen, die nichts
-    // aendert, und der echte Grund bleibt im Dunkeln.
+    // ändert, und der echte Grund bleibt im Dunkeln.
     var r3 = await laufMitFehler('{"code":"23505","message":"duplicate key value violates unique constraint"}', 409);
     t('ein anderer Fehler zeigt den Rechte-Befehl NICHT',
       r3.eingefuegt.length === 0, r3.eingefuegt.length);

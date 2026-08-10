@@ -1,4 +1,4 @@
-// Kiek mol in — Marketing-Push: "Angebot an alle Gaeste senden".
+// Kiek mol in — Marketing-Push: "Angebot an alle Gäste senden".
 //
 // Der Gastronom schreibt im Marketing-Bereich Titel + Text; diese Function
 // schickt den Push an ALLE Push-Abonnenten, die schon einmal bei diesem
@@ -7,8 +7,8 @@
 // Schutz gegen Nerv-Faktor:
 //   - nur 9-21 Uhr deutscher Zeit
 //   - max. 1 Kampagne pro Restaurant alle 3 Tage (Marker im features-Array:
-//     "last_push_campaign:YYYY-MM-DD" -- keine DB-Aenderung noetig)
-//   - nur mit gueltigem Supabase-Login-Token (eingeloggter Gastronom/Admin)
+//     "last_push_campaign:YYYY-MM-DD" -- keine DB-Änderung nötig)
+//   - nur mit gültigem Supabase-Login-Token (eingeloggter Gastronom/Admin)
 //
 // Aufruf: POST /.netlify/functions/marketing-push
 //   Header: Authorization: Bearer <supabase-login-token>
@@ -65,10 +65,10 @@ exports.handler = async function (event) {
     try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
     catch (e) { return json(200, { ok: false, error: 'Push-Schlüssel ungültig: ' + e.message }); }
 
-    // Auth: gueltiger Supabase-Login noetig (Gastronom/Admin im Dashboard).
-    // WICHTIG: Der Login allein reicht NICHT -- es muss auch geprueft werden,
-    // ob dem eingeloggten Konto genau dieses Restaurant gehoert. Sonst koennte
-    // jeder Gastronom Werbung an die Gaeste eines fremden Betriebs schicken
+    // Auth: gültiger Supabase-Login nötig (Gastronom/Admin im Dashboard).
+    // WICHTIG: Der Login allein reicht NICHT -- es muss auch geprüft werden,
+    // ob dem eingeloggten Konto genau dieses Restaurant gehört. Sonst könnte
+    // jeder Gastronom Werbung an die Gäste eines fremden Betriebs schicken
     // (und dessen 3-Tage-Sperre verbrauchen). Gleiches Muster wie pos-orders.js.
     var token = String(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
     if (!token) return json(401, { ok: false, error: 'Bitte einloggen (kein Token).' });
@@ -104,7 +104,7 @@ exports.handler = async function (event) {
         return json(200, { ok: false, error: 'Push-Kampagnen nur zwischen 9 und 21 Uhr (niemand mag Werbung nachts).' });
     }
 
-    // Restaurant + Kampagnen-Sperre pruefen
+    // Restaurant + Kampagnen-Sperre prüfen
     var rest;
     try {
         var rl = await sbGet('restaurants?id=eq.' + encodeURIComponent(restaurantId) + '&select=id,name,slug,features');
@@ -122,7 +122,7 @@ exports.handler = async function (event) {
         }
     }
 
-    // Empfaenger: Telefonnummern aller bisherigen Besteller dieses Restaurants,
+    // Empfänger: Telefonnummern aller bisherigen Besteller dieses Restaurants,
     // geschnitten mit den Push-Abonnenten
     var phones = {};
     try {
@@ -160,7 +160,7 @@ exports.handler = async function (event) {
             sent++;
         } catch (err) {
             failed++;
-            // Tote Abos aufraeumen
+            // Tote Abos aufräumen
             if (err.statusCode === 404 || err.statusCode === 410) {
                 try {
                     await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?id=eq.' + encodeURIComponent(s.id), {
@@ -173,7 +173,7 @@ exports.handler = async function (event) {
 
     // Kampagnen-Marker nur setzen, wenn wirklich etwas zugestellt wurde.
     // Sonst sperrt eine Kampagne, bei der nur tote Abos angeschrieben wurden,
-    // den Gastronomen grundlos fuer 3 Tage.
+    // den Gastronomen grundlos für 3 Tage.
     if (sent > 0) {
         try {
             features = features.filter(function (f) { return String(f).indexOf('last_push_campaign:') !== 0; });

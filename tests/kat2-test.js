@@ -2,8 +2,8 @@ var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 // Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
 // lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
-// ohne Zeitlimit und der Rueckfallebene mit Abschnitten. Die Pruefungen
-// muessen deshalb BEIDE Dateien sehen.
+// ohne Zeitlimit und der Rückfallebene mit Abschnitten. Die Prüfungen
+// müssen deshalb BEIDE Dateien sehen.
 var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
       + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
 var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
@@ -23,7 +23,7 @@ t('Raten ausdruecklich verboten', /Rate NICHT/.test(fn) && /Rate in diesem Fall/
 t('Server macht aus leer NICHT mehr "Sonstiges"',
   /category: String\(it\.category \|\| ''\)\.trim\(\)/.test(fn));
 
-// ---- Client: Fortschreibung wirklich ausfuehren ----
+// ---- Client: Fortschreibung wirklich ausführen ----
 var m = h.match(/var _letzteKat = '';[\s\S]*?it\.category = 'Sonstiges';\n\s*\}\);/);
 var code = 'var aiItems = ITEMS;' + m[0] + '; return aiItems;';
 function lauf(items){ return new Function('ITEMS', code)(items); }
@@ -52,7 +52,7 @@ t('Leerzeichen zaehlen als leer',
   JSON.stringify(r3.map(function(x){return x.category;})));
 
 // Beide Wege liefern eine Liste je Seite in Seitenreihenfolge -- darauf beruht
-// die Kategorie-Fortschreibung ueber Seitengrenzen hinweg.
+// die Kategorie-Fortschreibung über Seitengrenzen hinweg.
 t('Seitenreihenfolge ist Voraussetzung -- dokumentiert',
   /BEIDE WEGE liefern dasselbe: eine Liste pro Seite/.test(h));
 console.log('\n'+(ok===n?`Alle ${n} Tests bestanden.`:`${n-ok} von ${n} FEHLGESCHLAGEN.`));

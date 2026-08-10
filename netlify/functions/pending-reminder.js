@@ -1,12 +1,12 @@
-// Kiek mol in — Erinnerungs-Push fuer ueberfaellige Pending-Bestellungen/Reservierungen
+// Kiek mol in — Erinnerungs-Push für überfällige Pending-Bestellungen/Reservierungen
 //
-// Laeuft als Netlify Scheduled Function alle 10 Minuten (siehe netlify.toml).
+// Läuft als Netlify Scheduled Function alle 10 Minuten (siehe netlify.toml).
 // Schickt Web Push an alle Gastronomen-Devices wenn:
 //   - Bestellung Status 'received' oder 'pending' und > 20 Min alt und reminder_sent_at NULL
 //   - Reservierung Status 'pending' und > 20 Min alt und reminder_sent_at NULL
 // Markiert dann reminder_sent_at = jetzt, damit nicht doppelt gesendet wird.
 //
-// ENV-Vars noetig: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
+// ENV-Vars nötig: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
 
 'use strict';
 
@@ -69,7 +69,7 @@ async function handleItem(kind, item, restaurantNameById) {
   const restId = item.restaurant_id;
   if (!restId) return;
 
-  // Push-Subscriptions des Restaurants laden (alle Geraete der Gastronomen)
+  // Push-Subscriptions des Restaurants laden (alle Geräte der Gastronomen)
   const subs = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id');
   if (!subs || !subs.length) {
     console.log('[reminder] no subs for restaurant', restId, '- skipping', kind, item.id);
@@ -89,7 +89,7 @@ async function handleItem(kind, item, restaurantNameById) {
     body = restName + ': Reservierung von ' + (item.guest_name || 'Gast') + ' (' + when.trim() + ', ' + (item.party_size || '?') + ' Pers.) wartet seit ' + STALE_MINUTES + ' Min.';
   }
 
-  // URL fuer Klick aus der Notification (oeffnet passenden Dashboard-Tab)
+  // URL für Klick aus der Notification (öffnet passenden Dashboard-Tab)
   const targetUrl = kind === 'order' ? '/?adminTab=orders' : '/?adminTab=reservations';
   const payload = {
     title: title,
@@ -112,7 +112,7 @@ async function handleItem(kind, item, restaurantNameById) {
   const successful = results.filter(r => r.ok).length;
   console.log('[reminder]', kind, item.id, 'sent to', successful, '/', subs.length, 'devices');
 
-  // Stale-Subscriptions entfernen (HTTP 404/410 = nicht mehr gueltig)
+  // Stale-Subscriptions entfernen (HTTP 404/410 = nicht mehr gültig)
   for (let i = 0; i < results.length; i++) {
     if (!results[i].ok && (results[i].statusCode === 404 || results[i].statusCode === 410)) {
       try {
@@ -134,7 +134,7 @@ exports.handler = async function() {
   const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
 
   try {
-    // Pending Orders (received/pending, aelter als 30 Min, noch kein Reminder)
+    // Pending Orders (received/pending, älter als 30 Min, noch kein Reminder)
     const orders = await sbGet(
       'orders?status=in.(received,pending)' +
       '&created_at=lt.' + encodeURIComponent(cutoff) +
@@ -157,7 +157,7 @@ exports.handler = async function() {
       return { statusCode: 200, body: 'no stale items' };
     }
 
-    // Restaurant-Namen sammeln fuer Push-Body
+    // Restaurant-Namen sammeln für Push-Body
     const restIds = Array.from(new Set([
       ...orders.map(o => o.restaurant_id),
       ...reservations.map(r => r.restaurant_id)
