@@ -47464,6 +47464,39 @@ function toggleMenuSprache() {
 
 var _bfVersuche = 0;
 
+// Liegt die Bestellung wirklich in der Datenbank?
+//   'da'     -- gefunden, alles gut
+//   'weg'    -- die Datenbank kennt die Nummer nicht
+//   'unklar' -- die Nachfrage selbst ging schief
+//
+// 'unklar' ist absichtlich KEIN Fehlschlag. Eine wackelige Leitung darf
+// keine Bestellung zurueckziehen, die laengst gespeichert ist -- der Gast
+// wuerde sonst ein zweites Mal bestellen und das Restaurant kocht doppelt.
+// Drei Sekunden Deckel, damit niemand vor einem haengenden Knopf sitzt.
+async function _bestellungNachpruefen(orderNumber) {
+    if (!orderNumber) return 'unklar';
+    try {
+        var stop = new AbortController();
+        var uhr = setTimeout(function () { stop.abort(); }, 3000);
+        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=id&limit=1&order_number=eq.'
+                              + encodeURIComponent(orderNumber), {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            signal: stop.signal
+        });
+        clearTimeout(uhr);
+        if (!res.ok) return 'unklar';
+        var reihen = await res.json();
+        // Nur eine LEERE Liste ist ein Beweis fuer "nicht da". Kommt etwas
+        // anderes zurueck als eine Liste, ist die Antwort unerwartet -- und
+        // eine unerwartete Antwort ist kein Beweis. Sonst wuerde eine
+        // Formatabweichung eine gespeicherte Bestellung zurueckziehen.
+        if (!Array.isArray(reihen)) return 'unklar';
+        return reihen.length > 0 ? 'da' : 'weg';
+    } catch (e) {
+        return 'unklar';
+    }
+}
+
 function zeigeBestellungFehlgeschlagen(fehler) {
     _bfVersuche++;
 
@@ -48649,7 +48682,25 @@ async function submitOrder() {
                     if (!_ir.ok) _failedItems++;
                 } catch(e) { _failedItems++; }
             }
-            if (_failedItems > 0) console.error(_failedItems + ' order_items konnten nicht gespeichert werden');
+            // FEHLGESCHLAGENE POSITIONEN NICHT NUR IN DIE KONSOLE.
+            // Hier stand allein ein console.error -- gesehen hat das nie
+            // jemand. Die Kueche merkt davon nichts, weil die Gerichte
+            // zusaetzlich als JSONB an der Bestellung haengen und das
+            // Kuechenbrett darauf zurueckfaellt. Schief werden dafuer die
+            // Auswertungen: "Beliebteste Gerichte" und die Umsatzstatistik
+            // lesen order_items. Was hier durchfaellt, fehlt dem Wirt
+            // spaeter in seinen Zahlen -- ohne dass er es je erfaehrt.
+            if (_failedItems > 0) {
+                console.error(_failedItems + ' order_items konnten nicht gespeichert werden');
+                if (typeof logRestaurantEvent === 'function') {
+                    logRestaurantEvent(currentOrderRestaurant && currentOrderRestaurant.id, 'order_items_unvollstaendig',
+                        _failedItems + ' von ' + orderCart.length + ' Positionen der Bestellung ' + orderNumber
+                        + ' konnten nicht einzeln gespeichert werden. Die Bestellung selbst ist da und die Kueche'
+                        + ' sieht die Gerichte; die Auswertungen zaehlen sie aber nicht mit.',
+                        null,
+                        { order_number: orderNumber, fehlend: _failedItems, gesamt: orderCart.length });
+                }
+            }
         } else {
             console.error('Order API:', _orderRes.status, _orderRes.text);
             var _hint = (_orderRes.status === 401 || _orderRes.status === 403)
@@ -48669,6 +48720,35 @@ async function submitOrder() {
         console.error('Order Save Error:', e);
         _saveErr = { status: 0, text: String(e && e.message || e), hint: e && e.message || 'Netzwerkfehler' };
         window._kmiLastOrderError = _saveErr;
+    }
+
+    // ===== NACHSEHEN, OB SIE WIRKLICH DA IST =====
+    // _saveOk sagt bisher nur: der Server hat mit 2xx geantwortet. Das ist
+    // fast immer dasselbe wie "gespeichert", aber eben nur fast -- ein
+    // Netlify-Fallback, der ok meldet ohne zu schreiben, oder eine Antwort,
+    // die unterwegs verlorengeht, sehen genauso aus.
+    //
+    // Fuer eine Bestellung ist das der Unterschied zwischen "Essen kommt"
+    // und "Gast sitzt umsonst da". Also einmal nachfragen, bevor die
+    // Bestaetigung erscheint.
+    //
+    // WICHTIG: nur ein eindeutiges "nicht da" gilt als Fehlschlag. Wenn die
+    // Nachfrage selbst klemmt, bleibt es bei bestellt -- sonst wuerde eine
+    // wackelige Leitung eine Bestellung zurueckziehen, die laengst in der
+    // Kueche liegt. Im Zweifel gilt der Bon.
+    if (_saveOk) {
+        var _befund = await _bestellungNachpruefen(orderNumber);
+        if (_befund === 'weg') {
+            _saveOk = false;
+            _saveErr = { status: 0, text: 'nicht auffindbar',
+                         hint: 'Die Bestellung war nach dem Speichern nicht auffindbar.' };
+            window._kmiLastOrderError = _saveErr;
+            if (typeof logRestaurantEvent === 'function') {
+                logRestaurantEvent(currentOrderRestaurant && currentOrderRestaurant.id, 'order_verify_failed',
+                    'Bestellung ' + orderNumber + ' meldete Erfolg, war danach aber nicht auffindbar.',
+                    null, { order_number: orderNumber });
+            }
+        }
     }
 
     // Button wieder aktivieren
