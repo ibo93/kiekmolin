@@ -12838,7 +12838,7 @@ var _onboardingSteps = [
     { title:'Entdecke Restaurants', text:'Finde die besten Restaurants in Ostfriesland. Filtere nach Küche, freien Tischen und Bewertungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">search</span>' },
     { title:'Bestelle online', text:'Stöbere durch die Speisekarte, wähle deine Lieblingsgerichte und bestelle direkt über die App.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">restaurant</span>' },
     { title:'Live-Status oben am Banner', text:'Sobald du bestellt oder reserviert hast, erscheint oben ein Banner mit Live-Status. Klick drauf für Details — automatisch aktualisiert.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">notifications_active</span>' },
-    { title:'Push-Benachrichtigungen', text:'Aktiviere Push, dann wirst du benachrichtigt wenn deine Bestellung fertig ist — auch wenn die App geschlossen ist. Auf dem iPhone: zum Home-Bildschirm hinzufügen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">phone_iphone</span>' },
+    { title:'Push-Benachrichtigungen', text:'Aktiviere Push, dann wirst du benachrichtigt, wenn deine Bestellung fertig ist — auch wenn die App geschlossen ist. Auf dem iPhone: zum Home-Bildschirm hinzufügen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">phone_iphone</span>' },
     { title:'Frag Kiek', text:'Unser Assistent hilft dir bei Fragen zu Gerichten, Allergenen, Preisen und Empfehlungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">chat</span>' },
     { title:'Dein Style', text:'Passe das Design an deinen Geschmack an — Dark Mode, Farben und mehr in den Einstellungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">settings</span>' }
 ];
@@ -19002,7 +19002,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div id="menuEmptyState" style="text-align: center; padding: 60px 20px;">
                 <span class="material-symbols-outlined" style="font-size:80px;color:var(--slate);opacity:0.3;margin-bottom:20px;">menu_book</span>
                 <h3 style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Kein Restaurant ausgewählt</h3>
-                <p style="color: var(--slate); font-size: 14px;">Wähle oben ein Restaurant um die Speisekarte zu bearbeiten</p>
+                <p style="color: var(--slate); font-size: 14px;">Wähle oben ein Restaurant, um die Speisekarte zu bearbeiten</p>
             </div>
 
         </div>
@@ -24080,13 +24080,13 @@ function loadFeaturedGoogleReviews() {
         window._featuredGoogleReviews = {
             'a3a8c900-f802-4fea-9918-c82a3e0aaab4': [
                 { name: 'Marco B.', stars: 5, text: 'Authentisch italienisch mitten in Greetsiel! Die Pizza kommt knusprig aus dem Ofen und die Pasta ist al dente perfekt. Dazu freundlicher Service und schöne Lage am Marktplatz.', date: 'vor 2 Wochen', color: '#EA4335' },
-                { name: 'Sandra K.', stars: 5, text: 'Wir kommen jedes Mal wenn wir in Greetsiel Urlaub machen. Die Qualität ist konstant gut, die Portionen großzügig und das Preis-Leistungs-Verhältnis stimmt.', date: 'vor 1 Monat', color: '#34A853' },
+                { name: 'Sandra K.', stars: 5, text: 'Wir kommen jedes Mal, wenn wir in Greetsiel Urlaub machen. Die Qualität ist konstant gut, die Portionen großzügig und das Preis-Leistungs-Verhältnis stimmt.', date: 'vor 1 Monat', color: '#34A853' },
                 { name: 'Jens H.', stars: 5, text: 'Sehr leckere italienische Küche in schöner Lage. Am Wochenende unbedingt reservieren! Die Terrasse im Sommer ist ein Traum.', date: 'vor 3 Wochen', color: '#4285F4' }
             ],
             '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad': [
                 { name: 'Heike M.', stars: 5, text: 'Sehr gut geführtes Restaurant mit ausgezeichnetem Essen. Die Fischplatte Börse ist hervorragend! Schneller, aufmerksamer Service in gemütlicher Atmosphäre.', date: 'vor 1 Woche', color: '#FBBC05' },
                 { name: 'Peter R.', stars: 5, text: 'Sehr empfehlenswert! Geschmackvoll renoviert, herzliche norddeutsche Küche. Der Grünkohl mit Pinkel kommt in riesigen Portionen. Dazu frisch gezapftes Jever vom Fass.', date: 'vor 2 Wochen', color: '#EA4335' },
-                { name: 'Julia F.', stars: 5, text: 'Die Börse ist Pflicht wenn man in Greetsiel ist! Urige Atmosphäre, frische Krabben und sehr gute norddeutsche Küche zu fairen Preisen. Terrasse direkt am Wasser.', date: 'vor 1 Monat', color: '#34A853' }
+                { name: 'Julia F.', stars: 5, text: 'Die Börse ist Pflicht, wenn man in Greetsiel ist! Urige Atmosphäre, frische Krabben und sehr gute norddeutsche Küche zu fairen Preisen. Terrasse direkt am Wasser.', date: 'vor 1 Monat', color: '#34A853' }
             ]
         };
     });
@@ -24500,6 +24500,38 @@ const APP_DATA = {
     tables: [],
     restaurants: []
 };
+
+// ==================== KÜCHENART: SCHLÜSSEL IST NICHT ANZEIGETEXT ====================
+//
+// In der Datenbank steht die Küchenart als Schlüssel: 'tuerkisch',
+// 'italienisch', 'cafe'. Das ist richtig so -- Schlüssel bleiben ASCII, sonst
+// findet die Filterung nichts mehr.
+//
+// FALSCH WAR, DASS DIESER SCHLÜSSEL AN DREI STELLEN DIREKT ANGEZEIGT WURDE:
+//   - auf der Kartenkarte stand "tuerkisch · Greetsiel"
+//   - in der Beschreibung darunter "tuerkisch Küche in Greetsiel"
+//   - und in servesCuisine im Schema, das GOOGLE ausliest
+// Es gab zwar schon eine Übersetzungstabelle, aber zweimal lokal in je einer
+// Funktion versteckt. Wer woanders eine Küchenart anzeigte, hatte sie nicht.
+//
+// Deshalb hier eine einzige Stelle für alle. Wer eine Küchenart anzeigen
+// will, ruft kuecheLabel() -- und bekommt "Türkisch" statt 'tuerkisch'.
+var KUECHE_LABEL = {
+    'fisch': 'Fisch', 'italienisch': 'Italienisch', 'deutsch': 'Deutsch',
+    'cafe': 'Café', 'tuerkisch': 'Türkisch', 'imbiss': 'Imbiss',
+    'griechisch': 'Griechisch', 'asiatisch': 'Asiatisch', 'bar': 'Bar'
+};
+
+function kuecheLabel(schluessel, ersatz) {
+    if (!schluessel) return ersatz || '';
+    var k = String(schluessel).toLowerCase().trim();
+    if (KUECHE_LABEL[k]) return KUECHE_LABEL[k];
+    // Unbekannte Küchenart: nicht den nackten Schlüssel zeigen, sondern
+    // wenigstens den ersten Buchstaben groß. Besser "Spanisch" als "spanisch",
+    // und immer noch besser als gar nichts.
+    return k.charAt(0).toUpperCase() + k.slice(1);
+}
+window.kuecheLabel = kuecheLabel;
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -37783,7 +37815,7 @@ async function showRestaurantLanding(rest) {
         "@type": "Restaurant",
         "name": rest.name,
         "url": restUrl,
-        "servesCuisine": rest.cuisine || "Deutsch",
+        "servesCuisine": kuecheLabel(rest.cuisine, 'Deutsch'),
         "acceptsReservations": _noRes ? "False" : "True",
         "hasMenu": restUrl,
         "priceRange": "€€",
@@ -40530,10 +40562,10 @@ function _updateMapFloatingCard(r) {
     // Ohne echte Bewertung steht dort ein Strich, keine erfundene 4,5.
     document.getElementById('mapCardRating').textContent = (r.rating > 0) ? Number(r.rating).toFixed(1) : '–';
     document.getElementById('mapCardName').textContent = (r.name || '').toUpperCase();
-    document.getElementById('mapCardMeta').textContent = (r.cuisine || 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
+    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
 
     var desc = r.description || r.tagline || '';
-    if (!desc && r.cuisine) desc = r.cuisine + ' K\u00fcche' + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
+    if (!desc && r.cuisine) desc = kuecheLabel(r.cuisine) + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
     document.getElementById('mapCardDesc').textContent = desc;
 
     var favIcon = document.getElementById('mapCardFav');
@@ -41176,7 +41208,7 @@ function generateResponse(message) {
             '<li><strong>Warenkorb prüfen</strong> – unten oder rechts oben (rotes Badge zeigt Anzahl)</li>' +
             '<li><strong>Abschicken</strong> – Lieferung oder Abholung wählen, ggf. Adresse, dann „Bestellen"</li>' +
             '</ol>' +
-            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Push-Benachrichtigungen aktivieren — du wirst informiert sobald deine Bestellung fertig ist.</span>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Push-Benachrichtigungen aktivieren — du wirst informiert, sobald deine Bestellung fertig ist.</span>' +
             '<br><br>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
             actionBtn('Restaurants zeigen', ico.fork, 'askAssistant(\'Was soll ich essen?\')') +
@@ -43770,7 +43802,7 @@ document.addEventListener('error', function(e) {
                 <div id="scanPanelPdf" style="display:none;">
                     <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:32px;padding:12px;margin-bottom:12px;">
                         <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
-                            <strong>PDF importieren:</strong> Text wird direkt aus dem PDF gelesen – kein OCR nötig. Funktioniert perfekt mit digitalenSpeisekarten.
+                            <strong>PDF importieren:</strong> Text wird direkt aus dem PDF gelesen – kein OCR nötig. Funktioniert perfekt mit digitalen Speisekarten.
                         </p>
                     </div>
                     <input type="file" id="menuScanPdfInput" accept="application/pdf,.pdf" style="display:none;" onchange="handlePdfTextExtract(event)">
@@ -53345,7 +53377,7 @@ function openPOSSettings() {
         '<div style="margin-bottom:10px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
             '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
                 '<input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + ' style="margin-top:2px;">' +
-                '<span>Sofort an Kasse senden wenn Bestellung reinkommt<br>' +
+                '<span>Sofort an Kasse senden, wenn Bestellung reinkommt<br>' +
                 '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch.</span></span>' +
             '</label>' +
         '</div>' +
@@ -56551,7 +56583,7 @@ function openQRCodeGenerator(restaurantId) {
 
     var html = '<div style="padding:24px;max-height:80vh;overflow-y:auto;">' +
         '<h2 style="font-size:20px;margin-bottom:4px;">QR-Codes - ' + r.name + '</h2>' +
-        '<p style="color:var(--slate);font-size:13px;margin-bottom:20px;">Fur Speisekarten, Flyer, Aufsteller & Schaufenster. Gast scannt, landet direkt beim Restaurant, bestellt.</p>' +
+        '<p style="color:var(--slate);font-size:13px;margin-bottom:20px;">Für Speisekarten, Flyer, Aufsteller & Schaufenster. Gast scannt, landet direkt beim Restaurant, bestellt.</p>' +
 
         // ===== RESTAURANT QR-CODE =====
         '<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:14px;padding:20px;margin-bottom:24px;border:2px solid var(--primary);">' +
@@ -57388,7 +57420,7 @@ function renderMenuCategories() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1" width="48" height="48" style="margin-bottom: 12px; opacity: 0.5;">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                 </svg>
-                <p style="color: var(--slate);">Noch keine Kategorien. Erstelle eine neue Kategorie oder scanne eineSpeisekarte.</p>
+                <p style="color: var(--slate);">Noch keine Kategorien. Erstelle eine neue Kategorie oder scanne eine Speisekarte.</p>
             </div>
         `;
         return;
