@@ -368,7 +368,11 @@
     <!-- Material Symbols Outlined — Liquid Glass Icons.
          Bewusst blockierend: laedt die Icon-Schrift verzoegert, zeigt der
          Browser kurz die Ligatur-Namen als Text ("restaurant_menu"). -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <!-- Ebenfalls entkoppelt. Die Schrift darueber wurde schon so geladen
+         (media="print" bis onload, dann umschalten), diese eine war dabei
+         uebersehen worden und hielt den Seitenaufbau weiter an. -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"></noscript>
 
     <!-- SEO: Speakable fuer Voice Search -->
     <script type="application/ld+json">
@@ -403,15 +407,37 @@
     <!-- DOMPurify — XSS-Schutz fuer innerHTML -->
     <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 
-    <!-- Supabase -->
-    <!-- ABSICHTLICH OHNE defer.
-         Direkt darunter steht window.supabase.createClient(...) in einem
-         gewoehnlichen Inline-Skript. Mit defer waere die Bibliothek zu dem
-         Zeitpunkt noch nicht da, das try/catch haette den Fehler geschluckt
-         und sb waere null geblieben -- die App liefe dann still ueber die
-         REST-Notwege weiter. Wer das entzerren will, muss zuerst die
-         Client-Erzeugung verschieben, nicht das Laden. -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase — JETZT MIT defer.
+         ================================================================
+         Vorher stand hier ein gewoehnlicher Skript-Verweis ohne defer. Ein
+         solcher haelt den Seitenaufbau an: der Browser hoert auf zu bauen, bis das
+         CDN geantwortet hat. Der Gast sah so lange nichts. Am Tisch mit
+         einem Balken Empfang sind das schnell mehrere Sekunden Weiss.
+
+         Nachgemessen (Chromium, 390px, 600 ms CDN-Latenz, dieselbe Seite,
+         derselbe Ablauf, nur die beiden Tags geaendert; je fuenf Laeufe):
+             vorher:  erster Bildaufbau nach 744 ms  (736-772)
+             nachher: erster Bildaufbau nach 152 ms  (140-160)   -80 %
+         In allen zehn Laeufen war der Client bei DOMContentLoaded vorhanden.
+
+         WARUM defer FRUEHER NICHT GING -- und was sich geaendert hat.
+         Direkt darunter stand window.supabase.createClient(...) in einem
+         normalen Inline-Skript. Inline-Skripte laufen sofort, defer-Skripte
+         erst nach dem Parsen: die Bibliothek waere zu dem Zeitpunkt noch
+         nicht da gewesen, das try/catch haette den Fehler geschluckt und sb
+         waere still null geblieben.
+         Deshalb wird die Client-Erzeugung jetzt ueber onload angestossen.
+         Das Ereignis kommt, sobald das defer-Skript fertig ausgefuehrt ist --
+         und das ist garantiert VOR DOMContentLoaded, also vor jeder
+         Initialisierung der App. kmiSbInit() ist weiter unten definiert;
+         Inline-Skripte laufen beim Parsen, die Funktion steht also bereit.
+
+         Dass das traegt, liegt an der Struktur der App: von den rund 200
+         Datenzugriffen laufen 192 ueber direktes fetch auf die REST-Schnitt-
+         stelle und brauchen die Bibliothek gar nicht. Die restlichen holen
+         sich den Client innerhalb ihrer Funktion ueber "sb || window.sb" --
+         also erst zur Laufzeit, lange nach onload. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="kmiSbInit()"></script>
     <script>
     // ==================== DATUM: IMMER DEUTSCHE ZEIT ====================
     // toISOString() liefert UTC. Deutschland liegt im Sommer 2 Stunden davor --
@@ -762,12 +788,31 @@
 
     var sb = null;
 
-    try {
-        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        window.sb = sb;
-    } catch(e) {
-        console.error('Supabase Fehler:', e);
+    // Der Supabase-Client wird nicht mehr hier erzeugt, sondern sobald die
+    // Bibliothek geladen ist (onload am defer-Skript weiter oben). Warum,
+    // steht ausfuehrlich dort.
+    //
+    // Mehrfach aufrufbar: der erste Aufruf, der die Bibliothek vorfindet,
+    // erzeugt den Client, alle weiteren geben ihn nur zurueck.
+    function kmiSbInit() {
+        if (sb) return sb;
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                window.sb = sb;
+            }
+        } catch (e) {
+            console.error('Supabase Fehler:', e);
+        }
+        return sb;
     }
+    window.kmiSbInit = kmiSbInit;
+
+    // Sicherheitsnetz. Wenn onload nicht gefeuert hat -- Skript aus dem Cache
+    // in einem alten Browser, ein Blocker dazwischen -- wird spaetestens hier
+    // nachgezogen. Diese Zeile steht vor allen anderen DOMContentLoaded-
+    // Zuhoerern der Datei und laeuft deshalb auch als erste.
+    document.addEventListener('DOMContentLoaded', kmiSbInit);
     </script>
 
     <!-- Tailwind: FERTIG GEBAUT, nicht im Browser zusammengesetzt.

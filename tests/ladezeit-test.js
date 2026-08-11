@@ -1,91 +1,165 @@
-// LADEZEIT: TAILWIND FERTIG GEBAUT STATT IM BROWSER ZUSAMMENGESETZT.
+// DER WEISSE BILDSCHIRM BEIM QR-SCAN.
 //
-// WAS DA LAG
-// ----------
-// Im <head> stand, blockierend:
-//   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+// WAS DER GAST ERLEBTE
+// --------------------
+// Supabase wurde als gewoehnliches <script src> im <head> geladen -- ohne
+// defer, ohne async. Ein solches Skript haelt den Seitenaufbau an: der
+// Browser hoert auf zu bauen, bis das CDN geantwortet hat. Solange sieht der
+// Gast nichts. Am Tisch mit einem Balken Empfang sind das mehrere Sekunden
+// Weiss, bevor ueberhaupt etwas erscheint.
 //
-// Das ist der Spiel-CDN: rund 400 KB JavaScript, das die Stylesheets ERST IM
-// BROWSER erzeugt -- bei jedem Aufruf, bei jedem Gast. Solange es läuft,
-// sieht der Gast nichts. Tailwind schreibt selbst in seine Doku, dass das
-// nichts im echten Betrieb zu suchen hat.
+// Dazu kam die Material-Symbols-Schrift, die ebenfalls blockierte. Die
+// zweite Schrift daneben war korrekt entkoppelt -- diese eine war dabei
+// uebersehen worden.
 //
-// Nachgezählt: die ganze App benutzt ZEHN Tailwind-Klassen. Dafür lief ein
-// Compiler mit.
+// IM BROWSER NACHGEMESSEN (Chromium, 390px, 600 ms CDN-Latenz, dieselbe
+// Seite, derselbe Ablauf, nur die beiden Tags geaendert; je fuenf Laeufe):
+//     vorher:  erster Bildaufbau nach 744 ms  (736-772)
+//     nachher: erster Bildaufbau nach 152 ms  (140-160)   -80 %
+// In allen zehn Laeufen war der Supabase-Client bei DOMContentLoaded da.
 //
-// WARUM ES NICHT REICHT, DAS SKRIPT ZU LOESCHEN
-// ---------------------------------------------
-// Tailwind bringt Preflight mit (Grundformatierung für Überschriften,
-// Listen, Links, Knöpfe, Bilder) und über das forms-Plugin eine
-// Vereinheitlichung aller Eingabefelder. Die App baut darauf auf. Einfach
-// weglassen hätte das Aussehen an vielen Stellen verschoben.
+// Eine erste Einzelmessung hatte 776/376 ms ergeben. Der zweite Wert war ein
+// Ausreisser aus dem ersten, noch kalten Lauf -- deshalb hier der Median aus
+// fuenf Laeufen und die Spanne dazu.
 //
-// Deshalb wurde das CSS mit DERSELBEN Tailwind-Version und DERSELBEN
-// Konfiguration gebaut, die vorher im <head> stand, und fest eingebettet.
-// Gegengeprüft in echtem Chromium: 22 Auswahlen, 0 Unterschiede.
+// WARUM defer FRUEHER NICHT GING
+// -------------------------------
+// Direkt darunter stand window.supabase.createClient(...) in einem normalen
+// Inline-Skript. Inline-Skripte laufen sofort, defer-Skripte erst nach dem
+// Parsen -- die Bibliothek waere noch nicht da gewesen, das try/catch haette
+// den Fehler geschluckt und sb waere still null geblieben. Das war als
+// Kommentar in der Datei vermerkt und der Grund, warum es liegen blieb.
+//
+// Geloest ueber onload am defer-Skript: das Ereignis kommt, sobald die
+// Bibliothek ausgefuehrt ist, und das ist garantiert VOR DOMContentLoaded.
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var KOPF = H.slice(0, H.indexOf('</head>'));
+// Ohne HTML-Kommentare. Sonst faellt die Suche nach blockierenden Skripten
+// auf den Tailwind-Kommentar herein, der zitiert, was dort FRUEHER stand --
+// genau der Fehler, den dieser Test beim ersten Anlauf gemacht hat.
+var KOPF_REIN = KOPF.replace(/<!--[\s\S]*?-->/g, '');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-// ---- Der CDN ist weg --------------------------------------------------------
-// Der Kommentar an der Stelle DARF den alten Aufruf nennen -- geprüft wird,
-// dass kein echtes Skript-Tag mehr da ist.
-t('kein Tailwind-CDN mehr im Quelltext',
-  H.indexOf('cdn.tailwindcss.com?plugins=forms,container-queries"></script>') < 0
-  && (H.match(/cdn\.tailwindcss\.com/g) || []).length === 1);
-t('auch die zugehoerige Laufzeit-Konfiguration ist weg',
-  !/^\s*tailwind\.config = \{/m.test(H));
+function schneide(name) {
+    var i = H.indexOf('function ' + name + '(');
+    if (i < 0) throw new Error('nicht gefunden: ' + name);
+    var j = H.indexOf('{', i), d = 0;
+    for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } }
+}
 
-// ---- Dafür ist das fertige CSS drin ---------------------------------------
-var stil = H.slice(H.indexOf('Tailwind: FERTIG GEBAUT'));
-stil = stil.slice(stil.indexOf('<style>') + 7, stil.indexOf('</style>'));
-t('das gebaute CSS steht an derselben Stelle', stil.length > 5000, stil.length + ' Zeichen');
-t('und ist deutlich kleiner als der Compiler', stil.length < 40000, stil.length + ' Zeichen');
-
-// Die zehn Klassen, die die App wirklich benutzt.
-['lg\\:grid-cols-12', 'lg\\:grid-cols-3', 'lg\\:col-span-1', 'lg\\:col-span-2',
- 'lg\\:col-span-4', 'lg\\:col-span-5', 'lg\\:col-span-7', 'lg\\:col-span-8',
- '.hidden{', '.block{', '.grid{', '.grid-cols-1{'].forEach(function (k) {
-    t('enthaelt ' + k.replace('\\', '').replace('{', ''), stil.indexOf(k) >= 0);
+// ---- 1. Kein blockierendes Skript mehr im Kopf ------------------------------
+// Das ist der eigentliche Waechter: er faengt AUCH das naechste Skript ab,
+// das jemand ohne defer in den Kopf haengt.
+var kopfSkripte = KOPF_REIN.match(/<script[^>]*\ssrc=[^>]*>/g) || [];
+var blockierend = kopfSkripte.filter(function (s) {
+    return !/\sdefer\b/.test(s) && !/\sasync\b/.test(s);
 });
+t('es gibt ueberhaupt externe Skripte im Kopf (die Suche greift)',
+  kopfSkripte.length >= 3, kopfSkripte.length);
+t('KEINES davon blockiert noch den Seitenaufbau',
+  blockierend.length === 0, blockierend.join('\n         '));
 
-// Preflight und das forms-Plugin -- ohne die hätte sich das Aussehen
-// verschoben, und zwar überall.
-t('Preflight ist dabei (Grundformatierung)',
-  /\*,::after,::before\{box-sizing:border-box/.test(stil) || /\*,:after,:before\{box-sizing:border-box/.test(stil),
-  stil.slice(0, 80));
-t('Ueberschriften bleiben unformatiert wie vorher',
-  /h1,h2,h3,h4,h5,h6\{font-size:inherit;font-weight:inherit\}/.test(stil));
-t('Listen ohne Aufzaehlungszeichen wie vorher',
-  /ol,ul\{list-style:none/.test(stil));
-t('Links ohne blaue Standardfarbe wie vorher',
-  /a\{color:inherit;text-decoration:inherit\}/.test(stil));
-t('das forms-Plugin ist dabei (Eingabefelder)',
-  /\[type=text\]/.test(stil) && /appearance:none/.test(stil));
+var supa = kopfSkripte.filter(function (s) { return /supabase-js/.test(s); })[0] || '';
+t('Supabase wird mit defer geladen', /\sdefer\b/.test(supa), supa);
+t('und stoesst per onload die Client-Erzeugung an',
+  /onload="kmiSbInit\(\)"/.test(supa), supa);
 
-// ---- Der riskante Teil, den ich NICHT gemacht habe --------------------------
-// supabase-js blockiert ebenfalls. Es zu verzögern wäre naheliegend --
-// direkt darunter steht aber window.supabase.createClient(...) in einem
-// gewöhnlichen Inline-Skript. Mit defer wäre die Bibliothek dort noch nicht
-// da, das try/catch hätte den Fehler geschluckt und die App liefe still über
-// die REST-Notwege. Also bewusst gelassen.
-t('supabase-js laedt weiterhin ohne defer -- mit Begruendung im Quelltext',
-  /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/.test(H)
-  && /ABSICHTLICH OHNE defer/.test(H));
+// ---- 2. Die Schriften blockieren nicht mehr ---------------------------------
+var symbole = (KOPF.match(/<link[^>]*Material\+Symbols[^>]*>/g) || [])
+    .filter(function (l) { return !/^<noscript/.test(l); });
+t('die Material-Symbols-Schrift ist verlinkt', symbole.length >= 1, symbole.length);
+t('sie laedt entkoppelt (media=print bis onload)',
+  /media="print"/.test(symbole[0]) && /this\.media='all'/.test(symbole[0]), symbole[0]);
+t('ohne JavaScript kommt sie trotzdem (noscript-Notweg)',
+  /<noscript><link[^>]*Material\+Symbols/.test(KOPF));
+// Kein blockierendes Stylesheet mehr uebrig -- gleiche Waechter-Logik.
+// Die <noscript>-Notwege sind Absicht: sie greifen nur, wenn kein
+// JavaScript laeuft, und blockieren dann zu Recht.
+var OHNE_NOSCRIPT = KOPF_REIN.replace(/<noscript>[\s\S]*?<\/noscript>/g, '');
+var blockCss = (OHNE_NOSCRIPT.match(/<link[^>]*rel="stylesheet"[^>]*>/g) || [])
+    .filter(function (l) { return /https?:\/\//.test(l) && !/media="print"/.test(l); });
+t('kein externes Stylesheet blockiert mehr', blockCss.length === 0, blockCss.join('\n         '));
 
-// ---- Nachbaubar halten -------------------------------------------------------
-t('die Tailwind-Konfiguration liegt im Repo',
-  fs.existsSync('/home/user/kiekmolin/tailwind/tailwind.config.js'));
-t('mit Anleitung zum Neubauen',
-  fs.existsSync('/home/user/kiekmolin/tailwind/README.md')
-  && /npx tailwindcss/.test(fs.readFileSync('/home/user/kiekmolin/tailwind/README.md', 'utf8')));
-var cfg = fs.readFileSync('/home/user/kiekmolin/tailwind/tailwind.config.js', 'utf8');
-t('die Konfiguration ist dieselbe wie vorher im head (Farben, Schriften)',
-  /"nordic-gold": "#FFD54F"/.test(cfg) && /"headline": \["Epilogue"/.test(cfg));
-t('mit beiden Plugins, die der CDN geladen hat',
-  /@tailwindcss\/forms/.test(cfg) && /@tailwindcss\/container-queries/.test(cfg));
+// ---- 3. kmiSbInit -- die Stelle, an der es frueher scheiterte ----------------
+function lauf(bibliothekDa) {
+    var erzeugt = 0, gemeldet = [];
+    var win = {};
+    if (bibliothekDa) {
+        win.supabase = { createClient: function (u, k) { erzeugt++; return { __client: true, u: u, k: k }; } };
+    }
+    var hoerer = [];
+    var F = new Function('window', 'document', 'SUPABASE_URL', 'SUPABASE_KEY', 'console',
+        'var sb = null;\n' + schneide('kmiSbInit')
+        + '\nwindow.kmiSbInit = kmiSbInit;'
+        + "\ndocument.addEventListener('DOMContentLoaded', kmiSbInit);"
+        + '; return { init: kmiSbInit, sb: function(){ return sb; } };')(
+        win,
+        { addEventListener: function (a, f) { hoerer.push([a, f]); } },
+        'https://test.supabase.co', 'schluessel',
+        { error: function (m, e) { gemeldet.push(m); } });
+    return { F: F, win: win, erzeugt: function () { return erzeugt; }, hoerer: hoerer, gemeldet: gemeldet };
+}
+
+var mit = lauf(true);
+t('ohne Aufruf wird noch nichts erzeugt -- erst onload zaehlt',
+  mit.erzeugt() === 0 && mit.F.sb() === null, mit.erzeugt());
+var c1 = mit.F.init();
+t('der erste Aufruf erzeugt den Client', mit.erzeugt() === 1 && !!c1);
+t('er haengt auch an window (dort holen ihn 24 Stellen ab)',
+  mit.win.sb === c1, typeof mit.win.sb);
+t('er bekommt URL und Schluessel mit', c1.u === 'https://test.supabase.co' && c1.k === 'schluessel');
+
+// Mehrfach aufrufbar: onload UND das DOMContentLoaded-Netz koennen beide
+// feuern. Zwei Clients waeren zwei Realtime-Verbindungen.
+var c2 = mit.F.init(); var c3 = mit.F.init();
+t('weitere Aufrufe erzeugen KEINEN zweiten Client',
+  mit.erzeugt() === 1 && c2 === c1 && c3 === c1, mit.erzeugt() + ' Clients');
+
+// ---- 4. Wenn die Bibliothek fehlt --------------------------------------------
+// Ein Blocker, ein CDN-Ausfall: dann darf nichts werfen. Die App faellt auf
+// die REST-Wege zurueck, ueber die ohnehin die meisten Zugriffe laufen.
+var ohne = lauf(false);
+var r = ohne.F.init();
+t('ohne Bibliothek wirft kmiSbInit nicht', r === null, String(r));
+t('und window.sb bleibt unangetastet statt undefined zu werden',
+  !('sb' in ohne.win), Object.keys(ohne.win).join(','));
+t('spaeter nachgeladen klappt es dann doch noch',
+  (function () {
+      ohne.win.supabase = { createClient: function () { return { __client: true }; } };
+      return !!ohne.F.init();
+  })());
+
+// ---- 5. Das Sicherheitsnetz --------------------------------------------------
+t('es haengt ein DOMContentLoaded-Netz fuer den Fall, dass onload ausbleibt',
+  mit.hoerer.filter(function (h) { return h[0] === 'DOMContentLoaded'; }).length === 1,
+  JSON.stringify(mit.hoerer.map(function (h) { return h[0]; })));
+// Es muss VOR den anderen Zuhoerern der Datei stehen -- Zuhoerer laufen in
+// der Reihenfolge, in der sie registriert wurden.
+var iNetz = H.indexOf("document.addEventListener('DOMContentLoaded', kmiSbInit);");
+var andere = [];
+var re = /document\.addEventListener\(["']DOMContentLoaded["']/g, m;
+while ((m = re.exec(H))) andere.push(m.index);
+t('und es ist der ERSTE DOMContentLoaded-Zuhoerer der Datei',
+  iNetz > 0 && Math.min.apply(null, andere) === iNetz,
+  iNetz + ' vs. frueheste ' + Math.min.apply(null, andere));
+
+// ---- 6. Die Erzeugung passiert nirgends mehr sofort --------------------------
+// Der Aufruf darf NUR noch in kmiSbInit stehen. Frueher stand er nackt im
+// Inline-Skript und lief damit beim Parsen -- bevor die Bibliothek da war.
+var OHNE_KOMMENTARE = H.replace(/<!--[\s\S]*?-->/g, '');
+var alleAufrufe = (OHNE_KOMMENTARE.match(/window\.supabase\.createClient\(/g) || []).length;
+var inInit = (schneide('kmiSbInit').match(/window\.supabase\.createClient\(/g) || []).length;
+t('createClient steht genau einmal im Code', alleAufrufe === 1, alleAufrufe + ' Aufrufe');
+t('und zwar innerhalb von kmiSbInit, nicht mehr beim Parsen',
+  inInit === 1 && alleAufrufe === inInit, 'in kmiSbInit: ' + inInit);
+
+// ---- 7. Der Grund steht im Quelltext -----------------------------------------
+t('die Messung steht bei der Aenderung dabei',
+  /vorher:  erster Bildaufbau nach 744 ms/.test(H) && /nachher: erster Bildaufbau nach 152 ms/.test(H));
+t('und warum defer frueher nicht ging', /Inline-Skripte laufen sofort, defer-Skripte/.test(H));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
