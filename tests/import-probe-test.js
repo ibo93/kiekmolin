@@ -63,7 +63,10 @@ const umw = {
   // geprüft wird sie in tests/größe-bestellung-test.js.
   _zeigeSpaltenHilfe:()=>{},
   // Extras sind ein eigener Weg -- geprüft in tests/extras-test.js.
-  legeExtrasAn: async () => ({ angelegt: 0, uebersprungen: 0 })
+  legeExtrasAn: async () => ({ angelegt: 0, uebersprungen: 0 }),
+  // is_spicy ist in der Datenbank eine Zahl, keine Ja/Nein-Spalte.
+  // Geprüft wird die Umrechnung in tests/gericht-speichern-test.js.
+  scharfWert: (x) => (x ? 1 : 0)
 };
 
 const gerichte = [];

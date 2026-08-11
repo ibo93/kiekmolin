@@ -31723,6 +31723,40 @@ function escapeHtml(text) {
 }
 window.escapeHtml = escapeHtml;
 
+// is_spicy IST IN DER DATENBANK EINE ZAHL, KEINE JA/NEIN-SPALTE.
+//
+// Gemeldet wurde: "Fehler: invalid input syntax for type integer: \"false\""
+// beim Speichern eines Gerichts ueber "Gericht hinzufuegen". Genau das sagt
+// die Meldung -- ein false ist in eine Zahlenspalte gelaufen.
+//
+// Drei der vier Speicherstellen rechneten schon um (item.is_spicy ? 1 : 0),
+// die vierte nicht. Wieder dieselbe Familie: einmal geflickt, die anderen
+// Aufrufer blieben liegen, und es faellt erst auf, wenn ein Wirt genau
+// diesen Weg nimmt.
+//
+// Wichtig: NUR is_spicy ist eine Zahl. is_vegetarian, is_vegan, is_popular
+// und is_available sind echte Ja/Nein-Spalten -- die wuerden mit 1/0 zwar
+// auch angenommen, aber es waere geraten. Deshalb nur diese eine.
+function scharfWert(x) { return x ? 1 : 0; }
+window.scharfWert = scharfWert;
+
+// Meldungen der Datenbank sind auf Englisch und fuer den Wirt unlesbar.
+// Diese Funktion macht aus den haeufigsten einen Satz, mit dem er etwas
+// anfangen kann. Alles Uebrige bekommt den mitgegebenen Ersatztext -- lieber
+// eine ehrliche allgemeine Aussage als englisches Datenbankdeutsch.
+// Der Wortlaut im Original gehoert in die Konsole, nicht auf den Bildschirm.
+function dbFehlerText(fehler, ersatz) {
+    var roh = String((fehler && fehler.message) || fehler || '');
+    if (/invalid input syntax/i.test(roh))       return (ersatz || 'Speichern fehlgeschlagen.') + ' Ein Feld hat das falsche Format.';
+    if (/duplicate key|already exists/i.test(roh)) return 'Das gibt es schon.';
+    if (/violates foreign key/i.test(roh))       return (ersatz || 'Speichern fehlgeschlagen.') + ' Die Zuordnung stimmt nicht.';
+    if (/violates not-null/i.test(roh))          return (ersatz || 'Speichern fehlgeschlagen.') + ' Ein Pflichtfeld ist leer.';
+    if (/row-level security|permission denied|JWT/i.test(roh)) return 'Dafür fehlt die Berechtigung. Bitte neu anmelden.';
+    if (/Failed to fetch|NetworkError|timeout/i.test(roh))     return 'Keine Verbindung. Bitte noch einmal versuchen.';
+    return ersatz || 'Speichern fehlgeschlagen.';
+}
+window.dbFehlerText = dbFehlerText;
+
 // Lieferadresse als fertiges, escaptes Stueck HTML.
 // Die vier Felder kommen alle aus dem Formular des Gastes und wurden an
 // fuenf Stellen einzeln zusammengeklebt -- zwanzig Gelegenheiten, eine zu
@@ -44659,7 +44693,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             is_available: document.getElementById('menuItemActive') ? _chk('menuItemActive') : true,
             is_vegetarian: _chk('menuItemVegetarian'),
             is_vegan: _chk('menuItemVegan'),
-            is_spicy: _chk('menuItemSpicy'),
+            is_spicy: scharfWert(_chk('menuItemSpicy')),
             is_popular: _chk('menuItemPopular'),
             sort_order: _nextSort,
             allergens: allergens
@@ -44688,8 +44722,13 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         if (typeof showToast === 'function') showToast('"' + name + '" hinzugefügt!', 'success');
 
     } catch(e) {
-        console.error('Fehler:', e);
-        showToast('Fehler: ' + e.message, 'error');
+        // Der Wirt bekam hier die Meldung der Datenbank im Original zu sehen:
+        // 'invalid input syntax for type integer: "false"'. Damit kann er
+        // nichts anfangen und weiss auch nicht, ob sein Gericht nun drin ist.
+        // Der technische Wortlaut bleibt in der Konsole -- den braucht, wer
+        // den Fehler sucht.
+        console.error('Gericht speichern:', e);
+        showToast(dbFehlerText(e, 'Das Gericht konnte nicht gespeichert werden.'), 'error');
     }
 
     btn.disabled = false;
@@ -58103,7 +58142,7 @@ async function addMenuItem(e) {
         is_active: isActive,
         is_popular: isPopular,
         is_vegan: isVegan,
-        is_spicy: isSpicy ? 1 : 0,
+        is_spicy: scharfWert(isSpicy),
         sort_order: menuItems.length + 1,
         allergens: _allergens
     };
@@ -63148,7 +63187,7 @@ async function importScannedMenu() {
             is_available: true,
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,
-            is_spicy: item.is_spicy ? 1 : 0,
+            is_spicy: scharfWert(item.is_spicy),
             // Fleisch- und Fischmerkmale MITSPEICHERN.
             //
             // Der Scanner hat sie die ganze Zeit erkannt -- gespeichert wurden
@@ -63469,7 +63508,7 @@ async function saveEditedItem(itemId) {
             headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({
                 name: name, description: desc, base_price: price, category_id: catId,
-                is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: isSpicy ? 1 : 0, is_available: isAvail,
+                is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
                 additives: additives,
