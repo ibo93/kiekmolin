@@ -35259,6 +35259,7 @@ function renderProfileContent() {
         html += buildKontoList([
             { icon: 'person', title: 'Persönliche Daten', sub: 'Name, E-Mail, Telefon', action: "openPersonalData();" },
             { icon: 'receipt_long', title: 'Bestellverlauf', sub: 'Vergangene Bestellungen', action: "showMyOrders(); closeModal('profileModal');" },
+            { icon: 'loyalty', title: 'Meine Stempelkarten', sub: 'Alle Häuser auf einen Blick', action: "openMeineStempelkarten(); closeModal('profileModal');" },
             { icon: 'calendar_month', title: 'Meine Reservierungen', sub: 'Aktuelle & vergangene Reservierungen', action: "showMyReservations(); closeModal('profileModal');" },
             { icon: 'notifications_active', title: 'Benachrichtigungen', sub: 'Reservierungen & Angebote', action: "openModal('notificationModal'); closeModal('profileModal');" },
             { icon: 'security', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
@@ -64923,6 +64924,160 @@ async function addLoyaltyPoint(phone, restaurantId) {
         } catch(_){}
     }
 }
+
+// ALLE STEMPELKARTEN EINES GASTES, UEBER ALLE HAEUSER.
+//
+// WARUM
+// -----
+// Die Stempelkarte zaehlt pro Haus: zehn Bestellungen beim SELBEN
+// Restaurant ergeben ein Gratis-Essen (siehe addLoyaltyPoint). Fuer einen
+// Feriengast rechnet sich das nie -- er isst in einer Woche dreimal
+// auswaerts, in drei verschiedenen Haeusern, und kommt bei keinem auf
+// zehn. Fuer Einheimische dauert es Monate.
+//
+// Diese Funktion aendert an der Regel NICHTS. Sie holt nur, was ohnehin
+// schon in der Datenbank steht, und zeigt es dem Gast an EINER Stelle:
+// wo er wieviele Stempel hat und wie oft er insgesamt ueber die Plattform
+// bestellt hat.
+//
+// Zwei Gruende dafuer:
+//   1. Der Gast sieht zum ersten Mal, dass hinter den Haeusern eine
+//      Plattform steht. Heute sieht er nur die Karte des Hauses, in dem er
+//      gerade bestellt -- und die sieht aus wie eine Pappkarte an der
+//      Theke.
+//   2. Es beantwortet die Frage, die vor jeder groesseren Aenderung steht:
+//      verteilen sich Gaeste ueberhaupt auf mehrere Haeuser? Ohne diese
+//      Zahl waere eine haeuseruebergreifende Karte geraten. Wer bezahlt
+//      dann das Gratis-Essen -- das Haus, in dem eingeloest wird, oder
+//      alle anteilig -- ist eine Geldfrage und keine Programmierfrage.
+//      Sie wird mit Daten entschieden, nicht vorher.
+async function loyaltyAlleHaeuser(phone) {
+    if (!phone) return [];
+    try {
+        var url = SUPABASE_URL + '/rest/v1/loyalty_stamps'
+            + '?customer_phone=eq.' + encodeURIComponent(phone)
+            + '&select=restaurant_id,stamps_count,free_meals_earned,free_meals_used,last_order_at'
+            + '&order=last_order_at.desc';
+        var res = await fetch(url, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (!res.ok) return [];
+        var reihen = await res.json();
+        if (!Array.isArray(reihen)) return [];
+
+        return reihen.map(function (r) {
+            var haus = (APP_DATA.restaurants || []).find(function (x) { return x.id === r.restaurant_id; });
+            var bestellungen = Number(r.stamps_count) || 0;
+            var offen = Math.max(0, (Number(r.free_meals_earned) || 0) - (Number(r.free_meals_used) || 0));
+            return {
+                id: r.restaurant_id,
+                // Ist das Haus nicht (mehr) in der Liste, steht hier kein
+                // erfundener Name -- der Gast soll nicht raten muessen.
+                name: haus ? haus.name : 'Restaurant',
+                bekannt: !!haus,
+                slug: haus ? (haus.slug || haus.id) : null,
+                bestellungen: bestellungen,
+                stempel: bestellungen % 10,
+                gratisOffen: offen,
+                zuletzt: r.last_order_at || null
+            };
+        }).filter(function (z) { return z.bestellungen > 0; });
+    } catch (e) {
+        console.warn('Stempelkarten laden:', e.message);
+        return [];
+    }
+}
+window.loyaltyAlleHaeuser = loyaltyAlleHaeuser;
+
+// Die Ansicht dazu im Profil des Gastes.
+async function openMeineStempelkarten() {
+    var telefon = '';
+    try { telefon = localStorage.getItem('kmi_customer_phone') || ''; } catch (e) {}
+    if (!telefon && typeof currentUser !== 'undefined' && currentUser) telefon = currentUser.phone || '';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'stempelkartenOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10006;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    function huelle(inhalt) {
+        return '<div class="modal" style="max-width:460px;width:100%;border-radius:20px;background:var(--bg-card);display:block;max-height:82vh;overflow-y:auto;">'
+             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 6px;">'
+             +   '<div style="font-family:Epilogue,sans-serif;font-weight:800;font-size:18px;color:var(--text-primary);">Meine Stempelkarten</div>'
+             +   '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;font-size:26px;line-height:1;cursor:pointer;color:var(--text-secondary);">×</button>'
+             + '</div>'
+             + '<div style="padding:0 20px 22px;">' + inhalt + '</div>'
+             + '</div>';
+    }
+
+    overlay.innerHTML = huelle('<div style="padding:26px 0;text-align:center;color:var(--text-secondary);font-size:14px;">Lädt…</div>');
+    document.body.appendChild(overlay);
+
+    if (!telefon) {
+        overlay.innerHTML = huelle('<div style="padding:8px 0 4px;color:var(--text-secondary);font-size:14px;line-height:1.6;">'
+            + 'Stempel werden über die Telefonnummer geführt, die du bei der Bestellung angibst. '
+            + 'Sobald du einmal bestellt hast, stehen sie hier.</div>');
+        return;
+    }
+
+    var karten = await loyaltyAlleHaeuser(telefon);
+    if (!document.body.contains(overlay)) return;      // inzwischen geschlossen
+
+    if (!karten.length) {
+        overlay.innerHTML = huelle('<div style="padding:8px 0 4px;color:var(--text-secondary);font-size:14px;line-height:1.6;">'
+            + 'Noch keine Stempel. Bei jeder Bestellung kommt einer dazu — die zehnte ist gratis.</div>');
+        return;
+    }
+
+    var gesamt = karten.reduce(function (n, k) { return n + k.bestellungen; }, 0);
+    var gratis = karten.reduce(function (n, k) { return n + k.gratisOffen; }, 0);
+
+    var h = '<div style="display:flex;gap:10px;margin:4px 0 16px;">'
+          + '<div style="flex:1;background:var(--bg-secondary);border-radius:14px;padding:12px 14px;">'
+          +   '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--ink-strong);line-height:1;">' + gesamt + '</div>'
+          +   '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Bestellungen über alle Häuser</div>'
+          + '</div>'
+          + '<div style="flex:1;background:var(--bg-secondary);border-radius:14px;padding:12px 14px;">'
+          +   '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:' + (gratis ? '#b45309' : 'var(--ink-strong)') + ';line-height:1;">' + gratis + '</div>'
+          +   '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">' + (gratis === 1 ? 'Gratis-Essen offen' : 'Gratis-Essen offen') + '</div>'
+          + '</div>'
+          + '</div>';
+
+    karten.forEach(function (k) {
+        var punkte = '';
+        for (var i = 0; i < 10; i++) {
+            punkte += i < k.stempel
+                ? '<span style="width:12px;height:12px;border-radius:50%;background:#003D33;display:inline-block;"></span>'
+                : '<span style="width:12px;height:12px;border-radius:50%;border:1.5px dashed rgba(0,61,51,0.28);display:inline-block;"></span>';
+        }
+        var klick = k.slug ? ' onclick="closeStempelkarten(); openRestaurantBySlug(\'' + escapeHtml(k.slug) + '\')" style="cursor:pointer;' : ' style="';
+        h += '<div' + klick + 'background:var(--bg-secondary);border-radius:14px;padding:13px 15px;margin-bottom:9px;">'
+           +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;">'
+           +     '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(k.name) + '</span>'
+           +     (k.gratisOffen
+                    ? '<span style="flex-shrink:0;background:#FFD54F;color:#003D33;border-radius:9999px;padding:2px 9px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">Gratis</span>'
+                    : '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">' + k.stempel + '/10</span>')
+           +   '</div>'
+           +   '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + punkte + '</div>'
+           + '</div>';
+    });
+
+    // EHRLICH BLEIBEN: die Stempel gelten je Haus. Wer das nicht dazuschreibt,
+    // laesst die Uebersicht so aussehen, als waeren es 14 Stempel auf EINER
+    // Karte -- und der Gast steht beim naechsten Haus enttaeuscht da.
+    h += '<div style="margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.6;">'
+       + 'Stempel gelten pro Haus: zehn Bestellungen bei demselben Restaurant ergeben ein Gratis-Essen.</div>';
+
+    overlay.innerHTML = huelle(h);
+}
+window.openMeineStempelkarten = openMeineStempelkarten;
+
+function closeStempelkarten() {
+    var o = document.getElementById('stempelkartenOverlay');
+    if (o) o.remove();
+}
+window.closeStempelkarten = closeStempelkarten;
 
 function getLoyaltyStamps(phone, restId) {
     var d = getLoyaltyData(phone, restId);
