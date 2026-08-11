@@ -8797,10 +8797,18 @@
         .checkout-input-glass::placeholder {
             color: transparent;
         }
+        /* DIE BESCHRIFTUNG RAGTE INS FELD.
+           top:-10px bei 15px Zeilenhoehe heisst: die Unterkante liegt 5px
+           UNTER der Feldoberkante. Nachgemessen im Browser. Auf schmaleren
+           Geraeten kam dazu, dass "VOLLSTÄNDIGER NAME" umbrach -- die zweite
+           Zeile lag dann mitten auf dem eingegebenen Namen.
+           Jetzt sitzt sie ganz oberhalb, und sie bricht nicht mehr um. */
         .checkout-floating-label {
             position: absolute;
-            top: -10px;
+            bottom: 100%;
+            margin-bottom: 4px;
             left: 16px;
+            right: 0;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -8808,6 +8816,9 @@
             color: rgba(0,61,51,0.6);
             pointer-events: none;
             transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .order-type-toggle {
@@ -8821,7 +8832,11 @@
             flex: 1;
             padding: 12px 10px;
             border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 16px;
+            /* 32px, nicht 16px: die runde Form stand bisher als Inline-Stil
+               am Knopf und ist die gewollte. Die Inline-Stile mussten weg
+               (siehe unten), also zieht der Wert hier ein. */
+            border-radius: 32px;
+            text-align: center;
             background: rgba(0,61,51,0.05);
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -26735,7 +26750,7 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">';
         mittagSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
         });
         html += '</div>';
     }
@@ -26746,7 +26761,7 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
         abendSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
         });
         html += '</div>';
     }
@@ -26779,11 +26794,28 @@ function renderFallbackSlots() {
 function selectSlot(btn, time, tables, areas) {
     selectedSlot = { time, tables, areas };
 
-    // Alle Buttons deselektieren
-    document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+    // Alle Buttons deselektieren.
+    //
+    // Die Klasse allein reicht hier NICHT: der Knopf traegt seinen
+    // Auslastungs-Hintergrund als Inline-Stil, und der schlaegt die Regel
+    // .slot-btn.selected. Ohne das Folgende blieb das gewaehlte Zeitfenster
+    // unmarkiert -- der Gast sah nicht, was er angetippt hatte.
+    // Die Ausgangsfarben stehen als data-bg und data-rand am Knopf.
+    document.querySelectorAll('.slot-btn').forEach(function (b) {
+        b.classList.remove('selected');
+        if (b.dataset.bg) b.style.background = b.dataset.bg;
+        if (b.dataset.rand) b.style.borderColor = b.dataset.rand;
+        b.style.color = 'var(--text-primary)';
+    });
 
     // Geklickten Button selektieren
-    if (btn && btn.closest) btn.closest('.slot-btn').classList.add('selected');
+    var gewaehlt = btn && btn.closest ? btn.closest('.slot-btn') : null;
+    if (gewaehlt) {
+        gewaehlt.classList.add('selected');
+        gewaehlt.style.background = 'var(--primary)';
+        gewaehlt.style.borderColor = 'var(--primary)';
+        gewaehlt.style.color = 'white';
+    }
 
     // Hidden Input setzen
     document.getElementById('reservationTime').value = time;
@@ -43416,17 +43448,17 @@ document.addEventListener('error', function(e) {
                     Bestellart
                 </h2>
                 <div class="order-type-toggle" id="orderTypeToggle" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    <button class="order-type-btn" onclick="setOrderType('delivery', this)" data-type="delivery" style="display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid rgba(255,255,255,0.3);background:rgba(0,61,51,0.05);transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;opacity:0.6;">delivery_dining</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;opacity:0.6;">Lieferung</span>
+                    <button class="order-type-btn" onclick="setOrderType('delivery', this)" data-type="delivery">
+                        <span class="material-symbols-outlined" style="font-size:20px;">delivery_dining</span>
+                        <span class="order-type-label">Lieferung</span>
                     </button>
-                    <button class="order-type-btn active" onclick="setOrderType('pickup', this)" data-type="pickup" style="display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid #003D33;background:#003D33;color:white;transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;">shopping_bag</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;">Abholung</span>
+                    <button class="order-type-btn active" onclick="setOrderType('pickup', this)" data-type="pickup">
+                        <span class="material-symbols-outlined" style="font-size:20px;">shopping_bag</span>
+                        <span class="order-type-label">Abholung</span>
                     </button>
-                    <button class="order-type-btn" onclick="setOrderType('dine_in', this)" data-type="dine_in" id="dineInBtn" style="display:none;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid rgba(255,255,255,0.3);background:rgba(0,61,51,0.05);transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;opacity:0.6;">restaurant</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;opacity:0.6;">Hier essen</span>
+                    <button class="order-type-btn" onclick="setOrderType('dine_in', this)" data-type="dine_in" id="dineInBtn" style="display:none;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">restaurant</span>
+                        <span class="order-type-label">Hier essen</span>
                         <span class="order-type-vat" id="dineInTableLabel"></span>
                     </button>
                 </div>
@@ -43493,7 +43525,7 @@ document.addEventListener('error', function(e) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 16px;">
                     <div style="position:relative;">
                         <input type="text" class="checkout-input-glass" id="checkoutName" placeholder=" " required style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:var(--ink-strong);box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
-                        <label class="checkout-floating-label" for="checkoutName">Vollständiger Name</label>
+                        <label class="checkout-floating-label" for="checkoutName">Name</label>
                     </div>
                     <div style="position:relative;">
                         <input type="tel" class="checkout-input-glass" id="checkoutPhone" placeholder=" " required style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:var(--ink-strong);box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
