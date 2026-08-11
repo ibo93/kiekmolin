@@ -56,6 +56,7 @@ function welt(antworten, extras) {
 
     var code = 'var SELBSTCHECK_STAND = { ok: "ok", warnung: "warnung", fehler: "fehler", unbekannt: "unbekannt" };\n'
         + schneide('_scHole') + '\n' + schneide('_scHeuteVon') + '\n' + schneide('_scVorTagen') + '\n'
+        + schneide('_scWartedauer') + '\n'
         + schneide('selbstcheckAusfuehren')
         + '; return selbstcheckAusfuehren;';
     var F = new Function('fetch', 'SUPABASE_URL', 'SUPABASE_KEY', 'AbortController', 'setTimeout',
@@ -258,7 +259,7 @@ var HEILE = {
     t('eine wartende Reservierung nennt den Gast beim Namen', /Familie Janssen/.test(rb[0]), rb[0]);
     t('mit Personenzahl', /4 Pers\./.test(rb[0]), rb[0]);
     t('mit dem gewuenschten Termin', /14\.8\.2026 19:00/.test(rb[0]), rb[0]);
-    t('und wie lange schon gewartet wird', /wartet seit 30 Std\./.test(rb[0]), rb[0]);
+    t('und wie lange schon gewartet wird', /wartet seit 30 Stunden/.test(rb[0]), rb[0]);
     t('fehlt der Name, wird keiner erfunden',
       /ohne Namen/.test((await welt(Object.assign({}, HEILE, {
           reservations: [{ id: 'a', created_at: alt }] })).lauf()
@@ -408,6 +409,59 @@ var HEILE = {
       /applyGastroRestrictions[\s\S]{0,300}selbstcheckHintergrundStoppen\(\)/.test(H));
     t('nichts springt auf -- waehrend des Services will das niemand',
       /Kein Fenster, das aufspringt, kein Ton/.test(H));
+
+    // ---- 8d. WELCHES Restaurant -- immer sichtbar ----------------------------
+    // Gemeldet: "er sagt nicht welches Restaurant das sind bei Fehler".
+    // Der Name stand als erste Karte im Inhalt und war weg, sobald man zu den
+    // Befunden gescrollt hatte. Dann steht dort ein Fehler ohne Angabe, wen
+    // er betrifft -- und wer mehrere Haeuser betreut, sucht am falschen.
+    t('der Name steht in der KLEBENDEN Kopfzeile, nicht nur im Inhalt',
+      /position:sticky;top:0[\s\S]{0,900}scKopfRestaurant/.test(H));
+    t('die Kopfzeile ist deckend -- sonst scheint der Bericht durch',
+      /'<div style="background:#00251e;padding:24px;position:sticky/.test(H));
+    t('nach dem Messen wird der Name dort eingetragen',
+      /kopf\.textContent = wer \? wer\.titel/.test(H));
+    t('ohne ermittelbares Restaurant steht das da, statt leer zu bleiben',
+      /Restaurant nicht ermittelbar/.test(H));
+
+    // Mehrere Haeuser: umschalten statt raten.
+    function wahlWelt(restaurants) {
+        return new Function('window', 'APP_DATA', '_resolveEventsRestaurantId', 'escapeHtml',
+            schneide('selbstcheckHausWahl') + '; return selbstcheckHausWahl;')(
+            { APP_DATA: { restaurants: restaurants } }, { restaurants: restaurants },
+            function () { return 'r-2'; },
+            function (x) { return String(x); })();
+    }
+    var einHaus = wahlWelt([{ id: 'r-1', name: 'Al Porto' }]);
+    t('bei einem Haus kein Auswahlfeld -- das waere nur im Weg',
+      einHaus.indexOf('<select') < 0 && /scKopfName/.test(einHaus), einHaus);
+
+    var dreiHaeuser = wahlWelt([{ id: 'r-1', name: 'Al Porto' },
+                                { id: 'r-2', name: 'Greetsiler Börse' },
+                                { id: 'r-3', name: 'La Piazza' }]);
+    t('bei mehreren Haeusern gibt es eine Auswahl', dreiHaeuser.indexOf('<select') === 0, dreiHaeuser.slice(0, 40));
+    t('mit allen Haeusern darin',
+      /Al Porto/.test(dreiHaeuser) && /Greetsiler Börse/.test(dreiHaeuser) && /La Piazza/.test(dreiHaeuser));
+    t('das aktuelle Haus ist vorausgewaehlt',
+      /value="r-2" selected/.test(dreiHaeuser), dreiHaeuser.slice(0, 200));
+    t('ein Wechsel misst sofort neu',
+      /onchange="selbstcheckNeuLaden\(this\.value\)"/.test(dreiHaeuser));
+    t('Restaurantnamen werden escapt -- sie kommen aus der Datenbank',
+      wahlWelt([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]).indexOf('escapeHtml') < 0
+      && /escapeHtml\(r\.name/.test(schneide('selbstcheckHausWahl')));
+    t('"Nochmal messen" misst dasselbe Haus, nicht wieder das voreingestellte',
+      /var wahl = document\.getElementById\('scHausWahl'\);[\s\S]{0,120}restId = wahl\.value/.test(H));
+
+    // ---- 8e. Wartedauer, wie ein Mensch sie liest ----------------------------
+    // Im Bericht stand "wartet seit 1128 Std." -- das rechnet niemand um.
+    var D = new Function(schneide('_scWartedauer') + '; return _scWartedauer;')();
+    t('unter einer Stunde wird nicht in Zahlen gepresst', D(0) === 'unter 1 Stunde');
+    t('eine Stunde ist Einzahl', D(1) === '1 Stunde');
+    t('Stunden bleiben Stunden, solange es uebersichtlich ist', D(30) === '30 Stunden');
+    t('ab zwei Tagen wird in Tagen gerechnet', D(48) === '2 Tagen', D(48));
+    t('1128 Stunden sind 47 Tage', D(1128) === '47 Tagen', D(1128));
+    t('und im Bericht steht die lesbare Form',
+      /_scWartedauer\(wartet\)/.test(H) && /_scWartedauer\(stunden\)/.test(H));
 
     // ---- 9. Der Grund steht im Quelltext ------------------------------------
     t('die Regel gegen erfundene Zahlen steht in der Datei',

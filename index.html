@@ -53904,6 +53904,15 @@ async function _scHole(pfad, deckelMs) {
     }
 }
 
+// Wartedauer so, wie ein Mensch sie liest. "1128 Std." rechnet niemand um --
+// das sind 47 Tage, und genau das ist die Information, die zaehlt.
+function _scWartedauer(stunden) {
+    if (stunden < 1) return 'unter 1 Stunde';
+    if (stunden < 48) return stunden + (stunden === 1 ? ' Stunde' : ' Stunden');
+    var tage = Math.floor(stunden / 24);
+    return tage + ' Tagen';
+}
+
 function _scHeuteVon() {
     var d = new Date(); d.setHours(0, 0, 0, 0);
     return d.toISOString();
@@ -54021,7 +54030,7 @@ async function selbstcheckAusfuehren(restId) {
                      stand: stunden >= 24 ? SELBSTCHECK_STAND.warnung : SELBSTCHECK_STAND.ok,
                      wert: offen.anzahl + (offen.anzahl === 1 ? ' wartet auf Antwort' : ' warten auf Antwort'),
                      hinweis: stunden >= 24
-                        ? ('Die älteste wartet seit ' + stunden + ' Stunden. Zusagen oder absagen muss das Haus '
+                        ? ('Die älteste wartet seit ' + _scWartedauer(stunden) + '. Zusagen oder absagen muss das Haus '
                            + 'selbst – das geht an einen echten Gast raus.')
                         : '',
                      belege: (offen.daten || []).map(function (r) {
@@ -54030,7 +54039,7 @@ async function selbstcheckAusfuehren(restId) {
                              + (r.party_size ? ' · ' + r.party_size + ' Pers.' : '')
                              + (r.reservation_date ? ' · für ' + new Date(r.reservation_date).toLocaleDateString('de-DE')
                                 + (r.reservation_time ? ' ' + String(r.reservation_time).slice(0, 5) : '') : '')
-                             + ' · wartet seit ' + (wartet < 1 ? 'unter 1 Stunde' : wartet + ' Std.');
+                             + ' · wartet seit ' + _scWartedauer(wartet);
                      }),
                      reparatur: stunden >= 24 ? 'zuReservierungen' : null });
         }
@@ -54216,6 +54225,33 @@ function selbstcheckPunktSetzen(fehler, warnung) {
         : (warnung === 1 ? '1 Hinweis' : warnung + ' Hinweise');
 }
 
+// Wer mehrere Haeuser betreut, muss nicht nur SEHEN welches geprueft wurde,
+// sondern auch wechseln koennen. Sonst zeigt der Bericht die Zahlen von
+// Haus A, waehrend der Fehler in Haus B liegt -- und man sucht an der
+// falschen Stelle.
+// Bei nur einem Haus bleibt es beim schlichten Namen; ein Auswahlfeld mit
+// einem einzigen Eintrag ist nur im Weg.
+function selbstcheckHausWahl() {
+    var liste = [];
+    try {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
+            liste = APP_DATA.restaurants.filter(function (r) { return r && r.id; });
+        }
+    } catch (e) {}
+
+    if (liste.length < 2) return '<span id="scKopfName">wird ermittelt…</span>';
+
+    var jetzt = typeof _resolveEventsRestaurantId === 'function' ? _resolveEventsRestaurantId() : '';
+    var html = '<select id="scHausWahl" onchange="selbstcheckNeuLaden(this.value)" '
+             + 'style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);'
+             + 'border-radius:9999px;padding:4px 10px;font-family:Inter,sans-serif;font-size:13px;cursor:pointer;max-width:100%;">';
+    liste.forEach(function (r) {
+        html += '<option value="' + escapeHtml(r.id) + '"' + (r.id === jetzt ? ' selected' : '') + ' style="color:#191c1d;">'
+              + escapeHtml(r.name || 'Ohne Namen') + '</option>';
+    });
+    return html + '</select><span id="scKopfName" style="display:none;"></span>';
+}
+
 function openSelbstcheck() {
     if (!selbstcheckErlaubt()) {
         showToast('Der Selbstcheck ist der Verwaltung vorbehalten.', 'error');
@@ -54232,11 +54268,24 @@ function openSelbstcheck() {
     overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
     overlay.innerHTML =
         '<div style="max-width:680px;width:100%;max-height:86vh;overflow-y:auto;border-radius:32px;background:var(--bg-card);box-shadow:0 24px 48px -8px rgba(25,28,29,0.35);">' +
-            '<div style="background:rgba(0,37,30,0.92);padding:24px;position:sticky;top:0;z-index:1;">' +
+            // Deckend, nicht halbtransparent: die Zeile klebt oben, waehrend
+            // der Bericht darunter durchlaeuft. Mit 0.92 Deckkraft schienen
+            // die Karten hindurch und die Kopfzeile sah kaputt aus.
+            '<div style="background:#00251e;padding:24px;position:sticky;top:0;z-index:1;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">' +
                     '<div>' +
                         '<span style="font-size:11px;color:#fed65b;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;display:block;margin-bottom:6px;">Selbstcheck</span>' +
                         '<h3 style="color:#fff;font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.02em;line-height:1.15;margin:0;">Wie steht es um den Betrieb?</h3>' +
+                        // Welches Haus geprueft wird, gehoert in die klebende
+                        // Kopfzeile. Als Karte im Inhalt war es weg, sobald man
+                        // zu den Befunden gescrollt hatte -- und dann steht dort
+                        // ein Fehler ohne Angabe, wen er betrifft.
+                        '<div id="scKopfRestaurant" style="margin-top:10px;display:flex;align-items:center;gap:7px;font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.85);">' +
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;opacity:0.7;">' +
+                                '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>' +
+                            '</svg>' +
+                            selbstcheckHausWahl() +
+                        '</div>' +
                     '</div>' +
                     '<button onclick="document.getElementById(\'selbstcheckOverlay\').remove()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.6);font-size:26px;line-height:1;padding:0;">&times;</button>' +
                 '</div>' +
@@ -54247,14 +54296,22 @@ function openSelbstcheck() {
     selbstcheckNeuLaden();
 }
 
-async function selbstcheckNeuLaden() {
+async function selbstcheckNeuLaden(restId) {
     var ziel = document.getElementById('selbstcheckInhalt');
     if (!ziel) return;
     ziel.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-family:Inter,sans-serif;font-size:14px;">Wird gemessen…</div>';
 
+    // Ohne Angabe: das Haus, das in der Auswahl steht. Damit misst "Nochmal
+    // messen" dasselbe Haus, das gerade angezeigt wird -- und nicht wieder
+    // das voreingestellte.
+    if (!restId) {
+        var wahl = document.getElementById('scHausWahl');
+        if (wahl && wahl.value) restId = wahl.value;
+    }
+
     var befunde;
     try {
-        befunde = await selbstcheckAusfuehren();
+        befunde = await selbstcheckAusfuehren(restId);
     } catch (e) {
         ziel.innerHTML = '<div style="padding:16px;border-radius:16px;background:rgba(239,68,68,0.08);color:#b91c1c;font-size:13px;font-family:Inter,sans-serif;">'
             + 'Der Selbstcheck selbst ist gescheitert: ' + escapeHtml(e.message || String(e))
@@ -54262,6 +54319,13 @@ async function selbstcheckNeuLaden() {
         return;
     }
     ziel.innerHTML = selbstcheckBericht(befunde);
+
+    // Namen oben eintragen. Der Befund "Geprüft wurde" traegt ihn als Titel.
+    var kopf = document.getElementById('scKopfName');
+    if (kopf && kopf.style.display !== 'none') {
+        var wer = befunde.filter(function (f) { return f.bereich === 'Geprüft wurde'; })[0];
+        kopf.textContent = wer ? wer.titel : 'Restaurant nicht ermittelbar';
+    }
 }
 
 // Baut den Bericht. Getrennt vom Messen, damit beides einzeln pruefbar ist.
