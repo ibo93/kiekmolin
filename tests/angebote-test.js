@@ -221,17 +221,24 @@ t('"Happy Hour" steht nicht zweimal untereinander, wenn es schon der Titel ist',
 t('und die Beschreibung',
   /escapeHtml\(text\)/.test(schneide('angebotKarteHtml')));
 var startseite = schneide('loadDailySpecials');
-t('die Startseite escapt den Titel', /escapeHtml\(s\.title \|\| 'Angebot'\)/.test(startseite));
-t('die Startseite escapt die Beschreibung', /escapeHtml\(cleanDesc\)/.test(startseite));
+// Die Startseite zeichnet die Karte nicht mehr selbst, sondern nimmt
+// dieselbe wie Speisekarte und Restaurantseite. Vorher hatte jede der drei
+// Stellen ihre eigene -- und sie liefen auseinander: die Startseite kannte
+// das Zeitfenster "[17:00-19:00]", die Speisekarte nicht.
+t('die Startseite benutzt dieselbe Angebotskarte wie die anderen Stellen',
+  /angebotKarteHtml\(s\)/.test(startseite));
+t('sie baut keine eigene Karte mehr',
+  !/font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px/.test(startseite));
 t('die Startseite escapt den Namen des Hauses', /escapeHtml\(rName\)/.test(startseite));
 t('und den Slug im onclick -- dort steht der Text in Anfuehrungszeichen',
   /escapeHtml\(slug\)/.test(startseite));
 
 // Nirgends mehr der ungeschuetzte Weg.
-['s.title || \'Angebot\'', 'cleanDesc'].forEach(function (roh) {
-    var re = new RegExp("'\\s*\\+\\s*" + roh.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*\\+\\s*'", 'g');
-    var treffer = (startseite.match(re) || []);
-    t('kein ungeschuetztes "' + roh + '" mehr auf der Startseite',
+var karte = schneide('angebotKarteHtml');
+['titel', 'text'].forEach(function (roh) {
+    var re = new RegExp("'\\s*\\+\\s*" + roh + "\\s*\\+\\s*'", 'g');
+    var treffer = (karte.match(re) || []);
+    t('kein ungeschuetztes "' + roh + '" in der Angebotskarte',
       treffer.length === 0, treffer.join(' | '));
 });
 
@@ -242,6 +249,100 @@ t('eine kaputte Antwort wird nicht fuer eine Liste gehalten',
   /if \(!Array\.isArray\(liste\)\) return \[\];/.test(schneide('tagesangeboteHolen')));
 t('bei Netzfehler kommt eine leere Liste, kein Absturz',
   /\.catch\(function \(\) \{ return \[\]; \}\)/.test(schneide('tagesangeboteHolen')));
+
+// ---- 7b. Das Angebot muss dort stehen, wo der Gast sich entscheidet -------
+// Ein Haus mit Tagesangebot sah in der Restaurantliste genauso aus wie eins
+// ohne. Der Gast scrollt an sieben Karten vorbei und erfaehrt nirgends, wer
+// heute etwas hat. Die Leiste ganz oben nennt zwar den Hausnamen -- wer
+// direkt zur Liste scrollt, sieht sie nie.
+t('jede Restaurantkarte hat einen Platz fuer das Tagesangebot',
+  /<div class="card-angebot" data-restaurant-id="\$\{r\.id\}"><\/div>/.test(H));
+// Innerhalb der Kartenvorlage pruefen -- "Action Buttons" steht auch
+// anderswo in der Datei, ein Vergleich ueber die ganze Datei waere Zufall.
+var _kvStart = H.indexOf('<div class="restaurant-card ${isVisible');
+var kartenVorlage = _kvStart < 0 ? '' : H.slice(_kvStart, H.indexOf('container.innerHTML = html;', _kvStart));
+t('die Kartenvorlage ist gefunden worden', kartenVorlage.length > 1000, kartenVorlage.length);
+t('der Platz steht ueber den Knoepfen, nicht darunter',
+  kartenVorlage.indexOf('class="card-angebot"') > 0
+  && kartenVorlage.indexOf('class="card-angebot"') < kartenVorlage.indexOf('Action Buttons'),
+  kartenVorlage.indexOf('class="card-angebot"') + ' / ' + kartenVorlage.indexOf('Action Buttons'));
+t('und unter Name und Ort, nicht darueber',
+  kartenVorlage.indexOf('${r.name}') < kartenVorlage.indexOf('class="card-angebot"'));
+
+var stempel = schneide('angebotAbzeichenSetzen');
+t('es gibt eine Funktion, die die Zeile eintraegt', stempel.length > 200, stempel.length);
+t('sie wird nach dem Zeichnen der Liste aufgerufen',
+  /container\.innerHTML = html;[\s\S]{0,400}angebotAbzeichenSetzen\(\)/.test(CODE));
+t('und noch einmal, wenn die Angebote geladen sind -- die Reihenfolge ist offen',
+  /window\._angeboteHeute = nachHaus;[\s\S]{0,120}angebotAbzeichenSetzen\(\)/.test(CODE));
+t('abgelaufene Angebote werden beim Eintragen nochmal aussortiert',
+  /liste\.filter\(function \(s\) \{ return angebotLaeuftNoch\(s\); \}\)/.test(stempel));
+t('bei null Angeboten wird die Zuordnung trotzdem neu gesetzt -- sonst bliebe eine alte Zeile stehen',
+  !/if \(specials\.length === 0\) \{ container\.style\.display = 'none'; return; \}[\s\S]{0,200}window\._angeboteHeute = nachHaus/.test(CODE)
+  && CODE.indexOf('window._angeboteHeute = nachHaus') < CODE.indexOf("if (specials.length === 0) { container.style.display = 'none'; return; }"));
+
+var zeile = new Function(schneide('angebotZeileHtml') + schneide('angebotPreis')
+    + schneide('angebotErsparnis') + 'var escapeHtml = function (x) { return String(x); };'
+    + '; return angebotZeileHtml;')();
+t('ohne Angebot bleibt die Zeile leer -- keine leere Huelle auf der Karte',
+  zeile([]) === '' && zeile(null) === '' && zeile(undefined) === '');
+t('mit Angebot steht der Titel drin',
+  zeile([{ title: 'Grünkohl mit Pinkel', price: 14.9 }]).indexOf('Grünkohl mit Pinkel') > 0);
+t('und der Preis', zeile([{ title: 'x', price: 14.9 }]).indexOf('14,90 €') > 0);
+t('bei mehreren Angeboten wird auf die weiteren hingewiesen, ohne die Karte vollzuschreiben',
+  zeile([{ title: 'a', price: 5 }, { title: 'b', price: 6 }]).indexOf('1 weiteres Angebot') > 0,
+  zeile([{ title: 'a', price: 5 }, { title: 'b', price: 6 }]));
+t('und die Mehrzahl stimmt',
+  zeile([{title:'a',price:5},{title:'b',price:6},{title:'c',price:7}]).indexOf('2 weitere Angebote') > 0);
+t('bei nur einem Angebot steht kein Hinweis da',
+  zeile([{ title: 'a', price: 5 }]).indexOf('weiter') < 0);
+
+// Der Gerichtname bekommt eine eigene Zeile. Vorher stand alles nebeneinander
+// und im Browser gemessen blieben ihm 41 Pixel -- aus "Grünkohl mit Pinkel"
+// wurde "Grünko…". Ausgerechnet das, worauf es ankommt.
+t('der Gerichtname steht auf einer eigenen Zeile, nicht neben Etikett und Preis',
+  /margin-bottom:6px;">'[\s\S]{0,900}<\/div>';\n\n?\s*\/\/ Hauptzeile/.test(schneide('angebotZeileHtml'))
+  || /Hauptzeile: der Gerichtname gross/.test(H));
+t('die Zeile ist eine farbige Flaeche, kein blasses Pillchen',
+  /background:' \+ farbe \+ ';color:white/.test(schneide('angebotZeileHtml')));
+t('die Ersparnis steht weiss auf Farbe -- hoechster Kontrast',
+  /background:var\(--angebot-pille\);color:' \+ akzent/.test(schneide('angebotZeileHtml')));
+t('das Weiss steht als begruendete Ausnahme in der Farbtafel, nicht zwoelfmal im Text',
+  /--angebot-pille: #ffffff;/.test(H)
+  && (H.match(/--angebot-pille: #ffffff;/g) || []).length === 2,
+  (H.match(/--angebot-pille: #ffffff;/g) || []).length);
+t('und bleibt im Dunkelmodus weiss -- die Karte darunter ist immer farbig',
+  /Bewusst NICHT abgedunkelt/.test(H));
+t('auch auf der grossen Karte knallt die Ersparnis jetzt',
+  /background:var\(--angebot-pille\);color:' \+ \(happy \? '#9a3412' : '#00251e'\)/.test(schneide('angebotKarteHtml')));
+t('ohne Etikett wandert die Ersparnis ueber den Preis statt eine leere Zeile zu erzwingen',
+  /var pilleUeberPreis = \(!etikett && sparPille\) \? sparPille : '';/.test(schneide('angebotKarteHtml')));
+t('sie liegt nicht mehr absolut in der Ecke -- dort verdeckte sie den Preis',
+  !/position:absolute;top:14px;right:14px/.test(schneide('angebotKarteHtml')));
+t('Happy Hour bekommt eine eigene Farbe und ein eigenes Wort',
+  /Happy Hour/.test(zeile([{ title: 'Happy Hour', price: 6 }]))
+  && /#ea580c/.test(zeile([{ title: 'Happy Hour', price: 6 }])));
+t('sonst steht dort "Heute"', /Heute/.test(zeile([{ title: 'Grünkohl', price: 9 }])));
+
+// ---- 7c. Was der Gast spart ------------------------------------------------
+// Vorher stand nur der alte Preis durchgestrichen daneben und der Gast
+// durfte selbst rechnen. Genau diese Zahl ist aber der Grund, warum ein
+// Angebot eines ist.
+var spart = new Function(schneide('angebotErsparnis') + '; return angebotErsparnis;')();
+t('aus 18,50 auf 14,90 werden 3,60 Euro Ersparnis',
+  spart({ price: 14.9, old_price: 18.5 }) === '– 3,60 €', spart({ price: 14.9, old_price: 18.5 }));
+t('ohne alten Preis steht dort nichts', spart({ price: 14.9 }) === '');
+t('ein alter Preis UNTER dem neuen ist keine Ersparnis',
+  spart({ price: 14.9, old_price: 12 }) === '');
+t('gleicher Preis ist auch keine', spart({ price: 9, old_price: 9 }) === '');
+t('unter 50 Cent lohnt der Hinweis nicht',
+  spart({ price: 9.7, old_price: 9.9 }) === '', spart({ price: 9.7, old_price: 9.9 }));
+t('Unsinn in den Feldern ergibt keine Ersparnis',
+  spart({ price: 'billig', old_price: 20 }) === '' && spart(null) === '');
+t('die Ersparnis steht auch auf der grossen Karte',
+  /var spart = angebotErsparnis\(s\)/.test(schneide('angebotKarteHtml')));
+t('und in der Zeile auf der Restaurantkarte',
+  /angebotErsparnis\(s\)/.test(schneide('angebotZeileHtml')));
 
 // ---- 8b. filter reicht den Index mit durch --------------------------------
 // Hier stand liste.filter(angebotLaeuftNoch). filter uebergibt (Element,

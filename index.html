@@ -970,6 +970,15 @@
             --ink-strong: #003D33;
             --ink-deep: #00251e;
 
+            /* Die Ersparnis-Pille auf einer Angebotskarte.
+               Sie liegt IMMER auf dem farbigen Grund der Karte -- gruen oder
+               orange, in beiden Modi gleich. Deshalb bleibt sie weiss, auch
+               im Dunkelmodus: ein dunkler Grund waere dort dunkel auf
+               dunkelgruen und unlesbar. Als Variable, damit die Ausnahme an
+               einer Stelle steht und begruendet ist, statt zwoelfmal als
+               "white" im Quelltext. */
+            --angebot-pille: #ffffff;
+
             /* Theme-spezifische Variablen */
             --bg-primary: #fafafa;
             --bg-secondary: #fafafa;
@@ -1017,6 +1026,8 @@
             --border-color: rgba(255,255,255,0.06);
             --ink-strong: #9cd1c3;
             --ink-deep: #b8eddf;
+            /* Bewusst NICHT abgedunkelt -- siehe Begruendung oben. */
+            --angebot-pille: #ffffff;
             --sand: #111f1a;
             --cream: #0a1612;
             --charcoal: #e8eeec;
@@ -24962,6 +24973,10 @@ function renderRestaurants(filter) {
                         <span style="width:3px;height:3px;border-radius:50%;background:#c0c8c4;"></span>
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
+                    <!-- Tagesangebot. Wird von angebotAbzeichenSetzen() gefuellt,
+                         sobald die Angebote geladen sind, und bleibt leer, wenn
+                         das Haus heute keines hat. -->
+                    <div class="card-angebot" data-restaurant-id="${r.id}"></div>
                     <!-- Tisch-Verfügbarkeit (reservierungs-basiert, async geladen) -->
                     ${_cardNoRes ? '' : `<div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
                         <span class="card-slot-info" style="color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:4px;">
@@ -24992,6 +25007,11 @@ function renderRestaurants(filter) {
     });
 
     container.innerHTML = html;
+
+    // Tagesangebote auf die frisch gezeichneten Karten. Die Angebote koennen
+    // schon da sein oder erst gleich kommen -- loadDailySpecials ruft
+    // dieselbe Funktion noch einmal auf.
+    if (typeof angebotAbzeichenSetzen === 'function') angebotAbzeichenSetzen();
 
     // Update stats (nur wenn Elemente existieren)
     const statRestaurants = document.getElementById('statRestaurants');
@@ -56511,34 +56531,52 @@ async function loadDailySpecials() {
 
         if (!res.ok) { container.style.display = 'none'; return; }
         var specials = await res.json();
-        if (!Array.isArray(specials) || specials.length === 0) { container.style.display = 'none'; return; }
+        if (!Array.isArray(specials)) specials = [];
 
         specials = specials.filter(function(s) { return angebotLaeuftNoch(s); });
+
+        // Nach Haus ablegen -- daraus baut die Restaurantliste ihre Zeile
+        // "Heute: ...". Auch bei NULL Angeboten neu setzen, sonst bliebe eine
+        // alte Zeile auf einer Karte stehen, deren Angebot gerade ablief.
+        var nachHaus = {};
+        specials.forEach(function(sp) {
+            var rid = sp.restaurant_id;
+            if (!rid) return;
+            (nachHaus[rid] = nachHaus[rid] || []).push(sp);
+        });
+        window._angeboteHeute = nachHaus;
+        if (typeof angebotAbzeichenSetzen === 'function') angebotAbzeichenSetzen();
+
         if (specials.length === 0) { container.style.display = 'none'; return; }
 
         container.style.display = 'block';
-        container.innerHTML = '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Tagesangebote</div>' +
-            '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
+        container.innerHTML =
+            '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;">' +
+              '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">Tagesangebote</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);">' +
+                specials.length + (specials.length === 1 ? ' Angebot heute' : ' Angebote heute') +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">' +
             specials.map(function(s) {
+                // Die Karte selbst kommt aus angebotKarteHtml -- dieselbe wie in
+                // der Speisekarte und auf der Restaurantseite. Vorher hatte jede
+                // der drei Stellen ihre eigene, und sie liefen auseinander.
+                // Hier kommt nur das dazu, was die Startseite braucht: der Name
+                // des Hauses und der Weg dorthin.
                 var rName = (s.restaurants && s.restaurants.name) ? s.restaurants.name : 'Restaurant';
                 var slug = (s.restaurants && s.restaurants.slug) ? s.restaurants.slug : '';
-                var isHappyHour = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
-                var bgGradient = isHappyHour ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
-                var cleanDesc = angebotText(s);
-                var zeit = angebotZeitHinweis(s);
-                var preis = angebotPreis(s.price);
-                var altPreis = angebotPreis(s.old_price);
-                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')" style="cursor:pointer;' : ' style="';
-                return '<div' + klick + 'min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;flex-shrink:0;">' +
-                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + escapeHtml(rName) + '</div>' +
-                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
-                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + escapeHtml(cleanDesc) + '</div>' : '') +
-                    '<div style="display:flex;align-items:baseline;gap:8px;">' +
-                    (preis ? '<div style="font-size:20px;font-weight:700;">' + preis + '</div>' : '') +
-                    (altPreis ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + altPreis + '</div>' : '') +
+                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')"' : '';
+                var zeiger = slug ? 'cursor:pointer;' : '';
+                return '<div' + klick + ' style="min-width:270px;max-width:300px;flex-shrink:0;' + zeiger + '">' +
+                    angebotKarteHtml(s) +
+                    '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding:0 4px;' +
+                      'font-size:12px;font-weight:600;color:var(--text-secondary);">' +
+                      '<span class="material-symbols-outlined" style="font-size:14px;">storefront</span>' +
+                      '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(rName) + '</span>' +
+                      (slug ? '<span class="material-symbols-outlined" style="font-size:14px;margin-left:auto;">arrow_forward</span>' : '') +
                     '</div>' +
-                    (zeit ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + zeit + '</div>' : '') +
-                    '</div>';
+                '</div>';
             }).join('') +
             '</div>';
     } catch(e) {
@@ -65740,15 +65778,125 @@ function angebotPreis(wert) {
     return z.toFixed(2).replace('.', ',') + ' €';
 }
 
+// Was der Gast spart. Das ist der Kern eines Angebots -- vorher stand nur der
+// alte Preis durchgestrichen daneben, und der Gast musste selbst rechnen.
+// Leer, wenn kein alter Preis eingetragen ist oder er nicht hoeher liegt.
+function angebotErsparnis(s) {
+    if (!s) return '';
+    var neu = Number(s.price), alt = Number(s.old_price);
+    if (!isFinite(neu) || !isFinite(alt) || neu <= 0 || alt <= neu) return '';
+    var diff = alt - neu;
+    if (diff < 0.5) return '';                       // unter 50 Cent lohnt der Hinweis nicht
+    return '– ' + diff.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Alle heutigen Angebote nach Haus sortiert. Wird von loadDailySpecials
+// gefuellt und von den Abzeichen in der Restaurantliste gelesen.
+window._angeboteHeute = window._angeboteHeute || {};
+
+// Die Zeile, die in der Restaurantliste auf der Karte steht.
+//
+// WARUM ES DIESE ZEILE BRAUCHT
+// Ein Haus mit Tagesangebot sah in der Liste genauso aus wie eins ohne. Der
+// Gast scrollt an sieben Karten vorbei und erfaehrt nirgends, wer heute
+// etwas hat. Die Angebotsleiste ganz oben nennt zwar den Hausnamen -- wer
+// direkt zur Liste scrollt, sieht sie nie. Genau hier entscheidet er sich.
+function angebotZeileHtml(angebote) {
+    if (!angebote || !angebote.length) return '';
+    var s = angebote[0];
+    var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+    var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,#003d33,#2d8a6e)';
+    var akzent = happy ? '#9a3412' : '#00251e';
+    var preis = angebotPreis(s.price);
+    var altPreis = angebotPreis(s.old_price);
+    var spart = angebotErsparnis(s);
+    var mehr = angebote.length - 1;
+
+    // ZWEI ZEILEN, NICHT EINE.
+    // Erst stand alles nebeneinander: Symbol, "Heute", Titel, Preis,
+    // Ersparnis. Im Browser nachgemessen blieben dem Gerichtnamen 41 Pixel --
+    // aus "Grünkohl mit Pinkel" wurde "Grünko…". Ausgerechnet das, worauf es
+    // ankommt. Jetzt bekommt der Name eine eigene Zeile.
+    var h = '<div style="position:relative;margin-top:12px;border-radius:16px;overflow:hidden;'
+          + 'background:' + farbe + ';color:white;padding:12px 14px;'
+          + 'box-shadow:0 6px 18px -6px ' + akzent + '66;">';
+
+    // Kopfzeile: Anlass links, Ersparnis rechts. Die Ersparnis in Weiss auf
+    // Farbe -- das ist der Kontrast, der ins Auge springt.
+    h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">';
+    h += '<span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0;">'
+       + (happy ? 'local_bar' : 'local_offer') + '</span>';
+    h += '<span style="font-family:Epilogue,sans-serif;font-size:11px;font-weight:800;'
+       + 'text-transform:uppercase;letter-spacing:1px;">'
+       + (happy ? 'Happy Hour' : 'Heute im Angebot') + '</span>';
+    if (spart) {
+        h += '<span style="margin-left:auto;flex-shrink:0;background:var(--angebot-pille);color:' + akzent + ';'
+           + 'font-family:Epilogue,sans-serif;font-size:12px;font-weight:900;'
+           + 'border-radius:9999px;padding:3px 10px;white-space:nowrap;">' + spart + '</span>';
+    }
+    h += '</div>';
+
+    // Hauptzeile: der Gerichtname gross, der Preis daneben.
+    h += '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">';
+    h += '<div style="min-width:0;flex:1;">';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:15px;font-weight:700;line-height:1.25;'
+       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(s.title || 'Angebot') + '</div>';
+    if (mehr > 0) {
+        h += '<div style="font-size:11px;opacity:0.85;margin-top:2px;">und '
+           + mehr + (mehr === 1 ? ' weiteres Angebot' : ' weitere Angebote') + '</div>';
+    }
+    h += '</div>';
+    if (preis) {
+        h += '<div style="text-align:right;flex-shrink:0;">';
+        h += '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:900;line-height:1;">' + preis + '</div>';
+        if (altPreis) h += '<div style="font-size:11px;text-decoration:line-through;opacity:0.7;margin-top:2px;">' + altPreis + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    h += '</div>';
+    return h;
+}
+
+// Traegt die Zeile in die schon gezeichneten Karten ein.
+//
+// Nachtraeglich und nicht beim Zeichnen, weil beides unabhaengig laedt: mal
+// steht die Liste zuerst, mal sind die Angebote zuerst da. Deshalb rufen
+// BEIDE Seiten diese Funktion auf, und sie kommt mit jeder Reihenfolge klar.
+function angebotAbzeichenSetzen() {
+    var plaetze = document.querySelectorAll('.card-angebot[data-restaurant-id]');
+    for (var i = 0; i < plaetze.length; i++) {
+        var el = plaetze[i];
+        var id = el.getAttribute('data-restaurant-id');
+        var liste = (window._angeboteHeute && window._angeboteHeute[id]) || [];
+        // Abgelaufene noch einmal aussortieren: die Liste kann seit dem Laden
+        // alt geworden sein, wenn die Seite lange offen liegt.
+        liste = liste.filter(function (s) { return angebotLaeuftNoch(s); });
+        var neuHtml = angebotZeileHtml(liste);
+        if (el.innerHTML !== neuHtml) el.innerHTML = neuHtml;
+    }
+}
+window.angebotAbzeichenSetzen = angebotAbzeichenSetzen;
+
 // Eine Angebotskarte. Titel und Beschreibung kommen aus dem Dashboard des
 // Wirts und gehen ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+// Eine Angebotskarte.
+//
+// Titel und Beschreibung kommen aus dem Dashboard des Wirts und gehen
+// ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+//
+// GESTALTUNG
+// Das Wichtigste zuerst: was es gibt, was es kostet, was der Gast spart.
+// Die Ersparnis stand vorher nirgends -- da war nur der alte Preis
+// durchgestrichen daneben und der Gast durfte selbst rechnen. Genau die
+// Zahl ist aber der Grund, warum ein Angebot eines ist.
 function angebotKarteHtml(s) {
     var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
     var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
     var text = angebotText(s);
     var zeit = angebotZeitHinweis(s);
     var preis = angebotPreis(s.price);
-    var alt = angebotPreis(s.old_price);
+    var altPreis = angebotPreis(s.old_price);
+    var spart = angebotErsparnis(s);
 
     // Steht "Happy Hour" schon als Titel da, braucht es nicht zusaetzlich
     // als Etikett darueber -- sonst stand es zweimal untereinander.
@@ -65756,21 +65904,60 @@ function angebotKarteHtml(s) {
     var etikett = happy ? 'Happy Hour' : 'Tagesangebot';
     if (titel.trim().toLowerCase() === etikett.toLowerCase()) etikett = '';
 
-    var h = '<div style="background:' + farbe + ';border-radius:16px;padding:16px;color:white;">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">';
+    var h = '<div style="position:relative;background:' + farbe + ';border-radius:20px;padding:18px;'
+          + 'color:white;overflow:hidden;box-shadow:0 8px 24px -8px rgba(0,37,30,0.35);'
+          + 'border:1px solid rgba(255,255,255,0.14);">';
+
+    // Die Ersparnis in Weiss auf Farbe statt blass durchscheinend -- das ist
+    // die Zahl, wegen der jemand zugreift, die darf knallen.
+    var sparPille = spart
+        ? '<span style="font-family:Epilogue,sans-serif;font-size:12px;font-weight:900;'
+          + 'background:var(--angebot-pille);color:' + (happy ? '#9a3412' : '#00251e') + ';'
+          + 'border-radius:9999px;padding:4px 11px;white-space:nowrap;'
+          + 'box-shadow:0 2px 8px rgba(0,0,0,0.18);">' + spart + '</span>'
+        : '';
+
+    if (etikett) {
+        // Kopfzeile: Anlass links, Ersparnis rechts. Die Ersparnis steht oben
+        // und nicht beim Preis -- dort waere sie das dritte Zahlenpaar
+        // untereinander gewesen und haette den Preis erschlagen.
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">';
+        h += '<span style="font-size:10px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.8px;">'
+           + etikett + '</span>' + sparPille;
+        h += '</div>';
+    }
+    // Ohne Etikett gehoert die Pille nicht in eine eigene Kopfzeile -- die
+    // waere leer und die Karte dadurch hoeher als die daneben. Sie wandert
+    // dann ueber den Preis, in dieselbe Spalte. In die Ecke gehaengt hat sie
+    // im Browser den Preis verdeckt.
+    var pilleUeberPreis = (!etikett && sparPille) ? sparPille : '';
+
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;'
+       + (etikett ? '' : 'margin-top:2px;') + '">';
     h += '<div style="min-width:0;">';
-    if (etikett) h += '<div style="font-size:10px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;">' + etikett + '</div>';
-    h += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + escapeHtml(titel) + '</div>';
-    if (text) h += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + escapeHtml(text) + '</div>';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;line-height:1.25;">'
+       + escapeHtml(titel) + '</div>';
+    if (text) {
+        h += '<div style="font-size:12.5px;opacity:0.88;margin-top:5px;line-height:1.4;">'
+           + escapeHtml(text) + '</div>';
+    }
     h += '</div>';
-    if (preis || alt) {
+    if (preis || altPreis || pilleUeberPreis) {
         h += '<div style="text-align:right;flex-shrink:0;">';
-        if (preis) h += '<div style="font-size:20px;font-weight:700;">' + preis + '</div>';
-        if (alt) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + alt + '</div>';
+        if (pilleUeberPreis) h += '<div style="margin-bottom:6px;">' + pilleUeberPreis + '</div>';
+        if (preis) h += '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;line-height:1;">' + preis + '</div>';
+        if (altPreis) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.65;margin-top:4px;">' + altPreis + '</div>';
         h += '</div>';
     }
     h += '</div>';
-    if (zeit) h += '<div style="font-size:11px;opacity:0.75;margin-top:6px;">' + zeit + '</div>';
+
+    // Uhrzeit unten, durch eine Haarlinie abgesetzt: sie gehoert zum
+    // Angebot, ist aber nicht das, weswegen jemand hinschaut.
+    if (zeit) {
+        h += '<div style="display:flex;align-items:center;gap:5px;margin-top:12px;padding-top:10px;'
+           + 'border-top:1px solid rgba(255,255,255,0.18);font-size:11px;opacity:0.85;">'
+           + '<span class="material-symbols-outlined" style="font-size:13px;">schedule</span>' + zeit + '</div>';
+    }
     h += '</div>';
     return h;
 }
