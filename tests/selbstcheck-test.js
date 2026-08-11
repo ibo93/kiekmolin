@@ -332,6 +332,83 @@ var HEILE = {
     t('scheitert der Selbstcheck selbst, sagt er das statt gruen zu zeigen',
       /Der Selbstcheck selbst ist gescheitert/.test(H));
 
+    // ---- 8c. Im Hintergrund mitlaufen ----------------------------------------
+    // Der echte Hintergrunddienst liegt auf dem Server (waechter.js). Das
+    // hier ist die Ergaenzung fuers offene Dashboard.
+    function taktWelt(istAdmin, versteckt) {
+        var gesetzt = [], geleert = [], nav = { appendChild: function (e) { nav.kind = e; } };
+        var el = { navSelbstcheck: nav, scPunkt: null };
+        var F = new Function('currentAdmin', 'document', 'setInterval', 'clearInterval',
+            'selbstcheckAusfuehren', 'selbstcheckPunktSetzen',
+            'var _scTakt = null;\n'
+            + schneide('selbstcheckErlaubt') + '\n'
+            + schneide('selbstcheckHintergrundStarten') + '\n'
+            + schneide('selbstcheckHintergrundStoppen') + '\n'
+            + schneide('selbstcheckStillMessen')
+            + '; return { start: selbstcheckHintergrundStarten, stop: selbstcheckHintergrundStoppen,'
+            + ' still: selbstcheckStillMessen, takt: function () { return _scTakt; } };')(
+            istAdmin ? { isAdmin: true } : { isAdmin: false },
+            { hidden: !!versteckt, getElementById: function (id) { return el[id] || null; } },
+            function (fn, ms) { gesetzt.push(ms); return 'T1'; },
+            function (t) { geleert.push(t); },
+            function () { return Promise.resolve([{ stand: 'fehler' }, { stand: 'warnung' }]); },
+            function (f, w) { el._punkt = { fehler: f, warnung: w }; });
+        return { F: F, gesetzt: gesetzt, geleert: geleert, el: el };
+    }
+
+    var adm = taktWelt(true);
+    adm.F.start();
+    t('beim Admin startet der Takt', adm.gesetzt.length === 1, adm.gesetzt);
+    t('und misst alle fuenf Minuten', adm.gesetzt[0] === 300000, adm.gesetzt[0]);
+    adm.F.start();
+    t('zweimal starten legt keinen zweiten Takt an', adm.gesetzt.length === 1, adm.gesetzt.length);
+    adm.F.stop();
+    t('stoppen raeumt den Takt ab', adm.geleert.length === 1);
+
+    var gastro = taktWelt(false);
+    gastro.F.start();
+    t('beim Gastronom startet gar nichts', gastro.gesetzt.length === 0);
+
+    // Im Hintergrund liegende Seite: nicht messen. Schont Akku und Datenbank.
+    var versteckt = taktWelt(true, true);
+    await versteckt.F.still();
+    t('liegt die Seite im Hintergrund, wird nicht gemessen',
+      versteckt.el._punkt === undefined, JSON.stringify(versteckt.el._punkt));
+    var sichtbar = taktWelt(true, false);
+    await sichtbar.F.still();
+    t('sichtbar wird gemessen und der Punkt gesetzt',
+      sichtbar.el._punkt && sichtbar.el._punkt.fehler === 1 && sichtbar.el._punkt.warnung === 1,
+      JSON.stringify(sichtbar.el._punkt));
+
+    // Der Punkt selbst
+    var P = new Function('document', schneide('selbstcheckPunktSetzen') + '; return selbstcheckPunktSetzen;');
+    function punktWelt() {
+        var kind = null;
+        var nav = { appendChild: function (e) { kind = e; el.scPunkt = e; } };
+        var el = { navSelbstcheck: nav, scPunkt: null };
+        return { setz: P({ getElementById: function (id) { return el[id] || null; },
+                           createElement: function () { return { style: {}, remove: function () { el.scPunkt = null; } }; } }),
+                 el: el, kind: function () { return kind; } };
+    }
+    var pw = punktWelt();
+    pw.setz(2, 0);
+    t('bei Fehlern ist der Punkt rot', pw.el.scPunkt.style.background === '#dc2626', pw.el.scPunkt.style.background);
+    t('und zeigt die Anzahl', pw.el.scPunkt.textContent === '2', pw.el.scPunkt.textContent);
+    t('mit verstaendlichem Titel', /2 Fehler im Betrieb/.test(pw.el.scPunkt.title), pw.el.scPunkt.title);
+    var pw2 = punktWelt();
+    pw2.setz(0, 3);
+    t('nur Hinweise: gelb', pw2.el.scPunkt.style.background === '#f59e0b');
+    var pw3 = punktWelt();
+    pw3.setz(1, 0); pw3.setz(0, 0);
+    t('ist nichts mehr da, verschwindet der Punkt', pw3.el.scPunkt === null);
+
+    t('der Takt haengt an der Anmeldung als Verwaltung',
+      /removeGastroRestrictions[\s\S]{0,400}selbstcheckHintergrundStarten\(\)/.test(H));
+    t('und wird beim Gastronom-Konto wieder abgeschaltet',
+      /applyGastroRestrictions[\s\S]{0,300}selbstcheckHintergrundStoppen\(\)/.test(H));
+    t('nichts springt auf -- waehrend des Services will das niemand',
+      /Kein Fenster, das aufspringt, kein Ton/.test(H));
+
     // ---- 9. Der Grund steht im Quelltext ------------------------------------
     t('die Regel gegen erfundene Zahlen steht in der Datei',
       /KEINE ERFUNDENEN ZAHLEN/.test(H));

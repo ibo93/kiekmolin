@@ -35670,6 +35670,10 @@ async function showGastroDashboard(customer) {
 function applyGastroRestrictions() {
     if (!currentAdmin || currentAdmin.isAdmin) return;
 
+    // Kein Waechter fuer den Gastronomen -- und einen etwa schon laufenden
+    // Takt abschalten, sonst misst er nach einem Kontowechsel weiter.
+    if (typeof selbstcheckHintergrundStoppen === 'function') selbstcheckHintergrundStoppen();
+
     // Alle admin-only Elemente verstecken (per CSS-Klasse)
     var adminOnlyEls = document.querySelectorAll('.admin-only-nav');
     adminOnlyEls.forEach(function(el) { el.style.display = 'none'; });
@@ -35781,6 +35785,10 @@ function removeGastroRestrictions() {
     // Alle admin-only Elemente wieder anzeigen
     var adminOnlyEls = document.querySelectorAll('.admin-only-nav');
     adminOnlyEls.forEach(function(el) { el.style.display = ''; });
+
+    // Der Waechter im Dashboard laeuft ab jetzt mit. Beim Gastronomen wird
+    // er weiter unten gestoppt -- er ist der Verwaltung vorbehalten.
+    if (typeof selbstcheckHintergrundStarten === 'function') selbstcheckHintergrundStarten();
 
     // Alle versteckten Nav-Items wieder anzeigen
     var navIds = ['navRestaurantsDash', 'navAccommodationsDash', 'navJobsDash', 'navCustomers', 'navInstagram', 'navTouristRoutes', 'navStatistics'];
@@ -54113,6 +54121,67 @@ async function selbstcheckAusfuehren(restId) {
 // Deshalb hier noch einmal richtig gefragt.
 function selbstcheckErlaubt() {
     return !!(typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.isAdmin);
+}
+
+// ==================== IM HINTERGRUND MITLAUFEN ====================
+//
+// Der eigentliche Hintergrunddienst liegt auf dem Server
+// (netlify/functions/waechter.js, alle 15 Minuten) -- der laeuft auch
+// nachts und auch, wenn hier niemand die App offen hat.
+//
+// Das hier ist die Ergaenzung fuers offene Dashboard: alle fuenf Minuten
+// still nachmessen und am Menuepunkt einen Punkt setzen, wenn etwas
+// aufgelaufen ist. Kein Fenster, das aufspringt, kein Ton -- waehrend des
+// Services will niemand von seiner eigenen Software angesprungen werden.
+// Wer den Punkt sieht, klickt drauf.
+var _scTakt = null;
+
+function selbstcheckHintergrundStarten() {
+    if (!selbstcheckErlaubt()) return;          // nur Verwaltung
+    if (_scTakt) return;                        // nicht doppelt
+    selbstcheckStillMessen();
+    _scTakt = setInterval(selbstcheckStillMessen, 5 * 60 * 1000);
+}
+
+function selbstcheckHintergrundStoppen() {
+    if (_scTakt) { clearInterval(_scTakt); _scTakt = null; }
+}
+
+async function selbstcheckStillMessen() {
+    if (!selbstcheckErlaubt()) { selbstcheckHintergrundStoppen(); return; }
+    // Nicht messen, wenn die Seite im Hintergrund liegt -- das spart dem
+    // Handy Akku und der Datenbank Abfragen, die niemand ansieht.
+    if (typeof document !== 'undefined' && document.hidden) return;
+    var befunde;
+    try {
+        befunde = await selbstcheckAusfuehren();
+    } catch (e) {
+        return;                                 // still bleiben, nichts behaupten
+    }
+    var fehler = befunde.filter(function (f) { return f.stand === 'fehler'; }).length;
+    var warnung = befunde.filter(function (f) { return f.stand === 'warnung'; }).length;
+    selbstcheckPunktSetzen(fehler, warnung);
+}
+
+// Ein Punkt am Menuepunkt. Rot bei Fehlern, gelb bei Hinweisen, sonst weg.
+function selbstcheckPunktSetzen(fehler, warnung) {
+    var nav = document.getElementById('navSelbstcheck');
+    if (!nav) return;
+    var punkt = document.getElementById('scPunkt');
+    if (!fehler && !warnung) { if (punkt) punkt.remove(); return; }
+    if (!punkt) {
+        punkt = document.createElement('span');
+        punkt.id = 'scPunkt';
+        punkt.style.cssText = 'margin-left:auto;min-width:18px;height:18px;border-radius:9999px;'
+            + 'display:inline-flex;align-items:center;justify-content:center;font-size:11px;'
+            + 'font-weight:800;color:#fff;padding:0 5px;font-family:Inter,sans-serif;';
+        nav.appendChild(punkt);
+    }
+    punkt.style.background = fehler ? '#dc2626' : '#f59e0b';
+    punkt.textContent = String(fehler || warnung);
+    punkt.title = fehler
+        ? (fehler === 1 ? '1 Fehler im Betrieb' : fehler + ' Fehler im Betrieb')
+        : (warnung === 1 ? '1 Hinweis' : warnung + ' Hinweise');
 }
 
 function openSelbstcheck() {
