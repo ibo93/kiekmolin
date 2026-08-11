@@ -1022,9 +1022,38 @@ function buildRestaurantJsonLd(rest, reviews) {
 //  b) opening_time/closing_time + Pause (das Format der Kiek-mol-in-App)
 // Liefert schema.org-Specs ('Mo-Su 11:30-22:00') UND einen lesbaren Text -
 // beides speist JSON-LD, sichtbare Seite und FAQ aus EINER Quelle.
+// DER RUHETAG STAND AUF DER GOOGLE-SEITE NICHT DRIN.
+//
+// Gemeldet: "Die Öffnungszeiten ist auch falsch". Unter dem Treffer stand
+// "hat täglich 11:00–22:00 Uhr geöffnet" -- Al Porto hat aber einen
+// Ruhetag. Google selbst zeigt fuer denselben Betrieb "Öffnet heute um
+// 16:00 Uhr".
+//
+// Die Ursache ist dieselbe wie schon einmal in der App: der Ruhetag steht
+// in einer EIGENEN Spalte (rest_day, 0=Mo .. 6=So), die Uhrzeiten getrennt
+// davon. Wer nur die Uhrzeiten liest, macht aus zwei Feldern ein
+// Versprechen fuer sieben Tage. Die App liest beides -- der Erzeuger der
+// oeffentlichen Seiten las nur die Uhrzeiten. Das Wort "täglich" war damit
+// eine Behauptung, die die Daten nicht hergeben, und sie stand auch in der
+// Auszeichnung fuer Google.
+const WOCHENTAGE = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WOCHENTAGE_DE = ['montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags', 'samstags', 'sonntags'];
+
+function ruhetagIndex(rest) {
+  if (!rest) return -1;
+  const roh = rest.rest_day;
+  // ACHTUNG: Number(null) ist 0 und Number('') auch -- ein Haus OHNE
+  // Ruhetag haette damit montags geschlossen. Erst pruefen, ob ueberhaupt
+  // etwas eingetragen ist.
+  if (roh === null || roh === undefined || roh === '') return -1;
+  const n = Number(roh);
+  return (Number.isInteger(n) && n >= 0 && n <= 6) ? n : -1;
+}
+
 function parseOeffnungszeiten(rest) {
   const leer = { specs: [], text: '' };
   const hhmm = function(t) { return String(t || '').slice(0, 5); };
+  const ruhetag = ruhetagIndex(rest);
 
   // Format a: pro Wochentag
   if (rest.opening_hours && typeof rest.opening_hours === 'object') {
@@ -1039,10 +1068,14 @@ function parseOeffnungszeiten(rest) {
     Object.keys(rest.opening_hours).forEach(function(day) {
       const code = dayMap[String(day).toLowerCase()];
       const v = rest.opening_hours[day];
+      // Am Ruhetag stehen die Uhrzeiten trotzdem in der Tabelle -- sie
+      // werden beim Setzen des Ruhetags nicht geleert. Also hier raus.
+      if (code && WOCHENTAGE.indexOf(code) === ruhetag) return;
       if (code && v && v.open && v.close) specs.push(code + ' ' + hhmm(v.open) + '-' + hhmm(v.close));
     });
     if (specs.length) {
-      return { specs: specs, text: specs.join(', ').replace(/-/g, '–') + ' Uhr' };
+      const zusatz = ruhetag >= 0 ? ', ' + WOCHENTAGE_DE[ruhetag] + ' Ruhetag' : '';
+      return { specs: specs, text: specs.join(', ').replace(/-/g, '–') + ' Uhr' + zusatz };
     }
   }
 
@@ -1054,13 +1087,21 @@ function parseOeffnungszeiten(rest) {
     const pause = oh.pause_enabled !== false && oh.pause_start && oh.pause_end
       ? { von: hhmm(oh.pause_start), bis: hhmm(oh.pause_end) }
       : null;
+    // "täglich" nur, wenn es wirklich taeglich ist. Mit Ruhetag werden die
+    // sechs offenen Tage einzeln ausgezeichnet -- sonst stuende in der
+    // Auszeichnung fuer Google eine Oeffnungszeit fuer einen Tag, an dem
+    // niemand da ist.
+    const offeneTage = WOCHENTAGE.filter(function (t, i) { return i !== ruhetag; });
+    const spanne = ruhetag >= 0 ? offeneTage.join(',') : 'Mo-Su';
+    const wann = ruhetag >= 0 ? 'täglich ausser ' + WOCHENTAGE_DE[ruhetag] : 'täglich';
+    const nachsatz = ruhetag >= 0 ? ' (' + WOCHENTAGE_DE[ruhetag] + ' Ruhetag)' : '';
     if (pause && pause.von > auf && pause.bis < zu) {
       return {
-        specs: ['Mo-Su ' + auf + '-' + pause.von, 'Mo-Su ' + pause.bis + '-' + zu],
-        text: 'täglich ' + auf + '–' + pause.von + ' und ' + pause.bis + '–' + zu + ' Uhr'
+        specs: [spanne + ' ' + auf + '-' + pause.von, spanne + ' ' + pause.bis + '-' + zu],
+        text: wann + ' ' + auf + '–' + pause.von + ' und ' + pause.bis + '–' + zu + ' Uhr' + nachsatz
       };
     }
-    return { specs: ['Mo-Su ' + auf + '-' + zu], text: 'täglich ' + auf + '–' + zu + ' Uhr' };
+    return { specs: [spanne + ' ' + auf + '-' + zu], text: wann + ' ' + auf + '–' + zu + ' Uhr' + nachsatz };
   }
   return leer;
 }
@@ -1294,7 +1335,25 @@ function generateRestaurantPage(rest, menuItems, reviews) {
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
   const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
 
-  const title = name + ' ' + cityRaw + ' – Online bestellen & Tisch reservieren | ' + catLabel;
+  // DIE UEBERSCHRIFT IM GOOGLE-TREFFER.
+  //
+  // Hier stand: name + ' ' + cityRaw + ' – Online bestellen & Tisch
+  // reservieren | ' + catLabel. Bei Al Porto ergab das
+  //
+  //     "Pizzeria Al Porto Oldersum Oldersum – Online bestellen &
+  //      Tisch reservieren | Pizzeria"
+  //
+  // 85 Zeichen, "Oldersum" doppelt, "Pizzeria" doppelt. Google schneidet
+  // bei etwa 60 ab und ersetzt Titel, die sich wiederholen, durch einen
+  // eigenen -- deshalb stand im Treffer "Pizzeria Al Porto Oldersum -
+  // Kiek mol in" und von Bestellen war nichts zu sehen.
+  //
+  // Jetzt: Ort und Betriebsart nur, wenn sie nicht schon im Namen stecken.
+  const imNamen = function (wort) {
+    return wort && normalize(name).indexOf(normalize(wort)) >= 0;
+  };
+  const titelName = imNamen(cityRaw) ? name : name + ' ' + cityRaw;
+  const title = titelName + ' – Speisekarte & online bestellen';
 
   // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
   let description;
