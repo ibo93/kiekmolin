@@ -1038,6 +1038,7 @@ function buildRestaurantJsonLd(rest, reviews) {
 // Auszeichnung fuer Google.
 const WOCHENTAGE = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const WOCHENTAGE_DE = ['montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags', 'samstags', 'sonntags'];
+const WOCHENTAGE_LANG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
 function grossErstes(w) {
   return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
@@ -1056,11 +1057,76 @@ function ruhetagIndex(rest) {
 
 function parseOeffnungszeiten(rest) {
   const leer = { specs: [], text: '' };
-  const hhmm = function(t) { return String(t || '').slice(0, 5); };
+  const hhmm = function (t) { return String(t || '').slice(0, 5); };
   const ruhetag = ruhetagIndex(rest);
 
-  // Format a: pro Wochentag
-  if (rest.opening_hours && typeof rest.opening_hours === 'object') {
+  let oh = rest && rest.opening_hours;
+  if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+  if (oh && typeof oh !== 'object') oh = null;
+
+  // DAS FORMAT, DAS DAS DASHBOARD WIRKLICH SCHREIBT.
+  //
+  // Die Eingabemaske speichert die Zeiten FLACH, mit deutschen Kuerzeln und
+  // einer optionalen zweiten Schicht fuer die Mittagspause:
+  //
+  //     { mo_start: '12:00', mo_end: '14:00',
+  //       mo_start2: '17:00', mo_end2: '21:30', di_start: ... }
+  //
+  // Hier stand eine Zuordnung auf "mon"/"montag" mit verschachteltem
+  // { open, close }. Dieses Format schreibt niemand -- der Zweig traf nie
+  // zu. Danach fiel alles auf opening_time/closing_time zurueck, also auf
+  // zwei Felder fuer die ganze Woche, und daraus wurde "täglich 11:00-22:00".
+  // Deshalb standen auf jeder Google-Seite dieselben erfundenen Zeiten.
+  //
+  // Die App selbst liest das flache Format korrekt (checkIfOpen,
+  // getOpeningTimeToday) -- nur der Erzeuger der oeffentlichen Seiten nicht.
+  const KUERZEL = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+  const flach = oh && KUERZEL.some(function (k) { return Object.prototype.hasOwnProperty.call(oh, k + '_start'); });
+
+  if (flach) {
+    // Pro Tag die Schichten sammeln. Ein Tag ohne Start- oder Endzeit ist
+    // geschlossen -- so traegt die Maske einen Ruhetag ein.
+    const tage = KUERZEL.map(function (k, i) {
+      if (i === ruhetag) return { i: i, schichten: [] };
+      const schichten = [];
+      if (oh[k + '_start'] && oh[k + '_end']) schichten.push(hhmm(oh[k + '_start']) + '-' + hhmm(oh[k + '_end']));
+      if (oh[k + '_start2'] && oh[k + '_end2']) schichten.push(hhmm(oh[k + '_start2']) + '-' + hhmm(oh[k + '_end2']));
+      return { i: i, schichten: schichten };
+    });
+
+    if (tage.some(function (t) { return t.schichten.length; })) {
+      // Gleiche Tage zusammenfassen: "Mo-Fr 12:00-14:00 und 17:00-21:30"
+      // liest sich besser als sieben Zeilen -- und ist dieselbe Angabe.
+      const bloecke = [];
+      tage.forEach(function (t) {
+        const schluessel = t.schichten.join('|');
+        const letzter = bloecke[bloecke.length - 1];
+        if (letzter && letzter.schluessel === schluessel && letzter.bis === t.i - 1) letzter.bis = t.i;
+        else bloecke.push({ von: t.i, bis: t.i, schluessel: schluessel, schichten: t.schichten });
+      });
+
+      const specs = [];
+      const teile = [];
+      bloecke.forEach(function (b) {
+        const tageText = b.von === b.bis
+          ? WOCHENTAGE_LANG[b.von]
+          : WOCHENTAGE_LANG[b.von] + '–' + WOCHENTAGE_LANG[b.bis];
+        if (!b.schichten.length) {
+          teile.push(tageText + ': geschlossen');
+          return;
+        }
+        const codes = b.von === b.bis
+          ? WOCHENTAGE[b.von]
+          : WOCHENTAGE.slice(b.von, b.bis + 1).join(',');
+        b.schichten.forEach(function (sch) { specs.push(codes + ' ' + sch); });
+        teile.push(tageText + ' ' + b.schichten.map(function (sch) { return sch.replace('-', '–'); }).join(' und ') + ' Uhr');
+      });
+      return { specs: specs, text: teile.join(', ') };
+    }
+  }
+
+  // Aeltere Datensaetze: pro Wochentag verschachtelt { mon: {open, close} }.
+  if (oh) {
     const dayMap = {
       mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa', sun: 'Su',
       monday: 'Mo', tuesday: 'Tu', wednesday: 'We', thursday: 'Th',
@@ -1069,36 +1135,32 @@ function parseOeffnungszeiten(rest) {
       freitag: 'Fr', samstag: 'Sa', sonntag: 'Su'
     };
     const specs = [];
-    Object.keys(rest.opening_hours).forEach(function(day) {
+    Object.keys(oh).forEach(function (day) {
       const code = dayMap[String(day).toLowerCase()];
-      const v = rest.opening_hours[day];
+      const v = oh[day];
       // Am Ruhetag stehen die Uhrzeiten trotzdem in der Tabelle -- sie
       // werden beim Setzen des Ruhetags nicht geleert. Also hier raus.
       if (code && WOCHENTAGE.indexOf(code) === ruhetag) return;
       if (code && v && v.open && v.close) specs.push(code + ' ' + hhmm(v.open) + '-' + hhmm(v.close));
     });
     if (specs.length) {
-      const zusatz = ruhetag >= 0 ? ', ' + WOCHENTAGE_DE[ruhetag] + ' Ruhetag' : '';
+      const zusatz = ruhetag >= 0 ? ', ' + WOCHENTAGE_LANG[ruhetag] + ': geschlossen' : '';
       return { specs: specs, text: specs.join(', ').replace(/-/g, '–') + ' Uhr' + zusatz };
     }
   }
 
-  // Format b: tägliche Zeiten + optionale Mittagspause
-  if (rest.opening_time && rest.closing_time) {
+  // Letzter Rueckfall: zwei Felder fuer die ganze Woche. Das ist eine grobe
+  // Angabe und wird auch als solche geschrieben -- nicht als Tagesplan.
+  if (rest && rest.opening_time && rest.closing_time) {
     const auf = hhmm(rest.opening_time);
     const zu = hhmm(rest.closing_time);
-    const oh = rest.opening_hours || {};
-    const pause = oh.pause_enabled !== false && oh.pause_start && oh.pause_end
+    const pause = oh && oh.pause_enabled !== false && oh.pause_start && oh.pause_end
       ? { von: hhmm(oh.pause_start), bis: hhmm(oh.pause_end) }
       : null;
-    // "täglich" nur, wenn es wirklich taeglich ist. Mit Ruhetag werden die
-    // sechs offenen Tage einzeln ausgezeichnet -- sonst stuende in der
-    // Auszeichnung fuer Google eine Oeffnungszeit fuer einen Tag, an dem
-    // niemand da ist.
     const offeneTage = WOCHENTAGE.filter(function (t, i) { return i !== ruhetag; });
     const spanne = ruhetag >= 0 ? offeneTage.join(',') : 'Mo-Su';
     const wann = ruhetag >= 0 ? 'täglich ausser ' + WOCHENTAGE_DE[ruhetag] : 'täglich';
-    const nachsatz = ruhetag >= 0 ? ' (' + WOCHENTAGE_DE[ruhetag] + ' Ruhetag)' : '';
+    const nachsatz = ruhetag >= 0 ? ', ' + WOCHENTAGE_LANG[ruhetag] + ': geschlossen' : '';
     if (pause && pause.von > auf && pause.bis < zu) {
       return {
         specs: [spanne + ' ' + auf + '-' + pause.von, spanne + ' ' + pause.bis + '-' + zu],
