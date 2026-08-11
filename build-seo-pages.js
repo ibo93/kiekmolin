@@ -1039,6 +1039,10 @@ function buildRestaurantJsonLd(rest, reviews) {
 const WOCHENTAGE = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const WOCHENTAGE_DE = ['montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags', 'samstags', 'sonntags'];
 
+function grossErstes(w) {
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
+}
+
 function ruhetagIndex(rest) {
   if (!rest) return -1;
   const roh = rest.rest_day;
@@ -1150,12 +1154,34 @@ function buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems) {
 
 // Sichtbare Oeffnungszeiten auf der Restaurant-Seite (gleiche Quelle wie
 // das JSON-LD - Google mag es, wenn Markup und Seite dasselbe sagen).
+// DIE OEFFNUNGSZEITEN WAREN DER GOOGLE-AUSSCHNITT.
+//
+// Gemeldet: unter dem Treffer stand woertlich
+//
+//     "La Piazza hat täglich 12:00–14:00 und 17:00–21:30 Uhr geöffnet.
+//      Feiertage und Betriebsferien können abweichen – das Live-Profil
+//      zeigt, ob gerade geöffnet ist."
+//
+// Das war ein Fliesstext-Absatz, der fuer sich allein steht und wie eine
+// fertige Antwort aussieht -- genau so etwas nimmt Google als Ausschnitt,
+// auch wenn eine Meta-Beschreibung da ist. Der zweite Satz hat es noch
+// verstaerkt: er rundet den Absatz ab, gehoert aber niemandem zur
+// Entscheidung.
+//
+// Die Zeiten bleiben auf der Seite -- der Gast braucht sie, und die
+// Auszeichnung fuer Google zieht sie ohnehin aus derselben Quelle. Sie
+// stehen nur nicht mehr als zitierfaehiger Absatz da, sondern als Liste.
+// Aus einer Liste baut Google selten einen Ausschnitt.
 function renderOeffnungszeitenHtml(rest, name) {
   const oeff = parseOeffnungszeiten(rest);
   if (!oeff.text) return '';
+  const ruhetag = ruhetagIndex(rest);
   return '<h2>Öffnungszeiten von ' + escapeHtml(name) + '</h2>\n' +
-    '<p>' + escapeHtml(name) + ' hat ' + escapeHtml(oeff.text) + ' geöffnet. ' +
-    'Feiertage und Betriebsferien können abweichen – das Live-Profil zeigt, ob gerade geöffnet ist.</p>\n';
+    '<ul class="oeffnungszeiten">\n' +
+    '<li>' + escapeHtml(oeff.text.replace(/ \(.*$/, '')) + '</li>\n' +
+    // "montags" ohne das s ist der Wochentag -- und der wird grossgeschrieben.
+    (ruhetag >= 0 ? '<li>' + escapeHtml(grossErstes(WOCHENTAGE_DE[ruhetag].replace(/s$/, '')) + ': Ruhetag') + '</li>\n' : '') +
+    '</ul>\n';
 }
 
 function detectCategoryForRest(rest) {

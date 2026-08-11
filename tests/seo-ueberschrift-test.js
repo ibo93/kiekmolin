@@ -148,11 +148,47 @@ t('auch mit Mittagspause bleibt der Ruhetag draussen',
   pause.text + ' · ' + pause.specs.join('|'));
 t('und die Pause steht weiterhin drin', /14:00 und 17:00/.test(pause.text), pause.text);
 
+// ---- 2b. Die Oeffnungszeiten waren der Google-Ausschnitt -------------------
+// Unter dem Treffer stand woertlich der Oeffnungszeiten-Absatz. Er war ein
+// Fliesstext, der fuer sich allein steht und wie eine fertige Antwort
+// aussieht -- genau so etwas nimmt Google, auch wenn eine
+// Meta-Beschreibung da ist. Der zweite Satz ("Feiertage und
+// Betriebsferien...") hat den Absatz noch abgerundet, ohne jemandem bei
+// einer Entscheidung zu helfen.
+var block = new Function('WOCHENTAGE', 'WOCHENTAGE_DE', 'escapeHtml',
+    schneide('grossErstes') + schneide('ruhetagIndex') + schneide('parseOeffnungszeiten')
+    + schneide('renderOeffnungszeitenHtml') + '; return renderOeffnungszeitenHtml;')(
+    WT, WT_DE, function (x) { return String(x); });
+
+var htmlZeiten = block({ opening_time: '12:00', closing_time: '21:30', rest_day: 0 }, 'La Piazza');
+t('die Zeiten stehen als Liste da, nicht als Absatz',
+  /<ul class="oeffnungszeiten">/.test(htmlZeiten) && htmlZeiten.indexOf('<p>') < 0, htmlZeiten);
+// CODE, nicht S: der Kommentar ueber der Funktion zitiert den alten Satz,
+// und der Waechter waere sonst auf die Fehlerbeschreibung hereingefallen.
+// Dieselbe Falle wie schon mehrfach in diesem Projekt.
+t('der abrundende Fuellsatz ist weg',
+  CODE.indexOf('Feiertage und Betriebsferien können abweichen') < 0,
+  (CODE.match(/[^\n]{0,50}Feiertage und Betriebsferien[^\n]{0,50}/g) || []).join(' | '));
+t('die Zeiten selbst bleiben -- der Gast braucht sie',
+  /12:00–21:30/.test(htmlZeiten), htmlZeiten);
+t('der Ruhetag steht als eigener Punkt',
+  /<li>Montag: Ruhetag<\/li>/.test(htmlZeiten), htmlZeiten);
+t('und der Wochentag wird grossgeschrieben, nicht "montag"',
+  htmlZeiten.indexOf('>montag:') < 0, htmlZeiten);
+t('ohne Ruhetag gibt es auch keinen zweiten Punkt',
+  (block({ opening_time: '11:00', closing_time: '22:00' }, 'X').match(/<li>/g) || []).length === 1);
+t('ohne Zeiten steht gar nichts da, statt einer leeren Ueberschrift',
+  block({}, 'X') === '');
+t('die Auszeichnung fuer Google zieht weiter aus derselben Quelle',
+  /parseOeffnungszeiten\(rest\)/.test(schneide('renderOeffnungszeitenHtml')));
+
 // ---- 3. Der Grund steht im Quelltext ---------------------------------------
 t('warum die Ueberschrift geaendert wurde, steht in der Datei',
   /DIE UEBERSCHRIFT IM GOOGLE-TREFFER/.test(S));
 t('und warum der Ruhetag dazukam',
   /DER RUHETAG STAND AUF DER GOOGLE-SEITE NICHT DRIN/.test(S));
+t('und warum die Zeiten kein Absatz mehr sind',
+  /DIE OEFFNUNGSZEITEN WAREN DER GOOGLE-AUSSCHNITT/.test(S));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
