@@ -311,7 +311,7 @@
                 "position": 2,
                 "item": {
                     "@type": "Restaurant",
-                    "name": "Greetsiler Börse",
+                    "name": "Greetsieler Börse",
                     "servesCuisine": "Norddeutsch",
                     "url": "https://kiekmolin.de/greetsiler-boerse",
                     "address": {"@type": "PostalAddress", "addressLocality": "Greetsiel", "addressRegion": "Niedersachsen", "addressCountry": "DE"},
@@ -8797,10 +8797,18 @@
         .checkout-input-glass::placeholder {
             color: transparent;
         }
+        /* DIE BESCHRIFTUNG RAGTE INS FELD.
+           top:-10px bei 15px Zeilenhoehe heisst: die Unterkante liegt 5px
+           UNTER der Feldoberkante. Nachgemessen im Browser. Auf schmaleren
+           Geraeten kam dazu, dass "VOLLSTÄNDIGER NAME" umbrach -- die zweite
+           Zeile lag dann mitten auf dem eingegebenen Namen.
+           Jetzt sitzt sie ganz oberhalb, und sie bricht nicht mehr um. */
         .checkout-floating-label {
             position: absolute;
-            top: -10px;
+            bottom: 100%;
+            margin-bottom: 4px;
             left: 16px;
+            right: 0;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
@@ -8808,6 +8816,9 @@
             color: rgba(0,61,51,0.6);
             pointer-events: none;
             transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .order-type-toggle {
@@ -8821,7 +8832,11 @@
             flex: 1;
             padding: 12px 10px;
             border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 16px;
+            /* 32px, nicht 16px: die runde Form stand bisher als Inline-Stil
+               am Knopf und ist die gewollte. Die Inline-Stile mussten weg
+               (siehe unten), also zieht der Wert hier ein. */
+            border-radius: 32px;
+            text-align: center;
             background: rgba(0,61,51,0.05);
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -12838,7 +12853,7 @@ var _onboardingSteps = [
     { title:'Entdecke Restaurants', text:'Finde die besten Restaurants in Ostfriesland. Filtere nach Küche, freien Tischen und Bewertungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">search</span>' },
     { title:'Bestelle online', text:'Stöbere durch die Speisekarte, wähle deine Lieblingsgerichte und bestelle direkt über die App.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">restaurant</span>' },
     { title:'Live-Status oben am Banner', text:'Sobald du bestellt oder reserviert hast, erscheint oben ein Banner mit Live-Status. Klick drauf für Details — automatisch aktualisiert.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">notifications_active</span>' },
-    { title:'Push-Benachrichtigungen', text:'Aktiviere Push, dann wirst du benachrichtigt wenn deine Bestellung fertig ist — auch wenn die App geschlossen ist. Auf dem iPhone: zum Home-Bildschirm hinzufügen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">phone_iphone</span>' },
+    { title:'Push-Benachrichtigungen', text:'Aktiviere Push, dann wirst du benachrichtigt, wenn deine Bestellung fertig ist — auch wenn die App geschlossen ist. Auf dem iPhone: zum Home-Bildschirm hinzufügen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">phone_iphone</span>' },
     { title:'Frag Kiek', text:'Unser Assistent hilft dir bei Fragen zu Gerichten, Allergenen, Preisen und Empfehlungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">chat</span>' },
     { title:'Dein Style', text:'Passe das Design an deinen Geschmack an — Dark Mode, Farben und mehr in den Einstellungen.', icon:'<span class="material-symbols-outlined" style="font-size:32px;">settings</span>' }
 ];
@@ -14157,7 +14172,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div class="chip" data-filter="deutsch" onclick="setFilter('deutsch')">Norddeutsch</div>
             <div class="chip" data-filter="italienisch" onclick="setFilter('italienisch')">Italienisch</div>
             <div class="chip" data-filter="tuerkisch" onclick="setFilter('tuerkisch')">Döner</div>
-            <div class="chip" data-filter="cafe" onclick="setFilter('cafe')">Cafe</div>
+            <div class="chip" data-filter="cafe" onclick="setFilter('cafe')">Café</div>
             <div class="chip" data-filter="imbiss" onclick="setFilter('imbiss')">Imbiss</div>
             <div class="chip" data-filter="asiatisch" onclick="setFilter('asiatisch')">Asiatisch</div>
             <div class="chip" data-filter="griechisch" onclick="setFilter('griechisch')">Griechisch</div>
@@ -18466,7 +18481,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             </div>
 
             <!-- Bestelloptionen Einstellungen - Premium -->
-            <!-- Stosszeiten Heatmap -->
+            <!-- Stoßzeiten Heatmap -->
             <div id="rushHourHeatmap" style="background: rgba(255,255,255,0.45); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: 48px; padding: 24px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.3); display: none;">
             </div>
 
@@ -19002,7 +19017,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div id="menuEmptyState" style="text-align: center; padding: 60px 20px;">
                 <span class="material-symbols-outlined" style="font-size:80px;color:var(--slate);opacity:0.3;margin-bottom:20px;">menu_book</span>
                 <h3 style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Kein Restaurant ausgewählt</h3>
-                <p style="color: var(--slate); font-size: 14px;">Wähle oben ein Restaurant um die Speisekarte zu bearbeiten</p>
+                <p style="color: var(--slate); font-size: 14px;">Wähle oben ein Restaurant, um die Speisekarte zu bearbeiten</p>
             </div>
 
         </div>
@@ -19545,7 +19560,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label"><span class="label-icon"><span class="material-symbols-outlined" style="font-size:16px;">mail</span></span>Email</label>
+                    <label class="form-label"><span class="label-icon"><span class="material-symbols-outlined" style="font-size:16px;">mail</span></span>E-Mail</label>
                     <input type="email" class="form-input" id="accEmail" placeholder="info@unterkunft.de">
                 </div>
 
@@ -19597,7 +19612,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
-                        <label class="form-label">Email *</label>
+                        <label class="form-label">E-Mail *</label>
                         <input type="email" class="form-input" id="customerEmail" required placeholder="email@restaurant.de">
                     </div>
                     <div class="form-group">
@@ -20119,7 +20134,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
-                        <label class="form-label"><span class="label-icon"><span class="material-symbols-outlined" style="font-size:16px;">mail</span></span>Email</label>
+                        <label class="form-label"><span class="label-icon"><span class="material-symbols-outlined" style="font-size:16px;">mail</span></span>E-Mail</label>
                         <input type="email" class="form-input" id="inquiryEmail" placeholder="ihre@email.de">
                     </div>
                     <div class="form-group">
@@ -23297,18 +23312,32 @@ function handleRealtimeMenu(payload) {
 
 // ==================== TAGESANGEBOTE ECHTZEIT ====================
 function handleRealtimeSpecials(payload) {
-    var type = payload.eventType;
-    // Dashboard: Tagesangebote aktualisieren
+    // Startseite: die Angebotsleiste aller Häuser
     if (typeof loadDailySpecials === 'function') {
         loadDailySpecials();
     }
-    // Kundenansicht: Restaurant-Landing neu laden wenn Tagesangebot sich ändert
-    var landing = document.getElementById('restaurantLanding');
-    if (landing && typeof renderRestaurantSpecials === 'function') {
-        var specData = payload.new || {};
-        if (specData.restaurant_id) {
-            renderRestaurantSpecials(specData.restaurant_id);
-        }
+
+    // Welches Haus ist betroffen? Beim Löschen steht die Zeile nur noch
+    // in payload.old -- payload.new ist dann leer.
+    var betroffen = (payload.new && payload.new.restaurant_id)
+                 || (payload.old && payload.old.restaurant_id) || null;
+    if (!betroffen) return;
+
+    // Restaurantseite -- aber nur, wenn WIRKLICH dieses Haus offen ist.
+    // Sonst schriebe das Angebot eines fremden Hauses in die offene Seite.
+    if (document.getElementById('lpSpecials')
+        && window._currentLandingRestaurantId === betroffen
+        && typeof renderRestaurantSpecials === 'function') {
+        renderRestaurantSpecials(betroffen);
+    }
+
+    // Offene Speisekarte -- gleiche Bedingung, anderes Fenster.
+    var karte = document.getElementById('menuModal');
+    var karteOffen = karte && (karte.classList.contains('active') || karte.style.display === 'block');
+    if (karteOffen && typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant
+        && currentOrderRestaurant.id === betroffen
+        && typeof showDailySpecialInMenu === 'function') {
+        showDailySpecialInMenu(betroffen);
     }
 }
 
@@ -24080,13 +24109,13 @@ function loadFeaturedGoogleReviews() {
         window._featuredGoogleReviews = {
             'a3a8c900-f802-4fea-9918-c82a3e0aaab4': [
                 { name: 'Marco B.', stars: 5, text: 'Authentisch italienisch mitten in Greetsiel! Die Pizza kommt knusprig aus dem Ofen und die Pasta ist al dente perfekt. Dazu freundlicher Service und schöne Lage am Marktplatz.', date: 'vor 2 Wochen', color: '#EA4335' },
-                { name: 'Sandra K.', stars: 5, text: 'Wir kommen jedes Mal wenn wir in Greetsiel Urlaub machen. Die Qualität ist konstant gut, die Portionen großzügig und das Preis-Leistungs-Verhältnis stimmt.', date: 'vor 1 Monat', color: '#34A853' },
+                { name: 'Sandra K.', stars: 5, text: 'Wir kommen jedes Mal, wenn wir in Greetsiel Urlaub machen. Die Qualität ist konstant gut, die Portionen großzügig und das Preis-Leistungs-Verhältnis stimmt.', date: 'vor 1 Monat', color: '#34A853' },
                 { name: 'Jens H.', stars: 5, text: 'Sehr leckere italienische Küche in schöner Lage. Am Wochenende unbedingt reservieren! Die Terrasse im Sommer ist ein Traum.', date: 'vor 3 Wochen', color: '#4285F4' }
             ],
             '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad': [
                 { name: 'Heike M.', stars: 5, text: 'Sehr gut geführtes Restaurant mit ausgezeichnetem Essen. Die Fischplatte Börse ist hervorragend! Schneller, aufmerksamer Service in gemütlicher Atmosphäre.', date: 'vor 1 Woche', color: '#FBBC05' },
                 { name: 'Peter R.', stars: 5, text: 'Sehr empfehlenswert! Geschmackvoll renoviert, herzliche norddeutsche Küche. Der Grünkohl mit Pinkel kommt in riesigen Portionen. Dazu frisch gezapftes Jever vom Fass.', date: 'vor 2 Wochen', color: '#EA4335' },
-                { name: 'Julia F.', stars: 5, text: 'Die Börse ist Pflicht wenn man in Greetsiel ist! Urige Atmosphäre, frische Krabben und sehr gute norddeutsche Küche zu fairen Preisen. Terrasse direkt am Wasser.', date: 'vor 1 Monat', color: '#34A853' }
+                { name: 'Julia F.', stars: 5, text: 'Die Börse ist Pflicht, wenn man in Greetsiel ist! Urige Atmosphäre, frische Krabben und sehr gute norddeutsche Küche zu fairen Preisen. Terrasse direkt am Wasser.', date: 'vor 1 Monat', color: '#34A853' }
             ]
         };
     });
@@ -24501,6 +24530,59 @@ const APP_DATA = {
     restaurants: []
 };
 
+// ==================== KÜCHENART: SCHLÜSSEL IST NICHT ANZEIGETEXT ====================
+//
+// In der Datenbank steht die Küchenart als Schlüssel: 'tuerkisch',
+// 'italienisch', 'cafe'. Das ist richtig so -- Schlüssel bleiben ASCII, sonst
+// findet die Filterung nichts mehr.
+//
+// FALSCH WAR, DASS DIESER SCHLÜSSEL AN DREI STELLEN DIREKT ANGEZEIGT WURDE:
+//   - auf der Kartenkarte stand "tuerkisch · Greetsiel"
+//   - in der Beschreibung darunter "tuerkisch Küche in Greetsiel"
+//   - und in servesCuisine im Schema, das GOOGLE ausliest
+// Es gab zwar schon eine Übersetzungstabelle, aber zweimal lokal in je einer
+// Funktion versteckt. Wer woanders eine Küchenart anzeigte, hatte sie nicht.
+//
+// Deshalb hier eine einzige Stelle für alle. Wer eine Küchenart anzeigen
+// will, ruft kuecheLabel() -- und bekommt "Türkisch" statt 'tuerkisch'.
+var KUECHE_LABEL = {
+    'fisch': 'Fisch', 'italienisch': 'Italienisch', 'deutsch': 'Deutsch',
+    'cafe': 'Café', 'tuerkisch': 'Türkisch', 'imbiss': 'Imbiss',
+    'griechisch': 'Griechisch', 'asiatisch': 'Asiatisch', 'bar': 'Bar',
+    // Diese stehen in den Filterlisten der App, fehlten aber in der
+    // Uebersetzung. 'baeckerei' waere sonst als "Baeckerei" erschienen --
+    // der Notweg schreibt nur den ersten Buchstaben gross und kann aus
+    // "ae" kein "ä" machen.
+    'burger': 'Burger', 'steakhouse': 'Steakhouse', 'indisch': 'Indisch',
+    'baeckerei': 'Bäckerei', 'shisha': 'Shisha', 'eisdiele': 'Eisdiele',
+    'norddeutsch': 'Norddeutsch'
+};
+
+function kuecheLabel(schluessel, ersatz) {
+    if (!schluessel) return ersatz || '';
+    var k = String(schluessel).toLowerCase().trim();
+    if (KUECHE_LABEL[k]) return KUECHE_LABEL[k];
+    // Unbekannte Küchenart: nicht den nackten Schlüssel zeigen, sondern
+    // wenigstens den ersten Buchstaben groß. Besser "Spanisch" als "spanisch",
+    // und immer noch besser als gar nichts.
+    return k.charAt(0).toUpperCase() + k.slice(1);
+}
+window.kuecheLabel = kuecheLabel;
+
+// Mehrere Kuechenarten als lesbare Liste. cuisine_type ist ein Feld von
+// Schluesseln: ['fisch','bar']. Roh zusammengehaengt stand auf der
+// Restaurantseite "fisch & bar Küche" -- klein geschrieben und ohne Sinn.
+function kuechenListe(rest, trenner) {
+    if (!rest) return '';
+    var roh = (Array.isArray(rest.cuisine_type) && rest.cuisine_type.length)
+        ? rest.cuisine_type : (rest.cuisine ? [rest.cuisine] : []);
+    var namen = roh.map(function (k) { return kuecheLabel(k); }).filter(Boolean);
+    if (!namen.length) return '';
+    if (namen.length === 1) return namen[0];
+    return namen.slice(0, -1).join(', ') + (trenner || ' und ') + namen[namen.length - 1];
+}
+window.kuechenListe = kuechenListe;
+
 // ==================== UTILITY FUNCTIONS ====================
 
 // Sicherer Supabase-Fetch mit Error-Handling und Retry
@@ -24840,13 +24922,11 @@ function renderRestaurants(filter) {
                 : 'Hallo! Ich möchte gerne einen Tisch reservieren über Kiek mol in.');
 
         // Besucher heute (aus Cache oder 0)
-        const visitorsToday = r.visitorsToday || 0;
-        const isTrending = visitorsToday > 10;
-        const visitorsText = currentLanguage === 'en' ? 'today' : (currentLanguage === 'nl' ? 'vandaag' : 'heute');
-
-        // Beste Zeit berechnen
-        const bestTimeInfo = typeof getBestTime === 'function' ? getBestTime(r.id) : null;
-        const bestTimeText = bestTimeInfo ? `Beste Zeit: ${bestTimeInfo.bestHour}:00` : '';
+        // HIER STANDEN FUENF TOTE VARIABLEN.
+        // visitorsToday, isTrending, visitorsText, bestTimeInfo und
+        // bestTimeText wurden berechnet und nirgends gelesen. bestTimeInfo
+        // haette getBestTime() gebraucht -- diese Funktion gibt es in der
+        // ganzen Datei nicht, die Abfrage war also immer falsch.
 
         // Reserviert das Restaurant überhaupt? Nur dann die reservierungs-basierte
         // Verfügbarkeit ("X Uhrzeiten verfügbar") anzeigen -- sonst wirkt es, als
@@ -24878,7 +24958,7 @@ function renderRestaurants(filter) {
                 <div style="padding:20px 24px 24px;">
                     <h3 style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:20px;color:var(--ink-deep);cursor:pointer;letter-spacing:-0.02em;" onclick="openRestaurantBySlug('${r.slug || r.id}')">${r.name}</h3>
                     <div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--text-secondary);">
-                        <span>${(r.cuisine_type && r.cuisine_type.length > 1) ? r.cuisine_type.join(' · ') : r.cuisine}</span>
+                        <span>${kuechenListe(r, ' und ') || 'Restaurant'}</span>
                         <span style="width:3px;height:3px;border-radius:50%;background:#c0c8c4;"></span>
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
@@ -25667,7 +25747,8 @@ async function loadWeatherForLocation(location) {
         updateWeatherUI(temp, desc, windSpeed, humidity, todayHigh, todayLow, location, isDay);
         updateHourlyForecast(data.hourly);
         updateDailyForecast(data.daily);
-        if (typeof updateWeatherTheme === "function") updateWeatherTheme(weatherCode, isDay);
+        // updateWeatherTheme(weatherCode, isDay) stand hier -- die Funktion
+        // gibt es nicht. Die Abfrage war immer falsch.
 
     } catch (e) {
         console.error('Fehler:', e);
@@ -26682,7 +26763,7 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">';
         mittagSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
         });
         html += '</div>';
     }
@@ -26693,7 +26774,7 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
         abendSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
         });
         html += '</div>';
     }
@@ -26726,11 +26807,28 @@ function renderFallbackSlots() {
 function selectSlot(btn, time, tables, areas) {
     selectedSlot = { time, tables, areas };
 
-    // Alle Buttons deselektieren
-    document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+    // Alle Buttons deselektieren.
+    //
+    // Die Klasse allein reicht hier NICHT: der Knopf traegt seinen
+    // Auslastungs-Hintergrund als Inline-Stil, und der schlaegt die Regel
+    // .slot-btn.selected. Ohne das Folgende blieb das gewaehlte Zeitfenster
+    // unmarkiert -- der Gast sah nicht, was er angetippt hatte.
+    // Die Ausgangsfarben stehen als data-bg und data-rand am Knopf.
+    document.querySelectorAll('.slot-btn').forEach(function (b) {
+        b.classList.remove('selected');
+        if (b.dataset.bg) b.style.background = b.dataset.bg;
+        if (b.dataset.rand) b.style.borderColor = b.dataset.rand;
+        b.style.color = 'var(--text-primary)';
+    });
 
     // Geklickten Button selektieren
-    if (btn && btn.closest) btn.closest('.slot-btn').classList.add('selected');
+    var gewaehlt = btn && btn.closest ? btn.closest('.slot-btn') : null;
+    if (gewaehlt) {
+        gewaehlt.classList.add('selected');
+        gewaehlt.style.background = 'var(--primary)';
+        gewaehlt.style.borderColor = 'var(--primary)';
+        gewaehlt.style.color = 'white';
+    }
 
     // Hidden Input setzen
     document.getElementById('reservationTime').value = time;
@@ -28377,7 +28475,7 @@ function renderRestaurantsDash() {
                     ${r.image ? '<img src="' + r.image + '" loading="lazy" alt="' + r.name + '">' : ''}
                     <div class="rest-card-img-overlay">
                         <h3 class="rest-card-name">${r.name}</h3>
-                        <p class="rest-card-meta">${r.city || 'Ostfriesland'} · ${(r.cuisine_type && r.cuisine_type.length > 1) ? r.cuisine_type.join(' · ') : (r.cuisine || 'Restaurant')}</p>
+                        <p class="rest-card-meta">${r.city || 'Ostfriesland'} · ${kuechenListe(r, ' und ') || 'Restaurant'}</p>
                     </div>
                     ${r.is_active === false ? '<div class="rest-card-badge inactive">Inaktiv</div>' : ''}
                 </div>
@@ -30443,9 +30541,9 @@ async function renderActiveOffers() {
             html += '<div style="padding:14px;margin-bottom:10px;background:var(--bg-secondary);border-radius:16px;' + activeStyle + '">' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
                     '<div>' +
-                        '<div style="font-size:11px;color:var(--slate);">' + rName + '</div>' +
-                        '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-top:2px;">' + (s.title || 'Angebot') + '</div>' +
-                        (s.description ? '<div style="font-size:12px;color:var(--slate);margin-top:2px;">' + s.description + '</div>' : '') +
+                        '<div style="font-size:11px;color:var(--slate);">' + escapeHtml(rName) + '</div>' +
+                        '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-top:2px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
+                        (s.description ? '<div style="font-size:12px;color:var(--slate);margin-top:2px;">' + escapeHtml(angebotText(s)) + '</div>' : '') +
                     '</div>' +
                     '<div style="text-align:right;">' +
                         (s.price ? '<div style="font-size:18px;font-weight:700;color:var(--primary);">' + s.price.toFixed(2).replace('.',',') + ' €</div>' : '') +
@@ -31624,6 +31722,40 @@ function escapeHtml(text) {
         .replace(/'/g, '&#39;');
 }
 window.escapeHtml = escapeHtml;
+
+// is_spicy IST IN DER DATENBANK EINE ZAHL, KEINE JA/NEIN-SPALTE.
+//
+// Gemeldet wurde: "Fehler: invalid input syntax for type integer: \"false\""
+// beim Speichern eines Gerichts ueber "Gericht hinzufuegen". Genau das sagt
+// die Meldung -- ein false ist in eine Zahlenspalte gelaufen.
+//
+// Drei der vier Speicherstellen rechneten schon um (item.is_spicy ? 1 : 0),
+// die vierte nicht. Wieder dieselbe Familie: einmal geflickt, die anderen
+// Aufrufer blieben liegen, und es faellt erst auf, wenn ein Wirt genau
+// diesen Weg nimmt.
+//
+// Wichtig: NUR is_spicy ist eine Zahl. is_vegetarian, is_vegan, is_popular
+// und is_available sind echte Ja/Nein-Spalten -- die wuerden mit 1/0 zwar
+// auch angenommen, aber es waere geraten. Deshalb nur diese eine.
+function scharfWert(x) { return x ? 1 : 0; }
+window.scharfWert = scharfWert;
+
+// Meldungen der Datenbank sind auf Englisch und fuer den Wirt unlesbar.
+// Diese Funktion macht aus den haeufigsten einen Satz, mit dem er etwas
+// anfangen kann. Alles Uebrige bekommt den mitgegebenen Ersatztext -- lieber
+// eine ehrliche allgemeine Aussage als englisches Datenbankdeutsch.
+// Der Wortlaut im Original gehoert in die Konsole, nicht auf den Bildschirm.
+function dbFehlerText(fehler, ersatz) {
+    var roh = String((fehler && fehler.message) || fehler || '');
+    if (/invalid input syntax/i.test(roh))       return (ersatz || 'Speichern fehlgeschlagen.') + ' Ein Feld hat das falsche Format.';
+    if (/duplicate key|already exists/i.test(roh)) return 'Das gibt es schon.';
+    if (/violates foreign key/i.test(roh))       return (ersatz || 'Speichern fehlgeschlagen.') + ' Die Zuordnung stimmt nicht.';
+    if (/violates not-null/i.test(roh))          return (ersatz || 'Speichern fehlgeschlagen.') + ' Ein Pflichtfeld ist leer.';
+    if (/row-level security|permission denied|JWT/i.test(roh)) return 'Dafür fehlt die Berechtigung. Bitte neu anmelden.';
+    if (/Failed to fetch|NetworkError|timeout/i.test(roh))     return 'Keine Verbindung. Bitte noch einmal versuchen.';
+    return ersatz || 'Speichern fehlgeschlagen.';
+}
+window.dbFehlerText = dbFehlerText;
 
 // Lieferadresse als fertiges, escaptes Stueck HTML.
 // Die vier Felder kommen alle aus dem Formular des Gastes und wurden an
@@ -35873,7 +36005,7 @@ async function handleGastroLogoUpload(event) {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-        showToast('Logo zu gross (max. 10MB)', 'error');
+        showToast('Logo zu groß (max. 10MB)', 'error');
         return;
     }
 
@@ -36017,7 +36149,7 @@ async function submitGastroRegistration(e) {
 
     if (!restaurantName || !ownerName || !phone || !cuisine) {
         if (errorEl) {
-            errorEl.textContent = 'Bitte fuelle alle Pflichtfelder (*) aus.';
+            errorEl.textContent = 'Bitte fülle alle Pflichtfelder (*) aus.';
             errorEl.style.display = 'block';
         }
         return;
@@ -37783,7 +37915,7 @@ async function showRestaurantLanding(rest) {
         "@type": "Restaurant",
         "name": rest.name,
         "url": restUrl,
-        "servesCuisine": rest.cuisine || "Deutsch",
+        "servesCuisine": kuecheLabel(rest.cuisine, 'Deutsch'),
         "acceptsReservations": _noRes ? "False" : "True",
         "hasMenu": restUrl,
         "priceRange": "€€",
@@ -37861,11 +37993,9 @@ async function showRestaurantLanding(rest) {
     if (rest.street) adresse += rest.street.replace(/,\s*$/, '');
     if (rest.zip || rest.city) adresse += (adresse ? ', ' : '') + [rest.zip, rest.city].filter(Boolean).join(' ');
 
-    // Öffnungszeiten prüfen
-    var openInfo = '';
-    if (typeof getOpenStatus === 'function') {
-        openInfo = getOpenStatus(rest);
-    }
+    // Hier wurde openInfo aus getOpenStatus geholt -- eine Funktion, die es
+    // nicht gibt -- und danach nie gelesen. Der Öffnungsstatus auf der
+    // Restaurantseite kommt aus checkIfOpen (gleich darunter).
 
     // Öffnungszeiten für Landing Page
     var landingIsOpen = typeof checkIfOpen === 'function' ? checkIfOpen(rest) : true;
@@ -37915,7 +38045,10 @@ async function showRestaurantLanding(rest) {
                     <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:white;letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:rgba(255,255,255,0.9);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
                     <p style="color:rgba(255,255,255,0.8);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
-                        "${(rest.cuisine_type && rest.cuisine_type.length > 0 ? rest.cuisine_type.join(' & ') : rest.cuisine || 'Kulinarische') + ' Küche' + (rest.city ? ' in ' + rest.city : '')}"
+                        <!-- Ohne das Wort "Küche": "Fisch und Bar Küche" ist
+                             keine, und "Fisch Küche" schreibt man zusammen.
+                             Die reine Aufzaehlung plus Ort stimmt immer. -->
+                        "${(kuechenListe(rest) || 'Regionale Küche') + (rest.city ? ' in ' + rest.city : '')}"
                     </p>
                 </div>
             </div>
@@ -37941,6 +38074,11 @@ async function showRestaurantLanding(rest) {
             })()}
         </div>
 
+        <!-- Tagesangebote. Wird nach dem Einhaengen von
+             renderRestaurantSpecials gefuellt und bleibt leer, wenn das
+             Haus heute keines hat. -->
+        <div id="lpSpecials"></div>
+
         <!-- Über uns Section -->
         <section class="lp-ueber-uns-grid" style="max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center;">
             <div style="position:relative;">
@@ -37953,23 +38091,52 @@ async function showRestaurantLanding(rest) {
                 <span style="color:#735c00;font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Über uns</span>
                 <h2 style="font-family:Epilogue,sans-serif;font-size:clamp(32px,5vw,48px);font-weight:700;color:var(--ink-deep);margin-bottom:32px;line-height:1.1;">
                     ${(function(){
-                        var cuisine = rest.cuisine_type && rest.cuisine_type.length > 0 ? rest.cuisine_type[0] : (rest.cuisine || 'Küche');
-                        return cuisine.charAt(0).toUpperCase() + cuisine.slice(1) + ' trifft Nordsee';
+                        // Ueber kuecheLabel, sonst stuende hier bei einem
+                        // tuerkischen Haus "Tuerkisch trifft Nordsee".
+                        var erste = (rest.cuisine_type && rest.cuisine_type.length > 0)
+                            ? rest.cuisine_type[0] : rest.cuisine;
+                        return (kuecheLabel(erste) || 'Küche') + ' trifft Nordsee';
                     })()}
                 </h2>
                 <p style="color:var(--text-secondary);font-size:18px;line-height:1.6;margin-bottom:32px;font-family:Inter,sans-serif;">
                     ${(function(){
                         var desc = rest.description || rest.about || '';
                         if (!desc) {
-                            var cuisineText = (rest.cuisine_type && rest.cuisine_type.length > 0) ? rest.cuisine_type.join(' & ') : (rest.cuisine || 'kulinarische');
-                            desc = 'Willkommen bei ' + rest.name + ' — Ihr Restaurant in ' + (rest.city || 'Greetsiel') + '. Seit Jahren verwöhnen wir unsere Gäste mit ' + cuisineText + ' Küche und mediterranen Köstlichkeiten mit norddeutschem Flair.';
+                            // DREI FEHLER STANDEN IN DIESEM SATZ:
+                            //
+                            // 1. "Willkommen bei Greetsieler Börse" -- ohne
+                            //    Artikel. Richtig waere "in der Greetsieler
+                            //    Börse", aber welcher Artikel stimmt, haengt am
+                            //    Namen ("das Deichhaus" -> "im"). Nicht
+                            //    ableitbar. Deshalb eine Form, die immer passt:
+                            //    Name, Gedankenstrich, Aussage.
+                            // 2. "mit fisch & bar Küche" -- die rohen
+                            //    Datenbankschluessel, klein und ohne Sinn.
+                            //    Jetzt ueber kuechenListe, und als Doppelpunkt-
+                            //    Aufzaehlung, weil "Bar-Küche" keine ist.
+                            // 3. "mediterranen Köstlichkeiten" -- fuer ein
+                            //    Fischhaus in Greetsiel schlicht falsch. Stand
+                            //    fest im Text, egal welches Restaurant.
+                            var kuechen = kuechenListe(rest);
+                            desc = rest.name + ' — Ihr Restaurant in ' + (rest.city || 'Greetsiel') + '.'
+                                 + (kuechen ? ' Unsere Küche: ' + kuechen + '.' : '')
+                                 + ' Frisch zubereitet, mit norddeutschem Flair.';
                         }
                         return desc;
                     })()}
                 </p>
-                <p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid #003d33;padding-left:24px;font-family:Inter,sans-serif;">
-                    "Genießen Sie kulinarische Vielfalt — die perfekte Verbindung aus Tradition und Ostfriesland."
-                </p>
+                <!-- HIER STAND EIN ERFUNDENES ZITAT.
+                     In Anfuehrungszeichen und mit Zitatstrich stand auf JEDER
+                     Restaurantseite derselbe Satz: "Genießen Sie kulinarische
+                     Vielfalt — die perfekte Verbindung aus Tradition und
+                     Ostfriesland." Das liest sich wie ein Satz des Hauses, war
+                     aber fest einprogrammiert -- und ergab keinen Sinn:
+                     Tradition und Ostfriesland sind kein Gegensatzpaar.
+                     Einem echten Betrieb einen Satz in den Mund zu legen, den
+                     er nie gesagt hat, geht nicht. Wer einen eigenen Satz
+                     moechte, traegt ihn als tagline ein -- dann steht er hier. -->
+                ${rest.tagline ? '<p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid #003d33;padding-left:24px;font-family:Inter,sans-serif;">'
+                    + escapeHtml(rest.tagline) + '</p>' : ''}
             </div>
         </section>
 
@@ -38178,6 +38345,10 @@ async function showRestaurantLanding(rest) {
     `;
 
     document.body.appendChild(landing);
+
+    // Tagesangebote des Hauses nachladen. Erst jetzt -- vorher gibt es
+    // #lpSpecials noch nicht.
+    if (typeof renderRestaurantSpecials === 'function') renderRestaurantSpecials(rest.id);
 
     // Sticky Bottom Bar entfernt (Liquid Glass Redesign - Action Bar ist oben sticky)
     var oldSticky = document.getElementById('lpStickyBar');
@@ -40530,10 +40701,10 @@ function _updateMapFloatingCard(r) {
     // Ohne echte Bewertung steht dort ein Strich, keine erfundene 4,5.
     document.getElementById('mapCardRating').textContent = (r.rating > 0) ? Number(r.rating).toFixed(1) : '–';
     document.getElementById('mapCardName').textContent = (r.name || '').toUpperCase();
-    document.getElementById('mapCardMeta').textContent = (r.cuisine || 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
+    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
 
     var desc = r.description || r.tagline || '';
-    if (!desc && r.cuisine) desc = r.cuisine + ' K\u00fcche' + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
+    if (!desc && r.cuisine) desc = kuecheLabel(r.cuisine) + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
     document.getElementById('mapCardDesc').textContent = desc;
 
     var favIcon = document.getElementById('mapCardFav');
@@ -40781,7 +40952,7 @@ async function handleAsyncTableQuery() {
         } catch(e) { slots = []; }
 
         var cuisine = r.cuisine || '';
-        var cuisineLabel = {'fisch':'Fisch','italienisch':'Italienisch','deutsch':'Deutsch','cafe':'Café','tuerkisch':'Türkisch','imbiss':'Imbiss','griechisch':'Griechisch','asiatisch':'Asiatisch','bar':'Bar'}[cuisine] || cuisine;
+        var cuisineLabel = kuecheLabel(cuisine);   // eine Tabelle fuer alle, siehe KUECHE_LABEL
         var stars = r.rating ? '<span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span> ' + r.rating : '';
 
         response += '<div style="background:var(--bg-secondary);border-radius:20px;padding:14px 16px;margin:8px 0;border:1px solid var(--border-color);">';
@@ -41095,7 +41266,7 @@ function generateResponse(message) {
             'bar': '<span class="material-symbols-outlined" style="font-size:18px;">science</span>',
             'shisha': '<span class="material-symbols-outlined" style="font-size:18px;">water_drop</span>'
         };
-        var cuisineLabel = {'fisch':'Fisch','italienisch':'Italienisch','deutsch':'Deutsch','cafe':'Café','tuerkisch':'Türkisch','imbiss':'Imbiss','griechisch':'Griechisch','asiatisch':'Asiatisch','bar':'Bar','shisha':'Shisha','burger':'Burger','indisch':'Indisch','steakhouse':'Steak','eisdiele':'Eis','baeckerei':'Bäckerei','mexikanisch':'Mexikanisch'}[cuisine] || cuisine;
+        var cuisineLabel = kuecheLabel(cuisine);   // eine Tabelle fuer alle, siehe KUECHE_LABEL
         var cIcon = cuisineIcons[cuisine] || '';
         var stars = r.rating ? '<span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span> ' + r.rating : '';
         var tables = r.freeTables > 0 ? '<span style="color:#22c55e;font-weight:600;">' + r.freeTables + ' frei</span>' : '<span style="color:#ef4444;">Voll</span>';
@@ -41176,7 +41347,7 @@ function generateResponse(message) {
             '<li><strong>Warenkorb prüfen</strong> – unten oder rechts oben (rotes Badge zeigt Anzahl)</li>' +
             '<li><strong>Abschicken</strong> – Lieferung oder Abholung wählen, ggf. Adresse, dann „Bestellen"</li>' +
             '</ol>' +
-            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Push-Benachrichtigungen aktivieren — du wirst informiert sobald deine Bestellung fertig ist.</span>' +
+            '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Push-Benachrichtigungen aktivieren — du wirst informiert, sobald deine Bestellung fertig ist.</span>' +
             '<br><br>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
             actionBtn('Restaurants zeigen', ico.fork, 'askAssistant(\'Was soll ich essen?\')') +
@@ -41251,7 +41422,7 @@ function generateResponse(message) {
             '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
             '<li>🚚 <strong>Lieferung</strong>: nicht alle Restaurants liefern – steht im Profil. Lieferzeit & Mindestbestellwert siehst du beim Checkout.</li>' +
             '<li>🥡 <strong>Abholung</strong>: bei fast allen möglich. Geschätzte Wartezeit wird dir angezeigt.</li>' +
-            '<li>📍 <strong>Lieferadresse</strong>: PLZ wird geprüft – wenn das Restaurant in dein Gebiet liefert, gehts.</li>' +
+            '<li>📍 <strong>Lieferadresse</strong>: PLZ wird geprüft – wenn das Restaurant in dein Gebiet liefert, geht’s.</li>' +
             '</ul>' +
             '<span style="font-size:12px;color:var(--text-secondary);">💡 Tipp: Filter „Liefert" oben in der Restaurant-Liste – dann siehst du nur Anbieter die zu dir liefern.</span>';
     }
@@ -43331,17 +43502,17 @@ document.addEventListener('error', function(e) {
                     Bestellart
                 </h2>
                 <div class="order-type-toggle" id="orderTypeToggle" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    <button class="order-type-btn" onclick="setOrderType('delivery', this)" data-type="delivery" style="display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid rgba(255,255,255,0.3);background:rgba(0,61,51,0.05);transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;opacity:0.6;">delivery_dining</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;opacity:0.6;">Lieferung</span>
+                    <button class="order-type-btn" onclick="setOrderType('delivery', this)" data-type="delivery">
+                        <span class="material-symbols-outlined" style="font-size:20px;">delivery_dining</span>
+                        <span class="order-type-label">Lieferung</span>
                     </button>
-                    <button class="order-type-btn active" onclick="setOrderType('pickup', this)" data-type="pickup" style="display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid #003D33;background:#003D33;color:white;transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;">shopping_bag</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;">Abholung</span>
+                    <button class="order-type-btn active" onclick="setOrderType('pickup', this)" data-type="pickup">
+                        <span class="material-symbols-outlined" style="font-size:20px;">shopping_bag</span>
+                        <span class="order-type-label">Abholung</span>
                     </button>
-                    <button class="order-type-btn" onclick="setOrderType('dine_in', this)" data-type="dine_in" id="dineInBtn" style="display:none;flex-direction:column;align-items:center;padding:12px;border-radius:32px;cursor:pointer;border:1px solid rgba(255,255,255,0.3);background:rgba(0,61,51,0.05);transition:all 0.25s;text-align:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;margin-bottom:4px;opacity:0.6;">restaurant</span>
-                        <span class="order-type-label" style="font-weight:600;font-size:12px;opacity:0.6;">Hier essen</span>
+                    <button class="order-type-btn" onclick="setOrderType('dine_in', this)" data-type="dine_in" id="dineInBtn" style="display:none;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">restaurant</span>
+                        <span class="order-type-label">Hier essen</span>
                         <span class="order-type-vat" id="dineInTableLabel"></span>
                     </button>
                 </div>
@@ -43408,7 +43579,7 @@ document.addEventListener('error', function(e) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 16px;">
                     <div style="position:relative;">
                         <input type="text" class="checkout-input-glass" id="checkoutName" placeholder=" " required style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:var(--ink-strong);box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
-                        <label class="checkout-floating-label" for="checkoutName">Vollständiger Name</label>
+                        <label class="checkout-floating-label" for="checkoutName">Name</label>
                     </div>
                     <div style="position:relative;">
                         <input type="tel" class="checkout-input-glass" id="checkoutPhone" placeholder=" " required style="background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:var(--ink-strong);box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
@@ -43770,7 +43941,7 @@ document.addEventListener('error', function(e) {
                 <div id="scanPanelPdf" style="display:none;">
                     <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:32px;padding:12px;margin-bottom:12px;">
                         <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
-                            <strong>PDF importieren:</strong> Text wird direkt aus dem PDF gelesen – kein OCR nötig. Funktioniert perfekt mit digitalenSpeisekarten.
+                            <strong>PDF importieren:</strong> Text wird direkt aus dem PDF gelesen – kein OCR nötig. Funktioniert perfekt mit digitalen Speisekarten.
                         </p>
                     </div>
                     <input type="file" id="menuScanPdfInput" accept="application/pdf,.pdf" style="display:none;" onchange="handlePdfTextExtract(event)">
@@ -44522,7 +44693,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             is_available: document.getElementById('menuItemActive') ? _chk('menuItemActive') : true,
             is_vegetarian: _chk('menuItemVegetarian'),
             is_vegan: _chk('menuItemVegan'),
-            is_spicy: _chk('menuItemSpicy'),
+            is_spicy: scharfWert(_chk('menuItemSpicy')),
             is_popular: _chk('menuItemPopular'),
             sort_order: _nextSort,
             allergens: allergens
@@ -44551,8 +44722,13 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         if (typeof showToast === 'function') showToast('"' + name + '" hinzugefügt!', 'success');
 
     } catch(e) {
-        console.error('Fehler:', e);
-        showToast('Fehler: ' + e.message, 'error');
+        // Der Wirt bekam hier die Meldung der Datenbank im Original zu sehen:
+        // 'invalid input syntax for type integer: "false"'. Damit kann er
+        // nichts anfangen und weiss auch nicht, ob sein Gericht nun drin ist.
+        // Der technische Wortlaut bleibt in der Konsole -- den braucht, wer
+        // den Fehler sucht.
+        console.error('Gericht speichern:', e);
+        showToast(dbFehlerText(e, 'Das Gericht konnte nicht gespeichert werden.'), 'error');
     }
 
     btn.disabled = false;
@@ -45069,6 +45245,15 @@ async function openMenuModal(restaurantId) {
         loadPopularItems(restaurantId),
         loadMenuItems(restaurantId, null).then(function() { window._menuItemsPreloaded = true; })
     ]).catch(function(e) { console.error('Menu load error:', e); });
+
+    // Tagesangebote und "nochmal bestellen" ueber der Karte. Direkt hier --
+    // beides hing frueher an Tricks, die openMenuModal zwei bzw. zweieinhalb
+    // Sekunden nach dem Laden umhuellen wollten und dabei das Versprechen
+    // dieser async-Funktion wegwarfen. An dieser Stelle steht fest, dass der
+    // Gast wirklich in DIESEM Haus ist: der Korbwechsel ist beantwortet.
+    // Nicht mit await: die Gerichte sollen nicht darauf warten.
+    if (typeof showDailySpecialInMenu === 'function') showDailySpecialInMenu(restaurantId);
+    if (typeof showReorderBanner === 'function') showReorderBanner(restaurantId);
     } catch(e) {
         console.error('openMenuModal Fehler:', e);
         showToast('Fehler aufgetreten', 'error');
@@ -46819,7 +47004,7 @@ function addOptionChoiceRow(name, price, priceType, isDefault) {
     var idx = list.children.length;
     var div = document.createElement('div');
     div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
-    div.innerHTML = '<input type="text" placeholder="Name (z.B. Extra Kaese)" value="' + (name || '') + '" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;" class="og-choice-name">' +
+    div.innerHTML = '<input type="text" placeholder="Name (z.B. Extra Käse)" value="' + (name || '') + '" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;" class="og-choice-name">' +
         '<input type="number" step="0.10" placeholder="Preis" value="' + (price || '0') + '" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;" class="og-choice-price">' +
         '<select style="flex:1;padding:8px 6px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:12px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;" class="og-choice-pricetype">' +
         '<option value="add"' + (priceType === 'add' || !priceType ? ' selected' : '') + '>+ Aufpreis</option>' +
@@ -47812,7 +47997,9 @@ function speichereCartNotiz(itemId) {
     var pos = orderCart.filter(function (i) { return String(i.id) === String(itemId); })[0];
     if (!pos) return;
     pos.notes = text;
-    try { if (typeof saveCartToStorage === 'function') saveCartToStorage(); } catch (e) {}
+    // Hier stand ein Aufruf von saveCartToStorage. Die Funktion existiert
+    // nicht, und der Warenkorb wird ueberhaupt nicht gespeichert -- er lebt
+    // nur im Arbeitsspeicher. Der Aufruf hat nie etwas getan.
     renderCartItems();
     showToast(text ? 'Notiz gespeichert' : 'Notiz entfernt', 'success');
 }
@@ -50758,7 +50945,7 @@ function renderRushHourHeatmap(orders) {
     var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
         '<div style="width:36px;height:36px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border-radius:16px;display:flex;align-items:center;justify-content:center;">' +
         '<span class="material-symbols-outlined" style="font-size:18px;">schedule</span></div>' +
-        '<div><span style="font-weight:700;font-size:15px;color:var(--text-primary);">Stosszeiten</span>' +
+        '<div><span style="font-weight:700;font-size:15px;color:var(--text-primary);">Stoßzeiten</span>' +
         '<span style="font-size:11px;color:var(--text-secondary);display:block;">Peak: ' + peakHour + ':00 Uhr (' + hourCounts[peakHour] + ' Bestellungen)</span></div></div>';
 
     html += '<div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding:0 4px;">';
@@ -50779,7 +50966,7 @@ function renderRushHourHeatmap(orders) {
     html += '<div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:10px;color:var(--text-secondary);">' +
         '<span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Ruhig</span>' +
         '<span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Normal</span>' +
-        '<span><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Stosszeit</span></div>';
+        '<span><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Stoßzeit</span></div>';
 
     container.innerHTML = html;
 }
@@ -53345,7 +53532,7 @@ function openPOSSettings() {
         '<div style="margin-bottom:10px;padding:12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;">' +
             '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#065f46;">' +
                 '<input type="checkbox" id="posAutoSend" ' + (conf.autoSend ? 'checked' : '') + ' style="margin-top:2px;">' +
-                '<span>Sofort an Kasse senden wenn Bestellung reinkommt<br>' +
+                '<span>Sofort an Kasse senden, wenn Bestellung reinkommt<br>' +
                 '<span style="font-weight:400;color:#047857;font-size:11px;">Bestellung erscheint direkt in der Kasse als offener Tisch.</span></span>' +
             '</label>' +
         '</div>' +
@@ -53353,7 +53540,7 @@ function openPOSSettings() {
             '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;font-weight:600;color:#1e3a8a;">' +
                 '<input type="checkbox" id="posKasseControls" ' + (conf.kasseControls ? 'checked' : '') + ' style="margin-top:2px;">' +
                 '<span>Kasse übernimmt die Steuerung<br>' +
-                '<span style="font-weight:400;color:#1e40af;font-size:11px;">Sobald die Kasse die Bestellung erhalten hat, markiert kiekmolin sie automatisch als angenommen (Kunde sieht Bestaetigung). Du arbeitest komplett aus der Kasse, kiekmolin musst du nicht oeffnen.</span></span>' +
+                '<span style="font-weight:400;color:#1e40af;font-size:11px;">Sobald die Kasse die Bestellung erhalten hat, markiert kiekmolin sie automatisch als angenommen (Kunde sieht Bestätigung). Du arbeitest komplett aus der Kasse, kiekmolin musst du nicht öffnen.</span></span>' +
             '</label>' +
             '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:13px;">' +
                 '<span style="color:#1e3a8a;">Standard-Wartezeit:</span>' +
@@ -53872,6 +54059,15 @@ async function _scHole(pfad, deckelMs) {
     }
 }
 
+// Wartedauer so, wie ein Mensch sie liest. "1128 Std." rechnet niemand um --
+// das sind 47 Tage, und genau das ist die Information, die zaehlt.
+function _scWartedauer(stunden) {
+    if (stunden < 1) return 'unter 1 Stunde';
+    if (stunden < 48) return stunden + (stunden === 1 ? ' Stunde' : ' Stunden');
+    var tage = Math.floor(stunden / 24);
+    return tage + ' Tagen';
+}
+
 function _scHeuteVon() {
     var d = new Date(); d.setHours(0, 0, 0, 0);
     return d.toISOString();
@@ -53894,9 +54090,16 @@ async function selbstcheckAusfuehren(restId) {
     var rid = restId || (typeof _resolveEventsRestaurantId === 'function' ? _resolveEventsRestaurantId() : '');
 
     if (!rid) {
+        // Hierher kommt man nur noch, wenn auch die Datenbank kein einziges
+        // Restaurant kennt oder nicht erreichbar war. Vorher stand hier der
+        // Rat, sich neu anzumelden -- der brachte nichts, angemeldet war man
+        // ja. Jetzt steht da, woran es wirklich liegt.
+        var db = await _scHole('restaurants?select=id&limit=1');
         b.push({ bereich: 'Zuordnung', titel: 'Restaurant', stand: SELBSTCHECK_STAND.fehler,
-                 wert: 'nicht gefunden',
-                 hinweis: 'Ohne Restaurant-Zuordnung kann nichts geprüft werden. Bitte neu anmelden.' });
+                 wert: db.ok ? 'kein Restaurant vorhanden' : 'Datenbank nicht erreichbar',
+                 hinweis: db.ok
+                    ? 'Die Datenbank kennt kein einziges Restaurant. Lege zuerst eines an.'
+                    : ('Die Restaurantliste liess sich nicht laden: ' + db.grund) });
         return b;
     }
     var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
@@ -53989,7 +54192,7 @@ async function selbstcheckAusfuehren(restId) {
                      stand: stunden >= 24 ? SELBSTCHECK_STAND.warnung : SELBSTCHECK_STAND.ok,
                      wert: offen.anzahl + (offen.anzahl === 1 ? ' wartet auf Antwort' : ' warten auf Antwort'),
                      hinweis: stunden >= 24
-                        ? ('Die älteste wartet seit ' + stunden + ' Stunden. Zusagen oder absagen muss das Haus '
+                        ? ('Die älteste wartet seit ' + _scWartedauer(stunden) + '. Zusagen oder absagen muss das Haus '
                            + 'selbst – das geht an einen echten Gast raus.')
                         : '',
                      belege: (offen.daten || []).map(function (r) {
@@ -53998,7 +54201,7 @@ async function selbstcheckAusfuehren(restId) {
                              + (r.party_size ? ' · ' + r.party_size + ' Pers.' : '')
                              + (r.reservation_date ? ' · für ' + new Date(r.reservation_date).toLocaleDateString('de-DE')
                                 + (r.reservation_time ? ' ' + String(r.reservation_time).slice(0, 5) : '') : '')
-                             + ' · wartet seit ' + (wartet < 1 ? 'unter 1 Stunde' : wartet + ' Std.');
+                             + ' · wartet seit ' + _scWartedauer(wartet);
                      }),
                      reparatur: stunden >= 24 ? 'zuReservierungen' : null });
         }
@@ -54013,7 +54216,7 @@ async function selbstcheckAusfuehren(restId) {
             b.push({ bereich: 'Betrieb', titel: 'Speisekarte', stand: SELBSTCHECK_STAND.warnung,
                      wert: ohnePreis.anzahl + ' Gericht' + (ohnePreis.anzahl === 1 ? '' : 'e') + ' ohne Preis',
                      hinweis: 'Diese können bestellt werden und bringen 0 Euro. Welcher Preis richtig ist, '
-                            + 'weiss nur das Haus – geraten wäre schlimmer als der fehlende Preis.',
+                            + 'weiß nur das Haus – geraten wäre schlimmer als der fehlende Preis.',
                      belege: (ohnePreis.daten || []).map(function (i) {
                         return (i.name || 'Gericht ohne Namen') + ' · Kennung ' + i.id;
                      }),
@@ -54184,6 +54387,53 @@ function selbstcheckPunktSetzen(fehler, warnung) {
         : (warnung === 1 ? '1 Hinweis' : warnung + ' Hinweise');
 }
 
+// Wer mehrere Haeuser betreut, muss nicht nur SEHEN welches geprueft wurde,
+// sondern auch wechseln koennen. Sonst zeigt der Bericht die Zahlen von
+// Haus A, waehrend der Fehler in Haus B liegt -- und man sucht an der
+// falschen Stelle.
+// Bei nur einem Haus bleibt es beim schlichten Namen; ein Auswahlfeld mit
+// einem einzigen Eintrag ist nur im Weg.
+// DIE ZUORDNUNG DARF NICHT AN EINER LEEREN LISTE SCHEITERN.
+//
+// _resolveEventsRestaurantId() faellt beim Admin auf APP_DATA.restaurants[0]
+// zurueck. Ist diese Liste noch nicht geladen -- etwa weil der Selbstcheck
+// vor dem Rest des Dashboards geoeffnet wird --, kam nur "Restaurant nicht
+// gefunden. Bitte neu anmelden" -- ein Rat, der nichts bringt:
+// angemeldet war man ja.
+//
+// Ein Waechter, der aufgibt, weil ihm jemand anderes nichts hingelegt hat,
+// taugt nichts. Also sieht er jetzt selbst in der Datenbank nach.
+var _scHaeuser = null;
+
+async function selbstcheckHaeuser() {
+    if (_scHaeuser) return _scHaeuser;
+    try {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants) && APP_DATA.restaurants.length) {
+            _scHaeuser = APP_DATA.restaurants
+                .filter(function (r) { return r && r.id; })
+                .map(function (r) { return { id: r.id, name: r.name || 'Ohne Namen' }; });
+            return _scHaeuser;
+        }
+    } catch (e) {}
+    var res = await _scHole('restaurants?select=id,name&order=name.asc&limit=100');
+    _scHaeuser = (res.ok && Array.isArray(res.daten)) ? res.daten : [];
+    return _scHaeuser;
+}
+
+function selbstcheckHausWahl(liste, jetzt) {
+    liste = liste || [];
+    if (liste.length < 2) return '<span id="scKopfName">wird ermittelt…</span>';
+
+    var html = '<select id="scHausWahl" onchange="selbstcheckNeuLaden(this.value)" '
+             + 'style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);'
+             + 'border-radius:9999px;padding:4px 10px;font-family:Inter,sans-serif;font-size:13px;cursor:pointer;max-width:100%;">';
+    liste.forEach(function (r) {
+        html += '<option value="' + escapeHtml(r.id) + '"' + (r.id === jetzt ? ' selected' : '') + ' style="color:#191c1d;">'
+              + escapeHtml(r.name || 'Ohne Namen') + '</option>';
+    });
+    return html + '</select><span id="scKopfName" style="display:none;"></span>';
+}
+
 function openSelbstcheck() {
     if (!selbstcheckErlaubt()) {
         showToast('Der Selbstcheck ist der Verwaltung vorbehalten.', 'error');
@@ -54200,11 +54450,24 @@ function openSelbstcheck() {
     overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
     overlay.innerHTML =
         '<div style="max-width:680px;width:100%;max-height:86vh;overflow-y:auto;border-radius:32px;background:var(--bg-card);box-shadow:0 24px 48px -8px rgba(25,28,29,0.35);">' +
-            '<div style="background:rgba(0,37,30,0.92);padding:24px;position:sticky;top:0;z-index:1;">' +
+            // Deckend, nicht halbtransparent: die Zeile klebt oben, waehrend
+            // der Bericht darunter durchlaeuft. Mit 0.92 Deckkraft schienen
+            // die Karten hindurch und die Kopfzeile sah kaputt aus.
+            '<div style="background:#00251e;padding:24px;position:sticky;top:0;z-index:1;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">' +
                     '<div>' +
                         '<span style="font-size:11px;color:#fed65b;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;display:block;margin-bottom:6px;">Selbstcheck</span>' +
                         '<h3 style="color:#fff;font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.02em;line-height:1.15;margin:0;">Wie steht es um den Betrieb?</h3>' +
+                        // Welches Haus geprueft wird, gehoert in die klebende
+                        // Kopfzeile. Als Karte im Inhalt war es weg, sobald man
+                        // zu den Befunden gescrollt hatte -- und dann steht dort
+                        // ein Fehler ohne Angabe, wen er betrifft.
+                        '<div id="scKopfRestaurant" style="margin-top:10px;display:flex;align-items:center;gap:7px;font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.85);">' +
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;opacity:0.7;">' +
+                                '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>' +
+                            '</svg>' +
+                            '<span id="scKopfName">wird ermittelt…</span>' +
+                        '</div>' +
                     '</div>' +
                     '<button onclick="document.getElementById(\'selbstcheckOverlay\').remove()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.6);font-size:26px;line-height:1;padding:0;">&times;</button>' +
                 '</div>' +
@@ -54215,14 +54478,38 @@ function openSelbstcheck() {
     selbstcheckNeuLaden();
 }
 
-async function selbstcheckNeuLaden() {
+async function selbstcheckNeuLaden(restId) {
     var ziel = document.getElementById('selbstcheckInhalt');
     if (!ziel) return;
     ziel.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-family:Inter,sans-serif;font-size:14px;">Wird gemessen…</div>';
 
+    // Ohne Angabe: das Haus, das in der Auswahl steht. Damit misst "Nochmal
+    // messen" dasselbe Haus, das gerade angezeigt wird -- und nicht wieder
+    // das voreingestellte.
+    if (!restId) {
+        var wahl = document.getElementById('scHausWahl');
+        if (wahl && wahl.value) restId = wahl.value;
+    }
+
+    // Immer noch keins? Dann selbst nachsehen, statt aufzugeben. Erst die
+    // uebliche Zuordnung, sonst das erste Haus aus der Datenbank.
+    var haeuser = [];
+    try { haeuser = await selbstcheckHaeuser(); } catch (e) {}
+    if (!restId && typeof _resolveEventsRestaurantId === 'function') {
+        restId = _resolveEventsRestaurantId() || '';
+    }
+    if (!restId && haeuser.length) restId = haeuser[0].id;
+
+    // Die Auswahl oben erst jetzt fuellen -- vorher war die Liste noch nicht da.
+    var kopfBox = document.getElementById('scKopfRestaurant');
+    if (kopfBox && haeuser.length >= 2 && !document.getElementById('scHausWahl')) {
+        var svg = kopfBox.querySelector('svg');
+        kopfBox.innerHTML = (svg ? svg.outerHTML : '') + selbstcheckHausWahl(haeuser, restId);
+    }
+
     var befunde;
     try {
-        befunde = await selbstcheckAusfuehren();
+        befunde = await selbstcheckAusfuehren(restId);
     } catch (e) {
         ziel.innerHTML = '<div style="padding:16px;border-radius:16px;background:rgba(239,68,68,0.08);color:#b91c1c;font-size:13px;font-family:Inter,sans-serif;">'
             + 'Der Selbstcheck selbst ist gescheitert: ' + escapeHtml(e.message || String(e))
@@ -54230,6 +54517,13 @@ async function selbstcheckNeuLaden() {
         return;
     }
     ziel.innerHTML = selbstcheckBericht(befunde);
+
+    // Namen oben eintragen. Der Befund "Geprüft wurde" traegt ihn als Titel.
+    var kopf = document.getElementById('scKopfName');
+    if (kopf && kopf.style.display !== 'none') {
+        var wer = befunde.filter(function (f) { return f.bereich === 'Geprüft wurde'; })[0];
+        kopf.textContent = wer ? wer.titel : 'Restaurant nicht ermittelbar';
+    }
 }
 
 // Baut den Bericht. Getrennt vom Messen, damit beides einzeln pruefbar ist.
@@ -56199,6 +56493,11 @@ async function setAllTables(restaurantId, status) {
 
 // ==================== TAGESANGEBOTE / HAPPY HOUR ====================
 
+// Die Angebotsleiste auf der Startseite -- alle Häuser nebeneinander.
+// Filter und Zeitlogik kommen aus angebotLaeuftNoch, damit ein Angebot
+// nicht hier noch steht und in der Speisekarte schon abgelaufen ist.
+// Titel, Beschreibung und Hausname stammen aus dem Dashboard des Wirts:
+// alles drei durch escapeHtml, sonst stünde hier fremdes HTML.
 async function loadDailySpecials() {
     try {
     var container = document.getElementById('dailySpecialsContainer');
@@ -56212,62 +56511,33 @@ async function loadDailySpecials() {
 
         if (!res.ok) { container.style.display = 'none'; return; }
         var specials = await res.json();
-        if (!specials || specials.length === 0) { container.style.display = 'none'; return; }
+        if (!Array.isArray(specials) || specials.length === 0) { container.style.display = 'none'; return; }
+
+        specials = specials.filter(function(s) { return angebotLaeuftNoch(s); });
+        if (specials.length === 0) { container.style.display = 'none'; return; }
 
         container.style.display = 'block';
         container.innerHTML = '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Tagesangebote</div>' +
             '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
-            specials.filter(function(s) {
-                var now = new Date();
-                var nowMin = now.getHours() * 60 + now.getMinutes();
-
-                // Zeitfenster-Check: [HH:MM-HH:MM] aus description parsen
-                var timeMatch = (s.description || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
-                if (timeMatch) {
-                    var fromParts = timeMatch[1].split(':');
-                    var toParts = timeMatch[2].split(':');
-                    var fromMin = parseInt(fromParts[0]) * 60 + parseInt(fromParts[1]);
-                    var toMin = parseInt(toParts[0]) * 60 + parseInt(toParts[1]);
-                    if (nowMin < fromMin || nowMin > toMin) return false;
-                }
-
-                // valid_until Zeitcheck: Angebot ausblenden wenn Uhrzeit abgelaufen
-                if (s.valid_until) {
-                    var vuStr = String(s.valid_until);
-                    // Format "HH:MM", "HH:MM:SS" oder ISO "...THH:MM:SS..."
-                    var vuMatch = vuStr.match(/(\d{1,2}):(\d{2})/);
-                    if (vuMatch) {
-                        var vuMin = parseInt(vuMatch[1]) * 60 + parseInt(vuMatch[2]);
-                        // Bei ISO-Timestamps: UTC-Zeit in lokale Zeit umrechnen
-                        if (vuStr.indexOf('T') !== -1 || vuStr.length > 8) {
-                            var vuDate = new Date(vuStr);
-                            if (!isNaN(vuDate.getTime())) {
-                                vuMin = vuDate.getHours() * 60 + vuDate.getMinutes();
-                            }
-                        }
-                        if (nowMin > vuMin) return false;
-                    }
-                }
-
-                return true;
-            }).map(function(s) {
-                var rName = s.restaurants ? s.restaurants.name : 'Restaurant';
-                var slug = s.restaurants ? s.restaurants.slug : '';
-                var isHappyHour = (s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+            specials.map(function(s) {
+                var rName = (s.restaurants && s.restaurants.name) ? s.restaurants.name : 'Restaurant';
+                var slug = (s.restaurants && s.restaurants.slug) ? s.restaurants.slug : '';
+                var isHappyHour = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
                 var bgGradient = isHappyHour ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
-                var timeMatch = (s.description || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]\s*/);
-                var cleanDesc = timeMatch ? (s.description || '').replace(timeMatch[0], '') : (s.description || '');
-                var timeLabel = timeMatch ? timeMatch[1] + ' - ' + timeMatch[2] : '';
-                return '<div onclick="openRestaurantBySlug(\'' + slug + '\')" style="min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;cursor:pointer;flex-shrink:0;">' +
-                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + rName + '</div>' +
-                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + (s.title || 'Angebot') + '</div>' +
-                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + cleanDesc + '</div>' : '') +
+                var cleanDesc = angebotText(s);
+                var zeit = angebotZeitHinweis(s);
+                var preis = angebotPreis(s.price);
+                var altPreis = angebotPreis(s.old_price);
+                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')" style="cursor:pointer;' : ' style="';
+                return '<div' + klick + 'min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;flex-shrink:0;">' +
+                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + escapeHtml(rName) + '</div>' +
+                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
+                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + escapeHtml(cleanDesc) + '</div>' : '') +
                     '<div style="display:flex;align-items:baseline;gap:8px;">' +
-                    (s.price ? '<div style="font-size:20px;font-weight:700;">' + s.price.toFixed(2).replace('.', ',') + ' €</div>' : '') +
-                    (s.old_price ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + s.old_price.toFixed(2).replace('.',',') + ' €</div>' : '') +
+                    (preis ? '<div style="font-size:20px;font-weight:700;">' + preis + '</div>' : '') +
+                    (altPreis ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + altPreis + '</div>' : '') +
                     '</div>' +
-                    (timeLabel ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + timeLabel + '</div>' : '') +
-                    (s.valid_until && !timeLabel ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> Gültig bis ' + (function(v){ var m = String(v).match(/(\d{1,2}):(\d{2})/); return m ? m[1].padStart(2,'0') + ':' + m[2] + ' Uhr' : v; })(s.valid_until) + '</div>' : '') +
+                    (zeit ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + zeit + '</div>' : '') +
                     '</div>';
             }).join('') +
             '</div>';
@@ -56551,7 +56821,7 @@ function openQRCodeGenerator(restaurantId) {
 
     var html = '<div style="padding:24px;max-height:80vh;overflow-y:auto;">' +
         '<h2 style="font-size:20px;margin-bottom:4px;">QR-Codes - ' + r.name + '</h2>' +
-        '<p style="color:var(--slate);font-size:13px;margin-bottom:20px;">Fur Speisekarten, Flyer, Aufsteller & Schaufenster. Gast scannt, landet direkt beim Restaurant, bestellt.</p>' +
+        '<p style="color:var(--slate);font-size:13px;margin-bottom:20px;">Für Speisekarten, Flyer, Aufsteller & Schaufenster. Gast scannt, landet direkt beim Restaurant, bestellt.</p>' +
 
         // ===== RESTAURANT QR-CODE =====
         '<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:14px;padding:20px;margin-bottom:24px;border:2px solid var(--primary);">' +
@@ -57388,7 +57658,7 @@ function renderMenuCategories() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1" width="48" height="48" style="margin-bottom: 12px; opacity: 0.5;">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                 </svg>
-                <p style="color: var(--slate);">Noch keine Kategorien. Erstelle eine neue Kategorie oder scanne eineSpeisekarte.</p>
+                <p style="color: var(--slate);">Noch keine Kategorien. Erstelle eine neue Kategorie oder scanne eine Speisekarte.</p>
             </div>
         `;
         return;
@@ -57872,7 +58142,7 @@ async function addMenuItem(e) {
         is_active: isActive,
         is_popular: isPopular,
         is_vegan: isVegan,
-        is_spicy: isSpicy ? 1 : 0,
+        is_spicy: scharfWert(isSpicy),
         sort_order: menuItems.length + 1,
         allergens: _allergens
     };
@@ -60908,7 +61178,7 @@ async function handlePdfTextExtract(event) {
 
         if (allText.length < 20) {
             // Auch OCR brachte keinen lesbaren Text
-            statusMsg.textContent = 'Kein Text erkannt — die PDF-Qualitaet ist zu niedrig.';
+            statusMsg.textContent = 'Kein Text erkannt — die PDF-Qualität ist zu niedrig.';
             showToast('Kein Text erkannt. Bitte ein klares Foto der Speisekarte machen.', 'info');
             setTimeout(function() { statusDiv.style.display = 'none'; }, 3000);
             return;
@@ -62917,7 +63187,7 @@ async function importScannedMenu() {
             is_available: true,
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,
-            is_spicy: item.is_spicy ? 1 : 0,
+            is_spicy: scharfWert(item.is_spicy),
             // Fleisch- und Fischmerkmale MITSPEICHERN.
             //
             // Der Scanner hat sie die ganze Zeit erkannt -- gespeichert wurden
@@ -63238,7 +63508,7 @@ async function saveEditedItem(itemId) {
             headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({
                 name: name, description: desc, base_price: price, category_id: catId,
-                is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: isSpicy ? 1 : 0, is_available: isAvail,
+                is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
                 additives: additives,
@@ -65118,7 +65388,15 @@ setTimeout(function() {
 // ============================================================
 // "NOCHMAL BESTELLEN" BANNER IN SPEISEKARTE
 // ============================================================
+// DERSELBE BANNER BLIEB BEIM HAUSWECHSEL STEHEN.
+// Eingefuegt wurde nur, wenn noch keiner da war -- entfernt wurde nie einer.
+// Wer die Karte von Haus A und danach die von Haus B oeffnete, sah weiter
+// die letzte Bestellung von A und haette sie mit einem Tippen in den Korb
+// von B gelegt.
 function showReorderBanner(restaurantId) {
+    var alterBanner = document.getElementById('reorderBanner');
+    if (alterBanner) alterBanner.remove();
+
     loadOrderHistory();
     if (!orderHistory || orderHistory.length === 0) return;
     
@@ -65140,7 +65418,7 @@ function showReorderBanner(restaurantId) {
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
             '<div style="font-weight:600;font-size:13px;color:var(--text-primary);">Letzte Bestellung wiederholen</div>' +
-            '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + itemNames.substring(0, 60) + (itemNames.length > 60 ? '...' : '') + (total ? ' · ' + total : '') + '</div>' +
+            '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(itemNames.substring(0, 60)) + (itemNames.length > 60 ? '...' : '') + (total ? ' · ' + total : '') + '</div>' +
         '</div>' +
         '<div style="padding:6px 14px;background:var(--primary);color:white;border-radius:9999px;font-size:12px;font-weight:600;white-space:nowrap;">Bestellen</div>' +
     '</div>';
@@ -65153,19 +65431,18 @@ function showReorderBanner(restaurantId) {
     }
 }
 
-// Patch: openMenuModal um Reorder-Banner zu zeigen
-var _origOpenMenu = typeof openMenuModal === 'function' ? openMenuModal : null;
-setTimeout(function() {
-    if (typeof openMenuModal === 'function' && !openMenuModal._reorderPatched) {
-        var origFn = openMenuModal;
-        openMenuModal = function(restaurantId) {
-            origFn(restaurantId);
-            // Reorder-Banner sofort nach DOM-Update zeigen (kein Delay)
-            requestAnimationFrame(function() { showReorderBanner(restaurantId); });
-        };
-        openMenuModal._reorderPatched = true;
-    }
-}, 2000);
+// HIER STAND DER ZWEITE UMHUELLUNGS-TRICK.
+// Zwei Sekunden nach dem Laden wurde openMenuModal durch eine eigene
+// Funktion ersetzt, die das Original aufrief und danach den Banner zeigte.
+// Drei Fehler in vier Zeilen:
+//   1. Wer die Karte in den ersten zwei Sekunden oeffnete, sah nichts.
+//   2. openMenuModal ist async, die Huelle war es nicht -- das Versprechen
+//      wurde weggeworfen, Fehler darin blieben unbemerkt.
+//   3. Seit der Korbwechsel eine Rueckfrage stellt, erschien der Banner des
+//      NEUEN Hauses, waehrend der Gast noch ueberlegte -- und blieb stehen,
+//      wenn er abbrach.
+// Ausserdem stand daneben ein _origOpenMenu, das niemand je gelesen hat.
+// openMenuModal ruft showReorderBanner jetzt selbst auf.
 
 // Hier hängte sich ein Patch an den Bestellknopf, um 30 Sekunden nach der
 // Bestätigung ein drittes Bewertungsfenster zu öffnen ("Google Bewertung
@@ -65352,75 +65629,205 @@ window._bannerRefresh = setInterval(checkActiveOrderBanner, 15000);
 // liest, hat gegessen und kann etwas dazu sagen.
 
 // ============================================================
-// TAGESANGEBOT ALS TOP-EINTRAG IN SPEISEKARTE
+// TAGESANGEBOTE BEIM GAST
 // ============================================================
-function showDailySpecialInMenu(restaurantId) {
-    var menuList = document.getElementById('menuItemsList');
-    if (!menuList) return;
-    
-    // Altes Tagesangebot entfernen (von anderem Restaurant)
-    var old = document.getElementById('menuDailySpecial');
-    if (old) old.remove();
+// WO EIN ANGEBOT LANDET, WENN DER WIRT ES ANLEGT
+// ----------------------------------------------
+// Der Gastronom traegt im Dashboard ein Tagesangebot ein. Danach soll es
+// dort auftauchen, wo der Gast hinschaut. Bis jetzt tat es das nur auf der
+// Startseite (loadDailySpecials) und im Fernsehbild der Gaststube.
+//
+// Zwei weitere Stellen waren VORGESEHEN und funktionierten trotzdem nicht:
+//
+//   1. Speisekarte. showDailySpecialInMenu war fertig geschrieben -- nur
+//      rief sie niemand auf. Der einzige Aufruf ausserhalb der Funktion
+//      stand in ihrer eigenen Wiederholung. Daneben lag ein Trick, der
+//      openMenuModal 2,5 Sekunden nach dem Laden umhuellen wollte. Der
+//      griff aus drei Gruenden nicht: openMenuModal ist async, die Huelle
+//      war es nicht und warf das Versprechen weg; wer die Karte in den
+//      ersten 2,5 Sekunden oeffnete, sah nichts; und seit der Korbwechsel
+//      eine Rueckfrage stellt, lief der 600-ms-Wecker gegen einen noch
+//      offenen Dialog. Jetzt ruft openMenuModal direkt auf.
+//
+//   2. Restaurantseite in der App. handleRealtimeSpecials fragte an zwei
+//      Stellen "typeof renderRestaurantSpecials === 'function'" ab -- die
+//      Funktion gab es NIRGENDS. Die Abfrage war immer falsch, der Zweig
+//      lief nie, und weil sie so hoeflich fragte, fiel es nicht auf. Jetzt
+//      gibt es sie.
+//
+// Beide zeichnen aus derselben Quelle, damit ein Angebot nicht an einer
+// Stelle abgelaufen und an der anderen noch gueltig ist.
+//
+// Auf den statischen Google-Seiten (build-seo-pages.js) stehen Angebote
+// bewusst NICHT: die Seiten werden einmal gebaut und liegen dann. Ein
+// Tagesangebot von gestern, das dort noch als heute gueltig steht, ist ein
+// Versprechen, das der Wirt einloesen muesste.
 
-    var today = todayStrLocal();
-    fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurantId + '&date=eq.' + today + '&is_active=eq.true&limit=3', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-    }).then(function(r) { return r.json(); }).then(function(specials) {
-        if (!specials || specials.length === 0) return;
-        if (document.getElementById('menuDailySpecial')) return;
-
-        // Abgelaufene Tagesangebote filtern (valid_until Zeitcheck)
-        var now = new Date();
-        var nowMin = now.getHours() * 60 + now.getMinutes();
-        specials = specials.filter(function(s) {
-            if (s.valid_until) {
-                var vuMatch = String(s.valid_until).match(/^(\d{1,2}):(\d{2})/);
-                if (vuMatch) {
-                    var vuMin = parseInt(vuMatch[1]) * 60 + parseInt(vuMatch[2]);
-                    if (nowMin > vuMin) return false;
-                }
-            }
-            return true;
-        });
-        if (specials.length === 0) return;
-
-        var html = '<div id="menuDailySpecial" style="margin-bottom:16px;">';
-        html += '<div style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px;">Tagesangebote</div>';
-
-        specials.forEach(function(s) {
-            html += '<div style="background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:16px;padding:16px;margin-bottom:8px;color:white;">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-            html += '<div>';
-            html += '<div style="font-size:10px;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;">Tagesangebot</div>';
-            html += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + (s.title || 'Angebot') + '</div>';
-            if (s.description) html += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + s.description + '</div>';
-            html += '</div>';
-            html += '<div style="text-align:right;">';
-            if (s.price) html += '<div style="font-size:20px;font-weight:700;">' + s.price.toFixed(2).replace('.',',') + ' €</div>';
-            if (s.old_price) html += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + s.old_price.toFixed(2).replace('.',',') + ' €</div>';
-            html += '</div>';
-            html += '</div>';
-            if (s.valid_until) html += '<div style="font-size:11px;opacity:0.7;margin-top:6px;">Gültig bis ' + s.valid_until + ' Uhr</div>';
-            html += '</div>';
-        });
-        html += '</div>';
-
-        menuList.insertAdjacentHTML('beforebegin', html);
-    }).catch(function() {});
+// Alle heute gueltigen Angebote eines Hauses, abgelaufene schon aussortiert.
+// Liefert immer ein Array -- bei Netzfehler ein leeres.
+function tagesangeboteHolen(restaurantId) {
+    if (!restaurantId) return Promise.resolve([]);
+    var heute = todayStrLocal();
+    var url = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+            + '&date=eq.' + heute + '&is_active=eq.true&order=created_at.desc&limit=6';
+    return fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } })
+        .then(function (r) { return r.json(); })
+        .then(function (liste) {
+            if (!Array.isArray(liste)) return [];
+            // NICHT liste.filter(angebotLaeuftNoch): filter reicht als
+            // zweites Argument den Index durch, und der landete hier als
+            // "jetzt". Beim ersten Angebot war das 0 (harmlos, faellt auf
+            // new Date() zurueck), ab dem zweiten eine Zahl ohne getHours --
+            // die Ausnahme fiel in den catch und die Liste kam leer zurueck.
+            // Also: gar keine Angebote, obwohl welche da waren.
+            return liste.filter(function (s) { return angebotLaeuftNoch(s); });
+        })
+        .catch(function () { return []; });
 }
 
-// Patch openMenuModal um Tagesangebote zu zeigen
-setTimeout(function() {
-    if (typeof openMenuModal === 'function' && !openMenuModal._dailyPatched) {
-        var origMenu = openMenuModal;
-        openMenuModal = function(restaurantId) {
-            origMenu(restaurantId);
-            setTimeout(function() { showDailySpecialInMenu(restaurantId); }, 600);
-        };
-        openMenuModal._dailyPatched = true;
-    }
-}, 2500);
+// Laeuft das Angebot jetzt noch? Zwei Schreibweisen sind im Umlauf:
+// ein Zeitfenster "[17:00-19:00]" vorne in der Beschreibung (Happy Hour)
+// und ein Endzeitpunkt im Feld valid_until.
+function angebotLaeuftNoch(s, jetzt) {
+    if (!s) return false;
+    var now = jetzt || new Date();
+    var nowMin = now.getHours() * 60 + now.getMinutes();
 
+    var fenster = String(s.description || '').match(/^\[(\d{2}):(\d{2})-(\d{2}):(\d{2})\]/);
+    if (fenster) {
+        var vonMin = parseInt(fenster[1], 10) * 60 + parseInt(fenster[2], 10);
+        var bisMin = parseInt(fenster[3], 10) * 60 + parseInt(fenster[4], 10);
+        if (nowMin < vonMin || nowMin > bisMin) return false;
+    }
+
+    if (s.valid_until) {
+        var vuStr = String(s.valid_until);
+        var vu = vuStr.match(/(\d{1,2}):(\d{2})/);
+        if (vu) {
+            var vuMin = parseInt(vu[1], 10) * 60 + parseInt(vu[2], 10);
+            // Vollstaendiger Zeitstempel: der steht in UTC, gerechnet wird
+            // aber in Ortszeit -- sonst waere ein Angebot zwei Stunden zu
+            // frueh oder zu spaet vorbei.
+            if (vuStr.indexOf('T') !== -1 || vuStr.length > 8) {
+                var d = new Date(vuStr);
+                if (!isNaN(d.getTime())) vuMin = d.getHours() * 60 + d.getMinutes();
+            }
+            if (nowMin > vuMin) return false;
+        }
+    }
+    return true;
+}
+
+// Beschreibung ohne das technische Zeitfenster davor.
+function angebotText(s) {
+    return String((s && s.description) || '').replace(/^\[\d{2}:\d{2}-\d{2}:\d{2}\]\s*/, '');
+}
+
+// Uhrzeit-Hinweis unter dem Angebot, oder leer.
+function angebotZeitHinweis(s) {
+    var fenster = String((s && s.description) || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
+    if (fenster) return fenster[1] + ' – ' + fenster[2] + ' Uhr';
+    if (s && s.valid_until) {
+        var vu = String(s.valid_until).match(/(\d{1,2}):(\d{2})/);
+        if (vu) return 'Gültig bis ' + ('0' + vu[1]).slice(-2) + ':' + vu[2] + ' Uhr';
+    }
+    return '';
+}
+
+function angebotPreis(wert) {
+    var z = Number(wert);
+    if (!isFinite(z) || z <= 0) return '';
+    return z.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Eine Angebotskarte. Titel und Beschreibung kommen aus dem Dashboard des
+// Wirts und gehen ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+function angebotKarteHtml(s) {
+    var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+    var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
+    var text = angebotText(s);
+    var zeit = angebotZeitHinweis(s);
+    var preis = angebotPreis(s.price);
+    var alt = angebotPreis(s.old_price);
+
+    // Steht "Happy Hour" schon als Titel da, braucht es nicht zusaetzlich
+    // als Etikett darueber -- sonst stand es zweimal untereinander.
+    var titel = String(s.title || 'Angebot');
+    var etikett = happy ? 'Happy Hour' : 'Tagesangebot';
+    if (titel.trim().toLowerCase() === etikett.toLowerCase()) etikett = '';
+
+    var h = '<div style="background:' + farbe + ';border-radius:16px;padding:16px;color:white;">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">';
+    h += '<div style="min-width:0;">';
+    if (etikett) h += '<div style="font-size:10px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;">' + etikett + '</div>';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + escapeHtml(titel) + '</div>';
+    if (text) h += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + escapeHtml(text) + '</div>';
+    h += '</div>';
+    if (preis || alt) {
+        h += '<div style="text-align:right;flex-shrink:0;">';
+        if (preis) h += '<div style="font-size:20px;font-weight:700;">' + preis + '</div>';
+        if (alt) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + alt + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    if (zeit) h += '<div style="font-size:11px;opacity:0.75;margin-top:6px;">' + zeit + '</div>';
+    h += '</div>';
+    return h;
+}
+
+// ---- Speisekarte -------------------------------------------------------
+// Sitzt VOR der Gerichteliste, nicht darin: loadMenuItems und jeder
+// Kategoriewechsel setzen menuItemsList.innerHTML neu. Ein Kind waere jedes
+// Mal weg gewesen.
+function showDailySpecialInMenu(restaurantId) {
+    var menuList = document.getElementById('menuItemsList');
+    if (!menuList) return Promise.resolve(0);
+
+    var alt = document.getElementById('menuDailySpecial');
+    if (alt) alt.remove();          // Angebot des vorherigen Hauses
+
+    return tagesangeboteHolen(restaurantId).then(function (angebote) {
+        // Zwischenzeitlich ein anderes Haus geoeffnet? Dann gehoert die
+        // Antwort nicht mehr hierher.
+        var jetzigesHaus = (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant)
+            ? currentOrderRestaurant.id : restaurantId;
+        if (jetzigesHaus !== restaurantId) return 0;
+        if (!angebote.length) return 0;
+        if (document.getElementById('menuDailySpecial')) return 0;
+
+        var h = '<div id="menuDailySpecial" style="margin-bottom:16px;">';
+        h += '<div style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px;">Tagesangebote</div>';
+        angebote.slice(0, 3).forEach(function (s) {
+            h += '<div style="margin-bottom:8px;">' + angebotKarteHtml(s) + '</div>';
+        });
+        h += '</div>';
+        menuList.insertAdjacentHTML('beforebegin', h);
+        return angebote.length;
+    });
+}
+
+// ---- Restaurantseite in der App ----------------------------------------
+// Fuellt den Platzhalter #lpSpecials, den openRestaurantLanding zwischen
+// Aktionsleiste und "Über uns" anlegt. Ohne Angebote bleibt er leer und
+// nimmt keinen Platz weg.
+function renderRestaurantSpecials(restaurantId) {
+    var ziel = document.getElementById('lpSpecials');
+    if (!ziel) return Promise.resolve(0);
+
+    return tagesangeboteHolen(restaurantId).then(function (angebote) {
+        if (!document.getElementById('lpSpecials')) return 0;   // Seite inzwischen zu
+        if (!angebote.length) { ziel.innerHTML = ''; return 0; }
+
+        var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 96px;">';
+        h += '<span style="color:#735c00;font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Heute</span>';
+        h += '<h2 style="font-family:Epilogue,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;color:var(--ink-deep);margin-bottom:24px;line-height:1.1;">Tagesangebote</h2>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">';
+        angebote.forEach(function (s) { h += angebotKarteHtml(s); });
+        h += '</div></section>';
+        ziel.innerHTML = h;
+        return angebote.length;
+    });
+}
 // ==================== CODE-SCHUTZ (abgespeckt) ====================
 // Aggressive Sperren entfernt (DevTools-Shortcuts, DevTools-Erkennung,
 // selectstart, user-select-CSS) — die hatten echte UX-Bugs verursacht
@@ -65468,11 +65875,11 @@ setTimeout(function() {
 </style>
 <div id="seoFooter" class="seo-footer-guest" style="display:none;padding: 20px 20px 32px; font-size: 12px; line-height: 1.7; max-width: 800px; margin: 0 auto; text-align: center;">
     <h2 style="font-size: 14px; color: var(--text-primary); margin-bottom: 8px; font-weight: 700; opacity: 0.6; font-family: Epilogue, serif;">Restaurants in Ostfriesland entdecken</h2>
-    <p style="color: var(--text-primary); opacity: 0.4; margin-bottom: 12px;">Finde die besten Restaurants, Cafes und Imbisse in Greetsiel, Norddeich, Norden, Aurich und Emden. Speisekarte ansehen, online bestellen und Tisch reservieren &ndash; alles kostenlos und ohne App-Download mit Kiek mol in.</p>
+    <p style="color: var(--text-primary); opacity: 0.4; margin-bottom: 12px;">Finde die besten Restaurants, Cafés und Imbisse in Greetsiel, Norddeich, Norden, Aurich und Emden. Speisekarte ansehen, online bestellen und Tisch reservieren &ndash; alles kostenlos und ohne App-Download mit Kiek mol in.</p>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px 12px;margin-bottom:12px;">
 <!--KMI:REST-LINKS-START-->
         <a href="/lapiazza" onclick="openRestaurantBySlug('lapiazza');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">La Piazza Greetsiel</a>
-        <a href="/greetsiler-boerse" onclick="openRestaurantBySlug('greetsiler-boerse');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">Greetsiler Börse</a>
+        <a href="/greetsiler-boerse" onclick="openRestaurantBySlug('greetsiler-boerse');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">Greetsieler Börse</a>
 <!--KMI:REST-LINKS-END-->
     </div>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;opacity:0.35;font-size:11px;">
@@ -65498,13 +65905,13 @@ setTimeout(function() {
         <ul>
 <!--KMI:REST-NOSCRIPT-START-->
             <li><a href="/lapiazza"><strong>La Piazza Greetsiel</strong> &ndash; Italienisches Restaurant: Pizza, Pasta, Salate &amp; mehr. Speisekarte ansehen und online bestellen auf Kiek mol in.</a></li>
-            <li><a href="/greetsiler-boerse"><strong>Greetsiler Börse</strong> &ndash; Norddeutsche Küche am Kutterhafen Greetsiel. Fischgerichte, Labskaus &amp; Spezialitäten. Online bestellen auf Kiek mol in.</a></li>
+            <li><a href="/greetsiler-boerse"><strong>Greetsieler Börse</strong> &ndash; Norddeutsche Küche am Kutterhafen Greetsiel. Fischgerichte, Labskaus &amp; Spezialitäten. Online bestellen auf Kiek mol in.</a></li>
 <!--KMI:REST-NOSCRIPT-END-->
         </ul>
         <h3>La Piazza Greetsiel &ndash; Italienisch essen in Ostfriesland</h3>
         <p>La Piazza ist ein beliebtes italienisches Restaurant in Greetsiel, Ostfriesland. Genieße Pizza, Pasta, Antipasti und italienische Spezialitäten. Bestelle jetzt online über Kiek mol in oder reserviere einen Tisch.</p>
-        <h3>Greetsiler Börse &ndash; Restaurant am Hafen</h3>
-        <p>Die Greetsiler Börse liegt direkt am Kutterhafen in Greetsiel. Norddeutsche Küche mit frischem Fisch, Krabben und regionalen Spezialitäten. Online bestellen und Tisch reservieren auf Kiek mol in.</p>
+        <h3>Greetsieler Börse &ndash; Restaurant am Hafen</h3>
+        <p>Die Greetsieler Börse liegt direkt am Kutterhafen in Greetsiel. Norddeutsche Küche mit frischem Fisch, Krabben und regionalen Spezialitäten. Online bestellen und Tisch reservieren auf Kiek mol in.</p>
         <h2>So funktioniert Kiek mol in</h2>
         <ol>
             <li>Restaurant auswählen aus der Übersicht</li>
@@ -65859,7 +66266,7 @@ function openKitchenDisplay() {
                 '<button id="kdsFullscreenBtn" onclick="toggleKdsFullscreen()" style="padding:10px;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(0,61,51,0.12);border-radius:var(--radius-xl);cursor:pointer;color:var(--primary);transition:all 0.2s;display:flex;align-items:center;" onmouseover="this.style.background=\'rgba(0,61,51,0.06)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.8)\'" title="Vollbild">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>' +
                 '</button>' +
-                '<button onclick="closeKitchenDisplay()" style="padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xl);cursor:pointer;color:var(--danger-500);transition:all 0.2s;display:flex;align-items:center;" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.08)\'" title="Schliessen">' +
+                '<button onclick="closeKitchenDisplay()" style="padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xl);cursor:pointer;color:var(--danger-500);transition:all 0.2s;display:flex;align-items:center;" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.08)\'" title="Schließen">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
                 '</button>' +
             '</div>' +

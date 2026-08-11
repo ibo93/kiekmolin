@@ -117,7 +117,7 @@ const CATEGORIES = [
     labelEn: 'Café',
     pluralEn: 'Cafés',
     keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
-    description: 'Kaffee, Kuchen und gemütliche Cafes',
+    description: 'Kaffee, Kuchen und gemütliche Cafés',
     descriptionDe: 'Kaffee, hausgemachter Kuchen und gemütliche Cafés',
     descriptionEn: 'coffee, homemade cake and cozy cafés'
   },
@@ -195,6 +195,22 @@ function ratingStars(rating) {
     else out += '☆';
   }
   return out;
+}
+
+// WIE VIELE ECHTE BEWERTUNGEN GIBT ES?
+//
+// Ein Sternewert allein ist keine Bewertung. In der Datenbank kann rating
+// von Hand eingetragen sein -- dann steht dort etwa 4.8, ohne dass je
+// jemand etwas geschrieben haette. Wer daraus eine aggregateRating baut,
+// laesst Google Sterne anzeigen, hinter denen nichts steht.
+//
+// Diese Funktion liefert nur, was belegbar ist: die Zahl echter
+// Bewertungen. Ist sie 0, wird keine Bewertung ausgezeichnet -- weder im
+// Schema noch sichtbar auf der Karte.
+function echteBewertungen(rest) {
+    if (!rest) return 0;
+    var n = Number(rest.rating_count);
+    return (isFinite(n) && n > 0) ? Math.round(n) : 0;
 }
 
 function fmtRating(rating) {
@@ -304,7 +320,7 @@ function buildIntro(city, cat, count) {
   if (region === 'Krummhörn' || region === 'Krummhörn') {
     regionText = 'Greetsiel ist eines der malerischsten Fischerdörfer der Krummhörn an der ostfriesischen Nordseeküste. Zwischen Zwillingsmühlen und Hafen findet sich hier eine überraschend dichte Auswahl an Gastronomie.';
   } else if (cityName === 'Norddeich') {
-    regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiss: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
+    regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiß: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
   } else if (cityName === 'Norden') {
     regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Nähe gibt es hier Gerichte für jeden Geschmack.';
   } else if (cityName === 'Aurich') {
@@ -578,8 +594,11 @@ function renderCard(rest) {
       '</a>' +
       '<div class="body">' +
         '<h3 itemprop="name"><a href="' + escapeAttr(link) + '">' + name + '</a></h3>' +
-        (r ? '<div class="stars" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">' +
-              stars + '<span class="num"><span itemprop="ratingValue">' + r + '</span> / 5</span></div>' : '') +
+        // Sterne nur, wenn echte Bewertungen dahinterstehen. Ein von Hand
+        // eingetragener Wert ohne eine einzige Bewertung ist keine.
+        ((r && echteBewertungen(rest)) ? '<div class="stars" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">' +
+              stars + '<span class="num"><span itemprop="ratingValue">' + r + '</span> / 5</span>'
+              + '<meta itemprop="ratingCount" content="' + echteBewertungen(rest) + '"></div>' : '') +
         (addr ? '<p class="addr" itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">' +
                   '<span itemprop="streetAddress">' + escapeHtml(safeText(rest.street, '')) + '</span> ' +
                   '<span itemprop="postalCode">' + escapeHtml(safeText(rest.zip, '')) + '</span> ' +
@@ -621,12 +640,15 @@ function buildItemListJsonLd(restaurants, pageUrl) {
           'longitude': rest.lng
         };
       }
-      if (rest.rating) {
+      // Nur mit echten Bewertungen. Hier stand "rating_count || 5" -- ein
+      // Restaurant ohne eine einzige Bewertung bekam damit fuenf erfundene.
+      var _anz = echteBewertungen(rest);
+      if (rest.rating && _anz > 0) {
         item.aggregateRating = {
           '@type': 'AggregateRating',
           'ratingValue': Number(rest.rating),
           'bestRating': 5,
-          'ratingCount': Math.max(1, Math.round((rest.rating_count) || 5))
+          'ratingCount': _anz
         };
       }
       const cuisines = [];
@@ -926,15 +948,22 @@ function buildRestaurantJsonLd(rest, reviews) {
       'ratingValue': Number((rest.rating ? Number(rest.rating) : avg).toFixed(1)),
       'bestRating': 5,
       'reviewCount': realReviews.length,
-      'ratingCount': Math.max(realReviews.length, Math.round(rest.rating_count || realReviews.length))
+      // Nicht ueber das hinaus, was wirklich da ist: Math.max mit
+      // rating_count haette einen zu hoch eingetragenen Wert uebernommen.
+      'ratingCount': Math.max(realReviews.length, echteBewertungen(rest))
     };
-  } else if (rest.rating) {
-    // Kein Review-Text vorhanden -> nur aggregierter Wert (best effort).
+  } else if (rest.rating && echteBewertungen(rest) > 0) {
+    // Kein Bewertungstext, aber eine belegte Anzahl -- dann nur der
+    // aggregierte Wert, mit der ECHTEN Anzahl.
+    //
+    // Hier stand vorher "best effort" mit ratingCount: rating_count || 5.
+    // Das war der Grund, warum unter dem Google-Treffer Sterne standen,
+    // hinter denen keine einzige Bewertung lag.
     item.aggregateRating = {
       '@type': 'AggregateRating',
       'ratingValue': Number(rest.rating),
       'bestRating': 5,
-      'ratingCount': Math.max(1, Math.round(rest.rating_count || 5))
+      'ratingCount': echteBewertungen(rest)
     };
   }
   const cuisines = [];

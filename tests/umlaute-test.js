@@ -64,7 +64,7 @@ var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
 // Zwei Ausnahmen bleiben, beide abzaehlbar und darum als Liste vertretbar:
 // Fremdwoerter auf -uell (aktuell, individuell, eventuell) und eine
 // Handvoll englischer Woerter auf -ue.
-var ENGLISCH = /^(Epilogue|Segoe|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
+var ENGLISCH = /^(Epilogue|Segoe|Bluetooth|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
 // "ue" nach q ist nie ein Umlaut: question, queue, request, frequent,
 // sequence, unique. Eine Regel statt sechs Listeneintraege.
 // Bezeichner aus dem Quelltext, die zufaellig im Text stehen koennen.
@@ -143,6 +143,163 @@ while ((mm = reTag.exec(APP))) {
 var appEinmalig = appFunde.filter(function (w, i) { return appFunde.indexOf(w) === i; });
 t('kein sichtbarer Text in der App mit ASCII-Umlauten',
   appEinmalig.length === 0, '\n         ' + appEinmalig.slice(0, 20).join('\n         '));
+
+// ---- 1b. Was JavaScript dem Nutzer zeigt -------------------------------------
+// Der Waechter sah bisher nur Text ZWISCHEN Tags. Meldungen baut die App aber
+// zur Laufzeit: showToast, alert, textContent, Platzhalter, Push-Titel. Genau
+// dort standen "die PDF-Qualitaet ist zu niedrig" und "Bitte fuelle alle
+// Pflichtfelder" -- beides sieht der Nutzer, beides lief durch.
+var JS_TEXTE = [
+    /showToast\(\s*'([^']{6,240})'/g,
+    /showToast\(\s*"([^"]{6,240})"/g,
+    /alert\(\s*'([^']{6,240})'/g,
+    /confirm\(\s*'([^']{6,320})'/g,
+    /textContent\s*=\s*'([^']{6,240})'/g,
+    /placeholder="([^"]{6,160})"/g,
+    /title="([^"]{6,160})"/g,
+    /aria-label="([^"]{6,160})"/g,
+    /alt="([^"]{6,160})"/g,
+    /title:\s*'([^']{6,180})'/g,
+    /body:\s*'([^']{6,240})'/g,
+    // Strings, die JS mit Markup drin zusammenbaut. Genau hier steckte
+    // "Kunde sieht Bestaetigung ... musst du nicht oeffnen" -- in einem
+    // '<span ...>Text</span>'. Die Fassung davor hat solche Strings
+    // uebersprungen, weil sie ein Tag enthielten.
+    /'(<[a-z][^']{20,400})'/g
+];
+var jsFunde = [];
+JS_TEXTE.forEach(function (re) {
+    var m;
+    while ((m = re.exec(APP))) {
+        var txt = m[1];
+        if (/\$\{|\+ [a-zA-Z_]/.test(txt)) continue;        // Code, kein Fliesstext
+        // Markup rausschneiden statt den ganzen String zu verwerfen -- der
+        // Text ZWISCHEN den Tags ist genau das, was der Nutzer liest.
+        txt = txt.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ');
+        if (!/[a-zäöüß]{3}/.test(txt)) continue;
+        // Slug-Beispiele wie "z.B. greetsiler-boerse" zeigen absichtlich die
+        // Adressform. Ein Umlaut darin braeche den Link -- also rausnehmen,
+        // bevor nach Woertern gesucht wird.
+        var rein = txt.replace(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g, ' ');
+        var wort = hatAsciiUmlaut(rein);
+        if (wort) jsFunde.push(wort + '  in: ' + txt.slice(0, 70));
+    }
+});
+var jsEinmalig = jsFunde.filter(function (w, i) { return jsFunde.indexOf(w) === i; });
+t('auch die Meldungen aus JavaScript haben echte Umlaute',
+  jsEinmalig.length === 0, '\n         ' + jsEinmalig.slice(0, 15).join('\n         '));
+
+// ---- 1c. Der Schluessel darf nie angezeigt werden ---------------------------
+// In der Datenbank heisst die Kueche 'tuerkisch' -- richtig so, Schluessel
+// bleiben ASCII. Falsch war, dass dieser Schluessel an drei Stellen DIREKT
+// angezeigt wurde: auf der Kartenkarte stand "tuerkisch · Greetsiel", in der
+// Beschreibung "tuerkisch Küche in Greetsiel", und in servesCuisine im
+// Schema, das Google ausliest.
+//
+// Es gab schon eine Uebersetzungstabelle -- aber zweimal lokal in je einer
+// Funktion versteckt. Jetzt gibt es kuecheLabel() als einzige Stelle.
+t('es gibt eine gemeinsame Uebersetzung fuer Kuechenarten',
+  /function kuecheLabel\(/.test(APP) && /'tuerkisch': 'Türkisch'/.test(APP));
+t('die Kartenkarte zeigt das Label, nicht den Schluessel',
+  /mapCardMeta'\)\.textContent = kuecheLabel\(/.test(APP));
+t('die Beschreibung darunter ebenso',
+  /desc = kuecheLabel\(r\.cuisine\)/.test(APP));
+t('und servesCuisine im Schema fuer Google',
+  /"servesCuisine": kuecheLabel\(/.test(APP));
+t('nirgends wird .cuisine mehr roh in Anzeigetext gehaengt',
+  !/textContent = \(r\.cuisine/.test(APP) && !/= r\.cuisine \+ ' K/.test(APP));
+t('eine unbekannte Kuechenart wird wenigstens grossgeschrieben, nicht nackt gezeigt',
+  /charAt\(0\)\.toUpperCase\(\) \+ k\.slice\(1\)/.test(APP));
+
+// ---- 1c2. cuisine_type roh in Anzeigetext ------------------------------------
+// Auf der Restaurantseite stand "Willkommen bei Greetsieler Börse ... mit
+// fisch & bar Küche" -- cuisine_type ist ein Feld von SCHLUESSELN, roh
+// zusammengehaengt. Klein geschrieben, und "Bar Küche" ist keine Küche.
+t('es gibt einen Helfer fuer Kuechen-Listen',
+  /function kuechenListe\(/.test(APP));
+t('cuisine_type wird nirgends mehr roh zusammengehaengt',
+  !/cuisine_type\.join\(/.test(APP),
+  (APP.match(/cuisine_type\.join\([^)]*\)/g) || []).join(', '));
+t('die Ueberschrift der Restaurantseite nutzt das Label',
+  /kuecheLabel\(erste\) \|\| 'Küche'\) \+ ' trifft Nordsee'/.test(APP));
+t('der Untertitel ebenso', /kuechenListe\(rest\) \|\| 'Regionale Küche'/.test(APP));
+t('und die Beschreibung', /var kuechen = kuechenListe\(rest\);/.test(APP));
+t('es gibt nur noch EINE Uebersetzungstabelle, nicht drei',
+  (APP.match(/var cuisineLabel = \{/g) || []).length === 0
+  && (APP.match(/var KUECHE_LABEL = \{/g) || []).length === 1);
+t('alle Kuechenarten aus den Filterlisten stehen darin',
+  ['burger','steakhouse','indisch','baeckerei','shisha','eisdiele'].every(function (k) {
+      return new RegExp("'" + k + "':").test(APP);
+  }), 'fehlend');
+t('baeckerei wird zu Bäckerei -- der Notweg koennte das nicht',
+  /'baeckerei': 'Bäckerei'/.test(APP));
+t('die Restaurantkarten zeigen keine Schluessel mehr',
+  (APP.match(/kuechenListe\(r, ' und '\)/g) || []).length === 2);
+
+// Das erfundene Zitat: stand auf JEDER Restaurantseite in Anfuehrungszeichen,
+// als haette das Haus es gesagt. War fest einprogrammiert.
+t('kein erfundenes Zitat mehr auf der Restaurantseite',
+  APP.indexOf('die perfekte Verbindung aus Tradition und Ostfriesland."') < 0
+  || /HIER STAND EIN ERFUNDENES ZITAT[\s\S]{0,900}Tradition und\s*\n\s*Ostfriesland/.test(APP));
+t('stattdessen die eigene tagline, falls eine hinterlegt ist',
+  /rest\.tagline \? '<p[\s\S]{0,300}escapeHtml\(rest\.tagline\)/.test(APP));
+
+// Der Name des Pilotkunden -- das Bildschirmfoto der App zeigt
+// "GREETSIELER BÖRSE". Der Slug bleibt ASCII und ohne das e, weil er als
+// Adresse veroeffentlicht ist und so in der Datenbank steht.
+t('der Anzeigename heisst ueberall Greetsieler Börse',
+  APP.indexOf('Greetsiler Börse') < 0, 'noch ' + (APP.match(/Greetsiler Börse/g) || []).length + 'x falsch');
+t('der Slug bleibt unveraendert -- sonst brechen veroeffentlichte Links',
+  /greetsiler-boerse/.test(APP));
+
+// ---- 1d. Zusammengeklebte Woerter und fehlende Kommas ------------------------
+// Zwei Fehlerklassen, die kein Woerterbuch findet, weil beide Teile fuer sich
+// richtig sind: "digitalenSpeisekarten" (fehlendes Leerzeichen) und
+// "jedes Mal wenn wir kommen" (fehlendes Komma vor dem Nebensatz).
+function anzeigeTexte() {
+    var raus = [], m;
+    // HTML- UND JS-Kommentare raus. Sonst liest die Suche Saetze wie
+    // "// Script erst laden wenn gebraucht" als Anzeigetext -- ein Komma
+    // im Quelltext-Kommentar interessiert keinen Gast.
+    var ohneKommentar = APP.replace(/<!--[\s\S]*?-->/g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ');
+    var re = />([^<>{}]{20,400})</g;
+    while ((m = re.exec(ohneKommentar))) {
+        var t = m[1].split(/\s+/).join(' ').trim();
+        // Quelltext, der zufaellig zwischen einem > und einem < steht:
+        // "= openTime && currentTime" ist ein Vergleich, kein Satz.
+        if (/['"]/.test(t) || /[{}();]|=>/.test(t)) continue;
+        if (/&&|\|\||[=<>]=|\w\.\w/.test(t)) continue;
+        raus.push(t);
+    }
+    var re2 = /(?:text|title|body):\s*'([^']{20,400})'/g;
+    while ((m = re2.exec(ohneKommentar))) raus.push(m[1]);
+    var re3 = /showToast\(\s*'([^']{20,300})'/g;
+    while ((m = re3.exec(ohneKommentar))) raus.push(m[1]);
+    return raus;
+}
+var TEXTE = anzeigeTexte();
+t('es gibt genug Anzeigetext zum Pruefen', TEXTE.length > 200, TEXTE.length);
+
+var geklebt = [];
+TEXTE.forEach(function (t2) {
+    var m2, re4 = /\b([a-zäöüß]{3,})([A-ZÄÖÜ][a-zäöüß]{3,})\b/g;
+    while ((m2 = re4.exec(t2))) geklebt.push(m2[0] + '  in: ' + t2.slice(0, 60));
+});
+t('keine zusammengeklebten Woerter im Anzeigetext',
+  geklebt.length === 0, '\n         ' + geklebt.slice(0, 8).join('\n         '));
+
+var ohneKomma = [];
+TEXTE.forEach(function (t2) {
+    var m2, re5 = /\w{3,}\s+(wenn|dass|weil|damit|obwohl|sobald|falls|bevor|nachdem|sofern)\s+\w+/g;
+    while ((m2 = re5.exec(t2))) {
+        var davor = t2.slice(0, m2.index + m2[0].indexOf(m2[1]));
+        if (/[,;:\-–(]\s*\w*\s*$/.test(davor)) continue;     // Komma ist da
+        if (/\b(und|oder|auch|nur|selbst|erst|schon|immer|dann|so)\s+$/.test(davor)) continue;
+        ohneKomma.push(m2[0] + '  in: ' + t2.slice(0, 60));
+    }
+});
+t('kein fehlendes Komma vor einem Nebensatz',
+  ohneKomma.length === 0, '\n         ' + ohneKomma.slice(0, 8).join('\n         '));
 
 // Gegenprobe -- ohne die waere ein gruenes Ergebnis oben wertlos.
 t('Gegenprobe: "Doener Kebab" wuerde gemeldet', ASCII_UMLAUT.test('Doener Kebab und mehr'));
