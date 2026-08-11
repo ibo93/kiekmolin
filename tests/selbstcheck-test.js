@@ -410,6 +410,68 @@ var HEILE = {
     t('nichts springt auf -- waehrend des Services will das niemand',
       /Kein Fenster, das aufspringt, kein Ton/.test(H));
 
+    // ---- 8c2. Er darf nicht an fehlender Zuordnung scheitern -----------------
+    // Gemeldet mit Bildschirmfoto: "Restaurant nicht gefunden -- Ohne
+    // Restaurant-Zuordnung kann nichts geprüft werden. Bitte neu anmelden."
+    // Angemeldet war der Nutzer aber. Der einzige Admin-Rueckfall war
+    // APP_DATA.restaurants[0]; war die Liste noch leer, gab er auf.
+    function haeuserWelt(appDaten, dbAntwort) {
+        var gefragt = [];
+        function hole(url) {
+            gefragt.push(url);
+            if (dbAntwort === 'fehler') return Promise.resolve({ ok: false, status: 500, text: function () { return Promise.resolve('weg'); } });
+            return Promise.resolve({ ok: true, headers: { get: function () { return null; } },
+                                     json: function () { return Promise.resolve(dbAntwort || []); } });
+        }
+        var F = new Function('window', 'APP_DATA', 'fetch', 'SUPABASE_URL', 'SUPABASE_KEY',
+            'AbortController', 'setTimeout', 'clearTimeout',
+            'var _scHaeuser = null;\n' + schneide('_scHole') + '\n' + schneide('selbstcheckHaeuser')
+            + '; return selbstcheckHaeuser;')(
+            { APP_DATA: appDaten }, appDaten, hole, 'https://x.supabase.co', 'k',
+            function () { return { abort: function () {}, signal: 'S' }; },
+            function () { return 1; }, function () {});
+        return { lauf: F, gefragt: gefragt };
+    }
+
+    var ausApp = haeuserWelt({ restaurants: [{ id: 'r-1', name: 'Al Porto' }] }, []);
+    var l1 = await ausApp.lauf();
+    t('sind die Restaurants schon geladen, nimmt er sie von dort',
+      l1.length === 1 && l1[0].name === 'Al Porto' && ausApp.gefragt.length === 0,
+      JSON.stringify(l1) + ' / ' + ausApp.gefragt.length + ' Abfragen');
+
+    var leer = haeuserWelt({ restaurants: [] }, [{ id: 'r-9', name: 'Greetsieler Börse' }]);
+    var l2 = await leer.lauf();
+    t('ist die Liste leer, sieht er SELBST in der Datenbank nach',
+      l2.length === 1 && l2[0].name === 'Greetsieler Börse', JSON.stringify(l2));
+    t('und fragt dabei nach Kennung und Name',
+      /restaurants\?select=id,name/.test(leer.gefragt[0]), leer.gefragt[0]);
+
+    var garnichts = haeuserWelt({}, 'fehler');
+    t('ist auch die Datenbank weg, kommt eine leere Liste statt eines Absturzes',
+      (await garnichts.lauf()).length === 0);
+
+    t('die Liste wird nur einmal geholt, nicht bei jedem Messen',
+      (function () { return /if \(_scHaeuser\) return _scHaeuser;/.test(H); })());
+
+    // Der Ablauf beim Neuladen: Auswahl, dann uebliche Zuordnung, dann das
+    // erste Haus aus der Datenbank.
+    t('ohne Auswahl greift die uebliche Zuordnung',
+      /if \(!restId && typeof _resolveEventsRestaurantId === 'function'\)/.test(H));
+    t('und wenn auch die nichts liefert, das erste Haus aus der Liste',
+      /if \(!restId && haeuser\.length\) restId = haeuser\[0\]\.id;/.test(H));
+    t('die Auswahl oben wird nachtraeglich gefuellt, wenn die Liste da ist',
+      /kopfBox && haeuser\.length >= 2 && !document\.getElementById\('scHausWahl'\)/.test(H));
+
+    // Bleibt es wirklich bei nichts, muss der Grund stimmen.
+    // Der Rat darf nicht mehr im ANGEZEIGTEN Text stehen. Im Kommentar
+    // dazu steht er weiter -- dort erklaert er, was frueher da stand.
+    t('kein "Bitte neu anmelden" mehr im Anzeigetext -- das brachte nichts',
+      !/hinweis:[^;]*Bitte neu anmelden/.test(H));
+    t('stattdessen: kennt die Datenbank kein Restaurant, steht das da',
+      /kein Restaurant vorhanden/.test(H) && /kennt kein einziges Restaurant/.test(H));
+    t('und war sie nicht erreichbar, steht DAS da',
+      /Datenbank nicht erreichbar/.test(H) && /Restaurantliste liess sich nicht laden/.test(H));
+
     // ---- 8d. WELCHES Restaurant -- immer sichtbar ----------------------------
     // Gemeldet: "er sagt nicht welches Restaurant das sind bei Fehler".
     // Der Name stand als erste Karte im Inhalt und war weg, sobald man zu den
@@ -425,12 +487,13 @@ var HEILE = {
       /Restaurant nicht ermittelbar/.test(H));
 
     // Mehrere Haeuser: umschalten statt raten.
+    // selbstcheckHausWahl bekommt die Liste jetzt uebergeben, statt sie sich
+    // aus APP_DATA zu holen -- sie kann inzwischen auch aus der Datenbank
+    // kommen, und die ist erst nach dem Aufbau des Fensters da.
     function wahlWelt(restaurants) {
-        return new Function('window', 'APP_DATA', '_resolveEventsRestaurantId', 'escapeHtml',
+        return new Function('escapeHtml',
             schneide('selbstcheckHausWahl') + '; return selbstcheckHausWahl;')(
-            { APP_DATA: { restaurants: restaurants } }, { restaurants: restaurants },
-            function () { return 'r-2'; },
-            function (x) { return String(x); })();
+            function (x) { return String(x); })(restaurants, 'r-2');
     }
     var einHaus = wahlWelt([{ id: 'r-1', name: 'Al Porto' }]);
     t('bei einem Haus kein Auswahlfeld -- das waere nur im Weg',

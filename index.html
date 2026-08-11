@@ -54020,9 +54020,16 @@ async function selbstcheckAusfuehren(restId) {
     var rid = restId || (typeof _resolveEventsRestaurantId === 'function' ? _resolveEventsRestaurantId() : '');
 
     if (!rid) {
+        // Hierher kommt man nur noch, wenn auch die Datenbank kein einziges
+        // Restaurant kennt oder nicht erreichbar war. Vorher stand hier der
+        // Rat, sich neu anzumelden -- der brachte nichts, angemeldet war man
+        // ja. Jetzt steht da, woran es wirklich liegt.
+        var db = await _scHole('restaurants?select=id&limit=1');
         b.push({ bereich: 'Zuordnung', titel: 'Restaurant', stand: SELBSTCHECK_STAND.fehler,
-                 wert: 'nicht gefunden',
-                 hinweis: 'Ohne Restaurant-Zuordnung kann nichts geprüft werden. Bitte neu anmelden.' });
+                 wert: db.ok ? 'kein Restaurant vorhanden' : 'Datenbank nicht erreichbar',
+                 hinweis: db.ok
+                    ? 'Die Datenbank kennt kein einziges Restaurant. Lege zuerst eines an.'
+                    : ('Die Restaurantliste liess sich nicht laden: ' + db.grund) });
         return b;
     }
     var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
@@ -54316,17 +54323,37 @@ function selbstcheckPunktSetzen(fehler, warnung) {
 // falschen Stelle.
 // Bei nur einem Haus bleibt es beim schlichten Namen; ein Auswahlfeld mit
 // einem einzigen Eintrag ist nur im Weg.
-function selbstcheckHausWahl() {
-    var liste = [];
+// DIE ZUORDNUNG DARF NICHT AN EINER LEEREN LISTE SCHEITERN.
+//
+// _resolveEventsRestaurantId() faellt beim Admin auf APP_DATA.restaurants[0]
+// zurueck. Ist diese Liste noch nicht geladen -- etwa weil der Selbstcheck
+// vor dem Rest des Dashboards geoeffnet wird --, kam nur "Restaurant nicht
+// gefunden. Bitte neu anmelden" -- ein Rat, der nichts bringt:
+// angemeldet war man ja.
+//
+// Ein Waechter, der aufgibt, weil ihm jemand anderes nichts hingelegt hat,
+// taugt nichts. Also sieht er jetzt selbst in der Datenbank nach.
+var _scHaeuser = null;
+
+async function selbstcheckHaeuser() {
+    if (_scHaeuser) return _scHaeuser;
     try {
-        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
-            liste = APP_DATA.restaurants.filter(function (r) { return r && r.id; });
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants) && APP_DATA.restaurants.length) {
+            _scHaeuser = APP_DATA.restaurants
+                .filter(function (r) { return r && r.id; })
+                .map(function (r) { return { id: r.id, name: r.name || 'Ohne Namen' }; });
+            return _scHaeuser;
         }
     } catch (e) {}
+    var res = await _scHole('restaurants?select=id,name&order=name.asc&limit=100');
+    _scHaeuser = (res.ok && Array.isArray(res.daten)) ? res.daten : [];
+    return _scHaeuser;
+}
 
+function selbstcheckHausWahl(liste, jetzt) {
+    liste = liste || [];
     if (liste.length < 2) return '<span id="scKopfName">wird ermittelt…</span>';
 
-    var jetzt = typeof _resolveEventsRestaurantId === 'function' ? _resolveEventsRestaurantId() : '';
     var html = '<select id="scHausWahl" onchange="selbstcheckNeuLaden(this.value)" '
              + 'style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);'
              + 'border-radius:9999px;padding:4px 10px;font-family:Inter,sans-serif;font-size:13px;cursor:pointer;max-width:100%;">';
@@ -54369,7 +54396,7 @@ function openSelbstcheck() {
                             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;opacity:0.7;">' +
                                 '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>' +
                             '</svg>' +
-                            selbstcheckHausWahl() +
+                            '<span id="scKopfName">wird ermittelt…</span>' +
                         '</div>' +
                     '</div>' +
                     '<button onclick="document.getElementById(\'selbstcheckOverlay\').remove()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.6);font-size:26px;line-height:1;padding:0;">&times;</button>' +
@@ -54392,6 +54419,22 @@ async function selbstcheckNeuLaden(restId) {
     if (!restId) {
         var wahl = document.getElementById('scHausWahl');
         if (wahl && wahl.value) restId = wahl.value;
+    }
+
+    // Immer noch keins? Dann selbst nachsehen, statt aufzugeben. Erst die
+    // uebliche Zuordnung, sonst das erste Haus aus der Datenbank.
+    var haeuser = [];
+    try { haeuser = await selbstcheckHaeuser(); } catch (e) {}
+    if (!restId && typeof _resolveEventsRestaurantId === 'function') {
+        restId = _resolveEventsRestaurantId() || '';
+    }
+    if (!restId && haeuser.length) restId = haeuser[0].id;
+
+    // Die Auswahl oben erst jetzt fuellen -- vorher war die Liste noch nicht da.
+    var kopfBox = document.getElementById('scKopfRestaurant');
+    if (kopfBox && haeuser.length >= 2 && !document.getElementById('scHausWahl')) {
+        var svg = kopfBox.querySelector('svg');
+        kopfBox.innerHTML = (svg ? svg.outerHTML : '') + selbstcheckHausWahl(haeuser, restId);
     }
 
     var befunde;
