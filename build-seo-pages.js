@@ -70,13 +70,6 @@ const CATEGORIES = [
     slug: 'pizzeria',
     label: 'Pizzeria',
     plural: 'Pizzerien',
-    // Artikel und Betriebsbezeichnung fuer den Satz "X ist ... in Y".
-    // Vorher stand dort fest "ist ein " + label -- "ist ein Pizzeria" ist
-    // falsch, und "ist ein Döner" bezeichnet das Gericht, nicht den Betrieb.
-    // Welcher Artikel stimmt, laesst sich nicht ableiten: es gehoert zum
-    // Wort. Also steht es hier, einmal pro Kategorie.
-    artikel: 'eine',
-    haus: 'Pizzeria',
     labelEn: 'Pizzeria',
     pluralEn: 'Pizzerias',
     keywords: ['pizza', 'pizzeria', 'italienisch'],
@@ -88,8 +81,6 @@ const CATEGORIES = [
     slug: 'doener',
     label: 'Döner',
     plural: 'Döner-Imbisse',
-    artikel: 'ein',
-    haus: 'Döner-Imbiss',
     labelEn: 'Kebab',
     pluralEn: 'Kebab places',
     keywords: ['doener', 'döner', 'türkisch', 'turkish', 'kebab'],
@@ -101,8 +92,6 @@ const CATEGORIES = [
     slug: 'fischrestaurant',
     label: 'Fischrestaurant',
     plural: 'Fischrestaurants',
-    artikel: 'ein',
-    haus: 'Fischrestaurant',
     labelEn: 'Fish restaurant',
     pluralEn: 'Fish restaurants',
     keywords: ['fisch', 'fischrestaurant', 'meeresfrüchte', 'meeresfruechte', 'krabben', 'seafood'],
@@ -114,8 +103,6 @@ const CATEGORIES = [
     slug: 'griechisches-restaurant',
     label: 'Griechisches Restaurant',
     plural: 'Griechische Restaurants',
-    artikel: 'ein',
-    haus: 'griechisches Restaurant',
     labelEn: 'Greek restaurant',
     pluralEn: 'Greek restaurants',
     keywords: ['griechisch', 'greek', 'gyros', 'souvlaki', 'rhodos', 'taverne'],
@@ -127,8 +114,6 @@ const CATEGORIES = [
     slug: 'cafe',
     label: 'Café',
     plural: 'Cafés',
-    artikel: 'ein',
-    haus: 'Café',
     labelEn: 'Café',
     pluralEn: 'Cafés',
     keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
@@ -140,8 +125,6 @@ const CATEGORIES = [
     slug: 'restaurant',
     label: 'Restaurant',
     plural: 'Restaurants',
-    artikel: 'ein',
-    haus: 'Restaurant',
     labelEn: 'Restaurant',
     pluralEn: 'Restaurants',
     keywords: [],   // leer => matcht alle
@@ -258,59 +241,28 @@ async function fetchRestaurants() {
   return await res.json();
 }
 
-// OHNE SPEISEKARTE IST DIE SEITE EIN LEERES SCHAUFENSTER.
-//
-// Diese Funktion gab bei JEDEM Fehler still ein leeres Array zurueck. Die
-// Seite wurde dann trotzdem gebaut -- nur ohne ein einziges Gericht. Und
-// das faellt niemandem auf: die Seite sieht fertig aus.
-//
-// Die Folgen reichen bis in die Google-Suche. Ohne Gerichte faellt die
-// Meta-Beschreibung auf einen Textbaustein zurueck, und Google hat nichts
-// Eigenes zu zitieren. Der Wettbewerber zeigt unter seinem Treffer
-// "Pizza Margherita 7,50 € · Pizza Salami ..." -- bei uns stand die
-// Oeffnungszeit.
-//
-// Zwei Aenderungen: die Abfrage wird ohne die verknuepfte Kategorie
-// wiederholt (die braucht eine Fremdschluessel-Beziehung, die PostgREST
-// erkennen muss -- fehlt sie, kommt 400 und vorher hiess das stumm "keine
-// Gerichte"), und jeder Fehlschlag wird GEMELDET statt verschluckt.
-const MENU_FEHLSCHLAEGE = [];
-
-async function fetchMenuItems(restaurantId, restName) {
+async function fetchMenuItems(restaurantId) {
+  // Bis zu 30 verfügbare Items, populaere zuerst, dann nach sort_order
+  // Fault-tolerant: bei Fehler leeres Array zurueck, Page wird trotzdem gebaut
   if (!restaurantId) return [];
-  const basis = SUPABASE_URL + '/rest/v1/menu_items'
+  const url = SUPABASE_URL + '/rest/v1/menu_items'
     + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
-    + '&is_available=eq.true';
-  const schluss = '&order=is_popular.desc,sort_order.asc&limit=30';
-  const mitKategorie = '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)';
-  const ohneKategorie = '&select=name,description,base_price,price,image_url,is_popular';
-
-  async function hole(select) {
-    const res = await fetch(basis + select + schluss, {
+    + '&is_available=eq.true'
+    + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
+    + '&order=is_popular.desc,sort_order.asc'
+    + '&limit=30';
+  try {
+    const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
         'Accept': 'application/json'
       }
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (await res.text()).slice(0, 160));
-    const daten = await res.json();
-    return Array.isArray(daten) ? daten : [];
-  }
-
-  try {
-    return await hole(mitKategorie);
-  } catch (e1) {
-    // Zweiter Versuch ohne die Verknuepfung -- lieber Gerichte ohne
-    // Kategorie-Ueberschrift als eine Seite ganz ohne Speisekarte.
-    try {
-      const ohne = await hole(ohneKategorie);
-      MENU_FEHLSCHLAEGE.push({ name: restName || restaurantId, grund: 'Kategorien nicht verknüpft (' + e1.message + ')', gerettet: ohne.length });
-      return ohne;
-    } catch (e2) {
-      MENU_FEHLSCHLAEGE.push({ name: restName || restaurantId, grund: e2.message, gerettet: 0 });
-      return [];
-    }
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
   }
 }
 
@@ -1165,54 +1117,6 @@ function renderOeffnungszeitenHtml(rest, name) {
     'Feiertage und Betriebsferien können abweichen – das Live-Profil zeigt, ob gerade geöffnet ist.</p>\n';
 }
 
-// DER SATZ, DER AUF JEDER RESTAURANTSEITE ZUERST STEHT.
-//
-// Vorher war das ein Textbaustein: derselbe Satz auf jeder Seite, nur der
-// Name ausgetauscht. Google zeigt solche Bausteine ungern als Ausschnitt --
-// es sucht sich dann lieber irgendeinen anderen Absatz von der Seite, und
-// genau das war zu sehen: unter dem Treffer standen die Oeffnungszeiten
-// statt "hier kann man bestellen".
-//
-// Jetzt kommen echte Angaben dieses Hauses hinein: Kuechenart, Ort, Anzahl
-// der Gerichte, guenstigster Preis und was wirklich angeboten wird. Damit
-// unterscheidet sich der Satz von Haus zu Haus.
-function bestellSatz(rest, name, cat, cityRaw, menuItems) {
-  const merkmale = Array.isArray(rest.features) ? rest.features : [];
-  const wege = [];
-  if (merkmale.indexOf('no_ordering') < 0) {
-    wege.push('Abholung');
-    if (rest.delivery_fee != null || merkmale.indexOf('lieferung') >= 0) wege.push('Lieferung');
-  }
-  const kannReservieren = merkmale.indexOf('no_reservations') < 0;
-
-  // "ist ein Pizzeria" stand so auf der Seite. Artikel und
-  // Betriebsbezeichnung kommen jetzt aus der Kategorie selbst.
-  const artikel = (cat && cat.artikel) || 'ein';
-  const haus = (cat && (cat.haus || cat.label)) || 'Restaurant';
-  let satz = escapeHtml(name) + ' ist ' + artikel + ' ' + escapeHtml(haus)
-           + ' in ' + escapeHtml(cityRaw) + '.';
-
-  if (menuItems && menuItems.length) {
-    const preise = menuItems
-      .map(function (it) { return Number(it.base_price != null ? it.base_price : it.price); })
-      .filter(function (p) { return isFinite(p) && p > 0; });
-    satz += ' ' + menuItems.length + (menuItems.length === 1 ? ' Gericht steht' : ' Gerichte stehen') + ' online';
-    if (preise.length) {
-      satz += ', ab ' + Math.min.apply(null, preise).toFixed(2).replace('.', ',') + ' €';
-    }
-    satz += '.';
-  }
-
-  if (wege.length) {
-    satz += ' Bestellen zur ' + wege.join(' oder ') + ' – direkt über ' + BRAND
-          + ', ohne App-Download und ohne Preisaufschlag.';
-  }
-  if (kannReservieren) {
-    satz += ' Tisch reservieren geht ebenfalls online, mit Sofort-Bestätigung.';
-  }
-  return satz;
-}
-
 function detectCategoryForRest(rest) {
   for (const c of CATEGORIES) {
     if (c.slug !== 'restaurant' && categoryMatches(rest, c)) return c;
@@ -1479,14 +1383,10 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) + '\n' +
     renderTrustBadges(rest, menuItems) + '\n' +
     '<div class="intro fade d1">\n' +
-      // HAT DER WIRT EINEN EIGENEN TEXT, STAND HIER NUR DER.
-      // Der Satz "hier kannst du online bestellen" verschwand dann komplett
-      // -- ausgerechnet auf der Seite, die genau das verkaufen soll. Google
-      // hat dann nichts zum Bestellen zu zitieren und nimmt irgendeinen
-      // anderen Absatz, bei uns die Oeffnungszeiten. Jetzt steht beides:
-      // erst der Text des Hauses, dann was man hier tun kann.
-      (rest.description ? '<p>' + escapeHtml(rest.description) + '</p>' : '') +
-      '<p>' + bestellSatz(rest, name, cat, cityRaw, menuItems) + '</p>' +
+      (rest.description
+        ? '<p>' + escapeHtml(rest.description) + '</p>'
+        : '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
+          '. Auf ' + BRAND + ' kannst du die komplette Speisekarte ansehen, online bestellen oder einen Tisch reservieren – kostenlos und ohne App-Download.</p>') +
       (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
       (rest.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(rest.phone) + '">' + escapeHtml(rest.phone) + '</a></p>' : '') +
       (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
@@ -2271,7 +2171,7 @@ async function main() {
       let menuItems = [];
       let reviews = [];
       if (rest.id) {
-        menuItems = await fetchMenuItems(rest.id, rest.name);
+        menuItems = await fetchMenuItems(rest.id);
         reviews = await fetchReviews(rest.id);
       }
       const result = generateRestaurantPage(rest, menuItems, reviews);
@@ -2287,22 +2187,6 @@ async function main() {
     }
   }
   console.log('[seo] Restaurant-Detail-Pages:', restaurantPages, '· menu items:', totalMenuItems, '· reviews embedded:', totalReviews);
-
-  // OHNE GERICHTE IST DIE SEITE EIN LEERES SCHAUFENSTER -- das muss im
-  // Bauprotokoll stehen, nicht nur in der Datenbank fehlen. Vorher wurde
-  // eine Seite ohne Speisekarte genauso gemeldet wie eine mit.
-  const ohneKarte = generated.filter(function (g) { return g.restaurant && !g.menuCount; });
-  if (ohneKarte.length) {
-    console.warn('[seo] ACHTUNG: ' + ohneKarte.length + ' Restaurantseite(n) ohne ein einziges Gericht — '
-      + 'Google hat dort nichts zu zeigen ausser Textbausteinen:');
-    ohneKarte.forEach(function (g) { console.warn('[seo]   · ' + g.filename); });
-  }
-  if (MENU_FEHLSCHLAEGE.length) {
-    console.warn('[seo] ACHTUNG: die Speisekarte liess sich bei ' + MENU_FEHLSCHLAEGE.length + ' Haus/Haeusern nicht sauber laden:');
-    MENU_FEHLSCHLAEGE.forEach(function (f) {
-      console.warn('[seo]   · ' + f.name + ' — ' + f.grund + (f.gerettet ? ' (' + f.gerettet + ' Gerichte ueber den Ersatzweg geholt)' : ' (KEINE Gerichte)'));
-    });
-  }
 
   try {
     injectHomepageRestaurantLinks(restaurants);
