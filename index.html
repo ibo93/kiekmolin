@@ -820,7 +820,7 @@
          Hier stand <script src="https://cdn.tailwindcss.com?plugins=...">.
          Das ist der Spiel-CDN von Tailwind: rund 400 KB JavaScript, das die
          Stylesheets ERST IM BROWSER erzeugt -- bei jedem Aufruf, bei jedem
-         Gast, und blockierend im <head>. Solange es laeuft, sieht der Gast
+         Gast, und blockierend im <head>. Solange es läuft, sieht der Gast
          nichts. Tailwind schreibt selbst in seine Doku, dass das nichts im
          echten Betrieb zu suchen hat.
 
@@ -859,7 +859,7 @@
         function _lazyLoadScript(url, cb) {
             var da = document.querySelector('script[src="' + url + '"]');
             if (da && da.dataset.geladen === '1') { if (cb) cb(); return; }
-            if (da) {                       // laeuft noch -> anstellen, nicht vordraengeln
+            if (da) {                       // läuft noch -> anstellen, nicht vordraengeln
                 if (cb) (_skriptWartet[url] = _skriptWartet[url] || []).push(cb);
                 return;
             }
@@ -14608,7 +14608,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
         </div>
 
         <nav class="dash-nav" style="padding-bottom: 80px;">
-            <div class="dash-nav-group-label">Hauptmenue</div>
+            <div class="dash-nav-group-label">Hauptmenü</div>
             <div class="dash-nav-item active" id="navDashboard" onclick="showDashboardSection('dashboard')">
                 <span class="material-symbols-outlined" style="font-size:20px;">dashboard</span>
                 Dashboard
@@ -14665,6 +14665,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div class="dash-nav-item" id="navEvents" onclick="openEventsModal()">
                 <span class="material-symbols-outlined" style="font-size:20px;">history</span>
                 Ereignisse
+            </div>
+            <div class="dash-nav-item admin-only-nav" id="navSelbstcheck" onclick="openSelbstcheck()">
+                <span class="material-symbols-outlined" style="font-size:20px;">monitor_heart</span>
+                Selbstcheck
             </div>
             <div class="dash-nav-item admin-only-nav" id="navCustomers" onclick="showDashboardSection('customers')" style="display:none;">
                 <span class="material-symbols-outlined" style="font-size:20px;">group</span>
@@ -20453,7 +20457,7 @@ const translations = {
         cartEmpty: 'Dein Warenkorb ist leer',
         subtotal: 'Zwischensumme',
         total: 'Gesamtbetrag',
-        deliveryFee: 'Liefergebuehr',
+        deliveryFee: 'Liefergebühr',
         tip: 'Trinkgeld',
         noTip: 'Kein Trinkgeld',
         customTip: 'Eigener Betrag',
@@ -20481,7 +20485,7 @@ const translations = {
         addMore: 'Dazu',
         couponCode: 'Gutschein-Code',
         couponPlaceholder: 'Code eingeben',
-        applyCoupon: 'Einloesen',
+        applyCoupon: 'Einlösen',
         couponApplied: 'Gutschein eingeloest!',
         paymentMethod: 'Zahlungsart',
         cash: 'Barzahlung',
@@ -43465,7 +43469,7 @@ document.addEventListener('error', function(e) {
                 </h2>
                 <div style="display:flex;gap:8px;">
                     <input type="text" id="couponInput" class="checkout-input-glass" placeholder="Code eingeben" style="flex:1;">
-                    <button onclick="applyCoupon()" style="padding:10px 20px;background:#003d33;color:white;border:none;border-radius:32px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">Einloesen</button>
+                    <button onclick="applyCoupon()" style="padding:10px 20px;background:#003d33;color:white;border:none;border-radius:32px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">Einlösen</button>
                 </div>
                 <div id="couponStatus" style="font-size:12px;margin-top:4px;display:none;"></div>
             </section>
@@ -44864,7 +44868,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             <div class="oc-fade-up-4 oc-glass-card" style="padding: 20px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;color:rgba(0,61,51,0.6);margin-bottom:8px;" id="receiptSubtotal"><span>Zwischensumme</span><span>0,00</span></div>
                 <div style="display:none;justify-content:space-between;align-items:center;font-size:14px;color:rgba(0,61,51,0.6);margin-bottom:8px;" id="receiptVat"><span>zzgl. MwSt.</span><span>0,00</span></div>
-                <div style="display:none;justify-content:space-between;align-items:center;font-size:14px;color:rgba(0,61,51,0.6);margin-bottom:12px;" id="receiptDelivery"><span>Liefergebuehr</span><span>0,00</span></div>
+                <div style="display:none;justify-content:space-between;align-items:center;font-size:14px;color:rgba(0,61,51,0.6);margin-bottom:12px;" id="receiptDelivery"><span>Liefergebühr</span><span>0,00</span></div>
                 <div style="display:none;justify-content:space-between;align-items:center;font-size:14px;color:rgba(0,61,51,0.6);margin-bottom:12px;" id="receiptTip"><span>Trinkgeld</span><span>0,00</span></div>
                 <div style="padding-top:12px;border-top:1px solid rgba(0,61,51,0.1);display:flex;justify-content:space-between;align-items:center;" id="receiptTotal">
                     <span style="font-size:20px;font-weight:900;font-family:'Epilogue',sans-serif;color:var(--ink-strong);">Gesamt</span>
@@ -48913,7 +48917,7 @@ async function submitOrder() {
         var rVat = document.getElementById('receiptVat');
         if (rVat) { rVat.style.display = 'none'; }
         var rDel = document.getElementById('receiptDelivery');
-        if (rDel) { if (deliveryFee > 0) { rDel.style.display = 'flex'; rDel.innerHTML = '<span>Liefergebuehr</span><span>' + deliveryFee.toFixed(2).replace('.', ',') + ' \u20ac</span>'; } else { rDel.style.display = 'none'; } }
+        if (rDel) { if (deliveryFee > 0) { rDel.style.display = 'flex'; rDel.innerHTML = '<span>Liefergebühr</span><span>' + deliveryFee.toFixed(2).replace('.', ',') + ' \u20ac</span>'; } else { rDel.style.display = 'none'; } }
         var rTip = document.getElementById('receiptTip');
         if (rTip) { if (tip > 0) { rTip.style.display = 'flex'; rTip.innerHTML = '<span>Trinkgeld</span><span>' + tip.toFixed(2).replace('.', ',') + ' \u20ac</span>'; } else { rTip.style.display = 'none'; } }
         var rTotal = document.getElementById('receiptTotal');
@@ -51432,7 +51436,7 @@ ${order.order_type === 'delivery' && order.delivery_address ? (() => {
     <div class="xs" style="margin-top:6px;">${datumStr} ${zeitStr} · ${belegNr}</div>
     <div class="line" style="margin:10px 0;"></div>
     <div class="xs" style="line-height:1.6;">
-        Dieses Dokument ist eine Bestellbestaetigung<br>
+        Dieses Dokument ist eine Bestellbestätigung<br>
         und kein steuerlicher Beleg im Sinne des<br>
         § 146a AO i.V.m. KassenSichV.<br>
         Erstellt ohne TSE. Kein Kassenbon.<br>
@@ -51582,7 +51586,7 @@ async function printKitchenBon(orderId) {
     '<div style="border-top:2px solid #000;padding:6px 0;">' +
         '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;">' +
             '<span>Zwischensumme:</span><span>' + formatPrice(zwischensumme) + '</span></div>' +
-        (liefergebuehr > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span>Liefergebuehr:</span><span>' + formatPrice(liefergebuehr) + '</span></div>' : '') +
+        (liefergebuehr > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span>Liefergebühr:</span><span>' + formatPrice(liefergebuehr) + '</span></div>' : '') +
         (rabatt > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;color:#d00;"><span>Rabatt:</span><span>-' + formatPrice(rabatt) + '</span></div>' : '') +
         (trinkgeld > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span>Trinkgeld:</span><span>' + formatPrice(trinkgeld) + '</span></div>' : '') +
         '<div style="display:flex;justify-content:space-between;font-size:18px;font-weight:900;padding:6px 0;border-top:1px solid #000;margin-top:4px;">' +
@@ -52120,7 +52124,7 @@ function openMultiPrinterSettings() {
               '<div style="font-size:11px;color:#9a3412;background:#fef3c7;padding:6px 8px;border-radius:6px;margin-bottom:8px;">⚠ Direkt-Druck wird auf HTTPS oft blockiert (Mixed Content). Falls Bons nicht kommen: auf „Server Direct Print" wechseln.</div>';
         } else if (p.type === 'server-direct') {
             configBlock = '<div style="background:var(--bg-card);border:1px dashed var(--border-color);border-radius:8px;padding:10px;margin-bottom:8px;">' +
-                '<div style="font-size:11px;color:var(--slate);margin-bottom:6px;">Der Drucker holt sich Bons selbst — keine IP, kein PC, kein HTTPS-Problem. Einmal am Drucker eintragen, danach laeuft alles automatisch.</div>' +
+                '<div style="font-size:11px;color:var(--slate);margin-bottom:6px;">Der Drucker holt sich Bons selbst — keine IP, kein PC, kein HTTPS-Problem. Einmal am Drucker eintragen, danach läuft alles automatisch.</div>' +
                 '<button type="button" onclick="showServerDirectPrintInfo(' + idx + ')" style="width:100%;padding:8px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
                     '<span class="material-symbols-outlined" style="font-size:14px;">key</span>Drucker-URL + Anleitung anzeigen' +
                 '</button>' +
@@ -53677,6 +53681,566 @@ function _resolveEventsRestaurantId() {
         }
     } catch (e) {}
     return '';
+}
+
+// ==================== SELBSTCHECK ====================
+//
+// Ein Waechter IN der App: er liest Bestellungen, Reservierungen und die
+// Technik ab und sagt dem Wirt, was los ist.
+//
+// DIE EINE REGEL, DIE HIER ALLES TRAEGT: KEINE ERFUNDENEN ZAHLEN.
+// -----------------------------------------------------------------
+// Jede Zeile im Bericht stammt aus einer Messung, die gerade eben gelaufen
+// ist. Es gibt keine Beispielwerte, keine Platzhalter, keinen Demo-Modus.
+//
+// Daraus folgt der wichtigste Teil: wenn eine Pruefung NICHT laufen kann --
+// Tabelle fehlt, Netz weg, keine Rechte --, dann meldet sie "unbekannt" und
+// nennt den Grund. Sie meldet niemals "in Ordnung". Ein Waechter, der bei
+// einem Fehlschlag gruen zeigt, ist schlimmer als gar keiner: der Wirt
+// verlaesst sich dann auf etwas, das nie gemessen wurde.
+//
+// Der Bericht sagt deshalb immer mit dazu, wie viele Prüfungen wirklich
+// gelaufen sind, und zu welchem Zeitpunkt.
+
+var SELBSTCHECK_STAND = { ok: 'ok', warnung: 'warnung', fehler: 'fehler', unbekannt: 'unbekannt' };
+
+// ==================== BEHEBEN -- UND WO DIE GRENZE LIEGT ====================
+//
+// Der Wächter soll Fehler nicht nur melden, sondern abstellen. Bei einem Teil
+// geht das gefahrlos, bei einem anderen Teil darf er es auf keinen Fall.
+//
+// ER DARF BEHEBEN, wenn die Reparatur nur die Technik betrifft, umkehrbar ist
+// und niemand ausserhalb des Hauses etwas davon merkt: eine Verbindung neu
+// aufbauen, den Offline-Speicher einschalten, nach der Erlaubnis für
+// Benachrichtigungen fragen, eine liegengebliebene Bestellung nachreichen.
+//
+// ER DARF NICHT BEHEBEN, wenn die Reparatur eine Entscheidung des Wirtes
+// wäre:
+//   - Eine wartende Reservierung beantworten. Zusagen oder absagen geht an
+//     einen echten Gast raus. Das entscheidet kein Programm.
+//   - Einem Gericht einen Preis geben. Welchen denn? Geraten wäre schlimmer
+//     als der fehlende Preis.
+// In diesen Fällen führt der Wächter nur hin -- er öffnet die Stelle, an der
+// der Wirt es selbst erledigt. Das ist der Unterschied zwischen Hilfe und
+// Anmassung.
+//
+// AUSSERDEM: nichts läuft von allein. Jede Reparatur braucht einen Klick.
+// Und danach wird neu gemessen, statt Erfolg zu behaupten -- eine Reparatur,
+// die sich selbst für gelungen erklärt, ist dieselbe Lüge wie ein erfundener
+// Bericht.
+var SELBSTCHECK_REPARATUR = {
+    echtzeit: {
+        knopf: 'Neu verbinden',
+        lauf: async function () {
+            if (typeof initRealtime !== 'function') return { ok: false, grund: 'Die Verbindungsroutine fehlt.' };
+            await initRealtime();
+            return { ok: true };
+        }
+    },
+    offline: {
+        knopf: 'Einschalten',
+        lauf: async function () {
+            if (!('serviceWorker' in navigator)) return { ok: false, grund: 'Dieser Browser kann das nicht.' };
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            return { ok: true };
+        }
+    },
+    hinweise: {
+        knopf: 'Erlauben',
+        lauf: async function () {
+            if (!('Notification' in window)) return { ok: false, grund: 'Dieser Browser kann das nicht.' };
+            if (Notification.permission === 'denied') {
+                return { ok: false, grund: 'Der Browser hat es dauerhaft abgelehnt. Das lässt sich nur in den Browser-Einstellungen zurücknehmen.' };
+            }
+            var antwort = await Notification.requestPermission();
+            return antwort === 'granted' ? { ok: true } : { ok: false, grund: 'Die Erlaubnis wurde nicht erteilt.' };
+        }
+    },
+    geparkt: {
+        knopf: 'Jetzt abschicken',
+        lauf: async function () {
+            var roh = null;
+            try { roh = localStorage.getItem('kmi_offene_bestellung'); } catch (e) {}
+            if (!roh) return { ok: false, grund: 'Es liegt nichts mehr da.' };
+            // Nachsehen, ob sie inzwischen doch angekommen ist -- sonst
+            // bestellt der Wirt versehentlich ein zweites Mal.
+            var g = JSON.parse(roh);
+            var befund = typeof _bestellungNachpruefen === 'function'
+                ? await _bestellungNachpruefen(g.nummer) : 'unklar';
+            if (befund === 'da') {
+                try { localStorage.removeItem('kmi_offene_bestellung'); } catch (e) {}
+                return { ok: true, hinweis: 'Sie war bereits angekommen. Der Eintrag ist jetzt weg.' };
+            }
+            if (befund === 'unklar') {
+                return { ok: false, grund: 'Nicht prüfbar, ob sie schon da ist. Nicht abgeschickt, um keine doppelte Bestellung zu erzeugen.' };
+            }
+            // Wirklich weg -- aber der Warenkorb von damals ist es auch. Ein
+            // Nachreichen aus den geparkten Daten allein waere geraten.
+            try { localStorage.removeItem('kmi_offene_bestellung'); } catch (e) {}
+            return { ok: true, hinweis: 'Die Bestellung ist nie angekommen und der Warenkorb dazu existiert nicht mehr. Der Eintrag wurde entfernt – bitte beim Gast nachfragen.' };
+        }
+    },
+    // Kein "lauf", sondern nur ein Weg dorthin: hier entscheidet der Wirt.
+    zuReservierungen: {
+        knopf: 'Reservierungen öffnen',
+        hinfuehren: function () {
+            var o = document.getElementById('selbstcheckOverlay'); if (o) o.remove();
+            if (typeof showDashboardSection === 'function') showDashboardSection('reservations');
+        }
+    },
+    zurSpeisekarte: {
+        knopf: 'Speisekarte öffnen',
+        hinfuehren: function () {
+            var o = document.getElementById('selbstcheckOverlay'); if (o) o.remove();
+            if (typeof showDashboardSection === 'function') showDashboardSection('menu');
+        }
+    }
+};
+
+async function selbstcheckReparieren(schluessel) {
+    var r = SELBSTCHECK_REPARATUR[schluessel];
+    if (!r) return;
+
+    // Nur hinführen: keine Änderung, kein neues Messen.
+    if (r.hinfuehren) { r.hinfuehren(); return; }
+
+    var knopf = document.getElementById('scFix-' + schluessel);
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Läuft…'; }
+
+    var ergebnis;
+    try {
+        ergebnis = await r.lauf();
+    } catch (e) {
+        ergebnis = { ok: false, grund: e && e.message ? e.message : String(e) };
+    }
+
+    if (!ergebnis || !ergebnis.ok) {
+        showToast('Nicht behoben: ' + ((ergebnis && ergebnis.grund) || 'unbekannter Grund'), 'error');
+        if (knopf) { knopf.disabled = false; knopf.textContent = r.knopf; }
+        return;
+    }
+    if (ergebnis.hinweis) showToast(ergebnis.hinweis, 'success');
+
+    // Nicht behaupten, sondern nachsehen: neu messen. Bleibt der Befund
+    // stehen, sieht der Wirt das sofort.
+    await selbstcheckNeuLaden();
+}
+
+// Kleine Hilfe: eine Abfrage mit Zeitdeckel. Liefert immer ein Ergebnis,
+// wirft nie -- der Selbstcheck darf an einer klemmenden Pruefung nicht
+// haengenbleiben.
+async function _scHole(pfad, deckelMs) {
+    var stop = new AbortController();
+    var uhr = setTimeout(function () { stop.abort(); }, deckelMs || 6000);
+    var t0 = Date.now();
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/' + pfad, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+                       'Prefer': 'count=exact' },
+            signal: stop.signal
+        });
+        clearTimeout(uhr);
+        var dauer = Date.now() - t0;
+        if (!res.ok) {
+            var txt = '';
+            try { txt = (await res.text()).slice(0, 160); } catch (e) {}
+            return { ok: false, grund: 'HTTP ' + res.status + (txt ? ' – ' + txt : ''), dauer: dauer };
+        }
+        var daten = null;
+        try { daten = await res.json(); } catch (e) { return { ok: false, grund: 'Antwort unlesbar', dauer: dauer }; }
+        // PostgREST liefert die Gesamtzahl im Content-Range-Kopf: "0-24/137".
+        var anzahl = null;
+        var cr = res.headers.get('content-range');
+        if (cr && cr.indexOf('/') > -1) {
+            var hinten = cr.split('/')[1];
+            if (hinten && hinten !== '*') anzahl = parseInt(hinten, 10);
+        }
+        if (anzahl === null && Array.isArray(daten)) anzahl = daten.length;
+        return { ok: true, daten: daten, anzahl: anzahl, dauer: dauer };
+    } catch (e) {
+        clearTimeout(uhr);
+        return { ok: false, grund: e.name === 'AbortError' ? 'Zeitüberschreitung' : (e.message || 'Netzwerkfehler'),
+                 dauer: Date.now() - t0 };
+    }
+}
+
+function _scHeuteVon() {
+    var d = new Date(); d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+}
+function _scVorTagen(n) {
+    return new Date(Date.now() - n * 86400000).toISOString();
+}
+
+// Fuehrt alle Prüfungen aus und liefert die Befunde.
+//
+// Jeder Befund: { bereich, titel, stand, wert, hinweis, belege, reparatur }
+//
+// "belege" ist der Teil, der den Bericht brauchbar macht. Eine Zeile wie
+// "2 fehlgeschlagene Bestellungen" sagt dem Wirt nichts -- er kann nichts
+// nachschlagen und niemanden anrufen. In belege steht deshalb, WELCHE:
+// Bestellnummer, Uhrzeit, Gastname, Gerichtname. Konkret genug, um damit
+// ins Dashboard oder ans Telefon zu gehen.
+async function selbstcheckAusfuehren(restId) {
+    var b = [];
+    var rid = restId || (typeof _resolveEventsRestaurantId === 'function' ? _resolveEventsRestaurantId() : '');
+
+    if (!rid) {
+        b.push({ bereich: 'Zuordnung', titel: 'Restaurant', stand: SELBSTCHECK_STAND.fehler,
+                 wert: 'nicht gefunden',
+                 hinweis: 'Ohne Restaurant-Zuordnung kann nichts geprüft werden. Bitte neu anmelden.' });
+        return b;
+    }
+    var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
+
+    // Welches Restaurant wird hier geprüft? Wer mehrere betreut, muss das
+    // sehen -- sonst repariert er am falschen.
+    var rName = null;
+    try {
+        if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
+            var _tr = APP_DATA.restaurants.filter(function (r) { return r.id === rid; })[0];
+            if (_tr) rName = _tr.name;
+        }
+    } catch (e) {}
+    b.push({ bereich: 'Geprüft wurde', titel: rName || 'Restaurant (Name nicht geladen)',
+             stand: SELBSTCHECK_STAND.ok, wert: 'Kennung ' + rid, hinweis: '', belege: [] });
+
+    // ---- 1. Ist die Datenbank ueberhaupt da, und wie schnell? ----
+    var db = await _scHole('restaurants?select=id&limit=1&id=eq.' + encodeURIComponent(rid), 6000);
+    b.push(db.ok
+        ? { bereich: 'Technik', titel: 'Datenbank erreichbar',
+            stand: db.dauer > 2000 ? SELBSTCHECK_STAND.warnung : SELBSTCHECK_STAND.ok,
+            wert: 'Antwort in ' + db.dauer + ' ms',
+            hinweis: db.dauer > 2000 ? 'Langsam. Bei schlechter Leitung dauern Bestellungen entsprechend länger.' : '' }
+        : { bereich: 'Technik', titel: 'Datenbank erreichbar', stand: SELBSTCHECK_STAND.fehler,
+            wert: db.grund,
+            hinweis: 'Solange das so ist, kommen weder Bestellungen noch Reservierungen an.' });
+
+    // Ohne Datenbank sind alle folgenden Zahlen nicht ermittelbar. Dann wird
+    // das auch so gesagt, statt Nullen zu zeigen -- eine 0 sieht aus wie
+    // "heute nichts los", und das waere gelogen.
+    if (!db.ok) {
+        ['Bestellungen heute', 'Fehlgeschlagene Bestellungen', 'Offene Reservierungen', 'Speisekarte']
+            .forEach(function (titel) {
+                b.push({ bereich: 'Betrieb', titel: titel, stand: SELBSTCHECK_STAND.unbekannt,
+                         wert: 'nicht ermittelbar', hinweis: 'Datenbank war nicht erreichbar.' });
+            });
+    } else {
+        // ---- 2. Bestellungen heute ----
+        var best = await _scHole('orders?select=id&' + q + '&created_at=gte.' + _scHeuteVon() + '&limit=1');
+        b.push(best.ok
+            ? { bereich: 'Betrieb', titel: 'Bestellungen heute', stand: SELBSTCHECK_STAND.ok,
+                wert: best.anzahl + (best.anzahl === 1 ? ' Bestellung' : ' Bestellungen'), hinweis: '' }
+            : { bereich: 'Betrieb', titel: 'Bestellungen heute', stand: SELBSTCHECK_STAND.unbekannt,
+                wert: 'nicht ermittelbar', hinweis: best.grund });
+
+        // ---- 3. Bestellungen, die NICHT angekommen sind ----
+        // Genau die Ereignisse, die beim Speichern und Nachpruefen
+        // geschrieben werden. Hier zahlt sich das Protokoll aus.
+        var kaputt = await _scHole('restaurant_events?select=type,message,created_at,payload&' + q
+            + '&type=in.(order_save_failed,order_verify_failed,order_items_unvollstaendig)'
+            + '&created_at=gte.' + _scVorTagen(7) + '&order=created_at.desc&limit=10');
+        if (!kaputt.ok) {
+            b.push({ bereich: 'Betrieb', titel: 'Fehlgeschlagene Bestellungen', stand: SELBSTCHECK_STAND.unbekannt,
+                     wert: 'nicht ermittelbar',
+                     hinweis: kaputt.grund + ' (fehlt die Tabelle restaurant_events, siehe Kommentar beim Ereignis-Protokoll)' });
+        } else if (kaputt.anzahl > 0) {
+            var WAS = {
+                order_save_failed: 'nicht gespeichert',
+                order_verify_failed: 'nach dem Speichern nicht auffindbar',
+                order_items_unvollstaendig: 'Positionen fehlen in der Auswertung'
+            };
+            b.push({ bereich: 'Betrieb', titel: 'Fehlgeschlagene Bestellungen', stand: SELBSTCHECK_STAND.fehler,
+                     wert: kaputt.anzahl + ' in den letzten 7 Tagen',
+                     hinweis: 'Jede Zeile ist eine Bestellung, die ein Gast aufgegeben hat und die so nicht durchkam.',
+                     belege: (kaputt.daten || []).map(function (ev) {
+                        var nr = (ev.payload && ev.payload.order_number) || null;
+                        return new Date(ev.created_at).toLocaleString('de-DE')
+                             + (nr ? ' · Bestellung ' + nr : '')
+                             + ' · ' + (WAS[ev.type] || ev.type)
+                             + (ev.message ? ' · ' + ev.message : '');
+                     }) });
+        } else {
+            b.push({ bereich: 'Betrieb', titel: 'Fehlgeschlagene Bestellungen', stand: SELBSTCHECK_STAND.ok,
+                     wert: 'keine in 7 Tagen', hinweis: '' });
+        }
+
+        // ---- 4. Reservierungen, die auf Antwort warten ----
+        var offen = await _scHole('reservations?select=id,created_at,guest_name,party_size,reservation_date,reservation_time&' + q
+            + '&status=eq.pending&order=created_at.asc&limit=10');
+        if (!offen.ok) {
+            b.push({ bereich: 'Betrieb', titel: 'Offene Reservierungen', stand: SELBSTCHECK_STAND.unbekannt,
+                     wert: 'nicht ermittelbar', hinweis: offen.grund });
+        } else if (offen.anzahl === 0) {
+            b.push({ bereich: 'Betrieb', titel: 'Offene Reservierungen', stand: SELBSTCHECK_STAND.ok,
+                     wert: 'alle beantwortet', hinweis: '' });
+        } else {
+            var aelteste = offen.daten && offen.daten[0];
+            var stunden = aelteste ? Math.floor((Date.now() - new Date(aelteste.created_at).getTime()) / 3600000) : 0;
+            b.push({ bereich: 'Betrieb', titel: 'Offene Reservierungen',
+                     stand: stunden >= 24 ? SELBSTCHECK_STAND.warnung : SELBSTCHECK_STAND.ok,
+                     wert: offen.anzahl + (offen.anzahl === 1 ? ' wartet auf Antwort' : ' warten auf Antwort'),
+                     hinweis: stunden >= 24
+                        ? ('Die älteste wartet seit ' + stunden + ' Stunden. Zusagen oder absagen muss das Haus '
+                           + 'selbst – das geht an einen echten Gast raus.')
+                        : '',
+                     belege: (offen.daten || []).map(function (r) {
+                        var wartet = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 3600000);
+                        return (r.guest_name || 'ohne Namen')
+                             + (r.party_size ? ' · ' + r.party_size + ' Pers.' : '')
+                             + (r.reservation_date ? ' · für ' + new Date(r.reservation_date).toLocaleDateString('de-DE')
+                                + (r.reservation_time ? ' ' + String(r.reservation_time).slice(0, 5) : '') : '')
+                             + ' · wartet seit ' + (wartet < 1 ? 'unter 1 Stunde' : wartet + ' Std.');
+                     }),
+                     reparatur: stunden >= 24 ? 'zuReservierungen' : null });
+        }
+
+        // ---- 5. Speisekarte: Gerichte ohne Preis ----
+        // Ein Gericht mit Preis 0 kann bestellt werden und bringt nichts ein.
+        var ohnePreis = await _scHole('menu_items?select=id,name&' + q + '&or=(base_price.is.null,base_price.eq.0)&limit=10');
+        if (!ohnePreis.ok) {
+            b.push({ bereich: 'Betrieb', titel: 'Speisekarte', stand: SELBSTCHECK_STAND.unbekannt,
+                     wert: 'nicht ermittelbar', hinweis: ohnePreis.grund });
+        } else if (ohnePreis.anzahl > 0) {
+            b.push({ bereich: 'Betrieb', titel: 'Speisekarte', stand: SELBSTCHECK_STAND.warnung,
+                     wert: ohnePreis.anzahl + ' Gericht' + (ohnePreis.anzahl === 1 ? '' : 'e') + ' ohne Preis',
+                     hinweis: 'Diese können bestellt werden und bringen 0 Euro. Welcher Preis richtig ist, '
+                            + 'weiss nur das Haus – geraten wäre schlimmer als der fehlende Preis.',
+                     belege: (ohnePreis.daten || []).map(function (i) {
+                        return (i.name || 'Gericht ohne Namen') + ' · Kennung ' + i.id;
+                     }),
+                     reparatur: 'zurSpeisekarte' });
+        } else {
+            b.push({ bereich: 'Betrieb', titel: 'Speisekarte', stand: SELBSTCHECK_STAND.ok,
+                     wert: 'alle Gerichte haben einen Preis', hinweis: '' });
+        }
+    }
+
+    // ---- 6. Echtzeit: kommen neue Bestellungen von allein an? ----
+    try {
+        var client = (typeof sb !== 'undefined' && sb) || window.sb;
+        if (!client || typeof client.getChannels !== 'function') {
+            b.push({ bereich: 'Technik', titel: 'Echtzeit-Verbindung', stand: SELBSTCHECK_STAND.unbekannt,
+                     wert: 'nicht ermittelbar', hinweis: 'Supabase-Bibliothek nicht geladen.' });
+        } else {
+            var kanaele = client.getChannels() || [];
+            var offen2 = kanaele.filter(function (k) { return k.state === 'joined'; }).length;
+            if (kanaele.length === 0) {
+                b.push({ bereich: 'Technik', titel: 'Echtzeit-Verbindung', stand: SELBSTCHECK_STAND.warnung,
+                         wert: 'kein Kanal aktiv',
+                         hinweis: 'Neue Bestellungen erscheinen dann erst beim Aktualisieren.' });
+            } else {
+                var lahm = kanaele.filter(function (k) { return k.state !== 'joined'; });
+                b.push({ bereich: 'Technik', titel: 'Echtzeit-Verbindung',
+                         stand: lahm.length === 0 ? SELBSTCHECK_STAND.ok : SELBSTCHECK_STAND.warnung,
+                         wert: offen2 + ' von ' + kanaele.length + ' Kanälen verbunden',
+                         hinweis: lahm.length
+                            ? 'Was hier hängt, kommt nicht mehr von allein an – die App muss nachfragen.' : '',
+                         belege: lahm.map(function (k) {
+                            return (k.topic || 'unbenannter Kanal') + ' · Zustand: ' + (k.state || 'unbekannt');
+                         }),
+                         reparatur: lahm.length ? 'echtzeit' : null });
+            }
+        }
+    } catch (e) {
+        b.push({ bereich: 'Technik', titel: 'Echtzeit-Verbindung', stand: SELBSTCHECK_STAND.unbekannt,
+                 wert: 'nicht ermittelbar', hinweis: e.message || String(e) });
+    }
+
+    // ---- 7. Laeuft die App auch bei wackligem Netz? ----
+    try {
+        if (!('serviceWorker' in navigator)) {
+            b.push({ bereich: 'Technik', titel: 'Offline-Fähigkeit', stand: SELBSTCHECK_STAND.warnung,
+                     wert: 'vom Browser nicht unterstützt', hinweis: '' });
+        } else {
+            var reg = await navigator.serviceWorker.getRegistration();
+            b.push(reg && reg.active
+                ? { bereich: 'Technik', titel: 'Offline-Fähigkeit', stand: SELBSTCHECK_STAND.ok,
+                    wert: 'aktiv', hinweis: '' }
+                : { bereich: 'Technik', titel: 'Offline-Fähigkeit', stand: SELBSTCHECK_STAND.warnung,
+                    wert: 'nicht aktiv', hinweis: 'Die App lädt bei jedem Aufruf komplett neu – rund 700 KB.',
+                    reparatur: 'offline' });
+        }
+    } catch (e) {
+        b.push({ bereich: 'Technik', titel: 'Offline-Fähigkeit', stand: SELBSTCHECK_STAND.unbekannt,
+                 wert: 'nicht ermittelbar', hinweis: e.message || String(e) });
+    }
+
+    // ---- 8. Bekommt der Wirt Bescheid, wenn er nicht hinsieht? ----
+    try {
+        if (!('Notification' in window)) {
+            b.push({ bereich: 'Technik', titel: 'Benachrichtigungen', stand: SELBSTCHECK_STAND.warnung,
+                     wert: 'vom Browser nicht unterstützt', hinweis: '' });
+        } else if (Notification.permission === 'granted') {
+            b.push({ bereich: 'Technik', titel: 'Benachrichtigungen', stand: SELBSTCHECK_STAND.ok,
+                     wert: 'erlaubt', hinweis: '' });
+        } else {
+            b.push({ bereich: 'Technik', titel: 'Benachrichtigungen',
+                     stand: SELBSTCHECK_STAND.warnung,
+                     wert: Notification.permission === 'denied' ? 'vom Browser abgelehnt' : 'noch nicht erteilt',
+                     hinweis: 'Neue Bestellungen melden sich nur, solange dieses Fenster offen ist.',
+                     reparatur: 'hinweise' });
+        }
+    } catch (e) {
+        b.push({ bereich: 'Technik', titel: 'Benachrichtigungen', stand: SELBSTCHECK_STAND.unbekannt,
+                 wert: 'nicht ermittelbar', hinweis: e.message || String(e) });
+    }
+
+    // ---- 9. Liegt hier noch eine Bestellung, die nie rausging? ----
+    // Die parkt submitOrder, wenn das Speichern fehlschlaegt.
+    try {
+        var geparkt = localStorage.getItem('kmi_offene_bestellung');
+        if (geparkt) {
+            var g = JSON.parse(geparkt);
+            b.push({ bereich: 'Betrieb', titel: 'Liegengebliebene Bestellung', stand: SELBSTCHECK_STAND.warnung,
+                     wert: 'Nummer ' + (g.nummer || 'unbekannt'),
+                     hinweis: 'Auf diesem Gerät ist eine Bestellung hängengeblieben.',
+                     belege: [ 'Nummer ' + (g.nummer || 'unbekannt')
+                               + ' · ' + (g.zeit ? new Date(g.zeit).toLocaleString('de-DE') : 'Zeitpunkt unbekannt')
+                               + ' · Grund: ' + (g.grund || 'unbekannt')
+                               + (g.restaurant_name ? ' · ' + g.restaurant_name : '') ],
+                     reparatur: 'geparkt' });
+        }
+    } catch (e) { /* kein Befund statt falscher Befund */ }
+
+    return b;
+}
+
+// Nur fuer den Admin.
+// Der Menuepunkt traegt admin-only-nav und wird fuer Gastronomen
+// ausgeblendet -- aber ein verstecktes Menue ist keine Zugangskontrolle.
+// Wer openSelbstcheck() in der Konsole tippt, kaeme sonst trotzdem rein.
+// Deshalb hier noch einmal richtig gefragt.
+function selbstcheckErlaubt() {
+    return !!(typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.isAdmin);
+}
+
+function openSelbstcheck() {
+    if (!selbstcheckErlaubt()) {
+        showToast('Der Selbstcheck ist der Verwaltung vorbehalten.', 'error');
+        return;
+    }
+
+    var alt = document.getElementById('selbstcheckOverlay');
+    if (alt) alt.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'selbstcheckOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'display:flex;align-items:center;justify-content:center;position:fixed;inset:0;z-index:10062;background:rgba(0,37,30,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:20px;';
+    overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML =
+        '<div style="max-width:680px;width:100%;max-height:86vh;overflow-y:auto;border-radius:32px;background:var(--bg-card);box-shadow:0 24px 48px -8px rgba(25,28,29,0.35);">' +
+            '<div style="background:rgba(0,37,30,0.92);padding:24px;position:sticky;top:0;z-index:1;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">' +
+                    '<div>' +
+                        '<span style="font-size:11px;color:#fed65b;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;display:block;margin-bottom:6px;">Selbstcheck</span>' +
+                        '<h3 style="color:#fff;font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.02em;line-height:1.15;margin:0;">Wie steht es um den Betrieb?</h3>' +
+                    '</div>' +
+                    '<button onclick="document.getElementById(\'selbstcheckOverlay\').remove()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.6);font-size:26px;line-height:1;padding:0;">&times;</button>' +
+                '</div>' +
+            '</div>' +
+            '<div id="selbstcheckInhalt" style="padding:24px;"></div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    selbstcheckNeuLaden();
+}
+
+async function selbstcheckNeuLaden() {
+    var ziel = document.getElementById('selbstcheckInhalt');
+    if (!ziel) return;
+    ziel.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-family:Inter,sans-serif;font-size:14px;">Wird gemessen…</div>';
+
+    var befunde;
+    try {
+        befunde = await selbstcheckAusfuehren();
+    } catch (e) {
+        ziel.innerHTML = '<div style="padding:16px;border-radius:16px;background:rgba(239,68,68,0.08);color:#b91c1c;font-size:13px;font-family:Inter,sans-serif;">'
+            + 'Der Selbstcheck selbst ist gescheitert: ' + escapeHtml(e.message || String(e))
+            + '<br><br>Das ist kein gutes Zeichen, sagt aber nichts über den Betrieb aus.</div>';
+        return;
+    }
+    ziel.innerHTML = selbstcheckBericht(befunde);
+}
+
+// Baut den Bericht. Getrennt vom Messen, damit beides einzeln pruefbar ist.
+function selbstcheckBericht(befunde) {
+    var FARBE = {
+        ok:        { rand: 'rgba(16,185,129,0.25)',  grund: 'rgba(16,185,129,0.06)',  text: '#047857', wort: 'In Ordnung' },
+        warnung:   { rand: 'rgba(245,158,11,0.3)',   grund: 'rgba(245,158,11,0.07)',  text: '#b45309', wort: 'Ansehen' },
+        fehler:    { rand: 'rgba(239,68,68,0.3)',    grund: 'rgba(239,68,68,0.07)',   text: '#b91c1c', wort: 'Fehler' },
+        unbekannt: { rand: 'rgba(100,116,139,0.25)', grund: 'rgba(100,116,139,0.06)', text: '#475569', wort: 'Ungeprüft' }
+    };
+
+    var zaehl = { ok: 0, warnung: 0, fehler: 0, unbekannt: 0 };
+    befunde.forEach(function (f) { if (zaehl[f.stand] !== undefined) zaehl[f.stand]++; });
+    var gemessen = befunde.length - zaehl.unbekannt;
+
+    // Die Kopfzeile sagt die Wahrheit, auch die unbequeme: wenn nicht alles
+    // geprüft werden konnte, steht das dort und nicht im Kleingedruckten.
+    var kopfText, kopfFarbe;
+    if (zaehl.fehler > 0) {
+        kopfText = zaehl.fehler + (zaehl.fehler === 1 ? ' Sache braucht' : ' Sachen brauchen') + ' deine Aufmerksamkeit';
+        kopfFarbe = '#b91c1c';
+    } else if (zaehl.warnung > 0) {
+        kopfText = zaehl.warnung + (zaehl.warnung === 1 ? ' Hinweis' : ' Hinweise');
+        kopfFarbe = '#b45309';
+    } else if (gemessen === 0) {
+        kopfText = 'Es konnte nichts geprüft werden';
+        kopfFarbe = '#475569';
+    } else {
+        kopfText = 'Alles in Ordnung';
+        kopfFarbe = '#047857';
+    }
+
+    var html = '<div style="margin-bottom:20px;font-family:Inter,sans-serif;">'
+        + '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:900;color:' + kopfFarbe + ';letter-spacing:-0.02em;">'
+        + escapeHtml(kopfText) + '</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">'
+        + gemessen + ' von ' + befunde.length + ' Prüfungen gelaufen'
+        + (zaehl.unbekannt > 0 ? ' &middot; ' + zaehl.unbekannt + ' nicht ermittelbar' : '')
+        + ' &middot; ' + new Date().toLocaleString('de-DE') + '</div></div>';
+
+    var bereiche = [];
+    befunde.forEach(function (f) { if (bereiche.indexOf(f.bereich) < 0) bereiche.push(f.bereich); });
+
+    bereiche.forEach(function (bereich) {
+        html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.16em;font-weight:700;color:var(--text-secondary);margin:20px 0 10px;font-family:Inter,sans-serif;">'
+             + escapeHtml(bereich) + '</div>';
+        befunde.filter(function (f) { return f.bereich === bereich; }).forEach(function (f) {
+            var c = FARBE[f.stand] || FARBE.unbekannt;
+            html += '<div style="border:1px solid ' + c.rand + ';background:' + c.grund + ';border-radius:20px;padding:14px 16px;margin-bottom:10px;font-family:Inter,sans-serif;">'
+                 + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">'
+                 + '<span style="font-size:14px;font-weight:700;color:var(--ink-deep);">' + escapeHtml(f.titel) + '</span>'
+                 + '<span style="font-size:11px;font-weight:700;color:' + c.text + ';text-transform:uppercase;letter-spacing:0.08em;flex-shrink:0;">' + c.wort + '</span>'
+                 + '</div>'
+                 + '<div style="font-size:13px;color:var(--text-primary);margin-top:4px;">' + escapeHtml(f.wert) + '</div>'
+                 + (f.hinweis ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">' + escapeHtml(f.hinweis) + '</div>' : '')
+                 // Die Belege: hier steht, WELCHE Bestellung, WELCHER Gast,
+                 // WELCHES Gericht. Ohne das ist eine Zahl nur eine Zahl.
+                 + ((f.belege && f.belege.length)
+                    ? '<ul style="margin:8px 0 0;padding:0;list-style:none;border-top:1px solid ' + c.rand + ';">'
+                      + f.belege.map(function (zeile) {
+                            return '<li style="font-size:12px;color:var(--text-primary);padding:6px 0 0;line-height:1.45;'
+                                 + 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word;">'
+                                 + escapeHtml(zeile) + '</li>';
+                        }).join('')
+                      + '</ul>'
+                    : '')
+                 + (f.reparatur && SELBSTCHECK_REPARATUR[f.reparatur]
+                    ? '<button id="scFix-' + escapeHtml(f.reparatur) + '" onclick="selbstcheckReparieren(\'' + escapeHtml(f.reparatur) + '\')" '
+                      + 'style="margin-top:10px;background:rgba(0,37,30,0.9);color:#fff;border:none;border-radius:9999px;'
+                      + 'padding:9px 18px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">'
+                      + escapeHtml(SELBSTCHECK_REPARATUR[f.reparatur].knopf) + '</button>'
+                    : '')
+                 + '</div>';
+        });
+    });
+
+    html += '<button onclick="selbstcheckNeuLaden()" style="width:100%;margin-top:16px;background:#fed65b;color:#745c00;padding:14px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:900;font-size:14px;cursor:pointer;">Nochmal messen</button>';
+    html += '<p style="font-size:11px;color:var(--text-secondary);margin:12px 0 0;text-align:center;font-family:Inter,sans-serif;line-height:1.5;">'
+         + 'Alle Angaben stammen aus Abfragen, die gerade eben gelaufen sind. Was nicht gemessen werden konnte, steht als „Ungeprüft“ da – nicht als „In Ordnung“.</p>';
+    return html;
 }
 
 function openEventsModal() {
@@ -64879,7 +65443,7 @@ setTimeout(function() {
             <li>Online bestellen zur Abholung oder Lieferung</li>
             <li>Oder einen Tisch reservieren für dein Wunschdatum</li>
         </ol>
-        <h2>Haeufig gestellte Fragen</h2>
+        <h2>Häufig gestellte Fragen</h2>
         <dl>
             <dt>Wo finde ich gute Restaurants in Greetsiel?</dt>
             <dd>Auf Kiek mol in findest du alle Restaurants in Greetsiel mit Speisekarte, Öffnungszeiten und Online-Bestellung.</dd>
@@ -66603,7 +67167,7 @@ function openAddRouteModal() {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
         '<input id="routeDuration" class="form-input" placeholder="Dauer (z.B. 6 Stunden)" value="Ganzer Tag">' +
-        '<select id="routeSeason" class="form-input"><option value="ganzjaehrig">Ganzjaehrig</option><option value="Fruehling">Fruehling</option><option value="Sommer">Sommer</option><option value="Herbst">Herbst</option><option value="Winter">Winter</option></select>' +
+        '<select id="routeSeason" class="form-input"><option value="ganzjaehrig">Ganzjährig</option><option value="Frühling">Frühling</option><option value="Sommer">Sommer</option><option value="Herbst">Herbst</option><option value="Winter">Winter</option></select>' +
         '</div>' +
         '<input id="routeImage" class="form-input" placeholder="Titelbild-URL (optional)">' +
         '<hr style="border:none;border-top:1px solid var(--border-color);margin:8px 0;">' +
@@ -66642,7 +67206,7 @@ function addRouteStopField() {
     div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong style="font-size:13px;">Stop ' + idx + '</strong><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:var(--danger-500);cursor:pointer;font-size:16px;">x</button></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">' +
         '<input class="form-input route-stop-time" placeholder="Zeit (10:00)" style="font-size:13px;">' +
-        '<select class="form-input route-stop-type" style="font-size:13px;"><option value="restaurant">Restaurant</option><option value="attraction">Sehenswuerdigkeit</option><option value="custom">Sonstiges</option></select></div>' +
+        '<select class="form-input route-stop-type" style="font-size:13px;"><option value="restaurant">Restaurant</option><option value="attraction">Sehenswürdigkeit</option><option value="custom">Sonstiges</option></select></div>' +
         '<input class="form-input route-stop-title" placeholder="Titel" style="font-size:13px;margin-bottom:6px;">' +
         '<textarea class="form-input route-stop-desc" placeholder="Beschreibung" rows="2" style="font-size:13px;margin-bottom:6px;"></textarea>' +
         '<input class="form-input route-stop-tip" placeholder="Tipp für Besucher (optional)" style="font-size:13px;margin-bottom:6px;">' +

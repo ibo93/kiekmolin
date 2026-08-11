@@ -37,10 +37,58 @@ function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK
 var SEO = fs.readFileSync('/home/user/kiekmolin/build-seo-pages.js', 'utf8');
 var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
 
-// Deutsche Woerter, die jemand ohne Umlaut getippt hat. Bewusst eine Liste
-// echter Woerter statt "irgendwo steht ue" -- sonst schlaegt es bei jedem
-// englischen "value", "queue" oder "true" an.
-var ASCII_UMLAUT = /\b(ueber|fuer|Kueche|kueche|gehoert|laengst|duenn\w*|roemisch\w*|Doener|Kalbsdoener|tuerkisch\w*|Kaese\w*|Broetchen|Gruenkohl|Staedte|Straende|groesst\w*|naechst\w*|spaet\w*|schoen\w*|hoechst\w*|Fruehstueck|gemuetlich\w*|Spezialitaeten|Getraenke|taeglich|Qualitaet|Naehe|Auswaehl\w*|Verfuegbar\w*|zurueck)\b/;
+// ERST EINE WORTLISTE, JETZT EINE REGEL.
+//
+// Die erste Fassung zaehlte deutsche Woerter auf: ueber, fuer, Kueche,
+// gehoert und so weiter. Sie hat den gemeldeten Fall gefunden -- und schon
+// beim naechsten Feature versagt: der Selbstcheck kam mit
+// "Offline-Faehigkeit", "Kanaelen", "Pruefungen" und "Ungeprueft" daher,
+// und keines davon stand auf der Liste. Eine Liste ist immer nur so gut wie
+// das letzte Mal, als jemand daran gedacht hat.
+//
+// Also umgedreht: in deutschem Anzeigetext ist jedes ae, oe, ue innerhalb
+// eines Wortes verdaechtig. Ausnahmen gibt es wenige, und die stehen unten
+// namentlich -- englische Fachwoerter, Eigennamen, Schriftnamen. Diese
+// Liste waechst langsam und bewusst; die andere haette bei jedem neuen Text
+// wachsen muessen.
+// Was vor dem ae/oe/ue steht, entscheidet fast alles:
+//
+//   Steht ein VOKAL davor, ist es echtes Deutsch und kein Ersatzzeichen --
+//   Steuerung, neue, Feuer, dauern, heute, Zuschauer. Das "ue" gehoert dort
+//   zu "eu" oder "au", nicht zu einem "ü".
+//
+//   Steht ein KONSONANT davor (oder faengt das Wort damit an), ist es fast
+//   immer ein ausgeschriebener Umlaut: Kueche, fuer, ueber, Pruefung,
+//   Faehigkeit, gehoert, Gaesten, Krummhoern, Hauptmenue.
+//
+// Zwei Ausnahmen bleiben, beide abzaehlbar und darum als Liste vertretbar:
+// Fremdwoerter auf -uell (aktuell, individuell, eventuell) und eine
+// Handvoll englischer Woerter auf -ue.
+var ENGLISCH = /^(Epilogue|Segoe|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
+// "ue" nach q ist nie ein Umlaut: question, queue, request, frequent,
+// sequence, unique. Eine Regel statt sechs Listeneintraege.
+// Bezeichner aus dem Quelltext, die zufaellig im Text stehen koennen.
+var SCHLUESSEL = /_|^[a-z]+[A-Z]/;
+
+function hatAsciiUmlaut(text) {
+    var woerter = String(text).match(/[A-Za-zÄÖÜäöüß]{3,}/g) || [];
+    for (var i = 0; i < woerter.length; i++) {
+        var w = woerter[i];
+        if (!/ae|oe|ue/.test(w)) continue;
+        if (ENGLISCH.test(w) || SCHLUESSEL.test(w)) continue;
+        var re = /(^|.)(ae|oe|ue)/g, m, verdaechtig = false;
+        while ((m = re.exec(w))) {
+            var davor = m[1];
+            if (davor && /[aeiou]/i.test(davor)) continue;      // Steuerung, dauern, neue
+            if (/^uel/i.test(w.slice(m.index + (m[1] ? 1 : 0)))) continue;  // aktuell, individuell
+            if (davor && /q/i.test(davor)) continue;                        // question, queue, request
+            verdaechtig = true;
+        }
+        if (verdaechtig) return w;      // das erste verdaechtige Wort
+    }
+    return null;
+}
+var ASCII_UMLAUT = { test: function (s) { return hatAsciiUmlaut(s) !== null; } };
 
 // ---- 1. Der Waechter ---------------------------------------------------------
 function sichtbareTexte(quelltext, istJs) {
@@ -52,6 +100,12 @@ function sichtbareTexte(quelltext, istJs) {
         while ((m = re.exec(z))) {
             var txt = m[1] || m[2] || m[3];
             if (/^[a-z0-9\-\/_.]+$/.test(txt)) continue;    // Slug, Pfad, Schluessel
+            // Der Ausdruck zwischen zwei Strings, nicht der String selbst:
+            // aus "' hat ' + oeff.text + ' geoeffnet'" liest die Suche das
+            // Stueck " + oeff.text + " als vermeintlichen Text. Genauso bei
+            // Tabellen wie "mon: 'Mo', tue: 'Tu'". Beides ist Quelltext.
+            if (/\s\+\s/.test(txt)) continue;
+            if (/^[,\s]*\w+\s*:\s*$/.test(txt)) continue;
             raus.push({ zeile: i + 1, text: txt });
         }
     });
@@ -61,10 +115,12 @@ function sichtbareTexte(quelltext, istJs) {
 var seoTexte = sichtbareTexte(SEO, true);
 t('der Waechter findet ueberhaupt Texte im SEO-Skript', seoTexte.length > 100, seoTexte.length);
 
-var seoFunde = seoTexte.filter(function (s) { return ASCII_UMLAUT.test(s.text); });
+// Gemeldet wird das WORT, nicht die Zeile -- sonst sucht man es sich zusammen.
+var seoFunde = seoTexte.map(function (s) { return { zeile: s.zeile, wort: hatAsciiUmlaut(s.text) }; })
+                       .filter(function (s) { return s.wort; });
 t('kein sichtbarer SEO-Text mehr mit ASCII-Umlauten',
   seoFunde.length === 0,
-  '\n         ' + seoFunde.slice(0, 10).map(function (f) { return 'Zeile ' + f.zeile + ': ' + f.text.slice(0, 90); }).join('\n         '));
+  '\n         ' + seoFunde.slice(0, 14).map(function (f) { return 'Zeile ' + f.zeile + ': ' + f.wort; }).join('\n         '));
 
 // Die App selbst: Text zwischen den Tags, also das was im Fenster steht.
 var appFunde = [];
@@ -81,10 +137,12 @@ while ((mm = reTag.exec(APP))) {
     // App setzt im Fliesstext typografische Zeichen.
     if (/['"]/.test(txt)) continue;
     if (/[{}();]|=>|\+ *$/.test(txt)) continue;
-    if (ASCII_UMLAUT.test(txt)) appFunde.push(txt.slice(0, 90));
+    var wort = hatAsciiUmlaut(txt);
+    if (wort) appFunde.push(wort);
 }
+var appEinmalig = appFunde.filter(function (w, i) { return appFunde.indexOf(w) === i; });
 t('kein sichtbarer Text in der App mit ASCII-Umlauten',
-  appFunde.length === 0, '\n         ' + appFunde.slice(0, 10).join('\n         '));
+  appEinmalig.length === 0, '\n         ' + appEinmalig.slice(0, 20).join('\n         '));
 
 // Gegenprobe -- ohne die waere ein gruenes Ergebnis oben wertlos.
 t('Gegenprobe: "Doener Kebab" wuerde gemeldet', ASCII_UMLAUT.test('Doener Kebab und mehr'));
