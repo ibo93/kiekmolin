@@ -42973,6 +42973,42 @@ document.addEventListener('error', function(e) {
     </div>
 </div>
 
+<!-- BESTELLUNG NICHT ANGEKOMMEN.
+     Ersetzt die Bestaetigungsseite, die frueher auch dann kam, wenn das
+     Speichern fehlgeschlagen war. Lieber eine unangenehme Wahrheit als ein
+     Gast, der vierzig Minuten auf Essen wartet, das nie bestellt wurde. -->
+<div id="bestellFehlerModal" style="display:none;position:fixed;inset:0;z-index:10061;background:rgba(0,37,30,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--bg-card);border-radius:32px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 24px 48px -8px rgba(25,28,29,0.35);">
+        <div style="background:rgba(0,37,30,0.92);padding:24px;">
+            <!-- Inline-SVG statt Icon-Schrift, mit Absicht: dieses Fenster
+                 erscheint gerade dann, wenn das Netz klemmt -- und dann ist
+                 die Material-Symbols-Schrift vom CDN oft nicht da. Als
+                 Ligatur-Icon stuende hier dann das nackte Wort "error". -->
+            <span style="font-size:11px;color:#ef4444;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0;">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2v.1"/>
+                </svg>
+                <span id="bfKlein">Nicht abgeschickt</span>
+            </span>
+            <h3 style="color:#fff;font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.02em;line-height:1.15;margin:0;" id="bfTitel">Deine Bestellung ist nicht angekommen</h3>
+        </div>
+        <div style="padding:24px;">
+            <p id="bfText" style="font-size:15px;line-height:1.55;color:var(--text-primary);margin:0 0 16px;font-family:Inter,sans-serif;"></p>
+            <div style="background:var(--bg-secondary);border-radius:16px;padding:14px 16px;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--text-secondary);flex-shrink:0;margin-top:1px;">
+                    <path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+                </svg>
+                <p id="bfKorbHinweis" style="font-size:13px;line-height:1.5;color:var(--text-secondary);margin:0;font-family:Inter,sans-serif;"></p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button type="button" id="bfNochmal" onclick="bestellungNochmalVersuchen()" style="background:#fed65b;color:#745c00;padding:15px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:900;font-size:14px;cursor:pointer;width:100%;">Nochmal versuchen</button>
+                <button type="button" id="bfKorb" onclick="closeModal('bestellFehlerModal');openCartPanel();" style="background:transparent;color:var(--text-secondary);padding:13px 24px;border-radius:9999px;border:1px solid var(--border-color);font-family:Inter,sans-serif;font-weight:600;font-size:14px;cursor:pointer;width:100%;">Zurück zum Warenkorb</button>
+            </div>
+            <p id="bfGrund" style="font-size:11px;color:var(--text-secondary);margin:16px 0 0;text-align:center;font-family:Inter,sans-serif;opacity:0.7;"></p>
+        </div>
+    </div>
+</div>
+
 <!--Speisekarte Modal (Fullscreen) -->
 <div class="modal-overlay" id="menuModal" style="z-index: 10001; display: none; background: rgba(248,249,250,0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); padding: 0;">
     <div class="modal" style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; margin: 0; border-radius: 0; display: flex; flex-direction: column; background: transparent;">
@@ -47373,6 +47409,82 @@ function toggleMenuSprache() {
     if (typeof katLeisteBedienbar === 'function') katLeisteBedienbar();
 }
 
+// ==================== NICHT GESPEICHERT HEISST NICHT BESTELLT ====================
+//
+// Bis hierher lief submitOrder() nach einem fehlgeschlagenen Speichern
+// einfach weiter und zeigte die Bestaetigungsseite samt Bestellnummer. Der
+// Gast glaubte, das Essen kommt. Die Kueche hatte nie etwas bekommen.
+//
+// Diese beiden Funktionen sind der ehrliche Ersatz dafuer.
+
+var _bfVersuche = 0;
+
+function zeigeBestellungFehlgeschlagen(fehler) {
+    _bfVersuche++;
+
+    var box = document.getElementById('bestellFehlerModal');
+    var netzWeg = (typeof navigator !== 'undefined' && navigator.onLine === false)
+                  || !fehler || fehler.status === 0;
+
+    // Was der Gast wissen muss, in dieser Reihenfolge: es ist NICHT bestellt,
+    // es wurde nichts abgebucht, und der Korb ist noch da.
+    var text = netzWeg
+        ? 'Die Verbindung hat nicht gereicht. Deine Bestellung wurde nicht abgeschickt und es wurde nichts bezahlt.'
+        : 'Beim Speichern ist etwas schiefgegangen. Deine Bestellung wurde nicht abgeschickt und es wurde nichts bezahlt.';
+
+    // Ab dem dritten Versuch nicht weiter stur den gleichen Knopf anbieten --
+    // dann liegt es am Netz und der Gast soll einen Weg kennen, der geht.
+    if (_bfVersuche >= 3) {
+        var tel = currentOrderRestaurant && (currentOrderRestaurant.phone || currentOrderRestaurant.telefon);
+        text += _kmiIstAmTisch()
+            ? ' Das klappt gerade nicht — sag am besten kurz der Bedienung Bescheid.'
+            : (tel ? ' Das klappt gerade nicht — ruf am besten kurz an: ' + tel : ' Bitte versuch es in ein paar Minuten noch einmal.');
+    }
+
+    var anzahl = orderCart.reduce(function (s, p) { return s + (Number(p.quantity) || 1); }, 0);
+
+    if (!box) {
+        // Ohne das Fenster lieber eine nackte Systemmeldung als eine falsche
+        // Bestaetigung. Still weiterlaufen ist hier die schlechteste Option.
+        showToast(text, 'error');
+        openCartPanel();
+        return;
+    }
+
+    document.getElementById('bfText').textContent = text;
+    document.getElementById('bfKorbHinweis').textContent =
+        anzahl === 1
+            ? 'Dein Gericht liegt weiterhin im Warenkorb. Es geht nichts verloren.'
+            : 'Deine ' + anzahl + ' Gerichte liegen weiterhin im Warenkorb. Es geht nichts verloren.';
+    document.getElementById('bfGrund').textContent =
+        fehler && fehler.hint ? 'Grund: ' + fehler.hint : '';
+    document.getElementById('bfNochmal').textContent =
+        _bfVersuche >= 3 ? 'Trotzdem nochmal versuchen' : 'Nochmal versuchen';
+
+    box.style.display = 'flex';
+}
+
+// Sitzt der Gast im Lokal? Dann ist die Bedienung der schnellste Weg.
+function _kmiIstAmTisch() {
+    try {
+        if (window._kmiTischNr || window.currentTableNumber) return true;
+        var el = document.getElementById('checkoutTableNumber');
+        if (el && el.value && String(el.value).trim()) return true;
+    } catch (e) {}
+    return false;
+}
+
+function bestellungNochmalVersuchen() {
+    closeModal('bestellFehlerModal');
+
+    // Der Spam-Schutz misst, wie lange der Checkout offen war, und lehnt
+    // alles unter drei Sekunden ab. Ein Wiederholversuch ist aber kein
+    // Bot -- der Gast hat den Weg schon einmal komplett durchlaufen.
+    window._checkoutOpenedAt = 0;
+
+    if (typeof submitOrder === 'function') submitOrder();
+}
+
 function openCartPanel() {
     renderCartItems();
     document.getElementById('cartPanel').classList.add('open');
@@ -48510,12 +48622,43 @@ async function submitOrder() {
         }
     } catch(e) {
         console.error('Order Save Error:', e);
-        showToast('Bestellung konnte nicht gespeichert werden: ' + (e.message || 'Netzwerkfehler'), 'error');
+        _saveErr = { status: 0, text: String(e && e.message || e), hint: e && e.message || 'Netzwerkfehler' };
+        window._kmiLastOrderError = _saveErr;
     }
 
     // Button wieder aktivieren
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalBtnText;
+
+    // ===== NICHT GESPEICHERT HEISST NICHT BESTELLT =====
+    //
+    // Hier stand nichts. Der Fehler wurde in _saveErr geschrieben, ein Toast
+    // ging kurz auf -- und danach lief die Funktion einfach weiter bis zum
+    // openModal('orderConfirmationModal'). Der Gast sah nach drei Sekunden
+    // Toast eine Bestaetigungsseite mit Bestellnummer und dachte, das Essen
+    // kommt. In der Kueche war nie etwas angekommen.
+    //
+    // Das Schlimme daran: der Gast wird nicht auf die App sauer, sondern auf
+    // das Restaurant. Er sitzt vierzig Minuten, fragt nach, und der Wirt muss
+    // sagen "bei uns ist nichts angekommen".
+    //
+    // Ab hier wird abgebrochen. Der Warenkorb bleibt stehen, die Bestellung
+    // wird geparkt, und der Gast bekommt die Wahrheit plus einen Knopf.
+    if (!_saveOk) {
+        try {
+            localStorage.setItem('kmi_offene_bestellung', JSON.stringify({
+                nummer: orderNumber,
+                restaurant_id: currentOrderRestaurant && currentOrderRestaurant.id,
+                restaurant_name: currentOrderRestaurant && currentOrderRestaurant.name,
+                zeit: Date.now(),
+                grund: (_saveErr && _saveErr.hint) || 'unbekannt'
+            }));
+        } catch (e) {}
+
+        closeModal('checkoutModal');
+        zeigeBestellungFehlgeschlagen(_saveErr);
+        return;
+    }
 
     // === ZUERST: UI aktualisieren (muss sofort passieren) ===
     var _ocOrderNum = 'BESTELLUNG #' + orderNumber + ' \u00b7 ' + new Date().toLocaleDateString('de-DE', {day:'numeric',month:'long',year:'numeric'});
@@ -48725,6 +48868,10 @@ async function submitOrder() {
     var orderTimes = JSON.parse(sessionStorage.getItem('kmi_order_times') || '[]');
     orderTimes.push(Date.now());
     sessionStorage.setItem('kmi_order_times', JSON.stringify(orderTimes));
+
+    // Geklappt: die geparkte Bestellung und der Versuchszaehler koennen weg.
+    try { localStorage.removeItem('kmi_offene_bestellung'); } catch (e) {}
+    _bfVersuche = 0;
 
     // Warenkorb leeren
     orderCart = [];
