@@ -23312,18 +23312,32 @@ function handleRealtimeMenu(payload) {
 
 // ==================== TAGESANGEBOTE ECHTZEIT ====================
 function handleRealtimeSpecials(payload) {
-    var type = payload.eventType;
-    // Dashboard: Tagesangebote aktualisieren
+    // Startseite: die Angebotsleiste aller Häuser
     if (typeof loadDailySpecials === 'function') {
         loadDailySpecials();
     }
-    // Kundenansicht: Restaurant-Landing neu laden wenn Tagesangebot sich ändert
-    var landing = document.getElementById('restaurantLanding');
-    if (landing && typeof renderRestaurantSpecials === 'function') {
-        var specData = payload.new || {};
-        if (specData.restaurant_id) {
-            renderRestaurantSpecials(specData.restaurant_id);
-        }
+
+    // Welches Haus ist betroffen? Beim Löschen steht die Zeile nur noch
+    // in payload.old -- payload.new ist dann leer.
+    var betroffen = (payload.new && payload.new.restaurant_id)
+                 || (payload.old && payload.old.restaurant_id) || null;
+    if (!betroffen) return;
+
+    // Restaurantseite -- aber nur, wenn WIRKLICH dieses Haus offen ist.
+    // Sonst schriebe das Angebot eines fremden Hauses in die offene Seite.
+    if (document.getElementById('lpSpecials')
+        && window._currentLandingRestaurantId === betroffen
+        && typeof renderRestaurantSpecials === 'function') {
+        renderRestaurantSpecials(betroffen);
+    }
+
+    // Offene Speisekarte -- gleiche Bedingung, anderes Fenster.
+    var karte = document.getElementById('menuModal');
+    var karteOffen = karte && (karte.classList.contains('active') || karte.style.display === 'block');
+    if (karteOffen && typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant
+        && currentOrderRestaurant.id === betroffen
+        && typeof showDailySpecialInMenu === 'function') {
+        showDailySpecialInMenu(betroffen);
     }
 }
 
@@ -24908,13 +24922,11 @@ function renderRestaurants(filter) {
                 : 'Hallo! Ich möchte gerne einen Tisch reservieren über Kiek mol in.');
 
         // Besucher heute (aus Cache oder 0)
-        const visitorsToday = r.visitorsToday || 0;
-        const isTrending = visitorsToday > 10;
-        const visitorsText = currentLanguage === 'en' ? 'today' : (currentLanguage === 'nl' ? 'vandaag' : 'heute');
-
-        // Beste Zeit berechnen
-        const bestTimeInfo = typeof getBestTime === 'function' ? getBestTime(r.id) : null;
-        const bestTimeText = bestTimeInfo ? `Beste Zeit: ${bestTimeInfo.bestHour}:00` : '';
+        // HIER STANDEN FUENF TOTE VARIABLEN.
+        // visitorsToday, isTrending, visitorsText, bestTimeInfo und
+        // bestTimeText wurden berechnet und nirgends gelesen. bestTimeInfo
+        // haette getBestTime() gebraucht -- diese Funktion gibt es in der
+        // ganzen Datei nicht, die Abfrage war also immer falsch.
 
         // Reserviert das Restaurant überhaupt? Nur dann die reservierungs-basierte
         // Verfügbarkeit ("X Uhrzeiten verfügbar") anzeigen -- sonst wirkt es, als
@@ -25735,7 +25747,8 @@ async function loadWeatherForLocation(location) {
         updateWeatherUI(temp, desc, windSpeed, humidity, todayHigh, todayLow, location, isDay);
         updateHourlyForecast(data.hourly);
         updateDailyForecast(data.daily);
-        if (typeof updateWeatherTheme === "function") updateWeatherTheme(weatherCode, isDay);
+        // updateWeatherTheme(weatherCode, isDay) stand hier -- die Funktion
+        // gibt es nicht. Die Abfrage war immer falsch.
 
     } catch (e) {
         console.error('Fehler:', e);
@@ -30528,9 +30541,9 @@ async function renderActiveOffers() {
             html += '<div style="padding:14px;margin-bottom:10px;background:var(--bg-secondary);border-radius:16px;' + activeStyle + '">' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
                     '<div>' +
-                        '<div style="font-size:11px;color:var(--slate);">' + rName + '</div>' +
-                        '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-top:2px;">' + (s.title || 'Angebot') + '</div>' +
-                        (s.description ? '<div style="font-size:12px;color:var(--slate);margin-top:2px;">' + s.description + '</div>' : '') +
+                        '<div style="font-size:11px;color:var(--slate);">' + escapeHtml(rName) + '</div>' +
+                        '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-top:2px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
+                        (s.description ? '<div style="font-size:12px;color:var(--slate);margin-top:2px;">' + escapeHtml(angebotText(s)) + '</div>' : '') +
                     '</div>' +
                     '<div style="text-align:right;">' +
                         (s.price ? '<div style="font-size:18px;font-weight:700;color:var(--primary);">' + s.price.toFixed(2).replace('.',',') + ' €</div>' : '') +
@@ -37946,11 +37959,9 @@ async function showRestaurantLanding(rest) {
     if (rest.street) adresse += rest.street.replace(/,\s*$/, '');
     if (rest.zip || rest.city) adresse += (adresse ? ', ' : '') + [rest.zip, rest.city].filter(Boolean).join(' ');
 
-    // Öffnungszeiten prüfen
-    var openInfo = '';
-    if (typeof getOpenStatus === 'function') {
-        openInfo = getOpenStatus(rest);
-    }
+    // Hier wurde openInfo aus getOpenStatus geholt -- eine Funktion, die es
+    // nicht gibt -- und danach nie gelesen. Der Öffnungsstatus auf der
+    // Restaurantseite kommt aus checkIfOpen (gleich darunter).
 
     // Öffnungszeiten für Landing Page
     var landingIsOpen = typeof checkIfOpen === 'function' ? checkIfOpen(rest) : true;
@@ -38028,6 +38039,11 @@ async function showRestaurantLanding(rest) {
                 return bar;
             })()}
         </div>
+
+        <!-- Tagesangebote. Wird nach dem Einhaengen von
+             renderRestaurantSpecials gefuellt und bleibt leer, wenn das
+             Haus heute keines hat. -->
+        <div id="lpSpecials"></div>
 
         <!-- Über uns Section -->
         <section class="lp-ueber-uns-grid" style="max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center;">
@@ -38295,6 +38311,10 @@ async function showRestaurantLanding(rest) {
     `;
 
     document.body.appendChild(landing);
+
+    // Tagesangebote des Hauses nachladen. Erst jetzt -- vorher gibt es
+    // #lpSpecials noch nicht.
+    if (typeof renderRestaurantSpecials === 'function') renderRestaurantSpecials(rest.id);
 
     // Sticky Bottom Bar entfernt (Liquid Glass Redesign - Action Bar ist oben sticky)
     var oldSticky = document.getElementById('lpStickyBar');
@@ -45186,6 +45206,15 @@ async function openMenuModal(restaurantId) {
         loadPopularItems(restaurantId),
         loadMenuItems(restaurantId, null).then(function() { window._menuItemsPreloaded = true; })
     ]).catch(function(e) { console.error('Menu load error:', e); });
+
+    // Tagesangebote und "nochmal bestellen" ueber der Karte. Direkt hier --
+    // beides hing frueher an Tricks, die openMenuModal zwei bzw. zweieinhalb
+    // Sekunden nach dem Laden umhuellen wollten und dabei das Versprechen
+    // dieser async-Funktion wegwarfen. An dieser Stelle steht fest, dass der
+    // Gast wirklich in DIESEM Haus ist: der Korbwechsel ist beantwortet.
+    // Nicht mit await: die Gerichte sollen nicht darauf warten.
+    if (typeof showDailySpecialInMenu === 'function') showDailySpecialInMenu(restaurantId);
+    if (typeof showReorderBanner === 'function') showReorderBanner(restaurantId);
     } catch(e) {
         console.error('openMenuModal Fehler:', e);
         showToast('Fehler aufgetreten', 'error');
@@ -47929,7 +47958,9 @@ function speichereCartNotiz(itemId) {
     var pos = orderCart.filter(function (i) { return String(i.id) === String(itemId); })[0];
     if (!pos) return;
     pos.notes = text;
-    try { if (typeof saveCartToStorage === 'function') saveCartToStorage(); } catch (e) {}
+    // Hier stand ein Aufruf von saveCartToStorage. Die Funktion existiert
+    // nicht, und der Warenkorb wird ueberhaupt nicht gespeichert -- er lebt
+    // nur im Arbeitsspeicher. Der Aufruf hat nie etwas getan.
     renderCartItems();
     showToast(text ? 'Notiz gespeichert' : 'Notiz entfernt', 'success');
 }
@@ -56423,6 +56454,11 @@ async function setAllTables(restaurantId, status) {
 
 // ==================== TAGESANGEBOTE / HAPPY HOUR ====================
 
+// Die Angebotsleiste auf der Startseite -- alle Häuser nebeneinander.
+// Filter und Zeitlogik kommen aus angebotLaeuftNoch, damit ein Angebot
+// nicht hier noch steht und in der Speisekarte schon abgelaufen ist.
+// Titel, Beschreibung und Hausname stammen aus dem Dashboard des Wirts:
+// alles drei durch escapeHtml, sonst stünde hier fremdes HTML.
 async function loadDailySpecials() {
     try {
     var container = document.getElementById('dailySpecialsContainer');
@@ -56436,62 +56472,33 @@ async function loadDailySpecials() {
 
         if (!res.ok) { container.style.display = 'none'; return; }
         var specials = await res.json();
-        if (!specials || specials.length === 0) { container.style.display = 'none'; return; }
+        if (!Array.isArray(specials) || specials.length === 0) { container.style.display = 'none'; return; }
+
+        specials = specials.filter(function(s) { return angebotLaeuftNoch(s); });
+        if (specials.length === 0) { container.style.display = 'none'; return; }
 
         container.style.display = 'block';
         container.innerHTML = '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Tagesangebote</div>' +
             '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
-            specials.filter(function(s) {
-                var now = new Date();
-                var nowMin = now.getHours() * 60 + now.getMinutes();
-
-                // Zeitfenster-Check: [HH:MM-HH:MM] aus description parsen
-                var timeMatch = (s.description || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
-                if (timeMatch) {
-                    var fromParts = timeMatch[1].split(':');
-                    var toParts = timeMatch[2].split(':');
-                    var fromMin = parseInt(fromParts[0]) * 60 + parseInt(fromParts[1]);
-                    var toMin = parseInt(toParts[0]) * 60 + parseInt(toParts[1]);
-                    if (nowMin < fromMin || nowMin > toMin) return false;
-                }
-
-                // valid_until Zeitcheck: Angebot ausblenden wenn Uhrzeit abgelaufen
-                if (s.valid_until) {
-                    var vuStr = String(s.valid_until);
-                    // Format "HH:MM", "HH:MM:SS" oder ISO "...THH:MM:SS..."
-                    var vuMatch = vuStr.match(/(\d{1,2}):(\d{2})/);
-                    if (vuMatch) {
-                        var vuMin = parseInt(vuMatch[1]) * 60 + parseInt(vuMatch[2]);
-                        // Bei ISO-Timestamps: UTC-Zeit in lokale Zeit umrechnen
-                        if (vuStr.indexOf('T') !== -1 || vuStr.length > 8) {
-                            var vuDate = new Date(vuStr);
-                            if (!isNaN(vuDate.getTime())) {
-                                vuMin = vuDate.getHours() * 60 + vuDate.getMinutes();
-                            }
-                        }
-                        if (nowMin > vuMin) return false;
-                    }
-                }
-
-                return true;
-            }).map(function(s) {
-                var rName = s.restaurants ? s.restaurants.name : 'Restaurant';
-                var slug = s.restaurants ? s.restaurants.slug : '';
-                var isHappyHour = (s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+            specials.map(function(s) {
+                var rName = (s.restaurants && s.restaurants.name) ? s.restaurants.name : 'Restaurant';
+                var slug = (s.restaurants && s.restaurants.slug) ? s.restaurants.slug : '';
+                var isHappyHour = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
                 var bgGradient = isHappyHour ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
-                var timeMatch = (s.description || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]\s*/);
-                var cleanDesc = timeMatch ? (s.description || '').replace(timeMatch[0], '') : (s.description || '');
-                var timeLabel = timeMatch ? timeMatch[1] + ' - ' + timeMatch[2] : '';
-                return '<div onclick="openRestaurantBySlug(\'' + slug + '\')" style="min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;cursor:pointer;flex-shrink:0;">' +
-                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + rName + '</div>' +
-                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + (s.title || 'Angebot') + '</div>' +
-                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + cleanDesc + '</div>' : '') +
+                var cleanDesc = angebotText(s);
+                var zeit = angebotZeitHinweis(s);
+                var preis = angebotPreis(s.price);
+                var altPreis = angebotPreis(s.old_price);
+                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')" style="cursor:pointer;' : ' style="';
+                return '<div' + klick + 'min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;flex-shrink:0;">' +
+                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + escapeHtml(rName) + '</div>' +
+                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
+                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + escapeHtml(cleanDesc) + '</div>' : '') +
                     '<div style="display:flex;align-items:baseline;gap:8px;">' +
-                    (s.price ? '<div style="font-size:20px;font-weight:700;">' + s.price.toFixed(2).replace('.', ',') + ' €</div>' : '') +
-                    (s.old_price ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + s.old_price.toFixed(2).replace('.',',') + ' €</div>' : '') +
+                    (preis ? '<div style="font-size:20px;font-weight:700;">' + preis + '</div>' : '') +
+                    (altPreis ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + altPreis + '</div>' : '') +
                     '</div>' +
-                    (timeLabel ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + timeLabel + '</div>' : '') +
-                    (s.valid_until && !timeLabel ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> Gültig bis ' + (function(v){ var m = String(v).match(/(\d{1,2}):(\d{2})/); return m ? m[1].padStart(2,'0') + ':' + m[2] + ' Uhr' : v; })(s.valid_until) + '</div>' : '') +
+                    (zeit ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + zeit + '</div>' : '') +
                     '</div>';
             }).join('') +
             '</div>';
@@ -65342,7 +65349,15 @@ setTimeout(function() {
 // ============================================================
 // "NOCHMAL BESTELLEN" BANNER IN SPEISEKARTE
 // ============================================================
+// DERSELBE BANNER BLIEB BEIM HAUSWECHSEL STEHEN.
+// Eingefuegt wurde nur, wenn noch keiner da war -- entfernt wurde nie einer.
+// Wer die Karte von Haus A und danach die von Haus B oeffnete, sah weiter
+// die letzte Bestellung von A und haette sie mit einem Tippen in den Korb
+// von B gelegt.
 function showReorderBanner(restaurantId) {
+    var alterBanner = document.getElementById('reorderBanner');
+    if (alterBanner) alterBanner.remove();
+
     loadOrderHistory();
     if (!orderHistory || orderHistory.length === 0) return;
     
@@ -65364,7 +65379,7 @@ function showReorderBanner(restaurantId) {
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
             '<div style="font-weight:600;font-size:13px;color:var(--text-primary);">Letzte Bestellung wiederholen</div>' +
-            '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + itemNames.substring(0, 60) + (itemNames.length > 60 ? '...' : '') + (total ? ' · ' + total : '') + '</div>' +
+            '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(itemNames.substring(0, 60)) + (itemNames.length > 60 ? '...' : '') + (total ? ' · ' + total : '') + '</div>' +
         '</div>' +
         '<div style="padding:6px 14px;background:var(--primary);color:white;border-radius:9999px;font-size:12px;font-weight:600;white-space:nowrap;">Bestellen</div>' +
     '</div>';
@@ -65377,19 +65392,18 @@ function showReorderBanner(restaurantId) {
     }
 }
 
-// Patch: openMenuModal um Reorder-Banner zu zeigen
-var _origOpenMenu = typeof openMenuModal === 'function' ? openMenuModal : null;
-setTimeout(function() {
-    if (typeof openMenuModal === 'function' && !openMenuModal._reorderPatched) {
-        var origFn = openMenuModal;
-        openMenuModal = function(restaurantId) {
-            origFn(restaurantId);
-            // Reorder-Banner sofort nach DOM-Update zeigen (kein Delay)
-            requestAnimationFrame(function() { showReorderBanner(restaurantId); });
-        };
-        openMenuModal._reorderPatched = true;
-    }
-}, 2000);
+// HIER STAND DER ZWEITE UMHUELLUNGS-TRICK.
+// Zwei Sekunden nach dem Laden wurde openMenuModal durch eine eigene
+// Funktion ersetzt, die das Original aufrief und danach den Banner zeigte.
+// Drei Fehler in vier Zeilen:
+//   1. Wer die Karte in den ersten zwei Sekunden oeffnete, sah nichts.
+//   2. openMenuModal ist async, die Huelle war es nicht -- das Versprechen
+//      wurde weggeworfen, Fehler darin blieben unbemerkt.
+//   3. Seit der Korbwechsel eine Rueckfrage stellt, erschien der Banner des
+//      NEUEN Hauses, waehrend der Gast noch ueberlegte -- und blieb stehen,
+//      wenn er abbrach.
+// Ausserdem stand daneben ein _origOpenMenu, das niemand je gelesen hat.
+// openMenuModal ruft showReorderBanner jetzt selbst auf.
 
 // Hier hängte sich ein Patch an den Bestellknopf, um 30 Sekunden nach der
 // Bestätigung ein drittes Bewertungsfenster zu öffnen ("Google Bewertung
@@ -65576,75 +65590,205 @@ window._bannerRefresh = setInterval(checkActiveOrderBanner, 15000);
 // liest, hat gegessen und kann etwas dazu sagen.
 
 // ============================================================
-// TAGESANGEBOT ALS TOP-EINTRAG IN SPEISEKARTE
+// TAGESANGEBOTE BEIM GAST
 // ============================================================
-function showDailySpecialInMenu(restaurantId) {
-    var menuList = document.getElementById('menuItemsList');
-    if (!menuList) return;
-    
-    // Altes Tagesangebot entfernen (von anderem Restaurant)
-    var old = document.getElementById('menuDailySpecial');
-    if (old) old.remove();
+// WO EIN ANGEBOT LANDET, WENN DER WIRT ES ANLEGT
+// ----------------------------------------------
+// Der Gastronom traegt im Dashboard ein Tagesangebot ein. Danach soll es
+// dort auftauchen, wo der Gast hinschaut. Bis jetzt tat es das nur auf der
+// Startseite (loadDailySpecials) und im Fernsehbild der Gaststube.
+//
+// Zwei weitere Stellen waren VORGESEHEN und funktionierten trotzdem nicht:
+//
+//   1. Speisekarte. showDailySpecialInMenu war fertig geschrieben -- nur
+//      rief sie niemand auf. Der einzige Aufruf ausserhalb der Funktion
+//      stand in ihrer eigenen Wiederholung. Daneben lag ein Trick, der
+//      openMenuModal 2,5 Sekunden nach dem Laden umhuellen wollte. Der
+//      griff aus drei Gruenden nicht: openMenuModal ist async, die Huelle
+//      war es nicht und warf das Versprechen weg; wer die Karte in den
+//      ersten 2,5 Sekunden oeffnete, sah nichts; und seit der Korbwechsel
+//      eine Rueckfrage stellt, lief der 600-ms-Wecker gegen einen noch
+//      offenen Dialog. Jetzt ruft openMenuModal direkt auf.
+//
+//   2. Restaurantseite in der App. handleRealtimeSpecials fragte an zwei
+//      Stellen "typeof renderRestaurantSpecials === 'function'" ab -- die
+//      Funktion gab es NIRGENDS. Die Abfrage war immer falsch, der Zweig
+//      lief nie, und weil sie so hoeflich fragte, fiel es nicht auf. Jetzt
+//      gibt es sie.
+//
+// Beide zeichnen aus derselben Quelle, damit ein Angebot nicht an einer
+// Stelle abgelaufen und an der anderen noch gueltig ist.
+//
+// Auf den statischen Google-Seiten (build-seo-pages.js) stehen Angebote
+// bewusst NICHT: die Seiten werden einmal gebaut und liegen dann. Ein
+// Tagesangebot von gestern, das dort noch als heute gueltig steht, ist ein
+// Versprechen, das der Wirt einloesen muesste.
 
-    var today = todayStrLocal();
-    fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurantId + '&date=eq.' + today + '&is_active=eq.true&limit=3', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-    }).then(function(r) { return r.json(); }).then(function(specials) {
-        if (!specials || specials.length === 0) return;
-        if (document.getElementById('menuDailySpecial')) return;
-
-        // Abgelaufene Tagesangebote filtern (valid_until Zeitcheck)
-        var now = new Date();
-        var nowMin = now.getHours() * 60 + now.getMinutes();
-        specials = specials.filter(function(s) {
-            if (s.valid_until) {
-                var vuMatch = String(s.valid_until).match(/^(\d{1,2}):(\d{2})/);
-                if (vuMatch) {
-                    var vuMin = parseInt(vuMatch[1]) * 60 + parseInt(vuMatch[2]);
-                    if (nowMin > vuMin) return false;
-                }
-            }
-            return true;
-        });
-        if (specials.length === 0) return;
-
-        var html = '<div id="menuDailySpecial" style="margin-bottom:16px;">';
-        html += '<div style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px;">Tagesangebote</div>';
-
-        specials.forEach(function(s) {
-            html += '<div style="background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:16px;padding:16px;margin-bottom:8px;color:white;">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-            html += '<div>';
-            html += '<div style="font-size:10px;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px;">Tagesangebot</div>';
-            html += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + (s.title || 'Angebot') + '</div>';
-            if (s.description) html += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + s.description + '</div>';
-            html += '</div>';
-            html += '<div style="text-align:right;">';
-            if (s.price) html += '<div style="font-size:20px;font-weight:700;">' + s.price.toFixed(2).replace('.',',') + ' €</div>';
-            if (s.old_price) html += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + s.old_price.toFixed(2).replace('.',',') + ' €</div>';
-            html += '</div>';
-            html += '</div>';
-            if (s.valid_until) html += '<div style="font-size:11px;opacity:0.7;margin-top:6px;">Gültig bis ' + s.valid_until + ' Uhr</div>';
-            html += '</div>';
-        });
-        html += '</div>';
-
-        menuList.insertAdjacentHTML('beforebegin', html);
-    }).catch(function() {});
+// Alle heute gueltigen Angebote eines Hauses, abgelaufene schon aussortiert.
+// Liefert immer ein Array -- bei Netzfehler ein leeres.
+function tagesangeboteHolen(restaurantId) {
+    if (!restaurantId) return Promise.resolve([]);
+    var heute = todayStrLocal();
+    var url = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+            + '&date=eq.' + heute + '&is_active=eq.true&order=created_at.desc&limit=6';
+    return fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } })
+        .then(function (r) { return r.json(); })
+        .then(function (liste) {
+            if (!Array.isArray(liste)) return [];
+            // NICHT liste.filter(angebotLaeuftNoch): filter reicht als
+            // zweites Argument den Index durch, und der landete hier als
+            // "jetzt". Beim ersten Angebot war das 0 (harmlos, faellt auf
+            // new Date() zurueck), ab dem zweiten eine Zahl ohne getHours --
+            // die Ausnahme fiel in den catch und die Liste kam leer zurueck.
+            // Also: gar keine Angebote, obwohl welche da waren.
+            return liste.filter(function (s) { return angebotLaeuftNoch(s); });
+        })
+        .catch(function () { return []; });
 }
 
-// Patch openMenuModal um Tagesangebote zu zeigen
-setTimeout(function() {
-    if (typeof openMenuModal === 'function' && !openMenuModal._dailyPatched) {
-        var origMenu = openMenuModal;
-        openMenuModal = function(restaurantId) {
-            origMenu(restaurantId);
-            setTimeout(function() { showDailySpecialInMenu(restaurantId); }, 600);
-        };
-        openMenuModal._dailyPatched = true;
-    }
-}, 2500);
+// Laeuft das Angebot jetzt noch? Zwei Schreibweisen sind im Umlauf:
+// ein Zeitfenster "[17:00-19:00]" vorne in der Beschreibung (Happy Hour)
+// und ein Endzeitpunkt im Feld valid_until.
+function angebotLaeuftNoch(s, jetzt) {
+    if (!s) return false;
+    var now = jetzt || new Date();
+    var nowMin = now.getHours() * 60 + now.getMinutes();
 
+    var fenster = String(s.description || '').match(/^\[(\d{2}):(\d{2})-(\d{2}):(\d{2})\]/);
+    if (fenster) {
+        var vonMin = parseInt(fenster[1], 10) * 60 + parseInt(fenster[2], 10);
+        var bisMin = parseInt(fenster[3], 10) * 60 + parseInt(fenster[4], 10);
+        if (nowMin < vonMin || nowMin > bisMin) return false;
+    }
+
+    if (s.valid_until) {
+        var vuStr = String(s.valid_until);
+        var vu = vuStr.match(/(\d{1,2}):(\d{2})/);
+        if (vu) {
+            var vuMin = parseInt(vu[1], 10) * 60 + parseInt(vu[2], 10);
+            // Vollstaendiger Zeitstempel: der steht in UTC, gerechnet wird
+            // aber in Ortszeit -- sonst waere ein Angebot zwei Stunden zu
+            // frueh oder zu spaet vorbei.
+            if (vuStr.indexOf('T') !== -1 || vuStr.length > 8) {
+                var d = new Date(vuStr);
+                if (!isNaN(d.getTime())) vuMin = d.getHours() * 60 + d.getMinutes();
+            }
+            if (nowMin > vuMin) return false;
+        }
+    }
+    return true;
+}
+
+// Beschreibung ohne das technische Zeitfenster davor.
+function angebotText(s) {
+    return String((s && s.description) || '').replace(/^\[\d{2}:\d{2}-\d{2}:\d{2}\]\s*/, '');
+}
+
+// Uhrzeit-Hinweis unter dem Angebot, oder leer.
+function angebotZeitHinweis(s) {
+    var fenster = String((s && s.description) || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
+    if (fenster) return fenster[1] + ' – ' + fenster[2] + ' Uhr';
+    if (s && s.valid_until) {
+        var vu = String(s.valid_until).match(/(\d{1,2}):(\d{2})/);
+        if (vu) return 'Gültig bis ' + ('0' + vu[1]).slice(-2) + ':' + vu[2] + ' Uhr';
+    }
+    return '';
+}
+
+function angebotPreis(wert) {
+    var z = Number(wert);
+    if (!isFinite(z) || z <= 0) return '';
+    return z.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Eine Angebotskarte. Titel und Beschreibung kommen aus dem Dashboard des
+// Wirts und gehen ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+function angebotKarteHtml(s) {
+    var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+    var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
+    var text = angebotText(s);
+    var zeit = angebotZeitHinweis(s);
+    var preis = angebotPreis(s.price);
+    var alt = angebotPreis(s.old_price);
+
+    // Steht "Happy Hour" schon als Titel da, braucht es nicht zusaetzlich
+    // als Etikett darueber -- sonst stand es zweimal untereinander.
+    var titel = String(s.title || 'Angebot');
+    var etikett = happy ? 'Happy Hour' : 'Tagesangebot';
+    if (titel.trim().toLowerCase() === etikett.toLowerCase()) etikett = '';
+
+    var h = '<div style="background:' + farbe + ';border-radius:16px;padding:16px;color:white;">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">';
+    h += '<div style="min-width:0;">';
+    if (etikett) h += '<div style="font-size:10px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;">' + etikett + '</div>';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + escapeHtml(titel) + '</div>';
+    if (text) h += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + escapeHtml(text) + '</div>';
+    h += '</div>';
+    if (preis || alt) {
+        h += '<div style="text-align:right;flex-shrink:0;">';
+        if (preis) h += '<div style="font-size:20px;font-weight:700;">' + preis + '</div>';
+        if (alt) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + alt + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    if (zeit) h += '<div style="font-size:11px;opacity:0.75;margin-top:6px;">' + zeit + '</div>';
+    h += '</div>';
+    return h;
+}
+
+// ---- Speisekarte -------------------------------------------------------
+// Sitzt VOR der Gerichteliste, nicht darin: loadMenuItems und jeder
+// Kategoriewechsel setzen menuItemsList.innerHTML neu. Ein Kind waere jedes
+// Mal weg gewesen.
+function showDailySpecialInMenu(restaurantId) {
+    var menuList = document.getElementById('menuItemsList');
+    if (!menuList) return Promise.resolve(0);
+
+    var alt = document.getElementById('menuDailySpecial');
+    if (alt) alt.remove();          // Angebot des vorherigen Hauses
+
+    return tagesangeboteHolen(restaurantId).then(function (angebote) {
+        // Zwischenzeitlich ein anderes Haus geoeffnet? Dann gehoert die
+        // Antwort nicht mehr hierher.
+        var jetzigesHaus = (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant)
+            ? currentOrderRestaurant.id : restaurantId;
+        if (jetzigesHaus !== restaurantId) return 0;
+        if (!angebote.length) return 0;
+        if (document.getElementById('menuDailySpecial')) return 0;
+
+        var h = '<div id="menuDailySpecial" style="margin-bottom:16px;">';
+        h += '<div style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px;">Tagesangebote</div>';
+        angebote.slice(0, 3).forEach(function (s) {
+            h += '<div style="margin-bottom:8px;">' + angebotKarteHtml(s) + '</div>';
+        });
+        h += '</div>';
+        menuList.insertAdjacentHTML('beforebegin', h);
+        return angebote.length;
+    });
+}
+
+// ---- Restaurantseite in der App ----------------------------------------
+// Fuellt den Platzhalter #lpSpecials, den openRestaurantLanding zwischen
+// Aktionsleiste und "Über uns" anlegt. Ohne Angebote bleibt er leer und
+// nimmt keinen Platz weg.
+function renderRestaurantSpecials(restaurantId) {
+    var ziel = document.getElementById('lpSpecials');
+    if (!ziel) return Promise.resolve(0);
+
+    return tagesangeboteHolen(restaurantId).then(function (angebote) {
+        if (!document.getElementById('lpSpecials')) return 0;   // Seite inzwischen zu
+        if (!angebote.length) { ziel.innerHTML = ''; return 0; }
+
+        var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 96px;">';
+        h += '<span style="color:#735c00;font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Heute</span>';
+        h += '<h2 style="font-family:Epilogue,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;color:var(--ink-deep);margin-bottom:24px;line-height:1.1;">Tagesangebote</h2>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">';
+        angebote.forEach(function (s) { h += angebotKarteHtml(s); });
+        h += '</div></section>';
+        ziel.innerHTML = h;
+        return angebote.length;
+    });
+}
 // ==================== CODE-SCHUTZ (abgespeckt) ====================
 // Aggressive Sperren entfernt (DevTools-Shortcuts, DevTools-Erkennung,
 // selectstart, user-select-CSS) — die hatten echte UX-Bugs verursacht
