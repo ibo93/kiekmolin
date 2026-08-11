@@ -47072,10 +47072,33 @@ async function saveOptionGroup(editId) {
             },
             body: JSON.stringify(groupData)
         });
-        var saved = await res.json();
-        var groupId = editId || (saved[0] ? saved[0].id : null);
+        var saved = [];
+        try { saved = await res.json(); } catch (e) {}
 
-        if (!groupId) { showToast('Fehler beim Speichern', 'error'); return; }
+        // HIER STAND: var groupId = editId || (saved[0] ? saved[0].id : null);
+        //
+        // Beim BEARBEITEN war groupId damit immer gesetzt -- einfach die ID,
+        // mit der man hereingekommen ist. Ob die Datenbank die Aenderung
+        // ueberhaupt angenommen hat, wurde nie gelesen: weder res.ok noch
+        // die Antwort. Wurde sie abgelehnt, lief alles weiter, die Meldung
+        // sagte "Optionsgruppe aktualisiert", und nach dem Neuladen stand
+        // wieder der alte Name da.
+        if (!res.ok) {
+            var grund = '';
+            if (saved && !Array.isArray(saved)) grund = saved.message || saved.hint || saved.details || '';
+            showToast('Nicht gespeichert' + (grund ? ': ' + grund : ' — die Datenbank hat die Änderung abgelehnt.'), 'error');
+            return;
+        }
+        // Eine leere Antwort auf ein PATCH heisst: keine Zeile getroffen.
+        // Fuer die Datenbank kein Fehler, fuer den Wirt schon.
+        if (editId && (!Array.isArray(saved) || saved.length === 0)) {
+            showToast('Die Änderung wurde nicht übernommen — die Datenbank hat die Zeile nicht '
+                + 'freigegeben. Das ist eine Berechtigung in Supabase.', 'error');
+            return;
+        }
+
+        var groupId = editId || (saved[0] ? saved[0].id : null);
+        if (!groupId) { showToast('Nicht gespeichert — die Datenbank hat keine Gruppe zurückgegeben.', 'error'); return; }
 
         // Wenn bearbeiten: alte Optionen löschen
         if (editId) {
@@ -47183,24 +47206,55 @@ async function openEditOptionGroupModal(groupId) {
 }
 
 // Optionsgruppe löschen
+// GEMELDET: "ich kann hier nichts, wenn ich die Sachen lösche oder
+// bearbeite kommen die wieder zurück".
+//
+// Der Grund steht in der alten Fassung: geloescht wurde, und danach kam
+// sofort "Optionsgruppe gelöscht" -- ohne nachzusehen, OB etwas weg ist.
+//
+// Ein DELETE, das keine einzige Zeile trifft, ist fuer die Datenbank kein
+// Fehler: sie antwortet 204 "in Ordnung, nichts zu tun". Genau das
+// passiert, wenn eine Zugriffsregel in Supabase das Loeschen nicht
+// erlaubt -- die Zeile ist fuer die Abfrage schlicht nicht da. sbWrite
+// kann das nicht merken, es gibt ja keinen Fehler. Die Liste wurde neu
+// geladen, die Gruppe stand wieder da, und der Wirt hielt es fuer einen
+// Fehler der App.
+//
+// Mit "Prefer: return=representation" schickt die Datenbank zurueck, WAS
+// sie geloescht hat. Eine leere Antwort heisst: nichts. Das wird jetzt
+// gesagt, statt Erfolg zu behaupten.
 async function deleteOptionGroup(groupId) {
     if (!await kinConfirm('Optionsgruppe wirklich löschen? Alle zugehörigen Optionen werden ebenfalls gelöscht.')) return;
     try {
+        var kopf = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Prefer': 'return=representation'
+        };
         // Erst Optionen löschen
         await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            method: 'DELETE', headers: kopf
         });
-        // Dann Gruppe löschen
-        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        // Dann Gruppe löschen -- und nachsehen, ob sie wirklich weg ist.
+        var res = await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+            method: 'DELETE', headers: kopf
         });
+        var weg = [];
+        try { weg = await res.json(); } catch (e) {}
+
+        if (!Array.isArray(weg) || weg.length === 0) {
+            showToast('Die Gruppe konnte nicht gelöscht werden — die Datenbank hat die Zeile '
+                + 'nicht freigegeben. Das ist eine Berechtigung in Supabase, kein Fehler in der Eingabe.', 'error');
+            loadOptionGroups();
+            loadMenuOptionGroups();
+            return;
+        }
+
         showToast('Optionsgruppe gelöscht', 'success');
         loadOptionGroups();
         loadMenuOptionGroups();
     } catch(err) {
-        showToast('Fehler: ' + err.message, 'error');
+        showToast('Löschen fehlgeschlagen: ' + err.message, 'error');
     }
 }
 
