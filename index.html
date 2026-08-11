@@ -51618,12 +51618,20 @@ function printOrderBrowser(orderId) {
     //      kommt, wuerde die Zeilen nachtraeglich umbrechen. Also nur, was auf
     //      dem Rechner ohnehin liegt.
     //
-    //      Genommen wird Palatino: eine Buchschrift, fuer Papier entworfen.
-    //      Zuerst stand hier Georgia -- die ist fuer BILDSCHIRME gemacht,
-    //      mit kraeftigen Strichen und tiefliegenden Ziffern; gedruckt wirkt
-    //      sie schwer. Palatino liegt auf jedem Mac (Palatino) und auf jedem
-    //      Windows (Palatino Linotype), Book Antiqua und Georgia stehen als
-    //      Rueckfall dahinter.
+    //      Gewaehlt wurde "Baskerville oder Georgia". Beides geht: eine
+    //      Schriftangabe IST eine Rangfolge. Der Browser nimmt die erste, die
+    //      auf dem Geraet liegt.
+    //
+    //        Baskerville / Hoefler Text -- auf jedem Mac und iPad. Fein und
+    //          ruhig, die eleganteste der Auswahl.
+    //        Georgia -- ueberall, auch auf Windows. Kraeftiger, aber sicher.
+    //
+    //      Damit bekommt ein Mac Baskerville, ein Windows-Rechner Georgia.
+    //      Kein Geraet faellt auf Times zurueck.
+    //
+    //      NICHT dabei: "Baskerville Old Face". Die liegt zwar auf Windows,
+    //      ist aber eine Auszeichnungsschrift mit ganz anderen Formen -- als
+    //      Rueckfall waere sie eine Ueberraschung, keine Absicherung.
     //   2. Ein Briefkopf-Streifen in Hausfarbe an der oberen Blattkante.
     //   3. Warmes Papierweiss statt Grau fuer die abgesetzten Flaechen --
     //      #faf7ee gehoert zur Marke, das kuehle #f7faf9 tat es nicht.
@@ -51637,7 +51645,7 @@ function printOrderBrowser(orderId) {
            font-variant-numeric: tabular-nums; }
     .kopf { display: flex; align-items: flex-start; justify-content: space-between;
             gap: 20px; padding-bottom: 16px; }
-    .haus-name { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-size: 23pt; font-weight: 400;
+    .haus-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 23pt; font-weight: 400;
                  letter-spacing: -0.005em; color: #00251e; line-height: 1.12; }
     .haus-zeile { font-size: 8pt; color: #6d7975; margin-top: 7px; letter-spacing: 0.01em; }
     /* Umrissen statt gefuellt -- ruhiger, und der Blick bleibt beim Namen. */
@@ -51675,7 +51683,7 @@ function printOrderBrowser(orderId) {
     .gesamt td { padding-top: 9px !important; padding-bottom: 4px !important;
                  font-size: 14pt; font-weight: 700; color: #00251e;
                  border-top: 1px solid #e4dcc5; }
-    .gesamt td:first-child { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-weight: 400; letter-spacing: 0.02em; }
+    .gesamt td:first-child { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: 0.02em; }
     .zahlart { text-align: right; font-size: 8pt; color: #8a938f; padding-top: 0 !important;
                padding-bottom: 12px !important; letter-spacing: 0.04em; }
     /* Der Weg-Block: kein Kasten, sondern eine warme Flaeche mit Haarlinie. */
@@ -51683,7 +51691,7 @@ function printOrderBrowser(orderId) {
            background: #faf7ee; border-radius: 10px; border-left: 3px solid #003d33; }
     .weg-text { flex: 1; }
     .weg-titel { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #96a09c; }
-    .weg-adresse { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-size: 13pt; font-weight: 400;
+    .weg-adresse { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; font-weight: 400;
                    color: #00251e; margin-top: 6px; line-height: 1.35; }
     .weg-tel { font-size: 9pt; color: #6d7975; margin-top: 5px; }
     .weg-zeit { font-size: 9pt; font-weight: 700; color: #003d33; margin-top: 3px; }
@@ -51695,13 +51703,13 @@ function printOrderBrowser(orderId) {
     .steuer th, .steuer td { font-size: 8pt; padding: 4px 18px 4px 0; text-align: left; color: #4a5652; }
     .steuer th { font-weight: 700; color: #96a09c; border-bottom: 1px solid #eef1ef;
                  font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; }
-    .dank { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-size: 13pt; color: #003d33;
+    .dank { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; color: #003d33;
             margin-top: 26px; letter-spacing: 0.01em; }
     .fuss { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eef1ef;
             display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
     .rechtstext { font-size: 6.5pt; color: #9aa39f; line-height: 1.6; max-width: 106mm; }
     .marke { text-align: right; flex-shrink: 0; }
-    .marke-name { font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-size: 11pt; color: #00251e; }
+    .marke-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 11pt; color: #00251e; }
     .marke-url { font-size: 7pt; color: #9aa39f; letter-spacing: 0.08em; margin-top: 2px; }
     `;
 

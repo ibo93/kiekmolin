@@ -173,14 +173,19 @@ t('und stapelt sich dabei nicht -- ein offenes Fenster kommt vorher weg',
 // Gewuenscht war "stilvoller". Was den Unterschied macht, wird hier
 // festgehalten -- sonst faellt es beim naechsten Umbau still wieder weg.
 t('Hausname, Adresse und Dank stehen in einer Serifenschrift',
-  (BON.match(/font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif/g) || []).length >= 4,
-  (BON.match(/font-family: 'Palatino Linotype'[^;]*/g) || []).length);
-// Eine BUCHschrift, keine Bildschirmschrift. Georgia ist fuer Monitore
-// entworfen und wirkt gedruckt schwer; sie steht nur noch als Rueckfall
-// hinter Palatino.
-t('Palatino steht vorn, Georgia nur noch als Rueckfall',
-  /'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif/.test(BON)
-  && !/font-family: Georgia,/.test(BON));
+  (BON.match(/font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif/g) || []).length >= 4,
+  (BON.match(/font-family: Baskerville[^;]*/g) || []).length);
+// Gewaehlt wurde "Baskerville oder Georgia" -- beides erfuellt, weil eine
+// Schriftangabe eine Rangfolge ist: Mac bekommt Baskerville, Windows Georgia.
+t('Baskerville steht vorn, Georgia faengt Windows auf',
+  /Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif/.test(BON));
+t('kein Geraet faellt auf Times zurueck, ohne vorher Georgia zu finden',
+  BON.indexOf("'Times New Roman', serif") > BON.indexOf('Georgia'));
+// "Baskerville Old Face" liegt zwar auf Windows, ist aber eine
+// Auszeichnungsschrift mit ganz anderen Formen -- als Rueckfall waere sie
+// eine Ueberraschung, keine Absicherung.
+t('die falsche Baskerville ist nicht dabei',
+  BON.indexOf('Baskerville Old Face') < 0);
 // Der Beleg darf nicht am Netz haengen: eine Schrift, die nicht rechtzeitig
 // kommt, wuerde die Zeilen nachtraeglich umbrechen -- mitten im Druck.
 t('das Druckfenster laedt keine Schrift aus dem Netz',
