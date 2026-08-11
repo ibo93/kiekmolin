@@ -311,7 +311,7 @@
                 "position": 2,
                 "item": {
                     "@type": "Restaurant",
-                    "name": "Greetsiler Börse",
+                    "name": "Greetsieler Börse",
                     "servesCuisine": "Norddeutsch",
                     "url": "https://kiekmolin.de/greetsiler-boerse",
                     "address": {"@type": "PostalAddress", "addressLocality": "Greetsiel", "addressRegion": "Niedersachsen", "addressCountry": "DE"},
@@ -24519,7 +24519,14 @@ const APP_DATA = {
 var KUECHE_LABEL = {
     'fisch': 'Fisch', 'italienisch': 'Italienisch', 'deutsch': 'Deutsch',
     'cafe': 'Café', 'tuerkisch': 'Türkisch', 'imbiss': 'Imbiss',
-    'griechisch': 'Griechisch', 'asiatisch': 'Asiatisch', 'bar': 'Bar'
+    'griechisch': 'Griechisch', 'asiatisch': 'Asiatisch', 'bar': 'Bar',
+    // Diese stehen in den Filterlisten der App, fehlten aber in der
+    // Uebersetzung. 'baeckerei' waere sonst als "Baeckerei" erschienen --
+    // der Notweg schreibt nur den ersten Buchstaben gross und kann aus
+    // "ae" kein "ä" machen.
+    'burger': 'Burger', 'steakhouse': 'Steakhouse', 'indisch': 'Indisch',
+    'baeckerei': 'Bäckerei', 'shisha': 'Shisha', 'eisdiele': 'Eisdiele',
+    'norddeutsch': 'Norddeutsch'
 };
 
 function kuecheLabel(schluessel, ersatz) {
@@ -24532,6 +24539,20 @@ function kuecheLabel(schluessel, ersatz) {
     return k.charAt(0).toUpperCase() + k.slice(1);
 }
 window.kuecheLabel = kuecheLabel;
+
+// Mehrere Kuechenarten als lesbare Liste. cuisine_type ist ein Feld von
+// Schluesseln: ['fisch','bar']. Roh zusammengehaengt stand auf der
+// Restaurantseite "fisch & bar Küche" -- klein geschrieben und ohne Sinn.
+function kuechenListe(rest, trenner) {
+    if (!rest) return '';
+    var roh = (Array.isArray(rest.cuisine_type) && rest.cuisine_type.length)
+        ? rest.cuisine_type : (rest.cuisine ? [rest.cuisine] : []);
+    var namen = roh.map(function (k) { return kuecheLabel(k); }).filter(Boolean);
+    if (!namen.length) return '';
+    if (namen.length === 1) return namen[0];
+    return namen.slice(0, -1).join(', ') + (trenner || ' und ') + namen[namen.length - 1];
+}
+window.kuechenListe = kuechenListe;
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -24910,7 +24931,7 @@ function renderRestaurants(filter) {
                 <div style="padding:20px 24px 24px;">
                     <h3 style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:20px;color:var(--ink-deep);cursor:pointer;letter-spacing:-0.02em;" onclick="openRestaurantBySlug('${r.slug || r.id}')">${r.name}</h3>
                     <div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--text-secondary);">
-                        <span>${(r.cuisine_type && r.cuisine_type.length > 1) ? r.cuisine_type.join(' · ') : r.cuisine}</span>
+                        <span>${kuechenListe(r, ' und ') || 'Restaurant'}</span>
                         <span style="width:3px;height:3px;border-radius:50%;background:#c0c8c4;"></span>
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
@@ -28409,7 +28430,7 @@ function renderRestaurantsDash() {
                     ${r.image ? '<img src="' + r.image + '" loading="lazy" alt="' + r.name + '">' : ''}
                     <div class="rest-card-img-overlay">
                         <h3 class="rest-card-name">${r.name}</h3>
-                        <p class="rest-card-meta">${r.city || 'Ostfriesland'} · ${(r.cuisine_type && r.cuisine_type.length > 1) ? r.cuisine_type.join(' · ') : (r.cuisine || 'Restaurant')}</p>
+                        <p class="rest-card-meta">${r.city || 'Ostfriesland'} · ${kuechenListe(r, ' und ') || 'Restaurant'}</p>
                     </div>
                     ${r.is_active === false ? '<div class="rest-card-badge inactive">Inaktiv</div>' : ''}
                 </div>
@@ -37947,7 +37968,10 @@ async function showRestaurantLanding(rest) {
                     <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:white;letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:rgba(255,255,255,0.9);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
                     <p style="color:rgba(255,255,255,0.8);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
-                        "${(rest.cuisine_type && rest.cuisine_type.length > 0 ? rest.cuisine_type.join(' & ') : rest.cuisine || 'Kulinarische') + ' Küche' + (rest.city ? ' in ' + rest.city : '')}"
+                        <!-- Ohne das Wort "Küche": "Fisch und Bar Küche" ist
+                             keine, und "Fisch Küche" schreibt man zusammen.
+                             Die reine Aufzaehlung plus Ort stimmt immer. -->
+                        "${(kuechenListe(rest) || 'Regionale Küche') + (rest.city ? ' in ' + rest.city : '')}"
                     </p>
                 </div>
             </div>
@@ -37985,23 +38009,52 @@ async function showRestaurantLanding(rest) {
                 <span style="color:#735c00;font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Über uns</span>
                 <h2 style="font-family:Epilogue,sans-serif;font-size:clamp(32px,5vw,48px);font-weight:700;color:var(--ink-deep);margin-bottom:32px;line-height:1.1;">
                     ${(function(){
-                        var cuisine = rest.cuisine_type && rest.cuisine_type.length > 0 ? rest.cuisine_type[0] : (rest.cuisine || 'Küche');
-                        return cuisine.charAt(0).toUpperCase() + cuisine.slice(1) + ' trifft Nordsee';
+                        // Ueber kuecheLabel, sonst stuende hier bei einem
+                        // tuerkischen Haus "Tuerkisch trifft Nordsee".
+                        var erste = (rest.cuisine_type && rest.cuisine_type.length > 0)
+                            ? rest.cuisine_type[0] : rest.cuisine;
+                        return (kuecheLabel(erste) || 'Küche') + ' trifft Nordsee';
                     })()}
                 </h2>
                 <p style="color:var(--text-secondary);font-size:18px;line-height:1.6;margin-bottom:32px;font-family:Inter,sans-serif;">
                     ${(function(){
                         var desc = rest.description || rest.about || '';
                         if (!desc) {
-                            var cuisineText = (rest.cuisine_type && rest.cuisine_type.length > 0) ? rest.cuisine_type.join(' & ') : (rest.cuisine || 'kulinarische');
-                            desc = 'Willkommen bei ' + rest.name + ' — Ihr Restaurant in ' + (rest.city || 'Greetsiel') + '. Seit Jahren verwöhnen wir unsere Gäste mit ' + cuisineText + ' Küche und mediterranen Köstlichkeiten mit norddeutschem Flair.';
+                            // DREI FEHLER STANDEN IN DIESEM SATZ:
+                            //
+                            // 1. "Willkommen bei Greetsieler Börse" -- ohne
+                            //    Artikel. Richtig waere "in der Greetsieler
+                            //    Börse", aber welcher Artikel stimmt, haengt am
+                            //    Namen ("das Deichhaus" -> "im"). Nicht
+                            //    ableitbar. Deshalb eine Form, die immer passt:
+                            //    Name, Gedankenstrich, Aussage.
+                            // 2. "mit fisch & bar Küche" -- die rohen
+                            //    Datenbankschluessel, klein und ohne Sinn.
+                            //    Jetzt ueber kuechenListe, und als Doppelpunkt-
+                            //    Aufzaehlung, weil "Bar-Küche" keine ist.
+                            // 3. "mediterranen Köstlichkeiten" -- fuer ein
+                            //    Fischhaus in Greetsiel schlicht falsch. Stand
+                            //    fest im Text, egal welches Restaurant.
+                            var kuechen = kuechenListe(rest);
+                            desc = rest.name + ' — Ihr Restaurant in ' + (rest.city || 'Greetsiel') + '.'
+                                 + (kuechen ? ' Unsere Küche: ' + kuechen + '.' : '')
+                                 + ' Frisch zubereitet, mit norddeutschem Flair.';
                         }
                         return desc;
                     })()}
                 </p>
-                <p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid #003d33;padding-left:24px;font-family:Inter,sans-serif;">
-                    "Genießen Sie kulinarische Vielfalt — die perfekte Verbindung aus Tradition und Ostfriesland."
-                </p>
+                <!-- HIER STAND EIN ERFUNDENES ZITAT.
+                     In Anfuehrungszeichen und mit Zitatstrich stand auf JEDER
+                     Restaurantseite derselbe Satz: "Genießen Sie kulinarische
+                     Vielfalt — die perfekte Verbindung aus Tradition und
+                     Ostfriesland." Das liest sich wie ein Satz des Hauses, war
+                     aber fest einprogrammiert -- und ergab keinen Sinn:
+                     Tradition und Ostfriesland sind kein Gegensatzpaar.
+                     Einem echten Betrieb einen Satz in den Mund zu legen, den
+                     er nie gesagt hat, geht nicht. Wer einen eigenen Satz
+                     moechte, traegt ihn als tagline ein -- dann steht er hier. -->
+                ${rest.tagline ? '<p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid #003d33;padding-left:24px;font-family:Inter,sans-serif;">'
+                    + escapeHtml(rest.tagline) + '</p>' : ''}
             </div>
         </section>
 
@@ -40813,7 +40866,7 @@ async function handleAsyncTableQuery() {
         } catch(e) { slots = []; }
 
         var cuisine = r.cuisine || '';
-        var cuisineLabel = {'fisch':'Fisch','italienisch':'Italienisch','deutsch':'Deutsch','cafe':'Café','tuerkisch':'Türkisch','imbiss':'Imbiss','griechisch':'Griechisch','asiatisch':'Asiatisch','bar':'Bar'}[cuisine] || cuisine;
+        var cuisineLabel = kuecheLabel(cuisine);   // eine Tabelle fuer alle, siehe KUECHE_LABEL
         var stars = r.rating ? '<span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span> ' + r.rating : '';
 
         response += '<div style="background:var(--bg-secondary);border-radius:20px;padding:14px 16px;margin:8px 0;border:1px solid var(--border-color);">';
@@ -41127,7 +41180,7 @@ function generateResponse(message) {
             'bar': '<span class="material-symbols-outlined" style="font-size:18px;">science</span>',
             'shisha': '<span class="material-symbols-outlined" style="font-size:18px;">water_drop</span>'
         };
-        var cuisineLabel = {'fisch':'Fisch','italienisch':'Italienisch','deutsch':'Deutsch','cafe':'Café','tuerkisch':'Türkisch','imbiss':'Imbiss','griechisch':'Griechisch','asiatisch':'Asiatisch','bar':'Bar','shisha':'Shisha','burger':'Burger','indisch':'Indisch','steakhouse':'Steak','eisdiele':'Eis','baeckerei':'Bäckerei','mexikanisch':'Mexikanisch'}[cuisine] || cuisine;
+        var cuisineLabel = kuecheLabel(cuisine);   // eine Tabelle fuer alle, siehe KUECHE_LABEL
         var cIcon = cuisineIcons[cuisine] || '';
         var stars = r.rating ? '<span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span> ' + r.rating : '';
         var tables = r.freeTables > 0 ? '<span style="color:#22c55e;font-weight:600;">' + r.freeTables + ' frei</span>' : '<span style="color:#ef4444;">Voll</span>';
@@ -65568,7 +65621,7 @@ setTimeout(function() {
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px 12px;margin-bottom:12px;">
 <!--KMI:REST-LINKS-START-->
         <a href="/lapiazza" onclick="openRestaurantBySlug('lapiazza');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">La Piazza Greetsiel</a>
-        <a href="/greetsiler-boerse" onclick="openRestaurantBySlug('greetsiler-boerse');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">Greetsiler Börse</a>
+        <a href="/greetsiler-boerse" onclick="openRestaurantBySlug('greetsiler-boerse');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">Greetsieler Börse</a>
 <!--KMI:REST-LINKS-END-->
     </div>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;opacity:0.35;font-size:11px;">
@@ -65594,13 +65647,13 @@ setTimeout(function() {
         <ul>
 <!--KMI:REST-NOSCRIPT-START-->
             <li><a href="/lapiazza"><strong>La Piazza Greetsiel</strong> &ndash; Italienisches Restaurant: Pizza, Pasta, Salate &amp; mehr. Speisekarte ansehen und online bestellen auf Kiek mol in.</a></li>
-            <li><a href="/greetsiler-boerse"><strong>Greetsiler Börse</strong> &ndash; Norddeutsche Küche am Kutterhafen Greetsiel. Fischgerichte, Labskaus &amp; Spezialitäten. Online bestellen auf Kiek mol in.</a></li>
+            <li><a href="/greetsiler-boerse"><strong>Greetsieler Börse</strong> &ndash; Norddeutsche Küche am Kutterhafen Greetsiel. Fischgerichte, Labskaus &amp; Spezialitäten. Online bestellen auf Kiek mol in.</a></li>
 <!--KMI:REST-NOSCRIPT-END-->
         </ul>
         <h3>La Piazza Greetsiel &ndash; Italienisch essen in Ostfriesland</h3>
         <p>La Piazza ist ein beliebtes italienisches Restaurant in Greetsiel, Ostfriesland. Genieße Pizza, Pasta, Antipasti und italienische Spezialitäten. Bestelle jetzt online über Kiek mol in oder reserviere einen Tisch.</p>
-        <h3>Greetsiler Börse &ndash; Restaurant am Hafen</h3>
-        <p>Die Greetsiler Börse liegt direkt am Kutterhafen in Greetsiel. Norddeutsche Küche mit frischem Fisch, Krabben und regionalen Spezialitäten. Online bestellen und Tisch reservieren auf Kiek mol in.</p>
+        <h3>Greetsieler Börse &ndash; Restaurant am Hafen</h3>
+        <p>Die Greetsieler Börse liegt direkt am Kutterhafen in Greetsiel. Norddeutsche Küche mit frischem Fisch, Krabben und regionalen Spezialitäten. Online bestellen und Tisch reservieren auf Kiek mol in.</p>
         <h2>So funktioniert Kiek mol in</h2>
         <ol>
             <li>Restaurant auswählen aus der Übersicht</li>

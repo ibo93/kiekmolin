@@ -211,6 +211,47 @@ t('nirgends wird .cuisine mehr roh in Anzeigetext gehaengt',
 t('eine unbekannte Kuechenart wird wenigstens grossgeschrieben, nicht nackt gezeigt',
   /charAt\(0\)\.toUpperCase\(\) \+ k\.slice\(1\)/.test(APP));
 
+// ---- 1c2. cuisine_type roh in Anzeigetext ------------------------------------
+// Auf der Restaurantseite stand "Willkommen bei Greetsieler Börse ... mit
+// fisch & bar Küche" -- cuisine_type ist ein Feld von SCHLUESSELN, roh
+// zusammengehaengt. Klein geschrieben, und "Bar Küche" ist keine Küche.
+t('es gibt einen Helfer fuer Kuechen-Listen',
+  /function kuechenListe\(/.test(APP));
+t('cuisine_type wird nirgends mehr roh zusammengehaengt',
+  !/cuisine_type\.join\(/.test(APP),
+  (APP.match(/cuisine_type\.join\([^)]*\)/g) || []).join(', '));
+t('die Ueberschrift der Restaurantseite nutzt das Label',
+  /kuecheLabel\(erste\) \|\| 'Küche'\) \+ ' trifft Nordsee'/.test(APP));
+t('der Untertitel ebenso', /kuechenListe\(rest\) \|\| 'Regionale Küche'/.test(APP));
+t('und die Beschreibung', /var kuechen = kuechenListe\(rest\);/.test(APP));
+t('es gibt nur noch EINE Uebersetzungstabelle, nicht drei',
+  (APP.match(/var cuisineLabel = \{/g) || []).length === 0
+  && (APP.match(/var KUECHE_LABEL = \{/g) || []).length === 1);
+t('alle Kuechenarten aus den Filterlisten stehen darin',
+  ['burger','steakhouse','indisch','baeckerei','shisha','eisdiele'].every(function (k) {
+      return new RegExp("'" + k + "':").test(APP);
+  }), 'fehlend');
+t('baeckerei wird zu Bäckerei -- der Notweg koennte das nicht',
+  /'baeckerei': 'Bäckerei'/.test(APP));
+t('die Restaurantkarten zeigen keine Schluessel mehr',
+  (APP.match(/kuechenListe\(r, ' und '\)/g) || []).length === 2);
+
+// Das erfundene Zitat: stand auf JEDER Restaurantseite in Anfuehrungszeichen,
+// als haette das Haus es gesagt. War fest einprogrammiert.
+t('kein erfundenes Zitat mehr auf der Restaurantseite',
+  APP.indexOf('die perfekte Verbindung aus Tradition und Ostfriesland."') < 0
+  || /HIER STAND EIN ERFUNDENES ZITAT[\s\S]{0,900}Tradition und\s*\n\s*Ostfriesland/.test(APP));
+t('stattdessen die eigene tagline, falls eine hinterlegt ist',
+  /rest\.tagline \? '<p[\s\S]{0,300}escapeHtml\(rest\.tagline\)/.test(APP));
+
+// Der Name des Pilotkunden -- das Bildschirmfoto der App zeigt
+// "GREETSIELER BÖRSE". Der Slug bleibt ASCII und ohne das e, weil er als
+// Adresse veroeffentlicht ist und so in der Datenbank steht.
+t('der Anzeigename heisst ueberall Greetsieler Börse',
+  APP.indexOf('Greetsiler Börse') < 0, 'noch ' + (APP.match(/Greetsiler Börse/g) || []).length + 'x falsch');
+t('der Slug bleibt unveraendert -- sonst brechen veroeffentlichte Links',
+  /greetsiler-boerse/.test(APP));
+
 // ---- 1d. Zusammengeklebte Woerter und fehlende Kommas ------------------------
 // Zwei Fehlerklassen, die kein Woerterbuch findet, weil beide Teile fuer sich
 // richtig sind: "digitalenSpeisekarten" (fehlendes Leerzeichen) und
