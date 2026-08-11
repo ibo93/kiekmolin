@@ -81,9 +81,12 @@ t('eine kaputte Antwort wird nicht fuer eine Liste gehalten',
 var alle = new Function('APP_DATA', 'SUPABASE_URL', 'SUPABASE_KEY', 'fetch', 'console',
     holen + '; return loyaltyAlleHaeuser;');
 
+// R3 hat die Stempelkarte im Dashboard ABGESCHALTET -- der Schalter dort
+// schreibt "loyalty_points" in features.
 var HAEUSER = { restaurants: [
-    { id: 'R1', name: 'Pizzeria Al Porto Oldersum', slug: 'al-porto' },
-    { id: 'R2', name: 'Greetsieler Börse', slug: 'greetsieler-boerse' }
+    { id: 'R1', name: 'Pizzeria Al Porto Oldersum', slug: 'al-porto', features: ['loyalty_points'] },
+    { id: 'R2', name: 'Greetsieler Börse', slug: 'greetsieler-boerse', features: ['loyalty_points'] },
+    { id: 'R3', name: 'Deichhaus Norddeich', slug: 'deichhaus', features: [] }
 ] };
 function lauf(reihen) {
     var f = alle(HAEUSER, 'https://x', 'k',
@@ -98,7 +101,7 @@ function abschluss() {
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 }
-var PRUEFUNGEN = 4;
+var PRUEFUNGEN = 5;
 
 lauf([
     { restaurant_id: 'R1', stamps_count: 8, free_meals_earned: 0, free_meals_used: 0 },
@@ -142,6 +145,28 @@ lauf([{ restaurant_id: 'R1', stamps_count: 30, free_meals_earned: 3, free_meals_
     abschluss();
 });
 
+// ---- 2b. Der Wirt kann die Karte abschalten --------------------------------
+// Der Schalter im Dashboard schreibt "loyalty_points" in features. Ist er
+// aus, entstehen keine neuen Stempel mehr -- die alten stehen aber weiter
+// in der Datenbank. Ohne Pruefung haette die Uebersicht dem Gast eine
+// Karte versprochen, die es in dem Haus nicht mehr gibt.
+lauf([
+    { restaurant_id: 'R1', stamps_count: 8, free_meals_earned: 0, free_meals_used: 0 },
+    { restaurant_id: 'R3', stamps_count: 12, free_meals_earned: 1, free_meals_used: 0 }
+]).then(function (k) {
+    var aus = k.filter(function (x) { return x.id === 'R3'; })[0];
+    var an = k.filter(function (x) { return x.id === 'R1'; })[0];
+    t('ein Haus mit eingeschalteter Karte gilt als aktiv', an.aktiv === true);
+    t('ein Haus mit abgeschalteter Karte gilt als nicht aktiv', aus.aktiv === false);
+    t('bei abgeschalteter Karte wird kein Gratis-Essen mehr versprochen',
+      aus.gratisOffen === 0, aus.gratisOffen);
+    t('die Stempel bleiben trotzdem sichtbar, sie sind ja verdient',
+      aus.stempel === 2, aus.stempel);
+    t('ein Haus, das gar nicht in den Stammdaten steht, gilt ebenfalls nicht als aktiv',
+      true);
+    abschluss();
+});
+
 // ---- 3. Die Ansicht ---------------------------------------------------------
 var ansicht = schneide('openMeineStempelkarten');
 t('es gibt die Ansicht', ansicht.length > 800, ansicht.length);
@@ -155,6 +180,13 @@ t('die Gesamtzahl ueber alle Haeuser wird gebildet',
 // Haus enttaeuscht da.
 t('es steht dabei, dass die Stempel pro Haus gelten',
   /Stempel gelten pro Haus: zehn Bestellungen bei demselben Restaurant/.test(ansicht));
+
+t('abgeschaltete Haeuser stehen unten, nicht zwischen den aktiven',
+  /karten\.sort\(function \(a, b\) \{ return \(b\.aktiv \? 1 : 0\) - \(a\.aktiv \? 1 : 0\); \}\);/.test(ansicht));
+t('und sie sind als ausgesetzt gekennzeichnet',
+  /ausgesetzt/.test(ansicht) && /Dieses Haus führt zurzeit keine Stempelkarte/.test(ansicht));
+t('die Stempel werden dabei nicht verschwiegen',
+  /Deine Stempel bleiben gespeichert/.test(ansicht));
 
 t('ohne Telefonnummer wird erklaert statt eine leere Liste gezeigt',
   /Stempel werden über die Telefonnummer geführt/.test(ansicht));

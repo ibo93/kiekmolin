@@ -64969,16 +64969,26 @@ async function loyaltyAlleHaeuser(phone) {
             var haus = (APP_DATA.restaurants || []).find(function (x) { return x.id === r.restaurant_id; });
             var bestellungen = Number(r.stamps_count) || 0;
             var offen = Math.max(0, (Number(r.free_meals_earned) || 0) - (Number(r.free_meals_used) || 0));
+            // DER WIRT KANN DIE STEMPELKARTE ABSCHALTEN.
+            // Der Schalter im Dashboard schreibt "loyalty_points" in
+            // features. Ist er aus, entstehen keine neuen Stempel mehr
+            // (siehe die Abfrage beim Abschluss der Bestellung) -- die alten
+            // stehen aber weiter in der Datenbank. Ohne diese Pruefung
+            // haette die Uebersicht dem Gast eine Karte versprochen, die es
+            // in dem Haus nicht mehr gibt.
+            var aktiv = !!(haus && (haus.features || []).indexOf('loyalty_points') !== -1);
             return {
                 id: r.restaurant_id,
                 // Ist das Haus nicht (mehr) in der Liste, steht hier kein
                 // erfundener Name -- der Gast soll nicht raten muessen.
                 name: haus ? haus.name : 'Restaurant',
                 bekannt: !!haus,
+                aktiv: aktiv,
                 slug: haus ? (haus.slug || haus.id) : null,
                 bestellungen: bestellungen,
                 stempel: bestellungen % 10,
-                gratisOffen: offen,
+                // Ein Gratis-Essen bei abgeschalteter Karte ist keins mehr.
+                gratisOffen: aktiv ? offen : 0,
                 zuletzt: r.last_order_at || null
             };
         }).filter(function (z) { return z.bestellungen > 0; });
@@ -65044,22 +65054,34 @@ async function openMeineStempelkarten() {
           + '</div>'
           + '</div>';
 
+    // Aktive Haeuser zuerst -- abgeschaltete gehoeren nach unten, sie sind
+    // nur noch Vergangenheit.
+    karten.sort(function (a, b) { return (b.aktiv ? 1 : 0) - (a.aktiv ? 1 : 0); });
+
     karten.forEach(function (k) {
+        var voll = k.aktiv ? '#003D33' : 'rgba(0,61,51,0.28)';
         var punkte = '';
         for (var i = 0; i < 10; i++) {
             punkte += i < k.stempel
-                ? '<span style="width:12px;height:12px;border-radius:50%;background:#003D33;display:inline-block;"></span>'
+                ? '<span style="width:12px;height:12px;border-radius:50%;background:' + voll + ';display:inline-block;"></span>'
                 : '<span style="width:12px;height:12px;border-radius:50%;border:1.5px dashed rgba(0,61,51,0.28);display:inline-block;"></span>';
         }
         var klick = k.slug ? ' onclick="closeStempelkarten(); openRestaurantBySlug(\'' + escapeHtml(k.slug) + '\')" style="cursor:pointer;' : ' style="';
-        h += '<div' + klick + 'background:var(--bg-secondary);border-radius:14px;padding:13px 15px;margin-bottom:9px;">'
+        h += '<div' + klick + 'background:var(--bg-secondary);border-radius:14px;padding:13px 15px;margin-bottom:9px;'
+           + (k.aktiv ? '' : 'opacity:0.72;') + '">'
            +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;">'
            +     '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(k.name) + '</span>'
-           +     (k.gratisOffen
-                    ? '<span style="flex-shrink:0;background:#FFD54F;color:#003D33;border-radius:9999px;padding:2px 9px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">Gratis</span>'
-                    : '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">' + k.stempel + '/10</span>')
+           +     (!k.aktiv
+                    ? '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">ausgesetzt</span>'
+                    : (k.gratisOffen
+                        ? '<span style="flex-shrink:0;background:#FFD54F;color:#003D33;border-radius:9999px;padding:2px 9px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">Gratis</span>'
+                        : '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">' + k.stempel + '/10</span>'))
            +   '</div>'
            +   '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + punkte + '</div>'
+           // Nicht verschweigen und nicht so tun, als zaehle es weiter:
+           // das Haus fuehrt zurzeit keine Stempelkarte.
+           +   (k.aktiv ? '' : '<div style="font-size:11px;color:var(--text-secondary);margin-top:8px;line-height:1.5;">'
+                 + 'Dieses Haus führt zurzeit keine Stempelkarte. Deine Stempel bleiben gespeichert.</div>')
            + '</div>';
     });
 
