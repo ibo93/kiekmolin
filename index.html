@@ -51497,173 +51497,278 @@ function printOrderBrowser(orderId) {
     // Logo HTML
     var logoHtml = '';
     if (restLogo) {
-        logoHtml = '<img src="' + restLogo + '" style="max-width:120px;max-height:60px;margin:0 auto 8px;display:block;" alt="Logo">';
+        logoHtml = '<img src="' + restLogo + '" style="max-height:46px;max-width:130px;margin-bottom:8px;display:block;" alt="Logo">';
     }
 
+    // Zahlart als Wort, nicht als Datenbankschluessel.
+    var _zahl = String(order.payment_method || '').toLowerCase();
+    var zahlartText = _zahl === 'cash' ? 'Bar'
+        : (_zahl === 'card' || _zahl === 'card_on_delivery') ? 'Karte'
+        : _zahl === 'paypal' ? 'PayPal'
+        : _zahl ? (_zahl.charAt(0).toUpperCase() + _zahl.slice(1)) : 'Bar';
+
     // Items HTML
+    // Der Gerichtname kam ungeschuetzt aus der Datenbank in den Beleg --
+    // als einziges Feld hier. Sonderwunsch und Zusaetze waren schon escapt.
     var itemsHtml = (order.items || []).map(function(item) {
-        var einzelpreis = parseFloat(item.price) / (item.quantity || 1);
         return '<tr>' +
-            '<td style="text-align:left;padding:3px 0;width:30px;">' + item.quantity + '×</td>' +
-            '<td style="text-align:left;padding:3px 4px;">' + item.name +
-                (item.options ? '<br><span style="font-size:10px;color:#666;">  ↳ ' + item.options + '</span>' : '') +
-                // Sonderwunsch FETT auf den Bon. Wer in der Küche steht,
+            '<td class="anz">' + (parseInt(item.quantity, 10) || 1) + '×</td>' +
+            '<td>' + escapeHtml(item.name || '') +
+                (item.options ? '<div class="zusatz">' + escapeHtml(item.options) + '</div>' : '') +
+                // Sonderwunsch hervorgehoben. Wer in der Küche steht,
                 // überliest eine graue Kleinschrift.
-                (item.notes ? '<br><span style="font-size:11px;font-weight:bold;">  ↳ ' + escapeHtml(item.notes) + '</span>' : '') +
+                (item.notes ? '<div class="wunsch">' + escapeHtml(item.notes) + '</div>' : '') +
             '</td>' +
-            '<td style="text-align:right;padding:3px 0;white-space:nowrap;">' + formatPrice(item.price) + '</td>' +
+            '<td class="preis">' + formatPrice(item.price) + '</td>' +
         '</tr>';
     }).join('');
 
+    // WELCHES PAPIER? Das entschied bisher niemand.
+    // Im Beleg stand fest "@page { size: 80mm auto }" -- die Breite einer
+    // Kassenrolle. Wer wie im gemeldeten Fall auf einem gewoehnlichen
+    // A4-Drucker druckte, bekam eine 7 cm schmale Spalte mitten auf dem
+    // Blatt, und der Text lief auf ZWEI Blaetter. Jetzt gibt es beides.
+    var bonPapier = bonPapierFormat(order.restaurant_id);
+    var istRolle = (bonPapier === 'thermo');
+
+    var lieferung = order.order_type === 'delivery';
+    var artText = lieferung ? 'Lieferung' : 'Abholung';
+
+    // Fertig-Zeitpunkt, wenn das Restaurant einen genannt hat.
+    var fertigStr = '';
+    if (order.estimated_time) {
+        var ft = new Date(order.estimated_time);
+        if (!isNaN(ft.getTime())) fertigStr = ft.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    // DER WEG-BLOCK -- fuer beide Bestellarten, nicht nur fuer die Lieferung.
+    // Bisher gab es ihn NUR bei Lieferung. Wer abholte, fand auf seinem Beleg
+    // keine Adresse des Restaurants und keine Uhrzeit: er wusste weder wohin
+    // noch wann. Jetzt zeigt der Block bei Lieferung den Weg zum Gast und bei
+    // Abholung den Weg zum Restaurant.
+    var wegZiel = lieferung
+        ? (function () {
+              var a0 = order.delivery_address || {};
+              return {
+                  titel: 'Lieferadresse',
+                  zeile: adresseHtml(order.delivery_address, '<br>'),
+                  roh: [(a0.street || '') + ' ' + (a0.house_number || ''), (a0.zip || '') + ' ' + (a0.city || '')].join(', '),
+                  tel: order.customer_phone || '',
+                  hinweis: 'QR scannen startet die Navigation'
+              };
+          })()
+        : {
+              titel: 'Abholung bei',
+              zeile: escapeHtml(restName) + (restAdresse ? '<br>' + escapeHtml(restAdresse) : ''),
+              roh: restName + (restAdresse ? ', ' + restAdresse : ''),
+              tel: restPhone || '',
+              hinweis: 'QR scannen zeigt den Weg zum Restaurant'
+          };
+
+    var wegHtml = '';
+    if (wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
+        // Zwei Fassungen derselben Adresse, mit Absicht: die eine geht in den
+        // Beleg und muss escapt sein, die andere in die Karten-Adresse und
+        // darf es NICHT -- encodeURIComponent('&amp;') verstuemmelt sie.
+        var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(wegZiel.roh.trim());
+        wegHtml =
+            '<div class="weg">' +
+              '<div class="weg-text">' +
+                '<div class="weg-titel">' + wegZiel.titel + '</div>' +
+                '<div class="weg-adresse">' + wegZiel.zeile + '</div>' +
+                (wegZiel.tel ? '<div class="weg-tel">Tel: ' + escapeHtml(wegZiel.tel) + '</div>' : '') +
+                (fertigStr ? '<div class="weg-zeit">' + (lieferung ? 'Lieferung gegen ' : 'Abholbereit gegen ') + fertigStr + ' Uhr</div>' : '') +
+              '</div>' +
+              '<div class="weg-qr">' +
+                '<img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data='
+                  + encodeURIComponent(mapsUrl) + '" alt="QR Navigation">' +
+                '<div class="weg-qr-text">' + wegZiel.hinweis + '</div>' +
+              '</div>' +
+            '</div>';
+    }
+
+    // Zwei Papierformate, ein Markup. Was sich unterscheidet, ist die
+    // Gestaltung -- nicht der Inhalt.
+    var stilA4 = `
+    @page { size: A4; margin: 16mm 18mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 10.5pt; color: #16211d; line-height: 1.45; max-width: 174mm; margin: 0 auto; }
+    .kopf { display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 20px; padding-bottom: 14px; border-bottom: 2.5px solid #003d33; }
+    .haus-name { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; color: #00251e; line-height: 1.1; }
+    .haus-zeile { font-size: 8.5pt; color: #5b6663; margin-top: 5px; }
+    .art-chip { flex-shrink: 0; background: #003d33; color: #fff; border-radius: 999px;
+                padding: 7px 18px; font-size: 9pt; font-weight: 800; letter-spacing: 0.14em;
+                text-transform: uppercase; white-space: nowrap; }
+    .zwei { display: flex; gap: 28px; margin: 18px 0 4px; }
+    .zwei > div { flex: 1; }
+    .feldname { font-size: 7.5pt; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+                color: #7d8985; margin-bottom: 5px; }
+    .feldwert { font-size: 10.5pt; }
+    .beleg-nr { font-size: 13pt; font-weight: 800; letter-spacing: 0.01em; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 18px; }
+    table.pos th { font-size: 7.5pt; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+                   color: #7d8985; text-align: left; padding: 0 0 7px; border-bottom: 1.5px solid #d6ded9; }
+    table.pos td { padding: 9px 0; border-bottom: 1px solid #edf1ef; vertical-align: top; }
+    .anz { width: 34px; font-weight: 700; color: #003d33; }
+    .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .zusatz { font-size: 8.5pt; color: #5b6663; margin-top: 2px; }
+    .wunsch { font-size: 8.5pt; font-weight: 700; color: #9a3412; margin-top: 2px; }
+    .summen { margin-left: auto; width: 62mm; margin-top: 14px; }
+    .summen tr td { padding: 3px 0; font-size: 10pt; }
+    .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .gesamt td { border-top: 2px solid #003d33; padding-top: 9px !important;
+                 font-size: 15pt; font-weight: 800; color: #00251e; }
+    .zahlart { text-align: right; font-size: 9pt; color: #5b6663; padding-top: 5px !important; }
+    .weg { display: flex; gap: 18px; align-items: center; margin-top: 20px; padding: 14px 16px;
+           border: 1.5px solid #d6ded9; border-radius: 10px; background: #f7faf9; }
+    .weg-text { flex: 1; }
+    .weg-titel { font-size: 7.5pt; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #7d8985; }
+    .weg-adresse { font-size: 12pt; font-weight: 700; color: #00251e; margin-top: 4px; line-height: 1.35; }
+    .weg-tel, .weg-zeit { font-size: 9pt; color: #5b6663; margin-top: 3px; }
+    .weg-zeit { font-weight: 700; color: #003d33; }
+    .weg-qr { text-align: center; flex-shrink: 0; }
+    .weg-qr img { width: 30mm; height: 30mm; display: block; }
+    .weg-qr-text { font-size: 6.5pt; color: #7d8985; margin-top: 4px; max-width: 30mm; line-height: 1.3; }
+    .steuer { margin-top: 20px; display: flex; gap: 28px; align-items: flex-start; }
+    .steuer table { border-collapse: collapse; }
+    .steuer th, .steuer td { font-size: 8pt; padding: 3px 14px 3px 0; text-align: left; }
+    .steuer th { font-weight: 700; color: #7d8985; border-bottom: 1px solid #d6ded9; }
+    .fuss { margin-top: 22px; padding-top: 12px; border-top: 1px solid #d6ded9;
+            display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+    .rechtstext { font-size: 7pt; color: #8b9591; line-height: 1.5; max-width: 108mm; }
+    .marke { text-align: right; flex-shrink: 0; }
+    .marke-name { font-size: 10pt; color: #00251e; letter-spacing: 0.02em; }
+    .marke-url { font-size: 7.5pt; color: #8b9591; }
+    .dank { font-size: 11pt; font-weight: 700; color: #003d33; margin-top: 18px; }
+    `;
+
+    var stilRolle = `
+    @page { size: 80mm auto; margin: 4mm; }
+    body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 11px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
+    .kopf { text-align: center; padding-bottom: 8px; border-bottom: 2px solid #000; }
+    .haus-name { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+    .haus-zeile { font-size: 9px; margin-top: 3px; }
+    .art-chip { display: inline-block; margin-top: 7px; background: #000; color: #fff;
+                border-radius: 999px; padding: 3px 12px; font-size: 9px; font-weight: 800;
+                letter-spacing: 0.12em; text-transform: uppercase; }
+    .zwei { margin: 10px 0 0; }
+    .zwei > div + div { margin-top: 8px; }
+    .feldname { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
+    .feldwert { font-size: 11px; }
+    .beleg-nr { font-size: 13px; font-weight: 800; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    table.pos th { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+                   color: #555; text-align: left; padding: 0 0 4px; border-bottom: 1px solid #000; }
+    table.pos td { padding: 5px 0; border-bottom: 1px dotted #bbb; vertical-align: top; }
+    .anz { width: 26px; font-weight: 700; }
+    .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .zusatz { font-size: 9px; color: #444; }
+    .wunsch { font-size: 10px; font-weight: 700; }
+    .summen { width: 100%; margin-top: 8px; }
+    .summen tr td { padding: 2px 0; font-size: 11px; }
+    .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .gesamt td { border-top: 2px solid #000; padding-top: 6px !important; font-size: 15px; font-weight: 800; }
+    .zahlart { text-align: right; font-size: 10px !important; color: #444; padding-top: 4px !important; }
+    .weg { margin-top: 10px; padding: 9px; border: 2px dashed #000; border-radius: 4px; text-align: center; }
+    .weg-titel { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .weg-adresse { font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .weg-tel, .weg-zeit { font-size: 10px; margin-top: 2px; }
+    .weg-zeit { font-weight: 700; }
+    .weg-qr img { width: 34mm; height: 34mm; display: block; margin: 7px auto 0; }
+    .weg-qr-text { font-size: 8px; color: #555; margin-top: 3px; }
+    .steuer { margin-top: 10px; }
+    .steuer table { width: 100%; border-collapse: collapse; }
+    .steuer th, .steuer td { font-size: 9px; padding: 2px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px dotted #999; }
+    .steuer td + td, .steuer th + th { text-align: right; }
+    .fuss { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; text-align: center; }
+    .rechtstext { font-size: 8px; color: #444; line-height: 1.5; margin-top: 8px; }
+    .marke { margin-top: 8px; }
+    .marke-name { font-size: 11px; }
+    .marke-url { font-size: 8px; color: #555; }
+    .dank { font-size: 13px; font-weight: 700; margin-top: 8px; }
+    `;
+
     let printContent = `
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html lang="de"><head><meta charset="UTF-8"><title>Beleg ${belegNr}</title>
 <style>
-    @page { margin: 5mm; size: 80mm auto; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
-    .center { text-align: center; }
-    .bold { font-weight: 700; }
-    .line { border-top: 1px dashed #000; margin: 8px 0; }
-    .dbl-line { border-top: 2px solid #000; margin: 8px 0; }
-    table { width: 100%; border-collapse: collapse; }
-    td { vertical-align: top; font-size: 12px; }
-    .right { text-align: right; }
-    .small { font-size: 10px; color: #333; }
-    .xs { font-size: 9px; color: #555; }
-    .total-row td { font-size: 16px; font-weight: 700; padding: 8px 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    img { max-width: 100%; }
+    /* Nichts darf mitten in einem Block umbrechen -- daran ist der alte
+       Beleg auf A4 gescheitert und lief auf zwei Blaetter. */
+    .weg, .steuer, .fuss, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
+    ${istRolle ? stilRolle : stilA4}
 </style></head><body>
 
-<!-- ===== RESTAURANT HEADER ===== -->
-<div class="center" style="margin-bottom:6px;">
-    ${logoHtml}
-    <div style="font-size:18px;font-weight:700;letter-spacing:1px;">${restName.toUpperCase().trim()}</div>
-    ${restAdresse ? '<div class="small" style="margin-top:4px;">' + restAdresse + '</div>' : ''}
-    ${restPhone ? '<div class="small">Tel: ' + restPhone + '</div>' : ''}
-    ${restEmail ? '<div class="small">' + restEmail + '</div>' : ''}
-    ${restWebsite ? '<div class="xs">' + restWebsite + '</div>' : ''}
-</div>
-
-<div class="dbl-line"></div>
-
-<!-- ===== BELEG INFO ===== -->
-<table>
-    <tr><td class="bold">Beleg-Nr:</td><td class="right bold">${belegNr}</td></tr>
-    <tr><td>Datum:</td><td class="right">${datumStr} · ${zeitStr} Uhr</td></tr>
-    <tr><td>Bestellart:</td><td class="right bold">${order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG'}</td></tr>
-</table>
-
-<div class="line"></div>
-
-<!-- ===== KUNDE ===== -->
-<div style="margin:4px 0;">
-    <div class="bold" style="font-size:13px;">${escapeHtml(order.customer_name || 'Gast')}</div>
-    ${order.customer_phone ? '<div class="small">Tel: ' + escapeHtml(order.customer_phone) + '</div>' : ''}
-    ${order.delivery_address ? '<div class="small">' + adresseHtml(order.delivery_address, '<br>') + '</div>' : ''}
-</div>
-
-<div class="dbl-line"></div>
-
-<!-- ===== POSITIONEN ===== -->
-<table>
-    <tr style="border-bottom:1px solid #000;">
-        <td class="bold" style="padding:3px 0;">Anz</td>
-        <td class="bold" style="padding:3px 4px;">Artikel</td>
-        <td class="bold right" style="padding:3px 0;">Preis</td>
-    </tr>
-    ${itemsHtml}
-</table>
-
-<div class="dbl-line"></div>
-
-<!-- ===== SUMMEN ===== -->
-<table>
-    <tr><td>Zwischensumme:</td><td class="right">${formatPrice(zwischensumme)}</td></tr>
-    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr:</td><td class="right">' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
-    ${rabatt > 0 ? '<tr><td>Rabatt:</td><td class="right" style="color:#d00;">-' + formatPrice(rabatt) + '</td></tr>' : ''}
-    ${trinkgeld > 0 ? '<tr><td>Trinkgeld:</td><td class="right">' + formatPrice(trinkgeld) + '</td></tr>' : ''}
-</table>
-
-<div class="line"></div>
-
-<table>
-    <tr class="total-row">
-        <td>GESAMT:</td>
-        <td class="right">${formatPrice(bruttoGesamt)}</td>
-    </tr>
-</table>
-
-<div class="line"></div>
-
-<!-- ===== MWST nach §14 UStG ===== -->
-<div style="margin:4px 0;">
-    <div class="bold small">MwSt.-Ausweis gem. §14 UStG:</div>
-    <table class="small" style="margin-top:3px;">
-        <tr style="border-bottom:1px dotted #999;">
-            <td class="bold">Satz</td>
-            <td class="bold right">Netto</td>
-            <td class="bold right">MwSt</td>
-            <td class="bold right">Brutto</td>
-        </tr>
-        <tr>
-            <td>${mwstSatz},00%</td>
-            <td class="right">${formatPrice(nettoGesamt)}</td>
-            <td class="right">${formatPrice(mwstBetrag)}</td>
-            <td class="right">${formatPrice(bruttoGesamt)}</td>
-        </tr>
-    </table>
-</div>
-
-<div class="line"></div>
-
-<!-- ===== ZAHLUNGSART ===== -->
-<div class="center bold" style="font-size:13px;margin:6px 0;">
-    ${order.payment_method === 'cash' ? 'BARZAHLUNG' : order.payment_method === 'card' || order.payment_method === 'card_on_delivery' ? 'KARTENZAHLUNG' : order.payment_method === 'paypal' ? 'PAYPAL' : (order.payment_method || 'BAR').toUpperCase()}
-</div>
-
-<div class="line"></div>
-
-<!-- ===== QR-CODE FÜR LIEFERUNG ===== -->
-${order.order_type === 'delivery' && order.delivery_address ? (() => {
-    // Zwei Fassungen derselben Adresse, mit Absicht:
-    // addr geht in den Bon und muss escapt sein; addrRoh geht in die
-    // Karten-URL und darf es NICHT sein -- encodeURIComponent('&amp;')
-    // wuerde die Adresse in der Karte verstuemmeln.
-    var addr = adresseHtml(order.delivery_address);
-    var a0 = order.delivery_address;
-    var addrRoh = (a0.street || '') + ' ' + (a0.house_number || '') + ', ' + (a0.zip || '') + ' ' + (a0.city || '');
-    var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addrRoh.trim());
-    return `
-<div class="center" style="margin:10px 0;padding:10px 0;border:2px dashed #000;border-radius:4px;">
-    <div class="bold" style="font-size:14px;margin-bottom:8px;">LIEFERADRESSE</div>
-    <div class="bold" style="font-size:13px;margin-bottom:6px;">${addr}</div>
-    ${order.customer_phone ? '<div class="small" style="margin-bottom:8px;">Tel: ' + escapeHtml(order.customer_phone) + '</div>' : ''}
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(mapsUrl)}" width="150" height="150" style="margin:4px auto;display:block;" alt="QR Navigation" loading="lazy">
-    <div class="xs" style="margin-top:6px;">QR scannen = Google Maps Navigation</div>
-</div>
-<div class="line"></div>`;
-})() : ''}
-
-<!-- ===== FOOTER ===== -->
-<div class="center" style="margin-top:10px;">
-    <div class="dbl-line"></div>
-    <div style="font-size:14px;font-weight:700;margin:8px 0;">Vielen Dank für Ihre Bestellung!</div>
-    <div class="xs" style="margin-top:6px;">${datumStr} ${zeitStr} · ${belegNr}</div>
-    <div class="line" style="margin:10px 0;"></div>
-    <div class="xs" style="line-height:1.6;">
-        Dieses Dokument ist eine Bestellbestätigung<br>
-        und kein steuerlicher Beleg im Sinne des<br>
-        § 146a AO i.V.m. KassenSichV.<br>
-        Erstellt ohne TSE. Kein Kassenbon.<br>
-        Alle Preise inkl. ${mwstSatz}% MwSt.<br>
-        Der offizielle Kassenbon wird vom<br>
-        Restaurant ausgestellt.
+<div class="kopf">
+    <div>
+        ${logoHtml}
+        <div class="haus-name">${escapeHtml(restName.trim())}</div>
+        <div class="haus-zeile">${[restAdresse, restPhone ? 'Tel: ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ')}</div>
     </div>
-    <div class="line" style="margin:10px 0;"></div>
-    <div style="font-family:serif;font-size:12px;letter-spacing:0.5px;margin-top:4px;">
-        <strong>Kiek mol</strong> <span style="font-style:italic;">in</span>
+    <div class="art-chip">${artText}</div>
+</div>
+
+<div class="zwei">
+    <div>
+        <div class="feldname">Beleg</div>
+        <div class="beleg-nr">${escapeHtml(belegNr)}</div>
+        <div class="feldwert" style="color:#5b6663;">${datumStr} · ${zeitStr} Uhr</div>
     </div>
-    <div class="xs">kiekmolin.de</div>
+    <div>
+        <div class="feldname">${lieferung ? 'Lieferung an' : 'Abholung durch'}</div>
+        <div class="feldwert" style="font-weight:700;">${escapeHtml(order.customer_name || 'Gast')}</div>
+        ${order.customer_phone ? '<div class="feldwert" style="color:#5b6663;">' + escapeHtml(order.customer_phone) + '</div>' : ''}
+    </div>
+</div>
+
+<table class="pos">
+    <thead><tr><th>Anz</th><th>Artikel</th><th class="preis">Preis</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+</table>
+
+<table class="summen">
+    <tr><td>Zwischensumme</td><td>${formatPrice(zwischensumme)}</td></tr>
+    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr</td><td>' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
+    ${rabatt > 0 ? '<tr><td>Rabatt</td><td style="color:#c2410c;">– ' + formatPrice(rabatt) + '</td></tr>' : ''}
+    ${trinkgeld > 0 ? '<tr><td>Trinkgeld</td><td>' + formatPrice(trinkgeld) + '</td></tr>' : ''}
+    <tr class="gesamt"><td>Gesamt</td><td>${formatPrice(bruttoGesamt)}</td></tr>
+    <tr><td colspan="2" class="zahlart">Bezahlt: ${zahlartText}</td></tr>
+</table>
+
+${wegHtml}
+
+<div class="steuer">
+    <div>
+        <div class="feldname">MwSt.-Ausweis gem. §14 UStG</div>
+        <table style="margin-top:5px;">
+            <tr><th>Satz</th><th>Netto</th><th>MwSt</th><th>Brutto</th></tr>
+            <tr>
+                <td>${mwstSatz},00 %</td>
+                <td>${formatPrice(nettoGesamt)}</td>
+                <td>${formatPrice(mwstBetrag)}</td>
+                <td>${formatPrice(bruttoGesamt)}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="dank">Vielen Dank für Ihre Bestellung!</div>
+
+<div class="fuss">
+    <div class="rechtstext">
+        Dieses Dokument ist eine Bestellbestätigung und kein steuerlicher Beleg im Sinne
+        des § 146a AO i.V.m. KassenSichV. Erstellt ohne TSE, kein Kassenbon — den
+        offiziellen Kassenbon stellt das Restaurant aus. Alle Preise inkl. ${mwstSatz} % MwSt.
+    </div>
+    <div class="marke">
+        <div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div>
+        <div class="marke-url">kiekmolin.de</div>
+    </div>
 </div>
 
 </body></html>`;
@@ -51671,8 +51776,55 @@ ${order.order_type === 'delivery' && order.delivery_address ? (() => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(printContent);
     printWindow.document.close();
-    setTimeout(function() { printWindow.print(); }, 300);
+    bonDruckenWennFertig(printWindow);
 }
+
+// ERST DRUCKEN, WENN DIE BILDER DA SIND.
+//
+// Vorher stand hier setTimeout(print, 300) -- eine geratene Zahl. Der
+// QR-Code kommt von api.qrserver.com und das Logo aus der Datenbank; beides
+// braucht im Restaurant-WLAN regelmaessig laenger als 300 ms. Dann ging der
+// Beleg mit einem leeren Kasten raus, wo die Navigation haette stehen
+// sollen. Aufgefallen ist es niemandem, weil ein fehlendes Bild im
+// Druckdialog einfach eine Luecke ist.
+//
+// Jetzt wird gewartet, bis jedes Bild geladen ODER gescheitert ist,
+// hoechstens aber drei Sekunden -- ein Beleg darf nicht am Netz haengen
+// bleiben. Was nicht kommt, wird ausgeblendet: eine leere Flaeche auf
+// Papier sieht nach Fehler aus, die Adresse daneben steht ohnehin da.
+function bonDruckenWennFertig(fenster, maxWartenMs) {
+    var fertig = false;
+    function los() {
+        if (fertig) return;
+        fertig = true;
+        try {
+            // Was nicht geladen hat, kommt nicht mit aufs Papier.
+            var bilder = fenster.document.images || [];
+            for (var i = 0; i < bilder.length; i++) {
+                if (!bilder[i].complete || bilder[i].naturalWidth === 0) {
+                    var box = bilder[i].closest ? bilder[i].closest('.weg-qr') : null;
+                    if (box) box.style.display = 'none'; else bilder[i].style.display = 'none';
+                }
+            }
+        } catch (e) {}
+        try { fenster.print(); } catch (e) {}
+    }
+
+    var bilder;
+    try { bilder = fenster.document.images; } catch (e) { setTimeout(los, 300); return; }
+    var offen = 0;
+    for (var i = 0; i < bilder.length; i++) {
+        var bild = bilder[i];
+        if (bild.complete) continue;
+        offen++;
+        var ab = function () { if (--offen <= 0) los(); };
+        bild.addEventListener('load', ab, { once: true });
+        bild.addEventListener('error', ab, { once: true });
+    }
+    if (offen === 0) { setTimeout(los, 120); return; }
+    setTimeout(los, maxWartenMs || 3000);       // Notbremse
+}
+window.bonDruckenWennFertig = bonDruckenWennFertig;
 
 // Küchen-Bon drucken (ohne MwSt, QR-Code, Disclaimer)
 async function printKitchenBon(orderId) {
@@ -51827,7 +51979,10 @@ async function printKitchenBon(orderId) {
     if (printWindow) {
         printWindow.document.write(printContent);
         printWindow.document.close();
-        setTimeout(function() { printWindow.print(); }, 300);
+        // Derselbe Weg wie beim Kundenbeleg -- ein Bon wartet auf seine
+        // Bilder, statt nach geratenen 300 Millisekunden loszudrucken.
+        // Der Kuechenbon hat meist gar keine, dann geht es sofort los.
+        bonDruckenWennFertig(printWindow);
     } else {
         showToast('Pop-up blockiert — bitte Pop-ups erlauben', 'warning');
     }
@@ -51986,6 +52141,39 @@ async function printToEpson(order, printer) {
 function savePrinterSettings(settings) {
     localStorage.setItem('kin_printer_settings', JSON.stringify(settings));
 }
+
+// AUF WELCHES PAPIER GEHT DER BELEG?
+//
+// Im Beleg stand fest "@page { size: 80mm auto }" -- die Breite einer
+// Kassenrolle. Gemeldet wurde ein Ausdruck auf einem gewoehnlichen
+// A4-Drucker (Epson ET-8550): eine 7 cm schmale Spalte mitten auf dem
+// Blatt, und der Text lief auf ZWEI Blaetter.
+//
+// Entschieden werden kann das nur vom Menschen -- welcher Drucker
+// angeschlossen ist, sieht der Browser nicht. Also: Einstellung, und die
+// Vorgabe ist A4. Das ist das Papier, das in einem gewoehnlichen Drucker
+// liegt; wer eine Kassenrolle hat, stellt einmal um.
+//
+// 'a4' | 'thermo'
+function bonPapierFormat(restId) {
+    try {
+        var conf = getPrinterSettings()[restId] || getPrinterSettings()['default'] || {};
+        return conf.papier === 'thermo' ? 'thermo' : 'a4';
+    } catch (e) { return 'a4'; }
+}
+function setBonPapierFormat(restId, format) {
+    var settings = getPrinterSettings();
+    if (!settings[restId]) settings[restId] = {};
+    settings[restId].papier = (format === 'thermo') ? 'thermo' : 'a4';
+    savePrinterSettings(settings);
+    if (typeof showToast === 'function') {
+        showToast(settings[restId].papier === 'thermo'
+            ? 'Belege werden für die Kassenrolle (80 mm) gesetzt'
+            : 'Belege werden auf A4 gesetzt', 'success');
+    }
+}
+window.bonPapierFormat = bonPapierFormat;
+window.setBonPapierFormat = setBonPapierFormat;
 
 var qzConnected = false;
 
@@ -52309,6 +52497,11 @@ function openPrinterSettings() {
 }
 
 function openMultiPrinterSettings() {
+    // Ein schon offenes Fenster zuerst weg -- sonst stapeln sich zwei
+    // uebereinander, wenn der Dialog sich selbst neu aufbaut.
+    var offen = document.getElementById('multiPrinterOverlay');
+    if (offen) offen.remove();
+
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
     var printers = getPrinterList(restId);
 
@@ -52394,6 +52587,26 @@ function openMultiPrinterSettings() {
         '<div id="multiPrinterList">' + listHtml + '</div>' +
         '<button type="button" onclick="addMultiPrinter()" style="width:100%;margin-top:8px;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px dashed var(--border-color);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">+ Drucker hinzufügen</button>' +
         '<div id="multiPrinterTestResult" style="margin-top:12px;padding:10px;border-radius:12px;font-size:13px;display:none;"></div>' +
+        // PAPIERFORMAT. Steht hier, weil es genau dazugehoert und der Wirt
+        // sonst nirgends erfaehrt, dass es die Wahl gibt. Der Beleg war fest
+        // auf Kassenrolle gesetzt -- auf einem A4-Drucker kam eine schmale
+        // Spalte auf zwei Blaettern heraus.
+        '<div style="margin-top:16px;padding:14px;background:var(--bg-secondary);border-radius:12px;">' +
+            '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Papier für den Kundenbeleg</div>' +
+            '<div style="font-size:12px;color:var(--slate);margin-bottom:10px;">Gilt für den Ausdruck über den Browser. Kassenrolle ist 80 mm breit und endlos, A4 ist ein normales Blatt.</div>' +
+            '<div style="display:flex;gap:8px;">' +
+                (function () {
+                    var jetzt = bonPapierFormat(restId);
+                    return [['a4', 'A4-Blatt'], ['thermo', 'Kassenrolle 80 mm']].map(function (w) {
+                        var an = (jetzt === w[0]);
+                        return '<button type="button" onclick="setBonPapierFormat(\'' + restId + '\', \'' + w[0] + '\'); openMultiPrinterSettings();" '
+                            + 'style="flex:1;padding:10px;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;'
+                            + (an ? 'background:var(--primary);color:white;border:none;' : 'background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);')
+                            + '">' + w[1] + '</button>';
+                    }).join('');
+                })() +
+            '</div>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
             '<button type="button" onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
             '<button type="button" onclick="saveMultiPrinterSettings()" style="flex:1;padding:12px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Speichern</button>' +

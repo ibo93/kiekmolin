@@ -151,9 +151,16 @@ t('der Bon nutzt den Adress-Helfer', /adresseHtml\(order\.delivery_address, '<br
 
 // Die Karten-URL darf NICHT escapt sein -- encodeURIComponent('&amp;') wuerde
 // die Adresse verstuemmeln. Zwei Fassungen, mit Absicht.
+// Der Beleg wurde neu gesetzt (siehe tests/beleg-test.js) und die beiden
+// Fassungen heissen jetzt wegZiel.roh und wegZiel.zeile. Die Regel ist
+// dieselbe -- und sie gilt seitdem fuer BEIDE Bestellarten, weil auch der
+// Abholer einen Weg-Block mit Karten-Verweis bekommt.
 t('die Karten-URL bekommt die rohe Adresse, nicht die escapte',
-  /encodeURIComponent\(addrRoh\.trim\(\)\)/.test(H));
-t('der Bon daneben bekommt die escapte', /var addr = adresseHtml\(order\.delivery_address\);/.test(H));
+  /encodeURIComponent\(wegZiel\.roh\.trim\(\)\)/.test(H));
+t('der Beleg daneben bekommt die escapte',
+  /zeile: adresseHtml\(order\.delivery_address, '<br>'\)/.test(H));
+t('auch beim Abholer -- dort ist es die Adresse des Restaurants',
+  /zeile: escapeHtml\(restName\) \+ \(restAdresse \? '<br>' \+ escapeHtml\(restAdresse\) : ''\)/.test(H));
 
 // ---- 5. Der Grund steht im Quelltext ----------------------------------------
 t('warum die Anfuehrungszeichen dazukamen, steht in der Datei',

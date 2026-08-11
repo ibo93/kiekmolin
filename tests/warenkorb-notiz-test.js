@@ -109,8 +109,15 @@ t('das Dashboard liest sie aus beiden Quellen',
   (H.match(/notes: item\.notes \|\| '',\s*\n\s*price:/g) || []).length);
 t('die Bestellkarte im Dashboard zeigt sie an',
   /item\.notes \? '<br><span style=&quot;font-size:12px;color:#b45309/.test(H));
-t('auf dem Bon steht sie FETT (graue Kleinschrift wird ueberlesen)',
-  /item\.notes \? '<br><span style="font-size:11px;font-weight:bold;"/.test(H));
+// Der Beleg wurde neu gesetzt (siehe tests/beleg-test.js). Die Regel bleibt:
+// der Sonderwunsch muss auffallen. Statt eines festen Inline-Stils traegt er
+// jetzt die Klasse "wunsch" -- und die ist in BEIDEN Papierformaten
+// hervorgehoben, sonst waere die Regel nur auf einem Blatt eingehalten.
+t('auf dem Bon steht sie in einer eigenen, hervorgehobenen Klasse',
+  /item\.notes \? '<div class="wunsch">' \+ escapeHtml\(item\.notes\)/.test(H));
+t('und die faellt in beiden Papierformaten auf',
+  (H.match(/\.wunsch \{[^}]*font-weight: 700/g) || []).length === 2,
+  (H.match(/\.wunsch \{[^}]*\}/g) || []).join(' | '));
 // Der Warenkorb schreibt "notes", das Kassensystem las nur "note" -- genau der
 // Fehler, den es bei den Größen schon gab (Küche las opt.name statt option).
 t('das Kassensystem liest notes, nicht nur note',
