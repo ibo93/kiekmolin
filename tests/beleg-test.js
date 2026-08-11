@@ -66,9 +66,10 @@ t('Unsinn im Feld faellt auf A4 zurueck, nicht auf eine kaputte Seitengroesse',
 t('kaputte Einstellungen stuerzen nicht ab',
   papier(function () { throw new Error('kaputt'); })('R1') === 'a4');
 
+// Auf die Groesse pruefen, nicht auf die Raender -- die sind Gestaltung und
+// duerfen sich aendern, ohne dass ein Waechter anschlaegt.
 t('beide Seitengroessen stehen im Beleg',
-  /@page \{ size: A4; margin: 16mm 18mm; \}/.test(BON)
-  && /@page \{ size: 80mm auto; margin: 4mm; \}/.test(BON));
+  /@page \{ size: A4;/.test(BON) && /@page \{ size: 80mm auto;/.test(BON));
 t('die Groesse haengt an der Einstellung, nicht mehr fest im Text',
   /\$\{istRolle \? stilRolle : stilA4\}/.test(BON));
 t('80mm steht nirgends mehr ausserhalb des Rollen-Stils',
@@ -167,6 +168,25 @@ t('und stapelt sich dabei nicht -- ein offenes Fenster kommt vorher weg',
     t('Gegenprobe: der alte fest verdrahtete Rollen-Beleg wuerde auffallen',
       /Courier/.test(alt) && /size: 80mm auto/.test(alt) && !/istRolle/.test(alt));
 })();
+
+// ---- 7b. Die Gestaltung: Briefbogen, nicht Kassenzettel -------------------
+// Gewuenscht war "stilvoller". Was den Unterschied macht, wird hier
+// festgehalten -- sonst faellt es beim naechsten Umbau still wieder weg.
+t('Hausname, Adresse und Dank stehen in einer Serifenschrift',
+  (BON.match(/font-family: Georgia, 'Times New Roman', serif/g) || []).length >= 4,
+  (BON.match(/font-family: Georgia, 'Times New Roman', serif/g) || []).length);
+t('die Trennlinie traegt das Markenzeichen, vom Hausgruen ins Gelb',
+  /\.trennlinie \{[\s\S]{0,220}linear-gradient\(90deg, #00251e 0%, #003d33 55%, #fed65b 100%\)/.test(BON));
+t('nur EINE solche Linie -- der zusaetzliche Randstreifen ist raus',
+  BON.indexOf('randstreifen') < 0);
+t('abgesetzte Flaechen in warmem Papierweiss, nicht in kuehlem Grau',
+  (BON.match(/#faf7ee/g) || []).length >= 2 && BON.indexOf('#f7faf9') < 0);
+t('die Bestellart steht als Umriss da, nicht als gefuellte Flaeche',
+  /\.art-chip \{[^}]*border: 1\.5px solid #003d33; color: #003d33/.test(BON));
+t('der Weg-Block hat eine Kante in Hausfarbe statt eines Rahmens ringsum',
+  /\.weg \{[^}]*border-left: 3px solid #003d33/.test(BON));
+t('Zahlen stehen untereinander -- Ziffern gleicher Breite',
+  /font-variant-numeric: tabular-nums/.test(BON));
 
 // ---- 8. Der Grund steht im Quelltext ---------------------------------------
 t('warum es zwei Formate gibt, steht in der Datei',
