@@ -84,7 +84,7 @@ const CATEGORIES = [
     labelEn: 'Kebab',
     pluralEn: 'Kebab places',
     keywords: ['doener', 'döner', 'türkisch', 'turkish', 'kebab'],
-    description: 'Doener Kebab und tuerkische Gerichte',
+    description: 'Döner Kebab und türkische Gerichte',
     descriptionDe: 'Döner Kebab und türkische Gerichte',
     descriptionEn: 'doner kebab and Turkish dishes'
   },
@@ -306,24 +306,24 @@ function buildIntro(city, cat, count) {
   } else if (cityName === 'Norddeich') {
     regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiss: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
   } else if (cityName === 'Norden') {
-    regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Naehe gibt es hier Gerichte fuer jeden Geschmack.';
+    regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Nähe gibt es hier Gerichte für jeden Geschmack.';
   } else if (cityName === 'Aurich') {
     regionText = 'Aurich, die heimliche Hauptstadt Ostfrieslands, vereint norddeutsche Gemuetlichkeit mit kulinarischer Vielfalt – vom traditionellen Wirtshaus bis zur modernen Küche.';
   } else if (cityName === 'Emden') {
-    regionText = 'Emden, die groesste Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine überraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
+    regionText = 'Emden, die größte Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine überraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
   } else {
     regionText = cityName + ' liegt mitten in ' + region + ' und bietet ostfriesische Gastlichkeit mit echtem Charakter.';
   }
 
   let categoryText;
   if (isPizza) {
-    categoryText = 'Italienische Küche gehoert in ' + cityName + ' laengst zum Alltag. Von duenner roemischer Pizza ueber neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist groesser als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Kueste.';
+    categoryText = 'Italienische Küche gehört in ' + cityName + ' längst zum Alltag. Von dünner römischer Pizza über neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist größer als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Kueste.';
   } else if (isDoener) {
-    categoryText = 'Doener Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdoener bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spaet abends geöffnet und liefern auch ins Umland.';
+    categoryText = 'Döner Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdöner bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spät abends geöffnet und liefern auch ins Umland.';
   } else if (isFish) {
     categoryText = 'Frischer Fisch und Krabben aus der Nordsee – das ist DIE kulinarische Spezialitaet von ' + cityName + '. Viele Fischrestaurants beziehen ihren Fang direkt aus dem Hafen, und die Krabbenbroetchen sind oft in einer Liga, die Tagesgaeste sich gar nicht vorstellen koennen.';
   } else {
-    categoryText = 'Von deftiger ostfriesischer Hausmannskost ueber moderne Bistro-Küche bis zu internationalen Spezialitäten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
+    categoryText = 'Von deftiger ostfriesischer Hausmannskost über moderne Bistro-Küche bis zu internationalen Spezialitäten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
   }
 
   const countText = count > 0
@@ -797,7 +797,7 @@ function buildPage(opts) {
 
   const grid = (opts.restaurants && opts.restaurants.length)
     ? '<div class="grid">' + opts.restaurants.slice(0, 10).map(renderCard).join('') + '</div>'
-    : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau spaeter wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
+    : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
 
   const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
   const lang = opts.lang || 'de';
@@ -1838,7 +1838,7 @@ function generateCategoryOverview(cat, restaurants, lang) {
   ] : [
     { q: 'Wo gibt es die besten ' + cat.plural + ' in Ostfriesland?', a: 'Auf ' + BRAND + ' findest du eine Auswahl der besten ' + cat.plural + ' in Greetsiel, Norden, Norddeich, Aurich und Emden. Sortiert nach Bewertung – damit du sofort siehst, wo es sich lohnt.' },
     { q: 'Liefern alle ' + cat.plural + ' in Ostfriesland?', a: 'Nein, nicht alle ' + cat.plural + ' bieten Lieferung an. Auf den einzelnen Restaurant-Seiten siehst du, welche Anbieter liefern, abholen oder nur vor Ort servieren.' },
-    { q: 'Welche Staedte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
+    { q: 'Welche Städte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
   ];
 
   const html = buildPage({
