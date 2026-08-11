@@ -64,7 +64,7 @@ var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
 // Zwei Ausnahmen bleiben, beide abzaehlbar und darum als Liste vertretbar:
 // Fremdwoerter auf -uell (aktuell, individuell, eventuell) und eine
 // Handvoll englischer Woerter auf -ue.
-var ENGLISCH = /^(Epilogue|Segoe|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
+var ENGLISCH = /^(Epilogue|Segoe|Bluetooth|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
 // "ue" nach q ist nie ein Umlaut: question, queue, request, frequent,
 // sequence, unique. Eine Regel statt sechs Listeneintraege.
 // Bezeichner aus dem Quelltext, die zufaellig im Text stehen koennen.
@@ -143,6 +143,51 @@ while ((mm = reTag.exec(APP))) {
 var appEinmalig = appFunde.filter(function (w, i) { return appFunde.indexOf(w) === i; });
 t('kein sichtbarer Text in der App mit ASCII-Umlauten',
   appEinmalig.length === 0, '\n         ' + appEinmalig.slice(0, 20).join('\n         '));
+
+// ---- 1b. Was JavaScript dem Nutzer zeigt -------------------------------------
+// Der Waechter sah bisher nur Text ZWISCHEN Tags. Meldungen baut die App aber
+// zur Laufzeit: showToast, alert, textContent, Platzhalter, Push-Titel. Genau
+// dort standen "die PDF-Qualitaet ist zu niedrig" und "Bitte fuelle alle
+// Pflichtfelder" -- beides sieht der Nutzer, beides lief durch.
+var JS_TEXTE = [
+    /showToast\(\s*'([^']{6,240})'/g,
+    /showToast\(\s*"([^"]{6,240})"/g,
+    /alert\(\s*'([^']{6,240})'/g,
+    /confirm\(\s*'([^']{6,320})'/g,
+    /textContent\s*=\s*'([^']{6,240})'/g,
+    /placeholder="([^"]{6,160})"/g,
+    /title="([^"]{6,160})"/g,
+    /aria-label="([^"]{6,160})"/g,
+    /alt="([^"]{6,160})"/g,
+    /title:\s*'([^']{6,180})'/g,
+    /body:\s*'([^']{6,240})'/g,
+    // Strings, die JS mit Markup drin zusammenbaut. Genau hier steckte
+    // "Kunde sieht Bestaetigung ... musst du nicht oeffnen" -- in einem
+    // '<span ...>Text</span>'. Die Fassung davor hat solche Strings
+    // uebersprungen, weil sie ein Tag enthielten.
+    /'(<[a-z][^']{20,400})'/g
+];
+var jsFunde = [];
+JS_TEXTE.forEach(function (re) {
+    var m;
+    while ((m = re.exec(APP))) {
+        var txt = m[1];
+        if (/\$\{|\+ [a-zA-Z_]/.test(txt)) continue;        // Code, kein Fliesstext
+        // Markup rausschneiden statt den ganzen String zu verwerfen -- der
+        // Text ZWISCHEN den Tags ist genau das, was der Nutzer liest.
+        txt = txt.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ');
+        if (!/[a-zäöüß]{3}/.test(txt)) continue;
+        // Slug-Beispiele wie "z.B. greetsiler-boerse" zeigen absichtlich die
+        // Adressform. Ein Umlaut darin braeche den Link -- also rausnehmen,
+        // bevor nach Woertern gesucht wird.
+        var rein = txt.replace(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g, ' ');
+        var wort = hatAsciiUmlaut(rein);
+        if (wort) jsFunde.push(wort + '  in: ' + txt.slice(0, 70));
+    }
+});
+var jsEinmalig = jsFunde.filter(function (w, i) { return jsFunde.indexOf(w) === i; });
+t('auch die Meldungen aus JavaScript haben echte Umlaute',
+  jsEinmalig.length === 0, '\n         ' + jsEinmalig.slice(0, 15).join('\n         '));
 
 // Gegenprobe -- ohne die waere ein gruenes Ergebnis oben wertlos.
 t('Gegenprobe: "Doener Kebab" wuerde gemeldet', ASCII_UMLAUT.test('Doener Kebab und mehr'));

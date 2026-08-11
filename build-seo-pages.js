@@ -117,7 +117,7 @@ const CATEGORIES = [
     labelEn: 'Café',
     pluralEn: 'Cafés',
     keywords: ['cafe', 'café', 'kaffee', 'coffee', 'bistro', 'konditorei', 'baeckerei', 'bäckerei', 'eiscafe', 'eiscafé'],
-    description: 'Kaffee, Kuchen und gemütliche Cafes',
+    description: 'Kaffee, Kuchen und gemütliche Cafés',
     descriptionDe: 'Kaffee, hausgemachter Kuchen und gemütliche Cafés',
     descriptionEn: 'coffee, homemade cake and cozy cafés'
   },
@@ -304,7 +304,7 @@ function buildIntro(city, cat, count) {
   if (region === 'Krummhörn' || region === 'Krummhörn') {
     regionText = 'Greetsiel ist eines der malerischsten Fischerdörfer der Krummhörn an der ostfriesischen Nordseeküste. Zwischen Zwillingsmühlen und Hafen findet sich hier eine überraschend dichte Auswahl an Gastronomie.';
   } else if (cityName === 'Norddeich') {
-    regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiss: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
+    regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiß: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
   } else if (cityName === 'Norden') {
     regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Nähe gibt es hier Gerichte für jeden Geschmack.';
   } else if (cityName === 'Aurich') {
