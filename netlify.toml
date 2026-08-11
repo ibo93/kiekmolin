@@ -105,6 +105,14 @@
   to = "/index.html"
   status = 200
 
+# Waechter: alle 15 Min die Fehler lesen, die im Betrieb aufgelaufen sind --
+# Bestellungen, die nicht gespeichert wurden oder nach dem Speichern weg waren.
+# Diese Ereignisse schreibt die App seit dem Bestellverlust-Fix ins Protokoll;
+# gelesen hat sie bisher niemand. Laeuft serverseitig, also auch nachts und
+# auch dann, wenn die App bei niemandem offen ist.
+[functions."waechter"]
+  schedule = "*/15 * * * *"
+
 # Scheduled Function: alle 10 Min ueberfaellige Pending-Bestellungen/Reservierungen
 # erinnern (Push an Gastronomen-Geraete wenn nicht innerhalb 30 Min bestaetigt/abgelehnt)
 [functions."pending-reminder"]

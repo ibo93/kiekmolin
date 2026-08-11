@@ -32,7 +32,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
 const CITIES = [
-  { slug: 'greetsiel',     name: 'Greetsiel',     zipPrefix: '267', region: 'Krummhoern' },
+  { slug: 'greetsiel',     name: 'Greetsiel',     zipPrefix: '267', region: 'Krummhörn' },
   { slug: 'norddeich',     name: 'Norddeich',     zipPrefix: '267', region: 'Norden' },
   { slug: 'norden',        name: 'Norden',        zipPrefix: '267', region: 'Ostfriesland' },
   { slug: 'aurich',        name: 'Aurich',        zipPrefix: '267', region: 'Ostfriesland' },
@@ -53,8 +53,8 @@ const CITIES = [
   { slug: 'wangerooge',    name: 'Wangerooge',    zipPrefix: '264', region: 'Ostfriesische Inseln' },
   // Weitere Orte des Einzugsgebiets (stehen laengst in areaServed der Startseite)
   { slug: 'wiesmoor',      name: 'Wiesmoor',      zipPrefix: '266', region: 'Ostfriesland' },
-  { slug: 'krummhoern',    name: 'Krummhörn',     zipPrefix: '267', region: 'Krummhoern' },
-  { slug: 'pewsum',        name: 'Pewsum',        zipPrefix: '267', region: 'Krummhoern' },
+  { slug: 'krummhoern',    name: 'Krummhörn',     zipPrefix: '267', region: 'Krummhörn' },
+  { slug: 'pewsum',        name: 'Pewsum',        zipPrefix: '267', region: 'Krummhörn' },
   { slug: 'marienhafe',    name: 'Marienhafe',    zipPrefix: '265', region: 'Brookmerland' },
   { slug: 'dornum',        name: 'Dornum',        zipPrefix: '265', region: 'Ostfriesland' },
   { slug: 'hage',          name: 'Hage',          zipPrefix: '265', region: 'Ostfriesland' },
@@ -84,7 +84,7 @@ const CATEGORIES = [
     labelEn: 'Kebab',
     pluralEn: 'Kebab places',
     keywords: ['doener', 'döner', 'türkisch', 'turkish', 'kebab'],
-    description: 'Doener Kebab und tuerkische Gerichte',
+    description: 'Döner Kebab und türkische Gerichte',
     descriptionDe: 'Döner Kebab und türkische Gerichte',
     descriptionEn: 'doner kebab and Turkish dishes'
   },
@@ -301,29 +301,29 @@ function buildIntro(city, cat, count) {
   const isDoener = cat.slug === 'doener';
 
   let regionText;
-  if (region === 'Krummhoern' || region === 'Krummhörn') {
-    regionText = 'Greetsiel ist eines der malerischsten Fischerdörfer der Krummhörn an der ostfriesischen Nordseeküste. Zwischen Zwillingsmuehlen und Hafen findet sich hier eine überraschend dichte Auswahl an Gastronomie.';
+  if (region === 'Krummhörn' || region === 'Krummhörn') {
+    regionText = 'Greetsiel ist eines der malerischsten Fischerdörfer der Krummhörn an der ostfriesischen Nordseeküste. Zwischen Zwillingsmühlen und Hafen findet sich hier eine überraschend dichte Auswahl an Gastronomie.';
   } else if (cityName === 'Norddeich') {
     regionText = 'Norddeich ist das Tor zu Juist und Norderney – direkt am Wattenmeer gelegen. Wer hier gegessen hat, weiss: Frische Nordsee-Produkte sind keine Werbung, sondern Standard.';
   } else if (cityName === 'Norden') {
-    regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Naehe gibt es hier Gerichte fuer jeden Geschmack.';
+    regionText = 'Norden ist das gastronomische Herz der nordwestlichen Ostfriesischen Halbinsel. Vom historischen Marktplatz bis zur Teemuseums-Nähe gibt es hier Gerichte für jeden Geschmack.';
   } else if (cityName === 'Aurich') {
-    regionText = 'Aurich, die heimliche Hauptstadt Ostfrieslands, vereint norddeutsche Gemuetlichkeit mit kulinarischer Vielfalt – vom traditionellen Wirtshaus bis zur modernen Küche.';
+    regionText = 'Aurich, die heimliche Hauptstadt Ostfrieslands, vereint norddeutsche Gemütlichkeit mit kulinarischer Vielfalt – vom traditionellen Wirtshaus bis zur modernen Küche.';
   } else if (cityName === 'Emden') {
-    regionText = 'Emden, die groesste Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine überraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
+    regionText = 'Emden, die größte Stadt Ostfrieslands und Hafenstadt mit Charakter, bietet eine überraschend bunte Gastronomie-Szene zwischen Delft, Ratsdelft und Innenstadt.';
   } else {
     regionText = cityName + ' liegt mitten in ' + region + ' und bietet ostfriesische Gastlichkeit mit echtem Charakter.';
   }
 
   let categoryText;
   if (isPizza) {
-    categoryText = 'Italienische Küche gehoert in ' + cityName + ' laengst zum Alltag. Von duenner roemischer Pizza ueber neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist groesser als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Kueste.';
+    categoryText = 'Italienische Küche gehört in ' + cityName + ' längst zum Alltag. Von dünner römischer Pizza über neapolitanischen Steinofen bis zur klassischen Familienpizzeria mit Holzofen – die Auswahl ist größer als viele denken. Viele Pizzerien liefern auch nach Hause oder ins Ferienhaus an der Küste.';
   } else if (isDoener) {
-    categoryText = 'Doener Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdoener bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spaet abends geöffnet und liefern auch ins Umland.';
+    categoryText = 'Döner Kebab gibt es in ' + cityName + ' in jeder Variante – vom klassischen Kalbsdöner bis zum vegetarischen Falafel-Wrap. Viele Imbisse haben bis spät abends geöffnet und liefern auch ins Umland.';
   } else if (isFish) {
-    categoryText = 'Frischer Fisch und Krabben aus der Nordsee – das ist DIE kulinarische Spezialitaet von ' + cityName + '. Viele Fischrestaurants beziehen ihren Fang direkt aus dem Hafen, und die Krabbenbroetchen sind oft in einer Liga, die Tagesgaeste sich gar nicht vorstellen koennen.';
+    categoryText = 'Frischer Fisch und Krabben aus der Nordsee – das ist DIE kulinarische Spezialität von ' + cityName + '. Viele Fischrestaurants beziehen ihren Fang direkt aus dem Hafen, und die Krabbenbrötchen sind oft in einer Liga, die Tagesgäste sich gar nicht vorstellen können.';
   } else {
-    categoryText = 'Von deftiger ostfriesischer Hausmannskost ueber moderne Bistro-Küche bis zu internationalen Spezialitäten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
+    categoryText = 'Von deftiger ostfriesischer Hausmannskost über moderne Bistro-Küche bis zu internationalen Spezialitäten: Die Restaurants in ' + cityName + ' decken jeden Geschmack ab. Viele bieten auch Reservierung online und Lieferung an.';
   }
 
   const countText = count > 0
@@ -332,7 +332,7 @@ function buildIntro(city, cat, count) {
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
          '<p>' + countText + '</p>' +
-         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gaeste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne hohe Provisionen. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt das Geld in der Region.</p>';
+         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gäste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne hohe Provisionen. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt das Geld in der Region.</p>';
 }
 
 // Die Empfehlungs-Frage ist GENAU die Frage, die Gaeste (und KI-Assistenten
@@ -356,8 +356,8 @@ function buildEmpfehlungsFaq(cityName, plural, matched, isEn) {
   }
   return {
     q: 'Welche ' + plural + ' in ' + cityName + ' sind zu empfehlen?',
-    a: 'Bei Gaesten auf ' + BRAND + ' aktuell beliebt: ' + namen.join(', ') + '. ' +
-       'Alle mit aktueller Speisekarte, echten Gaeste-Bewertungen und kostenloser Online-Tischreservierung auf ' + BRAND + '.'
+    a: 'Bei Gästen auf ' + BRAND + ' aktuell beliebt: ' + namen.join(', ') + '. ' +
+       'Alle mit aktueller Speisekarte, echten Gäste-Bewertungen und kostenloser Online-Tischreservierung auf ' + BRAND + '.'
   };
 }
 
@@ -374,7 +374,7 @@ function buildFaqs(city, cat, matched) {
     },
     {
       q: 'Was kostet ' + label + ' in ' + cityName + '?',
-      a: 'Die Preise variieren je nach Anbieter. Auf den Speisekarten der einzelnen ' + plural + ' findest du tagesaktuelle Preise. ' + BRAND + ' nimmt keine Preisaufschlaege – du zahlst genau das, was auch im Restaurant ausgezeichnet ist.'
+      a: 'Die Preise variieren je nach Anbieter. Auf den Speisekarten der einzelnen ' + plural + ' findest du tagesaktuelle Preise. ' + BRAND + ' nimmt keine Preisaufschläge – du zahlst genau das, was auch im Restaurant ausgezeichnet ist.'
     },
     {
       q: 'Welche ' + plural + ' haben heute geöffnet?',
@@ -402,7 +402,7 @@ function buildIntroEn(city, cat, count) {
   const isDoener = cat.slug === 'doener';
 
   let regionText;
-  if (region === 'Krummhoern' || region === 'Krummhörn') {
+  if (region === 'Krummhörn' || region === 'Krummhörn') {
     regionText = 'Greetsiel is one of the most picturesque fishing villages of the Krummhörn on the East Frisian North Sea coast. Between the twin windmills and the harbour you will find a surprisingly dense selection of places to eat.';
   } else if (cityName === 'Norddeich') {
     regionText = 'Norddeich is the gateway to the islands of Juist and Norderney — right by the Wadden Sea. Anyone who has eaten here knows: fresh North Sea produce is not marketing here, it is standard.';
@@ -797,7 +797,7 @@ function buildPage(opts) {
 
   const grid = (opts.restaurants && opts.restaurants.length)
     ? '<div class="grid">' + opts.restaurants.slice(0, 10).map(renderCard).join('') + '</div>'
-    : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau spaeter wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
+    : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
 
   const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
   const lang = opts.lang || 'de';
@@ -852,7 +852,7 @@ function buildPage(opts) {
     '<h2>' + escapeHtml(opts.gridHeading || 'Top-Empfehlungen') + '</h2>\n' +
     grid + '\n' +
     crossLinks + '\n' +
-    '<h2 id="faq">Haeufig gestellte Fragen</h2>\n' +
+    '<h2 id="faq">Häufig gestellte Fragen</h2>\n' +
     renderFaqAccordion(opts.faqs || []) + '\n' +
     '</main>\n' +
     renderFooter() + '\n' +
@@ -1826,8 +1826,8 @@ function generateCategoryOverview(cat, restaurants, lang) {
       descLocal.charAt(0).toUpperCase() + descLocal.slice(1) + ' can be found in every larger town.</p>' +
       '<p>Right now ' + BRAND + ' lists <strong>' + matched.length + ' ' + pluralL + '</strong> in East Frisia. You can order online, view a menu or book a table directly.</p>' +
       '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no high commissions. What you order comes from the region, and the money stays here.</p>'
-    : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmuehlen – die Region hat eine erstaunlich vielfaeltige Gastro-Szene. ' +
-      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder groesseren Stadt.</p>' +
+    : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmühlen – die Region hat eine erstaunlich vielfältige Gastro-Szene. ' +
+      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder größeren Stadt.</p>' +
       '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfügbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
       '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
 
@@ -1838,7 +1838,7 @@ function generateCategoryOverview(cat, restaurants, lang) {
   ] : [
     { q: 'Wo gibt es die besten ' + cat.plural + ' in Ostfriesland?', a: 'Auf ' + BRAND + ' findest du eine Auswahl der besten ' + cat.plural + ' in Greetsiel, Norden, Norddeich, Aurich und Emden. Sortiert nach Bewertung – damit du sofort siehst, wo es sich lohnt.' },
     { q: 'Liefern alle ' + cat.plural + ' in Ostfriesland?', a: 'Nein, nicht alle ' + cat.plural + ' bieten Lieferung an. Auf den einzelnen Restaurant-Seiten siehst du, welche Anbieter liefern, abholen oder nur vor Ort servieren.' },
-    { q: 'Welche Staedte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
+    { q: 'Welche Städte sind auf ' + BRAND + ' vertreten?', a: BRAND + ' deckt aktuell Greetsiel, Norden, Norddeich, Aurich und Emden ab – mit Ausweitung in weitere ostfriesische Orte in Planung.' }
   ];
 
   const html = buildPage({
