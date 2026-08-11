@@ -173,8 +173,19 @@ t('und stapelt sich dabei nicht -- ein offenes Fenster kommt vorher weg',
 // Gewuenscht war "stilvoller". Was den Unterschied macht, wird hier
 // festgehalten -- sonst faellt es beim naechsten Umbau still wieder weg.
 t('Hausname, Adresse und Dank stehen in einer Serifenschrift',
-  (BON.match(/font-family: Georgia, 'Times New Roman', serif/g) || []).length >= 4,
-  (BON.match(/font-family: Georgia, 'Times New Roman', serif/g) || []).length);
+  (BON.match(/font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif/g) || []).length >= 4,
+  (BON.match(/font-family: 'Palatino Linotype'[^;]*/g) || []).length);
+// Eine BUCHschrift, keine Bildschirmschrift. Georgia ist fuer Monitore
+// entworfen und wirkt gedruckt schwer; sie steht nur noch als Rueckfall
+// hinter Palatino.
+t('Palatino steht vorn, Georgia nur noch als Rueckfall',
+  /'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif/.test(BON)
+  && !/font-family: Georgia,/.test(BON));
+// Der Beleg darf nicht am Netz haengen: eine Schrift, die nicht rechtzeitig
+// kommt, wuerde die Zeilen nachtraeglich umbrechen -- mitten im Druck.
+t('das Druckfenster laedt keine Schrift aus dem Netz',
+  BON.indexOf('fonts.googleapis') < 0 && BON.indexOf('@font-face') < 0
+  && BON.indexOf('fonts.gstatic') < 0);
 t('die Trennlinie traegt das Markenzeichen, vom Hausgruen ins Gelb',
   /\.trennlinie \{[\s\S]{0,220}linear-gradient\(90deg, #00251e 0%, #003d33 55%, #fed65b 100%\)/.test(BON));
 t('nur EINE solche Linie -- der zusaetzliche Randstreifen ist raus',
