@@ -132,10 +132,24 @@ function schreibeEnvWert(name, wert) {
         }
       }
       if (!kandidat) {
-        console.log('     -> In keinem Land eine freie Nummer bekommen.');
-        if (letzterHinweis) console.log('     -> Twilio sagt: ' + letzterHinweis.slice(0, 200));
-        console.log('     -> Dann von Hand holen: console.twilio.com -> Phone Numbers -> Buy a number.');
-        console.log('        Danach einfach "node telefon-start.js" nochmal starten.');
+        // Testkonten duerfen ueber die Schnittstelle keine Nummern holen -
+        // das ist eine Twilio-Regel, kein Fehler. Ueber die Webseite geht
+        // es trotzdem, und zwar gratis.
+        if (/Trial account/i.test(letzterHinweis)) {
+          console.log('     -> Dein Konto ist eine Testversion. Twilio laesst Testkonten keine Nummern');
+          console.log('        ueber die Schnittstelle holen - ueber die Webseite geht es aber, gratis:');
+          console.log('        1. console.twilio.com oeffnen');
+          console.log('        2. Phone Numbers -> Manage -> Buy a number');
+          console.log('           (bei Testkonten heisst der Knopf oft "Get a trial number")');
+          console.log('        3. Land: United States, Haken bei Voice -> Nummer aussuchen -> Buy');
+          console.log('     -> Danach hier einfach "node telefon-start.js" nochmal starten.');
+          console.log('        Vorhandene Nummern darf auch ein Testkonto auflisten - er findet sie dann.');
+        } else {
+          console.log('     -> In keinem Land eine freie Nummer bekommen.');
+          if (letzterHinweis) console.log('     -> Twilio sagt: ' + letzterHinweis.slice(0, 200));
+          console.log('     -> Dann von Hand holen: console.twilio.com -> Phone Numbers -> Buy a number.');
+          console.log('        Danach einfach "node telefon-start.js" nochmal starten.');
+        }
       } else {
         process.stdout.write(kandidat.phone_number + ' - hole... ');
         const kauf = await twilio('/IncomingPhoneNumbers.json', 'POST', { PhoneNumber: kandidat.phone_number });
