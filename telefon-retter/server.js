@@ -14,7 +14,20 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { WebSocketServer } = require('ws');
+
+// Fehlende Hilfsprogramme freundlich melden. Node sagt sonst nur
+// "Cannot find module 'ws'" mit halbseitigem Stapelspeicher - und wer
+// nicht taeglich programmiert, weiss damit nichts anzufangen.
+let WebSocketServer;
+try {
+  ({ WebSocketServer } = require('ws'));
+} catch (_e) {
+  console.error('\nEs fehlen die Hilfsprogramme fuer den Telefon-Retter.');
+  console.error('Einmal ausfuehren, dann laeuft es:\n');
+  console.error('   cd ' + __dirname);
+  console.error('   npm install\n');
+  process.exit(1);
+}
 const { ladeEnv } = require('./lib/env');
 const supabase = require('./lib/supabase');
 const { AnrufSitzung } = require('./lib/anruf');
