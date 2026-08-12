@@ -139,14 +139,16 @@ async function holeStimmen(key) {
   }));
 }
 
-async function pruefeTwilio(sid, token) {
-  const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(sid) + '.json', {
-    headers: { Authorization: 'Basic ' + Buffer.from(sid + ':' + token).toString('base64') },
+// Prueft Twilio-Zugangsdaten. benutzer = Account SID (bei Auth Token) oder
+// API-Key-SID (SK...); geheimnis = Auth Token bzw. API Secret.
+async function pruefeTwilio(kontoSid, benutzer, geheimnis) {
+  const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(kontoSid) + '.json', {
+    headers: { Authorization: 'Basic ' + Buffer.from(benutzer + ':' + geheimnis).toString('base64') },
     signal: AbortSignal.timeout(15000)
   });
   return antwort.ok
     ? { ok: true }
-    : { ok: false, grund: 'Twilio sagt ' + antwort.status + ' - SID (beginnt mit AC) und Auth Token aus der Console -> Account Info nutzen.' };
+    : { ok: false, grund: 'Twilio sagt ' + antwort.status + ' - die Zugangsdaten passen nicht zu diesem Konto.' };
 }
 
 // Google-Platzierungen kommen ueber Serper.dev (echte Google-Ergebnisse).
@@ -262,30 +264,63 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
     }
   }
 
-  // 4. Twilio (Telefonnummer) - SID + Auth Token gehoeren zusammen
+  // 4. Twilio (Telefonnummer) - ZWEI Wege, weil die Console-Startseite
+  //    (wo der Auth Token steht) bei manchen Konten haengt.
   console.log('\n--- 4/6 · Twilio (die Telefonnummer) ---');
-  console.log('    console.twilio.com -> Startseite -> "Account Info": Account SID + Auth Token');
+  console.log('    Die Account SID (beginnt mit AC) steht auf der Console-Startseite.');
+  console.log('    Danach brauchst du EINES von beidem:');
+  console.log('      A) Auth Token - selbe Seite, "Account Info"');
+  console.log('      B) API Key + Secret - falls die Startseite bei dir haengt:');
+  console.log('         console.twilio.com/us1/account/keys-credentials/api-keys');
+  console.log('         -> "Create API key" -> Name egal, Typ "Main" -> anlegen');
+  console.log('         -> SK... = Key, danach wird das Secret EINMAL angezeigt (sofort kopieren!)');
   const twilioSidAlt = leseEnvWert('telefon-retter', 'TWILIO_ACCOUNT_SID');
   if (twilioSidAlt) console.log('    Aktuell gespeichert: ' + maskiere(twilioSidAlt) + '  (Enter = so lassen)');
   else console.log('    Noch nicht eingerichtet.  (Enter = ueberspringen)');
-  const sid = await frage('    Account SID (beginnt mit AC) einfuegen: ');
-  if (sid) {
-    if (!/^AC[0-9a-f]{16,}/i.test(sid)) {
-      console.log('    -> Eine SID beginnt mit AC - Schritt uebersprungen, spaeter nochmal.');
-    } else {
-      const token = await frage('    Auth Token einfuegen: ');
-      if (token) {
+  const sid = (await frage('    Account SID (beginnt mit AC) einfuegen: ')) || twilioSidAlt || '';
+  if (!sid) {
+    console.log('    -> uebersprungen.');
+  } else if (!/^AC[0-9a-f]{16,}/i.test(sid)) {
+    console.log('    -> Eine Account SID beginnt mit AC - Schritt uebersprungen, spaeter nochmal.');
+  } else {
+    console.log('    Jetzt entweder den Auth Token ODER den API Key einfuegen:');
+    const geheim = await frage('    Auth Token oder API Key (SK...) einfuegen: ');
+    if (!geheim) {
+      console.log('    -> uebersprungen.');
+    } else if (/^SK[0-9a-f]{16,}/i.test(geheim)) {
+      // Weg B: API Key -> jetzt noch das Secret dazu
+      const secret = await frage('    Und das API Secret dazu einfuegen: ');
+      if (!secret) {
+        console.log('    -> Ohne Secret nuetzt der Key nichts. Schritt uebersprungen.');
+      } else {
         process.stdout.write('    Pruefe live... ');
         let e;
-        try { e = await pruefeTwilio(sid, token); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
+        try { e = await pruefeTwilio(sid, geheim, secret); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
         if (e.ok) {
-          console.log('GUELTIG ✓');
+          console.log('GUELTIG ✓  (API Key)');
           speichere('TWILIO_ACCOUNT_SID', sid, ['telefon-retter']);
-          speichere('TWILIO_AUTH_TOKEN', token, ['telefon-retter']);
+          speichere('TWILIO_API_KEY', geheim, ['telefon-retter']);
+          speichere('TWILIO_API_SECRET', secret, ['telefon-retter']);
+          console.log('    Hinweis: Ohne Auth Token schuetzt "node telefon-start.js" den Webhook');
+          console.log('    mit einem geheimen Schluessel in der Adresse - das macht es von allein.');
         } else { console.log('FEHLER\n    -> ' + e.grund); }
       }
+    } else {
+      // Weg A: klassischer Auth Token (32 Zeichen hex)
+      process.stdout.write('    Pruefe live... ');
+      let e;
+      try { e = await pruefeTwilio(sid, sid, geheim); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
+      if (e.ok) {
+        console.log('GUELTIG ✓  (Auth Token)');
+        speichere('TWILIO_ACCOUNT_SID', sid, ['telefon-retter']);
+        speichere('TWILIO_AUTH_TOKEN', geheim, ['telefon-retter']);
+      } else {
+        console.log('FEHLER\n    -> ' + e.grund);
+        console.log('    -> Wenn du an den Auth Token nicht rankommst: Helfer nochmal starten und');
+        console.log('       stattdessen einen API Key (SK...) anlegen - Adresse steht oben.');
+      }
     }
-  } else { console.log('    -> uebersprungen.'); }
+  }
 
   // 5. Google-Platzierungen ueber Serper.dev (Google-Spalte + Wettbewerbs-Radar)
   await schluesselSchritt({
@@ -317,7 +352,10 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
   console.log('  Zuhoeren (Deepgram):     ' + status('telefon-retter', 'DEEPGRAM_API_KEY'));
   console.log('  Stimme (ElevenLabs):     ' + status('telefon-retter', 'ELEVENLABS_API_KEY') +
     ' / Stimme: ' + status('telefon-retter', 'ELEVENLABS_VOICE_ID'));
-  console.log('  Telefon (Twilio):        ' + status('telefon-retter', 'TWILIO_AUTH_TOKEN'));
+  const twilioFertig = leseEnvWert('telefon-retter', 'TWILIO_ACCOUNT_SID') &&
+    (leseEnvWert('telefon-retter', 'TWILIO_AUTH_TOKEN') ||
+      (leseEnvWert('telefon-retter', 'TWILIO_API_KEY') && leseEnvWert('telefon-retter', 'TWILIO_API_SECRET')));
+  console.log('  Telefon (Twilio):        ' + (twilioFertig ? 'ok ✓' : 'fehlt'));
   console.log('  Google-Spalte (Serper):  ' + (leseEnvWert('sichtbarkeit', 'SERPER_API_KEY') || leseEnvWert('sichtbarkeit', 'GOOGLE_API_KEY') ? 'ok ✓' : 'fehlt'));
   console.log('  E-Mail-Versand (Resend): ' + status('sichtbarkeit', 'RESEND_API_KEY'));
   console.log('\nJetzt noch: Server neu starten (ctrl+C, dann node server.js) - fertig.');

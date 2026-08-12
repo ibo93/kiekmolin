@@ -23,7 +23,8 @@ function istAktiv() {
 }
 
 function smsKonfiguriert() {
-  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_SMS_VON);
+  // Auth Token ODER API Key - beides taugt fuer den SMS-Versand
+  return !!(require('./twilio-auth').istKonfiguriert() && process.env.TWILIO_SMS_VON);
 }
 
 // Reine Auswahl-Logik (testbar): Welche Reservierungen von MORGEN sind
@@ -49,12 +50,13 @@ function baueErinnerungsText(restaurant, resi) {
 }
 
 async function sendeSms(an, text) {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioAuth = require('./twilio-auth');
+  const sid = twilioAuth.kontoSid();
   const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(sid) + '/Messages.json', {
     method: 'POST',
     signal: AbortSignal.timeout(15000),
     headers: {
-      Authorization: 'Basic ' + Buffer.from(sid + ':' + process.env.TWILIO_AUTH_TOKEN).toString('base64'),
+      Authorization: twilioAuth.authKopf(),
       'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: new URLSearchParams({ To: an, From: process.env.TWILIO_SMS_VON, Body: text }).toString()

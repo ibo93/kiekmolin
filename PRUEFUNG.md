@@ -35,9 +35,18 @@ Der `/anruf`-Webhook prüft die Twilio-Signatur (nur echte Twilio-Anfragen),
 und der Audio-Kanal `/media` akzeptiert nur Verbindungen mit einem
 kurzlebigen Token, das der Webhook selbst ausgestellt hat. Verbindungen ohne
 gültigen Start fliegen nach 10 Sekunden raus.
-**Dein einziger Handgriff:** `TWILIO_AUTH_TOKEN` in die `.env` eintragen
-(Twilio Console → Account Info → Auth Token). Ohne den Eintrag warnt der
-Server beim Start und prüft nicht.
+**Dein einziger Handgriff:** `node schluessel-einrichten.js` (Schritt 4).
+Zwei Wege führen zum Ziel:
+- **Auth Token** (Twilio Console → Account Info): bester Schutz, der Server
+  prüft die Twilio-Signatur.
+- **API Key + Secret** (Console → Account → API keys & tokens), falls die
+  Console-Startseite hängt und du an den Auth Token nicht rankommst. Die
+  Signatur lässt sich damit nicht nachrechnen – deshalb hängt
+  `node telefon-start.js` dann automatisch einen geheimen Schlüssel an die
+  Webhook-Adresse (`/anruf?schluessel=…`), den nur Twilio kennt.
+
+Ist keins von beidem gesetzt, warnt der Server beim Start und lässt jede
+Anfrage durch – dann bitte nicht live gehen.
 
 ### 2. DSGVO – bevor echte Gäste anrufen
 Der Agent verarbeitet Name, Telefonnummer, bei Lieferung die Adresse, und

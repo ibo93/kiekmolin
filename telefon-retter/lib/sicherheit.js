@@ -14,9 +14,11 @@
 
 const crypto = require('crypto');
 
-// Geheimnis fuers Stream-Token: das Twilio-Auth-Token, sonst ein Zufallswert
-// pro Prozess (Token wird vom selben Prozess ausgestellt UND geprueft).
-const STREAM_GEHEIMNIS = process.env.TWILIO_AUTH_TOKEN || crypto.randomBytes(32).toString('hex');
+// Geheimnis fuers Stream-Token: das Twilio-Auth-Token, sonst das API-Secret,
+// sonst ein Zufallswert pro Prozess (Token wird vom selben Prozess
+// ausgestellt UND geprueft - ein Zufallswert reicht dafuer voellig).
+const STREAM_GEHEIMNIS = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_API_SECRET ||
+  crypto.randomBytes(32).toString('hex');
 const TOKEN_GUELTIG_MS = 5 * 60 * 1000; // Twilio verbindet den Stream binnen Sekunden
 
 // --- 1. Twilio-Signatur (https://www.twilio.com/docs/usage/security) ------------
@@ -54,4 +56,34 @@ function streamTokenGueltig(token, jetztMs) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-module.exports = { twilioSignaturGueltig, streamTokenErzeugen, streamTokenGueltig };
+// --- 3. Webhook-Schluessel (Ausweichweg ohne Auth Token) -------------------
+// Wer sich bei Twilio nur mit einem API Key anmelden kann, hat kein Auth
+// Token - und ohne das laesst sich die Twilio-Signatur nicht nachrechnen.
+// Dann bekommt die Webhook-Adresse eine geheime Zeichenkette angehaengt:
+//   https://.../anruf?schluessel=<zufall>
+// Die kennt nur Twilio, weil nur dort die Adresse hinterlegt ist.
+function zeichenGleich(a, b) {
+  const x = Buffer.from(String(a || ''));
+  const y = Buffer.from(String(b || ''));
+  return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y);
+}
+
+// Entscheidet, ob eine Anfrage an /anruf durchgelassen wird.
+// Reihenfolge: Auth Token (bester Schutz) -> Webhook-Schluessel -> offen.
+// "offen" gibt es nur, wenn beides fehlt - dann warnt der Server beim Start.
+function anrufZugangGueltig({ signaturHeader, url, body, authToken, schluessel, erwarteterSchluessel }) {
+  if (authToken) {
+    return {
+      ok: twilioSignaturGueltig({ signaturHeader, url, body, authToken }),
+      art: 'signatur'
+    };
+  }
+  if (erwarteterSchluessel) {
+    return { ok: zeichenGleich(schluessel, erwarteterSchluessel), art: 'schluessel' };
+  }
+  return { ok: true, art: 'ungeschuetzt' };
+}
+
+module.exports = {
+  twilioSignaturGueltig, streamTokenErzeugen, streamTokenGueltig, anrufZugangGueltig
+};
