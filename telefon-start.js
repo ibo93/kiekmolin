@@ -99,13 +99,43 @@ function schreibeEnvWert(name, wert) {
   console.log(nummern.length + ' gefunden.');
 
   if (!nummern.length) {
-    const holen = await frage('     Noch keine Nummer. Kostenlose Test-Nummer (USA) jetzt automatisch holen? (j/n): ');
+    const holen = await frage('     Noch keine Nummer. Kostenlose Test-Nummer jetzt automatisch holen? (j/n): ');
     if (holen.toLowerCase().startsWith('j')) {
-      process.stdout.write('     Suche freie Nummer... ');
-      const frei = await twilio('/AvailablePhoneNumbers/US/Local.json?VoiceEnabled=true&PageSize=1');
-      const kandidat = (frei.daten.available_phone_numbers || [])[0];
+      // Nicht nur USA/Local: je nach Konto sind andere Laender oder
+      // gebuehrenfreie Nummern verfuegbar. Der Reihe nach durchprobieren
+      // und im Fehlerfall sagen, WAS Twilio geantwortet hat - "keine
+      // gefunden" allein hilft niemandem weiter.
+      const varianten = [
+        ['US', 'Local', 'USA (Ortsnummer)'],
+        ['US', 'TollFree', 'USA (gebuehrenfrei)'],
+        ['CA', 'Local', 'Kanada'],
+        ['GB', 'Local', 'Grossbritannien'],
+        ['DE', 'Local', 'Deutschland']
+      ];
+      let kandidat = null;
+      let letzterHinweis = '';
+      for (const [land, art, klartext] of varianten) {
+        process.stdout.write('     Suche freie Nummer in ' + klartext + '... ');
+        const frei = await twilio('/AvailablePhoneNumbers/' + land + '/' + art + '.json?VoiceEnabled=true&PageSize=1');
+        const treffer = (frei.daten.available_phone_numbers || [])[0];
+        if (treffer) {
+          console.log('gefunden ✓');
+          kandidat = treffer;
+          break;
+        }
+        if (!frei.ok) {
+          const grund = (frei.daten && (frei.daten.message || frei.daten.detail)) || ('Status ' + frei.status);
+          console.log('nein (' + String(grund).slice(0, 90) + ')');
+          letzterHinweis = String(grund);
+        } else {
+          console.log('nein (nichts frei)');
+        }
+      }
       if (!kandidat) {
-        console.log('keine gefunden - bitte in der Twilio-Console eine Nummer holen (Phone Numbers -> Buy a Number).');
+        console.log('     -> In keinem Land eine freie Nummer bekommen.');
+        if (letzterHinweis) console.log('     -> Twilio sagt: ' + letzterHinweis.slice(0, 200));
+        console.log('     -> Dann von Hand holen: console.twilio.com -> Phone Numbers -> Buy a number.');
+        console.log('        Danach einfach "node telefon-start.js" nochmal starten.');
       } else {
         process.stdout.write(kandidat.phone_number + ' - hole... ');
         const kauf = await twilio('/IncomingPhoneNumbers.json', 'POST', { PhoneNumber: kandidat.phone_number });
