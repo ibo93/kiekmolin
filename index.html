@@ -970,6 +970,15 @@
             --ink-strong: #003D33;
             --ink-deep: #00251e;
 
+            /* Die Ersparnis-Pille auf einer Angebotskarte.
+               Sie liegt IMMER auf dem farbigen Grund der Karte -- gruen oder
+               orange, in beiden Modi gleich. Deshalb bleibt sie weiss, auch
+               im Dunkelmodus: ein dunkler Grund waere dort dunkel auf
+               dunkelgruen und unlesbar. Als Variable, damit die Ausnahme an
+               einer Stelle steht und begruendet ist, statt zwoelfmal als
+               "white" im Quelltext. */
+            --angebot-pille: #ffffff;
+
             /* Theme-spezifische Variablen */
             --bg-primary: #fafafa;
             --bg-secondary: #fafafa;
@@ -1017,6 +1026,8 @@
             --border-color: rgba(255,255,255,0.06);
             --ink-strong: #9cd1c3;
             --ink-deep: #b8eddf;
+            /* Bewusst NICHT abgedunkelt -- siehe Begruendung oben. */
+            --angebot-pille: #ffffff;
             --sand: #111f1a;
             --cream: #0a1612;
             --charcoal: #e8eeec;
@@ -18467,7 +18478,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b;font-variation-settings:'FILL' 1;">star</span>
                         </div>
                         <div>
-                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Renner &amp; Penner</span>
+                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Was läuft</span>
                             <span id="bestsellerPeriodLabel" style="font-size: 11px; color: var(--text-secondary); display: block;">Diese Woche</span>
                         </div>
                     </div>
@@ -24962,6 +24973,10 @@ function renderRestaurants(filter) {
                         <span style="width:3px;height:3px;border-radius:50%;background:#c0c8c4;"></span>
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
+                    <!-- Tagesangebot. Wird von angebotAbzeichenSetzen() gefuellt,
+                         sobald die Angebote geladen sind, und bleibt leer, wenn
+                         das Haus heute keines hat. -->
+                    <div class="card-angebot" data-restaurant-id="${r.id}"></div>
                     <!-- Tisch-Verfügbarkeit (reservierungs-basiert, async geladen) -->
                     ${_cardNoRes ? '' : `<div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
                         <span class="card-slot-info" style="color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:4px;">
@@ -24992,6 +25007,11 @@ function renderRestaurants(filter) {
     });
 
     container.innerHTML = html;
+
+    // Tagesangebote auf die frisch gezeichneten Karten. Die Angebote koennen
+    // schon da sein oder erst gleich kommen -- loadDailySpecials ruft
+    // dieselbe Funktion noch einmal auf.
+    if (typeof angebotAbzeichenSetzen === 'function') angebotAbzeichenSetzen();
 
     // Update stats (nur wenn Elemente existieren)
     const statRestaurants = document.getElementById('statRestaurants');
@@ -35239,6 +35259,7 @@ function renderProfileContent() {
         html += buildKontoList([
             { icon: 'person', title: 'Persönliche Daten', sub: 'Name, E-Mail, Telefon', action: "openPersonalData();" },
             { icon: 'receipt_long', title: 'Bestellverlauf', sub: 'Vergangene Bestellungen', action: "showMyOrders(); closeModal('profileModal');" },
+            { icon: 'loyalty', title: 'Meine Stempelkarten', sub: 'Alle Häuser auf einen Blick', action: "openMeineStempelkarten(); closeModal('profileModal');" },
             { icon: 'calendar_month', title: 'Meine Reservierungen', sub: 'Aktuelle & vergangene Reservierungen', action: "showMyReservations(); closeModal('profileModal');" },
             { icon: 'notifications_active', title: 'Benachrichtigungen', sub: 'Reservierungen & Angebote', action: "openModal('notificationModal'); closeModal('profileModal');" },
             { icon: 'security', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
@@ -47051,10 +47072,33 @@ async function saveOptionGroup(editId) {
             },
             body: JSON.stringify(groupData)
         });
-        var saved = await res.json();
-        var groupId = editId || (saved[0] ? saved[0].id : null);
+        var saved = [];
+        try { saved = await res.json(); } catch (e) {}
 
-        if (!groupId) { showToast('Fehler beim Speichern', 'error'); return; }
+        // HIER STAND: var groupId = editId || (saved[0] ? saved[0].id : null);
+        //
+        // Beim BEARBEITEN war groupId damit immer gesetzt -- einfach die ID,
+        // mit der man hereingekommen ist. Ob die Datenbank die Aenderung
+        // ueberhaupt angenommen hat, wurde nie gelesen: weder res.ok noch
+        // die Antwort. Wurde sie abgelehnt, lief alles weiter, die Meldung
+        // sagte "Optionsgruppe aktualisiert", und nach dem Neuladen stand
+        // wieder der alte Name da.
+        if (!res.ok) {
+            var grund = '';
+            if (saved && !Array.isArray(saved)) grund = saved.message || saved.hint || saved.details || '';
+            showToast('Nicht gespeichert' + (grund ? ': ' + grund : ' — die Datenbank hat die Änderung abgelehnt.'), 'error');
+            return;
+        }
+        // Eine leere Antwort auf ein PATCH heisst: keine Zeile getroffen.
+        // Fuer die Datenbank kein Fehler, fuer den Wirt schon.
+        if (editId && (!Array.isArray(saved) || saved.length === 0)) {
+            showToast('Die Änderung wurde nicht übernommen — die Datenbank hat die Zeile nicht '
+                + 'freigegeben. Das ist eine Berechtigung in Supabase.', 'error');
+            return;
+        }
+
+        var groupId = editId || (saved[0] ? saved[0].id : null);
+        if (!groupId) { showToast('Nicht gespeichert — die Datenbank hat keine Gruppe zurückgegeben.', 'error'); return; }
 
         // Wenn bearbeiten: alte Optionen löschen
         if (editId) {
@@ -47162,24 +47206,55 @@ async function openEditOptionGroupModal(groupId) {
 }
 
 // Optionsgruppe löschen
+// GEMELDET: "ich kann hier nichts, wenn ich die Sachen lösche oder
+// bearbeite kommen die wieder zurück".
+//
+// Der Grund steht in der alten Fassung: geloescht wurde, und danach kam
+// sofort "Optionsgruppe gelöscht" -- ohne nachzusehen, OB etwas weg ist.
+//
+// Ein DELETE, das keine einzige Zeile trifft, ist fuer die Datenbank kein
+// Fehler: sie antwortet 204 "in Ordnung, nichts zu tun". Genau das
+// passiert, wenn eine Zugriffsregel in Supabase das Loeschen nicht
+// erlaubt -- die Zeile ist fuer die Abfrage schlicht nicht da. sbWrite
+// kann das nicht merken, es gibt ja keinen Fehler. Die Liste wurde neu
+// geladen, die Gruppe stand wieder da, und der Wirt hielt es fuer einen
+// Fehler der App.
+//
+// Mit "Prefer: return=representation" schickt die Datenbank zurueck, WAS
+// sie geloescht hat. Eine leere Antwort heisst: nichts. Das wird jetzt
+// gesagt, statt Erfolg zu behaupten.
 async function deleteOptionGroup(groupId) {
     if (!await kinConfirm('Optionsgruppe wirklich löschen? Alle zugehörigen Optionen werden ebenfalls gelöscht.')) return;
     try {
+        var kopf = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Prefer': 'return=representation'
+        };
         // Erst Optionen löschen
         await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            method: 'DELETE', headers: kopf
         });
-        // Dann Gruppe löschen
-        await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        // Dann Gruppe löschen -- und nachsehen, ob sie wirklich weg ist.
+        var res = await sbWrite(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
+            method: 'DELETE', headers: kopf
         });
+        var weg = [];
+        try { weg = await res.json(); } catch (e) {}
+
+        if (!Array.isArray(weg) || weg.length === 0) {
+            showToast('Die Gruppe konnte nicht gelöscht werden — die Datenbank hat die Zeile '
+                + 'nicht freigegeben. Das ist eine Berechtigung in Supabase, kein Fehler in der Eingabe.', 'error');
+            loadOptionGroups();
+            loadMenuOptionGroups();
+            return;
+        }
+
         showToast('Optionsgruppe gelöscht', 'success');
         loadOptionGroups();
         loadMenuOptionGroups();
     } catch(err) {
-        showToast('Fehler: ' + err.message, 'error');
+        showToast('Löschen fehlgeschlagen: ' + err.message, 'error');
     }
 }
 
@@ -49924,8 +49999,14 @@ function getTimeFilterEnd(filter) {
 }
 
 // ============================================================================
-// RENNER & PENNER
+// WAS LÄUFT
 // ============================================================================
+// Der Bereich hiess "Renner & Penner". Umbenannt auf Wunsch: "Penner" ist ein
+// Schimpfwort, und der Gastronom liest das ueber seiner eigenen Speisekarte.
+// Jetzt heisst der Bereich "Was läuft" und die beiden Listen darunter "Läuft
+// gut" und "Läuft nicht" -- die untere hiess ohnehin schon so, nur die
+// Ueberschrift passte nicht dazu.
+//
 // Vorher stand hier "Bestseller": die Top 5 nach Anzahl, gerechnet aus den
 // Bestellungen. Die HALBE Auswertung -- und die unwichtigere.
 //
@@ -49935,16 +50016,16 @@ function getTimeFilterEnd(filter) {
 // gar nicht in den Daten. Deshalb wird die Speisekarte jetzt dazugeholt.
 //
 // Und zwei Ehrlichkeitsregeln, ohne die die Liste in die Irre führt:
-//   1. Bei zu wenig Bestellungen wird nichts als "Penner" gebrandmarkt. Aus
+//   1. Bei zu wenig Bestellungen wird nichts als Ladenhueter gebrandmarkt. Aus
 //      drei Bestellungen lässt sich nichts ableiten, ausser dass es drei war.
-//   2. Ein Gericht, das erst seit Kurzem auf der Karte steht, ist kein Penner,
+//   2. Ein Gericht, das erst seit Kurzem auf der Karte steht, laeuft nicht schlecht,
 //      sondern neu. Es wird getrennt ausgewiesen statt mitgezählt.
 
 var _auswertungSicht = 'anzahl';     // 'anzahl' | 'umsatz'
 
 // Ab so vielen Bestellungen im Zeitraum lohnt die Aussage überhaupt.
 var AUSWERTUNG_MIN_BESTELLUNGEN = 10;
-// So lange gilt ein Gericht als neu und wird nicht als Penner gewertet.
+// So lange gilt ein Gericht als neu und wird nicht mitgewertet.
 var AUSWERTUNG_NEU_TAGE = 21;
 
 // Reine Rechnung -- Bestellungen und Karte rein, Auswertung raus.
@@ -49978,7 +50059,7 @@ function auswerteGerichte(orders, karte, opt) {
     // Bestellungen nicht vor und würden sonst fehlen.
     var neu = [];
     (karte || []).forEach(function (g) {
-        if (g.is_available === false) return;          // ausverkauft ist kein Penner
+        if (g.is_available === false) return;          // ausverkauft laeuft nicht schlecht
         var k = String(g.name || '').trim().toLowerCase();
         if (!k) return;
         var angelegt = g.created_at ? new Date(g.created_at).getTime() : null;
@@ -49994,23 +50075,23 @@ function auswerteGerichte(orders, karte, opt) {
     });
 
     var genugDaten = gezaehlt.length >= minBestellungen;
-    var renner = sortiert.filter(function (e) { return e.anzahl > 0; }).slice(0, 5);
-    var istRenner = {};
-    renner.forEach(function (e) { istRenner[e.name] = true; });
+    var laeuftGut = sortiert.filter(function (e) { return e.anzahl > 0; }).slice(0, 5);
+    var istGutlaeufer = {};
+    laeuftGut.forEach(function (e) { istGutlaeufer[e.name] = true; });
 
-    // Penner nur aus Gerichten, die WIRKLICH auf der Karte stehen. Ein Name,
+    // "Laeuft nicht" nur aus Gerichten, die WIRKLICH auf der Karte stehen. Ein Name,
     // der nur in alten Bestellungen vorkommt, ist meist ein umbenanntes oder
-    // gelöschtes Gericht -- den als Penner zu melden hilft niemandem.
+    // gelöschtes Gericht -- den zu melden hilft niemandem.
     //
-    // Und niemals ein Gericht, das oben schon als Renner steht. Bei einer
+    // Und niemals ein Gericht, das oben schon unter "Läuft gut" steht. Bei einer
     // kleinen Karte griff die Auswahl sonst bis ganz nach oben durch: der
     // Bestseller stand gleichzeitig unter "Läuft nicht".
-    var pennerBasis = sortiert.filter(function (e) { return e.aufKarte && !istRenner[e.name]; });
+    var schwachBasis = sortiert.filter(function (e) { return e.aufKarte && !istGutlaeufer[e.name]; });
 
     return {
-        renner: renner,
-        penner: genugDaten ? pennerBasis.slice(-5).reverse() : [],
-        ohneVerkauf: pennerBasis.filter(function (e) { return e.anzahl === 0; }).length,
+        laeuftGut: laeuftGut,
+        laeuftNicht: genugDaten ? schwachBasis.slice(-5).reverse() : [],
+        ohneVerkauf: schwachBasis.filter(function (e) { return e.anzahl === 0; }).length,
         neu: neu,
         bestellungen: gezaehlt.length,
         genugDaten: genugDaten,
@@ -50031,7 +50112,7 @@ function setzeAuswertungsSicht(sicht) {
     renderBestseller(window._dashboardOrdersFuerAuswertung || []);
 }
 
-// Die Speisekarte des Restaurants -- ohne sie gibt es keine Penner.
+// Die Speisekarte des Restaurants -- ohne sie fehlen die Gerichte ohne Verkauf.
 async function _karteFuerAuswertung(rid) {
     if (!rid) return [];
     window._karteAuswertungCache = window._karteAuswertungCache || {};
@@ -50065,7 +50146,7 @@ function renderBestseller(orders) {
 
     _karteFuerAuswertung(rid).then(function (karte) {
         var a = auswerteGerichte(orders, karte, { sicht: _auswertungSicht });
-        if (!a.renner.length && !a.penner.length) { section.style.display = 'none'; return; }
+        if (!a.laeuftGut.length && !a.laeuftNicht.length) { section.style.display = 'none'; return; }
         section.style.display = 'block';
         list.innerHTML = _auswertungHtml(a);
     });
@@ -50079,7 +50160,7 @@ function _auswertungHtml(a) {
             ? e.umsatz.toFixed(2).replace('.', ',') + ' €'
             : e.anzahl + '\u00d7';
     };
-    var hoechst = Math.max.apply(null, a.renner.map(function (e) { return e[a.sicht] || 0; }).concat([1]));
+    var hoechst = Math.max.apply(null, a.laeuftGut.map(function (e) { return e[a.sicht] || 0; }).concat([1]));
 
     function zeile(e, i, farbe, breite) {
         return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:16px;">'
@@ -50097,7 +50178,16 @@ function _auswertungHtml(a) {
     }
 
     var html = '';
-    a.renner.forEach(function (e, i) {
+    if (a.laeuftGut.length) {
+        // Diese Ueberschrift fehlte ganz: beschriftet war nur die untere
+        // Liste -- wo die eine aufhoert und die andere anfaengt, musste man
+        // raten.
+        html += '<div style="display:flex;align-items:center;gap:7px;margin:0 0 8px;">'
+              + '<span class="material-symbols-outlined" style="font-size:18px;color:#15803d;">trending_up</span>'
+              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Läuft gut</span>'
+              + '</div>';
+    }
+    a.laeuftGut.forEach(function (e, i) {
         html += zeile(e, i, 'linear-gradient(90deg,var(--ink-strong),#22c55e)',
                       Math.round(((e[a.sicht] || 0) / hoechst) * 100));
     });
@@ -50107,18 +50197,18 @@ function _auswertungHtml(a) {
         // lässt sich nicht ableiten, welches Gericht von der Karte muss.
         html += '<div style="margin-top:12px;padding:11px 13px;border-radius:14px;border:1px dashed var(--border-color);'
               + 'font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;line-height:1.55;">'
-              + '<strong style="color:var(--text-primary);">Für die Penner-Liste ist es noch zu früh.</strong> '
+              + '<strong style="color:var(--text-primary);">Für „Läuft nicht" ist es noch zu früh.</strong> '
               + a.bestellungen + ' Bestellung' + (a.bestellungen === 1 ? '' : 'en') + ' in diesem Zeitraum — '
               + 'ab ' + a.minBestellungen + ' wird sie angezeigt. Nimm einen größeren Zeitraum.'
               + '</div>';
-    } else if (a.penner.length) {
+    } else if (a.laeuftNicht.length) {
         html += '<div style="display:flex;align-items:center;gap:7px;margin:18px 0 8px;">'
               + '<span class="material-symbols-outlined" style="font-size:18px;color:#b45309;">trending_down</span>'
               + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Läuft nicht</span>'
               + (a.ohneVerkauf ? '<span style="font-size:11px;color:var(--text-secondary);">'
                     + a.ohneVerkauf + ' Gericht' + (a.ohneVerkauf === 1 ? '' : 'e') + ' ohne einen einzigen Verkauf</span>' : '')
               + '</div>';
-        a.penner.forEach(function (e, i) {
+        a.laeuftNicht.forEach(function (e, i) {
             html += zeile(e, i, '#f59e0b', e.anzahl === 0 ? 2 : Math.max(2, Math.round(((e[a.sicht] || 0) / hoechst) * 100)));
         });
     }
@@ -51477,173 +51567,335 @@ function printOrderBrowser(orderId) {
     // Logo HTML
     var logoHtml = '';
     if (restLogo) {
-        logoHtml = '<img src="' + restLogo + '" style="max-width:120px;max-height:60px;margin:0 auto 8px;display:block;" alt="Logo">';
+        logoHtml = '<img src="' + restLogo + '" style="max-height:46px;max-width:130px;margin-bottom:8px;display:block;" alt="Logo">';
     }
 
+    // Zahlart als Wort, nicht als Datenbankschluessel.
+    var _zahl = String(order.payment_method || '').toLowerCase();
+    var zahlartText = _zahl === 'cash' ? 'Bar'
+        : (_zahl === 'card' || _zahl === 'card_on_delivery') ? 'Karte'
+        : _zahl === 'paypal' ? 'PayPal'
+        : _zahl ? (_zahl.charAt(0).toUpperCase() + _zahl.slice(1)) : 'Bar';
+
     // Items HTML
+    // Der Gerichtname kam ungeschuetzt aus der Datenbank in den Beleg --
+    // als einziges Feld hier. Sonderwunsch und Zusaetze waren schon escapt.
     var itemsHtml = (order.items || []).map(function(item) {
-        var einzelpreis = parseFloat(item.price) / (item.quantity || 1);
         return '<tr>' +
-            '<td style="text-align:left;padding:3px 0;width:30px;">' + item.quantity + '×</td>' +
-            '<td style="text-align:left;padding:3px 4px;">' + item.name +
-                (item.options ? '<br><span style="font-size:10px;color:#666;">  ↳ ' + item.options + '</span>' : '') +
-                // Sonderwunsch FETT auf den Bon. Wer in der Küche steht,
+            '<td class="anz">' + (parseInt(item.quantity, 10) || 1) + '×</td>' +
+            '<td>' + escapeHtml(item.name || '') +
+                (item.options ? '<div class="zusatz">' + escapeHtml(item.options) + '</div>' : '') +
+                // Sonderwunsch hervorgehoben. Wer in der Küche steht,
                 // überliest eine graue Kleinschrift.
-                (item.notes ? '<br><span style="font-size:11px;font-weight:bold;">  ↳ ' + escapeHtml(item.notes) + '</span>' : '') +
+                (item.notes ? '<div class="wunsch">' + escapeHtml(item.notes) + '</div>' : '') +
             '</td>' +
-            '<td style="text-align:right;padding:3px 0;white-space:nowrap;">' + formatPrice(item.price) + '</td>' +
+            '<td class="preis">' + formatPrice(item.price) + '</td>' +
         '</tr>';
     }).join('');
 
+    // WELCHES PAPIER? Das entschied bisher niemand.
+    // Im Beleg stand fest "@page { size: 80mm auto }" -- die Breite einer
+    // Kassenrolle. Wer wie im gemeldeten Fall auf einem gewoehnlichen
+    // A4-Drucker druckte, bekam eine 7 cm schmale Spalte mitten auf dem
+    // Blatt, und der Text lief auf ZWEI Blaetter. Jetzt gibt es beides.
+    var bonPapier = bonPapierFormat(order.restaurant_id);
+    var istRolle = (bonPapier === 'thermo');
+
+    var lieferung = order.order_type === 'delivery';
+    var artText = lieferung ? 'Lieferung' : 'Abholung';
+
+    // Fertig-Zeitpunkt, wenn das Restaurant einen genannt hat.
+    var fertigStr = '';
+    if (order.estimated_time) {
+        var ft = new Date(order.estimated_time);
+        if (!isNaN(ft.getTime())) fertigStr = ft.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    // DER WEG-BLOCK -- fuer beide Bestellarten, nicht nur fuer die Lieferung.
+    // Bisher gab es ihn NUR bei Lieferung. Wer abholte, fand auf seinem Beleg
+    // keine Adresse des Restaurants und keine Uhrzeit: er wusste weder wohin
+    // noch wann. Jetzt zeigt der Block bei Lieferung den Weg zum Gast und bei
+    // Abholung den Weg zum Restaurant.
+    var wegZiel = lieferung
+        ? (function () {
+              var a0 = order.delivery_address || {};
+              return {
+                  titel: 'Lieferadresse',
+                  zeile: adresseHtml(order.delivery_address, '<br>'),
+                  roh: [(a0.street || '') + ' ' + (a0.house_number || ''), (a0.zip || '') + ' ' + (a0.city || '')].join(', '),
+                  tel: order.customer_phone || '',
+                  hinweis: 'QR scannen startet die Navigation'
+              };
+          })()
+        : {
+              titel: 'Abholung bei',
+              zeile: escapeHtml(restName) + (restAdresse ? '<br>' + escapeHtml(restAdresse) : ''),
+              roh: restName + (restAdresse ? ', ' + restAdresse : ''),
+              tel: restPhone || '',
+              hinweis: 'QR scannen zeigt den Weg zum Restaurant'
+          };
+
+    var wegHtml = '';
+    if (wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
+        // Zwei Fassungen derselben Adresse, mit Absicht: die eine geht in den
+        // Beleg und muss escapt sein, die andere in die Karten-Adresse und
+        // darf es NICHT -- encodeURIComponent('&amp;') verstuemmelt sie.
+        var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(wegZiel.roh.trim());
+        wegHtml =
+            '<div class="weg">' +
+              '<div class="weg-text">' +
+                '<div class="weg-titel">' + wegZiel.titel + '</div>' +
+                '<div class="weg-adresse">' + wegZiel.zeile + '</div>' +
+                (wegZiel.tel ? '<div class="weg-tel">Tel: ' + escapeHtml(wegZiel.tel) + '</div>' : '') +
+                (fertigStr ? '<div class="weg-zeit">' + (lieferung ? 'Lieferung gegen ' : 'Abholbereit gegen ') + fertigStr + ' Uhr</div>' : '') +
+              '</div>' +
+              '<div class="weg-qr">' +
+                '<img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data='
+                  + encodeURIComponent(mapsUrl) + '" alt="QR Navigation">' +
+                '<div class="weg-qr-text">' + wegZiel.hinweis + '</div>' +
+              '</div>' +
+            '</div>';
+    }
+
+    // Zwei Papierformate, ein Markup. Was sich unterscheidet, ist die
+    // Gestaltung -- nicht der Inhalt.
+    // DER BELEG ALS BRIEFBOGEN, NICHT ALS KASSENZETTEL.
+    //
+    // Gewuenscht war "stilvoller". Vier Dinge machen den Unterschied:
+    //
+    //   1. Eine Schriftmischung. Der Hausname und die Danksagung in einer
+    //      Serifenschrift, alles Uebrige serifenlos. Das ist der Griff, den
+    //      jede gute Speisekarte macht, und er kostet nichts.
+    //
+    //      WELCHE Serifenschrift, ist keine Geschmacksfrage allein: das
+    //      Druckfenster laedt bewusst KEINE Schrift aus dem Netz. Ein Beleg
+    //      darf nicht am WLAN haengen, und eine Schrift, die nicht rechtzeitig
+    //      kommt, wuerde die Zeilen nachtraeglich umbrechen. Also nur, was auf
+    //      dem Rechner ohnehin liegt.
+    //
+    //      Gewaehlt wurde "Baskerville oder Georgia". Beides geht: eine
+    //      Schriftangabe IST eine Rangfolge. Der Browser nimmt die erste, die
+    //      auf dem Geraet liegt.
+    //
+    //        Baskerville / Hoefler Text -- auf jedem Mac und iPad. Fein und
+    //          ruhig, die eleganteste der Auswahl.
+    //        Georgia -- ueberall, auch auf Windows. Kraeftiger, aber sicher.
+    //
+    //      Damit bekommt ein Mac Baskerville, ein Windows-Rechner Georgia.
+    //      Kein Geraet faellt auf Times zurueck.
+    //
+    //      NICHT dabei: "Baskerville Old Face". Die liegt zwar auf Windows,
+    //      ist aber eine Auszeichnungsschrift mit ganz anderen Formen -- als
+    //      Rueckfall waere sie eine Ueberraschung, keine Absicherung.
+    //   2. Ein Briefkopf-Streifen in Hausfarbe an der oberen Blattkante.
+    //   3. Warmes Papierweiss statt Grau fuer die abgesetzten Flaechen --
+    //      #faf7ee gehoert zur Marke, das kuehle #f7faf9 tat es nicht.
+    //   4. Luft. Groessere Abstaende, duennere Linien, weniger Rahmen. Ein
+    //      Dokument wirkt teuer, wenn wenig darauf steht und das wenige
+    //      Platz hat.
+    var stilA4 = `
+    @page { size: A4; margin: 18mm 20mm 16mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 10pt; color: #16211d; line-height: 1.5; max-width: 170mm; margin: 0 auto;
+           font-variant-numeric: tabular-nums; }
+    .kopf { display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 20px; padding-bottom: 16px; }
+    .haus-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 23pt; font-weight: 400;
+                 letter-spacing: -0.005em; color: #00251e; line-height: 1.12; }
+    .haus-zeile { font-size: 8pt; color: #6d7975; margin-top: 7px; letter-spacing: 0.01em; }
+    /* Umrissen statt gefuellt -- ruhiger, und der Blick bleibt beim Namen. */
+    .art-chip { flex-shrink: 0; border: 1.5px solid #003d33; color: #003d33; border-radius: 999px;
+                padding: 6px 16px; font-size: 8pt; font-weight: 700; letter-spacing: 0.18em;
+                text-transform: uppercase; white-space: nowrap; }
+    /* DIE Linie des Belegs. Erst war hier zusaetzlich ein Briefkopf-Streifen
+       an der Blattkante geplant -- im Druck sitzt position:fixed aber INNEN
+       am Seitenrand und lag damit quer ueber dem Hausnamen. Zwei Linien
+       waeren ohnehin eine zu viel gewesen: jetzt traegt diese eine das
+       Markenzeichen, vom Hausgruen ins Gelb. */
+    .trennlinie { height: 2.5px; margin-bottom: 22px; border-radius: 2px;
+                  background: linear-gradient(90deg, #00251e 0%, #003d33 55%, #fed65b 100%); }
+    .zwei { display: flex; gap: 32px; margin-bottom: 6px; }
+    .zwei > div { flex: 1; }
+    .feldname { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+                color: #96a09c; margin-bottom: 6px; }
+    .feldwert { font-size: 10pt; }
+    .beleg-nr { font-size: 12.5pt; font-weight: 700; letter-spacing: 0.02em; color: #00251e; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 22px; }
+    table.pos th { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+                   color: #96a09c; text-align: left; padding: 0 0 9px; border-bottom: 1px solid #00251e; }
+    table.pos td { padding: 11px 0; border-bottom: 1px solid #eef1ef; vertical-align: top; }
+    table.pos tr:last-child td { border-bottom: none; }
+    .anz { width: 30px; font-weight: 700; color: #7e8a86; font-size: 9pt; }
+    .preis { text-align: right; white-space: nowrap; font-weight: 600; }
+    .zusatz { font-size: 8.5pt; color: #6d7975; margin-top: 3px; }
+    .wunsch { font-size: 8.5pt; font-weight: 700; color: #9a3412; margin-top: 3px; }
+    /* Die Summe in warmem Papierweiss abgesetzt. */
+    .summen { margin-left: auto; width: 68mm; margin-top: 4px; border-collapse: collapse;
+              background: #faf7ee; border-radius: 8px; }
+    .summen tr td { padding: 4px 14px; font-size: 9.5pt; color: #4a5652; }
+    .summen tr:first-child td { padding-top: 12px; }
+    .summen tr td:last-child { text-align: right; }
+    .gesamt td { padding-top: 9px !important; padding-bottom: 4px !important;
+                 font-size: 14pt; font-weight: 700; color: #00251e;
+                 border-top: 1px solid #e4dcc5; }
+    .gesamt td:first-child { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: 0.02em; }
+    .zahlart { text-align: right; font-size: 8pt; color: #8a938f; padding-top: 0 !important;
+               padding-bottom: 12px !important; letter-spacing: 0.04em; }
+    /* Der Weg-Block: kein Kasten, sondern eine warme Flaeche mit Haarlinie. */
+    .weg { display: flex; gap: 22px; align-items: center; margin-top: 26px; padding: 18px 20px;
+           background: #faf7ee; border-radius: 10px; border-left: 3px solid #003d33; }
+    .weg-text { flex: 1; }
+    .weg-titel { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #96a09c; }
+    .weg-adresse { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; font-weight: 400;
+                   color: #00251e; margin-top: 6px; line-height: 1.35; }
+    .weg-tel { font-size: 9pt; color: #6d7975; margin-top: 5px; }
+    .weg-zeit { font-size: 9pt; font-weight: 700; color: #003d33; margin-top: 3px; }
+    .weg-qr { text-align: center; flex-shrink: 0; }
+    .weg-qr img { width: 29mm; height: 29mm; display: block; background: #fff; padding: 2mm; border-radius: 6px; }
+    .weg-qr-text { font-size: 6.5pt; color: #96a09c; margin-top: 5px; max-width: 33mm; line-height: 1.35; }
+    .steuer { margin-top: 26px; }
+    .steuer table { border-collapse: collapse; }
+    .steuer th, .steuer td { font-size: 8pt; padding: 4px 18px 4px 0; text-align: left; color: #4a5652; }
+    .steuer th { font-weight: 700; color: #96a09c; border-bottom: 1px solid #eef1ef;
+                 font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; }
+    .dank { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; color: #003d33;
+            margin-top: 26px; letter-spacing: 0.01em; }
+    .fuss { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eef1ef;
+            display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+    .rechtstext { font-size: 6.5pt; color: #9aa39f; line-height: 1.6; max-width: 106mm; }
+    .marke { text-align: right; flex-shrink: 0; }
+    .marke-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 11pt; color: #00251e; }
+    .marke-url { font-size: 7pt; color: #9aa39f; letter-spacing: 0.08em; margin-top: 2px; }
+    `;
+
+    var stilRolle = `
+    @page { size: 80mm auto; margin: 4mm; }
+    body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 11px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
+    .kopf { text-align: center; padding-bottom: 8px; }
+    .trennlinie { height: 2px; background: #000; margin-bottom: 10px; }
+    .haus-name { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+    .haus-zeile { font-size: 9px; margin-top: 3px; }
+    .art-chip { display: inline-block; margin-top: 7px; background: #000; color: #fff;
+                border-radius: 999px; padding: 3px 12px; font-size: 9px; font-weight: 800;
+                letter-spacing: 0.12em; text-transform: uppercase; }
+    .zwei { margin: 10px 0 0; }
+    .zwei > div + div { margin-top: 8px; }
+    .feldname { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
+    .feldwert { font-size: 11px; }
+    .beleg-nr { font-size: 13px; font-weight: 800; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    table.pos th { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+                   color: #555; text-align: left; padding: 0 0 4px; border-bottom: 1px solid #000; }
+    table.pos td { padding: 5px 0; border-bottom: 1px dotted #bbb; vertical-align: top; }
+    .anz { width: 26px; font-weight: 700; }
+    .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .zusatz { font-size: 9px; color: #444; }
+    .wunsch { font-size: 10px; font-weight: 700; }
+    .summen { width: 100%; margin-top: 8px; }
+    .summen tr td { padding: 2px 0; font-size: 11px; }
+    .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .gesamt td { border-top: 2px solid #000; padding-top: 6px !important; font-size: 15px; font-weight: 800; }
+    .zahlart { text-align: right; font-size: 10px !important; color: #444; padding-top: 4px !important; }
+    .weg { margin-top: 10px; padding: 9px; border: 2px dashed #000; border-radius: 4px; text-align: center; }
+    .weg-titel { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .weg-adresse { font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .weg-tel, .weg-zeit { font-size: 10px; margin-top: 2px; }
+    .weg-zeit { font-weight: 700; }
+    .weg-qr img { width: 34mm; height: 34mm; display: block; margin: 7px auto 0; }
+    .weg-qr-text { font-size: 8px; color: #555; margin-top: 3px; }
+    .steuer { margin-top: 10px; }
+    .steuer table { width: 100%; border-collapse: collapse; }
+    .steuer th, .steuer td { font-size: 9px; padding: 2px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px dotted #999; }
+    .steuer td + td, .steuer th + th { text-align: right; }
+    .fuss { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; text-align: center; }
+    .rechtstext { font-size: 8px; color: #444; line-height: 1.5; margin-top: 8px; }
+    .marke { margin-top: 8px; }
+    .marke-name { font-size: 11px; }
+    .marke-url { font-size: 8px; color: #555; }
+    .dank { font-size: 13px; font-weight: 700; margin-top: 8px; }
+    `;
+
     let printContent = `
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html lang="de"><head><meta charset="UTF-8"><title>Beleg ${belegNr}</title>
 <style>
-    @page { margin: 5mm; size: 80mm auto; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
-    .center { text-align: center; }
-    .bold { font-weight: 700; }
-    .line { border-top: 1px dashed #000; margin: 8px 0; }
-    .dbl-line { border-top: 2px solid #000; margin: 8px 0; }
-    table { width: 100%; border-collapse: collapse; }
-    td { vertical-align: top; font-size: 12px; }
-    .right { text-align: right; }
-    .small { font-size: 10px; color: #333; }
-    .xs { font-size: 9px; color: #555; }
-    .total-row td { font-size: 16px; font-weight: 700; padding: 8px 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    img { max-width: 100%; }
+    /* Nichts darf mitten in einem Block umbrechen -- daran ist der alte
+       Beleg auf A4 gescheitert und lief auf zwei Blaetter. */
+    .weg, .steuer, .fuss, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
+    ${istRolle ? stilRolle : stilA4}
 </style></head><body>
 
-<!-- ===== RESTAURANT HEADER ===== -->
-<div class="center" style="margin-bottom:6px;">
-    ${logoHtml}
-    <div style="font-size:18px;font-weight:700;letter-spacing:1px;">${restName.toUpperCase().trim()}</div>
-    ${restAdresse ? '<div class="small" style="margin-top:4px;">' + restAdresse + '</div>' : ''}
-    ${restPhone ? '<div class="small">Tel: ' + restPhone + '</div>' : ''}
-    ${restEmail ? '<div class="small">' + restEmail + '</div>' : ''}
-    ${restWebsite ? '<div class="xs">' + restWebsite + '</div>' : ''}
-</div>
-
-<div class="dbl-line"></div>
-
-<!-- ===== BELEG INFO ===== -->
-<table>
-    <tr><td class="bold">Beleg-Nr:</td><td class="right bold">${belegNr}</td></tr>
-    <tr><td>Datum:</td><td class="right">${datumStr} · ${zeitStr} Uhr</td></tr>
-    <tr><td>Bestellart:</td><td class="right bold">${order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG'}</td></tr>
-</table>
-
-<div class="line"></div>
-
-<!-- ===== KUNDE ===== -->
-<div style="margin:4px 0;">
-    <div class="bold" style="font-size:13px;">${escapeHtml(order.customer_name || 'Gast')}</div>
-    ${order.customer_phone ? '<div class="small">Tel: ' + escapeHtml(order.customer_phone) + '</div>' : ''}
-    ${order.delivery_address ? '<div class="small">' + adresseHtml(order.delivery_address, '<br>') + '</div>' : ''}
-</div>
-
-<div class="dbl-line"></div>
-
-<!-- ===== POSITIONEN ===== -->
-<table>
-    <tr style="border-bottom:1px solid #000;">
-        <td class="bold" style="padding:3px 0;">Anz</td>
-        <td class="bold" style="padding:3px 4px;">Artikel</td>
-        <td class="bold right" style="padding:3px 0;">Preis</td>
-    </tr>
-    ${itemsHtml}
-</table>
-
-<div class="dbl-line"></div>
-
-<!-- ===== SUMMEN ===== -->
-<table>
-    <tr><td>Zwischensumme:</td><td class="right">${formatPrice(zwischensumme)}</td></tr>
-    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr:</td><td class="right">' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
-    ${rabatt > 0 ? '<tr><td>Rabatt:</td><td class="right" style="color:#d00;">-' + formatPrice(rabatt) + '</td></tr>' : ''}
-    ${trinkgeld > 0 ? '<tr><td>Trinkgeld:</td><td class="right">' + formatPrice(trinkgeld) + '</td></tr>' : ''}
-</table>
-
-<div class="line"></div>
-
-<table>
-    <tr class="total-row">
-        <td>GESAMT:</td>
-        <td class="right">${formatPrice(bruttoGesamt)}</td>
-    </tr>
-</table>
-
-<div class="line"></div>
-
-<!-- ===== MWST nach §14 UStG ===== -->
-<div style="margin:4px 0;">
-    <div class="bold small">MwSt.-Ausweis gem. §14 UStG:</div>
-    <table class="small" style="margin-top:3px;">
-        <tr style="border-bottom:1px dotted #999;">
-            <td class="bold">Satz</td>
-            <td class="bold right">Netto</td>
-            <td class="bold right">MwSt</td>
-            <td class="bold right">Brutto</td>
-        </tr>
-        <tr>
-            <td>${mwstSatz},00%</td>
-            <td class="right">${formatPrice(nettoGesamt)}</td>
-            <td class="right">${formatPrice(mwstBetrag)}</td>
-            <td class="right">${formatPrice(bruttoGesamt)}</td>
-        </tr>
-    </table>
-</div>
-
-<div class="line"></div>
-
-<!-- ===== ZAHLUNGSART ===== -->
-<div class="center bold" style="font-size:13px;margin:6px 0;">
-    ${order.payment_method === 'cash' ? 'BARZAHLUNG' : order.payment_method === 'card' || order.payment_method === 'card_on_delivery' ? 'KARTENZAHLUNG' : order.payment_method === 'paypal' ? 'PAYPAL' : (order.payment_method || 'BAR').toUpperCase()}
-</div>
-
-<div class="line"></div>
-
-<!-- ===== QR-CODE FÜR LIEFERUNG ===== -->
-${order.order_type === 'delivery' && order.delivery_address ? (() => {
-    // Zwei Fassungen derselben Adresse, mit Absicht:
-    // addr geht in den Bon und muss escapt sein; addrRoh geht in die
-    // Karten-URL und darf es NICHT sein -- encodeURIComponent('&amp;')
-    // wuerde die Adresse in der Karte verstuemmeln.
-    var addr = adresseHtml(order.delivery_address);
-    var a0 = order.delivery_address;
-    var addrRoh = (a0.street || '') + ' ' + (a0.house_number || '') + ', ' + (a0.zip || '') + ' ' + (a0.city || '');
-    var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addrRoh.trim());
-    return `
-<div class="center" style="margin:10px 0;padding:10px 0;border:2px dashed #000;border-radius:4px;">
-    <div class="bold" style="font-size:14px;margin-bottom:8px;">LIEFERADRESSE</div>
-    <div class="bold" style="font-size:13px;margin-bottom:6px;">${addr}</div>
-    ${order.customer_phone ? '<div class="small" style="margin-bottom:8px;">Tel: ' + escapeHtml(order.customer_phone) + '</div>' : ''}
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(mapsUrl)}" width="150" height="150" style="margin:4px auto;display:block;" alt="QR Navigation" loading="lazy">
-    <div class="xs" style="margin-top:6px;">QR scannen = Google Maps Navigation</div>
-</div>
-<div class="line"></div>`;
-})() : ''}
-
-<!-- ===== FOOTER ===== -->
-<div class="center" style="margin-top:10px;">
-    <div class="dbl-line"></div>
-    <div style="font-size:14px;font-weight:700;margin:8px 0;">Vielen Dank für Ihre Bestellung!</div>
-    <div class="xs" style="margin-top:6px;">${datumStr} ${zeitStr} · ${belegNr}</div>
-    <div class="line" style="margin:10px 0;"></div>
-    <div class="xs" style="line-height:1.6;">
-        Dieses Dokument ist eine Bestellbestätigung<br>
-        und kein steuerlicher Beleg im Sinne des<br>
-        § 146a AO i.V.m. KassenSichV.<br>
-        Erstellt ohne TSE. Kein Kassenbon.<br>
-        Alle Preise inkl. ${mwstSatz}% MwSt.<br>
-        Der offizielle Kassenbon wird vom<br>
-        Restaurant ausgestellt.
+<div class="kopf">
+    <div>
+        ${logoHtml}
+        <div class="haus-name">${escapeHtml(restName.trim())}</div>
+        <div class="haus-zeile">${[restAdresse, restPhone ? 'Tel: ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ')}</div>
     </div>
-    <div class="line" style="margin:10px 0;"></div>
-    <div style="font-family:serif;font-size:12px;letter-spacing:0.5px;margin-top:4px;">
-        <strong>Kiek mol</strong> <span style="font-style:italic;">in</span>
+    <div class="art-chip">${artText}</div>
+</div>
+<div class="trennlinie"></div>
+
+<div class="zwei">
+    <div>
+        <div class="feldname">Beleg</div>
+        <div class="beleg-nr">${escapeHtml(belegNr)}</div>
+        <div class="feldwert" style="color:#5b6663;">${datumStr} · ${zeitStr} Uhr</div>
     </div>
-    <div class="xs">kiekmolin.de</div>
+    <div>
+        <div class="feldname">${lieferung ? 'Lieferung an' : 'Abholung durch'}</div>
+        <div class="feldwert" style="font-weight:700;">${escapeHtml(order.customer_name || 'Gast')}</div>
+        ${order.customer_phone ? '<div class="feldwert" style="color:#5b6663;">' + escapeHtml(order.customer_phone) + '</div>' : ''}
+    </div>
+</div>
+
+<table class="pos">
+    <thead><tr><th>Anz</th><th>Artikel</th><th class="preis">Preis</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+</table>
+
+<table class="summen">
+    <tr><td>Zwischensumme</td><td>${formatPrice(zwischensumme)}</td></tr>
+    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr</td><td>' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
+    ${rabatt > 0 ? '<tr><td>Rabatt</td><td style="color:#c2410c;">– ' + formatPrice(rabatt) + '</td></tr>' : ''}
+    ${trinkgeld > 0 ? '<tr><td>Trinkgeld</td><td>' + formatPrice(trinkgeld) + '</td></tr>' : ''}
+    <tr class="gesamt"><td>Gesamt</td><td>${formatPrice(bruttoGesamt)}</td></tr>
+    <tr><td colspan="2" class="zahlart">Bezahlt: ${zahlartText}</td></tr>
+</table>
+
+${wegHtml}
+
+<div class="steuer">
+    <div>
+        <div class="feldname">MwSt.-Ausweis gem. §14 UStG</div>
+        <table style="margin-top:5px;">
+            <tr><th>Satz</th><th>Netto</th><th>MwSt</th><th>Brutto</th></tr>
+            <tr>
+                <td>${mwstSatz},00 %</td>
+                <td>${formatPrice(nettoGesamt)}</td>
+                <td>${formatPrice(mwstBetrag)}</td>
+                <td>${formatPrice(bruttoGesamt)}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="dank">Vielen Dank für Ihre Bestellung!</div>
+
+<div class="fuss">
+    <div class="rechtstext">
+        Dieses Dokument ist eine Bestellbestätigung und kein steuerlicher Beleg im Sinne
+        des § 146a AO i.V.m. KassenSichV. Erstellt ohne TSE, kein Kassenbon — den
+        offiziellen Kassenbon stellt das Restaurant aus. Alle Preise inkl. ${mwstSatz} % MwSt.
+    </div>
+    <div class="marke">
+        <div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div>
+        <div class="marke-url">kiekmolin.de</div>
+    </div>
 </div>
 
 </body></html>`;
@@ -51651,8 +51903,55 @@ ${order.order_type === 'delivery' && order.delivery_address ? (() => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(printContent);
     printWindow.document.close();
-    setTimeout(function() { printWindow.print(); }, 300);
+    bonDruckenWennFertig(printWindow);
 }
+
+// ERST DRUCKEN, WENN DIE BILDER DA SIND.
+//
+// Vorher stand hier setTimeout(print, 300) -- eine geratene Zahl. Der
+// QR-Code kommt von api.qrserver.com und das Logo aus der Datenbank; beides
+// braucht im Restaurant-WLAN regelmaessig laenger als 300 ms. Dann ging der
+// Beleg mit einem leeren Kasten raus, wo die Navigation haette stehen
+// sollen. Aufgefallen ist es niemandem, weil ein fehlendes Bild im
+// Druckdialog einfach eine Luecke ist.
+//
+// Jetzt wird gewartet, bis jedes Bild geladen ODER gescheitert ist,
+// hoechstens aber drei Sekunden -- ein Beleg darf nicht am Netz haengen
+// bleiben. Was nicht kommt, wird ausgeblendet: eine leere Flaeche auf
+// Papier sieht nach Fehler aus, die Adresse daneben steht ohnehin da.
+function bonDruckenWennFertig(fenster, maxWartenMs) {
+    var fertig = false;
+    function los() {
+        if (fertig) return;
+        fertig = true;
+        try {
+            // Was nicht geladen hat, kommt nicht mit aufs Papier.
+            var bilder = fenster.document.images || [];
+            for (var i = 0; i < bilder.length; i++) {
+                if (!bilder[i].complete || bilder[i].naturalWidth === 0) {
+                    var box = bilder[i].closest ? bilder[i].closest('.weg-qr') : null;
+                    if (box) box.style.display = 'none'; else bilder[i].style.display = 'none';
+                }
+            }
+        } catch (e) {}
+        try { fenster.print(); } catch (e) {}
+    }
+
+    var bilder;
+    try { bilder = fenster.document.images; } catch (e) { setTimeout(los, 300); return; }
+    var offen = 0;
+    for (var i = 0; i < bilder.length; i++) {
+        var bild = bilder[i];
+        if (bild.complete) continue;
+        offen++;
+        var ab = function () { if (--offen <= 0) los(); };
+        bild.addEventListener('load', ab, { once: true });
+        bild.addEventListener('error', ab, { once: true });
+    }
+    if (offen === 0) { setTimeout(los, 120); return; }
+    setTimeout(los, maxWartenMs || 3000);       // Notbremse
+}
+window.bonDruckenWennFertig = bonDruckenWennFertig;
 
 // Küchen-Bon drucken (ohne MwSt, QR-Code, Disclaimer)
 async function printKitchenBon(orderId) {
@@ -51807,7 +52106,10 @@ async function printKitchenBon(orderId) {
     if (printWindow) {
         printWindow.document.write(printContent);
         printWindow.document.close();
-        setTimeout(function() { printWindow.print(); }, 300);
+        // Derselbe Weg wie beim Kundenbeleg -- ein Bon wartet auf seine
+        // Bilder, statt nach geratenen 300 Millisekunden loszudrucken.
+        // Der Kuechenbon hat meist gar keine, dann geht es sofort los.
+        bonDruckenWennFertig(printWindow);
     } else {
         showToast('Pop-up blockiert — bitte Pop-ups erlauben', 'warning');
     }
@@ -51966,6 +52268,39 @@ async function printToEpson(order, printer) {
 function savePrinterSettings(settings) {
     localStorage.setItem('kin_printer_settings', JSON.stringify(settings));
 }
+
+// AUF WELCHES PAPIER GEHT DER BELEG?
+//
+// Im Beleg stand fest "@page { size: 80mm auto }" -- die Breite einer
+// Kassenrolle. Gemeldet wurde ein Ausdruck auf einem gewoehnlichen
+// A4-Drucker (Epson ET-8550): eine 7 cm schmale Spalte mitten auf dem
+// Blatt, und der Text lief auf ZWEI Blaetter.
+//
+// Entschieden werden kann das nur vom Menschen -- welcher Drucker
+// angeschlossen ist, sieht der Browser nicht. Also: Einstellung, und die
+// Vorgabe ist A4. Das ist das Papier, das in einem gewoehnlichen Drucker
+// liegt; wer eine Kassenrolle hat, stellt einmal um.
+//
+// 'a4' | 'thermo'
+function bonPapierFormat(restId) {
+    try {
+        var conf = getPrinterSettings()[restId] || getPrinterSettings()['default'] || {};
+        return conf.papier === 'thermo' ? 'thermo' : 'a4';
+    } catch (e) { return 'a4'; }
+}
+function setBonPapierFormat(restId, format) {
+    var settings = getPrinterSettings();
+    if (!settings[restId]) settings[restId] = {};
+    settings[restId].papier = (format === 'thermo') ? 'thermo' : 'a4';
+    savePrinterSettings(settings);
+    if (typeof showToast === 'function') {
+        showToast(settings[restId].papier === 'thermo'
+            ? 'Belege werden für die Kassenrolle (80 mm) gesetzt'
+            : 'Belege werden auf A4 gesetzt', 'success');
+    }
+}
+window.bonPapierFormat = bonPapierFormat;
+window.setBonPapierFormat = setBonPapierFormat;
 
 var qzConnected = false;
 
@@ -52289,6 +52624,11 @@ function openPrinterSettings() {
 }
 
 function openMultiPrinterSettings() {
+    // Ein schon offenes Fenster zuerst weg -- sonst stapeln sich zwei
+    // uebereinander, wenn der Dialog sich selbst neu aufbaut.
+    var offen = document.getElementById('multiPrinterOverlay');
+    if (offen) offen.remove();
+
     var restId = document.getElementById('ordersRestaurantSelect')?.value || 'default';
     var printers = getPrinterList(restId);
 
@@ -52374,6 +52714,26 @@ function openMultiPrinterSettings() {
         '<div id="multiPrinterList">' + listHtml + '</div>' +
         '<button type="button" onclick="addMultiPrinter()" style="width:100%;margin-top:8px;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px dashed var(--border-color);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">+ Drucker hinzufügen</button>' +
         '<div id="multiPrinterTestResult" style="margin-top:12px;padding:10px;border-radius:12px;font-size:13px;display:none;"></div>' +
+        // PAPIERFORMAT. Steht hier, weil es genau dazugehoert und der Wirt
+        // sonst nirgends erfaehrt, dass es die Wahl gibt. Der Beleg war fest
+        // auf Kassenrolle gesetzt -- auf einem A4-Drucker kam eine schmale
+        // Spalte auf zwei Blaettern heraus.
+        '<div style="margin-top:16px;padding:14px;background:var(--bg-secondary);border-radius:12px;">' +
+            '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">Papier für den Kundenbeleg</div>' +
+            '<div style="font-size:12px;color:var(--slate);margin-bottom:10px;">Gilt für den Ausdruck über den Browser. Kassenrolle ist 80 mm breit und endlos, A4 ist ein normales Blatt.</div>' +
+            '<div style="display:flex;gap:8px;">' +
+                (function () {
+                    var jetzt = bonPapierFormat(restId);
+                    return [['a4', 'A4-Blatt'], ['thermo', 'Kassenrolle 80 mm']].map(function (w) {
+                        var an = (jetzt === w[0]);
+                        return '<button type="button" onclick="setBonPapierFormat(\'' + restId + '\', \'' + w[0] + '\'); openMultiPrinterSettings();" '
+                            + 'style="flex:1;padding:10px;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;'
+                            + (an ? 'background:var(--primary);color:white;border:none;' : 'background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);')
+                            + '">' + w[1] + '</button>';
+                    }).join('');
+                })() +
+            '</div>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
             '<button type="button" onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
             '<button type="button" onclick="saveMultiPrinterSettings()" style="flex:1;padding:12px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:14px;font-weight:600;cursor:pointer;">Speichern</button>' +
@@ -56511,34 +56871,52 @@ async function loadDailySpecials() {
 
         if (!res.ok) { container.style.display = 'none'; return; }
         var specials = await res.json();
-        if (!Array.isArray(specials) || specials.length === 0) { container.style.display = 'none'; return; }
+        if (!Array.isArray(specials)) specials = [];
 
         specials = specials.filter(function(s) { return angebotLaeuftNoch(s); });
+
+        // Nach Haus ablegen -- daraus baut die Restaurantliste ihre Zeile
+        // "Heute: ...". Auch bei NULL Angeboten neu setzen, sonst bliebe eine
+        // alte Zeile auf einer Karte stehen, deren Angebot gerade ablief.
+        var nachHaus = {};
+        specials.forEach(function(sp) {
+            var rid = sp.restaurant_id;
+            if (!rid) return;
+            (nachHaus[rid] = nachHaus[rid] || []).push(sp);
+        });
+        window._angeboteHeute = nachHaus;
+        if (typeof angebotAbzeichenSetzen === 'function') angebotAbzeichenSetzen();
+
         if (specials.length === 0) { container.style.display = 'none'; return; }
 
         container.style.display = 'block';
-        container.innerHTML = '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Tagesangebote</div>' +
-            '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
+        container.innerHTML =
+            '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;">' +
+              '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">Tagesangebote</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);">' +
+                specials.length + (specials.length === 1 ? ' Angebot heute' : ' Angebote heute') +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">' +
             specials.map(function(s) {
+                // Die Karte selbst kommt aus angebotKarteHtml -- dieselbe wie in
+                // der Speisekarte und auf der Restaurantseite. Vorher hatte jede
+                // der drei Stellen ihre eigene, und sie liefen auseinander.
+                // Hier kommt nur das dazu, was die Startseite braucht: der Name
+                // des Hauses und der Weg dorthin.
                 var rName = (s.restaurants && s.restaurants.name) ? s.restaurants.name : 'Restaurant';
                 var slug = (s.restaurants && s.restaurants.slug) ? s.restaurants.slug : '';
-                var isHappyHour = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
-                var bgGradient = isHappyHour ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
-                var cleanDesc = angebotText(s);
-                var zeit = angebotZeitHinweis(s);
-                var preis = angebotPreis(s.price);
-                var altPreis = angebotPreis(s.old_price);
-                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')" style="cursor:pointer;' : ' style="';
-                return '<div' + klick + 'min-width:260px;background:' + bgGradient + ';border-radius:16px;padding:18px;color:white;flex-shrink:0;">' +
-                    '<div style="font-size:11px;opacity:0.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + (isHappyHour ? 'Happy Hour' : 'Tagesangebot') + ' · ' + escapeHtml(rName) + '</div>' +
-                    '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;">' + escapeHtml(s.title || 'Angebot') + '</div>' +
-                    (cleanDesc ? '<div style="font-size:13px;opacity:0.9;margin-bottom:8px;">' + escapeHtml(cleanDesc) + '</div>' : '') +
-                    '<div style="display:flex;align-items:baseline;gap:8px;">' +
-                    (preis ? '<div style="font-size:20px;font-weight:700;">' + preis + '</div>' : '') +
-                    (altPreis ? '<div style="font-size:13px;text-decoration:line-through;opacity:0.6;">' + altPreis + '</div>' : '') +
+                var klick = slug ? ' onclick="openRestaurantBySlug(\'' + escapeHtml(slug) + '\')"' : '';
+                var zeiger = slug ? 'cursor:pointer;' : '';
+                return '<div' + klick + ' style="min-width:270px;max-width:300px;flex-shrink:0;' + zeiger + '">' +
+                    angebotKarteHtml(s) +
+                    '<div style="display:flex;align-items:center;gap:4px;margin-top:6px;padding:0 4px;' +
+                      'font-size:12px;font-weight:600;color:var(--text-secondary);">' +
+                      '<span class="material-symbols-outlined" style="font-size:14px;">storefront</span>' +
+                      '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(rName) + '</span>' +
+                      (slug ? '<span class="material-symbols-outlined" style="font-size:14px;margin-left:auto;">arrow_forward</span>' : '') +
                     '</div>' +
-                    (zeit ? '<div style="font-size:11px;opacity:0.7;margin-top:4px;"><span class="material-symbols-outlined" style="font-size:11px;">schedule</span> ' + zeit + '</div>' : '') +
-                    '</div>';
+                '</div>';
             }).join('') +
             '</div>';
     } catch(e) {
@@ -64601,6 +64979,182 @@ async function addLoyaltyPoint(phone, restaurantId) {
     }
 }
 
+// ALLE STEMPELKARTEN EINES GASTES, UEBER ALLE HAEUSER.
+//
+// WARUM
+// -----
+// Die Stempelkarte zaehlt pro Haus: zehn Bestellungen beim SELBEN
+// Restaurant ergeben ein Gratis-Essen (siehe addLoyaltyPoint). Fuer einen
+// Feriengast rechnet sich das nie -- er isst in einer Woche dreimal
+// auswaerts, in drei verschiedenen Haeusern, und kommt bei keinem auf
+// zehn. Fuer Einheimische dauert es Monate.
+//
+// Diese Funktion aendert an der Regel NICHTS. Sie holt nur, was ohnehin
+// schon in der Datenbank steht, und zeigt es dem Gast an EINER Stelle:
+// wo er wieviele Stempel hat und wie oft er insgesamt ueber die Plattform
+// bestellt hat.
+//
+// Zwei Gruende dafuer:
+//   1. Der Gast sieht zum ersten Mal, dass hinter den Haeusern eine
+//      Plattform steht. Heute sieht er nur die Karte des Hauses, in dem er
+//      gerade bestellt -- und die sieht aus wie eine Pappkarte an der
+//      Theke.
+//   2. Es beantwortet die Frage, die vor jeder groesseren Aenderung steht:
+//      verteilen sich Gaeste ueberhaupt auf mehrere Haeuser? Ohne diese
+//      Zahl waere eine haeuseruebergreifende Karte geraten. Wer bezahlt
+//      dann das Gratis-Essen -- das Haus, in dem eingeloest wird, oder
+//      alle anteilig -- ist eine Geldfrage und keine Programmierfrage.
+//      Sie wird mit Daten entschieden, nicht vorher.
+async function loyaltyAlleHaeuser(phone) {
+    if (!phone) return [];
+    try {
+        var url = SUPABASE_URL + '/rest/v1/loyalty_stamps'
+            + '?customer_phone=eq.' + encodeURIComponent(phone)
+            + '&select=restaurant_id,stamps_count,free_meals_earned,free_meals_used,last_order_at'
+            + '&order=last_order_at.desc';
+        var res = await fetch(url, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (!res.ok) return [];
+        var reihen = await res.json();
+        if (!Array.isArray(reihen)) return [];
+
+        return reihen.map(function (r) {
+            var haus = (APP_DATA.restaurants || []).find(function (x) { return x.id === r.restaurant_id; });
+            var bestellungen = Number(r.stamps_count) || 0;
+            var offen = Math.max(0, (Number(r.free_meals_earned) || 0) - (Number(r.free_meals_used) || 0));
+            // DER WIRT KANN DIE STEMPELKARTE ABSCHALTEN.
+            // Der Schalter im Dashboard schreibt "loyalty_points" in
+            // features. Ist er aus, entstehen keine neuen Stempel mehr
+            // (siehe die Abfrage beim Abschluss der Bestellung) -- die alten
+            // stehen aber weiter in der Datenbank. Ohne diese Pruefung
+            // haette die Uebersicht dem Gast eine Karte versprochen, die es
+            // in dem Haus nicht mehr gibt.
+            var aktiv = !!(haus && (haus.features || []).indexOf('loyalty_points') !== -1);
+            return {
+                id: r.restaurant_id,
+                // Ist das Haus nicht (mehr) in der Liste, steht hier kein
+                // erfundener Name -- der Gast soll nicht raten muessen.
+                name: haus ? haus.name : 'Restaurant',
+                bekannt: !!haus,
+                aktiv: aktiv,
+                slug: haus ? (haus.slug || haus.id) : null,
+                bestellungen: bestellungen,
+                stempel: bestellungen % 10,
+                // Ein Gratis-Essen bei abgeschalteter Karte ist keins mehr.
+                gratisOffen: aktiv ? offen : 0,
+                zuletzt: r.last_order_at || null
+            };
+        }).filter(function (z) { return z.bestellungen > 0; });
+    } catch (e) {
+        console.warn('Stempelkarten laden:', e.message);
+        return [];
+    }
+}
+window.loyaltyAlleHaeuser = loyaltyAlleHaeuser;
+
+// Die Ansicht dazu im Profil des Gastes.
+async function openMeineStempelkarten() {
+    var telefon = '';
+    try { telefon = localStorage.getItem('kmi_customer_phone') || ''; } catch (e) {}
+    if (!telefon && typeof currentUser !== 'undefined' && currentUser) telefon = currentUser.phone || '';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'stempelkartenOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10006;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    function huelle(inhalt) {
+        return '<div class="modal" style="max-width:460px;width:100%;border-radius:20px;background:var(--bg-card);display:block;max-height:82vh;overflow-y:auto;">'
+             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 6px;">'
+             +   '<div style="font-family:Epilogue,sans-serif;font-weight:800;font-size:18px;color:var(--text-primary);">Meine Stempelkarten</div>'
+             +   '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;font-size:26px;line-height:1;cursor:pointer;color:var(--text-secondary);">×</button>'
+             + '</div>'
+             + '<div style="padding:0 20px 22px;">' + inhalt + '</div>'
+             + '</div>';
+    }
+
+    overlay.innerHTML = huelle('<div style="padding:26px 0;text-align:center;color:var(--text-secondary);font-size:14px;">Lädt…</div>');
+    document.body.appendChild(overlay);
+
+    if (!telefon) {
+        overlay.innerHTML = huelle('<div style="padding:8px 0 4px;color:var(--text-secondary);font-size:14px;line-height:1.6;">'
+            + 'Stempel werden über die Telefonnummer geführt, die du bei der Bestellung angibst. '
+            + 'Sobald du einmal bestellt hast, stehen sie hier.</div>');
+        return;
+    }
+
+    var karten = await loyaltyAlleHaeuser(telefon);
+    if (!document.body.contains(overlay)) return;      // inzwischen geschlossen
+
+    if (!karten.length) {
+        overlay.innerHTML = huelle('<div style="padding:8px 0 4px;color:var(--text-secondary);font-size:14px;line-height:1.6;">'
+            + 'Noch keine Stempel. Bei jeder Bestellung kommt einer dazu — die zehnte ist gratis.</div>');
+        return;
+    }
+
+    var gesamt = karten.reduce(function (n, k) { return n + k.bestellungen; }, 0);
+    var gratis = karten.reduce(function (n, k) { return n + k.gratisOffen; }, 0);
+
+    var h = '<div style="display:flex;gap:10px;margin:4px 0 16px;">'
+          + '<div style="flex:1;background:var(--bg-secondary);border-radius:14px;padding:12px 14px;">'
+          +   '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--ink-strong);line-height:1;">' + gesamt + '</div>'
+          +   '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Bestellungen über alle Häuser</div>'
+          + '</div>'
+          + '<div style="flex:1;background:var(--bg-secondary);border-radius:14px;padding:12px 14px;">'
+          +   '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:' + (gratis ? '#b45309' : 'var(--ink-strong)') + ';line-height:1;">' + gratis + '</div>'
+          +   '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">' + (gratis === 1 ? 'Gratis-Essen offen' : 'Gratis-Essen offen') + '</div>'
+          + '</div>'
+          + '</div>';
+
+    // Aktive Haeuser zuerst -- abgeschaltete gehoeren nach unten, sie sind
+    // nur noch Vergangenheit.
+    karten.sort(function (a, b) { return (b.aktiv ? 1 : 0) - (a.aktiv ? 1 : 0); });
+
+    karten.forEach(function (k) {
+        var voll = k.aktiv ? '#003D33' : 'rgba(0,61,51,0.28)';
+        var punkte = '';
+        for (var i = 0; i < 10; i++) {
+            punkte += i < k.stempel
+                ? '<span style="width:12px;height:12px;border-radius:50%;background:' + voll + ';display:inline-block;"></span>'
+                : '<span style="width:12px;height:12px;border-radius:50%;border:1.5px dashed rgba(0,61,51,0.28);display:inline-block;"></span>';
+        }
+        var klick = k.slug ? ' onclick="closeStempelkarten(); openRestaurantBySlug(\'' + escapeHtml(k.slug) + '\')" style="cursor:pointer;' : ' style="';
+        h += '<div' + klick + 'background:var(--bg-secondary);border-radius:14px;padding:13px 15px;margin-bottom:9px;'
+           + (k.aktiv ? '' : 'opacity:0.72;') + '">'
+           +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;">'
+           +     '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(k.name) + '</span>'
+           +     (!k.aktiv
+                    ? '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">ausgesetzt</span>'
+                    : (k.gratisOffen
+                        ? '<span style="flex-shrink:0;background:#FFD54F;color:#003D33;border-radius:9999px;padding:2px 9px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">Gratis</span>'
+                        : '<span style="flex-shrink:0;font-size:11px;color:var(--text-secondary);">' + k.stempel + '/10</span>'))
+           +   '</div>'
+           +   '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + punkte + '</div>'
+           // Nicht verschweigen und nicht so tun, als zaehle es weiter:
+           // das Haus fuehrt zurzeit keine Stempelkarte.
+           +   (k.aktiv ? '' : '<div style="font-size:11px;color:var(--text-secondary);margin-top:8px;line-height:1.5;">'
+                 + 'Dieses Haus führt zurzeit keine Stempelkarte. Deine Stempel bleiben gespeichert.</div>')
+           + '</div>';
+    });
+
+    // EHRLICH BLEIBEN: die Stempel gelten je Haus. Wer das nicht dazuschreibt,
+    // laesst die Uebersicht so aussehen, als waeren es 14 Stempel auf EINER
+    // Karte -- und der Gast steht beim naechsten Haus enttaeuscht da.
+    h += '<div style="margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.6;">'
+       + 'Stempel gelten pro Haus: zehn Bestellungen bei demselben Restaurant ergeben ein Gratis-Essen.</div>';
+
+    overlay.innerHTML = huelle(h);
+}
+window.openMeineStempelkarten = openMeineStempelkarten;
+
+function closeStempelkarten() {
+    var o = document.getElementById('stempelkartenOverlay');
+    if (o) o.remove();
+}
+window.closeStempelkarten = closeStempelkarten;
+
 function getLoyaltyStamps(phone, restId) {
     var d = getLoyaltyData(phone, restId);
     return d.orders % 10; // 0-9 Stempel
@@ -65740,15 +66294,125 @@ function angebotPreis(wert) {
     return z.toFixed(2).replace('.', ',') + ' €';
 }
 
+// Was der Gast spart. Das ist der Kern eines Angebots -- vorher stand nur der
+// alte Preis durchgestrichen daneben, und der Gast musste selbst rechnen.
+// Leer, wenn kein alter Preis eingetragen ist oder er nicht hoeher liegt.
+function angebotErsparnis(s) {
+    if (!s) return '';
+    var neu = Number(s.price), alt = Number(s.old_price);
+    if (!isFinite(neu) || !isFinite(alt) || neu <= 0 || alt <= neu) return '';
+    var diff = alt - neu;
+    if (diff < 0.5) return '';                       // unter 50 Cent lohnt der Hinweis nicht
+    return '– ' + diff.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Alle heutigen Angebote nach Haus sortiert. Wird von loadDailySpecials
+// gefuellt und von den Abzeichen in der Restaurantliste gelesen.
+window._angeboteHeute = window._angeboteHeute || {};
+
+// Die Zeile, die in der Restaurantliste auf der Karte steht.
+//
+// WARUM ES DIESE ZEILE BRAUCHT
+// Ein Haus mit Tagesangebot sah in der Liste genauso aus wie eins ohne. Der
+// Gast scrollt an sieben Karten vorbei und erfaehrt nirgends, wer heute
+// etwas hat. Die Angebotsleiste ganz oben nennt zwar den Hausnamen -- wer
+// direkt zur Liste scrollt, sieht sie nie. Genau hier entscheidet er sich.
+function angebotZeileHtml(angebote) {
+    if (!angebote || !angebote.length) return '';
+    var s = angebote[0];
+    var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
+    var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,#003d33,#2d8a6e)';
+    var akzent = happy ? '#9a3412' : '#00251e';
+    var preis = angebotPreis(s.price);
+    var altPreis = angebotPreis(s.old_price);
+    var spart = angebotErsparnis(s);
+    var mehr = angebote.length - 1;
+
+    // ZWEI ZEILEN, NICHT EINE.
+    // Erst stand alles nebeneinander: Symbol, "Heute", Titel, Preis,
+    // Ersparnis. Im Browser nachgemessen blieben dem Gerichtnamen 41 Pixel --
+    // aus "Grünkohl mit Pinkel" wurde "Grünko…". Ausgerechnet das, worauf es
+    // ankommt. Jetzt bekommt der Name eine eigene Zeile.
+    var h = '<div style="position:relative;margin-top:12px;border-radius:16px;overflow:hidden;'
+          + 'background:' + farbe + ';color:white;padding:12px 14px;'
+          + 'box-shadow:0 6px 18px -6px ' + akzent + '66;">';
+
+    // Kopfzeile: Anlass links, Ersparnis rechts. Die Ersparnis in Weiss auf
+    // Farbe -- das ist der Kontrast, der ins Auge springt.
+    h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">';
+    h += '<span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0;">'
+       + (happy ? 'local_bar' : 'local_offer') + '</span>';
+    h += '<span style="font-family:Epilogue,sans-serif;font-size:11px;font-weight:800;'
+       + 'text-transform:uppercase;letter-spacing:1px;">'
+       + (happy ? 'Happy Hour' : 'Heute im Angebot') + '</span>';
+    if (spart) {
+        h += '<span style="margin-left:auto;flex-shrink:0;background:var(--angebot-pille);color:' + akzent + ';'
+           + 'font-family:Epilogue,sans-serif;font-size:12px;font-weight:900;'
+           + 'border-radius:9999px;padding:3px 10px;white-space:nowrap;">' + spart + '</span>';
+    }
+    h += '</div>';
+
+    // Hauptzeile: der Gerichtname gross, der Preis daneben.
+    h += '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">';
+    h += '<div style="min-width:0;flex:1;">';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:15px;font-weight:700;line-height:1.25;'
+       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(s.title || 'Angebot') + '</div>';
+    if (mehr > 0) {
+        h += '<div style="font-size:11px;opacity:0.85;margin-top:2px;">und '
+           + mehr + (mehr === 1 ? ' weiteres Angebot' : ' weitere Angebote') + '</div>';
+    }
+    h += '</div>';
+    if (preis) {
+        h += '<div style="text-align:right;flex-shrink:0;">';
+        h += '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:900;line-height:1;">' + preis + '</div>';
+        if (altPreis) h += '<div style="font-size:11px;text-decoration:line-through;opacity:0.7;margin-top:2px;">' + altPreis + '</div>';
+        h += '</div>';
+    }
+    h += '</div>';
+    h += '</div>';
+    return h;
+}
+
+// Traegt die Zeile in die schon gezeichneten Karten ein.
+//
+// Nachtraeglich und nicht beim Zeichnen, weil beides unabhaengig laedt: mal
+// steht die Liste zuerst, mal sind die Angebote zuerst da. Deshalb rufen
+// BEIDE Seiten diese Funktion auf, und sie kommt mit jeder Reihenfolge klar.
+function angebotAbzeichenSetzen() {
+    var plaetze = document.querySelectorAll('.card-angebot[data-restaurant-id]');
+    for (var i = 0; i < plaetze.length; i++) {
+        var el = plaetze[i];
+        var id = el.getAttribute('data-restaurant-id');
+        var liste = (window._angeboteHeute && window._angeboteHeute[id]) || [];
+        // Abgelaufene noch einmal aussortieren: die Liste kann seit dem Laden
+        // alt geworden sein, wenn die Seite lange offen liegt.
+        liste = liste.filter(function (s) { return angebotLaeuftNoch(s); });
+        var neuHtml = angebotZeileHtml(liste);
+        if (el.innerHTML !== neuHtml) el.innerHTML = neuHtml;
+    }
+}
+window.angebotAbzeichenSetzen = angebotAbzeichenSetzen;
+
 // Eine Angebotskarte. Titel und Beschreibung kommen aus dem Dashboard des
 // Wirts und gehen ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+// Eine Angebotskarte.
+//
+// Titel und Beschreibung kommen aus dem Dashboard des Wirts und gehen
+// ungeprueft in fremde Browser -- deshalb durch escapeHtml.
+//
+// GESTALTUNG
+// Das Wichtigste zuerst: was es gibt, was es kostet, was der Gast spart.
+// Die Ersparnis stand vorher nirgends -- da war nur der alte Preis
+// durchgestrichen daneben und der Gast durfte selbst rechnen. Genau die
+// Zahl ist aber der Grund, warum ein Angebot eines ist.
 function angebotKarteHtml(s) {
     var happy = String(s.title || '').toLowerCase().indexOf('happy hour') !== -1;
     var farbe = happy ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : 'linear-gradient(135deg,var(--primary),#2d8a6e)';
     var text = angebotText(s);
     var zeit = angebotZeitHinweis(s);
     var preis = angebotPreis(s.price);
-    var alt = angebotPreis(s.old_price);
+    var altPreis = angebotPreis(s.old_price);
+    var spart = angebotErsparnis(s);
 
     // Steht "Happy Hour" schon als Titel da, braucht es nicht zusaetzlich
     // als Etikett darueber -- sonst stand es zweimal untereinander.
@@ -65756,21 +66420,60 @@ function angebotKarteHtml(s) {
     var etikett = happy ? 'Happy Hour' : 'Tagesangebot';
     if (titel.trim().toLowerCase() === etikett.toLowerCase()) etikett = '';
 
-    var h = '<div style="background:' + farbe + ';border-radius:16px;padding:16px;color:white;">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">';
+    var h = '<div style="position:relative;background:' + farbe + ';border-radius:20px;padding:18px;'
+          + 'color:white;overflow:hidden;box-shadow:0 8px 24px -8px rgba(0,37,30,0.35);'
+          + 'border:1px solid rgba(255,255,255,0.14);">';
+
+    // Die Ersparnis in Weiss auf Farbe statt blass durchscheinend -- das ist
+    // die Zahl, wegen der jemand zugreift, die darf knallen.
+    var sparPille = spart
+        ? '<span style="font-family:Epilogue,sans-serif;font-size:12px;font-weight:900;'
+          + 'background:var(--angebot-pille);color:' + (happy ? '#9a3412' : '#00251e') + ';'
+          + 'border-radius:9999px;padding:4px 11px;white-space:nowrap;'
+          + 'box-shadow:0 2px 8px rgba(0,0,0,0.18);">' + spart + '</span>'
+        : '';
+
+    if (etikett) {
+        // Kopfzeile: Anlass links, Ersparnis rechts. Die Ersparnis steht oben
+        // und nicht beim Preis -- dort waere sie das dritte Zahlenpaar
+        // untereinander gewesen und haette den Preis erschlagen.
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">';
+        h += '<span style="font-size:10px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.8px;">'
+           + etikett + '</span>' + sparPille;
+        h += '</div>';
+    }
+    // Ohne Etikett gehoert die Pille nicht in eine eigene Kopfzeile -- die
+    // waere leer und die Karte dadurch hoeher als die daneben. Sie wandert
+    // dann ueber den Preis, in dieselbe Spalte. In die Ecke gehaengt hat sie
+    // im Browser den Preis verdeckt.
+    var pilleUeberPreis = (!etikett && sparPille) ? sparPille : '';
+
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;'
+       + (etikett ? '' : 'margin-top:2px;') + '">';
     h += '<div style="min-width:0;">';
-    if (etikett) h += '<div style="font-size:10px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;">' + etikett + '</div>';
-    h += '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;margin-top:2px;">' + escapeHtml(titel) + '</div>';
-    if (text) h += '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + escapeHtml(text) + '</div>';
+    h += '<div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:700;line-height:1.25;">'
+       + escapeHtml(titel) + '</div>';
+    if (text) {
+        h += '<div style="font-size:12.5px;opacity:0.88;margin-top:5px;line-height:1.4;">'
+           + escapeHtml(text) + '</div>';
+    }
     h += '</div>';
-    if (preis || alt) {
+    if (preis || altPreis || pilleUeberPreis) {
         h += '<div style="text-align:right;flex-shrink:0;">';
-        if (preis) h += '<div style="font-size:20px;font-weight:700;">' + preis + '</div>';
-        if (alt) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.7;">' + alt + '</div>';
+        if (pilleUeberPreis) h += '<div style="margin-bottom:6px;">' + pilleUeberPreis + '</div>';
+        if (preis) h += '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;line-height:1;">' + preis + '</div>';
+        if (altPreis) h += '<div style="font-size:12px;text-decoration:line-through;opacity:0.65;margin-top:4px;">' + altPreis + '</div>';
         h += '</div>';
     }
     h += '</div>';
-    if (zeit) h += '<div style="font-size:11px;opacity:0.75;margin-top:6px;">' + zeit + '</div>';
+
+    // Uhrzeit unten, durch eine Haarlinie abgesetzt: sie gehoert zum
+    // Angebot, ist aber nicht das, weswegen jemand hinschaut.
+    if (zeit) {
+        h += '<div style="display:flex;align-items:center;gap:5px;margin-top:12px;padding-top:10px;'
+           + 'border-top:1px solid rgba(255,255,255,0.18);font-size:11px;opacity:0.85;">'
+           + '<span class="material-symbols-outlined" style="font-size:13px;">schedule</span>' + zeit + '</div>';
+    }
     h += '</div>';
     return h;
 }
