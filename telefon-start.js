@@ -53,7 +53,7 @@ async function twilio(pfad, methode, formDaten) {
     optionen.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     optionen.body = new URLSearchParams(formDaten).toString();
   }
-  const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + SID + pfad, optionen);
+  const antwort = await fetch(twilioAuth.kontoUrl(pfad), optionen);
   const daten = await antwort.json().catch(() => ({}));
   return { ok: antwort.ok, status: antwort.status, daten };
 }

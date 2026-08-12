@@ -294,6 +294,27 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     }
   });
 
+  await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
+    const auth = require('./lib/twilio-auth');
+    const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };
+    try {
+      process.env.TWILIO_ACCOUNT_SID = 'AC42';
+      delete process.env.TWILIO_REGION;
+      assert.strictEqual(auth.basisUrl(), 'https://api.twilio.com', 'ohne Angabe: USA/global');
+      assert.strictEqual(auth.kontoUrl('/Messages.json'), 'https://api.twilio.com/2010-04-01/Accounts/AC42/Messages.json');
+
+      process.env.TWILIO_REGION = 'ie1';
+      assert.strictEqual(auth.basisUrl(), 'https://api.ie1.twilio.com', 'Irland hat eigene Adresse');
+      process.env.TWILIO_REGION = 'US1';
+      assert.strictEqual(auth.basisUrl(), 'https://api.twilio.com', 'Gross-/Kleinschreibung egal');
+      process.env.TWILIO_REGION = 'gibt-es-nicht';
+      assert.strictEqual(auth.basisUrl(), 'https://api.twilio.com', 'Unbekanntes faellt auf Standard zurueck');
+    } finally {
+      if (alt.sid) process.env.TWILIO_ACCOUNT_SID = alt.sid; else delete process.env.TWILIO_ACCOUNT_SID;
+      if (alt.region) process.env.TWILIO_REGION = alt.region; else delete process.env.TWILIO_REGION;
+    }
+  });
+
   await test('Webhook-Schutz: Signatur zuerst, sonst geheimer Schluessel', () => {
     const crypto = require('crypto');
     const { anrufZugangGueltig } = require('./lib/sicherheit');
