@@ -21,7 +21,8 @@ const { AnrufSitzung } = require('./lib/anruf');
 
 ladeEnv();
 
-const { twilioSignaturGueltig, streamTokenErzeugen, streamTokenGueltig } = require('./lib/sicherheit');
+const { anrufZugangGueltig, streamTokenErzeugen, streamTokenGueltig } = require('./lib/sicherheit');
+const twilioAuth = require('./lib/twilio-auth');
 
 const PORT = parseInt(process.env.PORT || '3100', 10);
 const STUFE = parseInt(process.env.STUFE || '1', 10);
@@ -80,16 +81,21 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (d) => { body += d; });
     req.on('end', () => {
-      // Nur echte Twilio-Anfragen: Signatur gegen das Auth-Token pruefen
-      const webhookUrl = (process.env.BASE_URL || ('http://localhost:' + PORT)).replace(/\/$/, '') + '/anruf';
-      const echt = twilioSignaturGueltig({
+      // Nur echte Twilio-Anfragen. Mit Auth Token: Signatur pruefen.
+      // Ohne Auth Token (API-Key-Konto): geheimer Schluessel in der Adresse.
+      // Die Adresse muss inklusive Query-Teil in die Signatur - genau so,
+      // wie Twilio sie aufgerufen hat.
+      const webhookUrl = (process.env.BASE_URL || ('http://localhost:' + PORT)).replace(/\/$/, '') + req.url;
+      const zugang = anrufZugangGueltig({
         signaturHeader: req.headers['x-twilio-signature'],
         url: webhookUrl,
         body,
-        authToken: process.env.TWILIO_AUTH_TOKEN
+        authToken: process.env.TWILIO_AUTH_TOKEN,
+        schluessel: new URL(req.url, 'http://x').searchParams.get('schluessel'),
+        erwarteterSchluessel: process.env.TELEFON_WEBHOOK_SCHLUESSEL
       });
-      if (!echt) {
-        console.warn('Anfrage an /anruf mit ungueltiger Twilio-Signatur abgewiesen');
+      if (!zugang.ok) {
+        console.warn('Anfrage an /anruf abgewiesen (' + zugang.art + ' stimmt nicht)');
         res.writeHead(403);
         res.end('Verboten');
         return;
@@ -165,9 +171,15 @@ ladeDaten()
     server.listen(PORT, () => {
       console.log('Telefon-Retter laeuft auf Port ' + PORT);
       console.log('Twilio-Webhook (A CALL COMES IN): ' + (process.env.BASE_URL || 'https://DEINE-DOMAIN') + '/anruf');
-      if (!process.env.TWILIO_AUTH_TOKEN) {
-        console.warn('WARNUNG: TWILIO_AUTH_TOKEN fehlt in .env - der Webhook prueft KEINE Twilio-Signatur.');
-        console.warn('         Fuer den Live-Betrieb unbedingt setzen (Twilio Console -> Account Info -> Auth Token).');
+      if (process.env.TWILIO_AUTH_TOKEN) {
+        console.log('Webhook-Schutz: Twilio-Signatur (Auth Token) ✓');
+      } else if (process.env.TELEFON_WEBHOOK_SCHLUESSEL) {
+        console.log('Webhook-Schutz: geheimer Schluessel in der Adresse ✓  (API-Key-Konto ohne Auth Token)');
+        console.log('   Webhook-Adresse: ' + (process.env.BASE_URL || 'https://DEINE-DOMAIN') +
+          '/anruf?schluessel=' + process.env.TELEFON_WEBHOOK_SCHLUESSEL);
+      } else {
+        console.warn('WARNUNG: Weder TWILIO_AUTH_TOKEN noch TELEFON_WEBHOOK_SCHLUESSEL gesetzt -');
+        console.warn('         der Webhook laesst JEDE Anfrage durch. Fuer den Live-Betrieb: node telefon-start.js');
       }
       console.log('Anruf-Protokolle werden nach ' + LOG_TAGE + ' Tagen geloescht (LOG_AUFBEWAHRUNG_TAGE).');
     });

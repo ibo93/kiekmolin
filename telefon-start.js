@@ -9,11 +9,12 @@
 // Test-Nummer, verbindet sie mit dem Server (Webhook) und speichert die
 // oeffentliche Adresse (BASE_URL) in telefon-retter/.env.
 //
-// Voraussetzung: TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN sind eingetragen
-// (macht "node schluessel-einrichten.js", Schritt 4).
+// Voraussetzung: TWILIO_ACCOUNT_SID plus ENTWEDER Auth Token ODER
+// API Key + Secret (macht "node schluessel-einrichten.js", Schritt 4).
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const readline = require('readline');
 
 require('./telefon-retter/lib/env').ladeEnv();
@@ -39,13 +40,13 @@ function frage(text) {
   });
 }
 
-const SID = process.env.TWILIO_ACCOUNT_SID || '';
-const TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+const twilioAuth = require('./telefon-retter/lib/twilio-auth');
+const SID = twilioAuth.kontoSid();
 
 async function twilio(pfad, methode, formDaten) {
   const optionen = {
     method: methode || 'GET',
-    headers: { Authorization: 'Basic ' + Buffer.from(SID + ':' + TOKEN).toString('base64') },
+    headers: { Authorization: twilioAuth.authKopf() },
     signal: AbortSignal.timeout(25000)
   };
   if (formDaten) {
@@ -74,16 +75,17 @@ function schreibeEnvWert(name, wert) {
   console.log('Verbindet den Telefon-Retter mit deiner Twilio-Nummer.\n');
 
   // 1. Zugangsdaten pruefen
-  if (!SID || !TOKEN) {
-    console.log('Es fehlen TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.');
+  if (!twilioAuth.istKonfiguriert()) {
+    console.log('Es fehlen die Twilio-Zugangsdaten.');
+    console.log('Du brauchst die Account SID plus ENTWEDER den Auth Token ODER einen API Key + Secret.');
     console.log('-> Erst "node schluessel-einrichten.js" ausfuehren (Schritt 4), dann hier weiter.');
     rl.close();
     return;
   }
-  process.stdout.write('1/4  Pruefe Twilio-Konto... ');
+  process.stdout.write('1/4  Pruefe Twilio-Konto (' + twilioAuth.beschreibung() + ')... ');
   const konto = await twilio('.json');
   if (!konto.ok) {
-    console.log('FEHLER ' + konto.status + ' - SID/Token stimmen nicht. "node schluessel-einrichten.js" (Schritt 4) wiederholen.');
+    console.log('FEHLER ' + konto.status + ' - die Zugangsdaten stimmen nicht. "node schluessel-einrichten.js" (Schritt 4) wiederholen.');
     rl.close();
     return;
   }
@@ -145,9 +147,24 @@ function schreibeEnvWert(name, wert) {
   schreibeEnvWert('BASE_URL', basis);
 
   // 4. Webhook setzen: Anrufe auf die Nummer landen bei unserem Server
+  //
+  // Ohne Auth Token kann der Server die Twilio-Signatur nicht nachrechnen.
+  // Dann bekommt die Adresse eine geheime Zeichenkette angehaengt, die nur
+  // bei Twilio hinterlegt ist - Fremde kommen so nicht an den Webhook.
+  let anrufPfad = '/anruf';
+  if (!twilioAuth.kannSignaturPruefen()) {
+    let schluessel = process.env.TELEFON_WEBHOOK_SCHLUESSEL;
+    if (!schluessel) {
+      schluessel = crypto.randomBytes(24).toString('hex');
+      schreibeEnvWert('TELEFON_WEBHOOK_SCHLUESSEL', schluessel);
+    }
+    anrufPfad = '/anruf?schluessel=' + schluessel;
+    console.log('     Hinweis: Konto ohne Auth Token -> Webhook wird mit geheimem Schluessel geschuetzt.');
+  }
+
   process.stdout.write('4/4  Verbinde Nummer mit deinem Server... ');
   const webhook = await twilio('/IncomingPhoneNumbers/' + nummer.sid + '.json', 'POST', {
-    VoiceUrl: basis + '/anruf',
+    VoiceUrl: basis + anrufPfad,
     VoiceMethod: 'POST'
   });
   if (!webhook.ok) {
@@ -155,7 +172,7 @@ function schreibeEnvWert(name, wert) {
     rl.close();
     return;
   }
-  console.log('ok ✓  (' + basis + '/anruf)');
+  console.log('ok ✓  (' + basis + anrufPfad + ')');
 
   console.log('\n=== FERTIG - SO TESTEST DU ===');
   console.log('  1. Tunnel-Terminal OFFEN lassen (npx untun ...)');

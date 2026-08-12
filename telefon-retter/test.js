@@ -250,5 +250,80 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.deepStrictEqual(inSaetze(''), [], 'leer bleibt leer');
   });
 
+  await test('Twilio-Zugang: API Key ist der Ausweichweg, wenn der Auth Token fehlt', () => {
+    const auth = require('./lib/twilio-auth');
+    const sicherung = {
+      sid: process.env.TWILIO_ACCOUNT_SID, token: process.env.TWILIO_AUTH_TOKEN,
+      key: process.env.TWILIO_API_KEY, secret: process.env.TWILIO_API_SECRET
+    };
+    const setze = (o) => {
+      for (const [name, wert] of Object.entries(o)) {
+        if (wert) process.env[name] = wert; else delete process.env[name];
+      }
+    };
+
+    try {
+      // Gar nichts eingerichtet
+      setze({ TWILIO_ACCOUNT_SID: '', TWILIO_AUTH_TOKEN: '', TWILIO_API_KEY: '', TWILIO_API_SECRET: '' });
+      assert.strictEqual(auth.istKonfiguriert(), false);
+      assert.strictEqual(auth.authKopf(), null);
+
+      // Weg A: Auth Token - Benutzer ist die Konto-SID
+      setze({ TWILIO_ACCOUNT_SID: 'AC123', TWILIO_AUTH_TOKEN: 'geheim' });
+      assert.strictEqual(auth.zugangsdaten().art, 'auth-token');
+      assert.strictEqual(auth.zugangsdaten().benutzer, 'AC123');
+      assert.strictEqual(auth.kannSignaturPruefen(), true, 'mit Auth Token ist Signatur-Pruefung moeglich');
+      assert.strictEqual(auth.authKopf(), 'Basic ' + Buffer.from('AC123:geheim').toString('base64'));
+
+      // Weg B: API Key gewinnt, wenn beides da ist - und geht auch allein
+      setze({ TWILIO_API_KEY: 'SK9', TWILIO_API_SECRET: 'sec' });
+      assert.strictEqual(auth.zugangsdaten().art, 'api-key');
+      assert.strictEqual(auth.authKopf(), 'Basic ' + Buffer.from('SK9:sec').toString('base64'));
+      setze({ TWILIO_AUTH_TOKEN: '' });
+      assert.strictEqual(auth.istKonfiguriert(), true, 'API Key allein reicht fuer die REST-API');
+      assert.strictEqual(auth.kannSignaturPruefen(), false, 'ohne Auth Token KEINE Signatur-Pruefung');
+
+      // Halber API Key zaehlt nicht
+      setze({ TWILIO_API_SECRET: '' });
+      assert.strictEqual(auth.istKonfiguriert(), false, 'Key ohne Secret ist wertlos');
+    } finally {
+      setze({
+        TWILIO_ACCOUNT_SID: sicherung.sid, TWILIO_AUTH_TOKEN: sicherung.token,
+        TWILIO_API_KEY: sicherung.key, TWILIO_API_SECRET: sicherung.secret
+      });
+    }
+  });
+
+  await test('Webhook-Schutz: Signatur zuerst, sonst geheimer Schluessel', () => {
+    const crypto = require('crypto');
+    const { anrufZugangGueltig } = require('./lib/sicherheit');
+    const url = 'https://beispiel.de/anruf';
+    const body = 'From=%2B4915112345&To=%2B4915199999';
+    const authToken = 'auth-token-geheim';
+    const felder = [...new URLSearchParams(body).entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+    let daten = url;
+    for (const [n, w] of felder) daten += n + w;
+    const echteSignatur = crypto.createHmac('sha1', authToken).update(Buffer.from(daten, 'utf8')).digest('base64');
+
+    // Mit Auth Token entscheidet allein die Signatur
+    assert.strictEqual(anrufZugangGueltig({ signaturHeader: echteSignatur, url, body, authToken }).ok, true);
+    assert.strictEqual(anrufZugangGueltig({ signaturHeader: 'falsch', url, body, authToken }).ok, false);
+    // Ein Schluessel darf eine falsche Signatur NICHT retten
+    assert.strictEqual(anrufZugangGueltig({
+      signaturHeader: 'falsch', url, body, authToken, schluessel: 'abc', erwarteterSchluessel: 'abc'
+    }).ok, false, 'Auth Token hat Vorrang');
+
+    // Ohne Auth Token zaehlt der geheime Schluessel aus der Adresse
+    const ohne = (schluessel) => anrufZugangGueltig({ url, body, schluessel, erwarteterSchluessel: 'geheim123' });
+    assert.strictEqual(ohne('geheim123').ok, true);
+    assert.strictEqual(ohne('geheim124').ok, false);
+    assert.strictEqual(ohne('').ok, false, 'leer ist nie gueltig');
+    assert.strictEqual(ohne(null).ok, false);
+    assert.strictEqual(ohne('geheim123').art, 'schluessel');
+
+    // Weder noch: offen, aber ehrlich benannt (Server warnt beim Start)
+    assert.deepStrictEqual(anrufZugangGueltig({ url, body }), { ok: true, art: 'ungeschuetzt' });
+  });
+
   console.log('\n' + tests + ' Tests bestanden.');
 })().catch((e) => { console.error('\nTEST FEHLGESCHLAGEN: ' + (e && e.message)); process.exit(1); });

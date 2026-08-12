@@ -481,7 +481,8 @@ async function baueUebersicht() {
       denken: !!process.env.ANTHROPIC_API_KEY,
       zuhoeren: !!process.env.DEEPGRAM_API_KEY,
       stimme: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
-      telefon: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+      // Twilio geht mit Auth Token ODER mit API Key + Secret
+      telefon: require('../telefon-retter/lib/twilio-auth').istKonfiguriert(),
       google: !!(process.env.SERPER_API_KEY || (process.env.GOOGLE_API_KEY && process.env.GOOGLE_CSE_ID)),
       email: versand.istKonfiguriert()
     },
