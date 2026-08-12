@@ -133,7 +133,9 @@ function schreibeEnvWert(name, wert) {
   // 3. Oeffentliche Adresse (BASE_URL)
   console.log('\n3/4  Oeffentliche Server-Adresse (damit Twilio deinen Mac erreicht):');
   console.log('     Oeffne ein ZWEITES Terminal-Fenster (Cmd+N) und fuege dort ein:');
-  console.log('       npx -y untun@latest tunnel http://localhost:3100');
+  console.log('       npx -y cloudflared tunnel --url http://localhost:3100');
+  console.log('     (Falls das nicht geht:  brew install cloudflared');
+  console.log('      und dann:  cloudflared tunnel --url http://localhost:3100)');
   console.log('     -> Nach ein paar Sekunden erscheint eine https://...-Adresse. Die hier einfuegen.');
   if (process.env.BASE_URL) console.log('     Aktuell gespeichert: ' + process.env.BASE_URL + '  (Enter = so lassen)');
   let basis = await frage('     Adresse einfuegen (beginnt mit https://): ');
@@ -175,7 +177,7 @@ function schreibeEnvWert(name, wert) {
   console.log('ok ✓  (' + basis + anrufPfad + ')');
 
   console.log('\n=== FERTIG - SO TESTEST DU ===');
-  console.log('  1. Tunnel-Terminal OFFEN lassen (npx untun ...)');
+  console.log('  1. Tunnel-Terminal OFFEN lassen (cloudflared ...)');
   console.log('  2. Drittes Terminal:  cd ~/kiekmolin/telefon-retter && node server.js');
   console.log('  3. Mit deinem Handy anrufen:  ' + nummer.phone_number);
   if (istTestKonto) {
