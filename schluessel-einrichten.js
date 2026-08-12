@@ -283,10 +283,19 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
   } else if (!/^AC[0-9a-f]{16,}/i.test(sid)) {
     console.log('    -> Eine Account SID beginnt mit AC - Schritt uebersprungen, spaeter nochmal.');
   } else {
-    console.log('    Jetzt entweder den Auth Token ODER den API Key einfuegen:');
+    console.log('    Jetzt entweder den Auth Token ODER den API Key einfuegen.');
+    console.log('    ACHTUNG: NICHT nochmal die Account SID - der Token ist ein anderer Wert.');
     const geheim = await frage('    Auth Token oder API Key (SK...) einfuegen: ');
     if (!geheim) {
       console.log('    -> uebersprungen.');
+    } else if (/^AC[0-9a-f]{16,}/i.test(geheim)) {
+      // Haeufigster Stolperstein: der Zwischenspeicher hat noch die SID drin.
+      // Lieber sofort sagen was los ist, als Twilio 401 sagen lassen.
+      console.log('    -> Das war nochmal die Account SID (beginnt mit AC).');
+      console.log('       Der Auth Token ist ein ANDERER Wert: 32 Zeichen, KEIN AC am Anfang.');
+      console.log('       Du findest ihn hier - Auge-Symbol anklicken, dann kopieren:');
+      console.log('       console.twilio.com -> Account -> API keys & tokens -> Auth tokens');
+      console.log('       Danach diesen Helfer einfach nochmal starten.');
     } else if (/^SK[0-9a-f]{16,}/i.test(geheim)) {
       // Weg B: API Key -> jetzt noch das Secret dazu
       const secret = await frage('    Und das API Secret dazu einfuegen: ');
