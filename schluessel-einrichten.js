@@ -141,14 +141,31 @@ async function holeStimmen(key) {
 
 // Prueft Twilio-Zugangsdaten. benutzer = Account SID (bei Auth Token) oder
 // API-Key-SID (SK...); geheimnis = Auth Token bzw. API Secret.
+// Twilio betreibt getrennte Rechenzentren. Ein Konto in Irland hat EIGENE
+// Auth Tokens - gegen den US-Server ergeben sie 401, obwohl der Wert
+// stimmt. Deshalb probieren wir alle Regionen durch und merken uns die,
+// die funktioniert. Sonst sucht man den Fehler bei sich selbst.
 async function pruefeTwilio(kontoSid, benutzer, geheimnis) {
-  const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(kontoSid) + '.json', {
-    headers: { Authorization: 'Basic ' + Buffer.from(benutzer + ':' + geheimnis).toString('base64') },
-    signal: AbortSignal.timeout(15000)
-  });
-  return antwort.ok
-    ? { ok: true }
-    : { ok: false, grund: 'Twilio sagt ' + antwort.status + ' - die Zugangsdaten passen nicht zu diesem Konto.' };
+  const { REGIONEN } = require('./telefon-retter/lib/twilio-auth');
+  const kopf = { Authorization: 'Basic ' + Buffer.from(benutzer + ':' + geheimnis).toString('base64') };
+  let letzterStatus = 0;
+  for (const [region, basis] of Object.entries(REGIONEN)) {
+    if (region === '') continue; // gleiche Adresse wie us1
+    let antwort;
+    try {
+      antwort = await fetch(basis + '/2010-04-01/Accounts/' + encodeURIComponent(kontoSid) + '.json', {
+        headers: kopf, signal: AbortSignal.timeout(15000)
+      });
+    } catch (_e) { continue; } // Region nicht erreichbar - naechste probieren
+    if (antwort.ok) return { ok: true, region: region === 'us1' ? '' : region };
+    letzterStatus = antwort.status;
+  }
+  return {
+    ok: false,
+    grund: 'Twilio sagt ' + letzterStatus + ' - die Zugangsdaten passen zu keiner Region.\n' +
+      '       Haeufigster Grund: Der Token stammt von einer anderen Konto-Seite als die SID.\n' +
+      '       Beide muessen aus DEMSELBEN Konto kommen (siehe Adresszeile im Browser).'
+  };
 }
 
 // Google-Platzierungen kommen ueber Serper.dev (echte Google-Ergebnisse).
@@ -306,10 +323,11 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
         let e;
         try { e = await pruefeTwilio(sid, geheim, secret); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
         if (e.ok) {
-          console.log('GUELTIG ✓  (API Key)');
+          console.log('GUELTIG ✓  (API Key' + (e.region ? ', Region ' + e.region : '') + ')');
           speichere('TWILIO_ACCOUNT_SID', sid, ['telefon-retter']);
           speichere('TWILIO_API_KEY', geheim, ['telefon-retter']);
           speichere('TWILIO_API_SECRET', secret, ['telefon-retter']);
+          if (e.region) speichere('TWILIO_REGION', e.region, ['telefon-retter']);
           console.log('    Hinweis: Ohne Auth Token schuetzt "node telefon-start.js" den Webhook');
           console.log('    mit einem geheimen Schluessel in der Adresse - das macht es von allein.');
         } else { console.log('FEHLER\n    -> ' + e.grund); }
@@ -320,9 +338,10 @@ async function schluesselSchritt({ titel, wo, name, ordner, muster, pruefe }) {
       let e;
       try { e = await pruefeTwilio(sid, sid, geheim); } catch (fehler) { e = { ok: false, grund: 'Netzwerk: ' + fehler.message }; }
       if (e.ok) {
-        console.log('GUELTIG ✓  (Auth Token)');
+        console.log('GUELTIG ✓  (Auth Token' + (e.region ? ', Region ' + e.region : '') + ')');
         speichere('TWILIO_ACCOUNT_SID', sid, ['telefon-retter']);
         speichere('TWILIO_AUTH_TOKEN', geheim, ['telefon-retter']);
+        if (e.region) speichere('TWILIO_REGION', e.region, ['telefon-retter']);
       } else {
         console.log('FEHLER\n    -> ' + e.grund);
         console.log('    -> Wenn du an den Auth Token nicht rankommst: Helfer nochmal starten und');

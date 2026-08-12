@@ -19,6 +19,27 @@ function kontoSid() {
   return process.env.TWILIO_ACCOUNT_SID || '';
 }
 
+// Twilio betreibt getrennte Rechenzentren ("Regionen"). Ein Konto in
+// Irland hat EIGENE Auth Tokens, die gegen den US-Server 401 ergeben -
+// derselbe Wert funktioniert nur gegen den irischen Server. Deshalb
+// gehoert die Region zu den Zugangsdaten dazu.
+const REGIONEN = {
+  '': 'https://api.twilio.com',        // Standard (USA / global)
+  us1: 'https://api.twilio.com',
+  ie1: 'https://api.ie1.twilio.com',   // Irland
+  au1: 'https://api.au1.twilio.com'    // Australien
+};
+
+function basisUrl() {
+  const region = String(process.env.TWILIO_REGION || '').toLowerCase().trim();
+  return REGIONEN[region] || REGIONEN[''];
+}
+
+// Fertige Konto-Adresse, an die fast alle Aufrufe gehen
+function kontoUrl(pfad) {
+  return basisUrl() + '/2010-04-01/Accounts/' + encodeURIComponent(kontoSid()) + (pfad || '');
+}
+
 // Gibt die Zugangsdaten zurueck, mit denen die REST-API angesprochen wird.
 // API Key hat Vorrang: wer ihn eingerichtet hat, will ihn auch nutzen.
 function zugangsdaten() {
@@ -55,4 +76,7 @@ function beschreibung() {
   return z.art === 'api-key' ? 'API Key (SK...)' : 'Auth Token';
 }
 
-module.exports = { kontoSid, zugangsdaten, istKonfiguriert, authKopf, kannSignaturPruefen, beschreibung };
+module.exports = {
+  kontoSid, zugangsdaten, istKonfiguriert, authKopf, kannSignaturPruefen, beschreibung,
+  REGIONEN, basisUrl, kontoUrl
+};

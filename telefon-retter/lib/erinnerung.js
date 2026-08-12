@@ -51,8 +51,7 @@ function baueErinnerungsText(restaurant, resi) {
 
 async function sendeSms(an, text) {
   const twilioAuth = require('./twilio-auth');
-  const sid = twilioAuth.kontoSid();
-  const antwort = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(sid) + '/Messages.json', {
+  const antwort = await fetch(twilioAuth.kontoUrl('/Messages.json'), {
     method: 'POST',
     signal: AbortSignal.timeout(15000),
     headers: {
