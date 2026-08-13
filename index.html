@@ -50668,15 +50668,31 @@ function renderDashboardOrders() {
             woResendBtn = '<button class="kin-order-btn secondary" onclick="resendOrderToWinOrder(\'' + order.id + '\')" title="Von WinOrder abgeholt: ' + woTime + '. Klicken, damit die Kasse die Bestellung beim nächsten Abruf erneut holt." aria-label="Erneut an WinOrder senden" style="background:rgba(20,184,166,0.1);color:#0f766e;border-color:rgba(20,184,166,0.3);">📟 Erneut an Kasse</button>';
         }
 
-        // Bon-Nachdruck-Button: zeigt Status + lass den Drucker beim nächsten Poll erneut drucken.
-        var printBtn = '';
+        // EIN Knopf fuer den Bon, nicht zwei.
+        //
+        // Vorher standen auf derselben Karte ZWEI Knoepfe mit der Beschriftung
+        // "Bon": einer rief printKitchenBon (Browser-Druckfenster), der andere
+        // reprintBon (Freigabe fuer den Bondrucker). Beide konnten orange sein.
+        // Beim einen bedeutete orange "Kuechen-Bon", beim anderen "noch nicht
+        // gedruckt". Wer den falschen drueckte, bekam ein Druckfenster statt
+        // eines Bons -- oder gar nichts, wenn der Browser es blockierte.
+        //
+        // Jetzt: "Bon" fuer die Kueche, "Beleg" fuer den Gast. printKitchenBon
+        // entscheidet selbst, ob es an den Bondrucker geht oder ins
+        // Druckfenster -- der Wirt muss den Unterschied nicht kennen.
+        //
+        // Die Farbe bleibt am Bon-Knopf und behaelt ihre eine Bedeutung:
+        // orange = noch nicht gedruckt, gruen = gedruckt.
+        var bonFarbe = '';
+        var bonTitel = 'Küchen-Bon drucken';
         if (order.status !== 'cancelled') {
             var printed = !!order.printed_at;
-            var printTitle = printed
+            bonTitel = printed
                 ? 'Bon wurde am ' + new Date(order.printed_at).toLocaleString('de-DE') + ' gedruckt. Klicken zum Nachdrucken.'
-                : 'Bon noch nicht gedruckt — klicken um Drucker anzuregen.';
-            var printIcon = printed ? '🖨' : '🟧 🖨';
-            printBtn = '<button class="kin-order-btn secondary" onclick="reprintBon(\'' + order.id + '\')" title="' + printTitle + '" aria-label="Bon nachdrucken" style="background:' + (printed ? 'rgba(34,197,94,0.1);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(234,88,12,0.1);color:#9a3412;border-color:rgba(234,88,12,0.3)') + ';">' + printIcon + ' Bon</button>';
+                : 'Bon noch nicht gedruckt — klicken zum Drucken.';
+            bonFarbe = printed
+                ? 'background:rgba(34,197,94,0.1);color:#15803d;border-color:rgba(34,197,94,0.3);'
+                : 'background:rgba(249,115,22,0.1);color:#ea580c;border-color:rgba(249,115,22,0.3);';
         }
 
         // Action Buttons je nach Status
@@ -50696,7 +50712,7 @@ function renderDashboardOrders() {
                 break;
             case 'accepted':
                 actionsHtml = `
-                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="Küchen-Bon drucken" aria-label="Küchen-Bon drucken" style="background:rgba(249,115,22,0.1);color:#ea580c;border-color:rgba(249,115,22,0.3);">
+                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="${bonTitel}" aria-label="Küchen-Bon drucken" style="${bonFarbe}">
                         <span class="material-symbols-outlined" style="font-size:18px;">description</span>
                         Bon
                     </button>
@@ -50719,7 +50735,7 @@ function renderDashboardOrders() {
                 break;
             case 'preparing':
                 actionsHtml = `
-                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="Küchen-Bon drucken" aria-label="Küchen-Bon drucken" style="background:rgba(249,115,22,0.1);color:#ea580c;border-color:rgba(249,115,22,0.3);">
+                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="${bonTitel}" aria-label="Küchen-Bon drucken" style="${bonFarbe}">
                         <span class="material-symbols-outlined" style="font-size:18px;">description</span>
                     </button>
                     <button class="kin-order-btn secondary" onclick="printOrder('${order.id}')" title="Kunden-Beleg drucken" aria-label="Kunden-Beleg drucken">
@@ -50842,7 +50858,6 @@ function renderDashboardOrders() {
                         ${posResendBtn}
                         ${woResendBtn}
                         ${copyForKasseBtn}
-                        ${printBtn}
                     </div>
                 </div>
             </div>
@@ -52223,10 +52238,17 @@ async function dispatchPrintToAll(order, bonType) {
         var orderForPrint = Object.assign({}, order, { items: filteredItems });
         try {
             if (p.type === 'server-direct') {
-                // Drucker pollt selbst — keine aktive Aktion nötig. printed_at bleibt
-                // null, beim nächsten Abruf druckt der Drucker den Bon automatisch.
-                // Zählt als success (der "Auftrag" ist erteilt, der Drucker holt ihn).
-                success++;
+                // HIER STAND NUR "success++" MIT DER BEGRUENDUNG, der Drucker
+                // pollt ja selbst und printed_at bleibe null. Das gilt genau
+                // beim ersten Mal. Hat der Drucker die Bestellung einmal
+                // abgeholt, steht dort ein Zeitstempel -- und dann tat der
+                // Knopf gar nichts mehr, meldete aber "An 1 Drucker gesendet".
+                //
+                // Jetzt wird die Bestellung wirklich freigegeben, und der
+                // Erfolg zaehlt nur, wenn das auch geklappt hat.
+                var frei = await bonFreigeben(order.id);
+                if (frei.ok) success++;
+                else { errors++; console.error('Bon-Freigabe fehlgeschlagen:', frei.error); }
             } else if (p.type === 'epson') {
                 var ok = await printToEpson(orderForPrint, p);
                 if (ok) success++; else errors++;
@@ -53753,30 +53775,51 @@ async function resendOrderToWinOrder(orderId) {
 
 // Bon erneut drucken: setzt printed_at zurück, der Epson-Drucker holt
 // den Bon beim nächsten Poll automatisch erneut ab.
-async function reprintBon(orderId) {
+// Eine Bestellung fuer den Bondrucker freigeben (printed_at auf null).
+//
+// HERAUSGELOEST, WEIL ES ZWEI AUFRUFER GIBT UND EINER NICHTS TAT.
+// In dispatchPrintToAll stand fuer 'server-direct' nur:
+//     success++;   // "Drucker pollt selbst -- keine aktive Aktion noetig"
+// Die Annahme war, printed_at bleibe ohnehin null. Das stimmt genau einmal:
+// beim allerersten Mal. Sobald der Drucker die Bestellung einmal abgeholt hat,
+// steht dort ein Zeitstempel -- und dann gibt der Knopf sie nie wieder frei.
+// Gemeldet wurde trotzdem "An 1 Drucker gesendet". Der Wirt drueckt, bekommt
+// eine Erfolgsmeldung, und es passiert nichts.
+//
+// Gibt true/false zurueck, damit der Aufrufer die Wahrheit sagen kann.
+async function bonFreigeben(orderId) {
+    var token = null;
+    if (window.supabaseClient && supabaseClient.auth) {
+        var s = await supabaseClient.auth.getSession();
+        token = s && s.data && s.data.session && s.data.session.access_token;
+    }
+    if (!token) return { ok: false, error: 'Bitte als Gastronom einloggen' };
     try {
-        var token = null;
-        if (window.supabaseClient && supabaseClient.auth) {
-            var s = await supabaseClient.auth.getSession();
-            token = s && s.data && s.data.session && s.data.session.access_token;
-        }
-        if (!token) { showToast('Bitte als Gastronom einloggen', 'error'); return; }
         var res = await fetch('/.netlify/functions/pos-print?action=reprint&order=' + encodeURIComponent(orderId), {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + token }
         });
         var j = await res.json();
         if (j && j.ok) {
-            // Lokal printed_at zurücksetzen damit der Button sofort umspringt
-            var orderIdx = (window.dashboardOrders || []).findIndex(function(o) { return o.id === orderId; });
-            if (orderIdx >= 0) window.dashboardOrders[orderIdx].printed_at = null;
-            if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
-            showToast('Bon wird beim nächsten Druckabruf erneut ausgegeben (max. 15 Sek).', 'success');
-        } else {
-            showToast('Fehler: ' + ((j && j.error) || 'unbekannt'), 'error');
+            // Lokal printed_at zuruecksetzen, damit die Karte sofort umspringt.
+            var idx = (window.dashboardOrders || []).findIndex(function (o) { return o.id === orderId; });
+            if (idx >= 0) window.dashboardOrders[idx].printed_at = null;
+            return { ok: true };
         }
+        return { ok: false, error: (j && j.error) || 'unbekannt' };
     } catch (e) {
-        showToast('Verbindungsfehler: ' + e.message, 'error');
+        return { ok: false, error: e.message };
+    }
+}
+window.bonFreigeben = bonFreigeben;
+
+async function reprintBon(orderId) {
+    var r = await bonFreigeben(orderId);
+    if (r.ok) {
+        if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        showToast('Bon wird beim nächsten Druckabruf erneut ausgegeben (max. 15 Sek).', 'success');
+    } else {
+        showToast('Fehler: ' + r.error, 'error');
     }
 }
 
@@ -63128,13 +63171,35 @@ function istRechteFehler(txt) { return /42501|row-level security|permission deni
 // Zum Nachlesen ohne Ausprobieren:
 //   select tablename, policyname, cmd, roles from pg_policies
 //   where tablename in ('menu_option_groups','menu_options') order by 1,3;
+// WARUM VOR JEDEM create EIN "drop policy if exists" STEHT.
+//
+// Ohne das war der Befehl beim zweiten Mal unbrauchbar -- und beim ersten Mal
+// oft auch. Wer irgendwann schon einmal "extras lesen" und "extras anlegen"
+// angelegt hatte (das taten die ersten beiden Bloecke ja), bekam beim naechsten
+// Ausfuehren:
+//
+//     ERROR: policy "extras lesen" for table "menu_option_groups" already exists
+//
+// Der SQL-Editor von Supabase fuehrt den eingefuegten Text als EINEN Block aus.
+// Eine einzige abgelehnte Zeile rollt deshalb ALLES zurueck -- auch die vier
+// Regeln weiter unten, um die es eigentlich geht. Der Wirt drueckt auf Run,
+// sieht einen roten Fehler, und geaendert hat sich nichts.
+//
+// Das ist dieselbe Falle wie der Fehler selbst, nur eine Ebene hoeher: etwas
+// sieht nach "erledigt" aus und hat nichts getan. "drop policy if exists"
+// macht den Befehl beliebig oft wiederholbar. Er loescht dabei nur genau die
+// vier Regeln, die er gleich wieder anlegt -- keine fremden.
 var _RECHTE_SQL =
     "alter table menu_option_groups enable row level security;\n" +
     "alter table menu_options       enable row level security;\n" +
     "\n" +
-    "create policy \"extras lesen\"  on menu_option_groups for select using (true);\n" +
-    "create policy \"extras lesen\"  on menu_options       for select using (true);\n" +
+    "drop policy if exists \"extras lesen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras lesen\" on menu_options;\n" +
+    "create policy \"extras lesen\" on menu_option_groups for select using (true);\n" +
+    "create policy \"extras lesen\" on menu_options       for select using (true);\n" +
     "\n" +
+    "drop policy if exists \"extras anlegen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras anlegen\" on menu_options;\n" +
     "create policy \"extras anlegen\" on menu_option_groups\n" +
     "  for insert to anon, authenticated with check (true);\n" +
     "create policy \"extras anlegen\" on menu_options\n" +
@@ -63142,15 +63207,24 @@ var _RECHTE_SQL =
     "\n" +
     "-- Ohne diese vier Regeln laufen Bearbeiten und Löschen ins Leere,\n" +
     "-- OHNE Fehlermeldung. Genau das war der Fehler.\n" +
+    "drop policy if exists \"extras aendern\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras aendern\" on menu_options;\n" +
     "create policy \"extras aendern\" on menu_option_groups\n" +
     "  for update to anon, authenticated using (true) with check (true);\n" +
     "create policy \"extras aendern\" on menu_options\n" +
     "  for update to anon, authenticated using (true) with check (true);\n" +
     "\n" +
+    "drop policy if exists \"extras loeschen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras loeschen\" on menu_options;\n" +
     "create policy \"extras loeschen\" on menu_option_groups\n" +
     "  for delete to anon, authenticated using (true);\n" +
     "create policy \"extras loeschen\" on menu_options\n" +
-    "  for delete to anon, authenticated using (true);";
+    "  for delete to anon, authenticated using (true);\n" +
+    "\n" +
+    "-- Zum Nachsehen: hier müssen danach 8 Zeilen stehen.\n" +
+    "select tablename, policyname, cmd from pg_policies\n" +
+    "where tablename in ('menu_option_groups','menu_options')\n" +
+    "order by tablename, cmd;";
 
 // texte ist freiwillig. Ohne Angabe steht der Wortlaut fuer den Karten-Import
 // da -- so, wie es vorher war. Beim Loeschen und Bearbeiten passt der aber
