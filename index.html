@@ -50683,6 +50683,11 @@ function renderDashboardOrders() {
         //
         // Die Farbe bleibt am Bon-Knopf und behaelt ihre eine Bedeutung:
         // orange = noch nicht gedruckt, gruen = gedruckt.
+        // Bon und Beleg gehoeren an JEDE Karte, nicht nur an "Angenommen" und
+        // "In Zubereitung". Der alte Nachdruck-Knopf hing statusunabhaengig an
+        // der Karte; beim Zusammenlegen ist er in die beiden Status-Zweige
+        // gerutscht und fuer alles danach verschwunden. Ein Wirt, der eine
+        // gelieferte Bestellung nachdrucken will, stand dann ohne Knopf da.
         var bonFarbe = '';
         var bonTitel = 'Küchen-Bon drucken';
         if (order.status !== 'cancelled') {
@@ -50694,6 +50699,19 @@ function renderDashboardOrders() {
                 ? 'background:rgba(34,197,94,0.1);color:#15803d;border-color:rgba(34,197,94,0.3);'
                 : 'background:rgba(249,115,22,0.1);color:#ea580c;border-color:rgba(249,115,22,0.3);';
         }
+
+        // Storniert: nichts zu drucken. Sonst immer beide.
+        var druckBtns = order.status === 'cancelled' ? '' : (
+            '<button class="kin-order-btn secondary" onclick="printKitchenBon(\'' + order.id + '\')"'
+          + ' title="' + escapeHtml(bonTitel) + '" aria-label="Küchen-Bon drucken" style="' + bonFarbe + '">'
+          + '<span class="material-symbols-outlined" style="font-size:18px;">description</span> Bon</button>'
+          + '<button class="kin-order-btn secondary" onclick="printOrder(\'' + order.id + '\')"'
+          + ' title="Kunden-Beleg drucken" aria-label="Kunden-Beleg drucken">'
+          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">'
+          + '<polyline points="6 9 6 2 18 2 18 9"/>'
+          + '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>'
+          + '<rect x="6" y="14" width="12" height="8"/></svg> Beleg</button>'
+        );
 
         // Action Buttons je nach Status
         let actionsHtml = '';
@@ -50712,17 +50730,6 @@ function renderDashboardOrders() {
                 break;
             case 'accepted':
                 actionsHtml = `
-                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="${bonTitel}" aria-label="Küchen-Bon drucken" style="${bonFarbe}">
-                        <span class="material-symbols-outlined" style="font-size:18px;">description</span>
-                        Bon
-                    </button>
-                    <button class="kin-order-btn secondary" onclick="printOrder('${order.id}')" title="Kunden-Beleg drucken" aria-label="Kunden-Beleg drucken">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                            <rect x="6" y="14" width="12" height="8"/>
-                        </svg>
-                        Beleg
-                    </button>
                     <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
                         Storno
@@ -50735,14 +50742,6 @@ function renderDashboardOrders() {
                 break;
             case 'preparing':
                 actionsHtml = `
-                    <button class="kin-order-btn secondary" onclick="printKitchenBon('${order.id}')" title="${bonTitel}" aria-label="Küchen-Bon drucken" style="${bonFarbe}">
-                        <span class="material-symbols-outlined" style="font-size:18px;">description</span>
-                    </button>
-                    <button class="kin-order-btn secondary" onclick="printOrder('${order.id}')" title="Kunden-Beleg drucken" aria-label="Kunden-Beleg drucken">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                            <polyline points="6 9 6 2 18 2 18 9"/><rect x="6" y="14" width="12" height="8"/>
-                        </svg>
-                    </button>
                     <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
                     </button>
@@ -50858,6 +50857,7 @@ function renderDashboardOrders() {
                         ${posResendBtn}
                         ${woResendBtn}
                         ${copyForKasseBtn}
+                        ${druckBtns}
                     </div>
                 </div>
             </div>
@@ -55190,7 +55190,21 @@ function generateEposXML(order) {
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
     xml += '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">';
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
-    xml += '<text lang="de" smooth="true"/>';
+    // KEIN lang="de".
+    //
+    // Der Bon wurde vom Drucker abgeholt und nicht gedruckt -- ohne Fehler,
+    // ohne Papier. Epson laesst bei lang nur bestimmte Werte zu:
+    // en, ja, ko, zh-hans, zh-hant, th, vi, mul. "de" ist keiner davon.
+    // Ein unzulaessiger Wert macht das ganze Dokument ungueltig, und der
+    // Drucker verwirft es stillschweigend. Weil die Zeile in JEDEM Bon stand,
+    // scheiterte auch jeder Bon.
+    //
+    // Weggelassen statt auf "en" gesetzt: ohne Angabe nimmt der Drucker seine
+    // Voreinstellung, und die passt fuer deutsche Texte in Latin-Schrift. Ein
+    // gesetztes "en" wuerde dasselbe tun, aber so behauptet der Bon nicht,
+    // englisch zu sein. Umlaute haengen nicht daran, sondern an der
+    // Zeichentabelle des Druckers.
+    xml += '<text smooth="true"/>';
 
     // Restaurant-Header (groß)
     if (restName) {
