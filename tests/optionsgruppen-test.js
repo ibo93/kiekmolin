@@ -179,6 +179,37 @@ t('und warum beim Bearbeiten nie etwas auffiel',
 
     // Der bequeme Ausweg waere "disable row level security". Der macht die
     // Tabelle fuer jeden im Internet beschreibbar -- nicht nur fuer den Wirt.
+    // DER BEFEHL MUSS WIEDERHOLBAR SEIN.
+    //
+    // Ohne "drop policy if exists" war er beim zweiten Mal unbrauchbar -- und
+    // beim ersten Mal oft auch, weil "extras lesen"/"extras anlegen" in
+    // bestehenden Datenbanken schon existierten. Postgres antwortet dann
+    // "policy already exists", und weil der SQL-Editor von Supabase den
+    // eingefuegten Text als EINEN Block ausfuehrt, rollt eine einzige
+    // abgelehnte Zeile ALLES zurueck -- auch die vier Regeln, um die es geht.
+    // Der Wirt drueckt auf Run, sieht rot, und geaendert hat sich nichts.
+    //
+    // Dieselbe Falle wie der Fehler selbst, eine Ebene hoeher: es sieht nach
+    // "erledigt" aus und hat nichts getan.
+    // Im Quelltext stehen die Anfuehrungszeichen escaped: create policy \"...\"
+    var angelegt = (sql.match(/create policy \\"([^"\\]+)\\" on (menu_\w+)/g) || []);
+    t('es werden ueberhaupt Regeln angelegt', angelegt.length === 8, angelegt.length);
+    angelegt.forEach(function (zeile) {
+        var name = (zeile.match(/\\"([^"\\]+)\\"/) || [])[1];
+        var tab = (zeile.match(/on (menu_\w+)/) || [])[1];
+        var drop = 'drop policy if exists \\"' + name + '\\" on ' + tab + ';';
+        t('vor "' + name + '" auf ' + tab + ' steht ein drop if exists',
+          sql.indexOf(drop) >= 0 && sql.indexOf(drop) < sql.indexOf(zeile), drop);
+    });
+    t('es wird nur weggeworfen, was gleich wieder angelegt wird -- keine fremden Regeln',
+      (sql.match(/drop policy if exists/g) || []).length === angelegt.length,
+      (sql.match(/drop policy if exists/g) || []).length + ' drops / ' + angelegt.length + ' creates');
+
+    // Der Wirt soll nachsehen koennen, ob es gewirkt hat, ohne dass er dafuer
+    // eine zweite Abfrage von mir braucht.
+    t('am Ende steht die Kontrollabfrage', /from pg_policies/.test(sql));
+    t('und dabei, wie viele Zeilen herauskommen muessen', /8 Zeilen/.test(sql));
+
     t('RLS wird NICHT einfach abgeschaltet', !/disable row level security/i.test(sql));
     t('Lesen bleibt oeffentlich, sonst sieht der Gast keine Extras',
       /for select using \(true\)/.test(sql));

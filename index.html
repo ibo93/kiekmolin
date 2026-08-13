@@ -63128,13 +63128,35 @@ function istRechteFehler(txt) { return /42501|row-level security|permission deni
 // Zum Nachlesen ohne Ausprobieren:
 //   select tablename, policyname, cmd, roles from pg_policies
 //   where tablename in ('menu_option_groups','menu_options') order by 1,3;
+// WARUM VOR JEDEM create EIN "drop policy if exists" STEHT.
+//
+// Ohne das war der Befehl beim zweiten Mal unbrauchbar -- und beim ersten Mal
+// oft auch. Wer irgendwann schon einmal "extras lesen" und "extras anlegen"
+// angelegt hatte (das taten die ersten beiden Bloecke ja), bekam beim naechsten
+// Ausfuehren:
+//
+//     ERROR: policy "extras lesen" for table "menu_option_groups" already exists
+//
+// Der SQL-Editor von Supabase fuehrt den eingefuegten Text als EINEN Block aus.
+// Eine einzige abgelehnte Zeile rollt deshalb ALLES zurueck -- auch die vier
+// Regeln weiter unten, um die es eigentlich geht. Der Wirt drueckt auf Run,
+// sieht einen roten Fehler, und geaendert hat sich nichts.
+//
+// Das ist dieselbe Falle wie der Fehler selbst, nur eine Ebene hoeher: etwas
+// sieht nach "erledigt" aus und hat nichts getan. "drop policy if exists"
+// macht den Befehl beliebig oft wiederholbar. Er loescht dabei nur genau die
+// vier Regeln, die er gleich wieder anlegt -- keine fremden.
 var _RECHTE_SQL =
     "alter table menu_option_groups enable row level security;\n" +
     "alter table menu_options       enable row level security;\n" +
     "\n" +
-    "create policy \"extras lesen\"  on menu_option_groups for select using (true);\n" +
-    "create policy \"extras lesen\"  on menu_options       for select using (true);\n" +
+    "drop policy if exists \"extras lesen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras lesen\" on menu_options;\n" +
+    "create policy \"extras lesen\" on menu_option_groups for select using (true);\n" +
+    "create policy \"extras lesen\" on menu_options       for select using (true);\n" +
     "\n" +
+    "drop policy if exists \"extras anlegen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras anlegen\" on menu_options;\n" +
     "create policy \"extras anlegen\" on menu_option_groups\n" +
     "  for insert to anon, authenticated with check (true);\n" +
     "create policy \"extras anlegen\" on menu_options\n" +
@@ -63142,15 +63164,24 @@ var _RECHTE_SQL =
     "\n" +
     "-- Ohne diese vier Regeln laufen Bearbeiten und Löschen ins Leere,\n" +
     "-- OHNE Fehlermeldung. Genau das war der Fehler.\n" +
+    "drop policy if exists \"extras aendern\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras aendern\" on menu_options;\n" +
     "create policy \"extras aendern\" on menu_option_groups\n" +
     "  for update to anon, authenticated using (true) with check (true);\n" +
     "create policy \"extras aendern\" on menu_options\n" +
     "  for update to anon, authenticated using (true) with check (true);\n" +
     "\n" +
+    "drop policy if exists \"extras loeschen\" on menu_option_groups;\n" +
+    "drop policy if exists \"extras loeschen\" on menu_options;\n" +
     "create policy \"extras loeschen\" on menu_option_groups\n" +
     "  for delete to anon, authenticated using (true);\n" +
     "create policy \"extras loeschen\" on menu_options\n" +
-    "  for delete to anon, authenticated using (true);";
+    "  for delete to anon, authenticated using (true);\n" +
+    "\n" +
+    "-- Zum Nachsehen: hier müssen danach 8 Zeilen stehen.\n" +
+    "select tablename, policyname, cmd from pg_policies\n" +
+    "where tablename in ('menu_option_groups','menu_options')\n" +
+    "order by tablename, cmd;";
 
 // texte ist freiwillig. Ohne Angabe steht der Wortlaut fuer den Karten-Import
 // da -- so, wie es vorher war. Beim Loeschen und Bearbeiten passt der aber
