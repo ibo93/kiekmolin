@@ -151,7 +151,21 @@ function generateEposBon(order, restaurantName) {
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
     xml += '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">';
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
-    xml += '<text lang="de" smooth="true"/>';
+    // KEIN lang="de".
+    //
+    // Der Bon wurde vom Drucker abgeholt und nicht gedruckt -- ohne Fehler,
+    // ohne Papier. Epson laesst bei lang nur bestimmte Werte zu:
+    // en, ja, ko, zh-hans, zh-hant, th, vi, mul. "de" ist keiner davon.
+    // Ein unzulaessiger Wert macht das ganze Dokument ungueltig, und der
+    // Drucker verwirft es stillschweigend. Weil die Zeile in JEDEM Bon stand,
+    // scheiterte auch jeder Bon.
+    //
+    // Weggelassen statt auf "en" gesetzt: ohne Angabe nimmt der Drucker seine
+    // Voreinstellung, und die passt fuer deutsche Texte in Latin-Schrift. Ein
+    // gesetztes "en" wuerde dasselbe tun, aber so behauptet der Bon nicht,
+    // englisch zu sein. Umlaute haengen nicht daran, sondern an der
+    // Zeichentabelle des Druckers.
+    xml += '<text smooth="true"/>';
 
     // Restaurant-Header groß — wichtig für Läden ohne separate Kasse,
     // weil der Bon dann das primäre Beleg-Dokument ist.
