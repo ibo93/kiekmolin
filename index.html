@@ -19478,6 +19478,13 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <span style="background: #fed65b; color: #745c00; padding: 6px 16px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Aktiv</span>
                     </div>
+                    <!-- Platz fuer den Rechte-Hinweis. Bewusst AUSSERHALB von
+                         optionGroupsList: die Liste wird bei jedem Laden neu
+                         geschrieben und wuerde den Hinweis sofort wieder
+                         wegwischen -- genau in dem Moment, in dem man ihn
+                         braucht, denn nach einem abgelehnten Loeschen laedt
+                         die Liste neu. -->
+                    <div id="optionRechteHinweis" style="display:none;"></div>
                     <div id="optionGroupsList">
                         <p style="padding: 20px; color: #707976; text-align: center;">Bitte Restaurant auswählen</p>
                     </div>
@@ -47087,6 +47094,8 @@ async function saveOptionGroup(editId) {
             var grund = '';
             if (saved && !Array.isArray(saved)) grund = saved.message || saved.hint || saved.details || '';
             showToast('Nicht gespeichert' + (grund ? ': ' + grund : ' — die Datenbank hat die Änderung abgelehnt.'), 'error');
+            if ((istRechteFehler(grund) || res.status === 401 || res.status === 403)
+                && typeof _zeigeOptionsRechteHilfe === 'function') _zeigeOptionsRechteHilfe('gespeichert');
             return;
         }
         // Eine leere Antwort auf ein PATCH heisst: keine Zeile getroffen.
@@ -47094,6 +47103,7 @@ async function saveOptionGroup(editId) {
         if (editId && (!Array.isArray(saved) || saved.length === 0)) {
             showToast('Die Änderung wurde nicht übernommen — die Datenbank hat die Zeile nicht '
                 + 'freigegeben. Das ist eine Berechtigung in Supabase.', 'error');
+            if (typeof _zeigeOptionsRechteHilfe === 'function') _zeigeOptionsRechteHilfe('geändert');
             return;
         }
 
@@ -47245,6 +47255,14 @@ async function deleteOptionGroup(groupId) {
         if (!Array.isArray(weg) || weg.length === 0) {
             showToast('Die Gruppe konnte nicht gelöscht werden — die Datenbank hat die Zeile '
                 + 'nicht freigegeben. Das ist eine Berechtigung in Supabase, kein Fehler in der Eingabe.', 'error');
+            // Der Toast sagt, WAS los ist, und ist nach ein paar Sekunden weg.
+            // Der Wirt braucht aber den Befehl, mit dem er es abstellt -- und
+            // zwar so lange sichtbar, bis er ihn kopiert hat.
+            // typeof-Wache: die Hilfe steht in einem anderen <script>-Block.
+            // Ohne die Wache wuerde ein ReferenceError hier in den catch fallen
+            // und die klare Meldung durch "... is not defined" ersetzen -- der
+            // Wirt bekaeme statt des Grundes einen Programmierfehler zu lesen.
+            if (typeof _zeigeOptionsRechteHilfe === 'function') _zeigeOptionsRechteHilfe('gelöscht');
             loadOptionGroups();
             loadMenuOptionGroups();
             return;
@@ -63089,6 +63107,27 @@ function fehlerKlartext(txt) {
 // fehlenden Spalten gibt es deshalb den fertigen Befehl zum Kopieren.
 function istRechteFehler(txt) { return /42501|row-level security|permission denied/i.test(String(txt || '')); }
 
+// WARUM HIER AUCH update UND delete STEHEN MUESSEN.
+//
+// Gemeldet wurde: "ich kann hier nichts, wenn ich die sachen lösche oder
+// bearbeite kommen die wieder zurück". Der Grund stand die ganze Zeit hier:
+// dieser Befehl vergab nur select und insert. Anlegen ging deshalb, Aendern
+// und Loeschen nicht.
+//
+// Und es fiel nicht auf, weil Postgres in diesen beiden Faellen NICHT meckert.
+// Fehlt das Recht, ist die Zeile fuer die Abfrage schlicht unsichtbar. Ein
+// DELETE, das keine Zeile sieht, loescht null Zeilen und meldet "in Ordnung".
+// Ein PATCH genauso. Nur beim INSERT wirft die Datenbank 42501 -- deshalb war
+// bisher ausgerechnet der eine Fall abgedeckt, der sich von selbst meldet.
+//
+// "using" entscheidet, welche Zeilen die Regel ueberhaupt sieht (fuer update
+// und delete), "with check" prueft das Ergebnis (fuer insert und update).
+// Beim update braucht es beides, sonst geht der Schreibvorgang durch die
+// Sichtbarkeit und scheitert danach still an der Pruefung.
+//
+// Zum Nachlesen ohne Ausprobieren:
+//   select tablename, policyname, cmd, roles from pg_policies
+//   where tablename in ('menu_option_groups','menu_options') order by 1,3;
 var _RECHTE_SQL =
     "alter table menu_option_groups enable row level security;\n" +
     "alter table menu_options       enable row level security;\n" +
@@ -63099,23 +63138,44 @@ var _RECHTE_SQL =
     "create policy \"extras anlegen\" on menu_option_groups\n" +
     "  for insert to anon, authenticated with check (true);\n" +
     "create policy \"extras anlegen\" on menu_options\n" +
-    "  for insert to anon, authenticated with check (true);";
+    "  for insert to anon, authenticated with check (true);\n" +
+    "\n" +
+    "-- Ohne diese vier Regeln laufen Bearbeiten und Löschen ins Leere,\n" +
+    "-- OHNE Fehlermeldung. Genau das war der Fehler.\n" +
+    "create policy \"extras aendern\" on menu_option_groups\n" +
+    "  for update to anon, authenticated using (true) with check (true);\n" +
+    "create policy \"extras aendern\" on menu_options\n" +
+    "  for update to anon, authenticated using (true) with check (true);\n" +
+    "\n" +
+    "create policy \"extras loeschen\" on menu_option_groups\n" +
+    "  for delete to anon, authenticated using (true);\n" +
+    "create policy \"extras loeschen\" on menu_options\n" +
+    "  for delete to anon, authenticated using (true);";
 
-function _zeigeRechteHilfe(elementId) {
+// texte ist freiwillig. Ohne Angabe steht der Wortlaut fuer den Karten-Import
+// da -- so, wie es vorher war. Beim Loeschen und Bearbeiten passt der aber
+// nicht: dort wurde nichts eingelesen und es gibt keinen Knopf "Diese Extras
+// anlegen". Ein Hinweis, der auf einen Knopf zeigt, den es nicht gibt, schickt
+// den Wirt nur im Kreis.
+function _zeigeRechteHilfe(elementId, texte) {
     var kasten = document.getElementById(elementId);
     if (!kasten) return;
     if (kasten.querySelector('.rechteHilfe')) return;
+    var w = texte || {};
+    var titel = w.titel || 'Die Datenbank lässt keine Extras zu.';
+    var satz = w.satz || 'Gelesen wurde alles richtig — beim Speichern sagt Supabase „keine Schreibrechte" '
+                       + '(Fehler 42501). Das ist eine Einstellung, kein Fehler in der Karte:';
+    var letzterSchritt = w.letzterSchritt || 'Hier noch einmal auf „Diese Extras anlegen" tippen';
     kasten.style.display = 'block';
     kasten.insertAdjacentHTML('afterbegin',
         '<div class="rechteHilfe" style="margin:0 0 12px;padding:13px 15px;border-radius:12px;border:1px solid #f59e0b;'
       + 'background:rgba(245,158,11,.12);font-size:13px;line-height:1.6;font-family:Inter,sans-serif;color:var(--text-primary);">'
-      + '<strong>Die Datenbank lässt keine Extras zu.</strong> '
-      + 'Gelesen wurde alles richtig — beim Speichern sagt Supabase „keine Schreibrechte" '
-      + '(Fehler 42501). Das ist eine Einstellung, kein Fehler in der Karte:'
+      + '<strong>' + escapeHtml(titel) + '</strong> '
+      + escapeHtml(satz)
       + '<ol style="margin:8px 0 8px 18px;padding:0;font-size:12px;">'
       +   '<li>In Supabase auf <strong>SQL Editor</strong> gehen</li>'
       +   '<li>Diesen Befehl einfügen und ausführen</li>'
-      +   '<li>Hier noch einmal auf „Diese Extras anlegen" tippen</li>'
+      +   '<li>' + escapeHtml(letzterSchritt) + '</li>'
       + '</ol>'
       + '<pre style="margin:0;padding:9px 11px;background:rgba(0,0,0,.06);border-radius:8px;'
       + 'font-size:11px;overflow:auto;white-space:pre;">' + _RECHTE_SQL.replace(/[<>&]/g, '') + '</pre>'
@@ -63123,6 +63183,25 @@ function _zeigeRechteHilfe(elementId) {
       + 'border:none;border-radius:9999px;background:var(--ink-strong);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">'
       + 'Befehl kopieren</button>'
       + '</div>');
+}
+
+// Der Rechte-Hinweis fuer "Optionen & Extras".
+//
+// Er landet in einem eigenen Kasten UEBER der Liste, nicht in der Liste selbst:
+// nach einem abgelehnten Loeschen wird die Liste sofort neu geladen und wuerde
+// den Hinweis im selben Atemzug wieder wegwischen.
+//
+// "was" ist das Wort, das im Satz steht -- gelöscht / geändert / gespeichert.
+function _zeigeOptionsRechteHilfe(was) {
+    _zeigeRechteHilfe('optionRechteHinweis', {
+        titel: 'Die Datenbank lässt kein Ändern und Löschen zu.',
+        satz: 'Anlegen geht, ' + (was || 'geändert') + ' wird nichts — und Supabase meldet dabei keinen '
+            + 'Fehler, weil die Zeile für die Abfrage einfach unsichtbar ist. Deshalb kamen die Einträge '
+            + 'immer wieder zurück. Das ist eine Einstellung, kein Fehler in deiner Eingabe:',
+        letzterSchritt: 'Diese Seite neu laden und es noch einmal versuchen'
+    });
+    var kasten = document.getElementById('optionRechteHinweis');
+    if (kasten && kasten.scrollIntoView) kasten.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function _kopiereRechteSQL(btn) {
