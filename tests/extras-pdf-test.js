@@ -136,7 +136,12 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
         var f3 = new Function('document', 'window', 'showToast', 'closeModal', 'loadOptionGroups',
             'openModal', 'currentMenuRestaurant', 'RESTAURANT_ID', 'SUPA_URL', 'SUPA_KEY',
             'sbRead', '_extrasPdfGefunden', 'fetch',
-            schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
+            // escapeHtml gehoert dazu, seit _zeigeRechteHilfe seinen Wortlaut
+            // von aussen bekommt (Loeschen/Bearbeiten brauchen einen anderen
+            // Text als der Karten-Import). Fehlt es hier, stirbt der Test an
+            // einem ReferenceError -- und nicht an dem, was er pruefen soll.
+            schneide('escapeHtml') + '\n'
+            + schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
             + H.slice(H.indexOf('var _RECHTE_SQL ='), H.indexOf('function _zeigeRechteHilfe', H.indexOf('var _RECHTE_SQL ='))) + '\n'
             + schneide('_zeigeRechteHilfe') + '\n' + schneide('_extrasPdfSage') + '\n'
             + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')

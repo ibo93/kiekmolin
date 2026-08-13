@@ -135,3 +135,93 @@ t('warum ein erfolgloses DELETE kein Fehler ist, steht in der Datei',
   /in Ordnung, nichts zu tun/.test(H));
 t('und warum beim Bearbeiten nie etwas auffiel',
   /Ob die Datenbank die Aenderung/.test(H));
+
+// ---- 5. DER EIGENTLICHE FEHLER: die Rechte selbst --------------------------
+//
+// Die Punkte 1-4 sorgen dafuer, dass die App die WAHRHEIT sagt. Das behebt den
+// Fehler aber nicht -- es macht ihn nur sichtbar. Behoben ist er erst, wenn in
+// Supabase auch update und delete erlaubt sind.
+//
+// Der fertige Befehl im Dashboard vergab bisher NUR select und insert. Deshalb
+// liess sich anlegen, aber nicht aendern und nicht loeschen -- exakt das, was
+// gemeldet wurde. Und es fiel niemandem auf, weil Postgres bei fehlendem
+// update-/delete-Recht nicht meckert: die Zeile ist fuer die Abfrage einfach
+// unsichtbar, getroffen werden null Zeilen, gemeldet wird "in Ordnung".
+(function () {
+    var i = CODE.indexOf('var _RECHTE_SQL =');
+    var sql = i < 0 ? '' : CODE.slice(i, CODE.indexOf('function _zeigeRechteHilfe', i));
+    t('der fertige Supabase-Befehl ist gefunden worden', sql.length > 300, sql.length);
+
+    ['menu_option_groups', 'menu_options'].forEach(function (tabelle) {
+        ['select', 'insert', 'update', 'delete'].forEach(function (recht) {
+            // Pro Tabelle und Recht muss es eine Regel geben. Vorher fehlten
+            // je Tabelle update und delete -- also die Haelfte.
+            var treffer = sql.split('create policy').some(function (block) {
+                return block.indexOf(tabelle) >= 0 && new RegExp('for ' + recht + '\\b').test(block);
+            });
+            t('Recht "' + recht + '" ist fuer ' + tabelle + ' vergeben', treffer);
+        });
+    });
+
+    // Beim update braucht es BEIDES: "using" entscheidet, welche Zeilen die
+    // Regel sieht, "with check" prueft das Ergebnis. Fehlt using, ist die Zeile
+    // unsichtbar und das update trifft nichts -- wieder still.
+    sql.split('create policy').forEach(function (block) {
+        if (!/for update/.test(block)) return;
+        var wen = (block.match(/on (menu_\w+)/) || [])[1] || '?';
+        t('das update fuer ' + wen + ' hat using UND with check',
+          /using \(true\)/.test(block) && /with check \(true\)/.test(block), block.trim().slice(0, 90));
+    });
+
+    t('die Regeln gelten fuer anon -- das Dashboard schickt den anon-Key',
+      (sql.match(/to anon, authenticated/g) || []).length >= 6,
+      (sql.match(/to anon, authenticated/g) || []).length);
+
+    // Der bequeme Ausweg waere "disable row level security". Der macht die
+    // Tabelle fuer jeden im Internet beschreibbar -- nicht nur fuer den Wirt.
+    t('RLS wird NICHT einfach abgeschaltet', !/disable row level security/i.test(sql));
+    t('Lesen bleibt oeffentlich, sonst sieht der Gast keine Extras',
+      /for select using \(true\)/.test(sql));
+})();
+
+// ---- 6. Der Wirt bekommt den Befehl auch zu sehen --------------------------
+// Ein Toast ist nach Sekunden weg. Der Befehl muss stehen bleiben, bis er
+// kopiert ist -- sonst weiss der Wirt zwar, DASS es an Supabase liegt, aber
+// nicht, was er dort tun soll.
+t('beim abgelehnten Loeschen wird die Rechte-Hilfe eingeblendet',
+  /_zeigeOptionsRechteHilfe\('gelöscht'\)/.test(loeschen), loeschen.slice(-400));
+t('beim abgelehnten Bearbeiten ebenso',
+  /_zeigeOptionsRechteHilfe\('geändert'\)/.test(speichern));
+
+// Die Aufrufe stehen in einem try -- ein ReferenceError daraus wuerde im catch
+// landen und die klare Meldung durch "... is not defined" ersetzen. Genau das
+// ist beim Bauen passiert, weil die Hilfe in einem anderen <script>-Block steht.
+t('die Aufrufe sind gegen ReferenceError abgesichert',
+  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length === 3,
+  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length);
+
+// Der Hinweiskasten darf NICHT in optionGroupsList liegen: nach einem
+// abgelehnten Loeschen wird die Liste sofort neu geschrieben und wuerde den
+// Hinweis im selben Moment wieder wegwischen.
+(function () {
+    var hinweis = H.indexOf('id="optionRechteHinweis"');
+    var liste = H.indexOf('id="optionGroupsList"');
+    t('der Hinweiskasten gibt es ueberhaupt', hinweis > 0);
+    t('er steht VOR der Liste und nicht darin', hinweis > 0 && hinweis < liste, hinweis + ' / ' + liste);
+    t('und die Hilfe schreibt genau dorthin',
+      /_zeigeRechteHilfe\('optionRechteHinweis'/.test(CODE));
+})();
+
+// Der Wortlaut muss zu dem passen, was der Wirt gerade getan hat. Der alte Text
+// endete mit "Hier noch einmal auf Diese Extras anlegen tippen" -- diesen Knopf
+// gibt es im Optionen-Bereich gar nicht.
+(function () {
+    var i = CODE.indexOf('function _zeigeOptionsRechteHilfe');
+    var f = i < 0 ? '' : CODE.slice(i, CODE.indexOf('\n}', i));
+    t('der Text nennt das eigentliche Problem: anlegen geht, aendern nicht',
+      /Anlegen geht/.test(f), f.slice(0, 200));
+    t('und schickt nicht zu einem Knopf, den es hier nicht gibt',
+      !/Diese Extras anlegen/.test(f));
+    t('der Karten-Import behaelt seinen eigenen Wortlaut',
+      /Die Datenbank lässt keine Extras zu\./.test(CODE) && /Diese Extras anlegen/.test(CODE));
+})();
