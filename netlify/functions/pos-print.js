@@ -74,6 +74,62 @@ function xmlEscape(s) {
         .replace(/'/g, '&apos;');
 }
 
+// Rueckmeldung des Druckers aus dem POST-Rumpf lesen.
+//
+// Der Epson schickt bei Server Direct Print etwas in dieser Art:
+//
+//   <PrintRequestInfo><ePOSPrint>
+//     <Parameter><devid>local_printer</devid><printjobid>..</printjobid></Parameter>
+//     <PrintResponse><response success="false" code="EPTR_COVER_OPEN" status="..."/></PrintResponse>
+//   </ePOSPrint></PrintRequestInfo>
+//
+// Beim reinen Nachfragen fehlt der PrintResponse-Teil. Genau daran erkennen
+// wir den Unterschied: kein success-Attribut = normale Anfrage.
+//
+// ABSICHTLICH per Textsuche und nicht mit einem XML-Parser: der Rumpf kommt
+// von einem Geraet, dessen genaues Format je nach Firmware abweicht. Eine
+// strenge Auswertung wuerde bei der kleinsten Abweichung nichts finden -- und
+// dann staenden wir wieder ohne Grund da, so wie vorher.
+function druckerMeldung(body, base64) {
+    if (!body) return null;
+    var text = String(body);
+    if (base64) {
+        try { text = Buffer.from(body, 'base64').toString('utf8'); } catch (e) { /* dann eben roh */ }
+    }
+    var m = text.match(/success\s*=\s*"([^"]*)"/i);
+    if (!m) return null;
+    var code = (text.match(/code\s*=\s*"([^"]*)"/i) || [])[1] || '';
+    var status = (text.match(/status\s*=\s*"([^"]*)"/i) || [])[1] || '';
+    return {
+        erfolg: String(m[1]).toLowerCase() === 'true',
+        code: code,
+        status: status,
+        // Fuers Log gekuerzt -- der Rumpf kann lang sein und enthaelt nichts,
+        // was wir dauerhaft aufheben wollen.
+        rumpf: text.slice(0, 400)
+    };
+}
+
+// Die Fehlercodes des Druckers in Klartext. Ein "EPTR_REC_EMPTY" im Log hilft
+// niemandem, der wissen will, warum kein Bon kommt.
+var CODE_TEXT = {
+    EPTR_AUTOMATICAL: 'Druckerfehler (Automatik) -- Drucker aus und wieder an',
+    EPTR_COVER_OPEN: 'Die Papierklappe ist offen',
+    EPTR_CUTTER: 'Das Messer klemmt -- Papier pruefen',
+    EPTR_MECHANICAL: 'Mechanischer Fehler im Drucker',
+    EPTR_REC_EMPTY: 'Kein Papier mehr',
+    EPTR_UNRECOVERABLE: 'Schwerer Druckerfehler -- Neustart noetig',
+    SchemaError: 'Der Drucker versteht unser XML nicht -- ein Feld passt ihm nicht',
+    DeviceNotFound: 'Die Geraete-ID stimmt nicht (meist "local_printer")',
+    PrintSystemError: 'Fehler im Drucksystem',
+    EX_BADPORT: 'Kommunikationsfehler am Anschluss',
+    EX_TIMEOUT: 'Zeitueberschreitung -- der Drucker hat zu lange gebraucht',
+    JobNotFound: 'Der Druckauftrag war schon abgelaufen'
+};
+function codeKlartext(code) {
+    return CODE_TEXT[code] || 'unbekannter Code -- bitte im Epson-Handbuch nachschlagen';
+}
+
 // Empty-Response damit der Drucker beim nächsten Poll wieder fragt.
 function emptyEposResponse() {
     return '<?xml version="1.0" encoding="utf-8"?>' +
@@ -246,6 +302,42 @@ exports.handler = async function (event) {
         var key = q.key || (event.headers && (event.headers['x-api-key'] || event.headers['X-API-Key']));
         if (!restaurant || !key) {
             // Empty für den Drucker (keine 4xx -> Drucker meldet sonst Fehler)
+            return xmlResponse(emptyEposResponse());
+        }
+
+        // ---- Rueckmeldung des Druckers ----
+        //
+        // WARUM DAS HIER STEHT.
+        // Der Bon kam nicht heraus, obwohl die Ampel gruen war und die
+        // Bestellungen als gedruckt markiert wurden. Der Grund war nicht zu
+        // finden, weil wir dem Drucker nie zugehoert haben.
+        //
+        // Bei Server Direct Print schickt der Epson NACH jedem Auftrag eine
+        // Rueckmeldung an dieselbe URL -- ob er drucken konnte, und wenn nicht,
+        // mit welchem Fehlercode. Diese Rueckmeldung sah fuer uns aus wie eine
+        // ganz normale Anfrage. Wir haben also
+        //   1. den Grund weggeworfen, den der Drucker uns direkt genannt hat,
+        //   2. ihm auf seine Erfolgsmeldung hin gleich die naechste Bestellung
+        //      geschickt -- die damit als gedruckt galt, ohne je gedruckt zu
+        //      werden. So wurden zwei Bestellungen still "verbraucht".
+        //
+        // Hier wird die Rueckmeldung erkannt, protokolliert und beantwortet,
+        // ohne dass eine Bestellung dafuer draufgeht.
+        var meldung = druckerMeldung(event.body, event.isBase64Encoded);
+        if (meldung) {
+            console.log('[pos-print] Rueckmeldung vom Drucker'
+                + ' restaurant=' + restaurant
+                + ' erfolg=' + meldung.erfolg
+                + ' code=' + (meldung.code || '-')
+                + ' status=' + (meldung.status || '-'));
+            if (!meldung.erfolg) {
+                console.warn('[pos-print] DRUCK FEHLGESCHLAGEN -- Code "' + (meldung.code || 'ohne Code')
+                    + '": ' + codeKlartext(meldung.code));
+            }
+            // BEWUSST ohne Bestellung antworten. Ein fehlgeschlagener Auftrag
+            // wird NICHT von selbst wiederholt: der Drucker wuerde ihn erneut
+            // ablehnen, wir wuerden ihn erneut schicken, und das ginge endlos
+            // weiter. Der Wirt entscheidet ueber den Knopf "Bon", ob nochmal.
             return xmlResponse(emptyEposResponse());
         }
 
