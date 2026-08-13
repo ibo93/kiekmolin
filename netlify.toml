@@ -5,8 +5,15 @@
   #    (Netlify-Build hat Internet -> Overpass erreichbar). Daraus baut Schritt 2
   #    die Verzeichnis-/SEO-Seiten der Nicht-Partner (mehr Google-Reichweite).
   # 2. SEO-Landing-Pages aus Supabase (Partner) + prospects.json (Nicht-Partner).
+  # 3. Minifizieren. 4. Build-Ausweis nach /version.txt schreiben.
   # Fault-tolerant: Schlaegt ein Schritt fehl, wird trotzdem deployed.
-  command = "node import-osm.js || echo 'OSM import failed - continuing'; node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'"
+  #
+  # Schritt 4 steht ABSICHTLICH am Ende und ohne "|| echo": er haengt von nichts
+  # ab (liest nur Umgebungsvariablen, schreibt eine Textdatei) und beantwortet
+  # danach die Frage, die uns einen halben Tag gekostet hat -- naemlich WELCHER
+  # Commit hier eigentlich liegt. Ein alter Deploy meldet dasselbe "ready" wie
+  # ein frischer; kiekmolin.de/version.txt sagt die Wahrheit.
+  command = "node import-osm.js || echo 'OSM import failed - continuing'; node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'; node build-version.js"
   publish = "."
 
 [build.environment]
