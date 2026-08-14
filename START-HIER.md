@@ -141,6 +141,23 @@ dann richte ich dir das ein.
 5. Twilio-TEST-Nummer einrichten, Checkliste durchgehen (4b)
 6. Rufumleitung bei der Börse aktivieren (4c) → Bundle anbieten (ab 399 €)
 
+## 6. Dein eigener Sprachassistent (optional, sofort nutzbar)
+
+Nicht für Kunden — für dich. Du sagst eine Aufgabe, Claude Code erledigt sie
+auf deinem Rechner (Rechnung schreiben, Fehler in der App suchen, Reel
+schneiden) und antwortet gesprochen.
+
+```bash
+cd sprachassistent
+node server.js --demo     # ohne Schlüssel, ohne Kosten ansehen
+```
+
+Browser: **http://localhost:3400** — Mikrofon anklicken oder Leertaste
+halten. Schlüssel brauchst du keine: ohne Deepgram/ElevenLabs hört und
+spricht der Browser selbst. Hast du den Telefon-Retter eingerichtet, werden
+dessen Schlüssel automatisch mitbenutzt. Alles Weitere:
+`sprachassistent/README.md`.
+
 ## Wenn etwas klemmt
 
 - Agentur-App zeigt keine Kunden → läuft sie ohne `--demo`? Internet da?

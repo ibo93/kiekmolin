@@ -1,0 +1,196 @@
+'use strict';
+
+// Was hat Ibo gerade gesagt - und WO soll gearbeitet werden?
+//
+// Zwei Aufgaben:
+//   1. Steuerworte erkennen ("stopp", "neues Gespraech") - die gehen NICHT
+//      an die KI, die wirken sofort.
+//   2. Den Arbeitsordner waehlen. "Schreib eine Rechnung fuer La Piazza"
+//      gehoert in den Buero-Ordner, "die App zeigt einen Fehler" ins
+//      Kiek-mol-in-Repository. Claude Code laeuft dann GENAU DORT und
+//      findet die passenden Skills, Dateien und Regeln.
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// --------------------------------------------------------- Steuerworte ----
+
+// Sofort-Stopp: der laufende Auftrag wird abgebrochen.
+const STOPP = /^(stopp?|halt|abbrechen|abbruch|hör auf|hoer auf|lass gut sein|schluss)\b/i;
+// Gedaechtnis leeren: naechste Frage startet ein frisches Gespraech.
+const NEU = /^(neues gespräch|neues gespraech|neues thema|vergiss das|von vorne|reset|fang neu an)\b/i;
+// Reine Fuellsaetze der Spracherkennung - nicht an die KI schicken.
+const LEER = /^(ähm|ehm|hm+|ok|okay|ja|nein|danke|test)[.!?]?$/i;
+
+function steuerwort(text) {
+  const t = String(text || '').trim();
+  if (!t) return 'leer';
+  if (STOPP.test(t)) return 'stopp';
+  if (NEU.test(t)) return 'neu';
+  if (LEER.test(t)) return 'leer';
+  return null;
+}
+
+// ------------------------------------------------------- Arbeitsordner ----
+
+// Standard-Ordner, wenn es keine ordner.json gibt: das Repository selbst.
+// Stichworte decken die haeufigsten Zurufe ab; ergaenzen kann Ibo in
+// ordner.json (Vorlage: ordner.json.example).
+function standardKonfig(repoWurzel) {
+  return {
+    standard: 'app',
+    ordner: [
+      {
+        name: 'app',
+        pfad: repoWurzel,
+        beschreibung: 'Kiek mol in, Agentur, Telefon-Retter',
+        stichworte: [
+          'app', 'kiek mol in', 'kiekmolin', 'dashboard', 'reservierung', 'bestellung',
+          'supabase', 'netlify', 'webseite', 'deploy', 'fehler', 'bug', 'telefon-retter',
+          'agentur', 'sichtbarkeit', 'report', 'wirt', 'gast', 'speisekarte'
+        ]
+      }
+    ]
+  };
+}
+
+function ladeOrdnerKonfig(repoWurzel) {
+  const datei = path.join(__dirname, '..', 'ordner.json');
+  if (!fs.existsSync(datei)) return standardKonfig(repoWurzel);
+
+  let roh;
+  try {
+    roh = JSON.parse(fs.readFileSync(datei, 'utf8'));
+  } catch (e) {
+    // Kaputte Datei darf den Assistenten nicht lahmlegen - lieber Standard.
+    console.error('  ! ordner.json ist kaputt (' + e.message + ') - nutze Standard-Ordner');
+    return standardKonfig(repoWurzel);
+  }
+
+  const liste = Array.isArray(roh.ordner) ? roh.ordner : [];
+  const ordner = liste
+    .map((o) => ({
+      name: String(o.name || '').trim(),
+      pfad: pfadAusfuellen(o.pfad, repoWurzel),
+      beschreibung: String(o.beschreibung || ''),
+      stichworte: (o.stichworte || []).map((s) => String(s).toLowerCase())
+    }))
+    .filter((o) => o.name && o.pfad);
+
+  if (!ordner.length) return standardKonfig(repoWurzel);
+  return { standard: roh.standard || ordner[0].name, ordner: ordner };
+}
+
+// "~/Kurani/Buero" und "." in echte Pfade uebersetzen.
+function pfadAusfuellen(pfad, repoWurzel) {
+  let p = String(pfad || '').trim();
+  if (!p) return '';
+  if (p === '.' || p === './') return repoWurzel;
+  if (p.startsWith('~')) p = path.join(os.homedir(), p.slice(1));
+  if (!path.isAbsolute(p)) p = path.resolve(repoWurzel, p);
+  return p;
+}
+
+// Welcher Ordner passt zum Satz? Gewinner ist der mit den meisten Treffern.
+// Ausdrueckliche Ansage gewinnt immer: "im Buero: ..." / "Ordner Buero".
+function waehleOrdner(text, konfig) {
+  const t = ' ' + String(text || '').toLowerCase() + ' ';
+  const ordner = konfig.ordner;
+  const standard = ordner.find((o) => o.name === konfig.standard) || ordner[0];
+
+  for (const o of ordner) {
+    const name = o.name.toLowerCase();
+    if (new RegExp('(^|\\s)(im|in|ordner|projekt)\\s+' + escape(name) + '\\b').test(t)) return o;
+  }
+
+  let bester = null;
+  let bestPunkte = 0;
+  for (const o of ordner) {
+    let punkte = 0;
+    for (const wort of o.stichworte) {
+      if (!wort) continue;
+      // Wortgrenzen, damit "app" nicht in "Apparat" trifft.
+      if (new RegExp('(^|[^a-zäöüß])' + escape(wort) + '([^a-zäöüß]|$)').test(t)) punkte++;
+    }
+    if (punkte > bestPunkte) { bestPunkte = punkte; bester = o; }
+  }
+  return bester || standard;
+}
+
+function escape(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ------------------------------------------------------------ Auftrag -----
+
+// Der Satz, der Claude Code zum SPRACH-Assistenten macht. Ohne ihn bekommt
+// man Bildschirm-Antworten mit Listen und Code - vorgelesen unbrauchbar.
+const HALTUNG = [
+  'Du bist der Sprach-Assistent von Ibo (Kurani Design, Ostfriesland).',
+  'Deine Antwort wird VORGELESEN. Also: hoechstens 3 kurze Saetze, keine',
+  'Listen, keine Ueberschriften, kein Code, keine Dateipfade, keine Emojis.',
+  'Sprich Ibo mit "du" an, wie ein Kollege - ruhig und ohne Floskeln.',
+  'Wenn du etwas erledigt hast, sag in einem Satz WAS du getan hast',
+  '(z.B. "Rechnung liegt im Buero-Ordner").',
+  'Wenn dir eine Angabe fehlt, stell GENAU EINE kurze Rueckfrage.',
+  'Bei riskanten Schritten (loeschen, veroeffentlichen, Geld) erst fragen.',
+  'Lange Ergebnisse gehoeren in eine Datei - vorgelesen wird nur das Fazit.'
+].join(' ');
+
+function systemZusatz(extra) {
+  return extra ? HALTUNG + ' ' + extra : HALTUNG;
+}
+
+// Sicherheitsstufen: was darf der Assistent auf dem Rechner anfassen?
+//
+//   reden    nur lesen und antworten - aendert NIE etwas
+//   arbeiten darf Dateien schreiben und Befehle ausfuehren, aber die
+//            gefaehrlichen sind gesperrt (loeschen, sudo, git push, ...)
+//   frei     alles, ohne Sperren
+//
+// Wichtig: 'verboten' hat IMMER Vorrang vor 'erlaubt' - und auch vor dem,
+// was in Ibos eigener Claude-Konfiguration schon freigegeben ist. Nur so
+// bleibt "Nur reden" wirklich lesend, egal wie der Rechner eingerichtet ist.
+//
+// Der Anschnallgurt ersetzt kein Urteilsvermoegen: wer "frei" schaltet,
+// gibt einer Stimme die Rechte seiner Tastatur.
+const GEFAEHRLICH = [
+  'Bash(rm:*)', 'Bash(rmdir:*)', 'Bash(sudo:*)', 'Bash(dd:*)', 'Bash(mkfs:*)',
+  'Bash(shutdown:*)', 'Bash(reboot:*)', 'Bash(git push:*)', 'Bash(npm publish:*)'
+];
+
+const STUFEN = {
+  reden: {
+    titel: 'Nur reden',
+    permissionMode: 'manual',
+    erlaubt: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'TodoWrite', 'Skill'],
+    verboten: ['Bash', 'Edit', 'Write', 'NotebookEdit', 'Task', 'KillShell']
+  },
+  arbeiten: {
+    titel: 'Arbeiten',
+    permissionMode: 'acceptEdits',
+    // Bash ausdruecklich erlauben: sonst haengt es davon ab, was in der
+    // persoenlichen Konfiguration steht - und Rechnungen (.docx), Videos
+    // (ffmpeg) oder ein "git status" brauchen die Kommandozeile.
+    erlaubt: ['Bash'],
+    verboten: GEFAEHRLICH
+  },
+  frei: {
+    titel: 'Freie Hand',
+    permissionMode: 'bypassPermissions',
+    erlaubt: null,
+    verboten: null
+  }
+};
+
+function stufeAufloesen(wunsch, freieHandErlaubt) {
+  const s = STUFEN[wunsch] ? wunsch : 'arbeiten';
+  if (s === 'frei' && !freieHandErlaubt) return 'arbeiten';
+  return s;
+}
+
+module.exports = {
+  steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
+  systemZusatz, HALTUNG, STUFEN, stufeAufloesen
+};

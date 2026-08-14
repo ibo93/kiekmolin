@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kurani · Sprachassistent</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --bg-2: #12151a;
+    --karte: rgba(255,255,255,0.055);
+    --rand: rgba(255,255,255,0.10);
+    --text: #f2f4f7;
+    --text-leise: #9aa4b2;
+    --primary: #007AFF;
+    --success: #34C759;
+    --warning: #FF9500;
+    --danger: #FF3B30;
+    --radius: 16px;
+    --schrift: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f6f9; --bg-2: #ffffff;
+      --karte: rgba(255,255,255,0.85);
+      --rand: rgba(0,0,0,0.08);
+      --text: #10131a; --text-leise: #5c6472;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; font-family: var(--schrift); color: var(--text);
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(0,122,255,0.14), transparent 60%),
+      radial-gradient(700px 400px at 0% 100%, rgba(52,199,89,0.10), transparent 55%),
+      var(--bg);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--rand);
+    background: var(--karte); backdrop-filter: blur(20px);
+  }
+  .marke { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; }
+  .marke span { color: var(--text-leise); font-weight: 500; }
+  .luecke { flex: 1; }
+
+  select, .knopf {
+    font-family: inherit; font-size: 13px; color: var(--text);
+    background: var(--karte); border: 1px solid var(--rand);
+    border-radius: 10px; padding: 7px 11px; cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  select:hover, .knopf:hover { border-color: rgba(0,122,255,0.55); }
+  .knopf.an { background: rgba(0,122,255,0.18); border-color: rgba(0,122,255,0.55); color: var(--text); }
+
+  .lage {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-leise);
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--rand); background: var(--karte);
+  }
+  .punkt { width: 8px; height: 8px; border-radius: 50%; background: var(--text-leise); }
+  .lage.hoert .punkt { background: var(--danger); animation: puls 1.1s infinite; }
+  .lage.denkt .punkt { background: var(--warning); animation: puls 1.1s infinite; }
+  .lage.spricht .punkt { background: var(--success); animation: puls 1.1s infinite; }
+  @keyframes puls { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  main {
+    flex: 1; overflow-y: auto; padding: 24px 20px 8px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .strang { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+  .blase {
+    max-width: 82%; padding: 12px 16px; border-radius: var(--radius);
+    line-height: 1.55; font-size: 15px; white-space: pre-wrap; word-wrap: break-word;
+    border: 1px solid var(--rand); background: var(--karte);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    animation: rein 0.2s ease;
+  }
+  @keyframes rein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .ich { align-self: flex-end; background: rgba(0,122,255,0.16); border-color: rgba(0,122,255,0.35); }
+  .er  { align-self: flex-start; }
+  .fehler { align-self: flex-start; border-color: rgba(255,59,48,0.5); background: rgba(255,59,48,0.12); }
+  .meta { margin-top: 6px; font-size: 11.5px; color: var(--text-leise); letter-spacing: 0.01em; }
+  .tut {
+    align-self: flex-start; font-size: 12.5px; color: var(--text-leise);
+    padding-left: 4px; display: flex; align-items: center; gap: 8px;
+  }
+  .tut::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--text-leise); }
+  .leer { color: var(--text-leise); text-align: center; margin-top: 12vh; line-height: 1.7; font-size: 14px; }
+  .leer b { color: var(--text); font-weight: 600; display: block; margin-bottom: 8px; font-size: 16px; }
+  kbd {
+    font-family: inherit; font-size: 11.5px; padding: 2px 7px; border-radius: 6px;
+    border: 1px solid var(--rand); background: var(--karte);
+  }
+
+  footer {
+    padding: 14px 20px 22px; border-top: 1px solid var(--rand);
+    background: var(--karte); backdrop-filter: blur(20px);
+  }
+  .leiste { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  #eingabe {
+    flex: 1; font-family: inherit; font-size: 15px; color: var(--text);
+    background: var(--bg-2); border: 1px solid var(--rand);
+    border-radius: 12px; padding: 12px 14px; outline: none;
+  }
+  #eingabe:focus { border-color: rgba(0,122,255,0.55); }
+
+  .mikro {
+    width: 60px; height: 60px; flex: 0 0 60px; border-radius: 50%;
+    border: 1px solid rgba(0,122,255,0.45); background: rgba(0,122,255,0.18);
+    color: var(--text); display: grid; place-items: center; cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .mikro:hover { transform: scale(1.04); }
+  .mikro.hoert {
+    background: rgba(255,59,48,0.24); border-color: rgba(255,59,48,0.6);
+    box-shadow: 0 0 0 0 rgba(255,59,48,0.45); animation: welle 1.4s infinite;
+  }
+  @keyframes welle {
+    0% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
+    70% { box-shadow: 0 0 0 18px rgba(255,59,48,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,59,48,0); }
+  }
+  .mikro svg { width: 26px; height: 26px; }
+  .hinweis { max-width: 760px; margin: 10px auto 0; font-size: 12px; color: var(--text-leise); text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marke">KURANI <span>· Sprachassistent</span></div>
+  <div class="lage" id="lage"><span class="punkt"></span><span id="lageText">bereit</span></div>
+  <div class="luecke"></div>
+  <select id="ordnerWahl" title="Arbeitsordner"><option value="">Ordner: automatisch</option></select>
+  <select id="stufeWahl" title="Was darf der Assistent?">
+    <option value="reden">Nur reden</option>
+    <option value="arbeiten" selected>Arbeiten</option>
+    <option value="frei">Freie Hand</option>
+  </select>
+  <button class="knopf" id="freihandKnopf" title="Dauerhaft zuhören und antworten">Freihand</button>
+  <button class="knopf" id="stummKnopf" title="Antworten nicht vorlesen">Stumm</button>
+  <button class="knopf" id="neuKnopf" title="Gedächtnis leeren">Neu</button>
+</header>
+
+<main id="verlauf">
+  <div class="strang" id="strang">
+    <div class="leer" id="leerHinweis">
+      <b>Sag, was zu tun ist.</b>
+      Mikrofon anklicken oder <kbd>Leertaste</kbd> gedrückt halten.<br>
+      „Schreib eine Rechnung für La Piazza über 350 Euro“ · „Was steht diese Woche an?“ · „In der App geht das Dashboard nicht“
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="leiste">
+    <button class="mikro" id="mikro" title="Sprechen (Leertaste halten)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/>
+        <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+      </svg>
+    </button>
+    <input id="eingabe" placeholder="… oder tippen und Enter drücken" autocomplete="off">
+    <button class="knopf" id="stoppKnopf" style="display:none">Stopp</button>
+  </div>
+  <div class="hinweis" id="fussHinweis"></div>
+</footer>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------- Zustand --
+var KONFIG = { hoeren: 'browser', stimme: 'browser', ordner: [], demo: false, freieHand: false, modell: 'sonnet' };
+var freihand = false;      // Dauer-Zuhören ohne Knopfdruck
+var stumm = false;
+var hoertZu = false;
+var laeuft = false;        // ein Auftrag arbeitet gerade
+var strom = null;          // Mikrofon-Stream (einmal erlauben, dann behalten)
+var recorder = null, brocken = [], aufnahmeStart = 0;
+var browserErkennung = null;
+var laufendesAudio = null;
+var vadTimer = null;
+var tasteUnten = false;    // Leertaste gerade gedrückt?
+
+var $ = function (id) { return document.getElementById(id); };
+
+// ------------------------------------------------------------- Anzeige -----
+function lage(art, text) {
+  $('lage').className = 'lage ' + (art || '');
+  $('lageText').textContent = text;
+}
+
+function blase(klasse, text, meta) {
+  var hinweis = $('leerHinweis');
+  if (hinweis) hinweis.remove();
+  var d = document.createElement('div');
+  d.className = klasse;
+  d.textContent = text;
+  if (meta) {
+    var m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = meta;
+    d.appendChild(m);
+  }
+  $('strang').appendChild(d);
+  $('verlauf').scrollTop = $('verlauf').scrollHeight;
+  return d;
+}
+
+// ------------------------------------------------------------ Sprechen -----
+function browserSprich(text) {
+  return new Promise(function (fertig) {
+    if (!window.speechSynthesis) return fertig();
+    var s = new SpeechSynthesisUtterance(text);
+    s.lang = 'de-DE';
+    s.rate = 1.05;
+    var stimmen = window.speechSynthesis.getVoices();
+    var deutsch = stimmen.filter(function (v) { return /de[-_]/i.test(v.lang); });
+    if (deutsch.length) s.voice = deutsch[0];
+    s.onend = fertig;
+    s.onerror = fertig;
+    window.speechSynthesis.speak(s);
+  });
+}
+
+async function sprich(text) {
+  if (stumm || !text) return;
+  lage('spricht', 'spricht');
+  if (KONFIG.stimme === 'elevenlabs') {
+    try {
+      var antwort = await fetch('/api/stimme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+      });
+      if (antwort.ok) {
+        var blob = await antwort.blob();
+        await new Promise(function (fertig) {
+          laufendesAudio = new Audio(URL.createObjectURL(blob));
+          laufendesAudio.onended = fertig;
+          laufendesAudio.onerror = fertig;
+          laufendesAudio.play().catch(fertig);
+        });
+        laufendesAudio = null;
+        return;
+      }
+    } catch (e) { /* dann eben die Browser-Stimme */ }
+  }
+  await browserSprich(text);
+}
+
+function stoppSprechen() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (laufendesAudio) { try { laufendesAudio.pause(); } catch (e) {} laufendesAudio = null; }
+}
+
+// ------------------------------------------------------------- Auftrag -----
+async function schicke(text) {
+  if (!text || laeuft) return;
+  blase('blase ich', text);
+  laeuft = true;
+  lage('denkt', 'arbeitet');
+  $('stoppKnopf').style.display = '';
+
+  var antwortBlase = null;
+  try {
+    var res = await fetch('/api/auftrag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        ordner: $('ordnerWahl').value || null,
+        stufe: $('stufeWahl').value
+      })
+    });
+
+    var leser = res.body.getReader();
+    var dekoder = new TextDecoder();
+    var puffer = '';
+    while (true) {
+      var stueck = await leser.read();
+      if (stueck.done) break;
+      puffer += dekoder.decode(stueck.value, { stream: true });
+      var teile = puffer.split('\n\n');
+      puffer = teile.pop();
+      for (var i = 0; i < teile.length; i++) {
+        var zeile = teile[i].split('\n').filter(function (z) { return z.indexOf('data: ') === 0; })[0];
+        if (!zeile) continue;
+        var e = JSON.parse(zeile.slice(6));
+        antwortBlase = await verarbeite(e, antwortBlase);
+      }
+    }
+  } catch (fehler) {
+    blase('blase fehler', 'Verbindung zum Assistenten verloren: ' + fehler.message);
+  }
+
+  laeuft = false;
+  $('stoppKnopf').style.display = 'none';
+  lage('', 'bereit');
+  if (freihand) starteHoeren();
+}
+
+async function verarbeite(e, antwortBlase) {
+  if (e.art === 'angenommen') {
+    lage('denkt', 'arbeitet in ' + e.ordner);
+    return antwortBlase;
+  }
+  if (e.art === 'werkzeug') {
+    blase('tut', e.text);
+    return antwortBlase;
+  }
+  if (e.art === 'text') {
+    // Zwischenstand: er denkt laut. Die Blase wird durch die
+    // Endantwort ersetzt, sobald der Auftrag fertig ist.
+    if (!antwortBlase) antwortBlase = blase('blase er', e.text);
+    else antwortBlase.textContent += e.text;
+    $('verlauf').scrollTop = $('verlauf').scrollHeight;
+    return antwortBlase;
+  }
+  if (e.art === 'fertig') {
+    if (antwortBlase) { antwortBlase.remove(); antwortBlase = null; }
+    if (e.still) return antwortBlase;
+    var meta = [];
+    if (typeof e.sekunden === 'number') meta.push(e.sekunden + ' s');
+    if (e.kosten) meta.push(e.kosten.toFixed(2).replace('.', ',') + ' $');
+    if (e.gekuerzt) meta.push('vorgelesen: Kurzfassung');
+    if (e.hinweis) meta.push(e.hinweis);
+    blase('blase er', e.text || 'Fertig.', meta.join('  ·  '));
+    await sprich(e.sprich || e.text);
+    return antwortBlase;
+  }
+  if (e.art === 'fehler' || e.art === 'abgebrochen') {
+    if (antwortBlase) { antwortBlase.remove(); antwortBlase = null; }
+    blase('blase fehler', e.text);
+    await sprich(e.sprich || e.text);
+    return antwortBlase;
+  }
+  return antwortBlase;
+}
+
+// -------------------------------------------------------------- Zuhören ----
+async function mikrofonHolen() {
+  if (strom) return strom;
+  strom = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+  return strom;
+}
+
+function aufnahmeTyp() {
+  var kandidaten = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  for (var i = 0; i < kandidaten.length; i++) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(kandidaten[i])) return kandidaten[i];
+  }
+  return '';
+}
+
+async function starteHoeren(quelle) {
+  if (hoertZu || laeuft) return;
+  stoppSprechen();
+
+  // Ohne Deepgram-Schlüssel hört der Browser selbst zu.
+  if (KONFIG.hoeren !== 'deepgram') return browserHoeren();
+
+  try {
+    await mikrofonHolen();
+  } catch (e) {
+    blase('blase fehler', 'Ich komme nicht ans Mikrofon. Erlaubst du den Zugriff im Browser?');
+    return;
+  }
+
+  var typ = aufnahmeTyp();
+  brocken = [];
+  recorder = new MediaRecorder(strom, typ ? { mimeType: typ } : undefined);
+  recorder.ondataavailable = function (e) { if (e.data && e.data.size) brocken.push(e.data); };
+  recorder.onstop = async function () {
+    hoertZu = false;
+    $('mikro').classList.remove('hoert');
+    stoppVad();
+    var dauer = Date.now() - aufnahmeStart;
+    var blob = new Blob(brocken, { type: typ || 'audio/webm' });
+    if (dauer < 350 || blob.size < 1200) { lage('', 'bereit'); if (freihand) starteHoeren(); return; }
+
+    lage('denkt', 'verstehe …');
+    try {
+      var res = await fetch('/api/hoeren', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob
+      });
+      var daten = await res.json();
+      if (daten.text) schicke(daten.text);
+      else { lage('', 'bereit'); if (freihand) starteHoeren(); }
+    } catch (e) {
+      blase('blase fehler', 'Das Verstehen hat nicht geklappt: ' + e.message);
+      lage('', 'bereit');
+    }
+  };
+
+  aufnahmeStart = Date.now();
+  recorder.start();
+  hoertZu = true;
+  $('mikro').classList.add('hoert');
+  lage('hoert', freihand ? 'hört zu (Freihand)' : 'hört zu');
+  if (freihand) starteVad();
+
+  // Kurzer Tipp auf die Leertaste: das Mikrofon braucht einen Moment zum
+  // Starten - war die Taste da schon wieder oben, sofort wieder aufhören.
+  if (quelle === 'taste' && !tasteUnten && !freihand) stoppeHoeren();
+}
+
+function stoppeHoeren() {
+  if (recorder && recorder.state === 'recording') recorder.stop();
+  else if (browserErkennung) { try { browserErkennung.stop(); } catch (e) {} }
+  hoertZu = false;
+  $('mikro').classList.remove('hoert');
+}
+
+// Freihand: selbst merken, wann Ibo aufgehört hat zu sprechen.
+function starteVad() {
+  try {
+    var ac = new (window.AudioContext || window.webkitAudioContext)();
+    var quelle = ac.createMediaStreamSource(strom);
+    var analyse = ac.createAnalyser();
+    analyse.fftSize = 1024;
+    quelle.connect(analyse);
+    var daten = new Uint8Array(analyse.fftSize);
+    var hatGesprochen = false;
+    var stilleSeit = Date.now();
+
+    vadTimer = setInterval(function () {
+      analyse.getByteTimeDomainData(daten);
+      var summe = 0;
+      for (var i = 0; i < daten.length; i++) {
+        var v = (daten[i] - 128) / 128;
+        summe += v * v;
+      }
+      var lautstaerke = Math.sqrt(summe / daten.length);
+
+      if (lautstaerke > 0.035) { hatGesprochen = true; stilleSeit = Date.now(); }
+      var stille = Date.now() - stilleSeit;
+      var gesamt = Date.now() - aufnahmeStart;
+
+      // Satz zu Ende (1,1 s Ruhe) oder Notbremse nach 30 s.
+      if ((hatGesprochen && stille > 1100) || gesamt > 30000) {
+        try { ac.close(); } catch (e) {}
+        stoppeHoeren();
+      } else if (!hatGesprochen && gesamt > 8000) {
+        // Niemand spricht: Aufnahme verwerfen und neu lauschen.
+        try { ac.close(); } catch (e) {}
+        stoppeHoeren();
+      }
+    }, 100);
+  } catch (e) { /* ohne VAD läuft Freihand halt per Knopf */ }
+}
+
+function stoppVad() {
+  if (vadTimer) { clearInterval(vadTimer); vadTimer = null; }
+}
+
+// Spracherkennung des Browsers (kein Schlüssel nötig, Chrome/Edge/Safari).
+function browserHoeren() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    blase('blase fehler', 'Dieser Browser kann nicht zuhören. Nimm Chrome oder trag einen Deepgram-Schlüssel ein - tippen geht immer.');
+    return;
+  }
+  browserErkennung = new SR();
+  browserErkennung.lang = 'de-DE';
+  browserErkennung.interimResults = false;
+  browserErkennung.continuous = false;
+  browserErkennung.onresult = function (e) {
+    var text = e.results[0][0].transcript.trim();
+    if (text) schicke(text);
+  };
+  browserErkennung.onerror = function () { hoertZu = false; $('mikro').classList.remove('hoert'); lage('', 'bereit'); };
+  browserErkennung.onend = function () {
+    hoertZu = false;
+    $('mikro').classList.remove('hoert');
+    if (!laeuft) lage('', 'bereit');
+  };
+  browserErkennung.start();
+  hoertZu = true;
+  $('mikro').classList.add('hoert');
+  lage('hoert', 'hört zu');
+}
+
+// ------------------------------------------------------------- Bedienung --
+$('mikro').onclick = function () { hoertZu ? stoppeHoeren() : starteHoeren(); };
+
+$('eingabe').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && this.value.trim()) {
+    var text = this.value.trim();
+    this.value = '';
+    schicke(text);
+  }
+});
+
+// Leertaste halten = sprechen (nur wenn nicht im Textfeld getippt wird).
+document.addEventListener('keydown', function (e) {
+  if (e.code === 'Space' && document.activeElement !== $('eingabe') && !e.repeat) {
+    e.preventDefault();
+    tasteUnten = true;
+    starteHoeren('taste');
+  }
+  if (e.key === 'Escape') { stoppSprechen(); if (laeuft) $('stoppKnopf').click(); }
+});
+document.addEventListener('keyup', function (e) {
+  if (e.code === 'Space' && document.activeElement !== $('eingabe')) {
+    e.preventDefault();
+    tasteUnten = false;
+    if (hoertZu && !freihand) stoppeHoeren();
+  }
+});
+
+$('freihandKnopf').onclick = function () {
+  freihand = !freihand;
+  this.classList.toggle('an', freihand);
+  if (freihand) starteHoeren(); else stoppeHoeren();
+};
+
+$('stummKnopf').onclick = function () {
+  stumm = !stumm;
+  this.classList.toggle('an', stumm);
+  if (stumm) stoppSprechen();
+};
+
+$('neuKnopf').onclick = async function () {
+  await fetch('/api/neu', { method: 'POST' });
+  $('strang').innerHTML = '';
+  blase('tut', 'Neues Gespräch - das Gedächtnis ist leer.');
+};
+
+$('stoppKnopf').onclick = async function () {
+  stoppSprechen();
+  await fetch('/api/stopp', { method: 'POST' });
+};
+
+// ---------------------------------------------------------------- Start ---
+(async function () {
+  try {
+    KONFIG = await (await fetch('/api/konfig')).json();
+  } catch (e) { /* Standardwerte */ }
+
+  var wahl = $('ordnerWahl');
+  KONFIG.ordner.forEach(function (o) {
+    var opt = document.createElement('option');
+    opt.value = o.name;
+    opt.textContent = 'Ordner: ' + o.name + (o.da ? '' : ' (fehlt)');
+    wahl.appendChild(opt);
+  });
+
+  if (!KONFIG.freieHand) {
+    var frei = $('stufeWahl').querySelector('option[value="frei"]');
+    frei.disabled = true;
+    frei.textContent = 'Freie Hand (in .env freigeben)';
+  }
+
+  var teile = [];
+  teile.push('Hören: ' + (KONFIG.hoeren === 'deepgram' ? 'Deepgram' : 'Browser'));
+  teile.push('Stimme: ' + (KONFIG.stimme === 'elevenlabs' ? 'ElevenLabs' : 'Browser'));
+  teile.push('Modell: ' + KONFIG.modell);
+  if (KONFIG.demo) teile.push('DEMO - es wird nichts wirklich getan');
+  $('fussHinweis').textContent = teile.join('   ·   ');
+
+  if (window.speechSynthesis) window.speechSynthesis.getVoices();
+})();
+</script>
+</body>
+</html>
