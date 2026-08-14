@@ -503,6 +503,40 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     assert.strictEqual(slugAusName(''), 'kunde');
   });
 
+  await test('Speisekarte ohne Webseite: Foto/Text-Antwort wird geprueft', () => {
+    const { baueKartenPrompt, parseKarte, sauberGerichte, preisWert } = require('./lib/webseite-import');
+
+    // Der Auftrag unterscheidet Foto und Text, verbietet aber immer das Raten
+    assert.ok(/Bildern ist eine Speisekarte/.test(baueKartenPrompt('')), 'ohne Text: Foto-Auftrag');
+    assert.ok(/Text einer Speisekarte/.test(baueKartenPrompt('Pizza 8,50')), 'mit Text: Text-Auftrag');
+    assert.ok(/Erfinde NICHTS/.test(baueKartenPrompt('')));
+    assert.ok(/NICHT schaetzen/.test(baueKartenPrompt('')), 'unleserliche Preise nicht raten');
+
+    const e = parseKarte(JSON.stringify({
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+        { name: 'Pizza Margherita', preis: 9 },   // Doppelte
+        { name: 'Handschrift unlesbar' },          // ohne Preis
+        { name: '', preis: 4 }                     // ohne Namen
+      ],
+      unklar: ['Zweite Seite war unscharf']
+    }));
+    assert.strictEqual(e.speisekarte.length, 2, 'Doppelte und namenlose raus');
+    assert.strictEqual(e.speisekarte[0].preis, 8.5);
+    assert.strictEqual(e.speisekarte[1].preis, null, 'Gericht bleibt, Preis offen');
+    assert.ok(e.unklar.some((u) => /unscharf/.test(u)), 'Hinweis der KI bleibt');
+    assert.ok(e.unklar.some((u) => /ohne erkennbaren Preis/.test(u)), 'fehlender Preis wird gemeldet');
+
+    // Nichts erkannt: ehrlich sagen statt leere Karte durchwinken
+    assert.ok(parseKarte('{"speisekarte":[]}').unklar.some((u) => /Keine Gerichte erkannt/.test(u)));
+
+    // Gemeinsame Reinigung: Grenze und Preis-Pruefung
+    assert.strictEqual(sauberGerichte(Array.from({ length: 90 }, (_v, i) => ({ name: 'G' + i })), 80).length, 80);
+    assert.strictEqual(preisWert('12,90'), 12.9);
+    assert.strictEqual(preisWert('9999'), null, 'absurder Preis wird verworfen');
+    assert.strictEqual(preisWert(null), null);
+  });
+
   await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
     const auth = require('./lib/twilio-auth');
     const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };

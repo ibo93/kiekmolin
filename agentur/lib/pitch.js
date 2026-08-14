@@ -15,7 +15,19 @@ function esc(s) {
 }
 
 // Sichtbare Luecken eines Interessenten - nur datengedeckte Aussagen.
-function pitchLuecken(prospect) {
+//
+// Liegt ein echter Betriebs-Check vor (lead-check.js), gewinnt der: dann
+// steht auf der Pitch-Seite, was auf SEINER Seite fehlt, statt der
+// allgemeinen Liste, die auf jeden Gastronomen passt. Genau daran merkt
+// ein Wirt, ob sich jemand seinen Betrieb wirklich angesehen hat.
+function pitchLuecken(prospect, befund) {
+  if (befund && Array.isArray(befund.punkte)) {
+    const echte = befund.punkte
+      .filter((p) => p.art === 'luecke' && p.folge)
+      .map((p) => ({ titel: p.titel, folge: p.folge }));
+    if (echte.length) return echte.slice(0, 6);
+  }
+
   const luecken = [];
   if (!prospect.website) {
     luecken.push({
@@ -43,7 +55,8 @@ function bauePitchHtml(prospect, optionen) {
   const o = optionen || {};
   const name = esc(prospect.name || 'Ihr Betrieb');
   const stadt = esc(prospect.city || 'Ostfriesland');
-  const luecken = pitchLuecken(prospect);
+  const befund = o.befund || null;
+  const luecken = pitchLuecken(prospect, befund);
   const akzent = process.env.AKZENT_FARBE || '#f59e0b';
   const kontakt = esc(o.kontakt || 'KURANI · Bahnhofstr. 2 · 26506 Norden');
 
@@ -86,7 +99,8 @@ function bauePitchHtml(prospect, optionen) {
   <div class="unterzeile">${stadt} · unverbindliche Bestandsaufnahme · ${esc(o.datum || '')}</div>
 </header>
 
-<h2>Was Gästen heute auffällt (und was nicht)</h2>
+<h2>${befund ? 'Was wir bei Ihnen gefunden haben' : 'Was Gästen heute auffällt (und was nicht)'}</h2>
+${befund ? '<div class="beweis" style="margin-bottom:12px"><b>Geprüft am ' + esc(new Date(befund.gepruefteAm).toLocaleDateString('de-DE')) + ':</b> Wir haben Ihre Website aufgerufen und gelesen, bei Google nach Ihnen gesucht und einen KI-Assistenten nach einer Empfehlung gefragt. Was hier steht, steht so auf Ihrer Seite – oder fehlt dort.</div>' : ''}
 ${luecken.map((l) => '<div class="luecke"><b>' + esc(l.titel) + '</b><span>' + esc(l.folge) + '</span></div>').join('\n')}
 
 <h2>Was wir dagegen tun</h2>
@@ -113,6 +127,9 @@ die Richtung – und den Euro-Wert der geretteten Anrufe.</div>
 function normalisiereName(s) {
   return String(s || '').toLowerCase()
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    // Uebrige Akzente (Café, Crème) zum Grundbuchstaben machen - sonst faellt
+    // das é ganz weg und "Café Löwe" waere ploetzlich ein anderer Betrieb.
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 

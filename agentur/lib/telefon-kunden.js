@@ -162,6 +162,15 @@ function speichereEigenenKunden(daten, basisOrdner) {
     speisekarte
   };
 
+  // Probeanruf-Demos: befristete Kunden, die auf der Demo-Nummer liegen.
+  // Die Felder muessen mitgeschrieben werden, sonst kann die App eine
+  // abgelaufene Demo spaeter nicht mehr als solche erkennen.
+  if (d.demo) {
+    kunde.demo = true;
+    if (d.demoBis) kunde.demoBis = String(d.demoBis);
+    if (d.demoFuer) kunde.demoFuer = String(d.demoFuer);
+  }
+
   const slug = dateinameAus(d.slug || name);
   const { kundenOrdner } = pfade(basisOrdner);
   fs.mkdirSync(kundenOrdner, { recursive: true });
@@ -182,7 +191,9 @@ function speichereEigenenKunden(daten, basisOrdner) {
     nummer,
     datei: 'kunden/' + slug + '.json',
     gerichte: speisekarte.length,
-    warnung: (!kunde.melden.sms && !kunde.melden.email)
+    // Bei einer Demo ist "keine Meldung" gewollt: wir haben keine Einwilligung,
+    // dem Wirt SMS zu schicken, und eine Test-Reservierung ist keine echte.
+    warnung: (!d.demo && !kunde.melden.sms && !kunde.melden.email)
       ? 'Ohne SMS-Nummer oder E-Mail erfährt der Wirt nichts von seinen Anrufen. Bitte nachtragen, bevor die Nummer scharf geschaltet wird.'
       : null
   };
