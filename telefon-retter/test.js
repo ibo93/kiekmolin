@@ -432,6 +432,77 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     }
   });
 
+  await test('Webseiten-Import: Text aus HTML, Karten-Links, Antwort geprueft', () => {
+    const {
+      textAusHtml, findeSpeisekartenLinks, parseImportAntwort, slugAusName
+    } = require('./lib/webseite-import');
+
+    // HTML -> Text: Skripte und Stile weg, Zeilen bleiben
+    const html = '<html><head><style>p{color:red}</style><script>var a=(1<2);</script></head>' +
+      '<body><h1>Pizzeria Bella</h1><ul><li>Pizza Margherita 8,50 &euro;</li>' +
+      '<li>Pizza Salami 9,50 &euro;</li></ul><p>Gr&uuml;&szlig;e aus Emden</p></body></html>';
+    const text = textAusHtml(html);
+    assert.ok(!/var a/.test(text), 'Skript-Inhalt ist weg');
+    assert.ok(!/color:red/.test(text), 'Stil-Inhalt ist weg');
+    assert.ok(/Pizza Margherita 8,50 €/.test(text), 'Umlaute und Euro entschluesselt');
+    assert.ok(/Grüße aus Emden/.test(text));
+    assert.ok(text.split('\n').length >= 3, 'Zeilenstruktur bleibt (Gerichte je Zeile)');
+    assert.strictEqual(textAusHtml(null), '');
+
+    // Sonderzeichen und Zahlen-Entities aufloesen, Reste nicht stehenlassen
+    const zeichen = textAusHtml('<p>Emden &middot; 12,50 &#8364; &ndash; t&#228;glich &unbekannt;</p>');
+    assert.ok(/Emden · 12,50 € – täglich/.test(zeichen), 'Entities aufgeloest: ' + zeichen);
+    assert.ok(!/&/.test(zeichen), 'keine halben Entities uebrig');
+
+    // Karten-Links: nur passende, nur eigene Domain
+    const seite = '<a href="/speisekarte">Unsere Karte</a>' +
+      '<a href="https://fremd.de/menu">Lieferando</a>' +
+      '<a href="/impressum">Impressum</a>' +
+      '<a href="mailto:a@b.de">Mail</a>' +
+      '<a href="/bestellen/">Jetzt bestellen</a>';
+    const links = findeSpeisekartenLinks(seite, 'https://bella.de/');
+    assert.ok(links.includes('https://bella.de/speisekarte'));
+    assert.ok(links.includes('https://bella.de/bestellen/'));
+    assert.ok(!links.some((l) => /fremd\.de/.test(l)), 'fremde Domains werden nicht mitgezogen');
+    assert.ok(!links.some((l) => /impressum|mailto/.test(l)));
+
+    // KI-Antwort mit Code-Zaeunen und Muell wird aufgeraeumt
+    const antwort = '```json\n' + JSON.stringify({
+      name: 'Pizzeria Bella', stadt: 'Emden', oeffnet: '7:00', schliesst: 'kaputt',
+      liefergebuehr: '2,50',
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+        { name: 'Pizza Margherita', preis: 9 },            // Doppelte
+        { name: 'Trüffelpizza', preis: 9999 },             // Lesefehler
+        { name: '', preis: 5 },                            // ohne Namen
+        { name: 'Wasser' }                                 // ohne Preis
+      ],
+      unklar: ['Mittagskarte war ein Bild']
+    }) + '\n```';
+    const e = parseImportAntwort(antwort);
+    assert.strictEqual(e.kunde.name, 'Pizzeria Bella');
+    assert.strictEqual(e.kunde.oeffnet, '07:00', 'Uhrzeit auf HH:MM gebracht');
+    assert.strictEqual(e.kunde.schliesst, undefined, 'unbrauchbare Uhrzeit verworfen');
+    assert.strictEqual(e.kunde.liefergebuehr, 2.5, 'Komma-Preis erkannt');
+    assert.strictEqual(e.kunde.speisekarte.length, 3, 'Doppelte und namenlose raus');
+    assert.strictEqual(e.kunde.speisekarte[0].preis, 8.5);
+    assert.strictEqual(e.kunde.speisekarte[1].preis, null, 'absurder Preis wird null, Gericht bleibt');
+    assert.ok(e.unklar.some((u) => /Mittagskarte/.test(u)), 'Hinweis der KI bleibt erhalten');
+    assert.ok(e.unklar.some((u) => /ohne erkennbaren Preis/.test(u)), 'fehlende Preise werden gemeldet');
+
+    // Ohne Name / ohne JSON: laut scheitern
+    assert.throws(() => parseImportAntwort('Tut mir leid, ich kann das nicht.'), /kein JSON/);
+    assert.throws(() => parseImportAntwort('{"speisekarte":[]}'), /Kein Betriebsname/);
+
+    // Leere Karte wird als Problem benannt, nicht verschwiegen
+    const leer = parseImportAntwort('{"name":"X","speisekarte":[]}');
+    assert.ok(leer.unklar.some((u) => /Keine Speisekarte/.test(u)));
+
+    assert.strictEqual(slugAusName('Pizzeria Bella Vista'), 'pizzeria-bella-vista');
+    assert.strictEqual(slugAusName('Café Löwe & Söhne'), 'cafe-loewe-soehne');
+    assert.strictEqual(slugAusName(''), 'kunde');
+  });
+
   await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
     const auth = require('./lib/twilio-auth');
     const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };
