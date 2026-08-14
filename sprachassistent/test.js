@@ -20,6 +20,8 @@ const ohr = require('./lib/ohr');
 const live = require('./lib/live');
 const instagram = require('./lib/instagram');
 const protokoll = require('./lib/protokoll');
+const wetter = require('./lib/wetter');
+const tagesbericht = require('./lib/tagesbericht');
 
 let tests = 0;
 function test(name, fn) { tests++; fn(); console.log('  ok  ' + name); }
@@ -378,6 +380,109 @@ test('Deepgram-Antwort auswerten, auch wenn Felder fehlen', () => {
   assert.strictEqual(ohr.textAus({ results: { channels: [{ alternatives: [{ transcript: ' Mach die Rechnung ' }] }] } }), 'Mach die Rechnung');
   assert.strictEqual(ohr.textAus({}), '');
   assert.strictEqual(ohr.textAus(null), '');
+});
+
+// ------------------------------------------------------- Wetter & Tag ----
+
+// So sieht die Antwort von Open-Meteo aus (dokumentiertes Format).
+function wetterDaten(aenderung) {
+  return Object.assign({
+    current: { temperature_2m: 17.4, weather_code: 3, wind_speed_10m: 18 },
+    daily: {
+      temperature_2m_max: [21.2], temperature_2m_min: [13.8],
+      precipitation_probability_max: [15], weather_code: [3], sunset: ['2026-08-14T21:12']
+    }
+  }, aenderung || {});
+}
+
+test('Wetter: wird zu einem Satz, den man vorlesen kann', () => {
+  const satz = wetter.wetterSatz(wetterDaten(), 'Emden');
+  assert.ok(satz.indexOf('In Emden sind es gerade 17 Grad') > -1, satz);
+  assert.ok(satz.indexOf('bedeckt') > -1, 'Wetter-Code als Klartext: ' + satz);
+  assert.ok(satz.indexOf('bis 21 Grad') > -1, satz);
+  assert.ok(satz.indexOf('kaum Regen') > -1, 'unter 30 Prozent: kein Zahlensalat');
+  assert.ok(!/\d{2,}\.\d/.test(satz), 'keine Nachkommastellen zum Vorlesen: ' + satz);
+});
+
+test('Wetter: starker Wind und Regen kommen vor', () => {
+  const satz = wetter.wetterSatz(wetterDaten({
+    current: { temperature_2m: 9, weather_code: 63, wind_speed_10m: 42 },
+    daily: { temperature_2m_max: [11], temperature_2m_min: [7], precipitation_probability_max: [80], weather_code: [63] }
+  }), 'Greetsiel');
+  assert.ok(satz.indexOf('Regen') > -1 && satz.indexOf('Regenrisiko 80 Prozent') > -1, satz);
+  assert.ok(satz.indexOf('ostfriesisch frisch') > -1, 'ab 30 km/h wird der Wind erwaehnt: ' + satz);
+});
+
+test('Wetter: der praktische Hinweis passt zum Handwerk', () => {
+  assert.strictEqual(wetter.arbeitsHinweis(wetterDaten({
+    daily: { temperature_2m_max: [22], precipitation_probability_max: [5], weather_code: [0] }
+  })), 'Gutes Wetter zum Drehen und fuer Aussenmontage.');
+
+  assert.ok(/drinnen/.test(wetter.arbeitsHinweis(wetterDaten({
+    daily: { temperature_2m_max: [16], precipitation_probability_max: [75], weather_code: [61] }
+  }))), 'bei viel Regen: drinnen arbeiten');
+
+  assert.ok(/Gewitter/.test(wetter.arbeitsHinweis(wetterDaten({
+    daily: { temperature_2m_max: [24], precipitation_probability_max: [50], weather_code: [95] }
+  }))));
+
+  assert.ok(/kalt/.test(wetter.arbeitsHinweis(wetterDaten({
+    daily: { temperature_2m_max: [4], precipitation_probability_max: [10], weather_code: [1] }
+  }))), 'Folie klebt unter acht Grad schlecht');
+
+  assert.ok(/windig/.test(wetter.arbeitsHinweis(wetterDaten({
+    current: { temperature_2m: 12, weather_code: 1, wind_speed_10m: 55 },
+    daily: { temperature_2m_max: [14], precipitation_probability_max: [10], weather_code: [1] }
+  }))));
+});
+
+test('Tagesbericht: Anrede richtet sich nach der Uhrzeit', () => {
+  assert.ok(tagesbericht.tagesAnrede(new Date(2026, 7, 14, 7, 30)).indexOf('Moin') === 0);
+  assert.ok(tagesbericht.tagesAnrede(new Date(2026, 7, 14, 14, 0)).indexOf('Hallo') === 0);
+  assert.ok(tagesbericht.tagesAnrede(new Date(2026, 7, 14, 20, 0)).indexOf('Nabend') === 0);
+  assert.ok(tagesbericht.tagesAnrede(new Date(2026, 7, 14, 9, 0)).indexOf('Freitag der 14.8.') > -1);
+});
+
+test('Tagesbericht: Zahlen werden zu einem Satz, leerer Tag auch', () => {
+  const satz = tagesbericht.plattformSatz({
+    reservierungen: 12, gaeste: 38, unbestaetigt: 2, bestellungen: 4, umsatz: 128.5, rueckrufe: 1
+  });
+  assert.ok(satz.indexOf('12 Reservierungen fuer 38 Gaeste') > -1, satz);
+  assert.ok(satz.indexOf('2 davon noch unbestaetigt') > -1, satz);
+  assert.ok(satz.indexOf('128,50 Euro') > -1, 'Komma statt Punkt zum Vorlesen: ' + satz);
+  assert.ok(satz.indexOf('1 offene Rueckrufe') > -1, satz);
+
+  assert.strictEqual(
+    tagesbericht.plattformSatz({ reservierungen: 0, gaeste: 0, unbestaetigt: 0, bestellungen: 0, umsatz: 0, rueckrufe: 0 }),
+    'Bei Kiek mol in ist heute noch nichts eingetragen.'
+  );
+  assert.strictEqual(tagesbericht.plattformSatz(null), '');
+  assert.strictEqual(
+    tagesbericht.plattformSatz({ reservierungen: 1, gaeste: 2, unbestaetigt: 0, bestellungen: 0, umsatz: 0, rueckrufe: 0 }),
+    'Bei Kiek mol in: 1 Reservierung fuer 2 Gaeste.',
+    'Einzahl bleibt Einzahl'
+  );
+});
+
+test('Tagesbericht: faellt eine Quelle aus, kommt trotzdem ein Bericht', () => {
+  const text = tagesbericht.alsText({
+    anrede: 'Moin, Freitag der 14.8.',
+    wetter: '', arbeitsHinweis: '',
+    plattform: 'Bei Kiek mol in: 3 Reservierungen fuer 8 Gaeste.',
+    fehlt: ['Wetter (kein Netz)']
+  });
+  assert.ok(text.indexOf('Moin') > -1);
+  assert.ok(text.indexOf('3 Reservierungen') > -1, 'die erreichbare Quelle steht drin');
+  assert.ok(text.indexOf('Nicht erreichbar: Wetter (kein Netz)') > -1, 'und er sagt, was fehlt');
+});
+
+test('Schnellbefehl Tagesbericht: Werkzeug-Pfad wird eingesetzt', () => {
+  const b = befehle.schnellbefehl('Moin', null, { tagesbericht: '/pfad/tagesbericht.js' });
+  assert.ok(b, '"Moin" loest den Tagesbericht aus');
+  assert.ok(b.prompt.indexOf('node /pfad/tagesbericht.js') > -1, 'echter Pfad statt Platzhalter');
+  assert.ok(b.prompt.indexOf('{{') === -1, 'kein Platzhalter mehr uebrig');
+  assert.ok(b.prompt.indexOf('Gesagt hat er: "Moin"') > -1, 'der Wortlaut bleibt erhalten');
+  assert.ok(befehle.schnellbefehl('Wie wird das Wetter?'), 'auch die Wetterfrage');
 });
 
 // -------------------------------------------------------------- Kosten ---

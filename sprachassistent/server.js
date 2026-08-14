@@ -58,11 +58,19 @@ const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
 
 // Fertige Werkzeuge, von denen der Assistent wissen muss - sonst baut er
 // sich beim naechsten "wie lief das Reel?" eine eigene Loesung zusammen.
-const WERKZEUG_HINWEIS = process.env.INSTAGRAM_TOKEN
-  ? ('Fuer Instagram gibt es ein fertiges Werkzeug, nutze es statt eigener Loesungen: node ' +
-     path.join(__dirname, 'instagram.js') + ' konto|beitraege|zahlen|kommentare|antworte|poste. ' +
-     'Vor dem Veroeffentlichen eines Reels IMMER den Text vorlesen und bestaetigen lassen.')
-  : '';
+const WERKZEUGE = [
+  'Fuer Wetter und die Zahlen von heute (Reservierungen, Bestellungen, Rueckrufe) gibt es ein ' +
+  'fertiges Werkzeug: node ' + path.join(__dirname, 'tagesbericht.js') + ' (oder --json). ' +
+  'Nutze es, statt selbst Wetterdienste oder die Datenbank anzufragen.'
+];
+if (process.env.INSTAGRAM_TOKEN) {
+  WERKZEUGE.push(
+    'Fuer Instagram gibt es ebenfalls ein Werkzeug: node ' + path.join(__dirname, 'instagram.js') +
+    ' konto|beitraege|zahlen|kommentare|antworte|poste. ' +
+    'Vor dem Veroeffentlichen eines Reels IMMER den Text vorlesen und bestaetigen lassen.'
+  );
+}
+const WERKZEUG_HINWEIS = WERKZEUGE.join(' ');
 
 // Gedaechtnis: pro Arbeitsordner eine laufende Claude-Sitzung. So kann Ibo
 // nachfragen ("und jetzt auch fuer Mai") ohne alles zu wiederholen -
@@ -123,8 +131,13 @@ function budgetGesperrt() {
 
 // Aus dem Gesagten den Auftrag machen: Schnellbefehle sind fertig
 // ausformulierte Aufgaben fuer Saetze, die Ibo jeden Tag sagt.
+const WERKZEUG_PFADE = {
+  tagesbericht: path.join(__dirname, 'tagesbericht.js'),
+  instagram: path.join(__dirname, 'instagram.js')
+};
+
 function auftragsText(gesagt) {
-  const schnell = befehle.schnellbefehl(gesagt);
+  const schnell = befehle.schnellbefehl(gesagt, null, WERKZEUG_PFADE);
   return schnell ? schnell.prompt : gesagt;
 }
 

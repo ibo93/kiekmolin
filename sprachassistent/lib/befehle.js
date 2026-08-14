@@ -162,12 +162,16 @@ const VARIANTEN = {
 // die Antwort nicht davon abhaengt, wie genau er gerade fragt.
 const SCHNELLBEFEHLE = [
   {
-    name: 'lagebericht',
-    hoert: /^(lagebericht|lage|wie sieht'?s aus|wie steht'?s|stand der dinge)\b/i,
-    prompt: 'Gib mir einen kurzen Lagebericht, gesprochen in hoechstens vier Saetzen: ' +
-      'was laut kurani-roadmap diese Woche dran ist, welche Rechnungen offen sind ' +
-      '(kurani-docs) und ob es bei Kiek mol in etwas Auffaelliges gibt. ' +
-      'Keine Listen, nur das Wichtigste - und sag mir am Ende, was ich zuerst anpacken soll.'
+    name: 'tagesbericht',
+    hoert: /^(moin|guten morgen|morgen|tagesbericht|lagebericht|lage|wie sieht'?s aus|wie steht'?s|stand der dinge|wie wird das wetter|wetter)\b/i,
+    prompt: 'Fuehre zuerst dieses Werkzeug aus: node {{tagesbericht}} ' +
+      '- es liefert das Wetter von heute und die aktuellen Zahlen von Kiek mol in. ' +
+      'Ergaenze dann aus deinen Skills: was laut kurani-roadmap diese Woche dran ist ' +
+      'und ob Rechnungen offen sind (kurani-docs). ' +
+      'Fasse alles zu einem gesprochenen Tagesbericht zusammen: Begruessung, Wetter mit ' +
+      'dem praktischen Hinweis, die Zahlen von heute, dann was ansteht - hoechstens ' +
+      'fuenf kurze Saetze. Zum Schluss EIN Satz dazu, was ich zuerst anpacken soll. ' +
+      'Wenn eine Quelle nicht erreichbar war, sag das in drei Worten, statt zu raten.'
   },
   {
     name: 'offene posten',
@@ -191,12 +195,22 @@ const SCHNELLBEFEHLE = [
 
 // Passt der Satz auf einen Schnellbefehl? Dann den ausformulierten Auftrag
 // zurueckgeben, sonst null (dann geht der Satz so wie er ist an Claude).
-function schnellbefehl(text, liste) {
+//
+// pfade fuellt Platzhalter wie {{tagesbericht}} mit dem echten Pfad des
+// Werkzeugs - der haengt davon ab, wo das Repository liegt.
+function schnellbefehl(text, liste, pfade) {
   const t = String(text || '').trim();
   if (!t) return null;
   for (const b of (liste || SCHNELLBEFEHLE)) {
     const muster = b.hoert instanceof RegExp ? b.hoert : new RegExp(b.hoert, 'i');
-    if (muster.test(t)) return { name: b.name, prompt: b.prompt };
+    if (!muster.test(t)) continue;
+    let prompt = b.prompt;
+    for (const [name, pfad] of Object.entries(pfade || {})) {
+      prompt = prompt.split('{{' + name + '}}').join(pfad);
+    }
+    // Was Ibo woertlich gesagt hat, bleibt dabei - sonst geht der Zusatz
+    // verloren ("Tagesbericht, aber ohne Instagram").
+    return { name: b.name, prompt: prompt + '\n\nGesagt hat er: "' + t + '"' };
   }
   return null;
 }

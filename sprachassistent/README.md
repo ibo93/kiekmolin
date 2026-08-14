@@ -91,10 +91,44 @@ du sie genau formulierst:
 
 | Du sagst | Was er macht |
 |---|---|
-| „Lagebericht" | Roadmap-Woche + offene Rechnungen + Auffälliges bei Kiek mol in, in vier Sätzen |
+| „Moin" / „Tagesbericht" | **der ganze Tag in fünf Sätzen** — siehe unten |
 | „Offene Posten" | unbezahlte Rechnungen mit Betrag und Alter (kurani-docs) |
 | „Was steht an?" | die Woche laut kurani-roadmap, plus nächster Schritt |
 | „Wie lief das letzte Reel?" | Instagram-Zahlen, mit einem Satz Einordnung |
+
+### „Moin" — der Tagesbericht
+
+Sag morgens einfach **„Moin"**. Dann bekommst du gesprochen:
+
+1. **Wetter** für Emden — gerade, Höchstwert, Regenrisiko, Wind
+2. **Was das fürs Handwerk heißt**: „Gutes Wetter zum Drehen und für
+   Außenmontage" oder „Zu kalt zum Folienkleben — die haftet unter acht Grad
+   schlecht"
+3. **Kiek mol in heute**: Reservierungen, Gäste, unbestätigte, Bestellungen,
+   offene Rückrufe — live aus der Datenbank
+4. **Was ansteht**: die Woche laut `kurani-roadmap`, offene Rechnungen aus
+   `kurani-docs`
+5. **Ein Satz**, was du zuerst anpacken solltest
+
+Das Wetter kommt von **Open-Meteo — kein Konto, kein Schlüssel, kostenlos**.
+Anderer Ort als Emden:
+
+```
+SPRACH_ORT=Greetsiel
+SPRACH_KOORDINATEN=53.5028,7.1069
+```
+
+Von Hand geht der harte Teil auch ohne Assistent:
+
+```bash
+node tagesbericht.js          # Wetter + Zahlen von heute
+node tagesbericht.js --json   # dasselbe als Daten
+```
+
+Fällt eine Quelle aus (kein Netz, keine Supabase-Schlüssel), sagt er das in
+drei Worten und liefert den Rest — statt dass der ganze Bericht wegbleibt.
+Für den Tagesbericht braucht er Stufe **Arbeiten** (Standard), weil er dafür
+ein Programm startet.
 
 Drei Worte wirken **sofort**, ohne dass die KI überhaupt loslegt:
 
