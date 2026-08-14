@@ -1150,10 +1150,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && pfad === '/api/osm-import') {
       if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: Import nur simuliert.' }); return; }
       const { execFile } = require('child_process');
-      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 180000 }, (fehler, stdout) => {
+      // 45 Suchgebiete von Borkum bis Varel, dazwischen jeweils eine Pause
+      // fuer die Overpass-API: das dauert mehrere Minuten. Mit den alten
+      // 3 Minuten wurde der Import mittendrin abgeschossen und prospects.json
+      // blieb auf dem alten Stand - ohne dass es jemand gemerkt haette.
+      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 1200000 }, (fehler, stdout) => {
         console.log('[osm-import] ' + (fehler ? 'FEHLER: ' + fehler.message : String(stdout).trim().split('\n').pop()));
       });
-      json(res, 200, { ok: true, hinweis: 'Import laeuft (1-2 Minuten) - danach Seite neu laden.' });
+      json(res, 200, { ok: true, hinweis: 'Import laeuft (5-10 Minuten, 45 Gebiete) - die Liste aktualisiert sich von selbst.' });
       return;
     }
 

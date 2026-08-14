@@ -26,23 +26,74 @@ const path = require('path');
 const OUT_FILE = path.join(__dirname, 'prospects.json');
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-// Staedte mit Mittelpunkt + Suchradius (m). Gleiche Staedte wie SEO-Build.
+// Suchgebiete: Mittelpunkt + Radius (m). Abgedeckt wird ganz Ostfriesland
+// (Landkreise Aurich, Leer, Wittmund und die Stadt Emden), der Landkreis
+// Friesland samt Wilhelmshaven, die Kuestenorte und die sieben ostfriesischen
+// Inseln.
+//
+// Warum die Inseln eigene Eintraege bekommen: dort lebt fast jeder Betrieb
+// vom Tagesgast, der vorher googelt. Wer auf Norderney nicht gefunden wird,
+// verliert nicht Stammgaeste, sondern die halbe Saison.
+//
+// Die Radien ueberlappen bewusst. Doppelte Betriebe filtert der Importer
+// ueber den Slug heraus - lieber ein Dorfgasthof zu viel erfasst als einer
+// zu wenig. Gerade die kleinen Landbetriebe sind am wenigsten online und
+// deshalb die dankbarsten Kunden.
 const CITIES = [
-  { name: 'Greetsiel',     lat: 53.5006, lng: 7.1003, radius: 3500 },
-  { name: 'Norddeich',     lat: 53.6122, lng: 7.1606, radius: 4000 },
-  { name: 'Norden',        lat: 53.5944, lng: 7.2061, radius: 5000 },
-  { name: 'Aurich',        lat: 53.4686, lng: 7.4828, radius: 6000 },
-  { name: 'Emden',         lat: 53.3669, lng: 7.2061, radius: 7000 },
-  { name: 'Carolinensiel', lat: 53.6900, lng: 7.7944, radius: 4000 },
-  // Erweiterte Ostfriesland-Abdeckung fuer mehr Google-Reichweite
-  { name: 'Leer',          lat: 53.2316, lng: 7.4480, radius: 6000 },
-  { name: 'Wittmund',      lat: 53.5762, lng: 7.7795, radius: 4500 },
-  { name: 'Esens',         lat: 53.6470, lng: 7.6120, radius: 4000 },
-  { name: 'Wiesmoor',      lat: 53.4130, lng: 7.7340, radius: 4000 },
-  { name: 'Dornum',        lat: 53.6470, lng: 7.4280, radius: 3500 },
-  { name: 'Hage',          lat: 53.6090, lng: 7.2920, radius: 3000 },
-  { name: 'Wittmund-Burhave', lat: 53.5560, lng: 8.0050, radius: 3000 },
-  { name: 'Jever',         lat: 53.5740, lng: 7.9000, radius: 4000 }
+  // --- Landkreis Aurich + Stadt Emden ---------------------------------------
+  { name: 'Norden',            lat: 53.5944, lng: 7.2061, radius: 6000 },
+  { name: 'Norddeich',         lat: 53.6122, lng: 7.1606, radius: 4000 },
+  { name: 'Aurich',            lat: 53.4686, lng: 7.4828, radius: 7000 },
+  { name: 'Emden',             lat: 53.3669, lng: 7.2061, radius: 8000 },
+  { name: 'Hage',              lat: 53.6090, lng: 7.2920, radius: 4000 },
+  { name: 'Dornum',            lat: 53.6470, lng: 7.4280, radius: 4500 },
+  { name: 'Marienhafe',        lat: 53.5250, lng: 7.2750, radius: 4000 },
+  { name: 'Greetsiel',         lat: 53.5006, lng: 7.1003, radius: 4000 },
+  { name: 'Pewsum',            lat: 53.4090, lng: 7.0930, radius: 4000 },
+  { name: 'Hinte',             lat: 53.4090, lng: 7.1720, radius: 3500 },
+  { name: 'Südbrookmerland',   lat: 53.4530, lng: 7.3500, radius: 5000 },
+  { name: 'Großefehn',         lat: 53.4180, lng: 7.5470, radius: 5000 },
+  { name: 'Ihlow',             lat: 53.3830, lng: 7.4000, radius: 4000 },
+  { name: 'Wiesmoor',          lat: 53.4130, lng: 7.7340, radius: 5000 },
+
+  // --- Landkreis Leer -------------------------------------------------------
+  { name: 'Leer',              lat: 53.2316, lng: 7.4480, radius: 7000 },
+  { name: 'Moormerland',       lat: 53.3200, lng: 7.5100, radius: 5000 },
+  { name: 'Hesel',             lat: 53.3060, lng: 7.6000, radius: 4500 },
+  { name: 'Uplengen',          lat: 53.3080, lng: 7.7500, radius: 5000 },
+  { name: 'Westoverledingen',  lat: 53.1830, lng: 7.4650, radius: 5000 },
+  { name: 'Rhauderfehn',       lat: 53.1360, lng: 7.5300, radius: 5500 },
+  { name: 'Weener',            lat: 53.1650, lng: 7.3520, radius: 5000 },
+  { name: 'Bunde',             lat: 53.1830, lng: 7.2670, radius: 4500 },
+  { name: 'Jemgum',            lat: 53.2600, lng: 7.3900, radius: 4000 },
+
+  // --- Landkreis Wittmund + Kuestenorte -------------------------------------
+  { name: 'Wittmund',          lat: 53.5762, lng: 7.7795, radius: 5500 },
+  { name: 'Esens',             lat: 53.6470, lng: 7.6120, radius: 4500 },
+  { name: 'Bensersiel',        lat: 53.6690, lng: 7.5730, radius: 3000 },
+  { name: 'Neuharlingersiel',  lat: 53.7010, lng: 7.7020, radius: 3000 },
+  { name: 'Carolinensiel',     lat: 53.6900, lng: 7.7944, radius: 4000 },
+  { name: 'Friedeburg',        lat: 53.4560, lng: 7.8340, radius: 5000 },
+
+  // --- Landkreis Friesland + Wilhelmshaven ----------------------------------
+  { name: 'Jever',             lat: 53.5740, lng: 7.9000, radius: 5000 },
+  { name: 'Schortens',         lat: 53.5370, lng: 7.9490, radius: 4500 },
+  { name: 'Sande',             lat: 53.5040, lng: 8.0170, radius: 4000 },
+  { name: 'Wilhelmshaven',     lat: 53.5230, lng: 8.1050, radius: 8000 },
+  { name: 'Hooksiel',          lat: 53.6360, lng: 8.0470, radius: 3500 },
+  { name: 'Horumersiel',       lat: 53.6900, lng: 8.0230, radius: 3500 },
+  { name: 'Zetel',             lat: 53.4180, lng: 7.9770, radius: 4500 },
+  { name: 'Bockhorn',          lat: 53.3970, lng: 8.0130, radius: 4000 },
+  { name: 'Varel',             lat: 53.3970, lng: 8.1360, radius: 6000 },
+
+  // --- Die ostfriesischen Inseln -------------------------------------------
+  { name: 'Borkum',            lat: 53.5800, lng: 6.6600, radius: 5000 },
+  { name: 'Juist',             lat: 53.6790, lng: 7.0000, radius: 4000 },
+  { name: 'Norderney',         lat: 53.7070, lng: 7.1550, radius: 5000 },
+  { name: 'Baltrum',           lat: 53.7280, lng: 7.3700, radius: 2500 },
+  { name: 'Langeoog',          lat: 53.7460, lng: 7.4800, radius: 3500 },
+  { name: 'Spiekeroog',        lat: 53.7690, lng: 7.6960, radius: 2500 },
+  { name: 'Wangerooge',        lat: 53.7900, lng: 7.9000, radius: 3000 }
 ];
 
 // Wie sollen importierte Eintraege markiert werden?
