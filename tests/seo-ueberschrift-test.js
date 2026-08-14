@@ -49,16 +49,42 @@ function schneide(name) {
 }
 
 // ---- 1. Die Ueberschrift ---------------------------------------------------
-t('die Ueberschrift nennt die Speisekarte und das Bestellen',
-  /const title = titelName \+ ' – Speisekarte & online bestellen';/.test(CODE));
-t('der alte, doppelte Titel ist weg',
+//
+// NACHGEZOGEN: Der Titel ist nicht mehr fuer alle gleich. Er richtet sich
+// danach, was das Haus wirklich anbietet -- manche Kunden haben kein
+// Online-Bestellen, manche keine Reservierung, manche beides nicht. Ein Titel,
+// der etwas verspricht, das die Seite nicht einloest, kostet Vertrauen beim
+// Gast und Rang bei Google.
+//
+// Die vier Faelle und die Laengenregel pruefen tests/seo-angebot-test.js.
+// HIER bleibt, was davon unabhaengig ist: der Ort darf nicht doppelt
+// auftauchen, und der Titel darf nicht zu lang werden.
+t('der Titel richtet sich nach dem Angebot des Hauses',
+  /const title = \(function \(\) \{/.test(CODE) && /kannBestellen\(rest\)/.test(CODE));
+t('der feste Titel fuer alle ist weg',
+  !/const title = titelName \+ ' – Speisekarte & online bestellen';/.test(CODE));
+t('der alte, doppelte Titel ist ebenfalls weg',
   !/const title = name \+ ' ' \+ cityRaw \+ ' – Online bestellen & Tisch reservieren/.test(CODE));
 
-// Die Regel ausfuehren, nicht nur nach ihr suchen.
+// Die Regel ausfuehren, nicht nur nach ihr suchen. Hier mit einem Haus, das
+// beides kann -- der laengste Fall, also der schaerfste Laengentest.
 var normalize = new Function(schneide('normalize') + '; return normalize;')();
+
+// Die ECHTE Titel-Regel aus dem Quelltext holen, nicht nachbauen. Ein
+// nachgebauter Titel haette hier die Laengenregel nicht gekannt und dem Test
+// eine Sicherheit vorgespielt, die es nicht gibt.
+var titelRegel = (function () {
+    var i = CODE.indexOf('const title = (function () {');
+    var j = CODE.indexOf('})();', i) + 5;
+    return new Function('titelName', 'rest', 'kannBestellen', 'kannReservieren',
+        CODE.slice(i, j).replace('const title =', 'return'));
+})();
+var kannB = new Function(schneide('featureListe') + schneide('kannBestellen') + '; return kannBestellen;')();
+var kannR = new Function(schneide('featureListe') + schneide('kannReservieren') + '; return kannReservieren;')();
+
 function titel(name, stadt) {
     var imNamen = normalize(name).indexOf(normalize(stadt)) >= 0;
-    return (imNamen ? name : name + ' ' + stadt) + ' – Speisekarte & online bestellen';
+    return titelRegel(imNamen ? name : name + ' ' + stadt, { features: [] }, kannB, kannR);
 }
 
 var alPorto = titel('Pizzeria Al Porto Oldersum', 'Oldersum');
@@ -66,16 +92,20 @@ t('der Ort steht nicht doppelt drin',
   (alPorto.match(/Oldersum/g) || []).length === 1, alPorto);
 t('die Betriebsart steht nicht doppelt drin',
   (alPorto.match(/Pizzeria/g) || []).length === 1, alPorto);
-t('"Speisekarte" steht drin', alPorto.indexOf('Speisekarte') > 0, alPorto);
-t('"online bestellen" steht drin', alPorto.indexOf('online bestellen') > 0, alPorto);
+// Bei diesem langen Namen greift die Laengenregel: der Zusatz wird kuerzer,
+// "Speisekarte" faellt weg. Das ist gewollt -- lieber ein kurzer Titel, der
+// ganz dasteht, als ein langer, den Google mitten im Wort abschneidet.
+t('bei langem Namen wird der Zusatz gekuerzt', alPorto.indexOf('Speisekarte,') < 0, alPorto);
+t('"bestellen" steht drin', /bestellen/i.test(alPorto), alPorto);
+t('"reservieren" steht drin', /reservieren/i.test(alPorto), alPorto);
 t('kurz genug, dass Google ihn nicht abschneidet',
   alPorto.length <= 62, alPorto.length + ' Zeichen: ' + alPorto);
 
 var deichhaus = titel('Deichhaus', 'Norddeich');
 t('steckt der Ort NICHT im Namen, kommt er dazu',
-  deichhaus === 'Deichhaus Norddeich – Speisekarte & online bestellen', deichhaus);
+  deichhaus === 'Deichhaus Norddeich – Speisekarte, bestellen & reservieren', deichhaus);
 t('Gross- und Kleinschreibung stoert die Erkennung nicht -- der Ort kommt nicht doppelt',
-  titel('Cafe de NORDEN', 'Norden') === 'Cafe de NORDEN – Speisekarte & online bestellen',
+  titel('Cafe de NORDEN', 'Norden') === 'Cafe de NORDEN – Speisekarte, bestellen & reservieren',
   titel('Cafe de NORDEN', 'Norden'));
 
 // ---- 2. Der Ruhetag --------------------------------------------------------
