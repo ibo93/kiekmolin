@@ -28,6 +28,7 @@ const protokoll = require('./lib/protokoll');
 const live = require('./lib/live');
 const sofort = require('./lib/sofort');
 const notizen = require('./lib/notizen');
+const wache = require('./lib/wache');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -48,6 +49,9 @@ const WECKWORT = process.env.SPRACH_WECKWORT === '' ? '' : (process.env.SPRACH_W
 const NACHLAUF = parseInt(process.env.SPRACH_NACHLAUF || '25', 10);
 // Notbremse fuer den Geldbeutel: mehr als so viel Dollar am Tag nicht.
 const TAGESLIMIT = parseFloat(process.env.SPRACH_TAGESLIMIT_USD || '10');
+// Wache: alle wieviel Minuten wird geprueft, ob kiekmolin.de laeuft?
+// 0 schaltet sie ab.
+const WACHE_MINUTEN = parseInt(process.env.SPRACH_WACHE_MINUTEN || '10', 10);
 // Zusaetzliche Ordner, die der Assistent lesen und anfassen darf - egal in
 // welchem Arbeitsordner er gerade steht. SPRACH_ALLES=ja gibt das ganze
 // Benutzerverzeichnis frei ("Zugriff auf alles").
@@ -417,6 +421,21 @@ function liveVerbindung(ws, req) {
     if (n.typ === 'neu') { sitzungen.clear(); return senden({ typ: 'neu' }); }
   });
 
+  // Wache: laeuft kiekmolin.de noch? Gemeldet wird nur die AENDERUNG -
+  // "alles gut" alle zehn Minuten will keiner hoeren.
+  let wacheStand = null;
+  const wacheTakt = WACHE_MINUTEN ? setInterval(async () => {
+    try {
+      const ergebnis = await wache.pruefe();
+      const meldung = wache.meldungBeiAenderung(wacheStand, ergebnis);
+      wacheStand = ergebnis.ok;
+      if (meldung) {
+        senden({ typ: 'wache', text: meldung, ok: ergebnis.ok });
+        sitzung.melde(meldung);
+      }
+    } catch (_e) { /* Netz weg - beim naechsten Mal wieder */ }
+  }, WACHE_MINUTEN * 60000) : null;
+
   // Faellige Erinnerungen von selbst melden. Einmal pro Minute reicht -
   // und jede Erinnerung genau einmal, sonst nervt sie im Minutentakt.
   const erinnerungsTakt = setInterval(() => {
@@ -433,6 +452,7 @@ function liveVerbindung(ws, req) {
 
   ws.on('close', () => {
     clearInterval(erinnerungsTakt);
+    if (wacheTakt) clearInterval(wacheTakt);
     sitzung.schliessen();
     if (ohrLeitung) ohrLeitung.schliessen();
   });

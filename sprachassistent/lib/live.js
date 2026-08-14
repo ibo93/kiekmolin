@@ -72,6 +72,16 @@ class SatzSammler {
   }
 }
 
+// Lange Texte auf einen Satz eindampfen - fuer Meldungen ueber Auftraege,
+// die nebenher liefen.
+function kurzfassung(text) {
+  const t = entferneMarkdown(text || '').trim();
+  if (!t) return 'ohne Ergebnis';
+  const ende = /[.!?](\s|$)/.exec(t);
+  const satz = ende ? t.slice(0, ende.index + 1) : t;
+  return satz.length > 160 ? satz.slice(0, 157) + '...' : satz;
+}
+
 // ------------------------------------------------------- Unterbrechung ----
 
 // Reden waehrend der Assistent spricht: echte Unterbrechung oder nur das
@@ -219,6 +229,11 @@ class LiveSitzung {
     this.wachBis = 0;
     // Eigener Zustand fuer die Befehle ohne KI (laufendes Diktat).
     this.eigenerZustand = { diktat: null };
+    // Auftraege, die nebenher laufen (nummer -> { frage, lauf }).
+    this.hintergrund = new Map();
+    this.hintergrundZaehler = 0;
+    // Meldungen, die warten mussten, weil er gerade geredet hat.
+    this.meldungen = [];
 
     this.laufend = null;      // aktueller Claude-Auftrag
     this.sammler = null;
@@ -313,18 +328,45 @@ class LiveSitzung {
       return;
     }
 
+    // "Was laeuft gerade?" - ohne KI zu beantworten.
+    if (/^(was l(ae|ä)uft|l(ae|ä)uft (noch )?(was|etwas)|status)\b/i.test(satz)) {
+      this.senden({ typ: 'du', text: satz });
+      const stand = this.hintergrundStand();
+      this.senden({ typ: 'fertig', text: stand, kosten: 0, sekunden: 0 });
+      this._sprich(stand, this.zug);
+      return;
+    }
+
+    // Nebenbei erledigen? Dann blockiert es das Gespraech nicht.
+    const nebenbei = befehle.istHintergrund(satz);
+    if (nebenbei.hintergrund && nebenbei.text) {
+      this.senden({ typ: 'du', text: satz });
+      return this._starteHintergrund(nebenbei.text);
+    }
+
     if (this.laeuft) this.unterbrich('unterbrochen');   // Nachschlag mitten drin
     this.senden({ typ: 'du', text: satz });
     this._starte(satz, kontext || {});
   }
 
-  // Von sich aus etwas sagen (faellige Erinnerung). Nur wenn er nicht
-  // gerade arbeitet - mitten in eine Antwort zu quatschen waere unhoeflich
-  // und wuerde die Sprech-Reihenfolge durcheinanderbringen.
+  // Von sich aus etwas sagen (faellige Erinnerung, fertiger Hintergrund-
+  // Auftrag, Stoerung der Plattform). Mitten in eine laufende Antwort zu
+  // quatschen waere unhoeflich - also wartet die Meldung, bis er fertig
+  // ist. Verlorengehen darf sie nicht: eine Erinnerung, die niemand
+  // hoert, ist keine.
   melde(satz) {
-    if (this.laeuft) return false;
+    if (this.laeuft) { this.meldungen.push(satz); return false; }
     this._sprich(satz, this.zug);
     return true;
+  }
+
+  _meldungenNachreichen() {
+    if (!this.meldungen.length) return;
+    const offen = this.meldungen.splice(0, this.meldungen.length);
+    for (const satz of offen) {
+      this.senden({ typ: 'meldung', text: satz });
+      this._sprich(satz, this.zug);
+    }
   }
 
   // Klappe halten und den laufenden Auftrag fallenlassen.
@@ -342,6 +384,54 @@ class LiveSitzung {
   schliessen() {
     if (this.laufend) { try { this.laufend.abbrechen(); } catch (_e) { /* egal */ } }
     this.laufend = null;
+    // Hintergrund-Auftraege gehoeren zum Fenster: ist es zu, hoert niemand
+    // mehr die Meldung - und weiterlaufen wuerde nur Geld kosten.
+    for (const eintrag of this.hintergrund.values()) {
+      try { if (eintrag.lauf) eintrag.lauf.abbrechen(); } catch (_e) { /* egal */ }
+    }
+    this.hintergrund.clear();
+  }
+
+  // Auftrag, der nebenher laeuft: er blockiert das Gespraech nicht und
+  // meldet sich, wenn er fertig ist. Fuer alles, was dauert - Reel
+  // schneiden, Reports bauen, grosse Umbauten.
+  _starteHintergrund(satz) {
+    const nummer = ++this.hintergrundZaehler;
+    const beginn = Date.now();
+    const eintrag = { nummer: nummer, frage: satz, lauf: null };
+    this.hintergrund.set(nummer, eintrag);
+    this.senden({ typ: 'hintergrundStart', nummer: nummer, text: satz });
+
+    eintrag.lauf = this.starteAuftrag({
+      prompt: satz,
+      live: false,                       // kein Wort-Streaming: keiner hoert zu
+      onEreignis: (e) => {
+        if (e.art === 'werkzeug') return this.senden({ typ: 'hintergrundTut', nummer: nummer, text: e.text });
+        if (e.art !== 'fertig' && e.art !== 'fehler' && e.art !== 'abgebrochen') return;
+
+        this.hintergrund.delete(nummer);
+        const minuten = Math.round((Date.now() - beginn) / 60000);
+        const dauer = minuten >= 1 ? ' Hat ' + minuten + ' Minuten gedauert.' : '';
+        const meldung = e.art === 'fertig'
+          ? 'Der Auftrag im Hintergrund ist fertig: ' + kurzfassung(e.text) + dauer
+          : 'Der Auftrag im Hintergrund ist schiefgegangen: ' + kurzfassung(e.text);
+        this.senden({ typ: 'hintergrundFertig', nummer: nummer, text: e.text || '', art: e.art });
+        this.melde(meldung);
+      }
+    });
+
+    const antwort = 'Alles klar, ich mach das nebenbei und sage Bescheid.';
+    this.senden({ typ: 'fertig', text: antwort, kosten: 0, sekunden: 0 });
+    this._sprich(antwort, this.zug);
+  }
+
+  // Was laeuft gerade im Hintergrund?
+  hintergrundStand() {
+    const liste = [...this.hintergrund.values()];
+    if (!liste.length) return 'Im Hintergrund laeuft gerade nichts.';
+    if (liste.length === 1) return 'Im Hintergrund laeuft: ' + kurzfassung(liste[0].frage) + '.';
+    return 'Im Hintergrund laufen ' + liste.length + ' Sachen: ' +
+      liste.map((e) => kurzfassung(e.frage)).join('; ') + '.';
   }
 
   _starte(satz, kontext) {
@@ -376,6 +466,7 @@ class LiveSitzung {
           this.laufend = null;
           this.sammler = null;
           this.wachHalten();      // Nachfragen gehen ohne erneutes Weckwort
+          setTimeout(() => this._meldungenNachreichen(), 0);   // Wartendes nachholen
           this.senden({
             typ: 'fertig',
             text: this.antwort,

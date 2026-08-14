@@ -98,6 +98,39 @@ du sie genau formulierst:
 | „Feierabend" | was heute lief — für Stundenzettel und Rechnungen |
 | „Merk dir …" / „Erinner mich …" | Notiz bzw. Erinnerung, **ohne KI, ohne Kosten** |
 | „Schreib mit" … „Diktat Ende" | Diktat: alles wandert wörtlich in eine Datei |
+| „… im Hintergrund" | arbeitet nebenbei weiter, meldet sich wenn fertig |
+| „Was läuft gerade?" | zählt die Hintergrund-Aufträge auf |
+
+### Nebenbei arbeiten lassen
+
+Ein Reel schneiden oder alle SEO-Seiten bauen dauert. Solange soll das
+Gespräch nicht stillstehen:
+
+> „Schneide das Reel **im Hintergrund**." · „Bau die SEO-Seiten, **sag
+> Bescheid wenn du fertig bist**."
+
+Er antwortet „Alles klar, ich mach das nebenbei" — und du redest weiter,
+fragst was anderes, lässt dir was vorlesen. Ist er fertig, **meldet er sich
+von selbst** mit dem Ergebnis in einem Satz.
+
+- „**Was läuft gerade?**" zählt auf, was nebenher arbeitet (ohne KI, sofort)
+- Meldungen kommen **nie mitten in eine laufende Antwort** — sie warten, bis
+  er ausgeredet hat, gehen aber nicht verloren
+- Fenster zu = Schluss: laufende Hintergrund-Aufträge werden abgeräumt,
+  sonst kosten sie weiter Geld, obwohl niemand die Meldung hört
+
+### Die Wache: läuft kiekmolin.de noch?
+
+An der Plattform hängen rund 25 Betriebe. Fällt sie aus, merkt es sonst der
+Wirt zuerst — und ruft an. Der Assistent guckt im Live-Modus alle zehn
+Minuten nach (Seite + Datenbank) und **meldet nur die Änderung**:
+
+- Seite weg → „Achtung: Seite antwortet nicht — Antwort 503."
+- Wieder da → „Entwarnung: Kiek mol in ist wieder erreichbar."
+- Läuft alles → **Schweigen.** Alle zehn Minuten „alles gut" will keiner hören.
+
+Im Tagesbericht taucht die Wache nur auf, wenn etwas klemmt. Abschalten mit
+`SPRACH_WACHE_MINUTEN=0`, andere Adresse mit `SPRACH_WACHE_URL=`.
 
 ### Er merkt sich Sachen — ohne KI, ohne Kosten
 

@@ -16,6 +16,7 @@ const path = require('path');
 const wetter = require('./wetter');
 const protokoll = require('./protokoll');
 const notizen = require('./notizen');
+const wache = require('./wache');
 
 function heuteISO(jetzt) {
   const d = jetzt || new Date();
@@ -134,7 +135,13 @@ async function sammle(optionen) {
     plattformZahlen(bericht.datum).then((z) => {
       bericht.zahlen = z;
       bericht.plattform = plattformSatz(z);
-    }).catch((e) => { bericht.fehlt.push('Kiek mol in (' + e.message + ')'); })
+    }).catch((e) => { bericht.fehlt.push('Kiek mol in (' + e.message + ')'); }),
+
+    wache.pruefe().then((w) => {
+      bericht.wache = w;
+      // Laeuft alles, reicht der Halbsatz - nur Stoerungen brauchen Worte.
+      bericht.wacheSatz = w.ok ? '' : wache.wacheSatz(w);
+    }).catch(() => { /* keine Aussage ist besser als eine falsche */ })
   ];
 
   await Promise.all(aufgaben);
@@ -166,6 +173,7 @@ function alsText(bericht) {
   const zeilen = [bericht.anrede];
   if (bericht.wetter) zeilen.push(bericht.wetter);
   if (bericht.arbeitsHinweis) zeilen.push(bericht.arbeitsHinweis);
+  if (bericht.wacheSatz) zeilen.push(bericht.wacheSatz);   // nur bei Stoerung
   if (bericht.plattform) zeilen.push(bericht.plattform);
   if (bericht.telefon) zeilen.push(bericht.telefon);
   if (bericht.notizenHeute) zeilen.push('Auf deiner Liste steht fuer heute: ' + bericht.notizenHeute);

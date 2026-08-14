@@ -189,6 +189,23 @@ function direktBefehl(text) {
   return null;
 }
 
+// --------------------------------------------------- Hintergrund-Arbeit ---
+
+// Manche Aufgaben dauern: ein Reel schneiden, alle SEO-Seiten bauen, einen
+// Report fuer alle Kunden. Solange das laeuft, soll man weiterreden koennen.
+// Diese Woerter schicken den Auftrag in den Hintergrund - der Assistent
+// meldet sich, wenn er fertig ist.
+const HINTERGRUND = /\b(im hintergrund|nebenbei|sag bescheid,? wenn du fertig bist|sag bescheid wenn es fertig ist|melde dich,? wenn|lass (es )?laufen)\b/i;
+
+function istHintergrund(text) {
+  const t = String(text || '');
+  const treffer = HINTERGRUND.exec(t);
+  if (!treffer) return { hintergrund: false, text: t.trim() };
+  const rest = (t.slice(0, treffer.index) + ' ' + t.slice(treffer.index + treffer[0].length))
+    .replace(/\s+/g, ' ').replace(/\s+([,.])/g, '$1').trim().replace(/^[,.]\s*/, '');
+  return { hintergrund: true, text: rest };
+}
+
 // ------------------------------------------------------- Schnellbefehle ---
 
 // Saetze, die Ibo jeden Tag sagt - einmal ordentlich ausformuliert, damit
@@ -329,5 +346,5 @@ module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
   systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
   weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE,
-  direktBefehl, DIREKT
+  direktBefehl, DIREKT, istHintergrund
 };

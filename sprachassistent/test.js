@@ -21,6 +21,7 @@ const live = require('./lib/live');
 const instagram = require('./lib/instagram');
 const protokoll = require('./lib/protokoll');
 const wetter = require('./lib/wetter');
+const wache = require('./lib/wache');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -366,6 +367,61 @@ async function liveSitzungTest() {
     assert.ok(lauf, 'im Nachlauf braucht es kein zweites Weckwort');
   });
 
+  await testAsync('Live: Hintergrund-Auftrag blockiert das Gespraech nicht', async () => {
+    const gesehen = [];
+    const laeufe = [];
+    const s = new live.LiveSitzung({
+      senden: (n) => gesehen.push(n),
+      spreche: async () => null,
+      starteAuftrag: (o) => {
+        const eintrag = { prompt: o.prompt, live: o.live, onEreignis: o.onEreignis, abgebrochen: false };
+        laeufe.push(eintrag);
+        return { abbrechen() { eintrag.abgebrochen = true; } };
+      }
+    });
+
+    s.gehoert('Schneide das Reel im Hintergrund');
+    assert.strictEqual(laeufe.length, 1);
+    assert.strictEqual(laeufe[0].prompt, 'Schneide das Reel', '"im Hintergrund" gehoert nicht in den Auftrag');
+    assert.strictEqual(s.laeuft, false, 'das Gespraech bleibt frei');
+    assert.ok(gesehen.some((n) => n.typ === 'hintergrundStart'));
+
+    // Waehrenddessen laesst sich ganz normal weiterreden.
+    s.gehoert('Was steht diese Woche an?');
+    assert.strictEqual(laeufe.length, 2);
+    assert.strictEqual(s.laeuft, true, 'die neue Frage laeuft im Vordergrund');
+
+    // Und "was laeuft gerade?" wird ohne KI beantwortet.
+    gesehen.length = 0;
+    s.gehoert('Was laeuft gerade?');
+    assert.strictEqual(laeufe.length, 2, 'dafuer wird keine KI gestartet');
+    const stand = gesehen.find((n) => n.typ === 'fertig');
+    assert.ok(stand.text.indexOf('Schneide das Reel') > -1, 'nennt den laufenden Auftrag: ' + stand.text);
+
+    // Der Hintergrund-Auftrag wird fertig, WAEHREND vorne geredet wird.
+    await new Promise((r) => setTimeout(r, 20));   // Sprech-Kette von vorhin leerlaufen lassen
+    gesehen.length = 0;
+    laeufe[0].onEreignis({ art: 'fertig', text: 'Das Reel ist geschnitten und liegt im Video-Ordner. Es dauert 22 Sekunden.', kosten: 0.4 });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(gesehen.some((n) => n.typ === 'hintergrundFertig'), 'Fenster erfaehrt es sofort');
+    assert.strictEqual(gesehen.filter((n) => n.typ === 'stimme').length, 0,
+      'aber er faellt sich nicht selbst ins Wort');
+
+    // Sobald die Antwort vorne durch ist, kommt die Meldung nach.
+    laeufe[1].onEreignis({ art: 'fertig', text: 'Diese Woche steht der Probeanruf an.', kosten: 0.1 });
+    await new Promise((r) => setTimeout(r, 30));
+    const gesagt = gesehen.filter((n) => n.typ === 'stimme').map((n) => n.text).join(' ');
+    assert.ok(gesagt.indexOf('Das Reel ist geschnitten') > -1, 'die Meldung geht nicht verloren: ' + gesagt);
+    assert.ok(gesagt.indexOf('22 Sekunden') === -1, 'nur der erste Satz, nicht der ganze Bericht');
+
+    // Fenster zu: was noch nebenher laeuft, wird abgeraeumt - sonst kostet
+    // es weiter Geld, obwohl niemand mehr die Meldung hoert.
+    s.gehoert('Bau die SEO-Seiten im Hintergrund');
+    const nochOffen = laeufe[laeufe.length - 1];
+    s.schliessen();
+    assert.strictEqual(nochOffen.abgebrochen, true, 'beim Schliessen wird aufgeraeumt');
+  });
+
   await testAsync('Live: "Stopp" wirkt sofort, ohne die KI zu fragen', async () => {
     gesendet.length = 0;
     sitzung.gehoert('Schreib die Rechnung.');
@@ -512,6 +568,46 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// --------------------------------------------------------------- Wache ---
+
+test('Wache: laeuft alles, bleibt es bei einem Halbsatz', () => {
+  const gut = { ok: true, teile: [{ name: 'Seite', ok: true, ms: 420 }, { name: 'Datenbank', ok: true, ms: 130 }] };
+  const satz = wache.wacheSatz(gut);
+  assert.ok(satz.indexOf('Kiek mol in laeuft') === 0, satz);
+  assert.ok(satz.indexOf('0,4 Sekunden') > -1, 'Antwortzeit in Worten: ' + satz);
+});
+
+test('Wache: Stoerung wird benannt, nicht beschoenigt', () => {
+  const kaputt = {
+    ok: false,
+    teile: [{ name: 'Seite', ok: true, ms: 300 }, { name: 'Datenbank', ok: false, ms: 12000, hinweis: 'Antwort 503' }]
+  };
+  const satz = wache.wacheSatz(kaputt);
+  assert.ok(satz.indexOf('Achtung') === 0, satz);
+  assert.ok(satz.indexOf('Datenbank antwortet nicht - Antwort 503') > -1, satz);
+});
+
+test('Wache: gemeldet wird nur die Aenderung', () => {
+  const gut = { ok: true, teile: [{ name: 'Seite', ok: true, ms: 300 }] };
+  const schlecht = { ok: false, teile: [{ name: 'Seite', ok: false, ms: 9000, hinweis: 'timeout' }] };
+
+  assert.strictEqual(wache.meldungBeiAenderung(null, gut), '', 'erster Blick: nichts sagen');
+  assert.strictEqual(wache.meldungBeiAenderung(true, gut), '', 'laeuft weiter: schweigen');
+  assert.ok(wache.meldungBeiAenderung(true, schlecht).indexOf('Achtung') === 0, 'Ausfall: melden');
+  assert.strictEqual(wache.meldungBeiAenderung(false, schlecht), '', 'bleibt kaputt: nicht nerven');
+  assert.ok(/Entwarnung/.test(wache.meldungBeiAenderung(false, gut)), 'wieder da: Entwarnung');
+});
+
+test('Hintergrund erkennen: die Worte fliegen aus dem Auftrag', () => {
+  assert.strictEqual(befehle.istHintergrund('Schneide das Reel').hintergrund, false);
+  const a = befehle.istHintergrund('Bau die SEO-Seiten im Hintergrund');
+  assert.strictEqual(a.hintergrund, true);
+  assert.strictEqual(a.text, 'Bau die SEO-Seiten');
+  const b = befehle.istHintergrund('Mach den Monatsreport, sag Bescheid wenn du fertig bist');
+  assert.strictEqual(b.hintergrund, true);
+  assert.strictEqual(b.text, 'Mach den Monatsreport,');
 });
 
 // ------------------------------------------------------- Wetter & Tag ----
