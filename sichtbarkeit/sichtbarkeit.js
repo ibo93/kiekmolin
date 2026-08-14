@@ -19,8 +19,25 @@ const { suchfragen } = require('./lib/fragen');
 const aufbereitung = require('./lib/aufbereitung');
 const report = require('./lib/report');
 const { telefonZahlen } = require('./lib/telefonzahlen');
+const { baueAnalyse } = require('./lib/analyse');
 
 ladeEnv();
+
+// Analyse fuer den Report: hier bewusst die schlanke Variante aus den Daten,
+// die ohnehin vorliegen (Quote, Vormonat, Telefon-Zahlen). Die Agentur-App
+// reichert zusaetzlich Speisekarte, Gaeste-Ursprung und Rueckgewinnung an -
+// dafuer braucht sie Auswertungen, die dieser Baustein nicht kennen muss.
+function analyseFuerReport({ monat, ergebnis, vormonat, telefon }) {
+  return baueAnalyse({
+    monatLabel: report.monatsLabel(monat),
+    quote: report.quote(ergebnis),
+    vormonatQuote: vormonat && vormonat.quote ? vormonat.quote.prozent : null,
+    telefon: telefon || null,
+    ergebnis,
+    vormonat,
+    radarZeilen: report.wettbewerbsRadar(ergebnis, vormonat)
+  });
+}
 
 const REPORT_ORDNER = path.join(__dirname, 'reports');
 const AUFBEREITUNG_ORDNER = path.join(__dirname, 'aufbereitung');
@@ -72,7 +89,8 @@ async function cmdReport(suchbegriff, optionen) {
 
   const demoDaten = optionen.demo ? JSON.parse(fs.readFileSync(path.join(__dirname, 'demo', 'demo-daten.json'), 'utf8')) : null;
   const verlauf = demoDaten && demoDaten.verlauf ? demoDaten.verlauf : undefined;
-  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf });
+  const analyse = analyseFuerReport({ monat, ergebnis, vormonat, telefon });
+  const html = report.renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');
@@ -110,7 +128,8 @@ async function reportFuerRestaurant(restaurant, monat) {
   });
 
   const verlauf = report.ladeVerlauf(slugVon(restaurant), monat, { quote: report.quote(ergebnis), telefon });
-  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
+  const analyse = analyseFuerReport({ monat, ergebnis, vormonat, telefon });
+  const html = report.renderHtml({ restaurant, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse });
   fs.mkdirSync(REPORT_ORDNER, { recursive: true });
   const basisName = slugVon(restaurant) + '-' + monat;
   const htmlPfad = path.join(REPORT_ORDNER, basisName + '.html');

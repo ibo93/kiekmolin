@@ -149,8 +149,15 @@
   <div class="unten">
     <button class="theme-knopf" id="themeKnopf" onclick="themeWechseln()">☾ / ☀ Modus wechseln</button>
     <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--grau)">
+      <span id="livePunkt" style="width:9px;height:9px;border-radius:50%;background:var(--grau);display:inline-block"
+            title="Verbinde…"></span> Echtzeit
+    </div>
   </div>
 </aside>
+
+<!-- Echtzeit-Meldungen: erscheinen oben rechts, sobald etwas passiert -->
+<div id="liveMeldungen" style="position:fixed;top:16px;right:16px;z-index:99;max-width:340px"></div>
 <div class="inhalt">
 <main>
   <h2 id="s-uebersicht">Übersicht · <span id="uMonat"></span></h2>
@@ -1261,8 +1268,90 @@ ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
-setInterval(ladeTelefon, 15000);
-setInterval(ladeRueckrufe, 60000);
+// ---------------- Echtzeit: der Server meldet sich von selbst ----------
+// Die Umfrage-Schleifen bleiben als Sicherheitsnetz, laufen aber nur noch
+// selten. Alles Wichtige kommt sofort ueber die offene Leitung.
+setInterval(ladeTelefon, 60000);
+setInterval(ladeRueckrufe, 120000);
+
+let liveLeitung = null;
+
+function liveAnzeige(an, text) {
+  const punkt = document.getElementById('livePunkt');
+  if (!punkt) return;
+  punkt.style.background = an ? '#16a34a' : 'var(--grau)';
+  punkt.title = text;
+  punkt.style.boxShadow = an ? '0 0 0 3px rgba(22,163,74,.18)' : 'none';
+}
+
+// Kurzer Ton bei einem Rückruf – ohne Audiodatei, direkt erzeugt.
+// Ein Rückruf ist ein Gast, der GERADE aufgelegt hat. Der darf nicht liegen bleiben.
+function pling() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    o.start(); o.stop(ctx.currentTime + 0.36);
+    setTimeout(() => ctx.close(), 600);
+  } catch (_e) { /* Ton ist Beiwerk - nie den Ablauf stoeren */ }
+}
+
+function meldung(text, dringend) {
+  const kasten = document.getElementById('liveMeldungen');
+  if (!kasten) return;
+  const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div');
+  el.style.cssText = 'background:var(--karte);border:2px solid ' + (dringend ? '#dc2626' : 'var(--akzent)') +
+    ';border-radius:10px;padding:11px 14px;margin-top:8px;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
+    'cursor:pointer;transition:opacity .3s';
+  el.innerHTML = '<b>' + (dringend ? '📞 ' : '✅ ') + text + '</b>' +
+    '<div style="font-size:11.5px;color:var(--grau);margin-top:3px">' + zeit + ' · zum Schließen klicken</div>';
+  el.onclick = () => el.remove();
+  kasten.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, dringend ? 60000 : 15000);
+}
+
+function liveStarten() {
+  if (!window.EventSource) return; // sehr alter Browser: Umfrage-Schleife reicht
+  liveLeitung = new EventSource('/api/live');
+
+  liveLeitung.addEventListener('bereit', () => liveAnzeige(true, 'Live verbunden – Neuigkeiten kommen sofort'));
+
+  liveLeitung.addEventListener('rueckruf', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    pling();
+    meldung('Rückruf-Wunsch: ' + d.name + (d.restaurant ? ' · ' + d.restaurant : '') +
+      (d.anliegen ? '<br><span style="font-weight:400">' + String(d.anliegen).replace(/</g, '&lt;').slice(0, 120) + '</span>' : ''), true);
+    ladeRueckrufe();
+    ladeUebersicht();
+  });
+
+  liveLeitung.addEventListener('telefon', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    if (d.meldung) meldung(d.meldung + ' am Telefon', false);
+    ladeTelefon();
+    ladeUebersicht();
+    if (aktuellerKunde) ladeTelefonZahlen(aktuellerKunde.id);
+  });
+
+  liveLeitung.addEventListener('lead', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    pling();
+    meldung('Neue Anfrage: ' + (d.betrieb || d.name || 'Interessent') + (d.ort ? ' · ' + d.ort : ''), true);
+    ladeLeads();
+  });
+
+  liveLeitung.onerror = () => {
+    liveAnzeige(false, 'Verbindung unterbrochen – versucht es weiter');
+    // EventSource verbindet von allein neu; nichts weiter zu tun.
+  };
+}
+liveStarten();
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
 fetch('/api/kunden').then(r => r.json()).then(k => {
   if (k.some(x => String(x.id).startsWith('00000000'))) document.getElementById('demoBadge').style.display = '';

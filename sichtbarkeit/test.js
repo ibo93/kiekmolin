@@ -317,4 +317,95 @@ test('JSON-LD mit Menue-Sektionen und Beschreibung', () => {
   assert.ok(aufbereitung.baueBeschreibung(demo.restaurant).startsWith('La Piazza Emden ist eine Pizzeria in Emden.'));
 });
 
+// --- Analyse ----------------------------------------------------------------
+test('Analyse: Kernaussage nennt Geld zuerst und erfindet nichts', () => {
+  const { kernaussage } = require('./lib/analyse');
+  const basis = { monatLabel: 'August 2026', quote: { prozent: 70, gefunden: 7, getestet: 10 } };
+
+  // Mit Telefon-Umsatz: der zaehlt fuer den Wirt am meisten
+  const mitGeld = kernaussage(Object.assign({}, basis, {
+    telefon: { reservierungen: 9, bestellungen: 6, gesamtGeschaetzt: 962.4, rueckrufe: 2 }
+  }));
+  assert.ok(mitGeld.includes('15 Vorgänge'), 'Vorgaenge zusammengefasst');
+  assert.ok(mitGeld.includes('962,40 €'), 'Umsatz in Euro');
+  assert.ok(mitGeld.includes('Rückruf-Wünsche'), 'Mehrzahl richtig');
+  assert.ok(!/Vorgäng /.test(mitGeld), 'kein abgeschnittenes Wort');
+  assert.ok(kernaussage(Object.assign({}, basis, {
+    telefon: { reservierungen: 1, bestellungen: 0, gesamtGeschaetzt: 75, rueckrufe: 1 }
+  })).includes('1 Vorgang angenommen'), 'Einzahl richtig');
+
+  // Ohne Telefon, aber mit Herkunft: dann der Anteil
+  assert.ok(kernaussage(Object.assign({}, basis, {
+    herkunft: { vorgaengeUnser: 38, vorgaengeGesamt: 57, anteilProzent: 67, umsatzUnser: 1769.1 }
+  })).includes('67 %'));
+
+  // Nur Sichtbarkeit: Vergleich zum Vormonat
+  assert.ok(kernaussage(Object.assign({}, basis, { vormonatQuote: 55 })).includes('von 55 % auf 70 %'));
+  // Gar keine Daten: klare Aussage statt Schoenrederei
+  assert.ok(/zu wenige Daten/.test(kernaussage({ monatLabel: 'August 2026' })));
+});
+
+test('Analyse: Plan nach Wirkung sortiert, Risiken schlagen gute Nachrichten', () => {
+  const { baueAnalyse } = require('./lib/analyse');
+  const ergebnis = {
+    basis: { kiekmolin: { status: 'gefunden' }, website: { status: 'manuell' } },
+    fragen: [
+      { id: 'a', frage: 'pizzeria Emden', google: { status: 'gefunden', platz: 3 }, ki: { status: 'nicht-gefunden' } },
+      { id: 'b', frage: 'beste pizza', google: { status: 'nicht-gefunden' }, ki: { status: 'gefunden' } }
+    ]
+  };
+  const a = baueAnalyse({
+    monatLabel: 'August 2026', ergebnis,
+    quote: { prozent: 50, gefunden: 2, getestet: 4 },
+    vormonatQuote: 70,
+    telefon: { reservierungen: 2, bestellungen: 0, gesamtGeschaetzt: 100, rueckrufe: 3 },
+    doktor: {
+      befunde: [{
+        typ: 'unterpreis', gericht: 'Pizza Margherita', prio: 'hoch', aufwand: '5 Minuten', potenzial: 100,
+        text: 'läuft stark, ist aber zu billig.', empfehlung: 'Preis anheben.'
+      }]
+    },
+    rueckgewinnung: { anzahl: 4, potenzial: 200 },
+    fruehwarnung: { stufe: 'alarm', meldungen: [{ text: 'Reservierungen 60 % unter dem Schnitt.' }] }
+  });
+
+  assert.strictEqual(a.bewertung, 'alarm', 'Alarm hat Vorrang vor guten Zahlen');
+  assert.ok(a.risiken.some((r) => /60 %/.test(r.text)), 'Fruehwarnung uebernommen');
+  assert.ok(a.risiken.some((r) => /70 % auf 50 %/.test(r.text)), 'Quoten-Absturz als Risiko');
+  assert.strictEqual(a.topDrei.length, 3, 'genau drei Schritte - mehr merkt sich niemand');
+  assert.strictEqual(a.topDrei[0].wirkung, 3, 'Wirksamstes zuerst');
+  assert.strictEqual(a.euroPotenzial, 300, 'Euro-Betraege summiert (100 + 200)');
+  // Euro entscheidet bei gleicher Wirkung
+  const euroTitel = a.topDrei.filter((c) => c.euro).map((c) => c.euro);
+  assert.deepStrictEqual(euroTitel, [...euroTitel].sort((x, y) => y - x), 'groesserer Betrag zuerst');
+
+  // Ohne Zusatzdaten: kein Euro-Versprechen, aber ein Plan
+  const schlank = baueAnalyse({ monatLabel: 'August 2026', ergebnis, quote: { prozent: 50, gefunden: 2, getestet: 4 } });
+  assert.strictEqual(schlank.euroPotenzial, 0, 'keine erfundenen Betraege');
+  assert.ok(schlank.chancen.length >= 2);
+  assert.ok(schlank.treiber.length >= 1, 'immer eine Aussage zur Entwicklung');
+});
+
+test('Analyse im Report: Kasten steht oben und nur mit Daten', () => {
+  const { baueAnalyse } = require('./lib/analyse');
+  const analyse = baueAnalyse({
+    monatLabel: 'August 2026',
+    telefon: { reservierungen: 5, bestellungen: 2, gesamtGeschaetzt: 400, rueckrufe: 0 },
+    quote: { prozent: 70, gefunden: 7, getestet: 10 },
+    ergebnis: { basis: { kiekmolin: { status: 'gefunden' }, website: { status: 'gefunden' } }, fragen: [] }
+  });
+  const mit = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08',
+    ergebnis: demo.ergebnis, analyse
+  });
+  assert.ok(mit.includes('Das Wichtigste in Kürze'), 'Analyse-Sektion vorhanden');
+  assert.ok(mit.indexOf('Das Wichtigste in Kürze') < mit.indexOf('Wo stehst du'), 'steht VOR den Kacheln');
+  assert.ok(mit.includes('400,00 €'));
+
+  const ohne = report.renderHtml({
+    restaurant: demo.restaurant, kategorie: 'Pizzeria', monat: '2026-08', ergebnis: demo.ergebnis
+  });
+  assert.ok(!ohne.includes('Das Wichtigste in Kürze'), 'ohne Analyse kein leerer Kasten');
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
