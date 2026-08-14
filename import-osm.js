@@ -22,6 +22,48 @@
 
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+
+// Node bevorzugt seit Version 18 IPv6. Auf vielen Anschluessen ist IPv6 zwar
+// eingeschaltet, aber nicht wirklich nutzbar - dann scheitert jede Verbindung
+// mit einem nichtssagenden "fetch failed", waehrend der Browser klaglos
+// funktioniert (der faellt von selbst auf IPv4 zurueck). Diese Zeile macht
+// dasselbe. Bei funktionierendem IPv6 aendert sie nichts.
+try { dns.setDefaultResultOrder('ipv4first'); } catch (_e) { /* aeltere Node-Version */ }
+
+// "fetch failed" ist die Standardmeldung von Node und sagt gar nichts. Der
+// eigentliche Grund steckt eine Ebene tiefer in error.cause - ohne den sucht
+// man im Dunkeln, ob es die Leitung, der Name, die Sperre oder das Zertifikat war.
+function fehlerGrund(e) {
+  const teile = [e && e.message ? e.message : String(e)];
+  const c = e && e.cause;
+  if (c) {
+    const code = c.code || (c.cause && c.cause.code) || '';
+    const text = c.message || '';
+    if (code) teile.push(code);
+    else if (text && text !== teile[0]) teile.push(text);
+  }
+  return teile.join(' / ');
+}
+
+// Klartext zu den Codes, die in der Praxis vorkommen. Wer nicht taeglich mit
+// Netzwerken zu tun hat, kann mit "ENOTFOUND" nichts anfangen.
+const GRUND_KLARTEXT = [
+  ['ENOTFOUND',    'Der Servername liess sich nicht aufloesen. Meist: keine Internetverbindung, ein DNS-Filter (Pi-hole, AdGuard, NextDNS) oder ein VPN blockt.'],
+  ['EAI_AGAIN',    'Die Namensaufloesung hat keine Antwort bekommen - typisch fuer WLAN ohne Internet oder einen ueberlasteten DNS-Server.'],
+  ['ECONNREFUSED', 'Die Verbindung wurde abgelehnt. Meist ein Proxy oder eine Firewall.'],
+  ['ETIMEDOUT',    'Zeitueberschreitung - der Server antwortet nicht oder etwas dazwischen schluckt die Anfrage.'],
+  ['ECONNRESET',   'Die Verbindung wurde unterwegs gekappt - typisch fuer VPN oder Firewall.'],
+  ['CERT_',        'Das TLS-Zertifikat wurde abgelehnt. Meist ein Virenscanner oder Firmen-Proxy, der den Verkehr aufbricht.'],
+  ['UNABLE_TO_',   'Das TLS-Zertifikat liess sich nicht pruefen. Meist ein Virenscanner oder Firmen-Proxy.']
+];
+
+function grundErklaeren(text) {
+  for (const [code, erklaerung] of GRUND_KLARTEXT) {
+    if (String(text).includes(code)) return erklaerung;
+  }
+  return null;
+}
 
 const OUT_FILE = path.join(__dirname, 'prospects.json');
 // Mehrere Overpass-Server. Der Hauptserver ist ein kostenloses Gemeinschafts-
@@ -180,7 +222,7 @@ async function fetchCity(city) {
       await new Promise(function(r) { setTimeout(r, 2000); });
     }
   }
-  throw new Error(letzterFehler ? letzterFehler.message : 'Unbekannter Fehler');
+  throw new Error(letzterFehler ? fehlerGrund(letzterFehler) : 'Unbekannter Fehler');
 }
 
 function elementToProspect(el, fallbackCity) {
@@ -222,8 +264,57 @@ function loadExisting() {
   }
 }
 
+// Vorab-Test: kommen wir ueberhaupt an einen Overpass-Server heran? Ohne den
+// laeuft der Importer sechs Minuten lang in 45 identische Fehler und man weiss
+// hinterher trotzdem nicht, woran es lag.
+async function erreichbarkeitPruefen() {
+  const probleme = [];
+  for (const server of OVERPASS_SERVER) {
+    const name = server.replace(/^https?:\/\//, '').split('/')[0];
+    try {
+      const res = await fetch(server.replace('/interpreter', '/status'), {
+        headers: { 'User-Agent': 'KiekMolIn-Importer/1.0 (kiekmolin.de)' },
+        signal: AbortSignal.timeout(20000)
+      });
+      // 403 heisst NICHT "erreichbar": Overpass selbst antwortet so nicht.
+      // Wer ein 403 bekommt, sitzt hinter einem Proxy oder einer Sperre, die
+      // die Anfrage abfaengt - und genau dann scheitern nachher alle 45
+      // Gebiete. Lieber hier abbrechen als sechs Minuten ins Leere laufen.
+      if (res.status === 403 || res.status === 407) {
+        console.log('[osm] Verbindung zu ' + name + ': abgewiesen (HTTP ' + res.status + ')');
+        probleme.push('HTTP ' + res.status + ' - abgewiesen');
+        continue;
+      }
+      // Ein 400er dagegen ist in Ordnung: der Server ist da und redet mit uns.
+      console.log('[osm] Verbindung zu ' + name + ': erreichbar (HTTP ' + res.status + ')');
+      return true;
+    } catch (e) {
+      const grund = fehlerGrund(e);
+      console.log('[osm] Verbindung zu ' + name + ': FEHLER - ' + grund);
+      probleme.push(grund);
+    }
+  }
+  console.log('');
+  console.log('[osm] ABBRUCH: kein einziger Overpass-Server ist erreichbar.');
+  const zusammen = probleme.join(' ');
+  const erklaerung = grundErklaeren(zusammen);
+  if (erklaerung) console.log('[osm] ' + erklaerung);
+  else if (/403|407/.test(zusammen)) {
+    console.log('[osm] Die Anfragen werden abgewiesen. Meist ein Proxy, ein VPN, ' +
+      'ein Virenscanner mit Web-Schutz oder ein Firmen-/Gastnetz. Zum Test: VPN aus, ' +
+      'oder ueber einen anderen Anschluss (Handy-Hotspot) versuchen.');
+  }
+  console.log('[osm] Zum Nachpruefen im Terminal:');
+  console.log('[osm]   curl -sS -m 20 https://overpass-api.de/api/status');
+  console.log('[osm] Klappt curl, aber dieses Skript nicht, liegt es an Node - dann melden.');
+  console.log('[osm] prospects.json bleibt unveraendert.');
+  return false;
+}
+
 async function main() {
   console.log('[osm] OSM-Importer fuer', CITIES.length, 'Staedte');
+
+  if (!(await erreichbarkeitPruefen())) { process.exitCode = 2; return; }
 
   const existing = loadExisting();
   // Manuell gepflegte Eintraege (nicht aus OSM) bleiben erhalten; OSM-Daten
