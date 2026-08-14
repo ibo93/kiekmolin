@@ -144,6 +144,38 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Kundendaten sofort neu einlesen. Sonst dauert es bis zu 5 Minuten, bis
+  // ein neu angelegter Kunde erreichbar ist - im Verkaufsgespraech zu lang,
+  // wenn der Wirt gleich seinen Probeanruf machen soll.
+  //
+  // Geschuetzt wie die Anruf-Route: mit TELEFON_WEBHOOK_SCHLUESSEL, wenn
+  // gesetzt. Ohne Schluessel nur vom selben Rechner - von aussen koennte
+  // sonst jeder den Server in eine Neuladeschleife schicken.
+  if (req.method === 'POST' && req.url.startsWith('/neu-laden')) {
+    const erwartet = process.env.TELEFON_WEBHOOK_SCHLUESSEL || '';
+    const mitgeschickt = String(req.headers['x-schluessel'] || '');
+    const vonHier = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+    const erlaubt = erwartet
+      ? anrufZugangGueltig({ schluessel: mitgeschickt, erwarteterSchluessel: erwartet }).ok
+      : vonHier;
+    if (!erlaubt) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, fehler: 'Nicht erlaubt' }));
+      return;
+    }
+    ladeDaten()
+      .then(() => {
+        const namen = [...kontexte.values()].map((k) => k.restaurant.name);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, restaurants: namen }));
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, fehler: e.message }));
+      });
+    return;
+  }
+
   if (req.method === 'POST' && req.url.startsWith('/anruf')) {
     let body = '';
     req.on('data', (d) => { body += d; });

@@ -524,6 +524,8 @@ function zeigeInteressenten() {
           '<button class="aktion" id="pruef-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:8px" ' +
             'onclick="betriebPruefen(\'' + k + '\')" title="Holt seine Website, liest sie und prüft Google- und KI-Sichtbarkeit">' +
             (p.befund ? '↻ neu prüfen' : '🔍 prüfen') + '</button>' +
+          '<button class="aktion" id="demo-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
+            'onclick="demoBauen(\'' + k + '\')" title="Baut einen Probeanruf: seine Speisekarte, sein Name – der Wirt ruft an und hört seinen eigenen Laden">📞 Demo</button>' +
           (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
           (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
           (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
@@ -589,6 +591,47 @@ async function betriebPruefen(schluessel) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
   }
+}
+
+// ---------------- Probeanruf-Demo ----------------
+// Das beste Verkaufsgespräch ist keins: der Wirt ruft an und hört SEINEN
+// Laden. Deshalb steht hier am Ende genau ein Satz – der, den du sagst.
+async function demoBauen(schluessel) {
+  const btn = document.getElementById('demo-' + schluessel);
+  const zeile = document.getElementById('befundZeile-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'baue Demo…'; }
+  try {
+    const r = await api('/api/demo-bauen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    if (zeile) zeile.firstChild.innerHTML = demoHtml(r) + zeile.firstChild.innerHTML;
+    if (btn) { btn.disabled = false; btn.textContent = '📞 Demo'; }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '📞 Demo'; }
+    alert('Demo konnte nicht gebaut werden:\n\n' + e.message);
+  }
+}
+
+function demoHtml(r) {
+  return '<div style="border:2px solid var(--akzent);border-radius:10px;padding:12px 14px;margin:0 0 10px">' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px">📞 Probeanruf steht bereit: ' +
+      '<span style="font-size:16px">' + pTexte(r.nummer) + '</span></div>' +
+    '<div style="font-size:13px;margin-bottom:6px">Das sagst du jetzt:<br>' +
+      '<span style="color:var(--tinte)">„' + pTexte(r.ansage) + '"</span></div>' +
+    '<div style="font-size:12px;color:var(--grau)">' + pTexte(r.kartenHinweis || '') +
+      (r.gerichte ? ' · ' + r.gerichte + ' Gerichte im Assistenten' : ' · nur Reservierungen') +
+      (r.hinweis ? ' · ' + pTexte(r.hinweis) : '') + '</div>' +
+    '<button class="aktion" style="padding:5px 10px;font-size:12px;margin-top:8px" onclick="demoBeenden(this)">Demo beenden</button>' +
+  '</div>';
+}
+
+async function demoBeenden(btn) {
+  btn.disabled = true;
+  try {
+    await api('/api/demo-beenden', { method: 'POST' });
+    btn.parentElement.innerHTML = '<div style="font-size:12px;color:var(--grau)">Demo beendet – die Nummer ist wieder frei.</div>';
+  } catch (e) { btn.disabled = false; alert('Fehler: ' + e.message); }
 }
 
 // Alle ungeprüften Betriebe der aktuellen Ansicht nacheinander durchgehen.

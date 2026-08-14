@@ -837,4 +837,82 @@ test('Betriebs-Check: Befund nennt den Satz fuers Telefonat', () => {
 });
 
 
+test('Probeanruf: Demo-Kunde bekommt seinen Namen, seine Karte und ein Ablaufdatum', () => {
+  const dk = require('./lib/demo-kunde');
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+
+  const mitKarte = dk.baueDemoKunde(
+    { name: 'Café Löwe', stadt: 'Norden', schluessel: 'cafe-loewe--norden' },
+    [{ name: 'Apfelkuchen', preis: 3.5, kategorie: 'Kuchen' }, { name: '', preis: 2 }],
+    { jetzt });
+  assert.strictEqual(mitKarte.kunde.name, 'Café Löwe', 'sein Name, nicht "Beispiel-Restaurant"');
+  assert.strictEqual(mitKarte.gerichte, 1, 'leere Zeilen fliegen raus');
+  assert.strictEqual(mitKarte.slug, 'demo-cafe-loewe');
+  assert.deepStrictEqual(mitKarte.kann, ['reservierung', 'bestellung']);
+  assert.deepStrictEqual(mitKarte.kunde.melden, {}, 'eine Demo meldet nichts an den Wirt');
+  assert.strictEqual(mitKarte.kunde.demoBis, new Date(jetzt.getTime() + 48 * 3600 * 1000).toISOString());
+
+  // Ohne Speisekarte darf der Agent keine Bestellungen versprechen -
+  // das fiele im Probeanruf sofort auf, und zwar vor dem Kunden.
+  const ohne = dk.baueDemoKunde({ name: 'Imbiss Nord', stadt: 'Norden' }, [], { jetzt });
+  assert.deepStrictEqual(ohne.kann, ['reservierung']);
+  assert.ok(/Reservierungen an/.test(dk.ansageFuerIbo(ohne.kunde, '+494931123', 0)));
+  assert.ok(/Ihre Karte/.test(dk.ansageFuerIbo(mitKarte.kunde, '+494931123', 1)));
+
+  assert.throws(() => dk.baueDemoKunde({ name: '' }, [], { jetzt }), /Betriebsnamen/);
+
+  // Ablauf: nach 48 Stunden ist Schluss, sonst nimmt eine vergessene Demo
+  // naechsten Monat noch Anrufe entgegen
+  assert.strictEqual(dk.istAbgelaufen(mitKarte.kunde, jetzt), false);
+  assert.strictEqual(dk.istAbgelaufen(mitKarte.kunde, new Date(2026, 7, 17)), true);
+  assert.strictEqual(dk.istAbgelaufen({ name: 'Echter Kunde' }, jetzt), false, 'echte Kunden laufen nie ab');
+
+  // Nummer am Telefon vorlesbar machen
+  assert.strictEqual(dk.lesbareNummer('+494931123456'), '04931123456');
+});
+
+test('Probeanruf: eine Demo darf niemals die Nummer eines echten Kunden kapern', () => {
+  const dk = require('./lib/demo-kunde');
+  const n = '+494931999999';
+
+  assert.strictEqual(dk.nummerFrei(n, {}).ok, true, 'freie Nummer ist in Ordnung');
+  assert.strictEqual(dk.nummerFrei(n, { [n]: { datei: 'kunden/demo-alt.json' } }).ok, true, 'alte Demo darf ersetzt werden');
+
+  const echt = dk.nummerFrei(n, { [n]: { datei: 'kunden/bella-vista.json' } });
+  assert.strictEqual(echt.ok, false, 'echter eigener Kunde ist tabu');
+  assert.ok(/echter Kunde/.test(echt.text), echt.text);
+
+  const kiekmolin = dk.nummerFrei(n, { [n]: '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad' });
+  assert.strictEqual(kiekmolin.ok, false, 'Kiek-mol-in-Kunde ist genauso tabu');
+});
+
+test('Probeanruf: Demo-Kunde wird als Demo gespeichert und ohne Meldeweg-Warnung', () => {
+  const tk = require('./lib/telefon-kunden');
+  const fsm = require('fs');
+  const os = require('os');
+  const pfad = require('path');
+  const basis = fsm.mkdtempSync(pfad.join(os.tmpdir(), 'demo-test-'));
+
+  const r = tk.speichereEigenenKunden({
+    nummer: '+494931000111', slug: 'demo-pizzeria-roma', name: 'Pizzeria Roma',
+    stadt: 'Norden', kann: ['reservierung', 'bestellung'],
+    speisekarte: [{ name: 'Margherita', preis: 8.5 }],
+    demo: true, demoBis: '2026-08-16T10:00:00.000Z', demoFuer: 'pizzeria-roma--norden'
+  }, basis);
+
+  assert.strictEqual(r.warnung, null, 'bei einer Demo ist "keine Meldung" gewollt');
+  const gespeichert = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'demo-pizzeria-roma.json'), 'utf8'));
+  assert.strictEqual(gespeichert.demo, true, 'Demo-Kennzeichen ueberlebt das Speichern');
+  assert.strictEqual(gespeichert.demoBis, '2026-08-16T10:00:00.000Z');
+
+  // Ein echter Kunde bleibt ungekennzeichnet und wird weiter gewarnt
+  const echt = tk.speichereEigenenKunden({
+    nummer: '+494931000222', name: 'Echt GmbH', kann: ['reservierung']
+  }, basis);
+  assert.ok(/erfährt der Wirt nichts/.test(echt.warnung));
+  const echtDatei = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'echt-gmbh.json'), 'utf8'));
+  assert.strictEqual(echtDatei.demo, undefined);
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

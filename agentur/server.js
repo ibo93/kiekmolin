@@ -39,6 +39,8 @@ const live = require('./lib/live');
 const pipeline = require('./lib/pipeline');
 const leadCheck = require('./lib/lead-check');
 const checks = require('../sichtbarkeit/lib/checks');
+const telefonKunden = require('./lib/telefon-kunden');
+const demoKunde = require('./lib/demo-kunde');
 const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
@@ -677,6 +679,156 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- Probeanruf-Demo ---------
+// Eine eigene Nummer nur fuer Demos. Ohne sie wuerde eine Demo die Nummer
+// eines zahlenden Kunden ueberschreiben - deshalb bricht der Aufbau lieber ab.
+function demoNummer() {
+  const n = telefonKunden.normalisiereNummer(process.env.TELEFON_DEMO_NUMMER || '');
+  if (!n) {
+    throw new Error('Keine Demo-Nummer eingerichtet. Trage TELEFON_DEMO_NUMMER=+49... in die .env ein - ' +
+      'am besten eine zweite Twilio-Nummer, die nur fuer Probeanrufe da ist.');
+  }
+  return n;
+}
+
+// Was liegt gerade auf der Demo-Nummer? Wird auch gebraucht, um eine
+// abgelaufene Demo zu erkennen, bevor jemand sie noch anruft.
+function demoStand() {
+  let nummer;
+  try { nummer = demoNummer(); } catch (e) { return { eingerichtet: false, hinweis: e.message }; }
+  let eintrag;
+  try { eintrag = telefonKunden.liesNummern()[nummer]; } catch (_e) { eintrag = undefined; }
+  if (!eintrag) return { eingerichtet: true, nummer, belegt: false };
+  const datei = typeof eintrag === 'object' ? String(eintrag.datei || '') : '';
+  if (!datei) return { eingerichtet: true, nummer, belegt: true, fremd: true };
+  let kunde = {};
+  try {
+    kunde = JSON.parse(fs.readFileSync(path.join(telefonKunden.pfade().basis, datei), 'utf8'));
+  } catch (_e) { /* Datei weg = wie unbelegt behandeln */ }
+  return {
+    eingerichtet: true, nummer, belegt: true,
+    name: kunde.name || '', fuer: kunde.demoFuer || '',
+    gerichte: (kunde.speisekarte || []).length,
+    demoBis: kunde.demoBis || '',
+    abgelaufen: demoKunde.istAbgelaufen(kunde),
+    ansage: demoKunde.ansageFuerIbo(kunde, nummer, (kunde.speisekarte || []).length)
+  };
+}
+
+// Der Telefon-Retter frischt seine Kundendaten sonst nur alle 5 Minuten auf -
+// im Verkaufsgespraech ist das zu lang. Deshalb stupsen wir ihn direkt an.
+// Klappt das nicht, ist die Demo trotzdem gebaut, nur eben etwas spaeter live.
+async function telefonNeuLaden() {
+  try {
+    const antwort = await fetch(TELEFON_URL + '/neu-laden', {
+      method: 'POST',
+      headers: process.env.TELEFON_WEBHOOK_SCHLUESSEL
+        ? { 'X-Schluessel': process.env.TELEFON_WEBHOOK_SCHLUESSEL } : {},
+      signal: AbortSignal.timeout(8000)
+    });
+    return antwort.ok;
+  } catch (_e) { return false; }
+}
+
+// Speisekarte von einer Webseite holen. Frueher steckte das direkt in der
+// Route - jetzt braucht es auch der Probeanruf, deshalb steht es hier einmal.
+async function importiereWebseite(url) {
+  const imp = require('../telefon-retter/lib/webseite-import');
+  let ziel = String(url || '').trim();
+  if (!ziel) throw new Error('Keine Webseiten-Adresse angegeben.');
+  if (!/^https?:\/\//i.test(ziel)) ziel = 'https://' + ziel;
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY fehlt - erst "node schluessel-einrichten.js" (Schritt 1).');
+  }
+  const hole = async (adresse) => {
+    const antwort = await fetch(adresse, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (kompatibel; KURANI-Import)' },
+      signal: AbortSignal.timeout(20000), redirect: 'follow'
+    });
+    if (!antwort.ok) throw new Error('Die Seite antwortet mit ' + antwort.status);
+    return antwort.text();
+  };
+  const html = await hole(ziel);
+  let text = imp.textAusHtml(html);
+  for (const link of imp.findeSpeisekartenLinks(html, ziel)) {
+    try { text += '\n\n--- ' + link + ' ---\n' + imp.textAusHtml(await hole(link)); } catch (_e) { /* weiter */ }
+  }
+  const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01', 'content-type': 'application/json'
+    },
+    signal: AbortSignal.timeout(120000),
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
+      max_tokens: 16000,
+      messages: [{ role: 'user', content: imp.baueImportPrompt(text.slice(0, 60000), ziel) }]
+    })
+  });
+  if (!antwort.ok) throw new Error('Anthropic ' + antwort.status);
+  const daten = await antwort.json();
+  const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
+  return Object.assign({ webseite: ziel }, imp.parseImportAntwort(roh));
+}
+
+// Demo bauen: Speisekarte holen (Website oder mitgeschickte Liste),
+// Demo-Kunden schreiben, Nummer belegen, Telefon-Retter anstupsen.
+async function baueDemo(eintrag, mitgeschickteKarte) {
+  const nummer = demoNummer();
+
+  // Nie die Nummer eines echten Kunden ueberschreiben.
+  const frei = demoKunde.nummerFrei(nummer, telefonKunden.liesNummern());
+  if (!frei.ok) throw new Error(frei.text);
+
+  // Speisekarte: entweder von Hand mitgeschickt, sonst von seiner Website.
+  // Klappt beides nicht, laeuft die Demo eben nur mit Reservierungen -
+  // das ist ehrlicher, als Gerichte zu erfinden.
+  let karte = Array.isArray(mitgeschickteKarte) ? mitgeschickteKarte : [];
+  let kartenHinweis = karte.length ? 'Speisekarte von Hand übergeben.' : '';
+  if (!karte.length && eintrag.website) {
+    try {
+      const importiert = await importiereWebseite(eintrag.website);
+      karte = importiert.speisekarte || [];
+      kartenHinweis = karte.length
+        ? karte.length + ' Gerichte von seiner Website gelesen.'
+        : 'Auf seiner Website war keine lesbare Speisekarte zu finden.';
+    } catch (e) {
+      kartenHinweis = 'Speisekarte konnte nicht gelesen werden (' + e.message + ').';
+    }
+  } else if (!karte.length) {
+    kartenHinweis = 'Er hat keine Website - für Gerichte bitte die Karte fotografieren.';
+  }
+
+  const gebaut = demoKunde.baueDemoKunde(
+    { name: eintrag.name, stadt: eintrag.stadt, schluessel: eintrag.schluessel }, karte, {});
+
+  if (DEMO) {
+    return {
+      ok: true, nummer, simuliert: true, gerichte: gebaut.gerichte,
+      kartenHinweis, ansage: demoKunde.ansageFuerIbo(gebaut.kunde, nummer, gebaut.gerichte)
+    };
+  }
+
+  const gespeichert = telefonKunden.speichereEigenenKunden({
+    nummer, slug: gebaut.slug, kann: gebaut.kann,
+    name: gebaut.kunde.name, stadt: gebaut.kunde.stadt, tische: gebaut.kunde.tische,
+    speisekarte: gebaut.kunde.speisekarte,
+    demo: true, demoBis: gebaut.kunde.demoBis, demoFuer: gebaut.kunde.demoFuer
+  });
+
+  const live = await telefonNeuLaden();
+  return {
+    ok: true, nummer, gerichte: gespeichert.gerichte, kartenHinweis,
+    demoBis: gebaut.kunde.demoBis,
+    live,
+    hinweis: live
+      ? 'Die Demo ist sofort erreichbar.'
+      : 'Der Telefon-Retter hat sich nicht melden lassen. Läuft er? Sonst ist die Demo in spätestens 5 Minuten aktiv.',
+    ansage: demoKunde.ansageFuerIbo(gebaut.kunde, nummer, gespeichert.gerichte)
+  };
+}
+
 // Prueft einen Interessenten wirklich nach: Website holen und lesen,
 // Google-Platz und KI-Empfehlung testen. Die drei Teile laufen parallel -
 // ein langsamer Server des Wirts soll die anderen beiden nicht aufhalten.
@@ -1040,6 +1192,43 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         json(res, 500, { fehler: e.message });
       }
+      return;
+    }
+
+    // API: Probeanruf-Demo fuer einen Interessenten bauen.
+    // Aus seiner Website (wenn vorhanden) wird die Speisekarte gezogen,
+    // daraus ein befristeter Demo-Kunde auf der Demo-Nummer. Danach kann
+    // der Wirt anrufen und SEINEN Laden ans Telefon gehen hoeren.
+    if (req.method === 'POST' && pfad === '/api/demo-bauen') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+      try {
+        json(res, 200, await baueDemo(eintrag, body.speisekarte));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Demo wieder von der Nummer nehmen.
+    if (req.method === 'POST' && pfad === '/api/demo-beenden') {
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      try {
+        const nummer = demoNummer();
+        telefonKunden.entferneNummer(nummer);
+        await telefonNeuLaden();
+        json(res, 200, { ok: true, nummer });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Liegt gerade eine Demo auf der Nummer - und fuer wen?
+    if (req.method === 'GET' && pfad === '/api/demo') {
+      json(res, 200, demoStand());
       return;
     }
 
@@ -1655,39 +1844,9 @@ const server = http.createServer(async (req, res) => {
       const imp = require('../telefon-retter/lib/webseite-import');
       let ziel = String(url || '').trim();
       if (!ziel) { json(res, 400, { fehler: 'Bitte eine Webseiten-Adresse angeben.' }); return; }
-      if (!/^https?:\/\//i.test(ziel)) ziel = 'https://' + ziel;
       try {
-        const hole = async (adresse) => {
-          const antwort = await fetch(adresse, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (kompatibel; KURANI-Import)' },
-            signal: AbortSignal.timeout(20000), redirect: 'follow'
-          });
-          if (!antwort.ok) throw new Error('Die Seite antwortet mit ' + antwort.status);
-          return antwort.text();
-        };
-        const html = await hole(ziel);
-        let text = imp.textAusHtml(html);
-        for (const link of imp.findeSpeisekartenLinks(html, ziel)) {
-          try { text += '\n\n--- ' + link + ' ---\n' + imp.textAusHtml(await hole(link)); } catch (_e) { /* weiter */ }
-        }
-        const antwort = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-            'anthropic-version': '2023-06-01', 'content-type': 'application/json'
-          },
-          signal: AbortSignal.timeout(120000),
-          body: JSON.stringify({
-            model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
-            max_tokens: 16000,
-            messages: [{ role: 'user', content: imp.baueImportPrompt(text.slice(0, 60000), ziel) }]
-          })
-        });
-        if (!antwort.ok) throw new Error('Anthropic ' + antwort.status);
-        const daten = await antwort.json();
-        const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
-        const ergebnis = imp.parseImportAntwort(roh);
-        json(res, 200, Object.assign({ ok: true, webseite: ziel }, ergebnis));
+        const ergebnis = await importiereWebseite(ziel);
+        json(res, 200, Object.assign({ ok: true }, ergebnis));
       } catch (e) {
         json(res, 502, { fehler: e.message });
       }
