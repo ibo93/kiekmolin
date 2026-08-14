@@ -490,4 +490,49 @@ test('Speisekarten-Doktor: schweigt bei duenner Datenlage, nennt aber Struktur-F
   assert.ok(lang.befunde.some((b) => b.typ === 'zu-lang'));
 });
 
+test('Echtzeit: Verteiler schickt an alle und wirft tote Verbindungen raus', () => {
+  const { Verteiler } = require('./lib/live');
+  const v = new Verteiler();
+  const empfangen = [];
+  const ab = v.anmelden((block) => empfangen.push(block));
+  v.anmelden(() => { throw new Error('Browser zugeklappt'); });
+  assert.strictEqual(v.anzahl, 2);
+
+  const uebrig = v.sende('rueckruf', { name: 'Frau Ubben' });
+  assert.strictEqual(uebrig, 1, 'kaputte Verbindung fliegt raus, Server laeuft weiter');
+  assert.ok(empfangen[0].startsWith('event: rueckruf\n'), 'Ereignis-Name im Block');
+  assert.ok(empfangen[0].includes('"name":"Frau Ubben"'));
+  assert.ok(empfangen[0].endsWith('\n\n'), 'Block sauber abgeschlossen');
+
+  v.herzschlag();
+  assert.ok(empfangen[1].startsWith(':'), 'Herzschlag ist ein Kommentar, kein Ereignis');
+  ab();
+  assert.strictEqual(v.anzahl, 0, 'Abmelden funktioniert');
+  assert.strictEqual(v.sende('test', {}), 0, 'ohne Zuhoerer passiert nichts');
+});
+
+test('Echtzeit: beim ersten Blick gibt es keinen Alarm fuer alte Eintraege', () => {
+  const { neueEintraege, zuwachs, meldungFuerZuwachs } = require('./lib/live');
+  const bekannt = new Set();
+  const liste = [{ id: 'a' }, { id: 'b' }];
+
+  // Erster Lauf: alles merken, nichts melden - sonst schlaegt der Start Alarm
+  assert.deepStrictEqual(neueEintraege(bekannt, liste, 'id', true), []);
+  assert.strictEqual(bekannt.size, 2);
+  // Danach zaehlt nur noch, was wirklich dazukommt
+  assert.deepStrictEqual(neueEintraege(bekannt, liste.concat([{ id: 'c' }]), 'id', false), [{ id: 'c' }]);
+  assert.deepStrictEqual(neueEintraege(bekannt, liste, 'id', false), [], 'Bekanntes meldet sich nicht nochmal');
+  assert.deepStrictEqual(neueEintraege(bekannt, [{ kein: 'schluessel' }], 'id', false), [], 'ohne ID kein Ereignis');
+
+  // Zahlen: nur Zuwachs melden, damit eine geleerte Datei keinen Alarm ausloest
+  assert.deepStrictEqual(zuwachs({ reservierungen: 3 }, { reservierungen: 5 }, ['reservierungen']), { reservierungen: 2 });
+  assert.strictEqual(zuwachs({ reservierungen: 5 }, { reservierungen: 2 }, ['reservierungen']), null, 'Rueckgang ist kein Ereignis');
+  assert.strictEqual(zuwachs({ reservierungen: 5 }, { reservierungen: 5 }, ['reservierungen']), null);
+  assert.strictEqual(zuwachs(null, { reservierungen: 2 }, ['reservierungen']).reservierungen, 2);
+
+  assert.strictEqual(meldungFuerZuwachs({ reservierungen: 1 }), '1 neue Reservierung');
+  assert.strictEqual(meldungFuerZuwachs({ reservierungen: 2, bestellungen: 1 }), '2 neue Reservierungen · 1 neue Bestellung');
+  assert.strictEqual(meldungFuerZuwachs({ anrufeHeute: 1 }), '1 neuer Anruf', 'ohne Ergebnis wenigstens der Anruf');
+});
+
 console.log('\n' + tests + ' Tests bestanden.');

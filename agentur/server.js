@@ -34,6 +34,9 @@ const { baueKundenUpdate } = require('./lib/kunden-update');
 const telefonDb = require('../telefon-retter/lib/supabase');
 // Anruf-Demo: das "Denken" des Telefon-Retters direkt im Browser vorfuehren
 const { DialogSitzung } = require('../telefon-retter/lib/dialog');
+// Echtzeit: der Server meldet Neuigkeiten von sich aus an offene Fenster
+const live = require('./lib/live');
+const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
 // Zusaetzlich telefon-retter/.env: dort liegen die Stimm-Schluessel
@@ -1184,6 +1187,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Echtzeit-Leitung: eine offene Verbindung, durch die der Server
+    // Neuigkeiten schiebt (Rueckrufe, Telefon-Zahlen, neue Anfragen).
+    if (req.method === 'GET' && pfad === '/api/live') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no' // hinter einem Proxy nicht zwischenpuffern
+      });
+      const schreibe = (block) => res.write(block);
+      const abmelden = verteiler.anmelden(schreibe);
+      schreibe('event: bereit\ndata: {"ok":true}\n\n');
+      req.on('close', abmelden);
+      req.on('error', abmelden);
+      return;
+    }
+
     // API: Stille-Alarm - kippen die Zahlen dieser Woche?
     if (req.method === 'GET' && pfad.startsWith('/api/fruehwarnung/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
@@ -1472,6 +1492,61 @@ server.listen(PORT, () => {
     console.log('Monats-Automatik ist AUS (AUTO_REPORT_TAG=0) - Reports nur per Klick.');
   }
 });
+
+// ----------------------------------------------- Echtzeit-Wachhund ----
+// Schaut regelmaessig nach, ob etwas Neues passiert ist, und schiebt es
+// sofort in alle offenen Browser-Fenster. Der Browser fragt nicht mehr -
+// er wird benachrichtigt.
+const WACHE_MS = Math.max(3000, parseInt(process.env.LIVE_INTERVALL_MS, 10) || 8000);
+const wacheStand = {
+  ersterLauf: true,
+  rueckrufIds: new Set(),
+  leadIds: new Set(),
+  statistik: null
+};
+
+async function wachhundLauf() {
+  if (!verteiler.anzahl) return; // niemand schaut hin - keine Arbeit machen
+  const ersterLauf = wacheStand.ersterLauf;
+  wacheStand.ersterLauf = false;
+
+  // 1. Rueckruf-Wuensche: der eiligste Fall ueberhaupt
+  try {
+    const rueckrufe = await ladeRueckrufe();
+    const neue = live.neueEintraege(wacheStand.rueckrufIds, rueckrufe, 'id', ersterLauf);
+    for (const r of neue) {
+      verteiler.sende('rueckruf', {
+        name: r.name || 'Gast', restaurant: r.restaurant || '', anliegen: r.anliegen || '',
+        telefon: r.telefon || '', offen: rueckrufe.length
+      });
+    }
+    if (neue.length) uebersichtCache = { zeit: 0, daten: null };
+  } catch (_e) { /* Datenbank kurz weg - naechster Lauf */ }
+
+  // 2. Telefon-Zahlen: neue Reservierungen/Bestellungen ueber die Leitung
+  try {
+    const jetzt = anrufStatistik();
+    const felder = ['anrufeHeute', 'reservierungen', 'bestellungen', 'rueckrufe'];
+    const mehr = ersterLauf ? null : live.zuwachs(wacheStand.statistik, jetzt, felder);
+    wacheStand.statistik = jetzt;
+    if (mehr) {
+      verteiler.sende('telefon', { zuwachs: mehr, meldung: live.meldungFuerZuwachs(mehr), statistik: jetzt });
+      uebersichtCache = { zeit: 0, daten: null };
+    }
+  } catch (_e) { /* Statistik-Datei gerade in Arbeit */ }
+
+  // 3. Neue Anfragen von der oeffentlichen /check-Seite
+  try {
+    const neue = live.neueEintraege(wacheStand.leadIds, ladeLeads(), 'zeit', ersterLauf);
+    for (const l of neue) {
+      verteiler.sende('lead', { name: l.name || '', betrieb: l.betrieb || '', ort: l.ort || '' });
+    }
+  } catch (_e) { /* keine Leads-Datei */ }
+}
+
+setTimeout(() => wachhundLauf().catch(() => {}), 2000);
+setInterval(() => wachhundLauf().catch(() => {}), WACHE_MS);
+setInterval(() => verteiler.herzschlag(), live.HERZSCHLAG_MS);
 
 // Monats-Automatik: kurz nach dem Start pruefen, danach stuendlich.
 // Laeuft der Rechner am Stichtag nicht, holt der naechste Start den Lauf nach.
