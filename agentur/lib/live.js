@@ -87,7 +87,7 @@ function meldungFuerZuwachs(zuwachsDaten) {
   const teile = [];
   if (z.reservierungen) teile.push(z.reservierungen + ' neue Reservierung' + (z.reservierungen === 1 ? '' : 'en'));
   if (z.bestellungen) teile.push(z.bestellungen + ' neue Bestellung' + (z.bestellungen === 1 ? '' : 'en'));
-  if (z.rueckrufe) teile.push(z.rueckrufe + ' neuer Rückruf-Wunsch');
+  if (z.rueckrufe) teile.push(z.rueckrufe + (z.rueckrufe === 1 ? ' neuer Rückruf-Wunsch' : ' neue Rückruf-Wünsche'));
   if (!teile.length && z.anrufeHeute) teile.push(z.anrufeHeute + ' neuer Anruf' + (z.anrufeHeute === 1 ? '' : 'e'));
   return teile.join(' · ');
 }

@@ -261,13 +261,26 @@ async function starteReport(kunde) {
         quote: report.quote(ergebnis), telefon, ergebnis
       });
 
-      jobs[jobId].schritt = 'Report rendern';
+      jobs[jobId].schritt = 'Verlauf zusammenstellen';
       let verlauf = report.ladeVerlauf(slug, monat, { quote: report.quote(ergebnis), telefon });
       if (DEMO) {
         const demoV = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8')).verlauf;
         if (demoV) verlauf = demoV;
       }
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
+      // Analyse: macht aus den Zahlen eine Aussage und einen Handlungsplan.
+      // Faellt sie aus, kommt der Report trotzdem - nur ohne den Kasten oben.
+      jobs[jobId].schritt = 'Analyse rechnen (Herkunft, Speisekarte, Rückgewinnung)';
+      let analyse = null;
+      try {
+        analyse = await require('./lib/report-analyse').sammle(kunde, {
+          monat, ergebnis, vormonat, telefon, demoDaten: DEMO
+        });
+      } catch (e) {
+        console.warn('Analyse uebersprungen: ' + e.message);
+      }
+
+      jobs[jobId].schritt = 'Report rendern';
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
