@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kostenloser Sichtbarkeits-Check für Ihren Betrieb · KURANI</title>
+<meta name="description" content="Wird Ihr Restaurant gefunden, wenn Gäste die KI nach einem Lokal fragen? Kostenloser Check für Betriebe in Ostfriesland – Ergebnis in 2 Tagen, ohne Verpflichtung.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://kiekmolin.de/check">
+<meta property="og:title" content="Kostenloser Sichtbarkeits-Check für Ihren Betrieb">
+<meta property="og:description" content="Wird Ihr Restaurant gefunden, wenn Gäste die KI nach einem Lokal fragen? Kostenloser Check, ohne Verpflichtung.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kiekmolin.de/check">
+<link rel="icon" href="/favicon-32.png">
+<style>
+  /* ---------------------------------------------------------------
+     Diese Seite richtet sich an GASTRONOMEN, nicht an Gäste.
+     Sie liegt bewusst auf kiekmolin.de: die Domain gibt es schon,
+     sie ist bei Google bekannt, und ein Wirt sieht sofort, dass
+     dahinter etwas Echtes aus der Region steht.
+
+     ANPASSEN vor dem Livegang: die WhatsApp-Nummer weiter unten
+     (Konstante WHATSAPP im Skript am Seitenende).
+     --------------------------------------------------------------- */
+  :root {
+    --tinte: #16202a; --grau: #5c6a78; --linie: #dfe5ea;
+    --karte: #ffffff; --grund: #f6f8fa; --akzent: #c8811b; --gruen: #16a34a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --tinte: #eaf0f5; --grau: #93a3b1; --linie: #26333f;
+      --karte: #131c25; --grund: #0c141b; --akzent: #e6a84a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--grund); color: var(--tinte);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .huelle { max-width: 680px; margin: 0 auto; padding: 28px 20px 60px; }
+  header { padding-bottom: 6px; }
+  .marke { font-weight: 700; letter-spacing: .14em; font-size: 13px; }
+  .marke span { color: var(--akzent); }
+  .unterzeile { color: var(--grau); font-size: 12.5px; margin-top: 2px; }
+
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 12px; letter-spacing: -.01em; }
+  @media (min-width: 600px) { h1 { font-size: 38px; } }
+  .vorspann { font-size: 17px; color: var(--grau); margin-bottom: 26px; }
+
+  .karte {
+    background: var(--karte); border: 1px solid var(--linie);
+    border-radius: 14px; padding: 20px; margin-bottom: 18px;
+  }
+  h2 { font-size: 19px; margin: 34px 0 12px; }
+
+  .punkte { list-style: none; padding: 0; margin: 0; }
+  .punkte li { padding: 11px 0; border-bottom: 1px solid var(--linie); font-size: 15.5px; }
+  .punkte li:last-child { border-bottom: 0; }
+  .punkte b { display: block; }
+  .punkte span { color: var(--grau); font-size: 14px; }
+
+  label { display: block; font-size: 13.5px; color: var(--grau); margin: 14px 0 5px; }
+  input, textarea {
+    width: 100%; padding: 12px 14px; font: inherit; font-size: 16px;
+    border: 1px solid var(--linie); border-radius: 10px;
+    background: var(--grund); color: var(--tinte);
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
+  textarea { min-height: 78px; resize: vertical; }
+  .honig { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+  button {
+    width: 100%; margin-top: 18px; padding: 15px; font: inherit; font-size: 16.5px;
+    font-weight: 600; border: 0; border-radius: 10px; cursor: pointer;
+    background: var(--akzent); color: #12181f;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  .wa {
+    display: block; text-align: center; margin-top: 12px; padding: 14px;
+    border: 1.5px solid var(--gruen); border-radius: 10px;
+    color: var(--gruen); text-decoration: none; font-weight: 600; font-size: 16px;
+  }
+  .hinweis { font-size: 12.5px; color: var(--grau); margin-top: 14px; }
+  .meldung { margin-top: 16px; padding: 14px 16px; border-radius: 10px; font-size: 15px; display: none; }
+  .meldung.gut { display: block; border: 1.5px solid var(--gruen); }
+  .meldung.schlecht { display: block; border: 1.5px solid var(--akzent); }
+
+  footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid var(--linie); font-size: 12.5px; color: var(--grau); }
+  footer a { color: var(--grau); }
+</style>
+</head>
+<body>
+<div class="huelle">
+
+  <header>
+    <div class="marke">KURANI<span>·</span>AGENTUR</div>
+    <div class="unterzeile">Sichtbarkeit für Gastronomie · Ostfriesland</div>
+  </header>
+
+  <h1>Fragt ein Gast die KI nach einem Restaurant — kommt Ihr Name vor?</h1>
+
+  <p class="vorspann">
+    Immer mehr Gäste tippen nicht mehr bei Google, sondern fragen ChatGPT:
+    „Wo kann ich in Greetsiel gut essen?" Wer da nicht genannt wird, existiert
+    für diese Gäste nicht. Wir prüfen kostenlos, wie es bei Ihrem Betrieb aussieht.
+  </p>
+
+  <div class="karte">
+    <h2 style="margin-top:0">Was Sie bekommen</h2>
+    <ul class="punkte">
+      <li><b>Ihre Sichtbarkeits-Quote</b>
+        <span>Wir stellen der KI die Fragen, die Ihre Gäste stellen, und zählen, wie oft Sie genannt werden.</span></li>
+      <li><b>Was konkret fehlt</b>
+        <span>Google-Eintrag, Öffnungszeiten, Speisekarte im Netz, Bewertungen — Punkt für Punkt.</span></li>
+      <li><b>Die drei wirksamsten Handgriffe</b>
+        <span>Was Sie selbst in einer halben Stunde ändern können. Auch wenn Sie danach nie wieder von uns hören.</span></li>
+    </ul>
+    <p class="hinweis" style="margin-top:16px">
+      Kostenlos und ohne Verpflichtung. Kein Abo, kein Vertreterbesuch,
+      keine Weitergabe Ihrer Daten. Wenn wir nichts finden, sagen wir das auch.
+    </p>
+  </div>
+
+  <h2>Und wenn abends keiner ans Telefon geht?</h2>
+  <div class="karte">
+    <p style="margin-top:0">
+      Der zweite wunde Punkt: Anrufe während des Services. Wer nicht durchkommt,
+      ruft selten ein zweites Mal an — er bestellt woanders. Wir haben dafür einen
+      Telefon-Assistenten gebaut, der Reservierungen und Bestellungen annimmt,
+      wenn Sie gerade nicht können.
+    </p>
+    <p style="margin-bottom:0">
+      Beim Check-Termin führen wir ihn Ihnen vor. Sie hören selbst, wie er klingt,
+      und entscheiden danach — nicht vorher.
+    </p>
+  </div>
+
+  <h2 id="formular">Check anfordern</h2>
+  <div class="karte">
+    <form id="anfrage" autocomplete="on">
+      <label for="betrieb">Name Ihres Betriebs *</label>
+      <input id="betrieb" name="betrieb" required maxlength="90" placeholder="z. B. Greetsieler Börse">
+
+      <label for="ort">Ort</label>
+      <input id="ort" name="ort" maxlength="60" placeholder="z. B. Greetsiel">
+
+      <label for="name">Ihr Name</label>
+      <input id="name" name="name" maxlength="70" autocomplete="name">
+
+      <label for="kontakt">Telefon oder E-Mail *</label>
+      <input id="kontakt" name="kontakt" required maxlength="90" placeholder="damit wir Ihnen das Ergebnis schicken können">
+
+      <label for="anliegen">Worum geht es Ihnen? (freiwillig)</label>
+      <textarea id="anliegen" name="anliegen" maxlength="400" placeholder="z. B. Wir verpassen abends viele Anrufe — oder: Bei Google finde ich uns kaum"></textarea>
+
+      <div class="honig" aria-hidden="true">
+        <label for="webseite_bestaetigung">Bitte frei lassen</label>
+        <input id="webseite_bestaetigung" name="webseite_bestaetigung" tabindex="-1" autocomplete="off">
+      </div>
+
+      <button type="submit" id="senden">Kostenlosen Check anfordern</button>
+      <a class="wa" id="waLink" href="#" style="display:none">Lieber direkt schreiben — WhatsApp</a>
+
+      <p class="hinweis">
+        * Pflichtfeld. Ihre Angaben nutzen wir ausschließlich, um Ihnen den Check
+        zu schicken. Wir speichern sie nicht in einer Datenbank und geben sie nicht weiter.
+      </p>
+    </form>
+    <div class="meldung" id="meldung"></div>
+  </div>
+
+  <footer>
+    KURANI Design · Ibrahim Kuran · Ostfriesland ·
+    <a href="/">kiekmolin.de</a><br>
+    Diese Seite richtet sich an Gastronomiebetriebe. Sind Sie Gast und suchen ein Lokal?
+    <a href="/">Hier entlang</a>.
+  </footer>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------
+// HIER DEINE NUMMER EINTRAGEN (internationales Format, ohne + und Leerzeichen):
+// Beispiel: '4915112345678'. Leer lassen = WhatsApp-Knopf bleibt aus.
+var WHATSAPP = '';
+// ---------------------------------------------------------------------
+
+(function () {
+  var waText = encodeURIComponent('Moin! Ich habe die Seite zum Sichtbarkeits-Check gesehen. Mein Betrieb: ');
+  if (WHATSAPP) {
+    var wa = document.getElementById('waLink');
+    wa.href = 'https://wa.me/' + WHATSAPP + '?text=' + waText;
+    wa.style.display = 'block';
+  }
+
+  var form = document.getElementById('anfrage');
+  var knopf = document.getElementById('senden');
+  var meldung = document.getElementById('meldung');
+
+  function zeige(text, gut) {
+    meldung.className = 'meldung ' + (gut ? 'gut' : 'schlecht');
+    meldung.innerHTML = text;
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var daten = {
+      betrieb: form.betrieb.value, ort: form.ort.value, name: form.name.value,
+      kontakt: form.kontakt.value, anliegen: form.anliegen.value,
+      webseite_bestaetigung: form.webseite_bestaetigung.value
+    };
+    knopf.disabled = true;
+    knopf.textContent = 'Wird gesendet…';
+
+    fetch('/.netlify/functions/agentur-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(daten)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (a) {
+        if (a && a.ok) {
+          form.style.display = 'none';
+          zeige('<b>Danke — angekommen.</b><br>Wir melden uns innerhalb von zwei Werktagen bei Ihnen. ' +
+            'Bis dahin müssen Sie nichts tun.', true);
+          return;
+        }
+        // Ehrlich bleiben: nichts vortäuschen, sondern einen Weg anbieten,
+        // der garantiert funktioniert.
+        var ersatz = WHATSAPP
+          ? ' Am schnellsten erreichen Sie uns gerade per <a href="https://wa.me/' + WHATSAPP + '?text=' + waText + '">WhatsApp</a>.'
+          : ' Bitte versuchen Sie es in ein paar Minuten noch einmal.';
+        zeige('<b>Das hat gerade nicht geklappt.</b><br>' +
+          ((a && a.fehler) || 'Die Anfrage kam nicht durch.') + ersatz, false);
+        knopf.disabled = false;
+        knopf.textContent = 'Nochmal versuchen';
+      })
+      .catch(function () {
+        zeige('<b>Keine Verbindung.</b><br>Bitte prüfen Sie kurz Ihr Netz und versuchen Sie es noch einmal.', false);
+        knopf.disabled = false;
+        knopf.textContent = 'Nochmal versuchen';
+      });
+  });
+})();
+</script>
+</body>
+</html>
