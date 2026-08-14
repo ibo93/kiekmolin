@@ -17,6 +17,7 @@ const wetter = require('./wetter');
 const protokoll = require('./protokoll');
 const notizen = require('./notizen');
 const wache = require('./wache');
+const agentur = require('./agentur');
 
 function heuteISO(jetzt) {
   const d = jetzt || new Date();
@@ -160,6 +161,13 @@ async function sammle(optionen) {
     if (t) bericht.telefon = telefonSatz(t);
   } catch (_e) { /* Logs nicht lesbar - dann eben ohne */ }
 
+  // Die Agentur: nur, wenn es etwas zu tun gibt (rote Kunden, fehlende
+  // Reports, faellige Wiedervorlagen).
+  try {
+    const zeile = agentur.tagesZeile(agentur.stand(jetzt));
+    if (zeile) bericht.agentur = zeile;
+  } catch (_e) { /* ohne Agentur-Daten geht es auch */ }
+
   try {
     const kosten = protokoll.tagesKosten(bericht.datum);
     if (kosten) bericht.assistentKosten = kosten;
@@ -176,6 +184,7 @@ function alsText(bericht) {
   if (bericht.wacheSatz) zeilen.push(bericht.wacheSatz);   // nur bei Stoerung
   if (bericht.plattform) zeilen.push(bericht.plattform);
   if (bericht.telefon) zeilen.push(bericht.telefon);
+  if (bericht.agentur) zeilen.push(bericht.agentur);
   if (bericht.notizenHeute) zeilen.push('Auf deiner Liste steht fuer heute: ' + bericht.notizenHeute);
   if (bericht.notizenOffen) zeilen.push('Dazu ' + bericht.notizenOffen + ' Notizen ohne Termin.');
   if (bericht.assistentKosten) {

@@ -100,6 +100,7 @@ du sie genau formulierst:
 | „Schreib mit" … „Diktat Ende" | Diktat: alles wandert wörtlich in eine Datei |
 | „… im Hintergrund" | arbeitet nebenbei weiter, meldet sich wenn fertig |
 | „Was läuft gerade?" | zählt die Hintergrund-Aufträge auf |
+| „Wie geht's der Agentur?" / „Wer ist rot?" | Kundenampel, fehlende Reports, Pipeline |
 
 ### Nebenbei arbeiten lassen
 
@@ -118,6 +119,32 @@ von selbst** mit dem Ergebnis in einem Satz.
   er ausgeredet hat, gehen aber nicht verloren
 - Fenster zu = Schluss: laufende Hintergrund-Aufträge werden abgeräumt,
   sonst kosten sie weiter Geld, obwohl niemand die Meldung hört
+
+### Die Agentur auf Zuruf
+
+Die Agentur-App (`agentur/`) bleibt, wie sie ist — der Assistent liest ihr nur
+über die Schulter:
+
+> „Wie geht's der Agentur?" · „Wer ist rot?" · „Welche Reports fehlen?"
+
+- **Kundenampel** — dieselbe Bewertung wie in der App (`agentur/lib/gesundheit`
+  wird wiederverwendet, zwei verschiedene Urteile über denselben Kunden wären
+  schlimmer als keins)
+- **Fehlende Monats-Reports** — wer hat für diesen Monat noch keinen
+- **Neukunden-Pipeline** — offene Interessenten, fällige Wiedervorlagen, Termine
+
+Alles **lesend und ohne Netz**: die Bewertung kommt aus den Report-Daten, die
+ohnehin unter `sichtbarkeit/data/` liegen. Reports **erzeugen** macht weiter
+die Agentur-App — das kostet Geld und dauert, also fragt er vorher.
+
+Im „Moin"-Bericht taucht die Agentur nur auf, wenn es was zu tun gibt:
+*„Agentur: 1 Kunde im roten Bereich (La Piazza), 2 Reports fehlen diesen
+Monat, 1 Wiedervorlage fällig."*
+
+```bash
+node agentur.js            # Stand zum Vorlesen
+node agentur.js kunden     # Liste mit Ampel je Kunde
+```
 
 ### Die Wache: läuft kiekmolin.de noch?
 

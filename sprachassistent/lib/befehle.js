@@ -233,6 +233,15 @@ const SCHNELLBEFEHLE = [
       'in einem Satz dazu - ohne zu erfinden, was nicht dasteht.'
   },
   {
+    name: 'agentur',
+    hoert: /^(agentur|wie geht'?s der agentur|kundenampel|wer ist rot|welche reports fehlen|meine kunden)\b/i,
+    prompt: 'Fuehre aus: node {{agentur}} - das liefert Kundenampel, fehlende Reports ' +
+      'und den Stand der Neukunden-Pipeline. Lies das Wichtigste vor: hoechstens drei ' +
+      'Saetze, gesprochen. Steht ein Kunde auf Rot, sag WARUM und was der naechste ' +
+      'Schritt waere. Erzeuge KEINE Reports von dir aus - das kostet Geld und dauert; ' +
+      'frag vorher.'
+  },
+  {
     name: 'offene posten',
     hoert: /^(offene posten|offene rechnungen|was ist noch offen|wer schuldet mir)\b/i,
     prompt: 'Nutze kurani-docs: welche Rechnungen sind noch unbezahlt? ' +

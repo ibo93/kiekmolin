@@ -72,7 +72,12 @@ const WERKZEUGE = [
 
   'Ibos Merkzettel liegt in node ' + path.join(__dirname, 'notizen.js') +
   ' (liste|heute|merk "..."|erledigt <id>). Wenn er im Gespraech sagt, dass er etwas ' +
-  'nicht vergessen will, leg es dort ab - und sag in einem Halbsatz, dass du es notiert hast.'
+  'nicht vergessen will, leg es dort ab - und sag in einem Halbsatz, dass du es notiert hast.',
+
+  'Fuer die KI-Agentur (Kundenampel, fehlende Monats-Reports, Neukunden-Pipeline): node ' +
+  path.join(__dirname, 'agentur.js') + ' (oder "kunden", oder --json). Das liest nur. ' +
+  'Reports ERZEUGEN laeuft ueber die Agentur-App (cd agentur && node server.js) bzw. ' +
+  'cd sichtbarkeit && node sichtbarkeit.js - das kostet Geld und dauert, also vorher fragen.'
 ];
 if (process.env.INSTAGRAM_TOKEN) {
   WERKZEUGE.push(
@@ -146,7 +151,8 @@ function budgetGesperrt() {
 // ausformulierte Aufgaben fuer Saetze, die Ibo jeden Tag sagt.
 const WERKZEUG_PFADE = {
   tagesbericht: path.join(__dirname, 'tagesbericht.js'),
-  instagram: path.join(__dirname, 'instagram.js')
+  instagram: path.join(__dirname, 'instagram.js'),
+  agentur: path.join(__dirname, 'agentur.js')
 };
 
 function auftragsText(gesagt) {

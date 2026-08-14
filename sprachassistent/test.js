@@ -22,6 +22,7 @@ const instagram = require('./lib/instagram');
 const protokoll = require('./lib/protokoll');
 const wetter = require('./lib/wetter');
 const wache = require('./lib/wache');
+const agentur = require('./lib/agentur');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -568,6 +569,60 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// ------------------------------------------------------------- Agentur ---
+
+test('Agentur: Monate und Namen werden vorlesbar', () => {
+  const jetzt = new Date(2026, 7, 14);
+  assert.strictEqual(agentur.monatWort('2026-04', jetzt), 'April', 'im laufenden Jahr ohne Jahreszahl');
+  assert.strictEqual(agentur.monatWort('2025-12', jetzt), 'Dezember 2025');
+  assert.strictEqual(agentur.monatWort('quatsch', jetzt), 'quatsch', 'kaputte Angabe bleibt stehen');
+  assert.strictEqual(agentur.grundWort('Letzter Report von 2026-04', jetzt), 'Letzter Report von April');
+  assert.strictEqual(agentur.nameAus('greetsieler-boerse'), 'Greetsieler Börse');
+  assert.strictEqual(agentur.nameAus('demo-la-piazza'), 'La Piazza', 'Demo-Praefix faellt weg');
+});
+
+test('Agentur: der Stand wird zu zwei, drei Saetzen', () => {
+  const s = {
+    monat: '2026-08',
+    kunden: [{ name: 'A' }, { name: 'B' }, { name: 'C' }],
+    rot: [{ name: 'La Piazza', gruende: ['Letzter Report von 2026-04 - Kunde sieht seinen Nutzen nicht mehr'] }],
+    gelb: [],
+    ohneReport: [{ name: 'La Piazza' }, { name: 'Pizzeria Emden' }],
+    pipeline: { gesamt: 3, offen: 2, faellig: 1, termine: 1 }
+  };
+  const satz = agentur.agenturSatz(s);
+  assert.ok(satz.indexOf('3 Kunden mit Reports, 1 im roten Bereich') > -1, satz);
+  assert.ok(satz.indexOf('Rot ist La Piazza') > -1, 'Einzahl: ' + satz);
+  assert.ok(satz.indexOf('von April') > -1, 'Monat ausgeschrieben: ' + satz);
+  assert.ok(satz.indexOf('Fuer August fehlen noch 2 Reports') > -1, satz);
+  assert.ok(satz.indexOf('1 Wiedervorlage faellig') > -1, 'Einzahl in der Pipeline: ' + satz);
+  assert.ok(satz.indexOf('1 Termin vereinbart') > -1, satz);
+});
+
+test('Agentur: alles gruen sagt er auch, ohne Kundendaten meldet er das', () => {
+  const gruen = agentur.agenturSatz({
+    monat: '2026-08', kunden: [{ name: 'A' }], rot: [], gelb: [],
+    ohneReport: [], pipeline: null
+  });
+  assert.ok(gruen.indexOf('alle im gruenen Bereich') > -1, gruen);
+  assert.ok(/keine Kundendaten/.test(agentur.agenturSatz({ monat: '2026-08', kunden: [], rot: [], gelb: [], ohneReport: [] })));
+});
+
+test('Agentur im Tagesbericht: nur wenn es etwas zu tun gibt', () => {
+  assert.strictEqual(agentur.tagesZeile({
+    monat: '2026-08', kunden: [{ name: 'A' }], rot: [], gelb: [], ohneReport: [], pipeline: { offen: 2, faellig: 0 }
+  }), '', 'laeuft alles: kein Wort darueber');
+
+  const zeile = agentur.tagesZeile({
+    monat: '2026-08', kunden: [{ name: 'A' }],
+    rot: [{ name: 'La Piazza' }], gelb: [], ohneReport: [{ name: 'X' }, { name: 'Y' }],
+    pipeline: { offen: 3, faellig: 1 }
+  });
+  assert.ok(zeile.indexOf('1 Kunde im roten Bereich (La Piazza)') > -1, zeile);
+  assert.ok(zeile.indexOf('2 Reports fehlen') > -1, zeile);
+  assert.ok(zeile.indexOf('1 Wiedervorlage faellig') > -1, zeile);
 });
 
 // --------------------------------------------------------------- Wache ---
