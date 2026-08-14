@@ -4,9 +4,12 @@
 // Wir bestellen das Audio direkt als ulaw_8000 - das Format, das Twilio
 // auf der Telefonleitung erwartet. Keine Umwandlung noetig.
 
-async function spreche(text) {
+// optionen.stimme: eigene Voice-ID fuer DIESEN Anruf. So bekommt jeder
+// Gastronom seine eigene Stimme (Zuordnung in nummern.json) - ohne
+// Angabe gilt die Standard-Stimme aus der .env.
+async function spreche(text, optionen) {
   const key = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
+  const voiceId = (optionen && optionen.stimme) || process.env.ELEVENLABS_VOICE_ID;
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt in .env');
   if (!voiceId) throw new Error('ELEVENLABS_VOICE_ID fehlt in .env (Voice unter elevenlabs.io/voice-library aussuchen)');
 
@@ -56,11 +59,14 @@ function inSaetze(text) {
 
 // Audio-Cache fuer Standardsaetze (Begruessung, Denk-Fueller): die kommen in
 // jedem Anruf gleich - einmal erzeugen, danach liegt das Audio sofort bereit.
+// Der Schluessel enthaelt die Stimme - sonst bekaeme Kunde B die
+// zwischengespeicherte Begruessung von Kunde A zu hoeren.
 const audioCache = new Map(); // voiceId|text -> Buffer
-async function sprecheGecached(text) {
-  const schluessel = (process.env.ELEVENLABS_VOICE_ID || '') + '|' + text;
+async function sprecheGecached(text, optionen) {
+  const stimme = (optionen && optionen.stimme) || process.env.ELEVENLABS_VOICE_ID || '';
+  const schluessel = stimme + '|' + text;
   if (audioCache.has(schluessel)) return audioCache.get(schluessel);
-  const audio = await spreche(text);
+  const audio = await spreche(text, optionen);
   if (audioCache.size >= 100) audioCache.clear(); // Notbremse, kein Speicherleck
   audioCache.set(schluessel, audio);
   return audio;

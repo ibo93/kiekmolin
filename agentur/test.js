@@ -535,4 +535,63 @@ test('Echtzeit: beim ersten Blick gibt es keinen Alarm fuer alte Eintraege', () 
   assert.strictEqual(meldungFuerZuwachs({ anrufeHeute: 1 }), '1 neuer Anruf', 'ohne Ergebnis wenigstens der Anruf');
 });
 
+test('Anruf-Protokoll: aus Log-Zeilen wird ein lesbares Gespraech', () => {
+  const { parseProtokoll, kurzfassung, dauerText, nummerKuerzen } = require('./lib/anruf-protokoll');
+  const log = [
+    '2026-08-14T09:12:00.000Z Anruf gestartet von +4915112345678 fuer Greetsieler Boerse',
+    '2026-08-14T09:12:06.000Z GAST: Guten Tag, ich haette gern einen Tisch fuer vier',
+    '2026-08-14T09:12:08.000Z AGENT: Sehr gerne! Fuer welchen Tag darf ich reservieren?',
+    '2026-08-14T09:12:14.000Z GAST: Samstag um sieben',
+    '2026-08-14T09:12:20.000Z Werkzeug reserviere_tisch: ok',
+    '2026-08-14T09:12:22.000Z AGENT: Ihr Tisch ist reserviert. Bis Samstag!',
+    '2026-08-14T09:12:30.000Z Anruf beendet (Twilio stop)'
+  ].join('\n');
+
+  const p = parseProtokoll(log, 'anruf-test.log');
+  assert.strictEqual(p.anrufer, '+4915112345678');
+  assert.strictEqual(p.restaurant, 'Greetsieler Boerse');
+  assert.strictEqual(p.dauerSekunden, 30);
+  assert.strictEqual(p.saetzeGast, 2);
+  assert.strictEqual(p.saetzeAgent, 2);
+  assert.strictEqual(p.ergebnis, 'Reservierung', 'Ergebnis aus dem Protokoll gelesen, nicht geraten');
+  assert.strictEqual(p.hatFehler, false);
+
+  const gast = p.zeilen.filter((z) => z.wer === 'gast');
+  assert.strictEqual(gast[0].text, 'Guten Tag, ich haette gern einen Tisch fuer vier', 'Rollen-Praefix entfernt');
+  assert.ok(p.zeilen.some((z) => z.wer === 'system'), 'technische Zeilen bleiben erhalten');
+
+  // Kurzfassung fuer die Liste enthaelt keinen Gespraechsverlauf
+  assert.strictEqual(kurzfassung(p).zeilen, undefined);
+  assert.strictEqual(kurzfassung(p).ergebnis, 'Reservierung');
+
+  assert.strictEqual(dauerText(45), '45 Sek.');
+  assert.strictEqual(dauerText(95), '1:35 Min.');
+  assert.strictEqual(dauerText(null), 'unbekannt');
+  assert.strictEqual(nummerKuerzen('+4915112345678'), '+491…678', 'Nummer gekuerzt (Datenschutz)');
+});
+
+test('Anruf-Protokoll: ehrlich bei Fehlern und stummen Anrufen', () => {
+  const { parseProtokoll } = require('./lib/anruf-protokoll');
+
+  const stumm = parseProtokoll([
+    '2026-08-14T09:00:00.000Z Anruf gestartet von unbekannt fuer La Piazza',
+    '2026-08-14T09:00:04.000Z Anruf beendet (Twilio stop)'
+  ].join('\n'));
+  assert.strictEqual(stumm.ergebnis, 'Niemand hat gesprochen');
+  assert.strictEqual(stumm.saetzeGast, 0);
+
+  const kaputt = parseProtokoll([
+    '2026-08-14T09:00:00.000Z Anruf gestartet von +49123 fuer La Piazza',
+    '2026-08-14T09:00:03.000Z GAST: Hallo',
+    '2026-08-14T09:00:05.000Z TTS-Fehler: ElevenLabs 401'
+  ].join('\n'));
+  assert.strictEqual(kaputt.hatFehler, true);
+  assert.strictEqual(kaputt.ergebnis, 'Technischer Fehler');
+
+  // Leer und Muell duerfen nicht knallen
+  assert.strictEqual(parseProtokoll('').zeilen.length, 0);
+  assert.strictEqual(parseProtokoll('kein Zeitstempel hier').zeilen.length, 0);
+  assert.strictEqual(parseProtokoll(null).dauerSekunden, null);
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
