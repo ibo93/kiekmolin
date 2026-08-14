@@ -200,6 +200,7 @@
 
     <h2 id="s-pipeline">Interessenten · Neukunden-Pipeline
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:10px" onclick="osmImport(this)" title="Holt alle Restaurants der Region aus OpenStreetMap in die Pipeline (Bestandskunden werden automatisch rausgefiltert)">Region importieren (OSM)</button>
+      <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:6px" onclick="alleBetriebePruefen(this)" title="Geht alle noch ungeprüften Betriebe durch: Website holen und lesen, Google- und KI-Sichtbarkeit testen">Alle prüfen</button>
     </h2>
     <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis <b>und</b> Anfragen von der Check-Seite – in einer Liste. Was du hier einträgst, bleibt gespeichert: <b>Stufe</b>, <b>Notiz</b> und <b>Wiedervorlage</b>. Was heute fällig ist, steht ganz oben.</div>
     <div id="pipelineKopf"></div>
@@ -520,6 +521,9 @@ function zeigeInteressenten() {
         '<option value="' + s.id + '"' + (s.id === p.stufe ? ' selected' : '') + '>' + s.text + '</option>').join('');
       return '<tr style="' + zeilenFarbe + '">' +
         '<td><strong>' + pTexte(p.name) + '</strong>' +
+          '<button class="aktion" id="pruef-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:8px" ' +
+            'onclick="betriebPruefen(\'' + k + '\')" title="Holt seine Website, liest sie und prüft Google- und KI-Sichtbarkeit">' +
+            (p.befund ? '↻ neu prüfen' : '🔍 prüfen') + '</button>' +
           (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
           (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
           (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
@@ -540,8 +544,65 @@ function zeigeInteressenten() {
         '<td id="pitch-' + k + '">' + (p.pitch
           ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">neu</button>'
           : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">Pitch erzeugen</button>') + '</td>' +
-      '</tr>';
+      '</tr>' +
+      '<tr id="befundZeile-' + k + '"><td colspan="6" style="padding-top:0">' + befundHtml(p.befund) + '</td></tr>';
     }).join('') + '</table>';
+}
+
+// Der Befund unter der Zeile: erst der Satz fürs Telefonat, dann die Liste.
+// Ohne Check steht dort bewusst nichts – lieber leer als geraten.
+function befundHtml(b) {
+  if (!b) return '';
+  const luecken = (b.punkte || []).filter(p => p.art === 'luecke');
+  const gutes = (b.punkte || []).filter(p => p.art === 'gut');
+  const offen = (b.punkte || []).filter(p => p.art === 'offen');
+  const farbe = { gross: '#dc2626', mittel: '#eab308', klein: '#16a34a' }[b.ampel] || 'var(--grau)';
+  return '<div style="border-left:3px solid ' + farbe + ';padding:8px 0 8px 12px;margin:0 0 10px">' +
+    '<div style="font-size:13px;margin-bottom:6px"><b>So fängst du das Telefonat an:</b><br>' +
+      '<span style="color:var(--tinte)">„' + pTexte(b.aufhaenger) + '"</span></div>' +
+    (luecken.length ? '<div style="font-size:12px;color:var(--grau)"><b style="color:#dc2626">Was ihm fehlt (' + luecken.length + '):</b> ' +
+      luecken.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
+    (gutes.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b style="color:#16a34a">Hat er schon:</b> ' +
+      gutes.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
+    (offen.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b>Ungeprüft:</b> ' +
+      offen.map(p => pTexte(p.titel) + (p.folge ? ' (' + pTexte(p.folge) + ')' : '')).join(' · ') + '</div>' : '') +
+    '<div style="font-size:11px;color:var(--grau);margin-top:4px">geprüft am ' +
+      new Date(b.gepruefteAm).toLocaleString('de-DE') + '</div>' +
+  '</div>';
+}
+
+// Betriebs-Check anstoßen. Dauert ein paar Sekunden (Website holen, Google,
+// KI) – deshalb sagt der Knopf, was gerade passiert.
+async function betriebPruefen(schluessel) {
+  const btn = document.getElementById('pruef-' + schluessel);
+  const zeile = document.getElementById('befundZeile-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'schaue nach…'; }
+  try {
+    const r = await api('/api/interessent-pruefen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+    if (eintrag) eintrag.befund = r.befund;
+    if (zeile) zeile.firstChild.innerHTML = befundHtml(r.befund);
+    if (btn) { btn.disabled = false; btn.textContent = '↻ neu prüfen'; }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
+  }
+}
+
+// Alle ungeprüften Betriebe der aktuellen Ansicht nacheinander durchgehen.
+// Bewusst nacheinander: parallel würden wir fremde Server bombardieren.
+async function alleBetriebePruefen(btn) {
+  const offen = (pipelineDaten.liste || []).filter(e => !e.befund && !e.erledigt);
+  if (!offen.length) { alert('Alle Betriebe in der Liste sind schon geprüft.'); return; }
+  btn.disabled = true;
+  for (let i = 0; i < offen.length; i++) {
+    btn.textContent = 'prüfe ' + (i + 1) + ' von ' + offen.length + '…';
+    await betriebPruefen(offen[i].schluessel);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Alle prüfen';
 }
 
 // Stufe wechseln: sofort speichern, dann Liste neu holen – so springt eine

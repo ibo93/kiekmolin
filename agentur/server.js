@@ -37,6 +37,8 @@ const { DialogSitzung } = require('../telefon-retter/lib/dialog');
 // Echtzeit: der Server meldet Neuigkeiten von sich aus an offene Fenster
 const live = require('./lib/live');
 const pipeline = require('./lib/pipeline');
+const leadCheck = require('./lib/lead-check');
+const checks = require('../sichtbarkeit/lib/checks');
 const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
@@ -675,6 +677,31 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// Prueft einen Interessenten wirklich nach: Website holen und lesen,
+// Google-Platz und KI-Empfehlung testen. Die drei Teile laufen parallel -
+// ein langsamer Server des Wirts soll die anderen beiden nicht aufhalten.
+// Faellt ein Teil aus (kein Key, kein Netz), steht das ehrlich im Befund.
+async function pruefeInteressent(eintrag) {
+  const restaurant = { name: eintrag.name, city: eintrag.stadt, cuisine: eintrag.kategorie };
+  const { fragen } = require('../sichtbarkeit/lib/fragen').suchfragen(restaurant);
+  // Die Standardfrage der Stadt - dieselbe, die auch die Kunden-Reports
+  // benutzen. So sind Interessent und Bestandskunde vergleichbar.
+  const hauptfrage = (fragen.find((f) => f.id === 'kategorie-stadt') || fragen[0]).frage;
+  const empfehlungsfrage = (fragen.find((f) => f.id === 'empfehlung-ki') || fragen[0]).frage;
+
+  const [webseite, google, ki] = await Promise.all([
+    eintrag.website ? leadCheck.holeWebsite(eintrag.website, {}) : Promise.resolve(null),
+    checks.checkGoogle(hauptfrage, restaurant).catch((e) => ({ status: 'fehler', detail: e.message })),
+    checks.checkKI(empfehlungsfrage, restaurant).catch((e) => ({ status: 'fehler', detail: e.message }))
+  ]);
+
+  return leadCheck.baueBefund(
+    { name: eintrag.name, city: eintrag.stadt, website: eintrag.website, frage: hauptfrage },
+    { webseite, google, ki },
+    { frage: hauptfrage }
+  );
+}
+
 async function baueInteressentenListe() {
   let prospects = [];
   try { prospects = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
@@ -995,6 +1022,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Betriebs-Check fuer EINEN Interessenten. Holt seine Website,
+    // liest sie, prueft Google- und KI-Sichtbarkeit - und legt den Befund
+    // in der Pipeline ab. Das ist der Unterschied zwischen "steht im
+    // Verzeichnis" und "ich weiss, worueber ich mit dem rede".
+    if (req.method === 'POST' && pfad === '/api/interessent-pruefen') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+      try {
+        const befund = await pruefeInteressent(eintrag);
+        if (!DEMO) {
+          speicherePipelineStand(pipeline.setzeStand(ladePipelineStand(), eintrag.schluessel, { befund }));
+        }
+        json(res, 200, { ok: true, befund });
+      } catch (e) {
+        json(res, 500, { fehler: e.message });
+      }
+      return;
+    }
+
     // API: Gespraechsstand eines Interessenten setzen (Stufe, Notiz,
     // Wiedervorlage). Das ist das Gedaechtnis der Pipeline.
     if (req.method === 'POST' && pfad === '/api/interessent-status') {
@@ -1019,23 +1067,24 @@ const server = http.createServer(async (req, res) => {
       let liste = [];
       try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* s.o. */ }
       let prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
+      // Der Befund aus dem Betriebs-Check macht die Pitch-Seite persoenlich:
+      // dann steht dort, was auf SEINER Seite fehlt, statt der Standardliste.
+      const ausPipeline = (await baueInteressentenListe())
+        .find((e) => e.name.toLowerCase() === String(name || '').toLowerCase());
       // Anfragen von der Check-Seite stehen nicht in prospects.json - fuer die
       // bauen wir den Pitch aus dem, was der Wirt selbst angegeben hat.
-      if (!prospect) {
-        const ausPipeline = (await baueInteressentenListe())
-          .find((e) => e.name.toLowerCase() === String(name || '').toLowerCase());
-        if (ausPipeline) {
-          prospect = {
-            name: ausPipeline.name, city: ausPipeline.stadt, category: ausPipeline.kategorie,
-            phone: ausPipeline.telefon, website: ausPipeline.website
-          };
-        }
+      if (!prospect && ausPipeline) {
+        prospect = {
+          name: ausPipeline.name, city: ausPipeline.stadt, category: ausPipeline.kategorie,
+          phone: ausPipeline.telefon, website: ausPipeline.website
+        };
       }
       if (!prospect) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
       fs.mkdirSync(PITCH_ORDNER, { recursive: true });
       const datei = pitchDateiname(prospect);
       const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-      fs.writeFileSync(path.join(PITCH_ORDNER, datei), bauePitchHtml(prospect, { datum }));
+      fs.writeFileSync(path.join(PITCH_ORDNER, datei),
+        bauePitchHtml(prospect, { datum, befund: ausPipeline && ausPipeline.befund }));
       json(res, 200, { ok: true, link: '/api/pitch-seite/' + datei });
       return;
     }

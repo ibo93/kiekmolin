@@ -756,4 +756,85 @@ test('Pipeline: faellige Wiedervorlagen und eigene Anfragen stehen oben', () => 
 });
 
 
+test('Betriebs-Check: liest die Website und findet die echten Luecken', () => {
+  const lc = require('./lib/lead-check');
+
+  // Eine typische alte Gastro-Seite: Karte nur als PDF, keine Zeiten,
+  // keine Reservierung, nicht fuers Handy, seit Jahren nicht angefasst.
+  const alt = [
+    '<html><head><title>Pizzeria Roma</title></head><body>',
+    '<h1>Herzlich willkommen</h1>',
+    '<p>Unsere Speisekarte: <a href="/karte.pdf">hier herunterladen</a></p>',
+    '<p>Telefon 04931 12345</p>',
+    '<p>Copyright 2019</p>',
+    '</body></html>'
+  ].join('\n');
+  const p1 = lc.pruefeHtml(alt, { url: 'http://roma.de', jahr: 2026 });
+  const ids = p1.map((x) => x.id);
+  assert.ok(ids.includes('karte-pdf'), 'PDF-Karte erkannt: ' + ids.join(','));
+  assert.ok(ids.includes('zeiten-fehlt'));
+  assert.ok(ids.includes('reservierung-fehlt'));
+  assert.ok(ids.includes('tel-nicht-klickbar'));
+  assert.ok(ids.includes('kein-schema'));
+  assert.ok(ids.includes('nicht-mobil'));
+  assert.ok(ids.includes('veraltet'), 'alte Jahreszahl faellt auf');
+  assert.ok(ids.includes('kein-https'), 'http:// wird bemaengelt');
+
+  // Eine gut gemachte Seite darf NICHT schlechtgeredet werden - sonst
+  // fliegt man im Gespraech sofort auf.
+  const gut = [
+    '<html><head><meta name="viewport" content="width=device-width">',
+    '<script type="application/ld+json">{"@type":"Restaurant"}</script></head><body>',
+    '<h2>Speisekarte</h2><p>Pizza Margherita 9,50 EUR</p>',
+    '<p>Öffnungszeiten: Mo - So 11 bis 22 Uhr</p>',
+    '<a href="tel:+4949311234">Anrufen</a>',
+    '<a href="/reservieren">Tisch reservieren</a>',
+    '<a href="https://www.instagram.com/roma">Instagram</a>',
+    '<p>Jetzt bestellen</p><p>Stand 2026</p></body></html>'
+  ].join('\n');
+  const p2 = lc.pruefeHtml(gut, { url: 'https://roma.de', jahr: 2026 });
+  const luecken2 = p2.filter((x) => x.art === 'luecke').map((x) => x.id);
+  assert.deepStrictEqual(luecken2, [], 'gute Seite hat keine Luecken: ' + luecken2.join(','));
+  assert.ok(p2.some((x) => x.id === 'karte-da' && x.art === 'gut'));
+});
+
+test('Betriebs-Check: Befund nennt den Satz fuers Telefonat', () => {
+  const lc = require('./lib/lead-check');
+  const jetzt = new Date(2026, 7, 14);
+
+  // Ohne Website ist das der groesste Hebel - und muss der Aufhaenger sein
+  const ohne = lc.baueBefund({ name: 'Imbiss Nord', city: 'Norden', website: '' }, {}, { jetzt });
+  assert.strictEqual(ohne.punkte[0].id, 'keine-website');
+  assert.strictEqual(ohne.ampel, 'gross', 'gar keine Website ist die groesste Luecke, auch wenn es nur eine ist');
+  assert.ok(/eine eigene Website habe ich nicht gefunden/.test(ohne.aufhaenger), ohne.aufhaenger);
+
+  // Mit Website: die PDF-Karte schlaegt die kleineren Punkte
+  const mit = lc.baueBefund(
+    { name: 'Pizzeria Roma', city: 'Norden', website: 'https://roma.de' },
+    {
+      webseite: { status: 'gelesen', punkte: lc.pruefeHtml('<html><body>Speisekarte <a href="k.pdf">PDF</a></body></html>', { url: 'https://roma.de', jahr: 2026 }) },
+      google: { status: 'nicht-gefunden', vor_dir: ['Pizzeria Bella', 'Da Vinci'] },
+      ki: { status: 'nicht-gefunden', empfohlen: ['Pizzeria Bella'] }
+    }, { jetzt, frage: 'pizzeria norden' });
+  assert.ok(/PDF/.test(mit.aufhaenger), mit.aufhaenger);
+  assert.strictEqual(mit.ampel, 'gross');
+  assert.ok(mit.punkte.some((x) => x.id === 'ki-weg'));
+  assert.ok(mit.punkte.some((x) => x.id === 'google-weg'));
+
+  // Fehlender Schluessel wird ehrlich als "ungeprueft" ausgewiesen,
+  // nicht als Erfolg oder Misserfolg geraten
+  const offen = lc.baueBefund({ name: 'X', city: 'Y', website: '' },
+    { google: { status: 'manuell', detail: 'SERPER_API_KEY nicht gesetzt' } }, { jetzt });
+  const g = offen.punkte.find((x) => x.id === 'google-offen');
+  assert.ok(g && g.art === 'offen', 'ohne Schluessel wird nichts behauptet');
+
+  // Die Pitch-Seite nimmt den echten Befund statt der Standardsaetze
+  const { pitchLuecken } = require('./lib/pitch');
+  const echte = pitchLuecken({ name: 'Pizzeria Roma', city: 'Norden', website: 'https://roma.de' }, mit);
+  assert.ok(echte.some((l) => /PDF/.test(l.titel)), 'Pitch nutzt den Befund');
+  const standard = pitchLuecken({ name: 'Pizzeria Roma', city: 'Norden', website: '' }, null);
+  assert.ok(standard.some((l) => /Keine eigene Website/.test(l.titel)), 'ohne Befund die alte Liste');
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

@@ -64,7 +64,10 @@ function leseStand(text) {
       notiz: String(e.notiz || '').slice(0, 2000),
       wiedervorlage: datumOderLeer(e.wiedervorlage),
       zuletzt: String(e.zuletzt || ''),
-      verlauf: Array.isArray(e.verlauf) ? e.verlauf.slice(-20) : []
+      verlauf: Array.isArray(e.verlauf) ? e.verlauf.slice(-20) : [],
+      // Der Betriebs-Check (lead-check.js). Bleibt gespeichert, damit man
+      // ihn nicht vor jedem Anruf neu laufen lassen muss.
+      befund: e.befund && typeof e.befund === 'object' ? e.befund : null
     };
   }
   return sauber;
@@ -97,7 +100,8 @@ function setzeStand(stand, schluessel, aenderung, optionen) {
     notiz: a.notiz !== undefined ? String(a.notiz).slice(0, 2000) : alt.notiz,
     wiedervorlage: a.wiedervorlage !== undefined ? datumOderLeer(a.wiedervorlage) : alt.wiedervorlage,
     zuletzt: jetzt.toISOString(),
-    verlauf: (alt.verlauf || []).slice(-19)
+    verlauf: (alt.verlauf || []).slice(-19),
+    befund: a.befund !== undefined ? a.befund : (alt.befund || null)
   };
   // Nur echte Stufenwechsel kommen in den Verlauf - sonst waere er nach
   // drei Notiz-Korrekturen unlesbar.
@@ -193,12 +197,13 @@ function baueListe(quellen, optionen) {
       name: e.name, city: e.stadt, phone: e.telefon,
       website: e.website, category: e.kategorie, street: e.quelle === 'verzeichnis' ? 'ja' : ''
     });
-    const s = stand[e.schluessel] || { stufe: 'neu', notiz: '', wiedervorlage: '', zuletzt: '' };
+    const s = stand[e.schluessel] || { stufe: 'neu', notiz: '', wiedervorlage: '', zuletzt: '', befund: null };
     const faellig = !!(s.wiedervorlage && s.wiedervorlage <= heuteText && !istErledigt(s.stufe));
     liste.push(Object.assign({}, e, {
       heat: bewertung.heat, score: bewertung.score, gruende: bewertung.gruende,
       stufe: s.stufe, notiz: s.notiz, wiedervorlage: s.wiedervorlage,
-      zuletzt: s.zuletzt, faellig, erledigt: istErledigt(s.stufe)
+      zuletzt: s.zuletzt, faellig, erledigt: istErledigt(s.stufe),
+      befund: s.befund || null
     }));
   }
 
