@@ -75,6 +75,18 @@ const OVERPASS_SERVER = [
   'https://overpass.private.coffee/api/interpreter'
 ];
 
+// Welcher Server hat zuletzt geantwortet? Ohne dieses Gedaechtnis liefe der
+// Importer bei JEDEM der 45 Gebiete erst wieder gegen den toten ersten Server
+// und wartet, bevor er den funktionierenden nimmt - das summiert sich auf
+// Minuten reiner Wartezeit fuer nichts.
+let bevorzugterServer = 0;
+
+function serverReihenfolge() {
+  const liste = OVERPASS_SERVER.slice();
+  const gut = liste.splice(bevorzugterServer, 1);
+  return gut.concat(liste);
+}
+
 // Suchgebiete: Mittelpunkt + Radius (m). Abgedeckt wird ganz Ostfriesland
 // (Landkreise Aurich, Leer, Wittmund und die Stadt Emden), der Landkreis
 // Friesland samt Wilhelmshaven, die Kuestenorte und die sieben ostfriesischen
@@ -194,7 +206,7 @@ function buildQuery(city) {
 async function fetchCity(city) {
   const body = 'data=' + encodeURIComponent(buildQuery(city));
   let letzterFehler = null;
-  for (const server of OVERPASS_SERVER) {
+  for (const server of serverReihenfolge()) {
     try {
       const res = await fetch(server, {
         method: 'POST',
@@ -215,6 +227,7 @@ async function fetchCity(city) {
         // Den Anfang mitgeben - sonst raetselt man ewig, was los war.
         throw new Error('Keine JSON-Antwort: ' + text.slice(0, 120).replace(/\s+/g, ' '));
       }
+      bevorzugterServer = OVERPASS_SERVER.indexOf(server);
       return Array.isArray(json.elements) ? json.elements : [];
     } catch (e) {
       letzterFehler = e;
@@ -286,7 +299,10 @@ async function erreichbarkeitPruefen() {
         continue;
       }
       // Ein 400er dagegen ist in Ordnung: der Server ist da und redet mit uns.
-      console.log('[osm] Verbindung zu ' + name + ': erreichbar (HTTP ' + res.status + ')');
+      // Diesen merken wir uns - er wird ab jetzt zuerst gefragt.
+      bevorzugterServer = OVERPASS_SERVER.indexOf(server);
+      console.log('[osm] Verbindung zu ' + name + ': erreichbar (HTTP ' + res.status + ')' +
+        (bevorzugterServer > 0 ? ' - wird ab jetzt zuerst gefragt' : ''));
       return true;
     } catch (e) {
       const grund = fehlerGrund(e);
