@@ -569,11 +569,25 @@ function telefonKundeFormular() {
     '<b style="font-size:14px">Neuer Telefon-Kunde (ohne Kiek mol in)</b>' +
 
     '<div style="margin:14px 0;padding:12px;border:1px dashed var(--linie);border-radius:9px">' +
-    '<div style="font-size:13px;margin-bottom:8px">Hat der Betrieb eine Webseite? Dann Speisekarte automatisch einlesen:</div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<div style="font-size:13px;margin-bottom:10px"><b>Speisekarte einlesen</b> – drei Wege, such dir einen aus:</div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">1 · Betrieb hat eine Webseite</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
     '<input id="tk_import" placeholder="https://pizzeria-beispiel.de" style="flex:2;min-width:200px;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit">' +
     '<button class="aktion" id="tkImportBtn" onclick="telefonKundeImport()">Webseite einlesen</button></div>' +
-    '<div id="tkImportStatus" style="font-size:12.5px;color:var(--grau);margin-top:8px"></div></div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">2 · Nur Papierkarte? Abfotografieren (bis 6 Bilder)</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">' +
+    '<input type="file" id="tk_fotos" accept="image/*" multiple style="flex:2;min-width:200px;font-size:13px">' +
+    '<button class="aktion" id="tkFotoBtn" onclick="karteAusFotos()">Foto(s) auslesen</button></div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">3 · Karte abtippen oder aus einer PDF einfügen</div>' +
+    '<textarea id="tk_kartentext" placeholder="Pizza Margherita 8,50&#10;Pizza Salami 9,50&#10;Spaghetti Carbonara 11,00" ' +
+    'style="width:100%;min-height:70px;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit;font-size:13.5px"></textarea>' +
+    '<button class="aktion" id="tkTextBtn" onclick="karteAusText()" style="margin-top:8px">Text auslesen</button>' +
+
+    '<div id="tkImportStatus" style="font-size:12.5px;color:var(--grau);margin-top:10px"></div>' +
+    '<div id="tkKarte" style="margin-top:10px"></div></div>' +
 
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
     feld('nummer', 'Twilio-Nummer *', '+49 4921 123456', 1.4) +
@@ -606,6 +620,54 @@ function telefonKundeFormular() {
     '<div id="tkStatus" style="margin-top:10px;font-size:13.5px"></div></div>';
 }
 
+// Ergebnis eines Einlesens anzeigen — und zwar zum KORRIGIEREN.
+// Kein Import ist perfekt; falsche Preise müssen hier auffallen, nicht
+// erst im Telefongespräch.
+function zeigeKarte() {
+  const ziel = document.getElementById('tkKarte');
+  if (!ziel) return;
+  if (!importierteKarte.length) { ziel.innerHTML = ''; return; }
+  const ohnePreis = importierteKarte.filter(g => g.preis == null).length;
+  ziel.innerHTML =
+    '<div style="font-size:13px;margin-bottom:6px"><b>' + importierteKarte.length + ' Gerichte</b>' +
+    (ohnePreis ? ' <span style="color:#dc2626">· ' + ohnePreis + ' ohne Preis</span>' : '') +
+    ' <span style="color:var(--grau)">— Preise hier korrigierbar</span></div>' +
+    '<div style="max-height:260px;overflow-y:auto;border:1px solid var(--linie);border-radius:8px">' +
+    importierteKarte.map((g, i) =>
+      '<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--linie)">' +
+      '<input value="' + String(g.name).replace(/"/g, '&quot;') + '" onchange="karteAendern(' + i + ',\'name\',this.value)" ' +
+      'style="flex:2;min-width:120px;padding:5px 7px;border-radius:6px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
+      '<input value="' + (g.preis == null ? '' : g.preis) + '" placeholder="Preis" onchange="karteAendern(' + i + ',\'preis\',this.value)" ' +
+      'style="width:76px;padding:5px 7px;border-radius:6px;border:1px solid ' + (g.preis == null ? '#dc2626' : 'var(--linie)') + ';background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
+      '<button class="aktion" style="padding:3px 8px;font-size:12px" onclick="karteZeileWeg(' + i + ')">✕</button></div>'
+    ).join('') + '</div>' +
+    '<button class="aktion" style="margin-top:8px;padding:6px 12px;font-size:13px" onclick="karteZeileDazu()">+ Gericht hinzufügen</button>';
+}
+
+function karteAendern(i, feld, wert) {
+  if (!importierteKarte[i]) return;
+  if (feld === 'preis') {
+    const n = Number(String(wert).replace(',', '.'));
+    importierteKarte[i].preis = Number.isFinite(n) && n > 0 ? n : null;
+  } else {
+    importierteKarte[i][feld] = String(wert).trim();
+  }
+  zeigeKarte();
+}
+function karteZeileWeg(i) { importierteKarte.splice(i, 1); zeigeKarte(); }
+function karteZeileDazu() { importierteKarte.push({ name: '', preis: null }); zeigeKarte(); }
+
+function kartenErgebnis(stand, gerichte, unklar, quelle) {
+  importierteKarte = gerichte || [];
+  stand.innerHTML = (importierteKarte.length
+    ? '<span style="color:#16a34a">✓ ' + importierteKarte.length + ' Gerichte aus ' + quelle + ' gelesen.</span>'
+    : '<span style="color:#dc2626">Keine Gerichte erkannt.</span>') +
+    ((unklar && unklar.length)
+      ? '<br><b>Bitte prüfen:</b><br>' + unklar.map(u => '· ' + String(u).replace(/</g, '&lt;')).join('<br>')
+      : '');
+  zeigeKarte();
+}
+
 async function telefonKundeImport() {
   const url = document.getElementById('tk_import').value.trim();
   const stand = document.getElementById('tkImportStatus');
@@ -616,18 +678,59 @@ async function telefonKundeImport() {
   try {
     const d = await api('/api/webseite-lesen', { url });
     const k = d.kunde || {};
-    importierteKarte = k.speisekarte || [];
     const setz = (id, wert) => { if (wert != null && wert !== '') document.getElementById('tk_' + id).value = wert; };
     setz('name', k.name); setz('stadt', k.stadt); setz('adresse', k.adresse);
     setz('telefon', k.telefon); setz('oeffnet', k.oeffnet); setz('schliesst', k.schliesst);
     setz('liefergebuehr', k.liefergebuehr);
-    stand.innerHTML = '<span style="color:#16a34a">✓ ' + importierteKarte.length + ' Gerichte gefunden.</span>' +
-      (d.unklar && d.unklar.length
-        ? '<br><b>Bitte prüfen:</b><br>' + d.unklar.map(u => '· ' + String(u).replace(/</g, '&lt;')).join('<br>')
-        : '');
+    kartenErgebnis(stand, k.speisekarte, d.unklar, 'der Webseite');
   } catch (e) {
     stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
-      '<br>Du kannst die Felder auch von Hand ausfüllen – die Speisekarte trägst du dann später in der Datei nach.';
+      '<br>Kein Problem – nimm Weg 2 (Foto) oder 3 (abtippen).';
+  }
+  btn.disabled = false;
+}
+
+// Fotos der Papierkarte: im Browser einlesen, damit sie als Bild mitgehen
+function dateiAlsDatenUrl(datei) {
+  return new Promise((fertig, fehler) => {
+    const leser = new FileReader();
+    leser.onload = () => fertig(leser.result);
+    leser.onerror = () => fehler(new Error('Datei nicht lesbar: ' + datei.name));
+    leser.readAsDataURL(datei);
+  });
+}
+
+async function karteAusFotos() {
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkFotoBtn');
+  const dateien = [...document.getElementById('tk_fotos').files].slice(0, 6);
+  if (!dateien.length) { stand.textContent = 'Bitte erst Foto(s) auswählen.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Lese ' + dateien.length + ' Bild(er)… das dauert bis zu zwei Minuten.';
+  try {
+    const bilder = [];
+    for (const datei of dateien) bilder.push(await dateiAlsDatenUrl(datei));
+    const d = await api('/api/speisekarte-lesen', { bilder });
+    kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Foto');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+      '<br>Tipp: gerade von oben fotografieren, gutes Licht, pro Bild höchstens eine Seite.';
+  }
+  btn.disabled = false;
+}
+
+async function karteAusText() {
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkTextBtn');
+  const text = document.getElementById('tk_kartentext').value.trim();
+  if (!text) { stand.textContent = 'Bitte erst die Karte eintippen oder einfügen.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Sortiere die Gerichte…';
+  try {
+    const d = await api('/api/speisekarte-lesen', { text });
+    kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Text');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>';
   }
   btn.disabled = false;
 }

@@ -98,25 +98,92 @@ function baueImportPrompt(text, url) {
   ].join('\n');
 }
 
+// --- 3b. Nur die Speisekarte (Foto, PDF-Text oder abgetippt) ------------
+// Fuer Betriebe ohne Webseite: Der Wirt hat eine Papierkarte, Ibo
+// fotografiert sie oder tippt sie ab. Stammdaten braucht es hier nicht.
+function baueKartenPrompt(text) {
+  return [
+    text
+      ? 'Unten steht der Text einer Speisekarte. Zerlege ihn in einzelne Gerichte.'
+      : 'Auf den Bildern ist eine Speisekarte. Lies sie ab und zerlege sie in einzelne Gerichte.',
+    '',
+    'EISERNE REGELN:',
+    '- Erfinde NICHTS. Nur was wirklich dasteht.',
+    '- Ist ein Preis nicht eindeutig lesbar, setze preis auf null - NICHT schaetzen.',
+    '- Bei mehreren Groessen (Pizza 26/32 cm) nimm die KLEINSTE und schreibe die Groesse in die Beschreibung.',
+    '- Nummern vor Gerichten ("12. Pizza Salami") weglassen.',
+    '- Allergen-Kennzeichnungen wie (a,c,1) gehoeren nicht in den Namen.',
+    '- Getraenke nur aufnehmen, wenn die Karte fast nur aus Getraenken besteht.',
+    '- Hoechstens 80 Gerichte.',
+    '',
+    'Antworte NUR mit diesem JSON, ohne Erklaerung, ohne Code-Zaeune:',
+    '{ "speisekarte": [ { "name": "...", "preis": 8.5, "kategorie": "...", "beschreibung": "..." } ],',
+    '  "unklar": ["was du nicht sicher lesen konntest"] }',
+    text ? '\n--- SPEISEKARTEN-TEXT ---\n' + text : ''
+  ].join('\n');
+}
+
+// Gemeinsame Reinigung fuer beide Wege (Webseite und Karte).
+// Lieber ein Gericht weniger als ein falscher Preis am Telefon.
+function sauberGerichte(liste, maxAnzahl) {
+  const gesehen = new Set();
+  return (Array.isArray(liste) ? liste : [])
+    .map((g) => {
+      const name = String((g && g.name) || '').trim();
+      if (!name || name.length > 90) return null;
+      const schluessel = name.toLowerCase();
+      if (gesehen.has(schluessel)) return null;
+      gesehen.add(schluessel);
+      return {
+        name,
+        preis: preisWert(g && g.preis),
+        kategorie: String((g && g.kategorie) || '').trim() || undefined,
+        beschreibung: String((g && g.beschreibung) || '').trim() || undefined
+      };
+    })
+    .filter(Boolean)
+    .slice(0, maxAnzahl || 60);
+}
+
+function preisWert(wert) {
+  if (wert == null) return null;
+  const n = Number(String(wert).replace(',', '.').replace(/[^0-9.]/g, ''));
+  // Ueber 200 Euro fuer ein Gericht ist mit Sicherheit ein Lesefehler
+  return Number.isFinite(n) && n > 0 && n < 200 ? Math.round(n * 100) / 100 : null;
+}
+
+// Antwort des Karten-Auslesens pruefen
+function parseKarte(roh) {
+  const d = holeJson(roh);
+  const speisekarte = sauberGerichte(d.speisekarte, 80);
+  const unklar = (Array.isArray(d.unklar) ? d.unklar : []).map((u) => String(u).trim()).filter(Boolean);
+  const ohnePreis = speisekarte.filter((g) => g.preis == null).length;
+  if (ohnePreis) unklar.push(ohnePreis + ' Gericht(e) ohne erkennbaren Preis - bitte nachtragen');
+  if (!speisekarte.length) unklar.push('Keine Gerichte erkannt - Foto zu unscharf oder zu wenig Text?');
+  return { speisekarte, unklar };
+}
+
 // --- 4. Antwort pruefen -------------------------------------------------
 // Die KI kann sich vertippen oder Code-Zaeune mitschicken. Hier wird
 // aufgeraeumt und alles Unbrauchbare verworfen - lieber ein Feld weniger
 // als ein falscher Preis am Telefon.
-function parseImportAntwort(roh) {
+// Aus der Antwort das JSON herausschaelen (Code-Zaeune, Vorreden)
+function holeJson(roh) {
   let text = String(roh || '').trim();
   const zaun = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (zaun) text = zaun[1].trim();
   const start = text.indexOf('{');
   const ende = text.lastIndexOf('}');
   if (start < 0 || ende <= start) throw new Error('Die KI hat kein JSON geliefert');
-
-  let d;
   try {
-    d = JSON.parse(text.slice(start, ende + 1));
+    return JSON.parse(text.slice(start, ende + 1));
   } catch (e) {
     throw new Error('Antwort der KI ist kein gueltiges JSON: ' + e.message);
   }
+}
 
+function parseImportAntwort(roh) {
+  const d = holeJson(roh);
   const name = String(d.name || '').trim();
   if (!name) throw new Error('Kein Betriebsname gefunden - Webseite pruefen oder Datei von Hand anlegen');
 
@@ -124,30 +191,8 @@ function parseImportAntwort(roh) {
     const t = String(w || '').trim();
     return /^\d{1,2}:\d{2}$/.test(t) ? (t.length === 4 ? '0' + t : t) : null;
   };
-  const preis = (w) => {
-    if (w == null) return null;
-    const n = Number(String(w).replace(',', '.').replace(/[^0-9.]/g, ''));
-    // Ueber 200 Euro fuer ein Gericht ist mit Sicherheit ein Lesefehler
-    return Number.isFinite(n) && n > 0 && n < 200 ? Math.round(n * 100) / 100 : null;
-  };
-
-  const gesehen = new Set();
-  const speisekarte = (Array.isArray(d.speisekarte) ? d.speisekarte : [])
-    .map((g) => {
-      const gName = String((g && g.name) || '').trim();
-      if (!gName || gName.length > 90) return null;
-      const schluessel = gName.toLowerCase();
-      if (gesehen.has(schluessel)) return null; // Doppelte raus
-      gesehen.add(schluessel);
-      return {
-        name: gName,
-        preis: preis(g.preis),
-        kategorie: String((g && g.kategorie) || '').trim() || undefined,
-        beschreibung: String((g && g.beschreibung) || '').trim() || undefined
-      };
-    })
-    .filter(Boolean)
-    .slice(0, 60);
+  const preis = preisWert;
+  const speisekarte = sauberGerichte(d.speisekarte, 60);
 
   const unklar = (Array.isArray(d.unklar) ? d.unklar : []).map((u) => String(u).trim()).filter(Boolean);
   const ohnePreis = speisekarte.filter((g) => g.preis == null).length;
@@ -183,5 +228,6 @@ function slugAusName(name) {
 }
 
 module.exports = {
-  textAusHtml, findeSpeisekartenLinks, baueImportPrompt, parseImportAntwort, slugAusName
+  textAusHtml, findeSpeisekartenLinks, baueImportPrompt, parseImportAntwort, slugAusName,
+  baueKartenPrompt, parseKarte, sauberGerichte, preisWert
 };

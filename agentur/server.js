@@ -79,11 +79,22 @@ function json(res, status, daten) {
   res.end(JSON.stringify(daten));
 }
 
-function leseBody(req) {
+// Groessen-Deckel, damit ein versehentlich riesiges Foto nicht den
+// Arbeitsspeicher auffrisst. 12 MB reichen fuer mehrere Karten-Fotos.
+function leseBody(req, maxBytes) {
+  const grenze = maxBytes || 12 * 1024 * 1024;
   return new Promise((resolve) => {
     let body = '';
-    req.on('data', (d) => { body += d; });
-    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (_e) { resolve({}); } });
+    let zuGross = false;
+    req.on('data', (d) => {
+      if (zuGross) return;
+      body += d;
+      if (body.length > grenze) { zuGross = true; body = ''; }
+    });
+    req.on('end', () => {
+      if (zuGross) { resolve({ _zuGross: true }); return; }
+      try { resolve(JSON.parse(body || '{}')); } catch (_e) { resolve({}); }
+    });
   });
 }
 
@@ -1551,7 +1562,7 @@ const server = http.createServer(async (req, res) => {
           signal: AbortSignal.timeout(120000),
           body: JSON.stringify({
             model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
-            max_tokens: 8000,
+            max_tokens: 16000,
             messages: [{ role: 'user', content: imp.baueImportPrompt(text.slice(0, 60000), ziel) }]
           })
         });
@@ -1560,6 +1571,66 @@ const server = http.createServer(async (req, res) => {
         const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
         const ergebnis = imp.parseImportAntwort(roh);
         json(res, 200, Object.assign({ ok: true, webseite: ziel }, ergebnis));
+      } catch (e) {
+        json(res, 502, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Speisekarte lesen - fuer Betriebe OHNE Webseite.
+    // Entweder Fotos der Papierkarte oder abgetippter/eingefuegter Text.
+    if (req.method === 'POST' && pfad === '/api/speisekarte-lesen') {
+      const koerper = await leseBody(req);
+      if (koerper._zuGross) {
+        json(res, 413, { fehler: 'Die Bilder sind zusammen zu groß. Bitte weniger oder kleinere Fotos.' });
+        return;
+      }
+      const imp = require('../telefon-retter/lib/webseite-import');
+      const text = String(koerper.text || '').trim().slice(0, 60000);
+      const bilder = (Array.isArray(koerper.bilder) ? koerper.bilder : []).slice(0, 6);
+      if (!text && !bilder.length) {
+        json(res, 400, { fehler: 'Bitte Text einfügen oder ein Foto der Karte hochladen.' });
+        return;
+      }
+      if (!process.env.ANTHROPIC_API_KEY) {
+        json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt – erst "node schluessel-einrichten.js" (Schritt 1).' });
+        return;
+      }
+      try {
+        // Bilder kommen als data:-URL aus dem Browser -> in das Format
+        // bringen, das Anthropic erwartet (Typ + reines Base64).
+        const inhalt = [];
+        for (const b of bilder) {
+          const treffer = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/i.exec(String(b || ''));
+          if (!treffer) continue;
+          inhalt.push({
+            type: 'image',
+            source: { type: 'base64', media_type: treffer[1].toLowerCase(), data: treffer[2] }
+          });
+        }
+        if (!inhalt.length && !text) {
+          json(res, 400, { fehler: 'Die Bilder konnten nicht gelesen werden (nur JPG, PNG, WEBP).' });
+          return;
+        }
+        inhalt.push({ type: 'text', text: imp.baueKartenPrompt(text) });
+
+        const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01', 'content-type': 'application/json'
+          },
+          signal: AbortSignal.timeout(180000),
+          body: JSON.stringify({
+            model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
+            max_tokens: 16000,
+            messages: [{ role: 'user', content: inhalt }]
+          })
+        });
+        if (!antwort.ok) throw new Error('Anthropic ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
+        const daten = await antwort.json();
+        const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
+        json(res, 200, Object.assign({ ok: true }, imp.parseKarte(roh)));
       } catch (e) {
         json(res, 502, { fehler: e.message });
       }
