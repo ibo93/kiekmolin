@@ -1487,6 +1487,85 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // --- Telefon-Kunden verwalten (auch Betriebe OHNE Kiek mol in) --------
+    // Frueher hiess das: zwei JSON-Dateien im Texteditor bearbeiten. Hier
+    // schreibt die App beide zusammen und prueft, was fehlt.
+    if (req.method === 'GET' && pfad === '/api/telefon-kunden') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, { kunden: tk.listeKunden() });
+      } catch (e) {
+        json(res, 500, { fehler: e.message });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && pfad === '/api/telefon-kunde') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, Object.assign({ ok: true }, tk.speichereEigenenKunden(await leseBody(req))));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && pfad === '/api/telefon-kunde-entfernen') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, Object.assign({ ok: true }, tk.entferneNummer((await leseBody(req)).nummer)));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Speisekarte + Stammdaten von der Webseite des Wirts holen.
+    // Fuellt das Formular vor - abtippen entfaellt.
+    if (req.method === 'POST' && pfad === '/api/webseite-lesen') {
+      const { url } = await leseBody(req);
+      const imp = require('../telefon-retter/lib/webseite-import');
+      let ziel = String(url || '').trim();
+      if (!ziel) { json(res, 400, { fehler: 'Bitte eine Webseiten-Adresse angeben.' }); return; }
+      if (!/^https?:\/\//i.test(ziel)) ziel = 'https://' + ziel;
+      try {
+        const hole = async (adresse) => {
+          const antwort = await fetch(adresse, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (kompatibel; KURANI-Import)' },
+            signal: AbortSignal.timeout(20000), redirect: 'follow'
+          });
+          if (!antwort.ok) throw new Error('Die Seite antwortet mit ' + antwort.status);
+          return antwort.text();
+        };
+        const html = await hole(ziel);
+        let text = imp.textAusHtml(html);
+        for (const link of imp.findeSpeisekartenLinks(html, ziel)) {
+          try { text += '\n\n--- ' + link + ' ---\n' + imp.textAusHtml(await hole(link)); } catch (_e) { /* weiter */ }
+        }
+        const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+            'anthropic-version': '2023-06-01', 'content-type': 'application/json'
+          },
+          signal: AbortSignal.timeout(120000),
+          body: JSON.stringify({
+            model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
+            max_tokens: 8000,
+            messages: [{ role: 'user', content: imp.baueImportPrompt(text.slice(0, 60000), ziel) }]
+          })
+        });
+        if (!antwort.ok) throw new Error('Anthropic ' + antwort.status);
+        const daten = await antwort.json();
+        const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
+        const ergebnis = imp.parseImportAntwort(roh);
+        json(res, 200, Object.assign({ ok: true, webseite: ziel }, ergebnis));
+      } catch (e) {
+        json(res, 502, { fehler: e.message });
+      }
+      return;
+    }
+
     // API: Liste der letzten Anrufe - wer, wie lange, was kam dabei raus
     if (req.method === 'GET' && pfad === '/api/anrufe') {
       const prot = require('./lib/anruf-protokoll');

@@ -594,4 +594,84 @@ test('Anruf-Protokoll: ehrlich bei Fehlern und stummen Anrufen', () => {
   assert.strictEqual(parseProtokoll(null).dauerSekunden, null);
 });
 
+test('Telefon-Kunden: anlegen schreibt beide Dateien und prueft die Eingaben', () => {
+  const fsm = require('fs');
+  const pfad = require('path');
+  const tk = require('./lib/telefon-kunden');
+  const basis = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'tk-'));
+
+  // Nummern normalisieren: deutsche Schreibweise wird zu +49
+  assert.strictEqual(tk.normalisiereNummer('04921 123456'), '+494921123456');
+  assert.strictEqual(tk.normalisiereNummer('+49 4921 123456'), '+494921123456');
+  assert.strictEqual(tk.normalisiereNummer('0049 4921 123'), '+494921123');
+  assert.strictEqual(tk.normalisiereNummer(''), '');
+
+  // Pflichtangaben werden im Klartext eingefordert
+  assert.throws(() => tk.speichereEigenenKunden({ nummer: '+4949211' }, basis), /Name des Betriebs fehlt/);
+  assert.throws(() => tk.speichereEigenenKunden({ name: 'X' }, basis), /Twilio-Nummer fehlt/);
+  assert.throws(() => tk.speichereEigenenKunden({ name: 'X', nummer: '+4949211234', kann: [] }, basis),
+    /Reservierungen, Bestellungen oder beides/);
+
+  const e = tk.speichereEigenenKunden({
+    nummer: '04921 123456', name: 'Pizzeria Bella Vista', stadt: 'Emden',
+    oeffnet: '7:00', schliesst: 'quatsch', tische: '12', sms: '015112345678',
+    kann: ['bestellung', 'unsinn'],
+    speisekarte: [
+      { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+      { name: '', preis: 5 }
+    ]
+  }, basis);
+  assert.strictEqual(e.slug, 'pizzeria-bella-vista');
+  assert.strictEqual(e.nummer, '+494921123456');
+  assert.strictEqual(e.gerichte, 1, 'Gericht ohne Namen faellt raus');
+  assert.strictEqual(e.warnung, null, 'SMS hinterlegt -> keine Warnung');
+
+  const kunde = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'pizzeria-bella-vista.json'), 'utf8'));
+  assert.strictEqual(kunde.oeffnet, '07:00', 'Uhrzeit auf HH:MM gebracht');
+  assert.strictEqual(kunde.schliesst, undefined, 'unbrauchbare Uhrzeit verworfen');
+  assert.strictEqual(kunde.tische, 12);
+  assert.strictEqual(kunde.melden.sms, '+4915112345678', 'Handynummer normalisiert');
+  assert.strictEqual(kunde.speisekarte[0].preis, 8.5, 'Komma-Preis als Zahl');
+
+  const nummern = JSON.parse(fsm.readFileSync(pfad.join(basis, 'nummern.json'), 'utf8'));
+  assert.deepStrictEqual(nummern['+494921123456'], {
+    datei: 'kunden/pizzeria-bella-vista.json', kann: ['bestellung']
+  }, 'unsinnige Faehigkeit verworfen');
+
+  // Liste zeigt den Kunden mit Gerichte-Zahl
+  const liste = tk.listeKunden(basis);
+  assert.strictEqual(liste.length, 1);
+  assert.strictEqual(liste[0].name, 'Pizzeria Bella Vista');
+  assert.strictEqual(liste[0].art, 'eigen');
+  assert.strictEqual(liste[0].gerichte, 1);
+  assert.strictEqual(liste[0].problem, null);
+
+  // Ohne Meldeweg: gespeichert, aber deutlich gewarnt
+  const ohne = tk.speichereEigenenKunden({
+    nummer: '+494921999999', name: 'Ohne Meldung', kann: ['reservierung']
+  }, basis);
+  assert.ok(/erfährt der Wirt nichts von seinen Anrufen/.test(ohne.warnung), 'Warnung: ' + ohne.warnung);
+  assert.ok(/Kein Meldeweg/.test(tk.listeKunden(basis).find((k) => k.nummer === '+494921999999').problem));
+
+  // Kommentare und fremde Eintraege bleiben beim Schreiben erhalten
+  tk.schreibeNummern(basis, Object.assign(tk.liesNummern(basis), {
+    _hinweis: 'Notiz', '+494926111': 'kiekmolin-restaurant-id'
+  }));
+  tk.speichereEigenenKunden({ nummer: '+494921000000', name: 'Dritter', kann: ['reservierung'] }, basis);
+  const danach = tk.liesNummern(basis);
+  assert.strictEqual(danach._hinweis, 'Notiz', 'Notizen ueberleben');
+  assert.strictEqual(danach['+494926111'], 'kiekmolin-restaurant-id', 'Kiek-mol-in-Kunde bleibt');
+
+  // Kiek-mol-in-Eintraege erscheinen in der Liste, Kommentare nicht
+  const alle = tk.listeKunden(basis);
+  assert.ok(alle.some((k) => k.nummer === '+494926111' && k.art === 'kiekmolin'));
+  assert.ok(!alle.some((k) => String(k.nummer).startsWith('_')));
+
+  // Entfernen loescht nur die Zuordnung
+  tk.entferneNummer('+494921999999', basis);
+  assert.ok(!tk.liesNummern(basis)['+494921999999']);
+  assert.ok(fsm.existsSync(pfad.join(basis, 'kunden', 'ohne-meldung.json')), 'Kundendatei bleibt liegen');
+  assert.throws(() => tk.entferneNummer('+490000', basis), /nicht eingetragen/);
+});
+
 console.log('\n' + tests + ' Tests bestanden.');
