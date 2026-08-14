@@ -234,6 +234,21 @@ var vadTimer = null;
 var tasteUnten = false;    // Leertaste gerade gedrückt?
 
 var $ = function (id) { return document.getElementById(id); };
+var FUSS_BASIS = '';
+
+// Was hat er heute gekostet? Steht unten in der Fußzeile, damit es nicht
+// erst am Monatsende auffällt.
+async function kostenAnzeigen() {
+  try {
+    var k = await (await fetch('/api/kosten')).json();
+    var text = FUSS_BASIS;
+    if (k.heute) {
+      text += '   ·   heute ' + k.heute.toFixed(2).replace('.', ',') + ' $';
+      if (k.limit) text += ' von ' + Number(k.limit).toFixed(2).replace('.', ',') + ' $';
+    }
+    $('fussHinweis').textContent = text;
+  } catch (e) { $('fussHinweis').textContent = FUSS_BASIS; }
+}
 
 // ------------------------------------------------------------- Anzeige -----
 function lage(art, text) {
@@ -377,6 +392,7 @@ async function verarbeite(e, antwortBlase) {
     if (e.gekuerzt) meta.push('vorgelesen: Kurzfassung');
     if (e.hinweis) meta.push(e.hinweis);
     blase('blase er', e.text || 'Fertig.', meta.join('  ·  '));
+    kostenAnzeigen();
     await sprich(e.sprich || e.text);
     return antwortBlase;
   }
@@ -546,6 +562,7 @@ var KUGEL = {
 };
 
 var KUGEL_FARBEN = {
+  schlaeft: { a: '#7b8794', b: '#2c3440' },
   ruhe:    { a: '#4a5568', b: '#007AFF' },
   hoert:   { a: '#00c2ff', b: '#007AFF' },
   denkt:   { a: '#FF9500', b: '#FF3B30' },
@@ -597,6 +614,8 @@ function kugelBild() {
     KUGEL.ziel = 0.35 + 0.25 * Math.abs(Math.sin(KUGEL.zeit * 4));   // Browser-Stimme: geschätzt
   } else if (KUGEL.zustand === 'denkt') {
     KUGEL.ziel = 0.22;
+  } else if (KUGEL.zustand === 'schlaeft') {
+    KUGEL.ziel = 0.03 + 0.02 * Math.sin(KUGEL.zeit * 0.6);   // ruhiges Atmen
   } else {
     KUGEL.ziel = 0.08;
   }
@@ -723,7 +742,14 @@ function kugelLage(text, zustand) {
 // wenn du dazwischenredest.
 var LIVE = {
   an: false, ws: null, rec: null, erkennung: null,
-  schlange: [], laeuftTon: null, mithoerZeile: null, blase: null, roh: ''
+  schlange: [], laeuftTon: null, mithoerZeile: null, blase: null, roh: '',
+  // Gegensprech-Sperre (für Betrieb OHNE Kopfhörer): während er spricht,
+  // geht KEIN Ton vom Mikrofon nach draußen. Sonst hört Deepgram seine
+  // eigene Stimme aus den Lautsprechern und er unterbricht sich selbst.
+  redetGerade: false, sperreBis: 0,
+  wachtLaut: null, lautSeit: 0,
+  schlaeft: false, weckwort: '',
+  neuVersuche: 0
 };
 
 function liveZeile(text) {
@@ -759,12 +785,18 @@ async function naechsterTon() {
   if (!e) {
     LIVE.laeuftTon = null;
     KUGEL.tonAnalyse = null;
+    LIVE.redetGerade = false;
+    // Kurze Sperre für den Nachhall im Raum, sonst hört Deepgram noch das
+    // letzte Wort aus den Lautsprechern.
+    LIVE.sperreBis = Date.now() + 350;
+    waechterAus();
     if (LIVE.an) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); untertitel(''); }
     return;
   }
   LIVE.laeuftTon = e;
+  LIVE.redetGerade = true;
+  waechterAn();
   lage('spricht', 'spricht');
-
   kugelLage('spricht', 'spricht');
   untertitel(e.text);
 
@@ -781,18 +813,95 @@ async function naechsterTon() {
   }
 }
 
+// --- Dazwischenreden erkennen, ohne Kopfhörer -------------------------------
+// Während er spricht, ist die Leitung zum Zuhören dicht. Damit du ihn
+// trotzdem unterbrechen kannst, misst der Browser selbst mit: kommt vom
+// Mikrofon deutlich mehr an, als aus den Lautsprechern zurückschallt, bist
+// das du — und nicht sein eigenes Echo.
+function pegelVon(messung) {
+  if (!messung || !messung.puffer) return 0;
+  messung.knoten.getByteTimeDomainData(messung.puffer);
+  var summe = 0;
+  for (var i = 0; i < messung.puffer.length; i++) {
+    var v = (messung.puffer[i] - 128) / 128;
+    summe += v * v;
+  }
+  return Math.sqrt(summe / messung.puffer.length);
+}
+
+function waechterAn() {
+  waechterAus();
+  LIVE.lautSeit = 0;
+  LIVE.wachtLaut = setInterval(function () {
+    if (!LIVE.redetGerade) return;
+    var mikro = pegelVon(KUGEL.mikroAnalyse);
+    var ton = pegelVon(KUGEL.tonAnalyse);
+    // Schwelle: klar über dem Grundrauschen UND deutlich über dem, was
+    // gerade aus den Lautsprechern kommt.
+    var deutlich = mikro > 0.085 && mikro > ton * 1.6 + 0.02;
+    if (!deutlich) { LIVE.lautSeit = 0; return; }
+    if (!LIVE.lautSeit) LIVE.lautSeit = Date.now();
+    if (Date.now() - LIVE.lautSeit > 250) selbstUnterbrechen();
+  }, 60);
+}
+
+function waechterAus() {
+  if (LIVE.wachtLaut) { clearInterval(LIVE.wachtLaut); LIVE.wachtLaut = null; }
+}
+
+function selbstUnterbrechen() {
+  waechterAus();
+  ruhe();
+  LIVE.redetGerade = false;
+  LIVE.sperreBis = 0;               // Leitung sofort wieder auf
+  liveSchicke({ typ: 'unterbrechung' });
+  blase('tut', 'du hast unterbrochen');
+  kugelLage('hört zu', 'hoert');
+  untertitel('');
+}
+
 // Sofort still sein — beim Unterbrechen zählt jede Zehntelsekunde.
 function ruhe() {
   LIVE.schlange = [];
   if (LIVE.laeuftTon && LIVE.laeuftTon.audio) { try { LIVE.laeuftTon.audio.pause(); } catch (e) {} }
   LIVE.laeuftTon = null;
+  LIVE.redetGerade = false;
+  LIVE.sperreBis = Date.now() + 200;
+  waechterAus();
+  KUGEL.tonAnalyse = null;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 function liveNachricht(n) {
   if (n.typ === 'bereit') {
-    lage('hoert', n.hoeren === 'deepgram' ? 'hört zu' : 'hört zu (Browser)');
+    LIVE.weckwort = n.weckwort || '';
+    LIVE.schlaeft = !!n.schlaeft;
+    if (LIVE.schlaeft) {
+      lage('', 'schläft');
+      kugelLage('sag „' + LIVE.weckwort + '“', 'schlaeft');
+    } else {
+      lage('hoert', n.hoeren === 'deepgram' ? 'hört zu' : 'hört zu (Browser)');
+      kugelLage('hört zu', 'hoert');
+    }
+    return;
+  }
+  if (n.typ === 'schlaeft') {
+    LIVE.schlaeft = true;
+    lage('', 'schläft');
+    kugelLage('sag „' + (LIVE.weckwort || 'kurani') + '“', 'schlaeft');
+    untertitel('');
+    return;
+  }
+  if (n.typ === 'wach') {
+    LIVE.schlaeft = false;
+    lage('hoert', 'hört zu');
     kugelLage('hört zu', 'hoert');
+    return;
+  }
+  if (n.typ === 'ueberhoert') return;      // im Schlaf gehört, bewusst ignoriert
+  if (n.typ === 'leitung') {
+    if (n.lage === 'verbindet neu') { lage('denkt', 'verbinde neu …'); kugelLage('verbinde neu …', 'denkt'); }
+    else if (!LIVE.schlaeft) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); }
     return;
   }
   if (n.typ === 'zwischen') { liveZeile(n.text); untertitel(n.text, true); return; }
@@ -830,6 +939,7 @@ function liveNachricht(n) {
     if (n.kosten) meta.push(n.kosten.toFixed(2).replace('.', ',') + ' $');
     if (n.hinweis) meta.push(n.hinweis);
     blase('blase er', n.text || 'Fertig.', meta.join('  ·  '));
+    kostenAnzeigen();
     if (!LIVE.laeuftTon) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); }
     return;
   }
@@ -853,14 +963,39 @@ async function liveAn() {
   stoppSprechen();
   if (hoertZu) stoppeHoeren();
 
+  LIVE.an = true;
+  LIVE.neuVersuche = 0;
+  document.body.classList.add('livemodus');
+  $('liveKnopf').classList.add('an', 'live');
+  $('verlaufKnopf').style.display = '';
+  kugelStart();
+  kugelLage('verbindet …', 'ruhe');
+  lage('hoert', 'hört zu');
+  liveVerbinde();
+}
+
+// Leitung aufbauen — und nach einem Abriss von selbst wiederkommen.
+// Ein kurzer WLAN-Hüpfer darf das Gespräch nicht beenden.
+function liveVerbinde() {
   LIVE.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live');
   LIVE.ws.onmessage = function (e) {
     try { liveNachricht(JSON.parse(e.data)); } catch (fehler) { /* kaputte Zeile */ }
   };
-  LIVE.ws.onclose = function () { if (LIVE.an) liveAus('Die Leitung ist zu.'); };
   LIVE.ws.onerror = function () { /* onclose räumt auf */ };
 
+  LIVE.ws.onclose = function () {
+    if (!LIVE.an) return;
+    LIVE.neuVersuche++;
+    if (LIVE.neuVersuche > 6) return liveAus('Die Leitung kommt nicht zurück. Läuft der Server noch?');
+    try { if (LIVE.rec && LIVE.rec.state === 'recording') LIVE.rec.stop(); } catch (e) {}
+    LIVE.rec = null;
+    lage('denkt', 'verbinde neu …');
+    kugelLage('verbinde neu …', 'denkt');
+    setTimeout(function () { if (LIVE.an) liveVerbinde(); }, Math.min(8000, 500 * Math.pow(2, LIVE.neuVersuche - 1)));
+  };
+
   LIVE.ws.onopen = async function () {
+    LIVE.neuVersuche = 0;
     liveSchicke({ typ: 'einstellung', ordner: $('ordnerWahl').value || null, stufe: $('stufeWahl').value });
 
     if (KONFIG.hoeren === 'deepgram') {
@@ -874,22 +1009,21 @@ async function liveAn() {
       var typ = aufnahmeTyp();
       LIVE.rec = new MediaRecorder(strom, typ ? { mimeType: typ } : undefined);
       LIVE.rec.ondataavailable = function (e) {
-        if (e.data && e.data.size && LIVE.ws && LIVE.ws.readyState === 1) LIVE.ws.send(e.data);
+        if (!e.data || !e.data.size || !LIVE.ws || LIVE.ws.readyState !== 1) return;
+        // Klappe zu, solange er selbst spricht (plus kurzer Nachhall).
+        if (LIVE.redetGerade || Date.now() < LIVE.sperreBis) return;
+        LIVE.ws.send(e.data);
       };
       LIVE.rec.start(200);           // alle 0,2 s ein Schnipsel auf die Leitung
     } else {
       liveBrowserOhren();
     }
-    blase('tut', 'Live an — sprich einfach los. Dazwischenreden unterbricht.');
+    if (!LIVE.neuVersuche) {
+      blase('tut', LIVE.weckwort
+        ? 'Live an — sag „' + LIVE.weckwort + '“, dann hört er dir zu. Dazwischenreden unterbricht.'
+        : 'Live an — sprich einfach los. Dazwischenreden unterbricht.');
+    }
   };
-
-  LIVE.an = true;
-  document.body.classList.add('livemodus');
-  $('liveKnopf').classList.add('an', 'live');
-  $('verlaufKnopf').style.display = '';
-  kugelStart();
-  kugelLage('verbindet …', 'ruhe');
-  lage('hoert', 'hört zu');
 }
 
 // Ohne Deepgram: die Spracherkennung des Browsers dauerhaft laufen lassen.
@@ -904,10 +1038,12 @@ function liveBrowserOhren() {
   LIVE.erkennung.continuous = true;
   LIVE.erkennung.interimResults = true;
   LIVE.erkennung.onresult = function (e) {
+    // Ohne Kopfhörer hört die Browser-Erkennung sonst seine eigene Stimme.
+    if (LIVE.redetGerade || Date.now() < LIVE.sperreBis) return;
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var text = e.results[i][0].transcript.trim();
       if (!text) continue;
-      if (e.results[i].isFinal) liveSchicke({ typ: 'text', text: text });
+      if (e.results[i].isFinal) liveSchicke({ typ: 'gehoert', text: text });
       else liveSchicke({ typ: 'zwischen', text: text });
     }
   };
@@ -1029,13 +1165,15 @@ $('stoppKnopf').onclick = async function () {
   }
 
   var teile = [];
+  if (KONFIG.weckwort) teile.push('Weckwort: „' + KONFIG.weckwort + '“');
   teile.push('Hören: ' + (KONFIG.hoeren === 'deepgram' ? 'Deepgram' : 'Browser'));
   teile.push('Stimme: ' + (KONFIG.stimme === 'elevenlabs' ? 'ElevenLabs' : 'Browser'));
   teile.push('Modell: ' + KONFIG.modell);
   if (KONFIG.alles) teile.push('Zugriff: ganzer Rechner');
   if (!KONFIG.live) teile.push('Live aus (npm install fehlt)');
   if (KONFIG.demo) teile.push('DEMO - es wird nichts wirklich getan');
-  $('fussHinweis').textContent = teile.join('   ·   ');
+  FUSS_BASIS = teile.join('   ·   ');
+  kostenAnzeigen();
 
   if (window.speechSynthesis) window.speechSynthesis.getVoices();
 })();

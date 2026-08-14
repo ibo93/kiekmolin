@@ -86,6 +86,16 @@ Ganz normal. Beispiele:
 - „Was hab ich bei Greetsieler Börse noch offen?"
 - „Schneid aus dem Rohmaterial ein Reel, 20 Sekunden."
 
+Vier Sätze sind fest verdrahtet — die fragen jedes Mal dasselbe ab, egal wie
+du sie genau formulierst:
+
+| Du sagst | Was er macht |
+|---|---|
+| „Lagebericht" | Roadmap-Woche + offene Rechnungen + Auffälliges bei Kiek mol in, in vier Sätzen |
+| „Offene Posten" | unbezahlte Rechnungen mit Betrag und Alter (kurani-docs) |
+| „Was steht an?" | die Woche laut kurani-roadmap, plus nächster Schritt |
+| „Wie lief das letzte Reel?" | Instagram-Zahlen, mit einem Satz Einordnung |
+
 Drei Worte wirken **sofort**, ohne dass die KI überhaupt loslegt:
 
 | Du sagst | Was passiert |
@@ -109,11 +119,54 @@ Knopf **Live** oben rechts. Dann läuft das Mikrofon durch:
   sonst würde er sich am eigenen Echo verschlucken.
 - „Stopp" wirkt sofort, ohne dass die KI überhaupt gefragt wird.
 
+### Ohne Kopfhörer, auf dem Mac
+
+Lautsprecher an, Mikrofon offen — normalerweise hört sich der Assistent dabei
+selbst zu und unterbricht sich am eigenen Echo. Deshalb läuft es hier im
+**Gegensprech-Betrieb**, wie beim Funkgerät:
+
+- Solange er spricht, geht **kein Ton vom Mikrofon nach draußen**. Sein Echo
+  kann also gar nicht erst als „du hast geredet" ankommen.
+- Trotzdem kannst du ihn unterbrechen: der Browser misst währenddessen selbst
+  mit und vergleicht, was vom Mikrofon kommt, mit dem, was aus den
+  Lautsprechern zurückschallt. Ist deine Stimme deutlich lauter als das Echo
+  und bleibt sie es eine Viertelsekunde, macht er sofort die Leitung wieder
+  auf und hört dir zu.
+- Nach dem letzten Wort bleibt die Leitung noch 0,35 s zu — für den Nachhall
+  im Raum.
+
+**Nimm Chrome auf dem Mac.** Die Echo-Unterdrückung von Chrome ist die beste,
+Safari kann kein `webm/opus` und die Browser-Erkennung dort ist launisch.
+Beim ersten Start fragt macOS nach dem Mikrofon: *Systemeinstellungen →
+Datenschutz & Sicherheit → Mikrofon → Chrome*. Wenn er dich trotzdem nicht
+hört, guck auf die Kugel: bleibt sie beim Sprechen völlig ruhig, kommt am
+Mikrofon nichts an — dann ist in *Ton → Eingang* das falsche Gerät gewählt.
+
+Findet der Server `claude` nicht (Homebrew legt es woanders ab), in die `.env`:
+`SPRACH_CLAUDE_BEFEHL=/opt/homebrew/bin/claude`.
+
+### Weckwort: er schläft, bis sein Name fällt
+
+Ein offenes Mikrofon im Laden heißt sonst: jedes Wort geht an die KI — auch
+das Kundengespräch und das Telefonat nebenan. Deshalb schläft er und hört nur
+auf **„Kurani"**:
+
+- „Hey Kurani, schreib eine Rechnung für La Piazza" → er macht es.
+- Nur „Kurani?" → er sagt „Ja?" und wartet auf den Auftrag.
+- Alles andere: wird verworfen, erscheint nicht mal auf dem Bildschirm.
+- Nach seiner Antwort bleibt er **25 Sekunden wach** — Nachfragen („und
+  dasselbe für Mai?") brauchen kein zweites „Kurani".
+- Getippt wird nie geschlafen: was du ins Feld schreibst, gilt sofort.
+
+Abschalten oder ändern: `SPRACH_WECKWORT=` (leer = reagiert auf alles) bzw.
+`SPRACH_WECKWORT=chef`, Nachlauf über `SPRACH_NACHLAUF=25`.
+
 **Die Kugel** übernimmt dabei den Bildschirm — wie bei ChatGPT, nur in
 Kurani-Farben. Sie ist keine Deko, sondern ein Messgerät:
 
 | Was du siehst | Was es heißt |
 |---|---|
+| Grau, atmet langsam | er schläft — sag „Kurani" |
 | Blau, wächst mit deiner Stimme | er hört dich — wenn sie stillsteht, kommt nichts am Mikrofon an |
 | Orange mit wanderndem Bogen | er arbeitet gerade (unten steht, in welchem Ordner) |
 | Grün, pulst im Takt der Antwort | er spricht |
@@ -244,9 +297,14 @@ größere Aufgaben mehr. Nach jeder Antwort steht der Betrag klein unter der
 Blase. In der `.env` steckt ein Deckel pro Auftrag:
 
 ```
-SPRACH_MODELL=sonnet      # schnell und günstig; "opus" ist gründlicher, teurer
-SPRACH_BUDGET_USD=3       # Notbremse je Auftrag; leer = kein Deckel
+SPRACH_MODELL=sonnet         # schnell und günstig; "opus" ist gründlicher, teurer
+SPRACH_BUDGET_USD=3          # Notbremse je Auftrag; leer = kein Deckel
+SPRACH_TAGESLIMIT_USD=10     # Notbremse für den ganzen Tag
 ```
+
+Unten in der Fußzeile steht immer, was heute schon zusammengekommen ist. Ist
+das Tageslimit erreicht, sagt er das und macht Schluss — statt still
+weiterzulaufen.
 
 Deepgram und ElevenLabs kosten separat nach Minuten bzw. Zeichen — deshalb
 wird immer nur eine **Kurzfassung** vorgelesen; der volle Text steht im

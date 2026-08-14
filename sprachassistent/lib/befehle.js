@@ -122,6 +122,85 @@ function escape(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// ------------------------------------------------------------ Weckwort ----
+
+// Im Live-Modus laeuft das Mikrofon durch. Ohne Weckwort landet JEDES Wort
+// beim Assistenten - auch das Telefonat nebenbei und das Gespraech mit dem
+// Kunden im Laden. Mit Weckwort schlaeft er, bis sein Name faellt.
+//
+// Rueckgabe: { geweckt, auftrag }
+//   geweckt=false        -> ignorieren, weiterschlafen
+//   auftrag=''           -> nur geweckt ("Kurani?") -> kurz bestaetigen
+//   auftrag='...'        -> geweckt UND schon ein Auftrag dabei
+function weckwortTreffer(text, weckwort) {
+  const wort = String(weckwort || 'kurani').toLowerCase().trim();
+  const t = String(text || '').trim();
+  if (!t) return { geweckt: false, auftrag: '' };
+
+  // Spracherkennung schreibt Namen gern falsch - ein paar Varianten mit.
+  const varianten = [wort].concat(VARIANTEN[wort] || []);
+  const muster = new RegExp(
+    '(^|\\b)(hey |hallo |moin |ok |okay )?(' + varianten.map(escape).join('|') + ')\\b[,.:!?]*\\s*',
+    'i'
+  );
+  const treffer = muster.exec(t);
+  if (!treffer) return { geweckt: false, auftrag: '' };
+
+  const auftrag = (t.slice(0, treffer.index) + ' ' + t.slice(treffer.index + treffer[0].length))
+    .replace(/\s+/g, ' ').trim();
+  return { geweckt: true, auftrag: auftrag };
+}
+
+// Was Deepgram und die Browser-Erkennung aus "Kurani" machen.
+const VARIANTEN = {
+  kurani: ['kurani', 'kurany', 'curani', 'kirani', 'korani', 'kurahni', 'kuranie']
+};
+
+// ------------------------------------------------------- Schnellbefehle ---
+
+// Saetze, die Ibo jeden Tag sagt - einmal ordentlich ausformuliert, damit
+// die Antwort nicht davon abhaengt, wie genau er gerade fragt.
+const SCHNELLBEFEHLE = [
+  {
+    name: 'lagebericht',
+    hoert: /^(lagebericht|lage|wie sieht'?s aus|wie steht'?s|stand der dinge)\b/i,
+    prompt: 'Gib mir einen kurzen Lagebericht, gesprochen in hoechstens vier Saetzen: ' +
+      'was laut kurani-roadmap diese Woche dran ist, welche Rechnungen offen sind ' +
+      '(kurani-docs) und ob es bei Kiek mol in etwas Auffaelliges gibt. ' +
+      'Keine Listen, nur das Wichtigste - und sag mir am Ende, was ich zuerst anpacken soll.'
+  },
+  {
+    name: 'offene posten',
+    hoert: /^(offene posten|offene rechnungen|was ist noch offen|wer schuldet mir)\b/i,
+    prompt: 'Nutze kurani-docs: welche Rechnungen sind noch unbezahlt? ' +
+      'Nenne Betrag, Kunde und wie lange sie schon offen sind. Kurz, gesprochen.'
+  },
+  {
+    name: 'was steht an',
+    hoert: /^(was steht.{0,25}an|was ist heute|was mache ich heute|naechste aufgabe|nächste aufgabe)\b/i,
+    prompt: 'Nutze kurani-roadmap: was ist diese Woche dran und was ist der naechste konkrete Schritt? ' +
+      'Antworte in zwei Saetzen, gesprochen.'
+  },
+  {
+    name: 'instagram',
+    hoert: /^(instagram|wie lief das (letzte )?reel|wie laufen die reels|zahlen von instagram)\b/i,
+    prompt: 'Wie lief der letzte Instagram-Beitrag? Nutze das Instagram-Werkzeug, ' +
+      'nenne Aufrufe, Likes und Kommentare, und sag in einem Satz, was das bedeutet.'
+  }
+];
+
+// Passt der Satz auf einen Schnellbefehl? Dann den ausformulierten Auftrag
+// zurueckgeben, sonst null (dann geht der Satz so wie er ist an Claude).
+function schnellbefehl(text, liste) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  for (const b of (liste || SCHNELLBEFEHLE)) {
+    const muster = b.hoert instanceof RegExp ? b.hoert : new RegExp(b.hoert, 'i');
+    if (muster.test(t)) return { name: b.name, prompt: b.prompt };
+  }
+  return null;
+}
+
 // ------------------------------------------------------------ Auftrag -----
 
 // Der Satz, der Claude Code zum SPRACH-Assistenten macht. Ohne ihn bekommt
@@ -192,5 +271,6 @@ function stufeAufloesen(wunsch, freieHandErlaubt) {
 
 module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
-  systemZusatz, HALTUNG, STUFEN, stufeAufloesen
+  systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
+  weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE
 };

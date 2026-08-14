@@ -39,6 +39,13 @@ const BUDGET = process.env.SPRACH_BUDGET_USD === '' ? '' : (process.env.SPRACH_B
 const ZEITLIMIT = parseInt(process.env.SPRACH_ZEITLIMIT || '300', 10);
 const FREIE_HAND = /^(ja|yes|1|true)$/i.test(process.env.SPRACH_FREIE_HAND || '');
 const MAX_SAETZE = parseInt(process.env.SPRACH_MAX_SAETZE || '4', 10);
+// Weckwort: leer = er reagiert auf jedes Wort (nur sinnvoll, wenn du
+// allein im Raum bist). Standard "kurani" - dann schlaeft er, bis sein
+// Name faellt, und das Gespraech nebenan bleibt privat.
+const WECKWORT = process.env.SPRACH_WECKWORT === '' ? '' : (process.env.SPRACH_WECKWORT || 'kurani');
+const NACHLAUF = parseInt(process.env.SPRACH_NACHLAUF || '25', 10);
+// Notbremse fuer den Geldbeutel: mehr als so viel Dollar am Tag nicht.
+const TAGESLIMIT = parseFloat(process.env.SPRACH_TAGESLIMIT_USD || '10');
 // Zusaetzliche Ordner, die der Assistent lesen und anfassen darf - egal in
 // welchem Arbeitsordner er gerade steht. SPRACH_ALLES=ja gibt das ganze
 // Benutzerverzeichnis frei ("Zugriff auf alles").
@@ -104,6 +111,23 @@ function ordnerNach(name) {
   return ordnerKonfig.ordner.find((o) => o.name === name) || null;
 }
 
+// Ist das Tagesbudget aufgebraucht? Gibt den Satz zurueck, der dann
+// gesprochen wird - oder null, wenn alles in Ordnung ist.
+function budgetGesperrt() {
+  if (!TAGESLIMIT) return null;
+  const heute = protokoll.tagesKosten();
+  if (heute < TAGESLIMIT) return null;
+  return 'Ich habe heute schon ' + heute.toFixed(2).replace('.', ',') +
+    ' Dollar verbraucht und mache erst mal Schluss. Das Tageslimit steht in der Punkt-E-N-V.';
+}
+
+// Aus dem Gesagten den Auftrag machen: Schnellbefehle sind fertig
+// ausformulierte Aufgaben fuer Saetze, die Ibo jeden Tag sagt.
+function auftragsText(gesagt) {
+  const schnell = befehle.schnellbefehl(gesagt);
+  return schnell ? schnell.prompt : gesagt;
+}
+
 // ------------------------------------------------------------ Auftrag -----
 
 // Der Kern: gesprochene Aufgabe -> Claude Code -> gesprochene Antwort.
@@ -136,6 +160,12 @@ function fuehreAus(res, wunsch) {
     for (const [, lauf] of laufende) lauf.abbrechen();
     laufende.clear();
     sende({ art: 'fertig', text: 'Gestoppt.', sprich: 'Gestoppt.' });
+    return res.end();
+  }
+
+  const gesperrt = DEMO ? null : budgetGesperrt();
+  if (gesperrt) {
+    sende({ art: 'fehler', text: gesperrt, sprich: gesperrt });
     return res.end();
   }
 
@@ -187,7 +217,7 @@ function fuehreAus(res, wunsch) {
   }
 
   const lauf = kopf.starteAuftrag({
-    prompt: text,
+    prompt: auftragsText(text),
     ordner: ordner.pfad,
     stufe: stufe,
     sitzung: sitzungen.get(ordner.name) || null,
@@ -242,6 +272,8 @@ function liveVerbindung(ws, req) {
   const sitzung = new live.LiveSitzung({
     senden: senden,
     maxSaetze: MAX_SAETZE,
+    weckwort: WECKWORT,
+    nachlauf: NACHLAUF,
     spreche: async (satz) => {
       if (DEMO || !process.env.ELEVENLABS_API_KEY) return null;   // Browser spricht
       return stimme.spreche(satz);
@@ -251,6 +283,12 @@ function liveVerbindung(ws, req) {
       const ordner = gewaehlt || befehle.waehleOrdner(o.prompt, ordnerKonfig);
       const stufenName = befehle.stufeAufloesen(einstellung.stufe, FREIE_HAND);
       senden({ typ: 'ordner', name: ordner.name, stufe: stufenName });
+
+      const gesperrt = DEMO ? null : budgetGesperrt();
+      if (gesperrt) {
+        setTimeout(() => o.onEreignis({ art: 'fehler', text: gesperrt }), 0);
+        return { abbrechen() {} };
+      }
 
       if (!fs.existsSync(ordner.pfad)) {
         setTimeout(() => o.onEreignis({
@@ -276,7 +314,7 @@ function liveVerbindung(ws, req) {
       if (DEMO) return demoAuftrag(o.prompt, ordner, weiter);
 
       return kopf.starteAuftrag({
-        prompt: o.prompt,
+        prompt: auftragsText(o.prompt),
         ordner: ordner.pfad,
         stufe: befehle.STUFEN[stufenName],
         sitzung: sitzungen.get(ordner.name) || null,
@@ -297,14 +335,21 @@ function liveVerbindung(ws, req) {
       ohrLeitung = new live.LiveOhr({
         onZwischen: (t) => sitzung.zwischenstand(t),
         onSatz: (t) => sitzung.gehoert(t),
-        onFehler: (e) => senden({ typ: 'fehler', text: 'Zuhoeren gestoert: ' + e.message })
+        onFehler: (e) => senden({ typ: 'fehler', text: 'Zuhoeren gestoert: ' + e.message }),
+        onLage: (l) => senden({ typ: 'leitung', lage: l })
       });
     } catch (e) {
       senden({ typ: 'fehler', text: e.message });
     }
   }
 
-  senden({ typ: 'bereit', hoeren: ohrLeitung ? 'deepgram' : 'browser', demo: DEMO });
+  senden({
+    typ: 'bereit',
+    hoeren: ohrLeitung ? 'deepgram' : 'browser',
+    demo: DEMO,
+    weckwort: WECKWORT,
+    schlaeft: !!WECKWORT
+  });
 
   ws.on('message', (daten, istBinaer) => {
     if (istBinaer) {                       // Mikrofon-Schnipsel
@@ -319,7 +364,18 @@ function liveVerbindung(ws, req) {
       if (n.stufe) einstellung.stufe = n.stufe;
       return;
     }
-    if (n.typ === 'text') return sitzung.gehoert(n.text);
+    // Getippt ist immer gewollt - kein Weckwort noetig.
+    if (n.typ === 'text') {
+      sitzung.schlaeft = false;
+      sitzung.wachHalten();
+      return sitzung.gehoert(n.text);
+    }
+    // Gehoert (Browser-Spracherkennung): laeuft durch dieselbe Weckwort-
+    // Pruefung wie Deepgram - sonst wuerde ohne Deepgram jedes Wort im
+    // Raum zum Auftrag.
+    if (n.typ === 'gehoert') return sitzung.gehoert(n.text);
+    if (n.typ === 'schlafen') return sitzung.einschlafen();
+    if (n.typ === 'aufwachen') { sitzung.schlaeft = false; sitzung.wachHalten(); return senden({ typ: 'wach' }); }
     if (n.typ === 'zwischen') return sitzung.zwischenstand(n.text);
     if (n.typ === 'unterbrechung') return sitzung.unterbrich('unterbrochen');
     if (n.typ === 'stopp') return sitzung.unterbrich('gestoppt');
@@ -390,6 +446,8 @@ const server = http.createServer(async (req, res) => {
         modell: MODELL,
         freieHand: FREIE_HAND,
         live: liveBereit,
+        weckwort: WECKWORT,
+        tageslimit: TAGESLIMIT,
         alles: ZUSATZ_ORDNER.length > 0,
         standard: ordnerKonfig.standard,
         ordner: ordnerKonfig.ordner.map((o) => ({
@@ -432,6 +490,15 @@ const server = http.createServer(async (req, res) => {
       const mp3 = await stimme.spreche(String(text).slice(0, 1200));
       res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': mp3.length });
       return res.end(mp3);
+    }
+
+    if (req.method === 'GET' && pfad === '/api/kosten') {
+      const heute = protokoll.tagesKosten();
+      return json(res, 200, {
+        heute: heute,
+        limit: TAGESLIMIT,
+        gesperrt: !!(TAGESLIMIT && heute >= TAGESLIMIT)
+      });
     }
 
     if (req.method === 'GET' && pfad === '/api/protokoll') {

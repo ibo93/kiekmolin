@@ -19,6 +19,7 @@ const kopf = require('./lib/kopf');
 const ohr = require('./lib/ohr');
 const live = require('./lib/live');
 const instagram = require('./lib/instagram');
+const protokoll = require('./lib/protokoll');
 
 let tests = 0;
 function test(name, fn) { tests++; fn(); console.log('  ok  ' + name); }
@@ -207,6 +208,37 @@ test('Fehlerzeilen werden auf eine lesbare Zeile eingedampft', () => {
   assert.ok(kopf.kurzerFehler('x'.repeat(500)).length <= 200);
 });
 
+// ------------------------------------------------------------ Weckwort ----
+
+test('Weckwort: nur der eigene Name weckt ihn', () => {
+  const w = (t) => befehle.weckwortTreffer(t, 'kurani');
+  assert.strictEqual(w('Und dann sagt der Kunde, das Schild soll rot sein').geweckt, false,
+    'Gespraech im Laden weckt ihn nicht');
+  assert.strictEqual(w('').geweckt, false);
+  assert.strictEqual(w('Kurani').geweckt, true);
+  assert.strictEqual(w('Kurani').auftrag, '', 'nur gerufen, noch kein Auftrag');
+  assert.strictEqual(w('Hey Kurani, schreib eine Rechnung').auftrag, 'schreib eine Rechnung');
+  assert.strictEqual(w('Moin Kurani: was steht an?').auftrag, 'was steht an?');
+});
+
+test('Weckwort: verhoerte Schreibweisen zaehlen auch', () => {
+  // Deepgram und der Browser schreiben den Namen unterschiedlich.
+  assert.strictEqual(befehle.weckwortTreffer('Kurany mach mal', 'kurani').geweckt, true);
+  assert.strictEqual(befehle.weckwortTreffer('Curani, wie lief das Reel?', 'kurani').auftrag, 'wie lief das Reel?');
+  assert.strictEqual(befehle.weckwortTreffer('Karin, komm mal her', 'kurani').geweckt, false,
+    'ein anderer Name weckt nicht');
+});
+
+test('Schnellbefehle: taegliche Saetze werden zu fertigen Auftraegen', () => {
+  const lage = befehle.schnellbefehl('Lagebericht');
+  assert.ok(lage && /roadmap/i.test(lage.prompt), 'Lagebericht fragt die Roadmap ab');
+  assert.ok(/kurani-docs/.test(befehle.schnellbefehl('offene Rechnungen').prompt));
+  assert.ok(befehle.schnellbefehl('Was steht diese Woche an?'), 'auch mit Einschub dazwischen');
+  assert.ok(/Instagram/i.test(befehle.schnellbefehl('wie lief das letzte Reel').prompt));
+  assert.strictEqual(befehle.schnellbefehl('Schreib eine Rechnung für La Piazza'), null,
+    'normale Saetze gehen unveraendert an Claude');
+});
+
 // ----------------------------------------------------------- Live-Modus ---
 
 test('SatzSammler: spricht den ersten Satz, sobald er fertig ist', () => {
@@ -302,6 +334,34 @@ async function liveSitzungTest() {
     sitzung.unterbrich('aufraeumen');
   });
 
+  await testAsync('Live: mit Weckwort schlaeft er, bis sein Name faellt', async () => {
+    const gesehen = [];
+    let lauf = null;
+    const schlafend = new live.LiveSitzung({
+      weckwort: 'kurani',
+      nachlauf: 25,
+      senden: (n) => gesehen.push(n),
+      spreche: async () => null,
+      starteAuftrag: (o) => { lauf = { prompt: o.prompt }; return { abbrechen() {} }; }
+    });
+
+    schlafend.gehoert('Ja Chef, die Folie klebe ich morgen drauf');
+    assert.strictEqual(lauf, null, 'Gespraech im Laden startet keinen Auftrag');
+    assert.ok(gesehen.some((n) => n.typ === 'ueberhoert'), 'wurde bewusst ueberhoert');
+
+    schlafend.zwischenstand('und der Kunde meinte dann');
+    assert.ok(!gesehen.some((n) => n.typ === 'zwischen'), 'im Schlaf steht nichts auf dem Bildschirm');
+
+    schlafend.gehoert('Hey Kurani, was steht diese Woche an?');
+    assert.ok(lauf, 'mit Weckwort geht es los');
+    assert.strictEqual(lauf.prompt, 'was steht diese Woche an?', 'das Weckwort selbst gehoert nicht in den Auftrag');
+
+    // Nachfragen gehen ohne erneutes Weckwort.
+    lauf = null;
+    schlafend.gehoert('und danach?');
+    assert.ok(lauf, 'im Nachlauf braucht es kein zweites Weckwort');
+  });
+
   await testAsync('Live: "Stopp" wirkt sofort, ohne die KI zu fragen', async () => {
     gesendet.length = 0;
     sitzung.gehoert('Schreib die Rechnung.');
@@ -318,6 +378,32 @@ test('Deepgram-Antwort auswerten, auch wenn Felder fehlen', () => {
   assert.strictEqual(ohr.textAus({ results: { channels: [{ alternatives: [{ transcript: ' Mach die Rechnung ' }] }] } }), 'Mach die Rechnung');
   assert.strictEqual(ohr.textAus({}), '');
   assert.strictEqual(ohr.textAus(null), '');
+});
+
+// -------------------------------------------------------------- Kosten ---
+
+test('Tageskosten: zaehlt nur echte Auftraege, kaputte Zeilen stoeren nicht', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const ordner = fs.mkdtempSync(path.join(os.tmpdir(), 'sprach-kosten-'));
+  const echt = protokoll.ORDNER;
+  try {
+    // In den Test-Ordner umbiegen (der Pfad ist im Modul konstant, also
+    // schreiben wir die Datei dorthin, wo das Modul sie sucht).
+    fs.mkdirSync(echt, { recursive: true });
+    const datei = path.join(echt, 'test-tag.jsonl');
+    fs.writeFileSync(datei, [
+      JSON.stringify({ kosten: 0.25 }),
+      JSON.stringify({ kosten: 1.5 }),
+      JSON.stringify({ kosten: 9.99, demo: true }),   // Demo kostet nichts
+      'kaputte zeile {{{'
+    ].join('\n') + '\n');
+    assert.strictEqual(protokoll.tagesKosten('test-tag'), 1.75);
+    assert.strictEqual(protokoll.tagesKosten('gibt-es-nicht'), 0, 'ohne Datei: null Kosten');
+    fs.unlinkSync(datei);
+  } finally {
+    fs.rmSync(ordner, { recursive: true, force: true });
+  }
 });
 
 // ----------------------------------------------------------- Instagram ---

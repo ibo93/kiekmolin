@@ -45,4 +45,23 @@ function letzte(n) {
   return eintraege;
 }
 
-module.exports = { schreibe, letzte, ORDNER };
+// Was hat der Assistent heute gekostet? Wird vor jedem Auftrag geprueft -
+// ein Tagesdeckel schuetzt davor, dass eine Endlosschleife oder ein
+// missverstandener Satz stundenlang Geld verbrennt.
+function tagesKosten(datum) {
+  const tag = datum || datumsStempel();
+  const datei = path.join(ORDNER, tag + '.jsonl');
+  if (!fs.existsSync(datei)) return 0;
+
+  let summe = 0;
+  for (const zeile of fs.readFileSync(datei, 'utf8').split('\n')) {
+    if (!zeile.trim()) continue;
+    try {
+      const e = JSON.parse(zeile);
+      if (!e.demo) summe += Number(e.kosten) || 0;
+    } catch (_e) { /* kaputte Zeile ueberspringen */ }
+  }
+  return Math.round(summe * 10000) / 10000;
+}
+
+module.exports = { schreibe, letzte, tagesKosten, datumsStempel, ORDNER };

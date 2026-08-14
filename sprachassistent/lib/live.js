@@ -88,9 +88,19 @@ function istUnterbrechung(text) {
 // Dauerleitung zu Deepgram: Audio rein, Text raus - Zwischenstand waehrend
 // des Sprechens, Endsatz sobald der Satz zu Ende ist.
 class LiveOhr {
-  constructor({ onZwischen, onSatz, onFehler }) {
+  constructor({ onZwischen, onSatz, onFehler, onLage }) {
     const key = process.env.DEEPGRAM_API_KEY;
     if (!key) throw new Error('DEEPGRAM_API_KEY fehlt');
+
+    this.rueckrufe = { onZwischen, onSatz, onFehler, onLage };
+    this.geschlossen = false;      // absichtlich beendet?
+    this.versuche = 0;
+    this._verbinde();
+  }
+
+  _verbinde() {
+    const key = process.env.DEEPGRAM_API_KEY;
+    const { onZwischen, onSatz, onFehler, onLage } = this.rueckrufe;
 
     // Kein encoding/sample_rate: der Browser schickt webm/opus im Container,
     // das erkennt Deepgram von selbst.
@@ -106,13 +116,38 @@ class LiveOhr {
 
     this.puffer = '';
     this.offen = false;
-    this.warteschlange = [];
+    this.warteschlange = this.warteschlange || [];
     this.ws = new WebSocket(url, { headers: { Authorization: 'Token ' + key } });
 
     this.ws.on('open', () => {
       this.offen = true;
+      this.versuche = 0;
       this.warteschlange.forEach((c) => this.ws.send(c));
       this.warteschlange = [];
+      // Ruhe im Laden: ohne Lebenszeichen macht Deepgram nach kurzer Zeit zu.
+      clearInterval(this.puls);
+      this.puls = setInterval(() => {
+        if (this.ws.readyState === WebSocket.OPEN) {
+          try { this.ws.send(JSON.stringify({ type: 'KeepAlive' })); } catch (_e) { /* egal */ }
+        }
+      }, 8000);
+      if (onLage) onLage('offen');
+    });
+
+    // Verbindung weg? Von selbst neu aufbauen - ein Netz-Huepfer darf das
+    // Gespraech nicht beenden, ohne dass es jemand merkt.
+    this.ws.on('close', () => {
+      this.offen = false;
+      clearInterval(this.puls);
+      if (this.geschlossen) return;
+      this.versuche++;
+      if (this.versuche > 6) {
+        if (onFehler) onFehler(new Error('Die Verbindung zum Zuhoeren kommt nicht zurueck'));
+        return;
+      }
+      const wartezeit = Math.min(8000, 500 * Math.pow(2, this.versuche - 1));
+      if (onLage) onLage('verbindet neu');
+      setTimeout(() => { if (!this.geschlossen) this._verbinde(); }, wartezeit);
     });
 
     this.ws.on('message', (roh) => {
@@ -147,6 +182,8 @@ class LiveOhr {
   }
 
   schliessen() {
+    this.geschlossen = true;
+    clearInterval(this.puls);
     try {
       if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'CloseStream' }));
       this.ws.close();
@@ -164,11 +201,21 @@ class LiveOhr {
 //   starteAuftrag(optionen)  -> Claude Code, liefert { abbrechen() }
 //   spreche(satz)            -> Promise<Buffer|null> (null = Browser spricht)
 class LiveSitzung {
-  constructor({ senden, starteAuftrag, spreche, maxSaetze }) {
+  constructor({ senden, starteAuftrag, spreche, maxSaetze, weckwort, nachlauf }) {
     this.senden = senden;
     this.starteAuftrag = starteAuftrag;
     this.spreche = spreche;
     this.maxSaetze = maxSaetze || 4;
+
+    // Weckwort: ohne es schlaeft der Assistent und hoert nur zu, ob sein
+    // Name faellt. Damit kann das Mikrofon offen bleiben, ohne dass jedes
+    // Wort im Laden oder am Telefon bei der KI landet.
+    this.weckwort = weckwort || '';
+    this.schlaeft = !!weckwort;
+    // Nach einer Antwort bleibt er kurz wach, damit Nachfragen ohne
+    // erneutes "Kurani" gehen.
+    this.nachlauf = (nachlauf || 25) * 1000;
+    this.wachBis = 0;
 
     this.laufend = null;      // aktueller Claude-Auftrag
     this.sammler = null;
@@ -185,16 +232,57 @@ class LiveSitzung {
   get laeuft() { return !!this.laufend; }
 
   // Zwischenstand vom Zuhoeren: anzeigen - und ggf. unterbrechen.
+  // Im Schlaf wird nichts angezeigt: was im Laden geredet wird, gehoert
+  // nicht auf den Bildschirm, nur weil das Mikrofon offen ist.
   zwischenstand(text) {
+    if (!this.istWach) return;
     this.senden({ typ: 'zwischen', text: text });
     if (this.laeuft && istUnterbrechung(text)) this.unterbrich('unterbrochen');
   }
 
+  // Schlaeft er gerade? (Nach einer Antwort bleibt er kurz wach.)
+  get istWach() {
+    if (!this.weckwort) return true;
+    if (!this.schlaeft) return true;
+    return Date.now() < this.wachBis;
+  }
+
+  wachHalten() { if (this.weckwort) this.wachBis = Date.now() + this.nachlauf; }
+
+  einschlafen() {
+    if (!this.weckwort) return;
+    this.schlaeft = true;
+    this.wachBis = 0;
+    this.senden({ typ: 'schlaeft' });
+  }
+
   // Fertiger Satz: das ist ein Auftrag.
   gehoert(text, kontext) {
-    const satz = String(text || '').trim();
+    let satz = String(text || '').trim();
     if (!satz) return;
     this.zuletztGehoert = satz;
+
+    // Schlafend: nur der eigene Name weckt ihn.
+    if (this.weckwort && !this.istWach) {
+      const geweckt = befehle.weckwortTreffer(satz, this.weckwort);
+      if (!geweckt.geweckt) { this.senden({ typ: 'ueberhoert', text: satz }); return; }
+
+      this.schlaeft = false;
+      this.wachHalten();
+      this.senden({ typ: 'wach' });
+      if (!geweckt.auftrag) {
+        // Nur gerufen, noch kein Auftrag: kurz melden und zuhoeren.
+        this.senden({ typ: 'du', text: satz });
+        this._sprich('Ja?', ++this.zug);
+        return;
+      }
+      satz = geweckt.auftrag;
+    } else if (this.weckwort) {
+      // Im Nachlauf: ein vorangestelltes "Kurani" stoert nicht.
+      const geweckt = befehle.weckwortTreffer(satz, this.weckwort);
+      if (geweckt.geweckt && geweckt.auftrag) satz = geweckt.auftrag;
+      this.wachHalten();
+    }
 
     const steuer = befehle.steuerwort(satz);
     if (steuer === 'leer') return;
@@ -263,6 +351,7 @@ class LiveSitzung {
           }
           this.laufend = null;
           this.sammler = null;
+          this.wachHalten();      // Nachfragen gehen ohne erneutes Weckwort
           this.senden({
             typ: 'fertig',
             text: this.antwort,
