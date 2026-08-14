@@ -689,35 +689,68 @@ async function standSenden(schluessel, daten, neuLaden) {
 }
 
 // Der Import geht 45 Gebiete durch (Borkum bis Varel) und legt zwischen
-// jeder Abfrage eine Pause ein – das dauert Minuten. Statt stur zu warten
-// schauen wir alle 20 Sekunden nach, ob die Liste gewachsen ist.
+// jeder Abfrage eine Pause ein – das dauert Minuten. Der Server schreibt
+// dabei jede Zeile mit, wir holen sie alle 3 Sekunden ab. So siehst du,
+// WAS gerade passiert – und vor allem, wenn etwas schiefgeht.
 async function osmImport(btn) {
   btn.disabled = true;
+  btn.textContent = 'Import startet…';
   try {
-    const r = await api('/api/osm-import', { method: 'POST' });
-    const vorher = (pipelineDaten.liste || []).length;
-    let versuche = 0;
-    const schauen = async () => {
-      versuche++;
-      btn.textContent = 'Import läuft… (' + Math.round(versuche * 20 / 60 * 10) / 10 + ' min)';
-      await ladeInteressenten();
-      const jetzt = (pipelineDaten.liste || []).length;
-      if (jetzt > vorher) {
-        btn.disabled = false;
-        btn.textContent = '✓ ' + (jetzt - vorher) + ' Betriebe dazu';
-        setTimeout(() => { btn.textContent = 'Region importieren (OSM)'; }, 8000);
-        return;
-      }
-      if (versuche >= 45) {          // 15 Minuten – dann ist etwas schiefgelaufen
-        btn.disabled = false;
-        btn.textContent = 'Import ohne neue Betriebe – Terminal prüfen';
-        return;
-      }
-      setTimeout(schauen, 20000);
-    };
-    btn.textContent = r.hinweis || 'Import läuft…';
-    setTimeout(schauen, 20000);
+    await api('/api/osm-import', { method: 'POST' });
+    osmVerfolgen(btn);
   } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
+}
+
+function osmProtokollKasten() {
+  let k = document.getElementById('osmProtokoll');
+  if (!k) {
+    k = document.createElement('div');
+    k.id = 'osmProtokoll';
+    k.style.cssText = 'margin:8px 0 12px;padding:10px 12px;border:1px solid var(--linie);' +
+      'border-radius:10px;background:var(--karte);font-size:12px;line-height:1.6;' +
+      'font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:190px;overflow:auto';
+    const kopf = document.getElementById('pipelineKopf');
+    kopf.parentNode.insertBefore(k, kopf);
+  }
+  return k;
+}
+
+async function osmVerfolgen(btn) {
+  const kasten = osmProtokollKasten();
+  const tick = async () => {
+    let s;
+    try { s = await api('/api/osm-import'); } catch (e) { setTimeout(tick, 5000); return; }
+    kasten.textContent = (s.zeilen || []).join('\n');
+    kasten.scrollTop = kasten.scrollHeight;
+    if (s.laeuft) {
+      btn.textContent = 'Import läuft… ' + (s.gebieteFertig || 0) + '/' + (s.gebieteGesamt || 45) + ' Gebiete';
+      setTimeout(tick, 3000);
+      return;
+    }
+    btn.disabled = false;
+    if (s.fehler) {
+      btn.textContent = 'Import fehlgeschlagen';
+      kasten.style.borderColor = '#dc2626';
+      kasten.textContent += '\n\n⚠️ ' + s.fehler +
+        '\n\nprospects.json wurde NICHT verändert – deine bisherige Liste ist unversehrt.';
+      return;
+    }
+    btn.textContent = 'Region importieren (OSM)';
+    kasten.style.borderColor = '#16a34a';
+    await ladeInteressenten();
+  };
+  tick();
+}
+
+// Läuft beim Öffnen der Seite schon ein Import? Dann gleich mitverfolgen –
+// sonst denkt man nach einem Neuladen, es sei nichts passiert.
+async function osmLaufPruefen() {
+  try {
+    const s = await api('/api/osm-import');
+    if (!s.laeuft) return;
+    const btn = document.querySelector('[onclick^="osmImport"]');
+    if (btn) { btn.disabled = true; osmVerfolgen(btn); }
+  } catch (_e) { /* egal */ }
 }
 
 async function pitchErzeugen(name, schluessel) {
@@ -1846,6 +1879,7 @@ ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
+osmLaufPruefen();
 // ---------------- Echtzeit: der Server meldet sich von selbst ----------
 // Die Umfrage-Schleifen bleiben als Sicherheitsnetz, laufen aber nur noch
 // selten. Alles Wichtige kommt sofort ueber die offene Leitung.

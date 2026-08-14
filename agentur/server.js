@@ -679,6 +679,55 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- OSM-Import --------------
+// Der Import laeuft mehrere Minuten im Hintergrund. Damit man nicht ratlos
+// vor einem Knopf sitzt, wird sein Verlauf hier mitgeschrieben und ueber
+// /api/osm-import abfragbar - Zeile fuer Zeile, so wie im Terminal.
+const osmLauf = { laeuft: false, zeilen: [], fertig: false, fehler: null, gebieteFertig: 0, gebieteGesamt: 0 };
+
+function starteOsmImport() {
+  const { spawn } = require('child_process');
+  Object.assign(osmLauf, { laeuft: true, zeilen: [], fertig: false, fehler: null, gebieteFertig: 0, gebieteGesamt: 0 });
+
+  const kind = spawn('node', [path.join(__dirname, '..', 'import-osm.js')], { cwd: path.join(__dirname, '..') });
+  let rest = '';
+  const lies = (stueck) => {
+    rest += stueck.toString();
+    const teile = rest.split('\n');
+    rest = teile.pop();
+    for (const zeile of teile) {
+      const z = zeile.trim();
+      if (!z) continue;
+      osmLauf.zeilen.push(z);
+      if (osmLauf.zeilen.length > 200) osmLauf.zeilen.shift();
+      // "[osm] Norden ... 34 Treffer, 31 neu" bzw. "... FEHLER - ..."
+      if (/Treffer|FEHLER/.test(z)) osmLauf.gebieteFertig++;
+      const m = z.match(/OSM-Importer fuer (\d+)/);
+      if (m) osmLauf.gebieteGesamt = parseInt(m[1], 10);
+      console.log('[osm-import] ' + z);
+    }
+  };
+  kind.stdout.on('data', lies);
+  kind.stderr.on('data', lies);
+
+  kind.on('error', (e) => {
+    osmLauf.laeuft = false;
+    osmLauf.fehler = 'Import liess sich nicht starten: ' + e.message;
+  });
+  kind.on('close', (code) => {
+    osmLauf.laeuft = false;
+    osmLauf.fertig = true;
+    if (code !== 0) {
+      // Exit-Code 2 setzt der Importer, wenn kein einziger Betrieb ankam.
+      const letzte = osmLauf.zeilen.filter((z) => /ABBRUCH|FEHLER/.test(z)).slice(-3);
+      osmLauf.fehler = letzte.length ? letzte.join(' | ') : 'Import mit Code ' + code + ' beendet.';
+    }
+  });
+
+  // Notbremse: haengt der Import nach 20 Minuten noch, wird er beendet.
+  setTimeout(() => { if (osmLauf.laeuft) { kind.kill(); osmLauf.fehler = 'Import nach 20 Minuten abgebrochen.'; } }, 1200000);
+}
+
 // ------------------------------------------------- Probeanruf-Demo ---------
 // Eine eigene Nummer nur fuer Demos. Ohne sie wuerde eine Demo die Nummer
 // eines zahlenden Kunden ueberschreiben - deshalb bricht der Aufbau lieber ab.
@@ -1149,15 +1198,21 @@ const server = http.createServer(async (req, res) => {
     // der Region (import-osm.js, Overpass API). Laeuft im Hintergrund.
     if (req.method === 'POST' && pfad === '/api/osm-import') {
       if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: Import nur simuliert.' }); return; }
-      const { execFile } = require('child_process');
-      // 45 Suchgebiete von Borkum bis Varel, dazwischen jeweils eine Pause
-      // fuer die Overpass-API: das dauert mehrere Minuten. Mit den alten
-      // 3 Minuten wurde der Import mittendrin abgeschossen und prospects.json
-      // blieb auf dem alten Stand - ohne dass es jemand gemerkt haette.
-      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 1200000 }, (fehler, stdout) => {
-        console.log('[osm-import] ' + (fehler ? 'FEHLER: ' + fehler.message : String(stdout).trim().split('\n').pop()));
+      if (osmLauf.laeuft) { json(res, 200, { ok: true, hinweis: 'Import laeuft bereits.' }); return; }
+      starteOsmImport();
+      json(res, 200, { ok: true, hinweis: 'Import laeuft (4-7 Minuten, 45 Gebiete).' });
+      return;
+    }
+
+    // API: Wie weit ist der Import - und was meldet er? Ohne das sah man
+    // nur einen Knopf, der irgendwann aufhoerte, sich zu drehen.
+    if (req.method === 'GET' && pfad === '/api/osm-import') {
+      json(res, 200, {
+        laeuft: osmLauf.laeuft, zeilen: osmLauf.zeilen.slice(-12),
+        letzte: osmLauf.zeilen[osmLauf.zeilen.length - 1] || '',
+        fertig: osmLauf.fertig, fehler: osmLauf.fehler,
+        gebieteFertig: osmLauf.gebieteFertig, gebieteGesamt: osmLauf.gebieteGesamt
       });
-      json(res, 200, { ok: true, hinweis: 'Import laeuft (5-10 Minuten, 45 Gebiete) - die Liste aktualisiert sich von selbst.' });
       return;
     }
 

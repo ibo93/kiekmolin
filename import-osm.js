@@ -24,7 +24,14 @@ const fs = require('fs');
 const path = require('path');
 
 const OUT_FILE = path.join(__dirname, 'prospects.json');
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+// Mehrere Overpass-Server. Der Hauptserver ist ein kostenloses Gemeinschafts-
+// projekt und regelmaessig ueberlastet (HTTP 429/504) - dann uebernimmt der
+// naechste. Mit nur einem Server scheiterte der ganze Import an schlechtem Timing.
+const OVERPASS_SERVER = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
 
 // Suchgebiete: Mittelpunkt + Radius (m). Abgedeckt wird ganz Ostfriesland
 // (Landkreise Aurich, Leer, Wittmund und die Stadt Emden), der Landkreis
@@ -140,19 +147,40 @@ function buildQuery(city) {
     ');out center tags;';
 }
 
+// Ein Gebiet holen. Klappt ein Server nicht, wird der naechste probiert -
+// erst wenn ALLE nicht koennen, gilt das Gebiet als gescheitert.
 async function fetchCity(city) {
   const body = 'data=' + encodeURIComponent(buildQuery(city));
-  const res = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'KiekMolIn-Importer/1.0 (kiekmolin.de)'
-    },
-    body: body
-  });
-  if (!res.ok) throw new Error('Overpass HTTP ' + res.status);
-  const json = await res.json();
-  return Array.isArray(json.elements) ? json.elements : [];
+  let letzterFehler = null;
+  for (const server of OVERPASS_SERVER) {
+    try {
+      const res = await fetch(server, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'KiekMolIn-Importer/1.0 (kiekmolin.de)'
+        },
+        signal: AbortSignal.timeout(90000),
+        body: body
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (_e) {
+        // Overpass antwortet bei Ueberlast mit HTML/Klartext statt JSON.
+        // Den Anfang mitgeben - sonst raetselt man ewig, was los war.
+        throw new Error('Keine JSON-Antwort: ' + text.slice(0, 120).replace(/\s+/g, ' '));
+      }
+      return Array.isArray(json.elements) ? json.elements : [];
+    } catch (e) {
+      letzterFehler = e;
+      // Kurz warten, dann naechster Server
+      await new Promise(function(r) { setTimeout(r, 2000); });
+    }
+  }
+  throw new Error(letzterFehler ? letzterFehler.message : 'Unbekannter Fehler');
 }
 
 function elementToProspect(el, fallbackCity) {
@@ -206,6 +234,7 @@ async function main() {
 
   const seen = new Set(keepSlugs);
   const imported = [];
+  const gescheitert = [];
 
   for (const city of CITIES) {
     try {
@@ -223,17 +252,41 @@ async function main() {
       }
       console.log(elements.length + ' Treffer, ' + added + ' neu');
     } catch (e) {
-      console.warn('FEHLER -', e.message);
+      // Auf stdout, nicht stderr: die Agentur-App liest den Verlauf mit und
+      // soll den Fehler anzeigen koennen, statt ihn zu verschlucken.
+      console.log('FEHLER - ' + e.message);
+      gescheitert.push(city.name + ': ' + e.message);
     }
     // Overpass-Etikette: kurze Pause zwischen Anfragen
     await new Promise(function(r) { setTimeout(r, 1500); });
   }
 
+  // WICHTIG: Ist gar nichts angekommen, wird prospects.json NICHT angefasst.
+  // Vorher wurde in diesem Fall die alte Liste einfach zurueckgeschrieben und
+  // der Import meldete "fertig" - man sass davor, klickte immer wieder und
+  // sah nie, dass in Wahrheit jede einzelne Abfrage gescheitert war.
+  if (!imported.length) {
+    console.log('[osm] ABBRUCH: kein einziger Betrieb geholt - prospects.json bleibt unveraendert.');
+    if (gescheitert.length) {
+      console.log('[osm] Gescheiterte Gebiete (' + gescheitert.length + ' von ' + CITIES.length + '):');
+      gescheitert.slice(0, 5).forEach(function(z) { console.log('[osm]   ' + z); });
+      console.log('[osm] Haeufigste Ursachen: keine Internetverbindung, Overpass ueberlastet ' +
+        '(dann spaeter nochmal), oder eine Firewall blockt overpass-api.de.');
+    }
+    process.exitCode = 2;
+    return;
+  }
+
   const out = keep.concat(imported);
   fs.writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n', 'utf8');
-  console.log('[osm] Fertig:', imported.length, 'OSM-Eintraege (' + (IMPORT_AS_DRAFT ? 'draft/noindex' : 'live') + ') +', keep.length, 'manuell =', out.length, 'gesamt.');
-  console.log('[osm] -> prospects.json geschrieben.' + (IMPORT_AS_DRAFT ? ' Pruefen und "draft": false setzen zum Livegang.' : ' Sofort live (von Google indexierbar).'));
+  if (gescheitert.length) {
+    console.log('[osm] WARNUNG: ' + gescheitert.length + ' von ' + CITIES.length +
+      ' Gebieten sind gescheitert - diese Betriebe fehlen. Import spaeter wiederholen.');
+  }
   console.log('[osm] Quelle: (c) OpenStreetMap-Mitwirkende (ODbL).');
+  console.log('[osm] Fertig: ' + imported.length + ' Betriebe aus ' +
+    (CITIES.length - gescheitert.length) + ' von ' + CITIES.length + ' Gebieten + ' +
+    keep.length + ' von Hand gepflegte = ' + out.length + ' gesamt.');
 }
 
 main().catch(function(err) {
