@@ -173,7 +173,16 @@
     <div class="anrufe" id="telefonAnrufe"></div>
   </div>
 
-  <div class="status" style="margin-top:10px">So hat die KI wirklich geredet – Gespräch anklicken. Nach <span id="anrufAufbewahrung">30</span> Tagen löschen sich die Protokolle von selbst (DSGVO).</div>
+  <h2 style="margin-top:26px">Telefon-Kunden</h2>
+  <div class="status" style="margin-top:-6px">Welche Nummer gehört zu welchem Betrieb. Kunden <b>ohne</b> Kiek mol in legst du hier komplett an – mit eigener Speisekarte.</div>
+  <div id="telefonKundenListe"><div class="leer">Lade…</div></div>
+  <div style="margin:10px 0 4px">
+    <button class="aktion primaer" onclick="telefonKundeFormular()">+ Neuen Telefon-Kunden anlegen</button>
+  </div>
+  <div id="telefonKundeForm"></div>
+
+  <h2 style="margin-top:26px">Gespräche</h2>
+  <div class="status" style="margin-top:-6px">So hat die KI wirklich geredet – Gespräch anklicken. Nach <span id="anrufAufbewahrung">30</span> Tagen löschen sich die Protokolle von selbst (DSGVO).</div>
   <div id="anrufListe"><div class="leer">Lade Gespräche…</div></div>
   <div id="anrufVerlauf"></div>
 
@@ -505,6 +514,151 @@ async function ladeTelefon() {
       ? 'Letzte Protokolle: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
       : 'Noch keine Anruf-Protokolle');
   } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
+}
+
+// ---------------- Telefon-Kunden verwalten ----------------
+// Ersetzt das Bearbeiten von nummern.json und kunden/*.json im Texteditor.
+let importierteKarte = []; // Speisekarte aus dem Webseiten-Import
+
+async function ladeTelefonKunden() {
+  const ziel = document.getElementById('telefonKundenListe');
+  try {
+    const d = await api('/api/telefon-kunden');
+    if (!d.kunden.length) {
+      ziel.innerHTML = '<div class="leer">Noch keine Nummer zugeordnet. Solange nur ein Betrieb läuft, reicht die Angabe in der .env – für den zweiten Kunden legst du hier an.</div>';
+      return;
+    }
+    ziel.innerHTML = '<table><tr><th>Nummer</th><th>Betrieb</th><th>Art</th><th>Nimmt an</th><th></th></tr>' +
+      d.kunden.map(k => {
+        const was = k.kann ? k.kann.map(x => x === 'bestellung' ? 'Bestellungen' : 'Reservierungen').join(' + ')
+          : 'nach Stufe ' + (k.stufe || '1');
+        return '<tr>' +
+          '<td style="white-space:nowrap">' + k.nummer + '</td>' +
+          '<td>' + (k.name ? String(k.name).replace(/</g, '&lt;') + (k.stadt ? ' <span style="color:var(--grau)">· ' + k.stadt + '</span>' : '') : '<span style="color:var(--grau)">Kiek-mol-in-Betrieb</span>') +
+          (k.gerichte ? ' <span style="color:var(--grau);font-size:12px">(' + k.gerichte + ' Gerichte)</span>' : '') +
+          (k.problem ? '<br><span style="color:#dc2626;font-size:12px">⚠️ ' + k.problem + '</span>' : '') + '</td>' +
+          '<td>' + (k.art === 'eigen' ? 'eigener Kunde' : 'Kiek mol in') + '</td>' +
+          '<td>' + was + '</td>' +
+          '<td><button class="aktion" style="padding:5px 10px;font-size:12px" onclick="telefonKundeEntfernen(\'' + k.nummer + '\')">entfernen</button></td>' +
+          '</tr>';
+      }).join('') + '</table>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+async function telefonKundeEntfernen(nummer) {
+  if (!confirm('Nummer ' + nummer + ' aus dem Betrieb nehmen?\n\nDie Kundendatei bleibt erhalten – nur die Zuordnung wird gelöscht.')) return;
+  try {
+    await api('/api/telefon-kunde-entfernen', { nummer });
+    ladeTelefonKunden();
+  } catch (e) { alert('Ging nicht: ' + e.message); }
+}
+
+function telefonKundeFormular() {
+  importierteKarte = [];
+  const f = document.getElementById('telefonKundeForm');
+  const feld = (id, label, platzhalter, breite) =>
+    '<div style="flex:' + (breite || 1) + ';min-width:150px">' +
+    '<label style="display:block;font-size:12.5px;color:var(--grau);margin-bottom:4px">' + label + '</label>' +
+    '<input id="tk_' + id + '" placeholder="' + (platzhalter || '') + '" ' +
+    'style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit"></div>';
+
+  f.innerHTML =
+    '<div style="border:1px solid var(--akzent);border-radius:12px;padding:16px;margin-top:10px">' +
+    '<b style="font-size:14px">Neuer Telefon-Kunde (ohne Kiek mol in)</b>' +
+
+    '<div style="margin:14px 0;padding:12px;border:1px dashed var(--linie);border-radius:9px">' +
+    '<div style="font-size:13px;margin-bottom:8px">Hat der Betrieb eine Webseite? Dann Speisekarte automatisch einlesen:</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<input id="tk_import" placeholder="https://pizzeria-beispiel.de" style="flex:2;min-width:200px;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit">' +
+    '<button class="aktion" id="tkImportBtn" onclick="telefonKundeImport()">Webseite einlesen</button></div>' +
+    '<div id="tkImportStatus" style="font-size:12.5px;color:var(--grau);margin-top:8px"></div></div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('nummer', 'Twilio-Nummer *', '+49 4921 123456', 1.4) +
+    feld('name', 'Name des Betriebs *', 'Pizzeria Bella Vista', 1.6) + '</div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('stadt', 'Ort', 'Emden') + feld('adresse', 'Straße', 'Neutorstraße 12') +
+    feld('telefon', 'Telefon des Betriebs', '04921 123456') + '</div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('oeffnet', 'Öffnet', '17:00', 0.6) + feld('schliesst', 'Schließt', '22:00', 0.6) +
+    feld('tische', 'Tische', '12', 0.5) + feld('liefergebuehr', 'Liefergebühr €', '2.50', 0.7) + '</div>' +
+
+    '<div style="font-size:13px;margin:14px 0 6px"><b>Wohin sollen Bestellungen gemeldet werden?</b> ' +
+    '<span style="color:var(--grau)">Ohne das erfährt der Wirt nichts von seinen Anrufen.</span></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('sms', 'Handy des Wirts (SMS)', '+49 151 12345678') +
+    feld('email', 'E-Mail des Wirts', 'wirt@betrieb.de') + '</div>' +
+
+    '<div style="font-size:13px;margin:14px 0 6px"><b>Was soll die KI annehmen?</b></div>' +
+    '<label style="font-size:13.5px;margin-right:16px"><input type="checkbox" id="tk_reservierung" checked> Reservierungen</label>' +
+    '<label style="font-size:13.5px"><input type="checkbox" id="tk_bestellung"> Bestellungen</label>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 10px">' +
+    feld('stimme', 'Eigene Stimme (ElevenLabs Voice-ID, optional)', 'leer = Standard-Stimme', 2) + '</div>' +
+
+    '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">' +
+    '<button class="aktion primaer" id="tkSpeichern" onclick="telefonKundeSpeichern()">Kunden anlegen</button>' +
+    '<button class="aktion" onclick="document.getElementById(\'telefonKundeForm\').innerHTML=\'\'">Abbrechen</button></div>' +
+    '<div id="tkStatus" style="margin-top:10px;font-size:13.5px"></div></div>';
+}
+
+async function telefonKundeImport() {
+  const url = document.getElementById('tk_import').value.trim();
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkImportBtn');
+  if (!url) { stand.textContent = 'Bitte eine Adresse eingeben.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Lese die Webseite… das dauert bis zu einer Minute.';
+  try {
+    const d = await api('/api/webseite-lesen', { url });
+    const k = d.kunde || {};
+    importierteKarte = k.speisekarte || [];
+    const setz = (id, wert) => { if (wert != null && wert !== '') document.getElementById('tk_' + id).value = wert; };
+    setz('name', k.name); setz('stadt', k.stadt); setz('adresse', k.adresse);
+    setz('telefon', k.telefon); setz('oeffnet', k.oeffnet); setz('schliesst', k.schliesst);
+    setz('liefergebuehr', k.liefergebuehr);
+    stand.innerHTML = '<span style="color:#16a34a">✓ ' + importierteKarte.length + ' Gerichte gefunden.</span>' +
+      (d.unklar && d.unklar.length
+        ? '<br><b>Bitte prüfen:</b><br>' + d.unklar.map(u => '· ' + String(u).replace(/</g, '&lt;')).join('<br>')
+        : '');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+      '<br>Du kannst die Felder auch von Hand ausfüllen – die Speisekarte trägst du dann später in der Datei nach.';
+  }
+  btn.disabled = false;
+}
+
+async function telefonKundeSpeichern() {
+  const wert = (id) => document.getElementById('tk_' + id).value.trim();
+  const kann = [];
+  if (document.getElementById('tk_reservierung').checked) kann.push('reservierung');
+  if (document.getElementById('tk_bestellung').checked) kann.push('bestellung');
+
+  const stand = document.getElementById('tkStatus');
+  const btn = document.getElementById('tkSpeichern');
+  btn.disabled = true;
+  stand.textContent = 'Speichere…';
+  try {
+    const d = await api('/api/telefon-kunde', {
+      nummer: wert('nummer'), name: wert('name'), stadt: wert('stadt'), adresse: wert('adresse'),
+      telefon: wert('telefon'), oeffnet: wert('oeffnet'), schliesst: wert('schliesst'),
+      tische: wert('tische'), liefergebuehr: wert('liefergebuehr'),
+      sms: wert('sms'), email: wert('email'), stimme: wert('stimme'),
+      kann, speisekarte: importierteKarte
+    });
+    stand.innerHTML = '<span style="color:#16a34a"><b>Angelegt ✓</b></span> ' +
+      d.gerichte + ' Gerichte · Datei: ' + d.datei +
+      (d.warnung ? '<br><span style="color:#dc2626">⚠️ ' + d.warnung + '</span>' : '') +
+      '<br><b>Jetzt noch:</b> Telefon-Retter neu starten, damit er den neuen Kunden lädt.';
+    ladeTelefonKunden();
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Anruf-Protokolle: so hat die KI geredet ----------------
@@ -1349,6 +1503,7 @@ if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
 ladeAnrufe();
+ladeTelefonKunden();
 ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
