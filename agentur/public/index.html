@@ -688,13 +688,35 @@ async function standSenden(schluessel, daten, neuLaden) {
   }
 }
 
+// Der Import geht 45 Gebiete durch (Borkum bis Varel) und legt zwischen
+// jeder Abfrage eine Pause ein – das dauert Minuten. Statt stur zu warten
+// schauen wir alle 20 Sekunden nach, ob die Liste gewachsen ist.
 async function osmImport(btn) {
   btn.disabled = true;
-  btn.textContent = 'Import läuft…';
   try {
     const r = await api('/api/osm-import', { method: 'POST' });
+    const vorher = (pipelineDaten.liste || []).length;
+    let versuche = 0;
+    const schauen = async () => {
+      versuche++;
+      btn.textContent = 'Import läuft… (' + Math.round(versuche * 20 / 60 * 10) / 10 + ' min)';
+      await ladeInteressenten();
+      const jetzt = (pipelineDaten.liste || []).length;
+      if (jetzt > vorher) {
+        btn.disabled = false;
+        btn.textContent = '✓ ' + (jetzt - vorher) + ' Betriebe dazu';
+        setTimeout(() => { btn.textContent = 'Region importieren (OSM)'; }, 8000);
+        return;
+      }
+      if (versuche >= 45) {          // 15 Minuten – dann ist etwas schiefgelaufen
+        btn.disabled = false;
+        btn.textContent = 'Import ohne neue Betriebe – Terminal prüfen';
+        return;
+      }
+      setTimeout(schauen, 20000);
+    };
     btn.textContent = r.hinweis || 'Import läuft…';
-    setTimeout(() => { ladeInteressenten(); btn.disabled = false; btn.textContent = 'Region importieren (OSM)'; }, 90000);
+    setTimeout(schauen, 20000);
   } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
 }
 
