@@ -119,8 +119,31 @@ function datumHeute() {
   return lokalesDatum();
 }
 
+// --- Was darf dieser Agent ueberhaupt? -------------------------------------------
+// Nicht jeder Wirt will alles. Einer nimmt NUR Bestellungen (Lieferdienst),
+// ein anderer NUR Reservierungen. Das steuert "kann" in nummern.json.
+// Ohne Angabe gilt wie bisher die Stufe: Reservierungen immer,
+// Bestellungen ab Stufe 3.
+function baueFaehigkeiten(stufe, kann) {
+  const s = stufe || 1;
+  if (!kann) return { reservierung: true, bestellung: s >= 3, infos: s >= 2 };
+  const liste = (Array.isArray(kann) ? kann : [kann]).map((k) => String(k).toLowerCase().trim());
+  const hat = (name) => liste.some((k) => k.startsWith(name));
+  const f = {
+    reservierung: hat('reservier'),
+    bestellung: hat('bestell') || hat('liefer'),
+    infos: hat('info') || s >= 2
+  };
+  // Bestellungen ohne Speisekarten-Zugriff waeren blind - Infos dann immer an
+  if (f.bestellung) f.infos = true;
+  // Kann er nichts, kann er wenigstens Rueckrufe aufnehmen (nie stumm sein)
+  if (!f.reservierung && !f.bestellung) f.nurRueckruf = true;
+  return f;
+}
+
 // --- Werkzeug-Definitionen fuer Claude -------------------------------------------
-function baueTools(stufe) {
+function baueTools(stufe, kann) {
+  const f = baueFaehigkeiten(stufe, kann);
   const tools = [
     {
       name: 'pruefe_verfuegbarkeit',
@@ -177,7 +200,7 @@ function baueTools(stufe) {
     }
   ];
 
-  if (stufe >= 2) {
+  if (f.infos) {
     tools.push({
       name: 'speisekarten_frage',
       description: 'Sucht in der Speisekarte, z.B. nach veganen Gerichten, Pizza, Preisen. Nutze das statt zu raten.',
@@ -191,7 +214,7 @@ function baueTools(stufe) {
     });
   }
 
-  if (stufe >= 3) {
+  if (f.bestellung) {
     tools.push({
       name: 'pruefe_bestellung',
       description: 'Prueft die gewuenschten Artikel gegen die Speisekarte und rechnet die Summe aus. IMMER vor speichere_bestellung aufrufen. Das Ergebnis liest du dem Gast KOMPLETT vor.',
@@ -244,11 +267,16 @@ function baueTools(stufe) {
     });
   }
 
-  return tools;
+  // Wer keine Reservierungen annimmt, bekommt die Werkzeuge dafuer gar nicht
+  // erst - so kann Claude sie auch nicht versehentlich anbieten.
+  return f.reservierung
+    ? tools
+    : tools.filter((t) => t.name !== 'pruefe_verfuegbarkeit' && t.name !== 'reserviere_tisch');
 }
 
 // --- System-Prompt ---------------------------------------------------------------
-function baueSystemPrompt(restaurant, stufe, anrufer) {
+function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
+  const f = baueFaehigkeiten(stufe, kann);
   const jetzt = new Date();
   const heute = datumHeute();
   const zeilen = [
@@ -272,20 +300,25 @@ function baueSystemPrompt(restaurant, stufe, anrufer) {
   if (restaurant.description) zeilen.push('- Beschreibung: ' + restaurant.description);
   if (restaurant.delivery_fee != null) zeilen.push('- Liefergebuehr: ' + euro(restaurant.delivery_fee));
 
-  zeilen.push('',
-    'DEINE AUFGABEN:',
-    '1. Tischreservierungen aufnehmen: Datum, Uhrzeit, Personenzahl und Name erfragen (einzeln, nicht alles auf einmal). Relative Angaben wie "heute", "morgen", "Freitag" rechnest du selbst in ein Datum um. VOR jeder Zusage pruefe_verfuegbarkeit aufrufen. Nach reserviere_tisch die Reservierung in einem Satz bestaetigen.');
-  if (stufe >= 2) {
-    zeilen.push('2. Fragen beantworten (Oeffnungszeiten, Anfahrt, Speisekarte). Fuer Gerichte/Preise IMMER speisekarten_frage nutzen - nie raten.');
+  zeilen.push('', 'DEINE AUFGABEN:');
+  let nummer = 1;
+  if (f.reservierung) {
+    zeilen.push(nummer++ + '. Tischreservierungen aufnehmen: Datum, Uhrzeit, Personenzahl und Name erfragen (einzeln, nicht alles auf einmal). Relative Angaben wie "heute", "morgen", "Freitag" rechnest du selbst in ein Datum um. VOR jeder Zusage pruefe_verfuegbarkeit aufrufen. Nach reserviere_tisch die Reservierung in einem Satz bestaetigen.');
   } else {
-    zeilen.push('2. Bei Fragen zur Speisekarte oder Bestellwuenschen: freundlich sagen, dass du dafuer einen Rueckruf notierst (rueckruf_wunsch).');
+    // Wichtig: sonst verspricht er Tische, die er nicht buchen kann
+    zeilen.push(nummer++ + '. Reservierungen nimmst du NICHT auf - dieser Betrieb macht das selbst. Fragt jemand nach einem Tisch: freundlich einen Rueckruf notieren (rueckruf_wunsch).');
   }
-  if (stufe >= 3) {
-    zeilen.push('3. Bestellungen fuer Abholung und Lieferung aufnehmen: Artikel einzeln erfragen, bei Unklarheit NACHFRAGEN statt raten. Dann pruefe_bestellung aufrufen und dem Gast ALLES vorlesen: jeden Artikel mit Menge und Extras, die Summe' +
+  if (f.infos) {
+    zeilen.push(nummer++ + '. Fragen beantworten (Oeffnungszeiten, Anfahrt, Speisekarte). Fuer Gerichte/Preise IMMER speisekarten_frage nutzen - nie raten.');
+  } else {
+    zeilen.push(nummer++ + '. Bei Fragen zur Speisekarte oder Bestellwuenschen: freundlich sagen, dass du dafuer einen Rueckruf notierst (rueckruf_wunsch).');
+  }
+  if (f.bestellung) {
+    zeilen.push(nummer++ + '. Bestellungen fuer Abholung und Lieferung aufnehmen: Artikel einzeln erfragen, bei Unklarheit NACHFRAGEN statt raten. Dann pruefe_bestellung aufrufen und dem Gast ALLES vorlesen: jeden Artikel mit Menge und Extras, die Summe' +
       ', bei Lieferung die Adresse. Erst wenn der Gast JA sagt: speichere_bestellung mit vorgelesen_und_bestaetigt=true.',
-    '4. Liefert pruefe_bestellung einen zusatz_vorschlag, frage EINMAL beilaeufig-freundlich, ob das noch dazu soll (z.B. "Darf es noch ein Tiramisu fuer 5,90 dazu sein?"). Sagt der Gast Nein, sofort weitermachen - nie nachhaken, nie mehrmals anbieten.');
-  } else if (stufe >= 2) {
-    zeilen.push('3. Bestellungen nimmst du noch NICHT auf - dafuer Rueckrufwunsch notieren.');
+    nummer++ + '. Liefert pruefe_bestellung einen zusatz_vorschlag, frage EINMAL beilaeufig-freundlich, ob das noch dazu soll (z.B. "Darf es noch ein Tiramisu fuer 5,90 dazu sein?"). Sagt der Gast Nein, sofort weitermachen - nie nachhaken, nie mehrmals anbieten.');
+  } else if (f.infos) {
+    zeilen.push(nummer++ + '. Bestellungen nimmst du NICHT auf - dafuer Rueckrufwunsch notieren.');
   }
 
   zeilen.push('',
@@ -304,16 +337,17 @@ function baueSystemPrompt(restaurant, stufe, anrufer) {
 class DialogSitzung {
   // datenquelle muss bieten: reservierungenAm, anzahlAktiveTische,
   // neueReservierung, neueBestellung, neuerBestellArtikel (siehe lib/supabase.js)
-  constructor({ restaurant, menue, stufe, anrufer, datenquelle, log }) {
+  constructor({ restaurant, menue, stufe, anrufer, datenquelle, kann, log }) {
     this.restaurant = restaurant;
     this.menue = menue || [];
     this.stufe = stufe || 1;
     this.anrufer = anrufer || '';
     this.daten = datenquelle;
+    this.kann = kann || null; // was dieser Wirt annehmen will (nummern.json)
     this.log = log || (() => {});
     this.nachrichten = [];
-    this.tools = baueTools(this.stufe);
-    this.system = baueSystemPrompt(restaurant, this.stufe, this.anrufer);
+    this.tools = baueTools(this.stufe, this.kann);
+    this.system = baueSystemPrompt(restaurant, this.stufe, this.anrufer, this.kann);
     this.beendet = false;
     this.letztePruefung = null; // Merker: zuletzt als frei geprueft
     this.buchungenGezaehlt = 0; // Reservierungen+Bestellungen in DIESEM Anruf
@@ -662,4 +696,6 @@ class DialogSitzung {
   }
 }
 
-module.exports = { DialogSitzung, baueTools, baueSystemPrompt, SatzSammler, parseSseAntwort };
+module.exports = {
+  DialogSitzung, baueTools, baueSystemPrompt, baueFaehigkeiten, SatzSammler, parseSseAntwort
+};

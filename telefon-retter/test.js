@@ -327,6 +327,111 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
       { zuordnung: {}, einstellungen: {} });
   });
 
+  await test('Faehigkeiten: nur Bestellungen ODER nur Reservierungen', () => {
+    const { baueFaehigkeiten, baueTools, baueSystemPrompt } = require('./lib/dialog');
+    const namen = (stufe, kann) => baueTools(stufe, kann).map((t) => t.name);
+
+    // Ohne Angabe: wie bisher - Reservierungen ab Stufe 1, Bestellungen ab 3
+    assert.deepStrictEqual(baueFaehigkeiten(1, null), { reservierung: true, bestellung: false, infos: false });
+    assert.deepStrictEqual(baueFaehigkeiten(3, null), { reservierung: true, bestellung: true, infos: true });
+    assert.ok(namen(1, null).includes('reserviere_tisch'));
+    assert.ok(!namen(1, null).includes('speichere_bestellung'));
+
+    // NUR Bestellungen (Lieferdienst ohne Tische)
+    const nurBestellung = namen(1, ['bestellung']);
+    assert.ok(nurBestellung.includes('speichere_bestellung'), 'Bestell-Werkzeug da');
+    assert.ok(!nurBestellung.includes('reserviere_tisch'), 'kann keine Tische versprechen');
+    assert.ok(!nurBestellung.includes('pruefe_verfuegbarkeit'));
+    assert.ok(nurBestellung.includes('speisekarten_frage'), 'Bestellen braucht die Karte');
+    assert.ok(nurBestellung.includes('rueckruf_wunsch'), 'Rueckruf immer moeglich');
+
+    // NUR Reservierungen (Restaurant ohne Lieferung)
+    const nurResi = namen(3, ['reservierung']);
+    assert.ok(nurResi.includes('reserviere_tisch'));
+    assert.ok(!nurResi.includes('speichere_bestellung'), 'trotz Stufe 3 keine Bestellungen');
+
+    // Beides
+    const beides = namen(1, ['reservierung', 'bestellung']);
+    assert.ok(beides.includes('reserviere_tisch') && beides.includes('speichere_bestellung'));
+
+    // Unsinn: wenigstens Rueckrufe, nie stumm
+    assert.strictEqual(baueFaehigkeiten(1, ['quatsch']).nurRueckruf, true);
+    assert.ok(namen(1, ['quatsch']).includes('rueckruf_wunsch'));
+
+    // Der Prompt darf nichts anbieten, was die Werkzeuge nicht koennen
+    const promptBestellung = baueSystemPrompt({ name: 'Test' }, 1, '+49', ['bestellung']);
+    assert.ok(/Reservierungen nimmst du NICHT auf/.test(promptBestellung), 'sagt klar: keine Tische');
+    assert.ok(/Bestellungen fuer Abholung/.test(promptBestellung));
+    const promptResi = baueSystemPrompt({ name: 'Test' }, 3, '+49', ['reservierung']);
+    assert.ok(/Bestellungen nimmst du NICHT auf/.test(promptResi));
+  });
+
+  await test('Eigene Kunden ohne Kiek mol in: Datei lesen, lokal speichern', async () => {
+    const fsm = require('fs');
+    const pfad = require('path');
+    const { ladeExternenKunden } = require('./lib/externe-kunden');
+    const { baueAblage, liesAlle } = require('./lib/lokale-ablage');
+
+    const ordner = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'extern-'));
+    fsm.writeFileSync(pfad.join(ordner, 'bella.json'), JSON.stringify({
+      name: 'Pizzeria Bella', stadt: 'Emden', telefon: '04921 1', oeffnet: '17:00',
+      schliesst: '22:00', tische: 5, liefergebuehr: 2.5,
+      melden: { sms: '+4915100000' },
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: 8.5, kategorie: 'Pizza', beschreibung: 'Tomate' },
+        { name: '', preis: 9 }   // ohne Name -> raus
+      ]
+    }));
+
+    const e = ladeExternenKunden('bella.json', ordner);
+    assert.strictEqual(e.restaurant.name, 'Pizzeria Bella');
+    assert.strictEqual(e.restaurant.city, 'Emden');
+    assert.strictEqual(e.restaurant.id, 'bella', 'Dateiname ist die Kennung');
+    assert.strictEqual(e.menue.length, 1, 'Gericht ohne Namen fliegt raus');
+    assert.strictEqual(e.menue[0].base_price, 8.5);
+    assert.strictEqual(e.menue[0].menu_categories.name, 'Pizza');
+    assert.strictEqual(e.kunde.melden.sms, '+4915100000');
+
+    // Fehlender Name: laut scheitern, nicht stillschweigend falsch beraten
+    fsm.writeFileSync(pfad.join(ordner, 'ohne.json'), JSON.stringify({ stadt: 'Emden' }));
+    assert.throws(() => ladeExternenKunden('ohne.json', ordner), /"name" fehlt/);
+    assert.throws(() => ladeExternenKunden('gibtsnicht.json', ordner), /nicht gefunden/);
+
+    // Ablage: speichert und liest zurueck, ohne Datenbank
+    const slug = 'test-' + process.pid;
+    const ablage = baueAblage({ slug, name: 'Pizzeria Bella', tische: 5, melden: {} });
+    assert.strictEqual(ablage.extern, true);
+    assert.strictEqual(await ablage.anzahlAktiveTische(), 5);
+
+    const r = await ablage.neueReservierung({
+      guest_name: 'Familie Janssen', guest_phone: '04926 1',
+      reservation_date: '2026-09-01', reservation_time: '19:00:00', party_size: 4
+    });
+    assert.strictEqual(r.ok, true);
+    const amTag = await ablage.reservierungenAm(slug, '2026-09-01');
+    assert.strictEqual(amTag.length, 1);
+    assert.strictEqual(amTag[0].party_size, 4);
+    assert.strictEqual((await ablage.reservierungenAm(slug, '2026-09-02')).length, 0);
+
+    const b = await ablage.neueBestellung({ customer_name: 'Herr Bruns', total: 23.5, items: [{ name: 'Pizza', quantity: 2 }] });
+    assert.strictEqual(b.ok, true);
+    const alle = liesAlle(slug);
+    assert.strictEqual(alle.filter((x) => x.art === 'bestellung').length, 1);
+    assert.strictEqual(alle.filter((x) => x.art === 'reservierung').length, 1);
+
+    // Ohne Meldeweg wird gespeichert, aber ehrlich protokolliert
+    const meldungen = [];
+    const stumm = baueAblage({ slug: slug + '-stumm', name: 'X', melden: {} }, (z) => meldungen.push(z));
+    await stumm.neueReservierung({ guest_name: 'A', reservation_date: '2026-09-01', reservation_time: '19:00', party_size: 2 });
+    await new Promise((r2) => setTimeout(r2, 30));
+    assert.ok(meldungen.some((m) => /NICHT benachrichtigt/.test(m)), 'fehlender Meldeweg fliegt auf');
+
+    // Aufraeumen
+    for (const s of [slug, slug + '-stumm']) {
+      try { fsm.unlinkSync(require('./lib/lokale-ablage').datei(s)); } catch (_e) { /* egal */ }
+    }
+  });
+
   await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
     const auth = require('./lib/twilio-auth');
     const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };
