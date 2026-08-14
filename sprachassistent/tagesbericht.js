@@ -19,6 +19,14 @@ const bericht = require('./lib/tagesbericht');
 
 ladeEnv();
 
+// "abend" fragt nicht, was kommt, sondern was war - fuer Stundenzettel
+// und Rechnungen am Feierabend.
+if (process.argv.includes('abend') || process.argv.includes('--abend')) {
+  const b = bericht.abendBericht();
+  console.log(process.argv.includes('--json') ? JSON.stringify(b, null, 2) : bericht.abendText(b));
+  return;
+}
+
 bericht.sammle().then((b) => {
   if (process.argv.includes('--json')) console.log(JSON.stringify(b, null, 2));
   else console.log(bericht.alsText(b));

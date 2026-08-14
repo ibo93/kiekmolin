@@ -18,6 +18,7 @@
 const WebSocket = require('ws');
 const { entferneMarkdown } = require('./sprechtext');
 const befehle = require('./befehle');
+const sofort = require('./sofort');
 
 // ---------------------------------------------------------- SatzSammler ---
 
@@ -216,6 +217,8 @@ class LiveSitzung {
     // erneutes "Kurani" gehen.
     this.nachlauf = (nachlauf || 25) * 1000;
     this.wachBis = 0;
+    // Eigener Zustand fuer die Befehle ohne KI (laufendes Diktat).
+    this.eigenerZustand = { diktat: null };
 
     this.laufend = null;      // aktueller Claude-Auftrag
     this.sammler = null;
@@ -284,6 +287,18 @@ class LiveSitzung {
       this.wachHalten();
     }
 
+    // Was ohne KI geht (Notiz, Liste, Diktat), macht der Server selbst -
+    // sofort und kostenlos.
+    const direkt = sofort.behandle(satz, this.eigenerZustand);
+    if (direkt) {
+      this.wachHalten();
+      this.senden({ typ: 'du', text: satz });
+      if (direkt.still) { this.senden({ typ: 'mitschrift', saetze: direkt.saetze }); return; }
+      this.senden({ typ: 'fertig', text: direkt.antwort, kosten: 0, sekunden: 0 });
+      this._sprich(direkt.antwort, this.zug);
+      return;
+    }
+
     const steuer = befehle.steuerwort(satz);
     if (steuer === 'leer') return;
     if (steuer === 'stopp') {
@@ -301,6 +316,15 @@ class LiveSitzung {
     if (this.laeuft) this.unterbrich('unterbrochen');   // Nachschlag mitten drin
     this.senden({ typ: 'du', text: satz });
     this._starte(satz, kontext || {});
+  }
+
+  // Von sich aus etwas sagen (faellige Erinnerung). Nur wenn er nicht
+  // gerade arbeitet - mitten in eine Antwort zu quatschen waere unhoeflich
+  // und wuerde die Sprech-Reihenfolge durcheinanderbringen.
+  melde(satz) {
+    if (this.laeuft) return false;
+    this._sprich(satz, this.zug);
+    return true;
   }
 
   // Klappe halten und den laufenden Auftrag fallenlassen.

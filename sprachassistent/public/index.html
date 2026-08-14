@@ -901,6 +901,16 @@ function liveNachricht(n) {
     return;
   }
   if (n.typ === 'ueberhoert') return;      // im Schlaf gehört, bewusst ignoriert
+  if (n.typ === 'erinnerung') {            // fällige Notiz meldet sich von selbst
+    blase('blase er', n.text);
+    untertitel(n.text);
+    return;
+  }
+  if (n.typ === 'mitschrift') {            // Diktat läuft: nur mitzählen
+    lage('hoert', 'schreibt mit (' + n.saetze + ')');
+    kugelLage('schreibt mit — ' + n.saetze + ' Sätze', 'hoert');
+    return;
+  }
   if (n.typ === 'leitung') {
     if (n.lage === 'verbindet neu') { lage('denkt', 'verbinde neu …'); kugelLage('verbinde neu …', 'denkt'); }
     else if (!LIVE.schlaeft) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); }

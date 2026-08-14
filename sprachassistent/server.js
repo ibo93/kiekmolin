@@ -26,6 +26,8 @@ const ohr = require('./lib/ohr');
 const stimme = require('./lib/stimme');
 const protokoll = require('./lib/protokoll');
 const live = require('./lib/live');
+const sofort = require('./lib/sofort');
+const notizen = require('./lib/notizen');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -59,9 +61,14 @@ const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
 // Fertige Werkzeuge, von denen der Assistent wissen muss - sonst baut er
 // sich beim naechsten "wie lief das Reel?" eine eigene Loesung zusammen.
 const WERKZEUGE = [
-  'Fuer Wetter und die Zahlen von heute (Reservierungen, Bestellungen, Rueckrufe) gibt es ein ' +
-  'fertiges Werkzeug: node ' + path.join(__dirname, 'tagesbericht.js') + ' (oder --json). ' +
-  'Nutze es, statt selbst Wetterdienste oder die Datenbank anzufragen.'
+  'Fuer Wetter und die Zahlen von heute (Reservierungen, Bestellungen, Rueckrufe, ' +
+  'Telefon-Retter, faellige Notizen) gibt es ein fertiges Werkzeug: node ' +
+  path.join(__dirname, 'tagesbericht.js') + ' (oder --json, oder "abend" fuer den ' +
+  'Rueckblick auf heute). Nutze es, statt selbst Wetterdienste oder die Datenbank anzufragen.',
+
+  'Ibos Merkzettel liegt in node ' + path.join(__dirname, 'notizen.js') +
+  ' (liste|heute|merk "..."|erledigt <id>). Wenn er im Gespraech sagt, dass er etwas ' +
+  'nicht vergessen will, leg es dort ab - und sag in einem Halbsatz, dass du es notiert hast.'
 ];
 if (process.env.INSTAGRAM_TOKEN) {
   WERKZEUGE.push(
@@ -77,6 +84,8 @@ const WERKZEUG_HINWEIS = WERKZEUGE.join(' ');
 // und ein Wechsel des Ordners vermischt trotzdem nichts.
 const sitzungen = new Map();     // ordnerName -> sessionId
 const laufende = new Map();      // auftragsId -> { abbrechen }
+// Zustand der Sofort-Befehle im Knopf-Betrieb (laufendes Diktat).
+const knopfZustand = { diktat: null };
 
 // ------------------------------------------------------------- Hilfen -----
 
@@ -157,6 +166,19 @@ function fuehreAus(res, wunsch) {
   const sende = (daten) => {
     try { res.write('data: ' + JSON.stringify(daten) + '\n\n'); } catch (_e) { /* Fenster zu */ }
   };
+
+  // Notiz, Liste, Diktat: das macht der Server selbst - ohne KI, ohne
+  // Kosten, ohne Wartezeit.
+  const direkt = sofort.behandle(text, knopfZustand);
+  if (direkt) {
+    if (direkt.still) {
+      sende({ art: 'fertig', text: '', sprich: '', still: true });
+    } else {
+      protokoll.schreibe({ frage: text, antwort: direkt.antwort, ordner: '-', stufe: direkt.art, kosten: 0, sekunden: 0, demo: DEMO });
+      sende({ art: 'fertig', text: direkt.antwort, sprich: direkt.antwort, kosten: 0, sekunden: 0 });
+    }
+    return res.end();
+  }
 
   // Steuerworte wirken sofort, ohne die KI zu bemuehen.
   const steuer = befehle.steuerwort(text);
@@ -395,7 +417,22 @@ function liveVerbindung(ws, req) {
     if (n.typ === 'neu') { sitzungen.clear(); return senden({ typ: 'neu' }); }
   });
 
+  // Faellige Erinnerungen von selbst melden. Einmal pro Minute reicht -
+  // und jede Erinnerung genau einmal, sonst nervt sie im Minutentakt.
+  const erinnerungsTakt = setInterval(() => {
+    let faellig;
+    try { faellig = notizen.faelligBis().filter((n) => !n.erinnert); } catch (_e) { return; }
+    if (!faellig.length) return;
+    notizen.alsErinnertMarkieren(faellig.map((n) => n.id));
+    const satz = faellig.length === 1
+      ? 'Erinnerung: ' + faellig[0].text + '.'
+      : 'Zwei Erinnerungen: ' + faellig.slice(0, 2).map((n) => n.text).join('. ') + '.';
+    senden({ typ: 'erinnerung', text: satz });
+    sitzung.melde(satz);
+  }, 60000);
+
   ws.on('close', () => {
+    clearInterval(erinnerungsTakt);
     sitzung.schliessen();
     if (ohrLeitung) ohrLeitung.schliessen();
   });

@@ -22,6 +22,8 @@ const instagram = require('./lib/instagram');
 const protokoll = require('./lib/protokoll');
 const wetter = require('./lib/wetter');
 const tagesbericht = require('./lib/tagesbericht');
+const notizen = require('./lib/notizen');
+const sofort = require('./lib/sofort');
 
 let tests = 0;
 function test(name, fn) { tests++; fn(); console.log('  ok  ' + name); }
@@ -380,6 +382,136 @@ test('Deepgram-Antwort auswerten, auch wenn Felder fehlen', () => {
   assert.strictEqual(ohr.textAus({ results: { channels: [{ alternatives: [{ transcript: ' Mach die Rechnung ' }] }] } }), 'Mach die Rechnung');
   assert.strictEqual(ohr.textAus({}), '');
   assert.strictEqual(ohr.textAus(null), '');
+});
+
+// --------------------------------------------------- Notizen & Diktat ----
+
+test('Zeitangaben: "morgen um neun" wird zu einem Zeitpunkt', () => {
+  const jetzt = new Date(2026, 7, 14, 15, 0);          // Freitag, 14.8.2026, 15 Uhr
+  // So kommt es im Betrieb an: "Erinner mich" hat der Befehlserkenner
+  // schon abgeschnitten, hier steht nur noch der Rest.
+  const z = notizen.deuteZeit('morgen um 9 an den Anruf bei der Boerse', jetzt);
+  const d = new Date(z.faellig);
+  assert.strictEqual(d.getDate(), 15, 'morgen');
+  assert.strictEqual(d.getHours(), 9);
+  assert.strictEqual(z.rest, 'den Anruf bei der Boerse',
+    'Zeitangabe und Fuellwort raus, Inhalt bleibt: ' + z.rest);
+});
+
+test('Zeitangaben: Wochentag, uebermorgen, "in drei Tagen"', () => {
+  const jetzt = new Date(2026, 7, 14, 10, 0);          // Freitag
+  assert.strictEqual(new Date(notizen.deuteZeit('am Montag Folie kleben', jetzt).faellig).getDate(), 17);
+  assert.strictEqual(new Date(notizen.deuteZeit('uebermorgen anrufen', jetzt).faellig).getDate(), 16);
+  assert.strictEqual(new Date(notizen.deuteZeit('in drei Tagen nachhaken', jetzt).faellig).getDate(), 17);
+  // "Freitag" an einem Freitag meint den naechsten, nicht heute.
+  assert.strictEqual(new Date(notizen.deuteZeit('Freitag abgeben', jetzt).faellig).getDate(), 21);
+});
+
+test('Zeitangaben: kein Wortrest, wo die Zeit rausgeschnitten wurde', () => {
+  // Frueher wurde aus "die Karte bis Freitag" die Notiz "die Karte bis".
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+  assert.strictEqual(notizen.deuteZeit('La Piazza will die neue Karte bis Freitag', jetzt).rest,
+    'La Piazza will die neue Karte');
+  assert.strictEqual(notizen.deuteZeit('Folie bestellen am Montag', jetzt).rest, 'Folie bestellen');
+});
+
+test('Zeitangaben: ohne Zeit bleibt es eine Notiz ohne Termin', () => {
+  const z = notizen.deuteZeit('La Piazza will neue Fotos', new Date(2026, 7, 14, 10, 0));
+  assert.strictEqual(z.faellig, null);
+  assert.strictEqual(z.rest, 'La Piazza will neue Fotos');
+  // Preise duerfen nicht als Datum durchgehen.
+  assert.strictEqual(notizen.deuteZeit('Schild kostet 350 Euro', new Date(2026, 7, 14, 10, 0)).faellig, null);
+});
+
+test('Notizen vorlesen: Einzahl, Mehrzahl, leere Liste', () => {
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+  assert.strictEqual(notizen.formuliere([], jetzt), 'Auf deiner Liste steht nichts.');
+  const eine = notizen.formuliere([{ text: 'Karte fuer La Piazza', faellig: null }], jetzt);
+  assert.ok(eine.indexOf('Eine Sache: Karte fuer La Piazza') === 0, eine);
+  const zwei = notizen.formuliere([
+    { text: 'Anruf Boerse', faellig: new Date(2026, 7, 14, 16, 0).toISOString() },
+    { text: 'Folie bestellen', faellig: null }
+  ], jetzt);
+  assert.ok(zwei.indexOf('2 Sachen') === 0, zwei);
+  assert.ok(zwei.indexOf('heute um 16 Uhr') > -1, 'Zeit in Worten: ' + zwei);
+});
+
+test('Sofort-Befehle: erkannt und ohne KI beantwortet', () => {
+  assert.strictEqual(befehle.direktBefehl('Merk dir: Karte bis Freitag').art, 'merken');
+  assert.strictEqual(befehle.direktBefehl('Erinner mich morgen an den Anruf').art, 'merken');
+  assert.strictEqual(befehle.direktBefehl('Was hab ich mir notiert?').art, 'liste');
+  assert.strictEqual(befehle.direktBefehl('Schreib mit').art, 'diktatStart');
+  assert.strictEqual(befehle.direktBefehl('Diktat Ende').art, 'diktatEnde');
+  assert.strictEqual(befehle.direktBefehl('Erledigt: Anruf Boerse').art, 'erledigt');
+  assert.strictEqual(befehle.direktBefehl('Schreib eine Rechnung fuer La Piazza'), null,
+    'echte Auftraege gehen weiter an Claude');
+  assert.strictEqual(befehle.direktBefehl('Merk dir: Karte bis Freitag').text, 'Karte bis Freitag',
+    'das Kommando selbst gehoert nicht in die Notiz');
+});
+
+test('Diktat: sammelt Saetze und schreibt eine Datei', () => {
+  const fs = require('fs');
+  const { Diktat } = require('./lib/diktat');
+  const d = new Diktat('Termin Greetsieler Boerse', new Date(2026, 7, 14, 11, 30));
+  d.dazu('Der Wirt will ein neues Schild ueber dem Eingang');
+  d.dazu('Masse etwa zwei Meter mal achtzig');
+  d.dazu('');                                   // leere Erkennung faellt raus
+  assert.strictEqual(d.saetze.length, 2);
+  assert.ok(d.woerter > 10);
+
+  const e = d.speichere();
+  try {
+    assert.strictEqual(e.leer, false);
+    assert.ok(e.name.indexOf('2026-08-14_11-30') === 0, 'Datum im Dateinamen: ' + e.name);
+    const inhalt = fs.readFileSync(e.datei, 'utf8');
+    assert.ok(inhalt.indexOf('# Termin Greetsieler Boerse') === 0);
+    assert.ok(inhalt.indexOf('neues Schild ueber dem Eingang.') > -1, 'Punkt wird ergaenzt');
+  } finally {
+    fs.rmSync(require('path').join(__dirname, 'diktate'), { recursive: true, force: true });
+  }
+
+  const leer = new Diktat('nix', new Date());
+  assert.strictEqual(leer.speichere().leer, true, 'leeres Diktat legt keine Datei an');
+});
+
+test('Diktat: waehrend es laeuft, wird NICHTS ausgefuehrt', () => {
+  const zustand = { diktat: null };
+  const start = sofort.behandle('Schreib mit zum Termin', zustand);
+  assert.ok(/schreibe mit/i.test(start.antwort));
+  assert.ok(zustand.diktat, 'Diktat laeuft');
+
+  // Genau der gefaehrliche Fall: ein Satz, der sonst etwas ausloesen wuerde.
+  const mitten = sofort.behandle('Merk dir das mit der Rechnung', zustand);
+  assert.strictEqual(mitten.art, 'diktatSatz', 'geht in die Mitschrift, legt KEINE Notiz an');
+  assert.strictEqual(mitten.still, true);
+
+  const ende = sofort.behandle('Diktat Ende', zustand);
+  assert.ok(/gespeichert|leer/i.test(ende.antwort));
+  assert.strictEqual(zustand.diktat, null);
+  require('fs').rmSync(require('path').join(__dirname, 'diktate'), { recursive: true, force: true });
+});
+
+test('Feierabend: was heute lief, wird auflistbar', () => {
+  const b = tagesbericht.abendText({
+    datum: '2026-08-14',
+    auftraege: [{ frage: 'Rechnung fuer La Piazza', ordner: 'buero', minuten: 1 }],
+    erledigt: ['Anruf bei der Boerse'],
+    diktate: ['2026-08-14_11-30_termin.md'],
+    kosten: 1.2
+  });
+  assert.ok(b.indexOf('Rechnung fuer La Piazza') > -1);
+  assert.ok(b.indexOf('Abgehakt: Anruf bei der Boerse') > -1);
+  assert.ok(tagesbericht.abendText({ datum: '2026-08-14', auftraege: [], erledigt: [], diktate: [], kosten: 0 })
+    .indexOf('lief heute nichts') > -1, 'leerer Tag wird auch gesagt');
+});
+
+test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
+  assert.strictEqual(tagesbericht.telefonSatz(null), '');
+  const satz = tagesbericht.telefonSatz({ anrufe: 4, reservierungen: 2, bestellungen: 1, rueckrufe: 0 });
+  assert.ok(satz.indexOf('4 Anrufe angenommen') > -1, satz);
+  assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
+  assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
+    .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
 });
 
 // ------------------------------------------------------- Wetter & Tag ----

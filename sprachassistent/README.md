@@ -86,7 +86,7 @@ Ganz normal. Beispiele:
 - „Was hab ich bei Greetsieler Börse noch offen?"
 - „Schneid aus dem Rohmaterial ein Reel, 20 Sekunden."
 
-Vier Sätze sind fest verdrahtet — die fragen jedes Mal dasselbe ab, egal wie
+Diese Sätze sind fest verdrahtet — die machen jedes Mal dasselbe, egal wie
 du sie genau formulierst:
 
 | Du sagst | Was er macht |
@@ -95,6 +95,53 @@ du sie genau formulierst:
 | „Offene Posten" | unbezahlte Rechnungen mit Betrag und Alter (kurani-docs) |
 | „Was steht an?" | die Woche laut kurani-roadmap, plus nächster Schritt |
 | „Wie lief das letzte Reel?" | Instagram-Zahlen, mit einem Satz Einordnung |
+| „Feierabend" | was heute lief — für Stundenzettel und Rechnungen |
+| „Merk dir …" / „Erinner mich …" | Notiz bzw. Erinnerung, **ohne KI, ohne Kosten** |
+| „Schreib mit" … „Diktat Ende" | Diktat: alles wandert wörtlich in eine Datei |
+
+### Er merkt sich Sachen — ohne KI, ohne Kosten
+
+Notizen laufen **nicht** über Claude. Der Server schreibt eine Zeile und
+antwortet sofort — kostet nichts, geht auch ohne Netz:
+
+| Du sagst | Was passiert |
+|---|---|
+| „Merk dir: La Piazza will die Karte bis Freitag" | Notiz mit Termin Freitag |
+| „Erinner mich morgen um neun an den Anruf" | meldet sich morgen um 9 von selbst |
+| „Was hab ich mir notiert?" | liest die Liste vor |
+| „Erledigt: La Piazza" | hakt ab (Stichwort reicht, keine Nummer nötig) |
+
+Zeitangaben versteht er auf Deutsch: *morgen, übermorgen, heute abend,
+Freitag, nächste Woche, in drei Tagen, am 20.9., um halb… (naja, „um 9")*.
+Ohne Zeitangabe wird es eine Notiz ohne Termin — die taucht im Tagesbericht
+als „dazu X Notizen ohne Termin" auf.
+
+**Fällige Erinnerungen meldet er von selbst** — im Live-Modus, einmal pro
+Minute geprüft, jede genau einmal. Nie mitten in eine laufende Antwort.
+
+Von Hand: `node notizen.js liste | heute | merk "…" | erledigt <id>`
+
+### Diktat: mitschreiben statt ausführen
+
+Beim Kunden, im Auto, auf der Leiter — da will man reden und hinterher den
+Text haben, und **nicht**, dass eine KI anfängt Sachen zu tun.
+
+- „**Schreib mit**, Termin Greetsieler Börse" → ab jetzt wandert jeder Satz
+  wörtlich in eine Datei
+- Alles dazwischen wird **nicht ausgeführt** — auch nicht „merk dir das mit
+  den Maßen". Das ist der Punkt.
+- „**Diktat Ende**" → speichert nach `diktate/2026-08-14_11-30_termin-….md`
+  und sagt dir, wie viele Sätze es waren
+
+### „Feierabend" — was war heute?
+
+Die Frage, die man abends hat und morgen früh nicht mehr beantworten kann.
+Er listet, was über den Assistenten lief, was abgehakt wurde und welche
+Diktate entstanden sind — Grundlage für Stundenzettel und Rechnungen.
+
+```bash
+node tagesbericht.js abend        # von Hand, auch ohne Assistent
+```
 
 ### „Moin" — der Tagesbericht
 

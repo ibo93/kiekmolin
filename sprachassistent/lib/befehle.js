@@ -156,6 +156,39 @@ const VARIANTEN = {
   kurani: ['kurani', 'kurany', 'curani', 'kirani', 'korani', 'kurahni', 'kuranie']
 };
 
+// -------------------------------------------------- Befehle ohne die KI ---
+
+// Manche Saetze braucht man nicht an eine KI zu schicken. "Merk dir X"
+// ist eine Zeile in einer Datei - da waere jede Sekunde Wartezeit und
+// jeder Cent zu viel. Diese Befehle beantwortet der Server selbst,
+// sofort und kostenlos.
+//
+// Rueckgabe: { art, text } oder null (dann geht es an Claude).
+const DIREKT = [
+  // Merken / Erinnern
+  { art: 'merken', muster: /^(merk(e)?\s+dir|notier(e)?( dir)?|notiz|schreib auf|denk dran|vergiss nicht)\b[:,]?\s*/i },
+  { art: 'merken', muster: /^(erinner(e)?\s+mich|erinnerung)\b[:,]?\s*/i },
+  // Liste vorlesen
+  { art: 'liste', muster: /^(was (hab|habe) ich mir notiert|meine notizen|notizen vorlesen|meine liste|was steht auf (meiner|der) liste|erinnerungen)\b/i },
+  // Abhaken
+  { art: 'erledigt', muster: /^(erledigt|hab ich erledigt|abhaken|streich)\b[:,]?\s*/i },
+  // Diktat - das Schlusswort MUSS vor dem Startwort stehen, sonst wuerde
+  // "Diktat Ende" als "Diktat" (starten) gelesen.
+  { art: 'diktatEnde', muster: /^(diktat\s+(ende|aus|stopp|fertig)|ende diktat|fertig mit (dem )?diktat|aufhoeren mit schreiben)\b/i },
+  { art: 'diktatStart', muster: /^(schreib mit|diktat(\s+start(en)?)?|mitschreiben|nimm auf)\b(?!\s*(ende|aus|stopp|fertig))[:,]?\s*/i }
+];
+
+function direktBefehl(text) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  for (const eintrag of DIREKT) {
+    const treffer = eintrag.muster.exec(t);
+    if (!treffer) continue;
+    return { art: eintrag.art, text: t.slice(treffer[0].length).trim() };
+  }
+  return null;
+}
+
 // ------------------------------------------------------- Schnellbefehle ---
 
 // Saetze, die Ibo jeden Tag sagt - einmal ordentlich ausformuliert, damit
@@ -172,6 +205,15 @@ const SCHNELLBEFEHLE = [
       'dem praktischen Hinweis, die Zahlen von heute, dann was ansteht - hoechstens ' +
       'fuenf kurze Saetze. Zum Schluss EIN Satz dazu, was ich zuerst anpacken soll. ' +
       'Wenn eine Quelle nicht erreichbar war, sag das in drei Worten, statt zu raten.'
+  },
+  {
+    name: 'feierabend',
+    hoert: /^(feierabend|was hab(e)? ich heute (gemacht|geschafft)|tagesabschluss|was war heute)\b/i,
+    prompt: 'Fuehre aus: node {{tagesbericht}} abend - das listet, was heute ueber den ' +
+      'Assistenten lief, was abgehakt wurde und welche Diktate entstanden sind. ' +
+      'Fasse daraus in drei Saetzen zusammen, was ich heute geschafft habe, ' +
+      'gesprochen. Wenn etwas davon abrechenbar aussieht (Kundenarbeit), sag es ' +
+      'in einem Satz dazu - ohne zu erfinden, was nicht dasteht.'
   },
   {
     name: 'offene posten',
@@ -286,5 +328,6 @@ function stufeAufloesen(wunsch, freieHandErlaubt) {
 module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
   systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
-  weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE
+  weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE,
+  direktBefehl, DIREKT
 };

@@ -11,8 +11,11 @@
 // Ein Tagesbericht, der wegen des Wetterdienstes ganz ausfaellt, waere
 // schlechter als einer ohne Wetter.
 
+const fs = require('fs');
+const path = require('path');
 const wetter = require('./wetter');
 const protokoll = require('./protokoll');
+const notizen = require('./notizen');
 
 function heuteISO(jetzt) {
   const d = jetzt || new Date();
@@ -77,6 +80,42 @@ function plattformSatz(z) {
   return 'Bei Kiek mol in: ' + teile.join(', ') + '.';
 }
 
+// --- Telefon-Retter: was gestern und heute am Telefon passiert ist ---------
+// Der Anruf-Server schreibt eine Zeile JSON pro Anruf. Die lesen wir
+// direkt - kein zweiter Dienst noetig.
+function telefonZahlen(datum) {
+  const ordner = path.join(__dirname, '..', '..', 'telefon-retter', 'logs');
+  if (!fs.existsSync(ordner)) return null;
+
+  const tag = datum || heuteISO();
+  let heute = 0, reservierungen = 0, bestellungen = 0, rueckrufe = 0;
+
+  for (const datei of fs.readdirSync(ordner).filter((f) => f.endsWith('.jsonl'))) {
+    for (const zeile of fs.readFileSync(path.join(ordner, datei), 'utf8').split('\n')) {
+      if (!zeile.trim()) continue;
+      let a;
+      try { a = JSON.parse(zeile); } catch (_e) { continue; }
+      if (String(a.zeit || '').slice(0, 10) !== tag) continue;
+      heute++;
+      reservierungen += Number(a.reservierungen) || 0;
+      bestellungen += Number(a.bestellungen) || 0;
+      rueckrufe += Number(a.rueckrufe) || 0;
+    }
+  }
+  if (!heute) return null;
+  return { anrufe: heute, reservierungen: reservierungen, bestellungen: bestellungen, rueckrufe: rueckrufe };
+}
+
+function telefonSatz(t) {
+  if (!t) return '';
+  const teile = [];
+  if (t.reservierungen) teile.push(t.reservierungen + ' Reservierung' + (t.reservierungen === 1 ? '' : 'en'));
+  if (t.bestellungen) teile.push(t.bestellungen + ' Bestellungen');
+  if (t.rueckrufe) teile.push(t.rueckrufe + ' Rueckrufwuensche');
+  return 'Der Telefon-Retter hat heute ' + t.anrufe + ' Anruf' + (t.anrufe === 1 ? '' : 'e') +
+    ' angenommen' + (teile.length ? ' und daraus ' + teile.join(', ') + ' gemacht' : '') + '.';
+}
+
 // --- Alles zusammen ---------------------------------------------------------
 
 // Sammelt, was zu holen ist. Liefert immer ein Ergebnis - fehlende Quellen
@@ -100,6 +139,20 @@ async function sammle(optionen) {
 
   await Promise.all(aufgaben);
 
+  // Das Gedaechtnis: was heute faellig ist und was sonst noch offen liegt.
+  try {
+    const faellig = notizen.faelligBis(new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), 23, 59));
+    const offen = notizen.offene();
+    if (faellig.length) bericht.notizenHeute = notizen.formuliere(faellig, jetzt);
+    const ohneTermin = offen.length - faellig.length;
+    if (ohneTermin > 0) bericht.notizenOffen = ohneTermin;
+  } catch (_e) { /* ohne Notizen geht es auch */ }
+
+  try {
+    const t = telefonZahlen(bericht.datum);
+    if (t) bericht.telefon = telefonSatz(t);
+  } catch (_e) { /* Logs nicht lesbar - dann eben ohne */ }
+
   try {
     const kosten = protokoll.tagesKosten(bericht.datum);
     if (kosten) bericht.assistentKosten = kosten;
@@ -114,6 +167,9 @@ function alsText(bericht) {
   if (bericht.wetter) zeilen.push(bericht.wetter);
   if (bericht.arbeitsHinweis) zeilen.push(bericht.arbeitsHinweis);
   if (bericht.plattform) zeilen.push(bericht.plattform);
+  if (bericht.telefon) zeilen.push(bericht.telefon);
+  if (bericht.notizenHeute) zeilen.push('Auf deiner Liste steht fuer heute: ' + bericht.notizenHeute);
+  if (bericht.notizenOffen) zeilen.push('Dazu ' + bericht.notizenOffen + ' Notizen ohne Termin.');
   if (bericht.assistentKosten) {
     zeilen.push('Der Assistent hat heute ' + bericht.assistentKosten.toFixed(2).replace('.', ',') + ' Dollar gekostet.');
   }
@@ -121,4 +177,54 @@ function alsText(bericht) {
   return zeilen.join('\n');
 }
 
-module.exports = { sammle, alsText, plattformSatz, plattformZahlen, tagesAnrede, heuteISO };
+// --- Feierabend: was war heute? --------------------------------------------
+// Fuer die Frage, die jeder Selbststaendige abends hat und morgen frueh
+// nicht mehr beantworten kann: "was hab ich heute eigentlich gemacht?"
+// Grundlage fuer Stundenzettel und Rechnungen.
+function abendBericht(datum, jetzt) {
+  const tag = datum || heuteISO(jetzt);
+  const ergebnis = { datum: tag, auftraege: [], erledigt: [], diktate: [], kosten: 0 };
+
+  try {
+    ergebnis.auftraege = protokoll.letzte(200)
+      .filter((e) => String(e.zeit || '').slice(0, 10) === tag && e.frage && !e.demo)
+      .map((e) => ({ frage: e.frage, ordner: e.ordner, minuten: Math.round((e.sekunden || 0) / 60) }));
+  } catch (_e) { /* ohne Protokoll */ }
+
+  try {
+    ergebnis.erledigt = notizen.alle()
+      .filter((n) => n.erledigt && String(n.erledigt).slice(0, 10) === tag)
+      .map((n) => n.text);
+  } catch (_e) { /* ohne Notizen */ }
+
+  try {
+    const ordner = path.join(__dirname, '..', 'diktate');
+    if (fs.existsSync(ordner)) {
+      ergebnis.diktate = fs.readdirSync(ordner).filter((f) => f.indexOf(tag) === 0);
+    }
+  } catch (_e) { /* ohne Diktate */ }
+
+  try { ergebnis.kosten = protokoll.tagesKosten(tag); } catch (_e) { /* egal */ }
+  return ergebnis;
+}
+
+function abendText(b) {
+  const zeilen = ['Was heute war (' + b.datum + '):'];
+  if (b.auftraege.length) {
+    zeilen.push(b.auftraege.length + ' Aufgaben ueber den Assistenten:');
+    b.auftraege.slice(0, 15).forEach((a) => zeilen.push('- ' + a.frage + (a.ordner && a.ordner !== '-' ? ' [' + a.ordner + ']' : '')));
+  }
+  if (b.erledigt.length) {
+    zeilen.push('Abgehakt: ' + b.erledigt.join('; ') + '.');
+  }
+  if (b.diktate.length) zeilen.push('Diktate: ' + b.diktate.join(', ') + '.');
+  if (!b.auftraege.length && !b.erledigt.length && !b.diktate.length) {
+    zeilen.push('Ueber den Assistenten lief heute nichts.');
+  }
+  return zeilen.join('\n');
+}
+
+module.exports = {
+  sammle, alsText, plattformSatz, plattformZahlen, tagesAnrede, heuteISO,
+  telefonZahlen, telefonSatz, abendBericht, abendText
+};
