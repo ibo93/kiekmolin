@@ -674,4 +674,86 @@ test('Telefon-Kunden: anlegen schreibt beide Dateien und prueft die Eingaben', (
   assert.throws(() => tk.entferneNummer('+490000', basis), /nicht eingetragen/);
 });
 
+test('Pipeline: Stufe, Notiz und Wiedervorlage werden gemerkt', () => {
+  const pl = require('./lib/pipeline');
+
+  // Kaputte oder fehlende Datei darf die Pipeline nie umwerfen
+  assert.deepStrictEqual(pl.leseStand('das ist kein JSON'), {});
+  assert.deepStrictEqual(pl.leseStand(''), {});
+  assert.deepStrictEqual(pl.leseStand('[1,2]'), {});
+
+  // Derselbe Betrieb muss auch nach einem neuen Import denselben Schluessel haben
+  assert.strictEqual(pl.schluesselFuer('Café Löwe', 'Norden'), pl.schluesselFuer('cafe loewe', 'norden'));
+  assert.notStrictEqual(pl.schluesselFuer('Pizzeria Roma', 'Norden'), pl.schluesselFuer('Pizzeria Roma', 'Emden'));
+
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+  let stand = pl.setzeStand({}, 'pizzeria-roma--norden', { stufe: 'kontaktiert', notiz: 'Chef ab 15 Uhr' }, { jetzt });
+  assert.strictEqual(stand['pizzeria-roma--norden'].stufe, 'kontaktiert');
+  assert.strictEqual(stand['pizzeria-roma--norden'].verlauf.length, 1, 'Stufenwechsel steht im Verlauf');
+
+  // Nur die Notiz aendern: Stufe bleibt, Verlauf waechst nicht
+  stand = pl.setzeStand(stand, 'pizzeria-roma--norden', { notiz: 'doch erst morgen' }, { jetzt });
+  assert.strictEqual(stand['pizzeria-roma--norden'].stufe, 'kontaktiert');
+  assert.strictEqual(stand['pizzeria-roma--norden'].verlauf.length, 1);
+
+  // Unsinnige Eingaben werden abgewiesen bzw. verworfen
+  assert.throws(() => pl.setzeStand(stand, 'x', { stufe: 'quatsch' }), /Unbekannte Stufe/);
+  assert.throws(() => pl.setzeStand(stand, '', { stufe: 'neu' }), /Kein Schluessel/);
+  assert.strictEqual(pl.datumOderLeer('morgen'), '');
+  assert.strictEqual(pl.datumOderLeer('2026-08-20'), '2026-08-20');
+
+  // Nach dem Speichern und Wiederlesen muss alles noch da sein
+  const wieder = pl.leseStand(JSON.stringify(stand));
+  assert.strictEqual(wieder['pizzeria-roma--norden'].notiz, 'doch erst morgen');
+});
+
+test('Pipeline: faellige Wiedervorlagen und eigene Anfragen stehen oben', () => {
+  const pl = require('./lib/pipeline');
+  const heute = new Date(2026, 7, 14);
+
+  const prospects = [
+    { name: 'Pizzeria Roma', city: 'Norden', phone: '04931 1', website: '', category: 'pizzeria', street: 'Weg 1' },
+    { name: 'Gasthaus Deich', city: 'Norden', phone: '', website: 'https://deich.de', category: 'restaurant' },
+    { name: 'Kalte Kneipe', city: 'Emden', phone: '', website: 'https://kneipe.de', category: 'kneipe' }
+  ];
+  const leads = [
+    { restaurant: 'Gasthaus Deich', ort: 'Norden', kontakt: '04931 999', name: 'Herr Janssen', nachricht: 'Bitte melden', zeit: '2026-08-13T10:00:00.000Z' }
+  ];
+  const stand = {
+    [pl.schluesselFuer('Pizzeria Roma', 'Norden')]: { stufe: 'kontaktiert', notiz: 'nochmal probieren', wiedervorlage: '2026-08-10' },
+    [pl.schluesselFuer('Kalte Kneipe', 'Emden')]: { stufe: 'kein-interesse', notiz: '', wiedervorlage: '' }
+  };
+
+  const liste = pl.baueListe({ prospects, leads, kundenNamen: [], stand }, { heute });
+
+  // Verzeichnis-Eintrag und eigene Anfrage sind EIN Betrieb, nicht zwei
+  assert.strictEqual(liste.length, 3, 'Doppelter Betrieb wird zusammengefuehrt');
+  const deich = liste.find((e) => e.name === 'Gasthaus Deich');
+  assert.strictEqual(deich.quelle, 'anfrage', 'Die eigene Anfrage gewinnt');
+  assert.strictEqual(deich.telefon, '04931 999');
+  assert.strictEqual(deich.website, 'https://deich.de', 'Website aus dem Verzeichnis bleibt erhalten');
+
+  // Reihenfolge: faellige Wiedervorlage zuerst, dann die neue Anfrage,
+  // Erledigtes ganz ans Ende
+  assert.strictEqual(liste[0].name, 'Pizzeria Roma');
+  assert.strictEqual(liste[0].faellig, true);
+  assert.strictEqual(liste[1].name, 'Gasthaus Deich');
+  assert.strictEqual(liste[2].name, 'Kalte Kneipe');
+  assert.strictEqual(liste[2].erledigt, true);
+  assert.strictEqual(liste[2].faellig, false, 'Erledigtes wird nie faellig');
+
+  // Bestandskunden tauchen gar nicht erst auf
+  const ohnePartner = pl.baueListe({ prospects, leads, kundenNamen: ['Pizzeria Roma'], stand }, { heute });
+  assert.ok(!ohnePartner.some((e) => e.name === 'Pizzeria Roma'));
+
+  // Zaehler und Digest-Satz
+  const u = pl.zaehleStufen(liste);
+  assert.strictEqual(u.gesamt, 3);
+  assert.strictEqual(u.faellig, 1);
+  assert.strictEqual(u.zaehler['kein-interesse'], 1);
+  assert.ok(/2 offene Interessenten/.test(pl.satzFuerDigest(liste)), pl.satzFuerDigest(liste));
+  assert.ok(/Pipeline ist leer/.test(pl.satzFuerDigest([])));
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

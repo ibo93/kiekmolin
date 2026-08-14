@@ -113,6 +113,9 @@ die Richtung – und den Euro-Wert der geretteten Anrufe.</div>
 function normalisiereName(s) {
   return String(s || '').toLowerCase()
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    // Uebrige Akzente (Café, Crème) zum Grundbuchstaben machen - sonst faellt
+    // das é ganz weg und "Café Löwe" waere ploetzlich ein anderer Betrieb.
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 

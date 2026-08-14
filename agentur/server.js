@@ -36,6 +36,7 @@ const telefonDb = require('../telefon-retter/lib/supabase');
 const { DialogSitzung } = require('../telefon-retter/lib/dialog');
 // Echtzeit: der Server meldet Neuigkeiten von sich aus an offene Fenster
 const live = require('./lib/live');
+const pipeline = require('./lib/pipeline');
 const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
@@ -446,6 +447,18 @@ async function pruefeDigest() {
       }
     }
 
+    // Neukunden-Pipeline: was ist diese Woche faellig? Ohne diese Zeile
+    // vergisst man die Wiedervorlagen genau so lange, bis der Lead kalt ist.
+    try {
+      const interessenten = await baueInteressentenListe();
+      zeilen.push('', 'NEUKUNDEN-PIPELINE: ' + pipeline.satzFuerDigest(interessenten));
+      const faellig = interessenten.filter((e) => e.faellig).slice(0, 8);
+      for (const e of faellig) {
+        zeilen.push('  - ' + e.name + (e.stadt ? ' (' + e.stadt + ')' : '') +
+          (e.telefon ? ' · ' + e.telefon : '') + (e.notiz ? ' · ' + e.notiz : ''));
+      }
+    } catch (_e) { /* eine leere Pipeline darf den Digest nicht kippen */ }
+
     zeilen.push('', 'Details + Abhaken in der Agentur-App (http://localhost:' + PORT + ').');
     const ergebnis = await versand.sendeReportMail({
       an,
@@ -646,6 +659,31 @@ function bewertungStatusSetzen(slug, id, status) {
     fs.writeFileSync(bewertungProtokollPfad(slug), alle.map((e) => JSON.stringify(e)).join('\n') + '\n');
     return true;
   } catch (_e) { return false; }
+}
+
+// ------------------------------------------------- Neukunden-Pipeline ------
+// Der Gespraechsstand (Stufe, Notiz, Wiedervorlage) liegt neben den Leads.
+// Ohne Datei = leerer Stand: die Pipeline funktioniert auch beim ersten Start.
+const PIPELINE_DATEI = path.join(DATEN_ORDNER, 'pipeline.json');
+
+function ladePipelineStand() {
+  try { return pipeline.leseStand(fs.readFileSync(PIPELINE_DATEI, 'utf8')); } catch (_e) { return {}; }
+}
+
+function speicherePipelineStand(stand) {
+  fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+  fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
+}
+
+async function baueInteressentenListe() {
+  let prospects = [];
+  try { prospects = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
+  return pipeline.baueListe({
+    prospects: Array.isArray(prospects) ? prospects : [],
+    leads: ladeLeads(),
+    kundenNamen: (await ladeKunden()).map((k) => k.name),
+    stand: ladePipelineStand()
+  }, {});
 }
 
 // ------------------------------------------------- Inbound-Leads ------------
@@ -940,26 +978,38 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // API: Interessenten (Neukunden-Pipeline aus prospects.json).
+    // API: Interessenten (Neukunden-Pipeline). Verzeichnis-Betriebe aus
+    // prospects.json und Inbound-Anfragen der Check-Seite laufen in EINER
+    // Liste zusammen, angereichert um den gemerkten Gespraechsstand.
     // Bestandskunden werden per Namens-Abgleich rausgefiltert.
     if (req.method === 'GET' && pfad === '/api/interessenten') {
-      let liste = [];
-      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
-      const kundenNamen = (await ladeKunden()).map((k) => k.name);
-      const { istSchonPartner, leadScore } = require('./lib/pitch');
-      liste = liste.filter((p) => !istSchonPartner(p, kundenNamen));
-      const mitScore = liste.map((p) => {
-        const lead = leadScore(p);
-        return {
-          name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
-          telefon: p.phone || '', website: p.website || '',
-          heat: lead.heat, score: lead.score, gruende: lead.gruende,
-          pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
-        };
+      const liste = await baueInteressentenListe();
+      json(res, 200, {
+        stufen: pipeline.STUFEN,
+        uebersicht: pipeline.zaehleStufen(liste),
+        liste: liste.map((e) => Object.assign({}, e, {
+          pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname({ name: e.name }))
+            ? '/api/pitch-seite/' + pitchDateiname({ name: e.name }) : null
+        }))
       });
-      // Heißeste Leads zuerst - so arbeitest du die beste Liste von oben ab.
-      mitScore.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-      json(res, 200, mitScore);
+      return;
+    }
+
+    // API: Gespraechsstand eines Interessenten setzen (Stufe, Notiz,
+    // Wiedervorlage). Das ist das Gedaechtnis der Pipeline.
+    if (req.method === 'POST' && pfad === '/api/interessent-status') {
+      const body = await leseBody(req);
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      try {
+        const stand = pipeline.setzeStand(ladePipelineStand(), body.schluessel, {
+          stufe: body.stufe, notiz: body.notiz, wiedervorlage: body.wiedervorlage
+        });
+        speicherePipelineStand(stand);
+        const liste = await baueInteressentenListe();
+        json(res, 200, { ok: true, uebersicht: pipeline.zaehleStufen(liste) });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
       return;
     }
 
@@ -968,8 +1018,20 @@ const server = http.createServer(async (req, res) => {
       const { name } = await leseBody(req);
       let liste = [];
       try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* s.o. */ }
-      const prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
-      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht in prospects.json gefunden' }); return; }
+      let prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
+      // Anfragen von der Check-Seite stehen nicht in prospects.json - fuer die
+      // bauen wir den Pitch aus dem, was der Wirt selbst angegeben hat.
+      if (!prospect) {
+        const ausPipeline = (await baueInteressentenListe())
+          .find((e) => e.name.toLowerCase() === String(name || '').toLowerCase());
+        if (ausPipeline) {
+          prospect = {
+            name: ausPipeline.name, city: ausPipeline.stadt, category: ausPipeline.kategorie,
+            phone: ausPipeline.telefon, website: ausPipeline.website
+          };
+        }
+      }
+      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
       fs.mkdirSync(PITCH_ORDNER, { recursive: true });
       const datei = pitchDateiname(prospect);
       const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
@@ -1404,9 +1466,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Inbound-Leads fuers Dashboard (neueste zuerst)
+    // Inbound-Leads fuers Dashboard (neueste zuerst). Gezeigt wird nur, was
+    // noch niemand angefasst hat - sobald die Anfrage in der Pipeline auf
+    // "Angerufen" steht, verschwindet der rote Kasten von allein.
     if (req.method === 'GET' && pfad === '/api/leads') {
-      json(res, 200, ladeLeads());
+      const stand = ladePipelineStand();
+      json(res, 200, ladeLeads().filter((l) => {
+        const e = stand[pipeline.schluesselFuer(l.restaurant, l.ort)];
+        return !e || e.stufe === 'neu';
+      }));
       return;
     }
 

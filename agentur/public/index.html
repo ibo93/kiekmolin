@@ -201,7 +201,8 @@
     <h2 id="s-pipeline">Interessenten · Neukunden-Pipeline
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:10px" onclick="osmImport(this)" title="Holt alle Restaurants der Region aus OpenStreetMap in die Pipeline (Bestandskunden werden automatisch rausgefiltert)">Region importieren (OSM)</button>
     </h2>
-    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
+    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis <b>und</b> Anfragen von der Check-Seite – in einer Liste. Was du hier einträgst, bleibt gespeichert: <b>Stufe</b>, <b>Notiz</b> und <b>Wiedervorlage</b>. Was heute fällig ist, steht ganz oben.</div>
+    <div id="pipelineKopf"></div>
     <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
 
@@ -450,29 +451,137 @@ async function onboardingStarten() {
 }
 
 // ---------------- Interessenten (Neukunden-Pipeline) ----------------
+// Die Pipeline merkt sich, wo du bei jedem Betrieb stehst. Deshalb wird die
+// Liste hier im Browser gehalten: Stufe ändern schreibt sofort auf den Server
+// und färbt die Zeile neu, ohne die ganze Seite neu zu laden.
+let pipelineDaten = { stufen: [], liste: [], uebersicht: null };
+let pipelineFilter = 'offen';
+
+function pTexte(s) { return String(s == null ? '' : s).replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
 async function ladeInteressenten() {
   const ziel = document.getElementById('interessentenListe');
   try {
-    const liste = await api('/api/interessenten');
-    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – „Region importieren (OSM)" nutzen oder Betriebe eintragen.</div>'; return; }
-    const heatBadge = (h) => {
-      const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
-      const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
-      return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
-    };
-    ziel.innerHTML = `<div class="status" style="margin-top:0;margin-bottom:10px">Sortiert nach <b>heißester Lead zuerst</b> – „keine Website" = größte Lücke = leichtester Einstieg. Arbeite die Liste von oben ab.</div>
-      <table><tr><th>Betrieb</th><th>Lead</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
-      ${liste.map((p, i) => `<tr>
-        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}${p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + p.gruende[0].replace(/</g,'&lt;') + '</div>' : ''}</td>
-        <td>${heatBadge(p.heat)}</td>
-        <td>${p.stadt}</td>
-        <td>${p.kategorie}</td>
-        <td style="white-space:nowrap">${p.telefon ? '<a href="tel:' + p.telefon + '">' + p.telefon + '</a>' : '–'}</td>
-        <td id="pitch-${i}">${p.pitch
-          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">neu</button>'
-          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">Pitch erzeugen</button>'}</td>
-      </tr>`).join('')}</table>`;
+    const d = await api('/api/interessenten');
+    pipelineDaten = d;
+    zeigeInteressenten();
   } catch (e) { ziel.innerHTML = '<div class="leer">Interessenten nicht abrufbar: ' + e.message + '</div>'; }
+}
+
+function pipelineFiltern(f) { pipelineFilter = f; zeigeInteressenten(); }
+
+function zeigeInteressenten() {
+  const ziel = document.getElementById('interessentenListe');
+  const kopf = document.getElementById('pipelineKopf');
+  const alle = pipelineDaten.liste || [];
+  const u = pipelineDaten.uebersicht || { zaehler: {}, faellig: 0, gesamt: 0 };
+
+  if (!alle.length) {
+    kopf.innerHTML = '';
+    ziel.innerHTML = '<div class="leer">Noch keine Interessenten – „Region importieren (OSM)" nutzen oder Betriebe in prospects.json eintragen.</div>';
+    return;
+  }
+
+  // Trichter-Kopf: ein Knopf je Stufe, dazu „fällig heute" und „alle".
+  const knopf = (id, text, zahl, farbe) => {
+    const an = pipelineFilter === id;
+    return '<button class="aktion" style="padding:6px 12px;font-size:12.5px;margin:0 6px 6px 0' +
+      (an ? ';border:2px solid ' + (farbe || 'var(--akzent)') + ';font-weight:700' : '') + '"' +
+      ' onclick="pipelineFiltern(\'' + id + '\')">' + text + ' <b>' + zahl + '</b></button>';
+  };
+  const offen = alle.filter(e => !e.erledigt).length;
+  kopf.innerHTML = '<div style="margin:4px 0 12px">' +
+    knopf('offen', 'Offen', offen) +
+    (u.faellig ? knopf('faellig', '⏰ Heute fällig', u.faellig, '#dc2626') : '') +
+    (pipelineDaten.stufen || []).map(s => knopf(s.id, s.text, u.zaehler[s.id] || 0)).join('') +
+    knopf('alle', 'Alle', u.gesamt) + '</div>';
+
+  const liste = alle.filter(e => {
+    if (pipelineFilter === 'alle') return true;
+    if (pipelineFilter === 'offen') return !e.erledigt;
+    if (pipelineFilter === 'faellig') return e.faellig;
+    return e.stufe === pipelineFilter;
+  });
+  if (!liste.length) { ziel.innerHTML = '<div class="leer">In dieser Ansicht steht gerade nichts.</div>'; return; }
+
+  const heatBadge = (h) => {
+    const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
+    const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
+    return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
+  };
+
+  ziel.innerHTML = '<table><tr><th>Betrieb</th><th>Lead</th><th>Telefon</th><th>Stufe</th>' +
+    '<th>Notiz &amp; Wiedervorlage</th><th>Pitch-Seite</th></tr>' +
+    liste.map((p) => {
+      const k = pTexte(p.schluessel);
+      const anfrage = p.quelle === 'anfrage';
+      const zeilenFarbe = p.faellig ? 'background:rgba(220,38,38,.07)' : (p.erledigt ? 'opacity:.55' : '');
+      const stufenWahl = (pipelineDaten.stufen || []).map(s =>
+        '<option value="' + s.id + '"' + (s.id === p.stufe ? ' selected' : '') + '>' + s.text + '</option>').join('');
+      return '<tr style="' + zeilenFarbe + '">' +
+        '<td><strong>' + pTexte(p.name) + '</strong>' +
+          (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
+          (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
+          (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
+          (anfrage && p.anfrage ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">„' + pTexte(p.anfrage) + '"</div>' : '') +
+          (!anfrage && p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + pTexte(p.gruende[0]) + '</div>' : '') +
+        '</td>' +
+        '<td>' + heatBadge(p.heat) + (p.faellig ? '<div style="font-size:11px;color:#dc2626;margin-top:3px">⏰ fällig</div>' : '') + '</td>' +
+        '<td style="white-space:nowrap">' + (p.telefon ? '<a href="tel:' + pTexte(p.telefon) + '">' + pTexte(p.telefon) + '</a>' : (p.kontakt ? pTexte(p.kontakt) : '–')) + '</td>' +
+        '<td><select onchange="stufeSetzen(\'' + k + '\', this.value)" style="padding:6px 8px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12.5px">' + stufenWahl + '</select></td>' +
+        '<td style="min-width:230px">' +
+          '<input id="notiz-' + k + '" value="' + pTexte(p.notiz) + '" placeholder="Was war? z.B. Chef ab 15 Uhr da" ' +
+            'onchange="notizSpeichern(\'' + k + '\')" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12.5px">' +
+          '<div style="margin-top:4px;font-size:12px;color:var(--grau)">wieder melden am ' +
+            '<input type="date" id="wv-' + k + '" value="' + pTexte(p.wiedervorlage) + '" onchange="notizSpeichern(\'' + k + '\')" ' +
+            'style="padding:4px 6px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12px"></div>' +
+          '<div class="status" id="pstatus-' + k + '" style="margin:2px 0 0;font-size:11px"></div>' +
+        '</td>' +
+        '<td id="pitch-' + k + '">' + (p.pitch
+          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">neu</button>'
+          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">Pitch erzeugen</button>') + '</td>' +
+      '</tr>';
+    }).join('') + '</table>';
+}
+
+// Stufe wechseln: sofort speichern, dann Liste neu holen – so springt eine
+// erledigte Zeile gleich ans Ende und die Zähler oben stimmen wieder.
+async function stufeSetzen(schluessel, stufe) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  await standSenden(schluessel, {
+    stufe,
+    notiz: (document.getElementById('notiz-' + schluessel) || {}).value,
+    wiedervorlage: (document.getElementById('wv-' + schluessel) || {}).value
+  }, true);
+}
+
+// Notiz und Wiedervorlage speichern, ohne die Liste neu aufzubauen – sonst
+// verlierst du beim Tippen den Fokus im Feld.
+async function notizSpeichern(schluessel) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  await standSenden(schluessel, {
+    stufe: eintrag.stufe,
+    notiz: (document.getElementById('notiz-' + schluessel) || {}).value,
+    wiedervorlage: (document.getElementById('wv-' + schluessel) || {}).value
+  }, false);
+}
+
+async function standSenden(schluessel, daten, neuLaden) {
+  const status = document.getElementById('pstatus-' + schluessel);
+  try {
+    await api('/api/interessent-status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ schluessel }, daten))
+    });
+    const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+    if (eintrag) { eintrag.stufe = daten.stufe; eintrag.notiz = daten.notiz || ''; eintrag.wiedervorlage = daten.wiedervorlage || ''; }
+    if (neuLaden) { await ladeInteressenten(); ladeLeads(); return; }
+    if (status) { status.textContent = 'gespeichert'; setTimeout(() => { status.textContent = ''; }, 1500); }
+  } catch (e) {
+    if (status) { status.className = 'status fehler'; status.textContent = 'nicht gespeichert: ' + e.message; }
+  }
 }
 
 async function osmImport(btn) {
@@ -485,8 +594,8 @@ async function osmImport(btn) {
   } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
 }
 
-async function pitchErzeugen(name, i) {
-  const zelle = document.getElementById('pitch-' + i);
+async function pitchErzeugen(name, schluessel) {
+  const zelle = document.getElementById('pitch-' + schluessel);
   try {
     zelle.textContent = 'erzeuge…';
     const r = await api('/api/pitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
