@@ -46,9 +46,14 @@ function ladeKunden(basisOrdner) {
     // Kurzform: "nummer": "restaurant-id"
     // Langform: "nummer": { restaurant, stimme, stufe }
     const istObjekt = wert && typeof wert === 'object' && !Array.isArray(wert);
-    const id = String(istObjekt ? (wert.restaurant || wert.restaurant_id || '') : wert).trim();
+    let id = String(istObjekt ? (wert.restaurant || wert.restaurant_id || '') : wert).trim();
+    // Betriebe ohne Kiek mol in haben keine Datenbank-ID - dann dient der
+    // Dateiname als Kennung ("kunden/bella-vista.json" -> "bella-vista").
+    if (!id && istObjekt && wert.datei) {
+      id = path.basename(String(wert.datei), '.json').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    }
     if (!id) {
-      console.warn('nummern.json: Eintrag "' + nummer + '" hat keine Restaurant-ID - uebersprungen');
+      console.warn('nummern.json: Eintrag "' + nummer + '" hat weder Restaurant-ID noch Datei - uebersprungen');
       continue;
     }
     zuordnung[normalisiereNummer(nummer)] = id;
@@ -57,6 +62,10 @@ function ladeKunden(basisOrdner) {
       if (wert.stimme) e.stimme = String(wert.stimme).trim();
       const stufe = parseInt(wert.stufe, 10);
       if (stufe >= 1 && stufe <= 3) e.stufe = stufe;
+      // Was dieser Wirt annehmen will: ["reservierung"], ["bestellung"] oder beides
+      if (wert.kann) e.kann = Array.isArray(wert.kann) ? wert.kann.slice() : [String(wert.kann)];
+      // Betrieb OHNE Kiek mol in: eigene Datei statt Datenbank
+      if (wert.datei) e.datei = String(wert.datei).trim();
       if (Object.keys(e).length) einstellungen[id] = e;
     }
   }

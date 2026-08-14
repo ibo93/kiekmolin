@@ -68,20 +68,68 @@ async function ladeDaten() {
 
   const neu = new Map();
   for (const id of ids) {
+    // Eigene Einstellungen dieses Wirts (Stimme, Stufe, Faehigkeiten, Datei)
+    const eigen = einstellungen[String(id)] || {};
+
+    // --- Betrieb OHNE Kiek mol in: Daten aus der eigenen Kundendatei -------
+    // So ist der Telefon-Retter auch allein verkaufbar. Gespeichert wird
+    // lokal, der Wirt wird per SMS/E-Mail sofort informiert.
+    if (eigen.datei) {
+      try {
+        const { ladeExternenKunden } = require('./lib/externe-kunden');
+        const { baueAblage } = require('./lib/lokale-ablage');
+        const extern = ladeExternenKunden(eigen.datei, __dirname);
+        const stufe = eigen.stufe || STUFE;
+        neu.set(String(id), {
+          restaurant: extern.restaurant,
+          menue: extern.menue,
+          stimme: eigen.stimme || null,
+          stufe,
+          kann: eigen.kann || null,
+          datenquelle: baueAblage(extern.kunde) // eigene Ablage statt Datenbank
+        });
+        console.log('Eigener Kunde geladen: ' + extern.restaurant.name +
+          (extern.restaurant.city ? ' (' + extern.restaurant.city + ')' : '') +
+          ' · ohne Kiek mol in · ' + faehigkeitenText(stufe, eigen.kann) +
+          (extern.menue.length ? ' · ' + extern.menue.length + ' Gerichte' : '') +
+          (eigen.stimme ? ' · eigene Stimme' : '') +
+          ' · Meldung an ' + (extern.kunde.melden.sms || extern.kunde.melden.email ||
+            'NIEMANDEN - bitte "melden" in der Kundendatei ergaenzen!'));
+      } catch (e) {
+        console.warn('Kunde "' + id + '" uebersprungen: ' + e.message);
+      }
+      continue;
+    }
+
+    // --- Kiek-mol-in-Kunde: alles kommt aus der Datenbank ------------------
     const r = await supabase.findeRestaurant(id);
     if (!r) { console.warn('Restaurant ' + id + ' nicht gefunden - wird uebersprungen'); continue; }
-    // Eigene Einstellungen dieses Wirts (Stimme, Stufe) - sonst die aus der .env
-    const eigen = einstellungen[String(r.id)] || {};
     const stufe = eigen.stufe || STUFE;
-    const menue = stufe >= 2 ? await supabase.speisekarte(r.id) : [];
-    neu.set(String(r.id), { restaurant: r, menue, stimme: eigen.stimme || null, stufe });
+    // Wer Bestellungen annimmt, braucht die Speisekarte - egal welche Stufe
+    const brauchtMenue = stufe >= 2 || (eigen.kann || []).some((k) => /bestell|liefer|info/i.test(k));
+    const menue = brauchtMenue ? await supabase.speisekarte(r.id) : [];
+    neu.set(String(r.id), {
+      restaurant: r, menue, stimme: eigen.stimme || null, stufe, kann: eigen.kann || null
+    });
     console.log('Restaurant geladen: ' + r.name + (r.city ? ' (' + r.city + ')' : '') +
-      ' · Stufe ' + stufe + (menue.length ? ' · ' + menue.length + ' Gerichte' : '') +
+      ' · ' + faehigkeitenText(stufe, eigen.kann) +
+      (menue.length ? ' · ' + menue.length + ' Gerichte' : '') +
       (eigen.stimme ? ' · eigene Stimme' : ''));
   }
   if (!neu.size) throw new Error('Kein einziges Restaurant konnte geladen werden');
   kontexte = neu;
   if (!standardId || !kontexte.has(standardId)) standardId = [...kontexte.keys()][0];
+}
+
+// Klartext fuer die Start-Ausgabe: was nimmt dieser Agent an?
+function faehigkeitenText(stufe, kann) {
+  const { baueFaehigkeiten } = require('./lib/dialog');
+  const f = baueFaehigkeiten(stufe, kann);
+  const teile = [];
+  if (f.reservierung) teile.push('Reservierungen');
+  if (f.bestellung) teile.push('Bestellungen');
+  if (f.infos && !f.bestellung) teile.push('Infos');
+  return (teile.length ? teile.join(' + ') : 'nur Rueckrufe') + ' (Stufe ' + stufe + ')';
 }
 
 function xmlEscape(s) {

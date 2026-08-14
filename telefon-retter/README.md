@@ -128,6 +128,65 @@ Ohne diese Felder gelten Stimme und Stufe aus der `.env`. Zwei Betriebe im
 selben Ort sollten nicht dieselbe Telefonstimme haben – und im Verkaufs-
 gespräch ist „Ihre eigene Stimme" ein Argument, das nichts extra kostet.
 
+### Nur Reservierungen ODER nur Bestellungen
+
+`kann` legt fest, was der Agent bei diesem Wirt überhaupt annimmt:
+
+```json
+"+4949317654321": { "restaurant": "id", "kann": ["bestellung"] }
+```
+
+| `kann` | Der Agent … |
+|---|---|
+| *nicht gesetzt* | wie bisher: Reservierungen, Bestellungen ab Stufe 3 |
+| `["reservierung"]` | nimmt **nur** Tische an – Bestellwünsche werden zum Rückruf |
+| `["bestellung"]` | nimmt **nur** Bestellungen an (Lieferdienst ohne Tische) |
+| `["reservierung","bestellung"]` | beides |
+
+Die Werkzeuge werden entsprechend weggelassen und der System-Prompt sagt es
+ausdrücklich – der Agent kann also nichts versprechen, was der Betrieb nicht
+anbietet. Rückrufe nimmt er immer auf.
+
+## Betriebe OHNE Kiek mol in
+
+Der Telefon-Retter ist auch allein verkaufbar: ein Wirt mit eigener Webseite,
+der nur seine verpassten Anrufe retten will. Dann kommen die Daten aus einer
+eigenen Datei statt aus der Kiek-mol-in-Datenbank.
+
+**1. Kundendatei anlegen** (Vorlage: `kunden/beispiel.json.example`):
+
+```json
+{
+  "name": "Pizzeria Bella Vista",
+  "stadt": "Emden",
+  "telefon": "04921 123456",
+  "oeffnet": "17:00", "schliesst": "22:00",
+  "tische": 12, "liefergebuehr": 2.50,
+  "melden": { "sms": "+4915112345678", "email": "wirt@bella-vista.de" },
+  "speisekarte": [
+    { "name": "Pizza Margherita", "preis": 8.50, "kategorie": "Pizza",
+      "beschreibung": "Tomate, Mozzarella, Basilikum" }
+  ]
+}
+```
+
+**2. In `nummern.json` darauf verweisen** – ohne Restaurant-ID:
+
+```json
+"+4949211234567": { "datei": "kunden/bella-vista.json", "kann": ["bestellung"] }
+```
+
+Reservierungen und Bestellungen landen in `kunden-daten/<name>.jsonl` und
+gehen **sofort per SMS und/oder E-Mail an den Wirt**. Ohne `melden` erfährt
+er nichts von seinen Anrufen – der Server warnt beim Start ausdrücklich davor.
+
+Für den SMS-Weg braucht es `TWILIO_SMS_VON`, für E-Mail `RESEND_API_KEY` und
+`EMAIL_FROM` in der `.env`.
+
+An der Kiek-mol-in-Datenbank wird für diese Kunden **nichts** angefasst –
+sie liegen komplett getrennt. Beide Arten von Kunden laufen gleichzeitig auf
+demselben Server.
+
 ## Wie eine Reservierung abläuft
 
 1. Twilio nimmt an und verbindet den Audio-Stream per WebSocket (`/media`).

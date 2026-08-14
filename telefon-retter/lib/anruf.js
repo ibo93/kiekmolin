@@ -88,9 +88,12 @@ class AnrufSitzung {
         }
         this.restaurant = kontext.restaurant;
         this.menue = kontext.menue;
-        // Eigene Stimme und eigene Stufe pro Gastronom (aus nummern.json)
+        // Eigene Stimme, Stufe und Faehigkeiten pro Gastronom (nummern.json)
         if (kontext.stimme) this.stimme = kontext.stimme;
         if (kontext.stufe) this.stufe = kontext.stufe;
+        if (kontext.kann) this.kann = kontext.kann;
+        // Betrieb ohne Kiek mol in: eigene Ablage statt Datenbank
+        if (kontext.datenquelle) this.datenquelle = kontext.datenquelle;
       }
 
       clearTimeout(this.startWaechter);
@@ -105,6 +108,7 @@ class AnrufSitzung {
         stufe: this.stufe,
         anrufer: this.anrufer,
         datenquelle: this.datenquelle,
+        kann: this.kann,
         log: (z) => this.log(z)
       });
 
