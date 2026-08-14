@@ -650,28 +650,30 @@ function kugelBild() {
     }
   }
 
-  // Der Körper: kein starrer Kreis, sondern eine leicht wabernde Form
+  // Der Körper: eine runde Kugel. Das Leben kommt aus Größe, Licht und
+  // Schein - nicht daraus, dass die Form ausbeult.
   c.beginPath();
-  for (var w = 0; w <= 64; w++) {
-    var winkel = (w / 64) * Math.PI * 2;
-    var wabern = 1
-      + 0.028 * Math.sin(winkel * 3 + KUGEL.zeit * 1.4)
-      + 0.018 * Math.sin(winkel * 5 - KUGEL.zeit * 0.9)
-      + KUGEL.pegel * 0.055 * Math.sin(winkel * 2 + KUGEL.zeit * 2.2);
-    var x = mitte + Math.cos(winkel) * radius * wabern;
-    var y = mitte + Math.sin(winkel) * radius * wabern;
-    if (w === 0) c.moveTo(x, y); else c.lineTo(x, y);
-  }
-  c.closePath();
+  c.arc(mitte, mitte, radius, 0, Math.PI * 2);
 
-  var koerper = c.createRadialGradient(
-    mitte - radius * 0.3, mitte - radius * 0.35, radius * 0.1,
-    mitte, mitte, radius * 1.1
-  );
-  koerper.addColorStop(0, hexAlpha('#ffffff', 0.92));
-  koerper.addColorStop(0.35, hexAlpha(farbe.a, 0.95));
-  koerper.addColorStop(1, hexAlpha(farbe.b, 0.85));
+  // Das Licht wandert ganz langsam über die Kugel, damit sie plastisch
+  // wirkt und nicht wie ein flacher Kreis.
+  var lichtX = mitte - radius * (0.30 + 0.04 * Math.sin(KUGEL.zeit * 0.5));
+  var lichtY = mitte - radius * (0.34 + 0.04 * Math.cos(KUGEL.zeit * 0.4));
+  var koerper = c.createRadialGradient(lichtX, lichtY, radius * 0.08, mitte, mitte, radius * 1.08);
+  koerper.addColorStop(0, hexAlpha('#ffffff', 0.94));
+  koerper.addColorStop(0.32, hexAlpha(farbe.a, 0.95));
+  koerper.addColorStop(1, hexAlpha(farbe.b, 0.88));
   c.fillStyle = koerper;
+  c.fill();
+
+  // Dunkler Rand unten rechts: gibt der Kugel Tiefe, statt Aufkleber.
+  var tiefe = c.createRadialGradient(
+    mitte + radius * 0.42, mitte + radius * 0.45, radius * 0.15,
+    mitte, mitte, radius
+  );
+  tiefe.addColorStop(0, hexAlpha('#000000', 0.22));
+  tiefe.addColorStop(1, hexAlpha('#000000', 0));
+  c.fillStyle = tiefe;
   c.fill();
 
   // Denken: ein Bogen, der um die Kugel wandert
