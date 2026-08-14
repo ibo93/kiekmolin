@@ -1487,6 +1487,39 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Liste der letzten Anrufe - wer, wie lange, was kam dabei raus
+    if (req.method === 'GET' && pfad === '/api/anrufe') {
+      const prot = require('./lib/anruf-protokoll');
+      const grenze = Math.min(50, Math.max(1, parseInt(url.searchParams.get('anzahl'), 10) || 20));
+      const anrufe = [];
+      if (fs.existsSync(TELEFON_LOGS)) {
+        const dateien = fs.readdirSync(TELEFON_LOGS)
+          .filter((f) => f.startsWith('anruf-') && f.endsWith('.log'))
+          .sort().reverse().slice(0, grenze);
+        for (const datei of dateien) {
+          try {
+            const text = fs.readFileSync(path.join(TELEFON_LOGS, datei), 'utf8');
+            anrufe.push(prot.kurzfassung(prot.parseProtokoll(text, datei)));
+          } catch (_e) { /* eine kaputte Datei darf die Liste nicht kippen */ }
+        }
+      }
+      json(res, 200, { anrufe, aufbewahrungTage: parseInt(process.env.LOG_AUFBEWAHRUNG_TAGE || '30', 10) });
+      return;
+    }
+
+    // API: ein einzelnes Gespraech, aufbereitet wie ein Chat-Verlauf
+    if (req.method === 'GET' && pfad.startsWith('/api/anruf/')) {
+      const prot = require('./lib/anruf-protokoll');
+      const name = path.basename(decodeURIComponent(pfad.slice('/api/anruf/'.length)));
+      const datei = path.join(TELEFON_LOGS, name);
+      if (!/^anruf-.+\.log$/.test(name) || !fs.existsSync(datei)) {
+        json(res, 404, { fehler: 'Protokoll nicht gefunden' });
+        return;
+      }
+      json(res, 200, prot.parseProtokoll(fs.readFileSync(datei, 'utf8'), name));
+      return;
+    }
+
     res.writeHead(404);
     res.end('Nicht gefunden');
   } catch (e) {

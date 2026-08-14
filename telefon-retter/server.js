@@ -43,7 +43,7 @@ const STUFE = parseInt(process.env.STUFE || '1', 10);
 const LOG_TAGE = parseInt(process.env.LOG_AUFBEWAHRUNG_TAGE || '30', 10);
 const LOG_ORDNER = path.join(__dirname, 'logs');
 
-const { ladeNummernZuordnung, restaurantFuerNummer } = require('./lib/kunden');
+const { ladeKunden, restaurantFuerNummer } = require('./lib/kunden');
 
 // Mandantenfaehig: alle betreuten Restaurants beim Start laden (und
 // regelmaessig auffrischen). Die angerufene Nummer waehlt das Restaurant.
@@ -52,7 +52,9 @@ let nummernZuordnung = {};     // "+49..." -> restaurantId
 let standardId = null;         // Fallback aus der .env
 
 async function ladeDaten() {
-  nummernZuordnung = ladeNummernZuordnung(__dirname);
+  const kunden = ladeKunden(__dirname);
+  nummernZuordnung = kunden.zuordnung;
+  const einstellungen = kunden.einstellungen;
   const ids = new Set(Object.values(nummernZuordnung));
 
   const kennung = process.env.RESTAURANT_ID || process.env.RESTAURANT_NAME;
@@ -68,10 +70,14 @@ async function ladeDaten() {
   for (const id of ids) {
     const r = await supabase.findeRestaurant(id);
     if (!r) { console.warn('Restaurant ' + id + ' nicht gefunden - wird uebersprungen'); continue; }
-    const menue = STUFE >= 2 ? await supabase.speisekarte(r.id) : [];
-    neu.set(String(r.id), { restaurant: r, menue });
+    // Eigene Einstellungen dieses Wirts (Stimme, Stufe) - sonst die aus der .env
+    const eigen = einstellungen[String(r.id)] || {};
+    const stufe = eigen.stufe || STUFE;
+    const menue = stufe >= 2 ? await supabase.speisekarte(r.id) : [];
+    neu.set(String(r.id), { restaurant: r, menue, stimme: eigen.stimme || null, stufe });
     console.log('Restaurant geladen: ' + r.name + (r.city ? ' (' + r.city + ')' : '') +
-      ' · Stufe ' + STUFE + (menue.length ? ' · ' + menue.length + ' Gerichte' : ''));
+      ' · Stufe ' + stufe + (menue.length ? ' · ' + menue.length + ' Gerichte' : '') +
+      (eigen.stimme ? ' · eigene Stimme' : ''));
   }
   if (!neu.size) throw new Error('Kein einziges Restaurant konnte geladen werden');
   kontexte = neu;

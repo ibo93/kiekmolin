@@ -110,6 +110,24 @@ lassen, eine Zeile in `nummern.json` – fertig. Nummern, die nicht zugeordnet
 sind, fallen auf das Standard-Restaurant aus der `.env` zurück; ganz ohne
 Zuordnung läuft der Ein-Kunden-Betrieb wie bisher.
 
+### Eigene Stimme pro Wirt
+
+Statt nur der Restaurant-ID kann pro Nummer ein Objekt stehen:
+
+```json
+{
+  "+4949261234567": "restaurant-a-id",
+  "+4949317654321": { "restaurant": "restaurant-b-id", "stimme": "MGG5Irb57ATHvyIeTEYo", "stufe": 2 }
+}
+```
+
+- `stimme` – Voice-ID von elevenlabs.io (Voice Library → *Add to my voices* → ID kopieren)
+- `stufe` – eigene Ausbaustufe für diesen Wirt (1–3), unabhängig von `STUFE` in der `.env`
+
+Ohne diese Felder gelten Stimme und Stufe aus der `.env`. Zwei Betriebe im
+selben Ort sollten nicht dieselbe Telefonstimme haben – und im Verkaufs-
+gespräch ist „Ihre eigene Stimme" ein Argument, das nichts extra kostet.
+
 ## Wie eine Reservierung abläuft
 
 1. Twilio nimmt an und verbindet den Audio-Stream per WebSocket (`/media`).

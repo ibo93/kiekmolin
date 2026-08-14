@@ -173,6 +173,10 @@
     <div class="anrufe" id="telefonAnrufe"></div>
   </div>
 
+  <div class="status" style="margin-top:10px">So hat die KI wirklich geredet – Gespräch anklicken. Nach <span id="anrufAufbewahrung">30</span> Tagen löschen sich die Protokolle von selbst (DSGVO).</div>
+  <div id="anrufListe"><div class="leer">Lade Gespräche…</div></div>
+  <div id="anrufVerlauf"></div>
+
   <div id="listeAnsicht">
     <h2 id="s-rueckrufe">Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
     <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
@@ -501,6 +505,86 @@ async function ladeTelefon() {
       ? 'Letzte Protokolle: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
       : 'Noch keine Anruf-Protokolle');
   } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
+}
+
+// ---------------- Anruf-Protokolle: so hat die KI geredet ----------------
+const ERGEBNIS_FARBE = {
+  'Reservierung': '#16a34a', 'Bestellung': '#16a34a', 'Rückruf-Wunsch': 'var(--akzent)',
+  'Technischer Fehler': '#dc2626', 'Niemand hat gesprochen': 'var(--grau)',
+  'Gespräch ohne Abschluss': '#f59e0b'
+};
+
+function dauerText(sekunden) {
+  if (sekunden == null) return '?';
+  if (sekunden < 60) return sekunden + ' Sek.';
+  return Math.floor(sekunden / 60) + ':' + String(sekunden % 60).padStart(2, '0') + ' Min.';
+}
+
+async function ladeAnrufe() {
+  const ziel = document.getElementById('anrufListe');
+  try {
+    const d = await api('/api/anrufe');
+    document.getElementById('anrufAufbewahrung').textContent = d.aufbewahrungTage;
+    if (!d.anrufe.length) {
+      ziel.innerHTML = '<div class="leer">Noch keine Gespräche aufgezeichnet – sobald der erste Gast anruft, steht hier der komplette Verlauf.</div>';
+      return;
+    }
+    ziel.innerHTML = '<table><tr><th>Wann</th><th>Anrufer</th><th>Betrieb</th><th>Dauer</th><th>Sätze</th><th>Ergebnis</th></tr>' +
+      d.anrufe.map(a => {
+        const farbe = ERGEBNIS_FARBE[a.ergebnis] || 'var(--grau)';
+        return '<tr style="cursor:pointer" onclick="anrufOeffnen(\'' + a.datei + '\')" title="Gespräch anzeigen">' +
+          '<td style="white-space:nowrap">' + (a.beginn ? new Date(a.beginn).toLocaleString('de-DE') : '–') + '</td>' +
+          '<td>' + (a.anrufer ? String(a.anrufer).replace(/</g, '&lt;') : 'unbekannt') + '</td>' +
+          '<td>' + (a.restaurant ? String(a.restaurant).replace(/</g, '&lt;') : '–') + '</td>' +
+          '<td>' + dauerText(a.dauerSekunden) + '</td>' +
+          '<td>' + a.saetzeGast + ' / ' + a.saetzeAgent + '</td>' +
+          '<td style="color:' + farbe + '">' + a.ergebnis + '</td></tr>';
+      }).join('') + '</table>' +
+      '<div style="font-size:12px;color:var(--grau);margin-top:6px">Sätze: Gast / KI · Zeile anklicken für den Verlauf</div>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Protokolle nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+async function anrufOeffnen(datei) {
+  const ziel = document.getElementById('anrufVerlauf');
+  ziel.innerHTML = '<div class="leer">Lade Gespräch…</div>';
+  ziel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  try {
+    const p = await api('/api/anruf/' + encodeURIComponent(datei));
+    const blasen = p.zeilen.filter(z => z.wer === 'gast' || z.wer === 'agent').map(z => {
+      const gast = z.wer === 'gast';
+      const uhr = new Date(z.zeit).toLocaleTimeString('de-DE');
+      return '<div style="display:flex;justify-content:' + (gast ? 'flex-start' : 'flex-end') + ';margin-bottom:8px">' +
+        '<div style="max-width:78%;padding:9px 13px;border-radius:14px;font-size:13.5px;line-height:1.5;' +
+        (gast
+          ? 'background:var(--karte);border:1px solid var(--linie,#2a3841)'
+          : 'background:rgba(230,168,74,.13);border:1px solid var(--akzent)') + '">' +
+        '<div style="font-size:11px;color:var(--grau);margin-bottom:3px">' + (gast ? '🧑 Gast' : '🤖 KI') + ' · ' + uhr + '</div>' +
+        String(z.text).replace(/</g, '&lt;') + '</div></div>';
+    }).join('');
+
+    const technisch = p.zeilen.filter(z => z.wer === 'system' || z.wer === 'fehler');
+    ziel.innerHTML =
+      '<div style="border:1px solid var(--linie,#2a3841);border-radius:12px;padding:14px 16px;margin-top:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">' +
+      '<b style="font-size:14px">' + (p.restaurant ? String(p.restaurant).replace(/</g, '&lt;') : 'Gespräch') + '</b>' +
+      '<span style="font-size:12.5px;color:var(--grau)">' +
+      (p.beginn ? new Date(p.beginn).toLocaleString('de-DE') : '') + ' · ' + dauerText(p.dauerSekunden) +
+      ' · Ergebnis: ' + p.ergebnis + '</span></div>' +
+      (blasen || '<div class="leer">In diesem Anruf wurde nicht gesprochen.</div>') +
+      '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--grau)">' +
+      'Technische Zeilen (' + technisch.length + ')</summary>' +
+      '<pre style="font-size:11.5px;white-space:pre-wrap;color:var(--grau);margin-top:8px">' +
+      technisch.map(z => new Date(z.zeit).toLocaleTimeString('de-DE') + '  ' + String(z.text).replace(/</g, '&lt;')).join('\n') +
+      '</pre></details>' +
+      '<div style="margin-top:10px">' + kopierKnopf(
+        p.zeilen.filter(z => z.wer === 'gast' || z.wer === 'agent')
+          .map(z => (z.wer === 'gast' ? 'Gast: ' : 'KI: ') + z.text).join('\n'),
+        '📋 Gespräch kopieren') + '</div></div>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Gespräch nicht abrufbar: ' + e.message + '</div>';
+  }
 }
 
 // ---------------- Kundenliste ----------------
@@ -1264,6 +1348,7 @@ document.getElementById('suche').addEventListener('input', zeichneKunden);
 if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(1)));
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
+ladeAnrufe();
 ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
@@ -1335,6 +1420,7 @@ function liveStarten() {
     const d = JSON.parse(e.data || '{}');
     if (d.meldung) meldung(d.meldung + ' am Telefon', false);
     ladeTelefon();
+    ladeAnrufe(); // das neue Gespraech soll sofort in der Liste stehen
     ladeUebersicht();
     if (aktuellerKunde) ladeTelefonZahlen(aktuellerKunde.id);
   });

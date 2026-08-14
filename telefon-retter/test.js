@@ -294,6 +294,39 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     }
   });
 
+  await test('nummern.json: eigene Stimme und Stufe pro Wirt, Kurzform bleibt gueltig', () => {
+    const fsm = require('fs');
+    const pfad = require('path');
+    const { ladeKunden, ladeNummernZuordnung, restaurantFuerNummer } = require('./lib/kunden');
+    const ordner = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'nummern-'));
+    fsm.writeFileSync(pfad.join(ordner, 'nummern.json'), JSON.stringify({
+      _kommentar: 'wird ignoriert',
+      '+49 4926 111': 'restaurant-a',
+      '+494931222': { restaurant: 'restaurant-b', stimme: 'VOICE_B', stufe: 3 },
+      '+494931333': { restaurant: 'restaurant-c', stufe: 9 },   // ungueltige Stufe
+      '+494931444': { stimme: 'ohne-restaurant' }               // ohne ID -> raus
+    }));
+
+    const k = ladeKunden(ordner);
+    // Nummern normalisiert: Leerzeichen duerfen egal sein
+    assert.strictEqual(k.zuordnung['+494926111'], 'restaurant-a');
+    assert.strictEqual(restaurantFuerNummer(k.zuordnung, '+49 4926 111', null), 'restaurant-a');
+    assert.strictEqual(Object.keys(k.zuordnung).length, 3, 'Eintrag ohne Restaurant-ID fliegt raus');
+
+    // Kurzform: keine eigenen Einstellungen -> .env gilt
+    assert.strictEqual(k.einstellungen['restaurant-a'], undefined);
+    // Langform: Stimme und Stufe uebernommen
+    assert.deepStrictEqual(k.einstellungen['restaurant-b'], { stimme: 'VOICE_B', stufe: 3 });
+    // Unsinnige Stufe wird verworfen, nicht durchgereicht
+    assert.strictEqual(k.einstellungen['restaurant-c'], undefined);
+
+    // Alte Funktion liefert weiterhin nur die Zuordnung
+    assert.deepStrictEqual(ladeNummernZuordnung(ordner), k.zuordnung);
+    // Ohne Datei: leer statt Absturz
+    assert.deepStrictEqual(ladeKunden(fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'leer-'))),
+      { zuordnung: {}, einstellungen: {} });
+  });
+
   await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
     const auth = require('./lib/twilio-auth');
     const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };
