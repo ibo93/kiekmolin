@@ -109,6 +109,18 @@ Knopf **Live** oben rechts. Dann läuft das Mikrofon durch:
   sonst würde er sich am eigenen Echo verschlucken.
 - „Stopp" wirkt sofort, ohne dass die KI überhaupt gefragt wird.
 
+**Die Kugel** übernimmt dabei den Bildschirm — wie bei ChatGPT, nur in
+Kurani-Farben. Sie ist keine Deko, sondern ein Messgerät:
+
+| Was du siehst | Was es heißt |
+|---|---|
+| Blau, wächst mit deiner Stimme | er hört dich — wenn sie stillsteht, kommt nichts am Mikrofon an |
+| Orange mit wanderndem Bogen | er arbeitet gerade (unten steht, in welchem Ordner) |
+| Grün, pulst im Takt der Antwort | er spricht |
+
+Darunter läuft mit, was gerade gehört oder gesagt wird. Die volle Mitschrift
+holst du mit dem Knopf **Verlauf** nach vorn.
+
 Für Live gilt: **Kopfhörer sind besser als Lautsprecher.** Ohne Kopfhörer
 hört das Mikrofon seine eigene Stimme mit; die Echo-Unterdrückung des
 Browsers fängt das meist ab, aber nicht immer.

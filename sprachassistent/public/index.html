@@ -69,7 +69,7 @@
   @keyframes puls { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
   main {
-    flex: 1; overflow-y: auto; padding: 24px 20px 8px;
+    flex: 1; overflow-y: auto; padding: 24px 20px 8px; position: relative;
     display: flex; flex-direction: column; gap: 12px;
   }
   .strang { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
@@ -129,6 +129,31 @@
   .mikro svg { width: 26px; height: 26px; }
   .hinweis { max-width: 760px; margin: 10px auto 0; font-size: 12px; color: var(--text-leise); text-align: center; }
 
+  /* Die Kugel: im Live-Modus übernimmt sie die Bühne. Sie atmet, wenn er
+     wartet, wächst mit deiner Stimme, dreht beim Nachdenken und pulst,
+     wenn er spricht. */
+  .buehne {
+    display: none; position: absolute; inset: 0;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 26px; padding: 24px; pointer-events: none;
+  }
+  body.livemodus .buehne { display: flex; }
+  body.livemodus.verlaufAn .buehne { display: none; }
+  body.livemodus:not(.verlaufAn) #verlauf { overflow: hidden; }
+  body.livemodus:not(.verlaufAn) .strang { opacity: 0; }
+  /* Die Kugel darf nie so groß werden, dass der Untertitel unter den Rand
+     rutscht - deshalb gegen Breite UND Höhe des Fensters gedeckelt. */
+  #kugel { width: min(340px, 52vw, 44vh); height: min(340px, 52vw, 44vh); }
+  .untertitel {
+    max-width: 620px; text-align: center; font-size: 17px; line-height: 1.5;
+    color: var(--text); min-height: 52px;
+  }
+  .untertitel.leise { color: var(--text-leise); font-size: 15px; }
+  .kugelLage {
+    font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-leise);
+  }
+
   /* Live-Modus: was gerade gehört wird, steht blass am Ende des Verlaufs
      und wird zur richtigen Blase, sobald der Satz zu Ende ist. */
   .mithoeren {
@@ -156,12 +181,18 @@
     <option value="frei">Freie Hand</option>
   </select>
   <button class="knopf" id="liveKnopf" title="Durchgehendes Gespräch: zuhören, antworten, unterbrechen">Live</button>
+  <button class="knopf" id="verlaufKnopf" style="display:none" title="Mitschrift statt Kugel zeigen">Verlauf</button>
   <button class="knopf" id="freihandKnopf" title="Dauerhaft zuhören und antworten">Freihand</button>
   <button class="knopf" id="stummKnopf" title="Antworten nicht vorlesen">Stumm</button>
   <button class="knopf" id="neuKnopf" title="Gedächtnis leeren">Neu</button>
 </header>
 
 <main id="verlauf">
+  <div class="buehne" id="buehne">
+    <canvas id="kugel"></canvas>
+    <div class="kugelLage" id="kugelLage">bereit</div>
+    <div class="untertitel" id="untertitel"></div>
+  </div>
   <div class="strang" id="strang">
     <div class="leer" id="leerHinweis">
       <b>Sag, was zu tun ist.</b>
@@ -505,6 +536,187 @@ function browserHoeren() {
   lage('hoert', 'hört zu');
 }
 
+// ---------------------------------------------------------------- Kugel ---
+// Das Gesicht des Assistenten. Kein Deko-Kreis: sie zeigt echten Pegel —
+// beim Zuhören deine Stimme, beim Sprechen seine. Daran siehst du auf einen
+// Blick, ob dich das Mikrofon überhaupt hört.
+var KUGEL = {
+  leinwand: null, stift: null, zustand: 'ruhe', pegel: 0, ziel: 0,
+  zeit: 0, laeuft: false, ac: null, mikroAnalyse: null, tonAnalyse: null, ruhig: false
+};
+
+var KUGEL_FARBEN = {
+  ruhe:    { a: '#4a5568', b: '#007AFF' },
+  hoert:   { a: '#00c2ff', b: '#007AFF' },
+  denkt:   { a: '#FF9500', b: '#FF3B30' },
+  spricht: { a: '#34C759', b: '#00c2ff' }
+};
+
+function kugelStart() {
+  if (KUGEL.laeuft) return;
+  KUGEL.leinwand = $('kugel');
+  KUGEL.stift = KUGEL.leinwand.getContext('2d');
+  KUGEL.ruhig = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  KUGEL.laeuft = true;
+  kugelGroesse();
+  window.addEventListener('resize', kugelGroesse);
+  requestAnimationFrame(kugelBild);
+}
+
+function kugelGroesse() {
+  if (!KUGEL.leinwand) return;
+  var dicht = window.devicePixelRatio || 1;
+  var kante = KUGEL.leinwand.clientWidth || 320;
+  KUGEL.leinwand.width = kante * dicht;
+  KUGEL.leinwand.height = kante * dicht;
+  KUGEL.stift.setTransform(dicht, 0, 0, dicht, 0, 0);
+}
+
+function kugelZustand(z) { KUGEL.zustand = z; }
+
+function kugelBild() {
+  if (!KUGEL.laeuft) return;
+  var c = KUGEL.stift;
+  var kante = KUGEL.leinwand.clientWidth || 320;
+  var mitte = kante / 2;
+  KUGEL.zeit += KUGEL.ruhig ? 0.004 : 0.016;
+
+  // Pegel messen: beim Sprechen seine Stimme, sonst dein Mikrofon.
+  var quelle = (KUGEL.zustand === 'spricht' && KUGEL.tonAnalyse) ? KUGEL.tonAnalyse
+    : (KUGEL.zustand === 'hoert' ? KUGEL.mikroAnalyse : null);
+
+  if (quelle && quelle.puffer) {
+    quelle.knoten.getByteTimeDomainData(quelle.puffer);
+    var summe = 0;
+    for (var i = 0; i < quelle.puffer.length; i++) {
+      var v = (quelle.puffer[i] - 128) / 128;
+      summe += v * v;
+    }
+    KUGEL.ziel = Math.min(1, Math.sqrt(summe / quelle.puffer.length) * 6);
+  } else if (KUGEL.zustand === 'spricht') {
+    KUGEL.ziel = 0.35 + 0.25 * Math.abs(Math.sin(KUGEL.zeit * 4));   // Browser-Stimme: geschätzt
+  } else if (KUGEL.zustand === 'denkt') {
+    KUGEL.ziel = 0.22;
+  } else {
+    KUGEL.ziel = 0.08;
+  }
+  KUGEL.pegel += (KUGEL.ziel - KUGEL.pegel) * 0.18;
+
+  var farbe = KUGEL_FARBEN[KUGEL.zustand] || KUGEL_FARBEN.ruhe;
+  var grund = kante * 0.23;
+  var radius = grund * (1 + KUGEL.pegel * 0.20 + Math.sin(KUGEL.zeit * 1.1) * 0.02);
+
+  c.clearRect(0, 0, kante, kante);
+
+  // Schein außen herum. Er muss INNERHALB der Leinwand auf null auslaufen,
+  // sonst sieht man das Rechteck der Leinwand als Kante.
+  var scheinWeite = Math.min(radius * 2.2, mitte);
+  var schein = c.createRadialGradient(mitte, mitte, radius * 0.6, mitte, mitte, scheinWeite);
+  schein.addColorStop(0, hexAlpha(farbe.b, 0.28 + KUGEL.pegel * 0.26));
+  schein.addColorStop(1, hexAlpha(farbe.b, 0));
+  c.fillStyle = schein;
+  c.beginPath();
+  c.arc(mitte, mitte, scheinWeite, 0, Math.PI * 2);
+  c.fill();
+
+  // Ringe, die beim Sprechen nach außen laufen
+  if (KUGEL.zustand === 'spricht' || KUGEL.zustand === 'hoert') {
+    for (var r = 0; r < 3; r++) {
+      var welle = ((KUGEL.zeit * 0.5 + r / 3) % 1);
+      c.beginPath();
+      c.arc(mitte, mitte, radius * (1 + welle * 0.9), 0, Math.PI * 2);
+      c.strokeStyle = hexAlpha(farbe.a, (1 - welle) * 0.22 * (0.3 + KUGEL.pegel));
+      c.lineWidth = 1.5;
+      c.stroke();
+    }
+  }
+
+  // Der Körper: kein starrer Kreis, sondern eine leicht wabernde Form
+  c.beginPath();
+  for (var w = 0; w <= 64; w++) {
+    var winkel = (w / 64) * Math.PI * 2;
+    var wabern = 1
+      + 0.028 * Math.sin(winkel * 3 + KUGEL.zeit * 1.4)
+      + 0.018 * Math.sin(winkel * 5 - KUGEL.zeit * 0.9)
+      + KUGEL.pegel * 0.055 * Math.sin(winkel * 2 + KUGEL.zeit * 2.2);
+    var x = mitte + Math.cos(winkel) * radius * wabern;
+    var y = mitte + Math.sin(winkel) * radius * wabern;
+    if (w === 0) c.moveTo(x, y); else c.lineTo(x, y);
+  }
+  c.closePath();
+
+  var koerper = c.createRadialGradient(
+    mitte - radius * 0.3, mitte - radius * 0.35, radius * 0.1,
+    mitte, mitte, radius * 1.1
+  );
+  koerper.addColorStop(0, hexAlpha('#ffffff', 0.92));
+  koerper.addColorStop(0.35, hexAlpha(farbe.a, 0.95));
+  koerper.addColorStop(1, hexAlpha(farbe.b, 0.85));
+  c.fillStyle = koerper;
+  c.fill();
+
+  // Denken: ein Bogen, der um die Kugel wandert
+  if (KUGEL.zustand === 'denkt') {
+    c.beginPath();
+    var start = KUGEL.zeit * 2.2;
+    c.arc(mitte, mitte, radius * 1.28, start, start + Math.PI * 0.5);
+    c.strokeStyle = hexAlpha(farbe.a, 0.75);
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    c.stroke();
+  }
+
+  requestAnimationFrame(kugelBild);
+}
+
+function hexAlpha(hex, alpha) {
+  var h = hex.replace('#', '');
+  var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + Math.max(0, Math.min(1, alpha)).toFixed(3) + ')';
+}
+
+function tonWerkstatt() {
+  if (!KUGEL.ac) KUGEL.ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (KUGEL.ac.state === 'suspended') KUGEL.ac.resume();
+  return KUGEL.ac;
+}
+
+function messer(knotenQuelle) {
+  var knoten = tonWerkstatt().createAnalyser();
+  knoten.fftSize = 1024;
+  knotenQuelle.connect(knoten);
+  return { knoten: knoten, puffer: new Uint8Array(knoten.fftSize) };
+}
+
+// Dein Mikrofon speist die Kugel, solange sie zuhört.
+function kugelMikrofon(strom) {
+  try { KUGEL.mikroAnalyse = messer(tonWerkstatt().createMediaStreamSource(strom)); }
+  catch (e) { KUGEL.mikroAnalyse = null; }
+}
+
+// Seine Stimme speist die Kugel, während sie spricht. Wichtig: der
+// Analysator muss weiter an die Lautsprecher durchgereicht werden,
+// sonst bleibt die Antwort stumm.
+function kugelTon(audioEl) {
+  try {
+    var werk = tonWerkstatt();
+    var messung = messer(werk.createMediaElementSource(audioEl));
+    messung.knoten.connect(werk.destination);
+    KUGEL.tonAnalyse = messung;
+  } catch (e) { KUGEL.tonAnalyse = null; }
+}
+
+function untertitel(text, leise) {
+  var u = $('untertitel');
+  u.textContent = text || '';
+  u.classList.toggle('leise', !!leise);
+}
+
+function kugelLage(text, zustand) {
+  $('kugelLage').textContent = text;
+  kugelZustand(zustand);
+}
+
 // ------------------------------------------------------------ Live-Modus --
 // Durchgehendes Gespräch: das Mikrofon läuft, der Server hört über eine
 // Dauerleitung mit, antwortet Satz für Satz — und hält sofort die Klappe,
@@ -544,13 +756,22 @@ function tonEinreihen(eintrag) {
 
 async function naechsterTon() {
   var e = LIVE.schlange.shift();
-  if (!e) { LIVE.laeuftTon = null; if (LIVE.an) lage('hoert', 'hört zu'); return; }
+  if (!e) {
+    LIVE.laeuftTon = null;
+    KUGEL.tonAnalyse = null;
+    if (LIVE.an) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); untertitel(''); }
+    return;
+  }
   LIVE.laeuftTon = e;
   lage('spricht', 'spricht');
+
+  kugelLage('spricht', 'spricht');
+  untertitel(e.text);
 
   if (e.mp3) {
     var audio = new Audio(URL.createObjectURL(tonAusBase64(e.mp3)));
     e.audio = audio;
+    kugelTon(audio);
     audio.onended = naechsterTon;
     audio.onerror = naechsterTon;
     audio.play().catch(naechsterTon);
@@ -569,11 +790,19 @@ function ruhe() {
 }
 
 function liveNachricht(n) {
-  if (n.typ === 'bereit') { lage('hoert', n.hoeren === 'deepgram' ? 'hört zu' : 'hört zu (Browser)'); return; }
-  if (n.typ === 'zwischen') { liveZeile(n.text); return; }
-  if (n.typ === 'du') { liveZeileWeg(); blase('blase ich', n.text); LIVE.blase = null; LIVE.roh = ''; return; }
-  if (n.typ === 'ordner') { lage('denkt', 'arbeitet in ' + n.name); return; }
-  if (n.typ === 'arbeitet') { lage('denkt', 'arbeitet'); return; }
+  if (n.typ === 'bereit') {
+    lage('hoert', n.hoeren === 'deepgram' ? 'hört zu' : 'hört zu (Browser)');
+    kugelLage('hört zu', 'hoert');
+    return;
+  }
+  if (n.typ === 'zwischen') { liveZeile(n.text); untertitel(n.text, true); return; }
+  if (n.typ === 'du') {
+    liveZeileWeg(); blase('blase ich', n.text); LIVE.blase = null; LIVE.roh = '';
+    untertitel(n.text, true);
+    return;
+  }
+  if (n.typ === 'ordner') { lage('denkt', 'arbeitet in ' + n.name); kugelLage('arbeitet in ' + n.name, 'denkt'); return; }
+  if (n.typ === 'arbeitet') { lage('denkt', 'arbeitet'); kugelLage('denkt nach', 'denkt'); return; }
   if (n.typ === 'werkzeug') { blase('tut', n.text); return; }
   if (n.typ === 'happen') {
     LIVE.roh += n.text;
@@ -589,6 +818,8 @@ function liveNachricht(n) {
       blase('tut', n.grund === 'gestoppt' ? 'gestoppt' : 'du hast unterbrochen');
     }
     lage('hoert', 'hört zu');
+    kugelLage('hört zu', 'hoert');
+    untertitel('');
     return;
   }
   if (n.typ === 'fertig') {
@@ -599,7 +830,7 @@ function liveNachricht(n) {
     if (n.kosten) meta.push(n.kosten.toFixed(2).replace('.', ',') + ' $');
     if (n.hinweis) meta.push(n.hinweis);
     blase('blase er', n.text || 'Fertig.', meta.join('  ·  '));
-    if (!LIVE.laeuftTon) lage('hoert', 'hört zu');
+    if (!LIVE.laeuftTon) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); }
     return;
   }
   if (n.typ === 'neu') { $('strang').innerHTML = ''; LIVE.mithoerZeile = null; return; }
@@ -635,6 +866,7 @@ async function liveAn() {
     if (KONFIG.hoeren === 'deepgram') {
       try {
         await mikrofonHolen();
+        kugelMikrofon(strom);          // die Kugel atmet mit deiner Stimme
       } catch (e) {
         blase('blase fehler', 'Ich komme nicht ans Mikrofon. Erlaubst du den Zugriff im Browser?');
         return liveAus();
@@ -654,6 +886,9 @@ async function liveAn() {
   LIVE.an = true;
   document.body.classList.add('livemodus');
   $('liveKnopf').classList.add('an', 'live');
+  $('verlaufKnopf').style.display = '';
+  kugelStart();
+  kugelLage('verbindet …', 'ruhe');
   lage('hoert', 'hört zu');
 }
 
@@ -683,8 +918,12 @@ function liveBrowserOhren() {
 
 function liveAus(grund) {
   LIVE.an = false;
-  document.body.classList.remove('livemodus');
+  document.body.classList.remove('livemodus', 'verlaufAn');
   $('liveKnopf').classList.remove('an', 'live');
+  $('verlaufKnopf').style.display = 'none';
+  KUGEL.laeuft = false;
+  KUGEL.tonAnalyse = null;
+  untertitel('');
   ruhe();
   liveZeileWeg();
   try { if (LIVE.rec && LIVE.rec.state === 'recording') LIVE.rec.stop(); } catch (e) {}
@@ -697,6 +936,12 @@ function liveAus(grund) {
 
 // ------------------------------------------------------------- Bedienung --
 $('liveKnopf').onclick = function () { LIVE.an ? liveAus('Live aus.') : liveAn(); };
+
+$('verlaufKnopf').onclick = function () {
+  var an = document.body.classList.toggle('verlaufAn');
+  this.classList.toggle('an', an);
+  if (an) $('verlauf').scrollTop = $('verlauf').scrollHeight;
+};
 
 $('mikro').onclick = function () { hoertZu ? stoppeHoeren() : starteHoeren(); };
 
