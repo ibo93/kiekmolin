@@ -72,7 +72,8 @@ const OUT_FILE = path.join(__dirname, 'prospects.json');
 const OVERPASS_SERVER = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter'
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter'
 ];
 
 // Welcher Server hat zuletzt geantwortet? Ohne dieses Gedaechtnis liefe der
