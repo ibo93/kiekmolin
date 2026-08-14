@@ -10,16 +10,23 @@ deine Dateien, git, node, ffmpeg.
 
 ```
   Mikrofon  ─►  Text  ─►  Claude Code im richtigen Ordner  ─►  Antwort  ─►  Stimme
-              (Deepgram      (deine Skills, deine Dateien)      (kurz)     (ElevenLabs
+              (Deepgram      (deine Skills, deine Dateien)   (satzweise)  (ElevenLabs
              oder Browser)                                                oder Browser)
+                  ▲                                                           │
+                  └──────────── du redest dazwischen: er ist sofort still ◄───┘
 ```
+
+Im **Live-Modus** läuft das durchgehend, wie ein Telefonat: er hört mit
+während du sprichst, fängt an zu antworten sobald der erste Satz steht, und
+hält die Klappe, wenn du dazwischenredest.
 
 ---
 
 ## 1. Was du brauchst
 
-**Hardware:** nichts Neues. Rechner mit Mikrofon (eingebaut reicht),
-Kopfhörer sind angenehm, sonst hört er sich beim Freihand-Modus selbst zu.
+**Hardware:** nichts Neues. Rechner mit Mikrofon (eingebaut reicht).
+**Kopfhörer** lohnen sich im Live-Modus — sonst hört das Mikrofon seine
+eigene Stimme mit.
 
 **Software — hast du alles schon:**
 
@@ -46,11 +53,13 @@ nichts doppelt eintragen und kein neues Konto anlegen.
 
 ```bash
 cd sprachassistent
+npm install               # einmalig, holt nur "ws" (für den Live-Modus)
 node server.js --demo     # erst mal gucken: nichts wird wirklich getan
 ```
 
-Browser öffnen: **http://localhost:3400** → Mikrofon anklicken (oder
-Leertaste gedrückt halten) und sprechen.
+Browser öffnen: **http://localhost:3400** → **Live** drücken und einfach
+reden. Oder Mikrofon anklicken / Leertaste halten, wenn du lieber pro Satz
+entscheidest.
 
 Wenn es sich gut anfühlt, im Echtbetrieb:
 
@@ -88,9 +97,28 @@ Drei Worte wirken **sofort**, ohne dass die KI überhaupt loslegt:
 **Tastatur:** Leertaste halten = sprechen. Enter im Textfeld = tippen.
 Escape = Klappe halten und abbrechen.
 
-**Freihand** (Knopf oben rechts): er hört dauerhaft zu, merkt selbst, wann
-dein Satz zu Ende ist, und lauscht nach seiner Antwort wieder. Gedacht für
-Hände-voll-Situationen — beim Fahren, beim Aufkleben, in der Werkstatt.
+### Live-Modus — reden wie mit einem Menschen
+
+Knopf **Live** oben rechts. Dann läuft das Mikrofon durch:
+
+- Du redest, er hört mit — noch während du sprichst steht der Text da.
+- Er antwortet **satzweise**: der erste Satz wird gesprochen, während er den
+  Rest noch schreibt. Kein Warten auf den ganzen Block.
+- **Dazwischenreden unterbricht.** Sobald du zwei Wörter sagst, ist er still,
+  wirft den laufenden Auftrag weg und hört dir zu. Ein „ähm" reicht nicht —
+  sonst würde er sich am eigenen Echo verschlucken.
+- „Stopp" wirkt sofort, ohne dass die KI überhaupt gefragt wird.
+
+Für Live gilt: **Kopfhörer sind besser als Lautsprecher.** Ohne Kopfhörer
+hört das Mikrofon seine eigene Stimme mit; die Echo-Unterdrückung des
+Browsers fängt das meist ab, aber nicht immer.
+
+Ohne Deepgram-Schlüssel funktioniert Live auch — dann hört Chrome selbst
+durchgehend zu. Etwas ungenauer, kostet nichts.
+
+**Freihand** (der Knopf daneben) ist die kleine Variante: er hört zu, wartet
+auf das Satzende, antwortet, lauscht wieder — aber ohne Unterbrechen.
+Gedacht für Hände-voll-Situationen, wenn Live zu gesprächig ist.
 
 ---
 
@@ -117,6 +145,22 @@ Stufe „Nur reden" nehmen oder es selbst tippen.
 Der Server hört **nur auf 127.0.0.1** und weist Anfragen mit fremdem
 Host-Namen ab. Er darf Dateien ändern — er gehört nie ins offene Netz.
 
+### Zugriff auf alles
+
+Standardmäßig sieht der Assistent nur den Arbeitsordner. Wenn er überall
+rankommen soll — Downloads, Desktop, Kundenordner, alles —, in die `.env`:
+
+```
+SPRACH_ALLES=ja                                  # das ganze Benutzerverzeichnis
+SPRACH_ZUSATZ_ORDNER=~/Kurani,~/Downloads        # oder gezielt nur diese
+```
+
+Damit kann er Dateien überall lesen und schreiben. Zusammen mit „Freie Hand"
+hat er dann faktisch deine Rechte — das ist genau die Ansage „Zugriff auf
+alles", aber sag nicht, ich hätte es nicht dazugeschrieben: eine verhörte
+Anweisung trifft dann auch Ordner, an die du gerade nicht denkst. Mein Rat:
+`SPRACH_ALLES=ja` ja, „Freie Hand" nur wenn du dabeisitzt.
+
 ---
 
 ## 5. Wo er arbeitet (`ordner.json`)
@@ -140,7 +184,48 @@ vermischt nichts.
 
 ---
 
-## 6. Was es kostet
+## 6. Instagram
+
+Ist ein `INSTAGRAM_TOKEN` eingetragen, kann der Assistent dein Konto lesen
+und bedienen — per Sprache:
+
+- „Wie lief das letzte Reel?" → Aufrufe, Likes, Speicherungen, vorgelesen
+- „Was schreiben die Leute drunter?" → Kommentare
+- „Antworte dem: danke dir, kommt bald mehr" → Antwort unter den Kommentar
+- „Poste das Reel mit dem Text …" → veröffentlicht (liest den Text vorher vor)
+
+Von Hand geht dasselbe:
+
+```bash
+node instagram.js konto            # Follower, Anzahl Beiträge
+node instagram.js zahlen           # letztes Reel im Detail
+node instagram.js kommentare       # Kommentare drunter
+node instagram.js antworte <id> "danke dir!"
+node instagram.js poste https://…/reel.mp4 "Neue Karte für La Piazza"
+```
+
+**Einrichten (einmalig, ~15 Minuten):**
+
+1. Instagram-Konto auf **Profi-Konto** umstellen (Business oder Creator) —
+   in der Instagram-App unter Einstellungen → Kontotyp.
+2. Auf **developers.facebook.com** eine App anlegen (Typ „Business").
+3. Produkt **Instagram** hinzufügen → *Instagram-API mit Instagram-Login*.
+4. Dein Konto verbinden und einen **langlebigen Zugriffs-Token** erzeugen
+   (gilt 60 Tage, danach verlängern).
+5. Den Token in `sprachassistent/.env` eintragen: `INSTAGRAM_TOKEN=…`
+
+**Grenzen, ehrlich gesagt:**
+
+- Es geht über die **offizielle Schnittstelle**. Kein Roboter, der sich als
+  du einloggt — das wäre gegen Instagrams Regeln und kostet im Zweifel den
+  Account.
+- **Stories und DMs** gibt die Schnittstelle nicht her (DMs nur eingeschränkt
+  über eine separate Freigabe). Feed-Posts, Reels, Kommentare und Zahlen: ja.
+- Beim Posten **holt sich Instagram das Video** — es muss also unter einer
+  öffentlichen Adresse liegen (Netlify oder Supabase-Storage reichen).
+- Läuft der Token ab, sagt der Assistent genau das, statt zu raten.
+
+## 7. Was es kostet
 
 Jeder Auftrag ist ein Claude-Code-Lauf. Kurze Fragen kosten wenige Cent,
 größere Aufgaben mehr. Nach jeder Antwort steht der Betrag klein unter der
@@ -157,7 +242,7 @@ Fenster.
 
 ---
 
-## 7. Mitschrift
+## 8. Mitschrift
 
 Jeder Auftrag landet als eine Zeile in `protokoll/JJJJ-MM-TT.jsonl`:
 Frage, Antwort, Ordner, Stufe, Kosten, Dauer. Damit du abends nachlesen
@@ -166,7 +251,7 @@ gitignored.
 
 ---
 
-## 8. Wenn was klemmt
+## 9. Wenn was klemmt
 
 | Symptom | Ursache / Abhilfe |
 |---|---|
@@ -186,7 +271,7 @@ node test.js
 
 ---
 
-## 9. Datenschutz
+## 10. Datenschutz
 
 Mit Schlüsseln gehen deine Aufnahmen an Deepgram und der Antworttext an
 ElevenLabs — dieselben Dienste, die schon am Telefon-Retter hängen. Ohne

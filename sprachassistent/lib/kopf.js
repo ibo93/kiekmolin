@@ -41,6 +41,14 @@ function verarbeiteZeile(zeile, zustand) {
     return ereignisse;
   }
 
+  // Live-Betrieb: einzelne Wortschnipsel, sobald sie entstehen. Damit kann
+  // der erste Satz schon gesprochen werden, waehrend der Rest noch kommt.
+  if (d.type === 'stream_event' && d.event && d.event.type === 'content_block_delta') {
+    const delta = d.event.delta || {};
+    if (delta.type === 'text_delta' && delta.text) ereignisse.push({ art: 'happen', text: delta.text });
+    return ereignisse;
+  }
+
   if (d.type === 'assistant' && d.message && Array.isArray(d.message.content)) {
     for (const block of d.message.content) {
       if (block.type === 'text' && block.text) {
@@ -95,6 +103,10 @@ function starteAuftrag(optionen) {
   const befehl = process.env.SPRACH_CLAUDE_BEFEHL || 'claude';
 
   const args = ['-p', o.prompt, '--output-format', 'stream-json', '--verbose'];
+  if (o.live) args.push('--include-partial-messages');
+  // Zugriff auf weitere Ordner (z.B. das ganze Home-Verzeichnis), damit der
+  // Assistent auch Dateien ausserhalb des Arbeitsordners findet.
+  for (const extra of (o.zusatzOrdner || [])) args.push('--add-dir', extra);
   if (o.system) args.push('--append-system-prompt', o.system);
   if (o.modell) args.push('--model', o.modell);
   if (o.sitzung) args.push('--resume', o.sitzung);

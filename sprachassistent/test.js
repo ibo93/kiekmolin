@@ -17,6 +17,8 @@ const { sprechbar, entferneMarkdown, werkzeugKlartext } = require('./lib/sprecht
 const befehle = require('./lib/befehle');
 const kopf = require('./lib/kopf');
 const ohr = require('./lib/ohr');
+const live = require('./lib/live');
+const instagram = require('./lib/instagram');
 
 let tests = 0;
 function test(name, fn) { tests++; fn(); console.log('  ok  ' + name); }
@@ -205,6 +207,111 @@ test('Fehlerzeilen werden auf eine lesbare Zeile eingedampft', () => {
   assert.ok(kopf.kurzerFehler('x'.repeat(500)).length <= 200);
 });
 
+// ----------------------------------------------------------- Live-Modus ---
+
+test('SatzSammler: spricht den ersten Satz, sobald er fertig ist', () => {
+  const s = new live.SatzSammler(4);
+  assert.deepStrictEqual(s.fuettere('Die Rechnung ist '), [], 'halber Satz wird nicht gesprochen');
+  assert.deepStrictEqual(s.fuettere('fertig und liegt im Ordner. '), ['Die Rechnung ist fertig und liegt im Ordner.']);
+  assert.deepStrictEqual(s.fuettere('Ich habe sie auf 350 Euro gesetzt.'), [], 'Satzende ohne Leerzeichen: wartet');
+  assert.strictEqual(s.rest(), 'Ich habe sie auf 350 Euro gesetzt.');
+});
+
+test('SatzSammler: Dateinamen und Code werden nicht vorgelesen', () => {
+  const s = new live.SatzSammler(4);
+  assert.deepStrictEqual(s.fuettere('Die README.md hat 48 Zeilen. '), ['Die README.md hat 48 Zeilen.'],
+    'der Punkt in README.md trennt nicht');
+
+  const c = new live.SatzSammler(4);
+  assert.deepStrictEqual(c.fuettere('So geht es: ```bash\nnode start.js. '), [], 'im Code bleibt es still');
+  const raus = c.fuettere('```\nFertig. ');
+  assert.ok(raus.join(' ').indexOf('node start.js') === -1, 'kein Code in der Stimme: ' + raus.join(' '));
+});
+
+test('SatzSammler: nach dem Deckel wird nichts mehr gesprochen', () => {
+  const s = new live.SatzSammler(2);
+  assert.strictEqual(s.fuettere('Erstens dies hier. Zweitens das da. Drittens noch mehr. ').length, 2);
+  assert.strictEqual(s.rest(), '', 'der Rest steht nur im Fenster');
+});
+
+test('Unterbrechung: ein Huster reicht nicht, ein Satz schon', () => {
+  assert.strictEqual(live.istUnterbrechung('äh'), false);
+  assert.strictEqual(live.istUnterbrechung('ja'), false);
+  assert.strictEqual(live.istUnterbrechung('nein warte'), true);
+  assert.strictEqual(live.istUnterbrechung('stopp mal kurz'), true);
+});
+
+async function liveSitzungTest() {
+  // Ein komplettes Live-Gespraech ohne Netz: Claude und Stimme sind
+  // Attrappen, geprueft wird der Ablauf.
+  const gesendet = [];
+  let aktuellerLauf = null;
+  const sitzung = new live.LiveSitzung({
+    maxSaetze: 4,
+    senden: (n) => gesendet.push(n),
+    spreche: async (satz) => Buffer.from('MP3:' + satz),
+    starteAuftrag: (o) => {
+      aktuellerLauf = { prompt: o.prompt, abgebrochen: false, onEreignis: o.onEreignis };
+      return { abbrechen() { aktuellerLauf.abgebrochen = true; } };
+    }
+  });
+
+  await testAsync('Live: Satz -> Auftrag -> satzweise Stimme', async () => {
+    sitzung.gehoert('Wie viele Reservierungen habe ich heute?');
+    assert.ok(aktuellerLauf, 'Auftrag gestartet');
+    assert.strictEqual(aktuellerLauf.prompt, 'Wie viele Reservierungen habe ich heute?');
+
+    aktuellerLauf.onEreignis({ art: 'happen', text: 'Heute sind es zwölf Reservierungen. ' });
+    aktuellerLauf.onEreignis({ art: 'fertig', text: 'Heute sind es zwölf Reservierungen.', kosten: 0.04 });
+    await new Promise((r) => setTimeout(r, 20));   // Sprech-Kette abwarten
+
+    const typen = gesendet.map((n) => n.typ);
+    assert.ok(typen.indexOf('du') > -1, 'das Gesagte erscheint im Fenster');
+    assert.ok(typen.indexOf('stimme') > -1, 'es wird gesprochen');
+    assert.ok(typen.indexOf('fertig') > -1, 'Abschluss gemeldet');
+    const stimmeN = gesendet.find((n) => n.typ === 'stimme');
+    assert.strictEqual(stimmeN.text, 'Heute sind es zwölf Reservierungen.');
+    assert.ok(stimmeN.mp3, 'Audio liegt bei');
+  });
+
+  await testAsync('Live: Dazwischenreden bricht ab und macht sofort still', async () => {
+    gesendet.length = 0;
+    sitzung.gehoert('Schreib eine lange Zusammenfassung.');
+    const lauf = aktuellerLauf;
+    lauf.onEreignis({ art: 'happen', text: 'Also, zunächst einmal ist wichtig. ' });
+
+    sitzung.zwischenstand('nein warte doch');           // Ibo redet dazwischen
+    assert.strictEqual(lauf.abgebrochen, true, 'der laufende Auftrag wird abgebrochen');
+    assert.ok(gesendet.some((n) => n.typ === 'ruhe'), 'das Fenster soll sofort still sein');
+
+    // Was danach noch aus dem alten Zug eintrudelt, darf nicht mehr sprechen.
+    gesendet.length = 0;
+    lauf.onEreignis({ art: 'happen', text: 'Zweitens noch etwas Wichtiges. ' });
+    lauf.onEreignis({ art: 'fertig', text: 'Alte Antwort.', kosten: 0.01 });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.strictEqual(gesendet.filter((n) => n.typ === 'stimme').length, 0, 'kein Nachreden aus dem alten Zug');
+    assert.strictEqual(gesendet.filter((n) => n.typ === 'fertig').length, 0, 'kein Abschluss aus dem alten Zug');
+  });
+
+  await testAsync('Live: ein Huster unterbricht nicht', async () => {
+    gesendet.length = 0;
+    sitzung.gehoert('Erzähl mir was über Greetsiel.');
+    const lauf = aktuellerLauf;
+    sitzung.zwischenstand('äh');
+    assert.strictEqual(lauf.abgebrochen, false, 'ein Laut allein bricht nichts ab');
+    sitzung.unterbrich('aufraeumen');
+  });
+
+  await testAsync('Live: "Stopp" wirkt sofort, ohne die KI zu fragen', async () => {
+    gesendet.length = 0;
+    sitzung.gehoert('Schreib die Rechnung.');
+    const lauf = aktuellerLauf;
+    sitzung.gehoert('Stopp');
+    assert.strictEqual(lauf.abgebrochen, true);
+    assert.strictEqual(aktuellerLauf, lauf, 'fuer "Stopp" wird kein neuer Auftrag gestartet');
+  });
+}
+
 // ------------------------------------------------------------------ Ohr ---
 
 test('Deepgram-Antwort auswerten, auch wenn Felder fehlen', () => {
@@ -212,6 +319,49 @@ test('Deepgram-Antwort auswerten, auch wenn Felder fehlen', () => {
   assert.strictEqual(ohr.textAus({}), '');
   assert.strictEqual(ohr.textAus(null), '');
 });
+
+// ----------------------------------------------------------- Instagram ---
+
+test('Instagram: Zahlen werden vorlesbar, nicht als Tabelle', () => {
+  assert.strictEqual(
+    instagram.satzZuKonto({ username: 'kurani.design', followers_count: 2480, media_count: 96 }),
+    'Dein Konto @kurani.design hat 2,5 Tausend Follower und 96 Beitraege.'
+  );
+
+  const beitrag = instagram.aufbereitenBeitrag({
+    id: '1', media_product_type: 'REELS', caption: 'Neue Speisekarte für La Piazza',
+    timestamp: '2026-08-12T18:00:00+0000', like_count: 214, comments_count: 17, permalink: 'https://instagram.com/p/x'
+  });
+  assert.strictEqual(beitrag.art, 'Reel');
+  assert.strictEqual(beitrag.datum, '2026-08-12');
+
+  const satz = instagram.satzZuBeitrag(beitrag, { views: 12400, saved: 63 });
+  assert.ok(satz.indexOf('12.08.2026') > -1, 'deutsches Datum: ' + satz);
+  assert.ok(satz.indexOf('12,4 Tausend Aufrufe') > -1, 'Aufrufe in Worten: ' + satz);
+  assert.ok(satz.indexOf('214 Likes') > -1);
+});
+
+test('Instagram: Fehler kommen als klarer Satz, nicht als JSON', () => {
+  assert.ok(/Schluessel gilt nicht mehr/.test(instagram.fehlerSatz(400, { error: { message: 'Session has expired' } })));
+  assert.ok(/Berechtigung/.test(instagram.fehlerSatz(403, { error: { message: 'Missing permission scope' } })));
+  assert.ok(/Instagram sagt/.test(instagram.fehlerSatz(500, null)));
+});
+
+async function instagramTest() {
+  await testAsync('Instagram: ohne Schluessel sagt es, was fehlt', async () => {
+    const merker = process.env.INSTAGRAM_TOKEN;
+    delete process.env.INSTAGRAM_TOKEN;
+    await assert.rejects(() => instagram.konto(), /INSTAGRAM_TOKEN fehlt/);
+    if (merker) process.env.INSTAGRAM_TOKEN = merker;
+  });
+
+  await testAsync('Instagram: ein Reel ohne oeffentliche Adresse wird nicht gepostet', async () => {
+    await assert.rejects(
+      () => instagram.posteReel({ videoUrl: '/home/ibo/reel.mp4', text: 'Moin' }),
+      /oeffentliche Adresse/
+    );
+  });
+}
 
 // ------------------------------------------------- Server im Demo-Modus ---
 
@@ -281,7 +431,7 @@ async function serverTest() {
   }
 }
 
-serverTest().then(() => {
+liveSitzungTest().then(instagramTest).then(serverTest).then(() => {
   console.log('\n  ' + tests + ' Tests bestanden.\n');
 }).catch((e) => {
   console.error('\n  FEHLGESCHLAGEN: ' + e.message + '\n');

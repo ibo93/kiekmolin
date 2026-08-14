@@ -128,6 +128,19 @@
   }
   .mikro svg { width: 26px; height: 26px; }
   .hinweis { max-width: 760px; margin: 10px auto 0; font-size: 12px; color: var(--text-leise); text-align: center; }
+
+  /* Live-Modus: was gerade gehört wird, steht blass am Ende des Verlaufs
+     und wird zur richtigen Blase, sobald der Satz zu Ende ist. */
+  .mithoeren {
+    align-self: flex-end; max-width: 82%; padding: 12px 16px; border-radius: var(--radius);
+    font-size: 15px; line-height: 1.55; color: var(--text-leise);
+    border: 1px dashed var(--rand); background: transparent;
+  }
+  .mithoeren:empty { display: none; }
+  .knopf.live {
+    background: rgba(52,199,89,0.2); border-color: rgba(52,199,89,0.6);
+  }
+  body.livemodus .mikro { opacity: 0.45; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -142,6 +155,7 @@
     <option value="arbeiten" selected>Arbeiten</option>
     <option value="frei">Freie Hand</option>
   </select>
+  <button class="knopf" id="liveKnopf" title="Durchgehendes Gespräch: zuhören, antworten, unterbrechen">Live</button>
   <button class="knopf" id="freihandKnopf" title="Dauerhaft zuhören und antworten">Freihand</button>
   <button class="knopf" id="stummKnopf" title="Antworten nicht vorlesen">Stumm</button>
   <button class="knopf" id="neuKnopf" title="Gedächtnis leeren">Neu</button>
@@ -151,8 +165,9 @@
   <div class="strang" id="strang">
     <div class="leer" id="leerHinweis">
       <b>Sag, was zu tun ist.</b>
-      Mikrofon anklicken oder <kbd>Leertaste</kbd> gedrückt halten.<br>
-      „Schreib eine Rechnung für La Piazza über 350 Euro“ · „Was steht diese Woche an?“ · „In der App geht das Dashboard nicht“
+      <kbd>Live</kbd> drücken und einfach reden — dazwischenreden unterbricht ihn.<br>
+      Oder Mikrofon anklicken / <kbd>Leertaste</kbd> halten, wenn du pro Satz entscheiden willst.<br>
+      „Schreib eine Rechnung für La Piazza über 350 Euro“ · „Was steht diese Woche an?“ · „Wie lief das letzte Reel?“
     </div>
   </div>
 </main>
@@ -490,25 +505,229 @@ function browserHoeren() {
   lage('hoert', 'hört zu');
 }
 
+// ------------------------------------------------------------ Live-Modus --
+// Durchgehendes Gespräch: das Mikrofon läuft, der Server hört über eine
+// Dauerleitung mit, antwortet Satz für Satz — und hält sofort die Klappe,
+// wenn du dazwischenredest.
+var LIVE = {
+  an: false, ws: null, rec: null, erkennung: null,
+  schlange: [], laeuftTon: null, mithoerZeile: null, blase: null, roh: ''
+};
+
+function liveZeile(text) {
+  if (!LIVE.mithoerZeile) {
+    var hinweis = $('leerHinweis');
+    if (hinweis) hinweis.remove();
+    LIVE.mithoerZeile = document.createElement('div');
+    LIVE.mithoerZeile.className = 'mithoeren';
+    $('strang').appendChild(LIVE.mithoerZeile);
+  }
+  LIVE.mithoerZeile.textContent = text || '';
+  $('verlauf').scrollTop = $('verlauf').scrollHeight;
+}
+
+function liveZeileWeg() {
+  if (LIVE.mithoerZeile) { LIVE.mithoerZeile.remove(); LIVE.mithoerZeile = null; }
+}
+
+function tonAusBase64(b64) {
+  var bin = atob(b64);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: 'audio/mpeg' });
+}
+
+function tonEinreihen(eintrag) {
+  LIVE.schlange.push(eintrag);
+  if (!LIVE.laeuftTon) naechsterTon();
+}
+
+async function naechsterTon() {
+  var e = LIVE.schlange.shift();
+  if (!e) { LIVE.laeuftTon = null; if (LIVE.an) lage('hoert', 'hört zu'); return; }
+  LIVE.laeuftTon = e;
+  lage('spricht', 'spricht');
+
+  if (e.mp3) {
+    var audio = new Audio(URL.createObjectURL(tonAusBase64(e.mp3)));
+    e.audio = audio;
+    audio.onended = naechsterTon;
+    audio.onerror = naechsterTon;
+    audio.play().catch(naechsterTon);
+  } else {
+    await browserSprich(e.text);
+    naechsterTon();
+  }
+}
+
+// Sofort still sein — beim Unterbrechen zählt jede Zehntelsekunde.
+function ruhe() {
+  LIVE.schlange = [];
+  if (LIVE.laeuftTon && LIVE.laeuftTon.audio) { try { LIVE.laeuftTon.audio.pause(); } catch (e) {} }
+  LIVE.laeuftTon = null;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+function liveNachricht(n) {
+  if (n.typ === 'bereit') { lage('hoert', n.hoeren === 'deepgram' ? 'hört zu' : 'hört zu (Browser)'); return; }
+  if (n.typ === 'zwischen') { liveZeile(n.text); return; }
+  if (n.typ === 'du') { liveZeileWeg(); blase('blase ich', n.text); LIVE.blase = null; LIVE.roh = ''; return; }
+  if (n.typ === 'ordner') { lage('denkt', 'arbeitet in ' + n.name); return; }
+  if (n.typ === 'arbeitet') { lage('denkt', 'arbeitet'); return; }
+  if (n.typ === 'werkzeug') { blase('tut', n.text); return; }
+  if (n.typ === 'happen') {
+    LIVE.roh += n.text;
+    if (!LIVE.blase) LIVE.blase = blase('blase er', LIVE.roh);
+    else { LIVE.blase.textContent = LIVE.roh; $('verlauf').scrollTop = $('verlauf').scrollHeight; }
+    return;
+  }
+  if (n.typ === 'stimme') { tonEinreihen({ text: n.text, mp3: n.mp3 }); return; }
+  if (n.typ === 'ruhe') {
+    ruhe();
+    if (n.grund === 'unterbrochen' || n.grund === 'gestoppt') {
+      if (LIVE.blase) { LIVE.blase.remove(); LIVE.blase = null; LIVE.roh = ''; }
+      blase('tut', n.grund === 'gestoppt' ? 'gestoppt' : 'du hast unterbrochen');
+    }
+    lage('hoert', 'hört zu');
+    return;
+  }
+  if (n.typ === 'fertig') {
+    if (LIVE.blase) { LIVE.blase.remove(); LIVE.blase = null; }
+    LIVE.roh = '';
+    var meta = [];
+    if (typeof n.sekunden === 'number') meta.push(n.sekunden + ' s');
+    if (n.kosten) meta.push(n.kosten.toFixed(2).replace('.', ',') + ' $');
+    if (n.hinweis) meta.push(n.hinweis);
+    blase('blase er', n.text || 'Fertig.', meta.join('  ·  '));
+    if (!LIVE.laeuftTon) lage('hoert', 'hört zu');
+    return;
+  }
+  if (n.typ === 'neu') { $('strang').innerHTML = ''; LIVE.mithoerZeile = null; return; }
+  if (n.typ === 'fehler' || n.typ === 'abgebrochen') {
+    if (LIVE.blase) { LIVE.blase.remove(); LIVE.blase = null; LIVE.roh = ''; }
+    blase('blase fehler', n.text);
+    lage('hoert', 'hört zu');
+  }
+}
+
+function liveSchicke(n) {
+  if (LIVE.ws && LIVE.ws.readyState === 1) LIVE.ws.send(JSON.stringify(n));
+}
+
+async function liveAn() {
+  if (!KONFIG.live) {
+    blase('blase fehler', 'Der Live-Modus fehlt noch: einmal "npm install" im Ordner sprachassistent, dann den Server neu starten.');
+    return;
+  }
+  stoppSprechen();
+  if (hoertZu) stoppeHoeren();
+
+  LIVE.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live');
+  LIVE.ws.onmessage = function (e) {
+    try { liveNachricht(JSON.parse(e.data)); } catch (fehler) { /* kaputte Zeile */ }
+  };
+  LIVE.ws.onclose = function () { if (LIVE.an) liveAus('Die Leitung ist zu.'); };
+  LIVE.ws.onerror = function () { /* onclose räumt auf */ };
+
+  LIVE.ws.onopen = async function () {
+    liveSchicke({ typ: 'einstellung', ordner: $('ordnerWahl').value || null, stufe: $('stufeWahl').value });
+
+    if (KONFIG.hoeren === 'deepgram') {
+      try {
+        await mikrofonHolen();
+      } catch (e) {
+        blase('blase fehler', 'Ich komme nicht ans Mikrofon. Erlaubst du den Zugriff im Browser?');
+        return liveAus();
+      }
+      var typ = aufnahmeTyp();
+      LIVE.rec = new MediaRecorder(strom, typ ? { mimeType: typ } : undefined);
+      LIVE.rec.ondataavailable = function (e) {
+        if (e.data && e.data.size && LIVE.ws && LIVE.ws.readyState === 1) LIVE.ws.send(e.data);
+      };
+      LIVE.rec.start(200);           // alle 0,2 s ein Schnipsel auf die Leitung
+    } else {
+      liveBrowserOhren();
+    }
+    blase('tut', 'Live an — sprich einfach los. Dazwischenreden unterbricht.');
+  };
+
+  LIVE.an = true;
+  document.body.classList.add('livemodus');
+  $('liveKnopf').classList.add('an', 'live');
+  lage('hoert', 'hört zu');
+}
+
+// Ohne Deepgram: die Spracherkennung des Browsers dauerhaft laufen lassen.
+function liveBrowserOhren() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    blase('blase fehler', 'Dieser Browser kann nicht dauerhaft zuhören. Nimm Chrome — oder trag einen Deepgram-Schlüssel ein.');
+    return;
+  }
+  LIVE.erkennung = new SR();
+  LIVE.erkennung.lang = 'de-DE';
+  LIVE.erkennung.continuous = true;
+  LIVE.erkennung.interimResults = true;
+  LIVE.erkennung.onresult = function (e) {
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var text = e.results[i][0].transcript.trim();
+      if (!text) continue;
+      if (e.results[i].isFinal) liveSchicke({ typ: 'text', text: text });
+      else liveSchicke({ typ: 'zwischen', text: text });
+    }
+  };
+  LIVE.erkennung.onend = function () { if (LIVE.an) { try { LIVE.erkennung.start(); } catch (e) {} } };
+  LIVE.erkennung.onerror = function () { /* onend startet neu */ };
+  try { LIVE.erkennung.start(); } catch (e) { /* läuft schon */ }
+}
+
+function liveAus(grund) {
+  LIVE.an = false;
+  document.body.classList.remove('livemodus');
+  $('liveKnopf').classList.remove('an', 'live');
+  ruhe();
+  liveZeileWeg();
+  try { if (LIVE.rec && LIVE.rec.state === 'recording') LIVE.rec.stop(); } catch (e) {}
+  LIVE.rec = null;
+  if (LIVE.erkennung) { try { LIVE.erkennung.stop(); } catch (e) {} LIVE.erkennung = null; }
+  if (LIVE.ws) { try { LIVE.ws.close(); } catch (e) {} LIVE.ws = null; }
+  lage('', 'bereit');
+  if (grund) blase('tut', grund);
+}
+
 // ------------------------------------------------------------- Bedienung --
+$('liveKnopf').onclick = function () { LIVE.an ? liveAus('Live aus.') : liveAn(); };
+
 $('mikro').onclick = function () { hoertZu ? stoppeHoeren() : starteHoeren(); };
 
 $('eingabe').addEventListener('keydown', function (e) {
   if (e.key === 'Enter' && this.value.trim()) {
     var text = this.value.trim();
     this.value = '';
-    schicke(text);
+    if (LIVE.an) liveSchicke({ typ: 'text', text: text });
+    else schicke(text);
   }
+});
+
+// Ordner oder Rechte umgestellt: der Live-Leitung Bescheid geben.
+['ordnerWahl', 'stufeWahl'].forEach(function (id) {
+  $(id).addEventListener('change', function () {
+    liveSchicke({ typ: 'einstellung', ordner: $('ordnerWahl').value || null, stufe: $('stufeWahl').value });
+  });
 });
 
 // Leertaste halten = sprechen (nur wenn nicht im Textfeld getippt wird).
 document.addEventListener('keydown', function (e) {
-  if (e.code === 'Space' && document.activeElement !== $('eingabe') && !e.repeat) {
+  if (e.code === 'Space' && document.activeElement !== $('eingabe') && !e.repeat && !LIVE.an) {
     e.preventDefault();
     tasteUnten = true;
     starteHoeren('taste');
   }
-  if (e.key === 'Escape') { stoppSprechen(); if (laeuft) $('stoppKnopf').click(); }
+  if (e.key === 'Escape') {
+    stoppSprechen();
+    if (LIVE.an) { ruhe(); liveSchicke({ typ: 'stopp' }); }
+    else if (laeuft) $('stoppKnopf').click();
+  }
 });
 document.addEventListener('keyup', function (e) {
   if (e.code === 'Space' && document.activeElement !== $('eingabe')) {
@@ -519,6 +738,7 @@ document.addEventListener('keyup', function (e) {
 });
 
 $('freihandKnopf').onclick = function () {
+  if (LIVE.an) return blase('tut', 'Im Live-Modus hört er sowieso durchgehend zu.');
   freihand = !freihand;
   this.classList.toggle('an', freihand);
   if (freihand) starteHoeren(); else stoppeHoeren();
@@ -527,10 +747,11 @@ $('freihandKnopf').onclick = function () {
 $('stummKnopf').onclick = function () {
   stumm = !stumm;
   this.classList.toggle('an', stumm);
-  if (stumm) stoppSprechen();
+  if (stumm) { stoppSprechen(); ruhe(); }
 };
 
 $('neuKnopf').onclick = async function () {
+  if (LIVE.an) { liveSchicke({ typ: 'neu' }); return; }
   await fetch('/api/neu', { method: 'POST' });
   $('strang').innerHTML = '';
   blase('tut', 'Neues Gespräch - das Gedächtnis ist leer.');
@@ -538,6 +759,7 @@ $('neuKnopf').onclick = async function () {
 
 $('stoppKnopf').onclick = async function () {
   stoppSprechen();
+  if (LIVE.an) { ruhe(); return liveSchicke({ typ: 'stopp' }); }
   await fetch('/api/stopp', { method: 'POST' });
 };
 
@@ -565,6 +787,8 @@ $('stoppKnopf').onclick = async function () {
   teile.push('Hören: ' + (KONFIG.hoeren === 'deepgram' ? 'Deepgram' : 'Browser'));
   teile.push('Stimme: ' + (KONFIG.stimme === 'elevenlabs' ? 'ElevenLabs' : 'Browser'));
   teile.push('Modell: ' + KONFIG.modell);
+  if (KONFIG.alles) teile.push('Zugriff: ganzer Rechner');
+  if (!KONFIG.live) teile.push('Live aus (npm install fehlt)');
   if (KONFIG.demo) teile.push('DEMO - es wird nichts wirklich getan');
   $('fussHinweis').textContent = teile.join('   ·   ');
 

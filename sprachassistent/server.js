@@ -25,6 +25,7 @@ const kopf = require('./lib/kopf');
 const ohr = require('./lib/ohr');
 const stimme = require('./lib/stimme');
 const protokoll = require('./lib/protokoll');
+const live = require('./lib/live');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -38,8 +39,23 @@ const BUDGET = process.env.SPRACH_BUDGET_USD === '' ? '' : (process.env.SPRACH_B
 const ZEITLIMIT = parseInt(process.env.SPRACH_ZEITLIMIT || '300', 10);
 const FREIE_HAND = /^(ja|yes|1|true)$/i.test(process.env.SPRACH_FREIE_HAND || '');
 const MAX_SAETZE = parseInt(process.env.SPRACH_MAX_SAETZE || '4', 10);
+// Zusaetzliche Ordner, die der Assistent lesen und anfassen darf - egal in
+// welchem Arbeitsordner er gerade steht. SPRACH_ALLES=ja gibt das ganze
+// Benutzerverzeichnis frei ("Zugriff auf alles").
+const ZUSATZ_ORDNER = (process.env.SPRACH_ZUSATZ_ORDNER || '')
+  .split(',').map((p) => p.trim()).filter(Boolean)
+  .map((p) => befehle.pfadAusfuellen(p, REPO));
+if (/^(ja|yes|1|true)$/i.test(process.env.SPRACH_ALLES || '')) ZUSATZ_ORDNER.push(require('os').homedir());
 
 const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
+
+// Fertige Werkzeuge, von denen der Assistent wissen muss - sonst baut er
+// sich beim naechsten "wie lief das Reel?" eine eigene Loesung zusammen.
+const WERKZEUG_HINWEIS = process.env.INSTAGRAM_TOKEN
+  ? ('Fuer Instagram gibt es ein fertiges Werkzeug, nutze es statt eigener Loesungen: node ' +
+     path.join(__dirname, 'instagram.js') + ' konto|beitraege|zahlen|kommentare|antworte|poste. ' +
+     'Vor dem Veroeffentlichen eines Reels IMMER den Text vorlesen und bestaetigen lassen.')
+  : '';
 
 // Gedaechtnis: pro Arbeitsordner eine laufende Claude-Sitzung. So kann Ibo
 // nachfragen ("und jetzt auch fuer Mai") ohne alles zu wiederholen -
@@ -175,10 +191,11 @@ function fuehreAus(res, wunsch) {
     ordner: ordner.pfad,
     stufe: stufe,
     sitzung: sitzungen.get(ordner.name) || null,
-    system: befehle.systemZusatz(),
+    system: befehle.systemZusatz(WERKZEUG_HINWEIS),
     modell: MODELL,
     budget: BUDGET,
     zeitlimit: ZEITLIMIT,
+    zusatzOrdner: ZUSATZ_ORDNER,
     onEreignis: (e) => {
       if (e.art === 'start') {
         sitzungen.set(ordner.name, e.sitzung);
@@ -207,6 +224,129 @@ function fuehreAus(res, wunsch) {
       laufende.delete(auftragsId);
     }
   });
+}
+
+// ---------------------------------------------------------- Live-Modus ----
+
+// Ein offenes Fenster im Live-Modus: Mikrofon laeuft durch, Deepgram
+// schickt laufend Text, Claude antwortet in Schnipseln, gesprochen wird
+// Satz fuer Satz. Alles ueber EINE WebSocket-Leitung.
+function liveVerbindung(ws, req) {
+  if (!vonHier(req)) return ws.close(1008, 'Nur vom eigenen Rechner');
+
+  const senden = (n) => {
+    try { if (ws.readyState === 1) ws.send(JSON.stringify(n)); } catch (_e) { /* Fenster zu */ }
+  };
+  const einstellung = { ordner: null, stufe: 'arbeiten' };
+
+  const sitzung = new live.LiveSitzung({
+    senden: senden,
+    maxSaetze: MAX_SAETZE,
+    spreche: async (satz) => {
+      if (DEMO || !process.env.ELEVENLABS_API_KEY) return null;   // Browser spricht
+      return stimme.spreche(satz);
+    },
+    starteAuftrag: (o) => {
+      const gewaehlt = einstellung.ordner ? ordnerNach(einstellung.ordner) : null;
+      const ordner = gewaehlt || befehle.waehleOrdner(o.prompt, ordnerKonfig);
+      const stufenName = befehle.stufeAufloesen(einstellung.stufe, FREIE_HAND);
+      senden({ typ: 'ordner', name: ordner.name, stufe: stufenName });
+
+      if (!fs.existsSync(ordner.pfad)) {
+        setTimeout(() => o.onEreignis({
+          art: 'fehler',
+          text: 'Den Ordner ' + ordner.name + ' finde ich nicht. Trag den richtigen Pfad in ordner.json ein.'
+        }), 0);
+        return { abbrechen() {} };
+      }
+
+      const beginn = Date.now();
+      const weiter = (e) => {
+        if (e.art === 'start') sitzungen.set(ordner.name, e.sitzung);
+        if (e.art === 'fertig') {
+          protokoll.schreibe({
+            frage: o.prompt, antwort: e.text || '', ordner: ordner.name, stufe: stufenName,
+            kosten: e.kosten || 0, sekunden: Math.round((Date.now() - beginn) / 1000),
+            live: true, demo: DEMO
+          });
+        }
+        o.onEreignis(e);
+      };
+
+      if (DEMO) return demoAuftrag(o.prompt, ordner, weiter);
+
+      return kopf.starteAuftrag({
+        prompt: o.prompt,
+        ordner: ordner.pfad,
+        stufe: befehle.STUFEN[stufenName],
+        sitzung: sitzungen.get(ordner.name) || null,
+        system: befehle.systemZusatz(WERKZEUG_HINWEIS),
+        modell: MODELL,
+        budget: BUDGET,
+        zeitlimit: ZEITLIMIT,
+        zusatzOrdner: ZUSATZ_ORDNER,
+        live: true,
+        onEreignis: weiter
+      });
+    }
+  });
+
+  let ohrLeitung = null;
+  if (!DEMO && process.env.DEEPGRAM_API_KEY) {
+    try {
+      ohrLeitung = new live.LiveOhr({
+        onZwischen: (t) => sitzung.zwischenstand(t),
+        onSatz: (t) => sitzung.gehoert(t),
+        onFehler: (e) => senden({ typ: 'fehler', text: 'Zuhoeren gestoert: ' + e.message })
+      });
+    } catch (e) {
+      senden({ typ: 'fehler', text: e.message });
+    }
+  }
+
+  senden({ typ: 'bereit', hoeren: ohrLeitung ? 'deepgram' : 'browser', demo: DEMO });
+
+  ws.on('message', (daten, istBinaer) => {
+    if (istBinaer) {                       // Mikrofon-Schnipsel
+      if (ohrLeitung) ohrLeitung.sendeAudio(daten);
+      return;
+    }
+    let n;
+    try { n = JSON.parse(daten.toString()); } catch (_e) { return; }
+
+    if (n.typ === 'einstellung') {
+      if ('ordner' in n) einstellung.ordner = n.ordner || null;
+      if (n.stufe) einstellung.stufe = n.stufe;
+      return;
+    }
+    if (n.typ === 'text') return sitzung.gehoert(n.text);
+    if (n.typ === 'zwischen') return sitzung.zwischenstand(n.text);
+    if (n.typ === 'unterbrechung') return sitzung.unterbrich('unterbrochen');
+    if (n.typ === 'stopp') return sitzung.unterbrich('gestoppt');
+    if (n.typ === 'neu') { sitzungen.clear(); return senden({ typ: 'neu' }); }
+  });
+
+  ws.on('close', () => {
+    sitzung.schliessen();
+    if (ohrLeitung) ohrLeitung.schliessen();
+  });
+}
+
+// Vorfuehr-Auftrag fuer den Live-Modus: schickt die Antwort in Schnipseln,
+// damit sich der Ablauf ohne Schluessel und ohne Kosten anfuehlen laesst.
+function demoAuftrag(prompt, ordner, onEreignis) {
+  const antwort = demoAntwort(prompt, ordner);
+  const teile = antwort.split(/(?<=\s)/);       // wortweise, mit Leerzeichen
+  let i = 0;
+  let tot = false;
+  const takt = setInterval(() => {
+    if (tot) return;
+    if (i < teile.length) { onEreignis({ art: 'happen', text: teile[i++] }); return; }
+    clearInterval(takt);
+    onEreignis({ art: 'fertig', text: antwort, kosten: 0 });
+  }, 60);
+  setTimeout(() => { if (!tot) onEreignis({ art: 'werkzeug', text: 'liest Notizen (Demo)' }); }, 80);
+  return { abbrechen() { tot = true; clearInterval(takt); } };
 }
 
 // Vorfuehr-Antworten: zeigen den Ablauf, ohne einen einzigen Schluessel.
@@ -249,6 +389,8 @@ const server = http.createServer(async (req, res) => {
         stimme: (!DEMO && process.env.ELEVENLABS_API_KEY && (process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID)) ? 'elevenlabs' : 'browser',
         modell: MODELL,
         freieHand: FREIE_HAND,
+        live: liveBereit,
+        alles: ZUSATZ_ORDNER.length > 0,
         standard: ordnerKonfig.standard,
         ordner: ordnerKonfig.ordner.map((o) => ({
           name: o.name,
@@ -304,6 +446,18 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Live-Leitung anhaengen. Fehlt das ws-Paket, laeuft alles andere weiter -
+// dann eben nur der Knopf-Betrieb.
+let liveBereit = false;
+try {
+  const { WebSocketServer } = require('ws');
+  const wss = new WebSocketServer({ server: server, path: '/live', maxPayload: 4 * 1024 * 1024 });
+  wss.on('connection', liveVerbindung);
+  liveBereit = true;
+} catch (e) {
+  console.error('  ! Live-Modus aus: ' + e.message + '  (im Ordner sprachassistent: npm install)');
+}
+
 server.listen(PORT, HOST, () => {
   console.log('');
   console.log('  KURANI · Sprachassistent' + (DEMO ? '  (Demo)' : ''));
@@ -312,7 +466,9 @@ server.listen(PORT, HOST, () => {
   console.log('  Hoeren:   ' + ((!DEMO && process.env.DEEPGRAM_API_KEY) ? 'Deepgram' : 'Browser (kein Schluessel noetig)'));
   console.log('  Stimme:   ' + ((!DEMO && process.env.ELEVENLABS_API_KEY) ? 'ElevenLabs' : 'Browser (kein Schluessel noetig)'));
   console.log('  Modell:   ' + MODELL + (BUDGET ? '  (max. ' + BUDGET + ' USD pro Auftrag)' : ''));
+  console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));
+  if (ZUSATZ_ORDNER.length) console.log('  Zugriff:  zusaetzlich ' + ZUSATZ_ORDNER.join(', '));
   if (FREIE_HAND) console.log('  ! Freie Hand ist erlaubt: der Assistent darf alles ausfuehren.');
   if (!NUR_HIER) console.log('  ! Achtung: erreichbar unter ' + HOST + ' - dieser Server darf Dateien aendern.');
   console.log('');
