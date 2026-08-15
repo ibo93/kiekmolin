@@ -271,6 +271,54 @@ Was gefunden wurde, steht beim Start und in `node pruefe.js`:
   ok Kurani-Unterlagen: 2 Ordner, 7 CLAUDE.md
 ```
 
+### Warum er jetzt sofort antwortet
+
+Gemessen mit `node zeitmessung.js`: **4,2 Sekunden** bis zum ersten Wort — für
+„Sag Moin."
+
+Die Zeit ging nicht ans Denken, sondern an den Start. Claude Code fährt bei
+*jedem* Satz den ganzen Werkzeugkasten hoch: Hooks, Plugins, MCP-Server,
+deine `CLAUDE.md`-Dateien, alle Skills. Für „schreib die Rechnung für La
+Piazza" ist das genau richtig. Für „Moin" ist es absurd.
+
+Also zwei Wege:
+
+| | Womit | Erstes Wort |
+|---|---|---|
+| **Reden** | direkt ans Modell, ohne Werkzeuge | **unter 1 Sekunde** |
+| **Arbeiten** | Claude Code mit allem | ein paar Sekunden |
+
+Entschieden wird **vorher am Satz**, nicht vom Modell — eine Rückfrage wäre
+schon wieder eine Sekunde. „Moin", „wie meinst du das", „danke" gehen
+sofort. Alles mit „schreib…", „mach…", „guck dir…" und jede Frage nach Geld
+oder Rechnungen nimmt den gründlichen Weg.
+
+**Die Weiche darf sich nur in eine Richtung irren.** Im Zweifel langsam: eine
+erfundene Antwort in einer halben Sekunde wäre schlimmer als zwei Sekunden
+warten. Deshalb geht sogar „erklär mir, was ein Kostenvoranschlag ist" zum
+gründlichen Weg — das Wort allein reicht. Und der schnelle Kopf weiß, dass er
+keine Werkzeuge hat: er sagt *„das mach ich — sag es nochmal mit 'mach'
+davor"*, statt zu behaupten, er hätte etwas erledigt.
+
+**Das Lagebild.** Damit die häufigsten Alltagsfragen trotzdem schnell gehen,
+sammelt er im Hintergrund ein, was ohnehin auf der Platte liegt: Datum und
+Uhrzeit, das Wetter, deine Liste für heute, fällige Wiedervorlagen, rote
+Kunden. Das steht schon im Kopf, wenn du fragst — also kommt „wie wird das
+Wetter" und „was steht heute an" in unter einer Sekunde, **mit echten
+Zahlen**.
+
+Voraussetzung ist ein `ANTHROPIC_API_KEY` (liegt meist schon in
+`sichtbarkeit/.env`). Ohne ihn läuft alles wie vorher, nur langsamer — die
+Startmeldung sagt dir, welcher Weg gilt:
+
+```
+  Reden:    direkt (erstes Wort in unter einer Sekunde)
+```
+
+Was das **nicht** ist: ein Ersatz für Claude Code. ChatGPTs Sprachmodus
+antwortet in einer halben Sekunde und kann dafür nicht deine Rechnung
+schreiben. Hier gibt es beides — jedes auf seinem Weg.
+
 ### Die Stimme aussuchen — mit dem Ohr
 
 Die Stimme ist der Teil, den du am meisten hörst. Es gibt drei Wege, und der

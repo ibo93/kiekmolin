@@ -1275,6 +1275,8 @@ test('Plaudern: reden geht direkt, tun geht ueber Claude Code', () => {
     'Welche Kunden sind faellig',
     'Poste das auf Instagram',
     'Loesch die Datei',
+    'Welche Rechnungen sind offen?',
+    'Guck in die Dateien',
     'Wo ist der Fehler im Code',
     // Bewusst dabei, obwohl es nur eine Frage ist: das Wort
     // "Kostenvoranschlag" schickt ihn zum gruendlichen Weg. Der Irrtum
@@ -1325,6 +1327,50 @@ test('Plaudern: er weiss, dass er nichts tun kann - und sagt es', () => {
   assert.ok(/KEINE Werkzeuge/.test(h), 'das muss drinstehen, sonst behauptet er, etwas erledigt zu haben');
   assert.ok(/Erfinde niemals Zahlen/.test(h));
   assert.ok(h.length < 700, 'kurz halten: jedes Wort hier kostet Zeit bis zum ersten Wort der Antwort');
+});
+
+test('Lagebild: kurz, aktuell, und ohne Erfundenes', async () => {
+  const { Lagebild } = require('./lib/lagebild');
+  const l = new Lagebild({ minuten: 0 });
+
+  // Ohne Daten steht wenigstens die Zeit drin - danach wird oft gefragt.
+  const leer = l.alsText(new Date(2026, 7, 15, 14, 30));
+  assert.ok(/Samstag, 15. August 2026, 14 Uhr 30/.test(leer), leer);
+  assert.ok(/erfinde nichts/.test(leer), 'die Ansage muss drinstehen');
+
+  l.stand = {
+    wetter: 'In Emden 19 Grad, Regen.',
+    notizen: 'Karte fuer La Piazza',
+    wiedervorlagen: 'Deichkrone, Nordsee-Grill',
+    rot: 'La Piazza',
+    reportsOffen: 2
+  };
+  const voll = l.alsText(new Date(2026, 7, 15, 14, 30));
+  assert.ok(voll.indexOf('19 Grad') > -1 && voll.indexOf('Deichkrone') > -1, voll);
+  assert.ok(voll.indexOf('2 Monats-Reports fehlen') > -1, voll);
+
+  // Laenge ist hier ein Merkmal, kein Zufall: jedes Wort verzoegert das
+  // erste Wort der Antwort.
+  assert.ok(voll.length < 700, 'das Lagebild muss kurz bleiben: ' + voll.length + ' Zeichen');
+
+  // Faellt jede Quelle aus, kommt trotzdem ein brauchbarer Text.
+  const kaputt = new Lagebild({ minuten: 0 });
+  await kaputt.aktualisiere(new Date(2026, 7, 15));
+  assert.ok(kaputt.alsText().length > 40, 'ohne Netz und ohne Daten bleibt die Uhrzeit');
+});
+
+test('Lagebild: Wetter und "was steht heute an" gehen jetzt den schnellen Weg', () => {
+  // Vorher gingen die an Claude Code, weil der schnelle Weg es nicht
+  // wissen konnte. Jetzt traegt das Lagebild es vorher zusammen.
+  for (const satz of ['Wie wird das Wetter?', 'Was steht heute an?',
+    'Welchen Tag haben wir?', 'Wer ist heute faellig?']) {
+    assert.ok(plauder.istPlauderei(satz), 'schnell: ' + satz);
+  }
+  // Geld und Rechnungen bleiben beim gruendlichen Weg - die stehen in
+  // Dateien, nicht im Lagebild.
+  for (const satz of ['Wie viel schuldet mir La Piazza?', 'Welche Rechnungen sind offen?']) {
+    assert.ok(!plauder.istPlauderei(satz), 'gruendlich: ' + satz);
+  }
 });
 
 // ---------------------------------------------- Schnell oder gruendlich ---

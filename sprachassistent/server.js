@@ -35,6 +35,7 @@ const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
 const plauder = require('./lib/plauder');
+const { Lagebild } = require('./lib/lagebild');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -90,6 +91,11 @@ for (const quelle of CRM.quellen) {
 }
 
 const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
+
+// Das Lagebild: Wetter, Liste von heute, faellige Wiedervorlagen. Wird im
+// Hintergrund eingesammelt, damit der schnelle Weg diese Alltagsfragen
+// beantworten kann, ohne dass Claude Code hochfahren muss.
+const lagebild = new Lagebild({ minuten: parseInt(process.env.SPRACH_LAGEBILD_MINUTEN || '15', 10) });
 
 // Fertige Werkzeuge, von denen der Assistent wissen muss - sonst baut er
 // sich beim naechsten "wie lief das Reel?" eine eigene Loesung zusammen.
@@ -148,6 +154,11 @@ function systemZusatz() {
 // nachfragen ("und jetzt auch fuer Mai") ohne alles zu wiederholen -
 // und ein Wechsel des Ordners vermischt trotzdem nichts.
 const sitzungen = new Map();     // ordnerName -> sessionId
+// Der schnelle Gespraechsfaden fuer den Knopf-Betrieb. Im Live-Modus hat
+// jedes Fenster einen eigenen.
+const knopfPlauderei = plauder.kannPlaudern()
+  ? new plauder.Plauderei({ extra: () => lagebild.alsText() })
+  : null;
 const laufende = new Map();      // auftragsId -> { abbrechen }
 // Zustand der Sofort-Befehle im Knopf-Betrieb (laufendes Diktat).
 const knopfZustand = { diktat: null };
@@ -377,6 +388,38 @@ function fuehreAus(res, wunsch) {
   const wunschBild = befehle.willBildschirm(text).bildschirm;
   if (wunschBild) sende({ art: 'werkzeug', text: 'macht ein Bildschirmfoto' });
 
+  // Auch im Knopf-Betrieb: reine Gespraechssaetze gehen direkt ans Modell,
+  // statt Claude Code fuer "Moin" hochzufahren. Das Fenster merkt keinen
+  // Unterschied - es kommen dieselben Ereignisse wie sonst.
+  if (!DEMO && knopfPlauderei && plauder.istPlauderei(text) &&
+      !befehle.willUebergeben(text).uebergeben && !wunschBild) {
+    sende({ art: 'angenommen', id: auftragsId, ordner: 'gespraech', pfad: '', stufe: 'reden' });
+    const begonnen = Date.now();
+
+    const lauf = knopfPlauderei.frage(text, (e) => {
+      if (e.art === 'happen') return;                      // Knopf-Betrieb streamt nicht
+      laufende.delete(auftragsId);
+
+      if (e.art === 'fertig') {
+        const gesprochen = sprechbar(e.text, { maxSaetze: MAX_SAETZE });
+        protokoll.schreibe({
+          frage: text, antwort: e.text, ordner: 'gespraech', stufe: 'reden',
+          kosten: e.kosten || 0, sekunden: Math.round((Date.now() - begonnen) / 1000), demo: DEMO
+        });
+        sende({
+          art: 'fertig', text: e.text, sprich: gesprochen.text, gekuerzt: gesprochen.gekuerzt,
+          kosten: e.kosten || 0, sekunden: Math.round((Date.now() - begonnen) / 1000), hinweis: null
+        });
+      } else {
+        sende({ art: e.art === 'abgebrochen' ? 'abgebrochen' : 'fehler', text: e.text, sprich: e.text });
+      }
+      res.end();
+    });
+
+    laufende.set(auftragsId, lauf);
+    return;
+  }
+
   const starte = (prompt) => kopf.starteAuftrag({
     prompt: prompt,
     ordner: ordner.pfad,
@@ -455,7 +498,9 @@ function liveVerbindung(ws, req) {
 
   // Der schnelle Gespraechsfaden. Braucht einen ANTHROPIC_API_KEY - ohne
   // ihn laeuft weiter alles ueber Claude Code, nur eben langsamer.
-  const plaudertasche = plauder.kannPlaudern() ? new plauder.Plauderei() : null;
+  const plaudertasche = plauder.kannPlaudern()
+    ? new plauder.Plauderei({ extra: () => lagebild.alsText() })
+    : null;
 
   const sitzung = new live.LiveSitzung({
     senden: senden,
@@ -787,6 +832,9 @@ try {
 } catch (e) {
   console.error('  ! Live-Modus aus: ' + e.message + '  (im Ordner sprachassistent: npm install)');
 }
+
+// Das Lagebild einmal beim Start holen und dann im Takt frisch halten.
+if (!DEMO) lagebild.start();
 
 server.listen(PORT, HOST, () => {
   console.log('');

@@ -44,12 +44,18 @@ const TUN = new RegExp([
   '\\b(schneid|rendere|exportier|konvertier|lade hoch|poste|veroeffentlich|veröffentlich|sende|verschick|maile)',
   '\\b(oeffne|öffne|starte|fuehr aus|führ aus|installier|deploy|committe|push)',
   '\\b(guck|schau|sieh) (dir |mal |in )',
-  '\\b(rechnung|angebot|kostenvoranschlag|mahnung|briefing|drehplan|speisekarte|reel|report)\\b',
-  '\\b(datei|ordner|verzeichnis|repository|code|fehler im|bug)\\b'
+  // Kein \\b am Ende: sonst faellt jede Mehrzahl durch. "Rechnung" wuerde
+  // treffen, "Rechnungen" nicht - und genau so fragt man auf Deutsch.
+  '\\b(rechnung|angebot|kostenvoranschlag|mahnung|briefing|drehplan|speisekarte|reel|report)\\w*',
+  '\\b(datei|ordner|verzeichnis|repositor|code|fehler im|bug)\\w*'
 ].join('|'), 'i');
 
-// Fragen nach echten Daten: die stehen in Dateien, nicht im Modell.
-const NACHSCHLAGEN = /\b(wie viel|wieviel|welche kunden|offene posten|zahlen|umsatz|termin|wiedervorlage|notiz|liste)\b/i;
+// Fragen nach Zahlen, die in Dateien stehen und nicht im Kopf.
+//
+// Wetter, Datum, faellige Wiedervorlagen und die Liste von heute stehen
+// NICHT mehr hier: die traegt das Lagebild vorher zusammen, damit genau
+// diese Alltagsfragen schnell beantwortet werden koennen.
+const NACHSCHLAGEN = /\b(wie viel|wieviel|welche kunden|offene posten|umsatz\w*|rechnung\w*|bezahlt|unbezahlt|betrag|preis\w*|schuldet)/i;
 
 // Ist das ein Satz, den man einfach beantworten kann?
 //
@@ -134,6 +140,8 @@ class Plauderei {
   constructor(opts) {
     const o = opts || {};
     this.verlauf = [];
+    // Kann ein Text sein oder eine Funktion. Als Funktion wird sie bei
+    // JEDEM Zug gefragt - sonst waere die Uhrzeit die von vorhin.
     this.extra = o.extra || '';
     this.modell = o.modell || MODELL;
     this.maxWorte = parseInt(process.env.SPRACH_PLAUDER_TOKEN || '300', 10);
@@ -170,7 +178,7 @@ class Plauderei {
           body: JSON.stringify({
             model: this.modell,
             max_tokens: this.maxWorte,
-            system: haltung(this.extra),
+            system: haltung(typeof this.extra === 'function' ? this.extra() : this.extra),
             messages: this.verlauf,
             stream: true
           })
