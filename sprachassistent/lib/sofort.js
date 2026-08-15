@@ -11,6 +11,7 @@
 
 const befehle = require('./befehle');
 const notizen = require('./notizen');
+const wissen = require('./wissen');
 const { Diktat } = require('./diktat');
 
 // zustand: { diktat: Diktat|null } - lebt pro Fenster.
@@ -53,6 +54,33 @@ function behandle(text, zustand, jetzt) {
     return {
       art: 'notiz',
       antwort: 'Notiert. Ich erinnere dich ' + wann + (/[.!?]$/.test(wann) ? '' : '.')
+    };
+  }
+
+  // Dauerhaftes Wissen: gilt ab sofort in jedem Auftrag.
+  if (befehl.art === 'wissen') {
+    if (!befehl.text) return { art: 'wissen', antwort: 'Was soll dauerhaft gelten?' };
+    const w = wissen.merke(befehl.text, jetzt);
+    return {
+      art: 'wissen',
+      antwort: w.neu ? 'Gemerkt. Das gilt ab jetzt immer.' : 'Wusste ich schon.'
+    };
+  }
+
+  if (befehl.art === 'wissenVergessen') {
+    const weg = wissen.vergiss(befehl.text);
+    return { art: 'wissen', antwort: weg ? 'Gestrichen: ' + weg : 'Dazu weiss ich nichts.' };
+  }
+
+  if (befehl.art === 'wissenListe') {
+    const liste = wissen.zeilen();
+    if (!liste.length) return { art: 'wissen', antwort: 'Dauerhaft weiss ich noch nichts. Sag "merk dir dauerhaft" und dann die Sache.' };
+    const kurz = liste.slice(-5).map((z) => z.replace(/\s*\(seit [\d-]+\)\s*$/, ''));
+    const wieviel = liste.length === 1 ? 'eine Sache' : liste.length + ' Sachen';
+    return {
+      art: 'wissen',
+      antwort: 'Ich weiss ' + wieviel + ' dauerhaft' +
+        (liste.length === 1 ? ': ' : ', zuletzt: ') + kurz.join('. ') + '.'
     };
   }
 

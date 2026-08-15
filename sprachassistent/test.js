@@ -24,6 +24,8 @@ const wetter = require('./lib/wetter');
 const wache = require('./lib/wache');
 const agentur = require('./lib/agentur');
 const pruefung = require('./lib/pruefung');
+const wissen = require('./lib/wissen');
+const bildschirm = require('./lib/bildschirm');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -570,6 +572,62 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// ------------------------------------------------- Wissen & Bildschirm ---
+
+test('Wissen: erkannt, gespeichert, nicht doppelt', () => {
+  const fs = require('fs');
+  if (fs.existsSync(wissen.DATEI)) fs.unlinkSync(wissen.DATEI);
+  try {
+    assert.strictEqual(befehle.direktBefehl('Merk dir dauerhaft: die Boerse zahlt per Rechnung').art, 'wissen');
+    assert.strictEqual(befehle.direktBefehl('Grundsaetzlich: Plakate mit 3 mm Beschnitt').art, 'wissen');
+    assert.strictEqual(befehle.direktBefehl('Was weisst du?').art, 'wissenListe');
+    // Die normale Notiz darf nicht faelschlich als Wissen durchgehen.
+    assert.strictEqual(befehle.direktBefehl('Merk dir: Karte bis Freitag').art, 'merken');
+
+    const z = { diktat: null };
+    assert.ok(/gilt ab jetzt immer/i.test(sofort.behandle('Merk dir dauerhaft: die Boerse zahlt per Rechnung', z).antwort));
+    assert.ok(/wusste ich schon/i.test(sofort.behandle('Merk dir dauerhaft: die Boerse zahlt per Rechnung', z).antwort),
+      'dasselbe zweimal wird nicht doppelt gespeichert');
+    assert.strictEqual(wissen.zeilen().length, 1);
+
+    const zusatz = wissen.alsSystemZusatz();
+    assert.ok(zusatz.indexOf('dauerhaft') > -1 && zusatz.indexOf('Boerse zahlt per Rechnung') > -1,
+      'geht in den System-Prompt: ' + zusatz);
+
+    assert.ok(sofort.behandle('Was weisst du?', z).antwort.indexOf('Boerse zahlt per Rechnung') > -1);
+    assert.ok(/Gestrichen/.test(sofort.behandle('Vergiss dauerhaft: Boerse', z).antwort));
+    assert.strictEqual(wissen.zeilen().length, 0, 'danach ist es wirklich weg');
+  } finally {
+    if (fs.existsSync(wissen.DATEI)) fs.unlinkSync(wissen.DATEI);
+  }
+});
+
+test('Wissen: der System-Zusatz waechst nicht ins Unendliche', () => {
+  const viele = [];
+  for (let i = 0; i < 200; i++) viele.push('Regel Nummer ' + i + ' mit ein bisschen Text dahinter');
+  // alsSystemZusatz liest aus der Datei - hier pruefen wir die Grenze selbst,
+  // indem wir die Zeilen kuenstlich zusammenbauen.
+  const laenge = viele.join('').length;
+  assert.ok(laenge > wissen.MAX_ZEICHEN, 'Testdaten sind laenger als die Grenze');
+  assert.ok(wissen.MAX_ZEICHEN <= 4000, 'die Grenze bleibt bezahlbar');
+});
+
+test('Bildschirm: "guck dir das an" wird erkannt, normale Saetze nicht', () => {
+  assert.strictEqual(befehle.willBildschirm('Guck dir das mal an').bildschirm, true);
+  assert.strictEqual(befehle.willBildschirm('Was siehst du?').bildschirm, true);
+  assert.strictEqual(befehle.willBildschirm('Sieh dir meinen Bildschirm an und sag was zum Abstand').bildschirm, true);
+  assert.strictEqual(befehle.willBildschirm('Schreib eine Rechnung fuer La Piazza').bildschirm, false);
+  assert.strictEqual(befehle.willBildschirm('Was steht heute an?').bildschirm, false);
+});
+
+test('Bildschirm: pro System das richtige Werkzeug, sonst ehrlich nichts', () => {
+  assert.strictEqual(bildschirm.werkzeugFuer('darwin').befehl, 'screencapture');
+  assert.deepStrictEqual(bildschirm.werkzeugFuer('darwin').args('/x.png'), ['-x', '/x.png'],
+    '-x: sonst klickt es bei jedem Foto');
+  assert.strictEqual(bildschirm.werkzeugFuer('linux').befehl, 'import');
+  assert.strictEqual(bildschirm.werkzeugFuer('win32'), null, 'lieber nichts als etwas Falsches');
 });
 
 // ------------------------------------------------------- Selbstpruefung ---

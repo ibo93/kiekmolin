@@ -165,6 +165,12 @@ const VARIANTEN = {
 //
 // Rueckgabe: { art, text } oder null (dann geht es an Claude).
 const DIREKT = [
+  // Dauerhaftes Wissen ZUERST: "merk dir dauerhaft ..." wuerde sonst als
+  // normale Notiz gelesen, weil "merk dir" frueher passt.
+  // Dauerhaftes Wissen (gilt in jedem kuenftigen Auftrag)
+  { art: 'wissen', muster: /^(merk(e)? dir dauerhaft|merk dir fuer immer|merk dir für immer|dauerhaft merken|grunds(ae|ä)tzlich gilt|grunds(ae|ä)tzlich)\b[:,]?\s*/i },
+  { art: 'wissenVergessen', muster: /^(vergiss dauerhaft|streich aus dem wissen|das gilt nicht mehr)\b[:,]?\s*/i },
+  { art: 'wissenListe', muster: /^(was weisst du|was weißt du|dein wissen|was gilt bei mir)\b/i },
   // Merken / Erinnern
   { art: 'merken', muster: /^(merk(e)?\s+dir|notier(e)?( dir)?|notiz|schreib auf|denk dran|vergiss nicht)\b[:,]?\s*/i },
   { art: 'merken', muster: /^(erinner(e)?\s+mich|erinnerung)\b[:,]?\s*/i },
@@ -187,6 +193,19 @@ function direktBefehl(text) {
     return { art: eintrag.art, text: t.slice(treffer[0].length).trim() };
   }
   return null;
+}
+
+// ---------------------------------------------------------- Bildschirm ----
+
+// "Guck dir das an" - der Assistent soll sehen, woran gerade gearbeitet
+// wird. Ein Foto vom Bildschirm entsteht NUR auf diese Ansage hin.
+const BILDSCHIRM = /\b(guck (dir )?(das |mal |hier )*an|schau (dir )?(das |mal )*an|was siehst du|sieh dir (das|meinen bildschirm) an|guck auf (meinen |den )?bildschirm|bildschirm angucken|was ist hier falsch)\b/i;
+
+function willBildschirm(text) {
+  const t = String(text || '');
+  if (!BILDSCHIRM.test(t)) return { bildschirm: false, text: t.trim() };
+  // Der Rest ist die eigentliche Frage ("...und sag mir, ob der Abstand passt")
+  return { bildschirm: true, text: t.trim() };
 }
 
 // --------------------------------------------------- Hintergrund-Arbeit ---
@@ -355,5 +374,5 @@ module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
   systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
   weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE,
-  direktBefehl, DIREKT, istHintergrund
+  direktBefehl, DIREKT, istHintergrund, willBildschirm
 };

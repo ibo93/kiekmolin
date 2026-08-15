@@ -131,6 +131,48 @@ du sie genau formulierst:
 | „… im Hintergrund" | arbeitet nebenbei weiter, meldet sich wenn fertig |
 | „Was läuft gerade?" | zählt die Hintergrund-Aufträge auf |
 | „Wie geht's der Agentur?" / „Wer ist rot?" | Kundenampel, fehlende Reports, Pipeline |
+| **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
+| **„Merk dir dauerhaft …"** | gilt ab dann in **jedem** Auftrag |
+
+### „Guck dir das an" — er sieht deinen Bildschirm
+
+Du bist Gestalter. Das Wichtigste liegt nicht in einer Datei, über die man
+reden kann, sondern auf dem Schirm: das Plakat in Canva, der Schnitt in der
+Timeline, die Karte im Layout. Also guckt er hin:
+
+> „Guck dir das mal an." · „Sieh dir meinen Bildschirm an — stimmt der Abstand
+> oben?" · „Was ist hier falsch?"
+
+Er macht ein Foto vom Bildschirm (macOS kann das von Haus aus, kein
+Zusatzprogramm), Claude sieht es sich an und antwortet gesprochen. Geht es um
+Gestaltung, nimmt er **`kurani-taste`** und nennt die zwei, drei Sachen, die
+es am meisten heben — konkret, nicht „mach es hochwertiger".
+
+- Ein Foto entsteht **nur auf diese Ansage hin**. Nichts läuft im Hintergrund mit.
+- Die Bilder bleiben lokal in `bildschirm/` (gitignored), es werden nur die
+  letzten acht behalten.
+- Beim ersten Mal fragt macOS nach der Freigabe: Systemeinstellungen →
+  Datenschutz & Sicherheit → **Bildschirmaufnahme** → Terminal. Fehlt sie,
+  sagt er genau das, statt ein schwarzes Bild zu schicken.
+
+### Dauerhaftes Wissen — er lernt deine Bude kennen
+
+Notizen sind Aufgaben. **Wissen** ist das, was du einer neuen Aushilfe
+erklären würdest:
+
+> „**Merk dir dauerhaft**: die Börse zahlt per Rechnung, nie bar."
+> „**Grundsätzlich**: Plakate immer mit 3 Millimeter Beschnitt."
+
+Das steht danach in **jedem** Auftrag im Systemtext — der Unterschied zwischen
+einem Werkzeug, dem man alles dreimal erklärt, und einem Kollegen, der die
+Bude kennt.
+
+- „Was weißt du?" liest vor, was dauerhaft gilt
+- „Vergiss dauerhaft: …" streicht es wieder
+- Alles steht in `wissen.md` — **aufmachbar, lesbar, von Hand korrigierbar**.
+  Ein Gedächtnis, in das man nicht reingucken kann, ist unheimlich.
+- Wird es zu lang, gewinnt das Neueste (Kostenbremse: der Systemtext geht bei
+  jedem Auftrag mit)
 
 ### Nebenbei arbeiten lassen
 

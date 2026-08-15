@@ -29,6 +29,8 @@ const live = require('./lib/live');
 const sofort = require('./lib/sofort');
 const notizen = require('./lib/notizen');
 const wache = require('./lib/wache');
+const wissen = require('./lib/wissen');
+const bildschirm = require('./lib/bildschirm');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -87,6 +89,14 @@ if (process.env.INSTAGRAM_TOKEN) {
   );
 }
 const WERKZEUG_HINWEIS = WERKZEUGE.join(' ');
+
+// Der System-Zusatz wird bei JEDEM Auftrag frisch gebaut: das dauerhafte
+// Wissen kann sich mitten im Gespraech geaendert haben ("merk dir
+// dauerhaft ...") und soll dann sofort gelten.
+function systemZusatz() {
+  const dauerhaft = wissen.alsSystemZusatz();
+  return befehle.systemZusatz(WERKZEUG_HINWEIS + (dauerhaft ? ' ' + dauerhaft : ''));
+}
 
 // Gedaechtnis: pro Arbeitsordner eine laufende Claude-Sitzung. So kann Ibo
 // nachfragen ("und jetzt auch fuer Mai") ohne alles zu wiederholen -
@@ -158,6 +168,29 @@ const WERKZEUG_PFADE = {
 function auftragsText(gesagt) {
   const schnell = befehle.schnellbefehl(gesagt, null, WERKZEUG_PFADE);
   return schnell ? schnell.prompt : gesagt;
+}
+
+// "Guck dir das an": erst ein Foto vom Bildschirm, dann geht der Auftrag
+// MIT dem Bild an Claude. Das Foto entsteht nur auf diese Ansage hin.
+async function mitBildschirm(gesagt) {
+  const wunsch = befehle.willBildschirm(gesagt);
+  if (!wunsch.bildschirm) return { text: gesagt, bild: null };
+
+  try {
+    const pfad = await bildschirm.machFoto();
+    return {
+      bild: pfad,
+      text: 'Sieh dir das Bildschirmfoto an: ' + pfad + '\n\n' +
+        'Ibo sagt dazu: "' + gesagt + '"\n\n' +
+        'Geht es um Gestaltung (Layout, Schrift, Abstaende, Farben), nimm den ' +
+        'Skill kurani-taste und sag die zwei, drei Sachen, die es am meisten ' +
+        'heben - konkret, nicht allgemein. Geht es um etwas anderes (Fehlermeldung, ' +
+        'Zahlen, ein Programm), beantworte einfach, was er wissen will. ' +
+        'Hoechstens drei Saetze, gesprochen.'
+    };
+  } catch (e) {
+    return { text: gesagt, bild: null, fehler: e.message };
+  }
 }
 
 // ------------------------------------------------------------ Auftrag -----
@@ -261,12 +294,16 @@ function fuehreAus(res, wunsch) {
     return;
   }
 
-  const lauf = kopf.starteAuftrag({
-    prompt: auftragsText(text),
+  // "Guck dir das an": erst das Bildschirmfoto, dann der Auftrag mit Bild.
+  const wunschBild = befehle.willBildschirm(text).bildschirm;
+  if (wunschBild) sende({ art: 'werkzeug', text: 'macht ein Bildschirmfoto' });
+
+  const starte = (prompt) => kopf.starteAuftrag({
+    prompt: prompt,
     ordner: ordner.pfad,
     stufe: stufe,
     sitzung: sitzungen.get(ordner.name) || null,
-    system: befehle.systemZusatz(WERKZEUG_HINWEIS),
+    system: systemZusatz(),
     modell: MODELL,
     budget: BUDGET,
     zeitlimit: ZEITLIMIT,
@@ -289,6 +326,25 @@ function fuehreAus(res, wunsch) {
       sende(e);  // 'werkzeug' und 'text' laufen direkt durch
     }
   });
+
+  // Ohne Bildwunsch sofort los; mit Bild erst das Foto, dann der Auftrag.
+  let lauf;
+  if (wunschBild) {
+    let echt = null;
+    let abgesagt = false;
+    lauf = { abbrechen() { abgesagt = true; if (echt) echt.abbrechen(); } };
+    mitBildschirm(text).then((vorbereitet) => {
+      if (abgesagt) return;
+      if (vorbereitet.fehler) {
+        laufende.delete(auftragsId);
+        sende({ art: 'fehler', text: vorbereitet.fehler, sprich: vorbereitet.fehler });
+        return res.end();
+      }
+      echt = starte(vorbereitet.text);
+    });
+  } else {
+    lauf = starte(auftragsText(text));
+  }
 
   laufende.set(auftragsId, lauf);
   res.on('close', () => {
@@ -358,12 +414,12 @@ function liveVerbindung(ws, req) {
 
       if (DEMO) return demoAuftrag(o.prompt, ordner, weiter);
 
-      return kopf.starteAuftrag({
-        prompt: auftragsText(o.prompt),
+      const bauen = (prompt) => kopf.starteAuftrag({
+        prompt: prompt,
         ordner: ordner.pfad,
         stufe: befehle.STUFEN[stufenName],
         sitzung: sitzungen.get(ordner.name) || null,
-        system: befehle.systemZusatz(WERKZEUG_HINWEIS),
+        system: systemZusatz(),
         modell: MODELL,
         budget: BUDGET,
         zeitlimit: ZEITLIMIT,
@@ -371,6 +427,19 @@ function liveVerbindung(ws, req) {
         live: true,
         onEreignis: weiter
       });
+
+      // "Guck dir das an": erst das Foto, dann der Auftrag mit Bild.
+      if (!befehle.willBildschirm(o.prompt).bildschirm) return bauen(auftragsText(o.prompt));
+
+      senden({ typ: 'werkzeug', text: 'macht ein Bildschirmfoto' });
+      let echt = null;
+      let abgesagt = false;
+      mitBildschirm(o.prompt).then((vorbereitet) => {
+        if (abgesagt) return;
+        if (vorbereitet.fehler) return weiter({ art: 'fehler', text: vorbereitet.fehler });
+        echt = bauen(vorbereitet.text);
+      });
+      return { abbrechen() { abgesagt = true; if (echt) echt.abbrechen(); } };
     }
   });
 
