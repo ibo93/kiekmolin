@@ -97,11 +97,17 @@ cp .env.example .env              # Modell, Kostendeckel, Rechte
 cp ordner.json.example ordner.json # deine Ordner auf deinem Rechner
 ```
 
-**Wenn etwas klemmt, frag ihn selbst:**
+**Wenn etwas klemmt, frag ihn selbst.** Zwei Werkzeuge, je nach Lage:
 
 ```bash
-node pruefe.js
+node pruefe.js    # sind alle Zutaten da? (vor dem Start)
+node arzt.js      # wo haengt es? (waehrend er laeuft)
 ```
+
+`arzt.js` schickt eine echte Frage durch den laufenden Server und sagt, an
+welchem Glied der Kette sie steckenbleibt — läuft der Server, antwortet er,
+kommt eine Antwort, wie lange dauert sie, und welche Stimme spricht. Am Ende
+steht ein Satz, was zu tun ist, statt eines Stacktrace.
 
 Das geht alles durch — Node, Claude Code, Schlüssel, Ordner, Schreibrechte,
 Port — und sagt in Klartext, was fehlt und was zu tun ist:
