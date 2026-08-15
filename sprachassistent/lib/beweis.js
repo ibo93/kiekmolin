@@ -130,6 +130,8 @@ const SCHOEN = [
 function schoen(text) {
   let t = String(text || '');
   for (const [roh, gut] of SCHOEN) t = t.split(roh).join(gut);
+  // Auf einem Blatt gehoert ein Gedankenstrich hin, kein Bindestrich.
+  t = t.replace(/ - /g, ' \u2014 ');
   return t;
 }
 
@@ -138,44 +140,147 @@ function alsText(b) {
   return ['Beweis-Zettel ' + b.name + ' - ' + b.monatWort, ''].concat(saetze(b)).join('\n');
 }
 
-// Ein Blatt zum Ausdrucken oder als PDF verschicken. Bewusst nuechtern:
-// grosse Zahlen, wenig Text, nichts zu klicken.
+// Ein Blatt, das man einem Wirt in die Hand druecken kann.
+//
+// Gestalterisch drei Entscheidungen:
+//   1. EINE Zahl ist der Held - der gerettete Umsatz. Alles andere ordnet
+//      sich unter. Ein Blatt mit fuenf gleich grossen Zahlen sagt nichts.
+//   2. Viel Weissraum, eine Akzentfarbe, ruhige Typo. Es soll nach
+//      Rechenschaft aussehen, nicht nach Werbung.
+//   3. Fuer A4 gebaut: nichts bricht mitten in einer Kachel um.
 function alsHtml(b) {
   if (!b) return '<p>Keine Daten.</p>';
-  const kachel = (zahl, wozu) => '<div class="k"><div class="z">' + zahl + '</div><div class="w">' + wozu + '</div></div>';
+
+  const zahl = (n) => Number(n).toLocaleString('de-DE');
+  const kachel = (wert, wozu) =>
+    '<div class="kachel"><div class="wert">' + wert + '</div><div class="wozu">' + wozu + '</div></div>';
 
   const kacheln = [];
-  if (b.telefon.reservierungen) kacheln.push(kachel(b.telefon.reservierungen, 'Reservierungen am Telefon'));
-  if (b.telefon.gaeste) kacheln.push(kachel(b.telefon.gaeste, 'Gäste'));
-  if (b.telefon.bestellungen) kacheln.push(kachel(b.telefon.bestellungen, 'Bestellungen'));
-  if (b.telefon.rueckrufe) kacheln.push(kachel(b.telefon.rueckrufe, 'Rückrufwünsche'));
-  if (typeof b.quote.jetzt === 'number') kacheln.push(kachel(b.quote.jetzt + '%', 'Sichtbarkeit in der KI'));
+  if (b.telefon.reservierungen) kacheln.push(kachel(zahl(b.telefon.reservierungen), 'Reservierungen<br>am Telefon'));
+  if (b.telefon.gaeste) kacheln.push(kachel(zahl(b.telefon.gaeste), 'Gäste'));
+  if (b.telefon.bestellungen) kacheln.push(kachel(zahl(b.telefon.bestellungen), 'Bestellungen'));
+  if (b.telefon.rueckrufe) kacheln.push(kachel(zahl(b.telefon.rueckrufe), 'Rückruf&shy;wünsche'));
+
+  // Die Sichtbarkeit bekommt eine eigene Zeile mit Richtung - eine Zahl
+  // ohne Vergleich ist keine Aussage.
+  let sicht = '';
+  if (typeof b.quote.jetzt === 'number') {
+    const alt = b.quote.vorDrei;
+    const diff = typeof alt === 'number' ? b.quote.jetzt - alt : null;
+    const pfeil = diff === null ? '' :
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(' + (diff >= 0 ? '0' : '90') + 'deg)">' +
+      '<path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+    sicht =
+      '<div class="sicht' + (diff !== null && diff < 0 ? ' runter' : '') + '">' +
+        '<div class="sichtZahl">' + b.quote.jetzt + '<span>%</span></div>' +
+        '<div class="sichtText"><strong>Sichtbarkeit in KI-Antworten</strong>' +
+          (diff === null ? '' :
+            '<div class="trend">' + pfeil + (diff >= 0 ? '+' : '') + diff +
+            ' Punkte seit ' + monatWort(b.quote.vorDreiMonat) + '</div>') +
+        '</div>' +
+      '</div>';
+  }
+
+  const held = b.geschaetzterWert > 0 ? `
+  <div class="held">
+    <div class="heldLabel">Geschätzter Umsatz aus diesen Anrufen</div>
+    <div class="heldZahl">${zahl(b.geschaetzterWert)}<span>&thinsp;€</span></div>
+    <div class="heldFuss">Gerechnet mit ${zahl(b.gastWert)}&thinsp;€ pro Gast — eine Annahme, keine Messung.</div>
+  </div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8">
-<title>Beweis-Zettel ${b.name} - ${b.monatWort}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${b.name} · ${b.monatWort}</title>
 <style>
-  body { font-family: -apple-system, 'Segoe UI', sans-serif; color: #10131a; margin: 0; padding: 48px; }
-  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
-  .monat { color: #5c6472; margin-bottom: 32px; }
-  .kacheln { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
-  .k { border: 1px solid #e3e7ee; border-radius: 16px; padding: 20px 24px; min-width: 150px; }
-  .z { font-size: 34px; font-weight: 650; letter-spacing: -0.02em; }
-  .w { color: #5c6472; font-size: 14px; margin-top: 4px; }
-  .wert { background: #f4f6f9; border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; }
-  .wert b { font-size: 22px; }
-  p { line-height: 1.6; max-width: 640px; }
-  .fuss { color: #5c6472; font-size: 12.5px; margin-top: 40px; border-top: 1px solid #e3e7ee; padding-top: 16px; }
-  @media print { body { padding: 24px; } }
+  :root {
+    --tinte: #0e1116;
+    --leise: #6b7280;
+    --linie: #e7e9ee;
+    --akzent: #007AFF;
+    --flaeche: #f6f7f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    color: var(--tinte); margin: 0; padding: 56px 56px 40px;
+    -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
+  }
+  .blatt { max-width: 720px; margin: 0 auto; }
+
+  .marke {
+    font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--leise); margin-bottom: 40px;
+  }
+  h1 {
+    font-size: 34px; line-height: 1.15; letter-spacing: -0.025em;
+    font-weight: 640; margin: 0 0 6px;
+  }
+  .unterzeile { color: var(--leise); font-size: 16px; margin-bottom: 40px; }
+
+  .held {
+    border-top: 2px solid var(--tinte); padding: 24px 0 28px; margin-bottom: 36px;
+    break-inside: avoid;
+  }
+  .heldLabel { font-size: 14px; color: var(--leise); margin-bottom: 6px; }
+  .heldZahl {
+    font-size: 68px; line-height: 1; letter-spacing: -0.035em; font-weight: 660;
+  }
+  .heldZahl span { font-size: 34px; font-weight: 500; color: var(--leise); }
+  .heldFuss { font-size: 12.5px; color: var(--leise); margin-top: 12px; }
+
+  .kacheln { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--linie); border: 1px solid var(--linie); border-radius: 14px;
+    overflow: hidden; margin-bottom: 32px; break-inside: avoid; }
+  .kachel { background: #fff; padding: 20px 18px 18px; }
+  .wert { font-size: 30px; font-weight: 620; letter-spacing: -0.02em; line-height: 1.1; }
+  .wozu { font-size: 12.5px; color: var(--leise); margin-top: 6px; line-height: 1.35; }
+
+  .sicht {
+    display: flex; align-items: center; gap: 20px;
+    background: var(--flaeche); border-radius: 14px; padding: 20px 24px;
+    margin-bottom: 32px; break-inside: avoid;
+  }
+  .sichtZahl { font-size: 40px; font-weight: 640; letter-spacing: -0.03em; color: var(--akzent); }
+  .sichtZahl span { font-size: 22px; font-weight: 500; }
+  .sicht.runter .sichtZahl, .sicht.runter .trend { color: #FF3B30; }
+  .sichtText strong { display: block; font-size: 15px; font-weight: 600; }
+  .trend { display: flex; align-items: center; gap: 5px; margin-top: 4px;
+    font-size: 13.5px; color: #1f9d55; font-weight: 550; }
+
+  .text { line-height: 1.65; font-size: 15.5px; color: #2b3038; }
+  .text p { margin: 0 0 14px; }
+
+  .fuss {
+    margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--linie);
+    color: var(--leise); font-size: 12px; line-height: 1.6;
+    display: flex; justify-content: space-between; gap: 20px;
+  }
+  @page { size: A4; margin: 16mm; }
+  @media print { body { padding: 0; } .kacheln { border-radius: 0; } }
+  @media (max-width: 640px) {
+    body { padding: 28px 20px; }
+    .kacheln { grid-template-columns: repeat(2, 1fr); }
+    .heldZahl { font-size: 52px; }
+  }
 </style></head><body>
-<h1>Was Ihr Geld gebracht hat</h1>
-<div class="monat">${b.name} · ${b.monatWort}</div>
-<div class="kacheln">${kacheln.join('')}</div>
-${b.geschaetzterWert > 0 ? `<div class="wert">Geschätzter Umsatz aus diesen Anrufen: <b>${euro(b.geschaetzterWert)}</b><br>
-<span style="color:#5c6472;font-size:13px">Gerechnet mit ${euro(b.gastWert)} pro Gast — eine Annahme, keine Messung.</span></div>` : ''}
-<p>${saetze(b).map(schoen).join('<br><br>')}</p>
-<div class="fuss">Kurani Design · Erstellt am ${new Date().toLocaleDateString('de-DE')} ·
-Zahlen aus dem Monats-Report. Fehlende Angaben werden nicht geschätzt, sondern weggelassen.</div>
+<div class="blatt">
+  <div class="marke">Kurani Design</div>
+  <h1>Was Ihr Geld gebracht hat</h1>
+  <div class="unterzeile">${b.name} · ${b.monatWort}</div>
+  ${held}
+  ${kacheln.length ? '<div class="kacheln">' + kacheln.join('') + '</div>' : ''}
+  ${sicht}
+  <div class="text"><p>${saetze(b)
+    .filter((z) => !(b.geschaetzterWert > 0 && /geschaetzt rund/.test(z)))
+    .map(schoen).join('</p><p>')}</p></div>
+  <div class="fuss">
+    <span>Kurani Design · Ostfriesland</span>
+    <span>Erstellt am ${new Date().toLocaleDateString('de-DE')} · Zahlen aus dem Monats-Report,
+    fehlende Angaben werden weggelassen statt geschätzt.</span>
+  </div>
+</div>
 </body></html>`;
 }
 

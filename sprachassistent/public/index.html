@@ -5,186 +5,276 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kurani · Sprachassistent</title>
 <style>
+  /* ------------------------------------------------------------------
+     KURANI · Sprachassistent — Gestaltung
+     Ein Grundton, drei Flaechen, eine Akzentfarbe. Abstaende in Vierer-
+     Schritten. Alles, was nicht Inhalt ist, tritt zurueck: das Werkzeug
+     soll die Arbeit zeigen, nicht sich selbst.
+     ------------------------------------------------------------------ */
   :root {
-    --bg: #0b0d10;
-    --bg-2: #12151a;
-    --karte: rgba(255,255,255,0.055);
-    --rand: rgba(255,255,255,0.10);
+    --bg: #0a0c0f;
+    --flaeche: rgba(255,255,255,0.045);
+    --flaeche-stark: rgba(255,255,255,0.08);
+    --rand: rgba(255,255,255,0.09);
+    --rand-stark: rgba(255,255,255,0.18);
     --text: #f2f4f7;
-    --text-leise: #9aa4b2;
+    --text-leise: #98a2b3;
     --primary: #007AFF;
     --success: #34C759;
     --warning: #FF9500;
     --danger: #FF3B30;
-    --radius: 16px;
-    --schrift: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    --r-klein: 10px;
+    --r: 14px;
+    --r-gross: 20px;
+    --schatten: 0 10px 40px rgba(0,0,0,0.22);
+    --schrift: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #f4f6f9; --bg-2: #ffffff;
-      --karte: rgba(255,255,255,0.85);
-      --rand: rgba(0,0,0,0.08);
-      --text: #10131a; --text-leise: #5c6472;
+      --bg: #f6f7f9;
+      --flaeche: rgba(255,255,255,0.92);
+      --flaeche-stark: #ffffff;
+      --rand: rgba(16,19,26,0.09);
+      --rand-stark: rgba(16,19,26,0.2);
+      --text: #10131a; --text-leise: #667085;
+      --schatten: 0 8px 30px rgba(16,19,26,0.08);
     }
   }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0; font-family: var(--schrift); color: var(--text);
+    font-size: 15px; -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(900px 500px at 80% -10%, rgba(0,122,255,0.14), transparent 60%),
-      radial-gradient(700px 400px at 0% 100%, rgba(52,199,89,0.10), transparent 55%),
+      radial-gradient(1000px 560px at 82% -12%, rgba(0,122,255,0.13), transparent 62%),
+      radial-gradient(760px 420px at -5% 105%, rgba(52,199,89,0.08), transparent 58%),
       var(--bg);
     display: flex; flex-direction: column; overflow: hidden;
   }
+  ::selection { background: rgba(0,122,255,0.28); }
 
+  /* ------------------------------------------------------------ Kopf --- */
   header {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    padding: 14px 20px; border-bottom: 1px solid var(--rand);
-    background: var(--karte); backdrop-filter: blur(20px);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--rand);
+    background: var(--flaeche); backdrop-filter: blur(24px);
   }
-  .marke { font-weight: 650; letter-spacing: -0.02em; font-size: 15px; }
-  .marke span { color: var(--text-leise); font-weight: 500; }
+  .marke { font-weight: 660; letter-spacing: 0.04em; font-size: 13px; }
+  .marke span {
+    color: var(--text-leise); font-weight: 500; letter-spacing: 0;
+    margin-left: 8px; padding-left: 9px; border-left: 1px solid var(--rand);
+  }
   .luecke { flex: 1; }
 
+  /* Knoepfe stehen in Gruppen - sieben einzelne nebeneinander sind Suppe. */
+  .gruppe { display: flex; align-items: center; gap: 6px; }
+  .gruppe.rund { gap: 4px; }
+
   select, .knopf {
-    font-family: inherit; font-size: 13px; color: var(--text);
-    background: var(--karte); border: 1px solid var(--rand);
-    border-radius: 10px; padding: 7px 11px; cursor: pointer;
-    transition: all 0.2s ease;
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--text);
+    background: var(--flaeche); border: 1px solid var(--rand);
+    border-radius: var(--r-klein); padding: 7px 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
   }
-  select:hover, .knopf:hover { border-color: rgba(0,122,255,0.55); }
-  .knopf.an { background: rgba(0,122,255,0.18); border-color: rgba(0,122,255,0.55); color: var(--text); }
+  select { padding-right: 8px; }
+  select:hover, .knopf:hover { background: var(--flaeche-stark); border-color: var(--rand-stark); }
+  .knopf:active { transform: translateY(1px); }
+  select:focus-visible, .knopf:focus-visible, #eingabe:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+  .knopf svg { width: 15px; height: 15px; opacity: 0.85; }
+  .knopf.nur-icon { padding: 8px; }
+  .knopf.nur-icon svg { width: 16px; height: 16px; }
+  .knopf.an {
+    background: rgba(0,122,255,0.16); border-color: rgba(0,122,255,0.5); color: var(--text);
+  }
+  .knopf.live {
+    background: rgba(52,199,89,0.16); border-color: rgba(52,199,89,0.5);
+  }
 
   .lage {
     display: inline-flex; align-items: center; gap: 8px;
-    font-size: 13px; color: var(--text-leise);
-    padding: 6px 12px; border-radius: 999px;
-    border: 1px solid var(--rand); background: var(--karte);
+    font-size: 12.5px; color: var(--text-leise);
+    padding: 6px 12px 6px 10px; border-radius: 999px;
+    border: 1px solid var(--rand); background: var(--flaeche);
   }
-  .punkt { width: 8px; height: 8px; border-radius: 50%; background: var(--text-leise); }
-  .lage.hoert .punkt { background: var(--danger); animation: puls 1.1s infinite; }
-  .lage.denkt .punkt { background: var(--warning); animation: puls 1.1s infinite; }
-  .lage.spricht .punkt { background: var(--success); animation: puls 1.1s infinite; }
-  @keyframes puls { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .punkt { width: 7px; height: 7px; border-radius: 50%; background: var(--text-leise); }
+  .lage.hoert .punkt { background: var(--danger); animation: puls 1.2s infinite; }
+  .lage.denkt .punkt { background: var(--warning); animation: puls 1.2s infinite; }
+  .lage.spricht .punkt { background: var(--success); animation: puls 1.2s infinite; }
+  @keyframes puls { 0%,100% { opacity: 1; } 50% { opacity: 0.22; } }
 
+  /* --------------------------------------------------------- Verlauf --- */
   main {
-    flex: 1; overflow-y: auto; padding: 24px 20px 8px; position: relative;
+    flex: 1; overflow-y: auto; padding: 28px 20px 12px; position: relative;
     display: flex; flex-direction: column; gap: 12px;
   }
-  .strang { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  .strang {
+    width: 100%; max-width: 720px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
 
   .blase {
-    max-width: 82%; padding: 12px 16px; border-radius: var(--radius);
-    line-height: 1.55; font-size: 15px; white-space: pre-wrap; word-wrap: break-word;
-    border: 1px solid var(--rand); background: var(--karte);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    animation: rein 0.2s ease;
+    max-width: 78%; padding: 12px 16px; border-radius: var(--r-gross);
+    line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;
+    border: 1px solid var(--rand); background: var(--flaeche);
+    animation: rein 0.22s cubic-bezier(.2,.7,.3,1);
   }
-  @keyframes rein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  .ich { align-self: flex-end; background: rgba(0,122,255,0.16); border-color: rgba(0,122,255,0.35); }
-  .er  { align-self: flex-start; }
-  .fehler { align-self: flex-start; border-color: rgba(255,59,48,0.5); background: rgba(255,59,48,0.12); }
-  .meta { margin-top: 6px; font-size: 11.5px; color: var(--text-leise); letter-spacing: 0.01em; }
+  @keyframes rein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .ich {
+    align-self: flex-end; border-bottom-right-radius: 6px;
+    background: rgba(0,122,255,0.15); border-color: rgba(0,122,255,0.3);
+  }
+  .er { align-self: flex-start; border-bottom-left-radius: 6px; box-shadow: var(--schatten); }
+  .fehler {
+    align-self: flex-start; border-bottom-left-radius: 6px;
+    border-color: rgba(255,59,48,0.45); background: rgba(255,59,48,0.1);
+  }
+  .meta {
+    margin-top: 8px; font-size: 11.5px; color: var(--text-leise);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Was er gerade tut: eine Zeile, die sich nicht wichtig macht. */
   .tut {
     align-self: flex-start; font-size: 12.5px; color: var(--text-leise);
-    padding-left: 4px; display: flex; align-items: center; gap: 8px;
+    padding-left: 6px; display: flex; align-items: center; gap: 9px;
+    animation: rein 0.22s ease;
   }
-  .tut::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--text-leise); }
-  .leer { color: var(--text-leise); text-align: center; margin-top: 12vh; line-height: 1.7; font-size: 14px; }
-  .leer b { color: var(--text); font-weight: 600; display: block; margin-bottom: 8px; font-size: 16px; }
-  kbd {
-    font-family: inherit; font-size: 11.5px; padding: 2px 7px; border-radius: 6px;
-    border: 1px solid var(--rand); background: var(--karte);
+  .tut::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--text-leise); opacity: 0.7; flex: 0 0 4px;
   }
 
-  footer {
-    padding: 14px 20px 22px; border-top: 1px solid var(--rand);
-    background: var(--karte); backdrop-filter: blur(20px);
+  .leer {
+    color: var(--text-leise); text-align: center; margin: 14vh auto 0;
+    line-height: 1.8; font-size: 13.5px; max-width: 560px;
   }
-  .leiste { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .leer b {
+    color: var(--text); font-weight: 620; display: block;
+    margin-bottom: 12px; font-size: 21px; letter-spacing: -0.02em;
+  }
+  .leer .beispiele { display: block; margin-top: 14px; opacity: 0.75; }
+  kbd {
+    font-family: inherit; font-size: 11.5px; font-weight: 500; padding: 3px 8px;
+    border-radius: 7px; border: 1px solid var(--rand); background: var(--flaeche);
+    color: var(--text);
+  }
+
+  /* ------------------------------------------------------------ Fuss --- */
+  footer {
+    padding: 14px 20px 20px; border-top: 1px solid var(--rand);
+    background: var(--flaeche); backdrop-filter: blur(24px);
+  }
+  .leiste { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
   #eingabe {
     flex: 1; font-family: inherit; font-size: 15px; color: var(--text);
-    background: var(--bg-2); border: 1px solid var(--rand);
-    border-radius: 12px; padding: 12px 14px; outline: none;
+    background: var(--flaeche-stark); border: 1px solid var(--rand);
+    border-radius: 12px; padding: 13px 16px; outline: none;
+    transition: border-color 0.18s ease;
   }
-  #eingabe:focus { border-color: rgba(0,122,255,0.55); }
+  #eingabe::placeholder { color: var(--text-leise); }
+  #eingabe:focus { border-color: rgba(0,122,255,0.5); }
 
   .mikro {
-    width: 60px; height: 60px; flex: 0 0 60px; border-radius: 50%;
-    border: 1px solid rgba(0,122,255,0.45); background: rgba(0,122,255,0.18);
+    width: 52px; height: 52px; flex: 0 0 52px; border-radius: 50%;
+    border: 1px solid rgba(0,122,255,0.4); background: rgba(0,122,255,0.14);
     color: var(--text); display: grid; place-items: center; cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.18s ease, background 0.18s ease;
   }
-  .mikro:hover { transform: scale(1.04); }
+  .mikro:hover { transform: scale(1.05); background: rgba(0,122,255,0.22); }
   .mikro.hoert {
-    background: rgba(255,59,48,0.24); border-color: rgba(255,59,48,0.6);
-    box-shadow: 0 0 0 0 rgba(255,59,48,0.45); animation: welle 1.4s infinite;
+    background: rgba(255,59,48,0.22); border-color: rgba(255,59,48,0.55);
+    animation: welle 1.5s infinite;
   }
   @keyframes welle {
-    0% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
-    70% { box-shadow: 0 0 0 18px rgba(255,59,48,0); }
+    0% { box-shadow: 0 0 0 0 rgba(255,59,48,0.35); }
+    70% { box-shadow: 0 0 0 16px rgba(255,59,48,0); }
     100% { box-shadow: 0 0 0 0 rgba(255,59,48,0); }
   }
-  .mikro svg { width: 26px; height: 26px; }
-  .hinweis { max-width: 760px; margin: 10px auto 0; font-size: 12px; color: var(--text-leise); text-align: center; }
+  .mikro svg { width: 22px; height: 22px; }
+  .hinweis {
+    max-width: 720px; margin: 12px auto 0; font-size: 11.5px;
+    color: var(--text-leise); text-align: center; letter-spacing: 0.01em;
+  }
 
-  /* Die Kugel: im Live-Modus übernimmt sie die Bühne. Sie atmet, wenn er
-     wartet, wächst mit deiner Stimme, dreht beim Nachdenken und pulst,
-     wenn er spricht. */
+  /* ----------------------------------------------------------- Kugel --- */
   .buehne {
     display: none; position: absolute; inset: 0;
     flex-direction: column; align-items: center; justify-content: center;
-    gap: 26px; padding: 24px; pointer-events: none;
+    gap: 28px; padding: 24px; pointer-events: none;
   }
   body.livemodus .buehne { display: flex; }
   body.livemodus.verlaufAn .buehne { display: none; }
   body.livemodus:not(.verlaufAn) #verlauf { overflow: hidden; }
   body.livemodus:not(.verlaufAn) .strang { opacity: 0; }
-  /* Die Kugel darf nie so groß werden, dass der Untertitel unter den Rand
-     rutscht - deshalb gegen Breite UND Höhe des Fensters gedeckelt. */
-  #kugel { width: min(340px, 52vw, 44vh); height: min(340px, 52vw, 44vh); }
-  .untertitel {
-    max-width: 620px; text-align: center; font-size: 17px; line-height: 1.5;
-    color: var(--text); min-height: 52px;
-  }
-  .untertitel.leise { color: var(--text-leise); font-size: 15px; }
+  /* Nie so gross, dass der Untertitel unter den Rand rutscht. */
+  #kugel { width: min(320px, 50vw, 42vh); height: min(320px, 50vw, 42vh); }
   .kugelLage {
-    font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--text-leise);
+    font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-leise); font-weight: 550;
   }
+  .untertitel {
+    max-width: 600px; text-align: center; font-size: 18px; line-height: 1.55;
+    color: var(--text); min-height: 56px; letter-spacing: -0.01em;
+  }
+  .untertitel.leise { color: var(--text-leise); font-size: 15.5px; }
 
-  /* Live-Modus: was gerade gehört wird, steht blass am Ende des Verlaufs
-     und wird zur richtigen Blase, sobald der Satz zu Ende ist. */
+  /* Was gerade gehoert wird: blass, gestrichelt, noch nicht endgueltig. */
   .mithoeren {
-    align-self: flex-end; max-width: 82%; padding: 12px 16px; border-radius: var(--radius);
-    font-size: 15px; line-height: 1.55; color: var(--text-leise);
-    border: 1px dashed var(--rand); background: transparent;
+    align-self: flex-end; max-width: 78%; padding: 12px 16px;
+    border-radius: var(--r-gross); border-bottom-right-radius: 6px;
+    line-height: 1.6; color: var(--text-leise);
+    border: 1px dashed var(--rand-stark); background: transparent;
   }
   .mithoeren:empty { display: none; }
-  .knopf.live {
-    background: rgba(52,199,89,0.2); border-color: rgba(52,199,89,0.6);
+  body.livemodus .mikro { opacity: 0.4; pointer-events: none; }
+
+  @media (max-width: 720px) {
+    header { padding: 10px 14px; gap: 8px; }
+    .marke span { display: none; }
+    main { padding: 20px 14px 8px; }
+    .blase, .mithoeren { max-width: 88%; }
   }
-  body.livemodus .mikro { opacity: 0.45; pointer-events: none; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="marke">KURANI <span>· Sprachassistent</span></div>
+  <div class="marke">KURANI<span>Sprachassistent</span></div>
   <div class="lage" id="lage"><span class="punkt"></span><span id="lageText">bereit</span></div>
   <div class="luecke"></div>
-  <select id="ordnerWahl" title="Arbeitsordner"><option value="">Ordner: automatisch</option></select>
-  <select id="stufeWahl" title="Was darf der Assistent?">
-    <option value="reden">Nur reden</option>
-    <option value="arbeiten" selected>Arbeiten</option>
-    <option value="frei">Freie Hand</option>
-  </select>
-  <button class="knopf" id="liveKnopf" title="Durchgehendes Gespräch: zuhören, antworten, unterbrechen">Live</button>
-  <button class="knopf" id="verlaufKnopf" style="display:none" title="Mitschrift statt Kugel zeigen">Verlauf</button>
-  <button class="knopf" id="freihandKnopf" title="Dauerhaft zuhören und antworten">Freihand</button>
-  <button class="knopf" id="stummKnopf" title="Antworten nicht vorlesen">Stumm</button>
-  <button class="knopf" id="neuKnopf" title="Gedächtnis leeren">Neu</button>
+
+  <div class="gruppe">
+    <select id="ordnerWahl" title="In welchem Ordner soll er arbeiten?"><option value="">Ordner: automatisch</option></select>
+    <select id="stufeWahl" title="Was darf der Assistent?">
+      <option value="reden">Nur reden</option>
+      <option value="arbeiten" selected>Arbeiten</option>
+      <option value="frei">Freie Hand</option>
+    </select>
+  </div>
+
+  <div class="gruppe">
+    <button class="knopf haupt" id="liveKnopf" title="Durchgehendes Gespräch: zuhören, antworten, unterbrechen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+        <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0"/>
+      </svg>Live</button>
+    <button class="knopf" id="freihandKnopf" title="Zuhören ohne Unterbrechen">Freihand</button>
+  </div>
+
+  <div class="gruppe rund">
+    <button class="knopf nur-icon" id="verlaufKnopf" style="display:none" title="Mitschrift statt Kugel zeigen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="knopf nur-icon" id="stummKnopf" title="Antworten nicht vorlesen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m17 9 4 6M21 9l-4 6"/></svg></button>
+    <button class="knopf nur-icon" id="neuKnopf" title="Neues Gespräch, Gedächtnis leeren">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+  </div>
 </header>
 
 <main id="verlauf">
@@ -197,8 +287,11 @@
     <div class="leer" id="leerHinweis">
       <b>Sag, was zu tun ist.</b>
       <kbd>Live</kbd> drücken und einfach reden — dazwischenreden unterbricht ihn.<br>
-      Oder Mikrofon anklicken / <kbd>Leertaste</kbd> halten, wenn du pro Satz entscheiden willst.<br>
-      „Schreib eine Rechnung für La Piazza über 350 Euro“ · „Was steht diese Woche an?“ · „Wie lief das letzte Reel?“
+      Oder Mikrofon anklicken, <kbd>Leertaste</kbd> halten, oder unten tippen.
+      <span class="beispiele">
+        „Moin" · „Schreib eine Rechnung für La Piazza über 350 Euro"<br>
+        „Guck dir das an" · „Merk dir: Karte bis Freitag" · „Wen soll ich anrufen?"
+      </span>
     </div>
   </div>
 </main>
