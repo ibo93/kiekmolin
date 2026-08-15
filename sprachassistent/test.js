@@ -28,6 +28,7 @@ const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
+const briefing = require('./lib/briefing');
 const markt = require('./lib/markt');
 const saison = require('./lib/saison');
 const beweis = require('./lib/beweis');
@@ -1107,6 +1108,145 @@ test('CM: "wie steht es mit La Piazza" ist eine Kundenfrage, "moin" nicht', () =
   const faellig = befehle.schnellbefehl('Wer ist faellig?', null, pfade);
   assert.strictEqual(faellig.name, 'crm');
   assert.ok(faellig.prompt.indexOf('node /x/crm.js') > -1, faellig.prompt);
+});
+
+// ------------------------------------------------------ Anruf-Briefing ---
+//
+// Das Briefing entscheidet, WAS von vier Quellen es Ibo sagt - und was
+// nicht. Genau das wird hier geprueft: dass es eine Zahl waehlt statt alle
+// vorzulesen, und dass es keine erfindet.
+
+function briefingProbe(aenderung) {
+  return Object.assign({
+    gesucht: 'la piazza', name: 'La Piazza', gefunden: true, mehrdeutig: null, slug: 'la-piazza',
+    jetzt: new Date(2026, 7, 15),
+    kunde: {
+      name: 'La Piazza', ort: 'Emden', telefon: '04921 1', status: 'Kunde',
+      produkt: 'Telefon-Retter', wert: 199, letzterKontakt: '2026-08-01',
+      wiedervorlage: null, notiz: 'Wollte im Herbst ueber Speisekarten reden'
+    },
+    zahlen: {
+      slug: 'la-piazza', name: 'La Piazza', monat: '2026-08', monatWort: 'August 2026',
+      telefon: { reservierungen: 18, gaeste: 61, bestellungen: 7, bestellwert: 214, rueckrufe: 3, hatDaten: true },
+      geschaetzterWert: 1740, gastWert: 25,
+      quote: { jetzt: 41, vorher: 38, vorDrei: 31, vorDreiMonat: '2026-05' },
+      monateDabei: 4
+    },
+    ampel: { slug: 'la-piazza', name: 'La Piazza', stufe: 'gruen', gruende: [], reportDiesenMonat: true },
+    saison: [{ name: 'Gruenkohl-Saison', tage: 78, wochen: 11, was: '...', knappWird: false }]
+  }, aenderung || {});
+}
+
+test('Briefing: eine Zahl fuehrt - die gestiegene Sichtbarkeit', () => {
+  const satz = briefing.aufhaengerSatz(briefingProbe());
+  assert.ok(satz.indexOf('von 38 auf 41 hoch') > -1, satz);
+  assert.ok(satz.indexOf('61') === -1, 'nicht auch noch die Gaeste - EINE Zahl: ' + satz);
+});
+
+test('Briefing: faellt die Sichtbarkeit, wird kein Anstieg behauptet', () => {
+  const b = briefingProbe({
+    zahlen: Object.assign(briefingProbe().zahlen, {
+      quote: { jetzt: 29, vorher: 38, vorDrei: 44, vorDreiMonat: '2026-05' }
+    })
+  });
+  const auf = briefing.aufhaengerSatz(b);
+  assert.ok(!/hoch/.test(auf), 'kein Anstieg, wo keiner ist: ' + auf);
+  assert.ok(auf.indexOf('61 Gaeste') > -1, 'stattdessen die naechstbeste echte Zahl: ' + auf);
+
+  const vor = briefing.vorsichtSatz(b);
+  assert.ok(vor.indexOf('von 38 auf 29 runter') > -1, vor);
+  assert.ok(/selbst zuerst/.test(vor), 'und der Rat dazu: ' + vor);
+});
+
+test('Briefing: ohne Zahlen wird nichts erfunden', () => {
+  const ohne = briefing.aufhaengerSatz(briefingProbe({ zahlen: null }));
+  assert.ok(/frag ihn, wie es laeuft/.test(ohne), ohne);
+  assert.ok(!/Euro|Prozent/.test(ohne), 'und keine Zahl herbeigerechnet: ' + ohne);
+
+  const leer = briefing.aufhaengerSatz(briefingProbe({
+    zahlen: Object.assign(briefingProbe().zahlen, {
+      telefon: { reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0, hatDaten: false },
+      quote: { jetzt: null, vorher: null, vorDrei: null, vorDreiMonat: null }
+    })
+  }));
+  assert.ok(/keine Zahlen/.test(leer), leer);
+});
+
+test('Briefing: es warnt vor dem Wichtigsten, nicht vor allem', () => {
+  // Laeuft alles: kein Warnsatz. Ein Briefing, das immer warnt, wird ignoriert.
+  assert.strictEqual(briefing.vorsichtSatz(briefingProbe()), '');
+
+  const rot = briefing.vorsichtSatz(briefingProbe({
+    ampel: { stufe: 'rot', gruende: ['Letzter Report von 2026-04'], reportDiesenMonat: true }
+  }));
+  assert.ok(rot.indexOf('auf Rot') > -1 && rot.indexOf('von April') > -1, 'Monat ausgeschrieben: ' + rot);
+
+  const fehlt = briefing.vorsichtSatz(briefingProbe({
+    ampel: { stufe: 'gruen', gruende: [], reportDiesenMonat: false }
+  }));
+  assert.ok(/Report fuer diesen Monat fehlt/.test(fehlt), fehlt);
+  assert.ok(/Versprich ihm keinen/.test(fehlt), 'mit dem Rat dazu: ' + fehlt);
+
+  const spaet = briefing.vorsichtSatz(briefingProbe({
+    kunde: Object.assign(briefingProbe().kunde, { wiedervorlage: '2026-07-10' })
+  }));
+  assert.ok(/Wiedervorlage war vor 5 Wochen/.test(spaet), spaet);
+
+  const still = briefing.vorsichtSatz(briefingProbe({
+    ampel: null,
+    kunde: Object.assign(briefingProbe().kunde, { letzterKontakt: '2026-04-02' })
+  }));
+  assert.ok(/Fang nicht mit dem Verkaufen an/.test(still), still);
+});
+
+test('Briefing: der Vorschlag kommt aus Saison und dem letzten Gespraech', () => {
+  const v = briefing.vorschlagSatz(briefingProbe());
+  assert.ok(v.indexOf('Gruenkohl-Saison') > -1 && v.indexOf('in 11 Wochen') > -1, v);
+  assert.ok(v.indexOf('Speisekarten') > -1, 'was er beim letzten Mal wollte: ' + v);
+
+  const knapp = briefing.vorschlagSatz(briefingProbe({
+    saison: [{ name: 'Weihnachtsfeiern', tage: 20, wochen: 3, was: '...', knappWird: true }]
+  }));
+  assert.ok(/Vorlauf wird knapp/.test(knapp), knapp);
+});
+
+test('Briefing: wer da dran ist - auch wenn nur Reports da sind', () => {
+  assert.ok(briefing.werSatz(briefingProbe()).indexOf('199 Euro im Monat') > -1);
+
+  const nurReports = briefing.werSatz(briefingProbe({ kunde: null }));
+  assert.ok(nurReports.indexOf('hat den Telefon-Retter') > -1, nurReports);
+  assert.ok(nurReports.indexOf('seit 4 Monaten dabei') > -1, nurReports);
+});
+
+test('Briefing: unbekannter Name - lieber nichts als etwas Erfundenes', async () => {
+  const satz = briefing.briefingSatz({ gesucht: 'Baeckerei Ohlsen', gefunden: false, name: 'Baeckerei Ohlsen' });
+  assert.ok(/finde ich nichts/.test(satz), satz);
+  assert.ok(/statt dass ich etwas erfinde/.test(satz), satz);
+  assert.strictEqual(await briefing.fuerKunden(''), null, 'ohne Namen kein Briefing');
+  assert.strictEqual(briefing.briefingSatz(null), 'Welchen Kunden rufst du an?');
+});
+
+test('Briefing: kurz genug fuers Telefon, und der Name kommt zuerst', () => {
+  const satz = briefing.briefingSatz(briefingProbe());
+  assert.ok(satz.indexOf('La Piazza') === 0, 'faengt mit dem Namen an: ' + satz);
+  const saetze = satz.split(/(?<=[.!?])\s+/).filter(Boolean);
+  assert.ok(saetze.length <= 8, 'er sitzt schon am Telefon - ' + saetze.length + ' Saetze: ' + satz);
+  assert.ok(!/\n/.test(satz), 'gesprochen wird eine Zeile, keine Liste');
+});
+
+test('Briefing: "ich ruf gleich La Piazza an" landet beim Briefing', () => {
+  const pfade = { briefing: '/x/briefing.js', crm: '/x/crm.js', agentur: '/x/agentur.js', tagesbericht: '/x/tagesbericht.js' };
+
+  for (const satz of ['Ich ruf gleich La Piazza an', 'Briefing La Piazza', 'Bereite den Anruf bei der Deichkrone vor']) {
+    const b = befehle.schnellbefehl(satz, null, pfade);
+    assert.ok(b && b.name === 'briefing', satz + ' -> ' + (b && b.name));
+    assert.ok(b.prompt.indexOf('/x/briefing.js') > -1, 'das fertige Werkzeug wird genutzt');
+  }
+
+  // Die Nachbarn duerfen nichts abbekommen.
+  assert.strictEqual(befehle.schnellbefehl('Was ist mit La Piazza?', null, pfade).name, 'kundenstand');
+  assert.strictEqual(befehle.schnellbefehl('Wer ist faellig?', null, pfade).name, 'crm');
+  assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
 });
 
 // --------------------------------------------------------------- Wache ---

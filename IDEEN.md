@@ -122,12 +122,32 @@ schon sportlich.
 ## Und was ist mit dem Sprachassistenten?
 
 Der ist Werkzeug, kein Produkt — er verkauft nichts, er spart dir Zeit.
+
+**Erledigt:** Beweis-Zettel · Zugriff aufs CM · Anruf-Briefing.
+
 Was ihm noch fehlt, in der Reihenfolge:
 
-1. **Handy-Zugang** (braucht HTTPS): damit er in der Werkstatt und im Auto
+1. **Der Rechnungs-Wächter.** Das teuerste Problem im Ein-Mann-Betrieb ist
+   nicht der fehlende Kunde, sondern die Arbeit, die gemacht und nie
+   abgerechnet wurde. Die Daten liegen alle da: das Protokoll weiß, in
+   welchem Kundenordner du diese Woche gearbeitet hast, `kurani-docs` weiß,
+   welche Rechnungen raus sind. Freitags vergleichen, und fragen. Findet
+   Geld, das dir schon gehört.
+2. **Zurück ins CM.** Er liest es, schreibt aber nicht — bewusst so. Trotzdem
+   steht nach dem Kundenbesuch nichts drin, weil man es abends vergisst.
+   Lösung: er formuliert den Gesprächsvermerk und die Wiedervorlage fertig
+   aus, **du** übernimmst sie mit einem Griff. So bleibt das CM aktuell,
+   ohne dass sich eine Stimme in der Kundenakte austobt.
+3. **Preis-Anker.** „Was hab ich für sowas zuletzt genommen?" — gegen das
+   Unterpreisen. Braucht die eigene Rechnungshistorie.
+4. **Handy-Zugang** (braucht HTTPS): damit er in der Werkstatt und im Auto
    läuft, nicht nur am Schreibtisch.
-2. **Kamera statt nur Bildschirm**: Foto vom Schild an der Wand, nicht nur
+5. **Kamera statt nur Bildschirm**: Foto vom Schild an der Wand, nicht nur
    vom Monitor.
-3. **Er ruft von sich aus an**: wenn ein Kunde auf Rot springt oder eine
-   Wiedervorlage fällig ist, soll er es sagen, ohne dass man fragt.
-   (Die Technik dafür — Meldungen von selbst — steht bereits.)
+6. **Er meldet sich von selbst**: wenn ein Kunde auf Rot springt oder eine
+   Wiedervorlage fällig ist. Die Technik dafür steht bereits — aber ein
+   Assistent, der ungefragt redet, nervt schneller als man denkt. Zuletzt.
+
+Eine Idee, die geprüft und **verworfen** wurde: aus den
+Telefon-Retter-Protokollen Leads ziehen. Da stehen die Gäste *deiner Kunden*
+drin, nicht deine Interessenten.

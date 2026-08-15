@@ -131,6 +131,7 @@ du sie genau formulierst:
 | „… im Hintergrund" | arbeitet nebenbei weiter, meldet sich wenn fertig |
 | „Was läuft gerade?" | zählt die Hintergrund-Aufträge auf |
 | „Wie geht's der Agentur?" / „Wer ist rot?" | Kundenampel, fehlende Reports, Pipeline |
+| **„Ich ruf gleich La Piazza an"** | Briefing: wer, welche Zahl du bringst, was schiefläuft, was du verkaufst |
 | **„Was ist mit La Piazza?"** | was dein CM über den Kunden weiß |
 | **„Wer ist fällig?"** | offene Wiedervorlagen aus deinem CM, mit Namen |
 | **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
@@ -256,6 +257,49 @@ Was gefunden wurde, steht beim Start und in `node pruefe.js`:
 ```
   ok Kurani-Unterlagen: 2 Ordner, 7 CLAUDE.md
 ```
+
+### Das Anruf-Briefing — zwanzig Sekunden, bevor du wählst
+
+Du rufst einen Kunden an und weißt im ersten Satz nicht mehr, worüber ihr
+zuletzt geredet habt. Alles, was du bräuchtest, liegt schon auf der Platte —
+nur an vier Stellen: im CM, in der Agentur-Ampel, in den Monatszahlen und im
+Saison-Kalender.
+
+> „Ich ruf gleich La Piazza an." · „Briefing Deichkrone" · „Bereite den Anruf
+> bei Nordsee-Grill vor."
+
+```
+La Piazza, hat Telefon-Retter + Sichtbarkeit, 199 Euro im Monat, seit 4 Monaten dabei.
+Zuletzt geredet: vor 2 Monaten.
+Aufhänger: seine Sichtbarkeit ist von 38 auf 41 hoch. Die Zahl kannst du bringen.
+Vorsicht: die Wiedervorlage war vor 5 Wochen — du bist spät dran, das merkt er.
+Vorschlag: Grünkohl-Saison — in 11 Wochen ist es soweit.
+Beim letzten Mal ging es um: neue Speisekarten, Budget ca. 400.
+```
+
+Auf der Kommandozeile: `node briefing.js la piazza` (mit Telefonnummer),
+`--sprich` für die Vorlese-Fassung, `--json` für die Daten.
+
+Es liest nicht alles vor, sondern beantwortet vier Sachen:
+
+- **Wer** — mit wem redest du, was hat er, seit wann.
+- **Aufhänger** — die **eine** Zahl, mit der du reingehst. Gestiegene
+  Sichtbarkeit schlägt alles; gibt es die nicht, die nächstbeste echte Zahl.
+- **Vorsicht** — das eine, was schiefläuft, in der Reihenfolge, in der es weh
+  tut: gefallene Sichtbarkeit, rote Ampel, fehlender Report, überfällige
+  Wiedervorlage, langes Schweigen.
+- **Vorschlag** — was saisonal jetzt dran ist, plus das, was er sich beim
+  letzten Mal selbst gewünscht hat.
+
+**Es erfindet nichts.** Ist die Sichtbarkeit gefallen, wird kein Anstieg
+behauptet — dann steht der Rückgang unter „Vorsicht" und du sprichst ihn
+selbst an, bevor er es tut. Gibt es gar keine Zahlen, sagt es: *„frag ihn, wie
+es läuft, statt etwas zu behaupten."* Und läuft alles rund, fehlt der
+Warnsatz ganz — ein Briefing, das immer warnt, wird nach zwei Wochen
+überhört.
+
+Steht der Kunde nicht im CM, reichen auch die Reports allein. Steht er
+nirgends, sagt es genau das.
 
 ### Dein CM — er liest deine Kundenverwaltung
 

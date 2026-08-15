@@ -106,6 +106,11 @@ const WERKZEUGE = [
   'aus dem OSM-Importer. Die Bewertung je Segment steht offen im Code - nenne sie als ' +
   'Einschaetzung, nicht als Marktforschung.',
 
+  'Vor einem Kundenanruf gibt es ein fertiges Briefing: node ' +
+  path.join(__dirname, 'briefing.js') + ' <name> [--sprich|--json]. Das traegt CM, ' +
+  'Agentur-Ampel, Monatszahlen und Saison zusammen und nennt Aufhaenger, Warnung und ' +
+  'Vorschlag. Sagt Ibo, dass er gleich jemanden anruft, nutze es - bau dir das nicht selbst zusammen.',
+
   'Ibos eigenes CM (wer ist Kunde, was ist vereinbart, wer ist wiedervorzulegen): node ' +
   path.join(__dirname, 'crm.js') + ' (kunde <name>|faellig|still|liste|quellen|--json). ' +
   'Das liest nur. Frag NICHT nach Kundendaten, die dort schon stehen - guck nach. ' +
@@ -199,6 +204,7 @@ const WERKZEUG_PFADE = {
   instagram: path.join(__dirname, 'instagram.js'),
   agentur: path.join(__dirname, 'agentur.js'),
   crm: path.join(__dirname, 'crm.js'),
+  briefing: path.join(__dirname, 'briefing.js'),
   markt: path.join(__dirname, 'markt.js'),
   saison: path.join(__dirname, 'saison.js'),
   beweis: path.join(__dirname, 'beweis.js')

@@ -270,6 +270,20 @@ function istHintergrund(text) {
 // die Antwort nicht davon abhaengt, wie genau er gerade fragt.
 const SCHNELLBEFEHLE = [
   {
+    // Der Satz vor dem Telefonat. Steht vor allem anderen, weil "ich ruf
+    // gleich La Piazza an" sonst irgendwo anders haengen bleibt.
+    name: 'briefing',
+    hoert: /^(briefing|anruf.?briefing|ich ruf(e)?\s+.+\san\b|bereite (den |das )?(anruf|gespr(ae|ä)ch)|vor dem anruf|was muss ich (vorher )?(wissen|beachten) (ue|ü)ber)/i,
+    prompt: 'Ibo will gleich jemanden anrufen. Nimm den Namen aus seinem Satz und fuehre aus: ' +
+      'node {{briefing}} <name> --sprich. Das traegt zusammen, was im CM, in der ' +
+      'Agentur-Ampel, in den Monatszahlen und im Saison-Kalender steht. ' +
+      'Lies das Ergebnis vor - gekuerzt auf hoechstens vier Saetze, in dieser ' +
+      'Reihenfolge: wer das ist, welche Zahl er bringen kann, was schieflaeuft, ' +
+      'was er verkaufen wuerde. Erfinde KEINE Zahlen dazu; sagt das Briefing, dass ' +
+      'etwas fehlt, sag das auch. Braucht er die Telefonnummer, steht sie in ' +
+      'node {{briefing}} <name> (ohne --sprich).'
+  },
+  {
     // Steht bewusst GANZ OBEN: "wie steht's mit La Piazza" wuerde sonst als
     // Tagesbericht gelesen ("wie steht's"). Die Muster hier verlangen alle
     // einen Namen dahinter - deshalb kommen sie zuerst dran.
