@@ -494,13 +494,16 @@ class LiveSitzung {
   _sprich(satz, zug) {
     this.sprechKette = this.sprechKette.then(async () => {
       if (zug !== this.zug) return;
-      let mp3 = null;
-      try { mp3 = await this.spreche(satz); } catch (_e) { mp3 = null; }
+      let gesprochen = null;
+      try { gesprochen = await this.spreche(satz); } catch (_e) { gesprochen = null; }
       if (zug !== this.zug) return;
       this.senden({
         typ: 'stimme',
         text: satz,
-        mp3: mp3 ? mp3.toString('base64') : null
+        // Der Ton kommt je nach Weg als MP3 (ElevenLabs) oder WAV (Mac) -
+        // die Art muss mit, sonst spielt der Browser sie nicht ab.
+        ton: gesprochen ? gesprochen.ton.toString('base64') : null,
+        tonArt: gesprochen ? gesprochen.art : null
       });
     }).catch(() => { /* ein stummer Satz darf das Gespraech nicht killen */ });
   }

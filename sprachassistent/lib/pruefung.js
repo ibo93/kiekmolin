@@ -57,10 +57,19 @@ function pruefeSchluessel() {
     : ergebnis('hinweis', 'Zuhoeren', 'Kein Deepgram-Schluessel - der Browser hoert selbst zu',
       'Reicht fuer kurze Saetze in Chrome. Besser mit Schluessel aus telefon-retter/.env.'));
 
-  liste.push(el
-    ? ergebnis('ok', 'Stimme', 'ElevenLabs-Schluessel und Stimme gefunden')
-    : ergebnis('hinweis', 'Stimme', 'Kein ElevenLabs-Schluessel - die Browser-Stimme spricht',
-      'Klingt blechern, kostet aber nichts.'));
+  // Die Stimme ist der Teil, den man am meisten hoert - hier steht, welche
+  // gerade spricht und wie man eine bessere bekommt.
+  const stimmen = require('./stimmen');
+  const weg = stimmen.welcherWeg();
+  const gewaehlt = stimmen.aktuelle();
+  if (weg === 'elevenlabs') {
+    liste.push(ergebnis('ok', 'Stimme', 'ElevenLabs' + (el ? '' : ' (Stimme gewaehlt)')));
+  } else if (weg === 'mac') {
+    liste.push(ergebnis('ok', 'Stimme', gewaehlt.name + ' - eingebaut im Mac, kostet nichts'));
+  } else {
+    liste.push(ergebnis('hinweis', 'Stimme', 'Die Browser-Stimme spricht - die klingt blechern',
+      'Eine bessere aussuchen (kostenlos, im Mac eingebaut): node stimmen.js hoeren'));
+  }
 
   if (process.env.INSTAGRAM_TOKEN) liste.push(ergebnis('ok', 'Instagram', 'Token gefunden'));
   if (process.env.SUPABASE_URL || process.env.SUPABASE_ANON_KEY) {

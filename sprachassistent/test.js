@@ -29,6 +29,7 @@ const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
 const briefing = require('./lib/briefing');
+const stimmen = require('./lib/stimmen');
 const markt = require('./lib/markt');
 const saison = require('./lib/saison');
 const beweis = require('./lib/beweis');
@@ -296,7 +297,7 @@ async function liveSitzungTest() {
   const sitzung = new live.LiveSitzung({
     maxSaetze: 4,
     senden: (n) => gesendet.push(n),
-    spreche: async (satz) => Buffer.from('MP3:' + satz),
+    spreche: async (satz) => ({ ton: Buffer.from('TON:' + satz), art: 'audio/mpeg' }),
     starteAuftrag: (o) => {
       aktuellerLauf = { prompt: o.prompt, abgebrochen: false, onEreignis: o.onEreignis };
       return { abbrechen() { aktuellerLauf.abgebrochen = true; } };
@@ -318,7 +319,8 @@ async function liveSitzungTest() {
     assert.ok(typen.indexOf('fertig') > -1, 'Abschluss gemeldet');
     const stimmeN = gesendet.find((n) => n.typ === 'stimme');
     assert.strictEqual(stimmeN.text, 'Heute sind es zwölf Reservierungen.');
-    assert.ok(stimmeN.mp3, 'Audio liegt bei');
+    assert.ok(stimmeN.ton, 'Audio liegt bei');
+    assert.strictEqual(stimmeN.tonArt, 'audio/mpeg', 'die Ton-Art kommt mit - sonst spielt der Browser WAV nicht ab');
   });
 
   await testAsync('Live: Dazwischenreden bricht ab und macht sofort still', async () => {
@@ -1247,6 +1249,112 @@ test('Briefing: "ich ruf gleich La Piazza an" landet beim Briefing', () => {
   assert.strictEqual(befehle.schnellbefehl('Was ist mit La Piazza?', null, pfade).name, 'kundenstand');
   assert.strictEqual(befehle.schnellbefehl('Wer ist faellig?', null, pfade).name, 'crm');
   assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
+});
+
+// ------------------------------------------------------------- Stimmen ---
+//
+// Die Stimme ist der Teil, den Ibo am meisten hoert. Getestet wird hier,
+// was ohne Mac und ohne Schluessel pruefbar ist: das Lesen der Stimmliste,
+// die Rangfolge der drei Wege und das Schreiben in die .env.
+
+test('Stimmen: die Mac-Liste wird gelesen, auch mit Klammern im Namen', () => {
+  const liste = stimmen.macZeilenLesen([
+    'Anna                de_DE    # Hallo, ich heiße Anna und ich bin eine deutsche Stimme.',
+    'Anna (Premium)      de_DE    # Hallo, ich heiße Anna.',
+    'Markus (Enhanced)   de_DE    # Hallo, ich heiße Markus.',
+    'Alex                en_US    # Most people recognize me by my voice.',
+    'Grandma (Deutsch)   de_DE    # Hallo, ich bin Oma.',
+    '',
+    'kaputte Zeile ohne alles'
+  ].join('\n'));
+
+  assert.strictEqual(liste.length, 5, 'leere und kaputte Zeilen fallen raus');
+  assert.strictEqual(liste[1].name, 'Anna (Premium)', 'der Zusatz gehoert zum Namen');
+  assert.strictEqual(liste[1].sprache, 'de_DE');
+  assert.strictEqual(liste[2].name, 'Markus (Enhanced)');
+  assert.ok(liste[0].beschreibung.indexOf('Anna') > -1, 'der Beispielsatz kommt mit');
+
+  const { deutsch, rest } = stimmen.deutschZuerst(liste);
+  assert.strictEqual(deutsch.length, 4, 'deutsche Stimmen zuerst');
+  assert.strictEqual(rest.length, 1);
+  assert.strictEqual(rest[0].name, 'Alex');
+});
+
+test('Stimmen: der beste verfuegbare Weg gewinnt', () => {
+  const merker = {
+    SPRACH_STIMME: process.env.SPRACH_STIMME,
+    SPRACH_VOICE_ID: process.env.SPRACH_VOICE_ID,
+    ELEVENLABS_VOICE_ID: process.env.ELEVENLABS_VOICE_ID,
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY
+  };
+  const setze = (o) => {
+    for (const k of Object.keys(merker)) delete process.env[k];
+    for (const [k, v] of Object.entries(o)) process.env[k] = v;
+  };
+
+  try {
+    setze({});
+    assert.strictEqual(stimmen.welcherWeg(), 'browser', 'ohne alles spricht der Browser');
+    assert.strictEqual(stimmen.aktuelle(), null);
+
+    setze({ ELEVENLABS_API_KEY: 'x', SPRACH_VOICE_ID: 'abc123' });
+    assert.strictEqual(stimmen.welcherWeg(), 'elevenlabs');
+    assert.strictEqual(stimmen.aktuelle().id, 'abc123');
+
+    setze({ SPRACH_STIMME: 'mac:Anna (Premium)' });
+    const mac = stimmen.aktuelle();
+    assert.strictEqual(mac.art, 'mac');
+    assert.strictEqual(mac.name, 'Anna (Premium)', 'der ganze Name, nicht nur bis zur Klammer');
+    // Auf einem Nicht-Mac faellt der Weg sauber auf den Browser zurueck,
+    // statt beim Sprechen zu krachen.
+    assert.strictEqual(stimmen.welcherWeg(), stimmen.AUF_MAC ? 'mac' : 'browser');
+
+    // Ausdruecklich Browser gewuenscht: dann auch dann, wenn ein Schluessel da ist.
+    setze({ SPRACH_STIMME: 'browser', ELEVENLABS_API_KEY: 'x', SPRACH_VOICE_ID: 'abc' });
+    assert.strictEqual(stimmen.aktuelle().art, 'browser');
+    assert.strictEqual(stimmen.welcherWeg(), 'browser');
+  } finally {
+    for (const k of Object.keys(merker)) {
+      if (merker[k] === undefined) delete process.env[k];
+      else process.env[k] = merker[k];
+    }
+  }
+});
+
+test('Stimmen: die .env wird ergaenzt, nicht neu geschrieben', () => {
+  const fs2 = require('fs');
+  const os2 = require('os');
+  const ordner = fs2.mkdtempSync(path.join(os2.tmpdir(), 'stimme-test-'));
+  const datei = path.join(ordner, '.env');
+  try {
+    fs2.writeFileSync(datei, [
+      '# Meine Einstellungen',
+      'ELEVENLABS_API_KEY=geheim123',
+      '# SPRACH_STIMME=',
+      'SPRACH_PORT=3400',
+      ''
+    ].join('\n'));
+
+    stimmen.setzeEnv('SPRACH_STIMME', 'mac:Anna', datei);
+    let inhalt = fs2.readFileSync(datei, 'utf8');
+    assert.ok(inhalt.indexOf('ELEVENLABS_API_KEY=geheim123') > -1, 'der Schluessel bleibt stehen');
+    assert.ok(inhalt.indexOf('SPRACH_PORT=3400') > -1, 'und alles andere auch');
+    assert.ok(inhalt.indexOf('SPRACH_STIMME=mac:Anna') > -1, 'die auskommentierte Zeile wird benutzt');
+    assert.strictEqual((inhalt.match(/SPRACH_STIMME=/g) || []).length, 1, 'genau einmal, nicht doppelt');
+
+    // Nochmal aendern: wieder nur eine Zeile.
+    stimmen.setzeEnv('SPRACH_STIMME', 'mac:Markus', datei);
+    inhalt = fs2.readFileSync(datei, 'utf8');
+    assert.strictEqual((inhalt.match(/SPRACH_STIMME=/g) || []).length, 1);
+    assert.ok(inhalt.indexOf('mac:Markus') > -1);
+    assert.ok(inhalt.indexOf('mac:Anna') === -1, 'die alte Wahl ist weg');
+
+    // Ein neuer Schluessel wird angehaengt.
+    stimmen.setzeEnv('SPRACH_VOICE_ID', 'xyz', datei);
+    assert.ok(fs2.readFileSync(datei, 'utf8').indexOf('SPRACH_VOICE_ID=xyz') > -1);
+  } finally {
+    fs2.rmSync(ordner, { recursive: true, force: true });
+  }
 });
 
 // --------------------------------------------------------------- Wache ---

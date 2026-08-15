@@ -271,6 +271,45 @@ Was gefunden wurde, steht beim Start und in `node pruefe.js`:
   ok Kurani-Unterlagen: 2 Ordner, 7 CLAUDE.md
 ```
 
+### Die Stimme aussuchen — mit dem Ohr
+
+Die Stimme ist der Teil, den du am meisten hörst. Es gibt drei Wege, und der
+Unterschied ist groß:
+
+| Weg | Klang | Kosten |
+|---|---|---|
+| **ElevenLabs** | wie ein Mensch | braucht Schlüssel, kostet |
+| **macOS** | sehr ordentlich, mit den Premium-Stimmen richtig gut | **nichts** |
+| Browser | blechern | nichts |
+
+Der mittlere Weg wird meist übersehen. In deinem Mac stecken gute deutsche
+Stimmen — du musst sie nur aussuchen:
+
+```bash
+node stimmen.js hoeren     # spielt alle deutschen nacheinander vor
+node stimmen.js nimm 3     # die dritte gefällt dir? Fertig.
+```
+
+Danach Server neu starten. Das war's — die Wahl landet in der `.env`, deine
+Schlüssel bleiben dabei unangetastet.
+
+```bash
+node stimmen.js            # was auf diesem Rechner zur Verfügung steht
+node stimmen.js probe Anna # eine einzelne anhören
+node stimmen.js browser    # zurück zur Browser-Stimme
+```
+
+**Bessere Mac-Stimmen nachladen** (einmalig, dauert ein paar Minuten):
+Systemeinstellungen → Bedienungshilfen → Gesprochene Inhalte → Systemstimme
+→ Anpassen → Deutsch → die mit **„Premium"** laden. Danach tauchen sie in
+`node stimmen.js` auf.
+
+Hast du einen ElevenLabs-Schlüssel in der `.env` (oder in
+`telefon-retter/.env`), stehen dessen Stimmen mit in derselben Liste — dann
+suchst du dort genauso aus.
+
+Was gerade spricht, steht unten im Fenster und in `node pruefe.js`.
+
 ### Das Anruf-Briefing — zwanzig Sekunden, bevor du wählst
 
 Du rufst einen Kunden an und weißt im ersten Satz nicht mehr, worüber ihr

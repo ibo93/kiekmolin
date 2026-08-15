@@ -180,8 +180,31 @@ else
   sag "    Nachsehen, was er findet:  node crm.js quellen"
 fi
 
+# -------------------------------------------------------------- Stimme -----
+titel "8. Die Stimme"
+node -e '
+require("./lib/env").ladeEnv();
+const s = require("./lib/stimmen");
+const weg = s.welcherWeg();
+const a = s.aktuelle();
+if (weg === "elevenlabs") console.log("  ok  ElevenLabs - die beste, die es gibt.");
+else if (weg === "mac") console.log("  ok  " + a.name + " (im Mac eingebaut, kostet nichts)");
+else {
+  console.log("  --  Gerade spricht die Browser-Stimme. Die klingt blechern.");
+  console.log("      Im Mac stecken deutlich bessere - und die kosten nichts.");
+}
+'
+if [ -t 0 ] && [ "$(node -e 'require("./lib/env").ladeEnv();console.log(require("./lib/stimmen").welcherWeg())')" = "browser" ]; then
+  if frage "Soll ich dir die deutschen Stimmen jetzt vorspielen?"; then
+    node stimmen.js hoeren
+    sag "Aussuchen mit:  node stimmen.js nimm <nummer>"
+  else
+    sag "Spaeter:  node stimmen.js hoeren"
+  fi
+fi
+
 # --------------------------------------------------------- Selbstpruefung --
-titel "8. Selbstpruefung"
+titel "9. Selbstpruefung"
 node pruefe.js
 ERGEBNIS=$?
 

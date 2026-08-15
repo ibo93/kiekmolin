@@ -24,6 +24,7 @@ const befehle = require('./lib/befehle');
 const kopf = require('./lib/kopf');
 const ohr = require('./lib/ohr');
 const stimme = require('./lib/stimme');
+const stimmen = require('./lib/stimmen');
 const protokoll = require('./lib/protokoll');
 const live = require('./lib/live');
 const sofort = require('./lib/sofort');
@@ -181,6 +182,23 @@ function vonHier(req) {
   if (!NUR_HIER) return true;
   const host = String(req.headers.host || '').split(':')[0];
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+}
+
+// Welche Stimme spricht gerade - fuer die Fusszeile im Fenster und die
+// Startmeldung. Bei den Mac-Stimmen ist der Name die Auskunft ("Anna"),
+// bei ElevenLabs die Kennung nicht - da reicht der Dienst.
+function stimmName() {
+  const a = stimmen.aktuelle();
+  if (!a || stimmen.welcherWeg() === 'browser') return null;
+  return a.art === 'mac' ? a.name : 'ElevenLabs';
+}
+
+function stimmText() {
+  if (DEMO) return 'Browser (Demo)';
+  const weg = stimmen.welcherWeg();
+  if (weg === 'mac') return stimmName() + ' (Mac, kostet nichts)';
+  if (weg === 'elevenlabs') return 'ElevenLabs';
+  return 'Browser - eine bessere aussuchen: node stimmen.js hoeren';
 }
 
 function ordnerNach(name) {
@@ -432,7 +450,7 @@ function liveVerbindung(ws, req) {
     weckwort: WECKWORT,
     nachlauf: NACHLAUF,
     spreche: async (satz) => {
-      if (DEMO || !process.env.ELEVENLABS_API_KEY) return null;   // Browser spricht
+      if (DEMO || stimmen.welcherWeg() === 'browser') return null;   // Browser spricht
       return stimme.spreche(satz);
     },
     starteAuftrag: (o) => {
@@ -643,7 +661,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         demo: DEMO,
         hoeren: (!DEMO && process.env.DEEPGRAM_API_KEY) ? 'deepgram' : 'browser',
-        stimme: (!DEMO && process.env.ELEVENLABS_API_KEY && (process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID)) ? 'elevenlabs' : 'browser',
+        stimme: DEMO ? 'browser' : stimmen.welcherWeg(),
+        stimmeName: DEMO ? null : stimmName(),
         modell: MODELL,
         freieHand: FREIE_HAND,
         live: liveBereit,
@@ -688,9 +707,9 @@ const server = http.createServer(async (req, res) => {
       const roh = await leseBody(req, 64 * 1024);
       const { text } = JSON.parse(roh.toString('utf8') || '{}');
       if (!text || !String(text).trim()) return json(res, 400, { fehler: 'Kein Text' });
-      const mp3 = await stimme.spreche(String(text).slice(0, 1200));
-      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': mp3.length });
-      return res.end(mp3);
+      const gesprochen = await stimme.spreche(String(text).slice(0, 1200));
+      res.writeHead(200, { 'Content-Type': gesprochen.art, 'Content-Length': gesprochen.ton.length });
+      return res.end(gesprochen.ton);
     }
 
     if (req.method === 'GET' && pfad === '/api/kosten') {
@@ -732,7 +751,7 @@ server.listen(PORT, HOST, () => {
   console.log('  ------------------------------------------------');
   console.log('  Fenster:  http://localhost:' + PORT);
   console.log('  Hoeren:   ' + ((!DEMO && process.env.DEEPGRAM_API_KEY) ? 'Deepgram' : 'Browser (kein Schluessel noetig)'));
-  console.log('  Stimme:   ' + ((!DEMO && process.env.ELEVENLABS_API_KEY) ? 'ElevenLabs' : 'Browser (kein Schluessel noetig)'));
+  console.log('  Stimme:   ' + stimmText());
   console.log('  Modell:   ' + MODELL + (BUDGET ? '  (max. ' + BUDGET + ' USD pro Auftrag)' : ''));
   console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));

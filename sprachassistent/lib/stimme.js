@@ -1,19 +1,49 @@
 'use strict';
 
-// Die Stimme: Text -> MP3 fuer den Browser (ElevenLabs).
+// DIE STIMME — Text raus, Ton rein.
 //
-// Unterschied zum Telefon-Retter: dort wird ulaw_8000 fuer die Telefon-
-// leitung bestellt, hier mp3 in guter Qualitaet fuer die Lautsprecher.
-// Der Schluessel ist derselbe (telefon-retter/.env wird mitgelesen).
+// Drei Wege, von gut nach notduerftig. Gewaehlt wird der beste, der auf
+// diesem Rechner wirklich geht:
 //
-// Ohne ELEVENLABS_API_KEY spricht der Browser selbst (eingebaute Stimme) -
-// kostet nichts und funktioniert offline.
+//   1. ElevenLabs   braucht ELEVENLABS_API_KEY und eine Stimme. Die beste.
+//   2. macOS        SPRACH_STIMME=mac:Anna - der eingebaute "say"-Befehl.
+//                   Kostet nichts, laeuft offline, und ist mit den
+//                   Premium-Stimmen deutlich besser als der Browser.
+//   3. Browser      passiert von allein, wenn hier nichts geliefert wird.
+//
+// Unterschied zum Telefon-Retter: dort wird ulaw_8000 fuer die Leitung
+// bestellt, hier gute Qualitaet fuer die Lautsprecher. Der Schluessel ist
+// derselbe (telefon-retter/.env wird mitgelesen).
+//
+// Aussuchen: node stimmen.js hoeren
 
+const stimmen = require('./stimmen');
+
+// Liefert { ton: Buffer, art: 'audio/mpeg'|'audio/wav' }.
+// Wirft, wenn kein Weg da ist - dann spricht der Browser selbst.
 async function spreche(text, optionen) {
+  const o = optionen || {};
+
+  // Ausdruecklich eine Stimme verlangt (Probehoeren): die gilt.
+  if (o.stimme && o.roh) return elevenlabs(text, o.stimme);
+
+  const weg = stimmen.welcherWeg();
+
+  if (weg === 'mac') {
+    const gewaehlt = stimmen.aktuelle();
+    return { ton: await stimmen.sprichMac(text, gewaehlt.id), art: 'audio/wav' };
+  }
+
+  if (weg === 'elevenlabs') return elevenlabs(text, o.stimme);
+
+  throw new Error('Keine eigene Stimme eingestellt - der Browser spricht dann selbst');
+}
+
+async function elevenlabs(text, stimmeId) {
   const key = process.env.ELEVENLABS_API_KEY;
-  const voiceId = (optionen && optionen.stimme) || process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID;
+  const voiceId = stimmeId || process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID;
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt - der Browser spricht dann selbst');
-  if (!voiceId) throw new Error('ELEVENLABS_VOICE_ID fehlt (Stimme auf elevenlabs.io aussuchen)');
+  if (!voiceId) throw new Error('Keine Stimme gewaehlt - aussuchen mit: node stimmen.js hoeren');
 
   const modell = process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5';
   const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
@@ -38,7 +68,7 @@ async function spreche(text, optionen) {
   if (!antwort.ok) {
     throw new Error('ElevenLabs ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
   }
-  return Buffer.from(await antwort.arrayBuffer());
+  return { ton: Buffer.from(await antwort.arrayBuffer()), art: 'audio/mpeg' };
 }
 
 module.exports = { spreche };

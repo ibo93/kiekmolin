@@ -385,7 +385,7 @@ function browserSprich(text) {
 async function sprich(text) {
   if (stumm || !text) return;
   lage('spricht', 'spricht');
-  if (KONFIG.stimme === 'elevenlabs') {
+  if (KONFIG.stimme && KONFIG.stimme !== 'browser') {
     try {
       var antwort = await fetch('/api/stimme', {
         method: 'POST',
@@ -863,11 +863,12 @@ function liveZeileWeg() {
   if (LIVE.mithoerZeile) { LIVE.mithoerZeile.remove(); LIVE.mithoerZeile = null; }
 }
 
-function tonAusBase64(b64) {
+function tonAusBase64(b64, art) {
   var bin = atob(b64);
   var bytes = new Uint8Array(bin.length);
   for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: 'audio/mpeg' });
+  // ElevenLabs liefert MP3, die Mac-Stimme WAV — die Art kommt deshalb mit.
+  return new Blob([bytes], { type: art || 'audio/mpeg' });
 }
 
 function tonEinreihen(eintrag) {
@@ -895,8 +896,8 @@ async function naechsterTon() {
   kugelLage('spricht', 'spricht');
   untertitel(e.text);
 
-  if (e.mp3) {
-    var audio = new Audio(URL.createObjectURL(tonAusBase64(e.mp3)));
+  if (e.ton) {
+    var audio = new Audio(URL.createObjectURL(tonAusBase64(e.ton, e.tonArt)));
     e.audio = audio;
     kugelTon(audio);
     audio.onended = naechsterTon;
@@ -1024,7 +1025,7 @@ function liveNachricht(n) {
     else { LIVE.blase.textContent = LIVE.roh; $('verlauf').scrollTop = $('verlauf').scrollHeight; }
     return;
   }
-  if (n.typ === 'stimme') { tonEinreihen({ text: n.text, mp3: n.mp3 }); return; }
+  if (n.typ === 'stimme') { tonEinreihen({ text: n.text, ton: n.ton, tonArt: n.tonArt }); return; }
   if (n.typ === 'ruhe') {
     ruhe();
     if (n.grund === 'unterbrochen' || n.grund === 'gestoppt') {
@@ -1272,7 +1273,7 @@ $('stoppKnopf').onclick = async function () {
   var teile = [];
   if (KONFIG.weckwort) teile.push('Weckwort: „' + KONFIG.weckwort + '“');
   teile.push('Hören: ' + (KONFIG.hoeren === 'deepgram' ? 'Deepgram' : 'Browser'));
-  teile.push('Stimme: ' + (KONFIG.stimme === 'elevenlabs' ? 'ElevenLabs' : 'Browser'));
+  teile.push('Stimme: ' + (KONFIG.stimmeName || (KONFIG.stimme === 'elevenlabs' ? 'ElevenLabs' : (KONFIG.stimme === 'mac' ? 'Mac' : 'Browser'))));
   teile.push('Modell: ' + KONFIG.modell);
   if (KONFIG.alles) teile.push('Zugriff: ganzer Rechner');
   if (!KONFIG.live) teile.push('Live aus (npm install fehlt)');
