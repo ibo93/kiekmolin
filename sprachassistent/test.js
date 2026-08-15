@@ -1490,6 +1490,34 @@ test('Stimmen: deutsch wird erkannt, egal wie die Quelle es schreibt', () => {
     'ohne Angabe gilt NICHT als deutsch');
 });
 
+test('Stimmen: ohne Einstellung nimmt er von allein die beste deutsche', async () => {
+  const liste = [
+    { art: 'elevenlabs', name: 'Charlotte', sprache: 'french' },
+    { art: 'mac', name: 'Anna', sprache: 'de_DE' },
+    { art: 'mac', name: 'Petra (Premium)', sprache: 'de_DE' },
+    { art: 'elevenlabs', name: 'Otto', sprache: 'german' }
+  ];
+
+  // Rangfolge: ElevenLabs deutsch schlaegt Mac Premium schlaegt Mac Standard.
+  assert.strictEqual(stimmen.besteDeutsche(liste).name, 'Otto');
+  assert.strictEqual(stimmen.besteDeutsche(liste.filter((s) => s.art === 'mac')).name, 'Petra (Premium)',
+    'die nachgeladene schlaegt die eingebaute');
+  assert.strictEqual(stimmen.besteDeutsche([{ art: 'elevenlabs', name: 'Charlotte', sprache: 'french' }]), null,
+    'lieber gar keine als eine franzoesische');
+  assert.strictEqual(stimmen.besteDeutsche([]), null);
+
+  // Eine eigene Wahl wird NIE ueberschrieben.
+  const merker = process.env.SPRACH_STIMME;
+  try {
+    process.env.SPRACH_STIMME = 'mac:Anna';
+    assert.strictEqual(await stimmen.standardWaehlen(), null, 'wer gewaehlt hat, wird in Ruhe gelassen');
+    assert.strictEqual(stimmen.aktuelle().name, 'Anna');
+  } finally {
+    if (merker === undefined) delete process.env.SPRACH_STIMME;
+    else process.env.SPRACH_STIMME = merker;
+  }
+});
+
 test('Stimmen: Tempo und Sanftheit sind zwei getrennte Sachen', () => {
   const merker = { SPRACH_STIL: process.env.SPRACH_STIL, SPRACH_TEMPO: process.env.SPRACH_TEMPO,
     SPRACH_RUHE: process.env.SPRACH_RUHE, ELEVENLABS_STABILITAET: process.env.ELEVENLABS_STABILITAET };

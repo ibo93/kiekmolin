@@ -836,7 +836,13 @@ try {
 // Das Lagebild einmal beim Start holen und dann im Takt frisch halten.
 if (!DEMO) lagebild.start();
 
-server.listen(PORT, HOST, () => {
+// Hat Ibo keine Stimme gewaehlt, nimmt er sich die beste deutsche, die auf
+// dem Rechner liegt - statt der Browser-Stimme, die je nach Browser auch
+// mal franzoesisch klingt. Geschrieben wird nichts; dauerhaft geht es
+// ueber "node stimmen.js nimm ...".
+const stimmeBereit = DEMO ? Promise.resolve(null) : stimmen.standardWaehlen().catch(() => null);
+
+stimmeBereit.then(() => server.listen(PORT, HOST, () => {
   console.log('');
   console.log('  KURANI · Sprachassistent' + (DEMO ? '  (Demo)' : ''));
   console.log('  ------------------------------------------------');
@@ -857,6 +863,6 @@ server.listen(PORT, HOST, () => {
   if (FREIE_HAND) console.log('  ! Freie Hand ist erlaubt: der Assistent darf alles ausfuehren.');
   if (!NUR_HIER) console.log('  ! Achtung: erreichbar unter ' + HOST + ' - dieser Server darf Dateien aendern.');
   console.log('');
-});
+}));
 
 module.exports = { server, demoAntwort };

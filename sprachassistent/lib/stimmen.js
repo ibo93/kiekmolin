@@ -197,6 +197,28 @@ async function alle() {
   return eleven.concat(mac);
 }
 
+// OHNE EINSTELLUNG DIE BESTE DEUTSCHE.
+//
+// Bisher war die Voreinstellung die Browser-Stimme - die schlechteste von
+// dreien, und je nach Browser auch noch eine franzoesische. Das ist eine
+// duemmliche Voreinstellung: auf jedem Mac liegt eine deutsche Stimme
+// bereit, man muss sie nur nehmen.
+//
+// Also wird beim Start einmal nachgesehen und die beste deutsche gesetzt,
+// wenn Ibo nichts anderes gewaehlt hat. Geschrieben wird dabei NICHTS -
+// die Wahl gilt nur fuer diesen Lauf. Wer es dauerhaft will, nimmt
+// "node stimmen.js nimm ...".
+async function standardWaehlen() {
+  if (aktuelle()) return null;                  // Ibo hat schon gewaehlt
+  let beste = null;
+  try { beste = besteDeutsche(await alle()); } catch (_e) { return null; }
+  if (!beste) return null;
+
+  if (beste.art === 'mac') process.env.SPRACH_STIMME = 'mac:' + beste.id;
+  else process.env.SPRACH_VOICE_ID = beste.id;
+  return beste;
+}
+
 // Was ist gerade eingestellt? Gibt { art, id, name } oder null zurueck.
 function aktuelle() {
   // Eine ausdrueckliche Wahl gewinnt IMMER gegen die Automatik. Wer
@@ -265,6 +287,6 @@ function setzeEnv(schluessel, wert, datei) {
 
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
-  deutschZuerst, istDeutsch, besteDeutsche, aktuelle, welcherWeg, probe, setzeEnv, stil,
+  deutschZuerst, istDeutsch, besteDeutsche, standardWaehlen, aktuelle, welcherWeg, probe, setzeEnv, stil,
   PROBE, AUF_MAC, STILE, TEMPO_NORMAL
 };
