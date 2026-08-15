@@ -30,6 +30,7 @@ const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
 const briefing = require('./lib/briefing');
 const stimmen = require('./lib/stimmen');
+const plauder = require('./lib/plauder');
 const markt = require('./lib/markt');
 const saison = require('./lib/saison');
 const beweis = require('./lib/beweis');
@@ -1249,6 +1250,81 @@ test('Briefing: "ich ruf gleich La Piazza an" landet beim Briefing', () => {
   assert.strictEqual(befehle.schnellbefehl('Was ist mit La Piazza?', null, pfade).name, 'kundenstand');
   assert.strictEqual(befehle.schnellbefehl('Wer ist faellig?', null, pfade).name, 'crm');
   assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
+});
+
+// ------------------------------------------------------ Der schnelle Weg --
+//
+// Gemessen: Claude Code braucht rund vier Sekunden bis zum ersten Wort,
+// weil bei jedem Satz Skills, Plugins und MCP-Server hochfahren. Reine
+// Gespraechssaetze gehen deshalb direkt ans Modell. Die Weiche darf sich
+// nur in EINE Richtung irren: lieber einmal zu oft den langsamen Weg als
+// eine erfundene Antwort in einer halben Sekunde.
+
+test('Plaudern: reden geht direkt, tun geht ueber Claude Code', () => {
+  for (const satz of ['Moin', 'Wie geht es dir?', 'Was meinst du dazu?',
+    'Danke dir', 'Wie war das nochmal?', 'Kannst du das nochmal sagen?']) {
+    assert.ok(plauder.istPlauderei(satz), 'schnell: ' + satz);
+  }
+
+  for (const satz of [
+    'Schreib eine Rechnung fuer La Piazza',
+    'Mach mir ein Reel draus',
+    'Guck dir das mal an',
+    'Aender die Speisekarte',
+    'Wie viel Umsatz hatte La Piazza im Juli',
+    'Welche Kunden sind faellig',
+    'Poste das auf Instagram',
+    'Loesch die Datei',
+    'Wo ist der Fehler im Code',
+    // Bewusst dabei, obwohl es nur eine Frage ist: das Wort
+    // "Kostenvoranschlag" schickt ihn zum gruendlichen Weg. Der Irrtum
+    // kostet zwei Sekunden. Andersherum wuerde er behaupten, einen
+    // geschrieben zu haben.
+    'Erklaer mir kurz, was ein Kostenvoranschlag ist'
+  ]) {
+    assert.ok(!plauder.istPlauderei(satz), 'gruendlich: ' + satz);
+  }
+
+  // Lange Ansagen sind Auftraege, auch ohne Schluesselwort.
+  assert.ok(!plauder.istPlauderei('a'.repeat(250)));
+  assert.ok(!plauder.istPlauderei(''));
+});
+
+test('Plaudern: der Wortstrom wird zu Happen und einem Abschluss', () => {
+  const z = { text: '', tokenEin: 0, tokenAus: 0 };
+  const zeilen = [
+    'event: message_start',
+    'data: {"type":"message_start","message":{"usage":{"input_tokens":120}}}',
+    'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Moin Ibo. "}}',
+    'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Alles ruhig."}}',
+    'data: {"type":"message_delta","usage":{"output_tokens":18}}',
+    'data: {"type":"message_stop"}'
+  ];
+  let alle = [];
+  for (const zeile of zeilen) alle = alle.concat(plauder.verarbeiteZeile(zeile, z));
+
+  const happen = alle.filter((e) => e.art === 'happen');
+  assert.strictEqual(happen.length, 2, 'jedes Stueck kommt einzeln - sonst kann er nicht satzweise sprechen');
+
+  const fertig = alle.find((e) => e.art === 'fertig');
+  assert.strictEqual(fertig.text, 'Moin Ibo. Alles ruhig.');
+  assert.ok(fertig.kosten > 0 && fertig.kosten < 0.01, 'ein Gespraechszug kostet Bruchteile eines Cents');
+
+  // Muell im Strom darf nichts kaputtmachen.
+  assert.deepStrictEqual(plauder.verarbeiteZeile('event: ping', z), []);
+  assert.deepStrictEqual(plauder.verarbeiteZeile('data: kein json', z), []);
+  assert.deepStrictEqual(plauder.verarbeiteZeile('', z), []);
+
+  const fehler = plauder.verarbeiteZeile('data: {"type":"error","error":{"message":"ueberlastet"}}', z);
+  assert.strictEqual(fehler[0].art, 'fehler');
+  assert.ok(/ueberlastet/.test(fehler[0].text));
+});
+
+test('Plaudern: er weiss, dass er nichts tun kann - und sagt es', () => {
+  const h = plauder.haltung();
+  assert.ok(/KEINE Werkzeuge/.test(h), 'das muss drinstehen, sonst behauptet er, etwas erledigt zu haben');
+  assert.ok(/Erfinde niemals Zahlen/.test(h));
+  assert.ok(h.length < 700, 'kurz halten: jedes Wort hier kostet Zeit bis zum ersten Wort der Antwort');
 });
 
 // ---------------------------------------------- Schnell oder gruendlich ---

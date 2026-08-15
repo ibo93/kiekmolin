@@ -34,6 +34,7 @@ const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
+const plauder = require('./lib/plauder');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -452,6 +453,10 @@ function liveVerbindung(ws, req) {
   };
   const einstellung = { ordner: null, stufe: 'arbeiten' };
 
+  // Der schnelle Gespraechsfaden. Braucht einen ANTHROPIC_API_KEY - ohne
+  // ihn laeuft weiter alles ueber Claude Code, nur eben langsamer.
+  const plaudertasche = plauder.kannPlaudern() ? new plauder.Plauderei() : null;
+
   const sitzung = new live.LiveSitzung({
     senden: senden,
     maxSaetze: MAX_SAETZE,
@@ -462,6 +467,23 @@ function liveVerbindung(ws, req) {
       return stimme.spreche(satz);
     },
     starteAuftrag: (o) => {
+      // DER SCHNELLE WEG. Gemessen braucht Claude Code rund vier Sekunden
+      // bis zum ersten Wort - weil bei jedem Satz Skills, Plugins und
+      // MCP-Server hochfahren. Fuer "Moin" ist das absurd. Reine
+      // Gespraechssaetze gehen deshalb direkt ans Modell: erstes Wort in
+      // unter einer Sekunde. Alles, was etwas TUN soll, nimmt weiter den
+      // gruendlichen Weg mit dem ganzen Werkzeugkasten.
+      if (!DEMO && o.live !== false && plaudertasche && plauder.istPlauderei(o.prompt)) {
+        senden({ typ: 'ordner', name: 'gespraech', stufe: 'reden' });
+        return plaudertasche.frage(o.prompt, (e) => {
+          if (e.art === 'fertig') {
+            try { protokoll.schreibe({ frage: o.prompt, antwort: e.text, ordner: 'gespraech', kosten: e.kosten || 0 }); }
+            catch (_e) { /* Protokoll darf das Gespraech nicht aufhalten */ }
+          }
+          o.onEreignis(e);
+        });
+      }
+
       const gewaehlt = einstellung.ordner ? ordnerNach(einstellung.ordner) : null;
       const ordner = gewaehlt || befehle.waehleOrdner(o.prompt, ordnerKonfig);
       const stufenName = befehle.stufeAufloesen(einstellung.stufe, FREIE_HAND);
@@ -583,7 +605,11 @@ function liveVerbindung(ws, req) {
     if (n.typ === 'zwischen') return sitzung.zwischenstand(n.text);
     if (n.typ === 'unterbrechung') return sitzung.unterbrich('unterbrochen');
     if (n.typ === 'stopp') return sitzung.unterbrich('gestoppt');
-    if (n.typ === 'neu') { sitzungen.clear(); return senden({ typ: 'neu' }); }
+    if (n.typ === 'neu') {
+      sitzungen.clear();
+      if (plaudertasche) plaudertasche.vergessen();
+      return senden({ typ: 'neu' });
+    }
   });
 
   // Wache: laeuft kiekmolin.de noch? Gemeldet wird nur die AENDERUNG -
@@ -680,6 +706,7 @@ const server = http.createServer(async (req, res) => {
         stimme: DEMO ? 'browser' : stimmen.welcherWeg(),
         stimmeName: DEMO ? null : stimmName(),
         modell: MODELL,
+        plaudern: !DEMO && plauder.kannPlaudern(),
         freieHand: FREIE_HAND,
         live: liveBereit,
         weckwort: WECKWORT,
@@ -770,6 +797,9 @@ server.listen(PORT, HOST, () => {
   console.log('  Stimme:   ' + stimmText());
   console.log('  Modell:   ' + MODELL + ' zum Reden, ' + MODELL_ARBEIT + ' zum Arbeiten' +
     (BUDGET ? '  (max. ' + BUDGET + ' USD pro Auftrag)' : ''));
+  console.log('  Reden:    ' + (plauder.kannPlaudern()
+    ? 'direkt (erstes Wort in unter einer Sekunde)'
+    : 'ueber Claude Code - langsam. ANTHROPIC_API_KEY in die .env, dann direkt.'));
   console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));
   if (ZUSATZ_ORDNER.length) console.log('  Zugriff:  zusaetzlich ' + ZUSATZ_ORDNER.join(', '));
