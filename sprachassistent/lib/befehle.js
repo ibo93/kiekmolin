@@ -300,6 +300,14 @@ const SCHNELLBEFEHLE = [
       'frag vorher.'
   },
   {
+    name: 'saison',
+    hoert: /^(saison|was kommt saisonal|was muss ich jetzt verkaufen|was steht saisonal an|gr(ue|ü)nkohl)\b/i,
+    prompt: 'Fuehre aus: node {{saison}}. Das rechnet rueckwaerts - nicht wann ein Anlass ' +
+      'ist, sondern ab wann man darueber reden muss. Sag mir gesprochen in zwei Saetzen, ' +
+      'was jetzt dran ist und bei WELCHEN meiner Kunden sich das lohnt (nutz dafuer ' +
+      'node {{agentur}} kunden). Kein Kalender-Vorlesen.'
+  },
+  {
     name: 'markt',
     hoert: /^(markt|wie sieht der markt aus|wen soll ich anrufen|wen rufe ich an|neukunden|wo lohnt sich (der )?telefon.?retter|welche kunden)\b/i,
     prompt: 'Fuehre aus: node {{markt}} und node {{markt}} anrufe. Das erste zeigt den ' +

@@ -177,7 +177,8 @@ const WERKZEUG_PFADE = {
   tagesbericht: path.join(__dirname, 'tagesbericht.js'),
   instagram: path.join(__dirname, 'instagram.js'),
   agentur: path.join(__dirname, 'agentur.js'),
-  markt: path.join(__dirname, 'markt.js')
+  markt: path.join(__dirname, 'markt.js'),
+  saison: path.join(__dirname, 'saison.js')
 };
 
 function auftragsText(gesagt, zustand) {

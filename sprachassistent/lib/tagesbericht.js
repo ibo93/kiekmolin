@@ -18,6 +18,7 @@ const protokoll = require('./protokoll');
 const notizen = require('./notizen');
 const wache = require('./wache');
 const agentur = require('./agentur');
+const saison = require('./saison');
 
 function heuteISO(jetzt) {
   const d = jetzt || new Date();
@@ -161,6 +162,13 @@ async function sammle(optionen) {
     if (t) bericht.telefon = telefonSatz(t);
   } catch (_e) { /* Logs nicht lesbar - dann eben ohne */ }
 
+  // Die Saison: was jetzt VERKAUFT werden muss, damit es rechtzeitig
+  // fertig wird. Im Gastro-Jahr entscheidet der Vorlauf.
+  try {
+    const zeile = saison.tagesZeile(saison.anstehend(jetzt));
+    if (zeile) bericht.saison = zeile;
+  } catch (_e) { /* egal */ }
+
   // Die Agentur: nur, wenn es etwas zu tun gibt (rote Kunden, fehlende
   // Reports, faellige Wiedervorlagen).
   try {
@@ -185,6 +193,7 @@ function alsText(bericht) {
   if (bericht.plattform) zeilen.push(bericht.plattform);
   if (bericht.telefon) zeilen.push(bericht.telefon);
   if (bericht.agentur) zeilen.push(bericht.agentur);
+  if (bericht.saison) zeilen.push(bericht.saison);
   if (bericht.notizenHeute) zeilen.push('Auf deiner Liste steht fuer heute: ' + bericht.notizenHeute);
   if (bericht.notizenOffen) zeilen.push('Dazu ' + bericht.notizenOffen + ' Notizen ohne Termin.');
   if (bericht.assistentKosten) {

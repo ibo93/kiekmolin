@@ -28,6 +28,7 @@ const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const markt = require('./lib/markt');
+const saison = require('./lib/saison');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -574,6 +575,50 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// -------------------------------------------------------------- Saison ---
+
+test('Saison: Ostern wird richtig gerechnet (und haengt alles andere dran)', () => {
+  assert.strictEqual(saison.ostern(2026).toDateString(), 'Sun Apr 05 2026');
+  assert.strictEqual(saison.ostern(2027).toDateString(), 'Sun Mar 28 2027');
+  assert.strictEqual(saison.ostern(2025).toDateString(), 'Sun Apr 20 2025');
+  // Muttertag: zweiter Sonntag im Mai
+  assert.strictEqual(saison.nterWochentag(2026, 4, 0, 2).getDate(), 10);
+});
+
+test('Saison: sie meldet den VORLAUF, nicht den Termin', () => {
+  // Mitte August: Gruenkohl faengt erst im November an - aber verkauft
+  // wird er jetzt. Genau darum geht es.
+  const august = saison.anstehend(new Date(2026, 7, 15));
+  assert.ok(august.length >= 1, 'im August ist etwas dran');
+  assert.strictEqual(august[0].name, 'Gruenkohl- und Kohlfahrt-Saison', august.map((a) => a.name).join(', '));
+  assert.ok(august[0].wochen >= 10, 'mit ordentlich Vorlauf: ' + august[0].wochen + ' Wochen');
+
+  // Im Dezember ist der Gruenkohl-Vorlauf vorbei (Saison laeuft schon).
+  const dezember = saison.anstehend(new Date(2026, 11, 5));
+  assert.ok(!dezember.some((a) => a.name === 'Gruenkohl- und Kohlfahrt-Saison'),
+    'was laeuft, muss nicht mehr verkauft werden');
+});
+
+test('Saison: was knapp wird, sagt sie deutlich', () => {
+  const anfangMai = saison.anstehend(new Date(2026, 4, 1));
+  const muttertag = anfangMai.find((a) => a.name === 'Muttertag');
+  assert.ok(muttertag && muttertag.knappWird, 'eine Woche vorher ist knapp');
+  assert.ok(/Wird knapp/.test(saison.saisonSatz(anfangMai)), saison.saisonSatz(anfangMai));
+
+  const januar = saison.anstehend(new Date(2026, 0, 10));
+  const start = januar.find((a) => a.name === 'Saisonstart an der Kueste');
+  assert.ok(start && !start.knappWird, 'zehn Wochen vorher ist entspannt');
+});
+
+test('Saison: jeder Anlass sagt, WAS zu tun ist', () => {
+  for (const a of saison.ANLAESSE) {
+    assert.ok(a.was && a.was.length > 25, a.name + ' braucht eine konkrete Ansage');
+    assert.ok(a.vorlaufWochen >= 4, a.name + ': unter vier Wochen Vorlauf ist sinnlos');
+    assert.ok(typeof a.datum(2026).getTime === 'function', a.name + ' liefert ein Datum');
+  }
+  assert.strictEqual(saison.tagesZeile([]), '', 'ohne Anlass kein Wort im Tagesbericht');
 });
 
 // --------------------------------------------------------------- Markt ---

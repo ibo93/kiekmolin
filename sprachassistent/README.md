@@ -134,6 +134,54 @@ du sie genau formulierst:
 | **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
 | **„Merk dir dauerhaft …"** | gilt ab dann in **jedem** Auftrag |
 | **„Mach das fertig"** | aus dem eben Diktierten wird das echte Dokument |
+| **„Saison"** / „Grünkohl" | was JETZT verkauft werden muss, damit es rechtzeitig fertig ist |
+| **„Wen soll ich anrufen?"** | die nächsten Adressen mit Nummer, aus `prospects.json` |
+
+### „Saison" — der Vorlauf, an dem das Geld hängt
+
+Das teuerste Missverständnis im Gastro-Jahr ist der Vorlauf. Der **Grünkohl
+läuft von November bis Februar — vergeben werden Karten, Plakate und
+Gruppen-Aktionen im September.** Wer im November anruft, hört „haben wir
+schon".
+
+Deshalb rechnet er rückwärts: nicht *wann ist es soweit*, sondern **ab wann
+muss ich darüber reden**. Sobald ein Vorlauf beginnt, steht es im
+„Moin"-Bericht:
+
+```
+  Saison: Gruenkohl- und Kohlfahrt-Saison in 11 Wochen.
+```
+
+Drin sind die Anlässe, die in Ostfriesland zählen: Grünkohl/Kohlfahrt,
+Weihnachtsfeiern, Silvester, Saisonstart an der Küste, Ostern, Muttertag,
+Pfingsten, Sommerferien — und das **Saisonende**, weil das Winterpreis-Gespräch
+geführt werden muss, *bevor* der Wirt von sich aus kündigt.
+
+Ostern und Pfingsten rechnet er selbst aus (Gauß-Formel), sonst müsste man die
+Liste jedes Jahr pflegen — und genau das vergisst man.
+
+```bash
+node saison.js        # was gerade im Vorlauf ist
+```
+
+### „Wen soll ich anrufen?" — Markt aus deinen eigenen Daten
+
+Grundlage ist `prospects.json` (der OSM-Importer). Jedes Segment hat zwei
+Noten, **offen im Code samt Begründung**:
+
+| Segment | Kiek mol in | Telefon-Retter |
+|---|---|---|
+| Restaurant / Fisch / Griechisch | 3 | 3 |
+| Pizzeria | 2 | **3** — Telefonbestellung *ist* das Geschäft |
+| Café | 2 | 2 |
+| Döner / Imbiss | 1 | 2 — Laufkundschaft |
+
+Die Anrufliste sortiert nach: braucht beide Produkte **und hat keine Website**.
+
+```bash
+node markt.js            # Segmente, Orte, Lücken
+node markt.js anrufe     # die nächsten Anrufe mit Nummer
+```
 
 ### „Mach das fertig" — vom Gesagten zum fertigen Dokument
 
