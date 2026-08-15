@@ -100,8 +100,9 @@ cp ordner.json.example ordner.json # deine Ordner auf deinem Rechner
 **Wenn etwas klemmt, frag ihn selbst.** Zwei Werkzeuge, je nach Lage:
 
 ```bash
-node pruefe.js    # sind alle Zutaten da? (vor dem Start)
-node arzt.js      # wo haengt es? (waehrend er laeuft)
+node pruefe.js      # sind alle Zutaten da? (vor dem Start)
+node arzt.js        # wo haengt es? (während er läuft)
+node schluessel.js  # welche Schlüssel gehen — und welche nicht
 ```
 
 `arzt.js` schickt eine echte Frage durch den laufenden Server und sagt, an
