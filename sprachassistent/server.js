@@ -42,7 +42,11 @@ const DEMO = process.argv.includes('--demo');
 const PORT = parseInt(process.env.SPRACH_PORT || '3400', 10);
 const HOST = process.env.SPRACH_HOST || '127.0.0.1';
 const REPO = path.join(__dirname, '..');
-const MODELL = process.env.SPRACH_MODELL || 'sonnet';
+// Zwei Modelle statt eines Kompromisses: eins zum Reden (muss schnell
+// antworten), eins zum Arbeiten (muss richtig liegen). Welches drankommt,
+// entscheidet die Aufgabe - siehe befehle.modellFuer.
+const MODELL = process.env.SPRACH_MODELL || 'haiku';
+const MODELL_ARBEIT = process.env.SPRACH_MODELL_ARBEIT || 'sonnet';
 const BUDGET = process.env.SPRACH_BUDGET_USD === '' ? '' : (process.env.SPRACH_BUDGET_USD || '3');
 const ZEITLIMIT = parseInt(process.env.SPRACH_ZEITLIMIT || '300', 10);
 const FREIE_HAND = /^(ja|yes|1|true)$/i.test(process.env.SPRACH_FREIE_HAND || '');
@@ -378,7 +382,11 @@ function fuehreAus(res, wunsch) {
     stufe: stufe,
     sitzung: sitzungen.get(ordner.name) || null,
     system: systemZusatz(),
-    modell: MODELL,
+    modell: befehle.modellFuer(text, {
+      uebergeben: befehle.willUebergeben(text).uebergeben,
+      bildschirm: wunschBild,
+      schnellbefehl: !!befehle.schnellbefehl(text, null, WERKZEUG_PFADE)
+    }, MODELL, MODELL_ARBEIT),
     budget: BUDGET,
     zeitlimit: ZEITLIMIT,
     zusatzOrdner: ZUSATZ_ORDNER,
@@ -494,7 +502,15 @@ function liveVerbindung(ws, req) {
         stufe: befehle.STUFEN[stufenName],
         sitzung: sitzungen.get(ordner.name) || null,
         system: systemZusatz(),
-        modell: MODELL,
+        // Im Gespraech zaehlt, dass die Antwort KOMMT. Erst wenn wirklich
+        // gearbeitet wird, lohnt das gruendliche Modell. Erkannt wird das
+        // am gesprochenen Satz - o.prompt ist hier noch das Original.
+        modell: befehle.modellFuer(o.prompt, {
+          uebergeben: befehle.willUebergeben(o.prompt).uebergeben,
+          hintergrund: o.live === false,        // Hintergrund-Auftraege: keiner wartet
+          bildschirm: befehle.willBildschirm(o.prompt).bildschirm,
+          schnellbefehl: !!befehle.schnellbefehl(o.prompt, null, WERKZEUG_PFADE)
+        }, MODELL, MODELL_ARBEIT),
         budget: BUDGET,
         zeitlimit: ZEITLIMIT,
         zusatzOrdner: ZUSATZ_ORDNER,
@@ -752,7 +768,8 @@ server.listen(PORT, HOST, () => {
   console.log('  Fenster:  http://localhost:' + PORT);
   console.log('  Hoeren:   ' + ((!DEMO && process.env.DEEPGRAM_API_KEY) ? 'Deepgram' : 'Browser (kein Schluessel noetig)'));
   console.log('  Stimme:   ' + stimmText());
-  console.log('  Modell:   ' + MODELL + (BUDGET ? '  (max. ' + BUDGET + ' USD pro Auftrag)' : ''));
+  console.log('  Modell:   ' + MODELL + ' zum Reden, ' + MODELL_ARBEIT + ' zum Arbeiten' +
+    (BUDGET ? '  (max. ' + BUDGET + ' USD pro Auftrag)' : ''));
   console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));
   if (ZUSATZ_ORDNER.length) console.log('  Zugriff:  zusaetzlich ' + ZUSATZ_ORDNER.join(', '));

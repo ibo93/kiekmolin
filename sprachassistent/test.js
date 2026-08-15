@@ -1251,6 +1251,30 @@ test('Briefing: "ich ruf gleich La Piazza an" landet beim Briefing', () => {
   assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
 });
 
+// ---------------------------------------------- Schnell oder gruendlich ---
+
+test('Modellwahl: reden ist schnell, arbeiten ist gruendlich', () => {
+  const w = (text, lage) => befehle.modellFuer(text, lage, 'haiku', 'sonnet');
+
+  // Reden: da zaehlt, dass die Antwort kommt.
+  assert.strictEqual(w('Moin', {}), 'haiku');
+  assert.strictEqual(w('Was ist mit La Piazza?', {}), 'haiku');
+  assert.strictEqual(w('Wie spaet ist es?', {}), 'haiku');
+
+  // Arbeiten: da zaehlt, dass es richtig wird.
+  assert.strictEqual(w('Mach das fertig', { uebergeben: true }), 'sonnet');
+  assert.strictEqual(w('Schneid ein Reel', { hintergrund: true }), 'sonnet',
+    'im Hintergrund wartet keiner - dann lieber gruendlich');
+  assert.strictEqual(w('Guck dir das an', { bildschirm: true }), 'sonnet');
+  assert.strictEqual(w('Moin', { schnellbefehl: true }), 'sonnet',
+    'ein Schnellbefehl startet Werkzeuge - das ist Arbeit');
+
+  // Ausdrueckliche Ansage gewinnt gegen alles.
+  assert.strictEqual(w('Denk mal nach: was kostet mich die Agentur?', {}), 'sonnet');
+  assert.strictEqual(w('Guck gruendlich nach, woran das liegt', {}), 'sonnet');
+  assert.strictEqual(w('Nimm dir Zeit dafuer', {}), 'sonnet');
+});
+
 // ------------------------------------------------------------- Stimmen ---
 //
 // Die Stimme ist der Teil, den Ibo am meisten hoert. Getestet wird hier,

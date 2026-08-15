@@ -428,6 +428,34 @@ function systemZusatz(extra) {
   return extra ? HALTUNG + ' ' + extra : HALTUNG;
 }
 
+// ------------------------------------------------- Schnell oder gruendlich -
+
+// WELCHES MODELL soll ran?
+//
+// Ein Sprachassistent hat zwei sehr verschiedene Aufgaben:
+//
+//   Reden    "Moin", "was ist mit La Piazza", "wie spaet ist es"
+//            -> drei gesprochene Saetze. Da zaehlt, dass die Antwort
+//               KOMMT. Wer zwei Sekunden auf "Moin" wartet, benutzt es
+//               nicht mehr.
+//   Arbeiten Rechnung schreiben, Reel schneiden, Fehler suchen
+//            -> da zaehlt, dass es richtig wird. Zwei Sekunden mehr
+//               merkt man nicht, einen falschen Betrag schon.
+//
+// Deshalb zwei Modelle statt einem Kompromiss. Erkannt wird es an der
+// Aufgabe, nicht geraten: alles, was Dateien anfasst oder ein Werkzeug
+// startet, gilt als Arbeit.
+const GRUENDLICH = /\b(gr(ue|ü)ndlich|denk (mal )?nach|nimm dir zeit|genau|sorgf(ae|ä)ltig|ueberleg|überleg)\b/i;
+
+function modellFuer(text, lage, schnell, gruendlich) {
+  const l = lage || {};
+  // Ausdrueckliche Ansage gewinnt.
+  if (GRUENDLICH.test(String(text || ''))) return gruendlich;
+  // Alles, was etwas TUT, bekommt das gruendliche Modell.
+  if (l.uebergeben || l.hintergrund || l.bildschirm || l.schnellbefehl) return gruendlich;
+  return schnell;
+}
+
 // Sicherheitsstufen: was darf der Assistent auf dem Rechner anfassen?
 //
 //   reden    nur lesen und antworten - aendert NIE etwas
@@ -478,7 +506,7 @@ function stufeAufloesen(wunsch, freieHandErlaubt) {
 
 module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
-  systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
+  systemZusatz, HALTUNG, STUFEN, stufeAufloesen, modellFuer, GRUENDLICH,
   weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE,
   direktBefehl, DIREKT, istHintergrund, willBildschirm,
   willUebergeben, uebergabeAuftrag
