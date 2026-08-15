@@ -11,6 +11,7 @@
 //   node stimmen.js tempo 215  schneller sprechen
 //   node stimmen.js sanft      wie sanft? drei Stufen hoeren
 //   node stimmen.js stil ruhig die sanfteste uebernehmen
+//   node stimmen.js jetzt      was ist eingestellt - und wie klingt es?
 //   node stimmen.js browser    zurueck zur eingebauten Browser-Stimme
 //
 // Der uebliche Weg: einmal "hoeren", die Nummer merken, "nimm <nummer>".
@@ -92,6 +93,84 @@ function keineGefunden() {
   console.log('');
 }
 
+// Laeuft schon ein Server auf dem Port? Dann benutzt DER noch die alte
+// Einstellung - die .env wird nur beim Start gelesen. Das ist der
+// haeufigste Grund fuer "ich hab doch umgestellt, es klingt aber gleich".
+function altenServerPruefen() {
+  return new Promise((fertig) => {
+    const net = require('net');
+    const port = parseInt(process.env.SPRACH_PORT || '3400', 10);
+    const server = net.createServer();
+    server.once('error', () => fertig(port));                 // belegt
+    server.once('listening', () => server.close(() => fertig(0)));
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+// WAS IST GERADE EINGESTELLT - und wie klingt das?
+//
+// Nicht was in der Liste steht, nicht was zuletzt eingetippt wurde:
+// genau der Weg, den der Server nimmt, wenn er gleich antwortet.
+async function jetzt(liste) {
+  const envPfad = path.join(__dirname, '.env');
+  const weg = stimmen.welcherWeg();
+  const a = stimmen.aktuelle();
+  const s = stimmen.stil();
+
+  console.log('');
+  console.log('  WAS GERADE EINGESTELLT IST');
+  console.log('  ------------------------------------------------------------');
+  console.log('  Einstellungen:  ' + (fs.existsSync(envPfad) ? envPfad : 'keine .env - es gilt der Standard'));
+  console.log('  Weg:            ' + weg);
+  console.log('  SPRACH_STIMME:  ' + (process.env.SPRACH_STIMME || '(leer)'));
+  console.log('  SPRACH_VOICE_ID:' + (process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || ' (leer)'));
+  console.log('  Tempo:          ' + s.tempo + ' Woerter/Minute, Stil ' + s.name);
+
+  if (weg === 'browser') {
+    console.log('');
+    console.log('  Es spricht die Browser-Stimme. Aussuchen: node stimmen.js hoeren');
+    console.log('');
+    return;
+  }
+
+  // Welche Stimme steckt hinter der Kennung? Das ist der Punkt, an dem
+  // sich "franzoesisch" verraet.
+  const gefunden = (liste || []).find((x) => x.art === a.art && String(x.id) === String(a.id));
+  if (gefunden) {
+    console.log('  Name:           ' + gefunden.name);
+    console.log('  Sprache:        ' + (gefunden.sprache || 'nicht angegeben'));
+    if (!stimmen.istDeutsch(gefunden)) {
+      console.log('');
+      console.log('  >>> DAS IST DER FEHLER: diese Stimme ist nicht deutsch.');
+      console.log('  >>> Sie liest deutschen Text vor, aber mit Akzent.');
+      console.log('  >>> Deutsche holen: elevenlabs.io -> Voice Library ->');
+      console.log('  >>> Filter "German" -> Add to my voices. Dann: node stimmen.js hoeren');
+    }
+  } else if (a.art === 'elevenlabs') {
+    console.log('  Name:           unbekannt - diese Kennung liegt nicht in deinem Konto.');
+    console.log('                  Neu aussuchen: node stimmen.js hoeren');
+  }
+
+  const belegt = await altenServerPruefen();
+  if (belegt) {
+    console.log('');
+    console.log('  ACHTUNG: auf Port ' + belegt + ' laeuft noch ein Server.');
+    console.log('  Der hat die ALTE Einstellung geladen - die .env wird nur beim');
+    console.log('  Start gelesen. Erst beenden, dann neu starten:');
+    console.log('    pkill -f "node server.js"  &&  ./start.command');
+  }
+
+  console.log('');
+  console.log('  So klingt es gleich:');
+  try {
+    const { ton, art } = await require('./lib/stimme').spreche(stimmen.PROBE);
+    await spielAb(ton, endungFuer(art));
+  } catch (e) {
+    console.log('  Geht nicht: ' + e.message);
+  }
+  console.log('');
+}
+
 async function main() {
   if (befehl === 'browser') {
     stimmen.setzeEnv('SPRACH_STIMME', 'browser');
@@ -103,6 +182,8 @@ async function main() {
   const { deutsch, rest: fremd } = stimmen.deutschZuerst(alle);
   const liste = deutsch.concat(fremd);
   const a = stimmen.aktuelle();
+
+  if (befehl === 'jetzt' || befehl === 'pruefe') return jetzt(liste);
 
   if (!liste.length) { keineGefunden(); return; }
 
@@ -146,7 +227,11 @@ async function main() {
     console.log('');
     for (let i = 0; i < zuHoeren.length; i++) {
       const s = zuHoeren[i];
-      process.stdout.write('  ' + String(i + 1).padStart(2) + ')  ' + s.name + ' ... ');
+      // Die Sprache MIT vorlesen lassen: sonst sucht man sich eine
+      // englische Stimme aus, weil sie schoen klingt - und wundert sich
+      // hinterher ueber den Akzent.
+      const marke = stimmen.istDeutsch(s) ? 'deutsch' : (s.sprache || 'Sprache unbekannt');
+      process.stdout.write('  ' + String(i + 1).padStart(2) + ')  ' + s.name + '  [' + marke + '] ... ');
       try {
         const { ton, art } = await stimmen.probe(s);
         console.log('');
@@ -275,7 +360,7 @@ async function main() {
     return;
   }
 
-  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, probe <n>, nimm <n>, tempo [zahl], sanft, stil <name>, browser');
+  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, jetzt, probe <n>, nimm <n>, tempo [zahl], sanft, stil <name>, browser');
   process.exit(1);
 }
 
