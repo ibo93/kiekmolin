@@ -11,6 +11,7 @@
 //   node stimmen.js tempo 215  schneller sprechen
 //   node stimmen.js sanft      wie sanft? drei Stufen hoeren
 //   node stimmen.js stil ruhig die sanfteste uebernehmen
+//   node stimmen.js deutsch    einfach die beste DEUTSCHE nehmen, fertig
 //   node stimmen.js jetzt      was ist eingestellt - und wie klingt es?
 //   node stimmen.js browser    zurueck zur eingebauten Browser-Stimme
 //
@@ -184,6 +185,52 @@ async function main() {
   const a = stimmen.aktuelle();
 
   if (befehl === 'jetzt' || befehl === 'pruefe') return jetzt(liste);
+
+  // ---- Einfach eine deutsche. Ohne aussuchen. ----------------------------
+  if (befehl === 'deutsch') {
+    const beste = stimmen.besteDeutsche(liste);
+    if (!beste) {
+      console.log('');
+      console.log('  Auf diesem Rechner ist KEINE deutsche Stimme.');
+      console.log('');
+      console.log('  Zwei Wege, in zwei Minuten:');
+      console.log('');
+      console.log('  A) Kostenlos, im Mac eingebaut:');
+      console.log('     Systemeinstellungen -> Bedienungshilfen -> Gesprochene Inhalte');
+      console.log('     -> Systemstimme -> Anpassen -> Deutsch -> eine mit "Premium" laden.');
+      console.log('');
+      console.log('  B) Besser, ueber ElevenLabs:');
+      console.log('     elevenlabs.io -> Voice Library -> Filter Language: German');
+      console.log('     -> bei einer, die dir gefaellt: "Add to my voices".');
+      console.log('');
+      console.log('  Danach nochmal:  node stimmen.js deutsch');
+      console.log('');
+      process.exit(1);
+    }
+
+    if (beste.art === 'mac') stimmen.setzeEnv('SPRACH_STIMME', 'mac:' + beste.id);
+    else {
+      stimmen.setzeEnv('SPRACH_VOICE_ID', beste.id);
+      stimmen.setzeEnv('SPRACH_STIMME', '');
+    }
+
+    console.log('');
+    console.log('  Eingetragen: ' + beste.name + '  [deutsch, ' + beste.art + ']');
+    console.log('  So klingt sie:');
+    try {
+      const { ton, art } = await stimmen.probe(beste);
+      await spielAb(ton, endungFuer(art));
+    } catch (e) {
+      console.log('  (Vorspielen ging nicht: ' + e.message.slice(0, 60) + ')');
+    }
+
+    const andere = liste.filter(stimmen.istDeutsch).length;
+    if (andere > 1) console.log('  Es gibt noch ' + (andere - 1) + ' weitere deutsche: node stimmen.js hoeren');
+    console.log('');
+    console.log('  Jetzt neu starten:  pkill -f "node server.js" && ./start.command');
+    console.log('');
+    return;
+  }
 
   if (!liste.length) { keineGefunden(); return; }
 
@@ -360,7 +407,7 @@ async function main() {
     return;
   }
 
-  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, jetzt, probe <n>, nimm <n>, tempo [zahl], sanft, stil <name>, browser');
+  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, deutsch, jetzt, probe <n>, nimm <n>, tempo [zahl], sanft, stil <name>, browser');
   process.exit(1);
 }
 

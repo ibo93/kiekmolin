@@ -171,6 +171,25 @@ function deutschZuerst(stimmen) {
   };
 }
 
+// DIE BESTE DEUTSCHE STIMME, die es hier gibt.
+//
+// Fuer den Fall, dass jemand nicht aussuchen will, sondern einfach eine
+// deutsche Stimme haben moechte. Rangfolge:
+//   1. ElevenLabs deutsch   klingt am besten
+//   2. Mac Premium/Enhanced die nachgeladenen, deutlich besser
+//   3. Mac Standard         Anna und Co. - immer da
+function besteDeutsche(stimmen) {
+  const deutsch = (stimmen || []).filter(istDeutsch);
+  if (!deutsch.length) return null;
+
+  const rang = (s) => {
+    if (s.art === 'elevenlabs') return 0;
+    if (/premium|enhanced/i.test(s.name)) return 1;
+    return 2;
+  };
+  return deutsch.slice().sort((a, b) => rang(a) - rang(b))[0];
+}
+
 // Alles, was auf diesem Rechner zur Verfuegung steht.
 async function alle() {
   const [mac, eleven] = await Promise.all([macStimmen(), elevenStimmen()]);
@@ -246,6 +265,6 @@ function setzeEnv(schluessel, wert, datei) {
 
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
-  deutschZuerst, istDeutsch, aktuelle, welcherWeg, probe, setzeEnv, stil,
+  deutschZuerst, istDeutsch, besteDeutsche, aktuelle, welcherWeg, probe, setzeEnv, stil,
   PROBE, AUF_MAC, STILE, TEMPO_NORMAL
 };
