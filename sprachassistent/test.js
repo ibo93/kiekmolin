@@ -1321,6 +1321,39 @@ test('Stimmen: der beste verfuegbare Weg gewinnt', () => {
   }
 });
 
+test('Stimmen: sanft ist die Werkseinstellung, nicht Vollgas', () => {
+  const merker = { SPRACH_STIL: process.env.SPRACH_STIL, SPRACH_TEMPO: process.env.SPRACH_TEMPO,
+    ELEVENLABS_STABILITAET: process.env.ELEVENLABS_STABILITAET };
+  const setze = (o) => {
+    for (const k of Object.keys(merker)) delete process.env[k];
+    for (const [k, v] of Object.entries(o)) process.env[k] = v;
+  };
+
+  try {
+    setze({});
+    const werk = stimmen.stil();
+    assert.strictEqual(werk.name, 'sanft', 'ohne Ansage wird nicht gehetzt');
+    assert.ok(werk.tempo < stimmen.STILE.normal.tempo, 'langsamer als die Werkseinstellung des Macs');
+
+    setze({ SPRACH_STIL: 'ruhig' });
+    assert.strictEqual(stimmen.stil().tempo, 150);
+    assert.strictEqual(stimmen.stil().ruhe, 0.7, 'ruhiger heisst auch gleichmaessiger');
+
+    setze({ SPRACH_STIL: 'quatsch' });
+    assert.strictEqual(stimmen.stil().name, 'sanft', 'ein unbekannter Stil faellt weich zurueck');
+
+    // Wer es genau wissen will, ueberschreibt einzelne Werte.
+    setze({ SPRACH_STIL: 'normal', SPRACH_TEMPO: '140', ELEVENLABS_STABILITAET: '0.9' });
+    assert.strictEqual(stimmen.stil().tempo, 140);
+    assert.strictEqual(stimmen.stil().ruhe, 0.9);
+  } finally {
+    for (const k of Object.keys(merker)) {
+      if (merker[k] === undefined) delete process.env[k];
+      else process.env[k] = merker[k];
+    }
+  }
+});
+
 test('Stimmen: die .env wird ergaenzt, nicht neu geschrieben', () => {
   const fs2 = require('fs');
   const os2 = require('os');

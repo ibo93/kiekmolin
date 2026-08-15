@@ -299,6 +299,26 @@ node stimmen.js probe Anna # eine einzelne anhören
 node stimmen.js browser    # zurück zur Browser-Stimme
 ```
 
+**Sanfter?** Das ist der zweite Hebel, und der unterschätzte: dieselbe Stimme
+klingt langsamer sofort angenehmer. Hektik macht jede Stimme hart — auch eine
+teure.
+
+```bash
+node stimmen.js sanft       # dreimal derselbe Satz, unterschiedlich ruhig
+node stimmen.js stil ruhig  # die ruhigste übernehmen
+```
+
+| Stufe | Tempo | wofür |
+|---|---|---|
+| normal | 180 Wörter/Min | die Werkseinstellung des Macs — am Schreibtisch zu schnell |
+| **sanft** | 165 | **Standard hier** |
+| ruhig | 150 | wenn er dir immer noch zu hektisch ist |
+
+Bei ElevenLabs wirkt dieselbe Stufe auf die Gleichmäßigkeit der Stimme
+(`stability`), und der Assistent nimmt von Haus aus das **gute** Modell
+(`eleven_multilingual_v2`), nicht das schnelle vom Telefon-Retter. Am
+Schreibtisch fällt die Zehntelsekunde nicht auf, der Klang schon.
+
 **Bessere Mac-Stimmen nachladen** (einmalig, dauert ein paar Minuten):
 Systemeinstellungen → Bedienungshilfen → Gesprochene Inhalte → Systemstimme
 → Anpassen → Deutsch → die mit **„Premium"** laden. Danach tauchen sie in

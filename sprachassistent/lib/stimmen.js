@@ -32,6 +32,34 @@ const PROBE = 'Moin Ibo. La Piazza wartet auf die Speisekarte, ' +
 
 const AUF_MAC = process.platform === 'darwin';
 
+// WIE soll sie sprechen? Nicht nur WER spricht, sondern wie ruhig.
+//
+// Das ist der Hebel, den die meisten uebersehen: dieselbe Stimme klingt
+// langsamer und gleichmaessiger sofort angenehmer. Hektik macht jede
+// Stimme hart - auch eine teure.
+//
+//   tempo  Woerter pro Minute (Mac). 180 ist die Werkseinstellung und
+//          fuer einen Assistenten am Schreibtisch zu schnell.
+//   ruhe   ElevenLabs "stability": hoeher = gleichmaessiger und ruhiger,
+//          niedriger = ausdrucksstaerker, aber unruhiger.
+const STILE = {
+  normal: { name: 'normal', tempo: 180, ruhe: 0.42 },
+  sanft: { name: 'sanft', tempo: 165, ruhe: 0.55 },
+  ruhig: { name: 'ruhig', tempo: 150, ruhe: 0.70 }
+};
+
+function stil(wunsch) {
+  const gewuenscht = String(wunsch || process.env.SPRACH_STIL || 'sanft').toLowerCase();
+  const gefunden = STILE[gewuenscht] || STILE.sanft;
+  // Einzelne Werte duerfen den Stil ueberschreiben - fuer die, die es
+  // genau wissen wollen.
+  return {
+    name: gefunden.name,
+    tempo: parseInt(process.env.SPRACH_TEMPO || gefunden.tempo, 10),
+    ruhe: parseFloat(process.env.ELEVENLABS_STABILITAET || gefunden.ruhe)
+  };
+}
+
 // ------------------------------------------------------- macOS-Stimmen ----
 
 // "say -v ?" listet alles, was installiert ist:
@@ -67,10 +95,13 @@ async function macStimmen() {
 
 // Text -> WAV. WAV, weil der Browser das ohne Umweg abspielt; das AIFF,
 // das "say" von Haus aus schreibt, kann er nicht zuverlaessig.
-async function sprichMac(text, name) {
+async function sprichMac(text, name, wieRuhig) {
   if (!AUF_MAC) throw new Error('Die eingebauten Stimmen gibt es nur auf dem Mac');
+  const s = wieRuhig && wieRuhig.tempo ? wieRuhig : stil();
   const datei = path.join(os.tmpdir(), 'kurani-stimme-' + process.pid + '-' + Date.now() + '.wav');
-  const argumente = ['-o', datei, '--data-format=LEI16@22050'];
+  // 22 kHz reicht fuer Sprache und ist schnell geschrieben; -r bremst sie
+  // auf ein Tempo, bei dem man zuhoeren mag.
+  const argumente = ['-r', String(s.tempo), '-o', datei, '--data-format=LEI16@22050'];
   if (name) argumente.unshift('-v', name);
   argumente.push(String(text));
 
@@ -152,12 +183,13 @@ function welcherWeg() {
 }
 
 // Eine Stimme anhoeren (liefert Ton als Buffer).
-async function probe(stimme, text) {
+async function probe(stimme, text, wieRuhig) {
   const satz = text || PROBE;
   if (!stimme) throw new Error('Keine Stimme angegeben');
-  if (stimme.art === 'mac') return { ton: await sprichMac(satz, stimme.id), art: 'audio/wav' };
+  const s = wieRuhig || stil();
+  if (stimme.art === 'mac') return { ton: await sprichMac(satz, stimme.id, s), art: 'audio/wav' };
   const stimmeModul = require('./stimme');
-  return { ton: await stimmeModul.spreche(satz, { stimme: stimme.id, roh: true }), art: 'audio/mpeg' };
+  return stimmeModul.spreche(satz, { stimme: stimme.id, roh: true, stil: s });
 }
 
 // ------------------------------------------------------ .env schreiben ----
@@ -190,6 +222,6 @@ function setzeEnv(schluessel, wert, datei) {
 
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
-  deutschZuerst, aktuelle, welcherWeg, probe, setzeEnv,
-  PROBE, AUF_MAC
+  deutschZuerst, aktuelle, welcherWeg, probe, setzeEnv, stil,
+  PROBE, AUF_MAC, STILE
 };

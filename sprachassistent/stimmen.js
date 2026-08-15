@@ -7,6 +7,8 @@
 //   node stimmen.js hoeren     spielt alle deutschen nacheinander vor
 //   node stimmen.js probe 4    eine einzelne anhoeren
 //   node stimmen.js nimm 4     diese Stimme fest eintragen (.env)
+//   node stimmen.js sanft      dieselbe Stimme in drei Ruhestufen hoeren
+//   node stimmen.js stil ruhig die ruhigste uebernehmen
 //   node stimmen.js browser    zurueck zur eingebauten Browser-Stimme
 //
 // Der uebliche Weg: einmal "hoeren", die Nummer merken, "nimm <nummer>".
@@ -149,6 +151,45 @@ async function main() {
     return;
   }
 
+  // ---- Wie ruhig soll sie sprechen? --------------------------------------
+  // Dieselbe Stimme, drei Tempi. Der Unterschied ist groesser, als man
+  // denkt - Hektik macht jede Stimme hart, auch eine teure.
+  if (befehl === 'sanft' || befehl === 'tempo' || befehl === 'ruhe') {
+    const s = waehle(liste, rest) ||
+      (a && liste.find((x) => x.art === a.art && String(x.id) === String(a.id))) ||
+      (deutsch[0] || liste[0]);
+
+    console.log('');
+    console.log('  ' + s.name + ' - dreimal derselbe Satz, unterschiedlich ruhig:');
+    console.log('');
+    const namen = Object.keys(stimmen.STILE);
+    for (let i = 0; i < namen.length; i++) {
+      const stil = stimmen.stil(namen[i]);
+      console.log('  ' + (i + 1) + ')  ' + namen[i] + '  (' + stil.tempo + ' Woerter pro Minute)');
+      try {
+        const { ton, art } = await stimmen.probe(s, null, stil);
+        await spielAb(ton, endungFuer(art));
+      } catch (e) {
+        console.log('      geht nicht (' + e.message.slice(0, 60) + ')');
+      }
+    }
+    console.log('');
+    console.log('  Uebernehmen mit:  node stimmen.js stil ruhig');
+    console.log('');
+    return;
+  }
+
+  if (befehl === 'stil') {
+    const gewuenscht = rest.toLowerCase();
+    if (!stimmen.STILE[gewuenscht]) {
+      console.log('  Moeglich: ' + Object.keys(stimmen.STILE).join(', ') + '   (Anhoeren: node stimmen.js sanft)');
+      process.exit(1);
+    }
+    stimmen.setzeEnv('SPRACH_STIL', gewuenscht);
+    console.log('  Eingetragen: ' + gewuenscht + '. Server neu starten, dann gilt es.');
+    return;
+  }
+
   // ---- Eine einzelne anhoeren --------------------------------------------
   if (befehl === 'probe') {
     const s = waehle(liste, rest);
@@ -177,7 +218,7 @@ async function main() {
     return;
   }
 
-  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, probe <n>, nimm <n>, browser');
+  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, probe <n>, nimm <n>, sanft, stil <name>, browser');
   process.exit(1);
 }
 

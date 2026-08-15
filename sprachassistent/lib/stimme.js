@@ -24,29 +24,39 @@ const stimmen = require('./stimmen');
 async function spreche(text, optionen) {
   const o = optionen || {};
 
+  const wieRuhig = o.stil || stimmen.stil();
+
   // Ausdruecklich eine Stimme verlangt (Probehoeren): die gilt.
-  if (o.stimme && o.roh) return elevenlabs(text, o.stimme);
+  if (o.stimme && o.roh) return elevenlabs(text, o.stimme, wieRuhig);
 
   const weg = stimmen.welcherWeg();
 
   if (weg === 'mac') {
     const gewaehlt = stimmen.aktuelle();
-    return { ton: await stimmen.sprichMac(text, gewaehlt.id), art: 'audio/wav' };
+    return { ton: await stimmen.sprichMac(text, gewaehlt.id, wieRuhig), art: 'audio/wav' };
   }
 
-  if (weg === 'elevenlabs') return elevenlabs(text, o.stimme);
+  if (weg === 'elevenlabs') return elevenlabs(text, o.stimme, wieRuhig);
 
   throw new Error('Keine eigene Stimme eingestellt - der Browser spricht dann selbst');
 }
 
-async function elevenlabs(text, stimmeId) {
+async function elevenlabs(text, stimmeId, wieRuhig) {
   const key = process.env.ELEVENLABS_API_KEY;
   const voiceId = stimmeId || process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID;
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt - der Browser spricht dann selbst');
   if (!voiceId) throw new Error('Keine Stimme gewaehlt - aussuchen mit: node stimmen.js hoeren');
 
-  const modell = process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5';
+  // Das Modell entscheidet ueber den Klang. "flash" ist auf Tempo gebaut -
+  // richtig fuers Telefon, wo jede Zehntelsekunde Stille auffaellt. Am
+  // Schreibtisch faellt sie nicht auf, dafuer der haertere Klang. Also
+  // hier von Haus aus das gute Modell.
+  //
+  // Eigener Schluessel fuer den Assistenten, damit die Telefon-Einstellung
+  // aus telefon-retter/.env nicht ungefragt mitgezogen wird.
+  const modell = process.env.SPRACH_MODELL_STIMME || process.env.ELEVENLABS_MODELL || 'eleven_multilingual_v2';
   const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
+  const s = wieRuhig || stimmen.stil();
 
   const antwort = await fetch(
     'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=mp3_44100_128',
@@ -58,8 +68,13 @@ async function elevenlabs(text, stimmeId) {
         text: text,
         model_id: modell,
         voice_settings: {
-          stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
-          similarity_boost: 0.8
+          // Hoehere stability = gleichmaessiger und ruhiger. style auf 0
+          // haelt sie sachlich statt theatralisch - ein Assistent soll
+          // nicht schauspielern.
+          stability: s.ruhe,
+          similarity_boost: 0.8,
+          style: 0,
+          use_speaker_boost: true
         }
       }, sprachHinweis))
     }
