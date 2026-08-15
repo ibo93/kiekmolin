@@ -836,13 +836,7 @@ try {
 // Das Lagebild einmal beim Start holen und dann im Takt frisch halten.
 if (!DEMO) lagebild.start();
 
-// Hat Ibo keine Stimme gewaehlt, nimmt er sich die beste deutsche, die auf
-// dem Rechner liegt - statt der Browser-Stimme, die je nach Browser auch
-// mal franzoesisch klingt. Geschrieben wird nichts; dauerhaft geht es
-// ueber "node stimmen.js nimm ...".
-const stimmeBereit = DEMO ? Promise.resolve(null) : stimmen.standardWaehlen().catch(() => null);
-
-stimmeBereit.then(() => server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
   console.log('');
   console.log('  KURANI · Sprachassistent' + (DEMO ? '  (Demo)' : ''));
   console.log('  ------------------------------------------------');
@@ -863,6 +857,21 @@ stimmeBereit.then(() => server.listen(PORT, HOST, () => {
   if (FREIE_HAND) console.log('  ! Freie Hand ist erlaubt: der Assistent darf alles ausfuehren.');
   if (!NUR_HIER) console.log('  ! Achtung: erreichbar unter ' + HOST + ' - dieser Server darf Dateien aendern.');
   console.log('');
-}));
+
+  // Hat Ibo keine Stimme gewaehlt, sucht er sich die beste deutsche, die
+  // auf dem Rechner liegt - statt der Browser-Stimme, die je nach Browser
+  // auch mal franzoesisch klingt.
+  //
+  // Das laeuft NACH dem listen und im Hintergrund. Vorher stand es davor,
+  // und wenn die Suche haengt, geht das Fenster nicht auf - der Server
+  // darf auf gar nichts warten, bevor er erreichbar ist.
+  if (!DEMO) {
+    stimmen.standardWaehlen()
+      .then((beste) => {
+        if (beste) console.log('  Stimme:   ' + beste.name + ' - von allein gewaehlt (deutsch)');
+      })
+      .catch(() => { /* dann bleibt es beim Browser */ });
+  }
+});
 
 module.exports = { server, demoAntwort };
