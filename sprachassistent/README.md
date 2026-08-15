@@ -51,10 +51,23 @@ nichts doppelt eintragen und kein neues Konto anlegen.
 
 ## 2. Loslegen
 
-**Auf dem Mac: `start.command` doppelklicken.** Fertig. Das Ding holt beim
-ersten Mal die eine Abhängigkeit, prüft sich selbst durch und macht den
-Browser auf. (Beim allerersten Start meckert macOS: Rechtsklick →
-**Öffnen** → **Öffnen**. Danach reicht Doppelklick.)
+**Beim allerersten Mal: `einrichten.command` doppelklicken.** Danach immer
+`start.command`.
+
+Das Einrichten legt an, was fehlt (`.env`, `ordner.json`), sucht deine
+Kurani-Unterlagen und dein CM und sagt am Ende, ob noch etwas klemmt. Es
+überschreibt **nichts**, was schon da ist, und trägt den CM-Pfad nur nach
+Rückfrage ein. Zweimal ausführen schadet nicht.
+
+`ordner.json` entsteht dabei nur mit den Ordnern, die es auf **deinem**
+Rechner wirklich gibt — die Vorlage blind zu kopieren würde sonst drei
+Fehler melden, obwohl nichts kaputt ist. Was übersprungen wurde, steht in
+der Ausgabe.
+
+**Danach: `start.command` doppelklicken.** Das holt beim ersten Mal die eine
+Abhängigkeit, prüft sich selbst durch und macht den Browser auf. (Beim
+allerersten Start meckert macOS: Rechtsklick → **Öffnen** → **Öffnen**.
+Danach reicht Doppelklick.)
 
 Soll er beim Anmelden von selbst starten: Systemeinstellungen →
 Allgemein → Anmeldeobjekte → `start.command` hinzufügen.
