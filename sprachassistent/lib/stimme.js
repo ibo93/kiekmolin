@@ -47,14 +47,19 @@ async function elevenlabs(text, stimmeId, wieRuhig) {
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt - der Browser spricht dann selbst');
   if (!voiceId) throw new Error('Keine Stimme gewaehlt - aussuchen mit: node stimmen.js hoeren');
 
-  // Das Modell entscheidet ueber den Klang. "flash" ist auf Tempo gebaut -
-  // richtig fuers Telefon, wo jede Zehntelsekunde Stille auffaellt. Am
-  // Schreibtisch faellt sie nicht auf, dafuer der haertere Klang. Also
-  // hier von Haus aus das gute Modell.
+  // Das Modell entscheidet ueber Klang UND Wartezeit - und das ist ein
+  // Tausch:
+  //   flash        am schnellsten, klingt am haertesten
+  //   turbo        schnell und trotzdem gut  <- hier die Wahl
+  //   multilingual am besten, aber man wartet darauf
+  //
+  // Ein Gespraech lebt davon, dass die Antwort kommt. Eine Stimme, auf
+  // die man wartet, ist keine gute Stimme, egal wie schoen sie klingt.
+  // Deshalb turbo: der Kompromiss, den man nicht merkt.
   //
   // Eigener Schluessel fuer den Assistenten, damit die Telefon-Einstellung
   // aus telefon-retter/.env nicht ungefragt mitgezogen wird.
-  const modell = process.env.SPRACH_MODELL_STIMME || process.env.ELEVENLABS_MODELL || 'eleven_multilingual_v2';
+  const modell = process.env.SPRACH_MODELL_STIMME || process.env.ELEVENLABS_MODELL || 'eleven_turbo_v2_5';
   const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
   const s = wieRuhig || stimmen.stil();
 

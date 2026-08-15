@@ -32,31 +32,36 @@ const PROBE = 'Moin Ibo. La Piazza wartet auf die Speisekarte, ' +
 
 const AUF_MAC = process.platform === 'darwin';
 
-// WIE soll sie sprechen? Nicht nur WER spricht, sondern wie ruhig.
+// WIE soll sie sprechen?
 //
-// Das ist der Hebel, den die meisten uebersehen: dieselbe Stimme klingt
-// langsamer und gleichmaessiger sofort angenehmer. Hektik macht jede
-// Stimme hart - auch eine teure.
+// Zwei Sachen, die NICHTS miteinander zu tun haben - und die hier
+// deshalb getrennt eingestellt werden:
 //
-//   tempo  Woerter pro Minute (Mac). 180 ist die Werkseinstellung und
-//          fuer einen Assistenten am Schreibtisch zu schnell.
-//   ruhe   ElevenLabs "stability": hoeher = gleichmaessiger und ruhiger,
-//          niedriger = ausdrucksstaerker, aber unruhiger.
+//   TEMPO  wie schnell. Woerter pro Minute.
+//   RUHE   wie sanft. Gleichmaessig und unaufgeregt statt hektisch
+//          betont. Bei ElevenLabs ist das "stability".
+//
+// Der Unterschied ist wichtig: eine Stimme kann zuegig UND sanft sein -
+// so redet ein ruhiger Mensch, der weiss, was er sagen will. Langsam
+// heisst nicht sanft, es heisst nur langsam.
+const TEMPO_NORMAL = 190;      // zuegig, aber nicht gehetzt
+
 const STILE = {
-  normal: { name: 'normal', tempo: 180, ruhe: 0.42 },
-  sanft: { name: 'sanft', tempo: 165, ruhe: 0.55 },
-  ruhig: { name: 'ruhig', tempo: 150, ruhe: 0.70 }
+  lebhaft: { name: 'lebhaft', ruhe: 0.35 },     // betont stark, wirkt unruhig
+  sanft: { name: 'sanft', ruhe: 0.55 },         // Standard
+  ruhig: { name: 'ruhig', ruhe: 0.75 }          // sehr gleichmaessig
 };
 
-function stil(wunsch) {
+function stil(wunsch, tempoWunsch) {
   const gewuenscht = String(wunsch || process.env.SPRACH_STIL || 'sanft').toLowerCase();
   const gefunden = STILE[gewuenscht] || STILE.sanft;
-  // Einzelne Werte duerfen den Stil ueberschreiben - fuer die, die es
-  // genau wissen wollen.
+  const tempo = parseInt(tempoWunsch || process.env.SPRACH_TEMPO || TEMPO_NORMAL, 10);
   return {
     name: gefunden.name,
-    tempo: parseInt(process.env.SPRACH_TEMPO || gefunden.tempo, 10),
-    ruhe: parseFloat(process.env.ELEVENLABS_STABILITAET || gefunden.ruhe)
+    // Sicherheitsnetz: unter 120 versteht man ihn nicht mehr als Assistent,
+    // ueber 260 ueberschlaegt er sich.
+    tempo: Math.max(120, Math.min(260, isFinite(tempo) ? tempo : TEMPO_NORMAL)),
+    ruhe: parseFloat(process.env.SPRACH_RUHE || process.env.ELEVENLABS_STABILITAET || gefunden.ruhe)
   };
 }
 
@@ -223,5 +228,5 @@ function setzeEnv(schluessel, wert, datei) {
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
   deutschZuerst, aktuelle, welcherWeg, probe, setzeEnv, stil,
-  PROBE, AUF_MAC, STILE
+  PROBE, AUF_MAC, STILE, TEMPO_NORMAL
 };

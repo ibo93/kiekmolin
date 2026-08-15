@@ -299,25 +299,28 @@ node stimmen.js probe Anna # eine einzelne anhören
 node stimmen.js browser    # zurück zur Browser-Stimme
 ```
 
-**Sanfter?** Das ist der zweite Hebel, und der unterschätzte: dieselbe Stimme
-klingt langsamer sofort angenehmer. Hektik macht jede Stimme hart — auch eine
-teure.
+**Wie schnell und wie sanft** sind zwei verschiedene Sachen — eine Stimme
+kann zügig und trotzdem sanft sein. So redet jemand, der weiß, was er sagen
+will. Deshalb zwei getrennte Knöpfe:
 
 ```bash
-node stimmen.js sanft       # dreimal derselbe Satz, unterschiedlich ruhig
-node stimmen.js stil ruhig  # die ruhigste übernehmen
+node stimmen.js tempo       # dreimal derselbe Satz, unterschiedlich schnell
+node stimmen.js tempo 215   # zügiger
+
+node stimmen.js sanft       # gleiches Tempo, unterschiedlich sanft
+node stimmen.js stil ruhig  # gleichmäßiger betont
 ```
 
-| Stufe | Tempo | wofür |
-|---|---|---|
-| normal | 180 Wörter/Min | die Werkseinstellung des Macs — am Schreibtisch zu schnell |
-| **sanft** | 165 | **Standard hier** |
-| ruhig | 150 | wenn er dir immer noch zu hektisch ist |
+Das Tempo sind Wörter pro Minute (Standard 190). Die Sanftheit ist, wie
+gleichmäßig sie betont — `lebhaft` betont stark und wirkt unruhig, `ruhig`
+ist sehr gleichmäßig. **Die Sanftheit wirkt nur bei ElevenLabs**; die
+Mac-Stimmen können nur Tempo.
 
-Bei ElevenLabs wirkt dieselbe Stufe auf die Gleichmäßigkeit der Stimme
-(`stability`), und der Assistent nimmt von Haus aus das **gute** Modell
-(`eleven_multilingual_v2`), nicht das schnelle vom Telefon-Retter. Am
-Schreibtisch fällt die Zehntelsekunde nicht auf, der Klang schon.
+Beim ElevenLabs-Modell wird zwischen Klang und Wartezeit getauscht:
+`flash` ist am schnellsten und klingt am härtesten, `multilingual` klingt am
+besten und man wartet darauf. Der Assistent nimmt **`turbo`** — schnell und
+trotzdem gut. Ein Gespräch lebt davon, dass die Antwort kommt; eine Stimme,
+auf die man wartet, ist keine gute Stimme, egal wie schön sie klingt.
 
 **Bessere Mac-Stimmen nachladen** (einmalig, dauert ein paar Minuten):
 Systemeinstellungen → Bedienungshilfen → Gesprochene Inhalte → Systemstimme

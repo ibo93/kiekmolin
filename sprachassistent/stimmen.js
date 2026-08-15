@@ -7,8 +7,10 @@
 //   node stimmen.js hoeren     spielt alle deutschen nacheinander vor
 //   node stimmen.js probe 4    eine einzelne anhoeren
 //   node stimmen.js nimm 4     diese Stimme fest eintragen (.env)
-//   node stimmen.js sanft      dieselbe Stimme in drei Ruhestufen hoeren
-//   node stimmen.js stil ruhig die ruhigste uebernehmen
+//   node stimmen.js tempo      wie schnell? drei Tempi hoeren
+//   node stimmen.js tempo 215  schneller sprechen
+//   node stimmen.js sanft      wie sanft? drei Stufen hoeren
+//   node stimmen.js stil ruhig die sanfteste uebernehmen
 //   node stimmen.js browser    zurueck zur eingebauten Browser-Stimme
 //
 // Der uebliche Weg: einmal "hoeren", die Nummer merken, "nimm <nummer>".
@@ -151,29 +153,66 @@ async function main() {
     return;
   }
 
-  // ---- Wie ruhig soll sie sprechen? --------------------------------------
-  // Dieselbe Stimme, drei Tempi. Der Unterschied ist groesser, als man
-  // denkt - Hektik macht jede Stimme hart, auch eine teure.
-  if (befehl === 'sanft' || befehl === 'tempo' || befehl === 'ruhe') {
-    const s = waehle(liste, rest) ||
-      (a && liste.find((x) => x.art === a.art && String(x.id) === String(a.id))) ||
-      (deutsch[0] || liste[0]);
+  // Welche Stimme ist gerade gemeint? Die genannte, sonst die
+  // eingestellte, sonst die erste deutsche.
+  const gemeint = () => waehle(liste, rest) ||
+    (a && liste.find((x) => x.art === a.art && String(x.id) === String(a.id))) ||
+    (deutsch[0] || liste[0]);
 
+  // ---- Wie SCHNELL? ------------------------------------------------------
+  // Getrennt von "wie sanft" - das sind zwei verschiedene Sachen. Eine
+  // Stimme kann zuegig und trotzdem sanft sein; genau so redet jemand,
+  // der weiss, was er sagen will.
+  if (befehl === 'tempo') {
+    const zahl = parseInt(rest, 10);
+    if (isFinite(zahl) && zahl > 0) {
+      const s = stimmen.stil(null, zahl);
+      stimmen.setzeEnv('SPRACH_TEMPO', String(s.tempo));
+      console.log('  Eingetragen: ' + s.tempo + ' Woerter pro Minute. Server neu starten.');
+      return;
+    }
+
+    const s = gemeint();
     console.log('');
-    console.log('  ' + s.name + ' - dreimal derselbe Satz, unterschiedlich ruhig:');
+    console.log('  ' + s.name + ' - dreimal derselbe Satz, unterschiedlich schnell:');
     console.log('');
-    const namen = Object.keys(stimmen.STILE);
-    for (let i = 0; i < namen.length; i++) {
-      const stil = stimmen.stil(namen[i]);
-      console.log('  ' + (i + 1) + ')  ' + namen[i] + '  (' + stil.tempo + ' Woerter pro Minute)');
+    for (const tempo of [170, 190, 215]) {
+      console.log('  ' + tempo + ' Woerter pro Minute' + (tempo === stimmen.TEMPO_NORMAL ? '   <- Standard' : ''));
       try {
-        const { ton, art } = await stimmen.probe(s, null, stil);
+        const { ton, art } = await stimmen.probe(s, null, stimmen.stil(null, tempo));
         await spielAb(ton, endungFuer(art));
       } catch (e) {
         console.log('      geht nicht (' + e.message.slice(0, 60) + ')');
       }
     }
     console.log('');
+    console.log('  Uebernehmen mit:  node stimmen.js tempo 215');
+    console.log('');
+    return;
+  }
+
+  // ---- Wie SANFT? --------------------------------------------------------
+  // Gleiches Tempo, unterschiedlich gleichmaessig betont.
+  if (befehl === 'sanft' || befehl === 'ruhe') {
+    const s = gemeint();
+    console.log('');
+    console.log('  ' + s.name + ' - gleiches Tempo, unterschiedlich sanft:');
+    console.log('');
+    for (const name of Object.keys(stimmen.STILE)) {
+      console.log('  ' + name);
+      try {
+        const { ton, art } = await stimmen.probe(s, null, stimmen.stil(name));
+        await spielAb(ton, endungFuer(art));
+      } catch (e) {
+        console.log('      geht nicht (' + e.message.slice(0, 60) + ')');
+      }
+    }
+    console.log('');
+    if (s.art === 'mac') {
+      console.log('  Hoerst du keinen Unterschied? Bei den Mac-Stimmen gibt es nur das');
+      console.log('  Tempo - sanft einstellen geht erst mit ElevenLabs.');
+      console.log('');
+    }
     console.log('  Uebernehmen mit:  node stimmen.js stil ruhig');
     console.log('');
     return;
@@ -218,7 +257,7 @@ async function main() {
     return;
   }
 
-  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, probe <n>, nimm <n>, sanft, stil <name>, browser');
+  console.log('  Kenne ich nicht. Moeglich: liste, hoeren, probe <n>, nimm <n>, tempo [zahl], sanft, stil <name>, browser');
   process.exit(1);
 }
 
