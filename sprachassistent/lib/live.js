@@ -345,6 +345,8 @@ class LiveSitzung {
     }
 
     if (this.laeuft) this.unterbrich('unterbrochen');   // Nachschlag mitten drin
+    // Anknuepfung fuer "mach das fertig": woran haben wir zuletzt gearbeitet?
+    if (!befehle.willUebergeben(satz).uebergeben) this.eigenerZustand.letzterSatz = satz;
     this.senden({ typ: 'du', text: satz });
     this._starte(satz, kontext || {});
   }

@@ -31,6 +31,7 @@ const notizen = require('./lib/notizen');
 const wache = require('./lib/wache');
 const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
+const kurani = require('./lib/kurani');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -61,6 +62,14 @@ const ZUSATZ_ORDNER = (process.env.SPRACH_ZUSATZ_ORDNER || '')
   .split(',').map((p) => p.trim()).filter(Boolean)
   .map((p) => befehle.pfadAusfuellen(p, REPO));
 if (/^(ja|yes|1|true)$/i.test(process.env.SPRACH_ALLES || '')) ZUSATZ_ORDNER.push(require('os').homedir());
+
+// Die Kurani-Unterlagen (Kundenordner, Druckdaten, CLAUDE.md-Regeln)
+// werden automatisch gesucht und freigegeben - dafuer soll Ibo keine
+// Pfade eintippen muessen.
+const KURANI = kurani.finde();
+for (const ort of KURANI.ordner) {
+  if (ZUSATZ_ORDNER.indexOf(ort) === -1) ZUSATZ_ORDNER.push(ort);
+}
 
 const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
 
@@ -95,7 +104,7 @@ const WERKZEUG_HINWEIS = WERKZEUGE.join(' ');
 // dauerhaft ...") und soll dann sofort gelten.
 function systemZusatz() {
   const dauerhaft = wissen.alsSystemZusatz();
-  return befehle.systemZusatz(WERKZEUG_HINWEIS + (dauerhaft ? ' ' + dauerhaft : ''));
+  return befehle.systemZusatz([WERKZEUG_HINWEIS, KURANI.hinweis, dauerhaft].filter(Boolean).join(' '));
 }
 
 // Gedaechtnis: pro Arbeitsordner eine laufende Claude-Sitzung. So kann Ibo
@@ -165,7 +174,17 @@ const WERKZEUG_PFADE = {
   agentur: path.join(__dirname, 'agentur.js')
 };
 
-function auftragsText(gesagt) {
+function auftragsText(gesagt, zustand) {
+  // "Mach das fertig": aus dem eben Diktierten oder Gesagten wird das
+  // richtige Dokument - mit den Skills, im richtigen Kundenordner.
+  const u = befehle.willUebergeben(gesagt);
+  if (u.uebergeben) {
+    return befehle.uebergabeAuftrag({
+      quelleDatei: zustand && zustand.letztesDiktat,
+      quelleText: zustand && zustand.letzterSatz,
+      zusatz: u.zusatz
+    });
+  }
   const schnell = befehle.schnellbefehl(gesagt, null, WERKZEUG_PFADE);
   return schnell ? schnell.prompt : gesagt;
 }
@@ -213,6 +232,7 @@ function fuehreAus(res, wunsch) {
   // Notiz, Liste, Diktat: das macht der Server selbst - ohne KI, ohne
   // Kosten, ohne Wartezeit.
   const direkt = sofort.behandle(text, knopfZustand);
+  if (!direkt) knopfZustand.letzterSatz = text;   // Anknuepfung fuer "mach das fertig"
   if (direkt) {
     if (direkt.still) {
       sende({ art: 'fertig', text: '', sprich: '', still: true });
@@ -343,7 +363,7 @@ function fuehreAus(res, wunsch) {
       echt = starte(vorbereitet.text);
     });
   } else {
-    lauf = starte(auftragsText(text));
+    lauf = starte(auftragsText(text, knopfZustand));
   }
 
   laufende.set(auftragsId, lauf);
@@ -429,7 +449,7 @@ function liveVerbindung(ws, req) {
       });
 
       // "Guck dir das an": erst das Foto, dann der Auftrag mit Bild.
-      if (!befehle.willBildschirm(o.prompt).bildschirm) return bauen(auftragsText(o.prompt));
+      if (!befehle.willBildschirm(o.prompt).bildschirm) return bauen(auftragsText(o.prompt, sitzung.eigenerZustand));
 
       senden({ typ: 'werkzeug', text: 'macht ein Bildschirmfoto' });
       let echt = null;
@@ -681,6 +701,9 @@ server.listen(PORT, HOST, () => {
   console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));
   if (ZUSATZ_ORDNER.length) console.log('  Zugriff:  zusaetzlich ' + ZUSATZ_ORDNER.join(', '));
+  if (KURANI.ordner.length) {
+    console.log('  Kurani:   ' + KURANI.ordner.length + ' Ordner, ' + KURANI.claudeDateien.length + ' CLAUDE.md gefunden');
+  }
   if (FREIE_HAND) console.log('  ! Freie Hand ist erlaubt: der Assistent darf alles ausfuehren.');
   if (!NUR_HIER) console.log('  ! Achtung: erreichbar unter ' + HOST + ' - dieser Server darf Dateien aendern.');
   console.log('');

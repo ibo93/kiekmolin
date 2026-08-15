@@ -133,6 +133,47 @@ du sie genau formulierst:
 | „Wie geht's der Agentur?" / „Wer ist rot?" | Kundenampel, fehlende Reports, Pipeline |
 | **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
 | **„Merk dir dauerhaft …"** | gilt ab dann in **jedem** Auftrag |
+| **„Mach das fertig"** | aus dem eben Diktierten wird das echte Dokument |
+
+### „Mach das fertig" — vom Gesagten zum fertigen Dokument
+
+Der wichtigste Satz im Alltag. Du hast diktiert oder erzählt, jetzt soll was
+Richtiges draus werden:
+
+> „Schreib mit, Termin Greetsieler Börse." … „Diktat Ende."
+> „**Mach das fertig** — als Angebot."
+
+Er nimmt das Diktat (oder das, worüber ihr gerade geredet habt), gibt es an
+Claude Code weiter und **das Dokument selbst** kommt raus — kein
+Zusammenfassungs-Zettel. Welche Art, entscheidet er aus dem Inhalt:
+
+| Inhalt | Skill | Ergebnis |
+|---|---|---|
+| Preise, Leistungen | `kurani-docs` | Angebot / Rechnung als .docx |
+| Schild, Plakat, Folie | `kurani-design` | Briefing mit Specs |
+| Reel, Dreh | `kurani-content` | Drehplan / Shotlist |
+| Speisekarte | `menumaker` | .docx mit Allergenen |
+
+Abgelegt wird dort, wo der Kunde schon liegt — in deinen Kurani-Unterlagen,
+nicht irgendwo. **Was er nicht weiß, erfindet er nicht**: fehlt ein Preis oder
+ein Datum, bleibt eine markierte Lücke und er sagt sie dir am Ende.
+
+### Zugriff auf deine Kurani-Unterlagen
+
+Er sucht sie beim Start selbst — `~/Kurani`, `~/Documents/Kurani`, iCloud —
+und gibt sie frei. Keine Pfade eintippen.
+
+**Deine `CLAUDE.md`-Dateien sind dabei das Wichtigste.** Was du dort für einen
+Kunden oder ein Projekt aufgeschrieben hast, ist die Hausordnung — er liest
+sie, **bevor** er für den Kunden arbeitet. Sagst du etwas, das dauerhaft für
+diesen Kunden gilt, hängt er es dort an (nie überschreiben) und sagt dir in
+einem Halbsatz Bescheid.
+
+Was gefunden wurde, steht beim Start und in `node pruefe.js`:
+
+```
+  ok Kurani-Unterlagen: 2 Ordner, 7 CLAUDE.md
+```
 
 ### „Guck dir das an" — er sieht deinen Bildschirm
 

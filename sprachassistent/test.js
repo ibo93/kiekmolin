@@ -26,6 +26,7 @@ const agentur = require('./lib/agentur');
 const pruefung = require('./lib/pruefung');
 const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
+const kurani = require('./lib/kurani');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -572,6 +573,57 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// ------------------------------------------- Uebergabe & Kurani-Kram ---
+
+test('"Mach das fertig" wird erkannt, normale Auftraege nicht', () => {
+  assert.strictEqual(befehle.willUebergeben('Mach das fertig').uebergeben, true);
+  assert.strictEqual(befehle.willUebergeben('Mach ein Angebot draus').uebergeben, true);
+  assert.strictEqual(befehle.willUebergeben('Arbeite das aus, bitte als Briefing').zusatz, 'bitte als Briefing');
+  assert.strictEqual(befehle.willUebergeben('Schreib eine Rechnung fuer La Piazza').uebergeben, false);
+  assert.strictEqual(befehle.willUebergeben('Merk dir: Karte bis Freitag').uebergeben, false);
+});
+
+test('Uebergabe-Auftrag: knuepft ans Diktat an und verbietet Erfinden', () => {
+  const mitDatei = befehle.uebergabeAuftrag({ quelleDatei: '/x/diktate/termin.md', zusatz: 'als Angebot' });
+  assert.ok(mitDatei.indexOf('/x/diktate/termin.md') > -1, 'die Grundlage steht drin');
+  assert.ok(mitDatei.indexOf('als Angebot') > -1, 'der Zusatz auch');
+  assert.ok(/kurani-docs/.test(mitDatei), 'die Skills sind genannt');
+  assert.ok(/Luecke/.test(mitDatei), 'fehlende Angaben werden markiert, nicht erfunden');
+  assert.ok(/nicht eine Zusammenfassung/.test(mitDatei), 'es soll das Dokument selbst rauskommen');
+
+  const ohne = befehle.uebergabeAuftrag({});
+  assert.ok(/zuletzt geredet/.test(ohne), 'ohne Grundlage: an das Gespraech anknuepfen');
+
+  const mitText = befehle.uebergabeAuftrag({ quelleText: 'Der Wirt will ein Schild' });
+  assert.ok(mitText.indexOf('Der Wirt will ein Schild') > -1);
+});
+
+test('Kurani-Unterlagen: CLAUDE.md-Dateien werden gefunden', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const basis = fs.mkdtempSync(path.join(os.tmpdir(), 'kurani-test-'));
+  try {
+    fs.mkdirSync(path.join(basis, 'Kurani', 'LaPiazza'), { recursive: true });
+    fs.writeFileSync(path.join(basis, 'Kurani', 'CLAUDE.md'), '# Regeln');
+    fs.writeFileSync(path.join(basis, 'Kurani', 'LaPiazza', 'claude.md'), '# La Piazza');
+    fs.mkdirSync(path.join(basis, 'Kurani', 'node_modules'), { recursive: true });
+    fs.writeFileSync(path.join(basis, 'Kurani', 'node_modules', 'CLAUDE.md'), 'nicht mitnehmen');
+
+    const gefunden = kurani.ordner(basis);
+    assert.strictEqual(gefunden.length, 1, 'der Kurani-Ordner wird gefunden');
+
+    const mds = kurani.claudeDateien(gefunden);
+    assert.strictEqual(mds.length, 2, 'beide echten CLAUDE.md, keine aus node_modules');
+
+    const hinweis = kurani.systemHinweis(gefunden, mds);
+    assert.ok(/LIES die passende/.test(hinweis), 'er soll sie vorher lesen');
+    assert.ok(/anhaengen, nie die Datei neu schreiben/.test(hinweis), 'und nie ueberschreiben');
+    assert.strictEqual(kurani.systemHinweis([], []), '', 'ohne Fund kein Hinweis');
+  } finally {
+    fs.rmSync(basis, { recursive: true, force: true });
+  }
 });
 
 // ------------------------------------------------- Wissen & Bildschirm ---

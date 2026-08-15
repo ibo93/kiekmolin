@@ -29,6 +29,12 @@ async function main() {
   liste.push(p.pruefeWs(WURZEL));
   liste.push(...p.pruefeSchluessel());
   liste.push(...p.pruefeOrdner(befehle.ladeOrdnerKonfig(path.join(WURZEL, '..'))));
+  const gefunden = require('./lib/kurani').finde();
+  liste.push(gefunden.ordner.length
+    ? p.ergebnis('ok', 'Kurani-Unterlagen', gefunden.ordner.length + ' Ordner, ' + gefunden.claudeDateien.length + ' CLAUDE.md')
+    : p.ergebnis('hinweis', 'Kurani-Unterlagen', 'Keine gefunden - er arbeitet dann nur im Repository',
+      'Ordner "Kurani" im Benutzerordner anlegen, oder Pfad in SPRACH_ZUSATZ_ORDNER eintragen.'));
+
   liste.push(p.pruefeSchreibrecht(WURZEL));
   liste.push(await p.pruefePort(PORT));
 

@@ -29,6 +29,8 @@ function behandle(text, zustand, jetzt) {
     if (befehl && befehl.art === 'diktatEnde') {
       const ergebnis = z.diktat.speichere();
       z.diktat = null;
+      // Merken, woran "mach das fertig" gleich anknuepfen kann.
+      if (!ergebnis.leer) z.letztesDiktat = ergebnis.datei;
       if (ergebnis.leer) return { art: 'diktat', antwort: 'Das Diktat war leer, ich habe nichts gespeichert.' };
       return {
         art: 'diktat',

@@ -208,6 +208,45 @@ function willBildschirm(text) {
   return { bildschirm: true, text: t.trim() };
 }
 
+// ---------------------------------------------------------- Uebergeben ----
+
+// "Mach das fertig." - der wichtigste Satz im Alltag.
+//
+// Ibo hat gerade diktiert, etwas erzaehlt oder eine Notiz gemacht. Jetzt
+// soll daraus etwas Richtiges werden: ein Angebot, ein Briefing, ein
+// sauberes Protokoll. Das kann kein Schnellbefehl - das macht Claude mit
+// den Skills. Hier wird nur erkannt, DASS uebergeben werden soll, und
+// woran angeknuepft wird.
+const UEBERGEBEN = /^(mach(e)? (das |es )?fertig|schreib(e)? das (aus|auf|sauber)|mach (ein|eine|einen) (dokument|notiz|protokoll|angebot|briefing) draus|arbeite das aus|uebernimm das|übernimm das|gib das an claude|mach was draus)\b[:,]?\s*/i;
+
+function willUebergeben(text) {
+  const t = String(text || '').trim();
+  const treffer = UEBERGEBEN.exec(t);
+  if (!treffer) return { uebergeben: false, zusatz: '' };
+  return { uebergeben: true, zusatz: t.slice(treffer[0].length).trim() };
+}
+
+// Der Auftrag an Claude, wenn uebergeben wird. quelle = Datei (Diktat)
+// oder der zuletzt gesprochene Text.
+function uebergabeAuftrag({ quelleDatei, quelleText, zusatz }) {
+  const teile = [];
+  if (quelleDatei) teile.push('Nimm die Datei ' + quelleDatei + ' als Grundlage - das hat Ibo gerade diktiert.');
+  else if (quelleText) teile.push('Grundlage ist, was Ibo gerade gesagt hat: "' + quelleText + '"');
+  else teile.push('Ibo hat keine Grundlage genannt - nimm das, worueber ihr zuletzt geredet habt.');
+
+  teile.push(zusatz ? 'Sein Zusatz dazu: "' + zusatz + '".' : '');
+  teile.push(
+    'Mach daraus das fertige Ergebnis - nicht eine Zusammenfassung, sondern das Dokument selbst. ' +
+    'Welche Art, entscheidest du aus dem Inhalt: Angebot oder Rechnung mit kurani-docs, ' +
+    'Briefing mit kurani-design, Drehplan mit kurani-content, Speisekarte mit menumaker. ' +
+    'Leg es dort ab, wo der Kunde oder das Projekt schon liegt (in den Kurani-Unterlagen), ' +
+    'nicht irgendwo. Fehlt eine Angabe, die man nicht raten darf (Preis, Datum, Adresse), ' +
+    'lass eine klar markierte Luecke und sag sie mir am Ende. ' +
+    'Antworte gesprochen in zwei Saetzen: was du gemacht hast und wo es liegt.'
+  );
+  return teile.filter(Boolean).join(' ');
+}
+
 // --------------------------------------------------- Hintergrund-Arbeit ---
 
 // Manche Aufgaben dauern: ein Reel schneiden, alle SEO-Seiten bauen, einen
@@ -374,5 +413,6 @@ module.exports = {
   steuerwort, waehleOrdner, ladeOrdnerKonfig, standardKonfig, pfadAusfuellen,
   systemZusatz, HALTUNG, STUFEN, stufeAufloesen,
   weckwortTreffer, schnellbefehl, SCHNELLBEFEHLE,
-  direktBefehl, DIREKT, istHintergrund, willBildschirm
+  direktBefehl, DIREKT, istHintergrund, willBildschirm,
+  willUebergeben, uebergabeAuftrag
 };
