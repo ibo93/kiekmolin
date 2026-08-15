@@ -1321,6 +1321,29 @@ test('Stimmen: der beste verfuegbare Weg gewinnt', () => {
   }
 });
 
+test('Stimmen: deutsch wird erkannt, egal wie die Quelle es schreibt', () => {
+  // Der Mac schreibt "de_DE", ElevenLabs "german" oder "de" - und bei
+  // vielen steht gar nichts. Wurde das verwechselt, stand eine
+  // franzoesische Stimme oben und "nimm 1" hat sie genommen.
+  for (const sprache of ['de_DE', 'de-DE', 'de', 'german', 'German', 'Deutsch', 'deu']) {
+    assert.ok(stimmen.istDeutsch({ sprache: sprache }), sprache + ' ist deutsch');
+  }
+  for (const sprache of ['en_US', 'french', 'français', 'american', 'british', 'swedish', '', null]) {
+    assert.ok(!stimmen.istDeutsch({ sprache: sprache }), String(sprache) + ' ist NICHT deutsch');
+  }
+
+  const sortiert = stimmen.deutschZuerst([
+    { name: 'Charlotte', sprache: 'french' },
+    { name: 'Otto', sprache: 'german' },
+    { name: 'Rachel', sprache: '' },
+    { name: 'Anna', sprache: 'de_DE' }
+  ]);
+  assert.deepStrictEqual(sortiert.deutsch.map((s) => s.name), ['Otto', 'Anna'],
+    'die deutschen kommen nach oben - auch die mit "german"');
+  assert.deepStrictEqual(sortiert.rest.map((s) => s.name), ['Charlotte', 'Rachel'],
+    'ohne Angabe gilt NICHT als deutsch');
+});
+
 test('Stimmen: Tempo und Sanftheit sind zwei getrennte Sachen', () => {
   const merker = { SPRACH_STIL: process.env.SPRACH_STIL, SPRACH_TEMPO: process.env.SPRACH_TEMPO,
     SPRACH_RUHE: process.env.SPRACH_RUHE, ELEVENLABS_STABILITAET: process.env.ELEVENLABS_STABILITAET };

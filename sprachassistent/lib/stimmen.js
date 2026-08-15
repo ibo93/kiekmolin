@@ -134,6 +134,9 @@ async function elevenStimmen() {
       art: 'elevenlabs',
       id: v.voice_id,
       name: v.name,
+      // ElevenLabs schreibt die Sprache mal als "language", mal nur als
+      // "accent" ("german", "french", "american") - und manchmal gar
+      // nicht. Was hier leer bleibt, gilt als unbekannt, nicht als deutsch.
       sprache: (v.labels && (v.labels.language || v.labels.accent)) || '',
       beschreibung: [v.labels && v.labels.description, v.labels && v.labels.age,
         v.labels && v.labels.gender].filter(Boolean).join(', ')
@@ -145,11 +148,27 @@ async function elevenStimmen() {
 
 // ------------------------------------------------------------- Auswahl ----
 
-// Deutsche Stimmen zuerst - alles andere braucht Ibo nicht.
+// Welche Stimme ist deutsch?
+//
+// Das ist kniffliger als es aussieht, weil die beiden Quellen es
+// unterschiedlich schreiben: der Mac sagt "de_DE", ElevenLabs schreibt
+// je nach Stimme "german", "de" oder "Deutsch" - und bei vielen steht
+// gar nichts.
+//
+// Der Fehler, den das hier verhindert: eine franzoesische Stimme steht
+// oben in der Liste, man nimmt die erste - und der Assistent redet mit
+// franzoesischem Akzent.
+const DEUTSCH = /^(de$|de[_-]|deu|deutsch|german|ger)/i;
+
+function istDeutsch(stimme) {
+  return DEUTSCH.test(String((stimme && stimme.sprache) || '').trim());
+}
+
 function deutschZuerst(stimmen) {
-  const deutsch = stimmen.filter((s) => /^de/i.test(s.sprache));
-  const rest = stimmen.filter((s) => !/^de/i.test(s.sprache));
-  return { deutsch: deutsch, rest: rest };
+  return {
+    deutsch: stimmen.filter(istDeutsch),
+    rest: stimmen.filter((s) => !istDeutsch(s))
+  };
 }
 
 // Alles, was auf diesem Rechner zur Verfuegung steht.
@@ -227,6 +246,6 @@ function setzeEnv(schluessel, wert, datei) {
 
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
-  deutschZuerst, aktuelle, welcherWeg, probe, setzeEnv, stil,
+  deutschZuerst, istDeutsch, aktuelle, welcherWeg, probe, setzeEnv, stil,
   PROBE, AUF_MAC, STILE, TEMPO_NORMAL
 };

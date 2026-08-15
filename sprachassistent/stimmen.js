@@ -133,6 +133,14 @@ async function main() {
   if (befehl === 'hoeren') {
     const zuHoeren = deutsch.length ? deutsch : liste;
     console.log('');
+    if (!deutsch.length) {
+      console.log('  Achtung: keine der Stimmen ist als DEUTSCH gekennzeichnet.');
+      console.log('  Sie lesen deutschen Text vor, aber mit Akzent.');
+      console.log('  Deutsche holst du dir auf elevenlabs.io -> Voice Library');
+      console.log('  -> nach "German" filtern -> "Add to my voices". Danach');
+      console.log('  tauchen sie hier auf.');
+      console.log('');
+    }
     console.log('  Ich spiele ' + zuHoeren.length + ' Stimmen vor. Merk dir die Nummer,');
     console.log('  die dir gefaellt - danach: node stimmen.js nimm <nummer>');
     console.log('');
@@ -252,6 +260,16 @@ async function main() {
 
     console.log('');
     console.log('  Eingetragen: ' + s.name + ' (' + s.art + ')');
+
+    // Eine englische oder franzoesische Stimme SPRICHT zwar deutsch -
+    // aber mit Akzent. Das ist der haeufigste Griff daneben.
+    if (!stimmen.istDeutsch(s)) {
+      console.log('');
+      console.log('  ACHTUNG: die ist nicht als deutsch gekennzeichnet' +
+        (s.sprache ? ' (' + s.sprache + ')' : '') + '.');
+      console.log('  Sie liest deutschen Text vor, aber mit Akzent.');
+      console.log('  Deutsche findest du mit:  node stimmen.js hoeren');
+    }
     console.log('  Server neu starten (Fenster zu, ./start.command), dann spricht er so.');
     console.log('');
     return;
