@@ -607,6 +607,13 @@ function liveVerbindung(ws, req) {
         onZwischen: (t) => sitzung.zwischenstand(t),
         onSatz: (t) => sitzung.gehoert(t),
         onFehler: (e) => senden({ typ: 'fehler', text: 'Zuhoeren gestoert: ' + e.message }),
+        // Schluessel abgelehnt: Deepgram faellt weg, der Browser
+        // uebernimmt. Lieber schlechter zuhoeren als gar nicht.
+        onAufgeben: (grund) => {
+          ohrLeitung = null;
+          console.error('  ! Deepgram faellt aus: ' + grund);
+          senden({ typ: 'hoerenAus', text: grund });
+        },
         onLage: (l) => senden({ typ: 'leitung', lage: l })
       });
     } catch (e) {

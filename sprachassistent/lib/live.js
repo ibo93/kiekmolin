@@ -98,15 +98,44 @@ function istUnterbrechung(text) {
 
 // Dauerleitung zu Deepgram: Audio rein, Text raus - Zwischenstand waehrend
 // des Sprechens, Endsatz sobald der Satz zu Ende ist.
+// Ein abgelehnter Schluessel ist KEIN Netz-Huepfer. Wer 401 bekommt,
+// bekommt beim siebten Versuch auch 401 - und in der Zwischenzeit sieht
+// Ibo sechsmal dieselbe Fehlermeldung und hoert nichts. Solche Fehler
+// werden deshalb erkannt, gemeldet und dann wird aufgegeben, damit der
+// Browser uebernehmen kann.
+const ENDGUELTIG = /\b(401|403|Unauthorized|Forbidden|invalid.{0,12}(key|token)|payment|quota)\b/i;
+
+function warumEndgueltig(nachricht) {
+  const t = String(nachricht || '');
+  if (/401|Unauthorized|invalid.{0,12}(key|token)/i.test(t)) {
+    return 'Deepgram weist den Schluessel ab (401). Er ist falsch, abgelaufen oder geloescht. ' +
+      'Neuen holen auf deepgram.com und in die .env eintragen.';
+  }
+  if (/403|Forbidden/i.test(t)) return 'Deepgram sperrt den Zugang (403). Konto oder Rechte pruefen.';
+  if (/payment|quota/i.test(t)) return 'Deepgram meldet ein Konto-Problem (Guthaben oder Limit).';
+  return null;
+}
+
 class LiveOhr {
-  constructor({ onZwischen, onSatz, onFehler, onLage }) {
+  constructor({ onZwischen, onSatz, onFehler, onLage, onAufgeben }) {
     const key = process.env.DEEPGRAM_API_KEY;
     if (!key) throw new Error('DEEPGRAM_API_KEY fehlt');
 
-    this.rueckrufe = { onZwischen, onSatz, onFehler, onLage };
+    this.rueckrufe = { onZwischen, onSatz, onFehler, onLage, onAufgeben };
     this.geschlossen = false;      // absichtlich beendet?
+    this.aufgegeben = false;       // endgueltiger Fehler - nicht weiter versuchen
     this.versuche = 0;
     this._verbinde();
+  }
+
+  // Endgueltig Schluss: einmal sagen warum, dann nie wieder versuchen.
+  _aufgeben(grund) {
+    if (this.aufgegeben) return;
+    this.aufgegeben = true;
+    this.geschlossen = true;
+    clearInterval(this.puls);
+    try { this.ws.close(); } catch (_e) { /* war schon zu */ }
+    if (this.rueckrufe.onAufgeben) this.rueckrufe.onAufgeben(grund);
   }
 
   _verbinde() {
@@ -150,7 +179,7 @@ class LiveOhr {
     this.ws.on('close', () => {
       this.offen = false;
       clearInterval(this.puls);
-      if (this.geschlossen) return;
+      if (this.geschlossen || this.aufgegeben) return;
       this.versuche++;
       if (this.versuche > 6) {
         if (onFehler) onFehler(new Error('Die Verbindung zum Zuhoeren kommt nicht zurueck'));
@@ -184,7 +213,13 @@ class LiveOhr {
       }
     });
 
-    this.ws.on('error', (e) => onFehler && onFehler(e));
+    this.ws.on('error', (e) => {
+      // Abgelehnter Schluessel: einmal erklaeren und aufhoeren. Sonst
+      // laufen sechs Versuche durch und Ibo liest sechsmal dasselbe.
+      const grund = ENDGUELTIG.test(e && e.message) ? warumEndgueltig(e.message) : null;
+      if (grund) return this._aufgeben(grund);
+      if (onFehler) onFehler(e);
+    });
   }
 
   sendeAudio(brocken) {
@@ -509,4 +544,4 @@ class LiveSitzung {
   }
 }
 
-module.exports = { SatzSammler, istUnterbrechung, LiveOhr, LiveSitzung };
+module.exports = { SatzSammler, istUnterbrechung, LiveOhr, LiveSitzung, warumEndgueltig, ENDGUELTIG };

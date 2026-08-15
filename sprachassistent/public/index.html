@@ -981,6 +981,14 @@ function liveNachricht(n) {
     }
     return;
   }
+  // Deepgram weist den Schluessel ab: einmal sagen, dann uebernimmt der
+  // Browser. Schlechter zuhoeren ist besser als gar nicht zuhoeren.
+  if (n.typ === 'hoerenAus') {
+    blase('blase fehler', 'Deepgram hört nicht zu: ' + n.text + ' — ich schalte auf die Browser-Erkennung um.');
+    if (!LIVE.erkennung) liveBrowserOhren();
+    lage('hoert', 'hört zu (Browser)');
+    return;
+  }
   if (n.typ === 'schlaeft') {
     LIVE.schlaeft = true;
     lage('', 'schläft');

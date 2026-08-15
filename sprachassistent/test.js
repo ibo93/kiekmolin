@@ -1252,6 +1252,25 @@ test('Briefing: "ich ruf gleich La Piazza an" landet beim Briefing', () => {
   assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
 });
 
+test('Zuhoeren: ein abgelehnter Schluessel wird nicht sechsmal versucht', () => {
+  // Der Fall aus dem Alltag: Deepgram antwortet mit 401, der alte Code hat
+  // sechsmal neu verbunden und sechsmal dieselbe Meldung ins Fenster
+  // geschrieben - und zugehoert wurde nie.
+  assert.ok(live.ENDGUELTIG.test('Unexpected server response: 401'));
+  assert.ok(live.ENDGUELTIG.test('Unexpected server response: 403'));
+  assert.ok(live.ENDGUELTIG.test('Unauthorized'));
+
+  // Ein Netz-Huepfer dagegen MUSS neu versucht werden.
+  assert.ok(!live.ENDGUELTIG.test('socket hang up'));
+  assert.ok(!live.ENDGUELTIG.test('getaddrinfo ENOTFOUND api.deepgram.com'));
+  assert.ok(!live.ENDGUELTIG.test('Unexpected server response: 502'));
+
+  const grund = live.warumEndgueltig('Unexpected server response: 401');
+  assert.ok(/Schluessel ab/.test(grund), grund);
+  assert.ok(/deepgram\.com/.test(grund), 'und wo man einen neuen holt: ' + grund);
+  assert.strictEqual(live.warumEndgueltig('socket hang up'), null);
+});
+
 // ------------------------------------------------------ Der schnelle Weg --
 //
 // Gemessen: Claude Code braucht rund vier Sekunden bis zum ersten Wort,
