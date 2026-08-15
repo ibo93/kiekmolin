@@ -300,6 +300,16 @@ const SCHNELLBEFEHLE = [
       'frag vorher.'
   },
   {
+    name: 'beweis',
+    hoert: /^(beweis|beweis.?zettel|was hat (mein|das) geld gebracht|was hat es gebracht|kundennutzen|monatsnachweis)\b/i,
+    prompt: 'Fuehre aus: node {{beweis}} - das zeigt fuer jeden Kunden, was der ' +
+      'Telefon-Retter und die Sichtbarkeit im letzten Monat gebracht haben. ' +
+      'Sag mir gesprochen in zwei Saetzen, bei welchem Kunden die Zahlen am besten ' +
+      'aussehen (den zeigt man beim naechsten Verkaufsgespraech) und bei welchem ' +
+      'sie duenn sind (da droht die Kuendigung). Soll ich die Blaetter erzeugen, ' +
+      'frag vorher - das schreibt Dateien.'
+  },
+  {
     name: 'saison',
     hoert: /^(saison|was kommt saisonal|was muss ich jetzt verkaufen|was steht saisonal an|gr(ue|ü)nkohl)\b/i,
     prompt: 'Fuehre aus: node {{saison}}. Das rechnet rueckwaerts - nicht wann ein Anlass ' +

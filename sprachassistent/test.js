@@ -29,6 +29,7 @@ const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const markt = require('./lib/markt');
 const saison = require('./lib/saison');
+const beweis = require('./lib/beweis');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -575,6 +576,54 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// -------------------------------------------------------- Beweis-Zettel ---
+
+function beweisProbe(aenderung) {
+  return Object.assign({
+    slug: 'la-piazza', name: 'La Piazza', monat: '2026-08', monatWort: 'August 2026',
+    telefon: { reservierungen: 18, gaeste: 61, bestellungen: 7, bestellwert: 214.5, rueckrufe: 3, hatDaten: true },
+    geschaetzterWert: 1740, gastWert: 25,
+    quote: { jetzt: 68, vorher: 61, vorDrei: 41, vorDreiMonat: '2026-05' },
+    monateDabei: 4
+  }, aenderung || {});
+}
+
+test('Beweis: die Schaetzung wird als Schaetzung ausgewiesen', () => {
+  const zeilen = beweis.saetze(beweisProbe());
+  const text = zeilen.join(' ');
+  assert.ok(text.indexOf('18 Reservierung') > -1 && text.indexOf('61 Gaeste') > -1, text);
+  assert.ok(text.indexOf('1.740 Euro') > -1, 'der Wert steht drin: ' + text);
+  assert.ok(/Annahme, keine Messung/.test(text),
+    'eine Schaetzung MUSS als solche dastehen - sonst fliegt es beim ersten kritischen Wirt auf');
+  assert.ok(text.indexOf('68 Prozent') > -1 && text.indexOf('gestiegen') > -1, 'Vergleich mit frueher: ' + text);
+});
+
+test('Beweis: ohne Zahlen wird nichts erfunden', () => {
+  const ohne = beweis.saetze(beweisProbe({
+    telefon: { reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0, hatDaten: false },
+    geschaetzterWert: 0
+  }));
+  assert.ok(/keine Telefon-Zahlen vor/.test(ohne.join(' ')), 'er sagt, dass sie fehlen: ' + ohne.join(' '));
+  assert.ok(!/Euro/.test(ohne.join(' ')), 'und rechnet nichts herbei');
+  assert.strictEqual(beweis.alsText(null), 'Zu diesem Kunden finde ich keine Report-Daten.');
+});
+
+test('Beweis: das Blatt fuer den Wirt hat richtige Umlaute', () => {
+  const html = beweis.alsHtml(beweisProbe());
+  assert.ok(html.indexOf('Gäste') > -1, 'auf dem Kundenblatt steht "Gäste"');
+  assert.ok(html.indexOf('Gaeste') === -1, 'und nirgends "Gaeste": ' + (html.match(/Gaeste/g) || []).length);
+  assert.ok(html.indexOf('Rückrufwünsche') > -1);
+  // Die Wortliste darf keine Namen zerstoeren.
+  assert.strictEqual(beweis.schoen('Michael Baumgaertner'), 'Michael Baumgaertner',
+    'blindes ae-Ersetzen wuerde hier Michäl draus machen');
+  assert.strictEqual(beweis.schoen('61 Gaeste ueber Telefon'), '61 Gäste über Telefon');
+});
+
+test('Beweis: sinkende Sichtbarkeit wird nicht schoengeredet', () => {
+  const zeilen = beweis.saetze(beweisProbe({ quote: { jetzt: 38, vorher: 45, vorDrei: 55, vorDreiMonat: '2026-05' } }));
+  assert.ok(/gefallen/.test(zeilen.join(' ')), 'ein Rueckgang steht als Rueckgang da');
 });
 
 // -------------------------------------------------------------- Saison ---

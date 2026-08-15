@@ -134,8 +134,40 @@ du sie genau formulierst:
 | **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
 | **„Merk dir dauerhaft …"** | gilt ab dann in **jedem** Auftrag |
 | **„Mach das fertig"** | aus dem eben Diktierten wird das echte Dokument |
+| **„Beweis"** / „Was hat mein Geld gebracht?" | was der Kunde für sein Geld bekommen hat |
 | **„Saison"** / „Grünkohl" | was JETZT verkauft werden muss, damit es rechtzeitig fertig ist |
 | **„Wen soll ich anrufen?"** | die nächsten Adressen mit Nummer, aus `prospects.json` |
+
+### Der Beweis-Zettel — gegen die stille Kündigung
+
+Ein Wirt zahlt 199 Euro im Monat und **sieht nichts**. Nach drei Monaten fragt
+er sich, wofür — und kündigt. Nicht weil es schlecht war, sondern weil es ihm
+keiner gezeigt hat.
+
+```bash
+node beweis.js                    # Kurzfassung für alle Kunden
+node beweis.js "la piazza"        # ein Kunde, zum Vorlesen
+node beweis.js "la piazza" --html # das Blatt zum Ausdrucken/Mailen
+```
+
+> „Im August hat der Telefon-Retter 18 Reservierungen für 61 Gäste und
+> 7 Bestellungen über 215 Euro entgegengenommen — Anrufe, bei denen sonst
+> niemand rangegangen wäre. Das sind geschätzt rund 1.740 Euro Umsatz.
+> Die Sichtbarkeit steht bei 68 Prozent, im Mai waren es 41."
+
+Das Blatt ist bewusst nüchtern: große Zahlen, wenig Text, druckbar.
+
+**Zwei Regeln, die im Code festgeschrieben sind:**
+
+1. **Nichts erfinden.** Fehlt eine Zahl, steht sie nicht da — der Zettel sagt
+   dann, dass sie fehlt.
+2. **Schätzung bleibt Schätzung.** „Gerechnet mit 25 Euro pro Gast — eine
+   Annahme, keine Messung" steht mit drauf. Wer damit trickst, fliegt beim
+   ersten kritischen Wirt auf, und zu Recht. (Gast-Wert ändern:
+   `SPRACH_GAST_WERT=30`.)
+
+Und: **ein Rückgang steht als Rückgang da.** Wenn die Sichtbarkeit gefallen
+ist, schreibt der Zettel „gefallen" — sonst ist er nichts wert.
 
 ### „Saison" — der Vorlauf, an dem das Geld hängt
 
