@@ -300,6 +300,15 @@ const SCHNELLBEFEHLE = [
       'frag vorher.'
   },
   {
+    name: 'markt',
+    hoert: /^(markt|wie sieht der markt aus|wen soll ich anrufen|wen rufe ich an|neukunden|wo lohnt sich (der )?telefon.?retter|welche kunden)\b/i,
+    prompt: 'Fuehre aus: node {{markt}} und node {{markt}} anrufe. Das erste zeigt den ' +
+      'Markt nach Segmenten (KMI = passt zu Kiek mol in, Tel = passt zum Telefon-Retter, ' +
+      'je 0 bis 3), das zweite die naechsten Anrufe mit Nummer. ' +
+      'Sag mir gesprochen in drei Saetzen: wo die groesste Luft ist und wen ich als ' +
+      'Erstes anrufen soll - mit Name und Ort. Keine Liste vorlesen.'
+  },
+  {
     name: 'offene posten',
     hoert: /^(offene posten|offene rechnungen|was ist noch offen|wer schuldet mir)\b/i,
     prompt: 'Nutze kurani-docs: welche Rechnungen sind noch unbezahlt? ' +

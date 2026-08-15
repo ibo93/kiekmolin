@@ -27,6 +27,7 @@ const pruefung = require('./lib/pruefung');
 const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
+const markt = require('./lib/markt');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -573,6 +574,64 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// --------------------------------------------------------------- Markt ---
+
+const MARKT_PROBE = [
+  { name: 'Pizzeria Castello', category: 'pizzeria', city: 'Norden', phone: '04931 1', website: '' },
+  { name: 'Pizzeria Roma', category: 'pizzeria', city: 'Emden', phone: '04921 2', website: 'https://roma.de' },
+  { name: 'Gasthaus Deichkrone', category: 'restaurant', city: 'Greetsiel', phone: '04926 3', website: '' },
+  { name: 'Doener Palast', category: 'doener', city: 'Emden', phone: '04921 4', website: '' },
+  { name: 'Cafe Strandgut', category: 'cafe', city: 'Norddeich', phone: '', website: '' }
+];
+
+test('Markt: zaehlt Segmente, Orte und Luecken', () => {
+  const a = markt.auswerten(MARKT_PROBE);
+  assert.strictEqual(a.gesamt, 5);
+  assert.strictEqual(a.mitTelefon, 4, 'ohne Nummer kann man nicht anrufen');
+  assert.strictEqual(a.ohneWebseite, 4);
+  const pizza = a.segmente.find((s) => s.name === 'Pizzerien');
+  assert.strictEqual(pizza.anzahl, 2);
+  assert.strictEqual(pizza.telefon, 3, 'Telefonbestellung ist ihr Geschaeft');
+  assert.strictEqual(a.orte[0].name, 'Emden', 'groesster Ort zuerst');
+});
+
+test('Markt: die Bewertung steht offen und ist begruendet', () => {
+  for (const [schluessel, s] of Object.entries(markt.SEGMENTE)) {
+    assert.ok(s.warum && s.warum.length > 20, schluessel + ' braucht eine Begruendung');
+    assert.ok(s.kiekmolin >= 0 && s.kiekmolin <= 3 && s.telefon >= 0 && s.telefon <= 3, schluessel + ': 0 bis 3');
+  }
+  assert.strictEqual(markt.SEGMENTE.pizzeria.telefon, 3, 'Pizzeria ist Telefon-Geschaeft');
+  assert.ok(markt.SEGMENTE.doener.kiekmolin < markt.SEGMENTE.restaurant.kiekmolin,
+    'Imbiss braucht weniger Tischverwaltung als ein Restaurant');
+  assert.strictEqual(markt.segmentVon('gibt-es-nicht').name, 'Ohne Kategorie', 'unbekannt wird nicht verschwiegen');
+});
+
+test('Markt: die naechsten Anrufe sind sortiert und ohne Bestandskunden', () => {
+  const liste = markt.naechsteAnrufe(MARKT_PROBE, { anzahl: 5 });
+  const namen = liste.map((e) => e.betrieb.name).join(', ');
+  // Vorn steht, wer BEIDE Produkte brauchen kann und online nichts hat -
+  // ein Restaurant ohne Website schlaegt deshalb eine Pizzeria mit Website.
+  assert.strictEqual(liste[0].betrieb.name, 'Gasthaus Deichkrone', 'Reihenfolge: ' + namen);
+  assert.ok(!liste[0].betrieb.website, 'ganz vorn steht immer jemand ohne Website');
+  const castello = liste.findIndex((e) => e.betrieb.name === 'Pizzeria Castello');
+  const roma = liste.findIndex((e) => e.betrieb.name === 'Pizzeria Roma');
+  assert.ok(castello < roma, 'ohne Website vor mit Website: ' + namen);
+  assert.ok(liste.every((e) => e.betrieb.phone), 'ohne Nummer taucht keiner auf');
+  assert.ok(liste.every((e) => e.betrieb.name !== 'Cafe Strandgut'));
+
+  const ohneKunden = markt.naechsteAnrufe(MARKT_PROBE, { kunden: ['Pizzeria Castello'] });
+  assert.ok(ohneKunden.every((e) => e.betrieb.name !== 'Pizzeria Castello'), 'Bestandskunden fliegen raus');
+
+  const nurEmden = markt.naechsteAnrufe(MARKT_PROBE, { ort: 'emden' });
+  assert.ok(nurEmden.every((e) => e.betrieb.city === 'Emden'), 'nach Ort filterbar');
+});
+
+test('Markt: ohne Daten sagt er, was zu tun ist', () => {
+  const satz = markt.marktSatz(markt.auswerten([]));
+  assert.ok(/import-osm/.test(satz), 'nennt den Importer: ' + satz);
+  assert.ok(/keinen passenden/.test(markt.anrufSatz([])));
 });
 
 // ------------------------------------------- Uebergabe & Kurani-Kram ---

@@ -85,6 +85,11 @@ const WERKZEUGE = [
   ' (liste|heute|merk "..."|erledigt <id>). Wenn er im Gespraech sagt, dass er etwas ' +
   'nicht vergessen will, leg es dort ab - und sag in einem Halbsatz, dass du es notiert hast.',
 
+  'Fuer Marktfragen (welche Gastro-Art lohnt sich, wen anrufen, wo ist Luft): node ' +
+  path.join(__dirname, 'markt.js') + ' bzw. "anrufe [ort]". Grundlage ist prospects.json ' +
+  'aus dem OSM-Importer. Die Bewertung je Segment steht offen im Code - nenne sie als ' +
+  'Einschaetzung, nicht als Marktforschung.',
+
   'Fuer die KI-Agentur (Kundenampel, fehlende Monats-Reports, Neukunden-Pipeline): node ' +
   path.join(__dirname, 'agentur.js') + ' (oder "kunden", oder --json). Das liest nur. ' +
   'Reports ERZEUGEN laeuft ueber die Agentur-App (cd agentur && node server.js) bzw. ' +
@@ -171,7 +176,8 @@ function budgetGesperrt() {
 const WERKZEUG_PFADE = {
   tagesbericht: path.join(__dirname, 'tagesbericht.js'),
   instagram: path.join(__dirname, 'instagram.js'),
-  agentur: path.join(__dirname, 'agentur.js')
+  agentur: path.join(__dirname, 'agentur.js'),
+  markt: path.join(__dirname, 'markt.js')
 };
 
 function auftragsText(gesagt, zustand) {
