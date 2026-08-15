@@ -82,6 +82,30 @@ function pruefeOrdner(konfig) {
   return liste;
 }
 
+// Das CM: findet er Ibos Kundenverwaltung? Kein Fehler, wenn nicht - aber
+// dann soll dastehen, wie man sie ihm zeigt.
+function pruefeCrm(quellen, anzahlKunden) {
+  const liste = quellen || [];
+  const dateien = liste.filter((q) => q.art === 'datei');
+  const rest = liste.filter((q) => q.art !== 'datei' && q.art !== 'fehlt');
+
+  if (dateien.length) {
+    // anzahlKunden ist die Zahl NACH dem Zusammenfuehren - derselbe Kunde
+    // steht oft in zwei Dateien. Ohne die Angabe lieber von Eintraegen
+    // sprechen als eine zu hohe Kundenzahl melden.
+    const zeilen = dateien.reduce((s, q) => s + (q.anzahl || 0), 0);
+    const was = typeof anzahlKunden === 'number' ? anzahlKunden + ' Kunden' : zeilen + ' Eintraege';
+    return ergebnis('ok', 'CM', was + ' aus ' + dateien.length +
+      (dateien.length === 1 ? ' Datei' : ' Dateien') + ' (' + path.basename(dateien[0].pfad) + ')');
+  }
+  if (rest.length) {
+    return ergebnis('hinweis', 'CM', rest[0].art + ' gefunden: ' + rest[0].pfad,
+      'Lesen kann er das nur ueber die Kommandozeile - fuer die Kurzbefehle brauchst du eine Datei oder Adresse.');
+  }
+  return ergebnis('hinweis', 'CM', 'Deine Kundenverwaltung finde ich nicht',
+    'Pfad einmal eintragen: SPRACH_CRM=~/Pfad/zum/CM in die .env. Nachsehen mit "node crm.js quellen".');
+}
+
 function pruefeSchreibrecht(wurzel) {
   const ziel = path.join(wurzel, 'protokoll');
   try {
@@ -133,4 +157,4 @@ function zeichen(stufe) {
   return stufe === 'ok' ? ' ok ' : (stufe === 'hinweis' ? ' -- ' : ' !! ');
 }
 
-module.exports = { pruefeNode, pruefeClaude, pruefeWs, pruefeSchluessel, pruefeOrdner, pruefeSchreibrecht, pruefePort, fazit, zeichen, ergebnis };
+module.exports = { pruefeNode, pruefeClaude, pruefeWs, pruefeSchluessel, pruefeOrdner, pruefeCrm, pruefeSchreibrecht, pruefePort, fazit, zeichen, ergebnis };

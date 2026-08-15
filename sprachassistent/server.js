@@ -32,6 +32,7 @@ const wache = require('./lib/wache');
 const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
+const crm = require('./lib/crm');
 const { sprechbar } = require('./lib/sprechtext');
 
 ladeEnv();
@@ -71,6 +72,17 @@ for (const ort of KURANI.ordner) {
   if (ZUSATZ_ORDNER.indexOf(ort) === -1) ZUSATZ_ORDNER.push(ort);
 }
 
+// Das CM (Ibos eigene Kundenverwaltung, laeuft auf diesem Rechner): der
+// Assistent soll hineinschauen koennen, statt nach Dingen zu fragen, die
+// dort schon stehen. Der Ordner der Daten wird freigegeben - lesend
+// reicht, geaendert wird im CM selbst.
+const CRM = crm.finde();
+for (const quelle of CRM.quellen) {
+  if (quelle.art !== 'datei' && quelle.art !== 'datenbank') continue;
+  const ordner = path.dirname(quelle.pfad);
+  if (ZUSATZ_ORDNER.indexOf(ordner) === -1) ZUSATZ_ORDNER.push(ordner);
+}
+
 const ordnerKonfig = befehle.ladeOrdnerKonfig(REPO);
 
 // Fertige Werkzeuge, von denen der Assistent wissen muss - sonst baut er
@@ -94,6 +106,11 @@ const WERKZEUGE = [
   'aus dem OSM-Importer. Die Bewertung je Segment steht offen im Code - nenne sie als ' +
   'Einschaetzung, nicht als Marktforschung.',
 
+  'Ibos eigenes CM (wer ist Kunde, was ist vereinbart, wer ist wiedervorzulegen): node ' +
+  path.join(__dirname, 'crm.js') + ' (kunde <name>|faellig|still|liste|quellen|--json). ' +
+  'Das liest nur. Frag NICHT nach Kundendaten, die dort schon stehen - guck nach. ' +
+  'Eintragen und aendern macht Ibo im CM selbst.',
+
   'Fuer die KI-Agentur (Kundenampel, fehlende Monats-Reports, Neukunden-Pipeline): node ' +
   path.join(__dirname, 'agentur.js') + ' (oder "kunden", oder --json). Das liest nur. ' +
   'Reports ERZEUGEN laeuft ueber die Agentur-App (cd agentur && node server.js) bzw. ' +
@@ -113,7 +130,7 @@ const WERKZEUG_HINWEIS = WERKZEUGE.join(' ');
 // dauerhaft ...") und soll dann sofort gelten.
 function systemZusatz() {
   const dauerhaft = wissen.alsSystemZusatz();
-  return befehle.systemZusatz([WERKZEUG_HINWEIS, KURANI.hinweis, dauerhaft].filter(Boolean).join(' '));
+  return befehle.systemZusatz([WERKZEUG_HINWEIS, KURANI.hinweis, CRM.hinweis, dauerhaft].filter(Boolean).join(' '));
 }
 
 // Gedaechtnis: pro Arbeitsordner eine laufende Claude-Sitzung. So kann Ibo
@@ -181,6 +198,7 @@ const WERKZEUG_PFADE = {
   tagesbericht: path.join(__dirname, 'tagesbericht.js'),
   instagram: path.join(__dirname, 'instagram.js'),
   agentur: path.join(__dirname, 'agentur.js'),
+  crm: path.join(__dirname, 'crm.js'),
   markt: path.join(__dirname, 'markt.js'),
   saison: path.join(__dirname, 'saison.js'),
   beweis: path.join(__dirname, 'beweis.js')

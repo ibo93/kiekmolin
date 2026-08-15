@@ -35,6 +35,10 @@ async function main() {
     : p.ergebnis('hinweis', 'Kurani-Unterlagen', 'Keine gefunden - er arbeitet dann nur im Repository',
       'Ordner "Kurani" im Benutzerordner anlegen, oder Pfad in SPRACH_ZUSATZ_ORDNER eintragen.'));
 
+  const crm = require('./lib/crm');
+  const crmQuellen = crm.quellen();
+  liste.push(p.pruefeCrm(crmQuellen, crmQuellen.length ? crm.alleKunden(crmQuellen).length : undefined));
+
   liste.push(p.pruefeSchreibrecht(WURZEL));
   liste.push(await p.pruefePort(PORT));
 

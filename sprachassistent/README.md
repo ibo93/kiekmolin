@@ -131,6 +131,8 @@ du sie genau formulierst:
 | „… im Hintergrund" | arbeitet nebenbei weiter, meldet sich wenn fertig |
 | „Was läuft gerade?" | zählt die Hintergrund-Aufträge auf |
 | „Wie geht's der Agentur?" / „Wer ist rot?" | Kundenampel, fehlende Reports, Pipeline |
+| **„Was ist mit La Piazza?"** | was dein CM über den Kunden weiß |
+| **„Wer ist fällig?"** | offene Wiedervorlagen aus deinem CM, mit Namen |
 | **„Guck dir das an"** | macht ein Bildschirmfoto und sagt dir, was er sieht |
 | **„Merk dir dauerhaft …"** | gilt ab dann in **jedem** Auftrag |
 | **„Mach das fertig"** | aus dem eben Diktierten wird das echte Dokument |
@@ -254,6 +256,53 @@ Was gefunden wurde, steht beim Start und in `node pruefe.js`:
 ```
   ok Kurani-Unterlagen: 2 Ordner, 7 CLAUDE.md
 ```
+
+### Dein CM — er liest deine Kundenverwaltung
+
+Du führst deine Kunden in deinem eigenen CM, das bei dir auf dem Rechner
+läuft. Das ist die Wahrheit darüber, wer Kunde ist und was vereinbart wurde —
+also soll er da hineinschauen, statt dich nach Sachen zu fragen, die dort
+schon stehen.
+
+> „Was ist mit La Piazza?" · „Wer ist fällig?" · „Wen hab ich lange nicht
+> gehört?" · „Kundenliste"
+
+Auf der Kommandozeile geht dasselbe:
+
+```bash
+node crm.js                    # kurzer Stand
+node crm.js kunde la piazza    # was das CM über einen Kunden weiß
+node crm.js faellig            # offene Wiedervorlagen, mit Nummer
+node crm.js still              # von wem seit über zwei Monaten nichts kam
+node crm.js quellen            # WO er gesucht hat und was er gefunden hat
+```
+
+**Er muss nicht wissen, wie dein CM innen aussieht.** Er sucht von allein in
+`~/CRM`, `~/CM`, `~/Kurani` und `~/Projekte`, liest JSON, JSONL und CSV — und
+ordnet die Spalten selbst zu. Ob die Spalte `telefon`, `Telefonnummer` oder
+`phone` heißt, ist ihm egal; ein deutsches Datum (`12.06.2026`) rechnet er um,
+und `149,00 EUR` liest er als Zahl. Was er **nicht** sicher erkennt, lässt er
+leer, statt zu raten: steht im Feld „letzter Kontakt" ein Name statt eines
+Datums, bleibt das Feld leer.
+
+Findet er nichts, sagt `node crm.js quellen`, wo er gesucht hat. Dann trägst
+du es einmal in die `.env` ein:
+
+```bash
+SPRACH_CRM=~/CRM/kunden.json                  # eine Datei
+SPRACH_CRM=~/CRM                              # ein ganzer Ordner
+SPRACH_CRM=http://localhost:3000/api/kunden   # dein CM, während es läuft
+```
+
+Läuft dein CM als Programm mit eigener Adresse, fragt er die ab — mit kurzem
+Zeitlimit, damit ein ausgeschaltetes CM nie den Tagesbericht aufhält.
+
+Zwei Sachen bewusst so gebaut:
+
+- **Er ändert im CM nichts.** Nur lesen. Eine Stimme, die sich verhört, soll
+  keine Kundenakte umschreiben — eintragen tust du selbst.
+- **Fällige Wiedervorlagen stehen morgens im Tagesbericht**, ohne dass du
+  fragst. Aber nur, wenn wirklich etwas ansteht: läuft alles, kein Wort davon.
 
 ### „Guck dir das an" — er sieht deinen Bildschirm
 
@@ -664,6 +713,7 @@ gitignored.
 | Antwort klingt blechern | Kein ElevenLabs-Schlüssel gefunden → Browser-Stimme. `telefon-retter/.env` prüfen. |
 | „Ich finde den Befehl claude nicht" | `SPRACH_CLAUDE_BEFEHL=/voller/pfad/zu/claude` in die `.env`. |
 | „Den Ordner … finde ich nicht" | Pfad in `ordner.json` stimmt nicht. |
+| Er findet dein CM nicht | `node crm.js quellen` zeigt, wo er gesucht hat → Pfad als `SPRACH_CRM` in die `.env`. |
 | Er redet zu lang | `SPRACH_MAX_SAETZE=2` in der `.env`. |
 | Er soll nichts anfassen | Stufe „Nur reden". |
 
@@ -682,3 +732,8 @@ ElevenLabs — dieselben Dienste, die schon am Telefon-Retter hängen. Ohne
 Schlüssel bleibt beides im Browser. Der eigentliche Auftrag geht in jedem
 Fall an Claude, wie bei Claude Code auf der Kommandozeile auch. Kundendaten
 also mit demselben Kopf behandeln wie sonst.
+
+Dein CM wird nur **gelesen**, und die Daten daraus bleiben auf dem Rechner —
+in dieses Repository kommt nichts davon. Vorgelesen wird, was du gefragt hast;
+was Claude davon zu sehen bekommt, ist der Ausschnitt, den `crm.js` ausgibt,
+nicht die ganze Kundenliste.

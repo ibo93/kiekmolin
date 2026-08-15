@@ -270,6 +270,32 @@ function istHintergrund(text) {
 // die Antwort nicht davon abhaengt, wie genau er gerade fragt.
 const SCHNELLBEFEHLE = [
   {
+    // Steht bewusst GANZ OBEN: "wie steht's mit La Piazza" wuerde sonst als
+    // Tagesbericht gelesen ("wie steht's"). Die Muster hier verlangen alle
+    // einen Namen dahinter - deshalb kommen sie zuerst dran.
+    name: 'kundenstand',
+    hoert: /^(was ist (mit|bei)|was l(ae|ä)uft (mit|bei)|wie steht'?s (mit|bei)|wie l(ae|ä)uft'?s (mit|bei)|stand (bei|zu)|was war (mit|bei)|erz(ae|ä)hl mir was (ue|ü)ber)\s+\S/i,
+    prompt: 'Ibo fragt nach einem Kunden. Nimm den Namen aus seinem Satz und fuehre aus: ' +
+      'node {{crm}} kunde <name> - das ist sein eigenes CM auf diesem Rechner und die ' +
+      'Wahrheit darueber, was vereinbart ist. Sagt das CM nichts zu dem Namen, ' +
+      'guck zusaetzlich mit node {{agentur}} kunden, ob er dort als Report-Kunde laeuft. ' +
+      'Antworte gesprochen in hoechstens drei Saetzen: was vereinbart ist, wann zuletzt ' +
+      'Kontakt war und ob etwas ansteht. Findest du gar nichts, sag das in einem Satz ' +
+      'und rate NICHTS zusammen. Geht es gar nicht um einen Kunden, beantworte die ' +
+      'Frage einfach normal.'
+  },
+  {
+    name: 'crm',
+    hoert: /^(c\.?m\.?|c\.?r\.?m\.?|kundenverwaltung|kundenliste|wer ist f(ae|ä)llig|was ist f(ae|ä)llig|welche wiedervorlagen?|wiedervorlagen?|wen muss ich (an|zur(ue|ü)ck)rufen|wen hab(e)? ich lange nicht)\b/i,
+    prompt: 'Fuehre aus: node {{crm}} - das liest Ibos eigenes CM auf diesem Rechner ' +
+      '(wie viele Kunden, welche Wiedervorlagen faellig sind, von wem lange nichts kam). ' +
+      'Sag mir gesprochen in hoechstens drei Saetzen, was faellig ist und mit wem ich ' +
+      'anfangen wuerde - mit Namen. Brauchst du eine Nummer, hol sie mit ' +
+      'node {{crm}} faellig. Keine Liste vorlesen. ' +
+      'Findet er kein CM, sag EINEN Satz: er soll den Pfad mit node {{crm}} quellen ' +
+      'nachsehen und in die Punkt-E-N-V eintragen.'
+  },
+  {
     name: 'tagesbericht',
     hoert: /^(moin|guten morgen|morgen|tagesbericht|lagebericht|lage|wie sieht'?s aus|wie steht'?s|stand der dinge|wie wird das wetter|wetter)\b/i,
     prompt: 'Fuehre zuerst dieses Werkzeug aus: node {{tagesbericht}} ' +

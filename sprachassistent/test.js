@@ -27,6 +27,7 @@ const pruefung = require('./lib/pruefung');
 const wissen = require('./lib/wissen');
 const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
+const crm = require('./lib/crm');
 const markt = require('./lib/markt');
 const saison = require('./lib/saison');
 const beweis = require('./lib/beweis');
@@ -932,6 +933,182 @@ test('Agentur im Tagesbericht: nur wenn es etwas zu tun gibt', () => {
   assert.ok(zeile.indexOf('1 Wiedervorlage faellig') > -1, zeile);
 });
 
+// ------------------------------------------------------------------ CM ---
+//
+// Das CM ist Ibos eigene Kundenverwaltung. Dieses Repository weiss nicht,
+// wie sie innen aussieht - deshalb pruefen die Tests hier vor allem eins:
+// dass verschiedene Schreibweisen erkannt werden und dass NICHTS geraten
+// wird, wo nichts steht.
+
+test('CM: Spaltennamen werden erkannt, egal wie sie heissen', () => {
+  const deutsch = crm.normalisiere({
+    Kundenname: 'La Piazza', Telefonnummer: '04921 123', Ort: 'Emden',
+    'Letzter Kontakt': '12.06.2026', Wiedervorlage: '2026-08-20',
+    Monatspreis: '149,00 EUR', Status: 'Kunde'
+  });
+  assert.strictEqual(deutsch.name, 'La Piazza');
+  assert.strictEqual(deutsch.telefon, '04921 123');
+  assert.strictEqual(deutsch.letzterKontakt, '2026-06-12', 'deutsches Datum wird umgerechnet');
+  assert.strictEqual(deutsch.wiedervorlage, '2026-08-20');
+  assert.strictEqual(deutsch.wert, 149, 'Waehrung und Komma stoeren nicht');
+
+  const englisch = crm.normalisiere({ company: 'Fish & Chips', phone: '0491 999', city: 'Aurich', stage: 'Lead' });
+  assert.strictEqual(englisch.name, 'Fish & Chips');
+  assert.strictEqual(englisch.telefon, '0491 999');
+  assert.strictEqual(englisch.status, 'Lead');
+
+  // Kontaktdaten eine Ebene tiefer - so legen es viele selbstgebaute
+  // Verwaltungen ab.
+  const verschachtelt = crm.normalisiere({ name: 'Deichkrone', kontaktdaten: { telefon: '04971 5', email: 'a@b.de' } });
+  assert.strictEqual(verschachtelt.telefon, '04971 5');
+  assert.strictEqual(verschachtelt.email, 'a@b.de');
+});
+
+test('CM: was kein Datum ist, landet nicht im Datumsfeld', () => {
+  const k = crm.normalisiere({ name: 'Test', letzterKontakt: 'Herr Meyer', wiedervorlage: 'bald mal' });
+  assert.strictEqual(k.letzterKontakt, null, 'ein Name ist kein Datum');
+  assert.strictEqual(k.wiedervorlage, null, '"bald mal" ist kein Termin');
+  assert.strictEqual(crm.alsZahl('kein Preis'), null);
+  assert.strictEqual(crm.alsZahl('1.250,50'), 1250.5, 'deutsche Schreibweise');
+  assert.strictEqual(crm.normalisiere({ telefon: '0491' }), null, 'ohne Namen kein Kunde');
+});
+
+test('CM: JSON in allen drei Bauformen', () => {
+  const liste = crm.ausDaten([{ name: 'A' }, { name: 'B' }]);
+  assert.strictEqual(liste.length, 2);
+
+  const eingepackt = crm.ausDaten({ stand: 'egal', kunden: [{ name: 'A' }] });
+  assert.strictEqual(eingepackt[0].name, 'A');
+
+  // Kunden als Objekt-Schluessel: dann IST der Schluessel der Name.
+  const nachSchluessel = crm.ausDaten({ 'la-piazza': { telefon: '1' }, _hinweis: { a: 1 } });
+  assert.strictEqual(nachSchluessel.length, 1, 'Metadaten mit Unterstrich zaehlen nicht');
+  assert.strictEqual(nachSchluessel[0].name, 'La Piazza');
+});
+
+test('CM: CSV aus Excel, mit Semikolon und Anfuehrungszeichen', () => {
+  const csv = [
+    'Firma;Ort;Telefon;Notiz',
+    'La Piazza;Emden;04921 1;"Will Flyer, aber erst im Herbst"',
+    'Nordsee-Grill;Norden;04931 2;'
+  ].join('\n');
+  const kunden = crm.ausCsv(csv);
+  assert.strictEqual(kunden.length, 2);
+  assert.strictEqual(kunden[0].notiz, 'Will Flyer, aber erst im Herbst', 'Komma im Anfuehrungszeichen trennt nicht');
+  assert.strictEqual(kunden[1].ort, 'Norden');
+});
+
+test('CM: Wiedervorlagen und stille Kunden werden gefunden', () => {
+  const fs2 = require('fs');
+  const os2 = require('os');
+  const ordner = fs2.mkdtempSync(path.join(os2.tmpdir(), 'cm-test-'));
+  const datei = path.join(ordner, 'kunden.json');
+  try {
+    fs2.writeFileSync(datei, JSON.stringify([
+      { name: 'La Piazza', wiedervorlage: '2026-08-10', letzterKontakt: '2026-08-01', monatlich: 149 },
+      { name: 'Nordsee-Grill', wiedervorlage: '2026-09-30', letzterKontakt: '2026-08-12', monatlich: 99 },
+      { name: 'Deichkrone', letzterKontakt: '2026-03-01', status: 'Kunde' }
+    ]));
+    const quellen = [{ art: 'datei', pfad: datei }];
+    const s = crm.stand(new Date(2026, 7, 15), quellen);
+
+    assert.strictEqual(s.gesamt, 3);
+    assert.deepStrictEqual(s.faellig.map((k) => k.name), ['La Piazza'], 'nur was heute oder frueher dran war');
+    assert.deepStrictEqual(s.still.map((k) => k.name), ['Deichkrone'], 'ueber zwei Monate nichts gehoert');
+    assert.strictEqual(s.wertSumme, 248, 'nur Kunden mit Betrag zaehlen mit');
+
+    const satz = crm.crmSatz(s);
+    assert.ok(satz.indexOf('3 Kunden') > -1, satz);
+    assert.ok(satz.indexOf('Eine Wiedervorlage ist faellig: La Piazza') > -1, 'Einzahl: ' + satz);
+    assert.ok(satz.indexOf('248 Euro') > -1, satz);
+
+    // Suche: gesprochene Namen treffen nie ganz.
+    assert.strictEqual(crm.suche('piazza', s.kunden)[0].name, 'La Piazza');
+    assert.strictEqual(crm.suche('la piazza', s.kunden).length, 1, 'genauer Treffer schlaegt Teiltreffer');
+    assert.strictEqual(crm.suche('Bäckerei Janssen', s.kunden).length, 0, 'nichts erfinden');
+  } finally {
+    fs2.rmSync(ordner, { recursive: true, force: true });
+  }
+});
+
+test('CM: eine ueberfaellige Wiedervorlage wird auch so genannt', () => {
+  const jetzt = new Date(2026, 7, 15);
+  const satz = crm.kundeSatz({
+    name: 'La Piazza', ort: 'Emden', status: 'Kunde', produkt: 'Telefon-Retter',
+    wert: 149, letzterKontakt: '2026-06-12', wiedervorlage: '2026-08-01',
+    notiz: 'Wollte im Herbst ueber Flyer reden'
+  }, jetzt);
+
+  assert.ok(satz.indexOf('La Piazza, aus Emden, Status Kunde') > -1, satz);
+  assert.ok(satz.indexOf('Telefon-Retter fuer 149 Euro') > -1, satz);
+  assert.ok(satz.indexOf('ueberfaellig') > -1, 'der 1. August ist am 15. vorbei: ' + satz);
+  assert.ok(satz.indexOf('Notiz: Wollte im Herbst') > -1, satz);
+
+  assert.strictEqual(crm.datumWort('2026-08-15', jetzt), 'heute');
+  assert.strictEqual(crm.datumWort('2026-08-14', jetzt), 'gestern');
+  assert.strictEqual(crm.datumWort('2026-08-18', jetzt), 'in 3 Tagen');
+  assert.strictEqual(crm.datumWort('2026-07-20', jetzt), 'vor 4 Wochen');
+  assert.strictEqual(crm.datumWort('2026-06-12', jetzt), 'vor 2 Monaten');
+});
+
+test('CM im Tagesbericht: nur wenn wirklich etwas ansteht', () => {
+  assert.strictEqual(crm.tagesZeile({ gesamt: 12, faellig: [], still: [] }), '',
+    'laeuft alles: kein Wort darueber');
+  assert.strictEqual(crm.tagesZeile({ gesamt: 0, faellig: [], still: [] }), '',
+    'ohne CM auch keine Meldung');
+
+  const zeile = crm.tagesZeile({
+    gesamt: 12,
+    faellig: [{ name: 'La Piazza' }, { name: 'Deichkrone' }, { name: 'Nordsee-Grill' }],
+    still: [{ name: 'X' }, { name: 'Y' }]
+  });
+  assert.ok(zeile.indexOf('3 Wiedervorlagen faellig (La Piazza, Deichkrone und 1 weitere)') > -1, zeile);
+  assert.ok(zeile.indexOf('2 Kunden ohne Kontakt') > -1, zeile);
+});
+
+test('CM: ohne Fund sagt er, wie man es ihm zeigt - und erfindet keine Kunden', () => {
+  const leer = crm.crmSatz(crm.stand(new Date(), []));
+  assert.ok(/SPRACH_CRM/.test(leer), 'der Satz muss den Weg nennen: ' + leer);
+  assert.strictEqual(crm.systemHinweis([]), '', 'ohne CM steht auch nichts im System-Prompt');
+
+  const hinweis = crm.systemHinweis([{ art: 'datei', pfad: '/Users/ibo/CRM/kunden.json', anzahl: 12 }]);
+  assert.ok(hinweis.indexOf('/Users/ibo/CRM/kunden.json') > -1, hinweis);
+  assert.ok(/Aendern tust du dort nichts/.test(hinweis), 'das CM bleibt lesend: ' + hinweis);
+
+  const pr = pruefung.pruefeCrm([]);
+  assert.strictEqual(pr.stufe, 'hinweis', 'kein CM ist kein Fehler');
+  assert.ok(/SPRACH_CRM/.test(pr.hilfe), pr.hilfe);
+
+  const falsch = pruefung.pruefeCrm([{ art: 'fehlt', pfad: '/gibt/es/nicht' }]);
+  assert.strictEqual(falsch.stufe, 'hinweis', 'ein toter Pfad zaehlt nicht als Fund');
+
+  // Derselbe Kunde steht oft in zwei Dateien - gemeldet wird die Zahl NACH
+  // dem Zusammenfuehren, sonst klingt das CM groesser als es ist.
+  const gefunden = pruefung.pruefeCrm(
+    [{ art: 'datei', pfad: '/x/kunden.json', anzahl: 3 }, { art: 'datei', pfad: '/x/leads.csv', anzahl: 2 }], 4);
+  assert.strictEqual(gefunden.stufe, 'ok');
+  assert.ok(gefunden.text.indexOf('4 Kunden aus 2 Dateien') > -1, gefunden.text);
+});
+
+test('CM: "wie steht es mit La Piazza" ist eine Kundenfrage, "moin" nicht', () => {
+  const pfade = { crm: '/x/crm.js', agentur: '/x/agentur.js', tagesbericht: '/x/tagesbericht.js' };
+
+  for (const satz of ['Was ist mit La Piazza?', 'Wie steht\'s mit der Deichkrone?', 'Was laeuft bei Nordsee-Grill?']) {
+    const b = befehle.schnellbefehl(satz, null, pfade);
+    assert.ok(b && b.name === 'kundenstand', satz + ' -> ' + (b && b.name));
+    assert.ok(b.prompt.indexOf('/x/crm.js kunde') > -1, 'das CM wird gefragt');
+  }
+
+  // Der Tagesbericht darf davon nichts abbekommen.
+  assert.strictEqual(befehle.schnellbefehl('Moin', null, pfade).name, 'tagesbericht');
+  assert.strictEqual(befehle.schnellbefehl('Wie steht\'s?', null, pfade).name, 'tagesbericht',
+    'ohne Namen dahinter bleibt es der Lagebericht');
+
+  const faellig = befehle.schnellbefehl('Wer ist faellig?', null, pfade);
+  assert.strictEqual(faellig.name, 'crm');
+  assert.ok(faellig.prompt.indexOf('node /x/crm.js') > -1, faellig.prompt);
+});
+
 // --------------------------------------------------------------- Wache ---
 
 test('Wache: laeuft alles, bleibt es bei einem Halbsatz', () => {
@@ -1144,6 +1321,38 @@ async function instagramTest() {
   });
 }
 
+// ------------------------------------------------- CM als laufendes Programm
+
+// Ibos CM laeuft auf seinem Rechner - moeglicherweise als Programm mit
+// eigener Adresse statt als Datei. Hier wird genau das nachgestellt.
+async function crmAdresseTest() {
+  const dienst = http.createServer((req, res) => {
+    if (req.url.indexOf('/api/kunden') !== 0) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ kunden: [{ firma: 'Deichkrone', ort: 'Greetsiel', wiedervorlage: '2026-08-01' }] }));
+  });
+  await new Promise((f) => dienst.listen(3986, '127.0.0.1', f));
+
+  try {
+    await testAsync('CM: laeuft es als Programm, wird die Adresse gefragt', async () => {
+      const quellen = [{ art: 'adresse', pfad: 'http://127.0.0.1:3986/api/kunden' }];
+      const s = await crm.standAsync(new Date(2026, 7, 15), quellen);
+      assert.strictEqual(s.gesamt, 1);
+      assert.strictEqual(s.kunden[0].name, 'Deichkrone');
+      assert.deepStrictEqual(s.faellig.map((k) => k.name), ['Deichkrone']);
+    });
+
+    await testAsync('CM: ist es gerade aus, haelt das den Tagesbericht nicht auf', async () => {
+      const tot = [{ art: 'adresse', pfad: 'http://127.0.0.1:3985/api/kunden' }];
+      const s = await crm.standAsync(new Date(2026, 7, 15), tot);
+      assert.strictEqual(s.gesamt, 0, 'kein Absturz, nur keine Kunden');
+      assert.strictEqual(crm.tagesZeile(s), '', 'und im Tagesbericht steht dann nichts');
+    });
+  } finally {
+    await new Promise((f) => dienst.close(f));
+  }
+}
+
 // ------------------------------------------------- Server im Demo-Modus ---
 
 async function serverTest() {
@@ -1212,7 +1421,7 @@ async function serverTest() {
   }
 }
 
-liveSitzungTest().then(instagramTest).then(serverTest).then(() => {
+liveSitzungTest().then(instagramTest).then(crmAdresseTest).then(serverTest).then(() => {
   console.log('\n  ' + tests + ' Tests bestanden.\n');
 }).catch((e) => {
   console.error('\n  FEHLGESCHLAGEN: ' + e.message + '\n');

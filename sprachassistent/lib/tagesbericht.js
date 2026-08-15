@@ -19,6 +19,7 @@ const notizen = require('./notizen');
 const wache = require('./wache');
 const agentur = require('./agentur');
 const saison = require('./saison');
+const crm = require('./crm');
 
 function heuteISO(jetzt) {
   const d = jetzt || new Date();
@@ -176,6 +177,13 @@ async function sammle(optionen) {
     if (zeile) bericht.agentur = zeile;
   } catch (_e) { /* ohne Agentur-Daten geht es auch */ }
 
+  // Das CM: faellige Wiedervorlagen sind das, was man morgens wissen
+  // will - und abends bereut, wenn man es nicht wusste.
+  try {
+    const zeile = crm.tagesZeile(await crm.standAsync(jetzt));
+    if (zeile) bericht.crm = zeile;
+  } catch (_e) { /* kein CM auf diesem Rechner - dann eben ohne */ }
+
   try {
     const kosten = protokoll.tagesKosten(bericht.datum);
     if (kosten) bericht.assistentKosten = kosten;
@@ -193,6 +201,7 @@ function alsText(bericht) {
   if (bericht.plattform) zeilen.push(bericht.plattform);
   if (bericht.telefon) zeilen.push(bericht.telefon);
   if (bericht.agentur) zeilen.push(bericht.agentur);
+  if (bericht.crm) zeilen.push(bericht.crm);
   if (bericht.saison) zeilen.push(bericht.saison);
   if (bericht.notizenHeute) zeilen.push('Auf deiner Liste steht fuer heute: ' + bericht.notizenHeute);
   if (bericht.notizenOffen) zeilen.push('Dazu ' + bericht.notizenOffen + ' Notizen ohne Termin.');
