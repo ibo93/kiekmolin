@@ -23,6 +23,7 @@ const protokoll = require('./lib/protokoll');
 const wetter = require('./lib/wetter');
 const wache = require('./lib/wache');
 const agentur = require('./lib/agentur');
+const pruefung = require('./lib/pruefung');
 const tagesbericht = require('./lib/tagesbericht');
 const notizen = require('./lib/notizen');
 const sofort = require('./lib/sofort');
@@ -569,6 +570,49 @@ test('Telefon-Retter: Anrufe von heute werden zu einem Satz', () => {
   assert.ok(satz.indexOf('2 Reservierungen, 1 Bestellungen') > -1, satz);
   assert.ok(tagesbericht.telefonSatz({ anrufe: 1, reservierungen: 1, bestellungen: 0, rueckrufe: 0 })
     .indexOf('1 Anruf angenommen') > -1, 'Einzahl');
+});
+
+// ------------------------------------------------------- Selbstpruefung ---
+
+test('Selbstpruefung: fehlender Claude-Befehl wird erklaert, nicht nur gemeldet', () => {
+  const e = pruefung.pruefeClaude('/gibt/es/garantiert/nicht');
+  assert.strictEqual(e.stufe, 'fehler');
+  assert.ok(e.hilfe.indexOf('which claude') > -1, 'sagt, wie man den Pfad findet: ' + e.hilfe);
+});
+
+test('Selbstpruefung: Schluessel werden nie im Klartext ausgegeben', () => {
+  const merker = process.env.DEEPGRAM_API_KEY;
+  process.env.DEEPGRAM_API_KEY = 'geheim-1234567890';
+  try {
+    const alles = JSON.stringify(pruefung.pruefeSchluessel());
+    assert.ok(alles.indexOf('geheim') === -1, 'der Wert taucht nirgends auf: ' + alles);
+    assert.ok(alles.indexOf('Deepgram-Schluessel gefunden') > -1, 'nur ob er da ist');
+  } finally {
+    if (merker === undefined) delete process.env.DEEPGRAM_API_KEY;
+    else process.env.DEEPGRAM_API_KEY = merker;
+  }
+});
+
+test('Selbstpruefung: Ordner aus ordner.json werden geprueft', () => {
+  const gut = pruefung.pruefeOrdner({ ordner: [{ name: 'app', pfad: __dirname }] });
+  assert.strictEqual(gut[0].stufe, 'ok');
+  const schlecht = pruefung.pruefeOrdner({ ordner: [{ name: 'buero', pfad: '/gibt/es/nicht' }] });
+  assert.strictEqual(schlecht[0].stufe, 'fehler');
+  assert.ok(/ordner.json/.test(schlecht[0].hilfe));
+  assert.strictEqual(pruefung.pruefeOrdner({ ordner: [] })[0].stufe, 'hinweis', 'ohne Datei nur ein Hinweis');
+});
+
+test('Selbstpruefung: das Fazit unterscheidet Hinweis und Fehler', () => {
+  const nurHinweise = [pruefung.ergebnis('ok', 'A', 'x'), pruefung.ergebnis('hinweis', 'B', 'y')];
+  assert.strictEqual(pruefung.fazit(nurHinweise).bereit, true, 'Hinweise halten niemanden auf');
+  assert.ok(/haelt dich auf/.test(pruefung.fazit(nurHinweise).satz));
+
+  const mitFehler = nurHinweise.concat([pruefung.ergebnis('fehler', 'C', 'Claude fehlt')]);
+  const f = pruefung.fazit(mitFehler);
+  assert.strictEqual(f.bereit, false);
+  assert.ok(f.satz.indexOf('Claude fehlt') > -1, 'nennt die eine Sache beim Namen: ' + f.satz);
+
+  assert.strictEqual(pruefung.fazit([pruefung.ergebnis('ok', 'A', 'x')]).satz, 'Alles da. Los geht\'s.');
 });
 
 // ------------------------------------------------------------- Agentur ---

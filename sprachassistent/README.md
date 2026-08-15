@@ -51,6 +51,16 @@ nichts doppelt eintragen und kein neues Konto anlegen.
 
 ## 2. Loslegen
 
+**Auf dem Mac: `start.command` doppelklicken.** Fertig. Das Ding holt beim
+ersten Mal die eine Abhängigkeit, prüft sich selbst durch und macht den
+Browser auf. (Beim allerersten Start meckert macOS: Rechtsklick →
+**Öffnen** → **Öffnen**. Danach reicht Doppelklick.)
+
+Soll er beim Anmelden von selbst starten: Systemeinstellungen →
+Allgemein → Anmeldeobjekte → `start.command` hinzufügen.
+
+Lieber im Terminal:
+
 ```bash
 cd sprachassistent
 npm install               # einmalig, holt nur "ws" (für den Live-Modus)
@@ -73,6 +83,26 @@ Optional vorher Einstellungen anlegen (nichts davon ist Pflicht):
 cp .env.example .env              # Modell, Kostendeckel, Rechte
 cp ordner.json.example ordner.json # deine Ordner auf deinem Rechner
 ```
+
+**Wenn etwas klemmt, frag ihn selbst:**
+
+```bash
+node pruefe.js
+```
+
+Das geht alles durch — Node, Claude Code, Schlüssel, Ordner, Schreibrechte,
+Port — und sagt in Klartext, was fehlt und was zu tun ist:
+
+```
+  ok Claude Code: 2.1.233
+  !! Ordner buero: Gibt es nicht: /Users/ibo/Kurani/Buero
+        -> Pfad in ordner.json anpassen - oder den Eintrag loeschen.
+  -- Stimme: Kein ElevenLabs-Schluessel - die Browser-Stimme spricht
+```
+
+Schlüssel-Werte gibt die Prüfung nie aus, nur ob sie da sind — die Ausgabe
+landet schnell mal in einem Screenshot.
+
 
 ---
 
