@@ -51451,6 +51451,18 @@ async function confirmAcceptOrder() {
                 order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
             }
 
+            // Annahme-Mail mit der Wartezeit (fire-and-forget). Ohne
+            // RESEND_API_KEY macht die Function nichts -- kostet also nie
+            // etwas. Und sie darf die Annahme nie aufhalten: der Wirt hat
+            // gedrueckt, die Bestellung ist angenommen, Punkt.
+            try {
+                fetch('/.netlify/functions/order-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: currentAcceptOrderId, event: 'accepted' })
+                }).catch(function () {});
+            } catch (e) {}
+
             closeModal('acceptOrderModal');
             renderDashboardOrders();
             updateOrderStats();
@@ -53844,6 +53856,19 @@ async function _autoAcceptAfterPosPush(order, config) {
         order.status = 'accepted';
         order.estimated_minutes = minutes;
         order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+
+        // HIER IST DIE MAIL AM WICHTIGSTEN. Auf diesem Weg oeffnet der Wirt
+        // das Dashboard nie -- er arbeitet in seiner Kasse. Ohne diese Mail
+        // sitzt der Gast vor einer Bestellung und weiss nicht, ob sie jemand
+        // gesehen hat.
+        try {
+            fetch('/.netlify/functions/order-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: order.id, event: 'accepted' })
+            }).catch(function () {});
+        } catch (e) {}
+
         if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
         if (typeof updateOrderStats === 'function') updateOrderStats();
         if (typeof autoPrintKitchenBon !== 'undefined' && autoPrintKitchenBon) {
