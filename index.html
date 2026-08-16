@@ -15011,6 +15011,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                             <div class="toggle-switch" id="autoConfirmToggle" onclick="toggleFeature('auto_confirm')" style="width:44px;height:24px;"></div>
                         </div>
+                        <!-- Vorbestellung: Gaeste duerfen auch bestellen, wenn zu ist.
+                             Bewusst AUS als Voreinstellung -- nicht jeder Betrieb will
+                             nachts Bestellungen sammeln, und niemand soll das ungefragt
+                             bekommen. -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;opacity:0.7;">event_upcoming</span>
+                                <span style="font-family:Inter,sans-serif;font-size:12px;opacity:0.7;">Vorbestellung erlauben</span>
+                            </div>
+                            <div class="toggle-switch" id="preorderToggle" onclick="toggleFeature('preorder')" style="width:44px;height:24px;"></div>
+                        </div>
                         <!-- Betriebsferien: Zeitraum eintragen -> App zeigt "Ferien bis X",
                              blockiert Bestellungen & Reservierungen, schaltet danach selbst frei -->
                         <div style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
@@ -21992,6 +22003,109 @@ function vorbereitungsMinuten(restaurant, orderType) {
     return lieferung ? 45 : 25;
 }
 window.vorbereitungsMinuten = vorbereitungsMinuten;
+
+// ==================== VORBESTELLUNG ====================
+//
+// Bisher wurde bei geschlossenem Restaurant schlicht abgelehnt: "hat gerade
+// geschlossen, bitte zu den Öffnungszeiten bestellen." Der Grund dafuer war
+// gut -- sonst liegt nachts eine Bestellung im System, die erst am naechsten
+// Morgen jemand sieht, der Gast wartet, das Restaurant muss absagen.
+//
+// Der Fehler war nicht die Sperre, sondern dass es keinen zweiten Weg gab.
+// Wer abends um elf Appetit auf morgen Mittag hat, ist ein Kunde und kein
+// Problem -- man muss nur wissen, WANN er es haben will, und die Kueche muss
+// es getrennt sehen.
+//
+// POSITIVES FLAG, mit Absicht: preorder muss eingeschaltet werden. Nicht
+// jeder Betrieb will nachts Bestellungen sammeln, und niemand soll das
+// ungefragt bekommen.
+function vorbestellungErlaubt(restaurant) {
+    var feats = (restaurant && restaurant.features) || [];
+    return Array.isArray(feats) && feats.indexOf('preorder') >= 0;
+}
+window.vorbestellungErlaubt = vorbestellungErlaubt;
+
+// Wann macht das Restaurant das naechste Mal auf?
+//
+// Sucht ab jetzt bis zu 14 Tage voraus den naechsten Tag, an dem geoeffnet
+// ist -- Ruhetag und Betriebsferien uebersprungen. Vierzehn, weil zwei Wochen
+// Betriebsferien vorkommen; findet sich bis dahin nichts, sagen wir lieber
+// nichts als etwas Falsches.
+//
+// Gibt { datum: Date, text: 'Montag 11:00 Uhr' } oder null.
+function naechsteOeffnung(restaurant) {
+    if (!restaurant) return null;
+    var TAGE = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
+    var LANG = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    // rest_day zaehlt ab Montag (0=Mo), JS ab Sonntag (0=So).
+    var ruheJs = -1;
+    var rd = restaurant.rest_day;
+    if (rd !== null && rd !== undefined && rd !== '') {
+        var rdn = Number(rd);
+        if (Number.isInteger(rdn) && rdn >= 0 && rdn <= 6) ruheJs = ({ 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 })[rdn];
+    }
+
+    var jetzt = new Date();
+    for (var i = 0; i < 14; i++) {
+        var tag = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + i);
+        var js = tag.getDay();
+        if (js === ruheJs) continue;
+
+        // Betriebsferien: an diesem Tag zu?
+        var ferien = null;
+        try { ferien = getVacationInfo(restaurant); } catch (e) {}
+        if (ferien && ferien.active && i === 0) continue;
+
+        var oh = restaurant.opening_hours;
+        var start = '';
+        if (oh && typeof oh === 'object' && oh[TAGE[js] + '_start']) start = String(oh[TAGE[js] + '_start']).slice(0, 5);
+        else if (restaurant.opening_time) start = String(restaurant.opening_time).slice(0, 5);
+        if (!start) continue;
+
+        var teile = start.split(':');
+        var ziel = new Date(tag.getFullYear(), tag.getMonth(), tag.getDate(),
+                            parseInt(teile[0], 10) || 0, parseInt(teile[1], 10) || 0);
+        // Heute zaehlt nur, wenn die Oeffnung noch bevorsteht.
+        if (ziel <= jetzt) continue;
+
+        var wann = i === 0 ? 'heute' : (i === 1 ? 'morgen' : LANG[js]);
+        return { datum: ziel, text: wann + ' ' + start + ' Uhr' };
+    }
+    return null;
+}
+window.naechsteOeffnung = naechsteOeffnung;
+
+// Was der Gast oben auf der Karte liest, wenn zu ist.
+// Leer, wenn geoeffnet ist oder das Haus keine Vorbestellung anbietet.
+function vorbestellHinweis(restaurant) {
+    if (!restaurant) return '';
+    if (typeof checkIfOpen === 'function' && checkIfOpen(restaurant)) return '';
+    if (!vorbestellungErlaubt(restaurant)) return '';
+    var auf = naechsteOeffnung(restaurant);
+    return 'Zurzeit nur Vorbestellung möglich.'
+         + (auf ? ' Wieder geöffnet: ' + auf.text : '');
+}
+window.vorbestellHinweis = vorbestellHinweis;
+
+// Den Hinweis oben in die Speisekarte setzen -- bevor der Gast den Warenkorb
+// fuellt, nicht erst beim Bezahlen. Wer erst an der Kasse erfaehrt, dass es
+// das Essen morgen gibt, faengt gar nicht erst an.
+function zeigeVorbestellBanner(restaurantId) {
+    var kasten = document.getElementById('vorbestellBanner');
+    if (!kasten) return;
+    var rest = null;
+    try {
+        rest = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (r) { return r.id === restaurantId; })
+            || (window.currentOrderRestaurant && currentOrderRestaurant.id === restaurantId ? currentOrderRestaurant : null);
+    } catch (e) {}
+    var text = vorbestellHinweis(rest);
+    if (!text) { kasten.style.display = 'none'; kasten.innerHTML = ''; return; }
+    kasten.style.display = 'block';
+    kasten.innerHTML = '<div style="margin:0 20px 4px;padding:12px 16px;border-radius:14px;'
+        + 'background:#fed65b;color:#4a3c00;font-family:Inter,sans-serif;font-size:14px;'
+        + 'font-weight:600;line-height:1.45;text-align:center;">' + escapeHtml(text) + '</div>';
+}
+window.zeigeVorbestellBanner = zeigeVorbestellBanner;
 
 function getOrderStopMinutes(restaurant) {
     var feats = (restaurant && restaurant.features) || [];
@@ -31063,6 +31177,15 @@ async function toggleFeature(feature) {
             }
             var label = 'Automatische Bestätigung';
             var wasEnabled = hasAutoConfirm;
+        } else if (feature === 'preorder') {
+            // Wie auto_confirm ein POSITIVES Flag: vorhanden = erlaubt.
+            // ordering/reservations sind umgekehrt gebaut (no_*), deshalb
+            // braucht es hier einen eigenen Zweig statt der Standardregel.
+            var hatPreorder = features.indexOf('preorder') >= 0;
+            if (hatPreorder) features = features.filter(function (f) { return f !== 'preorder'; });
+            else features.push('preorder');
+            var label = 'Vorbestellung';
+            var wasEnabled = hatPreorder;
         } else {
             var flagName = feature === 'ordering' ? 'no_ordering' : 'no_reservations';
             var isCurrentlyDisabled = features.indexOf(flagName) >= 0;
@@ -31132,6 +31255,15 @@ function updateFeatureToggles(features) {
             autoConfirmToggle.classList.add('off');
         }
     }
+    var preorderToggle = document.getElementById('preorderToggle');
+    if (preorderToggle) {
+        // preorder = positives Flag: vorhanden heisst erlaubt. Fehlt es, ist
+        // der Schalter aus -- und bei geschlossenem Laden wird abgelehnt wie
+        // bisher. Kein Betrieb bekommt Vorbestellungen ungefragt.
+        if (features.indexOf('preorder') >= 0) preorderToggle.classList.remove('off');
+        else preorderToggle.classList.add('off');
+    }
+
     // Betriebsferien-Felder mitpflegen
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
 }
@@ -43407,6 +43539,10 @@ document.addEventListener('error', function(e) {
             <!-- Wird dynamisch gefüllt -->
         </div>
 
+        <!-- Vorbestell-Hinweis. Steht ueber der Karte, damit der Gast es
+             sieht, BEVOR er den Warenkorb fuellt -- nicht erst beim Bezahlen. -->
+        <div id="vorbestellBanner" style="display:none;"></div>
+
         <!-- Produkte Liste (Stitch Grid) -->
         <div style="flex: 1; overflow-y: auto; padding: 16px 24px;" id="menuItemsList">
             <!-- Wird dynamisch gefüllt -->
@@ -45339,6 +45475,7 @@ async function openMenuModal(restaurantId) {
     // dieser async-Funktion wegwarfen. An dieser Stelle steht fest, dass der
     // Gast wirklich in DIESEM Haus ist: der Korbwechsel ist beantwortet.
     // Nicht mit await: die Gerichte sollen nicht darauf warten.
+    if (typeof zeigeVorbestellBanner === 'function') zeigeVorbestellBanner(restaurantId);
     if (typeof showDailySpecialInMenu === 'function') showDailySpecialInMenu(restaurantId);
     if (typeof showReorderBanner === 'function') showReorderBanner(restaurantId);
     } catch(e) {
@@ -48919,21 +49056,53 @@ async function submitOrder() {
 
             // a) Laden hat bereits zu -- bisher konnte man nachts weiterbestellen,
             //    die Bestellung sah erst am nächsten Morgen jemand.
-            if (typeof checkIfOpen === 'function' && !checkIfOpen(_osRest)) {
+            var _zu = typeof checkIfOpen === 'function' && !checkIfOpen(_osRest);
+            var _vorbestellen = _zu && typeof vorbestellungErlaubt === 'function' && vorbestellungErlaubt(_osRest);
+
+            if (_zu && !_vorbestellen) {
                 showToast((_osRest.name || 'Das Restaurant') + ' hat gerade geschlossen. ' +
                           'Bitte zu den Öffnungszeiten bestellen.', 'error');
                 if (_osBtn) _osBtn.disabled = false;
                 return;
             }
 
-            // b) Bestellschluss kurz vor Feierabend
-            var _restMin = minutesUntilClose(_osRest);
-            if (_restMin != null && _restMin >= 0 && _restMin < _stopMin) {
-                showToast('Bestellschluss erreicht – ' + (_osRest.name || 'das Restaurant') +
-                          ' schließt in ' + Math.max(0, Math.round(_restMin)) + ' Minuten. ' +
-                          'Bitte morgen wieder bestellen oder direkt anrufen.', 'error');
-                if (_osBtn) _osBtn.disabled = false;
-                return;
+            // VORBESTELLUNG: durchlassen, aber den Zeitpunkt festhalten.
+            //
+            // Ohne scheduled_at waere es eine ganz normale Bestellung, die
+            // nachts um drei aus dem Kuechendrucker faellt. Genau deshalb war
+            // die Sperre urspruenglich da -- sie faellt nur weg, wenn wir
+            // stattdessen sagen koennen, WANN es soweit ist.
+            if (_vorbestellen) {
+                var _auf = typeof naechsteOeffnung === 'function' ? naechsteOeffnung(_osRest) : null;
+                if (!_auf) {
+                    // Kein naechster Termin ermittelbar (keine Zeiten gepflegt,
+                    // Betriebsferien ohne Ende). Dann lieber ablehnen als eine
+                    // Vorbestellung auf unbestimmte Zeit annehmen.
+                    showToast((_osRest.name || 'Das Restaurant') + ' hat geschlossen und es steht noch '
+                            + 'kein nächster Öffnungstermin fest. Bitte später noch einmal versuchen.', 'error');
+                    if (_osBtn) _osBtn.disabled = false;
+                    return;
+                }
+                window._vorbestellungFuer = _auf.datum.toISOString();
+                window._vorbestellungText = _auf.text;
+            } else {
+                window._vorbestellungFuer = null;
+                window._vorbestellungText = '';
+            }
+
+            // b) Bestellschluss kurz vor Feierabend -- gilt nur, wenn offen ist.
+            //    Bei einer Vorbestellung waere er sinnlos: das Haus ist ja zu.
+            if (!_zu) {
+                var _restMin = minutesUntilClose(_osRest);
+                if (_restMin != null && _restMin >= 0 && _restMin < _stopMin) {
+                    showToast('Bestellschluss erreicht – ' + (_osRest.name || 'das Restaurant') +
+                              ' schließt in ' + Math.max(0, Math.round(_restMin)) + ' Minuten. ' +
+                              (vorbestellungErlaubt(_osRest)
+                                ? 'Du kannst aber für den nächsten Öffnungstag vorbestellen – bitte gleich noch einmal tippen.'
+                                : 'Bitte morgen wieder bestellen oder direkt anrufen.'), 'error');
+                    if (_osBtn) _osBtn.disabled = false;
+                    return;
+                }
             }
         }
     } catch (e) { /* im Zweifel bestellen lassen */ }
@@ -49077,6 +49246,27 @@ async function submitOrder() {
         estimated_minutes: null,
         estimated_time: null
     };
+
+    // VORBESTELLUNG: der Zeitpunkt, ab dem die Kueche loslegen soll.
+    //
+    // Steht er drin, ist es eine Bestellung fuer spaeter -- Dashboard und
+    // Kuechen-Bon zeigen das deutlich, damit niemand nachts um drei anfaengt
+    // zu backen.
+    //
+    // ZWEIMAL geschrieben, mit Absicht:
+    //   - scheduled_at, weil man damit rechnen und sortieren kann;
+    //   - zusaetzlich in die Notiz, weil scheduled_at je nach Datenbank noch
+    //     gar nicht existiert. Der selbstheilende Insert unten wirft eine
+    //     unbekannte Spalte weg und rettet damit die Bestellung -- aber der
+    //     Zeitpunkt waere still verschwunden, und aus der Vorbestellung
+    //     wuerde unbemerkt eine ganz normale.
+    // Die Notiz liest die Kueche ohnehin. Sie ist die Fassung, die immer
+    // ankommt.
+    if (window._vorbestellungFuer) {
+        orderData.scheduled_at = window._vorbestellungFuer;
+        var _vbText = 'VORBESTELLUNG für ' + (window._vorbestellungText || 'den nächsten Öffnungstag');
+        orderData.notes = orderData.notes ? (_vbText + ' · ' + orderData.notes) : _vbText;
+    }
 
     // In Supabase speichern
     var _saveOk = false;
@@ -51033,8 +51223,27 @@ function renderDashboardOrders() {
             '</button>';
         }
 
+        // VORBESTELLUNG deutlich sichtbar. Ohne diesen Streifen sieht eine
+        // Bestellung fuer morgen Mittag genauso aus wie eine fuer jetzt --
+        // und die Kueche faengt sofort an. Genau davor hat die alte Sperre
+        // geschuetzt; faellt sie weg, muss das hier stehen.
+        var _vbHtml = '';
+        if (order.scheduled_at) {
+            var _vbZeit = '';
+            try {
+                var _d = new Date(order.scheduled_at);
+                _vbZeit = _d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })
+                        + ' um ' + _d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+            } catch (e) {}
+            _vbHtml = '<div style="margin:0 0 12px;padding:8px 12px;border-radius:12px;background:rgba(245,158,11,.15);'
+                + 'border:1px solid #f59e0b;color:#9a3412;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">'
+                + '<span class="material-symbols-outlined" style="font-size:16px;">event_upcoming</span>'
+                + 'Vorbestellung' + (_vbZeit ? ' &middot; ' + escapeHtml(_vbZeit) : '') + '</div>';
+        }
+
         return `
             <div class="kin-order-card status-${order.status}" style="position:relative;overflow:hidden;">
+                ${_vbHtml}
                 ${order.status === 'received' ? '<div class="kin-new-badge">NEU</div>' : ''}
                 ${order.status === 'received' ? '<div style="position:absolute;top:-32px;right:-32px;width:128px;height:128px;background:rgba(254,214,91,0.10);border-radius:0 0 0 100%;pointer-events:none;"></div>' : ''}
                 <!-- Stitch Header: Order # + Customer Name left, Status right -->

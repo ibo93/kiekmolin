@@ -178,6 +178,27 @@ function generateEposBon(order, restaurantName) {
     xml += '<text align="center">' + date + ' ' + zeit + '&#10;&#10;</text>';
     xml += '<text align="center" width="2" height="2">' + orderTypeLabel + '&#10;</text>';
 
+    // VORBESTELLUNG ganz gross und ganz oben.
+    //
+    // Der Bon faellt bei einer Vorbestellung erst dann aus dem Drucker, wenn
+    // die Kueche wieder da ist -- er sieht dann aus wie jeder andere. Ohne
+    // diesen Block faengt jemand sofort an zu kochen, obwohl das Essen erst
+    // Stunden spaeter abgeholt wird. Der Zeitpunkt ist hier die wichtigste
+    // Angabe auf dem ganzen Zettel.
+    if (order.scheduled_at) {
+        var wann = '';
+        try {
+            var sd = new Date(order.scheduled_at);
+            wann = sd.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })
+                 + ' ' + sd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+        } catch (e) {}
+        xml += '<text>&#10;</text>';
+        xml += '<text align="center">********************************&#10;</text>';
+        xml += '<text align="center" width="2" height="2">VORBESTELLUNG&#10;</text>';
+        if (wann) xml += '<text align="center" width="1" height="2">' + xmlEscape(wann) + '&#10;</text>';
+        xml += '<text align="center">********************************&#10;</text>';
+    }
+
     if (order.table_number) {
         xml += '<text align="center" width="2" height="2">Tisch ' + xmlEscape(order.table_number) + '&#10;</text>';
     }
@@ -367,7 +388,7 @@ exports.handler = async function (event) {
 
         // Älteste ungedruckte Bestellung (letzte 24h, nicht storniert)
         var since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        var orderPath = 'orders?restaurant_id=eq.' + encodeURIComponent(restaurant) +
+        var basis = 'orders?restaurant_id=eq.' + encodeURIComponent(restaurant) +
             '&printed_at=is.null' +
             '&created_at=gte.' + encodeURIComponent(since) +
             '&status=not.in.(cancelled,canceled,rejected)' +
@@ -375,7 +396,21 @@ exports.handler = async function (event) {
             '&select=id,order_number,status,order_type,created_at,table_number,' +
                     'customer_name,customer_phone,customer_notes,delivery_address,delivery_notes,' +
                     'items,total';
-        var orders = await sbGet(orderPath);
+
+        // scheduled_at muss mit -- ohne das Feld weiss der Bon nicht, dass es
+        // eine Vorbestellung ist, und die Kueche faengt sofort an.
+        //
+        // ABER: die Spalte gibt es je nach Datenbank noch nicht, und eine
+        // unbekannte Spalte im select laesst PostgREST die GANZE Abfrage mit
+        // 400 scheitern. Dann kaeme gar kein Bon mehr -- aus einem Zusatz
+        // waere ein Totalausfall geworden. Also erst mit, bei Fehler ohne.
+        var orders;
+        try {
+            orders = await sbGet(basis + ',scheduled_at');
+        } catch (e) {
+            console.warn('[pos-print] scheduled_at nicht abfragbar, drucke ohne Vorbestell-Hinweis:', e.message);
+            orders = await sbGet(basis);
+        }
 
         // Last-Poll-Tracker: bei jedem Abruf vom Drucker den Zeitstempel
         // updaten. Dashboard kann darauf einen 'Drucker online'-Indikator
