@@ -18618,6 +18618,31 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
             </div>
 
+                <!-- Wartezeiten: was der Gast als Zusage bekommt -->
+                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">schedule</span>
+                        Wartezeit
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Das sieht der Gast, wenn du die Bestellung annimmst. Getrennt für Abholung und Lieferung.</div>
+                    <div style="display: flex; gap: 10px;">
+                        <label style="flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:600; color:var(--text-primary);">
+                            <span><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">shopping_bag</span> Abholung</span>
+                            <span style="display:flex;align-items:center;gap:4px;">
+                                <input type="number" id="settingPrepPickup" value="25" min="5" max="180" step="5" onchange="savePrepMinutes()" style="width: 62px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);">
+                                <span style="font-size:12px;color:var(--text-secondary);">Min</span>
+                            </span>
+                        </label>
+                        <label style="flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:600; color:var(--text-primary);">
+                            <span><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">inventory_2</span> Lieferung</span>
+                            <span style="display:flex;align-items:center;gap:4px;">
+                                <input type="number" id="settingPrepDelivery" value="45" min="5" max="180" step="5" onchange="savePrepMinutes()" style="width: 62px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);">
+                                <span style="font-size:12px;color:var(--text-secondary);">Min</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Mindestbestellwert & Zahlungsarten -->
                 <div style="display: flex; gap: 10px; margin-top: 14px;">
                     <!-- Mindestbestellwert -->
@@ -21934,6 +21959,40 @@ function minutesUntilClose(restaurant) {
 
 // Wie viele Minuten vor Schließung keine Bestellung mehr angenommen wird.
 // Über das features-Array pro Restaurant anpassbar: "order_stop:20"
+// WARTEZEIT: ABHOLUNG UND LIEFERUNG GETRENNT, VOM WIRT EINSTELLBAR.
+//
+// Hier stand fest verdrahtet:
+//     var defaultTime = order.order_type === 'delivery' ? 45 : 25;
+// 45 und 25 Minuten, fuer jedes Restaurant gleich, nirgends aenderbar. Eine
+// Pizzeria mit einem Fahrer und eine mit vieren brauchen aber verschiedene
+// Zusagen -- und die Zahl ist das, was der Gast als Versprechen liest.
+//
+// Gespeichert wie order_stop: als Eintrag in features. Das ist das Muster,
+// das in dieser Datei schon existiert, und es braucht keine neue Spalte --
+// eine fehlende Spalte haette bedeutet, dass der Wert nur im Browser des
+// Wirts steht und auf dem Tablet in der Kueche wieder anders ist.
+//
+//     prep_pickup:25     Abholung in 25 Minuten
+//     prep_delivery:60   Lieferung in 60 Minuten
+function vorbereitungsMinuten(restaurant, orderType) {
+    var lieferung = orderType === 'delivery';
+    var schluessel = lieferung ? 'prep_delivery' : 'prep_pickup';
+    var feats = (restaurant && restaurant.features) || [];
+    if (Array.isArray(feats)) {
+        for (var i = 0; i < feats.length; i++) {
+            var m = new RegExp('^' + schluessel + ':(\\d+)$').exec(String(feats[i]));
+            if (m) {
+                var v = parseInt(m[1], 10);
+                // Grenzen wie beim Kassen-Feld: unter 5 Minuten ist keine
+                // ehrliche Zusage, ueber 180 kein Restaurantbetrieb mehr.
+                if (v >= 5 && v <= 180) return v;
+            }
+        }
+    }
+    return lieferung ? 45 : 25;
+}
+window.vorbereitungsMinuten = vorbereitungsMinuten;
+
 function getOrderStopMinutes(restaurant) {
     var feats = (restaurant && restaurant.features) || [];
     for (var i = 0; i < feats.length; i++) {
@@ -51313,9 +51372,10 @@ function acceptOrder(orderId) {
     // Standard-Zeit je nach Typ -- hat die Kasse gerade eine frische
     // Vorbereitungszeit gemeldet (WinOrder PreparationTime), gewinnt die:
     // nächstgelegene Button-Option vorauswählen statt der Pauschale.
-    var defaultTime = order.order_type === 'delivery' ? 45 : 25;
+    var _ar0 = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function(r) { return r.id === order.restaurant_id; });
+    var defaultTime = vorbereitungsMinuten(_ar0, order.order_type);
     try {
-        var _ar = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function(r) { return r.id === order.restaurant_id; });
+        var _ar = _ar0;
         var _pm = _ar ? Number(_ar.pos_prep_minutes) : 0;
         if (_pm > 0 && _ar.pos_prep_updated_at &&
             (Date.now() - new Date(_ar.pos_prep_updated_at).getTime()) < 3 * 60 * 60 * 1000) {
@@ -53753,7 +53813,15 @@ function sendOrderToPOS(order) {
 // und arbeitet komplett aus der Kasse.
 async function _autoAcceptAfterPosPush(order, config) {
     if (!order || !order.id || order.status !== 'received') return;
-    var minutes = parseInt(config && config.autoAcceptMinutes, 10) || 30;
+    // Die Wartezeit des Restaurants gewinnt -- getrennt nach Abholung und
+    // Lieferung. Vorher stand hier EIN Wert fuer beides (autoAcceptMinutes,
+    // voreingestellt 30). Ein Abholer bekam damit dieselbe Zusage wie eine
+    // Lieferung quer durch den Ort. Nur wenn der Wirt nichts eingestellt hat,
+    // gilt weiter der Wert aus den Kassen-Einstellungen.
+    var _r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === order.restaurant_id; });
+    var minutes = (typeof vorbereitungsMinuten === 'function' && _r)
+        ? vorbereitungsMinuten(_r, order.order_type)
+        : (parseInt(config && config.autoAcceptMinutes, 10) || 30);
     if (minutes < 5) minutes = 5;
     if (minutes > 180) minutes = 180;
     try {
@@ -55918,6 +55986,13 @@ function loadOrderSettings() {
         minOrderEl.value = minVal > 0 ? minVal : 0;
     }
 
+    // Wartezeiten laden. Ohne das staenden dort immer 25/45, und der Wirt
+    // wuerde beim naechsten Speichern seinen eigenen Wert ueberschreiben.
+    var pickEl = document.getElementById('settingPrepPickup');
+    var delEl = document.getElementById('settingPrepDelivery');
+    if (pickEl && typeof vorbereitungsMinuten === 'function') pickEl.value = vorbereitungsMinuten(restaurant, 'pickup');
+    if (delEl && typeof vorbereitungsMinuten === 'function') delEl.value = vorbereitungsMinuten(restaurant, 'delivery');
+
     // Lieferradius laden
     var radiusEl = document.getElementById('settingDeliveryRadius');
     if (radiusEl && restaurant) {
@@ -56165,6 +56240,63 @@ function geocodeDeliveryZip(zip) {
 }
 
 // Mindestbestellwert speichern
+// Wartezeiten speichern -- als features-Eintraege prep_pickup / prep_delivery.
+//
+// Warum in features und nicht in eigenen Spalten: das Muster gibt es hier
+// schon (order_stop:15), und es braucht keine Datenbank-Aenderung. Eine
+// fehlende Spalte haette bedeutet, dass der Wert nur im Browser des Wirts
+// steht -- und auf dem Tablet in der Kueche waere er wieder anders.
+async function savePrepMinutes() {
+    var restId = document.getElementById('ordersRestaurantSelect')?.value;
+    if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
+
+    var lese = function (id, standard) {
+        var v = parseInt(document.getElementById(id)?.value, 10);
+        if (isNaN(v)) v = standard;
+        return Math.min(180, Math.max(5, v));
+    };
+    var abholung = lese('settingPrepPickup', 25);
+    var lieferung = lese('settingPrepDelivery', 45);
+    // Zurueckschreiben, damit der Wirt sieht, wenn sein Wert begrenzt wurde.
+    var eA = document.getElementById('settingPrepPickup'); if (eA) eA.value = abholung;
+    var eL = document.getElementById('settingPrepDelivery'); if (eL) eL.value = lieferung;
+
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        var data = await res.json();
+        var features = (data[0] && Array.isArray(data[0].features)) ? data[0].features : [];
+        // Alte Eintraege raus, neue rein -- sonst sammeln sich Karteileichen.
+        features = features.filter(function (f) {
+            return !/^prep_(pickup|delivery):/.test(String(f));
+        });
+        features.push('prep_pickup:' + abholung, 'prep_delivery:' + lieferung);
+
+        var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+                       'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        var zurueck = [];
+        try { zurueck = await pat.json(); } catch (e) {}
+        // Nicht "gespeichert" melden, ohne nachzusehen. Ein PATCH, das keine
+        // Zeile trifft, ist fuer die Datenbank kein Fehler -- fuer den Wirt
+        // schon. Dieselbe Falle wie bei den Optionsgruppen.
+        if (!pat.ok || !Array.isArray(zurueck) || zurueck.length === 0) {
+            showToast('Wartezeit NICHT gespeichert — die Datenbank hat die Änderung nicht übernommen.', 'error');
+            return;
+        }
+        var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
+        if (r) r.features = features;
+        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min', 'success');
+    } catch (e) {
+        showToast('Keine Verbindung — Wartezeit nicht gespeichert', 'error');
+    }
+}
+window.savePrepMinutes = savePrepMinutes;
+
 async function saveMinOrderValue() {
     var minOrder = parseFloat(document.getElementById('settingMinOrder')?.value) || 0;
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
