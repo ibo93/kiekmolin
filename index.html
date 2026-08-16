@@ -45615,6 +45615,43 @@ var GASTRO_DICT = {
     'für':{en:'for',nl:'voor'},'personen':{en:'persons',nl:'personen'},'kalt':{en:'cold',nl:'koud'},'warm':{en:'warm',nl:'warm'}
 };
 
+// Kennzeichnungspflichtige Zusatzstoffe (LMIV / ZZulV) -- die 13, die auf
+// deutschen Speisekarten als Fussnote stehen. Bisher gab es nur die Nummern
+// im Feld additives, aber keinen Klartext dazu. "1" sagt einem Gast nichts,
+// "mit Farbstoff" schon.
+var ZUSATZSTOFFE = {
+  '1': 'mit Farbstoff',
+  '2': 'mit Konservierungsstoff',
+  '3': 'mit Antioxidationsmittel',
+  '4': 'mit Geschmacksverstärker',
+  '5': 'geschwefelt',
+  '6': 'geschwärzt',
+  '7': 'gewachst',
+  '8': 'mit Phosphat',
+  '9': 'mit Süßungsmittel',
+  '10': 'enthält eine Phenylalaninquelle',
+  '11': 'koffeinhaltig',
+  '12': 'chininhaltig',
+  '13': 'mit Milcheiweiß'
+};
+window.ZUSATZSTOFFE = ZUSATZSTOFFE;
+
+// Die echten Zusatzstoffe eines Gerichts -- ohne die Gerichtnummer.
+//
+// ACHTUNG, STOLPERSTELLE: Das Feld additives traegt zweierlei. Neben den
+// Zusatzstoffen steckt dort auch die Gerichtnummer als "nr:37" (siehe
+// getDishNumber). Wer additives roh anzeigt, schreibt dem Gast "nr:37" unter
+// die Allergene.
+function zusatzstoffeVon(item) {
+  var roh = (item && item.additives) || [];
+  if (!Array.isArray(roh)) return [];
+  return roh
+    .filter(function (a) { return typeof a === 'string' && a.indexOf('nr:') !== 0; })
+    .map(function (a) { return ZUSATZSTOFFE[String(a).trim()] || String(a).trim(); })
+    .filter(Boolean);
+}
+window.zusatzstoffeVon = zusatzstoffeVon;
+
 // LMIV-Pflichtallergene (EU-Verordnung 1169/2011)
 var LMIV_ALLERGENS = [
   { code: 'gluten', label: 'Gluten', full: 'Glutenhaltiges Getreide' },
@@ -45641,6 +45678,99 @@ function getAllergenLabel(code) {
   return code;
 }
 window.getAllergenLabel = getAllergenLabel;
+
+// Der volle Satz statt des Kurzworts: "Enthält Milch und Erzeugnisse daraus
+// (einschl. Laktose)" statt "milch". Fuer den Kasten am Gericht.
+function allergenSatz(code) {
+  for (var i = 0; i < LMIV_ALLERGENS.length; i++) {
+    if (LMIV_ALLERGENS[i].code === code) return 'Enthält ' + LMIV_ALLERGENS[i].full;
+  }
+  return 'Enthält ' + code;
+}
+window.allergenSatz = allergenSatz;
+
+// DER INFO-KASTEN AM GERICHT.
+//
+// WARUM ES IHN GEBEN MUSS: Die 14 Pflichtallergene sind bei Online-Bestellung
+// vor Abschluss der Bestellung anzugeben. Wir hatten die Eingabe im Dashboard
+// laengst -- gesehen hat sie nur nie jemand. Der Gast bekam die Angaben, die
+// der Wirt gepflegt hat, gar nicht zu Gesicht.
+//
+// DIE WICHTIGSTE REGEL STEHT UNTEN: "keine Angabe" darf NIEMALS aussehen wie
+// "keine Allergene". Ein leerer Kasten liest sich als Entwarnung. Genau daran
+// ist schon der Essensfilter gescheitert (siehe die Begruendung weiter unten
+// in dieser Datei) -- dort war es aergerlich, hier waere es gefaehrlich.
+function gerichtInfoHtml(item) {
+  if (!item) return '';
+  var zeile = function (s) { return '<li style="margin:2px 0;">' + escapeHtml(s) + '</li>'; };
+  var teile = [];
+
+  // Hauptzutaten: eine eigene Spalte gibt es noch nicht. Bis dahin die
+  // Beschreibung -- besser als ein leerer Abschnitt, und ehrlich beschriftet.
+  var zutaten = String(item.description || '').trim();
+  if (zutaten) {
+    teile.push('<div style="margin-bottom:14px;"><strong style="font-size:14px;">Beschreibung</strong>'
+      + '<p style="margin:4px 0 0;font-size:14px;line-height:1.5;">' + escapeHtml(zutaten) + '</p></div>');
+  }
+
+  var allergene = Array.isArray(item.allergens) ? item.allergens.filter(Boolean) : [];
+  var zusatz = zusatzstoffeVon(item);
+
+  if (allergene.length || zusatz.length) {
+    teile.push('<div style="margin-bottom:14px;"><strong style="font-size:14px;">Zusatzstoffe und Allergene</strong>'
+      + '<ul style="margin:6px 0 0 18px;padding:0;font-size:14px;line-height:1.5;">'
+      + allergene.map(function (c) { return zeile(allergenSatz(c)); }).join('')
+      + zusatz.map(function (z) { return zeile(z.charAt(0).toUpperCase() + z.slice(1)); }).join('')
+      + '</ul></div>');
+  } else {
+    // KEIN leerer Kasten. Wer nichts eingetragen hat, hat nichts eingetragen
+    // -- das ist etwas anderes als "ist frei davon".
+    teile.push('<div style="margin-bottom:14px;padding:10px 12px;border-radius:10px;'
+      + 'background:rgba(245,158,11,.12);border:1px solid #f59e0b;font-size:14px;line-height:1.5;">'
+      + '<strong>Keine Angaben hinterlegt.</strong> Für dieses Gericht liegen uns keine Angaben zu '
+      + 'Allergenen und Zusatzstoffen vor. Bitte frag im Restaurant nach, bevor du bestellst.</div>');
+  }
+
+  teile.push('<hr style="border:none;border-top:1px solid var(--border-color);margin:14px 0;">'
+    + '<p style="font-size:13px;line-height:1.5;color:var(--text-secondary);margin:0;">'
+    + 'Da im Betrieb und bei den Lieferanten auch gluten-, milch-, ei-, sellerie-, erdnuss- und '
+    + 'nusshaltige Zutaten verarbeitet werden, kann trotz aller Sorgfalt ein Übergang von Spuren '
+    + 'dieser Stoffe nicht völlig ausgeschlossen werden.</p>');
+
+  return teile.join('');
+}
+window.gerichtInfoHtml = gerichtInfoHtml;
+
+function openGerichtInfo(itemId) {
+  var liste = window._menuDisplayItems || [];
+  var item = liste.find(function (i) { return String(i.id) === String(itemId); });
+  if (!item) return;
+  var alt = document.getElementById('gerichtInfoOverlay');
+  if (alt) alt.remove();
+  var nr = (typeof getDishNumber === 'function' ? getDishNumber(item) : '');
+  var ov = document.createElement('div');
+  ov.id = 'gerichtInfoOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10020;display:flex;'
+    + 'align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML = '<div style="max-width:460px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg-card);'
+    + 'border-radius:20px;padding:22px;font-family:Inter,sans-serif;color:var(--text-primary);">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">'
+    +   '<h2 style="font-family:Epilogue,sans-serif;font-size:19px;margin:0;line-height:1.25;">'
+    +     escapeHtml((nr ? nr + ' ' : '') + (item.name || 'Gericht')) + '</h2>'
+    +   '<button type="button" onclick="closeGerichtInfo()" aria-label="Schließen" style="background:none;border:none;'
+    +     'font-size:24px;line-height:1;cursor:pointer;color:var(--text-primary);">×</button>'
+    + '</div>'
+    + gerichtInfoHtml(item)
+    + '</div>';
+  ov.addEventListener('click', function (e) { if (e.target === ov) closeGerichtInfo(); });
+  document.body.appendChild(ov);
+}
+function closeGerichtInfo() {
+  var ov = document.getElementById('gerichtInfoOverlay');
+  if (ov) ov.remove();
+}
+window.openGerichtInfo = openGerichtInfo;
+window.closeGerichtInfo = closeGerichtInfo;
 
 function buildAllergenChipsHtml(selectedArray, hiddenInputId) {
   var selected = Array.isArray(selectedArray) ? selectedArray.slice() : [];
@@ -45883,6 +46013,26 @@ function getMenuBadgeIcons(item) {
     autoDetectItemFlags(item);
     let badges = '';
     var _t = translations[currentLanguage] || translations.de;
+
+    // EINGETRAGENES SCHLAEGT GERATENES.
+    //
+    // autoDetectItemFlags rät die Merkmale aus dem Namen ("rind", "hähnchen").
+    // Das ist besser als nichts, aber es ist geraten. Hat der Wirt die
+    // Allergene wirklich angeklickt, gilt seine Angabe -- sie ist die, fuer
+    // die er geradesteht.
+    //
+    // Hier lag der Fehler: Die Funktion prueft item.is_gluten und
+    // item.contains_wheat. Diese Felder gibt es in den Daten gar nicht. Die
+    // echten Angaben stehen in item.allergens als Liste von Kuerzeln
+    // ('gluten', 'milch', ...). Die Abfrage lief also immer ins Leere.
+    var _all = Array.isArray(item && item.allergens) ? item.allergens : [];
+    if (_all.length) {
+        if (_all.indexOf('gluten') >= 0) item.is_gluten = true;
+        if (_all.indexOf('milch') >= 0) item.is_milk = true;
+        // Umgekehrt gilt es auch: wer Gluten angibt, ist nicht glutenfrei.
+        if (_all.indexOf('gluten') >= 0) item.is_gluten_free = false;
+        if (_all.indexOf('milch') >= 0) item.is_lactose_free = false;
+    }
 
     // Beliebt
     if (item.popular || item.is_popular) {
@@ -46326,7 +46476,19 @@ function renderMenuItemsForGuest(items) {
         html += '<div style="padding:20px;">';
         // Name + Preis
         html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">';
-        html += '<h3 style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;line-height:1.2;color:var(--ink-deep);margin:0;">' + itemName + '</h3>';
+        // Name, dahinter der Info-Knopf und die Merkmal-Symbole.
+        //
+        // getMenuBadgeIcons gab es laengst -- aufgerufen wurde sie von
+        // nirgendwo. Die Symbole waren gebaut und nie zu sehen, genau wie die
+        // Allergene, die der Wirt im Dashboard eintraegt.
+        html += '<h3 style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;line-height:1.2;color:var(--ink-deep);margin:0;">' + itemName
+            + ' <button type="button" onclick="event.stopPropagation();openGerichtInfo(\'' + item.id + '\')"'
+            + ' aria-label="Informationen über das Gericht" title="Zutaten, Allergene und Zusatzstoffe"'
+            + ' style="background:none;border:none;padding:0 2px;cursor:pointer;vertical-align:middle;color:var(--text-secondary);">'
+            + '<span class="material-symbols-outlined" style="font-size:17px;">info</span></button>'
+            + '<span style="display:inline-flex;gap:4px;vertical-align:middle;margin-left:2px;">'
+            + (typeof getMenuBadgeIcons === 'function' ? getMenuBadgeIcons(item) : '')
+            + '</span></h3>';
         html += '<span style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;color:#735c00;white-space:nowrap;margin-left:8px;">' + pricePrefix + displayPrice.toFixed(2).replace('.', ',') + ' €</span>';
         html += '</div>';
         // Beschreibung
