@@ -69,8 +69,15 @@ Abhängigkeit, prüft sich selbst durch und macht den Browser auf. (Beim
 allerersten Start meckert macOS: Rechtsklick → **Öffnen** → **Öffnen**.
 Danach reicht Doppelklick.)
 
+**Startknopf auf den Schreibtisch:** einmal `knopf-anlegen.command`
+doppelklicken. Danach liegt `Kurani.command` auf dem Schreibtisch und
+startet alles mit einem Doppelklick — inklusive: alten Server beenden,
+Browser öffnen. (Ein Alias täte es nicht: der Finder öffnet Aliase auf
+`.command`-Dateien nicht zuverlässig, und macOS hängt neuen Dateien eine
+Quarantäne an. Beides erledigt das Skript.)
+
 Soll er beim Anmelden von selbst starten: Systemeinstellungen →
-Allgemein → Anmeldeobjekte → `start.command` hinzufügen.
+Allgemein → Anmeldeobjekte → `Kurani.command` hinzufügen.
 
 Lieber im Terminal:
 
