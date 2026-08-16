@@ -394,6 +394,18 @@ async function main() {
     // Eine Kennung von der ElevenLabs-Seite, die (noch) nicht im Konto
     // liegt: annehmen, aber vorher wirklich sprechen lassen. Klappt das,
     // ist sie brauchbar - klappt es nicht, wird nichts eingetragen.
+    // Kennung erkannt, aber kein Schluessel: sonst faellt das stumm durch
+    // und man liest "Welche?", obwohl man alles richtig gemacht hat.
+    if (!s && istKennung(rest) && !process.env.ELEVENLABS_API_KEY) {
+      console.log('');
+      console.log('  Das sieht nach einer ElevenLabs-Kennung aus - aber du hast keinen');
+      console.log('  ElevenLabs-Schluessel eingetragen. Ohne den kann ich die Stimme nicht holen.');
+      console.log('');
+      console.log('    node schluessel.js elevenlabs');
+      console.log('');
+      process.exit(1);
+    }
+
     if (!s && istKennung(rest) && process.env.ELEVENLABS_API_KEY) {
       const versuch = { art: 'elevenlabs', id: rest.trim(), name: rest.trim(), sprache: '' };
       process.stdout.write('  Die Kennung kenne ich nicht aus deinem Konto - probiere sie aus ... ');
