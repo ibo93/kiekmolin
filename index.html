@@ -46207,143 +46207,57 @@ function translateCategory(name, lang) {
 // Badge Icons für Gäste-Ansicht (KIN Design)
 function getMenuBadgeIcons(item) {
     autoDetectItemFlags(item);
-    let badges = '';
+    var badges = '';
     var _t = translations[currentLanguage] || translations.de;
 
     // EINGETRAGENES SCHLAEGT GERATENES.
     //
-    // autoDetectItemFlags rät die Merkmale aus dem Namen ("rind", "hähnchen").
-    // Das ist besser als nichts, aber es ist geraten. Hat der Wirt die
-    // Allergene wirklich angeklickt, gilt seine Angabe -- sie ist die, fuer
-    // die er geradesteht.
+    // autoDetectItemFlags raet die Merkmale aus dem Namen ("rind", "hähnchen").
+    // Das bleibt als Rueckfall, aber wenn der Wirt die Allergene wirklich
+    // angeklickt hat, gilt seine Angabe -- er steht dafuer gerade.
     //
-    // Hier lag der Fehler: Die Funktion prueft item.is_gluten und
-    // item.contains_wheat. Diese Felder gibt es in den Daten gar nicht. Die
-    // echten Angaben stehen in item.allergens als Liste von Kuerzeln
-    // ('gluten', 'milch', ...). Die Abfrage lief also immer ins Leere.
+    // Hier lag der zweite Fehler: geprueft wurden item.is_gluten und
+    // item.contains_wheat. Diese Felder gibt es in den Daten nicht. Die echten
+    // Angaben stehen in item.allergens als Liste von Kuerzeln.
     var _all = Array.isArray(item && item.allergens) ? item.allergens : [];
     if (_all.length) {
-        if (_all.indexOf('gluten') >= 0) item.is_gluten = true;
-        if (_all.indexOf('milch') >= 0) item.is_milk = true;
-        // Umgekehrt gilt es auch: wer Gluten angibt, ist nicht glutenfrei.
-        if (_all.indexOf('gluten') >= 0) item.is_gluten_free = false;
-        if (_all.indexOf('milch') >= 0) item.is_lactose_free = false;
+        if (_all.indexOf('gluten') >= 0) { item.is_gluten = true; item.is_gluten_free = false; }
+        if (_all.indexOf('milch') >= 0) { item.is_milk = true; item.is_lactose_free = false; }
+        if (_all.indexOf('schalenfruechte') >= 0 || _all.indexOf('erdnuss') >= 0) item.is_nuts = true;
     }
 
-    // Beliebt
-    if (item.popular || item.is_popular) {
-        badges += `<div class="menu-badge popular" title="${_t.badgePopular || 'Beliebt'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span>
-        </div>`;
+    // WELCHE SYMBOLE UEBERHAUPT STEHENBLEIBEN.
+    //
+    // Hier standen zwoelf, davon neun mit einem falschen Symbol: "Scharf" war
+    // eine Person, "Fisch" und "Meeresfruechte" beide ein Auge, "Huhn" eine
+    // Lupe, "Rind" ein Thermometer, "Alkohol" ein Download-Pfeil, "Bio" eine
+    // Uhr, "Vegan" ein Keks. Platzhalter, die nie jemand gesehen hat -- weil
+    // die Funktion von nirgendwo aufgerufen wurde.
+    //
+    // Raus sind ausserdem die Fleischarten und Bio/Hausgemacht. Nicht wegen
+    // der Symbole, sondern weil sie aus dem NAMEN geraten werden: "Schinken"
+    // laesst is_chicken anspringen. Ein geratenes Merkmal als Symbol am
+    // Gericht sieht aus wie eine Zusage. Die Fleischart steht ohnehin im
+    // Namen, und die Allergene stehen vollstaendig im Info-Kasten -- dort,
+    // wo sie hingehoeren und wo der Wirt sie eingetragen hat.
+    function sym(klasse, titel, name, farbe, gefuellt) {
+        return '<span class="menu-badge ' + klasse + '" title="' + titel + '">'
+             + '<span class="material-symbols-outlined" style="font-size:14px;color:' + farbe + ';'
+             + (gefuellt ? "font-variation-settings:'FILL' 1;" : '') + '">' + name + '</span></span>';
     }
 
-    // Fleischarten
-    if (item.is_beef || item.beef) {
-        badges += `<div class="menu-badge beef" title="${_t.badgeBeef || 'Rind'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#b91c1c;">thermostat</span>
-        </div>`;
-    }
-
-    if (item.is_chicken || item.chicken) {
-        badges += `<div class="menu-badge chicken" title="${_t.badgeChicken || 'Huhn'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#ea580c;">search</span>
-        </div>`;
-    }
-
-    // Kein Schwein-Badge — Restaurant verwendet kein Schweinefleisch (Schinken=Truthahn, Salami=Rind)
-
-    if (item.is_lamb || item.lamb) {
-        badges += `<div class="menu-badge lamb" title="${_t.badgeLamb || 'Lamm'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#7c3aed;">pets</span>
-        </div>`;
-    }
-
-    if (item.is_fish || item.fish) {
-        badges += `<div class="menu-badge fish" title="${_t.badgeFish || 'Fisch'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#0284c7;">visibility</span>
-        </div>`;
-    }
-
-    if (item.is_seafood || item.seafood) {
-        badges += `<div class="menu-badge seafood" title="${_t.badgeSeafood || 'Meeresfrüchte'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#0891b2;">visibility</span>
-        </div>`;
-    }
-
-    // Vegetarisch & Vegan
-    if (item.is_vegetarian || item.vegetarian) {
-        badges += `<div class="menu-badge vegetarian" title="${_t.badgeVegetarian || 'Vegetarisch'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#16a34a;">eco</span>
-        </div>`;
-    }
-
-    if (item.is_vegan || item.vegan) {
-        badges += `<div class="menu-badge vegan" title="${_t.badgeVegan || 'Vegan'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#059669;">cookie</span>
-        </div>`;
-    }
-
-    // Allergene & Zusatzstoffe
-    if (item.is_gluten || item.gluten || item.contains_wheat) {
-        badges += `<div class="menu-badge gluten" title="${_t.badgeGluten || 'Enthält Gluten/Weizen'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="1.5" width="14" height="14">
-                <path d="M12 2v8"/><path d="M8 6c0 2 2 4 4 4s4-2 4-4"/><path d="M6 10c0 2 3 4 6 4s6-2 6-4"/><path d="M4 14c0 2 4 4 8 4s8-2 8-4"/><path d="M12 18v4"/>
-            </svg>
-        </div>`;
-    }
-
-    if (item.is_gluten_free || item.gluten_free) {
-        badges += `<div class="menu-badge glutenfree" title="${_t.badgeGlutenFree || 'Glutenfrei'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#65a30d" stroke-width="1.5" width="14" height="14">
-                <circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-5"/>
-            </svg>
-        </div>`;
-    }
-
-    if (item.is_lactose_free || item.lactose_free) {
-        badges += `<div class="menu-badge lactosefree" title="${_t.badgeLactoseFree || 'Laktosefrei'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5" width="14" height="14">
-                <path d="M8 2h8l1 7H7l1-7z"/><path d="M7 9h10v10a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3V9z"/><path d="m4 4 16 16"/>
-            </svg>
-        </div>`;
-    }
-
-    if (item.is_nuts || item.nuts || item.contains_nuts) {
-        badges += `<div class="menu-badge nuts" title="${_t.badgeNuts || 'Enthält Nüsse'}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="1.5" width="14" height="14">
-                <ellipse cx="12" cy="12" rx="6" ry="8"/><path d="M12 4c-2 0-4 2-4 4"/>
-            </svg>
-        </div>`;
-    }
-
-    // Scharf
+    if (item.popular || item.is_popular) badges += sym('popular', _t.badgePopular || 'Beliebt', 'star', '#f59e0b', true);
+    if (item.is_vegan || item.vegan) badges += sym('vegan', _t.badgeVegan || 'Vegan', 'spa', '#059669');
+    else if (item.is_vegetarian || item.vegetarian) badges += sym('vegetarian', _t.badgeVegetarian || 'Vegetarisch', 'eco', '#16a34a');
     if (item.is_spicy || item.spicy) {
-        const level = item.spicy || 1;
-        badges += `<div class="menu-badge spicy" title="${_t.badgeSpicy || 'Scharf'}${level > 1 ? ' (' + level + 'x)' : ''}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#dc2626;">person</span>
-        </div>`;
+        var stufe = parseInt(item.spicy_level || item.is_spicy, 10) || 1;
+        badges += sym('spicy', (_t.badgeSpicy || 'Scharf') + (stufe > 1 ? ' (' + stufe + 'x)' : ''),
+                      'local_fire_department', '#dc2626');
     }
-
-    // Alkohol
-    if (item.is_alcohol || item.alcohol) {
-        badges += `<div class="menu-badge alcohol" title="${_t.badgeAlcohol || 'Enthält Alkohol'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#7c3aed;">download</span>
-        </div>`;
-    }
-
-    // Bio
-    if (item.is_bio || item.bio || item.organic) {
-        badges += `<div class="menu-badge bio" title="${_t.badgeBio || 'Bio'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#15803d;">schedule</span>
-        </div>`;
-    }
-
-    // Hausgemacht
-    if (item.is_homemade || item.homemade) {
-        badges += `<div class="menu-badge homemade" title="${_t.badgeHomemade || 'Hausgemacht'}">
-            <span class="material-symbols-outlined" style="font-size:14px;color:#b45309;">home</span>
-        </div>`;
-    }
+    if (item.is_gluten) badges += sym('gluten', _t.badgeGluten || 'Enthält Gluten', 'grain', '#ca8a04');
+    if (item.is_milk) badges += sym('milk', 'Enthält Milch', 'water_drop', '#0d9488');
+    if (item.is_nuts) badges += sym('nuts', _t.badgeNuts || 'Enthält Nüsse', 'nutrition', '#b45309');
+    if (item.is_alcohol || item.alcohol) badges += sym('alcohol', _t.badgeAlcohol || 'Enthält Alkohol', 'liquor', '#7c3aed');
 
     return badges;
 }

@@ -130,11 +130,30 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     var f = schneide('getMenuBadgeIcons');
     t('getMenuBadgeIcons ist gefunden worden', f.length > 500, f.length);
     t('sie liest jetzt item.allergens', /Array\.isArray\(item && item\.allergens\)/.test(f), f.slice(0, 400));
-    t('eingetragenes Gluten setzt das Merkmal', /indexOf\('gluten'\) >= 0\) item\.is_gluten = true/.test(f));
+    t('eingetragenes Gluten setzt das Merkmal', /item\.is_gluten = true/.test(f), f.slice(0, 600));
     t('und hebt "glutenfrei" wieder auf -- beides zugleich waere Unsinn',
-      /indexOf\('gluten'\) >= 0\) item\.is_gluten_free = false/.test(f));
+      /item\.is_gluten = true; item\.is_gluten_free = false/.test(f));
     t('dasselbe fuer Milch und laktosefrei',
-      /indexOf\('milch'\) >= 0\) item\.is_lactose_free = false/.test(f));
+      /item\.is_milk = true; item\.is_lactose_free = false/.test(f));
+    t('eingetragene Nuesse ebenso -- Erdnuss zaehlt mit',
+      /indexOf\('schalenfruechte'\) >= 0 \|\| _all\.indexOf\('erdnuss'\) >= 0\) item\.is_nuts = true/.test(f));
+
+    // Die falschen Platzhalter-Symbole duerfen nicht zurueckkommen.
+    t('"Scharf" ist kein Personen-Symbol mehr', !/badgeSpicy[\s\S]{0,200}>person</.test(f), 'person gefunden');
+    t('"Huhn" als Lupe ist weg', f.indexOf('>search<') < 0);
+    t('"Rind" als Thermometer ist weg', f.indexOf('>thermostat<') < 0);
+    t('"Fisch" als Auge ist weg', f.indexOf('>visibility<') < 0);
+    t('"Alkohol" als Download-Pfeil ist weg', f.indexOf('>download<') < 0);
+    t('"Vegan" als Keks ist weg', f.indexOf('>cookie<') < 0);
+    t('scharf zeigt jetzt eine Flamme', /local_fire_department/.test(f));
+    t('vegan eine Pflanze', /'spa'/.test(f));
+
+    // Geratene Fleischarten gehoeren nicht als Symbol ans Gericht.
+    t('die aus dem Namen geratenen Fleischarten sind raus',
+      f.indexOf('is_beef') < 0 && f.indexOf('is_chicken') < 0 && f.indexOf('is_lamb') < 0,
+      'Fleischart noch drin');
+    t('vegan und vegetarisch schliessen sich aus -- nicht beide Symbole',
+      /if \(item\.is_vegan[\s\S]{0,140}else if \(item\.is_vegetarian/.test(f));
 })();
 
 // ---- 7. Und sie wird endlich AUFGERUFEN ------------------------------------
@@ -156,7 +175,9 @@ t('alle 14 Pflichtallergene sind hinterlegt',
 
 // ---- 8. Der Grund steht im Quelltext ---------------------------------------
 t('warum die Abfrage vorher ins Leere lief, ist festgehalten',
-  /Diese Felder gibt es in den Daten gar nicht|Felder gibt es in den Daten gar nicht/.test(H));
+  /Diese Felder gibt es in den Daten nicht/.test(H));
+t('und dass die Symbole Platzhalter waren, die nie jemand sah',
+  /Platzhalter, die nie jemand gesehen hat/.test(H));
 t('und warum ein leerer Kasten gefaehrlich waere',
   /liest sich als Entwarnung/.test(H));
 
