@@ -46195,21 +46195,58 @@ function getMenuBadgeIcons(item) {
     // in dieser Datei -- viewBox 24, fill none, stroke currentColor. Damit
     // erben sie die Textfarbe, sind sofort da und gehoeren zu uns.
     var KIN_SYMBOLE = {
-        beliebt:     '<path d="M12 3.2l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z"/>',
-        vegetarisch: '<path d="M5 19c0-7 5-12 14-12 0 8-5 12-11 12H5z"/><path d="M5.5 19c2.8-4 5.8-6.2 8.5-7.2"/>',
-        vegan:       '<path d="M12 21v-8"/><path d="M12 13C12 9.4 9.2 6.5 5.5 6.5 5.5 10.1 8.3 13 12 13z"/><path d="M12 13c0-3.2 2.4-5.8 5.6-5.8C17.6 10.4 15.2 13 12 13z"/>',
-        // Flamme statt Chili: eine Chilischote sieht bei 15 Pixeln aus wie
-        // ein Blatt und damit fast wie das Zeichen fuer vegetarisch. Zwei
-        // Symbole, die man verwechselt, sind schlimmer als eins weniger.
-        scharf:      '<path d="M12 21.2c3.2 0 5.7-2.4 5.7-5.4 0-3.5-2.9-5.3-3.9-9.2-2.2 1.6-3.3 3.5-3.3 5.3 0 1.2-1 1.6-1.6 1-.6-.7-.9-1.7-.9-2.5-1.4 1.6-2.1 3.4-2.1 5.4 0 3 2.9 5.4 6.1 5.4z"/>',
-        gluten:      '<path d="M12 21v-9.5"/><path d="M12 11.5c0-2-1.6-3.6-3.7-3.6C8.3 10 9.9 11.5 12 11.5z"/><path d="M12 11.5c0-2 1.6-3.6 3.7-3.6C15.7 10 14.1 11.5 12 11.5z"/><path d="M12 7.4c0-2-1.6-3.6-3.7-3.6C8.3 5.9 9.9 7.4 12 7.4z"/><path d="M12 7.4c0-2 1.6-3.6 3.7-3.6C15.7 5.9 14.1 7.4 12 7.4z"/>',
-        milch:       '<path d="M12 3.2s6 6.6 6 10.4a6 6 0 0 1-12 0c0-3.8 6-10.4 6-10.4z"/>',
-        // Erdnuss mit Taille statt Mandel mit Strich: die Mandel mit dem
-        // Querstrich las sich wie ein durchgestrichener Kreis -- also wie ein
-        // Verbotszeichen, das Gegenteil von "enthaelt Nuesse".
-        nuesse:      '<path d="M12 3.4c2.3 0 4.1 1.9 4.1 4.3 0 1.4-.8 2.3-.8 3.5s.8 2.1.8 3.5c0 2.4-1.8 4.3-4.1 4.3s-4.1-1.9-4.1-4.3c0-1.4.8-2.3.8-3.5s-.8-2.1-.8-3.5c0-2.4 1.8-4.3 4.1-4.3z"/><path d="M9.6 10.6h4.8"/>',
-        alkohol:     '<path d="M7.8 3.2h8.4l-1 6.1a3.2 3.2 0 0 1-6.4 0z"/><path d="M12 12.4V19"/><path d="M8.8 19h6.4"/>'
+        // Stern mit sauberen Zacken statt eines groben Fuenfecks.
+        beliebt:     '<path d="M12 3.6l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.21l-4.94 2.6.94-5.5-4-3.9 5.53-.8z"/>',
+
+        // Blatt mit Mittelrippe -- ohne die Rippe ist es nur ein Oval.
+        vegetarisch: '<path d="M19.8 4.5c.5 8.2-4.6 13.9-11.3 13.9-1.2 0-2.3-.2-3.3-.6C4.5 10.9 10.6 4.9 19.8 4.5z"/>'
+                   + '<path d="M6 18.1C9.2 13 13.3 9.5 18 7.7"/>',
+
+        // Keimling: zwei Blaetter am Stiel. Der Stiel unterscheidet ihn vom
+        // einfachen Blatt -- vegan und vegetarisch duerfen nicht gleich
+        // aussehen.
+        vegan:       '<path d="M12 21v-6.3"/>'
+                   + '<path d="M12 14.7c-.2-3.5-2.7-6-6.2-6.4-.2 3.6 2.4 6.3 6.2 6.4z"/>'
+                   + '<path d="M12 14.7c.2-3.1 2.4-5.4 5.6-5.7.2 3.2-2.2 5.6-5.6 5.7z"/>',
+
+        // Chilischote mit Stiel. Die erste Fassung war eine Flamme, die
+        // zweite eine Schote ohne Stiel -- und die sah aus wie ein Blatt.
+        // Der Stiel oben rechts macht den Unterschied.
+        scharf:      '<path d="M17 5.4c.5 6-3.1 11.1-8.1 12.3-1.9.5-3.4-.2-3.7-1.6-.3-1.4.8-2.6 2.8-3.1 4-1.1 7-3.9 9-7.6z"/>'
+                   + '<path d="M17 5.4c.5-1.4 1.6-2.2 3.1-2.3-.1 1.6-1 2.7-2.4 3.2"/>',
+
+        // Weizenaehre: Stiel mit drei Koernerpaaren und Spitze.
+        gluten:      '<path d="M12 21v-8.1"/>'
+                   + '<path d="M12 12.9c-2.8-.1-4.4-1.8-4.4-4.4 2.8.1 4.4 1.8 4.4 4.4z"/>'
+                   + '<path d="M12 12.9c2.8-.1 4.4-1.8 4.4-4.4-2.8.1-4.4 1.8-4.4 4.4z"/>'
+                   + '<path d="M12 9.1c-2.5-.1-3.9-1.6-3.9-3.9 2.5.1 3.9 1.6 3.9 3.9z"/>'
+                   + '<path d="M12 9.1c2.5-.1 3.9-1.6 3.9-3.9-2.5.1-3.9 1.6-3.9 3.9z"/>'
+                   + '<path d="M12 5.6c-1.3-.8-2-2-2-3.5 1.3.8 2 2 2 3.5z"/>'
+                   + '<path d="M12 5.6c1.3-.8 2-2 2-3.5-1.3.8-2 2-2 3.5z"/>',
+
+        // Kaesestueck statt Tropfen. Ein Tropfen kann alles sein -- Wasser,
+        // Oel, Blut. Kaese liest man sofort als Milchprodukt, und genau so
+        // machen es die gedruckten Karten auch.
+        milch:       '<path d="M3.2 16.9 13 6.5l7.6 3.5v6.9a1.6 1.6 0 0 1-1.6 1.6H4.8a1.6 1.6 0 0 1-1.6-1.6z"/>'
+                   + '<circle cx="8.5" cy="15.2" r="1.05"/>'
+                   + '<circle cx="13.9" cy="13.9" r=".85"/>'
+                   + '<circle cx="17.1" cy="16.4" r=".75"/>',
+
+        // Erdnuss in der Schale, mit Taille und Schalenkerben.
+        // Erdnuss mit Taille, darin die beiden Kerne. Die erste Fassung hatte
+        // Kerben in der Schale -- bei 15 Pixeln verklebten die zu einem Fleck.
+        // Zwei Punkte bleiben auch klein erkennbar.
+        nuesse:      '<path d="M12 3.5c2.3 0 4.2 1.9 4.2 4.2 0 1.4-.8 2.3-.8 3.4s.8 2 .8 3.4c0 2.4-1.9 4.2-4.2 4.2s-4.2-1.8-4.2-4.2c0-1.4.8-2.3.8-3.4s-.8-2-.8-3.4c0-2.3 1.9-4.2 4.2-4.2z"/>'
+                   + '<circle cx="12" cy="7.7" r="1.15"/>'
+                   + '<circle cx="12" cy="15" r="1.15"/>',
+
+        // Weinglas mit Kelch, Stiel und Fuss.
+        alkohol:     '<path d="M7.6 3.4h8.8l-.9 5.5a3.5 3.5 0 0 1-7 0z"/>'
+                   + '<path d="M8 6.7h8"/>'
+                   + '<path d="M12 12.4V19"/>'
+                   + '<path d="M8.7 19h6.6"/>'
     };
+
 
     function sym(klasse, titel, form) {
         return '<span class="menu-badge ' + klasse + '" title="' + titel + '" aria-label="' + titel + '">'
