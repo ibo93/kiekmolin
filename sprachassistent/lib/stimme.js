@@ -19,6 +19,18 @@
 
 const stimmen = require('./stimmen');
 
+// Am Stueck oder im Strom?
+//
+//   spreche()  wartet, bis die ganze Datei fertig ist, und gibt sie zurueck.
+//   stromen()  gibt weiter, was schon da ist, waehrend der Rest noch entsteht.
+//
+// Der Unterschied ist der zwischen "er antwortet" und "er ueberlegt noch":
+// bis ElevenLabs einen ganzen Satz gebaut hat, vergeht rund eine halbe bis
+// eine Sekunde. Die ersten Bytes sind aber viel frueher da. Wer sie sofort
+// abspielt, hoert das erste Wort ungefaehr eine halbe Sekunde eher - bei
+// gleicher Stimme und gleicher Qualitaet, denn es ist derselbe Auftrag,
+// nur anders abgeholt.
+
 // Liefert { ton: Buffer, art: 'audio/mpeg'|'audio/wav' }.
 // Wirft, wenn kein Weg da ist - dann spricht der Browser selbst.
 async function spreche(text, optionen) {
@@ -41,7 +53,51 @@ async function spreche(text, optionen) {
   throw new Error('Keine eigene Stimme eingestellt - der Browser spricht dann selbst');
 }
 
+// Kann dieser Rechner ueberhaupt streamen? Nur ElevenLabs kann das - die
+// Mac-Stimme baut eine fertige Datei, da gibt es nichts zu streamen (sie
+// ist dafuer auch sofort da, weil sie hier laeuft und nicht in Amerika).
+function kannStroemen() {
+  return process.env.SPRACH_STROM !== '0' && stimmen.welcherWeg() === 'elevenlabs';
+}
+
+// Ton im Strom holen. onStueck(Buffer) wird aufgerufen, sobald etwas da
+// ist. Zurueck kommt { art }, sobald alles durch ist.
+//
+// Abbrechen ueber optionen.signal - beim Dazwischenreden zaehlt jede
+// Zehntelsekunde, und ein Satz, den keiner mehr hoeren will, muss auch
+// nicht mehr fertig gebaut werden.
+async function stromen(text, optionen, onStueck) {
+  const o = optionen || {};
+  const antwort = await bestelle(text, o.stimme, o.stil || stimmen.stil(), true, o.signal);
+
+  const leser = antwort.body.getReader();
+  for (;;) {
+    const { done, value } = await leser.read();
+    if (done) break;
+    if (value && value.length) onStueck(Buffer.from(value));
+  }
+  return { art: 'audio/mpeg' };
+}
+
+// Abbrechen kann zwei Gruende haben: Ibo redet dazwischen (das Signal von
+// aussen) oder ElevenLabs antwortet gar nicht mehr (die Frist). Beides muss
+// greifen - ohne Frist stuende die Sprech-Kette bei einer haengenden
+// Leitung fuer immer, und danach kaeme kein einziger Satz mehr.
+function mitFrist(signal, ms) {
+  const frist = AbortSignal.timeout(ms);
+  if (!signal) return frist;
+  return AbortSignal.any ? AbortSignal.any([signal, frist]) : signal;
+}
+
 async function elevenlabs(text, stimmeId, wieRuhig) {
+  const antwort = await bestelle(text, stimmeId, wieRuhig, false, null);
+  return { ton: Buffer.from(await antwort.arrayBuffer()), art: 'audio/mpeg' };
+}
+
+// Der eine Auftrag an ElevenLabs - einmal am Stueck, einmal im Strom.
+// Beide bestellen genau dasselbe: gleiche Stimme, gleiches Modell,
+// gleiche Einstellungen. Nur die Abholung ist anders.
+async function bestelle(text, stimmeId, wieRuhig, imStrom, signal) {
   const key = process.env.ELEVENLABS_API_KEY;
   const voiceId = stimmeId || process.env.SPRACH_VOICE_ID || process.env.ELEVENLABS_VOICE_ID;
   if (!key) throw new Error('ELEVENLABS_API_KEY fehlt - der Browser spricht dann selbst');
@@ -63,12 +119,18 @@ async function elevenlabs(text, stimmeId, wieRuhig) {
   const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
   const s = wieRuhig || stimmen.stil();
 
+  const frage = new URLSearchParams({ output_format: 'mp3_44100_128' });
+  // Im Strom darf ElevenLabs frueher anfangen zu liefern, statt auf den
+  // schoensten Gesamtklang zu optimieren.
+  if (imStrom) frage.set('optimize_streaming_latency', process.env.SPRACH_STROM_EILE || '3');
+
   const antwort = await fetch(
-    'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=mp3_44100_128',
+    'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) +
+      (imStrom ? '/stream' : '') + '?' + frage.toString(),
     {
       method: 'POST',
       headers: { 'xi-api-key': key, 'content-type': 'application/json' },
-      signal: AbortSignal.timeout(20000),
+      signal: mitFrist(signal, 20000),
       body: JSON.stringify(Object.assign({
         text: text,
         model_id: modell,
@@ -92,7 +154,7 @@ async function elevenlabs(text, stimmeId, wieRuhig) {
   if (!antwort.ok) {
     throw new Error('ElevenLabs ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
   }
-  return { ton: Buffer.from(await antwort.arrayBuffer()), art: 'audio/mpeg' };
+  return antwort;
 }
 
-module.exports = { spreche };
+module.exports = { spreche, stromen, kannStroemen };

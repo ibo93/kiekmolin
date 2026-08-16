@@ -253,12 +253,14 @@ class LiveOhr {
 //
 //   senden(nachricht)        -> ans Fenster (JSON)
 //   starteAuftrag(optionen)  -> Claude Code, liefert { abbrechen() }
-//   spreche(satz)            -> Promise<Buffer|null> (null = Browser spricht)
+//   spreche(satz)            -> Promise<{ton,art}|null> (null = Browser spricht)
+//   sprecheStrom(satz, onStueck, signal) -> Promise (optional, siehe _sprich)
 class LiveSitzung {
-  constructor({ senden, starteAuftrag, spreche, maxSaetze, weckwort, nachlauf }) {
+  constructor({ senden, starteAuftrag, spreche, sprecheStrom, maxSaetze, weckwort, nachlauf }) {
     this.senden = senden;
     this.starteAuftrag = starteAuftrag;
     this.spreche = spreche;
+    this.sprecheStrom = sprecheStrom || null;
     this.maxSaetze = maxSaetze || 4;
 
     // Weckwort: ohne es schlaeft der Assistent und hoert nur zu, ob sein
@@ -288,6 +290,14 @@ class LiveSitzung {
     // erkannt und verworfen - sonst redet der Assistent nach dem
     // Unterbrechen noch den alten Satz zu Ende.
     this.zug = 0;
+
+    // Ton im Strom: laufende Nummer, damit das Fenster die Stuecke dem
+    // richtigen Satz zuordnen kann, und ein Abbrecher fuers Dazwischenreden.
+    this.tonZaehler = 0;
+    this.tonAbbruch = null;
+    // Einmal ohne Erfolg gestroemt (Konto kann es nicht, Endpunkt fehlt)?
+    // Dann nicht bei jedem Satz aufs Neue vergeblich anklopfen.
+    this.stromKaputt = false;
   }
 
   get laeuft() { return !!this.laufend; }
@@ -309,6 +319,26 @@ class LiveSitzung {
   }
 
   wachHalten() { if (this.weckwort) this.wachBis = Date.now() + this.nachlauf; }
+
+  // Dauergespraech: solange das Fenster offen ist, kein Weckwort und kein
+  // Einschlafen - so, wie man mit einem Menschen redet, dem man nicht vor
+  // jedem Satz den Namen sagt.
+  //
+  // Warum es das Weckwort trotzdem gibt: das Mikrofon laeuft durch. Im
+  // Laden, im Buero mit anderen Leuten, beim Telefonieren soll nicht jeder
+  // Satz bei der KI landen. Deshalb umschaltbar statt einfach weg.
+  dauergespraech(an, weckwort) {
+    if (an) {
+      this.weckwort = '';
+      this.schlaeft = false;
+    } else {
+      this.weckwort = weckwort || '';
+      // Nicht sofort zufallen lassen: der Nachlauf laeuft normal aus.
+      this.schlaeft = !!this.weckwort;
+      this.wachHalten();
+    }
+    return { typ: 'dauergespraech', an: !this.weckwort };
+  }
 
   einschlafen() {
     if (!this.weckwort) return;
@@ -420,6 +450,13 @@ class LiveSitzung {
     if (this.laufend) {
       try { this.laufend.abbrechen(); } catch (_e) { /* schon vorbei */ }
       this.laufend = null;
+    }
+    // Ton, der gerade gebaut wird, sofort fallenlassen. Ihn fertig bauen
+    // zu lassen kostet Geld fuer etwas, das niemand mehr hoert - und die
+    // Leitung, die der naechste Satz gleich braucht.
+    if (this.tonAbbruch) {
+      try { this.tonAbbruch.abort(); } catch (_e) { /* schon vorbei */ }
+      this.tonAbbruch = null;
     }
     this.sammler = null;
     this.sprechKette = Promise.resolve();
@@ -534,9 +571,23 @@ class LiveSitzung {
   // Saetze streng der Reihe nach sprechen - sonst reden zwei durcheinander.
   // Wurde inzwischen unterbrochen (neuer Zug), faellt der Satz unter den
   // Tisch, auch wenn das Audio schon fertig war.
+  //
+  // Zwei Wege, und der erste ist der schnellere:
+  //
+  //   STROM   die Stuecke gehen raus, waehrend der Satz noch gebaut wird.
+  //           Das Fenster faengt an zu spielen, sobald das erste Stueck da
+  //           ist - rund eine halbe Sekunde frueher als am Stueck.
+  //   STUECK  erst fertig bauen, dann schicken. Der alte, sichere Weg -
+  //           und der einzige fuer die Mac-Stimme, die keine Stuecke kennt.
+  //
+  // Geht der Strom schief, BEVOR etwas angekommen ist, wird still auf den
+  // alten Weg zurueckgefallen. Lieber einmal langsamer als einmal stumm.
   _sprich(satz, zug) {
     this.sprechKette = this.sprechKette.then(async () => {
       if (zug !== this.zug) return;
+      if (this.sprecheStrom && !this.stromKaputt && await this._stromen(satz, zug)) return;
+      if (zug !== this.zug) return;
+
       let gesprochen = null;
       try { gesprochen = await this.spreche(satz); } catch (_e) { gesprochen = null; }
       if (zug !== this.zug) return;
@@ -549,6 +600,43 @@ class LiveSitzung {
         tonArt: gesprochen ? gesprochen.art : null
       });
     }).catch(() => { /* ein stummer Satz darf das Gespraech nicht killen */ });
+  }
+
+  // true = erledigt, false = bitte den alten Weg nehmen.
+  async _stromen(satz, zug) {
+    const nr = ++this.tonZaehler;
+    const abbruch = new AbortController();
+    this.tonAbbruch = abbruch;
+    let angefangen = false;
+
+    try {
+      await this.sprecheStrom(satz, (stueck) => {
+        if (zug !== this.zug) return;
+        if (!angefangen) {
+          angefangen = true;
+          this.senden({ typ: 'stimmeStart', nr: nr, text: satz, tonArt: 'audio/mpeg' });
+        }
+        this.senden({ typ: 'stimmeStueck', nr: nr, ton: stueck.toString('base64') });
+      }, abbruch.signal);
+    } catch (e) {
+      // Dazwischengeredet: nichts nachreichen, nichts nachbauen.
+      if (e && e.name === 'AbortError') return true;
+      if (angefangen) {
+        // Mittendrin abgerissen: was da ist, darf gesprochen werden.
+        this.senden({ typ: 'stimmeEnde', nr: nr, abgerissen: true });
+        return true;
+      }
+      // Gar nichts gekommen: dieser Rechner kann offenbar keinen Strom.
+      this.stromKaputt = true;
+      return false;
+    } finally {
+      if (this.tonAbbruch === abbruch) this.tonAbbruch = null;
+    }
+
+    if (zug !== this.zug) return true;
+    if (!angefangen) { this.stromKaputt = true; return false; }
+    this.senden({ typ: 'stimmeEnde', nr: nr });
+    return true;
   }
 }
 

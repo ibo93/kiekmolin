@@ -35,6 +35,7 @@ const bildschirm = require('./lib/bildschirm');
 const kurani = require('./lib/kurani');
 const crm = require('./lib/crm');
 const plauder = require('./lib/plauder');
+const leitung = require('./lib/leitung');
 const { Lagebild } = require('./lib/lagebild');
 const { sprechbar } = require('./lib/sprechtext');
 
@@ -511,6 +512,15 @@ function liveVerbindung(ws, req) {
       if (DEMO || stimmen.welcherWeg() === 'browser') return null;   // Browser spricht
       return stimme.spreche(satz);
     },
+    // Der Ton geht stueckweise raus, waehrend ElevenLabs ihn noch baut.
+    // Nur dort moeglich: die Mac-Stimme legt eine fertige Datei hin, und
+    // der Browser spricht sowieso selbst.
+    // Erst beim ersten Satz gefragt, nicht beim Verbinden: die Suche nach
+    // der besten Stimme laeuft beim Start noch im Hintergrund.
+    sprecheStrom: DEMO ? null : async (satz, onStueck, signal) => {
+      if (!stimme.kannStroemen()) throw new Error('kein Strom auf diesem Weg');
+      return stimme.stromen(satz, { signal: signal }, onStueck);
+    },
     starteAuftrag: (o) => {
       // DER SCHNELLE WEG. Gemessen braucht Claude Code rund vier Sekunden
       // bis zum ersten Wort - weil bei jedem Satz Skills, Plugins und
@@ -600,6 +610,11 @@ function liveVerbindung(ws, req) {
     }
   });
 
+  // Solange dieses Fenster offen ist, bleibt die Leitung zu Modell und
+  // Stimme warm. Sonst zahlt jede Antwort nach einer Gespraechspause den
+  // Verbindungsaufbau noch einmal mit.
+  const warmeLeitung = DEMO ? { aus() {} } : leitung.warm();
+
   let ohrLeitung = null;
   if (!DEMO && process.env.DEEPGRAM_API_KEY) {
     try {
@@ -652,6 +667,7 @@ function liveVerbindung(ws, req) {
     // Pruefung wie Deepgram - sonst wuerde ohne Deepgram jedes Wort im
     // Raum zum Auftrag.
     if (n.typ === 'gehoert') return sitzung.gehoert(n.text);
+    if (n.typ === 'dauergespraech') return senden(sitzung.dauergespraech(n.an, WECKWORT));
     if (n.typ === 'schlafen') return sitzung.einschlafen();
     if (n.typ === 'aufwachen') { sitzung.schlaeft = false; sitzung.wachHalten(); return senden({ typ: 'wach' }); }
     if (n.typ === 'zwischen') return sitzung.zwischenstand(n.text);
@@ -697,6 +713,7 @@ function liveVerbindung(ws, req) {
     clearInterval(erinnerungsTakt);
     if (wacheTakt) clearInterval(wacheTakt);
     sitzung.schliessen();
+    warmeLeitung.aus();
     if (ohrLeitung) ohrLeitung.schliessen();
   });
 }
@@ -860,6 +877,11 @@ server.listen(PORT, HOST, () => {
     ? 'direkt (erstes Wort in unter einer Sekunde)'
     : 'ueber Claude Code - langsam. ANTHROPIC_API_KEY in die .env, dann direkt.'));
   console.log('  Live:     ' + (liveBereit ? 'an (durchgehend zuhoeren, unterbrechen)' : 'aus - npm install fehlt'));
+  // Die drei Stellen, an denen frueher gewartet wurde. Wer eine davon
+  // abschaltet, soll es beim Start sehen und nicht raten muessen.
+  console.log('  Tempo:    Pause ' + parseInt(process.env.SPRACH_PAUSE_MS || '400', 10) + ' ms' +
+    ' · Ton ' + (stimme.kannStroemen() ? 'im Strom' : 'am Stueck') +
+    ' · Leitung ' + (leitung.lage().ziele.length && process.env.SPRACH_WARM !== '0' ? 'warm' : 'kalt'));
   console.log('  Ordner:   ' + ordnerKonfig.ordner.map((o) => o.name).join(', '));
   if (ZUSATZ_ORDNER.length) console.log('  Zugriff:  zusaetzlich ' + ZUSATZ_ORDNER.join(', '));
   if (KURANI.ordner.length) {

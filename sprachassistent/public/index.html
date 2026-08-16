@@ -262,6 +262,8 @@
         <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0"/>
       </svg>Live</button>
     <button class="knopf" id="freihandKnopf" title="Zuhören ohne Unterbrechen">Freihand</button>
+    <button class="knopf" id="dauerKnopf" style="display:none"
+      title="Nicht einschlafen: durchreden ohne „Kurani" davor">Dauer</button>
   </div>
 
   <div class="gruppe rund">
@@ -838,14 +840,34 @@ function kugelLage(text, zustand) {
 var LIVE = {
   an: false, ws: null, rec: null, erkennung: null,
   schlange: [], laeuftTon: null, mithoerZeile: null, blase: null, roh: '',
+  // Sätze, deren Ton gerade stückweise hereinkommt (Nummer -> Eintrag),
+  // und die Notbremse, falls ein Ende nie ankommt.
+  stroeme: {}, tonWache: null,
   // Gegensprech-Sperre (für Betrieb OHNE Kopfhörer): während er spricht,
   // geht KEIN Ton vom Mikrofon nach draußen. Sonst hört Deepgram seine
   // eigene Stimme aus den Lautsprechern und er unterbricht sich selbst.
   redetGerade: false, sperreBis: 0,
   wachtLaut: null, lautSeit: 0,
   schlaeft: false, weckwort: '',
+  // Dauergespräch: nicht einschlafen, kein „Kurani" vor jedem Satz.
+  // Merkt sich das Fenster, sonst müsste man es jedes Mal neu drücken.
+  dauer: (function () { try { return localStorage.getItem('kurani.dauer') === '1'; } catch (e) { return false; } })(),
   neuVersuche: 0
 };
+
+function dauerSchicken() {
+  liveSchicke({ typ: 'dauergespraech', an: !!LIVE.dauer });
+}
+
+function dauerKnopfZeigen() {
+  var k = $('dauerKnopf');
+  if (!k) return;
+  k.style.display = (LIVE.an && LIVE.weckwort) ? '' : 'none';
+  k.classList.toggle('an', !!LIVE.dauer);
+  k.title = LIVE.dauer
+    ? 'Dauergespräch an: er schläft nicht ein. Klick = wieder mit „' + LIVE.weckwort + '“ wecken.'
+    : 'Schläft nach kurzer Ruhe ein und will „' + LIVE.weckwort + '“ hören. Klick = durchreden.';
+}
 
 function liveZeile(text) {
   if (!LIVE.mithoerZeile) {
@@ -863,12 +885,16 @@ function liveZeileWeg() {
   if (LIVE.mithoerZeile) { LIVE.mithoerZeile.remove(); LIVE.mithoerZeile = null; }
 }
 
-function tonAusBase64(b64, art) {
+function bytesAusBase64(b64) {
   var bin = atob(b64);
   var bytes = new Uint8Array(bin.length);
   for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function tonAusBase64(b64, art) {
   // ElevenLabs liefert MP3, die Mac-Stimme WAV — die Art kommt deshalb mit.
-  return new Blob([bytes], { type: art || 'audio/mpeg' });
+  return new Blob([bytesAusBase64(b64)], { type: art || 'audio/mpeg' });
 }
 
 function tonEinreihen(eintrag) {
@@ -886,6 +912,7 @@ async function naechsterTon() {
     // letzte Wort aus den Lautsprechern.
     LIVE.sperreBis = Date.now() + 350;
     waechterAus();
+    stromWacheAus();
     if (LIVE.an) { lage('hoert', 'hört zu'); kugelLage('hört zu', 'hoert'); untertitel(''); }
     return;
   }
@@ -896,17 +923,158 @@ async function naechsterTon() {
   kugelLage('spricht', 'spricht');
   untertitel(e.text);
 
+  if (e.strom) { stromSpielen(e); return; }
+
   if (e.ton) {
-    var audio = new Audio(URL.createObjectURL(tonAusBase64(e.ton, e.tonArt)));
-    e.audio = audio;
-    kugelTon(audio);
-    audio.onended = naechsterTon;
-    audio.onerror = naechsterTon;
-    audio.play().catch(naechsterTon);
+    tonSpielen(tonAusBase64(e.ton, e.tonArt), e);
   } else {
     await browserSprich(e.text);
     naechsterTon();
   }
+}
+
+// Eine fertige Ton-Datei abspielen und danach den nächsten Satz nehmen.
+function tonSpielen(blob, e) {
+  var url = URL.createObjectURL(blob);
+  var audio = new Audio(url);
+  e.audio = audio;
+  kugelTon(audio);
+  var weiter = function () { URL.revokeObjectURL(url); naechsterTon(); };
+  audio.onended = weiter;
+  audio.onerror = weiter;
+  audio.play().catch(weiter);
+}
+
+// --- Ton im Strom ----------------------------------------------------------
+// Bisher kam ein Satz als fertige Datei: der Server hat gewartet, bis
+// ElevenLabs den ganzen Satz gebaut hatte, und ihn dann am Stück
+// geschickt. Das sind pro Satz eine halbe bis eine Sekunde, in der man
+// nichts hört, obwohl der Anfang längst fertig war.
+//
+// Jetzt kommen die Stücke, sowie sie entstehen, und der Browser fängt an
+// zu spielen, sobald das erste da ist. Möglich macht das MediaSource:
+// eine Tonquelle, in die man nachschieben kann, während sie läuft.
+//
+// Kann der Browser das nicht — oder geht unterwegs etwas schief —, werden
+// die Stücke einfach gesammelt und am Ende als ganze Datei gespielt. Also
+// genau so, wie es vorher war. Langsamer ist besser als stumm.
+var KANN_STROM = !!(window.MediaSource && window.MediaSource.isTypeSupported &&
+                    window.MediaSource.isTypeSupported('audio/mpeg'));
+
+// Notbremse in zwei Stufen. Ohne sie hängt bei einem Fehler die ganze
+// Schlange — und weil das Mikrofon zu ist, solange er „spricht", wäre das
+// Gespräch tot, ohne dass ein Ton kommt.
+//
+//   nach 3 s ohne einen einzigen Ton  → alter Weg (sammeln, am Stück spielen)
+//   auch das hilft nicht              → Satz überspringen und weiterreden
+function stromWache(e, ms) {
+  stromWacheAus();
+  LIVE.tonWache = setTimeout(function () {
+    if (LIVE.laeuftTon !== e) return;
+    if (e.hatGespielt) return stromWache(e, 20000);    // klingt ja, alles gut
+    if (!e.notfall) return stromNotfall(e);
+    naechsterTon();
+  }, ms || 3000);
+}
+function stromWacheAus() {
+  if (LIVE.tonWache) { clearTimeout(LIVE.tonWache); LIVE.tonWache = null; }
+}
+
+function stromSpielen(e) {
+  stromWache(e);
+  if (e.notfall || !KANN_STROM) return stromNotfallSpielen(e);
+
+  var ms = new MediaSource();
+  var url = URL.createObjectURL(ms);
+  var audio = new Audio();
+  e.ms = ms;
+  e.audio = audio;
+  e.offen = 0;
+
+  var weiter = function () {
+    stromWacheAus();
+    URL.revokeObjectURL(url);
+    naechsterTon();
+  };
+  audio.onended = weiter;
+  audio.onerror = function () { stromNotfall(e); };
+  audio.ontimeupdate = function () { if (audio.currentTime > 0) e.hatGespielt = true; };
+
+  ms.addEventListener('sourceopen', function () {
+    if (e.sb) return;                        // kommt manchmal doppelt
+    try { e.sb = ms.addSourceBuffer(e.art || 'audio/mpeg'); }
+    catch (err) { return stromNotfall(e); }
+    e.sb.addEventListener('updateend', function () { stromSchieben(e); });
+    e.sb.addEventListener('error', function () { stromNotfall(e); });
+    stromSchieben(e);
+  });
+
+  audio.src = url;
+  kugelTon(audio);
+  // Läuft an, sobald das erste Stück drin ist — der Fehlschlag hier ist
+  // normal, weil beim Aufruf noch keine einzige Note da ist.
+  audio.play().catch(function () { /* startet mit den Daten von selbst */ });
+}
+
+// Was da ist, in die Tonquelle nachschieben. Immer nur ein Stück auf
+// einmal: solange sie „updating" ist, nimmt sie nichts an.
+function stromSchieben(e) {
+  if (!e.sb || e.sb.updating) return;
+  if (e.offen < e.stuecke.length) {
+    try { e.sb.appendBuffer(e.stuecke[e.offen++]); } catch (err) { stromNotfall(e); }
+    return;
+  }
+  if (e.fertig && e.ms && e.ms.readyState === 'open') {
+    try { e.ms.endOfStream(); } catch (err) { /* war schon zu */ }
+  }
+}
+
+// MediaSource streikt: zurück auf den alten Weg.
+function stromNotfall(e) {
+  if (e.notfall) return;
+  e.notfall = true;
+  try { if (e.audio) { e.audio.onended = null; e.audio.onerror = null; e.audio.pause(); } } catch (err) {}
+  try { if (e.ms && e.ms.readyState === 'open') e.ms.endOfStream(); } catch (err) {}
+  e.ms = null; e.sb = null; e.audio = null;
+  if (LIVE.laeuftTon !== e) return;
+  // Hat schon etwas geklungen, wäre ein Neustart ein zweites Mal
+  // dasselbe — dann lieber den Satz sein lassen und weitermachen.
+  if (e.hatGespielt) { stromWacheAus(); return naechsterTon(); }
+  stromNotfallSpielen(e);
+}
+
+function stromNotfallSpielen(e) {
+  // Noch nicht alles da: „stimmeEnde" weckt uns. Falls das nie kommt,
+  // hält die Wache das Gespräch trotzdem am Laufen.
+  if (!e.fertig) { e.wartetAufEnde = true; stromWache(e, 20000); return; }
+  e.wartetAufEnde = false;
+  stromWacheAus();
+  if (!e.stuecke.length) return naechsterTon();
+  tonSpielen(new Blob(e.stuecke, { type: e.art || 'audio/mpeg' }), e);
+}
+
+// Einen Ton-Eintrag stilllegen: kein Klang mehr, keine Rückrufe mehr.
+// Wichtig beim Dazwischenreden — ein „onended", das danach noch feuert,
+// würde den nächsten Satz starten, den keiner mehr hören will.
+function tonEintragStoppen(e) {
+  e.notfall = true;                                    // kein Nachspielen mehr
+  try {
+    if (e.audio) {
+      e.audio.onended = null; e.audio.onerror = null; e.audio.ontimeupdate = null;
+      e.audio.pause();
+    }
+  } catch (err) {}
+  try { if (e.ms && e.ms.readyState === 'open') e.ms.endOfStream(); } catch (err) {}
+  e.audio = null; e.ms = null; e.sb = null; e.stuecke = [];
+}
+
+// Alle offenen Ströme wegräumen (Unterbrechung, Fenster zu).
+function stroemeWeg() {
+  stromWacheAus();
+  for (var nr in LIVE.stroeme) {
+    if (LIVE.stroeme[nr]) tonEintragStoppen(LIVE.stroeme[nr]);
+  }
+  LIVE.stroeme = {};
 }
 
 // --- Dazwischenreden erkennen, ohne Kopfhörer -------------------------------
@@ -959,7 +1127,8 @@ function selbstUnterbrechen() {
 // Sofort still sein — beim Unterbrechen zählt jede Zehntelsekunde.
 function ruhe() {
   LIVE.schlange = [];
-  if (LIVE.laeuftTon && LIVE.laeuftTon.audio) { try { LIVE.laeuftTon.audio.pause(); } catch (e) {} }
+  if (LIVE.laeuftTon) tonEintragStoppen(LIVE.laeuftTon);
+  stroemeWeg();
   LIVE.laeuftTon = null;
   LIVE.redetGerade = false;
   LIVE.sperreBis = Date.now() + 200;
@@ -972,6 +1141,11 @@ function liveNachricht(n) {
   if (n.typ === 'bereit') {
     LIVE.weckwort = n.weckwort || '';
     LIVE.schlaeft = !!n.schlaeft;
+    // Erst hier weiß das Fenster, ob es überhaupt ein Weckwort gibt.
+    dauerKnopfZeigen();
+    // Der Server weiß nichts von der Einstellung im Fenster — sie geht
+    // sofort raus, bevor der erste Satz kommt.
+    if (LIVE.dauer && LIVE.weckwort) { dauerSchicken(); return; }
     if (LIVE.schlaeft) {
       lage('', 'schläft');
       kugelLage('sag „' + LIVE.weckwort + '“', 'schlaeft');
@@ -987,6 +1161,13 @@ function liveNachricht(n) {
     blase('blase fehler', 'Deepgram hört nicht zu: ' + n.text + ' — ich schalte auf die Browser-Erkennung um.');
     if (!LIVE.erkennung) liveBrowserOhren();
     lage('hoert', 'hört zu (Browser)');
+    return;
+  }
+  if (n.typ === 'dauergespraech') {
+    LIVE.schlaeft = false;
+    dauerKnopfZeigen();
+    lage('hoert', 'hört zu');
+    kugelLage('hört zu', 'hoert');
     return;
   }
   if (n.typ === 'schlaeft') {
@@ -1034,6 +1215,29 @@ function liveNachricht(n) {
     return;
   }
   if (n.typ === 'stimme') { tonEinreihen({ text: n.text, ton: n.ton, tonArt: n.tonArt }); return; }
+  // Ton im Strom: anmelden, füttern, abschließen.
+  if (n.typ === 'stimmeStart') {
+    var eintrag = { strom: true, nr: n.nr, text: n.text, art: n.tonArt || 'audio/mpeg', stuecke: [], offen: 0, fertig: false };
+    LIVE.stroeme[n.nr] = eintrag;
+    tonEinreihen(eintrag);
+    return;
+  }
+  if (n.typ === 'stimmeStueck') {
+    var st = LIVE.stroeme[n.nr];
+    if (!st) return;                                   // veraltet (unterbrochen)
+    st.stuecke.push(bytesAusBase64(n.ton));
+    if (st.sb) stromSchieben(st);
+    return;
+  }
+  if (n.typ === 'stimmeEnde') {
+    var se = LIVE.stroeme[n.nr];
+    delete LIVE.stroeme[n.nr];
+    if (!se) return;
+    se.fertig = true;
+    if (se.sb) stromSchieben(se);
+    else if (se.wartetAufEnde) stromNotfallSpielen(se);
+    return;
+  }
   if (n.typ === 'ruhe') {
     ruhe();
     if (n.grund === 'unterbrochen' || n.grund === 'gestoppt') {
@@ -1132,8 +1336,9 @@ function liveVerbinde() {
     } else {
       liveBrowserOhren();
     }
+    dauerKnopfZeigen();
     if (!LIVE.neuVersuche) {
-      blase('tut', LIVE.weckwort
+      blase('tut', (LIVE.weckwort && !LIVE.dauer)
         ? 'Live an — sag „' + LIVE.weckwort + '“, dann hört er dir zu. Dazwischenreden unterbricht.'
         : 'Live an — sprich einfach los. Dazwischenreden unterbricht.');
     }
@@ -1223,6 +1428,7 @@ function liveAus(grund) {
   document.body.classList.remove('livemodus', 'verlaufAn');
   $('liveKnopf').classList.remove('an', 'live');
   $('verlaufKnopf').style.display = 'none';
+  $('dauerKnopf').style.display = 'none';
   KUGEL.laeuft = false;
   KUGEL.tonAnalyse = null;
   untertitel('');
@@ -1291,6 +1497,16 @@ $('freihandKnopf').onclick = function () {
   freihand = !freihand;
   this.classList.toggle('an', freihand);
   if (freihand) starteHoeren(); else stoppeHoeren();
+};
+
+$('dauerKnopf').onclick = function () {
+  LIVE.dauer = !LIVE.dauer;
+  try { localStorage.setItem('kurani.dauer', LIVE.dauer ? '1' : '0'); } catch (e) {}
+  dauerKnopfZeigen();
+  dauerSchicken();
+  blase('tut', LIVE.dauer
+    ? 'Dauergespräch: er schläft nicht mehr ein — reden ohne „' + LIVE.weckwort + '“ davor.'
+    : 'Er schläft wieder ein, wenn es ruhig wird, und hört dann auf „' + LIVE.weckwort + '“.');
 };
 
 $('stummKnopf').onclick = function () {

@@ -333,6 +333,49 @@ Was das **nicht** ist: ein Ersatz für Claude Code. ChatGPTs Sprachmodus
 antwortet in einer halben Sekunde und kann dafür nicht deine Rechnung
 schreiben. Hier gibt es beides — jedes auf seinem Weg.
 
+### Die vier Stellen, an denen gewartet wurde
+
+Das schnelle Denken allein macht noch kein Live-Gespräch. Zwischen „du hast
+ausgeredet" und „du hörst das erste Wort" lagen vier Wartezeiten, von denen
+keine einzige mit dem Denken zu tun hatte. Der Reihe nach:
+
+**1. Er hat gewartet, ob du wirklich fertig bist.** Die Spracherkennung von
+Chrome erklärt einen Satz erst nach **über einer Sekunde** Ruhe für beendet.
+Man hat ausgeredet, und es passiert erstmal nichts. Jetzt wird das selbst
+entschieden: kommt 0,4 Sekunden lang nichts Neues, geht der Satz raus.
+
+Der Tausch ist ehrlich: wer mitten im Satz lange überlegt, wird
+abgeschnitten. Deshalb einstellbar — `SPRACH_PAUSE_MS=700` gibt dir mehr
+Ruhe zum Nachdenken, `=250` macht ihn noch schnippischer.
+
+**2. Er hat sich erst verbunden, dann gefragt.** Bei jeder Antwort gehen zwei
+Anrufe raus: einer ans Modell, einer an die Stimme. Wer anruft, muss erst
+verbinden — TCP, TLS, Zertifikat. Das kostet pro Anruf 0,1 bis 0,25 Sekunden,
+*bevor* die Frage überhaupt gestellt ist. Solange man ohne Pause redet, fällt
+das nicht auf, weil die Leitung noch offen ist. Aber ein Gespräch hat Pausen,
+und genau in den Pausen macht sie zu.
+
+Jetzt bleibt die Leitung warm, solange das Live-Fenster offen ist: alle 2,5
+Sekunden ein winziger Gruß an beide. Kostet nichts (die abgefragten Listen
+sind kostenlos), aus mit `SPRACH_WARM=0`.
+
+**3. Die Stimme wurde fertiggebaut, bevor ein Ton kam.** Der Server hat
+gewartet, bis ElevenLabs den **ganzen Satz** gebaut hatte, und ihn dann am
+Stück geschickt. Das ist eine halbe bis eine ganze Sekunde Stille, obwohl der
+Anfang des Satzes längst fertig war.
+
+Jetzt kommt der Ton in Stücken, und das Fenster fängt an zu spielen, sobald
+das erste da ist. Gleiche Stimme, gleiche Qualität — es ist derselbe Auftrag,
+nur anders abgeholt. Kann der Browser das nicht, werden die Stücke gesammelt
+und am Ende als ganze Datei gespielt: dann ist es wie vorher, nie schlechter.
+Aus mit `SPRACH_STROM=0`.
+
+**4. Er ist eingeschlafen und wollte seinen Namen hören.** Siehe unten beim
+Weckwort — im Live-Modus schaltet der Knopf **Dauer** das ab.
+
+Was übrigbleibt, ist das, was wirklich dauert: das Modell muss das erste Wort
+denken, und die Stimme muss es aussprechen. Das ist auch bei ChatGPT so.
+
 ### Die Stimme aussuchen — mit dem Ohr
 
 Die Stimme ist der Teil, den du am meisten hörst. Es gibt drei Wege, und der
@@ -725,6 +768,13 @@ auf **„Kurani"**:
 Abschalten oder ändern: `SPRACH_WECKWORT=` (leer = reagiert auf alles) bzw.
 `SPRACH_WECKWORT=chef`, Nachlauf über `SPRACH_NACHLAUF=25`.
 
+**Wenn du allein am Schreibtisch sitzt**, nervt das Weckwort: mit einem
+Menschen redet man auch nicht, indem man ihm vor jedem Satz seinen Namen
+sagt. Dafür gibt es im Live-Modus den Knopf **Dauer** — er schläft dann
+nicht ein, solange das Fenster offen ist, und du redest einfach. Das Fenster
+merkt sich die Einstellung; im Laden oder wenn jemand mitsitzt, einmal
+klicken und das Weckwort gilt wieder.
+
 **Die Kugel** übernimmt dabei den Bildschirm — wie bei ChatGPT, nur in
 Kurani-Farben. Sie ist keine Deko, sondern ein Messgerät:
 
@@ -896,6 +946,9 @@ gitignored.
 | „Den Ordner … finde ich nicht" | Pfad in `ordner.json` stimmt nicht. |
 | Er findet dein CM nicht | `node crm.js quellen` zeigt, wo er gesucht hat → Pfad als `SPRACH_CRM` in die `.env`. |
 | Er redet zu lang | `SPRACH_MAX_SAETZE=2` in der `.env`. |
+| Er schneidet dich mitten im Satz ab | `SPRACH_PAUSE_MS=700` — er wartet dann länger, ob noch was kommt. |
+| Er wartet nach dem Ausreden zu lange | `SPRACH_PAUSE_MS=250`. |
+| Die Stimme stottert oder setzt aus | `SPRACH_STROM=0` — dann kommt sie wieder am Stück, dafür langsamer. |
 | Er soll nichts anfassen | Stufe „Nur reden". |
 
 Tests (ohne Schlüssel, ohne Netz, ohne Kosten):

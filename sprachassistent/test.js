@@ -18,6 +18,7 @@ const befehle = require('./lib/befehle');
 const kopf = require('./lib/kopf');
 const ohr = require('./lib/ohr');
 const live = require('./lib/live');
+const leitung = require('./lib/leitung');
 const instagram = require('./lib/instagram');
 const protokoll = require('./lib/protokoll');
 const wetter = require('./lib/wetter');
@@ -443,7 +444,209 @@ async function liveSitzungTest() {
     assert.strictEqual(lauf.abgebrochen, true);
     assert.strictEqual(aktuellerLauf, lauf, 'fuer "Stopp" wird kein neuer Auftrag gestartet');
   });
+
+  await testAsync('Live: Dauergespraech schaltet das Weckwort ab und wieder an', async () => {
+    const gesehen = [];
+    let lauf = null;
+    const s = new live.LiveSitzung({
+      weckwort: 'kurani',
+      nachlauf: 25,
+      senden: (n) => gesehen.push(n),
+      spreche: async () => null,
+      starteAuftrag: (o) => { lauf = { prompt: o.prompt }; return { abbrechen() {} }; }
+    });
+
+    s.gehoert('was steht heute an?');
+    assert.strictEqual(lauf, null, 'schlafend passiert nichts');
+
+    const meldung = s.dauergespraech(true, 'kurani');
+    assert.strictEqual(meldung.an, true, 'das Fenster erfaehrt den neuen Stand');
+    s.gehoert('was steht heute an?');
+    assert.ok(lauf, 'im Dauergespraech geht es ohne Namen los');
+    assert.strictEqual(lauf.prompt, 'was steht heute an?');
+
+    // Und auch nach langer Ruhe faellt er nicht zu.
+    s.wachBis = 0;
+    lauf = null;
+    s.gehoert('und morgen?');
+    assert.ok(lauf, 'kein Einschlafen im Dauergespraech');
+
+    // Zurueckgeschaltet gilt das Weckwort wieder - aber erst nach dem
+    // Nachlauf, sonst faellt einem der Assistent mitten im Satz weg.
+    s.dauergespraech(false, 'kurani');
+    lauf = null;
+    s.gehoert('und uebermorgen?');
+    assert.ok(lauf, 'im Nachlauf geht es noch ohne Weckwort');
+    s.wachBis = 0;
+    lauf = null;
+    s.gehoert('und danach?');
+    assert.strictEqual(lauf, null, 'danach will er seinen Namen wieder hoeren');
+  });
+
+  // --- Ton im Strom -------------------------------------------------------
+  // Der Ton geht stueckweise raus, waehrend er noch gebaut wird. Geprueft
+  // wird der Ablauf, nicht das Netz: die Stimme ist eine Attrappe.
+
+  // Ein Live-Gespraech mit stroemender Stimme aufbauen.
+  function stromSitzung(stimmeAttrappe) {
+    const raus = [];
+    let lauf = null;
+    const s = new live.LiveSitzung({
+      senden: (n) => raus.push(n),
+      spreche: async (satz) => ({ ton: Buffer.from('GANZ:' + satz), art: 'audio/mpeg' }),
+      sprecheStrom: stimmeAttrappe,
+      starteAuftrag: (o) => {
+        lauf = { prompt: o.prompt, onEreignis: o.onEreignis, abgebrochen: false };
+        return { abbrechen() { lauf.abgebrochen = true; } };
+      }
+    });
+    return { s: s, raus: raus, lauf: () => lauf };
+  }
+
+  await testAsync('Strom: der Ton geht stueckweise raus, mit Anfang und Ende', async () => {
+    const t = stromSitzung(async (satz, onStueck) => {
+      onStueck(Buffer.from('AAA'));
+      onStueck(Buffer.from('BBB'));
+    });
+
+    t.s.gehoert('Moin');
+    t.lauf().onEreignis({ art: 'happen', text: 'Moin Ibo. ' });
+    t.lauf().onEreignis({ art: 'fertig', text: 'Moin Ibo.', kosten: 0 });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const start = t.raus.find((n) => n.typ === 'stimmeStart');
+    const stuecke = t.raus.filter((n) => n.typ === 'stimmeStueck');
+    const ende = t.raus.find((n) => n.typ === 'stimmeEnde');
+    assert.ok(start, 'Anfang gemeldet');
+    assert.strictEqual(start.text, 'Moin Ibo.');
+    assert.strictEqual(stuecke.length, 2, 'beide Stuecke gehen raus');
+    assert.strictEqual(Buffer.from(stuecke[0].ton, 'base64').toString(), 'AAA');
+    assert.ok(ende, 'Ende gemeldet');
+    assert.strictEqual(ende.nr, start.nr, 'Anfang, Stuecke und Ende gehoeren zusammen');
+    assert.strictEqual(t.raus.filter((n) => n.typ === 'stimme').length, 0,
+      'kein zweiter Ton am Stueck - sonst wird alles doppelt gesprochen');
+  });
+
+  await testAsync('Strom: geht er gar nicht, wird still am Stueck gesprochen', async () => {
+    let versuche = 0;
+    const t = stromSitzung(async () => { versuche++; throw new Error('kein Strom auf diesem Konto'); });
+
+    t.s.gehoert('Moin');
+    t.lauf().onEreignis({ art: 'happen', text: 'Moin Ibo. Alles klar bei dir? ' });
+    t.lauf().onEreignis({ art: 'fertig', text: 'Moin Ibo. Alles klar bei dir?', kosten: 0 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    const amStueck = t.raus.filter((n) => n.typ === 'stimme');
+    assert.ok(amStueck.length >= 1, 'es wird trotzdem gesprochen');
+    assert.strictEqual(Buffer.from(amStueck[0].ton, 'base64').toString(), 'GANZ:Moin Ibo.');
+    assert.strictEqual(t.raus.filter((n) => n.typ === 'stimmeStart').length, 0,
+      'ohne ein einziges Stueck wird kein Strom angekuendigt');
+    assert.strictEqual(versuche, 1,
+      'einmal vergeblich reicht - nicht bei jedem Satz aufs Neue anklopfen');
+  });
+
+  await testAsync('Strom: reisst er mittendrin ab, wird nicht doppelt gesprochen', async () => {
+    const t = stromSitzung(async (satz, onStueck) => {
+      onStueck(Buffer.from('AAA'));
+      throw new Error('Leitung weg');
+    });
+
+    t.s.gehoert('Moin');
+    t.lauf().onEreignis({ art: 'happen', text: 'Moin Ibo. ' });
+    t.lauf().onEreignis({ art: 'fertig', text: 'Moin Ibo.', kosten: 0 });
+    await new Promise((r) => setTimeout(r, 20));
+
+    assert.strictEqual(t.raus.filter((n) => n.typ === 'stimme').length, 0,
+      'was schon klingt, wird nicht nochmal von vorn gesprochen');
+    const ende = t.raus.find((n) => n.typ === 'stimmeEnde');
+    assert.ok(ende && ende.abgerissen, 'das Fenster erfaehrt, dass es abgerissen ist');
+  });
+
+  await testAsync('Strom: Dazwischenreden bricht den laufenden Ton ab', async () => {
+    let signal = null;
+    const t = stromSitzung((satz, onStueck, sig) => {
+      signal = sig;
+      onStueck(Buffer.from('AAA'));
+      return new Promise((_, ab) => {
+        sig.addEventListener('abort', () => {
+          const e = new Error('abgebrochen');
+          e.name = 'AbortError';
+          ab(e);
+        });
+      });
+    });
+
+    t.s.gehoert('Erzaehl mir was');
+    t.lauf().onEreignis({ art: 'happen', text: 'Also pass auf. ' });
+    await new Promise((r) => setTimeout(r, 10));
+    assert.ok(signal && !signal.aborted, 'der Ton wird gerade gebaut');
+
+    t.s.zwischenstand('nein warte doch');
+    assert.strictEqual(signal.aborted, true,
+      'der Ton, den keiner mehr hoert, wird sofort fallengelassen');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.strictEqual(t.raus.filter((n) => n.typ === 'stimme').length, 0,
+      'und es wird auch nicht am Stueck nachgeliefert');
+  });
 }
+
+// ------------------------------------------------------- Warme Leitung ---
+
+test('Warme Leitung: ohne Schluessel wird nichts angetippt', () => {
+  const vorher = { a: process.env.ANTHROPIC_API_KEY, e: process.env.ELEVENLABS_API_KEY };
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  try {
+    const ab = leitung.warm();
+    assert.strictEqual(leitung.lage().an, false, 'ohne Ziel kein Takt');
+    ab.aus();
+  } finally {
+    if (vorher.a) process.env.ANTHROPIC_API_KEY = vorher.a;
+    if (vorher.e) process.env.ELEVENLABS_API_KEY = vorher.e;
+  }
+});
+
+test('Warme Leitung: der Takt endet erst mit dem letzten Fenster', () => {
+  const vorher = { a: process.env.ANTHROPIC_API_KEY, e: process.env.ELEVENLABS_API_KEY, w: process.env.SPRACH_WARM };
+  const echtesFetch = global.fetch;
+  let getippt = 0;
+  global.fetch = async () => { getippt++; return { ok: true, status: 200 }; };
+  process.env.ANTHROPIC_API_KEY = 'test-nur-fuer-den-test';
+  delete process.env.ELEVENLABS_API_KEY;
+  delete process.env.SPRACH_WARM;
+  try {
+    const eins = leitung.warm();
+    assert.strictEqual(leitung.lage().an, true, 'ein offenes Fenster haelt die Leitung warm');
+    assert.strictEqual(getippt, 1, 'sofort einmal antippen, nicht erst in ein paar Sekunden');
+
+    const zwei = leitung.warm();
+    eins.aus();
+    assert.strictEqual(leitung.lage().an, true, 'ein Fenster ist noch offen');
+    eins.aus();                                   // doppeltes Abmelden zaehlt nicht
+    assert.strictEqual(leitung.lage().an, true, 'zweimal abmelden schaltet nichts ab');
+    zwei.aus();
+    assert.strictEqual(leitung.lage().an, false, 'letztes Fenster zu, Takt aus');
+  } finally {
+    global.fetch = echtesFetch;
+    if (vorher.a) process.env.ANTHROPIC_API_KEY = vorher.a; else delete process.env.ANTHROPIC_API_KEY;
+    if (vorher.e) process.env.ELEVENLABS_API_KEY = vorher.e;
+    if (vorher.w) process.env.SPRACH_WARM = vorher.w;
+  }
+});
+
+test('Warme Leitung: SPRACH_WARM=0 schaltet sie ganz ab', () => {
+  const vorher = { a: process.env.ANTHROPIC_API_KEY, w: process.env.SPRACH_WARM };
+  process.env.ANTHROPIC_API_KEY = 'test-nur-fuer-den-test';
+  process.env.SPRACH_WARM = '0';
+  try {
+    const ab = leitung.warm();
+    assert.strictEqual(leitung.lage().an, false);
+    ab.aus();
+  } finally {
+    if (vorher.a) process.env.ANTHROPIC_API_KEY = vorher.a; else delete process.env.ANTHROPIC_API_KEY;
+    if (vorher.w) process.env.SPRACH_WARM = vorher.w; else delete process.env.SPRACH_WARM;
+  }
+});
 
 // ------------------------------------------------------------------ Ohr ---
 
