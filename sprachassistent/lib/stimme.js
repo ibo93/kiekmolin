@@ -79,7 +79,11 @@ async function elevenlabs(text, stimmeId, wieRuhig) {
           stability: s.ruhe,
           similarity_boost: 0.8,
           style: 0,
-          use_speaker_boost: true
+          use_speaker_boost: true,
+          // Das Tempo galt bisher NUR fuer die Mac-Stimmen. Wer es
+          // hochgestellt hat und dann eine ElevenLabs-Stimme nahm, hat
+          // sich zu Recht gewundert, dass sich nichts aendert.
+          speed: stimmen.elevenTempo(s.tempo)
         }
       }, sprachHinweis))
     }

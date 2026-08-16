@@ -48,8 +48,16 @@ class SatzSammler {
 
       const satz = entferneMarkdown(roh).trim();
       if (!satz) continue;                     // war nur Zeichensalat
-      // Zu kurze Schnipsel ("Ja.") klingen gehackt - die warten auf mehr.
-      if (satz.length < 12 && this.puffer.length < 400) { this.puffer = roh.trim() + ' ' + this.puffer; break; }
+      // Zu kurze Schnipsel ("Ja.") klingen mittendrin gehackt - die warten
+      // auf mehr.
+      //
+      // ABER NICHT DER ERSTE. Genau da faellt Warten auf: man hat gerade
+      // ausgeredet und es passiert nichts. "Moin." darf sofort raus - das
+      // ist der Unterschied zwischen "antwortet" und "ueberlegt".
+      if (this.gesprochen > 0 && satz.length < 12 && this.puffer.length < 400) {
+        this.puffer = roh.trim() + ' ' + this.puffer;
+        break;
+      }
       fertige.push(satz);
       this.gesprochen++;
     }

@@ -1271,6 +1271,27 @@ test('Zuhoeren: ein abgelehnter Schluessel wird nicht sechsmal versucht', () => 
   assert.strictEqual(live.warumEndgueltig('socket hang up'), null);
 });
 
+test('Live: der erste Satz geht sofort raus, auch wenn er kurz ist', () => {
+  // Der Moment, in dem Warten auffaellt: man hat ausgeredet und es
+  // passiert nichts. "Moin." muss sofort kommen.
+  const sofortRaus = new live.SatzSammler(4);
+  assert.deepStrictEqual(sofortRaus.fuettere('Moin. '), ['Moin.'],
+    'der erste kurze Satz wartet auf nichts');
+
+  // Mittendrin dagegen klingt "Ja." gehackt - der wartet auf mehr und
+  // kommt am Ende zusammen mit dem Rest.
+  assert.deepStrictEqual(sofortRaus.fuettere('Ja. '), [],
+    'spaetere Kurzsaetze werden gesammelt');
+  assert.deepStrictEqual(sofortRaus.fuettere('Das mach ich gleich. '), []);
+  assert.strictEqual(sofortRaus.rest(), 'Ja. Das mach ich gleich.',
+    'am Ende kommt der gesammelte Rest als ein Satz');
+
+  // Und ein langer erster Satz geht sowieso sofort raus.
+  const lang = new live.SatzSammler(4);
+  assert.deepStrictEqual(lang.fuettere('Das Wetter wird heute freundlich. '),
+    ['Das Wetter wird heute freundlich.']);
+});
+
 // ------------------------------------------------------ Der schnelle Weg --
 //
 // Gemessen: Claude Code braucht rund vier Sekunden bis zum ersten Wort,

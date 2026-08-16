@@ -52,6 +52,15 @@ const STILE = {
   ruhig: { name: 'ruhig', ruhe: 0.75 }          // sehr gleichmaessig
 };
 
+// Das Tempo in die Sprache von ElevenLabs uebersetzen. Die kennt keine
+// Woerter pro Minute, sondern einen Faktor um 1.0. 190 wpm ist unser
+// Normal, also ist das die 1.0; mehr wird schneller, weniger langsamer.
+// Gedeckelt, weil es darueber blechern und darunter schleppend wird.
+function elevenTempo(tempo) {
+  const faktor = (tempo || TEMPO_NORMAL) / TEMPO_NORMAL;
+  return Math.round(Math.max(0.8, Math.min(1.15, faktor)) * 100) / 100;
+}
+
 function stil(wunsch, tempoWunsch) {
   const gewuenscht = String(wunsch || process.env.SPRACH_STIL || 'sanft').toLowerCase();
   const gefunden = STILE[gewuenscht] || STILE.sanft;
@@ -63,6 +72,14 @@ function stil(wunsch, tempoWunsch) {
     tempo: Math.max(120, Math.min(260, isFinite(tempo) ? tempo : TEMPO_NORMAL)),
     ruhe: parseFloat(process.env.SPRACH_RUHE || process.env.ELEVENLABS_STABILITAET || gefunden.ruhe)
   };
+}
+
+// Fuer die Anzeige und fuer stimme.js: derselbe Stil, aber mit dem
+// ElevenLabs-Faktor dabei.
+function stilMitTempo(wunsch, tempoWunsch) {
+  const s = stil(wunsch, tempoWunsch);
+  s.elevenTempo = elevenTempo(s.tempo);
+  return s;
 }
 
 // ------------------------------------------------------- macOS-Stimmen ----
@@ -287,6 +304,6 @@ function setzeEnv(schluessel, wert, datei) {
 
 module.exports = {
   alle, macStimmen, elevenStimmen, sprichMac, macZeilenLesen,
-  deutschZuerst, istDeutsch, besteDeutsche, standardWaehlen, aktuelle, welcherWeg, probe, setzeEnv, stil,
+  deutschZuerst, istDeutsch, besteDeutsche, standardWaehlen, aktuelle, elevenTempo, stilMitTempo, welcherWeg, probe, setzeEnv, stil,
   PROBE, AUF_MAC, STILE, TEMPO_NORMAL
 };
