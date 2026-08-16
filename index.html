@@ -8164,96 +8164,24 @@
             gap: 6px;
         }
 
+        /* MERKMAL-SYMBOLE AM GERICHT.
+           Vorher hatte jedes Symbol einen eigenen Pastellkasten -- gelb fuer
+           beliebt, rot fuer Rind, blau fuer Fisch. Nebeneinander ergab das
+           eine bunte Perlenkette neben dem Gerichtnamen und zog mehr
+           Aufmerksamkeit als der Name selbst.
+           Jetzt: nackte Linien in einer Farbe, wie auf einer gedruckten
+           Speisekarte. Die Bedeutung steht im title und im Info-Kasten. */
         .menu-badge {
-            width: 24px;
-            height: 24px;
-            border-radius: 12px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            transition: transform 0.2s ease;
+            color: var(--ink-deep);
+            opacity: .72;
+            transition: opacity .2s ease;
         }
+        .menu-badge:hover { opacity: 1; }
+        .menu-badge .ki { width: 15px; height: 15px; }
 
-        .menu-badge:hover {
-            transform: scale(1.15);
-        }
-
-        /* Beliebt */
-        .menu-badge.popular {
-            background: #fef3c7;
-        }
-
-        /* Fleischarten */
-        .menu-badge.beef {
-            background: #fef2f2;
-        }
-
-        .menu-badge.chicken {
-            background: #fff7ed;
-        }
-
-        .menu-badge.pork {
-            background: #fdf2f8;
-        }
-
-        .menu-badge.lamb {
-            background: #f5f3ff;
-        }
-
-        .menu-badge.fish {
-            background: #e0f2fe;
-        }
-
-        .menu-badge.seafood {
-            background: #ecfeff;
-        }
-
-        /* Vegetarisch & Vegan */
-        .menu-badge.vegetarian {
-            background: #f0fdf4;
-        }
-
-        .menu-badge.vegan {
-            background: #dcfce7;
-        }
-
-        /* Allergene */
-        .menu-badge.gluten {
-            background: #fefce8;
-        }
-
-        .menu-badge.glutenfree {
-            background: #f7fee7;
-        }
-
-        .menu-badge.lactosefree {
-            background: #f0fdfa;
-        }
-
-        .menu-badge.nuts {
-            background: #fef3c7;
-        }
-
-        /* Scharf */
-        .menu-badge.spicy {
-            background: #fee2e2;
-        }
-
-        /* Alkohol */
-        .menu-badge.alcohol {
-            background: #f5f3ff;
-        }
-
-        /* Bio */
-        .menu-badge.bio {
-            background: #f0fdf4;
-        }
-
-        /* Hausgemacht */
-        .menu-badge.homemade {
-            background: #fffbeb;
-        }
 
         /* Gericht-Favoriten → definiert oben bei .dish-fav-btn (Zeile ~5429) */
 
@@ -46206,6 +46134,20 @@ function translateCategory(name, lang) {
 
 // Badge Icons für Gäste-Ansicht (KIN Design)
 function getMenuBadgeIcons(item) {
+    // WAS STAND WIRKLICH DA, BEVOR GERATEN WURDE?
+    //
+    // autoDetectItemFlags setzt is_vegetarian, sobald es im Namen kein
+    // Fleisch-Stichwort findet. Bei einem Gericht, das nur "Zigeunerschnitzel"
+    // heisst, kommt dabei "vegetarisch" heraus. Als Symbol am Gericht ist das
+    // keine Vermutung mehr, sondern eine Zusage -- und ein Vegetarier
+    // bestellt danach.
+    //
+    // Deshalb: vegetarisch und vegan bekommen nur die Gerichte, bei denen es
+    // WIRKLICH eingetragen ist. Fuer alles andere darf weiter geraten werden,
+    // da geht es um Bequemlichkeit, nicht um eine Zusage.
+    var _vegEcht = !!(item && (item.is_vegetarian || item.vegetarian));
+    var _veganEcht = !!(item && (item.is_vegan || item.vegan));
+
     autoDetectItemFlags(item);
     var badges = '';
     var _t = translations[currentLanguage] || translations.de;
@@ -46240,24 +46182,53 @@ function getMenuBadgeIcons(item) {
     // Gericht sieht aus wie eine Zusage. Die Fleischart steht ohnehin im
     // Namen, und die Allergene stehen vollstaendig im Info-Kasten -- dort,
     // wo sie hingehoeren und wo der Wirt sie eingetragen hat.
-    function sym(klasse, titel, name, farbe, gefuellt) {
-        return '<span class="menu-badge ' + klasse + '" title="' + titel + '">'
-             + '<span class="material-symbols-outlined" style="font-size:14px;color:' + farbe + ';'
-             + (gefuellt ? "font-variation-settings:'FILL' 1;" : '') + '">' + name + '</span></span>';
+    // KIN-DESIGN-SYMBOLE: eigene Linien, keine Fremdschrift, keine Emojis.
+    //
+    // Vorher kamen die Symbole aus der Material-Schrift von Google -- in
+    // Signalfarben und mit Pastellkasten. Drei Dinge waren daran falsch:
+    // sie sahen nach fremdem Baukasten aus, sie zogen mit Rot und Gelb mehr
+    // Aufmerksamkeit als der Gerichtname, und sie haengen an einer Schrift,
+    // die erst geladen sein muss -- bis dahin steht dort das blanke Wort
+    // "local_fire_department" neben dem Gericht.
+    //
+    // Jetzt eigene Linien im Hausstil: dieselbe .ki-Form wie ueberall sonst
+    // in dieser Datei -- viewBox 24, fill none, stroke currentColor. Damit
+    // erben sie die Textfarbe, sind sofort da und gehoeren zu uns.
+    var KIN_SYMBOLE = {
+        beliebt:     '<path d="M12 3.2l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.5l6-.8z"/>',
+        vegetarisch: '<path d="M5 19c0-7 5-12 14-12 0 8-5 12-11 12H5z"/><path d="M5.5 19c2.8-4 5.8-6.2 8.5-7.2"/>',
+        vegan:       '<path d="M12 21v-8"/><path d="M12 13C12 9.4 9.2 6.5 5.5 6.5 5.5 10.1 8.3 13 12 13z"/><path d="M12 13c0-3.2 2.4-5.8 5.6-5.8C17.6 10.4 15.2 13 12 13z"/>',
+        // Flamme statt Chili: eine Chilischote sieht bei 15 Pixeln aus wie
+        // ein Blatt und damit fast wie das Zeichen fuer vegetarisch. Zwei
+        // Symbole, die man verwechselt, sind schlimmer als eins weniger.
+        scharf:      '<path d="M12 21.2c3.2 0 5.7-2.4 5.7-5.4 0-3.5-2.9-5.3-3.9-9.2-2.2 1.6-3.3 3.5-3.3 5.3 0 1.2-1 1.6-1.6 1-.6-.7-.9-1.7-.9-2.5-1.4 1.6-2.1 3.4-2.1 5.4 0 3 2.9 5.4 6.1 5.4z"/>',
+        gluten:      '<path d="M12 21v-9.5"/><path d="M12 11.5c0-2-1.6-3.6-3.7-3.6C8.3 10 9.9 11.5 12 11.5z"/><path d="M12 11.5c0-2 1.6-3.6 3.7-3.6C15.7 10 14.1 11.5 12 11.5z"/><path d="M12 7.4c0-2-1.6-3.6-3.7-3.6C8.3 5.9 9.9 7.4 12 7.4z"/><path d="M12 7.4c0-2 1.6-3.6 3.7-3.6C15.7 5.9 14.1 7.4 12 7.4z"/>',
+        milch:       '<path d="M12 3.2s6 6.6 6 10.4a6 6 0 0 1-12 0c0-3.8 6-10.4 6-10.4z"/>',
+        // Erdnuss mit Taille statt Mandel mit Strich: die Mandel mit dem
+        // Querstrich las sich wie ein durchgestrichener Kreis -- also wie ein
+        // Verbotszeichen, das Gegenteil von "enthaelt Nuesse".
+        nuesse:      '<path d="M12 3.4c2.3 0 4.1 1.9 4.1 4.3 0 1.4-.8 2.3-.8 3.5s.8 2.1.8 3.5c0 2.4-1.8 4.3-4.1 4.3s-4.1-1.9-4.1-4.3c0-1.4.8-2.3.8-3.5s-.8-2.1-.8-3.5c0-2.4 1.8-4.3 4.1-4.3z"/><path d="M9.6 10.6h4.8"/>',
+        alkohol:     '<path d="M7.8 3.2h8.4l-1 6.1a3.2 3.2 0 0 1-6.4 0z"/><path d="M12 12.4V19"/><path d="M8.8 19h6.4"/>'
+    };
+
+    function sym(klasse, titel, form) {
+        return '<span class="menu-badge ' + klasse + '" title="' + titel + '" aria-label="' + titel + '">'
+             + '<span class="ki ki-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+             + 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+             + KIN_SYMBOLE[form] + '</svg></span></span>';
     }
 
-    if (item.popular || item.is_popular) badges += sym('popular', _t.badgePopular || 'Beliebt', 'star', '#f59e0b', true);
-    if (item.is_vegan || item.vegan) badges += sym('vegan', _t.badgeVegan || 'Vegan', 'spa', '#059669');
-    else if (item.is_vegetarian || item.vegetarian) badges += sym('vegetarian', _t.badgeVegetarian || 'Vegetarisch', 'eco', '#16a34a');
+    if (item.popular || item.is_popular) badges += sym('popular', _t.badgePopular || 'Beliebt', 'beliebt');
+    if (_veganEcht) badges += sym('vegan', _t.badgeVegan || 'Vegan', 'vegan');
+    else if (_vegEcht) badges += sym('vegetarian', _t.badgeVegetarian || 'Vegetarisch', 'vegetarisch');
     if (item.is_spicy || item.spicy) {
         var stufe = parseInt(item.spicy_level || item.is_spicy, 10) || 1;
-        badges += sym('spicy', (_t.badgeSpicy || 'Scharf') + (stufe > 1 ? ' (' + stufe + 'x)' : ''),
-                      'local_fire_department', '#dc2626');
+        badges += sym('spicy', (_t.badgeSpicy || 'Scharf') + (stufe > 1 ? ' (' + stufe + 'x)' : ''), 'scharf');
     }
-    if (item.is_gluten) badges += sym('gluten', _t.badgeGluten || 'Enthält Gluten', 'grain', '#ca8a04');
-    if (item.is_milk) badges += sym('milk', 'Enthält Milch', 'water_drop', '#0d9488');
-    if (item.is_nuts) badges += sym('nuts', _t.badgeNuts || 'Enthält Nüsse', 'nutrition', '#b45309');
-    if (item.is_alcohol || item.alcohol) badges += sym('alcohol', _t.badgeAlcohol || 'Enthält Alkohol', 'liquor', '#7c3aed');
+    if (item.is_gluten) badges += sym('gluten', _t.badgeGluten || 'Enthält Gluten', 'gluten');
+    if (item.is_milk) badges += sym('milk', 'Enthält Milch', 'milch');
+    if (item.is_nuts) badges += sym('nuts', _t.badgeNuts || 'Enthält Nüsse', 'nuesse');
+    if (item.is_alcohol || item.alcohol) badges += sym('alcohol', _t.badgeAlcohol || 'Enthält Alkohol', 'alkohol');
 
     return badges;
 }

@@ -145,15 +145,67 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     t('"Fisch" als Auge ist weg', f.indexOf('>visibility<') < 0);
     t('"Alkohol" als Download-Pfeil ist weg', f.indexOf('>download<') < 0);
     t('"Vegan" als Keks ist weg', f.indexOf('>cookie<') < 0);
-    t('scharf zeigt jetzt eine Flamme', /local_fire_department/.test(f));
-    t('vegan eine Pflanze', /'spa'/.test(f));
+    t('scharf hat ein eigenes Symbol', /'scharf'\)/.test(f) && /scharf:\s+'<path/.test(f));
+    t('vegan ebenso', /'vegan'\)/.test(f) && /vegan:\s+'<path/.test(f));
 
     // Geratene Fleischarten gehoeren nicht als Symbol ans Gericht.
     t('die aus dem Namen geratenen Fleischarten sind raus',
       f.indexOf('is_beef') < 0 && f.indexOf('is_chicken') < 0 && f.indexOf('is_lamb') < 0,
       'Fleischart noch drin');
     t('vegan und vegetarisch schliessen sich aus -- nicht beide Symbole',
-      /if \(item\.is_vegan[\s\S]{0,140}else if \(item\.is_vegetarian/.test(f));
+      /if \(_veganEcht\)[\s\S]{0,140}else if \(_vegEcht\)/.test(f));
+
+    // SCHLICHT: eine Farbe, duenne Linie, kein Kasten. Die bunten
+    // Signalfarben zogen mehr Aufmerksamkeit als der Gerichtname, und Rot
+    // liest sich als Warnung, wo nur "enthaelt Gluten" gemeint ist.
+    t('kein Symbol traegt mehr eine eigene Farbe',
+      !/color:#[0-9a-f]{6}/i.test(f), (f.match(/color:#[0-9a-f]{6}/ig) || []).join(' '));
+    t('insbesondere kein Rot mehr', !/#dc2626|#b91c1c|#ea580c/i.test(f));
+    t('die Farbe kommt aus dem Stilbogen, nicht aus dem Code',
+      /\.menu-badge \{[\s\S]{0,220}color: var\(--ink-deep\)/.test(H));
+    t('die Pastellkaesten hinter den Symbolen sind weg',
+      !/\.menu-badge\.(popular|vegan|gluten|fish) \{/.test(H), 'Kasten-Regel gefunden');
+    t('jedes Symbol ist auch fuer Vorleseprogramme beschriftet',
+      /aria-label="' \+ titel \+ '"/.test(f));
+
+    // KIN DESIGN: eigene Linien, keine Fremdschrift, keine Emojis.
+    t('keine Material-Symbols-Schrift mehr in den Merkmalen',
+      f.indexOf('material-symbols') < 0, 'Fremdschrift gefunden');
+    t('sondern die Haus-Form .ki mit eigenem SVG',
+      /<span class="ki ki-sm"><svg viewBox="0 0 24 24"/.test(f));
+    t('stroke currentColor -- die Symbole erben die Textfarbe',
+      /stroke="currentColor"/.test(f));
+    t('kein fill, also reine Linien', /fill="none"/.test(f));
+    t('runde Enden wie im Hausstil', /stroke-linecap="round"/.test(f));
+    t('acht eigene Symbole sind hinterlegt',
+      (f.match(/^\s+(beliebt|vegetarisch|vegan|scharf|gluten|milch|nuesse|alkohol):/gm) || []).length === 8,
+      (f.match(/^\s+(beliebt|vegetarisch|vegan|scharf|gluten|milch|nuesse|alkohol):/gm) || []).length);
+    t('kein einziges Emoji im Merkmal-Code',
+      !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(f), 'Emoji gefunden');
+
+    // Geratenes "vegetarisch" ist eine Zusage, keine Vermutung.
+    t('vegetarisch und vegan werden VOR dem Raten festgehalten',
+      /_vegEcht = !!\(item && \(item\.is_vegetarian \|\| item\.vegetarian\)\)/.test(f)
+      && f.indexOf('_vegEcht') < f.indexOf('autoDetectItemFlags(item)'));
+    t('und nur dann gezeigt', /if \(_veganEcht\)[\s\S]{0,120}else if \(_vegEcht\)/.test(f));
+
+    // Wirklich ausfuehren: ein Schnitzel ohne Angabe darf NICHT
+    // vegetarisch heissen, nur weil kein Fleisch-Stichwort im Namen steht.
+    (function () {
+        var lauf = new Function('currentLanguage', 'translations',
+            schneide('autoDetectItemFlags') + schneide('getMenuBadgeIcons') + '; return getMenuBadgeIcons;'
+        )('de', { de: {} });
+        t('ein Schnitzel ohne Angabe bekommt KEIN vegetarisch-Symbol',
+          lauf({ name: 'Zigeunerschnitzel' }).indexOf('vegetarian') < 0,
+          lauf({ name: 'Zigeunerschnitzel' }));
+        t('mit eingetragenem is_vegetarian erscheint es',
+          lauf({ name: 'Pizza Verdura', is_vegetarian: true }).indexOf('vegetarian') >= 0);
+        t('vegan schlaegt vegetarisch',
+          (function () {
+              var h = lauf({ name: 'Falafel', is_vegetarian: true, is_vegan: true });
+              return h.indexOf('vegan') >= 0 && h.indexOf('vegetarian') < 0;
+          })());
+    })();
 })();
 
 // ---- 7. Und sie wird endlich AUFGERUFEN ------------------------------------
