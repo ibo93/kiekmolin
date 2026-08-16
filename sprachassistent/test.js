@@ -1366,7 +1366,13 @@ test('Plaudern: er weiss, dass er nichts tun kann - und sagt es', () => {
   const h = plauder.haltung();
   assert.ok(/KEINE Werkzeuge/.test(h), 'das muss drinstehen, sonst behauptet er, etwas erledigt zu haben');
   assert.ok(/Erfinde niemals Zahlen/.test(h));
-  assert.ok(h.length < 700, 'kurz halten: jedes Wort hier kostet Zeit bis zum ersten Wort der Antwort');
+  // Die Grenze ist ein Zaun gegen Wildwuchs, kein Verbot zu wachsen: die
+  // Anweisung, gesprochen statt geschrieben zu antworten, ist ihre paar
+  // hundert Zeichen wert. Ein System-Prompt, der auf das Doppelte
+  // anwaechst, waere es nicht mehr.
+  assert.ok(h.length < 1200, 'kurz halten - jedes Wort verzoegert das erste Wort der Antwort (' + h.length + ')');
+  assert.ok(/REDEST, du schreibst nicht/.test(h), 'gesprochen statt vorgelesen');
+  assert.ok(/keine Anlaufsaetze/.test(h), 'die Antwort kommt zuerst');
 });
 
 test('Lagebild: kurz, aktuell, und ohne Erfundenes', async () => {
