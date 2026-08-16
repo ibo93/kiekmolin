@@ -7,6 +7,7 @@
 //   node stimmen.js hoeren     spielt alle deutschen nacheinander vor
 //   node stimmen.js probe 4    eine einzelne anhoeren
 //   node stimmen.js nimm 4     diese Stimme fest eintragen (.env)
+//   node stimmen.js nimm <VoiceID>  geht auch - die Kennung von elevenlabs.io
 //   node stimmen.js tempo      wie schnell? drei Tempi hoeren
 //   node stimmen.js tempo 215  schneller sprechen
 //   node stimmen.js sanft      wie sanft? drei Stufen hoeren
@@ -67,13 +68,20 @@ function endungFuer(art) {
   return art === 'audio/wav' ? '.wav' : '.mp3';
 }
 
-// Aus "4" oder "Anna" die gemeinte Stimme machen.
+// Sieht das nach einer ElevenLabs-Kennung aus? Die sind 20 Zeichen lang,
+// Buchstaben und Ziffern - auf der Webseite steht sie bei jeder Stimme.
+function istKennung(t) {
+  return /^[A-Za-z0-9]{18,26}$/.test(String(t || '').trim());
+}
+
+// Aus "4", "Anna" oder einer Voice ID die gemeinte Stimme machen.
 function waehle(liste, wunsch) {
   const t = String(wunsch || '').trim();
   if (!t) return null;
   if (/^\d+$/.test(t)) return liste[parseInt(t, 10) - 1] || null;
   const flach = t.toLowerCase();
-  return liste.find((s) => s.name.toLowerCase() === flach) ||
+  return liste.find((s) => String(s.id).toLowerCase() === flach) ||
+    liste.find((s) => s.name.toLowerCase() === flach) ||
     liste.find((s) => s.name.toLowerCase().indexOf(flach) > -1) || null;
 }
 
@@ -381,8 +389,28 @@ async function main() {
 
   // ---- Aussuchen ----------------------------------------------------------
   if (befehl === 'nimm') {
-    const s = waehle(liste, rest);
-    if (!s) { console.log('  Welche? node stimmen.js nimm 3   (oder: nimm Anna)'); process.exit(1); }
+    let s = waehle(liste, rest);
+
+    // Eine Kennung von der ElevenLabs-Seite, die (noch) nicht im Konto
+    // liegt: annehmen, aber vorher wirklich sprechen lassen. Klappt das,
+    // ist sie brauchbar - klappt es nicht, wird nichts eingetragen.
+    if (!s && istKennung(rest) && process.env.ELEVENLABS_API_KEY) {
+      const versuch = { art: 'elevenlabs', id: rest.trim(), name: rest.trim(), sprache: '' };
+      process.stdout.write('  Die Kennung kenne ich nicht aus deinem Konto - probiere sie aus ... ');
+      try {
+        const { ton, art } = await stimmen.probe(versuch, 'Moin Ibo, so klinge ich.');
+        console.log('geht');
+        await spielAb(ton, endungFuer(art));
+        s = versuch;
+      } catch (e) {
+        console.log('geht nicht');
+        console.log('  ' + e.message.slice(0, 140));
+        console.log('  Hol sie dir erst ins Konto: Voice Library -> "Add to my voices".');
+        process.exit(1);
+      }
+    }
+
+    if (!s) { console.log('  Welche? node stimmen.js nimm 3   (oder: nimm Anna, oder die Voice ID)'); process.exit(1); }
 
     if (s.art === 'mac') stimmen.setzeEnv('SPRACH_STIMME', 'mac:' + s.id);
     else {
