@@ -762,6 +762,10 @@ const server = http.createServer(async (req, res) => {
         freieHand: FREIE_HAND,
         live: liveBereit,
         weckwort: WECKWORT,
+        // Wie lange Ruhe sein muss, bis ein Satz als beendet gilt. Das
+        // Fenster braucht das fuer die Browser-Erkennung: Chrome selbst
+        // wartet ueber eine Sekunde, wir entscheiden schneller.
+        pauseMs: parseInt(process.env.SPRACH_PAUSE_MS || '400', 10),
         tageslimit: TAGESLIMIT,
         alles: ZUSATZ_ORDNER.length > 0,
         standard: ordnerKonfig.standard,

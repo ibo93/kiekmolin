@@ -1141,6 +1141,43 @@ function liveVerbinde() {
 }
 
 // Ohne Deepgram: die Spracherkennung des Browsers dauerhaft laufen lassen.
+//
+// DER PUNKT, AN DEM ES SICH LANGSAM ANFÜHLT:
+//
+// Chrome entscheidet selbst, wann ein Satz zu Ende ist — und lässt sich
+// dafür über eine Sekunde Zeit. Wer auf sein `isFinal` wartet, hat nach
+// jedem Satz eine Sekunde tote Luft, bevor überhaupt etwas anfängt. Genau
+// das ist der Unterschied zu den Sprachmodi, die sich lebendig anfühlen:
+// die entscheiden in ein paar hundert Millisekunden.
+//
+// Also entscheiden wir selbst. Chrome liefert die ganze Zeit
+// Zwischenergebnisse; ändert sich das Zwischenergebnis eine kurze Weile
+// nicht mehr, ist der Satz zu Ende. Das kostet nichts und spart eine
+// halbe bis ganze Sekunde pro Zug.
+//
+// Der Preis: denkt man mitten im Satz zu lange nach, schneidet er ab.
+// Deshalb einstellbar (SPRACH_PAUSE_MS) — und deshalb kein zu kleiner
+// Wert.
+var OHR = { text: '', uhr: null, zuletztGesendet: '', finalSperreBis: 0 };
+
+function browserPause() {
+  var ms = parseInt(KONFIG.pauseMs, 10);
+  return isFinite(ms) && ms >= 200 ? Math.max(300, ms + 150) : 550;
+}
+
+// Satz ist zu Ende: abschicken.
+function ohrFertig() {
+  var t = String(OHR.text || '').trim();
+  OHR.text = '';
+  if (OHR.uhr) { clearTimeout(OHR.uhr); OHR.uhr = null; }
+  if (!t || t === OHR.zuletztGesendet) return;
+  OHR.zuletztGesendet = t;
+  // Chromes eigenes "final" kommt gleich noch hinterher - das ist dann
+  // derselbe Satz und darf keinen zweiten Zug auslösen.
+  OHR.finalSperreBis = Date.now() + 2500;
+  liveSchicke({ typ: 'gehoert', text: t });
+}
+
 function liveBrowserOhren() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
@@ -1151,16 +1188,31 @@ function liveBrowserOhren() {
   LIVE.erkennung.lang = 'de-DE';
   LIVE.erkennung.continuous = true;
   LIVE.erkennung.interimResults = true;
+
   LIVE.erkennung.onresult = function (e) {
     // Ohne Kopfhörer hört die Browser-Erkennung sonst seine eigene Stimme.
     if (LIVE.redetGerade || Date.now() < LIVE.sperreBis) return;
+
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var text = e.results[i][0].transcript.trim();
       if (!text) continue;
-      if (e.results[i].isFinal) liveSchicke({ typ: 'gehoert', text: text });
-      else liveSchicke({ typ: 'zwischen', text: text });
+
+      if (e.results[i].isFinal) {
+        // Haben wir denselben Satz gerade selbst schon abgeschickt?
+        if (Date.now() < OHR.finalSperreBis) { OHR.text = ''; continue; }
+        OHR.text = text;
+        ohrFertig();
+        continue;
+      }
+
+      // Zwischenstand: im Fenster mitlaufen lassen und die Uhr neu stellen.
+      OHR.text = text;
+      liveSchicke({ typ: 'zwischen', text: text });
+      if (OHR.uhr) clearTimeout(OHR.uhr);
+      OHR.uhr = setTimeout(ohrFertig, browserPause());
     }
   };
+
   LIVE.erkennung.onend = function () { if (LIVE.an) { try { LIVE.erkennung.start(); } catch (e) {} } };
   LIVE.erkennung.onerror = function () { /* onend startet neu */ };
   try { LIVE.erkennung.start(); } catch (e) { /* läuft schon */ }
@@ -1178,6 +1230,8 @@ function liveAus(grund) {
   liveZeileWeg();
   try { if (LIVE.rec && LIVE.rec.state === 'recording') LIVE.rec.stop(); } catch (e) {}
   LIVE.rec = null;
+  if (OHR.uhr) { clearTimeout(OHR.uhr); OHR.uhr = null; }
+  OHR.text = '';
   if (LIVE.erkennung) { try { LIVE.erkennung.stop(); } catch (e) {} LIVE.erkennung = null; }
   if (LIVE.ws) { try { LIVE.ws.close(); } catch (e) {} LIVE.ws = null; }
   lage('', 'bereit');
