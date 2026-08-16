@@ -84,22 +84,53 @@ function urteil(code) {
   return { gut: false, text: 'Antwort ' + code };
 }
 
-// Ohne Echo einlesen: beim Einfuegen soll nichts auf dem Bildschirm
-// stehenbleiben, was hinterher in einem Screenshot landet.
+// DER EINFACHE WEG: aus der Zwischenablage.
+//
+// Ein Eingabefeld, das beim Einfuegen nichts anzeigt, ist sicher - aber
+// man weiss nicht, ob etwas angekommen ist, und gibt entnervt auf. Also
+// wird zuerst hier nachgesehen: was liegt gerade in der Zwischenablage?
+// Angezeigt wird nur die Laenge und die letzten vier Zeichen - genug, um
+// zu erkennen, ob es der richtige ist, und zu wenig fuer einen Screenshot.
+function ausZwischenablage() {
+  try {
+    return String(require('child_process').execFileSync('pbpaste', { encoding: 'utf8' })).trim();
+  } catch (_e) {
+    return '';                                  // kein Mac, kein pbpaste
+  }
+}
+
+function frageJaNein(frage) {
+  return new Promise((fertig) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(frage + ' [j/n] ', (a) => {
+      rl.close();
+      fertig(/^[jJyY]/.test(String(a || '').trim()));
+    });
+  });
+}
+
+// Der zweite Weg, falls die Zwischenablage nicht taugt. Zeigt fuer jedes
+// Zeichen einen Stern - man sieht also, DASS etwas ankommt, ohne dass der
+// Schluessel lesbar dasteht.
 function fragLeise(frage) {
   return new Promise((fertig) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    const ausgabe = rl.output;
-    let still = false;
-    ausgabe.write(frage);
-    // Alles, was nach der Frage getippt wird, nicht anzeigen.
-    const alt = ausgabe.write.bind(ausgabe);
-    ausgabe.write = (t) => { if (!still) alt(t); return true; };
-    still = true;
+    const echt = process.stdout.write.bind(process.stdout);
+    let maskieren = false;
+    echt(frage);
+    process.stdout.write = (t) => {
+      if (!maskieren) return echt(t);
+      // Einzelne Zeichen (getippt oder eingefuegt) werden zu Sternen,
+      // Steuerzeichen der Zeilenverwaltung fallen weg.
+      const text = String(t);
+      if (text && !text.startsWith('\u001b')) echt('*'.repeat(text.length));
+      return true;
+    };
+    maskieren = true;
     rl.question('', (antwort) => {
-      still = false;
-      ausgabe.write = alt;
-      ausgabe.write('\n');
+      maskieren = false;
+      process.stdout.write = echt;
+      echt('\n');
       rl.close();
       fertig(String(antwort || '').trim());
     });
@@ -146,7 +177,22 @@ async function setzen(kennung) {
   console.log('  Holen: ' + d.holen);
   console.log('');
 
-  const k = await fragLeise('  Schluessel einfuegen (Cmd+V) und Enter: ');
+  // Erst in der Zwischenablage nachsehen - das ist der Weg, der ohne
+  // Tipperei auskommt.
+  let k = '';
+  const ablage = ausZwischenablage();
+
+  if (ablage && !/\s/.test(ablage) && ablage.length >= 20) {
+    console.log('  In deiner Zwischenablage liegen ' + ablage.length + ' Zeichen, Ende: ...' + ablage.slice(-4));
+    if (await frageJaNein('  Den nehmen?')) k = ablage;
+  } else if (ablage) {
+    console.log('  In der Zwischenablage liegen ' + ablage.length + ' Zeichen' +
+      (/\s/.test(ablage) ? ' (mit Leerzeichen)' : '') + ' - das ist kein Schluessel.');
+    console.log('  Kopier ihn nochmal: beim Erstellen auf das Kopier-Symbol klicken.');
+    console.log('');
+  }
+
+  if (!k) k = await fragLeise('  Oder hier einfuegen (Cmd+V) und Enter: ');
   if (!k) { console.log('  Nichts eingegeben - abgebrochen.\n'); process.exit(1); }
 
   // Der haeufigste Unfall: die Zwischenablage enthielt etwas anderes.
