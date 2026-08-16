@@ -46147,6 +46147,13 @@ function getMenuBadgeIcons(item) {
     // da geht es um Bequemlichkeit, nicht um eine Zusage.
     var _vegEcht = !!(item && (item.is_vegetarian || item.vegetarian));
     var _veganEcht = !!(item && (item.is_vegan || item.vegan));
+    // Fleisch und Fisch genauso: der Scanner liest sie wirklich aus der Karte
+    // (Merkmale r/h/f), also sind es Angaben und keine Vermutungen. Was
+    // autoDetectItemFlags gleich daraus macht, zaehlt hier nicht -- "Schinken"
+    // laesst dort is_chicken anspringen.
+    var _rindEcht  = !!(item && (item.is_beef || item.beef));
+    var _huhnEcht  = !!(item && (item.is_chicken || item.chicken));
+    var _fischEcht = !!(item && (item.is_fish || item.fish));
 
     autoDetectItemFlags(item);
     var badges = '';
@@ -46166,6 +46173,9 @@ function getMenuBadgeIcons(item) {
         if (_all.indexOf('gluten') >= 0) { item.is_gluten = true; item.is_gluten_free = false; }
         if (_all.indexOf('milch') >= 0) { item.is_milk = true; item.is_lactose_free = false; }
         if (_all.indexOf('schalenfruechte') >= 0 || _all.indexOf('erdnuss') >= 0) item.is_nuts = true;
+        // Fisch ist selbst ein Pflichtallergen -- steht er dort, ist er
+        // eingetragen und nicht geraten.
+        if (_all.indexOf('fisch') >= 0) _fischEcht = true;
     }
 
     // WELCHE SYMBOLE UEBERHAUPT STEHENBLEIBEN.
@@ -46176,12 +46186,14 @@ function getMenuBadgeIcons(item) {
     // Uhr, "Vegan" ein Keks. Platzhalter, die nie jemand gesehen hat -- weil
     // die Funktion von nirgendwo aufgerufen wurde.
     //
-    // Raus sind ausserdem die Fleischarten und Bio/Hausgemacht. Nicht wegen
-    // der Symbole, sondern weil sie aus dem NAMEN geraten werden: "Schinken"
-    // laesst is_chicken anspringen. Ein geratenes Merkmal als Symbol am
-    // Gericht sieht aus wie eine Zusage. Die Fleischart steht ohnehin im
-    // Namen, und die Allergene stehen vollstaendig im Info-Kasten -- dort,
-    // wo sie hingehoeren und wo der Wirt sie eingetragen hat.
+    // Raus sind Bio und Hausgemacht: die werden aus dem NAMEN geraten, und
+    // ein geratenes Merkmal als Symbol am Gericht sieht aus wie eine Zusage.
+    //
+    // Rind, Huhn und Fisch sind dagegen drin -- aber nur die eingetragenen.
+    // Der Scanner liest die Merkmale r/h/f wirklich aus der Karte, das sind
+    // Angaben des Wirts. Gelesen werden sie deshalb OBEN, vor
+    // autoDetectItemFlags; was das Raten daraus macht ("Schinken" laesst
+    // is_chicken anspringen), zaehlt hier nicht.
     // KIN-DESIGN-SYMBOLE: eigene Linien, keine Fremdschrift, keine Emojis.
     //
     // Vorher kamen die Symbole aus der Material-Schrift von Google -- in
@@ -46209,20 +46221,42 @@ function getMenuBadgeIcons(item) {
                    + '<path d="M12 14.7c-.2-3.5-2.7-6-6.2-6.4-.2 3.6 2.4 6.3 6.2 6.4z"/>'
                    + '<path d="M12 14.7c.2-3.1 2.4-5.4 5.6-5.7.2 3.2-2.2 5.6-5.6 5.7z"/>',
 
-        // Chilischote mit Stiel. Die erste Fassung war eine Flamme, die
-        // zweite eine Schote ohne Stiel -- und die sah aus wie ein Blatt.
-        // Der Stiel oben rechts macht den Unterschied.
-        scharf:      '<path d="M17 5.4c.5 6-3.1 11.1-8.1 12.3-1.9.5-3.4-.2-3.7-1.6-.3-1.4.8-2.6 2.8-3.1 4-1.1 7-3.9 9-7.6z"/>'
-                   + '<path d="M17 5.4c.5-1.4 1.6-2.2 3.1-2.3-.1 1.6-1 2.7-2.4 3.2"/>',
+        // Chilischote mit Stiel. Erst eine Flamme, dann eine Schote ohne
+        // Stiel -- die sah aus wie ein Blatt. Auch die dritte Fassung war
+        // noch falsch: gleich breit von oben bis unten, also eine Banane.
+        //
+        // Und die vierte war wieder daneben: die beiden Kanten woelbten sich
+        // voneinander weg, das ergibt eine Linse -- also ein Blatt. Direkt
+        // neben dem Vegetarisch-Blatt war das der schlimmste Fall, zwei
+        // Symbole, die dasselbe bedeuten koennten.
+        //
+        // Der Unterschied liegt in den Enden: ein Blatt ist oben UND unten
+        // spitz. Eine Chili ist oben breit, unten spitz. Deshalb hier eine
+        // gerade Oberkante von 4 Einheiten Breite, von der beide Seiten
+        // gemeinsam nach links unten in eine Spitze laufen -- plus der Stiel,
+        // den ein Blatt nie hat.
+        scharf:      '<path d="M10.1 7.4h4.2c.3 4.1-1.1 8-4.9 11.2-1.4-3.6-1.2-7.4.7-11.2z"/>'
+                   + '<path d="M12.2 7.4c-.2-2.2.9-3.6 3.2-4.2"/>',
 
         // Weizenaehre: Stiel mit drei Koernerpaaren und Spitze.
-        gluten:      '<path d="M12 21v-8.1"/>'
-                   + '<path d="M12 12.9c-2.8-.1-4.4-1.8-4.4-4.4 2.8.1 4.4 1.8 4.4 4.4z"/>'
-                   + '<path d="M12 12.9c2.8-.1 4.4-1.8 4.4-4.4-2.8.1-4.4 1.8-4.4 4.4z"/>'
-                   + '<path d="M12 9.1c-2.5-.1-3.9-1.6-3.9-3.9 2.5.1 3.9 1.6 3.9 3.9z"/>'
-                   + '<path d="M12 9.1c2.5-.1 3.9-1.6 3.9-3.9-2.5.1-3.9 1.6-3.9 3.9z"/>'
-                   + '<path d="M12 5.6c-1.3-.8-2-2-2-3.5 1.3.8 2 2 2 3.5z"/>'
-                   + '<path d="M12 5.6c1.3-.8 2-2 2-3.5-1.3.8-2 2-2 3.5z"/>',
+        //
+        // Die erste Fassung hatte sieben Koerner auf zu engem Raum. Bei
+        // 15 Pixeln ist ein Strich gut einen Pixel breit -- lagen die Koerner
+        // nur einen halben Schritt auseinander, ueberlappten sich die
+        // Umrisse und aus der Aehre wurde ein schwarzer Fleck. Jetzt drei
+        // Paare mit doppeltem Abstand: weniger Koerner, dafuer sichtbare.
+        //
+        // Das oberste Paar war zuerst kleiner als die anderen -- daraus wurde
+        // oben ein herzfoermiger Klecks. Jetzt sind alle drei Paare gleich
+        // gross und gleich weit auseinander; die Aehre laeuft dadurch von
+        // selbst nach oben aus.
+        gluten:      '<path d="M12 21.2v-7.4"/>'
+                   + '<path d="M12 14.2c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
+                   + '<path d="M12 14.2c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>'
+                   + '<path d="M12 9.6c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
+                   + '<path d="M12 9.6c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>'
+                   + '<path d="M12 5c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
+                   + '<path d="M12 5c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>',
 
         // Kaesestueck statt Tropfen. Ein Tropfen kann alles sein -- Wasser,
         // Oel, Blut. Kaese liest man sofort als Milchprodukt, und genau so
@@ -46232,19 +46266,64 @@ function getMenuBadgeIcons(item) {
                    + '<circle cx="13.9" cy="13.9" r=".85"/>'
                    + '<circle cx="17.1" cy="16.4" r=".75"/>',
 
-        // Erdnuss in der Schale, mit Taille und Schalenkerben.
-        // Erdnuss mit Taille, darin die beiden Kerne. Die erste Fassung hatte
-        // Kerben in der Schale -- bei 15 Pixeln verklebten die zu einem Fleck.
-        // Zwei Punkte bleiben auch klein erkennbar.
-        nuesse:      '<path d="M12 3.5c2.3 0 4.2 1.9 4.2 4.2 0 1.4-.8 2.3-.8 3.4s.8 2 .8 3.4c0 2.4-1.9 4.2-4.2 4.2s-4.2-1.8-4.2-4.2c0-1.4.8-2.3.8-3.4s-.8-2-.8-3.4c0-2.3 1.9-4.2 4.2-4.2z"/>'
-                   + '<circle cx="12" cy="7.7" r="1.15"/>'
-                   + '<circle cx="12" cy="15" r="1.15"/>',
+        // Erdnuss in der Schale, mit Taille und den beiden Kernen.
+        //
+        // Zwei Fassungen daneben: die erste hatte Kerben in der Schale, die
+        // bei 15 Pixeln zu einem Fleck verklebten. Die zweite stand
+        // kerzengerade und mit gleich grossen Haelften -- und las sich damit
+        // als Ziffer 8.
+        //
+        // Drei Dinge machen aus der Acht eine Nuss, und es braucht alle drei:
+        // die Drehung (eine Erdnuss liegt schraeg, deshalb das <g>), zwei
+        // UNTERSCHIEDLICH grosse Haelften (bei zwei gleichen Kreisen bleibt
+        // es eine Acht, egal wie schraeg sie steht), und die Querrillen der
+        // Schale. Die beiden Punkte in der Mitte sind dafuer raus -- die
+        // sahen aus wie Augen.
+        nuesse:      '<g transform="rotate(-35 12 12)">'
+                   + '<path d="M12 3.4c2 0 3.6 1.6 3.6 3.6 0 1.4-1.6 2.1-1.6 3s2.6 1.5 2.6 4.1c0 2.8-2.1 5-4.6 5s-4.6-2.2-4.6-5c0-2.6 2.6-3.2 2.6-4.1s-1.6-1.6-1.6-3c0-2 1.6-3.6 3.6-3.6z"/>'
+                   + '<path d="M9.6 12.9c1.6.7 3.3.7 4.9 0"/>'
+                   + '<path d="M10.2 16.2c1.2.5 2.5.5 3.7 0"/>'
+                   + '</g>',
 
-        // Weinglas mit Kelch, Stiel und Fuss.
-        alkohol:     '<path d="M7.6 3.4h8.8l-.9 5.5a3.5 3.5 0 0 1-7 0z"/>'
-                   + '<path d="M8 6.7h8"/>'
-                   + '<path d="M12 12.4V19"/>'
-                   + '<path d="M8.7 19h6.6"/>'
+        // Weinglas: Kelch mit rundem Boden, Stiel, Fuss. Der Querstrich ist
+        // der Fuellstand -- ohne ihn ist der Kelch nur ein leerer Becher.
+        alkohol:     '<path d="M7.4 3.3h9.2c0 4.9-1.7 7.7-4.6 7.7S7.4 8.2 7.4 3.3z"/>'
+                   + '<path d="M7.9 6.6h8.2"/>'
+                   + '<path d="M12 11v7.5"/>'
+                   + '<path d="M8.6 18.5h6.8"/>',
+
+        // Kuhkopf von vorn. Die abstehenden Ohren sind das Erkennungsmerkmal
+        // -- ohne sie waere es ein beliebiger runder Kopf. Auf den Muffel
+        // innen habe ich verzichtet: bei 15 Pixeln wird daraus ein Fleck.
+        rind:        '<path d="M7.4 8.1c0-2.2 2-3.8 4.6-3.8s4.6 1.6 4.6 3.8c0 1.3-.3 2.3-.9 3.1 1 .8 1.6 1.9 1.6 3.1 0 2.3-2.4 4.1-5.3 4.1s-5.3-1.8-5.3-4.1c0-1.2.6-2.3 1.6-3.1-.6-.8-.9-1.8-.9-3.1z"/>'
+                   + '<path d="M7.4 8.1C6.2 7.2 4.8 7.1 3.7 7.8c.5 1.4 1.7 2.2 3.2 2.1"/>'
+                   + '<path d="M16.6 8.1c1.2-.9 2.6-1 3.7-.3-.5 1.4-1.7 2.2-3.2 2.1"/>'
+                   + '<circle cx="10.1" cy="9.6" r=".55"/>'
+                   + '<circle cx="13.9" cy="9.6" r=".55"/>'
+                   + '<circle cx="10.8" cy="14.6" r=".5"/>'
+                   + '<circle cx="13.2" cy="14.6" r=".5"/>',
+
+        // Henne: Rumpf, Kopf mit Kamm und Schnabel, Schwanz, zwei Beine.
+        //
+        // Die erste Fassung hatte den Kopf frei neben dem Rumpf haengen, mit
+        // einem Hals dazwischen, der bei 15 Pixeln verschwand -- uebrig blieb
+        // ein Klecks mit einem Punkt daneben. Jetzt sitzt der Kopf DIREKT auf
+        // dem Rumpf: die beiden Umrisse beruehren sich, der Hals entsteht von
+        // selbst und kann nicht abreissen.
+        huhn:        '<path d="M4.8 14.7c0-3.4 2.7-6.1 6.1-6.1s6.1 2.7 6.1 6.1c0 2.6-1.8 4.5-4.4 4.5H9.2c-2.6 0-4.4-1.9-4.4-4.5z"/>'
+                   + '<circle cx="14.6" cy="6.6" r="2.5"/>'
+                   + '<path d="M13.4 4.5c-.2-.9.3-1.7 1.2-1.9"/>'
+                   + '<path d="M15.4 4.2c.1-.9.8-1.5 1.7-1.4"/>'
+                   + '<path d="M17.2 6.2l2.4.6-2.3.9"/>'
+                   + '<circle cx="15.6" cy="6" r=".55"/>'
+                   + '<path d="M5.6 12.4C4.2 11.6 3.5 10.1 3.8 8.2c1.7.5 2.8 1.7 3.1 3.3"/>'
+                   + '<path d="M9.9 19.2v1.6"/><path d="M13.1 19.2v1.6"/>',
+
+        // Fisch mit Schwanzflosse, Kieme und Auge. Ohne die Kieme ist der
+        // Rumpf nur eine Linse.
+        fisch:       '<path d="M20.9 12c-2.2 2.9-5.3 4.7-8.6 4.7-2.4 0-4.6-.9-6.2-2.2l-3 2.1 1.1-4.6-1.1-4.6 3 2.1c1.6-1.3 3.8-2.2 6.2-2.2 3.3 0 6.4 1.8 8.6 4.7z"/>'
+                   + '<path d="M13.6 8.3c-1 2.3-1 5.1 0 7.4"/>'
+                   + '<circle cx="16.9" cy="10.9" r=".6"/>'
     };
 
 
@@ -46262,6 +46341,9 @@ function getMenuBadgeIcons(item) {
         var stufe = parseInt(item.spicy_level || item.is_spicy, 10) || 1;
         badges += sym('spicy', (_t.badgeSpicy || 'Scharf') + (stufe > 1 ? ' (' + stufe + 'x)' : ''), 'scharf');
     }
+    if (_rindEcht) badges += sym('beef', _t.badgeBeef || 'Rind', 'rind');
+    if (_huhnEcht) badges += sym('chicken', _t.badgeChicken || 'Huhn', 'huhn');
+    if (_fischEcht) badges += sym('fish', _t.badgeFish || 'Fisch', 'fisch');
     if (item.is_gluten) badges += sym('gluten', _t.badgeGluten || 'Enthält Gluten', 'gluten');
     if (item.is_milk) badges += sym('milk', 'Enthält Milch', 'milch');
     if (item.is_nuts) badges += sym('nuts', _t.badgeNuts || 'Enthält Nüsse', 'nuesse');

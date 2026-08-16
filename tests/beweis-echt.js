@@ -58,6 +58,11 @@ function schneide(src, name) {
     };
 
     var lauf = new Function('BILD', 'return (async function(){' +
+        // quelleZuAnfrage kam spaeter dazu und wurde hier vergessen. Der
+        // Test starb daran mit einem ReferenceError, noch bevor die erste
+        // Behauptung geprueft war -- also lief er monatelang rot, ohne dass
+        // irgendjemand etwas ueber den Scanner erfahren hat.
+        schneide(HTML, 'quelleZuAnfrage') + ';' +
         schneide(HTML, 'aiMenuScan') + ';' +
         schneide(HTML, 'scanSeiteKomplett') + ';' +
         schneide(HTML, 'zeileAusItem') + ';' +

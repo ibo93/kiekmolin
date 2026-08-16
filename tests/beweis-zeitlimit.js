@@ -178,6 +178,10 @@ async function lauf(titel, funktionsDatei, art, clientQuelle) {
     var ergebnis;
     if (clientQuelle === 'neu') {
         var mod = new Function('return (async function(){' +
+            // Ohne quelleZuAnfrage bricht scanSeiteKomplett sofort mit einem
+            // ReferenceError ab -- der Test war rot, ohne je etwas ueber das
+            // Zeitlimit auszusagen.
+            schneideFunktion(HTML, 'quelleZuAnfrage') + ';' +
             schneideFunktion(HTML, 'aiMenuScan') + ';' +
             schneideFunktion(HTML, 'scanSeiteKomplett') + ';' +
             'return await scanSeiteKomplett("data:image/jpeg;base64,QUJD", ["Pizzen"], null);})()');

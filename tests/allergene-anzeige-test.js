@@ -148,10 +148,39 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     t('scharf hat ein eigenes Symbol', /'scharf'\)/.test(f) && /scharf:\s+'<path/.test(f));
     t('vegan ebenso', /'vegan'\)/.test(f) && /vegan:\s+'<path/.test(f));
 
-    // Geratene Fleischarten gehoeren nicht als Symbol ans Gericht.
-    t('die aus dem Namen geratenen Fleischarten sind raus',
-      f.indexOf('is_beef') < 0 && f.indexOf('is_chicken') < 0 && f.indexOf('is_lamb') < 0,
-      'Fleischart noch drin');
+    // FLEISCH UND FISCH: EINGETRAGEN JA, GERATEN NEIN.
+    //
+    // Frueher stand hier, die Fleischarten seien ganz raus. Das war zu grob.
+    // Der Scanner liest die Merkmale r/h/f aus der Karte -- das sind Angaben
+    // des Wirts, keine Vermutungen, und die duerfen gezeigt werden.
+    //
+    // Die Gefahr ist eine andere: autoDetectItemFlags raet dieselben Felder
+    // aus dem Namen und laesst bei "Schinkenschnitzel" is_chicken anspringen
+    // ("hähn" nicht, aber die Wortliste ist grob). Wird NACH dem Raten
+    // gelesen, steht am Schnitzel ein Huhn.
+    //
+    // Also: gelesen wird VORHER, und das Symbol haengt an der vorher
+    // gemerkten Fassung.
+    t('Rind, Huhn und Fisch werden VOR dem Raten gemerkt',
+      f.indexOf('var _rindEcht') < f.indexOf('autoDetectItemFlags(item)')
+      && f.indexOf('var _huhnEcht') < f.indexOf('autoDetectItemFlags(item)')
+      && f.indexOf('var _fischEcht') < f.indexOf('autoDetectItemFlags(item)'),
+      'nach dem Raten gelesen');
+    t('und die Symbole haengen an der gemerkten Fassung, nicht am geratenen Feld',
+      /if \(_rindEcht\) badges/.test(f) && /if \(_huhnEcht\) badges/.test(f)
+      && /if \(_fischEcht\) badges/.test(f),
+      'Symbol haengt am geratenen Feld');
+    t('nirgends wird item.is_beef NACH dem Raten abgefragt',
+      f.slice(f.indexOf('autoDetectItemFlags(item)')).indexOf('item.is_beef') < 0
+      && f.slice(f.indexOf('autoDetectItemFlags(item)')).indexOf('item.is_chicken') < 0,
+      'geratenes Fleischfeld wird noch gelesen');
+    t('Lamm und Schwein bleiben draussen -- die liest der Scanner zwar, aber '
+      + 'ein eigenes Symbol dafuer waere nur noch Gedraenge',
+      f.indexOf('is_lamb') < 0 && f.indexOf('is_pork') < 0);
+    t('Fisch gilt auch als eingetragen, wenn er im Pflichtallergen steht',
+      /_all\.indexOf\('fisch'\) >= 0\) _fischEcht = true/.test(f));
+    t('die drei neuen Symbole sind gezeichnet, nicht leer',
+      /rind:\s+'<path/.test(f) && /huhn:\s+'<path/.test(f) && /fisch:\s+'<path/.test(f));
     t('vegan und vegetarisch schliessen sich aus -- nicht beide Symbole',
       /if \(_veganEcht\)[\s\S]{0,140}else if \(_vegEcht\)/.test(f));
 
@@ -177,9 +206,21 @@ t('alle 14 Pflichtallergene sind hinterlegt',
       /stroke="currentColor"/.test(f));
     t('kein fill, also reine Linien', /fill="none"/.test(f));
     t('runde Enden wie im Hausstil', /stroke-linecap="round"/.test(f));
-    t('acht eigene Symbole sind hinterlegt',
-      (f.match(/^\s+(beliebt|vegetarisch|vegan|scharf|gluten|milch|nuesse|alkohol):/gm) || []).length === 8,
-      (f.match(/^\s+(beliebt|vegetarisch|vegan|scharf|gluten|milch|nuesse|alkohol):/gm) || []).length);
+    // Jedes Symbol, das ausgegeben werden kann, muss auch gezeichnet sein --
+    // sonst kommt ein leeres Kaestchen heraus. Deshalb nicht nur zaehlen,
+    // sondern jeden Namen aus sym(..., 'name') gegen die Tabelle halten.
+    (function () {
+        var GEZEICHNET = (f.match(/^\s+([a-zäöü]+):\s+'</gm) || [])
+            .map(function (s) { return s.trim().replace(/:.*$/, ''); });
+        t('elf eigene Symbole sind hinterlegt',
+          GEZEICHNET.length === 11, GEZEICHNET.join(','));
+        var BENUTZT = (f.match(/, '([a-zäöü]+)'\);/g) || [])
+            .map(function (s) { return s.replace(/^, '/, '').replace(/'\);$/, ''); });
+        var ohne = BENUTZT.filter(function (x) { return GEZEICHNET.indexOf(x) < 0; });
+        t('jedes ausgegebene Symbol ist auch gezeichnet -- sonst leeres Kaestchen',
+          BENUTZT.length >= 11 && ohne.length === 0,
+          'benutzt: ' + BENUTZT.length + ', ohne Zeichnung: ' + ohne.join(','));
+    })();
     t('kein einziges Emoji im Merkmal-Code',
       !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(f), 'Emoji gefunden');
 
