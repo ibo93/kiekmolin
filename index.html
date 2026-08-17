@@ -46194,7 +46194,7 @@ function getMenuBadgeIcons(item) {
     // Angaben des Wirts. Gelesen werden sie deshalb OBEN, vor
     // autoDetectItemFlags; was das Raten daraus macht ("Schinken" laesst
     // is_chicken anspringen), zaehlt hier nicht.
-    // KIN-DESIGN-SYMBOLE: eigene Linien, keine Fremdschrift, keine Emojis.
+    // KIN-DESIGN-SYMBOLE: eigene Flaechen, keine Fremdschrift, keine Emojis.
     //
     // Vorher kamen die Symbole aus der Material-Schrift von Google -- in
     // Signalfarben und mit Pastellkasten. Drei Dinge waren daran falsch:
@@ -46203,184 +46203,154 @@ function getMenuBadgeIcons(item) {
     // die erst geladen sein muss -- bis dahin steht dort das blanke Wort
     // "local_fire_department" neben dem Gericht.
     //
-    // Jetzt eigene Linien im Hausstil: dieselbe .ki-Form wie ueberall sonst
-    // in dieser Datei -- viewBox 24, fill none, stroke currentColor. Damit
-    // erben sie die Textfarbe, sind sofort da und gehoeren zu uns.
+    // DANACH WAREN ES LINIEN -- UND DAS WAR DER ZWEITE FEHLER.
+    //
+    // Umrisse sehen bei 72 Pixeln gut aus und fallen bei 15 auseinander. Am
+    // Gericht stehen sie aber genau in dieser Groesse. Ein Strich ist 1,7
+    // von 24 Einheiten breit; bei 15 Pixeln sind das gut anderthalb Pixel,
+    // und zwei Striche, die naeher als zwei Strichbreiten beieinander
+    // liegen, laufen zu einem Fleck zusammen. Das hat sich durch jede
+    // Zeichnung gezogen: die Aehre wurde ein Balken, der Hennenkamm ein
+    // Klumpen, das Innere vom Kuhkopf ein Grinsen. Jedes Mal war die
+    // Antwort dieselbe -- weniger hineinzeichnen.
+    //
+    // Jetzt gefuellte Flaechen. Eine Flaeche kann nicht zulaufen, sie IST
+    // schon zu. Was klein bleiben muss, sind stattdessen die Loecher (Auge,
+    // Nuestern, Kaeselöcher), und ein Loch, das zu klein wird, verschwindet
+    // einfach -- es zerstoert nicht die Form drumherum. Deshalb ist das der
+    // robustere Weg, und er sieht in dieser Groesse auch besser aus.
+    //
+    // ZWEI REGELN, DIE MAN BEIM AENDERN KENNEN MUSS:
+    //
+    // 1. Loecher gehoeren in DENSELBEN <path> wie die Flaeche, die sie
+    //    durchbrechen -- ueber fill-rule="evenodd". Ein eigener <path>
+    //    waere kein Loch, sondern ein zweiter schwarzer Fleck.
+    // 2. Teile, die sich UEBERLAPPEN sollen (Ohren am Kuhkopf, Hoerner),
+    //    muessen dagegen getrennte <path> sein. Lagen sie im selben Pfad,
+    //    machte evenodd aus der Ueberlappung ein Loch.
+    //
+    // Die duenne Kontur in sym() ist Absicht: sie rundet alle Ecken ab und
+    // macht die Formen etwas satter, so wie es moderne Glyph-Symbole tun.
     var KIN_SYMBOLE = {
-        // Stern mit sauberen Zacken statt eines groben Fuenfecks.
-        beliebt:     '<path d="M12 3.6l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.21l-4.94 2.6.94-5.5-4-3.9 5.53-.8z"/>',
+        // Stern.
+        beliebt:     '<path d="M12 2.9 14.5 8.7 20.8 9.3 16 13.4 17.5 19.6 12 16.3 6.5 19.6 8 13.4 3.2 9.3 9.5 8.7z"/>',
 
-        // Blatt mit Mittelrippe -- ohne die Rippe ist es nur ein Oval.
-        vegetarisch: '<path d="M19.8 4.5c.5 8.2-4.6 13.9-11.3 13.9-1.2 0-2.3-.2-3.3-.6C4.5 10.9 10.6 4.9 19.8 4.5z"/>'
-                   + '<path d="M6 18.1C9.2 13 13.3 9.5 18 7.7"/>',
+        // Blatt mit kurzem Stiel unten links. Der Stiel ist der Unterschied
+        // zu einem beliebigen Oval.
+        vegetarisch: '<path d="M20.1 3.9c.7 9.1-5 15.2-12.3 15.2-1 0-2-.1-3-.4C2.6 10.6 9.2 4.3 20.1 3.9z"/>'
+                   + '<path d="M7.6 17.2 3.4 21.9 2 20.7 6.2 16z"/>',
 
         // Keimling: zwei Blaetter am Stiel. Der Stiel unterscheidet ihn vom
         // einfachen Blatt -- vegan und vegetarisch duerfen nicht gleich
         // aussehen.
-        vegan:       '<path d="M12 21v-6.3"/>'
-                   + '<path d="M12 14.7c-.2-3.5-2.7-6-6.2-6.4-.2 3.6 2.4 6.3 6.2 6.4z"/>'
-                   + '<path d="M12 14.7c.2-3.1 2.4-5.4 5.6-5.7.2 3.2-2.2 5.6-5.6 5.7z"/>',
+        vegan:       '<path d="M11.2 21.4v-8h1.6v8z"/>'
+                   + '<path d="M11.4 14.6C7.4 14.2 5 11.2 5.2 7.2c4 .4 6.4 3.4 6.2 7.4z"/>'
+                   + '<path d="M12.6 13c.2-3.6 2.8-6 6.6-6.2.2 3.6-2.6 6-6.6 6.2z"/>',
 
-        // Chilischote mit Stiel. Erst eine Flamme, dann eine Schote ohne
-        // Stiel -- die sah aus wie ein Blatt. Auch die dritte Fassung war
-        // noch falsch: gleich breit von oben bis unten, also eine Banane.
-        //
-        // Und die vierte war wieder daneben: die beiden Kanten woelbten sich
-        // voneinander weg, das ergibt eine Linse -- also ein Blatt. Direkt
-        // neben dem Vegetarisch-Blatt war das der schlimmste Fall, zwei
-        // Symbole, die dasselbe bedeuten koennten.
-        //
-        // Der Unterschied liegt in den Enden: ein Blatt ist oben UND unten
-        // spitz. Eine Chili ist oben breit, unten spitz. Deshalb hier eine
-        // gerade Oberkante von 4 Einheiten Breite, von der beide Seiten
-        // gemeinsam nach links unten in eine Spitze laufen -- plus der Stiel,
-        // den ein Blatt nie hat.
-        scharf:      '<path d="M10.1 7.4h4.2c.3 4.1-1.1 8-4.9 11.2-1.4-3.6-1.2-7.4.7-11.2z"/>'
-                   + '<path d="M12.2 7.4c-.2-2.2.9-3.6 3.2-4.2"/>',
+        // Chilischote: oben breit, unten spitz. Ein Blatt ist an beiden
+        // Enden spitz -- daran unterscheiden sich die beiden, und sie stehen
+        // oft direkt nebeneinander.
+        scharf:      '<path d="M10 6.4h4.8c.4 4.8-1.4 9.1-5.6 12.8-1.7-4.2-1.4-8.4.8-12.8z"/>'
+                   + '<path d="M12 6.6c-.6-2.7.9-4.6 4.4-5.5.5 1.5-.2 2.7-1.9 3.7-.9.5-1.4 1.1-1.5 1.8z"/>',
 
-        // Weizenaehre: Stiel mit drei Koernerpaaren und Spitze.
-        //
-        // Die erste Fassung hatte sieben Koerner auf zu engem Raum. Bei
-        // 15 Pixeln ist ein Strich gut einen Pixel breit -- lagen die Koerner
-        // nur einen halben Schritt auseinander, ueberlappten sich die
-        // Umrisse und aus der Aehre wurde ein schwarzer Fleck. Jetzt drei
-        // Paare mit doppeltem Abstand: weniger Koerner, dafuer sichtbare.
-        //
-        // Das oberste Paar war zuerst kleiner als die anderen -- daraus wurde
-        // oben ein herzfoermiger Klecks. Jetzt sind alle drei Paare gleich
-        // gross und gleich weit auseinander; die Aehre laeuft dadurch von
-        // selbst nach oben aus.
-        gluten:      '<path d="M12 21.2v-7.4"/>'
-                   + '<path d="M12 14.2c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
-                   + '<path d="M12 14.2c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>'
-                   + '<path d="M12 9.6c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
-                   + '<path d="M12 9.6c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>'
-                   + '<path d="M12 5c-.1-2.2-1.6-3.6-3.8-3.8.1 2.2 1.6 3.6 3.8 3.8z"/>'
-                   + '<path d="M12 5c.1-2.2 1.6-3.6 3.8-3.8-.1 2.2-1.6 3.6-3.8 3.8z"/>',
+        // Weizenaehre: Stiel mit drei Koernerpaaren. Der Abstand zwischen
+        // den Paaren ist groesser als ein Korn hoch ist -- sonst wird die
+        // Aehre ein Balken.
+        gluten:      '<path d="M11.2 21.4V5.2h1.6v16.2z"/>'
+                   + '<path d="M12 15.2c-.1-1.6-1.3-2.8-2.9-2.9.1 1.6 1.3 2.8 2.9 2.9z"/>'
+                   + '<path d="M12 15.2c.1-1.6 1.3-2.8 2.9-2.9-.1 1.6-1.3 2.8-2.9 2.9z"/>'
+                   + '<path d="M12 10.4c-.1-1.6-1.3-2.8-2.9-2.9.1 1.6 1.3 2.8 2.9 2.9z"/>'
+                   + '<path d="M12 10.4c.1-1.6 1.3-2.8 2.9-2.9-.1 1.6-1.3 2.8-2.9 2.9z"/>'
+                   + '<path d="M12 5.6c-.1-1.6-1.3-2.8-2.9-2.9.1 1.6 1.3 2.8 2.9 2.9z"/>'
+                   + '<path d="M12 5.6c.1-1.6 1.3-2.8 2.9-2.9-.1 1.6-1.3 2.8-2.9 2.9z"/>',
 
-        // Kaesestueck statt Tropfen. Ein Tropfen kann alles sein -- Wasser,
-        // Oel, Blut. Kaese liest man sofort als Milchprodukt, und genau so
-        // machen es die gedruckten Karten auch.
-        milch:       '<path d="M3.2 16.9 13 6.5l7.6 3.5v6.9a1.6 1.6 0 0 1-1.6 1.6H4.8a1.6 1.6 0 0 1-1.6-1.6z"/>'
-                   + '<circle cx="8.5" cy="15.2" r="1.05"/>'
-                   + '<circle cx="13.9" cy="13.9" r=".85"/>'
-                   + '<circle cx="17.1" cy="16.4" r=".75"/>',
+        // Kaesestueck mit Loechern. Ein Tropfen kann alles sein -- Wasser,
+        // Oel, Blut. Kaese liest man sofort als Milchprodukt, und so machen
+        // es die gedruckten Karten auch.
+        milch:       '<path d="M3.1 17 13.1 6.3l7.8 3.6v7.1c0 1-.8 1.8-1.8 1.8H4.9c-1 0-1.8-.8-1.8-1.8z'
+                   + 'M8.4 16.8a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5z'
+                   + 'M14 15.4a1.45 1.45 0 1 0 0-2.9 1.45 1.45 0 0 0 0 2.9z'
+                   + 'M17.2 17.8a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7z"/>',
 
         // Erdnuss in der Schale, mit Taille und den beiden Kernen.
         //
-        // Zwei Fassungen daneben: die erste hatte Kerben in der Schale, die
-        // bei 15 Pixeln zu einem Fleck verklebten. Die zweite stand
-        // kerzengerade und mit gleich grossen Haelften -- und las sich damit
-        // als Ziffer 8.
-        //
-        // Drei Dinge machen aus der Acht eine Nuss, und es braucht alle drei:
-        // die Drehung (eine Erdnuss liegt schraeg, deshalb das <g>), zwei
-        // UNTERSCHIEDLICH grosse Haelften (bei zwei gleichen Kreisen bleibt
-        // es eine Acht, egal wie schraeg sie steht), und die Querrillen der
-        // Schale. Die beiden Punkte in der Mitte sind dafuer raus -- die
-        // sahen aus wie Augen.
+        // Drei Dinge machen aus einer Acht eine Nuss, und es braucht alle
+        // drei: die Drehung (eine Erdnuss liegt schraeg, deshalb das <g>),
+        // zwei unterschiedlich grosse Haelften, und die Kerne als Loecher.
         nuesse:      '<g transform="rotate(-35 12 12)">'
-                   + '<path d="M12 3.4c2 0 3.6 1.6 3.6 3.6 0 1.4-1.6 2.1-1.6 3s2.6 1.5 2.6 4.1c0 2.8-2.1 5-4.6 5s-4.6-2.2-4.6-5c0-2.6 2.6-3.2 2.6-4.1s-1.6-1.6-1.6-3c0-2 1.6-3.6 3.6-3.6z"/>'
-                   + '<path d="M9.6 12.9c1.6.7 3.3.7 4.9 0"/>'
-                   + '<path d="M10.2 16.2c1.2.5 2.5.5 3.7 0"/>'
+                   + '<path d="M12 3.2c2.1 0 3.8 1.7 3.8 3.8 0 1.8-2.3 2.4-2.3 3.3s3.3 1.6 3.3 4.1c0 2.9-2.2 5.2-4.8 5.2s-4.8-2.3-4.8-5.2c0-2.5 3.3-3.2 3.3-4.1s-2.3-1.5-2.3-3.3c0-2.1 1.7-3.8 3.8-3.8z'
+                   + 'M12 8.7a1.45 1.45 0 1 0 0-2.9 1.45 1.45 0 0 0 0 2.9z'
+                   + 'M12 17.5a1.65 1.65 0 1 0 0-3.3 1.65 1.65 0 0 0 0 3.3z"/>'
                    + '</g>',
 
-        // Weinglas: Kelch mit rundem Boden, Stiel, Fuss. Der Querstrich ist
-        // der Fuellstand -- ohne ihn ist der Kelch nur ein leerer Becher.
-        alkohol:     '<path d="M7.4 3.3h9.2c0 4.9-1.7 7.7-4.6 7.7S7.4 8.2 7.4 3.3z"/>'
-                   + '<path d="M7.9 6.6h8.2"/>'
-                   + '<path d="M12 11v7.5"/>'
-                   + '<path d="M8.6 18.5h6.8"/>',
+        // Weinglas mit Kelch, Stiel und Fuss.
+        alkohol:     '<path d="M7.2 3h9.6c0 4.6-1.5 7.4-4.2 8.1v6.4h3.2v1.8H8.2v-1.8h3.2v-6.4C8.7 10.4 7.2 7.6 7.2 3z"/>',
 
         // ---- PORTRAETS: RIND UND HUHN --------------------------------------
         //
         // Die Tiere sind KOEPFE, keine Ganzkoerper -- und das ist eine
         // Entscheidung fuers ganze Haus, nicht nur fuer zwei Symbole.
         //
-        // Ein Ganzkoerper-Tier ist Dekoration: es muss klein und duenn
-        // gezeichnet werden, damit Rumpf, Beine und Schwanz reinpassen, und
-        // bei 15 Pixeln bleibt ein Klecks uebrig. Ein Kopf darf die ganze
+        // Ein Ganzkoerper-Tier ist Dekoration: Rumpf, Beine und Schwanz
+        // muessen alle in dieselbe Flaeche, also wird jedes Teil klein und
+        // duenn, und bei 15 Pixeln bleibt ein Klecks. Ein Kopf darf die
         // Flaeche fuellen. Er hat einen Blick, und er sieht einen an.
         //
         // Beide folgen derselben Regel, damit sie als Paar erkennbar sind
-        // und nicht wie zwei zugekaufte Symbole nebeneinander:
-        //   - ein Kopf, formatfuellend, breiteste Stelle etwa 20 von 24
-        //   - genau EIN Augenmass (r .62) bei beiden
-        //   - die Silhouette traegt allein: Ohren und Hoerner beim Rind,
-        //     Kamm, Schnabel und Kehllappen beim Huhn. Alles Innere darf
-        //     bei 15 Pixeln verschwinden, ohne dass das Tier verloren geht.
-        //   - keine Rundlichkeit um der Niedlichkeit willen: das Rind hat
-        //     eine breite Stirn und eine schmalere Schnauze, so wie ein
-        //     echtes Rind. Der runde Knopfkopf von vorher war 08/15.
+        // und nicht wie zwei zugekaufte Symbole nebeneinander: ein Kopf,
+        // formatfuellend, und die Silhouette traegt allein -- Ohren und
+        // Hoerner beim Rind, Kamm, Schnabel und Kehllappen beim Huhn. Die
+        // Loecher innen duerfen bei 15 Pixeln zugehen, ohne dass das Tier
+        // verloren geht.
 
         // Rind von vorn. Der Umriss ist eine Sanduhr: breite Stirn, schmale
-        // Backen, dann wieder ein BREITES Maul. Das ist der Fehler, den fast
-        // jedes Rind-Symbol macht -- es laeuft nach unten spitz zu wie ein
-        // Herz. Ein echtes Rind hat unten den breitesten Punkt, und genau
-        // daran erkennt man es auch als Umriss allein.
+        // Backen, dann wieder ein BREITES Maul. Fast jedes Rind-Symbol
+        // laeuft nach unten spitz zu wie ein Herz; ein echtes Rind hat unten
+        // den breitesten Punkt, und genau daran erkennt man es auch als
+        // Umriss allein.
         //
-        // Innen nur vier Punkte: zwei Augen, zwei Nuestern. Eine Querlinie
-        // ueber dem Maul war schon drin und musste wieder raus -- zusammen
-        // mit den Nuestern darunter wurde daraus ein grinsender Mund mit
-        // Zaehnen. Die Flaeche des Mauls sagt auch ohne Linie, wo es anfaengt.
-        rind:        '<path d="M8 6.4c0-1.4 1.8-2.2 4-2.2s4 .8 4 2.2c0 2.2-.4 4-1.2 5.4 1.6.6 2.4 2 2.4 3.6 0 2.2-2.2 3.8-5.2 3.8s-5.2-1.6-5.2-3.8c0-1.6.8-3 2.4-3.6C8.4 10.4 8 8.6 8 6.4z"/>'
-                   + '<path d="M8.2 9.6C6.6 8.8 4.6 9 3.2 10.2c1.2 1.5 3.2 1.9 4.9 1.1"/>'
-                   + '<path d="M15.8 9.6c1.6-.8 3.6-.6 5 .6-1.2 1.5-3.2 1.9-4.9 1.1"/>'
-                   + '<path d="M8.6 5.4C7.6 4.6 7.2 3.5 7.6 2.4"/>'
-                   + '<path d="M15.4 5.4c1-.8 1.4-1.9 1-3"/>'
-                   + '<circle cx="10.2" cy="8" r=".5"/>'
-                   + '<circle cx="13.8" cy="8" r=".5"/>'
-                   + '<circle cx="10.5" cy="15.4" r=".45"/>'
-                   + '<circle cx="13.5" cy="15.4" r=".45"/>',
+        // Ohren und Hoerner sind eigene Pfade -- sie sollen den Kopf
+        // ueberlappen. Laegen sie im selben Pfad, machte evenodd aus jeder
+        // Ueberlappung ein Loch.
+        rind:        '<path d="M8 6.4c0-1.4 1.8-2.2 4-2.2s4 .8 4 2.2c0 2.2-.4 4-1.2 5.4 1.6.6 2.4 2 2.4 3.6 0 2.2-2.2 3.8-5.2 3.8s-5.2-1.6-5.2-3.8c0-1.6.8-3 2.4-3.6C8.4 10.4 8 8.6 8 6.4z'
+                   + 'M10.2 9.15a1.15 1.15 0 1 0 0-2.3 1.15 1.15 0 0 0 0 2.3z'
+                   + 'M13.8 9.15a1.15 1.15 0 1 0 0-2.3 1.15 1.15 0 0 0 0 2.3z'
+                   + 'M10.5 16.45a1.05 1.05 0 1 0 0-2.1 1.05 1.05 0 0 0 0 2.1z'
+                   + 'M13.5 16.45a1.05 1.05 0 1 0 0-2.1 1.05 1.05 0 0 0 0 2.1z"/>'
+                   + '<path d="M8.2 9.4C6.4 8.5 4.2 8.8 2.6 10.2c1.4 1.8 3.6 2.2 5.6 1.2z"/>'
+                   + '<path d="M15.8 9.4c1.8-.9 4-.6 5.6.8-1.4 1.8-3.6 2.2-5.6 1.2z"/>'
+                   + '<path d="M9.2 5.6C7.6 4.6 7 3.2 7.4 1.4c1.4.8 2.1 2.1 2 3.8z"/>'
+                   + '<path d="M14.8 5.6c1.6-1 2.2-2.4 1.8-4.2-1.4.8-2.1 2.1-2 3.8z"/>',
 
-        // Huhn im Profil, nach rechts.
+        // Huhn im Profil, nach rechts -- alles in EINEM Umriss: Nacken,
+        // Kamm, Stirn, Schnabel, Kinn, Kehllappen, Kiefer. Der Kehllappen
+        // unter dem Schnabel ist der eigentliche Trick: Kamm und Schnabel
+        // hat jeder Vogel, den Lappen hat nur das Huhn.
         //
-        // Vorher war es ein Ganzkoerper-Huhn, danach ein Kopf, dessen Umriss
-        // so weit nach links unten ausholte, dass eine Kaulquappe daraus
-        // wurde. Jetzt ein ruhiger, kompakter Kopf -- und die drei Teile,
-        // die ihn zum Huhn machen, sitzen aussen als Silhouette:
-        //   Kamm oben, Schnabel rechts, Kehllappen darunter.
-        // Der Kehllappen ist der eigentliche Trick: Kamm und Schnabel hat
-        // jeder Vogel, den Lappen hat nur das Huhn.
-        // EIN EINZIGER UMRISS -- das ist der Kern der Sache.
-        //
-        // Vorher waren Kopf, Kamm, Schnabel und Kehllappen vier getrennte
-        // Formen, die aneinandergesetzt wurden. Bei 1,7 Einheiten Strichbreite
-        // geht das nicht auf: setzt man sie knapp nebeneinander, laufen die
-        // Striche zu einem schwarzen Klumpen zusammen; setzt man sie knapp
-        // ineinander, laeuft eine Linie quer durchs Gesicht. Ein gezackter
-        // Kamm ist dabei der schlimmste Fall -- die Taeler zwischen den
-        // Zacken muessen breiter sein als zwei halbe Striche, sonst ist der
-        // Kamm einfach ein Balken.
-        //
-        // Deshalb jetzt EINE geschlossene Linie um alles herum: Nacken,
-        // Kamm, Stirn, Schnabel, Kinn, Kehllappen, Kiefer. Nichts kann mehr
-        // kollidieren, weil es nichts gibt, womit es kollidieren koennte.
-        // Innen bleibt nur das Auge.
-        //
-        // Der Kamm sitzt IM Umriss als drei flache Zacken -- und flach ist
-        // hier keine Bequemlichkeit, sondern Absicht. Zwei hohe, getrennte
-        // Lappen wurden bei jedem Versuch zu Hasenohren; das Tier las sich
-        // als Katze. Erst als die Zacken niedrig und dicht am Schaedel
-        // blieben, war es wieder ein Huhn. Die Kerben sind rund 2 Einheiten
-        // tief -- gerade genug, dass die Aussenkante sie zeigt, und flach
-        // genug, dass sie bei 15 Pixeln sauber zu einer Kuppe verschmelzen,
-        // statt als zwei Ohren stehenzubleiben.
-        huhn:        '<path d="M6.6 16.6C4.9 14.4 5.2 11 7.4 9.2 6.9 6.5 7.6 4.4 9 4c.8.4 1.2 1 1.4 2 .3-1.4.7-2.2 1.4-2.3.7.3 1 1.1 1.1 2.1.3-.9.7-1.4 1.3-1.2.9.5 1.2 2.4 1 5.6l3.9 1.3-3.9 1.4c-.1.9-.3 1.6-.7 2.2 1.2.9 1.5 2.6.6 3.5-.9.8-2.1-.3-2.3-2.1-1.9.9-4.7.8-6.2-.1z"/>'
-                   + '<circle cx="12" cy="10.6" r=".55"/>',
+        // Der Kamm hat drei FLACHE Zacken, und flach ist Absicht. Zwei hohe,
+        // getrennte Lappen wurden in drei Anlaeufen zu Hasenohren -- das
+        // Tier las sich als Katze. Niedrig und dicht am Schaedel ist es
+        // wieder ein Huhn.
+        huhn:        '<path d="M6.6 16.6C4.9 14.4 5.2 11 7.4 9.2 6.9 6.2 7.4 3.4 8.8 3c1.1.6 1.7 2.2 1.9 4.6.3-3 1-4.4 1.8-4.5 1 .6 1.5 2.1 1.6 4.5.3-1.7.8-2.5 1.4-2.3.9.5 1.1 2.4.9 5.5l3.6 1.3-3.6 1.4c-.1.9-.3 1.6-.7 2.2 1.2.9 1.5 2.6.6 3.5-.9.8-2.1-.3-2.3-2.1-1.9.9-5.2.8-7.4-.5z'
+                   + 'M12.5 12.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/>',
 
-        // Fisch mit Schwanzflosse, Kieme und Auge. Ohne die Kieme ist der
-        // Rumpf nur eine Linse.
-        fisch:       '<path d="M20.9 12c-2.2 2.9-5.3 4.7-8.6 4.7-2.4 0-4.6-.9-6.2-2.2l-3 2.1 1.1-4.6-1.1-4.6 3 2.1c1.6-1.3 3.8-2.2 6.2-2.2 3.3 0 6.4 1.8 8.6 4.7z"/>'
-                   + '<path d="M13.6 8.3c-1 2.3-1 5.1 0 7.4"/>'
-                   + '<circle cx="16.9" cy="10.9" r=".6"/>'
+        // Fisch mit Schwanzflosse und Auge.
+        fisch:       '<path d="M21.2 12c-2.3 3-5.5 4.9-9 4.9-2.5 0-4.8-.9-6.5-2.3l-3.1 2.2 2.7-4.8-2.7-4.8 3.1 2.2c1.7-1.4 4-2.3 6.5-2.3 3.5 0 6.7 1.9 9 4.9z'
+                   + 'M16.9 12.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/>'
     };
 
 
     function sym(klasse, titel, form) {
         return '<span class="menu-badge ' + klasse + '" title="' + titel + '" aria-label="' + titel + '">'
-             + '<span class="ki ki-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-             + 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+             // fill-rule="evenodd" ist hier kein Detail, sondern die
+             // Voraussetzung: nur damit werden Auge, Nuestern und
+             // Kaeselöcher zu Loechern statt zu zweiten schwarzen Flecken.
+             // Die duenne Kontur in derselben Farbe rundet alle Ecken ab
+             // und macht die Formen etwas satter -- ohne sie sehen gefuellte
+             // Symbole hart und spitz aus.
+             + '<span class="ki ki-sm"><svg viewBox="0 0 24 24" fill="currentColor" '
+             + 'fill-rule="evenodd" stroke="currentColor" '
+             + 'stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round">'
              + KIN_SYMBOLE[form] + '</svg></span></span>';
     }
 

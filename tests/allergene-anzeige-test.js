@@ -197,15 +197,60 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     t('jedes Symbol ist auch fuer Vorleseprogramme beschriftet',
       /aria-label="' \+ titel \+ '"/.test(f));
 
-    // KIN DESIGN: eigene Linien, keine Fremdschrift, keine Emojis.
+    // KIN DESIGN: eigene Formen, keine Fremdschrift, keine Emojis.
     t('keine Material-Symbols-Schrift mehr in den Merkmalen',
       f.indexOf('material-symbols') < 0, 'Fremdschrift gefunden');
     t('sondern die Haus-Form .ki mit eigenem SVG',
       /<span class="ki ki-sm"><svg viewBox="0 0 24 24"/.test(f));
-    t('stroke currentColor -- die Symbole erben die Textfarbe',
-      /stroke="currentColor"/.test(f));
-    t('kein fill, also reine Linien', /fill="none"/.test(f));
+    t('currentColor -- die Symbole erben die Textfarbe',
+      /fill="currentColor"/.test(f) && /stroke="currentColor"/.test(f));
     t('runde Enden wie im Hausstil', /stroke-linecap="round"/.test(f));
+
+    // GEFUELLTE FLAECHEN, KEINE UMRISSE.
+    //
+    // Hier stand vorher das Gegenteil ("kein fill, also reine Linien"). Der
+    // Test war nicht falsch -- die Entscheidung war es. Umrisse sehen bei
+    // 72 Pixeln gut aus und fallen bei 15 auseinander, und am Gericht stehen
+    // sie genau in dieser Groesse. Eine Flaeche kann nicht zulaufen.
+    t('die Symbole sind gefuellt, nicht nur umrandet',
+      /fill="currentColor"/.test(f) && f.indexOf('fill="none"') < 0,
+      'noch ein Umriss');
+    t('die Kontur ist duenn -- sie rundet nur die Ecken ab',
+      /stroke-width="0\.8"/.test(f), (f.match(/stroke-width="[\d.]+"/) || [])[0]);
+
+    // evenodd ist die Voraussetzung dafuer, dass Auge, Nuestern und
+    // Kaeseloecher Loecher sind und nicht zweite schwarze Flecken.
+    t('fill-rule evenodd ist gesetzt', /fill-rule="evenodd"/.test(f));
+    // Kommentare stehen nur in der Rohdatei -- CODE ist von ihnen befreit.
+    t('und warum, steht dabei', /zu Loechern statt zu zweiten schwarzen Flecken/.test(H));
+
+    // DIE ZWEI REGELN, an denen sich beim Aendern alles entscheidet. Wer sie
+    // nicht kennt, baut sich mit dem naechsten Symbol einen schwarzen Fleck
+    // oder ein Loch an der falschen Stelle.
+    (function () {
+        function block(name) {
+            var i = f.indexOf('\n        ' + name + ':');
+            if (i < 0) return '';
+            var j = f.indexOf("',\n", i);
+            return f.slice(i, j < 0 ? f.indexOf('\n    };', i) : j);
+        }
+        // Regel 1: Loecher im SELBEN Pfad wie die Flaeche.
+        var rindB = block('rind');
+        var kopf = rindB.slice(rindB.indexOf('<path'), rindB.indexOf('"/>') + 3);
+        t('die Augen des Rinds stecken im selben Pfad wie der Kopf -- sonst '
+          + 'waeren sie schwarze Punkte statt Loecher',
+          /M8 6\.4[\s\S]*M10\.2 9\.15/.test(kopf), kopf.slice(0, 80));
+        t('dasselbe beim Huhn', /huhn:[\s\S]{0,900}?M12\.5 12\.75a1\.25/.test(f));
+        t('und beim Kaese', /milch:[\s\S]{0,400}?M8\.4 16\.8a1\.75/.test(f));
+
+        // Regel 2: Was sich UEBERLAPPT, muss getrennte Pfade sein -- sonst
+        // macht evenodd aus der Ueberlappung ein Loch.
+        t('Ohren und Hoerner des Rinds sind eigene Pfade',
+          (rindB.match(/<path /g) || []).length === 5,
+          (rindB.match(/<path /g) || []).length + ' Pfade');
+        t('und der Grund dafuer ist festgehalten',
+          /machte evenodd aus jeder[\s\S]{0,20}Ueberlappung ein Loch/.test(H));
+    })();
     // Jedes Symbol, das ausgegeben werden kann, muss auch gezeichnet sein --
     // sonst kommt ein leeres Kaestchen heraus. Deshalb nicht nur zaehlen,
     // sondern jeden Namen aus sym(..., 'name') gegen die Tabelle halten.
