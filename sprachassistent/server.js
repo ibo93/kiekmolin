@@ -869,6 +869,7 @@ server.listen(PORT, HOST, () => {
   console.log('  KURANI · Sprachassistent' + (DEMO ? '  (Demo)' : ''));
   console.log('  ------------------------------------------------');
   console.log('  Fenster:  http://localhost:' + PORT);
+  console.log('  Stand:    ' + standZeile());
   console.log('  Hoeren:   ' + ((!DEMO && process.env.DEEPGRAM_API_KEY) ? 'Deepgram' : 'Browser (kein Schluessel noetig)'));
   console.log('  Stimme:   ' + stimmText());
   console.log('  Modell:   ' + MODELL + ' zum Reden, ' + MODELL_ARBEIT + ' zum Arbeiten' +
@@ -915,6 +916,33 @@ server.listen(PORT, HOST, () => {
     pruefeDeepgram();
   }
 });
+
+// AUS WELCHEM ORDNER LAEUFT DAS HIER EIGENTLICH?
+//
+// Klingt nach einer ueberfluessigen Frage. War aber eine verlorene Stunde:
+// es gab zwei Kopien des Projekts auf dem Rechner - eine in ~/kiekmolin,
+// eine auf dem Schreibtisch. Der Startknopf nahm die eine, "git pull"
+// aktualisierte die andere. Jeder Pull sagte "geschafft", und trotzdem
+// aenderte sich nie etwas. Von aussen sah es aus, als kaeme die Arbeit
+// nicht an.
+//
+// Deshalb steht jetzt beim Start da, WELCHER Ordner und WELCHER Stand
+// gerade laeuft. Wer sich wundert, warum eine Neuerung fehlt, sieht die
+// Antwort in Zeile zwei.
+function standZeile() {
+  const { execFileSync } = require('child_process');
+  const git = (...args) => execFileSync('git', ['-C', __dirname, ...args], {
+    encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore']
+  }).trim();
+
+  let stand = '';
+  try {
+    stand = git('rev-parse', '--abbrev-ref', 'HEAD') + ' · ' + git('log', '-1', '--format=%h · %cd', '--date=short');
+  } catch (_e) {
+    stand = 'kein git-Stand ablesbar';       // Kopie ohne .git, oder git fehlt
+  }
+  return stand + '\n            ' + __dirname;
+}
 
 // Kostenlose Auskunft bei Deepgram - sagt nur, ob der Schluessel gilt.
 async function pruefeDeepgram() {
