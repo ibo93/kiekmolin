@@ -235,21 +235,39 @@ t('alle 14 Pflichtallergene sind hinterlegt',
             return f.slice(i, j < 0 ? f.indexOf('\n    };', i) : j);
         }
         // Regel 1: Loecher im SELBEN Pfad wie die Flaeche.
-        var rindB = block('rind');
-        var kopf = rindB.slice(rindB.indexOf('<path'), rindB.indexOf('"/>') + 3);
-        t('die Augen des Rinds stecken im selben Pfad wie der Kopf -- sonst '
-          + 'waeren sie schwarze Punkte statt Loecher',
-          /M8 6\.4[\s\S]*M10\.2 9\.15/.test(kopf), kopf.slice(0, 80));
-        t('dasselbe beim Huhn', /huhn:[\s\S]{0,900}?M12\.5 12\.75a1\.25/.test(f));
-        t('und beim Kaese', /milch:[\s\S]{0,400}?M8\.4 16\.8a1\.75/.test(f));
+        //
+        // Strukturell geprueft, nicht ueber Koordinaten. Eine frueherere
+        // Fassung hielt hier die Pfaddaten fest ("M8 6.4...M10.2 9.15...").
+        // Das ging bei der naechsten Umzeichnung kaputt, ohne je einen
+        // echten Fehler gefunden zu haben -- ein Test, der nur meldet, dass
+        // sich etwas geaendert hat, kostet Zeit und sagt nichts.
+        //
+        // Woran man ein Loch wirklich erkennt: im selben d="..." steht nach
+        // der Flaeche ein zweites M, das einen geschlossenen Kreis zieht.
+        function ersterPfad(name) {
+            var b = block(name);
+            var i = b.indexOf(' d="');
+            return i < 0 ? '' : b.slice(i + 4, b.indexOf('"', i + 4));
+        }
+        [['rind', 4], ['huhn', 1], ['milch', 3], ['fisch', 1], ['nuesse', 2]]
+        .forEach(function (paar) {
+            var d = ersterPfad(paar[0]);
+            var teile = (d.match(/M/g) || []).length - 1;   // erstes M = die Flaeche
+            t(paar[0] + ': die ' + paar[1] + ' Loecher stecken im selben Pfad wie die '
+              + 'Flaeche -- als eigener Pfad waeren es schwarze Flecken',
+              teile === paar[1], teile + ' statt ' + paar[1]);
+        });
 
         // Regel 2: Was sich UEBERLAPPT, muss getrennte Pfade sein -- sonst
         // macht evenodd aus der Ueberlappung ein Loch.
         t('Ohren und Hoerner des Rinds sind eigene Pfade',
-          (rindB.match(/<path /g) || []).length === 5,
-          (rindB.match(/<path /g) || []).length + ' Pfade');
+          (block('rind').match(/<path /g) || []).length === 5,
+          (block('rind').match(/<path /g) || []).length + ' Pfade');
+        t('und die Kammkreise des Huhns ebenso',
+          (block('huhn').match(/<path /g) || []).length === 6,
+          (block('huhn').match(/<path /g) || []).length + ' Pfade');
         t('und der Grund dafuer ist festgehalten',
-          /machte evenodd aus jeder[\s\S]{0,20}Ueberlappung ein Loch/.test(H));
+          /machte evenodd aus\s*\n?\s*(\/\/ )?jeder Ueberlappung ein Loch/.test(H));
     })();
     // Jedes Symbol, das ausgegeben werden kann, muss auch gezeichnet sein --
     // sonst kommt ein leeres Kaestchen heraus. Deshalb nicht nur zaehlen,
