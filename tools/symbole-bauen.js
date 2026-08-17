@@ -234,7 +234,15 @@ function teilAusdehnung(teil, gAttr) {
 // Ein Symbol bauen.
 // ---------------------------------------------------------------------------
 function baueSymbol(name, datei) {
-    var svg = lies(path.join(ICONS, datei));
+    return baueDatei(name, path.join(ICONS, datei));
+}
+
+// Dieselbe Umrechnung, aber mit vollem Pfad -- damit tests/ sie an einer
+// eigenen Pruefdatei aufrufen kann. Die Regel "Reihenfolge des Uebermalens"
+// muss auch dann geprueft bleiben, wenn gerade kein ausgeliefertes Symbol
+// weisse Teile hat.
+function baueDatei(name, vollerPfad) {
+    var svg = lies(vollerPfad);
     var sicht = [], weiss = [], box = null;
 
     svg.teile.forEach(function (teil) {
@@ -373,7 +381,7 @@ function ersetze(html, name, neu) {
     return html.slice(0, i) + neu + html.slice(j);
 }
 
-module.exports = { baue: baue, alsJs: alsJs, ersetze: ersetze, HERKUNFT: HERKUNFT, ANTEIL: ANTEIL };
+module.exports = { baue: baue, baueDatei: baueDatei, alsJs: alsJs, ersetze: ersetze, HERKUNFT: HERKUNFT, ANTEIL: ANTEIL };
 
 if (require.main === module) {
     var ziel = path.join(WURZEL, 'index.html');

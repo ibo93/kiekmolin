@@ -1,29 +1,21 @@
 # Kiek-mol-in Icon-Paket
 
-Dicke, gefuellte SVG-Icons fuer Lebensmittel, Allergene und Speisekarten-Hinweise. Alle Icons haben dieselbe `viewBox="0 0 64 64"`, sind als einzelne Dateien gespeichert und verwenden `currentColor`. Dadurch sind sie standardmaessig schwarz, koennen aber per CSS beliebig eingefarbt werden.
+Vorlagengetreue, dick gefuellte schwarze Lebensmittel- und Allergen-Icons im Stil der gelieferten Referenzgrafik. Die Icons enthalten keine sichtbaren Textbeschriftungen und liegen einzeln als SVG-Dateien vor.
 
-## Struktur
+Alle Icons nutzen:
 
-```text
-public/icons/allergens/
-├── eu-allergens/
-├── meat/
-├── seafood/
-├── foods/
-├── icons.json
-└── README.md
-```
+- `viewBox="0 0 64 64"`
+- `fill="currentColor"`
+- transparente Flaeche
+- einheitliche Dateinamen fuer Website/Claude Code
 
-## Einbau in Claude Code / Website
+## Einbau
 
-1. Den Ordner `public/icons/allergens/` in dein Projekt kopieren.
-2. Icons in HTML oder JSX als Bild einbinden:
+Kopiere den Ordner `public/icons/allergens/` in dein Projekt.
 
 ```html
 <img src="/icons/allergens/eu-allergens/gluten.svg" alt="Gluten" class="food-icon" />
 ```
-
-3. Einheitliche Groesse setzen:
 
 ```css
 .food-icon {
@@ -34,76 +26,88 @@ public/icons/allergens/
 }
 ```
 
-4. Wenn du die Farbe per CSS steuern willst, nutze die SVGs inline oder lade sie als React-Komponente. Die Icons verwenden `currentColor`.
+Wenn du die Farbe dynamisch steuern willst, nutze die SVGs inline oder als Komponente, da sie `currentColor` verwenden.
 
-Beispiel-Prompt fuer Claude Code:
-
-> Verwende die SVG-Icons aus `/public/icons/allergens/` fuer die Lebensmittel- und Allergenkennzeichnung. Zeige die Icons klein und einheitlich neben den jeweiligen Angaben an. Nutze die Datei `icons.json` als Uebersicht fuer Namen, Kategorien und Pfade.
+Die Datei `icons.json` enthaelt alle Namen, Kategorien und Pfade.
 
 ## Enthaltene Icons
 
-Insgesamt: 44 SVG-Dateien.
+Insgesamt: 57 SVG-Dateien.
 
 ### EU-Allergene
 
 | Icon | Datei |
 | --- | --- |
 | Gluten | `eu-allergens/gluten.svg` |
-| Krebstiere | `eu-allergens/crustaceans.svg` |
 | Eier | `eu-allergens/eggs.svg` |
+| Milch Laktose | `eu-allergens/milk-lactose.svg` |
 | Fisch | `eu-allergens/fish.svg` |
+| Krebstiere | `eu-allergens/crustaceans.svg` |
 | Erdnuesse | `eu-allergens/peanuts.svg` |
 | Soja | `eu-allergens/soy.svg` |
-| Milch Laktose | `eu-allergens/milk-lactose.svg` |
-| Schalenfruechte | `eu-allergens/tree-nuts.svg` |
+| Lupinen | `eu-allergens/lupin.svg` |
+| Nuesse | `eu-allergens/nuts.svg` |
 | Sellerie | `eu-allergens/celery.svg` |
 | Senf | `eu-allergens/mustard.svg` |
 | Sesam | `eu-allergens/sesame.svg` |
 | Schwefeldioxid Sulfite | `eu-allergens/sulfites.svg` |
-| Lupinen | `eu-allergens/lupin.svg` |
 | Weichtiere | `eu-allergens/molluscs.svg` |
+| Schalenfruechte | `eu-allergens/tree-nuts.svg` |
+### Nuesse
 
+| Icon | Datei |
+| --- | --- |
+| Mandeln | `nuts/almonds.svg` |
+| Walnuesse | `nuts/walnuts.svg` |
+| Cashewnuesse | `nuts/cashews.svg` |
+| Pecannuesse | `nuts/pecans.svg` |
+| Pistazien | `nuts/pistachios.svg` |
+| Macadamia Nuesse | `nuts/macadamia-nuts.svg` |
 ### Fleischarten
 
 | Icon | Datei |
 | --- | --- |
-| Rind | `meat/beef.svg` |
-| Schwein | `meat/pork.svg` |
-| Lamm | `meat/lamb.svg` |
-| Huhn | `meat/chicken.svg` |
-| Pute | `meat/turkey.svg` |
-| Ente | `meat/duck.svg` |
-| Wild | `meat/game.svg` |
-| Pferd | `meat/horse.svg` |
-
+| Rindfleisch | `meat/beef.svg` |
+| Schweinefleisch | `meat/pork.svg` |
+| Lammfleisch | `meat/lamb.svg` |
+| Ziegenfleisch | `meat/goat.svg` |
+| Huehnerfleisch | `meat/chicken.svg` |
+| Putenfleisch | `meat/turkey.svg` |
+| Entenfleisch | `meat/duck.svg` |
+| Wildfleisch | `meat/game.svg` |
+| Pferdefleisch | `meat/horse.svg` |
 ### Meerestiere
 
 | Icon | Datei |
 | --- | --- |
-| Garnelen | `seafood/shrimp.svg` |
+| Schalentiere | `seafood/shellfish.svg` |
 | Tintenfisch | `seafood/squid.svg` |
 | Muscheln | `seafood/mussels.svg` |
 | Austern | `seafood/oysters.svg` |
 | Schnecken | `seafood/snails.svg` |
-
+| Garnelen | `seafood/shrimp.svg` |
 ### Weitere Lebensmittel
 
 | Icon | Datei |
 | --- | --- |
 | Knoblauch | `foods/garlic.svg` |
 | Zwiebel | `foods/onion.svg` |
+| Lauch | `foods/leek.svg` |
 | Pilze | `foods/mushrooms.svg` |
+| Algen | `foods/algae.svg` |
 | Mais | `foods/corn.svg` |
-| Reis | `foods/rice.svg` |
-| Chili | `foods/chili.svg` |
-| Tomate | `foods/tomato.svg` |
-| Paprika | `foods/bell-pepper.svg` |
 | Honig | `foods/honey.svg` |
 | Zucker | `foods/sugar.svg` |
 | Schokolade | `foods/chocolate.svg` |
 | Vanille | `foods/vanilla.svg` |
 | Hefe | `foods/yeast.svg` |
+| Zitrusfruechte | `foods/citrus.svg` |
+| Tomaten | `foods/tomatoes.svg` |
+| Paprika | `foods/bell-pepper.svg` |
+| Chili | `foods/chili.svg` |
+| Reis | `foods/rice.svg` |
 | Sojasauce | `foods/soy-sauce.svg` |
 | Pflanzliches Oel | `foods/plant-oil.svg` |
 | Butter | `foods/butter.svg` |
 | Ananas | `foods/pineapple.svg` |
+| Tomate | `foods/tomato.svg` |

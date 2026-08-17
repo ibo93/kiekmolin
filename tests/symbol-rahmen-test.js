@@ -63,45 +63,59 @@ t('und jeder Ausschnitt ist neu berechnet',
   rahmenAb.map(function (k) { return k + ': ' + RAHMEN[k] + ' statt ' + frisch.rahmen[k]; }).join('; '));
 
 // ---- 3. Weiss ist zu Loch geworden -----------------------------------------
-// Der eigentliche Grund, warum ueberhaupt umgerechnet wird. In den Dateien
-// sind Augen und Nuestern weisse Formen; die App hat einen Dunkelmodus, dort
-// staenden weisse Punkte auf dunklem Grund.
+// Warum ueberhaupt umgerechnet wird: in manchen Zeichnungen sind Augen und
+// Glanzlichter weisse Formen ueber der schwarzen. Auf weissem Grund sieht das
+// richtig aus -- die App hat aber einen Dunkelmodus, dort waeren es weisse
+// Punkte auf dunklem Grund.
 (function () {
-    var mitWeiss = namen.filter(function (k) {
-        var roh = fs.readFileSync(path.join(WURZEL, 'public', 'icons', 'allergens',
-                                            werkzeug.HERKUNFT[k]), 'utf8');
-        return /(fill|stroke)="#fff"/i.test(roh);
-    });
-    t('es gibt Symbole mit weissen Teilen -- sonst prueft das hier nichts',
-      mitWeiss.length > 5, mitWeiss.length);
+    function roh(k) {
+        return fs.readFileSync(path.join(WURZEL, 'public', 'icons', 'allergens',
+                                         werkzeug.HERKUNFT[k]), 'utf8');
+    }
+    var mitWeiss = namen.filter(function (k) { return /(fill|stroke)="#fff"/i.test(roh(k)); });
     var ohneMaske = mitWeiss.filter(function (k) { return SYM[k].indexOf('<mask') < 0; });
-    t('jedes davon bekommt eine Maske', ohneMaske.length === 0, ohneMaske.join(', '));
+    t('jede Zeichnung mit weissen Teilen bekommt eine Maske',
+      ohneMaske.length === 0, ohneMaske.join(', '));
     var nochWeiss = namen.filter(function (k) {
         // Weiss darf nur noch IN der Maske stehen (dort heisst es "sichtbar"),
         // niemals im gezeichneten Teil.
         var i = SYM[k].indexOf('</mask>');
         return /(fill|stroke)="#fff"/i.test(i < 0 ? SYM[k] : SYM[k].slice(i));
     });
-    t('im gezeichneten Teil steht nirgends mehr Weiss -- sonst waere es im '
+    t('im gezeichneten Teil steht nirgends Weiss -- sonst waere es im '
       + 'Dunkelmodus ein weisser Fleck', nochWeiss.length === 0, nochWeiss.join(', '));
+    var mitMaske = namen.filter(function (k) { return SYM[k].indexOf('<mask') >= 0; });
+    t('und umgekehrt bekommt keine Zeichnung OHNE weisse Teile eine Maske',
+      mitMaske.length === mitWeiss.length,
+      'Maske: ' + mitMaske.join(',') + ' / weiss in der Datei: ' + mitWeiss.join(','));
 })();
 
 // ---- 4. Die Reihenfolge des Uebermalens bleibt erhalten --------------------
-// Beim Rind liegen die Nuestern INNERHALB des weissen Muffels. Wer nur die
-// weissen Teile in die Maske schreibt, loescht die Punkte mit weg.
+// Der Fall, an dem die erste Fassung gescheitert ist: eine schwarze Flaeche,
+// darauf eine weisse (das Loch), und DARIN wieder eine schwarze (ein Punkt im
+// Loch). Wer nur die weissen Teile in die Maske schreibt, loescht den Punkt
+// mit weg.
+//
+// Geprueft an einer eigenen Pruefdatei, nicht an einem ausgelieferten Symbol.
+// Vorher hing der Test am Kuhkopf -- und fiel still aus, als das zweite
+// Icon-Paket die Loecher direkt in die Form einbaute und der Kuhkopf gar kein
+// Weiss mehr hatte. Eine Regel, die nur zufaellig geprueft wird, ist nicht
+// geprueft.
 (function () {
-    var m = /<mask[^>]*>([\s\S]*?)<\/mask>/.exec(SYM.rind || '');
-    t('die Maske des Rinds ist da', !!m);
+    var probe = werkzeug.baueDatei('probe',
+        path.join(__dirname, 'pruefdateien', 'reihenfolge.svg'));
+    var m = /<mask[^>]*>([\s\S]*?)<\/mask>/.exec(probe.markup);
+    t('die Pruefdatei bekommt eine Maske', !!m);
     if (!m) return;
-    var inhalt = m[1];
-    t('der Muffel deckt zu (schwarz in der Maske)',
-      /<ellipse cx="32" cy="47"[^>]*fill="#000"/.test(inhalt), inhalt);
-    t('die Nuestern holen sich die Flaeche zurueck (weiss in der Maske) -- '
-      + 'genau daran ist die erste Fassung gescheitert',
-      (inhalt.match(/<circle cx="(28|36)" cy="47"[^>]*fill="#fff"/g) || []).length === 2,
-      inhalt);
-    t('und sie werden auch wirklich gezeichnet',
-      (SYM.rind.slice(SYM.rind.indexOf('</mask>')).match(/<circle cx="(28|36)" cy="47"/g) || []).length === 2);
+    t('die weisse Flaeche deckt zu (schwarz in der Maske)',
+      /<circle cx="32" cy="32" r="18"[^>]*fill="#000"/.test(m[1]), m[1]);
+    t('der Punkt DARIN holt sich die Flaeche zurueck (weiss in der Maske)',
+      /<circle cx="32" cy="32" r="6"[^>]*fill="#fff"/.test(m[1]), m[1]);
+    t('und er wird auch wirklich gezeichnet',
+      /<circle cx="32" cy="32" r="6"\/>/.test(probe.markup.slice(probe.markup.indexOf('</mask>'))),
+      probe.markup.slice(probe.markup.indexOf('</mask>')));
+    t('die weisse Flaeche selbst wird NICHT gezeichnet',
+      probe.markup.slice(probe.markup.indexOf('</mask>')).indexOf('r="18"') < 0);
 })();
 
 // ---- 5. Kein doppeltes Attribut ---------------------------------------------
