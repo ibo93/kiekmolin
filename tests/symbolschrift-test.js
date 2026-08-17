@@ -1,32 +1,43 @@
-// DIE SYMBOLSCHRIFT DARF NICHT "swap" LADEN.
+// DIE SYMBOLSCHRIFT LIEGT IM PROJEKT, NICHT BEI GOOGLE.
 //
-// WAS ZU SEHEN WAR
-// ----------------
-// Beim Rendern der echten App standen in der Kopfzeile und ueber der
-// Speisekarte Woerter statt Zeichen: "menu", "explore", "location_on",
-// "open_in_full".
+// GEMELDET WURDE
+// --------------
+// "die App laedt so komisch ab und zu wenn kein gutes Internet ist".
 //
-// WARUM
-// -----
-// Material Symbols ist eine Ligaturschrift. Im HTML steht wirklich das Wort
-// <span class="material-symbols-outlined">location_on</span>, und erst die
-// Schrift macht daraus ein Zeichen. Solange die Schrift nicht da ist, gibt
-// es nichts, was das Wort ersetzt.
+// Nachgestellt: Seite ueber einen lokalen Server geladen, alles nach draussen
+// gekappt. Ergebnis: ueberall stehen Woerter statt Zeichen -- "menu",
+// "search", "location_on", "open_in_full". Das ist der sichtbarste Fehler,
+// den die App hat, und er trifft genau die Gaeste mit schlechtem Empfang.
 //
-// display=swap sagt dem Browser: zeig den Text sofort in der Ersatzschrift
-// und tausche spaeter. Bei einer Textschrift ist das genau richtig -- lieber
-// Text in der falschen Schrift als eine leere Seite. Bei einer Symbolschrift
-// ist es genau verkehrt, denn die Ersatzschrift kann die Ligatur nicht und
-// schreibt den Namen aus.
+// WARUM DAS PASSIERT
+// ------------------
+// Material Symbols ist eine LIGATURSCHRIFT. Im HTML steht wirklich das Wort:
+//     <span class="material-symbols-outlined">location_on</span>
+// Erst die Schrift macht daraus ein Zeichen. Kommt sie nicht an, schreibt der
+// Browser das Wort hin -- an 991 Stellen.
 //
-// Verschaerft wird es dadurch, dass der Stilbogen absichtlich spaet geladen
-// wird (media="print" bis onload) -- das macht die Seite schneller sichtbar
-// und verlaengert zugleich genau das Fenster, in dem die Woerter dastehen.
+// WARUM display=block NICHT GEREICHT HAT
+// ---------------------------------------
+// Davor stand hier die Regel "display=block statt swap". Die war richtig und
+// hat das LADEN abgedeckt: drei Sekunden nichts zeigen statt sofort die
+// Ersatzschrift. Gegen den AUSFALL hilft sie nicht -- kommt die Schrift gar
+// nicht, ist nach drei Sekunden trotzdem die Ersatzschrift dran und die
+// Woerter stehen da. Deshalb loest erst das Selbst-Ausliefern das Problem.
 //
-// display=block: bis zu drei Sekunden gar nichts zeigen, dann tauschen. Eine
-// kurz leere Stelle ist besser als "open_in_full" mitten in der Karte.
+// WIE
+// ---
+// tools/symbolschrift-holen.js holt bei Google nur die 205 Zeichen, die
+// wirklich vorkommen (27 KB statt mehrerer Megabyte) und legt sie als
+// data:-URL in den Stilbogen. Keine eigene Anfrage, sofort da, funktioniert
+// offline -- und die IP des Gastes geht nicht mehr an Google (das ist in
+// Deutschland abgemahnt worden, LG Muenchen I 2022).
 //
-// Die Textschriften (Epilogue, Inter) behalten swap -- dort ist swap richtig.
+// DIE FALLE, DIE DIESER TEST BEWACHT
+// -----------------------------------
+// Wer ein NEUES Symbol ins HTML schreibt und das Werkzeug nicht laufen laesst,
+// bekommt genau an dieser einen Stelle wieder ein Wort. Nichts stuerzt ab,
+// nichts faellt auf -- bis ein Gast es sieht. Deshalb vergleicht der Test
+// unten Zeichen fuer Zeichen, was benutzt wird, mit dem, was drin ist.
 'use strict';
 var fs = require('fs');
 var path = require('path');
@@ -34,49 +45,92 @@ var path = require('path');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+var WURZEL = path.join(__dirname, '..');
+var H = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
+var WZ = require(path.join(WURZEL, 'tools', 'symbolschrift-holen.js'));
 
-// Alle Schrift-Links einsammeln, samt ihrer Familien und ihres display-Werts.
-var links = [];
-var re = /https:\/\/fonts\.googleapis\.com\/css2\?[^"'\s>]+/g, m;
-while ((m = re.exec(H))) {
-    var u = m[0];
-    var d = u.match(/[?&]display=([a-z]+)/);
-    links.push({
-        url: u,
-        symbol: /Material\+Symbols/.test(u),
-        display: d ? d[1] : '(keiner)'
-    });
-}
+// ---- 1. Keine Symbolschrift mehr von Google --------------------------------
+(function () {
+    var links = [];
+    var re = /https:\/\/fonts\.googleapis\.com\/css2\?[^"'\s>]+/g, m;
+    while ((m = re.exec(H))) links.push(m[0]);
 
-t('die Schrift-Links stehen ueberhaupt in der Seite', links.length >= 2, links.length + '');
+    t('es gibt ueberhaupt noch Schrift-Links (die Textschriften)', links.length >= 2, links.length + '');
+    t('aber keinen mehr fuer die Symbolschrift',
+      links.filter(function (l) { return /Material\+Symbols/.test(l); }).length === 0,
+      links.filter(function (l) { return /Material\+Symbols/.test(l); }).join(' '));
 
-var symbol = links.filter(function (l) { return l.symbol; });
-var text = links.filter(function (l) { return !l.symbol; });
+    // Die Textschriften duerfen weiter von Google kommen und sollen swap
+    // behalten: bei einer TEXTschrift ist "zeig sofort die Ersatzschrift"
+    // richtig -- lieber Text in der falschen Schrift als gar kein Text.
+    // Faellt Google aus, liest der Gast trotzdem alles, nur anders gesetzt.
+    var text = links.filter(function (l) { return !/Material\+Symbols/.test(l); });
+    t('die Textschriften behalten swap -- dort ist swap das Richtige',
+      text.length > 0 && text.every(function (l) { return /[?&]display=swap/.test(l); }),
+      text.join(' '));
+})();
 
-// Es sind zwei: der normale Link und der in <noscript>. Beide muessen
-// stimmen -- der noscript-Zwilling wurde bei frueheren Aenderungen schon
-// einmal vergessen.
-t('die Symbolschrift ist zweimal verlinkt (normal und im noscript)',
-  symbol.length === 2, symbol.length + '');
+// ---- 2. Die Schrift steckt wirklich in der Seite ---------------------------
+(function () {
+    t('es gibt eine @font-face-Regel fuer Material Symbols',
+      /@font-face\s*\{[^}]*font-family:\s*'Material Symbols Outlined'/.test(H));
+    t('und die Schrift liegt als data:-URL drin, nicht als Adresse nach draussen',
+      /src:\s*url\(data:font\/woff2;base64,[A-Za-z0-9+/=]{5000,}\)\s*format\('woff2'\)/.test(H));
+    t('mit font-display: block -- waehrend des Aufbaus lieber nichts als das Wort',
+      /@font-face\s*\{[^}]*font-display:\s*block/.test(H));
 
-t('die Symbolschrift laedt mit display=block, nicht mit swap',
-  symbol.length > 0 && symbol.every(function (l) { return l.display === 'block'; }),
-  symbol.map(function (l) { return l.display; }).join(', '));
+    // Ohne diese Klasse waere die Schrift zwar geladen, aber niemand benutzt
+    // sie: die Regeln kamen frueher aus dem Stilbogen von Google mit.
+    t('die Klasse material-symbols-outlined setzt die Schriftfamilie',
+      /\.material-symbols-outlined\s*\{[^}]*font-family:\s*'Material Symbols Outlined'/.test(H));
+    t('und schaltet die Ligaturen ein -- ohne sie bleibt es Text',
+      /\.material-symbols-outlined\s*\{[^}]*font-feature-settings:\s*'liga'/.test(H));
+})();
 
-t('die Textschriften behalten swap -- dort ist es richtig',
-  text.length > 0 && text.every(function (l) { return l.display === 'swap'; }),
-  text.map(function (l) { return l.display; }).join(', '));
+// ---- 3. Die Datei liegt auch einzeln im Projekt ----------------------------
+// Die data:-URL ist die, die zaehlt. Die Datei daneben ist der Beleg, woraus
+// sie gemacht wurde -- sonst steht da ein Block Base64, den niemand mehr
+// nachvollziehen kann.
+(function () {
+    var woff = path.join(WURZEL, 'public', 'fonts', 'material-symbols-kin.woff2');
+    t('die Schriftdatei liegt im Projekt', fs.existsSync(woff));
+    if (fs.existsSync(woff)) {
+        var d = fs.readFileSync(woff);
+        t('und ist wirklich eine woff2', d.slice(0, 4).toString() === 'wOF2', d.slice(0, 4).toString());
+        t('sie ist klein genug, um sie einzubetten (unter 60 KB)',
+          d.length < 60000, Math.round(d.length / 1024) + ' KB');
+    }
+    t('das Werkzeug zum Erneuern ist da',
+      fs.existsSync(path.join(WURZEL, 'tools', 'symbolschrift-holen.js')));
+})();
 
-// Ohne display-Angabe waere der Standard "auto", und der verhaelt sich in den
-// meisten Browsern wie block-mit-kurzer-Frist -- aber eben nicht ueberall
-// gleich. Also muss der Wert dastehen.
-t('kein Schrift-Link laesst display weg',
-  links.every(function (l) { return l.display !== '(keiner)'; }),
-  links.filter(function (l) { return l.display === '(keiner)'; }).map(function (l) { return l.url; }).join(' '));
+// ---- 4. DIE WICHTIGE PRUEFUNG: kein benutztes Zeichen fehlt ----------------
+// Wer ein neues Symbol einbaut und das Werkzeug nicht laufen laesst, bekommt
+// an dieser Stelle wieder ein Wort. Nichts stuerzt ab -- deshalb muss es hier
+// auffallen.
+(function () {
+    var benutzt = WZ.benutzteSymbole(H);
+    var drin = WZ.eingebauteSymbole(H);
 
-t('und warum block statt swap, steht als Begruendung daneben',
-  /display=block, NICHT swap/.test(H) && /Ligatur/.test(H));
+    t('die Liste der eingebauten Zeichen steht in der Seite', drin.length > 100, drin.length + '');
+    t('es werden ueberhaupt Symbole benutzt', benutzt.length > 100, benutzt.length + '');
+
+    var fehlt = benutzt.filter(function (x) { return drin.indexOf(x) < 0; });
+    t('jedes benutzte Symbol ist auch in der Schrift drin',
+      fehlt.length === 0,
+      fehlt.length + ' fehlen: ' + fehlt.slice(0, 12).join(', ')
+      + '  --> node tools/symbolschrift-holen.js');
+
+    // Andersherum ist es kein Fehler, nur Ballast: ein Zeichen, das niemand
+    // mehr benutzt, macht die Schrift ein paar Byte groesser.
+    var ueber = drin.filter(function (x) { return benutzt.indexOf(x) < 0; });
+    t('und es schleppt hoechstens eine Handvoll ungenutzter Zeichen mit',
+      ueber.length <= 10, ueber.length + ' ungenutzt: ' + ueber.slice(0, 12).join(', '));
+})();
+
+// ---- 5. Warum das so ist, steht dabei --------------------------------------
+t('im HTML steht, warum die Schrift nicht mehr von Google kommt',
+  /Ligaturschrift/.test(H) && /schlechtem Netz/.test(H));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
