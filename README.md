@@ -27,6 +27,7 @@ cd agentur && node server.js --demo    # die Agentur-App ansehen
 | `agentur/` | Web-Oberfläche der Agentur: Kunden, Reports per Klick, Telefon-Status | `agentur/README.md` |
 | `sichtbarkeit/` | Baustein 2: KI-Sichtbarkeit – Monats-Report + Aufbereitung | `sichtbarkeit/README.md` |
 | `telefon-retter/` | Baustein 1: KI-Telefon-Agent (Reservierung → Infos → Bestellung) | `telefon-retter/README.md`, `TEST-CHECKLISTE.md` |
+| `sprachassistent/` | Ibos eigener Sprach-Assistent: Aufgabe sagen, Claude Code erledigt sie auf dem Rechner | `sprachassistent/README.md` |
 
 ## Weitere Anleitungen
 

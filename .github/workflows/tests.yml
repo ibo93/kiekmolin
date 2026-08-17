@@ -19,12 +19,19 @@ jobs:
       - name: Telefon-Retter Abhaengigkeiten (ws)
         run: cd telefon-retter && npm install --no-audit --no-fund
 
+      - name: Sprachassistent Abhaengigkeiten (ws, fuer den Live-Modus)
+        run: cd sprachassistent && npm install --no-audit --no-fund
+
       - name: Syntax-Check aller Projekt-Dateien
         run: |
           for f in telefon-retter/server.js telefon-retter/simulator.js telefon-retter/test.js telefon-retter/lib/*.js \
                    sichtbarkeit/sichtbarkeit.js sichtbarkeit/test.js sichtbarkeit/lib/*.js \
-                   agentur/server.js agentur/test.js agentur/lib/*.js; do
+                   agentur/server.js agentur/test.js agentur/lib/*.js \
+                   sprachassistent/server.js sprachassistent/test.js sprachassistent/instagram.js sprachassistent/tagesbericht.js sprachassistent/notizen.js sprachassistent/agentur.js sprachassistent/pruefe.js sprachassistent/markt.js sprachassistent/saison.js sprachassistent/beweis.js sprachassistent/crm.js sprachassistent/briefing.js sprachassistent/stimmen.js sprachassistent/zeitmessung.js sprachassistent/arzt.js sprachassistent/schluessel.js sprachassistent/lib/*.js; do
             node --check "$f"
+          done
+          for s in sprachassistent/start.command sprachassistent/einrichten.command sprachassistent/knopf-anlegen.command; do
+            bash -n "$s"
           done
 
       - name: Telefon-Retter Tests
@@ -35,6 +42,9 @@ jobs:
 
       - name: Agentur Tests
         run: cd agentur && node test.js
+
+      - name: Sprachassistent Tests
+        run: cd sprachassistent && node test.js
 
       - name: SEO-Seiten Tests
         run: node test-seo.js

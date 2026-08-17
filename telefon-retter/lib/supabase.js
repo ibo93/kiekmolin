@@ -196,6 +196,10 @@ async function rueckrufErledigt(id) {
 }
 
 module.exports = {
+  // supabaseGet ist bewusst mit dabei: der Sprachassistent stellt fuer den
+  // Tagesbericht eigene Abfragen, soll aber KEINE zweite Verbindung mit
+  // eigenem Schluessel-Handling aufmachen.
+  supabaseGet,
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
   reservierungenFuerErinnerung,
   neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,
