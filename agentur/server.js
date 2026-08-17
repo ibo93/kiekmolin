@@ -34,6 +34,14 @@ const { baueKundenUpdate } = require('./lib/kunden-update');
 const telefonDb = require('../telefon-retter/lib/supabase');
 // Anruf-Demo: das "Denken" des Telefon-Retters direkt im Browser vorfuehren
 const { DialogSitzung } = require('../telefon-retter/lib/dialog');
+// Echtzeit: der Server meldet Neuigkeiten von sich aus an offene Fenster
+const live = require('./lib/live');
+const pipeline = require('./lib/pipeline');
+const leadCheck = require('./lib/lead-check');
+const checks = require('../sichtbarkeit/lib/checks');
+const telefonKunden = require('./lib/telefon-kunden');
+const demoKunde = require('./lib/demo-kunde');
+const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
 // Zusaetzlich telefon-retter/.env: dort liegen die Stimm-Schluessel
@@ -76,11 +84,22 @@ function json(res, status, daten) {
   res.end(JSON.stringify(daten));
 }
 
-function leseBody(req) {
+// Groessen-Deckel, damit ein versehentlich riesiges Foto nicht den
+// Arbeitsspeicher auffrisst. 12 MB reichen fuer mehrere Karten-Fotos.
+function leseBody(req, maxBytes) {
+  const grenze = maxBytes || 12 * 1024 * 1024;
   return new Promise((resolve) => {
     let body = '';
-    req.on('data', (d) => { body += d; });
-    req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch (_e) { resolve({}); } });
+    let zuGross = false;
+    req.on('data', (d) => {
+      if (zuGross) return;
+      body += d;
+      if (body.length > grenze) { zuGross = true; body = ''; }
+    });
+    req.on('end', () => {
+      if (zuGross) { resolve({ _zuGross: true }); return; }
+      try { resolve(JSON.parse(body || '{}')); } catch (_e) { resolve({}); }
+    });
   });
 }
 
@@ -258,13 +277,26 @@ async function starteReport(kunde) {
         quote: report.quote(ergebnis), telefon, ergebnis
       });
 
-      jobs[jobId].schritt = 'Report rendern';
+      jobs[jobId].schritt = 'Verlauf zusammenstellen';
       let verlauf = report.ladeVerlauf(slug, monat, { quote: report.quote(ergebnis), telefon });
       if (DEMO) {
         const demoV = JSON.parse(fs.readFileSync(path.join(SICHT_ORDNER, 'demo', 'demo-daten.json'), 'utf8')).verlauf;
         if (demoV) verlauf = demoV;
       }
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf });
+      // Analyse: macht aus den Zahlen eine Aussage und einen Handlungsplan.
+      // Faellt sie aus, kommt der Report trotzdem - nur ohne den Kasten oben.
+      jobs[jobId].schritt = 'Analyse rechnen (Herkunft, Speisekarte, Rückgewinnung)';
+      let analyse = null;
+      try {
+        analyse = await require('./lib/report-analyse').sammle(kunde, {
+          monat, ergebnis, vormonat, telefon, demoDaten: DEMO
+        });
+      } catch (e) {
+        console.warn('Analyse uebersprungen: ' + e.message);
+      }
+
+      jobs[jobId].schritt = 'Report rendern';
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
@@ -418,6 +450,18 @@ async function pruefeDigest() {
         (hoch.length ? hoch : e.offen).slice(0, 3).forEach((x) => zeilen.push('  - ' + x.titel));
       }
     }
+
+    // Neukunden-Pipeline: was ist diese Woche faellig? Ohne diese Zeile
+    // vergisst man die Wiedervorlagen genau so lange, bis der Lead kalt ist.
+    try {
+      const interessenten = await baueInteressentenListe();
+      zeilen.push('', 'NEUKUNDEN-PIPELINE: ' + pipeline.satzFuerDigest(interessenten));
+      const faellig = interessenten.filter((e) => e.faellig).slice(0, 8);
+      for (const e of faellig) {
+        zeilen.push('  - ' + e.name + (e.stadt ? ' (' + e.stadt + ')' : '') +
+          (e.telefon ? ' · ' + e.telefon : '') + (e.notiz ? ' · ' + e.notiz : ''));
+      }
+    } catch (_e) { /* eine leere Pipeline darf den Digest nicht kippen */ }
 
     zeilen.push('', 'Details + Abhaken in der Agentur-App (http://localhost:' + PORT + ').');
     const ergebnis = await versand.sendeReportMail({
@@ -619,6 +663,206 @@ function bewertungStatusSetzen(slug, id, status) {
     fs.writeFileSync(bewertungProtokollPfad(slug), alle.map((e) => JSON.stringify(e)).join('\n') + '\n');
     return true;
   } catch (_e) { return false; }
+}
+
+// ------------------------------------------------- Neukunden-Pipeline ------
+// Der Gespraechsstand (Stufe, Notiz, Wiedervorlage) liegt neben den Leads.
+// Ohne Datei = leerer Stand: die Pipeline funktioniert auch beim ersten Start.
+const PIPELINE_DATEI = path.join(DATEN_ORDNER, 'pipeline.json');
+
+function ladePipelineStand() {
+  try { return pipeline.leseStand(fs.readFileSync(PIPELINE_DATEI, 'utf8')); } catch (_e) { return {}; }
+}
+
+function speicherePipelineStand(stand) {
+  fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+  fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
+}
+
+// ------------------------------------------------- Probeanruf-Demo ---------
+// Eine eigene Nummer nur fuer Demos. Ohne sie wuerde eine Demo die Nummer
+// eines zahlenden Kunden ueberschreiben - deshalb bricht der Aufbau lieber ab.
+function demoNummer() {
+  const n = telefonKunden.normalisiereNummer(process.env.TELEFON_DEMO_NUMMER || '');
+  if (!n) {
+    throw new Error('Keine Demo-Nummer eingerichtet. Trage TELEFON_DEMO_NUMMER=+49... in die .env ein - ' +
+      'am besten eine zweite Twilio-Nummer, die nur fuer Probeanrufe da ist.');
+  }
+  return n;
+}
+
+// Was liegt gerade auf der Demo-Nummer? Wird auch gebraucht, um eine
+// abgelaufene Demo zu erkennen, bevor jemand sie noch anruft.
+function demoStand() {
+  let nummer;
+  try { nummer = demoNummer(); } catch (e) { return { eingerichtet: false, hinweis: e.message }; }
+  let eintrag;
+  try { eintrag = telefonKunden.liesNummern()[nummer]; } catch (_e) { eintrag = undefined; }
+  if (!eintrag) return { eingerichtet: true, nummer, belegt: false };
+  const datei = typeof eintrag === 'object' ? String(eintrag.datei || '') : '';
+  if (!datei) return { eingerichtet: true, nummer, belegt: true, fremd: true };
+  let kunde = {};
+  try {
+    kunde = JSON.parse(fs.readFileSync(path.join(telefonKunden.pfade().basis, datei), 'utf8'));
+  } catch (_e) { /* Datei weg = wie unbelegt behandeln */ }
+  return {
+    eingerichtet: true, nummer, belegt: true,
+    name: kunde.name || '', fuer: kunde.demoFuer || '',
+    gerichte: (kunde.speisekarte || []).length,
+    demoBis: kunde.demoBis || '',
+    abgelaufen: demoKunde.istAbgelaufen(kunde),
+    ansage: demoKunde.ansageFuerIbo(kunde, nummer, (kunde.speisekarte || []).length)
+  };
+}
+
+// Der Telefon-Retter frischt seine Kundendaten sonst nur alle 5 Minuten auf -
+// im Verkaufsgespraech ist das zu lang. Deshalb stupsen wir ihn direkt an.
+// Klappt das nicht, ist die Demo trotzdem gebaut, nur eben etwas spaeter live.
+async function telefonNeuLaden() {
+  try {
+    const antwort = await fetch(TELEFON_URL + '/neu-laden', {
+      method: 'POST',
+      headers: process.env.TELEFON_WEBHOOK_SCHLUESSEL
+        ? { 'X-Schluessel': process.env.TELEFON_WEBHOOK_SCHLUESSEL } : {},
+      signal: AbortSignal.timeout(8000)
+    });
+    return antwort.ok;
+  } catch (_e) { return false; }
+}
+
+// Speisekarte von einer Webseite holen. Frueher steckte das direkt in der
+// Route - jetzt braucht es auch der Probeanruf, deshalb steht es hier einmal.
+async function importiereWebseite(url) {
+  const imp = require('../telefon-retter/lib/webseite-import');
+  let ziel = String(url || '').trim();
+  if (!ziel) throw new Error('Keine Webseiten-Adresse angegeben.');
+  if (!/^https?:\/\//i.test(ziel)) ziel = 'https://' + ziel;
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY fehlt - erst "node schluessel-einrichten.js" (Schritt 1).');
+  }
+  const hole = async (adresse) => {
+    const antwort = await fetch(adresse, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (kompatibel; KURANI-Import)' },
+      signal: AbortSignal.timeout(20000), redirect: 'follow'
+    });
+    if (!antwort.ok) throw new Error('Die Seite antwortet mit ' + antwort.status);
+    return antwort.text();
+  };
+  const html = await hole(ziel);
+  let text = imp.textAusHtml(html);
+  for (const link of imp.findeSpeisekartenLinks(html, ziel)) {
+    try { text += '\n\n--- ' + link + ' ---\n' + imp.textAusHtml(await hole(link)); } catch (_e) { /* weiter */ }
+  }
+  const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01', 'content-type': 'application/json'
+    },
+    signal: AbortSignal.timeout(120000),
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
+      max_tokens: 16000,
+      messages: [{ role: 'user', content: imp.baueImportPrompt(text.slice(0, 60000), ziel) }]
+    })
+  });
+  if (!antwort.ok) throw new Error('Anthropic ' + antwort.status);
+  const daten = await antwort.json();
+  const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
+  return Object.assign({ webseite: ziel }, imp.parseImportAntwort(roh));
+}
+
+// Demo bauen: Speisekarte holen (Website oder mitgeschickte Liste),
+// Demo-Kunden schreiben, Nummer belegen, Telefon-Retter anstupsen.
+async function baueDemo(eintrag, mitgeschickteKarte) {
+  const nummer = demoNummer();
+
+  // Nie die Nummer eines echten Kunden ueberschreiben.
+  const frei = demoKunde.nummerFrei(nummer, telefonKunden.liesNummern());
+  if (!frei.ok) throw new Error(frei.text);
+
+  // Speisekarte: entweder von Hand mitgeschickt, sonst von seiner Website.
+  // Klappt beides nicht, laeuft die Demo eben nur mit Reservierungen -
+  // das ist ehrlicher, als Gerichte zu erfinden.
+  let karte = Array.isArray(mitgeschickteKarte) ? mitgeschickteKarte : [];
+  let kartenHinweis = karte.length ? 'Speisekarte von Hand übergeben.' : '';
+  if (!karte.length && eintrag.website) {
+    try {
+      const importiert = await importiereWebseite(eintrag.website);
+      karte = importiert.speisekarte || [];
+      kartenHinweis = karte.length
+        ? karte.length + ' Gerichte von seiner Website gelesen.'
+        : 'Auf seiner Website war keine lesbare Speisekarte zu finden.';
+    } catch (e) {
+      kartenHinweis = 'Speisekarte konnte nicht gelesen werden (' + e.message + ').';
+    }
+  } else if (!karte.length) {
+    kartenHinweis = 'Er hat keine Website - für Gerichte bitte die Karte fotografieren.';
+  }
+
+  const gebaut = demoKunde.baueDemoKunde(
+    { name: eintrag.name, stadt: eintrag.stadt, schluessel: eintrag.schluessel }, karte, {});
+
+  if (DEMO) {
+    return {
+      ok: true, nummer, simuliert: true, gerichte: gebaut.gerichte,
+      kartenHinweis, ansage: demoKunde.ansageFuerIbo(gebaut.kunde, nummer, gebaut.gerichte)
+    };
+  }
+
+  const gespeichert = telefonKunden.speichereEigenenKunden({
+    nummer, slug: gebaut.slug, kann: gebaut.kann,
+    name: gebaut.kunde.name, stadt: gebaut.kunde.stadt, tische: gebaut.kunde.tische,
+    speisekarte: gebaut.kunde.speisekarte,
+    demo: true, demoBis: gebaut.kunde.demoBis, demoFuer: gebaut.kunde.demoFuer
+  });
+
+  const live = await telefonNeuLaden();
+  return {
+    ok: true, nummer, gerichte: gespeichert.gerichte, kartenHinweis,
+    demoBis: gebaut.kunde.demoBis,
+    live,
+    hinweis: live
+      ? 'Die Demo ist sofort erreichbar.'
+      : 'Der Telefon-Retter hat sich nicht melden lassen. Läuft er? Sonst ist die Demo in spätestens 5 Minuten aktiv.',
+    ansage: demoKunde.ansageFuerIbo(gebaut.kunde, nummer, gespeichert.gerichte)
+  };
+}
+
+// Prueft einen Interessenten wirklich nach: Website holen und lesen,
+// Google-Platz und KI-Empfehlung testen. Die drei Teile laufen parallel -
+// ein langsamer Server des Wirts soll die anderen beiden nicht aufhalten.
+// Faellt ein Teil aus (kein Key, kein Netz), steht das ehrlich im Befund.
+async function pruefeInteressent(eintrag) {
+  const restaurant = { name: eintrag.name, city: eintrag.stadt, cuisine: eintrag.kategorie };
+  const { fragen } = require('../sichtbarkeit/lib/fragen').suchfragen(restaurant);
+  // Die Standardfrage der Stadt - dieselbe, die auch die Kunden-Reports
+  // benutzen. So sind Interessent und Bestandskunde vergleichbar.
+  const hauptfrage = (fragen.find((f) => f.id === 'kategorie-stadt') || fragen[0]).frage;
+  const empfehlungsfrage = (fragen.find((f) => f.id === 'empfehlung-ki') || fragen[0]).frage;
+
+  const [webseite, google, ki] = await Promise.all([
+    eintrag.website ? leadCheck.holeWebsite(eintrag.website, {}) : Promise.resolve(null),
+    checks.checkGoogle(hauptfrage, restaurant).catch((e) => ({ status: 'fehler', detail: e.message })),
+    checks.checkKI(empfehlungsfrage, restaurant).catch((e) => ({ status: 'fehler', detail: e.message }))
+  ]);
+
+  return leadCheck.baueBefund(
+    { name: eintrag.name, city: eintrag.stadt, website: eintrag.website, frage: hauptfrage },
+    { webseite, google, ki },
+    { frage: hauptfrage }
+  );
+}
+
+async function baueInteressentenListe() {
+  let prospects = [];
+  try { prospects = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
+  return pipeline.baueListe({
+    prospects: Array.isArray(prospects) ? prospects : [],
+    leads: ladeLeads(),
+    kundenNamen: (await ladeKunden()).map((k) => k.name),
+    stand: ladePipelineStand()
+  }, {});
 }
 
 // ------------------------------------------------- Inbound-Leads ------------
@@ -906,33 +1150,107 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && pfad === '/api/osm-import') {
       if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: Import nur simuliert.' }); return; }
       const { execFile } = require('child_process');
-      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 180000 }, (fehler, stdout) => {
+      // 45 Suchgebiete von Borkum bis Varel, dazwischen jeweils eine Pause
+      // fuer die Overpass-API: das dauert mehrere Minuten. Mit den alten
+      // 3 Minuten wurde der Import mittendrin abgeschossen und prospects.json
+      // blieb auf dem alten Stand - ohne dass es jemand gemerkt haette.
+      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 1200000 }, (fehler, stdout) => {
         console.log('[osm-import] ' + (fehler ? 'FEHLER: ' + fehler.message : String(stdout).trim().split('\n').pop()));
       });
-      json(res, 200, { ok: true, hinweis: 'Import laeuft (1-2 Minuten) - danach Seite neu laden.' });
+      json(res, 200, { ok: true, hinweis: 'Import laeuft (5-10 Minuten, 45 Gebiete) - die Liste aktualisiert sich von selbst.' });
       return;
     }
 
-    // API: Interessenten (Neukunden-Pipeline aus prospects.json).
+    // API: Interessenten (Neukunden-Pipeline). Verzeichnis-Betriebe aus
+    // prospects.json und Inbound-Anfragen der Check-Seite laufen in EINER
+    // Liste zusammen, angereichert um den gemerkten Gespraechsstand.
     // Bestandskunden werden per Namens-Abgleich rausgefiltert.
     if (req.method === 'GET' && pfad === '/api/interessenten') {
-      let liste = [];
-      try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* keine Datei = leere Pipeline */ }
-      const kundenNamen = (await ladeKunden()).map((k) => k.name);
-      const { istSchonPartner, leadScore } = require('./lib/pitch');
-      liste = liste.filter((p) => !istSchonPartner(p, kundenNamen));
-      const mitScore = liste.map((p) => {
-        const lead = leadScore(p);
-        return {
-          name: p.name || '', stadt: p.city || '', kategorie: p.category || 'restaurant',
-          telefon: p.phone || '', website: p.website || '',
-          heat: lead.heat, score: lead.score, gruende: lead.gruende,
-          pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname(p)) ? '/api/pitch-seite/' + pitchDateiname(p) : null
-        };
+      const liste = await baueInteressentenListe();
+      json(res, 200, {
+        stufen: pipeline.STUFEN,
+        uebersicht: pipeline.zaehleStufen(liste),
+        liste: liste.map((e) => Object.assign({}, e, {
+          pitch: dateiInOrdner(PITCH_ORDNER, pitchDateiname({ name: e.name }))
+            ? '/api/pitch-seite/' + pitchDateiname({ name: e.name }) : null
+        }))
       });
-      // Heißeste Leads zuerst - so arbeitest du die beste Liste von oben ab.
-      mitScore.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-      json(res, 200, mitScore);
+      return;
+    }
+
+    // API: Betriebs-Check fuer EINEN Interessenten. Holt seine Website,
+    // liest sie, prueft Google- und KI-Sichtbarkeit - und legt den Befund
+    // in der Pipeline ab. Das ist der Unterschied zwischen "steht im
+    // Verzeichnis" und "ich weiss, worueber ich mit dem rede".
+    if (req.method === 'POST' && pfad === '/api/interessent-pruefen') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+      try {
+        const befund = await pruefeInteressent(eintrag);
+        if (!DEMO) {
+          speicherePipelineStand(pipeline.setzeStand(ladePipelineStand(), eintrag.schluessel, { befund }));
+        }
+        json(res, 200, { ok: true, befund });
+      } catch (e) {
+        json(res, 500, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Probeanruf-Demo fuer einen Interessenten bauen.
+    // Aus seiner Website (wenn vorhanden) wird die Speisekarte gezogen,
+    // daraus ein befristeter Demo-Kunde auf der Demo-Nummer. Danach kann
+    // der Wirt anrufen und SEINEN Laden ans Telefon gehen hoeren.
+    if (req.method === 'POST' && pfad === '/api/demo-bauen') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+      try {
+        json(res, 200, await baueDemo(eintrag, body.speisekarte));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Demo wieder von der Nummer nehmen.
+    if (req.method === 'POST' && pfad === '/api/demo-beenden') {
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      try {
+        const nummer = demoNummer();
+        telefonKunden.entferneNummer(nummer);
+        await telefonNeuLaden();
+        json(res, 200, { ok: true, nummer });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Liegt gerade eine Demo auf der Nummer - und fuer wen?
+    if (req.method === 'GET' && pfad === '/api/demo') {
+      json(res, 200, demoStand());
+      return;
+    }
+
+    // API: Gespraechsstand eines Interessenten setzen (Stufe, Notiz,
+    // Wiedervorlage). Das ist das Gedaechtnis der Pipeline.
+    if (req.method === 'POST' && pfad === '/api/interessent-status') {
+      const body = await leseBody(req);
+      if (DEMO) { json(res, 200, { ok: true }); return; }
+      try {
+        const stand = pipeline.setzeStand(ladePipelineStand(), body.schluessel, {
+          stufe: body.stufe, notiz: body.notiz, wiedervorlage: body.wiedervorlage
+        });
+        speicherePipelineStand(stand);
+        const liste = await baueInteressentenListe();
+        json(res, 200, { ok: true, uebersicht: pipeline.zaehleStufen(liste) });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
       return;
     }
 
@@ -941,12 +1259,25 @@ const server = http.createServer(async (req, res) => {
       const { name } = await leseBody(req);
       let liste = [];
       try { liste = JSON.parse(fs.readFileSync(PROSPECTS_DATEI, 'utf8')); } catch (_e) { /* s.o. */ }
-      const prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
-      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht in prospects.json gefunden' }); return; }
+      let prospect = liste.find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase());
+      // Der Befund aus dem Betriebs-Check macht die Pitch-Seite persoenlich:
+      // dann steht dort, was auf SEINER Seite fehlt, statt der Standardliste.
+      const ausPipeline = (await baueInteressentenListe())
+        .find((e) => e.name.toLowerCase() === String(name || '').toLowerCase());
+      // Anfragen von der Check-Seite stehen nicht in prospects.json - fuer die
+      // bauen wir den Pitch aus dem, was der Wirt selbst angegeben hat.
+      if (!prospect && ausPipeline) {
+        prospect = {
+          name: ausPipeline.name, city: ausPipeline.stadt, category: ausPipeline.kategorie,
+          phone: ausPipeline.telefon, website: ausPipeline.website
+        };
+      }
+      if (!prospect) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
       fs.mkdirSync(PITCH_ORDNER, { recursive: true });
       const datei = pitchDateiname(prospect);
       const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-      fs.writeFileSync(path.join(PITCH_ORDNER, datei), bauePitchHtml(prospect, { datum }));
+      fs.writeFileSync(path.join(PITCH_ORDNER, datei),
+        bauePitchHtml(prospect, { datum, befund: ausPipeline && ausPipeline.befund }));
       json(res, 200, { ok: true, link: '/api/pitch-seite/' + datei });
       return;
     }
@@ -1184,6 +1515,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Echtzeit-Leitung: eine offene Verbindung, durch die der Server
+    // Neuigkeiten schiebt (Rueckrufe, Telefon-Zahlen, neue Anfragen).
+    if (req.method === 'GET' && pfad === '/api/live') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no' // hinter einem Proxy nicht zwischenpuffern
+      });
+      const schreibe = (block) => res.write(block);
+      const abmelden = verteiler.anmelden(schreibe);
+      schreibe('event: bereit\ndata: {"ok":true}\n\n');
+      req.on('close', abmelden);
+      req.on('error', abmelden);
+      return;
+    }
+
     // API: Stille-Alarm - kippen die Zahlen dieser Woche?
     if (req.method === 'GET' && pfad.startsWith('/api/fruehwarnung/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
@@ -1360,9 +1708,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Inbound-Leads fuers Dashboard (neueste zuerst)
+    // Inbound-Leads fuers Dashboard (neueste zuerst). Gezeigt wird nur, was
+    // noch niemand angefasst hat - sobald die Anfrage in der Pipeline auf
+    // "Angerufen" steht, verschwindet der rote Kasten von allein.
     if (req.method === 'GET' && pfad === '/api/leads') {
-      json(res, 200, ladeLeads());
+      const stand = ladePipelineStand();
+      json(res, 200, ladeLeads().filter((l) => {
+        const e = stand[pipeline.schluesselFuer(l.restaurant, l.ort)];
+        return !e || e.stufe === 'neu';
+      }));
       return;
     }
 
@@ -1454,6 +1808,148 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // --- Telefon-Kunden verwalten (auch Betriebe OHNE Kiek mol in) --------
+    // Frueher hiess das: zwei JSON-Dateien im Texteditor bearbeiten. Hier
+    // schreibt die App beide zusammen und prueft, was fehlt.
+    if (req.method === 'GET' && pfad === '/api/telefon-kunden') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, { kunden: tk.listeKunden() });
+      } catch (e) {
+        json(res, 500, { fehler: e.message });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && pfad === '/api/telefon-kunde') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, Object.assign({ ok: true }, tk.speichereEigenenKunden(await leseBody(req))));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && pfad === '/api/telefon-kunde-entfernen') {
+      const tk = require('./lib/telefon-kunden');
+      try {
+        json(res, 200, Object.assign({ ok: true }, tk.entferneNummer((await leseBody(req)).nummer)));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Speisekarte + Stammdaten von der Webseite des Wirts holen.
+    // Fuellt das Formular vor - abtippen entfaellt.
+    if (req.method === 'POST' && pfad === '/api/webseite-lesen') {
+      const { url } = await leseBody(req);
+      const imp = require('../telefon-retter/lib/webseite-import');
+      let ziel = String(url || '').trim();
+      if (!ziel) { json(res, 400, { fehler: 'Bitte eine Webseiten-Adresse angeben.' }); return; }
+      try {
+        const ergebnis = await importiereWebseite(ziel);
+        json(res, 200, Object.assign({ ok: true }, ergebnis));
+      } catch (e) {
+        json(res, 502, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Speisekarte lesen - fuer Betriebe OHNE Webseite.
+    // Entweder Fotos der Papierkarte oder abgetippter/eingefuegter Text.
+    if (req.method === 'POST' && pfad === '/api/speisekarte-lesen') {
+      const koerper = await leseBody(req);
+      if (koerper._zuGross) {
+        json(res, 413, { fehler: 'Die Bilder sind zusammen zu groß. Bitte weniger oder kleinere Fotos.' });
+        return;
+      }
+      const imp = require('../telefon-retter/lib/webseite-import');
+      const text = String(koerper.text || '').trim().slice(0, 60000);
+      const bilder = (Array.isArray(koerper.bilder) ? koerper.bilder : []).slice(0, 6);
+      if (!text && !bilder.length) {
+        json(res, 400, { fehler: 'Bitte Text einfügen oder ein Foto der Karte hochladen.' });
+        return;
+      }
+      if (!process.env.ANTHROPIC_API_KEY) {
+        json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt – erst "node schluessel-einrichten.js" (Schritt 1).' });
+        return;
+      }
+      try {
+        // Bilder kommen als data:-URL aus dem Browser -> in das Format
+        // bringen, das Anthropic erwartet (Typ + reines Base64).
+        const inhalt = [];
+        for (const b of bilder) {
+          const treffer = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/i.exec(String(b || ''));
+          if (!treffer) continue;
+          inhalt.push({
+            type: 'image',
+            source: { type: 'base64', media_type: treffer[1].toLowerCase(), data: treffer[2] }
+          });
+        }
+        if (!inhalt.length && !text) {
+          json(res, 400, { fehler: 'Die Bilder konnten nicht gelesen werden (nur JPG, PNG, WEBP).' });
+          return;
+        }
+        inhalt.push({ type: 'text', text: imp.baueKartenPrompt(text) });
+
+        const antwort = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01', 'content-type': 'application/json'
+          },
+          signal: AbortSignal.timeout(180000),
+          body: JSON.stringify({
+            model: process.env.ANTHROPIC_MODELL || 'claude-sonnet-5',
+            max_tokens: 16000,
+            messages: [{ role: 'user', content: inhalt }]
+          })
+        });
+        if (!antwort.ok) throw new Error('Anthropic ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
+        const daten = await antwort.json();
+        const roh = (daten.content || []).filter((t) => t.type === 'text').map((t) => t.text).join('');
+        json(res, 200, Object.assign({ ok: true }, imp.parseKarte(roh)));
+      } catch (e) {
+        json(res, 502, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Liste der letzten Anrufe - wer, wie lange, was kam dabei raus
+    if (req.method === 'GET' && pfad === '/api/anrufe') {
+      const prot = require('./lib/anruf-protokoll');
+      const grenze = Math.min(50, Math.max(1, parseInt(url.searchParams.get('anzahl'), 10) || 20));
+      const anrufe = [];
+      if (fs.existsSync(TELEFON_LOGS)) {
+        const dateien = fs.readdirSync(TELEFON_LOGS)
+          .filter((f) => f.startsWith('anruf-') && f.endsWith('.log'))
+          .sort().reverse().slice(0, grenze);
+        for (const datei of dateien) {
+          try {
+            const text = fs.readFileSync(path.join(TELEFON_LOGS, datei), 'utf8');
+            anrufe.push(prot.kurzfassung(prot.parseProtokoll(text, datei)));
+          } catch (_e) { /* eine kaputte Datei darf die Liste nicht kippen */ }
+        }
+      }
+      json(res, 200, { anrufe, aufbewahrungTage: parseInt(process.env.LOG_AUFBEWAHRUNG_TAGE || '30', 10) });
+      return;
+    }
+
+    // API: ein einzelnes Gespraech, aufbereitet wie ein Chat-Verlauf
+    if (req.method === 'GET' && pfad.startsWith('/api/anruf/')) {
+      const prot = require('./lib/anruf-protokoll');
+      const name = path.basename(decodeURIComponent(pfad.slice('/api/anruf/'.length)));
+      const datei = path.join(TELEFON_LOGS, name);
+      if (!/^anruf-.+\.log$/.test(name) || !fs.existsSync(datei)) {
+        json(res, 404, { fehler: 'Protokoll nicht gefunden' });
+        return;
+      }
+      json(res, 200, prot.parseProtokoll(fs.readFileSync(datei, 'utf8'), name));
+      return;
+    }
+
     res.writeHead(404);
     res.end('Nicht gefunden');
   } catch (e) {
@@ -1472,6 +1968,61 @@ server.listen(PORT, () => {
     console.log('Monats-Automatik ist AUS (AUTO_REPORT_TAG=0) - Reports nur per Klick.');
   }
 });
+
+// ----------------------------------------------- Echtzeit-Wachhund ----
+// Schaut regelmaessig nach, ob etwas Neues passiert ist, und schiebt es
+// sofort in alle offenen Browser-Fenster. Der Browser fragt nicht mehr -
+// er wird benachrichtigt.
+const WACHE_MS = Math.max(3000, parseInt(process.env.LIVE_INTERVALL_MS, 10) || 8000);
+const wacheStand = {
+  ersterLauf: true,
+  rueckrufIds: new Set(),
+  leadIds: new Set(),
+  statistik: null
+};
+
+async function wachhundLauf() {
+  if (!verteiler.anzahl) return; // niemand schaut hin - keine Arbeit machen
+  const ersterLauf = wacheStand.ersterLauf;
+  wacheStand.ersterLauf = false;
+
+  // 1. Rueckruf-Wuensche: der eiligste Fall ueberhaupt
+  try {
+    const rueckrufe = await ladeRueckrufe();
+    const neue = live.neueEintraege(wacheStand.rueckrufIds, rueckrufe, 'id', ersterLauf);
+    for (const r of neue) {
+      verteiler.sende('rueckruf', {
+        name: r.name || 'Gast', restaurant: r.restaurant || '', anliegen: r.anliegen || '',
+        telefon: r.telefon || '', offen: rueckrufe.length
+      });
+    }
+    if (neue.length) uebersichtCache = { zeit: 0, daten: null };
+  } catch (_e) { /* Datenbank kurz weg - naechster Lauf */ }
+
+  // 2. Telefon-Zahlen: neue Reservierungen/Bestellungen ueber die Leitung
+  try {
+    const jetzt = anrufStatistik();
+    const felder = ['anrufeHeute', 'reservierungen', 'bestellungen', 'rueckrufe'];
+    const mehr = ersterLauf ? null : live.zuwachs(wacheStand.statistik, jetzt, felder);
+    wacheStand.statistik = jetzt;
+    if (mehr) {
+      verteiler.sende('telefon', { zuwachs: mehr, meldung: live.meldungFuerZuwachs(mehr), statistik: jetzt });
+      uebersichtCache = { zeit: 0, daten: null };
+    }
+  } catch (_e) { /* Statistik-Datei gerade in Arbeit */ }
+
+  // 3. Neue Anfragen von der oeffentlichen /check-Seite
+  try {
+    const neue = live.neueEintraege(wacheStand.leadIds, ladeLeads(), 'zeit', ersterLauf);
+    for (const l of neue) {
+      verteiler.sende('lead', { name: l.name || '', betrieb: l.betrieb || '', ort: l.ort || '' });
+    }
+  } catch (_e) { /* keine Leads-Datei */ }
+}
+
+setTimeout(() => wachhundLauf().catch(() => {}), 2000);
+setInterval(() => wachhundLauf().catch(() => {}), WACHE_MS);
+setInterval(() => verteiler.herzschlag(), live.HERZSCHLAG_MS);
 
 // Monats-Automatik: kurz nach dem Start pruefen, danach stuendlich.
 // Laeuft der Rechner am Stichtag nicht, holt der naechste Start den Lauf nach.

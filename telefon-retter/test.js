@@ -294,6 +294,249 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     }
   });
 
+  await test('nummern.json: eigene Stimme und Stufe pro Wirt, Kurzform bleibt gueltig', () => {
+    const fsm = require('fs');
+    const pfad = require('path');
+    const { ladeKunden, ladeNummernZuordnung, restaurantFuerNummer } = require('./lib/kunden');
+    const ordner = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'nummern-'));
+    fsm.writeFileSync(pfad.join(ordner, 'nummern.json'), JSON.stringify({
+      _kommentar: 'wird ignoriert',
+      '+49 4926 111': 'restaurant-a',
+      '+494931222': { restaurant: 'restaurant-b', stimme: 'VOICE_B', stufe: 3 },
+      '+494931333': { restaurant: 'restaurant-c', stufe: 9 },   // ungueltige Stufe
+      '+494931444': { stimme: 'ohne-restaurant' }               // ohne ID -> raus
+    }));
+
+    const k = ladeKunden(ordner);
+    // Nummern normalisiert: Leerzeichen duerfen egal sein
+    assert.strictEqual(k.zuordnung['+494926111'], 'restaurant-a');
+    assert.strictEqual(restaurantFuerNummer(k.zuordnung, '+49 4926 111', null), 'restaurant-a');
+    assert.strictEqual(Object.keys(k.zuordnung).length, 3, 'Eintrag ohne Restaurant-ID fliegt raus');
+
+    // Kurzform: keine eigenen Einstellungen -> .env gilt
+    assert.strictEqual(k.einstellungen['restaurant-a'], undefined);
+    // Langform: Stimme und Stufe uebernommen
+    assert.deepStrictEqual(k.einstellungen['restaurant-b'], { stimme: 'VOICE_B', stufe: 3 });
+    // Unsinnige Stufe wird verworfen, nicht durchgereicht
+    assert.strictEqual(k.einstellungen['restaurant-c'], undefined);
+
+    // Alte Funktion liefert weiterhin nur die Zuordnung
+    assert.deepStrictEqual(ladeNummernZuordnung(ordner), k.zuordnung);
+    // Ohne Datei: leer statt Absturz
+    assert.deepStrictEqual(ladeKunden(fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'leer-'))),
+      { zuordnung: {}, einstellungen: {} });
+  });
+
+  await test('Faehigkeiten: nur Bestellungen ODER nur Reservierungen', () => {
+    const { baueFaehigkeiten, baueTools, baueSystemPrompt } = require('./lib/dialog');
+    const namen = (stufe, kann) => baueTools(stufe, kann).map((t) => t.name);
+
+    // Ohne Angabe: wie bisher - Reservierungen ab Stufe 1, Bestellungen ab 3
+    assert.deepStrictEqual(baueFaehigkeiten(1, null), { reservierung: true, bestellung: false, infos: false });
+    assert.deepStrictEqual(baueFaehigkeiten(3, null), { reservierung: true, bestellung: true, infos: true });
+    assert.ok(namen(1, null).includes('reserviere_tisch'));
+    assert.ok(!namen(1, null).includes('speichere_bestellung'));
+
+    // NUR Bestellungen (Lieferdienst ohne Tische)
+    const nurBestellung = namen(1, ['bestellung']);
+    assert.ok(nurBestellung.includes('speichere_bestellung'), 'Bestell-Werkzeug da');
+    assert.ok(!nurBestellung.includes('reserviere_tisch'), 'kann keine Tische versprechen');
+    assert.ok(!nurBestellung.includes('pruefe_verfuegbarkeit'));
+    assert.ok(nurBestellung.includes('speisekarten_frage'), 'Bestellen braucht die Karte');
+    assert.ok(nurBestellung.includes('rueckruf_wunsch'), 'Rueckruf immer moeglich');
+
+    // NUR Reservierungen (Restaurant ohne Lieferung)
+    const nurResi = namen(3, ['reservierung']);
+    assert.ok(nurResi.includes('reserviere_tisch'));
+    assert.ok(!nurResi.includes('speichere_bestellung'), 'trotz Stufe 3 keine Bestellungen');
+
+    // Beides
+    const beides = namen(1, ['reservierung', 'bestellung']);
+    assert.ok(beides.includes('reserviere_tisch') && beides.includes('speichere_bestellung'));
+
+    // Unsinn: wenigstens Rueckrufe, nie stumm
+    assert.strictEqual(baueFaehigkeiten(1, ['quatsch']).nurRueckruf, true);
+    assert.ok(namen(1, ['quatsch']).includes('rueckruf_wunsch'));
+
+    // Der Prompt darf nichts anbieten, was die Werkzeuge nicht koennen
+    const promptBestellung = baueSystemPrompt({ name: 'Test' }, 1, '+49', ['bestellung']);
+    assert.ok(/Reservierungen nimmst du NICHT auf/.test(promptBestellung), 'sagt klar: keine Tische');
+    assert.ok(/Bestellungen fuer Abholung/.test(promptBestellung));
+    const promptResi = baueSystemPrompt({ name: 'Test' }, 3, '+49', ['reservierung']);
+    assert.ok(/Bestellungen nimmst du NICHT auf/.test(promptResi));
+  });
+
+  await test('Eigene Kunden ohne Kiek mol in: Datei lesen, lokal speichern', async () => {
+    const fsm = require('fs');
+    const pfad = require('path');
+    const { ladeExternenKunden } = require('./lib/externe-kunden');
+    const { baueAblage, liesAlle } = require('./lib/lokale-ablage');
+
+    const ordner = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'extern-'));
+    fsm.writeFileSync(pfad.join(ordner, 'bella.json'), JSON.stringify({
+      name: 'Pizzeria Bella', stadt: 'Emden', telefon: '04921 1', oeffnet: '17:00',
+      schliesst: '22:00', tische: 5, liefergebuehr: 2.5,
+      melden: { sms: '+4915100000' },
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: 8.5, kategorie: 'Pizza', beschreibung: 'Tomate' },
+        { name: '', preis: 9 }   // ohne Name -> raus
+      ]
+    }));
+
+    const e = ladeExternenKunden('bella.json', ordner);
+    assert.strictEqual(e.restaurant.name, 'Pizzeria Bella');
+    assert.strictEqual(e.restaurant.city, 'Emden');
+    assert.strictEqual(e.restaurant.id, 'bella', 'Dateiname ist die Kennung');
+    assert.strictEqual(e.menue.length, 1, 'Gericht ohne Namen fliegt raus');
+    assert.strictEqual(e.menue[0].base_price, 8.5);
+    assert.strictEqual(e.menue[0].menu_categories.name, 'Pizza');
+    assert.strictEqual(e.kunde.melden.sms, '+4915100000');
+
+    // Fehlender Name: laut scheitern, nicht stillschweigend falsch beraten
+    fsm.writeFileSync(pfad.join(ordner, 'ohne.json'), JSON.stringify({ stadt: 'Emden' }));
+    assert.throws(() => ladeExternenKunden('ohne.json', ordner), /"name" fehlt/);
+    assert.throws(() => ladeExternenKunden('gibtsnicht.json', ordner), /nicht gefunden/);
+
+    // Ablage: speichert und liest zurueck, ohne Datenbank
+    const slug = 'test-' + process.pid;
+    const ablage = baueAblage({ slug, name: 'Pizzeria Bella', tische: 5, melden: {} });
+    assert.strictEqual(ablage.extern, true);
+    assert.strictEqual(await ablage.anzahlAktiveTische(), 5);
+
+    const r = await ablage.neueReservierung({
+      guest_name: 'Familie Janssen', guest_phone: '04926 1',
+      reservation_date: '2026-09-01', reservation_time: '19:00:00', party_size: 4
+    });
+    assert.strictEqual(r.ok, true);
+    const amTag = await ablage.reservierungenAm(slug, '2026-09-01');
+    assert.strictEqual(amTag.length, 1);
+    assert.strictEqual(amTag[0].party_size, 4);
+    assert.strictEqual((await ablage.reservierungenAm(slug, '2026-09-02')).length, 0);
+
+    const b = await ablage.neueBestellung({ customer_name: 'Herr Bruns', total: 23.5, items: [{ name: 'Pizza', quantity: 2 }] });
+    assert.strictEqual(b.ok, true);
+    const alle = liesAlle(slug);
+    assert.strictEqual(alle.filter((x) => x.art === 'bestellung').length, 1);
+    assert.strictEqual(alle.filter((x) => x.art === 'reservierung').length, 1);
+
+    // Ohne Meldeweg wird gespeichert, aber ehrlich protokolliert
+    const meldungen = [];
+    const stumm = baueAblage({ slug: slug + '-stumm', name: 'X', melden: {} }, (z) => meldungen.push(z));
+    await stumm.neueReservierung({ guest_name: 'A', reservation_date: '2026-09-01', reservation_time: '19:00', party_size: 2 });
+    await new Promise((r2) => setTimeout(r2, 30));
+    assert.ok(meldungen.some((m) => /NICHT benachrichtigt/.test(m)), 'fehlender Meldeweg fliegt auf');
+
+    // Aufraeumen
+    for (const s of [slug, slug + '-stumm']) {
+      try { fsm.unlinkSync(require('./lib/lokale-ablage').datei(s)); } catch (_e) { /* egal */ }
+    }
+  });
+
+  await test('Webseiten-Import: Text aus HTML, Karten-Links, Antwort geprueft', () => {
+    const {
+      textAusHtml, findeSpeisekartenLinks, parseImportAntwort, slugAusName
+    } = require('./lib/webseite-import');
+
+    // HTML -> Text: Skripte und Stile weg, Zeilen bleiben
+    const html = '<html><head><style>p{color:red}</style><script>var a=(1<2);</script></head>' +
+      '<body><h1>Pizzeria Bella</h1><ul><li>Pizza Margherita 8,50 &euro;</li>' +
+      '<li>Pizza Salami 9,50 &euro;</li></ul><p>Gr&uuml;&szlig;e aus Emden</p></body></html>';
+    const text = textAusHtml(html);
+    assert.ok(!/var a/.test(text), 'Skript-Inhalt ist weg');
+    assert.ok(!/color:red/.test(text), 'Stil-Inhalt ist weg');
+    assert.ok(/Pizza Margherita 8,50 €/.test(text), 'Umlaute und Euro entschluesselt');
+    assert.ok(/Grüße aus Emden/.test(text));
+    assert.ok(text.split('\n').length >= 3, 'Zeilenstruktur bleibt (Gerichte je Zeile)');
+    assert.strictEqual(textAusHtml(null), '');
+
+    // Sonderzeichen und Zahlen-Entities aufloesen, Reste nicht stehenlassen
+    const zeichen = textAusHtml('<p>Emden &middot; 12,50 &#8364; &ndash; t&#228;glich &unbekannt;</p>');
+    assert.ok(/Emden · 12,50 € – täglich/.test(zeichen), 'Entities aufgeloest: ' + zeichen);
+    assert.ok(!/&/.test(zeichen), 'keine halben Entities uebrig');
+
+    // Karten-Links: nur passende, nur eigene Domain
+    const seite = '<a href="/speisekarte">Unsere Karte</a>' +
+      '<a href="https://fremd.de/menu">Lieferando</a>' +
+      '<a href="/impressum">Impressum</a>' +
+      '<a href="mailto:a@b.de">Mail</a>' +
+      '<a href="/bestellen/">Jetzt bestellen</a>';
+    const links = findeSpeisekartenLinks(seite, 'https://bella.de/');
+    assert.ok(links.includes('https://bella.de/speisekarte'));
+    assert.ok(links.includes('https://bella.de/bestellen/'));
+    assert.ok(!links.some((l) => /fremd\.de/.test(l)), 'fremde Domains werden nicht mitgezogen');
+    assert.ok(!links.some((l) => /impressum|mailto/.test(l)));
+
+    // KI-Antwort mit Code-Zaeunen und Muell wird aufgeraeumt
+    const antwort = '```json\n' + JSON.stringify({
+      name: 'Pizzeria Bella', stadt: 'Emden', oeffnet: '7:00', schliesst: 'kaputt',
+      liefergebuehr: '2,50',
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+        { name: 'Pizza Margherita', preis: 9 },            // Doppelte
+        { name: 'Trüffelpizza', preis: 9999 },             // Lesefehler
+        { name: '', preis: 5 },                            // ohne Namen
+        { name: 'Wasser' }                                 // ohne Preis
+      ],
+      unklar: ['Mittagskarte war ein Bild']
+    }) + '\n```';
+    const e = parseImportAntwort(antwort);
+    assert.strictEqual(e.kunde.name, 'Pizzeria Bella');
+    assert.strictEqual(e.kunde.oeffnet, '07:00', 'Uhrzeit auf HH:MM gebracht');
+    assert.strictEqual(e.kunde.schliesst, undefined, 'unbrauchbare Uhrzeit verworfen');
+    assert.strictEqual(e.kunde.liefergebuehr, 2.5, 'Komma-Preis erkannt');
+    assert.strictEqual(e.kunde.speisekarte.length, 3, 'Doppelte und namenlose raus');
+    assert.strictEqual(e.kunde.speisekarte[0].preis, 8.5);
+    assert.strictEqual(e.kunde.speisekarte[1].preis, null, 'absurder Preis wird null, Gericht bleibt');
+    assert.ok(e.unklar.some((u) => /Mittagskarte/.test(u)), 'Hinweis der KI bleibt erhalten');
+    assert.ok(e.unklar.some((u) => /ohne erkennbaren Preis/.test(u)), 'fehlende Preise werden gemeldet');
+
+    // Ohne Name / ohne JSON: laut scheitern
+    assert.throws(() => parseImportAntwort('Tut mir leid, ich kann das nicht.'), /kein JSON/);
+    assert.throws(() => parseImportAntwort('{"speisekarte":[]}'), /Kein Betriebsname/);
+
+    // Leere Karte wird als Problem benannt, nicht verschwiegen
+    const leer = parseImportAntwort('{"name":"X","speisekarte":[]}');
+    assert.ok(leer.unklar.some((u) => /Keine Speisekarte/.test(u)));
+
+    assert.strictEqual(slugAusName('Pizzeria Bella Vista'), 'pizzeria-bella-vista');
+    assert.strictEqual(slugAusName('Café Löwe & Söhne'), 'cafe-loewe-soehne');
+    assert.strictEqual(slugAusName(''), 'kunde');
+  });
+
+  await test('Speisekarte ohne Webseite: Foto/Text-Antwort wird geprueft', () => {
+    const { baueKartenPrompt, parseKarte, sauberGerichte, preisWert } = require('./lib/webseite-import');
+
+    // Der Auftrag unterscheidet Foto und Text, verbietet aber immer das Raten
+    assert.ok(/Bildern ist eine Speisekarte/.test(baueKartenPrompt('')), 'ohne Text: Foto-Auftrag');
+    assert.ok(/Text einer Speisekarte/.test(baueKartenPrompt('Pizza 8,50')), 'mit Text: Text-Auftrag');
+    assert.ok(/Erfinde NICHTS/.test(baueKartenPrompt('')));
+    assert.ok(/NICHT schaetzen/.test(baueKartenPrompt('')), 'unleserliche Preise nicht raten');
+
+    const e = parseKarte(JSON.stringify({
+      speisekarte: [
+        { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+        { name: 'Pizza Margherita', preis: 9 },   // Doppelte
+        { name: 'Handschrift unlesbar' },          // ohne Preis
+        { name: '', preis: 4 }                     // ohne Namen
+      ],
+      unklar: ['Zweite Seite war unscharf']
+    }));
+    assert.strictEqual(e.speisekarte.length, 2, 'Doppelte und namenlose raus');
+    assert.strictEqual(e.speisekarte[0].preis, 8.5);
+    assert.strictEqual(e.speisekarte[1].preis, null, 'Gericht bleibt, Preis offen');
+    assert.ok(e.unklar.some((u) => /unscharf/.test(u)), 'Hinweis der KI bleibt');
+    assert.ok(e.unklar.some((u) => /ohne erkennbaren Preis/.test(u)), 'fehlender Preis wird gemeldet');
+
+    // Nichts erkannt: ehrlich sagen statt leere Karte durchwinken
+    assert.ok(parseKarte('{"speisekarte":[]}').unklar.some((u) => /Keine Gerichte erkannt/.test(u)));
+
+    // Gemeinsame Reinigung: Grenze und Preis-Pruefung
+    assert.strictEqual(sauberGerichte(Array.from({ length: 90 }, (_v, i) => ({ name: 'G' + i })), 80).length, 80);
+    assert.strictEqual(preisWert('12,90'), 12.9);
+    assert.strictEqual(preisWert('9999'), null, 'absurder Preis wird verworfen');
+    assert.strictEqual(preisWert(null), null);
+  });
+
   await test('Twilio-Region: Irland-Konto spricht mit dem Irland-Server', () => {
     const auth = require('./lib/twilio-auth');
     const alt = { sid: process.env.TWILIO_ACCOUNT_SID, region: process.env.TWILIO_REGION };

@@ -88,6 +88,12 @@ class AnrufSitzung {
         }
         this.restaurant = kontext.restaurant;
         this.menue = kontext.menue;
+        // Eigene Stimme, Stufe und Faehigkeiten pro Gastronom (nummern.json)
+        if (kontext.stimme) this.stimme = kontext.stimme;
+        if (kontext.stufe) this.stufe = kontext.stufe;
+        if (kontext.kann) this.kann = kontext.kann;
+        // Betrieb ohne Kiek mol in: eigene Ablage statt Datenbank
+        if (kontext.datenquelle) this.datenquelle = kontext.datenquelle;
       }
 
       clearTimeout(this.startWaechter);
@@ -102,6 +108,7 @@ class AnrufSitzung {
         stufe: this.stufe,
         anrufer: this.anrufer,
         datenquelle: this.datenquelle,
+        kann: this.kann,
         log: (z) => this.log(z)
       });
 
@@ -211,8 +218,10 @@ class AnrufSitzung {
   async sprichJetzt(text, optionen) {
     if (!text || !this.streamSid) return;
     const cache = optionen && optionen.cache;
+    // Stimme dieses Kunden (aus nummern.json), sonst die Standard-Stimme
+    const stimmOptionen = this.stimme ? { stimme: this.stimme } : undefined;
     const audios = inSaetze(text).map((s) => {
-      const p = cache ? sprecheGecached(s) : spreche(s);
+      const p = cache ? sprecheGecached(s, stimmOptionen) : spreche(s, stimmOptionen);
       p.catch(() => {}); // falls wir per Barge-in abbrechen: Fehler gilt als behandelt
       return p;
     });

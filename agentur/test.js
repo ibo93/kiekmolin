@@ -490,4 +490,429 @@ test('Speisekarten-Doktor: schweigt bei duenner Datenlage, nennt aber Struktur-F
   assert.ok(lang.befunde.some((b) => b.typ === 'zu-lang'));
 });
 
+test('Echtzeit: Verteiler schickt an alle und wirft tote Verbindungen raus', () => {
+  const { Verteiler } = require('./lib/live');
+  const v = new Verteiler();
+  const empfangen = [];
+  const ab = v.anmelden((block) => empfangen.push(block));
+  v.anmelden(() => { throw new Error('Browser zugeklappt'); });
+  assert.strictEqual(v.anzahl, 2);
+
+  const uebrig = v.sende('rueckruf', { name: 'Frau Ubben' });
+  assert.strictEqual(uebrig, 1, 'kaputte Verbindung fliegt raus, Server laeuft weiter');
+  assert.ok(empfangen[0].startsWith('event: rueckruf\n'), 'Ereignis-Name im Block');
+  assert.ok(empfangen[0].includes('"name":"Frau Ubben"'));
+  assert.ok(empfangen[0].endsWith('\n\n'), 'Block sauber abgeschlossen');
+
+  v.herzschlag();
+  assert.ok(empfangen[1].startsWith(':'), 'Herzschlag ist ein Kommentar, kein Ereignis');
+  ab();
+  assert.strictEqual(v.anzahl, 0, 'Abmelden funktioniert');
+  assert.strictEqual(v.sende('test', {}), 0, 'ohne Zuhoerer passiert nichts');
+});
+
+test('Echtzeit: beim ersten Blick gibt es keinen Alarm fuer alte Eintraege', () => {
+  const { neueEintraege, zuwachs, meldungFuerZuwachs } = require('./lib/live');
+  const bekannt = new Set();
+  const liste = [{ id: 'a' }, { id: 'b' }];
+
+  // Erster Lauf: alles merken, nichts melden - sonst schlaegt der Start Alarm
+  assert.deepStrictEqual(neueEintraege(bekannt, liste, 'id', true), []);
+  assert.strictEqual(bekannt.size, 2);
+  // Danach zaehlt nur noch, was wirklich dazukommt
+  assert.deepStrictEqual(neueEintraege(bekannt, liste.concat([{ id: 'c' }]), 'id', false), [{ id: 'c' }]);
+  assert.deepStrictEqual(neueEintraege(bekannt, liste, 'id', false), [], 'Bekanntes meldet sich nicht nochmal');
+  assert.deepStrictEqual(neueEintraege(bekannt, [{ kein: 'schluessel' }], 'id', false), [], 'ohne ID kein Ereignis');
+
+  // Zahlen: nur Zuwachs melden, damit eine geleerte Datei keinen Alarm ausloest
+  assert.deepStrictEqual(zuwachs({ reservierungen: 3 }, { reservierungen: 5 }, ['reservierungen']), { reservierungen: 2 });
+  assert.strictEqual(zuwachs({ reservierungen: 5 }, { reservierungen: 2 }, ['reservierungen']), null, 'Rueckgang ist kein Ereignis');
+  assert.strictEqual(zuwachs({ reservierungen: 5 }, { reservierungen: 5 }, ['reservierungen']), null);
+  assert.strictEqual(zuwachs(null, { reservierungen: 2 }, ['reservierungen']).reservierungen, 2);
+
+  assert.strictEqual(meldungFuerZuwachs({ reservierungen: 1 }), '1 neue Reservierung');
+  assert.strictEqual(meldungFuerZuwachs({ reservierungen: 2, bestellungen: 1 }), '2 neue Reservierungen · 1 neue Bestellung');
+  assert.strictEqual(meldungFuerZuwachs({ anrufeHeute: 1 }), '1 neuer Anruf', 'ohne Ergebnis wenigstens der Anruf');
+});
+
+test('Anruf-Protokoll: aus Log-Zeilen wird ein lesbares Gespraech', () => {
+  const { parseProtokoll, kurzfassung, dauerText, nummerKuerzen } = require('./lib/anruf-protokoll');
+  const log = [
+    '2026-08-14T09:12:00.000Z Anruf gestartet von +4915112345678 fuer Greetsieler Boerse',
+    '2026-08-14T09:12:06.000Z GAST: Guten Tag, ich haette gern einen Tisch fuer vier',
+    '2026-08-14T09:12:08.000Z AGENT: Sehr gerne! Fuer welchen Tag darf ich reservieren?',
+    '2026-08-14T09:12:14.000Z GAST: Samstag um sieben',
+    '2026-08-14T09:12:20.000Z Werkzeug reserviere_tisch: ok',
+    '2026-08-14T09:12:22.000Z AGENT: Ihr Tisch ist reserviert. Bis Samstag!',
+    '2026-08-14T09:12:30.000Z Anruf beendet (Twilio stop)'
+  ].join('\n');
+
+  const p = parseProtokoll(log, 'anruf-test.log');
+  assert.strictEqual(p.anrufer, '+4915112345678');
+  assert.strictEqual(p.restaurant, 'Greetsieler Boerse');
+  assert.strictEqual(p.dauerSekunden, 30);
+  assert.strictEqual(p.saetzeGast, 2);
+  assert.strictEqual(p.saetzeAgent, 2);
+  assert.strictEqual(p.ergebnis, 'Reservierung', 'Ergebnis aus dem Protokoll gelesen, nicht geraten');
+  assert.strictEqual(p.hatFehler, false);
+
+  const gast = p.zeilen.filter((z) => z.wer === 'gast');
+  assert.strictEqual(gast[0].text, 'Guten Tag, ich haette gern einen Tisch fuer vier', 'Rollen-Praefix entfernt');
+  assert.ok(p.zeilen.some((z) => z.wer === 'system'), 'technische Zeilen bleiben erhalten');
+
+  // Kurzfassung fuer die Liste enthaelt keinen Gespraechsverlauf
+  assert.strictEqual(kurzfassung(p).zeilen, undefined);
+  assert.strictEqual(kurzfassung(p).ergebnis, 'Reservierung');
+
+  assert.strictEqual(dauerText(45), '45 Sek.');
+  assert.strictEqual(dauerText(95), '1:35 Min.');
+  assert.strictEqual(dauerText(null), 'unbekannt');
+  assert.strictEqual(nummerKuerzen('+4915112345678'), '+491…678', 'Nummer gekuerzt (Datenschutz)');
+});
+
+test('Anruf-Protokoll: ehrlich bei Fehlern und stummen Anrufen', () => {
+  const { parseProtokoll } = require('./lib/anruf-protokoll');
+
+  const stumm = parseProtokoll([
+    '2026-08-14T09:00:00.000Z Anruf gestartet von unbekannt fuer La Piazza',
+    '2026-08-14T09:00:04.000Z Anruf beendet (Twilio stop)'
+  ].join('\n'));
+  assert.strictEqual(stumm.ergebnis, 'Niemand hat gesprochen');
+  assert.strictEqual(stumm.saetzeGast, 0);
+
+  const kaputt = parseProtokoll([
+    '2026-08-14T09:00:00.000Z Anruf gestartet von +49123 fuer La Piazza',
+    '2026-08-14T09:00:03.000Z GAST: Hallo',
+    '2026-08-14T09:00:05.000Z TTS-Fehler: ElevenLabs 401'
+  ].join('\n'));
+  assert.strictEqual(kaputt.hatFehler, true);
+  assert.strictEqual(kaputt.ergebnis, 'Technischer Fehler');
+
+  // Leer und Muell duerfen nicht knallen
+  assert.strictEqual(parseProtokoll('').zeilen.length, 0);
+  assert.strictEqual(parseProtokoll('kein Zeitstempel hier').zeilen.length, 0);
+  assert.strictEqual(parseProtokoll(null).dauerSekunden, null);
+});
+
+test('Telefon-Kunden: anlegen schreibt beide Dateien und prueft die Eingaben', () => {
+  const fsm = require('fs');
+  const pfad = require('path');
+  const tk = require('./lib/telefon-kunden');
+  const basis = fsm.mkdtempSync(pfad.join(require('os').tmpdir(), 'tk-'));
+
+  // Nummern normalisieren: deutsche Schreibweise wird zu +49
+  assert.strictEqual(tk.normalisiereNummer('04921 123456'), '+494921123456');
+  assert.strictEqual(tk.normalisiereNummer('+49 4921 123456'), '+494921123456');
+  assert.strictEqual(tk.normalisiereNummer('0049 4921 123'), '+494921123');
+  assert.strictEqual(tk.normalisiereNummer(''), '');
+
+  // Pflichtangaben werden im Klartext eingefordert
+  assert.throws(() => tk.speichereEigenenKunden({ nummer: '+4949211' }, basis), /Name des Betriebs fehlt/);
+  assert.throws(() => tk.speichereEigenenKunden({ name: 'X' }, basis), /Twilio-Nummer fehlt/);
+  assert.throws(() => tk.speichereEigenenKunden({ name: 'X', nummer: '+4949211234', kann: [] }, basis),
+    /Reservierungen, Bestellungen oder beides/);
+
+  const e = tk.speichereEigenenKunden({
+    nummer: '04921 123456', name: 'Pizzeria Bella Vista', stadt: 'Emden',
+    oeffnet: '7:00', schliesst: 'quatsch', tische: '12', sms: '015112345678',
+    kann: ['bestellung', 'unsinn'],
+    speisekarte: [
+      { name: 'Pizza Margherita', preis: '8,50', kategorie: 'Pizza' },
+      { name: '', preis: 5 }
+    ]
+  }, basis);
+  assert.strictEqual(e.slug, 'pizzeria-bella-vista');
+  assert.strictEqual(e.nummer, '+494921123456');
+  assert.strictEqual(e.gerichte, 1, 'Gericht ohne Namen faellt raus');
+  assert.strictEqual(e.warnung, null, 'SMS hinterlegt -> keine Warnung');
+
+  const kunde = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'pizzeria-bella-vista.json'), 'utf8'));
+  assert.strictEqual(kunde.oeffnet, '07:00', 'Uhrzeit auf HH:MM gebracht');
+  assert.strictEqual(kunde.schliesst, undefined, 'unbrauchbare Uhrzeit verworfen');
+  assert.strictEqual(kunde.tische, 12);
+  assert.strictEqual(kunde.melden.sms, '+4915112345678', 'Handynummer normalisiert');
+  assert.strictEqual(kunde.speisekarte[0].preis, 8.5, 'Komma-Preis als Zahl');
+
+  const nummern = JSON.parse(fsm.readFileSync(pfad.join(basis, 'nummern.json'), 'utf8'));
+  assert.deepStrictEqual(nummern['+494921123456'], {
+    datei: 'kunden/pizzeria-bella-vista.json', kann: ['bestellung']
+  }, 'unsinnige Faehigkeit verworfen');
+
+  // Liste zeigt den Kunden mit Gerichte-Zahl
+  const liste = tk.listeKunden(basis);
+  assert.strictEqual(liste.length, 1);
+  assert.strictEqual(liste[0].name, 'Pizzeria Bella Vista');
+  assert.strictEqual(liste[0].art, 'eigen');
+  assert.strictEqual(liste[0].gerichte, 1);
+  assert.strictEqual(liste[0].problem, null);
+
+  // Ohne Meldeweg: gespeichert, aber deutlich gewarnt
+  const ohne = tk.speichereEigenenKunden({
+    nummer: '+494921999999', name: 'Ohne Meldung', kann: ['reservierung']
+  }, basis);
+  assert.ok(/erfährt der Wirt nichts von seinen Anrufen/.test(ohne.warnung), 'Warnung: ' + ohne.warnung);
+  assert.ok(/Kein Meldeweg/.test(tk.listeKunden(basis).find((k) => k.nummer === '+494921999999').problem));
+
+  // Kommentare und fremde Eintraege bleiben beim Schreiben erhalten
+  tk.schreibeNummern(basis, Object.assign(tk.liesNummern(basis), {
+    _hinweis: 'Notiz', '+494926111': 'kiekmolin-restaurant-id'
+  }));
+  tk.speichereEigenenKunden({ nummer: '+494921000000', name: 'Dritter', kann: ['reservierung'] }, basis);
+  const danach = tk.liesNummern(basis);
+  assert.strictEqual(danach._hinweis, 'Notiz', 'Notizen ueberleben');
+  assert.strictEqual(danach['+494926111'], 'kiekmolin-restaurant-id', 'Kiek-mol-in-Kunde bleibt');
+
+  // Kiek-mol-in-Eintraege erscheinen in der Liste, Kommentare nicht
+  const alle = tk.listeKunden(basis);
+  assert.ok(alle.some((k) => k.nummer === '+494926111' && k.art === 'kiekmolin'));
+  assert.ok(!alle.some((k) => String(k.nummer).startsWith('_')));
+
+  // Entfernen loescht nur die Zuordnung
+  tk.entferneNummer('+494921999999', basis);
+  assert.ok(!tk.liesNummern(basis)['+494921999999']);
+  assert.ok(fsm.existsSync(pfad.join(basis, 'kunden', 'ohne-meldung.json')), 'Kundendatei bleibt liegen');
+  assert.throws(() => tk.entferneNummer('+490000', basis), /nicht eingetragen/);
+});
+
+test('Pipeline: Stufe, Notiz und Wiedervorlage werden gemerkt', () => {
+  const pl = require('./lib/pipeline');
+
+  // Kaputte oder fehlende Datei darf die Pipeline nie umwerfen
+  assert.deepStrictEqual(pl.leseStand('das ist kein JSON'), {});
+  assert.deepStrictEqual(pl.leseStand(''), {});
+  assert.deepStrictEqual(pl.leseStand('[1,2]'), {});
+
+  // Derselbe Betrieb muss auch nach einem neuen Import denselben Schluessel haben
+  assert.strictEqual(pl.schluesselFuer('Café Löwe', 'Norden'), pl.schluesselFuer('cafe loewe', 'norden'));
+  assert.notStrictEqual(pl.schluesselFuer('Pizzeria Roma', 'Norden'), pl.schluesselFuer('Pizzeria Roma', 'Emden'));
+
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+  let stand = pl.setzeStand({}, 'pizzeria-roma--norden', { stufe: 'kontaktiert', notiz: 'Chef ab 15 Uhr' }, { jetzt });
+  assert.strictEqual(stand['pizzeria-roma--norden'].stufe, 'kontaktiert');
+  assert.strictEqual(stand['pizzeria-roma--norden'].verlauf.length, 1, 'Stufenwechsel steht im Verlauf');
+
+  // Nur die Notiz aendern: Stufe bleibt, Verlauf waechst nicht
+  stand = pl.setzeStand(stand, 'pizzeria-roma--norden', { notiz: 'doch erst morgen' }, { jetzt });
+  assert.strictEqual(stand['pizzeria-roma--norden'].stufe, 'kontaktiert');
+  assert.strictEqual(stand['pizzeria-roma--norden'].verlauf.length, 1);
+
+  // Unsinnige Eingaben werden abgewiesen bzw. verworfen
+  assert.throws(() => pl.setzeStand(stand, 'x', { stufe: 'quatsch' }), /Unbekannte Stufe/);
+  assert.throws(() => pl.setzeStand(stand, '', { stufe: 'neu' }), /Kein Schluessel/);
+  assert.strictEqual(pl.datumOderLeer('morgen'), '');
+  assert.strictEqual(pl.datumOderLeer('2026-08-20'), '2026-08-20');
+
+  // Nach dem Speichern und Wiederlesen muss alles noch da sein
+  const wieder = pl.leseStand(JSON.stringify(stand));
+  assert.strictEqual(wieder['pizzeria-roma--norden'].notiz, 'doch erst morgen');
+});
+
+test('Pipeline: faellige Wiedervorlagen und eigene Anfragen stehen oben', () => {
+  const pl = require('./lib/pipeline');
+  const heute = new Date(2026, 7, 14);
+
+  const prospects = [
+    { name: 'Pizzeria Roma', city: 'Norden', phone: '04931 1', website: '', category: 'pizzeria', street: 'Weg 1' },
+    { name: 'Gasthaus Deich', city: 'Norden', phone: '', website: 'https://deich.de', category: 'restaurant' },
+    { name: 'Kalte Kneipe', city: 'Emden', phone: '', website: 'https://kneipe.de', category: 'kneipe' }
+  ];
+  const leads = [
+    { restaurant: 'Gasthaus Deich', ort: 'Norden', kontakt: '04931 999', name: 'Herr Janssen', nachricht: 'Bitte melden', zeit: '2026-08-13T10:00:00.000Z' }
+  ];
+  const stand = {
+    [pl.schluesselFuer('Pizzeria Roma', 'Norden')]: { stufe: 'kontaktiert', notiz: 'nochmal probieren', wiedervorlage: '2026-08-10' },
+    [pl.schluesselFuer('Kalte Kneipe', 'Emden')]: { stufe: 'kein-interesse', notiz: '', wiedervorlage: '' }
+  };
+
+  const liste = pl.baueListe({ prospects, leads, kundenNamen: [], stand }, { heute });
+
+  // Verzeichnis-Eintrag und eigene Anfrage sind EIN Betrieb, nicht zwei
+  assert.strictEqual(liste.length, 3, 'Doppelter Betrieb wird zusammengefuehrt');
+  const deich = liste.find((e) => e.name === 'Gasthaus Deich');
+  assert.strictEqual(deich.quelle, 'anfrage', 'Die eigene Anfrage gewinnt');
+  assert.strictEqual(deich.telefon, '04931 999');
+  assert.strictEqual(deich.website, 'https://deich.de', 'Website aus dem Verzeichnis bleibt erhalten');
+
+  // Reihenfolge: faellige Wiedervorlage zuerst, dann die neue Anfrage,
+  // Erledigtes ganz ans Ende
+  assert.strictEqual(liste[0].name, 'Pizzeria Roma');
+  assert.strictEqual(liste[0].faellig, true);
+  assert.strictEqual(liste[1].name, 'Gasthaus Deich');
+  assert.strictEqual(liste[2].name, 'Kalte Kneipe');
+  assert.strictEqual(liste[2].erledigt, true);
+  assert.strictEqual(liste[2].faellig, false, 'Erledigtes wird nie faellig');
+
+  // Bestandskunden tauchen gar nicht erst auf
+  const ohnePartner = pl.baueListe({ prospects, leads, kundenNamen: ['Pizzeria Roma'], stand }, { heute });
+  assert.ok(!ohnePartner.some((e) => e.name === 'Pizzeria Roma'));
+
+  // Zaehler und Digest-Satz
+  const u = pl.zaehleStufen(liste);
+  assert.strictEqual(u.gesamt, 3);
+  assert.strictEqual(u.faellig, 1);
+  assert.strictEqual(u.zaehler['kein-interesse'], 1);
+  assert.ok(/2 offene Interessenten/.test(pl.satzFuerDigest(liste)), pl.satzFuerDigest(liste));
+  assert.ok(/Pipeline ist leer/.test(pl.satzFuerDigest([])));
+});
+
+
+test('Betriebs-Check: liest die Website und findet die echten Luecken', () => {
+  const lc = require('./lib/lead-check');
+
+  // Eine typische alte Gastro-Seite: Karte nur als PDF, keine Zeiten,
+  // keine Reservierung, nicht fuers Handy, seit Jahren nicht angefasst.
+  const alt = [
+    '<html><head><title>Pizzeria Roma</title></head><body>',
+    '<h1>Herzlich willkommen</h1>',
+    '<p>Unsere Speisekarte: <a href="/karte.pdf">hier herunterladen</a></p>',
+    '<p>Telefon 04931 12345</p>',
+    '<p>Copyright 2019</p>',
+    '</body></html>'
+  ].join('\n');
+  const p1 = lc.pruefeHtml(alt, { url: 'http://roma.de', jahr: 2026 });
+  const ids = p1.map((x) => x.id);
+  assert.ok(ids.includes('karte-pdf'), 'PDF-Karte erkannt: ' + ids.join(','));
+  assert.ok(ids.includes('zeiten-fehlt'));
+  assert.ok(ids.includes('reservierung-fehlt'));
+  assert.ok(ids.includes('tel-nicht-klickbar'));
+  assert.ok(ids.includes('kein-schema'));
+  assert.ok(ids.includes('nicht-mobil'));
+  assert.ok(ids.includes('veraltet'), 'alte Jahreszahl faellt auf');
+  assert.ok(ids.includes('kein-https'), 'http:// wird bemaengelt');
+
+  // Eine gut gemachte Seite darf NICHT schlechtgeredet werden - sonst
+  // fliegt man im Gespraech sofort auf.
+  const gut = [
+    '<html><head><meta name="viewport" content="width=device-width">',
+    '<script type="application/ld+json">{"@type":"Restaurant"}</script></head><body>',
+    '<h2>Speisekarte</h2><p>Pizza Margherita 9,50 EUR</p>',
+    '<p>Öffnungszeiten: Mo - So 11 bis 22 Uhr</p>',
+    '<a href="tel:+4949311234">Anrufen</a>',
+    '<a href="/reservieren">Tisch reservieren</a>',
+    '<a href="https://www.instagram.com/roma">Instagram</a>',
+    '<p>Jetzt bestellen</p><p>Stand 2026</p></body></html>'
+  ].join('\n');
+  const p2 = lc.pruefeHtml(gut, { url: 'https://roma.de', jahr: 2026 });
+  const luecken2 = p2.filter((x) => x.art === 'luecke').map((x) => x.id);
+  assert.deepStrictEqual(luecken2, [], 'gute Seite hat keine Luecken: ' + luecken2.join(','));
+  assert.ok(p2.some((x) => x.id === 'karte-da' && x.art === 'gut'));
+});
+
+test('Betriebs-Check: Befund nennt den Satz fuers Telefonat', () => {
+  const lc = require('./lib/lead-check');
+  const jetzt = new Date(2026, 7, 14);
+
+  // Ohne Website ist das der groesste Hebel - und muss der Aufhaenger sein
+  const ohne = lc.baueBefund({ name: 'Imbiss Nord', city: 'Norden', website: '' }, {}, { jetzt });
+  assert.strictEqual(ohne.punkte[0].id, 'keine-website');
+  assert.strictEqual(ohne.ampel, 'gross', 'gar keine Website ist die groesste Luecke, auch wenn es nur eine ist');
+  assert.ok(/eine eigene Website habe ich nicht gefunden/.test(ohne.aufhaenger), ohne.aufhaenger);
+
+  // Mit Website: die PDF-Karte schlaegt die kleineren Punkte
+  const mit = lc.baueBefund(
+    { name: 'Pizzeria Roma', city: 'Norden', website: 'https://roma.de' },
+    {
+      webseite: { status: 'gelesen', punkte: lc.pruefeHtml('<html><body>Speisekarte <a href="k.pdf">PDF</a></body></html>', { url: 'https://roma.de', jahr: 2026 }) },
+      google: { status: 'nicht-gefunden', vor_dir: ['Pizzeria Bella', 'Da Vinci'] },
+      ki: { status: 'nicht-gefunden', empfohlen: ['Pizzeria Bella'] }
+    }, { jetzt, frage: 'pizzeria norden' });
+  assert.ok(/PDF/.test(mit.aufhaenger), mit.aufhaenger);
+  assert.strictEqual(mit.ampel, 'gross');
+  assert.ok(mit.punkte.some((x) => x.id === 'ki-weg'));
+  assert.ok(mit.punkte.some((x) => x.id === 'google-weg'));
+
+  // Fehlender Schluessel wird ehrlich als "ungeprueft" ausgewiesen,
+  // nicht als Erfolg oder Misserfolg geraten
+  const offen = lc.baueBefund({ name: 'X', city: 'Y', website: '' },
+    { google: { status: 'manuell', detail: 'SERPER_API_KEY nicht gesetzt' } }, { jetzt });
+  const g = offen.punkte.find((x) => x.id === 'google-offen');
+  assert.ok(g && g.art === 'offen', 'ohne Schluessel wird nichts behauptet');
+
+  // Die Pitch-Seite nimmt den echten Befund statt der Standardsaetze
+  const { pitchLuecken } = require('./lib/pitch');
+  const echte = pitchLuecken({ name: 'Pizzeria Roma', city: 'Norden', website: 'https://roma.de' }, mit);
+  assert.ok(echte.some((l) => /PDF/.test(l.titel)), 'Pitch nutzt den Befund');
+  const standard = pitchLuecken({ name: 'Pizzeria Roma', city: 'Norden', website: '' }, null);
+  assert.ok(standard.some((l) => /Keine eigene Website/.test(l.titel)), 'ohne Befund die alte Liste');
+});
+
+
+test('Probeanruf: Demo-Kunde bekommt seinen Namen, seine Karte und ein Ablaufdatum', () => {
+  const dk = require('./lib/demo-kunde');
+  const jetzt = new Date(2026, 7, 14, 10, 0);
+
+  const mitKarte = dk.baueDemoKunde(
+    { name: 'Café Löwe', stadt: 'Norden', schluessel: 'cafe-loewe--norden' },
+    [{ name: 'Apfelkuchen', preis: 3.5, kategorie: 'Kuchen' }, { name: '', preis: 2 }],
+    { jetzt });
+  assert.strictEqual(mitKarte.kunde.name, 'Café Löwe', 'sein Name, nicht "Beispiel-Restaurant"');
+  assert.strictEqual(mitKarte.gerichte, 1, 'leere Zeilen fliegen raus');
+  assert.strictEqual(mitKarte.slug, 'demo-cafe-loewe');
+  assert.deepStrictEqual(mitKarte.kann, ['reservierung', 'bestellung']);
+  assert.deepStrictEqual(mitKarte.kunde.melden, {}, 'eine Demo meldet nichts an den Wirt');
+  assert.strictEqual(mitKarte.kunde.demoBis, new Date(jetzt.getTime() + 48 * 3600 * 1000).toISOString());
+
+  // Ohne Speisekarte darf der Agent keine Bestellungen versprechen -
+  // das fiele im Probeanruf sofort auf, und zwar vor dem Kunden.
+  const ohne = dk.baueDemoKunde({ name: 'Imbiss Nord', stadt: 'Norden' }, [], { jetzt });
+  assert.deepStrictEqual(ohne.kann, ['reservierung']);
+  assert.ok(/Reservierungen an/.test(dk.ansageFuerIbo(ohne.kunde, '+494931123', 0)));
+  assert.ok(/Ihre Karte/.test(dk.ansageFuerIbo(mitKarte.kunde, '+494931123', 1)));
+
+  assert.throws(() => dk.baueDemoKunde({ name: '' }, [], { jetzt }), /Betriebsnamen/);
+
+  // Ablauf: nach 48 Stunden ist Schluss, sonst nimmt eine vergessene Demo
+  // naechsten Monat noch Anrufe entgegen
+  assert.strictEqual(dk.istAbgelaufen(mitKarte.kunde, jetzt), false);
+  assert.strictEqual(dk.istAbgelaufen(mitKarte.kunde, new Date(2026, 7, 17)), true);
+  assert.strictEqual(dk.istAbgelaufen({ name: 'Echter Kunde' }, jetzt), false, 'echte Kunden laufen nie ab');
+
+  // Nummer am Telefon vorlesbar machen
+  assert.strictEqual(dk.lesbareNummer('+494931123456'), '04931123456');
+});
+
+test('Probeanruf: eine Demo darf niemals die Nummer eines echten Kunden kapern', () => {
+  const dk = require('./lib/demo-kunde');
+  const n = '+494931999999';
+
+  assert.strictEqual(dk.nummerFrei(n, {}).ok, true, 'freie Nummer ist in Ordnung');
+  assert.strictEqual(dk.nummerFrei(n, { [n]: { datei: 'kunden/demo-alt.json' } }).ok, true, 'alte Demo darf ersetzt werden');
+
+  const echt = dk.nummerFrei(n, { [n]: { datei: 'kunden/bella-vista.json' } });
+  assert.strictEqual(echt.ok, false, 'echter eigener Kunde ist tabu');
+  assert.ok(/echter Kunde/.test(echt.text), echt.text);
+
+  const kiekmolin = dk.nummerFrei(n, { [n]: '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad' });
+  assert.strictEqual(kiekmolin.ok, false, 'Kiek-mol-in-Kunde ist genauso tabu');
+});
+
+test('Probeanruf: Demo-Kunde wird als Demo gespeichert und ohne Meldeweg-Warnung', () => {
+  const tk = require('./lib/telefon-kunden');
+  const fsm = require('fs');
+  const os = require('os');
+  const pfad = require('path');
+  const basis = fsm.mkdtempSync(pfad.join(os.tmpdir(), 'demo-test-'));
+
+  const r = tk.speichereEigenenKunden({
+    nummer: '+494931000111', slug: 'demo-pizzeria-roma', name: 'Pizzeria Roma',
+    stadt: 'Norden', kann: ['reservierung', 'bestellung'],
+    speisekarte: [{ name: 'Margherita', preis: 8.5 }],
+    demo: true, demoBis: '2026-08-16T10:00:00.000Z', demoFuer: 'pizzeria-roma--norden'
+  }, basis);
+
+  assert.strictEqual(r.warnung, null, 'bei einer Demo ist "keine Meldung" gewollt');
+  const gespeichert = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'demo-pizzeria-roma.json'), 'utf8'));
+  assert.strictEqual(gespeichert.demo, true, 'Demo-Kennzeichen ueberlebt das Speichern');
+  assert.strictEqual(gespeichert.demoBis, '2026-08-16T10:00:00.000Z');
+
+  // Ein echter Kunde bleibt ungekennzeichnet und wird weiter gewarnt
+  const echt = tk.speichereEigenenKunden({
+    nummer: '+494931000222', name: 'Echt GmbH', kann: ['reservierung']
+  }, basis);
+  assert.ok(/erfährt der Wirt nichts/.test(echt.warnung));
+  const echtDatei = JSON.parse(fsm.readFileSync(pfad.join(basis, 'kunden', 'echt-gmbh.json'), 'utf8'));
+  assert.strictEqual(echtDatei.demo, undefined);
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

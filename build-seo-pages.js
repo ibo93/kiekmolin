@@ -2131,6 +2131,10 @@ function writeSitemap(generated) {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
+  // Wirte-Seite (Sichtbarkeits-Check): sie soll gefunden werden, wenn ein
+  // Gastronom nach seiner eigenen Sichtbarkeit sucht - das sind die Anfragen,
+  // die von selbst reinkommen.
+  xml += '  <url><loc>' + SITE_URL + '/check</loc><lastmod>' + today + '</lastmod><priority>0.7</priority><changefreq>monthly</changefreq></url>\n';
   generated.forEach(function(g) {
     const prio = g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8');
     const freq = g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly');

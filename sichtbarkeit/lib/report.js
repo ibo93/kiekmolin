@@ -373,7 +373,55 @@ function konkurrenzSektion(ergebnis) {
 </div>`;
 }
 
-function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf }) {
+// --- Analyse-Sektion: was die Zahlen bedeuten und was zu tun ist ----------
+// Steht bewusst GANZ OBEN im Report. Wer nur die erste Seite liest, hat
+// danach die Kernaussage, die drei wichtigsten Handgriffe und - falls es
+// welche gibt - die Warnungen. Alles andere ist Belegmaterial.
+function analyseSektion(analyse) {
+  if (!analyse) return '';
+  const farbe = analyse.bewertung === 'alarm' ? '#b00'
+    : analyse.bewertung === 'achtung' ? '#c67a00' : AKZENT;
+
+  const risiken = (analyse.risiken || []).length
+    ? '<div class="a-risiken"><div class="a-titel">Worauf wir achten</div><ul>' +
+      analyse.risiken.map((r) => '<li>' + (r.stufe === 'alarm' ? '<strong>' + esc(r.text) + '</strong>' : esc(r.text)) + '</li>').join('') +
+      '</ul></div>'
+    : '';
+
+  const treiberListe = (analyse.treiber || []).length
+    ? '<ul class="a-treiber">' + analyse.treiber.map((t) => {
+      const zeichen = t.richtung === 'gut' ? '▲' : t.richtung === 'schlecht' ? '▼' : '•';
+      const cls = t.richtung === 'gut' ? 'rauf' : t.richtung === 'schlecht' ? 'runter' : '';
+      return '<li><span class="' + cls + '">' + zeichen + '</span> ' + esc(t.text) + '</li>';
+    }).join('') + '</ul>'
+    : '';
+
+  const plan = (analyse.topDrei || []).length
+    ? '<div class="a-titel" style="margin-top:18px">Die drei wirksamsten Schritte</div>' +
+      '<ol class="a-plan">' + analyse.topDrei.map((c) =>
+        '<li><strong>' + esc(c.titel) + '</strong>' +
+        '<div class="a-warum">' + esc(c.warum) + '</div>' +
+        '<div class="a-meta">Aufwand: ' + esc(c.aufwand) +
+        (c.euro > 0 ? ' · rechnerisches Plus: <strong>' + euroBetrag(c.euro) + '</strong>' : '') +
+        '</div></li>').join('') + '</ol>'
+    : '';
+
+  return `
+<h2>Das Wichtigste in Kürze</h2>
+<div class="analyse" style="border-left-color:${farbe}">
+  <div class="a-kern">${esc(analyse.kernaussage)}</div>
+  ${treiberListe}
+  ${risiken}
+  ${plan}
+  ${analyse.euroPotenzial > 0
+    ? '<div class="a-summe">In diesem Report stecken Maßnahmen mit einem rechnerischen Potenzial von <strong>' +
+      euroBetrag(analyse.euroPotenzial) + '</strong>. Das ist eine Rechnung, keine Zusage – aber jede Zahl darin ' +
+      'stammt aus den echten Bestell- und Reservierungsdaten des Betriebs.</div>'
+    : ''}
+</div>`;
+}
+
+function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse }) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
   const trend = trendText(q, vormonat);
@@ -434,6 +482,20 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon,
   .rauf { color: var(--akzent); font-weight: 700; font-size: 12px; }
   .runter { color: #b00; font-weight: 700; font-size: 12px; }
   .ueberholt { font-size: 11.5px; color: var(--akzent); font-weight: 600; margin-top: 3px; }
+  .analyse { border: 1px solid var(--linie); border-left: 5px solid var(--akzent); border-radius: 6px;
+             padding: 18px 22px; background: #fcfcfc; }
+  .a-kern { font-size: 17px; font-weight: 600; line-height: 1.5; }
+  .a-titel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); margin-bottom: 6px; }
+  .a-treiber { margin: 14px 0 0; padding-left: 18px; font-size: 14px; }
+  .a-treiber li { margin-bottom: 3px; }
+  .a-risiken { margin-top: 14px; border-top: 1px solid var(--linie); padding-top: 12px; }
+  .a-risiken ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .a-plan { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
+  .a-plan li { margin-bottom: 11px; }
+  .a-warum { color: #333; font-size: 13.5px; margin-top: 2px; }
+  .a-meta { color: var(--grau); font-size: 12px; margin-top: 3px; }
+  .a-summe { margin-top: 16px; border-top: 1px solid var(--linie); padding-top: 12px;
+             font-size: 13px; color: #333; }
   .verlauf { display: flex; gap: 24px; flex-wrap: wrap; }
   .v-block { flex: 1; min-width: 260px; border: 1px solid var(--linie); border-radius: 6px; padding: 14px 16px; }
   .v-titel { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--grau); margin-bottom: 10px; }
@@ -464,6 +526,7 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon,
   <div class="unterzeile">${esc(kategorie)}${restaurant.city ? ' · ' + esc(restaurant.city) : ''} · Monats-Report ${esc(monatsLabel(monat))}</div>
 </header>
 
+${analyseSektion(analyse)}
 <h2>Wo stehst du</h2>
 <div class="kacheln">
   <div class="kachel">
@@ -552,7 +615,7 @@ function htmlZuPdf(htmlPfad, pdfPfad) {
 }
 
 module.exports = {
-  fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion,
+  fuehreChecksAus, quote, naechsteSchritte, renderHtml, telefonSektion, analyseSektion,
   wettbewerbsRadar, radarSektion, kiKonkurrenz, ladeVerlauf, verlaufSektion,
   speichereHistorie, ladeVormonat, monatsSchluessel, monatsLabel, htmlZuPdf
 };

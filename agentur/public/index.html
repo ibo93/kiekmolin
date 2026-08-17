@@ -149,8 +149,15 @@
   <div class="unten">
     <button class="theme-knopf" id="themeKnopf" onclick="themeWechseln()">☾ / ☀ Modus wechseln</button>
     <div class="demo" id="demoBadge" style="display:none">DEMO-MODUS</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--grau)">
+      <span id="livePunkt" style="width:9px;height:9px;border-radius:50%;background:var(--grau);display:inline-block"
+            title="Verbinde…"></span> Echtzeit
+    </div>
   </div>
 </aside>
+
+<!-- Echtzeit-Meldungen: erscheinen oben rechts, sobald etwas passiert -->
+<div id="liveMeldungen" style="position:fixed;top:16px;right:16px;z-index:99;max-width:340px"></div>
 <div class="inhalt">
 <main>
   <h2 id="s-uebersicht">Übersicht · <span id="uMonat"></span></h2>
@@ -166,6 +173,19 @@
     <div class="anrufe" id="telefonAnrufe"></div>
   </div>
 
+  <h2 style="margin-top:26px">Telefon-Kunden</h2>
+  <div class="status" style="margin-top:-6px">Welche Nummer gehört zu welchem Betrieb. Kunden <b>ohne</b> Kiek mol in legst du hier komplett an – mit eigener Speisekarte.</div>
+  <div id="telefonKundenListe"><div class="leer">Lade…</div></div>
+  <div style="margin:10px 0 4px">
+    <button class="aktion primaer" onclick="telefonKundeFormular()">+ Neuen Telefon-Kunden anlegen</button>
+  </div>
+  <div id="telefonKundeForm"></div>
+
+  <h2 style="margin-top:26px">Gespräche</h2>
+  <div class="status" style="margin-top:-6px">So hat die KI wirklich geredet – Gespräch anklicken. Nach <span id="anrufAufbewahrung">30</span> Tagen löschen sich die Protokolle von selbst (DSGVO).</div>
+  <div id="anrufListe"><div class="leer">Lade Gespräche…</div></div>
+  <div id="anrufVerlauf"></div>
+
   <div id="listeAnsicht">
     <h2 id="s-rueckrufe">Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
     <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
@@ -180,8 +200,10 @@
 
     <h2 id="s-pipeline">Interessenten · Neukunden-Pipeline
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:10px" onclick="osmImport(this)" title="Holt alle Restaurants der Region aus OpenStreetMap in die Pipeline (Bestandskunden werden automatisch rausgefiltert)">Region importieren (OSM)</button>
+      <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:6px" onclick="alleBetriebePruefen(this)" title="Geht alle noch ungeprüften Betriebe durch: Website holen und lesen, Google- und KI-Sichtbarkeit testen">Alle prüfen</button>
     </h2>
-    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis (prospects.json), die noch keine Partner sind – Pitch-Seite erzeugen und mit ins Gespräch nehmen.</div>
+    <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis <b>und</b> Anfragen von der Check-Seite – in einer Liste. Was du hier einträgst, bleibt gespeichert: <b>Stufe</b>, <b>Notiz</b> und <b>Wiedervorlage</b>. Was heute fällig ist, steht ganz oben.</div>
+    <div id="pipelineKopf"></div>
     <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
 
@@ -430,43 +452,276 @@ async function onboardingStarten() {
 }
 
 // ---------------- Interessenten (Neukunden-Pipeline) ----------------
+// Die Pipeline merkt sich, wo du bei jedem Betrieb stehst. Deshalb wird die
+// Liste hier im Browser gehalten: Stufe ändern schreibt sofort auf den Server
+// und färbt die Zeile neu, ohne die ganze Seite neu zu laden.
+let pipelineDaten = { stufen: [], liste: [], uebersicht: null };
+let pipelineFilter = 'offen';
+
+function pTexte(s) { return String(s == null ? '' : s).replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
 async function ladeInteressenten() {
   const ziel = document.getElementById('interessentenListe');
   try {
-    const liste = await api('/api/interessenten');
-    if (!liste.length) { ziel.innerHTML = '<div class="leer">Keine Interessenten in prospects.json – „Region importieren (OSM)" nutzen oder Betriebe eintragen.</div>'; return; }
-    const heatBadge = (h) => {
-      const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
-      const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
-      return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
-    };
-    ziel.innerHTML = `<div class="status" style="margin-top:0;margin-bottom:10px">Sortiert nach <b>heißester Lead zuerst</b> – „keine Website" = größte Lücke = leichtester Einstieg. Arbeite die Liste von oben ab.</div>
-      <table><tr><th>Betrieb</th><th>Lead</th><th>Ort</th><th>Kategorie</th><th>Telefon</th><th>Pitch-Seite</th></tr>
-      ${liste.map((p, i) => `<tr>
-        <td><strong>${p.name}</strong>${p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>'}${p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + p.gruende[0].replace(/</g,'&lt;') + '</div>' : ''}</td>
-        <td>${heatBadge(p.heat)}</td>
-        <td>${p.stadt}</td>
-        <td>${p.kategorie}</td>
-        <td style="white-space:nowrap">${p.telefon ? '<a href="tel:' + p.telefon + '">' + p.telefon + '</a>' : '–'}</td>
-        <td id="pitch-${i}">${p.pitch
-          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">neu</button>'
-          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(\'' + p.name.replace(/'/g, "\\'") + '\', ' + i + ')">Pitch erzeugen</button>'}</td>
-      </tr>`).join('')}</table>`;
+    const d = await api('/api/interessenten');
+    pipelineDaten = d;
+    zeigeInteressenten();
   } catch (e) { ziel.innerHTML = '<div class="leer">Interessenten nicht abrufbar: ' + e.message + '</div>'; }
 }
 
+function pipelineFiltern(f) { pipelineFilter = f; zeigeInteressenten(); }
+
+function zeigeInteressenten() {
+  const ziel = document.getElementById('interessentenListe');
+  const kopf = document.getElementById('pipelineKopf');
+  const alle = pipelineDaten.liste || [];
+  const u = pipelineDaten.uebersicht || { zaehler: {}, faellig: 0, gesamt: 0 };
+
+  if (!alle.length) {
+    kopf.innerHTML = '';
+    ziel.innerHTML = '<div class="leer">Noch keine Interessenten – „Region importieren (OSM)" nutzen oder Betriebe in prospects.json eintragen.</div>';
+    return;
+  }
+
+  // Trichter-Kopf: ein Knopf je Stufe, dazu „fällig heute" und „alle".
+  const knopf = (id, text, zahl, farbe) => {
+    const an = pipelineFilter === id;
+    return '<button class="aktion" style="padding:6px 12px;font-size:12.5px;margin:0 6px 6px 0' +
+      (an ? ';border:2px solid ' + (farbe || 'var(--akzent)') + ';font-weight:700' : '') + '"' +
+      ' onclick="pipelineFiltern(\'' + id + '\')">' + text + ' <b>' + zahl + '</b></button>';
+  };
+  const offen = alle.filter(e => !e.erledigt).length;
+  kopf.innerHTML = '<div style="margin:4px 0 12px">' +
+    knopf('offen', 'Offen', offen) +
+    (u.faellig ? knopf('faellig', '⏰ Heute fällig', u.faellig, '#dc2626') : '') +
+    (pipelineDaten.stufen || []).map(s => knopf(s.id, s.text, u.zaehler[s.id] || 0)).join('') +
+    knopf('alle', 'Alle', u.gesamt) + '</div>';
+
+  const liste = alle.filter(e => {
+    if (pipelineFilter === 'alle') return true;
+    if (pipelineFilter === 'offen') return !e.erledigt;
+    if (pipelineFilter === 'faellig') return e.faellig;
+    return e.stufe === pipelineFilter;
+  });
+  if (!liste.length) { ziel.innerHTML = '<div class="leer">In dieser Ansicht steht gerade nichts.</div>'; return; }
+
+  const heatBadge = (h) => {
+    const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
+    const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
+    return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
+  };
+
+  ziel.innerHTML = '<table><tr><th>Betrieb</th><th>Lead</th><th>Telefon</th><th>Stufe</th>' +
+    '<th>Notiz &amp; Wiedervorlage</th><th>Pitch-Seite</th></tr>' +
+    liste.map((p) => {
+      const k = pTexte(p.schluessel);
+      const anfrage = p.quelle === 'anfrage';
+      const zeilenFarbe = p.faellig ? 'background:rgba(220,38,38,.07)' : (p.erledigt ? 'opacity:.55' : '');
+      const stufenWahl = (pipelineDaten.stufen || []).map(s =>
+        '<option value="' + s.id + '"' + (s.id === p.stufe ? ' selected' : '') + '>' + s.text + '</option>').join('');
+      return '<tr style="' + zeilenFarbe + '">' +
+        '<td><strong>' + pTexte(p.name) + '</strong>' +
+          '<button class="aktion" id="pruef-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:8px" ' +
+            'onclick="betriebPruefen(\'' + k + '\')" title="Holt seine Website, liest sie und prüft Google- und KI-Sichtbarkeit">' +
+            (p.befund ? '↻ neu prüfen' : '🔍 prüfen') + '</button>' +
+          '<button class="aktion" id="demo-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
+            'onclick="demoBauen(\'' + k + '\')" title="Baut einen Probeanruf: seine Speisekarte, sein Name – der Wirt ruft an und hört seinen eigenen Laden">📞 Demo</button>' +
+          (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
+          (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
+          (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
+          (anfrage && p.anfrage ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">„' + pTexte(p.anfrage) + '"</div>' : '') +
+          (!anfrage && p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + pTexte(p.gruende[0]) + '</div>' : '') +
+        '</td>' +
+        '<td>' + heatBadge(p.heat) + (p.faellig ? '<div style="font-size:11px;color:#dc2626;margin-top:3px">⏰ fällig</div>' : '') + '</td>' +
+        '<td style="white-space:nowrap">' + (p.telefon ? '<a href="tel:' + pTexte(p.telefon) + '">' + pTexte(p.telefon) + '</a>' : (p.kontakt ? pTexte(p.kontakt) : '–')) + '</td>' +
+        '<td><select onchange="stufeSetzen(\'' + k + '\', this.value)" style="padding:6px 8px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12.5px">' + stufenWahl + '</select></td>' +
+        '<td style="min-width:230px">' +
+          '<input id="notiz-' + k + '" value="' + pTexte(p.notiz) + '" placeholder="Was war? z.B. Chef ab 15 Uhr da" ' +
+            'onchange="notizSpeichern(\'' + k + '\')" style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12.5px">' +
+          '<div style="margin-top:4px;font-size:12px;color:var(--grau)">wieder melden am ' +
+            '<input type="date" id="wv-' + k + '" value="' + pTexte(p.wiedervorlage) + '" onchange="notizSpeichern(\'' + k + '\')" ' +
+            'style="padding:4px 6px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12px"></div>' +
+          '<div class="status" id="pstatus-' + k + '" style="margin:2px 0 0;font-size:11px"></div>' +
+        '</td>' +
+        '<td id="pitch-' + k + '">' + (p.pitch
+          ? '<a href="' + p.pitch + '" target="_blank">öffnen</a> · <button class="aktion" style="padding:5px 10px;font-size:12px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">neu</button>'
+          : '<button class="aktion" style="padding:6px 12px;font-size:12.5px" onclick="pitchErzeugen(' + JSON.stringify(p.name).replace(/"/g, '&quot;') + ', \'' + k + '\')">Pitch erzeugen</button>') + '</td>' +
+      '</tr>' +
+      '<tr id="befundZeile-' + k + '"><td colspan="6" style="padding-top:0">' + befundHtml(p.befund) + '</td></tr>';
+    }).join('') + '</table>';
+}
+
+// Der Befund unter der Zeile: erst der Satz fürs Telefonat, dann die Liste.
+// Ohne Check steht dort bewusst nichts – lieber leer als geraten.
+function befundHtml(b) {
+  if (!b) return '';
+  const luecken = (b.punkte || []).filter(p => p.art === 'luecke');
+  const gutes = (b.punkte || []).filter(p => p.art === 'gut');
+  const offen = (b.punkte || []).filter(p => p.art === 'offen');
+  const farbe = { gross: '#dc2626', mittel: '#eab308', klein: '#16a34a' }[b.ampel] || 'var(--grau)';
+  return '<div style="border-left:3px solid ' + farbe + ';padding:8px 0 8px 12px;margin:0 0 10px">' +
+    '<div style="font-size:13px;margin-bottom:6px"><b>So fängst du das Telefonat an:</b><br>' +
+      '<span style="color:var(--tinte)">„' + pTexte(b.aufhaenger) + '"</span></div>' +
+    (luecken.length ? '<div style="font-size:12px;color:var(--grau)"><b style="color:#dc2626">Was ihm fehlt (' + luecken.length + '):</b> ' +
+      luecken.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
+    (gutes.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b style="color:#16a34a">Hat er schon:</b> ' +
+      gutes.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
+    (offen.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b>Ungeprüft:</b> ' +
+      offen.map(p => pTexte(p.titel) + (p.folge ? ' (' + pTexte(p.folge) + ')' : '')).join(' · ') + '</div>' : '') +
+    '<div style="font-size:11px;color:var(--grau);margin-top:4px">geprüft am ' +
+      new Date(b.gepruefteAm).toLocaleString('de-DE') + '</div>' +
+  '</div>';
+}
+
+// Betriebs-Check anstoßen. Dauert ein paar Sekunden (Website holen, Google,
+// KI) – deshalb sagt der Knopf, was gerade passiert.
+async function betriebPruefen(schluessel) {
+  const btn = document.getElementById('pruef-' + schluessel);
+  const zeile = document.getElementById('befundZeile-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'schaue nach…'; }
+  try {
+    const r = await api('/api/interessent-pruefen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+    if (eintrag) eintrag.befund = r.befund;
+    if (zeile) zeile.firstChild.innerHTML = befundHtml(r.befund);
+    if (btn) { btn.disabled = false; btn.textContent = '↻ neu prüfen'; }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
+  }
+}
+
+// ---------------- Probeanruf-Demo ----------------
+// Das beste Verkaufsgespräch ist keins: der Wirt ruft an und hört SEINEN
+// Laden. Deshalb steht hier am Ende genau ein Satz – der, den du sagst.
+async function demoBauen(schluessel) {
+  const btn = document.getElementById('demo-' + schluessel);
+  const zeile = document.getElementById('befundZeile-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'baue Demo…'; }
+  try {
+    const r = await api('/api/demo-bauen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    if (zeile) zeile.firstChild.innerHTML = demoHtml(r) + zeile.firstChild.innerHTML;
+    if (btn) { btn.disabled = false; btn.textContent = '📞 Demo'; }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '📞 Demo'; }
+    alert('Demo konnte nicht gebaut werden:\n\n' + e.message);
+  }
+}
+
+function demoHtml(r) {
+  return '<div style="border:2px solid var(--akzent);border-radius:10px;padding:12px 14px;margin:0 0 10px">' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px">📞 Probeanruf steht bereit: ' +
+      '<span style="font-size:16px">' + pTexte(r.nummer) + '</span></div>' +
+    '<div style="font-size:13px;margin-bottom:6px">Das sagst du jetzt:<br>' +
+      '<span style="color:var(--tinte)">„' + pTexte(r.ansage) + '"</span></div>' +
+    '<div style="font-size:12px;color:var(--grau)">' + pTexte(r.kartenHinweis || '') +
+      (r.gerichte ? ' · ' + r.gerichte + ' Gerichte im Assistenten' : ' · nur Reservierungen') +
+      (r.hinweis ? ' · ' + pTexte(r.hinweis) : '') + '</div>' +
+    '<button class="aktion" style="padding:5px 10px;font-size:12px;margin-top:8px" onclick="demoBeenden(this)">Demo beenden</button>' +
+  '</div>';
+}
+
+async function demoBeenden(btn) {
+  btn.disabled = true;
+  try {
+    await api('/api/demo-beenden', { method: 'POST' });
+    btn.parentElement.innerHTML = '<div style="font-size:12px;color:var(--grau)">Demo beendet – die Nummer ist wieder frei.</div>';
+  } catch (e) { btn.disabled = false; alert('Fehler: ' + e.message); }
+}
+
+// Alle ungeprüften Betriebe der aktuellen Ansicht nacheinander durchgehen.
+// Bewusst nacheinander: parallel würden wir fremde Server bombardieren.
+async function alleBetriebePruefen(btn) {
+  const offen = (pipelineDaten.liste || []).filter(e => !e.befund && !e.erledigt);
+  if (!offen.length) { alert('Alle Betriebe in der Liste sind schon geprüft.'); return; }
+  btn.disabled = true;
+  for (let i = 0; i < offen.length; i++) {
+    btn.textContent = 'prüfe ' + (i + 1) + ' von ' + offen.length + '…';
+    await betriebPruefen(offen[i].schluessel);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Alle prüfen';
+}
+
+// Stufe wechseln: sofort speichern, dann Liste neu holen – so springt eine
+// erledigte Zeile gleich ans Ende und die Zähler oben stimmen wieder.
+async function stufeSetzen(schluessel, stufe) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  await standSenden(schluessel, {
+    stufe,
+    notiz: (document.getElementById('notiz-' + schluessel) || {}).value,
+    wiedervorlage: (document.getElementById('wv-' + schluessel) || {}).value
+  }, true);
+}
+
+// Notiz und Wiedervorlage speichern, ohne die Liste neu aufzubauen – sonst
+// verlierst du beim Tippen den Fokus im Feld.
+async function notizSpeichern(schluessel) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  await standSenden(schluessel, {
+    stufe: eintrag.stufe,
+    notiz: (document.getElementById('notiz-' + schluessel) || {}).value,
+    wiedervorlage: (document.getElementById('wv-' + schluessel) || {}).value
+  }, false);
+}
+
+async function standSenden(schluessel, daten, neuLaden) {
+  const status = document.getElementById('pstatus-' + schluessel);
+  try {
+    await api('/api/interessent-status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ schluessel }, daten))
+    });
+    const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+    if (eintrag) { eintrag.stufe = daten.stufe; eintrag.notiz = daten.notiz || ''; eintrag.wiedervorlage = daten.wiedervorlage || ''; }
+    if (neuLaden) { await ladeInteressenten(); ladeLeads(); return; }
+    if (status) { status.textContent = 'gespeichert'; setTimeout(() => { status.textContent = ''; }, 1500); }
+  } catch (e) {
+    if (status) { status.className = 'status fehler'; status.textContent = 'nicht gespeichert: ' + e.message; }
+  }
+}
+
+// Der Import geht 45 Gebiete durch (Borkum bis Varel) und legt zwischen
+// jeder Abfrage eine Pause ein – das dauert Minuten. Statt stur zu warten
+// schauen wir alle 20 Sekunden nach, ob die Liste gewachsen ist.
 async function osmImport(btn) {
   btn.disabled = true;
-  btn.textContent = 'Import läuft…';
   try {
     const r = await api('/api/osm-import', { method: 'POST' });
+    const vorher = (pipelineDaten.liste || []).length;
+    let versuche = 0;
+    const schauen = async () => {
+      versuche++;
+      btn.textContent = 'Import läuft… (' + Math.round(versuche * 20 / 60 * 10) / 10 + ' min)';
+      await ladeInteressenten();
+      const jetzt = (pipelineDaten.liste || []).length;
+      if (jetzt > vorher) {
+        btn.disabled = false;
+        btn.textContent = '✓ ' + (jetzt - vorher) + ' Betriebe dazu';
+        setTimeout(() => { btn.textContent = 'Region importieren (OSM)'; }, 8000);
+        return;
+      }
+      if (versuche >= 45) {          // 15 Minuten – dann ist etwas schiefgelaufen
+        btn.disabled = false;
+        btn.textContent = 'Import ohne neue Betriebe – Terminal prüfen';
+        return;
+      }
+      setTimeout(schauen, 20000);
+    };
     btn.textContent = r.hinweis || 'Import läuft…';
-    setTimeout(() => { ladeInteressenten(); btn.disabled = false; btn.textContent = 'Region importieren (OSM)'; }, 90000);
+    setTimeout(schauen, 20000);
   } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
 }
 
-async function pitchErzeugen(name, i) {
-  const zelle = document.getElementById('pitch-' + i);
+async function pitchErzeugen(name, schluessel) {
+  const zelle = document.getElementById('pitch-' + schluessel);
   try {
     zelle.textContent = 'erzeuge…';
     const r = await api('/api/pitch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
@@ -494,6 +749,334 @@ async function ladeTelefon() {
       ? 'Letzte Protokolle: ' + t.anrufe.slice(0, 3).map(f => '<a href="/api/telefon-log/' + f + '" target="_blank">' + f.replace('anruf-', '').slice(0, 16) + '</a>').join(' · ')
       : 'Noch keine Anruf-Protokolle');
   } catch (e) { document.getElementById('telefonInfo').textContent = 'Status nicht abrufbar'; }
+}
+
+// ---------------- Telefon-Kunden verwalten ----------------
+// Ersetzt das Bearbeiten von nummern.json und kunden/*.json im Texteditor.
+let importierteKarte = []; // Speisekarte aus dem Webseiten-Import
+
+async function ladeTelefonKunden() {
+  const ziel = document.getElementById('telefonKundenListe');
+  try {
+    const d = await api('/api/telefon-kunden');
+    if (!d.kunden.length) {
+      ziel.innerHTML = '<div class="leer">Noch keine Nummer zugeordnet. Solange nur ein Betrieb läuft, reicht die Angabe in der .env – für den zweiten Kunden legst du hier an.</div>';
+      return;
+    }
+    ziel.innerHTML = '<table><tr><th>Nummer</th><th>Betrieb</th><th>Art</th><th>Nimmt an</th><th></th></tr>' +
+      d.kunden.map(k => {
+        const was = k.kann ? k.kann.map(x => x === 'bestellung' ? 'Bestellungen' : 'Reservierungen').join(' + ')
+          : 'nach Stufe ' + (k.stufe || '1');
+        return '<tr>' +
+          '<td style="white-space:nowrap">' + k.nummer + '</td>' +
+          '<td>' + (k.name ? String(k.name).replace(/</g, '&lt;') + (k.stadt ? ' <span style="color:var(--grau)">· ' + k.stadt + '</span>' : '') : '<span style="color:var(--grau)">Kiek-mol-in-Betrieb</span>') +
+          (k.gerichte ? ' <span style="color:var(--grau);font-size:12px">(' + k.gerichte + ' Gerichte)</span>' : '') +
+          (k.problem ? '<br><span style="color:#dc2626;font-size:12px">⚠️ ' + k.problem + '</span>' : '') + '</td>' +
+          '<td>' + (k.art === 'eigen' ? 'eigener Kunde' : 'Kiek mol in') + '</td>' +
+          '<td>' + was + '</td>' +
+          '<td><button class="aktion" style="padding:5px 10px;font-size:12px" onclick="telefonKundeEntfernen(\'' + k.nummer + '\')">entfernen</button></td>' +
+          '</tr>';
+      }).join('') + '</table>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+async function telefonKundeEntfernen(nummer) {
+  if (!confirm('Nummer ' + nummer + ' aus dem Betrieb nehmen?\n\nDie Kundendatei bleibt erhalten – nur die Zuordnung wird gelöscht.')) return;
+  try {
+    await api('/api/telefon-kunde-entfernen', { nummer });
+    ladeTelefonKunden();
+  } catch (e) { alert('Ging nicht: ' + e.message); }
+}
+
+function telefonKundeFormular() {
+  importierteKarte = [];
+  const f = document.getElementById('telefonKundeForm');
+  const feld = (id, label, platzhalter, breite) =>
+    '<div style="flex:' + (breite || 1) + ';min-width:150px">' +
+    '<label style="display:block;font-size:12.5px;color:var(--grau);margin-bottom:4px">' + label + '</label>' +
+    '<input id="tk_' + id + '" placeholder="' + (platzhalter || '') + '" ' +
+    'style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit"></div>';
+
+  f.innerHTML =
+    '<div style="border:1px solid var(--akzent);border-radius:12px;padding:16px;margin-top:10px">' +
+    '<b style="font-size:14px">Neuer Telefon-Kunde (ohne Kiek mol in)</b>' +
+
+    '<div style="margin:14px 0;padding:12px;border:1px dashed var(--linie);border-radius:9px">' +
+    '<div style="font-size:13px;margin-bottom:10px"><b>Speisekarte einlesen</b> – drei Wege, such dir einen aus:</div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">1 · Betrieb hat eine Webseite</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
+    '<input id="tk_import" placeholder="https://pizzeria-beispiel.de" style="flex:2;min-width:200px;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit">' +
+    '<button class="aktion" id="tkImportBtn" onclick="telefonKundeImport()">Webseite einlesen</button></div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">2 · Nur Papierkarte? Abfotografieren (bis 6 Bilder)</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">' +
+    '<input type="file" id="tk_fotos" accept="image/*" multiple style="flex:2;min-width:200px;font-size:13px">' +
+    '<button class="aktion" id="tkFotoBtn" onclick="karteAusFotos()">Foto(s) auslesen</button></div>' +
+
+    '<div style="font-size:12.5px;color:var(--grau);margin-bottom:4px">3 · Karte abtippen oder aus einer PDF einfügen</div>' +
+    '<textarea id="tk_kartentext" placeholder="Pizza Margherita 8,50&#10;Pizza Salami 9,50&#10;Spaghetti Carbonara 11,00" ' +
+    'style="width:100%;min-height:70px;padding:9px 11px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit;font-size:13.5px"></textarea>' +
+    '<button class="aktion" id="tkTextBtn" onclick="karteAusText()" style="margin-top:8px">Text auslesen</button>' +
+
+    '<div id="tkImportStatus" style="font-size:12.5px;color:var(--grau);margin-top:10px"></div>' +
+    '<div id="tkKarte" style="margin-top:10px"></div></div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('nummer', 'Twilio-Nummer *', '+49 4921 123456', 1.4) +
+    feld('name', 'Name des Betriebs *', 'Pizzeria Bella Vista', 1.6) + '</div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('stadt', 'Ort', 'Emden') + feld('adresse', 'Straße', 'Neutorstraße 12') +
+    feld('telefon', 'Telefon des Betriebs', '04921 123456') + '</div>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('oeffnet', 'Öffnet', '17:00', 0.6) + feld('schliesst', 'Schließt', '22:00', 0.6) +
+    feld('tische', 'Tische', '12', 0.5) + feld('liefergebuehr', 'Liefergebühr €', '2.50', 0.7) + '</div>' +
+
+    '<div style="font-size:13px;margin:14px 0 6px"><b>Wohin sollen Bestellungen gemeldet werden?</b> ' +
+    '<span style="color:var(--grau)">Ohne das erfährt der Wirt nichts von seinen Anrufen.</span></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    feld('sms', 'Handy des Wirts (SMS)', '+49 151 12345678') +
+    feld('email', 'E-Mail des Wirts', 'wirt@betrieb.de') + '</div>' +
+
+    '<div style="font-size:13px;margin:14px 0 6px"><b>Was soll die KI annehmen?</b></div>' +
+    '<label style="font-size:13.5px;margin-right:16px"><input type="checkbox" id="tk_reservierung" checked> Reservierungen</label>' +
+    '<label style="font-size:13.5px"><input type="checkbox" id="tk_bestellung"> Bestellungen</label>' +
+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 10px">' +
+    feld('stimme', 'Eigene Stimme (ElevenLabs Voice-ID, optional)', 'leer = Standard-Stimme', 2) + '</div>' +
+
+    '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">' +
+    '<button class="aktion primaer" id="tkSpeichern" onclick="telefonKundeSpeichern()">Kunden anlegen</button>' +
+    '<button class="aktion" onclick="document.getElementById(\'telefonKundeForm\').innerHTML=\'\'">Abbrechen</button></div>' +
+    '<div id="tkStatus" style="margin-top:10px;font-size:13.5px"></div></div>';
+}
+
+// Ergebnis eines Einlesens anzeigen — und zwar zum KORRIGIEREN.
+// Kein Import ist perfekt; falsche Preise müssen hier auffallen, nicht
+// erst im Telefongespräch.
+function zeigeKarte() {
+  const ziel = document.getElementById('tkKarte');
+  if (!ziel) return;
+  if (!importierteKarte.length) { ziel.innerHTML = ''; return; }
+  const ohnePreis = importierteKarte.filter(g => g.preis == null).length;
+  ziel.innerHTML =
+    '<div style="font-size:13px;margin-bottom:6px"><b>' + importierteKarte.length + ' Gerichte</b>' +
+    (ohnePreis ? ' <span style="color:#dc2626">· ' + ohnePreis + ' ohne Preis</span>' : '') +
+    ' <span style="color:var(--grau)">— Preise hier korrigierbar</span></div>' +
+    '<div style="max-height:260px;overflow-y:auto;border:1px solid var(--linie);border-radius:8px">' +
+    importierteKarte.map((g, i) =>
+      '<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--linie)">' +
+      '<input value="' + String(g.name).replace(/"/g, '&quot;') + '" onchange="karteAendern(' + i + ',\'name\',this.value)" ' +
+      'style="flex:2;min-width:120px;padding:5px 7px;border-radius:6px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
+      '<input value="' + (g.preis == null ? '' : g.preis) + '" placeholder="Preis" onchange="karteAendern(' + i + ',\'preis\',this.value)" ' +
+      'style="width:76px;padding:5px 7px;border-radius:6px;border:1px solid ' + (g.preis == null ? '#dc2626' : 'var(--linie)') + ';background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
+      '<button class="aktion" style="padding:3px 8px;font-size:12px" onclick="karteZeileWeg(' + i + ')">✕</button></div>'
+    ).join('') + '</div>' +
+    '<button class="aktion" style="margin-top:8px;padding:6px 12px;font-size:13px" onclick="karteZeileDazu()">+ Gericht hinzufügen</button>';
+}
+
+function karteAendern(i, feld, wert) {
+  if (!importierteKarte[i]) return;
+  if (feld === 'preis') {
+    const n = Number(String(wert).replace(',', '.'));
+    importierteKarte[i].preis = Number.isFinite(n) && n > 0 ? n : null;
+  } else {
+    importierteKarte[i][feld] = String(wert).trim();
+  }
+  zeigeKarte();
+}
+function karteZeileWeg(i) { importierteKarte.splice(i, 1); zeigeKarte(); }
+function karteZeileDazu() { importierteKarte.push({ name: '', preis: null }); zeigeKarte(); }
+
+function kartenErgebnis(stand, gerichte, unklar, quelle) {
+  importierteKarte = gerichte || [];
+  stand.innerHTML = (importierteKarte.length
+    ? '<span style="color:#16a34a">✓ ' + importierteKarte.length + ' Gerichte aus ' + quelle + ' gelesen.</span>'
+    : '<span style="color:#dc2626">Keine Gerichte erkannt.</span>') +
+    ((unklar && unklar.length)
+      ? '<br><b>Bitte prüfen:</b><br>' + unklar.map(u => '· ' + String(u).replace(/</g, '&lt;')).join('<br>')
+      : '');
+  zeigeKarte();
+}
+
+async function telefonKundeImport() {
+  const url = document.getElementById('tk_import').value.trim();
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkImportBtn');
+  if (!url) { stand.textContent = 'Bitte eine Adresse eingeben.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Lese die Webseite… das dauert bis zu einer Minute.';
+  try {
+    const d = await api('/api/webseite-lesen', { url });
+    const k = d.kunde || {};
+    const setz = (id, wert) => { if (wert != null && wert !== '') document.getElementById('tk_' + id).value = wert; };
+    setz('name', k.name); setz('stadt', k.stadt); setz('adresse', k.adresse);
+    setz('telefon', k.telefon); setz('oeffnet', k.oeffnet); setz('schliesst', k.schliesst);
+    setz('liefergebuehr', k.liefergebuehr);
+    kartenErgebnis(stand, k.speisekarte, d.unklar, 'der Webseite');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+      '<br>Kein Problem – nimm Weg 2 (Foto) oder 3 (abtippen).';
+  }
+  btn.disabled = false;
+}
+
+// Fotos der Papierkarte: im Browser einlesen, damit sie als Bild mitgehen
+function dateiAlsDatenUrl(datei) {
+  return new Promise((fertig, fehler) => {
+    const leser = new FileReader();
+    leser.onload = () => fertig(leser.result);
+    leser.onerror = () => fehler(new Error('Datei nicht lesbar: ' + datei.name));
+    leser.readAsDataURL(datei);
+  });
+}
+
+async function karteAusFotos() {
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkFotoBtn');
+  const dateien = [...document.getElementById('tk_fotos').files].slice(0, 6);
+  if (!dateien.length) { stand.textContent = 'Bitte erst Foto(s) auswählen.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Lese ' + dateien.length + ' Bild(er)… das dauert bis zu zwei Minuten.';
+  try {
+    const bilder = [];
+    for (const datei of dateien) bilder.push(await dateiAlsDatenUrl(datei));
+    const d = await api('/api/speisekarte-lesen', { bilder });
+    kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Foto');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+      '<br>Tipp: gerade von oben fotografieren, gutes Licht, pro Bild höchstens eine Seite.';
+  }
+  btn.disabled = false;
+}
+
+async function karteAusText() {
+  const stand = document.getElementById('tkImportStatus');
+  const btn = document.getElementById('tkTextBtn');
+  const text = document.getElementById('tk_kartentext').value.trim();
+  if (!text) { stand.textContent = 'Bitte erst die Karte eintippen oder einfügen.'; return; }
+  btn.disabled = true;
+  stand.textContent = 'Sortiere die Gerichte…';
+  try {
+    const d = await api('/api/speisekarte-lesen', { text });
+    kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Text');
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>';
+  }
+  btn.disabled = false;
+}
+
+async function telefonKundeSpeichern() {
+  const wert = (id) => document.getElementById('tk_' + id).value.trim();
+  const kann = [];
+  if (document.getElementById('tk_reservierung').checked) kann.push('reservierung');
+  if (document.getElementById('tk_bestellung').checked) kann.push('bestellung');
+
+  const stand = document.getElementById('tkStatus');
+  const btn = document.getElementById('tkSpeichern');
+  btn.disabled = true;
+  stand.textContent = 'Speichere…';
+  try {
+    const d = await api('/api/telefon-kunde', {
+      nummer: wert('nummer'), name: wert('name'), stadt: wert('stadt'), adresse: wert('adresse'),
+      telefon: wert('telefon'), oeffnet: wert('oeffnet'), schliesst: wert('schliesst'),
+      tische: wert('tische'), liefergebuehr: wert('liefergebuehr'),
+      sms: wert('sms'), email: wert('email'), stimme: wert('stimme'),
+      kann, speisekarte: importierteKarte
+    });
+    stand.innerHTML = '<span style="color:#16a34a"><b>Angelegt ✓</b></span> ' +
+      d.gerichte + ' Gerichte · Datei: ' + d.datei +
+      (d.warnung ? '<br><span style="color:#dc2626">⚠️ ' + d.warnung + '</span>' : '') +
+      '<br><b>Jetzt noch:</b> Telefon-Retter neu starten, damit er den neuen Kunden lädt.';
+    ladeTelefonKunden();
+  } catch (e) {
+    stand.innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+  }
+  btn.disabled = false;
+}
+
+// ---------------- Anruf-Protokolle: so hat die KI geredet ----------------
+const ERGEBNIS_FARBE = {
+  'Reservierung': '#16a34a', 'Bestellung': '#16a34a', 'Rückruf-Wunsch': 'var(--akzent)',
+  'Technischer Fehler': '#dc2626', 'Niemand hat gesprochen': 'var(--grau)',
+  'Gespräch ohne Abschluss': '#f59e0b'
+};
+
+function dauerText(sekunden) {
+  if (sekunden == null) return '?';
+  if (sekunden < 60) return sekunden + ' Sek.';
+  return Math.floor(sekunden / 60) + ':' + String(sekunden % 60).padStart(2, '0') + ' Min.';
+}
+
+async function ladeAnrufe() {
+  const ziel = document.getElementById('anrufListe');
+  try {
+    const d = await api('/api/anrufe');
+    document.getElementById('anrufAufbewahrung').textContent = d.aufbewahrungTage;
+    if (!d.anrufe.length) {
+      ziel.innerHTML = '<div class="leer">Noch keine Gespräche aufgezeichnet – sobald der erste Gast anruft, steht hier der komplette Verlauf.</div>';
+      return;
+    }
+    ziel.innerHTML = '<table><tr><th>Wann</th><th>Anrufer</th><th>Betrieb</th><th>Dauer</th><th>Sätze</th><th>Ergebnis</th></tr>' +
+      d.anrufe.map(a => {
+        const farbe = ERGEBNIS_FARBE[a.ergebnis] || 'var(--grau)';
+        return '<tr style="cursor:pointer" onclick="anrufOeffnen(\'' + a.datei + '\')" title="Gespräch anzeigen">' +
+          '<td style="white-space:nowrap">' + (a.beginn ? new Date(a.beginn).toLocaleString('de-DE') : '–') + '</td>' +
+          '<td>' + (a.anrufer ? String(a.anrufer).replace(/</g, '&lt;') : 'unbekannt') + '</td>' +
+          '<td>' + (a.restaurant ? String(a.restaurant).replace(/</g, '&lt;') : '–') + '</td>' +
+          '<td>' + dauerText(a.dauerSekunden) + '</td>' +
+          '<td>' + a.saetzeGast + ' / ' + a.saetzeAgent + '</td>' +
+          '<td style="color:' + farbe + '">' + a.ergebnis + '</td></tr>';
+      }).join('') + '</table>' +
+      '<div style="font-size:12px;color:var(--grau);margin-top:6px">Sätze: Gast / KI · Zeile anklicken für den Verlauf</div>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Protokolle nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+async function anrufOeffnen(datei) {
+  const ziel = document.getElementById('anrufVerlauf');
+  ziel.innerHTML = '<div class="leer">Lade Gespräch…</div>';
+  ziel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  try {
+    const p = await api('/api/anruf/' + encodeURIComponent(datei));
+    const blasen = p.zeilen.filter(z => z.wer === 'gast' || z.wer === 'agent').map(z => {
+      const gast = z.wer === 'gast';
+      const uhr = new Date(z.zeit).toLocaleTimeString('de-DE');
+      return '<div style="display:flex;justify-content:' + (gast ? 'flex-start' : 'flex-end') + ';margin-bottom:8px">' +
+        '<div style="max-width:78%;padding:9px 13px;border-radius:14px;font-size:13.5px;line-height:1.5;' +
+        (gast
+          ? 'background:var(--karte);border:1px solid var(--linie,#2a3841)'
+          : 'background:rgba(230,168,74,.13);border:1px solid var(--akzent)') + '">' +
+        '<div style="font-size:11px;color:var(--grau);margin-bottom:3px">' + (gast ? '🧑 Gast' : '🤖 KI') + ' · ' + uhr + '</div>' +
+        String(z.text).replace(/</g, '&lt;') + '</div></div>';
+    }).join('');
+
+    const technisch = p.zeilen.filter(z => z.wer === 'system' || z.wer === 'fehler');
+    ziel.innerHTML =
+      '<div style="border:1px solid var(--linie,#2a3841);border-radius:12px;padding:14px 16px;margin-top:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">' +
+      '<b style="font-size:14px">' + (p.restaurant ? String(p.restaurant).replace(/</g, '&lt;') : 'Gespräch') + '</b>' +
+      '<span style="font-size:12.5px;color:var(--grau)">' +
+      (p.beginn ? new Date(p.beginn).toLocaleString('de-DE') : '') + ' · ' + dauerText(p.dauerSekunden) +
+      ' · Ergebnis: ' + p.ergebnis + '</span></div>' +
+      (blasen || '<div class="leer">In diesem Anruf wurde nicht gesprochen.</div>') +
+      '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12.5px;color:var(--grau)">' +
+      'Technische Zeilen (' + technisch.length + ')</summary>' +
+      '<pre style="font-size:11.5px;white-space:pre-wrap;color:var(--grau);margin-top:8px">' +
+      technisch.map(z => new Date(z.zeit).toLocaleTimeString('de-DE') + '  ' + String(z.text).replace(/</g, '&lt;')).join('\n') +
+      '</pre></details>' +
+      '<div style="margin-top:10px">' + kopierKnopf(
+        p.zeilen.filter(z => z.wer === 'gast' || z.wer === 'agent')
+          .map(z => (z.wer === 'gast' ? 'Gast: ' : 'KI: ') + z.text).join('\n'),
+        '📋 Gespräch kopieren') + '</div></div>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Gespräch nicht abrufbar: ' + e.message + '</div>';
+  }
 }
 
 // ---------------- Kundenliste ----------------
@@ -1257,12 +1840,97 @@ document.getElementById('suche').addEventListener('input', zeichneKunden);
 if (location.hash.length > 1) zeigeKunde(decodeURIComponent(location.hash.slice(1)));
 ladeKunden().catch(e => { document.getElementById('kundenListe').innerHTML = '<div class="leer">Fehler beim Laden: ' + e.message + '</div>'; });
 ladeTelefon();
+ladeAnrufe();
+ladeTelefonKunden();
 ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
-setInterval(ladeTelefon, 15000);
-setInterval(ladeRueckrufe, 60000);
+// ---------------- Echtzeit: der Server meldet sich von selbst ----------
+// Die Umfrage-Schleifen bleiben als Sicherheitsnetz, laufen aber nur noch
+// selten. Alles Wichtige kommt sofort ueber die offene Leitung.
+setInterval(ladeTelefon, 60000);
+setInterval(ladeRueckrufe, 120000);
+
+let liveLeitung = null;
+
+function liveAnzeige(an, text) {
+  const punkt = document.getElementById('livePunkt');
+  if (!punkt) return;
+  punkt.style.background = an ? '#16a34a' : 'var(--grau)';
+  punkt.title = text;
+  punkt.style.boxShadow = an ? '0 0 0 3px rgba(22,163,74,.18)' : 'none';
+}
+
+// Kurzer Ton bei einem Rückruf – ohne Audiodatei, direkt erzeugt.
+// Ein Rückruf ist ein Gast, der GERADE aufgelegt hat. Der darf nicht liegen bleiben.
+function pling() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    o.start(); o.stop(ctx.currentTime + 0.36);
+    setTimeout(() => ctx.close(), 600);
+  } catch (_e) { /* Ton ist Beiwerk - nie den Ablauf stoeren */ }
+}
+
+function meldung(text, dringend) {
+  const kasten = document.getElementById('liveMeldungen');
+  if (!kasten) return;
+  const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div');
+  el.style.cssText = 'background:var(--karte);border:2px solid ' + (dringend ? '#dc2626' : 'var(--akzent)') +
+    ';border-radius:10px;padding:11px 14px;margin-top:8px;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
+    'cursor:pointer;transition:opacity .3s';
+  el.innerHTML = '<b>' + (dringend ? '📞 ' : '✅ ') + text + '</b>' +
+    '<div style="font-size:11.5px;color:var(--grau);margin-top:3px">' + zeit + ' · zum Schließen klicken</div>';
+  el.onclick = () => el.remove();
+  kasten.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, dringend ? 60000 : 15000);
+}
+
+function liveStarten() {
+  if (!window.EventSource) return; // sehr alter Browser: Umfrage-Schleife reicht
+  liveLeitung = new EventSource('/api/live');
+
+  liveLeitung.addEventListener('bereit', () => liveAnzeige(true, 'Live verbunden – Neuigkeiten kommen sofort'));
+
+  liveLeitung.addEventListener('rueckruf', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    pling();
+    meldung('Rückruf-Wunsch: ' + d.name + (d.restaurant ? ' · ' + d.restaurant : '') +
+      (d.anliegen ? '<br><span style="font-weight:400">' + String(d.anliegen).replace(/</g, '&lt;').slice(0, 120) + '</span>' : ''), true);
+    ladeRueckrufe();
+    ladeUebersicht();
+  });
+
+  liveLeitung.addEventListener('telefon', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    if (d.meldung) meldung(d.meldung + ' am Telefon', false);
+    ladeTelefon();
+    ladeAnrufe(); // das neue Gespraech soll sofort in der Liste stehen
+    ladeUebersicht();
+    if (aktuellerKunde) ladeTelefonZahlen(aktuellerKunde.id);
+  });
+
+  liveLeitung.addEventListener('lead', (e) => {
+    const d = JSON.parse(e.data || '{}');
+    pling();
+    meldung('Neue Anfrage: ' + (d.betrieb || d.name || 'Interessent') + (d.ort ? ' · ' + d.ort : ''), true);
+    ladeLeads();
+  });
+
+  liveLeitung.onerror = () => {
+    liveAnzeige(false, 'Verbindung unterbrochen – versucht es weiter');
+    // EventSource verbindet von allein neu; nichts weiter zu tun.
+  };
+}
+liveStarten();
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
 fetch('/api/kunden').then(r => r.json()).then(k => {
   if (k.some(x => String(x.id).startsWith('00000000'))) document.getElementById('demoBadge').style.display = '';

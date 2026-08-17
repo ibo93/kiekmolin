@@ -110,6 +110,115 @@ lassen, eine Zeile in `nummern.json` – fertig. Nummern, die nicht zugeordnet
 sind, fallen auf das Standard-Restaurant aus der `.env` zurück; ganz ohne
 Zuordnung läuft der Ein-Kunden-Betrieb wie bisher.
 
+### Eigene Stimme pro Wirt
+
+Statt nur der Restaurant-ID kann pro Nummer ein Objekt stehen:
+
+```json
+{
+  "+4949261234567": "restaurant-a-id",
+  "+4949317654321": { "restaurant": "restaurant-b-id", "stimme": "MGG5Irb57ATHvyIeTEYo", "stufe": 2 }
+}
+```
+
+- `stimme` – Voice-ID von elevenlabs.io (Voice Library → *Add to my voices* → ID kopieren)
+- `stufe` – eigene Ausbaustufe für diesen Wirt (1–3), unabhängig von `STUFE` in der `.env`
+
+Ohne diese Felder gelten Stimme und Stufe aus der `.env`. Zwei Betriebe im
+selben Ort sollten nicht dieselbe Telefonstimme haben – und im Verkaufs-
+gespräch ist „Ihre eigene Stimme" ein Argument, das nichts extra kostet.
+
+### Nur Reservierungen ODER nur Bestellungen
+
+`kann` legt fest, was der Agent bei diesem Wirt überhaupt annimmt:
+
+```json
+"+4949317654321": { "restaurant": "id", "kann": ["bestellung"] }
+```
+
+| `kann` | Der Agent … |
+|---|---|
+| *nicht gesetzt* | wie bisher: Reservierungen, Bestellungen ab Stufe 3 |
+| `["reservierung"]` | nimmt **nur** Tische an – Bestellwünsche werden zum Rückruf |
+| `["bestellung"]` | nimmt **nur** Bestellungen an (Lieferdienst ohne Tische) |
+| `["reservierung","bestellung"]` | beides |
+
+Die Werkzeuge werden entsprechend weggelassen und der System-Prompt sagt es
+ausdrücklich – der Agent kann also nichts versprechen, was der Betrieb nicht
+anbietet. Rückrufe nimmt er immer auf.
+
+## Betriebe OHNE Kiek mol in
+
+Der Telefon-Retter ist auch allein verkaufbar: ein Wirt mit eigener Webseite,
+der nur seine verpassten Anrufe retten will. Dann kommen die Daten aus einer
+eigenen Datei statt aus der Kiek-mol-in-Datenbank.
+
+### Der schnelle Weg: aus der Webseite einlesen
+
+```
+node kunden-anlegen.js https://pizzeria-beispiel.de
+```
+
+Holt die Startseite und die Speisekarten-Unterseiten, lässt die KI Stammdaten
+und Gerichte herausziehen, zeigt das Ergebnis und legt nach Bestätigung
+`kunden/<name>.json` an. Am Ende steht die fertige Zeile für `nummern.json`.
+
+Der Import ist ein **Vorschlag, keine Wahrheit**: Was die Seite nicht hergibt
+(Karte als Bild oder PDF, Preise nur auf Anfrage), wird unter „BITTE PRÜFEN"
+ausdrücklich benannt – dann ergänzt man es von Hand, statt die KI am Telefon
+raten zu lassen. Preise über 200 € pro Gericht, Doppelte und namenlose Zeilen
+werden verworfen.
+
+### Der Weg von Hand
+
+**1. Kundendatei anlegen** (Vorlage: `kunden/beispiel.json.example`):
+
+```json
+{
+  "name": "Pizzeria Bella Vista",
+  "stadt": "Emden",
+  "telefon": "04921 123456",
+  "oeffnet": "17:00", "schliesst": "22:00",
+  "tische": 12, "liefergebuehr": 2.50,
+  "melden": { "sms": "+4915112345678", "email": "wirt@bella-vista.de" },
+  "speisekarte": [
+    { "name": "Pizza Margherita", "preis": 8.50, "kategorie": "Pizza",
+      "beschreibung": "Tomate, Mozzarella, Basilikum" }
+  ]
+}
+```
+
+**2. In `nummern.json` darauf verweisen** – ohne Restaurant-ID:
+
+```json
+"+4949211234567": { "datei": "kunden/bella-vista.json", "kann": ["bestellung"] }
+```
+
+Reservierungen und Bestellungen landen in `kunden-daten/<name>.jsonl` und
+gehen **sofort per SMS und/oder E-Mail an den Wirt**. Ohne `melden` erfährt
+er nichts von seinen Anrufen – der Server warnt beim Start ausdrücklich davor.
+
+Für den SMS-Weg braucht es `TWILIO_SMS_VON`, für E-Mail `RESEND_API_KEY` und
+`EMAIL_FROM` in der `.env`.
+
+An der Kiek-mol-in-Datenbank wird für diese Kunden **nichts** angefasst –
+sie liegen komplett getrennt. Beide Arten von Kunden laufen gleichzeitig auf
+demselben Server.
+
+### Was mit fremden Bestellsystemen NICHT geht
+
+Die Speisekarte kann von jeder Webseite gelesen werden. Eine Bestellung
+**in** ein fremdes System zu schreiben – Lieferando, Sitrus, ein eigener
+Shop – geht nicht:
+
+- die meisten haben keine offene Schnittstelle
+- wo es eine gibt, braucht sie einen Vertrag und Freigabe des Betreibers
+- Schreibrechte auf den Bestelleingang gibt niemand heraus
+
+Deshalb geht die Bestellung per SMS und E-Mail an den Wirt – so, wie er sie
+bei einem Telefonanruf auch handschriftlich notiert hätte, nur vollständig
+und lesbar. Für seinen Ablauf in der Küche ändert sich damit nichts.
+
 ## Wie eine Reservierung abläuft
 
 1. Twilio nimmt an und verbindet den Audio-Stream per WebSocket (`/media`).
