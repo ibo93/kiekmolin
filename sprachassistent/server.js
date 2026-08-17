@@ -904,7 +904,34 @@ server.listen(PORT, HOST, () => {
         if (beste) console.log('  Stimme:   ' + beste.name + ' - von allein gewaehlt (deutsch)');
       })
       .catch(() => { /* dann bleibt es beim Browser */ });
+
+    // "Hoeren: Deepgram" hiess bisher nur: ein Schluessel STEHT in der
+    // .env. Ob er auch gilt, kam erst mitten im Gespraech heraus, als
+    // roter Kasten im Fenster - und wer den uebersieht, glaubt, es laufe
+    // ueber Deepgram, waehrend in Wahrheit der Browser zuhoert.
+    //
+    // Deshalb einmal beim Start wirklich nachfragen. Im Hintergrund, damit
+    // das Fenster nicht darauf wartet.
+    pruefeDeepgram();
   }
 });
+
+// Kostenlose Auskunft bei Deepgram - sagt nur, ob der Schluessel gilt.
+async function pruefeDeepgram() {
+  if (!process.env.DEEPGRAM_API_KEY) return;
+  try {
+    const a = await fetch('https://api.deepgram.com/v1/projects', {
+      headers: { Authorization: 'Token ' + process.env.DEEPGRAM_API_KEY },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (a.ok) return console.log('  Hoeren:   Deepgram - Schluessel geprueft, gilt');
+    console.log('  ! Hoeren: Deepgram weist den Schluessel ab (' + a.status + ').' +
+      ' Es hoert der Browser zu - schlechter, aber es laeuft.');
+    console.log('    Neuen eintragen:  node schluessel.js deepgram');
+  } catch (_e) {
+    // Kein Netz beim Start ist kein Grund fuer eine Warnung - im Gespraech
+    // wird es sich schon melden.
+  }
+}
 
 module.exports = { server, demoAntwort };
