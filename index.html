@@ -46877,7 +46877,7 @@ function openItemOptions(itemId, item) {
             }
         }
 
-        var optionsHtml = sizesHtml + renderOptionGroupsHtml(groups, itemPrice);
+        var optionsHtml = sizesHtml + renderOhneHtml(item) + renderOptionGroupsHtml(groups, itemPrice);
 
         // Anmerkungen immer
         optionsHtml += '<div class="option-group"><div class="option-group-header"><div class="option-group-title">' + (_t.remarks || 'Anmerkungen') + '</div></div><textarea class="form-textarea" id="itemNotes" placeholder="' + (_t.specialWishes || 'Besondere Wünsche (z.B. ohne Zwiebeln)') + '"></textarea></div>';
@@ -46886,6 +46886,114 @@ function openItemOptions(itemId, item) {
         updateItemTotalPrice();
     });
 }
+
+// BITTE OHNE: DIE ZUTATEN KOMMEN AUS DER BESCHREIBUNG.
+//
+// Andere Portale lassen den Wirt diese Liste pro Gericht von Hand tippen.
+// Bei 200 Gerichten macht das niemand, und was niemand pflegt, ist bald
+// falsch. Wir haben es leichter: der Menuescanner liest die Zutatenzeile
+// unter dem Gerichtnamen ohnehin in die Beschreibung. Genau daraus wird die
+// Liste -- ohne dass der Wirt etwas tut, und sie passt zu JEDEM Gericht,
+// weil sie aus dessen eigenen Zutaten kommt.
+//
+// ZWEI DINGE MUSS DIE ABLEITUNG KOENNEN
+//
+// 1. Erkennen, dass es ueberhaupt eine Zutatenliste IST. Bei "Hausgemachte
+//    Spezialitaet nach Omas Rezept" haette ein blindes Zerlegen am Komma
+//    Kaestchen mit "Hausgemachte Spezialitaet nach Omas Rezept" ergeben.
+//    Deshalb die Pruefung unten: mehrere kurze Teile, keine Satzzeichen.
+//    Sieht es nicht nach Liste aus, gibt es keinen Abschnitt -- das Feld
+//    fuer freie Wuensche bleibt ja.
+//
+// 2. Weglassen, was sich nicht weglassen laesst. Beim "Falafel Rollo" mit
+//    "Fladenbrot, Falafel, Gurken, ..." ergibt "ohne Falafel" keinen Sinn
+//    (dann ist es kein Falafel Rollo mehr) und "ohne Fladenbrot" auch nicht
+//    (dann faellt es auseinander). Also raus: was im Gerichtnamen steht,
+//    und die Huelle, in der das Gericht steckt.
+//
+//    Reis, Pommes und Nudeln bleiben ausdruecklich DRIN -- "ohne Reis" ist
+//    ein ueblicher Wunsch, das ist eine Beilage und keine Huelle.
+var OHNE_HUELLE = ['fladenbrot', 'brot', 'broetchen', 'brötchen', 'teig', 'pizzateig',
+                   'wrap', 'duerum', 'dürüm', 'bun', 'baguette', 'tortilla', 'blaetterteig',
+                   'blätterteig', 'semmel', 'ciabatta'];
+
+function zutatenZumWeglassen(item) {
+    var text = String((item && item.description) || '').trim();
+    if (!text) return [];
+    // Ein Satz ist keine Zutatenliste.
+    if (/[.!?;:]/.test(text)) return [];
+    var teile = text.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (teile.length < 3) return [];
+    // Jeder Teil muss kurz sein -- sonst ist es Fliesstext mit Kommas.
+    var kurz = teile.every(function (x) { return x.length <= 28 && x.split(/\s+/).length <= 3; });
+    if (!kurz) return [];
+
+    var name = String((item && item.name) || '').toLowerCase();
+    return teile.filter(function (z) {
+        var k = z.toLowerCase();
+        if (OHNE_HUELLE.indexOf(k) >= 0) return false;
+        // Steht die Zutat im Gerichtnamen, ist sie das Gericht selbst.
+        var wort = k.split(/\s+/)[0].replace(/[()]/g, '');
+        if (wort.length >= 4 && name.indexOf(wort) >= 0) return false;
+        return true;
+    }).slice(0, 12);
+}
+window.zutatenZumWeglassen = zutatenZumWeglassen;
+
+function renderOhneHtml(item) {
+    var zutaten = zutatenZumWeglassen(item);
+    if (!zutaten.length) return '';
+    var _t = translations[currentLanguage] || translations.de;
+    // Dasselbe Haekchen wie bei den Extras. Es steht hier noch einmal, weil
+    // checkSvg im Dialog eine oertliche Variable ist -- von hier aus waere
+    // sie nicht sichtbar, und der Abschnitt waere beim ersten Aufruf tot.
+    var checkSvg = '<span class="material-symbols-outlined" style="font-size:3px;color:white;">check</span>';
+    var html = '<div class="option-group"><div class="option-group-header">'
+             + '<div class="option-group-title">' + (_t.pleaseWithout || 'Bitte ohne') + '</div>'
+             + '</div>';
+    zutaten.forEach(function (z) {
+        var sicher = String(z).replace(/'/g, "\\'");
+        html += '<div class="option-item" onclick="toggleOhne(this, \'' + sicher + '\')" data-group="ohne">'
+              + '<div class="option-checkbox">' + checkSvg + '</div>'
+              + '<div class="option-info"><div class="option-name">' + escapeHtml(z) + '</div></div>'
+              + '</div>';
+    });
+    return html + '</div>';
+}
+
+// Ein "ohne" ist eine ganz normale Option mit Preis 0.
+//
+// Das ist der Trick, der die Sache klein haelt: dadurch laeuft es durch
+// dieselben Leitungen wie die Extras -- Warenkorb, Bestellung, Bon, Kuechen-
+// ansicht. Kein neues Feld, keine neue Spalte, kein zweiter Weg, der spaeter
+// einzeln kaputtgehen kann.
+//
+// Das Wort "ohne" steht MIT in der Option und nicht nur in der Gruppe, damit
+// auf dem Bon "> ohne Zwiebeln" steht und nicht "> Zwiebeln". Auf dem Zettel
+// ist der Unterschied zwischen den beiden ein falsch gemachtes Gericht.
+//
+// UND WAS HIER AUSDRUECKLICH NICHT PASSIERT: DIE ALLERGENE ANFASSEN.
+//
+// Waehlt der Gast beim Falafel Rollo "Tsatsiki" ab, bleibt das Milch-Symbol
+// stehen. Das sieht auf den ersten Blick nach einem Fehler aus und ist
+// Absicht -- aus zwei Gruenden:
+//
+// 1. Wir wissen nicht, ob die Kueche es wirklich weglaesst. Ein Haekchen im
+//    Bestellvorgang ist eine Bitte, keine Zusage.
+// 2. Selbst wenn: Spuren bleiben. Dasselbe Messer, dasselbe Brett.
+//
+// Ein Allergen verschwinden zu lassen, weil jemand ein Kaestchen angetippt
+// hat, waere die gefaehrlichste Art von hilfreich. Wer wirklich allergisch
+// ist, fragt im Restaurant -- und genau dazu fordert der Info-Kasten auf.
+function toggleOhne(el, zutat) {
+    el.classList.toggle('selected');
+    var text = 'ohne ' + zutat;
+    var i = currentItemOptions.findIndex(function (o) { return o.group === 'ohne' && o.option === text; });
+    if (i > -1) currentItemOptions.splice(i, 1);
+    else currentItemOptions.push({ group: 'ohne', option: text, price: 0, price_type: 'add' });
+    updateItemTotalPrice();
+}
+window.toggleOhne = toggleOhne;
 
 // Optionsgruppen aus Supabase laden (mit Fallback)
 // DB-Schema: menu_option_groups (id, restaurant_id, name, internal_name, selection_type, min_selections, max_selections, sort_order, is_active)
