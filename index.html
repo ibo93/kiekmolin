@@ -46253,116 +46253,27 @@ function getMenuBadgeIcons(item) {
     // Was gespiegelt gehoert, ist EXAKT gespiegelt -- gleicher Radius,
     // gleiche Achse, nur das Sweep-Flag gedreht.
     var KIN_SYMBOLE = {
-        // Fuenfzackiger Stern, Aussenradius 9,6 / Innenradius 4,3 um 12/11,6.
-        beliebt:     '<path d="M12 2 14.53 8.12 21.13 8.63 16.09 12.93 17.64 19.37 12 15.9 6.36 19.37 7.91 12.93 2.87 8.63 9.47 8.12z"/>',
-
-        // Blatt = Linse aus zwei Kreisbogen desselben Radius, dazu Mittelrippe
-        // und Stiel als gerade Balken auf derselben Achse.
-        vegetarisch: '<path d="M5.2 18.8A13 13 0 0 1 19.6 4.4 13 13 0 0 1 5.2 18.8z'
-                   + 'M5.69 17.03 17.83 4.89 19.11 6.17 6.97 18.31z"/>'
-                   + '<path d="M5.26 17.46 1.76 20.96 3.04 22.24 6.54 18.74z"/>',
-
-        // Keimling: zwei EXAKT gespiegelte Linsen an einem geraden Halm.
-        vegan:       '<path d="M11 12h2v9.6h-2z"/>'
-                   + '<path d="M11.4 13.6A9 9 0 0 1 2.8 5.8 9 9 0 0 1 11.4 13.6z"/>'
-                   + '<path d="M12.6 13.6A9 9 0 0 0 21.2 5.8 9 9 0 0 0 12.6 13.6z"/>',
-
-        // Chili als Tropfen: ein Kreis oben, eine Spitze unten, verbunden
-        // durch die beiden TANGENTEN an den Kreis. Genau daher kommt die
-        // Verjuengung -- freihaendig wurde daraus jedes Mal ein Blatt.
-        scharf:      '<path d="M12.11 6.13A3.6 3.6 0 1 1 17.66 10.4 20 20 0 0 1 6 19.8 20 20 0 0 1 12.11 6.13z"/>'
-                   + '<path d="M13.4 3.9 18.6 1.1 19.7 3 14.5 5.8z"/>',
-
-        // Aehre: gerader Halm, daran sechs gleiche Linsen in gleichem Winkel
-        // und gleichem Abstand.
-        gluten:      '<path d="M11.1 4h1.8v17.8h-1.8z"/>'
-                   + '<path d="M12 19A3.4 3.4 0 0 1 7.4 16.4 3.4 3.4 0 0 1 12 19z"/>'
-                   + '<path d="M12 19A3.4 3.4 0 0 0 16.6 16.4 3.4 3.4 0 0 0 12 19z"/>'
-                   + '<path d="M12 15A3.4 3.4 0 0 1 7.4 12.4 3.4 3.4 0 0 1 12 15z"/>'
-                   + '<path d="M12 15A3.4 3.4 0 0 0 16.6 12.4 3.4 3.4 0 0 0 12 15z"/>'
-                   + '<path d="M12 11A3.4 3.4 0 0 1 7.4 8.4 3.4 3.4 0 0 1 12 11z"/>'
-                   + '<path d="M12 11A3.4 3.4 0 0 0 16.6 8.4 3.4 3.4 0 0 0 12 11z"/>'
-                   + '<path d="M12 7A3.4 3.4 0 0 1 7.4 4.4 3.4 3.4 0 0 1 12 7z"/>'
-                   + '<path d="M12 7A3.4 3.4 0 0 0 16.6 4.4 3.4 3.4 0 0 0 12 7z"/>',
-
-        // Flasche und Glas -- so wie auf der Vorlage. Vorher ein
-        // Kaesestueck: Kaese IST ein Milchprodukt, aber das Allergen heisst
-        // Milch, und Flasche plus Glas sagen genau das.
-        milch:       '<path d="M8 1.6h3.6v1.9H8z"/>'
-                   + '<path d="M8.4 3.9h2.8v2.4c1.7 1 2.8 2.6 2.8 4.5v9.6a2 2 0 0 1-2 2H7.6a2 2 0 0 1-2-2v-9.6c0-1.9 1.1-3.5 2.8-4.5z'
-                   + 'M6.9 11.4h5.8v-.6c0-1.5-.9-2.7-2.9-3.6-2 .9-2.9 2.1-2.9 3.6z"/>'
-                   + '<path d="M15.4 9.6h6.6l-1 11.6a1.4 1.4 0 0 1-1.4 1.2h-1.8a1.4 1.4 0 0 1-1.4-1.2z'
-                   + 'M15.75 13.4h5.9l.16-1.9h-6.22z"/>',
-
-        // Erdnuss: zwei verschieden grosse Kreise, verbunden durch zwei
-        // Bogen, die BEIDE Kreise beruehren. Daher die saubere Taille -- von
-        // Hand wurde daraus eine Acht.
-        nuesse:      '<g transform="rotate(-32 12 12)">'
-                   + '<path d="M8.84 9.73A3.7 3.7 0 1 1 15.16 9.73 3.2 3.2 0 0 0 15.41 13.42 4.4 4.4 0 1 1 8.59 13.42 3.2 3.2 0 0 0 8.84 9.73z'
-                   + 'M12 9.3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z'
-                   + 'M12 18a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6z"/>'
-                   + '</g>',
-
-        // Weinglas: Kelch, Stiel, Fuss.
-        alkohol:     '<path d="M5.8 2.8h12.4c0 5.3-2 8.5-5.2 9.2v5.8h3.8v2H7.2v-2H11v-5.8C7.8 11.3 5.8 8.1 5.8 2.8z"/>',
-
-        // ---- PORTRAETS: RIND UND HUHN --------------------------------------
-        //
-        // Die Tiere sind KOEPFE, keine Ganzkoerper. Ein Ganzkoerper-Tier ist
-        // Dekoration: Rumpf, Beine und Schwanz muessen in dieselbe Flaeche,
-        // also wird jedes Teil klein, und bei 15 Pixeln bleibt ein Klecks.
-        //
-        // Beide sind aus Kreisen und Bogen konstruiert, nicht freihand
-        // gezeichnet. Das ist der Unterschied, an dem drei Anlaeufe vorher
-        // gescheitert sind: von Hand gesetzte Bezierpunkte ergeben immer
-        // etwas leicht Schiefes, und schief sieht bei einem Symbol nicht
-        // lebendig aus, sondern unfertig.
-
-        // Rind: Schaedelkreis oben, Maulkreis unten, dazwischen zwei Bogen,
-        // die beide beruehren -- dieselbe Konstruktion wie bei der Erdnuss.
-        // Daraus kommt die Sanduhr: breite Stirn, schmale Backen, breites
-        // Maul. Fast jedes Rind-Symbol laeuft stattdessen nach unten spitz zu
-        // wie ein Herz.
-        //
-        // Ohren und Hoerner sind gespiegelte Linsen und EIGENE Pfade -- sie
-        // sollen den Kopf ueberlappen. Im selben Pfad machte evenodd aus
-        // jeder Ueberlappung ein Loch.
-        rind:        '<path d="M7.66 11.04A4.6 4.6 0 1 1 16.34 11.04 3 3 0 0 0 16.48 13.37 5 5 0 1 1 7.52 13.37 3 3 0 0 0 7.66 11.04z'
-                   + 'M9.6 9.75a1.15 1.15 0 1 0 0-2.3 1.15 1.15 0 0 0 0 2.3z'
-                   + 'M14.4 9.75a1.15 1.15 0 1 0 0-2.3 1.15 1.15 0 0 0 0 2.3z'
-                   + 'M12 18.3a3.3 2.3 0 1 0 0-4.6 3.3 2.3 0 0 0 0 4.6z'
-                   + 'M10.6 16.65a.65.65 0 1 0 0-1.3.65.65 0 0 0 0 1.3z'
-                   + 'M13.4 16.65a.65.65 0 1 0 0-1.3.65.65 0 0 0 0 1.3z"/>'
-                   + '<path d="M7.6 10.6A3.6 3.6 0 0 1 1.4 11.8 3.6 3.6 0 0 1 7.6 10.6z"/>'
-                   + '<path d="M16.4 10.6A3.6 3.6 0 0 0 22.6 11.8 3.6 3.6 0 0 0 16.4 10.6z"/>'
-                   + '<path d="M8.8 6.4A4 4 0 0 1 6.4 1.6 4 4 0 0 1 8.8 6.4z"/>'
-                   + '<path d="M15.2 6.4A4 4 0 0 0 17.6 1.6 4 4 0 0 0 15.2 6.4z"/>',
-
-        // Huhn im Profil: NUR Kreise und ein Dreieck. Kopf, drei Kammkreise,
-        // Schnabeldreieck, Kehllappen, Auge.
-        //
-        // Der Kamm war der eigentliche Stolperstein. Als gezackte Linie lief
-        // er bei 15 Pixeln zu einem Balken zusammen, als zwei hohe Lappen las
-        // er sich als Hasenohren. Drei sich ueberlappende Kreise koennen
-        // beides nicht: sie verschmelzen zu einer welligen Kuppe und bleiben
-        // ein Kamm. Der Kehllappen darunter ist das Merkmal, das kein anderer
-        // Vogel hat.
-        huhn:        '<path d="M11 18.2a5.2 5.2 0 1 1 0-10.4 5.2 5.2 0 1 1 0 10.4z'
-                   + 'M13.4 12.25a1.05 1.05 0 1 0 0-2.1 1.05 1.05 0 0 0 0 2.1z"/>'
-                   + '<path d="M8.1 8.9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 1 1 0 3z"/>'
-                   + '<path d="M11 8.1a1.5 1.5 0 1 1 0-3 1.5 1.5 0 1 1 0 3z"/>'
-                   + '<path d="M13.9 9.1a1.5 1.5 0 1 1 0-3 1.5 1.5 0 1 1 0 3z"/>'
-                   + '<path d="M15.7 10.9 21.2 12.8 15.7 14.7z"/>'
-                   + '<path d="M15.4 17.9a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 1 1 0 3.2z"/>',
-
-        // Fisch: Linse als Rumpf, Dreiecke als Schwanz-, Ruecken- und
-        // Bauchflosse, Kreis als Auge. Ohne Flossen ist der Rumpf nur eine
-        // Linse -- auf der Vorlage sind sie das, was ihn zum Fisch macht.
-        fisch:       '<path d="M5.5 12A9 9 0 0 1 20 12 9 9 0 0 1 5.5 12z'
-                   + 'M16.4 11.55a1.15 1.15 0 1 0 0-2.3 1.15 1.15 0 0 0 0 2.3z"/>'
-                   + '<path d="M7 12 1.6 6.8 1.6 17.2z"/>'
-                   + '<path d="M10.2 8.8 12.8 6.1 14.8 9.2z"/>'
-                   + '<path d="M12.2 15.3 12.9 17.3 14.3 14.9z"/>'
+        beliebt:          '<g fill="currentColor" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M32 5.3 38.7 21.7 56.3 23 43 34.5 47.7 51.7 32 42.4 16.3 51.7 21 34.5 7.7 23 25.3 21.7Z"/></g>',
+        vegetarisch:      '<mask id="kinm-vegetarisch" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M15.2 45.4 45.3 15.3 49.1 18.9 19 49Z" fill="#000" stroke="#000" stroke-width="2.1" stroke-linejoin="round"/></mask><g mask="url(#kinm-vegetarisch)" fill="currentColor" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M13.9 50.1A34.7 34.7 0 0 1 52.3 11.7 34.7 34.7 0 0 1 13.9 50.1Z"/><path d="M14 46.6 4.7 55.9 8.1 59.3 17.4 50Z"/></g>',
+        vegan:            '<g fill="currentColor" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M29.3 32h5.4v25.1h-5.4z"/><path d="M30.4 36.3A24 24 0 0 1 7.5 15.5 24 24 0 0 1 30.4 36.3Z"/><path d="M33.6 33.6A24 24 0 0 0 56.5 15.5 24 24 0 0 0 33.6 33.6Z"/></g>',
+        alkohol:          '<g fill="currentColor" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M15 7.5h33.9c0 14.1-5.3 22.7-13.9 24.3v17.1h10.2v5.3H18.9v-5.3h10.2V31.8C20.5 30.2 15 21.6 15 7.5Z"/></g>',
+        scharf:           '<mask id="kinm-scharf" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M22 49c11 1 20-4 26-14" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round"/></mask><g mask="url(#kinm-scharf)" fill="currentColor"><path d="M14 47c18 2 32-7 38-26 6 13-2 31-17 38-11 5-22 1-21-12Z"/><path d="M47 18c-2-7 2-12 9-13 3 7-1 13-8 15Z"/></g>',
+        rind:             '<mask id="kinm-rind" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="23" cy="34" r="3" fill="#000"/><circle cx="41" cy="34" r="3" fill="#000"/><ellipse cx="32" cy="47" rx="11" ry="7" fill="#000"/><circle cx="28" cy="47" r="2" fill="#fff"/><circle cx="36" cy="47" r="2" fill="#fff"/></mask><g mask="url(#kinm-rind)" fill="currentColor"><path d="M14 20c-5-7-3-13 5-15 4 4 7 9 7 15h12c0-6 3-11 7-15 8 2 10 8 5 15l6 8v16c0 10-10 17-24 17S8 54 8 44V28Z"/><circle cx="28" cy="47" r="2"/><circle cx="36" cy="47" r="2"/></g>',
+        huhn:             '<mask id="kinm-huhn" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="47" cy="25" r="2.5" fill="#000"/><path d="M15 48 7 57h12Z" fill="#fff"/></mask><g mask="url(#kinm-huhn)" fill="currentColor"><path d="M18 38c0-12 10-22 23-22 9 0 16 7 16 16 0 14-13 28-30 28-9 0-16-6-16-14 0-4 3-8 7-8Z"/><path d="M41 16c0-7 5-11 11-10 2 6-2 12-9 13Z"/><path d="M53 28 62 24l-5 9Z"/><path d="M15 48 7 57h12Z"/></g>',
+        gluten:           '<g fill="currentColor"><path d="M32 8a3 3 0 0 1 3 3v45a3 3 0 1 1-6 0V11a3 3 0 0 1 3-3Z"/><ellipse cx="22" cy="19" rx="6" ry="12" transform="rotate(-38 22 19)"/><ellipse cx="42" cy="19" rx="6" ry="12" transform="rotate(38 42 19)"/><ellipse cx="22" cy="34" rx="6" ry="12" transform="rotate(-38 22 34)"/><ellipse cx="42" cy="34" rx="6" ry="12" transform="rotate(38 42 34)"/><ellipse cx="24" cy="49" rx="6" ry="11" transform="rotate(-32 24 49)"/><ellipse cx="40" cy="49" rx="6" ry="11" transform="rotate(32 40 49)"/></g>',
+        krebstiere:       '<mask id="kinm-krebstiere" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="26" cy="28" r="1.5" fill="#000"/><circle cx="38" cy="28" r="1.5" fill="#000"/></mask><g mask="url(#kinm-krebstiere)" fill="currentColor"><ellipse cx="32" cy="36" rx="16" ry="12"/><circle cx="25" cy="27" r="4"/><circle cx="39" cy="27" r="4"/><path d="M15 34c-6 0-10-4-10-10 0-4 3-7 7-7 4 0 7 3 7 7 0 2-1 4-2 5 4 1 6 3 7 7l-6 2c-.5-2-1.5-4-3-4Z"/><path d="M49 34c6 0 10-4 10-10 0-4-3-7-7-7-4 0-7 3-7 7 0 2 1 4 2 5-4 1-6 3-7 7l6 2c.5-2 1.5-4 3-4Z"/><path d="M18 45 8 52a3 3 0 0 0 4 5l11-8Z"/><path d="M28 48 23 59a3 3 0 0 0 6 2l5-12Z"/><path d="M46 45 56 52a3 3 0 0 1-4 5l-11-8Z"/><path d="M36 48 41 59a3 3 0 0 1-6 2l-5-12Z"/></g>',
+        eier:             '<mask id="kinm-eier" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="32" cy="41" r="10" fill="#000"/><circle cx="32" cy="41" r="6" fill="#fff"/></mask><g mask="url(#kinm-eier)" fill="currentColor"><path d="M32 6c11 0 20 17 20 33 0 12-8 21-20 21S12 51 12 39C12 23 21 6 32 6Z"/><circle cx="32" cy="41" r="6"/></g>',
+        fisch:            '<mask id="kinm-fisch" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M25 23c-5 4-7 8-7 10s2 6 7 10c-9-2-15-6-19-10 4-4 10-8 19-10Z" fill="#000"/><circle cx="42" cy="30" r="2.5" fill="#000"/></mask><g mask="url(#kinm-fisch)" fill="currentColor"><path d="M6 33c7-12 19-18 33-13 6 2 11 7 15 13-4 6-9 11-15 13-14 5-26-1-33-13Z"/><path d="M50 33 61 22v22Z"/></g>',
+        erdnuss:          '<mask id="kinm-erdnuss" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="28" cy="22" r="3" fill="#000"/><circle cx="36" cy="42" r="3" fill="#000"/><circle cx="27" cy="46" r="2" fill="#000"/></mask><g mask="url(#kinm-erdnuss)" fill="currentColor"><path d="M24 5c8 0 14 7 14 15 0 4-2 7-4 10 6 2 10 8 10 15 0 9-7 16-16 16-8 0-14-6-15-14-7-2-12-8-12-16 0-9 7-16 16-16h1c1-6 5-10 6-10Z" transform="translate(9 0)"/></g>',
+        soja:             '<mask id="kinm-soja" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="24" cy="39" r="7" fill="#000"/><circle cx="37" cy="27" r="7" fill="#000"/><circle cx="48" cy="17" r="5" fill="#000"/><circle cx="24" cy="39" r="4" fill="#fff"/><circle cx="37" cy="27" r="4" fill="#fff"/><circle cx="48" cy="17" r="3" fill="#fff"/></mask><g mask="url(#kinm-soja)" fill="currentColor"><path d="M9 39C14 19 31 8 54 9c1 23-11 40-31 45-10 2-16-5-14-15Z"/><circle cx="24" cy="39" r="4"/><circle cx="37" cy="27" r="4"/><circle cx="48" cy="17" r="3"/></g>',
+        milch:            '<mask id="kinm-milch" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M25 4h14v8H25Z" fill="#000"/><path d="M21 31h22v17H21Z" fill="#000"/><path d="M27 34h10a5 5 0 0 1 0 10H27Z" fill="#fff"/></mask><g mask="url(#kinm-milch)" fill="currentColor"><path d="M24 4h16v10l7 8v34a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V22l7-8Z"/><path d="M27 34h10a5 5 0 0 1 0 10H27Z"/></g>',
+        schalenfruechte:  '<mask id="kinm-schalenfruechte" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M20 18c5-9 19-12 29-3-7-1-17 1-29 3Z" fill="#000"/><path d="M23 35c0-7 4-13 9-13s9 6 9 13-4 14-9 14-9-7-9-14Z" fill="#000"/><path d="M28 35c0-4 2-8 4-8s4 4 4 8-2 8-4 8-4-4-4-8Z" fill="#fff"/></mask><g mask="url(#kinm-schalenfruechte)" fill="currentColor"><path d="M32 9c13 0 22 12 20 26-2 14-10 25-20 25S14 49 12 35C10 21 19 9 32 9Z"/><path d="M28 35c0-4 2-8 4-8s4 4 4 8-2 8-4 8-4-4-4-8Z"/></g>',
+        sellerie:         '<g fill="currentColor"><path d="M24 60c-3 0-5-2-5-5V27c0-3 2-5 5-5s5 2 5 5v28c0 3-2 5-5 5Z"/><path d="M39 60c-3 0-5-2-5-5V24c0-3 2-5 5-5s5 2 5 5v31c0 3-2 5-5 5Z"/><path d="M15 21C9 12 13 5 23 4c7 2 10 8 7 16-6-4-10-3-15 1Z"/><path d="M31 20C29 9 36 3 47 6c6 5 6 13-1 19-4-6-8-7-15-5Z"/><path d="M43 27c5-8 13-8 18-1 0 8-5 13-14 12 2-5 1-8-4-11Z"/></g>',
+        senf:             '<mask id="kinm-senf" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="24" cy="39" r="4" fill="#000"/><circle cx="34" cy="33" r="4" fill="#000"/><circle cx="40" cy="44" r="4" fill="#000"/><circle cx="28" cy="51" r="3" fill="#000"/></mask><g mask="url(#kinm-senf)" fill="currentColor"><path d="M19 21h26l4 10v25a5 5 0 0 1-5 5H20a5 5 0 0 1-5-5V31Z"/><path d="M22 9h20v10H22Z"/></g>',
+        sesam:            '<mask id="kinm-sesam" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><circle cx="21" cy="22" r="2" fill="#000"/><circle cx="43" cy="43" r="2" fill="#000"/></mask><g mask="url(#kinm-sesam)" fill="currentColor"><ellipse cx="21" cy="22" rx="6" ry="11" transform="rotate(-35 21 22)"/><ellipse cx="40" cy="20" rx="6" ry="11" transform="rotate(32 40 20)"/><ellipse cx="19" cy="42" rx="6" ry="11" transform="rotate(28 19 42)"/><ellipse cx="43" cy="43" rx="6" ry="11" transform="rotate(-30 43 43)"/><ellipse cx="32" cy="33" rx="6" ry="11"/></g>',
+        sulfite:          '<mask id="kinm-sulfite" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M26 5h12v8H26Z" fill="#000"/><circle cx="29" cy="32" r="4" fill="#000"/><circle cx="40" cy="38" r="5" fill="#000"/><circle cx="28" cy="47" r="3" fill="#000"/><circle cx="41" cy="51" r="2.5" fill="#000"/></mask><g mask="url(#kinm-sulfite)" fill="currentColor"><path d="M23 5h18v12l7 7v31a5 5 0 0 1-5 5H21a5 5 0 0 1-5-5V24l7-7Z"/></g>',
+        lupinen:          '<g fill="currentColor"><path d="M32 10a3 3 0 0 1 3 3v47h-6V13a3 3 0 0 1 3-3Z"/><ellipse cx="32" cy="12" rx="7" ry="8"/><ellipse cx="24" cy="22" rx="7" ry="8" transform="rotate(-30 24 22)"/><ellipse cx="40" cy="22" rx="7" ry="8" transform="rotate(30 40 22)"/><ellipse cx="24" cy="35" rx="7" ry="8" transform="rotate(-30 24 35)"/><ellipse cx="40" cy="35" rx="7" ry="8" transform="rotate(30 40 35)"/><path d="M20 51c-8-2-12-9-10-18 9 0 15 5 17 15Z"/><path d="M44 51c8-2 12-9 10-18-9 0-15 5-17 15Z"/></g>',
+        weichtiere:       '<mask id="kinm-weichtiere" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="0" y="0" width="64" height="64" fill="#fff"/><path d="M32 11v40" fill="#000"/><path d="M31 14c-9 10-14 22-16 37h5c2-13 5-24 12-35Z" fill="#000"/><path d="M33 14c9 10 14 22 16 37h-5c-2-13-5-24-12-35Z" fill="#000"/><rect x="7" y="49" width="50" height="8" rx="4" fill="#fff"/></mask><g mask="url(#kinm-weichtiere)" fill="currentColor"><path d="M8 51C10 29 20 12 32 8c12 4 22 21 24 43Z"/><rect x="7" y="49" width="50" height="8" rx="4"/></g>'
     };
 
 
@@ -46388,30 +46299,46 @@ function getMenuBadgeIcons(item) {
     // Kontur und Loecher mitzaehlen. Wer eine Zeichnung aendert, muss den
     // Ausschnitt neu messen; tests/symbol-rahmen-test.js schlaegt sonst an.
     var KIN_RAHMEN = {
-        beliebt:      '1.09 -0.26 21.82 21.82',
-        vegetarisch:  '0.02 2.62 21.36 21.36',
-        vegan:        '1.09 2.79 21.82 21.82',
-        scharf:       '1.71 -0.74 22.27 22.27',
-        gluten:       '1.43 2.33 21.14 21.14',
-        milch:        '1.53 -0.27 24.55 24.55',
-        nuesse:       '3.20 3.20 18.30 18.30',
-        alkohol:      '1.89 1.19 20.23 20.23',
-        rind:         '-0.50 -1.40 25.00 25.00',
-        huhn:         '4.30 2.45 18.41 18.41',
-        fisch:        '-0.11 0.74 21.82 21.82'
+        beliebt:          '3.19 -0.31 57.61 57.61',
+        vegetarisch:      '0.25 7.05 56.70 56.70',
+        vegan:            '2.97 7.27 58.07 58.07',
+        alkohol:          '4.22 3.12 55.45 55.45',
+        scharf:           '3.62 1.18 63.71 63.71',
+        rind:             '0.18 1.18 63.64 63.64',
+        huhn:             '3.25 1.68 62.50 62.50',
+        gluten:           '3.02 4.52 57.95 57.95',
+        krebstiere:       '1.32 9.40 61.36 61.36',
+        eier:             '1.32 2.32 61.36 61.36',
+        fisch:            '2.25 1.75 62.50 62.50',
+        erdnuss:          '-9.32 1.18 63.64 63.64',
+        soja:             '5.52 5.84 51.61 51.61',
+        milch:            '0.18 0.18 63.64 63.64',
+        schalenfruechte:  '3.02 5.52 57.95 57.95',
+        sellerie:         '4.77 0.18 63.64 63.64',
+        senf:             '2.45 5.45 59.09 59.09',
+        sesam:            '6.74 7.22 48.69 48.69',
+        sulfite:          '0.75 1.25 62.50 62.50',
+        lupinen:          '0.18 0.18 63.64 63.64',
+        weichtiere:       '3.59 4.09 56.82 56.82'
     };
 
     function sym(klasse, titel, form) {
+        if (!KIN_SYMBOLE[form]) return '';
+        // HIER STEHT ABSICHTLICH FAST NICHTS.
+        //
+        // Frueher setzte diese Stelle fill-rule, Konturfarbe und
+        // Konturstaerke fuer alle Symbole gemeinsam. Das ging, solange sie
+        // von Hand hier im Code gezeichnet waren.
+        //
+        // Jetzt kommen sie aus den SVG-Dateien und bringen ihre Angaben
+        // selbst mit -- Fuellung, Kontur, Maske. Wuerde hier noch eine
+        // Kontur daruebergelegt, waeren alle Formen fetter als gezeichnet;
+        // ein fill-rule="evenodd" wuerde aus jeder Ueberlappung ein Loch
+        // machen. Also nur die Textfarbe weiterreichen und den Ausschnitt
+        // setzen, den tools/symbole-bauen.js ausgerechnet hat.
         return '<span class="menu-badge ' + klasse + '" title="' + titel + '" aria-label="' + titel + '">'
-             // fill-rule="evenodd" ist hier kein Detail, sondern die
-             // Voraussetzung: nur damit werden Auge, Nuestern und
-             // Kaeselöcher zu Loechern statt zu zweiten schwarzen Flecken.
-             // Die duenne Kontur in derselben Farbe rundet alle Ecken ab
-             // und macht die Formen etwas satter -- ohne sie sehen gefuellte
-             // Symbole hart und spitz aus.
-             + '<span class="ki ki-sm"><svg viewBox="' + (KIN_RAHMEN[form] || '0 0 24 24') + '" fill="currentColor" '
-             + 'fill-rule="evenodd" stroke="currentColor" '
-             + 'stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round">'
+             + '<span class="ki ki-sm"><svg viewBox="' + (KIN_RAHMEN[form] || '0 0 64 64') + '" '
+             + 'fill="currentColor">'
              + KIN_SYMBOLE[form] + '</svg></span></span>';
     }
 
@@ -46424,11 +46351,32 @@ function getMenuBadgeIcons(item) {
     }
     if (_rindEcht) badges += sym('beef', _t.badgeBeef || 'Rind', 'rind');
     if (_huhnEcht) badges += sym('chicken', _t.badgeChicken || 'Huhn', 'huhn');
-    if (_fischEcht) badges += sym('fish', _t.badgeFish || 'Fisch', 'fisch');
-    if (item.is_gluten) badges += sym('gluten', _t.badgeGluten || 'Enthält Gluten', 'gluten');
-    if (item.is_milk) badges += sym('milk', 'Enthält Milch', 'milch');
-    if (item.is_nuts) badges += sym('nuts', _t.badgeNuts || 'Enthält Nüsse', 'nuesse');
     if (item.is_alcohol || item.alcohol) badges += sym('alcohol', _t.badgeAlcohol || 'Enthält Alkohol', 'alkohol');
+
+    // ALLE VIERZEHN PFLICHTALLERGENE, NICHT NUR DREI.
+    //
+    // Bisher standen am Gericht hoechstens Gluten, Milch und Nuesse -- fuer
+    // die anderen elf gab es schlicht kein Symbol. Bei Sellerie, Senf,
+    // Sesam, Soja, Ei, Krebstieren, Weichtieren, Sulfiten und Lupinen stand
+    // am Gericht nichts, obwohl der Wirt sie eingetragen hatte. Jetzt hat
+    // jedes Pflichtallergen sein eigenes.
+    //
+    // Gezeigt wird NUR, was wirklich eingetragen ist -- direkt aus
+    // item.allergens, nicht aus den geratenen is_gluten/is_milk/is_nuts.
+    // Bei einem Allergen ist ein geratenes Symbol schlimmer als gar keines:
+    // wer sich darauf verlaesst und es war nur geschaetzt, hat ein Problem.
+    // Was nicht eingetragen ist, sagt der Info-Kasten ausdruecklich
+    // ("Keine Angaben hinterlegt") -- das ist die ehrliche Auskunft.
+    //
+    // Die Reihenfolge kommt aus LMIV_ALLERGENS, damit sie bei jedem Gericht
+    // gleich ist und das Auge sie wiederfindet.
+    if (_all.length && typeof LMIV_ALLERGENS !== 'undefined') {
+        LMIV_ALLERGENS.forEach(function (a) {
+            if (_all.indexOf(a.code) < 0 || !KIN_SYMBOLE[a.code]) return;
+            badges += sym('allergen', (typeof allergenSatz === 'function'
+                ? allergenSatz(a.code) : ('Enthält ' + a.code)), a.code);
+        });
+    }
 
     return badges;
 }

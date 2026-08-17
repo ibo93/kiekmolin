@@ -1,34 +1,19 @@
-// STEHEN ALLE MERKMAL-SYMBOLE GLEICH GROSS IM KASTEN?
+// PASSEN DIE SYMBOLE IN index.html NOCH ZU DEN SVG-DATEIEN?
 //
-// GEMELDET WURDE
-// --------------
-// "die icon sehen noch nicht so gut" -- ohne zu sagen, welches. Das war
-// richtig, aber unscharf, und ich habe zweimal am falschen Ende gedreht:
-// einzelne Zeichnungen nachgebessert, obwohl das Problem der ganze Satz war.
+// WIE ES DAZU KAM
+// ---------------
+// Die Merkmal-Symbole waren erst Google-Schrift, dann von Hand im Code
+// gezeichnet, und beides war nicht gut genug ("die icon sehen nicht gut
+// aus"). Jetzt kommen sie aus echten SVG-Dateien unter
+// public/icons/allergens/ -- gezeichnet von Ibo, seine eigenen.
 //
-// Erst das Messen hat es gezeigt. Vom gerasterten Bild abgenommen lag die
-// Tinte im Kasten zwischen 13 % (Aehre) und 35 % (Blatt), die Breiten
-// zwischen 5,8 und 18,8 von 24 Einheiten. Nebeneinander wirkte damit die
-// eine Haelfte fett und die andere geschrumpft -- egal wie sauber die
-// einzelne Zeichnung war.
+// Damit gibt es die Sache aber an ZWEI Orten: als Datei und, umgerechnet,
+// inline in index.html. Zwei Orte fuer dasselbe laufen auseinander. Wer eine
+// Datei aendert und tools/symbole-bauen.js vergisst, sieht in der App die
+// alte Fassung -- nichts stuerzt ab, nichts sieht im Code falsch aus.
 //
-// WAS DAGEGEN HILFT
-// -----------------
-// Jedes Symbol hat einen eigenen Ausschnitt (KIN_RAHMEN): ein Quadrat um die
-// tatsaechliche Zeichnung, so gross, dass sie 88 % davon fuellt. Der Browser
-// skaliert und zentriert dann selbst.
-//
-// WARUM ES DIESEN TEST BRAUCHT
-// ----------------------------
-// Die Ausschnitte sind gemessene Zahlen neben den Pfaden -- also zwei Dinge,
-// die auseinanderlaufen koennen. Wer eine Zeichnung aendert und den
-// Ausschnitt vergisst, bekommt ein Symbol, das schief oder zu klein im
-// Kasten haengt. Nichts stuerzt ab, nichts sieht im Code falsch aus, und
-// auffallen wuerde es erst jemandem, der genau hinsieht.
-//
-// Deshalb rechnet dieser Test die Ausschnitte NACH: er liest die Pfade,
-// zerlegt Kurven und Boegen in Punkte und misst daraus die Ausdehnung. Ganz
-// ohne Browser, damit er ueberall laeuft.
+// Deshalb rechnet dieser Test die Umrechnung nach und vergleicht sie mit
+// dem, was wirklich in index.html steht.
 'use strict';
 var fs = require('fs');
 var path = require('path');
@@ -36,179 +21,137 @@ var path = require('path');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+var WURZEL = path.join(__dirname, '..');
+var H = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
+var werkzeug = require(path.join(WURZEL, 'tools', 'symbole-bauen.js'));
 
 function tabelle(name) {
-    var i = H.indexOf('var ' + name + ' = {');
+    var i = H.indexOf('    var ' + name + ' = {');
     if (i < 0) return null;
-    var ende = H.indexOf('\n    };', i);
-    if (ende < 0) ende = H.indexOf('};', i);
-    return new Function(H.slice(i, ende + 7) + '\n return ' + name + ';')();
+    var j = H.indexOf('\n    };', i);
+    return new Function(H.slice(i, j + 7) + '\n return ' + name + ';')();
 }
 
 var SYM = tabelle('KIN_SYMBOLE');
 var RAHMEN = tabelle('KIN_RAHMEN');
-
-t('die Symboltabelle ist lesbar', !!SYM && Object.keys(SYM).length === 11,
-  SYM && Object.keys(SYM).length);
-t('die Ausschnitt-Tabelle ist lesbar', !!RAHMEN, RAHMEN);
+t('die Symboltabelle steht in index.html', !!SYM);
+t('die Ausschnitt-Tabelle auch', !!RAHMEN);
 if (!SYM || !RAHMEN) { console.log('\nAbbruch.'); process.exit(1); }
 
-// ---------------------------------------------------------------------------
-// Pfaddaten zu Punkten. Nur so viel, wie in diesen Symbolen vorkommt:
-// M/m L/l H/h V/v C/c S/s A/a Z/z -- plus rotate() auf einer Gruppe.
-// ---------------------------------------------------------------------------
-function punkteAusPfad(d) {
-    var zahl = /[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/g;
-    var teile = d.match(/[a-zA-Z][^a-zA-Z]*/g) || [];
-    var pts = [], x = 0, y = 0, sx = 0, sy = 0, px = 0, py = 0, letzterC = false;
-
-    function kubik(x0, y0, x1, y1, x2, y2, x3, y3) {
-        for (var i = 0; i <= 16; i++) {
-            var u = i / 16, m = 1 - u;
-            pts.push([
-                m*m*m*x0 + 3*m*m*u*x1 + 3*m*u*u*x2 + u*u*u*x3,
-                m*m*m*y0 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y3
-            ]);
-        }
-    }
-    // Bogen: Endpunkt- in Mittelpunktform, dann abtasten. Die Loecher sind
-    // alle Halbkreise -- ohne das faenden wir ihre Ausdehnung nicht.
-    function bogen(x0, y0, rx, ry, phi, gross, sweep, x1, y1) {
-        if (!rx || !ry) { pts.push([x1, y1]); return; }
-        rx = Math.abs(rx); ry = Math.abs(ry);
-        var c = Math.cos(phi), s = Math.sin(phi);
-        var dx2 = (x0 - x1) / 2, dy2 = (y0 - y1) / 2;
-        var x1p =  c*dx2 + s*dy2, y1p = -s*dx2 + c*dy2;
-        var l = (x1p*x1p)/(rx*rx) + (y1p*y1p)/(ry*ry);
-        if (l > 1) { var q = Math.sqrt(l); rx *= q; ry *= q; }
-        var num = rx*rx*ry*ry - rx*rx*y1p*y1p - ry*ry*x1p*x1p;
-        var den = rx*rx*y1p*y1p + ry*ry*x1p*x1p;
-        var co = Math.sqrt(Math.max(0, num / den)) * (gross === sweep ? -1 : 1);
-        var cxp =  co * rx * y1p / ry, cyp = -co * ry * x1p / rx;
-        var cx = c*cxp - s*cyp + (x0 + x1)/2, cy = s*cxp + c*cyp + (y0 + y1)/2;
-        function winkel(ux, uy, vx, vy) {
-            var d2 = Math.sqrt((ux*ux+uy*uy)*(vx*vx+vy*vy));
-            var a = Math.acos(Math.max(-1, Math.min(1, (ux*vx+uy*vy)/d2)));
-            return (ux*vy - uy*vx < 0) ? -a : a;
-        }
-        var t1 = winkel(1, 0, (x1p-cxp)/rx, (y1p-cyp)/ry);
-        var dt = winkel((x1p-cxp)/rx, (y1p-cyp)/ry, (-x1p-cxp)/rx, (-y1p-cyp)/ry);
-        if (!sweep && dt > 0) dt -= 2*Math.PI;
-        if (sweep && dt < 0) dt += 2*Math.PI;
-        for (var i = 0; i <= 24; i++) {
-            var a = t1 + dt * (i/24);
-            pts.push([cx + rx*Math.cos(a)*c - ry*Math.sin(a)*s,
-                      cy + rx*Math.cos(a)*s + ry*Math.sin(a)*c]);
-        }
-    }
-
-    teile.forEach(function (teil) {
-        var cmd = teil[0], rel = cmd === cmd.toLowerCase();
-        var v = (teil.slice(1).match(zahl) || []).map(Number);
-        var C = cmd.toUpperCase(), i = 0;
-        if (C === 'Z') { x = sx; y = sy; pts.push([x, y]); letzterC = false; return; }
-        while (i < v.length) {
-            if (C === 'M' || C === 'L') {
-                var nx = rel ? x + v[i] : v[i], ny = rel ? y + v[i+1] : v[i+1];
-                x = nx; y = ny; i += 2; pts.push([x, y]);
-                if (C === 'M' && i === 2) { sx = x; sy = y; C = 'L'; }  // weitere Paare = L
-                letzterC = false;
-            } else if (C === 'H') { x = rel ? x + v[i] : v[i]; i += 1; pts.push([x, y]); letzterC = false; }
-            else if (C === 'V') { y = rel ? y + v[i] : v[i]; i += 1; pts.push([x, y]); letzterC = false; }
-            else if (C === 'C') {
-                var a1 = rel ? x+v[i]   : v[i],   b1 = rel ? y+v[i+1] : v[i+1];
-                var a2 = rel ? x+v[i+2] : v[i+2], b2 = rel ? y+v[i+3] : v[i+3];
-                var ex = rel ? x+v[i+4] : v[i+4], ey = rel ? y+v[i+5] : v[i+5];
-                kubik(x, y, a1, b1, a2, b2, ex, ey);
-                px = a2; py = b2; x = ex; y = ey; i += 6; letzterC = true;
-            } else if (C === 'S') {
-                var r1 = letzterC ? 2*x - px : x, r2 = letzterC ? 2*y - py : y;
-                var s2 = rel ? x+v[i]   : v[i],   s3 = rel ? y+v[i+1] : v[i+1];
-                var sx2 = rel ? x+v[i+2] : v[i+2], sy2 = rel ? y+v[i+3] : v[i+3];
-                kubik(x, y, r1, r2, s2, s3, sx2, sy2);
-                px = s2; py = s3; x = sx2; y = sy2; i += 4; letzterC = true;
-            } else if (C === 'A') {
-                var ax = rel ? x+v[i+5] : v[i+5], ay = rel ? y+v[i+6] : v[i+6];
-                bogen(x, y, v[i], v[i+1], v[i+2]*Math.PI/180, v[i+3], v[i+4], ax, ay);
-                x = ax; y = ay; i += 7; letzterC = false;
-            } else { i = v.length; }
-        }
-    });
-    return pts;
-}
-
-// Ein Symbol besteht aus mehreren <path>, evtl. in einer gedrehten Gruppe.
-function ausdehnung(quelle) {
-    var dreh = /rotate\(([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\)/.exec(quelle);
-    var alle = [];
-    (quelle.match(/ d="([^"]+)"/g) || []).forEach(function (s) {
-        alle = alle.concat(punkteAusPfad(s.slice(4, -1)));
-    });
-    if (dreh) {
-        var a = Number(dreh[1]) * Math.PI/180, cx = Number(dreh[2]), cy = Number(dreh[3]);
-        var c = Math.cos(a), s = Math.sin(a);
-        alle = alle.map(function (p) {
-            var dx = p[0]-cx, dy = p[1]-cy;
-            return [cx + dx*c - dy*s, cy + dx*s + dy*c];
-        });
-    }
-    var xs = alle.map(function (p) { return p[0]; }), ys = alle.map(function (p) { return p[1]; });
-    // Die Kontur ragt 0,4 ueber die Geometrie hinaus (stroke-width 0.8).
-    return { x0: Math.min.apply(null, xs) - 0.4, y0: Math.min.apply(null, ys) - 0.4,
-             x1: Math.max.apply(null, xs) + 0.4, y1: Math.max.apply(null, ys) + 0.4 };
-}
-
-// ---------------------------------------------------------------------------
-var ANTEIL = 0.88;   // so viel vom Ausschnitt soll die Zeichnung fuellen
-var TOLERANZ = 0.6;  // runde Ecken und Kantenglaettung schwanken etwas
-
-var namen = Object.keys(SYM);
-t('jedes Symbol hat einen Ausschnitt',
-  namen.every(function (k) { return typeof RAHMEN[k] === 'string'; }),
-  namen.filter(function (k) { return !RAHMEN[k]; }).join(','));
-t('und es gibt keinen Ausschnitt ohne Symbol -- sonst ist einer uebrig '
-  + 'geblieben, den niemand mehr pflegt',
-  Object.keys(RAHMEN).every(function (k) { return !!SYM[k]; }),
-  Object.keys(RAHMEN).filter(function (k) { return !SYM[k]; }).join(','));
-
-var seiten = [];
-namen.forEach(function (k) {
-    var r = (RAHMEN[k] || '').trim().split(/\s+/).map(Number);
-    if (r.length !== 4 || r.some(isNaN)) { t(k + ': Ausschnitt lesbar', false, RAHMEN[k]); return; }
-    t(k + ': der Ausschnitt ist quadratisch -- sonst verzerrt er die Zeichnung',
-      Math.abs(r[2] - r[3]) < 0.01, r[2] + ' x ' + r[3]);
-    seiten.push(r[2]);
-
-    var a = ausdehnung(SYM[k]);
-    var soll = Math.max(a.x1 - a.x0, a.y1 - a.y0) / ANTEIL;
-    t(k + ': der Ausschnitt passt zur Zeichnung',
-      Math.abs(r[2] - soll) < TOLERANZ,
-      'hinterlegt ' + r[2].toFixed(2) + ', gemessen ' + soll.toFixed(2)
-      + ' -- Zeichnung geaendert? Ausschnitt neu messen.');
-
-    var mx = (a.x0 + a.x1) / 2, my = (a.y0 + a.y1) / 2;
-    t(k + ': und sie steht mittig darin',
-      Math.abs((r[0] + r[2]/2) - mx) < TOLERANZ && Math.abs((r[1] + r[3]/2) - my) < TOLERANZ,
-      'Mitte Ausschnitt ' + (r[0]+r[2]/2).toFixed(2) + '/' + (r[1]+r[3]/2).toFixed(2)
-      + ', Mitte Zeichnung ' + mx.toFixed(2) + '/' + my.toFixed(2));
+// ---- 1. Jede Quelldatei ist da ---------------------------------------------
+var fehlend = Object.keys(werkzeug.HERKUNFT).filter(function (k) {
+    return !fs.existsSync(path.join(WURZEL, 'public', 'icons', 'allergens', werkzeug.HERKUNFT[k]));
 });
+t('zu jedem Symbol gibt es eine SVG-Datei', fehlend.length === 0, fehlend.join(', '));
 
-// Der eigentliche Punkt der ganzen Uebung: alle gleich gross. Das laesst sich
-// nach dem Rahmen direkt pruefen -- jede Zeichnung fuellt denselben Anteil.
-t('alle Symbole fuellen ihren Ausschnitt gleich stark -- genau das war '
-  + 'vorher nicht so',
-  seiten.length === 11, seiten.length);
+// ---- 2. DER KERN: erzeugt == eingebaut --------------------------------------
+var frisch = werkzeug.baue();
+var namen = Object.keys(frisch.symbole);
 
-// ---- Der Ausschnitt muss auch benutzt werden -------------------------------
-// Die Tabelle allein nuetzt nichts, wenn sym() weiter 0 0 24 24 schreibt.
+t('gleich viele Symbole wie Quelldateien',
+  Object.keys(SYM).length === namen.length,
+  Object.keys(SYM).length + ' eingebaut, ' + namen.length + ' Dateien');
+
+var abweichend = namen.filter(function (k) { return SYM[k] !== frisch.symbole[k]; });
+t('jedes Symbol in index.html entspricht seiner Datei',
+  abweichend.length === 0,
+  abweichend.join(', ') + '  -- Datei geaendert? node tools/symbole-bauen.js');
+
+var rahmenAb = namen.filter(function (k) { return RAHMEN[k] !== frisch.rahmen[k]; });
+t('und jeder Ausschnitt ist neu berechnet',
+  rahmenAb.length === 0,
+  rahmenAb.map(function (k) { return k + ': ' + RAHMEN[k] + ' statt ' + frisch.rahmen[k]; }).join('; '));
+
+// ---- 3. Weiss ist zu Loch geworden -----------------------------------------
+// Der eigentliche Grund, warum ueberhaupt umgerechnet wird. In den Dateien
+// sind Augen und Nuestern weisse Formen; die App hat einen Dunkelmodus, dort
+// staenden weisse Punkte auf dunklem Grund.
+(function () {
+    var mitWeiss = namen.filter(function (k) {
+        var roh = fs.readFileSync(path.join(WURZEL, 'public', 'icons', 'allergens',
+                                            werkzeug.HERKUNFT[k]), 'utf8');
+        return /(fill|stroke)="#fff"/i.test(roh);
+    });
+    t('es gibt Symbole mit weissen Teilen -- sonst prueft das hier nichts',
+      mitWeiss.length > 5, mitWeiss.length);
+    var ohneMaske = mitWeiss.filter(function (k) { return SYM[k].indexOf('<mask') < 0; });
+    t('jedes davon bekommt eine Maske', ohneMaske.length === 0, ohneMaske.join(', '));
+    var nochWeiss = namen.filter(function (k) {
+        // Weiss darf nur noch IN der Maske stehen (dort heisst es "sichtbar"),
+        // niemals im gezeichneten Teil.
+        var i = SYM[k].indexOf('</mask>');
+        return /(fill|stroke)="#fff"/i.test(i < 0 ? SYM[k] : SYM[k].slice(i));
+    });
+    t('im gezeichneten Teil steht nirgends mehr Weiss -- sonst waere es im '
+      + 'Dunkelmodus ein weisser Fleck', nochWeiss.length === 0, nochWeiss.join(', '));
+})();
+
+// ---- 4. Die Reihenfolge des Uebermalens bleibt erhalten --------------------
+// Beim Rind liegen die Nuestern INNERHALB des weissen Muffels. Wer nur die
+// weissen Teile in die Maske schreibt, loescht die Punkte mit weg.
+(function () {
+    var m = /<mask[^>]*>([\s\S]*?)<\/mask>/.exec(SYM.rind || '');
+    t('die Maske des Rinds ist da', !!m);
+    if (!m) return;
+    var inhalt = m[1];
+    t('der Muffel deckt zu (schwarz in der Maske)',
+      /<ellipse cx="32" cy="47"[^>]*fill="#000"/.test(inhalt), inhalt);
+    t('die Nuestern holen sich die Flaeche zurueck (weiss in der Maske) -- '
+      + 'genau daran ist die erste Fassung gescheitert',
+      (inhalt.match(/<circle cx="(28|36)" cy="47"[^>]*fill="#fff"/g) || []).length === 2,
+      inhalt);
+    t('und sie werden auch wirklich gezeichnet',
+      (SYM.rind.slice(SYM.rind.indexOf('</mask>')).match(/<circle cx="(28|36)" cy="47"/g) || []).length === 2);
+})();
+
+// ---- 5. Kein doppeltes Attribut ---------------------------------------------
+// Eine frueherere Fassung liess die alten Mal-Angaben stehen und haengte die
+// neuen an: <path stroke-width="4" ... stroke-width="4">. Das ist ungueltiges
+// XML, und der Browser hat das ganze Symbol verweigert.
+(function () {
+    var kaputt = [];
+    namen.forEach(function (k) {
+        (SYM[k].match(/<[a-z]+\b[^>]*>/g) || []).forEach(function (el) {
+            var seen = {}, re = /([a-zA-Z-]+)\s*=\s*"/g, m2;
+            while ((m2 = re.exec(el))) { if (seen[m2[1]]) kaputt.push(k + ': ' + m2[1]); seen[m2[1]] = 1; }
+        });
+    });
+    t('kein Attribut steht zweimal im selben Element', kaputt.length === 0, kaputt.join(', '));
+})();
+
+// ---- 6. Alle gleich gross und mittig ---------------------------------------
+(function () {
+    var schief = [], unrund = [];
+    namen.forEach(function (k) {
+        var r = RAHMEN[k].trim().split(/\s+/).map(Number);
+        if (r.length !== 4 || r.some(isNaN)) { unrund.push(k); return; }
+        if (Math.abs(r[2] - r[3]) > 0.01) schief.push(k + ' ' + r[2] + 'x' + r[3]);
+    });
+    t('jeder Ausschnitt ist lesbar', unrund.length === 0, unrund.join(', '));
+    t('und quadratisch -- sonst verzerrt er die Zeichnung', schief.length === 0, schief.join(', '));
+    t('die Zeichnung fuellt ueberall denselben Anteil',
+      werkzeug.ANTEIL > 0.8 && werkzeug.ANTEIL < 1, werkzeug.ANTEIL);
+})();
+
+// ---- 7. Der Einbau benutzt beides -------------------------------------------
 t('sym() setzt den Ausschnitt des Symbols ein',
-  /viewBox="' \+ \(KIN_RAHMEN\[form\] \|\| '0 0 24 24'\) \+ '"/.test(H));
-t('und faellt auf den vollen Kasten zurueck, wenn einer fehlt -- lieber '
-  + 'etwas zu klein als gar nichts',
-  /KIN_RAHMEN\[form\] \|\| '0 0 24 24'/.test(H));
-t('warum es die Tabelle gibt, steht dabei',
-  /Ohne das sah der Satz halbfertig aus, und zwar messbar/.test(H));
+  /viewBox="' \+ \(KIN_RAHMEN\[form\] \|\| '0 0 64 64'\) \+ '"/.test(H));
+t('sym() legt KEINE eigene Kontur mehr darueber -- die Zeichnungen bringen '
+  + 'ihre eigene mit',
+  !/stroke-width="0\.8"/.test(H), 'alte Kontur noch da');
+(function () {
+    var i = H.indexOf('function sym(klasse');
+    // Kommentare raus -- der Kommentar in sym() ERKLAERT, warum dort kein
+    // fill-rule mehr steht, und wuerde sonst selbst als Treffer zaehlen.
+    var rumpf = H.slice(i, H.indexOf('\n    }', i)).replace(/^[ \t]*\/\/.*$/gm, '');
+    t('und kein fill-rule, das aus jeder Ueberlappung ein Loch machen wuerde',
+      rumpf.indexOf('fill-rule') < 0, rumpf.slice(0, 200));
+})();
+t('ein unbekannter Name liefert nichts statt eines leeren Kaestchens',
+  /if \(!KIN_SYMBOLE\[form\]\) return '';/.test(H));
+t('warum das Werkzeug existiert, steht darin',
+  /Zwei Orte fuer dieselbe Sache laufen auseinander/.test(
+      fs.readFileSync(path.join(WURZEL, 'tools', 'symbole-bauen.js'), 'utf8')));
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

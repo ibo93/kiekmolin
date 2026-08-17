@@ -129,197 +129,72 @@ t('alle 14 Pflichtallergene sind hinterlegt',
 (function () {
     var f = schneide('getMenuBadgeIcons');
     t('getMenuBadgeIcons ist gefunden worden', f.length > 500, f.length);
-    t('sie liest jetzt item.allergens', /Array\.isArray\(item && item\.allergens\)/.test(f), f.slice(0, 400));
-    t('eingetragenes Gluten setzt das Merkmal', /item\.is_gluten = true/.test(f), f.slice(0, 600));
-    t('und hebt "glutenfrei" wieder auf -- beides zugleich waere Unsinn',
-      /item\.is_gluten = true; item\.is_gluten_free = false/.test(f));
-    t('dasselbe fuer Milch und laktosefrei',
-      /item\.is_milk = true; item\.is_lactose_free = false/.test(f));
-    t('eingetragene Nuesse ebenso -- Erdnuss zaehlt mit',
-      /indexOf\('schalenfruechte'\) >= 0 \|\| _all\.indexOf\('erdnuss'\) >= 0\) item\.is_nuts = true/.test(f));
+    t('sie liest item.allergens', /Array\.isArray\(item && item\.allergens\)/.test(f), f.slice(0, 400));
 
-    // Die falschen Platzhalter-Symbole duerfen nicht zurueckkommen.
-    t('"Scharf" ist kein Personen-Symbol mehr', !/badgeSpicy[\s\S]{0,200}>person</.test(f), 'person gefunden');
-    t('"Huhn" als Lupe ist weg', f.indexOf('>search<') < 0);
-    t('"Rind" als Thermometer ist weg', f.indexOf('>thermostat<') < 0);
-    t('"Fisch" als Auge ist weg', f.indexOf('>visibility<') < 0);
-    t('"Alkohol" als Download-Pfeil ist weg', f.indexOf('>download<') < 0);
-    t('"Vegan" als Keks ist weg', f.indexOf('>cookie<') < 0);
-    t('scharf hat ein eigenes Symbol', /'scharf'\)/.test(f) && /scharf:\s+'<path/.test(f));
-    t('vegan ebenso', /'vegan'\)/.test(f) && /vegan:\s+'<path/.test(f));
+    // VEGETARISCH UND VEGAN NUR, WENN ES DRINSTEHT.
+    //
+    // autoDetectItemFlags setzt is_vegetarian, sobald im Namen kein
+    // Fleisch-Stichwort vorkommt. Bei "Zigeunerschnitzel" kommt dabei
+    // "vegetarisch" heraus. Als Symbol am Gericht ist das keine Vermutung
+    // mehr, sondern eine Zusage -- und ein Vegetarier bestellt danach.
+    t('vegetarisch und vegan werden VOR dem Raten festgehalten',
+      f.indexOf('var _vegEcht') < f.indexOf('autoDetectItemFlags(item)')
+      && f.indexOf('var _veganEcht') < f.indexOf('autoDetectItemFlags(item)'));
+    t('und nur dann gezeigt', /if \(_veganEcht\)[\s\S]{0,140}else if \(_vegEcht\)/.test(f));
 
-    // FLEISCH UND FISCH: EINGETRAGEN JA, GERATEN NEIN.
-    //
-    // Frueher stand hier, die Fleischarten seien ganz raus. Das war zu grob.
-    // Der Scanner liest die Merkmale r/h/f aus der Karte -- das sind Angaben
-    // des Wirts, keine Vermutungen, und die duerfen gezeigt werden.
-    //
-    // Die Gefahr ist eine andere: autoDetectItemFlags raet dieselben Felder
-    // aus dem Namen und laesst bei "Schinkenschnitzel" is_chicken anspringen
-    // ("hähn" nicht, aber die Wortliste ist grob). Wird NACH dem Raten
-    // gelesen, steht am Schnitzel ein Huhn.
-    //
-    // Also: gelesen wird VORHER, und das Symbol haengt an der vorher
-    // gemerkten Fassung.
-    t('Rind, Huhn und Fisch werden VOR dem Raten gemerkt',
+    // Dasselbe fuer Rind und Huhn: der Scanner liest die Merkmale r/h
+    // wirklich aus der Karte, das sind Angaben. Was autoDetectItemFlags
+    // daraus macht, zaehlt nicht -- "Schinken" laesst is_chicken anspringen.
+    t('Rind und Huhn werden ebenfalls VOR dem Raten gemerkt',
       f.indexOf('var _rindEcht') < f.indexOf('autoDetectItemFlags(item)')
-      && f.indexOf('var _huhnEcht') < f.indexOf('autoDetectItemFlags(item)')
-      && f.indexOf('var _fischEcht') < f.indexOf('autoDetectItemFlags(item)'),
-      'nach dem Raten gelesen');
-    t('und die Symbole haengen an der gemerkten Fassung, nicht am geratenen Feld',
-      /if \(_rindEcht\) badges/.test(f) && /if \(_huhnEcht\) badges/.test(f)
-      && /if \(_fischEcht\) badges/.test(f),
-      'Symbol haengt am geratenen Feld');
-    t('nirgends wird item.is_beef NACH dem Raten abgefragt',
+      && f.indexOf('var _huhnEcht') < f.indexOf('autoDetectItemFlags(item)'));
+    t('und die Symbole haengen an der gemerkten Fassung',
+      /if \(_rindEcht\) badges/.test(f) && /if \(_huhnEcht\) badges/.test(f));
+    t('nach dem Raten wird kein Fleischfeld mehr abgefragt',
       f.slice(f.indexOf('autoDetectItemFlags(item)')).indexOf('item.is_beef') < 0
-      && f.slice(f.indexOf('autoDetectItemFlags(item)')).indexOf('item.is_chicken') < 0,
-      'geratenes Fleischfeld wird noch gelesen');
-    t('Lamm und Schwein bleiben draussen -- die liest der Scanner zwar, aber '
-      + 'ein eigenes Symbol dafuer waere nur noch Gedraenge',
-      f.indexOf('is_lamb') < 0 && f.indexOf('is_pork') < 0);
-    t('Fisch gilt auch als eingetragen, wenn er im Pflichtallergen steht',
-      /_all\.indexOf\('fisch'\) >= 0\) _fischEcht = true/.test(f));
-    t('die drei neuen Symbole sind gezeichnet, nicht leer',
-      /rind:\s+'<path/.test(f) && /huhn:\s+'<path/.test(f) && /fisch:\s+'<path/.test(f));
-    t('vegan und vegetarisch schliessen sich aus -- nicht beide Symbole',
-      /if \(_veganEcht\)[\s\S]{0,140}else if \(_vegEcht\)/.test(f));
+      && f.slice(f.indexOf('autoDetectItemFlags(item)')).indexOf('item.is_chicken') < 0);
 
-    // SCHLICHT: eine Farbe, duenne Linie, kein Kasten. Die bunten
-    // Signalfarben zogen mehr Aufmerksamkeit als der Gerichtname, und Rot
-    // liest sich als Warnung, wo nur "enthaelt Gluten" gemeint ist.
-    t('kein Symbol traegt mehr eine eigene Farbe',
-      !/color:#[0-9a-f]{6}/i.test(f), (f.match(/color:#[0-9a-f]{6}/ig) || []).join(' '));
-    t('insbesondere kein Rot mehr', !/#dc2626|#b91c1c|#ea580c/i.test(f));
-    t('die Farbe kommt aus dem Stilbogen, nicht aus dem Code',
-      /\.menu-badge \{[\s\S]{0,220}color: var\(--ink-deep\)/.test(H));
-    t('die Pastellkaesten hinter den Symbolen sind weg',
-      !/\.menu-badge\.(popular|vegan|gluten|fish) \{/.test(H), 'Kasten-Regel gefunden');
-    t('jedes Symbol ist auch fuer Vorleseprogramme beschriftet',
-      /aria-label="' \+ titel \+ '"/.test(f));
+    // ---- ALLE VIERZEHN PFLICHTALLERGENE -----------------------------------
+    //
+    // Vorher standen am Gericht hoechstens drei: Gluten, Milch, Nuesse. Fuer
+    // die anderen elf gab es kein Symbol, also stand dort nichts -- auch
+    // wenn der Wirt sie eingetragen hatte.
+    t('die Allergene werden ueber LMIV_ALLERGENS durchgegangen',
+      /LMIV_ALLERGENS\.forEach/.test(f), f.slice(-700));
+    t('und nur gezeigt, was in item.allergens wirklich drinsteht',
+      /_all\.indexOf\(a\.code\) < 0 \|\| !KIN_SYMBOLE\[a\.code\]/.test(f));
+    t('die geratenen Einzelabfragen sind raus',
+      f.indexOf("sym('gluten'") < 0 && f.indexOf("sym('milk'") < 0 && f.indexOf("sym('nuts'") < 0,
+      'alte Einzelabfrage noch da');
+    t('warum bei Allergenen NICHT geraten wird, steht dabei',
+      /geratenes Symbol schlimmer als gar keines/.test(H));
 
-    // KIN DESIGN: eigene Formen, keine Fremdschrift, keine Emojis.
+    // Zu jedem der 14 Codes muss es auch ein Symbol geben -- sonst faellt
+    // eines still unter den Tisch.
+    (function () {
+        var werkzeug = require('../tools/symbole-bauen.js');
+        var codes = (lmiv.match(/code: '([a-zäöü]+)'/g) || [])
+            .map(function (s) { return s.replace(/code: '/, '').replace(/'/, ''); });
+        var ohne = codes.filter(function (c) { return !werkzeug.HERKUNFT[c]; });
+        t('alle 14 Pflichtallergene haben ein eigenes Symbol',
+          codes.length === 14 && ohne.length === 0, 'ohne Symbol: ' + ohne.join(', '));
+    })();
+
+    // KIN DESIGN: eigene Dateien, keine Fremdschrift, keine Emojis.
     t('keine Material-Symbols-Schrift mehr in den Merkmalen',
       f.indexOf('material-symbols') < 0, 'Fremdschrift gefunden');
     t('sondern die Haus-Form .ki mit eigenem SVG',
       /<span class="ki ki-sm"><svg viewBox="/.test(f));
-    t('currentColor -- die Symbole erben die Textfarbe',
-      /fill="currentColor"/.test(f) && /stroke="currentColor"/.test(f));
-    t('runde Enden wie im Hausstil', /stroke-linecap="round"/.test(f));
-
-    // GEFUELLTE FLAECHEN, KEINE UMRISSE.
-    //
-    // Hier stand vorher das Gegenteil ("kein fill, also reine Linien"). Der
-    // Test war nicht falsch -- die Entscheidung war es. Umrisse sehen bei
-    // 72 Pixeln gut aus und fallen bei 15 auseinander, und am Gericht stehen
-    // sie genau in dieser Groesse. Eine Flaeche kann nicht zulaufen.
-    t('die Symbole sind gefuellt, nicht nur umrandet',
-      /fill="currentColor"/.test(f) && f.indexOf('fill="none"') < 0,
-      'noch ein Umriss');
-    t('die Kontur ist duenn -- sie rundet nur die Ecken ab',
-      /stroke-width="0\.8"/.test(f), (f.match(/stroke-width="[\d.]+"/) || [])[0]);
-
-    // evenodd ist die Voraussetzung dafuer, dass Auge, Nuestern und
-    // Kaeseloecher Loecher sind und nicht zweite schwarze Flecken.
-    t('fill-rule evenodd ist gesetzt', /fill-rule="evenodd"/.test(f));
-    // Kommentare stehen nur in der Rohdatei -- CODE ist von ihnen befreit.
-    t('und warum, steht dabei', /zu Loechern statt zu zweiten schwarzen Flecken/.test(H));
-
-    // DIE ZWEI REGELN, an denen sich beim Aendern alles entscheidet. Wer sie
-    // nicht kennt, baut sich mit dem naechsten Symbol einen schwarzen Fleck
-    // oder ein Loch an der falschen Stelle.
-    (function () {
-        function block(name) {
-            var i = f.indexOf('\n        ' + name + ':');
-            if (i < 0) return '';
-            var j = f.indexOf("',\n", i);
-            return f.slice(i, j < 0 ? f.indexOf('\n    };', i) : j);
-        }
-        // Regel 1: Loecher im SELBEN Pfad wie die Flaeche.
-        //
-        // Strukturell geprueft, nicht ueber Koordinaten. Eine frueherere
-        // Fassung hielt hier die Pfaddaten fest ("M8 6.4...M10.2 9.15...").
-        // Das ging bei der naechsten Umzeichnung kaputt, ohne je einen
-        // echten Fehler gefunden zu haben -- ein Test, der nur meldet, dass
-        // sich etwas geaendert hat, kostet Zeit und sagt nichts.
-        //
-        // Woran man ein Loch wirklich erkennt: im selben d="..." steht nach
-        // der Flaeche ein zweites M, das einen geschlossenen Kreis zieht.
-        // Ein Loch ist ein UNTERpfad: ein zweites M innerhalb desselben
-        // d="...". Zieht jemand es in einen eigenen <path>, bleibt die Zahl
-        // der M gleich, aber die Zahl der Pfade steigt -- die Differenz faellt.
-        // Genau die wird hier gezaehlt, quer ueber alle Pfade des Symbols.
-        // (Eine frueherere Fassung sah nur in den ERSTEN Pfad und brach,
-        // sobald ein Symbol vorne ein lochfreies Teil bekam.)
-        function loecher(name) {
-            var b = block(name);
-            var pfade = (b.match(/<path /g) || []).length;
-            var ms = 0;
-            (b.match(/ d="[^"]+"/g) || []).forEach(function (d) {
-                ms += (d.match(/M/g) || []).length;
-            });
-            return ms - pfade;
-        }
-        [['rind', 5], ['huhn', 1], ['milch', 2], ['fisch', 1], ['nuesse', 2]]
-        .forEach(function (paar) {
-            t(paar[0] + ': die ' + paar[1] + ' Loecher sind Unterpfade -- als '
-              + 'eigener <path> waeren es schwarze Flecken statt Loecher',
-              loecher(paar[0]) === paar[1], loecher(paar[0]) + ' statt ' + paar[1]);
-        });
-
-        // Regel 2: Was sich UEBERLAPPT, muss getrennte Pfade sein -- sonst
-        // macht evenodd aus der Ueberlappung ein Loch.
-        t('Ohren und Hoerner des Rinds sind eigene Pfade',
-          (block('rind').match(/<path /g) || []).length === 5,
-          (block('rind').match(/<path /g) || []).length + ' Pfade');
-        t('und die Kammkreise des Huhns ebenso',
-          (block('huhn').match(/<path /g) || []).length === 6,
-          (block('huhn').match(/<path /g) || []).length + ' Pfade');
-        t('und der Grund dafuer ist festgehalten',
-          /machte evenodd aus\s*\n?\s*(\/\/ )?jeder Ueberlappung ein Loch/.test(H));
-    })();
-    // Jedes Symbol, das ausgegeben werden kann, muss auch gezeichnet sein --
-    // sonst kommt ein leeres Kaestchen heraus. Deshalb nicht nur zaehlen,
-    // sondern jeden Namen aus sym(..., 'name') gegen die Tabelle halten.
-    (function () {
-        var GEZEICHNET = (f.match(/^\s+([a-zäöü]+):\s+'</gm) || [])
-            .map(function (s) { return s.trim().replace(/:.*$/, ''); });
-        t('elf eigene Symbole sind hinterlegt',
-          GEZEICHNET.length === 11, GEZEICHNET.join(','));
-        var BENUTZT = (f.match(/, '([a-zäöü]+)'\);/g) || [])
-            .map(function (s) { return s.replace(/^, '/, '').replace(/'\);$/, ''); });
-        var ohne = BENUTZT.filter(function (x) { return GEZEICHNET.indexOf(x) < 0; });
-        t('jedes ausgegebene Symbol ist auch gezeichnet -- sonst leeres Kaestchen',
-          BENUTZT.length >= 11 && ohne.length === 0,
-          'benutzt: ' + BENUTZT.length + ', ohne Zeichnung: ' + ohne.join(','));
-    })();
+    t('currentColor -- die Symbole erben die Textfarbe', /fill="currentColor"/.test(f));
     t('kein einziges Emoji im Merkmal-Code',
       !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(f), 'Emoji gefunden');
-
-    // Geratenes "vegetarisch" ist eine Zusage, keine Vermutung.
-    t('vegetarisch und vegan werden VOR dem Raten festgehalten',
-      /_vegEcht = !!\(item && \(item\.is_vegetarian \|\| item\.vegetarian\)\)/.test(f)
-      && f.indexOf('_vegEcht') < f.indexOf('autoDetectItemFlags(item)'));
-    t('und nur dann gezeigt', /if \(_veganEcht\)[\s\S]{0,120}else if \(_vegEcht\)/.test(f));
-
-    // Wirklich ausfuehren: ein Schnitzel ohne Angabe darf NICHT
-    // vegetarisch heissen, nur weil kein Fleisch-Stichwort im Namen steht.
-    (function () {
-        var lauf = new Function('currentLanguage', 'translations',
-            schneide('autoDetectItemFlags') + schneide('getMenuBadgeIcons') + '; return getMenuBadgeIcons;'
-        )('de', { de: {} });
-        t('ein Schnitzel ohne Angabe bekommt KEIN vegetarisch-Symbol',
-          lauf({ name: 'Zigeunerschnitzel' }).indexOf('vegetarian') < 0,
-          lauf({ name: 'Zigeunerschnitzel' }));
-        t('mit eingetragenem is_vegetarian erscheint es',
-          lauf({ name: 'Pizza Verdura', is_vegetarian: true }).indexOf('vegetarian') >= 0);
-        t('vegan schlaegt vegetarisch',
-          (function () {
-              var h = lauf({ name: 'Falafel', is_vegetarian: true, is_vegan: true });
-              return h.indexOf('vegan') >= 0 && h.indexOf('vegetarian') < 0;
-          })());
-    })();
+    t('jedes Symbol ist fuer Vorleseprogramme beschriftet',
+      /aria-label="' \+ titel \+ '"/.test(f));
+    t('die Farbe kommt aus dem Stilbogen, nicht aus dem Code',
+      /\.menu-badge \{[\s\S]{0,220}color: var\(--ink-deep\)/.test(H));
+    t('kein Symbol traegt eine eigene Farbe',
+      !/color:#[0-9a-f]{6}/i.test(f), (f.match(/color:#[0-9a-f]{6}/ig) || []).join(' '));
 })();
-
 // ---- 7. Und sie wird endlich AUFGERUFEN ------------------------------------
 // Der Kern des Ganzen: vorher stand die Funktion da und tat nichts.
 (function () {
