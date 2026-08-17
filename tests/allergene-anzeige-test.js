@@ -244,18 +244,26 @@ t('alle 14 Pflichtallergene sind hinterlegt',
         //
         // Woran man ein Loch wirklich erkennt: im selben d="..." steht nach
         // der Flaeche ein zweites M, das einen geschlossenen Kreis zieht.
-        function ersterPfad(name) {
+        // Ein Loch ist ein UNTERpfad: ein zweites M innerhalb desselben
+        // d="...". Zieht jemand es in einen eigenen <path>, bleibt die Zahl
+        // der M gleich, aber die Zahl der Pfade steigt -- die Differenz faellt.
+        // Genau die wird hier gezaehlt, quer ueber alle Pfade des Symbols.
+        // (Eine frueherere Fassung sah nur in den ERSTEN Pfad und brach,
+        // sobald ein Symbol vorne ein lochfreies Teil bekam.)
+        function loecher(name) {
             var b = block(name);
-            var i = b.indexOf(' d="');
-            return i < 0 ? '' : b.slice(i + 4, b.indexOf('"', i + 4));
+            var pfade = (b.match(/<path /g) || []).length;
+            var ms = 0;
+            (b.match(/ d="[^"]+"/g) || []).forEach(function (d) {
+                ms += (d.match(/M/g) || []).length;
+            });
+            return ms - pfade;
         }
-        [['rind', 4], ['huhn', 1], ['milch', 3], ['fisch', 1], ['nuesse', 2]]
+        [['rind', 5], ['huhn', 1], ['milch', 2], ['fisch', 1], ['nuesse', 2]]
         .forEach(function (paar) {
-            var d = ersterPfad(paar[0]);
-            var teile = (d.match(/M/g) || []).length - 1;   // erstes M = die Flaeche
-            t(paar[0] + ': die ' + paar[1] + ' Loecher stecken im selben Pfad wie die '
-              + 'Flaeche -- als eigener Pfad waeren es schwarze Flecken',
-              teile === paar[1], teile + ' statt ' + paar[1]);
+            t(paar[0] + ': die ' + paar[1] + ' Loecher sind Unterpfade -- als '
+              + 'eigener <path> waeren es schwarze Flecken statt Loecher',
+              loecher(paar[0]) === paar[1], loecher(paar[0]) + ' statt ' + paar[1]);
         });
 
         // Regel 2: Was sich UEBERLAPPT, muss getrennte Pfade sein -- sonst
