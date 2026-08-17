@@ -99,7 +99,11 @@ t('unbekannte Position kippt nicht', true);
 var bestellPayloads = H.split('items: orderCart.map(item => ({');
 t('die Bestellung schickt notes mit', bestellPayloads.length === 3, bestellPayloads.length - 1 + ' Stellen gefunden');
 [1, 2].forEach(function (i) {
-    var block = bestellPayloads[i].slice(0, 400);
+    // Bis zum Ende der map lesen, nicht 400 Zeichen weit. Ein Zeichenfenster
+    // ist beim naechsten laengeren Kommentar im Payload zu klein -- genau das
+    // ist passiert, als menu_item_id dazukam.
+    var ende = bestellPayloads[i].indexOf('}))');
+    var block = bestellPayloads[i].slice(0, ende > 0 ? ende : 400);
     t('Payload ' + i + ' enthaelt notes', /notes: item\.notes \|\| ''/.test(block), block.slice(0, 200));
 });
 t('auch order_items bekommt die Notiz',

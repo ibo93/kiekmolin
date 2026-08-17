@@ -49814,6 +49814,12 @@ async function submitOrder() {
             delivery_address: deliveryAddress,
             delivery_notes: order.delivery_notes || null,
             items: orderCart.map(item => ({
+                // menu_item_id MUSS mit. Der Server rechnet die Preise gegen
+                // die Karte nach (netlify/functions/lib/preis-pruefung.js);
+                // ohne die Kennung bleibt ihm nur der Name, und der ist beim
+                // Nachbestellen und bei Gruppenbestellungen mit Zusaetzen
+                // versehen.
+                menu_item_id: item.menu_item_id || null,
                 name: item.name,
                 quantity: item.quantity,
                 price: item.total_price,
@@ -49832,27 +49838,52 @@ async function submitOrder() {
             discount: couponDiscount || 0,
             requested_time: window._requestedTimeForOrder || null
         };
-        var _orderRes = await _resilientInsert('orders', _orderPayload);
-
-        // Fallback: schlägt der direkte Insert fehl (typischer Fall: RLS blockt
-        // den öffentlichen Schlüssel), serverseitig mit Service-Key speichern.
-        // So kommen Bestellungen auch bei aktiver RLS an, ohne DB-Änderung.
-        if (!_orderRes.ok) {
-            try {
-                var _fb = await fetch('/.netlify/functions/order-save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order: _orderPayload })
-                });
-                var _fbj = null; try { _fbj = await _fb.json(); } catch (e) {}
-                if (_fb.ok && _fbj && _fbj.ok) {
-                    _orderRes = { ok: true, data: _fbj.id ? [{ id: _fbj.id }] : null };
-                } else {
-                    _orderRes = { ok: false, status: (_fbj && _fbj.status) || _fb.status || 0, text: (_fbj && _fbj.error) || 'Fallback fehlgeschlagen' };
-                }
-            } catch (_fbe) {
-                _orderRes = { ok: false, status: 0, text: 'Fallback nicht erreichbar: ' + _fbe.message };
+        // ZUERST ueber den Server -- dort werden die Preise gegen die Karte
+        // nachgerechnet. Vorher lief es andersherum: direkt in die Datenbank,
+        // und der Server war nur der Notweg. Damit lief die Prüfung an fast
+        // jeder Bestellung vorbei, und eine Prüfung, an der man vorbeigehen
+        // kann, ist keine.
+        //
+        // Der direkte Insert bleibt als Notweg: ist Netlify nicht erreichbar,
+        // sollen Bestellungen trotzdem ankommen. Bei einer ABGELEHNTEN
+        // Bestellung (422) wird er NICHT genommen -- sonst käme die Bestellung
+        // ueber den Notweg doch noch durch und die Prüfung waere umsonst.
+        var _orderRes = { ok: false, status: 0, text: '' };
+        var _preisAbgelehnt = null;
+        try {
+            var _srv = await fetch('/.netlify/functions/order-save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: _orderPayload })
+            });
+            var _srvj = null; try { _srvj = await _srv.json(); } catch (e) {}
+            if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
+                _preisAbgelehnt = _srvj;
+            } else if (_srv.ok && _srvj && _srvj.ok) {
+                _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
+            } else {
+                _orderRes = { ok: false, status: (_srvj && _srvj.status) || _srv.status || 0,
+                              text: (_srvj && _srvj.error) || 'Server-Speichern fehlgeschlagen' };
             }
+        } catch (_srve) {
+            _orderRes = { ok: false, status: 0, text: 'Server nicht erreichbar: ' + _srve.message };
+        }
+
+        if (_preisAbgelehnt) {
+            // Kein Notweg, kein zweiter Versuch. Der haeufigste ehrliche Grund
+            // dafuer: der Wirt hat einen Preis geaendert, waehrend die Seite
+            // offen stand. Deshalb der Hinweis aufs Neuladen.
+            showToast('Die Preise haben sich geändert. Bitte lade die Seite neu.', 'error');
+            console.warn('Preis abgelehnt:', _preisAbgelehnt.gruende);
+            // Knopf wieder freigeben, sonst steht der Gast vor einem toten
+            // "Bestellung wird verarbeitet..." und kommt nicht mehr weiter.
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            return;
+        }
+
+        if (!_orderRes.ok) {
+            _orderRes = await _resilientInsert('orders', _orderPayload);
         }
 
         if (_orderRes.ok) {
