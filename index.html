@@ -8403,6 +8403,17 @@
             transition: opacity 0.2s;
         }
 
+        /* Die beiden Regeln darueber gelten fuer <svg> -- und genau deshalb
+           steht das Haekchen wieder als <svg> im HTML.
+           Zwischendurch war es ein Zeichen der Symbolschrift mit
+           font-size:3px: in einem 22 px grossen Kaestchen praktisch nicht
+           vorhanden, und die Regeln darueber griffen nicht mehr, weil ein
+           <span> kein <svg> ist. Ob etwas gewaehlt war, erkannte man nur noch
+           an der Fuellung. Groesser stellen half nicht: laedt die Schrift
+           nicht, schreibt der Browser bei einer Ligaturschrift das WORT
+           "check" ins Kaestchen. Ein gezeichnetes Haekchen braucht keine
+           Schrift, keine Verbindung und ist genau so gross wie gewollt. */
+
         .option-info {
             flex: 1;
         }
@@ -8417,6 +8428,79 @@
             font-size: 14px;
             font-weight: 600;
             color: var(--primary);
+        }
+
+        /* Zaehler in der Kopfzeile: "1/2". Steht nur da, wenn der Wirt eine
+           Hoechstzahl gesetzt hat -- sonst waere es eine Zahl ohne Aussage. */
+        .option-group-count {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            background: rgba(0,61,51,0.07);
+            color: var(--slate);
+            font-variant-numeric: tabular-nums;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        /* Voll heisst voll -- und man sieht es, bevor man dagegenlaeuft. */
+        .option-group.voll .option-group-count {
+            background: var(--primary);
+            color: white;
+        }
+        .option-group.voll .option-item:not(.selected) {
+            opacity: 0.4;
+        }
+        .option-group.voll .option-item:not(.selected):hover {
+            background: rgba(0,61,51,0.05);
+        }
+
+        /* Mengenzaehler pro Extra. Unsichtbar, solange das Extra nicht
+           gewaehlt ist -- eine Null mit Plus und Minus daneben ist genau die
+           Art Knopf, die man antippt und dann nicht weiss, was passiert ist. */
+        .extra-menge {
+            display: none;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+        .option-item.selected .extra-menge {
+            display: flex;
+        }
+        .extra-menge button {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 9999px;
+            background: rgba(0,61,51,0.08);
+            color: var(--primary);
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+            /* Fingerkuppe statt Mauszeiger: das Feld ist 28 px gross, der
+               Tippbereich muss trotzdem die 44 px erreichen. */
+            position: relative;
+        }
+        .extra-menge button::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+        }
+        .extra-menge button:hover {
+            background: rgba(0,61,51,0.16);
+        }
+        .extra-menge .extra-anzahl {
+            min-width: 20px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dark);
+            font-variant-numeric: tabular-nums;
         }
 
         /* Cross-Sell Popup — Stitch Design */
@@ -20614,6 +20698,10 @@ const translations = {
         noProducts: 'Keine Produkte in dieser Kategorie',
         onlineNotAvailable: 'Online-Bestellungen sind nicht verfügbar',
         required: 'Pflicht',
+        // "Bitte ohne" stand bisher nur auf Deutsch da -- der Schluessel
+        // wurde benutzt, aber nie hinterlegt.
+        pleaseWithout: 'Bitte ohne',
+        maxReached: 'Mehr als {n} geht hier nicht',
         selectSize: 'Größe wählen',
         badgePopular: 'Beliebt',
         badgeBeef: 'Rind',
@@ -21100,6 +21188,8 @@ const translations = {
         noProducts: 'No products in this category',
         onlineNotAvailable: 'Online orders are not available',
         required: 'Required',
+        pleaseWithout: 'Please without',
+        maxReached: 'No more than {n} here',
         selectSize: 'Select size',
         badgePopular: 'Popular',
         badgeBeef: 'Beef',
@@ -21548,6 +21638,8 @@ const translations = {
         noProducts: 'Geen producten in deze categorie',
         onlineNotAvailable: 'Online bestellen is niet beschikbaar',
         required: 'Verplicht',
+        pleaseWithout: 'Graag zonder',
+        maxReached: 'Niet meer dan {n} hier',
         selectSize: 'Kies grootte',
         badgePopular: 'Populair',
         badgeBeef: 'Rundvlees',
@@ -46876,7 +46968,9 @@ function openItemOptions(itemId, item) {
         var sizesHtml = '';
         // Größen aus item.sizes (JSON-Feld) als eigene Optionsgruppe rendern
         if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0) {
-            var checkSvg = '<span class="material-symbols-outlined" style="font-size:3px;color:white;">check</span>';
+            var checkSvg = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" '
+                     + 'stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'
+                     + '<path d="M5 12.5 L10 17.5 L19 7"/></svg>';
             sizesHtml += '<div class="option-group">';
             sizesHtml += '<div class="option-group-header"><div class="option-group-title">' + (_t.selectSize || 'Größe wählen') + '</div><div class="option-group-required">' + (_t.required || 'Pflicht') + '</div></div>';
             item.sizes.forEach(function(sz, si) {
@@ -46917,6 +47011,41 @@ function openItemOptions(itemId, item) {
         updateItemTotalPrice();
     });
 }
+
+// WIE EINE GEWAEHLTE OPTION GESCHRIEBEN WIRD -- AN EINER STELLE.
+//
+// Ein Extra kann mehrfach genommen werden ("2x Kaese"). Die Menge steht als
+// eigenes Feld an der Option, damit sich der Preis rechnen laesst. Im TEXT
+// muss sie ueberall mitkommen: Warenkorb, Bestelluebersicht, Kuechenansicht,
+// Bon. Fehlt sie an einer dieser Stellen, bezahlt der Gast zwei und bekommt
+// eins -- und niemand merkt, wo es verlorengegangen ist.
+//
+// Der Name selbst lag schon vorher an drei verschiedenen Feldern: "option"
+// im Warenkorb, "option_name" in der gespeicherten Bestellung, "name" bei
+// alten Positionen. Jede Anzeigestelle hat diese Kette einzeln
+// nachgeschrieben, und an einer stand sie einmal falsch herum -- die Kueche
+// las den Gerichtnamen statt der Groesse. Deshalb jetzt: eine Funktion.
+function optionText(o) {
+    if (typeof o === 'string') return o;
+    if (!o) return '';
+    var name = o.option || o.option_name || o.name || '';
+    if (!name) return '';
+    var menge = parseInt(o.quantity, 10) || 1;
+    return (menge > 1 ? menge + '× ' : '') + name;
+}
+window.optionText = optionText;
+
+// Was eine Option kostet -- inklusive Menge.
+//
+// Eine Groesse ("replace") ist der GANZE Preis und kein Aufschlag; sie kann
+// es auch nicht zweimal geben. Nur Aufschlaege werden mit der Menge
+// multipliziert.
+function optionAufpreis(o) {
+    if (!o || o.price_type === 'replace') return 0;
+    var p = parseFloat(o.price != null ? o.price : o.price_delta) || 0;
+    return p * (parseInt(o.quantity, 10) || 1);
+}
+window.optionAufpreis = optionAufpreis;
 
 // BITTE OHNE: DIE ZUTATEN KOMMEN AUS DER BESCHREIBUNG.
 //
@@ -46978,7 +47107,9 @@ function renderOhneHtml(item) {
     // Dasselbe Haekchen wie bei den Extras. Es steht hier noch einmal, weil
     // checkSvg im Dialog eine oertliche Variable ist -- von hier aus waere
     // sie nicht sichtbar, und der Abschnitt waere beim ersten Aufruf tot.
-    var checkSvg = '<span class="material-symbols-outlined" style="font-size:3px;color:white;">check</span>';
+    var checkSvg = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" '
+                     + 'stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'
+                     + '<path d="M5 12.5 L10 17.5 L19 7"/></svg>';
     var html = '<div class="option-group"><div class="option-group-header">'
              + '<div class="option-group-title">' + (_t.pleaseWithout || 'Bitte ohne') + '</div>'
              + '</div>';
@@ -47092,17 +47223,26 @@ async function loadItemOptionGroups(item) {
 // Optionsgruppen als HTML rendern
 function renderOptionGroupsHtml(groups, basePrice) {
     if (!groups || groups.length === 0) return '';
-    var checkSvg = '<span class="material-symbols-outlined" style="font-size:3px;color:white;">check</span>';
+    var checkSvg = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" '
+                     + 'stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'
+                     + '<path d="M5 12.5 L10 17.5 L19 7"/></svg>';
     var html = '';
 
     groups.forEach(function(group) {
         if (!group.choices || group.choices.length === 0) return;
 
-        html += '<div class="option-group">';
+        // Die Hoechstzahl gilt nur beim Ankreuzen. Bei einer Groesse ist sie
+        // ohnehin 1 -- dort waere "0/1" nur Rauschen ueber einer Liste, aus
+        // der man sowieso genau eines nimmt.
+        var maxWahl = (group.type === 'multi') ? (parseInt(group.max_selections, 10) || 0) : 0;
+
+        html += '<div class="option-group" data-gruppe="' + group.id + '"'
+              + (maxWahl > 0 ? ' data-max="' + maxWahl + '"' : '') + '>';
         html += '<div class="option-group-header">';
         html += '<div class="option-group-title">' + group.name + '</div>';
         var _t = translations[currentLanguage] || translations.de;
         if (group.is_required) html += '<div class="option-group-required">' + (_t.required || 'Pflicht') + '</div>';
+        if (maxWahl > 0) html += '<div class="option-group-count">0/' + maxWahl + '</div>';
         html += '</div>';
 
         group.choices.forEach(function(choice) {
@@ -47128,12 +47268,24 @@ function renderOptionGroupsHtml(groups, basePrice) {
                 }
             } else {
                 // Checkbox-Style (Extras/Mehrfach)
-                html += '<div class="option-item" onclick="toggleExtra(this, \'' + group.id + '\', \'' + safeName + '\', ' + choicePrice + ')" data-group="' + group.id + '">';
+                var ruf = '\'' + group.id + '\', \'' + safeName + '\', ' + choicePrice;
+                html += '<div class="option-item" onclick="toggleExtra(this, ' + ruf + ')" data-group="' + group.id + '">';
                 html += '<div class="option-checkbox">' + checkSvg + '</div>';
                 html += '<div class="option-info"><div class="option-name">' + choice.name + '</div>';
                 if (choice.description) html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' + choice.description + '</div>';
                 html += '</div>';
                 html += '<div class="option-price">+ ' + formatPrice(choicePrice) + '</div>';
+                // Der Zaehler steht immer im HTML und wird per CSS erst
+                // sichtbar, wenn die Zeile gewaehlt ist. Sonst muesste beim
+                // Antippen neu gebaut werden -- und dabei geht regelmaessig
+                // etwas anderes im Dialog verloren.
+                // stopPropagation, weil sonst der Klick auf "+" auch noch die
+                // Zeile umschaltet und das Extra sofort wieder rausfliegt.
+                html += '<div class="extra-menge">'
+                      + '<button type="button" aria-label="weniger" onclick="event.stopPropagation();changeExtraQty(this, ' + ruf + ', -1)">&minus;</button>'
+                      + '<span class="extra-anzahl">1</span>'
+                      + '<button type="button" aria-label="mehr" onclick="event.stopPropagation();changeExtraQty(this, ' + ruf + ', 1)">+</button>'
+                      + '</div>';
                 html += '</div>';
             }
         });
@@ -47164,19 +47316,106 @@ function selectOption(el, group, option, price, priceType) {
     updateItemTotalPrice();
 }
 
+// HOECHSTZAHL PRO GRUPPE
+//
+// Der Wirt kann im Dashboard "hoechstens 2" hinterlegen (Feld ogMax, Spalte
+// max_selections). Gespeichert wurde das schon; ausgewertet bisher nicht --
+// der Gast konnte alle acht Saucen ankreuzen, und in der Kueche stand dann
+// eine Bestellung, die so gar nicht gemeint war.
+//
+// Gezaehlt werden MENGEN, nicht Zeilen: 2x Kaese ist zwei, nicht eins. Sonst
+// waere die Grenze mit dem Mengenzaehler daneben in einem Tipp umgangen.
+function gruppenAnzahl(group) {
+    return currentItemOptions.reduce(function (s, o) {
+        return o.group === group ? s + (parseInt(o.quantity, 10) || 1) : s;
+    }, 0);
+}
+
+function gruppenKasten(group) {
+    // Aus dem angeklickten Element heraus waere es kuerzer, aber der Zaehler
+    // muss sich auch dann auffrischen, wenn woanders etwas passiert.
+    return document.querySelector('.option-group[data-gruppe="' + String(group).replace(/"/g, '') + '"]');
+}
+
+function gruppenMax(group) {
+    var k = gruppenKasten(group);
+    return k ? (parseInt(k.getAttribute('data-max'), 10) || 0) : 0;
+}
+
+function frischeGruppenZaehler(group) {
+    var k = gruppenKasten(group);
+    if (!k) return;
+    var max = parseInt(k.getAttribute('data-max'), 10) || 0;
+    if (!max) return;
+    var jetzt = gruppenAnzahl(group);
+    var z = k.querySelector('.option-group-count');
+    if (z) z.textContent = jetzt + '/' + max;
+    k.classList.toggle('voll', jetzt >= max);
+}
+
+// Wenn kein Platz mehr ist, wird nicht stumm ignoriert. Ein Tipp, der nichts
+// tut, liest sich wie ein kaputter Knopf.
+function passtNochRein(group, wieviel) {
+    var max = gruppenMax(group);
+    if (!max) return true;
+    if (gruppenAnzahl(group) + wieviel <= max) return true;
+    var _t = translations[currentLanguage] || translations.de;
+    var text = (_t.maxReached || 'Mehr als {n} geht hier nicht').replace('{n}', max);
+    if (typeof showToast === 'function') showToast(text, 'error');
+    return false;
+}
+
 // Multi-Select Extra
 function toggleExtra(el, group, option, price) {
-    el.classList.toggle('selected');
-
     const existingIndex = currentItemOptions.findIndex(o => o.group === group && o.option === option);
     if (existingIndex > -1) {
         currentItemOptions.splice(existingIndex, 1);
+        el.classList.remove('selected');
+        // Beim naechsten Anwaehlen faengt es wieder bei eins an.
+        var a = el.querySelector('.extra-anzahl');
+        if (a) a.textContent = '1';
     } else {
-        currentItemOptions.push({ group, option, price, price_type: 'add' });
+        if (!passtNochRein(group, 1)) return;
+        currentItemOptions.push({ group, option, price, price_type: 'add', quantity: 1 });
+        el.classList.add('selected');
     }
 
+    frischeGruppenZaehler(group);
     updateItemTotalPrice();
 }
+
+// MENGENZAEHLER PRO EXTRA
+//
+// Minus bei eins nimmt das Extra ganz heraus -- das ist, was der Gast an
+// dieser Stelle meint. Eine Null stehen zu lassen waere eine Zeile, die
+// aussieht wie gewaehlt und nichts bewirkt.
+function changeExtraQty(btn, group, option, price, delta) {
+    var zeile = btn.closest ? btn.closest('.option-item') : null;
+    var i = currentItemOptions.findIndex(function (o) { return o.group === group && o.option === option; });
+    if (i < 0) return;
+
+    if (delta > 0 && !passtNochRein(group, delta)) return;
+
+    var neu = (parseInt(currentItemOptions[i].quantity, 10) || 1) + delta;
+    if (neu <= 0) {
+        currentItemOptions.splice(i, 1);
+        if (zeile) {
+            zeile.classList.remove('selected');
+            var a0 = zeile.querySelector('.extra-anzahl');
+            if (a0) a0.textContent = '1';
+        }
+    } else {
+        currentItemOptions[i].quantity = neu;
+        if (zeile) {
+            var a1 = zeile.querySelector('.extra-anzahl');
+            if (a1) a1.textContent = String(neu);
+        }
+    }
+
+    frischeGruppenZaehler(group);
+    updateItemTotalPrice();
+}
+window.changeExtraQty = changeExtraQty;
 
 // Menge ändern
 function changeItemQty(delta) {
@@ -47193,7 +47432,8 @@ function calculateItemPrice() {
         if (opt.price_type === 'replace') {
             price = opt.price;
         } else if (opt.price_type === 'add') {
-            price += opt.price;
+            // Mit Menge: 2x Kaese kostet zweimal.
+            price += optionAufpreis(opt);
         }
     });
 
@@ -48526,9 +48766,9 @@ function renderCartItems() {
         const sizeOpt = selOpts.find(o => o.price_type === 'replace');
         const extrasText = selOpts
             .filter(o => o.price_type === 'add')
-            .map(o => o.option)
+            .map(o => optionText(o))
             .join(', ');
-        const sizeText = sizeOpt ? sizeOpt.option : '';
+        const sizeText = sizeOpt ? optionText(sizeOpt) : '';
         const allOptionsText = [sizeText, extrasText].filter(Boolean).join(' | ');
         const imgUrl = item.image || item.image_url || '';
 
@@ -49478,7 +49718,7 @@ async function submitOrder() {
             quantity: item.quantity,
             price: item.total_price,
             notes: item.notes || '',
-            options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
+            options: (item.selected_options || []).map(optionText).filter(Boolean).join(', ')
         })),
         subtotal: subtotal,
         vat_rate: vatRate,
@@ -49572,7 +49812,7 @@ async function submitOrder() {
                 price: item.total_price,
                 unit_price: item.unit_price || item.base_price || 0,
                 notes: item.notes || '',
-                options: (item.selected_options || []).map(function(o) { return o.option || o.option_name || o.name || ''; }).filter(Boolean).join(', ')
+                options: (item.selected_options || []).map(optionText).filter(Boolean).join(', ')
             })),
             subtotal: subtotal,
             delivery_fee: deliveryFee,
@@ -51011,7 +51251,7 @@ async function loadDashboardOrders() {
                     ? order.order_items.map(item => ({
                         name: item.item_name,
                         quantity: item.quantity,
-                        options: (item.selected_options || []).map(o => o.option_name || o.option || o).join(', '),
+                        options: (item.selected_options || []).map(optionText).filter(Boolean).join(', '),
                         selected_options: item.selected_options || [],
                         notes: item.notes || '',
                         price: item.total_price
@@ -52708,9 +52948,9 @@ async function printKitchenBon(orderId) {
 
         if (selOpts.length > 0) {
             selOpts.forEach(function(opt) {
-                var optName = opt.option_name || opt.option || opt.name || '';
+                var optName = optionText(opt);
                 // Eine Größe ersetzt den Preis, sie kommt nicht obendrauf.
-                var optPrice = opt.price_type === 'replace' ? 0 : (parseFloat(opt.price) || 0);
+                var optPrice = optionAufpreis(opt);
                 if (optName) {
                     optionsHtml += '<div style="padding:1px 0 1px 32px;font-size:13px;color:#333;">';
                     optionsHtml += '<span style="color:#888;">&#8594;</span> ' + optName;
@@ -53130,7 +53370,7 @@ function generateESCPOS(order) {
         var opts = item.selected_options || [];
         if (opts.length > 0) {
             opts.forEach(function(opt) {
-                var optName = opt.option_name || opt.option || opt.name || '';
+                var optName = optionText(opt);
                 if (optName) cmd += '  > ' + optName + LF;
             });
         } else if (item.options) {
@@ -53773,12 +54013,11 @@ function buildRichPosPayload(order) {
         var opts = (item.selected_options || []).map(function (o) {
             // "option" zuerst -- so heißt das Feld im Warenkorb. Fehlte es
             // hier, stand auf dem Bon kein Wort von der Größe.
-            var istGroesse = o.price_type === 'replace';
             return {
-                name: o.option || o.option_name || o.name || '',
+                name: optionText(o),
                 // Bei einer Größe ist der Preis der GANZE Preis, kein
                 // Aufschlag. "groß (+10,00)" wäre schlicht falsch.
-                price_delta: istGroesse ? 0 : parseFloat(o.price_delta || o.price || 0),
+                price_delta: optionAufpreis(o),
                 group: o.option_group || o.group || ''
             };
         });
@@ -68052,10 +68291,7 @@ function _kdsRenderCard(o, colType) {
             // price_type } ab -- ein Feld "name" gibt es dort nicht. Hier
             // wurde nur nach opt.name gesucht, also stand in der Spalte NICHTS.
             // Der Gast bestellte "groß", die Küche las "Pizza Margherita".
-            optionsText = it.selected_options.map(function (opt) {
-                return typeof opt === 'string' ? opt
-                     : (opt.option || opt.option_name || opt.name || '');
-            }).filter(Boolean).join(', ');
+            optionsText = it.selected_options.map(optionText).filter(Boolean).join(', ');
         }
         return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,61,51,0.04);">' +
             '<span style="background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;font-weight:700;font-size:12px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,61,51,0.15);">' + (it.quantity || 1) + 'x</span>' +
