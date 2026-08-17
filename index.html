@@ -46292,32 +46292,82 @@ function getMenuBadgeIcons(item) {
                    + '<path d="M12 11v7.5"/>'
                    + '<path d="M8.6 18.5h6.8"/>',
 
-        // Kuhkopf von vorn. Die abstehenden Ohren sind das Erkennungsmerkmal
-        // -- ohne sie waere es ein beliebiger runder Kopf. Auf den Muffel
-        // innen habe ich verzichtet: bei 15 Pixeln wird daraus ein Fleck.
-        rind:        '<path d="M7.4 8.1c0-2.2 2-3.8 4.6-3.8s4.6 1.6 4.6 3.8c0 1.3-.3 2.3-.9 3.1 1 .8 1.6 1.9 1.6 3.1 0 2.3-2.4 4.1-5.3 4.1s-5.3-1.8-5.3-4.1c0-1.2.6-2.3 1.6-3.1-.6-.8-.9-1.8-.9-3.1z"/>'
-                   + '<path d="M7.4 8.1C6.2 7.2 4.8 7.1 3.7 7.8c.5 1.4 1.7 2.2 3.2 2.1"/>'
-                   + '<path d="M16.6 8.1c1.2-.9 2.6-1 3.7-.3-.5 1.4-1.7 2.2-3.2 2.1"/>'
-                   + '<circle cx="10.1" cy="9.6" r=".55"/>'
-                   + '<circle cx="13.9" cy="9.6" r=".55"/>'
-                   + '<circle cx="10.8" cy="14.6" r=".5"/>'
-                   + '<circle cx="13.2" cy="14.6" r=".5"/>',
-
-        // Henne: Rumpf, Kopf mit Kamm und Schnabel, Schwanz, zwei Beine.
+        // ---- PORTRAETS: RIND UND HUHN --------------------------------------
         //
-        // Die erste Fassung hatte den Kopf frei neben dem Rumpf haengen, mit
-        // einem Hals dazwischen, der bei 15 Pixeln verschwand -- uebrig blieb
-        // ein Klecks mit einem Punkt daneben. Jetzt sitzt der Kopf DIREKT auf
-        // dem Rumpf: die beiden Umrisse beruehren sich, der Hals entsteht von
-        // selbst und kann nicht abreissen.
-        huhn:        '<path d="M4.8 14.7c0-3.4 2.7-6.1 6.1-6.1s6.1 2.7 6.1 6.1c0 2.6-1.8 4.5-4.4 4.5H9.2c-2.6 0-4.4-1.9-4.4-4.5z"/>'
-                   + '<circle cx="14.6" cy="6.6" r="2.5"/>'
-                   + '<path d="M13.4 4.5c-.2-.9.3-1.7 1.2-1.9"/>'
-                   + '<path d="M15.4 4.2c.1-.9.8-1.5 1.7-1.4"/>'
-                   + '<path d="M17.2 6.2l2.4.6-2.3.9"/>'
-                   + '<circle cx="15.6" cy="6" r=".55"/>'
-                   + '<path d="M5.6 12.4C4.2 11.6 3.5 10.1 3.8 8.2c1.7.5 2.8 1.7 3.1 3.3"/>'
-                   + '<path d="M9.9 19.2v1.6"/><path d="M13.1 19.2v1.6"/>',
+        // Die Tiere sind KOEPFE, keine Ganzkoerper -- und das ist eine
+        // Entscheidung fuers ganze Haus, nicht nur fuer zwei Symbole.
+        //
+        // Ein Ganzkoerper-Tier ist Dekoration: es muss klein und duenn
+        // gezeichnet werden, damit Rumpf, Beine und Schwanz reinpassen, und
+        // bei 15 Pixeln bleibt ein Klecks uebrig. Ein Kopf darf die ganze
+        // Flaeche fuellen. Er hat einen Blick, und er sieht einen an.
+        //
+        // Beide folgen derselben Regel, damit sie als Paar erkennbar sind
+        // und nicht wie zwei zugekaufte Symbole nebeneinander:
+        //   - ein Kopf, formatfuellend, breiteste Stelle etwa 20 von 24
+        //   - genau EIN Augenmass (r .62) bei beiden
+        //   - die Silhouette traegt allein: Ohren und Hoerner beim Rind,
+        //     Kamm, Schnabel und Kehllappen beim Huhn. Alles Innere darf
+        //     bei 15 Pixeln verschwinden, ohne dass das Tier verloren geht.
+        //   - keine Rundlichkeit um der Niedlichkeit willen: das Rind hat
+        //     eine breite Stirn und eine schmalere Schnauze, so wie ein
+        //     echtes Rind. Der runde Knopfkopf von vorher war 08/15.
+
+        // Rind von vorn. Der Umriss ist eine Sanduhr: breite Stirn, schmale
+        // Backen, dann wieder ein BREITES Maul. Das ist der Fehler, den fast
+        // jedes Rind-Symbol macht -- es laeuft nach unten spitz zu wie ein
+        // Herz. Ein echtes Rind hat unten den breitesten Punkt, und genau
+        // daran erkennt man es auch als Umriss allein.
+        //
+        // Innen nur vier Punkte: zwei Augen, zwei Nuestern. Eine Querlinie
+        // ueber dem Maul war schon drin und musste wieder raus -- zusammen
+        // mit den Nuestern darunter wurde daraus ein grinsender Mund mit
+        // Zaehnen. Die Flaeche des Mauls sagt auch ohne Linie, wo es anfaengt.
+        rind:        '<path d="M8 6.4c0-1.4 1.8-2.2 4-2.2s4 .8 4 2.2c0 2.2-.4 4-1.2 5.4 1.6.6 2.4 2 2.4 3.6 0 2.2-2.2 3.8-5.2 3.8s-5.2-1.6-5.2-3.8c0-1.6.8-3 2.4-3.6C8.4 10.4 8 8.6 8 6.4z"/>'
+                   + '<path d="M8.2 9.6C6.6 8.8 4.6 9 3.2 10.2c1.2 1.5 3.2 1.9 4.9 1.1"/>'
+                   + '<path d="M15.8 9.6c1.6-.8 3.6-.6 5 .6-1.2 1.5-3.2 1.9-4.9 1.1"/>'
+                   + '<path d="M8.6 5.4C7.6 4.6 7.2 3.5 7.6 2.4"/>'
+                   + '<path d="M15.4 5.4c1-.8 1.4-1.9 1-3"/>'
+                   + '<circle cx="10.2" cy="8" r=".5"/>'
+                   + '<circle cx="13.8" cy="8" r=".5"/>'
+                   + '<circle cx="10.5" cy="15.4" r=".45"/>'
+                   + '<circle cx="13.5" cy="15.4" r=".45"/>',
+
+        // Huhn im Profil, nach rechts.
+        //
+        // Vorher war es ein Ganzkoerper-Huhn, danach ein Kopf, dessen Umriss
+        // so weit nach links unten ausholte, dass eine Kaulquappe daraus
+        // wurde. Jetzt ein ruhiger, kompakter Kopf -- und die drei Teile,
+        // die ihn zum Huhn machen, sitzen aussen als Silhouette:
+        //   Kamm oben, Schnabel rechts, Kehllappen darunter.
+        // Der Kehllappen ist der eigentliche Trick: Kamm und Schnabel hat
+        // jeder Vogel, den Lappen hat nur das Huhn.
+        // EIN EINZIGER UMRISS -- das ist der Kern der Sache.
+        //
+        // Vorher waren Kopf, Kamm, Schnabel und Kehllappen vier getrennte
+        // Formen, die aneinandergesetzt wurden. Bei 1,7 Einheiten Strichbreite
+        // geht das nicht auf: setzt man sie knapp nebeneinander, laufen die
+        // Striche zu einem schwarzen Klumpen zusammen; setzt man sie knapp
+        // ineinander, laeuft eine Linie quer durchs Gesicht. Ein gezackter
+        // Kamm ist dabei der schlimmste Fall -- die Taeler zwischen den
+        // Zacken muessen breiter sein als zwei halbe Striche, sonst ist der
+        // Kamm einfach ein Balken.
+        //
+        // Deshalb jetzt EINE geschlossene Linie um alles herum: Nacken,
+        // Kamm, Stirn, Schnabel, Kinn, Kehllappen, Kiefer. Nichts kann mehr
+        // kollidieren, weil es nichts gibt, womit es kollidieren koennte.
+        // Innen bleibt nur das Auge.
+        //
+        // Der Kamm sitzt IM Umriss als drei flache Zacken -- und flach ist
+        // hier keine Bequemlichkeit, sondern Absicht. Zwei hohe, getrennte
+        // Lappen wurden bei jedem Versuch zu Hasenohren; das Tier las sich
+        // als Katze. Erst als die Zacken niedrig und dicht am Schaedel
+        // blieben, war es wieder ein Huhn. Die Kerben sind rund 2 Einheiten
+        // tief -- gerade genug, dass die Aussenkante sie zeigt, und flach
+        // genug, dass sie bei 15 Pixeln sauber zu einer Kuppe verschmelzen,
+        // statt als zwei Ohren stehenzubleiben.
+        huhn:        '<path d="M6.6 16.6C4.9 14.4 5.2 11 7.4 9.2 6.9 6.5 7.6 4.4 9 4c.8.4 1.2 1 1.4 2 .3-1.4.7-2.2 1.4-2.3.7.3 1 1.1 1.1 2.1.3-.9.7-1.4 1.3-1.2.9.5 1.2 2.4 1 5.6l3.9 1.3-3.9 1.4c-.1.9-.3 1.6-.7 2.2 1.2.9 1.5 2.6.6 3.5-.9.8-2.1-.3-2.3-2.1-1.9.9-4.7.8-6.2-.1z"/>'
+                   + '<circle cx="12" cy="10.6" r=".55"/>',
 
         // Fisch mit Schwanzflosse, Kieme und Auge. Ohne die Kieme ist der
         // Rumpf nur eine Linse.
