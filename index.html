@@ -20746,7 +20746,7 @@ const translations = {
         dineInOnly: 'Nur vor Ort',
         dailySpecial: 'Tagesangebot',
         continueOrdering: 'Weiter bestellen',
-        specialWishes: 'Besondere Wünsche (z.B. ohne Zwiebeln)',
+        specialWishes: 'Besondere Wünsche (z.B. gut durch, extra scharf)',
         remove: 'Entfernen',
         cashPayment: 'Barzahlung',
         cardPayment: 'Kartenzahlung',
@@ -21166,7 +21166,7 @@ const translations = {
         dineInOnly: 'Dine-in only',
         dailySpecial: 'Daily special',
         continueOrdering: 'Continue ordering',
-        specialWishes: 'Special requests (e.g. no onions)',
+        specialWishes: 'Special requests (e.g. well done, extra spicy)',
         remove: 'Remove',
         cashPayment: 'Cash',
         cardPayment: 'Card payment',
@@ -21616,7 +21616,7 @@ const translations = {
         dineInOnly: 'Alleen ter plaatse',
         dailySpecial: 'Dagaanbieding',
         continueOrdering: 'Verder bestellen',
-        specialWishes: 'Speciale wensen (bijv. zonder ui)',
+        specialWishes: 'Speciale wensen (bijv. goed doorbakken, extra pittig)',
         remove: 'Verwijderen',
         cashPayment: 'Contant',
         cardPayment: 'Pinbetaling',
@@ -47004,8 +47004,15 @@ function openItemOptions(itemId, item) {
 
         var optionsHtml = sizesHtml + renderOhneHtml(item) + renderOptionGroupsHtml(groups, itemPrice);
 
-        // Anmerkungen immer
-        optionsHtml += '<div class="option-group"><div class="option-group-header"><div class="option-group-title">' + (_t.remarks || 'Anmerkungen') + '</div></div><textarea class="form-textarea" id="itemNotes" placeholder="' + (_t.specialWishes || 'Besondere Wünsche (z.B. ohne Zwiebeln)') + '"></textarea></div>';
+        // Anmerkungen immer -- und immer ZULETZT, nach allen Kaestchen.
+        //
+        // Der Beispieltext im Feld hiess bis eben "z.B. ohne Zwiebeln". Genau
+        // das steht seit "Bitte ohne" als Kaestchen darueber. Ein Feld, das zu
+        // etwas auffordert, was zwei Zeilen hoeher schon angekreuzt werden
+        // kann, holt den Wunsch zurueck in den Freitext -- und getippter Text
+        // wird in der Kueche eher ueberlesen als ein Kaestchen. Das Beispiel
+        // nennt jetzt etwas, das kein Kaestchen abdecken kann.
+        optionsHtml += '<div class="option-group"><div class="option-group-header"><div class="option-group-title">' + (_t.remarks || 'Anmerkungen') + '</div></div><textarea class="form-textarea" id="itemNotes" placeholder="' + (_t.specialWishes || 'Besondere Wünsche (z.B. gut durch, extra scharf)') + '"></textarea></div>';
 
         body.innerHTML = optionsHtml;
         updateItemTotalPrice();

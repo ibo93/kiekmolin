@@ -182,5 +182,32 @@ t('ein Apostroph wird abgesichert',
       /Spuren bleiben|Allergen wegen eines Haekchens/.test(H));
 })();
 
+// ---- 11. Das Notizfeld schickt niemanden zurueck in den Freitext ----------
+// Das Feld "Anmerkungen" gibt es weiterhin, und es gehoert dahin: nicht jeder
+// Wunsch laesst sich ankreuzen. Sein Beispieltext hiess aber "z.B. ohne
+// Zwiebeln" -- also genau das, was jetzt zwei Zeilen hoeher als Kaestchen
+// steht. Ein Feld, das dazu auffordert, holt den Wunsch zurueck in den
+// Freitext, und getippter Text wird in der Kueche eher ueberlesen als ein
+// Kaestchen.
+(function () {
+    t('das Notizfeld gibt es weiterhin -- nicht jeder Wunsch ist ein Kaestchen',
+      /id="itemNotes"/.test(CODE) && /getElementById\('itemNotes'\)/.test(CODE));
+
+    // Reihenfolge: erst ankreuzen, dann tippen. Stuende das Feld ueber den
+    // Kaestchen, tippt der Gast, was er darunter haette anklicken koennen.
+    var beiOhne = CODE.indexOf('renderOhneHtml(item)');
+    var beiNotiz = CODE.indexOf('id="itemNotes"');
+    t('es steht hinter den Kaestchen, nicht davor',
+      beiOhne > 0 && beiNotiz > beiOhne, beiOhne + ' / ' + beiNotiz);
+
+    ['de', 'en', 'nl'].forEach(function (s) {
+        var block = CODE.slice(CODE.indexOf('\n    ' + s + ': {'));
+        block = block.slice(0, block.indexOf('\n    },'));
+        var m = block.match(/specialWishes:\s*'([^']*)'/);
+        t('Sprache ' + s + ': das Beispiel im Notizfeld nennt kein "ohne ..."',
+          !!m && !/\bohne\b|\bno onions\b|\bzonder\b/i.test(m[1]), m && m[1]);
+    });
+})();
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
