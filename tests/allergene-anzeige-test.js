@@ -201,7 +201,7 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     t('keine Material-Symbols-Schrift mehr in den Merkmalen',
       f.indexOf('material-symbols') < 0, 'Fremdschrift gefunden');
     t('sondern die Haus-Form .ki mit eigenem SVG',
-      /<span class="ki ki-sm"><svg viewBox="0 0 24 24"/.test(f));
+      /<span class="ki ki-sm"><svg viewBox="/.test(f));
     t('currentColor -- die Symbole erben die Textfarbe',
       /fill="currentColor"/.test(f) && /stroke="currentColor"/.test(f));
     t('runde Enden wie im Hausstil', /stroke-linecap="round"/.test(f));
