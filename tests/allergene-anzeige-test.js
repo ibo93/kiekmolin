@@ -183,13 +183,20 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     // KIN DESIGN: eigene Dateien, keine Fremdschrift, keine Emojis.
     t('keine Material-Symbols-Schrift mehr in den Merkmalen',
       f.indexOf('material-symbols') < 0, 'Fremdschrift gefunden');
+    // sym() steht seit dem Umbau NEBEN getMenuBadgeIcons, nicht mehr darin --
+    // damit auch der Info-Kasten an die Symbole kommt.
+    var symf = schneide('sym');
+    t('sym() steht ausserhalb von getMenuBadgeIcons',
+      symf.length > 100 && f.indexOf('function sym(') < 0, symf.length);
     t('sondern die Haus-Form .ki mit eigenem SVG',
-      /<span class="ki ki-sm"><svg viewBox="/.test(f));
-    t('currentColor -- die Symbole erben die Textfarbe', /fill="currentColor"/.test(f));
+      /<span class="ki ki-sm"><svg viewBox="/.test(symf));
+    t('currentColor -- die Symbole erben die Textfarbe', /fill="currentColor"/.test(symf));
+    t('und es gibt ein einzelnes Symbol fuer den Info-Kasten',
+      /function kinSymbol\(name, px\)/.test(CODE) && /window\.kinSymbol/.test(CODE));
     t('kein einziges Emoji im Merkmal-Code',
       !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(f), 'Emoji gefunden');
     t('jedes Symbol ist fuer Vorleseprogramme beschriftet',
-      /aria-label="' \+ titel \+ '"/.test(f));
+      /aria-label="' \+ titel \+ '"/.test(symf));
     t('die Farbe kommt aus dem Stilbogen, nicht aus dem Code',
       /\.menu-badge \{[\s\S]{0,220}color: var\(--ink-deep\)/.test(H));
     t('kein Symbol traegt eine eigene Farbe',
