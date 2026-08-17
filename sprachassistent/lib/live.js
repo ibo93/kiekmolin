@@ -113,6 +113,18 @@ function istUnterbrechung(text) {
 // Browser uebernehmen kann.
 const ENDGUELTIG = /\b(401|403|Unauthorized|Forbidden|invalid.{0,12}(key|token)|payment|quota)\b/i;
 
+// Der Rechner kommt gar nicht erst bei Deepgram AN. Das ist etwas ganz
+// anderes als ein abgelehnter Schluessel, sieht im Fenster aber genauso
+// rot aus - und wer den Unterschied nicht kennt, sucht stundenlang am
+// falschen Ende. ENOTFOUND heisst: der Name api.deepgram.com laesst sich
+// nicht aufloesen. Am Schluessel liegt es dann garantiert nicht.
+const KEIN_NETZ = /\b(ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ENETUNREACH|ENETDOWN|ETIMEDOUT|ECONNRESET)\b/;
+
+// Zweimal reicht. DNS, das beim ersten und zweiten Versuch nicht geht,
+// geht auch beim sechsten nicht - und bis dahin waeren zwanzig Sekunden
+// vergangen, in denen niemand zuhoert.
+const NETZ_VERSUCHE = 2;
+
 function warumEndgueltig(nachricht) {
   const t = String(nachricht || '');
   if (/401|Unauthorized|invalid.{0,12}(key|token)/i.test(t)) {
@@ -124,6 +136,16 @@ function warumEndgueltig(nachricht) {
   return null;
 }
 
+function warumKeinNetz(nachricht) {
+  const t = String(nachricht || '');
+  if (/ENOTFOUND|EAI_AGAIN/.test(t)) {
+    return 'Dein Rechner findet api.deepgram.com nicht (Namensaufloesung). Am Schluessel liegt es NICHT - ' +
+      'das ist Netz oder DNS: WLAN, VPN oder ein Werbeblocker im Netzwerk.';
+  }
+  return 'Dein Rechner erreicht api.deepgram.com gerade nicht (' +
+    (t.match(KEIN_NETZ) || ['Netzfehler'])[0] + ').';
+}
+
 class LiveOhr {
   constructor({ onZwischen, onSatz, onFehler, onLage, onAufgeben }) {
     const key = process.env.DEEPGRAM_API_KEY;
@@ -133,6 +155,7 @@ class LiveOhr {
     this.geschlossen = false;      // absichtlich beendet?
     this.aufgegeben = false;       // endgueltiger Fehler - nicht weiter versuchen
     this.versuche = 0;
+    this.netzFehler = 0;           // Rechner kommt nicht raus (DNS, WLAN, VPN)
     this._verbinde();
   }
 
@@ -190,8 +213,13 @@ class LiveOhr {
       if (this.geschlossen || this.aufgegeben) return;
       this.versuche++;
       if (this.versuche > 6) {
-        if (onFehler) onFehler(new Error('Die Verbindung zum Zuhoeren kommt nicht zurueck'));
-        return;
+        // BISHER wurde hier nur gemeldet, dass es nicht klappt - und dann
+        // war Ruhe. Kein Deepgram, kein Browser, keine Ohren: das Fenster
+        // stand offen und hat einfach nichts mehr gehoert.
+        //
+        // Aufgeben ist hier das Richtige, denn Aufgeben heisst nicht
+        // "Schluss", sondern "der Browser uebernimmt".
+        return this._aufgeben('Die Verbindung zu Deepgram kommt nicht zurueck.');
       }
       const wartezeit = Math.min(8000, 500 * Math.pow(2, this.versuche - 1));
       if (onLage) onLage('verbindet neu');
@@ -226,6 +254,13 @@ class LiveOhr {
       // laufen sechs Versuche durch und Ibo liest sechsmal dasselbe.
       const grund = ENDGUELTIG.test(e && e.message) ? warumEndgueltig(e.message) : null;
       if (grund) return this._aufgeben(grund);
+
+      // Kein Weg nach draussen: zweimal probieren, dann den Browser
+      // uebernehmen lassen. Und dabei SAGEN, dass es nicht der Schluessel
+      // ist - sonst sucht man am falschen Ende.
+      if (KEIN_NETZ.test((e && e.message) || '')) {
+        if (++this.netzFehler >= NETZ_VERSUCHE) return this._aufgeben(warumKeinNetz(e.message));
+      }
       if (onFehler) onFehler(e);
     });
   }
@@ -640,4 +675,7 @@ class LiveSitzung {
   }
 }
 
-module.exports = { SatzSammler, istUnterbrechung, LiveOhr, LiveSitzung, warumEndgueltig, ENDGUELTIG };
+module.exports = {
+  SatzSammler, istUnterbrechung, LiveOhr, LiveSitzung,
+  warumEndgueltig, ENDGUELTIG, warumKeinNetz, KEIN_NETZ
+};

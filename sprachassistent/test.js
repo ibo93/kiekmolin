@@ -1474,6 +1474,57 @@ test('Zuhoeren: ein abgelehnter Schluessel wird nicht sechsmal versucht', () => 
   assert.strictEqual(live.warumEndgueltig('socket hang up'), null);
 });
 
+test('Zuhoeren: "kommt nicht raus" ist etwas anderes als "Schluessel falsch"', () => {
+  // Der Fall aus dem Alltag: im Fenster stand rot "getaddrinfo ENOTFOUND
+  // api.deepgram.com" - und weil das genauso rot aussieht wie ein 401,
+  // wurde am Schluessel gesucht. Der war aber in Ordnung: der Rechner kam
+  // gar nicht erst raus.
+  assert.ok(live.KEIN_NETZ.test('getaddrinfo ENOTFOUND api.deepgram.com'));
+  assert.ok(live.KEIN_NETZ.test('connect ECONNREFUSED 1.2.3.4:443'));
+  assert.ok(live.KEIN_NETZ.test('getaddrinfo EAI_AGAIN api.deepgram.com'));
+
+  // Ein abgelehnter Schluessel ist KEIN Netzfehler - sonst bekaeme Ibo bei
+  // einem echten 401 die Auskunft, er solle sein WLAN pruefen.
+  assert.ok(!live.KEIN_NETZ.test('Unexpected server response: 401'));
+  assert.ok(!live.KEIN_NETZ.test('Unauthorized'));
+
+  const netz = live.warumKeinNetz('getaddrinfo ENOTFOUND api.deepgram.com');
+  assert.ok(/NICHT/.test(netz), 'sagt ausdruecklich, dass es nicht der Schluessel ist: ' + netz);
+  assert.ok(/DNS|Namensaufloesung/i.test(netz), netz);
+});
+
+test('Zuhoeren: geht Deepgram gar nicht, uebernimmt der Browser - statt Stille', () => {
+  // Der schlimmste Fall war bisher nicht der Fehler, sondern was DANACH
+  // kam: nach sechs Versuchen stand eine Meldung im Fenster und dann war
+  // Ruhe. Kein Deepgram, kein Browser, keine Ohren. Das Fenster stand
+  // offen und hat einfach nichts mehr gehoert.
+  //
+  // Geprueft wird deshalb der Uebergabe-Weg: aufgeben MUSS "onAufgeben"
+  // ausloesen, denn nur das schaltet im Fenster auf die Browser-Erkennung
+  // um. Ohne echte Verbindung - der Bauplan wird von aussen gefuettert.
+  let uebergeben = null;
+  let weitereMeldungen = 0;
+  const ohr = Object.create(live.LiveOhr.prototype);
+  ohr.rueckrufe = {
+    onAufgeben: (g) => { uebergeben = g; },
+    onFehler: () => { weitereMeldungen++; }
+  };
+  ohr.aufgegeben = false;
+  ohr.geschlossen = false;
+  ohr.ws = { close() {} };
+
+  ohr._aufgeben('Die Verbindung zu Deepgram kommt nicht zurueck.');
+  assert.ok(uebergeben, 'das Fenster erfaehrt es und kann umschalten');
+  assert.ok(/nicht zurueck/.test(uebergeben), uebergeben);
+  assert.strictEqual(ohr.geschlossen, true, 'danach wird nicht weiter versucht');
+
+  // Und nur EINMAL - sonst liest Ibo sechsmal dasselbe.
+  uebergeben = null;
+  ohr._aufgeben('nochmal');
+  assert.strictEqual(uebergeben, null, 'aufgegeben wird genau einmal');
+  assert.strictEqual(weitereMeldungen, 0);
+});
+
 test('Live: der erste Satz geht sofort raus, auch wenn er kurz ist', () => {
   // Der Moment, in dem Warten auffaellt: man hat ausgeredet und es
   // passiert nichts. "Moin." muss sofort kommen.

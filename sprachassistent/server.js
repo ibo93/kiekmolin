@@ -928,9 +928,16 @@ async function pruefeDeepgram() {
     console.log('  ! Hoeren: Deepgram weist den Schluessel ab (' + a.status + ').' +
       ' Es hoert der Browser zu - schlechter, aber es laeuft.');
     console.log('    Neuen eintragen:  node schluessel.js deepgram');
-  } catch (_e) {
-    // Kein Netz beim Start ist kein Grund fuer eine Warnung - im Gespraech
-    // wird es sich schon melden.
+  } catch (e) {
+    // Kommt der Rechner gar nicht erst raus, ist das KEIN Schluessel-
+    // Problem. Sieht im Fenster aber genauso rot aus - deshalb hier
+    // deutlich hinschreiben, damit niemand am falschen Ende sucht.
+    if (live.KEIN_NETZ.test(e.message || '')) {
+      console.log('  ! Hoeren: ' + live.warumKeinNetz(e.message));
+      console.log('    Der Browser hoert zu, solange das so ist.');
+    }
+    // Alles andere (Zeitueberschreitung beim Start o.ae.) meldet sich im
+    // Gespraech von selbst.
   }
 }
 
