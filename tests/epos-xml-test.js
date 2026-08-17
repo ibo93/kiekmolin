@@ -108,5 +108,23 @@ t('und ebenso in index.html', /"de" ist keiner davon/.test(H));
 t('die erlaubten Werte sind mit aufgeschrieben',
   /en, ja, ko, zh-hans, zh-hant, th, vi, mul/.test(POS));
 
+// ---- Die Notiz zum Gericht muss auf den Zettel ----------------------------
+// Sie wurde gespeichert und im Dashboard angezeigt -- aber nicht gedruckt.
+// In index.html steht beim Speichern sogar "notes MUSS mit. Ohne diese Zeile
+// schreibt der Gast 'ohne Zwiebeln' und die Kueche erfaehrt es nie". Die
+// Korrektur ging damals nur bis zum Bildschirm. Der Koch arbeitet vom Zettel.
+(function () {
+    var block = POS.slice(POS.indexOf('items.forEach(function (item)'),
+                          POS.indexOf('================================', POS.indexOf('items.forEach')));
+    t('der Bon druckt die Notiz zum Gericht', /if \(item\.notes\)/.test(block), block.slice(0, 300));
+    t('und zwar so gross wie den Gerichtnamen -- eine Sonderbestellung, die '
+      + 'man ueberliest, ist dasselbe wie keine',
+      /item\.notes[\s\S]{0,120}width="1" height="2"/.test(block));
+    t('mit eigenem Zeichen davor, damit man sie nicht mit den Extras verwechselt',
+      /\*\* ' \+ item\.notes/.test(block), block.slice(-300));
+    t('warum sie vorher fehlte, steht dabei',
+      /Der Koch arbeitet aber vom Zettel, nicht vom Bildschirm/.test(POS));
+})();
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

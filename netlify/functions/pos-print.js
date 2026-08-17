@@ -212,6 +212,20 @@ function generateEposBon(order, restaurantName) {
         // Items in doppelter Höhe — besser lesbar in der Küche
         xml += '<text width="1" height="2">' + xmlEscape(qty + 'x ' + name) + '&#10;</text>';
         if (item.options) xml += '<text>  &gt; ' + xmlEscape(item.options) + '&#10;</text>';
+        // DIE NOTIZ ZUM GERICHT MUSS AUF DEN BON.
+        //
+        // Sie wurde gespeichert und im Dashboard angezeigt, aber hier fehlte
+        // sie. In index.html steht beim Speichern sogar der Satz "notes MUSS
+        // mit. Ohne diese Zeile schreibt der Gast 'ohne Zwiebeln' und die
+        // Küche erfährt es nie" -- die Korrektur ging nur bis zum Bildschirm.
+        // Der Koch arbeitet aber vom Zettel, nicht vom Bildschirm.
+        //
+        // Doppelte Höhe wie der Gerichtname: eine Sonderbestellung, die man
+        // überliest, ist dasselbe wie keine. Der Pfeil davor unterscheidet
+        // sie von den Extras darüber.
+        if (item.notes) {
+            xml += '<text width="1" height="2">' + xmlEscape('  ** ' + item.notes) + '&#10;</text>';
+        }
     });
 
     xml += '<text>================================&#10;</text>';
