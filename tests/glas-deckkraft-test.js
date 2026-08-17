@@ -30,6 +30,25 @@
 //
 // Angehoben wurde nur, nie gesenkt: was schon dichter war, blieb dichter.
 //
+// WAS DIESER TEST NICHT SIEHT
+// ---------------------------
+// Er liest den Quelltext, kein gerendertes Bild. Zwei Sorten Glas bleiben
+// deshalb ausserhalb, und beides ist erst beim Nachsehen im echten Browser
+// aufgefallen:
+//
+// 1. VERLAEUFE. Bei linear-gradient steckt die Deckkraft in mehreren
+//    Farbstopps und laesst sich nicht auf eine Zahl bringen. Es gibt Flaechen,
+//    deren duennes Ende bei 0.35 liegt, obwohl 20 px Unschaerfe darauf sitzen.
+//
+// 2. WENN UNSCHAERFE UND FLAECHE AUS VERSCHIEDENEN REGELN KOMMEN. Beispiel aus
+//    der App: ".chip" bringt blur(12px), ".liquid-glass .chip.active" setzt
+//    eine Flaeche mit 0.2 -- zwei Regeln, zwei Bloecke. Welche am Ende
+//    gewinnt, weiss nur der Browser. Dieser Test sieht immer nur einen Block.
+//
+// Das ist die Grenze der Methode, keine Nachlaessigkeit. Wer das abdecken
+// will, braucht getComputedStyle in einem echten Browser -- und der sieht
+// wiederum nur, was gerade auf dem Bildschirm steht.
+//
 // WARUM HIER AUCH DIE style="..."-STELLEN GEPRUEFT WERDEN
 // -------------------------------------------------------
 // Beim ersten Durchgang habe ich nur die CSS-Regeln angehoben und danach die
@@ -48,6 +67,51 @@ function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK
 var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 var BODEN = { 6: 0.55, 12: 0.70, 20: 0.85 };
+
+// Die Deckkraft aus einer Farbe holen -- mit Klammern zaehlen statt mit einem
+// Muster raten.
+//
+// Erst stand hier /rgba?\\([^)]*?,\\s*([\\d.]+)\\s*\\)/. Das las bei
+// "rgba(var(--primary-rgb, 26,95,74), 0.2)" die ZAHL 74 als Deckkraft: [^)]*
+// stoppt an der Klammer von var(...), nicht an der von rgba(...). 74 ist
+// groesser als jeder Boden, also war die Stelle still in Ordnung. Gefunden hat
+// es der Browser, nicht dieser Test.
+function alphaVon(s) {
+    var i = s.indexOf('rgba(');
+    if (i < 0) i = s.indexOf('rgb(');
+    if (i < 0) return null;
+    var j = s.indexOf('(', i), tiefe = 0, k;
+    for (k = j; k < s.length; k++) {
+        if (s[k] === '(') tiefe++;
+        else if (s[k] === ')') { tiefe--; if (!tiefe) break; }
+    }
+    if (k >= s.length) return null;
+    var inner = s.slice(j + 1, k);
+    // Nur auf oberster Ebene trennen -- die Kommas in var(...) zaehlen nicht.
+    var teile = [], t = 0, akt = '';
+    for (var x = 0; x < inner.length; x++) {
+        var c = inner[x];
+        if (c === '(') t++;
+        if (c === ')') t--;
+        if (c === ',' && t === 0) { teile.push(akt); akt = ''; } else akt += c;
+    }
+    teile.push(akt);
+
+    // Vier Teile: rot, gruen, blau, Deckkraft.
+    // Zwei Teile und ein var(): die Farbkanaele stecken in der Marke, dahinter
+    //   steht die Deckkraft -- "rgba(var(--primary-rgb, 26,95,74), 0.2)".
+    // Drei Teile: rgb() ohne Deckkraft, also deckend.
+    var mitMarke = /var\(/.test(inner);
+    if (teile.length !== 4 && !(mitMarke && teile.length >= 2)) return null;
+
+    var a = parseFloat(teile[teile.length - 1]);
+    if (!isFinite(a)) return null;
+    // Ein Farbkanal geht bis 255, eine Deckkraft nur bis 1. Steht dort etwas
+    // Groesseres, ist es keine Deckkraft und die Stelle bleibt lieber
+    // ungeprueft, statt mit einer Fantasiezahl gruen zu werden.
+    if (a > 1) return null;
+    return a;
+}
 
 // Anfang und Ende des umschliessenden Blocks: geschweifte Klammer bei CSS,
 // Anfuehrungszeichen bei style="..." im JavaScript. Dasselbe Verfahren wie in
@@ -74,11 +138,11 @@ function flaechen() {
             // Verlaeufe bleiben aussen vor: dort steckt die Deckkraft in
             // mehreren Farbstopps und laesst sich nicht auf eine Zahl bringen.
             if (/gradient/.test(g)) return;
-            var a = g.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/);
-            if (!a) return;                     // deckende Farbe, kein Alpha
+            var a = alphaVon(g);
+            if (a === null) return;             // deckende Farbe, kein Alpha
             raus.push({
                 stufe: stufe,
-                alpha: parseFloat(a[1]),
+                alpha: a,
                 css: bl.css,
                 zeile: H.slice(0, bl.start).split('\n').length,
                 text: bl.text.trim().slice(0, 110).replace(/\s+/g, ' ')
