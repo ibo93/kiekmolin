@@ -15430,9 +15430,13 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 };
                             });
 
-                            // Debug: Online-Reservierungen zählen
+                            // Debug: woher die Reservierungen kamen.
+                            // Frueher zwei Toepfe: "app" und "alles andere = Dashboard".
+                            // Seit der Telefon-Assistent eintraegt, ist "alles andere"
+                            // nicht mehr gleich "hat der Wirt selbst getippt".
                             var onlineCount = window.resAllReservations.filter(function(r) { return r.source === 'app'; }).length;
-                            var dashboardCount = window.resAllReservations.filter(function(r) { return r.source !== 'app'; }).length;
+                            var telefonCount = window.resAllReservations.filter(function(r) { return r.source === 'telefon'; }).length;
+                            var dashboardCount = window.resAllReservations.filter(function(r) { return r.source !== 'app' && r.source !== 'telefon'; }).length;
 
                             // Auch APP_DATA synchronisieren für andere Teile der App
                             if (typeof APP_DATA !== 'undefined') {
@@ -15473,8 +15477,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (countEl) countEl.textContent = window.resAllReservations.length;
 
                     var onlineCount = window.resAllReservations.filter(function(r) { return r.source === 'app'; }).length;
-                    if (statusText && onlineCount > 0) {
-                        statusText.innerHTML = '<span id="resCount">' + window.resAllReservations.length + '</span> Reservierungen geladen <span style="color: var(--primary);">(' + onlineCount + ' Online)</span>';
+                    var telefonCount = window.resAllReservations.filter(function(r) { return r.source === 'telefon'; }).length;
+                    if (statusText && (onlineCount > 0 || telefonCount > 0)) {
+                        statusText.innerHTML = '<span id="resCount">' + window.resAllReservations.length + '</span> Reservierungen geladen'
+                            + '<span style="color: var(--primary);"> (' + onlineCount + ' Online'
+                            + (telefonCount > 0 ? ', ' + telefonCount + ' per Telefon' : '') + ')</span>';
                     }
 
                     if (window.resAllReservations.length > 0) {
@@ -15676,6 +15683,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             }
                             if (isOnline) {
                                 badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(22,163,74,0.1);color:#16a34a;font-weight:700;letter-spacing:0.02em;">Online</span>';
+                            } else if (res.source === 'telefon') {
+                                // WICHTIG, dass das sichtbar ist: alles, was nicht
+                                // "app" war, galt bisher als "vom Dashboard" -- also
+                                // als haette der Wirt es selbst eingetippt. Eine vom
+                                // Telefon-Assistenten aufgenommene Reservierung
+                                // versteckte sich darunter. Der Wirt muss sie aber
+                                // erkennen: der Assistent hat zugehoert, nicht
+                                // zugesagt, und bei Unklarheiten muss jemand
+                                // zurueckrufen.
+                                badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(37,99,235,0.12);color:#2563eb;font-weight:700;letter-spacing:0.02em;display:inline-flex;align-items:center;gap:4px;">'
+                                       + '<span class="material-symbols-outlined" style="font-size:12px;">call</span>Telefon-Assistent</span>';
                             }
                             if (statusPending) {
                                 badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(245,158,11,0.15);color:#d97706;font-weight:700;letter-spacing:0.02em;">Ausstehend</span>';
