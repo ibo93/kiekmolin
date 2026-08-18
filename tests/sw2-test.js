@@ -5,8 +5,13 @@ var html=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
 
 t('Huelle: Netz zuerst, nicht mehr Cache zuerst',
   /ZUERST DAS NETZ/.test(sw) && !/Cache vorhanden -> sofort anzeigen/.test(sw));
-t('Cache nur noch als Rueckfall bei fehlendem Netz',
-  /Kein Netz -> letzte bekannte Fassung/.test(sw));
+// Erst hiess die Regel "Cache nur bei FEHLENDEM Netz". Das deckte den
+// haeufigeren Fall nicht ab: ein langsames Netz schlaegt nicht fehl, es
+// dauert -- und der Gast sah dreissig Sekunden weiss, waehrend die Seite im
+// Cache lag. Jetzt gilt der Rueckfall auch bei zu langsam; das Verhalten
+// dazu steht in sw-geduld-test.js und wird dort wirklich ausgefuehrt.
+t('Cache als Rueckfall, wenn das Netz fehlt ODER zu lange braucht',
+  /NETZ_GEDULD_MS/.test(sw) && /Promise\.race/.test(sw));
 t('Cache-Name hochgezogen (alter Bestand fliegt raus)', /kmi-shell-v2/.test(sw));
 t('Notausgang /?nosw=1 bleibt', /nosw'\) === '1'/.test(sw));
 t('Fehler beim Cache kippt die Seite nicht', (sw.match(/catch \(e[0-9]?\) \{\}/g)||[]).length >= 3);

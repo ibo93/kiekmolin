@@ -10,8 +10,13 @@ t('SW: liest im fetch-Handler keinen Rumpf als Text ein (war der 1,2-MB-Fehler)'
 t('SW: liest den Rumpf NICHT mehr doppelt ein', !/cached\.clone\(\)\.text\(\)/.test(sw));
 t('SW: Huellen-Pfad faengt jeden Fehler ab (Offline-Antwort statt leerer Seite)',
   /catch \(e\) \{/.test(sw) && /status: 503/.test(sw));
+// Frueher stand hier ein "await" davor. Das Schreiben laeuft jetzt neben der
+// Antwort her (siehe sw-geduld-test.js) -- und braucht deshalb ZWEI
+// Absicherungen statt einer: try faengt ein sofortiges Werfen, .catch die
+// abgelehnte Zusage. Ohne das zweite waere ein voller Speicher eine
+// unbehandelte Ablehnung.
 t('SW: Cache-Schreibfehler kippt die Seite nicht',
-  /try \{ await cache\.put\(SHELL, res\.clone\(\)\); \} catch \(e\) \{\}/.test(sw));
+  /try \{ cache\.put\(SHELL, res\.clone\(\)\)\.catch\(function \(\) \{\}\); \} catch \(e\) \{\}/.test(sw));
 t('SW: Notausgang /?nosw=1 vorhanden', /nosw'\) === '1'/.test(sw) && /if \(AUS\) return;/.test(sw));
 t('SW: Notausgang laesst sich zuruecknehmen', /nosw'\) === '0'/.test(sw));
 t('SW: Datenbank + Functions weiterhin nie gecacht',
