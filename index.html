@@ -29813,8 +29813,10 @@ function generateMarketingCoupon(encodedPhone, encodedName) {
     var restaurant = APP_DATA.restaurants[0];
     var restaurantName = restaurant ? restaurant.name : 'uns';
     var message = 'Hallo ' + name + '! Wir vermissen dich bei ' + restaurantName + '! Hier ist ein persönlicher Gutschein für dich: ' + code + ' (10% Rabatt). Gültig 30 Tage. Bestelle jetzt auf kiekmolin.de/' + (restaurant ? restaurant.slug : '') + ' - Dein ' + restaurantName + ' Team';
-    var phoneClean = phone.replace(/[^0-9+]/g, '');
-    var whatsappPhone = phoneClean.startsWith('+') ? phoneClean.replace('+', '') : (phoneClean.startsWith('0') ? '49' + phoneClean.substring(1) : phoneClean);
+    // Eigene Umrechnung, die "0049..." nicht kannte -- jetzt dieselbe wie
+    // ueberall (waNummer).
+    var whatsappPhone = waNummer(phone);
+    if (!whatsappPhone) { showToast('Keine gueltige WhatsApp-Nummer hinterlegt', 'error'); return; }
     window.open('https://wa.me/' + whatsappPhone + '?text=' + encodeURIComponent(message), '_blank');
 }
 
@@ -29824,7 +29826,11 @@ function sendMarketingWhatsApp(phone, encodedName) {
     var restaurant = APP_DATA.restaurants[0];
     var restaurantName = restaurant ? restaurant.name : 'uns';
     var message = 'Hallo ' + name + '! Wir haben dich lange nicht gesehen bei ' + restaurantName + '. Schau doch mal wieder vorbei - wir freuen uns auf dich! Bestelle online: kiekmolin.de/' + (restaurant ? restaurant.slug : '');
-    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(message), '_blank');
+    // Hier stand die Nummer voellig ungefiltert in der Adresse: aus
+    // "0176 123" wurde wa.me/0176 123 -- WhatsApp kennt das nicht.
+    var ziel = waNummer(phone);
+    if (!ziel) { showToast('Keine gueltige WhatsApp-Nummer hinterlegt', 'error'); return; }
+    window.open('https://wa.me/' + ziel + '?text=' + encodeURIComponent(message), '_blank');
 }
 
 // Kampagnen laden/rendern
@@ -31195,7 +31201,12 @@ function renderReservations() {
         const statusText = r.status === 'confirmed' ? 'Bestätigt' : r.status === 'cancelled' ? 'Storniert' : 'Ausstehend';
 
         // Prepare WhatsApp message for guest
-        const guestPhone = r.guestPhone ? r.guestPhone.replace(/[^0-9]/g, '') : '';
+        // Dieselbe Falle wie beim Radius-Banner, nur andersherum: hier ist es
+        // die Nummer des GASTES, und der tippt sie meistens als "0176 123..."
+        // ein. Bloss die Ziffern zu nehmen ergibt wa.me/0176123 -- eine
+        // Adresse, die WhatsApp nicht kennt. Der Wirt tippt auf Bestaetigen,
+        // es passiert nichts Sinnvolles, und der Gast wartet weiter.
+        const guestPhone = waNummer(r.guestPhone);
         const confirmMessage = `Hallo ${r.guestName}!
 
 Ihre Reservierung ist bestätigt:
@@ -33324,7 +33335,7 @@ function applyForJob(jobId) {
     // WhatsApp oder Email
     if (job.contact_whatsapp) {
         const text = encodeURIComponent(`Hallo, ich interessiere mich für die Stelle "${job.title}".`);
-        window.open(`https://wa.me/${job.contact_whatsapp.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+        window.open(`https://wa.me/${waNummer(job.contact_whatsapp)}?text=${text}`, '_blank');
     } else if (job.contact_email) {
         window.location.href = `mailto:${job.contact_email}?subject=Bewerbung: ${job.title}`;
     } else {
@@ -33583,7 +33594,11 @@ ${inquiry.message ? `${inquiry.message}` : ''}
 
 Gesendet über Kiek mol in`;
 
-        const whatsappUrl = `https://wa.me/${((accommodation.whatsapp || accommodation.phone || "").replace(/[^0-9]/g, ""))}?text=${encodeURIComponent(message)}`;
+        // Der Rueckfall auf die Telefonnummer war hier ohnehin tot -- die
+        // Bedingung oben verlangt schon eine WhatsApp-Nummer. Was fehlte, war
+        // die Umrechnung: aus "0176 123" wird sonst wa.me/0176123, und das
+        // ist keine Nummer, die WhatsApp kennt.
+        const whatsappUrl = `https://wa.me/${waNummer(accommodation.whatsapp)}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
     }
 
@@ -40829,8 +40844,8 @@ function openMapBottomSheet(restaurant) {
                     </a>
                 </div>
 
-                ${(restaurant.whatsapp || restaurant.phone) ? `
-                    <a href="https://wa.me/${((restaurant.whatsapp || restaurant.phone || '').replace(/[^0-9]/g, ''))}?text=${encodeURIComponent('Hallo! Ich komme von Kiek mol in.')}" target="_blank" style="
+                ${waNummer(restaurant.whatsapp) ? `
+                    <a href="https://wa.me/${waNummer(restaurant.whatsapp)}?text=${encodeURIComponent('Hallo! Ich komme von Kiek mol in.')}" target="_blank" style="
                         display: flex;
                         align-items: center;
                         justify-content: center;
@@ -49849,7 +49864,10 @@ async function submitOrder() {
                     var dist = calcDistanceKm(currentOrderRestaurant.lat, currentOrderRestaurant.lng, window._deliveryLat, window._deliveryLng);
                     if (dist > maxRadius) {
                         var _rPhone = currentOrderRestaurant.phone || '';
-                        _showDeliveryRadiusBanner(Math.round(dist), maxRadius, _rPhone, currentOrderRestaurant.name || 'Restaurant');
+                        // Die WhatsApp-Nummer steht in einer eigenen Spalte und
+                        // ist NICHT das Telefon -- siehe waNummer().
+                        var _rWa = currentOrderRestaurant.whatsapp || '';
+                        _showDeliveryRadiusBanner(Math.round(dist), maxRadius, _rPhone, currentOrderRestaurant.name || 'Restaurant', _rWa);
                         markError('checkoutZip', 'Außerhalb des Liefergebiets');
                         return;
                     }
@@ -49864,7 +49882,8 @@ async function submitOrder() {
                             var dist2 = calcDistanceKm(currentOrderRestaurant.lat, currentOrderRestaurant.lng, window._deliveryLat, window._deliveryLng);
                             if (dist2 > maxRadius) {
                                 var _rPhone2 = currentOrderRestaurant.phone || '';
-                                _showDeliveryRadiusBanner(Math.round(dist2), maxRadius, _rPhone2, currentOrderRestaurant.name || 'Restaurant');
+                                var _rWa2 = currentOrderRestaurant.whatsapp || '';
+                                _showDeliveryRadiusBanner(Math.round(dist2), maxRadius, _rPhone2, currentOrderRestaurant.name || 'Restaurant', _rWa2);
                                 markError('checkoutZip', 'Außerhalb des Liefergebiets');
                                 return;
                             }
@@ -50421,10 +50440,10 @@ async function submitOrder() {
 
     // WhatsApp-Benachrichtigung ans Restaurant senden (im Hintergrund)
     try {
-        var restPhone = (currentOrderRestaurant?.whatsapp || currentOrderRestaurant?.phone || '').replace(/[^0-9+]/g, '');
-        if (restPhone && !restPhone.startsWith('+') && !restPhone.startsWith('49') && restPhone.startsWith('0')) {
-            restPhone = '49' + restPhone.substring(1);
-        }
+        // Nur die hinterlegte WhatsApp-Nummer. Der Rueckfall auf das Telefon
+        // war auch hier drin und schickt die Bestellung an einen
+        // Festnetzanschluss, den es bei WhatsApp nicht gibt.
+        var restPhone = waNummer(currentOrderRestaurant?.whatsapp);
         if (restPhone) {
             var restMsg = '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">notifications</span></span> *Neue Bestellung über Kiek mol in!*\n\n' +
                 '<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 2v2h6V2M9 10h6M9 14h4"/></svg></span> Nr: *' + (order.order_number || orderNumber) + '*\n' +
@@ -50835,11 +50854,7 @@ function sendWhatsAppOrderConfirmation() {
     var text = buildOrderSummaryText(orderNumber);
     
     // Kundennummer formatieren für WhatsApp
-    var waNumber = customerPhone.replace(/[^0-9+]/g, '');
-    if (waNumber && !waNumber.startsWith('+') && !waNumber.startsWith('49')) {
-        if (waNumber.startsWith('0')) waNumber = '49' + waNumber.substring(1);
-        else waNumber = '49' + waNumber;
-    }
+    var waNumber = waNummer(customerPhone);
 
     if (waNumber && waNumber.length >= 10) {
         // WhatsApp mit Bestellbestätigung direkt an den Kunden
@@ -52650,11 +52665,10 @@ function sendCustomerStatusWhatsApp(order, status) {
     var phone = order.customer_phone || '';
     if (!phone) return;
     
-    var waNumber = phone.replace(/[^0-9+]/g, '');
-    if (waNumber && !waNumber.startsWith('+') && !waNumber.startsWith('49')) {
-        if (waNumber.startsWith('0')) waNumber = '49' + waNumber.substring(1);
-        else waNumber = '49' + waNumber;
-    }
+    // Dieselbe Umrechnung wie ueberall. Vorher stand sie hier von Hand und
+    // liess ein fuehrendes "+" stehen -- wa.me/+49... ist keine gueltige
+    // Adresse.
+    var waNumber = waNummer(phone);
     if (!waNumber || waNumber.length < 10) return;
 
     var restName = '';
@@ -57077,9 +57091,46 @@ async function saveDeliveryRadius() {
     showToast('Lieferradius: ' + radius + ' km', 'success');
 }
 
+// EINE WHATSAPP-NUMMER IST NICHT DIE TELEFONNUMMER.
+//
+// Gemeldet wurde: "der WhatsApp-Knopf kommt immer". Stimmt -- er haengt am
+// Telefon: `phone ? waBtn : ''`. Das Restaurant hat aber einen Festnetz-
+// anschluss, und der ist bei WhatsApp nicht angemeldet. Der Gast tippt
+// drauf, WhatsApp geht auf und sagt "Diese Telefonnummer ist nicht bei
+// WhatsApp registriert". Ein Knopf, der zuverlaessig in eine Sackgasse
+// fuehrt, ist schlimmer als kein Knopf: er kostet den Gast den Versuch und
+// uns den Eindruck, dass hier nichts richtig funktioniert.
+//
+// Die Spalte restaurants.whatsapp gibt es laengst, und im Dashboard steht
+// auch ein Feld dafuer. Benutzt hat sie an dieser Stelle niemand.
+//
+// Die Umrechnung war die zweite Haelfte des Problems:
+//     phone.replace(/[^0-9]/g,'').replace(/^0/,'49')
+// Das macht aus "0049 176 123" -> "0494176123" (nur EINE der beiden Nullen
+// faellt weg) und aus "04926 123" eine Festnetznummer, die es bei WhatsApp
+// nicht gibt. wa.me braucht die Nummer international, ohne Plus, ohne
+// fuehrende Null.
+function waNummer(roh) {
+    var s = String(roh == null ? '' : roh).trim();
+    if (!s) return '';
+    var mitPlus = s.charAt(0) === '+';
+    var z = s.replace(/[^0-9]/g, '');
+    if (!z) return '';
+    if (!mitPlus) {
+        // 0049... -> 49...   |   0176... -> 49176...   |   49... bleibt
+        if (z.indexOf('00') === 0) z = z.slice(2);
+        else if (z.charAt(0) === '0') z = '49' + z.slice(1);
+    }
+    // E.164: hoechstens 15 Ziffern, und unter 8 ist keine erreichbare Nummer.
+    // Lieber gar kein Knopf als einer, der ins Leere fuehrt.
+    if (z.length < 8 || z.length > 15) return '';
+    return z;
+}
+window.waNummer = waNummer;
+
 // Entfernung zwischen zwei Koordinaten berechnen (Haversine)
 // KIN Design Banner: Außerhalb Liefergebiet
-function _showDeliveryRadiusBanner(distKm, maxKm, phone, restName) {
+function _showDeliveryRadiusBanner(distKm, maxKm, phone, restName, whatsapp) {
     // Alten Banner entfernen
     var old = document.getElementById('kinDeliveryRadiusBanner');
     if (old) old.remove();
@@ -57089,11 +57140,14 @@ function _showDeliveryRadiusBanner(distKm, maxKm, phone, restName) {
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10050;display:flex;align-items:flex-end;justify-content:center;padding:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fadeIn 0.25s ease;';
 
     var phoneClean = phone ? phone.replace(/\s/g,'') : '';
-    var phoneIntl = phone ? phone.replace(/[^0-9]/g,'').replace(/^0/,'49') : '';
+    // NUR die hinterlegte WhatsApp-Nummer, kein Rueckfall auf das Telefon.
+    // Genau dieser Rueckfall war der Fehler: er hat den Knopf immer gezeigt,
+    // auch bei einem Festnetzanschluss, der bei WhatsApp nicht existiert.
+    var waZiel = waNummer(whatsapp);
 
     var phoneBtn = phone ? '<a href="tel:' + phoneClean + '" style="display:flex;align-items:center;justify-content:center;gap:10px;flex:1;padding:15px 20px;background:var(--primary,#1a5f4a);color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Inter,sans-serif;transition:transform 0.2s;"><span class="material-symbols-outlined" style="font-size:18px;">phone</span>Anrufen</a>' : '';
 
-    var waBtn = phone ? '<a href="https://wa.me/' + phoneIntl + '?text=Hallo%2C%20ich%20m%C3%B6chte%20gerne%20bestellen%2C%20bin%20aber%20' + distKm + '%20km%20entfernt.%20Geht%20trotzdem%3F" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:10px;flex:1;padding:15px 20px;background:#25D366;color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Inter,sans-serif;transition:transform 0.2s;"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.684-1.489A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.3 0-4.438-.744-6.163-2.008l-.44-.329-2.786.886.884-2.804-.36-.465A9.935 9.935 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>WhatsApp</a>' : '';
+    var waBtn = waZiel ? '<a href="https://wa.me/' + waZiel + '?text=Hallo%2C%20ich%20m%C3%B6chte%20gerne%20bestellen%2C%20bin%20aber%20' + distKm + '%20km%20entfernt.%20Geht%20trotzdem%3F" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:10px;flex:1;padding:15px 20px;background:#25D366;color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Inter,sans-serif;transition:transform 0.2s;"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.684-1.489A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.3 0-4.438-.744-6.163-2.008l-.44-.329-2.786.886.884-2.804-.36-.465A9.935 9.935 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>WhatsApp</a>' : '';
 
     // Radius Visualisierung
     var radiusPercent = Math.min(Math.round((distKm / maxKm) * 100), 150);
@@ -57126,7 +57180,9 @@ function _showDeliveryRadiusBanner(distKm, maxKm, phone, restName) {
             '</div>' +
         '</div>' +
         // Info Text
-        '<p style="font-size:13px;color:var(--text-secondary,#94a3b8);text-align:center;margin:0 24px 16px;font-family:Inter,sans-serif;line-height:1.4;">Kontaktiere <strong style="color:var(--text-primary,#1a1a1a);">' + restName + '</strong> direkt — vielleicht klappt es trotzdem!</p>' +
+        '<p style="font-size:13px;color:var(--text-secondary,#94a3b8);text-align:center;margin:0 24px 16px;font-family:Inter,sans-serif;line-height:1.4;">' + (phoneBtn || waBtn
+            ? 'Kontaktiere <strong style="color:var(--text-primary,#1a1a1a);">' + restName + '</strong> direkt — vielleicht klappt es trotzdem!'
+            : '<strong style="color:var(--text-primary,#1a1a1a);">' + restName + '</strong> liefert leider nicht so weit. Abholen kannst du trotzdem.') + '</p>' +
         // Buttons
         '<div style="padding:0 24px 24px;">' +
             '<div style="display:flex;gap:10px;margin-bottom:10px;">' +
