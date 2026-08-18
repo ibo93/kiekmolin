@@ -915,4 +915,108 @@ test('Probeanruf: Demo-Kunde wird als Demo gespeichert und ohne Meldeweg-Warnung
 });
 
 
+test('Google Ads: Anzeigentexte halten die Zeichengrenzen - auch bei langen Ortsnamen', () => {
+  const ga = require('./lib/google-ads');
+
+  // Der haerteste Fall der Region: langer Ortsname, lange Kategorie.
+  const hart = { name: 'Griechisches Restaurant Poseidon', city: 'Neuharlingersiel',
+    cuisine: 'griechisch, gyros', slug: 'poseidon-neuharlingersiel' };
+  const rsa = ga.baueRsa(hart, { bestellung: true, reservierung: true }, {});
+  assert.deepStrictEqual(ga.pruefeRsa(rsa), [], 'keine Beanstandung: ' + ga.pruefeRsa(rsa).join(' | '));
+  assert.strictEqual(rsa.ueberschriften.length, 10, 'volle 10 Ueberschriften trotz langer Namen');
+  assert.strictEqual(rsa.beschreibungen.length, 4);
+  rsa.ueberschriften.forEach((t) => assert.ok(t.length <= 30, 'zu lang: ' + t + ' (' + t.length + ')'));
+  rsa.beschreibungen.forEach((t) => assert.ok(t.length <= 90, 'zu lang: ' + t + ' (' + t.length + ')'));
+
+  // Ohne Bestellung und ohne Reservierung darf die Anzeige beides NICHT
+  // versprechen - sonst zahlt man fuer Klicks, die ins Leere laufen.
+  const nur = ga.baueRsa(hart, {}, {});
+  const alles = nur.ueberschriften.concat(nur.beschreibungen).join(' ').toLowerCase();
+  assert.ok(!/bestell/.test(alles), 'ohne Speisekarte kein Bestell-Versprechen: ' + alles);
+  assert.ok(!/reservier/.test(alles), 'ohne Tische kein Reservierungs-Versprechen');
+  assert.deepStrictEqual(ga.pruefeRsa(nur), [], 'auch dann genug Texte');
+
+  // Rabatte werden NIE erfunden - nur uebernommen, wenn sie uebergeben werden
+  const ohneRabatt = ga.baueRsa(hart, { bestellung: true }, {});
+  assert.ok(!/rabatt|%|gratis|geschenk/i.test(ohneRabatt.ueberschriften.join(' ')), 'kein erfundener Rabatt');
+  const mitRabatt = ga.baueRsa(hart, { bestellung: true }, { versprechen: { rabattText: '10% auf erste Bestellung' } });
+  assert.ok(mitRabatt.ueberschriften.includes('10% auf erste Bestellung'), 'echter Rabatt wird uebernommen');
+});
+
+test('Google Ads: Match Types folgen der Kaufabsicht', () => {
+  const ga = require('./lib/google-ads');
+  const r = { name: 'Pizzeria Roma', city: 'Norden', cuisine: 'pizza, italienisch', slug: 'pizzeria-roma-norden' };
+
+  // Google-Schreibweise muss zum Kopieren taugen
+  assert.strictEqual(ga.formatiere('Pizza Bestellen Norden', 'Exact'), '[pizza bestellen norden]');
+  assert.strictEqual(ga.formatiere('pizza  bestellen', 'Phrase'), '"pizza bestellen"');
+
+  const gruppen = ga.baueKeywords(r, { bestellung: true, reservierung: true });
+  const alle = gruppen.flatMap((g) => g.keywords);
+
+  // Der eigene Name ist immer Exact - billigster Klick, hoechste Absicht
+  const marke = alle.find((k) => k.roh === 'pizzeria roma');
+  assert.strictEqual(marke.matchType, 'Exact');
+  assert.strictEqual(marke.intent, 'transaktional');
+
+  // Money-Keyword mit Ort: Exact
+  assert.ok(alle.some((k) => k.keyword === '[pizza bestellen norden]' && k.matchType === 'Exact'));
+  // Variantenreiches Long-Tail: Phrase
+  assert.ok(alle.some((k) => k.keyword === '"essen liefern lassen norden"' && k.matchType === 'Phrase'));
+  // Kein einziges Broad
+  assert.ok(!alle.some((k) => k.matchType === 'Broad'), 'kein Broad Match ohne Conversion-Historie');
+
+  // Dasselbe Keyword doppelt (Exact + Phrase) ist erlaubt - dann muss die
+  // Begruendung erklaeren, wie man beide steuert
+  const doppelt = alle.filter((k) => k.roh === 'pizzeria norden');
+  assert.strictEqual(doppelt.length, 2, 'einmal Exact, einmal Phrase');
+  assert.ok(doppelt.some((k) => /niedrigerem gebot/i.test(k.begruendung)), 'Steuerung ueber das Gebot ist erklaert');
+
+  // Was der Betrieb nicht kann, wird nicht gebucht
+  const ohne = ga.baueKeywords(r, {}).flatMap((g) => g.keywords);
+  assert.ok(!ohne.some((k) => /bestellen|lieferservice/.test(k.roh)), 'ohne Speisekarte keine Bestell-Keywords');
+  assert.ok(!ohne.some((k) => /reservier/.test(k.roh)), 'ohne Tische keine Reservierungs-Keywords');
+});
+
+test('Google Ads: Geldverbrenner fliegen raus, CSV laesst sich importieren', () => {
+  const ga = require('./lib/google-ads');
+  const r = { name: 'Pizzeria Roma', city: 'Norden', cuisine: 'pizza, italienisch', slug: 'pizzeria-roma-norden' };
+
+  // Info-Suchen werden als solche erkannt
+  assert.ok(/Rezept/i.test(ga.pruefeAussortieren('pizza teig rezept')));
+  assert.ok(/Arbeit/i.test(ga.pruefeAussortieren('pizzeria norden job')));
+  assert.strictEqual(ga.pruefeAussortieren('pizza bestellen norden'), null, 'echte Kaufabsicht bleibt drin');
+
+  const kampagne = ga.baueKampagne(r, { bestellung: true, reservierung: true }, {});
+  assert.deepStrictEqual(kampagne.pruefung, [], 'Anzeige ist ohne Beanstandung');
+  assert.ok(kampagne.gruppen.length >= 3, 'mehrere enge Anzeigengruppen');
+  kampagne.gruppen.forEach((g) => {
+    assert.ok(g.keywords.length <= 10, g.name + ' hat zu viele Keywords: ' + g.keywords.length);
+    assert.ok(/Exact \/ /.test(g.verteilungText), 'Verteilung ausgewiesen: ' + g.verteilungText);
+  });
+
+  // Negative Keywords mit Ebene
+  assert.ok(kampagne.negative.every((n) => n.ebene && n.matchType && n.grund));
+  assert.ok(kampagne.negative.some((n) => /rezept/.test(n.keyword) && n.ebene === 'Kampagne'));
+
+  // CSV: Kopfzeile plus je eine Zeile pro Keyword, ohne Klammern
+  const csv = ga.alsCsvKeywords(kampagne).trim().split('\n');
+  assert.strictEqual(csv[0], 'Campaign,Ad Group,Keyword,Criterion Type');
+  const anzahl = kampagne.gruppen.reduce((n, g) => n + g.keywords.length, 0);
+  assert.strictEqual(csv.length, anzahl + 1);
+  assert.ok(!csv.slice(1).some((z) => /[\[\]"]/.test(z.split(',')[2] || '')), 'im CSV ohne Klammern - Match Type steht in der Spalte');
+
+  // Anzeigen-CSV hat genau die Spalten, die der Google Ads Editor erwartet
+  const anz = ga.alsCsvAnzeigen(kampagne).trim().split('\n');
+  assert.ok(anz[0].includes('Headline 10') && anz[0].includes('Description 4'));
+  assert.strictEqual(anz.length, kampagne.gruppen.length + 1);
+
+  // Budget-Empfehlung bleibt ehrlich: kein Ziel-ROAS ohne Daten
+  const e = kampagne.empfehlung;
+  assert.ok(/Klicks maximieren/.test(e.strategie[0].strategie), 'startet konservativ');
+  assert.ok(/Ziel-ROAS/.test(e.strategie[2].strategie) && /30 Conversions/.test(e.strategie[2].schritt));
+  assert.ok(e.hoechstesGebot.length, 'Money-Keywords benannt');
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

@@ -1644,6 +1644,42 @@ const server = http.createServer(async (req, res) => {
     }
 
     // API: Speisekarten-Doktor - wo bleibt auf der Karte Geld liegen?
+    // API: Google-Ads-Kampagne fuer einen Kunden. Bringt Gaeste auf SEINE
+    // Seite bei kiek mol in. Was der Betrieb nicht anbietet, wird auch nicht
+    // beworben - sonst zahlt man fuer Klicks auf ein leeres Versprechen.
+    if (req.method === 'GET' && pfad.startsWith('/api/google-ads/')) {
+      const teile = pfad.split('/').filter(Boolean);          // api, google-ads, kennung[, csv-art]
+      const kunde = await findeKunde(decodeURIComponent(teile[2] || ''));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const ads = require('./lib/google-ads');
+
+      // Kann-Felder aus den echten Daten ableiten, nicht raten.
+      let gerichte = [];
+      try { gerichte = DEMO ? [] : await telefonDb.speisekarte(kunde.id); } catch (_e) { gerichte = []; }
+      let tische = 0;
+      try { tische = DEMO ? 8 : await telefonDb.anzahlAktiveTische(kunde.id); } catch (_e) { tische = 0; }
+      const koennen = { bestellung: DEMO ? true : gerichte.length > 0, reservierung: tische > 0 };
+
+      const kampagne = ads.baueKampagne(kunde, koennen, {
+        gerichte: gerichte.slice(0, 3).map((g) => g.name).filter(Boolean)
+      });
+
+      // Download als CSV fuer den Google Ads Editor
+      const art = teile[3];
+      if (art) {
+        const bauer = { keywords: ads.alsCsvKeywords, negative: ads.alsCsvNegative, anzeigen: ads.alsCsvAnzeigen }[art];
+        if (!bauer) { json(res, 400, { fehler: 'Unbekannte CSV-Art' }); return; }
+        res.writeHead(200, {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="google-ads-' + art + '-' + effektiverSlug(kunde) + '.csv"'
+        });
+        res.end('﻿' + bauer(kampagne));   // BOM, damit Excel die Umlaute richtig anzeigt
+        return;
+      }
+      json(res, 200, Object.assign({ koennen }, kampagne));
+      return;
+    }
+
     if (req.method === 'GET' && pfad.startsWith('/api/speisekarte-doktor/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }

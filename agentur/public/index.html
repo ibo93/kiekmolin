@@ -260,6 +260,14 @@
       </div>
       <div id="dDoktor"></div>
 
+      <h2>Google Ads · Gäste auf seine Seite holen</h2>
+      <div class="status" style="margin-top:-6px">Fertige Suchkampagne aus seinen echten Daten: Keywords mit Match Types, auszuschließende Begriffe und Anzeigentexte. Beworben wird nur, was er auch anbietet – hat er keine Online-Bestellung, steht das auch in keiner Anzeige.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <button class="aktion" id="btnAds" onclick="adsLaden()">Kampagne erzeugen</button>
+        <span class="status" id="adsStatus" style="margin:0"></span>
+      </div>
+      <div id="dAds"></div>
+
       <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
       <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
       <div id="dAufgaben"><div class="leer">Lade Aufgaben…</div></div>
@@ -591,6 +599,88 @@ async function betriebPruefen(schluessel) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
   }
+}
+
+// ---------------- Google Ads ----------------
+// Alles zum Kopieren aufbereitet: Keywords stehen schon in der
+// Google-Schreibweise ([exakt] / "wortgruppe"), die CSV-Dateien passen
+// 1:1 in den Google Ads Editor.
+async function adsLaden() {
+  const btn = document.getElementById('btnAds');
+  const ziel = document.getElementById('dAds');
+  const status = document.getElementById('adsStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'baue Kampagne…';
+  try {
+    const k = await api('/api/google-ads/' + encodeURIComponent(aktuellerKunde.id));
+    status.textContent = '';
+    const kennung = encodeURIComponent(aktuellerKunde.id);
+    const farbe = { hoch: '#dc2626', mittel: '#eab308', niedrig: '#16a34a' };
+
+    let html = '<div class="status" style="margin-top:0"><b>Kampagne:</b> ' + pTexte(k.kampagne) +
+      ' · beworben wird: ' + (k.koennen.bestellung ? 'Bestellung' : '') +
+      (k.koennen.bestellung && k.koennen.reservierung ? ' + ' : '') +
+      (k.koennen.reservierung ? 'Reservierung' : '') +
+      (!k.koennen.bestellung && !k.koennen.reservierung ? 'nur die Speisekarte (weder Bestellung noch Reservierung hinterlegt)' : '') + '</div>';
+
+    if (k.pruefung.length) {
+      html += '<div class="status fehler">Google würde beanstanden: ' + k.pruefung.map(pTexte).join(' · ') + '</div>';
+    }
+
+    html += '<div style="margin:10px 0">' +
+      ['keywords', 'negative', 'anzeigen'].map(a =>
+        '<a class="aktion" style="padding:6px 12px;font-size:12.5px;margin-right:8px;text-decoration:none;display:inline-block" ' +
+        'href="/api/google-ads/' + kennung + '/' + a + '">⬇ ' + a + '.csv</a>').join('') +
+      '<span style="font-size:12px;color:var(--grau)">für den Google Ads Editor</span></div>';
+
+    for (const g of k.gruppen) {
+      html += '<h3 style="margin:18px 0 4px;font-size:15px">' + pTexte(g.name) + '</h3>' +
+        '<div class="status" style="margin:0 0 6px">' + pTexte(g.verteilungText) + '</div>' +
+        '<table><tr><th>Keyword</th><th>Match</th><th>Intent</th><th>Warum dieser Match Type</th><th>Wettbewerb</th></tr>' +
+        g.keywords.map(x => '<tr>' +
+          '<td style="font-family:ui-monospace,Menlo,monospace;white-space:nowrap">' + pTexte(x.keyword) + '</td>' +
+          '<td>' + pTexte(x.matchType) + '</td>' +
+          '<td>' + pTexte(x.intent) + '</td>' +
+          '<td style="font-size:12px;color:var(--grau)">' + pTexte(x.begruendung) + '</td>' +
+          '<td style="color:' + (farbe[x.wettbewerb] || 'var(--grau)') + '">' + pTexte(x.wettbewerb) + '</td>' +
+        '</tr>').join('') + '</table>';
+    }
+
+    const a = k.gruppen[0].anzeige;
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Anzeigentext (RSA)</h3>' +
+      '<div class="status" style="margin:0 0 6px">Überschriften max. 30, Beschreibungen max. 90 Zeichen – schon geprüft.</div>' +
+      '<table><tr><th>Überschriften</th><th>Zeichen</th></tr>' +
+      a.ueberschriften.map(t => '<tr><td>' + pTexte(t) + '</td><td>' + t.length + '</td></tr>').join('') +
+      '</table><table style="margin-top:8px"><tr><th>Beschreibungen</th><th>Zeichen</th></tr>' +
+      a.beschreibungen.map(t => '<tr><td>' + pTexte(t) + '</td><td>' + t.length + '</td></tr>').join('') + '</table>' +
+      '<div class="status">Ziel-Adresse: ' + pTexte(a.zielUrl) + '</div>';
+
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Auszuschließen (Negative Keywords)</h3>' +
+      '<table><tr><th>Keyword</th><th>Match</th><th>Ebene</th><th>Warum</th></tr>' +
+      k.negative.map(n => '<tr><td style="font-family:ui-monospace,Menlo,monospace">' + pTexte(n.keyword) + '</td>' +
+        '<td>' + pTexte(n.matchType) + '</td><td>' + pTexte(n.ebene) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(n.grund) + '</td></tr>').join('') + '</table>';
+
+    const e = k.empfehlung;
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Gebote und Budget</h3>' +
+      '<div class="status" style="margin:0 0 6px">' + pTexte(e.tagesbudget) + '</div>' +
+      '<table><tr><th>Wann</th><th>Gebotsstrategie</th><th>Warum</th></tr>' +
+      e.strategie.map(s => '<tr><td style="white-space:nowrap">' + pTexte(s.schritt) + '</td><td>' + pTexte(s.strategie) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(s.grund) + '</td></tr>').join('') + '</table>' +
+      '<table style="margin-top:8px"><tr><th>Anzeigengruppe</th><th>Budget-Anteil</th><th>Warum</th></tr>' +
+      e.reihenfolge.map(r => '<tr><td>' + pTexte(r.gruppe) + '</td><td>' + pTexte(r.anteil) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(r.grund) + '</td></tr>').join('') + '</table>' +
+      (e.hoechstesGebot.length ? '<div class="status">Höchstes Gebot auf: <b>' + e.hoechstesGebot.map(pTexte).join('</b>, <b>') + '</b></div>' : '') +
+      '<ul style="font-size:13px;color:var(--grau);line-height:1.7">' +
+        e.hinweise.map(h => '<li>' + pTexte(h) + '</li>').join('') + '</ul>';
+
+    ziel.innerHTML = html;
+  } catch (err) {
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + err.message;
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Probeanruf-Demo ----------------
@@ -1166,6 +1256,10 @@ async function zeigeKunde(id) {
   ladeTelefonZahlen(aktuellerKunde.id);
   ladeFruehwarnung(aktuellerKunde.id);
   ladeHerkunft(aktuellerKunde.id);
+  // Die Kampagne des vorigen Kunden muss weg – sonst kopiert man Keywords
+  // für Betrieb A in das Konto von Betrieb B.
+  document.getElementById('dAds').innerHTML = '';
+  document.getElementById('adsStatus').textContent = '';
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
