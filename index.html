@@ -14270,7 +14270,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div style="width:28px;height:28px;border-radius:50%;background:#003D33;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:14px;color:#FFD54F;font-variation-settings:'FILL' 1;">location_on</span></div>
                 <div>
                     <div style="font-family:'Epilogue',sans-serif;font-size:12px;font-weight:800;color:var(--ink-strong);letter-spacing:-.01em;" id="mapLocationLabel">Ostfriesland</div>
-                    <div style="font-size:9px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.08em;"><span id="mapRestCount">0</span> Restaurants</div>
+                    <!-- Startwert ist ein Strich, keine Null. Solange nichts
+                         geladen ist, waere "0 Restaurants" eine Behauptung,
+                         die niemand geprueft hat -- und bei schlechtem Netz
+                         blieb sie frueher fuer immer stehen. -->
+                    <div style="font-size:9px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.08em;"><span id="mapRestCount">–</span> Restaurants</div>
                 </div>
             </div>
 
@@ -20407,6 +20411,12 @@ const translations = {
         reserve: 'Reservieren',
         reserveNow: 'Reserviere deinen Tisch.',
         noRestaurants: 'Keine Restaurants gefunden',
+        // Drei Lagen statt einer Meldung fuer alles -- siehe renderRestaurants.
+        noRestaurantsHint: 'Hier ist gerade nichts eingetragen.',
+        loadingRestaurants: 'Restaurants werden geladen',
+        oneMoment: 'Einen Moment noch.',
+        loadFailed: 'Liste konnte nicht geladen werden',
+        loadFailedHint: 'Die Verbindung war nicht da. Probier es gleich noch einmal.',
         searchPlaceholder: 'Restaurant suchen...',
 
         // Navigation
@@ -20860,6 +20870,11 @@ const translations = {
         reserve: 'Reserve',
         reserveNow: 'Reserve now',
         noRestaurants: 'No restaurants found',
+        noRestaurantsHint: 'Nothing is listed here right now.',
+        loadingRestaurants: 'Loading restaurants',
+        oneMoment: 'Just a moment.',
+        loadFailed: 'The list could not be loaded',
+        loadFailedHint: 'There was no connection. Please try again in a moment.',
         searchPlaceholder: 'Search restaurants...',
 
         // Navigation
@@ -21310,6 +21325,11 @@ const translations = {
         reserve: 'Reserveren',
         reserveNow: 'Nu reserveren',
         noRestaurants: 'Geen restaurants gevonden',
+        noRestaurantsHint: 'Hier staat op dit moment niets.',
+        loadingRestaurants: 'Restaurants worden geladen',
+        oneMoment: 'Even geduld.',
+        loadFailed: 'De lijst kon niet worden geladen',
+        loadFailedHint: 'Er was geen verbinding. Probeer het zo nog eens.',
         searchPlaceholder: 'Zoek restaurants...',
 
         // Navigation
@@ -24237,6 +24257,12 @@ async function initSupabase() {
             restaurants = await resp.json();
         }
 
+        // Ab hier haben wir wirklich nachgesehen. Erst jetzt darf aus dem
+        // Strich in der Kartenleiste eine Zahl werden -- auch dann, wenn die
+        // Zahl null ist.
+        window._restaurantsGeladen = true;
+        window._restaurantsLadefehler = false;
+
         // In localStorage cachen für nächsten Besuch
         try { localStorage.setItem('kmi_restaurants_cache', JSON.stringify({ data: restaurants, time: Date.now() })); } catch(e) {}
 
@@ -24325,6 +24351,11 @@ async function initSupabase() {
             }
         } catch (e2) {}
 
+        // Merken, dass es NICHT geklappt hat. Daran haengt, ob die leere
+        // Liste "hier gibt es nichts" sagt oder "wir konnten nicht laden" --
+        // und nur eines davon stimmt.
+        window._restaurantsLadefehler = true;
+
         // Zweitens: die zuletzt gesehene Liste zeigen, statt gar keiner.
         // Oben wird der Zwischenspeicher nur genommen, wenn er keine zehn
         // Minuten alt ist -- richtig, solange frische Daten in Reichweite
@@ -24339,6 +24370,11 @@ async function initSupabase() {
                     if (typeof renderRestaurants === 'function') renderRestaurants();
                     console.warn('[laden] Liste aus dem Zwischenspeicher, '
                         + Math.round((Date.now() - alt.time) / 60000) + ' Minuten alt');
+                } else if (typeof renderRestaurants === 'function') {
+                    // Gar nichts da. Trotzdem neu zeichnen -- sonst steht der
+                    // Ladehinweis von vorhin fuer immer da, und der Gast
+                    // wartet auf etwas, das nicht mehr kommt.
+                    renderRestaurants();
                 }
             }
         } catch (e3) {}
@@ -25185,15 +25221,47 @@ function renderRestaurants(filter) {
     const searchInput = document.getElementById('searchInput');
     const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
 
-    // Wenn keine Restaurants, zeige Ladehinweis
+    // DREI LAGEN, DIE VORHER ALLE GLEICH AUSSAHEN.
+    //
+    // Hier stand eine Meldung fuer alles: die Ueberschrift sagte "Keine
+    // Restaurants gefunden" und die Zeile darunter "Laden..." -- gleichzeitig,
+    // und bei schlechtem Netz fuer immer. Das ist zugleich falsch (gefunden
+    // haben wir gar nichts, wir haben es nicht geschafft nachzusehen) und
+    // widerspruechlich (leer ODER laedt, nicht beides).
+    //
+    // Unterschieden wird jetzt:
+    //   1. noch nicht nachgesehen       -> es laedt
+    //   2. nachgesehen, wirklich leer   -> es gibt hier nichts
+    //   3. Nachsehen gescheitert        -> wir konnten nicht laden
+    //
+    // Nur bei 2 darf "keine Restaurants" dastehen. Der Unterschied zwischen 2
+    // und 3 entscheidet, ob der Gast denkt "hier ist nichts los" oder
+    // "gleich nochmal versuchen".
     if (!APP_DATA.restaurants || APP_DATA.restaurants.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-                <div style="font-size: 32px; margin-bottom: 16px; color: var(--slate);"></div>
-                <h3 style="color: var(--text-primary); margin-bottom: 8px;">${t.noRestaurants || 'Keine Restaurants gefunden'}</h3>
-                <p>${t.loading || 'Laden...'}</p>
-            </div>
-        `;
+        // Auch hier den Zaehler mitnehmen -- der Ausstieg lag vor der Stelle,
+        // an der er sonst gesetzt wird, und liess ihn auf dem Startwert stehen.
+        var _mc = document.getElementById('mapRestCount');
+        if (_mc) _mc.textContent = window._restaurantsGeladen ? '0' : '–';
+
+        var _kopf, _text, _knopf = '';
+        if (window._restaurantsLadefehler) {
+            _kopf = t.loadFailed || 'Liste konnte nicht geladen werden';
+            _text = t.loadFailedHint || 'Die Verbindung war nicht da. Probier es gleich noch einmal.';
+            _knopf = '<button onclick="initSupabase()" style="margin-top:16px;padding:12px 24px;border:none;'
+                   + 'border-radius:9999px;background:var(--primary);color:#fff;font-family:Inter,sans-serif;'
+                   + 'font-size:14px;font-weight:700;cursor:pointer;">'
+                   + (t.tryAgain || 'Nochmal versuchen') + '</button>';
+        } else if (window._restaurantsGeladen) {
+            _kopf = t.noRestaurants || 'Keine Restaurants gefunden';
+            _text = t.noRestaurantsHint || 'Hier ist gerade nichts eingetragen.';
+        } else {
+            _kopf = t.loadingRestaurants || 'Restaurants werden geladen';
+            _text = t.oneMoment || 'Einen Moment noch.';
+        }
+
+        container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);">'
+            + '<h3 style="color:var(--text-primary);margin-bottom:8px;">' + _kopf + '</h3>'
+            + '<p>' + _text + '</p>' + _knopf + '</div>';
         return;
     }
 
@@ -25384,8 +25452,16 @@ function renderRestaurants(filter) {
     }
 
     // Map Info aktualisieren
+    //
+    // Eine Null heisst "wir haben nachgesehen, da ist nichts". Wenn nie etwas
+    // ankam, wissen wir das gerade NICHT -- dann bleibt der Strich stehen.
+    // Der Unterschied ist der zwischen "hier gibt es kein Restaurant" und
+    // "wir konnten nicht nachsehen", und nur einer davon ist wahr.
     var mapCount = document.getElementById('mapRestCount');
-    if (mapCount) mapCount.textContent = visibleCount;
+    if (mapCount) {
+        mapCount.textContent = (window._restaurantsGeladen || visibleCount > 0)
+            ? visibleCount : '–';
+    }
 
     updateFavoritesBadge();
 
