@@ -26,6 +26,15 @@ var STATIC = ['/kiek-logo.png', '/icon-192.png'];
 // Notausgang, per /?nosw=1 umlegbar -- siehe fetch-Handler unten.
 var AUS = false;
 
+// So lange warten wir auf das Netz, bevor die gespeicherte Fassung dran ist.
+//
+// Drei Sekunden sind der Punkt, an dem ein Ladevorgang aufhoert, sich nach
+// "gleich da" anzufuehlen. Kuerzer waere schaedlich: dann bekaeme jeder mit
+// mittelmaessigem Empfang staendig die alte Fassung, obwohl die neue nach
+// 3,5 Sekunden gekommen waere. Laenger ist genau der Zustand, der gemeldet
+// wurde.
+var NETZ_GEDULD_MS = 3000;
+
 self.addEventListener('install', function (event) {
     event.waitUntil(
         caches.open(CACHE).then(function (c) {
@@ -70,40 +79,67 @@ self.addEventListener('fetch', function (event) {
     if (AUS) return;
 
     if (istHuelle(req, url)) {
-        // ZUERST DAS NETZ, Cache nur als Rueckfallebene.
+        // ZUERST DAS NETZ, Cache nur als Rueckfallebene -- ABER MIT GEDULDSFRIST.
         //
-        // Vorher lief es andersherum: erst die gespeicherte Fassung anzeigen,
-        // die neue im Hintergrund nachladen. Das laedt zwar sofort, hat aber
-        // einen Haken, der in der Praxis schwerer wiegt: nach einem Deploy
-        // sieht man die Aenderung erst beim UEBERNAECHSTEN Laden. Wer testet,
-        // weiss dann nie, welche Fassung er gerade vor sich hat -- und haelt
-        // eine Verbesserung fuer wirkungslos, weil sie noch gar nicht da ist.
+        // Zuerst lief es andersherum: erst die gespeicherte Fassung anzeigen,
+        // die neue im Hintergrund nachladen. Das laedt sofort, hat aber einen
+        // Haken, der schwerer wiegt: nach einem Deploy sieht man die Aenderung
+        // erst beim UEBERNAECHSTEN Laden. Wer testet, weiss dann nie, welche
+        // Fassung er vor sich hat -- und haelt eine Verbesserung fuer
+        // wirkungslos, weil sie noch gar nicht da ist.
         //
-        // Jetzt: online immer die aktuelle Fassung, der Cache springt nur ein,
-        // wenn das Netz nicht antwortet. Offline funktioniert die App also
-        // weiterhin, aber sie zeigt nie heimlich alten Stand.
+        // Also Netz zuerst. Nur hatte das eine Luecke, und zwar genau die, die
+        // gemeldet wurde ("die App laedt so komisch, wenn kein gutes Internet
+        // ist"): OHNE Frist wartet der Browser auf ein langsames Netz, bis es
+        // ihm reicht -- das koennen dreissig Sekunden weisser Bildschirm sein,
+        // waehrend die fertige Seite die ganze Zeit im Cache liegt. "Kein Netz"
+        // faengt der catch ab, "schlechtes Netz" fing niemand ab.
+        //
+        // Jetzt ein Wettlauf: antwortet das Netz binnen NETZ_GEDULD_MS, gilt
+        // seine Antwort (kein heimlich alter Stand). Antwortet es nicht,
+        // kommt die gespeicherte Fassung auf den Schirm -- und der Abruf
+        // laeuft trotzdem weiter und frischt den Cache fuer das naechste Mal
+        // auf.
+        //
+        // Ist NICHTS gespeichert, wird ohne Frist gewartet: dann ist Warten
+        // die einzige Moeglichkeit, ueberhaupt etwas zu zeigen.
         event.respondWith((async function () {
             var cache = null;
             try { cache = await caches.open(CACHE); } catch (e) {}
-            try {
-                var res = await fetch(req);
+
+            var gespeichert = null;
+            if (cache) { try { gespeichert = await cache.match(SHELL); } catch (e) {} }
+
+            var vomNetz = fetch(req).then(function (res) {
                 if (res && res.ok && cache) {
-                    // Fuer den Offline-Fall mitschreiben; Fehler dabei egal.
-                    try { await cache.put(SHELL, res.clone()); } catch (e) {}
+                    // Ohne await, damit die Antwort nicht auf das Schreiben
+                    // wartet -- deshalb braucht es BEIDE Absicherungen: try
+                    // faengt ein sofortiges Werfen, .catch die abgelehnte
+                    // Zusage. Ein Cache-Schreibfehler darf die Seite nie
+                    // kippen, und ein Speicher ist irgendwann voll.
+                    try { cache.put(SHELL, res.clone()).catch(function () {}); } catch (e) {}
                 }
                 return res;
-            } catch (e) {
-                // Kein Netz -> letzte bekannte Fassung, besser als nichts.
-                if (cache) {
-                    try {
-                        var hit = await cache.match(SHELL);
-                        if (hit) return hit;
-                    } catch (e2) {}
+            });
+            // Der Abruf soll auch dann zu Ende laufen, wenn wir schon
+            // geantwortet haben -- sonst bleibt der Cache alt.
+            try { event.waitUntil(vomNetz.catch(function () {})); } catch (e) {}
+
+            if (!gespeichert) {
+                try {
+                    return await vomNetz;
+                } catch (e) {
+                    return new Response('Offline – bitte Verbindung prüfen.', {
+                        status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                    });
                 }
-                return new Response('Offline – bitte Verbindung prüfen.', {
-                    status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-                });
             }
+
+            var rechtzeitig = await Promise.race([
+                vomNetz.catch(function () { return null; }),
+                new Promise(function (fertig) { setTimeout(function () { fertig(null); }, NETZ_GEDULD_MS); })
+            ]);
+            return rechtzeitig || gespeichert;
         })());
         return;
     }

@@ -35,7 +35,20 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
 var SEO = fs.readFileSync('/home/user/kiekmolin/build-seo-pages.js', 'utf8');
-var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8')
+    // Kommentare im Stilbogen raus, BEVOR gesucht wird. Sie stehen nie im
+    // Fenster, und der Suchlauf unten kann sie nicht von Text unterscheiden:
+    // erwaehnt ein Kommentar ein Tag ("... weil ein <span> kein <svg> ist"),
+    // schneidet das Muster >...< mitten hinein und meldet den Kommentartext
+    // als angeblichen Anzeigetext. Genau das ist einmal passiert.
+    //
+    // Nur INNERHALB von <style>. Ein Griff ueber die ganze Datei waere
+    // gefaehrlich: /* ... */ kommt auch in Zeichenketten und regulaeren
+    // Ausdruecken im JavaScript vor, und dann faellt beliebig viel echter
+    // Code weg -- ausprobiert, es sind sieben andere Pruefungen umgekippt.
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/g, function (block) {
+        return block.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    });
 
 // ERST EINE WORTLISTE, JETZT EINE REGEL.
 //
