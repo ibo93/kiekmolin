@@ -13224,23 +13224,38 @@ function _cookieBannerZeigen() {
     var el = document.getElementById('cookieConsent');
     if (!el) return;
     _cookieStart = Date.now();
+    // NUR SCHREIBEN, WENN SICH ETWAS AENDERT
+    //
+    // Hier stand dreimal pro Sekunde el.style.display = '...' -- auch dann,
+    // wenn schon derselbe Wert drinstand. Fuer den Browser ist das trotzdem
+    // eine Aenderung am Stil: er rechnet das Layout neu durch. Auf einer
+    // Seite mit hunderten Milchglas-Flaechen wird dabei jede davon neu
+    // gerastert. Dreimal pro Sekunde, solange der Banner offen ist -- ohne
+    // dass jemand etwas tut.
+    //
+    // Der Waechter selbst bleibt: er muss mitbekommen, wenn die Tour
+    // aufgeht. Er fasst die Seite nur nicht mehr grundlos an.
+    function setze(wert) {
+        if (el.style.display !== wert) el.style.display = wert;
+    }
+
     function pruefe() {
         if (_cookieSchonEntschieden()) {
-            el.style.display = 'none';
+            setze('none');
             if (_cookieWaechter) { clearInterval(_cookieWaechter); _cookieWaechter = null; }
             return;
         }
         if (_istSichtbar(document.getElementById('onboardingOverlay'))) {
             _tourGesehen = true;
-            el.style.display = 'none';
+            setze('none');
             return;
         }
         // Die Tour kommt noch und ist nur noch nicht aufgegangen -> warten.
         if (!_tourGesehen && _tourKommtNoch() && (Date.now() - _cookieStart) < COOKIE_ANLAUF_MS) {
-            el.style.display = 'none';
+            setze('none');
             return;
         }
-        el.style.display = 'block';
+        setze('block');
     }
     pruefe();
     if (!_cookieWaechter) _cookieWaechter = setInterval(pruefe, 300);
