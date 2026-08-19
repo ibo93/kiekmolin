@@ -48208,30 +48208,44 @@ function kategorieHinweis(items) {
 }
 window.kategorieHinweis = kategorieHinweis;
 
-// DER KATEGORIENAME STEHT IM KOPF NUR EINMAL.
+// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
+// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
 //
-// Erst hiess die Zeile "Alle Pizzen mit: Tomatensauce, Käse". Direkt
-// darueber steht aber schon die Ueberschrift PIZZA -- und ueber der die
-// gelb markierte Pille "Pizza". Dreimal dasselbe Wort auf einer
-// Handbreite; gemeldet als "warum schreibst du noch mal vorspeise...
-// kategorie nur einmal".
+// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
+// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
+// "Alle Für unsere kleinen Gäste mit" erst recht. Deutsche Mehrzahl
+// laesst sich nicht raten.
 //
-// Geblieben ist die Ueberschrift: sie ist beim Durchscrollen die
-// Trennung zwischen zwei Abschnitten und steht auch dann da, wenn es
-// gar keinen gemeinsamen Hinweis gibt. Der Hinweis darunter sagt nur
-// noch "Alle mit:" -- worueber geredet wird, hat die Zeile darueber
-// schon gesagt.
-//
-// Damit faellt auch die Mehrzahl-Liste weg (Pizza -> Pizzen, Salat ->
-// Salate). Die war noetig, weil sich deutsche Mehrzahl nicht raten
-// laesst -- "Alle Käse mit" oder "Alle Für unsere kleinen Gäste mit"
-// waren die Faelle, an denen sie scheiterte. Ohne das Wort gibt es das
-// Problem nicht mehr.
-function kategorieHinweisHtml(items) {
+// Deshalb eine kurze, gepflegte Liste -- und im Zweifel "Gerichte".
+// Lieber eine Zeile, die immer stimmt, als eine, die bei jeder dritten
+// Kategorie schief klingt.
+var KAT_MEHRZAHL = {
+    'pizza': 'Pizzen', 'pizzen': 'Pizzen',
+    'pasta': 'Pasta-Gerichte', 'nudeln': 'Nudelgerichte',
+    'salat': 'Salate', 'salate': 'Salate',
+    'suppe': 'Suppen', 'suppen': 'Suppen',
+    'vorspeise': 'Vorspeisen', 'vorspeisen': 'Vorspeisen',
+    'dessert': 'Desserts', 'desserts': 'Desserts', 'nachtisch': 'Nachtische',
+    'burger': 'Burger', 'schnitzel': 'Schnitzel',
+    'beilage': 'Beilagen', 'beilagen': 'Beilagen',
+    'getränk': 'Getränke', 'getränke': 'Getränke',
+    'fischgerichte': 'Fischgerichte', 'fleischgerichte': 'Fleischgerichte',
+    'baguette': 'Baguettes', 'baguettes': 'Baguettes',
+    'auflauf': 'Aufläufe', 'aufläufe': 'Aufläufe'
+};
+
+function katMehrzahl(name) {
+    var k = String(name || '').trim().toLowerCase();
+    return KAT_MEHRZAHL[k] || 'Gerichte';
+}
+window.katMehrzahl = katMehrzahl;
+
+function kategorieHinweisHtml(items, katName) {
     var h = kategorieHinweis(items);
     if (!h) return '';
+    var wort = katMehrzahl(katName);
     var zeilen = [];
-    if (h.alle.length) zeilen.push('<strong>Alle mit:</strong> ' + escapeHtml(h.alle.join(', ')));
+    if (h.alle.length) zeilen.push('<strong>Alle ' + escapeHtml(wort) + ' mit:</strong> ' + escapeHtml(h.alle.join(', ')));
     if (h.fast.length) zeilen.push('<strong>Fast alle mit:</strong> ' + escapeHtml(h.fast.join(', ')));
     return '<p style="font-size:13px;color:var(--text-secondary);line-height:1.55;margin:6px 0 0;">'
          + zeilen.join('<br>') + '</p>';
@@ -48284,7 +48298,7 @@ function renderKarteDurchgehend(items, kategorien) {
               + '<div class="kmi-kat-kopf" style="padding:26px 2px 14px;">'
               +   '<h2 style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.03em;color:var(--ink-deep);margin:0;text-transform:uppercase;">'
               +     escapeHtml(translateCategory(r.name, currentLanguage)) + '</h2>'
-              +   kategorieHinweisHtml(r.items)
+              +   kategorieHinweisHtml(r.items, r.name)
               + '</div>'
               + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
               + '</section>';

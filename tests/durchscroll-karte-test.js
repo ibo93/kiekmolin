@@ -164,41 +164,33 @@ t('nach dem Laden der Kategorien wird nachgezeichnet',
 t('der Grund steht dabei', h.indexOf('WETTLAUF ABFANGEN') > -1, 'keine Begruendung');
 
 
-console.log('\n-- 9. Der Kategoriename steht im Kopf nur EINMAL --');
-// Erst hiess die Zeile "Alle Pizzen mit: Tomatensauce, Käse". Darueber
-// steht aber schon die Ueberschrift PIZZA und darueber die markierte
-// Pille "Pizza" -- dreimal dasselbe Wort auf einer Handbreite.
-// Gemeldet als "warum schreibst du noch mal vorspeise... kategorie nur
-// einmal". Geblieben ist die Ueberschrift, weil sie die Abschnitte
-// trennt und auch dann dasteht, wenn es gar keinen Hinweis gibt.
-var kopf = h.slice(h.indexOf('function kategorieHinweisHtml'),
-                   h.indexOf('// DIE GANZE KARTE, NACH KATEGORIEN GEGLIEDERT.'));
-t('der Hinweis sagt nur noch "Alle mit:"',
-  /<strong>Alle mit:<\/strong>/.test(kopf), kopf);
-t('und nicht mehr "Alle <Kategorie> mit:"',
-  /'<strong>Alle ' \+/.test(kopf) === false, kopf);
-t('"Fast alle mit:" bleibt wie es war',
-  /<strong>Fast alle mit:<\/strong>/.test(kopf), kopf);
-t('die Ueberschrift bleibt',
-  /escapeHtml\(translateCategory\(r\.name, currentLanguage\)\) \+ '<\/h2>'/.test(h),
-  'keine Ueberschrift mehr');
+console.log('\n-- 9. Der Kategoriename steht im Hinweis --');
+// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
+// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
+//
+// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
+// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
+// "Alle Für unsere kleinen Gäste mit" erst recht.
+var mz = h.indexOf('var KAT_MEHRZAHL = {');
+t('es gibt eine gepflegte Liste', mz > 0, mz);
+vm.runInContext(h.slice(mz, h.indexOf('window.katMehrzahl')), welt);
 
-// Die Mehrzahl-Liste faellt damit weg. Sie war nur noetig, weil sich
-// deutsche Mehrzahl nicht raten laesst ("Alle Käse mit", "Alle Für
-// unsere kleinen Gäste mit"). Ohne das Wort gibt es das Problem nicht
-// mehr -- und toter Code, den spaeter jemand halb wiederbelebt, auch
-// nicht.
-t('KAT_MEHRZAHL ist entfernt', h.indexOf('var KAT_MEHRZAHL') < 0, 'liegt noch da');
-t('katMehrzahl ist entfernt', h.indexOf('function katMehrzahl') < 0, 'liegt noch da');
-t('und haengt auch nicht mehr am window', h.indexOf('window.katMehrzahl') < 0, 'haengt noch');
-t('der Grund steht im Quelltext',
-  h.indexOf('DER KATEGORIENAME STEHT IM KOPF NUR EINMAL') > -1, 'keine Begruendung');
-// Der Parameter ist mitgegangen -- ein Argument, das niemand liest,
-// laedt dazu ein, es spaeter wieder zu benutzen.
-t('kategorieHinweisHtml nimmt nur noch die Gerichte',
-  /function kategorieHinweisHtml\(items\) \{/.test(h), 'noch ein zweites Argument');
-t('und wird auch so gerufen',
-  /kategorieHinweisHtml\(r\.items\)/.test(h), 'anders gerufen');
+t('Pizza wird zu Pizzen', welt.katMehrzahl('Pizza') === 'Pizzen', welt.katMehrzahl('Pizza'));
+t('Pizzen bleibt Pizzen', welt.katMehrzahl('Pizzen') === 'Pizzen', welt.katMehrzahl('Pizzen'));
+t('Salate bleibt Salate', welt.katMehrzahl('Salate') === 'Salate', welt.katMehrzahl('Salate'));
+t('Gross-/Kleinschreibung egal', welt.katMehrzahl('PIZZA') === 'Pizzen', welt.katMehrzahl('PIZZA'));
+// Im Zweifel "Gerichte" -- lieber eine Zeile, die immer stimmt, als
+// eine, die bei jeder dritten Kategorie schief klingt.
+[['Käse'], ['Fleisch vom Grill'], ['Für unsere kleinen Gäste'], ['Spezialitäten des Hauses'], ['']
+].forEach(function (f) {
+    t('"' + f[0] + '" faellt auf Gerichte zurueck', welt.katMehrzahl(f[0]) === 'Gerichte', welt.katMehrzahl(f[0]));
+});
+t('der Kategoriename wird beim Zeichnen mitgegeben',
+  /kategorieHinweisHtml\(r\.items, r\.name\)/.test(h), 'nicht mitgegeben');
+t('und landet im Text',
+  /'<strong>Alle ' \+ escapeHtml\(wort\) \+ ' mit:<\/strong> '/.test(h), 'nicht im Text');
+t('der Grund fuer die Liste steht dabei',
+  h.indexOf('Deutsche Mehrzahl') > -1, 'keine Begruendung');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
