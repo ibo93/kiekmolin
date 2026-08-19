@@ -3,6 +3,7 @@
 //   Server-Function menu-scan.js -> ECHTER Gemini-Aufruf -> echter Parser.
 // Netlify wird nachgebildet, weil es genau die Wand ist, an der der Scanner
 // gescheitert ist: 10 Sekunden, danach Schluss.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
 // Bilder liegen nicht im Repo. Erst erzeugen:
@@ -10,8 +11,8 @@ var fs = require('fs');
 // Dann (kostet NICHTS, läuft über den kostenlosen Gemini-Schlüssel):
 //   GKEY=<gemini-schlüssel> KARTEN=/tmp/karten/ node tests/beweis-echt.js
 var S = (process.env.KARTEN || '/tmp/karten').replace(/\/?$/, '/');
-var HTML = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
-var PFAD = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
+var HTML = fs.readFileSync(KMI + '/index.html', 'utf8');
+var PFAD = KMI + '/netlify/functions/menu-scan.js';
 var WAHR = JSON.parse(fs.readFileSync(S + 'wahrheit.json', 'utf8'));
 var BILD = 'data:image/jpeg;base64,' + fs.readFileSync(process.argv[2] ? (process.argv[2].indexOf('/') >= 0 ? process.argv[2] : S + process.argv[2]) : S + 'karte.jpg').toString('base64');
 

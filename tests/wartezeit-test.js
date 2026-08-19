@@ -23,9 +23,10 @@
 // Das Muster gibt es hier schon (order_stop:15) und es braucht keine
 // Datenbank-Aenderung. Eine fehlende Spalte haette bedeutet: der Wert steht
 // nur im Browser des Wirts, und auf dem Tablet in der Kueche ist er anders.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 

@@ -23,9 +23,10 @@
 // Betroffen war GENAU EIN Tag: Montag. Dienstag bis Sonntag sind 1..6, also
 // truthy, die kamen immer durch. Deshalb wirkte es, als ginge der Ruhetag
 // mal und mal nicht.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 

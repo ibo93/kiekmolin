@@ -90,7 +90,17 @@ function dienstSchluesselIn(text) {
     });
 }
 
-var eingecheckt = cp.execSync('git -C ' + JSON.stringify(WURZEL) + ' ls-files', { encoding: 'utf8' })
+// Die git-gestuetzten Pruefungen brauchen ein echtes Repository. In einer
+// blossen Kopie des Ordners (ohne .git) gibt es keins -- dann sagt der Test
+// das ausdruecklich, statt abzustuerzen ODER stillschweigend gruen zu sein.
+// In der CI liegt .git vor, dort laufen sie also immer.
+var imRepo = true;
+try { cp.execFileSync('git', ['-C', WURZEL, 'rev-parse', '--git-dir'], { stdio: 'ignore' }); }
+catch (e) { imRepo = false; }
+
+if (!imRepo) console.log('HINWEIS | kein git-Repository -- die Leck- und .gitignore-Pruefungen laufen hier nicht');
+
+var eingecheckt = !imRepo ? [] : cp.execSync('git -C ' + JSON.stringify(WURZEL) + ' ls-files', { encoding: 'utf8' })
     .split('\n').filter(Boolean)
     .filter(function (f) { return /\.(js|html|json|md|txt|sql|yml|example)$/.test(f); });
 
@@ -98,8 +108,10 @@ var verdaechtig = eingecheckt.filter(function (f) {
     try { return dienstSchluesselIn(fs.readFileSync(path.join(WURZEL, f), 'utf8')); }
     catch (e) { return false; }
 });
-t('kein Dienstschluessel in einer eingecheckten Datei (' + eingecheckt.length + ' geprueft)',
-  verdaechtig.length === 0, verdaechtig.join(', '));
+if (imRepo) {
+    t('kein Dienstschluessel in einer eingecheckten Datei (' + eingecheckt.length + ' geprueft)',
+      verdaechtig.length === 0, verdaechtig.join(', '));
+}
 
 console.log('\n-- .env bleibt draussen --');
 
@@ -110,12 +122,14 @@ function ignoriert(p) {
     } catch (e) { return false; }
 }
 
-['.env', 'sichtbarkeit/.env', 'telefon-retter/.env', 'agentur/.env.local'].forEach(function (p) {
-    t(p + ' ist von git ausgeschlossen', ignoriert(p) === true);
-});
-['sichtbarkeit/.env.example', 'telefon-retter/.env.example'].forEach(function (p) {
-    t(p + ' bleibt eincheckbar (nur Platzhalter)', ignoriert(p) === false);
-});
+if (imRepo) {
+    ['.env', 'sichtbarkeit/.env', 'telefon-retter/.env', 'agentur/.env.local'].forEach(function (p) {
+        t(p + ' ist von git ausgeschlossen', ignoriert(p) === true);
+    });
+    ['sichtbarkeit/.env.example', 'telefon-retter/.env.example'].forEach(function (p) {
+        t(p + ' bleibt eincheckbar (nur Platzhalter)', ignoriert(p) === false);
+    });
+}
 
 console.log('\n-- Die Vorlage sagt, was zu tun ist --');
 

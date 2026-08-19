@@ -28,9 +28,10 @@
 // Tage. Die App liest beides -- diese Datei hatte kein einziges "rest_day".
 // Das Wort "täglich" war eine Behauptung, die die Daten nicht hergeben, und
 // sie stand auch in der Auszeichnung fuer Google.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var S = fs.readFileSync('/home/user/kiekmolin/build-seo-pages.js', 'utf8');
+var S = fs.readFileSync(KMI + '/build-seo-pages.js', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 

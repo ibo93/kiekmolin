@@ -22,11 +22,12 @@
 // tests/daten/pronto-pdfjs.json ist deshalb keine Nachbildung, sondern die
 // unveränderte Ausgabe von pdf.js 2.16.105 für die echte Karte
 // "Pronto Pronto, Riepe" (zwei Seiten, vier Spalten, 142 Gerichte).
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
-var SEITEN = JSON.parse(fs.readFileSync('/home/user/kiekmolin/tests/daten/pronto-pdfjs.json', 'utf8'));
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
+var SEITEN = JSON.parse(fs.readFileSync(KMI + '/tests/daten/pronto-pdfjs.json', 'utf8'));
 
 function schneide(name) {
     var i = H.indexOf('function ' + name + '(');

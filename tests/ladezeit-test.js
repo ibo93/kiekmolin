@@ -32,9 +32,10 @@
 //
 // Geloest ueber onload am defer-Skript: das Ereignis kommt, sobald die
 // Bibliothek ausgefuehrt ist, und das ist garantiert VOR DOMContentLoaded.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var KOPF = H.slice(0, H.indexOf('</head>'));
 // Ohne HTML-Kommentare. Sonst faellt die Suche nach blockierenden Skripten
 // auf den Tailwind-Kommentar herein, der zitiert, was dort FRUEHER stand --

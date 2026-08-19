@@ -8,10 +8,11 @@
 // Die Namen stehen aber auf der Karte -- in den Beschreibungen. Jede Pizza
 // listet ihre Zutaten. Was in einer Kategorie mehrfach vorkommt, ist eine
 // Zutat, die das Haus da hat.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
-var SEITEN = JSON.parse(fs.readFileSync('/home/user/kiekmolin/tests/daten/pronto-pdfjs.json', 'utf8'));
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
+var SEITEN = JSON.parse(fs.readFileSync(KMI + '/tests/daten/pronto-pdfjs.json', 'utf8'));
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 

@@ -1,5 +1,6 @@
 // Findet der zweite Blick absichtlich eingebaute Fehler?
 // Echter Server-Code, echter Gemini-Aufruf, echtes Bild.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
 // Bilder liegen nicht im Repo. Erst erzeugen:
@@ -7,7 +8,7 @@ var fs = require('fs');
 // Dann (kostet NICHTS, läuft über den kostenlosen Gemini-Schlüssel):
 //   GKEY=<gemini-schlüssel> KARTEN=/tmp/karten/ node tests/beweis-prüfung.js
 var S = (process.env.KARTEN || '/tmp/karten').replace(/\/?$/, '/');
-var PFAD = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
+var PFAD = KMI + '/netlify/functions/menu-scan.js';
 var BILD = 'data:image/jpeg;base64,' + fs.readFileSync(process.argv[2] ? (process.argv[2].indexOf('/') >= 0 ? process.argv[2] : S + process.argv[2]) : S + 'karte.jpg').toString('base64');
 
 // So hat der erste Durchgang gelesen -- mit VIER eingebauten Fehlern und
