@@ -14297,8 +14297,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
         <!-- HERO BANNER — Liquid Glass -->
         <section id="heroBanner" style="position:relative;height:520px;width:100%;overflow:hidden;">
             <!-- Dynamisches Hintergrundbild - Crossfade Slideshow -->
-            <div id="heroBannerBg" style="position:absolute;inset:0;background:linear-gradient(135deg, #1a5f4a 0%, #2d8a6e 50%, #1a5f4a 100%);background-size:110%;background-position:center;transition:opacity 2s ease-in-out;opacity:1;"></div>
-            <div id="heroBannerBg2" style="position:absolute;inset:0;background-size:110%;background-position:center;transition:opacity 2s ease-in-out;opacity:0;"></div>
+            <div id="heroBannerBg" style="position:absolute;inset:0;background:linear-gradient(135deg, #1a5f4a 0%, #2d8a6e 50%, #1a5f4a 100%);background-size:cover;background-position:center;transition:opacity 2s ease-in-out;will-change:transform,opacity;opacity:1;"></div>
+            <div id="heroBannerBg2" style="position:absolute;inset:0;background-size:cover;background-position:center;transition:opacity 2s ease-in-out;will-change:transform,opacity;opacity:0;"></div>
             <!-- Gradient Overlay -->
             <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,37,30,0.15), transparent 40%, #f8f9fa 100%);"></div>
             <!-- Hero Content -->
@@ -25717,45 +25717,68 @@ function updateHeroBannerImage() {
     // Bilder vorladen für flüssige Übergänge
     imgs.forEach(function(src) { var img = new Image(); img.src = src; });
 
+    // KEN-BURNS UEBER transform STATT background-size
+    //
+    // Hier stand eine Bewegung von background-size 110% auf 120% ueber acht
+    // Sekunden. background-size ist eine MAL-Eigenschaft: der Browser kann
+    // sie nicht der Grafikkarte ueberlassen, er rastert das ganze Bild in
+    // jedem Einzelbild neu. Auf einem 520 Pixel hohen Vollbild, im Dauerlauf
+    // alle sieben Sekunden, ist das genau das Zittern, das man sieht -- und
+    // zwar ohne dass jemand etwas tut. Es reisst nebenbei die ganze Seite
+    // mit, weil der Hauptfaden mit Malen beschaeftigt ist.
+    //
+    // transform macht dieselbe Bewegung auf der Grafikkarte. Kein einziges
+    // Neuzeichnen. Das Bild bleibt, wo es war -- #heroBanner schneidet ab
+    // (overflow:hidden), der Zoom faellt also nicht aus dem Rahmen.
+    var ZOOM = 'scale(1.06)';
+    var RUHE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function ebeneVorbereiten(el, bild) {
+        el.style.backgroundImage = 'url(' + bild + ')';
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.style.transformOrigin = 'center';
+        // Ohne Uebergang zurueck auf Anfang, sonst zoomt es sichtbar rueckwaerts.
+        el.style.transition = 'none';
+        el.style.transform = 'scale(1)';
+    }
+
+    function zoomStarten(el) {
+        if (RUHE) return;   // Wer ruhige Bewegung eingestellt hat, bekommt keine.
+        // Ein Bild abwarten, damit der Browser den Anfangswert uebernimmt --
+        // sonst springt er direkt zum Endwert, ohne den Weg dazwischen.
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                el.style.transition = 'opacity 2s ease-in-out, transform 8s ease-in-out';
+                el.style.transform = ZOOM;
+            });
+        });
+    }
+
     // Erstes Bild sofort setzen
     var currentIndex = Math.floor(Math.random() * imgs.length);
-    bg1.style.backgroundImage = 'url(' + imgs[currentIndex] + ')';
-    bg1.style.backgroundSize = '110%';
-    bg1.style.backgroundPosition = 'center';
+    ebeneVorbereiten(bg1, imgs[currentIndex]);
     bg1.style.opacity = '1';
     bg2.style.opacity = '0';
-
-    // Ken-Burns: langsamer Zoom auf aktives Bild
-    bg1.style.transition = 'opacity 2s ease-in-out, background-size 8s ease-in-out';
-    bg2.style.transition = 'opacity 2s ease-in-out, background-size 8s ease-in-out';
-    bg1.style.backgroundSize = '120%';
+    zoomStarten(bg1);
 
     // Nur Slideshow starten wenn mehr als 1 Bild
     if (imgs.length <= 1) return;
 
     var showingFirst = true;
-    window._heroSlideshow = setInterval(function() {
-        // Nächstes Bild (nicht das gleiche)
+    window._heroSlideshow = setInterval(function () {
         var nextIndex;
         do { nextIndex = Math.floor(Math.random() * imgs.length); } while (nextIndex === currentIndex && imgs.length > 1);
         currentIndex = nextIndex;
 
-        if (showingFirst) {
-            bg2.style.backgroundImage = 'url(' + imgs[currentIndex] + ')';
-            bg2.style.backgroundSize = '110%';
-            bg2.style.backgroundPosition = 'center';
-            bg2.style.opacity = '1';
-            bg1.style.opacity = '0';
-            // Ken-Burns Zoom
-            setTimeout(function() { bg2.style.backgroundSize = '120%'; }, 100);
-        } else {
-            bg1.style.backgroundImage = 'url(' + imgs[currentIndex] + ')';
-            bg1.style.backgroundSize = '110%';
-            bg1.style.backgroundPosition = 'center';
-            bg1.style.opacity = '1';
-            bg2.style.opacity = '0';
-            setTimeout(function() { bg1.style.backgroundSize = '120%'; }, 100);
-        }
+        var kommt = showingFirst ? bg2 : bg1;
+        var geht  = showingFirst ? bg1 : bg2;
+
+        ebeneVorbereiten(kommt, imgs[currentIndex]);
+        kommt.style.opacity = '1';
+        geht.style.opacity = '0';
+        zoomStarten(kommt);
+
         showingFirst = !showingFirst;
     }, 7000);
 }
