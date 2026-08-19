@@ -34,7 +34,14 @@ const STANDARD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 function konfig() {
   return {
     url: process.env.SUPABASE_URL || STANDARD_URL,
-    key: process.env.SUPABASE_SERVICE_ROLE_KEY
+    // SUPABASE_SERVICE_KEY zuerst: so heisst er in allen 21 Netlify-Functions
+    // dieses Projekts. Zwei Namen fuer denselben Schluessel waeren die Sorte
+    // Stolperstein, ueber die man genau einmal faellt -- und dann sucht man
+    // eine Stunde, warum die Zahlen leer bleiben.
+    // SUPABASE_SERVICE_ROLE_KEY heisst er in Supabases eigener Doku, deshalb
+    // gilt er auch.
+    key: process.env.SUPABASE_SERVICE_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
       || process.env.SUPABASE_ANON_KEY
       || STANDARD_KEY
   };

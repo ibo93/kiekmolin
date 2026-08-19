@@ -42,22 +42,31 @@ LIBS.forEach(function (datei) {
 
     // Ohne alles: wie bisher. Wichtig, damit dieser Umbau heute nichts aendert.
     t(kurz + ': ohne .env laeuft es weiter mit dem oeffentlichen Schluessel',
-      rolleMit(datei, { SUPABASE_SERVICE_ROLE_KEY: '', SUPABASE_ANON_KEY: '' }) === 'anon');
+      rolleMit(datei, { SUPABASE_SERVICE_KEY: '', SUPABASE_ANON_KEY: '' }) === 'anon');
+
+    // Beide Namen muessen gelten: SUPABASE_SERVICE_KEY heisst er in den
+    // Netlify-Functions dieses Projekts, SUPABASE_SERVICE_ROLE_KEY in
+    // Supabases Doku. Wer den einen setzt und der andere zaehlt, sucht lange.
+    t(kurz + ': auch der Name aus der Supabase-Doku gilt',
+      rolleMit(datei, {
+          SUPABASE_SERVICE_KEY: '',
+          SUPABASE_SERVICE_ROLE_KEY: token('service_role')
+      }) === 'service_role');
 
     t(kurz + ': der Dienstschluessel schlaegt den oeffentlichen',
       rolleMit(datei, {
-          SUPABASE_SERVICE_ROLE_KEY: token('service_role'),
+          SUPABASE_SERVICE_KEY: token('service_role'),
           SUPABASE_ANON_KEY: token('anon')
       }) === 'service_role');
 
     t(kurz + ': ohne Dienstschluessel gilt der aus der .env',
       rolleMit(datei, {
-          SUPABASE_SERVICE_ROLE_KEY: '',
+          SUPABASE_SERVICE_KEY: '',
           SUPABASE_ANON_KEY: token('anon')
       }) === 'anon');
 
     t(kurz + ': ein kaputtes Token stuerzt nicht ab',
-      rolleMit(datei, { SUPABASE_SERVICE_ROLE_KEY: 'voellig-kaputt' }) === 'unbekannt');
+      rolleMit(datei, { SUPABASE_SERVICE_KEY: 'voellig-kaputt' }) === 'unbekannt');
 });
 
 console.log('\n-- Der Schluessel darf nie in den Browser --');
@@ -112,7 +121,7 @@ console.log('\n-- Die Vorlage sagt, was zu tun ist --');
 
 ['sichtbarkeit/.env.example', 'telefon-retter/.env.example'].forEach(function (p) {
     var s = fs.readFileSync(path.join(WURZEL, p), 'utf8');
-    t(p + ' nennt SUPABASE_SERVICE_ROLE_KEY', /SUPABASE_SERVICE_ROLE_KEY/.test(s));
+    t(p + ' nennt SUPABASE_SERVICE_KEY', /SUPABASE_SERVICE_KEY/.test(s));
     t(p + ' warnt, dass er nicht in den Browser gehoert', /Browser/.test(s));
 });
 
