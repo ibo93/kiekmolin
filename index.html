@@ -1311,9 +1311,39 @@
         .dark-mode #menuModal > .modal {
             background: #0e0e0e !important;
         }
-        /* Header */
-        .dark-mode #menuModal header {
-            background: rgba(26,26,26,0.9) !important;
+        /* DER BALKEN OBEN WAR IM DUNKELMODUS WEISS.
+           Gemeldet: "design ist dunkel modus oben den balken das muss
+           schwarz sein und die pillen in weiss oder grün oder gelb
+           kiekmolin farben".
+           Nachgemessen bei eingeschaltetem Dunkelmodus:
+             #menuModal        rgb(248,249,250)      fast weiss
+             .menu-categories  rgba(255,255,255,.85) weiss
+           Beide tragen ihren Hintergrund als Inline-Stil und hatten
+           keine Dunkel-Fassung. Die PILLEN darin waren laengst
+           umgestellt -- nur die Flaeche, auf der sie liegen, nicht.
+           Deshalb sassen dunkle Pillen auf einem weissen Balken ueber
+           einer schwarzen Karte. */
+        /* Die Grundflaeche steht weiter unten, direkt neben der Regel,
+           die sie vorher ueberschrieben hat (.liquid-glass #menuModal).
+           Hier waere sie wirkungslos: gleiche Spezifitaet, aber frueher
+           in der Datei. */
+        .dark-mode #menuModal .menu-categories,
+        .dark-mode #menuModal #menuCategoryTabs,
+        .dark-mode #menuModal #menuSpracheBar,
+        .dark-mode #menuModal #menuSearchBar {
+            background: #0e0e0e !important;
+        }
+        /* Header.
+           Der Zusatz [style] ist noetig, kein Schoenheitsfehler: weiter
+           unten faerbt eine Sammelregel JEDEN inline-weissen Hintergrund
+           im Menuefenster auf #1a1a1a, und die ist mit
+           [style*="background:rgba(255,255,255"] spezifischer als ein
+           blosses "header". Der Kopfbalken traegt genau so einen
+           Inline-Stil -- also war er #1a1a1a, waehrend die Leiste
+           darunter schwarz wurde. Zwei fast gleiche Grautoene mit einer
+           sichtbaren Kante dazwischen sehen aus wie ein Fehler. */
+        .dark-mode #menuModal header[style] {
+            background: #0e0e0e !important;
             border-bottom: 1px solid rgba(255,255,255,0.06) !important;
         }
         .dark-mode #menuModal header .material-symbols-outlined,
@@ -1333,17 +1363,24 @@
         .dark-mode #menuModal #menuSearchBar input::placeholder {
             color: rgba(255,255,255,0.4) !important;
         }
-        /* Kategorie-Tabs */
+        /* Kategorie-Tabs -- in den Hausfarben.
+           Die gewaehlte Pille traegt dasselbe Gelb wie im hellen Modus
+           (#fed65b auf #745c00). Das ist die Farbe, an der man Kiek mol
+           in erkennt; sie im Dunkeln gegen ein Mint zu tauschen, macht
+           aus einer Marke zwei.
+           Die uebrigen Pillen bleiben dunkel mit heller Schrift -- so
+           sticht die gewaehlte heraus, und genau darum geht es. */
         .dark-mode #menuModal .menu-categories button,
         .dark-mode #menuModal .menu-category-tab {
             background: #1a1a1a !important;
-            color: #b8eddf !important;
-            border-color: rgba(255,255,255,0.08) !important;
+            color: #e8eeec !important;
+            border-color: rgba(255,255,255,0.10) !important;
         }
         .dark-mode #menuModal .menu-categories button.active,
         .dark-mode #menuModal .menu-category-tab.active {
-            background: #9cd1c3 !important;
-            color: #003D33 !important;
+            background: #fed65b !important;
+            color: #745c00 !important;
+            border-color: #fed65b !important;
         }
         /* Produkt-Cards */
         .dark-mode #menuModal #menuItemsList > div,
@@ -40262,6 +40299,18 @@ function applyLiquidGlass(enable) {
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
         }
+        /* Im Dunkelmodus schwarz statt fast weiss.
+           Die Zeile darueber hat gewonnen, obwohl es weiter oben laengst
+           eine Dunkel-Fassung gab: gleiche Spezifitaet, aber spaeter in
+           der Datei. Deshalb steht die Korrektur hier und nicht dort --
+           und mit zwei Klassen, damit sie es auch bleibt.
+           Beide Schreibweisen, weil je nach Ansicht mal beide Klassen am
+           selben Element haengen und mal .liquid-glass weiter innen. */
+        .liquid-glass.dark-mode #menuModal,
+        .dark-mode .liquid-glass #menuModal,
+        .dark-mode #menuModal.modal-overlay {
+            background: #0a0a0a !important;
+        }
         .liquid-glass .bottom-nav {
             background: rgba(255,255,255,0.85) !important;
             backdrop-filter: blur(20px) !important;
@@ -48189,9 +48238,46 @@ var OHNE_HUELLE = ['fladenbrot', 'brot', 'broetchen', 'brötchen', 'teig', 'pizz
                    'wrap', 'duerum', 'dürüm', 'bun', 'baguette', 'tortilla', 'blaetterteig',
                    'blätterteig', 'semmel', 'ciabatta'];
 
+// "mit Souvlaki" ist keine Zutat, sondern eine Zutat mit Bindewort davor.
+// Aus der Beschreibung "Gyros, Tzatziki, mit Souvlaki, Pommes" wurde sonst
+// der Haken "ohne mit Souvlaki" -- und genau so stand es im Warenkorb.
+//
+// Nur ganze Woerter am ANFANG, und mehrfach: "dazu mit Pommes" -> "Pommes".
+// Nicht mitten im Text suchen, sonst wird aus "Salat mit Ei" ein "Salat".
+var OHNE_BINDEWORT = /^(?:und|oder|mit|ohne|dazu|nebst|sowie|plus|auf|an|im|in|von|vom|zum|zur|serviert)(?:\s+|$)/i;
+
+function bindewortWeg(zutat) {
+    var z = String(zutat || '').trim();
+    // Mehrfach, aber nicht endlos -- "dazu mit auf" waere Unsinn, soll aber
+    // auch keine Schleife werden.
+    for (var i = 0; i < 4 && OHNE_BINDEWORT.test(z); i++) {
+        z = z.replace(OHNE_BINDEWORT, '').trim();
+    }
+    // Reste wie "..." oder ein einzelner Bindestrich sind keine Zutat.
+    return /[a-zA-ZäöüÄÖÜß]/.test(z) ? z : '';
+}
+
+// Was keine Zutat ist, sondern eine Zubereitung. "ohne paniert" ergibt
+// keinen Sinn und macht die Liste unglaubwuerdig.
+var OHNE_KEINE_ZUTAT = ['paniert', 'gebacken', 'frittiert', 'gegrillt', 'gebraten',
+                        'hausgemacht', 'hausgemachte', 'frisch', 'frische', 'scharf',
+                        'mild', 'vegetarisch', 'vegan', 'gross', 'groß', 'klein',
+                        'nach wahl', 'wahlweise', 'je nach saison'];
+
 function zutatenZumWeglassen(item) {
     var text = String((item && item.description) || '').trim();
     if (!text) return [];
+
+    // EIN Punkt am Ende ist kein Satz.
+    //
+    // Hier fiel die halbe Speisekarte durch: "Gyros, Tzatziki, Pommes,
+    // Salat." ist eine Zutatenliste -- der Punkt dahinter aendert daran
+    // nichts. Die Pruefung darunter warf sie trotzdem weg, und beim Gast
+    // fehlte der ganze Abschnitt "Bitte ohne", ohne erkennbaren Grund.
+    // Innere Satzzeichen bleiben ein Ausschluss: "Gyros mit Pommes. Dazu
+    // ein Getraenk." ist wirklich Fliesstext.
+    text = text.replace(/\s*\.\s*$/, '');
+
     // Ein Satz ist keine Zutatenliste.
     if (/[.!?;:]/.test(text)) return [];
     var teile = text.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -48200,15 +48286,49 @@ function zutatenZumWeglassen(item) {
     var kurz = teile.every(function (x) { return x.length <= 28 && x.split(/\s+/).length <= 3; });
     if (!kurz) return [];
 
+    // ZUTATEN SIND SUBSTANTIVE, ALSO GROSS GESCHRIEBEN.
+    //
+    // Frueher hat allein der Punkt am Ende Werbung von Zutaten getrennt.
+    // Das war zu grob: "Gyros, Tzatziki, Pommes, Salat." ist eine
+    // Zutatenliste, die einfach mit einem Punkt endet -- und fiel deshalb
+    // bei der halben Speisekarte durch.
+    //
+    // Deutsch bietet ein besseres Merkmal. Eine Zutat ist ein Substantiv
+    // und wird gross geschrieben; Werbung besteht aus Adjektiven:
+    //
+    //     "Gyros, Tzatziki, Pommes, Salat."      4 von 4 gross  -> Zutaten
+    //     "Frisch, hausgemacht, taeglich neu."   1 von 3 gross  -> Werbung
+    //
+    // Zwei Drittel, nicht alle: das erste Wort steht am Satzanfang und ist
+    // ohnehin gross, und ein "paniert" mitten drin soll die Liste nicht
+    // kippen -- das faengt OHNE_KEINE_ZUTAT weiter unten ab.
+    var gross = teile.filter(function (x) {
+        var w = x.replace(OHNE_BINDEWORT, '').trim();
+        return /^[A-ZÄÖÜ]/.test(w);
+    }).length;
+    if (gross * 3 < teile.length * 2) return [];
+
     var name = String((item && item.name) || '').toLowerCase();
-    return teile.filter(function (z) {
-        var k = z.toLowerCase();
-        if (OHNE_HUELLE.indexOf(k) >= 0) return false;
-        // Steht die Zutat im Gerichtnamen, ist sie das Gericht selbst.
-        var wort = k.split(/\s+/)[0].replace(/[()]/g, '');
-        if (wort.length >= 4 && name.indexOf(wort) >= 0) return false;
-        return true;
-    }).slice(0, 12);
+    return teile
+        .map(bindewortWeg)
+        .filter(Boolean)
+        .filter(function (z) {
+            var k = z.toLowerCase();
+            if (OHNE_HUELLE.indexOf(k) >= 0) return false;
+            // Zubereitungen sind keine Zutaten -- "ohne paniert" ergibt
+            // keinen Sinn.
+            if (OHNE_KEINE_ZUTAT.indexOf(k) >= 0) return false;
+            // Steht die Zutat im Gerichtnamen, ist sie das Gericht selbst.
+            var wort = k.split(/\s+/)[0].replace(/[()]/g, '');
+            if (wort.length >= 4 && name.indexOf(wort) >= 0) return false;
+            return true;
+        })
+        // Nach dem Abschneiden koennen zwei Teile gleich geworden sein
+        // ("Pommes" und "dazu Pommes").
+        .filter(function (z, i, alle) {
+            return alle.findIndex(function (x) { return x.toLowerCase() === z.toLowerCase(); }) === i;
+        })
+        .slice(0, 12);
 }
 window.zutatenZumWeglassen = zutatenZumWeglassen;
 
@@ -49877,12 +49997,36 @@ function renderCartItems() {
     orderCart.forEach(item => {
         const selOpts = item.selected_options || [];
         const sizeOpt = selOpts.find(o => o.price_type === 'replace');
+
+        // WEGLASSEN IST KEIN EXTRA.
+        //
+        // "Bitte ohne" legt seine Haken als price_type 'add' ab -- technisch
+        // richtig, denn sie kosten nichts und ersetzen keine Groesse. Die
+        // Anzeige hat daraus aber ein Extra gemacht und ein Plus davorgesetzt:
+        //
+        //     + ohne Souvlaki
+        //
+        // Der Gast streicht etwas weg und liest ein Plus. Beim Wirt in der
+        // Kueche steht dieselbe Zeile -- und ein Plus vor "ohne" liest sich
+        // wie "zusaetzlich". Erkennbar sind die Haken an group === 'ohne'.
+        const istOhne = o => (o && (o.group || o.option_group)) === 'ohne';
         const extrasText = selOpts
-            .filter(o => o.price_type === 'add')
+            .filter(o => o.price_type === 'add' && !istOhne(o))
+            .map(o => optionText(o))
+            .join(', ');
+        const ohneText = selOpts
+            .filter(istOhne)
             .map(o => optionText(o))
             .join(', ');
         const sizeText = sizeOpt ? optionText(sizeOpt) : '';
-        const allOptionsText = [sizeText, extrasText].filter(Boolean).join(' | ');
+
+        // Kein Zeichen vor dem Weglassen: im Text steht schon "ohne".
+        // Ein Minus davor ergaebe "- ohne Souvlaki" und liest sich doppelt.
+        const optionTeile = [];
+        if (sizeText) optionTeile.push(sizeText);
+        if (extrasText) optionTeile.push('+ ' + extrasText);
+        if (ohneText) optionTeile.push(ohneText);
+        const allOptionsText = optionTeile.join(' · ');
         const imgUrl = item.image || item.image_url || '';
 
         // KOMPAKT. Vorher war jede Zeile eine 48px-Kachel mit 112px-Bild und
@@ -49901,7 +50045,7 @@ function renderCartItems() {
                         <h3 style="font-size:15px;font-weight:700;font-family:Epilogue,sans-serif;color:var(--ink-deep);line-height:1.25;margin:0;">${item.dish_number ? '<span style="color:var(--ink-strong);">' + item.dish_number + '</span> ' : ''}${(currentLanguage !== 'de' && item['name_' + currentLanguage]) ? item['name_' + currentLanguage] : item.name}</h3>
                         <span style="font-size:15px;font-weight:700;color:var(--ink-deep);white-space:nowrap;">${formatPrice(item.total_price)}</span>
                     </div>
-                    ${allOptionsText ? '<p style="font-size:12px;color:var(--text-secondary);line-height:1.45;margin:3px 0 0;">' + (sizeText || '') + (extrasText ? (sizeText ? ' · + ' : '+ ') + extrasText : '') + '</p>' : ''}
+                    ${allOptionsText ? '<p style="font-size:12px;color:var(--text-secondary);line-height:1.45;margin:3px 0 0;">' + allOptionsText + '</p>' : ''}
                     <p id="cartNoteText_${item.id}" style="font-size:12px;color:#735c00;font-style:italic;margin:3px 0 0;${notiz ? '' : 'display:none;'}">${notiz ? '\u270e ' + notiz.replace(/</g, '&lt;') : ''}</p>
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;">
                         <div style="display:flex;align-items:center;background:#e7e8e9;border-radius:9999px;padding:4px 8px;">
