@@ -200,6 +200,61 @@ async function abschnitt4() {
         t('die Rueckrufnummer steht drin',
           gesehen.koerper.guest_phone === '+49 176 1234567', gesehen.koerper.guest_phone);
 
+        // ---- Der Assistent kostet extra: nicht jedes Restaurant hat ihn ----
+        // Ein Token oeffnet die ganze Datenbank. Ohne diese Pruefung koennte
+        // ein Konfigurationsfehler auf der Assistenten-Seite Reservierungen
+        // bei einem Restaurant eintragen, das gar nicht Kunde ist.
+        var gefragt = [];
+        function datenbank(antworten) {
+            global.fetch = async function (url, opt) {
+                var u = String(url);
+                gefragt.push(u);
+                if (u.indexOf('/restaurants?') >= 0) return antworten.restaurant;
+                gesehen = { url: u, kopf: opt.headers, koerper: JSON.parse(opt.body) };
+                return antworten.insert;
+            };
+        }
+        function antwort(daten, status) {
+            return { ok: (status || 200) < 400, status: status || 200,
+                     json: async function () { return daten; },
+                     text: async function () { return JSON.stringify(daten); } };
+        }
+        var einfuegen = antwort([{ id: 'res-neu-2' }], 201);
+
+        gesehen = null;
+        datenbank({ restaurant: antwort([{ id: 'r-1', telefon_assistent: true }]), insert: einfuegen });
+        var g1 = await ruf(F, GUT);
+        t('gebuchtes Restaurant: Reservierung wird angelegt',
+          g1.statusCode === 200 && gesehen !== null, g1.statusCode + ' ' + g1.body);
+
+        gesehen = null;
+        datenbank({ restaurant: antwort([{ id: 'r-1', telefon_assistent: false }]), insert: einfuegen });
+        var g2 = await ruf(F, GUT);
+        t('nicht gebucht: abgelehnt, und nichts geschrieben',
+          g2.statusCode === 403 && gesehen === null, g2.statusCode + ' ' + g2.body);
+
+        gesehen = null;
+        datenbank({ restaurant: antwort([]), insert: einfuegen });
+        var g3 = await ruf(F, GUT);
+        t('unbekanntes Restaurant: abgelehnt, und nichts geschrieben',
+          g3.statusCode === 404 && gesehen === null, g3.statusCode + ' ' + g3.body);
+
+        // Solange die Spalte fehlt, darf der Betrieb nicht stillstehen.
+        gesehen = null;
+        datenbank({ restaurant: antwort({ message: 'column telefon_assistent does not exist' }, 400), insert: einfuegen });
+        var g4 = await ruf(F, GUT);
+        t('fehlt die Spalte noch, laeuft es weiter (und wird protokolliert)',
+          g4.statusCode === 200 && gesehen !== null, g4.statusCode + ' ' + g4.body);
+
+        // Zurueck auf die einfache Attrappe fuer die restlichen Pruefungen.
+        global.fetch = async function (url, opt) {
+            gesehen = { url: String(url), kopf: opt.headers, koerper: JSON.parse(opt.body) };
+            if (String(url).indexOf('/restaurants?') >= 0) {
+                return antwort([{ id: 'r-1', telefon_assistent: true }]);
+            }
+            return antwort([{ id: 'res-neu-1' }], 201);
+        };
+
         // Die Zeitpruefung muss vom HANDLER aufgerufen werden, nicht nur
         // existieren. Beim Gegenpruefen liess sich der Aufruf entfernen, ohne
         // dass ein Test rot wurde -- die Funktion war ja noch da und wurde in

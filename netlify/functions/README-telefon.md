@@ -89,6 +89,30 @@ kein Datum:
 Nicht geprüft wird die **Verfügbarkeit**. Der Assistent nimmt auf, er sagt
 nicht zu — deshalb `pending`, deshalb der Bestätigen-Knopf beim Menschen.
 
+## Der Assistent kostet extra — pro Restaurant freischalten
+
+Nicht jedes Restaurant auf der Plattform hat ihn gebucht. Ein Token öffnet
+aber die ganze Datenbank: ohne Schalter könnte ein Konfigurationsfehler auf
+der Telefon-Retter-Seite Reservierungen bei einem Restaurant eintragen, das
+gar nicht Kunde ist. Der Wirt bekäme Anrufe zugestellt, die er nie bestellt
+hat, und in der Abrechnung stimmt nichts mehr.
+
+Deshalb prüft der Eingang eine Spalte an `restaurants`:
+
+```sql
+alter table public.restaurants
+    add column if not exists telefon_assistent boolean not null default false;
+
+-- Freischalten, wenn ein Kunde bucht:
+update public.restaurants set telefon_assistent = true where id = '<uuid>';
+```
+
+- `telefon_assistent = false` → der Eingang lehnt ab (403).
+- Restaurant gibt es nicht → 404.
+- **Spalte noch nicht angelegt** → es läuft weiter und wird protokolliert.
+  Sonst stünde der Betrieb still, bis jemand ein SQL ausführt. Sobald die
+  Spalte da ist, gilt sie.
+
 ## Was noch fehlt (nicht Code)
 
 1. **Öffnungszeiten.** Die zweite Aufgabe des Assistenten ist „wann habt ihr
@@ -100,3 +124,23 @@ nicht zu — deshalb `pending`, deshalb der Bestätigen-Knopf beim Menschen.
 3. **RLS auf `reservations`.** Solange die Tabelle Schreibzugriffe mit dem
    öffentlichen Schlüssel annimmt, ist dieser Eingang eine gut gesicherte Tür
    in einer offenen Wand. Siehe `README-preise.md`.
+
+## Reihenfolge beim Umstellen — wichtig
+
+Der Assistent schreibt heute direkt in die Datenbank, vermutlich mit dem
+öffentlichen Schlüssel. **Sobald RLS aktiv ist, hört er auf zu arbeiten** —
+ohne Fehlermeldung an irgendjemanden, der hinschaut.
+
+Deshalb in dieser Reihenfolge:
+
+1. `TELEFON_TOKEN` und `SUPABASE_SERVICE_KEY` in Netlify setzen.
+2. Den Assistenten auf `reservation-save.js` umstellen, mit Testanruf prüfen.
+3. Spalte `telefon_assistent` anlegen und die Kunden freischalten, die
+   gebucht haben. Wieder Testanruf.
+4. **Erst dann** RLS einschalten (`README-preise.md`).
+
+**Bestellungen sind noch nicht umgestellt.** Wenn der Assistent auch
+Bestellungen anlegt, braucht er dafür denselben Weg — heute schreibt er
+direkt, und die Tabelle `orders` hat kein Feld, an dem man erkennt, dass
+eine Bestellung vom Telefon kam. Für die Küche und für eine Vorführung ist
+genau das der Punkt, den man sehen will.
