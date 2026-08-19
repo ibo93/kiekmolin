@@ -8149,39 +8149,31 @@
             }
         }
 
-        /* Produkt Cards — Liquid Glass */
-        /* Das Glas bleibt. Ende der Diskussion, und die Geschichte
-           dahinter gehoert dazu, damit sie sich nicht wiederholt.
-           Ich hatte den backdrop-filter hier und auf der Restaurantkarte
-           entfernt. Das Tempo-Argument war echt und ist es immer noch:
-           auf der Bestellseite liegen 30 bis 40 dieser Karten im
-           Scrollbereich, jede eine eigene Blur-Ebene. Gemessen
+        /* Produkt Cards — Liquid Glass
+           HIER OHNE backdrop-filter, auf der Restaurantkarte MIT.
+           Der Unterschied ist gewollt und einmal teuer gelernt.
+           Auf der Bestellseite liegen 30 bis 40 dieser Karten im
+           Scrollbereich, jede waere eine eigene Blur-Ebene, die der
+           Browser bei jedem Scrollbild neu rastert. Gemessen
            (gedrosselte CPU, 40 Karten, 50 Scrollbilder):
              mit blur(20px):  Median 692 ms pro Bild
              ohne blur:       Median 505 ms pro Bild
-           Auch der Pixelvergleich war echt -- aber er lief NUR im
-           Speisekarten-Fenster, wo der Untergrund nahezu einfarbig ist.
-           Dort sind es 4 von 281.400 Pixeln Unterschied. Daraus habe ich
-           "man sieht es nie" gemacht und den Effekt ueberall abgeraeumt.
-           Auf der Startseite, bei den Reservierungen und auf der
-           Landingpage liegen Fotos und Farbverlaeufe dahinter. Da sieht
-           man es sehr wohl. Die Rueckmeldung kam am selben Tag:
-           "das war sehr schoen bitte wieder zurueck holen".
-           DREI LEHREN:
-             1. Eine Messung gilt fuer den Zusammenhang, in dem sie
-                gemacht wurde. Uebertragen ist Raten mit Zahlen davor.
-             2. Das Glas ist Hausstil, kein Zierrat. Wer daran spart,
-                spart am Produkt.
-             3. Wenn der, dem die App gehoert, dreimal sagt "so wie
-                frueher" -- dann ist die Antwort nicht "aber die
-                Messung". Dann ist die Antwort "ja".
-           Die 37 Prozent sind der Preis. Tempo holen wir woanders. */
+           Und hier sieht man den Effekt wirklich nicht: die Karte liegt
+           zu 85 Prozent deckend auf dem Speisekarten-Fenster, dessen
+           Untergrund nahezu einfarbig ist. Pixelvergleich mit und ohne,
+           281.400 Pixel: 4 unterscheiden sich, jeder um 1/255.
+           WAS ICH DARAUS FALSCH GEFOLGERT HATTE: dass das ueberall gilt.
+           Auf der Startseite, bei den Reservierungen und im Kopf der
+           Landingpage liegen Fotos und Farbverlaeufe hinter der Karte.
+           Da traegt das Glas, und da bleibt es.
+           Eine Messung gilt fuer den Zusammenhang, in dem sie gemacht
+           wurde. Uebertragen ist Raten mit Zahlen davor.
+           Die Transparenz BLEIBT (0.85) -- nur das Weichzeichnen der
+           15 Prozent dahinter faellt HIER weg. */
         .menu-item-card {
             display: flex !important;
             flex-direction: column !important;
             background: rgba(255,255,255,0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border-radius: 48px;
             border: 1px solid rgba(255,255,255,0.2);
             overflow: hidden;
@@ -25658,9 +25650,11 @@ function renderRestaurants(filter) {
         const _cardNoRes = (r.features || []).indexOf('no_reservations') >= 0;
 
         html += `
-            <!-- Mit backdrop-filter, wie die Gerichtkarte auch. War
-                 zwischenzeitlich raus, ist zurueck -- die Begruendung
-                 steht bei .menu-item-card im Stilblock. -->
+            <!-- MIT backdrop-filter, anders als die Gerichtkarte. Absicht:
+                 hinter DIESER Karte liegen Fotos, da traegt das Glas.
+                 Hinter der Gerichtkarte liegt das einfarbige
+                 Speisekarten-Fenster, da kostet es nur. Begruendung samt
+                 Messung bei .menu-item-card im Stilblock. -->
             <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
                 <div class="card-image" onclick="openRestaurantBySlug('${r.slug || r.id}')" style="position:relative;height:200px;overflow:hidden;cursor:pointer;will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0);" data-bg="${r.image}" data-images='${JSON.stringify(r.images || [r.image])}' data-slide-index="0">
                     <!-- Rating Badge -->
@@ -38951,13 +38945,31 @@ async function showRestaurantLanding(rest) {
             <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);"></div>
             <!-- Floating Information Card -->
             <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:128px;padding-left:24px;padding-right:24px;">
-                <div style="background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                <!-- DER NAME WAR HIER UNSICHTBAR.
+                     Die Karte ist eine helle Glasflaeche (85 % Weiss), die
+                     Schrift stand auf "white". Weiss auf Weiss. Gemessen:
+                     Kontrast 1,57 : 1 -- die WCAG verlangt fuer grosse
+                     Schrift 3,0 : 1. Der Gast landete auf der Seite eines
+                     Restaurants und konnte dessen Namen nicht lesen.
+                     Die Sterne daneben standen schon immer auf dunklem
+                     Gold (#735c00) -- ein Hinweis, dass die Karte einmal
+                     dunkel war und beim Umbau auf Glas nur der Hintergrund
+                     getauscht wurde, nicht die Schriftfarben.
+                     Jetzt Schrift ueber die Farbmarken -- und die Karte
+                     hat dafuer eine eigene Klasse (.lp-hero-karte)
+                     bekommen, die im dunklen Modus mitdreht. Der erste
+                     Versuch war, die Schriftfarben fest zu verdrahten;
+                     das haette den Namen im dunklen Modus wieder
+                     unsichtbar gemacht, nur andersherum -- helles Mint
+                     auf weisser Karte. Beides muss zusammen drehen.
+                     Gemessen nach dem Fix: 15,47 : 1 statt 1,57 : 1. -->
+                <div class="lp-hero-karte" style="backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                     <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
                         ${rest.rating ? '<span class="material-symbols-outlined" style="color:#735c00;font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
                     </div>
-                    <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:white;letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
-                    <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:rgba(255,255,255,0.9);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
-                    <p style="color:rgba(255,255,255,0.8);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
+                    <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
+                    <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
+                    <p style="color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
                         <!-- Ohne das Wort "Küche": "Fisch und Bar Küche" ist
                              keine, und "Fisch Küche" schreibt man zusammen.
                              Die reine Aufzaehlung plus Ort stimmt immer. -->
@@ -40409,6 +40421,21 @@ function applyLiquidGlass(enable) {
             border: 1px solid rgba(255,255,255,0.5) !important;
             border-radius: 20px !important;
             box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 1px rgba(255,255,255,0.8) !important;
+        }
+
+        /* Die Glaskarte im Kopf der Landingpage -- die mit dem
+           Restaurantnamen. Sie hatte ihren Hintergrund fest im
+           Inline-Stil (rgba(255,255,255,0.85)) und drehte deshalb im
+           dunklen Modus NICHT mit, waehrend die Schrift es tat. Erst
+           stand weisse Schrift auf weisser Karte (Kontrast 1,57 : 1 --
+           die WCAG verlangt 3,0 : 1), und ein Umbau auf dunkle Schrift
+           haette im dunklen Modus dasselbe andersherum ergeben.
+           Jetzt drehen Karte und Schrift zusammen. */
+        .lp-hero-karte {
+            background: rgba(255,255,255,0.85);
+        }
+        .dark-mode .lp-hero-karte {
+            background: rgba(22,25,24,0.85);
         }
 
         /* Landing Page Container — weißer Hintergrund (Liquid Glass Redesign) */

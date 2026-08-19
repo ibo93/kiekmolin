@@ -1,5 +1,9 @@
-// Prueft, dass BEIDE Karten ihre Glasflaeche haben -- die Gerichtkarte
-// und die Restaurantkarte.
+// Prueft drei Dinge am Glas und an der Lesbarkeit:
+//   1. Die Gerichtkarte bleibt OHNE backdrop-filter (einfarbiger
+//      Untergrund, 30-40 Karten im Scrollbereich).
+//   2. Die Restaurantkarte behaelt ihn (Fotos dahinter).
+//   3. Der Restaurantname auf der Landingpage ist lesbar -- er stand
+//      weiss auf einer weissen Glasflaeche.
 //
 // Diese Datei stand vorher auf dem Kopf: sie sicherte ab, dass der
 // backdrop-filter WEG ist. Das war ein Fehler, und er ist es wert,
@@ -38,20 +42,21 @@ var h = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-console.log('\n-- 1. Die Gerichtkarte hat ihr Glas --');
+console.log('\n-- 1. Die Gerichtkarte bleibt OHNE Glas --');
+// Hier liegen 30 bis 40 Karten uebereinander und der Untergrund ist
+// einfarbig: 692 vs 505 ms pro Scrollbild, 4 von 281.400 Pixeln
+// Unterschied. Hier war die Entfernung richtig und bleibt.
+//
 // NICHT den ersten Treffer nehmen: weiter oben steht der Dark-Mode-Block.
 var kommentar = h.indexOf('/* Produkt Cards');
 t('der Regelblock steht da', kommentar > 0, kommentar);
 var von = h.indexOf('.menu-item-card {', kommentar);
 var regel = h.slice(von, h.indexOf('}', von));
 
-t('backdrop-filter: blur(20px) ist da',
-  /backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
-t('der -webkit-Zwilling fuer Safari ist da',
-  /-webkit-backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
-t('die Transparenz stimmt (0.85)',
+t('kein backdrop-filter', /backdrop-filter/.test(regel) === false, JSON.stringify(regel));
+t('die Transparenz bleibt (0.85)',
   /background:\s*rgba\(255,255,255,0\.85\)/.test(regel), JSON.stringify(regel));
-t('die Form stimmt (48px Radius)', /border-radius:\s*48px/.test(regel), JSON.stringify(regel));
+t('die Form bleibt (48px Radius)', /border-radius:\s*48px/.test(regel), JSON.stringify(regel));
 
 console.log('\n-- 2. Die Restaurantkarte MIT Glas --');
 // Das ist die Karte, um die es ging: Startseite und Reservierungen.
@@ -70,19 +75,56 @@ console.log('\n-- 3. Der Fehler ist im Code festgehalten --');
 var davor = h.slice(kommentar, von);
 t('die Messung steht dabei',
   davor.indexOf('692 ms') > -1 && davor.indexOf('505 ms') > -1, JSON.stringify(davor.slice(0, 200)));
-t('und dass der Pixelvergleich NUR im Speisekarten-Fenster lief',
-  davor.indexOf('NUR im') > -1, JSON.stringify(davor.slice(0, 500)));
+t('und was daran falsch verallgemeinert wurde',
+  davor.indexOf('FALSCH GEFOLGERT') > -1, JSON.stringify(davor.slice(0, 600)));
 // Zeilenumbruch-tolerant: der Kommentar ist umbrochen.
 t('und dass hinter der Startseite Fotos liegen',
   /Fotos und\s+Farbverlaeufe/.test(davor), JSON.stringify(davor.slice(-500)));
 t('die Lehre steht dabei',
   davor.indexOf('Zusammenhang, in dem sie') > -1, JSON.stringify(davor.slice(-400)));
-t('die Restaurantkarte verweist auf die Begruendung',
-  /ist zurueck -- die Begruendung/.test(h), 'kein Verweis');
-// Die dritte Lehre ist die wichtigste und muss dastehen.
-// Zeilenumbruch-tolerant -- der Kommentar ist umbrochen.
-t('die Lehre "dreimal so wie frueher heisst ja" steht drin',
-  /Dann ist die Antwort "ja"/.test(h.replace(/\s+/g, ' ')), 'fehlt');
+t('die Restaurantkarte erklaert den Unterschied',
+  /MIT backdrop-filter, anders als die Gerichtkarte/.test(h), 'kein Verweis');
+
+console.log('\n-- 3b. Der Restaurantname auf der Landingpage ist lesbar --');
+// Der eigentliche Befund. Die Hero-Karte ist eine helle Glasflaeche
+// (85 % Weiss) -- die Schrift stand auf "white". Weiss auf Weiss.
+// Gemessen: Kontrast 1,57 : 1, die WCAG verlangt 3,0 : 1 fuer grosse
+// Schrift. Der Gast landete auf der Seite eines Restaurants und konnte
+// dessen Namen nicht lesen.
+var hero = h.indexOf('DER NAME WAR HIER UNSICHTBAR');
+t('der Befund steht als Kommentar im Code', hero > 0, hero);
+var karteHero = h.slice(hero, hero + 3000);
+
+t('die Ueberschrift ist NICHT mehr weiss',
+  /<h1[^>]*color:white/.test(karteHero) === false, 'noch weiss');
+t('der Name laeuft ueber die Farbmarke',
+  /<h1[^>]*color:var\(--ink-deep\)[^>]*>\$\{rest\.name\}/.test(karteHero), karteHero.slice(0, 500));
+t('die Ortszeile ebenfalls',
+  /color:var\(--ink-strong\)[^>]*>\$\{rest\.city/.test(karteHero), 'noch fest verdrahtet');
+t('der Beschreibungstext ebenfalls',
+  /color:var\(--text-secondary\)/.test(karteHero), 'noch fest verdrahtet');
+
+// DER KERN: Marken allein reichen nicht. Der Hintergrund der Karte
+// stand fest im Inline-Stil und drehte im dunklen Modus NICHT mit --
+// dann waere der Name dort helles Mint auf weisser Karte gewesen,
+// also wieder unsichtbar, nur andersherum. Beides muss zusammen drehen.
+t('die Karte hat eine eigene Klasse statt festem Hintergrund',
+  /class="lp-hero-karte"/.test(karteHero), 'keine Klasse');
+t('und keinen festen Hintergrund mehr im Inline-Stil',
+  /class="lp-hero-karte" style="[^"]*background:rgba\(255,255,255/.test(karteHero) === false,
+  'Hintergrund noch inline');
+t('die Glasflaeche bleibt',
+  /class="lp-hero-karte" style="backdrop-filter:blur\(20px\)/.test(karteHero), 'Glas weg');
+
+t('.lp-hero-karte ist im Stilbogen definiert',
+  /\.lp-hero-karte \{\s*background: rgba\(255,255,255,0\.85\);/.test(h), 'fehlt');
+t('und dreht im dunklen Modus mit',
+  /\.dark-mode \.lp-hero-karte \{\s*background: rgba\(22,25,24,0\.85\);/.test(h), 'dreht nicht mit');
+
+t('der Grund steht beim Stilbogen',
+  h.indexOf('Jetzt drehen Karte und Schrift zusammen') > -1, 'Begruendung fehlt');
+t('die gemessenen Zahlen stehen dabei',
+  h.indexOf('1,57 : 1') > -1 && h.indexOf('3,0 : 1') > -1, 'Messung fehlt');
 
 console.log('\n-- 4. Die Glasflaechen anderswo sind unberuehrt --');
 var anzahl = (h.match(/backdrop-filter/g) || []).length;
