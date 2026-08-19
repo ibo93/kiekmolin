@@ -48174,11 +48174,44 @@ function kategorieHinweis(items) {
 }
 window.kategorieHinweis = kategorieHinweis;
 
-function kategorieHinweisHtml(items) {
+// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
+// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
+//
+// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
+// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
+// "Alle Für unsere kleinen Gäste mit" erst recht. Deutsche Mehrzahl
+// laesst sich nicht raten.
+//
+// Deshalb eine kurze, gepflegte Liste -- und im Zweifel "Gerichte".
+// Lieber eine Zeile, die immer stimmt, als eine, die bei jeder dritten
+// Kategorie schief klingt.
+var KAT_MEHRZAHL = {
+    'pizza': 'Pizzen', 'pizzen': 'Pizzen',
+    'pasta': 'Pasta-Gerichte', 'nudeln': 'Nudelgerichte',
+    'salat': 'Salate', 'salate': 'Salate',
+    'suppe': 'Suppen', 'suppen': 'Suppen',
+    'vorspeise': 'Vorspeisen', 'vorspeisen': 'Vorspeisen',
+    'dessert': 'Desserts', 'desserts': 'Desserts', 'nachtisch': 'Nachtische',
+    'burger': 'Burger', 'schnitzel': 'Schnitzel',
+    'beilage': 'Beilagen', 'beilagen': 'Beilagen',
+    'getränk': 'Getränke', 'getränke': 'Getränke',
+    'fischgerichte': 'Fischgerichte', 'fleischgerichte': 'Fleischgerichte',
+    'baguette': 'Baguettes', 'baguettes': 'Baguettes',
+    'auflauf': 'Aufläufe', 'aufläufe': 'Aufläufe'
+};
+
+function katMehrzahl(name) {
+    var k = String(name || '').trim().toLowerCase();
+    return KAT_MEHRZAHL[k] || 'Gerichte';
+}
+window.katMehrzahl = katMehrzahl;
+
+function kategorieHinweisHtml(items, katName) {
     var h = kategorieHinweis(items);
     if (!h) return '';
+    var wort = katMehrzahl(katName);
     var zeilen = [];
-    if (h.alle.length) zeilen.push('<strong>Alle Gerichte mit:</strong> ' + escapeHtml(h.alle.join(', ')));
+    if (h.alle.length) zeilen.push('<strong>Alle ' + escapeHtml(wort) + ' mit:</strong> ' + escapeHtml(h.alle.join(', ')));
     if (h.fast.length) zeilen.push('<strong>Fast alle mit:</strong> ' + escapeHtml(h.fast.join(', ')));
     return '<p style="font-size:13px;color:var(--text-secondary);line-height:1.55;margin:6px 0 0;">'
          + zeilen.join('<br>') + '</p>';
@@ -48231,7 +48264,7 @@ function renderKarteDurchgehend(items, kategorien) {
               + '<div class="kmi-kat-kopf" style="padding:26px 2px 14px;">'
               +   '<h2 style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.03em;color:var(--ink-deep);margin:0;text-transform:uppercase;">'
               +     escapeHtml(translateCategory(r.name, currentLanguage)) + '</h2>'
-              +   kategorieHinweisHtml(r.items)
+              +   kategorieHinweisHtml(r.items, r.name)
               + '</div>'
               + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
               + '</section>';

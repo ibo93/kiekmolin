@@ -163,5 +163,34 @@ t('nach dem Laden der Kategorien wird nachgezeichnet',
   'nicht abgefangen');
 t('der Grund steht dabei', h.indexOf('WETTLAUF ABFANGEN') > -1, 'keine Begruendung');
 
+
+console.log('\n-- 9. Der Kategoriename steht im Hinweis --');
+// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
+// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
+//
+// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
+// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
+// "Alle Für unsere kleinen Gäste mit" erst recht.
+var mz = h.indexOf('var KAT_MEHRZAHL = {');
+t('es gibt eine gepflegte Liste', mz > 0, mz);
+vm.runInContext(h.slice(mz, h.indexOf('window.katMehrzahl')), welt);
+
+t('Pizza wird zu Pizzen', welt.katMehrzahl('Pizza') === 'Pizzen', welt.katMehrzahl('Pizza'));
+t('Pizzen bleibt Pizzen', welt.katMehrzahl('Pizzen') === 'Pizzen', welt.katMehrzahl('Pizzen'));
+t('Salate bleibt Salate', welt.katMehrzahl('Salate') === 'Salate', welt.katMehrzahl('Salate'));
+t('Gross-/Kleinschreibung egal', welt.katMehrzahl('PIZZA') === 'Pizzen', welt.katMehrzahl('PIZZA'));
+// Im Zweifel "Gerichte" -- lieber eine Zeile, die immer stimmt, als
+// eine, die bei jeder dritten Kategorie schief klingt.
+[['Käse'], ['Fleisch vom Grill'], ['Für unsere kleinen Gäste'], ['Spezialitäten des Hauses'], ['']
+].forEach(function (f) {
+    t('"' + f[0] + '" faellt auf Gerichte zurueck', welt.katMehrzahl(f[0]) === 'Gerichte', welt.katMehrzahl(f[0]));
+});
+t('der Kategoriename wird beim Zeichnen mitgegeben',
+  /kategorieHinweisHtml\(r\.items, r\.name\)/.test(h), 'nicht mitgegeben');
+t('und landet im Text',
+  /'<strong>Alle ' \+ escapeHtml\(wort\) \+ ' mit:<\/strong> '/.test(h), 'nicht im Text');
+t('der Grund fuer die Liste steht dabei',
+  h.indexOf('Deutsche Mehrzahl') > -1, 'keine Begruendung');
+
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
