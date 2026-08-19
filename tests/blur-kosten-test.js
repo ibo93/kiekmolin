@@ -1,4 +1,5 @@
-// Prueft, dass die Karten ihre Glasflaeche HABEN.
+// Prueft, dass BEIDE Karten ihre Glasflaeche haben -- die Gerichtkarte
+// und die Restaurantkarte.
 //
 // Diese Datei stand vorher auf dem Kopf: sie sicherte ab, dass der
 // backdrop-filter WEG ist. Das war ein Fehler, und er ist es wert,
@@ -44,15 +45,17 @@ t('der Regelblock steht da', kommentar > 0, kommentar);
 var von = h.indexOf('.menu-item-card {', kommentar);
 var regel = h.slice(von, h.indexOf('}', von));
 
-t('backdrop-filter: blur(20px) ist da', /backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
+t('backdrop-filter: blur(20px) ist da',
+  /backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
 t('der -webkit-Zwilling fuer Safari ist da',
   /-webkit-backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
 t('die Transparenz stimmt (0.85)',
   /background:\s*rgba\(255,255,255,0\.85\)/.test(regel), JSON.stringify(regel));
 t('die Form stimmt (48px Radius)', /border-radius:\s*48px/.test(regel), JSON.stringify(regel));
 
-console.log('\n-- 2. Die Restaurantkarte auch --');
+console.log('\n-- 2. Die Restaurantkarte MIT Glas --');
 // Das ist die Karte, um die es ging: Startseite und Reservierungen.
+// Hinter ihr liegen Fotos und Farbverlaeufe -- da traegt das Glas.
 var karte = h.match(/<div class="restaurant-card \$\{isVisible[^>]*>/);
 t('die Restaurantkarte ist da', !!karte, 'nicht gefunden');
 if (karte) {
@@ -67,14 +70,19 @@ console.log('\n-- 3. Der Fehler ist im Code festgehalten --');
 var davor = h.slice(kommentar, von);
 t('die Messung steht dabei',
   davor.indexOf('692 ms') > -1 && davor.indexOf('505 ms') > -1, JSON.stringify(davor.slice(0, 200)));
-t('und dass sie NUR im Speisekarten-Fenster galt',
-  davor.indexOf('NUR im') > -1, JSON.stringify(davor.slice(0, 400)));
+t('und dass der Pixelvergleich NUR im Speisekarten-Fenster lief',
+  davor.indexOf('NUR im') > -1, JSON.stringify(davor.slice(0, 500)));
+// Zeilenumbruch-tolerant: der Kommentar ist umbrochen.
 t('und dass hinter der Startseite Fotos liegen',
-  /Fotos und Farbverlaeufe/.test(davor), JSON.stringify(davor.slice(-400)));
+  /Fotos und\s+Farbverlaeufe/.test(davor), JSON.stringify(davor.slice(-500)));
 t('die Lehre steht dabei',
   davor.indexOf('Zusammenhang, in dem sie') > -1, JSON.stringify(davor.slice(-400)));
-t('die Restaurantkarte verweist darauf',
-  /Das Glas gehoert hierher/.test(h), 'kein Verweis');
+t('die Restaurantkarte verweist auf die Begruendung',
+  /ist zurueck -- die Begruendung/.test(h), 'kein Verweis');
+// Die dritte Lehre ist die wichtigste und muss dastehen.
+// Zeilenumbruch-tolerant -- der Kommentar ist umbrochen.
+t('die Lehre "dreimal so wie frueher heisst ja" steht drin',
+  /Dann ist die Antwort "ja"/.test(h.replace(/\s+/g, ' ')), 'fehlt');
 
 console.log('\n-- 4. Die Glasflaechen anderswo sind unberuehrt --');
 var anzahl = (h.match(/backdrop-filter/g) || []).length;

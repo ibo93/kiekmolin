@@ -8149,27 +8149,33 @@
             }
         }
 
-        /* Produkt Cards — Liquid Glass
-           DER backdrop-filter GEHOERT HIERHER. Er war kurzzeitig raus,
-           das war ein Fehler, und der Fehler lohnt sich zu erklaeren.
-           Gemessen hatte ich richtig: auf der Bestellseite liegen 30 bis
-           40 dieser Karten im Scrollbereich, jede eine eigene Blur-Ebene.
-           Mit blur(20px) 692 ms pro Scrollbild, ohne 505 ms.
-           Falsch war der zweite Teil. Ich hatte den Pixelvergleich NUR im
-           Speisekarten-Fenster gemacht -- dort liegt hinter der Karte ein
-           nahezu einfarbiger Untergrund, und ein weichgezeichneter
-           einfarbiger Untergrund sieht eben aus wie ein einfarbiger
-           Untergrund. Aus "hier sieht man es nicht" habe ich "man sieht
-           es nie" gemacht und den Effekt auch auf der Startseite und bei
-           den Reservierungen entfernt. Dort liegen Fotos und Farbverlaeufe
-           dahinter. Da sieht man es sehr wohl -- gemeldet wurde es
-           umgehend, mit den Worten "das war sehr schoen".
-           Zwei Lehren, beide teuer bezahlt:
+        /* Produkt Cards — Liquid Glass */
+        /* Das Glas bleibt. Ende der Diskussion, und die Geschichte
+           dahinter gehoert dazu, damit sie sich nicht wiederholt.
+           Ich hatte den backdrop-filter hier und auf der Restaurantkarte
+           entfernt. Das Tempo-Argument war echt und ist es immer noch:
+           auf der Bestellseite liegen 30 bis 40 dieser Karten im
+           Scrollbereich, jede eine eigene Blur-Ebene. Gemessen
+           (gedrosselte CPU, 40 Karten, 50 Scrollbilder):
+             mit blur(20px):  Median 692 ms pro Bild
+             ohne blur:       Median 505 ms pro Bild
+           Auch der Pixelvergleich war echt -- aber er lief NUR im
+           Speisekarten-Fenster, wo der Untergrund nahezu einfarbig ist.
+           Dort sind es 4 von 281.400 Pixeln Unterschied. Daraus habe ich
+           "man sieht es nie" gemacht und den Effekt ueberall abgeraeumt.
+           Auf der Startseite, bei den Reservierungen und auf der
+           Landingpage liegen Fotos und Farbverlaeufe dahinter. Da sieht
+           man es sehr wohl. Die Rueckmeldung kam am selben Tag:
+           "das war sehr schoen bitte wieder zurueck holen".
+           DREI LEHREN:
              1. Eine Messung gilt fuer den Zusammenhang, in dem sie
-                gemacht wurde. Nicht daneben.
-             2. Das Glas ist kein Zierrat, sondern der Hausstil (siehe
-                Design-Standard). Tempo wird woanders geholt.
-           Die 37 Prozent sind der Preis dafuer. Bewusst bezahlt. */
+                gemacht wurde. Uebertragen ist Raten mit Zahlen davor.
+             2. Das Glas ist Hausstil, kein Zierrat. Wer daran spart,
+                spart am Produkt.
+             3. Wenn der, dem die App gehoert, dreimal sagt "so wie
+                frueher" -- dann ist die Antwort nicht "aber die
+                Messung". Dann ist die Antwort "ja".
+           Die 37 Prozent sind der Preis. Tempo holen wir woanders. */
         .menu-item-card {
             display: flex !important;
             flex-direction: column !important;
@@ -25652,10 +25658,9 @@ function renderRestaurants(filter) {
         const _cardNoRes = (r.features || []).indexOf('no_reservations') >= 0;
 
         html += `
-            <!-- Das Glas gehoert hierher. Es war kurz raus, weil ich eine
-                 Messung aus dem Speisekarten-Fenster auf diese Karte
-                 uebertragen habe -- dort ist der Untergrund einfarbig, hier
-                 liegen Fotos dahinter. Siehe .menu-item-card im Stilblock. -->
+            <!-- Mit backdrop-filter, wie die Gerichtkarte auch. War
+                 zwischenzeitlich raus, ist zurueck -- die Begruendung
+                 steht bei .menu-item-card im Stilblock. -->
             <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
                 <div class="card-image" onclick="openRestaurantBySlug('${r.slug || r.id}')" style="position:relative;height:200px;overflow:hidden;cursor:pointer;will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0);" data-bg="${r.image}" data-images='${JSON.stringify(r.images || [r.image])}' data-slide-index="0">
                     <!-- Rating Badge -->
