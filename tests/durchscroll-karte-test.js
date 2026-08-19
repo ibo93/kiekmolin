@@ -34,7 +34,15 @@ console.log('\n-- 1. Die Karte wird nach Abschnitten gebaut --');
 t('renderKarteDurchgehend gibt es', /function renderKarteDurchgehend\(items, kategorien\)/.test(h), 'fehlt');
 t('jeder Abschnitt bekommt seine Kategorie als Attribut',
   /<section class="kmi-kat-abschnitt" data-kat="/.test(h), 'kein Attribut');
-t('mit Kopfband und Ueberschrift', /class="kmi-kat-kopf"/.test(h), 'kein Kopfband');
+// Kein Kopf mehr im Abschnitt: die Kategorie steht nur oben in der
+// klebenden Leiste. "ich will keine doppelt namen nur oben soll die
+// kategorie sein ... mach das kopfbandel auch weg"
+t('kein Kopfband im Abschnitt', /class="kmi-kat-kopf"/.test(h) === false, 'Kopfband wieder da');
+t('und keine Kategorie-Ueberschrift', /translateCategory\(r\.name/.test(h) === false, 'Ueberschrift wieder da');
+// Ohne Kopf wuerde das erste Gericht der naechsten Kategorie direkt an
+// der letzten Vorspeise kleben -- man scrollt an der Grenze vorbei.
+t('dafuer etwas Luft ueber jedem Abschnitt',
+  /kmi-kat-abschnitt[\s\S]{0,120}?scroll-margin-top:140px;padding-top:18px;/.test(h), 'keine Luft')
 t('die Gerichte stehen untereinander, nicht quer',
   /'<div class="stitch-menu-grid">' \+ gerichtKartenHtml\(r\.items, r\.versatz\)/.test(h), 'anderes Raster');
 // Kein Quer-Scrollen: das war die bewusste Abweichung vom Mitbewerber.
@@ -62,15 +70,29 @@ t('unzugeordnete Gerichte kommen ans Ende',
   /Object\.keys\(proKat\)\.forEach\(function \(k\) \{[\s\S]{0,200}?otherCategory/.test(h), 'fallen weg');
 t('der Grund steht dabei', h.indexOf('Ein Gericht, das niemand sieht') > -1, 'keine Begruendung');
 
-console.log('\n-- 4. Die Kategorie-Hinweise --');
-var von = h.indexOf('function kategorieHinweis(items)');
-var bis = h.indexOf('function kategorieHinweisHtml');
-t('kategorieHinweis gibt es', von > 0 && bis > von, von + '/' + bis);
+console.log('\n-- 4. Die Hinweis-Rechnerei ist mitgegangen --');
+// Die Zeile "Alle Pizzen mit: Tomatensauce, Käse" gibt es nicht mehr.
+// Damit haben kategorieHinweis(), kategorieHinweisHtml() und die
+// Mehrzahl-Liste KAT_MEHRZAHL keinen Aufrufer mehr. Toter Code, aus dem
+// heraus spaeter jemand die Haelfte wiederbelebt, soll gar nicht erst
+// liegenbleiben -- dieselbe Lehre wie beim Essensfilter.
+['kategorieHinweis', 'kategorieHinweisHtml', 'katMehrzahl'].forEach(function (f) {
+    t(f + ' ist entfernt', h.indexOf('function ' + f + '(') < 0, 'liegt noch da');
+});
+t('KAT_MEHRZAHL ist entfernt', h.indexOf('var KAT_MEHRZAHL') < 0, 'liegt noch da');
+t('und haengt auch nicht mehr am window',
+  h.indexOf('window.kategorieHinweis') < 0 && h.indexOf('window.katMehrzahl') < 0, 'haengt noch');
+t('der Grund steht im Quelltext',
+  h.indexOf('KEIN KOPFBAND UEBER DEN KATEGORIEN -- BEWUSST ENTFERNT') > -1, 'keine Begruendung');
+t('und die Bedingung fuer eine Rueckkehr auch',
+  h.indexOf('WANN MAN ES ZURUECKHOLEN DUERFTE') > -1, 'keine Bedingung');
 
+// zutatenZumWeglassen darf NICHT mitgehen -- daran haengt "Bitte ohne
+// Zwiebeln" im Warenkorb. Das war der eigentliche Grund, warum die
+// Zutaten ueberhaupt ausgelesen werden.
 var welt = { console: console, Object: Object, String: String, Array: Array, window: {} };
 welt.window = welt;
 vm.createContext(welt);
-// zutatenZumWeglassen mitschneiden, der Hinweis baut darauf auf.
 var listen = ['OHNE_HUELLE', 'OHNE_KEINE_ZUTAT', 'OHNE_BINDEWORT'].map(function (k) {
     var i = h.indexOf('var ' + k);
     return i < 0 ? '' : h.slice(i, h.indexOf(';', i) + 1);
@@ -86,33 +108,21 @@ function schneide(name) {
     return '';
 }
 vm.runInContext(listen + '\n' + schneide('bindewortWeg') + '\n'
-    + schneide('zutatenZumWeglassen') + '\n' + schneide('kategorieHinweis'), welt);
+    + schneide('zutatenZumWeglassen'), welt);
+t('zutatenZumWeglassen gibt es weiter', typeof welt.zutatenZumWeglassen === 'function', 'weg');
+// Sie nimmt das Gericht, nicht den Text -- sie liest description selbst.
+var probe = welt.zutatenZumWeglassen({ description: 'Tomaten, Gurken, Zwiebeln, Feta' });
+t('und liest die Zutaten noch aus', probe.indexOf('Zwiebeln') > -1, probe);
 
-function g(name, beschr) { return { name: name, description: beschr }; }
-var salate = [
-    g('Bauernsalat', 'Tomaten, Gurken, Zwiebeln, Feta'),
-    g('Hirtensalat', 'Tomaten, Gurken, Zwiebeln, Oliven'),
-    g('Gemischter Salat', 'Tomaten, Gurken, Zwiebeln, Mais'),
-    g('Griechischer Salat', 'Tomaten, Gurken, Zwiebeln, Feta')
-];
-var hin = welt.kategorieHinweis(salate);
-t('was in ALLEN Gerichten steckt, wird erkannt',
-  hin && hin.alle.indexOf('Zwiebeln') > -1 && hin.alle.indexOf('Tomaten') > -1, hin);
-
-var gemischt = salate.slice(0, 3).concat([g('Nudelsalat', 'Nudeln, Mais, Erbsen')]);
-var hin2 = welt.kategorieHinweis(gemischt);
-t('was in FAST allen steckt, kommt in die zweite Zeile',
-  hin2 && hin2.fast.length > 0 && hin2.alle.indexOf('Zwiebeln') === -1, hin2);
-
-// Ab 4 Gerichten -- bei zweien ist "Alle Gerichte mit" nichts wert.
-t('unter vier Gerichten kein Hinweis', welt.kategorieHinweis(salate.slice(0, 3)) === null,
-  welt.kategorieHinweis(salate.slice(0, 3)));
-t('ohne erkennbare Zutaten kein Hinweis',
-  welt.kategorieHinweis([g('Cola',''), g('Fanta',''), g('Wasser',''), g('Bier','')]) === null, 'Hinweis trotzdem');
-// Hoechstens drei, sonst wird aus dem Hinweis eine zweite Speisekarte.
-var viele = [1,2,3,4].map(function (i) { return g('Teller ' + i, 'Tomaten, Gurken, Zwiebeln, Mais, Feta, Oliven'); });
-t('hoechstens drei Zutaten je Zeile', welt.kategorieHinweis(viele).alle.length <= 3,
-  welt.kategorieHinweis(viele).alle);
+// Der Sammelhinweis von der Karte geht auch nicht verloren: der Scanner
+// arbeitet ihn beim Import in JEDE Beschreibung ein. Die Angabe steht
+// damit am Gericht statt ueber der Kategorie -- und zaehlt so im
+// Warenkorb, auf dem Bon und bei "Bitte ohne ..." mit.
+var scan = fs.readFileSync(KMI + '/netlify/functions/lib/scan-kern.js', 'utf8');
+t('der Scanner arbeitet den Sammelhinweis weiter ein',
+  /function hinweiseEinarbeiten\(/.test(scan), 'fehlt');
+t('und der Verweis darauf steht in index.html',
+  h.indexOf('hinweiseEinarbeiten in') > -1, 'kein Verweis');
 
 console.log('\n-- 5. Die Leiste laeuft mit --');
 t('es gibt einen Beobachter', /function kategorieLeisteMitlaufen\(\)/.test(h), 'fehlt');
@@ -163,34 +173,6 @@ t('nach dem Laden der Kategorien wird nachgezeichnet',
   'nicht abgefangen');
 t('der Grund steht dabei', h.indexOf('WETTLAUF ABFANGEN') > -1, 'keine Begruendung');
 
-
-console.log('\n-- 9. Der Kategoriename steht im Hinweis --');
-// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
-// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
-//
-// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
-// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
-// "Alle Für unsere kleinen Gäste mit" erst recht.
-var mz = h.indexOf('var KAT_MEHRZAHL = {');
-t('es gibt eine gepflegte Liste', mz > 0, mz);
-vm.runInContext(h.slice(mz, h.indexOf('window.katMehrzahl')), welt);
-
-t('Pizza wird zu Pizzen', welt.katMehrzahl('Pizza') === 'Pizzen', welt.katMehrzahl('Pizza'));
-t('Pizzen bleibt Pizzen', welt.katMehrzahl('Pizzen') === 'Pizzen', welt.katMehrzahl('Pizzen'));
-t('Salate bleibt Salate', welt.katMehrzahl('Salate') === 'Salate', welt.katMehrzahl('Salate'));
-t('Gross-/Kleinschreibung egal', welt.katMehrzahl('PIZZA') === 'Pizzen', welt.katMehrzahl('PIZZA'));
-// Im Zweifel "Gerichte" -- lieber eine Zeile, die immer stimmt, als
-// eine, die bei jeder dritten Kategorie schief klingt.
-[['Käse'], ['Fleisch vom Grill'], ['Für unsere kleinen Gäste'], ['Spezialitäten des Hauses'], ['']
-].forEach(function (f) {
-    t('"' + f[0] + '" faellt auf Gerichte zurueck', welt.katMehrzahl(f[0]) === 'Gerichte', welt.katMehrzahl(f[0]));
-});
-t('der Kategoriename wird beim Zeichnen mitgegeben',
-  /kategorieHinweisHtml\(r\.items, r\.name\)/.test(h), 'nicht mitgegeben');
-t('und landet im Text',
-  /'<strong>Alle ' \+ escapeHtml\(wort\) \+ ' mit:<\/strong> '/.test(h), 'nicht im Text');
-t('der Grund fuer die Liste steht dabei',
-  h.indexOf('Deutsche Mehrzahl') > -1, 'keine Begruendung');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);

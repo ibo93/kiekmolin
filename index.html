@@ -48140,7 +48140,6 @@ function gerichtBild(item, stil, radius) {
          + d + '</svg>'
          + '</div>';
 }
-
 // ==================== DURCHSCROLL STATT UMSCHALTEN ====================
 //
 // WARUM
@@ -48149,11 +48148,10 @@ function gerichtBild(item, stil, radius) {
 // weitertippte. Kaum jemand tut das. "Beilagen" und "Desserts" wurden so
 // gut wie nie geoeffnet.
 //
-// Jetzt laeuft die ganze Karte untereinander durch, mit einem Kopfband je
-// Kategorie. Der Gast kommt beim Scrollen an Abschnitten vorbei, die er
-// nie angetippt haette -- genau deshalb machen es Lieferando, Wolt und
-// Uber Eats so. Die Leiste oben bleibt: sie zeigt mit, wo man ist, und
-// springt auf Tipp zum Abschnitt.
+// Jetzt laeuft die ganze Karte untereinander durch. Der Gast kommt beim
+// Scrollen an Abschnitten vorbei, die er nie angetippt haette -- genau
+// deshalb machen es Lieferando, Wolt und Uber Eats so. Die Leiste oben
+// bleibt: sie zeigt mit, wo man ist, und springt auf Tipp zum Abschnitt.
 //
 // WAS BEWUSST NICHT UEBERNOMMEN WURDE
 // Der Mitbewerber (pronto-emden.de) laesst die Gerichte INNERHALB einer
@@ -48161,95 +48159,40 @@ function gerichtBild(item, stil, radius) {
 // aufgeraeumt aus und versteckt die halbe Karte: was rechts ausserhalb
 // liegt, wird kaum bestellt. Auf dem Handy gehoert es untereinander.
 
-// WELCHE ZUTAT STECKT IN FAST ALLEN GERICHTEN EINER KATEGORIE?
+// KEIN KOPFBAND UEBER DEN KATEGORIEN -- BEWUSST ENTFERNT.
 //
-// Die beste Idee beim Mitbewerber steht im Kopfband:
-//   "Alle Gerichte mit: Zwiebeln"
-//   "Fast alle Gerichte mit: Gurken, Eisbergsalat & Tomaten"
-// Das beantwortet die Zwiebel- und Allergiefrage EINMAL pro Kategorie
-// statt bei jedem Gericht einzeln.
+// Hier stand einmal ein Kopf je Abschnitt: die Kategorie als grosse
+// Ueberschrift (PIZZA) und darunter eine Zeile "Alle Pizzen mit:
+// Tomatensauce, Käse", zusammengezaehlt aus den Beschreibungen.
 //
-// Wir muessen dafuer nichts tippen lassen: zutatenZumWeglassen() liest
-// die Zutaten ohnehin aus der Beschreibung. Hier wird nur gezaehlt.
+// Warum es raus ist: der Name stand dreimal auf einer Handbreite --
+// in der klebenden Leiste oben, in der Ueberschrift und noch einmal im
+// Hinweis. Der Wirt dazu: "ich will keine doppelt namen nur oben soll
+// die kategorie sein". Zwei Zwischenstufen wurden gebaut und beide
+// abgelehnt (Hinweis ohne Kategoriename; Hinweis ohne Ueberschrift).
 //
-// Ab 4 Gerichten, damit eine Kategorie mit zwei Eintraegen keine
-// "Alle Gerichte mit"-Aussage bekommt, die nichts wert ist.
-function kategorieHinweis(items) {
-    if (!items || items.length < 4) return null;
-    var zaehler = {}, mitZutaten = 0;
-    items.forEach(function (it) {
-        var z = (typeof zutatenZumWeglassen === 'function') ? zutatenZumWeglassen(it) : [];
-        if (!z.length) return;
-        mitZutaten++;
-        // Pro Gericht jede Zutat nur einmal zaehlen.
-        var gesehen = {};
-        z.forEach(function (x) {
-            var k = x.toLowerCase();
-            if (gesehen[k]) return;
-            gesehen[k] = 1;
-            zaehler[k] = zaehler[k] || { name: x, n: 0 };
-            zaehler[k].n++;
-        });
-    });
-    // Weniger als die Haelfte mit erkennbaren Zutaten -> keine Aussage.
-    if (mitZutaten < items.length / 2) return null;
-
-    var alle = [], fast = [];
-    Object.keys(zaehler).forEach(function (k) {
-        var e = zaehler[k];
-        if (e.n === mitZutaten) alle.push(e.name);
-        else if (e.n >= mitZutaten * 0.7) fast.push(e.name);
-    });
-    // Hoechstens drei, sonst wird aus dem Hinweis eine zweite Speisekarte.
-    alle = alle.slice(0, 3);
-    fast = fast.slice(0, 3);
-    if (!alle.length && !fast.length) return null;
-    return { alle: alle, fast: fast };
-}
-window.kategorieHinweis = kategorieHinweis;
-
-// "Alle Pizzen mit: Tomatensauce, Käse" liest sich besser als "Alle
-// Gerichte mit" -- man sieht auf einen Blick, worueber geredet wird.
+// Die Kategorie steht jetzt nur noch in der klebenden Leiste. Die
+// springt beim Scrollen von allein mit -- siehe kategorieLeisteMitlaufen
+// -- und ist damit die einzige Stelle, an der der Gast lesen muss, wo
+// er gerade ist.
 //
-// Nur: die Mehrzahl aus einem beliebigen Kategorienamen zu bilden geht
-// schief. "Alle Pizza mit" ist falsch, "Alle Käse mit" auch, und
-// "Alle Für unsere kleinen Gäste mit" erst recht. Deutsche Mehrzahl
-// laesst sich nicht raten.
+// WAS DAMIT MITGEGANGEN IST
+// kategorieHinweis(), kategorieHinweisHtml() und die Mehrzahl-Liste
+// KAT_MEHRZAHL. Sie standen sonst als toter Code herum -- genau der
+// Zustand, aus dem heraus spaeter jemand die Haelfte wiederbelebt.
 //
-// Deshalb eine kurze, gepflegte Liste -- und im Zweifel "Gerichte".
-// Lieber eine Zeile, die immer stimmt, als eine, die bei jeder dritten
-// Kategorie schief klingt.
-var KAT_MEHRZAHL = {
-    'pizza': 'Pizzen', 'pizzen': 'Pizzen',
-    'pasta': 'Pasta-Gerichte', 'nudeln': 'Nudelgerichte',
-    'salat': 'Salate', 'salate': 'Salate',
-    'suppe': 'Suppen', 'suppen': 'Suppen',
-    'vorspeise': 'Vorspeisen', 'vorspeisen': 'Vorspeisen',
-    'dessert': 'Desserts', 'desserts': 'Desserts', 'nachtisch': 'Nachtische',
-    'burger': 'Burger', 'schnitzel': 'Schnitzel',
-    'beilage': 'Beilagen', 'beilagen': 'Beilagen',
-    'getränk': 'Getränke', 'getränke': 'Getränke',
-    'fischgerichte': 'Fischgerichte', 'fleischgerichte': 'Fleischgerichte',
-    'baguette': 'Baguettes', 'baguettes': 'Baguettes',
-    'auflauf': 'Aufläufe', 'aufläufe': 'Aufläufe'
-};
-
-function katMehrzahl(name) {
-    var k = String(name || '').trim().toLowerCase();
-    return KAT_MEHRZAHL[k] || 'Gerichte';
-}
-window.katMehrzahl = katMehrzahl;
-
-function kategorieHinweisHtml(items, katName) {
-    var h = kategorieHinweis(items);
-    if (!h) return '';
-    var wort = katMehrzahl(katName);
-    var zeilen = [];
-    if (h.alle.length) zeilen.push('<strong>Alle ' + escapeHtml(wort) + ' mit:</strong> ' + escapeHtml(h.alle.join(', ')));
-    if (h.fast.length) zeilen.push('<strong>Fast alle mit:</strong> ' + escapeHtml(h.fast.join(', ')));
-    return '<p style="font-size:13px;color:var(--text-secondary);line-height:1.55;margin:6px 0 0;">'
-         + zeilen.join('<br>') + '</p>';
-}
+// WAS GEBLIEBEN IST -- und warum das reicht
+// Der Menue-Scanner liest einen Sammelhinweis von der Karte ("Alle
+// Pizzen mit Tomatensauce und Käse") weiter aus und schreibt ihn beim
+// Import in JEDE Beschreibung hinein (hinweiseEinarbeiten in
+// scan-kern.js). Die Angabe geht also nicht verloren, sie steht nur an
+// einer besseren Stelle: am Gericht selbst, wo sie auch im Warenkorb,
+// auf dem Bon und bei "Bitte ohne ..." mitzaehlt.
+//
+// WANN MAN ES ZURUECKHOLEN DUERFTE
+// Wenn eine Kategorie so viele Gerichte hat, dass die Leiste oben beim
+// Scrollen nicht mehr genuegt. Dann aber bitte NUR den Hinweis, ohne
+// den Kategorienamen zu wiederholen.
 
 // DIE GANZE KARTE, NACH KATEGORIEN GEGLIEDERT.
 //
@@ -48294,12 +48237,11 @@ function renderKarteDurchgehend(items, kategorien) {
 
     var html = '';
     reihen.forEach(function (r) {
-        html += '<section class="kmi-kat-abschnitt" data-kat="' + escapeHtml(String(r.id)) + '" style="scroll-margin-top:140px;">'
-              + '<div class="kmi-kat-kopf" style="padding:26px 2px 14px;">'
-              +   '<h2 style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.03em;color:var(--ink-deep);margin:0;text-transform:uppercase;">'
-              +     escapeHtml(translateCategory(r.name, currentLanguage)) + '</h2>'
-              +   kategorieHinweisHtml(r.items, r.name)
-              + '</div>'
+        // Kein Kopf mehr -- die Kategorie steht nur oben in der Leiste.
+        // Etwas Luft bleibt trotzdem: sonst klebt das erste Gericht der
+        // Pizzen direkt an der letzten Vorspeise und man scrollt an der
+        // Grenze vorbei, ohne sie zu merken.
+        html += '<section class="kmi-kat-abschnitt" data-kat="' + escapeHtml(String(r.id)) + '" style="scroll-margin-top:140px;padding-top:18px;">'
               + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
               + '</section>';
     });
