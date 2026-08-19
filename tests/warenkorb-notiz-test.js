@@ -24,9 +24,10 @@
 //    btnEl.textContent = 'Hinzugefügt' hat damit Bild, Name, Preis und
 //    Plus-Zeichen durch ein nacktes Wort ersetzt -- der weiße Kasten mitten
 //    im Fenster auf dem Bildschirmfoto.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -99,7 +100,11 @@ t('unbekannte Position kippt nicht', true);
 var bestellPayloads = H.split('items: orderCart.map(item => ({');
 t('die Bestellung schickt notes mit', bestellPayloads.length === 3, bestellPayloads.length - 1 + ' Stellen gefunden');
 [1, 2].forEach(function (i) {
-    var block = bestellPayloads[i].slice(0, 400);
+    // Bis zum Ende der map lesen, nicht 400 Zeichen weit. Ein Zeichenfenster
+    // ist beim naechsten laengeren Kommentar im Payload zu klein -- genau das
+    // ist passiert, als menu_item_id dazukam.
+    var ende = bestellPayloads[i].indexOf('}))');
+    var block = bestellPayloads[i].slice(0, ende > 0 ? ende : 400);
     t('Payload ' + i + ' enthaelt notes', /notes: item\.notes \|\| ''/.test(block), block.slice(0, 200));
 });
 t('auch order_items bekommt die Notiz',

@@ -19,6 +19,7 @@
 // fuer Push angemeldet, mehrere Restaurants gleichzeitig betroffen. Ein
 // Dienst, der bei der ersten Unregelmaessigkeit stillschweigend aufgibt,
 // waere schlimmer als keiner -- man verliesse sich darauf.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
 var path = require('path');
@@ -36,9 +37,9 @@ Module._load = function (anfrage, eltern, istHaupt) {
     return _echtesLaden.apply(this, arguments);
 };
 
-var DATEI = '/home/user/kiekmolin/netlify/functions/waechter.js';
+var DATEI = KMI + '/netlify/functions/waechter.js';
 var Q = fs.readFileSync(DATEI, 'utf8');
-var TOML = fs.readFileSync('/home/user/kiekmolin/netlify.toml', 'utf8');
+var TOML = fs.readFileSync(KMI + '/netlify.toml', 'utf8');
 
 // ---- 1. Verdrahtung ----------------------------------------------------------
 t('der Dienst ist als geplante Funktion eingetragen',

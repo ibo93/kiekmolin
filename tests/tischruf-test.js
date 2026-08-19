@@ -7,11 +7,12 @@
 // "Gerade ist kein Gerät im Restaurant erreichbar", und im Restaurant erfuhr
 // niemand, dass überhaupt jemand gerufen hatte. Der Knopf war also nicht
 // kaputt im Sinne von "Code falsch", er war nutzlos im Normalfall.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 
 var Module = require('module');
 var fs = require('fs');
-var PFAD = '/home/user/kiekmolin/netlify/functions/waiter-call.js';
+var PFAD = KMI + '/netlify/functions/waiter-call.js';
 
 // web-push ist in dieser Umgebung nicht installiert (liegt nur bei Netlify).
 // Attrappe einhängen, damit die echte Datei geladen werden kann.
@@ -138,7 +139,7 @@ async function ruf(welt, body) {
       r.antwort.ok === true, JSON.stringify(r.antwort));
 
     // ---- Dashboard-Seite ----
-    var h = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+    var h = fs.readFileSync(KMI + '/index.html', 'utf8');
     t('Dashboard hoert ueberhaupt auf waiter_call',
       /activity_type === 'waiter_call'/.test(h));
     t('Dashboard fragt zusaetzlich nach (falls Echtzeit die Tabelle nicht liefert)',

@@ -1,5 +1,6 @@
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 var fs = require('fs');
-var html = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var html = fs.readFileSync(KMI + '/index.html', 'utf8');
 var re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi, m, n = 0, bad = 0;
 while ((m = re.exec(html))) {
   if (/\bsrc\s*=/.test(m[1])) continue;

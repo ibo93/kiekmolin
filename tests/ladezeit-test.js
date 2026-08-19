@@ -32,9 +32,10 @@
 //
 // Geloest ueber onload am defer-Skript: das Ereignis kommt, sobald die
 // Bibliothek ausgefuehrt ist, und das ist garantiert VOR DOMContentLoaded.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var KOPF = H.slice(0, H.indexOf('</head>'));
 // Ohne HTML-Kommentare. Sonst faellt die Suche nach blockierenden Skripten
 // auf den Tailwind-Kommentar herein, der zitiert, was dort FRUEHER stand --
@@ -68,13 +69,21 @@ t('und stoesst per onload die Client-Erzeugung an',
   /onload="kmiSbInit\(\)"/.test(supa), supa);
 
 // ---- 2. Die Schriften blockieren nicht mehr ---------------------------------
-var symbole = (KOPF.match(/<link[^>]*Material\+Symbols[^>]*>/g) || [])
-    .filter(function (l) { return !/^<noscript/.test(l); });
-t('die Material-Symbols-Schrift ist verlinkt', symbole.length >= 1, symbole.length);
-t('sie laedt entkoppelt (media=print bis onload)',
-  /media="print"/.test(symbole[0]) && /this\.media='all'/.test(symbole[0]), symbole[0]);
-t('ohne JavaScript kommt sie trotzdem (noscript-Notweg)',
-  /<noscript><link[^>]*Material\+Symbols/.test(KOPF));
+// Hier standen drei Pruefungen zur Symbolschrift: verlinkt, entkoppelt
+// geladen (media=print bis onload), und ein noscript-Notweg daneben. Alle
+// drei waren richtig, solange die Schrift von Google kam.
+//
+// Sie kommt nicht mehr von Google -- sie steckt als data:-URL im Stilbogen
+// (siehe symbolschrift-test.js, Grund: bei schlechtem Netz standen ueberall
+// die Ligaturnamen als Wort da). Damit ist die Frage "blockiert sie den
+// Seitenaufbau?" beantwortet, bevor sie gestellt wird: es gibt keine Anfrage,
+// die haengen koennte, und einen noscript-Notweg braucht etwas nicht, das
+// ohnehin schon in der Seite steht.
+t('fuer die Symbolschrift geht ueberhaupt keine Anfrage mehr raus',
+  (KOPF.match(/<link[^>]*Material\+Symbols[^>]*>/g) || []).length === 0,
+  (KOPF.match(/<link[^>]*Material\+Symbols[^>]*>/g) || []).join(' '));
+t('sie liegt stattdessen eingebettet in der Seite',
+  /src:\s*url\(data:font\/woff2;base64,/.test(KOPF));
 // Kein blockierendes Stylesheet mehr uebrig -- gleiche Waechter-Logik.
 // Die <noscript>-Notwege sind Absicht: sie greifen nur, wenn kein
 // JavaScript laeuft, und blockieren dann zu Recht.
