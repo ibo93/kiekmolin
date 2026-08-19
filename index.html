@@ -46412,16 +46412,36 @@ async function loadMenuCategoriesFromDB(restaurantId) {
     if (categories && categories.length > 0) {
         // Kategorien global cachen für Options-Zuordnung
         window._menuCategories = categories;
-        var html = '<div class="menu-category-tab active" onclick="selectMenuCategory(null, this)">' + (_t.allCategory || 'Alle') + '</div>';
+        // data-kat-id: daran erkennt die mitlaufende Leiste ihre Pille.
+        // Ueber data-cat-name allein ginge es nicht -- zwei Betriebe
+        // koennen dieselbe Kategorie gleich nennen, und uebersetzt heisst
+        // sie ohnehin anders.
+        var html = '<div class="menu-category-tab active" data-kat-id="_alle" onclick="selectMenuCategory(null, this)">' + (_t.allCategory || 'Alle') + '</div>';
         categories.forEach(function(cat) {
-            html += '<div class="menu-category-tab" data-cat-name="' + cat.name + '" onclick="selectMenuCategory(\'' + cat.id + '\', this)">' + translateCategory(cat.name, currentLanguage) + '</div>';
+            html += '<div class="menu-category-tab" data-kat-id="' + cat.id + '" data-cat-name="' + cat.name + '" onclick="selectMenuCategory(\'' + cat.id + '\', this)">' + translateCategory(cat.name, currentLanguage) + '</div>';
         });
         container.innerHTML = html;
         // Die Leiste wurde gerade neu befuellt -- Mausrad und Kantenhinweis
         // muessen danach wieder stimmen (Breite hat sich geaendert).
         katLeisteBedienbar();
-        // Items werden bereits parallel geladen (siehe unten)
-        if (!window._menuItemsPreloaded) loadMenuItems(restaurantId, null);
+
+        // WETTLAUF ABFANGEN.
+        //
+        // Kategorien und Gerichte laden parallel (Promise.all in
+        // openMenuModal). Kommen die Gerichte zuerst, kennt
+        // renderKarteDurchgehend die Abschnitte noch nicht und faellt
+        // auf die flache Liste zurueck -- die Karte stuende dann ohne
+        // Kopfbaender da, und die Leiste liefe nicht mit.
+        //
+        // Also: sind die Gerichte schon da, jetzt einmal richtig zeichnen.
+        if (window._menuItemsPreloaded) {
+            var _da = window._menuAllItems;
+            if (_da && _da.length && typeof renderKarteDurchgehend === 'function') {
+                renderKarteDurchgehend(_da, categories);
+            }
+        } else {
+            loadMenuItems(restaurantId, null);
+        }
         return;
     }
 
@@ -46451,11 +46471,37 @@ function loadMenuCategories(restaurantId) {
     katLeisteBedienbar();
 }
 
-// Kategorie auswählen
+// Kategorie auswählen -- SPRINGEN, NICHT NEU LADEN.
+//
+// Vorher rief das hier loadMenuItems(rid, categoryId): Netzabfrage,
+// Platzhalter, Neuaufbau. Bei jedem Tipp. Genau das war die Meldung
+// "das Laden bei der Bestellung ist nicht reibungslos".
+//
+// Jetzt steht die ganze Karte ohnehin schon da -- also nur hinscrollen.
+// Die Pille markiert danach die mitlaufende Leiste von selbst; sie hier
+// zusaetzlich zu setzen, wuerde beim Scrollen kurz zweimal springen.
 function selectMenuCategory(categoryId, el) {
-    document.querySelectorAll('.menu-category-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    loadMenuItems(currentOrderRestaurant.id, categoryId);
+    var liste = document.getElementById('menuItemsList');
+
+    // "Alle" heisst: ganz nach oben.
+    if (!categoryId) {
+        if (liste) liste.scrollTo({ top: 0, behavior: 'smooth' });
+        katPilleMarkieren('_alle');
+        return;
+    }
+
+    var ziel = liste && liste.querySelector('.kmi-kat-abschnitt[data-kat="' + categoryId + '"]');
+    if (ziel) {
+        // Innerhalb der Liste rechnen, nicht ueber scrollIntoView --
+        // das wuerde auch die Seite dahinter verschieben.
+        liste.scrollTo({ top: Math.max(0, ziel.offsetTop - 8), behavior: 'smooth' });
+        katPilleMarkieren(categoryId);
+        return;
+    }
+
+    // Die Karte ist noch nicht durchgehend aufgebaut (aeltere Ansicht
+    // oder Suchergebnis): dann wie frueher nachladen.
+    if (currentOrderRestaurant) loadMenuItems(currentOrderRestaurant.id, categoryId);
 }
 
 // ==================== GERICHTENUMMER HELPER ====================
@@ -47822,7 +47868,18 @@ async function loadMenuItems(restaurantId, categoryId) {
         // aufgebaut -- und genau das sieht man als kurzes Zucken.
         var neuRoh = JSON.stringify(items);
         if (!bekannt || JSON.stringify(bekannt) !== neuRoh) {
-            renderMenuItemsForGuest(items);
+            // OHNE Kategorie-Filter: die ganze Karte durchgehend, nach
+            // Abschnitten gegliedert. Das ist der Normalfall -- der
+            // Gast oeffnet die Speisekarte und scrollt.
+            //
+            // MIT Filter kommt weiterhin die flache Liste. Diesen Weg
+            // gibt es noch fuer die Suche und fuer den Fall, dass die
+            // Kategorien nicht geladen werden konnten.
+            if (!categoryId && window._menuCategories && window._menuCategories.length) {
+                renderKarteDurchgehend(items, window._menuCategories);
+            } else {
+                renderMenuItemsForGuest(items);
+            }
         }
         _menuKarteCache[schluessel] = items;
     } else if (!bekannt) {
@@ -48050,29 +48107,226 @@ function gerichtBild(item, stil, radius) {
          + '</div>';
 }
 
-function renderMenuItemsForGuest(items) {
-    var container = document.getElementById('menuItemsList');
+// ==================== DURCHSCROLL STATT UMSCHALTEN ====================
+//
+// WARUM
+// Vorher zeigte die Karte immer nur EINE Kategorie. Wer "Vorspeisen"
+// antippte, sah Vorspeisen -- und alles andere nur, wenn er von sich aus
+// weitertippte. Kaum jemand tut das. "Beilagen" und "Desserts" wurden so
+// gut wie nie geoeffnet.
+//
+// Jetzt laeuft die ganze Karte untereinander durch, mit einem Kopfband je
+// Kategorie. Der Gast kommt beim Scrollen an Abschnitten vorbei, die er
+// nie angetippt haette -- genau deshalb machen es Lieferando, Wolt und
+// Uber Eats so. Die Leiste oben bleibt: sie zeigt mit, wo man ist, und
+// springt auf Tipp zum Abschnitt.
+//
+// WAS BEWUSST NICHT UEBERNOMMEN WURDE
+// Der Mitbewerber (pronto-emden.de) laesst die Gerichte INNERHALB einer
+// Kategorie quer scrollen, mit Pfeilen links und rechts. Das sieht
+// aufgeraeumt aus und versteckt die halbe Karte: was rechts ausserhalb
+// liegt, wird kaum bestellt. Auf dem Handy gehoert es untereinander.
 
-    if (!items || items.length === 0) {
-        var _t = translations[currentLanguage] || translations.de;
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 40px; font-family: Inter, sans-serif;">' + (_t.noProducts || 'Keine Produkte in dieser Kategorie') + '</p>';
+// WELCHE ZUTAT STECKT IN FAST ALLEN GERICHTEN EINER KATEGORIE?
+//
+// Die beste Idee beim Mitbewerber steht im Kopfband:
+//   "Alle Gerichte mit: Zwiebeln"
+//   "Fast alle Gerichte mit: Gurken, Eisbergsalat & Tomaten"
+// Das beantwortet die Zwiebel- und Allergiefrage EINMAL pro Kategorie
+// statt bei jedem Gericht einzeln.
+//
+// Wir muessen dafuer nichts tippen lassen: zutatenZumWeglassen() liest
+// die Zutaten ohnehin aus der Beschreibung. Hier wird nur gezaehlt.
+//
+// Ab 4 Gerichten, damit eine Kategorie mit zwei Eintraegen keine
+// "Alle Gerichte mit"-Aussage bekommt, die nichts wert ist.
+function kategorieHinweis(items) {
+    if (!items || items.length < 4) return null;
+    var zaehler = {}, mitZutaten = 0;
+    items.forEach(function (it) {
+        var z = (typeof zutatenZumWeglassen === 'function') ? zutatenZumWeglassen(it) : [];
+        if (!z.length) return;
+        mitZutaten++;
+        // Pro Gericht jede Zutat nur einmal zaehlen.
+        var gesehen = {};
+        z.forEach(function (x) {
+            var k = x.toLowerCase();
+            if (gesehen[k]) return;
+            gesehen[k] = 1;
+            zaehler[k] = zaehler[k] || { name: x, n: 0 };
+            zaehler[k].n++;
+        });
+    });
+    // Weniger als die Haelfte mit erkennbaren Zutaten -> keine Aussage.
+    if (mitZutaten < items.length / 2) return null;
+
+    var alle = [], fast = [];
+    Object.keys(zaehler).forEach(function (k) {
+        var e = zaehler[k];
+        if (e.n === mitZutaten) alle.push(e.name);
+        else if (e.n >= mitZutaten * 0.7) fast.push(e.name);
+    });
+    // Hoechstens drei, sonst wird aus dem Hinweis eine zweite Speisekarte.
+    alle = alle.slice(0, 3);
+    fast = fast.slice(0, 3);
+    if (!alle.length && !fast.length) return null;
+    return { alle: alle, fast: fast };
+}
+window.kategorieHinweis = kategorieHinweis;
+
+function kategorieHinweisHtml(items) {
+    var h = kategorieHinweis(items);
+    if (!h) return '';
+    var zeilen = [];
+    if (h.alle.length) zeilen.push('<strong>Alle Gerichte mit:</strong> ' + escapeHtml(h.alle.join(', ')));
+    if (h.fast.length) zeilen.push('<strong>Fast alle mit:</strong> ' + escapeHtml(h.fast.join(', ')));
+    return '<p style="font-size:13px;color:var(--text-secondary);line-height:1.55;margin:6px 0 0;">'
+         + zeilen.join('<br>') + '</p>';
+}
+
+// DIE GANZE KARTE, NACH KATEGORIEN GEGLIEDERT.
+//
+// _menuDisplayItems bleibt eine FLACHE Liste ueber alle Kategorien --
+// die Knoepfe greifen ueber den Index darauf zu. Deshalb wird pro
+// Abschnitt mit einem Versatz gezeichnet.
+function renderKarteDurchgehend(items, kategorien) {
+    var container = document.getElementById('menuItemsList');
+    if (!container) return;
+
+    var _t = translations[currentLanguage] || translations.de;
+    if (!items || !items.length) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px;font-family:Inter,sans-serif;">'
+            + (_t.noDishes || 'Keine Gerichte verfügbar') + '</p>';
         return;
     }
 
-    // KEIN ESSENSFILTER MEHR -- siehe die Begründung weiter unten bei
-    // "ESSENSFILTER: BEWUSST ENTFERNT".
-    window._menuUngefiltert = items;
+    // Nach Kategorie gruppieren, in der Reihenfolge der Leiste oben.
+    var proKat = {};
+    items.forEach(function (it) {
+        var k = it.category_id || '_ohne';
+        (proKat[k] = proKat[k] || []).push(it);
+    });
 
-    // Items global cachen für sicheren Zugriff per Index
-    window._menuDisplayItems = items;
+    var reihen = [];
+    (kategorien || []).forEach(function (c) {
+        if (proKat[c.id] && proKat[c.id].length) reihen.push({ id: c.id, name: c.name, items: proKat[c.id] });
+        delete proKat[c.id];
+    });
+    // Was keiner bekannten Kategorie zugeordnet ist, faellt nicht unter
+    // den Tisch -- es kommt ans Ende. Ein Gericht, das niemand sieht,
+    // wird nie bestellt, und der Wirt sucht den Fehler bei sich.
+    Object.keys(proKat).forEach(function (k) {
+        if (proKat[k].length) reihen.push({ id: k, name: (_t.otherCategory || 'Weitere'), items: proKat[k] });
+    });
 
-    // Beliebteste Gerichte: Ranking aus gecachten Daten
+    // Die flache Liste in genau der Reihenfolge, in der gezeichnet wird.
+    var flach = [];
+    reihen.forEach(function (r) { r.versatz = flach.length; flach = flach.concat(r.items); });
+    window._menuDisplayItems = flach;
+    window._menuUngefiltert = flach;
+
+    var html = '';
+    reihen.forEach(function (r) {
+        html += '<section class="kmi-kat-abschnitt" data-kat="' + escapeHtml(String(r.id)) + '" style="scroll-margin-top:140px;">'
+              + '<div class="kmi-kat-kopf" style="padding:26px 2px 14px;">'
+              +   '<h2 style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;letter-spacing:-0.03em;color:var(--ink-deep);margin:0;text-transform:uppercase;">'
+              +     escapeHtml(translateCategory(r.name, currentLanguage)) + '</h2>'
+              +   kategorieHinweisHtml(r.items)
+              + '</div>'
+              + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
+              + '</section>';
+    });
+    container.innerHTML = html;
+
+    kategorieLeisteMitlaufen();
+
+    // Async: Beschreibungen per API übersetzen (wenn nicht DE)
+    if (currentLanguage !== 'de') {
+        flach.forEach(function (item) {
+            if (!item.description) return;
+            var descEl = container.querySelector('[data-item-id="' + item.id + '"]');
+            if (descEl) translateItemAsync(item, currentLanguage, null, descEl);
+        });
+    }
+}
+window.renderKarteDurchgehend = renderKarteDurchgehend;
+
+// DIE LEISTE LAEUFT MIT.
+//
+// Ohne das waere der Durchscroll unbrauchbar: bei 14 Kategorien weiss
+// man nach zwei Wischern nicht mehr, wo man ist.
+//
+// IntersectionObserver statt scroll-Ereignis -- ein scroll-Handler
+// feuert bei jedem Pixel und haette uns das Ruckeln zurueckgebracht,
+// das wir gerade erst losgeworden sind.
+var _katBeobachter = null;
+function kategorieLeisteMitlaufen() {
+    var leiste = document.getElementById('menuCategoryTabs');
+    var liste = document.getElementById('menuItemsList');
+    if (!leiste || !liste) return;
+
+    if (_katBeobachter) { _katBeobachter.disconnect(); _katBeobachter = null; }
+    if (typeof IntersectionObserver !== 'function') return;
+
+    var abschnitte = liste.querySelectorAll('.kmi-kat-abschnitt');
+    if (!abschnitte.length) return;
+
+    // Der Streifen liegt knapp unter der klebenden Leiste. Was DORT
+    // steht, ist das, was der Gast gerade liest -- nicht das, was oben
+    // am Bildschirmrand gerade noch hereinragt.
+    _katBeobachter = new IntersectionObserver(function (eintraege) {
+        var beste = null;
+        eintraege.forEach(function (e) {
+            if (!e.isIntersecting) return;
+            if (!beste || e.boundingClientRect.top < beste.boundingClientRect.top) beste = e;
+        });
+        if (!beste) return;
+        katPilleMarkieren(beste.target.getAttribute('data-kat'));
+    }, { root: null, rootMargin: '-150px 0px -70% 0px', threshold: 0 });
+
+    Array.prototype.forEach.call(abschnitte, function (a) { _katBeobachter.observe(a); });
+}
+
+function katPilleMarkieren(katId) {
+    var leiste = document.getElementById('menuCategoryTabs');
+    if (!leiste || !katId) return;
+    var pillen = leiste.querySelectorAll('.menu-category-tab');
+    var treffer = null;
+    Array.prototype.forEach.call(pillen, function (p) {
+        var an = p.getAttribute('data-kat-id') === String(katId);
+        p.classList.toggle('active', an);
+        if (an) treffer = p;
+    });
+    if (!treffer) return;
+
+    // Die aktive Pille in den sichtbaren Bereich holen -- aber nur die
+    // Leiste bewegen, nicht die Seite. scrollIntoView wuerde beides tun
+    // und dem Gast den Scroll unter den Fingern wegziehen.
+    var l = treffer.offsetLeft, b = treffer.offsetWidth;
+    var soll = l - (leiste.clientWidth - b) / 2;
+    if (Math.abs(leiste.scrollLeft - soll) > 8) {
+        leiste.scrollTo({ left: Math.max(0, soll), behavior: 'smooth' });
+    }
+}
+window.katPilleMarkieren = katPilleMarkieren;
+
+// DIE KARTEN EINES GERICHTS-ABSCHNITTS.
+//
+// Herausgeloest, weil es jetzt zwei Aufrufer gibt: die flache Liste
+// (Suche, gefilterte Ansicht) und die Ansicht nach Kategorien, die pro
+// Abschnitt ein eigenes Gitter baut.
+//
+// "versatz" ist kein Schoenheitsfehler, sondern noetig: die Knoepfe
+// greifen ueber window._menuDisplayItems[idx] auf das Gericht zu, und
+// diese Liste bleibt flach ueber ALLE Kategorien. Wer nur den Ausschnitt
+// einer Kategorie zeichnet, muss den Index also verschieben -- sonst
+// oeffnet der Knopf beim dritten Abschnitt das Gericht aus dem ersten.
+function gerichtKartenHtml(items, versatz) {
+    versatz = versatz || 0;
     var popularMap = window._menuPopularItems || {};
-
-    // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
-    var html = '<div class="stitch-menu-grid">';
-
-    items.forEach(function(item, idx) {
+    var html = '';
+    items.forEach(function(item, _i) {
+        var idx = versatz + _i;
         var price = item.base_price || item.price || 0;
         var hasSizes = item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0;
         var displayPrice = price;
@@ -48134,8 +48388,30 @@ function renderMenuItemsForGuest(items) {
         html += 'Hinzufügen</button>';
         html += '</div></div>';
     });
+    return html;
+}
 
-    html += '</div>';
+function renderMenuItemsForGuest(items) {
+    var container = document.getElementById('menuItemsList');
+
+    if (!items || items.length === 0) {
+        var _t = translations[currentLanguage] || translations.de;
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 40px; font-family: Inter, sans-serif;">' + (_t.noProducts || 'Keine Produkte in dieser Kategorie') + '</p>';
+        return;
+    }
+
+    // KEIN ESSENSFILTER MEHR -- siehe die Begründung weiter unten bei
+    // "ESSENSFILTER: BEWUSST ENTFERNT".
+    window._menuUngefiltert = items;
+
+    // Items global cachen für sicheren Zugriff per Index
+    window._menuDisplayItems = items;
+
+    // Beliebteste Gerichte: Ranking aus gecachten Daten
+    var popularMap = window._menuPopularItems || {};
+
+    // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
+    var html = '<div class="stitch-menu-grid">' + gerichtKartenHtml(items, 0) + '</div>';
     container.innerHTML = html;
 
     // Async: Beschreibungen per API übersetzen (wenn nicht DE)

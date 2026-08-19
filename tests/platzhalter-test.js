@@ -18,7 +18,11 @@ var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-var quelle = H.slice(H.indexOf('var _MOTIVE = {'), H.indexOf('function renderMenuItemsForGuest('));
+// Bis zum Durchscroll-Abschnitt, nicht bis renderMenuItemsForGuest:
+// dazwischen liegt seit dem Umbau Code, der window braucht -- den gibt
+// es in diesem Kasten nicht, und der Test stuerzte daran ab.
+var quelle = H.slice(H.indexOf('var _MOTIVE = {'),
+                     H.indexOf('// ==================== DURCHSCROLL STATT UMSCHALTEN'));
 var P = new Function(quelle + '; return { bild: gerichtBild, motiv: motivFuer, motive: _MOTIVE };')();
 
 // ---- Zuordnung ---------------------------------------------------------------
