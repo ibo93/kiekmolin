@@ -127,7 +127,16 @@ t('der Dialog fragt jetzt das Restaurant',
 // ---- 7. Die Bedienoberflaeche ----------------------------------------------
 t('es gibt ein Feld fuer die Abholung', /id="settingPrepPickup"/.test(H));
 t('und eins fuer die Lieferung', /id="settingPrepDelivery"/.test(H));
-t('beide speichern beim Aendern', (H.match(/onchange="savePrepMinutes\(\)"/g) || []).length === 2);
+// Frueher stand hier "=== 2". Seit der Schalter dazugekommen ist, sind es
+// drei Ausloeser -- und eine Zahl haette hier nur gemeldet, DASS sich etwas
+// geaendert hat, nicht ob es noch stimmt. Geprueft wird jetzt jedes Element
+// einzeln.
+['settingPrepPickup', 'settingPrepDelivery', 'settingPrepOn'].forEach(function (id) {
+    var stelle = H.slice(H.indexOf('id="' + id + '"'));
+    t(id + ' speichert beim Aendern',
+      stelle.slice(0, 200).indexOf('onchange="savePrepMinutes()"') >= 0,
+      stelle.slice(0, 120));
+});
 t('die Felder werden beim Laden gefuellt',
   /pickEl\.value = vorbereitungsMinuten\(restaurant, 'pickup'\)/.test(CODE)
   && /delEl\.value = vorbereitungsMinuten\(restaurant, 'delivery'\)/.test(CODE));
