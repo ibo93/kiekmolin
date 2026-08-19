@@ -1,27 +1,34 @@
-// Prueft, dass die Karten kein backdrop-filter mehr tragen.
+// Prueft, dass die Karten ihre Glasflaeche HABEN.
 //
-// DER BEFUND
-// Auf der Bestellseite liegen 30 bis 40 Gerichtkarten uebereinander im
-// Scrollbereich, auf der Startseite eine Karte pro Betrieb. Jede war
-// eine eigene Blur-Ebene, die der Browser bei jedem Scrollbild neu
-// rastert.
+// Diese Datei stand vorher auf dem Kopf: sie sicherte ab, dass der
+// backdrop-filter WEG ist. Das war ein Fehler, und er ist es wert,
+// festgehalten zu werden -- damit ihn niemand wiederholt.
 //
-// GEMESSEN, NICHT GESCHAETZT (gedrosselte CPU, 40 Karten, 50 Bilder):
-//   mit blur(20px):  Median 692 ms pro Bild
-//   ohne blur:       Median 505 ms pro Bild
-// Nach dem Entfernen lag dieselbe Messung bei 482 ms.
+// WAS RICHTIG WAR
+// Auf der Bestellseite liegen 30 bis 40 Gerichtkarten im Scrollbereich,
+// jede eine eigene Blur-Ebene. Gemessen (gedrosselte CPU, 40 Karten,
+// 50 Scrollbilder): mit blur(20px) 692 ms pro Bild, ohne 505 ms.
+// Das Tempo-Argument stimmt.
 //
-// UND MAN SIEHT ES NICHT
-// Die Karte liegt zu 85 Prozent deckend auf einem nahezu einfarbigen
-// Untergrund. Ein weichgezeichneter einfarbiger Untergrund sieht aus wie
-// ein einfarbiger Untergrund. Pixelvergleich mit und ohne, 281.400
-// Pixel: 4 unterscheiden sich, jeder um 1/255.
+// WAS FALSCH WAR
+// Der Pixelvergleich, der die Entscheidung getragen hat, lief NUR im
+// Speisekarten-Fenster. Dort liegt hinter der Karte ein nahezu
+// einfarbiger Untergrund -- und ein weichgezeichneter einfarbiger
+// Untergrund sieht aus wie ein einfarbiger Untergrund. 4 von 281.400
+// Pixeln anders, das war korrekt gemessen.
 //
-// WAS BLEIBT
-// Die Transparenz (0.85). Entfernt wurde nur das Weichzeichnen der 15
-// Prozent dahinter. Und: das ist KEIN Freibrief, backdrop-filter
-// ueberall zu streichen. Ueber einem Foto sieht man den Unterschied
-// sehr wohl -- deshalb behalten Kopfzeile, Modal und Chips ihren.
+// Daraus wurde "man sieht es nie" und der Effekt flog auch auf der
+// Startseite und bei den Reservierungen raus. Dort liegen Fotos und
+// Farbverlaeufe dahinter. Die Rueckmeldung kam am selben Tag:
+// "auf dem online reservierungen hast das glas design weg gemacht warum
+//  das war sehr schoen bitte wieder zurueck holen".
+//
+// ZWEI LEHREN
+//   1. Eine Messung gilt fuer den Zusammenhang, in dem sie gemacht
+//      wurde. Uebertragen ist Raten mit Zahlen davor.
+//   2. Das Glas ist Hausstil, kein Zierrat. Tempo wird woanders geholt.
+//
+// Deshalb prueft diese Datei ab jetzt die andere Richtung.
 
 var KMI = require('path').join(__dirname, '..');
 var fs = require('fs');
@@ -30,60 +37,57 @@ var h = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-console.log('\n-- 1. Die Gerichtkarte --');
-// NICHT den ersten Treffer nehmen: weiter oben steht der
-// Dark-Mode-Block (.dark-mode #menuModal .menu-item-card). Der ist
-// uebrigens der beste Beleg fuer die Sache -- er setzt ein
-// volldeckendes #1a1a1a, dort war der Blur also zu 100 Prozent
-// unsichtbar und wurde trotzdem bei jedem Bild berechnet.
-var von = h.indexOf('/* Produkt Cards');
-t('der Regelblock mit der Begruendung steht da', von > 0, von);
-var dunkel = h.indexOf('.dark-mode #menuModal .menu-item-card');
-t('der Dark-Mode-Block steht davor und ist ein anderer', dunkel > 0 && dunkel < von, dunkel + '/' + von);
-t('auch der Dark-Mode-Block hat keinen Blur',
-  /\.dark-mode #menuModal \.menu-item-card \{[^}]*\}/.test(h)
-  && /\.dark-mode #menuModal \.menu-item-card \{[^}]*backdrop-filter[^}]*\}/.test(h) === false,
-  'dort steht noch einer');
-von = h.indexOf('.menu-item-card {', von);
-t('.menu-item-card hat einen Regelblock', von > 0, von);
+console.log('\n-- 1. Die Gerichtkarte hat ihr Glas --');
+// NICHT den ersten Treffer nehmen: weiter oben steht der Dark-Mode-Block.
+var kommentar = h.indexOf('/* Produkt Cards');
+t('der Regelblock steht da', kommentar > 0, kommentar);
+var von = h.indexOf('.menu-item-card {', kommentar);
 var regel = h.slice(von, h.indexOf('}', von));
-t('kein backdrop-filter mehr', /backdrop-filter/.test(regel) === false, JSON.stringify(regel));
-t('auch kein -webkit- davon', /-webkit-backdrop-filter/.test(regel) === false, JSON.stringify(regel));
-// Die Transparenz war nicht das Problem und bleibt.
-t('die Transparenz bleibt (0.85)',
-  /background: rgba\(255,255,255,0\.85\)/.test(regel), JSON.stringify(regel));
-t('die Form bleibt (48px Radius)', /border-radius: 48px/.test(regel), JSON.stringify(regel));
 
-console.log('\n-- 2. Die Restaurantkarte --');
+t('backdrop-filter: blur(20px) ist da', /backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
+t('der -webkit-Zwilling fuer Safari ist da',
+  /-webkit-backdrop-filter:\s*blur\(20px\)/.test(regel), JSON.stringify(regel));
+t('die Transparenz stimmt (0.85)',
+  /background:\s*rgba\(255,255,255,0\.85\)/.test(regel), JSON.stringify(regel));
+t('die Form stimmt (48px Radius)', /border-radius:\s*48px/.test(regel), JSON.stringify(regel));
+
+console.log('\n-- 2. Die Restaurantkarte auch --');
+// Das ist die Karte, um die es ging: Startseite und Reservierungen.
 var karte = h.match(/<div class="restaurant-card \$\{isVisible[^>]*>/);
 t('die Restaurantkarte ist da', !!karte, 'nicht gefunden');
 if (karte) {
-    t('kein backdrop-filter mehr', /backdrop-filter/.test(karte[0]) === false, karte[0].slice(0, 200));
-    t('die Transparenz bleibt', /rgba\(255,255,255,0\.85\)/.test(karte[0]), karte[0].slice(0, 200));
+    t('backdrop-filter ist zurueck', /backdrop-filter:blur\(20px\)/.test(karte[0]), karte[0].slice(0, 260));
+    t('mit -webkit-Zwilling', /-webkit-backdrop-filter:blur\(20px\)/.test(karte[0]), karte[0].slice(0, 260));
+    t('die Transparenz stimmt', /rgba\(255,255,255,0\.85\)/.test(karte[0]), karte[0].slice(0, 260));
 }
 
-console.log('\n-- 3. Der Grund steht dabei --');
-// Ohne die Messung im Code liest das jemand in einem halben Jahr, denkt
-// "da fehlt der Glaseffekt" und baut ihn wieder ein.
-var davor = h.slice(h.indexOf('/* Produkt Cards'), von);
-t('die Messung steht als Kommentar dabei',
-  davor.indexOf('692 ms') > -1 && davor.indexOf('505 ms') > -1, JSON.stringify(davor.slice(-300)));
-t('der Pixelvergleich steht dabei',
-  davor.indexOf('281.400') > -1, JSON.stringify(davor.slice(-300)));
-t('es steht dabei, dass die Transparenz bleibt',
-  davor.indexOf('Transparenz BLEIBT') > -1, JSON.stringify(davor.slice(-200)));
+console.log('\n-- 3. Der Fehler ist im Code festgehalten --');
+// Ohne die Begruendung optimiert das in einem halben Jahr jemand
+// wieder weg -- mit denselben 692/505 ms als Argument.
+var davor = h.slice(kommentar, von);
+t('die Messung steht dabei',
+  davor.indexOf('692 ms') > -1 && davor.indexOf('505 ms') > -1, JSON.stringify(davor.slice(0, 200)));
+t('und dass sie NUR im Speisekarten-Fenster galt',
+  davor.indexOf('NUR im') > -1, JSON.stringify(davor.slice(0, 400)));
+t('und dass hinter der Startseite Fotos liegen',
+  /Fotos und Farbverlaeufe/.test(davor), JSON.stringify(davor.slice(-400)));
+t('die Lehre steht dabei',
+  davor.indexOf('Zusammenhang, in dem sie') > -1, JSON.stringify(davor.slice(-400)));
 t('die Restaurantkarte verweist darauf',
-  /Kein backdrop-filter: siehe \.menu-item-card/.test(h), 'kein Verweis');
+  /Das Glas gehoert hierher/.test(h), 'kein Verweis');
 
-console.log('\n-- 4. Kein Kahlschlag --');
-// Wichtig: das war eine gezielte Entfernung an zwei Stellen, kein
-// Rundumschlag. Ueber einem Foto sieht man den Unterschied sehr wohl.
-var uebrig = (h.match(/backdrop-filter/g) || []).length;
-t('anderswo gibt es weiter backdrop-filter', uebrig > 100, uebrig);
-t('die Modal-Grundflaeche behaelt ihren',
+console.log('\n-- 4. Die Glasflaechen anderswo sind unberuehrt --');
+var anzahl = (h.match(/backdrop-filter/g) || []).length;
+t('es gibt weiterhin viele Glasflaechen', anzahl > 100, anzahl);
+t('die Modal-Grundflaeche hat ihre',
   /\.modal-overlay \{[\s\S]{0,400}?backdrop-filter/.test(h), 'weg');
-t('die Kopfzeile der Speisekarte behaelt ihren',
+t('die Kopfzeile der Speisekarte hat ihre',
   /<header style="position:sticky[^"]*backdrop-filter/.test(h), 'weg');
+// Der dunkle Modus setzt ein volldeckendes #1a1a1a -- dort ist der Blur
+// wirkungslos, aber das ist eine bewusste Eigenheit dieses Blocks und
+// kein Grund, ihn oben zu entfernen.
+t('der Dark-Mode-Block bleibt, wie er ist',
+  /\.dark-mode #menuModal \.menu-item-card \{[^}]*#1a1a1a/.test(h), 'veraendert');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
