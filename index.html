@@ -22737,7 +22737,11 @@ async function initRealtime() {
                         if (r) {
                             if (t.status === 'available' || t.status === 'free') r.freeTables = (r.freeTables || 0) + (payload.eventType === 'UPDATE' && (payload.old.status !== 'available' && payload.old.status !== 'free') ? 1 : 0);
                             else if (payload.eventType === 'UPDATE' && (payload.old.status === 'available' || payload.old.status === 'free')) r.freeTables = Math.max(0, (r.freeTables || 0) - 1);
-                            if (typeof renderRestaurants === 'function') renderRestaurants();
+                            // Nicht sofort: sonst zeichnet ein volles Haus die
+                            // Startseite im Sekundentakt neu. Die Verfuegbarkeit
+                            // dieses einen Betriebs wird dabei sofort aufgefrischt.
+                            if (typeof slotKarteAuffrischen === 'function') slotKarteAuffrischen(t.restaurant_id);
+                            if (typeof renderRestaurantsBald === 'function') renderRestaurantsBald();
                         }
                     }
                 }
@@ -25333,6 +25337,25 @@ function showDashboard() {
 }
 
 // ==================== GUEST APP FUNCTIONS ====================
+// ENTPRELLT NEU ZEICHNEN
+//
+// Der Echtzeit-Kanal auf restaurant_tables meldet JEDE Tischaenderung in
+// JEDEM Betrieb. Wurde daraufhin sofort renderRestaurants() gerufen, baute
+// sich die ganze Startseite neu auf -- Karten weg, Karten neu, Bilder laden
+// nach. Bei einem vollen Haus am Samstagabend passiert das im Sekundentakt.
+//
+// Die Zahlen sollen trotzdem stimmen. Also nicht seltener PRUEFEN, sondern
+// die Zeichnungen buendeln: nach der letzten Meldung wird einmal gezeichnet.
+var _neuZeichnenTimer = null;
+function renderRestaurantsBald() {
+    if (_neuZeichnenTimer) clearTimeout(_neuZeichnenTimer);
+    _neuZeichnenTimer = setTimeout(function () {
+        _neuZeichnenTimer = null;
+        if (typeof renderRestaurants === 'function') renderRestaurants(currentRestaurantFilter);
+    }, 1500);
+}
+window.renderRestaurantsBald = renderRestaurantsBald;
+
 function renderRestaurants(filter) {
     // Ohne Argument den AKTIVEN Filter behalten. Vorher stand hier der feste
     // Default 'all' -- jeder der ~20 argumentlosen Aufrufe (Tischstatus nachladen,
@@ -25524,10 +25547,7 @@ function renderRestaurants(filter) {
                     <div class="card-angebot" data-restaurant-id="${r.id}"></div>
                     <!-- Tisch-Verfügbarkeit (reservierungs-basiert, async geladen) -->
                     ${_cardNoRes ? '' : `<div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
-                        <span class="card-slot-info" style="color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:4px;">
-                            <span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>
-                            <span style="color:#c0c8c4;">Verfügbarkeit wird geladen...</span>
-                        </span>
+                        <span class="card-slot-info" style="color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:4px;">${_slotGemerkt(r.id)}</span>
                     </div>`}
                     <!-- Action Buttons -->
                     <div style="display:flex;gap:8px;margin-top:10px;">
@@ -25633,34 +25653,81 @@ function renderRestaurants(filter) {
     updateHeroBannerImage();
 }
 
+// DIE VERFUEGBARKEIT FLACKERTE BEI JEDEM NEUZEICHNEN
+//
+// Gemeldet als: "die Uhrzeiten beim Restaurant, das laedt immer, kommt und
+// geht."
+//
+// Der Ablauf war: renderRestaurants() baut die Karten neu -> jede Karte
+// startet wieder mit "Verfuegbarkeit wird geladen..." -> danach fragt
+// loadNextFreeSlots fuer JEDE Karte NACHEINANDER die Datenbank. Bei sechs
+// Betrieben sind das sechs Abfragen in Reihe, und so lange steht in jeder
+// Karte der Ladehinweis.
+//
+// Ausgeloest wurde das nicht nur beim Oeffnen der Seite: der Echtzeit-Kanal
+// auf restaurant_tables ruft renderRestaurants() bei JEDER Tischaenderung --
+// in irgendeinem Betrieb. Wer die Startseite offen hat, sieht die Zeile
+// also staendig verschwinden und wiederkommen.
+//
+// Zwei Dinge dagegen: die zuletzt berechnete Zeile wird gemerkt und beim
+// Neuzeichnen sofort wieder hingeschrieben (der Ladehinweis erscheint nur
+// noch beim allerersten Mal), und die Abfragen laufen nebeneinander statt
+// nacheinander.
+var _slotSpeicher = {};
+
+function _slotGemerkt(rid) {
+    if (_slotSpeicher[rid]) return _slotSpeicher[rid];
+    return '<span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>'
+         + '<span style="color:#c0c8c4;">Verfügbarkeit wird geladen...</span>';
+}
+window._slotGemerkt = _slotGemerkt;
+
+// Eine einzelne Karte auffrischen, ohne die ganze Liste anzufassen.
+async function _slotEinerKarte(rid, infoEl) {
+    var html;
+    try {
+        var slots = await getTableAvailabilityByTime(rid);
+        var freeSlots = slots ? slots.filter(function (s) { return s.free > 0; }) : [];
+        if (freeSlots.length === 0) {
+            html = '<span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;">event_busy</span>'
+                 + '<span style="color:#ef4444;font-weight:600;">Heute ausgebucht</span>';
+        } else {
+            var next = freeSlots[0];
+            var color = next.free > 3 ? '#22c55e' : (next.free > 1 ? '#f59e0b' : '#ef4444');
+            html = '<span class="material-symbols-outlined" style="font-size:14px;color:' + color + ';">schedule</span>'
+                 + '<span style="color:' + color + ';font-weight:600;">' + freeSlots.length + ' Uhrzeiten verfügbar</span>'
+                 + '<span style="color:var(--text-secondary);">· Nächster: <strong style="color:var(--ink-strong);">' + next.time + '</strong></span>';
+        }
+    } catch (e) {
+        html = '<span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>'
+             + '<span style="color:var(--text-secondary);">Reservierung möglich</span>';
+    }
+    _slotSpeicher[rid] = html;
+    // Nur schreiben, wenn sich wirklich etwas geaendert hat -- sonst blinkt
+    // die Zeile auch dann, wenn dasselbe drinsteht.
+    if (infoEl && infoEl.innerHTML !== html) infoEl.innerHTML = html;
+}
+
+// Die Verfuegbarkeit EINES Betriebs auffrischen. Dafuer muss die ganze
+// Liste nicht neu gezeichnet werden.
+function slotKarteAuffrischen(rid) {
+    var el = document.querySelector('.card-availability[data-restaurant-id="' + rid + '"] .card-slot-info');
+    if (el) _slotEinerKarte(rid, el);
+}
+window.slotKarteAuffrischen = slotKarteAuffrischen;
+
 // Async: Reservierungs-basierte Verfügbarkeit pro Restaurant laden
 async function loadNextFreeSlots(container) {
     var cards = container.querySelectorAll('.card-availability[data-restaurant-id]');
-    for (var i = 0; i < cards.length; i++) {
-        var rid = cards[i].getAttribute('data-restaurant-id');
-        var infoEl = cards[i].querySelector('.card-slot-info');
-        if (!infoEl || !rid) continue;
-        try {
-            var slots = await getTableAvailabilityByTime(rid);
-            var freeSlots = slots ? slots.filter(function(s) { return s.free > 0; }) : [];
-
-            if (freeSlots.length === 0) {
-                // Heute keine Slots mehr verfügbar
-                infoEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;">event_busy</span>' +
-                    '<span style="color:#ef4444;font-weight:600;">Heute ausgebucht</span>';
-            } else {
-                var next = freeSlots[0];
-                var totalFreeToday = freeSlots.length;
-                var color = next.free > 3 ? '#22c55e' : (next.free > 1 ? '#f59e0b' : '#ef4444');
-                infoEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;color:' + color + ';">schedule</span>' +
-                    '<span style="color:' + color + ';font-weight:600;">' + totalFreeToday + ' Uhrzeiten verfügbar</span>' +
-                    '<span style="color:var(--text-secondary);">· Nächster: <strong style="color:var(--ink-strong);">' + next.time + '</strong></span>';
-            }
-        } catch(e) {
-            infoEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>' +
-                '<span style="color:var(--text-secondary);">Reservierung möglich</span>';
-        }
-    }
+    // Nebeneinander statt nacheinander: sechs Abfragen in Reihe hiessen
+    // sechsmal Wartezeit hintereinander, und so lange stand der Ladehinweis
+    // in den noch nicht bearbeiteten Karten.
+    await Promise.all(Array.prototype.map.call(cards, function (karte) {
+        var rid = karte.getAttribute('data-restaurant-id');
+        var infoEl = karte.querySelector('.card-slot-info');
+        if (!infoEl || !rid) return null;
+        return _slotEinerKarte(rid, infoEl);
+    }).filter(Boolean));
 }
 
 // Bilder-Karussell: automatisch alle 4s wechseln
