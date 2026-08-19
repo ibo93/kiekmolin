@@ -24272,6 +24272,67 @@ function checkAdminSession() {
     return localStorage.getItem('kmi_admin_logged_in') === 'true';
 }
 
+// DEN VERWALTUNGSBEREICH OEFFNEN -- an einer Stelle.
+//
+// Es gibt zwei Wege hierher, und der Unterschied zwischen ihnen ist der
+// Grund, warum nach dem Zumachen der Gaestedaten das Dashboard leer war:
+//
+//   1. simpleLogin()  -- Passwort. Setzt nur ein Flag im Browser.
+//                        Fuer die Datenbank ist dieser Benutzer ein
+//                        Fremder: kmiToken() liefert den oeffentlichen
+//                        Schluessel, und jede Regel "to authenticated"
+//                        laesst ihn aussen vor.
+//   2. Google-Login   -- wie bei den Wirten. Erzeugt eine echte
+//                        Supabase-Sitzung, kmiToken() liefert ein
+//                        richtiges Token, die Regeln greifen.
+//
+// Weg 2 ist der richtige. Weg 1 bleibt vorerst, damit niemand
+// ausgesperrt wird -- aber wer die Gaestedaten zumachen will, muss ueber
+// Weg 2 hereinkommen.
+function adminDashboardOeffnen(wer) {
+    wer = wer || {};
+    localStorage.setItem('kmi_admin_logged_in', 'true');
+    currentAdmin = {
+        name: wer.name || 'Ibo',
+        email: wer.email || 'ibo@kiekmolin.de',
+        role: 'Admin',
+        restaurant_id: null,        // Admin hat KEIN eigenes Restaurant
+        restaurant_name: null,
+        isAdmin: true               // Admin kann ALLE Restaurants sehen/verwalten
+    };
+
+    // Gastro-Einschränkungen aufheben (falls vorher Gastronom eingeloggt war)
+    removeGastroRestrictions();
+
+    // Sidebar Label zurücksetzen
+    var label = document.querySelector('.restaurant-label');
+    if (label) label.textContent = 'Admin Dashboard';
+
+    // Dashboard anzeigen
+    document.getElementById('guestView').classList.add('hidden');
+    document.getElementById('dashboardView').classList.add('active');
+    document.querySelectorAll('.toggle-btn')[0].classList.remove('active');
+    document.querySelectorAll('.toggle-btn')[1].classList.add('active');
+
+    // Initiale Section anzeigen
+    showDashboardSection('dashboard');
+
+    // Greeting aktualisieren
+    var greeting = document.querySelector('.dash-greeting');
+    if (greeting) greeting.textContent = 'Moin, ' + (wer.name || 'Ibo') + '! ';
+
+    updateAdminProfile();
+
+    // Supabase Verbindung initialisieren und Dashboard updaten
+    initSupabase().then(function () {
+        updateDashboard();
+        loadDashboardStats();
+    });
+
+    showToast('Willkommen zurück, ' + (wer.name || 'Ibo') + '!', 'success');
+}
+window.adminDashboardOeffnen = adminDashboardOeffnen;
+
 async function simpleLogin() {
     const password = document.getElementById('adminPassword').value;
     const errorEl = document.getElementById('loginError');
@@ -24285,63 +24346,47 @@ async function simpleLogin() {
     }
 
     try {
-        // Passwort aus Supabase prüfen
-        const response = await sbRead(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken()
-            }
+        // DAS PASSWORT WIRD AUF DEM SERVER GEPRUEFT, NICHT HIER.
+        //
+        // Vorher stand hier:
+        //     GET /rest/v1/settings?key=eq.admin_password
+        //     apikey: <oeffentlicher Schluessel aus dem Seitenquelltext>
+        // und darunter ein Vergleich im Browser.
+        //
+        // Damit das funktioniert, muss diese Zeile fuer den oeffentlichen
+        // Schluessel lesbar sein -- und dann kann JEDER, der den
+        // Seitenquelltext oeffnet, das Admin-Passwort im Klartext
+        // abrufen. Einmal eintippen und man steht im Verwaltungsbereich
+        // der ganzen Plattform: alle Betriebe, alle Kunden, alle Umsaetze.
+        //
+        // Ein Passwort, das der Client lesen muss, um es zu pruefen, ist
+        // keins. Der Vergleich liegt jetzt in
+        // /.netlify/functions/admin-login und laeuft mit dem
+        // Dienstschluessel; herausgegeben wird nur ja oder nein.
+        const response = await fetch('/.netlify/functions/admin-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passwort: password })
         });
+        const data = await response.json().catch(function () { return null; });
 
-        const data = await response.json();
-        const storedPassword = data[0]?.value;
-
-        if (password === storedPassword) {
-            localStorage.setItem('kmi_admin_logged_in', 'true');
-            currentAdmin = { 
-                name: 'Ibo', 
-                email: 'ibo@kiekmolin.de', 
-                role: 'Admin',
-                restaurant_id: null,        // Admin hat KEIN eigenes Restaurant
-                restaurant_name: null,
-                isAdmin: true               // Admin kann ALLE Restaurants sehen/verwalten
-            };
-
+        // Nur ein ausdrueckliches ok:true ist ein Ja. Alles andere --
+        // Serverfehler, fehlender Dienstschluessel, kaputte Antwort --
+        // ist ein Nein. Ein Login, der bei einer Stoerung durchwinkt,
+        // waere schlimmer als einer, der klemmt.
+        if (response.ok && data && data.ok === true) {
             closeModal('adminLoginModal');
             document.getElementById('adminPassword').value = '';
-
-            // Gastro-Einschränkungen aufheben (falls vorher Gastronom eingeloggt war)
-            removeGastroRestrictions();
-
-            // Sidebar Label zurücksetzen
-            var label = document.querySelector('.restaurant-label');
-            if (label) label.textContent = 'Admin Dashboard';
-
-            // Dashboard anzeigen
-            document.getElementById('guestView').classList.add('hidden');
-            document.getElementById('dashboardView').classList.add('active');
-            document.querySelectorAll('.toggle-btn')[0].classList.remove('active');
-            document.querySelectorAll('.toggle-btn')[1].classList.add('active');
-
-            // Initiale Section anzeigen
-            showDashboardSection('dashboard');
-
-            // Greeting aktualisieren
-            const greeting = document.querySelector('.dash-greeting');
-            if (greeting) greeting.textContent = 'Moin, Ibo! ';
-
-            updateAdminProfile();
-
-            // Supabase Verbindung initialisieren und Dashboard updaten
-            initSupabase().then(() => {
-                updateDashboard();
-                loadDashboardStats();
-            });
-
-            showToast('Willkommen zurück, Ibo!', 'success');
+            adminDashboardOeffnen({ name: 'Ibo', email: 'ibo@kiekmolin.de' });
         } else {
             if (errorEl) {
-                errorEl.textContent = 'Falsches Passwort';
+                // 401 heisst wirklich "falsch". Alles andere ist eine
+                // Stoerung -- und wer bei einer Stoerung "falsches
+                // Passwort" liest, tippt es zehnmal neu, statt den
+                // eigentlichen Fehler zu suchen.
+                errorEl.textContent = (response.status === 401)
+                    ? 'Falsches Passwort'
+                    : 'Anmeldung gerade nicht möglich – bitte gleich nochmal versuchen';
                 errorEl.style.display = 'block';
             }
             document.getElementById('adminPassword').value = '';
@@ -36538,6 +36583,37 @@ async function checkIfGastronom(email, googleUser) {
         if (customers && customers.length > 0) {
             // AKTIVER GASTRONOM gefunden!
             const customer = customers[0];
+
+            // SUPERADMIN? DANN IN DEN VERWALTUNGSBEREICH.
+            //
+            // Bisher fuehrte hier kein Weg hin. Wer als Superadmin in
+            // customers stand, landete trotzdem im Gastronom-Dashboard --
+            // ohne eigenen Betrieb, also weitgehend leer. Der einzige Weg
+            // in die Verwaltung war das Passwort, und das erzeugt keine
+            // Supabase-Sitzung.
+            //
+            // Genau daran ist das Zumachen der Gaestedaten gescheitert:
+            // die Regeln gelten fuer "authenticated", der Passwort-Login
+            // ist fuer die Datenbank aber niemand. Ueber diesen Weg
+            // dagegen liegt eine echte Sitzung an, kmiToken() liefert ein
+            // richtiges Token, und kmi_ist_superadmin() findet die Zeile.
+            //
+            // Klein geschrieben und ohne Raender verglichen -- ob in der
+            // Datenbank 'superadmin', 'Superadmin' oder 'superadmin '
+            // steht, darf nicht darueber entscheiden, wer hereinkommt.
+            var _rolle = String(customer.role || '').trim().toLowerCase();
+            if (_rolle === 'superadmin') {
+                currentUser = {
+                    id: googleUser.id,
+                    name: customer.name || googleUser.user_metadata?.full_name || 'Ibo',
+                    email: email,
+                    avatar: googleUser.user_metadata?.avatar_url || null,
+                    role: 'superadmin'
+                };
+                try { localStorage.setItem('kmi_user', JSON.stringify(currentUser)); } catch (e) {}
+                adminDashboardOeffnen({ name: currentUser.name, email: email });
+                return true;
+            }
 
             // Prüfe ob Restaurant auch aktiv ist
             if (customer.restaurant_id) {

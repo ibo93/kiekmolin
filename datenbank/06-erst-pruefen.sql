@@ -156,11 +156,42 @@ select coalesce(r.name, '(unbekannter Betrieb)') as betrieb,
 
 
 -- =====================================================================
+-- DIE URSACHE VON LETZTEM MAL IST GEFUNDEN -- IM CODE, NICHT HIER
+-- =====================================================================
+-- Nachtrag, nachdem der Fehler eingegrenzt war. Es lag NICHT an den
+-- Daten. Die Tabelle unten wird trotzdem gebraucht, aber der Grund
+-- gehoert hierher, damit ihn niemand ein zweites Mal sucht.
+--
+-- Es gibt zwei Wege ins Dashboard:
+--
+--   1. Passwort        (simpleLogin) -- setzt nur ein Flag im Browser.
+--                      KEINE Supabase-Sitzung. Fuer die Datenbank ist
+--                      dieser Benutzer ein Fremder, und jede Regel
+--                      "to authenticated" laesst ihn aussen vor.
+--   2. Google-Login    -- erzeugt eine echte Sitzung.
+--
+-- Der Verwaltungsbereich war NUR ueber Weg 1 erreichbar. Deshalb sah
+-- das Dashboard nach Schritt 04 nichts mehr: es war nie angemeldet.
+--
+-- Im Code ist das behoben -- checkIfGastronom fuehrt einen Superadmin
+-- jetzt ueber den Google-Login in den Verwaltungsbereich. VOR Schritt 07
+-- muss dieser Stand aber deployed sein UND einmal so benutzt werden:
+--
+--     abmelden, dann per Google anmelden, nicht per Passwort.
+--
+-- Sonst passiert genau dasselbe wie beim letzten Mal.
+--
+-- (Auf demselben Weg kam heraus, dass das Admin-Passwort im Browser
+--  gegen settings.admin_password verglichen wurde -- also mit dem
+--  oeffentlichen Schluessel lesbar war. Auch behoben, siehe
+--  netlify/functions/admin-login.js.)
+
+
+-- =====================================================================
 -- 4. Und der Gegentest aus der App -- IM BROWSER
 -- =====================================================================
 -- Die Tabelle oben rechnet mit E-Mails aus customers. Sie kann NICHT
 -- wissen, mit welcher Adresse sich ein Wirt tatsaechlich anmeldet.
--- Genau da war beim letzten Mal moeglicherweise der Bruch.
 --
 -- Also: als Wirt im Dashboard anmelden, F12 druecken, das hier
 -- eintippen:
