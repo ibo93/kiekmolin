@@ -26,6 +26,13 @@
 //
 // Beide Male wurde Erfolg behauptet, ohne nachzusehen. Dass die Sachen
 // "wiederkommen", war kein Fehler der Liste -- sie waren nie weg.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -70,7 +77,7 @@ function laufLoeschen(antwort) {
     var meldungen = [];
     var f = new Function('SUPABASE_URL', 'SUPABASE_KEY', 'sbWrite', 'kinConfirm',
         'showToast', 'loadOptionGroups', 'loadMenuOptionGroups',
-        loeschen + '; return deleteOptionGroup;')(
+        KMI_STUB + loeschen + '; return deleteOptionGroup;')(
         'https://x', 'k',
         function () { return Promise.resolve({ json: function () { return Promise.resolve(antwort); } }); },
         function () { return Promise.resolve(true); },

@@ -7,6 +7,13 @@
 // -- und die Schleife machte mit der nächsten Gruppe weiter. Kennt die
 // Datenbank eine Spalte nicht (etwa internal_name), scheiterten damit ALLE
 // Gruppen, ohne dass irgendwo ein Grund zu sehen war.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -58,7 +65,7 @@ async function lauf(welt) {
         return { ok: true, json: async function () { return []; }, text: async function () { return ''; } };
     };
     var f = new Function('SUPA_URL', 'SUPABASE_URL', 'SUPA_KEY', 'sbRead', 'showToast', 'window',
-        schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
+        KMI_STUB + schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
         + schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
     var erg = await f('https://x', 'https://x', 'k', function (u, o) { return fetch(u, o); },
         function (m) { toasts.push(m); }, { _scanExtras: EXTRAS });

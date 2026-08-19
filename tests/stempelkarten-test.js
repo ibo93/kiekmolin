@@ -29,6 +29,13 @@
 // ihm zum ersten Mal, dass hinter den Haeusern eine Plattform steht -- und
 // es liefert die Zahl, die fuer die Entscheidung fehlt: verteilen sich
 // Gaeste ueberhaupt auf mehrere Haeuser?
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -79,7 +86,7 @@ t('eine kaputte Antwort wird nicht fuer eine Liste gehalten',
 
 // Die Umrechnung wirklich ausfuehren.
 var alle = new Function('APP_DATA', 'SUPABASE_URL', 'SUPABASE_KEY', 'fetch', 'console',
-    holen + '; return loyaltyAlleHaeuser;');
+    KMI_STUB + holen + '; return loyaltyAlleHaeuser;');
 
 // R3 hat die Stempelkarte im Dashboard ABGESCHALTET -- der Schalter dort
 // schreibt "loyalty_points" in features.

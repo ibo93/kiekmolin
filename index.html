@@ -521,6 +521,69 @@
     var SUPA_KEY = SUPABASE_KEY;
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
+    // ==================== WER FRAGT DA EIGENTLICH? ====================
+    // Bis hierher ging JEDE Anfrage an die Datenbank mit dem oeffentlichen
+    // Schluessel raus -- auch die aus dem Dashboard. Fuer die Datenbank sah
+    // der Wirt, der seine Bestellungen abruft, damit exakt so aus wie ein
+    // Fremder, der bloss die Adresse der Tabelle kennt.
+    //
+    // Solange die Regeln in der Datenbank alles erlauben, faellt das nicht
+    // auf. Zumachen kann man sie so aber nie: es gibt kein Merkmal, an dem
+    // die Datenbank den einen vom anderen unterscheiden koennte. Deshalb
+    // steht diese Umstellung VOR jeder Regelaenderung und nicht danach.
+    //
+    // kmiToken() liefert das Sitzungs-Token des angemeldeten Nutzers, wenn
+    // es eines gibt -- und sonst weiterhin den oeffentlichen Schluessel.
+    // Fuer den Gast ohne Konto aendert sich damit nichts, und solange die
+    // Regeln offen sind, auch fuer den Wirt nicht. Der Unterschied ist,
+    // dass die Datenbank ihn ab jetzt erkennen KANN.
+    //
+    // Absichtlich synchron. Die Kopfzeilen werden an ueber 250 Stellen
+    // mitten in Objekt-Literalen gebaut; ein "await" an jeder davon waere
+    // ein Umbau mit echtem Risiko fuer keinen Gewinn. Das Token liegt
+    // ohnehin im Speicher -- der Auth-Listener haelt es aktuell.
+    var _kmiToken = null;      // aktuelles Zugriffs-Token, null = keine Sitzung
+    var _kmiTokenBis = 0;      // wann es ablaeuft, in Sekunden seit 1970
+
+    // Wird vom Auth-Listener bei jedem Anmelden, Abmelden und jeder
+    // Token-Erneuerung gerufen.
+    function kmiTokenSetzen(session) {
+        if (session && session.access_token) {
+            _kmiToken = session.access_token;
+            _kmiTokenBis = session.expires_at || 0;
+        } else {
+            _kmiToken = null;
+            _kmiTokenBis = 0;
+        }
+    }
+    window.kmiTokenSetzen = kmiTokenSetzen;
+
+    function kmiToken() {
+        // Ein abgelaufenes Token ist schlechter als gar keines: die Datenbank
+        // weist es ab, waehrend der oeffentliche Schluessel funktioniert
+        // haette. Die letzte Minute gilt deshalb schon als abgelaufen, damit
+        // eine Anfrage nicht unterwegs ungueltig wird.
+        if (_kmiToken && _kmiTokenBis && (_kmiTokenBis - 60) > (Date.now() / 1000)) {
+            return _kmiToken;
+        }
+        return SUPABASE_KEY;
+    }
+    window.kmiToken = kmiToken;
+
+    // Die fertigen Kopfzeilen fuer PostgREST.
+    // apikey bleibt IMMER der oeffentliche Schluessel -- daran erkennt
+    // Supabase das Projekt. Nur die Authorization sagt, WER fragt.
+    function kmiKopf(weitere) {
+        var k = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() };
+        if (weitere) {
+            for (var n in weitere) {
+                if (Object.prototype.hasOwnProperty.call(weitere, n)) k[n] = weitere[n];
+            }
+        }
+        return k;
+    }
+    window.kmiKopf = kmiKopf;
+
 
     // ==================== FEHLER AUS DEM BETRIEB MELDEN ====================
     // Ohne das hier erfährt niemand, wenn die App bei einem Gast oder einem
@@ -14774,7 +14837,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name&order=name', {
                         headers: {
                             'apikey': SUPABASE_KEY,
-                            'Authorization': 'Bearer ' + SUPABASE_KEY
+                            'Authorization': 'Bearer ' + kmiToken()
                         }
                     })
                     .then(function(response) {
@@ -15255,7 +15318,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var response = await fetch(url, {
                             headers: {
                                 'apikey': SUPABASE_KEY,
-                                'Authorization': 'Bearer ' + SUPABASE_KEY
+                                'Authorization': 'Bearer ' + kmiToken()
                             }
                         });
 
@@ -15376,7 +15439,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 method: 'POST',
                                 headers: {
                                     'apikey': SUPABASE_KEY,
-                                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                                    'Authorization': 'Bearer ' + kmiToken(),
                                     'Content-Type': 'application/json',
                                     'Prefer': 'return=representation'
                                 },
@@ -15723,7 +15786,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var tableOptions = '<option value="">Kein Tisch</option>';
                     try {
                         var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&order=table_number', {
-                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                         var tables = await tablesResp.json() || [];
                         tables.forEach(function(t) {
@@ -15835,7 +15898,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 method: 'POST',
                                 headers: {
                                     'apikey': SUPABASE_KEY,
-                                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                                    'Authorization': 'Bearer ' + kmiToken(),
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify(rpcPayload)
@@ -16050,7 +16113,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var resSelect = document.getElementById('resRestaurantSelect');
                         if (resSelect && resSelect.options.length <= 1) {
                             fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name&is_active=eq.true&order=name', {
-                                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                             }).then(function(r) { return r.json(); }).then(function(restaurants) {
                                 if (restaurants && restaurants.length) {
                                     resSelect.innerHTML = '<option value="">Restaurant wählen...</option>' +
@@ -16295,7 +16358,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             try {
                                 var url = SUPABASE_URL + '/rest/v1/reservations?order=created_at.desc&limit=10&status=neq.cancelled&created_at=gte.' + window.resPollingStartedAt;
                                 var response = await fetch(url, {
-                                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                                 });
                                 if (response.ok) {
                                     var data = await response.json();
@@ -17196,7 +17259,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             method: 'PATCH',
                             headers: {
                                 'apikey': SUPABASE_KEY,
-                                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                                'Authorization': 'Bearer ' + kmiToken(),
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ duration_minutes: minutes })
@@ -18826,7 +18889,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                     // Kategorien laden
                     fetch(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
-                        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+                        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                     })
                     .then(function(res) { return res.json(); })
                     .then(function(cats) {
@@ -18837,7 +18900,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                         // Items laden
                         return fetch(SUPA_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
-                            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+                            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                     })
                     .then(function(res) { return res.json(); })
@@ -23367,7 +23430,7 @@ async function loadReviews(targetType, targetId) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                    'Authorization': 'Bearer ' + kmiToken()
                 }
             }
         );
@@ -23387,7 +23450,7 @@ async function loadReviewPhotos(reviewId) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                    'Authorization': 'Bearer ' + kmiToken()
                 }
             }
         );
@@ -23412,7 +23475,7 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -23439,7 +23502,7 @@ async function submitReview(targetType, targetId, targetName, rating, title, com
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -23472,7 +23535,7 @@ async function logActivity(activityType, targetType, targetId, targetName, messa
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -23497,7 +23560,7 @@ async function loadRecentActivity(targetType, targetId, limit = 5) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                    'Authorization': 'Bearer ' + kmiToken()
                 }
             }
         );
@@ -23519,7 +23582,7 @@ async function updatePresence(targetType, targetId) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates'
             },
@@ -23552,7 +23615,7 @@ async function getPresenceCount(targetType, targetId) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Prefer': 'count=exact'
                 }
             }
@@ -23573,7 +23636,7 @@ async function getTargetStats(targetType, targetId) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                    'Authorization': 'Bearer ' + kmiToken()
                 }
             }
         );
@@ -23595,7 +23658,7 @@ async function getTodayVisitors(targetType, targetId) {
             {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Prefer': 'count=exact'
                 }
             }
@@ -23663,7 +23726,7 @@ async function simpleLogin() {
         const response = await sbRead(`${SUPABASE_URL}/rest/v1/settings?key=eq.admin_password`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -23801,7 +23864,7 @@ async function supabaseGet(table, query = '') {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
         headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY
+            'Authorization': 'Bearer ' + kmiToken()
         }
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -23809,7 +23872,7 @@ async function supabaseGet(table, query = '') {
 }
 
 async function supabaseDelete(table, id) {
-    var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+    var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+kmiToken()}});
     if (!r.ok) throw new Error('HTTP '+r.status); return true;
 }
 
@@ -23818,7 +23881,7 @@ async function supabasePost(table, data) {
         method: 'POST',
         headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Authorization': 'Bearer ' + kmiToken(),
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
         },
@@ -23926,7 +23989,7 @@ async function initSupabase() {
             restaurants = result.data;
         } else {
             var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=*', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             restaurants = await resp.json();
@@ -23967,7 +24030,7 @@ async function initSupabase() {
                         if (!tResult.error) tablesData = tResult.data;
                     } else {
                         var tResp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?select=id,table_number,table_name,max_capacity,status,area,restaurant_id,is_active', {
-                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                         if (tResp.ok) tablesData = await tResp.json();
                     }
@@ -24021,7 +24084,7 @@ async function loadPopularDishes() {
         // verschluckt: die Karten zeigten nie beliebte Gerichte.
         var url = SUPABASE_URL + '/rest/v1/order_items?select=item_name,order_id!inner(restaurant_id)&limit=500&order=created_at.desc';
         var resp = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!resp.ok) return;
         var items = await resp.json();
@@ -24058,7 +24121,7 @@ async function loadSeasonalRecommendations() {
         // Abfrage mit 400 und die ganze Empfehlungs-Sektion blieb dauerhaft leer.
         var url = SUPABASE_URL + '/rest/v1/menu_items?select=id,name,base_price,image_url,restaurant_id&order=created_at.desc&limit=20';
         var resp = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!resp.ok) return;
         var items = await resp.json();
@@ -24105,7 +24168,7 @@ function loadFeaturedGoogleReviews() {
     window._featuredGoogleReviews = {};
     // Versuche aus Supabase zu laden
     fetch(SUPABASE_URL + '/rest/v1/google_reviews?select=id,author_name,rating,text,relative_time,is_featured&is_featured=eq.true&order=created_at.desc', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     }).then(function(resp) {
         if (!resp.ok) throw new Error('Table not found');
         return resp.json();
@@ -24421,7 +24484,7 @@ async function saveReservationToSupabase(reservation) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -24615,7 +24678,7 @@ function safeHTML(str) {
 }
 
 async function supaFetch(url, options) {
-    var _h = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+    var _h = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() };
     if (options && options.headers) { Object.assign(_h, options.headers); }
     var opts = Object.assign({}, options || {}, { headers: _h });
     try {
@@ -25248,7 +25311,7 @@ function _loadDishIndex() {
     if (window._dishIndex || window._dishIndexLoading) return;
     window._dishIndexLoading = true;
     fetch(SUPABASE_URL + '/rest/v1/menu_items?select=restaurant_id,name&limit=6000', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     }).then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
@@ -26099,7 +26162,7 @@ function openReservation(restaurantId) {
 
     // Echte Tischanzahl aus Supabase laden
     fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?select=id&restaurant_id=eq.' + restaurantId + '&is_active=eq.true', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     }).then(function(r) { return r.json(); }).then(function(tables) {
         window._realTableCount = (tables && tables.length) ? tables.length : 30;
     }).catch(function() { window._realTableCount = 30; });
@@ -26336,7 +26399,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     var totalTables = 0;
     try {
         var tResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tables = await tResp.json();
         totalTables = Array.isArray(tables) ? tables.length : 0;
@@ -26347,7 +26410,7 @@ async function getTableAvailabilityByTime(restaurantId) {
     var existing = [];
     try {
         var rResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,blocked)&select=reservation_time,status,table_id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         existing = await rResp.json();
         if (!Array.isArray(existing)) existing = [];
@@ -26580,7 +26643,7 @@ async function saveResSettings() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -26646,7 +26709,7 @@ async function loadAvailableSlots() {
     try {
         // Bestehende Reservierungen + Sperren für diesen Tag laden
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restaurantId + '&reservation_date=eq.' + date + '&status=in.(confirmed,pending,blocked)&select=reservation_time,party_size,status,table_id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var existing = await resp.json();
 
@@ -26920,7 +26983,7 @@ async function loadResAreas(restaurantId) {
     var areas = new Set();
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=area', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tables = await resp.json();
         if (Array.isArray(tables)) tables.forEach(function(t) { areas.add(t.area || 'main'); });
@@ -27052,7 +27115,7 @@ async function submitWaitlistEntry() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -27118,7 +27181,7 @@ async function loadCustomerTablePlan() {
 
     try {
         var tablesRes = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tables = await tablesRes.json();
         if (!tables || tables.length === 0) {
@@ -27130,7 +27193,7 @@ async function loadCustomerTablePlan() {
         var reservedTableIds = [];
         if (date && time) {
             var resRes = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=neq.cancelled&select=table_id,reservation_time', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var reservations = await resRes.json();
             if (reservations) {
@@ -27743,7 +27806,7 @@ async function loadResRestaurantSelect() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name&is_active=eq.true&order=name`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -27782,7 +27845,7 @@ async function loadReservationsForRestaurant(restaurantId) {
         var response = await fetch(SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc', {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -27973,7 +28036,7 @@ async function rejectDashReservation(resId, restaurantId) {
             try {
                 // RPC nutzen (umgeht RLS) — wie bei resCancelReservation
                 var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
                 var curArr = await curResp.json().catch(function() { return []; });
                 var cur = curArr[0] || {};
@@ -27982,7 +28045,7 @@ async function rejectDashReservation(resId, restaurantId) {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -28024,7 +28087,7 @@ async function loadJobsDash() {
         const response = await fetch(url, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -28125,7 +28188,7 @@ async function addJob(event) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -28151,7 +28214,7 @@ async function toggleJobStatus(jobId, newStatus) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ is_active: newStatus })
@@ -28172,7 +28235,7 @@ async function deleteJob(jobId) {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
         loadJobsDash();
@@ -28224,7 +28287,7 @@ async function loadRestaurantsDash() {
 async function loadRestaurantOwners() {
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/customers?role=eq.restaurant&is_active=eq.true&select=id,name,email,phone,restaurant_id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!resp.ok) return;
         var owners = await resp.json();
@@ -28296,7 +28359,7 @@ async function saveAssignedOwner() {
     try {
         // Prüfen ob Email schon in customers existiert
         var checkResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id,restaurant_id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var existing = await checkResp.json();
 
@@ -28304,7 +28367,7 @@ async function saveAssignedOwner() {
             // UPDATE bestehenden Customer
             var resp = await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + existing[0].id, {
                 method: 'PATCH',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: name, restaurant_id: restaurantId, is_active: true, role: 'restaurant', phone: phone || null })
             });
             if (!resp.ok) throw new Error('Update fehlgeschlagen');
@@ -28312,7 +28375,7 @@ async function saveAssignedOwner() {
             // INSERT neuen Customer
             var resp = await fetch(SUPABASE_URL + '/rest/v1/customers', {
                 method: 'POST',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ name: name, email: email, phone: phone || null, restaurant_id: restaurantId, is_active: true, role: 'restaurant', password: 'google-auth' })
             });
             if (!resp.ok) throw new Error('Erstellen fehlgeschlagen');
@@ -28370,7 +28433,7 @@ function renderPendingGastroNotice(pending) {
 async function loadPendingGastroRequests() {
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/customers?role=eq.restaurant&is_active=eq.false&select=id,name,email,phone,restaurant_id,created_at', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!resp.ok) return;
         var pending = await resp.json();
@@ -28428,7 +28491,7 @@ async function approveGastroRequest(customerId, restaurantId) {
         // Customer aktivieren
         var resp1 = await fetch(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_active: true })
         });
         if (!resp1.ok) throw new Error('Customer aktivieren fehlgeschlagen');
@@ -28437,7 +28500,7 @@ async function approveGastroRequest(customerId, restaurantId) {
         if (restaurantId) {
             var resp2 = await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, {
                 method: 'PATCH',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: true })
             });
         }
@@ -28455,7 +28518,7 @@ async function rejectGastroRequest(customerId) {
     try {
         await sbWrite(SUPABASE_URL + '/rest/v1/customers?id=eq.' + customerId, {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         showToast('Anfrage abgelehnt', 'default');
         loadPendingGastroRequests();
@@ -28604,7 +28667,7 @@ async function toggleRestFeatureInList(restId, feature, enabled) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -28691,7 +28754,7 @@ async function deleteRestaurant(restaurantId) {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -29655,7 +29718,7 @@ async function saveNewCoupon() {
     try {
         // Duplikat-Check serverseitig
         var dupRes = await fetch(SUPABASE_URL + '/rest/v1/coupons?code=eq.' + encodeURIComponent(code) + '&select=id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (dupRes.ok) {
             var dup = await dupRes.json();
@@ -29665,7 +29728,7 @@ async function saveNewCoupon() {
         var insRes = await fetch(SUPABASE_URL + '/rest/v1/coupons', {
             method: 'POST',
             headers: {
-                'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json', 'Prefer': 'return=representation'
             },
             body: JSON.stringify({
@@ -29720,7 +29783,7 @@ async function renderMarketingCoupons() {
     var coupons = [];
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?select=*&order=created_at.desc&limit=100', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (res.ok) {
             var sc = await res.json();
@@ -29811,7 +29874,7 @@ async function toggleCouponActive(id, isLocal, newState) {
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(id), {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ is_active: !!newState })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -29834,7 +29897,7 @@ async function deleteCustomCoupon(id, isLocal) {
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(id), {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=minimal' }
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         renderMarketingCoupons();
@@ -30310,7 +30373,7 @@ async function loadDashboardStats() {
     try {
         // Restaurants zählen
         const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id&is_active=eq.true`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
 
         if (!restResponse.ok) {
@@ -30342,7 +30405,7 @@ async function loadDashboardStats() {
             let _resUrl = `${SUPABASE_URL}/rest/v1/reservations?select=id,party_size&reservation_date=eq.${today}`;
             if (window._gastroOnlyRestaurantId) _resUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
             const resResponse = await fetch(_resUrl, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const todayRes = await resResponse.json();
             const resArray = Array.isArray(todayRes) ? todayRes : [];
@@ -30363,7 +30426,7 @@ async function loadDashboardStats() {
             var _statsRestId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
             if (_statsRestId) _offUrl += '&restaurant_id=eq.' + _statsRestId;
             const offersResponse = await fetch(_offUrl, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const offers = await offersResponse.json();
             const offersArray = Array.isArray(offers) ? offers : [];
@@ -30385,7 +30448,7 @@ async function loadDashboardStats() {
         // Kunden zählen
         try {
             const customersResponse = await sbRead(`${SUPABASE_URL}/rest/v1/customers?select=id,payment_status,is_active`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const customersData = await customersResponse.json();
             const custArray = Array.isArray(customersData) ? customersData : [];
@@ -30402,7 +30465,7 @@ async function loadDashboardStats() {
         // Unterkünfte zählen
         try {
             const accResponse = await sbRead(`${SUPABASE_URL}/rest/v1/accommodations?select=id,has_availability`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const accData = await accResponse.json();
             const accArray = Array.isArray(accData) ? accData : [];
@@ -30418,7 +30481,7 @@ async function loadDashboardStats() {
         // Events zählen
         try {
             const eventsResponse = await sbRead(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const eventsData = await eventsResponse.json();
             const eventsArray = Array.isArray(eventsData) ? eventsData : [];
@@ -30435,7 +30498,7 @@ async function loadDashboardStats() {
         // Attraktionen zählen
         try {
             const attrResponse = await sbRead(`${SUPABASE_URL}/rest/v1/attractions?select=id,category`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const attrData = await attrResponse.json();
             const attrArray = Array.isArray(attrData) ? attrData : [];
@@ -30549,7 +30612,7 @@ async function renderActiveOffers() {
             ((typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : '');
         if (_offRestId) _offListUrl += '&restaurant_id=eq.' + _offRestId;
         var resp = await fetch(_offListUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var specials = await resp.json();
 
@@ -30604,7 +30667,7 @@ async function publishDailyOffer() {
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/daily_specials', {
             method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ id: Date.now(), restaurant_id: restId, title: title, description: desc, price: price, old_price: oldPrice, valid_until: validUntil, date: today, is_active: true })
         });
         if (resp.ok) {
@@ -30622,7 +30685,7 @@ async function toggleDailyOffer(id, isActive) {
     try {
         var _offRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_active: isActive })
         });
         if (!_offRes.ok) { showToast('Konnte nicht gespeichert werden (Fehler ' + _offRes.status + ')', 'error'); return; }
@@ -30636,7 +30699,7 @@ async function deleteDailyOffer(id) {
     try {
         var _delRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?id=eq.' + id, {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!_delRes.ok) { showToast('Angebot konnte nicht gelöscht werden (Fehler ' + _delRes.status + ')', 'error'); return; }
         showToast('Angebot gelöscht', 'success');
@@ -30949,14 +31012,14 @@ async function _patchVacation(newEntry) {
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await res.json();
         var features = ((data[0] && data[0].features) || []).filter(function (f) { return String(f).indexOf('vacation:') !== 0; });
         if (newEntry) features.push(newEntry);
         var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
         });
         if (!upd.ok) throw new Error('HTTP ' + upd.status);
@@ -30989,7 +31052,7 @@ async function toggleFeature(feature) {
     try {
         // Lade aktuelle features
         var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await res.json();
         var features = (data[0] && data[0].features) ? data[0].features : [];
@@ -31021,7 +31084,7 @@ async function toggleFeature(feature) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -31142,7 +31205,7 @@ async function deleteOffer(id) {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal'
                 },
@@ -31691,7 +31754,7 @@ async function submitReviewReply(reviewId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -31948,7 +32011,7 @@ async function markHelpful(reviewId) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -32324,7 +32387,7 @@ async function addRestaurant(e) {
             method: method,
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -32402,7 +32465,7 @@ async function addRestaurant(e) {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -32432,7 +32495,7 @@ async function addRestaurant(e) {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(customerData)
@@ -32495,7 +32558,7 @@ async function loadEvents() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&is_active=eq.true&order=event_date`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -32613,7 +32676,7 @@ async function loadAttractions() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/attractions?select=*&is_active=eq.true&order=rating.desc`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -32753,7 +32816,7 @@ async function loadJobs() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/jobs?select=*,restaurants(name,city)&is_active=eq.true&order=created_at.desc`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -32904,7 +32967,7 @@ async function loadAccommodations() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/accommodations?select=*&is_active=eq.true&order=name`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -33341,7 +33404,7 @@ async function toggleAccommodationAvailability(id, currentStatus) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ has_availability: !currentStatus })
@@ -33366,7 +33429,7 @@ async function deleteAccommodation(id, name) {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -33387,7 +33450,7 @@ async function loadCustomers() {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -33653,7 +33716,7 @@ async function saveCustomerPricing() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -33742,7 +33805,7 @@ async function setupStripeForCustomer(customerId) {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal'
                 },
@@ -33975,7 +34038,7 @@ async function regeocodeAllRestaurants() {
     if (btn) btn.disabled = true;
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name,street,zip,city,latitude,longitude&order=name', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) throw new Error('Restaurants laden fehlgeschlagen');
         var list = await res.json();
@@ -33991,7 +34054,7 @@ async function regeocodeAllRestaurants() {
                 if (dLat > 0.0005 || dLng > 0.0005) {
                     var up = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + r.id, {
                         method: 'PATCH',
-                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                         body: JSON.stringify({ latitude: geo.lat, longitude: geo.lng })
                     });
                     if (up.ok) {
@@ -34110,7 +34173,7 @@ async function addCustomer(e) {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
@@ -34196,7 +34259,7 @@ async function addCustomer(e) {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Content-Type': 'application/json',
                     'Prefer': 'return=representation'
                 },
@@ -34286,7 +34349,7 @@ async function recordPayment() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -34702,7 +34765,7 @@ async function toggleCustomerStatus(customerId, currentStatus) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ is_active: !currentStatus })
@@ -34726,7 +34789,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ is_active: true })
@@ -34738,7 +34801,7 @@ async function approveRestaurantRegistration(customerId, restaurantId) {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ is_active: true, is_open: true })
@@ -34771,7 +34834,7 @@ async function deleteCustomer(customerId, customerName) {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Prefer': 'return=minimal'
             }
         });
@@ -34859,13 +34922,13 @@ async function updateNotificationBadgeLive() {
         var _badgeOrdUrl = SUPABASE_URL + '/rest/v1/orders?status=eq.received&select=id&limit=50';
         if (window._gastroOnlyRestaurantId) _badgeOrdUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
         var resp = await fetch(_badgeOrdUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var newOrders = await resp.json();
         var _badgeResUrl = SUPABASE_URL + '/rest/v1/reservations?status=eq.pending&select=id&limit=50';
         if (window._gastroOnlyRestaurantId) _badgeResUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
         var resp2 = await fetch(_badgeResUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var newRes = await resp2.json();
         var total = (newOrders ? newOrders.length : 0) + (newRes ? newRes.length : 0);
@@ -34896,7 +34959,7 @@ async function loadLiveNotifications(container) {
         var _feedOrdUrl = SUPABASE_URL + '/rest/v1/orders?select=id,order_number,customer_name,customer_phone,status,total,order_type,created_at,restaurant_name&order=created_at.desc&limit=20';
         if (window._gastroOnlyRestaurantId) _feedOrdUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
         var ordResp = await fetch(_feedOrdUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var orders = await ordResp.json();
         if (orders && orders.length) {
@@ -34922,7 +34985,7 @@ async function loadLiveNotifications(container) {
         var _feedResUrl = SUPABASE_URL + '/rest/v1/reservations?select=id,guest_name,guest_phone,reservation_date,reservation_time,party_size,status,created_at,restaurant_id&order=created_at.desc&limit=20';
         if (window._gastroOnlyRestaurantId) _feedResUrl += '&restaurant_id=eq.' + window._gastroOnlyRestaurantId;
         var resResp = await fetch(_feedResUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var reservations = await resResp.json();
         if (reservations && reservations.length) {
@@ -34947,7 +35010,7 @@ async function loadLiveNotifications(container) {
     try {
         // Pending Restaurant-Registrierungen laden
         var regResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?select=id,name,email,phone,restaurant_id,created_at&is_active=eq.false&role=eq.restaurant&order=created_at.desc&limit=10', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var pendingRegs = await regResp.json();
         if (pendingRegs && pendingRegs.length) {
@@ -34958,7 +35021,7 @@ async function loadLiveNotifications(container) {
                 if (reg.restaurant_id) {
                     try {
                         var rrr = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + reg.restaurant_id + '&select=name', {
-                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                         var rrd = await rrr.json();
                         if (rrd[0]) regRestName = rrd[0].name;
@@ -35111,7 +35174,7 @@ async function autoRefreshRestaurants() {
     try {
         // Echte Tisch-Daten aus Supabase laden
         var res = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?select=restaurant_id,status', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) return;
         var tables = await res.json();
@@ -35336,7 +35399,7 @@ function loadProfileReservations() {
     if (!cont || !currentUser) return;
     try {
         var url = SUPABASE_URL + '/rest/v1/reservations?customer_email=eq.' + encodeURIComponent(currentUser.email) + '&status=eq.confirmed&order=date.asc&limit=2';
-        fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } })
+        fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + kmiToken() } })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data || data.length === 0) return;
@@ -35475,13 +35538,30 @@ function initSupabaseAuth() {
 
         // Auth State Listener
         supabaseClient.auth.onAuthStateChange((event, session) => {
+            // Zuerst das Token merken, dann erst alles andere. Sonst wuerde
+            // handleGoogleLoginSuccess() seine Abfragen noch mit dem
+            // oeffentlichen Schluessel stellen -- ausgerechnet die, die
+            // pruefen, was der Angemeldete darf.
+            kmiTokenSetzen(session);
+
             if (event === 'SIGNED_IN' && session?.user) {
                 handleGoogleLoginSuccess(session.user);
             } else if (event === 'SIGNED_OUT') {
                 handleLogout();
             } else if (event === 'TOKEN_REFRESHED') {
+                // Nichts weiter zu tun -- das erneuerte Token ist oben schon
+                // uebernommen. Genau dafuer ist dieser Zweig da: ohne ihn
+                // waere nach einer Stunde jede Anfrage mit einem abgelaufenen
+                // Token rausgegangen.
             }
         });
+
+        // Beim Laden der Seite feuert onAuthStateChange nicht zwingend als
+        // erstes. Wer die Seite mit gueltiger Sitzung neu laedt, soll seine
+        // erste Abfrage nicht noch als Fremder stellen.
+        supabaseClient.auth.getSession().then(function (r) {
+            kmiTokenSetzen(r && r.data && r.data.session);
+        }).catch(function () { /* keine Sitzung -- dann bleibt es beim oeffentlichen Schluessel */ });
 
         // Check if returning from OAuth redirect
         handleOAuthRedirect();
@@ -35613,7 +35693,7 @@ async function checkIfGastronom(email, googleUser) {
         const response = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.true`, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -35626,7 +35706,7 @@ async function checkIfGastronom(email, googleUser) {
             // Prüfe ob Restaurant auch aktiv ist
             if (customer.restaurant_id) {
                 const restResp = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=id,name,is_active`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
                 const restData = await restResp.json();
 
@@ -35673,7 +35753,7 @@ async function checkIfGastronom(email, googleUser) {
 
         // Phase 2: Prüfe ob PENDING Customer existiert (is_active = false)
         const pendingResp = await sbRead(`${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&is_active=eq.false&role=eq.restaurant`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         const pendingCustomers = await pendingResp.json();
 
@@ -35697,7 +35777,7 @@ async function checkIfGastronom(email, googleUser) {
             if (customer.restaurant_id) {
                 try {
                     var rr = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}&select=name`, {
-                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                     });
                     var rd = await rr.json();
                     if (rd[0]) restName = rd[0].name;
@@ -35762,7 +35842,7 @@ async function showGastroDashboard(customer) {
             const response = await sbRead(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${customer.restaurant_id}`, {
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
+                    'Authorization': 'Bearer ' + kmiToken()
                 }
             });
             const data = await response.json();
@@ -36051,7 +36131,7 @@ async function handleGastroLogoUpload(event) {
                     method: 'PATCH',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
@@ -36197,7 +36277,7 @@ async function submitGastroRegistration(e) {
 
         // Slug-Duplikat prüfen
         var slugResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?slug=eq.' + slug + '&select=id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var slugData = await slugResp.json();
         if (slugData && slugData.length > 0) {
@@ -36206,7 +36286,7 @@ async function submitGastroRegistration(e) {
 
         // E-Mail-Duplikat prüfen
         var emailResp = await sbRead(SUPABASE_URL + '/rest/v1/customers?email=eq.' + encodeURIComponent(email) + '&select=id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var emailData = await emailResp.json();
         if (emailData && emailData.length > 0) {
@@ -36245,7 +36325,7 @@ async function submitGastroRegistration(e) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -36283,7 +36363,7 @@ async function submitGastroRegistration(e) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -36565,7 +36645,7 @@ async function updateReservationStatus(reservationId, newStatus) {
     try {
         // Erst aktuelle Daten laden damit RPC keine Felder auf NULL setzt
         var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var curArr = await curResp.json().catch(function() { return []; });
         var cur = curArr[0] || {};
@@ -36575,7 +36655,7 @@ async function updateReservationStatus(reservationId, newStatus) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -36614,7 +36694,7 @@ async function updateReservationStatus(reservationId, newStatus) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -36644,7 +36724,7 @@ async function openGastroResEdit(reservationId) {
     // Reservierung aus Supabase laden
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + reservationId + '&select=*', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var resArr = await resp.json();
         if (!resArr || resArr.length === 0) {
@@ -36656,7 +36736,7 @@ async function openGastroResEdit(reservationId) {
         // Tische laden
         var restId = res.restaurant_id || window.currentRestaurantId;
         var tablesResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&order=table_number', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         _gastroEditTables = await tablesResp.json() || [];
 
@@ -36769,7 +36849,7 @@ async function saveGastroResEdit() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(rpcPayload)
@@ -36794,7 +36874,7 @@ async function saveGastroResEdit() {
 
         // Alte Daten holen (restaurant_id, source etc.)
         var oldResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId + '&select=restaurant_id,source,created_at,guest_email,occasion,duration_minutes', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var oldArr = await oldResp.json().catch(function() { return []; });
         var oldData = oldArr[0] || {};
@@ -36807,7 +36887,7 @@ async function saveGastroResEdit() {
         // DELETE alte Reservierung
         await sbWrite(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
 
         // INSERT neue Reservierung mit gleicher ID
@@ -36832,7 +36912,7 @@ async function saveGastroResEdit() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -36952,7 +37032,7 @@ async function tpLadeTische() {
               || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : null);
     if (!rid) { tpTables = []; return; }
 
-    var kopf = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+    var kopf = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() };
     var res = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.'
         + encodeURIComponent(rid) + '&is_active=eq.true'
         + '&select=id,table_number,table_name,max_capacity,status,area,pos_x,pos_y&order=table_number',
@@ -37233,7 +37313,7 @@ async function loadTischplanForRestaurant(restaurantId) {
     try {
         var tUrl = SUPABASE_URL + '/rest/v1/restaurant_tables?select=*&restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc';
         var tResp = await fetch(tUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tData = tResp.ok ? await tResp.json() : [];
 
@@ -37597,7 +37677,7 @@ async function saveGastroOffer() {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -37606,7 +37686,7 @@ async function saveGastroOffer() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -37843,7 +37923,7 @@ async function openRestaurantBySlug(slug) {
     if (!rest) {
         try {
             var res = await cachedFetch(SUPA_URL + '/rest/v1/restaurants?or=(slug.eq.' + slug + ',name.ilike.*' + slug.replace(/-/g, '%') + '*)&limit=1', {
-                headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+                headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             }, 300000);
             var data = await res.json();
             if (data && data[0]) {
@@ -38428,7 +38508,7 @@ async function showRestaurantLanding(rest) {
     (async function() {
         try {
             var resp = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + rest.id + '&select=name,description,base_price&is_available=eq.true&order=is_popular.desc,sort_order.asc&limit=4', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             if (!resp.ok) return;
             var items = await resp.json();
@@ -38468,7 +38548,7 @@ async function showRestaurantLanding(rest) {
         // Zusätzlich Review-Fotos laden
         try {
             var res2 = await fetch(SUPA_URL + '/rest/v1/review_photos?select=image_url&review_id=in.(select id from reviews where restaurant_id=eq.' + rest.id + ')&limit=6', {
-                headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+                headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             if (res2.ok) {
                 var photos = await res2.json();
@@ -38717,7 +38797,7 @@ async function loadMyReservationsFromSupabase(phone) {
         var cleanPhone = phone.replace(/\s/g, '');
         var phoneEnd = cleanPhone.slice(-8);
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneEnd) + '*&order=reservation_date.desc,reservation_time.desc&limit=20', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var reservations = await resp.json();
 
@@ -38896,13 +38976,13 @@ async function loadBlockingStats(restId) {
         // Parallel laden: Reservierungen heute, Bestellungen heute, Tische gesamt
         var [resResp, orderResp, tableResp] = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,seated)&select=id,status', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             }),
             fetch(SUPABASE_URL + '/rest/v1/orders?restaurant_id=eq.' + restId + '&created_at=gte.' + today + 'T00:00:00&status=neq.cancelled&select=id,total,status', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             }),
             fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&select=id', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             })
         ]);
 
@@ -38943,7 +39023,7 @@ async function loadBlockTables(restId) {
     if (!select) return;
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tables = await resp.json();
         var html = '';
@@ -39060,7 +39140,7 @@ async function createBlock() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -39099,7 +39179,7 @@ async function loadBlockList(restId, date) {
 
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var blocks = await resp.json();
 
@@ -39140,7 +39220,7 @@ async function removeBlock(blockId) {
     try {
         // RPC nutzen um RLS zu umgehen — Status auf 'cancelled' setzen statt DELETE
         var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var curArr = await curResp.json().catch(function() { return []; });
         var cur = curArr[0] || {};
@@ -39149,7 +39229,7 @@ async function removeBlock(blockId) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -41085,7 +41165,7 @@ async function assistantLoadDishes(restaurantId) {
     if (!items) {
         try {
             var url = SUPA_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&is_available=eq.true&order=sort_order&select=*,menu_categories(name)';
-            var res = await fetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+            var res = await fetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
             items = await res.json();
         } catch(e) {}
     }
@@ -45163,7 +45243,7 @@ async function openMenuModal(restaurantId) {
         }
         if (restaurant.name === 'Restaurant') {
             try {
-                var res = await sbRead(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+                var res = await sbRead(SUPA_URL + '/rest/v1/restaurants?id=eq.' + restaurantId, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
                 var data = await res.json();
                 if (data && data[0]) restaurant = data[0];
             } catch(e) {}
@@ -45307,7 +45387,7 @@ async function loadPopularItems(restaurantId) {
         var since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         var url = SUPABASE_URL + '/rest/v1/order_items?select=item_name,quantity,order_id!inner(restaurant_id)&order_id.restaurant_id=eq.' + restaurantId + '&created_at=gte.' + since;
         var res = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var items = await res.json();
 
@@ -45315,7 +45395,7 @@ async function loadPopularItems(restaurantId) {
             // Fallback: alle order_items ohne Join
             var url2 = SUPABASE_URL + '/rest/v1/order_items?select=item_name,quantity&created_at=gte.' + since + '&limit=500';
             var res2 = await fetch(url2, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             items = await res2.json();
             if (!items || items.code) items = [];
@@ -45370,7 +45450,7 @@ async function loadMenuCategoriesFromDB(restaurantId) {
     if (!categories) {
         try {
             var url = SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order';
-            var res = await cachedFetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }, 120000);
+            var res = await cachedFetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() } }, 120000);
             categories = await res.json();
         } catch(e) { console.error('Fehler:', e); }
     }
@@ -46036,7 +46116,7 @@ async function loadMenuItems(restaurantId, categoryId) {
         try {
             var url = SUPA_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&order=sort_order';
             if (categoryId) url += '&category_id=eq.' + categoryId;
-            var res = await cachedFetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }, 120000);
+            var res = await cachedFetch(url, { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() } }, 120000);
             items = await res.json();
         } catch(e) { console.error('Fehler:', e); }
     }
@@ -46454,7 +46534,7 @@ async function loadItemOptionGroups(item) {
     try {
         // Alle aktiven Optionsgruppen für dieses Restaurant laden
         var url = SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=sort_order';
-        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         if (!res.ok) throw new Error('Tabelle nicht gefunden');
         var allGroups = await res.json();
         if (!allGroups || allGroups.length === 0) return [];
@@ -46479,7 +46559,7 @@ async function loadItemOptionGroups(item) {
         // Optionen (Choices) für passende Gruppen laden
         var groupIds = allGroups.map(function(g) { return g.id; });
         var choicesUrl = SUPABASE_URL + '/rest/v1/menu_options?group_id=in.(' + groupIds.join(',') + ')&is_available=eq.true&order=sort_order';
-        var choicesRes = await fetch(choicesUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var choicesRes = await fetch(choicesUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         var choices = [];
         if (choicesRes.ok) choices = await choicesRes.json() || [];
 
@@ -46664,13 +46744,13 @@ async function showCrossSellSuggestions(item) {
     // 1. Manuelle Pairings aus DB prüfen (mit Aktionspreis)
     try {
         var url = SUPABASE_URL + '/rest/v1/menu_cross_sells?source_item_id=eq.' + item.id + '&order=sort_order&limit=4';
-        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         if (res.ok) {
             var pairings = await res.json();
             if (pairings && pairings.length > 0) {
                 var targetIds = pairings.map(function(p) { return p.target_item_id; });
                 var itemsUrl = SUPABASE_URL + '/rest/v1/menu_items?id=in.(' + targetIds.join(',') + ')&is_available=eq.true';
-                var itemsRes = await fetch(itemsUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+                var itemsRes = await fetch(itemsUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
                 if (itemsRes.ok) {
                     suggestions = await itemsRes.json() || [];
                     // Aktionspreis aus cross_sell_price übernehmen
@@ -46691,7 +46771,7 @@ async function showCrossSellSuggestions(item) {
         try {
             // Erst Kategorien laden um smart zu empfehlen
             var catUrl = SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order';
-            var catRes = await fetch(catUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+            var catRes = await fetch(catUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
             var allCategories = catRes.ok ? (await catRes.json() || []) : [];
 
             // Kategorien nach Typ klassifizieren
@@ -46733,7 +46813,7 @@ async function showCrossSellSuggestions(item) {
             // Aus den Smart-Kategorien holen
             if (smartCatIds.length > 0) {
                 var smartUrl = SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&is_available=eq.true&category_id=in.(' + smartCatIds.join(',') + ')&order=sort_order&limit=8';
-                var smartRes = await fetch(smartUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+                var smartRes = await fetch(smartUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
                 if (smartRes.ok) {
                     var smartItems = await smartRes.json() || [];
                     smartItems.sort(function() { return 0.5 - Math.random(); });
@@ -46747,7 +46827,7 @@ async function showCrossSellSuggestions(item) {
             if (suggestions.length === 0) {
                 var catFilter = item.category_id ? '&category_id=neq.' + item.category_id : '';
                 var url2 = SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&is_available=eq.true' + catFilter + '&order=sort_order&limit=6';
-                var res2 = await fetch(url2, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+                var res2 = await fetch(url2, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
                 if (res2.ok) {
                     var allItems = await res2.json() || [];
                     allItems.sort(function() { return 0.5 - Math.random(); });
@@ -46938,7 +47018,7 @@ async function loadOptionGroups() {
     container.innerHTML = '<p style="padding:20px;color:var(--slate);text-align:center;">Laden...</p>';
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var groups = await res.json();
         if (!groups || groups.length === 0) {
@@ -46949,7 +47029,7 @@ async function loadOptionGroups() {
                 var g = groups[i];
                 // Lade Optionen für diese Gruppe
                 var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
                 var opts = await optRes.json();
                 var typeLabel = g.selection_type === 'single' ? 'Einzelauswahl (Größe)' : 'Mehrfachauswahl (Extras)';
@@ -47073,7 +47153,7 @@ async function saveOptionGroup(editId) {
             method: method,
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -47114,7 +47194,7 @@ async function saveOptionGroup(editId) {
         if (editId) {
             await sbWrite(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + editId, {
                 method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
         }
 
@@ -47142,7 +47222,7 @@ async function saveOptionGroup(editId) {
                 method: 'POST',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(choices)
@@ -47162,14 +47242,14 @@ async function saveOptionGroup(editId) {
 async function openEditOptionGroupModal(groupId) {
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var groups = await res.json();
         if (!groups || !groups[0]) return;
         var g = groups[0];
 
         var optRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var opts = await optRes.json();
 
@@ -47238,7 +47318,7 @@ async function deleteOptionGroup(groupId) {
     try {
         var kopf = {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Authorization': 'Bearer ' + kmiToken(),
             'Prefer': 'return=representation'
         };
         // Erst Optionen löschen
@@ -47281,7 +47361,7 @@ async function loadCrossSells(restId) {
     var container = document.getElementById('crossSellList');
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/menu_cross_sells?restaurant_id=eq.' + restId + '&select=*,source:menu_items!source_item_id(name,base_price),target:menu_items!target_item_id(name,base_price)&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) {
             container.innerHTML = '<div style="padding:24px;text-align:center;">' +
@@ -47380,7 +47460,7 @@ async function openCreateCrossSellModal() {
     // Lade alle Items des Restaurants
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restId + '&is_available=eq.true&order=name', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var items = await res.json();
         var optionsHtml = items.map(function(item) {
@@ -47445,7 +47525,7 @@ async function saveCrossSell() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
@@ -47463,7 +47543,7 @@ async function deleteCrossSell(id) {
     try {
         await sbWrite(SUPABASE_URL + '/rest/v1/menu_cross_sells?id=eq.' + id, {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         showToast('Empfehlung gelöscht', 'success');
         var restId = document.getElementById('optionsRestaurantSelect').value;
@@ -47488,7 +47568,7 @@ function initOptionsRestaurantSelect() {
     }
 
     fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name&order=name', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -47521,7 +47601,7 @@ async function loadMenuOptionGroups(restId) {
     if (optSelect) optSelect.value = restId;
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restId + '&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var groups = await res.json();
         if (!groups || groups.length === 0) {
@@ -47532,7 +47612,7 @@ async function loadMenuOptionGroups(restId) {
         for (var i = 0; i < groups.length; i++) {
             var g = groups[i];
             var optRes2 = await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + g.id + '&order=sort_order', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var opts = await optRes2.json();
             var typeLabel = g.selection_type === 'single' ? 'Einzelauswahl' : 'Mehrfachauswahl';
@@ -47803,7 +47883,7 @@ async function _bestellungNachpruefen(orderNumber) {
         var uhr = setTimeout(function () { stop.abort(); }, 3000);
         var res = await fetch(SUPABASE_URL + '/rest/v1/orders?select=id&limit=1&order_number=eq.'
                               + encodeURIComponent(orderNumber), {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() },
             signal: stop.signal
         });
         clearTimeout(uhr);
@@ -48872,7 +48952,7 @@ async function submitOrder() {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json',
                         'Prefer': 'return=representation'
                     },
@@ -48962,7 +49042,7 @@ async function submitOrder() {
                 if (activeCoupon && activeCoupon.id) {
                     fetch(SUPABASE_URL + '/rest/v1/coupons?id=eq.' + encodeURIComponent(activeCoupon.id), {
                         method: 'PATCH',
-                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                         body: JSON.stringify({ used_count: (activeCoupon.used_count || 0) + 1 })
                     }).catch(function () {});
                 }
@@ -49460,7 +49540,7 @@ async function sendOrderConfirmationEmail(order, email) {
         var response = await fetch(SUPABASE_URL + '/functions/v1/send-email', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -49521,7 +49601,7 @@ function startOrderTracking(orderId) {
         if (!activeTrackingOrderId) { clearInterval(trackingPollingInterval); return; }
         try {
             var res = await sbRead(SUPABASE_URL + '/rest/v1/orders?id=eq.' + activeTrackingOrderId + '&select=status,estimated_minutes,order_type', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var data = await res.json();
             if (data && data[0]) updateOrderTrackerUI(data[0].status, data[0].estimated_minutes, data[0].order_type);
@@ -50138,7 +50218,7 @@ async function _karteFuerAuswertung(rid) {
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + rid
             + '&select=id,name,is_available,created_at&limit=500',
-            { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+            { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         if (!res.ok) return [];
         var j = await res.json();
         if (!Array.isArray(j)) return [];
@@ -50326,7 +50406,7 @@ async function loadDashboardOrders() {
 
         const _ordHeaders = {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY
+            'Authorization': 'Bearer ' + kmiToken()
         };
         // 1. Versuch MIT order_items-Verknüpfung (Detail-Gerichte).
         let response = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*,order_items(*)` + filterPart, { headers: _ordHeaders });
@@ -50556,7 +50636,7 @@ async function checkForNewOrders() {
         if (_pollRestId) pollUrl += '&restaurant_id=eq.' + encodeURIComponent(_pollRestId);
         pollUrl += '&order=created_at.desc';
         var resp = await fetch(pollUrl, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (resp.ok) {
             var data = await resp.json();
@@ -50989,7 +51069,7 @@ async function loadPeriodComparison(currentRevenue, currentCount) {
             (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '') || '';
         if (_prevRestId) url += '&restaurant_id=eq.' + _prevRestId;
         var resp = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!resp.ok) return;
         var prevOrders = await resp.json();
@@ -51208,7 +51288,7 @@ async function confirmAcceptOrder() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -51271,7 +51351,7 @@ async function rejectOrder(orderId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -51329,7 +51409,7 @@ async function updateOrderStatus(orderId, newStatus) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -51433,7 +51513,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -52631,11 +52711,11 @@ async function refreshPrinterStatus() {
         // kombinierte Select mit 400 fehlschlagen und auch die Drucker-Ampel
         // lahmlegen. Deshalb: erst kombiniert versuchen, dann Fallback.
         var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at,pos_last_poll_at', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) {
             res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=printer_last_poll_at', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             if (!res.ok) return;
         }
@@ -53044,7 +53124,7 @@ async function _savePOSConfigToSupabase(config) {
         });
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_config: safeConfig })
         });
     } catch(e) { console.warn('POS Config Supabase Backup fehlgeschlagen:', e); }
@@ -53055,7 +53135,7 @@ async function _loadPOSConfigFromSupabase() {
         var restId = customer.restaurant_id;
         if (!restId) return;
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=pos_config', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await resp.json();
         if (data && data[0] && data[0].pos_config) {
@@ -53599,7 +53679,7 @@ async function _autoAcceptAfterPosPush(order, config) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -53674,7 +53754,7 @@ async function _savePOSSyncStatus(orderId, status, message) {
     try {
         var entry = { ts: new Date().toISOString(), status: status, message: message };
         var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=pos_log', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var arr = [];
         if (resp.ok) {
@@ -53684,7 +53764,7 @@ async function _savePOSSyncStatus(orderId, status, message) {
         arr.push(entry);
         await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ pos_log: arr })
         });
         // In-memory dashboardOrders ebenfalls aktualisieren, damit Badge sofort erscheint.
@@ -53757,7 +53837,7 @@ async function resendOrderToWinOrder(orderId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -53883,7 +53963,7 @@ async function copyOrderForKasse(orderId) {
                 message: 'Manuell zum Eintippen in die Kasse kopiert'
             };
             var resp = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=pos_log', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var arr = [];
             if (resp.ok) {
@@ -53893,7 +53973,7 @@ async function copyOrderForKasse(orderId) {
             arr.push(entry);
             await sbWrite(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId), {
                 method: 'PATCH',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ pos_log: arr })
             });
             // Lokal aktualisieren damit Badge sofort umspringt
@@ -54255,7 +54335,7 @@ function logRestaurantEvent(restId, type, message, orderId, payload) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -54451,7 +54531,7 @@ async function _scHole(pfad, deckelMs) {
     var t0 = Date.now();
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/' + pfad, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
                        'Prefer': 'count=exact' },
             signal: stop.signal
         });
@@ -55072,7 +55152,7 @@ async function loadEventsIntoList() {
         var url = SUPABASE_URL + '/rest/v1/restaurant_events?restaurant_id=eq.' + encodeURIComponent(restId) +
             '&created_at=gte.' + encodeURIComponent(since) +
             '&order=created_at.desc&limit=100&select=*';
-        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         if (!res.ok) {
             var msg = res.status === 404 || res.status === 400
                 ? 'Tabelle <code>restaurant_events</code> ist in der Datenbank noch nicht angelegt. SQL siehe Code-Kommentar.'
@@ -55828,7 +55908,7 @@ async function saveDeliveryFee() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -55866,7 +55946,7 @@ async function saveDeliveryRadius() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -56027,7 +56107,7 @@ async function saveMinOrderValue() {
     try {
         var _minRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ min_order_value: minOrder })
         });
         if (!_minRes.ok) {
@@ -56066,7 +56146,7 @@ async function savePaymentSettings() {
 
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await resp.json();
         var features = (data[0]?.features || []).filter(function(f) {
@@ -56078,7 +56158,7 @@ async function savePaymentSettings() {
 
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
         });
 
@@ -56115,7 +56195,7 @@ async function savePaypalMe() {
         try {
             // Features laden, paypal_me entfernen, neuen Wert hinzufügen
             var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var data = await resp.json();
             var features = (data[0]?.features || []).filter(function(f) {
@@ -56125,7 +56205,7 @@ async function savePaypalMe() {
 
             await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
                 method: 'PATCH',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ features: features })
             });
             // APP_DATA updaten
@@ -56282,7 +56362,7 @@ async function saveLoyaltySetting() {
     
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await resp.json();
         var features = (data[0]?.features || []).filter(function(f) { return f !== 'loyalty_points'; });
@@ -56290,7 +56370,7 @@ async function saveLoyaltySetting() {
         
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ features: features })
         });
         
@@ -56330,7 +56410,7 @@ function setLoyaltyRate(rate) {
 async function saveOrderSettingsToSupabase(restId, settings) {
     try {
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var data = await resp.json();
         var features = (data[0]?.features || []).filter(function(f) {
@@ -56344,7 +56424,7 @@ async function saveOrderSettingsToSupabase(restId, settings) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -56516,7 +56596,7 @@ async function pollOrderStatus() {
         var response = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + customerActiveOrder.id + '&select=status,estimated_minutes,estimated_time', {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -56687,7 +56767,7 @@ async function openTableManager(restaurantId) {
         if (!r) return;
 
         var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&order=table_number.asc', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var tables = (await res.json()) || [];
 
@@ -56788,7 +56868,7 @@ async function addTableToSupabase(restaurantId, tableName, tableNumber, maxCapac
     try {
         var resp = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables', {
             method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({
                 restaurant_id: restaurantId,
                 table_name: tableName,
@@ -56826,7 +56906,7 @@ async function deleteTable(tableId, restaurantId) {
     try {
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         showToast('Tisch gelöscht', 'success');
         var modal = document.getElementById('tableManagerModal');
@@ -56875,7 +56955,7 @@ async function toggleTableStatus(tableId, restaurantId) {
     try {
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + tableId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
     } catch (e) {
@@ -56891,7 +56971,7 @@ async function setAllTables(restaurantId, status) {
     try {
         await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: status })
         });
 
@@ -56941,7 +57021,7 @@ async function loadDailySpecials() {
     try {
         var today = todayStrLocal();
         var res = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?select=*,restaurants(name,slug,image_url)&date=eq.' + today + '&is_active=eq.true&order=created_at.desc', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
 
         if (!res.ok) { container.style.display = 'none'; return; }
@@ -57082,7 +57162,7 @@ async function saveDailySpecial(restaurantId) {
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/daily_specials', {
             method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
 
@@ -57591,7 +57671,7 @@ async function loadMyOrdersFromSupabase(phone) {
             orderQuery += '&restaurant_id=eq.' + window._currentLandingRestaurantId;
         }
         var resp = await fetch(orderQuery, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var orders = await resp.json();
 
@@ -57661,7 +57741,7 @@ async function loadMyOrdersFromSupabase(phone) {
                 resQuery += '&restaurant_id=eq.' + window._currentLandingRestaurantId;
             }
             var resResp = await fetch(resQuery, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var reservations = await resResp.json();
 
@@ -57808,7 +57888,7 @@ window.loadMenuRestaurantSelect = async function() {
         var response = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=id,name&order=name', {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
 
@@ -57876,7 +57956,7 @@ window.loadMenuForRestaurant = async function(restaurantId) {
     // Kategorien aus Supabase laden
     try {
         var catResponse = await fetch(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
 
         if (catResponse.ok) {
@@ -57887,7 +57967,7 @@ window.loadMenuForRestaurant = async function(restaurantId) {
 
         // Items laden
         var itemsResponse = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
 
         if (itemsResponse.ok) {
@@ -58486,7 +58566,7 @@ async function addMenuCategory(e) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -58606,7 +58686,7 @@ async function addMenuItem(e) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -58671,7 +58751,7 @@ async function deleteMenuItem(itemId) {
                 method: 'DELETE',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + kmiToken(),
                     'Prefer': 'return=representation',
                     'Content-Type': 'application/json'
                 }
@@ -58686,7 +58766,7 @@ async function deleteMenuItem(itemId) {
         if (!deleted) {
             // Prüfen ob Item noch existiert
             var checkResp = await sbRead(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var checkData = await checkResp.json();
             if (!checkData || checkData.length === 0) {
@@ -58734,11 +58814,11 @@ async function deleteCategory(categoryId) {
         if (!catDeleted) {
             await sbWrite(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
                 method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=representation' }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
             });
             var resp = await fetch(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}`, {
                 method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=representation' }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
             });
             if (resp.ok) {
                 var data = await resp.json();
@@ -58749,7 +58829,7 @@ async function deleteCategory(categoryId) {
         // Verifizieren
         if (!catDeleted) {
             var check = await sbRead(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var cd = await check.json();
             if (!cd || cd.length === 0) catDeleted = true;
@@ -59667,7 +59747,7 @@ async function ladeVorhandeneKategorien(restaurantId) {
     try {
         var r = await sbRead(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' +
             encodeURIComponent(restaurantId) + '&select=name&order=sort_order',
-            { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+            { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         var rows = await r.json();
         return Array.isArray(rows) ? rows.map(function (c) { return c.name; }).filter(Boolean) : [];
     } catch (e) { return []; }
@@ -62810,7 +62890,7 @@ async function sichereKarte(restaurantId, anlass) {
         if (!liste.length) return null;
         var res = await fetch(SUPA_URL + '/rest/v1/activity_log', {
             method: 'POST',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(),
                        'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({
                 activity_type: 'menu_backup',
@@ -62925,7 +63005,7 @@ async function wendeKartenAbgleichAn() {
 
     await sichereKarte(restaurantId, 'Karte abgleichen');
 
-    var H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+    var H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(),
               'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
     var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
 
@@ -63469,7 +63549,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
     // Gruppe hat keine ID, und ohne ID lassen sich ihre Optionen nicht
     // schreiben. Genau daran ist es gescheitert: die Gruppe entstand, die
     // Zutaten nie.
-    SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+    SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(),
                'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var extrasAngelegt = 0, extrasUebersprungen = 0;
     var _extraFehler = [], _gruppenWeg = {}, _optionenWeg = {};
@@ -63634,7 +63714,7 @@ async function importScannedMenu() {
         importBtn.innerHTML = '<div class="loading-spinner" style="width:20px;height:20px;margin:0 auto;"></div> Importiere...';
     }
 
-    var SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    var SUPA_H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var importedCount = 0;
     var errors = [];
     var categoryMap = {}; // Name → ID
@@ -63962,7 +64042,7 @@ async function toggleSoldOut(itemId) {
     try {
         var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({ is_available: newAvail })
         });
         if (res.ok) {
@@ -64050,7 +64130,7 @@ async function saveEditedItem(itemId) {
     try {
         var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
             method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({
                 name: name, description: desc, base_price: price, category_id: catId,
                 is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
@@ -64224,7 +64304,7 @@ async function applyBulkPrice(type) {
 
     var items = menuItems.filter(function(i) { return bulkSelectedItems[i.id]; });
     var updated = 0;
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
+    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' };
 
     for (var k = 0; k < items.length; k++) {
         var item = items[k];
@@ -64260,7 +64340,7 @@ async function bulkDeleteItems() {
     if (count === 0) return;
     if (!await kinConfirm(count + ' Gerichte wirklich löschen?')) return;
 
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY };
+    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() };
     var deleted = 0;
     var ids = Object.keys(bulkSelectedItems);
 
@@ -64304,7 +64384,7 @@ async function loadSizeGroups(restaurantId) {
 
     try {
         var url = SUPABASE_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.' + restaurantId + '&selection_type=eq.single&is_active=eq.true&order=sort_order';
-        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         if (!res.ok) throw new Error('Fehler ' + res.status);
         var groups = await res.json();
 
@@ -64316,7 +64396,7 @@ async function loadSizeGroups(restaurantId) {
         // Optionen für alle Gruppen laden
         var groupIds = groups.map(function(g) { return g.id; });
         var optUrl = SUPABASE_URL + '/rest/v1/menu_options?group_id=in.(' + groupIds.join(',') + ')&is_available=eq.true&order=sort_order';
-        var optRes = await fetch(optUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var optRes = await fetch(optUrl, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
         var options = optRes.ok ? await optRes.json() : [];
 
         groups.forEach(function(g) {
@@ -64387,7 +64467,7 @@ function openSizeGroupEditor(groupId) {
         _currentEditSizeGroup = groupId;
         // Daten aus dem DOM holen (schon geladen)
         fetch(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         }).then(function(r) { return r.json(); }).then(function(groups) {
             var g = groups[0];
             if (!g) return;
@@ -64400,7 +64480,7 @@ function openSizeGroupEditor(groupId) {
 
             // Optionen laden
             return fetch(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
         }).then(function(r) { return r.json(); }).then(function(opts) {
             var tbody = document.getElementById('sizeRowsBody');
@@ -64495,7 +64575,7 @@ async function saveSizeGroup() {
 
     if (sizes.length === 0) { showToast('Mindestens eine Größe hinzufügen', 'error'); return; }
 
-    var headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    var headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
     try {
         var groupId = _currentEditSizeGroup;
@@ -64560,7 +64640,7 @@ async function saveSizeGroup() {
 async function deleteSizeGroup(groupId) {
     if (!await kinConfirm('Dieses Größen-Set und alle Größen wirklich löschen?')) return;
 
-    var headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+    var headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() };
 
     try {
         // Erst Optionen löschen
@@ -65034,7 +65114,7 @@ async function loadLoyaltyData(phone, restId) {
             + '&restaurant_id=eq.' + encodeURIComponent(restId)
             + '&select=stamps_count,free_meals_earned,free_meals_used,last_order_at&limit=1';
         var res = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var rows = await res.json();
@@ -65116,7 +65196,7 @@ async function addLoyaltyPoint(phone, restaurantId) {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates,return=representation'
             },
@@ -65180,7 +65260,7 @@ async function loyaltyAlleHaeuser(phone) {
             + '&select=restaurant_id,stamps_count,free_meals_earned,free_meals_used,last_order_at'
             + '&order=last_order_at.desc';
         var res = await fetch(url, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (!res.ok) return [];
         var reihen = await res.json();
@@ -65343,7 +65423,7 @@ async function useFreeMeal(phone, restaurantId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -65553,7 +65633,7 @@ async function applyCoupon() {
     // 3. Supabase: coupons Tabelle abfragen (falls vorhanden)
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/coupons?code=eq.' + code + '&is_active=eq.true&select=*', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         if (res.status === 404) {
             // Tabelle existiert nicht
@@ -65883,7 +65963,7 @@ setTimeout(function() {
 function loadTodayOrderCounts() {
     var today = todayStrLocal();
     fetch(SUPABASE_URL + '/rest/v1/orders?select=restaurant_id&created_at=gte.' + today + 'T00:00:00', {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     }).then(function(resp) { return resp.json(); })
     .then(function(orders) {
         if (!orders || !Array.isArray(orders)) return;
@@ -66233,7 +66313,7 @@ async function checkActiveOrderBanner() {
     try {
         // 1. Aktive Bestellungen prüfen — mit letzten 10 Ziffern
         var resp = await sbRead(SUPABASE_URL + '/rest/v1/orders?customer_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&status=in.(received,accepted,confirmed,preparing,ready,out_for_delivery)&order=created_at.desc&limit=1', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
         var orders = await resp.json();
         if (orders && orders.length > 0) {
@@ -66248,7 +66328,7 @@ async function checkActiveOrderBanner() {
             var today = todayStrLocal();
             var tomorrow = new DatelocalDayStr(Date.now() + 86400000);
             var resp2 = await sbRead(SUPABASE_URL + '/rest/v1/reservations?guest_phone=ilike.*' + encodeURIComponent(phoneMatch) + '&reservation_date=in.(' + today + ',' + tomorrow + ')&status=in.(pending,confirmed)&order=reservation_date.asc,reservation_time.asc&limit=1', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var reservations = await resp2.json();
             if (reservations && reservations.length > 0) {
@@ -66391,7 +66471,7 @@ function tagesangeboteHolen(restaurantId) {
     var heute = todayStrLocal();
     var url = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restaurantId)
             + '&date=eq.' + heute + '&is_active=eq.true&order=created_at.desc&limit=6';
-    return fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } })
+    return fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } })
         .then(function (r) { return r.json(); })
         .then(function (liste) {
             if (!Array.isArray(liste)) return [];
@@ -67886,7 +67966,7 @@ async function showTvMenuBoard(slug) {
                 rList = APP_DATA.restaurants;
             } else {
                 var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?select=*&limit=300', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
                 if (!rRes.ok) throw new Error('Restaurants laden: HTTP ' + rRes.status);
                 rList = await rRes.json();
@@ -67907,24 +67987,24 @@ async function showTvMenuBoard(slug) {
 
             // Kategorien + verfügbare Gerichte
             var cRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurant.id + '&select=id,name,sort_order&order=sort_order', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var cats = await cRes.json() || [];
             // Preis-Spalte heißt base_price (NICHT price) -- eine falsche
             // Spalte lässt die ganze Abfrage mit 400 platzen.
             var iRes = await fetch(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&is_available=not.is.false&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             if (!iRes.ok) {
                 // Fallback 1: ohne is_available-Filter (falls Spalte fehlt)
                 iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=name,description,base_price,category_id,sort_order&order=sort_order&limit=500', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
             }
             if (!iRes.ok) {
                 // Fallback 2: alle Spalten (schützt vor künftigen Schema-Änderungen)
                 iRes = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + restaurant.id + '&select=*&order=sort_order&limit=500', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
             }
             var items = await iRes.json() || [];
@@ -67935,7 +68015,7 @@ async function showTvMenuBoard(slug) {
             try {
                 var _tvToday = new Date().toLocaleDateString('sv-SE');
                 var sRes = await fetch(SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + restaurant.id + '&date=eq.' + _tvToday + '&is_active=eq.true&select=title,description,price&order=created_at.desc&limit=3', {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                 });
                 if (sRes.ok) {
                     var sList = await sRes.json();
@@ -68226,7 +68306,7 @@ async function saveInstagramPosts() {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -68277,7 +68357,7 @@ async function loadTouristRoutes() {
         var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?is_active=eq.true&order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
         var data = await response.json();
@@ -68456,7 +68536,7 @@ async function loadTouristRoutesDash() {
         var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?order=created_at.desc', {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
         var routes = await response.json();
@@ -68606,7 +68686,7 @@ async function saveTouristRoute() {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -68638,7 +68718,7 @@ async function deleteTouristRoute(routeId) {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
         showToast('Route gelöscht', 'success');
@@ -68654,7 +68734,7 @@ async function editTouristRoute(routeId) {
         var response = await sbRead(SUPABASE_URL + '/rest/v1/tourist_routes?id=eq.' + routeId, {
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY
+                'Authorization': 'Bearer ' + kmiToken()
             }
         });
         var data = await response.json();
@@ -68745,7 +68825,7 @@ async function updateTouristRoute(routeId) {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },

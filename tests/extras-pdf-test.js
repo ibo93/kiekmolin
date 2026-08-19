@@ -8,6 +8,13 @@
 // Dieser Weg hat drei Schritte, die man einzeln sieht: PDF lesen, Ergebnis
 // zeigen, auf Knopfdruck schreiben. Die Speisekarte wird dabei nicht
 // angefasst, und das manuelle Anlegen bleibt daneben bestehen.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -86,7 +93,7 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
     var f2 = new Function('document', 'window', 'showToast', 'closeModal', 'loadOptionGroups',
         'openModal', 'currentMenuRestaurant', 'RESTAURANT_ID', 'SUPA_URL', 'SUPA_KEY', 'SUPABASE_URL',
         'SUPABASE_KEY', 'sbRead', '_extrasPdfGefunden',
-        schneide('_extrasPdfSage') + '\n' + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
+        KMI_STUB + schneide('_extrasPdfSage') + '\n' + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
         + '; return extrasPdfUebernehmen();');
     await f2(doc, win, function (m) { toasts.push(m); }, function () {}, function () {}, function () {},
         null, null, 'https://x', 'k', 'https://x', 'k', function (u, o) { return fetch(u, o); }, gruppen);
@@ -140,7 +147,7 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
             // von aussen bekommt (Loeschen/Bearbeiten brauchen einen anderen
             // Text als der Karten-Import). Fehlt es hier, stirbt der Test an
             // einem ReferenceError -- und nicht an dem, was er pruefen soll.
-            schneide('escapeHtml') + '\n'
+            KMI_STUB + schneide('escapeHtml') + '\n'
             + schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
             + H.slice(H.indexOf('var _RECHTE_SQL ='), H.indexOf('function _zeigeRechteHilfe', H.indexOf('var _RECHTE_SQL ='))) + '\n'
             + schneide('_zeigeRechteHilfe') + '\n' + schneide('_extrasPdfSage') + '\n'

@@ -32,6 +32,13 @@
 // Eine Abfrage auf eine Funktion, die nirgends steht, ist kein Schutz --
 // sie ist ein dauerhaft ausgeschalteter Programmteil, der wie ein
 // eingeschalteter aussieht.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -370,7 +377,7 @@ t('die Angebotsliste wird nicht direkt an filter gehaengt',
         encodeURIComponent: encodeURIComponent
     };
     var bauen = new Function('SUPABASE_URL', 'SUPABASE_KEY', 'todayStrLocal', 'fetch',
-        schneide('tagesangeboteHolen') + schneide('angebotLaeuftNoch') + '; return tagesangeboteHolen;');
+        KMI_STUB + schneide('tagesangeboteHolen') + schneide('angebotLaeuftNoch') + '; return tagesangeboteHolen;');
     var holen = bauen(umgebung.SUPABASE_URL, umgebung.SUPABASE_KEY, umgebung.todayStrLocal, umgebung.fetch);
 
     // Um 01:15 waere "Vorbei" gueltig -- der Test liefe dann falsch gruen.

@@ -31,6 +31,13 @@
 // Umsatzstatistik lesen order_items. Was durchfaellt, fehlt dem Wirt in
 // seinen Zahlen, ohne dass er es je erfaehrt. Das geht jetzt ins
 // Ereignis-Protokoll.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
 var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
@@ -51,7 +58,7 @@ function pruefer(antwort) {
     var abgebrochen = false;
     var F = new Function('fetch', 'SUPABASE_URL', 'SUPABASE_KEY', 'AbortController',
         'setTimeout', 'clearTimeout',
-        schneide('_bestellungNachpruefen') + '; return _bestellungNachpruefen;')(
+        KMI_STUB + schneide('_bestellungNachpruefen') + '; return _bestellungNachpruefen;')(
         function (url, opt) {
             geholt.push(url);
             if (antwort === 'werfen') return Promise.reject(new Error('Netzwerk weg'));
