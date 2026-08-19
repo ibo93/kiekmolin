@@ -17426,7 +17426,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 }
 
                 // ===== ZEITPLANUNG FUNKTION =====
-                window.resSetTableTime = function(resId, minutes) {
+                // async, weil das Speichern jetzt abgewartet wird, bevor
+                // "gesetzt" gemeldet wird. Die Aufrufer sind onclick-Handler
+                // -- die interessiert der zurueckgegebene Promise nicht.
+                window.resSetTableTime = async function(resId, minutes) {
 
                     // Lokal aktualisieren
                     var res = window.resAllReservations.find(function(r) { return r.id === resId; });
@@ -17455,13 +17458,19 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         }
                     });
 
-                    if (typeof showToast === 'function') {
-                        showToast('Tischzeit auf ' + minutes + ' Min. gesetzt', 'success');
-                    }
-
-                    // In Supabase speichern — duration_minutes via RPC nicht möglich, try PATCH
+                    // ERST SPEICHERN, DANN MELDEN.
+                    //
+                    // Vorher stand die Erfolgsmeldung hier oben und der PATCH
+                    // darunter -- ohne await und mit .catch(function(){}).
+                    // Schlug er fehl, las der Wirt trotzdem "Tischzeit auf 90
+                    // Min. gesetzt". Beim naechsten Laden stand wieder der
+                    // alte Wert da, und niemand wusste warum.
+                    //
+                    // Die Anzeige oben ist schon umgestellt; das ist richtig
+                    // so, der Wirt soll nicht auf das Netz warten. Nur das
+                    // Wort "gesetzt" darf erst fallen, wenn es stimmt.
                     try {
-                        fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
+                        var _tzRes = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + resId, {
                             method: 'PATCH',
                             headers: {
                                 'apikey': SUPABASE_KEY,
@@ -17469,8 +17478,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ duration_minutes: minutes })
-                        }).catch(function() {});
-                    } catch(e) { console.error('Supabase sync:', e); }
+                        });
+                        if (typeof showToast === 'function') {
+                            if (_tzRes.ok) {
+                                showToast('Tischzeit auf ' + minutes + ' Min. gesetzt', 'success');
+                            } else {
+                                showToast('Tischzeit NICHT gespeichert — bitte nochmal versuchen', 'error');
+                            }
+                        }
+                    } catch(e) {
+                        console.error('Supabase sync:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('Tischzeit NICHT gespeichert — keine Verbindung', 'error');
+                        }
+                    }
                 };
 
                 // ===== RESERVIERUNG STORNIEREN =====
@@ -66777,8 +66798,24 @@ async function saveSizeGroup() {
                     sort_order: 1
                 })
             });
-            var groupData = await groupRes.json();
-            groupId = Array.isArray(groupData) ? groupData[0].id : groupData.id;
+            // NICHT blind die id herausgreifen.
+            //
+            // Vorher stand hier direkt groupData[0].id. Schlug das Anlegen
+            // fehl, kam von PostgREST ein Fehlerobjekt statt einer Liste --
+            // groupId wurde undefined, und die Optionen darunter wurden
+            // gleich danach an eine Gruppe gehaengt, die es nicht gibt.
+            // Ohne eine einzige Fehlermeldung. Kam eine LEERE Liste zurueck,
+            // warf groupData[0].id sogar mitten im Speichern.
+            var groupData = null;
+            try { groupData = await groupRes.json(); } catch (e) {}
+            groupId = (Array.isArray(groupData) && groupData[0] && groupData[0].id)
+                   || (groupData && !Array.isArray(groupData) && groupData.id)
+                   || null;
+            if (!groupRes.ok || !groupId) {
+                var grund = (groupData && (groupData.message || groupData.hint)) || ('HTTP ' + groupRes.status);
+                showToast('Optionsgruppe nicht angelegt: ' + grund, 'error');
+                return;
+            }
         }
 
         // Optionen (Größen) einfügen
