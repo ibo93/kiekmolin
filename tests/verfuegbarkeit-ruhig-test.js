@@ -79,5 +79,24 @@ t('der Timer wird bei jeder neuen Meldung zurueckgesetzt', /clearTimeout\(_neuZe
 t('und der eingestellte Filter bleibt erhalten',
   /renderRestaurants\(currentRestaurantFilter\)/.test(entprellt), entprellt);
 
+
+console.log('\n-- Auch der Betriebs-Kanal sammelt jetzt --');
+// Der restaurants-Kanal hoert auf JEDE Aenderung an JEDEM Betrieb --
+// Oeffnungszeiten, ein Foto, ein Haken im Dashboard eines fremden
+// Hauses. Jede davon baute die komplette Startseite neu auf, und mit
+// ihr sprang die Verfuegbarkeitszeile wieder auf "wird geladen".
+var hr = h.indexOf('function handleRealtimeRestaurant');
+t('handleRealtimeRestaurant gefunden', hr > 0, hr);
+var hrFn = h.slice(hr, hr + 2000);
+t('er zeichnet nicht mehr sofort',
+  /\n\s*renderRestaurants\(\);/.test(hrFn) === false, 'noch ein sofortiger Aufruf');
+t('sondern gesammelt ueber renderRestaurantsBald',
+  (hrFn.match(/renderRestaurantsBald\(\);/g) || []).length === 2,
+  (hrFn.match(/renderRestaurantsBald\(\);/g) || []).length);
+t('die Daten stehen trotzdem sofort im Speicher',
+  /APP_DATA\.restaurants\[idx\] = Object\.assign/.test(hrFn), 'Daten warten mit');
+t('der Grund steht als Kommentar davor',
+  h.slice(Math.max(0, hr - 900), hr).indexOf('JEDE Aenderung an JEDEM Betrieb') > -1, 'keine Begruendung');
+
 console.log('\n' + (ok === n ? `Alle ${n} Tests bestanden.` : `${n - ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok === n ? 0 : 1);

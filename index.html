@@ -23859,6 +23859,16 @@ function togglePushNotifications() {
 }
 
 // ==================== RESTAURANTS ECHTZEIT ====================
+// Der Kanal hoert auf JEDE Aenderung an JEDEM Betrieb -- nicht nur an
+// dem, den der Gast gerade ansieht. Oeffnungszeiten, ein Foto, ein
+// Haken im Dashboard eines fremden Hauses: alles kam hier an und baute
+// die komplette Startseite neu auf. Zusammen mit der Verfuegbarkeits-
+// abfrage pro Karte war das der Grund, warum die Liste "immer wieder
+// von vorne" lud.
+//
+// renderRestaurantsBald() sammelt: kommen zehn Aenderungen in zwei
+// Sekunden, wird einmal gezeichnet statt zehnmal. Die Daten stehen
+// sofort im Speicher, nur das Bild folgt gebuendelt.
 function handleRealtimeRestaurant(payload) {
     var type = payload.eventType;
     var data = payload.new || {};
@@ -23868,8 +23878,8 @@ function handleRealtimeRestaurant(payload) {
         if (idx !== -1) {
             APP_DATA.restaurants[idx] = Object.assign(APP_DATA.restaurants[idx], data);
             // Restaurant-Cards + Dashboard aktualisieren
-            if (typeof renderRestaurants === 'function') {
-                renderRestaurants();
+            if (typeof renderRestaurantsBald === 'function') {
+                renderRestaurantsBald();
             }
         }
     } else if (type === 'INSERT') {
@@ -23881,8 +23891,8 @@ function handleRealtimeRestaurant(payload) {
         } else {
             APP_DATA.restaurants[existingIdx] = Object.assign(APP_DATA.restaurants[existingIdx], data);
         }
-        if (typeof renderRestaurants === 'function') {
-            renderRestaurants();
+        if (typeof renderRestaurantsBald === 'function') {
+            renderRestaurantsBald();
         }
     }
 }
