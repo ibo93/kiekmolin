@@ -1,61 +1,64 @@
--- NOTFALL-RUECKNAHME von Schritt 04.
+-- NOTFALL: Zugriffskontrolle komplett abschalten. SOFORT AUSFUEHREN.
 --
--- NUR AUSFUEHREN, WENN 04 GELAUFEN IST, DER CODE ABER NOCH NICHT
--- DEPLOYED. Dann liest die alte App noch direkt in orders und
--- reservations -- und bekommt seit 04 nichts mehr.
+-- Nach Schritt 04 kamen im Dashboard keine Bestellungen und
+-- Reservierungen mehr an.
 --
--- WAS DER GAST GERADE SIEHT
---   "Meine Bestellungen"          -> leer
---   freie Reservierungszeiten     -> erscheinen nicht
---   Banner zur laufenden Bestellung -> weg
--- Bestellen und reservieren geht weiter, das Dashboard auch.
+-- WARUM DIESER WEG UND KEIN FEINERER
+-- Ein Versuch, die Regeln "richtig" umzuschreiben, kann selbst wieder
+-- schiefgehen -- ein Tippfehler im Policy-Namen, eine Tabelle vergessen,
+-- und der Laden steht weiter. Diese vier Zeilen schalten die Pruefung
+-- ganz ab. Sie koennen nicht halb wirken.
 --
+-- Das ist der Zustand VOR der ganzen Aktion. Die Daten waren nie weg --
+-- sie waren nur hinter einer Tuer, die sich nicht mehr oeffnen liess.
 --
--- EHRLICH: DAS HIER MACHT DAS LOCH WIEDER AUF
--- ------------------------------------------
--- Nach diesem Skript kann wieder jeder mit dem oeffentlichen Schluessel
--- Namen, Telefonnummern und Lieferadressen aus orders und reservations
--- lesen. Genau der Zustand, den wir beseitigen wollten.
+-- JA, DAS MACHT DAS DATENLOCH WIEDER AUF. Bewusst. Ein Laden, der keine
+-- Bestellungen sieht, ist der groessere Schaden -- und zwar sofort.
+-- Zugemacht wird spaeter, nachdem geklaert ist, warum die Zuordnung
+-- Wirt -> Betrieb nicht gegriffen hat.
+
+alter table public.orders        disable row level security;
+alter table public.order_items   disable row level security;
+alter table public.reservations  disable row level security;
+alter table public.customers     disable row level security;
+
+
+-- Gegenprobe. Erwartet: vier Zeilen, ueberall rls_an = false.
+select c.relname as tabelle, c.relrowsecurity as rls_an
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public'
+   and c.relname in ('orders', 'order_items', 'reservations', 'customers');
+
+
+-- ============================================================
+-- DANACH: WARUM IST ES SCHIEFGEGANGEN?
+-- ============================================================
+-- Diese drei Abfragen beantworten es. Ergebnisse an Claude schicken,
+-- dann laesst sich 04 reparieren statt raten.
 --
--- Es ist also die ZWEITBESTE Loesung. Die beste ist: den Code
--- deployen (PR #180 mergen, Netlify baut von selbst) und 04 stehen
--- lassen. Das dauert wenige Minuten und schliesst das Loch dauerhaft.
+-- 1) Mit welcher E-Mail meldet sich der Wirt an, und welche steht in
+--    customers? Wenn die sich unterscheiden (Gross-/Kleinschreibung,
+--    andere Adresse), findet kmi_meine_haeuser() nichts.
 --
--- Nimm dieses Skript nur, wenn der Deploy jetzt gerade nicht geht und
--- die App in der Zwischenzeit laufen muss.
+--    select id, email, role, restaurant_id from customers order by email;
 --
--- customers bleibt ZU. Dort steht nichts, was die Gastansicht braucht,
--- und die Kundenliste ist das Wertvollste in der ganzen Datenbank.
-
-
--- Lesen wieder fuer alle -- so wie es vor Schritt 04 war.
-drop policy if exists "Bestellungen des eigenen Hauses lesen" on public.orders;
-create policy "Bestellungen des eigenen Hauses lesen"
-    on public.orders for select to anon, authenticated
-    using (true);
-
-drop policy if exists "Positionen des eigenen Hauses lesen" on public.order_items;
-create policy "Positionen des eigenen Hauses lesen"
-    on public.order_items for select to anon, authenticated
-    using (true);
-
-drop policy if exists "Reservierungen des eigenen Hauses lesen" on public.reservations;
-create policy "Reservierungen des eigenen Hauses lesen"
-    on public.reservations for select to anon, authenticated
-    using (true);
-
-
--- Gegenprobe. Erwartet: drei Zeilen, alle mit anon.
-select tablename as tabelle, policyname as regel, roles::text as rollen
-  from pg_policies
- where schemaname = 'public'
-   and cmd = 'SELECT'
-   and tablename in ('orders', 'order_items', 'reservations');
-
-
--- WENN DER CODE SPAETER DEPLOYED IST
--- ----------------------------------
--- Einfach 04-gaestedaten-zumachen.sql nochmal laufen lassen. Es raeumt
--- vorher alle Regeln weg und setzt die strengen neu -- diese Ruecknahme
--- hier wird dabei mit entfernt. Danach die Probe aufs Exempel aus 04
--- (Abschnitt 7c) machen.
+-- 2) Gibt es die Helfer aus Schritt 02 ueberhaupt?
+--
+--    select proname from pg_proc
+--     where proname in ('kmi_email','kmi_ist_superadmin','kmi_meine_haeuser');
+--
+-- 3) Was sagen die Helfer, waehrend der Wirt angemeldet ist? (Im
+--    SQL-Editor laeuft man als Datenbank-Besitzer, nicht als Wirt --
+--    diese Abfrage gehoert deshalb in die BROWSER-Konsole der
+--    angemeldeten App:)
+--
+--    fetch(SUPABASE_URL + '/rest/v1/rpc/kmi_meine_haeuser', {
+--      method:'POST',
+--      headers:{ apikey: SUPABASE_KEY,
+--                Authorization: 'Bearer ' + kmiToken(),
+--                'Content-Type':'application/json' },
+--      body:'{}'
+--    }).then(r=>r.json()).then(console.log)
+--
+--    Kommt eine leere Liste zurueck, ist genau das die Ursache.
