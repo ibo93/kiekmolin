@@ -13112,7 +13112,10 @@ if (SPLASH_MIN_MS === 0) {
 </script>
 
 <!-- Onboarding Tour -->
-<div id="onboardingOverlay" class="onboarding-overlay" style="display:none;">
+<!-- Tippen neben die Karte schliesst die Tour. Vorher ging sie NUR
+     ueber sechsmal "Weiter" oder den kleinen grauen "Überspringen" --
+     und wer den nicht sieht, klickt sich durch alle sechs Folien. -->
+<div id="onboardingOverlay" class="onboarding-overlay" style="display:none;" onclick="if(event.target===this)skipOnboarding()">
     <div class="onboarding-card">
         <div class="onboarding-icon" id="onboardingIcon"></div>
         <div class="onboarding-title" id="onboardingTitle"></div>
@@ -13146,8 +13149,39 @@ function reshowOnboarding() {
 }
 window.reshowOnboarding = reshowOnboarding;
 
+// KOMMT DER GAST DIREKT AUF EIN RESTAURANT, GIBT ES KEINE TOUR.
+//
+// Gemeldet: "das entdeckte restaurant nervt" -- die erste Folie heisst
+// "Entdecke Restaurants", und die Tour legt sich mit sechs Folien und
+// einem dunklen Schleier ueber die ganze Seite.
+//
+// Auf der Startseite mag das angehen. Aber der wichtigste Weg in diese
+// App ist ein anderer: der Gast sitzt am Tisch, scannt den QR-Code und
+// landet auf /rhodos/bestellen. Der will die Speisekarte, nicht eine
+// Fuehrung durch eine App, die er in zehn Minuten wieder zumacht.
+// Dasselbe gilt fuer jeden, der ueber Google auf einer Restaurantseite
+// landet, und fuer einen Link zum Reservieren.
+//
+// Sechs Folien vor dem Essen kosten Bestellungen. Also: Tour nur auf
+// der blanken Startseite.
+function _direkterEinstieg() {
+    try {
+        var pfad = String(window.location.pathname || '/');
+        var frage = String(window.location.search || '');
+        // /rhodos, /rhodos/bestellen, /rhodos/reservieren ...
+        if (pfad !== '/' && pfad !== '/index.html') return true;
+        // ?r=rhodos&tisch=7 -- der QR-Code am Tisch
+        if (/[?&](r|restaurant|tisch|table)=/.test(frage)) return true;
+        return false;
+    } catch (e) { return false; }
+}
+
 function showOnboarding() {
     if (localStorage.getItem('kmi_onboarded')) return;
+    // Beim Direkteinstieg gar nicht erst zeigen -- und auch nicht als
+    // "gesehen" abhaken. Wer spaeter ueber die Startseite kommt, soll
+    // sie noch bekommen koennen.
+    if (_direkterEinstieg()) return;
     var overlay = document.getElementById('onboardingOverlay');
     if (!overlay) return;
     _onboardingStep = 0;
