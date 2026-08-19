@@ -366,13 +366,61 @@ function zerlegeGroessen(preisFeld) {
 }
 
 function parseZeilen(roh) {
+    // Die Helfer stehen bewusst INNERHALB dieser Funktion: die Tests des
+    // Projekts schneiden einzelne Funktionen aus dieser Datei heraus und
+    // fuehren sie fuer sich aus. Was im Modul-Rumpf steht, fehlt dort.
+    // Kennzeichnungen, die im Namen oder in der Beschreibung stehen geblieben sind.
+    //
+    // Der Prompt sagt dem Modell, dass "(1,2,a,c)" in die eigenen Felder gehoert.
+    // Auf einer dichten Pizzeria-Karte mit 140 Positionen haelt es sich nicht
+    // immer daran -- dann steht die Klammer weiter im Namen, die Allergen-Felder
+    // bleiben leer, und beim Gast heisst das Gericht "Pizza Salami (1,2,a,c)".
+    // Genau dieses Bild lieferten zwei Karten: alle Gerichte da, null Allergene.
+    //
+    // Das hier ist KEIN Raten. Die Codes stehen auf der Karte, sie sind nur im
+    // falschen Feld gelandet -- dieselbe Reparatur, die es fuer vertauschte
+    // Allergen- und Zusatzstoff-Felder laengst gibt.
+    //
+    // Streng gefasst, damit nichts Falsches eingesammelt wird: nur Klammern, die
+    // AUSSCHLIESSLICH aus Ziffern und einzelnen Buchstaben a-n bestehen (mehr
+    // Buchstaben kennt die LMIV nicht). "(hausgemacht)", "(scharf)", "(0,33 l)"
+    // bleiben unangetastet.
+    var KLAMMER_CODES = /\(\s*([0-9]{1,2}|[a-nA-N])(\s*,\s*([0-9]{1,2}|[a-nA-N]))*\s*\)/g;
+
+    function codesAusText(text) {
+        var codes = [];
+        var rest = String(text || '').replace(KLAMMER_CODES, function (treffer) {
+            treffer.slice(1, -1).split(',').forEach(function (x) {
+                x = x.trim();
+                if (x) codes.push(x);
+            });
+            return ' ';
+        });
+        // Doppelte Leerzeichen und ein haengendes Komma, die durch das
+        // Herausschneiden entstehen, wieder wegraeumen.
+        rest = rest.replace(/\s{2,}/g, ' ').replace(/\s+([,.;])/g, '$1').trim();
+        rest = rest.replace(/[,;]\s*$/, '').trim();
+        return { text: rest, codes: codes };
+    }
+
     if (!roh) return [];
     var out = [];
     String(roh).split('\n').forEach(function (z) {
         z = z.replace(/\r$/, '').trim();
         if (!z || z.slice(0, 3) === '```') return;
         var t = z.split('|');
-        if (t.length < 8) return;                     // unvollstaendig -> weg
+        // Sieben Felder sind kein Grund, ein Gericht wegzuwerfen.
+        //
+        // Hier stand "< 8 -> weg". Das Merkmale-Feld ist das letzte und bei den
+        // meisten Gerichten leer -- laesst das Modell das abschliessende | weg,
+        // hatte die Zeile sieben Felder und das GANZE Gericht verschwand. Nicht
+        // die Allergene: das Gericht. Still, ohne Meldung, mitten in einer Karte
+        // mit 140 Positionen.
+        //
+        // Sieben Felder heissen: alles da ausser den Merkmalen. Das fehlende
+        // Feld wird ergaenzt, der Rest gilt.
+        if (t.length === 7) t.push('');
+        if (t.length < 8) return;                     // wirklich unvollstaendig -> weg
 
         // Feldsuche statt starrer Position.
         //
@@ -412,10 +460,17 @@ function parseZeilen(roh) {
             x.split(',').forEach(function (y) { y = y.trim(); if (y) roheCodes.push(y); });
         });
 
+        // Was im Namen oder in der Beschreibung stehen geblieben ist, gehoert
+        // in die Code-Felder -- und aus dem Text raus. Sonst heisst das Gericht
+        // beim Gast "Pizza Salami (1,2,a,c)".
+        var nameRein = codesAusText(name);
+        var beschrRein = codesAusText(t.slice(2, pi).join(' ').trim());
+        nameRein.codes.concat(beschrRein.codes).forEach(function (c) { roheCodes.push(c); });
+
         var basis = {
             dish_number: (t[0] || '').trim(),
-            name: name,
-            description: t.slice(2, pi).join(' ').trim(),
+            name: nameRein.text || name,
+            description: beschrRein.text,
             price: (t[pi] || '').trim(),
             category: (t[pi + 1] || '').trim(),
             allergens: roheCodes.filter(function (x) { return /[a-zA-Zäöü]/.test(x); }),
