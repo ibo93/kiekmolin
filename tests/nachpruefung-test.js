@@ -74,23 +74,41 @@ function pruefer(antwort) {
 }
 
 (async function () {
-    var da = pruefer([{ id: 'abc' }]);
+    // Die Nachfrage geht seit dem Zumachen von orders NICHT mehr direkt in
+    // die Tabelle, sondern ueber /.netlify/functions/order-exists. Der
+    // Endpunkt antwortet mit { ok:true, da:true|false } -- eine Zeile
+    // bekommt der Browser nicht mehr zu sehen, nur noch ja oder nein.
+    var da = pruefer({ ok: true, da: true });
     t('gefundene Bestellung -> "da"', (await da.F('KI-260811-000123')) === 'da');
+    t('gefragt wird ueber den Endpunkt, nicht in der Tabelle',
+      da.geholt[0].indexOf('/.netlify/functions/order-exists') === 0, da.geholt[0]);
     t('gefragt wird nach genau dieser Bestellnummer',
-      /order_number=eq\.KI-260811-000123/.test(da.geholt[0]), da.geholt[0]);
-    t('und nur nach der id, nicht nach der ganzen Zeile',
-      /select=id/.test(da.geholt[0]) && /limit=1/.test(da.geholt[0]), da.geholt[0]);
+      /[?&]n=KI-260811-000123/.test(da.geholt[0]), da.geholt[0]);
+    t('die Tabelle orders wird nicht mehr angefasst',
+      /rest\/v1\/orders/.test(da.geholt[0]) === false, da.geholt[0]);
 
-    t('leere Antwort -> "weg" (das ist der Fehlschlag)',
-      (await pruefer([]).F('KI-1')) === 'weg');
+    t('ausdrueckliches da:false -> "weg" (das ist der Fehlschlag)',
+      (await pruefer({ ok: true, da: false }).F('KI-1')) === 'weg');
+
+    // Neu und wichtig: der Endpunkt meldet Stoerungen mit ok:false. Das
+    // darf NICHT als "nicht angekommen" durchgehen -- sonst bestellt der
+    // Gast ein zweites Mal, waehrend die erste schon in der Kueche liegt.
+    t('ok:false -> "unklar", NICHT "weg"',
+      (await pruefer({ ok: false, error: 'Server nicht eingerichtet' }).F('KI-1')) === 'unklar');
+    t('fehlendes da-Feld -> "unklar"',
+      (await pruefer({ ok: true }).F('KI-1')) === 'unklar');
+    t('da als Text statt als Ja/Nein -> "unklar"',
+      (await pruefer({ ok: true, da: 'false' }).F('KI-1')) === 'unklar');
 
     // Die Asymmetrie: alles Unklare gilt als bestellt.
     t('Serverfehler -> "unklar", NICHT "weg"', (await pruefer('fehler').F('KI-1')) === 'unklar');
     t('Netzwerk weg -> "unklar"', (await pruefer('werfen').F('KI-1')) === 'unklar');
     t('unlesbare Antwort -> "unklar"', (await pruefer('kaputt').F('KI-1')) === 'unklar');
-    t('kein JSON-Feld -> "unklar" statt Absturz', (await pruefer(null).F('KI-1')) === 'unklar');
+    t('gar keine Antwort -> "unklar" statt Absturz', (await pruefer(null).F('KI-1')) === 'unklar');
+    t('eine Liste statt eines Objekts -> "unklar"', (await pruefer([]).F('KI-1')) === 'unklar');
     t('ohne Bestellnummer wird gar nicht erst gefragt',
-      (await pruefer([]).F('')) === 'unklar' && pruefer([]).geholt.length === 0);
+      (await pruefer({ ok: true, da: true }).F('')) === 'unklar'
+      && pruefer({ ok: true, da: true }).geholt.length === 0);
 
     t('die Nachfrage hat einen Deckel, damit nichts haengt',
       /setTimeout\(function \(\) \{ stop\.abort\(\); \}, 3000\)/.test(schneide('_bestellungNachpruefen')));

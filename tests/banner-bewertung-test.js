@@ -101,8 +101,13 @@ t('eine Reissleine gibt es trotzdem, falls die Tour nie erscheint',
   /var COOKIE_ANLAUF_MS = 12000;/.test(H));
 t('und sieht danach weiter hin, bis der Gast entschieden hat',
   /_cookieWaechter = setInterval\(pruefe, 300\)/.test(H));
+// Frueher stand hier "el.style.display = 'none'" direkt. Das Schreiben laeuft
+// jetzt ueber setze(), damit der Waechter die Seite nicht dreimal pro Sekunde
+// grundlos anfasst -- die Absicht ist dieselbe geblieben.
 t('taucht die Tour auf, verschwindet der Banner',
-  /_tourGesehen = true;\s*\n\s*el\.style\.display = 'none';/.test(H));
+  /_tourGesehen = true;\s*\n\s*setze\('none'\);/.test(H));
+t('und geschrieben wird nur bei einer echten Aenderung',
+  /if \(el\.style\.display !== wert\) el\.style\.display = wert;/.test(H));
 // offsetParent wäre hier die naheliegende Prüfung -- und eine Falle: bei
 // position:fixed ist sie IMMER null, auch wenn das Element groß auf dem
 // Bildschirm steht. Die Tour ist fixed. Daran ist der erste Versuch

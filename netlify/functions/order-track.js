@@ -74,15 +74,26 @@ function tokenListe(roh) {
 // Felder bewusst einzeln aufgezaehlt statt select=*. Kommt morgen eine Spalte
 // dazu -- ein interner Vermerk, ein Rohdatenfeld aus der Kasse -- soll sie
 // nicht automatisch beim Gast landen.
+//
+// Die Liste ist an der Anzeige abgeglichen, nicht geraten: items
+// (die bestellten Gerichte), estimated_minutes (die Wartezeit) und
+// restaurant_name werden in "Meine Bestellungen" und im Statusband
+// wirklich gelesen. Fehlt eines davon, bleibt die Karte still leer --
+// ohne Fehlermeldung, weil undefined einfach nichts anzeigt.
 var BESTELL_FELDER = [
     'id', 'order_number', 'status', 'order_type', 'total', 'created_at',
-    'scheduled_at', 'estimated_time', 'restaurant_id', 'customer_name',
-    'customer_phone', 'customer_email', 'delivery_address', 'notes',
-    'track_token'
+    'scheduled_at', 'estimated_time', 'estimated_minutes',
+    'restaurant_id', 'restaurant_name', 'items',
+    'customer_name', 'customer_phone', 'customer_email',
+    'delivery_address', 'notes', 'track_token'
 ].join(',');
 
+// party_size, NICHT guests. Die Spalte heisst in der Datenbank party_size;
+// "guests" taucht in der App nur als Notnagel in JavaScript auf. Mit dem
+// falschen Namen antwortet PostgREST mit 400 -- und der Gast haette hier
+// "Datenbank nicht erreichbar" gelesen, obwohl sie erreichbar war.
 var RES_FELDER = [
-    'id', 'status', 'reservation_date', 'reservation_time', 'guests',
+    'id', 'status', 'reservation_date', 'reservation_time', 'party_size',
     'restaurant_id', 'guest_name', 'guest_phone', 'notes', 'track_token'
 ].join(',');
 

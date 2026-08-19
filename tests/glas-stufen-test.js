@@ -33,7 +33,26 @@ var path = require('path');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+var H_ROH = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+// Kommentare unkenntlich machen, aber die Laenge behalten.
+//
+// Der Anlass: in einem HTML-Kommentar stand "Kein backdrop-filter: siehe
+// .menu-item-card" -- eine Erklaerung, WARUM dort keiner mehr ist. Der
+// Test las das als Glasflaeche ohne Safari-Zwilling und wurde rot.
+//
+// Ein Test, der Erklaerungen im Code bestraft, erzieht dazu, keine mehr
+// zu schreiben. Also zaehlen ab jetzt nur echte Deklarationen.
+//
+// Ersetzt wird zeichenweise durch Leerzeichen statt herausgeschnitten:
+// so bleiben alle Positionen gueltig, und die Block-Suche weiter unten
+// findet weiterhin die richtigen Klammern.
+function kommentareLeeren(text) {
+    return text.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, function (k) {
+        return k.replace(/[^\n]/g, ' ');
+    });
+}
+var H = kommentareLeeren(H_ROH);
 
 // Nur echte backdrop-filter-Deklarationen. Die normalen filter:blur() fuer
 // die Deko-Flaechen im Hintergrund gehen bis 120 px und sind ausdruecklich
@@ -77,8 +96,10 @@ t('die drei Stufen stehen als Marke im Stilbogen',
   /--glas-klein:\s*blur\(6px\)/.test(H)
   && /--glas-normal:\s*blur\(12px\)/.test(H)
   && /--glas-stark:\s*blur\(20px\)/.test(H));
+// Bewusst gegen den ROHTEXT: die Begruendung STEHT ja in einem
+// Kommentar. In H sind Kommentare geleert.
 t('und warum es sie gibt, steht dabei',
-  /zwoelf verschiedene Staerken/.test(H));
+  /zwoelf verschiedene Staerken/.test(H_ROH));
 
 // ---- Safari braucht den Praefix -------------------------------------------
 // Auf iPhones mit aelterem iOS kennt Safari backdrop-filter nur mit
