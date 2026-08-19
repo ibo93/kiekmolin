@@ -1141,6 +1141,12 @@
             --bg-primary: #fafafa;
             --bg-secondary: #fafafa;
             --bg-card: #ffffff;
+            /* Flaechen, auf denen Text steht, den man LESEN muss --
+               Allergene, Preise, Hinweise. Das Glas-Thema unten macht
+               --bg-card durchsichtig; das ist fuer Kacheln huebsch und
+               fuer einen Lesekasten falsch. --bg-solid bleibt deckend,
+               in JEDEM Thema. */
+            --bg-solid: #ffffff;
             --text-primary: #191c1d;
             --text-secondary: #404946;
             --border-color: rgba(0,0,0,0.08);
@@ -1192,6 +1198,7 @@
             --bg-primary: #0a1612;
             --bg-secondary: #111f1a;
             --bg-card: #1a2e27;
+            --bg-solid: #1a2e27;
             --text-primary: #e8eeec;
             --text-secondary: #9ca8a4;
             --border-color: rgba(255,255,255,0.06);
@@ -18840,9 +18847,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 <!-- Wartezeiten: was der Gast als Zusage bekommt -->
                 <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">schedule</span>
-                        Wartezeit
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">schedule</span>
+                            Wartezeit
+                        </div>
+                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+                            <input type="checkbox" id="settingPrepOn" checked onchange="savePrepMinutes()" style="display:none;">
+                            <div id="prepToggleTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
+                                <div id="prepToggleKnob" style="width:20px;height:20px;background:var(--bg-solid);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
+                            </div>
+                        </label>
                     </div>
                     <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Das sieht der Gast, wenn du die Bestellung annimmst. Getrennt für Abholung und Lieferung.</div>
                     <div style="display: flex; gap: 10px;">
@@ -22236,6 +22251,23 @@ function vorbereitungsMinuten(restaurant, orderType) {
     return lieferung ? 45 : 25;
 }
 window.vorbereitungsMinuten = vorbereitungsMinuten;
+
+// Wartezeit an oder aus.
+//
+// Nicht jeder Betrieb will eine Zusage machen. Ein Imbiss mit zwei Leuten am
+// Grill weiss um sechs Uhr abends nicht, ob es 15 oder 40 Minuten werden --
+// und eine Zahl, die nicht haelt, ist schlimmer als gar keine: der Gast steht
+// puenktlich da und wartet dann doch.
+//
+// Gespeichert als "prep_off" in features. Absichtlich andersherum als
+// erwartet: FEHLT der Eintrag, ist die Wartezeit AN. Damit aendert sich fuer
+// die bestehenden Betriebe nichts -- keiner von ihnen hat den Eintrag.
+function wartezeitAn(restaurant) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return true;
+    return feats.indexOf('prep_off') < 0;
+}
+window.wartezeitAn = wartezeitAn;
 
 // ==================== VORBESTELLUNG ====================
 //
@@ -27773,7 +27805,7 @@ function showReservationConfirmation(reservation) {
     // Kleine Bestätigungs-Card — KIN Design
     var card = document.createElement('div');
     card.id = 'confirmationModal';
-    card.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;width:calc(100% - 32px);max-width:380px;background:var(--bg-card);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);border:1px solid var(--border-color);animation:resCardSlideDown 0.4s ease;';
+    card.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;width:calc(100% - 32px);max-width:380px;background:var(--bg-solid);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);border:1px solid var(--border-color);animation:resCardSlideDown 0.4s ease;';
 
     // Unterschiedliche Farben und Texte je nach Status
     var iconColor = isPending ? '#92400e' : '#16a34a';
@@ -46336,7 +46368,12 @@ function openGerichtInfo(itemId) {
   ov.id = 'gerichtInfoOverlay';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10020;display:flex;'
     + 'align-items:center;justify-content:center;padding:20px;';
-  ov.innerHTML = '<div style="max-width:460px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg-card);'
+  // Deckend, nicht glasig. Hier stehen die Allergene -- ein Gast mit
+  // Allergie liest das, waehrend die Karte dahinter durchschimmert.
+  // Das war der Fehler: das Glas-Thema setzt --bg-card auf 45 % Weiss,
+  // und dieser Kasten hat keine .modal-Klasse, also griff auch die
+  // Regel nicht, die den echten Fenstern 85 % und Unschaerfe gibt.
+  ov.innerHTML = '<div style="max-width:460px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg-solid);'
     + 'border-radius:20px;padding:22px;font-family:Inter,sans-serif;color:var(--text-primary);">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">'
     +   '<h2 style="font-family:Epilogue,sans-serif;font-size:19px;margin:0;line-height:1.25;">'
@@ -54869,6 +54906,9 @@ async function _autoAcceptAfterPosPush(order, config) {
     // Lieferung quer durch den Ort. Nur wenn der Wirt nichts eingestellt hat,
     // gilt weiter der Wert aus den Kassen-Einstellungen.
     var _r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === order.restaurant_id; });
+    // Steht der Schalter auf aus, wird gar keine Zeit zugesagt. Die
+    // Bestellung wird trotzdem angenommen -- nur ohne Versprechen.
+    var _zeitAn = (typeof wartezeitAn !== 'function') || wartezeitAn(_r);
     var minutes = (typeof vorbereitungsMinuten === 'function' && _r)
         ? vorbereitungsMinuten(_r, order.order_type)
         : (parseInt(config && config.autoAcceptMinutes, 10) || 30);
@@ -54883,17 +54923,25 @@ async function _autoAcceptAfterPosPush(order, config) {
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
-            body: JSON.stringify({
+            body: JSON.stringify(_zeitAn ? {
                 status: 'accepted',
                 estimated_minutes: minutes,
                 estimated_time: new Date(Date.now() + minutes * 60000).toISOString(),
+                accepted_at: new Date().toISOString()
+            } : {
+                // Ohne Wartezeit: angenommen ja, Zusage nein. Die Felder
+                // bleiben leer, statt auf einer Zahl zu stehen, die niemand
+                // versprochen hat.
+                status: 'accepted',
                 accepted_at: new Date().toISOString()
             })
         });
         if (!resp.ok) { console.warn('[kasseControls] PATCH fehlgeschlagen:', resp.status); return; }
         order.status = 'accepted';
-        order.estimated_minutes = minutes;
-        order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+        if (_zeitAn) {
+            order.estimated_minutes = minutes;
+            order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+        }
 
         // HIER IST DIE MAIL AM WICHTIGSTEN. Auf diesem Weg oeffnet der Wirt
         // das Dashboard nie -- er arbeitet in seiner Kasse. Ohne diese Mail
@@ -57055,6 +57103,11 @@ function loadOrderSettings() {
     var delEl = document.getElementById('settingPrepDelivery');
     if (pickEl && typeof vorbereitungsMinuten === 'function') pickEl.value = vorbereitungsMinuten(restaurant, 'pickup');
     if (delEl && typeof vorbereitungsMinuten === 'function') delEl.value = vorbereitungsMinuten(restaurant, 'delivery');
+    var onEl = document.getElementById('settingPrepOn');
+    if (onEl && typeof wartezeitAn === 'function') {
+        onEl.checked = wartezeitAn(restaurant);
+        if (typeof prepSchalterAnzeigen === 'function') prepSchalterAnzeigen(onEl.checked);
+    }
 
     // Lieferradius laden
     var radiusEl = document.getElementById('settingDeliveryRadius');
@@ -57351,6 +57404,25 @@ function geocodeDeliveryZip(zip) {
 // schon (order_stop:15), und es braucht keine Datenbank-Aenderung. Eine
 // fehlende Spalte haette bedeutet, dass der Wert nur im Browser des Wirts
 // steht -- und auf dem Tablet in der Kueche waere er wieder anders.
+// Zeigt an, was gilt: Schalter eingefaerbt, Felder ausgegraut wenn aus.
+// Ein Eingabefeld, das noch bedienbar aussieht aber nichts mehr bewirkt,
+// ist eine Luege gegenueber dem Wirt.
+function prepSchalterAnzeigen(an) {
+    var track = document.getElementById('prepToggleTrack');
+    var knob = document.getElementById('prepToggleKnob');
+    if (track) track.style.background = an ? 'var(--primary)' : '#d1d5db';
+    if (knob) knob.style.left = an ? '22px' : '2px';
+    ['settingPrepPickup', 'settingPrepDelivery'].forEach(function (id) {
+        var e = document.getElementById(id);
+        if (!e) return;
+        e.disabled = !an;
+        e.style.opacity = an ? '1' : '0.45';
+        var feld = e.closest('label');
+        if (feld) feld.style.opacity = an ? '1' : '0.55';
+    });
+}
+window.prepSchalterAnzeigen = prepSchalterAnzeigen;
+
 async function savePrepMinutes() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
@@ -57360,6 +57432,9 @@ async function savePrepMinutes() {
         if (isNaN(v)) v = standard;
         return Math.min(180, Math.max(5, v));
     };
+    var an = document.getElementById('settingPrepOn')?.checked !== false;
+    prepSchalterAnzeigen(an);
+
     var abholung = lese('settingPrepPickup', 25);
     var lieferung = lese('settingPrepDelivery', 45);
     // Zurueckschreiben, damit der Wirt sieht, wenn sein Wert begrenzt wurde.
@@ -57374,9 +57449,13 @@ async function savePrepMinutes() {
         var features = (data[0] && Array.isArray(data[0].features)) ? data[0].features : [];
         // Alte Eintraege raus, neue rein -- sonst sammeln sich Karteileichen.
         features = features.filter(function (f) {
-            return !/^prep_(pickup|delivery):/.test(String(f));
+            return !/^prep_(pickup|delivery):/.test(String(f)) && String(f) !== 'prep_off';
         });
         features.push('prep_pickup:' + abholung, 'prep_delivery:' + lieferung);
+        // Die Minuten bleiben auch im Aus-Zustand gespeichert. Wer den
+        // Schalter wieder anmacht, will seine Werte wiederfinden und nicht
+        // bei 25/45 anfangen.
+        if (!an) features.push('prep_off');
 
         var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
