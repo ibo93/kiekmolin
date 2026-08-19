@@ -8174,9 +8174,23 @@
             transform: scale(0.97);
         }
 
+        /* width:100% ist hier KEIN Schoenheitsfehler, sondern Pflicht.
+           #menuItemsList sitzt in einem "display:flex; flex-direction:column"
+           Kasten. Dort liegt die Breite auf der Querachse -- und ein
+           "margin: 0 auto" auf der Querachse schaltet das automatische
+           Dehnen (align-self: stretch) ab. Ohne feste Breite ist die Liste
+           dann nur so breit wie ihr laengster Gerichtname:
+             Kategorie "Kaese"      -> 178px
+             Kategorie "Vorspeisen" -> 402px
+             Ladeplatzhalter (leer) ->  90px
+           Genau daher die schmalen grauen Streifen beim Umschalten und das
+           Springen der ganzen Liste von Kategorie zu Kategorie.
+           Mit fester Breite bleibt max-width + auto-Rand am grossen
+           Bildschirm erhalten, nur das Einlaufen faellt weg. */
         #menuItemsList {
             padding: 0 16px;
             max-width: 1400px;
+            width: 100%;
             margin: 0 auto;
         }
         @media (min-width: 768px) {
@@ -46014,6 +46028,10 @@ async function openMenuModal(restaurantId) {
     var catTabs = document.getElementById('menuCategoryTabs');
     if (catTabs) catTabs.style.display = '';
     window._menuAllItems = null;
+    if (window._menuCacheRid !== restaurantId) {
+        menuKarteCacheLeeren();
+        window._menuCacheRid = restaurantId;
+    }
 
     // Kategorien, Items und Beliebtheit PARALLEL laden (schneller!)
     window._menuItemsPreloaded = false;
@@ -47066,6 +47084,18 @@ function getMenuBadgeIcons(item) {
 }
 
 // Produkte laden (aus Supabase oder Fallback)
+// Was pro Kategorie zuletzt geladen wurde: Schluessel ist
+// "restaurantId|categoryId". Bewusst nur im Speicher und nur fuer die
+// Dauer eines Besuchs -- die Speisekarte soll beim naechsten Aufruf der
+// App wieder frisch kommen.
+var _menuKarteCache = {};
+
+// Der Schluessel traegt die restaurantId, Gerichte aus dem falschen Haus
+// koennen also gar nicht erst auftauchen. Geleert wird trotzdem beim
+// Wechsel: damit der Vorrat ueber einen langen Besuch nicht endlos waechst
+// und ein Gast, der spaeter zurueckkommt, aktuelle Preise sieht.
+function menuKarteCacheLeeren() { _menuKarteCache = {}; }
+
 async function loadMenuItems(restaurantId, categoryId) {
     try {
 
@@ -47073,13 +47103,33 @@ async function loadMenuItems(restaurantId, categoryId) {
     if (!container) return;
 
     var _t = translations[currentLanguage] || translations.de;
-    // PLATZHALTER-KARTEN statt eines Satzes.
+
+    // BEIM ZWEITEN MAL KEINE PLATZHALTER MEHR.
     //
-    // "Lädt Gerichte..." auf leerer Fläche fühlt sich lang an, egal wie
-    // kurz es dauert -- der Gast sieht nichts und weiß nicht, was kommt.
-    // Karten in der richtigen Form zeigen ihm, dass gleich eine Speisekarte
-    // da ist, und der Sprung beim Erscheinen fällt weg.
-    container.innerHTML = ladePlatzhalter(6);
+    // Vorher lief bei JEDEM Tipp auf eine Kategorie derselbe Ablauf:
+    // Platzhalter rein, Netz fragen, Gerichte rein. Wer zwischen
+    // "Vorspeisen" und "Suppen" hin und her springt, sieht die grauen
+    // Karten also immer wieder -- obwohl die Gerichte laengst da waren.
+    // Genau das fuehlt sich an, als lade die Karte staendig von vorne.
+    //
+    // Jetzt merken wir uns pro Kategorie, was zuletzt kam. Beim zweiten
+    // Besuch stehen die Gerichte sofort da. Nachgeladen wird trotzdem --
+    // nur still im Hintergrund, und neu gezeichnet wird ausschliesslich,
+    // wenn sich wirklich etwas geaendert hat (Preis, neues Gericht,
+    // ausverkauft). Ein unveraendertes Ergebnis laesst das Bild in Ruhe.
+    var schluessel = restaurantId + '|' + (categoryId || '');
+    var bekannt = _menuKarteCache[schluessel];
+    if (bekannt) {
+        renderMenuItemsForGuest(bekannt);
+    } else {
+        // PLATZHALTER-KARTEN statt eines Satzes.
+        //
+        // "Lädt Gerichte..." auf leerer Fläche fühlt sich lang an, egal wie
+        // kurz es dauert -- der Gast sieht nichts und weiß nicht, was kommt.
+        // Karten in der richtigen Form zeigen ihm, dass gleich eine Speisekarte
+        // da ist, und der Sprung beim Erscheinen fällt weg.
+        container.innerHTML = ladePlatzhalter(6);
+    }
 
     var items = null;
 
@@ -47108,9 +47158,22 @@ async function loadMenuItems(restaurantId, categoryId) {
     if (items && items.length > 0) {
         // Alle Items cachen wenn keine Kategorie gefiltert (für Suche)
         if (!categoryId) window._menuAllItems = items;
-        renderMenuItemsForGuest(items);
-    } else {
+        // Nur neu zeichnen, wenn sich etwas geaendert hat. Sonst bliebe das
+        // Bild zwar gleich, wuerde aber trotzdem einmal komplett neu
+        // aufgebaut -- und genau das sieht man als kurzes Zucken.
+        var neuRoh = JSON.stringify(items);
+        if (!bekannt || JSON.stringify(bekannt) !== neuRoh) {
+            renderMenuItemsForGuest(items);
+        }
+        _menuKarteCache[schluessel] = items;
+    } else if (!bekannt) {
         container.innerHTML = '<div style="text-align: center; padding: 60px 20px;"><p style="color: var(--slate);">' + (_t.noDishes || 'Keine Gerichte verfügbar') + '</p></div>';
+    } else {
+        // Es war schon mal etwas da, jetzt kommt nichts zurueck: das ist
+        // fast immer eine wacklige Verbindung, keine leere Karte. Dann
+        // lieber die bekannten Gerichte stehen lassen als den Gast vor ein
+        // "Keine Gerichte verfügbar" setzen, das nicht stimmt.
+        delete _menuKarteCache[schluessel];
     }
     } catch(e) {
         console.error('loadMenuItems Fehler:', e);
