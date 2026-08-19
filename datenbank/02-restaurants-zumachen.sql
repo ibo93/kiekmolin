@@ -47,6 +47,22 @@
 --   update restaurants set is_active = true where is_active is null;
 -- (oder false -- je nachdem, ob die Haeuser live sein sollen.)
 
+--
+-- UND: die Agentur-Werkzeuge auf den Dienstschluessel stellen
+-- ----------------------------------------------------------
+-- sichtbarkeit/ und telefon-retter/ haengen an DERSELBEN Datenbank und
+-- laufen bislang mit dem oeffentlichen Schluessel. findeRestaurant() holt
+-- dort auch Betriebe, die noch nicht freigeschaltet sind -- ab hier
+-- bekaeme es die nicht mehr.
+--
+-- Also vorher in sichtbarkeit/.env und telefon-retter/.env eintragen:
+--   SUPABASE_SERVICE_ROLE_KEY=eyJ...
+-- (Supabase -> Settings -> API -> service_role)
+--
+-- Zum Nachsehen, womit die Werkzeuge gerade laufen:
+--   node -e "console.log(require('./sichtbarkeit/lib/supabase').schluesselRolle())"
+-- Erwartet: service_role
+
 
 -- =====================================================================
 -- 1. Wer bin ich?
