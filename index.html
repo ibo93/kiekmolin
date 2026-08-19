@@ -22750,18 +22750,77 @@ async function initRealtime() {
         realtimeSubscriptions.push(tablesChannel);
 
 
-        // Heartbeat: Prüfen ob Realtime noch verbunden ist
+        // WACHT UEBER DIE VERBINDUNG -- OHNE ENDLOSSCHLEIFE
+        //
+        // Hier stand: alle 30 Sekunden pruefen, ob ALLE zehn Kanaele stehen --
+        // und wenn EINER fehlt, alle zehn wegwerfen und neu aufbauen. Ohne
+        // Abbruch und ohne steigende Wartezeit.
+        //
+        // Kann ein Kanal grundsaetzlich nicht verbinden -- weil die Tabelle
+        // nicht fuer Echtzeit freigegeben ist, oder weil eine Regel sie
+        // sperrt -- dann laeuft das endlos im 30-Sekunden-Takt: abbauen,
+        // aufbauen, scheitern, abbauen. Jeder Neuaufbau kostet zehn
+        // Verbindungen und zeichnet nebenbei die Startseite neu.
+        //
+        // Jetzt: Wartezeit verdoppelt sich mit jedem Fehlversuch, und nach
+        // fuenf Versuchen ist Schluss. Ein Kanal, der nach fuenf Anlaeufen
+        // nicht steht, steht auch beim sechsten nicht -- dann ist es ein
+        // Einrichtungsfehler und keine wacklige Leitung. Der gehoert gemeldet
+        // und nicht alle 30 Sekunden neu versucht.
+        //
+        // Sobald es einmal klappt, faengt die Zaehlung wieder bei null an.
         if (window._realtimeHeartbeat) clearInterval(window._realtimeHeartbeat);
-        window._realtimeHeartbeat = setInterval(function() {
+        if (typeof window._realtimeVersuche !== 'number') window._realtimeVersuche = 0;
+
+        var MAX_VERSUCHE = 5;
+
+        window._realtimeHeartbeat = setInterval(function () {
             if (!window.supabaseClient) return;
             var channels = window.supabaseClient.getChannels ? window.supabaseClient.getChannels() : [];
-            var allJoined = channels.length > 0 && channels.every(function(ch) { return ch.state === 'joined'; });
-            if (!allJoined && channels.length > 0) {
-                console.warn('Realtime: Verbindung verloren — reconnecte...');
-                realtimeSubscriptions.forEach(function(ch) { try { ch.unsubscribe(); } catch(e) {} });
-                realtimeSubscriptions = [];
-                setTimeout(function() { initRealtime(); }, 2000);
+            if (!channels.length) return;
+
+            var kaputt = channels.filter(function (ch) { return ch.state !== 'joined'; });
+
+            if (!kaputt.length) {
+                // Es steht wieder. Der Zaehler faengt von vorn an, damit eine
+                // kurze Stoerung spaeter nicht auf das Konto von heute geht --
+                // und das Aufgeben wird zurueckgenommen, sonst bliebe die App
+                // bis zum Neuladen taub, obwohl die Leitung wieder da ist.
+                window._realtimeVersuche = 0;
+                window._realtimeAufgegeben = false;
+                return;
             }
+
+            if (window._realtimeVersuche >= MAX_VERSUCHE) {
+                // Einmal melden, dann Ruhe. Ohne diese Bremse haemmert die
+                // App bis zum naechsten Neuladen weiter.
+                if (!window._realtimeAufgegeben) {
+                    window._realtimeAufgegeben = true;
+                    console.warn('Realtime: ' + kaputt.length + ' Kanal/Kanaele verbinden nicht — nach '
+                        + MAX_VERSUCHE + ' Versuchen aufgegeben. Betroffen: '
+                        + kaputt.map(function (ch) { return ch.topic; }).join(', '));
+                    try {
+                        if (typeof meldeFehler === 'function') {
+                            meldeFehler({
+                                message: 'Echtzeit-Kanaele verbinden nicht: '
+                                    + kaputt.map(function (ch) { return ch.topic; }).join(', '),
+                                kind: 'realtime',
+                                area: 'heartbeat'
+                            });
+                        }
+                    } catch (e) {}
+                }
+                return;
+            }
+
+            window._realtimeVersuche++;
+            console.warn('Realtime: Verbindung verloren — Versuch ' + window._realtimeVersuche
+                + ' von ' + MAX_VERSUCHE);
+            realtimeSubscriptions.forEach(function (ch) { try { ch.unsubscribe(); } catch (e) {} });
+            realtimeSubscriptions = [];
+            // 2s, 4s, 8s, 16s, 32s -- statt immer 2s.
+            setTimeout(function () { initRealtime(); },
+                2000 * Math.pow(2, window._realtimeVersuche - 1));
         }, 30000);
 
     } catch (e) {
