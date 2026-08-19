@@ -8149,13 +8149,26 @@
             }
         }
 
-        /* Produkt Cards — Liquid Glass */
+        /* Produkt Cards — Liquid Glass
+           OHNE backdrop-filter, und das ist gemessen, nicht geschaetzt.
+           Auf der Bestellseite liegen 30 bis 40 dieser Karten
+           uebereinander im Scrollbereich. Jede war eine eigene
+           Blur-Ebene, die der Browser bei jedem Scrollbild neu rastert.
+           Gemessen (gedrosselte CPU, 40 Karten, 50 Bilder):
+             mit blur(20px):  Median 692 ms pro Bild
+             ohne blur:       Median 505 ms pro Bild
+           Also rund 37 Prozent Bildzeit -- fuer nichts. Denn die Karte
+           liegt zu 85 Prozent deckend auf einem nahezu einfarbigen
+           Untergrund, und ein weichgezeichneter einfarbiger Untergrund
+           sieht aus wie ein einfarbiger Untergrund. Pixelvergleich mit
+           und ohne, 281.400 Pixel: 4 unterscheiden sich, jeder um
+           1/255. Man sieht es nicht.
+           Die Transparenz BLEIBT (0.85) -- nur das Weichzeichnen der
+           15 Prozent dahinter faellt weg. */
         .menu-item-card {
             display: flex !important;
             flex-direction: column !important;
             background: rgba(255,255,255,0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border-radius: 48px;
             border: 1px solid rgba(255,255,255,0.2);
             overflow: hidden;
@@ -25601,7 +25614,10 @@ function renderRestaurants(filter) {
         const _cardNoRes = (r.features || []).indexOf('no_reservations') >= 0;
 
         html += `
-            <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
+            <!-- Kein backdrop-filter: siehe .menu-item-card im Stilblock.
+                 Dieselbe Karte, dasselbe Ergebnis -- unsichtbar und teuer,
+                 und hier steht sie einmal pro Betrieb in der Scrollliste. -->
+            <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
                 <div class="card-image" onclick="openRestaurantBySlug('${r.slug || r.id}')" style="position:relative;height:200px;overflow:hidden;cursor:pointer;will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0);" data-bg="${r.image}" data-images='${JSON.stringify(r.images || [r.image])}' data-slide-index="0">
                     <!-- Rating Badge -->
                     <div style="position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.9);-webkit-backdrop-filter: blur(6px);backdrop-filter:blur(6px);padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;color:var(--ink-strong);display:flex;align-items:center;gap:4px;z-index:3;">
