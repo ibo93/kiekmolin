@@ -50,11 +50,25 @@ function schneide(name) {
 }
 
 // Die Funktionen wirklich ausfuehren.
-var huelle = CODE.slice(CODE.indexOf('var OHNE_HUELLE'),
-                        CODE.indexOf(';', CODE.indexOf('var OHNE_HUELLE')) + 1);
+//
+// Die Listen und Helfer muessen einzeln mitgeschnitten werden -- der
+// Ausschnitt umfasst nur die Funktion selbst. Kommt eine Abhaengigkeit
+// dazu und wird hier vergessen, stuerzt der Test mit "is not defined" ab.
+// Genau das ist beim Bindewort-Helfer passiert.
+function konstante(name) {
+    var i = CODE.indexOf('var ' + name);
+    if (i < 0) return '';
+    return CODE.slice(i, CODE.indexOf(';', i) + 1);
+}
+var listen = konstante('OHNE_HUELLE') + '\n'
+           + konstante('OHNE_KEINE_ZUTAT') + '\n'
+           + konstante('OHNE_BINDEWORT') + '\n';
+
 var F = new Function('translations', 'currentLanguage', 'escapeHtml',
-    huelle + '\n' + schneide('zutatenZumWeglassen') + '\n' + schneide('renderOhneHtml')
-    + '\n; return { zutaten: zutatenZumWeglassen, html: renderOhneHtml };'
+    listen + '\n' + schneide('bindewortWeg') + '\n'
+    + schneide('zutatenZumWeglassen') + '\n' + schneide('renderOhneHtml')
+    + '\n; return { zutaten: zutatenZumWeglassen, html: renderOhneHtml,'
+    + '            bindewort: bindewortWeg };'
 )({ de: {} }, 'de', function (s) { return String(s == null ? '' : s); });
 
 function z(name, beschreibung) { return F.zutaten({ name: name, description: beschreibung }); }
@@ -208,6 +222,65 @@ t('ein Apostroph wird abgesichert',
           !!m && !/\bohne\b|\bno onions\b|\bzonder\b/i.test(m[1]), m && m[1]);
     });
 })();
+
+
+// ---- Bindewoerter vor der Zutat --------------------------------------------
+// Gemeldet: im Warenkorb stand "+ ohne mit Souvlaki". Zwei Fehler in einer
+// Zeile -- das Plus (siehe warenkorb-ohne-test.js) und das "mit".
+//
+// Die Beschreibung des Rhodos-Tellers lautet "Gyros, Tzatziki, mit Souvlaki,
+// Pommes". Der dritte Teil ist keine Zutat, sondern eine Zutat mit Bindewort
+// davor -- und daraus wurde der Haken "ohne mit Souvlaki".
+console.log('\n-- Bindewoerter --');
+[['mit Souvlaki', 'Souvlaki'], ['dazu Pommes', 'Pommes'], ['und Salat', 'Salat'],
+ ['dazu mit Pommes', 'Pommes'], ['vom Grill', 'Grill'], ['Souvlaki', 'Souvlaki']
+].forEach(function (f) {
+    t('"' + f[0] + '" -> "' + f[1] + '"', F.bindewort(f[0]) === f[1], F.bindewort(f[0]));
+});
+// Nur am ANFANG -- sonst wird aus "Salat mit Ei" ein "Salat".
+t('mitten im Text wird nichts abgeschnitten',
+  F.bindewort('Salat mit Ei') === 'Salat mit Ei', F.bindewort('Salat mit Ei'));
+t('was nur aus Bindewoertern besteht, faellt weg',
+  F.bindewort('mit') === '' && F.bindewort('...') === '', [F.bindewort('mit'), F.bindewort('...')]);
+
+t('der Fall aus dem Warenkorb ist behoben',
+  z('55 Rhodos-Teller', 'Gyros, Tzatziki, mit Souvlaki, Pommes').indexOf('Souvlaki') > -1
+  && JSON.stringify(z('55 Rhodos-Teller', 'Gyros, Tzatziki, mit Souvlaki, Pommes')).indexOf('mit Souvlaki') < 0,
+  z('55 Rhodos-Teller', 'Gyros, Tzatziki, mit Souvlaki, Pommes'));
+
+// ---- Ein Punkt am Ende ist kein Satz ---------------------------------------
+// Hier fiel die halbe Speisekarte durch. "Gyros, Tzatziki, Pommes, Salat."
+// ist eine Zutatenliste -- der Punkt dahinter aendert daran nichts. Beim Gast
+// fehlte der Abschnitt "Bitte ohne" dann ganz, ohne erkennbaren Grund.
+console.log('\n-- Punkt am Ende --');
+t('Liste mit Punkt am Ende zaehlt trotzdem',
+  z('Gyros-Teller', 'Gyros, Tzatziki, Pommes, Salat.').length >= 3,
+  z('Gyros-Teller', 'Gyros, Tzatziki, Pommes, Salat.'));
+t('der Punkt landet nicht in der letzten Zutat',
+  JSON.stringify(z('Gyros-Teller', 'Gyros, Tzatziki, Pommes, Salat.')).indexOf('.') < 0,
+  z('Gyros-Teller', 'Gyros, Tzatziki, Pommes, Salat.'));
+// Innere Satzzeichen bleiben ein Ausschluss -- das ist wirklich Fliesstext.
+t('echter Fliesstext bleibt draussen',
+  z('Teller', 'Gyros mit Pommes. Dazu ein Getraenk.').length === 0,
+  z('Teller', 'Gyros mit Pommes. Dazu ein Getraenk.'));
+
+// ---- Zubereitungen sind keine Zutaten --------------------------------------
+// "ohne paniert" ergibt keinen Sinn und macht die ganze Liste
+// unglaubwuerdig -- wer einmal Unsinn darin sieht, macht sie nie wieder auf.
+console.log('\n-- Zubereitungen --');
+t('"paniert" wird nicht zum Abwaehlen angeboten',
+  z('Schnitzel Wiener Art', 'paniert, mit Pommes, dazu Salat').indexOf('paniert') < 0,
+  z('Schnitzel Wiener Art', 'paniert, mit Pommes, dazu Salat'));
+t('die echten Beilagen bleiben',
+  z('Schnitzel Wiener Art', 'paniert, mit Pommes, dazu Salat').length === 2,
+  z('Schnitzel Wiener Art', 'paniert, mit Pommes, dazu Salat'));
+
+// ---- Doppelte nach dem Abschneiden -----------------------------------------
+// "Pommes" und "dazu Pommes" werden nach dem Abschneiden gleich.
+console.log('\n-- Doppelte --');
+var dopp = z('Teller', 'Pommes, dazu Pommes, Salat');
+t('dieselbe Zutat steht nur einmal drin',
+  dopp.filter(function (x) { return x.toLowerCase() === 'pommes'; }).length === 1, dopp);
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

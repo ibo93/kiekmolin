@@ -205,6 +205,34 @@ var PROMPT = [
     '  Bei Schwein im Zweifel LIEBER kennzeichnen: wer kein Schweinefleisch isst,',
     '  verlaesst sich darauf.',
     '',
+    // SAMMELHINWEISE UNTER DER UEBERSCHRIFT.
+    //
+    // Auf fast jeder Pizzakarte steht einmal oben "Alle Pizzen mit
+    // Tomatensauce und Kaese" -- und bei den einzelnen Pizzen dann nur noch
+    // der Belag ("Salami", "Schinken, Ananas"). Die Grundzutaten stehen also
+    // NUR in dieser einen Zeile.
+    //
+    // Ohne sie fehlt beim Gast das Wichtigste: der Kaese taucht nirgends auf,
+    // also auch nicht bei "Bitte ohne" und nicht bei den Allergenen. Wer
+    // laktoseintolerant ist, sieht eine Pizza ohne jeden Hinweis auf Milch.
+    //
+    // Eigene Zeilenart mit # davor, damit die Gerichtzeilen ihre acht Felder
+    // behalten. Zwei Felder: Kategorie und der Satz.
+    'SAMMELHINWEISE — eine eigene Zeilenart:',
+    'Steht unter einer Ueberschrift ein Satz, der fuer ALLE Gerichte darunter gilt',
+    '("Alle Pizzen mit Tomatensauce und Kaese", "Alle Gerichte mit Beilagensalat",',
+    '"Fast alle Gerichte mit Zwiebeln"), gib ihn als eigene Zeile aus:',
+    '#Kategorie|Der Satz wie er dasteht',
+    '',
+    'Beispiel:',
+    '#Pizzen|Alle Pizzen mit Tomatensauce und Kaese',
+    '#Salate|Alle Salate mit Gurken, Tomaten und Zwiebeln',
+    '',
+    'Solche Zeilen sind KEINE Gerichte — sie haben keinen Preis und keine Nummer.',
+    'Gib sie zusaetzlich zu den Gerichten aus, direkt bevor die Gerichte der',
+    'Kategorie kommen. Gibt es keinen solchen Satz, lass die Zeile weg.',
+    'Erfinde nichts: nur was wirklich auf der Karte steht.',
+    '',
     'REGELN:',
     '- Lies das Bild systematisch: Spalte fuer Spalte, von oben nach unten. Viele Karten haben',
     '  ZWEI oder MEHR SPALTEN — lies erst die linke Spalte komplett, dann die rechte.',
@@ -405,9 +433,29 @@ function parseZeilen(roh) {
 
     if (!roh) return [];
     var out = [];
+    // Sammelhinweise ("Alle Pizzen mit Tomatensauce und Kaese") haengen als
+    // Eigenschaft an der Liste, nicht als Eintrag darin -- sie sind keine
+    // Gerichte, und jeder Aufrufer, der die Liste durchgeht, soll sie nicht
+    // mitzaehlen.
+    out.hinweise = {};
     String(roh).split('\n').forEach(function (z) {
         z = z.replace(/\r$/, '').trim();
         if (!z || z.slice(0, 3) === '```') return;
+
+        // Eigene Zeilenart: #Kategorie|Satz
+        if (z.charAt(0) === '#') {
+            var hp = z.slice(1).split('|');
+            var hk = (hp[0] || '').trim();
+            var ht = (hp.slice(1).join('|') || '').trim();
+            // Ohne Kategorie oder ohne Satz ist es kein Hinweis. Und ein
+            // Satz, der wie eine Gerichtzeile aussieht (Preis am Ende),
+            // ist vermutlich eine verrutschte Position -- lieber weg.
+            if (hk && ht.length >= 8 && ht.length <= 200) {
+                out.hinweise[hk.toLowerCase()] = { kategorie: hk, text: ht.slice(0, 200) };
+            }
+            return;
+        }
+
         var t = z.split('|');
         // Sieben Felder sind kein Grund, ein Gericht wegzuwerfen.
         //
@@ -497,11 +545,103 @@ function parseZeilen(roh) {
     return out;
 }
 
+// DEN SAMMELHINWEIS IN DIE GERICHTE EINARBEITEN.
+//
+// Auf der Karte steht einmal oben "Alle Pizzen mit Tomatensauce und Kaese",
+// und bei den Pizzen dann nur noch der Belag. Die Grundzutaten stehen also
+// nur in dieser einen Zeile -- und waeren damit fuer die App unsichtbar.
+//
+// Statt eine neue Spalte in der Datenbank anzulegen, schreiben wir sie
+// dorthin, wo sie hingehoeren: in die Beschreibung jedes Gerichts. Das ist
+// keine Notloesung, sondern die bessere Loesung -- damit sieht sie ALLES,
+// was ohnehin die Beschreibung liest:
+//
+//   * "Bitte ohne"  -- der Gast kann den Kaese abwaehlen
+//   * die Allergen-Vorschlaege -- Kaese heisst Milch
+//   * das Kopfband  -- rechnet "Alle Pizzen mit: Tomatensauce, Kaese"
+//                      danach von selbst wieder aus
+//
+// Die Zutaten stehen VORNE, so wie auf der Karte: erst der Boden, dann der
+// Belag.
+
+// Aus "Alle Pizzen mit Tomatensauce und Kaese" wird ["Tomatensauce","Kaese"].
+//
+// Alles vor dem "mit" ist Einleitung ("Alle Pizzen", "Fast alle Gerichte")
+// und faellt weg. Ohne ein "mit" laesst sich der Satz nicht sicher
+// zerlegen -- dann lieber gar nichts, als "Alle Pizzen" als Zutat.
+function hinweisZutaten(text) {
+    var t = String(text || '').trim();
+    var i = t.toLowerCase().search(/\bmit\b/);
+    if (i < 0) return [];
+    t = t.slice(i + 3).trim();
+    t = t.replace(/[.!]+\s*$/, '');
+    if (!t) return [];
+    return t.split(/\s*,\s*|\s+und\s+|\s+sowie\s+/i)
+        .map(function (x) { return x.trim(); })
+        .filter(function (x) {
+            // Zu kurz ist kein Wort, zu lang ist ein Satz.
+            return x.length >= 3 && x.length <= 40 && /[a-zA-ZäöüÄÖÜß]/.test(x);
+        })
+        .slice(0, 6);
+}
+
+// Steht die Zutat schon irgendwo im Gericht? Dann nicht doppelt.
+function _stecktDrin(text, zutat) {
+    return String(text || '').toLowerCase().indexOf(String(zutat || '').toLowerCase()) >= 0;
+}
+
+function hinweiseEinarbeiten(items, hinweise) {
+    if (!items || !items.length || !hinweise) return items;
+    var keys = Object.keys(hinweise);
+    if (!keys.length) return items;
+
+    // Die Kategorie im Hinweis und die am Gericht muessen zusammenfinden --
+    // "Pizzen" gegen "PIZZEN" und gegen "Pizza". Klein und ohne Endung n/en
+    // vergleichen, mehr nicht: enger waere unsicher, weiter waere raten.
+    // Auch die Einzahl-Endung abschneiden, nicht nur die Mehrzahl.
+    //
+    // Erst stand hier /(en|n|e)$/. Damit wurde aus "Pizzen" ein "pizz",
+    // aus "Pizza" aber "pizza" -- und der Hinweis unter der Ueberschrift
+    // "Pizza" fand die Gerichte in "PIZZEN" nicht. Genau der Fall, der
+    // auf einer echten Karte am haeufigsten vorkommt.
+    //
+    //   pizzen -> pizz     pizza    -> pizz      passt
+    //   salate -> salat    salat    -> salat     passt
+    //   suppen -> supp     suppe    -> supp      passt
+    //   desserts -> dessert  dessert -> dessert  passt
+    function schluessel(k) {
+        return String(k || '').trim().toLowerCase().replace(/(en|n|e|a|s)$/, '');
+    }
+    var nachKat = {};
+    keys.forEach(function (k) { nachKat[schluessel(k)] = hinweise[k]; });
+
+    items.forEach(function (it) {
+        var h = nachKat[schluessel(it.category)];
+        if (!h) return;
+        var zutaten = hinweisZutaten(h.text);
+        if (!zutaten.length) return;
+        var fehlend = zutaten.filter(function (z) { return !_stecktDrin(it.description, z) && !_stecktDrin(it.name, z); });
+        if (!fehlend.length) return;
+        it.description = fehlend.join(', ') + (it.description ? ', ' + it.description : '');
+        // Fuer die Anzeige im Scan-Ergebnis: woher das kommt.
+        it.hinweis_uebernommen = h.text;
+    });
+    return items;
+}
+
 // Erst Zeilen versuchen, sonst JSON. Sollte das Modell trotz Anweisung JSON
 // liefern (ältere Modelle tun das gern), geht der Scan trotzdem durch.
 function parseAntwort(roh) {
     var zeilen = parseZeilen(roh);
+    // Auch wenn KEINE Gerichte drinstehen: die Hinweise koennen trotzdem
+    // gekommen sein (erste Runde nur mit Ueberschriften). Sie duerfen hier
+    // nicht verlorengehen.
     if (zeilen.length) return zeilen;
+    if (zeilen.hinweise && Object.keys(zeilen.hinweise).length) {
+        var leer = [];
+        leer.hinweise = zeilen.hinweise;
+        return leer;
+    }
     var j = parseItemsLoose(roh);
     return (j && Array.isArray(j.items)) ? j.items : (Array.isArray(j) ? j : []);
 }
@@ -509,6 +649,9 @@ function parseAntwort(roh) {
 function normalizeItems(parsed) {
     var arr = (parsed && Array.isArray(parsed.items)) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
     var out = [];
+    // Die Sammelhinweise haengen als Eigenschaft an der Liste und wuerden
+    // hier sonst abreissen -- normalizeItems baut ja eine neue.
+    out.hinweise = (parsed && parsed.hinweise) || (arr && arr.hinweise) || {};
     arr.forEach(function (it) {
         if (!it || !it.name) return;
         var price = it.price;
@@ -1023,6 +1166,10 @@ async function preiseNachtragen(key, images, ohnePreis, kategorien, frist) {
 // ---------------------------------------------------------------------------
 async function leseGanz(key, images, text, kategorien, frist) {
     var alle = [], gesehen = {}, weiter = null, fehler = null;
+    // Ueber alle Runden sammeln: der Sammelhinweis steht meist nur in der
+    // ersten (die Ueberschrift kommt vor den Gerichten), gelten soll er
+    // aber fuer alles, was danach noch nachgelesen wird.
+    var hinweise = {};
 
     for (var runde = 1; runde <= 12; runde++) {
         if (frist - Date.now() < 5000) break;
@@ -1042,6 +1189,11 @@ async function leseGanz(key, images, text, kategorien, frist) {
         }
 
         var teil = normalizeItems(parseAntwort(r.roh));
+        if (teil.hinweise) {
+            Object.keys(teil.hinweise).forEach(function (k) {
+                if (!hinweise[k]) hinweise[k] = teil.hinweise[k];
+            });
+        }
         var neu = 0;
         teil.forEach(function (it) {
             var k = schluessel(it);
@@ -1063,7 +1215,14 @@ async function leseGanz(key, images, text, kategorien, frist) {
         };
     }
 
-    return { items: alle, fehler: fehler };
+    // ERST GANZ AM ENDE einarbeiten, nicht je Runde.
+    //
+    // Der Hinweis kommt in Runde 1, die Gerichte kommen ueber mehrere
+    // Runden. Wer je Runde einarbeitet, erwischt die spaeteren nicht --
+    // und genau das waeren bei einer langen Karte die meisten.
+    hinweiseEinarbeiten(alle, hinweise);
+
+    return { items: alle, hinweise: hinweise, fehler: fehler };
 }
 
 // Duplikat-Schlüssel. Die GERICHTNUMMER gehört dazu: auf einer echten Karte

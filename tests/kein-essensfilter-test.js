@@ -48,7 +48,10 @@ t('und die Bedingung für eine Rückkehr auch',
   /Filter nur anbieten, wenn ein ausreichend/.test(H));
 
 // ---- Die Karte bleibt vollständig -------------------------------------------
-var render = H.slice(H.indexOf('function renderMenuItemsForGuest('),
+// Ab dem Umbau auf Durchscroll baut gerichtKartenHtml die Karten und
+// renderMenuItemsForGuest ruft sie nur noch auf. Beide zusammen
+// betrachten -- die Filterlogik koennte in jeder von beiden stecken.
+var render = H.slice(H.indexOf('function gerichtKartenHtml'),
                      H.indexOf('// Produkt-Options öffnen'));
 t('die Gastansicht filtert nichts mehr heraus',
   render.indexOf('teileNachFilter') < 0 && render.indexOf('_geteilt') < 0);
@@ -56,8 +59,12 @@ t('kein "Dazu passt hier gerade nichts" mehr',
   H.indexOf('Dazu passt hier gerade nichts') < 0);
 t('kein Block "Keine Angabe zu diesen Gerichten" mehr',
   H.indexOf('Keine Angabe zu diesen Gerichten') < 0);
+// Seit dem Umbau auf Durchscroll steht die Zeile einteilig da: die
+// Karten kommen aus gerichtKartenHtml. Wichtig bleibt, WAS davor NICHT
+// steht -- eine Filterleiste und ein zweites Raster fuer "unklar".
 t('das Raster wird ohne Filterleiste gebaut',
-  /var html = '<div class="stitch-menu-grid">';/.test(render));
+  /var html = '<div class="stitch-menu-grid">' \+ gerichtKartenHtml\(items, 0\) \+ '<\/div>';/.test(render),
+  JSON.stringify((render.match(/var html = [^\n]*/) || [])[0]));
 
 // Die Liste wird nur noch einmal aufgebaut -- vorher gab es passend + unklar
 // und eine Trennstelle mittendrin.

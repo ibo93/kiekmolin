@@ -209,8 +209,11 @@ t('alle 14 Pflichtallergene sind hinterlegt',
     var aufrufe = (CODE.match(/getMenuBadgeIcons\(/g) || []).length;
     t('getMenuBadgeIcons wird nicht mehr nur definiert', aufrufe >= 2, aufrufe + ' Vorkommen');
 
-    var i = CODE.indexOf('function renderMenuItemsForGuest');
-    var j = CODE.indexOf("container.innerHTML = html;", i);
+    // Die Kartenerzeugung liegt seit dem Umbau auf Durchscroll in einer
+    // eigenen Funktion -- sie hat jetzt zwei Aufrufer: die flache Liste
+    // (Suche) und die Ansicht nach Kategorien.
+    var i = CODE.indexOf('function gerichtKartenHtml');
+    var j = CODE.indexOf('return html;', i);
     var karte = i >= 0 && j > i ? CODE.slice(i, j) : '';
     t('die Gerichtkarte ruft die Symbole auf', /getMenuBadgeIcons\(item\)/.test(karte), karte.length);
     t('und hat einen Info-Knopf', /openGerichtInfo\(/.test(karte));

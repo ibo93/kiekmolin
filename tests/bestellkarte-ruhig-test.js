@@ -86,9 +86,22 @@ t('ladePlatzhalter kommt nur einmal vor',
 console.log('\n-- 4. Nur neu zeichnen, wenn sich etwas geaendert hat --');
 t('es wird verglichen statt blind gezeichnet',
   /JSON\.stringify\(bekannt\) !== neuRoh/.test(fn), 'kein Vergleich');
-t('renderMenuItemsForGuest(items) haengt am Vergleich',
-  /if \(!bekannt \|\| JSON\.stringify\(bekannt\) !== neuRoh\) \{\s*\n\s*renderMenuItemsForGuest\(items\);/.test(fn),
-  'Vergleich umklammert das Zeichnen nicht');
+// Seit dem Umbau auf Durchscroll steht im Vergleich eine Weiche: ohne
+// Kategorie-Filter die durchgehende Karte, mit Filter die flache Liste.
+// Wichtig bleibt, dass BEIDES am Vergleich haengt -- sonst zeichnet die
+// App wieder bei jedem Tipp neu.
+t('das Zeichnen haengt am Vergleich',
+  /if \(!bekannt \|\| JSON\.stringify\(bekannt\) !== neuRoh\) \{/.test(fn),
+  'Vergleich fehlt');
+t('ohne Filter wird die durchgehende Karte gezeichnet',
+  /if \(!categoryId && window\._menuCategories && window\._menuCategories\.length\) \{\s*\n\s*renderKarteDurchgehend\(items, window\._menuCategories\);/.test(fn),
+  'keine Weiche');
+t('mit Filter weiterhin die flache Liste',
+  /\} else \{\s*\n\s*renderMenuItemsForGuest\(items\);/.test(fn), 'kein Rueckfallweg');
+// Und die Weiche muss INNERHALB des Vergleichs stehen.
+var _iV = fn.indexOf('JSON.stringify(bekannt) !== neuRoh');
+var _iW = fn.indexOf('renderKarteDurchgehend(items');
+t('die Weiche steht innerhalb des Vergleichs', _iV > 0 && _iW > _iV, _iV + '/' + _iW);
 t('das Ergebnis wird in den Cache gelegt',
   /_menuKarteCache\[schluessel\] = items;/.test(fn), 'kein Schreiben');
 
