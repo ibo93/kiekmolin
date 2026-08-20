@@ -21077,7 +21077,7 @@ const translations = {
         tipGoesTo: '100% des Trinkgelds geht an das Servicepersonal.',
         emailConfirmOrder: 'Bestellbestätigung per E-Mail senden',
         enterEmail: 'E-Mail-Adresse eingeben',
-        placeOrderNow: 'Zahlungspflichtig bestellen',
+        placeOrderNow: 'Bestellen',
         alkoholHinweis: 'Deine Bestellung enthält Alkohol. Bitte halte bei der Übergabe einen Ausweis bereit \u2013 wir geben Alkohol nur an Volljährige ab.',
         legalOrderText: 'Mit Klick auf den Button schließen Sie einen verbindlichen Kaufvertrag ab.',
         dineInOnly: 'Nur vor Ort',
@@ -21503,7 +21503,7 @@ const translations = {
         tipGoesTo: '100% of the tip goes to the service staff.',
         emailConfirmOrder: 'Send order confirmation by email',
         enterEmail: 'Enter email address',
-        placeOrderNow: 'Order with obligation to pay',
+        placeOrderNow: 'Order now',
         alkoholHinweis: 'Your order contains alcohol. Please have your ID ready on handover \u2013 we only serve alcohol to adults.',
         legalOrderText: 'By clicking the button you enter into a binding purchase agreement.',
         dineInOnly: 'Dine-in only',
@@ -21959,7 +21959,7 @@ const translations = {
         tipGoesTo: '100% van de fooi gaat naar het servicepersoneel.',
         emailConfirmOrder: 'Bestelbevestiging per e-mail sturen',
         enterEmail: 'E-mailadres invoeren',
-        placeOrderNow: 'Bestelling met betalingsverplichting',
+        placeOrderNow: 'Bestellen',
         alkoholHinweis: 'Je bestelling bevat alcohol. Houd bij de overdracht een identiteitsbewijs klaar \u2013 wij verstrekken alcohol alleen aan volwassenen.',
         legalOrderText: 'Door op de knop te klikken sluit u een bindende koopovereenkomst.',
         dineInOnly: 'Alleen ter plaatse',
@@ -44863,8 +44863,23 @@ document.addEventListener('error', function(e) {
                     <span id="checkoutTotal" style="font-size:24px;font-family:Epilogue,sans-serif;font-weight:800;color:var(--ink-strong);">0,00 €</span>
                     <span style="font-size:10px;color:rgba(0,61,51,0.4);">inkl. MwSt.</span>
                 </div>
+                <!-- BESTELLKNOPF: BEWUSSTE ENTSCHEIDUNG DES BETREIBERS.
+                     § 312j Abs. 3 BGB verlangt "zahlungspflichtig bestellen"
+                     oder eine ebenso eindeutige Formulierung. "Bestellen"
+                     allein genuegt dem nach der Rechtsprechung NICHT --
+                     verworfen wurden u.a. "Bestellung aufgeben" (LG
+                     Karlsruhe), "Senden" (LG Stuttgart), "Bestellen und
+                     Kaufen" (AG Koeln).
+                     Folge nach Absatz 4: der Vertrag kommt nicht zustande.
+                     Dazu Abmahnrisiko (800-1500 EUR Anwaltskosten).
+                     Der Betreiber wurde darauf hingewiesen und hat sich fuer
+                     "Bestellen" entschieden: "der gast braucht solche woerter
+                     nicht er will esssen bestellen".
+                     WER DAS AENDERN WILL: zulaessig waeren "Jetzt kaufen",
+                     "Kostenpflichtig bestellen" oder "Zahlungspflichtig
+                     bestellen" -- nicht irgendeine eigene Formulierung. -->
                 <button onclick="submitOrder()" id="submitOrderBtn" style="flex:1;max-width:280px;background:#FFD54F;color:#003D33;border:none;padding:16px 24px;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 8px 20px -6px rgba(255,213,79,0.5);transition:all 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                    <span data-i18n="placeOrderNow">Zahlungspflichtig bestellen</span>
+                    <span data-i18n="placeOrderNow">Bestellen</span>
                 </button>
             </div>
         </div>
@@ -51267,7 +51282,7 @@ async function submitOrder() {
         var _emlInput = document.getElementById('checkoutEmail');
         if (_emlInput) _emlInput.value = _emailHint;
         try { localStorage.setItem('kmi_customer_email', _emailHint); } catch (e) {}
-        markError('checkoutEmail', 'Wir haben <b>' + _emailHint + '</b> daraus gemacht. Stimmt das? Dann nochmal auf „Zahlungspflichtig bestellen" tippen.');
+        markError('checkoutEmail', 'Wir haben <b>' + _emailHint + '</b> daraus gemacht. Stimmt das? Dann nochmal auf „Bestellen" tippen.');
         return;
     }
 
@@ -52051,7 +52066,7 @@ async function submitOrder() {
         showToast('Fehler: ' + submitError.message, 'error');
         // Button wieder aktivieren
         var btn = document.getElementById('submitOrderBtn');
-        if (btn) { btn.disabled = false; var _tl = translations[currentLanguage] || translations.de; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;">check_circle</span> ' + (_tl.placeOrderNow || 'Zahlungspflichtig bestellen'); }
+        if (btn) { btn.disabled = false; var _tl = translations[currentLanguage] || translations.de; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;">check_circle</span> ' + (_tl.placeOrderNow || 'Bestellen'); }
     }
 }
 

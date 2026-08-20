@@ -12,43 +12,50 @@ var h = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + JSON.stringify(x))); }
 
-console.log('\n-- 1. Der Bestellknopf (§ 312j Abs. 3 BGB) --');
-// DER SCHWERSTE FUND. Der Knopf hiess "Bestellung abschließen".
-// § 312j Abs. 3 BGB verlangt "zahlungspflichtig bestellen" oder eine
-// ebenso eindeutige Formulierung. "Bestellung abschließen" genuegt dem
-// nicht -- Gerichte haben "Bestellung aufgeben", "Jetzt Mitglied
-// werden" und "Abonnieren" allesamt verworfen.
+console.log('\n-- 1. Der Bestellknopf -- bewusste Entscheidung --');
+// HIER WIRD ETWAS FESTGEHALTEN, DAS NICHT DER REGEL ENTSPRICHT.
 //
-// Die Folge steht in § 312j Abs. 4: der Vertrag kommt NICHT zustande.
-// Fuer den Wirt heisst das: gekocht, geliefert, und der Gast war nie
-// gebunden. Das ist kein Schoenheitsfehler, das ist der Umsatz.
+// § 312j Abs. 3 BGB verlangt "zahlungspflichtig bestellen" oder eine
+// ebenso eindeutige Formulierung. "Bestellen" allein genuegt dem nach
+// der Rechtsprechung nicht -- verworfen wurden u.a. "Bestellung
+// aufgeben" (LG Karlsruhe), "Senden" (LG Stuttgart) und "Bestellen und
+// Kaufen" (AG Koeln). Folge nach Absatz 4: der Vertrag kommt nicht
+// zustande. Dazu Abmahnrisiko.
+//
+// Der Knopf hiess "Bestellung abschließen", wurde auf
+// "Zahlungspflichtig bestellen" geaendert, und der Betreiber hat das
+// nach Hinweis auf die Rechtslage zurueckgenommen:
+// "der gast braucht solche woerter nicht er will esssen bestellen".
+// Das ist seine Entscheidung fuer seinen Betrieb.
+//
+// Dieser Abschnitt prueft deshalb NICHT die Beschriftung, sondern dass
+// die Begruendung im Quelltext steht. Wer den Knopf das naechste Mal
+// anfasst, soll wissen, worauf er sich einlaesst -- und nicht denken,
+// hier haette nur nie jemand nachgesehen.
 var knopf = (h.match(/<button onclick="submitOrder\(\)"[\s\S]{0,900}?<\/button>/) || [''])[0];
-t('der Knopf sagt "Zahlungspflichtig bestellen"',
-  /Zahlungspflichtig bestellen/.test(knopf), knopf.slice(-200));
-t('und nicht mehr "Bestellung abschließen"',
-  /Bestellung abschließen/.test(knopf) === false, knopf.slice(-200));
+t('es gibt den Bestellknopf', knopf.length > 0, 'nicht gefunden');
+t('die Rechtslage steht direkt daneben',
+  h.indexOf('BESTELLKNOPF: BEWUSSTE ENTSCHEIDUNG DES BETREIBERS') > -1, 'keine Notiz');
+t('mit der Fundstelle', /§ 312j Abs\. 3 BGB verlangt/.test(h), 'ohne Fundstelle');
+t('mit der Folge', /der Vertrag kommt nicht zustande/.test(h), 'ohne Folge');
+t('und mit den zulaessigen Alternativen fuer den naechsten',
+  /zulaessig waeren "Jetzt kaufen"/.test(h), 'keine Alternativen');
 
-// Auch der Rueckfalltext im Code -- der erscheint, wenn eine Bestellung
-// schiefging und der Knopf neu beschriftet wird. Genau dann klickt der
-// Gast noch einmal.
-t('auch der Rueckfall nach einem Fehler ist richtig beschriftet',
-  /_tl\.placeOrderNow \|\| 'Zahlungspflichtig bestellen'/.test(h), 'alter Text');
-
-// In allen drei Sprachen: die Verbraucherrechte-Richtlinie verlangt die
-// Eindeutigkeit in der Sprache, in der bestellt wird.
-[['de', 'Zahlungspflichtig bestellen'],
- ['en', 'Order with obligation to pay'],
- ['nl', 'Bestelling met betalingsverplichting']].forEach(function (f) {
+// Was auch bei dieser Entscheidung gilt: die drei Sprachen muessen
+// zusammenpassen. "Place binding order now" sagte etwas anderes als
+// der deutsche Knopf -- ein englischer Gast las eine Zusage, die auf
+// Deutsch nicht dastand.
+[['de', 'Bestellen'], ['en', 'Order now'], ['nl', 'Bestellen']].forEach(function (f) {
     t('Knopftext ' + f[0], h.indexOf("placeOrderNow: '" + f[1] + "'") > -1, 'fehlt');
 });
-// "binding"/"bindend" sagt nur, dass es verbindlich ist -- nicht, dass
-// es Geld kostet. Das war die alte englische und niederlaendische
-// Fassung und geht aus demselben Grund nicht.
 t('kein "binding order" mehr', h.indexOf('Place binding order now') < 0, 'noch da');
 t('kein "bindend bestellen" mehr', h.indexOf('Nu bindend bestellen') < 0, 'noch da');
-
-// Die Ueberschrift der Seite darf weiter "Bestellung abschließen"
-// heissen -- verlangt ist die Beschriftung des KNOPFES.
+// Der Rueckfalltext nach einem Fehler muss derselbe sein -- sonst
+// wechselt die Beschriftung mitten im Bestellvorgang.
+t('der Rueckfall nach einem Fehler sagt dasselbe',
+  /_tl\.placeOrderNow \|\| 'Bestellen'/.test(h), 'anderer Text');
+t('und die Fehlermeldung verweist auf denselben Knopf',
+  /Dann nochmal auf „Bestellen" tippen/.test(h), 'nennt anderen Knopf');
 t('die Seitenueberschrift bleibt unberuehrt',
   /checkout: 'Bestellung abschließen'/.test(h), 'auch geaendert');
 
