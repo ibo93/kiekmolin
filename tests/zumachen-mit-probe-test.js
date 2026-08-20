@@ -28,6 +28,10 @@ function ohneKommentar(s) { return s.split('\n').filter(function (z) { return !/
 
 var s06 = fs.readFileSync(D + '/06-erst-pruefen.sql', 'utf8');
 var c06 = ohneKommentar(s06);
+var s09 = fs.readFileSync(D + '/09-alles-in-einem.sql', 'utf8');
+var c09 = ohneKommentar(s09);
+var s08 = fs.readFileSync(D + '/08-nur-die-drei.sql', 'utf8');
+var c08 = ohneKommentar(s08);
 var s07 = fs.readFileSync(D + '/07-eine-nach-der-anderen.sql', 'utf8');
 var c07 = ohneKommentar(s07);
 
@@ -149,6 +153,66 @@ t('customers: Anlegen nur angemeldet',
   /on public\.customers for insert to authenticated/.test(c07)
   && /on public\.customers for insert to anon/.test(c07) === false, 'anon darf anlegen');
 
+console.log('\n-- 10b. Die Rollensperre -- sonst ist alles umsonst --');
+// GEFUNDEN BEIM DURCHLESEN VOR DEM AUSFUEHREN.
+//
+// Abschnitt 4 hatte:
+//     create policy "Angemeldete legen ihre Kundenzeile an"
+//         on public.customers for insert to authenticated
+//         with check (true);
+//
+// kmi_ist_superadmin() fragt customers.role ab. Wer sich anmelden kann
+// -- und das kann jeder mit einem Google-Konto -- haette sich eine
+// Zeile mit der eigenen E-Mail und role = 'superadmin' angelegt und
+// danach JEDE Bestellung, JEDE Reservierung und JEDEN Kunden gelesen.
+// Dasselbe ueber UPDATE: role gehoert zur eigenen Zeile.
+//
+// Mit Regeln allein ist das nicht dicht: in with check kommt man an den
+// ALTEN Wert nicht heran. Also ein Ausloeser.
+t('es gibt einen Ausloeser fuer die Rolle',
+  /create or replace function public\.kmi_rolle_schuetzen\(\)/.test(c07), 'fehlt');
+t('er haengt an customers, vor Anlegen UND Aendern',
+  /before insert or update on public\.customers/.test(c07), 'nicht verdrahtet');
+t('und wird vorher sauber abgeraeumt',
+  /drop trigger if exists kmi_rolle_schuetzen on public\.customers;/.test(c07), 'kein drop');
+t('beim Anlegen wird die Rolle geleert',
+  /if tg_op = 'INSERT' then[\s\S]{0,200}?new\.role := null;[\s\S]{0,80}?new\.restaurant_id := null;/.test(c07),
+  'Rolle bleibt setzbar');
+t('beim Aendern bleibt sie, wie sie war',
+  /new\.role := old\.role;[\s\S]{0,80}?new\.restaurant_id := old\.restaurant_id;/.test(c07),
+  'Rolle bleibt aenderbar');
+
+// DREI WEGE MUESSEN DURCH -- sonst sperrt die Sperre den Betrieb aus.
+// Der SQL-Editor hat kein Anmelde-Token: ohne diese Zeile wuerde sich
+// der Superadmin beim Anlegen eines Wirts dessen Rolle selbst
+// wegloeschen.
+t('der SQL-Editor kommt durch', /if auth\.jwt\(\) is null then return new; end if;/.test(c07),
+  'sperrt den Editor aus');
+// Der Dienstschluessel geht an RLS vorbei, aber NICHT an Ausloesern.
+t('der Dienstschluessel kommt durch',
+  /auth\.jwt\(\) ->> 'role', ''\) = 'service_role' then return new/.test(c07),
+  'sperrt die Netlify-Funktionen aus');
+t('und der echte Superadmin auch',
+  /if public\.kmi_ist_superadmin\(\) then return new; end if;/.test(c07), 'sperrt dich aus');
+
+// Anlegen nur mit der eigenen Adresse -- sonst legt jemand Zeilen auf
+// fremde E-Mails an und kommt ueber die Stammkundenkarte an fremde
+// Daten.
+t('angelegt wird nur die eigene Zeile',
+  /create policy "Angemeldete legen ihre eigene Kundenzeile an"[\s\S]{0,300}?lower\(trim\(email\)\) = public\.kmi_email\(\)/.test(c07),
+  'with check (true) ist zurueck');
+t('kein "with check (true)" mehr bei customers',
+  /for insert to authenticated\s*\n\s*with check \(true\);/.test(c07) === false, 'wieder offen');
+
+// Der Ausloeser gehoert auch in die Gegenprobe -- sonst merkt niemand,
+// wenn er spaeter abgeschaltet wird.
+t('die Gegenprobe fragt den Ausloeser ab',
+  /from pg_trigger[\s\S]{0,200}?kmi_rolle_schuetzen/.test(c07), 'nicht abgefragt');
+// Die Browser-Probe steht als Anleitung im Kommentar -- also gegen die
+// ungefilterte Fassung pruefen.
+t('und es gibt eine Probe aus dem Browser',
+  /role: 'superadmin'[\s\S]{0,400}?role steht weiter auf null/.test(s07), 'keine Probe');
+
 console.log('\n-- 11. Lesen ist ueberall zu --');
 var leseRegeln = c07.split('create policy').slice(1).filter(function (b) { return /\bfor select\b/.test(b); });
 t('vier Leseregeln', leseRegeln.length === 4, leseRegeln.length);
@@ -165,6 +229,121 @@ t('als nicht angemeldeter Gast Namen abfragen',
   /select=customer_name/.test(s07) && /LEERE Liste/.test(s07), 'fehlt');
 t('und die Regeln lassen sich auflisten',
   /from pg_policies/.test(c07), 'keine Gegenprobe');
+
+console.log('\n-- 12. Schritt 08: die drei mit den Gaestedaten, ohne customers --');
+// WARUM ES DIESE DATEI GIBT.
+// 07 Abschnitt 4 (customers) ist der gefaehrlichste: daran haengt
+// checkIfGastronom(), also wer ueberhaupt ins Dashboard darf. Steht dort
+// eine andere E-Mail als die, mit der sich der Wirt anmeldet, sperrt er
+// sich selbst aus. Der Konsolen-Test aus 06 war noch nicht gelaufen.
+//
+// Also erst das Sichere. Die Gaestedaten -- Name, Telefon, Adresse --
+// stehen in orders, order_items und reservations. customers enthaelt die
+// Betreiberkonten (sechs Zeilen) und kann warten.
+t('die Datei gibt es', s08.length > 500, s08.length);
+
+// DAS WICHTIGSTE: customers darf NICHT angefasst werden. Eine einzige
+// Zeile zuviel, und der Wirt steht vor verschlossener Tuer.
+t('customers wird NICHT zugemacht',
+  /alter table public\.customers enable row level security/.test(c08) === false, 'doch angefasst');
+t('und bekommt auch keine Regeln',
+  /on public\.customers/.test(c08) === false, 'doch Regeln');
+t('customers kommt nur in Erklaerungen vor',
+  c08.indexOf('customers') < 0, 'im Code erwaehnt');
+
+// Genau drei Tabellen, nicht mehr und nicht weniger.
+var zu = (c08.match(/alter table public\.([a-z_]+) enable row level security/g) || [])
+    .map(function (z) { return z.replace(/.*public\.([a-z_]+).*/, '$1'); });
+t('genau drei Tabellen werden zugemacht', zu.length === 3, zu);
+['order_items', 'reservations', 'orders'].forEach(function (tab) {
+    t('  dabei: ' + tab, zu.indexOf(tab) > -1, zu);
+});
+// Reihenfolge nach Schadensgroesse -- order_items zuerst, orders zuletzt.
+// Beim ersten Versuch lief alles auf einmal, und als es schiefging war
+// unklar, welche Tabelle schuld war.
+t('in der Reihenfolge kleinster Schaden zuerst',
+  zu.join(',') === 'order_items,reservations,orders', zu);
+
+// Gaeste muessen weiter bestellen und reservieren koennen -- sonst ist
+// zwar alles dicht, aber der Laden steht.
+['orders', 'order_items', 'reservations'].forEach(function (tab) {
+    var re = new RegExp('on public\\.' + tab + ' for insert to anon, authenticated');
+    t('Gaeste duerfen weiter schreiben: ' + tab, re.test(c08), 'zu');
+});
+// Und Lesen ist ueberall zu.
+['orders', 'order_items', 'reservations'].forEach(function (tab) {
+    var re = new RegExp('on public\\.' + tab + ' for select to anon');
+    t('Lesen ist zu: ' + tab, re.test(c08) === false, 'noch offen fuer anon');
+});
+
+// Jeder Abschnitt braucht seine Reissleine -- und zwar sichtbar, nicht
+// im Kopf des Skripts vergraben.
+['order_items', 'reservations', 'orders'].forEach(function (tab) {
+    var re = new RegExp('Ruecknahme:\\s+alter table public\\.' + tab + ' disable row level security;');
+    t('Reissleine dabei: ' + tab, re.test(s08), 'fehlt');
+});
+t('nach jedem Abschnitt wird geprueft',
+  (s08.match(/JETZT PRUEFEN/g) || []).length >= 3,
+  (s08.match(/JETZT PRUEFEN/g) || []).length);
+
+// Die Gegenprobe zaehlt 12 Regeln -- 4 pro Tabelle.
+t('12 Regeln im Skript', (c08.match(/^create policy /gm) || []).length === 12,
+  (c08.match(/^create policy /gm) || []).length);
+t('die Gegenprobe erwartet dieselbe Zahl', /Erwartet: 12 Regeln/.test(s08), 'andere Zahl');
+t('und fragt customers nicht mit ab',
+  /tablename in \('orders','order_items','reservations'\)/.test(c08), 'fragt zuviel');
+
+// Die harte Probe: als Fremder die Telefonnummern holen wollen.
+t('die Probe von aussen ist beschrieben',
+  /select=customer_name,customer_phone/.test(s08), 'fehlt');
+t('mit der erwarteten leeren Liste',
+  /ERWARTET: eine leere Liste/.test(s08), 'ohne Erwartung');
+t('und dem Hinweis auf Chromes Einfuege-Sperre',
+  /allow pasting/.test(s08), 'fehlt');
+
+console.log('\n-- 13. Schritt 09: dasselbe in einem Durchgang --');
+// "das ist zu kompliziert fuer mich mach du alles" -- ausfuehren kann
+// ich es nicht, der Zugang zur Datenbank ist nur lesend. Was geht: es
+// auf einen einzigen Einfuege-Vorgang eindampfen.
+//
+// Am Stueck auszufuehren war beim ersten Versuch (04) der Fehler.
+// Zwei Dinge sind heute anders, und beide gehoeren ins Skript, damit
+// spaeter niemand denkt, hier sei jemand leichtsinnig geworden:
+//   1. 06 ist gelaufen und war gruen -- damals war die Gegenprobe
+//      falsch herum (sie testete den Gast, nicht die Wirte).
+//   2. customers ist draussen -- genau die Tabelle war das Risiko,
+//      sich selbst auszusperren.
+t('die Datei gibt es', s09.length > 500, s09.length);
+t('sie sagt, warum es diesmal am Stueck gehen darf',
+  /WARUM ES DIESMAL AM STUECK GEHEN DARF/.test(s09), 'keine Begruendung');
+t('mit dem gruenen Ergebnis aus 06',
+  /158 Bestellungen, 355\s+--\s+Reservierungen|158 Bestellungen, 355/.test(s09), 'ohne Beleg');
+t('und dem Hinweis, was beim ersten Mal fehlte',
+  /dort wurde der Gast getestet, nicht die Wirte/.test(s09), 'ohne Lehre');
+
+// Inhaltlich MUSS es dasselbe sein wie 08 -- sonst haetten wir zwei
+// Wahrheiten. Verglichen wird der Code ohne Kommentare und ohne die
+// Gegenprobe am Ende.
+function nurRegeln(x) {
+    return (x.match(/(create policy|create or replace function|alter table|drop policy|create trigger)[\s\S]*?;/g) || [])
+        .join('\n').replace(/\s+/g, ' ');
+}
+t('inhaltlich identisch mit 08', nurRegeln(c09) === nurRegeln(c08),
+  'weicht ab');
+
+// Und die Sicherungen muessen auch hier stehen.
+t('customers wird auch hier NICHT angefasst',
+  /on public\.customers|alter table public\.customers/.test(c09) === false, 'doch angefasst');
+t('die Ruecknahme steht ganz oben, nicht am Ende',
+  s09.indexOf('disable row level security') < s09.indexOf('create policy'), 'zu weit hinten');
+t('alle drei Ruecknahme-Zeilen sind da',
+  (s09.match(/disable row level security;/g) || []).length >= 3,
+  (s09.match(/disable row level security;/g) || []).length);
+t('und die Anleitung sagt, dass nichts kaputt geht',
+  /Es ist nichts kaputt, nur zu/.test(s09), 'macht Angst ohne Not');
+// Die Gegenprobe laeuft gleich mit -- sonst muesste der Wirt sie
+// separat starten, und genau das war "zu kompliziert".
+t('die Gegenprobe haengt hinten dran', /from pg_policies/.test(c09), 'fehlt');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);

@@ -125,23 +125,95 @@ t('und der Verweis darauf steht in index.html',
   h.indexOf('hinweiseEinarbeiten in') > -1, 'kein Verweis');
 
 console.log('\n-- 5. Die Leiste laeuft mit --');
-t('es gibt einen Beobachter', /function kategorieLeisteMitlaufen\(\)/.test(h), 'fehlt');
-// Ein scroll-Handler feuert bei jedem Pixel -- das haette uns das
-// Ruckeln zurueckgebracht, das wir gerade erst losgeworden sind.
-t('ueber IntersectionObserver, nicht ueber scroll',
-  /new IntersectionObserver\(/.test(h)
-  && /addEventListener\('scroll'[^)]*kategorieLeiste/.test(h) === false, 'scroll-Handler');
-t('der alte Beobachter wird vorher abgeraeumt',
-  /if \(_katBeobachter\) \{ _katBeobachter\.disconnect\(\); _katBeobachter = null; \}/.test(h),
-  'sammelt sich an');
-t('der Streifen liegt unter der klebenden Leiste',
-  /rootMargin: '-150px 0px -70% 0px'/.test(h), 'anderer Streifen');
+t('es gibt den Mitlauf', /function kategorieLeisteMitlaufen\(\)/.test(h), 'fehlt');
+
+// KEIN IntersectionObserver MEHR -- und warum das kein Rueckschritt ist.
+//
+// Gemeldet: "wenn scrolle steht oben nicht welche kategorie ich bin ...
+// bleibt bei den ich geklickt habe", und entscheidend:
+// "es geht nur auf dem handy nicht auf dem laptop".
+//
+// #menuItemsList ist ein eigener Scroll-Kasten (overflow-y:auto). Ein
+// Beobachter mit "root: null" misst gegen das FENSTER -- beim
+// Schwung-Scrollen in einem inneren Kasten rechnet das Handy die
+// Schnittmengen waehrenddessen nicht neu. Auf dem Laptop kommt mit dem
+// Mausrad jeder Schritt einzeln an, dort fiel es nie auf.
+var mit = h.slice(h.indexOf('function kategorieLeisteMitlaufen()'),
+                  h.indexOf('function katPilleMarkieren'));
+t('der Mitlauf haengt an keinem IntersectionObserver mehr',
+  mit.indexOf('IntersectionObserver') < 0, mit.slice(0, 200));
+t('sondern am Scroll-Kasten selbst',
+  /liste\.addEventListener\('scroll', angestossen, \{ passive: true \}\)/.test(mit), 'nicht am Kasten');
+// passive: sonst wartet der Browser bei jedem Wisch darauf, ob wir das
+// Scrollen abbrechen wollen -- genau das ruckelt.
+t('und zwar passiv', (mit.match(/passive: true/g) || []).length >= 3,
+  (mit.match(/passive: true/g) || []).length + ' von 3');
+// Gerechnet wird einmal je Bild, nicht bei jedem Pixel. Das war der
+// Einwand gegen scroll-Handler -- er gilt fuer ungebremste.
+t('gerechnet wird einmal je Bild', /requestAnimationFrame/.test(mit), 'ungebremst');
+t('die Merkfahne verhindert Mehrfachrechnen',
+  /if \(_katWartet\) return;\s*\n\s*_katWartet = true;/.test(mit), 'keine Fahne');
+// Ohne Abraeumen haengt nach jedem Neuzeichnen ein weiterer Zuhoerer an
+// derselben Liste -- nach zehn Sprachwechseln rechnen zehn Kopien.
+t('alte Zuhoerer werden vorher abgeraeumt',
+  /if \(_katAufraeumen\) \{ _katAufraeumen\(\); _katAufraeumen = null; \}/.test(mit), 'sammelt sich an');
+t('und beim Abraeumen gehen alle drei weg',
+  (mit.match(/removeEventListener/g) || []).length === 3,
+  (mit.match(/removeEventListener/g) || []).length + ' von 3');
+t('einmal sofort, damit die Pille schon vor dem ersten Wisch stimmt',
+  /\/\/ Einmal sofort[\s\S]{0,80}angestossen\(\);/.test(mit), 'erst beim Scrollen');
+
+// Die Rechnung selbst -- und zwar ausgefuehrt, nicht gelesen.
+// Der alte Streifen war "-150px oben, -70% unten" vom FENSTER: bei
+// einer Fensterhoehe unter 500px schrumpft er auf null. Dann schneidet
+// nie etwas und die Pille steht still. Die neue Rechnung kennt keine
+// Fensterhoehe.
+t('die Leselinie sitzt im Kasten, nicht im Fenster',
+  /liste\.getBoundingClientRect\(\)\.top \+ 120/.test(h), 'am Fenster');
+t('keine Prozente mehr, die zusammenklappen koennen',
+  /rootMargin/.test(h.slice(h.indexOf('function katAnDerLinie'),
+                            h.indexOf('function katPilleMarkieren'))) === false, 'noch Prozente');
+
+var linie = { window: {}, Array: Array };
+linie.window = linie;
+vm.createContext(linie);
+vm.runInContext(schneide('katAnDerLinie'), linie);
+// Ein Kasten, dessen Oberkante bei 0 liegt: die Leselinie ist dann 120.
+function kasten(abschnitte) {
+    return {
+        getBoundingClientRect: function () { return { top: 0 }; },
+        querySelectorAll: function () { return abschnitte; }
+    };
+}
+function ab(id, oben, unten) {
+    return { getAttribute: function () { return id; },
+             getBoundingClientRect: function () { return { top: oben, bottom: unten }; } };
+}
+t('trifft den Abschnitt, der auf der Linie liegt',
+  linie.katAnDerLinie(kasten([ab('a', -800, 100), ab('b', 100, 900), ab('c', 900, 1700)])) === 'b',
+  linie.katAnDerLinie(kasten([ab('a', -800, 100), ab('b', 100, 900), ab('c', 900, 1700)])));
+// Das war der Fehler im alten Beobachter: er nahm bei mehreren
+// Meldungen den OBERSTEN -- also den, an dem man schon vorbei ist.
+t('nicht den, an dem man schon vorbei ist',
+  linie.katAnDerLinie(kasten([ab('a', -2000, 121), ab('b', 121, 900)])) === 'a',
+  'siehe naechster Fall');
+t('ganz oben gilt der erste Abschnitt',
+  linie.katAnDerLinie(kasten([ab('a', 300, 1100), ab('b', 1100, 1900)])) === 'a',
+  linie.katAnDerLinie(kasten([ab('a', 300, 1100), ab('b', 1100, 1900)])));
+t('ganz unten gilt der letzte',
+  linie.katAnDerLinie(kasten([ab('a', -3000, -2000), ab('b', -2000, -50)])) === 'b',
+  linie.katAnDerLinie(kasten([ab('a', -3000, -2000), ab('b', -2000, -50)])));
+t('ohne Abschnitte kommt nichts zurueck',
+  linie.katAnDerLinie(kasten([])) === null, 'nicht null');
+
 t('die aktive Pille wird in den Blick geholt',
   /leiste\.scrollTo\(\{ left: Math\.max\(0, soll\), behavior: 'smooth' \}\)/.test(h), 'fehlt');
 // scrollIntoView wuerde auch die Seite verschieben und dem Gast den
 // Scroll unter den Fingern wegziehen.
 t('dabei bewegt sich nur die Leiste, nicht die Seite',
   /treffer\.scrollIntoView\(/.test(h) === false, 'verschiebt die Seite');
+t('der Grund fuer den Umbau steht im Quelltext',
+  h.indexOf('WARUM HIER KEIN IntersectionObserver MEHR STEHT') > -1, 'keine Begruendung');
 
 console.log('\n-- 6. Antippen springt, statt neu zu laden --');
 var sv = h.indexOf('function selectMenuCategory(categoryId, el)');

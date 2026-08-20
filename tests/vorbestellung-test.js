@@ -178,5 +178,52 @@ t('der Schalterzustand wird beim Laden gesetzt',
 t('der Gast sieht den Banner in der Speisekarte',
   /id="vorbestellBanner"/.test(H) && /zeigeVorbestellBanner\(restaurantId\)/.test(CODE));
 
+console.log('\n-- Der Schalter sitzt bei den Bestellungen, nicht in der Steuerung --');
+// "vorbestellung ausserhalb der oeffnungszeiten ist mit den toogle in
+//  muss bei den gastronomen in der bestellung sein und das mit der zeit
+//  annahme mit oder ohne"
+//
+// Der Schalter stand in der Restaurant-Steuerung, zwischen
+// Online-Reservierungen und Betriebsferien. Gesucht wurde er bei den
+// Bestell-Einstellungen -- und dort gehoert er auch hin:
+//   Restaurant-Steuerung = WAS der Betrieb anbietet
+//                          (Bestellungen ja/nein, Reservierungen ja/nein)
+//   Bestell-Einstellungen = WIE Bestellungen hereinkommen
+//                          (Abholung, Lieferung, Liefergebuehr, Wartezeit)
+// "Darf jemand bestellen, wenn zu ist" ist eine WIE-Frage.
+var kopf = H.slice(0, H.indexOf('id="preorderToggle"'));
+
+// In welcher Dashboard-Sektion steht er? Rueckwaerts die letzte
+// geoeffnete dash-section suchen.
+var sektionen = kopf.match(/id="(section[A-Za-z]+)" class="dash-section|class="dash-section"[^>]*id="(section[A-Za-z]+)"/g) || [];
+t('der Schalter steht in der Bestell-Sektion',
+  /sectionOrders/.test((sektionen[sektionen.length - 1] || '')), sektionen.slice(-2));
+
+// Und zwar direkt bei der Wartezeit -- die beiden gehoeren zusammen.
+var vor = H.indexOf('id="preorderToggle"');
+var zeit = H.indexOf('id="settingPrepOn"');
+t('direkt vor der Wartezeit', vor > 0 && zeit > vor && (zeit - vor) < 1600,
+  'Abstand ' + (zeit - vor));
+t('mit eigener Ueberschrift', />\s*Vorbestellung\s*</.test(H.slice(vor - 400, vor)), 'keine Ueberschrift');
+t('und einer Erklaerung, was der Gast dann tut',
+  /Gäste dürfen auch bestellen, wenn geschlossen ist/.test(H), 'keine Erklaerung');
+
+// Nicht mehr in der Steuerung -- sonst steht er zweimal da und der
+// Wirt schaltet den einen und wundert sich ueber den anderen.
+t('nicht mehr in der Restaurant-Steuerung',
+  (H.match(/id="preorderToggle"/g) || []).length === 1,
+  (H.match(/id="preorderToggle"/g) || []).length + ' Vorkommen');
+t('und der Umzug ist an der alten Stelle vermerkt',
+  /Die Vorbestellung stand hier, zwischen Online-Reservierungen/.test(H), 'kein Hinweis');
+
+// DIE LOGIK DARF DER UMZUG NICHT ANFASSEN. id und onclick bleiben --
+// daran haengen toggleFeature() und updateFeatureToggles().
+t('id und onclick unveraendert',
+  /<div class="toggle-switch" id="preorderToggle" onclick="toggleFeature\('preorder'\)"/.test(H), 'verdrahtet neu');
+t('der Zustand wird beim Laden weiter gesetzt',
+  /preorderToggle\.classList\.(add|remove)\('off'\)/.test(H), 'Zustand fehlt');
+t('und die Voreinstellung bleibt AUS',
+  /Voreinstellung bleibt AUS/.test(H), 'stillschweigend an');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

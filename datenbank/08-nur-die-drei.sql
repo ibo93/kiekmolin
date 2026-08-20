@@ -1,28 +1,42 @@
--- Schritt 7 -- zumachen, aber EINE TABELLE NACH DER ANDEREN.
+-- Schritt 8 -- NUR DIE DREI TABELLEN MIT DEN GAESTEDATEN.
 --
 -- ============================================================
 -- NICHT AM STUECK AUSFUEHREN.
 -- ============================================================
--- Dieses Skript hat vier Abschnitte. Jeder ist einzeln zu markieren
--- und auszufuehren, und nach jedem wird geprueft, bevor es weitergeht.
+-- Drei Abschnitte. Jeder wird einzeln markiert und ausgefuehrt, und
+-- nach jedem wird geprueft, bevor es weitergeht.
 --
--- Beim ersten Versuch (Schritt 04) lief alles auf einmal. Als es
--- schiefging, war unklar welche der vier Tabellen schuld war -- und der
--- Laden stand, waehrend wir suchten. Das passiert nicht nochmal.
 --
--- Die Reihenfolge ist nach Schadensgroesse sortiert: vorne das, was am
--- wenigsten kaputtmachen kann.
+-- WARUM DIESE DATEI NEBEN 07 STEHT
+-- --------------------------------
+-- 07 hat vier Abschnitte, der vierte ist customers. Der ist der
+-- gefaehrlichste: daran haengt checkIfGastronom(), also die Frage, wer
+-- ueberhaupt ins Dashboard darf. Steht in customers eine andere E-Mail
+-- als die, mit der sich der Wirt anmeldet, sperrt er sich selbst aus.
+-- Ob das passt, war noch nicht geprueft (der Konsolen-Test aus 06,
+-- Abschnitt 4).
+--
+-- Also erst das, was sicher ist. Die Gaestedaten -- Name, Telefon,
+-- Adresse, was jemand bestellt hat -- stehen in orders, order_items und
+-- reservations. Genau die drei sind hier drin. customers enthaelt die
+-- Betreiberkonten (Stand August 2026: sechs Zeilen) und bleibt vorerst
+-- offen; das ist die kleinere offene Stelle, und sie kann niemanden
+-- aussperren.
+--
+-- 07 Abschnitt 4 kommt spaeter dran, wenn der Konsolen-Test durch ist.
+-- Dort steht auch die Rollensperre (kmi_rolle_schuetzen) -- die gehoert
+-- zu customers und wird HIER noch nicht gebraucht.
 --
 --
 -- VORBEDINGUNG
 -- ------------
--- datenbank/06-erst-pruefen.sql ist gelaufen UND die Tabelle in
--- Abschnitt 2 zeigt bei JEDEM Wirt:
---     sichtbar_bestellungen = vorhanden_bestellungen
--- Steht dort irgendwo eine 0, wo etwas vorhanden ist: NICHT WEITER.
+-- 06-erst-pruefen.sql ist gelaufen. Die Tabelle aus Abschnitt 2 zeigt
+-- bei jedem Wirt sichtbar = vorhanden.
 --
--- Und der Browser-Gegentest aus Abschnitt 4 gibt die E-Mail des
--- angemeldeten Wirts zurueck, nicht null.
+-- Stand 20.08.2026 geprueft: die Summen der fuenf Wirte ergaben genau
+-- die Gesamtzahl des Superadmins (158 Bestellungen, 355 Reservierungen).
+-- Damit gehoert jede Zeile genau einem Wirt und wird ihm auch gezeigt --
+-- es faellt nichts durch und nichts wird doppelt gezaehlt.
 --
 --
 -- WENN ETWAS SCHIEFGEHT
@@ -31,7 +45,8 @@
 -- sofort wirksam:
 --     alter table public.<tabelle> disable row level security;
 -- Damit ist genau diese Tabelle wieder offen, die anderen bleiben, wie
--- sie sind.
+-- sie sind. Am besten vorher in einem zweiten Editor-Fenster bereit
+-- legen -- suchen kostet Minuten, die der Laden nicht hat.
 
 
 -- =====================================================================
@@ -210,172 +225,42 @@ alter table public.orders enable row level security;
 
 
 -- =====================================================================
--- ABSCHNITT 4 -- customers
+-- GEGENPROBE -- nach allen drei Abschnitten
 -- =====================================================================
--- Ruecknahme:  alter table public.customers disable row level security;
---
--- ZULETZT UND MIT BEDACHT. Hier haengt checkIfGastronom() dran -- die
--- Funktion, die nach dem Login entscheidet, ob jemand Wirt oder Admin
--- ist. Geht das schief, kommt niemand mehr ins Dashboard, auch du
--- nicht. Die Ruecknahme oben deshalb bitte vorher irgendwo offen haben.
-
-do $$
-declare r record;
-begin
-    for r in select policyname from pg_policies
-             where schemaname = 'public' and tablename = 'customers'
-    loop
-        execute format('drop policy %I on public.customers', r.policyname);
-    end loop;
-end $$;
-
--- ---------------------------------------------------------------------
--- ZUERST DIE ROLLENSPERRE -- sonst ist alles Uebrige umsonst.
--- ---------------------------------------------------------------------
--- Hier stand vorher:
---     create policy "Angemeldete legen ihre Kundenzeile an"
---         on public.customers for insert to authenticated
---         with check (true);
---
--- Das war ein Loch, durch das das ganze Zumachen gefallen waere.
--- kmi_ist_superadmin() fragt customers.role ab. Wer sich anmelden kann
--- -- und das kann jeder mit einem Google-Konto -- haette sich eine
--- Zeile mit der eigenen E-Mail und role = 'superadmin' angelegt und
--- danach JEDE Bestellung, JEDE Reservierung und JEDEN Kunden gelesen.
--- Dieselbe Luecke bei UPDATE: die eigene Zeile aendern durfte man, und
--- role gehoert zur eigenen Zeile.
---
--- Mit Regeln allein ist das nicht dicht zu bekommen: in einer
--- with-check-Bedingung kommt man an den ALTEN Wert nicht heran. Also
--- ein Ausloeser, der role und restaurant_id festnagelt.
-create or replace function public.kmi_rolle_schuetzen()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-begin
-    -- Der SQL-Editor und Migrationen laufen ohne Anmelde-Token. Ohne
-    -- diese Zeile wuerdest DU dir beim Anlegen eines Wirts die Rolle
-    -- wieder wegloeschen.
-    if auth.jwt() is null then return new; end if;
-    -- Die Netlify-Funktionen laufen mit dem Dienstschluessel. Der geht
-    -- an RLS vorbei, aber NICHT an Ausloesern -- deshalb hier nochmal.
-    if coalesce(auth.jwt() ->> 'role', '') = 'service_role' then return new; end if;
-    -- Und der echte Superadmin darf Rollen vergeben.
-    if public.kmi_ist_superadmin() then return new; end if;
-
-    if tg_op = 'INSERT' then
-        -- Ein Gast, der sich anmeldet, bekommt eine blanke Zeile.
-        new.role := null;
-        new.restaurant_id := null;
-        return new;
-    end if;
-    -- Bei Aenderungen bleiben beide Felder, wie sie waren. Kein Fehler,
-    -- kein Abbruch -- der Rest der Aenderung geht durch, nur diese zwei
-    -- Felder ruehrt sich niemand selbst.
-    new.role := old.role;
-    new.restaurant_id := old.restaurant_id;
-    return new;
-end $$;
-
-drop trigger if exists kmi_rolle_schuetzen on public.customers;
-create trigger kmi_rolle_schuetzen
-    before insert or update on public.customers
-    for each row execute function public.kmi_rolle_schuetzen();
-
--- ---------------------------------------------------------------------
--- Und jetzt die Regeln.
--- ---------------------------------------------------------------------
--- Lesen: die eigene Zeile, oder der Superadmin alles.
-create policy "Eigene Kundenzeile lesen"
-    on public.customers for select to authenticated
-    using (
-        lower(trim(email)) = public.kmi_email()
-        or public.kmi_ist_superadmin()
-    );
-
--- Anlegen nur mit der EIGENEN E-Mail. Ohne das koennte jeder
--- Angemeldete Zeilen auf fremde Adressen anlegen -- und ueber die
--- Stammkundenkarte oder die Bestellhistorie an fremde Daten kommen.
-create policy "Angemeldete legen ihre eigene Kundenzeile an"
-    on public.customers for insert to authenticated
-    with check (
-        lower(trim(email)) = public.kmi_email()
-        or public.kmi_ist_superadmin()
-    );
-
-create policy "Eigene Kundenzeile aendern"
-    on public.customers for update to authenticated
-    using (
-        lower(trim(email)) = public.kmi_email()
-        or public.kmi_ist_superadmin()
-    )
-    with check (
-        lower(trim(email)) = public.kmi_email()
-        or public.kmi_ist_superadmin()
-    );
-
-create policy "Nur der Superadmin loescht Kunden"
-    on public.customers for delete to authenticated
-    using (public.kmi_ist_superadmin());
-
-alter table public.customers enable row level security;
-
--- JETZT PRUEFEN:
---   [ ] Abmelden, wieder anmelden -- kommst du ins Dashboard?
---   [ ] Ein Wirt meldet sich an -- sieht er sein Haus?
---   [ ] Admin-Bereich: Kundenliste ist da (nur als Superadmin)
---   [ ] Einen Wirt anlegen und ihm ein Haus zuordnen -- geht noch
---       (der Ausloeser laesst dich als Superadmin durch)
---
--- UND DIE ROLLENSPERRE SELBST PRUEFEN. Als normaler Gast angemeldet,
--- in der Browser-Konsole:
---
---   fetch(SUPABASE_URL + '/rest/v1/customers', {
---     method: 'PATCH',
---     headers: { apikey: SUPABASE_KEY,
---                Authorization: 'Bearer ' + kmiToken(),
---                'Content-Type': 'application/json',
---                Prefer: 'return=representation' },
---     body: JSON.stringify({ role: 'superadmin' })
---   }).then(r => r.json()).then(console.log)
---
--- Erwartet: die Zeile kommt zurueck, aber role steht weiter auf null.
--- Steht dort 'superadmin', ist der Ausloeser nicht aktiv -- dann sofort
--- die Ruecknahme oben fahren.
-
-
--- =====================================================================
--- GEGENPROBE -- nach allen vier Abschnitten
--- =====================================================================
--- Erwartet: 16 Regeln. In "fuer_alle" steht "nein" -- ausser bei genau
+-- Erwartet: 12 Regeln. In "fuer_alle" steht "nein" -- ausser bei genau
 -- drei Anlege-Regeln (orders, order_items, reservations), die anon
 -- enthalten MUESSEN, damit Gaeste bestellen und reservieren koennen.
 -- Steht bei einer SELECT-Regel "JA -- anon", ist das Loch noch offen.
-select tablename as tabelle,
-       cmd       as recht,
+select tablename  as tabelle,
+       cmd        as recht,
        policyname as regel,
        case when 'anon' = any(roles) then 'JA -- anon' else 'nein' end as fuer_alle
   from pg_policies
  where schemaname = 'public'
-   and tablename in ('orders','order_items','reservations','customers')
+   and tablename in ('orders','order_items','reservations')
  order by tablename, cmd;
 
--- Und die Rollensperre muss stehen -- ohne sie ist alles darueber
--- umsonst. Erwartet: genau eine Zeile.
-select tgname as ausloeser,
-       tgenabled as aktiv          -- 'O' heisst: laeuft
-  from pg_trigger
- where tgrelid = 'public.customers'::regclass
-   and tgname = 'kmi_rolle_schuetzen';
+-- customers steht hier bewusst NICHT mit drin -- die Tabelle ist noch
+-- offen, das ist der bekannte Rest.
 
--- Und die harte Probe: als NICHT angemeldeter Gast in der
--- Browser-Konsole eines privaten Fensters:
+
+-- =====================================================================
+-- DIE HARTE PROBE -- die einzige, die wirklich zaehlt
+-- =====================================================================
+-- Privates Fenster, NICHT angemeldet, auf kiekmolin.de. F12, Konsole,
+-- und falls Chrome das Einfuegen blockt: einmal "allow pasting" tippen.
 --
---   fetch(SUPABASE_URL + '/rest/v1/orders?select=customer_name&limit=5',
+--   fetch(SUPABASE_URL + '/rest/v1/orders?select=customer_name,customer_phone&limit=5',
 --         { headers: { apikey: SUPABASE_KEY,
 --                      Authorization: 'Bearer ' + SUPABASE_KEY } })
 --     .then(r => r.json()).then(console.log)
 --
--- Erwartet: eine LEERE Liste [].
+-- ERWARTET: eine leere Liste  []
+--
+-- Kommen dort Namen und Telefonnummern: das Loch ist noch offen, und
+-- zwar genau so, wie es vorher jeder Fremde haette lesen koennen.
+-- Dann NICHT weitermachen, sondern nachsehen, welche SELECT-Regel noch
+-- anon enthaelt (Gegenprobe oben).
+--
+-- Dasselbe fuer Reservierungen:
+--   .../rest/v1/reservations?select=guest_name,guest_phone&limit=5

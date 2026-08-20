@@ -63,9 +63,30 @@ exports.handler = async function (event) {
     // Date.now() ist hier unproblematisch (läuft auf dem Server, nicht im Build).
     if (drosseln(fp, Date.now())) return OK;
 
+    // target_id DARF NICHT LEER BLEIBEN.
+    //
+    // Genau daran ist dieser Melder von Anfang an gescheitert. Postgres
+    // sagte bei JEDEM Versuch:
+    //   null value in column "target_id" of relation "activity_log"
+    //   violates not-null constraint
+    // Der Aufrufer prueft die Antwort absichtlich nicht (der Melder darf
+    // nichts werfen), also fiel es nirgends auf: keine einzige
+    // Client-Fehlermeldung ist je in der Datenbank gelandet.
+    //
+    // Das ist der bitterste Teil daran -- der Melder haette die anderen
+    // Fehler dieses Tages (events.date, google_reviews) laengst gezeigt.
+    // Ein kaputter Fehlermelder ist schlimmer als keiner: man glaubt,
+    // es gaebe nichts zu melden.
+    //
+    // Wenn die Seite weiss, welches Haus offen war, steht es hier drin.
+    // Sonst die Null-Kennung -- "kein bestimmtes Ziel". Sie ist gueltig,
+    // erfuellt die Bedingung, und man erkennt sie beim Lesen sofort.
+    var OHNE_ZIEL = '00000000-0000-0000-0000-000000000000';
+    var _haus = s(b.restaurantId, 60);
     var zeile = {
         activity_type: 'client_error',
         target_type: s(b.area, 60) || 'app',
+        target_id: /^[0-9a-f-]{20,}$/i.test(_haus) ? _haus : OHNE_ZIEL,
         target_name: message.slice(0, 120),
         user_id: /^[0-9a-f-]{20,}$/i.test(s(b.userId, 60)) ? b.userId : null,
         user_name: s(b.userName, 80) || 'Unbekannt',
