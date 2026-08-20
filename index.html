@@ -1384,8 +1384,7 @@
         }
         /* Produkt-Cards */
         .dark-mode #menuModal #menuItemsList > div,
-        .dark-mode #menuModal .menu-item,
-        .dark-mode #menuModal .menu-item-card {
+        .dark-mode #menuModal .menu-item {
             background: #1a1a1a !important;
             border-color: rgba(255,255,255,0.06) !important;
             color: #e8eeec !important;
@@ -8186,48 +8185,38 @@
             }
         }
 
-        /* Produkt Cards — Liquid Glass
-           HIER OHNE backdrop-filter, auf der Restaurantkarte MIT.
-           Der Unterschied ist gewollt und einmal teuer gelernt.
-           Auf der Bestellseite liegen 30 bis 40 dieser Karten im
-           Scrollbereich, jede waere eine eigene Blur-Ebene, die der
-           Browser bei jedem Scrollbild neu rastert. Gemessen
-           (gedrosselte CPU, 40 Karten, 50 Scrollbilder):
+        /* WARUM DIE GERICHTKARTE KEIN GLAS HAT -- UND WARUM DIE ZAHLEN
+           DARUNTER TROTZDEM MIT VORSICHT ZU LESEN SIND.
+
+           Hier stand die Regel .menu-item-card ohne backdrop-filter, mit
+           dieser Messung als Begruendung (gedrosselte CPU, 40 Karten,
+           50 Scrollbilder):
              mit blur(20px):  Median 692 ms pro Bild
              ohne blur:       Median 505 ms pro Bild
-           Und hier sieht man den Effekt wirklich nicht: die Karte liegt
-           zu 85 Prozent deckend auf dem Speisekarten-Fenster, dessen
-           Untergrund nahezu einfarbig ist. Pixelvergleich mit und ohne,
-           281.400 Pixel: 4 unterscheiden sich, jeder um 1/255.
-           WAS ICH DARAUS FALSCH GEFOLGERT HATTE: dass das ueberall gilt.
-           Auf der Startseite, bei den Reservierungen und im Kopf der
-           Landingpage liegen Fotos und Farbverlaeufe hinter der Karte.
-           Da traegt das Glas, und da bleibt es.
-           Eine Messung gilt fuer den Zusammenhang, in dem sie gemacht
-           wurde. Uebertragen ist Raten mit Zahlen davor.
-           Die Transparenz BLEIBT (0.85) -- nur das Weichzeichnen der
-           15 Prozent dahinter faellt HIER weg. */
-        .menu-item-card {
-            display: flex !important;
-            flex-direction: column !important;
-            background: rgba(255,255,255,0.85);
-            border-radius: 48px;
-            border: 1px solid rgba(255,255,255,0.2);
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-            margin-bottom: 0;
-            min-height: auto;
-        }
+           Dazu ein Pixelvergleich: von 281.400 Pixeln unterschieden sich
+           4, jeder um 1/255 -- man sieht den Blur hier also ohnehin nicht,
+           weil die Karte zu 85 Prozent deckend auf einem einfarbigen
+           Untergrund liegt.
 
-        .menu-item-card:hover {
-            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-            border-color: rgba(255,255,255,0.4);
-        }
+           BEIDE ZAHLEN STIMMEN. SIE GALTEN NUR FUER NICHTS.
+           Gemessen wurde an .menu-item-card -- einer Klasse, die im
+           ganzen Haus nie gesetzt wird. Die echten Gerichtkarten heissen
+           .glass-card. Die Regel hing an einem toten Essensfilter, der
+           ebenfalls nie lief; beides ist inzwischen entfernt (Notiz beim
+           Essensfilter weiter unten im Skript).
 
-        .menu-item-card:active {
-            transform: scale(0.97);
-        }
+           WAS DAVON BLEIBT -- und das ist der Teil, der zaehlt:
+           1. Auf der Bestellseite liegen 30 bis 40 Karten im
+              Scrollbereich. Jede Blur-Ebene rastert der Browser bei jedem
+              Scrollbild neu. Das ist der Grund, aus dem .glass-card dort
+              ohne Weichzeichner auskommt.
+           2. Auf der Startseite, bei den Reservierungen und im Kopf der
+              Landingpage liegen Fotos und Farbverlaeufe hinter der Karte.
+              Da traegt das Glas, und da bleibt es. Genau das hatte ich
+              beim ersten Mal falsch verallgemeinert.
+           3. Eine Messung gilt fuer den Zusammenhang, in dem sie gemacht
+              wurde. Uebertragen ist Raten mit Zahlen davor -- und an
+              totem Code gemessen ist es nicht einmal das. */
 
         /* width:100% ist hier KEIN Schoenheitsfehler, sondern Pflicht.
            #menuItemsList sitzt in einem "display:flex; flex-direction:column"
@@ -8261,19 +8250,6 @@
             display: block;
             margin: 0;
             border-radius: 0;
-        }
-
-        /* Dish Image Click Animation */
-        .menu-item-card .menu-item-image[src] {
-            cursor: zoom-in;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
-        }
-        .menu-item-card .menu-item-image[src]:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-        .menu-item-card .menu-item-image[src]:active {
-            transform: scale(0.95);
         }
 
         /* Dish Image Lightbox */
@@ -25773,8 +25749,12 @@ function renderRestaurants(filter) {
             <!-- MIT backdrop-filter, anders als die Gerichtkarte. Absicht:
                  hinter DIESER Karte liegen Fotos, da traegt das Glas.
                  Hinter der Gerichtkarte liegt das einfarbige
-                 Speisekarten-Fenster, da kostet es nur. Begruendung samt
-                 Messung bei .menu-item-card im Stilblock. -->
+                 Speisekarten-Fenster, da kostet es nur.
+                 Der Verweis zeigte frueher auf eine Messung bei
+                 .menu-item-card -- diese Klasse wird nirgends gesetzt, die
+                 Messung galt also fuer nichts. Siehe die Notiz beim
+                 entfernten Essensfilter weiter unten. Fuer DIESE Karte war
+                 sie richtig; die Gerichtkarten heissen .glass-card. -->
             <div class="restaurant-card ${isVisible ? '' : 'hidden'}" data-id="${r.id}" data-cuisine="${r.cuisine}" style="border-radius:48px;overflow:hidden;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 12px rgba(0,0,0,0.03);margin-bottom:24px;transition:all 0.5s ease;cursor:pointer;">
                 <div class="card-image" onclick="openRestaurantBySlug('${r.slug || r.id}')" style="position:relative;height:200px;overflow:hidden;cursor:pointer;will-change:transform;transform:translateZ(0);-webkit-transform:translateZ(0);" data-bg="${r.image}" data-images='${JSON.stringify(r.images || [r.image])}' data-slide-index="0">
                     <!-- Rating Badge -->
@@ -68807,78 +68787,37 @@ function getRequestedTimeValue() {
 }
 
 // ============================================================
-// FEATURE 5: ALLERGEN/DIÄT FILTER
+// DER ZWEITE ESSENSFILTER -- ENTFERNT, WEIL ER NIE LIEF
 // ============================================================
-var activeDietFilter = null;
-
-function setDietFilter(filter, btn) {
-    if (activeDietFilter === filter) {
-        activeDietFilter = null;
-        if (btn) btn.classList.remove('active');
-    } else {
-        activeDietFilter = filter;
-        document.querySelectorAll('.diet-filter-btn').forEach(function(b) { b.classList.remove('active'); });
-        if (btn) btn.classList.add('active');
-    }
-    applyDietFilter();
-}
-
-function applyDietFilter() {
-    var items = document.querySelectorAll('.menu-item-card');
-    items.forEach(function(card) {
-        if (!activeDietFilter) { card.style.display = ''; return; }
-        var idx = card.getAttribute('data-diet-index');
-        var item = window._menuDisplayItems && window._menuDisplayItems[idx];
-        if (!item) { card.style.display = ''; return; }
-        
-        var show = false;
-        if (activeDietFilter === 'vegetarian') show = item.is_vegetarian;
-        else if (activeDietFilter === 'vegan') show = item.is_vegan;
-        else if (activeDietFilter === 'spicy') show = item.is_spicy;
-        else if (activeDietFilter === 'glutenfree') show = item.is_gluten_free;
-        else if (activeDietFilter === 'lactosefree') show = item.is_lactose_free;
-
-        card.style.display = show ? '' : 'none';
-    });
-}
-
-// Patch renderMenuItemsForGuest um Allergen-Badges und Filter hinzuzufügen
-var _origRenderMenu = typeof renderMenuItemsForGuest === 'function' ? renderMenuItemsForGuest : null;
-function patchMenuRendering() {
-    if (!_origRenderMenu) return;
-    renderMenuItemsForGuest = function(items) {
-        _origRenderMenu(items);
-        // data-diet-index + Allergen-Badges mit SVG Icons
-        var cards = document.querySelectorAll('.menu-item-card');
-        cards.forEach(function(card, i) {
-            card.setAttribute('data-diet-index', i);
-            var item = items[i];
-            if (!item) return;
-
-            // Badges werden bereits in renderMenuItemsForGuest gerendert — kein Duplikat mehr
-        });
-
-        // Filter-Leiste (erweitert mit mehr Optionen)
-        var menuList = document.getElementById('menuItemsList');
-        if (menuList && !document.getElementById('dietFilterBar')) {
-            var fb = '<div id="dietFilterBar" style="display:flex;gap:6px;padding:8px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;">';
-            var filters = [
-                { key: 'vegetarian', label: 'Vegetarisch', color: '#16a34a', icon: '<path d="M2 22c1-6 5-12 15-14 0 5-2 9-6 12H2z"/>' },
-                { key: 'vegan', label: 'Vegan', color: '#059669', icon: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>' },
-                { key: 'glutenfree', label: 'Glutenfrei', color: '#65a30d', icon: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-5"/>' },
-                { key: 'lactosefree', label: 'Laktosefrei', color: '#0d9488', icon: '<path d="M8 2h8l1 7H7l1-7z"/><path d="m4 4 16 16"/>' },
-                { key: 'spicy', label: 'Scharf', color: '#ef4444', icon: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>' }
-            ];
-            filters.forEach(function(f) {
-                fb += '<button class="diet-filter-btn" onclick="setDietFilter(\'' + f.key + '\', this)" style="padding:6px 12px;border:1.5px solid var(--border-color);border-radius:20px;background:var(--bg-card);color:var(--text-primary);font-family:Inter,sans-serif;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;transition:all 0.2s;"><svg viewBox="0 0 24 24" fill="none" stroke="' + f.color + '" stroke-width="2" width="14" height="14">' + f.icon + '</svg>' + f.label + '</button>';
-            });
-            fb += '</div>';
-            menuList.insertAdjacentHTML('beforebegin', fb);
-        }
-    };
-}
-// Deaktiviert: Stitch Redesign — renderMenuItemsForGuest ist bereits im neuen Design
-// setTimeout(patchMenuRendering, 1000);
+//
+// Hier standen setDietFilter(), applyDietFilter() und
+// patchMenuRendering(): eine Filterleiste fuer Vegetarisch, Vegan,
+// Glutenfrei, Laktosefrei und Scharf.
+//
+// Sie hat nie etwas getan. Alle drei arbeiteten auf ".menu-item-card"
+// -- eine Klasse, die im ganzen Haus KEIN EINZIGES MAL gesetzt wird
+// (class="menu-item-card": 0 Treffer). Die echten Gerichtkarten heissen
+// .glass-card. patchMenuRendering() wurde ausserdem nur in einer
+// auskommentierten Zeile aufgerufen. Und ohne sie entsteht auch kein
+// .diet-filter-btn -- der einzige Knopf, der setDietFilter haette
+// ausloesen koennen.
+//
+// WAS DAS GEKOSTET HAT
+// Bei der Arbeit an der Ladezeit wurde das Weichzeichnen "der
+// Gerichtkarten" an .menu-item-card gemessen: 692ms gegen 505ms. Die
+// Zahl stimmte -- gemessen an einer Klasse, die auf der Seite nicht
+// vorkommt. Toter Code luegt nicht nur ueber das, was er tut, sondern
+// auch ueber das, was man an ihm misst.
+//
+// Zum Filter selbst siehe tests/kein-essensfilter-test.js: er ist
+// bewusst draussen, weil die Daten ihn nicht tragen. Von 570 Gerichten
+// hatten 554 keine Allergene hinterlegt -- ein Filter mit halben Daten
+// zeigt drei vegetarische Gerichte, und der Gast denkt, mehr gibt es
+// nicht. Bei "ohne Nuesse" ist das nicht mehr aergerlich.
+//
+// Die zugehoerigen CSS-Regeln (.menu-item-card und
+// .menu-item-card .menu-item-image[src]) sind mitgegangen.
+// .menu-item-image allein BLEIBT -- die Klasse wird wirklich benutzt.
 
 // ============================================================
 // FEATURE: SCROLL-REVEAL ANIMATIONEN

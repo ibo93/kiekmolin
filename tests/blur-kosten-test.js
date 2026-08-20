@@ -42,21 +42,35 @@ var h = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-console.log('\n-- 1. Die Gerichtkarte bleibt OHNE Glas --');
-// Hier liegen 30 bis 40 Karten uebereinander und der Untergrund ist
-// einfarbig: 692 vs 505 ms pro Scrollbild, 4 von 281.400 Pixeln
-// Unterschied. Hier war die Entfernung richtig und bleibt.
+console.log('\n-- 1. Die Messung an .menu-item-card galt fuer nichts --');
+// HIER STAND EINE ZAHL, DIE STIMMTE -- UND TROTZDEM NICHTS BEDEUTETE.
 //
-// NICHT den ersten Treffer nehmen: weiter oben steht der Dark-Mode-Block.
-var kommentar = h.indexOf('/* Produkt Cards');
-t('der Regelblock steht da', kommentar > 0, kommentar);
-var von = h.indexOf('.menu-item-card {', kommentar);
-var regel = h.slice(von, h.indexOf('}', von));
+// Gemessen wurde "die Gerichtkarte ohne Glas": 692 gegen 505 ms pro
+// Scrollbild, 4 von 281.400 Pixeln Unterschied. Beides sauber gemessen.
+// Nur an .menu-item-card -- einer Klasse, die im ganzen Haus NIE gesetzt
+// wird. Die echten Gerichtkarten heissen .glass-card. Der ganze Block
+// hing an einem toten Essensfilter, der ebenfalls nie lief.
+//
+// Weder das Entfernen noch das Belassen des Weichzeichners an dieser
+// Regel hat je etwas an der Bestellseite geaendert.
+//
+// Toter Code luegt nicht nur ueber das, was er tut, sondern auch ueber
+// das, was man an ihm misst. Deshalb ist er raus -- und deshalb prueft
+// diese Datei jetzt, dass er raus BLEIBT.
+t('.menu-item-card ist aus dem CSS entfernt',
+  /\.menu-item-card\s*[{,:]/.test(h) === false, 'wieder da');
+// Gegen den Quelltext OHNE Kommentare pruefen: die Notizen nennen die
+// tote Klasse absichtlich, damit niemand sie versehentlich wiederbelebt.
+var ohneNotizen = h.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
+t('class="menu-item-card" wird weiterhin nirgends gesetzt',
+  ohneNotizen.indexOf('class="menu-item-card') < 0, 'jetzt doch gesetzt');
+t('der Grund steht im Quelltext',
+  h.indexOf('DER ZWEITE ESSENSFILTER -- ENTFERNT, WEIL ER NIE LIEF') > -1, 'keine Begruendung');
+t('samt der Warnung vor der Messung',
+  h.indexOf('auch ueber das, was man an ihm misst') > -1, 'keine Warnung');
 
-t('kein backdrop-filter', /backdrop-filter/.test(regel) === false, JSON.stringify(regel));
-t('die Transparenz bleibt (0.85)',
-  /background:\s*rgba\(255,255,255,0\.85\)/.test(regel), JSON.stringify(regel));
-t('die Form bleibt (48px Radius)', /border-radius:\s*48px/.test(regel), JSON.stringify(regel));
+// Die echte Gerichtkarte -- die, die der Gast wirklich sieht.
+t('die Gerichtkarten heissen .glass-card', /class="glass-card/.test(h), 'anders benannt');
 
 console.log('\n-- 2. Die Restaurantkarte MIT Glas --');
 // Das ist die Karte, um die es ging: Startseite und Reservierungen.
@@ -72,11 +86,15 @@ if (karte) {
 console.log('\n-- 3. Der Fehler ist im Code festgehalten --');
 // Ohne die Begruendung optimiert das in einem halben Jahr jemand
 // wieder weg -- mit denselben 692/505 ms als Argument.
-var davor = h.slice(kommentar, von);
+var davor = h.slice(h.indexOf('/* WARUM DIE GERICHTKARTE KEIN GLAS HAT'),
+                    h.indexOf('/* width:100% ist hier KEIN Schoenheitsfehler'));
 t('die Messung steht dabei',
   davor.indexOf('692 ms') > -1 && davor.indexOf('505 ms') > -1, JSON.stringify(davor.slice(0, 200)));
 t('und was daran falsch verallgemeinert wurde',
-  davor.indexOf('FALSCH GEFOLGERT') > -1, JSON.stringify(davor.slice(0, 600)));
+  davor.indexOf('falsch verallgemeinert') > -1, JSON.stringify(davor.slice(0, 600)));
+// Der eigentliche Fehler: gemessen an einer Klasse, die es nicht gibt.
+t('und dass die Messung an totem Code gemacht wurde',
+  davor.indexOf('GALTEN NUR FUER NICHTS') > -1, JSON.stringify(davor.slice(0, 900)));
 // Zeilenumbruch-tolerant: der Kommentar ist umbrochen.
 t('und dass hinter der Startseite Fotos liegen',
   /Fotos und\s+Farbverlaeufe/.test(davor), JSON.stringify(davor.slice(-500)));
@@ -133,11 +151,13 @@ t('die Modal-Grundflaeche hat ihre',
   /\.modal-overlay \{[\s\S]{0,400}?backdrop-filter/.test(h), 'weg');
 t('die Kopfzeile der Speisekarte hat ihre',
   /<header style="position:sticky[^"]*backdrop-filter/.test(h), 'weg');
-// Der dunkle Modus setzt ein volldeckendes #1a1a1a -- dort ist der Blur
-// wirkungslos, aber das ist eine bewusste Eigenheit dieses Blocks und
-// kein Grund, ihn oben zu entfernen.
+// Der dunkle Modus setzt im Speisekarten-Fenster ein volldeckendes
+// #1a1a1a. Diese Regel bleibt -- nur der tote .menu-item-card ist aus
+// ihrer Selektorliste gefallen.
 t('der Dark-Mode-Block bleibt, wie er ist',
-  /\.dark-mode #menuModal \.menu-item-card \{[^}]*#1a1a1a/.test(h), 'veraendert');
+  /\.dark-mode #menuModal \.menu-item \{[^}]*#1a1a1a/.test(h), 'veraendert');
+t('und ohne den toten Selektor',
+  /\.dark-mode #menuModal \.menu-item-card/.test(h) === false, 'noch drin');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
