@@ -653,7 +653,11 @@
                 page: location.pathname + location.search,
                 status: (typeof info.status === 'number') ? info.status : null,
                 userId: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id) || null,
-                userName: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.name) || null
+                userName: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.name) || null,
+                // Welches Haus war offen, als es knallte? Ohne das steht in
+                // der Fehlerliste zwar der Fehler, aber nicht, wo er auftrat --
+                // und bei fuenf Betrieben ist das die halbe Suche.
+                restaurantId: (window.currentOrderRestaurant && window.currentOrderRestaurant.id) || null
             };
             // Absichtlich reines fetch ohne Ergebnisprüfung: der Melder darf
             // nichts werfen und nichts erwarten. keepalive, damit die Meldung
@@ -39539,15 +39543,42 @@ async function showRestaurantLanding(rest) {
         } else if (rest.image) {
             imgs.push(rest.image);
         }
-        // Zusätzlich Review-Fotos laden
+        // Zusaetzlich Review-Fotos laden -- IN ZWEI SCHRITTEN.
+        //
+        // Hier stand eine SQL-Unterabfrage im Filter:
+        //   review_id=in.(select id from reviews where restaurant_id=eq.X)
+        // Das kann PostgREST nicht. Die Antwort war immer 400, der
+        // umgebende catch hat sie verschluckt, und die Hero-Slideshow
+        // zeigte nie ein einziges Bewertungsfoto. Kein Fehler auf dem
+        // Bildschirm, nur ein Bild, das fehlt -- in den Protokollen
+        // standen dafuer 28 Fehlversuche in dreieinhalb Stunden.
+        //
+        // Der PostgREST-Weg waere ein Join ueber den Fremdschluessel
+        // (reviews!inner(...)). Der haengt aber daran, dass die
+        // Beziehung in der Datenbank auch deklariert ist -- steht sie
+        // nicht da, laeuft es wieder auf 400 hinaus. Zwei einfache
+        // Abfragen koennen das nicht: erst die Bewertungen des Hauses,
+        // dann deren Fotos. Das laeuft im Hintergrund, auf eine
+        // Rueckfrage mehr kommt es hier nicht an.
         try {
-            var res2 = await fetch(SUPA_URL + '/rest/v1/review_photos?select=image_url&review_id=in.(select id from reviews where restaurant_id=eq.' + rest.id + ')&limit=6', {
+            var resIds = await fetch(SUPA_URL + '/rest/v1/reviews?select=id&restaurant_id=eq.'
+                + encodeURIComponent(rest.id) + '&limit=50', {
                 headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
-            if (res2.ok) {
-                var photos = await res2.json();
-                if (photos && photos.length) {
-                    photos.forEach(function(p) { if (p.image_url && imgs.indexOf(p.image_url) === -1) imgs.push(p.image_url); });
+            var ids = resIds.ok ? await resIds.json() : [];
+            var idListe = (Array.isArray(ids) ? ids : [])
+                .map(function (r) { return r && r.id; })
+                .filter(Boolean);
+            if (idListe.length) {
+                var res2 = await fetch(SUPA_URL + '/rest/v1/review_photos?select=image_url&review_id=in.('
+                    + idListe.map(encodeURIComponent).join(',') + ')&limit=6', {
+                    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+                });
+                if (res2.ok) {
+                    var photos = await res2.json();
+                    if (photos && photos.length) {
+                        photos.forEach(function(p) { if (p.image_url && imgs.indexOf(p.image_url) === -1) imgs.push(p.image_url); });
+                    }
                 }
             }
         } catch(e) {}

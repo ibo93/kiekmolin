@@ -84,5 +84,52 @@ t('und sagt dabei, welche Tabelle es war',
 t('"nichts gefunden" gilt nicht als Stoerung',
   /nichtsGefunden = \(res\.status === 404 \|\| res\.status === 406\)/.test(h), 'flutet die Liste');
 
+console.log('\n-- 4. Der Fehlermelder darf nicht selbst kaputt sein --');
+// AUS DEN POSTGRES-PROTOKOLLEN, WOERTLICH:
+//   null value in column "target_id" of relation "activity_log"
+//   violates not-null constraint
+//
+// client-error.js hat target_id nie gesetzt. Der Aufrufer im Browser
+// prueft die Antwort absichtlich nicht -- ein Fehlermelder darf nichts
+// werfen -- also fiel es nirgends auf: KEINE EINZIGE Client-Meldung ist
+// je in der Datenbank gelandet.
+//
+// Das ist der bitterste Teil: dieser Melder haette die anderen Fehler
+// dieses Tages (events.date, google_reviews) laengst gezeigt. Ein
+// kaputter Fehlermelder ist schlimmer als gar keiner -- man glaubt, es
+// gaebe nichts zu melden.
+var CE = fs.readFileSync(KMI + '/netlify/functions/client-error.js', 'utf8');
+t('client-error setzt target_id', /target_id:/.test(CE), 'fehlt weiterhin');
+t('mit dem Haus, wenn es bekannt ist', /test\(_haus\) \? _haus/.test(CE), 'ignoriert das Haus');
+t('und sonst einer gueltigen Null-Kennung',
+  /OHNE_ZIEL = '00000000-0000-0000-0000-000000000000'/.test(CE), 'keine Ersatzkennung');
+t('der Browser schickt die Restaurant-Kennung mit',
+  /restaurantId: \(window\.currentOrderRestaurant && window\.currentOrderRestaurant\.id\)/.test(h),
+  'schickt sie nicht');
+t('der Grund steht im Quelltext',
+  CE.indexOf('target_id DARF NICHT LEER BLEIBEN') > -1, 'keine Begruendung');
+t('samt der Lehre daraus',
+  CE.indexOf('Ein kaputter Fehlermelder ist schlimmer als keiner') > -1, 'keine Lehre');
+
+// Die andere Stelle, die in activity_log schreibt, hat target_id von
+// Anfang an gesetzt -- daran sieht man, dass die Spalte wirklich
+// gebraucht wird und die Null-Kennung kein Selbstzweck ist.
+var WC = fs.readFileSync(KMI + '/netlify/functions/waiter-call.js', 'utf8');
+t('waiter-call setzt target_id ebenfalls', /target_id: restaurantId/.test(WC), 'auch dort leer');
+
+console.log('\n-- 5. Keine SQL-Unterabfragen in PostgREST-Filtern --');
+// PostgREST versteht "in.(a,b,c)" -- eine Werteliste. NICHT versteht es
+// "in.(select ... from ...)". Das gab 400, der umgebende catch
+// verschluckte es, und die Hero-Slideshow zeigte nie ein Bewertungsfoto.
+// 28 Fehlversuche in dreieinhalb Stunden.
+var roh = h.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
+t('keine Unterabfrage in einem Filter',
+  /=in\.\(\s*select /i.test(roh) === false, 'wieder eine drin');
+t('die Fotos werden in zwei Schritten geholt',
+  /rest\/v1\/reviews\?select=id&restaurant_id=eq\./.test(h), 'kein erster Schritt');
+t('und die Kennungen dann als Liste uebergeben',
+  /review_id=in\.\(/.test(h) && /idListe\.map\(encodeURIComponent\)\.join/.test(h), 'keine Liste');
+t('leere Liste fragt gar nicht erst nach', /if \(idListe\.length\) \{/.test(h), 'fragt immer');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
