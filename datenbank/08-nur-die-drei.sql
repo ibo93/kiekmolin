@@ -1,0 +1,266 @@
+-- Schritt 8 -- NUR DIE DREI TABELLEN MIT DEN GAESTEDATEN.
+--
+-- ============================================================
+-- NICHT AM STUECK AUSFUEHREN.
+-- ============================================================
+-- Drei Abschnitte. Jeder wird einzeln markiert und ausgefuehrt, und
+-- nach jedem wird geprueft, bevor es weitergeht.
+--
+--
+-- WARUM DIESE DATEI NEBEN 07 STEHT
+-- --------------------------------
+-- 07 hat vier Abschnitte, der vierte ist customers. Der ist der
+-- gefaehrlichste: daran haengt checkIfGastronom(), also die Frage, wer
+-- ueberhaupt ins Dashboard darf. Steht in customers eine andere E-Mail
+-- als die, mit der sich der Wirt anmeldet, sperrt er sich selbst aus.
+-- Ob das passt, war noch nicht geprueft (der Konsolen-Test aus 06,
+-- Abschnitt 4).
+--
+-- Also erst das, was sicher ist. Die Gaestedaten -- Name, Telefon,
+-- Adresse, was jemand bestellt hat -- stehen in orders, order_items und
+-- reservations. Genau die drei sind hier drin. customers enthaelt die
+-- Betreiberkonten (Stand August 2026: sechs Zeilen) und bleibt vorerst
+-- offen; das ist die kleinere offene Stelle, und sie kann niemanden
+-- aussperren.
+--
+-- 07 Abschnitt 4 kommt spaeter dran, wenn der Konsolen-Test durch ist.
+-- Dort steht auch die Rollensperre (kmi_rolle_schuetzen) -- die gehoert
+-- zu customers und wird HIER noch nicht gebraucht.
+--
+--
+-- VORBEDINGUNG
+-- ------------
+-- 06-erst-pruefen.sql ist gelaufen. Die Tabelle aus Abschnitt 2 zeigt
+-- bei jedem Wirt sichtbar = vorhanden.
+--
+-- Stand 20.08.2026 geprueft: die Summen der fuenf Wirte ergaben genau
+-- die Gesamtzahl des Superadmins (158 Bestellungen, 355 Reservierungen).
+-- Damit gehoert jede Zeile genau einem Wirt und wird ihm auch gezeigt --
+-- es faellt nichts durch und nichts wird doppelt gezaehlt.
+--
+--
+-- WENN ETWAS SCHIEFGEHT
+-- ---------------------
+-- Jeder Abschnitt hat seine Ruecknahme in der ersten Zeile. Eine Zeile,
+-- sofort wirksam:
+--     alter table public.<tabelle> disable row level security;
+-- Damit ist genau diese Tabelle wieder offen, die anderen bleiben, wie
+-- sie sind. Am besten vorher in einem zweiten Editor-Fenster bereit
+-- legen -- suchen kostet Minuten, die der Laden nicht hat.
+
+
+-- =====================================================================
+-- ABSCHNITT 1 -- order_items      (kleinster Schaden)
+-- =====================================================================
+-- Ruecknahme:  alter table public.order_items disable row level security;
+--
+-- Warum zuerst: die Bestellpositionen liest im Dashboard fast nichts
+-- direkt -- die Gerichte stehen zusaetzlich in der items-Spalte der
+-- Bestellung. Geht hier etwas schief, faellt es auf, ohne dass der
+-- Betrieb steht.
+
+do $$
+declare r record;
+begin
+    for r in select policyname from pg_policies
+             where schemaname = 'public' and tablename = 'order_items'
+    loop
+        execute format('drop policy %I on public.order_items', r.policyname);
+    end loop;
+end $$;
+
+-- Der Helfer prueft ueber die Bestellung, zu der die Position gehoert.
+-- security definer, weil orders gleich selbst zu ist.
+create or replace function public.kmi_bestellung_ist_meine(p_order_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+    select exists (
+        select 1 from public.orders o
+        where o.id = p_order_id
+          and (o.restaurant_id in (select public.kmi_meine_haeuser())
+               or public.kmi_ist_superadmin())
+    );
+$$;
+grant execute on function public.kmi_bestellung_ist_meine(uuid) to anon, authenticated;
+
+create policy "Positionen des eigenen Hauses lesen"
+    on public.order_items for select to authenticated
+    using (public.kmi_bestellung_ist_meine(order_id));
+
+-- Anlegen muss offen bleiben: die App schreibt die Positionen direkt
+-- nach der Bestellung, da ist der Gast nicht angemeldet.
+create policy "Jeder darf Positionen anlegen"
+    on public.order_items for insert to anon, authenticated
+    with check (order_id is not null);
+
+create policy "Nur der Wirt aendert Positionen"
+    on public.order_items for update to authenticated
+    using (public.kmi_bestellung_ist_meine(order_id))
+    with check (public.kmi_bestellung_ist_meine(order_id));
+
+create policy "Nur der Superadmin loescht Positionen"
+    on public.order_items for delete to authenticated
+    using (public.kmi_ist_superadmin());
+
+alter table public.order_items enable row level security;
+
+-- JETZT PRUEFEN, BEVOR ES WEITERGEHT:
+--   [ ] Dashboard oeffnen -- Bestellungen sind noch da
+--   [ ] Eine Bestellung anklicken -- die Gerichte stehen drin
+--   [ ] Als Gast bestellen -- geht durch
+-- Erst wenn alle drei stimmen: Abschnitt 2.
+
+
+-- =====================================================================
+-- ABSCHNITT 2 -- reservations
+-- =====================================================================
+-- Ruecknahme:  alter table public.reservations disable row level security;
+--
+-- Die freien Zeiten holt der Gast seit PR #180 ueber
+-- /.netlify/functions/res-availability -- die laeuft mit dem
+-- Dienstschluessel und faellt nicht unter RLS. Das muss deployed sein.
+
+do $$
+declare r record;
+begin
+    for r in select policyname from pg_policies
+             where schemaname = 'public' and tablename = 'reservations'
+    loop
+        execute format('drop policy %I on public.reservations', r.policyname);
+    end loop;
+end $$;
+
+create policy "Reservierungen des eigenen Hauses lesen"
+    on public.reservations for select to authenticated
+    using (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    );
+
+create policy "Jeder darf reservieren"
+    on public.reservations for insert to anon, authenticated
+    with check (restaurant_id is not null);
+
+create policy "Nur der Wirt aendert Reservierungen"
+    on public.reservations for update to authenticated
+    using (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    )
+    with check (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    );
+
+create policy "Nur der Superadmin loescht Reservierungen"
+    on public.reservations for delete to authenticated
+    using (public.kmi_ist_superadmin());
+
+alter table public.reservations enable row level security;
+
+-- JETZT PRUEFEN:
+--   [ ] Dashboard -- Reservierungen sind da, Kalender und Tischplan auch
+--   [ ] Eine Reservierung bestaetigen -- geht
+--   [ ] Als Gast reservieren -- freie Zeiten erscheinen, Anfrage geht durch
+-- Erst dann: Abschnitt 3.
+
+
+-- =====================================================================
+-- ABSCHNITT 3 -- orders           (das Herzstueck)
+-- =====================================================================
+-- Ruecknahme:  alter table public.orders disable row level security;
+--
+-- Hier haengt der laufende Betrieb dran. Am besten zu einer ruhigen
+-- Zeit -- nicht Freitag um sieben.
+
+do $$
+declare r record;
+begin
+    for r in select policyname from pg_policies
+             where schemaname = 'public' and tablename = 'orders'
+    loop
+        execute format('drop policy %I on public.orders', r.policyname);
+    end loop;
+end $$;
+
+create policy "Bestellungen des eigenen Hauses lesen"
+    on public.orders for select to authenticated
+    using (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    );
+
+create policy "Jeder darf bestellen"
+    on public.orders for insert to anon, authenticated
+    with check (restaurant_id is not null);
+
+create policy "Nur der Wirt aendert Bestellungen"
+    on public.orders for update to authenticated
+    using (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    )
+    with check (
+        restaurant_id in (select public.kmi_meine_haeuser())
+        or public.kmi_ist_superadmin()
+    );
+
+create policy "Nur der Superadmin loescht Bestellungen"
+    on public.orders for delete to authenticated
+    using (public.kmi_ist_superadmin());
+
+alter table public.orders enable row level security;
+
+-- JETZT PRUEFEN -- das ist die wichtigste Runde:
+--   [ ] Dashboard -- Bestellungen sind da
+--   [ ] Eine Bestellung annehmen -- Status aendert sich
+--   [ ] Als Gast bestellen -- geht durch
+--   [ ] Als Gast "Meine Bestellungen" -- die eigene steht da
+--   [ ] Der Live-Banner erscheint
+-- Erst dann: Abschnitt 4.
+
+
+-- =====================================================================
+-- GEGENPROBE -- nach allen drei Abschnitten
+-- =====================================================================
+-- Erwartet: 12 Regeln. In "fuer_alle" steht "nein" -- ausser bei genau
+-- drei Anlege-Regeln (orders, order_items, reservations), die anon
+-- enthalten MUESSEN, damit Gaeste bestellen und reservieren koennen.
+-- Steht bei einer SELECT-Regel "JA -- anon", ist das Loch noch offen.
+select tablename  as tabelle,
+       cmd        as recht,
+       policyname as regel,
+       case when 'anon' = any(roles) then 'JA -- anon' else 'nein' end as fuer_alle
+  from pg_policies
+ where schemaname = 'public'
+   and tablename in ('orders','order_items','reservations')
+ order by tablename, cmd;
+
+-- customers steht hier bewusst NICHT mit drin -- die Tabelle ist noch
+-- offen, das ist der bekannte Rest.
+
+
+-- =====================================================================
+-- DIE HARTE PROBE -- die einzige, die wirklich zaehlt
+-- =====================================================================
+-- Privates Fenster, NICHT angemeldet, auf kiekmolin.de. F12, Konsole,
+-- und falls Chrome das Einfuegen blockt: einmal "allow pasting" tippen.
+--
+--   fetch(SUPABASE_URL + '/rest/v1/orders?select=customer_name,customer_phone&limit=5',
+--         { headers: { apikey: SUPABASE_KEY,
+--                      Authorization: 'Bearer ' + SUPABASE_KEY } })
+--     .then(r => r.json()).then(console.log)
+--
+-- ERWARTET: eine leere Liste  []
+--
+-- Kommen dort Namen und Telefonnummern: das Loch ist noch offen, und
+-- zwar genau so, wie es vorher jeder Fremde haette lesen koennen.
+-- Dann NICHT weitermachen, sondern nachsehen, welche SELECT-Regel noch
+-- anon enthaelt (Gegenprobe oben).
+--
+-- Dasselbe fuer Reservierungen:
+--   .../rest/v1/reservations?select=guest_name,guest_phone&limit=5

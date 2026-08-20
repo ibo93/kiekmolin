@@ -28,6 +28,8 @@ function ohneKommentar(s) { return s.split('\n').filter(function (z) { return !/
 
 var s06 = fs.readFileSync(D + '/06-erst-pruefen.sql', 'utf8');
 var c06 = ohneKommentar(s06);
+var s08 = fs.readFileSync(D + '/08-nur-die-drei.sql', 'utf8');
+var c08 = ohneKommentar(s08);
 var s07 = fs.readFileSync(D + '/07-eine-nach-der-anderen.sql', 'utf8');
 var c07 = ohneKommentar(s07);
 
@@ -225,6 +227,77 @@ t('als nicht angemeldeter Gast Namen abfragen',
   /select=customer_name/.test(s07) && /LEERE Liste/.test(s07), 'fehlt');
 t('und die Regeln lassen sich auflisten',
   /from pg_policies/.test(c07), 'keine Gegenprobe');
+
+console.log('\n-- 12. Schritt 08: die drei mit den Gaestedaten, ohne customers --');
+// WARUM ES DIESE DATEI GIBT.
+// 07 Abschnitt 4 (customers) ist der gefaehrlichste: daran haengt
+// checkIfGastronom(), also wer ueberhaupt ins Dashboard darf. Steht dort
+// eine andere E-Mail als die, mit der sich der Wirt anmeldet, sperrt er
+// sich selbst aus. Der Konsolen-Test aus 06 war noch nicht gelaufen.
+//
+// Also erst das Sichere. Die Gaestedaten -- Name, Telefon, Adresse --
+// stehen in orders, order_items und reservations. customers enthaelt die
+// Betreiberkonten (sechs Zeilen) und kann warten.
+t('die Datei gibt es', s08.length > 500, s08.length);
+
+// DAS WICHTIGSTE: customers darf NICHT angefasst werden. Eine einzige
+// Zeile zuviel, und der Wirt steht vor verschlossener Tuer.
+t('customers wird NICHT zugemacht',
+  /alter table public\.customers enable row level security/.test(c08) === false, 'doch angefasst');
+t('und bekommt auch keine Regeln',
+  /on public\.customers/.test(c08) === false, 'doch Regeln');
+t('customers kommt nur in Erklaerungen vor',
+  c08.indexOf('customers') < 0, 'im Code erwaehnt');
+
+// Genau drei Tabellen, nicht mehr und nicht weniger.
+var zu = (c08.match(/alter table public\.([a-z_]+) enable row level security/g) || [])
+    .map(function (z) { return z.replace(/.*public\.([a-z_]+).*/, '$1'); });
+t('genau drei Tabellen werden zugemacht', zu.length === 3, zu);
+['order_items', 'reservations', 'orders'].forEach(function (tab) {
+    t('  dabei: ' + tab, zu.indexOf(tab) > -1, zu);
+});
+// Reihenfolge nach Schadensgroesse -- order_items zuerst, orders zuletzt.
+// Beim ersten Versuch lief alles auf einmal, und als es schiefging war
+// unklar, welche Tabelle schuld war.
+t('in der Reihenfolge kleinster Schaden zuerst',
+  zu.join(',') === 'order_items,reservations,orders', zu);
+
+// Gaeste muessen weiter bestellen und reservieren koennen -- sonst ist
+// zwar alles dicht, aber der Laden steht.
+['orders', 'order_items', 'reservations'].forEach(function (tab) {
+    var re = new RegExp('on public\\.' + tab + ' for insert to anon, authenticated');
+    t('Gaeste duerfen weiter schreiben: ' + tab, re.test(c08), 'zu');
+});
+// Und Lesen ist ueberall zu.
+['orders', 'order_items', 'reservations'].forEach(function (tab) {
+    var re = new RegExp('on public\\.' + tab + ' for select to anon');
+    t('Lesen ist zu: ' + tab, re.test(c08) === false, 'noch offen fuer anon');
+});
+
+// Jeder Abschnitt braucht seine Reissleine -- und zwar sichtbar, nicht
+// im Kopf des Skripts vergraben.
+['order_items', 'reservations', 'orders'].forEach(function (tab) {
+    var re = new RegExp('Ruecknahme:\\s+alter table public\\.' + tab + ' disable row level security;');
+    t('Reissleine dabei: ' + tab, re.test(s08), 'fehlt');
+});
+t('nach jedem Abschnitt wird geprueft',
+  (s08.match(/JETZT PRUEFEN/g) || []).length >= 3,
+  (s08.match(/JETZT PRUEFEN/g) || []).length);
+
+// Die Gegenprobe zaehlt 12 Regeln -- 4 pro Tabelle.
+t('12 Regeln im Skript', (c08.match(/^create policy /gm) || []).length === 12,
+  (c08.match(/^create policy /gm) || []).length);
+t('die Gegenprobe erwartet dieselbe Zahl', /Erwartet: 12 Regeln/.test(s08), 'andere Zahl');
+t('und fragt customers nicht mit ab',
+  /tablename in \('orders','order_items','reservations'\)/.test(c08), 'fragt zuviel');
+
+// Die harte Probe: als Fremder die Telefonnummern holen wollen.
+t('die Probe von aussen ist beschrieben',
+  /select=customer_name,customer_phone/.test(s08), 'fehlt');
+t('mit der erwarteten leeren Liste',
+  /ERWARTET: eine leere Liste/.test(s08), 'ohne Erwartung');
+t('und dem Hinweis auf Chromes Einfuege-Sperre',
+  /allow pasting/.test(s08), 'fehlt');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
