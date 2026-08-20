@@ -67,11 +67,32 @@
 -- der Anmeldung MUSS in customers stehen, sonst sieht dieser Mensch
 -- nach dem Zumachen nichts mehr.
 --
--- Korrigiert wird es in einer Zeile, zum Beispiel:
+-- Korrigiert wird es in einer Zeile:
 --
 --     update public.customers
 --        set email = 'ibo.kuran93@gmail.com'
 --      where email = 'ibo@kiekmolin.de';
+--
+-- ERLEDIGT AM 20.08.2026, 15:32. Nachgeprueft mit der Funktion, an der
+-- die Regeln spaeter wirklich haengen -- nicht mit blossem Hinsehen:
+--
+--     select public.kmi_ist_superadmin_fuer('ibo.kuran93@gmail.com');
+--     -> true
+--
+-- Das ist die bessere Probe. Ein Blick in die Tabelle haette nicht
+-- gereicht: Chrome uebersetzt die Supabase-Oberflaeche, aus 'superadmin'
+-- wird dort "Superadministrator". Was angezeigt wird, ist dann nicht
+-- mehr das, was gespeichert ist. Die Funktion rechnet mit dem echten
+-- Wert.
+--
+-- WAS DAMIT NOCH NICHT BEWIESEN IST
+-- Dass das Dashboard auch wirklich eine Datenbank-Sitzung hat. Der Weg
+-- ueber das Passwort setzt nur eine Notiz im Browser -- fuer die
+-- Datenbank ist dieser Benutzer ein Fremder, egal was in customers
+-- steht. Nachsehen laesst sich das in den Anmelde-Protokollen
+-- (Supabase -> Logs -> Auth): dort muss eine frische Anmeldung mit
+-- genau dieser Adresse stehen. Steht dort nur eine Abmeldung und
+-- danach nichts mehr, ist keine Sitzung da.
 --
 --
 -- SO GEHT ES
