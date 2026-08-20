@@ -15304,17 +15304,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                             <div class="toggle-switch" id="autoConfirmToggle" onclick="toggleFeature('auto_confirm')" style="width:44px;height:24px;"></div>
                         </div>
-                        <!-- Vorbestellung: Gaeste duerfen auch bestellen, wenn zu ist.
-                             Bewusst AUS als Voreinstellung -- nicht jeder Betrieb will
-                             nachts Bestellungen sammeln, und niemand soll das ungefragt
-                             bekommen. -->
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;opacity:0.7;">event_upcoming</span>
-                                <span style="font-family:Inter,sans-serif;font-size:12px;opacity:0.7;">Vorbestellung erlauben</span>
-                            </div>
-                            <div class="toggle-switch" id="preorderToggle" onclick="toggleFeature('preorder')" style="width:44px;height:24px;"></div>
-                        </div>
+                        <!-- Die Vorbestellung stand hier, zwischen Online-Reservierungen
+                             und Betriebsferien. Sie ist zu den Bestell-Einstellungen
+                             umgezogen, zur Wartezeit: "vorbestellung ausserhalb der
+                             oeffnungszeiten ... muss bei den gastronomen in der
+                             bestellung sein".
+                             Das ist auch die richtige Stelle. Hier oben steht, WAS der
+                             Betrieb anbietet -- Bestellungen ja/nein, Reservierungen
+                             ja/nein. WIE Bestellungen hereinkommen (ausserhalb der
+                             Zeiten, mit oder ohne Zeitzusage) gehoert dorthin, wo auch
+                             Abholung, Lieferung und Liefergebuehr stehen. -->
                         <!-- Betriebsferien: Zeitraum eintragen -> App zeigt "Ferien bis X",
                              blockiert Bestellungen & Reservierungen, schaltet danach selbst frei -->
                         <div style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
@@ -18960,6 +18959,32 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     </div>
                 </div>
             </div>
+
+                <!-- VORBESTELLUNG: darf der Gast bestellen, wenn zu ist?
+                     Umgezogen aus der Restaurant-Steuerung -- gesucht wurde sie
+                     hier, bei den Bestell-Einstellungen. Zusammen mit der
+                     Wartezeit darunter steht damit an EINER Stelle, wie
+                     Bestellungen hereinkommen: ausserhalb der Zeiten ja/nein,
+                     und mit oder ohne Zeitzusage.
+
+                     Die Schaltflaeche behaelt id und onclick unveraendert --
+                     toggleFeature() und das Setzen des Zustands beim Laden
+                     haengen an genau diesem id. Neu ist nur der Kasten
+                     drumherum, damit sie aussieht wie die Wartezeit daneben.
+
+                     Voreinstellung bleibt AUS: nicht jeder Betrieb will nachts
+                     Bestellungen sammeln, und niemand soll das ungefragt
+                     bekommen. -->
+                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_upcoming</span>
+                            Vorbestellung
+                        </div>
+                        <div class="toggle-switch" id="preorderToggle" onclick="toggleFeature('preorder')" style="width:44px;height:24px;flex-shrink:0;"></div>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Gäste dürfen auch bestellen, wenn geschlossen ist – sie wählen dann eine Wunschzeit. Die Küche sieht Vorbestellungen getrennt.</div>
+                </div>
 
                 <!-- Wartezeiten: was der Gast als Zusage bekommt -->
                 <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
