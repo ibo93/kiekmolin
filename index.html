@@ -24842,7 +24842,22 @@ async function loadSeasonalRecommendations() {
 function loadFeaturedGoogleReviews() {
     window._featuredGoogleReviews = {};
     // Versuche aus Supabase zu laden
-    fetch(SUPABASE_URL + '/rest/v1/google_reviews?select=id,author_name,rating,text,relative_time,is_featured&is_featured=eq.true&order=created_at.desc', {
+    // select=* mit Absicht. Vorher stand hier
+    //   select=id,author_name,rating,text,relative_time,is_featured
+    // und das war gleich dreifach daneben:
+    //   - relative_time wurde geholt und nirgends benutzt (und die Spalte
+    //     gibt es nicht -- die Abfrage kam mit 400 zurueck)
+    //   - restaurant_id fehlte, obwohl unten danach gruppiert wird:
+    //     _featuredGoogleReviews[undefined]
+    //   - review_date und avatar_color fehlten ebenfalls, beide werden
+    //     unten gelesen
+    // Ergebnis: die Abfrage schlug immer fehl, der catch-Block sprang an,
+    // und jeder sah die fest eingebauten Ersatzbewertungen -- auch dann,
+    // wenn echte in der Datenbank standen.
+    // Da hier ohnehin nur die hervorgehobenen Bewertungen kommen (wenige
+    // Zeilen), ist * billiger als eine Liste, die beim naechsten neuen
+    // Feld wieder auseinanderlaeuft.
+    fetch(SUPABASE_URL + '/rest/v1/google_reviews?select=*&is_featured=eq.true&order=created_at.desc', {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
     }).then(function(resp) {
         if (!resp.ok) throw new Error('Table not found');
@@ -31334,7 +31349,13 @@ async function loadDashboardStats() {
 
         // Events zählen
         try {
-            const eventsResponse = await sbRead(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,date`, {
+            // Die Spalte heisst event_date, nicht date. Mit "date" gab die
+            // Datenbank 400 zurueck ("column events.date does not exist"),
+            // und weil die Antwort dann kein Array ist, wurde daraus eine
+            // leere Liste: der Wirt sah auf seinem Dashboard 0 Events,
+            // obwohl welche eingetragen waren. Kein Absturz, keine
+            // Fehlermeldung -- nur eine falsche Zahl.
+            const eventsResponse = await sbRead(`${SUPABASE_URL}/rest/v1/events?select=id,is_featured,event_date`, {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             const eventsData = await eventsResponse.json();
@@ -31342,7 +31363,7 @@ async function loadDashboardStats() {
 
             updateEl('statTotalEvents', eventsArray.length);
 
-            const upcomingEvents = eventsArray.filter(e => new Date(e.date) >= new Date());
+            const upcomingEvents = eventsArray.filter(e => new Date(e.event_date) >= new Date());
             updateEl('statUpcomingEvents', upcomingEvents.length);
             updateEl('statFeaturedEvents', eventsArray.filter(e => e.is_featured).length);
         } catch (e) {
