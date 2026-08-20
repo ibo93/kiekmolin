@@ -28,6 +28,8 @@ function ohneKommentar(s) { return s.split('\n').filter(function (z) { return !/
 
 var s06 = fs.readFileSync(D + '/06-erst-pruefen.sql', 'utf8');
 var c06 = ohneKommentar(s06);
+var s09 = fs.readFileSync(D + '/09-alles-in-einem.sql', 'utf8');
+var c09 = ohneKommentar(s09);
 var s08 = fs.readFileSync(D + '/08-nur-die-drei.sql', 'utf8');
 var c08 = ohneKommentar(s08);
 var s07 = fs.readFileSync(D + '/07-eine-nach-der-anderen.sql', 'utf8');
@@ -298,6 +300,50 @@ t('mit der erwarteten leeren Liste',
   /ERWARTET: eine leere Liste/.test(s08), 'ohne Erwartung');
 t('und dem Hinweis auf Chromes Einfuege-Sperre',
   /allow pasting/.test(s08), 'fehlt');
+
+console.log('\n-- 13. Schritt 09: dasselbe in einem Durchgang --');
+// "das ist zu kompliziert fuer mich mach du alles" -- ausfuehren kann
+// ich es nicht, der Zugang zur Datenbank ist nur lesend. Was geht: es
+// auf einen einzigen Einfuege-Vorgang eindampfen.
+//
+// Am Stueck auszufuehren war beim ersten Versuch (04) der Fehler.
+// Zwei Dinge sind heute anders, und beide gehoeren ins Skript, damit
+// spaeter niemand denkt, hier sei jemand leichtsinnig geworden:
+//   1. 06 ist gelaufen und war gruen -- damals war die Gegenprobe
+//      falsch herum (sie testete den Gast, nicht die Wirte).
+//   2. customers ist draussen -- genau die Tabelle war das Risiko,
+//      sich selbst auszusperren.
+t('die Datei gibt es', s09.length > 500, s09.length);
+t('sie sagt, warum es diesmal am Stueck gehen darf',
+  /WARUM ES DIESMAL AM STUECK GEHEN DARF/.test(s09), 'keine Begruendung');
+t('mit dem gruenen Ergebnis aus 06',
+  /158 Bestellungen, 355\s+--\s+Reservierungen|158 Bestellungen, 355/.test(s09), 'ohne Beleg');
+t('und dem Hinweis, was beim ersten Mal fehlte',
+  /dort wurde der Gast getestet, nicht die Wirte/.test(s09), 'ohne Lehre');
+
+// Inhaltlich MUSS es dasselbe sein wie 08 -- sonst haetten wir zwei
+// Wahrheiten. Verglichen wird der Code ohne Kommentare und ohne die
+// Gegenprobe am Ende.
+function nurRegeln(x) {
+    return (x.match(/(create policy|create or replace function|alter table|drop policy|create trigger)[\s\S]*?;/g) || [])
+        .join('\n').replace(/\s+/g, ' ');
+}
+t('inhaltlich identisch mit 08', nurRegeln(c09) === nurRegeln(c08),
+  'weicht ab');
+
+// Und die Sicherungen muessen auch hier stehen.
+t('customers wird auch hier NICHT angefasst',
+  /on public\.customers|alter table public\.customers/.test(c09) === false, 'doch angefasst');
+t('die Ruecknahme steht ganz oben, nicht am Ende',
+  s09.indexOf('disable row level security') < s09.indexOf('create policy'), 'zu weit hinten');
+t('alle drei Ruecknahme-Zeilen sind da',
+  (s09.match(/disable row level security;/g) || []).length >= 3,
+  (s09.match(/disable row level security;/g) || []).length);
+t('und die Anleitung sagt, dass nichts kaputt geht',
+  /Es ist nichts kaputt, nur zu/.test(s09), 'macht Angst ohne Not');
+// Die Gegenprobe laeuft gleich mit -- sonst muesste der Wirt sie
+// separat starten, und genau das war "zu kompliziert".
+t('die Gegenprobe haengt hinten dran', /from pg_policies/.test(c09), 'fehlt');
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
