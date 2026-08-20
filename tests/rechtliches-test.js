@@ -60,6 +60,16 @@ t('Gesamtbetrag direkt ueber dem Knopf', /Gesamtbetrag/.test(leiste), leiste.sli
 // und Alkohol sind 19%. Eine falsche Angabe ist schlechter als keine,
 // und die PAngV verlangt nur "inkl. USt", keinen Satz.
 t('kein fester Steuersatz mehr', h.indexOf('inkl. 7% MwSt') < 0, 'noch hartcodiert');
+// Das Preisfeld darf NICHT am Sprachdurchlauf haengen. Es hing daran:
+// der setzt textContent = t['total'], also stand im Betragsfeld das
+// Wort "Gesamtbetrag". Aufgefallen ist es nur, weil
+// updateCheckoutSummary() den Preis sofort wieder hineinschreibt --
+// wer die Sprache wechselt, waehrend die Kasse offen ist, sieht keinen
+// Betrag mehr. Genau den verlangt § 312j Abs. 2 BGB an dieser Stelle.
+t('das Betragsfeld wird nicht uebersetzt',
+  /id="checkoutTotal"[^>]*data-i18n/.test(h) === false, 'haengt am Sprachdurchlauf');
+t('dafuer die Beschriftung darueber',
+  /data-i18n="total">Gesamtbetrag<\/span>/.test(h), 'Beschriftung fest deutsch');
 t('stattdessen "inkl. MwSt."', /inkl\. MwSt\./.test(leiste), leiste.slice(-300));
 
 console.log('\n-- 3. Die abgeschaltete EU-Plattform --');

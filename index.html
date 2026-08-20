@@ -44849,8 +44849,18 @@ document.addEventListener('error', function(e) {
             </div>
             <div style="max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;">
                 <div style="display:flex;flex-direction:column;">
-                    <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;color:rgba(0,61,51,0.6);">Gesamtbetrag</span>
-                    <span id="checkoutTotal" style="font-size:24px;font-family:Epilogue,sans-serif;font-weight:800;color:var(--ink-strong);" data-i18n="total">0,00 €</span>
+                    <!-- data-i18n gehoert auf die BESCHRIFTUNG, nicht auf die
+                         Summe. Vorher hing es am Preisfeld: die Sprachumstellung
+                         setzt textContent = t['total'] und machte damit aus dem
+                         Betrag das Wort "Gesamtbetrag". Es fiel nur nicht auf,
+                         weil updateCheckoutSummary() den Preis gleich wieder
+                         hineinschreibt -- wer aber die Sprache wechselt, waehrend
+                         die Kasse offen ist, steht ohne Betrag da. § 312j Abs. 2
+                         BGB verlangt genau hier den Gesamtpreis.
+                         Nebenbei war die Beschriftung fest deutsch: ein
+                         niederlaendischer Gast las "Gesamtbetrag". -->
+                    <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;color:rgba(0,61,51,0.6);" data-i18n="total">Gesamtbetrag</span>
+                    <span id="checkoutTotal" style="font-size:24px;font-family:Epilogue,sans-serif;font-weight:800;color:var(--ink-strong);">0,00 €</span>
                     <span style="font-size:10px;color:rgba(0,61,51,0.4);">inkl. MwSt.</span>
                 </div>
                 <button onclick="submitOrder()" id="submitOrderBtn" style="flex:1;max-width:280px;background:#FFD54F;color:#003D33;border:none;padding:16px 24px;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 8px 20px -6px rgba(255,213,79,0.5);transition:all 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
