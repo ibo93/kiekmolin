@@ -48265,35 +48265,101 @@ window.renderKarteDurchgehend = renderKarteDurchgehend;
 // Ohne das waere der Durchscroll unbrauchbar: bei 14 Kategorien weiss
 // man nach zwei Wischern nicht mehr, wo man ist.
 //
-// IntersectionObserver statt scroll-Ereignis -- ein scroll-Handler
-// feuert bei jedem Pixel und haette uns das Ruckeln zurueckgebracht,
-// das wir gerade erst losgeworden sind.
-var _katBeobachter = null;
+// WARUM HIER KEIN IntersectionObserver MEHR STEHT
+// Erst stand hier einer, mit "root: null" und einem Lesestreifen aus
+// rootMargin. Auf dem Laptop lief das. Gemeldet wurde:
+//
+//     "wenn scrolle steht oben nicht welche kategorie ich bin ...
+//      das scrollen geht aber bleibt bei den ich geklickt habe"
+//     "es geht nur auf dem handy nicht auf dem laptop"
+//
+// Der Grund steckt in der Bauweise der Seite: #menuItemsList ist ein
+// EIGENER Scroll-Kasten (overflow-y:auto), nicht die Seite. Ein
+// Beobachter mit "root: null" misst aber gegen das Fenster. Beim
+// Schwung-Scrollen in einem inneren Kasten laeuft das auf dem Handy im
+// Compositor, und die Schnittmengen werden waehrenddessen nicht neu
+// gerechnet -- die Meldungen bleiben aus. Mit dem Mausrad auf dem
+// Laptop kommt jeder Schritt einzeln an, deshalb fiel es dort nie auf.
+//
+// Dazu kam ein zweiter, stiller Fehler: der Streifen war
+// "-150px oben, -70% unten" vom FENSTER. Bei einer Fensterhoehe unter
+// 500px (Handy quer, kleine Geraete) schrumpft er auf null oder wird
+// negativ -- dann schneidet nie etwas, und die Pille steht bis zum
+// naechsten Tipp still.
+//
+// Jetzt: direkt rechnen. Ein Zuhoerer am Scroll-Kasten setzt nur eine
+// Merkfahne, gerechnet wird einmal je Bild (requestAnimationFrame).
+// Das ist das, was frueher als "feuert bei jedem Pixel" verworfen
+// wurde -- der Einwand galt aber einem Zuhoerer, der bei JEDEM Pixel
+// misst. Hier wird hoechstens 60-mal in der Sekunde gerechnet, und
+// zwar nur ein getBoundingClientRect je Abschnitt: bei einer grossen
+// Karte sind das 14 Messungen, die der Browser im selben Bild ohnehin
+// schon vorliegen hat. Kein Nachrechnen des Layouts, kein Ruckeln.
+//
+// Und es ist geraeteunabhaengig: keine Fensterhoehe, keine Prozente,
+// kein Compositor. Dieselbe Rechnung auf jedem Telefon.
+var _katAufraeumen = null;
+var _katWartet = false;
+
+// Welcher Abschnitt steht gerade an der Leselinie?
+//
+// Die Leselinie liegt 120px unter der Oberkante des Kastens -- also
+// knapp unter der klebenden Leiste. Was DORT steht, liest der Gast
+// gerade; was oben am Rand noch hereinragt, hat er hinter sich.
+function katAnDerLinie(liste) {
+    var abschnitte = liste.querySelectorAll('.kmi-kat-abschnitt');
+    if (!abschnitte.length) return null;
+    var linie = liste.getBoundingClientRect().top + 120;
+    var letzterDrueber = null;
+    for (var i = 0; i < abschnitte.length; i++) {
+        var r = abschnitte[i].getBoundingClientRect();
+        if (r.top <= linie && r.bottom > linie) return abschnitte[i].getAttribute('data-kat');
+        // Oberhalb der Linie: merken, falls kein Abschnitt sie trifft
+        // (kann in der Luft zwischen zwei Abschnitten passieren).
+        if (r.top <= linie) letzterDrueber = abschnitte[i];
+    }
+    // Ganz oben, noch vor dem ersten Abschnitt: der erste gilt.
+    return (letzterDrueber || abschnitte[0]).getAttribute('data-kat');
+}
+
 function kategorieLeisteMitlaufen() {
     var leiste = document.getElementById('menuCategoryTabs');
     var liste = document.getElementById('menuItemsList');
     if (!leiste || !liste) return;
 
-    if (_katBeobachter) { _katBeobachter.disconnect(); _katBeobachter = null; }
-    if (typeof IntersectionObserver !== 'function') return;
+    // Alte Zuhoerer abraeumen. Ohne das haengt nach jedem Neuzeichnen
+    // ein weiterer an derselben Liste -- nach zehn Sprachwechseln
+    // rechnen zehn Kopien dasselbe.
+    if (_katAufraeumen) { _katAufraeumen(); _katAufraeumen = null; }
+    if (!liste.querySelectorAll('.kmi-kat-abschnitt').length) return;
 
-    var abschnitte = liste.querySelectorAll('.kmi-kat-abschnitt');
-    if (!abschnitte.length) return;
+    function rechnen() {
+        _katWartet = false;
+        var id = katAnDerLinie(liste);
+        if (id) katPilleMarkieren(id);
+    }
+    function angestossen() {
+        if (_katWartet) return;
+        _katWartet = true;
+        (window.requestAnimationFrame || window.setTimeout)(rechnen, 16);
+    }
 
-    // Der Streifen liegt knapp unter der klebenden Leiste. Was DORT
-    // steht, ist das, was der Gast gerade liest -- nicht das, was oben
-    // am Bildschirmrand gerade noch hereinragt.
-    _katBeobachter = new IntersectionObserver(function (eintraege) {
-        var beste = null;
-        eintraege.forEach(function (e) {
-            if (!e.isIntersecting) return;
-            if (!beste || e.boundingClientRect.top < beste.boundingClientRect.top) beste = e;
-        });
-        if (!beste) return;
-        katPilleMarkieren(beste.target.getAttribute('data-kat'));
-    }, { root: null, rootMargin: '-150px 0px -70% 0px', threshold: 0 });
+    // passive: der Browser muss nicht abwarten, ob wir das Scrollen
+    // abbrechen wollen -- sonst wartet er bei jedem Wisch auf uns.
+    liste.addEventListener('scroll', angestossen, { passive: true });
+    // Das Fenster dazu: faellt der innere Kasten mal weg (schmale
+    // Ansicht, aeltere Fassung), scrollt die Seite selbst.
+    window.addEventListener('scroll', angestossen, { passive: true });
+    window.addEventListener('resize', angestossen, { passive: true });
 
-    Array.prototype.forEach.call(abschnitte, function (a) { _katBeobachter.observe(a); });
+    _katAufraeumen = function () {
+        liste.removeEventListener('scroll', angestossen);
+        window.removeEventListener('scroll', angestossen);
+        window.removeEventListener('resize', angestossen);
+    };
+
+    // Einmal sofort, damit die Pille schon vor dem ersten Wisch stimmt.
+    angestossen();
 }
 
 function katPilleMarkieren(katId) {
