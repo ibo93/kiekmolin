@@ -131,4 +131,43 @@ function schonVorhanden(lead, vorhandene) {
     norm(v.restaurant) === name && (!kontakt || norm(v.kontakt) === kontakt));
 }
 
-module.exports = { parseAnfrageMail, baueAnfrage, schonVorhanden, zeitAus };
+// Darf diesem Betrieb das Check-Ergebnis per E-Mail geschickt werden?
+//
+// Das ist die wichtigste Regel im ganzen Ablauf, deshalb steht sie hier als
+// eigene Funktion und nicht irgendwo in einer Route: Eine unaufgeforderte
+// Werbe-E-Mail an einen Betrieb ist in Deutschland ohne Einwilligung
+// unzulaessig (§ 7 UWG). Wer sich ueber die Check-Seite selbst gemeldet hat,
+// hat um genau diese Auswertung gebeten - das ist etwas voellig anderes.
+//
+// Bewusst als Ampel mit Begruendung statt als blosses true/false: Wer den
+// Knopf drueckt, soll im Zweifel LESEN, warum es nicht geht.
+function darfErgebnisSenden(eintrag, lage) {
+  const e = eintrag || {};
+  const l = lage || {};
+
+  if (e.quelle !== 'anfrage') {
+    return {
+      ok: false, grund: 'nicht-gefragt',
+      text: 'Dieser Betrieb hat nicht von sich aus angefragt – er steht nur im Verzeichnis. ' +
+        'Eine unaufgeforderte Werbe-E-Mail wäre Kaltakquise und ohne Einwilligung nicht zulässig. ' +
+        'Hier bitte anrufen oder vorbeifahren.'
+    };
+  }
+  if (!e.befund) {
+    return { ok: false, grund: 'kein-befund', text: 'Erst prüfen: ohne Befund gibt es kein Ergebnis zu schicken.' };
+  }
+  const empfaenger = String(e.kontakt || '').trim();
+  if (empfaenger.indexOf('@') < 1) {
+    return {
+      ok: false, grund: 'keine-mail',
+      text: 'Als Kontakt steht "' + (empfaenger || '–') + '" da, keine E-Mail-Adresse. ' +
+        'Dann ist ein Anruf ohnehin der bessere Weg.'
+    };
+  }
+  if (!l.versandBereit) {
+    return { ok: false, grund: 'kein-versand', text: 'E-Mail-Versand ist nicht eingerichtet (RESEND_API_KEY fehlt).' };
+  }
+  return { ok: true, empfaenger };
+}
+
+module.exports = { parseAnfrageMail, baueAnfrage, schonVorhanden, zeitAus, darfErgebnisSenden };

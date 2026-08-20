@@ -1099,4 +1099,46 @@ test('Anfrage einlesen: von Hand eintragen und Doppelte abwehren', () => {
 });
 
 
+test('Ergebnis senden: nur an Betriebe, die selbst gefragt haben', () => {
+  const al = require('./lib/anfrage-lesen');
+  const befund = { aufhaenger: 'Ihre Speisekarte liegt als PDF vor.', punkte: [] };
+  const bereit = { versandBereit: true };
+
+  // Der Regelfall: hat gefragt, ist geprueft, hat eine E-Mail hinterlassen
+  const gut = al.darfErgebnisSenden(
+    { quelle: 'anfrage', befund, kontakt: 'wirt@roma.de' }, bereit);
+  assert.strictEqual(gut.ok, true);
+  assert.strictEqual(gut.empfaenger, 'wirt@roma.de');
+
+  // Der Fall, der niemals durchgehen darf: Betrieb aus dem Verzeichnis.
+  // Er hat uns um nichts gebeten - eine Werbemail an ihn waere ohne
+  // Einwilligung unzulaessig (§ 7 UWG).
+  const verzeichnis = al.darfErgebnisSenden(
+    { quelle: 'verzeichnis', befund, kontakt: 'info@fremder-betrieb.de' }, bereit);
+  assert.strictEqual(verzeichnis.ok, false);
+  assert.strictEqual(verzeichnis.grund, 'nicht-gefragt');
+  assert.ok(/Kaltakquise/.test(verzeichnis.text), verzeichnis.text);
+
+  // Auch ein fehlendes Quellen-Feld gilt als "hat nicht gefragt" -
+  // im Zweifel wird NICHT gesendet.
+  assert.strictEqual(al.darfErgebnisSenden({ befund, kontakt: 'a@b.de' }, bereit).grund, 'nicht-gefragt');
+
+  // Ohne Befund gibt es nichts zu schicken
+  assert.strictEqual(
+    al.darfErgebnisSenden({ quelle: 'anfrage', kontakt: 'a@b.de' }, bereit).grund, 'kein-befund');
+
+  // Telefonnummer statt E-Mail: dann ist Anrufen ohnehin besser
+  const tel = al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: '04931 12345' }, bereit);
+  assert.strictEqual(tel.grund, 'keine-mail');
+  assert.ok(/Anruf/.test(tel.text));
+  // "@" am Anfang ist keine Adresse
+  assert.strictEqual(al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: '@roma' }, bereit).grund, 'keine-mail');
+
+  // Ohne eingerichteten Versand wird nichts versprochen
+  assert.strictEqual(
+    al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: 'a@b.de' }, { versandBereit: false }).grund,
+    'kein-versand');
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

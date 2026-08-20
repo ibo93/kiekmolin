@@ -546,6 +546,13 @@ function zeigeInteressenten() {
             (p.befund ? '↻ neu prüfen' : '🔍 prüfen') + '</button>' +
           '<button class="aktion" id="demo-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
             'onclick="demoBauen(\'' + k + '\')" title="Baut einen Probeanruf: seine Speisekarte, sein Name – der Wirt ruft an und hört seinen eigenen Laden">📞 Demo</button>' +
+          // Ergebnis verschicken gibt es NUR bei Betrieben, die selbst gefragt
+          // haben. Bei Verzeichnis-Einträgen wäre das unaufgeforderte Werbung –
+          // deshalb erscheint der Knopf dort gar nicht erst.
+          (anfrage && p.befund
+            ? '<button class="aktion" id="mail-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
+              'onclick="ergebnisSenden(\'' + k + '\')" title="Schickt ihm die Auswertung per E-Mail – er hat schließlich danach gefragt">✉️ Ergebnis senden</button>'
+            : '') +
           (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
           (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
           (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
@@ -637,6 +644,31 @@ async function anfrageEintragen(btn) {
     status.textContent = e.message;
   }
   btn.disabled = false;
+}
+
+// Das Check-Ergebnis an jemanden schicken, der danach gefragt hat.
+// Der Server prüft das nochmal selbst – der fehlende Knopf allein ist keine
+// Absicherung, sondern nur die freundliche Variante davon.
+async function ergebnisSenden(schluessel) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  if (!confirm('Auswertung an ' + eintrag.kontakt + ' schicken?\n\n' +
+      'Betrieb: ' + eintrag.name + '\n' +
+      'Danach steht er automatisch auf „Angerufen".')) return;
+  const btn = document.getElementById('mail-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'sende…'; }
+  try {
+    const r = await api('/api/anfrage-ergebnis-senden', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    if (btn) btn.textContent = '✓ an ' + r.an;
+    await ladeInteressenten();
+    ladeLeads();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✉️ Ergebnis senden'; }
+    alert('Nicht gesendet:\n\n' + e.message);
+  }
 }
 
 // ---------------- Google Ads ----------------

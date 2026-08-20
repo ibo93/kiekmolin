@@ -1281,6 +1281,63 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Das Check-Ergebnis an den Wirt schicken, der danach gefragt hat.
+    //
+    // WICHTIG - und deshalb hier hart eingebaut: Das geht NUR an Betriebe,
+    // die sich selbst gemeldet haben. Wer nur im Verzeichnis steht, hat uns
+    // nicht um irgendetwas gebeten; eine Mail an ihn waere Kaltakquise per
+    // E-Mail und in Deutschland ohne Einwilligung unzulaessig (§ 7 UWG).
+    // Das darf keine Frage der Selbstbeherrschung im Alltag sein - der
+    // Knopf muss es schlicht verweigern.
+    if (req.method === 'POST' && pfad === '/api/anfrage-ergebnis-senden') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+
+      const erlaubt = require('./lib/anfrage-lesen')
+        .darfErgebnisSenden(eintrag, { versandBereit: DEMO || versand.istKonfiguriert() });
+      if (!erlaubt.ok) {
+        json(res, erlaubt.grund === 'nicht-gefragt' ? 403 : 400, { fehler: erlaubt.text });
+        return;
+      }
+      const empfaenger = erlaubt.empfaenger;
+
+      const prospect = {
+        name: eintrag.name, city: eintrag.stadt,
+        category: eintrag.kategorie, phone: eintrag.telefon, website: eintrag.website
+      };
+      const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      const html = bauePitchHtml(prospect, { datum, befund: eintrag.befund });
+
+      if (DEMO) { json(res, 200, { ok: true, an: empfaenger, simuliert: true }); return; }
+
+      const ergebnis = await versand.sendeReportMail({
+        an: empfaenger,
+        betreff: 'Ihr Sichtbarkeits-Check: ' + eintrag.name,
+        text: 'Moin,\n\nSie hatten über kiekmolin.de/check nach einer Einschätzung gefragt. ' +
+          'Hier ist sie.\n\n' + eintrag.befund.aufhaenger + '\n\n' +
+          'Die vollständige Auswertung steht in dieser E-Mail (HTML-Ansicht). ' +
+          'Rückfragen jederzeit – einfach antworten.\n\nViele Grüße\nIbrahim Kuran · KURANI',
+        html
+      });
+      if (!ergebnis.ok) { json(res, 502, { fehler: ergebnis.fehler || 'Versand fehlgeschlagen.' }); return; }
+
+      // Gesendet ist ein Kontakt: Stufe und Notiz gleich mitziehen, damit man
+      // nicht am naechsten Tag denselben Wirt nochmal anschreibt.
+      try {
+        const stand = ladePipelineStand();
+        const alt = stand[eintrag.schluessel] || {};
+        speicherePipelineStand(pipeline.setzeStand(stand, eintrag.schluessel, {
+          stufe: alt.stufe === 'neu' || !alt.stufe ? 'kontaktiert' : alt.stufe,
+          notiz: ((alt.notiz ? alt.notiz + ' · ' : '') + 'Check-Ergebnis per Mail geschickt').slice(0, 2000)
+        }));
+      } catch (_e) { /* die Mail ist raus - das ist das Wichtige */ }
+
+      json(res, 200, { ok: true, an: empfaenger });
+      return;
+    }
+
     // API: Probeanruf-Demo fuer einen Interessenten bauen.
     // Aus seiner Website (wenn vorhanden) wird die Speisekarte gezogen,
     // daraus ein befristeter Demo-Kunde auf der Demo-Nummer. Danach kann
