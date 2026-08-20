@@ -149,6 +149,66 @@ t('customers: Anlegen nur angemeldet',
   /on public\.customers for insert to authenticated/.test(c07)
   && /on public\.customers for insert to anon/.test(c07) === false, 'anon darf anlegen');
 
+console.log('\n-- 10b. Die Rollensperre -- sonst ist alles umsonst --');
+// GEFUNDEN BEIM DURCHLESEN VOR DEM AUSFUEHREN.
+//
+// Abschnitt 4 hatte:
+//     create policy "Angemeldete legen ihre Kundenzeile an"
+//         on public.customers for insert to authenticated
+//         with check (true);
+//
+// kmi_ist_superadmin() fragt customers.role ab. Wer sich anmelden kann
+// -- und das kann jeder mit einem Google-Konto -- haette sich eine
+// Zeile mit der eigenen E-Mail und role = 'superadmin' angelegt und
+// danach JEDE Bestellung, JEDE Reservierung und JEDEN Kunden gelesen.
+// Dasselbe ueber UPDATE: role gehoert zur eigenen Zeile.
+//
+// Mit Regeln allein ist das nicht dicht: in with check kommt man an den
+// ALTEN Wert nicht heran. Also ein Ausloeser.
+t('es gibt einen Ausloeser fuer die Rolle',
+  /create or replace function public\.kmi_rolle_schuetzen\(\)/.test(c07), 'fehlt');
+t('er haengt an customers, vor Anlegen UND Aendern',
+  /before insert or update on public\.customers/.test(c07), 'nicht verdrahtet');
+t('und wird vorher sauber abgeraeumt',
+  /drop trigger if exists kmi_rolle_schuetzen on public\.customers;/.test(c07), 'kein drop');
+t('beim Anlegen wird die Rolle geleert',
+  /if tg_op = 'INSERT' then[\s\S]{0,200}?new\.role := null;[\s\S]{0,80}?new\.restaurant_id := null;/.test(c07),
+  'Rolle bleibt setzbar');
+t('beim Aendern bleibt sie, wie sie war',
+  /new\.role := old\.role;[\s\S]{0,80}?new\.restaurant_id := old\.restaurant_id;/.test(c07),
+  'Rolle bleibt aenderbar');
+
+// DREI WEGE MUESSEN DURCH -- sonst sperrt die Sperre den Betrieb aus.
+// Der SQL-Editor hat kein Anmelde-Token: ohne diese Zeile wuerde sich
+// der Superadmin beim Anlegen eines Wirts dessen Rolle selbst
+// wegloeschen.
+t('der SQL-Editor kommt durch', /if auth\.jwt\(\) is null then return new; end if;/.test(c07),
+  'sperrt den Editor aus');
+// Der Dienstschluessel geht an RLS vorbei, aber NICHT an Ausloesern.
+t('der Dienstschluessel kommt durch',
+  /auth\.jwt\(\) ->> 'role', ''\) = 'service_role' then return new/.test(c07),
+  'sperrt die Netlify-Funktionen aus');
+t('und der echte Superadmin auch',
+  /if public\.kmi_ist_superadmin\(\) then return new; end if;/.test(c07), 'sperrt dich aus');
+
+// Anlegen nur mit der eigenen Adresse -- sonst legt jemand Zeilen auf
+// fremde E-Mails an und kommt ueber die Stammkundenkarte an fremde
+// Daten.
+t('angelegt wird nur die eigene Zeile',
+  /create policy "Angemeldete legen ihre eigene Kundenzeile an"[\s\S]{0,300}?lower\(trim\(email\)\) = public\.kmi_email\(\)/.test(c07),
+  'with check (true) ist zurueck');
+t('kein "with check (true)" mehr bei customers',
+  /for insert to authenticated\s*\n\s*with check \(true\);/.test(c07) === false, 'wieder offen');
+
+// Der Ausloeser gehoert auch in die Gegenprobe -- sonst merkt niemand,
+// wenn er spaeter abgeschaltet wird.
+t('die Gegenprobe fragt den Ausloeser ab',
+  /from pg_trigger[\s\S]{0,200}?kmi_rolle_schuetzen/.test(c07), 'nicht abgefragt');
+// Die Browser-Probe steht als Anleitung im Kommentar -- also gegen die
+// ungefilterte Fassung pruefen.
+t('und es gibt eine Probe aus dem Browser',
+  /role: 'superadmin'[\s\S]{0,400}?role steht weiter auf null/.test(s07), 'keine Probe');
+
 console.log('\n-- 11. Lesen ist ueberall zu --');
 var leseRegeln = c07.split('create policy').slice(1).filter(function (b) { return /\bfor select\b/.test(b); });
 t('vier Leseregeln', leseRegeln.length === 4, leseRegeln.length);

@@ -229,6 +229,64 @@ begin
     end loop;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- ZUERST DIE ROLLENSPERRE -- sonst ist alles Uebrige umsonst.
+-- ---------------------------------------------------------------------
+-- Hier stand vorher:
+--     create policy "Angemeldete legen ihre Kundenzeile an"
+--         on public.customers for insert to authenticated
+--         with check (true);
+--
+-- Das war ein Loch, durch das das ganze Zumachen gefallen waere.
+-- kmi_ist_superadmin() fragt customers.role ab. Wer sich anmelden kann
+-- -- und das kann jeder mit einem Google-Konto -- haette sich eine
+-- Zeile mit der eigenen E-Mail und role = 'superadmin' angelegt und
+-- danach JEDE Bestellung, JEDE Reservierung und JEDEN Kunden gelesen.
+-- Dieselbe Luecke bei UPDATE: die eigene Zeile aendern durfte man, und
+-- role gehoert zur eigenen Zeile.
+--
+-- Mit Regeln allein ist das nicht dicht zu bekommen: in einer
+-- with-check-Bedingung kommt man an den ALTEN Wert nicht heran. Also
+-- ein Ausloeser, der role und restaurant_id festnagelt.
+create or replace function public.kmi_rolle_schuetzen()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+    -- Der SQL-Editor und Migrationen laufen ohne Anmelde-Token. Ohne
+    -- diese Zeile wuerdest DU dir beim Anlegen eines Wirts die Rolle
+    -- wieder wegloeschen.
+    if auth.jwt() is null then return new; end if;
+    -- Die Netlify-Funktionen laufen mit dem Dienstschluessel. Der geht
+    -- an RLS vorbei, aber NICHT an Ausloesern -- deshalb hier nochmal.
+    if coalesce(auth.jwt() ->> 'role', '') = 'service_role' then return new; end if;
+    -- Und der echte Superadmin darf Rollen vergeben.
+    if public.kmi_ist_superadmin() then return new; end if;
+
+    if tg_op = 'INSERT' then
+        -- Ein Gast, der sich anmeldet, bekommt eine blanke Zeile.
+        new.role := null;
+        new.restaurant_id := null;
+        return new;
+    end if;
+    -- Bei Aenderungen bleiben beide Felder, wie sie waren. Kein Fehler,
+    -- kein Abbruch -- der Rest der Aenderung geht durch, nur diese zwei
+    -- Felder ruehrt sich niemand selbst.
+    new.role := old.role;
+    new.restaurant_id := old.restaurant_id;
+    return new;
+end $$;
+
+drop trigger if exists kmi_rolle_schuetzen on public.customers;
+create trigger kmi_rolle_schuetzen
+    before insert or update on public.customers
+    for each row execute function public.kmi_rolle_schuetzen();
+
+-- ---------------------------------------------------------------------
+-- Und jetzt die Regeln.
+-- ---------------------------------------------------------------------
 -- Lesen: die eigene Zeile, oder der Superadmin alles.
 create policy "Eigene Kundenzeile lesen"
     on public.customers for select to authenticated
@@ -237,9 +295,15 @@ create policy "Eigene Kundenzeile lesen"
         or public.kmi_ist_superadmin()
     );
 
-create policy "Angemeldete legen ihre Kundenzeile an"
+-- Anlegen nur mit der EIGENEN E-Mail. Ohne das koennte jeder
+-- Angemeldete Zeilen auf fremde Adressen anlegen -- und ueber die
+-- Stammkundenkarte oder die Bestellhistorie an fremde Daten kommen.
+create policy "Angemeldete legen ihre eigene Kundenzeile an"
     on public.customers for insert to authenticated
-    with check (true);
+    with check (
+        lower(trim(email)) = public.kmi_email()
+        or public.kmi_ist_superadmin()
+    );
 
 create policy "Eigene Kundenzeile aendern"
     on public.customers for update to authenticated
@@ -262,6 +326,24 @@ alter table public.customers enable row level security;
 --   [ ] Abmelden, wieder anmelden -- kommst du ins Dashboard?
 --   [ ] Ein Wirt meldet sich an -- sieht er sein Haus?
 --   [ ] Admin-Bereich: Kundenliste ist da (nur als Superadmin)
+--   [ ] Einen Wirt anlegen und ihm ein Haus zuordnen -- geht noch
+--       (der Ausloeser laesst dich als Superadmin durch)
+--
+-- UND DIE ROLLENSPERRE SELBST PRUEFEN. Als normaler Gast angemeldet,
+-- in der Browser-Konsole:
+--
+--   fetch(SUPABASE_URL + '/rest/v1/customers', {
+--     method: 'PATCH',
+--     headers: { apikey: SUPABASE_KEY,
+--                Authorization: 'Bearer ' + kmiToken(),
+--                'Content-Type': 'application/json',
+--                Prefer: 'return=representation' },
+--     body: JSON.stringify({ role: 'superadmin' })
+--   }).then(r => r.json()).then(console.log)
+--
+-- Erwartet: die Zeile kommt zurueck, aber role steht weiter auf null.
+-- Steht dort 'superadmin', ist der Ausloeser nicht aktiv -- dann sofort
+-- die Ruecknahme oben fahren.
 
 
 -- =====================================================================
@@ -279,6 +361,14 @@ select tablename as tabelle,
  where schemaname = 'public'
    and tablename in ('orders','order_items','reservations','customers')
  order by tablename, cmd;
+
+-- Und die Rollensperre muss stehen -- ohne sie ist alles darueber
+-- umsonst. Erwartet: genau eine Zeile.
+select tgname as ausloeser,
+       tgenabled as aktiv          -- 'O' heisst: laeuft
+  from pg_trigger
+ where tgrelid = 'public.customers'::regclass
+   and tgname = 'kmi_rolle_schuetzen';
 
 -- Und die harte Probe: als NICHT angemeldeter Gast in der
 -- Browser-Konsole eines privaten Fensters:
