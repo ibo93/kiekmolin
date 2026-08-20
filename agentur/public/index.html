@@ -203,6 +203,18 @@
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:6px" onclick="alleBetriebePruefen(this)" title="Geht alle noch ungeprüften Betriebe durch: Website holen und lesen, Google- und KI-Sichtbarkeit testen">Alle prüfen</button>
     </h2>
     <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis <b>und</b> Anfragen von der Check-Seite – in einer Liste. Was du hier einträgst, bleibt gespeichert: <b>Stufe</b>, <b>Notiz</b> und <b>Wiedervorlage</b>. Was heute fällig ist, steht ganz oben.</div>
+    <details style="margin:10px 0 14px">
+      <summary style="cursor:pointer;font-size:13.5px;color:var(--grau)">➕ Anfrage von der Check-Seite eintragen</summary>
+      <div class="karte" style="margin-top:10px;padding:14px">
+        <div class="status" style="margin-top:0">Eine Anfrage über <b>kiekmolin.de/check</b> kommt als E-Mail bei dir an und wird bewusst nirgends gespeichert. Damit sie in der Pipeline auftaucht: Mail komplett kopieren und hier einfügen.</div>
+        <textarea id="anfrageText" rows="7" placeholder="Neue Anfrage ueber kiekmolin.de/check&#10;&#10;Betrieb:  Pizzeria Roma&#10;Ort:      Norden&#10;Name:     Herr Janssen&#10;Kontakt:  04931 12345&#10;Anliegen: Bitte melden&#10;&#10;Eingegangen: 14.8.2026, 15:04:22"
+          style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:13px;font-family:ui-monospace,Menlo,monospace"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <button class="aktion" onclick="anfrageEintragen(this)">Eintragen</button>
+          <span class="status" id="anfrageStatus" style="margin:0"></span>
+        </div>
+      </div>
+    </details>
     <div id="pipelineKopf"></div>
     <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
@@ -599,6 +611,32 @@ async function betriebPruefen(schluessel) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
   }
+}
+
+// ---------------- Anfrage eintragen ----------------
+// Die Anfrage steht nur im Postfach. Ein Handgriff bringt sie in die Pipeline –
+// danach zählt sie beim Trichter mit, taucht bei „Neu" auf und lässt sich
+// prüfen wie jeder andere Betrieb.
+async function anfrageEintragen(btn) {
+  const feld = document.getElementById('anfrageText');
+  const status = document.getElementById('anfrageStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'lese…';
+  try {
+    const r = await api('/api/anfrage-eintragen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: feld.value })
+    });
+    feld.value = '';
+    status.textContent = '✓ "' + r.lead.restaurant + '" steht jetzt ganz oben in der Liste.';
+    await ladeInteressenten();
+    ladeLeads();
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = e.message;
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Google Ads ----------------

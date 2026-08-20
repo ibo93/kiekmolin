@@ -1254,6 +1254,33 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Anfrage von der Check-Seite in die Pipeline eintragen.
+    // Entweder die E-Mail komplett eingefuegt ({text}) oder die Felder von
+    // Hand ({restaurant, ort, ...}). Die Netlify-Funktion speichert bewusst
+    // nichts - deshalb kommt der Weg in die Pipeline von hier.
+    if (req.method === 'POST' && pfad === '/api/anfrage-eintragen') {
+      const body = await leseBody(req);
+      const anfrage = require('./lib/anfrage-lesen');
+      try {
+        const lead = body.text
+          ? anfrage.parseAnfrageMail(body.text)
+          : anfrage.baueAnfrage(body);
+        const vorhandene = ladeLeads();
+        if (anfrage.schonVorhanden(lead, vorhandene)) {
+          json(res, 409, { fehler: '"' + lead.restaurant + '" steht schon in der Liste. Nicht doppelt eingetragen.' });
+          return;
+        }
+        if (!DEMO) {
+          fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+          fs.appendFileSync(path.join(DATEN_ORDNER, 'leads.jsonl'), JSON.stringify(lead) + '\n');
+        }
+        json(res, 200, { ok: true, lead });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
     // API: Probeanruf-Demo fuer einen Interessenten bauen.
     // Aus seiner Website (wenn vorhanden) wird die Speisekarte gezogen,
     // daraus ein befristeter Demo-Kunde auf der Demo-Nummer. Danach kann

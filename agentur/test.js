@@ -1019,4 +1019,84 @@ test('Google Ads: Geldverbrenner fliegen raus, CSV laesst sich importieren', () 
 });
 
 
+test('Anfrage einlesen: aus der Mail wird ein Eintrag in der Pipeline', () => {
+  const al = require('./lib/anfrage-lesen');
+  const jetzt = new Date(2026, 7, 20, 9, 0);
+
+  const mail = [
+    'Neue Anfrage ueber kiekmolin.de/check',
+    '',
+    'Betrieb:  Pizzeria Roma',
+    'Ort:      Norden',
+    'Name:     Herr Janssen',
+    'Kontakt:  04931 12345',
+    'Anliegen: Bitte melden, moeglichst vormittags',
+    '',
+    'Eingegangen: 14.8.2026, 15:04:22',
+    '',
+    'Naechster Schritt: heute noch zurueckrufen.'
+  ].join('\n');
+
+  const lead = al.parseAnfrageMail(mail, { jetzt });
+  assert.strictEqual(lead.restaurant, 'Pizzeria Roma');
+  assert.strictEqual(lead.ort, 'Norden');
+  assert.strictEqual(lead.kontakt, '04931 12345');
+  assert.strictEqual(lead.nachricht, 'Bitte melden, moeglichst vormittags');
+  assert.strictEqual(lead.status, 'neu');
+  // Das echte Eingangsdatum zaehlt, nicht der Moment des Eintragens -
+  // sonst stimmt die Reihenfolge in der Pipeline nicht.
+  assert.ok(lead.zeit.startsWith('2026-08-14T'), lead.zeit);
+
+  // Weitergeleitete Mail: Kopfzeilen und ">" davor duerfen nichts kaputtmachen
+  const weitergeleitet = [
+    '---------- Weitergeleitete Nachricht ----------',
+    'Von: Kiek mol in <info@kiekmolin.de>',
+    'Betreff: Anfrage: Cafe Strandgut (Norddeich)',
+    '',
+    '> Neue Anfrage ueber kiekmolin.de/check',
+    '>',
+    '> Betrieb:  Cafe Strandgut',
+    '> Ort:      Norddeich',
+    '> Name:     -',
+    '> Kontakt:  info@strandgut.de',
+    '> Anliegen: -'
+  ].join('\n');
+  const w = al.parseAnfrageMail(weitergeleitet, { jetzt });
+  assert.strictEqual(w.restaurant, 'Cafe Strandgut');
+  assert.strictEqual(w.kontakt, 'info@strandgut.de');
+  // "-" ist kein Inhalt, sondern ein leeres Feld
+  assert.strictEqual(w.name, '');
+  assert.strictEqual(w.nachricht, '');
+  // Ohne lesbares Datum wird nicht geraten, sondern JETZT genommen
+  assert.strictEqual(w.zeit, jetzt.toISOString());
+
+  // Unbrauchbares wird abgewiesen, und zwar mit einem Satz, der weiterhilft
+  assert.throws(() => al.parseAnfrageMail(''), /ganze E-Mail einfügen/);
+  assert.throws(() => al.parseAnfrageMail('Moin, ruf mal an!'), /keine Zeile "Betrieb:"/);
+  assert.throws(() => al.parseAnfrageMail('Betrieb: Roma'), /fehlt die Zeile "Kontakt:"/);
+});
+
+test('Anfrage einlesen: von Hand eintragen und Doppelte abwehren', () => {
+  const al = require('./lib/anfrage-lesen');
+  const jetzt = new Date(2026, 7, 20, 9, 0);
+
+  const lead = al.baueAnfrage({ restaurant: 'Imbiss Nord', kontakt: '04931 999', ort: 'Norden' }, { jetzt });
+  assert.strictEqual(lead.restaurant, 'Imbiss Nord');
+  assert.strictEqual(lead.quelle, 'von-hand');
+  assert.strictEqual(lead.zeit, jetzt.toISOString());
+  assert.throws(() => al.baueAnfrage({ kontakt: '123' }), /Namen des Betriebs/);
+  assert.throws(() => al.baueAnfrage({ restaurant: 'X' }), /Rückrufnummer oder E-Mail/);
+
+  // Dieselbe Mail zweimal einfuegen passiert schnell - dann stuende der
+  // Wirt doppelt in der Pipeline und wuerde womoeglich zweimal angerufen
+  const vorhandene = [{ restaurant: 'Imbiss Nord', kontakt: '04931 999' }];
+  assert.strictEqual(al.schonVorhanden(lead, vorhandene), true);
+  assert.strictEqual(al.schonVorhanden(lead, []), false);
+  // Schreibweise darf keinen Unterschied machen
+  assert.strictEqual(al.schonVorhanden(lead, [{ restaurant: 'imbiss  nord', kontakt: '04931999' }]), true);
+  // Anderer Betrieb bleibt ein anderer Betrieb
+  assert.strictEqual(al.schonVorhanden(lead, [{ restaurant: 'Imbiss Sued', kontakt: '04931 999' }]), false);
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');
