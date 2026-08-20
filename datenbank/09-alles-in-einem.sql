@@ -39,6 +39,41 @@
 --     alter table public.orders       disable row level security;
 --
 --
+-- ZUERST: STIMMT DIE E-MAIL DES SUPERADMINS?
+-- -----------------------------------------
+-- AM 20.08.2026 GENAU HIER GESCHEITERT.
+-- In customers stand als Superadmin ibo@kiekmolin.de. Angemeldet wird
+-- sich aber mit dem Google-Konto ibo.kuran93@gmail.com. Fuer die
+-- Datenbank sind das zwei verschiedene Menschen: kmi_email() liefert
+-- die Google-Adresse, die steht in keiner Zeile, also ist der
+-- Angemeldete weder Wirt noch Superadmin -- und sieht nichts.
+--
+-- Die Reservierungen waren nicht weg. Sie waren nur nicht mehr fuer
+-- IHN sichtbar.
+--
+-- Gefunden wurde es in den Anmelde-Protokollen von Supabase
+-- (auth_audit_logs): dort steht bei jeder Anmeldung actor_username.
+-- Bei den fuenf Wirten passt sie -- La Piazza meldet sich als
+-- lapiazzagreetsiel@gmail.com an, und genau so steht es in customers.
+-- Nur die Zeile des Superadmins passte nicht.
+--
+-- Also VOR dem Zumachen einmal abgleichen:
+--
+--     select email, role, restaurant_id from public.customers
+--      order by role nulls last, email;
+--
+-- Und dann in Supabase unter Authentication -> Users nachsehen, mit
+-- welchen Adressen sich tatsaechlich jemand anmeldet. Jede Adresse aus
+-- der Anmeldung MUSS in customers stehen, sonst sieht dieser Mensch
+-- nach dem Zumachen nichts mehr.
+--
+-- Korrigiert wird es in einer Zeile, zum Beispiel:
+--
+--     update public.customers
+--        set email = 'ibo.kuran93@gmail.com'
+--      where email = 'ibo@kiekmolin.de';
+--
+--
 -- SO GEHT ES
 -- ----------
 --   1. Alles hier markieren (Cmd+A) und einfuegen
