@@ -36645,6 +36645,34 @@ async function handleOAuthRedirect() {
             } else if (data?.session?.user) {
                 // URL aufräumen (Hash entfernen)
                 window.history.replaceState({}, document.title, window.location.pathname);
+
+                // RUECKFALL FUER DEN REGISTRIERUNGS-WUNSCH.
+                //
+                // Normalerweise holt handleGoogleLoginSuccess() den
+                // Merker ab -- ausgeloest vom Anmelde-Zuhoerer bei
+                // SIGNED_IN. Je nach Fassung der Supabase-Bibliothek
+                // kann die Rueckkehr von Google aber auch als
+                // INITIAL_SESSION gemeldet werden, und dann feuert
+                // dieser Zweig nicht.
+                //
+                // Fuer den Wirt ist das der Unterschied zwischen
+                // "Formular kommt" und "ich bin einfach eingeloggt und
+                // weiss nicht, was ich hier soll". Deshalb hier noch
+                // ein Netz.
+                //
+                // Doppelt aufmachen kann es nicht: regWunschAbholen()
+                // loescht den Merker, wer zweiter ist, bekommt false.
+                //
+                // Die Wartezeit ist noetig, weil startRestaurant-
+                // Registration() eine Anmeldung voraussetzt -- ohne
+                // currentUser wuerde es das Anmeldefenster ein zweites
+                // Mal aufmachen.
+                setTimeout(function () {
+                    if (!currentUser || !currentUser.email) return;
+                    if (typeof regWunschAbholen === 'function' && regWunschAbholen()) {
+                        startRestaurantRegistration();
+                    }
+                }, 2500);
             }
         } catch (e) {
             console.error('OAuth Redirect Fehler:', e);
@@ -36844,9 +36872,11 @@ async function checkIfGastronom(email, googleUser) {
         localStorage.setItem('kmi_user', JSON.stringify(currentUser));
         closeModal('loginModal');
 
-        // Wenn Registration-Flag gesetzt → Formular öffnen
-        if (window._pendingRegistration) {
-            window._pendingRegistration = false;
+        // Wenn Registration-Wunsch vorliegt → Formular öffnen.
+        // Der Merker kommt aus localStorage, weil die Google-Anmeldung
+        // die Seite neu laedt -- siehe die Erklaerung bei
+        // startRestaurantRegistration().
+        if (regWunschAbholen()) {
             setTimeout(function() { startRestaurantRegistration(); }, 300);
             return;
         }
@@ -37250,13 +37280,61 @@ function handleRegLogoUpload(event) {
 
 // ==================== RESTAURANT SELF-SERVICE REGISTRATION ====================
 
+// WARUM DER MERKER NICHT IM ARBEITSSPEICHER STEHEN DARF
+// -----------------------------------------------------
+// Der Ablauf ist: "Fuer Gastronomen" antippen -> noch nicht angemeldet
+// -> merken "der will sich registrieren" -> Google-Anmeldung -> danach
+// das Formular aufmachen.
+//
+// Dazwischen liegt aber signInWithOAuth mit redirectTo. Das ist KEIN
+// Fenster, das ist eine echte Weiterleitung: die Seite verlaesst den
+// Browser, geht zu Google und kommt als NEU GELADENE Seite zurueck.
+// Alles, was in einer Variablen stand, ist dann weg -- auch dieser
+// Merker. Der Zweig, der das Formular aufmacht, wurde also nie
+// erreicht, und der Wirt landete als gewoehnlicher Gast auf der
+// Startseite.
+//
+// Aufgefallen ist es nur deshalb nicht, weil auf dem Rechner des
+// Betreibers eine Anmeldung lag: dann greift die Weiche oben gar
+// nicht, und das Formular kommt sofort. Am Handy, frisch, kam es nie.
+//
+// Deshalb localStorage statt Variable -- sessionStorage reicht nicht
+// sicher, weil die Rueckkehr von Google je nach Geraet in einem
+// anderen Tab landen kann.
+//
+// Mit Zeitstempel: ein Merker, der wochenlang liegen bleibt, wuerde
+// irgendwann jemandem das Anmeldeformular vor die Nase setzen, der
+// sich nur einloggen wollte. Zehn Minuten sind genug fuer eine
+// Google-Anmeldung und kurz genug, um nicht zu stoeren.
+var KMI_REG_MERKER = 'kmi_reg_wunsch';
+var KMI_REG_GILT_MS = 10 * 60 * 1000;
+
+function regWunschMerken() {
+    window._pendingRegistration = true;
+    try { localStorage.setItem(KMI_REG_MERKER, String(Date.now())); } catch (e) {}
+}
+function regWunschAbholen() {
+    if (window._pendingRegistration) { window._pendingRegistration = false; regWunschLoeschen(); return true; }
+    var seit = null;
+    try { seit = localStorage.getItem(KMI_REG_MERKER); } catch (e) {}
+    if (!seit) return false;
+    regWunschLoeschen();
+    return (Date.now() - Number(seit)) < KMI_REG_GILT_MS;
+}
+function regWunschLoeschen() {
+    window._pendingRegistration = false;
+    try { localStorage.removeItem(KMI_REG_MERKER); } catch (e) {}
+}
+
 function startRestaurantRegistration() {
     // Google Login erforderlich
     if (!currentUser || !currentUser.email) {
-        window._pendingRegistration = true;
+        regWunschMerken();
         openModal('loginModal');
         return;
     }
+    // Angemeldet -- der Merker hat seinen Zweck erfuellt.
+    regWunschLoeschen();
 
     // Reset: Schritt 1 anzeigen, Schritt 2 verstecken
     var step1 = document.getElementById('regStep1');
