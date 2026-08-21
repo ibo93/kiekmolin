@@ -217,11 +217,28 @@ starte('tunnel', 'npx', ['-y', 'cloudflared', 'tunnel', '--url', 'http://localho
   }
 });
 
-// 3. Die beiden Server.
+// 3. Die beiden Server. Meldet sich die Agentur-App, wird sie im Browser
+//    geoeffnet - aber NUR, wenn das Skript von Hand im Terminal gestartet
+//    wurde. Startet launchd es beim Anmelden, waere ein Browserfenster bei
+//    jeder Anmeldung eine Zumutung.
+let schonGeoeffnet = false;
 starte('telefon', 'node', ['server.js'], { cwd: path.join(__dirname, 'telefon-retter') });
-starte('agentur', 'node', ['server.js'], { cwd: path.join(__dirname, 'agentur') });
+starte('agentur', 'node', ['server.js'], {
+  cwd: path.join(__dirname, 'agentur'),
+  aufZeile: (zeile) => {
+    if (schonGeoeffnet || !/http:\/\/localhost:\d+/.test(zeile)) return;
+    schonGeoeffnet = true;
+    if (process.platform !== 'darwin' || !process.stdout.isTTY) return;
+    const adresse = zeile.match(/http:\/\/localhost:\d+/)[0];
+    spawn('open', [adresse], { stdio: 'ignore' }).on('error', () => {
+      log('Browser liess sich nicht oeffnen - bitte selbst aufmachen: ' + adresse);
+    });
+    log('Agentur-App im Browser geoeffnet: ' + adresse);
+  }
+});
 
 log('Alles gestartet. Die Agentur-App: http://localhost:3200');
+log('(Oeffnet sich gleich von selbst. Falls nicht: Adresse im Browser eintippen.)');
 log('Zum Beenden: Strg+C - dann sind auch Telefon und Tunnel aus.');
 
 // Sauber aufhoeren, damit keine Prozesse verwaist zurueckbleiben.
