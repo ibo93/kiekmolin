@@ -13,7 +13,19 @@ t('Huelle: Netz zuerst, nicht mehr Cache zuerst',
 // dazu steht in sw-geduld-test.js und wird dort wirklich ausgefuehrt.
 t('Cache als Rueckfall, wenn das Netz fehlt ODER zu lange braucht',
   /NETZ_GEDULD_MS/.test(sw) && /Promise\.race/.test(sw));
-t('Cache-Name hochgezogen (alter Bestand fliegt raus)', /kmi-shell-v2/.test(sw));
+// AM 21.08.2026 GEAENDERT.
+//
+// Hier stand /kmi-shell-v2/ -- die Versionsnummer fest eingetragen.
+// Damit wurde dieser Test bei JEDER berechtigten Erhoehung rot, obwohl
+// genau das der richtige Vorgang ist. Ein Test, den man bei jeder
+// erwuenschten Aenderung anfassen muss, prueft nichts; er kostet nur.
+//
+// Worauf es wirklich ankommt: der Name traegt eine Nummer (damit man
+// ihn hochzaehlen KANN) und beim Aktivieren fliegt alles raus, was
+// anders heisst.
+t('Cache-Name traegt eine Version', /var CACHE = 'kmi-shell-v[0-9]+';/.test(sw));
+t('und alter Bestand fliegt beim Aktivieren raus',
+  /k === CACHE \? null : caches\.delete\(k\)/.test(sw));
 t('Notausgang /?nosw=1 bleibt', /nosw'\) === '1'/.test(sw));
 t('Fehler beim Cache kippt die Seite nicht', (sw.match(/catch \(e[0-9]?\) \{\}/g)||[]).length >= 3);
 t('Bilder/Symbole werden weiterhin gecacht', /png\|jpg\|jpeg\|webp\|svg\|ico\|woff/.test(sw));

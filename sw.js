@@ -18,7 +18,14 @@
 // Reservierungen und KI-Antworten muessen immer frisch sein. Ein gecachter
 // Bestellstatus waere schlimmer als eine Sekunde Wartezeit.
 
-var CACHE = 'kmi-shell-v2';
+// Der Name ist zugleich der Schalter zum Aufraeumen: beim Aktivieren
+// wird jeder Speicher geloescht, der anders heisst. Wer ihn hochzaehlt,
+// wirft damit die alte, gespeicherte Fassung der App weg.
+//
+// v3 am 21.08.2026: die Geraete hielten eine Fassung fest, in der die
+// Benachrichtigungen noch nicht funktionierten. Ohne dieses Hochzaehlen
+// haetten sie sie noch tagelang behalten.
+var CACHE = 'kmi-shell-v3';
 var SHELL = '/';
 // Nur Dateien, die es sicher gibt. Eine fehlende Datei laesst sonst die
 // gesamte Installation scheitern und der Worker uebernimmt nie.
@@ -56,9 +63,32 @@ self.addEventListener('activate', function (event) {
     );
 });
 
+// WAS DIE APP-HUELLE IST -- UND WAS NICHT.
+//
+// Hier stand: JEDE Navigation ist die Huelle. Das stimmt fuer die
+// Adressen der App selbst ("/", "/lapiazza", "/bestellen") -- die
+// bedient index.html, und dafuer ist der Zwischenspeicher da.
+//
+// Es stimmte aber auch fuer jede andere Seite auf derselben Domain. Wer
+// /push-check.html aufrief, bekam die App aus dem Zwischenspeicher
+// serviert -- die Datei wurde nie geholt. AM 21.08.2026 GENAU DARAN
+// GESCHEITERT: die Pruefseite war live, und auf dem Handy kam die
+// gewoehnliche Startseite.
+//
+// Dasselbe traf die erzeugten Google-Seiten: wer /pizzeria-emden.html
+// direkt aufrief, sah die App statt der Seite.
+//
+// Die Regel jetzt: eine Navigation auf einen Pfad, der auf .html endet
+// und NICHT index.html ist, gehoert nicht zur Huelle. Sie geht ans
+// Netz. Alles ohne Dateiendung bleibt Huelle wie bisher -- das sind
+// die Adressen der App.
 function istHuelle(req, url) {
-    if (req.mode === 'navigate') return true;
-    return url.origin === self.location.origin && (url.pathname === '/' || url.pathname === '/index.html');
+    if (url.origin !== self.location.origin) return false;
+    var pfad = url.pathname;
+    if (pfad === '/' || pfad === '/index.html') return true;
+    // Eine echte Datei mit Endung ist nie die Huelle.
+    if (/\.html?$/i.test(pfad)) return false;
+    return req.mode === 'navigate';
 }
 
 self.addEventListener('fetch', function (event) {
