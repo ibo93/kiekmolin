@@ -183,5 +183,37 @@ t('und der Grund steht im Quelltext',
   app.indexOf('Geraete mit erteilter Erlaubnis und ohne Eintrag') > -1
   || h.indexOf('Geraete mit erteilter') > -1, 'keine Begruendung');
 
+console.log('\n-- 8. Gefragt wird beim Oeffnen, nicht beim Laden --');
+// DER GRUND, WARUM AUCH NACH ZWEI REPARATUREN NICHTS ANKAM.
+//
+// initPushNotifications() wurde genau EINMAL gerufen: aus
+// initSupabaseAuth(), beim Laden der Seite. Zu diesem Zeitpunkt ist
+// das Dashboard noch zu -- isDashboard war falsch, der ganze Block lief
+// ins Leere. Wer sich danach anmeldete und den Verwaltungsbereich
+// aufmachte, kam nie wieder hier vorbei.
+//
+// Sichtbar wurde es erst, als die Tabelle repariert war und trotzdem
+// KEIN EINZIGER Zugriff auf push_subscriptions hinausging. Nicht einer,
+// der scheiterte -- gar keiner. Das war der Hinweis: wenn nicht einmal
+// ein Fehler ankommt, wird es nicht versucht.
+t('die Funktion laesst sich ausdruecklich aufrufen',
+  /function initPushNotifications\(imDashboard\)/.test(app), 'nur ueber Raten');
+t('und glaubt dem Aufrufer',
+  /var isDashboard = imDashboard === true \|\|/.test(app), 'prueft weiter das DOM');
+// Beide Wege ins Dashboard muessen sie rufen -- der Wirt ueber
+// showGastroDashboard, der Superadmin ueber adminDashboardOeffnen.
+t('der Verwaltungsbereich ruft sie',
+  /function adminDashboardOeffnen\(wer\) \{[\s\S]{0,3000}?initPushNotifications\(true\)/.test(app),
+  'Superadmin bleibt aussen vor');
+t('das Wirte-Dashboard auch',
+  /showDashboardSection\('dashboard'\);[\s\S]{0,400}?initPushNotifications\(true\);[\s\S]{0,200}?Willkommen ' \+ currentAdmin\.name/.test(app),
+  'Wirt bleibt aussen vor');
+t('genau zweimal -- nicht mehr, nicht weniger',
+  (app.match(/initPushNotifications\(true\)/g) || []).length === 2,
+  (app.match(/initPushNotifications\(true\)/g) || []).length);
+t('und ein Fehler dabei haelt den Dashboard-Aufbau nicht auf',
+  (app.match(/try \{ initPushNotifications\(true\); \} catch \(e\) \{\}/g) || []).length === 2,
+  'ungesichert');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
