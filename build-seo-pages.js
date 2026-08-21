@@ -248,7 +248,17 @@ async function fetchMenuItems(restaurantId) {
   const url = SUPABASE_URL + '/rest/v1/menu_items'
     + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
     + '&is_available=eq.true'
-    + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
+    // "price" gibt es nicht -- die Spalte heisst base_price.
+    //
+    // Mit dem falschen Namen antwortete PostgREST mit 400, der
+    // Fault-tolerant-Zweig sprang an und lieferte ein leeres Array. Die
+    // Seite wurde also gebaut, nur OHNE GERICHTE. Google sah eine
+    // Restaurantseite ohne Speisekarte, und niemandem fiel es auf, weil
+    // hier kein Fehler geworfen wird.
+    //
+    // 134 Fehlversuche in knapp einem Tag -- fuer jeden Betrieb bei
+    // jedem Bau.
+    + '&select=name,description,base_price,image_url,is_popular,menu_categories(name)'
     + '&order=is_popular.desc,sort_order.asc'
     + '&limit=30';
   try {
@@ -276,7 +286,11 @@ async function fetchReviews(targetId) {
     + '?target_type=eq.restaurant'
     + '&target_id=eq.' + encodeURIComponent(targetId)
     + '&is_approved=eq.true'
-    + '&select=rating,title,comment,author_name,customer_name,created_at'
+    // "author_name" gibt es nicht -- der Name des Gastes steht in
+    // customer_name. Dieselbe Geschichte wie oben: 400, leeres Array,
+    // Seite ohne Bewertungen. Google bekam vom Restaurant nur den
+    // Durchschnitt zu sehen, nie einen echten Satz.
+    + '&select=rating,title,comment,customer_name,created_at'
     + '&order=created_at.desc'
     + '&limit=10';
   try {
@@ -295,7 +309,7 @@ async function fetchReviews(targetId) {
 }
 
 function fmtPrice(item) {
-  const p = item.base_price != null ? item.base_price : item.price;
+  const p = item.base_price;
   if (p == null || p === '') return '';
   const n = Number(p);
   if (isNaN(n)) return '';
@@ -932,7 +946,7 @@ function buildRestaurantJsonLd(rest, reviews) {
         },
         'author': {
           '@type': 'Person',
-          'name': safeText(rv.author_name || rv.customer_name, 'Gast')
+          'name': safeText(rv.customer_name, 'Gast')
         }
       };
       const body = safeText(rv.comment || rv.title, '');
@@ -1310,7 +1324,7 @@ function buildMenuJsonLd(rest, menuItems) {
             'name': safeText(it.name, 'Gericht')
           };
           if (it.description) item.description = String(it.description).slice(0, 200);
-          const p = it.base_price != null ? it.base_price : it.price;
+          const p = it.base_price;
           if (p != null && !isNaN(Number(p))) {
             item.offers = {
               '@type': 'Offer',
@@ -1381,7 +1395,7 @@ function renderReviewsHtml(rest, reviews) {
     real.length + ' ' + (real.length === 1 ? 'Bewertung' : 'Bewertungen') + '</p>\n';
   html += '<div class="reviews-seo" style="display:grid;gap:12px;margin:0 0 32px;">';
   real.slice(0, 10).forEach(function(rv) {
-    const author = escapeHtml(safeText(rv.author_name || rv.customer_name, 'Gast'));
+    const author = escapeHtml(safeText(rv.customer_name, 'Gast'));
     const text = escapeHtml(String(rv.comment || rv.title).slice(0, 500));
     const dateStr = rv.created_at
       ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })

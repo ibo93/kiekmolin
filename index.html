@@ -23630,12 +23630,42 @@ function subscribeWebPush() {
                 }
             }
         } catch(e) {}
+        // DER SUPERADMIN HAT KEINEN EIGENEN BETRIEB.
+        //
+        // Alle Melde-Funktionen suchen Geraete ueber die restaurant_id.
+        // Beim Superadmin ist die NULL -- adminDashboardOeffnen() setzt
+        // sie ausdruecklich so, weil ihm kein Haus gehoert. Sein Handy
+        // wuerde also von keiner Funktion gefunden, obwohl er alles
+        // mitbekommen will.
+        //
+        // Loesung: seine E-Mail wird mitgespeichert. Der Server schaut
+        // dann in customers nach, WER Superadmin ist, und schickt an
+        // dessen Geraete.
+        //
+        // WARUM NICHT EINFACH EIN HAEKCHEN "ich bin Admin"
+        // Weil das aus dem Browser kaeme, und dem ist nicht zu trauen.
+        // Wer den oeffentlichen Schluessel hat -- er steht im
+        // Seitenquelltext -- koennte sich selbst als Admin eintragen und
+        // bekaeme ab da jede Bestellung und Reservierung mit Gastnamen
+        // aufs Handy. Die E-Mail allein bringt niemandem etwas: Der
+        // Server gleicht sie mit customers ab, und dort kann sich
+        // niemand selbst zum Superadmin machen (siehe den Ausloeser aus
+        // Schritt 11).
+        var adminMail = null;
+        try {
+            if (window.currentUser && String(window.currentUser.role || '').toLowerCase() === 'superadmin') {
+                adminMail = window.currentUser.email || null;
+            } else if (window.currentAdmin && window.currentAdmin.isAdmin === true) {
+                adminMail = window.currentAdmin.email || null;
+            }
+        } catch (e) {}
+
         var record = {
             endpoint: json.endpoint,
             p256dh_key: json.keys && json.keys.p256dh,
             auth_key: json.keys && json.keys.auth,
             customer_phone: phone,
-            customer_email: email,
+            customer_email: adminMail || email,
             restaurant_id: gastroRestaurantId,
             user_agent: navigator.userAgent || null
         };
@@ -23907,12 +23937,68 @@ function sendFallbackNotification(title, body, options) {
 }
 
 // Auto-Permission beim Dashboard-Login anfragen
-function initPushNotifications() {
-    if (!('Notification' in window)) return;
+// AUF DEM IPHONE KOMMT NUR ETWAS AN, WENN DIE SEITE ALS APP LIEGT.
+//
+// Seit iOS 16.4 gibt es Web Push auch auf dem iPhone -- aber
+// ausschliesslich, wenn die Seite ueber "Teilen -> Zum Home-Bildschirm"
+// installiert wurde. Im gewoehnlichen Safari-Tab passiert gar nichts:
+// keine Nachfrage, keine Fehlermeldung, es kommt einfach nie eine
+// Meldung an.
+//
+// Genau das ist der haeufigste Grund fuer "die Benachrichtigungen gehen
+// bei mir nicht" -- und man kann tagelang im Server suchen, waehrend es
+// am Geraet liegt. Deshalb sagt die App es dem Wirt, statt ihn raten zu
+// lassen.
+function istIPhone() {
+    var ua = navigator.userAgent || '';
+    // iPad ab iOS 13 meldet sich als Mac -- daran erkennt man es trotzdem.
+    return /iPad|iPhone|iPod/.test(ua)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function laeuftAlsApp() {
+    try {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+            || navigator.standalone === true;
+    } catch (e) { return false; }
+}
 
+function pushHinweisIPhone() {
+    if (document.getElementById('kmiPushHinweis')) return;
+    var kasten = document.createElement('div');
+    kasten.id = 'kmiPushHinweis';
+    kasten.setAttribute('role', 'note');
+    kasten.style.cssText = 'margin:12px;padding:14px 16px;border-radius:20px;'
+        + 'background:rgba(254,214,91,0.16);border:1px solid rgba(254,214,91,0.5);'
+        + 'font-family:Inter,sans-serif;font-size:13px;color:var(--ink-strong,#00251e);line-height:1.5;';
+    kasten.innerHTML = '<strong>Benachrichtigungen aufs Handy</strong><br>'
+        + 'Auf dem iPhone gehen sie nur, wenn Kiek mol in als App auf dem Home-Bildschirm liegt.<br>'
+        + 'Unten auf <strong>Teilen</strong> tippen &rarr; <strong>Zum Home-Bildschirm</strong> &rarr; '
+        + 'die App von dort öffnen. Dann fragt sie nach der Erlaubnis.'
+        + '<button type="button" aria-label="Hinweis schließen" style="display:block;margin-top:10px;padding:7px 14px;'
+        + 'border-radius:9999px;border:1px solid rgba(0,61,51,0.15);background:transparent;'
+        + 'font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Verstanden</button>';
+    kasten.querySelector('button').onclick = function () {
+        try { localStorage.setItem('kmi_push_hinweis_weg', '1'); } catch (e) {}
+        kasten.remove();
+    };
+    var ziel = document.getElementById('sectionDashboard') || document.getElementById('dashboardView');
+    if (ziel) ziel.insertBefore(kasten, ziel.firstChild);
+}
+
+function initPushNotifications() {
     // Für Gastronomen: Beim Dashboard automatisch fragen
     var isDashboard = document.getElementById('dashboardView') &&
                       document.getElementById('dashboardView').style.display !== 'none';
+
+    // iPhone im Safari-Tab: fragen bringt nichts, erklaeren schon.
+    if (isDashboard && istIPhone() && !laeuftAlsApp()) {
+        var weg = null;
+        try { weg = localStorage.getItem('kmi_push_hinweis_weg'); } catch (e) {}
+        if (!weg) setTimeout(pushHinweisIPhone, 1500);
+        return;
+    }
+
+    if (!('Notification' in window)) return;
 
     if (isDashboard && Notification.permission === 'default') {
         // Nach 3 Sekunden fragen — nicht sofort
@@ -28807,6 +28893,17 @@ async function loadReservationsForRestaurant(restaurantId) {
         if (response.ok) {
             var data = await response.json();
             var active = data.filter(function(r) { return r.status !== 'cancelled'; });
+            // WARUM DIE ABSAGEN NICHT EINFACH WEGGEWORFEN WERDEN
+            // Sie stehen in der Datenbank (status = 'cancelled'), wurden
+            // aber an dieser Stelle stillschweigend aussortiert -- und
+            // damit war eine Absage fuer den Wirt unsichtbar. Vom
+            // Betreiber gemeldet: "wenn die absagen sehen ich keine
+            // absagen ... es muss ja irgendwo stehen".
+            //
+            // Aus der aktiven Liste gehoeren sie trotzdem heraus: sie
+            // wuerden die Zahl oben verfaelschen und im Tischplan einen
+            // Tisch belegen, der frei ist. Deshalb eigener Block unten.
+            var abgesagt = data.filter(function(r) { return r.status === 'cancelled'; });
 
             // WICHTIG: Auch resAllReservations synchronisieren für Kalender-View
             if (window.resAllReservations) {
@@ -28921,6 +29018,59 @@ async function loadReservationsForRestaurant(restaurantId) {
             });
             
             html += '</div>';
+
+            // ABGESAGTE RESERVIERUNGEN -- eigener Block, zugeklappt.
+            //
+            // Zugeklappt, weil der Wirt im Betrieb die offenen Anfragen
+            // sehen will, nicht die Absagen. Aber vorhanden, weil er
+            // abends wissen muss, ob der Tisch wirklich frei ist -- und
+            // weil eine Absage ohne Spur bei jedem Streit fehlt.
+            if (abgesagt.length) {
+                abgesagt.sort(function(a, b) {
+                    return String(a.reservation_date + a.reservation_time)
+                         < String(b.reservation_date + b.reservation_time) ? -1 : 1;
+                });
+                html += '<details style="margin:8px 12px 24px;">';
+                html += '<summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);padding:10px 14px;background:rgba(186,26,26,0.06);border-radius:9999px;list-style:none;display:flex;align-items:center;gap:6px;">';
+                html += '<span class="material-symbols-outlined" style="font-size:16px;">event_busy</span>';
+                html += abgesagt.length + ' Absage' + (abgesagt.length > 1 ? 'n' : '') + ' ab heute';
+                html += '</summary>';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:12px;">';
+                abgesagt.forEach(function(r) {
+                    var aZeit = (r.reservation_time || '').substring(0, 5);
+                    var aDatum = new Date(r.reservation_date + 'T00:00:00')
+                        .toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+                    html += '<div style="padding:14px 16px;border-radius:20px;background:rgba(186,26,26,0.04);border:1px solid rgba(186,26,26,0.12);">';
+                    html += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">';
+                    html += '<span style="font-weight:700;color:var(--text-primary);">' + escapeHtml(r.guest_name || 'Gast') + '</span>';
+                    html += '<span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#ba1a1a;">Abgesagt</span>';
+                    html += '</div>';
+                    html += '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">'
+                          + aDatum + ' &middot; ' + aZeit + ' Uhr &middot; ' + (r.party_size || 2) + ' Personen</div>';
+                    if (r.guest_phone) {
+                        html += '<div style="font-size:12px;margin-top:6px;"><a href="tel:' + escapeHtml(r.guest_phone)
+                              + '" style="color:var(--ink-deep);text-decoration:none;font-weight:600;">'
+                              + escapeHtml(r.guest_phone) + '</a></div>';
+                    }
+                    // Der Grund, wenn der Gast einen angegeben hat.
+                    // Hervorgehoben, weil er der eigentliche Wert dieses
+                    // Blocks ist: fuenf Absagen wegen Krankheit sind
+                    // etwas anderes als fuenf, weil es beim letzten Mal
+                    // nicht geschmeckt hat.
+                    if (r.cancel_reason) {
+                        html += '<div style="font-size:12px;margin-top:8px;padding:7px 11px;border-radius:12px;'
+                              + 'background:rgba(186,26,26,0.08);color:#8c1414;font-weight:600;">'
+                              + escapeHtml(r.cancel_reason) + '</div>';
+                    }
+                    if (r.notes) {
+                        html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;font-style:italic;">'
+                              + escapeHtml(r.notes) + '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div></details>';
+            }
+
             container.innerHTML = html;
         }
     } catch(e) {
@@ -39702,7 +39852,20 @@ async function showRestaurantLanding(rest) {
         // dann deren Fotos. Das laeuft im Hintergrund, auf eine
         // Rueckfrage mehr kommt es hier nicht an.
         try {
-            var resIds = await fetch(SUPA_URL + '/rest/v1/reviews?select=id&restaurant_id=eq.'
+            // AM 21.08.2026 KORRIGIERT -- MEIN EIGENER FEHLER VOM VORTAG.
+            //
+            // Hier stand "restaurant_id=eq.<id>". Die Spalte gibt es in
+            // reviews nicht: die Tabelle merkt sich das Ziel als Paar
+            // aus target_type und target_id, weil dort nicht nur
+            // Restaurants bewertet werden.
+            //
+            // Ergebnis: 400, leere Liste, keine Fotos. Also genau der
+            // Fehler, den ich am Tag zuvor an drei anderen Stellen
+            // behoben hatte -- und beim Beheben neu eingebaut, weil ich
+            // den Spaltennamen geraten statt nachgesehen habe. Der Test
+            // dazu (tests/spaltennamen-test.js) prueft den select-Teil,
+            // nicht den Filter; deshalb ist er nicht rot geworden.
+            var resIds = await fetch(SUPA_URL + '/rest/v1/reviews?select=id&target_type=eq.restaurant&target_id=eq.'
                 + encodeURIComponent(rest.id) + '&limit=50', {
                 headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
@@ -40049,17 +40212,85 @@ function buildReservationCard(r) {
 // Gast sagt seine Reservierung in der App ab.
 // Läuft bewusst über dieselbe Function wie der Link in der E-Mail: nur so
 // bekommt das Restaurant die Push-Benachrichtigung ("Tisch ist wieder frei").
+// DIE GRUENDE -- dieselben Schluessel wie in res-cancel.js.
+// Sie muessen zusammenpassen: die Function nimmt nur bekannte
+// Schluessel an und verwirft alles andere stillschweigend. Wer hier
+// einen hinzufuegt, muss ihn dort auch eintragen, sonst kommt die
+// Absage an und der Grund nicht.
+// "Beim letzten Mal nicht zufrieden" stand hier und ist auf Wunsch des
+// Betreibers wieder raus: einem Gast so einen Satz zum Antippen
+// hinzulegen macht aus einer Absage eine Beschwerde, die vorher keine
+// war. Wer wirklich unzufrieden war, schreibt es -- dafuer ist das
+// Feld unten da.
+var KMI_ABSAGE_GRUENDE = [
+    ['krank',    'Krank geworden'],
+    ['plan',     'Pläne haben sich geändert'],
+    ['zeit',     'Schaffe es zeitlich nicht'],
+    ['zuviele',  'Andere Personenzahl nötig'],
+    ['woanders', 'Doch woanders hingegangen']
+];
+
+// Fragt nach dem Grund und gibt den Schluessel zurueck -- oder '' beim
+// Ueberspringen, oder null beim Abbrechen.
+//
+// WARUM UEBERSPRINGEN MOEGLICH BLEIBT
+// Eine Absage, die nicht ankommt, ist teurer als eine ohne Grund: dann
+// steht der Tisch am Samstagabend leer und niemand weiss es. Deshalb
+// darf die Frage nach dem Grund nie zwischen Gast und Absage stehen.
+function absageGrundFragen() {
+    return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.style.cssText = 'z-index:99999;display:flex;align-items:center;justify-content:center;';
+        var knoepfe = '';
+        KMI_ABSAGE_GRUENDE.forEach(function (g) {
+            knoepfe += '<button data-grund="' + g[0] + '" style="padding:11px 16px;border-radius:9999px;'
+                + 'border:1px solid rgba(0,61,51,0.12);background:var(--bg-secondary,#f6f8f7);'
+                + 'color:var(--ink-strong,#00251e);font-family:Inter,sans-serif;font-size:13px;'
+                + 'font-weight:600;cursor:pointer;text-align:left;">' + escapeHtml(g[1]) + '</button>';
+        });
+        overlay.innerHTML = '<div style="max-width:400px;width:90%;background:rgba(255,255,255,0.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:32px;border:1px solid rgba(255,255,255,0.3);box-shadow:0 24px 48px -8px rgba(0,37,30,0.15);padding:28px;animation:scaleIn 0.25s cubic-bezier(0.4,0,0.2,1);">'
+            + '<h3 style="font-family:Epilogue,sans-serif;font-size:19px;font-weight:700;color:var(--ink-strong);margin:0 0 6px;letter-spacing:-0.02em;">Reservierung absagen</h3>'
+            + '<p style="font-family:Inter,sans-serif;font-size:14px;color:var(--text-secondary);line-height:1.6;margin:0 0 18px;">Das Restaurant wird sofort informiert und kann den Tisch weitergeben.<br>Magst du kurz sagen, woran es liegt?</p>'
+            + '<div style="display:grid;gap:8px;margin-bottom:12px;">' + knoepfe + '</div>'
+            + '<label for="kmiGrundFrei" style="display:block;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Oder etwas anderes:</label>'
+            + '<input id="kmiGrundFrei" type="text" maxlength="200" placeholder="Anderer Grund…" '
+            + 'style="width:100%;box-sizing:border-box;padding:12px 16px;border-radius:9999px;border:1px solid rgba(0,61,51,0.12);background:var(--bg-secondary,#f6f8f7);color:var(--ink-strong,#00251e);font-family:Inter,sans-serif;font-size:14px;margin-bottom:18px;">'
+            + '<div style="display:flex;gap:10px;">'
+            + '<button id="kmiGrundZurueck" style="flex:1;padding:13px;border-radius:9999px;border:1px solid rgba(0,61,51,0.1);background:transparent;color:var(--ink-strong);font-family:Inter,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Doch nicht</button>'
+            + '<button id="kmiGrundOhne" style="flex:1;padding:13px;border-radius:9999px;border:none;background:#ef4444;color:white;font-family:Inter,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Absagen</button>'
+            + '</div></div>';
+        document.body.appendChild(overlay);
+        function fertig(wert, text) { overlay.remove(); resolve({ grund: wert, frei: text || '' }); }
+        var feld = overlay.querySelector('#kmiGrundFrei');
+        // Ein Knopf schickt sofort ab -- ein Klick, fertig. Wer stattdessen
+        // schreibt, drueckt unten auf Absagen.
+        overlay.querySelectorAll('button[data-grund]').forEach(function (b) {
+            b.onclick = function () { fertig(b.getAttribute('data-grund')); };
+        });
+        // Unten: mit Geschriebenem = "sonstiges", ohne = ohne Grund.
+        // Beides sagt ab; die Frage nach dem Grund haelt nie auf.
+        overlay.querySelector('#kmiGrundOhne').onclick = function () {
+            var txt = (feld && feld.value || '').trim();
+            fertig(txt ? 'sonstiges' : '', txt);
+        };
+        overlay.querySelector('#kmiGrundZurueck').onclick = function () { overlay.remove(); resolve(null); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) { overlay.remove(); resolve(null); } });
+    });
+}
+
 async function guestCancelReservation(resId, btn) {
     if (!resId) return;
-    if (typeof kinConfirm === 'function') {
-        if (!await kinConfirm('Reservierung wirklich absagen?\n\nDas Restaurant wird sofort informiert und kann den Tisch weitergeben.')) return;
-    } else if (!confirm('Reservierung wirklich absagen?')) {
-        return;
-    }
+    var wahl = await absageGrundFragen();
+    // null = abgebrochen. Ein leerer Grund = abgesagt, aber ohne Angabe --
+    // das ist ein gueltiges Ergebnis und darf die Absage nicht aufhalten.
+    if (wahl === null) return;
 
     if (btn) { btn.disabled = true; btn.textContent = 'Wird abgesagt…'; }
     try {
-        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId));
+        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId)
+            + (wahl.grund ? '&grund=' + encodeURIComponent(wahl.grund) : '')
+            + (wahl.frei ? '&frei=' + encodeURIComponent(wahl.frei) : ''));
         if (!res.ok) throw new Error('HTTP ' + res.status);
         showToast('Reservierung abgesagt – danke für die Info!', 'success');
         // Liste neu laden, damit die Karte als "Storniert" erscheint.

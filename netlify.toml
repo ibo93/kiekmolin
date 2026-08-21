@@ -127,10 +127,16 @@
 [functions."waechter"]
   schedule = "*/15 * * * *"
 
-# Scheduled Function: alle 10 Min ueberfaellige Pending-Bestellungen/Reservierungen
-# erinnern (Push an Gastronomen-Geraete wenn nicht innerhalb 30 Min bestaetigt/abgelehnt)
+# Melder: JEDE MINUTE. Zwei Stufen -- sofort melden, was hereingekommen
+# ist (push_sent_at leer), und nach 20 Minuten erinnern, was immer noch
+# offen liegt (reminder_sent_at leer).
+#
+# Vorher lief das alle 10 Minuten und meldete nur Ueberfaelliges. Eine
+# Reservierung um 21 Uhr erreichte den Wirt fruehestens um 21:20 -- und
+# nur, wenn er bis dahin nicht reagiert hatte. Eine Meldung BEIM EINGANG
+# gab es nirgends.
 [functions."pending-reminder"]
-  schedule = "*/10 * * * *"
+  schedule = "* * * * *"
 
 # Stempelkarten-Push: alle 4h Kunden re-engagen
 # (9/10 Stempel, 10/10 Belohnung wartet, 2/7 Tage inaktiv)

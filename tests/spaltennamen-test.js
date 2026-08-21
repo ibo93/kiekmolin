@@ -125,8 +125,22 @@ console.log('\n-- 5. Keine SQL-Unterabfragen in PostgREST-Filtern --');
 var roh = h.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
 t('keine Unterabfrage in einem Filter',
   /=in\.\(\s*select /i.test(roh) === false, 'wieder eine drin');
+// AM 21.08.2026 KORRIGIERT.
+//
+// Hier stand "restaurant_id=eq." -- und dieser Test hat den falschen
+// Spaltennamen damit festgeschrieben. reviews merkt sich sein Ziel als
+// Paar aus target_type und target_id; eine restaurant_id gibt es dort
+// nicht. Die Abfrage lief also auf 400, die Fotos blieben leer.
+//
+// Peinlich, weil es genau die Fehlerart ist, die diese Datei finden
+// soll. Der Grund: ich habe den Namen geraten statt nachgesehen, und
+// der Test hat den Irrtum bestaetigt statt ihn zu widerlegen. Ein Test,
+// der nur wiederholt, was der Code sagt, prueft nichts.
 t('die Fotos werden in zwei Schritten geholt',
-  /rest\/v1\/reviews\?select=id&restaurant_id=eq\./.test(h), 'kein erster Schritt');
+  /rest\/v1\/reviews\?select=id&target_type=eq\.restaurant&target_id=eq\./.test(h),
+  'kein erster Schritt');
+t('und nicht ueber eine restaurant_id, die es in reviews nicht gibt',
+  /rest\/v1\/reviews\?[^']*restaurant_id=eq\./.test(h) === false, 'wieder falsch');
 t('und die Kennungen dann als Liste uebergeben',
   /review_id=in\.\(/.test(h) && /idListe\.map\(encodeURIComponent\)\.join/.test(h), 'keine Liste');
 t('leere Liste fragt gar nicht erst nach', /if \(idListe\.length\) \{/.test(h), 'fragt immer');
