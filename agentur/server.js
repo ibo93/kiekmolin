@@ -679,6 +679,84 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- Telefon-Waechter --------
+// Ein Telefon-Retter, der aus ist, sieht nach nichts aus. Kein Fehler, kein
+// rotes Feld - es klingelt einfach niemand mehr. Genau deshalb ist das der
+// gefaehrlichste Ausfall im ganzen Aufbau: Man merkt ihn erst, wenn sich der
+// Wirt beschwert, und dann ist ein Wochenende weg.
+//
+// Der Waechter sieht regelmaessig nach und meldet sich EINMAL, wenn der
+// Dienst laenger weg ist - und einmal, wenn er wieder da ist. Nicht oefter:
+// wer alle zwei Minuten eine SMS bekommt, schaltet die Meldungen ab, und
+// dann ist es schlimmer als vorher.
+const WACHE_TAKT_MS = 2 * 60 * 1000;      // so oft wird nachgesehen
+const WACHE_GEDULD_MS = 10 * 60 * 1000;   // so lange darf er weg sein, ohne dass es Alarm gibt
+
+const telefonWache = { seitWannWeg: null, gemeldet: false, letzterStand: null };
+
+function wacheEmpfaenger() {
+  return {
+    sms: process.env.AGENTUR_SMS || null,
+    email: process.env.AGENTUR_EMAIL || null
+  };
+}
+
+async function pruefeTelefonWache() {
+  if (DEMO) return;
+  let betreute = 0;
+  try { betreute = telefonKunden.listeKunden().length; } catch (_e) { betreute = 0; }
+  // Ohne betreute Betriebe ist "aus" der Normalzustand und kein Alarm wert.
+  if (!betreute) { telefonWache.seitWannWeg = null; telefonWache.gemeldet = false; return; }
+
+  let laeuft = false;
+  try { laeuft = !!(await telefonStatus()).laeuft; } catch (_e) { laeuft = false; }
+  telefonWache.letzterStand = { laeuft, betreute, zeit: new Date().toISOString() };
+
+  if (laeuft) {
+    // War er weg und ist wieder da: einmal Entwarnung, dann Ruhe.
+    if (telefonWache.gemeldet) {
+      const weg = Math.round((Date.now() - telefonWache.seitWannWeg) / 60000);
+      meldeWache('Telefon-Retter laeuft wieder',
+        'Der Telefon-Retter ist wieder erreichbar. Er war ' + weg + ' Minuten weg.\n' +
+        'Anrufe in dieser Zeit sind verloren - bei den betreuten Betrieben nachfragen, ' +
+        'ob sich jemand beschwert hat.');
+    }
+    telefonWache.seitWannWeg = null;
+    telefonWache.gemeldet = false;
+    return;
+  }
+
+  if (!telefonWache.seitWannWeg) {
+    telefonWache.seitWannWeg = Date.now();
+    console.warn('[wache] Telefon-Retter antwortet nicht. Alarm, falls das ' +
+      (WACHE_GEDULD_MS / 60000) + ' Minuten so bleibt.');
+    return;
+  }
+  const wegSeit = Date.now() - telefonWache.seitWannWeg;
+  if (wegSeit >= WACHE_GEDULD_MS && !telefonWache.gemeldet) {
+    telefonWache.gemeldet = true;
+    meldeWache('ACHTUNG: Telefon-Retter ist aus',
+      'Der Telefon-Retter antwortet seit ' + Math.round(wegSeit / 60000) + ' Minuten nicht.\n\n' +
+      'Solange geht bei ' + betreute + ' betreuten Betrieben niemand ans Telefon.\n\n' +
+      'Was zu tun ist: "Agentur starten" doppelklicken. Laeuft es schon, ins Protokoll ' +
+      'sehen (dauerbetrieb.log) - dort steht, warum er nicht hochkommt.');
+  }
+}
+
+function meldeWache(betreff, text) {
+  const an = wacheEmpfaenger();
+  if (!an.sms && !an.email) {
+    // Ohne Empfaenger nicht so tun, als waere jemand informiert worden.
+    console.warn('[wache] ' + betreff + ' - aber weder AGENTUR_SMS noch AGENTUR_EMAIL gesetzt, ' +
+      'es wurde NIEMAND benachrichtigt.');
+    return;
+  }
+  console.warn('[wache] ' + betreff);
+  require('../telefon-retter/lib/benachrichtigung')
+    .melde(an, betreff, text)
+    .catch((e) => console.warn('[wache] Meldung fehlgeschlagen: ' + e.message));
+}
+
 // ------------------------------------------------- Tagesplan ---------------
 // Traegt zusammen, was in den einzelnen Ecken der App liegt. Jede Quelle
 // steckt in ihrem eigenen try: eine nicht erreichbare Datenbank darf nicht
@@ -2347,3 +2425,12 @@ if (AUTO_TAG > 0) {
 // Wochen-Digest (Montags-Mail an AGENTUR_EMAIL) - gleiche stuendliche Pruefung
 setTimeout(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 20000);
 setInterval(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 60 * 60 * 1000);
+
+// Telefon-Waechter: sieht nach, ob der Telefon-Retter noch da ist. Meldet
+// sich einmal, wenn er laenger weg ist, und einmal, wenn er wiederkommt.
+// Der erste Blick erst nach einer Minute - beim Start des Dauerbetriebs
+// braucht der Telefon-Retter selbst ein paar Sekunden.
+setTimeout(() => {
+  pruefeTelefonWache().catch(() => {});
+  setInterval(() => pruefeTelefonWache().catch((e) => console.warn('Telefon-Wache: ' + e.message)), WACHE_TAKT_MS);
+}, 60000);
