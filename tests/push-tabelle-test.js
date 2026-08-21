@@ -152,5 +152,36 @@ t('faellt die Admin-Suche aus, bekommt der Wirt trotzdem seine Meldung',
   /catch \(e\) \{ \/\* ohne Admin-Geraete weiter -- der Wirt zaehlt zuerst \*\//.test(absage)
   && /Admin-Geraete nicht ladbar/.test(melder), 'ein Fehler kippt alles');
 
+console.log('\n-- 7. Wer schon erlaubt hat, meldet sich trotzdem an --');
+// DIE LUECKE, DIE DIE REPARATUR FAST WERTLOS GEMACHT HAETTE.
+//
+// initPushNotifications() fragte nur, wenn die Erlaubnis noch auf
+// "default" stand. Wer sie laengst erteilt hatte, lief in gar keinen
+// Zweig -- subscribeWebPush() wurde nie gerufen.
+//
+// Solange das Anmelden funktionierte, war das egal: die Zeile stand ja
+// schon in der Datenbank. Nur hat es NIE funktioniert. Es gab also
+// Geraete mit erteilter Erlaubnis und ohne Eintrag -- und die haetten
+// sich auch nach Schritt 14 nie von selbst nachgetragen. Der Betreiber
+// haette die SQL-Datei ausgefuehrt, nichts waere passiert, und wir
+// haetten wieder von vorne gesucht.
+//
+// Aufgefallen ist es nur, weil nach dem Ausfuehren DREI STUNDEN LANG
+// kein einziger Zugriff auf push_subscriptions in den Protokollen
+// stand.
+t('bei erteilter Erlaubnis wird neu angemeldet',
+  /if \(isDashboard && Notification\.permission === 'granted'\) \{[\s\S]{0,160}?subscribeWebPush\(\)/.test(app),
+  'traegt sich nie nach');
+t('und der Glockenknopf meldet auch neu an',
+  /function togglePushNotifications\(\) \{[\s\S]{0,900}?subscribeWebPush\(\);[\s\S]{0,200}?Gerät neu angemeldet/.test(app),
+  'sagt nur "ist aktiv"');
+// Zweimal anmelden darf nichts kaputtmachen.
+t('das Anmelden ist wiederholbar (Upsert ueber endpoint)',
+  /push_subscriptions\?on_conflict=endpoint/.test(app)
+  && /resolution=merge-duplicates/.test(app), 'legt Doppelte an');
+t('und der Grund steht im Quelltext',
+  app.indexOf('Geraete mit erteilter Erlaubnis und ohne Eintrag') > -1
+  || h.indexOf('Geraete mit erteilter') > -1, 'keine Begruendung');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

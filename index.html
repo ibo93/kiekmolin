@@ -24000,6 +24000,27 @@ function initPushNotifications() {
 
     if (!('Notification' in window)) return;
 
+    // WER SCHON ERLAUBT HAT, MELDET SICH TROTZDEM NEU AN.
+    //
+    // Hier war eine Luecke, die erst am 21.08.2026 auffiel. Die alte
+    // Fassung fragte nur, wenn die Erlaubnis noch auf "default" stand.
+    // Wer sie laengst erteilt hatte, lief in gar keinen Zweig -- und
+    // subscribeWebPush() wurde nie gerufen.
+    //
+    // Solange das Anmelden funktionierte, war das egal: die Zeile stand
+    // ja schon in der Datenbank. Nur hat es NIE funktioniert (die
+    // Tabelle hatte die Spalten p256dh_key, auth_key und user_agent gar
+    // nicht, siehe Schritt 14). Es gab also Geraete mit erteilter
+    // Erlaubnis und ohne Eintrag -- und die haetten sich auch nach der
+    // Reparatur nie von selbst nachgetragen.
+    //
+    // Das Anmelden ist gefahrlos wiederholbar: es laeuft als Upsert
+    // ueber den endpoint, eine zweite Anmeldung desselben Geraets
+    // aktualisiert die vorhandene Zeile.
+    if (isDashboard && Notification.permission === 'granted') {
+        setTimeout(function () { try { subscribeWebPush(); } catch (e) {} }, 1500);
+    }
+
     if (isDashboard && Notification.permission === 'default') {
         // Nach 3 Sekunden fragen — nicht sofort
         setTimeout(function() {
@@ -24022,7 +24043,16 @@ function initPushNotifications() {
 // Benachrichtigungs-Toggle Button im Dashboard
 function togglePushNotifications() {
     if (Notification.permission === 'granted') {
-        showToast('Push-Benachrichtigungen sind aktiv', 'success');
+        // Vorher stand hier nur eine Meldung: "sind aktiv". Das stimmte
+        // aber nur fuer die Erlaubnis im Browser -- ob das Geraet auch
+        // in der Datenbank steht, sagte sie nicht. Genau in dieser
+        // Luecke sassen alle Geraete, deren Anmeldung an den fehlenden
+        // Spalten gescheitert war.
+        //
+        // Jetzt meldet der Knopf das Geraet neu an. Gefahrlos
+        // wiederholbar -- Upsert ueber den endpoint.
+        try { subscribeWebPush(); } catch (e) {}
+        showToast('Benachrichtigungen sind aktiv – Gerät neu angemeldet', 'success');
     } else {
         requestNotificationPermission();
     }
