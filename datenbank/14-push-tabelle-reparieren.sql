@@ -140,10 +140,36 @@ select column_name as spalte, data_type as art, is_nullable as darf_leer_sein
 --    Minute muss die Meldung auf dem Handy sein.
 --
 --
--- EINE SACHE, DIE DANACH NOCH AUFFALLEN KANN
--- ------------------------------------------
+-- DER SUPERADMIN -- SCHON MITGEBAUT
+-- ---------------------------------
 -- Die App speichert beim Anmelden die restaurant_id des Wirts. Der
--- SUPERADMIN hat keine (restaurant_id ist bei ihm NULL), also findet
--- ihn keine der Funktionen, die nach restaurant_id sucht. Fuer die
--- Wirte passt es; wer als Superadmin Meldungen aller Haeuser bekommen
--- will, braucht dafuer noch einen eigenen Weg.
+-- Superadmin hat keine (restaurant_id ist bei ihm NULL), also fand ihn
+-- keine der Funktionen, die nach restaurant_id sucht.
+--
+-- Auf Wunsch ("fuer mich waere es auch gut ... damit ich es alles
+-- verfolgen kann") bekommt er jetzt die Meldungen aller Haeuser. Der
+-- Weg dahin geht ueber die E-Mail, nicht ueber ein Haekchen:
+--
+--   Die App speichert beim Anmelden die Adresse des Superadmins in
+--   customer_email. Der Server holt sich aus customers, WER Superadmin
+--   ist, und schickt an die Geraete mit diesen Adressen.
+--
+-- Ein Haekchen "ich bin Admin" aus dem Browser waere mit dem
+-- oeffentlichen Schluessel -- er steht im Seitenquelltext -- in einer
+-- Zeile gefaelscht, und der Faelscher bekaeme jede Bestellung samt
+-- Gastnamen aufs Handy. Ueber customers geht das nicht: dort kann sich
+-- seit Schritt 11 niemand selbst zum Superadmin machen.
+--
+--
+-- WAS DABEI OFFEN BLEIBT -- EHRLICH GESAGT
+-- ----------------------------------------
+-- push_subscriptions selbst ist noch offen: jeder mit dem oeffentlichen
+-- Schluessel kann dort eine Zeile anlegen. Wer die E-Mail-Adresse des
+-- Superadmins kennt, koennte ein eigenes Geraet unter dieser Adresse
+-- eintragen und bekaeme ab da die Meldungen mit.
+--
+-- Das ist kein neues Loch -- die Tabelle stand vorher schon offen --
+-- aber es wird durch diesen Schritt erstmals nutzbar. Sauber zu machen
+-- ist es mit Regeln auf push_subscriptions, so wie bei den
+-- Gaestedaten. Das ist ein eigener Schritt und gehoert nicht in eine
+-- Datei, die eine kaputte Tabelle reparieren soll.

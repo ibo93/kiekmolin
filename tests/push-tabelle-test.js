@@ -84,10 +84,18 @@ t('warum die Datenbank angepasst wird und nicht acht Dateien',
 t('mit Ruecknahme', /drop column if exists p256dh_key/.test(sql), 'keine Ruecknahme');
 t('und einer Probe, die das Geraet in der Tabelle sucht',
   /from public\.push_subscriptions[\s\S]{0,120}order by created_at desc/.test(sql), 'keine Probe');
-// Ehrlich bleiben: eine Sache ist danach immer noch offen.
-t('der Superadmin-Fall wird benannt, nicht verschwiegen',
-  /Der\s*\n-- SUPERADMIN hat keine/.test(sql) || sql.indexOf('SUPERADMIN hat keine') > -1,
-  'weckt falsche Erwartung');
+// Ehrlich bleiben. Der Superadmin-Weg ist gebaut -- und er hat einen
+// Rest, den die Datei benennen muss, statt ihn zu verschweigen:
+// push_subscriptions steht offen, wer die Adresse kennt, kann ein
+// Geraet darunter eintragen.
+t('der Superadmin-Weg steht in der Datei',
+  sql.indexOf('DER SUPERADMIN -- SCHON MITGEBAUT') > -1, 'nicht erklaert');
+t('samt Begruendung, warum kein Haekchen aus dem Browser',
+  /in einer\s*\n-- Zeile gefaelscht/.test(sql) || sql.indexOf('Zeile gefaelscht') > -1,
+  'keine Begruendung');
+t('und der Rest wird benannt, nicht verschwiegen',
+  sql.indexOf('WAS DABEI OFFEN BLEIBT') > -1
+  && sql.indexOf('push_subscriptions selbst ist noch offen') > -1, 'weckt falsche Erwartung');
 
 console.log('\n-- 5. Der Code benutzt die Namen, die danach dastehen --');
 // Wenn hier jemand umbenennt, ohne die Datenbank anzufassen, ist der
@@ -104,6 +112,45 @@ t('und die App schreibt dieselben Namen',
   /p256dh_key: json\.keys && json\.keys\.p256dh/.test(h)
   && /auth_key: json\.keys && json\.keys\.auth/.test(h), 'andere Namen');
 t('samt user_agent', /user_agent: navigator\.userAgent \|\| null/.test(h), 'fehlt');
+
+console.log('\n-- 6. Der Superadmin bekommt es auch --');
+// "für mich wäre es auch gut ... damit ich es alles verfolgen kann".
+// Er hat keinen eigenen Betrieb -- restaurant_id ist bei ihm NULL --
+// und wurde von jeder Suche nach restaurant_id uebersehen.
+var melder = fs.readFileSync(KMI + '/netlify/functions/pending-reminder.js', 'utf8');
+var absage = fs.readFileSync(KMI + '/netlify/functions/res-cancel.js', 'utf8');
+var app = fs.readFileSync(KMI + '/index.html', 'utf8');
+
+t('die App speichert die Adresse des Superadmins mit',
+  /adminMail \|\| email/.test(app), 'Geraet bleibt namenlos');
+t('erkannt an der Rolle, nicht am Zufall',
+  /String\(window\.currentUser\.role \|\| ''\)\.toLowerCase\(\) === 'superadmin'/.test(app), 'raet');
+t('auch ueber den Passwort-Weg',
+  /window\.currentAdmin && window\.currentAdmin\.isAdmin === true/.test(app), 'nur Google');
+
+// DER PUNKT, AUF DEN ES ANKOMMT: der Browser darf das nicht behaupten.
+// Ein Haekchen "ich bin Admin" waere mit dem oeffentlichen Schluessel
+// aus dem Seitenquelltext in einer Zeile gefaelscht -- und der
+// Faelscher bekaeme jede Bestellung mit Gastnamen aufs Handy.
+t('kein Admin-Haekchen aus dem Browser',
+  /is_admin|isAdmin:\s*true,/.test(app.slice(app.indexOf('var record = {'),
+                                              app.indexOf('var record = {') + 600)) === false,
+  'Browser behauptet es selbst');
+t('der Melder fragt customers, wer Superadmin ist',
+  /customers\?role=eq\.superadmin&select=email/.test(melder), 'glaubt dem Geraet');
+t('und die Absage-Function auch',
+  /customers\?role=eq\.superadmin&select=email/.test(absage), 'nur halb eingebaut');
+t('gesucht wird dann ueber die E-Mail',
+  /push_subscriptions\?customer_email=in\.\(/.test(melder)
+  && /push_subscriptions\?customer_email=in\.\(/.test(absage), 'findet nichts');
+t('die Admin-Liste wird einmal je Durchlauf geholt, nicht je Meldung',
+  /let _adminGeraete = null;/.test(melder) && /if \(_adminGeraete\) return _adminGeraete;/.test(melder),
+  'fragt bei jeder Meldung neu');
+t('kein Geraet klingelt doppelt',
+  /gesehen\[x\.endpoint\]/.test(melder) && /gesehen\[x\.endpoint\]/.test(absage), 'doppelte Meldung');
+t('faellt die Admin-Suche aus, bekommt der Wirt trotzdem seine Meldung',
+  /catch \(e\) \{ \/\* ohne Admin-Geraete weiter -- der Wirt zaehlt zuerst \*\//.test(absage)
+  && /Admin-Geraete nicht ladbar/.test(melder), 'ein Fehler kippt alles');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

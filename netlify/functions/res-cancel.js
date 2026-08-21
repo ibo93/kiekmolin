@@ -55,7 +55,38 @@ async function notifyRestaurant(r, restName, grundText) {
             encodeURIComponent(r.restaurant_id) + '&select=id,endpoint,p256dh_key,auth_key', { headers: sbHeaders() });
         if (sr.ok) subs = await sr.json();
     } catch (e) { return; }
-    if (!Array.isArray(subs) || !subs.length) return;
+    if (!Array.isArray(subs)) subs = [];
+
+    // AUCH DER SUPERADMIN SOLL ES MITBEKOMMEN.
+    // Er hat keinen eigenen Betrieb (restaurant_id ist NULL) und wuerde
+    // von der Suche oben nie gefunden. Wer Superadmin ist, entscheidet
+    // die Datenbank -- die App speichert beim Anmelden nur die E-Mail
+    // mit, geprueft wird sie hier gegen customers. Ein Haekchen aus dem
+    // Browser waere zu leicht zu faelschen.
+    try {
+        var ar = await fetch(SUPABASE_URL + '/rest/v1/customers?role=eq.superadmin&select=email',
+            { headers: sbHeaders(), signal: AbortSignal.timeout(8000) });
+        if (ar.ok) {
+            var mails = (await ar.json() || []).map(function (a) { return a && a.email; }).filter(Boolean);
+            if (mails.length) {
+                var liste = mails.map(function (m) { return '"' + String(m).replace(/"/g, '') + '"'; }).join(',');
+                var gr = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?customer_email=in.('
+                    + encodeURIComponent(liste) + ')&select=id,endpoint,p256dh_key,auth_key',
+                    { headers: sbHeaders(), signal: AbortSignal.timeout(8000) });
+                if (gr.ok) subs = subs.concat(await gr.json() || []);
+            }
+        }
+    } catch (e) { /* ohne Admin-Geraete weiter -- der Wirt zaehlt zuerst */ }
+
+    // Kein Geraet doppelt: ist der Superadmin zugleich Wirt dieses
+    // Hauses, klingelte sein Handy sonst zweimal.
+    var gesehen = {};
+    subs = subs.filter(function (x) {
+        if (!x || !x.endpoint || gesehen[x.endpoint]) return false;
+        gesehen[x.endpoint] = true;
+        return true;
+    });
+    if (!subs.length) return;
 
     var datum = '';
     try {

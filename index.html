@@ -23630,12 +23630,42 @@ function subscribeWebPush() {
                 }
             }
         } catch(e) {}
+        // DER SUPERADMIN HAT KEINEN EIGENEN BETRIEB.
+        //
+        // Alle Melde-Funktionen suchen Geraete ueber die restaurant_id.
+        // Beim Superadmin ist die NULL -- adminDashboardOeffnen() setzt
+        // sie ausdruecklich so, weil ihm kein Haus gehoert. Sein Handy
+        // wuerde also von keiner Funktion gefunden, obwohl er alles
+        // mitbekommen will.
+        //
+        // Loesung: seine E-Mail wird mitgespeichert. Der Server schaut
+        // dann in customers nach, WER Superadmin ist, und schickt an
+        // dessen Geraete.
+        //
+        // WARUM NICHT EINFACH EIN HAEKCHEN "ich bin Admin"
+        // Weil das aus dem Browser kaeme, und dem ist nicht zu trauen.
+        // Wer den oeffentlichen Schluessel hat -- er steht im
+        // Seitenquelltext -- koennte sich selbst als Admin eintragen und
+        // bekaeme ab da jede Bestellung und Reservierung mit Gastnamen
+        // aufs Handy. Die E-Mail allein bringt niemandem etwas: Der
+        // Server gleicht sie mit customers ab, und dort kann sich
+        // niemand selbst zum Superadmin machen (siehe den Ausloeser aus
+        // Schritt 11).
+        var adminMail = null;
+        try {
+            if (window.currentUser && String(window.currentUser.role || '').toLowerCase() === 'superadmin') {
+                adminMail = window.currentUser.email || null;
+            } else if (window.currentAdmin && window.currentAdmin.isAdmin === true) {
+                adminMail = window.currentAdmin.email || null;
+            }
+        } catch (e) {}
+
         var record = {
             endpoint: json.endpoint,
             p256dh_key: json.keys && json.keys.p256dh,
             auth_key: json.keys && json.keys.auth,
             customer_phone: phone,
-            customer_email: email,
+            customer_email: adminMail || email,
             restaurant_id: gastroRestaurantId,
             user_agent: navigator.userAgent || null
         };

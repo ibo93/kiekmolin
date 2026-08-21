@@ -90,6 +90,38 @@ async function sbPatch(path, body) {
   return res.json();
 }
 
+// GERAETE DES SUPERADMINS.
+//
+// Er hat keinen eigenen Betrieb -- restaurant_id ist bei ihm NULL --
+// und wuerde von der Suche nach restaurant_id nie gefunden. Er will
+// aber alles mitbekommen: "für mich wäre es auch gut ... damit ich es
+// alles verfolgen kann".
+//
+// Wer Superadmin ist, entscheidet die Datenbank, nicht der Browser. Die
+// App speichert beim Anmelden nur die E-Mail mit; hier wird sie gegen
+// customers geprueft. Ein Haekchen "ich bin Admin" aus dem Browser
+// waere zu leicht zu faelschen -- der oeffentliche Schluessel steht im
+// Seitenquelltext.
+//
+// Einmal pro Durchlauf geholt, nicht einmal pro Meldung.
+let _adminGeraete = null;
+async function adminGeraete() {
+  if (_adminGeraete) return _adminGeraete;
+  _adminGeraete = [];
+  try {
+    const admins = await sbGet('customers?role=eq.superadmin&select=email');
+    const mails = (admins || []).map(a => a && a.email).filter(Boolean);
+    if (!mails.length) return _adminGeraete;
+    const liste = mails.map(m => '"' + String(m).replace(/"/g, '') + '"').join(',');
+    _adminGeraete = await sbGet('push_subscriptions?customer_email=in.(' + encodeURIComponent(liste) +
+      ')&select=endpoint,p256dh_key,auth_key,id') || [];
+  } catch (e) {
+    console.error('[melder] Admin-Geraete nicht ladbar:', e.message);
+    _adminGeraete = [];
+  }
+  return _adminGeraete;
+}
+
 async function pushToSubscription(sub, payload) {
   const pushSub = {
     endpoint: sub.endpoint,
@@ -114,8 +146,18 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   const jetzt = new Date().toISOString();
 
   // Push-Subscriptions des Restaurants laden (alle Geräte der Gastronomen)
-  const subs = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id');
-  if (!subs || !subs.length) {
+  const eigene = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id') || [];
+  const admins = await adminGeraete();
+  // Zusammenlegen, aber kein Geraet doppelt: ist der Superadmin
+  // zugleich Wirt dieses Hauses, stuende es sonst in beiden Listen und
+  // sein Handy klingelte zweimal fuer dieselbe Sache.
+  const gesehen = {};
+  const subs = eigene.concat(admins).filter(function (x) {
+    if (!x || !x.endpoint || gesehen[x.endpoint]) return false;
+    gesehen[x.endpoint] = true;
+    return true;
+  });
+  if (!subs.length) {
     console.log('[melder] keine Geraete fuer Betrieb', restId, '- uebersprungen:', kind, item.id);
     // Trotzdem abhaken -- sonst versucht es die Funktion jede Minute neu.
     // Meldet sich der Wirt spaeter mit einem Geraet an, bekommt er die
