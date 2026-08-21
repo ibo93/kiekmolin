@@ -24417,9 +24417,58 @@ async function simpleLogin() {
         // ist ein Nein. Ein Login, der bei einer Stoerung durchwinkt,
         // waere schlimmer als einer, der klemmt.
         if (response.ok && data && data.ok === true) {
+            // DAS PASSWORT WAR RICHTIG -- JETZT DIE ANMELDUNG.
+            //
+            // Bis zum 21.08.2026 stand hier nur adminDashboardOeffnen().
+            // Das setzte einen Merker im Browser und machte das Dashboard
+            // auf; fuer die Datenbank blieb der Admin ein Fremder. Jede
+            // Abfrage lief danach mit dem oeffentlichen Schluessel.
+            //
+            // Solange alle Tabellen offen standen, ging das gut. Sobald
+            // eine Regel greift, sieht dieses Dashboard nichts mehr --
+            // derselbe Ausfall wie am 20.08. bei den Wirten.
+            //
+            // Der Server gibt jetzt ein Einmal-Token heraus. Hier wird es
+            // gegen eine echte Sitzung getauscht. Erst danach liefert
+            // kmiToken() ein richtiges Token.
+            var angemeldet = false;
+            if (data.token_hash && window.supabaseClient && supabaseClient.auth) {
+                try {
+                    var erg = await supabaseClient.auth.verifyOtp({
+                        type: 'magiclink',
+                        token_hash: data.token_hash
+                    });
+                    angemeldet = !!(erg && erg.data && erg.data.session);
+                    // kmiTokenSetzen laeuft ueber den Auth-Listener von
+                    // selbst. Hier trotzdem noch einmal ausdruecklich,
+                    // damit die erste Abfrage nicht auf ein Rennen
+                    // zwischen Listener und Dashboard-Aufbau trifft.
+                    if (angemeldet && window.kmiTokenSetzen) {
+                        kmiTokenSetzen(erg.data.session);
+                    }
+                } catch (e) {
+                    angemeldet = false;
+                }
+            }
+
+            if (!angemeldet) {
+                // NICHT halb hereinlassen.
+                //
+                // Ein Dashboard ohne Sitzung sieht bei zugesperrten
+                // Tabellen leer aus -- und ein leeres Dashboard liest
+                // sich wie Datenverlust. Genau diese Verwechslung hat
+                // am 20.08. eine Stunde gekostet.
+                if (errorEl) {
+                    errorEl.textContent = 'Anmeldung gerade nicht möglich – bitte mit Google anmelden';
+                    errorEl.style.display = 'block';
+                }
+                document.getElementById('adminPassword').value = '';
+                return;
+            }
+
             closeModal('adminLoginModal');
             document.getElementById('adminPassword').value = '';
-            adminDashboardOeffnen({ name: 'Ibo', email: 'ibo@kiekmolin.de' });
+            adminDashboardOeffnen({ name: 'Ibo', email: data.email || '' });
         } else {
             if (errorEl) {
                 // 401 heisst wirklich "falsch". Alles andere ist eine

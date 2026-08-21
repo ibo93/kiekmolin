@@ -68,8 +68,13 @@ console.log('\n-- 3. Der Endpunkt selbst --');
 var A = fs.readFileSync(KMI + '/netlify/functions/admin-login.js', 'utf8');
 t('nimmt nur POST', /event\.httpMethod !== 'POST'/.test(A), 'auch GET');
 t('laeuft mit dem Dienstschluessel', /SUPABASE_SERVICE_KEY/.test(A), 'oeffentlicher Schluessel');
-t('gibt das Passwort NICHT zurueck',
-  /body: JSON\.stringify\(\{ ok: true \}\)/.test(A) || /json\(200, \{ ok: true \}\)/.test(A), 'gibt mehr heraus');
+// Seit dem 21.08.2026 gibt die Antwort mehr her als ok:true -- naemlich
+// den Einmal-Token, aus dem im Browser eine echte Sitzung wird. Sie darf
+// aber weiterhin NUR das enthalten: kein Passwort, kein fertiger Link,
+// kein Dienstschluessel.
+t('die Antwort enthaelt nur ok, E-Mail und Token-Hash',
+  /return json\(200, \{ ok: true, email: admMail, token_hash: hash \}\);/.test(A),
+  'gibt etwas anderes heraus');
 // Der hinterlegte Wert darf ueberall auftauchen, nur nicht in einer
 // Antwort. Deshalb zeilenweise und ohne Zeichenketten pruefen -- die
 // Fehlermeldung "Kein Passwort hinterlegt" enthaelt das Wort ja auch,
@@ -149,10 +154,29 @@ function ladeEndpunkt() {
     delete require.cache[require.resolve(KMI + '/netlify/functions/admin-login.js')];
     return require(KMI + '/netlify/functions/admin-login.js');
 }
+// Der Endpunkt fragt inzwischen drei Stellen an. Ein Mock, der auf alles
+// dasselbe antwortet, wuerde still das Falsche pruefen -- deshalb nach
+// Adresse unterscheiden.
+var _sonderfall = {};
 function serverGibt(antwort) {
-    global.fetch = function () {
+    _sonderfall = {};
+    global.fetch = function (url) {
+        url = String(url);
+        var was;
+        if (url.indexOf('generate_link') > -1) {
+            if (_sonderfall.linkKaputt) {
+                return Promise.resolve({ ok: false, status: 500,
+                    json: function () { return Promise.resolve({}); },
+                    text: function () { return Promise.resolve(''); } });
+            }
+            was = { hashed_token: 'hash-abc' };
+        } else if (url.indexOf('role=eq.superadmin') > -1) {
+            was = _sonderfall.keinAdmin ? [] : [{ email: 'chef@beispiel.de' }];
+        } else {
+            was = antwort;   // settings.admin_password
+        }
         return Promise.resolve({ ok: true, status: 200,
-            json: function () { return Promise.resolve(antwort); },
+            json: function () { return Promise.resolve(was); },
             text: function () { return Promise.resolve(''); } });
     };
 }
@@ -168,6 +192,35 @@ function POST(b) { return { httpMethod: 'POST', body: JSON.stringify(b) }; }
       r.statusCode === 200 && JSON.parse(r.body).ok === true, r.statusCode + ' ' + r.body);
     // Der Kern: das Passwort darf die Function nie verlassen.
     t('die Antwort enthaelt das Passwort nicht', r.body.indexOf('geheim123') === -1, r.body);
+
+    // NEU SEIT 21.08.2026: es entsteht eine echte Sitzung.
+    // Ohne sie lief das Dashboard mit dem oeffentlichen Schluessel --
+    // und stand leer da, sobald eine Tabelle zuging.
+    t('und einen Einmal-Token fuer die Sitzung',
+      JSON.parse(r.body).token_hash === 'hash-abc', r.body);
+    t('samt der Adresse aus customers, nicht aus dem Code',
+      JSON.parse(r.body).email === 'chef@beispiel.de', r.body);
+    t('der Dienstschluessel bleibt drin',
+      r.body.indexOf('test-dienst') === -1, r.body);
+
+    // Steht kein Superadmin in customers, gibt es keine Zuordnung --
+    // dann NICHT aufmachen. Genau diese Zeile fehlte am 20.08.
+    serverGibt([{ value: 'geheim123' }]);
+    _sonderfall.keinAdmin = true;
+    r = await E.handler(POST({ passwort: 'geheim123' }));
+    t('kein Superadmin hinterlegt -> 503, nicht ok',
+      r.statusCode === 503 && JSON.parse(r.body).ok !== true, r.statusCode + ' ' + r.body);
+
+    // Passwort richtig, Sitzung gescheitert: auch das ist ein Nein.
+    // Ein halber Login fuehrt in ein Dashboard, das nichts anzeigen
+    // kann -- und das sieht aus wie Datenverlust.
+    serverGibt([{ value: 'geheim123' }]);
+    _sonderfall.linkKaputt = true;
+    r = await E.handler(POST({ passwort: 'geheim123' }));
+    t('Sitzung gescheitert -> kein ok:true',
+      JSON.parse(r.body).ok !== true, r.statusCode + ' ' + r.body);
+
+    serverGibt([{ value: 'geheim123' }]);
 
     r = await E.handler(POST({ passwort: 'falsch' }));
     t('falsches Passwort -> 401', r.statusCode === 401, r.statusCode);

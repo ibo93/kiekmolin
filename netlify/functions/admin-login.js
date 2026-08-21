@@ -17,20 +17,50 @@
 // Ein Passwort, das der Client lesen muss, um es zu pruefen, ist kein
 // Passwort. Der Vergleich gehoert auf den Server.
 //
-// WAS SICH DAMIT NICHT LOEST
-// --------------------------
-// Auch nach diesem Endpunkt entsteht KEINE Supabase-Sitzung. Der Admin
-// ist fuer die Datenbank weiterhin ein Fremder, und jede Regel "to
-// authenticated" laesst ihn aussen vor. Genau daran ist das Zumachen
-// der Gaestedaten gescheitert: nach Schritt 04 sah das Dashboard nichts
-// mehr, weil es gar nicht angemeldet war.
+// WAS DIESER ENDPUNKT SEIT DEM 21.08.2026 ZUSAETZLICH TUT
+// --------------------------------------------------------
+// Er erzeugt bei richtigem Passwort eine ECHTE Supabase-Sitzung.
 //
-// Der richtige Weg fuehrt ueber den Google-Login wie bei den Wirten --
-// der ist daneben eingebaut. Dieser Endpunkt ist die Absicherung des
-// alten Wegs, solange es ihn noch gibt.
+// Vorher tat er das nicht, und das war der Grund, warum die Gaestedaten
+// nicht zugehen konnten. Der Ablauf war:
+//
+//     Passwort richtig  ->  { ok:true }
+//     Browser           ->  localStorage setzen, Dashboard aufmachen
+//     jede Abfrage      ->  Authorization: Bearer <oeffentlicher Schluessel>
+//
+// Fuer die Datenbank war der Admin damit ein Fremder (Rolle "anon").
+// Solange alle Tabellen offen standen, fiel das nicht auf. In dem
+// Moment, in dem eine Regel "nur wer angemeldet ist und dazugehoert"
+// greift, sieht dieses Dashboard nichts mehr -- genau der Ausfall vom
+// 20.08.2026, nur fuer den Verwaltungsbereich statt fuer die Wirte.
+//
+// Der Weg jetzt:
+//
+//     1. Passwort pruefen (unveraendert, zeichenweise, feste Laufzeit)
+//     2. E-Mail des Superadmins aus customers holen -- NICHT fest
+//        eingetragen, sonst laufen Datenbank und Code auseinander;
+//        genau daran ist es am 20.08. schon einmal gescheitert
+//     3. Beim Auth-Dienst ein Einmal-Token fuer diese Adresse erzeugen
+//        (admin/generate_link, geht nur mit dem Dienstschluessel)
+//     4. Nur den Token-Hash herausgeben
+//
+// Der Browser tauscht ihn ueber verifyOtp() gegen eine Sitzung. Ab dann
+// ist kmiToken() ein echtes Token und kmi_ist_superadmin() sagt ja.
+//
+// WARUM DAS NICHTS AUFWEICHT
+// Wer das Passwort kennt, kam vorher schon in den Verwaltungsbereich --
+// und dort war ohnehin alles lesbar, weil nichts zugesperrt war. Neu
+// ist nicht der Zugang, neu ist, dass die Datenbank ihn jetzt kennt und
+// entsprechend begrenzen kann. Ohne diesen Schritt bliebe nur, den
+// Passwort-Weg abzuschaffen.
+//
+// WAS DAMIT NICHT GELOEST IST
+// Es gibt keine Versuchsbegrenzung. Wer das Passwort raten will, darf
+// das beliebig oft. Der Google-Login daneben ist weiterhin der bessere
+// Weg; dieser hier ist die Rueckfalltuer, solange es sie gibt.
 //
 // Aufruf:  POST /.netlify/functions/admin-login   { "passwort": "..." }
-// Antwort: { ok:true } oder 401 { ok:false }
+// Antwort: { ok:true, email, token_hash } oder 401 { ok:false }
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY
 
@@ -95,7 +125,64 @@ exports.handler = async function (event) {
         if (!hinterlegt) return json(503, { ok: false, error: 'Kein Passwort hinterlegt' });
 
         if (!gleichLang(passwort, hinterlegt)) return json(401, { ok: false });
-        return json(200, { ok: true });
+
+        // Ab hier ist das Passwort richtig. Jetzt die Sitzung.
+
+        // 1. WER IST DER SUPERADMIN? Steht in customers, nicht hier.
+        //    Fest eingetragen war die Adresse frueher an mehreren
+        //    Stellen -- und am 20.08.2026 stand in customers
+        //    ibo@kiekmolin.de, angemeldet wurde sich mit
+        //    ibo.kuran93@gmail.com. Fuer die Datenbank zwei Menschen.
+        //    Deshalb gilt hier ausschliesslich, was in customers steht:
+        //    dieselbe Zeile, die auch kmi_ist_superadmin() prueft.
+        var admRes = await fetch(SUPABASE_URL
+            + '/rest/v1/customers?select=email&role=eq.superadmin&limit=1', {
+            headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+            signal: AbortSignal.timeout(8000)
+        });
+        var admZeilen = admRes.ok ? await admRes.json() : [];
+        var admMail = (Array.isArray(admZeilen) && admZeilen[0] && admZeilen[0].email) || '';
+        if (!admMail) {
+            // Kein Superadmin eingetragen: NICHT durchwinken. Lieber
+            // klemmt der Login, als dass er ohne Zuordnung aufmacht.
+            return json(503, { ok: false, error: 'Kein Superadmin hinterlegt' });
+        }
+
+        // 2. EINMAL-TOKEN FUER DIESE ADRESSE.
+        //    generate_link legt keinen Benutzer an -- gibt es die
+        //    Adresse im Auth-Dienst nicht, kommt ein Fehler. Das ist
+        //    gewollt: die Sitzung soll an ein bestehendes Konto gehen,
+        //    nicht eines erfinden.
+        var linkRes = await fetch(SUPABASE_URL + '/auth/v1/admin/generate_link', {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type: 'magiclink', email: admMail }),
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!linkRes.ok) {
+            // Das Passwort war richtig, nur die Sitzung kam nicht
+            // zustande. Kein ok:true zurueckgeben -- ein halber Login
+            // fuehrt in ein Dashboard, das nichts anzeigen kann, und
+            // das sieht aus wie Datenverlust.
+            return json(502, { ok: false, error: 'Anmeldung nicht moeglich' });
+        }
+        var link = await linkRes.json().catch(function () { return null; });
+
+        // Je nach Version des Auth-Dienstes liegt der Hash oben oder
+        // unter "properties". Beide Wege pruefen, statt sich auf einen
+        // zu verlassen.
+        var hash = (link && (link.hashed_token
+            || (link.properties && link.properties.hashed_token))) || '';
+        if (!hash) return json(502, { ok: false, error: 'Anmeldung nicht moeglich' });
+
+        // Herausgegeben wird NUR der Hash -- nicht der fertige Link,
+        // nicht das Einmal-Passwort im Klartext, nicht der
+        // Dienstschluessel.
+        return json(200, { ok: true, email: admMail, token_hash: hash });
     } catch (e) {
         return json(502, { ok: false, error: 'Datenbank nicht erreichbar' });
     }
