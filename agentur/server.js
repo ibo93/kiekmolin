@@ -679,6 +679,114 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- Tagesplan ---------------
+// Traegt zusammen, was in den einzelnen Ecken der App liegt. Jede Quelle
+// steckt in ihrem eigenen try: eine nicht erreichbare Datenbank darf nicht
+// dazu fuehren, dass der ganze Tagesplan leer bleibt - dann wuerde man
+// glauben, es sei nichts zu tun.
+async function baueTagesplanDaten() {
+  const heute = new Date();
+  const daten = { offeneRueckrufe: 0, kunden: 0, reportsMonat: 0 };
+
+  try {
+    const u = await baueUebersicht();
+    daten.kunden = u.kunden || 0;
+    daten.reportsMonat = u.reportsMonat || 0;
+    daten.offeneRueckrufe = u.offeneRueckrufe || 0;
+  } catch (_e) { /* dann eben ohne die Zahlen */ }
+
+  try {
+    const t = await telefonStatus();
+    const telefonKundenAnzahl = DEMO ? 1 : telefonKunden.listeKunden().length;
+    daten.telefon = { laeuft: !!t.laeuft, betreuteKunden: telefonKundenAnzahl };
+  } catch (_e) { /* Status unbekannt = keine Meldung, statt Fehlalarm */ }
+
+  try {
+    const liste = await baueInteressentenListe();
+    daten.wiedervorlagen = liste.filter((e) => e.faellig).map((e) => ({ name: e.name, schluessel: e.schluessel }));
+    daten.anfragen = liste.filter((e) => e.quelle === 'anfrage' && e.stufe === 'neu')
+      .map((e) => ({ name: e.name, restaurant: e.name, stufe: e.stufe }));
+    daten.ungeprueft = liste.filter((e) => !e.befund && !e.erledigt).length;
+  } catch (_e) { /* Pipeline nicht lesbar */ }
+
+  try {
+    const kunden = await ladeKunden();
+    const monat = report.monatsSchluessel();
+    daten.roteAmpeln = [];
+    daten.alarme = [];
+    for (const k of kunden) {
+      const historie = kundenHistorie(effektiverSlug(k));
+      if (bewerteKunde({ historie, aktuellerMonat: monat }).stufe === 'rot') {
+        daten.roteAmpeln.push({ name: k.name, id: k.id });
+      }
+      try {
+        const w = await fruehwarnungFuer(k);
+        if (w.stufe === 'alarm' || w.stufe === 'warnung') {
+          daten.alarme.push({
+            name: k.name, id: k.id, stufe: w.stufe,
+            meldung: (w.meldungen && w.meldungen[0] && w.meldungen[0].text) || ''
+          });
+        }
+      } catch (_e) { /* ein Kunde ohne Zahlen kippt den Plan nicht */ }
+    }
+  } catch (_e) { /* Kundenliste nicht erreichbar */ }
+
+  return require('./lib/tagesplan').baueTagesplan(daten, { heute });
+}
+
+// ------------------------------------------------- Onboarding-Stand --------
+// Beobachtet, was bei diesem Kunden wirklich da ist - nicht, was da sein
+// sollte. Jede Pruefung ist eine Tatsache aus einer Datei oder der Datenbank.
+async function onboardingStand(kunde) {
+  const slug = effektiverSlug(kunde);
+  const zustand = {};
+
+  zustand.aufbereitung = !!dateiInOrdner(AUFBEREITUNG_ORDNER, slug + '-jsonld.json') ||
+    fs.existsSync(path.join(AUFBEREITUNG_ORDNER, slug));
+  zustand.report = kundenHistorie(slug).length > 0;
+  zustand.angebot = !!dateiInOrdner(PITCH_ORDNER, pitchDateiname({ name: kunde.name }));
+
+  // Telefon: ist fuer diesen Betrieb eine Nummer zugeordnet?
+  try {
+    const telefonListe = telefonKunden.listeKunden();
+    const meiner = telefonListe.find((t) =>
+      String(t.restaurant || '') === String(kunde.id) ||
+      (t.name && String(t.name).toLowerCase() === String(kunde.name || '').toLowerCase()));
+    zustand.telefon = !!meiner;
+    zustand.speisekarte = !!(meiner && meiner.gerichte > 0);
+    // "problem" setzt telefon-kunden.js, wenn der Meldeweg fehlt.
+    zustand.meldeweg = !!(meiner && !/Meldeweg/i.test(String(meiner.problem || '')));
+  } catch (_e) {
+    zustand.telefon = false;
+  }
+
+  // Den Portal-Link kann die App nicht beobachten - ob er verschickt wurde,
+  // weiss nur Ibo. Deshalb wird er als offen gefuehrt, bis er ihn abhakt.
+  zustand.portal = abgehakt(slug, 'portal');
+
+  const liste = require('./lib/onboarding-liste').baueListe(zustand, { name: kunde.name });
+  return Object.assign({ kunde: kunde.name }, liste);
+}
+
+// Von Hand abgehakte Schritte (das, was die App nicht selbst sehen kann).
+const ONBOARDING_DATEI = () => path.join(DATEN_ORDNER, 'onboarding-haken.json');
+
+function alleHaken() {
+  try { return JSON.parse(fs.readFileSync(ONBOARDING_DATEI(), 'utf8')) || {}; } catch (_e) { return {}; }
+}
+
+function abgehakt(slug, schritt) {
+  const h = alleHaken()[slug];
+  return !!(h && h[schritt]);
+}
+
+function setzeHaken(slug, schritt, wert) {
+  const alle = alleHaken();
+  alle[slug] = Object.assign({}, alle[slug], { [schritt]: !!wert });
+  fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+  fs.writeFileSync(ONBOARDING_DATEI(), JSON.stringify(alle, null, 2));
+}
+
 // ------------------------------------------------- OSM-Import --------------
 // Der Import laeuft mehrere Minuten im Hintergrund. Damit man nicht ratlos
 // vor einem Knopf sitzt, wird sein Verlauf hier mitgeschrieben und ueber
@@ -1492,6 +1600,37 @@ const server = http.createServer(async (req, res) => {
     // API: Uebersicht (Dashboard-Kopf)
     if (req.method === 'GET' && pfad === '/api/uebersicht') {
       json(res, 200, await baueUebersicht());
+      return;
+    }
+
+    // API: Tagesplan - was ist heute dran? Sammelt aus allen Ecken der App
+    // zusammen, was liegen bleibt, und sortiert nach Dringlichkeit.
+    // Faellt eine Quelle aus, faellt nur dieser eine Punkt weg.
+    if (req.method === 'GET' && pfad === '/api/tagesplan') {
+      json(res, 200, await baueTagesplanDaten());
+      return;
+    }
+
+    // API: Onboarding-Stand eines Kunden - was ist eingerichtet, was fehlt.
+    if (req.method === 'GET' && pfad.startsWith('/api/onboarding-stand/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      json(res, 200, await onboardingStand(kunde));
+      return;
+    }
+
+    // API: einen Schritt von Hand abhaken (fuer das, was die App nicht
+    // selbst sehen kann - etwa ob der Portal-Link wirklich verschickt wurde).
+    if (req.method === 'POST' && pfad === '/api/onboarding-haken') {
+      const { kennung, schritt, wert } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (!require('./lib/onboarding-liste').SCHRITTE.some((s) => s.id === schritt)) {
+        json(res, 400, { fehler: 'Unbekannter Schritt: ' + schritt });
+        return;
+      }
+      if (!DEMO) setzeHaken(effektiverSlug(kunde), schritt, wert);
+      json(res, 200, await onboardingStand(kunde));
       return;
     }
 

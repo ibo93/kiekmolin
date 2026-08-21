@@ -187,6 +187,9 @@
   <div id="anrufVerlauf"></div>
 
   <div id="listeAnsicht">
+    <h2 id="s-heute" style="margin-top:4px">Heute</h2>
+    <div id="tagesplan"><div class="leer">Lade…</div></div>
+
     <h2 id="s-rueckrufe">Offene Rückrufe <span class="badge" id="rueckrufAnzahl" style="display:none"></span></h2>
     <div id="rueckrufListe"><div class="leer">Lade Rückrufe…</div></div>
 
@@ -239,6 +242,10 @@
         <button class="aktion" id="btnOnboarding" onclick="onboardingStarten()" title="Neukunde komplett einrichten: Aufbereitung + Google-Posts + Tischkarte + erster Report – ein Klick" style="border:2px solid var(--akzent);background:transparent;color:var(--akzent)">Komplett einrichten</button>
       </div>
       <div class="status" id="dStatus"></div>
+
+      <h2>Einrichtung · was bei diesem Kunden noch fehlt</h2>
+      <div class="status" style="margin-top:-6px">Beim ersten Kunden weiß man alles auswendig. Beim fünften fehlt dann der Meldeweg – und keiner merkt es, bis sich der Wirt beschwert.</div>
+      <div id="dOnboarding"></div>
 
       <div id="dWarnung"></div>
 
@@ -618,6 +625,79 @@ async function betriebPruefen(schluessel) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
   }
+}
+
+// ---------------- Tagesplan ----------------
+// Die eine Liste, die morgens sagt, was dran ist. Alles andere in dieser
+// App ist Nachschlagewerk – das hier ist der Arbeitsauftrag.
+async function ladeTagesplan() {
+  const ziel = document.getElementById('tagesplan');
+  if (!ziel) return;
+  try {
+    const p = await api('/api/tagesplan');
+    const farbe = { jetzt: '#dc2626', heute: '#eab308', 'diese-woche': 'var(--grau)' };
+    const wort = { jetzt: 'JETZT', heute: 'HEUTE', 'diese-woche': 'DIESE WOCHE' };
+
+    if (!p.punkte.length) {
+      ziel.innerHTML = '<div class="karte" style="border-left:4px solid #16a34a">' +
+        '<b>' + pTexte(p.satz) + '</b></div>';
+      return;
+    }
+
+    ziel.innerHTML = '<div class="status" style="margin-top:0;font-size:14px">' + pTexte(p.satz) + '</div>' +
+      p.punkte.map(x =>
+        '<div class="karte" style="border-left:4px solid ' + (farbe[x.stufe] || 'var(--grau)') +
+          ';padding:12px 14px;margin-bottom:8px">' +
+          '<div style="font-size:10.5px;letter-spacing:.12em;color:' + (farbe[x.stufe] || 'var(--grau)') + ';font-weight:700">' +
+            wort[x.stufe] + '</div>' +
+          '<div style="font-weight:700;margin:2px 0 3px">' + pTexte(x.titel) + '</div>' +
+          '<div style="font-size:13px;color:var(--grau)">' + pTexte(x.text) + '</div>' +
+          (x.sprung ? '<a href="' + pTexte(x.sprung) + '" style="font-size:12.5px">→ hin</a>' : '') +
+        '</div>').join('');
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Tagesplan nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+// ---------------- Onboarding-Checkliste ----------------
+// Beim ersten Kunden weiß man alles auswendig. Beim fünften fehlt dann
+// der Meldeweg, und keiner merkt es.
+async function ladeOnboarding(id) {
+  const ziel = document.getElementById('dOnboarding');
+  if (!ziel) return;
+  ziel.innerHTML = '<div class="leer">Lade…</div>';
+  try {
+    const o = await api('/api/onboarding-stand/' + encodeURIComponent(id));
+    ziel.innerHTML =
+      '<div class="status" style="margin-top:0"><b>' + pTexte(o.satz) + '</b></div>' +
+      '<table><tr><th style="width:28px"></th><th>Schritt</th><th>Warum</th><th>Wie</th></tr>' +
+      o.schritte.map(s =>
+        '<tr' + (s.erledigt ? ' style="opacity:.55"' : '') + '>' +
+        '<td style="text-align:center;font-size:16px">' + (s.erledigt ? '✅' : (s.pflicht ? '⬜' : '▫️')) + '</td>' +
+        '<td><b>' + pTexte(s.titel) + '</b>' + (s.pflicht ? '' : '<br><span style="font-size:11px;color:var(--grau)">freiwillig</span>') + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(s.warum) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(s.wie) +
+          // Nur den Portal-Schritt kann die App nicht selbst beobachten –
+          // ob der Link wirklich beim Wirt ankam, weiß nur Ibo.
+          (s.id === 'portal'
+            ? '<br><button class="aktion" style="padding:4px 9px;font-size:11.5px;margin-top:4px" ' +
+              'onclick="onboardingHaken(\'' + s.id + '\', ' + (!s.erledigt) + ')">' +
+              (s.erledigt ? 'Doch nicht' : 'Erledigt') + '</button>'
+            : '') +
+        '</td></tr>').join('') + '</table>';
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
+async function onboardingHaken(schritt, wert) {
+  try {
+    await api('/api/onboarding-haken', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kennung: aktuellerKunde.id, schritt, wert })
+    });
+    ladeOnboarding(aktuellerKunde.id);
+  } catch (e) { alert('Fehler: ' + e.message); }
 }
 
 // ---------------- Anfrage eintragen ----------------
@@ -1330,6 +1410,7 @@ async function zeigeKunde(id) {
   // für Betrieb A in das Konto von Betrieb B.
   document.getElementById('dAds').innerHTML = '';
   document.getElementById('adsStatus').textContent = '';
+  ladeOnboarding(aktuellerKunde.id);
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
@@ -2044,6 +2125,9 @@ ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
 osmLaufPruefen();
+ladeTagesplan();
+// Der Tagesplan aendert sich im Lauf des Tages - alle 5 Minuten nachsehen.
+setInterval(ladeTagesplan, 300000);
 // ---------------- Echtzeit: der Server meldet sich von selbst ----------
 // Die Umfrage-Schleifen bleiben als Sicherheitsnetz, laufen aber nur noch
 // selten. Alles Wichtige kommt sofort ueber die offene Leitung.

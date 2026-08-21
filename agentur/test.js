@@ -1141,4 +1141,114 @@ test('Ergebnis senden: nur an Betriebe, die selbst gefragt haben', () => {
 });
 
 
+test('Tagesplan: was Geld kostet steht oben, Erfundenes gar nicht drin', () => {
+  const tp = require('./lib/tagesplan');
+  const dienstag = new Date(2026, 7, 18, 8, 0);   // 18.8.2026 ist ein Dienstag
+
+  // Ein voller Tag: alles gleichzeitig
+  const voll = tp.baueTagesplan({
+    telefon: { laeuft: false, betreuteKunden: 2 },
+    anfragen: [{ name: 'Pizzeria Roma', stufe: 'neu' }],
+    offeneRueckrufe: 3,
+    alarme: [{ name: 'Cafe Strand', id: 'c1', stufe: 'alarm', meldung: 'Reservierungen halbiert' }],
+    roteAmpeln: [{ name: 'Gasthaus Deich', id: 'g1' }],
+    wiedervorlagen: [{ name: 'Imbiss Nord' }, { name: 'Zum Anker' }],
+    kunden: 4, reportsMonat: 1, ungeprueft: 12
+  }, { heute: dienstag });
+
+  // Der tote Telefon-Retter steht ganz oben - da gehen gerade Anrufe verloren
+  assert.strictEqual(voll.punkte[0].art, 'telefon-aus');
+  assert.strictEqual(voll.punkte[0].stufe, 'jetzt');
+
+  // Reihenfolge insgesamt: erst jetzt, dann heute, dann diese Woche
+  const stufen = voll.punkte.map((p) => p.stufe);
+  const sortiert = stufen.slice().sort((a, b) => tp.STUFEN.indexOf(a) - tp.STUFEN.indexOf(b));
+  assert.deepStrictEqual(stufen, sortiert, 'nach Dringlichkeit sortiert: ' + stufen.join(','));
+
+  // Bei so viel Dringendem taucht "ungeprueft" NICHT auf - sonst wird der
+  // Plan zur Wunschliste und man arbeitet ihn nicht mehr ab
+  assert.ok(!voll.punkte.some((p) => p.art === 'pruefen'), 'kein Beiwerk an einem vollen Tag');
+
+  // An einem ruhigen Tag dagegen schon
+  const ruhig = tp.baueTagesplan({ kunden: 2, reportsMonat: 2, ungeprueft: 12 }, { heute: dienstag });
+  assert.ok(ruhig.punkte.some((p) => p.art === 'pruefen'), 'wenn nichts brennt, dann Neukunden');
+
+  // Ist wirklich nichts zu tun, wird nichts erfunden
+  const leer = tp.baueTagesplan({ kunden: 2, reportsMonat: 2 }, { heute: dienstag });
+  assert.deepStrictEqual(leer.punkte, []);
+  assert.ok(/Nichts liegt an/.test(leer.satz), leer.satz);
+  assert.ok(/Dienstag/.test(leer.satz), leer.satz);
+
+  // Der Satz steht gross auf dem Startbildschirm - da darf keine
+  // zusammengestueckelte Endung stehen ("duldetn").
+  assert.ok(/4 Sachen, die keinen Aufschub dulden/.test(voll.satz), voll.satz);
+  const einer = tp.baueTagesplan({ offeneRueckrufe: 1 }, { heute: dienstag });
+  assert.ok(/eine Sache, die keinen Aufschub duldet\./.test(einer.satz), einer.satz);
+  assert.ok(!/duldetn/.test(voll.satz + einer.satz));
+});
+
+test('Tagesplan: kein Fehlalarm ohne Kunden, kein stiller Ausfall mit Kunden', () => {
+  const tp = require('./lib/tagesplan');
+  const heute = new Date(2026, 7, 18);
+
+  // Waehrend der Einrichtung betreut der Telefon-Retter niemanden. Dass er
+  // aus ist, ist dann normal und keine Meldung wert.
+  const einrichtung = tp.baueTagesplan({ telefon: { laeuft: false, betreuteKunden: 0 } }, { heute });
+  assert.ok(!einrichtung.punkte.some((p) => p.art === 'telefon-aus'), 'kein Fehlalarm ohne Kunden');
+
+  // Mit betreuten Kunden ist derselbe Zustand ein Notfall
+  const betrieb = tp.baueTagesplan({ telefon: { laeuft: false, betreuteKunden: 1 } }, { heute });
+  assert.strictEqual(betrieb.punkte[0].stufe, 'jetzt');
+  assert.ok(/niemand ans Telefon/.test(betrieb.punkte[0].text));
+
+  // Ist der Status unbekannt (Server nicht erreichbar), wird nichts behauptet
+  const unbekannt = tp.baueTagesplan({}, { heute });
+  assert.ok(!unbekannt.punkte.some((p) => p.art === 'telefon-aus'));
+
+  // Reports: am Monatsende dringender als am Anfang
+  const anfang = tp.baueTagesplan({ kunden: 3, reportsMonat: 0 }, { heute: new Date(2026, 7, 3) });
+  const ende = tp.baueTagesplan({ kunden: 3, reportsMonat: 0 }, { heute: new Date(2026, 7, 29) });
+  assert.strictEqual(anfang.punkte.find((p) => p.art === 'report').stufe, 'diese-woche');
+  assert.strictEqual(ende.punkte.find((p) => p.art === 'report').stufe, 'heute');
+  assert.ok(/Tage im Monat/.test(ende.punkte.find((p) => p.art === 'report').text));
+});
+
+test('Onboarding-Liste: freiwillige Schritte blockieren nicht', () => {
+  const ol = require('./lib/onboarding-liste');
+
+  // Frisch angelegt: nichts erledigt
+  const frisch = ol.baueListe({}, { name: 'Pizzeria Roma' });
+  assert.strictEqual(frisch.fertig, 0);
+  assert.strictEqual(frisch.eingerichtet, false);
+  assert.strictEqual(frisch.naechster.id, 'aufbereitung', 'Pflicht-Schritte zuerst');
+  assert.ok(/Pizzeria Roma/.test(frisch.satz));
+
+  // Der Meldeweg wird nur verlangt, wenn ueberhaupt ein Telefon-Kunde da ist
+  assert.ok(!frisch.schritte.some((s) => s.id === 'meldeweg'), 'ohne Telefon kein Meldeweg-Schritt');
+  const mitTelefon = ol.baueListe({ telefon: true }, {});
+  assert.ok(mitTelefon.schritte.some((s) => s.id === 'meldeweg'), 'mit Telefon schon');
+
+  // Alle PFLICHT-Schritte erledigt, Speisekarte offen (freiwillig):
+  // gilt trotzdem als eingerichtet - nicht jeder Kunde bucht alles
+  const fertig = ol.baueListe({
+    aufbereitung: true, report: true, angebot: true, portal: true,
+    telefon: true, meldeweg: true, speisekarte: false
+  }, { name: 'Roma' });
+  assert.strictEqual(fertig.eingerichtet, true);
+  assert.strictEqual(fertig.offenePflicht, 0);
+  assert.ok(/vollständig eingerichtet/.test(fertig.satz), fertig.satz);
+
+  // Fehlt der Meldeweg, ist er NICHT eingerichtet - das ist der Fehler,
+  // der den meisten Aerger macht
+  const ohneMeldeweg = ol.baueListe({
+    aufbereitung: true, report: true, angebot: true, portal: true, telefon: true
+  }, {});
+  assert.strictEqual(ohneMeldeweg.eingerichtet, false);
+  assert.strictEqual(ohneMeldeweg.naechster.id, 'meldeweg');
+
+  // Was nicht ausdruecklich true ist, gilt als offen - im Zweifel nachhaken
+  assert.strictEqual(ol.baueListe({ report: 'ja' }, {}).schritte.find((s) => s.id === 'report').erledigt, false);
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');
