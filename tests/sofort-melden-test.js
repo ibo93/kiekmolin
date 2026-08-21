@@ -101,6 +101,25 @@ t('der Hinweis laesst sich wegklicken',
 t('und der Schliessen-Knopf hat einen Namen',
   /aria-label="Hinweis schließen"/.test(h), 'namenloser Knopf');
 
+console.log('\n-- 6b. Neue Gastronom-Anmeldungen --');
+// Eine Anmeldung landete stumm in der Datenbank. Sichtbar war sie nur
+// unter "offene Anmeldungen" -- und die Liste sieht man nur, wenn man
+// hinschaut. Wer sich nachts anmeldet, lag bis zum naechsten Blick.
+t('es wird nach neuen Anmeldungen gesucht',
+  /customers\?role=eq\.restaurant' \+\s*\n\s*'&is_active=eq\.false' \+\s*\n\s*'&gemeldet_at=is\.null'/.test(m),
+  'wird nicht gesucht');
+t('und sie gehen NUR an den Superadmin',
+  /async function meldeAnmeldung\(zeile\) \{\s*\n\s*const subs = await adminGeraete\(\);/.test(m),
+  'geht an Wirte');
+t('mit Name und Adresse in der Meldung',
+  /zeile\.name \|\| 'Ein Betrieb'/.test(m) && /zeile\.email/.test(m), 'nichtssagend');
+t('und werden abgehakt',
+  /sbPatch\('customers\?id=eq\.' \+ zeile\.id, \{ gemeldet_at: jetzt \}\)/.test(m), 'meldet jede Minute neu');
+// Laeuft Schritt 15 noch nicht, gibt es die Spalte nicht. Das darf die
+// Bestellungen nicht aufhalten -- die sind wichtiger.
+t('fehlt die Spalte noch, laeuft der Rest trotzdem',
+  /Anmeldungen nicht ladbar/.test(m), 'ein fehlender Schritt kippt alles');
+
 console.log('\n-- 7. Die Spalten --');
 t('push_sent_at auf orders', /alter table public\.orders\s*\n\s*add column if not exists push_sent_at timestamptz/.test(sql), 'fehlt');
 t('push_sent_at auf reservations', /alter table public\.reservations\s*\n\s*add column if not exists push_sent_at timestamptz/.test(sql), 'fehlt');

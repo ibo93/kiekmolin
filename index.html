@@ -39852,7 +39852,20 @@ async function showRestaurantLanding(rest) {
         // dann deren Fotos. Das laeuft im Hintergrund, auf eine
         // Rueckfrage mehr kommt es hier nicht an.
         try {
-            var resIds = await fetch(SUPA_URL + '/rest/v1/reviews?select=id&restaurant_id=eq.'
+            // AM 21.08.2026 KORRIGIERT -- MEIN EIGENER FEHLER VOM VORTAG.
+            //
+            // Hier stand "restaurant_id=eq.<id>". Die Spalte gibt es in
+            // reviews nicht: die Tabelle merkt sich das Ziel als Paar
+            // aus target_type und target_id, weil dort nicht nur
+            // Restaurants bewertet werden.
+            //
+            // Ergebnis: 400, leere Liste, keine Fotos. Also genau der
+            // Fehler, den ich am Tag zuvor an drei anderen Stellen
+            // behoben hatte -- und beim Beheben neu eingebaut, weil ich
+            // den Spaltennamen geraten statt nachgesehen habe. Der Test
+            // dazu (tests/spaltennamen-test.js) prueft den select-Teil,
+            // nicht den Filter; deshalb ist er nicht rot geworden.
+            var resIds = await fetch(SUPA_URL + '/rest/v1/reviews?select=id&target_type=eq.restaurant&target_id=eq.'
                 + encodeURIComponent(rest.id) + '&limit=50', {
                 headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });

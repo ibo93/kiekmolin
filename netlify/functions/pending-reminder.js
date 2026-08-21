@@ -232,6 +232,39 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
 }
 
+// NEUE GASTRONOM-ANMELDUNG -- geht nur an den Superadmin.
+//
+// Eine Anmeldung landete bisher stumm in der Datenbank. Sichtbar war
+// sie nur im Verwaltungsbereich unter "offene Anmeldungen", und die
+// Liste sieht man nur, wenn man hinschaut. Wer sich nachts anmeldet,
+// liegt bis zum naechsten Blick.
+//
+// Kein eigener Betrieb, also auch keine Wirte-Geraete: das hier geht
+// ausschliesslich an die Geraete des Superadmins.
+async function meldeAnmeldung(zeile) {
+  const subs = await adminGeraete();
+  const jetzt = new Date().toISOString();
+  if (!subs.length) {
+    await sbPatch('customers?id=eq.' + zeile.id, { gemeldet_at: jetzt });
+    return;
+  }
+  const payload = {
+    title: '🏠 Neue Gastronom-Anmeldung',
+    body: (zeile.name || 'Ein Betrieb') + (zeile.email ? ' (' + zeile.email + ')' : '')
+        + ' möchte mitmachen. Zum Freischalten antippen.',
+    icon: '/kiek-logo.png',
+    badge: '/kiek-logo.png',
+    tag: 'anmeldung-' + zeile.id,
+    requireInteraction: true,
+    vibrate: [300, 120, 300],
+    data: { type: 'gastro_registration', customerId: zeile.id, url: '/?adminTab=customers' }
+  };
+  const ergebnisse = await Promise.all(subs.map(s => pushToSubscription(s, payload)));
+  console.log('[melder] anmeldung', zeile.id, '->',
+              ergebnisse.filter(r => r.ok).length, 'von', subs.length, 'Geraeten');
+  await sbPatch('customers?id=eq.' + zeile.id, { gemeldet_at: jetzt });
+}
+
 exports.handler = async function() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !VAPID_PUBLIC || !VAPID_PRIVATE) {
     console.error('[melder] ENV-Variablen fehlen. Need SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE.');
@@ -277,8 +310,25 @@ exports.handler = async function() {
       '&limit=50'
     );
 
+    // ---- STUFE 3: NEUE GASTRONOM-ANMELDUNGEN --------------------
+    let neueAnmeldungen = [];
+    try {
+      neueAnmeldungen = await sbGet(
+        'customers?role=eq.restaurant' +
+        '&is_active=eq.false' +
+        '&gemeldet_at=is.null' +
+        '&select=id,name,email,created_at' +
+        '&limit=20'
+      );
+    } catch (e) {
+      // Fehlt die Spalte noch (Schritt 15 nicht gelaufen), soll das den
+      // Rest nicht aufhalten -- Bestellungen sind wichtiger.
+      console.error('[melder] Anmeldungen nicht ladbar:', e.message);
+    }
+
     const gesamt = neueBestellungen.length + neueReservierungen.length
-                 + alteBestellungen.length + alteReservierungen.length;
+                 + alteBestellungen.length + alteReservierungen.length
+                 + neueAnmeldungen.length;
     if (gesamt === 0) return { statusCode: 200, body: 'nichts zu melden' };
 
     console.log('[melder] neu:', neueBestellungen.length, '/', neueReservierungen.length,
@@ -314,11 +364,17 @@ exports.handler = async function() {
     await alle('order', alteBestellungen, 'erinnerung');
     await alle('reservation', alteReservierungen, 'erinnerung');
 
+    for (const a of neueAnmeldungen) {
+      try { await meldeAnmeldung(a); }
+      catch (e) { console.error('[melder] anmeldung', a.id, 'fehlgeschlagen:', e.message); }
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         sofort:     { bestellungen: neueBestellungen.length, reservierungen: neueReservierungen.length },
-        erinnerung: { bestellungen: alteBestellungen.length, reservierungen: alteReservierungen.length }
+        erinnerung: { bestellungen: alteBestellungen.length, reservierungen: alteReservierungen.length },
+        anmeldungen: neueAnmeldungen.length
       })
     };
   } catch (err) {
