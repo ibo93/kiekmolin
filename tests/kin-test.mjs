@@ -1,5 +1,7 @@
-import brain from '/home/user/kiekmolin/netlify/functions/lib/chat-brain.js';
-const P = '/home/user/kiekmolin/netlify/functions/';
+import brain from '../netlify/functions/lib/chat-brain.js';
+// Relativ zur Datei statt fest verdrahtet -- sonst laeuft der Test nur
+// in dem einen Verzeichnis, in dem er geschrieben wurde.
+const P = new URL('../netlify/functions/', import.meta.url).pathname;
 let ok = 0, total = 0;
 function t(label, cond, extra) {
   total++; const good = cond === true;

@@ -31,9 +31,17 @@
 // Umsatzstatistik lesen order_items. Was durchfaellt, fehlt dem Wirt in
 // seinen Zahlen, ohne dass er es je erfaehrt. Das geht jetzt ins
 // Ereignis-Protokoll.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -51,7 +59,7 @@ function pruefer(antwort) {
     var abgebrochen = false;
     var F = new Function('fetch', 'SUPABASE_URL', 'SUPABASE_KEY', 'AbortController',
         'setTimeout', 'clearTimeout',
-        schneide('_bestellungNachpruefen') + '; return _bestellungNachpruefen;')(
+        KMI_STUB + schneide('_bestellungNachpruefen') + '; return _bestellungNachpruefen;')(
         function (url, opt) {
             geholt.push(url);
             if (antwort === 'werfen') return Promise.reject(new Error('Netzwerk weg'));
@@ -66,23 +74,41 @@ function pruefer(antwort) {
 }
 
 (async function () {
-    var da = pruefer([{ id: 'abc' }]);
+    // Die Nachfrage geht seit dem Zumachen von orders NICHT mehr direkt in
+    // die Tabelle, sondern ueber /.netlify/functions/order-exists. Der
+    // Endpunkt antwortet mit { ok:true, da:true|false } -- eine Zeile
+    // bekommt der Browser nicht mehr zu sehen, nur noch ja oder nein.
+    var da = pruefer({ ok: true, da: true });
     t('gefundene Bestellung -> "da"', (await da.F('KI-260811-000123')) === 'da');
+    t('gefragt wird ueber den Endpunkt, nicht in der Tabelle',
+      da.geholt[0].indexOf('/.netlify/functions/order-exists') === 0, da.geholt[0]);
     t('gefragt wird nach genau dieser Bestellnummer',
-      /order_number=eq\.KI-260811-000123/.test(da.geholt[0]), da.geholt[0]);
-    t('und nur nach der id, nicht nach der ganzen Zeile',
-      /select=id/.test(da.geholt[0]) && /limit=1/.test(da.geholt[0]), da.geholt[0]);
+      /[?&]n=KI-260811-000123/.test(da.geholt[0]), da.geholt[0]);
+    t('die Tabelle orders wird nicht mehr angefasst',
+      /rest\/v1\/orders/.test(da.geholt[0]) === false, da.geholt[0]);
 
-    t('leere Antwort -> "weg" (das ist der Fehlschlag)',
-      (await pruefer([]).F('KI-1')) === 'weg');
+    t('ausdrueckliches da:false -> "weg" (das ist der Fehlschlag)',
+      (await pruefer({ ok: true, da: false }).F('KI-1')) === 'weg');
+
+    // Neu und wichtig: der Endpunkt meldet Stoerungen mit ok:false. Das
+    // darf NICHT als "nicht angekommen" durchgehen -- sonst bestellt der
+    // Gast ein zweites Mal, waehrend die erste schon in der Kueche liegt.
+    t('ok:false -> "unklar", NICHT "weg"',
+      (await pruefer({ ok: false, error: 'Server nicht eingerichtet' }).F('KI-1')) === 'unklar');
+    t('fehlendes da-Feld -> "unklar"',
+      (await pruefer({ ok: true }).F('KI-1')) === 'unklar');
+    t('da als Text statt als Ja/Nein -> "unklar"',
+      (await pruefer({ ok: true, da: 'false' }).F('KI-1')) === 'unklar');
 
     // Die Asymmetrie: alles Unklare gilt als bestellt.
     t('Serverfehler -> "unklar", NICHT "weg"', (await pruefer('fehler').F('KI-1')) === 'unklar');
     t('Netzwerk weg -> "unklar"', (await pruefer('werfen').F('KI-1')) === 'unklar');
     t('unlesbare Antwort -> "unklar"', (await pruefer('kaputt').F('KI-1')) === 'unklar');
-    t('kein JSON-Feld -> "unklar" statt Absturz', (await pruefer(null).F('KI-1')) === 'unklar');
+    t('gar keine Antwort -> "unklar" statt Absturz', (await pruefer(null).F('KI-1')) === 'unklar');
+    t('eine Liste statt eines Objekts -> "unklar"', (await pruefer([]).F('KI-1')) === 'unklar');
     t('ohne Bestellnummer wird gar nicht erst gefragt',
-      (await pruefer([]).F('')) === 'unklar' && pruefer([]).geholt.length === 0);
+      (await pruefer({ ok: true, da: true }).F('')) === 'unklar'
+      && pruefer({ ok: true, da: true }).geholt.length === 0);
 
     t('die Nachfrage hat einen Deckel, damit nichts haengt',
       /setTimeout\(function \(\) \{ stop\.abort\(\); \}, 3000\)/.test(schneide('_bestellungNachpruefen')));

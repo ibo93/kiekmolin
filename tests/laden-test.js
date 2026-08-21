@@ -1,9 +1,10 @@
 // Die zwei Fehler, an denen es im Betrieb hängengeblieben ist -- beide
 // unsichtbar, beide tödlich.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
 var Module = require('module');
-var h = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var h = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -65,7 +66,7 @@ var lauf = new Function('document', 'setTimeout',
       /functions\/waiter-pending\?restaurant=/.test(h)
       && !/activity_type=eq\.waiter_call/.test(h));
 
-    var PF = '/home/user/kiekmolin/netlify/functions/waiter-pending.js';
+    var PF = KMI + '/netlify/functions/waiter-pending.js';
     var RID = '11111111-2222-3333-4444-555555555555';
     process.env.SUPABASE_SERVICE_KEY = 'dienst';
     delete require.cache[require.resolve(PF)];

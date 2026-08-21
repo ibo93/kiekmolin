@@ -18,9 +18,10 @@
 // Reservierungskalender ebenfalls (der wurde schon einmal genau deshalb
 // repariert). Nur die öffentliche Seite -- die, die bei Google gefunden wird
 // und die der Gast zuerst sieht -- las ausschliesslich opening_hours.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 

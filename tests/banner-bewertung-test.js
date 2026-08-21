@@ -21,10 +21,11 @@
 //   nach 120 s  showAutoReviewPrompt  "Google Bewertung"
 // Dazu eine Abfrage alle 20 Sekunden, die dauerhaft die Bestellungen des
 // Gastes aus der Datenbank holte, nur um den Moment abzupassen.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
-var M = fs.readFileSync('/home/user/kiekmolin/netlify/functions/order-email.js', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
+var M = fs.readFileSync(KMI + '/netlify/functions/order-email.js', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -100,8 +101,13 @@ t('eine Reissleine gibt es trotzdem, falls die Tour nie erscheint',
   /var COOKIE_ANLAUF_MS = 12000;/.test(H));
 t('und sieht danach weiter hin, bis der Gast entschieden hat',
   /_cookieWaechter = setInterval\(pruefe, 300\)/.test(H));
+// Frueher stand hier "el.style.display = 'none'" direkt. Das Schreiben laeuft
+// jetzt ueber setze(), damit der Waechter die Seite nicht dreimal pro Sekunde
+// grundlos anfasst -- die Absicht ist dieselbe geblieben.
 t('taucht die Tour auf, verschwindet der Banner',
-  /_tourGesehen = true;\s*\n\s*el\.style\.display = 'none';/.test(H));
+  /_tourGesehen = true;\s*\n\s*setze\('none'\);/.test(H));
+t('und geschrieben wird nur bei einer echten Aenderung',
+  /if \(el\.style\.display !== wert\) el\.style\.display = wert;/.test(H));
 // offsetParent wäre hier die naheliegende Prüfung -- und eine Falle: bei
 // position:fixed ist sie IMMER null, auch wenn das Element groß auf dem
 // Bildschirm steht. Die Tour ist fixed. Daran ist der erste Versuch

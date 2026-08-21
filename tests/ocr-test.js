@@ -1,5 +1,6 @@
 // Testet die OCR-Vorstufe von menu-scan.js ohne echte API-Aufrufe.
-var PATH = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
+var PATH = KMI + '/netlify/functions/menu-scan.js';
 var sse = require('./lib/sse').sseAntwort;
 var calls, prompts;
 
@@ -25,7 +26,7 @@ async function run(label, env, scenario, check, zusatz) {
   ['GEMINI_API_KEY','ANTHROPIC_API_KEY','GOOGLE_VISION_API_KEY','MENU_SCAN_PROVIDER'].forEach(k => delete process.env[k]);
   Object.keys(env).forEach(k => process.env[k] = env[k]);
   delete require.cache[require.resolve(PATH)];
-  delete require.cache[require.resolve('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js')];
+  delete require.cache[require.resolve(KMI + '/netlify/functions/lib/scan-kern.js')];
   var h = require(PATH).handler;
   calls = []; prompts = [];
   global.fetch = mk(scenario);

@@ -248,7 +248,17 @@ async function fetchMenuItems(restaurantId) {
   const url = SUPABASE_URL + '/rest/v1/menu_items'
     + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
     + '&is_available=eq.true'
-    + '&select=name,description,base_price,price,image_url,is_popular,menu_categories(name)'
+    // "price" gibt es nicht -- die Spalte heisst base_price.
+    //
+    // Mit dem falschen Namen antwortete PostgREST mit 400, der
+    // Fault-tolerant-Zweig sprang an und lieferte ein leeres Array. Die
+    // Seite wurde also gebaut, nur OHNE GERICHTE. Google sah eine
+    // Restaurantseite ohne Speisekarte, und niemandem fiel es auf, weil
+    // hier kein Fehler geworfen wird.
+    //
+    // 134 Fehlversuche in knapp einem Tag -- fuer jeden Betrieb bei
+    // jedem Bau.
+    + '&select=name,description,base_price,image_url,is_popular,menu_categories(name)'
     + '&order=is_popular.desc,sort_order.asc'
     + '&limit=30';
   try {
@@ -276,7 +286,11 @@ async function fetchReviews(targetId) {
     + '?target_type=eq.restaurant'
     + '&target_id=eq.' + encodeURIComponent(targetId)
     + '&is_approved=eq.true'
-    + '&select=rating,title,comment,author_name,customer_name,created_at'
+    // "author_name" gibt es nicht -- der Name des Gastes steht in
+    // customer_name. Dieselbe Geschichte wie oben: 400, leeres Array,
+    // Seite ohne Bewertungen. Google bekam vom Restaurant nur den
+    // Durchschnitt zu sehen, nie einen echten Satz.
+    + '&select=rating,title,comment,customer_name,created_at'
     + '&order=created_at.desc'
     + '&limit=10';
   try {
@@ -295,7 +309,7 @@ async function fetchReviews(targetId) {
 }
 
 function fmtPrice(item) {
-  const p = item.base_price != null ? item.base_price : item.price;
+  const p = item.base_price;
   if (p == null || p === '') return '';
   const n = Number(p);
   if (isNaN(n)) return '';
@@ -932,7 +946,7 @@ function buildRestaurantJsonLd(rest, reviews) {
         },
         'author': {
           '@type': 'Person',
-          'name': safeText(rv.author_name || rv.customer_name, 'Gast')
+          'name': safeText(rv.customer_name, 'Gast')
         }
       };
       const body = safeText(rv.comment || rv.title, '');
@@ -972,7 +986,7 @@ function buildRestaurantJsonLd(rest, reviews) {
   if (cuisines.length) item.servesCuisine = cuisines;
   item.priceRange = rest.price_range || '€€';
   item.currenciesAccepted = 'EUR';
-  item.acceptsReservations = true;
+  item.acceptsReservations = kannReservieren(rest);
   if (rest.lat && rest.lng) {
     item.hasMap = 'https://www.google.com/maps/search/?api=1&query=' +
       encodeURIComponent(Number(rest.lat) + ',' + Number(rest.lng));
@@ -983,7 +997,10 @@ function buildRestaurantJsonLd(rest, reviews) {
   // Bestellen/Reservieren als Aktionen auszeichnen -- genau diese loesen in
   // Google die Buttons "Online bestellen" bzw. "Tisch reservieren" aus. Auf
   // der Startseite standen sie laengst, auf den Detailseiten fehlten sie.
-  item.potentialAction = [
+  // Nur die Aktionen auszeichnen, die es auch gibt. Eine ReserveAction bei
+  // einem Haus ohne Reservierung ist eine Falschaussage an Google.
+  const aktionen = [];
+  if (kannBestellen(rest)) aktionen.push(
     {
       '@type': 'OrderAction',
       'target': {
@@ -997,7 +1014,8 @@ function buildRestaurantJsonLd(rest, reviews) {
       },
       'deliveryMethod': ['http://purl.org/goodrelations/v1#DeliveryModePickUp',
                          'http://purl.org/goodrelations/v1#DeliveryModeOwnFleet']
-    },
+    });
+  if (kannReservieren(rest)) aktionen.push(
     {
       '@type': 'ReserveAction',
       'target': {
@@ -1010,8 +1028,8 @@ function buildRestaurantJsonLd(rest, reviews) {
         ]
       },
       'result': { '@type': 'FoodEstablishmentReservation', 'name': 'Tischreservierung' }
-    }
-  ];
+    });
+  if (aktionen.length) item.potentialAction = aktionen;
   const oeff = parseOeffnungszeiten(rest);
   if (oeff.specs.length) item.openingHours = oeff.specs;
   return item;
@@ -1043,6 +1061,34 @@ const WOCHENTAGE_LANG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freita
 function grossErstes(w) {
   return w ? w.charAt(0).toUpperCase() + w.slice(1) : '';
 }
+
+// WAS KANN DIESES HAUS UEBERHAUPT?
+//
+// Der Generator hat die Schalter nie gelesen -- das Wort "features" kam in
+// dieser Datei kein einziges Mal vor. Also stand auf JEDER Restaurantseite
+// dasselbe: "Online bestellen", "Tisch reservieren", und in den strukturierten
+// Daten acceptsReservations:true samt beider Aktionen. Auch bei Haeusern, die
+// weder das eine noch das andere anbieten.
+//
+// Fuer den Gast heisst das: klicken, nichts finden, wegklicken. Fuer Google
+// heisst es: Titel und Seite versprechen etwas, das die Seite nicht einloest.
+// Beides schadet mehr, als ein fehlendes Wort im Titel je genutzt haette.
+//
+// Die Gast-App wertet dieselben Schalter laengst aus (siehe index.html,
+// features.indexOf('no_ordering') / 'no_reservations'). Nur der Erzeuger der
+// oeffentlichen Seiten nicht.
+//
+// ABWESENHEIT heisst "kann es". Die Schalter sind Ausschluesse, keine
+// Freigaben -- ein Restaurant ohne gesetzte Flags kann beides. Andersherum
+// waeren mit einem Schlag alle Bestell-Knoepfe verschwunden.
+function featureListe(rest) {
+  let f = rest && rest.features;
+  if (typeof f === 'string') { try { f = JSON.parse(f); } catch (e) { f = f.split(','); } }
+  if (!Array.isArray(f)) return [];
+  return f.map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+}
+function kannBestellen(rest) { return featureListe(rest).indexOf('no_ordering') < 0; }
+function kannReservieren(rest) { return featureListe(rest).indexOf('no_reservations') < 0; }
 
 function ruhetagIndex(rest) {
   if (!rest) return -1;
@@ -1278,7 +1324,7 @@ function buildMenuJsonLd(rest, menuItems) {
             'name': safeText(it.name, 'Gericht')
           };
           if (it.description) item.description = String(it.description).slice(0, 200);
-          const p = it.base_price != null ? it.base_price : it.price;
+          const p = it.base_price;
           if (p != null && !isNaN(Number(p))) {
             item.offers = {
               '@type': 'Offer',
@@ -1349,7 +1395,7 @@ function renderReviewsHtml(rest, reviews) {
     real.length + ' ' + (real.length === 1 ? 'Bewertung' : 'Bewertungen') + '</p>\n';
   html += '<div class="reviews-seo" style="display:grid;gap:12px;margin:0 0 32px;">';
   real.slice(0, 10).forEach(function(rv) {
-    const author = escapeHtml(safeText(rv.author_name || rv.customer_name, 'Gast'));
+    const author = escapeHtml(safeText(rv.customer_name, 'Gast'));
     const text = escapeHtml(String(rv.comment || rv.title).slice(0, 500));
     const dateStr = rv.created_at
       ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -1385,9 +1431,13 @@ function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
     '<div class="inner">' +
       '<h1>' + escapeHtml(name) + '</h1>' +
       '<div class="meta">' + meta + '</div>' +
+      // Nur anbieten, was das Haus wirklich kann -- ein Knopf ins Leere ist
+      // schlimmer als kein Knopf.
       '<div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;">' +
-        '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '">🍽️ Online bestellen</a>' +
-        '<a class="cta-ghost" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.5);" href="/?r=' + escapeAttr(slug) + '&action=reserve">Tisch reservieren</a>' +
+        (kannBestellen(rest) ? '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '">🍽️ Online bestellen</a>' : '') +
+        (kannReservieren(rest) ? '<a class="cta-ghost" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.5);" href="/?r=' + escapeAttr(slug) + '&action=reserve">Tisch reservieren</a>' : '') +
+        (!kannBestellen(rest) && !kannReservieren(rest)
+          ? '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '">🍽️ Speisekarte ansehen</a>' : '') +
       '</div>' +
     '</div>' +
   '</section>';
@@ -1441,7 +1491,30 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     return wort && normalize(name).indexOf(normalize(wort)) >= 0;
   };
   const titelName = imNamen(cityRaw) ? name : name + ' ' + cityRaw;
-  const title = titelName + ' – Speisekarte & online bestellen';
+
+  // DER TITEL SAGT NUR ZU, WAS ES WIRKLICH GIBT.
+  //
+  // Vorher stand ueberall "Speisekarte & online bestellen" -- auch bei
+  // Haeusern ohne Online-Bestellung. Ein Titel, der etwas verspricht, das die
+  // Seite nicht einloest, kostet Vertrauen beim Gast und Rang bei Google.
+  //
+  // LAENGE: Google zeigt rund 55-60 Zeichen. Ist der Name lang, waere der
+  // lange Zusatz abgeschnitten -- dann lieber ein kuerzerer, der ganz
+  // dasteht, als ein langer, der mitten im Wort endet.
+  const title = (function () {
+    const b = kannBestellen(rest);
+    const r = kannReservieren(rest);
+    const lang = b && r ? 'Speisekarte, bestellen & reservieren'
+      : b ? 'Speisekarte & online bestellen'
+      : r ? 'Speisekarte & Tisch reservieren'
+      : 'Speisekarte & Öffnungszeiten';
+    const kurz = b && r ? 'Bestellen & reservieren'
+      : b ? 'Online bestellen'
+      : r ? 'Tisch reservieren'
+      : 'Speisekarte';
+    const voll = titelName + ' – ' + lang;
+    return voll.length <= 60 ? voll : titelName + ' – ' + kurz;
+  })();
 
   // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
   let description;
@@ -1539,16 +1612,20 @@ function generateRestaurantPage(rest, menuItems, reviews) {
       (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
       (rest.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(rest.website) + '" rel="nofollow">' + escapeHtml(rest.website) + '</a></p>' : '') +
     '</div>\n' +
-    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">Online bestellen bei ' + escapeHtml(name) + '</a></p>\n' +
+    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">'
+      + (kannBestellen(rest) ? 'Online bestellen bei ' : 'Speisekarte von ') + escapeHtml(name) + '</a></p>\n' +
     (menuItems.length
       ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
         '<p style="margin:0 0 16px;color:#666;">Die ' + menuItems.length + ' beliebtesten Gerichte – komplette Karte mit allen Optionen in der App.</p>\n' +
         renderMenuListHtml(menuItems) + '\n'
-      : '<h2>Speisekarte ansehen & online bestellen</h2>\n' +
-        '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App. Online bestellen geht direkt – Abholung oder Lieferung (wo verfügbar).</p>\n') +
-    '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
-    '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestätigung per E-Mail. Wähle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
-    '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n' +
+      : '<h2>Speisekarte' + (kannBestellen(rest) ? ' ansehen & online bestellen' : ' ansehen') + '</h2>\n' +
+        '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App.'
+        + (kannBestellen(rest) ? ' Online bestellen geht direkt – Abholung oder Lieferung (wo verfügbar).' : '') + '</p>\n') +
+    (kannReservieren(rest)
+      ? '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
+        '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestätigung per E-Mail. Wähle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
+        '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n'
+      : '') +
     renderOeffnungszeitenHtml(rest, name) +
     (faqs.length
       ? '<h2>Häufige Fragen zu ' + escapeHtml(name) + '</h2>\n' + renderFaqAccordion(faqs) + '\n'
@@ -1557,9 +1634,22 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     renderCrossLinks(cityObj || { slug: citySlug, name: cityRaw, region: 'Ostfriesland' }, cat) + '\n' +
     '</main>\n' +
     renderFooter() + '\n' +
+    // Die Leiste am unteren Rand am Handy. Auch hier: kein Versprechen, das
+    // das Haus nicht halten kann. "Abholung · Lieferung" stand bisher sogar
+    // bei Betrieben, die nur am Tisch bedienen.
     '<div class="sticky-cta">' +
-      '<div class="lbl">' + escapeHtml(name) + '<small>Abholung · Lieferung · kostenlos</small></div>' +
-      '<a class="cta-primary" href="/?r=' + escapeAttr(slug) + '" style="padding:12px 22px;font-size:15px;">Online bestellen</a>' +
+      '<div class="lbl">' + escapeHtml(name) + '<small>' +
+        (kannBestellen(rest) ? 'Abholung · Lieferung · kostenlos'
+          : kannReservieren(rest) ? 'Tisch reservieren · kostenlos'
+          : 'Speisekarte · Öffnungszeiten') +
+      '</small></div>' +
+      '<a class="cta-primary" href="/?r=' + escapeAttr(slug) +
+        (kannBestellen(rest) ? '' : kannReservieren(rest) ? '&action=reserve' : '') +
+        '" style="padding:12px 22px;font-size:15px;">' +
+        (kannBestellen(rest) ? 'Online bestellen'
+          : kannReservieren(rest) ? 'Tisch reservieren'
+          : 'Speisekarte ansehen') +
+      '</a>' +
     '</div>\n' +
     '</body></html>\n';
 

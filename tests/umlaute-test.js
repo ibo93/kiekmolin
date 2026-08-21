@@ -29,13 +29,27 @@
 //    Datei sind ASCII-Kommentare Konvention.
 //
 // Der Waechter unten trennt genau diese drei Faelle vom sichtbaren Text.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-var SEO = fs.readFileSync('/home/user/kiekmolin/build-seo-pages.js', 'utf8');
-var APP = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var SEO = fs.readFileSync(KMI + '/build-seo-pages.js', 'utf8');
+var APP = fs.readFileSync(KMI + '/index.html', 'utf8')
+    // Kommentare im Stilbogen raus, BEVOR gesucht wird. Sie stehen nie im
+    // Fenster, und der Suchlauf unten kann sie nicht von Text unterscheiden:
+    // erwaehnt ein Kommentar ein Tag ("... weil ein <span> kein <svg> ist"),
+    // schneidet das Muster >...< mitten hinein und meldet den Kommentartext
+    // als angeblichen Anzeigetext. Genau das ist einmal passiert.
+    //
+    // Nur INNERHALB von <style>. Ein Griff ueber die ganze Datei waere
+    // gefaehrlich: /* ... */ kommt auch in Zeichenketten und regulaeren
+    // Ausdruecken im JavaScript vor, und dann faellt beliebig viel echter
+    // Code weg -- ausprobiert, es sind sieben andere Pruefungen umgekippt.
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/g, function (block) {
+        return block.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    });
 
 // ERST EINE WORTLISTE, JETZT EINE REGEL.
 //
@@ -343,7 +357,7 @@ t('die Keyword-Liste darf beide Schreibweisen fuehren',
 t('das SEO-Skript ist weiterhin gueltiges JavaScript',
   (function () {
       try {
-          require('child_process').execFileSync('node', ['--check', '/home/user/kiekmolin/build-seo-pages.js'],
+          require('child_process').execFileSync('node', ['--check', KMI + '/build-seo-pages.js'],
               { stdio: 'pipe' });
           return true;
       } catch (e) { return String(e.stderr || e.message).slice(0, 120); }

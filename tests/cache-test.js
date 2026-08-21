@@ -1,6 +1,7 @@
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 process.env.ANTHROPIC_API_KEY = 'a';
 process.env.GOOGLE_VISION_API_KEY = 'v';
-var h = require('/home/user/kiekmolin/netlify/functions/menu-scan.js').handler;
+var h = require(KMI + '/netlify/functions/menu-scan.js').handler;
 var calls = [];
 global.fetch = async function (url) {
   if (String(url).indexOf('vision') >= 0) { calls.push('vision'); return { ok: false, status: 403, text: async () => 'PERMISSION_DENIED' }; }

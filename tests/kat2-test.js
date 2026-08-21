@@ -1,12 +1,13 @@
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
 // Der Kern (Prompt, Parser, Modellaufruf) liegt seit dem Umbau in
 // lib/scan-kern.js und wird von beiden Wegen benutzt -- dem einfachen
 // ohne Zeitlimit und der Rückfallebene mit Abschnitten. Die Prüfungen
 // müssen deshalb BEIDE Dateien sehen.
-var fn=fs.readFileSync('/home/user/kiekmolin/netlify/functions/menu-scan.js','utf8')
-      + fs.readFileSync('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js','utf8');
-var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
+var fn=fs.readFileSync(KMI + '/netlify/functions/menu-scan.js','utf8')
+      + fs.readFileSync(KMI + '/netlify/functions/lib/scan-kern.js','utf8');
+var h=fs.readFileSync(KMI + '/index.html','utf8');
 
 // ---- Prompt: nur ablesen ----
 t('Auswahlliste zum Erfinden ist WEG',

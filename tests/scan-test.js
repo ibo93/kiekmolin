@@ -5,7 +5,8 @@
 // prüfen, dass die Function vorher SELBST abbricht und zurückgibt, was sie
 // hat -- statt in das Limit zu laufen. Genau daran ist der Scanner wochenlang
 // gescheitert, ohne dass es jemand sehen konnte.
-var PATH = '/home/user/kiekmolin/netlify/functions/menu-scan.js';
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
+var PATH = KMI + '/netlify/functions/menu-scan.js';
 var L = require('./lib/sse');
 var sse = L.sseAntwort, sseG = L.sseGemini;
 var calls, bodies, letzteUrl;
@@ -36,7 +37,7 @@ async function run(label, env, sc, check, anfrage) {
   ['GEMINI_API_KEY','ANTHROPIC_API_KEY','GOOGLE_VISION_API_KEY','MENU_SCAN_MS','MENU_SCAN_MODEL','MENU_SCAN_PROVIDER'].forEach(k => delete process.env[k]);
   Object.keys(env).forEach(k => process.env[k] = env[k]);
   delete require.cache[require.resolve(PATH)];
-  delete require.cache[require.resolve('/home/user/kiekmolin/netlify/functions/lib/scan-kern.js')];
+  delete require.cache[require.resolve(KMI + '/netlify/functions/lib/scan-kern.js')];
   var h = require(PATH).handler;
   calls = []; bodies = []; letzteUrl = '';
   global.fetch = mk(sc);

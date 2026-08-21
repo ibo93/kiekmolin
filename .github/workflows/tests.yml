@@ -1,5 +1,12 @@
-# Laesst bei jedem Push die Tests der KI-Agentur-Projekte laufen.
-# Die Kiek-mol-in-App selbst (index.html) wird hier nicht angefasst.
+# Laesst bei jedem Push alle Tests laufen: die der App selbst und die der
+# KI-Agentur-Projekte.
+#
+# Die App-Tests standen jahrelang nur zum Selberstarten bereit -- knapp 2100
+# Stueck, die niemand automatisch ausfuehrte. Aufgefallen ist das an einem
+# konkreten Fall: beim Zusammenfuehren zweier Zweige entstanden zwei Aufrufe,
+# die wieder mit dem oeffentlichen Schluessel an die Datenbank gingen. Git
+# meldete keinen Konflikt, der Test schon -- nur lief er eben nicht.
+# Ein Netz, das man von Hand spannen muss, ist beim Sturz meistens unten.
 name: Tests
 
 on:
@@ -8,6 +15,20 @@ on:
   pull_request:
 
 jobs:
+  # Die App selbst: index.html, sw.js und die Netlify-Functions. Die Tests
+  # schneiden die echten Funktionen heraus und fuehren sie gegen nachgebaute
+  # API-Antworten aus -- ohne Netz, ohne Browser, ohne Datenbank.
+  app-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: App-Tests (tests/run-all.js)
+        run: node tests/run-all.js
+
   agentur-tests:
     runs-on: ubuntu-latest
     steps:

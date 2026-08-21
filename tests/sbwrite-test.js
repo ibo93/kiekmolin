@@ -1,6 +1,7 @@
 // Holt sbWrite aus index.html und prüft das Verhalten bei abgelehnten Anfragen.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 var fs = require('fs');
-var html = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var html = fs.readFileSync(KMI + '/index.html', 'utf8');
 var m = html.match(/async function sbWrite\(url, options\) \{[\s\S]*?\n    \}/);
 if (!m) { console.log('FAIL: sbWrite nicht gefunden'); process.exit(1); }
 var sbWrite = new Function('fetch', 'return ' + m[0])(mockFetch);

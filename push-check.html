@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Benachrichtigungen prüfen – Kiek mol in</title>
+<!--
+  PRUEFSEITE FUER DIE BENACHRICHTIGUNGEN.
+
+  WARUM ES DIESE SEITE GIBT
+  Am 21.08.2026 kam nach drei Reparaturen immer noch keine Meldung an,
+  und in den Protokollen stand nichts -- nicht einmal ein Fehler. Ohne
+  Fehler kann man nicht suchen, man kann nur raten. Dreimal geraten und
+  dreimal danebengelegen ist genug.
+
+  Diese Seite geht die Kette Schritt fuer Schritt durch und zeigt jeden
+  Schritt an. Was scheitert, steht rot da, mit der echten Meldung des
+  Browsers -- nicht mit meiner Vermutung.
+
+  Sie gehoert NICHT in die App. Sie ist Werkzeug, kein Bestandteil:
+  eigene Adresse, kein Menue, kein Weg von der Startseite hierher. Wer
+  sie nicht kennt, findet sie nicht.
+
+  Sie meldet ein Geraet auch WIRKLICH an -- das ist Absicht. Wenn sie
+  gruen durchlaeuft, steht die Zeile in der Datenbank und die Meldungen
+  kommen.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; padding: 20px 16px 60px;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f6f8f7; color: #00251e; line-height: 1.5;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .unter { font-size: 13px; color: #4b5563; margin: 0 0 20px; }
+  .schritt {
+    background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
+    box-shadow: 0 2px 10px rgba(0,61,51,0.06); border-left: 4px solid #cbd5d1;
+  }
+  .schritt.ok   { border-left-color: #16a34a; }
+  .schritt.rot  { border-left-color: #b91c1c; }
+  .schritt.warn { border-left-color: #d97706; }
+  .titel { font-weight: 700; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+  .wert { font-size: 13px; color: #4b5563; margin-top: 4px; word-break: break-word; }
+  .wert code { background: #f1f5f4; padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+  button {
+    display: block; width: 100%; padding: 15px; margin: 18px 0 0;
+    background: #003d33; color: #fff; border: 0; border-radius: 9999px;
+    font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  button[disabled] { opacity: .5; }
+  .fazit { margin-top: 20px; padding: 16px; border-radius: 16px; font-size: 14px; font-weight: 600; }
+  .fazit.gut  { background: rgba(22,163,74,.1);  color: #14532d; }
+  .fazit.rot  { background: rgba(185,28,28,.08); color: #7f1d1d; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #101413; color: #e0e3e1; }
+    .schritt { background: #191c1d; box-shadow: none; }
+    .unter, .wert { color: #9aa5a1; }
+    .wert code { background: #232728; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Benachrichtigungen prüfen</h1>
+<p class="unter">Diese Seite geht die Kette Schritt für Schritt durch und zeigt, wo es hängt.</p>
+
+<div id="liste"></div>
+<button id="start" type="button">Prüfung starten</button>
+<div id="fazit"></div>
+
+<script>
+var SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+var VAPID_PUBLIC_KEY = 'BMhF-LWy94av-ZdG1kf-b0BpuKFqpfO-XdO9rH_R-LNc8An-4hSkjD1ZQeR2SlW5cdv2VUmuWdGsKBYGXTNEXKU';
+
+var liste = document.getElementById('liste');
+var fehlerAufgetreten = false;
+
+function melde(titel, zustand, wert) {
+  // zustand: 'ok' | 'rot' | 'warn'
+  if (zustand === 'rot') fehlerAufgetreten = true;
+  var d = document.createElement('div');
+  d.className = 'schritt ' + zustand;
+  var zeichen = zustand === 'ok' ? '✓' : (zustand === 'rot' ? '✗' : '!');
+  d.innerHTML = '<div class="titel"><span>' + zeichen + '</span><span></span></div>'
+              + '<div class="wert"></div>';
+  d.querySelector('.titel span:last-child').textContent = titel;
+  d.querySelector('.wert').textContent = wert == null ? '' : String(wert);
+  liste.appendChild(d);
+  return d;
+}
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(base64);
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function pruefen() {
+  liste.innerHTML = '';
+  document.getElementById('fazit').innerHTML = '';
+  fehlerAufgetreten = false;
+
+  // 1. Laeuft die Seite als App? Auf dem iPhone kommen Web-Pushs NUR so an.
+  var alsApp = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+            || window.navigator.standalone === true;
+  var istApple = /iPad|iPhone|iPod/.test(navigator.userAgent)
+              || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (istApple && !alsApp) {
+    melde('Läuft als App vom Home-Bildschirm', 'rot',
+          'Nein – auf dem iPhone kommen Meldungen nur an, wenn die Seite über '
+        + '"Teilen → Zum Home-Bildschirm" installiert ist. Im Safari-Tab passiert nichts.');
+  } else {
+    melde('Läuft als App vom Home-Bildschirm', alsApp ? 'ok' : 'warn',
+          alsApp ? 'Ja' : 'Nein – auf diesem Gerät ist das erlaubt, am iPhone wäre es Pflicht.');
+  }
+
+  // 2. Kann der Browser das ueberhaupt?
+  if (!('Notification' in window)) { melde('Browser kann Benachrichtigungen', 'rot', 'Nein'); return fertig(); }
+  melde('Browser kann Benachrichtigungen', 'ok', 'Ja');
+
+  if (!('serviceWorker' in navigator)) { melde('Service Worker vorhanden', 'rot', 'Nein'); return fertig(); }
+  melde('Service Worker vorhanden', 'ok', 'Ja');
+
+  if (!('PushManager' in window)) { melde('Push wird unterstützt', 'rot', 'Nein'); return fertig(); }
+  melde('Push wird unterstützt', 'ok', 'Ja');
+
+  // 3. Erlaubnis
+  var erlaubnis = Notification.permission;
+  if (erlaubnis === 'default') {
+    try { erlaubnis = await Notification.requestPermission(); } catch (e) {}
+  }
+  if (erlaubnis !== 'granted') {
+    melde('Erlaubnis erteilt', 'rot',
+          erlaubnis === 'denied'
+            ? 'Blockiert. In den Einstellungen des Geräts für diese App wieder erlauben.'
+            : 'Nicht erteilt (' + erlaubnis + ')');
+    return fertig();
+  }
+  melde('Erlaubnis erteilt', 'ok', 'Ja');
+
+  // 4. Service Worker bereit
+  var reg;
+  try {
+    reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+  } catch (e) {
+    melde('Service Worker läuft', 'rot', e && e.message ? e.message : String(e));
+    return fertig();
+  }
+  melde('Service Worker läuft', 'ok', reg && reg.scope ? reg.scope : 'bereit');
+
+  // 5. Beim Push-Dienst anmelden
+  var sub;
+  try {
+    sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+  } catch (e) {
+    melde('Beim Push-Dienst angemeldet', 'rot', e && e.message ? e.message : String(e));
+    return fertig();
+  }
+  var j = sub.toJSON();
+  melde('Beim Push-Dienst angemeldet', 'ok', String(j.endpoint).slice(0, 60) + '…');
+
+  // 6. In die Datenbank eintragen -- HIER hing es die ganze Zeit.
+  //    Der Antworttext wird angezeigt, nicht verschluckt.
+  var antwort, text = '';
+  try {
+    antwort = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?on_conflict=endpoint', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({
+        endpoint: j.endpoint,
+        p256dh_key: j.keys && j.keys.p256dh,
+        auth_key: j.keys && j.keys.auth,
+        user_agent: navigator.userAgent || null
+      })
+    });
+    try { text = await antwort.text(); } catch (e) {}
+  } catch (e) {
+    melde('In der Datenbank eingetragen', 'rot',
+          'Verbindung fehlgeschlagen: ' + (e && e.message ? e.message : String(e)));
+    return fertig();
+  }
+  if (!antwort.ok) {
+    melde('In der Datenbank eingetragen', 'rot',
+          'HTTP ' + antwort.status + (text ? ' – ' + text.slice(0, 300) : ''));
+    return fertig();
+  }
+  melde('In der Datenbank eingetragen', 'ok', 'HTTP ' + antwort.status);
+
+  // 7. Probemeldung -- damit sichtbar wird, dass wirklich etwas ankommt.
+  try {
+    await reg.showNotification('Kiek mol in', {
+      body: 'Prüfung erfolgreich – so sieht eine Meldung aus.',
+      icon: '/kiek-logo.png', badge: '/kiek-logo.png', tag: 'pruefung'
+    });
+    melde('Probemeldung angezeigt', 'ok', 'Sollte jetzt auf dem Bildschirm stehen');
+  } catch (e) {
+    melde('Probemeldung angezeigt', 'warn', e && e.message ? e.message : String(e));
+  }
+
+  fertig();
+}
+
+function fertig() {
+  var f = document.getElementById('fazit');
+  f.className = 'fazit ' + (fehlerAufgetreten ? 'rot' : 'gut');
+  f.textContent = fehlerAufgetreten
+    ? 'Es hängt am ersten roten Punkt oben. Schick mir den Text daneben – damit weiß ich es genau, statt zu raten.'
+    : 'Alles durch. Dein Gerät steht jetzt in der Datenbank – ab jetzt kommen die Meldungen an.';
+  document.getElementById('start').disabled = false;
+  document.getElementById('start').textContent = 'Nochmal prüfen';
+}
+
+document.getElementById('start').onclick = function () {
+  this.disabled = true;
+  this.textContent = 'Prüft…';
+  pruefen().catch(function (e) {
+    melde('Unerwarteter Fehler', 'rot', e && e.message ? e.message : String(e));
+    fertig();
+  });
+};
+</script>
+</body>
+</html>

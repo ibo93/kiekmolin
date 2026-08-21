@@ -20,9 +20,17 @@
 // Die Tests unten pruefen deshalb vor allem den Fehlerfall. Dass ein
 // Waechter bei heiler Welt gruen zeigt, ist leicht; dass er bei kaputter
 // Welt nicht gruen zeigt, ist der ganze Punkt.
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -61,7 +69,7 @@ function welt(antworten, extras) {
         + '; return selbstcheckAusfuehren;';
     var F = new Function('fetch', 'SUPABASE_URL', 'SUPABASE_KEY', 'AbortController', 'setTimeout',
         'clearTimeout', 'sb', 'window', 'navigator', 'localStorage', 'Notification', '_resolveEventsRestaurantId',
-        code)(
+        KMI_STUB + code)(
         fetchStub, 'https://x.supabase.co', 'schluessel',
         function () { return { abort: function () {}, signal: 'S' }; },
         function () { return 1; }, function () {},
@@ -425,7 +433,7 @@ var HEILE = {
         }
         var F = new Function('window', 'APP_DATA', 'fetch', 'SUPABASE_URL', 'SUPABASE_KEY',
             'AbortController', 'setTimeout', 'clearTimeout',
-            'var _scHaeuser = null;\n' + schneide('_scHole') + '\n' + schneide('selbstcheckHaeuser')
+            KMI_STUB + 'var _scHaeuser = null;\n' + schneide('_scHole') + '\n' + schneide('selbstcheckHaeuser')
             + '; return selbstcheckHaeuser;')(
             { APP_DATA: appDaten }, appDaten, hole, 'https://x.supabase.co', 'k',
             function () { return { abort: function () {}, signal: 'S' }; },

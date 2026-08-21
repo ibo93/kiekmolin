@@ -12,11 +12,56 @@
 const STANDARD_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
 const STANDARD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
 
+
+// WELCHER SCHLUESSEL -- und warum das ab jetzt zaehlt
+// ---------------------------------------------------
+// Bisher lief hier der anon-Key. Der ist public-safe, das stimmt -- aber
+// er ist nur so viel wert, wie die Datenbank ihm erlaubt. Solange die
+// RLS-Regeln offen standen, kam dieses Projekt damit ueberall hin.
+//
+// Genau das wird gerade zugemacht. Nach dem Zumachen von orders und
+// reservations liefert der anon-Key hier leere Listen -- keinen Fehler,
+// LEERE LISTEN. Ein Bericht saehe dann aus wie "der Betrieb hatte diesen
+// Monat keine einzige Bestellung". Das ist die schlimmste Sorte Fehler:
+// er sieht aus wie ein Ergebnis.
+//
+// Dieses Projekt laeuft auf einem Server, nicht im Browser. Es hat keine
+// Sitzung und kann auch keine haben -- es arbeitet ja nicht fuer einen
+// angemeldeten Menschen, sondern fuer die Agentur. Der richtige Schluessel
+// dafuer ist der Dienstschluessel (service role).
+//
+// Der geht an RLS vorbei und gehoert deshalb NIEMALS in etwas, das ein
+// Browser laedt. Er steht in .env (gitignored) und nirgendwo sonst.
+// Fehlt er, faellt alles auf den anon-Key zurueck -- dann laeuft es wie
+// bisher, bis die Regeln zugehen.
 function konfig() {
   return {
     url: process.env.SUPABASE_URL || STANDARD_URL,
-    key: process.env.SUPABASE_ANON_KEY || STANDARD_KEY
+    // SUPABASE_SERVICE_KEY zuerst: so heisst er in allen 21 Netlify-Functions
+    // dieses Projekts. Zwei Namen fuer denselben Schluessel waeren die Sorte
+    // Stolperstein, ueber die man genau einmal faellt -- und dann sucht man
+    // eine Stunde, warum die Zahlen leer bleiben.
+    // SUPABASE_SERVICE_ROLE_KEY heisst er in Supabases eigener Doku, deshalb
+    // gilt er auch.
+    key: process.env.SUPABASE_SERVICE_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
+      || process.env.SUPABASE_ANON_KEY
+      || STANDARD_KEY
   };
+}
+
+// Fuer den Selbsttest: laeuft dieses Projekt gerade mit dem Dienstschluessel
+// oder noch mit dem oeffentlichen? Liest die Rolle aus dem Token selbst,
+// statt sie zu raten.
+function schluesselRolle() {
+  try {
+    const teil = String(konfig().key).split('.')[1];
+    if (!teil) return 'unbekannt';
+    const nutz = JSON.parse(Buffer.from(teil, 'base64').toString('utf8'));
+    return nutz.role || 'unbekannt';
+  } catch (_e) {
+    return 'unbekannt';
+  }
 }
 
 function headers() {
@@ -196,6 +241,7 @@ async function rueckrufErledigt(id) {
 }
 
 module.exports = {
+  schluesselRolle,
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
   reservierungenFuerErinnerung,
   neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,

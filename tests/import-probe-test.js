@@ -13,8 +13,16 @@
 //
 // Nachgestellt mit vier unbekannten Spalten: Pizza 1, 2 und 3 gingen
 // verloren, ab Pizza 4 lief alles. Genau das Bild.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 const fs = require('fs');
-const H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+
+// Seit die App das Sitzungs-Token benutzt, ruft der ausgeschnittene
+// Code kmiToken(). Im Browser ist das eine globale Funktion -- hier
+// gehoert sie zur nachgebauten Umgebung, genau wie sbRead oder showToast.
+var KMI_STUB = 'var kmiToken = function () { return typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY '
+    + ': (typeof SUPA_KEY !== "undefined" ? SUPA_KEY : "anon"); };\n';
+
+const H = fs.readFileSync(KMI + '/index.html', 'utf8');
 console.error = function () {};   // erwartete Meldungen der Attrappe
 function cut(n){let i=H.indexOf('async function '+n+'(');if(i<0)i=H.indexOf('function '+n+'(');
  const j=H.indexOf('{',i);let d=0;for(let k=j;k<H.length;k++){if(H[k]==='{')d++;else if(H[k]==='}'){d--;if(!d)return H.slice(i,k+1);}}}
@@ -76,7 +84,7 @@ for (let i = 1; i <= 10; i++) gerichte.push({ name:'Pizza '+i, price:7, category
 
 (async () => {
   const f = new Function(...Object.keys(umw), 'GERICHTE',
-    'var scannedMenuItems = GERICHTE;\n' + cut('importScannedMenu')
+    KMI_STUB + 'var scannedMenuItems = GERICHTE;\n' + cut('importScannedMenu')
     + '\nreturn importScannedMenu();');
   await f(...Object.values(umw), gerichte);
   console.log('Datenbank kennt diese Spalten nicht: ' + FEHLT.join(', '));

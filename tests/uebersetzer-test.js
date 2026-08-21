@@ -15,9 +15,10 @@
 //    an MyMemory raus, einen kostenlosen Dienst mit hartem Limit. Nach den
 //    ersten paar kam nur noch "MYMEMORY WARNING" zurück -- im Quelltext steht
 //    sogar schon eine Aufräumroutine für genau diesen Müll im Cache.
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 'use strict';
 var fs = require('fs');
-var H = fs.readFileSync('/home/user/kiekmolin/index.html', 'utf8');
+var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -86,7 +87,7 @@ t('Zutaten auf Niederlaendisch',
   /sla|salade/i.test(U.item(doener, 'nl').description), U.item(doener, 'nl').description);
 
 // ============ 3. DAS WOERTERBUCH KENNT DIE ECHTE KARTE ============
-var SEITEN = JSON.parse(fs.readFileSync('/home/user/kiekmolin/tests/daten/pronto-pdfjs.json', 'utf8'));
+var SEITEN = JSON.parse(fs.readFileSync(KMI + '/tests/daten/pronto-pdfjs.json', 'utf8'));
 var vor = H.slice(H.indexOf('var _PDF_ALLERGEN'), H.indexOf(';', H.indexOf('var _PDF_ALLERGEN')) + 1);
 var leser = new Function('SEITEN', vor + '\n'
     + ['pdfSeiteZuText', 'parseKartenText', 'pdfGerichteZuItems', '_nrWert', 'sortiereNachNummer'].map(schneide).join('\n')

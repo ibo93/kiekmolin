@@ -1,6 +1,7 @@
+var KMI = require('path').join(__dirname, '..');  // statt fest verdrahtetem Pfad
 var fs=require('fs'), n=0, ok=0;
 function t(l,c,x){n++;var g=c===true;if(g)ok++;console.log((g?'OK  ':'FAIL')+' | '+l+(g?'':'  -> '+x));}
-var h=fs.readFileSync('/home/user/kiekmolin/index.html','utf8');
+var h=fs.readFileSync(KMI + '/index.html','utf8');
 t('kein "select=count" mehr in echten Abfragen',
   (h.match(/select=count`/g)||[]).length === 0);
 t('presence zaehlt jetzt ueber Kopf statt Spalte', /presence\?[^`]*select=id&limit=1/.test(h));

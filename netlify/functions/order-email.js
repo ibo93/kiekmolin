@@ -30,6 +30,12 @@
 // EMPFOHLEN einmalig in Supabase:
 //   ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at timestamptz;
 //   ALTER TABLE reservations ADD COLUMN IF NOT EXISTS confirmation_email_sent_at timestamptz;
+//   ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_email_sent_at timestamptz;
+//
+// Die dritte Spalte gehoert zur Annahme-Mail und braucht eine EIGENE, denn
+// sonst haelt sich die Annahme-Mail wegen des Stempels der Eingangs-Mail
+// sofort fuer schon versendet. Fehlt die Spalte, wird trotzdem gesendet --
+// nur ohne Duplikatschutz.
 
 'use strict';
 
@@ -135,6 +141,70 @@ function buildEmail(o, rest) {
 
     return {
         subject: 'Bestellbestätigung #' + (o.order_number || '') + ' – ' + (o.restaurant_name || 'Kiek mol in'),
+        html: html
+    };
+}
+
+// ZWEITE MAIL: DIE BESTELLUNG IST ANGENOMMEN.
+//
+// Bisher ging genau EINE Mail raus -- beim Bestelleingang ("ist eingegangen,
+// wird gleich bestaetigt"). Die Bestaetigung selbst und vor allem die
+// Wartezeit bekam der Gast nur zu sehen, wenn er die App offen liess.
+//
+// Fuer Betriebe, die aus ihrer Kasse arbeiten, ist das der entscheidende
+// Punkt: dort nimmt kiekmolin die Bestellung automatisch an, der Wirt
+// oeffnet das Dashboard nie -- und ohne diese Mail erfaehrt der Gast nichts.
+// Er sitzt vor einer Bestellung, von der er nicht weiss, ob sie jemand
+// gesehen hat.
+function buildAcceptedEmail(o, rest) {
+    var lieferung = o.order_type === 'delivery';
+    var typeLabel = lieferung ? 'Lieferung'
+        : (o.order_type === 'dine_in' ? 'Vor Ort' + (o.table_number ? ' · Tisch ' + esc(o.table_number) : '') : 'Abholung');
+
+    var min = parseInt(o.estimated_minutes, 10);
+    var zeitText = '';
+    if (min > 0) {
+        // Zusaetzlich die Uhrzeit nennen. "in 45 Minuten" muss der Gast
+        // umrechnen, "gegen 19:20 Uhr" nicht -- und wer die Mail zwanzig
+        // Minuten spaeter liest, rechnet sonst falsch.
+        var uhr = '';
+        try {
+            var ziel = o.estimated_time ? new Date(o.estimated_time) : new Date(Date.now() + min * 60000);
+            uhr = ziel.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+        } catch (e) {}
+        zeitText = lieferung
+            ? 'Deine Bestellung ist in etwa <strong>' + min + ' Minuten</strong> bei dir'
+            : 'Du kannst sie in etwa <strong>' + min + ' Minuten</strong> abholen';
+        if (uhr) zeitText += ' – also gegen <strong>' + esc(uhr) + ' Uhr</strong>';
+        zeitText += '.';
+    } else {
+        zeitText = 'Das Restaurant bereitet deine Bestellung jetzt zu.';
+    }
+
+    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
+    var restName = o.restaurant_name || (rest && rest.name) || 'Restaurant';
+
+    var adresse = '';
+    if (!lieferung && rest && (rest.street || rest.city)) {
+        adresse = '<p style="margin:16px 0 0;color:#374151;"><strong>Abholadresse:</strong><br>' +
+            esc([rest.street, rest.city].filter(Boolean).join(', ')) + '</p>';
+    }
+
+    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
+        '<h1 style="font-size:20px;margin:0 0 4px;color:#003d33;">Bestellung bestätigt 👍</h1>' +
+        '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(restName) + ' · ' + typeLabel + '</p>' +
+        '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
+            ', ' + esc(restName) + ' hat deine Bestellung angenommen. ' + zeitText + '</p>' +
+        '<p style="margin:0 0 20px;"><a href="' + trackUrl + '" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Bestellstatus verfolgen</a></p>' +
+        adresse +
+        (rest && rest.phone ? '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Etwas stimmt nicht? Ruf direkt an: ' + esc(rest.phone) + '</p>' : '') +
+        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
+        '<p style="margin:0;color:#9ca3af;font-size:12px;">Automatisch verschickt von kiekmolin.de.</p>' +
+    '</div>';
+
+    return {
+        subject: 'Bestellung bestätigt #' + (o.order_number || '') +
+                 (min > 0 ? ' – ca. ' + min + ' Min' : '') + ' – ' + restName,
         html: html
     };
 }
@@ -342,6 +412,55 @@ exports.handler = async function (event) {
 
     var orderId = body.order_id || body.orderId || '';
     if (!orderId || !/^[0-9a-f-]{10,}$/i.test(String(orderId))) return json(400, { error: 'order_id fehlt/ungueltig' });
+
+    // Zweig "angenommen": eigene Mail mit der Wartezeit.
+    //
+    // Bewusst getrennt vom Eingangs-Zweig darunter, und mit EIGENEM
+    // Duplikatschutz -- sonst wuerde die Annahme-Mail den Stempel der
+    // Eingangs-Mail sehen und sich fuer schon versendet halten.
+    if (String(body.event || '').toLowerCase() === 'accepted') {
+        try {
+            // Genauso beanspruchen wie unten. Fehlt die Spalte, antwortet
+            // PostgREST mit 400 -- dann lesen wir normal und senden trotzdem.
+            // Lieber eine Mail doppelt als gar keine.
+            var aClaim = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) +
+                '&accepted_email_sent_at=is.null', {
+                method: 'PATCH',
+                headers: sbHeaders({ 'Prefer': 'return=representation' }),
+                body: JSON.stringify({ accepted_email_sent_at: new Date().toISOString() })
+            });
+            var aOrder = null;
+            if (aClaim.ok) {
+                var aRows = await aClaim.json();
+                if (!aRows.length) return json(200, { ok: true, skipped: true, reason: 'schon versendet' });
+                aOrder = aRows[0];
+            } else {
+                var aRead = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=*', { headers: sbHeaders() });
+                if (!aRead.ok) return json(500, { error: 'Bestellung nicht lesbar (' + aRead.status + ')' });
+                var aData = await aRead.json();
+                if (!aData.length) return json(404, { error: 'Bestellung nicht gefunden' });
+                aOrder = aData[0];
+            }
+
+            var aTo = String(aOrder.customer_email || '').trim();
+            if (!aTo || aTo.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Kunden-E-Mail' });
+
+            var aRest = null;
+            if (aOrder.restaurant_id) {
+                try {
+                    var arres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
+                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone',
+                        { headers: sbHeaders() });
+                    if (arres.ok) { var arl = await arres.json(); aRest = arl[0] || null; }
+                } catch (e) {}
+            }
+
+            await sendViaResend(aTo, buildAcceptedEmail(aOrder, aRest));
+            return json(200, { ok: true, sent: true, event: 'accepted' });
+        } catch (e) {
+            return json(e.resend ? 502 : 500, { error: e.message });
+        }
+    }
 
     try {
         // Duplikatschutz: Bestellung atomar beanspruchen. 0 Zeilen zurück =
