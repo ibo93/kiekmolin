@@ -28966,6 +28966,16 @@ async function loadReservationsForRestaurant(restaurantId) {
                               + '" style="color:var(--ink-deep);text-decoration:none;font-weight:600;">'
                               + escapeHtml(r.guest_phone) + '</a></div>';
                     }
+                    // Der Grund, wenn der Gast einen angegeben hat.
+                    // Hervorgehoben, weil er der eigentliche Wert dieses
+                    // Blocks ist: fuenf Absagen wegen Krankheit sind
+                    // etwas anderes als fuenf, weil es beim letzten Mal
+                    // nicht geschmeckt hat.
+                    if (r.cancel_reason) {
+                        html += '<div style="font-size:12px;margin-top:8px;padding:7px 11px;border-radius:12px;'
+                              + 'background:rgba(186,26,26,0.08);color:#8c1414;font-weight:600;">'
+                              + escapeHtml(r.cancel_reason) + '</div>';
+                    }
                     if (r.notes) {
                         html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;font-style:italic;">'
                               + escapeHtml(r.notes) + '</div>';
@@ -40103,17 +40113,69 @@ function buildReservationCard(r) {
 // Gast sagt seine Reservierung in der App ab.
 // Läuft bewusst über dieselbe Function wie der Link in der E-Mail: nur so
 // bekommt das Restaurant die Push-Benachrichtigung ("Tisch ist wieder frei").
+// DIE GRUENDE -- dieselben Schluessel wie in res-cancel.js.
+// Sie muessen zusammenpassen: die Function nimmt nur bekannte
+// Schluessel an und verwirft alles andere stillschweigend. Wer hier
+// einen hinzufuegt, muss ihn dort auch eintragen, sonst kommt die
+// Absage an und der Grund nicht.
+var KMI_ABSAGE_GRUENDE = [
+    ['krank',       'Krank geworden'],
+    ['plan',        'Pläne haben sich geändert'],
+    ['zeit',        'Schaffe es zeitlich nicht'],
+    ['zuviele',     'Andere Personenzahl nötig'],
+    ['woanders',    'Doch woanders hingegangen'],
+    ['unzufrieden', 'Beim letzten Mal nicht zufrieden']
+];
+
+// Fragt nach dem Grund und gibt den Schluessel zurueck -- oder '' beim
+// Ueberspringen, oder null beim Abbrechen.
+//
+// WARUM UEBERSPRINGEN MOEGLICH BLEIBT
+// Eine Absage, die nicht ankommt, ist teurer als eine ohne Grund: dann
+// steht der Tisch am Samstagabend leer und niemand weiss es. Deshalb
+// darf die Frage nach dem Grund nie zwischen Gast und Absage stehen.
+function absageGrundFragen() {
+    return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.style.cssText = 'z-index:99999;display:flex;align-items:center;justify-content:center;';
+        var knoepfe = '';
+        KMI_ABSAGE_GRUENDE.forEach(function (g) {
+            knoepfe += '<button data-grund="' + g[0] + '" style="padding:11px 16px;border-radius:9999px;'
+                + 'border:1px solid rgba(0,61,51,0.12);background:var(--bg-secondary,#f6f8f7);'
+                + 'color:var(--ink-strong,#00251e);font-family:Inter,sans-serif;font-size:13px;'
+                + 'font-weight:600;cursor:pointer;text-align:left;">' + escapeHtml(g[1]) + '</button>';
+        });
+        overlay.innerHTML = '<div style="max-width:400px;width:90%;background:rgba(255,255,255,0.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:32px;border:1px solid rgba(255,255,255,0.3);box-shadow:0 24px 48px -8px rgba(0,37,30,0.15);padding:28px;animation:scaleIn 0.25s cubic-bezier(0.4,0,0.2,1);">'
+            + '<h3 style="font-family:Epilogue,sans-serif;font-size:19px;font-weight:700;color:var(--ink-strong);margin:0 0 6px;letter-spacing:-0.02em;">Reservierung absagen</h3>'
+            + '<p style="font-family:Inter,sans-serif;font-size:14px;color:var(--text-secondary);line-height:1.6;margin:0 0 18px;">Das Restaurant wird sofort informiert und kann den Tisch weitergeben.<br>Magst du kurz sagen, woran es liegt?</p>'
+            + '<div style="display:grid;gap:8px;margin-bottom:18px;">' + knoepfe + '</div>'
+            + '<div style="display:flex;gap:10px;">'
+            + '<button id="kmiGrundZurueck" style="flex:1;padding:13px;border-radius:9999px;border:1px solid rgba(0,61,51,0.1);background:transparent;color:var(--ink-strong);font-family:Inter,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Doch nicht</button>'
+            + '<button id="kmiGrundOhne" style="flex:1;padding:13px;border-radius:9999px;border:none;background:#ef4444;color:white;font-family:Inter,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Ohne Grund absagen</button>'
+            + '</div></div>';
+        document.body.appendChild(overlay);
+        function fertig(wert) { overlay.remove(); resolve(wert); }
+        overlay.querySelectorAll('button[data-grund]').forEach(function (b) {
+            b.onclick = function () { fertig(b.getAttribute('data-grund')); };
+        });
+        overlay.querySelector('#kmiGrundOhne').onclick = function () { fertig(''); };
+        overlay.querySelector('#kmiGrundZurueck').onclick = function () { fertig(null); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) fertig(null); });
+    });
+}
+
 async function guestCancelReservation(resId, btn) {
     if (!resId) return;
-    if (typeof kinConfirm === 'function') {
-        if (!await kinConfirm('Reservierung wirklich absagen?\n\nDas Restaurant wird sofort informiert und kann den Tisch weitergeben.')) return;
-    } else if (!confirm('Reservierung wirklich absagen?')) {
-        return;
-    }
+    var grund = await absageGrundFragen();
+    // null = abgebrochen. '' = abgesagt, aber ohne Grund -- das ist ein
+    // gueltiges Ergebnis und darf die Absage nicht aufhalten.
+    if (grund === null) return;
 
     if (btn) { btn.disabled = true; btn.textContent = 'Wird abgesagt…'; }
     try {
-        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId));
+        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId)
+            + (grund ? '&grund=' + encodeURIComponent(grund) : ''));
         if (!res.ok) throw new Error('HTTP ' + res.status);
         showToast('Reservierung abgesagt – danke für die Info!', 'success');
         // Liste neu laden, damit die Karte als "Storniert" erscheint.

@@ -1,9 +1,25 @@
 // Kiek mol in — Gast sagt Reservierung selbst ab (Link aus der Erinnerungs-Mail).
 //
 // Aufruf: GET /.netlify/functions/res-cancel?id=<reservierungs-uuid>
+//         GET /.netlify/functions/res-cancel?id=<uuid>&grund=<text>
 // Setzt status='cancelled' und zeigt eine kleine Bestätigungs-Seite.
 // Die UUID ist nicht erratbar und wirkt damit als Token; es kann nur
 // storniert (nichts gelesen/geändert) werden -- risikoarm.
+//
+// DER GRUND -- UND WARUM ER NICHT VORHER ABGEFRAGT WIRD
+// -----------------------------------------------------
+// Der Wirt hat gefragt: "und warum haben die abgesagt... das ist auch
+// wichtig". Stimmt -- fünf Absagen wegen Krankheit sind etwas anderes
+// als fünf, weil das Essen beim letzten Mal kalt war.
+//
+// Der Grund wird aber ERST NACH der Absage erfragt, nie davor. Wer auf
+// den Link in der Mail klickt, hat entschieden; ihm dann ein Formular
+// vorzusetzen, kostet Absagen. Und eine Absage, die nicht ankommt, ist
+// teurer als eine ohne Grund: dann steht der Tisch am Samstagabend
+// leer und niemand weiss es.
+//
+// Also: erst stornieren, dann auf der Bestätigungsseite fragen. Wer
+// weiterklickt, hat trotzdem abgesagt.
 //
 // ENV: SUPABASE_URL, SUPABASE_SERVICE_KEY
 
@@ -28,7 +44,7 @@ function sbHeaders(extra) {
 // Samstagabend bares Geld.
 // Fehler hier dürfen die Absage NICHT scheitern lassen: der Gast hat seinen
 // Teil getan, die Stornierung steht bereits in der Datenbank.
-async function notifyRestaurant(r, restName) {
+async function notifyRestaurant(r, restName, grundText) {
     if (!VAPID_PUBLIC || !VAPID_PRIVATE || !r.restaurant_id) return;
     try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
     catch (e) { return; }
@@ -52,7 +68,7 @@ async function notifyRestaurant(r, restName) {
     var payload = JSON.stringify({
         title: 'Reservierung abgesagt',
         body: (r.guest_name || 'Ein Gast') + ' hat abgesagt – ' + datum + (zeit ? ' um ' + zeit + ' Uhr' : '') +
-              '. Der Tisch ist wieder frei.',
+              '. Der Tisch ist wieder frei.' + (grundText ? ' Grund: ' + grundText : ''),
         icon: '/kiek-logo.png',
         badge: '/kiek-logo.png',
         tag: 'res-cancelled-' + r.id,
@@ -77,7 +93,7 @@ async function notifyRestaurant(r, restName) {
     }
 }
 
-function page(title, text, ok) {
+function page(title, text, ok, extra) {
     var color = ok ? '#16a34a' : '#b91c1c';
     var icon = ok ? 'M20 6L9 17l-5-5' : 'M18 6L6 18M6 6l12 12';
     return {
@@ -92,13 +108,58 @@ function page(title, text, ok) {
                 '</div>' +
                 '<h1 style="font-size:20px;margin:0 0 8px;color:#00251e;">' + title + '</h1>' +
                 '<p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.5;">' + text + '</p>' +
+                (extra || '') +
                 '<a href="https://kiekmolin.de" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-weight:600;font-size:14px;">Zu Kiek mol in</a>' +
             '</div></body></html>'
     };
 }
 
+// Die Auswahlmoeglichkeiten. Bewusst kurz und ohne Freitext:
+// - Ein Textfeld auf einer Seite, die per Link erreichbar ist, waere
+//   ein offenes Eingabefeld fuer jeden, der eine Reservierungs-ID hat.
+// - Und der Wirt braucht keine Aufsaetze, sondern eine Ahnung, ob es
+//   an ihm lag.
+var GRUENDE = {
+    krank:      'Krank geworden',
+    plan:       'Pläne haben sich geändert',
+    zeit:       'Schaffe es zeitlich nicht',
+    zuviele:    'Andere Personenzahl nötig',
+    woanders:   'Doch woanders hingegangen',
+    unzufrieden:'Beim letzten Mal nicht zufrieden'
+};
+
+// Die Frage nach dem Grund -- als Knoepfe, die denselben Endpunkt noch
+// einmal aufrufen. Kein Formular, kein JavaScript: das hier laeuft in
+// jedem Mailprogramm-Browser, auch in den seltsamen.
+//
+// Ueberspringen ist erlaubt und steht auch da. Wer sich gedraengt
+// fuehlt, klickt beim naechsten Mal gar nicht erst auf den Absagelink
+// -- und dann steht der Tisch leer.
+function grundFrage(id) {
+    var h = '<div style="margin:0 0 20px;padding-top:20px;border-top:1px solid #eef1f0;">'
+          + '<p style="margin:0 0 14px;color:#00251e;font-size:14px;font-weight:600;">'
+          + 'Magst du kurz sagen, woran es lag?</p>'
+          + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+    Object.keys(GRUENDE).forEach(function (k) {
+        h += '<a href="/.netlify/functions/res-cancel?id=' + encodeURIComponent(id)
+           + '&grund=' + encodeURIComponent(k) + '" '
+           + 'style="display:inline-block;padding:9px 16px;border-radius:9999px;border:1px solid rgba(0,61,51,0.15);'
+           + 'background:#f6f8f7;color:#00251e;text-decoration:none;font-size:13px;font-weight:600;">'
+           + GRUENDE[k] + '</a>';
+    });
+    h += '</div>'
+       + '<p style="margin:14px 0 0;color:#9ca3af;font-size:12px;">Musst du nicht – die Absage ist schon durch.</p>'
+       + '</div>';
+    return h;
+}
+
 exports.handler = async function (event) {
     var id = (event.queryStringParameters && event.queryStringParameters.id) || '';
+    // NUR bekannte Schluessel. Was hier hereinkommt, landet im Dashboard
+    // des Wirts -- freier Text von aussen hat da nichts verloren.
+    var grundSchluessel = (event.queryStringParameters && event.queryStringParameters.grund) || '';
+    var grundText = Object.prototype.hasOwnProperty.call(GRUENDE, grundSchluessel)
+        ? GRUENDE[grundSchluessel] : '';
     if (!/^[0-9a-f-]{20,}$/i.test(id)) return page('Link ungültig', 'Dieser Absage-Link ist unvollständig. Bitte nutze den Link aus deiner E-Mail.', false);
     if (!SUPABASE_KEY) return page('Gerade nicht möglich', 'Die Absage kann gerade nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
 
@@ -113,6 +174,19 @@ exports.handler = async function (event) {
         var timeStr = String(r.reservation_time || '').slice(0, 5);
 
         if (r.status === 'cancelled') {
+            // Nachgereichter Grund: genau der Fall, wenn jemand auf der
+            // Bestaetigungsseite einen der Knoepfe drueckt. Die Absage
+            // stand da schon.
+            if (grundText) {
+                try {
+                    await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(id), {
+                        method: 'PATCH',
+                        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+                        body: JSON.stringify({ cancel_reason: grundText })
+                    });
+                } catch (e) {}
+                return page('Danke!', 'Wir haben es notiert. Das hilft dem Restaurant weiter – bis zum nächsten Mal!', true);
+            }
             return page('Schon abgesagt', 'Diese Reservierung wurde bereits storniert. Alles gut – bis zum nächsten Mal!', true);
         }
 
@@ -120,7 +194,9 @@ exports.handler = async function (event) {
         var upd = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(id), {
             method: 'PATCH',
             headers: sbHeaders({ 'Prefer': 'return=minimal' }),
-            body: JSON.stringify({ status: 'cancelled' })
+            body: grundText
+                ? JSON.stringify({ status: 'cancelled', cancel_reason: grundText })
+                : JSON.stringify({ status: 'cancelled' })
         });
         if (!upd.ok) throw new Error('HTTP ' + upd.status);
 
@@ -132,13 +208,14 @@ exports.handler = async function (event) {
         } catch (e) {}
 
         // Restaurant benachrichtigen -- Fehler hier dürfen die Absage nicht kippen
-        try { await notifyRestaurant(r, restName); }
+        try { await notifyRestaurant(r, restName, grundText); }
         catch (e) { console.error('[res-cancel] Benachrichtigung fehlgeschlagen:', e.message); }
 
         return page('Reservierung abgesagt',
             'Danke für die Info' + (r.guest_name ? ', ' + String(r.guest_name).replace(/[<>&]/g, '') : '') + '! ' +
             'Dein Tisch' + (timeStr ? ' um ' + timeStr + ' Uhr' : '') + ' bei ' + String(restName).replace(/[<>&]/g, '') +
-            ' wurde storniert – das Team kann ihn jetzt weitergeben. Bis zum nächsten Mal!', true);
+            ' wurde storniert – das Team kann ihn jetzt weitergeben. Bis zum nächsten Mal!', true,
+            grundText ? '' : grundFrage(id));
     } catch (e) {
         console.error('[res-cancel]', e.message);
         return page('Gerade nicht möglich', 'Die Absage konnte nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
