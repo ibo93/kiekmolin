@@ -52,6 +52,52 @@ console.log('\n-- 1. Treffer bei echten Gerichtnamen --');
     t('"' + f[0] + '" -> ' + f[2].join('+'), fehlend.length === 0, { erwartet: f[2], bekommen: r });
 });
 
+console.log('\n-- 1b. Was am 21.08.2026 dazukam --');
+// GEMESSEN, NICHT GERATEN.
+// Der Vorschlag wurde gegen 35 echte Gerichtnamen laufen gelassen: 13
+// davon erkannte er gar nicht. Nicht alle davon waren Fehler -- bei
+// "Pommes Frites", "Bratkartoffeln" und "Gemuesepfanne" ist nichts zu
+// melden das richtige Ergebnis. Die hier standen wirklich aus.
+//
+// Die Wortliste wuchs dabei von 213 auf 295 Woerter. Jedes einzelne
+// muss den Fehlalarm-Teil unten ueberstehen -- der bleibt der
+// wichtigere.
+[
+    // Paniertes: der Teig ist Weizen, das Ei haelt ihn.
+    ['Wiener Schnitzel', '', ['gluten', 'eier', 'milch']],
+    ['Cordon bleu', '', ['gluten']],
+    ['Frikadelle', 'mit Kartoffelsalat', ['gluten', 'eier']],
+    // Tiramisu stand nur bei Milch und Eiern -- der Loeffelbiskuit ist Weizen.
+    ['Tiramisu', '', ['gluten']],
+    // Kueste. Labskaus enthaelt Matjes.
+    ['Labskaus', '', ['fisch']],
+    ['Sushi Mix', '', ['fisch', 'soja']],
+    // In eine Rinderroulade gehoert Senf.
+    ['Rinderroulade', '', ['senf']],
+    // Soffritto: Sellerie. Und klassisch Parmesan darueber.
+    ['Spaghetti Bolognese', '', ['sellerie', 'milch']],
+    ['Minestrone', '', ['sellerie']],
+    // Spaetzle sind Eiernudeln.
+    ['Kaesespaetzle', '', ['eier', 'milch', 'gluten']],
+    ['Gluehwein', '', ['sulfite']],
+    ['Milchreis', 'mit Zimt und Zucker', ['milch']],
+    ['Caesar Salad', '', ['eier', 'fisch']],
+    ['Flammkuchen', 'Speck und Zwiebeln', ['gluten']],
+    ['Ravioli', 'hausgemacht', ['gluten']]
+].forEach(function (f) {
+    var r = V(f[0], f[1]);
+    var fehlend = f[2].filter(function (c) { return r.indexOf(c) === -1; });
+    t('neu erkannt: "' + f[0] + '" -> ' + f[2].join('+'), fehlend.length === 0,
+      { erwartet: f[2], bekommen: r });
+});
+
+// Und die Gegenprobe zur Messung: was der Vorschlag NICHT erkennt, soll
+// er auch nicht erkennen. Diese drei standen in derselben Stichprobe.
+[['Pommes Frites', ''], ['Bratkartoffeln', ''], ['Gemuesepfanne', 'saisonal']]
+.forEach(function (f) {
+    t('richtig still bei "' + f[0] + '"', V(f[0], f[1]).length === 0, V(f[0], f[1]));
+});
+
 console.log('\n-- 2. Fehlalarme -- der wichtigere Teil --');
 // Diese Woerter ENTHALTEN Allergen-Woerter als Buchstabenfolge, sind aber
 // keine. "Zwiebel" enthaelt "ei", "Fleisch" auch. Ohne Wortgrenze haette
