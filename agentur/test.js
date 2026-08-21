@@ -915,4 +915,230 @@ test('Probeanruf: Demo-Kunde wird als Demo gespeichert und ohne Meldeweg-Warnung
 });
 
 
+test('Google Ads: Anzeigentexte halten die Zeichengrenzen - auch bei langen Ortsnamen', () => {
+  const ga = require('./lib/google-ads');
+
+  // Der haerteste Fall der Region: langer Ortsname, lange Kategorie.
+  const hart = { name: 'Griechisches Restaurant Poseidon', city: 'Neuharlingersiel',
+    cuisine: 'griechisch, gyros', slug: 'poseidon-neuharlingersiel' };
+  const rsa = ga.baueRsa(hart, { bestellung: true, reservierung: true }, {});
+  assert.deepStrictEqual(ga.pruefeRsa(rsa), [], 'keine Beanstandung: ' + ga.pruefeRsa(rsa).join(' | '));
+  assert.strictEqual(rsa.ueberschriften.length, 10, 'volle 10 Ueberschriften trotz langer Namen');
+  assert.strictEqual(rsa.beschreibungen.length, 4);
+  rsa.ueberschriften.forEach((t) => assert.ok(t.length <= 30, 'zu lang: ' + t + ' (' + t.length + ')'));
+  rsa.beschreibungen.forEach((t) => assert.ok(t.length <= 90, 'zu lang: ' + t + ' (' + t.length + ')'));
+
+  // Ohne Bestellung und ohne Reservierung darf die Anzeige beides NICHT
+  // versprechen - sonst zahlt man fuer Klicks, die ins Leere laufen.
+  const nur = ga.baueRsa(hart, {}, {});
+  const alles = nur.ueberschriften.concat(nur.beschreibungen).join(' ').toLowerCase();
+  assert.ok(!/bestell/.test(alles), 'ohne Speisekarte kein Bestell-Versprechen: ' + alles);
+  assert.ok(!/reservier/.test(alles), 'ohne Tische kein Reservierungs-Versprechen');
+  assert.deepStrictEqual(ga.pruefeRsa(nur), [], 'auch dann genug Texte');
+
+  // Rabatte werden NIE erfunden - nur uebernommen, wenn sie uebergeben werden
+  const ohneRabatt = ga.baueRsa(hart, { bestellung: true }, {});
+  assert.ok(!/rabatt|%|gratis|geschenk/i.test(ohneRabatt.ueberschriften.join(' ')), 'kein erfundener Rabatt');
+  const mitRabatt = ga.baueRsa(hart, { bestellung: true }, { versprechen: { rabattText: '10% auf erste Bestellung' } });
+  assert.ok(mitRabatt.ueberschriften.includes('10% auf erste Bestellung'), 'echter Rabatt wird uebernommen');
+});
+
+test('Google Ads: Match Types folgen der Kaufabsicht', () => {
+  const ga = require('./lib/google-ads');
+  const r = { name: 'Pizzeria Roma', city: 'Norden', cuisine: 'pizza, italienisch', slug: 'pizzeria-roma-norden' };
+
+  // Google-Schreibweise muss zum Kopieren taugen
+  assert.strictEqual(ga.formatiere('Pizza Bestellen Norden', 'Exact'), '[pizza bestellen norden]');
+  assert.strictEqual(ga.formatiere('pizza  bestellen', 'Phrase'), '"pizza bestellen"');
+
+  const gruppen = ga.baueKeywords(r, { bestellung: true, reservierung: true });
+  const alle = gruppen.flatMap((g) => g.keywords);
+
+  // Der eigene Name ist immer Exact - billigster Klick, hoechste Absicht
+  const marke = alle.find((k) => k.roh === 'pizzeria roma');
+  assert.strictEqual(marke.matchType, 'Exact');
+  assert.strictEqual(marke.intent, 'transaktional');
+
+  // Money-Keyword mit Ort: Exact
+  assert.ok(alle.some((k) => k.keyword === '[pizza bestellen norden]' && k.matchType === 'Exact'));
+  // Variantenreiches Long-Tail: Phrase
+  assert.ok(alle.some((k) => k.keyword === '"essen liefern lassen norden"' && k.matchType === 'Phrase'));
+  // Kein einziges Broad
+  assert.ok(!alle.some((k) => k.matchType === 'Broad'), 'kein Broad Match ohne Conversion-Historie');
+
+  // Dasselbe Keyword doppelt (Exact + Phrase) ist erlaubt - dann muss die
+  // Begruendung erklaeren, wie man beide steuert
+  const doppelt = alle.filter((k) => k.roh === 'pizzeria norden');
+  assert.strictEqual(doppelt.length, 2, 'einmal Exact, einmal Phrase');
+  assert.ok(doppelt.some((k) => /niedrigerem gebot/i.test(k.begruendung)), 'Steuerung ueber das Gebot ist erklaert');
+
+  // Was der Betrieb nicht kann, wird nicht gebucht
+  const ohne = ga.baueKeywords(r, {}).flatMap((g) => g.keywords);
+  assert.ok(!ohne.some((k) => /bestellen|lieferservice/.test(k.roh)), 'ohne Speisekarte keine Bestell-Keywords');
+  assert.ok(!ohne.some((k) => /reservier/.test(k.roh)), 'ohne Tische keine Reservierungs-Keywords');
+});
+
+test('Google Ads: Geldverbrenner fliegen raus, CSV laesst sich importieren', () => {
+  const ga = require('./lib/google-ads');
+  const r = { name: 'Pizzeria Roma', city: 'Norden', cuisine: 'pizza, italienisch', slug: 'pizzeria-roma-norden' };
+
+  // Info-Suchen werden als solche erkannt
+  assert.ok(/Rezept/i.test(ga.pruefeAussortieren('pizza teig rezept')));
+  assert.ok(/Arbeit/i.test(ga.pruefeAussortieren('pizzeria norden job')));
+  assert.strictEqual(ga.pruefeAussortieren('pizza bestellen norden'), null, 'echte Kaufabsicht bleibt drin');
+
+  const kampagne = ga.baueKampagne(r, { bestellung: true, reservierung: true }, {});
+  assert.deepStrictEqual(kampagne.pruefung, [], 'Anzeige ist ohne Beanstandung');
+  assert.ok(kampagne.gruppen.length >= 3, 'mehrere enge Anzeigengruppen');
+  kampagne.gruppen.forEach((g) => {
+    assert.ok(g.keywords.length <= 10, g.name + ' hat zu viele Keywords: ' + g.keywords.length);
+    assert.ok(/Exact \/ /.test(g.verteilungText), 'Verteilung ausgewiesen: ' + g.verteilungText);
+  });
+
+  // Negative Keywords mit Ebene
+  assert.ok(kampagne.negative.every((n) => n.ebene && n.matchType && n.grund));
+  assert.ok(kampagne.negative.some((n) => /rezept/.test(n.keyword) && n.ebene === 'Kampagne'));
+
+  // CSV: Kopfzeile plus je eine Zeile pro Keyword, ohne Klammern
+  const csv = ga.alsCsvKeywords(kampagne).trim().split('\n');
+  assert.strictEqual(csv[0], 'Campaign,Ad Group,Keyword,Criterion Type');
+  const anzahl = kampagne.gruppen.reduce((n, g) => n + g.keywords.length, 0);
+  assert.strictEqual(csv.length, anzahl + 1);
+  assert.ok(!csv.slice(1).some((z) => /[\[\]"]/.test(z.split(',')[2] || '')), 'im CSV ohne Klammern - Match Type steht in der Spalte');
+
+  // Anzeigen-CSV hat genau die Spalten, die der Google Ads Editor erwartet
+  const anz = ga.alsCsvAnzeigen(kampagne).trim().split('\n');
+  assert.ok(anz[0].includes('Headline 10') && anz[0].includes('Description 4'));
+  assert.strictEqual(anz.length, kampagne.gruppen.length + 1);
+
+  // Budget-Empfehlung bleibt ehrlich: kein Ziel-ROAS ohne Daten
+  const e = kampagne.empfehlung;
+  assert.ok(/Klicks maximieren/.test(e.strategie[0].strategie), 'startet konservativ');
+  assert.ok(/Ziel-ROAS/.test(e.strategie[2].strategie) && /30 Conversions/.test(e.strategie[2].schritt));
+  assert.ok(e.hoechstesGebot.length, 'Money-Keywords benannt');
+});
+
+
+test('Anfrage einlesen: aus der Mail wird ein Eintrag in der Pipeline', () => {
+  const al = require('./lib/anfrage-lesen');
+  const jetzt = new Date(2026, 7, 20, 9, 0);
+
+  const mail = [
+    'Neue Anfrage ueber kiekmolin.de/check',
+    '',
+    'Betrieb:  Pizzeria Roma',
+    'Ort:      Norden',
+    'Name:     Herr Janssen',
+    'Kontakt:  04931 12345',
+    'Anliegen: Bitte melden, moeglichst vormittags',
+    '',
+    'Eingegangen: 14.8.2026, 15:04:22',
+    '',
+    'Naechster Schritt: heute noch zurueckrufen.'
+  ].join('\n');
+
+  const lead = al.parseAnfrageMail(mail, { jetzt });
+  assert.strictEqual(lead.restaurant, 'Pizzeria Roma');
+  assert.strictEqual(lead.ort, 'Norden');
+  assert.strictEqual(lead.kontakt, '04931 12345');
+  assert.strictEqual(lead.nachricht, 'Bitte melden, moeglichst vormittags');
+  assert.strictEqual(lead.status, 'neu');
+  // Das echte Eingangsdatum zaehlt, nicht der Moment des Eintragens -
+  // sonst stimmt die Reihenfolge in der Pipeline nicht.
+  assert.ok(lead.zeit.startsWith('2026-08-14T'), lead.zeit);
+
+  // Weitergeleitete Mail: Kopfzeilen und ">" davor duerfen nichts kaputtmachen
+  const weitergeleitet = [
+    '---------- Weitergeleitete Nachricht ----------',
+    'Von: Kiek mol in <info@kiekmolin.de>',
+    'Betreff: Anfrage: Cafe Strandgut (Norddeich)',
+    '',
+    '> Neue Anfrage ueber kiekmolin.de/check',
+    '>',
+    '> Betrieb:  Cafe Strandgut',
+    '> Ort:      Norddeich',
+    '> Name:     -',
+    '> Kontakt:  info@strandgut.de',
+    '> Anliegen: -'
+  ].join('\n');
+  const w = al.parseAnfrageMail(weitergeleitet, { jetzt });
+  assert.strictEqual(w.restaurant, 'Cafe Strandgut');
+  assert.strictEqual(w.kontakt, 'info@strandgut.de');
+  // "-" ist kein Inhalt, sondern ein leeres Feld
+  assert.strictEqual(w.name, '');
+  assert.strictEqual(w.nachricht, '');
+  // Ohne lesbares Datum wird nicht geraten, sondern JETZT genommen
+  assert.strictEqual(w.zeit, jetzt.toISOString());
+
+  // Unbrauchbares wird abgewiesen, und zwar mit einem Satz, der weiterhilft
+  assert.throws(() => al.parseAnfrageMail(''), /ganze E-Mail einfügen/);
+  assert.throws(() => al.parseAnfrageMail('Moin, ruf mal an!'), /keine Zeile "Betrieb:"/);
+  assert.throws(() => al.parseAnfrageMail('Betrieb: Roma'), /fehlt die Zeile "Kontakt:"/);
+});
+
+test('Anfrage einlesen: von Hand eintragen und Doppelte abwehren', () => {
+  const al = require('./lib/anfrage-lesen');
+  const jetzt = new Date(2026, 7, 20, 9, 0);
+
+  const lead = al.baueAnfrage({ restaurant: 'Imbiss Nord', kontakt: '04931 999', ort: 'Norden' }, { jetzt });
+  assert.strictEqual(lead.restaurant, 'Imbiss Nord');
+  assert.strictEqual(lead.quelle, 'von-hand');
+  assert.strictEqual(lead.zeit, jetzt.toISOString());
+  assert.throws(() => al.baueAnfrage({ kontakt: '123' }), /Namen des Betriebs/);
+  assert.throws(() => al.baueAnfrage({ restaurant: 'X' }), /Rückrufnummer oder E-Mail/);
+
+  // Dieselbe Mail zweimal einfuegen passiert schnell - dann stuende der
+  // Wirt doppelt in der Pipeline und wuerde womoeglich zweimal angerufen
+  const vorhandene = [{ restaurant: 'Imbiss Nord', kontakt: '04931 999' }];
+  assert.strictEqual(al.schonVorhanden(lead, vorhandene), true);
+  assert.strictEqual(al.schonVorhanden(lead, []), false);
+  // Schreibweise darf keinen Unterschied machen
+  assert.strictEqual(al.schonVorhanden(lead, [{ restaurant: 'imbiss  nord', kontakt: '04931999' }]), true);
+  // Anderer Betrieb bleibt ein anderer Betrieb
+  assert.strictEqual(al.schonVorhanden(lead, [{ restaurant: 'Imbiss Sued', kontakt: '04931 999' }]), false);
+});
+
+
+test('Ergebnis senden: nur an Betriebe, die selbst gefragt haben', () => {
+  const al = require('./lib/anfrage-lesen');
+  const befund = { aufhaenger: 'Ihre Speisekarte liegt als PDF vor.', punkte: [] };
+  const bereit = { versandBereit: true };
+
+  // Der Regelfall: hat gefragt, ist geprueft, hat eine E-Mail hinterlassen
+  const gut = al.darfErgebnisSenden(
+    { quelle: 'anfrage', befund, kontakt: 'wirt@roma.de' }, bereit);
+  assert.strictEqual(gut.ok, true);
+  assert.strictEqual(gut.empfaenger, 'wirt@roma.de');
+
+  // Der Fall, der niemals durchgehen darf: Betrieb aus dem Verzeichnis.
+  // Er hat uns um nichts gebeten - eine Werbemail an ihn waere ohne
+  // Einwilligung unzulaessig (§ 7 UWG).
+  const verzeichnis = al.darfErgebnisSenden(
+    { quelle: 'verzeichnis', befund, kontakt: 'info@fremder-betrieb.de' }, bereit);
+  assert.strictEqual(verzeichnis.ok, false);
+  assert.strictEqual(verzeichnis.grund, 'nicht-gefragt');
+  assert.ok(/Kaltakquise/.test(verzeichnis.text), verzeichnis.text);
+
+  // Auch ein fehlendes Quellen-Feld gilt als "hat nicht gefragt" -
+  // im Zweifel wird NICHT gesendet.
+  assert.strictEqual(al.darfErgebnisSenden({ befund, kontakt: 'a@b.de' }, bereit).grund, 'nicht-gefragt');
+
+  // Ohne Befund gibt es nichts zu schicken
+  assert.strictEqual(
+    al.darfErgebnisSenden({ quelle: 'anfrage', kontakt: 'a@b.de' }, bereit).grund, 'kein-befund');
+
+  // Telefonnummer statt E-Mail: dann ist Anrufen ohnehin besser
+  const tel = al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: '04931 12345' }, bereit);
+  assert.strictEqual(tel.grund, 'keine-mail');
+  assert.ok(/Anruf/.test(tel.text));
+  // "@" am Anfang ist keine Adresse
+  assert.strictEqual(al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: '@roma' }, bereit).grund, 'keine-mail');
+
+  // Ohne eingerichteten Versand wird nichts versprochen
+  assert.strictEqual(
+    al.darfErgebnisSenden({ quelle: 'anfrage', befund, kontakt: 'a@b.de' }, { versandBereit: false }).grund,
+    'kein-versand');
+});
+
+
 console.log('\n' + tests + ' Tests bestanden.');

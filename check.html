@@ -19,8 +19,15 @@
      sie ist bei Google bekannt, und ein Wirt sieht sofort, dass
      dahinter etwas Echtes aus der Region steht.
 
-     ANPASSEN vor dem Livegang: die WhatsApp-Nummer weiter unten
-     (Konstante WHATSAPP im Skript am Seitenende).
+     ANPASSEN vor dem Livegang (beides im Skript am Seitenende):
+       WHATSAPP    - die WhatsApp-Nummer
+       META_PIXEL  - die Pixel-ID, wenn Meta-Anzeigen laufen sollen
+
+     ZUM PIXEL: Er lädt erst, NACHDEM der Besucher zugestimmt hat.
+     Vorher wird nichts von Meta geladen und nichts gemessen. Das ist
+     keine Vorsicht, sondern Pflicht - und es hat einen praktischen
+     Grund: ein Banner, das erst nachträglich fragt, liefert kaputte
+     Zahlen und man sucht den Fehler wochenlang in der Kampagne.
      --------------------------------------------------------------- */
   :root {
     --tinte: #16202a; --grau: #5c6a78; --linie: #dfe5ea;
@@ -173,18 +180,124 @@
   <footer>
     KURANI Design · Ibrahim Kuran · Ostfriesland ·
     <a href="/">kiekmolin.de</a><br>
+    <a href="/impressum.html">Impressum</a> ·
+    <a href="/datenschutz-check.html">Datenschutz</a> ·
+    <a href="#" id="einwilligungAendern">Einwilligung ändern</a><br>
     Diese Seite richtet sich an Gastronomiebetriebe. Sind Sie Gast und suchen ein Lokal?
     <a href="/">Hier entlang</a>.
   </footer>
 
 </div>
 
+<!-- Einwilligungs-Banner. Liegt bewusst am Seitenende und nicht als Sperre
+     über dem Inhalt: Wer die Seite liest, soll lesen können. Gemessen wird
+     erst nach einem Klick auf "Einverstanden". -->
+<div id="einwilligung" role="dialog" aria-label="Einwilligung Messung" style="display:none">
+  <div class="einw-inhalt">
+    <p>
+      Wir würden gern messen, über welche Anzeige Sie hergefunden haben. Dafür lädt die Seite
+      ein Zählpixel von Meta (Facebook/Instagram), das Ihre IP-Adresse an Meta übermittelt.
+      <b>Für den kostenlosen Check ist das nicht nötig</b> – das Formular funktioniert auch ohne.
+      Mehr dazu im <a href="/datenschutz-check.html">Datenschutzhinweis</a>.
+    </p>
+    <div class="einw-knoepfe">
+      <button type="button" id="einwNein" class="einw-ablehnen">Nur das Nötige</button>
+      <button type="button" id="einwJa" class="einw-zustimmen">Einverstanden</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  #einwilligung {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999;
+    background: var(--karte); border-top: 1px solid var(--linie);
+    box-shadow: 0 -6px 24px rgba(0,0,0,.14);
+  }
+  .einw-inhalt { max-width: 680px; margin: 0 auto; padding: 16px 20px; }
+  .einw-inhalt p { margin: 0 0 12px; font-size: 13.5px; color: var(--grau); line-height: 1.55; }
+  .einw-inhalt a { color: var(--akzent); }
+  .einw-knoepfe { display: flex; gap: 10px; flex-wrap: wrap; }
+  .einw-knoepfe button {
+    flex: 1 1 150px; padding: 11px 18px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  /* Beide Knöpfe gleich gross und gleich sichtbar - Ablehnen darf nicht
+     schwerer zu finden sein als Zustimmen. */
+  .einw-ablehnen { background: transparent; color: var(--tinte); border: 1px solid var(--linie); }
+  .einw-zustimmen { background: var(--akzent); color: #fff; border: 1px solid var(--akzent); }
+</style>
+
 <script>
 // ---------------------------------------------------------------------
 // HIER DEINE NUMMER EINTRAGEN (internationales Format, ohne + und Leerzeichen):
 // Beispiel: '4915112345678'. Leer lassen = WhatsApp-Knopf bleibt aus.
 var WHATSAPP = '';
+
+// Meta-Pixel-ID (nur Ziffern), zu finden im Events Manager. Leer lassen =
+// es wird gar nichts von Meta geladen und das Einwilligungs-Banner bleibt
+// aus. Solange keine Anzeigen laufen, gehoert hier auch nichts rein.
+var META_PIXEL = '';
 // ---------------------------------------------------------------------
+
+// ------------------------------ Einwilligung und Messung -------------------
+// Reihenfolge ist der ganze Punkt: erst Zustimmung, dann laden. Umgekehrt
+// waere es ein Verstoss - und ausserdem misst ein Banner, das zu spaet
+// fragt, luecken- und damit wertlose Zahlen.
+var SPEICHER = 'kin_check_messung';
+var messungAn = false;
+
+function pixelLaden() {
+  if (messungAn || !META_PIXEL) return;
+  messungAn = true;
+  /* eslint-disable */
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+  (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  /* eslint-enable */
+  window.fbq('init', META_PIXEL);
+  window.fbq('track', 'PageView');
+}
+
+// Ein Ereignis melden - aber nur, wenn wirklich zugestimmt wurde.
+// Ohne diese Pruefung wuerde ein abgeschicktes Formular auch dann an Meta
+// gehen, wenn der Besucher "Nur das Nötige" gewaehlt hat.
+function ereignis(name) {
+  if (messungAn && window.fbq) window.fbq('track', name);
+}
+
+(function () {
+  var banner = document.getElementById('einwilligung');
+  var stand = null;
+  try { stand = localStorage.getItem(SPEICHER); } catch (_e) { /* privater Modus */ }
+
+  function entscheiden(ja) {
+    try { localStorage.setItem(SPEICHER, ja ? 'ja' : 'nein'); } catch (_e) { /* egal */ }
+    banner.style.display = 'none';
+    if (ja) pixelLaden();
+  }
+
+  // Ohne Pixel-ID gibt es nichts zu fragen - dann bleibt das Banner weg.
+  if (META_PIXEL) {
+    if (stand === 'ja') pixelLaden();
+    else if (stand !== 'nein') banner.style.display = 'block';
+    document.getElementById('einwJa').addEventListener('click', function () { entscheiden(true); });
+    document.getElementById('einwNein').addEventListener('click', function () { entscheiden(false); });
+  }
+
+  // Meinung aendern muss immer moeglich sein, auch nach dem Zustimmen.
+  document.getElementById('einwilligungAendern').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!META_PIXEL) {
+      alert('Auf dieser Seite läuft derzeit keine Messung – es gibt nichts einzustellen.');
+      return;
+    }
+    try { localStorage.removeItem(SPEICHER); } catch (_e) { /* egal */ }
+    banner.style.display = 'block';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  });
+})();
 
 (function () {
   var waText = encodeURIComponent('Moin! Ich habe die Seite zum Sichtbarkeits-Check gesehen. Mein Betrieb: ');
@@ -222,6 +335,10 @@ var WHATSAPP = '';
       .then(function (a) {
         if (a && a.ok) {
           form.style.display = 'none';
+          // Erst hier melden, nicht schon beim Klick auf "Senden": gezaehlt
+          // wird nur, was wirklich angekommen ist. Sonst optimiert Meta auf
+          // Anfragen, die es gar nicht gibt.
+          ereignis('Lead');
           zeige('<b>Danke — angekommen.</b><br>Wir melden uns innerhalb von zwei Werktagen bei Ihnen. ' +
             'Bis dahin müssen Sie nichts tun.', true);
           return;

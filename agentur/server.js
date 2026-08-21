@@ -679,6 +679,55 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- OSM-Import --------------
+// Der Import laeuft mehrere Minuten im Hintergrund. Damit man nicht ratlos
+// vor einem Knopf sitzt, wird sein Verlauf hier mitgeschrieben und ueber
+// /api/osm-import abfragbar - Zeile fuer Zeile, so wie im Terminal.
+const osmLauf = { laeuft: false, zeilen: [], fertig: false, fehler: null, gebieteFertig: 0, gebieteGesamt: 0 };
+
+function starteOsmImport() {
+  const { spawn } = require('child_process');
+  Object.assign(osmLauf, { laeuft: true, zeilen: [], fertig: false, fehler: null, gebieteFertig: 0, gebieteGesamt: 0 });
+
+  const kind = spawn('node', [path.join(__dirname, '..', 'import-osm.js')], { cwd: path.join(__dirname, '..') });
+  let rest = '';
+  const lies = (stueck) => {
+    rest += stueck.toString();
+    const teile = rest.split('\n');
+    rest = teile.pop();
+    for (const zeile of teile) {
+      const z = zeile.trim();
+      if (!z) continue;
+      osmLauf.zeilen.push(z);
+      if (osmLauf.zeilen.length > 200) osmLauf.zeilen.shift();
+      // "[osm] Norden ... 34 Treffer, 31 neu" bzw. "... FEHLER - ..."
+      if (/Treffer|FEHLER/.test(z)) osmLauf.gebieteFertig++;
+      const m = z.match(/OSM-Importer fuer (\d+)/);
+      if (m) osmLauf.gebieteGesamt = parseInt(m[1], 10);
+      console.log('[osm-import] ' + z);
+    }
+  };
+  kind.stdout.on('data', lies);
+  kind.stderr.on('data', lies);
+
+  kind.on('error', (e) => {
+    osmLauf.laeuft = false;
+    osmLauf.fehler = 'Import liess sich nicht starten: ' + e.message;
+  });
+  kind.on('close', (code) => {
+    osmLauf.laeuft = false;
+    osmLauf.fertig = true;
+    if (code !== 0) {
+      // Exit-Code 2 setzt der Importer, wenn kein einziger Betrieb ankam.
+      const letzte = osmLauf.zeilen.filter((z) => /ABBRUCH|FEHLER/.test(z)).slice(-3);
+      osmLauf.fehler = letzte.length ? letzte.join(' | ') : 'Import mit Code ' + code + ' beendet.';
+    }
+  });
+
+  // Notbremse: haengt der Import nach 20 Minuten noch, wird er beendet.
+  setTimeout(() => { if (osmLauf.laeuft) { kind.kill(); osmLauf.fehler = 'Import nach 20 Minuten abgebrochen.'; } }, 1200000);
+}
+
 // ------------------------------------------------- Probeanruf-Demo ---------
 // Eine eigene Nummer nur fuer Demos. Ohne sie wuerde eine Demo die Nummer
 // eines zahlenden Kunden ueberschreiben - deshalb bricht der Aufbau lieber ab.
@@ -1149,15 +1198,21 @@ const server = http.createServer(async (req, res) => {
     // der Region (import-osm.js, Overpass API). Laeuft im Hintergrund.
     if (req.method === 'POST' && pfad === '/api/osm-import') {
       if (DEMO) { json(res, 200, { ok: true, hinweis: 'Demo-Modus: Import nur simuliert.' }); return; }
-      const { execFile } = require('child_process');
-      // 45 Suchgebiete von Borkum bis Varel, dazwischen jeweils eine Pause
-      // fuer die Overpass-API: das dauert mehrere Minuten. Mit den alten
-      // 3 Minuten wurde der Import mittendrin abgeschossen und prospects.json
-      // blieb auf dem alten Stand - ohne dass es jemand gemerkt haette.
-      execFile('node', [path.join(__dirname, '..', 'import-osm.js')], { timeout: 1200000 }, (fehler, stdout) => {
-        console.log('[osm-import] ' + (fehler ? 'FEHLER: ' + fehler.message : String(stdout).trim().split('\n').pop()));
+      if (osmLauf.laeuft) { json(res, 200, { ok: true, hinweis: 'Import laeuft bereits.' }); return; }
+      starteOsmImport();
+      json(res, 200, { ok: true, hinweis: 'Import laeuft (4-7 Minuten, 45 Gebiete).' });
+      return;
+    }
+
+    // API: Wie weit ist der Import - und was meldet er? Ohne das sah man
+    // nur einen Knopf, der irgendwann aufhoerte, sich zu drehen.
+    if (req.method === 'GET' && pfad === '/api/osm-import') {
+      json(res, 200, {
+        laeuft: osmLauf.laeuft, zeilen: osmLauf.zeilen.slice(-12),
+        letzte: osmLauf.zeilen[osmLauf.zeilen.length - 1] || '',
+        fertig: osmLauf.fertig, fehler: osmLauf.fehler,
+        gebieteFertig: osmLauf.gebieteFertig, gebieteGesamt: osmLauf.gebieteGesamt
       });
-      json(res, 200, { ok: true, hinweis: 'Import laeuft (5-10 Minuten, 45 Gebiete) - die Liste aktualisiert sich von selbst.' });
       return;
     }
 
@@ -1196,6 +1251,90 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         json(res, 500, { fehler: e.message });
       }
+      return;
+    }
+
+    // API: Anfrage von der Check-Seite in die Pipeline eintragen.
+    // Entweder die E-Mail komplett eingefuegt ({text}) oder die Felder von
+    // Hand ({restaurant, ort, ...}). Die Netlify-Funktion speichert bewusst
+    // nichts - deshalb kommt der Weg in die Pipeline von hier.
+    if (req.method === 'POST' && pfad === '/api/anfrage-eintragen') {
+      const body = await leseBody(req);
+      const anfrage = require('./lib/anfrage-lesen');
+      try {
+        const lead = body.text
+          ? anfrage.parseAnfrageMail(body.text)
+          : anfrage.baueAnfrage(body);
+        const vorhandene = ladeLeads();
+        if (anfrage.schonVorhanden(lead, vorhandene)) {
+          json(res, 409, { fehler: '"' + lead.restaurant + '" steht schon in der Liste. Nicht doppelt eingetragen.' });
+          return;
+        }
+        if (!DEMO) {
+          fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+          fs.appendFileSync(path.join(DATEN_ORDNER, 'leads.jsonl'), JSON.stringify(lead) + '\n');
+        }
+        json(res, 200, { ok: true, lead });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    // API: Das Check-Ergebnis an den Wirt schicken, der danach gefragt hat.
+    //
+    // WICHTIG - und deshalb hier hart eingebaut: Das geht NUR an Betriebe,
+    // die sich selbst gemeldet haben. Wer nur im Verzeichnis steht, hat uns
+    // nicht um irgendetwas gebeten; eine Mail an ihn waere Kaltakquise per
+    // E-Mail und in Deutschland ohne Einwilligung unzulaessig (§ 7 UWG).
+    // Das darf keine Frage der Selbstbeherrschung im Alltag sein - der
+    // Knopf muss es schlicht verweigern.
+    if (req.method === 'POST' && pfad === '/api/anfrage-ergebnis-senden') {
+      const body = await leseBody(req);
+      const eintrag = (await baueInteressentenListe())
+        .find((e) => e.schluessel === String(body.schluessel || ''));
+      if (!eintrag) { json(res, 404, { fehler: 'Interessent nicht gefunden' }); return; }
+
+      const erlaubt = require('./lib/anfrage-lesen')
+        .darfErgebnisSenden(eintrag, { versandBereit: DEMO || versand.istKonfiguriert() });
+      if (!erlaubt.ok) {
+        json(res, erlaubt.grund === 'nicht-gefragt' ? 403 : 400, { fehler: erlaubt.text });
+        return;
+      }
+      const empfaenger = erlaubt.empfaenger;
+
+      const prospect = {
+        name: eintrag.name, city: eintrag.stadt,
+        category: eintrag.kategorie, phone: eintrag.telefon, website: eintrag.website
+      };
+      const datum = new Date().toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      const html = bauePitchHtml(prospect, { datum, befund: eintrag.befund });
+
+      if (DEMO) { json(res, 200, { ok: true, an: empfaenger, simuliert: true }); return; }
+
+      const ergebnis = await versand.sendeReportMail({
+        an: empfaenger,
+        betreff: 'Ihr Sichtbarkeits-Check: ' + eintrag.name,
+        text: 'Moin,\n\nSie hatten über kiekmolin.de/check nach einer Einschätzung gefragt. ' +
+          'Hier ist sie.\n\n' + eintrag.befund.aufhaenger + '\n\n' +
+          'Die vollständige Auswertung steht in dieser E-Mail (HTML-Ansicht). ' +
+          'Rückfragen jederzeit – einfach antworten.\n\nViele Grüße\nIbrahim Kuran · KURANI',
+        html
+      });
+      if (!ergebnis.ok) { json(res, 502, { fehler: ergebnis.fehler || 'Versand fehlgeschlagen.' }); return; }
+
+      // Gesendet ist ein Kontakt: Stufe und Notiz gleich mitziehen, damit man
+      // nicht am naechsten Tag denselben Wirt nochmal anschreibt.
+      try {
+        const stand = ladePipelineStand();
+        const alt = stand[eintrag.schluessel] || {};
+        speicherePipelineStand(pipeline.setzeStand(stand, eintrag.schluessel, {
+          stufe: alt.stufe === 'neu' || !alt.stufe ? 'kontaktiert' : alt.stufe,
+          notiz: ((alt.notiz ? alt.notiz + ' · ' : '') + 'Check-Ergebnis per Mail geschickt').slice(0, 2000)
+        }));
+      } catch (_e) { /* die Mail ist raus - das ist das Wichtige */ }
+
+      json(res, 200, { ok: true, an: empfaenger });
       return;
     }
 
@@ -1589,6 +1728,42 @@ const server = http.createServer(async (req, res) => {
     }
 
     // API: Speisekarten-Doktor - wo bleibt auf der Karte Geld liegen?
+    // API: Google-Ads-Kampagne fuer einen Kunden. Bringt Gaeste auf SEINE
+    // Seite bei kiek mol in. Was der Betrieb nicht anbietet, wird auch nicht
+    // beworben - sonst zahlt man fuer Klicks auf ein leeres Versprechen.
+    if (req.method === 'GET' && pfad.startsWith('/api/google-ads/')) {
+      const teile = pfad.split('/').filter(Boolean);          // api, google-ads, kennung[, csv-art]
+      const kunde = await findeKunde(decodeURIComponent(teile[2] || ''));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const ads = require('./lib/google-ads');
+
+      // Kann-Felder aus den echten Daten ableiten, nicht raten.
+      let gerichte = [];
+      try { gerichte = DEMO ? [] : await telefonDb.speisekarte(kunde.id); } catch (_e) { gerichte = []; }
+      let tische = 0;
+      try { tische = DEMO ? 8 : await telefonDb.anzahlAktiveTische(kunde.id); } catch (_e) { tische = 0; }
+      const koennen = { bestellung: DEMO ? true : gerichte.length > 0, reservierung: tische > 0 };
+
+      const kampagne = ads.baueKampagne(kunde, koennen, {
+        gerichte: gerichte.slice(0, 3).map((g) => g.name).filter(Boolean)
+      });
+
+      // Download als CSV fuer den Google Ads Editor
+      const art = teile[3];
+      if (art) {
+        const bauer = { keywords: ads.alsCsvKeywords, negative: ads.alsCsvNegative, anzeigen: ads.alsCsvAnzeigen }[art];
+        if (!bauer) { json(res, 400, { fehler: 'Unbekannte CSV-Art' }); return; }
+        res.writeHead(200, {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="google-ads-' + art + '-' + effektiverSlug(kunde) + '.csv"'
+        });
+        res.end('﻿' + bauer(kampagne));   // BOM, damit Excel die Umlaute richtig anzeigt
+        return;
+      }
+      json(res, 200, Object.assign({ koennen }, kampagne));
+      return;
+    }
+
     if (req.method === 'GET' && pfad.startsWith('/api/speisekarte-doktor/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }

@@ -203,6 +203,18 @@
       <button class="aktion" style="padding:6px 14px;font-size:12.5px;margin-left:6px" onclick="alleBetriebePruefen(this)" title="Geht alle noch ungeprüften Betriebe durch: Website holen und lesen, Google- und KI-Sichtbarkeit testen">Alle prüfen</button>
     </h2>
     <div class="status" style="margin-top:-6px">Betriebe aus dem Verzeichnis <b>und</b> Anfragen von der Check-Seite – in einer Liste. Was du hier einträgst, bleibt gespeichert: <b>Stufe</b>, <b>Notiz</b> und <b>Wiedervorlage</b>. Was heute fällig ist, steht ganz oben.</div>
+    <details style="margin:10px 0 14px">
+      <summary style="cursor:pointer;font-size:13.5px;color:var(--grau)">➕ Anfrage von der Check-Seite eintragen</summary>
+      <div class="karte" style="margin-top:10px;padding:14px">
+        <div class="status" style="margin-top:0">Eine Anfrage über <b>kiekmolin.de/check</b> kommt als E-Mail bei dir an und wird bewusst nirgends gespeichert. Damit sie in der Pipeline auftaucht: Mail komplett kopieren und hier einfügen.</div>
+        <textarea id="anfrageText" rows="7" placeholder="Neue Anfrage ueber kiekmolin.de/check&#10;&#10;Betrieb:  Pizzeria Roma&#10;Ort:      Norden&#10;Name:     Herr Janssen&#10;Kontakt:  04931 12345&#10;Anliegen: Bitte melden&#10;&#10;Eingegangen: 14.8.2026, 15:04:22"
+          style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:13px;font-family:ui-monospace,Menlo,monospace"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <button class="aktion" onclick="anfrageEintragen(this)">Eintragen</button>
+          <span class="status" id="anfrageStatus" style="margin:0"></span>
+        </div>
+      </div>
+    </details>
     <div id="pipelineKopf"></div>
     <div id="interessentenListe"><div class="leer">Lade Interessenten…</div></div>
   </div>
@@ -259,6 +271,14 @@
           </select></label>
       </div>
       <div id="dDoktor"></div>
+
+      <h2>Google Ads · Gäste auf seine Seite holen</h2>
+      <div class="status" style="margin-top:-6px">Fertige Suchkampagne aus seinen echten Daten: Keywords mit Match Types, auszuschließende Begriffe und Anzeigentexte. Beworben wird nur, was er auch anbietet – hat er keine Online-Bestellung, steht das auch in keiner Anzeige.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <button class="aktion" id="btnAds" onclick="adsLaden()">Kampagne erzeugen</button>
+        <span class="status" id="adsStatus" style="margin:0"></span>
+      </div>
+      <div id="dAds"></div>
 
       <h2 id="hAufgaben">Das ist diesen Monat zu tun</h2>
       <div class="status" style="margin-top:-6px">Die App liest den letzten Report und sagt dir, welche 5-Minuten-Handgriffe jetzt am meisten bringen. Abhaken = Arbeitsnachweis für den Wirt.</div>
@@ -526,6 +546,13 @@ function zeigeInteressenten() {
             (p.befund ? '↻ neu prüfen' : '🔍 prüfen') + '</button>' +
           '<button class="aktion" id="demo-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
             'onclick="demoBauen(\'' + k + '\')" title="Baut einen Probeanruf: seine Speisekarte, sein Name – der Wirt ruft an und hört seinen eigenen Laden">📞 Demo</button>' +
+          // Ergebnis verschicken gibt es NUR bei Betrieben, die selbst gefragt
+          // haben. Bei Verzeichnis-Einträgen wäre das unaufgeforderte Werbung –
+          // deshalb erscheint der Knopf dort gar nicht erst.
+          (anfrage && p.befund
+            ? '<button class="aktion" id="mail-' + k + '" style="padding:4px 9px;font-size:11.5px;margin-left:4px" ' +
+              'onclick="ergebnisSenden(\'' + k + '\')" title="Schickt ihm die Auswertung per E-Mail – er hat schließlich danach gefragt">✉️ Ergebnis senden</button>'
+            : '') +
           (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
           (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
           (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
@@ -591,6 +618,139 @@ async function betriebPruefen(schluessel) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Fehler – nochmal'; btn.title = e.message; }
   }
+}
+
+// ---------------- Anfrage eintragen ----------------
+// Die Anfrage steht nur im Postfach. Ein Handgriff bringt sie in die Pipeline –
+// danach zählt sie beim Trichter mit, taucht bei „Neu" auf und lässt sich
+// prüfen wie jeder andere Betrieb.
+async function anfrageEintragen(btn) {
+  const feld = document.getElementById('anfrageText');
+  const status = document.getElementById('anfrageStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'lese…';
+  try {
+    const r = await api('/api/anfrage-eintragen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: feld.value })
+    });
+    feld.value = '';
+    status.textContent = '✓ "' + r.lead.restaurant + '" steht jetzt ganz oben in der Liste.';
+    await ladeInteressenten();
+    ladeLeads();
+  } catch (e) {
+    status.className = 'status fehler';
+    status.textContent = e.message;
+  }
+  btn.disabled = false;
+}
+
+// Das Check-Ergebnis an jemanden schicken, der danach gefragt hat.
+// Der Server prüft das nochmal selbst – der fehlende Knopf allein ist keine
+// Absicherung, sondern nur die freundliche Variante davon.
+async function ergebnisSenden(schluessel) {
+  const eintrag = (pipelineDaten.liste || []).find(e => e.schluessel === schluessel);
+  if (!eintrag) return;
+  if (!confirm('Auswertung an ' + eintrag.kontakt + ' schicken?\n\n' +
+      'Betrieb: ' + eintrag.name + '\n' +
+      'Danach steht er automatisch auf „Angerufen".')) return;
+  const btn = document.getElementById('mail-' + schluessel);
+  if (btn) { btn.disabled = true; btn.textContent = 'sende…'; }
+  try {
+    const r = await api('/api/anfrage-ergebnis-senden', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schluessel })
+    });
+    if (btn) btn.textContent = '✓ an ' + r.an;
+    await ladeInteressenten();
+    ladeLeads();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✉️ Ergebnis senden'; }
+    alert('Nicht gesendet:\n\n' + e.message);
+  }
+}
+
+// ---------------- Google Ads ----------------
+// Alles zum Kopieren aufbereitet: Keywords stehen schon in der
+// Google-Schreibweise ([exakt] / "wortgruppe"), die CSV-Dateien passen
+// 1:1 in den Google Ads Editor.
+async function adsLaden() {
+  const btn = document.getElementById('btnAds');
+  const ziel = document.getElementById('dAds');
+  const status = document.getElementById('adsStatus');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'baue Kampagne…';
+  try {
+    const k = await api('/api/google-ads/' + encodeURIComponent(aktuellerKunde.id));
+    status.textContent = '';
+    const kennung = encodeURIComponent(aktuellerKunde.id);
+    const farbe = { hoch: '#dc2626', mittel: '#eab308', niedrig: '#16a34a' };
+
+    let html = '<div class="status" style="margin-top:0"><b>Kampagne:</b> ' + pTexte(k.kampagne) +
+      ' · beworben wird: ' + (k.koennen.bestellung ? 'Bestellung' : '') +
+      (k.koennen.bestellung && k.koennen.reservierung ? ' + ' : '') +
+      (k.koennen.reservierung ? 'Reservierung' : '') +
+      (!k.koennen.bestellung && !k.koennen.reservierung ? 'nur die Speisekarte (weder Bestellung noch Reservierung hinterlegt)' : '') + '</div>';
+
+    if (k.pruefung.length) {
+      html += '<div class="status fehler">Google würde beanstanden: ' + k.pruefung.map(pTexte).join(' · ') + '</div>';
+    }
+
+    html += '<div style="margin:10px 0">' +
+      ['keywords', 'negative', 'anzeigen'].map(a =>
+        '<a class="aktion" style="padding:6px 12px;font-size:12.5px;margin-right:8px;text-decoration:none;display:inline-block" ' +
+        'href="/api/google-ads/' + kennung + '/' + a + '">⬇ ' + a + '.csv</a>').join('') +
+      '<span style="font-size:12px;color:var(--grau)">für den Google Ads Editor</span></div>';
+
+    for (const g of k.gruppen) {
+      html += '<h3 style="margin:18px 0 4px;font-size:15px">' + pTexte(g.name) + '</h3>' +
+        '<div class="status" style="margin:0 0 6px">' + pTexte(g.verteilungText) + '</div>' +
+        '<table><tr><th>Keyword</th><th>Match</th><th>Intent</th><th>Warum dieser Match Type</th><th>Wettbewerb</th></tr>' +
+        g.keywords.map(x => '<tr>' +
+          '<td style="font-family:ui-monospace,Menlo,monospace;white-space:nowrap">' + pTexte(x.keyword) + '</td>' +
+          '<td>' + pTexte(x.matchType) + '</td>' +
+          '<td>' + pTexte(x.intent) + '</td>' +
+          '<td style="font-size:12px;color:var(--grau)">' + pTexte(x.begruendung) + '</td>' +
+          '<td style="color:' + (farbe[x.wettbewerb] || 'var(--grau)') + '">' + pTexte(x.wettbewerb) + '</td>' +
+        '</tr>').join('') + '</table>';
+    }
+
+    const a = k.gruppen[0].anzeige;
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Anzeigentext (RSA)</h3>' +
+      '<div class="status" style="margin:0 0 6px">Überschriften max. 30, Beschreibungen max. 90 Zeichen – schon geprüft.</div>' +
+      '<table><tr><th>Überschriften</th><th>Zeichen</th></tr>' +
+      a.ueberschriften.map(t => '<tr><td>' + pTexte(t) + '</td><td>' + t.length + '</td></tr>').join('') +
+      '</table><table style="margin-top:8px"><tr><th>Beschreibungen</th><th>Zeichen</th></tr>' +
+      a.beschreibungen.map(t => '<tr><td>' + pTexte(t) + '</td><td>' + t.length + '</td></tr>').join('') + '</table>' +
+      '<div class="status">Ziel-Adresse: ' + pTexte(a.zielUrl) + '</div>';
+
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Auszuschließen (Negative Keywords)</h3>' +
+      '<table><tr><th>Keyword</th><th>Match</th><th>Ebene</th><th>Warum</th></tr>' +
+      k.negative.map(n => '<tr><td style="font-family:ui-monospace,Menlo,monospace">' + pTexte(n.keyword) + '</td>' +
+        '<td>' + pTexte(n.matchType) + '</td><td>' + pTexte(n.ebene) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(n.grund) + '</td></tr>').join('') + '</table>';
+
+    const e = k.empfehlung;
+    html += '<h3 style="margin:18px 0 4px;font-size:15px">Gebote und Budget</h3>' +
+      '<div class="status" style="margin:0 0 6px">' + pTexte(e.tagesbudget) + '</div>' +
+      '<table><tr><th>Wann</th><th>Gebotsstrategie</th><th>Warum</th></tr>' +
+      e.strategie.map(s => '<tr><td style="white-space:nowrap">' + pTexte(s.schritt) + '</td><td>' + pTexte(s.strategie) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(s.grund) + '</td></tr>').join('') + '</table>' +
+      '<table style="margin-top:8px"><tr><th>Anzeigengruppe</th><th>Budget-Anteil</th><th>Warum</th></tr>' +
+      e.reihenfolge.map(r => '<tr><td>' + pTexte(r.gruppe) + '</td><td>' + pTexte(r.anteil) + '</td>' +
+        '<td style="font-size:12px;color:var(--grau)">' + pTexte(r.grund) + '</td></tr>').join('') + '</table>' +
+      (e.hoechstesGebot.length ? '<div class="status">Höchstes Gebot auf: <b>' + e.hoechstesGebot.map(pTexte).join('</b>, <b>') + '</b></div>' : '') +
+      '<ul style="font-size:13px;color:var(--grau);line-height:1.7">' +
+        e.hinweise.map(h => '<li>' + pTexte(h) + '</li>').join('') + '</ul>';
+
+    ziel.innerHTML = html;
+  } catch (err) {
+    status.className = 'status fehler';
+    status.textContent = 'Fehler: ' + err.message;
+  }
+  btn.disabled = false;
 }
 
 // ---------------- Probeanruf-Demo ----------------
@@ -689,35 +849,68 @@ async function standSenden(schluessel, daten, neuLaden) {
 }
 
 // Der Import geht 45 Gebiete durch (Borkum bis Varel) und legt zwischen
-// jeder Abfrage eine Pause ein – das dauert Minuten. Statt stur zu warten
-// schauen wir alle 20 Sekunden nach, ob die Liste gewachsen ist.
+// jeder Abfrage eine Pause ein – das dauert Minuten. Der Server schreibt
+// dabei jede Zeile mit, wir holen sie alle 3 Sekunden ab. So siehst du,
+// WAS gerade passiert – und vor allem, wenn etwas schiefgeht.
 async function osmImport(btn) {
   btn.disabled = true;
+  btn.textContent = 'Import startet…';
   try {
-    const r = await api('/api/osm-import', { method: 'POST' });
-    const vorher = (pipelineDaten.liste || []).length;
-    let versuche = 0;
-    const schauen = async () => {
-      versuche++;
-      btn.textContent = 'Import läuft… (' + Math.round(versuche * 20 / 60 * 10) / 10 + ' min)';
-      await ladeInteressenten();
-      const jetzt = (pipelineDaten.liste || []).length;
-      if (jetzt > vorher) {
-        btn.disabled = false;
-        btn.textContent = '✓ ' + (jetzt - vorher) + ' Betriebe dazu';
-        setTimeout(() => { btn.textContent = 'Region importieren (OSM)'; }, 8000);
-        return;
-      }
-      if (versuche >= 45) {          // 15 Minuten – dann ist etwas schiefgelaufen
-        btn.disabled = false;
-        btn.textContent = 'Import ohne neue Betriebe – Terminal prüfen';
-        return;
-      }
-      setTimeout(schauen, 20000);
-    };
-    btn.textContent = r.hinweis || 'Import läuft…';
-    setTimeout(schauen, 20000);
+    await api('/api/osm-import', { method: 'POST' });
+    osmVerfolgen(btn);
   } catch (e) { btn.disabled = false; btn.textContent = 'Fehler: ' + e.message; }
+}
+
+function osmProtokollKasten() {
+  let k = document.getElementById('osmProtokoll');
+  if (!k) {
+    k = document.createElement('div');
+    k.id = 'osmProtokoll';
+    k.style.cssText = 'margin:8px 0 12px;padding:10px 12px;border:1px solid var(--linie);' +
+      'border-radius:10px;background:var(--karte);font-size:12px;line-height:1.6;' +
+      'font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:190px;overflow:auto';
+    const kopf = document.getElementById('pipelineKopf');
+    kopf.parentNode.insertBefore(k, kopf);
+  }
+  return k;
+}
+
+async function osmVerfolgen(btn) {
+  const kasten = osmProtokollKasten();
+  const tick = async () => {
+    let s;
+    try { s = await api('/api/osm-import'); } catch (e) { setTimeout(tick, 5000); return; }
+    kasten.textContent = (s.zeilen || []).join('\n');
+    kasten.scrollTop = kasten.scrollHeight;
+    if (s.laeuft) {
+      btn.textContent = 'Import läuft… ' + (s.gebieteFertig || 0) + '/' + (s.gebieteGesamt || 45) + ' Gebiete';
+      setTimeout(tick, 3000);
+      return;
+    }
+    btn.disabled = false;
+    if (s.fehler) {
+      btn.textContent = 'Import fehlgeschlagen';
+      kasten.style.borderColor = '#dc2626';
+      kasten.textContent += '\n\n⚠️ ' + s.fehler +
+        '\n\nprospects.json wurde NICHT verändert – deine bisherige Liste ist unversehrt.';
+      return;
+    }
+    btn.textContent = 'Region importieren (OSM)';
+    kasten.style.borderColor = '#16a34a';
+    await ladeInteressenten();
+  };
+  tick();
+}
+
+// Läuft beim Öffnen der Seite schon ein Import? Dann gleich mitverfolgen –
+// sonst denkt man nach einem Neuladen, es sei nichts passiert.
+async function osmLaufPruefen() {
+  try {
+    const s = await api('/api/osm-import');
+    if (!s.laeuft) return;
+    const btn = document.querySelector('[onclick^="osmImport"]');
+    if (btn) { btn.disabled = true; osmVerfolgen(btn); }
+  } catch (_e) { /* egal */ }
 }
 
 async function pitchErzeugen(name, schluessel) {
@@ -1133,6 +1326,10 @@ async function zeigeKunde(id) {
   ladeTelefonZahlen(aktuellerKunde.id);
   ladeFruehwarnung(aktuellerKunde.id);
   ladeHerkunft(aktuellerKunde.id);
+  // Die Kampagne des vorigen Kunden muss weg – sonst kopiert man Keywords
+  // für Betrieb A in das Konto von Betrieb B.
+  document.getElementById('dAds').innerHTML = '';
+  document.getElementById('adsStatus').textContent = '';
   // Anruf-Demo gehoert immer zum gerade geoeffneten Kunden
   demoSitzung = null;
   const demoChat = document.getElementById('demoChat');
@@ -1846,6 +2043,7 @@ ladeUebersicht();
 ladeLeads();
 ladeRueckrufe();
 ladeInteressenten();
+osmLaufPruefen();
 // ---------------- Echtzeit: der Server meldet sich von selbst ----------
 // Die Umfrage-Schleifen bleiben als Sicherheitsnetz, laufen aber nur noch
 // selten. Alles Wichtige kommt sofort ueber die offene Leitung.
