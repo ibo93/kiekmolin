@@ -74,10 +74,27 @@ t('die App tauscht den Token gegen eine Sitzung',
   /supabaseClient\.auth\.verifyOtp/.test(h), 'kein Tausch');
 t('und prueft, ob wirklich eine entstanden ist',
   /angemeldet = !!\(erg && erg\.data && erg\.data\.session\)/.test(h), 'ungeprueft');
-t('ohne Sitzung wird das Dashboard NICHT geoeffnet',
-  /if \(!angemeldet\) \{[\s\S]{0,1200}?return;\n\s*\}/.test(h), 'macht trotzdem auf');
-t('und der Google-Weg wird als Ausweg genannt',
-  /bitte mit Google anmelden/.test(h), 'keine Alternative');
+// AM 21.08.2026 ZURUECKGENOMMEN -- NACH EINER WEISSEN SEITE.
+//
+// Hier stand die Forderung: ohne Sitzung gar nicht erst aufmachen.
+// Der Gedanke war richtig, nur zu frueh. Solange die Tabellen offen
+// stehen, kommt das Dashboard mit dem oeffentlichen Schluessel bestens
+// zurecht. Wer in dieser Lage den Einlass an die Sitzung knuepft, macht
+// aus einem Zusatznutzen eine Bedingung -- und sperrt bei jedem
+// Schluckauf den Betreiber aus seinem eigenen Verwaltungsbereich aus.
+//
+// Bedingung wird die Sitzung erst, wenn customers wirklich zu ist. Dann
+// steht sie in 11-customers-zumachen.sql als Vorbedingung.
+t('der Passwort-Weg fuehrt IMMER ins Dashboard',
+  /if \(!angemeldet\) \{\s*\n\s*adminDashboardOeffnen\(/.test(h), 'sperrt aus');
+t('bei geglueckter Sitzung baut nur der Zuhoerer auf, nicht beide',
+  /Ein zweiter Aufbau waere ein Rennen gegen sich selbst/.test(h), 'baut doppelt auf');
+// Und der Aufbau selbst darf nirgends mittendrin abbrechen: die
+// Gastansicht ist da schon versteckt.
+t('der Aufbau stolpert nicht ueber fehlende Umschalt-Knoepfe',
+  /var _um = document\.querySelectorAll\('\.toggle-btn'\);/.test(h)
+  && /if \(_um\[0\]\) _um\[0\]/.test(h)
+  && /if \(_um\[1\]\) _um\[1\]/.test(h), 'kann weisse Seite hinterlassen');
 t('scheitert die Sitzung, kommt kein ok:true vom Server',
   /Anmeldung nicht moeglich/.test(al), 'halber Erfolg moeglich');
 

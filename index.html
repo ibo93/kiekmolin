@@ -24353,8 +24353,15 @@ function adminDashboardOeffnen(wer) {
     // Dashboard anzeigen
     document.getElementById('guestView').classList.add('hidden');
     document.getElementById('dashboardView').classList.add('active');
-    document.querySelectorAll('.toggle-btn')[0].classList.remove('active');
-    document.querySelectorAll('.toggle-btn')[1].classList.add('active');
+    // WARUM HIER GEPRUEFT WIRD, OB ES DIE KNOEPFE GIBT
+    // Zwei Zeilen darueber ist die Gastansicht schon versteckt. Wer hier
+    // ueber ein fehlendes Element stolpert, bricht die Funktion ab -- und
+    // hinterlaesst eine weisse Seite, weil weder das eine noch das andere
+    // zu sehen ist. Der Aufbau des Verwaltungsbereichs darf an keiner
+    // Stelle mittendrin aufhoeren.
+    var _um = document.querySelectorAll('.toggle-btn');
+    if (_um[0]) _um[0].classList.remove('active');
+    if (_um[1]) _um[1].classList.add('active');
 
     // Initiale Section anzeigen
     showDashboardSection('dashboard');
@@ -24451,24 +24458,32 @@ async function simpleLogin() {
                 }
             }
 
-            if (!angemeldet) {
-                // NICHT halb hereinlassen.
-                //
-                // Ein Dashboard ohne Sitzung sieht bei zugesperrten
-                // Tabellen leer aus -- und ein leeres Dashboard liest
-                // sich wie Datenverlust. Genau diese Verwechslung hat
-                // am 20.08. eine Stunde gekostet.
-                if (errorEl) {
-                    errorEl.textContent = 'Anmeldung gerade nicht möglich – bitte mit Google anmelden';
-                    errorEl.style.display = 'block';
-                }
-                document.getElementById('adminPassword').value = '';
-                return;
-            }
-
+            // AM 21.08.2026 GEAENDERT -- NACH EINER WEISSEN SEITE.
+            //
+            // Hier stand: ohne Sitzung gar nicht erst aufmachen. Der
+            // Gedanke war richtig -- ein leeres Dashboard liest sich wie
+            // Datenverlust. Nur war er zu frueh.
+            //
+            // Solange die Tabellen offen stehen, kommt das Dashboard mit
+            // dem oeffentlichen Schluessel bestens zurecht. Wer in dieser
+            // Lage den Einlass an die Sitzung knuepft, macht aus einem
+            // Zusatznutzen eine Bedingung -- und sperrt bei jedem
+            // Schluckauf den Betreiber aus seinem eigenen
+            // Verwaltungsbereich aus. Genau das ist passiert.
+            //
+            // Die Sitzung wird also versucht, aber nicht vorausgesetzt.
+            // Bedingung wird sie erst, wenn customers wirklich zu ist --
+            // und dann steht das in 11-customers-zumachen.sql als
+            // Vorbedingung, nicht hier als Tuersteher.
             closeModal('adminLoginModal');
             document.getElementById('adminPassword').value = '';
-            adminDashboardOeffnen({ name: 'Ibo', email: data.email || '' });
+
+            // Hat die Sitzung geklappt, macht der Anmelde-Zuhoerer ueber
+            // checkIfGastronom() denselben Verwaltungsbereich schon auf.
+            // Ein zweiter Aufbau waere ein Rennen gegen sich selbst.
+            if (!angemeldet) {
+                adminDashboardOeffnen({ name: 'Ibo', email: data.email || '' });
+            }
         } else {
             if (errorEl) {
                 // 401 heisst wirklich "falsch". Alles andere ist eine
