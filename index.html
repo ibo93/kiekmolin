@@ -627,6 +627,22 @@
     var _errMeldeLaeuft = false;
     var ERR_MAX_PRO_SITZUNG = 8;
 
+    // WER WAR ANGEMELDET, ALS ES KNALLTE
+    //
+    // currentUser steht in einem SPAETEREN <script>-Block. Wer von hier
+    // aus zu frueh hineinsieht -- also bei einem Fehler waehrend des
+    // Ladens -- bekommt einen ReferenceError. Und zwar auch bei typeof:
+    // bei let und const wirft schon die Frage, ob es die Variable gibt.
+    // Das ist der Unterschied zu var, und genau deshalb steht hier ein
+    // try/catch und keine Abfrage.
+    //
+    // Ein Fehlermelder, der selbst einen Fehler wirft, meldet gar
+    // nichts mehr.
+    function _melderNutzer(feld) {
+        try { return (currentUser && currentUser[feld]) || null; }
+        catch (e) { return null; }
+    }
+
     function meldeFehler(info) {
         try {
             if (_errMeldeLaeuft) return;                       // Regel 3
@@ -652,8 +668,11 @@
                 area: info.area || (document.body && document.body.dataset && document.body.dataset.view) || 'app',
                 page: location.pathname + location.search,
                 status: (typeof info.status === 'number') ? info.status : null,
-                userId: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id) || null,
-                userName: (window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.name) || null,
+                // APP_DATA.currentUser wird nirgends gesetzt -- in jeder
+                // Fehlermeldung stand deshalb "niemand". Der angemeldete
+                // Nutzer steht in currentUser.
+                userId: _melderNutzer('id'),
+                userName: _melderNutzer('name'),
                 // Welches Haus war offen, als es knallte? Ohne das steht in
                 // der Fehlerliste zwar der Fehler, aber nicht, wo er auftrat --
                 // und bei fuenf Betrieben ist das die halbe Suche.
@@ -22849,8 +22868,13 @@ async function initRealtime() {
                 { event: '*', schema: 'public', table: 'restaurant_tables' },
                 (payload) => {
                     // Tischplan + freie Tische aktualisieren
-                    if (typeof loadTischplanForRestaurant === 'function' && window.currentTischplanRestaurant) {
-                        loadTischplanForRestaurant(window.currentTischplanRestaurant);
+                    // window.currentTischplanRestaurant gab es nie (let),
+                    // der Tischplan hat sich also nie von selbst
+                    // aktualisiert, wenn eine Reservierung hereinkam.
+                    var _tpRest = (typeof currentTischplanRestaurant !== 'undefined')
+                        ? currentTischplanRestaurant : null;
+                    if (typeof loadTischplanForRestaurant === 'function' && _tpRest) {
+                        loadTischplanForRestaurant(_tpRest);
                     }
                     // Table Manager Modal live updaten wenn offen
                     var tmModal = document.getElementById('tableManagerModal');
@@ -23010,7 +23034,12 @@ var _tischRufSeit = null;
 // den Alarm des Restaurants natürlich nie sehen.
 function _tischRufFuerMich(act) {
     if (!act || act.activity_type !== 'waiter_call') return false;
-    var angemeldet = !!(window.APP_DATA && APP_DATA.currentUser && APP_DATA.currentUser.id);
+    // Hier half die Zeile oben nicht: APP_DATA.currentUser wird
+    // NIRGENDS gesetzt. "angemeldet" war also immer false -- der
+    // Tischruf ist nie erschienen, bei niemandem.
+    //
+    // Angemeldetes Personal ist, wer im Dashboard sitzt: currentAdmin.
+    var angemeldet = (typeof currentAdmin !== 'undefined' && !!currentAdmin);
     if (!angemeldet) return false;
     var meins = window._gastroOnlyRestaurantId;
     if (meins && act.target_id && act.target_id !== meins) return false;
@@ -23084,7 +23113,10 @@ function zeigeTischRuf(act) {
 // nichts, und man sieht nirgends warum. waiter-pending liest mit dem
 // Dienstschlüssel und gibt nur Tischnummer, Grund und Zeit heraus.
 async function _tischRufeNachfragen() {
-    if (!window.APP_DATA || !APP_DATA.currentUser || !APP_DATA.currentUser.id) return;
+    // Derselbe Fehler wie in _tischRufFuerMich: die Bedingung war immer
+    // wahr, die Funktion also immer sofort wieder draussen. Die
+    // Schleife lief alle 15 Sekunden und tat nie etwas.
+    if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
     if (document.hidden) return;
     var meins = window._gastroOnlyRestaurantId
              || (window.currentRestaurant && window.currentRestaurant.id)
@@ -23616,18 +23648,25 @@ function subscribeWebPush() {
         var phone = localStorage.getItem('kmi_customer_phone') || null;
         var email = localStorage.getItem('kmi_customer_email') || null;
         // Wenn Gastronom angemeldet: restaurant_id mitspeichern für Pending-Reminder
+        //
+        // WARUM HIER NICHT window.currentAdmin STEHT
+        // Weil es das nicht gibt. currentAdmin ist mit let deklariert,
+        // und eine let-Variable haengt NICHT am window-Objekt -- anders
+        // als ein altes var. window.currentAdmin ist also immer
+        // undefined, und jede Abfrage darauf ist still falsch. Genau
+        // daran ist die Admin-Anmeldung gescheitert (siehe unten).
         var gastroRestaurantId = null;
         try {
             if (window._gastroOnlyRestaurantId) {
                 gastroRestaurantId = window._gastroOnlyRestaurantId;
-            } else if (window.currentAdmin && window.currentAdmin.restaurant_id) {
-                gastroRestaurantId = window.currentAdmin.restaurant_id;
+            } else if (typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.restaurant_id) {
+                gastroRestaurantId = currentAdmin.restaurant_id;
             } else {
-                var adminRaw = localStorage.getItem('kmi_admin') || localStorage.getItem('currentAdmin');
-                if (adminRaw) {
-                    var adminObj = JSON.parse(adminRaw);
-                    if (adminObj && adminObj.restaurant_id) gastroRestaurantId = adminObj.restaurant_id;
-                }
+                // Letzter Halt: showGastroDashboard() legt diesen
+                // Schluessel an. Frueher stand hier kmi_admin -- den
+                // schreibt nichts, der Zweig lief also ins Leere.
+                var gespeichert = localStorage.getItem('kmi_gastro_restaurant_id');
+                if (gespeichert) gastroRestaurantId = gespeichert;
             }
         } catch(e) {}
         // DER SUPERADMIN HAT KEINEN EIGENEN BETRIEB.
@@ -23651,12 +23690,28 @@ function subscribeWebPush() {
         // Server gleicht sie mit customers ab, und dort kann sich
         // niemand selbst zum Superadmin machen (siehe den Ausloeser aus
         // Schritt 11).
+        //
+        // UND HIER LAG DER FEHLER, DEN ER AM 21.08. GEMELDET HAT
+        // ("ich als admin bekomme keine nachricht auf mein handy").
+        // Es stand window.currentUser und window.currentAdmin da. Beide
+        // sind mit let deklariert und haengen deshalb nicht am
+        // window-Objekt -- die Abfrage war immer undefined, adminMail
+        // immer null. Sein Handy trug sich ohne E-Mail ein, und
+        // adminGeraete() im Melder sucht genau ueber diese E-Mail.
+        //
+        // Kein Fehler, keine rote Zeile: eine undefined-Abfrage ist
+        // gueltiges JavaScript. Sie ist nur immer falsch.
+        //
+        // Beim Gastronom fiel es nicht auf, weil dessen Zweig ueber
+        // window._gastroOnlyRestaurantId lief -- das wird mit window.
+        // gesetzt und gibt es deshalb wirklich.
         var adminMail = null;
         try {
-            if (window.currentUser && String(window.currentUser.role || '').toLowerCase() === 'superadmin') {
-                adminMail = window.currentUser.email || null;
-            } else if (window.currentAdmin && window.currentAdmin.isAdmin === true) {
-                adminMail = window.currentAdmin.email || null;
+            if (typeof currentUser !== 'undefined' && currentUser &&
+                String(currentUser.role || '').trim().toLowerCase() === 'superadmin') {
+                adminMail = currentUser.email || null;
+            } else if (typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.isAdmin === true) {
+                adminMail = currentAdmin.email || null;
             }
         } catch (e) {}
 
@@ -25534,6 +25589,31 @@ const APP_DATA = {
     tables: [],
     restaurants: []
 };
+
+// APP_DATA IST EIN const -- UND HAENGT DESHALB NICHT AM window.
+//
+// Gefunden am 21.08.2026, beim Suchen nach etwas anderem: der Admin
+// bekam keine Push-Nachrichten, weil dort window.currentAdmin abgefragt
+// wurde. currentAdmin ist mit let deklariert, window.currentAdmin ist
+// also immer undefined. Ein alter var-Name haengt am window, ein
+// let/const nicht -- das ist der ganze Unterschied, und man sieht ihn
+// nicht.
+//
+// Beim Nachzaehlen: an 21 Stellen stand window.APP_DATA. Jede einzelne
+// war immer falsch. Was dadurch still ausfiel:
+//
+//   - der KI-Berater bekam die Liste der Betriebe nie zu sehen
+//   - die Vorbereitungszeit des Hauses wurde nie gefunden, es galt
+//     immer die Pauschale
+//   - der Vorbestell-Hinweis fand seinen Betrieb nicht
+//   - und ein gutes Dutzend weiterer Zweige lief nie an
+//
+// Kein Fehler, keine rote Zeile: "undefined && irgendwas" ist gueltiges
+// JavaScript. Es ist nur immer falsch.
+//
+// Eine Zeile repariert alle 21 auf einmal -- besser als 21 einzelne
+// Eingriffe, bei denen man sich 21 mal vertun kann.
+window.APP_DATA = APP_DATA;
 
 // ==================== KÜCHENART: SCHLÜSSEL IST NICHT ANZEIGETEXT ====================
 //

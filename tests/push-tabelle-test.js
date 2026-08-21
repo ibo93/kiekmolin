@@ -123,10 +123,27 @@ var app = fs.readFileSync(KMI + '/index.html', 'utf8');
 
 t('die App speichert die Adresse des Superadmins mit',
   /adminMail \|\| email/.test(app), 'Geraet bleibt namenlos');
+// HIER STAND window.currentUser UND window.currentAdmin.
+//
+// Diese zwei Zeilen haben den Fehler festgeschrieben, den er am
+// 21.08.2026 gemeldet hat ("ich als admin bekomme keine nachricht auf
+// mein handy"). Beide Variablen sind mit let deklariert und haengen
+// deshalb NICHT am window-Objekt -- die Abfrage in der App war immer
+// undefined, die E-Mail des Admins wurde nie mitgespeichert, und sein
+// Handy war fuer den Melder nicht auffindbar.
+//
+// Der Test hat das nicht gemeldet. Er hat es verlangt. Ein Test, der
+// die falsche Schreibweise einfordert, macht aus einem Fehler eine
+// Regel -- und dann kostet es einen Tag, ihn wiederzufinden.
+//
+// Zweite Lehre daraus: tests/window-let-test.js sucht diese Klasse
+// jetzt von selbst, statt sie Stelle fuer Stelle nachzutragen.
 t('erkannt an der Rolle, nicht am Zufall',
-  /String\(window\.currentUser\.role \|\| ''\)\.toLowerCase\(\) === 'superadmin'/.test(app), 'raet');
+  /String\(currentUser\.role \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'superadmin'/.test(app), 'raet');
 t('auch ueber den Passwort-Weg',
-  /window\.currentAdmin && window\.currentAdmin\.isAdmin === true/.test(app), 'nur Google');
+  /typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin\.isAdmin === true/.test(app), 'nur Google');
+t('und keiner der beiden ueber window (waere immer undefined)',
+  /window\.current(User|Admin)\b/.test(app.replace(/^\s*\/\/.*$/gm, '')) === false, 'wieder window.');
 
 // DER PUNKT, AUF DEN ES ANKOMMT: der Browser darf das nicht behaupten.
 // Ein Haekchen "ich bin Admin" waere mit dem oeffentlichen Schluessel
