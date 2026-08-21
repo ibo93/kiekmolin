@@ -23985,10 +23985,26 @@ function pushHinweisIPhone() {
     if (ziel) ziel.insertBefore(kasten, ziel.firstChild);
 }
 
-function initPushNotifications() {
+// DER AUFRUF KAM ZUM FALSCHEN ZEITPUNKT -- GEFUNDEN AM 21.08.2026.
+//
+// Diese Funktion wurde genau EINMAL gerufen: aus initSupabaseAuth(),
+// beim Laden der Seite. Zu diesem Zeitpunkt ist das Dashboard noch zu
+// -- also war isDashboard falsch, und der ganze Block lief ins Leere.
+// Wer sich danach anmeldete und den Verwaltungsbereich aufmachte, kam
+// nie wieder hier vorbei.
+//
+// Sichtbar wurde es erst, nachdem die Tabelle repariert war: es ging
+// weiterhin KEIN EINZIGER Zugriff auf push_subscriptions hinaus. Nicht
+// einer, der scheiterte -- gar keiner. Das war der Hinweis: wenn nicht
+// einmal ein Fehler ankommt, wird es nicht versucht.
+//
+// Deshalb rufen adminDashboardOeffnen() und showGastroDashboard() sie
+// jetzt ausdruecklich, mit imDashboard = true.
+function initPushNotifications(imDashboard) {
     // Für Gastronomen: Beim Dashboard automatisch fragen
-    var isDashboard = document.getElementById('dashboardView') &&
-                      document.getElementById('dashboardView').style.display !== 'none';
+    var isDashboard = imDashboard === true || (
+                      document.getElementById('dashboardView') &&
+                      document.getElementById('dashboardView').style.display !== 'none');
 
     // iPhone im Safari-Tab: fragen bringt nichts, erklaeren schon.
     if (isDashboard && istIPhone() && !laeuftAlsApp()) {
@@ -24493,6 +24509,11 @@ function adminDashboardOeffnen(wer) {
         updateDashboard();
         loadDashboardStats();
     });
+
+    // Benachrichtigungen: hier, nicht beim Laden der Seite. Beim Laden
+    // ist dieser Bereich noch zu -- siehe die Erklaerung bei
+    // initPushNotifications().
+    try { initPushNotifications(true); } catch (e) {}
 
     showToast('Willkommen zurück, ' + (wer.name || 'Ibo') + '!', 'success');
 }
@@ -37155,6 +37176,11 @@ async function showGastroDashboard(customer) {
         updateDashboard();
         loadDashboardStats();
     });
+
+    // Benachrichtigungen: hier, nicht beim Laden der Seite. Fuer den
+    // Wirt ist das die wichtigere der beiden Stellen -- er ist es, der
+    // die Bestellung bestaetigen soll.
+    try { initPushNotifications(true); } catch (e) {}
 
     showToast('Willkommen ' + currentAdmin.name + '!', 'success');
 }
