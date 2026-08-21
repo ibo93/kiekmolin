@@ -114,19 +114,43 @@ function page(title, text, ok, extra) {
     };
 }
 
-// Die Auswahlmoeglichkeiten. Bewusst kurz und ohne Freitext:
-// - Ein Textfeld auf einer Seite, die per Link erreichbar ist, waere
-//   ein offenes Eingabefeld fuer jeden, der eine Reservierungs-ID hat.
-// - Und der Wirt braucht keine Aufsaetze, sondern eine Ahnung, ob es
-//   an ihm lag.
+// Die Auswahlmoeglichkeiten.
+//
+// "Beim letzten Mal nicht zufrieden" stand hier und ist auf Wunsch des
+// Betreibers wieder raus. Sein Argument: einem Gast so einen Satz zum
+// Antippen hinzulegen, macht aus einer Absage eine Beschwerde, die
+// vorher keine war. Wer wirklich unzufrieden war, schreibt es -- dafuer
+// ist "Sonstiges" da.
+//
+// FREITEXT -- URSPRUENGLICH BEWUSST NICHT, JETZT DOCH
+// Ich hatte davon abgeraten: diese Seite ist ueber einen Link
+// erreichbar, ein offenes Textfeld ist ein offenes Textfeld. Der
+// Betreiber will es trotzdem, und er hat gute Gruende -- sechs feste
+// Knoepfe treffen den wirklichen Grund oft nicht.
+//
+// Also entschaerft statt weggelassen: hoechstens 200 Zeichen, spitze
+// Klammern und kaufmaennisches Und fliegen raus, Zeilenumbrueche
+// werden zu Leerzeichen. Und man braucht weiterhin eine gueltige
+// Reservierungs-ID, um ueberhaupt hier anzukommen -- die ist nicht
+// erratbar.
 var GRUENDE = {
-    krank:      'Krank geworden',
-    plan:       'Pläne haben sich geändert',
-    zeit:       'Schaffe es zeitlich nicht',
-    zuviele:    'Andere Personenzahl nötig',
-    woanders:   'Doch woanders hingegangen',
-    unzufrieden:'Beim letzten Mal nicht zufrieden'
+    krank:     'Krank geworden',
+    plan:      'Pläne haben sich geändert',
+    zeit:      'Schaffe es zeitlich nicht',
+    zuviele:   'Andere Personenzahl nötig',
+    woanders:  'Doch woanders hingegangen',
+    sonstiges: 'Sonstiges'
 };
+
+// Freitext entschaerfen. Leer heisst: nichts geschrieben.
+function freitextSaeubern(roh) {
+    return String(roh == null ? '' : roh)
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/[<>&]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 200);
+}
 
 // Die Frage nach dem Grund -- als Knoepfe, die denselben Endpunkt noch
 // einmal aufrufen. Kein Formular, kein JavaScript: das hier laeuft in
@@ -141,14 +165,32 @@ function grundFrage(id) {
           + 'Magst du kurz sagen, woran es lag?</p>'
           + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
     Object.keys(GRUENDE).forEach(function (k) {
+        // "Sonstiges" ist kein Knopf, sondern das Feld darunter.
+        if (k === 'sonstiges') return;
         h += '<a href="/.netlify/functions/res-cancel?id=' + encodeURIComponent(id)
            + '&grund=' + encodeURIComponent(k) + '" '
            + 'style="display:inline-block;padding:9px 16px;border-radius:9999px;border:1px solid rgba(0,61,51,0.15);'
            + 'background:#f6f8f7;color:#00251e;text-decoration:none;font-size:13px;font-weight:600;">'
            + GRUENDE[k] + '</a>';
     });
-    h += '</div>'
-       + '<p style="margin:14px 0 0;color:#9ca3af;font-size:12px;">Musst du nicht – die Absage ist schon durch.</p>'
+    h += '</div>';
+
+    // Ein echtes Formular, kein JavaScript. Diese Seite wird oft aus
+    // einem Mailprogramm heraus geoeffnet, und deren eingebaute Browser
+    // sind unberechenbar -- ein <form method="get"> laeuft ueberall.
+    h += '<form method="get" action="/.netlify/functions/res-cancel" '
+       + 'style="display:flex;gap:8px;margin-top:14px;">'
+       + '<input type="hidden" name="id" value="' + String(id).replace(/[^0-9a-fA-F-]/g, '') + '">'
+       + '<input type="hidden" name="grund" value="sonstiges">'
+       + '<label for="freiGrund" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Anderer Grund</label>'
+       + '<input id="freiGrund" type="text" name="frei" maxlength="200" placeholder="Anderer Grund…" '
+       + 'style="flex:1;min-width:0;padding:11px 16px;border-radius:9999px;border:1px solid rgba(0,61,51,0.15);'
+       + 'background:#ffffff;color:#00251e;font-size:14px;font-family:inherit;">'
+       + '<button type="submit" style="padding:11px 20px;border-radius:9999px;border:none;background:#003d33;'
+       + 'color:#ffffff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Senden</button>'
+       + '</form>';
+
+    h += '<p style="margin:14px 0 0;color:#9ca3af;font-size:12px;">Musst du nicht – die Absage ist schon durch.</p>'
        + '</div>';
     return h;
 }
@@ -160,6 +202,11 @@ exports.handler = async function (event) {
     var grundSchluessel = (event.queryStringParameters && event.queryStringParameters.grund) || '';
     var grundText = Object.prototype.hasOwnProperty.call(GRUENDE, grundSchluessel)
         ? GRUENDE[grundSchluessel] : '';
+    // Bei "Sonstiges" zaehlt, was der Gast geschrieben hat -- das blosse
+    // Wort "Sonstiges" im Dashboard hilft niemandem. Hat er nichts
+    // geschrieben, gilt die Absage als ohne Grund.
+    var frei = freitextSaeubern((event.queryStringParameters && event.queryStringParameters.frei) || '');
+    if (grundSchluessel === 'sonstiges') grundText = frei;
     if (!/^[0-9a-f-]{20,}$/i.test(id)) return page('Link ungültig', 'Dieser Absage-Link ist unvollständig. Bitte nutze den Link aus deiner E-Mail.', false);
     if (!SUPABASE_KEY) return page('Gerade nicht möglich', 'Die Absage kann gerade nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
 
