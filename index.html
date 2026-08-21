@@ -23907,12 +23907,68 @@ function sendFallbackNotification(title, body, options) {
 }
 
 // Auto-Permission beim Dashboard-Login anfragen
-function initPushNotifications() {
-    if (!('Notification' in window)) return;
+// AUF DEM IPHONE KOMMT NUR ETWAS AN, WENN DIE SEITE ALS APP LIEGT.
+//
+// Seit iOS 16.4 gibt es Web Push auch auf dem iPhone -- aber
+// ausschliesslich, wenn die Seite ueber "Teilen -> Zum Home-Bildschirm"
+// installiert wurde. Im gewoehnlichen Safari-Tab passiert gar nichts:
+// keine Nachfrage, keine Fehlermeldung, es kommt einfach nie eine
+// Meldung an.
+//
+// Genau das ist der haeufigste Grund fuer "die Benachrichtigungen gehen
+// bei mir nicht" -- und man kann tagelang im Server suchen, waehrend es
+// am Geraet liegt. Deshalb sagt die App es dem Wirt, statt ihn raten zu
+// lassen.
+function istIPhone() {
+    var ua = navigator.userAgent || '';
+    // iPad ab iOS 13 meldet sich als Mac -- daran erkennt man es trotzdem.
+    return /iPad|iPhone|iPod/.test(ua)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function laeuftAlsApp() {
+    try {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+            || navigator.standalone === true;
+    } catch (e) { return false; }
+}
 
+function pushHinweisIPhone() {
+    if (document.getElementById('kmiPushHinweis')) return;
+    var kasten = document.createElement('div');
+    kasten.id = 'kmiPushHinweis';
+    kasten.setAttribute('role', 'note');
+    kasten.style.cssText = 'margin:12px;padding:14px 16px;border-radius:20px;'
+        + 'background:rgba(254,214,91,0.16);border:1px solid rgba(254,214,91,0.5);'
+        + 'font-family:Inter,sans-serif;font-size:13px;color:var(--ink-strong,#00251e);line-height:1.5;';
+    kasten.innerHTML = '<strong>Benachrichtigungen aufs Handy</strong><br>'
+        + 'Auf dem iPhone gehen sie nur, wenn Kiek mol in als App auf dem Home-Bildschirm liegt.<br>'
+        + 'Unten auf <strong>Teilen</strong> tippen &rarr; <strong>Zum Home-Bildschirm</strong> &rarr; '
+        + 'die App von dort öffnen. Dann fragt sie nach der Erlaubnis.'
+        + '<button type="button" aria-label="Hinweis schließen" style="display:block;margin-top:10px;padding:7px 14px;'
+        + 'border-radius:9999px;border:1px solid rgba(0,61,51,0.15);background:transparent;'
+        + 'font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Verstanden</button>';
+    kasten.querySelector('button').onclick = function () {
+        try { localStorage.setItem('kmi_push_hinweis_weg', '1'); } catch (e) {}
+        kasten.remove();
+    };
+    var ziel = document.getElementById('sectionDashboard') || document.getElementById('dashboardView');
+    if (ziel) ziel.insertBefore(kasten, ziel.firstChild);
+}
+
+function initPushNotifications() {
     // Für Gastronomen: Beim Dashboard automatisch fragen
     var isDashboard = document.getElementById('dashboardView') &&
                       document.getElementById('dashboardView').style.display !== 'none';
+
+    // iPhone im Safari-Tab: fragen bringt nichts, erklaeren schon.
+    if (isDashboard && istIPhone() && !laeuftAlsApp()) {
+        var weg = null;
+        try { weg = localStorage.getItem('kmi_push_hinweis_weg'); } catch (e) {}
+        if (!weg) setTimeout(pushHinweisIPhone, 1500);
+        return;
+    }
+
+    if (!('Notification' in window)) return;
 
     if (isDashboard && Notification.permission === 'default') {
         // Nach 3 Sekunden fragen — nicht sofort

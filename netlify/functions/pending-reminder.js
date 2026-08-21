@@ -1,10 +1,49 @@
-// Kiek mol in — Erinnerungs-Push für überfällige Pending-Bestellungen/Reservierungen
+// Kiek mol in — Push an den Wirt, wenn etwas hereinkommt.
 //
-// Läuft als Netlify Scheduled Function alle 10 Minuten (siehe netlify.toml).
-// Schickt Web Push an alle Gastronomen-Devices wenn:
-//   - Bestellung Status 'received' oder 'pending' und > 20 Min alt und reminder_sent_at NULL
-//   - Reservierung Status 'pending' und > 20 Min alt und reminder_sent_at NULL
-// Markiert dann reminder_sent_at = jetzt, damit nicht doppelt gesendet wird.
+// Läuft als Netlify Scheduled Function JEDE MINUTE (siehe netlify.toml).
+//
+// ZWEI STUFEN
+//   1. SOFORT   -- alles Offene, das noch nicht gemeldet wurde
+//                  (push_sent_at ist leer). Kein Mindestalter.
+//   2. ERINNERN -- was nach 20 Minuten immer noch offen ist
+//                  (reminder_sent_at ist leer).
+//
+//
+// WARUM DAS UMGEBAUT WURDE
+// ------------------------
+// Diese Datei war eine reine MAHNUNG: sie meldete sich erst, wenn etwas
+// 20 Minuten lang unbeantwortet lag, und lief nur alle 10 Minuten. Eine
+// Reservierung um 21 Uhr erreichte den Wirt also fruehestens um 21:20 --
+// und nur, wenn er bis dahin nicht reagiert hatte.
+//
+// Eine Meldung BEIM EINGANG gab es nirgends. Weder reservation-save
+// noch order-save schicken einen Push; die Reservierung des Gastes
+// entsteht ohnehin direkt aus dem Browser heraus. Im Dashboard sah der
+// Wirt sie sofort (Echtzeit-Kanal) -- aber nur, solange das Dashboard
+// offen war. Zu Hause auf dem Sofa kam nichts an.
+//
+// Der Betreiber dazu: "wenn eine bestellung oder resevierung reinkommt
+// soll der gastronomen auch das als benachrichtigung auf sein handy
+// bekommen ... wenn abends oder morgens eine resevierung reinkommt kann
+// er so bestaetigen ... von zuhause".
+//
+//
+// WARUM NICHT DIREKT AUS order-save / reservation-save
+// ----------------------------------------------------
+// Das waere null Sekunden statt hoechstens sechzig. Aber es waere auch
+// derselbe Push-Code an drei Stellen -- und Reservierungen legt der
+// Browser direkt in der Datenbank an, da gibt es gar keine Function,
+// in die man ihn haengen koennte. Ein Weg, eine Stelle zum Suchen,
+// wenn etwas klemmt.
+//
+//
+// WAS DAS NICHT LOEST: IPHONE
+// ---------------------------
+// Auf dem iPhone kommen Web-Pushs NUR an, wenn die Seite ueber "Zum
+// Home-Bildschirm" als App installiert ist (seit iOS 16.4). Im
+// Safari-Tab passiert nichts -- kein Fehler, keine Meldung, es kommt
+// einfach nie etwas. Das ist der haeufigste Grund fuer "geht bei mir
+// nicht". Die App weist im Dashboard darauf hin.
 //
 // ENV-Vars nötig: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
 
@@ -64,28 +103,51 @@ async function pushToSubscription(sub, payload) {
   }
 }
 
-async function handleItem(kind, item, restaurantNameById) {
+// stufe: 'sofort' (etwas ist hereingekommen) oder 'erinnerung' (liegt
+// seit 20 Minuten unbeantwortet).
+async function handleItem(kind, item, restaurantNameById, stufe) {
   // kind: 'order' | 'reservation'
   const restId = item.restaurant_id;
   if (!restId) return;
+  const tabelle = (kind === 'order' ? 'orders' : 'reservations');
+  const spalte = (stufe === 'sofort' ? 'push_sent_at' : 'reminder_sent_at');
+  const jetzt = new Date().toISOString();
 
   // Push-Subscriptions des Restaurants laden (alle Geräte der Gastronomen)
   const subs = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id');
   if (!subs || !subs.length) {
-    console.log('[reminder] no subs for restaurant', restId, '- skipping', kind, item.id);
-    // trotzdem reminder_sent_at setzen, um nicht jede 10 Min neu zu versuchen
-    await sbPatch((kind === 'order' ? 'orders' : 'reservations') + '?id=eq.' + item.id, { reminder_sent_at: new Date().toISOString() });
+    console.log('[melder] keine Geraete fuer Betrieb', restId, '- uebersprungen:', kind, item.id);
+    // Trotzdem abhaken -- sonst versucht es die Funktion jede Minute neu.
+    // Meldet sich der Wirt spaeter mit einem Geraet an, bekommt er die
+    // alten Sachen nicht nachtraeglich; er sieht sie im Dashboard.
+    await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
     return;
   }
 
   const restName = restaurantNameById[restId] || 'dein Restaurant';
+  const zeitStr = (item.reservation_time || '').slice(0, 5);
   let title, body;
-  if (kind === 'order') {
-    title = '🍽 Neue Bestellung wartet';
+  if (stufe === 'sofort') {
+    if (kind === 'order') {
+      title = '🍽 Neue Bestellung';
+      body = restName + ': ' + (item.customer_name || 'Ein Kunde') + ' hat bestellt. Zum Bestaetigen antippen.';
+    } else {
+      let datumStr = String(item.reservation_date || '');
+      try {
+        const d = new Date(datumStr + 'T12:00:00');
+        if (!isNaN(d.getTime())) datumStr = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      } catch (e) {}
+      title = '📅 Neue Reservierung';
+      body = restName + ': ' + (item.guest_name || 'Ein Gast') + ', ' + datumStr
+           + (zeitStr ? ' um ' + zeitStr + ' Uhr' : '') + ', ' + (item.party_size || '?')
+           + ' Pers. Zum Bestaetigen antippen.';
+    }
+  } else if (kind === 'order') {
+    title = '🍽 Bestellung wartet noch';
     body = restName + ': Eine Bestellung von ' + (item.customer_name || 'Kunde') + ' wartet seit ' + STALE_MINUTES + ' Min. auf Bestaetigung.';
   } else {
-    var when = (item.reservation_date || '') + ' ' + (item.reservation_time || '');
-    title = '📅 Reservierung wartet auf Bestaetigung';
+    var when = (item.reservation_date || '') + ' ' + zeitStr;
+    title = '📅 Reservierung wartet noch';
     body = restName + ': Reservierung von ' + (item.guest_name || 'Gast') + ' (' + when.trim() + ', ' + (item.party_size || '?') + ' Pers.) wartet seit ' + STALE_MINUTES + ' Min.';
   }
 
@@ -96,7 +158,10 @@ async function handleItem(kind, item, restaurantNameById) {
     body: body,
     icon: '/kiek-logo.png',
     badge: '/kiek-logo.png',
-    tag: 'pending-' + kind + '-' + item.id,
+    // Eigener Kennzeichner je Stufe -- sonst ersetzt die Erinnerung die
+    // Sofortmeldung auf dem Sperrbildschirm, und der Wirt haelt sie fuer
+    // dieselbe Sache, die er schon gesehen hat.
+    tag: stufe + '-' + kind + '-' + item.id,
     requireInteraction: true,
     vibrate: [300, 120, 300, 120, 300],
     data: {
@@ -110,7 +175,7 @@ async function handleItem(kind, item, restaurantNameById) {
 
   const results = await Promise.all(subs.map(s => pushToSubscription(s, payload)));
   const successful = results.filter(r => r.ok).length;
-  console.log('[reminder]', kind, item.id, 'sent to', successful, '/', subs.length, 'devices');
+  console.log('[melder]', stufe, kind, item.id, '->', successful, 'von', subs.length, 'Geraeten');
 
   // Stale-Subscriptions entfernen (HTTP 404/410 = nicht mehr gültig)
   for (let i = 0; i < results.length; i++) {
@@ -121,46 +186,68 @@ async function handleItem(kind, item, restaurantNameById) {
     }
   }
 
-  // reminder_sent_at setzen → nicht nochmal pingen
-  await sbPatch((kind === 'order' ? 'orders' : 'reservations') + '?id=eq.' + item.id, { reminder_sent_at: new Date().toISOString() });
+  // Abhaken -- nicht nochmal melden
+  await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
 }
 
 exports.handler = async function() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !VAPID_PUBLIC || !VAPID_PRIVATE) {
-    console.error('[reminder] Missing ENV vars. Need SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE.');
+    console.error('[melder] ENV-Variablen fehlen. Need SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE.');
     return { statusCode: 500, body: 'missing env' };
   }
 
   const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
 
+  // Was in beiden Stufen gebraucht wird.
+  const FELDER_BESTELLUNG   = 'id,restaurant_id,customer_name,created_at';
+  const FELDER_RESERVIERUNG = 'id,restaurant_id,guest_name,reservation_date,reservation_time,party_size,created_at';
+
   try {
-    // Pending Orders (received/pending, älter als 30 Min, noch kein Reminder)
-    const orders = await sbGet(
+    // ---- STUFE 1: SOFORT ----------------------------------------
+    // Alles Offene, das noch nicht gemeldet wurde. Kein Mindestalter --
+    // genau das ist der Unterschied zu vorher.
+    const neueBestellungen = await sbGet(
+      'orders?status=in.(received,pending)' +
+      '&push_sent_at=is.null' +
+      '&select=' + FELDER_BESTELLUNG +
+      '&limit=50'
+    );
+    const neueReservierungen = await sbGet(
+      'reservations?status=eq.pending' +
+      '&push_sent_at=is.null' +
+      '&select=' + FELDER_RESERVIERUNG +
+      '&limit=50'
+    );
+
+    // ---- STUFE 2: ERINNERUNG ------------------------------------
+    const alteBestellungen = await sbGet(
       'orders?status=in.(received,pending)' +
       '&created_at=lt.' + encodeURIComponent(cutoff) +
       '&reminder_sent_at=is.null' +
-      '&select=id,restaurant_id,customer_name,created_at' +
+      '&select=' + FELDER_BESTELLUNG +
       '&limit=50'
     );
-    // Pending Reservations
-    const reservations = await sbGet(
+    const alteReservierungen = await sbGet(
       'reservations?status=eq.pending' +
       '&created_at=lt.' + encodeURIComponent(cutoff) +
       '&reminder_sent_at=is.null' +
-      '&select=id,restaurant_id,guest_name,reservation_date,reservation_time,party_size,created_at' +
+      '&select=' + FELDER_RESERVIERUNG +
       '&limit=50'
     );
 
-    console.log('[reminder] stale orders:', orders.length, '· stale reservations:', reservations.length);
+    const gesamt = neueBestellungen.length + neueReservierungen.length
+                 + alteBestellungen.length + alteReservierungen.length;
+    if (gesamt === 0) return { statusCode: 200, body: 'nichts zu melden' };
 
-    if (orders.length === 0 && reservations.length === 0) {
-      return { statusCode: 200, body: 'no stale items' };
-    }
+    console.log('[melder] neu:', neueBestellungen.length, '/', neueReservierungen.length,
+                '· ueberfaellig:', alteBestellungen.length, '/', alteReservierungen.length);
 
-    // Restaurant-Namen sammeln für Push-Body
+    // Restaurant-Namen sammeln fuer den Text der Meldung
     const restIds = Array.from(new Set([
-      ...orders.map(o => o.restaurant_id),
-      ...reservations.map(r => r.restaurant_id)
+      ...neueBestellungen.map(o => o.restaurant_id),
+      ...neueReservierungen.map(r => r.restaurant_id),
+      ...alteBestellungen.map(o => o.restaurant_id),
+      ...alteReservierungen.map(r => r.restaurant_id)
     ].filter(Boolean)));
 
     let nameById = {};
@@ -170,21 +257,30 @@ exports.handler = async function() {
       restList.forEach(r => { nameById[r.id] = r.name; });
     }
 
-    for (const o of orders) {
-      try { await handleItem('order', o, nameById); }
-      catch (e) { console.error('[reminder] order', o.id, 'failed:', e.message); }
+    // Ein Fehler bei einer Sache darf die anderen nicht aufhalten -- sonst
+    // haengt eine kaputte Zeile die ganze Meldekette auf.
+    async function alle(kind, liste, stufe) {
+      for (const eintrag of liste) {
+        try { await handleItem(kind, eintrag, nameById, stufe); }
+        catch (e) { console.error('[melder]', stufe, kind, eintrag.id, 'fehlgeschlagen:', e.message); }
+      }
     }
-    for (const r of reservations) {
-      try { await handleItem('reservation', r, nameById); }
-      catch (e) { console.error('[reminder] reservation', r.id, 'failed:', e.message); }
-    }
+
+    // Sofortmeldungen zuerst -- die sind die dringenden.
+    await alle('order', neueBestellungen, 'sofort');
+    await alle('reservation', neueReservierungen, 'sofort');
+    await alle('order', alteBestellungen, 'erinnerung');
+    await alle('reservation', alteReservierungen, 'erinnerung');
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ orders: orders.length, reservations: reservations.length })
+      body: JSON.stringify({
+        sofort:     { bestellungen: neueBestellungen.length, reservierungen: neueReservierungen.length },
+        erinnerung: { bestellungen: alteBestellungen.length, reservierungen: alteReservierungen.length }
+      })
     };
   } catch (err) {
-    console.error('[reminder] fatal:', err && err.stack ? err.stack : err);
+    console.error('[melder] schwerer Fehler:', err && err.stack ? err.stack : err);
     return { statusCode: 500, body: err.message || 'error' };
   }
 };
