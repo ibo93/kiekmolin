@@ -14597,7 +14597,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <a href="#" onclick="openModal('impressumModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="impressum">Impressum</a>
                 <a href="#" onclick="openModal('datenschutzModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="privacy">Datenschutz</a>
                 <a href="#" onclick="openModal('agbModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="agb">AGB</a>
-                <a href="#" onclick="openModal('barrierefreiModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;">Barrierefreiheit</a>
                 <a href="#" onclick="openModal('kontaktModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="contact">Kontakt</a>
                 <a href="#" onclick="startRestaurantRegistration(); return false;" style="font-size: 13px; color: var(--text-secondary); text-decoration: none; opacity: 0.7;">Für Gastronomen</a>
             </div>
@@ -43648,82 +43647,39 @@ document.addEventListener('error', function(e) {
      wieder sichtbar macht. -->
 
 <!-- Impressum Modal -->
-<!-- ERKLAERUNG ZUR BARRIEREFREIHEIT.
-     Rechtlich ist sie hier NICHT verpflichtend: das BFSG gilt seit dem
-     28.06.2025 fuer Dienstleistungen im elektronischen Geschaeftsverkehr,
-     nimmt aber Kleinstunternehmen aus (unter 10 Beschaeftigte und
-     hoechstens 2 Mio. Euro Umsatz). Das trifft hier zu.
-     Sie steht trotzdem da, auf Wunsch des Betreibers -- Anlass war ein
-     Bildschirmfoto von Lieferandos Fusszeile, wo "Barrierefreiheit"
-     steht.
-     WICHTIG BEIM AENDERN: hier steht kein Werbetext, sondern was
-     GEMESSEN wurde. Die Zahlen stammen aus einem Durchlauf im Browser
-     (tests/barrierefrei-test.js prueft dieselben Punkte). Wer den Text
-     anfasst, ohne neu zu messen, macht daraus eine Behauptung -- und
-     eine falsche Zusage zur Barrierefreiheit ist schlimmer als keine,
-     weil sich jemand darauf verlaesst.
-     Sobald aus dem Betrieb 10 Beschaeftigte werden, wird das hier
-     Pflicht, und dann gehoert auch die Marktueberwachungsstelle der
-     Laender (MLBF, Magdeburg) als Beschwerdestelle hinein. -->
-<div class="modal-overlay" id="barrierefreiModal">
-    <div class="modal" style="max-width: 520px;">
-        <div class="modal-header">
-            <h2 class="modal-title">Barrierefreiheit</h2>
-            <button class="modal-close" aria-label="Schließen" onclick="closeModal('barrierefreiModal')">×</button>
-        </div>
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto; font-size: 14px; color: var(--text-secondary); line-height: 1.7;">
+<!-- HIER STAND EINE ERKLAERUNG ZUR BARRIEREFREIHEIT -- AM 21.08.2026 ENTFERNT.
+     Sie war nie verpflichtend: das BFSG gilt seit dem 28.06.2025 fuer
+     Dienstleistungen im elektronischen Geschaeftsverkehr, nimmt aber
+     Kleinstunternehmen aus (unter 10 Beschaeftigte, hoechstens 2 Mio.
+     Euro Umsatz). Das trifft hier zu. Sie stand freiwillig da.
 
-            <p style="margin-bottom: 14px;">
-                Wir wollen, dass jeder hier bestellen und reservieren kann – auch mit Screenreader, nur mit der Tastatur oder mit vergrößerter Schrift. Diese Seite sagt ehrlich, was schon geht und was noch nicht.
-            </p>
+     Die erste Fassung war ein Pruefbericht: eine Liste "Was
+     funktioniert" mit gemessenen Zahlen, darunter eine Liste "Was noch
+     nicht gut ist" mit sechs benannten Schwaechen -- fehlender
+     Sprunglink, Tischplan nur mit der Maus, Kontraste, unbeschriftete
+     Felder im Verwaltungsbereich. Gemessen war das richtig. Oeffentlich
+     hingeschrieben war es trotzdem falsch: bei einer FREIWILLIGEN
+     Erklaerung ist eine Maengelliste ein unterschriebenes Gestaendnis,
+     ohne Pflicht dahinter, die es rechtfertigt.
 
-            <h3 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: var(--text-primary);">Was geprüft wurde</h3>
-            <p style="margin-bottom: 14px;">
-                Wir messen die Punkte unten automatisch bei jeder Änderung mit. Es ist keine amtliche Prüfung und kein Gutachten – aber es sind gemessene Werte, keine Absichtserklärungen.
-            </p>
+     Der Betreiber sah es auf dem Handy und sagte: "warum ist es
+     oeffentlich ... der Text an sich garnicht gut", dann "Mach weg das
+     Barriere". Erst gekuerzt, dann ganz entfernt.
 
-            <h3 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: var(--text-primary);">Was funktioniert</h3>
-            <ul style="margin: 0 0 14px 20px; padding: 0; list-style: disc;">
-                <li>Alle Knöpfe haben einen vorlesbaren Namen (geprüft: 405 von 405).</li>
-                <li>In Bestellung, Warenkorb und Reservierung ist jedes Eingabefeld beschriftet – auch die, bei denen vorher nur ein Platzhalter stand, der beim Tippen verschwindet.</li>
-                <li>Alle Bilder haben eine Textalternative.</li>
-                <li>Die Seite lässt sich vergrößern; Zoom ist nicht gesperrt.</li>
-                <li>Wer mit der Tastatur bedient, sieht, wo er gerade ist (sichtbarer Fokus).</li>
-                <li>Wer im Betriebssystem weniger Bewegung eingestellt hat, bekommt weniger Animation.</li>
-                <li>Die Seitensprache ist gesetzt, damit Screenreader richtig aussprechen.</li>
-            </ul>
+     WAS DAMIT NICHT WEG IST: die Arbeit. Die 248 Eingabefelder haben
+     ihre Beschriftung behalten, der sichtbare Fokus bleibt, die
+     Alt-Texte bleiben, prefers-reduced-motion bleibt. Gemessen wird
+     weiter in tests/barrierefrei-test.js -- der Test zaehlt jedes
+     Eingabefeld im Haus und wird rot, sobald ein unbeschriftetes
+     dazukommt. Entfernt wurde die Erklaerung, nicht die Barrierefreiheit.
 
-            <h3 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: var(--text-primary);">Was noch nicht gut ist</h3>
-            <ul style="margin: 0 0 14px 20px; padding: 0; list-style: disc;">
-                <li>Es gibt keinen Sprunglink, mit dem man die Navigation überspringen kann.</li>
-                <li>Änderungen auf der Seite werden Screenreadern nur teilweise angesagt – etwa wenn sich der Warenkorb ändert.</li>
-                <li>Der Tischplan im Verwaltungsbereich ist zum Ziehen mit der Maus gebaut und mit der Tastatur kaum bedienbar.</li>
-                <li>Einzelne Farbkombinationen erreichen den empfohlenen Kontrast noch nicht überall.</li>
-                <li>Die Karte (Restaurant-Standorte) ist visuell; die Adressen stehen aber als Text daneben.</li>
-                <li>Im Verwaltungsbereich, den nur Gastronomen sehen, sind noch nicht alle Eingabefelder beschriftet. Für Gäste ist davon nichts betroffen.</li>
-            </ul>
-
-            <h3 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: var(--text-primary);">Wenn Sie auf eine Barriere stoßen</h3>
-            <p style="margin-bottom: 14px;">
-                Schreiben Sie uns – wir bessern nach und melden uns zurück. Sagen Sie dabei bitte, welche Seite es war und womit Sie sie bedienen (z.&nbsp;B. VoiceOver auf dem iPhone).
-            </p>
-            <p style="margin-bottom: 14px;">
-                E-Mail: <a href="mailto:info@kiekmolin.de" style="color: var(--primary);">info@kiekmolin.de</a>
-            </p>
-            <p style="margin-bottom: 14px;">
-                Brauchen Sie eine Auskunft, die hier nicht barrierefrei erreichbar ist – etwa eine Speisekarte samt Allergenen –, schreiben Sie uns ebenfalls. Wir schicken sie Ihnen in einem Format, das für Sie funktioniert.
-            </p>
-
-            <h3 style="font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: var(--text-primary);">Rechtlicher Hinweis</h3>
-            <p style="margin-bottom: 14px;">
-                Das Barrierefreiheitsstärkungsgesetz (BFSG) gilt seit dem 28.&nbsp;Juni 2025. Kleinstunternehmen – unter 10 Beschäftigte und höchstens 2&nbsp;Mio.&nbsp;Euro Jahresumsatz – sind bei Dienstleistungen davon ausgenommen; das trifft auf uns zu. Diese Erklärung geben wir freiwillig ab.
-            </p>
-            <p style="margin-bottom: 0;">
-                Stand: August 2026
-            </p>
-        </div>
-    </div>
-</div>
+     WENN SIE WIEDERKOMMEN SOLL: nicht als Pruefbericht. Vier Saetze --
+     wir wollen, dass jeder bestellen kann; ueberall perfekt ist es noch
+     nicht; melden Sie sich unter info@kiekmolin.de; Auskuenfte schicken
+     wir in einem Format, das fuer Sie funktioniert. Keine Zahlen, keine
+     Maengelliste. Und sobald der Betrieb 10 Beschaeftigte hat, wird sie
+     Pflicht -- dann gehoert die Marktueberwachungsstelle der Laender
+     (MLBF, Magdeburg) als Beschwerdestelle hinein. -->
 
 <div class="modal-overlay" id="impressumModal">
     <div class="modal" style="max-width: 520px;">
