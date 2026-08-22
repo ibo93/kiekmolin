@@ -107,22 +107,7 @@ function baueTagesplan(daten, optionen) {
       '#s-pipeline'));
   }
 
-  // --- 6. Gewonnen, aber nicht in der Kartei --------------------------------
-  // Der stillste Geldverlust im ganzen Aufbau: ein Betrieb sagt zu, in der
-  // Pipeline steht "Kunde" - und im CRM steht er nicht. Ohne ihn dort gibt
-  // es kein Projekt, keine Rechnung, keinen Abo-Einzug. Es sieht nach
-  // erledigter Arbeit aus, und niemand merkt, dass nie Geld kam.
-  const fehltImCrm = (d.crmLuecke && d.crmLuecke.fehlt) || [];
-  if (fehltImCrm.length) {
-    liste.push(punkt('heute', 'crm-luecke',
-      mehrzahl(fehltImCrm.length, 'gewonnener Betrieb', 'gewonnene Betriebe') + ' fehlt im CRM',
-      fehltImCrm.slice(0, 3).map((x) => x.name).filter(Boolean).join(', ') +
-      (fehltImCrm.length > 3 ? ' und ' + (fehltImCrm.length - 3) + ' weitere' : '') +
-      ' – solange sie dort fehlen, kannst du ihnen keine Rechnung schreiben.',
-      '/crm/#/agentur'));
-  }
-
-  // --- 7. Monats-Reports ----------------------------------------------------
+  // --- 6. Monats-Reports ----------------------------------------------------
   // Die haben Zeit bis zum Monatsende, gehoeren aber auf den Schirm, damit
   // sie nicht am 31. alle auf einmal anstehen.
   const offeneReports = Math.max(0, (d.kunden || 0) - (d.reportsMonat || 0));
@@ -138,7 +123,7 @@ function baueTagesplan(daten, optionen) {
       '#s-kunden'));
   }
 
-  // --- 8. Neukunden-Arbeit --------------------------------------------------
+  // --- 7. Neukunden-Arbeit --------------------------------------------------
   // Nur wenn nichts Dringenderes ansteht: sonst wird der Tagesplan zur
   // Wunschliste und man arbeitet ihn nicht mehr ab.
   const dringendes = liste.some((p) => p.stufe === 'jetzt' || p.stufe === 'heute');

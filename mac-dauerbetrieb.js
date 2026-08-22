@@ -239,8 +239,6 @@ starte('agentur', 'node', ['server.js'], {
 
 log('Alles gestartet. Die Agentur-App: http://localhost:3200');
 log('(Oeffnet sich gleich von selbst. Falls nicht: Adresse im Browser eintippen.)');
-log('Das CRM liegt unter: http://localhost:3200/crm/');
-log('(NUR unter dieser Adresse kennen CRM und Agentur einander.)');
 log('Zum Beenden: Strg+C - dann sind auch Telefon und Tunnel aus.');
 
 // Sauber aufhoeren, damit keine Prozesse verwaist zurueckbleiben.

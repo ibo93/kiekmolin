@@ -41,7 +41,6 @@ const leadCheck = require('./lib/lead-check');
 const checks = require('../sichtbarkeit/lib/checks');
 const telefonKunden = require('./lib/telefon-kunden');
 const demoKunde = require('./lib/demo-kunde');
-const crmBruecke = require('./lib/crm-bruecke');
 const verteiler = new live.Verteiler();
 
 ladeEnv(); // liest sichtbarkeit/.env
@@ -65,15 +64,6 @@ const AUTO_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'auto-lauf.js
 const DIGEST_DATEI = path.join(DATEN_ORDNER, (DEMO ? 'demo-' : '') + 'digest-stand.json');
 const PITCH_ORDNER = path.join(__dirname, 'pitches');  // Interessenten-Pitches
 const PROSPECTS_DATEI = path.join(__dirname, '..', 'prospects.json');
-// Das Kurani-CRM. Liegt als eigene Browser-App daneben und wird von hier
-// unter /crm mit ausgeliefert - siehe Kommentar an der Route.
-const CRM_ORDNER = path.join(__dirname, '..', 'crm');
-const CRM_TYP = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-  '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8'
-};
 
 // ---------------------------------------------------------------- Hilfen ----
 function slugVon(restaurant) {
@@ -689,26 +679,6 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
-// ------------------------------------------------------- CRM-Bruecke -------
-// Das Kurani-CRM (crm/) haelt seine Daten im Browser - kein Server kommt da
-// heran. Darum meldet das CRM seine Kundenliste hierher, sobald man dort die
-// Agentur-Seite oeffnet. Gespeichert wird nur Nummer, Name und Ort; alles
-// Weitere siebt crmBruecke.baueCrmKunden aus, BEVOR etwas auf die Platte geht.
-const CRM_KUNDEN_DATEI = path.join(DATEN_ORDNER, 'crm-kunden.json');
-
-function ladeCrmKunden() {
-  try { return crmBruecke.leseCrmKunden(fs.readFileSync(CRM_KUNDEN_DATEI, 'utf8')); }
-  catch (_e) { return { stand: '', geraet: '', kunden: [] }; }
-}
-
-function speichereCrmKunden(rohe, geraet) {
-  const kunden = crmBruecke.baueCrmKunden(rohe);
-  fs.mkdirSync(DATEN_ORDNER, { recursive: true });
-  const inhalt = { stand: new Date().toISOString(), geraet: String(geraet || '').slice(0, 60), kunden };
-  fs.writeFileSync(CRM_KUNDEN_DATEI, JSON.stringify(inhalt, null, 2));
-  return inhalt;
-}
-
 // ------------------------------------------------- Telefon-Waechter --------
 // Ein Telefon-Retter, der aus ist, sieht nach nichts aus. Kein Fehler, kein
 // rotes Feld - es klingelt einfach niemand mehr. Genau deshalb ist das der
@@ -815,13 +785,6 @@ async function baueTagesplanDaten() {
     daten.anfragen = liste.filter((e) => e.quelle === 'anfrage' && e.stufe === 'neu')
       .map((e) => ({ name: e.name, restaurant: e.name, stufe: e.stufe }));
     daten.ungeprueft = liste.filter((e) => !e.befund && !e.erledigt).length;
-    // Gewonnen, aber im CRM nicht angelegt - der stillste Geldverlust.
-    // Nur moeglich, wenn das CRM ueberhaupt schon einmal gemeldet hat;
-    // ohne Meldung waere jeder Betrieb "fehlt im CRM" und die Meldung Laerm.
-    const crm = ladeCrmKunden();
-    if (crm.kunden.length) {
-      daten.crmLuecke = { fehlt: crmBruecke.luecken(liste, crm.kunden).fehltImCrm };
-    }
   } catch (_e) { /* Pipeline nicht lesbar */ }
 
   try {
@@ -1301,76 +1264,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Das Kurani-CRM unter /crm ausliefern.
-    //
-    // Warum es hier mit drinhaengt und nicht einfach im Netz bleibt: der
-    // Browser trennt gespeicherte Daten strikt nach Adresse. Nur wenn CRM
-    // und Agentur unter DERSELBEN Adresse laufen, darf die CRM-Seite die
-    // Agentur-Schnittstellen ueberhaupt anfragen - eine Seite auf https
-    // duerfte einen localhost-Server gar nicht erst ansprechen.
-    // Also: http://localhost:3200/crm/ - und beide kennen einander.
-    if (req.method === 'GET' && (pfad === '/crm' || pfad.startsWith('/crm/'))) {
-      const rest = pfad === '/crm' ? '/index.html' : pfad.slice(4) || '/index.html';
-      const datei = path.normalize(path.join(CRM_ORDNER, rest === '/' ? '/index.html' : rest));
-      // Nicht aus dem Ordner herausklettern lassen. Mit dem Trennzeichen
-      // dahinter, sonst waere auch ein Nachbarordner "crm-privat" erlaubt.
-      if (!datei.startsWith(CRM_ORDNER + path.sep)) { res.writeHead(403); res.end('Nicht erlaubt'); return; }
-      if (!fs.existsSync(datei) || fs.statSync(datei).isDirectory()) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Nicht gefunden: ' + rest);
-        return;
-      }
-      res.writeHead(200, {
-        'Content-Type': CRM_TYP[path.extname(datei).toLowerCase()] || 'application/octet-stream',
-        // Immer frisch: sonst sieht man nach einer Aenderung tagelang alt aus.
-        'Cache-Control': 'no-store'
-      });
-      res.end(fs.readFileSync(datei));
-      return;
-    }
-
-    // API: Kundenliste, die das CRM hierher meldet. Beim GET nur der Stand,
-    // damit die CRM-Seite zeigen kann, wie alt die Meldung ist.
-    if (req.method === 'GET' && pfad === '/api/crm-kunden') {
-      const c = ladeCrmKunden();
-      json(res, 200, { stand: c.stand, geraet: c.geraet, anzahl: c.kunden.length });
-      return;
-    }
-
-    if (req.method === 'POST' && pfad === '/api/crm-kunden') {
-      const body = await leseBody(req);
-      if (DEMO) { json(res, 200, { ok: true, demo: true, anzahl: 0 }); return; }
-      const inhalt = speichereCrmKunden(body.kunden, body.geraet);
-      json(res, 200, { ok: true, anzahl: inhalt.kunden.length, stand: inhalt.stand });
-      return;
-    }
-
-    // API: die Pipeline in der Form, die das CRM braucht - mit dem Hinweis,
-    // wer dort schon Kunde ist und wo die zwei Luecken klaffen.
-    if (req.method === 'GET' && pfad === '/api/crm-pipeline') {
-      const crm = ladeCrmKunden();
-      const liste = crmBruecke.verknuepfe(await baueInteressentenListe(), crm.kunden);
-      json(res, 200, {
-        stufen: pipeline.STUFEN,
-        crmStand: crm.stand,
-        crmAnzahl: crm.kunden.length,
-        luecken: crmBruecke.luecken(liste, crm.kunden),
-        liste: liste.map((e) => ({
-          schluessel: e.schluessel, name: e.name, stadt: e.stadt,
-          telefon: e.telefon, website: e.website, kategorie: e.kategorie,
-          quelle: e.quelle, kontakt: e.kontakt, ansprechpartner: e.ansprechpartner || '',
-          anfrage: e.anfrage, stufe: e.stufe, notiz: e.notiz,
-          wiedervorlage: e.wiedervorlage, faellig: e.faellig, erledigt: e.erledigt,
-          heat: e.heat, score: e.score,
-          ampel: e.befund ? e.befund.ampel : '',
-          luecken: e.befund ? e.befund.anzahlLuecken : null,
-          aufhaenger: e.befund ? e.befund.aufhaenger : '',
-          crm: e.crm
-        }))
-      });
-      return;
-    }
-
     // Erzeugte Reports ausliefern
     if (req.method === 'GET' && pfad.startsWith('/reports/')) {
       const datei = path.join(REPORT_ORDNER, path.basename(pfad));
@@ -1514,10 +1407,7 @@ const server = http.createServer(async (req, res) => {
     // Liste zusammen, angereichert um den gemerkten Gespraechsstand.
     // Bestandskunden werden per Namens-Abgleich rausgefiltert.
     if (req.method === 'GET' && pfad === '/api/interessenten') {
-      // Wer im CRM schon Kunde ist, bekommt hier seine Kundennummer
-      // angeheftet. Das ist der Unterschied zwischen "fremder Betrieb" und
-      // "den kennst du, der zahlt dir seit zwei Jahren Speisekarten".
-      const liste = crmBruecke.verknuepfe(await baueInteressentenListe(), ladeCrmKunden().kunden);
+      const liste = await baueInteressentenListe();
       json(res, 200, {
         stufen: pipeline.STUFEN,
         uebersicht: pipeline.zaehleStufen(liste),

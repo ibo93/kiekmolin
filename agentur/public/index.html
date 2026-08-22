@@ -358,7 +358,6 @@
     <a href="#s-rueckrufe">Rückrufe</a>
     <a href="#s-kunden">Kunden</a>
     <a href="#s-pipeline">Pipeline</a>
-    <a href="/crm/" target="_blank">CRM ↗</a>
   </nav>
   <div class="unten">
     <button class="theme-knopf" id="themeKnopf" onclick="themeWechseln()">☾ / ☀ Modus wechseln</button>
@@ -779,12 +778,6 @@ function zeigeInteressenten() {
               'onclick="ergebnisSenden(\'' + k + '\')" title="Schickt ihm die Auswertung per E-Mail – er hat schließlich danach gefragt">✉️ Ergebnis senden</button>'
             : '') +
           (anfrage ? ' <span class="badge" style="background:var(--akzent);color:#fff;font-size:11px">hat selbst gefragt</span>' : '') +
-          // Steht er im CRM, ist er kein Fremder: er zahlt dir vielleicht seit
-          // Jahren Speisekarten. Den ohne diesen Hinweis kalt anzurufen wäre
-          // der peinlichste Fehler, den diese Liste zulässt.
-          (p.crm ? ' <a class="badge" href="/crm/#/kunde/' + encodeURIComponent(p.crm.id) + '" target="_blank"' +
-            ' style="background:var(--see);color:#04120f;font-size:11px;text-decoration:none"' +
-            ' title="Dieser Betrieb steht schon in deiner CRM-Kartei">✓ CRM-Kunde Nr. ' + pTexte(p.crm.nr || '–') + '</a>' : '') +
           (p.website ? '' : ' <span style="font-size:11px;color:var(--grau)">(keine Website)</span>') +
           (p.stadt ? '<div style="font-size:11px;color:var(--grau)">' + pTexte(p.stadt) + ' · ' + pTexte(p.kategorie) + '</div>' : '') +
           (anfrage && p.anfrage ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">„' + pTexte(p.anfrage) + '"</div>' : '') +
@@ -876,11 +869,7 @@ async function ladeTagesplan() {
           '<div class="stufe">' + wort[x.stufe] + '</div>' +
           '<div class="titel">' + pTexte(x.titel) + '</div>' +
           '<div class="text">' + pTexte(x.text) + '</div>' +
-          // Sprünge innerhalb der Seite (#…) bleiben hier, ein Weg ins CRM
-          // (/crm/…) geht in einen neuen Tab – sonst ist die Agentur weg.
-          (x.sprung ? '<a href="' + pTexte(x.sprung) + '"' +
-            (x.sprung.charAt(0) === '/' ? ' target="_blank"' : '') +
-            ' style="font-size:12px">→ dorthin</a>' : '') +
+          (x.sprung ? '<a href="' + pTexte(x.sprung) + '" style="font-size:12px">→ dorthin</a>' : '') +
         '</div>').join('');
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Tagesplan nicht abrufbar: ' + e.message + '</div>';
@@ -2476,7 +2465,7 @@ function liveStarten() {
 liveStarten();
 // Demo-Badge anzeigen, wenn der Server im Demo-Modus laeuft
 // Ist die Datenbank nicht erreichbar, kommt hier ein Fehlerobjekt statt einer
-// Liste an. Ohne die Prüfung stirbt an dieser Stelle das ganze Skript – und
+// Liste an. Ohne die Pruefung stirbt an dieser Stelle das ganze Skript – und
 // mit ihm alles, was danach noch starten sollte.
 fetch('/api/kunden').then(r => r.json()).then(k => {
   if (Array.isArray(k) && k.some(x => String(x.id).startsWith('00000000'))) {
