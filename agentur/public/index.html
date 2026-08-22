@@ -3,134 +3,347 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Anzeige-Schrift. Ohne Netz greift Georgia - sieht anders aus, aber nicht kaputt. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap">
 <title>KURANI · Agentur</title>
 <style>
-  /* Zwei Farbwelten, EIN System: alles laeuft ueber Variablen.
-     html[data-theme] schaltet um, der Schalter merkt sich die Wahl. */
+  /* ═══════════════════════════════════════════════════════════════════
+     KURANI · AGENTUR — Gestaltung: „Seezeichen"
+
+     Warum so und nicht als Standard-Dashboard: Diese App ist das
+     Werkzeug einer ostfriesischen Agentur, die Betriebe SICHTBAR macht.
+     Genau das tut ein Seezeichen. Deshalb kommt die ganze Bildsprache
+     von der Wattenmeer-Navigation:
+
+       LEUCHTFEUER   Der Akzent ist ein Signalgelb und wird wie ein
+                     echtes Feuer eingesetzt: sparsam, an wenigen
+                     Stellen, dafuer unuebersehbar. Der Statuspunkt des
+                     Telefon-Retters blinkt im Rhythmus eines
+                     Leuchtfeuers - laeuft er, sieht man das Licht.
+
+       PRICKEN       Die Zweige, die im Watt die Fahrrinne markieren.
+                     Jede Abschnitts-Ueberschrift bekommt eine als
+                     Marke - ein feiner Strich mit Kugel. Das ersetzt
+                     den ueblichen bunten Balken.
+
+       SEEKARTE      Der helle Modus ist kein Weiss, sondern das
+                     warme Papier einer alten Seekarte. Der dunkle ist
+                     kein Grau, sondern Nordsee bei Nacht: ein Blau mit
+                     Gruenstich, nicht die uebliche Bildschirm-Kohle.
+
+       EMAILLE      Karten haben keinen weichen Schatten, sondern eine
+                     Haarlinie und oben eine hauchfeine Lichtkante -
+                     wie ein emailliertes Hafenschild.
+
+     Typografie: Fraunces fuer Zahlen und Namen (eine Schrift mit
+     Eigensinn, gut mit Umlauten), Systemschrift fuer alles, was man
+     schnell liest. Ohne Netz greift Georgia - das sieht dann anders
+     aus, aber nicht kaputt.
+
+     Alle Variablennamen sind wie vorher, damit jede Stelle in der App
+     die neuen Farben von allein bekommt.
+     ═══════════════════════════════════════════════════════════════════ */
+
   :root, html[data-theme="dark"] {
-    --akzent: #fbab1e; --akzent-tief: #e08c07; --tinte: #f2ede1; --grau: #94a0a0;
-    --linie: #24313a; --bg: #0c1216; --karte: #131c22; --karte2: #1b2630;
-    --side: #080d10; --side-text: #cfd6d2;
-    --schatten: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -10px rgba(0,0,0,.5);
-    --glow1: rgba(251,171,30,.09); --glow2: rgba(45,140,150,.10);
+    /* Nordsee bei Nacht: Blau mit Gruenstich statt Bildschirm-Kohle */
+    --bg: #071014;  --karte: #0d1b21;  --karte2: #142831;  --side: #040b0e;
+    --tinte: #e9efeb;  --grau: #7d918f;  --linie: #1a2c33;
+    --akzent: #f5a524;  --akzent-tief: #d4831a;  --akzent-tinte: #1a1204;
+    --see: #4fb79c;              /* zweiter Klang: lebendige Zahlen */
+    --rot: #e5484d;  --gelb: #f2c14e;  --gruen: #35c692;
+    --side-text: #c3d0cd;
+    --kante: rgba(255,255,255,.055);   /* Lichtkante oben auf Karten */
+    --schatten: 0 1px 0 var(--kante) inset, 0 12px 30px -18px rgba(0,0,0,.8);
+    --glow1: rgba(245,165,36,.055); --glow2: rgba(79,183,156,.05);
+    --raster: rgba(255,255,255,.022);
   }
   html[data-theme="light"] {
-    --akzent: #ea8c00; --akzent-tief: #d07c00; --tinte: #17140f; --grau: #79726a;
-    --linie: #e7e2d8; --bg: #f5f3ee; --karte: #fffdf9; --karte2: #efece2;
-    --side: #17140f; --side-text: #d8d2c6;
-    --schatten: 0 1px 2px rgba(22,19,14,.05), 0 8px 22px -10px rgba(22,19,14,.12);
-    --glow1: rgba(234,140,0,.07); --glow2: rgba(45,140,150,.06);
+    /* Papier einer alten Seekarte, nicht Weiss */
+    --bg: #f3f0e7;  --karte: #fffdf6;  --karte2: #ebe6d9;  --side: #10201f;
+    --tinte: #131f1e;  --grau: #6f7a74;  --linie: #ddd6c4;
+    --akzent: #c07510;  --akzent-tief: #a2600b;  --akzent-tinte: #fffdf6;
+    --see: #1c7a63;
+    --rot: #c0272d;  --gelb: #b8860b;  --gruen: #1c7a4f;
+    --side-text: #cdd8d3;
+    --kante: rgba(255,255,255,.9);
+    --schatten: 0 1px 0 var(--kante) inset, 0 10px 24px -18px rgba(19,31,30,.4);
+    --glow1: rgba(192,117,16,.05); --glow2: rgba(28,122,99,.04);
+    --raster: rgba(19,31,30,.02);
   }
-  * { box-sizing: border-box; margin: 0; }
-  body { font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-         color: var(--tinte); font-size: 15px; -webkit-font-smoothing: antialiased;
-         background:
-           radial-gradient(900px 420px at 85% -10%, var(--glow1), transparent 60%),
-           radial-gradient(700px 380px at 0% 10%, var(--glow2), transparent 60%),
-           var(--bg);
-         min-height: 100vh; transition: background .25s, color .25s; }
 
-  /* App-Shell: feste Seitenleiste links, Inhalt rechts */
+  * { box-sizing: border-box; margin: 0; }
+
+  body {
+    font-family: ui-sans-serif, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--tinte); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;   /* Zahlen stehen untereinander */
+    /* Seekarten-Raster, sehr leise - man sieht es erst beim zweiten Blick */
+    background:
+      radial-gradient(820px 380px at 88% -12%, var(--glow1), transparent 62%),
+      radial-gradient(640px 340px at -5% 8%, var(--glow2), transparent 62%),
+      repeating-linear-gradient(0deg, var(--raster) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(90deg, var(--raster) 0 1px, transparent 1px 34px),
+      var(--bg);
+    min-height: 100vh;
+    transition: background .3s, color .3s;
+  }
+
+  /* Anzeige-Schrift: fuer Namen, Zahlen, Marke. Georgia als Rueckfall. */
+  .anzeige, .zahl .wert, .kunde h3, .detail h3, .side .marke, .plan-satz {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-optical-sizing: auto;
+  }
+
+  /* ── Gestell: Leitstand links, Arbeitsflaeche rechts ─────────────── */
   .shell { display: flex; min-height: 100vh; }
-  aside.side { width: 224px; flex: none; background: var(--side); color: var(--side-text);
-               padding: 26px 18px; display: flex; flex-direction: column; gap: 6px;
-               position: sticky; top: 0; height: 100vh; }
-  .side .marke { font-size: 13px; letter-spacing: 4px; font-weight: 800; color: #fff; margin-bottom: 2px; }
-  .side .marke b { color: var(--akzent); }
-  .side .claim { font-size: 10.5px; color: #8b857a; margin-bottom: 22px; letter-spacing: .04em; }
-  .side nav { display: flex; flex-direction: column; gap: 2px; }
-  .side nav a { color: var(--side-text); text-decoration: none; font-size: 13.5px; font-weight: 600;
-                padding: 9px 12px; border-radius: 9px; display: flex; gap: 10px; align-items: center;
-                transition: background .12s, color .12s; }
-  .side nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
-  .side nav a::before { content: ''; width: 6px; height: 6px; border-radius: 50%;
-                        background: var(--akzent); opacity: .65; flex: none; }
+
+  aside.side {
+    width: 232px; flex: none; color: var(--side-text);
+    padding: 28px 20px; display: flex; flex-direction: column; gap: 6px;
+    position: sticky; top: 0; height: 100vh;
+    border-right: 1px solid rgba(255,255,255,.06);
+    /* Von oben dunkel nach unten eine Spur heller: das Licht steht ueber
+       dem Wasser, nicht darin. Nimmt der leeren Mitte das Unfertige. */
+    background:
+      linear-gradient(180deg, rgba(245,165,36,.05), transparent 22%),
+      linear-gradient(180deg, var(--side), color-mix(in srgb, var(--side) 88%, #14343a));
+  }
+  .side nav { padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .side .marke {
+    font-size: 19px; font-weight: 700; color: #fff; letter-spacing: -.01em; line-height: 1.15;
+  }
+  .side .marke b { color: var(--akzent); font-weight: 700; }
+  .side .claim {
+    font-size: 10px; color: #6d7b78; margin: 4px 0 26px;
+    letter-spacing: .18em; text-transform: uppercase;
+  }
+  .side nav { display: flex; flex-direction: column; gap: 1px; }
+  /* Jeder Punkt hat links eine Rinne, die beim Zeigen aufleuchtet -
+     wie ein Fahrwasser, das freigegeben wird. */
+  .side nav a {
+    color: var(--side-text); text-decoration: none; font-size: 13.5px; font-weight: 500;
+    padding: 9px 14px; display: block; position: relative;
+    border-left: 2px solid rgba(255,255,255,.07);
+    transition: color .14s, border-color .14s, background .14s, padding-left .14s;
+  }
+  .side nav a:hover, .side nav a:focus-visible {
+    color: #fff; border-left-color: var(--akzent);
+    background: linear-gradient(90deg, rgba(245,165,36,.09), transparent 70%);
+    padding-left: 17px; outline: none;
+  }
   .side .unten { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
-  .side .demo { font-size: 10.5px; border: 1px solid rgba(255,255,255,.18); color: #b9b2a5;
-                padding: 4px 10px; border-radius: 999px; text-align: center; }
-  .theme-knopf { font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 9px;
-                 border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06);
-                 color: var(--side-text); cursor: pointer; }
-  .theme-knopf:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .side .demo {
+    font-size: 9.5px; letter-spacing: .16em; border: 1px solid rgba(255,255,255,.2);
+    color: #a8b4b0; padding: 5px 10px; text-align: center;
+  }
+  .theme-knopf {
+    font-size: 12px; letter-spacing: .06em; padding: 9px 12px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.14); background: transparent;
+    color: var(--side-text); font-family: inherit; transition: border-color .14s, color .14s;
+  }
+  .theme-knopf:hover { border-color: var(--akzent); color: #fff; }
+
   .inhalt { flex: 1; min-width: 0; }
-  main { max-width: 1060px; margin: 0 auto; padding: 34px 28px 80px; }
+  /* Der Horizont: eine feine Linie mit Feuerschein, ueber die ganze
+     Breite. Der einzige Zierstrich in der ganzen App - dafuer der,
+     der ihr das Gesicht gibt. */
+  .inhalt::before {
+    content: ''; display: block; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--akzent) 18%, var(--see) 52%, var(--akzent) 82%, transparent);
+    opacity: .5;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 38px 30px 90px; }
+
   @media (max-width: 760px) {
     .shell { flex-direction: column; }
-    aside.side { width: 100%; height: auto; position: static; padding: 16px 18px; }
+    aside.side { width: 100%; height: auto; position: static; padding: 16px 18px; border-right: none;
+                 border-bottom: 1px solid rgba(255,255,255,.06); }
+    .side .claim { margin-bottom: 12px; }
     .side nav { flex-direction: row; flex-wrap: wrap; }
-    .side .unten { margin-top: 8px; flex-direction: row; align-items: center; }
+    .side nav a { border-left: none; border-bottom: 2px solid rgba(255,255,255,.07); padding: 7px 10px; }
+    .side nav a:hover { padding-left: 10px; border-bottom-color: var(--akzent); }
+    .side .unten { margin-top: 10px; flex-direction: row; align-items: center; }
+    main { padding: 24px 18px 70px; }
   }
-  ::selection { background: rgba(245,158,11,.3); }
-  h2 { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 34px 0 14px;
-       color: var(--grau); font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  h2::before { content: ''; width: 22px; height: 3px; background: var(--akzent); border-radius: 2px; flex: none; }
 
-  /* Telefon-Retter-Karte */
-  .telefon { background: var(--karte); border: 1px solid var(--linie); border-radius: 14px; padding: 18px 22px;
-             display: flex; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: var(--schatten); }
-  .punkt { width: 12px; height: 12px; border-radius: 50%; background: #ccc; flex: none; }
-  .punkt.an { background: #16a34a; box-shadow: 0 0 0 5px rgba(22,163,74,.14); }
-  .telefon .info { font-size: 14.5px; font-weight: 500; }
+  ::selection { background: rgba(79,183,156,.28); }
+  a { color: var(--akzent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+
+  /* ── Ueberschriften mit Pricke ───────────────────────────────────── */
+  h2 {
+    font-size: 11.5px; letter-spacing: .2em; text-transform: uppercase;
+    margin: 44px 0 16px; color: var(--tinte); font-weight: 700; opacity: .78;
+    display: flex; align-items: center; gap: 11px;
+  }
+  /* Die Pricke: ein Stab, der im Watt steckt, mit Kugel obendrauf.
+     Der Stab muss sichtbar sein - sonst ist es nur ein Punkt und die
+     ganze Anspielung geht verloren. */
+  h2::before {
+    content: ''; flex: none; width: 7px; height: 19px; align-self: center;
+    background:
+      radial-gradient(circle at 3.5px 3.5px, var(--akzent) 0 3.4px, transparent 3.8px),
+      linear-gradient(90deg, transparent 3px, currentColor 3px 4px, transparent 4px);
+    opacity: .9;
+  }
+  /* Grundlinie, in der die Pricke steckt - die Wasserkante. */
+  h2::after {
+    content: ''; flex: 1; height: 1px; background: var(--linie); min-width: 20px;
+  }
+
+  h3 { font-size: 16px; font-weight: 600; }
+
+  /* ── Karten: Emaille statt Weichzeichner ─────────────────────────── */
+  .telefon, .kunde, .detail, .zahl, .karte, table, .leer {
+    background: var(--karte); border: 1px solid var(--linie); border-radius: 4px;
+    box-shadow: var(--schatten);
+  }
+
+  /* ── Leuchtfeuer: der Statuspunkt des Telefon-Retters ────────────── */
+  .telefon { padding: 18px 22px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .punkt { width: 11px; height: 11px; border-radius: 50%; background: var(--linie); flex: none; }
+  .punkt.an { background: var(--gruen); }
+  /* Kennung eines Leuchtfeuers: kurz hell, lange Pause. Wer hinsieht,
+     erkennt am Rhythmus, dass der Dienst wirklich lebt. */
+  @media (prefers-reduced-motion: no-preference) {
+    .punkt.an { animation: feuer 4s ease-in-out infinite; }
+  }
+  @keyframes feuer {
+    0%, 12% { box-shadow: 0 0 0 0 rgba(53,198,146,.55), 0 0 12px 2px rgba(53,198,146,.5); }
+    22%     { box-shadow: 0 0 0 7px rgba(53,198,146,0), 0 0 0 0 rgba(53,198,146,0); }
+    100%    { box-shadow: 0 0 0 0 rgba(53,198,146,0); }
+  }
+  .telefon .info { font-size: 14.5px; }
   .telefon .anrufe { margin-left: auto; font-size: 12.5px; color: var(--grau); }
   .telefon .anrufe a { color: var(--tinte); }
 
-  /* Kundenliste */
-  .suche { width: 100%; padding: 13px 18px; font-size: 15px; border: 1px solid var(--linie); border-radius: 12px;
-           margin-bottom: 14px; background: var(--karte); box-shadow: var(--schatten); outline: none; }
+  /* ── Kundenliste ─────────────────────────────────────────────────── */
+  .suche {
+    width: 100%; padding: 13px 16px; font-size: 15px; font-family: inherit;
+    border: 1px solid var(--linie); background: var(--karte); color: var(--tinte);
+    border-radius: 4px; margin-bottom: 14px; outline: none; transition: border-color .14s;
+  }
   .suche:focus { border-color: var(--akzent); }
-  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
-  .kunde { background: var(--karte); border: 1px solid var(--linie); border-radius: 14px; padding: 18px 20px;
-           cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; box-shadow: var(--schatten); }
-  .kunde:hover { border-color: var(--akzent); transform: translateY(-2px);
-                 box-shadow: 0 2px 4px rgba(22,19,14,.06), 0 14px 28px -10px rgba(22,19,14,.14); }
-  .kunde h3 { font-size: 16.5px; margin-bottom: 2px; letter-spacing: -.01em; }
-  .kunde .meta { font-size: 12.5px; color: var(--grau); }
-  .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12.5px; }
-  .badge { display: inline-block; font-size: 11.5px; padding: 3px 11px; border-radius: 999px;
-           background: var(--karte2); font-weight: 700; letter-spacing: .02em; }
-  .badge.akzent { background: linear-gradient(135deg, var(--akzent), var(--akzent-tief)); color: #171104;
-                  box-shadow: 0 2px 6px -2px rgba(245,158,11,.55); }
-  .status { font-size: 13px; }
-  .leer { background: var(--karte); border: 1px dashed var(--linie); border-radius: 12px; padding: 14px 18px !important; }
+  .suche::placeholder { color: var(--grau); }
 
-  /* Detail-Ansicht */
-  .detail { background: var(--karte); border: 1px solid var(--linie); border-radius: 16px; padding: 26px 28px; box-shadow: var(--schatten); }
+  .kunden { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .kunde {
+    padding: 18px 20px; cursor: pointer; position: relative; overflow: hidden;
+    transition: border-color .16s, transform .16s;
+  }
+  /* Die Lichtkante oben wird beim Zeigen zum Feuer - kein Hochheben,
+     kein Schattenwurf, nur Licht. */
+  .kunde::after {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--akzent), transparent);
+    opacity: 0; transition: opacity .16s;
+  }
+  .kunde:hover { border-color: var(--akzent); transform: translateY(-1px); }
+  .kunde:hover::after { opacity: .8; }
+  .kunde h3 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 2px; }
+  .kunde .meta { font-size: 12.5px; color: var(--grau); }
+  .kunde .zeile { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; font-size: 12.5px; }
+
+  .badge {
+    display: inline-block; font-size: 10.5px; padding: 3px 9px; border-radius: 3px;
+    background: var(--karte2); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .badge.akzent { background: var(--akzent); color: var(--akzent-tinte); }
+
+  /* ── Detail-Ansicht ─────────────────────────────────────────────── */
+  .detail { padding: 28px 30px; }
   .detail .kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .detail h3 { font-size: 22px; }
-  .zurueck { font-size: 13px; color: var(--grau); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
-  .knopfleiste { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
-  button.aktion { font-size: 14px; padding: 10px 20px; border-radius: 999px; cursor: pointer;
-                  background: var(--karte2); color: var(--tinte); font-weight: 600; border: 1px solid var(--linie);
-                  transition: transform .12s, box-shadow .12s, border-color .12s; }
-  button.aktion:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--akzent);
-                  box-shadow: 0 6px 18px -6px rgba(251,171,30,.35); }
-  button.aktion.primaer { background: linear-gradient(135deg, var(--akzent), var(--akzent-tief)); color: #171104;
-                          border: none; box-shadow: 0 4px 16px -4px rgba(251,171,30,.55); }
-  button.aktion:disabled { opacity: .5; cursor: wait; }
+  .detail h3 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+  .zurueck {
+    font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--grau);
+    cursor: pointer; background: none; border: none; padding: 0 0 16px; font-family: inherit;
+  }
+  .zurueck:hover { color: var(--akzent); }
+  .knopfleiste { display: flex; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
+
+  /* ── Knoepfe: flach, Haarlinie, kein Farbklecks ──────────────────── */
+  button.aktion {
+    font-size: 13.5px; font-family: inherit; padding: 9px 16px; border-radius: 3px; cursor: pointer;
+    background: transparent; color: var(--tinte); font-weight: 600;
+    border: 1px solid var(--linie); transition: border-color .14s, color .14s, background .14s;
+  }
+  button.aktion:hover:not(:disabled) { border-color: var(--akzent); color: var(--akzent); }
+  button.aktion.primaer {
+    background: var(--akzent); color: var(--akzent-tinte); border-color: var(--akzent);
+  }
+  button.aktion.primaer:hover:not(:disabled) {
+    background: var(--akzent-tief); border-color: var(--akzent-tief); color: var(--akzent-tinte);
+  }
+  button.aktion:disabled { opacity: .45; cursor: wait; }
+
   .status { font-size: 13px; color: var(--grau); margin: 8px 0; min-height: 18px; }
-  .status.fehler { color: #f87171; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px;
-          background: var(--karte); border-radius: 12px; overflow: hidden; box-shadow: var(--schatten); }
-  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--grau);
-       background: var(--karte2); padding: 10px 14px; font-weight: 700; }
-  td { border-bottom: 1px solid var(--linie); padding: 11px 14px; }
+  .status.fehler { color: var(--rot); }
+
+  /* ── Tabellen: Seekarten-Register, keine Kacheln ─────────────────── */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; overflow: hidden; }
+  th {
+    text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .16em;
+    color: var(--grau); background: var(--karte2); padding: 9px 14px; font-weight: 700;
+    border-bottom: 1px solid var(--linie);
+  }
+  td { border-bottom: 1px solid var(--linie); padding: 11px 14px; vertical-align: top; }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,.03); }
+  /* Beim Zeigen leuchtet die Zeile links auf, statt grau zu werden. */
+  tbody tr:hover td, table tr:hover td { background: linear-gradient(90deg, rgba(245,165,36,.06), transparent 40%); }
   td a { color: var(--tinte); font-weight: 600; }
-  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: var(--tinte); opacity:.85; }
-  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
-  .zahl { border: 1px solid var(--linie); border-radius: 14px; padding: 16px 18px; background: var(--karte);
-          box-shadow: var(--schatten); position: relative; overflow: hidden; }
-  .zahl::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-                 background: linear-gradient(180deg, var(--akzent), transparent); opacity: .55; }
-  .zahl { transition: transform .15s, box-shadow .15s; }
-  .zahl:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(22,19,14,.06), 0 14px 26px -12px rgba(22,19,14,.16); }
-  .zahl .wert { font-size: 31px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  td a:hover { color: var(--akzent); }
+
+  .fragen li { font-size: 13.5px; margin-bottom: 4px; color: var(--tinte); opacity: .85; }
+
+  /* ── Zahlen: das Herz der Uebersicht ─────────────────────────────── */
+  .zahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .zahl { padding: 18px 20px; position: relative; overflow: hidden; transition: border-color .16s; }
+  /* Peilstrich links: kurz, kraeftig, oben - keine durchgezogene Leiste. */
+  .zahl::after {
+    content: ''; position: absolute; left: 0; top: 18px; width: 2px; height: 26px;
+    background: var(--akzent);
+  }
+  .zahl:hover { border-color: var(--akzent); }
+  .zahl .wert {
+    font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.05;
+  }
   .zahl .wert.akzent { color: var(--akzent); }
-  .zahl .label { font-size: 11px; color: var(--grau); text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; font-weight: 700; }
-  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 5px; line-height: 1.45; }
-  .leer { color: var(--grau); font-size: 13.5px; padding: 8px 0; }
-  .dateien a { display: inline-block; margin: 3px 8px 3px 0; font-size: 13px; color: var(--tinte); }
+  .zahl .label {
+    font-size: 9.5px; color: var(--grau); text-transform: uppercase; letter-spacing: .18em;
+    margin-top: 6px; font-weight: 700;
+  }
+  .zahl .sub { font-size: 12px; color: var(--grau); margin-top: 6px; line-height: 1.45; }
+
+  /* ── Tagesplan: die Signaltafel ──────────────────────────────────── */
+  .plan-satz {
+    font-size: 20px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35;
+    margin: 0 0 16px; color: var(--tinte);
+  }
+  .plan-punkt {
+    background: var(--karte); border: 1px solid var(--linie); border-left: 3px solid var(--linie);
+    border-radius: 4px; padding: 14px 18px; margin-bottom: 8px;
+    box-shadow: var(--schatten); transition: border-color .16s;
+  }
+  .plan-punkt .stufe {
+    font-size: 9.5px; letter-spacing: .2em; font-weight: 700; text-transform: uppercase;
+  }
+  .plan-punkt .titel { font-weight: 700; margin: 3px 0 4px; font-size: 15px; }
+  .plan-punkt .text { font-size: 13px; color: var(--grau); }
+  .plan-punkt.jetzt { border-left-color: var(--rot); }
+  .plan-punkt.jetzt .stufe { color: var(--rot); }
+  .plan-punkt.heute { border-left-color: var(--gelb); }
+  .plan-punkt.heute .stufe { color: var(--gelb); }
+  .plan-punkt\.diese-woche, .plan-punkt.woche { border-left-color: var(--grau); }
+  .plan-punkt.woche .stufe { color: var(--grau); }
+  .plan-punkt.frei { border-left-color: var(--see); }
+  .plan-punkt:hover { border-color: var(--akzent); }
+
+  .karte { padding: 18px 20px; }
+  .leer { color: var(--grau); font-size: 13.5px; padding: 14px 18px; border-style: dashed; }
+  .dateien a { display: inline-block; margin: 3px 10px 3px 0; font-size: 13px; }
 </style>
 <script>document.documentElement.dataset.theme = localStorage.getItem('kurani-theme') || 'dark';</script>
 </head>
@@ -366,7 +579,7 @@ async function ladeUebersicht() {
       <div class="zahl"><div class="wert">${u.offeneRueckrufe}</div>
         <div class="label">Offene Rückrufe</div>
         <div class="sub">${u.offeneRueckrufe ? 'heute abarbeiten!' : 'nichts offen'}</div></div>
-      <div class="zahl"><div class="wert" style="color:${u.kundenInGefahr ? '#dc2626' : 'inherit'}">${u.kundenInGefahr || 0}</div>
+      <div class="zahl"><div class="wert" style="color:${u.kundenInGefahr ? 'var(--rot)' : 'inherit'}">${u.kundenInGefahr || 0}</div>
         <div class="label">Kunden in Gefahr</div>
         <div class="sub">${u.kundenInGefahr ? 'rote Ampel – heute anrufen!' : 'alle stabil'}</div></div>`;
     const auto = document.getElementById('automatikInfo');
@@ -520,7 +733,7 @@ function zeigeInteressenten() {
   const offen = alle.filter(e => !e.erledigt).length;
   kopf.innerHTML = '<div style="margin:4px 0 12px">' +
     knopf('offen', 'Offen', offen) +
-    (u.faellig ? knopf('faellig', '⏰ Heute fällig', u.faellig, '#dc2626') : '') +
+    (u.faellig ? knopf('faellig', '⏰ Heute fällig', u.faellig, 'var(--rot)') : '') +
     (pipelineDaten.stufen || []).map(s => knopf(s.id, s.text, u.zaehler[s.id] || 0)).join('') +
     knopf('alle', 'Alle', u.gesamt) + '</div>';
 
@@ -533,7 +746,7 @@ function zeigeInteressenten() {
   if (!liste.length) { ziel.innerHTML = '<div class="leer">In dieser Ansicht steht gerade nichts.</div>'; return; }
 
   const heatBadge = (h) => {
-    const f = { heiss: '#dc2626', warm: '#eab308', kalt: '#94a0a0' }[h] || '#94a0a0';
+    const f = { heiss: 'var(--rot)', warm: 'var(--gelb)', kalt: 'var(--grau)' }[h] || 'var(--grau)';
     const t = { heiss: '🔥 heiß', warm: '☀ warm', kalt: 'kalt' }[h] || h;
     return '<span class="badge" style="background:' + f + ';color:#fff;font-size:11px">' + t + '</span>';
   };
@@ -566,7 +779,7 @@ function zeigeInteressenten() {
           (anfrage && p.anfrage ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">„' + pTexte(p.anfrage) + '"</div>' : '') +
           (!anfrage && p.gruende && p.gruende[0] ? '<div style="font-size:11px;color:var(--grau);margin-top:2px">' + pTexte(p.gruende[0]) + '</div>' : '') +
         '</td>' +
-        '<td>' + heatBadge(p.heat) + (p.faellig ? '<div style="font-size:11px;color:#dc2626;margin-top:3px">⏰ fällig</div>' : '') + '</td>' +
+        '<td>' + heatBadge(p.heat) + (p.faellig ? '<div style="font-size:11px;color:var(--rot);margin-top:3px">⏰ fällig</div>' : '') + '</td>' +
         '<td style="white-space:nowrap">' + (p.telefon ? '<a href="tel:' + pTexte(p.telefon) + '">' + pTexte(p.telefon) + '</a>' : (p.kontakt ? pTexte(p.kontakt) : '–')) + '</td>' +
         '<td><select onchange="stufeSetzen(\'' + k + '\', this.value)" style="padding:6px 8px;border-radius:8px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font-size:12.5px">' + stufenWahl + '</select></td>' +
         '<td style="min-width:230px">' +
@@ -592,13 +805,13 @@ function befundHtml(b) {
   const luecken = (b.punkte || []).filter(p => p.art === 'luecke');
   const gutes = (b.punkte || []).filter(p => p.art === 'gut');
   const offen = (b.punkte || []).filter(p => p.art === 'offen');
-  const farbe = { gross: '#dc2626', mittel: '#eab308', klein: '#16a34a' }[b.ampel] || 'var(--grau)';
+  const farbe = { gross: 'var(--rot)', mittel: 'var(--gelb)', klein: 'var(--gruen)' }[b.ampel] || 'var(--grau)';
   return '<div style="border-left:3px solid ' + farbe + ';padding:8px 0 8px 12px;margin:0 0 10px">' +
     '<div style="font-size:13px;margin-bottom:6px"><b>So fängst du das Telefonat an:</b><br>' +
       '<span style="color:var(--tinte)">„' + pTexte(b.aufhaenger) + '"</span></div>' +
-    (luecken.length ? '<div style="font-size:12px;color:var(--grau)"><b style="color:#dc2626">Was ihm fehlt (' + luecken.length + '):</b> ' +
+    (luecken.length ? '<div style="font-size:12px;color:var(--grau)"><b style="color:var(--rot)">Was ihm fehlt (' + luecken.length + '):</b> ' +
       luecken.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
-    (gutes.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b style="color:#16a34a">Hat er schon:</b> ' +
+    (gutes.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b style="color:var(--gruen)">Hat er schon:</b> ' +
       gutes.map(p => pTexte(p.titel)).join(' · ') + '</div>' : '') +
     (offen.length ? '<div style="font-size:12px;color:var(--grau);margin-top:3px"><b>Ungeprüft:</b> ' +
       offen.map(p => pTexte(p.titel) + (p.folge ? ' (' + pTexte(p.folge) + ')' : '')).join(' · ') + '</div>' : '') +
@@ -635,24 +848,24 @@ async function ladeTagesplan() {
   if (!ziel) return;
   try {
     const p = await api('/api/tagesplan');
-    const farbe = { jetzt: '#dc2626', heute: '#eab308', 'diese-woche': 'var(--grau)' };
+    // Signalfarben kommen aus dem Stilblatt, nicht aus dem Skript – sonst
+    // stimmt beim Umschalten auf den hellen Modus die Hälfte nicht mehr.
+    const klasse = { jetzt: 'jetzt', heute: 'heute', 'diese-woche': 'woche' };
     const wort = { jetzt: 'JETZT', heute: 'HEUTE', 'diese-woche': 'DIESE WOCHE' };
 
     if (!p.punkte.length) {
-      ziel.innerHTML = '<div class="karte" style="border-left:4px solid #16a34a">' +
-        '<b>' + pTexte(p.satz) + '</b></div>';
+      ziel.innerHTML = '<div class="plan-punkt frei"><div class="plan-satz" style="margin:0">' +
+        pTexte(p.satz) + '</div></div>';
       return;
     }
 
-    ziel.innerHTML = '<div class="status" style="margin-top:0;font-size:14px">' + pTexte(p.satz) + '</div>' +
+    ziel.innerHTML = '<div class="plan-satz">' + pTexte(p.satz) + '</div>' +
       p.punkte.map(x =>
-        '<div class="karte" style="border-left:4px solid ' + (farbe[x.stufe] || 'var(--grau)') +
-          ';padding:12px 14px;margin-bottom:8px">' +
-          '<div style="font-size:10.5px;letter-spacing:.12em;color:' + (farbe[x.stufe] || 'var(--grau)') + ';font-weight:700">' +
-            wort[x.stufe] + '</div>' +
-          '<div style="font-weight:700;margin:2px 0 3px">' + pTexte(x.titel) + '</div>' +
-          '<div style="font-size:13px;color:var(--grau)">' + pTexte(x.text) + '</div>' +
-          (x.sprung ? '<a href="' + pTexte(x.sprung) + '" style="font-size:12.5px">→ hin</a>' : '') +
+        '<div class="plan-punkt ' + (klasse[x.stufe] || 'woche') + '">' +
+          '<div class="stufe">' + wort[x.stufe] + '</div>' +
+          '<div class="titel">' + pTexte(x.titel) + '</div>' +
+          '<div class="text">' + pTexte(x.text) + '</div>' +
+          (x.sprung ? '<a href="' + pTexte(x.sprung) + '" style="font-size:12px">→ dorthin</a>' : '') +
         '</div>').join('');
   } catch (e) {
     ziel.innerHTML = '<div class="leer">Tagesplan nicht abrufbar: ' + e.message + '</div>';
@@ -766,7 +979,7 @@ async function adsLaden() {
     const k = await api('/api/google-ads/' + encodeURIComponent(aktuellerKunde.id));
     status.textContent = '';
     const kennung = encodeURIComponent(aktuellerKunde.id);
-    const farbe = { hoch: '#dc2626', mittel: '#eab308', niedrig: '#16a34a' };
+    const farbe = { hoch: 'var(--rot)', mittel: 'var(--gelb)', niedrig: 'var(--gruen)' };
 
     let html = '<div class="status" style="margin-top:0"><b>Kampagne:</b> ' + pTexte(k.kampagne) +
       ' · beworben wird: ' + (k.koennen.bestellung ? 'Bestellung' : '') +
@@ -970,13 +1183,13 @@ async function osmVerfolgen(btn) {
     btn.disabled = false;
     if (s.fehler) {
       btn.textContent = 'Import fehlgeschlagen';
-      kasten.style.borderColor = '#dc2626';
+      kasten.style.borderColor = 'var(--rot)';
       kasten.textContent += '\n\n⚠️ ' + s.fehler +
         '\n\nprospects.json wurde NICHT verändert – deine bisherige Liste ist unversehrt.';
       return;
     }
     btn.textContent = 'Region importieren (OSM)';
-    kasten.style.borderColor = '#16a34a';
+    kasten.style.borderColor = 'var(--gruen)';
     await ladeInteressenten();
   };
   tick();
@@ -1015,7 +1228,7 @@ async function ladeTelefon() {
     const statistikText = s.anrufeMonat
       ? s.anrufeHeute + ' Anruf' + (s.anrufeHeute === 1 ? '' : 'e') + ' heute · ' + s.anrufeMonat + ' diesen Monat' +
         (s.abschlussQuote != null ? ' · Abschlussquote ' + s.abschlussQuote + '%' +
-          (s.ohneErgebnis ? ' <span title="Anrufe ohne Reservierung, Bestellung oder Rückruf – Protokolle lesen und den Agenten verbessern!" style="color:' + (s.abschlussQuote < 70 ? '#dc2626' : 'var(--grau)') + '">(' + s.ohneErgebnis + ' ohne Ergebnis)</span>' : '') : '') + ' · '
+          (s.ohneErgebnis ? ' <span title="Anrufe ohne Reservierung, Bestellung oder Rückruf – Protokolle lesen und den Agenten verbessern!" style="color:' + (s.abschlussQuote < 70 ? 'var(--rot)' : 'var(--grau)') + '">(' + s.ohneErgebnis + ' ohne Ergebnis)</span>' : '') : '') + ' · '
       : '';
     const a = document.getElementById('telefonAnrufe');
     a.innerHTML = statistikText + (t.anrufe.length
@@ -1044,7 +1257,7 @@ async function ladeTelefonKunden() {
           '<td style="white-space:nowrap">' + k.nummer + '</td>' +
           '<td>' + (k.name ? String(k.name).replace(/</g, '&lt;') + (k.stadt ? ' <span style="color:var(--grau)">· ' + k.stadt + '</span>' : '') : '<span style="color:var(--grau)">Kiek-mol-in-Betrieb</span>') +
           (k.gerichte ? ' <span style="color:var(--grau);font-size:12px">(' + k.gerichte + ' Gerichte)</span>' : '') +
-          (k.problem ? '<br><span style="color:#dc2626;font-size:12px">⚠️ ' + k.problem + '</span>' : '') + '</td>' +
+          (k.problem ? '<br><span style="color:var(--rot);font-size:12px">⚠️ ' + k.problem + '</span>' : '') + '</td>' +
           '<td>' + (k.art === 'eigen' ? 'eigener Kunde' : 'Kiek mol in') + '</td>' +
           '<td>' + was + '</td>' +
           '<td><button class="aktion" style="padding:5px 10px;font-size:12px" onclick="telefonKundeEntfernen(\'' + k.nummer + '\')">entfernen</button></td>' +
@@ -1138,7 +1351,7 @@ function zeigeKarte() {
   const ohnePreis = importierteKarte.filter(g => g.preis == null).length;
   ziel.innerHTML =
     '<div style="font-size:13px;margin-bottom:6px"><b>' + importierteKarte.length + ' Gerichte</b>' +
-    (ohnePreis ? ' <span style="color:#dc2626">· ' + ohnePreis + ' ohne Preis</span>' : '') +
+    (ohnePreis ? ' <span style="color:var(--rot)">· ' + ohnePreis + ' ohne Preis</span>' : '') +
     ' <span style="color:var(--grau)">— Preise hier korrigierbar</span></div>' +
     '<div style="max-height:260px;overflow-y:auto;border:1px solid var(--linie);border-radius:8px">' +
     importierteKarte.map((g, i) =>
@@ -1146,7 +1359,7 @@ function zeigeKarte() {
       '<input value="' + String(g.name).replace(/"/g, '&quot;') + '" onchange="karteAendern(' + i + ',\'name\',this.value)" ' +
       'style="flex:2;min-width:120px;padding:5px 7px;border-radius:6px;border:1px solid var(--linie);background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
       '<input value="' + (g.preis == null ? '' : g.preis) + '" placeholder="Preis" onchange="karteAendern(' + i + ',\'preis\',this.value)" ' +
-      'style="width:76px;padding:5px 7px;border-radius:6px;border:1px solid ' + (g.preis == null ? '#dc2626' : 'var(--linie)') + ';background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
+      'style="width:76px;padding:5px 7px;border-radius:6px;border:1px solid ' + (g.preis == null ? 'var(--rot)' : 'var(--linie)') + ';background:var(--karte);color:var(--tinte);font:inherit;font-size:13px">' +
       '<button class="aktion" style="padding:3px 8px;font-size:12px" onclick="karteZeileWeg(' + i + ')">✕</button></div>'
     ).join('') + '</div>' +
     '<button class="aktion" style="margin-top:8px;padding:6px 12px;font-size:13px" onclick="karteZeileDazu()">+ Gericht hinzufügen</button>';
@@ -1168,8 +1381,8 @@ function karteZeileDazu() { importierteKarte.push({ name: '', preis: null }); ze
 function kartenErgebnis(stand, gerichte, unklar, quelle) {
   importierteKarte = gerichte || [];
   stand.innerHTML = (importierteKarte.length
-    ? '<span style="color:#16a34a">✓ ' + importierteKarte.length + ' Gerichte aus ' + quelle + ' gelesen.</span>'
-    : '<span style="color:#dc2626">Keine Gerichte erkannt.</span>') +
+    ? '<span style="color:var(--gruen)">✓ ' + importierteKarte.length + ' Gerichte aus ' + quelle + ' gelesen.</span>'
+    : '<span style="color:var(--rot)">Keine Gerichte erkannt.</span>') +
     ((unklar && unklar.length)
       ? '<br><b>Bitte prüfen:</b><br>' + unklar.map(u => '· ' + String(u).replace(/</g, '&lt;')).join('<br>')
       : '');
@@ -1192,7 +1405,7 @@ async function telefonKundeImport() {
     setz('liefergebuehr', k.liefergebuehr);
     kartenErgebnis(stand, k.speisekarte, d.unklar, 'der Webseite');
   } catch (e) {
-    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+    stand.innerHTML = '<span style="color:var(--rot)">Ging nicht: ' + e.message + '</span>' +
       '<br>Kein Problem – nimm Weg 2 (Foto) oder 3 (abtippen).';
   }
   btn.disabled = false;
@@ -1221,7 +1434,7 @@ async function karteAusFotos() {
     const d = await api('/api/speisekarte-lesen', { bilder });
     kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Foto');
   } catch (e) {
-    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>' +
+    stand.innerHTML = '<span style="color:var(--rot)">Ging nicht: ' + e.message + '</span>' +
       '<br>Tipp: gerade von oben fotografieren, gutes Licht, pro Bild höchstens eine Seite.';
   }
   btn.disabled = false;
@@ -1238,7 +1451,7 @@ async function karteAusText() {
     const d = await api('/api/speisekarte-lesen', { text });
     kartenErgebnis(stand, d.speisekarte, d.unklar, 'dem Text');
   } catch (e) {
-    stand.innerHTML = '<span style="color:#dc2626">Ging nicht: ' + e.message + '</span>';
+    stand.innerHTML = '<span style="color:var(--rot)">Ging nicht: ' + e.message + '</span>';
   }
   btn.disabled = false;
 }
@@ -1261,21 +1474,21 @@ async function telefonKundeSpeichern() {
       sms: wert('sms'), email: wert('email'), stimme: wert('stimme'),
       kann, speisekarte: importierteKarte
     });
-    stand.innerHTML = '<span style="color:#16a34a"><b>Angelegt ✓</b></span> ' +
+    stand.innerHTML = '<span style="color:var(--gruen)"><b>Angelegt ✓</b></span> ' +
       d.gerichte + ' Gerichte · Datei: ' + d.datei +
-      (d.warnung ? '<br><span style="color:#dc2626">⚠️ ' + d.warnung + '</span>' : '') +
+      (d.warnung ? '<br><span style="color:var(--rot)">⚠️ ' + d.warnung + '</span>' : '') +
       '<br><b>Jetzt noch:</b> Telefon-Retter neu starten, damit er den neuen Kunden lädt.';
     ladeTelefonKunden();
   } catch (e) {
-    stand.innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+    stand.innerHTML = '<span style="color:var(--rot)">' + e.message + '</span>';
   }
   btn.disabled = false;
 }
 
 // ---------------- Anruf-Protokolle: so hat die KI geredet ----------------
 const ERGEBNIS_FARBE = {
-  'Reservierung': '#16a34a', 'Bestellung': '#16a34a', 'Rückruf-Wunsch': 'var(--akzent)',
-  'Technischer Fehler': '#dc2626', 'Niemand hat gesprochen': 'var(--grau)',
+  'Reservierung': 'var(--gruen)', 'Bestellung': 'var(--gruen)', 'Rückruf-Wunsch': 'var(--akzent)',
+  'Technischer Fehler': 'var(--rot)', 'Niemand hat gesprochen': 'var(--grau)',
   'Gespräch ohne Abschluss': '#f59e0b'
 };
 
@@ -1362,7 +1575,7 @@ async function ladeKunden() {
 // rot = Kunde in Gefahr. Die Gruende stehen im Tooltip.
 function ampel(g) {
   if (!g) return '';
-  const farbe = { gruen: '#16a34a', gelb: '#eab308', rot: '#dc2626' }[g.stufe] || '#ccc';
+  const farbe = { gruen: 'var(--gruen)', gelb: 'var(--gelb)', rot: 'var(--rot)' }[g.stufe] || '#ccc';
   return '<span title="' + (g.gruende || []).join(' · ').replace(/"/g, '&quot;') + '" ' +
     'style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + farbe + ';margin-right:6px"></span>';
 }
@@ -1379,7 +1592,7 @@ function zeichneKunden() {
         <span class="badge${k.reports ? ' akzent' : ''}">${k.reports ? k.reports + ' Report' + (k.reports > 1 ? 's' : '') : 'noch kein Report'}</span>
         <span style="color:var(--grau)">${k.letzterReport && k.letzterReport.quote && k.letzterReport.quote.prozent != null ? 'Quote ' + k.letzterReport.quote.prozent + '%' : ''}</span>
       </div>
-      ${k.gesundheit && k.gesundheit.stufe !== 'gruen' ? '<div style="margin-top:8px;font-size:12px;color:' + (k.gesundheit.stufe === 'rot' ? '#dc2626' : '#a16207') + '">' + (k.gesundheit.gruende[0] || '') + '</div>' : ''}
+      ${k.gesundheit && k.gesundheit.stufe !== 'gruen' ? '<div style="margin-top:8px;font-size:12px;color:' + (k.gesundheit.stufe === 'rot' ? 'var(--rot)' : '#a16207') + '">' + (k.gesundheit.gruende[0] || '') + '</div>' : ''}
     </div>`).join('') || '<div class="leer">Keine Kunden gefunden.</div>';
 }
 
@@ -1464,7 +1677,7 @@ async function ladeFruehwarnung(id) {
 
   if (w.stufe === 'alarm' || w.stufe === 'warnung') {
     const alarm = w.stufe === 'alarm';
-    const farbe = alarm ? '#dc2626' : '#f59e0b';
+    const farbe = alarm ? 'var(--rot)' : '#f59e0b';
     ziel.innerHTML =
       '<div style="border:2px solid ' + farbe + ';border-radius:12px;padding:14px 16px;margin:14px 0;background:rgba(220,38,38,' + (alarm ? '.08' : '.04') + ')">' +
       '<div style="font-weight:700;color:' + farbe + ';margin-bottom:6px">' +
@@ -1477,8 +1690,8 @@ async function ladeFruehwarnung(id) {
   }
   // Gute Nachricht: die darf der Wirt genauso hören - das verkauft dich weiter.
   ziel.innerHTML =
-    '<div style="border:1px solid #16a34a;border-radius:12px;padding:12px 16px;margin:14px 0">' +
-    '<div style="font-weight:700;color:#16a34a;margin-bottom:4px">📈 Gute Nachricht diese Woche</div>' +
+    '<div style="border:1px solid var(--gruen);border-radius:12px;padding:12px 16px;margin:14px 0">' +
+    '<div style="font-weight:700;color:var(--gruen);margin-bottom:4px">📈 Gute Nachricht diese Woche</div>' +
     '<div style="font-size:13.5px">' + w.gute.map(g => String(g).replace(/</g, '&lt;')).join(' · ') +
     '<br><span style="color:var(--grau)">Direkt dem Wirt schicken – so sieht er, dass es wirkt.</span></div></div>';
 }
@@ -1611,7 +1824,7 @@ async function rueckgewinnungLaden() {
 }
 
 // ---------------- Monats-Aufgaben (was ist zu tun) ----------------
-const HEBEL_FARBE = { Google: '#4285f4', Sichtbarkeit: 'var(--akzent)', Bewertungen: '#16a34a' };
+const HEBEL_FARBE = { Google: '#4285f4', Sichtbarkeit: 'var(--akzent)', Bewertungen: 'var(--gruen)' };
 const PRIO_LABEL = { hoch: 'wichtig', mittel: 'normal', niedrig: 'nice-to-have' };
 
 async function ladeAufgaben(id) {
@@ -1675,8 +1888,8 @@ function zeichneKonkurrenz(top, nennungen) {
   if (jetzt && jetzt.getestet) {
     const diff = vorher && vorher.getestet ? jetzt.genannt - vorher.genannt : null;
     const trend = diff == null ? '' :
-      diff > 0 ? ' <b style="color:#16a34a">▲ +' + diff + ' zum Vormonat!</b>' :
-      diff < 0 ? ' <b style="color:#dc2626">▼ ' + diff + ' zum Vormonat</b>' :
+      diff > 0 ? ' <b style="color:var(--gruen)">▲ +' + diff + ' zum Vormonat!</b>' :
+      diff < 0 ? ' <b style="color:var(--rot)">▼ ' + diff + ' zum Vormonat</b>' :
       ' <span style="color:var(--grau)">(wie Vormonat)</span>';
     kundenZeile = '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:4px">Dein Kunde in den KI-Antworten</div>' +
       '<div style="font-size:18px;font-weight:800">' + jetzt.genannt + ' von ' + jetzt.getestet + ' Antworten' + trend + '</div>' +
@@ -1686,9 +1899,9 @@ function zeichneKonkurrenz(top, nennungen) {
   // Konkurrenten mit Bewegung: NEU / mehr / weniger als im Vormonat
   const chips = top.map(t => {
     let bewegung = '';
-    if (t.vorher == null && vorher) bewegung = ' <b style="color:#eab308">NEU</b>';
-    else if (t.vorher != null && t.anzahl > t.vorher) bewegung = ' <b style="color:#dc2626">▲</b>';
-    else if (t.vorher != null && t.anzahl < t.vorher) bewegung = ' <b style="color:#16a34a">▼</b>';
+    if (t.vorher == null && vorher) bewegung = ' <b style="color:var(--gelb)">NEU</b>';
+    else if (t.vorher != null && t.anzahl > t.vorher) bewegung = ' <b style="color:var(--rot)">▲</b>';
+    else if (t.vorher != null && t.anzahl < t.vorher) bewegung = ' <b style="color:var(--gruen)">▼</b>';
     return '<span class="badge" style="font-size:13px;padding:7px 14px">' +
       String(t.name).replace(/</g, '&lt;') + (t.anzahl > 1 ? ' <b style="color:var(--akzent)">' + t.anzahl + '×</b>' : '') +
       bewegung + '</span>';
@@ -1859,8 +2072,8 @@ async function bewertungPruefen() {
     const d = await api('/api/bewertung-pruefen', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kennung: aktuellerKunde.id, text }) });
     const meldbar = d.verstoss !== 'kein_verstoss';
-    const chancenFarbe = { hoch: '#16a34a', mittel: '#eab308', gering: '#dc2626' }[d.chance] || 'var(--grau)';
-    const dringFarbe = { hoch: '#dc2626', mittel: '#eab308', niedrig: '#16a34a' }[d.dringlichkeit] || 'var(--grau)';
+    const chancenFarbe = { hoch: 'var(--gruen)', mittel: 'var(--gelb)', gering: 'var(--rot)' }[d.chance] || 'var(--grau)';
+    const dringFarbe = { hoch: 'var(--rot)', mittel: 'var(--gelb)', niedrig: 'var(--gruen)' }[d.dringlichkeit] || 'var(--grau)';
     const antwortKarte = (titel, txt, label) => txt ?
       '<div class="zahl" style="margin-bottom:10px"><div class="label" style="margin-bottom:6px">' + titel + '</div>' +
       '<div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap">' + String(txt).replace(/</g, '&lt;') + '</div>' +
@@ -1900,9 +2113,9 @@ async function bewertungPruefen() {
 // ---------------- Bewertungs-Journal (Arbeitsnachweis) ----------------
 const BW_STATUS = {
   offen:       { label: 'offen',      farbe: 'var(--grau)' },
-  gemeldet:    { label: 'gemeldet',   farbe: '#eab308' },
-  geloescht:   { label: 'gelöscht ✓', farbe: '#16a34a' },
-  abgelehnt:   { label: 'abgelehnt',  farbe: '#dc2626' },
+  gemeldet:    { label: 'gemeldet',   farbe: 'var(--gelb)' },
+  geloescht:   { label: 'gelöscht ✓', farbe: 'var(--gruen)' },
+  abgelehnt:   { label: 'abgelehnt',  farbe: 'var(--rot)' },
   beantwortet: { label: 'beantwortet',farbe: '#7fd8c8' }
 };
 
@@ -1912,8 +2125,8 @@ function zeichneBewertungsJournal(journal) {
   const geloescht = journal.filter(e => e.status === 'geloescht').length;
   const gemeldet = journal.filter(e => e.status === 'gemeldet').length;
   const kopf = '<div class="label" style="margin-bottom:8px">Bewertungs-Journal · ' + journal.length + ' bearbeitet' +
-    (geloescht ? ' · <b style="color:#16a34a">' + geloescht + ' gelöscht</b>' : '') +
-    (gemeldet ? ' · <b style="color:#eab308">' + gemeldet + ' bei Google gemeldet</b>' : '') + '</div>';
+    (geloescht ? ' · <b style="color:var(--gruen)">' + geloescht + ' gelöscht</b>' : '') +
+    (gemeldet ? ' · <b style="color:var(--gelb)">' + gemeldet + ' bei Google gemeldet</b>' : '') + '</div>';
   const zeilen = journal.map(e => {
     const s = BW_STATUS[e.status] || BW_STATUS.offen;
     const datum = (e.zeit || '').slice(0, 10).split('-').reverse().join('.');
@@ -2139,7 +2352,7 @@ let liveLeitung = null;
 function liveAnzeige(an, text) {
   const punkt = document.getElementById('livePunkt');
   if (!punkt) return;
-  punkt.style.background = an ? '#16a34a' : 'var(--grau)';
+  punkt.style.background = an ? 'var(--gruen)' : 'var(--grau)';
   punkt.title = text;
   punkt.style.boxShadow = an ? '0 0 0 3px rgba(22,163,74,.18)' : 'none';
 }
@@ -2166,7 +2379,7 @@ function meldung(text, dringend) {
   if (!kasten) return;
   const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   const el = document.createElement('div');
-  el.style.cssText = 'background:var(--karte);border:2px solid ' + (dringend ? '#dc2626' : 'var(--akzent)') +
+  el.style.cssText = 'background:var(--karte);border:2px solid ' + (dringend ? 'var(--rot)' : 'var(--akzent)') +
     ';border-radius:10px;padding:11px 14px;margin-top:8px;font-size:13.5px;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
     'cursor:pointer;transition:opacity .3s';
   el.innerHTML = '<b>' + (dringend ? '📞 ' : '✅ ') + text + '</b>' +
