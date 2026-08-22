@@ -742,9 +742,20 @@ test('Pipeline: faellige Wiedervorlagen und eigene Anfragen stehen oben', () => 
   assert.strictEqual(liste[2].erledigt, true);
   assert.strictEqual(liste[2].faellig, false, 'Erledigtes wird nie faellig');
 
-  // Bestandskunden tauchen gar nicht erst auf
-  const ohnePartner = pl.baueListe({ prospects, leads, kundenNamen: ['Pizzeria Roma'], stand }, { heute });
-  assert.ok(!ohnePartner.some((e) => e.name === 'Pizzeria Roma'));
+  // Bestandskunden bleiben in der Liste - aber als Kunde gekennzeichnet.
+  // Frueher flogen sie ganz raus, und damit war die Vorgeschichte weg:
+  // Betriebs-Check, Notizen, Verlauf. Genau die braucht man spaeter.
+  const mitKunde = pl.baueListe({ prospects, leads, kundenNamen: ['Pizzeria Roma'], stand }, { heute });
+  const roma = mitKunde.find((e) => e.name === 'Pizzeria Roma');
+  assert.ok(roma, 'Kunde bleibt in der Akte');
+  assert.strictEqual(roma.istKunde, true);
+  assert.strictEqual(roma.stufe, 'kunde', 'Tatsache schlaegt die Notiz - auch wenn dort "kontaktiert" stand');
+  assert.strictEqual(roma.erledigt, true);
+  assert.strictEqual(roma.notiz, 'nochmal probieren', 'die Notizen von damals bleiben lesbar');
+  // Er war faellig, ist aber jetzt Kunde - dann ist er keine Aufgabe mehr
+  assert.strictEqual(roma.faellig, false, 'ein Kunde steht nicht mehr auf der Wiedervorlage');
+  // ... und er rutscht ans Ende, statt die Arbeitsliste zu verstopfen
+  assert.strictEqual(mitKunde[mitKunde.length - 1].erledigt, true);
 
   // Zaehler und Digest-Satz
   const u = pl.zaehleStufen(liste);

@@ -456,6 +456,10 @@
       </div>
       <div class="status" id="dStatus"></div>
 
+      <h2>Vorgeschichte · wie wir ihn gewonnen haben</h2>
+      <div class="status" style="margin-top:-6px">Was vor dem ersten Vertrag war: der Betriebs-Check, die Notizen aus der Pipeline, der Weg durch die Stufen. Ein Jahr später weiß das sonst niemand mehr.</div>
+      <div id="dVorgeschichte"></div>
+
       <h2>Einrichtung · was bei diesem Kunden noch fehlt</h2>
       <div class="status" style="margin-top:-6px">Beim ersten Kunden weiß man alles auswendig. Beim fünften fehlt dann der Meldeweg – und keiner merkt es, bis sich der Wirt beschwert.</div>
       <div id="dOnboarding"></div>
@@ -872,6 +876,38 @@ async function ladeTagesplan() {
   }
 }
 
+// ---------------- Vorgeschichte ----------------
+// Die Brücke zwischen Pipeline und Kundenakte. Vorher endete die
+// Pipeline beim Vertragsabschluss und alles Gelernte war weg.
+async function ladeVorgeschichte(id) {
+  const ziel = document.getElementById('dVorgeschichte');
+  if (!ziel) return;
+  ziel.innerHTML = '<div class="leer">Lade…</div>';
+  try {
+    const v = await api('/api/vorgeschichte/' + encodeURIComponent(id));
+    if (!v.vorhanden) { ziel.innerHTML = '<div class="leer">' + pTexte(v.hinweis) + '</div>'; return; }
+
+    const stufenText = { neu: 'Neu', kontaktiert: 'Angerufen', termin: 'Termin',
+      angebot: 'Angebot raus', kunde: 'Kunde', 'kein-interesse': 'Kein Interesse' };
+    let html = '<div class="karte">';
+    html += '<div style="font-size:13px;color:var(--grau);margin-bottom:8px">Kam über: <b style="color:var(--tinte)">' +
+      (v.quelle === 'anfrage' ? 'eigene Anfrage über die Check-Seite' : 'Verzeichnis (OSM-Import)') + '</b>' +
+      (v.zeit ? ' · ' + new Date(v.zeit).toLocaleDateString('de-DE') : '') + '</div>';
+    if (v.anfrage) html += '<div style="font-size:13.5px;margin-bottom:8px">Sein Anliegen damals: „' + pTexte(v.anfrage) + '"</div>';
+    if (v.notiz) html += '<div style="font-size:13.5px;margin-bottom:8px"><b>Notizen:</b> ' + pTexte(v.notiz) + '</div>';
+    if (v.verlauf && v.verlauf.length) {
+      html += '<div style="font-size:12.5px;color:var(--grau)">Weg: ' +
+        v.verlauf.map(x => (stufenText[x.stufe] || x.stufe) +
+          ' (' + new Date(x.zeit).toLocaleDateString('de-DE') + ')').join(' → ') + '</div>';
+    }
+    html += '</div>';
+    if (v.befund) html += befundHtml(v.befund);
+    ziel.innerHTML = html;
+  } catch (e) {
+    ziel.innerHTML = '<div class="leer">Nicht abrufbar: ' + e.message + '</div>';
+  }
+}
+
 // ---------------- Onboarding-Checkliste ----------------
 // Beim ersten Kunden weiß man alles auswendig. Beim fünften fehlt dann
 // der Meldeweg, und keiner merkt es.
@@ -910,6 +946,7 @@ async function onboardingHaken(schritt, wert) {
       body: JSON.stringify({ kennung: aktuellerKunde.id, schritt, wert })
     });
     ladeOnboarding(aktuellerKunde.id);
+  ladeVorgeschichte(aktuellerKunde.id);
   } catch (e) { alert('Fehler: ' + e.message); }
 }
 

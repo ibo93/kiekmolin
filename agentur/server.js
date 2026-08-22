@@ -1689,6 +1689,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // API: Die Vorgeschichte eines Kunden - wie er gewonnen wurde.
+    // Bis eben war das eine Sackgasse: Wer Kunde wurde, verschwand aus der
+    // Pipeline, und der Betriebs-Check und alle Notizen waren nicht mehr
+    // zu sehen. Genau die braucht man aber im Gespraech ein Jahr spaeter.
+    if (req.method === 'GET' && pfad.startsWith('/api/vorgeschichte/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const schluessel = pipeline.schluesselFuer(kunde.name, kunde.city);
+      const eintrag = (await baueInteressentenListe()).find((e) => e.schluessel === schluessel);
+      if (!eintrag) {
+        json(res, 200, {
+          vorhanden: false,
+          hinweis: 'Dieser Betrieb stand nie in der Pipeline – er kam auf einem anderen Weg dazu.'
+        });
+        return;
+      }
+      json(res, 200, {
+        vorhanden: true, schluessel,
+        quelle: eintrag.quelle, notiz: eintrag.notiz, befund: eintrag.befund,
+        verlauf: eintrag.verlauf, anfrage: eintrag.anfrage, kontakt: eintrag.kontakt,
+        zeit: eintrag.zeit
+      });
+      return;
+    }
+
     // API: Onboarding-Stand eines Kunden - was ist eingerichtet, was fehlt.
     if (req.method === 'GET' && pfad.startsWith('/api/onboarding-stand/')) {
       const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
