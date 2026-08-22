@@ -44,3 +44,20 @@ tailwind/package*.json
 # Kundenmeldungen und sind pro Rechner verschieden.
 dauerbetrieb.log
 dauerbetrieb-launchd.log
+
+# ---------------------------------------------------------------- CRM ----
+# Das Kurani-CRM liegt unter crm/. Der PROGRAMMCODE gehoert ins Repository,
+# die DATEN nie. Diese drei Zeilen sind die Grenze dazwischen:
+#
+#   stammdaten.js   Anschrift, IBAN, Steuernummer, die echten Kunden und die
+#                   Adresse des Supabase-Projekts. Ohne die Datei startet das
+#                   CRM leer - genau so soll die Fassung im Netz aussehen.
+#   Backup-Dateien  ein Backup ist die komplette Kundenkartei in einer Datei.
+#   .netzfassung/   baut "Ins Netz stellen.command" beim Hochladen.
+#
+# Git vergisst nichts: was einmal drin ist, steht fuer immer in der Historie.
+crm/js/stammdaten.js
+crm/js/stammkunden.js
+crm/Kurani-CRM-Backup_*.json
+crm/.netzfassung/
+crm/netlify.toml

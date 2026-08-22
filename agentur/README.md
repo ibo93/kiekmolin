@@ -68,8 +68,33 @@ Dann im Browser: **http://localhost:3200**
 agentur/  (http://localhost:3200)  ← du arbeitest hier
    │  nutzt als Motor:
    ├── sichtbarkeit/   Reports, Fragen, Aufbereitung, Historie
-   └── telefon-retter/ Status über /health (Port 3100) + logs/
+   ├── telefon-retter/ Status über /health (Port 3100) + logs/
+   └── crm/            Kunden, Projekte, Rechnungen, Lastschrift
+                       läuft mit unter http://localhost:3200/crm/
 ```
 
 Keys werden weiterhin in `sichtbarkeit/.env` bzw. `telefon-retter/.env`
 gepflegt – die Agentur-App selbst braucht keine eigenen Secrets.
+
+## Das CRM hängt mit dran
+
+Das Kurani-CRM (`crm/`) wird von dieser App unter `/crm/` mit ausgeliefert.
+Das ist kein Zufall: das CRM speichert im Browser, und der trennt streng
+nach Adresse. Nur unter **derselben** Adresse darf die CRM-Seite die
+Schnittstellen hier überhaupt anfragen.
+
+Was dabei hin- und hergeht:
+
+| Richtung | Was | Wozu |
+|---|---|---|
+| CRM → Agentur | `POST /api/crm-kunden`: **nur** id, Nummer, Name, Ort | damit die Pipeline weiß, wer schon Kunde ist – und ihn nicht kalt anruft |
+| Agentur → CRM | `GET /api/crm-pipeline`: Betriebe, Gesprächsstand, Website-Check | damit ein gewonnener Betrieb mit einem Klick in die Kartei wandert |
+
+Bewusst **nicht** übertragen werden Adresse, Bankverbindung und Umsätze.
+Die Agentur muss wissen *wer* Kunde ist, nicht *was* er zahlt.
+
+Die gemeldete Liste liegt in `sichtbarkeit/data/crm-kunden.json` und ist –
+wie die Pipeline selbst – aus dem Repository ausgeschlossen.
+
+Die Logik dahinter steht in `lib/crm-bruecke.js` und ist ohne Netz, ohne
+Datenbank und ohne Schlüssel prüfbar (`node test.js`).

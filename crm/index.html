@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kurani CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kurani">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/print.css" media="print">
+</head>
+<body>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">KD</div>
+    <div class="brand-text">
+      <strong>Kurani Design</strong>
+      <span>Agentur-CRM</span>
+    </div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <a href="#/dashboard" data-route="dashboard"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>Übersicht</a>
+    <a href="#/assistent" data-route="assistent"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 3.5l1.4 3.1 3.1 1.4-3.1 1.4L12 14.5l-1.4-3.1L7.5 10l3.1-1.4L12 5.5zM7 15l.8-1.7 1.7-.8-1.7-.8L7 10l-.8 1.7-1.7.8 1.7.8L7 15z"/></svg>Assistent</a>
+    <a href="#/aufgaben" data-route="aufgaben"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Was ist dran<span class="nav-badge" id="navBadgeTasks"></span></a>
+    <a href="#/posteingang" data-route="posteingang"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Posteingang<span class="nav-badge" id="navBadgeInbox"></span></a>
+    <div class="nav-label">Kunden &amp; Arbeit</div>
+    <a href="#/kunden" data-route="kunden"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Kunden</a>
+    <a href="#/projekte" data-route="projekte"><svg viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>Projekte</a>
+    <a href="#/zeiten" data-route="zeiten"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>Zeiten</a>
+    <a href="#/termine" data-route="termine"><svg viewBox="0 0 24 24"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 002 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>Termine</a>
+    <a href="#/fahrten" data-route="fahrten"><svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>Fahrten</a>
+    <div class="nav-label">Geld</div>
+    <a href="#/dokumente" data-route="dokumente"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>Rechnungen &amp; KV</a>
+    <a href="#/abos" data-route="abos"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>Abos</a>
+    <a href="#/lastschrift" data-route="lastschrift"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>Lastschrift<span class="nav-badge" id="navBadgeSepa"></span></a>
+    <a href="#/kontoabgleich" data-route="kontoabgleich"><svg viewBox="0 0 24 24"><path d="M4 10h3v7H4v-7zm6.5 0h3v7h-3v-7zM2 19h20v3H2v-3zm15-9h3v7h-3v-7zm-5-9L2 6v2h20V6L12 1z"/></svg>Kontoabgleich</a>
+    <a href="#/ausgaben" data-route="ausgaben"><svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>Ausgaben</a>
+    <a href="#/steuer" data-route="steuer"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM8.5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM7 17l9.5-9.5 1.5 1.5L8.5 18.5 7 17zm8.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>Steuer</a>
+    <a href="#/auswertung" data-route="auswertung"><svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>Auswertung</a>
+    <a href="#/ampel" data-route="ampel"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5v10a5 5 0 0010 0V7a5 5 0 00-5-5zm0 3.2a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6zm0 5a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6zm0 5a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6z"/></svg>Kunden-Ampel</a>
+    <a href="#/lohnt" data-route="lohnt"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>Was lohnt sich</a>
+    <div class="nav-label">Wissen</div>
+    <a href="#/preise" data-route="preise"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h12v2H3v-2z"/></svg>Preis-Historie</a>
+    <a href="#/vorlagen" data-route="vorlagen"><svg viewBox="0 0 24 24"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 12H7v-2h7v2zm3-4H7V9h10v2z"/></svg>Vorlagen</a>
+    <div class="nav-label">Vorwärts</div>
+    <a href="#/kampagnen" data-route="kampagnen"><svg viewBox="0 0 24 24"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/></svg>Kampagnen</a>
+    <a href="#/kiekmolin" data-route="kiekmolin"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>Kiek mol in</a>
+    <a href="#/agentur" data-route="agentur"><svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zM8 17H6v-5h2v5zm4 0h-2V9h2v8zm4 0h-2v-3h2v3z"/></svg>Agentur</a>
+    <a href="#/wachstum" data-route="wachstum"><svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>Wachstum</a>
+    <div class="nav-label">System</div>
+    <a href="#/einstellungen" data-route="einstellungen"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>Einstellungen</a>
+  </nav>
+
+  <div class="sidebar-foot">
+    <div class="seiten-fuss">
+      <button class="btn-ghost-light" onclick="Store.exportBackup()">Backup sichern</button>
+    </div>
+    <div class="backup-hint" id="backupHint"></div>
+    <div class="sync-hint" id="syncHint"></div>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main class="main">
+  <header class="topbar">
+    <button class="burger" onclick="document.body.classList.toggle('nav-open')" aria-label="Menü">
+      <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="text" id="globalSearch" placeholder="Suchen – Kunde, Rechnung, Projekt" autocomplete="off">
+      <kbd class="such-taste" id="suchTaste">⌘K</kbd>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <!-- rechte Seite wird von App.paintTopbar() gefüllt -->
+    <div class="topbar-actions" id="topbarRechts"></div>
+  </header>
+
+  <div class="view" id="view">
+    <div id="bootMsg" style="padding:30px 4px;font-family:sans-serif">
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">Kurani CRM startet …</div>
+      <div style="color:#767676;font-size:14px;line-height:1.6">
+        Wenn hier nach ein paar Sekunden noch dieser Text steht, konnte der Browser die
+        Programmdateien nicht laden. Häufigste Ursache: der Ordner <b>js</b> oder <b>css</b>
+        liegt nicht mehr neben dieser Datei.
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ MODAL ============ -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this)UI.closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ============ DRUCKBOGEN ============ -->
+<div id="printSheet"></div>
+
+<script>
+/* Sicherheitsnetz: statt weißer Seite eine lesbare Meldung */
+window.addEventListener('error', function(e){
+  var box = document.getElementById('bootMsg');
+  if (!box) return;
+  var datei = (e.filename||'').split('/').pop() || 'unbekannt';
+  box.innerHTML = '<div style="font-size:20px;font-weight:700;margin-bottom:8px;color:#dc2626">'
+    + 'Da hakt was</div><div style="color:#3d3d3d;font-size:14px;line-height:1.7">'
+    + 'Fehler in <b>' + datei + '</b>' + (e.lineno ? ', Zeile ' + e.lineno : '') + ':<br>'
+    + '<code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:6px">'
+    + (e.message || 'unbekannt') + '</code><br><br>'
+    + 'Schick Ibo diesen Text – damit ist der Fehler in einer Minute gefunden.</div>';
+}, true);
+</script>
+<script src="js/stammdaten.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/aussehen.js"></script>
+<script src="js/sperre.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/customers.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/documents.js"></script>
+<script src="js/inbox.js"></script>
+<script src="js/finance.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/trips.js"></script>
+<script src="js/knowledge.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/kiekmolin.js"></script>
+<script src="js/agentur.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/campaigns.js"></script>
+<script src="js/growth.js"></script>
+<script src="js/bank.js"></script>
+<script src="js/lastschrift.js"></script>
+<script src="js/assistant.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+/* Service Worker – nur wenn die App von einem Server kommt.
+   Beim Doppelklick auf die Datei (file://) gibt es keinen, das ist
+   auch nicht schlimm: da liegt ja alles sowieso auf der Platte. */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
