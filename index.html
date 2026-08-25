@@ -25453,14 +25453,26 @@ async function saveReservationToSupabase(reservation) {
     // ===== ENDE SPAM-SCHUTZ =====
 
     try {
-        // Direkt in Supabase speichern (nicht über RPC)
-        const response = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+        // NICHT MEHR DIREKT IN DIE DATENBANK.
+        //
+        // Bis zum 25.08.2026 stand hier ein fetch auf
+        // /rest/v1/reservations. Das ging fuer den Gast nicht mehr:
+        // seit dem Zumachen der Gaestedaten darf "anon" zwar anlegen,
+        // aber nicht lesen -- und "Prefer: return=representation"
+        // verlangt Lesen. Vier Gaeste wurden an einem Tag abgewiesen
+        // (11:08, 13:17, 15:10, 15:43), waehrend es beim angemeldeten
+        // Betreiber weiter ging. Genau das war sein Hinweis: "Auf App
+        // kommen die Reservierung auf dem Browser nicht."
+        //
+        // Bestellungen gehen laengst ueber order-save. Reservierungen
+        // waren die letzten, die noch direkt schrieben -- deshalb hat
+        // es nur sie erwischt. Jetzt derselbe Weg:
+        // reservation-guest schreibt mit dem Dienstschluessel und gibt
+        // nur zurueck, was dem Gast gehoert.
+        const response = await fetch('/.netlify/functions/reservation-guest', {
             method: 'POST',
             headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken(),
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 restaurant_id: reservation.restaurantId || null,
@@ -25478,8 +25490,23 @@ async function saveReservationToSupabase(reservation) {
             })
         });
 
-        if (response.ok) {
-            const savedRes = await response.json();
+        // Die Servertuer antwortet mit einem Objekt, nicht mit einer
+        // Liste: { ok, id, track_token, status }. Der Rest steht schon
+        // im Formular -- der Gast hat ihn gerade selbst eingetippt.
+        const antwort = await response.json().catch(function () { return null; });
+        if (response.ok && antwort && antwort.ok) {
+            const savedRes = [{
+                id: antwort.id,
+                track_token: antwort.track_token,
+                status: antwort.status,
+                reservation_date: reservation.date,
+                reservation_time: reservation.time,
+                guest_name: reservation.guestName,
+                guest_phone: reservation.guestPhone || '',
+                guest_email: reservation.guestEmail || null,
+                party_size: parseInt(reservation.partySize) || 2,
+                restaurant_id: reservation.restaurantId || null
+            }];
 
             // WICHTIG: Auch in lokales Array für Kalender/Tischplan
             if (savedRes && savedRes.length > 0) {
@@ -25533,13 +25560,25 @@ async function saveReservationToSupabase(reservation) {
             resTimes.push(Date.now());
             sessionStorage.setItem('kmi_res_times', JSON.stringify(resTimes));
         } else {
-            const errText = await response.text();
-            console.error('<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">close</span> Fehler beim Speichern:', response.status, errText);
-            showToast('Fehler beim Speichern der Reservierung', 'error');
+            // HIER WURDE DER FEHLER FRUEHER VERSCHLUCKT.
+            //
+            // Vorher stand hier nur ein showToast und ein return. Die
+            // aufrufende Stelle wartete gar nicht auf das Ergebnis und
+            // zeigte die Bestaetigungskarte trotzdem -- der Gast sah
+            // eine gruene Bestaetigung fuer eine Reservierung, die es
+            // nicht gab, und waere zur Uhrzeit vor der Tuer gestanden.
+            //
+            // Ein verlorener Gast ist schlimm. Ein Gast, der glaubt, er
+            // habe einen Tisch, ist schlimmer.
+            const fehlerText = (antwort && antwort.error)
+                ? antwort.error
+                : ('HTTP ' + response.status);
+            console.error('Reservierung nicht gespeichert:', fehlerText);
+            throw new Error(fehlerText);
         }
     } catch (e) {
-        console.error('<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">close</span> Speichern fehlgeschlagen:', e);
-        showToast('Verbindungsfehler', 'error');
+        console.error('Speichern fehlgeschlagen:', e);
+        throw e;
     }
 }
 
@@ -28285,14 +28324,20 @@ async function submitWaitlistEntry() {
     if (btn) { btn.disabled = true; btn.textContent = 'Wird eingetragen...'; }
 
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+        // AUCH HIER DURCH DIE SERVERTUER.
+        //
+        // Die Warteliste war der zweite Gaesteweg, der noch direkt in
+        // die Datenbank schrieb -- und waere am selben Fehler
+        // gescheitert wie das Reservierungsformular: der Gast ist
+        // "anon", darf anlegen, aber die neue Zeile nicht lesen.
+        // Aufgefallen ist es nur, weil ich nach dem ersten Fund
+        // nachgezaehlt habe, wer sonst noch direkt schreibt.
+        //
+        // status schickt sie nicht mehr mit -- darueber entscheidet der
+        // Server anhand der Einstellung des Hauses.
+        var res = await fetch('/.netlify/functions/reservation-guest', {
             method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken(),
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 restaurant_id: restaurantId,
                 guest_name: name,
@@ -28301,13 +28346,14 @@ async function submitWaitlistEntry() {
                 party_size: partySize,
                 reservation_date: date,
                 reservation_time: wishTime || '19:00',
-                status: 'pending',
-                source: 'app',
                 notes: '[Warteliste] Tag war ausgebucht' + (wishTime ? ' · Wunschzeit ' + wishTime : ' · Uhrzeit egal')
             })
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        var saved = await res.json();
+        var wlAntwort = await res.json().catch(function () { return null; });
+        if (!res.ok || !wlAntwort || !wlAntwort.ok) {
+            throw new Error((wlAntwort && wlAntwort.error) || ('HTTP ' + res.status));
+        }
+        var saved = [{ id: wlAntwort.id, track_token: wlAntwort.track_token, status: wlAntwort.status }];
 
         // Kontaktdaten für nächstes Mal merken
         try {
@@ -28477,20 +28523,30 @@ function submitReservation(e) {
         // Benachrichtigung nur im Dashboard (via Supabase Realtime)
     }
 
-    // In Supabase speichern (mit Error-Handling)
-    createReservationInSupabase(reservation).catch(function(err) {
-        console.error('Supabase Reservierung fehlgeschlagen:', err);
-        showToast('Hinweis: Reservierung lokal gespeichert, Supabase-Sync ausstehend', 'info');
+    // ERST SPEICHERN, DANN BESTAETIGEN.
+    //
+    // Vorher lief das Speichern nebenher, und die Bestaetigungskarte kam
+    // sofort -- egal was daraus wurde. Am 25.08.2026 wurden vier Gaeste
+    // von der Datenbank abgewiesen und bekamen trotzdem eine gruene
+    // Bestaetigung zu sehen. Sie waeren zur Uhrzeit erschienen, und im
+    // Restaurant haette niemand von ihnen gewusst.
+    //
+    // Ein verlorener Gast ist schlimm. Ein Gast, der glaubt, er habe
+    // einen Tisch, ist schlimmer -- der steht vor einem vollen Haus und
+    // erzaehlt es weiter.
+    createReservationInSupabase(reservation).then(function () {
+        closeModal('reservationModal');
+        document.getElementById('reservationForm').reset();
+        clearSelectedSlot();
+        showReservationConfirmation(reservation);
+        updateDashboard();
+    }).catch(function (err) {
+        // Das Formular bleibt offen und ausgefuellt -- der Gast soll es
+        // noch einmal versuchen koennen, ohne alles neu einzutippen.
+        console.error('Reservierung fehlgeschlagen:', err);
+        showToast('Die Reservierung konnte nicht gespeichert werden. '
+                + 'Bitte noch einmal versuchen oder im Restaurant anrufen.', 'error');
     });
-
-    closeModal('reservationModal');
-    document.getElementById('reservationForm').reset();
-    clearSelectedSlot();
-
-    // Bestätigungs-Card zeigen
-    showReservationConfirmation(reservation);
-
-    updateDashboard();
 }
 
 async function createReservationInSupabase(reservation) {

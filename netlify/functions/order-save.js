@@ -100,7 +100,22 @@ async function preisCheck(order) {
         var rid = encodeURIComponent(order.restaurant_id);
         var ergebnisse = await Promise.all([
             hol('restaurants?id=eq.' + rid + '&select=id,delivery_fee&limit=1'),
-            hol('menu_items?restaurant_id=eq.' + rid + '&select=id,name,base_price,price,sizes'),
+            // KEIN 'price' HIER. Die Spalte heisst base_price -- 'price'
+            // gibt es auf menu_items nicht. PostgREST antwortete deshalb
+            // mit 400 (42703, "column menu_items.price does not exist"),
+            // die ganze Abfrage fiel aus, preisCheck() ging in den
+            // catch-Zweig und meldete "unpruefbar".
+            //
+            // Das ist absichtlich so gebaut: eine Stoerung beim
+            // Nachschlagen soll keine echte Bestellung verhindern. Genau
+            // deshalb ist es aber nie aufgefallen -- der Preis-Check war
+            // bei JEDER Bestellung aus, und niemand hat etwas gemerkt.
+            // Am 25.08.2026 standen die 42703-Zeilen im Protokoll.
+            //
+            // preis-pruefung.js liest mi.price weiterhin, aber nur mit
+            // "!= null" davor -- ohne die Spalte rechnet es mit
+            // base_price und sizes weiter.
+            hol('menu_items?restaurant_id=eq.' + rid + '&select=id,name,base_price,sizes'),
             // Aktionspreise sind von Hand angelegte Paare, davon gibt es
             // wenige. Ohne Filter geholt, weil die Spalte restaurant_id dort
             // nicht existiert und eine id-Liste die URL sprengen würde.

@@ -139,6 +139,16 @@ async function pushToSubscription(sub, payload) {
 // seit 20 Minuten unbeantwortet).
 async function handleItem(kind, item, restaurantNameById, stufe) {
   // kind: 'order' | 'reservation'
+
+  // DIE PROBE DER WACHE IST KEINE RESERVIERUNG.
+  // gastweg-wache.js legt alle 15 Minuten eine an und loescht sie
+  // sofort wieder. Zwischen Anlegen und Loeschen liegen Millisekunden --
+  // aber wenn dieser Melder ausgerechnet dazwischen laeuft, bekaeme der
+  // Wirt eine Meldung ueber einen Gast, den es nie gab. Ein Waechter,
+  // der falschen Alarm ausloest, wird nach der dritten Nacht
+  // abgeschaltet, und dann ueberwacht gar nichts mehr.
+  if (String(item.guest_name || '').indexOf('[Probe]') === 0) return;
+
   const restId = item.restaurant_id;
   if (!restId) return;
   const tabelle = (kind === 'order' ? 'orders' : 'reservations');
