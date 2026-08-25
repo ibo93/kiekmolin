@@ -179,8 +179,33 @@ t('nach der Bestellung', /verfolgMerken\('b', _neueZeile\.track_token\)/.test(h)
 t('nach der Reservierung', /verfolgMerken\('r', r\.track_token\)/.test(h), 'fehlt');
 // Wichtig: die App erzeugt das Geheimnis NICHT selbst -- es kommt aus
 // der Datenbank zurueck. Sonst gaebe es zwei Quellen fuer dieselbe Zahl.
+//
+// Hier stand frueher: track_token darf ueberhaupt nicht vorkommen. Das
+// war zu grob. Seit die Reservierung durch die Servertuer geht
+// (25.08.2026), gibt der Server das Geheimnis zurueck, und die App legt
+// es in ihr eigenes Objekt -- das ist genau richtig und trotzdem ein
+// "track_token:".
+//
+// Geprueft wird deshalb, was wirklich gemeint war: die rechte Seite muss
+// aus einer Antwort kommen. Ein selbst gewuerfelter Wert -- randomUUID,
+// Math.random, Date.now -- faellt auf.
+var tokenZeilen = (h.match(/track_token:\s*[^,\n}]+/g) || []);
+var erfunden = tokenZeilen.filter(function (z) {
+    return /random|Date\.now|crypto|uuid|\bMath\b|['"`]/i.test(z);
+});
 t('die App erzeugt selbst kein Geheimnis',
-  /track_token:\s/.test(h) === false, 'die App schreibt track_token');
+  erfunden.length === 0, 'selbst gewuerfelt: ' + erfunden.join(' | '));
+t('sondern uebernimmt nur, was zurueckkam',
+  tokenZeilen.length === 0 || tokenZeilen.every(function (z) {
+      return /track_token:\s*[a-zA-Z_$][\w$]*\.track_token/.test(z);
+  }),
+  'andere Quelle: ' + tokenZeilen.join(' | '));
+// Und es geht nie zur Datenbank HIN -- der Standardwert dort bleibt die
+// einzige Quelle.
+var koerper = (h.match(/body: JSON\.stringify\(\{[\s\S]{0,1200}?\}\)/g) || []);
+t('und schickt es nirgends mit',
+  koerper.every(function (b) { return b.indexOf('track_token') === -1; }),
+  'steht in einem Aufruf-Rumpf');
 
 console.log('\n-- 10. Der kaputte Date-Aufruf ist weg --');
 // new DatelocalDayStr(...) gab es nie -- ein verungluecktes Ersetzen aus
