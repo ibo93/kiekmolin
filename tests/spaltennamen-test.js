@@ -145,5 +145,100 @@ t('und die Kennungen dann als Liste uebergeben',
   /review_id=in\.\(/.test(h) && /idListe\.map\(encodeURIComponent\)\.join/.test(h), 'keine Liste');
 t('leere Liste fragt gar nicht erst nach', /if \(idListe\.length\) \{/.test(h), 'fragt immer');
 
+
+console.log('\n-- Spalten, die es nachweislich nicht gibt --');
+// Am 25.08.2026 im Datenbank-Protokoll gefunden, nicht geraten:
+//
+//   column menu_items.price does not exist   (42703, dutzendfach)
+//   column orders.source does not exist      (42703, dutzendfach)
+//
+// menu_items.price stand in order-save.js. Die Abfrage fiel aus,
+// preisCheck() ging in den catch-Zweig und meldete "unpruefbar" -- der
+// Preis-Check war bei JEDER Bestellung aus. Absichtlich faellt er
+// offen aus, damit eine Stoerung keine Bestellung verhindert; genau
+// deshalb hat es nie jemand gemerkt.
+//
+// orders.source stand in sichtbarkeit/lib/supabase.js als FILTER. Ein
+// Filter auf eine Spalte, die es nicht gibt, ist immer 400 -- die
+// Telefon-Bestellungen im Agentur-Bericht waren nie zaehlbar.
+var path = require('path');
+var VERBOTEN = [
+    { tabelle: 'menu_items', spalte: 'price', richtig: 'base_price' }
+];
+
+// UND DER FALL, DER ANDERS LIEGT: orders.source.
+//
+// Hier ist nicht der Code falsch, sondern die Datenbank unvollstaendig.
+// Der Telefon-Assistent WILL seine Bestellungen als 'telefon' markieren,
+// und der Agentur-Bericht WILL sie zaehlen. Nur die Spalte fehlte.
+// reservations hat sie laengst -- orders wurde vergessen.
+//
+// Deshalb hier keine Verbots-Regel, sondern eine Kopplung: wer im Code
+// auf orders.source zeigt, braucht eine Wanderung in datenbank/, die
+// die Spalte anlegt. Sonst zeigen die beiden wieder ins Leere, und
+// wieder faellt es keinem auf.
+var wanderungen = fs.readdirSync(path.join(KMI, 'datenbank'))
+    .filter(function (f) { return /\.sql$/.test(f); })
+    .map(function (f) { return fs.readFileSync(path.join(KMI, 'datenbank', f), 'utf8'); })
+    .join('\n');
+t('zu orders.source gibt es eine Wanderung, die die Spalte anlegt',
+  /alter table public\.orders[\s\S]{0,120}add column if not exists source/.test(wanderungen),
+  'Code zeigt auf orders.source, die Datenbank kennt sie nicht');
+t('und sie hat einen Standardwert, damit alte Zeilen nicht leer sind',
+  /add column if not exists source text not null default 'app'/.test(wanderungen), 'ohne Standardwert');
+
+// Alle Quelldateien einsammeln, die Supabase-Abfragen bauen.
+function dateienSammeln(ordner, treffer) {
+    var eintraege;
+    try { eintraege = fs.readdirSync(ordner, { withFileTypes: true }); } catch (e) { return treffer; }
+    eintraege.forEach(function (e) {
+        if (e.name === 'node_modules' || e.name === '.git' || e.name === 'tests') return;
+        var voll = path.join(ordner, e.name);
+        if (e.isDirectory()) return dateienSammeln(voll, treffer);
+        if (/\.(js|html)$/.test(e.name)) treffer.push(voll);
+    });
+    return treffer;
+}
+var quellen = dateienSammeln(KMI, []);
+t('es gibt Quelldateien zu pruefen', quellen.length > 20, quellen.length);
+
+VERBOTEN.forEach(function (v) {
+    var schuldige = [];
+    quellen.forEach(function (datei) {
+        var txt;
+        try { txt = fs.readFileSync(datei, 'utf8'); } catch (e) { return; }
+        // Zeilenkommentare weg -- diese Datei erklaert den Fehler ja
+        // selbst, und die Erklaerung darf ihn nicht ausloesen.
+        txt = txt.split('\n').map(function (z) {
+            return z.replace(/^(\s*)\/\/.*$/, '$1');
+        }).join('\n');
+        // Jede Abfrage auf diese Tabelle heraussuchen und darin nach der
+        // Spalte sehen -- als select-Feld ODER als Filter.
+        //
+        // NICHT am Anfuehrungszeichen abbrechen. Die Abfragen werden mit
+        // + zusammengesetzt:
+        //
+        //   'orders?restaurant_id=eq.' + id + '&source=eq.telefon' + ...
+        //
+        // Ein Ausdruck, der beim ersten ' aufhoert, sieht nur den ersten
+        // Schnipsel -- und meldet Entwarnung. Genau so war dieser Test
+        // beim ersten Anlauf gruen, obwohl der Fehler dastand. Deshalb
+        // ein Fenster ueber den ROHEN Text nach dem Tabellennamen.
+        var re = new RegExp(v.tabelle + "\\?", 'g');
+        var m;
+        while ((m = re.exec(txt))) {
+            var abfrage = txt.slice(m.index, m.index + 400).split('\n').slice(0, 8).join(' ');
+            var alsFeld = new RegExp('select=[^&]*(^|,)' + v.spalte + '(,|$|&)').test(abfrage);
+            var alsFilter = new RegExp('[?&]' + v.spalte + '=').test(abfrage);
+            if (alsFeld || alsFilter) {
+                schuldige.push(path.relative(KMI, datei) + ' (' + abfrage.slice(0, 70) + ')');
+            }
+        }
+    });
+    t(v.tabelle + '.' + v.spalte + ' wird nirgends abgefragt',
+      schuldige.length === 0,
+      'richtig waere: ' + v.richtig + ' -- steht in: ' + schuldige.join(' | '));
+});
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
