@@ -138,6 +138,21 @@
 [functions."pending-reminder"]
   schedule = "* * * * *"
 
+# Gastweg-Wache: alle 15 Minuten eine Probe-Reservierung -- genau so, wie
+# ein Gast sie macht, ohne Anmeldung, ohne Sonderrechte. Geht sie nicht
+# durch, klingelt das Handy des Betreibers.
+#
+# Am 25.08.2026 wurden vier Gaeste an einem Tag abgewiesen, und es hat
+# TAGE gedauert, bis es jemand merkte: der Betreiber ist angemeldet, fuer
+# ihn ging alles, und der Gast beschwert sich nicht -- er geht weg.
+#
+# Unsere 3947 Tests lesen Quelltext. Sie haetten diesen Fehler NIE
+# gefunden, weil er nicht im Quelltext stand, sondern in einer Regel in
+# der Datenbank. Ein Test, der die echte Tuer benutzt, kann nicht gruen
+# sein, waehrend die Tuer klemmt.
+[functions."gastweg-wache"]
+  schedule = "*/15 * * * *"
+
 # Stempelkarten-Push: alle 4h Kunden re-engagen
 # (9/10 Stempel, 10/10 Belohnung wartet, 2/7 Tage inaktiv)
 [functions."loyalty-push"]

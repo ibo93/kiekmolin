@@ -52,6 +52,8 @@
 
 'use strict';
 
+var alarmModul = require('./lib/alarm');
+
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
 
@@ -191,6 +193,26 @@ exports.handler = async function (event) {
             var text = '';
             try { text = await res.text(); } catch (e) {}
             console.error('[reservation-guest] Speichern fehlgeschlagen', res.status, text.slice(0, 300));
+
+            // HIER STAND FRUEHER NICHTS AUSSER EINER PROTOKOLLZEILE.
+            //
+            // Genau das war der eigentliche Fehler vom 25.08.2026: vier
+            // Gaeste wurden abgewiesen, alles stand im Protokoll, und
+            // niemand hat es gelesen. Protokolle liest man erst, wenn
+            // man schon weiss, dass etwas kaputt ist.
+            //
+            // Jetzt klingelt beim ERSTEN abgewiesenen Gast das Handy.
+            // Die Probe der Wache loest keinen Alarm aus -- die hat
+            // ihren eigenen, mit dem Grund darin.
+            if (String(r.guest_name || '').indexOf('[Probe]') !== 0) {
+                try {
+                    await alarmModul.alarm(
+                        'Ein Gast konnte nicht reservieren',
+                        'Gerade wurde eine echte Reservierung abgewiesen (HTTP ' + res.status
+                            + '). Wenn das kein Einzelfall ist, trifft es jeden Gast.',
+                        'kmi-gast-abgewiesen');
+                } catch (e) {}
+            }
             return json(502, { ok: false, error: 'Speichern fehlgeschlagen', status: res.status });
         }
         var zeile = (await res.json())[0] || {};
