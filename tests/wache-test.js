@@ -165,6 +165,25 @@ t('der Aufrufer kann keinen Empfaenger nennen',
   /function alarm\(titel, text, kennung\)/.test(a), 'nimmt einen Empfaenger entgegen');
 t('ohne Handy geht es trotzdem ins Protokoll',
   /console\.error\('\[ALARM\]'/.test(a), 'nur Push, keine Spur');
+// GEMESSEN AM 26.08.2026 UM 13:11:45:
+//   push_subscriptions?customer_email=in.("ibo.kuran93@gmail.com")
+//   -> 200, Inhalt 2 Bytes = []
+// Kein Geraet eingetragen. Die Wache lief gruen, aber ein Alarm haette
+// NIEMANDEN erreicht -- er waere in ein Protokoll gegangen, das keiner
+// liest. Genau die Stille, die diese Woche einen Tag gekostet hat.
+//
+// Ein Push braucht ein Geraet, das sich einmal angemeldet hat. Darauf
+// darf sich ein Waechter nie verlassen -- das ist ein Schritt, den ein
+// Mensch vergessen kann. E-Mail braucht nichts ausser der Adresse.
+t('ohne Geraet geht der Alarm per E-Mail raus',
+  /kein Geraet angemeldet -- weiche auf E-Mail aus/.test(a) && /function mailAlarm/.test(a),
+  'schweigt ohne Geraet');
+t('und auch, wenn zwar Geraete da sind, aber keines erreicht wurde',
+  /if \(erfolge === 0\)[\s\S]{0,200}mailAlarm/.test(a), 'schweigt dann');
+t('die E-Mail sagt auch, wie man es aufs Handy bekommt',
+  /einmal im Admin-Dashboard anmelden/.test(a), 'laesst ihn im Unklaren');
+t('ohne Resend-Schluessel bleibt wenigstens die Protokollzeile',
+  /RESEND_API_KEY fehlt -- Alarm bleibt im Protokoll/.test(a), 'stuerzt ab oder schweigt');
 t('tote Geraete werden aufgeraeumt',
   /statusCode === 404 \|\| err\.statusCode === 410/.test(a), 'Karteileichen bleiben');
 t('gleiche Kennung ersetzt die alte Meldung',
