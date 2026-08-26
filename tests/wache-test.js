@@ -71,6 +71,23 @@ t('alle drei laufen, auch wenn die erste klemmt',
 t('und eine abgestuerzte Pruefung reisst die anderen nicht mit',
   /Pruefung ' \+ \(i \+ 1\) \+ ' ist selbst abgestuerzt/.test(w), 'kein try/catch je Pruefung');
 
+console.log('\n-- 2a. Und ob die ausgelieferte Seite ueberhaupt die neue ist --');
+// DER BLINDE FLECK, DER EINEN GANZEN TAG GEKOSTET HAT.
+// Die Wache rief bis zum 26.08. nur die Server-Funktionen auf -- und die
+// waren heil. Sie meldete gruen, waehrend im Browser nichts ging: die
+// Reparatur lag auf dem Server, die ausgelieferte SEITE war noch die
+// alte. Eine Wache, die nur den Server prueft, kann das nicht sehen.
+t('sie holt, was der Gast holt',
+  /fetch\(SEITE \+ '\/index\.html'/.test(w), 'holt die Seite nicht');
+t('und prueft, ob die Seite den neuen Gastweg benutzt',
+  /seite\.indexOf\('\/\.netlify\/functions\/reservation-guest'\)/.test(w), 'prueft es nicht');
+t('sie holt auch den Service Worker',
+  /fetch\(SEITE \+ '\/sw\.js'/.test(w), 'holt ihn nicht');
+t('und prueft den Namen des Zwischenspeichers',
+  /kmi-shell-v\(\\d\+\)/.test(w) && /Number\(v\) < 4/.test(w), 'prueft ihn nicht');
+t('diese Pruefung laeuft als erste',
+  /pruefeAusgelieferteSeite, pruefeReservierung/.test(w), 'laeuft spaeter');
+
 console.log('\n-- 2b. Und sie prueft, ob der Preis-Schutz noch lebt --');
 // Am 25.08. kam heraus: der Preis-Check war bei JEDER Bestellung aus.
 // Eine Abfrage fragte nach einer Spalte, die es nicht gibt, die
@@ -188,6 +205,17 @@ function tuerenBauen(welt) {
     global.fetch = async function (url, opt) {
         var m = opt && opt.method;
         if (m === 'DELETE') { geloescht++; return { ok: true }; }
+        if (url.indexOf('/index.html') > -1) {
+            if (welt.seite === null) throw new Error('ECONNREFUSED');
+            return { ok: welt.seite !== 'weg', status: 200,
+                     text: async function () {
+                         return welt.seite === 'alt' ? '<html>fetch(SUPABASE_URL + "/rest/v1/reservations")</html>'
+                                                     : '<html>/.netlify/functions/reservation-guest</html>'; } };
+        }
+        if (url.indexOf('/sw.js') > -1) {
+            return { ok: true, text: async function () {
+                return "var CACHE = 'kmi-shell-v" + (welt.sw || 4) + "';"; } };
+        }
         if (url.indexOf('/menu_items') > -1) {
             return { ok: true, json: async function () { return welt.karte === false ? [] : [{ id: 'g1', base_price: 12.5 }]; } };
         }
@@ -230,6 +258,20 @@ async function laufen(welt) {
     t('alles heil -> die Wache ist still', heil.code === 200 && heil.alarme.length === 0,
       heil.code + ' / ' + JSON.stringify(heil.alarme));
     t('und raeumt trotzdem beide Tabellen weg', heil.geloescht === 4, heil.geloescht);
+
+    // a2) DER FALL VOM 26.08.: Server heil, ausgelieferte Seite alt.
+    //     Genau hier war die Wache blind und meldete gruen.
+    var seiteAlt = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, seite: 'alt' });
+    t('Seite noch die alte -> Alarm', seiteAlt.code === 500 && seiteAlt.alarme.length === 1,
+      seiteAlt.code + ' / ' + JSON.stringify(seiteAlt.alarme));
+    t('und der Alarm sagt, dass die SEITE alt ist, nicht der Server',
+      /ausgelieferte Seite ist ALT/.test(seiteAlt.alarme[0] || ''), seiteAlt.alarme[0]);
+
+    // a3) Seite neu, aber der Zwischenspeicher wurde nicht hochgezaehlt --
+    //     dann behalten die Geraete die alte App. Genau mein Fehler vom 25.
+    var swAlt = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, sw: 3 });
+    t('Zwischenspeicher nicht hochgezaehlt -> Alarm',
+      swAlt.code === 500 && /Zwischenspeicher steht auf v3/.test(swAlt.alarme[0] || ''), swAlt.alarme[0]);
 
     // b) Genau der Fehler vom 25.08.2026: die Datenbank weist den Gast ab.
     var resKaputt = await laufen({

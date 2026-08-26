@@ -579,7 +579,34 @@
     function kmiTokenSetzen(session) {
         if (session && session.access_token) {
             _kmiToken = session.access_token;
-            _kmiTokenBis = session.expires_at || 0;
+            // HIER STAND: _kmiTokenBis = session.expires_at || 0;
+            //
+            // Gemeldet am 26.08.2026: "Es kommt keine Reservierung und
+            // Bestellungen rein". Im Protokoll stand, warum: der
+            // Betreiber hatte sich um 12:16 mit Google angemeldet, und
+            // trotzdem gingen seine Dashboard-Abfragen um 12:23 OHNE
+            // Anmeldung raus. Die Datenbank gibt dann keine
+            // Fehlermeldung, sondern eine leere Liste -- 99 Antworten
+            // mit genau 2 Bytes Inhalt: [].
+            //
+            // Der Grund: expires_at ist bei Supabase OPTIONAL. Fehlt
+            // es, war _kmiTokenBis = 0, und die Pruefung in kmiToken()
+            // faellt dann immer auf den oeffentlichen Schluessel
+            // zurueck -- mit einem voellig gueltigen Token im Speicher.
+            //
+            // Solange die Tabellen offen standen, fiel das nicht auf.
+            // Seit sie zu sind, sieht der Wirt dadurch GAR NICHTS mehr.
+            //
+            // expires_in ist dagegen immer dabei. Und wenn beides
+            // fehlt, ist eine Stunde die richtige Annahme: Supabase
+            // erneuert von selbst und ruft diese Funktion dabei erneut.
+            // Ein Token wegzuwerfen, das man hat, ist immer falsch.
+            var bis = Number(session.expires_at || 0);
+            if (!bis && session.expires_in) {
+                bis = Math.floor(Date.now() / 1000) + Number(session.expires_in);
+            }
+            if (!bis) bis = Math.floor(Date.now() / 1000) + 3600;
+            _kmiTokenBis = bis;
         } else {
             _kmiToken = null;
             _kmiTokenBis = 0;
@@ -598,6 +625,17 @@
         return SUPABASE_KEY;
     }
     window.kmiToken = kmiToken;
+
+    // IST DIESER BROWSER GERADE ANGEMELDET?
+    //
+    // Gebraucht vom Dashboard. Es soll nie wieder still leere Listen
+    // zeigen, weil die Anmeldung fehlt -- eine leere Liste liest sich
+    // wie "keine Bestellungen", und genau so hat es der Betreiber am
+    // 26.08. verstanden. Eine Stunde Suche fuer eine Zeile.
+    function kmiAngemeldet() {
+        return !!(_kmiToken && _kmiTokenBis && (_kmiTokenBis - 60) > (Date.now() / 1000));
+    }
+    window.kmiAngemeldet = kmiAngemeldet;
 
     // Die fertigen Kopfzeilen fuer PostgREST.
     // apikey bleibt IMMER der oeffentliche Schluessel -- daran erkennt
