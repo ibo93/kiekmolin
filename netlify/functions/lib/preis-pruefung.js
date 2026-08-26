@@ -208,6 +208,38 @@ function pruefe(order, daten) {
     if (mindestens < 0) mindestens = 0;
 
     var gruende = [];
+
+    // DER MINDESTBESTELLWERT -- BISHER NUR IM BROWSER GEPRUEFT.
+    //
+    // Gefragt am 26.08.2026: "was fehlt bei online bestellung
+    // mindestbestellung beim liefern". Nachgemessen: der Wert steht in
+    // restaurants.min_order_value, der Gast sieht ihn im Warenkorb
+    // ("Noch 4,20 EUR bis Mindestbestellwert"), und der Checkout blockt
+    // darunter -- aber NUR im Browser. Der Server holte vom Restaurant
+    // bis dahin nur id und delivery_fee.
+    //
+    // Eine Regel, die nur im Browser steht, ist keine Regel. Sie faellt
+    // weg bei einer alten App aus dem Zwischenspeicher (genau das ist
+    // gestern passiert), bei einem Fehler in der Anzeige, und natuerlich
+    // bei jedem, der die Adresse direkt aufruft. Der Wirt faehrt dann
+    // fuer 6 Euro los oder muss absagen -- beides kostet ihn.
+    //
+    // Gilt nur bei Lieferung. Abholung hat keinen Mindestwert, und die
+    // Probe der Wache bestellt zur Abholung.
+    var mindestBestellwert = (order.order_type === 'delivery' && daten.restaurant)
+        ? zahl(daten.restaurant.min_order_value) : 0;
+    if (mindestBestellwert > 0) {
+        // Gegen die UNTERGRENZE der Gerichte rechnen, nicht gegen die
+        // gemeldete Zwischensumme -- sonst liesse sich der
+        // Mindestbestellwert mit einer erfundenen hohen Zahl erschlagen.
+        var warenwert = untergrenzeSumme;
+        if (warenwert < mindestBestellwert - SPIELRAUM) {
+            gruende.push('Warenwert ' + warenwert.toFixed(2)
+                + ' unter dem Mindestbestellwert ' + mindestBestellwert.toFixed(2)
+                + ' fuer Lieferung');
+        }
+    }
+
     if (trinkgeld < -SPIELRAUM) {
         gruende.push('negatives Trinkgeld');
     }
@@ -222,6 +254,7 @@ function pruefe(order, daten) {
         ok: gruende.length === 0,
         gruende: gruende,
         mindestens: Math.round(mindestens * 100) / 100,
+        mindestbestellwert: Math.round(mindestBestellwert * 100) / 100,
         gemeldet: Math.round(gemeldet * 100) / 100,
         ungeprueft: ungeprueft,
         geprueft: posten.length - ungeprueft.length

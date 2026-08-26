@@ -99,7 +99,11 @@ async function preisCheck(order) {
     try {
         var rid = encodeURIComponent(order.restaurant_id);
         var ergebnisse = await Promise.all([
-            hol('restaurants?id=eq.' + rid + '&select=id,delivery_fee&limit=1'),
+            // min_order_value und free_delivery_from muessen mit: die
+            // Preispruefung braucht beide. Ohne min_order_value stand der
+            // Mindestbestellwert nur im Browser -- und eine Regel, die nur
+            // im Browser steht, ist keine Regel.
+            hol('restaurants?id=eq.' + rid + '&select=id,delivery_fee,free_delivery_from,min_order_value&limit=1'),
             // KEIN 'price' HIER. Die Spalte heisst base_price -- 'price'
             // gibt es auf menu_items nicht. PostgREST antwortete deshalb
             // mit 400 (42703, "column menu_items.price does not exist"),

@@ -105,6 +105,23 @@ t('kommt es durch, ist das der Alarm',
 t('ohne Speisekarte kein falscher Alarm',
   /if \(!gericht\) return null;/.test(w), 'alarmiert ohne Karte');
 
+console.log('\n-- 2c. Und ob der Mindestbestellwert wirklich haelt --');
+// Gefragt am 26.08.2026 zu einer Lieferbestellung ueber 12,00 Euro bei
+// hinterlegten 15 Euro: "warum konnte er mit 12,00 liefern lassen".
+// Der Grund: die Regel stand nur im Browser.
+t('sie schickt eine Lieferung unter dem Mindestwert',
+  /function pruefeMindestbestellwert/.test(w) && /order_type: *'delivery'/.test(w), 'prueft ihn nicht');
+t('und erwartet, dass sie ABGELEHNT wird',
+  /a\.status === 422 && a\.daten && a\.daten\.preis_abgelehnt/.test(
+      w.slice(w.indexOf('function pruefeMindestbestellwert'))), 'erwartet Annahme');
+t('geht sie durch, ist das der Alarm',
+  /Mindestbestellwert GILT NICHT/.test(w), 'meldet es nicht');
+// Kein Wert hinterlegt, keine Karte, oder das Gericht ist teurer als der
+// Mindestwert -- alles drei ist kein Fehler und darf nicht alarmieren.
+t('ohne hinterlegten Wert kein falscher Alarm', /if \(mindest <= 0\) return null;/.test(w), 'alarmiert');
+t('und auch nicht, wenn das Gericht teurer ist als der Mindestwert',
+  /if \(warenwert >= mindest\) return null;/.test(w), 'alarmiert');
+
 console.log('\n-- 3. Sie hinterlaesst nichts --');
 // Nicht ueber ein Textfenster pruefen -- dazwischen steht noch das
 // Suchen des Hauses, und beim ersten Anlauf war dieser Test deshalb rot,
@@ -165,6 +182,25 @@ t('der Aufrufer kann keinen Empfaenger nennen',
   /function alarm\(titel, text, kennung\)/.test(a), 'nimmt einen Empfaenger entgegen');
 t('ohne Handy geht es trotzdem ins Protokoll',
   /console\.error\('\[ALARM\]'/.test(a), 'nur Push, keine Spur');
+// GEMESSEN AM 26.08.2026 UM 13:11:45:
+//   push_subscriptions?customer_email=in.("ibo.kuran93@gmail.com")
+//   -> 200, Inhalt 2 Bytes = []
+// Kein Geraet eingetragen. Die Wache lief gruen, aber ein Alarm haette
+// NIEMANDEN erreicht -- er waere in ein Protokoll gegangen, das keiner
+// liest. Genau die Stille, die diese Woche einen Tag gekostet hat.
+//
+// Ein Push braucht ein Geraet, das sich einmal angemeldet hat. Darauf
+// darf sich ein Waechter nie verlassen -- das ist ein Schritt, den ein
+// Mensch vergessen kann. E-Mail braucht nichts ausser der Adresse.
+t('ohne Geraet geht der Alarm per E-Mail raus',
+  /kein Geraet angemeldet -- weiche auf E-Mail aus/.test(a) && /function mailAlarm/.test(a),
+  'schweigt ohne Geraet');
+t('und auch, wenn zwar Geraete da sind, aber keines erreicht wurde',
+  /if \(erfolge === 0\)[\s\S]{0,200}mailAlarm/.test(a), 'schweigt dann');
+t('die E-Mail sagt auch, wie man es aufs Handy bekommt',
+  /einmal im Admin-Dashboard anmelden/.test(a), 'laesst ihn im Unklaren');
+t('ohne Resend-Schluessel bleibt wenigstens die Protokollzeile',
+  /RESEND_API_KEY fehlt -- Alarm bleibt im Protokoll/.test(a), 'stuerzt ab oder schweigt');
 t('tote Geraete werden aufgeraeumt',
   /statusCode === 404 \|\| err\.statusCode === 410/.test(a), 'Karteileichen bleiben');
 t('gleiche Kennung ersetzt die alte Meldung',
@@ -220,7 +256,8 @@ function tuerenBauen(welt) {
             return { ok: true, json: async function () { return welt.karte === false ? [] : [{ id: 'g1', base_price: 12.5 }]; } };
         }
         if (url.indexOf('/restaurants') > -1) {
-            return { ok: true, json: async function () { return [{ id: 'haus-1' }]; } };
+            return { ok: true, json: async function () {
+                return [{ id: 'haus-1', min_order_value: welt.mindest === undefined ? 15 : welt.mindest }]; } };
         }
         if (url.indexOf('/functions/reservation-guest') > -1) {
             if (welt.res === null) throw new Error('ECONNREFUSED');
@@ -229,8 +266,11 @@ function tuerenBauen(welt) {
         if (url.indexOf('/functions/order-save') > -1) {
             angelegt++;
             var rumpf = JSON.parse(opt.body);
-            var istBillig = (rumpf.order.items || []).length > 0;
-            var f = istBillig ? welt.billig : welt.ord;
+            var nr = String(rumpf.order.order_number || '');
+            var f;
+            if (nr.indexOf('PROBE-MINDEST') === 0) f = welt.mindestAntwort || GUT_MINDEST;
+            else if ((rumpf.order.items || []).length > 0) f = welt.billig;
+            else f = welt.ord;
             if (f === null) throw new Error('ECONNREFUSED');
             return { status: f.status, json: async function () { return f.body; } };
         }
@@ -241,6 +281,8 @@ function tuerenBauen(welt) {
 var GUT_RES    = { status: 200, body: { ok: true, id: 'r1', track_token: 'a'.repeat(32), status: 'pending' } };
 var GUT_ORD    = { status: 200, body: { ok: true, id: 'b1', via: 'service' } };
 var GUT_BILLIG = { status: 422, body: { ok: false, preis_abgelehnt: true, gruende: ['Gesamt 0.00 unter dem Mindestpreis 12.50'] } };
+var GUT_MINDEST = { status: 422, body: { ok: false, preis_abgelehnt: true,
+    gruende: ['Warenwert 12.50 unter dem Mindestbestellwert 15.00 fuer Lieferung'] } };
 
 var wachePfad = path.join(F, 'gastweg-wache.js');
 async function laufen(welt) {
@@ -299,6 +341,22 @@ async function laufen(welt) {
     t('Preis-Schutz aus -> Alarm', schutzAus.code === 500 && schutzAus.alarme.length === 1, schutzAus.code);
     t('Preis-Schutz aus -> und es steht deutlich da',
       /Preis-Schutz IST AUS/.test(schutzAus.alarme[0] || ''), schutzAus.alarme[0]);
+
+    // d2) DER FALL VOM 26.08.: eine Lieferung unter dem Mindestwert geht
+    //     durch, obwohl der Wirt 15 Euro hinterlegt hat.
+    var mindestAus = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+        mindestAntwort: { status: 200, body: { ok: true, id: 'b3' } } });
+    t('Mindestbestellwert gilt nicht -> Alarm',
+      mindestAus.code === 500 && mindestAus.alarme.length === 1, mindestAus.code);
+    t('und es steht deutlich da, mit beiden Zahlen',
+      /Mindestbestellwert GILT NICHT/.test(mindestAus.alarme[0] || '')
+      && /12\.50/.test(mindestAus.alarme[0] || '') && /15\.00/.test(mindestAus.alarme[0] || ''),
+      mindestAus.alarme[0]);
+
+    // d3) Kein Mindestwert hinterlegt -- kein Fehler, kein Alarm.
+    var ohneMindest = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, mindest: 0 });
+    t('kein Mindestwert hinterlegt -> kein falscher Alarm',
+      ohneMindest.code === 200 && ohneMindest.alarme.length === 0, JSON.stringify(ohneMindest.alarme));
 
     // e) Halbe Antwort: ok, aber ohne track_token. Sieht nach Erfolg aus,
     //    waere aber ein Gast ohne Verfolgen-Banner.
