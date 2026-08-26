@@ -179,6 +179,58 @@ async function pruefeBestellung(haus) {
     return 'Bestellen: ' + grundAus(a);
 }
 
+// ---- PRUEFUNG 0: IST DIE AUSGELIEFERTE SEITE UEBERHAUPT DIE NEUE? ---
+//
+// DAS WAR DER BLINDE FLECK, UND ER HAT EINEN GANZEN TAG GEKOSTET.
+//
+// Am 26.08.2026 fragte der Betreiber: "Und wo ist der Waechter warum
+// sieht er die Probleme nicht". Zu Recht. Die Wache rief bis dahin nur
+// die Server-Funktionen auf -- und die waren heil. Sie meldete
+// durchgehend gruen, waehrend im Browser nichts ging.
+//
+// Der Grund: die Reparatur lag seit dem Vortag auf dem Server, aber die
+// SEITE, die der Browser bekommt, war noch die alte. Zwei Wege dahin:
+// Netlify hatte den neuen Stand noch nicht ausgeliefert, oder der
+// Service Worker auf dem Geraet hielt die alte Fassung fest, weil der
+// Name seines Zwischenspeichers unveraendert blieb.
+//
+// Eine Wache, die nur den Server prueft, kann diesen Fall nicht sehen.
+// Sie muss holen, was der Gast holt.
+//
+// Was sie NICHT kann: in den Zwischenspeicher eines fremden Handys
+// schauen. Aber der Name in sw.js ist der Schalter, der ihn leert --
+// stimmt der, raeumt jedes Geraet beim naechsten Aufruf von selbst auf.
+async function pruefeAusgelieferteSeite() {
+    var seite, worker;
+    try {
+        var a = await fetch(SEITE + '/index.html', { headers: { 'Cache-Control': 'no-cache' } });
+        if (!a.ok) return 'Startseite: HTTP ' + a.status;
+        seite = await a.text();
+        var b = await fetch(SEITE + '/sw.js', { headers: { 'Cache-Control': 'no-cache' } });
+        worker = b.ok ? await b.text() : '';
+    } catch (e) {
+        return 'Startseite nicht abrufbar: ' + ((e && e.message) || 'unbekannt');
+    }
+
+    // Schickt die ausgelieferte Seite Gaeste ueber die neue Tuer?
+    var neuerWeg = seite.indexOf('/.netlify/functions/reservation-guest') > -1;
+    if (!neuerWeg) {
+        return 'Die ausgelieferte Seite ist ALT: sie schreibt Reservierungen noch '
+             + 'direkt in die Datenbank. Der Server ist repariert, die Seite nicht -- '
+             + 'vermutlich haengt der Netlify-Deploy.';
+    }
+
+    // Und passt der Name des Zwischenspeichers dazu? Sonst behalten die
+    // Geraete die alte Fassung, obwohl auf dem Server alles stimmt.
+    var v = (worker.match(/var CACHE = 'kmi-shell-v(\d+)';/) || [])[1];
+    if (!v) return 'sw.js: kein gezaehlter Name fuer den Zwischenspeicher gefunden';
+    if (Number(v) < 4) {
+        return 'Der Zwischenspeicher steht auf v' + v + ', obwohl die Seite den neuen '
+             + 'Gastweg benutzt -- die Geraete behalten die alte App';
+    }
+    return null;
+}
+
 // ---- PRUEFUNG 3: Lebt der Preis-Schutz noch? ------------------------
 // Ein echtes Gericht fuer 0 Euro. Das MUSS abgelehnt werden.
 async function pruefePreisSchutz(haus) {
@@ -231,7 +283,10 @@ exports.handler = async function () {
     // man nach dem Alarm nur, dass EIN Weg zu ist -- und repariert ihn,
     // waehrend der naechste noch immer zu ist.
     var maengel = [];
-    var pruefungen = [pruefeReservierung, pruefeBestellung, pruefePreisSchutz];
+    // Die ausgelieferte Seite zuerst: geht die nicht, ist alles andere
+    // egal -- dann bekommt der Gast gar nicht erst die reparierte App.
+    var pruefungen = [pruefeAusgelieferteSeite, pruefeReservierung,
+                      pruefeBestellung, pruefePreisSchutz];
     for (var i = 0; i < pruefungen.length; i++) {
         try {
             var m = await pruefungen[i](haus);

@@ -75,9 +75,48 @@ t('auch nicht, wenn es in 30 Sekunden ablaeuft (Sicherheitsabstand)',
 kmiTokenSetzen({ access_token: 'noch-lange-gueltig', expires_at: inSekunden(300) });
 t('bei 5 Minuten Restlaufzeit wird es benutzt', kmiToken() === 'noch-lange-gueltig');
 
-kmiTokenSetzen({ access_token: 'ohne-ablauf' });
-t('ohne Ablaufdatum lieber der oeffentliche Schluessel als ein Blindflug',
-  kmiToken() === ANON, kmiToken());
+// HIER STAND: "ohne Ablaufdatum lieber der oeffentliche Schluessel als
+// ein Blindflug" -- und das war falsch.
+//
+// Am 26.08.2026 meldete der Betreiber: "Es kommt keine Reservierung und
+// Bestellungen rein". Er war angemeldet, sein Dashboard war offen, und
+// trotzdem gingen 99 Abfragen OHNE Anmeldung raus. Die Datenbank
+// antwortet darauf nicht mit einem Fehler, sondern mit einer leeren
+// Liste -- 2 Bytes: []. Das liest sich wie "keine Bestellungen".
+//
+// Der Grund: expires_at ist bei Supabase OPTIONAL. Fehlte es, wurde ein
+// voellig gueltiges Token weggeworfen und der oeffentliche Schluessel
+// genommen.
+//
+// Der Gedanke "lieber vorsichtig" war hier genau verkehrt herum: der
+// oeffentliche Schluessel ist nicht die sichere Wahl, er ist die
+// STILLE. Ein abgelaufenes Token wuerde abgewiesen und der Fehler waere
+// sichtbar; der oeffentliche Schluessel zeigt stattdessen eine leere
+// Welt. Und ein Test hat diesen Irrtum festgeschrieben statt ihn zu
+// finden -- zum dritten Mal in dieser Woche.
+//
+// Ein Token, das man hat, wirft man nicht weg. Fehlt das Ablaufdatum,
+// wird es aus expires_in gerechnet; fehlt auch das, gilt eine Stunde --
+// Supabase erneuert von selbst und meldet sich dann wieder.
+kmiTokenSetzen({ access_token: 'ohne-ablauf-mit-dauer', expires_in: 3600 });
+t('ohne Ablaufdatum wird es aus expires_in gerechnet',
+  kmiToken() === 'ohne-ablauf-mit-dauer', kmiToken());
+
+kmiTokenSetzen({ access_token: 'ganz-ohne-angabe' });
+t('und ganz ohne Angabe gilt es trotzdem -- eine leere Liste ist schlimmer',
+  kmiToken() === 'ganz-ohne-angabe', kmiToken());
+
+// Der Sicherheitsabstand bleibt: ein Token, von dem wir WISSEN, dass es
+// abgelaufen ist, wird weiterhin nicht gesendet.
+kmiTokenSetzen({ access_token: 'wirklich-abgelaufen', expires_at: inSekunden(-1) });
+t('ein nachweislich abgelaufenes Token bleibt draussen', kmiToken() === ANON, kmiToken());
+
+// Und die neue Auskunft: ist dieser Browser angemeldet?
+kmiTokenSetzen({ access_token: 'gueltig', expires_at: inSekunden(600) });
+t('kmiAngemeldet() sagt ja, wenn eine Sitzung anliegt',
+  typeof welt.kmiAngemeldet === 'function' && welt.kmiAngemeldet() === true, 'fehlt oder falsch');
+kmiTokenSetzen(null);
+t('und nein, wenn keine da ist', welt.kmiAngemeldet() === false, 'meldet trotzdem ja');
 
 // =========================================================================
 console.log('\n-- Die Kopfzeilen --');
