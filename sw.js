@@ -25,7 +25,22 @@
 // v3 am 21.08.2026: die Geraete hielten eine Fassung fest, in der die
 // Benachrichtigungen noch nicht funktionierten. Ohne dieses Hochzaehlen
 // haetten sie sie noch tagelang behalten.
-var CACHE = 'kmi-shell-v3';
+// v4 am 26.08.2026: Der Fix fuer die Reservierungen war seit 16 Uhr
+// auf dem Server -- die Wache belegt es, sie reserviert seitdem alle 15
+// Minuten erfolgreich. Auf dem Handy des Betreibers ging es trotzdem
+// nicht: um 12:13 ging dort noch ein Schreibversuch DIREKT an
+// /rest/v1/reservations, also aus der alten App.
+//
+// Grund: der Service Worker liefert die Huelle aus dem Zwischenspeicher
+// und holt die neue Fassung erst im Hintergrund. Der erste Aufruf nach
+// einem Deploy zeigt also noch die alte Seite. Wer einmal nachlaedt und
+// aufgibt, bleibt auf der alten haengen.
+//
+// Der Name dieses Zwischenspeichers ist der Schalter: aendert er sich,
+// wirft jedes Geraet beim naechsten Aufruf den alten Stand weg. Nach
+// einer Aenderung an einem Gaesteweg MUSS er hochgezaehlt werden --
+// sonst ist die Reparatur auf dem Server heil und beim Gast nicht.
+var CACHE = 'kmi-shell-v4';
 var SHELL = '/';
 // Nur Dateien, die es sicher gibt. Eine fehlende Datei laesst sonst die
 // gesamte Installation scheitern und der Worker uebernimmt nie.
