@@ -55,6 +55,66 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     ]});
     assert.ok(e.ok && e.zum_vorlesen.gesamtsumme === '33,40 Euro', JSON.stringify(e));
   });
+  // DER MINDESTBESTELLWERT AM TELEFON.
+  //
+  // Gefragt am 26.08.2026 zu einer Lieferbestellung ueber 12,00 Euro bei
+  // hinterlegten 15 Euro: "warum konnte er mit 12,00 liefern lassen".
+  //
+  // Der Wert liegt dem Assistenten vor (findeRestaurant holt select=*),
+  // benutzt hat ihn niemand. Die Webseite prueft ihn im Browser,
+  // order-save seit heute auch auf dem Server -- der Telefon-Assistent
+  // schreibt aber DIREKT in die Tabelle, an order-save vorbei. Fuer ihn
+  // galt die Regel nie.
+  const mitMindest = (betrag) => new DialogSitzung({
+    restaurant: Object.assign({}, demo.restaurant, { min_order_value: betrag }),
+    menue: demo.speisekarte, stufe: 3, anrufer: '+49123',
+    datenquelle: { async neueBestellung() { return { ok: true, daten: { id: 'b1' } }; },
+                   async neuerBestellArtikel() { return { ok: true }; } }
+  });
+
+  await test('Mindestbestellwert: der Assistent erfaehrt es VOR dem Vorlesen', () => {
+    const e = mitMindest(30).toolPruefeBestellung({ typ: 'lieferung',
+      artikel: [{ name: 'aglio e olio', menge: 1 }] });
+    assert.ok(e.ok, JSON.stringify(e));
+    assert.ok(e.mindestbestellwert && e.mindestbestellwert.erreicht === false, JSON.stringify(e.mindestbestellwert));
+    assert.ok(/noch etwas dazu|Abholung/.test(e.mindestbestellwert.hinweis), e.mindestbestellwert.hinweis);
+  });
+
+  await test('Mindestbestellwert: darunter wird NICHT gespeichert', async () => {
+    const d = mitMindest(30);
+    const r = await d.toolSpeichereBestellung({ typ: 'lieferung',
+      artikel: [{ name: 'aglio e olio', menge: 1 }], kunde_name: 'T', telefon: '1',
+      adresse: 'Kleestrasse 14', vorgelesen_und_bestaetigt: true });
+    assert.ok(!r.gespeichert, JSON.stringify(r));
+    assert.ok(/Mindestbestellwert/.test(r.fehler), r.fehler);
+  });
+
+  await test('Mindestbestellwert: darueber geht es durch', async () => {
+    const d = mitMindest(10);
+    const r = await d.toolSpeichereBestellung({ typ: 'lieferung',
+      artikel: [{ name: 'pizza salami', menge: 2 }], kunde_name: 'T', telefon: '1',
+      adresse: 'Kleestrasse 14', vorgelesen_und_bestaetigt: true });
+    assert.ok(r.gespeichert, JSON.stringify(r));
+  });
+
+  await test('Mindestbestellwert: bei Abholung gilt er nicht', async () => {
+    const d = mitMindest(30);
+    const r = await d.toolSpeichereBestellung({ typ: 'abholung',
+      artikel: [{ name: 'aglio e olio', menge: 1 }], kunde_name: 'T', telefon: '1',
+      vorgelesen_und_bestaetigt: true });
+    assert.ok(r.gespeichert, JSON.stringify(r));
+  });
+
+  await test('Mindestbestellwert: ohne hinterlegten Wert aendert sich nichts', async () => {
+    const d = mitMindest(0);
+    const e = d.toolPruefeBestellung({ typ: 'lieferung', artikel: [{ name: 'aglio e olio', menge: 1 }] });
+    assert.ok(e.ok && e.mindestbestellwert === undefined, JSON.stringify(e.mindestbestellwert));
+    const r = await d.toolSpeichereBestellung({ typ: 'lieferung',
+      artikel: [{ name: 'aglio e olio', menge: 1 }], kunde_name: 'T', telefon: '1',
+      adresse: 'Kleestrasse 14', vorgelesen_und_bestaetigt: true });
+    assert.ok(r.gespeichert, JSON.stringify(r));
+  });
+
   await test('Bestellung: unbekannt -> ablehnen, mehrdeutig -> nachfragen', () => {
     const d = neuerDialog();
     assert.ok(!d.toolPruefeBestellung({ typ: 'abholung', artikel: [{ name: 'Pizza Hawaii', menge: 1 }] }).ok);

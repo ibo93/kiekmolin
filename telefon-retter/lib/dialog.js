@@ -607,6 +607,26 @@ class DialogSitzung {
     return { name: wahl.name, preis: euro(preis) };
   }
 
+  // DER MINDESTBESTELLWERT -- AUCH AM TELEFON.
+  //
+  // Gefragt am 26.08.2026 zu einer Lieferbestellung ueber 12,00 Euro bei
+  // hinterlegten 15 Euro: "warum konnte er mit 12,00 liefern lassen".
+  //
+  // Der Wert steht in restaurants.min_order_value und liegt hier vor --
+  // findeRestaurant() holt select=*. Benutzt hat ihn niemand. Die
+  // Webseite prueft ihn im Browser, order-save seit heute auch auf dem
+  // Server; der Telefon-Assistent schreibt aber DIREKT in die Tabelle,
+  // an order-save vorbei. Fuer ihn galt die Regel nie.
+  //
+  // Am Telefon gehoert das nach VORN, nicht ans Ende: der Anrufer kann
+  // etwas dazunehmen. Eine Absage, nachdem alles besprochen ist, waere
+  // der schlechteste Weg -- und eine stille Annahme unter dem Mindestwert
+  // laesst den Wirt umsonst losfahren.
+  mindestbestellwert(typ) {
+    if (typ !== 'lieferung') return 0;
+    return Number(this.restaurant.min_order_value) || 0;
+  }
+
   toolPruefeBestellung({ typ, artikel }) {
     if (!this.menue.length) return { fehler: 'Keine Speisekarte hinterlegt - Rueckruf anbieten.' };
     const { geprueft, probleme } = this.matcheArtikel(artikel || []);
@@ -615,8 +635,25 @@ class DialogSitzung {
     const liefergebuehr = typ === 'lieferung' ? (Number(this.restaurant.delivery_fee) || 0) : 0;
     const summe = zwischensumme + liefergebuehr;
     const zusatz = this.zusatzVorschlag(geprueft);
+
+    // Fehlt etwas zum Mindestbestellwert, erfaehrt der Assistent es HIER
+    // -- also bevor er die Summe vorliest. Dann kann er fragen, ob noch
+    // etwas dazu soll, statt am Ende absagen zu muessen.
+    const mindest = this.mindestbestellwert(typ);
+    const fehlt = mindest > 0 ? mindest - zwischensumme : 0;
+
     return {
       ok: true,
+      mindestbestellwert: mindest > 0 ? {
+        betrag: euro(mindest),
+        erreicht: fehlt <= 0,
+        fehlt: fehlt > 0 ? euro(fehlt) : null,
+        hinweis: fehlt > 0
+          ? ('Der Mindestbestellwert fuer Lieferung ist ' + euro(mindest) + '. Es fehlen noch '
+             + euro(fehlt) + '. Dem Gast freundlich sagen und fragen, ob noch etwas dazu soll -- '
+             + 'oder Abholung anbieten. NICHT speichern, solange es nicht erreicht ist.')
+          : undefined
+      } : undefined,
       zum_vorlesen: {
         artikel: geprueft.map((a) => a.menge + 'x ' + a.name + (a.extras ? ' (' + a.extras + ')' : '') + ' zu ' + euro(a.gesamt)),
         liefergebuehr: liefergebuehr ? euro(liefergebuehr) : null,
@@ -645,6 +682,22 @@ class DialogSitzung {
     const zwischensumme = geprueft.reduce((s, a) => s + a.gesamt, 0);
     const liefergebuehr = typ === 'lieferung' ? (Number(this.restaurant.delivery_fee) || 0) : 0;
     const summe = zwischensumme + liefergebuehr;
+
+    // UND HIER WIRD ES VERBINDLICH.
+    // Die Meldung in toolPruefeBestellung ist ein Hinweis fuer den
+    // Assistenten -- der kann sie ueberlesen. Das hier ist die Regel:
+    // unter dem Mindestbestellwert wird nicht gespeichert. Gerechnet wird
+    // gegen den Warenwert ohne Liefergebuehr, genau wie im Warenkorb der
+    // Webseite -- sonst haette man zwei verschiedene Mindestwerte.
+    const mindestSpeichern = this.mindestbestellwert(typ);
+    if (mindestSpeichern > 0 && zwischensumme < mindestSpeichern) {
+      return {
+        gespeichert: false,
+        fehler: 'Mindestbestellwert fuer Lieferung ist ' + euro(mindestSpeichern)
+              + ', die Bestellung liegt bei ' + euro(zwischensumme)
+              + '. Dem Gast sagen und anbieten, noch etwas dazuzunehmen oder abzuholen.'
+      };
+    }
 
     // GLEICHES Nummern-Format wie die Online-Bestellung (KI-JJMMTT-XXXXXX)
     const jetzt = new Date();

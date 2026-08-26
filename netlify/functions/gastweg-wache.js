@@ -256,6 +256,58 @@ async function pruefePreisSchutz(haus) {
          + ' Euro ging fuer 0 Euro durch (HTTP ' + a.status + ')';
 }
 
+// ---- PRUEFUNG 4: Haelt der Mindestbestellwert? ----------------------
+//
+// Gefragt am 26.08.2026 zu einer Lieferbestellung ueber 12,00 Euro bei
+// hinterlegten 15 Euro: "warum konnte er mit 12,00 liefern lassen".
+//
+// Der Grund: die Regel stand nur im Browser. Genau deshalb prueft die
+// Wache sie jetzt dort, wo sie gelten muss -- auf dem Server.
+//
+// Eine Lieferbestellung mit einem einzigen Gericht, weit unter dem
+// hinterlegten Wert. Die MUSS abgelehnt werden.
+async function pruefeMindestbestellwert(haus) {
+    var hausDaten = null;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
+            + encodeURIComponent(haus) + '&select=min_order_value&limit=1', { headers: kopf() });
+        if (res.ok) hausDaten = (await res.json())[0];
+    } catch (e) { return null; }
+
+    var mindest = hausDaten ? Number(hausDaten.min_order_value) || 0 : 0;
+    // Kein Mindestwert hinterlegt -> nichts zu pruefen, kein Alarm.
+    if (mindest <= 0) return null;
+
+    var gericht = await probeGericht(haus);
+    if (!gericht) return null;                 // ohne Karte nicht pruefbar
+
+    // Ein Gericht zum echten Preis. Liegt das schon ueber dem Mindestwert,
+    // laesst sich der Schutz mit einer Bestellung nicht pruefen -- dann
+    // lieber gar nichts melden als falschen Alarm.
+    var warenwert = Number(gericht.base_price) || 0;
+    if (warenwert >= mindest) return null;
+
+    var a = await alsGast('order-save', {
+        order: {
+            order_number:   'PROBE-MINDEST-' + Date.now(),
+            restaurant_id:  haus,
+            customer_name:  PROBE_NAME,
+            customer_phone: '0000000000',
+            status:         'received',
+            order_type:     'delivery',
+            delivery_address: 'Probestrasse 1, 26802 Moormerland',
+            items:          [{ menu_item_id: gericht.id, quantity: 1, price: warenwert }],
+            subtotal:       warenwert,
+            total:          warenwert
+        }
+    });
+    if (a.status === 422 && a.daten && a.daten.preis_abgelehnt) return null;   // richtig abgewiesen
+    if (a.netzFehler) return 'Mindestbestellwert: ' + grundAus(a);
+    return 'Mindestbestellwert GILT NICHT: eine Lieferung ueber ' + warenwert.toFixed(2)
+         + ' Euro ging durch, obwohl ' + mindest.toFixed(2) + ' Euro hinterlegt sind (HTTP '
+         + a.status + ')';
+}
+
 exports.handler = async function () {
     if (!SERVICE_KEY) {
         console.error('[wache] SUPABASE_SERVICE_KEY fehlt -- Wache kann nicht aufraeumen');
@@ -286,7 +338,7 @@ exports.handler = async function () {
     // Die ausgelieferte Seite zuerst: geht die nicht, ist alles andere
     // egal -- dann bekommt der Gast gar nicht erst die reparierte App.
     var pruefungen = [pruefeAusgelieferteSeite, pruefeReservierung,
-                      pruefeBestellung, pruefePreisSchutz];
+                      pruefeBestellung, pruefePreisSchutz, pruefeMindestbestellwert];
     for (var i = 0; i < pruefungen.length; i++) {
         try {
             var m = await pruefungen[i](haus);
