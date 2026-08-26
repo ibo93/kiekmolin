@@ -147,7 +147,13 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   // Wirt eine Meldung ueber einen Gast, den es nie gab. Ein Waechter,
   // der falschen Alarm ausloest, wird nach der dritten Nacht
   // abgeschaltet, und dann ueberwacht gar nichts mehr.
-  if (String(item.guest_name || '').indexOf('[Probe]') === 0) return;
+  //
+  // Reservierungen heissen guest_name, Bestellungen customer_name.
+  // Zuerst stand hier nur guest_name -- die Bestell-Probe waere
+  // durchgerutscht und der Wirt haette "Neue Bestellung" aufs Handy
+  // bekommen fuer einen Gast, den es nie gab.
+  var probeName = String(item.guest_name || item.customer_name || '');
+  if (probeName.indexOf('[Probe]') === 0) return;
 
   const restId = item.restaurant_id;
   if (!restId) return;

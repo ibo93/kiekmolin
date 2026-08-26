@@ -79,7 +79,29 @@ t('fremde Domains sowieso nicht',
 console.log('\n-- 4. Der alte Zwischenspeicher wird weggeworfen --');
 // Ohne das haetten die Geraete die Fassung ohne funktionierende
 // Benachrichtigungen noch tagelang behalten.
-t('der Name wurde hochgezaehlt', /var CACHE = 'kmi-shell-v3';/.test(sw), 'noch v2');
+//
+// DER NAME MUSS ZUM GAESTEWEG PASSEN.
+//
+// Am 26.08.2026 war der Fix fuer die Reservierungen seit dem Vorabend
+// auf dem Server -- die Wache belegte es, sie reservierte alle 15
+// Minuten erfolgreich. Auf dem Handy ging es trotzdem nicht: um 12:13
+// ging dort ein Schreibversuch DIREKT an /rest/v1/reservations, also
+// aus der alten App. Der Service Worker liefert die Huelle aus dem
+// Zwischenspeicher; der erste Aufruf nach einem Deploy zeigt noch die
+// alte Seite.
+//
+// Deshalb nicht "steht v3 da", sondern die Regel dahinter: sobald die
+// App den Gast ueber reservation-guest schickt, MUSS der Name
+// mindestens v4 sein. Sonst ist die Reparatur auf dem Server heil und
+// beim Gast nicht -- und genau das kostet Gaeste.
+var name = (sw.match(/var CACHE = '(kmi-shell-v(\d+))';/) || []);
+t('der Zwischenspeicher hat einen gezaehlten Namen', !!name[1], 'kein kmi-shell-vN');
+var h = require('fs').readFileSync(KMI + '/index.html', 'utf8');
+var neuerGastweg = h.indexOf('/.netlify/functions/reservation-guest') > -1;
+t('und der Name passt zum Gaesteweg',
+  !neuerGastweg || Number(name[2]) >= 4,
+  'App schickt Gaeste ueber reservation-guest, Zwischenspeicher steht aber auf v' + name[2]
+  + ' -- die Geraete behalten die alte Fassung');
 t('und beim Aktivieren wird alles andere geloescht',
   /k === CACHE \? null : caches\.delete\(k\)/.test(sw), 'raeumt nicht auf');
 t('der neue Worker uebernimmt sofort',

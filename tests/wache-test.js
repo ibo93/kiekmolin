@@ -51,14 +51,42 @@ console.log('\n-- 2. Sie geht denselben Weg wie ein Gast --');
 // Das ist der Kern. Eine Wache, die mit dem Dienstschluessel prueft,
 // prueft die eigenen Sonderrechte -- und haette am 25.08. gruen
 // gemeldet, waehrend vier Gaeste abgewiesen wurden.
-t('sie ruft die echte Gaeste-Tuer',
-  w.indexOf('/.netlify/functions/reservation-guest') > -1, 'prueft etwas anderes');
-var versuch = w.slice(w.indexOf("SEITE + '/.netlify/functions/reservation-guest'"));
-versuch = versuch.slice(0, versuch.indexOf('});'));
+t('sie prueft den Reservierungs-Weg',
+  /alsGast\('reservation-guest'/.test(w), 'prueft ihn nicht');
+t('sie prueft den Bestell-Weg',
+  /alsGast\('order-save'/.test(w), 'prueft ihn nicht');
+// alsGast() ist die einzige Stelle, die nach draussen ruft -- dort und
+// nur dort entscheidet sich, ob wirklich wie ein Gast geprueft wird.
+var versuch = w.slice(w.indexOf('async function alsGast'));
+versuch = versuch.slice(0, versuch.indexOf('\n}'));
 t('ohne apikey', versuch.indexOf('apikey') === -1, 'schickt einen Schluessel mit');
 t('ohne Authorization', versuch.indexOf('Authorization') === -1, 'meldet sich an');
 t('und prueft die Antwort wirklich',
-  /antwort\.ok && antwort\.id && antwort\.track_token/.test(w), 'glaubt der Antwort blind');
+  /a\.daten\.ok && a\.daten\.id && a\.daten\.track_token/.test(w), 'glaubt der Antwort blind');
+// Wenn die erste Pruefung klemmt, muessen die anderen trotzdem laufen --
+// sonst repariert man einen Weg und der naechste ist noch immer zu.
+t('alle drei laufen, auch wenn die erste klemmt',
+  /for \(var i = 0; i < pruefungen\.length; i\+\+\)/.test(w) && /maengel\.push/.test(w),
+  'bricht nach der ersten ab');
+t('und eine abgestuerzte Pruefung reisst die anderen nicht mit',
+  /Pruefung ' \+ \(i \+ 1\) \+ ' ist selbst abgestuerzt/.test(w), 'kein try/catch je Pruefung');
+
+console.log('\n-- 2b. Und sie prueft, ob der Preis-Schutz noch lebt --');
+// Am 25.08. kam heraus: der Preis-Check war bei JEDER Bestellung aus.
+// Eine Abfrage fragte nach einer Spalte, die es nicht gibt, die
+// Pruefung fiel in den catch-Zweig und liess alles durch. Absichtlich
+// faellt sie offen aus -- genau deshalb hat es monatelang niemand
+// gemerkt.
+t('sie schickt ein echtes Gericht fuer 0 Euro',
+  /function pruefePreisSchutz/.test(w) && /price: 0/.test(w), 'prueft den Schutz nicht');
+t('und erwartet, dass es ABGELEHNT wird',
+  /a\.status === 422 && a\.daten && a\.daten\.preis_abgelehnt/.test(w), 'erwartet Annahme');
+t('kommt es durch, ist das der Alarm',
+  /Preis-Schutz IST AUS/.test(w), 'meldet es nicht');
+// Ohne Karte laesst sich der Schutz nicht pruefen -- das ist kein
+// Fehler und darf keinen Alarm ausloesen.
+t('ohne Speisekarte kein falscher Alarm',
+  /if \(!gericht\) return null;/.test(w), 'alarmiert ohne Karte');
 
 console.log('\n-- 3. Sie hinterlaesst nichts --');
 // Nicht ueber ein Textfenster pruefen -- dazwischen steht noch das
@@ -66,7 +94,9 @@ console.log('\n-- 3. Sie hinterlaesst nichts --');
 // obwohl die Reihenfolge stimmte. Ueber die Reihenfolge der Stellen ist
 // es genau das, was gemeint ist: aufraeumen, versuchen, aufraeumen.
 var ersteS = w.indexOf('await aufraeumen();');
-var versuchS = w.indexOf("SEITE + '/.netlify/functions/reservation-guest'");
+// Angelpunkt ist die Schleife, die die Pruefungen laufen laesst -- vor
+// ihr wird geraeumt, nach ihr wieder.
+var versuchS = w.indexOf('for (var i = 0; i < pruefungen.length; i++)');
 var zweiteS = w.indexOf('await aufraeumen();', versuchS);
 t('sie raeumt vor dem Versuch auf', ersteS > 0 && ersteS < versuchS, ersteS + '/' + versuchS);
 t('und danach auch', zweiteS > versuchS, zweiteS);
@@ -75,6 +105,11 @@ t('das sind genau zwei Male, nicht eins',
   (w.match(/await aufraeumen\(\);/g) || []).length);
 t('die Probe traegt einen eindeutigen Namen',
   /var PROBE_NAME = '\[Probe\] Gastweg-Wache';/.test(w), 'kein Kennzeichen');
+// Aufraeumen, das nur den eigenen Pfad kennt, laesst irgendwann etwas
+// liegen -- deshalb immer beide Tabellen, auch wenn nur eine Pruefung lief.
+t('und aufgeraeumt werden BEIDE Tabellen',
+  /reservations\?guest_name=eq\./.test(w) && /orders\?customer_name=eq\./.test(w),
+  'nur eine Tabelle');
 t('und liegt weit in der Zukunft',
   /300 \* 24 \* 60 \* 60 \* 1000/.test(w), 'koennte jemandem im Weg liegen');
 
@@ -85,7 +120,11 @@ console.log('\n-- 4. Kein Wirt bekommt eine Meldung ueber die Probe --');
 // abgeschaltet -- und dann ueberwacht gar nichts mehr.
 var melder = lies(path.join(F, 'pending-reminder.js'));
 t('der Melder ueberspringt Proben',
-  /indexOf\('\[Probe\]'\) === 0\) return;/.test(melder), 'meldet sie mit');
+  /probeName\.indexOf\('\[Probe\]'\) === 0\) return;/.test(melder), 'meldet sie mit');
+// Reservierungen heissen guest_name, Bestellungen customer_name. Zuerst
+// stand dort nur guest_name -- die Bestell-Probe waere durchgerutscht.
+t('und zwar bei Reservierungen UND Bestellungen',
+  /item\.guest_name \|\| item\.customer_name/.test(melder), 'nur eine Spalte');
 
 console.log('\n-- 5. Beim ersten echten Gast klingelt es sofort --');
 var tuer = lies(path.join(F, 'reservation-guest.js'));
@@ -117,10 +156,8 @@ t('gleiche Kennung ersetzt die alte Meldung',
 
 console.log('\n-- 7. Die Wache WIRKLICH laufen lassen --');
 // Alles darueber liest Quelltext -- und genau das hat am 25.08. nicht
-// gereicht. Hier laeuft die Wache echt, gegen eine nachgebaute Tuer:
-// einmal so kaputt wie damals (401), einmal repariert, einmal
-// unerreichbar. Wenn sie den Fall von damals nicht rot meldet, ist sie
-// wertlos.
+// gereicht. Hier laeuft die Wache echt, gegen nachgebaute Tueren. Wenn
+// sie die Faelle von damals nicht rot meldet, ist sie wertlos.
 var Module = require('module');
 var echtesRequire = Module.prototype.require;
 var alarme = [];
@@ -140,58 +177,109 @@ process.env.WACHE_RESTAURANT_ID  = 'haus-1';
 process.env.URL                  = 'https://probe.test';
 
 var echtesFetch = global.fetch;
-var geloescht = 0;
+var geloescht = 0, angelegt = 0;
 
-function tuerBaut(fall) {
+// welt: was die nachgebauten Tueren antworten sollen.
+//   res    -> Antwort von reservation-guest
+//   ord    -> Antwort von order-save auf die normale Probe
+//   billig -> Antwort von order-save auf die Null-Euro-Probe
+//   karte  -> gibt es ein Gericht mit Preis?
+function tuerenBauen(welt) {
     global.fetch = async function (url, opt) {
-        if (url.indexOf('/reservations') > -1 && opt && opt.method === 'DELETE') {
-            geloescht++; return { ok: true };
+        var m = opt && opt.method;
+        if (m === 'DELETE') { geloescht++; return { ok: true }; }
+        if (url.indexOf('/menu_items') > -1) {
+            return { ok: true, json: async function () { return welt.karte === false ? [] : [{ id: 'g1', base_price: 12.5 }]; } };
+        }
+        if (url.indexOf('/restaurants') > -1) {
+            return { ok: true, json: async function () { return [{ id: 'haus-1' }]; } };
         }
         if (url.indexOf('/functions/reservation-guest') > -1) {
-            if (fall === null) throw new Error('ECONNREFUSED');
-            return { status: fall.status, json: async function () { return fall.body; } };
+            if (welt.res === null) throw new Error('ECONNREFUSED');
+            return { status: welt.res.status, json: async function () { return welt.res.body; } };
         }
-        return { ok: true, json: async function () { return [{ id: 'haus-1' }]; } };
+        if (url.indexOf('/functions/order-save') > -1) {
+            angelegt++;
+            var rumpf = JSON.parse(opt.body);
+            var istBillig = (rumpf.order.items || []).length > 0;
+            var f = istBillig ? welt.billig : welt.ord;
+            if (f === null) throw new Error('ECONNREFUSED');
+            return { status: f.status, json: async function () { return f.body; } };
+        }
+        return { ok: true, json: async function () { return []; } };
     };
 }
 
+var GUT_RES    = { status: 200, body: { ok: true, id: 'r1', track_token: 'a'.repeat(32), status: 'pending' } };
+var GUT_ORD    = { status: 200, body: { ok: true, id: 'b1', via: 'service' } };
+var GUT_BILLIG = { status: 422, body: { ok: false, preis_abgelehnt: true, gruende: ['Gesamt 0.00 unter dem Mindestpreis 12.50'] } };
+
 var wachePfad = path.join(F, 'gastweg-wache.js');
-async function laufen(fall) {
-    alarme.length = 0; geloescht = 0;
-    tuerBaut(fall);
+async function laufen(welt) {
+    alarme.length = 0; geloescht = 0; angelegt = 0;
+    tuerenBauen(welt);
     delete require.cache[require.resolve(wachePfad)];
     var erg = await require(wachePfad).handler();
     return { code: erg.statusCode, alarme: alarme.slice(), geloescht: geloescht };
 }
 
 (async function () {
-    // a) Genau der Fehler vom 25.08.2026: die Datenbank weist ab.
-    var kaputt = await laufen({ status: 401, body: { ok: false, error: 'Speichern fehlgeschlagen', status: 401 } });
-    t('kaputt wie am 25.08. -> die Wache meldet rot', kaputt.code === 500, kaputt.code);
-    t('kaputt wie am 25.08. -> und schlaegt Alarm', kaputt.alarme.length === 1, kaputt.alarme);
-    t('der Alarm sagt, dass es JEDEN Gast trifft',
-      /Gaeste koennen nicht reservieren/.test(kaputt.alarme[0] || ''), kaputt.alarme[0]);
-    t('und nennt den Grund, nicht nur "kaputt"',
-      /401/.test(kaputt.alarme[0] || ''), kaputt.alarme[0]);
+    // a) Alles heil -- die Wache muss still sein. Eine Wache, die immer
+    //    schreit, wird abgeschaltet, und dann ueberwacht gar nichts mehr.
+    var heil = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG });
+    t('alles heil -> die Wache ist still', heil.code === 200 && heil.alarme.length === 0,
+      heil.code + ' / ' + JSON.stringify(heil.alarme));
+    t('und raeumt trotzdem beide Tabellen weg', heil.geloescht === 4, heil.geloescht);
 
-    // b) Repariert: kein Laerm. Eine Wache, die immer schreit, wird
-    //    abgeschaltet -- und dann ueberwacht gar nichts mehr.
-    var heil = await laufen({ status: 200, body: { ok: true, id: 'r1', track_token: 'a'.repeat(32), status: 'pending' } });
-    t('repariert -> die Wache ist still', heil.code === 200 && heil.alarme.length === 0,
-      heil.code + ' / ' + heil.alarme.length);
-    t('und raeumt die Probe trotzdem weg', heil.geloescht === 2, heil.geloescht);
+    // b) Genau der Fehler vom 25.08.2026: die Datenbank weist den Gast ab.
+    var resKaputt = await laufen({
+        res: { status: 401, body: { ok: false, error: 'Speichern fehlgeschlagen', status: 401 } },
+        ord: GUT_ORD, billig: GUT_BILLIG });
+    t('Reservieren kaputt -> die Wache meldet rot', resKaputt.code === 500, resKaputt.code);
+    t('Reservieren kaputt -> Alarm nennt den Weg und den Grund',
+      /Reservieren:/.test(resKaputt.alarme[0] || '') && /401/.test(resKaputt.alarme[0] || ''),
+      resKaputt.alarme[0]);
 
-    // c) Halbe Antwort: ok, aber ohne track_token. Sieht nach Erfolg
-    //    aus, waere aber ein Gast ohne Verfolgen-Banner.
-    var halb = await laufen({ status: 200, body: { ok: true, id: 'r1' } });
+    // c) "auch nicht bei Bestellungen" -- derselbe Ausfall beim Bestellen.
+    var ordKaputt = await laufen({
+        res: GUT_RES,
+        ord: { status: 500, body: { ok: false, error: 'Speichern fehlgeschlagen' } },
+        billig: GUT_BILLIG });
+    t('Bestellen kaputt -> Alarm', ordKaputt.code === 500 && ordKaputt.alarme.length === 1, ordKaputt.code);
+    t('Bestellen kaputt -> Alarm nennt den Weg',
+      /Bestellen:/.test(ordKaputt.alarme[0] || ''), ordKaputt.alarme[0]);
+
+    // d) Der Preis-Schutz ist aus -- der monatelange stille Ausfall.
+    //    Die Null-Euro-Bestellung geht durch statt abgelehnt zu werden.
+    var schutzAus = await laufen({
+        res: GUT_RES, ord: GUT_ORD,
+        billig: { status: 200, body: { ok: true, id: 'b2' } } });
+    t('Preis-Schutz aus -> Alarm', schutzAus.code === 500 && schutzAus.alarme.length === 1, schutzAus.code);
+    t('Preis-Schutz aus -> und es steht deutlich da',
+      /Preis-Schutz IST AUS/.test(schutzAus.alarme[0] || ''), schutzAus.alarme[0]);
+
+    // e) Halbe Antwort: ok, aber ohne track_token. Sieht nach Erfolg aus,
+    //    waere aber ein Gast ohne Verfolgen-Banner.
+    var halb = await laufen({
+        res: { status: 200, body: { ok: true, id: 'r1' } }, ord: GUT_ORD, billig: GUT_BILLIG });
     t('halbe Antwort zaehlt nicht als Erfolg', halb.code === 500 && halb.alarme.length === 1,
       halb.code + ' / ' + halb.alarme.length);
 
-    // d) Tuer ganz weg -- ein kaputter Deploy sieht so aus.
-    var weg = await laufen(null);
-    t('unerreichbare Tuer -> Alarm', weg.code === 500 && weg.alarme.length === 1, weg.code);
-    t('und der Alarm sagt, dass der Server nicht antwortet',
-      /nicht erreichbar/.test(weg.alarme[0] || ''), weg.alarme[0]);
+    // f) Alles zu -- ein kaputter Deploy sieht so aus. Es muessen ALLE
+    //    Maengel in der Meldung stehen, nicht nur der erste.
+    var alles = await laufen({ res: null, ord: null, billig: null });
+    t('alles zu -> Alarm', alles.code === 500 && alles.alarme.length === 1, alles.code);
+    t('und alle drei Wege stehen in der Meldung',
+      /Reservieren:/.test(alles.alarme[0]) && /Bestellen:/.test(alles.alarme[0])
+      && /Preis-Schutz:/.test(alles.alarme[0]), alles.alarme[0]);
+    t('die Meldung sagt, wie viele Wege klemmen',
+      /^3 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+
+    // g) Haus ohne Speisekarte: der Preis-Schutz ist nicht pruefbar.
+    //    Das ist kein Fehler und darf keinen Alarm ausloesen.
+    var ohneKarte = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, karte: false });
+    t('Haus ohne Speisekarte -> kein falscher Alarm',
+      ohneKarte.code === 200 && ohneKarte.alarme.length === 0, JSON.stringify(ohneKarte.alarme));
 
     global.fetch = echtesFetch;
     Module.prototype.require = echtesRequire;
