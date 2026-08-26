@@ -366,6 +366,65 @@ function pruefe(o, daten) {
       /RLS/.test(fs.readFileSync(path.join(WURZEL, 'netlify', 'functions', 'lib', 'preis-pruefung.js'), 'utf8')));
 })();
 
+// ---- Der Mindestbestellwert bei Lieferung ---------------------------------
+// Gefragt am 26.08.2026: "was fehlt bei online bestellung mindestbestellung
+// beim liefern". Nachgemessen: der Wert stand in der Datenbank, der Gast sah
+// ihn im Warenkorb, der Checkout blockte darunter -- aber NUR im Browser.
+// order-save holte vom Restaurant nur id und delivery_fee.
+//
+// Eine Regel, die nur im Browser steht, ist keine Regel: sie faellt weg bei
+// einer alten App aus dem Zwischenspeicher (genau das ist am 25.08. passiert)
+// und bei jedem, der die Adresse direkt aufruft. Der Wirt faehrt dann fuer
+// 6 Euro los oder muss absagen.
+(function () {
+    var REST_MIN = { id: 'r1', delivery_fee: 2.5, min_order_value: 15 };
+    function mitMin(o) {
+        return P.pruefe(o, { restaurant: REST_MIN, menuItems: KARTE, crossSells: CROSS });
+    }
+
+    // Eine Pizza fuer 8,50 bei 15 Euro Mindestwert -- muss abgelehnt werden.
+    var zuKlein = mitMin(bestellung());
+    t('unter dem Mindestbestellwert wird abgelehnt', zuKlein.ok === false, zuKlein.gruende);
+    t('und der Grund nennt beide Zahlen',
+      /Warenwert .*unter dem Mindestbestellwert 15\.00/.test((zuKlein.gruende || []).join(' ')),
+      zuKlein.gruende);
+
+    // Zwei Pizzen: Untergrenze 2 x 6,50 = 13,00 -- immer noch zu wenig.
+    var knapp = mitMin(bestellung({
+        items: [{ menu_item_id: 'i-pizza', name: 'Pizza', quantity: 2, price: 8.5 }],
+        subtotal: 17.0, total: 19.5
+    }));
+    t('gerechnet wird gegen die Untergrenze, nicht gegen die gemeldete Summe',
+      knapp.ok === false, knapp.gruende);
+
+    // Drei Pizzen: 3 x 6,50 = 19,50 -- ueber dem Mindestwert, geht durch.
+    var genug = mitMin(bestellung({
+        items: [{ menu_item_id: 'i-pizza', name: 'Pizza', quantity: 3, price: 8.5 }],
+        subtotal: 25.5, delivery_fee: 2.5, total: 28.0
+    }));
+    t('darueber geht die Bestellung durch', genug.ok === true, genug.gruende);
+
+    // ABHOLUNG hat keinen Mindestwert -- und die Probe der Wache bestellt so.
+    var abholung = mitMin(bestellung({ order_type: 'pickup', delivery_fee: 0, total: 8.5 }));
+    t('bei Abholung gilt kein Mindestbestellwert', abholung.ok === true, abholung.gruende);
+
+    // Ohne hinterlegten Wert aendert sich nichts -- kein Wirt wird ueberrascht.
+    var ohneWert = pruefe(bestellung());
+    t('ohne hinterlegten Wert bleibt alles wie bisher', ohneWert.ok === true, ohneWert.gruende);
+    var nullWert = P.pruefe(bestellung(), {
+        restaurant: { id: 'r1', delivery_fee: 2.5, min_order_value: 0 },
+        menuItems: KARTE, crossSells: CROSS });
+    t('und bei 0 ebenfalls nicht', nullWert.ok === true, nullWert.gruende);
+
+    // Der Wert steht in der Antwort, damit die Absage ihn nennen kann.
+    t('der geforderte Wert steht in der Antwort', zuKlein.mindestbestellwert === 15, zuKlein.mindestbestellwert);
+
+    // Und der Server muss ihn ueberhaupt holen -- sonst ist er immer 0.
+    var os = fs.readFileSync(path.join(WURZEL, 'netlify', 'functions', 'order-save.js'), 'utf8');
+    t('order-save holt min_order_value vom Restaurant',
+      /select=id,delivery_fee,free_delivery_from,min_order_value/.test(os), 'holt ihn nicht');
+})();
+
 // Der Lauf gegen die echte Function ist asynchron; das Ergebnis kommt erst,
 // wenn alles darueber schon durch ist. Deshalb wird hier nicht sofort
 // abgeschlossen, sondern erst wenn er fertig ist -- sonst faende ein Fehler
