@@ -112,7 +112,26 @@ t('und die Bestellpruefung auch',
   /minOrderVal = Number\(currentOrderRestaurant\.min_order_value\) \|\| 0;/.test(h),
   'liest wieder den Browser');
 
-console.log('\n-- 4. Und die Aenderung erreicht die Geraete --');
+console.log('\n-- 4. Ein Wert, der sich nicht aendert, muss trotzdem ankommen --');
+// GEMESSEN AM 27.08.2026: seit 14 Uhr ging vom Browser genau EIN PATCH
+// auf restaurants raus -- beim Eintippen der 15 verliess keine Anfrage
+// das Geraet.
+//
+// onchange feuert nur bei einer AENDERUNG. Im Feld stand schon 15 (aus
+// dem Browser-Speicher, nicht aus der Datenbank). 15 ueber 15 tippen
+// ist keine Aenderung: kein Ereignis, keine Anfrage, keine Meldung.
+// Es sah aus wie gespeichert und war es nie.
+var feld = (h.match(/<input[^>]*id="settingMinOrder"[^>]*>/) || [''])[0];
+t('das Feld speichert auch beim Verlassen', /onblur="saveMinOrderValue\(\)"/.test(feld),
+  'nur onchange -- ein unveraenderter Wert kommt nie an');
+t('und weiterhin bei einer Aenderung', /onchange="saveMinOrderValue\(\)"/.test(feld), 'gar nicht mehr');
+// Die Schnellknoepfe rufen direkt auf -- die waren nie betroffen, und
+// das soll so bleiben.
+t('die Schnellknoepfe rufen direkt auf',
+  (h.match(/onclick="document\.getElementById\('settingMinOrder'\)\.value='\d+'; saveMinOrderValue\(\);"/g) || []).length >= 4,
+  'ein Knopf speichert nicht mehr');
+
+console.log('\n-- 5. Und die Aenderung erreicht die Geraete --');
 // Regel 4: ein Fix im Quelltext erreicht niemanden von selbst. Der
 // Name des Zwischenspeichers ist der Schalter, der die alte App von
 // den Handys raeumt. Diese Aenderung liegt auf einem Gastweg -- also

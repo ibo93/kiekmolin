@@ -19092,7 +19092,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <div style="font-size: 11px; color: var(--text-secondary);">Minimum pro Bestellung</div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
+                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
                                 <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">€</span>
                             </div>
                         </div>
@@ -59773,6 +59773,21 @@ async function savePrepMinutes() {
 }
 window.savePrepMinutes = savePrepMinutes;
 
+// WARUM HIER AUCH onblur STEHT.
+//
+// Gemeldet am 27.08.2026: "habe ich gemacht es steht immer nocjh 0".
+//
+// Nachgemessen in den Edge-Protokollen: seit 14 Uhr ging vom Browser
+// GENAU EIN PATCH auf restaurants raus (14:52:52, ein anderes Haus).
+// Beim Eintippen der 15 verliess also gar keine Anfrage das Geraet.
+//
+// Der Grund: onchange feuert nur, wenn sich der Wert AENDERT. Im Feld
+// stand schon 15 -- aus dem Browser-Speicher, nicht aus der Datenbank.
+// 15 ueber 15 tippen ist keine Aenderung. Kein Ereignis, keine
+// Anfrage, keine Meldung. Es sah aus, als waere gespeichert.
+//
+// Noch so ein stiller Ausfall: nichts passiert, und nichts sagt es.
+// onblur feuert auch ohne Aenderung -- einmal wegtippen genuegt jetzt.
 async function saveMinOrderValue() {
     var minOrder = parseFloat(document.getElementById('settingMinOrder')?.value) || 0;
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
