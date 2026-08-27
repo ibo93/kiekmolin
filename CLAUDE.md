@@ -102,4 +102,20 @@ node tests/<name>-test.js      # einzeln
 
 Zeitpläne stehen in `netlify.toml`. Die Wache (`gastweg-wache`) läuft alle
 15 Minuten und prüft in dieser Reihenfolge: ausgelieferte Seite, Reservieren,
-Bestellen, Preis-Schutz. Schlägt sie an, klingelt Ibos Handy.
+Bestellen, Preis-Schutz, Mindestbestellwert. Schlägt sie an, klingelt Ibos
+Handy.
+
+**Wie oft sie stören darf** — am 27.08.2026 gemessen: 96 E-Mails in einer
+Nacht, alle 15 Minuten, alle mit demselben Satz. Seitdem gilt:
+
+| Fall | Signal |
+|---|---|
+| zum ersten Mal kaputt | sofort, auch nachts |
+| dasselbe danach | still — höchstens eine Erinnerung pro Tag, nur 8–21 Uhr |
+| etwas **anderes** kaputt | sofort, trotz laufender Ruhe |
+| wieder in Ordnung | eine Entwarnung, genau eine |
+
+Der Stand liegt in `wache_status` (Datenbank), **nicht** in `/tmp` — eine
+Netlify-Funktion startet fast immer kalt und hätte dort nie etwas gefunden.
+Und die Wache gibt **immer 200** zurück: bei 500 hält Netlify den Durchlauf
+für misslungen und startet ihn neu, gemessen dreimal je Viertelstunde.

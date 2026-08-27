@@ -44,39 +44,27 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 
 // WIE OFT DARF DERSELBE ALARM KOMMEN?
 //
-// Gemeldet am 27.08.2026: "Der Waechter schickt mir zu viel e-mails
-// wegen ein Sache das ist auch kein Fehler ... soll mit nicht ganze
-// Zeit e-mail schicken".
+// Gemeldet am 27.08.2026: "die wache nervt zu viel kommt das mit die
+// signale".
 //
-// Er hat recht, und zwar unabhaengig davon, ob der Fehler echt war:
-// alle 15 Minuten dieselbe Meldung ist keine Warnung mehr, das ist
-// Laerm. Und ein Waechter, den man stummschaltet, ueberwacht nichts.
+// Nachgemessen im Postfach: 96 E-Mails zwischen 22:30 und 07:45
+// deutscher Zeit, alle 15 Minuten zwei bis drei Stueck, alle mit
+// demselben Satz. Er hat recht, und zwar unabhaengig davon, ob die
+// Stoerung echt war -- sie war es -- : eine Warnung, die alle 15
+// Minuten kommt, liest niemand mehr. Und dann geht die naechste echte
+// mit unter.
 //
-// Neu ist neu -- die erste Meldung geht sofort raus. Dieselbe Sache
-// danach hoechstens alle sechs Stunden.
+// HIER STAND VORHER EINE RUHEZEIT, DIE NICHT FUNKTIONIERT HAT.
+// Sie lag in /tmp. Das sah richtig aus und war wirkungslos: eine
+// Netlify-Funktion bekommt fast jedes Mal einen frischen Behaelter,
+// /tmp ist beim Start leer, also war jede Meldung "die erste". Genau
+// die Sorte Fehler, um die es in Regel 6 geht -- es sah aus wie eine
+// Loesung und tat nichts.
 //
-// Gemerkt wird das in /tmp. Das ueberlebt keinen Kaltstart, es kann
-// also gelegentlich eine Meldung zu viel durchkommen. Das ist der
-// richtige Fehler von beiden: lieber einmal zu viel gewarnt als eine
-// Warnung verschluckt, die zaehlt.
-var fs = require('fs');
-var RUHE_MS = 6 * 60 * 60 * 1000;
-
-function schonGemeldet(kennung) {
-    try {
-        var datei = '/tmp/kmi-alarm-' + String(kennung || 'kmi-alarm').replace(/[^a-z0-9-]/gi, '_');
-        var jetzt = Date.now();
-        if (fs.existsSync(datei)) {
-            var alt = Number(fs.readFileSync(datei, 'utf8')) || 0;
-            if (jetzt - alt < RUHE_MS) return true;
-        }
-        fs.writeFileSync(datei, String(jetzt));
-        return false;
-    } catch (e) {
-        // Kein /tmp, kein Schreibrecht -- dann lieber melden als schweigen.
-        return false;
-    }
-}
+// Jetzt liegt der Zustand in der Datenbank (lib/wache-gedaechtnis.js,
+// datenbank/21-wache-gedaechtnis.sql) und ueberlebt jeden Neustart.
+// Die Regel steht dort.
+var gedaechtnis = require('./wache-gedaechtnis');
 
 function kopf() {
     return {
@@ -96,19 +84,29 @@ async function hol(pfad) {
 // Deshalb faengt hier alles ab: geht das Melden schief, wird das
 // protokolliert und der Aufrufer laeuft weiter.
 async function alarm(titel, text, kennung) {
-    // In die Netlify-Protokolle geht es IMMER -- auch wenn kein Handy
-    // angemeldet ist und auch waehrend der Ruhezeit. Das ist die Spur,
-    // die spaeter niemand suchen muss, und sie kostet niemanden etwas.
-    console.error('[ALARM]', titel, '--', text);
-
-    // Dieselbe Sache innerhalb von sechs Stunden: nicht noch einmal
-    // stoeren. Der Fehler steht weiter im Protokoll und die Wache meldet
-    // weiter 500 -- nur das Handy und das Postfach bleiben ruhig.
-    if (schonGemeldet(kennung)) {
-        console.error('[alarm] dieselbe Meldung wie eben -- Ruhezeit, nicht erneut geschickt');
-        return { ok: true, weg: 'ruhe', grund: 'innerhalb der Ruhezeit' };
+    // Dieselbe Sache wie gestern: nicht noch einmal stoeren. Der Fehler
+    // steht weiter im Protokoll -- nur das Handy und das Postfach
+    // bleiben ruhig.
+    var was = await gedaechtnis.bewerten(kennung || 'kmi-alarm', true);
+    if (was === 'still') {
+        // In die Netlify-Protokolle geht es IMMER -- auch waehrend der
+        // Ruhe. Das ist die Spur, die spaeter niemand suchen muss, und
+        // sie kostet niemanden etwas.
+        console.error('[ALARM] (still, schon gemeldet)', titel, '--', text);
+        return { ok: true, weg: 'ruhe', grund: 'schon gemeldet' };
     }
+    return senden(titel, text, kennung);
+}
 
+// DER REINE VERSANDWEG -- ohne jede Frage, ob es sein muss.
+//
+// Wer das hier ruft, hat die Frage schon beantwortet. Die Wache tut
+// das selbst: sie bewertet jede Pruefung einzeln und schickt danach
+// EINE Nachricht ueber alles, was zu sagen ist -- statt drei Mails,
+// wenn drei Wege gleichzeitig klemmen.
+async function senden(titel, text, kennung, art) {
+    var entwarnung = art === 'entwarnung';
+    console.error(entwarnung ? '[ENTWARNUNG]' : '[ALARM]', titel, '--', text);
     if (!SERVICE_KEY || !vapidBereit) {
         console.error('[alarm] kein Dienstschluessel oder kein VAPID -- nur protokolliert');
         return { ok: false, grund: 'nicht eingerichtet' };
@@ -139,7 +137,7 @@ async function alarm(titel, text, kennung) {
             // darf -- und darauf darf sich ein Waechter nie verlassen.
             // E-Mail braucht nichts ausser der Adresse aus customers.
             console.error('[alarm] kein Geraet angemeldet -- weiche auf E-Mail aus');
-            var perMail = await mailAlarm(mails, titel, text);
+            var perMail = await mailAlarm(mails, titel, text, entwarnung);
             return { ok: perMail, weg: 'email', grund: perMail ? null : 'kein Geraet, keine Mail' };
         }
 
@@ -151,7 +149,10 @@ async function alarm(titel, text, kennung) {
             // Gleiche Kennung = ein Handy zeigt nicht zwanzig gleiche
             // Meldungen uebereinander, sondern ersetzt die alte.
             tag: kennung || 'kmi-alarm',
-            requireInteraction: true,
+            // Eine Warnung soll stehen bleiben, bis er sie gesehen hat.
+            // Eine Entwarnung nicht -- die soll er finden, nicht
+            // wegklicken muessen.
+            requireInteraction: !entwarnung,
             url: '/'
         });
 
@@ -181,7 +182,7 @@ async function alarm(titel, text, kennung) {
         // schweigen.
         if (erfolge === 0) {
             console.error('[alarm] kein Geraet erreicht -- weiche auf E-Mail aus');
-            var perMail2 = await mailAlarm(mails, titel, text);
+            var perMail2 = await mailAlarm(mails, titel, text, entwarnung);
             return { ok: perMail2, weg: 'email', geraete: geraete.length, erfolge: 0 };
         }
         return { ok: true, weg: 'push', geraete: geraete.length, erfolge: erfolge };
@@ -193,14 +194,15 @@ async function alarm(titel, text, kennung) {
 
 // Der zweite Weg. Kein Ersatz fuer den Push -- der ist schneller und
 // weckt auch nachts -- aber der Weg, der immer da ist.
-async function mailAlarm(mails, titel, text) {
+async function mailAlarm(mails, titel, text, entwarnung) {
     if (!RESEND_API_KEY) {
         console.error('[alarm] RESEND_API_KEY fehlt -- Alarm bleibt im Protokoll');
         return false;
     }
     if (!mails || !mails.length) return false;
     var html = '<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px">'
-        + '<h2 style="color:#b91c1c;margin:0 0 12px">' + String(titel).replace(/[<>&]/g, '') + '</h2>'
+        + '<h2 style="color:' + (entwarnung ? '#15803d' : '#b91c1c') + ';margin:0 0 12px">'
+        + String(titel).replace(/[<>&]/g, '') + '</h2>'
         + '<p style="font-size:16px;line-height:1.5">' + String(text).replace(/[<>&]/g, '') + '</p>'
         + '<p style="color:#64748b;font-size:13px;margin-top:20px">'
         + 'Automatische Meldung der Gastweg-Wache von kiek mol in. '
@@ -213,7 +215,8 @@ async function mailAlarm(mails, titel, text) {
             var res = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from: EMAIL_FROM, to: [mails[i]], subject: '[Kiek mol in] ' + titel, html: html })
+                body: JSON.stringify({ from: EMAIL_FROM, to: [mails[i]],
+                    subject: '[Kiek mol in] ' + titel, html: html })
             });
             if (res.ok) erfolge++;
             else console.error('[alarm] Resend', res.status);
@@ -225,4 +228,4 @@ async function mailAlarm(mails, titel, text) {
     return erfolge > 0;
 }
 
-module.exports = { alarm: alarm };
+module.exports = { alarm: alarm, senden: senden };
