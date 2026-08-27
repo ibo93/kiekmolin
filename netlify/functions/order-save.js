@@ -94,16 +94,52 @@ async function hol(pfad) {
 // dann stünde der Wirt am Freitagabend ohne Bestellungen da, weil eine
 // Nebenabfrage klemmt. Der Fall wird in der Antwort vermerkt, damit er in den
 // Netlify-Logs sichtbar ist und nicht still bleibt.
+// Das Restaurant holen, ohne an einer fehlenden Spalte zu zerbrechen.
+// Welche Spalten es gibt, entscheidet die Datenbank -- nicht meine
+// Annahme darueber.
+async function hausDaten(rid) {
+    var basis = 'restaurants?id=eq.' + rid + '&select=';
+    try {
+        return await hol(basis + 'id,delivery_fee,free_delivery_from,min_order_value&limit=1');
+    } catch (e) {
+        if (!/ 400 /.test(' ' + e.message + ' ')) throw e;
+        console.warn('[order-save] Zusatzspalten fehlen, nehme die sicheren:', e.message);
+        try {
+            return await hol(basis + 'id,delivery_fee&limit=1');
+        } catch (e2) {
+            console.warn('[order-save] Restaurant nicht ladbar:', e2.message);
+            return [];
+        }
+    }
+}
+
 async function preisCheck(order) {
     var daten = {};
     try {
         var rid = encodeURIComponent(order.restaurant_id);
         var ergebnisse = await Promise.all([
-            // min_order_value und free_delivery_from muessen mit: die
-            // Preispruefung braucht beide. Ohne min_order_value stand der
-            // Mindestbestellwert nur im Browser -- und eine Regel, die nur
-            // im Browser steht, ist keine Regel.
-            hol('restaurants?id=eq.' + rid + '&select=id,delivery_fee,free_delivery_from,min_order_value&limit=1'),
+            // NUR SPALTEN, DIE ES SICHER GIBT -- DER REST OPTIONAL.
+            //
+            // Am 27.08.2026 im Protokoll gefunden:
+            //     restaurants?select=id,delivery_fee,free_delivery_from,
+            //                        min_order_value  ->  400
+            //
+            // min_order_value gibt es in der Tabelle nicht. Ich hatte die
+            // Spalte am Vortag in den select genommen, ohne nachzusehen,
+            // ob sie ueberhaupt existiert.
+            //
+            // Die Folge war schlimmer als der fehlende Mindestbestellwert:
+            // Promise.all bricht bei einem 400 ab, preisCheck() landet im
+            // catch und meldet "unpruefbar" -- und damit ging JEDE
+            // Bestellung wieder ungeprueft durch. Genau der stille Ausfall,
+            // den ich zwei Tage vorher repariert hatte, von mir selbst
+            // wieder eingebaut.
+            //
+            // Deshalb jetzt zweistufig: erst mit den Zusatzspalten
+            // versuchen, bei 400 auf die sicheren zurueckfallen. Fehlt die
+            // Spalte, fehlt nur der Mindestbestellwert -- der Preis-Schutz
+            // laeuft weiter.
+            hausDaten(rid),
             // KEIN 'price' HIER. Die Spalte heisst base_price -- 'price'
             // gibt es auf menu_items nicht. PostgREST antwortete deshalb
             // mit 400 (42703, "column menu_items.price does not exist"),

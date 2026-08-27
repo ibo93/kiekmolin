@@ -420,9 +420,29 @@ function pruefe(o, daten) {
     t('der geforderte Wert steht in der Antwort', zuKlein.mindestbestellwert === 15, zuKlein.mindestbestellwert);
 
     // Und der Server muss ihn ueberhaupt holen -- sonst ist er immer 0.
+    //
+    // ABER NICHT UM JEDEN PREIS. Am 27.08.2026 stand im Protokoll:
+    //     restaurants?select=...,min_order_value  ->  400
+    // Die Spalte gab es in der Tabelle nicht. Promise.all brach ab,
+    // preisCheck landete im catch und meldete "unpruefbar" -- und damit
+    // ging JEDE Bestellung wieder ungeprueft durch. Der stille Ausfall,
+    // den dieser Test verhindern soll, von mir selbst wieder eingebaut,
+    // weil ich eine Spalte in den select genommen habe, ohne
+    // nachzusehen, ob es sie gibt.
+    //
+    // Deshalb wird jetzt beides geprueft: er holt den Wert -- UND er
+    // faellt auf die sicheren Spalten zurueck, wenn es die Spalte
+    // nicht gibt. Ein fehlender Mindestbestellwert darf nie den
+    // Preis-Schutz mitreissen.
     var os = fs.readFileSync(path.join(WURZEL, 'netlify', 'functions', 'order-save.js'), 'utf8');
     t('order-save holt min_order_value vom Restaurant',
-      /select=id,delivery_fee,free_delivery_from,min_order_value/.test(os), 'holt ihn nicht');
+      /select=' \+ 'id,delivery_fee,free_delivery_from,min_order_value|id,delivery_fee,free_delivery_from,min_order_value/.test(os),
+      'holt ihn nicht');
+    t('und faellt bei fehlender Spalte auf die sicheren zurueck',
+      /function hausDaten/.test(os) && /basis \+ 'id,delivery_fee&limit=1'/.test(os),
+      'ein 400 reisst die ganze Preispruefung mit');
+    t('ein anderer Fehler wird aber nicht verschluckt',
+      /if \(!\/ 400 \/\.test\(' ' \+ e\.message \+ ' '\)\) throw e;/.test(os), 'verschluckt alles')
 })();
 
 // Der Lauf gegen die echte Function ist asynchron; das Ergebnis kommt erst,

@@ -122,6 +122,28 @@ t('ohne hinterlegten Wert kein falscher Alarm', /if \(mindest <= 0\) return null
 t('und auch nicht, wenn das Gericht teurer ist als der Mindestwert',
   /if \(warenwert >= mindest\) return null;/.test(w), 'alarmiert');
 
+console.log('\n-- 2d. Die Proben passen ueberhaupt in die Tabelle --');
+// Am 27.08.2026 im Protokoll gefunden, 108 mal:
+//     22001  value too long for type character varying(20)
+// 'PROBE-BILLIG-' + Date.now() sind 26 Zeichen. Zwei von drei Proben
+// konnten gar nicht eingefuegt werden -- sie scheiterten an der
+// Spaltenbreite, nicht an dem, was sie pruefen sollten. Eine Probe, die
+// aus dem falschen Grund fehlschlaegt, prueft nichts.
+t('es gibt eine gemeinsame Stelle fuer die Bestellnummer',
+  /function probeNummer\(art\)/.test(w), 'jede Probe baut sie selbst');
+t('und die kappt auf 20 Zeichen', /\.slice\(0, 20\)/.test(w), 'kann zu lang werden');
+t('keine Probe baut ihre Nummer noch selbst zusammen',
+  /order_number:\s*'PROBE-/.test(w) === false, 'wieder von Hand gebaut');
+// Und wirklich nachrechnen, nicht nur die Textstelle glauben.
+(function () {
+    var lang = [];
+    ['OR', 'PS', 'MB'].forEach(function (a) {
+        var nr = ('P' + a + '-' + Date.now()).slice(0, 20);
+        if (nr.length > 20) lang.push(nr);
+    });
+    t('alle drei Nummern passen in varchar(20)', lang.length === 0, lang.join(', '));
+})();
+
 console.log('\n-- 3. Sie hinterlaesst nichts --');
 // Nicht ueber ein Textfenster pruefen -- dazwischen steht noch das
 // Suchen des Hauses, und beim ersten Anlauf war dieser Test deshalb rot,
@@ -203,6 +225,20 @@ t('ohne Resend-Schluessel bleibt wenigstens die Protokollzeile',
   /RESEND_API_KEY fehlt -- Alarm bleibt im Protokoll/.test(a), 'stuerzt ab oder schweigt');
 t('tote Geraete werden aufgeraeumt',
   /statusCode === 404 \|\| err\.statusCode === 410/.test(a), 'Karteileichen bleiben');
+// GEMELDET AM 27.08.2026: "Der Waechter schickt mir zu viel e-mails ...
+// soll mit nicht ganze Zeit e-mail schicken".
+//
+// Er hat recht, unabhaengig davon ob der Fehler echt war: alle 15
+// Minuten dieselbe Meldung ist keine Warnung mehr, das ist Laerm. Und
+// ein Waechter, den man stummschaltet, ueberwacht nichts.
+t('dieselbe Meldung kommt nicht alle 15 Minuten',
+  /function schonGemeldet/.test(a) && /RUHE_MS = 6 \* 60 \* 60 \* 1000/.test(a), 'keine Ruhezeit');
+t('die erste Meldung geht aber sofort raus',
+  /if \(schonGemeldet\(kennung\)\)/.test(a), 'auch die erste wird gebremst');
+t('und ins Protokoll geht sie IMMER, auch waehrend der Ruhezeit',
+  a.indexOf("console.error('[ALARM]'") < a.indexOf('if (schonGemeldet('), 'Ruhezeit verschluckt die Spur');
+t('kann die Ruhezeit nicht gemerkt werden, wird lieber gemeldet',
+  /catch \(e\) \{[\s\S]{0,200}return false;/.test(a.slice(a.indexOf('function schonGemeldet'))), 'schweigt im Zweifel');
 t('gleiche Kennung ersetzt die alte Meldung',
   /tag: kennung/.test(a), 'zwanzig gleiche Meldungen uebereinander');
 
@@ -268,7 +304,14 @@ function tuerenBauen(welt) {
             var rumpf = JSON.parse(opt.body);
             var nr = String(rumpf.order.order_number || '');
             var f;
-            if (nr.indexOf('PROBE-MINDEST') === 0) f = welt.mindestAntwort || GUT_MINDEST;
+            // PMB = Mindestbestellwert-Probe. Die Kuerzel kommen aus
+            // probeNummer() -- die Nummer darf hoechstens 20 Zeichen haben.
+            // Nicht mit ||, sonst laesst sich "antworte gar nicht" (null)
+            // nicht von "nicht gesetzt" unterscheiden -- null || GUT waere
+            // wieder GUT, und der Fall "alles zu" waere nicht alles.
+            if (nr.indexOf('PMB-') === 0) {
+                f = ('mindestAntwort' in welt) ? welt.mindestAntwort : GUT_MINDEST;
+            }
             else if ((rumpf.order.items || []).length > 0) f = welt.billig;
             else f = welt.ord;
             if (f === null) throw new Error('ECONNREFUSED');
@@ -367,13 +410,18 @@ async function laufen(welt) {
 
     // f) Alles zu -- ein kaputter Deploy sieht so aus. Es muessen ALLE
     //    Maengel in der Meldung stehen, nicht nur der erste.
-    var alles = await laufen({ res: null, ord: null, billig: null });
+    // mindestAntwort MUSS hier auch null sein -- sonst antwortet die
+    // nachgebaute Tuer der Mindest-Probe weiter brav mit 422, und der
+    // Fall "alles zu" waere gar nicht alles.
+    var alles = await laufen({ res: null, ord: null, billig: null, mindestAntwort: null });
     t('alles zu -> Alarm', alles.code === 500 && alles.alarme.length === 1, alles.code);
     t('und alle drei Wege stehen in der Meldung',
       /Reservieren:/.test(alles.alarme[0]) && /Bestellen:/.test(alles.alarme[0])
       && /Preis-Schutz:/.test(alles.alarme[0]), alles.alarme[0]);
     t('die Meldung sagt, wie viele Wege klemmen',
-      /^3 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+      /^4 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+    t('und der Mindestbestellwert ist einer davon',
+      /Mindestbestellwert:/.test(alles.alarme[0]), alles.alarme[0]);
 
     // g) Haus ohne Speisekarte: der Preis-Schutz ist nicht pruefbar.
     //    Das ist kein Fehler und darf keinen Alarm ausloesen.
