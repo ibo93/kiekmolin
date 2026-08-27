@@ -52252,7 +52252,30 @@ async function submitOrder() {
         // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, lehnt PostgREST
         // die GANZE Bestellung ab. Wir lesen den Spaltennamen aus der Fehlermeldung,
         // lassen die Spalte weg und versuchen erneut — bis es gespeichert ist.
-        const _resilientInsert = async (table, payload) => {
+        // WER DIE ZEILE NICHT BRAUCHT, SOLL SIE NICHT ANFORDERN.
+        //
+        // Gefunden am 27.08.2026 im Datenbank-Protokoll:
+        //     42501  new row violates row-level security policy
+        //            for table "order_items"
+        //
+        // Dieselbe Falle wie bei den Reservierungen zwei Tage vorher:
+        // auf order_items darf "anon" ANLEGEN, aber nicht LESEN. Mit
+        // "Prefer: return=representation" verlangt der Aufruf die neue
+        // Zeile zurueck, Postgres wendet dafuer die Lese-Regel an -- und
+        // der Gast ist "anon".
+        //
+        // Die Bestellung selbst geht nicht verloren: die Gerichte stehen
+        // zusaetzlich in der Spalte orders.items, und daraus baut das
+        // Dashboard den Bon. Leer bleibt nur die Tabelle order_items --
+        // und damit fehlen alle Gastbestellungen in den Auswertungen
+        // (Renner-Liste, Statistik). Ein stiller Ausfall: die Zahlen
+        // sehen aus wie Zahlen, sie sind nur zu klein.
+        //
+        // Bei order_items wird der Rueckgabewert gar nicht benutzt --
+        // nur _ir.ok. Also nicht anfordern. Bei orders dagegen schon:
+        // dort kommt das track_token zurueck, mit dem der Gast seine
+        // Bestellung spaeter verfolgt.
+        const _resilientInsert = async (table, payload, wieZurueck) => {
             var body = Object.assign({}, payload);
             var lastStatus = 0, lastText = '';
             for (var _attempt = 0; _attempt < 18; _attempt++) {
@@ -52262,7 +52285,7 @@ async function submitOrder() {
                         'apikey': SUPABASE_KEY,
                         'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
+                        'Prefer': 'return=' + (wieZurueck || 'representation')
                     },
                     body: JSON.stringify(body)
                 });
@@ -52431,7 +52454,7 @@ async function submitOrder() {
                         total_price: item.total_price || 0,
                         notes: item.notes || '',
                         selected_options: item.selected_options || []
-                    });
+                    }, 'minimal');
                     if (!_ir.ok) _failedItems++;
                 } catch(e) { _failedItems++; }
             }
