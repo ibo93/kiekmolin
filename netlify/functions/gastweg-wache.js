@@ -56,6 +56,24 @@ var SEITE        = process.env.URL || process.env.DEPLOY_URL || 'https://kiekmol
 // und nur hier.
 var PROBE_NAME = '[Probe] Gastweg-Wache';
 
+// DIE BESTELLNUMMER DARF HOECHSTENS 20 ZEICHEN HABEN.
+//
+// Am 27.08.2026 im Protokoll gefunden, 108 mal:
+//     22001  value too long for type character varying(20)
+//
+// 'PROBE-BILLIG-' + Date.now() sind 26 Zeichen, 'PROBE-MINDEST-' + ...
+// sogar 27. Zwei von drei Proben konnten also gar nicht eingefuegt
+// werden -- sie scheiterten an der Spaltenbreite, nicht an dem, was sie
+// pruefen sollten. Eine Probe, die aus dem falschen Grund fehlschlaegt,
+// prueft nichts.
+//
+// P + zwei Buchstaben + Bindestrich + die letzten 13 Stellen der Zeit
+// sind 17 Zeichen und bleiben eindeutig genug fuer eine Probe, die
+// Sekunden spaeter wieder geloescht wird.
+function probeNummer(art) {
+    return ('P' + art + '-' + Date.now()).slice(0, 20);
+}
+
 function kopf() {
     return {
         'apikey': SERVICE_KEY,
@@ -164,7 +182,7 @@ async function pruefeReservierung(haus) {
 async function pruefeBestellung(haus) {
     var a = await alsGast('order-save', {
         order: {
-            order_number:  'PROBE-' + Date.now(),
+            order_number:  probeNummer('OR'),
             restaurant_id: haus,
             customer_name: PROBE_NAME,
             customer_phone: '0000000000',
@@ -239,7 +257,7 @@ async function pruefePreisSchutz(haus) {
 
     var a = await alsGast('order-save', {
         order: {
-            order_number:  'PROBE-BILLIG-' + Date.now(),
+            order_number:  probeNummer('PS'),
             restaurant_id: haus,
             customer_name: PROBE_NAME,
             customer_phone: '0000000000',
@@ -289,7 +307,7 @@ async function pruefeMindestbestellwert(haus) {
 
     var a = await alsGast('order-save', {
         order: {
-            order_number:   'PROBE-MINDEST-' + Date.now(),
+            order_number:   probeNummer('MB'),
             restaurant_id:  haus,
             customer_name:  PROBE_NAME,
             customer_phone: '0000000000',
