@@ -19102,6 +19102,13 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button onclick="document.getElementById('settingMinOrder').value='15'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">15 €</button>
                             <button onclick="document.getElementById('settingMinOrder').value='20'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">20 €</button>
                         </div>
+                        <!-- DIE ZEILE, DIE AM 27.08.2026 GEFEHLT HAT.
+                             Der Wirt sah bei Oldersum 15 EUR und fragte, warum
+                             in der Datenbank 0 steht. Antwort: der Wert lag nur
+                             in seinem Browser -- der Gast sah 0 und konnte fuer
+                             12 EUR liefern lassen. Ein Feld, das den falschen
+                             Wert anzeigt, ist schlimmer als ein leeres. -->
+                        <div id="minOrderNurLokal" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(220,38,38,0.08); color:#b91c1c; font-size:11px; font-weight:600; line-height:1.45;"></div>
                     </div>
 
                     <!-- Zahlungsarten -->
@@ -51326,8 +51333,11 @@ function renderCartItems() {
         }
     }
     if (minHint && currentOrderRestaurant) {
-        var minVal = currentOrderRestaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + currentOrderRestaurant.id) || '0');
-        var freeDeliveryAt = currentOrderRestaurant.free_delivery_from || parseFloat(localStorage.getItem('kin_free_delivery_' + currentOrderRestaurant.id) || '0');
+        // NUR der Server. Ein Gast hat kin_min_order_* nie im Browser --
+        // fuer ihn war dieser Ersatzweg immer 0. Nur auf dem Geraet des
+        // Wirts sah es dadurch aus, als gelte die Regel.
+        var minVal = Number(currentOrderRestaurant.min_order_value) || 0;
+        var freeDeliveryAt = Number(currentOrderRestaurant.free_delivery_from) || 0;
         var deliveryFee = currentOrderRestaurant.delivery_fee || 0;
 
         if (minVal > 0 && subtotal < minVal && orderType === 'delivery') {
@@ -52090,7 +52100,7 @@ async function submitOrder() {
     var cartSubtotal = orderCart.reduce(function(sum, item) { return sum + item.total_price; }, 0);
     var minOrderVal = 0;
     if (currentOrderRestaurant) {
-        minOrderVal = currentOrderRestaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + currentOrderRestaurant.id) || '0');
+        minOrderVal = Number(currentOrderRestaurant.min_order_value) || 0;
     }
     if (minOrderVal > 0 && cartSubtotal < minOrderVal && orderType === 'delivery') {
         showToast('Mindestbestellwert für Lieferung: ' + minOrderVal.toFixed(2).replace('.', ',') + ' € (aktuell: ' + cartSubtotal.toFixed(2).replace('.', ',') + ' €)', 'error');
@@ -59348,11 +59358,35 @@ function loadOrderSettings() {
     var feeEl = document.getElementById('settingDeliveryFee');
     if (feeEl && restaurant) feeEl.value = (restaurant.delivery_fee || 0).toFixed(2);
 
-    // Mindestbestellwert laden
+    // Mindestbestellwert laden.
+    //
+    // HIER STAND FRUEHER:  restaurant.min_order_value || localStorage
+    //
+    // Und genau dieses ODER hat den Fehler unsichtbar gemacht. Steht in
+    // der Datenbank 0, ist das falsy -- also sprang die Anzeige auf den
+    // Wert im Browser des Wirts. Er sah 15 EUR, der Gast sah 0, und
+    // niemand konnte den Unterschied sehen.
+    //
+    // Gemeldet am 27.08.2026: "habe bei oldersum 15 stehen warum wird
+    // nicht da angezeigt?" -- In der Datenbank stand dort 0,00.
+    //
+    // Jetzt gilt: die Datenbank ist die Wahrheit. Weicht der Browser
+    // davon ab, wird das GESAGT statt verschwiegen.
     var minOrderEl = document.getElementById('settingMinOrder');
+    var minWarnEl  = document.getElementById('minOrderNurLokal');
     if (minOrderEl && restaurant) {
-        var minVal = restaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0');
-        minOrderEl.value = minVal > 0 ? minVal : 0;
+        var minServer = Number(restaurant.min_order_value) || 0;
+        var minLokal  = parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0') || 0;
+        minOrderEl.value = minServer;
+        if (minWarnEl) {
+            var abweichung = minLokal > 0 && minLokal !== minServer;
+            minWarnEl.style.display = abweichung ? 'block' : 'none';
+            if (abweichung) {
+                minWarnEl.textContent = 'Achtung: ' + minLokal.toFixed(0) + ' \u20AC stehen nur auf '
+                    + 'diesem Ger\u00e4t. Der Gast sieht ' + minServer.toFixed(0) + ' \u20AC. '
+                    + 'Einmal auf einen der Kn\u00f6pfe tippen, dann gilt es \u00fcberall.';
+            }
+        }
     }
 
     // Wartezeiten laden. Ohne das staenden dort immer 25/45, und der Wirt
@@ -59774,6 +59808,12 @@ async function saveMinOrderValue() {
         showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
         return;
     }
+
+    // Jetzt steht in der Datenbank dasselbe wie im Browser -- die
+    // Warnung hat sich erledigt. Bleibt sie stehen, glaubt ihr niemand
+    // mehr beim naechsten Mal.
+    var _minWarn = document.getElementById('minOrderNurLokal');
+    if (_minWarn) _minWarn.style.display = 'none';
 
     showToast('Mindestbestellwert: ' + (minOrder > 0 ? minOrder.toFixed(0) + ' €' : 'Kein Minimum'), 'success');
 }

@@ -61,6 +61,17 @@ var gedaechtnis = require('./lib/wache-gedaechtnis');
 // eine Antwort, ist keine.
 var UNPRUEFBAR = 'unpruefbar';
 
+// DIE NUMMER MUSS MIT sw.js MITWANDERN.
+//
+// Der Name des Zwischenspeichers ist der einzige Schalter, der die
+// alte App von den Geraeten raeumt. Steht hier eine kleinere Zahl als
+// in sw.js, prueft die Wache nichts mehr -- sie waere zufrieden mit
+// einer Fassung, die es gar nicht mehr geben darf.
+//
+// tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
+// stehenbleibt.
+var CACHE_MINDESTENS = 5;
+
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
 var SEITE        = process.env.URL || process.env.DEPLOY_URL || 'https://kiekmolin.de';
@@ -256,7 +267,7 @@ async function pruefeAusgelieferteSeite() {
     // Geraete die alte Fassung, obwohl auf dem Server alles stimmt.
     var v = (worker.match(/var CACHE = 'kmi-shell-v(\d+)';/) || [])[1];
     if (!v) return 'sw.js: kein gezaehlter Name fuer den Zwischenspeicher gefunden';
-    if (Number(v) < 4) {
+    if (Number(v) < CACHE_MINDESTENS) {
         return 'Der Zwischenspeicher steht auf v' + v + ', obwohl die Seite den neuen '
              + 'Gastweg benutzt -- die Geraete behalten die alte App';
     }
