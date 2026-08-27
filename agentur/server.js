@@ -79,7 +79,29 @@ function effektiverSlug(restaurant) {
   return (DEMO ? 'demo-' : '') + slugVon(restaurant);
 }
 
+// Welche Seiten duerfen diese Schnittstelle lesen.
+// Bewusst eng: nur das Kurani CRM. Ein "*" hier wuerde bedeuten, dass jede
+// beliebige Webseite deine Kunden- und Interessentendaten auslesen kann,
+// solange dieser Server laeuft.
+const ERLAUBTE_HERKUNFT = [
+  'http://localhost:8899',
+  'http://127.0.0.1:8899',
+  'https://kurani-crm.netlify.app'
+];
+
+function corsKopf(res, req) {
+  const herkunft = req && req.headers && req.headers.origin;
+  if (herkunft && ERLAUBTE_HERKUNFT.includes(herkunft)) {
+    res.setHeader('Access-Control-Allow-Origin', herkunft);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '600');
+  }
+}
+
 function json(res, status, daten) {
+  corsKopf(res, res.req);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(daten));
 }
@@ -1070,6 +1092,15 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const pfad = url.pathname;
 
+  // Vorab-Anfrage des Browsers: er fragt erst, ob er ueberhaupt darf.
+  // Ohne diese Antwort kommt kein POST vom Kurani CRM durch.
+  if (req.method === 'OPTIONS') {
+    corsKopf(res, req);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   try {
     // Oberflaeche
     if (req.method === 'GET' && (pfad === '/' || pfad === '/index.html')) {
@@ -1657,6 +1688,9 @@ const server = http.createServer(async (req, res) => {
     // Echtzeit-Leitung: eine offene Verbindung, durch die der Server
     // Neuigkeiten schiebt (Rueckrufe, Telefon-Zahlen, neue Anfragen).
     if (req.method === 'GET' && pfad === '/api/live') {
+      // Der Ticker laeuft nicht ueber json() - ohne diese Zeile bekommt
+      // er keine CORS-Kopfzeilen und das Kurani CRM kommt nicht dran.
+      corsKopf(res, req);
       res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
