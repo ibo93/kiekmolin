@@ -121,7 +121,19 @@ t('geht sie durch, ist das der Alarm',
   /Mindestbestellwert GILT NICHT/.test(w), 'meldet es nicht');
 // Kein Wert hinterlegt, keine Karte, oder das Gericht ist teurer als der
 // Mindestwert -- alles drei ist kein Fehler und darf nicht alarmieren.
-t('ohne hinterlegten Wert kein falscher Alarm', /if \(mindest <= 0\) return UNPRUEFBAR;/.test(w), 'alarmiert');
+t('ohne hinterlegten Wert kein falscher Alarm',
+  /if \(!hausDaten \|\| mindest <= 0\) return UNPRUEFBAR;/.test(w), 'alarmiert');
+// GEMESSEN AM 27.08.2026, nachdem der Mindestbestellwert in der
+// Datenbank angekommen war: von vier Betrieben hat GENAU EINER einen
+// Wert hinterlegt (Rhodos, 15,00 -- die anderen drei 0,00).
+//
+// Die Wache probt sonst am ersten freigeschalteten Haus. Ist das nicht
+// Rhodos, findet sie dort 0, gibt "nicht pruefbar" zurueck -- und der
+// einzige Betrieb, bei dem die Regel ueberhaupt gilt, wird nie
+// geprueft. Sie haette jahrelang gruen gemeldet.
+t('sie sucht sich das Haus, das ueberhaupt einen Wert hat',
+  /min_order_value=gt\.0/.test(w) && /haus = hausDaten\.id;/.test(w),
+  'prueft nur am erstbesten Haus');
 t('und auch nicht, wenn das Gericht teurer ist als der Mindestwert',
   /if \(warenwert >= mindest\) return UNPRUEFBAR;/.test(w), 'alarmiert');
 

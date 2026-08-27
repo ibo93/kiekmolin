@@ -298,17 +298,38 @@ async function pruefePreisSchutz(haus) {
 //
 // Eine Lieferbestellung mit einem einzigen Gericht, weit unter dem
 // hinterlegten Wert. Die MUSS abgelehnt werden.
+//
+// UND SIE PRUEFT IHN DORT, WO ES IHN GIBT -- NICHT DORT, WO SIE GERADE
+// STEHT.
+//
+// Am 27.08.2026 nach dem Einspielen von SQL 19 nachgesehen:
+//
+//     Greetsieler Boerse           0.00
+//     La Piazza                    0.00
+//     Pizzeria Al Porto Oldersum   0.00
+//     Rhodos                      15.00
+//
+// Genau ein Haus hat einen Mindestbestellwert. Die Wache probt aber am
+// ERSTEN freigeschalteten Haus -- und wenn das nicht Rhodos ist, findet
+// sie dort 0, gibt "nicht pruefbar" zurueck und der einzige Betrieb,
+// bei dem die Regel ueberhaupt gilt, wird nie geprueft.
+//
+// Eine Wache, die nur dort nachsieht, wo nichts zu holen ist, meldet
+// jahrelang gruen. Also sucht diese Pruefung sich ihr Haus selbst: das
+// erste freigeschaltete MIT hinterlegtem Wert.
 async function pruefeMindestbestellwert(haus) {
     var hausDaten = null;
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-            + encodeURIComponent(haus) + '&select=min_order_value&limit=1', { headers: kopf() });
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants'
+            + '?is_active=eq.true&min_order_value=gt.0'
+            + '&select=id,min_order_value&order=created_at.asc&limit=1', { headers: kopf() });
         if (res.ok) hausDaten = (await res.json())[0];
     } catch (e) { return UNPRUEFBAR; }
 
+    // Kein Haus mit hinterlegtem Wert -> nichts zu pruefen, kein Alarm.
     var mindest = hausDaten ? Number(hausDaten.min_order_value) || 0 : 0;
-    // Kein Mindestwert hinterlegt -> nichts zu pruefen, kein Alarm.
-    if (mindest <= 0) return UNPRUEFBAR;
+    if (!hausDaten || mindest <= 0) return UNPRUEFBAR;
+    haus = hausDaten.id;
 
     var gericht = await probeGericht(haus);
     if (!gericht) return UNPRUEFBAR;           // ohne Karte nicht pruefbar
