@@ -42,6 +42,42 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
     catch (e) { console.warn('[alarm] VAPID nicht eingerichtet:', e.message); }
 }
 
+// WIE OFT DARF DERSELBE ALARM KOMMEN?
+//
+// Gemeldet am 27.08.2026: "Der Waechter schickt mir zu viel e-mails
+// wegen ein Sache das ist auch kein Fehler ... soll mit nicht ganze
+// Zeit e-mail schicken".
+//
+// Er hat recht, und zwar unabhaengig davon, ob der Fehler echt war:
+// alle 15 Minuten dieselbe Meldung ist keine Warnung mehr, das ist
+// Laerm. Und ein Waechter, den man stummschaltet, ueberwacht nichts.
+//
+// Neu ist neu -- die erste Meldung geht sofort raus. Dieselbe Sache
+// danach hoechstens alle sechs Stunden.
+//
+// Gemerkt wird das in /tmp. Das ueberlebt keinen Kaltstart, es kann
+// also gelegentlich eine Meldung zu viel durchkommen. Das ist der
+// richtige Fehler von beiden: lieber einmal zu viel gewarnt als eine
+// Warnung verschluckt, die zaehlt.
+var fs = require('fs');
+var RUHE_MS = 6 * 60 * 60 * 1000;
+
+function schonGemeldet(kennung) {
+    try {
+        var datei = '/tmp/kmi-alarm-' + String(kennung || 'kmi-alarm').replace(/[^a-z0-9-]/gi, '_');
+        var jetzt = Date.now();
+        if (fs.existsSync(datei)) {
+            var alt = Number(fs.readFileSync(datei, 'utf8')) || 0;
+            if (jetzt - alt < RUHE_MS) return true;
+        }
+        fs.writeFileSync(datei, String(jetzt));
+        return false;
+    } catch (e) {
+        // Kein /tmp, kein Schreibrecht -- dann lieber melden als schweigen.
+        return false;
+    }
+}
+
 function kopf() {
     return {
         'apikey': SERVICE_KEY,
@@ -61,8 +97,17 @@ async function hol(pfad) {
 // protokolliert und der Aufrufer laeuft weiter.
 async function alarm(titel, text, kennung) {
     // In die Netlify-Protokolle geht es IMMER -- auch wenn kein Handy
-    // angemeldet ist. Das ist die Spur, die spaeter niemand suchen muss.
+    // angemeldet ist und auch waehrend der Ruhezeit. Das ist die Spur,
+    // die spaeter niemand suchen muss, und sie kostet niemanden etwas.
     console.error('[ALARM]', titel, '--', text);
+
+    // Dieselbe Sache innerhalb von sechs Stunden: nicht noch einmal
+    // stoeren. Der Fehler steht weiter im Protokoll und die Wache meldet
+    // weiter 500 -- nur das Handy und das Postfach bleiben ruhig.
+    if (schonGemeldet(kennung)) {
+        console.error('[alarm] dieselbe Meldung wie eben -- Ruhezeit, nicht erneut geschickt');
+        return { ok: true, weg: 'ruhe', grund: 'innerhalb der Ruhezeit' };
+    }
 
     if (!SERVICE_KEY || !vapidBereit) {
         console.error('[alarm] kein Dienstschluessel oder kein VAPID -- nur protokolliert');

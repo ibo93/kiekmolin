@@ -203,6 +203,20 @@ t('ohne Resend-Schluessel bleibt wenigstens die Protokollzeile',
   /RESEND_API_KEY fehlt -- Alarm bleibt im Protokoll/.test(a), 'stuerzt ab oder schweigt');
 t('tote Geraete werden aufgeraeumt',
   /statusCode === 404 \|\| err\.statusCode === 410/.test(a), 'Karteileichen bleiben');
+// GEMELDET AM 27.08.2026: "Der Waechter schickt mir zu viel e-mails ...
+// soll mit nicht ganze Zeit e-mail schicken".
+//
+// Er hat recht, unabhaengig davon ob der Fehler echt war: alle 15
+// Minuten dieselbe Meldung ist keine Warnung mehr, das ist Laerm. Und
+// ein Waechter, den man stummschaltet, ueberwacht nichts.
+t('dieselbe Meldung kommt nicht alle 15 Minuten',
+  /function schonGemeldet/.test(a) && /RUHE_MS = 6 \* 60 \* 60 \* 1000/.test(a), 'keine Ruhezeit');
+t('die erste Meldung geht aber sofort raus',
+  /if \(schonGemeldet\(kennung\)\)/.test(a), 'auch die erste wird gebremst');
+t('und ins Protokoll geht sie IMMER, auch waehrend der Ruhezeit',
+  a.indexOf("console.error('[ALARM]'") < a.indexOf('if (schonGemeldet('), 'Ruhezeit verschluckt die Spur');
+t('kann die Ruhezeit nicht gemerkt werden, wird lieber gemeldet',
+  /catch \(e\) \{[\s\S]{0,200}return false;/.test(a.slice(a.indexOf('function schonGemeldet'))), 'schweigt im Zweifel');
 t('gleiche Kennung ersetzt die alte Meldung',
   /tag: kennung/.test(a), 'zwanzig gleiche Meldungen uebereinander');
 
