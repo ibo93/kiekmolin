@@ -1,0 +1,34 @@
+# FitCoach – Netlify-Konfiguration
+# Als eigene Netlify-Site deployen mit Base directory = fitcoach
+
+[build]
+  publish = "public"
+  command = "echo 'Kein Build nötig – statische Dateien'"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# index.html und Service Worker nie cachen, damit Updates sofort ankommen
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
