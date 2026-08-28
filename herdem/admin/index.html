@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#0a1410" />
+    <title>Herdem · Admin</title>
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/inter-latin.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/archivo-black-latin.woff2" crossorigin="anonymous" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <!-- Login gate -->
+    <div class="gate" id="loginGate">
+      <form class="gate-card" id="loginForm">
+        <img src="../assets/logo.svg" alt="" width="64" height="64" />
+        <h1>Herdem Admin</h1>
+        <p>Nur für Betreiber. Bitte Zugangscode eingeben.</p>
+        <label>
+          <span>Code</span>
+          <input id="loginInput" type="password" autocomplete="off" required />
+        </label>
+        <button type="submit">Einloggen</button>
+        <p class="gate-hint">Demo-Code: <code>herdem2026</code></p>
+      </form>
+    </div>
+
+    <!-- Main shell -->
+    <div class="shell" id="adminShell" hidden>
+      <header class="topbar">
+        <a class="brand" href="../" title="Zur Kundenansicht">
+          <img src="../assets/logo.svg" alt="" width="36" height="36" />
+          <strong>HERDEM</strong>
+          <small>Admin</small>
+        </a>
+        <div class="topbar-status" id="topStatus">
+          <span class="dot"></span>
+          <span id="storeStatusText">Shop offen</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="t-btn" id="exportBtn" type="button">Export JSON</button>
+          <label class="t-btn" for="importInput">Import JSON</label>
+          <input id="importInput" type="file" accept="application/json" hidden />
+          <button class="t-btn ghost" id="resetBtn" type="button">Reset</button>
+          <a class="t-btn ghost" href="../" target="_blank">Vorschau ↗</a>
+          <button class="t-btn ghost" id="logoutBtn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <div class="layout">
+        <nav class="sidebar" aria-label="Admin-Bereiche">
+          <button class="nav-item is-active" data-tab="products">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z M4 7l2-4h12l2 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <span>Produkte</span><em id="navProductCount">0</em>
+          </button>
+          <button class="nav-item" data-tab="bundles">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v9H3z M3 10l3-5h12l3 5 M12 5v14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <span>Pakete</span><em id="navBundleCount">0</em>
+          </button>
+          <button class="nav-item" data-tab="copy">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l4 4v12H5z M16 4v4h4 M8 12h8 M8 16h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <span>Texte</span>
+          </button>
+          <button class="nav-item" data-tab="settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1A2 2 0 1 1 4.3 17l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.3l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1A2 2 0 1 1 19.7 7l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+            <span>Einstellungen</span>
+          </button>
+          <button class="nav-item" data-tab="orders">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6 M9 17h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <span>Bestellungen</span><em id="navOrderCount">0</em>
+          </button>
+        </nav>
+
+        <main class="content">
+          <!-- ============= PRODUCTS ============= -->
+          <section class="panel" data-panel="products">
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Sortiment</p>
+                <h2>Produkte verwalten</h2>
+              </div>
+              <div class="panel-actions">
+                <input class="search" id="productSearch" type="search" placeholder="Suchen…" />
+                <select id="productCategoryFilter">
+                  <option value="all">Alle Kategorien</option>
+                  <option value="fleisch">Fleisch &amp; Helal</option>
+                  <option value="obst">Obst &amp; Gemüse</option>
+                  <option value="milch">Milchprodukte</option>
+                  <option value="gewuerze">Gewürze &amp; Öl</option>
+                  <option value="snacks">Snacks &amp; Süßes</option>
+                  <option value="getraenke">Getränke</option>
+                </select>
+                <button class="cta" id="addProduct" type="button">+ Neues Produkt</button>
+              </div>
+            </header>
+
+            <div class="table-wrap">
+              <table class="data-table" id="productsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 64px">Bild</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="category">Kategorie</th>
+                    <th data-sort="price" class="num">Preis</th>
+                    <th class="num">Alt-Preis</th>
+                    <th>Tags</th>
+                    <th data-sort="popularity" class="num">Popularität</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="productsBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ============= BUNDLES ============= -->
+          <section class="panel" data-panel="bundles" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Pakete</p>
+                <h2>Bundles &amp; Pakete</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="addBundle" type="button">+ Neues Paket</button>
+              </div>
+            </header>
+            <div class="bundle-grid" id="bundleGrid"></div>
+          </section>
+
+          <!-- ============= COPY ============= -->
+          <section class="panel" data-panel="copy" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Inhalte</p>
+                <h2>Texte &amp; Storefront</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="saveCopy" type="button">Übernehmen</button>
+              </div>
+            </header>
+            <form class="copy-form" id="copyForm">
+              <fieldset>
+                <legend>Hero</legend>
+                <label>Eyebrow (DE) <input name="heroEyebrowDe" type="text" /></label>
+                <label>Eyebrow (TR) <input name="heroEyebrowTr" type="text" /></label>
+                <label class="wide">Titel (DE) <textarea name="heroTitleDe" rows="2"></textarea></label>
+                <label class="wide">Titel (TR) <textarea name="heroTitleTr" rows="2"></textarea></label>
+                <label class="wide">Lead-Text (DE) <textarea name="heroLeadDe" rows="3"></textarea></label>
+                <label class="wide">Lead-Text (TR) <textarea name="heroLeadTr" rows="3"></textarea></label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Versprechen (3 Stück)</legend>
+                <div class="three-col">
+                  <div>
+                    <label>Titel 1 (DE) <input name="p1TitleDe" type="text" /></label>
+                    <label>Titel 1 (TR) <input name="p1TitleTr" type="text" /></label>
+                    <label>Text 1 (DE) <input name="p1TextDe" type="text" /></label>
+                    <label>Text 1 (TR) <input name="p1TextTr" type="text" /></label>
+                  </div>
+                  <div>
+                    <label>Titel 2 (DE) <input name="p2TitleDe" type="text" /></label>
+                    <label>Titel 2 (TR) <input name="p2TitleTr" type="text" /></label>
+                    <label>Text 2 (DE) <input name="p2TextDe" type="text" /></label>
+                    <label>Text 2 (TR) <input name="p2TextTr" type="text" /></label>
+                  </div>
+                  <div>
+                    <label>Titel 3 (DE) <input name="p3TitleDe" type="text" /></label>
+                    <label>Titel 3 (TR) <input name="p3TitleTr" type="text" /></label>
+                    <label>Text 3 (DE) <input name="p3TextDe" type="text" /></label>
+                    <label>Text 3 (TR) <input name="p3TextTr" type="text" /></label>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Footer</legend>
+                <label class="wide">Tagline (DE) <input name="footerTaglineDe" type="text" /></label>
+                <label class="wide">Tagline (TR) <input name="footerTaglineTr" type="text" /></label>
+              </fieldset>
+            </form>
+          </section>
+
+          <!-- ============= SETTINGS ============= -->
+          <section class="panel" data-panel="settings" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Konfiguration</p>
+                <h2>Shop-Einstellungen</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="saveSettings" type="button">Übernehmen</button>
+              </div>
+            </header>
+            <form class="settings-form" id="settingsForm">
+              <fieldset>
+                <legend>Filiale</legend>
+                <label>Markenname <input name="storeName" type="text" /></label>
+                <label>Tagline (DE) <input name="storeTaglineDe" type="text" /></label>
+                <label>Tagline (TR) <input name="storeTaglineTr" type="text" /></label>
+                <label>Straße &amp; Hausnummer <input name="addrStreet" type="text" /></label>
+                <label>PLZ <input name="addrZip" type="text" inputmode="numeric" maxlength="5" /></label>
+                <label>Stadt <input name="addrCity" type="text" /></label>
+                <label>Telefon <input name="phone" type="tel" /></label>
+                <label>E-Mail <input name="email" type="email" /></label>
+                <label class="wide">Öffnungszeiten <input name="hours" type="text" placeholder="Mo–Sa 08:00–22:00" /></label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Lieferung &amp; Kosten</legend>
+                <label>Mindestbestellwert (€) <input name="minOrder" type="number" min="0" step="0.5" /></label>
+                <label>Lieferung Gebühr (€) <input name="feeDelivery" type="number" min="0" step="0.1" /></label>
+                <label>Lieferung gratis ab (€) <input name="freeDelivery" type="number" min="0" step="1" /></label>
+                <label>Versand Gebühr (€) <input name="feeShipping" type="number" min="0" step="0.1" /></label>
+                <label>Versand gratis ab (€) <input name="freeShipping" type="number" min="0" step="1" /></label>
+                <label class="wide">Liefergebiet PLZs (eine pro Zeile)
+                  <textarea name="zipList" rows="4" placeholder="60311&#10;60313&#10;..."></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Gutscheincodes</legend>
+                <div id="promoList" class="promo-list"></div>
+                <button class="t-btn" id="addPromo" type="button">+ Code hinzufügen</button>
+              </fieldset>
+
+              <fieldset>
+                <legend>Shop-Status</legend>
+                <label class="toggle-row">
+                  <input name="storeOpen" type="checkbox" />
+                  <span>Shop ist geöffnet</span>
+                </label>
+                <p class="hint">Pausiert: Kasse gesperrt, Banner-Hinweis aktiv.</p>
+              </fieldset>
+            </form>
+          </section>
+
+          <!-- ============= ORDERS ============= -->
+          <section class="panel" data-panel="orders" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Operations</p>
+                <h2>Bestellungen</h2>
+              </div>
+              <div class="panel-actions">
+                <select id="orderStatusFilter">
+                  <option value="all">Alle Status</option>
+                  <option value="new">Neu</option>
+                  <option value="packing">Wird gepackt</option>
+                  <option value="onway">Unterwegs</option>
+                  <option value="delivered">Geliefert</option>
+                  <option value="cancelled">Storniert</option>
+                </select>
+              </div>
+            </header>
+            <div class="orders-list" id="ordersList"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- Product edit dialog -->
+    <dialog class="adlg" id="productDialog">
+      <form method="dialog" id="productForm">
+        <header>
+          <h2 id="productDialogTitle">Produkt bearbeiten</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <input type="hidden" name="id" />
+        <div class="grid-2">
+          <label>Name (DE) <input name="nameDe" type="text" required /></label>
+          <label>Name (TR) <input name="nameTr" type="text" /></label>
+          <label>Kategorie
+            <select name="category" required>
+              <option value="fleisch">Fleisch &amp; Helal</option>
+              <option value="obst">Obst &amp; Gemüse</option>
+              <option value="milch">Milchprodukte</option>
+              <option value="gewuerze">Gewürze &amp; Öl</option>
+              <option value="snacks">Snacks &amp; Süßes</option>
+              <option value="getraenke">Getränke</option>
+            </select>
+          </label>
+          <label>Herkunft <input name="origin" type="text" placeholder="z. B. Bäckerei" /></label>
+          <label>Preis (€) <input name="price" type="number" min="0" step="0.01" required /></label>
+          <label>Alter Preis (€) <input name="oldPrice" type="number" min="0" step="0.01" placeholder="leer = ohne" /></label>
+          <label>Einheit <input name="unit" type="text" placeholder="z. B. 500 g, 7,99 € / kg" /></label>
+          <label>Beliebtheit (1–100) <input name="popularity" type="number" min="1" max="100" /></label>
+          <label class="wide">Beschreibung (DE) <textarea name="noteDe" rows="2"></textarea></label>
+          <label class="wide">Beschreibung (TR) <textarea name="noteTr" rows="2"></textarea></label>
+          <label class="wide">Tags (Komma getrennt) <input name="tags" type="text" placeholder="Helal, Angebot, Frisch" /></label>
+          <fieldset class="wide">
+            <legend>Produktbild</legend>
+            <div class="img-row">
+              <div class="img-preview" id="imgPreview"></div>
+              <div class="img-controls">
+                <label class="t-btn" for="imgFile">Bild hochladen</label>
+                <input id="imgFile" type="file" accept="image/*" hidden />
+                <button class="t-btn ghost" id="useDefaultImg" type="button">Standard-SVG verwenden</button>
+                <input name="image" type="hidden" />
+                <small id="imgHint">Empfohlen: 600×600 px, max 200 KB. Wird lokal als Daten-URI gespeichert.</small>
+              </div>
+            </div>
+          </fieldset>
+          <label class="toggle-row wide">
+            <input name="active" type="checkbox" checked />
+            <span>Aktiv (im Shop sichtbar)</span>
+          </label>
+        </div>
+        <footer>
+          <button class="t-btn ghost" type="button" id="deleteProduct">Löschen</button>
+          <button class="cta" type="submit" value="save">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Bundle edit dialog -->
+    <dialog class="adlg" id="bundleDialog">
+      <form method="dialog" id="bundleForm">
+        <header>
+          <h2>Paket bearbeiten</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <input type="hidden" name="id" />
+        <div class="grid-2">
+          <label>ID (interner Key) <input name="key" type="text" required pattern="[a-z0-9_-]+" /></label>
+          <label>Farbe
+            <select name="color">
+              <option value="green">Grün</option>
+              <option value="red">Rot</option>
+              <option value="amber">Gelb</option>
+              <option value="blue">Blau</option>
+            </select>
+          </label>
+          <label>Eyebrow <input name="eyebrow" type="text" placeholder="z. B. Grill" /></label>
+          <label>Titel (DE) <input name="titleDe" type="text" required /></label>
+          <label>Titel (TR) <input name="titleTr" type="text" /></label>
+          <label class="wide">Beschreibung (DE) <textarea name="descDe" rows="2"></textarea></label>
+          <label class="wide">Beschreibung (TR) <textarea name="descTr" rows="2"></textarea></label>
+          <fieldset class="wide">
+            <legend>Produkte im Paket</legend>
+            <div class="chip-pool" id="bundleProductPool"></div>
+          </fieldset>
+        </div>
+        <footer>
+          <button class="t-btn ghost" type="button" id="deleteBundle">Löschen</button>
+          <button class="cta" type="submit" value="save">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Order detail dialog -->
+    <dialog class="adlg" id="orderDialog">
+      <form method="dialog">
+        <header>
+          <h2 id="orderDialogTitle">Bestellung</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <div id="orderDetail"></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="adminToast" role="status" aria-live="polite"></div>
+    <script src="admin.js" defer></script>
+  </body>
+</html>
