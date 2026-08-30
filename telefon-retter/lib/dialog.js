@@ -124,15 +124,18 @@ function datumHeute() {
 // ein anderer NUR Reservierungen. Das steuert "kann" in nummern.json.
 // Ohne Angabe gilt wie bisher die Stufe: Reservierungen immer,
 // Bestellungen ab Stufe 3.
-function baueFaehigkeiten(stufe, kann) {
+function baueFaehigkeiten(stufe, kann, restaurant) {
   const s = stufe || 1;
-  if (!kann) return { reservierung: true, bestellung: s >= 3, infos: s >= 2 };
+  /* Durchstellen geht nur, wenn im CRM eine Nummer hinterlegt wurde. */
+  const weiterleitung = !!(restaurant && restaurant.weiterleitung);
+  if (!kann) return { reservierung: true, bestellung: s >= 3, infos: s >= 2, weiterleitung };
   const liste = (Array.isArray(kann) ? kann : [kann]).map((k) => String(k).toLowerCase().trim());
   const hat = (name) => liste.some((k) => k.startsWith(name));
   const f = {
     reservierung: hat('reservier'),
     bestellung: hat('bestell') || hat('liefer'),
-    infos: hat('info') || s >= 2
+    infos: hat('info') || s >= 2,
+    weiterleitung
   };
   // Bestellungen ohne Speisekarten-Zugriff waeren blind - Infos dann immer an
   if (f.bestellung) f.infos = true;
@@ -142,8 +145,8 @@ function baueFaehigkeiten(stufe, kann) {
 }
 
 // --- Werkzeug-Definitionen fuer Claude -------------------------------------------
-function baueTools(stufe, kann) {
-  const f = baueFaehigkeiten(stufe, kann);
+function baueTools(stufe, kann, restaurant) {
+  const f = baueFaehigkeiten(stufe, kann, restaurant);
   const tools = [
     {
       name: 'pruefe_verfuegbarkeit',
@@ -199,6 +202,24 @@ function baueTools(stufe, kann) {
       }
     }
   ];
+
+  /* Nur anbieten, wenn wirklich eine Nummer hinterlegt ist – sonst
+     verspricht der Assistent ein Durchstellen, das nirgends ankommt. */
+  if (f.weiterleitung) {
+    tools.push({
+      name: 'weiterleiten',
+      description: 'Stellt den Anruf an einen Menschen im Betrieb durch. Vorher ankuendigen, '
+        + 'z.B. "Einen Moment, ich stelle Sie durch."',
+      input_schema: {
+        type: 'object',
+        properties: {
+          ansage: { type: 'string', description: 'Was du sagst, bevor durchgestellt wird.' },
+          grund:  { type: 'string', description: 'Kurz, warum durchgestellt wird.' }
+        },
+        required: ['ansage']
+      }
+    });
+  }
 
   if (f.infos) {
     tools.push({
@@ -276,7 +297,7 @@ function baueTools(stufe, kann) {
 
 // --- System-Prompt ---------------------------------------------------------------
 function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
-  const f = baueFaehigkeiten(stufe, kann);
+  const f = baueFaehigkeiten(stufe, kann, restaurant);
   const jetzt = new Date();
   const heute = datumHeute();
   const zeilen = [
@@ -330,6 +351,39 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
     '- Wenn alles erledigt ist: freundlich verabschieden und gespraech_beenden aufrufen.',
     '- Du bist ehrlich: auf Wunsch sagst du, dass du ein digitaler Assistent bist.');
 
+  /* Anrede: im CRM eingestellt. Beim Doerpskrog duzt man, im Sternehaus
+     nicht - und das falsche Wort merkt der Gast im ersten Satz. */
+  if (restaurant.anrede === 'du') {
+    zeilen.push('- Du duzt den Gast durchgehend ("du", "dir", "dein") - der Betrieb wuenscht das so. Trotzdem hoeflich bleiben.');
+  } else {
+    zeilen.push('- Du siezt den Gast durchgehend ("Sie", "Ihnen", "Ihr").');
+  }
+
+  /* Wissensbasis: im CRM gepflegte Fragen und Antworten. Ohne die sagt der
+     Assistent bei allem ausserhalb von Karte und Oeffnungszeiten "das weiss
+     ich nicht" - was den Gast genauso weit bringt wie ein Freizeichen. */
+  const wissen = Array.isArray(restaurant.wissen) ? restaurant.wissen : [];
+  if (wissen.length) {
+    zeilen.push('');
+    zeilen.push('HAEUFIGE FRAGEN (so beantworten, nicht abwandeln):');
+    wissen.slice(0, 40).forEach((w) => {
+      zeilen.push('- Frage: ' + w.frage + '  Antwort: ' + w.antwort);
+    });
+  }
+
+  /* Weiterleitung: nur erwaehnen, wenn eine Nummer hinterlegt ist. Sonst
+     verspricht der Assistent etwas, das er nicht halten kann. */
+  if (restaurant.weiterleitung) {
+    zeilen.push('');
+    if (restaurant.weiterWann === 'unklar') {
+      zeilen.push('WEITERLEITEN: Wenn du eine Frage nicht beantworten kannst oder der Gast '
+        + 'jemanden sprechen moechte, biete an durchzustellen und rufe dann weiterleiten auf.');
+    } else {
+      zeilen.push('WEITERLEITEN: Nur wenn der Gast ausdruecklich einen Menschen sprechen moechte, '
+        + 'biete an durchzustellen und rufe dann weiterleiten auf. Von dir aus bietest du es nicht an.');
+    }
+  }
+
   return zeilen.join('\n');
 }
 
@@ -346,7 +400,7 @@ class DialogSitzung {
     this.kann = kann || null; // was dieser Wirt annehmen will (nummern.json)
     this.log = log || (() => {});
     this.nachrichten = [];
-    this.tools = baueTools(this.stufe, this.kann);
+    this.tools = baueTools(this.stufe, this.kann, this.restaurant);
     this.system = baueSystemPrompt(restaurant, this.stufe, this.anrufer, this.kann);
     this.beendet = false;
     this.letztePruefung = null; // Merker: zuletzt als frei geprueft
@@ -360,6 +414,17 @@ class DialogSitzung {
   begruessung() {
     // Gibt sich sofort als KI zu erkennen (Transparenzpflicht, EU AI Act).
     // Gesprochene Texte IMMER mit echten Umlauten (Aussprache!).
+
+    /* Im CRM kann eine eigene Begruessung hinterlegt werden. Enthaelt sie
+       keinen Hinweis auf die KI, haengen wir ihn an – die Transparenzpflicht
+       gilt auch dann, wenn der Wirt sie beim Formulieren vergisst. */
+    const eigen = String(this.restaurant.begruessung || '').trim();
+    if (eigen) {
+      return /assistent|k\.?i\.?\b|künstlich|digital|computer|automat/i.test(eigen)
+        ? eigen
+        : eigen + ' Ich bin übrigens ein digitaler Assistent.';
+    }
+
     return 'Moin, hier ist der digitale KI-Assistent von ' + this.restaurant.name +
       '. Das Team ist gerade nicht am Apparat, aber ich kann für Sie reservieren oder eine Nachricht aufnehmen. Was kann ich für Sie tun?';
   }
@@ -453,6 +518,11 @@ class DialogSitzung {
       case 'pruefe_bestellung': return this.toolPruefeBestellung(input);
       case 'speichere_bestellung': return this.toolSpeichereBestellung(input);
       case 'gespraech_beenden': return { __beenden: true, abschiedsgruss: input.abschiedsgruss || 'Vielen Dank für Ihren Anruf, bis bald!' };
+      case 'weiterleiten': return {
+        __weiterleiten: true,
+        ansage: input.ansage || 'Einen Moment, ich stelle Sie durch.',
+        grund: input.grund || ''
+      };
       default: return { fehler: 'Unbekanntes Werkzeug ' + name };
     }
   }

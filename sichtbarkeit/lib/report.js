@@ -231,6 +231,34 @@ function euroBetrag(n) {
 // Sektion "Was der Telefon-Retter gebracht hat" - der Umsatz-Nachweis.
 // Wird nur gerendert, wenn Telefon-Zahlen vorliegen und der Assistent in
 // dem Monat etwas getan hat (sonst waere die Sektion irrefuehrend).
+/* Fertige Beitraege fuers Google-Profil.
+
+   Die gab es bisher nur als eigene Datei im Aufbereitungs-Ordner – der Wirt
+   bekam also den Report und musste dann woanders nachschauen. Damit landete
+   das Material meistens nirgends. Jetzt steht es im selben Dokument:
+   abschreiben, einstellen, fertig. */
+function postsSektion(posts) {
+  if (!Array.isArray(posts) || !posts.length) return '';
+  const bloecke = posts.slice(0, 5).map((p, i) => `
+    <div class="post">
+      <div class="post-kopf">
+        <span class="post-nr">${i + 1}</span>
+        <span class="post-titel">${esc(p.titel || '')}</span>
+      </div>
+      <div class="post-text">${esc(p.text || '')}</div>
+      ${p.hinweis ? `<div class="post-hinweis">${esc(p.hinweis)}</div>` : ''}
+    </div>`).join('');
+
+  return `
+<h2>Beiträge für dein Google-Profil</h2>
+<p class="post-intro">
+  Fertig geschrieben, auf diesen Monat gemünzt. Einstellen dauert keine zehn
+  Minuten – und Google zeigt aktive Profile weiter oben. Text markieren,
+  kopieren, im Google-Unternehmensprofil unter „Beitrag erstellen“ einfügen.
+</p>
+${bloecke}`;
+}
+
 function telefonSektion(telefon) {
   if (!telefon) return '';
   const aktiv = (telefon.reservierungen || 0) + (telefon.bestellungen || 0) + (telefon.rueckrufe || 0);
@@ -421,7 +449,7 @@ function analyseSektion(analyse) {
 </div>`;
 }
 
-function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse }) {
+function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse, posts}) {
   const q = quote(ergebnis);
   const schritte = naechsteSchritte(ergebnis, restaurant);
   const trend = trendText(q, vormonat);
@@ -463,6 +491,18 @@ function renderHtml({ restaurant, kategorie, monat, ergebnis, vormonat, telefon,
                  padding: 2px 8px; border-radius: 3px; margin-top: 4px; }
   h2 { font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; margin: 36px 0 12px;
        border-left: 4px solid var(--akzent); padding-left: 10px; }
+    .post-intro { color:#555; line-height:1.65; margin:0 0 16px; max-width:44em; }
+    .post { border:1px solid #e2e2e2; border-radius:8px; padding:16px 18px;
+            margin-bottom:12px; background:#fff; }
+    .post-kopf { display:flex; gap:10px; align-items:baseline; margin-bottom:8px; }
+    .post-nr { background:#111; color:#fff; font-size:11px; font-weight:700;
+               width:20px; height:20px; border-radius:4px; display:inline-flex;
+               align-items:center; justify-content:center; flex:0 0 20px; }
+    .post-titel { font-weight:700; font-size:15px; }
+    .post-text { line-height:1.7; font-size:14px; background:#f7f7f6;
+                 border-left:3px solid #111; padding:12px 14px; border-radius:0 4px 4px 0; }
+    .post-hinweis { color:#777; font-size:12.5px; font-style:italic; margin-top:8px; }
+
   .kacheln { display: flex; gap: 16px; }
   .kachel { flex: 1; border: 1px solid var(--linie); border-radius: 6px; padding: 16px 18px; }
   .kachel .wert { font-size: 34px; font-weight: 700; }
@@ -542,6 +582,7 @@ ${analyseSektion(analyse)}
 </div>
 ${telefonSektion(telefon)}
 ${verlaufSektion(verlauf)}
+${postsSektion(posts)}
 <h2>Basis-Check</h2>
 <table>
   <tr><th>Prüfung</th><th>Ergebnis</th><th>Detail</th></tr>

@@ -76,8 +76,14 @@ function listeKunden(basisOrdner) {
       stimme: istObjekt ? (wert.stimme || null) : null,
       stufe: istObjekt ? (wert.stufe || null) : null,
       kann: istObjekt && wert.kann ? [].concat(wert.kann) : null,
-      name: null, stadt: null, gerichte: 0, melden: null, problem: null
+      name: null, stadt: null, gerichte: 0, melden: null, problem: null,
+      /* Der Slug steckt im Dateinamen. Ohne ihn hat die Uebersicht im CRM
+         keinen Griff fuer Demo und Testanruf. */
+      slug: null
     };
+    if (eintrag.datei) {
+      eintrag.slug = path.basename(eintrag.datei).replace(/\.json$/i, '');
+    }
 
     if (eintrag.datei) {
       const voll = path.isAbsolute(eintrag.datei)
@@ -106,6 +112,7 @@ function listeKunden(basisOrdner) {
 // Ein Betrieb OHNE Kiek mol in: Kundendatei schreiben und Nummer zuordnen.
 // daten: { nummer, name, stadt, adresse, plz, telefon, webseite, beschreibung,
 //          oeffnet, schliesst, tische, liefergebuehr, sms, email, kann,
+//          begruessung, wissen[], weiterleitung, weiterWann,
 //          stimme, stufe, speisekarte: [{name, preis, kategorie, beschreibung}] }
 function speichereEigenenKunden(daten, basisOrdner) {
   const d = daten || {};
@@ -154,6 +161,23 @@ function speichereEigenenKunden(daten, basisOrdner) {
     oeffnet: zeit(d.oeffnet),
     schliesst: zeit(d.schliesst),
     tische: zahl(d.tische) || 8,
+
+    /* Vom CRM einstellbar – der Assistent liest das beim Anruf:
+       begruessung   eigener erster Satz statt der Standardformel
+       wissen        Frage/Antwort-Paare, damit er nicht "weiss ich nicht" sagt
+       weiterleitung an wen durchgestellt wird, wenn er nicht weiterkommt */
+    begruessung: String(d.begruessung || '').trim() || undefined,
+    wissen: (Array.isArray(d.wissen) ? d.wissen : [])
+      .map((w) => ({
+        frage: String((w && w.frage) || '').trim(),
+        antwort: String((w && w.antwort) || '').trim()
+      }))
+      .filter((w) => w.frage && w.antwort)
+      .slice(0, 40),
+    weiterleitung: normalisiereNummer(d.weiterleitung) || undefined,
+    weiterWann: /^(bitte|unklar)$/.test(String(d.weiterWann || '')) ? d.weiterWann : undefined,
+    /* Anrede: nur 'du' weicht ab, alles andere bleibt beim hoeflichen Sie. */
+    anrede: String(d.anrede || '') === 'du' ? 'du' : undefined,
     liefergebuehr: zahl(d.liefergebuehr) || undefined,
     melden: {
       sms: sms ? normalisiereNummer(sms) : undefined,

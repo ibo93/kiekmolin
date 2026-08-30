@@ -18,8 +18,13 @@ async function spreche(text, optionen) {
   // dass einzelne Woerter englisch ausgesprochen werden.
   const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
 
+  // Am Telefon braucht Twilio ulaw_8000. Ein Browser kann das NICHT abspielen -
+  // fuer die Hoerprobe im CRM muss deshalb MP3 kommen, sonst klickt man ins
+  // Leere und hoert nichts, ohne dass irgendwo ein Fehler auftaucht.
+  const format = (optionen && optionen.format) === 'mp3' ? 'mp3_44100_128' : 'ulaw_8000';
+
   const antwort = await fetch(
-    'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=ulaw_8000',
+    'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=' + format,
     {
       method: 'POST',
       headers: { 'xi-api-key': key, 'content-type': 'application/json' },

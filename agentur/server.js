@@ -318,7 +318,20 @@ async function starteReport(kunde) {
       }
 
       jobs[jobId].schritt = 'Report rendern';
-      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse });
+      /* Die fertigen Google-Beitraege gehoeren in den Report – bisher
+         landeten sie nur in einer eigenen Datei, die kaum jemand aufmacht. */
+      let posts = null;
+      try {
+        const gbp = require('../sichtbarkeit/lib/gbp-posts');
+        /* baueGbpPosts will den Monat als Zahl 1-12, nicht als "2026-08" */
+        const monatZahl = parseInt(String(monat).slice(5, 7), 10);
+        const karte = kunde.speisekarte || kunde.menue || kunde.gerichte || [];
+        posts = gbp.baueGbpPosts(kunde, karte, { monat: monatZahl });
+      } catch (e) {
+        console.warn('Google-Beitraege uebersprungen: ' + e.message);
+      }
+
+      const html = report.renderHtml({ restaurant: kunde, kategorie: sf.kategorie, monat, ergebnis, vormonat, telefon, verlauf, analyse, posts });
       fs.mkdirSync(REPORT_ORDNER, { recursive: true });
       const basis = slug + '-' + monat;
       fs.writeFileSync(path.join(REPORT_ORDNER, basis + '.html'), html);
@@ -1042,9 +1055,11 @@ async function demoHoere(audioBuffer, mime) {
   return { text: ((alt && alt.transcript) || '').trim() };
 }
 
-async function demoSpreche(text) {
+async function demoSpreche(text, eigeneStimme) {
   const key = process.env.ELEVENLABS_API_KEY;
-  const stimme = process.env.ELEVENLABS_VOICE_ID;
+  /* Bei der Vorfuehrung kann eine andere Stimme gewaehlt sein als die
+     Standardstimme – sonst hoert Ibo im CRM immer dieselbe. */
+  const stimme = eigeneStimme || process.env.ELEVENLABS_VOICE_ID;
   if (!key || !stimme || !text) return null;
   try {
     const antwort = await fetch(
@@ -1539,16 +1554,32 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt - einmal "node schluessel-einrichten.js" im Hauptordner ausfuehren.' });
         return;
       }
-      const { kennung, sitzung, text, mitStimme } = await leseBody(req);
+      const { kennung, sitzung, text, mitStimme, entwurf } = await leseBody(req);
       const jetzt = Date.now();
       for (const [id, s] of anrufDemos) { if (jetzt - s.zuletzt > DEMO_SITZUNG_TTL) anrufDemos.delete(id); }
 
       const eintrag = sitzung ? anrufDemos.get(sitzung) : null;
       if (!eintrag) {
-        const kunde = await findeKunde(kennung);
-        if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+        /* Mit "entwurf" laesst sich der Assistent ausprobieren, BEVOR er
+           gespeichert ist – so hoert Ibo im CRM sofort, wie seine Begruessung,
+           sein Wissen und seine Stimme wirken, und kann nachbessern. */
+        let kunde;
+        if (entwurf && entwurf.name) {
+          kunde = Object.assign({
+            id: 'entwurf', name: entwurf.name, slug: 'entwurf',
+            city: entwurf.stadt || '', address: entwurf.adresse || '',
+            opening_time: entwurf.oeffnet || '17:00',
+            closing_time: entwurf.schliesst || '22:00'
+          }, entwurf);
+        } else {
+          kunde = await findeKunde(kennung);
+          if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+        }
         const start = await starteAnrufDemo(kunde);
-        if (mitStimme) start.audio = await demoSpreche(start.text);
+        /* Stimme fuer die Folgeantworten merken */
+        const s = anrufDemos.get(start.sitzung);
+        if (s && entwurf && entwurf.stimme) s.stimme = entwurf.stimme;
+        if (mitStimme) start.audio = await demoSpreche(start.text, entwurf && entwurf.stimme);
         json(res, 200, start);
         return;
       }
@@ -1557,7 +1588,7 @@ const server = http.createServer(async (req, res) => {
       if (antwort.beenden) anrufDemos.delete(sitzung);
       json(res, 200, {
         sitzung, text: antwort.text, beenden: antwort.beenden,
-        audio: mitStimme ? await demoSpreche(antwort.text) : null
+        audio: mitStimme ? await demoSpreche(antwort.text, eintrag.stimme) : null
       });
       return;
     }
@@ -2020,6 +2051,50 @@ const server = http.createServer(async (req, res) => {
     // --- Telefon-Kunden verwalten (auch Betriebe OHNE Kiek mol in) --------
     // Frueher hiess das: zwei JSON-Dateien im Texteditor bearbeiten. Hier
     // schreibt die App beide zusammen und prueft, was fehlt.
+    /* Welche Stimmen stehen zur Auswahl? Kommt direkt von ElevenLabs,
+       damit im CRM keine Liste gepflegt werden muss, die veraltet. */
+    if (req.method === 'GET' && pfad === '/api/stimmen') {
+      const key = process.env.ELEVENLABS_API_KEY;
+      if (!key) { json(res, 200, { stimmen: [], hinweis: 'ELEVENLABS_API_KEY fehlt in telefon-retter/.env' }); return; }
+      try {
+        const antwort = await fetch('https://api.elevenlabs.io/v1/voices', {
+          headers: { 'xi-api-key': key }, signal: AbortSignal.timeout(15000)
+        });
+        if (!antwort.ok) throw new Error('ElevenLabs ' + antwort.status);
+        const daten = await antwort.json();
+        const stimmen = (daten.voices || []).map((v) => ({
+          id: v.voice_id,
+          name: v.name,
+          geschlecht: (v.labels && v.labels.gender) || '',
+          sprache: (v.labels && (v.labels.language || v.labels.accent)) || '',
+          beschreibung: (v.labels && v.labels.description) || '',
+          probe: v.preview_url || null,
+          aktiv: v.voice_id === process.env.ELEVENLABS_VOICE_ID
+        }));
+        json(res, 200, { stimmen });
+      } catch (e) {
+        json(res, 200, { stimmen: [], hinweis: e.message });
+      }
+      return;
+    }
+
+    /* Hoerprobe mit dem eigenen Text – so hoert Ibo, wie die Stimme
+       den Namen seines Kunden ausspricht, nicht irgendein Beispiel. */
+    if (req.method === 'POST' && pfad === '/api/stimme-probe') {
+      const { stimme, text } = await leseBody(req);
+      if (!stimme) { json(res, 400, { fehler: 'Keine Stimme gewaehlt.' }); return; }
+      const el = require('../telefon-retter/lib/elevenlabs');
+      try {
+        // MP3, nicht das Telefonformat: das hier hoert ein Browser, kein Twilio.
+        const audio = await el.spreche(String(text || 'Moin, hier ist der digitale Assistent. Was kann ich fuer Sie tun?'),
+                                       { stimme: String(stimme), format: 'mp3' });
+        json(res, 200, { audio: Buffer.from(audio).toString('base64'), format: 'mp3' });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
     if (req.method === 'GET' && pfad === '/api/telefon-kunden') {
       const tk = require('./lib/telefon-kunden');
       try {
@@ -2036,6 +2111,43 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, Object.assign({ ok: true }, tk.speichereEigenenKunden(await leseBody(req))));
       } catch (e) {
         json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    /* Volle Kundendatei zum Bearbeiten. Die Liste liefert nur eine
+       Kurzfassung - Begruessung, Wissensbasis und Anrede stehen nur in
+       der Datei selbst, und ohne die waere "Bearbeiten" ein Formular,
+       das die halben Einstellungen stillschweigend leert. */
+    if (req.method === 'GET' && pfad === '/api/telefon-kunde-lesen') {
+      const tk = require('./lib/telefon-kunden');
+      const gesucht = tk.normalisiereNummer(url.searchParams.get('nummer') || '');
+      if (!gesucht) { json(res, 400, { fehler: 'Keine Nummer angegeben.' }); return; }
+      try {
+        const nummern = tk.liesNummern();
+        const wert = nummern[gesucht];
+        if (!wert) { json(res, 404, { fehler: 'Diese Nummer ist nicht aufgeschaltet.' }); return; }
+
+        const istObjekt = wert && typeof wert === 'object' && !Array.isArray(wert);
+        let kunde = {};
+        if (istObjekt && wert.datei) {
+          const p2 = require('path');
+          const voll = p2.isAbsolute(wert.datei)
+            ? wert.datei : p2.join(tk.pfade().basis, wert.datei);
+          kunde = JSON.parse(require('fs').readFileSync(voll, 'utf8'));
+        } else if (!istObjekt) {
+          /* Kiek-mol-in-Betrieb: die Stammdaten liegen dort, nicht hier.
+             Nur was wir haben, damit das Formular nicht luegt. */
+          kunde = { name: String(wert), nurKiekmolin: true };
+        }
+        json(res, 200, Object.assign({ ok: true }, kunde, {
+          nummer: gesucht,
+          stimme: (istObjekt && wert.stimme) || kunde.stimme || '',
+          kann: (istObjekt && wert.kann) ? [].concat(wert.kann) : (kunde.kann || []),
+          art: (istObjekt && wert.datei) ? 'eigen' : 'kiekmolin'
+        }));
+      } catch (e) {
+        json(res, 500, { fehler: 'Kundendatei nicht lesbar: ' + e.message });
       }
       return;
     }
