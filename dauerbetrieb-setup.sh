@@ -75,7 +75,12 @@ systemctl enable --now caddy >/dev/null 2>&1 || true
 systemctl reload caddy
 
 # --- 3. Repo holen / aktualisieren -------------------------------------------
-if [ -d "$ZIEL/.git" ]; then
+if [ -f "$ZIEL/docker-compose.yml" ] && [ ! -d "$ZIEL/.git" ]; then
+  # Der Code wurde von Hand hochkopiert (siehe "Auf den Server kopieren.command").
+  # Dann NICHT klonen - das wuerde den frischen Stand mit dem aus GitHub
+  # ueberschreiben, und der ist aelter.
+  echo "-> Code liegt schon in $ZIEL (hochkopiert) - bleibt wie er ist"
+elif [ -d "$ZIEL/.git" ]; then
   echo "-> Repo aktualisieren"
   git -C "$ZIEL" pull --ff-only
 else

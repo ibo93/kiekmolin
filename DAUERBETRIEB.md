@@ -4,15 +4,27 @@ Damit der Telefon-Retter rund um die Uhr Anrufe annimmt, muss er auf einem
 Server laufen, nicht auf deinem Rechner. Diese Anleitung bringt beide Dienste
 auf einen kleinen Cloud-Server (z.B. Hetzner CX22, ~4 €/Monat).
 
-## Der schnelle Weg: ein Befehl
+## Der schnelle Weg
 
-Auf dem frischen Ubuntu-Server (als root), nachdem der A-Record deiner
+**Schritt 1 – auf deinem Mac:** Doppelklick auf
+`Auf den Server kopieren.command` (vorher einmal die Server-Adresse
+oben in der Datei eintragen). Das schiebt den aktuellen Code auf den
+Server, ohne Umweg über GitHub – deine Interessentenliste bleibt privat.
+
+**Schritt 2 – auf dem Server (als root):** nachdem der A-Record deiner
 Telefon-Domain auf die Server-IP zeigt:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ibo93/kiekmolin/main/dauerbetrieb-setup.sh -o setup.sh
-bash setup.sh telefon.kurani-design.de check.kurani-design.de
+bash /opt/kiekmolin/dauerbetrieb-setup.sh telefon.kiekmolin.de
 ```
+
+Ab dann reicht für jede Änderung Schritt 1 allein – das Kopier-Skript
+startet die Dienste selbst neu.
+
+**Warum nicht über GitHub?** Das Repo ist öffentlich. `prospects.json`
+mit 1642 Betrieben und die Kundendateien haben dort nichts zu suchen.
+Der alte Weg mit `git clone` funktioniert weiter, wenn du ihn brauchst –
+das Setup-Skript erkennt selbst, ob der Code schon da liegt.
 
 Das Skript installiert Docker + Caddy (HTTPS), holt das Repo nach
 `/opt/kiekmolin`, legt die `.env`-Dateien an (ohne vorhandene zu
@@ -48,16 +60,16 @@ Twilio verlangt eine `https://`-Adresse. Am einfachsten mit Caddy
 (holt sich das TLS-Zertifikat automatisch):
 
 1. Eine (Sub-)Domain auf die Server-IP zeigen lassen, z.B.
-   `telefon.kurani-design.de` → A-Record auf die IP.
+   `telefon.kiekmolin.de` → A-Record auf die IP.
 2. Caddy installieren (`apt install caddy`) und als `/etc/caddy/Caddyfile`:
    ```
-   telefon.kurani-design.de {
+   telefon.kiekmolin.de {
        reverse_proxy localhost:3100
    }
    ```
    Danach `systemctl reload caddy`.
-3. In `telefon-retter/.env`: `BASE_URL=https://telefon.kurani-design.de`
-4. In Twilio bei der Nummer: Webhook `https://telefon.kurani-design.de/anruf`
+3. In `telefon-retter/.env`: `BASE_URL=https://telefon.kiekmolin.de`
+4. In Twilio bei der Nummer: Webhook `https://telefon.kiekmolin.de/anruf`
 
 Die Agentur-App (Port 3200) NICHT öffentlich machen — sie hat keinen Login.
 Entweder nur lokal per SSH-Tunnel nutzen:
@@ -104,7 +116,7 @@ Rufumleitung ins Leere und das Telefon klingelt wieder nur beim Wirt.
 
 Kunden-Portal öffentlich machen (optional): in der Caddy-Config zusätzlich
 ```
-portal.kurani-design.de {
+portal.kiekmolin.de {
     reverse_proxy localhost:3200
     @nichtPortal not path /portal/*
     respond @nichtPortal 404
