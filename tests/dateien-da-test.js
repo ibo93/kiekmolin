@@ -39,7 +39,12 @@ console.log('\n-- 2. Und alles andere, worauf verwiesen wird --');
 // Die Kuer: jede lokale Datei einsammeln, auf die index.html, der
 // Service Worker oder eine Netlify-Funktion zeigt, und nachsehen, ob es
 // sie gibt. So faellt der naechste Fall auf, bevor ihn jemand meldet.
-var quellen = ['index.html', 'sw.js', 'push-check.html'];
+// check.html kam am 31.08.2026 dazu -- die Wirte-Seite mit 23
+// Kundenlogos. Genau der Fall, fuer den diese Datei gebaut wurde: ein
+// fehlendes Logo wirft keinen Fehler, der Browser laesst die Stelle
+// leer, und auf einer Seite, die neue Kunden gewinnen soll, faellt das
+// erst dem Kunden auf.
+var quellen = ['index.html', 'sw.js', 'push-check.html', 'check.html', '404.html'];
 fs.readdirSync(path.join(KMI, 'netlify', 'functions'))
   .filter(function (f) { return /\.js$/.test(f); })
   .forEach(function (f) { quellen.push('netlify/functions/' + f); });
