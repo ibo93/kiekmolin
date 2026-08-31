@@ -114,5 +114,34 @@ save = save.slice(0, save.indexOf('\nfunction ', 10));
 t('saveReservationToSupabase verschluckt den Fehler nicht mehr',
   /throw new Error\(fehlerText\)/.test(save) && /throw e;/.test(save), 'verschluckt ihn');
 
+
+console.log('\n-- 6. Die Bestellpositionen fordern die Zeile nicht zurueck --');
+// Gefunden am 27.08.2026 im Datenbank-Protokoll:
+//     42501  new row violates row-level security policy
+//            for table "order_items"
+//
+// Dieselbe Falle wie bei den Reservierungen: auf order_items darf
+// "anon" ANLEGEN, aber nicht LESEN. Mit "return=representation"
+// verlangt der Aufruf die neue Zeile zurueck, Postgres wendet dafuer
+// die Lese-Regel an -- und der Gast ist "anon".
+//
+// Die Bestellung geht nicht verloren (die Gerichte stehen auch in
+// orders.items), aber die Tabelle order_items bleibt bei jedem
+// Gastbesuch leer. Damit fehlen alle Gastbestellungen in den
+// Auswertungen. Ein stiller Ausfall: die Zahlen sehen aus wie Zahlen,
+// sie sind nur zu klein.
+t('_resilientInsert kann den Rueckgabewert abwaehlen',
+  /const _resilientInsert = async \(table, payload, wieZurueck\)/.test(src), 'nicht abwaehlbar');
+t('und die Kopfzeile richtet sich danach',
+  /'Prefer': 'return=' \+ \(wieZurueck \|\| 'representation'\)/.test(src), 'immer representation');
+t('order_items fordert nichts zurueck',
+  /selected_options: item\.selected_options \|\| \[\]\s*\}, 'minimal'\)/.test(src), 'fordert die Zeile an');
+// Bei orders MUSS sie weiter kommen -- daraus kommt das track_token,
+// mit dem der Gast seine Bestellung spaeter verfolgt.
+t('bei orders kommt sie weiterhin zurueck',
+  /_resilientInsert\('orders', _orderPayload\)/.test(src)
+  && /_resilientInsert\('orders', _orderPayload, *'minimal'\)/.test(src) === false,
+  'auch dort abgewaehlt -- dann fehlt das track_token');
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

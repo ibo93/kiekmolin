@@ -65,11 +65,12 @@ t('und prueft die Antwort wirklich',
   /a\.daten\.ok && a\.daten\.id && a\.daten\.track_token/.test(w), 'glaubt der Antwort blind');
 // Wenn die erste Pruefung klemmt, muessen die anderen trotzdem laufen --
 // sonst repariert man einen Weg und der naechste ist noch immer zu.
-t('alle drei laufen, auch wenn die erste klemmt',
-  /for \(var i = 0; i < pruefungen\.length; i\+\+\)/.test(w) && /maengel\.push/.test(w),
+t('alle laufen, auch wenn die erste klemmt',
+  /for \(var i = 0; i < PRUEFUNGEN\.length; i\+\+\)/.test(w) && /stand\.push/.test(w),
   'bricht nach der ersten ab');
 t('und eine abgestuerzte Pruefung reisst die anderen nicht mit',
-  /Pruefung ' \+ \(i \+ 1\) \+ ' ist selbst abgestuerzt/.test(w), 'kein try/catch je Pruefung');
+  /ist selbst abgestuerzt/.test(w) && /catch \(e\) \{\s*\n\s*erg = 'Pruefung/.test(w),
+  'kein try/catch je Pruefung');
 
 console.log('\n-- 2a. Und ob die ausgelieferte Seite ueberhaupt die neue ist --');
 // DER BLINDE FLECK, DER EINEN GANZEN TAG GEKOSTET HAT.
@@ -84,9 +85,18 @@ t('und prueft, ob die Seite den neuen Gastweg benutzt',
 t('sie holt auch den Service Worker',
   /fetch\(SEITE \+ '\/sw\.js'/.test(w), 'holt ihn nicht');
 t('und prueft den Namen des Zwischenspeichers',
-  /kmi-shell-v\(\\d\+\)/.test(w) && /Number\(v\) < 4/.test(w), 'prueft ihn nicht');
+  /kmi-shell-v\(\\d\+\)/.test(w) && /Number\(v\) < CACHE_MINDESTENS/.test(w), 'prueft ihn nicht');
+// UND DIE ZAHL MUSS MIT sw.js MITWANDERN.
+// Bleibt sie stehen, waere die Wache mit einer Fassung zufrieden, die
+// es nicht mehr geben darf -- sie meldete gruen, waehrend die Geraete
+// die alte App behalten. Genau der blinde Fleck vom 26.08., nur eine
+// Ebene tiefer.
+var swJetzt   = Number((lies(path.join(KMI, 'sw.js')).match(/kmi-shell-v(\d+)/) || [])[1]);
+var wacheWill = Number((w.match(/var CACHE_MINDESTENS = (\d+);/) || [])[1]);
+t('und die geforderte Nummer ist die aus sw.js', swJetzt === wacheWill,
+  'sw.js steht auf v' + swJetzt + ', die Wache fordert v' + wacheWill);
 t('diese Pruefung laeuft als erste',
-  /pruefeAusgelieferteSeite, pruefeReservierung/.test(w), 'laeuft spaeter');
+  w.indexOf("fn: pruefeAusgelieferteSeite") < w.indexOf("fn: pruefeReservierung"), 'laeuft spaeter');
 
 console.log('\n-- 2b. Und sie prueft, ob der Preis-Schutz noch lebt --');
 // Am 25.08. kam heraus: der Preis-Check war bei JEDER Bestellung aus.
@@ -102,8 +112,10 @@ t('kommt es durch, ist das der Alarm',
   /Preis-Schutz IST AUS/.test(w), 'meldet es nicht');
 // Ohne Karte laesst sich der Schutz nicht pruefen -- das ist kein
 // Fehler und darf keinen Alarm ausloesen.
+// Und "nicht pruefbar" ist auch kein "alles gut": es darf ebenso
+// wenig eine Entwarnung ausloesen. Deshalb ein eigener Wert.
 t('ohne Speisekarte kein falscher Alarm',
-  /if \(!gericht\) return null;/.test(w), 'alarmiert ohne Karte');
+  /if \(!gericht\) return UNPRUEFBAR;/.test(w), 'alarmiert ohne Karte');
 
 console.log('\n-- 2c. Und ob der Mindestbestellwert wirklich haelt --');
 // Gefragt am 26.08.2026 zu einer Lieferbestellung ueber 12,00 Euro bei
@@ -118,9 +130,21 @@ t('geht sie durch, ist das der Alarm',
   /Mindestbestellwert GILT NICHT/.test(w), 'meldet es nicht');
 // Kein Wert hinterlegt, keine Karte, oder das Gericht ist teurer als der
 // Mindestwert -- alles drei ist kein Fehler und darf nicht alarmieren.
-t('ohne hinterlegten Wert kein falscher Alarm', /if \(mindest <= 0\) return null;/.test(w), 'alarmiert');
+t('ohne hinterlegten Wert kein falscher Alarm',
+  /if \(!hausDaten \|\| mindest <= 0\) return UNPRUEFBAR;/.test(w), 'alarmiert');
+// GEMESSEN AM 27.08.2026, nachdem der Mindestbestellwert in der
+// Datenbank angekommen war: von vier Betrieben hat GENAU EINER einen
+// Wert hinterlegt (Rhodos, 15,00 -- die anderen drei 0,00).
+//
+// Die Wache probt sonst am ersten freigeschalteten Haus. Ist das nicht
+// Rhodos, findet sie dort 0, gibt "nicht pruefbar" zurueck -- und der
+// einzige Betrieb, bei dem die Regel ueberhaupt gilt, wird nie
+// geprueft. Sie haette jahrelang gruen gemeldet.
+t('sie sucht sich das Haus, das ueberhaupt einen Wert hat',
+  /min_order_value=gt\.0/.test(w) && /haus = hausDaten\.id;/.test(w),
+  'prueft nur am erstbesten Haus');
 t('und auch nicht, wenn das Gericht teurer ist als der Mindestwert',
-  /if \(warenwert >= mindest\) return null;/.test(w), 'alarmiert');
+  /if \(warenwert >= mindest\) return UNPRUEFBAR;/.test(w), 'alarmiert');
 
 console.log('\n-- 2d. Die Proben passen ueberhaupt in die Tabelle --');
 // Am 27.08.2026 im Protokoll gefunden, 108 mal:
@@ -152,7 +176,7 @@ console.log('\n-- 3. Sie hinterlaesst nichts --');
 var ersteS = w.indexOf('await aufraeumen();');
 // Angelpunkt ist die Schleife, die die Pruefungen laufen laesst -- vor
 // ihr wird geraeumt, nach ihr wieder.
-var versuchS = w.indexOf('for (var i = 0; i < pruefungen.length; i++)');
+var versuchS = w.indexOf('for (var i = 0; i < PRUEFUNGEN.length; i++)');
 var zweiteS = w.indexOf('await aufraeumen();', versuchS);
 t('sie raeumt vor dem Versuch auf', ersteS > 0 && ersteS < versuchS, ersteS + '/' + versuchS);
 t('und danach auch', zweiteS > versuchS, zweiteS);
@@ -203,7 +227,7 @@ t('die Empfaenger kommen aus customers.role',
 t('der Aufrufer kann keinen Empfaenger nennen',
   /function alarm\(titel, text, kennung\)/.test(a), 'nimmt einen Empfaenger entgegen');
 t('ohne Handy geht es trotzdem ins Protokoll',
-  /console\.error\('\[ALARM\]'/.test(a), 'nur Push, keine Spur');
+  /console\.error\(entwarnung \? '\[ENTWARNUNG\]' : '\[ALARM\]'/.test(a), 'nur Push, keine Spur');
 // GEMESSEN AM 26.08.2026 UM 13:11:45:
 //   push_subscriptions?customer_email=in.("ibo.kuran93@gmail.com")
 //   -> 200, Inhalt 2 Bytes = []
@@ -226,19 +250,27 @@ t('ohne Resend-Schluessel bleibt wenigstens die Protokollzeile',
 t('tote Geraete werden aufgeraeumt',
   /statusCode === 404 \|\| err\.statusCode === 410/.test(a), 'Karteileichen bleiben');
 // GEMELDET AM 27.08.2026: "Der Waechter schickt mir zu viel e-mails ...
-// soll mit nicht ganze Zeit e-mail schicken".
+// soll mit nicht ganze Zeit e-mail schicken", und am selben Tag noch
+// einmal: "die wache nervt zu viel kommt das mit die signale".
 //
-// Er hat recht, unabhaengig davon ob der Fehler echt war: alle 15
-// Minuten dieselbe Meldung ist keine Warnung mehr, das ist Laerm. Und
-// ein Waechter, den man stummschaltet, ueberwacht nichts.
-t('dieselbe Meldung kommt nicht alle 15 Minuten',
-  /function schonGemeldet/.test(a) && /RUHE_MS = 6 \* 60 \* 60 \* 1000/.test(a), 'keine Ruhezeit');
-t('die erste Meldung geht aber sofort raus',
-  /if \(schonGemeldet\(kennung\)\)/.test(a), 'auch die erste wird gebremst');
-t('und ins Protokoll geht sie IMMER, auch waehrend der Ruhezeit',
-  a.indexOf("console.error('[ALARM]'") < a.indexOf('if (schonGemeldet('), 'Ruhezeit verschluckt die Spur');
-t('kann die Ruhezeit nicht gemerkt werden, wird lieber gemeldet',
-  /catch \(e\) \{[\s\S]{0,200}return false;/.test(a.slice(a.indexOf('function schonGemeldet'))), 'schweigt im Zweifel');
+// Beim ersten Mal habe ich eine Ruhezeit in /tmp eingebaut. Sie sah im
+// Quelltext richtig aus und hat NICHTS getan: eine Netlify-Funktion
+// bekommt fast jedes Mal einen frischen Behaelter, /tmp ist beim Start
+// leer, also war jede Meldung wieder "die erste". Nachgemessen im
+// Postfach: 96 E-Mails zwischen 22:30 und 07:45, im Viertelstundentakt.
+//
+// Ein Test, der nur nachliest "es gibt eine Ruhezeit", haette das nie
+// gefunden -- er haette bestaetigt, was der Quelltext behauptet. Der
+// echte Beweis steht in Abschnitt 8: die Wache laeuft dort einen ganzen
+// Tag lang und die Meldungen werden GEZAEHLT.
+t('die Ruhezeit liegt nicht mehr in /tmp',
+  a.indexOf('function schonGemeldet') === -1, 'wieder /tmp, das ueberlebt keinen Kaltstart');
+t('sondern in einem Gedaechtnis, das einen Neustart ueberlebt',
+  /require\('\.\/wache-gedaechtnis'\)/.test(a) && /gedaechtnis\.bewerten\(/.test(a),
+  'kein dauerhaftes Gedaechtnis');
+t('und ins Protokoll geht die Meldung IMMER, auch waehrend der Ruhe',
+  /if \(was === 'still'\)[\s\S]{0,300}console\.error\('\[ALARM\] \(still/.test(a),
+  'Ruhe verschluckt die Spur');
 t('gleiche Kennung ersetzt die alte Meldung',
   /tag: kennung/.test(a), 'zwanzig gleiche Meldungen uebereinander');
 
@@ -252,7 +284,10 @@ var echtesRequire = Module.prototype.require;
 var alarme = [];
 Module.prototype.require = function (name) {
     if (name === './lib/alarm') {
-        return { alarm: async function (titel, text) { alarme.push(titel + ' :: ' + text); return { ok: true }; } };
+        return {
+            alarm:  async function (titel, text) { alarme.push(titel + ' :: ' + text); return { ok: true }; },
+            senden: async function (titel, text) { alarme.push(titel + ' :: ' + text); return { ok: true }; }
+        };
     }
     // web-push liegt nur in den Netlify-Abhaengigkeiten, nicht hier.
     if (name === 'web-push') {
@@ -268,6 +303,30 @@ process.env.URL                  = 'https://probe.test';
 var echtesFetch = global.fetch;
 var geloescht = 0, angelegt = 0;
 
+// DAS GEDAECHTNIS DER WACHE, IM SPEICHER NACHGEBAUT.
+//
+// Nicht wegmocken: die Regel, wie oft gemeldet wird, IST das, was hier
+// geprueft werden soll. Ein Mock, der immer 'melden' sagt, wuerde
+// genau den Fehler durchwinken, um den es geht.
+var tabelle = {};
+var gedaechtnisTuer = function (url, opt) {
+    if (url.indexOf('/wache_status') === -1) return null;
+    if (!opt || !opt.method || opt.method === 'GET') {
+        var k = decodeURIComponent((url.match(/kennung=eq\.([^&]+)/) || [])[1] || '');
+        return { ok: true, status: 200, json: async function () { return tabelle[k] ? [tabelle[k]] : []; } };
+    }
+    if (opt.method === 'POST') {
+        var zeile = JSON.parse(opt.body);
+        var alt = tabelle[zeile.kennung] || {};
+        Object.keys(zeile).forEach(function (f) { alt[f] = zeile[f]; });
+        tabelle[zeile.kennung] = alt;
+        return { ok: true, status: 201, json: async function () { return []; } };
+    }
+    return null;
+};
+var gedaechtnisModul = echtesRequire.call(module,
+    path.join(F, 'lib', 'wache-gedaechtnis.js'));
+
 // welt: was die nachgebauten Tueren antworten sollen.
 //   res    -> Antwort von reservation-guest
 //   ord    -> Antwort von order-save auf die normale Probe
@@ -276,6 +335,8 @@ var geloescht = 0, angelegt = 0;
 function tuerenBauen(welt) {
     global.fetch = async function (url, opt) {
         var m = opt && opt.method;
+        var g = gedaechtnisTuer(url, opt);
+        if (g) return g;
         if (m === 'DELETE') { geloescht++; return { ok: true }; }
         if (url.indexOf('/index.html') > -1) {
             if (welt.seite === null) throw new Error('ECONNREFUSED');
@@ -286,7 +347,7 @@ function tuerenBauen(welt) {
         }
         if (url.indexOf('/sw.js') > -1) {
             return { ok: true, text: async function () {
-                return "var CACHE = 'kmi-shell-v" + (welt.sw || 4) + "';"; } };
+                return "var CACHE = 'kmi-shell-v" + (welt.sw || 9) + "';"; } };
         }
         if (url.indexOf('/menu_items') > -1) {
             return { ok: true, json: async function () { return welt.karte === false ? [] : [{ id: 'g1', base_price: 12.5 }]; } };
@@ -328,8 +389,11 @@ var GUT_MINDEST = { status: 422, body: { ok: false, preis_abgelehnt: true,
     gruende: ['Warenwert 12.50 unter dem Mindestbestellwert 15.00 fuer Lieferung'] } };
 
 var wachePfad = path.join(F, 'gastweg-wache.js');
-async function laufen(welt) {
+async function laufen(welt, gedaechtnisBehalten) {
     alarme.length = 0; geloescht = 0; angelegt = 0;
+    // Jeder Fall faengt bei null an -- ausser dort, wo genau der
+    // Verlauf ueber mehrere Durchlaeufe geprueft wird.
+    if (!gedaechtnisBehalten) tabelle = {};
     tuerenBauen(welt);
     delete require.cache[require.resolve(wachePfad)];
     var erg = await require(wachePfad).handler();
@@ -347,7 +411,7 @@ async function laufen(welt) {
     // a2) DER FALL VOM 26.08.: Server heil, ausgelieferte Seite alt.
     //     Genau hier war die Wache blind und meldete gruen.
     var seiteAlt = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, seite: 'alt' });
-    t('Seite noch die alte -> Alarm', seiteAlt.code === 500 && seiteAlt.alarme.length === 1,
+    t('Seite noch die alte -> Alarm', seiteAlt.code === 200 && seiteAlt.alarme.length === 1,
       seiteAlt.code + ' / ' + JSON.stringify(seiteAlt.alarme));
     t('und der Alarm sagt, dass die SEITE alt ist, nicht der Server',
       /ausgelieferte Seite ist ALT/.test(seiteAlt.alarme[0] || ''), seiteAlt.alarme[0]);
@@ -356,13 +420,13 @@ async function laufen(welt) {
     //     dann behalten die Geraete die alte App. Genau mein Fehler vom 25.
     var swAlt = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, sw: 3 });
     t('Zwischenspeicher nicht hochgezaehlt -> Alarm',
-      swAlt.code === 500 && /Zwischenspeicher steht auf v3/.test(swAlt.alarme[0] || ''), swAlt.alarme[0]);
+      swAlt.code === 200 && /Zwischenspeicher steht auf v3/.test(swAlt.alarme[0] || ''), swAlt.alarme[0]);
 
     // b) Genau der Fehler vom 25.08.2026: die Datenbank weist den Gast ab.
     var resKaputt = await laufen({
         res: { status: 401, body: { ok: false, error: 'Speichern fehlgeschlagen', status: 401 } },
         ord: GUT_ORD, billig: GUT_BILLIG });
-    t('Reservieren kaputt -> die Wache meldet rot', resKaputt.code === 500, resKaputt.code);
+    t('Reservieren kaputt -> die Wache meldet rot', resKaputt.alarme.length === 1, resKaputt.alarme.length);
     t('Reservieren kaputt -> Alarm nennt den Weg und den Grund',
       /Reservieren:/.test(resKaputt.alarme[0] || '') && /401/.test(resKaputt.alarme[0] || ''),
       resKaputt.alarme[0]);
@@ -372,7 +436,7 @@ async function laufen(welt) {
         res: GUT_RES,
         ord: { status: 500, body: { ok: false, error: 'Speichern fehlgeschlagen' } },
         billig: GUT_BILLIG });
-    t('Bestellen kaputt -> Alarm', ordKaputt.code === 500 && ordKaputt.alarme.length === 1, ordKaputt.code);
+    t('Bestellen kaputt -> Alarm', ordKaputt.code === 200 && ordKaputt.alarme.length === 1, ordKaputt.code);
     t('Bestellen kaputt -> Alarm nennt den Weg',
       /Bestellen:/.test(ordKaputt.alarme[0] || ''), ordKaputt.alarme[0]);
 
@@ -381,7 +445,7 @@ async function laufen(welt) {
     var schutzAus = await laufen({
         res: GUT_RES, ord: GUT_ORD,
         billig: { status: 200, body: { ok: true, id: 'b2' } } });
-    t('Preis-Schutz aus -> Alarm', schutzAus.code === 500 && schutzAus.alarme.length === 1, schutzAus.code);
+    t('Preis-Schutz aus -> Alarm', schutzAus.code === 200 && schutzAus.alarme.length === 1, schutzAus.code);
     t('Preis-Schutz aus -> und es steht deutlich da',
       /Preis-Schutz IST AUS/.test(schutzAus.alarme[0] || ''), schutzAus.alarme[0]);
 
@@ -390,7 +454,7 @@ async function laufen(welt) {
     var mindestAus = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
         mindestAntwort: { status: 200, body: { ok: true, id: 'b3' } } });
     t('Mindestbestellwert gilt nicht -> Alarm',
-      mindestAus.code === 500 && mindestAus.alarme.length === 1, mindestAus.code);
+      mindestAus.code === 200 && mindestAus.alarme.length === 1, mindestAus.code);
     t('und es steht deutlich da, mit beiden Zahlen',
       /Mindestbestellwert GILT NICHT/.test(mindestAus.alarme[0] || '')
       && /12\.50/.test(mindestAus.alarme[0] || '') && /15\.00/.test(mindestAus.alarme[0] || ''),
@@ -405,7 +469,7 @@ async function laufen(welt) {
     //    waere aber ein Gast ohne Verfolgen-Banner.
     var halb = await laufen({
         res: { status: 200, body: { ok: true, id: 'r1' } }, ord: GUT_ORD, billig: GUT_BILLIG });
-    t('halbe Antwort zaehlt nicht als Erfolg', halb.code === 500 && halb.alarme.length === 1,
+    t('halbe Antwort zaehlt nicht als Erfolg', halb.code === 200 && halb.alarme.length === 1,
       halb.code + ' / ' + halb.alarme.length);
 
     // f) Alles zu -- ein kaputter Deploy sieht so aus. Es muessen ALLE
@@ -414,7 +478,7 @@ async function laufen(welt) {
     // nachgebaute Tuer der Mindest-Probe weiter brav mit 422, und der
     // Fall "alles zu" waere gar nicht alles.
     var alles = await laufen({ res: null, ord: null, billig: null, mindestAntwort: null });
-    t('alles zu -> Alarm', alles.code === 500 && alles.alarme.length === 1, alles.code);
+    t('alles zu -> Alarm', alles.code === 200 && alles.alarme.length === 1, alles.code);
     t('und alle drei Wege stehen in der Meldung',
       /Reservieren:/.test(alles.alarme[0]) && /Bestellen:/.test(alles.alarme[0])
       && /Preis-Schutz:/.test(alles.alarme[0]), alles.alarme[0]);
@@ -428,6 +492,92 @@ async function laufen(welt) {
     var ohneKarte = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, karte: false });
     t('Haus ohne Speisekarte -> kein falscher Alarm',
       ohneKarte.code === 200 && ohneKarte.alarme.length === 0, JSON.stringify(ohneKarte.alarme));
+
+
+    console.log('\n-- 8. WIE OFT sie meldet -- die Nacht, die 96 Mails gekostet hat --');
+    // DAS IST DER TEST, DER GEFEHLT HAT.
+    //
+    // Alles darueber prueft, OB die Wache anschlaegt. Kein einziger
+    // Test prueft, WIE OFT -- und genau daran ist es gescheitert:
+    //
+    //   26.08.2026 22:30 bis 27.08.2026 07:45 deutscher Zeit
+    //   96 E-Mails, alle 15 Minuten zwei bis drei, alle mit demselben
+    //   Satz: "Preis-Schutz IST AUS".
+    //
+    // Zwei Ursachen, beide hausgemacht: die Ruhezeit lag in /tmp und
+    // war nach jedem Kaltstart weg, und die Wache gab bei einem Mangel
+    // 500 zurueck -- woraufhin Netlify den Durchlauf neu startete,
+    // gemessen drei Mal je Viertelstunde.
+    //
+    // Ein Test, der Quelltext liest, findet so etwas nie. Also laeuft
+    // die Wache hier einen ganzen Tag lang durch und die Meldungen
+    // werden GEZAEHLT.
+    var kaputt = { res: GUT_RES, ord: GUT_ORD, billig: { status: 200, body: { ok: true, id: 'b9' } } };
+
+    tabelle = {};
+    var gesamt = 0, codes = {};
+    for (var d = 0; d < 96; d++) {                 // 96 x 15 Minuten = 24 Stunden
+        var lauf = await laufen(kaputt, true);
+        gesamt += lauf.alarme.length;
+        codes[lauf.code] = true;
+    }
+    t('24 Stunden dieselbe Stoerung -> GENAU EINE Meldung', gesamt === 1, gesamt + ' Meldungen');
+    // Der Statuscode ist kein Schoenheitsfehler: 500 heisst fuer
+    // Netlify "misslungen, nochmal", und jeder Neustart schickt eine
+    // weitere Mail. Gemessen: drei Durchlaeufe je Viertelstunde.
+    t('und kein einziges Mal 500 -- sonst startet Netlify neu',
+      Object.keys(codes).join() === '200', Object.keys(codes).join());
+
+    // Zum Vergleich die alte Rechnung: 96 Durchlaeufe x 2 bis 3 Mails.
+    t('das ist die Nacht vom 26.08. minus 95 Meldungen', gesamt < 96, gesamt);
+
+    // b) Und wenn es wieder geht, MUSS er das erfahren -- sonst weiss
+    //    er nie, ob er noch etwas tun muss. Genau eine Entwarnung,
+    //    danach Ruhe.
+    var heilung = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG }, true);
+    t('geht es wieder -> genau eine Entwarnung', heilung.alarme.length === 1, heilung.alarme.length);
+    t('und die sagt auch, dass es wieder geht',
+      /Geht wieder/.test(heilung.alarme[0] || '') && /wache-preis/.test(heilung.alarme[0] || ''),
+      heilung.alarme[0]);
+    var danach = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG }, true);
+    t('danach ist Ruhe', danach.alarme.length === 0, JSON.stringify(danach.alarme));
+
+    // c) DIE GEFAEHRLICHE RICHTUNG.
+    //    Leiser beim Wiederholen ist richtig. Leiser bei etwas NEUEM
+    //    waere der naechste stille Ausfall: Preis-Schutz meldet sich,
+    //    danach Ruhe -- und wenn eine Stunde spaeter das Reservieren
+    //    zumacht, sagt niemand etwas. Deshalb je Pruefung ein eigenes
+    //    Gedaechtnis.
+    tabelle = {};
+    var erst = await laufen(kaputt, true);
+    t('erste Stoerung -> Meldung', erst.alarme.length === 1, erst.alarme.length);
+    var still = await laufen(kaputt, true);
+    t('dieselbe nochmal -> still', still.alarme.length === 0, JSON.stringify(still.alarme));
+    var zweite = await laufen({ res: { status: 401, body: { ok: false, error: 'RLS' } },
+                                ord: GUT_ORD, billig: { status: 200, body: { ok: true, id: 'b9' } } }, true);
+    t('etwas ANDERES klemmt -> sofort gemeldet, trotz laufender Ruhe',
+      zweite.alarme.length === 1, JSON.stringify(zweite.alarme));
+    t('und es steht nur das Neue drin, nicht das schon Gemeldete',
+      /Reservieren:/.test(zweite.alarme[0] || '') && !/Preis-Schutz/.test(zweite.alarme[0] || ''),
+      zweite.alarme[0]);
+
+    // d) OHNE GEDAECHTNIS DARF SIE NICHT VERSTUMMEN.
+    //    Solange datenbank/21-wache-gedaechtnis.sql nicht eingespielt
+    //    ist, antwortet die Tabelle mit 404. Dann lieber zu oft melden
+    //    als gar nicht -- ein stummer Waechter ist schlimmer als ein
+    //    lauter, weil man sich auf ihn verlaesst.
+    var echteTuer = gedaechtnisTuer;
+    gedaechtnisTuer = function (url) {
+        if (url.indexOf('/wache_status') === -1) return null;
+        return { ok: false, status: 404, json: async function () { return {}; } };
+    };
+    gedaechtnisModul.zuruecksetzen();
+    try { require('fs').unlinkSync('/tmp/kmi-wache-wache-preis'); } catch (e) {}
+    var ohneTabelle = await laufen(kaputt, true);
+    t('ohne die Tabelle meldet sie trotzdem', ohneTabelle.alarme.length === 1,
+      JSON.stringify(ohneTabelle.alarme));
+    gedaechtnisTuer = echteTuer;
+    gedaechtnisModul.zuruecksetzen();
 
     global.fetch = echtesFetch;
     Module.prototype.require = echtesRequire;

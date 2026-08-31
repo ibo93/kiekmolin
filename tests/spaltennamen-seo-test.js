@@ -54,14 +54,29 @@ t('gelesen wird base_price', /const p = item\.base_price;/.test(seoCode)
   && /const p = it\.base_price;/.test(seoCode), 'liest etwas anderes');
 
 console.log('\n-- 2. Die Bewertungen fuer Google --');
-t('customer_name wird geholt',
-  /select=rating,title,comment,customer_name,created_at/.test(seoCode), 'fehlt');
-t('author_name steht nicht mehr im select',
+// DRITTER NAME, UND DIESMAL DER RICHTIGE.
+//
+// Hier stand erst author_name, dann customer_name. Beide gibt es in
+// reviews nicht. Am 27.08.2026 stand im Protokoll 24 mal:
+//     42703  column reviews.customer_name does not exist
+//
+// Und dieser Test hat den falschen Namen festgeschrieben, statt ihn zu
+// finden -- das vierte Mal in dieser Woche. Der Grund war jedesmal
+// derselbe: ich habe den Namen geraten, weil er plausibel klang, und
+// den Test danach gebaut.
+//
+// Der richtige Name steht dort, wo die App die Bewertung ANLEGT
+// (index.html, POST auf /rest/v1/reviews): user_name, daneben user_id
+// und user_avatar. Wer eine Spalte sucht, sieht nach, was geschrieben
+// wird -- nicht, was klingt.
+t('der Name wird als user_name geholt',
+  /select=rating,title,comment,user_name,created_at/.test(seoCode), 'fehlt');
+t('und auch so ausgelesen',
+  /safeText\(rv\.user_name, 'Gast'\)/.test(seoCode), 'anderer Weg');
+t('author_name steht nirgends mehr',
   /author_name/.test(seoCode) === false, 'noch drin');
-t('und wird auch nicht mehr gelesen',
-  /rv\.author_name/.test(seoCode) === false, 'liest eine Spalte, die nicht kommt');
-t('der Name kommt aus customer_name',
-  /safeText\(rv\.customer_name, 'Gast'\)/.test(seoCode), 'anderer Weg');
+t('customer_name auch nicht',
+  /customer_name/.test(seoCode) === false, 'noch drin');
 
 console.log('\n-- 3. Bewertungen haben keine restaurant_id --');
 // Die Tabelle merkt sich ihr Ziel als Paar: target_type + target_id.

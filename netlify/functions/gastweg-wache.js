@@ -46,6 +46,31 @@
 'use strict';
 
 var alarmModul = require('./lib/alarm');
+var gedaechtnis = require('./lib/wache-gedaechtnis');
+
+// EINE PRUEFUNG, DIE GERADE NICHT PRUEFBAR IST, IST KEIN "ALLES GUT".
+//
+// Ohne Speisekarte laesst sich der Preis-Schutz nicht pruefen, ohne
+// hinterlegten Mindestwert der Mindestwert nicht. Frueher gaben diese
+// Faelle dasselbe zurueck wie ein bestandener Durchlauf -- null. Das
+// ging gut, solange daraus nur "kein Alarm" folgte.
+//
+// Jetzt folgt daraus auch eine Entwarnung, und da waere es falsch: die
+// Wache haette "geht wieder" gemeldet, obwohl sie nur nicht hingesehen
+// hat. Genau die Sorte stiller Fehler aus Regel 6 -- sieht aus wie
+// eine Antwort, ist keine.
+var UNPRUEFBAR = 'unpruefbar';
+
+// DIE NUMMER MUSS MIT sw.js MITWANDERN.
+//
+// Der Name des Zwischenspeichers ist der einzige Schalter, der die
+// alte App von den Geraeten raeumt. Steht hier eine kleinere Zahl als
+// in sw.js, prueft die Wache nichts mehr -- sie waere zufrieden mit
+// einer Fassung, die es gar nicht mehr geben darf.
+//
+// tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
+// stehenbleibt.
+var CACHE_MINDESTENS = 5;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -242,7 +267,7 @@ async function pruefeAusgelieferteSeite() {
     // Geraete die alte Fassung, obwohl auf dem Server alles stimmt.
     var v = (worker.match(/var CACHE = 'kmi-shell-v(\d+)';/) || [])[1];
     if (!v) return 'sw.js: kein gezaehlter Name fuer den Zwischenspeicher gefunden';
-    if (Number(v) < 4) {
+    if (Number(v) < CACHE_MINDESTENS) {
         return 'Der Zwischenspeicher steht auf v' + v + ', obwohl die Seite den neuen '
              + 'Gastweg benutzt -- die Geraete behalten die alte App';
     }
@@ -253,7 +278,7 @@ async function pruefeAusgelieferteSeite() {
 // Ein echtes Gericht fuer 0 Euro. Das MUSS abgelehnt werden.
 async function pruefePreisSchutz(haus) {
     var gericht = await probeGericht(haus);
-    if (!gericht) return null;          // ohne Karte nicht pruefbar, kein Alarm
+    if (!gericht) return UNPRUEFBAR;    // ohne Karte nicht pruefbar, kein Alarm
 
     var a = await alsGast('order-save', {
         order: {
@@ -284,26 +309,47 @@ async function pruefePreisSchutz(haus) {
 //
 // Eine Lieferbestellung mit einem einzigen Gericht, weit unter dem
 // hinterlegten Wert. Die MUSS abgelehnt werden.
+//
+// UND SIE PRUEFT IHN DORT, WO ES IHN GIBT -- NICHT DORT, WO SIE GERADE
+// STEHT.
+//
+// Am 27.08.2026 nach dem Einspielen von SQL 19 nachgesehen:
+//
+//     Greetsieler Boerse           0.00
+//     La Piazza                    0.00
+//     Pizzeria Al Porto Oldersum   0.00
+//     Rhodos                      15.00
+//
+// Genau ein Haus hat einen Mindestbestellwert. Die Wache probt aber am
+// ERSTEN freigeschalteten Haus -- und wenn das nicht Rhodos ist, findet
+// sie dort 0, gibt "nicht pruefbar" zurueck und der einzige Betrieb,
+// bei dem die Regel ueberhaupt gilt, wird nie geprueft.
+//
+// Eine Wache, die nur dort nachsieht, wo nichts zu holen ist, meldet
+// jahrelang gruen. Also sucht diese Pruefung sich ihr Haus selbst: das
+// erste freigeschaltete MIT hinterlegtem Wert.
 async function pruefeMindestbestellwert(haus) {
     var hausDaten = null;
     try {
-        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-            + encodeURIComponent(haus) + '&select=min_order_value&limit=1', { headers: kopf() });
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants'
+            + '?is_active=eq.true&min_order_value=gt.0'
+            + '&select=id,min_order_value&order=created_at.asc&limit=1', { headers: kopf() });
         if (res.ok) hausDaten = (await res.json())[0];
-    } catch (e) { return null; }
+    } catch (e) { return UNPRUEFBAR; }
 
+    // Kein Haus mit hinterlegtem Wert -> nichts zu pruefen, kein Alarm.
     var mindest = hausDaten ? Number(hausDaten.min_order_value) || 0 : 0;
-    // Kein Mindestwert hinterlegt -> nichts zu pruefen, kein Alarm.
-    if (mindest <= 0) return null;
+    if (!hausDaten || mindest <= 0) return UNPRUEFBAR;
+    haus = hausDaten.id;
 
     var gericht = await probeGericht(haus);
-    if (!gericht) return null;                 // ohne Karte nicht pruefbar
+    if (!gericht) return UNPRUEFBAR;           // ohne Karte nicht pruefbar
 
     // Ein Gericht zum echten Preis. Liegt das schon ueber dem Mindestwert,
     // laesst sich der Schutz mit einer Bestellung nicht pruefen -- dann
     // lieber gar nichts melden als falschen Alarm.
     var warenwert = Number(gericht.base_price) || 0;
-    if (warenwert >= mindest) return null;
+    if (warenwert >= mindest) return UNPRUEFBAR;
 
     var a = await alsGast('order-save', {
         order: {
@@ -326,6 +372,26 @@ async function pruefeMindestbestellwert(haus) {
          + a.status + ')';
 }
 
+// WELCHE PRUEFUNG WELCHE KENNUNG TRAEGT.
+//
+// Die Kennung ist der Name, unter dem sich die Wache merkt, ob sie
+// diese eine Sache schon gemeldet hat. Frueher trugen ALLE Pruefungen
+// dieselbe ('kmi-wache') -- damit haette eine bekannte Stoerung eine
+// neue verschluckt: Preis-Schutz meldet sich, danach ist Ruhe, und
+// wenn eine Stunde spaeter das Reservieren zumacht, sagt niemand etwas.
+//
+// Je Pruefung eine eigene Kennung. Leiser beim Wiederholen, nie leiser
+// bei etwas Neuem.
+var PRUEFUNGEN = [
+    // Die ausgelieferte Seite zuerst: geht die nicht, ist alles andere
+    // egal -- dann bekommt der Gast gar nicht erst die reparierte App.
+    { kennung: 'wache-seite',       fn: pruefeAusgelieferteSeite },
+    { kennung: 'wache-reservieren', fn: pruefeReservierung },
+    { kennung: 'wache-bestellen',   fn: pruefeBestellung },
+    { kennung: 'wache-preis',       fn: pruefePreisSchutz },
+    { kennung: 'wache-mindest',     fn: pruefeMindestbestellwert }
+];
+
 exports.handler = async function () {
     if (!SERVICE_KEY) {
         console.error('[wache] SUPABASE_SERVICE_KEY fehlt -- Wache kann nicht aufraeumen');
@@ -342,45 +408,110 @@ exports.handler = async function () {
     catch (e) { /* faellt unten als "kein Haus" auf */ }
 
     if (!haus) {
-        await alarmModul.alarm(
-            'Wache: kein Haus zum Pruefen',
-            'Die Gastweg-Wache findet kein freigeschaltetes Restaurant. Entweder ist keines aktiv, oder die Datenbank antwortet nicht.',
-            'kmi-wache');
-        return { statusCode: 200, body: JSON.stringify({ ok: false, grund: 'kein Haus' }) };
+        await melden([{ kennung: 'wache-haus',
+            text: 'Die Gastweg-Wache findet kein freigeschaltetes Restaurant. '
+                + 'Entweder ist keines aktiv, oder die Datenbank antwortet nicht.' }], []);
+        return antwort({ ok: false, grund: 'kein Haus' });
     }
 
-    // Alle drei laufen, auch wenn die erste schon klemmt. Sonst weiss
-    // man nach dem Alarm nur, dass EIN Weg zu ist -- und repariert ihn,
+    // Alle laufen, auch wenn die erste schon klemmt. Sonst weiss man
+    // nach dem Alarm nur, dass EIN Weg zu ist -- und repariert ihn,
     // waehrend der naechste noch immer zu ist.
-    var maengel = [];
-    // Die ausgelieferte Seite zuerst: geht die nicht, ist alles andere
-    // egal -- dann bekommt der Gast gar nicht erst die reparierte App.
-    var pruefungen = [pruefeAusgelieferteSeite, pruefeReservierung,
-                      pruefeBestellung, pruefePreisSchutz, pruefeMindestbestellwert];
-    for (var i = 0; i < pruefungen.length; i++) {
+    var stand = [];
+    for (var i = 0; i < PRUEFUNGEN.length; i++) {
+        var p = PRUEFUNGEN[i];
+        var erg;
         try {
-            var m = await pruefungen[i](haus);
-            if (m) maengel.push(m);
+            erg = await p.fn(haus);
         } catch (e) {
-            maengel.push('Pruefung ' + (i + 1) + ' ist selbst abgestuerzt: ' + ((e && e.message) || e));
+            erg = 'Pruefung ' + p.kennung + ' ist selbst abgestuerzt: ' + ((e && e.message) || e);
         }
+        stand.push({ kennung: p.kennung, mangel: erg === UNPRUEFBAR ? null : erg,
+                     uebersprungen: erg === UNPRUEFBAR });
     }
 
     // Immer aufraeumen -- auch wenn alles geklappt hat, gerade dann.
     await aufraeumen();
 
-    if (!maengel.length) {
-        console.log('[wache] alle Gastwege in Ordnung (Haus', haus + ')');
-        return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+    // ---- WAS DAVON SOLL IHN UEBERHAUPT ERREICHEN? -------------------
+    //
+    // Bis zum 27.08.2026: alles, jedes Mal, alle 15 Minuten. Gemessen
+    // wurden 96 E-Mails in einer Nacht, alle mit demselben Satz. Seine
+    // Worte: "die wache nervt zu viel".
+    //
+    // Jetzt entscheidet das Gedaechtnis je Pruefung -- neu, Erinnerung,
+    // Entwarnung oder still. Und danach geht EINE Nachricht raus, nicht
+    // eine je Pruefung.
+    var schlecht = [], gut = [], maengel = [];
+    for (var j = 0; j < stand.length; j++) {
+        var z = stand[j];
+        if (z.mangel) maengel.push(z.mangel);
+        // Eine Pruefung, die gerade nicht pruefbar ist, aendert nichts:
+        // weder Alarm noch Entwarnung.
+        if (z.uebersprungen) continue;
+        var was = await gedaechtnis.bewerten(z.kennung, !!z.mangel);
+        if (was === 'neu' || was === 'erinnerung') {
+            schlecht.push({ kennung: z.kennung, text: z.mangel, erinnerung: was === 'erinnerung' });
+        } else if (was === 'entwarnung') {
+            gut.push(z.kennung);
+        }
     }
 
-    // ---- Es klemmt. Jetzt klingelt das Handy. -----------------------
-    await alarmModul.alarm(
-        maengel.length === 1 ? 'Ein Gastweg klemmt' : (maengel.length + ' Gastwege klemmen'),
-        maengel.join(' -- ') + '. Das trifft jeden Gast, der es gerade versucht.',
-        'kmi-wache');
+    if (schlecht.length || gut.length) await melden(schlecht, gut);
 
-    // 500, damit der Ausfall auch in der Netlify-Uebersicht rot ist und
-    // nicht nur in einer Protokollzeile steht.
-    return { statusCode: 500, body: JSON.stringify({ ok: false, maengel: maengel }) };
+    if (!maengel.length) console.log('[wache] alle Gastwege in Ordnung (Haus', haus + ')');
+    return antwort({ ok: !maengel.length, maengel: maengel,
+                     gemeldet: schlecht.length, entwarnt: gut.length });
 };
+
+// EINE NACHRICHT JE DURCHLAUF -- NICHT EINE JE PRUEFUNG.
+//
+// Wenn drei Wege gleichzeitig zumachen, ist das eine Stoerung und
+// nicht drei. Drei Nachrichten dafuer waeren genau der Laerm, um den
+// es hier geht.
+async function melden(schlecht, gut) {
+    var titel, zeilen = [];
+
+    if (schlecht.length) {
+        var alleErinnerung = schlecht.every(function (x) { return x.erinnerung; });
+        titel = alleErinnerung
+            ? (schlecht.length === 1 ? 'Klemmt immer noch' : schlecht.length + ' Sachen klemmen immer noch')
+            : (schlecht.length === 1 ? 'Ein Gastweg klemmt' : schlecht.length + ' Gastwege klemmen');
+        zeilen.push(schlecht.map(function (x) { return x.text; }).join(' -- '));
+        if (!alleErinnerung) zeilen.push('Das trifft jeden Gast, der es gerade versucht.');
+        // Damit er weiss, dass keine zweite Mail kommt, wenn er nichts tut.
+        zeilen.push('Naechste Erinnerung fruehestens morgen tagsueber.');
+    }
+    if (gut.length) {
+        if (!titel) titel = gut.length === 1 ? 'Geht wieder' : 'Geht wieder (' + gut.length + ')';
+        zeilen.push('Wieder in Ordnung: ' + gut.join(', ') + '.');
+    }
+
+    try {
+        await alarmModul.senden(titel, zeilen.join(' '), 'kmi-wache',
+                                schlecht.length ? 'alarm' : 'entwarnung');
+    } catch (e) {
+        console.error('[wache] Melden fehlgeschlagen:', (e && e.message) || e);
+    }
+}
+
+// IMMER 200 -- UND DAS IST KEINE SCHOENFAERBEREI, SONDERN DIE
+// REPARATUR EINES GEMESSENEN FEHLERS.
+//
+// Vorher gab die Wache 500 zurueck, wenn etwas klemmte, "damit der
+// Ausfall auch in der Netlify-Uebersicht rot ist". Netlify haelt einen
+// Durchlauf mit 500 fuer misslungen und startet ihn NEU.
+//
+// Gemessen am 27.08.2026 in den Edge-Protokollen: drei Durchlaeufe je
+// Viertelstunde statt einem -- 05:45:25, 05:45:28 und 05:45:36 Uhr
+// fragten nacheinander nach den Empfaengern, jeder schickte eine
+// eigene E-Mail. Der Statuscode allein hat die Zahl der Meldungen
+// verdreifacht. Zum Vergleich: seit alles wieder gruen ist, legt die
+// Wache genau EINE Probe je Viertelstunde an.
+//
+// Rot in einer Uebersicht, die niemand aufmacht, ist nichts wert. Der
+// Ausfall steht als [ALARM] im Protokoll, im Gedaechtnis und auf
+// seinem Handy. Das reicht, und es kostet keine drei Mails.
+function antwort(rumpf) {
+    return { statusCode: 200, body: JSON.stringify(rumpf) };
+}
