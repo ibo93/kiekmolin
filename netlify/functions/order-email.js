@@ -44,6 +44,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
+var nurText = require('./lib/nur-text').nurText;
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -292,10 +293,19 @@ function buildReservationEmail(r, rest, eventType) {
 }
 
 async function sendViaResend(to, mail) {
+    // MIT TEXTFASSUNG.
+    //
+    // Gefragt am 31.08.2026, warum manche Mails auf "Gesendet" stehen
+    // bleiben statt "Geliefert": eine Ursache, die wir selbst gesetzt
+    // haben, ist eine Mail aus reinem HTML. Spamfilter bei web.de und
+    // GMX werten die schlechter -- sie wird eher gedrosselt.
+    //
+    // Kein Zaubermittel gegen Abpraller. Nur ein Grund weniger.
     var res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: mail.subject, html: mail.html })
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: mail.subject,
+                               html: mail.html, text: nurText(mail.html) })
     });
     if (!res.ok) {
         var t = ''; try { t = await res.text(); } catch (e) {}
