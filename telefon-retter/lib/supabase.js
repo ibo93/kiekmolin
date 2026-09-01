@@ -170,6 +170,52 @@ async function reservierungenAm(restaurantId, datum) {
 // Bestaetigte Reservierungen eines Tages MIT Kontaktdaten - nur fuer die
 // SMS-Erinnerung (No-Show-Schutz). Rueckruf-Fallback-Eintraege bleiben
 // draussen (guest_name-Markierung).
+/* Was wir ueber diesen Anrufer wissen. Nicht um ihn zu durchleuchten,
+   sondern damit der Assistent ihn beim Namen nennen kann und nicht zum
+   zwoelften Mal fragt, wie er heisst.
+
+   Die Nummer liegt beim Anruf ohnehin vor, die Reservierungen gehoeren dem
+   Wirt. Gelesen wird nur, was fuer dieses Gespraech gebraucht wird: Name,
+   Anzahl der Besuche, uebliche Personenzahl. Keine Speisen, keine Betraege,
+   nichts aus anderen Betrieben. */
+async function gastHistorie(restaurantId, telefon) {
+  const nummer = String(telefon || '').replace(/[^0-9+]/g, '');
+  if (!nummer || !restaurantId) return null;
+
+  /* Die Nummer steht mal als +49491..., mal als 0491... in der Datenbank.
+     Beide Schreibweisen abfragen, sonst erkennt man denselben Gast nicht. */
+  const varianten = [nummer];
+  if (nummer.startsWith('+49')) varianten.push('0' + nummer.slice(3));
+  else if (nummer.startsWith('0')) varianten.push('+49' + nummer.slice(1));
+
+  const filter = 'guest_phone=in.(' + varianten.map((v) => '"' + v + '"').join(',') + ')';
+  const zeilen = await supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&' + filter +
+    '&select=guest_name,party_size,reservation_date,status' +
+    '&order=reservation_date.desc&limit=20'
+  );
+  if (!Array.isArray(zeilen) || !zeilen.length) return null;
+
+  /* Abgesagte zaehlen nicht als Besuch - sonst begruesst der Assistent
+     jemanden als Stammgast, der dreimal abgesagt hat. */
+  const echte = zeilen.filter((z) => z.status !== 'cancelled');
+  if (!echte.length) return null;
+
+  const zahlen = echte.map((z) => parseInt(z.party_size, 10)).filter(Boolean);
+  const haeufigste = zahlen.length
+    ? Number(Object.entries(zahlen.reduce((m, n) => (m[n] = (m[n] || 0) + 1, m), {}))
+        .sort((a, b) => b[1] - a[1])[0][0])
+    : null;
+
+  return {
+    name: (echte.find((z) => z.guest_name) || {}).guest_name || '',
+    besuche: echte.length,
+    zuletzt: echte[0].reservation_date || '',
+    uebliche_personenzahl: haeufigste
+  };
+}
+
 async function reservierungenFuerErinnerung(restaurantId, datum) {
   return supabaseGet(
     'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
@@ -243,7 +289,7 @@ async function rueckrufErledigt(id) {
 module.exports = {
   schluesselRolle,
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
-  reservierungenFuerErinnerung,
+  reservierungenFuerErinnerung, gastHistorie,
   neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,
   offeneRueckrufe, rueckrufErledigt
 };

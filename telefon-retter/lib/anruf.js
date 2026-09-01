@@ -121,7 +121,21 @@ class AnrufSitzung {
       // Promise-Rejection (ElevenLabs down) den ganzen Server.
       // Gecached: ab dem zweiten Anruf liegt das Audio sofort bereit -
       // der Gast hoert beim Abheben keine Sekunde Stille.
-      this.sprich(this.dialog.begruessung(), { cache: true }).catch((e) => this.log('Begruessung-Fehler: ' + e.message));
+      /* Kennen wir den Anrufer? Kurz nachsehen - aber nur kurz. Der Gast hat
+         gerade abgehoben und hoert bis zum ersten Wort Stille; eine langsame
+         Datenbank darf das nicht verlaengern. Kommt die Antwort nicht in
+         400 ms, begruessen wir wie immer.
+
+         Wichtig: Die persoenliche Begruessung darf NICHT in den Cache. Der
+         gilt fuer alle Anrufer - der naechste wuerde sonst mit dem Namen des
+         vorigen begruesst. */
+      Promise.race([
+        this.dialog.kenneAnrufer(),
+        new Promise((f) => setTimeout(() => f(null), 400))
+      ]).then((gast) => {
+        const text = this.dialog.begruessung();
+        return this.sprich(text, { cache: !gast });
+      }).catch((e) => this.log('Begruessung-Fehler: ' + e.message));
     } else if (msg.event === 'media') {
       if (this.deepgram) this.deepgram.sendeAudio(Buffer.from(msg.media.payload, 'base64'));
     } else if (msg.event === 'mark') {

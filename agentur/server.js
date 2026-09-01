@@ -1944,6 +1944,47 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* Bewertungs-Wache: Was ist bei Google seit dem letzten Blick
+       dazugekommen? Ohne das erfaehrt man von einer schlechten Bewertung
+       erst, wenn der Wirt anruft - dann ist sie schon gelesen worden. */
+    if (req.method === 'GET' && pfad === '/api/bewertungs-wache') {
+      const wache = require('./lib/bewertungs-wache');
+      if (!wache.schluessel()) {
+        json(res, 200, { bereit: false,
+          hinweis: 'GOOGLE_PLACES_KEY fehlt in sichtbarkeit/.env - ohne den kann ich bei Google nicht nachsehen.' });
+        return;
+      }
+      const kunden = await ladeKunden();
+      const ergebnisse = [];
+      for (const k of kunden) {
+        const slug = effektiverSlug(k);
+        const placeId = k.place_id || k.placeId;
+        if (!placeId) { ergebnisse.push({ slug, name: k.name, fehlt: 'place_id' }); continue; }
+        try {
+          ergebnisse.push(Object.assign({ slug }, await wache.pruefe(DATEN_ORDNER, slug, placeId)));
+        } catch (e) {
+          ergebnisse.push({ slug, name: k.name, fehler: e.message });
+        }
+      }
+      json(res, 200, { bereit: true, kunden: ergebnisse });
+      return;
+    }
+
+    /* Place-ID einmalig suchen. Die Auswahl trifft ein Mensch: der falsche
+       Betrieb waere schlimmer als keiner - man wuerde fremde Bewertungen
+       ueberwachen und dem Wirt Zahlen zeigen, die nicht seine sind. */
+    if (req.method === 'POST' && pfad === '/api/place-suchen') {
+      const wache = require('./lib/bewertungs-wache');
+      const { name, ort } = await leseBody(req);
+      if (!name) { json(res, 400, { fehler: 'Name fehlt' }); return; }
+      try {
+        json(res, 200, { treffer: await wache.findePlaceId(name, ort) });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
     if (req.method === 'POST' && pfad === '/api/bewertung-status') {
       const { kennung, id, status } = await leseBody(req);
       const erlaubt = ['offen', 'gemeldet', 'geloescht', 'abgelehnt', 'beantwortet'];

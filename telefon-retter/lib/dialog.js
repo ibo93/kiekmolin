@@ -296,7 +296,7 @@ function baueTools(stufe, kann, restaurant) {
 }
 
 // --- System-Prompt ---------------------------------------------------------------
-function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
+function baueSystemPrompt(restaurant, stufe, anrufer, kann, gast) {
   const f = baueFaehigkeiten(stufe, kann, restaurant);
   const jetzt = new Date();
   const heute = datumHeute();
@@ -366,6 +366,37 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
     zeilen.push('- Du siezt den Gast durchgehend ("Sie", "Ihnen", "Ihr").');
   }
 
+  /* Bekannter Gast. Der Grat ist schmal: beim Namen genannt zu werden ist
+     angenehm, ausgeforscht zu werden nicht. Deshalb nur Name und uebliche
+     Personenzahl - kein Datum des letzten Besuchs, keine Bestellhistorie,
+     keine Zahlen. "Sie waren am 3. Mai da und hatten Pizza" klingt wie
+     Ueberwachung, "Moin Herr Kuran, wieder ein Tisch fuer vier?" wie ein
+     Wirt, der seine Gaeste kennt. */
+  if (gast && gast.besuche >= 2) {
+    zeilen.push('',
+      'DIESEN ANRUFER KENNEN WIR:',
+      '- War schon ' + gast.besuche + ' mal hier'
+        + (gast.uebliche_personenzahl ? ', meist zu ' + gast.uebliche_personenzahl : ''),
+      '',
+      /* Der Name steht bewusst NICHT hier. Das Modell haelt sich nicht an
+         "sag nicht Herr" - es folgt seinem Sprachgefuehl und raet das
+         Geschlecht aus dem Vornamen. Bei einer Frau ist das peinlich. Was es
+         nicht kennt, kann es nicht falsch verwenden; fuer die Reservierung
+         wird der Name im Hintergrund eingesetzt. */
+      '- Der Name ist uns bekannt und wird bei einer Reservierung automatisch',
+      '  eingetragen. Frage NICHT danach.',
+      '- Sprich den Gast NICHT mit Namen an. Kein "Herr", kein "Frau", auch',
+      '  nicht den Namen allein. Du weisst das Geschlecht nicht und raetst es',
+      '  nicht. "Schoen, dass Sie wieder anrufen" reicht voellig.',
+      gast.uebliche_personenzahl
+        ? '- Bei einer Reservierung darfst du die uebliche Personenzahl vorschlagen ("wieder zu '
+          + gast.uebliche_personenzahl + '?"), aber nie einfach annehmen.'
+        : '- Frage wie immer nach der Personenzahl.',
+      '- Erwaehne NIE Zahlen, Daten oder frueheres Verhalten. Kein "Sie waren',
+      '  am soundsovielten da", kein "Sie bestellen immer". Das wirkt wie',
+      '  Ueberwachung und vertreibt Gaeste.');
+  }
+
   /* Wissensbasis: im CRM gepflegte Fragen und Antworten. Ohne die sagt der
      Assistent bei allem ausserhalb von Karte und Oeffnungszeiten "das weiss
      ich nicht" - was den Gast genauso weit bringt wie ein Freizeichen. */
@@ -416,6 +447,28 @@ class DialogSitzung {
     this.zusatzVorgeschlagen = false; // Zusatzverkauf: hoechstens EIN Vorschlag pro Anruf
     // Ergebnis dieses Anrufs - Grundlage fuer den Umsatz-Nachweis im Monats-Report
     this.statistik = { reservierungen: 0, gaeste: 0, bestellungen: 0, bestellwert: 0, rueckrufe: 0 };
+    this.gast = null; // wird von kenneAnrufer() gefuellt, wenn wir den Anrufer schon kennen
+  }
+
+  /* Kennen wir den Anrufer? Muss VOR der Begruessung laufen, sonst nuetzt es
+     nichts mehr. Faellt die Abfrage aus, geht das Gespraech normal weiter -
+     ein unbekannter Gast ist kein Fehler, nur der Normalfall. */
+  async kenneAnrufer() {
+    if (!this.anrufer || !this.daten || !this.daten.gastHistorie) return null;
+    try {
+      const g = await this.daten.gastHistorie(this.restaurant.id, this.anrufer);
+      /* Ab dem zweiten Besuch ist jemand ein bekanntes Gesicht. Beim ersten
+         waere "schoen dass Sie wieder da sind" schlicht falsch. */
+      if (g && g.besuche >= 2) {
+        this.gast = g;
+        this.system = baueSystemPrompt(this.restaurant, this.stufe, this.anrufer, this.kann, g);
+        this.log('Anrufer erkannt: ' + (g.name || 'ohne Namen') + ', ' + g.besuche + ' Besuche');
+      }
+      return this.gast;
+    } catch (e) {
+      this.log('Gast-Historie nicht abrufbar: ' + e.message);
+      return null;
+    }
   }
 
   begruessung() {
@@ -430,6 +483,27 @@ class DialogSitzung {
       return /assistent|k\.?i\.?\b|künstlich|digital|computer|automat/i.test(eigen)
         ? eigen
         : eigen + ' Ich bin übrigens ein digitaler Assistent.';
+    }
+
+    /* Bekannter Gast: mit Namen begruessen. Das ist der Moment, in dem
+       auffaellt, dass hier jemand mitdenkt - und er kostet nichts. Der
+       KI-Hinweis bleibt trotzdem drin, die Transparenzpflicht kennt keine
+       Stammgaeste. */
+    if (this.gast && this.gast.name) {
+      /* Beim Duzen passt der Vorname. Beim Siezen passt weder der Vorname
+         (zu vertraulich) noch der Nachname allein ("Moin Kuran" sagt hier
+         niemand) - und "Herr/Frau" ist raus, das Geschlecht kennen wir
+         nicht. Dann eben ohne Namen: dass wir ihn wiedererkennen, merkt
+         der Gast am "wieder". */
+      const vorname = this.gast.name.trim().split(/\s+/)[0];
+      const persoenlich = this.restaurant.anrede === 'du' && vorname
+        ? 'Moin ' + vorname + ', schön dass du wieder anrufst.'
+        : 'Moin, schön dass Sie wieder anrufen.';
+
+      const frage = this.restaurant.anrede === 'du'
+        ? ' Was kann ich für dich tun?' : ' Was kann ich für Sie tun?';
+      return persoenlich + ' Hier ist der digitale Assistent von '
+           + this.restaurant.name + '.' + frage;
     }
 
     return 'Moin, hier ist der digitale KI-Assistent von ' + this.restaurant.name +
@@ -564,6 +638,20 @@ class DialogSitzung {
   }
 
   async toolReserviereTisch({ gast_name, telefon, datum, uhrzeit, personen, hinweise }) {
+    /* Bekannter Anrufer: Der Name steht nicht im Systemprompt (sonst raet das
+       Modell eine Geschlechtsanrede dazu), also hier einsetzen.
+
+       Nicht nur bei leerem Feld: Ohne den Namen im Prompt denkt sich das
+       Modell einen aus ("Stammgast"), und dann steht im Kalender des Wirts
+       ein Platzhalter statt eines Namens. Den echten Namen nehmen wir immer -
+       ausser der Gast hat im Gespraech selbst einen anderen genannt, etwa
+       weil er fuer jemand anderen reserviert. */
+    if (this.gast && this.gast.name) {
+      const vomGastGenannt = gast_name && this.nachrichten.some((n) =>
+        n.role === 'user' && typeof n.content === 'string' &&
+        n.content.toLowerCase().includes(String(gast_name).toLowerCase().split(/\s+/)[0]));
+      if (!vomGastGenannt) gast_name = this.gast.name;
+    }
     // Missbrauchsschutz: max. N Buchungen pro Anruf, danach nur noch Rueckruf.
     if (this.buchungenGezaehlt >= this.maxBuchungen) {
       return { gespeichert: false, fehler: 'Fuer weitere Reservierungen bitte einen Rueckruf anbieten (Limit pro Anruf erreicht).' };
