@@ -83,7 +83,10 @@ function ladeExternenKunden(pfad, basisOrdner) {
     closing_time: String(daten.schliesst || daten.closing_time || '').trim() || null,
     delivery_fee: zahlOderNull(daten.liefergebuehr != null ? daten.liefergebuehr : daten.delivery_fee),
     // Keine Mittagspause annehmen, wenn nichts dasteht
-    opening_hours: { pause_enabled: !!daten.pause }
+    opening_hours: { pause_enabled: !!daten.pause },
+    /* Ruhetage durchreichen. Ohne das kennt die Verfuegbarkeitspruefung sie
+       nicht und gibt einen Tisch frei, an dem geschlossen ist. */
+    ruhetage: Array.isArray(daten.ruhetage) ? daten.ruhetage : []
   };
 
   const menue = (Array.isArray(daten.speisekarte) ? daten.speisekarte : [])

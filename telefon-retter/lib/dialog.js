@@ -337,6 +337,15 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann, gast) {
         ? ', Pause ' + (restaurant.opening_hours && restaurant.opening_hours.pause_start || '14:00') + ' bis ' + (restaurant.opening_hours && restaurant.opening_hours.pause_end || '17:00') + ' Uhr'
         : ''));
   }
+  /* Eigene Zeile, nicht angehaengt an die Oeffnungszeiten: Der Ruhetag muss
+     auch dann dastehen, wenn keine Zeiten hinterlegt sind. Sonst reserviert
+     der Assistent fuer den Montag, an dem geschlossen ist. */
+  if (restaurant.ruhetage && [].concat(restaurant.ruhetage).length) {
+    const tage = [].concat(restaurant.ruhetage).join(' und ');
+    zeilen.push('- RUHETAG: ' + tage + '. An diesen Tagen ist geschlossen -'
+      + ' keine Reservierung, keine Bestellung. Sag es freundlich und biete'
+      + ' einen anderen Tag an.');
+  }
   if (restaurant.description) zeilen.push('- Beschreibung: ' + restaurant.description);
   if (restaurant.delivery_fee != null) zeilen.push('- Liefergebuehr: ' + euro(restaurant.delivery_fee));
 

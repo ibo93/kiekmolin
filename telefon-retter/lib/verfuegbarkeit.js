@@ -69,7 +69,53 @@ function slotsFuer(restaurant) {
 // Reservierungen. Rueckgabe: { frei, grund, alternativen }.
 //   reservierungen: Zeilen aus reservations (status in confirmed/pending/blocked)
 //   tischanzahl:    aktive Tische (0 => Fallback 13, wie in der App)
+/* Ruhetage. Ohne die reserviert der Assistent fuer den Montag, an dem
+   geschlossen ist - der Gast steht vor der Tuer und ruft nie wieder an.
+
+   Erwartet wird eine Liste von Wochentagen, wie sie im CRM eingetragen wird:
+   ['Mo'] oder ['Mo','Di']. Auch ausgeschriebene Namen und Zahlen (0 = Sonntag)
+   werden verstanden, weil niemand ein Format auswendig lernen will. */
+const WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const LANG = {
+  sonntag: 0, montag: 1, dienstag: 2, mittwoch: 3,
+  donnerstag: 4, freitag: 5, samstag: 6, sonnabend: 6
+};
+
+function istRuhetag(restaurant, datum) {
+  const roh = (restaurant && (restaurant.ruhetage || restaurant.rest_days)) || [];
+  const liste = Array.isArray(roh) ? roh : String(roh).split(/[,;\s]+/);
+  if (!liste.length) return false;
+
+  const d = new Date(datum + 'T12:00:00');
+  if (isNaN(d)) return false;
+  const tag = d.getDay();
+
+  return liste.some((e) => {
+    const s = String(e || '').trim().toLowerCase();
+    if (!s) return false;
+    if (/^[0-6]$/.test(s)) return Number(s) === tag;
+    if (LANG[s] != null) return LANG[s] === tag;
+    return WOCHENTAGE[tag].toLowerCase() === s.slice(0, 2);
+  });
+}
+
+function ruhetagName(restaurant, datum) {
+  const d = new Date(datum + 'T12:00:00');
+  const lang = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  return isNaN(d) ? '' : lang[d.getDay()];
+}
+
 function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jetzt) {
+  /* Vor allem anderen: Hat der Betrieb an diesem Tag ueberhaupt auf? Eine
+     freie Tischkapazitaet an einem Ruhetag ist keine gute Nachricht. */
+  if (istRuhetag(restaurant, datum)) {
+    return {
+      frei: false,
+      grund: 'An diesem Tag (' + ruhetagName(restaurant, datum) + ') ist Ruhetag - der Betrieb hat geschlossen.',
+      alternativen: []
+    };
+  }
+
   const alleSlots = slotsFuer(restaurant);
   const slotZeit = normalisiereUhrzeit(uhrzeit);
   const gesamtTische = tischanzahl > 0 ? tischanzahl : 13;
@@ -141,4 +187,4 @@ function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jet
   return { frei: false, grund: 'Um ' + slotZeit + ' Uhr ist leider alles belegt.', alternativen };
 }
 
-module.exports = { slotsFuer, pruefeSlot, minutenAbziehen, lokalesDatum, normalisiereUhrzeit };
+module.exports = { slotsFuer, pruefeSlot, minutenAbziehen, lokalesDatum, normalisiereUhrzeit, istRuhetag, ruhetagName };

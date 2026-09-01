@@ -178,6 +178,12 @@ function speichereEigenenKunden(daten, basisOrdner) {
     weiterWann: /^(bitte|unklar)$/.test(String(d.weiterWann || '')) ? d.weiterWann : undefined,
     /* Anrede: nur 'du' weicht ab, alles andere bleibt beim hoeflichen Sie. */
     anrede: String(d.anrede || '') === 'du' ? 'du' : undefined,
+    /* Ruhetage als Kuerzel (Mo, Di, ...). Ohne die reserviert der Assistent
+       fuer einen Tag, an dem geschlossen ist - der Gast steht vor der Tuer. */
+    ruhetage: (Array.isArray(d.ruhetage) ? d.ruhetage : String(d.ruhetage || '').split(/[,;\s]+/))
+      .map((x) => String(x || '').trim().slice(0, 2))
+      .filter((x) => /^(Mo|Di|Mi|Do|Fr|Sa|So)$/i.test(x))
+      .map((x) => x[0].toUpperCase() + x[1].toLowerCase()),
     liefergebuehr: zahl(d.liefergebuehr) || undefined,
     melden: {
       sms: sms ? normalisiereNummer(sms) : undefined,
