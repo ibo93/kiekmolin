@@ -86,7 +86,8 @@ function ladeExternenKunden(pfad, basisOrdner) {
     opening_hours: { pause_enabled: !!daten.pause },
     /* Ruhetage durchreichen. Ohne das kennt die Verfuegbarkeitspruefung sie
        nicht und gibt einen Tisch frei, an dem geschlossen ist. */
-    ruhetage: Array.isArray(daten.ruhetage) ? daten.ruhetage : []
+    ruhetage: Array.isArray(daten.ruhetage) ? daten.ruhetage : [],
+    geschlossen: Array.isArray(daten.geschlossen) ? daten.geschlossen : []
   };
 
   const menue = (Array.isArray(daten.speisekarte) ? daten.speisekarte : [])

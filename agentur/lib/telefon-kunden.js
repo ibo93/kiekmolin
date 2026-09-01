@@ -184,6 +184,19 @@ function speichereEigenenKunden(daten, basisOrdner) {
       .map((x) => String(x || '').trim().slice(0, 2))
       .filter((x) => /^(Mo|Di|Mi|Do|Fr|Sa|So)$/i.test(x))
       .map((x) => x[0].toUpperCase() + x[1].toLowerCase()),
+
+    /* Betriebsferien und Feiertage. Nur vollstaendige Datumsangaben
+       uebernehmen - ein halb eingetipptes Datum wuerde entweder gar nicht
+       greifen oder den falschen Zeitraum sperren. */
+    geschlossen: (Array.isArray(d.geschlossen) ? d.geschlossen : [])
+      .map((z) => ({
+        von: String((z && z.von) || '').slice(0, 10),
+        bis: String((z && z.bis) || (z && z.von) || '').slice(0, 10),
+        grund: String((z && z.grund) || '').trim().slice(0, 60) || undefined
+      }))
+      .filter((z) => /^\d{4}-\d{2}-\d{2}$/.test(z.von) && /^\d{4}-\d{2}-\d{2}$/.test(z.bis)
+                  && z.bis >= z.von)
+      .slice(0, 12),
     liefergebuehr: zahl(d.liefergebuehr) || undefined,
     melden: {
       sms: sms ? normalisiereNummer(sms) : undefined,

@@ -346,6 +346,23 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann, gast) {
       + ' keine Reservierung, keine Bestellung. Sag es freundlich und biete'
       + ' einen anderen Tag an.');
   }
+  /* Schliesszeiten, die JETZT oder BALD greifen. Alte Zeitraeume weglassen -
+     der Prompt soll nicht mit vergangenen Betriebsferien zugemuellt werden. */
+  const zeitraeume = (restaurant.geschlossen || []).filter((z) => {
+    const bis = String((z && (z.bis || z.von)) || '').slice(0, 10);
+    return bis >= new Date().toISOString().slice(0, 10);
+  });
+  if (zeitraeume.length) {
+    zeilen.push('- GESCHLOSSEN an diesen Terminen:');
+    zeitraeume.slice(0, 5).forEach((z) => {
+      const von = String(z.von || '').split('-').reverse().join('.');
+      const bis = String(z.bis || z.von || '').split('-').reverse().join('.');
+      zeilen.push('    ' + (von === bis ? von : von + ' bis ' + bis)
+        + (z.grund ? ' (' + z.grund + ')' : ''));
+    });
+    zeilen.push('  In diesen Zeitraeumen nichts annehmen. Sag freundlich Bescheid'
+      + ' und biete einen Termin danach an.');
+  }
   if (restaurant.description) zeilen.push('- Beschreibung: ' + restaurant.description);
   if (restaurant.delivery_fee != null) zeilen.push('- Liefergebuehr: ' + euro(restaurant.delivery_fee));
 

@@ -105,9 +105,46 @@ function ruhetagName(restaurant, datum) {
   return isNaN(d) ? '' : lang[d.getDay()];
 }
 
+/* Betriebsferien, Feiertage, Renovierung: Zeitraeume, in denen zu ist.
+   Der Ruhetag deckt nur Wochentage ab - drei Wochen Januar muesste man
+   sonst als 21 einzelne Sperren eintragen.
+
+   Erwartet: [{ von: 'JJJJ-MM-TT', bis: 'JJJJ-MM-TT', grund: 'Betriebsferien' }]
+   Fehlt "bis", gilt der Tag allein. */
+function istGeschlossen(restaurant, datum) {
+  const liste = (restaurant && (restaurant.geschlossen || restaurant.schliesszeiten)) || [];
+  if (!Array.isArray(liste) || !liste.length) return null;
+  const tag = String(datum || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tag)) return null;
+
+  for (const z of liste) {
+    const von = String((z && z.von) || '').slice(0, 10);
+    const bis = String((z && z.bis) || von).slice(0, 10);
+    if (!von) continue;
+    /* Zeichenweiser Vergleich reicht bei JJJJ-MM-TT und ist zeitzonenfest -
+       ein Date-Objekt haette hier je nach Sommerzeit einen Tag daneben
+       gelegen. */
+    if (tag >= von && tag <= bis) {
+      return { von, bis, grund: (z && z.grund) || '' };
+    }
+  }
+  return null;
+}
+
 function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jetzt) {
   /* Vor allem anderen: Hat der Betrieb an diesem Tag ueberhaupt auf? Eine
-     freie Tischkapazitaet an einem Ruhetag ist keine gute Nachricht. */
+     freie Tischkapazitaet an einem geschlossenen Tag ist keine gute
+     Nachricht. Erst der Zeitraum, dann der Wochentag. */
+  const zu = istGeschlossen(restaurant, datum);
+  if (zu) {
+    const bis = zu.bis.split('-').reverse().join('.');
+    return {
+      frei: false,
+      grund: (zu.grund || 'Geschlossen') + ' - der Betrieb hat bis zum ' + bis + ' zu.',
+      alternativen: []
+    };
+  }
+
   if (istRuhetag(restaurant, datum)) {
     return {
       frei: false,
@@ -187,4 +224,4 @@ function pruefeSlot(restaurant, reservierungen, tischanzahl, datum, uhrzeit, jet
   return { frei: false, grund: 'Um ' + slotZeit + ' Uhr ist leider alles belegt.', alternativen };
 }
 
-module.exports = { slotsFuer, pruefeSlot, minutenAbziehen, lokalesDatum, normalisiereUhrzeit, istRuhetag, ruhetagName };
+module.exports = { slotsFuer, pruefeSlot, minutenAbziehen, lokalesDatum, normalisiereUhrzeit, istRuhetag, ruhetagName, istGeschlossen };
