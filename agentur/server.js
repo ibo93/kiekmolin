@@ -660,7 +660,7 @@ async function telefonStatus() {
 function bewertungProtokollPfad(slug) {
   return path.join(DATEN_ORDNER, slug, 'bewertungen.jsonl');
 }
-function bewertungProtokoll(slug, verstoss, auszug) {
+function bewertungProtokoll(slug, verstoss, auszug, beschwerdeWeg) {
   if (DEMO) return null; // Demo-Laeufe nichts mitschreiben
   try {
     const pfad = bewertungProtokollPfad(slug);
@@ -670,7 +670,11 @@ function bewertungProtokoll(slug, verstoss, auszug) {
       zeit: new Date().toISOString(),
       verstoss,
       auszug: String(auszug || '').replace(/\s+/g, ' ').trim().slice(0, 90),
-      status: verstoss === 'kein_verstoss' ? 'beantwortet' : 'offen'
+      status: verstoss === 'kein_verstoss' ? 'beantwortet' : 'offen',
+      /* Welcher Weg gewaehlt wurde. Das Nachfass-Schreiben muss sich auf
+         dieselbe Begruendung beziehen wie die Beanstandung - sonst wirkt es,
+         als wuesste man selbst nicht mehr, was man eingereicht hat. */
+      beschwerdeWeg: beschwerdeWeg || undefined
     };
     fs.appendFileSync(pfad, JSON.stringify(eintrag) + '\n');
     return eintrag;
@@ -692,7 +696,18 @@ function bewertungAnzahl(slug) {
 function bewertungStatusSetzen(slug, id, status) {
   const alle = bewertungJournal(slug).slice().reverse(); // wieder chronologisch
   let gefunden = false;
-  for (const e of alle) { if (e.id === id) { e.status = status; gefunden = true; } }
+  const jetzt = new Date().toISOString();
+  for (const e of alle) {
+    if (e.id === id) {
+      /* Seit wann steht der Fall auf diesem Stand? Ohne dieses Datum kann
+         niemand sehen, wie lange eine Meldung schon bei Google liegt - und
+         genau daran bleiben Faelle haengen: gemeldet, nie nachgefasst,
+         vergessen. */
+      if (e.status !== status) e.statusSeit = jetzt;
+      e.status = status;
+      gefunden = true;
+    }
+  }
   if (!gefunden) return false;
   try {
     fs.writeFileSync(bewertungProtokollPfad(slug), alle.map((e) => JSON.stringify(e)).join('\n') + '\n');
@@ -1147,7 +1162,11 @@ const server = http.createServer(async (req, res) => {
           fragenAnzahl: suchfragen(k).fragen.length,
           reports: historie.length,
           letzterReport: historie[0] || null,
-          gesundheit: bewerteKunde({ historie, aktuellerMonat: monat })
+          gesundheit: bewerteKunde({ historie, aktuellerMonat: monat }),
+          /* Bilanz der bearbeiteten Bewertungen. Das Journal selbst bleibt
+             beim einzelnen Kunden - hier reichen die Zahlen, damit das CRM
+             einen Ueberblick zeigen kann, ohne vier Anfragen zu stellen. */
+          bewertungen: require('./lib/bewertungs-retter').journalBilanz(bewertungJournal(slug))
         };
       }));
       return;
@@ -1627,7 +1646,7 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { fehler: 'ANTHROPIC_API_KEY fehlt - einmal "node schluessel-einrichten.js" ausfuehren.' });
         return;
       }
-      const { kennung, text } = await leseBody(req);
+      const { kennung, text, kontaktBestritten } = await leseBody(req);
       if (!String(text || '').trim()) { json(res, 400, { fehler: 'Bitte die Bewertung einfuegen.' }); return; }
       const kunde = await findeKunde(kennung);
       if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
@@ -1640,22 +1659,30 @@ const server = http.createServer(async (req, res) => {
           body: JSON.stringify({
             model: process.env.KI_MODELL || 'claude-sonnet-5',
             max_tokens: 900,
-            messages: [{ role: 'user', content: retter.bauePruefPrompt(kunde, text) }]
+            messages: [{ role: 'user', content: retter.bauePruefPrompt(kunde, text, kontaktBestritten) }]
           })
         });
         if (!antwort.ok) throw new Error('Claude-API ' + antwort.status);
         const daten = await antwort.json();
         const ergebnis = retter.parsePruefung((daten.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
         ergebnis.label = retter.VERSTOSS_LABELS[ergebnis.verstoss];
-        // Bei falschen Tatsachen: fertige formelle Beschwerde mitliefern
-        if (ergebnis.verstoss === 'falsche_tatsache') {
-          ergebnis.beschwerde = retter.baueBeschwerde(kunde, text, ergebnis);
+        /* Beschwerde-Entwurf. Der staerkste Hebel ist das Bestreiten des
+           Gastkontakts - dann muss der Bewerter den Besuch belegen, nicht das
+           Restaurant die Unwahrheit. Ob der Kontakt bestritten werden kann,
+           weiss nur der Wirt; das kommt als Angabe aus dem CRM, nie aus dem
+           Modell. Ohne diese Angabe bleibt es beim schwaecheren Weg. */
+        if (kontaktBestritten) {
+          ergebnis.beschwerde = retter.baueBeschwerde(kunde, text, ergebnis, true);
+          ergebnis.beschwerdeWeg = 'kontakt';
+        } else if (ergebnis.verstoss === 'falsche_tatsache') {
+          ergebnis.beschwerde = retter.baueBeschwerde(kunde, text, ergebnis, false);
+          ergebnis.beschwerdeWeg = 'tatsache';
         }
         // Beste Verteidigung immer mitgeben: mehr echte gute Bewertungen
         ergebnis.bewertungsAnfrage = retter.baueBewertungsAnfrage(kunde);
         // Track-Record: Journal-Eintrag pro Kunde (Nachweis der Arbeit).
         // Kurzer Auszug zum Wiedererkennen, KEIN voller Bewertungstext.
-        bewertungProtokoll(effektiverSlug(kunde), ergebnis.verstoss, text);
+        bewertungProtokoll(effektiverSlug(kunde), ergebnis.verstoss, text, ergebnis.beschwerdeWeg);
         ergebnis.bearbeitetGesamt = bewertungAnzahl(effektiverSlug(kunde));
         json(res, 200, ergebnis);
       } catch (e) {
@@ -1896,6 +1923,27 @@ const server = http.createServer(async (req, res) => {
 
     // API: Status eines Bewertungs-Journal-Eintrags setzen (gemeldet ->
     // geloescht/abgelehnt). So wird aus dem Nachweis eine echte Erfolgs-Bilanz.
+    /* Nachfass-Schreiben zu einem Fall, der bei Google liegt und nicht
+       beantwortet wird. Braucht den Journal-Eintrag: dort steht, wann
+       eingereicht wurde und welcher Weg gewaehlt war. */
+    if (req.method === 'POST' && pfad === '/api/bewertung-nachfassen') {
+      const { kennung, id } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const eintrag = (bewertungJournal(effektiverSlug(kunde)) || []).find((e) => e.id === id);
+      if (!eintrag) { json(res, 404, { fehler: 'Eintrag nicht gefunden' }); return; }
+
+      const retter = require('./lib/bewertungs-retter');
+      json(res, 200, {
+        ok: true,
+        text: retter.baueNachfassen(kunde, eintrag.auszug || '',
+                                    eintrag.statusSeit || eintrag.zeit,
+                                    eintrag.beschwerdeWeg),
+        eingereicht: eintrag.statusSeit || eintrag.zeit
+      });
+      return;
+    }
+
     if (req.method === 'POST' && pfad === '/api/bewertung-status') {
       const { kennung, id, status } = await leseBody(req);
       const erlaubt = ['offen', 'gemeldet', 'geloescht', 'abgelehnt', 'beantwortet'];

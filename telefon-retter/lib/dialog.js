@@ -348,6 +348,13 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann) {
     '- Antworten kurz halten: 1-2 Saetze, eine Frage pro Antwort. Keine Listen, keine Emojis - es wird vorgelesen.',
     '- Wo es passt, mit einer kurzen Bestaetigung beginnen ("Gerne.", "Alles klar.", "Einen Moment.") - so hoert der Gast sofort eine Reaktion.',
     '- Uhrzeiten wie "19:30" als "halb acht abends" oder "19 Uhr 30" aussprechen.',
+    /* Am Telefon wird jedes Zeichen vorgelesen. "Herr/Frau Kuran" klingt wie
+       ein ausgefuelltes Formular - und das Geschlecht kann der Assistent aus
+       einem Namen ohnehin nicht wissen. Also gar keine Anrede. */
+    '- NIEMALS "Herr/Frau" oder "Herr oder Frau" sagen. Das Geschlecht kennst du nicht.',
+    '  Nutze den Namen allein ("Alles klar, Herr Kuran" nur wenn der Gast sich selbst so',
+    '  vorgestellt hat) oder lass die Anrede ganz weg ("Alles klar, der Tisch ist reserviert").',
+    '- Keine Schraegstriche, Klammern oder Abkuerzungen im Gesagten - alles wird vorgelesen.',
     '- Wenn alles erledigt ist: freundlich verabschieden und gespraech_beenden aufrufen.',
     '- Du bist ehrlich: auf Wunsch sagst du, dass du ein digitaler Assistent bist.');
 
@@ -497,7 +504,19 @@ class DialogSitzung {
       body: JSON.stringify({
         model: process.env.CLAUDE_MODELL || 'claude-sonnet-5',
         max_tokens: 800, // genug fuer das komplette Vorlesen einer Bestellung (Stufe 3)
-        system: this.system,
+        /* Prompt-Caching: Systemprompt und Werkzeuge sind bei jedem Wortwechsel
+           desselben Anrufs identisch - zusammen rund 1700 Token, die sonst
+           sechs- bis achtmal voll bezahlt werden. Mit cache_control zahlt man
+           sie einmal (plus 25 % fuers Anlegen) und danach zu einem Zehntel.
+           Der Marker gehoert auf den system-Block: gecacht wird alles davor,
+           also auch die Werkzeuge.
+
+           Der Cache lebt fuenf Minuten - laenger als jedes Telefonat. Unter
+           1024 Token ignoriert Anthropic ihn stillschweigend, das schadet
+           nicht. Abschaltbar ueber PROMPT_CACHE=0, falls er je stoert. */
+        system: process.env.PROMPT_CACHE === '0'
+          ? this.system
+          : [{ type: 'text', text: this.system, cache_control: { type: 'ephemeral' } }],
         tools: this.tools,
         stream: !!onDelta, // Telefon: Saetze schon beim Entstehen sprechen
         messages: this.nachrichten
