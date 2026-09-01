@@ -13,7 +13,7 @@ cd "$(dirname "$0")" || exit 1
 
 # --- Hier die Adresse deines Servers eintragen ---------------
 # Beispiel: SERVER="root@203.0.113.42"
-SERVER=""
+SERVER="root@31.70.133.55"
 ZIEL="/opt/kiekmolin"
 
 echo ""
@@ -90,8 +90,11 @@ echo "  Kopiert."
 # --- Neu starten --------------------------------------------
 echo ""
 echo "  Starte die Dienste neu ..."
-ssh "$SERVER" "cd $ZIEL && docker compose up -d --build" 2>&1 | tail -8
+# Der Exit-Code muss von ssh kommen, nicht von tail - sonst meldet das
+# Skript Erfolg, obwohl der Befehl auf dem Server fehlgeschlagen ist. 
+ssh "$SERVER" "cd $ZIEL && docker compose up -d --build" > /tmp/serverstart.log 2>&1
 NEU=$?
+tail -8 /tmp/serverstart.log
 
 echo ""
 if [ $NEU -eq 0 ]; then
