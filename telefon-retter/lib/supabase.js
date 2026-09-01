@@ -76,6 +76,23 @@ async function supabaseGet(pfadMitQuery) {
   return antwort.json();
 }
 
+/* Ein Feld aendern. Anders als beim Insert brauchen wir hier keine
+   Selbstheilung: Wir setzen genau eine Spalte, die es gibt. */
+async function supabasePatch(pfadMitQuery, felder) {
+  const { url } = konfig();
+  const antwort = await fetch(url + '/rest/v1/' + pfadMitQuery, {
+    method: 'PATCH',
+    headers: Object.assign({ Prefer: 'return=representation' }, headers()),
+    body: JSON.stringify(felder)
+  });
+  if (!antwort.ok) {
+    let text = '';
+    try { text = await antwort.text(); } catch (_e) { /* egal */ }
+    return { ok: false, status: antwort.status, text: String(text).slice(0, 200) };
+  }
+  return { ok: true };
+}
+
 // Selbst-heilender Insert - GLEICHES Muster wie in der App (index.html):
 // Fehlt eine Spalte in der Tabelle, lehnt PostgREST den ganzen Datensatz ab.
 // Wir lesen den Spaltennamen aus der Fehlermeldung, lassen die Spalte weg
@@ -216,6 +233,36 @@ async function gastHistorie(restaurantId, telefon) {
   };
 }
 
+/* Kommende Reservierungen zu einer Rufnummer. Grundlage fuers Absagen -
+   und zugleich die Sicherung: Abgesagt werden kann nur, was zu der Nummer
+   gehoert, von der gerade angerufen wird. Wer von woanders anruft, bekommt
+   einen Rueckruf angeboten. */
+async function reservierungenZuNummer(restaurantId, telefon, abDatum) {
+  const nummer = String(telefon || '').replace(/[^0-9+]/g, '');
+  if (!nummer || !restaurantId) return [];
+
+  const varianten = [nummer];
+  if (nummer.startsWith('+49')) varianten.push('0' + nummer.slice(3));
+  else if (nummer.startsWith('0')) varianten.push('+49' + nummer.slice(1));
+
+  const zeilen = await supabaseGet(
+    'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
+    '&guest_phone=in.(' + varianten.map((v) => '"' + v + '"').join(',') + ')' +
+    '&reservation_date=gte.' + encodeURIComponent(abDatum) +
+    '&status=neq.cancelled' +
+    '&select=id,guest_name,reservation_date,reservation_time,party_size,status' +
+    '&order=reservation_date.asc&limit=5'
+  );
+  return Array.isArray(zeilen) ? zeilen : [];
+}
+
+/* Absagen heisst hier: auf 'cancelled' setzen, nicht loeschen. Der Wirt soll
+   sehen koennen, dass da mal etwas war - und wer haeufig absagt. */
+async function sageReservierungAb(id) {
+  return supabasePatch('reservations?id=eq.' + encodeURIComponent(id),
+                       { status: 'cancelled' });
+}
+
 async function reservierungenFuerErinnerung(restaurantId, datum) {
   return supabaseGet(
     'reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId) +
@@ -290,6 +337,7 @@ module.exports = {
   schluesselRolle,
   findeRestaurant, speisekarte, reservierungenAm, anzahlAktiveTische,
   reservierungenFuerErinnerung, gastHistorie,
+  reservierungenZuNummer, sageReservierungAb,
   neueReservierung, neueBestellung, neuerBestellArtikel, resilienterInsert,
   offeneRueckrufe, rueckrufErledigt
 };

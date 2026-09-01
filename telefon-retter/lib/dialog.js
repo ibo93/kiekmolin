@@ -178,6 +178,25 @@ function baueTools(stufe, kann, restaurant) {
       }
     },
     {
+      /* Absagen sind ein haeufiger Anrufgrund - und ohne dieses Werkzeug
+         blieb dem Assistenten nur der Rueckrufzettel. Der Tisch blieb
+         blockiert, bis der Wirt zurueckrief: ein verlorener Abend. */
+      name: 'finde_meine_reservierung',
+      description: 'Sucht die kommenden Reservierungen des Anrufers ueber seine Rufnummer. Aufrufen, wenn jemand absagen, verschieben oder nachfragen will.',
+      input_schema: { type: 'object', properties: {} }
+    },
+    {
+      name: 'sage_reservierung_ab',
+      description: 'Sagt eine Reservierung ab. NUR mit einer id aus finde_meine_reservierung aufrufen, und erst nachdem der Gast Datum und Uhrzeit bestaetigt hat.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'die id aus finde_meine_reservierung' }
+        },
+        required: ['id']
+      }
+    },
+    {
       name: 'rueckruf_wunsch',
       description: 'Nimmt einen Rueckrufwunsch auf, wenn du unsicher bist oder der Wunsch nicht ins Schema passt. Lieber Rueckruf als falsche Zusage!',
       input_schema: {
@@ -324,6 +343,11 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann, gast) {
   zeilen.push('', 'DEINE AUFGABEN:');
   let nummer = 1;
   if (f.reservierung) {
+    zeilen.push(nummer++ + '. Absagen und Nachfragen zu bestehenden Reservierungen: '
+      + 'finde_meine_reservierung aufrufen, dem Gast Datum und Uhrzeit vorlesen, '
+      + 'bestaetigen lassen, dann sage_reservierung_ab. Nie ungefragt absagen. '
+      + 'Findet die Suche nichts, hoeflich sagen, dass zu dieser Rufnummer nichts '
+      + 'eingetragen ist, und einen Rueckruf anbieten.');
     zeilen.push(nummer++ + '. Tischreservierungen aufnehmen: Datum, Uhrzeit, Personenzahl und Name erfragen (einzeln, nicht alles auf einmal). Relative Angaben wie "heute", "morgen", "Freitag" rechnest du selbst in ein Datum um. VOR jeder Zusage pruefe_verfuegbarkeit aufrufen. Nach reserviere_tisch die Reservierung in einem Satz bestaetigen.');
   } else {
     // Wichtig: sonst verspricht er Tische, die er nicht buchen kann
@@ -606,6 +630,8 @@ class DialogSitzung {
     switch (name) {
       case 'pruefe_verfuegbarkeit': return this.toolPruefeVerfuegbarkeit(input);
       case 'reserviere_tisch': return this.toolReserviereTisch(input);
+      case 'finde_meine_reservierung': return this.toolFindeReservierung(input);
+      case 'sage_reservierung_ab': return this.toolSageAb(input);
       case 'rueckruf_wunsch': return this.toolRueckruf(input);
       case 'speisekarten_frage': return this.toolSpeisekarte(input);
       case 'pruefe_bestellung': return this.toolPruefeBestellung(input);
@@ -682,6 +708,62 @@ class DialogSitzung {
     this.statistik.reservierungen++;
     this.statistik.gaeste += parseInt(personen, 10) || 2;
     return { gespeichert: true, reservierung: { datum, uhrzeit: normalisiereUhrzeit(uhrzeit), personen, name: gast_name } };
+  }
+
+  /* Kommende Reservierungen des Anrufers. Gesucht wird ueber die Nummer, von
+     der gerade angerufen wird - das ist zugleich die Sicherung: Wer von
+     woanders anruft, findet nichts und bekommt einen Rueckruf angeboten.
+     Sonst koennte jeder mit einem Namen fremde Tische freiraeumen. */
+  async toolFindeReservierung() {
+    if (!this.anrufer) {
+      return { gefunden: false, grund: 'Die Rufnummer ist nicht uebermittelt. Biete einen Rueckruf an.' };
+    }
+    if (!this.daten || !this.daten.reservierungenZuNummer) {
+      return { gefunden: false, grund: 'Suche nicht moeglich. Biete einen Rueckruf an.' };
+    }
+    try {
+      const heute = new Date().toISOString().slice(0, 10);
+      const treffer = await this.daten.reservierungenZuNummer(this.restaurant.id, this.anrufer, heute);
+      if (!treffer.length) {
+        return { gefunden: false,
+                 grund: 'Zu dieser Rufnummer ist keine kommende Reservierung eingetragen.' };
+      }
+      this.gefundeneReservierungen = treffer;
+      return {
+        gefunden: true,
+        reservierungen: treffer.map((r) => ({
+          id: r.id,
+          datum: r.reservation_date,
+          uhrzeit: String(r.reservation_time || '').slice(0, 5),
+          personen: r.party_size
+        }))
+      };
+    } catch (e) {
+      this.log('Reservierungssuche fehlgeschlagen: ' + e.message);
+      return { gefunden: false, grund: 'Suche gerade nicht moeglich. Biete einen Rueckruf an.' };
+    }
+  }
+
+  async toolSageAb({ id }) {
+    /* Nur absagen, was die Suche vorher zu DIESER Nummer gefunden hat. Ohne
+       diese Pruefung koennte das Modell eine erfundene id schicken - und
+       damit die Reservierung eines Fremden loeschen. */
+    const erlaubt = (this.gefundeneReservierungen || []).some((r) => String(r.id) === String(id));
+    if (!erlaubt) {
+      return { abgesagt: false,
+               grund: 'Diese Reservierung gehoert nicht zu dieser Rufnummer. Erst finde_meine_reservierung aufrufen.' };
+    }
+    if (!this.daten || !this.daten.sageReservierungAb) {
+      return { abgesagt: false, grund: 'Absagen gerade nicht moeglich. Biete einen Rueckruf an.' };
+    }
+    const e = await this.daten.sageReservierungAb(id);
+    if (!e || !e.ok) {
+      return { abgesagt: false, grund: 'Absage fehlgeschlagen. Biete einen Rueckruf an.' };
+    }
+    this.gefundeneReservierungen = (this.gefundeneReservierungen || [])
+      .filter((r) => String(r.id) !== String(id));
+    this.statistik.absagen = (this.statistik.absagen || 0) + 1;
+    return { abgesagt: true };
   }
 
   async toolRueckruf({ telefon, name, anliegen }) {

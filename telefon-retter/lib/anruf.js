@@ -308,7 +308,11 @@ class AnrufSitzung {
         gaeste: s.gaeste || 0,
         bestellungen: s.bestellungen || 0,
         bestellwert: Math.round((s.bestellwert || 0) * 100) / 100,
-        rueckrufe: s.rueckrufe || 0
+        rueckrufe: s.rueckrufe || 0,
+        /* Absagen gehoeren in die Statistik wie Reservierungen: Sie sind der
+           Grund, warum ein Tisch wieder frei ist - und ohne sie stimmt die
+           Bilanz im Monatsbericht nicht. */
+        absagen: s.absagen || 0
       }) + '\n');
     } catch (_e) { /* Statistik ist nice-to-have */ }
   }

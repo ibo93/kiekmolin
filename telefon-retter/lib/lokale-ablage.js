@@ -30,14 +30,35 @@ function schreibe(slug, eintrag) {
   fs.appendFileSync(datei(slug), JSON.stringify(eintrag) + '\n');
 }
 
+/* Telefonnummern vergleichbar machen: 0491/123, +49491123 und 0491 123 sind
+   derselbe Gast. Sonst erkennt man Stammgaeste nicht wieder und sagt die
+   falsche Reservierung ab. */
+function nummerSchluessel(nummer) {
+  const roh = String(nummer || '').replace(/[^0-9+]/g, '');
+  if (!roh) return '';
+  return roh.replace(/^\+49/, '0').replace(/^0049/, '0');
+}
+
 function liesAlle(slug) {
+  let zeilen;
   try {
-    return fs.readFileSync(datei(slug), 'utf8').split('\n').filter(Boolean)
+    zeilen = fs.readFileSync(datei(slug), 'utf8').split('\n').filter(Boolean)
       .map((z) => { try { return JSON.parse(z); } catch (_e) { return null; } })
       .filter(Boolean);
   } catch (_e) {
     return []; // noch keine Buchung - kein Fehler
   }
+
+  /* Die Datei wird nur angehaengt, nie umgeschrieben. Eine Absage kommt
+     deshalb als eigener Eintrag dazu - und muss hier auf die zugehoerige
+     Reservierung angewandt werden. Ohne das bliebe der Tisch belegt,
+     obwohl der Gast abgesagt hat. */
+  const storniert = new Set(
+    zeilen.filter((e) => e.art === 'storno').map((e) => e.storniert)
+  );
+  return zeilen
+    .filter((e) => e.art !== 'storno')
+    .map((e) => (storniert.has(e.zeit) ? Object.assign({}, e, { status: 'cancelled' }) : e));
 }
 
 function uhrzeitText(zeit) {
@@ -71,10 +92,15 @@ function baueAblage(kunde, log) {
 
     // Reservierungen eines Tages - im Format, das der Dialog erwartet
     async reservierungenAm(_restaurantId, datum) {
+      /* Abgesagte zaehlen nicht mehr zur Belegung - sonst bleibt der Tisch
+         blockiert, obwohl der Gast abgesagt hat. Genau dafuer gibt es die
+         Absage. Der Status kommt aus liesAlle, das Stornos beruecksichtigt;
+         frueher stand hier pauschal 'confirmed'. */
       return liesAlle(slug)
-        .filter((e) => e.art === 'reservierung' && e.reservation_date === datum)
+        .filter((e) => e.art === 'reservierung' && e.reservation_date === datum
+                    && e.status !== 'cancelled')
         .map((e) => ({
-          reservation_time: e.reservation_time, status: 'confirmed',
+          reservation_time: e.reservation_time, status: e.status || 'confirmed',
           table_id: null, party_size: e.party_size
         }));
     },
@@ -109,6 +135,80 @@ function baueAblage(kunde, log) {
         ].filter(Boolean).join('\n')
       );
       return { ok: true, daten: { id: eintrag.zeit } };
+    },
+
+    /* Kennen wir diesen Anrufer? Dieselbe Logik wie bei Kiek-mol-in-Kunden,
+       nur aus der lokalen Datei statt aus Supabase. Ohne das waeren
+       Stammgaeste nur bei den Kiek-mol-in-Betrieben bekannt - also
+       ausgerechnet nicht bei denen, die fuer den Assistenten zahlen. */
+    async gastHistorie(_restaurantId, telefon) {
+      const nummer = nummerSchluessel(telefon);
+      if (!nummer) return null;
+
+      const eigene = liesAlle(slug)
+        .filter((e) => e.art === 'reservierung' && e.status !== 'cancelled'
+                    && nummerSchluessel(e.guest_phone) === nummer)
+        .sort((a, b) => String(b.reservation_date || '').localeCompare(String(a.reservation_date || '')));
+      if (!eigene.length) return null;
+
+      const zahlen = eigene.map((e) => parseInt(e.party_size, 10)).filter(Boolean);
+      const haeufigste = zahlen.length
+        ? Number(Object.entries(zahlen.reduce((m, n) => (m[n] = (m[n] || 0) + 1, m), {}))
+            .sort((a, b) => b[1] - a[1])[0][0])
+        : null;
+
+      return {
+        name: (eigene.find((e) => e.guest_name) || {}).guest_name || '',
+        besuche: eigene.length,
+        zuletzt: eigene[0].reservation_date || '',
+        uebliche_personenzahl: haeufigste
+      };
+    },
+
+    /* Kommende Reservierungen zu einer Rufnummer - Grundlage fuers Absagen. */
+    async reservierungenZuNummer(_restaurantId, telefon, abDatum) {
+      const nummer = nummerSchluessel(telefon);
+      if (!nummer) return [];
+      return liesAlle(slug)
+        .filter((e) => e.art === 'reservierung' && e.status !== 'cancelled'
+                    && nummerSchluessel(e.guest_phone) === nummer
+                    && String(e.reservation_date || '') >= String(abDatum || ''))
+        .sort((a, b) => String(a.reservation_date).localeCompare(String(b.reservation_date)))
+        .slice(0, 5)
+        .map((e) => ({
+          id: e.zeit,               // die Zeit ist hier die Kennung (siehe neueReservierung)
+          guest_name: e.guest_name,
+          reservation_date: e.reservation_date,
+          reservation_time: e.reservation_time,
+          party_size: e.party_size,
+          status: e.status || 'confirmed'
+        }));
+    },
+
+    /* Absagen. Die JSONL-Datei wird nur angehaengt, nie umgeschrieben -
+       deshalb kommt ein Storno-Eintrag dazu, den liesAlle beruecksichtigt.
+       So bleibt nachvollziehbar, was wann abgesagt wurde. */
+    async sageReservierungAb(id) {
+      try {
+        schreibe(slug, { art: 'storno', zeit: new Date().toISOString(), storniert: id });
+      } catch (e) {
+        return { ok: false, status: 0, text: 'Konnte nicht speichern: ' + e.message };
+      }
+      const weg = liesAlle(slug).find((e) => e.art === 'reservierung' && e.zeit === id);
+      informiere(
+        'Reservierung abgesagt: ' + ((weg && weg.guest_name) || 'Gast'),
+        [
+          'Eine Reservierung wurde telefonisch abgesagt:',
+          '',
+          'Name:     ' + ((weg && weg.guest_name) || '-'),
+          'Datum:    ' + ((weg && weg.reservation_date) || '-'),
+          'Uhrzeit:  ' + uhrzeitText(weg && weg.reservation_time),
+          'Personen: ' + ((weg && weg.party_size) || '-'),
+          '',
+          'Der Tisch ist wieder frei.'
+        ].join('\n')
+      );
+      return { ok: true };
     },
 
     async neueBestellung(payload) {
