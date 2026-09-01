@@ -2194,6 +2194,75 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* Freie Rufnummern suchen. Sucht nur - kostet nichts. */
+    if (req.method === 'POST' && pfad === '/api/nummern-suchen') {
+      const tn = require('./lib/twilio-nummern');
+      const { land, vorwahl, enthaelt } = await leseBody(req);
+      try {
+        json(res, 200, { treffer: await tn.sucheNummern({ land, vorwahl, enthaelt }) });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    /* Eine ausgewaehlte Nummer kaufen und den Webhook setzen.
+
+       Ab hier kostet es Geld - deshalb nur mit einer konkreten Nummer,
+       die vorher gesucht wurde. Kein "kauf mir irgendeine". */
+    if (req.method === 'POST' && pfad === '/api/nummer-kaufen') {
+      const tn = require('./lib/twilio-nummern');
+      const { nummer, name } = await leseBody(req);
+      /* Der Webhook zeigt immer auf dieselbe Adresse - der Server erkennt
+         am Ziel des Anrufs, welchen Betrieb er vertritt. */
+      const basis = (process.env.BASE_URL || '').replace(/\/$/, '');
+      if (!basis) {
+        json(res, 400, { fehler: 'BASE_URL fehlt in der .env - ohne die waere die Nummer stumm.' });
+        return;
+      }
+      try {
+        json(res, 200, Object.assign({ ok: true },
+          await tn.kaufeNummer({ nummer, name, webhook: basis + '/anruf' })));
+      } catch (e) {
+        json(res, 400, { fehler: e.message, code: e.code });
+      }
+      return;
+    }
+
+    /* Welche Nummern gehoeren uns, und zeigen sie richtig? */
+    if (req.method === 'GET' && pfad === '/api/nummern') {
+      const tn = require('./lib/twilio-nummern');
+      try {
+        const eigene = await tn.eigeneNummern();
+        const basis = (process.env.BASE_URL || '').replace(/\/$/, '');
+        json(res, 200, {
+          nummern: eigene.map((n) => Object.assign({}, n, {
+            /* Zeigt die Nummer auf unseren Server? Eine falsch eingetragene
+               faellt sonst erst auf, wenn ein Gast ins Leere telefoniert. */
+            richtig: !!basis && n.webhook === basis + '/anruf'
+          })),
+          erwarteterWebhook: basis ? basis + '/anruf' : null
+        });
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    /* Webhook einer vorhandenen Nummer geraderuecken. */
+    if (req.method === 'POST' && pfad === '/api/nummer-webhook') {
+      const tn = require('./lib/twilio-nummern');
+      const { sid } = await leseBody(req);
+      const basis = (process.env.BASE_URL || '').replace(/\/$/, '');
+      if (!sid || !basis) { json(res, 400, { fehler: 'sid oder BASE_URL fehlt' }); return; }
+      try {
+        json(res, 200, Object.assign({ ok: true }, await tn.setzeWebhook(sid, basis + '/anruf')));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
     if (req.method === 'POST' && pfad === '/api/telefon-kunde') {
       const tk = require('./lib/telefon-kunden');
       try {
