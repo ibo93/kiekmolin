@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { DeepgramStrom } = require('./deepgram');
-const { spreche, sprecheGecached, inSaetze } = require('./elevenlabs');
+const { spreche, sprecheGecached, inSaetze, spricheStroemend } = require('./elevenlabs');
 const { DialogSitzung } = require('./dialog');
 
 const LOG_ORDNER = path.join(__dirname, '..', 'logs');
@@ -244,7 +244,39 @@ class AnrufSitzung {
       this.spricht = true;
       this.offeneMark = meineMark;
       const stueckGroesse = 4000; // ~0,5 s pro Nachricht (mulaw 8000 Byte/s)
-      for (const audioVersprechen of audios) {
+
+      /* Der ERSTE Satz kommt gestroemt auf die Leitung: gemessen 167 ms bis
+         zum ersten Ton statt 480 ms fuers fertige Stueck. Genau diese erste
+         Pause laesst ein Gespraech kuenstlich wirken - die spaeteren Saetze
+         sind laengst fertig, wenn der erste ausgesprochen ist, und gehen wie
+         bisher am Stueck raus.
+
+         Nur ohne Cache: Gecachte Saetze (Begruessung) liegen schon fertig im
+         Speicher, da waere ein Netzabruf ein Rueckschritt. */
+      const saetze = inSaetze(text);
+      let erstenUebersprungen = false;
+      if (!cache && saetze.length) {
+        try {
+          const weiter = await spricheStroemend(saetze[0], stimmOptionen, (stueck) => {
+            if (!this.spricht || this.offeneMark !== meineMark) return false;
+            this.ws.send(JSON.stringify({
+              event: 'media', streamSid: this.streamSid,
+              media: { payload: stueck.toString('base64') }
+            }));
+            return true;
+          });
+          if (weiter === false) return;          // Gast ist dazwischengegangen
+          erstenUebersprungen = true;
+          audios[0].catch(() => {});             // das Doppel wird nicht gebraucht
+        } catch (e) {
+          /* Faellt das Stroemen aus, wird der Satz gleich unten normal
+             gesprochen - lieber 300 ms langsamer als stumm. */
+          this.log('Stroemen ging nicht, nehme den normalen Weg: ' + e.message);
+        }
+      }
+
+      for (const [i, audioVersprechen] of audios.entries()) {
+        if (erstenUebersprungen && i === 0) continue;
         const audio = await audioVersprechen;
         for (let i = 0; i < audio.length; i += stueckGroesse) {
           // Barge-in oder neuere Ausgabe? Dann diese hier sofort abbrechen.

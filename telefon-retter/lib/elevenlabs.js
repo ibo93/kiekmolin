@@ -45,6 +45,83 @@ async function spreche(text, optionen) {
   return Buffer.from(await antwort.arrayBuffer());
 }
 
+// --- Sprechen, waehrend noch gesprochen wird ---------------------------------
+
+// Gemessen am 02.09.2026: Auf die fertige Audiodatei zu warten kostet rund
+// 480 ms, der erste Ton aus dem Stream kommt nach 167 ms. Das ist ein Drittel
+// der Wartezeit - und am Telefon ist genau diese erste Pause das, was ein
+// Gespraech kuenstlich wirken laesst.
+//
+// Gestreamt wird nur der ERSTE Satz. Die uebrigen entstehen ohnehin parallel
+// und sind laengst fertig, wenn der erste zu Ende gesprochen ist; sie noch
+// stueckweise nachzuziehen braechte nichts und macht den Abbruch bei
+// Barge-in unnoetig kompliziert.
+async function spricheStroemend(text, optionen, aufStueck) {
+  const key = process.env.ELEVENLABS_API_KEY;
+  const voiceId = (optionen && optionen.stimme) || process.env.ELEVENLABS_VOICE_ID;
+  if (!key) throw new Error('ELEVENLABS_API_KEY fehlt in .env');
+  if (!voiceId) throw new Error('ELEVENLABS_VOICE_ID fehlt in .env');
+
+  const modell = process.env.ELEVENLABS_MODELL || 'eleven_flash_v2_5';
+  const sprachHinweis = /flash|turbo/.test(modell) ? { language_code: 'de' } : {};
+  const format = (optionen && optionen.format) === 'mp3' ? 'mp3_44100_128' : 'ulaw_8000';
+
+  const antwort = await fetch(
+    'https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId)
+      + '/stream?output_format=' + format,
+    {
+      method: 'POST',
+      headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify(Object.assign({
+        text: text,
+        model_id: modell,
+        voice_settings: {
+          stability: parseFloat(process.env.ELEVENLABS_STABILITAET || '0.42'),
+          similarity_boost: 0.8
+        }
+      }, sprachHinweis))
+    }
+  );
+  if (!antwort.ok) {
+    throw new Error('ElevenLabs ' + antwort.status + ': ' + (await antwort.text()).slice(0, 200));
+  }
+
+  const leser = antwort.body.getReader();
+  let rest = Buffer.alloc(0);
+
+  /* Zwei Stueckgroessen, und das ist der ganze Trick: Wartet man auch beim
+     ERSTEN Paket auf volle 4000 Bytes (0,5 s Audio), ist der Vorsprung des
+     Stroemens wieder verspielt - gemessen 418 ms statt 369 ms, also nichts
+     gewonnen. Das erste Paket geht deshalb schon nach 800 Bytes raus (0,1 s
+     Audio); ab dann sind groessere Pakete sparsamer, weil jede WebSocket-
+     Nachricht Aufwand kostet. Der Gast hoert die Stimme, waehrend der Rest
+     noch entsteht. */
+  const ERSTES = 800;
+  const WEITERE = 4000;
+  let schwelle = ERSTES;
+
+  while (true) {
+    const { done, value } = await leser.read();
+    if (done) break;
+    rest = Buffer.concat([rest, Buffer.from(value)]);
+    while (rest.length >= schwelle) {
+      const STUECK = schwelle;
+      schwelle = WEITERE;
+      /* Gibt der Aufrufer false zurueck, ist der Gast dazwischengegangen -
+         dann sofort aufhoeren und die Verbindung schliessen, statt den Rest
+         noch herunterzuladen. */
+      if (aufStueck(rest.subarray(0, STUECK)) === false) {
+        try { await leser.cancel(); } catch (_e) { /* schon zu */ }
+        return false;
+      }
+      rest = rest.subarray(STUECK);
+    }
+  }
+  if (rest.length && aufStueck(rest) === false) return false;
+  return true;
+}
+
 // --- Fluessig wie ein Live-Gespraech -----------------------------------------
 
 // Saetze einzeln erzeugen: der erste Satz geht schon auf die Leitung,
@@ -77,4 +154,4 @@ async function sprecheGecached(text, optionen) {
   return audio;
 }
 
-module.exports = { spreche, sprecheGecached, inSaetze };
+module.exports = { spreche, spricheStroemend, sprecheGecached, inSaetze };
