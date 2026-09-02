@@ -38,6 +38,22 @@ var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var SITE = 'https://kiekmolin.de';
 
+/* Ohne Einwilligung geht nichts raus.
+
+   Der BGH hat 2018 entschieden (VI ZR 225/17), dass eine Bewertungsbitte
+   in einer Kundenzufriedenheits-Mail Werbung ist. Die Ausnahme in
+   § 7 Abs. 3 UWG greift nur, wenn der Kunde BEI der Adresserhebung darauf
+   hingewiesen wurde und widersprechen konnte. Solange das Buchungsformular
+   kein solches Feld hat, waere jede dieser Mails abmahnfaehig - und zwar
+   gegen Kiek mol in, nicht gegen den Wirt.
+
+   Deshalb: Diese Funktion sendet ausschliesslich an Vorgaenge mit
+   review_consent = true. Fehlt die Spalte, laeuft sie leer und sagt das
+   im Protokoll. Lieber keine Bewertungen als eine Abmahnung.
+
+   EINMALIG in Supabase, sobald das Haekchen im Formular steht:
+     ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_consent boolean DEFAULT false;
+     ALTER TABLE orders       ADD COLUMN IF NOT EXISTS review_consent boolean DEFAULT false; */
 var MAX_JE_LAUF = 40;
 var FRUEHESTENS_STD = 18;   // nicht am selben Abend
 var SPAETESTENS_STD = 72;   // nach drei Tagen erinnert sich niemand mehr
@@ -111,8 +127,8 @@ function baueMail(name, betrieb, anlassText, link) {
         + 'Bewertung schreiben</a>'
         + '</td></tr>'
         + '<tr><td style="padding:14px 26px 22px;border-top:1px solid #ececec;font-size:12px;line-height:1.6;color:#8a8a8a">'
-        + 'Diese Nachricht kommt einmalig nach Ihrem Besuch. Wenn Sie nicht bewerten möchten, '
-        + 'ignorieren Sie sie einfach — es folgt nichts weiter.'
+        + 'Sie erhalten diese Nachricht einmalig, weil Sie bei der Buchung zugestimmt haben. '
+        + 'Wenn Sie nicht bewerten möchten, ignorieren Sie sie einfach — es folgt nichts weiter.'
         + '</td></tr>'
         + '</table></td></tr></table></body></html>';
 }
@@ -163,6 +179,7 @@ exports.handler = async function () {
     try {
         var resis = await sbGet(
             'reservations?status=eq.confirmed&guest_email=not.is.null'
+            + '&review_consent=is.true'
             + '&review_email_sent_at=is.null'
             + '&created_at=gte.' + encodeURIComponent(von)
             + '&created_at=lte.' + encodeURIComponent(bis)
@@ -175,8 +192,8 @@ exports.handler = async function () {
             });
         });
     } catch (e) {
-        if (e.status === 400 && /review_email_sent_at/.test(e.body || '')) {
-            console.warn('[review-mail] Spalte review_email_sent_at fehlt bei reservations. Uebersprungen.');
+        if (e.status === 400 && /review_(email_sent_at|consent)/.test(e.body || '')) {
+            console.warn('[review-mail] Spalte review_email_sent_at oder review_consent fehlt bei reservations. Uebersprungen - ohne Einwilligung wird nicht verschickt.');
         } else {
             console.warn('[review-mail] Reservierungen nicht lesbar:', e.message);
         }
@@ -185,7 +202,8 @@ exports.handler = async function () {
     // --- Bestellungen ohne Push-Erlaubnis -----------------------------------
     try {
         var orders = await sbGet(
-            'orders?customer_email=not.is.null&review_email_sent_at=is.null'
+            'orders?customer_email=not.is.null&review_consent=is.true'
+            + '&review_email_sent_at=is.null'
             + '&created_at=gte.' + encodeURIComponent(von)
             + '&created_at=lte.' + encodeURIComponent(bis)
             + '&select=id,restaurant_id,customer_name,customer_email&limit=' + MAX_JE_LAUF
@@ -197,8 +215,8 @@ exports.handler = async function () {
             });
         });
     } catch (e) {
-        if (e.status === 400 && /review_email_sent_at/.test(e.body || '')) {
-            console.warn('[review-mail] Spalte review_email_sent_at fehlt bei orders. Uebersprungen.');
+        if (e.status === 400 && /review_(email_sent_at|consent)/.test(e.body || '')) {
+            console.warn('[review-mail] Spalte review_email_sent_at oder review_consent fehlt bei orders. Uebersprungen - ohne Einwilligung wird nicht verschickt.');
         } else {
             console.warn('[review-mail] Bestellungen nicht lesbar:', e.message);
         }
