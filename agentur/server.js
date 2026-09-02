@@ -2198,12 +2198,30 @@ const server = http.createServer(async (req, res) => {
           nummer: k.nummer,
           stufe: k.stufe
         }));
+        /* Die Gespraechsprotokolle mitgeben - die Wache ordnet sie den
+           Betrieben zu. Nur die letzten 60: mehr braucht keine Uebersicht,
+           und jede Datei muss einzeln gelesen und zerlegt werden. */
+        const prot = require('./lib/anruf-protokoll');
+        const protokolle = [];
+        if (fs.existsSync(TELEFON_LOGS)) {
+          const dateien = fs.readdirSync(TELEFON_LOGS)
+            .filter((f) => f.startsWith('anruf-') && f.endsWith('.log'))
+            .sort().reverse().slice(0, 60);
+          for (const datei of dateien) {
+            try {
+              const text = fs.readFileSync(path.join(TELEFON_LOGS, datei), 'utf8');
+              protokolle.push(prot.kurzfassung(prot.parseProtokoll(text, datei)));
+            } catch (_e) { /* eine kaputte Datei darf die Wache nicht kippen */ }
+          }
+        }
+
         json(res, 200, await tw.wache({
           sid: process.env.TWILIO_ACCOUNT_SID,
           token: process.env.TWILIO_AUTH_TOKEN,
           telefonUrl: TELEFON_URL,
           oeffentlicheUrl: process.env.BASE_URL || '',
-          kunden: liste
+          kunden: liste,
+          protokolle
         }));
       } catch (e) {
         json(res, 500, { fehler: e.message });

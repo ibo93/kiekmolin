@@ -138,7 +138,7 @@ function stundenSeit(zeitIso, jetzt) {
     oeffentlicheUrl - wie TWILIO ihn erreicht (https://telefon.kiekmolin.de)
     Die beiden sind nicht dieselbe Adresse. Wer sie verwechselt, prueft den
     Webhook gegen eine Adresse, die von aussen nie erreichbar waere. */
-async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, jetzt }) {
+async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokolle, jetzt }) {
   const nun = jetzt || Date.now();
   const heuteAb = tagesBeginn(nun);
   const wocheAb = new Date(nun - 7 * 86400000);
@@ -276,8 +276,18 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, jetzt })
 
     const angenommen = seine.filter((a) => a.dauer > 0).length;
 
+    /* Die Gespraechsprotokolle nach Betrieb sortieren. Twilio sagt, DASS
+       angerufen wurde - hier steht, WAS gesprochen wurde. Beides gehoert
+       nebeneinander: Zahlen ohne Inhalt beantworten nicht, warum ein Gast
+       aufgelegt hat. */
+    const seineGespraeche = (protokolle || [])
+      .filter((g) => g.restaurant && anzeigeName
+                  && String(g.restaurant).toLowerCase() === String(anzeigeName).toLowerCase())
+      .slice(0, 8);
+
     ergebnis.betriebe.push({
       name: anzeigeName,
+      gespraeche: seineGespraeche,
       kennung: beimAssistenten ? beimAssistenten.id : null,
       nummer: k.nummer,
       stufe: k.stufe ?? null,
