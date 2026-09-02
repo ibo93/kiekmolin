@@ -768,7 +768,65 @@
     // übersprungen und der Nutzer erfährt, dass es NICHT geklappt hat.
     // Für jeden POST/PATCH/DELETE benutzen -- nicht für reines Lesen.
     async function sbWrite(url, options) {
-        var res = await fetch(url, options);
+        // ERST DER FALL, DEN NIEMAND GESEHEN HAT.
+        //
+        // Gemeldet am 02.09.2026 beim Vorbestellen: "failed stand da".
+        // Ohne Zahl davor -- also nicht "HTTP 401", sondern
+        // "Failed to fetch". Das heisst: die Anfrage hat das Geraet nie
+        // verlassen. Verbindungsaussetzer, Erweiterung im Browser,
+        // Service Worker dazwischen.
+        //
+        // Im Supabase-Protokoll stand dazu NICHTS -- es gab dort nichts
+        // zu finden. Und der Melder unten sitzt INNERHALB von
+        // "if (!res.ok)", also im Zweig "Server hat abgelehnt". Wirft
+        // das fetch selbst, springt es daran vorbei: kein Melder, keine
+        // Zeile, nur ein Toast beim Wirt. Regel 6 -- der Fall, der am
+        // schlechtesten sichtbar ist, ist der, der bei ihm auf dem
+        // Tisch landet.
+        var res;
+        try {
+            res = await fetch(url, options);
+        } catch (netz) {
+            // EINMAL NACHFASSEN -- ABER NICHT BEI ALLEM.
+            //
+            // Ein Aussetzer von einer Sekunde soll keine Fehlermeldung
+            // sein. Aber "nie angekommen" ist nicht dasselbe wie "nie
+            // ausgefuehrt": die Anfrage kann den Server erreicht haben
+            // und nur die Antwort ging verloren.
+            //
+            // Bei PATCH/PUT/DELETE ist das egal -- zweimal dieselben
+            // features setzen oder dieselbe Zeile loeschen aendert
+            // nichts. Bei POST waere es eine zweite Bestellung. Deshalb
+            // wird POST NIE wiederholt, auch wenn es hier verlockend
+            // aussieht.
+            var art = String((options && options.method) || 'POST').toUpperCase();
+            var darfNochmal = art === 'PATCH' || art === 'PUT' || art === 'DELETE';
+            if (darfNochmal) {
+                try {
+                    await new Promise(function (f) { setTimeout(f, 800); });
+                    res = await fetch(url, options);
+                } catch (netz2) { res = null; }
+            }
+            if (!res) {
+                try {
+                    if (typeof meldeFehler === 'function') {
+                        meldeFehler({
+                            message: 'Anfrage kam nie an: ' + ((netz && netz.message) || 'unbekannt'),
+                            kind: 'network',
+                            status: 0,
+                            source: (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt',
+                            area: art
+                        });
+                    }
+                } catch (e2) {}
+                // "Failed to fetch" sagt einem Wirt nichts. Das hier schon.
+                var netzFehler = new Error('Nicht gespeichert - keine Verbindung. Bitte noch einmal versuchen.');
+                netzFehler.status = 0;
+                netzFehler.isWriteError = true;
+                netzFehler.istNetzFehler = true;
+                throw netzFehler;
+            }
+        }
         if (!res.ok) {
             var detail = '';
             try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
@@ -26995,26 +27053,57 @@ function updateHeroBannerImage() {
         // Ohne Uebergang zurueck auf Anfang, sonst zoomt es sichtbar rueckwaerts.
         el.style.transition = 'none';
         el.style.transform = 'scale(1)';
+        // UND UNSICHTBAR STARTEN.
+        //
+        // Gemeldet am 02.09.2026: "das bilder stoerend ist wieder da ...
+        // beim wechsel der bilder".
+        //
+        // Hier war der Fehler. Der Wechsel machte:
+        //     ebeneVorbereiten(kommt, ...)   -> transition: none
+        //     kommt.style.opacity = '1'      -> WAEHREND transition none
+        //
+        // Also sprang das neue Bild mit einem Schlag auf volle Deckkraft,
+        // waehrend das alte darunter zwei Sekunden lang ausblendete. Kein
+        // Ueberblenden, sondern ein harter Schnitt mit einem
+        // Nachleuchten -- genau das, was man als Stoerung sieht.
+        //
+        // Die Ebene faengt jetzt unsichtbar an. Sichtbar wird sie erst in
+        // einblenden(), zusammen mit dem Uebergang.
+        el.style.opacity = '0';
     }
 
-    function zoomStarten(el) {
-        if (RUHE) return;   // Wer ruhige Bewegung eingestellt hat, bekommt keine.
-        // Ein Bild abwarten, damit der Browser den Anfangswert uebernimmt --
-        // sonst springt er direkt zum Endwert, ohne den Weg dazwischen.
+    // UEBERBLENDEN: erst den Uebergang setzen, DANN die Deckkraft.
+    //
+    // Die Reihenfolge ist der ganze Punkt. Wer opacity aendert, solange
+    // transition auf 'none' steht, bekommt einen Sprung -- der Browser hat
+    // nichts, woran er die Bewegung entlangfuehren koennte.
+    function einblenden(kommt, geht) {
+        // Zwei Bilder abwarten, damit der Browser den Anfangswert
+        // uebernimmt -- sonst springt er direkt zum Endwert, ohne den Weg
+        // dazwischen.
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                el.style.transition = 'opacity 2s ease-in-out, transform 8s ease-in-out';
-                el.style.transform = ZOOM;
+                // Wer ruhige Bewegung eingestellt hat, bekommt keinen Zoom
+                // -- aber SEHR WOHL das Ueberblenden. Vorher fiel fuer ihn
+                // beides weg, weil zoomStarten() vorher aussprang und die
+                // transition damit nie gesetzt wurde: jeder Wechsel ein
+                // harter Schnitt.
+                kommt.style.transition = RUHE
+                    ? 'opacity 2s ease-in-out'
+                    : 'opacity 2s ease-in-out, transform 8s ease-in-out';
+                kommt.style.opacity = '1';
+                if (!RUHE) kommt.style.transform = ZOOM;
+                if (geht) geht.style.opacity = '0';
             });
         });
     }
 
-    // Erstes Bild sofort setzen
+    // Erstes Bild sofort setzen -- das darf springen, es ist ja das erste.
     var currentIndex = Math.floor(Math.random() * imgs.length);
     ebeneVorbereiten(bg1, imgs[currentIndex]);
-    bg1.style.opacity = '1';
+    bg1.style.opacity = '1';        // noch mit transition: none -> sofort da
     bg2.style.opacity = '0';
-    zoomStarten(bg1);
+    einblenden(bg1, null);          // ab jetzt mit Uebergang, fuer den Zoom
 
     // Nur Slideshow starten wenn mehr als 1 Bild
     if (imgs.length <= 1) return;
@@ -27029,9 +27118,7 @@ function updateHeroBannerImage() {
         var geht  = showingFirst ? bg1 : bg2;
 
         ebeneVorbereiten(kommt, imgs[currentIndex]);
-        kommt.style.opacity = '1';
-        geht.style.opacity = '0';
-        zoomStarten(kommt);
+        einblenden(kommt, geht);
 
         showingFirst = !showingFirst;
     }, 7000);
