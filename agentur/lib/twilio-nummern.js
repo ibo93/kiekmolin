@@ -104,4 +104,34 @@ async function setzeWebhook(sid, webhook) {
   return { nummer: d.phone_number, webhook: d.voice_url };
 }
 
-module.exports = { sucheNummern, kaufeNummer, eigeneNummern, setzeWebhook };
+/* Nummer zurueckgeben. Ab dem naechsten Monat faellt keine Gebuehr mehr an.
+
+   Das ist endgueltig: Die Nummer geht zurueck in den Pool und kann sofort
+   von jemand anderem genommen werden. Wer noch die alte Nummer waehlt,
+   landet dann bei einem Fremden. Deshalb nie ohne Rueckfrage. */
+async function gibNummerFrei(sid) {
+  if (!sid) throw new Error('Keine Nummer angegeben');
+  const { sid: konto, kopf } = zugang();
+  const antwort = await fetch(
+    BASIS + '/Accounts/' + konto + '/IncomingPhoneNumbers/' + encodeURIComponent(sid) + '.json',
+    { method: 'DELETE', headers: { Authorization: kopf }, signal: AbortSignal.timeout(20000) });
+
+  if (antwort.status === 204 || antwort.ok) return { ok: true };
+  const text = await antwort.text();
+  let d = null; try { d = JSON.parse(text); } catch (_e) { /* egal */ }
+  throw new Error((d && d.message) || text.slice(0, 200));
+}
+
+/* Kontostand. Ohne den merkt man das leere Guthaben erst, wenn der
+   Assistent nicht mehr abnimmt - und dann steht ein Gast in der Leitung. */
+async function guthaben() {
+  const { sid, kopf } = zugang();
+  const antwort = await fetch(BASIS + '/Accounts/' + sid + '/Balance.json',
+    { headers: { Authorization: kopf }, signal: AbortSignal.timeout(15000) });
+  if (!antwort.ok) throw new Error('Guthaben nicht abrufbar (' + antwort.status + ')');
+  const d = await antwort.json();
+  return { betrag: Number(d.balance), waehrung: d.currency || 'USD' };
+}
+
+module.exports = { sucheNummern, kaufeNummer, eigeneNummern, setzeWebhook,
+                   gibNummerFrei, guthaben };
