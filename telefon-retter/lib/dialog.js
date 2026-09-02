@@ -408,6 +408,28 @@ function baueSystemPrompt(restaurant, stufe, anrufer, kann, gast) {
     '- Wenn alles erledigt ist: freundlich verabschieden und gespraech_beenden aufrufen.',
     '- Du bist ehrlich: auf Wunsch sagst du, dass du ein digitaler Assistent bist.');
 
+  /* Bewertungen sind der staerkste Sichtbarkeits-Hebel, den ein Wirt hat:
+     Sterne im Google-Ergebnis heben die Klickrate, ohne dass sich an der
+     Platzierung etwas aendert. Nur fragt am Telefon nie jemand danach.
+
+     Bewusst ein HALBSATZ beim Verabschieden, keine Bitte. Wer am Telefon
+     bedraengt wird, bewertet entweder gar nicht oder schlecht - und der
+     Gast hat gerade angerufen, um einen Tisch zu bekommen, nicht um uns
+     einen Gefallen zu tun.
+
+     Und nur, wenn wirklich etwas geklappt hat. Nach einer Reklamation
+     oder einem Rueckrufwunsch um eine Bewertung zu bitten, ist der
+     schnellste Weg zu einem Stern. */
+  if (restaurant.bewertungErwaehnen !== false) {
+    zeilen.push(
+      '- NUR wenn eine Reservierung oder Bestellung geklappt hat: erwaehne beim',
+      '  Verabschieden in EINEM kurzen Halbsatz, dass ihr euch ueber eine Bewertung',
+      '  freut ("...und wenn es geschmeckt hat, freuen wir uns ueber eine Bewertung").',
+      '  Hoechstens einmal im Gespraech, nie nachfassen, nie erklaeren wo oder wie.',
+      '- KEIN Wort davon bei Reklamationen, Beschwerden, Rueckrufwuenschen, Absagen',
+      '  oder wenn du nicht helfen konntest.');
+  }
+
   /* Anrede: im CRM eingestellt. Beim Doerpskrog duzt man, im Sternehaus
      nicht - und das falsche Wort merkt der Gast im ersten Satz. */
   if (restaurant.anrede === 'du') {
