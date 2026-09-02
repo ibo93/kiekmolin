@@ -139,8 +139,14 @@ function xmlEscape(s) {
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/health')) {
     const namen = [...kontexte.values()].map((k) => k.restaurant.name);
+    /* Zusaetzlich mit Kennung: Die Wache in der Agentur ordnet Nummern ueber
+       die Restaurant-ID zu und hatte sonst nur Namen zum Vergleichen. Steht
+       in nummern.json eine ID, fand sie keinen Treffer und meldete
+       faelschlich "Der Assistent kennt diesen Betrieb nicht". */
+    const betriebe = [...kontexte.entries()].map(([id, k]) => ({ id, name: k.restaurant.name }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, restaurant: namen.join(', '), restaurants: namen, stufe: STUFE }));
+    res.end(JSON.stringify({ ok: true, restaurant: namen.join(', '), restaurants: namen,
+                             betriebe, stufe: STUFE }));
     return;
   }
 

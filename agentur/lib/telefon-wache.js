@@ -100,6 +100,10 @@ async function einmalFragen(basisUrl, msFrist) {
     return {
       erreichbar: true,
       betriebe: Array.isArray(d.restaurants) ? d.restaurants : [],
+      /* Neuere Assistenten liefern Name UND Kennung. Aeltere nicht - dann
+         bleibt die Liste leer und die Zuordnung faellt still aus, statt
+         falsch zu warnen. */
+      mitKennung: Array.isArray(d.betriebe) ? d.betriebe : [],
       stufe: d.stufe
     };
   } catch (e) {
@@ -241,11 +245,22 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, jetzt })
       });
     }
 
-    if (az.erreichbar && az.betriebe && az.betriebe.length
-        && k.name && !az.betriebe.some((n) => String(n).toLowerCase() === String(k.name).toLowerCase())) {
+    /* In nummern.json steht oft nur die Kennung, nicht der Name. Fuer die
+       Anzeige den echten Namen nachschlagen - eine Kachel mit
+       "888dc5bc-1649-..." als Ueberschrift hilft niemandem. */
+    const beimAssistenten = (az.mitKennung || []).find(
+      (b) => String(b.id) === String(k.name) || String(b.id) === String(k.kennung)
+          || String(b.name).toLowerCase() === String(k.name).toLowerCase());
+    const anzeigeName = beimAssistenten ? beimAssistenten.name : k.name;
+
+    /* Nur warnen, wenn der Assistent ueberhaupt Auskunft geben kann.
+       Kennt er den Betrieb wirklich nicht, landen dessen Anrufe still
+       beim Standard-Betrieb - der Gast spricht dann mit dem falschen Haus. */
+    if (az.erreichbar && (az.mitKennung || []).length && !beimAssistenten) {
       warnungen.push({
         schwere: 'mittel',
-        text: 'Der Assistent kennt diesen Betrieb nicht. Anrufe landen beim Standard-Betrieb.'
+        text: 'Der Assistent kennt diesen Betrieb nicht. Anrufe landen beim Standard-Betrieb - '
+            + 'der Gast spricht dann mit dem falschen Haus.'
       });
     }
 
@@ -262,7 +277,8 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, jetzt })
     const angenommen = seine.filter((a) => a.dauer > 0).length;
 
     ergebnis.betriebe.push({
-      name: k.name,
+      name: anzeigeName,
+      kennung: beimAssistenten ? beimAssistenten.id : null,
       nummer: k.nummer,
       stufe: k.stufe ?? null,
       webhook: nummerBeiTwilio ? nummerBeiTwilio.webhook : null,
