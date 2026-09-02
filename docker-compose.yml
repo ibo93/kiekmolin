@@ -22,6 +22,12 @@ services:
       - "3100:3100"
     volumes:
       - ./telefon-retter/logs:/app/telefon-retter/logs
+      # Kundenliste und Nummern-Zuordnung teilen sich beide Container.
+      # Ohne das schreibt das CRM in das Dateisystem der Agentur, und der
+      # Assistent erfaehrt nie von einem neu angelegten Betrieb - jeder
+      # Anruf landete dann still beim Standard-Restaurant.
+      - ./telefon-retter/nummern.json:/app/telefon-retter/nummern.json
+      - ./telefon-retter/kunden:/app/telefon-retter/kunden
     restart: unless-stopped
 
   agentur:
@@ -43,4 +49,7 @@ services:
       - ./sichtbarkeit/reports:/app/sichtbarkeit/reports
       - ./sichtbarkeit/aufbereitung:/app/sichtbarkeit/aufbereitung
       - ./telefon-retter/logs:/app/telefon-retter/logs:ro
+      # Schreibend: hier legt das CRM neue Betriebe an
+      - ./telefon-retter/nummern.json:/app/telefon-retter/nummern.json
+      - ./telefon-retter/kunden:/app/telefon-retter/kunden
     restart: unless-stopped

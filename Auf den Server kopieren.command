@@ -63,6 +63,12 @@ AUS=(
   --exclude ".netzfassung"
   --exclude ".DS_Store"
   --exclude "*.log"
+  # Die Kundendaten entstehen auf dem SERVER - das CRM legt sie dort an.
+  # Ohne diese beiden Zeilen wuerde rsync --delete jeden Betrieb loeschen,
+  # der auf dem Rechner nicht existiert. Also: alle, die du im CRM
+  # angelegt hast. Beim naechsten Kopieren waeren sie weg.
+  --exclude "nummern.json"
+  --exclude "kunden/"
 )
 
 echo ""

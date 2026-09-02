@@ -2184,6 +2184,33 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* Die Wache: ein Bild ueber alle Betriebe auf einmal - laeuft der
+       Assistent, zeigen die Webhooks richtig, wer wurde wann angerufen.
+       Die Anrufzahlen kommen von Twilio, nicht aus unseren Logs: Wenn der
+       Assistent abstuerzt, schreibt er auch kein Log mehr, und die Wache
+       meldete faelschlich "alles ruhig". */
+    if (req.method === 'GET' && pfad === '/api/telefon-wache') {
+      const tw = require('./lib/telefon-wache');
+      const tk = require('./lib/telefon-kunden');
+      try {
+        const liste = tk.listeKunden().map((k) => ({
+          name: k.name || k.betrieb || k.restaurant || k.nummer,
+          nummer: k.nummer,
+          stufe: k.stufe
+        }));
+        json(res, 200, await tw.wache({
+          sid: process.env.TWILIO_ACCOUNT_SID,
+          token: process.env.TWILIO_AUTH_TOKEN,
+          telefonUrl: TELEFON_URL,
+          oeffentlicheUrl: process.env.BASE_URL || '',
+          kunden: liste
+        }));
+      } catch (e) {
+        json(res, 500, { fehler: e.message });
+      }
+      return;
+    }
+
     if (req.method === 'GET' && pfad === '/api/telefon-kunden') {
       const tk = require('./lib/telefon-kunden');
       try {
@@ -2225,6 +2252,29 @@ const server = http.createServer(async (req, res) => {
           await tn.kaufeNummer({ nummer, name, webhook: basis + '/anruf' })));
       } catch (e) {
         json(res, 400, { fehler: e.message, code: e.code });
+      }
+      return;
+    }
+
+    /* Nummer zurueckgeben. Endgueltig - deshalb verlangt der Endpunkt die
+       sid, die vorher aus /api/nummern kam, nicht die Rufnummer selbst. */
+    if (req.method === 'POST' && pfad === '/api/nummer-freigeben') {
+      const tn = require('./lib/twilio-nummern');
+      const { sid } = await leseBody(req);
+      try {
+        json(res, 200, Object.assign({ ok: true }, await tn.gibNummerFrei(sid)));
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && pfad === '/api/twilio-guthaben') {
+      const tn = require('./lib/twilio-nummern');
+      try {
+        json(res, 200, await tn.guthaben());
+      } catch (e) {
+        json(res, 400, { fehler: e.message });
       }
       return;
     }
