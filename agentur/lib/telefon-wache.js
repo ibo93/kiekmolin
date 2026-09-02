@@ -105,6 +105,7 @@ async function einmalFragen(basisUrl, msFrist) {
          falsch zu warnen. */
       mitKennung: Array.isArray(d.betriebe) ? d.betriebe : [],
       versand: d.versand || null,
+      erinnerung: d.erinnerung || null,
       stufe: d.stufe
     };
   } catch (e) {
@@ -223,6 +224,24 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokol
       schwere: 'mittel',
       text: 'BASE_URL fehlt - die Webhooks lassen sich nicht pruefen.'
     });
+  }
+
+  /* Erinnerungs-SMS sichtbar machen: was laeuft, ab welcher Tischgroesse,
+     und was es gekostet hat. Twilio rechnet jede SMS einzeln ab - wer das
+     erst auf der Monatsrechnung sieht, hat den Ueberblick verloren. */
+  if (az.erinnerung) {
+    ergebnis.gesamt.erinnerung = {
+      aktiv: az.erinnerung.aktiv,
+      bereit: az.erinnerung.bereit,
+      abPersonen: az.erinnerung.abPersonen
+    };
+    if (az.erinnerung.aktiv && !az.erinnerung.bereit) {
+      ergebnis.gesamt.warnungen.push({
+        schwere: 'mittel',
+        text: 'Erinnerungen sind eingeschaltet, aber der SMS-Versand ist nicht fertig '
+            + 'eingerichtet (TWILIO_SMS_VON fehlt). Es geht nichts raus.'
+      });
+    }
   }
 
   const schwerImGesamten = ergebnis.gesamt.warnungen.some((w) => w.schwere === 'schwer');

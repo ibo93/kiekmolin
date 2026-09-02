@@ -153,9 +153,20 @@ const server = http.createServer((req, res) => {
       sms: !!process.env.TWILIO_SMS_VON,
       email: !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM)
     };
+    /* Erinnerungs-SMS kosten Geld (11,2 Cent nach Deutschland). Damit das
+       nicht erst auf der Rechnung auffaellt, meldet der Assistent, ob sie
+       laufen und ab welcher Tischgroesse. */
+    const erinnerung = (() => {
+      try {
+        const e = require('./lib/erinnerung');
+        return { aktiv: e.istAktiv(), bereit: e.smsKonfiguriert(), abPersonen: e.schwelle() };
+      } catch (_e) {
+        return null;
+      }
+    })();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, restaurant: namen.join(', '), restaurants: namen,
-                             betriebe, versand, stufe: STUFE }));
+                             betriebe, versand, erinnerung, stufe: STUFE }));
     return;
   }
 

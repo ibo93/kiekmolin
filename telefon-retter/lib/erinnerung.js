@@ -29,12 +29,27 @@ function smsKonfiguriert() {
 
 // Reine Auswahl-Logik (testbar): Welche Reservierungen von MORGEN sind
 // faellig? Nur mit Telefonnummer, keine Rueckruf-Fallbacks, keine Doppelten.
-function faelligeErinnerungen(reservierungen, bereitsErinnerteIds) {
+/* Ab wie vielen Personen wird erinnert? Eine SMS nach Deutschland kostet
+   bei Twilio 11,2 Cent - so viel wie elf Gespraechsminuten. Bei einem Tisch
+   fuer zwei lohnt das selten; ein No-Show mit acht Leuten kostet den Wirt
+   dagegen einen Abend. Ohne Angabe wird jeder erinnert (bisheriges
+   Verhalten), mit Angabe erst ab dieser Groesse. */
+function schwelle() {
+  const n = parseInt(process.env.SMS_ERINNERUNG_AB_PERSONEN || '', 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function faelligeErinnerungen(reservierungen, bereitsErinnerteIds, abPersonen) {
   const schon = new Set(bereitsErinnerteIds || []);
+  const mindestens = Number.isFinite(abPersonen) && abPersonen > 0 ? abPersonen : schwelle();
   return (reservierungen || []).filter((r) =>
     r && r.id && !schon.has(String(r.id)) &&
     r.guest_phone && String(r.guest_phone).replace(/[^0-9]/g, '').length >= 6 &&
-    !/RUECKRUF/.test(r.guest_name || '')
+    !/RUECKRUF/.test(r.guest_name || '') &&
+    /* Fehlt die Personenzahl, wird von zwei ausgegangen - dieselbe Annahme
+       wie im Erinnerungstext. Sonst faellt eine Reservierung stillschweigend
+       raus, nur weil ein Feld leer blieb. */
+    (parseInt(r.party_size, 10) || 2) >= mindestens
   );
 }
 
@@ -109,4 +124,4 @@ async function erinnerungsLauf(kontexte, datenquelle, log) {
   }
 }
 
-module.exports = { erinnerungsLauf, faelligeErinnerungen, baueErinnerungsText, istAktiv, smsKonfiguriert };
+module.exports = { erinnerungsLauf, faelligeErinnerungen, baueErinnerungsText, istAktiv, smsKonfiguriert, schwelle };
