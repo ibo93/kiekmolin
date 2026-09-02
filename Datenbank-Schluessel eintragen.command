@@ -18,6 +18,11 @@ ENV="telefon-retter/.env"
 SERVER="root@31.70.133.55"
 ZIEL="/opt/kiekmolin/telefon-retter/.env"
 
+# An welchem Supabase-Projekt haengt der Assistent? Steht im Code, damit
+# das Programm den Schluessel dagegen pruefen kann - siehe unten.
+PROJEKT=$(grep -oE "STANDARD_URL[[:space:]]*=[[:space:]]*'[^']+'" telefon-retter/lib/supabase.js \
+          | sed -E "s|.*https://([a-z0-9]+)\.supabase\.co.*|\1|")
+
 print -P "%F{cyan}"
 cat <<'KOPF'
   ┌────────────────────────────────────────────┐
@@ -44,6 +49,10 @@ echo "  Wo du ihn findest:"
 echo "    Supabase → Project Settings → API Keys → service_role"
 echo "    (steht unter 'Reveal', ist rund 200 Zeichen lang)"
 echo ""
+print -P "  %F{yellow}Achtung, du hast mehrere Projekte.%f Gebraucht wird dieses:"
+echo "    $PROJEKT"
+echo "  Pruef die Adresszeile im Browser - dort muss diese Kennung stehen."
+echo ""
 echo "  Einfuegen (Cmd+V) und Enter. Die Eingabe bleibt unsichtbar."
 echo ""
 printf "  Schluessel: "
@@ -59,16 +68,35 @@ fi
 # --- Ist das ueberhaupt der richtige Schluessel? ---------------
 #     Ein anon-Key sieht fast gleich aus. Wer ihn hier eintraegt,
 #     aendert nichts und sucht dann lange nach dem Grund.
-ROLLE=$(python3 - "$NEU" <<'PYEOF'
+LESUNG=$(python3 - "$NEU" <<'PYEOF'
 import sys, base64, json
 try:
     teil = sys.argv[1].split('.')[1]
     teil += '=' * (-len(teil) % 4)
-    print(json.loads(base64.urlsafe_b64decode(teil)).get('role', '?'))
+    d = json.loads(base64.urlsafe_b64decode(teil))
+    print((d.get('role') or '?') + ' ' + (d.get('ref') or '?'))
 except Exception:
-    print('unlesbar')
+    print('unlesbar ?')
 PYEOF
 )
+ROLLE=${LESUNG%% *}
+SCHLUESSEL_PROJEKT=${LESUNG##* }
+
+# Die Rolle allein reicht nicht: Ein service_role-Schluessel aus einem
+# ANDEREN Projekt sieht voellig richtig aus, oeffnet aber die falsche
+# Datenbank - und laesst die richtige weiter im Dunkeln. Genau das ist
+# beim ersten Versuch passiert.
+if [ -n "$PROJEKT" ] && [ "$SCHLUESSEL_PROJEKT" != "?" ] && [ "$SCHLUESSEL_PROJEKT" != "$PROJEKT" ]; then
+  echo ""
+  print -P "  %F{red}Das ist der Schluessel eines anderen Projekts.%f"
+  echo "    Eingefuegt:  $SCHLUESSEL_PROJEKT"
+  echo "    Gebraucht:   $PROJEKT"
+  echo ""
+  echo "  Wechsle im Supabase-Dashboard oben links das Projekt und hol"
+  echo "  den Schluessel dort. Nichts geaendert."
+  echo ""
+  read "?  [Enter] zum Schliessen"; exit 1
+fi
 
 if [ "$ROLLE" = "anon" ]; then
   print -P "  %F{red}Das ist der oeffentliche Schluessel (anon), nicht der Dienstschluessel.%f"
