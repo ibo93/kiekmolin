@@ -52,6 +52,24 @@ function waehlbar(nummer) {
    Der Rahmen. Bewusst mit Tabellen und Inline-Stilen: Mailprogramme
    werfen <style>-Bloecke weg, und Outlook kann kein flexbox.
    --------------------------------------------------------------- */
+/* Die Fusszeile ist die einzige Werbeflaeche, die taeglich bei Wirten landet -
+   und zwar in einer Mail, die sie ohnehin oeffnen. Deshalb: dezent, zwei
+   Zeilen, kein Banner. Wer eine Reservierungsmeldung liest, will keinen
+   Prospekt; wer aber gerade merkt, dass der Assistent ihm Arbeit abnimmt,
+   schaut eher, was es sonst noch gibt.
+
+   Abschaltbar ueber MAIL_WERBUNG=0 - bei einem Kunden, der Kiek mol in
+   schon nutzt, waere der erste Hinweis nur Rauschen. */
+function eigenwerbung(zeigen) {
+  if (!zeigen) return '';
+  return '<div style="margin-top:12px;line-height:1.7">'
+    + '<a href="https://kiekmolin.de" style="color:#1f7a3d;text-decoration:none">Kiek mol in</a>'
+    + ' <span style="color:#b0b0b0">·</span> Bestellungen und Tischreservierung online<br>'
+    + '<a href="https://instagram.com/kurani_design" style="color:#1f7a3d;text-decoration:none">Kurani Design</a>'
+    + ' <span style="color:#b0b0b0">·</span> Schilder, Speisekarten, Fahrzeugbeschriftung'
+    + '</div>';
+}
+
 function rahmen(inhalt, fuss) {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f2">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f2;padding:24px 12px">
@@ -62,7 +80,8 @@ function rahmen(inhalt, fuss) {
               color:#1a1a1a">
 ${inhalt}
 ${fuss ? `<tr><td style="padding:14px 26px 22px;border-top:1px solid #ececec;
-        font-size:12px;line-height:1.6;color:#8a8a8a">${fuss}</td></tr>` : ''}
+        font-size:12px;line-height:1.6;color:#8a8a8a">${fuss}${
+          eigenwerbung(process.env.MAIL_WERBUNG !== '0')}</td></tr>` : ''}
 </table>
 </td></tr></table>
 </body></html>`;
