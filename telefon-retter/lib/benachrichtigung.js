@@ -34,7 +34,10 @@ async function smsAn(nummer, text) {
   }
 }
 
-async function mailAn(adresse, betreff, text) {
+/* Mit html kommt eine gestaltete Fassung an, ohne bleibt es beim reinen
+   Text. Beides zusammen ist Absicht: Wer in einem Textprogramm liest oder
+   HTML abgeschaltet hat, saehe sonst eine leere Nachricht. */
+async function mailAn(adresse, betreff, text, html) {
   const key = process.env.RESEND_API_KEY;
   const von = process.env.EMAIL_FROM;
   if (!key || !von) return { ok: false, grund: 'E-Mail nicht eingerichtet (RESEND_API_KEY/EMAIL_FROM fehlt)' };
@@ -44,7 +47,11 @@ async function mailAn(adresse, betreff, text) {
       signal: AbortSignal.timeout(15000),
       headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: von, to: [adresse], subject: betreff, text: text
+        from: von, to: [adresse], subject: betreff, text: text,
+        ...(html ? { html: html } : {}),
+        /* Antwortet der Wirt auf die Meldung, soll das nicht in einem
+           Postfach landen, das es nicht gibt. */
+        ...(process.env.EMAIL_ANTWORT_AN ? { reply_to: process.env.EMAIL_ANTWORT_AN } : {})
       })
     });
     if (!antwort.ok) return { ok: false, grund: 'Resend ' + antwort.status };
@@ -56,10 +63,10 @@ async function mailAn(adresse, betreff, text) {
 
 // Schickt an alle hinterlegten Wege und meldet zurueck, was geklappt hat.
 // Ein fehlender Weg ist kein Fehler - nur ein Hinweis im Protokoll.
-async function melde({ sms, email }, betreff, text) {
+async function melde({ sms, email }, betreff, text, html) {
   const ergebnisse = [];
   if (sms) ergebnisse.push(Object.assign({ weg: 'SMS an ' + sms }, await smsAn(sms, text)));
-  if (email) ergebnisse.push(Object.assign({ weg: 'E-Mail an ' + email }, await mailAn(email, betreff, text)));
+  if (email) ergebnisse.push(Object.assign({ weg: 'E-Mail an ' + email }, await mailAn(email, betreff, text, html)));
   if (!ergebnisse.length) {
     return { ok: false, wege: [], grund: 'Kein Benachrichtigungsweg hinterlegt (sms/email in der Kundendatei)' };
   }

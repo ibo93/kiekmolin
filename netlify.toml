@@ -213,6 +213,13 @@
 [functions."reservation-reminder"]
   schedule = "25 * * * *"
 
+# Bewertungs-Nachfass per E-Mail: stuendlich, sendet aber nur 11-19 Uhr.
+# Ergaenzt review-push (der erreicht nur die 36 Geraete mit Push-Erlaubnis
+# und kennt nur Bestellungen). Hier kommen vor allem die Reservierungen
+# dazu - die groesste bisher ungenutzte Quelle.
+[functions."review-mail"]
+  schedule = "45 * * * *"
+
 # Wochenreport: montags 06:30 UTC (= 08:30 Sommer dt. Zeit) -- ganze Vorwoche
 # (Umsatz vs. Woche davor, staerkster Tag, Top-5-Gerichte) an jeden Gastronomen.
 [functions."weekly-report"]

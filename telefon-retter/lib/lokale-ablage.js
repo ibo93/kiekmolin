@@ -78,8 +78,8 @@ function baueAblage(kunde, log) {
 
   // Nach dem Speichern den Wirt informieren - im Hintergrund, damit das
   // Gespraech nicht auf die SMS warten muss.
-  const informiere = (betreff, text) => {
-    melde(melden, betreff, text)
+  const informiere = (betreff, text, html) => {
+    melde(melden, betreff, text, html)
       .then((e) => {
         if (e.ok) sagen('Wirt benachrichtigt (' + e.wege.filter((w) => w.ok).map((w) => w.weg).join(', ') + ')');
         else sagen('ACHTUNG: Wirt NICHT benachrichtigt - ' + (e.grund || e.wege.map((w) => w.weg + ': ' + w.grund).join('; ')));
@@ -119,8 +119,20 @@ function baueAblage(kunde, log) {
       } catch (e) {
         return { ok: false, status: 0, text: 'Konnte nicht speichern: ' + e.message };
       }
+      /* Der Wirt liest das auf dem Handy, meist im Stehen. Drei Dinge muss
+         er in einer Sekunde sehen: wann, wie viele, wer. Die Textfassung
+         bleibt als Rueckfall darunter. */
+      const vorlage = require('./mail-vorlage').reservierung({
+        betrieb: kunde.name || slug,
+        name: payload.guest_name,
+        telefon: payload.guest_phone,
+        datum: payload.reservation_date,
+        zeit: payload.reservation_time,
+        personen: payload.party_size,
+        hinweise: payload.notes && String(payload.notes).replace(/^\[Telefon\]\s*/, '')
+      });
       informiere(
-        'Neue Reservierung: ' + (payload.guest_name || 'Gast'),
+        vorlage.betreff,
         [
           'Neue Reservierung fuer ' + (kunde.name || slug) + ':',
           '',
@@ -132,7 +144,8 @@ function baueAblage(kunde, log) {
           payload.notes ? 'Hinweise: ' + payload.notes : '',
           '',
           'Aufgenommen vom Telefon-Assistenten.'
-        ].filter(Boolean).join('\n')
+        ].filter(Boolean).join('\n'),
+        vorlage.html
       );
       return { ok: true, daten: { id: eintrag.zeit } };
     },
