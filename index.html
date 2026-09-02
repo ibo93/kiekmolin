@@ -60030,6 +60030,11 @@ function loadOrderSettings() {
         var minServer = Number(restaurant.min_order_value) || 0;
         var minLokal  = parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0') || 0;
         minOrderEl.value = minServer;
+        // Festhalten, was in der Datenbank steht. Ohne das haelt der
+        // erste blur den DB-Wert fuer eine Aenderung und schreibt ihn
+        // noch einmal -- genau der Doppelschuss, der den Wert
+        // zurueckfallen liess.
+        if (typeof minStandMerken === 'function') minStandMerken(restId, minServer);
         if (minWarnEl) {
             var abweichung = minLokal > 0 && minLokal !== minServer;
             minWarnEl.style.display = abweichung ? 'block' : 'none';
@@ -60440,11 +60445,67 @@ window.savePrepMinutes = savePrepMinutes;
 //
 // Noch so ein stiller Ausfall: nichts passiert, und nichts sagt es.
 // onblur feuert auch ohne Aenderung -- einmal wegtippen genuegt jetzt.
+// UND WARUM DAS ONBLUR ALLEIN NICHT REICHTE.
+//
+// Gemeldet am 02.09.2026: "hab es geaendert es geht wieder auf 0 EUR
+// wieder".
+//
+// Nachgemessen in den Edge-Protokollen: jede Aenderung schickte ZWEI
+// PATCH auf restaurants, ein bis zwei Sekunden auseinander --
+// 19:44:20.338 und 19:44:22.119, 13:50:24 / :25 / :27 sogar drei, und
+// von seinem Handy um 16:29:07.999 und 16:29:09.350. Nie einer.
+//
+// Woher der zweite kam: die Knoepfe "Kein / 10 / 15 / 20" liegen neben
+// dem Feld. Ein Mausklick nimmt dem Feld ZUERST den Fokus -- blur
+// feuert also, BEVOR der Knopf seinen Wert setzt. Der Browser schickt
+// damit erst den ALTEN Wert los und gleich danach den neuen. Zwei
+// Schreibvorgaenge, die um dieselbe Zeile rennen.
+//
+// Und Anfragen kommen nicht in der Reihenfolge an, in der sie losgehen.
+// Ueberholt die erste die zweite, steht am Ende der alte Wert in der
+// Datenbank. Bei ihm also die 0. Nichts meldet einen Fehler -- beide
+// Anfragen antworten mit 204, "gespeichert" erscheint. Wieder ein
+// stiller Ausfall.
+//
+// Drei Sachen dagegen:
+//   1. Ein leeres Feld ist keine 0, sondern gar keine Angabe -> nicht
+//      schreiben. parseFloat('') ist NaN, und "|| 0" machte daraus
+//      klammheimlich eine Null.
+//   2. Was schon in der Datenbank steht, wird nicht noch einmal
+//      geschrieben -- damit faellt der blur-Schuss mit dem alten Wert
+//      weg, denn der alte Wert IST der gespeicherte.
+//   3. Die Schreibvorgaenge laufen hintereinander, nicht nebeneinander.
+//      Dann kann keiner den anderen ueberholen.
+var _minKette = Promise.resolve();   // haelt die Schreibvorgaenge in der Reihe
+var _minStand = {};                  // restId -> was zuletzt bestaetigt in der DB steht
+
+// Damit Punkt 2 greift, muss beim Laden bekannt sein, was in der
+// Datenbank steht. Sonst haelt der erste blur den DB-Wert faelschlich
+// fuer neu und schreibt ihn noch einmal.
+function minStandMerken(restId, wert) { if (restId) _minStand[restId] = Number(wert) || 0; }
+window.minStandMerken = minStandMerken;
+
 async function saveMinOrderValue() {
-    var minOrder = parseFloat(document.getElementById('settingMinOrder')?.value) || 0;
+    var _minEl = document.getElementById('settingMinOrder');
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
 
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
+
+    // 1. Leeres Feld: keine Angabe, keine Null.
+    var _roh = _minEl ? String(_minEl.value).trim() : '';
+    if (_roh === '') {
+        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        return;
+    }
+    var minOrder = parseFloat(_roh);
+    if (!isFinite(minOrder) || minOrder < 0) {
+        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        return;
+    }
+
+    // 2. Steht schon so in der Datenbank -> nichts zu tun. Das ist der
+    //    blur-Schuss mit dem alten Wert.
+    if (_minStand[restId] === minOrder) return;
 
     // In localStorage speichern (funktioniert immer)
     localStorage.setItem('kin_min_order_' + restId, minOrder);
@@ -60461,12 +60522,22 @@ async function saveMinOrderValue() {
     // Versuche in Supabase zu speichern
     // Erfolg prüfen: sonst meldet das Dashboard "gespeichert", obwohl der Wert
     // nur lokal steht und beim nächsten Gerät/Neuladen wieder weg ist.
-    try {
-        var _minRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+    // 3. In die Reihe stellen. Wer zuerst gerufen wurde, schreibt zuerst
+    //    -- und der Letzte gewinnt, so wie man es erwartet. Vorher liefen
+    //    beide gleichzeitig und der Zufall entschied.
+    var _minFertig = _minKette.then(function () {
+        return fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ min_order_value: minOrder })
         });
+    });
+    // Die Kette darf nie abreissen: ein Fehler hier wuerde sonst jedes
+    // weitere Speichern fuer immer blockieren.
+    _minKette = _minFertig.catch(function () {});
+
+    try {
+        var _minRes = await _minFertig;
         if (!_minRes.ok) {
             showToast('Nur auf diesem Gerät gespeichert – Server meldet Fehler ' + _minRes.status, 'warning');
             return;
@@ -60475,6 +60546,9 @@ async function saveMinOrderValue() {
         showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
         return;
     }
+
+    // Erst JETZT gilt der Wert als in der Datenbank angekommen.
+    minStandMerken(restId, minOrder);
 
     // Jetzt steht in der Datenbank dasselbe wie im Browser -- die
     // Warnung hat sich erledigt. Bleibt sie stehen, glaubt ihr niemand
