@@ -144,9 +144,18 @@ const server = http.createServer((req, res) => {
        in nummern.json eine ID, fand sie keinen Treffer und meldete
        faelschlich "Der Assistent kennt diesen Betrieb nicht". */
     const betriebe = [...kontexte.entries()].map(([id, k]) => ({ id, name: k.restaurant.name }));
+    /* Kann ueberhaupt jemand benachrichtigt werden? Ohne Absender-Nummer bzw.
+       Mail-Schluessel wird eine Reservierung zwar gespeichert, der Wirt erfaehrt
+       aber nichts davon - und der Gast steht vor einem belegten Tisch. Die
+       Wache soll das melden koennen, statt dass es erst bei der Beschwerde
+       auffaellt. */
+    const versand = {
+      sms: !!process.env.TWILIO_SMS_VON,
+      email: !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM)
+    };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, restaurant: namen.join(', '), restaurants: namen,
-                             betriebe, stufe: STUFE }));
+                             betriebe, versand, stufe: STUFE }));
     return;
   }
 

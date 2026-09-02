@@ -2196,7 +2196,13 @@ const server = http.createServer(async (req, res) => {
         const liste = tk.listeKunden().map((k) => ({
           name: k.name || k.betrieb || k.restaurant || k.nummer,
           nummer: k.nummer,
-          stufe: k.stufe
+          stufe: k.stufe,
+          art: k.art,
+          /* listeKunden prueft schon, ob ein Meldeweg hinterlegt ist, und
+             legt das Ergebnis in .problem ab. Nicht noch einmal pruefen -
+             sonst laufen zwei Meinungen darueber auseinander. */
+          melden: k.melden,
+          problem: k.problem
         }));
         /* Die Gespraechsprotokolle mitgeben - die Wache ordnet sie den
            Betrieben zu. Nur die letzten 60: mehr braucht keine Uebersicht,

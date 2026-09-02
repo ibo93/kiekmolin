@@ -104,6 +104,7 @@ async function einmalFragen(basisUrl, msFrist) {
          bleibt die Liste leer und die Zuordnung faellt still aus, statt
          falsch zu warnen. */
       mitKennung: Array.isArray(d.betriebe) ? d.betriebe : [],
+      versand: d.versand || null,
       stufe: d.stufe
     };
   } catch (e) {
@@ -161,6 +162,19 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokol
     });
   }
 
+  /* Reservierungen werden gespeichert - aber erfaehrt der Wirt davon?
+     Ohne Versandweg laeuft der Assistent scheinbar sauber, und der Gast
+     steht am Abend vor einem Tisch, von dem niemand wusste. Das ist der
+     teuerste stille Fehler im ganzen System. */
+  if (az.erreichbar && az.versand && !az.versand.sms && !az.versand.email) {
+    ergebnis.gesamt.warnungen.push({
+      schwere: 'schwer',
+      text: 'Es kann niemand benachrichtigt werden - weder SMS noch E-Mail sind '
+          + 'eingerichtet. Reservierungen werden gespeichert, aber kein Wirt '
+          + 'erfaehrt davon.'
+    });
+  }
+
   /* --- Guthaben und Anrufe von Twilio --- */
   let anrufe = [];
   let nummern = [];
@@ -210,6 +224,8 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokol
       text: 'BASE_URL fehlt - die Webhooks lassen sich nicht pruefen.'
     });
   }
+
+  const schwerImGesamten = ergebnis.gesamt.warnungen.some((w) => w.schwere === 'schwer');
 
   for (const k of (kunden || [])) {
     const seine = anrufe.filter((a) => gleicheNummer(a.an, k.nummer));
@@ -264,6 +280,14 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokol
       });
     }
 
+    /* Fehlt der Empfaenger, geht die Reservierung ins Leere - auch wenn der
+       Versand insgesamt eingerichtet ist. Das Urteil faellt schon die
+       Kundenliste (.problem); hier wird es nur weitergereicht, damit nicht
+       zwei Stellen unterschiedlich darueber denken. */
+    if (k.problem) {
+      warnungen.push({ schwere: 'schwer', text: String(k.problem) });
+    }
+
     /* Kein Anruf seit ueber einer Woche ist bei einem Restaurant
        ungewoehnlich - meist stimmt dann die Umleitung nicht mehr. */
     const stunden = letzter ? stundenSeit(letzter.zeit, nun) : null;
@@ -306,7 +330,12 @@ async function wache({ sid, token, telefonUrl, oeffentlicheUrl, kunden, protokol
       /* Fuer die Tageskurve: welche Stunde wie viele Anrufe. */
       stunden: verteilungNachStunde(seine),
       warnungen,
-      ampel: !az.erreichbar || warnungen.some((w) => w.schwere === 'schwer') ? 'rot'
+      /* Eine schwere Stoerung im Gesamtsystem trifft jeden Betrieb - kein
+         Versandweg heisst bei ALLEN, dass der Wirt nichts erfaehrt. Solche
+         Faelle duerfen nicht gruen bleiben, nur weil beim einzelnen Betrieb
+         nichts Eigenes vorliegt. */
+      ampel: !az.erreichbar || schwerImGesamten
+             || warnungen.some((w) => w.schwere === 'schwer') ? 'rot'
            : warnungen.some((w) => w.schwere === 'mittel') ? 'gelb' : 'gruen'
     });
   }
