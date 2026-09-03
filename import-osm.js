@@ -344,7 +344,27 @@ async function main() {
   const imported = [];
   const gescheitert = [];
 
+  /* Gesamt-Zeitlimit. Bisher hatte nur die EINZELNE Abfrage eine Grenze
+     (90 Sekunden), der Lauf als Ganzes nicht. Bei 45 Gebieten sind das im
+     schlechtesten Fall ueber eine Stunde - und genau daran ist der
+     Netlify-Bau am 02.09.2026 gescheitert ("Command did not finish within
+     the time limit"). Die Seite blieb dann auf dem alten Stand stehen,
+     ohne dass jemand es merkte.
+
+     Nach dieser Zeit wird abgebrochen und mit dem gearbeitet, was schon da
+     ist. Ein paar Betriebe weniger sind besser als eine Seite, die gar
+     nicht neu gebaut wird. Ueber OSM_ZEITLIMIT_S anpassbar. */
+  const ZEITLIMIT_MS = (parseInt(process.env.OSM_ZEITLIMIT_S || '420', 10) || 420) * 1000;
+  const beginn = Date.now();
+  let abgebrochen = false;
+
   for (const city of CITIES) {
+    if (Date.now() - beginn > ZEITLIMIT_MS) {
+      abgebrochen = true;
+      console.log('[osm] Zeitlimit von ' + Math.round(ZEITLIMIT_MS / 1000) + 's erreicht - '
+        + 'die restlichen Gebiete bleiben beim letzten Stand.');
+      break;
+    }
     try {
       process.stdout.write('[osm] ' + city.name + ' ... ');
       const elements = await fetchCity(city);
@@ -385,16 +405,50 @@ async function main() {
     return;
   }
 
-  const out = keep.concat(imported);
+  let out = keep.concat(imported);
+
+  /* Beim Zeitlimit wurden nicht alle Gebiete abgefragt. Wuerde jetzt nur das
+     Geholte geschrieben, verschwaenden alle Betriebe der uebersprungenen
+     Gebiete aus der Datei - beim Test blieben von 1643 noch 221 uebrig.
+     Also: alles behalten, was vorher schon dastand und diesmal nicht
+     wiedergekommen ist. Die Meldung "bleiben beim letzten Stand" soll auch
+     stimmen. */
+  if (abgebrochen) {
+    let vorher = [];
+    try {
+      vorher = JSON.parse(fs.readFileSync(OUT_FILE, 'utf8'));
+      if (!Array.isArray(vorher)) vorher = [];
+    } catch (_e) { vorher = []; }
+
+    const bekannt = new Set(out.map(function (p) { return slugFor(p.name, p.city); }));
+    let uebernommen = 0;
+    for (const alt of vorher) {
+      const slug = slugFor(alt && alt.name, alt && alt.city);
+      if (!slug || bekannt.has(slug)) continue;
+      bekannt.add(slug);
+      out.push(alt);
+      uebernommen++;
+    }
+    if (uebernommen) {
+      console.log('[osm] ' + uebernommen + ' Betriebe aus dem letzten Lauf uebernommen '
+        + '(Gebiete, die diesmal nicht mehr drankamen).');
+    }
+  }
+
   fs.writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n', 'utf8');
   if (gescheitert.length) {
     console.log('[osm] WARNUNG: ' + gescheitert.length + ' von ' + CITIES.length +
       ' Gebieten sind gescheitert - diese Betriebe fehlen. Import spaeter wiederholen.');
   }
   console.log('[osm] Quelle: (c) OpenStreetMap-Mitwirkende (ODbL).');
-  console.log('[osm] Fertig: ' + imported.length + ' Betriebe aus ' +
-    (CITIES.length - gescheitert.length) + ' von ' + CITIES.length + ' Gebieten + ' +
-    keep.length + ' von Hand gepflegte = ' + out.length + ' gesamt.');
+  /* Die Zahl der frisch geholten sagt nach einem Abbruch wenig - entscheidend
+     ist, was am Ende in der Datei steht. Sonst liest man "130 Betriebe" und
+     denkt, 1500 seien verloren. */
+  console.log('[osm] Fertig: ' + out.length + ' Betriebe in prospects.json'
+    + ' (' + imported.length + ' diesmal geholt aus '
+    + (abgebrochen ? 'einem Teil der ' : (CITIES.length - gescheitert.length) + ' von ')
+    + CITIES.length + ' Gebieten, ' + keep.length + ' von Hand gepflegt'
+    + (abgebrochen ? ', Rest vom letzten Lauf' : '') + ').');
 }
 
 main().catch(function(err) {
