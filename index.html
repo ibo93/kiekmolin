@@ -50111,6 +50111,23 @@ function openItemOptions(itemId, item) {
         optionsHtml += '<div class="option-group"><div class="option-group-header"><div class="option-group-title">' + (_t.remarks || 'Anmerkungen') + '</div></div><textarea class="form-textarea" id="itemNotes" placeholder="' + (_t.specialWishes || 'Besondere Wünsche (z.B. gut durch, extra scharf)') + '" aria-label="Anmerkung zum Gericht"></textarea></div>';
 
         body.innerHTML = optionsHtml;
+
+        // Die erste Groesse ist beim Oeffnen vorausgewaehlt -- dann
+        // muessen auch gleich die passenden Extras dastehen, nicht erst
+        // nachdem der Gast einmal getippt hat. Sonst sieht er beim
+        // Aufmachen beide Listen und das Ganze waere nur halb repariert.
+        if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0) {
+            extrasZurGroesse(item.sizes[0].name || '');
+        } else {
+            // Ohne Groessen ergibt eine an eine Groesse gebundene Gruppe
+            // keinen Sinn -- sie waere sonst nie zu sehen und nie
+            // erklaerbar. Also alle zeigen.
+            extrasZurGroesse(null);
+            Array.prototype.forEach.call(
+                document.querySelectorAll('#itemOptionsBody .option-group[data-fuer-groesse]'),
+                function (k) { k.style.display = ''; });
+        }
+
         updateItemTotalPrice();
     });
 }
@@ -50410,7 +50427,16 @@ function renderOptionGroupsHtml(groups, basePrice) {
         // der man sowieso genau eines nimmt.
         var maxWahl = (group.type === 'multi') ? (parseInt(group.max_selections, 10) || 0) : 0;
 
+        // AN WELCHE GROESSE DIESE GRUPPE GEBUNDEN IST.
+        //
+        // Leer heisst: gilt fuer alle. Alle Gruppen, die es vor dem
+        // 03.09.2026 gab, sind leer und verhalten sich damit genau wie
+        // vorher -- es aendert sich erst etwas, wenn im Dashboard eine
+        // Groesse eingetragen wird.
+        var fuerGroesse = (group.size_name || '').trim();
+
         html += '<div class="option-group" data-gruppe="' + group.id + '"'
+              + (fuerGroesse ? ' data-fuer-groesse="' + fuerGroesse.replace(/"/g, '&quot;') + '"' : '')
               + (maxWahl > 0 ? ' data-max="' + maxWahl + '"' : '') + '>';
         html += '<div class="option-group-header">';
         html += '<div class="option-group-title">' + group.name + '</div>';
@@ -50487,8 +50513,63 @@ function selectOption(el, group, option, price, priceType) {
     currentItemOptions = currentItemOptions.filter(o => o.group !== group);
     currentItemOptions.push({ group, option, price, price_type: priceType });
 
+    // Wechselt die Groesse, wechseln die Extras mit.
+    if (group === 'item_sizes') extrasZurGroesse(option);
+
     updateItemTotalPrice();
 }
+
+// EXTRAS, DIE ZUR GEWAEHLTEN GROESSE GEHOEREN.
+//
+// Gemeldet am 03.09.2026 mit zwei Bildern der Bestellseite: bei der
+// Pizza Margherita standen ZWEI Extra-Listen untereinander --
+// "Extra Zutaten" (je 1,50) und "Extra Zutaten kleine Pizza" (je 1,00),
+// beide gleichzeitig, egal was gewaehlt war. Der Gast konnte also zur
+// grossen Pizza die Zutaten zum Kleinpreis anklicken.
+//
+// Ibo: "ich will wenn ich klein oder gross waehle so muessen die extra
+// zutaten kommen".
+//
+// Welche Gruppe zu welcher Groesse gehoert, steht seit dem in der
+// Spalte size_name (siehe datenbank/23-groessen-extras.sql) -- nicht im
+// Namen geraten. Gruppen ohne Eintrag gelten weiter fuer alle.
+//
+// WICHTIG ist der zweite Teil: eine Gruppe nur auszublenden reicht
+// nicht. Kreuzt der Gast bei "klein" etwas an und schaltet dann auf
+// "gross", faehrt das angekreuzte Extra unsichtbar mit in den Warenkorb
+// -- zum falschen Preis, und niemand sieht es. Genau der stille Ausfall
+// aus Regel 6. Deshalb wird beim Ausblenden auch abgewaehlt.
+function extrasZurGroesse(groesse) {
+    var gewaehlt = String(groesse || '').trim().toLowerCase();
+    var kaesten = document.querySelectorAll('.option-group[data-fuer-groesse]');
+    if (!kaesten.length) return;
+
+    Array.prototype.forEach.call(kaesten, function (kasten) {
+        var gehoertZu = (kasten.getAttribute('data-fuer-groesse') || '').trim().toLowerCase();
+        var passt = !gehoertZu || gehoertZu === gewaehlt;
+
+        kasten.style.display = passt ? '' : 'none';
+        if (passt) return;
+
+        // Nicht mehr sichtbar -> auch nicht mehr gewaehlt.
+        var gid = kasten.getAttribute('data-gruppe');
+        if (gid) {
+            currentItemOptions = currentItemOptions.filter(function (o) {
+                return String(o.group) !== String(gid);
+            });
+        }
+        Array.prototype.forEach.call(kasten.querySelectorAll('.option-item.selected'), function (zeile) {
+            zeile.classList.remove('selected');
+            // Der Mengenzaehler haengt an der Zeile und muss mit zurueck,
+            // sonst steht dort beim naechsten Hinschauen noch "2x" --
+            // dieselbe Zeile wie in toggleExtra.
+            var a = zeile.querySelector('.extra-anzahl');
+            if (a) a.textContent = '1';
+        });
+        if (gid && typeof frischeGruppenZaehler === 'function') frischeGruppenZaehler(gid);
+    });
+}
+window.extrasZurGroesse = extrasZurGroesse;
 
 // HOECHSTZAHL PRO GRUPPE
 //
@@ -51021,6 +51102,10 @@ function openCreateOptionGroupModal() {
         '<input type="text" id="ogScope" placeholder="z.B. Pizza, Pasta, Salate (leer = alle Gerichte)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Komma-getrennte Kategorienamen. Leer lassen = gilt für alle Gerichte.</p></div>' +
 
+'<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Gilt nur f\u00fcr Gr\u00f6\u00dfe (leer = alle)</label>' +
+        '<input type="text" id="ogSize" value="" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Genau so schreiben wie die Gr\u00f6\u00dfe beim Gericht hei\u00dft \u2014 z.B. <b>klein</b>. Dann erscheint diese Gruppe nur, wenn der Gast klein w\u00e4hlt. Leer = immer sichtbar.</p></div>' +
+
         '<div id="ogChoicesContainer"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:8px;">Optionen</label>' +
         '<div id="ogChoicesList"></div>' +
         '<button onclick="addOptionChoiceRow()" type="button" style="margin-top:8px;padding:8px 16px;background:var(--bg-secondary);color:var(--primary);border:1.5px dashed var(--primary);border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">+ Option hinzufügen</button></div>' +
@@ -51057,6 +51142,10 @@ async function saveOptionGroup(editId) {
     var type = document.getElementById('ogType').value;
     var required = document.getElementById('ogRequired').value;
     var scope = document.getElementById('ogScope').value.trim();
+    // Leer heisst ausdruecklich NULL, nicht "" -- sonst gilt die Gruppe
+    // nur noch fuer eine Groesse namens Leerstring, also nie.
+    var _sizeEl = document.getElementById('ogSize');
+    var groesse = _sizeEl ? _sizeEl.value.trim() : '';
     if (!name) { showToast('Bitte Gruppenname eingeben', 'error'); return; }
 
     var internalName = scope ? 'cats:' + scope : null;
@@ -51064,6 +51153,7 @@ async function saveOptionGroup(editId) {
         restaurant_id: restId,
         name: name,
         internal_name: internalName,
+        size_name: groesse || null,
         selection_type: type,
         min_selections: parseInt(required),
         // Bei Einzelauswahl ist eins die Natur der Sache. Bei Mehrfachauswahl
@@ -51079,18 +51169,41 @@ async function saveOptionGroup(editId) {
             url += '?id=eq.' + editId;
             method = 'PATCH';
         }
-        var res = await fetch(url, {
-            method: method,
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken(),
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(groupData)
-        });
+        var _kopf = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + kmiToken(),
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        };
+        var res = await fetch(url, { method: method, headers: _kopf, body: JSON.stringify(groupData) });
         var saved = [];
         try { saved = await res.json(); } catch (e) {}
+
+        // SOLANGE DIE SPALTE size_name NOCH NICHT DA IST.
+        //
+        // size_name kam am 03.09.2026 dazu (datenbank/23-groessen-extras.sql).
+        // Wird die Datei nicht eingespielt, lehnt PostgREST JEDES Speichern
+        // einer Optionsgruppe ab -- auch das, was mit Groessen gar nichts zu
+        // tun hat. Der Wirt koennte dann keine Extras mehr anlegen, und die
+        // Meldung haette ihm nichts gesagt.
+        //
+        // Also: einmal ohne das Feld nachfassen, damit der Rest gespeichert
+        // wird -- und ihm SAGEN, was fehlt. Nicht stillschweigend weglassen,
+        // sonst traegt er die Groesse ein, es passiert nichts, und niemand
+        // erfaehrt warum (Regel 6).
+        var _meldung = (saved && !Array.isArray(saved))
+            ? String(saved.message || '') + ' ' + String(saved.details || '')
+            : '';
+        if (!res.ok && /size_name/.test(_meldung)) {
+            delete groupData.size_name;
+            res = await fetch(url, { method: method, headers: _kopf, body: JSON.stringify(groupData) });
+            saved = [];
+            try { saved = await res.json(); } catch (e) {}
+            if (res.ok) {
+                showToast('Gespeichert — aber OHNE die Größe. In Supabase fehlt noch '
+                        + 'datenbank/23-groessen-extras.sql.', 'warning');
+            }
+        }
 
         // HIER STAND: var groupId = editId || (saved[0] ? saved[0].id : null);
         //
@@ -51216,6 +51329,10 @@ async function openEditOptionGroupModal(groupId) {
             '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Gilt für Kategorien (leer = alle)</label>' +
             '<input type="text" id="ogScope" value="' + scopeText.replace(/"/g, '&quot;') + '" placeholder="z.B. Pizza, Pasta, Salate" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
             '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Komma-getrennte Kategorienamen. Leer lassen = gilt für alle Gerichte.</p></div>' +
+
+'<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Gilt nur f\u00fcr Gr\u00f6\u00dfe (leer = alle)</label>' +
+            '<input type="text" id="ogSize" value="' + (g.size_name || '').replace(/"/g, '&quot;') + '" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+            '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Genau so schreiben wie die Gr\u00f6\u00dfe beim Gericht hei\u00dft \u2014 z.B. <b>klein</b>. Dann erscheint diese Gruppe nur, wenn der Gast klein w\u00e4hlt. Leer = immer sichtbar.</p></div>' +
 
             '<div id="ogChoicesContainer"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:8px;">Optionen</label>' +
             '<div id="ogChoicesList"></div>' +
