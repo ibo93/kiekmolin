@@ -163,8 +163,23 @@ console.log('\n-- Spalten, die es nachweislich nicht gibt --');
 // Telefon-Bestellungen im Agentur-Bericht waren nie zaehlbar.
 var path = require('path');
 var VERBOTEN = [
-    { tabelle: 'menu_items', spalte: 'price', richtig: 'base_price' }
+    { tabelle: 'menu_items', spalte: 'price',         richtig: 'base_price' },
+    // Dritter Anlauf bei reviews. Erst stand dort author_name, dann
+    // customer_name -- beide gibt es nicht:
+    //     42703  column reviews.customer_name does not exist  (24 mal)
+    // Der richtige Name steht dort, wo die App die Bewertung ANLEGT:
+    // user_name, daneben user_id und user_avatar.
+    { tabelle: 'reviews',    spalte: 'customer_name', richtig: 'user_name' },
+    { tabelle: 'reviews',    spalte: 'author_name',   richtig: 'user_name' }
 ];
+
+// Und die Gegenprobe: der richtige Name muss auch wirklich benutzt
+// werden. Sonst waere der Test auch dann gruen, wenn jemand die
+// Bewertungen einfach ganz weglaesst.
+var seo = fs.readFileSync(path.join(KMI, 'build-seo-pages.js'), 'utf8');
+t('die SEO-Seiten holen den Namen als user_name',
+  /select=rating,title,comment,user_name,created_at/.test(seo), 'anderer Name');
+t('und lesen ihn auch so aus', /rv\.user_name/.test(seo), 'liest etwas anderes');
 
 // UND DER FALL, DER ANDERS LIEGT: orders.source.
 //

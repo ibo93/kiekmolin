@@ -23,6 +23,7 @@ var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.sup
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
+var nurText = require('./lib/nur-text').nurText;
 
 function sbHeaders(extra) {
     return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }, extra || {});
@@ -52,7 +53,11 @@ async function sendMail(to, subject, html) {
     var res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject, html: html })
+        // Mit Textfassung -- siehe lib/nur-text.js. Diese Erinnerung geht
+        // an GAESTE, also zaehlt hier jede Kleinigkeit, die die Mail
+        // durch den Spamfilter bringt.
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject,
+                               html: html, text: nurText(html) })
     });
     if (!res.ok) { var t = ''; try { t = await res.text(); } catch (e) {} throw new Error('Resend ' + res.status + ': ' + t.slice(0, 150)); }
 }

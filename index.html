@@ -1621,7 +1621,21 @@
         .dark-mode .assistant-btn {
             color: white !important;
         }
-        /* NUCLEAR: Alle restlichen weißen inline-styles überschreiben */
+        /* NUCLEAR: Alle restlichen weißen inline-styles überschreiben.
+           ES WAR NICHT NUCLEAR GENUG -- UND DAS WAR DER GANZE FEHLER.
+           Aufgezaehlt waren white, #fff und rgb(255,255,255. NICHT
+           aufgezaehlt: rgba(255,255,255,0.x) -- die Glas-Schreibweise,
+           mit der diese App fast alles malt. Am 27.08.2026 nachgezaehlt:
+           453 Stellen im Quelltext. Keine einzige davon wurde dunkel,
+           waehrend '.dark-mode *' den Text hell faerbte. Hell auf Hell.
+           Deshalb war die Restaurant-Verwaltung auf dem Handy nicht zu
+           lesen. Die vier Zeilen mit rgba(...) sind die Reparatur. */
+        .dark-mode [style*="background:rgba(255,255,255" i],
+        .dark-mode [style*="background: rgba(255,255,255" i],
+        .dark-mode [style*="background:rgba(255, 255, 255" i],
+        .dark-mode [style*="background: rgba(255, 255, 255" i],
+        .dark-mode [style*="background-color:rgba(255,255,255" i],
+        .dark-mode [style*="background-color: rgba(255,255,255" i],
         .dark-mode [style*="background:white" i],
         .dark-mode [style*="background: white" i],
         .dark-mode [style*="background:#fff" i],
@@ -1636,6 +1650,44 @@
             background: var(--bg-card, #1a2e27) !important;
             color: var(--text-primary, #e8eeec) !important;
         }
+        /* --- NEUTRALES HELLGRAU IM style-ATTRIBUT ---
+           Im Browser gemessen: ein Personen-Symbol in Minzgruen auf
+           #edeeef -- Kontrast 1.47:1, praktisch unsichtbar. Solche
+           grauen Kreise und Leisten stehen direkt im style-Attribut,
+           also greift keine Klassenregel.
+
+           NUR die neutralen Toene. Die farbigen bleiben, wie sie sind:
+           #fed65b und #ffd54f sind das Marken-Bernstein mit dunkler
+           Schrift darauf, #fef2f2 / #dcfce7 / #dbeafe die Status-
+           Faerbungen -- die tragen ihre eigene dunkle Schrift und
+           stimmen auch im Dunkeln. Sie mitzudunkeln wuerde eine
+           Warnung in eine graue Flaeche verwandeln. */
+        .dark-mode [style*="background:#f3f4f5" i], .dark-mode [style*="background: #f3f4f5" i],
+        .dark-mode [style*="background:#edeeef" i], .dark-mode [style*="background: #edeeef" i],
+        .dark-mode [style*="background:#e7e8e9" i], .dark-mode [style*="background: #e7e8e9" i],
+        .dark-mode [style*="background:#d1d5db" i], .dark-mode [style*="background: #d1d5db" i],
+        .dark-mode [style*="background:#f8fafc" i], .dark-mode [style*="background: #f8fafc" i],
+        .dark-mode [style*="background:#f9fbf9" i], .dark-mode [style*="background: #f9fbf9" i],
+        .dark-mode [style*="background:#f8f9fa" i], .dark-mode [style*="background: #f8f9fa" i],
+        .dark-mode [style*="background:#fafafa" i], .dark-mode [style*="background: #fafafa" i],
+        .dark-mode [style*="background:#c0c8c4" i], .dark-mode [style*="background: #c0c8c4" i],
+        .dark-mode [style*="background:#eee" i],    .dark-mode [style*="background: #eee" i],
+        .dark-mode [style*="background:#ccc" i],    .dark-mode [style*="background: #ccc" i],
+        .dark-mode [style*="background-color:#edeeef" i],
+        .dark-mode [style*="background-color:#f3f4f5" i] {
+            background: rgba(255,255,255,0.08) !important;
+        }
+
+        /* Und die Verlaeufe aus Weiss. Die trifft die Regel darueber
+           nicht: dort steht linear-gradient( vor dem rgba(. */
+        .dark-mode [style*="background:linear-gradient(135deg,rgba(255,255,255" i],
+        .dark-mode [style*="background:linear-gradient(180deg,rgba(255,255,255" i],
+        .dark-mode [style*="background: linear-gradient(135deg, rgba(255,255,255" i],
+        .dark-mode [style*="background:linear-gradient(135deg,#fff" i],
+        .dark-mode [style*="background:linear-gradient(180deg,#fff" i] {
+            background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)) !important;
+        }
+
         /* Inline Text-Farben: dunkle Brand-Töne hell machen */
         .dark-mode [style*="color:#191c1d" i],
         .dark-mode [style*="color: #191c1d" i],
@@ -1658,6 +1710,476 @@
         .dark-mode [style*="color:black" i]:not([style*="background"]),
         .dark-mode [style*="color: black" i]:not([style*="background"]) {
             color: var(--text-primary, #e8eeec) !important;
+        }
+
+
+        /* =================================================================
+           UND JEDE HELLE FLAECHE, DIE IM STYLESHEET STEHT
+           =================================================================
+           Gemeldet am 27.08.2026 mit Bildschirmfotos: "der Dunkel Modus
+           muss viel besser sein es ist eine reine Katastrophe".
+
+           ERSTER ANLAUF WAR ZU ENG. Ich habe nach WEISS gesucht -- #fff,
+           white, rgba(255,255,255,...). Damit fand ich 220 Flaechen und
+           uebersah 151: #edeeef, #f8f9fa, #fafafa und alles andere, was
+           hell ist, ohne weiss zu heissen. Im Browser nachgemessen fielen
+           sie sofort auf.
+
+           Jetzt entscheidet die HELLIGKEIT, nicht der Name der Farbe:
+           alles ueber 0.75 ist eine helle Flaeche und braucht im
+           Dunkelmodus einen dunklen Grund. 371 Regeln sind es.
+
+           Der falsche Name war ueberhaupt der ganze Fehler: aufgezaehlt
+           war .restaurant-card, die Karte in der Restaurant-Verwaltung
+           heisst .rest-card. Deshalb steht die Liste hier nicht von
+           Hand, sondern kommt aus dem Stylesheet selbst -- und
+           tests/dunkelmodus-test.js baut sie bei jedem Lauf neu und wird
+           rot, sobald eine helle Flaeche fehlt.
+           ================================================================= */
+        .dark-mode #profileModal .profile-avatar-ring,
+        .dark-mode #profileModal .profile-badge,
+        .dark-mode #profileModal .profile-close-btn,
+        .dark-mode #profileModal .profile-glass-card,
+        .dark-mode #profileModal .profile-help-btn,
+        .dark-mode #profileModal .profile-konto-card,
+        .dark-mode #profileModal .profile-res-card,
+        .dark-mode #profileModal .profile-stats-pill,
+        .dark-mode #profileModal>.modal,
+        .dark-mode #reservationModal #waitlistOption,
+        .dark-mode #reservationModal .modal-header .modal-close,
+        .dark-mode #reservationModal .res-area-btn,
+        .dark-mode #reservationModal .res-beliebt-badge,
+        .dark-mode #reservationModal .slot-btn,
+        .dark-mode #reservationModal > .modal,
+        .dark-mode .activity-item,
+        .dark-mode .assistant-ai-badge,
+        .dark-mode .assistant-avatar,
+        .dark-mode .assistant-chat,
+        .dark-mode .assistant-close-btn,
+        .dark-mode .assistant-message.bot .message-content,
+        .dark-mode .assistant-messages,
+        .dark-mode .assistant-suggestions button,
+        .dark-mode .availability-control,
+        .dark-mode .bottom-nav,
+        .dark-mode .cal-day,
+        .dark-mode .cart-button-text,
+        .dark-mode .cart-count-badge,
+        .dark-mode .cart-item,
+        .dark-mode .cart-panel,
+        .dark-mode .category-icon-btn,
+        .dark-mode .checkout-btn,
+        .dark-mode .checkout-section,
+        .dark-mode .chip,
+        .dark-mode .chip-tune-btn,
+        .dark-mode .chip.active,
+        .dark-mode .corner-btn,
+        .dark-mode .cross-sell-inner,
+        .dark-mode .cross-sell-item,
+        .dark-mode .dash-btn-secondary,
+        .dark-mode .dash-header,
+        .dark-mode .dash-header .dash-btn-primary,
+        .dark-mode .dash-header .dash-btn-secondary,
+        .dark-mode .dash-mobile-menu-btn,
+        .dark-mode .dash-nav-item.active .nav-count,
+        .dark-mode .dash-sidebar,
+        .dark-mode .dashboard-view,
+        .dark-mode .dish-lightbox-close,
+        .dark-mode .filter-chip,
+        .dark-mode .filter-chip.active,
+        .dark-mode .floorplan-container,
+        .dark-mode .floorplan-grid,
+        .dark-mode .floorplan-legend,
+        .dark-mode .fp-divider,
+        .dark-mode .fp-element,
+        .dark-mode .fp-entrance,
+        .dark-mode .fp-kitchen,
+        .dark-mode .fp-plant,
+        .dark-mode .fp-table,
+        .dark-mode .fp-table.available,
+        .dark-mode .fp-table.occupied,
+        .dark-mode .fp-table.reserved,
+        .dark-mode .glass-btn,
+        .dark-mode .glass-effect-extra .bottom-nav,
+        .dark-mode .glass-effect-extra .card-btn-secondary,
+        .dark-mode .glass-effect-extra .chip:not(.active),
+        .dark-mode .glass-effect-extra .dash-sidebar,
+        .dark-mode .glass-effect-extra .hours-google,
+        .dark-mode .glass-effect-extra .lp-glass-target,
+        .dark-mode .glass-effect-extra .modal,
+        .dark-mode .glass-effect-extra .panel,
+        .dark-mode .glass-effect-extra .rating,
+        .dark-mode .glass-effect-extra .restaurant-card,
+        .dark-mode .glass-effect-extra .search-bar,
+        .dark-mode .glass-effect-extra .stat-box,
+        .dark-mode .glass-effect-extra .stat-card,
+        .dark-mode .glass-effect-strong .bottom-nav,
+        .dark-mode .glass-effect-strong .card-btn-secondary,
+        .dark-mode .glass-effect-strong .chip:not(.active),
+        .dark-mode .glass-effect-strong .dash-sidebar,
+        .dark-mode .glass-effect-strong .hours-google,
+        .dark-mode .glass-effect-strong .lp-glass-target,
+        .dark-mode .glass-effect-strong .modal,
+        .dark-mode .glass-effect-strong .panel,
+        .dark-mode .glass-effect-strong .rating,
+        .dark-mode .glass-effect-strong .restaurant-card,
+        .dark-mode .glass-effect-strong .search-bar,
+        .dark-mode .glass-effect-strong .stat-box,
+        .dark-mode .glass-effect-strong .stat-card,
+        .dark-mode .glass-effect-subtle .bottom-nav,
+        .dark-mode .glass-effect-subtle .dash-sidebar,
+        .dark-mode .glass-effect-subtle .lp-glass-target,
+        .dark-mode .glass-effect-subtle .modal,
+        .dark-mode .glass-effect-subtle .search-bar,
+        .dark-mode .glass-nav,
+        .dark-mode .guest-header,
+        .dark-mode .insta-lightbox-caption,
+        .dark-mode .insta-lightbox-close,
+        .dark-mode .install-banner,
+        .dark-mode .job-badge.fulltime,
+        .dark-mode .job-badge.minijob,
+        .dark-mode .job-badge.parttime,
+        .dark-mode .job-badge.urgent,
+        .dark-mode .job-card,
+        .dark-mode .job-card-arrow,
+        .dark-mode .job-card-icon,
+        .dark-mode .job-detail-modal,
+        .dark-mode .job-detail-tag,
+        .dark-mode .job-detail-tag.salary,
+        .dark-mode .jobs-cta-btn,
+        .dark-mode .jobs-filter-pill,
+        .dark-mode .jobs-filter-pill.active,
+        .dark-mode .kin-filter-count.new,
+        .dark-mode .kin-filter-tab,
+        .dark-mode .kin-filter-tab.active,
+        .dark-mode .kin-order-btn.secondary,
+        .dark-mode .kin-order-card,
+        .dark-mode .kin-order-status.accepted,
+        .dark-mode .kin-order-status.cancelled,
+        .dark-mode .kin-order-status.out_for_delivery,
+        .dark-mode .kin-order-status.received,
+        .dark-mode .kin-time-btn,
+        .dark-mode .kmi-ton-burger,
+        .dark-mode .kmi-ton-dessert,
+        .dark-mode .kmi-ton-doener,
+        .dark-mode .kmi-ton-fisch,
+        .dark-mode .kmi-ton-getraenk,
+        .dark-mode .kmi-ton-pasta,
+        .dark-mode .kmi-ton-pizza,
+        .dark-mode .kmi-ton-pommes,
+        .dark-mode .kmi-ton-salat,
+        .dark-mode .kmi-ton-suppe,
+        .dark-mode .kmi-ton-teller,
+        .dark-mode .lang-switcher,
+        .dark-mode .legend-dot.reserved,
+        .dark-mode .legend-item,
+        .dark-mode .liquid-glass,
+        .dark-mode .location-bar,
+        .dark-mode .location-btn,
+        .dark-mode .menu-categories,
+        .dark-mode .menu-category-btn,
+        .dark-mode .menu-category-card,
+        .dark-mode .menu-category-tab,
+        .dark-mode .menu-category-tab.active,
+        .dark-mode .menu-item-badge.inactive,
+        .dark-mode .menu-item-badge.popular,
+        .dark-mode .menu-item-badge.spicy,
+        .dark-mode .menu-item-badge.vegan,
+        .dark-mode .menu-item-row,
+        .dark-mode .mini-cal-day.today,
+        .dark-mode .modal,
+        .dark-mode .modal-overlay,
+        .dark-mode .nav-count,
+        .dark-mode .oc-glass-card,
+        .dark-mode .offer-item,
+        .dark-mode .offline-banner,
+        .dark-mode .onboarding-card,
+        .dark-mode .option-group-required,
+        .dark-mode .option-item.selected,
+        .dark-mode .order-action-btn.print,
+        .dark-mode .order-action-btn.reject,
+        .dark-mode .order-card,
+        .dark-mode .order-status-badge.accepted,
+        .dark-mode .order-status-badge.cancelled,
+        .dark-mode .order-status-badge.delivered,
+        .dark-mode .order-status-badge.out_for_delivery,
+        .dark-mode .order-status-badge.preparing,
+        .dark-mode .order-status-badge.ready,
+        .dark-mode .order-status-badge.received,
+        .dark-mode .order-status-pill,
+        .dark-mode .order-status-pill.accepted,
+        .dark-mode .order-status-pill.out_for_delivery,
+        .dark-mode .order-status-pill.preparing,
+        .dark-mode .order-status-pill.ready,
+        .dark-mode .order-status-tab,
+        .dark-mode .order-status-tab.active .tab-count,
+        .dark-mode .order-status-tracker,
+        .dark-mode .order-type-badge.pickup,
+        .dark-mode .order-type-btn[data-type="dine_in"] .order-type-vat,
+        .dark-mode .palette-preview.table-long,
+        .dark-mode .palette-preview.table-rect,
+        .dark-mode .palette-preview.table-round,
+        .dark-mode .palette-preview.table-round-lg,
+        .dark-mode .palette-preview.table-square,
+        .dark-mode .panel,
+        .dark-mode .property-icon.alcohol,
+        .dark-mode .property-icon.beef,
+        .dark-mode .property-icon.bio,
+        .dark-mode .property-icon.chicken,
+        .dark-mode .property-icon.fish,
+        .dark-mode .property-icon.gluten,
+        .dark-mode .property-icon.glutenfree,
+        .dark-mode .property-icon.homemade,
+        .dark-mode .property-icon.lactosefree,
+        .dark-mode .property-icon.lamb,
+        .dark-mode .property-icon.nuts,
+        .dark-mode .property-icon.popular,
+        .dark-mode .property-icon.pork,
+        .dark-mode .property-icon.seafood,
+        .dark-mode .property-icon.spicy,
+        .dark-mode .property-icon.vegan,
+        .dark-mode .property-icon.vegetarian,
+        .dark-mode .property-toggle-btn,
+        .dark-mode .ptr-indicator,
+        .dark-mode .qty-btn,
+        .dark-mode .quantity-selector,
+        .dark-mode .res-interval-pill,
+        .dark-mode .res-section-header,
+        .dark-mode .res-settings-card,
+        .dark-mode .res-slot-chip,
+        .dark-mode .res-slots-preview,
+        .dark-mode .res-status.pending,
+        .dark-mode .res-tab-btn,
+        .dark-mode .reservation-btn,
+        .dark-mode .reservation-btn.cancel,
+        .dark-mode .reservation-btn.confirm,
+        .dark-mode .reservation-item,
+        .dark-mode .reservation-time,
+        .dark-mode .rest-add-btn,
+        .dark-mode .rest-btn.icon-btn,
+        .dark-mode .rest-btn.secondary,
+        .dark-mode .rest-card,
+        .dark-mode .rest-card-badge.active,
+        .dark-mode .rest-header-icon,
+        .dark-mode .rest-stat-box,
+        .dark-mode .restaurant-card,
+        .dark-mode .review-card,
+        .dark-mode .scan-badge.beef,
+        .dark-mode .scan-badge.chicken,
+        .dark-mode .scan-badge.fish,
+        .dark-mode .scan-badge.gluten,
+        .dark-mode .scan-badge.pork,
+        .dark-mode .scan-badge.seafood,
+        .dark-mode .scan-badge.spicy,
+        .dark-mode .scan-badge.vegan,
+        .dark-mode .scan-badge.vegetarian,
+        .dark-mode .search-bar,
+        .dark-mode .slot-btn,
+        .dark-mode .spec-card-img .price,
+        .dark-mode .stat-box,
+        .dark-mode .stat-box-icon.blue,
+        .dark-mode .stat-box-icon.gold,
+        .dark-mode .stat-box-icon.green,
+        .dark-mode .stat-box-icon.orange,
+        .dark-mode .stat-card,
+        .dark-mode .stat-chip,
+        .dark-mode .status-badge.available,
+        .dark-mode .status-badge.occupied,
+        .dark-mode .status-badge.reserved,
+        .dark-mode .status-icon,
+        .dark-mode .table-context-menu,
+        .dark-mode .table-detail-status.available,
+        .dark-mode .table-detail-status.occupied,
+        .dark-mode .table-detail-status.reserved,
+        .dark-mode .table-item,
+        .dark-mode .table-item.reserved .table-number,
+        .dark-mode .table-item.reserved .table-status-bar-fill,
+        .dark-mode .table-legend,
+        .dark-mode .theme-mode-btn,
+        .dark-mode .theme-preview-auto,
+        .dark-mode .theme-preview-light,
+        .dark-mode .tide-marker,
+        .dark-mode .tide-status,
+        .dark-mode .tide-wave,
+        .dark-mode .time-btn,
+        .dark-mode .time-option-btn,
+        .dark-mode .timeslot,
+        .dark-mode .timeslot.has-reservation,
+        .dark-mode .tisch-badge,
+        .dark-mode .tisch-label,
+        .dark-mode .tisch.billed .tisch-body,
+        .dark-mode .tisch.billed .tisch-chair,
+        .dark-mode .tisch.ruft .tisch-body,
+        .dark-mode .tisch.ruft .tisch-chair,
+        .dark-mode .tischplan-box,
+        .dark-mode .tischplan-canvas,
+        .dark-mode .tischplan-filter,
+        .dark-mode .tischplan-legend,
+        .dark-mode .tischplan-legend-dot.billed,
+        .dark-mode .tischplan-legend-dot.ruft,
+        .dark-mode .tischplan-legend-item,
+        .dark-mode .tischplan-stat,
+        .dark-mode .tp-tool-btn,
+        .dark-mode .typing-indicator,
+        .dark-mode body,
+        .dark-mode html {
+            background: rgba(255,255,255,0.05) !important;
+            border-color: rgba(255,255,255,0.08) !important;
+        }
+
+        /* Beim Drueberfahren eine Spur heller -- sonst fuehlt sich die
+           Oberflaeche im Dunkeln tot an. */
+        .dark-mode #profileModal .profile-close-btn:hover,
+        .dark-mode #profileModal .profile-konto-item:hover,
+        .dark-mode #reservationModal .modal-header .modal-close:hover,
+        .dark-mode #reservationModal .res-area-btn:hover,
+        .dark-mode #reservationModal .slot-btn:hover,
+        .dark-mode .assistant-close-btn:hover,
+        .dark-mode .cal-day:hover,
+        .dark-mode .cart-button-text:hover,
+        .dark-mode .chip-tune-btn:hover,
+        .dark-mode .chip:hover:not(.active),
+        .dark-mode .cross-sell-item:hover,
+        .dark-mode .dash-btn-secondary:hover,
+        .dark-mode .dash-header .dash-btn-secondary:hover,
+        .dark-mode .dish-lightbox-close:hover,
+        .dark-mode .filter-chip:hover,
+        .dark-mode .fp-table:hover,
+        .dark-mode .glass-effect-extra .restaurant-card:hover,
+        .dark-mode .glass-effect-strong .chip:not(.active):hover,
+        .dark-mode .glass-effect-strong .restaurant-card:hover,
+        .dark-mode .hero-cta-secondary:hover,
+        .dark-mode .jobs-filter-pill:hover,
+        .dark-mode .kin-filter-tab:hover,
+        .dark-mode .kin-time-btn:hover,
+        .dark-mode .location-bar:hover,
+        .dark-mode .location-btn:hover,
+        .dark-mode .lp-glass-btn:hover,
+        .dark-mode .menu-category-tab:hover:not(.active),
+        .dark-mode .menu-item-row:hover,
+        .dark-mode .mini-cal-day:hover,
+        .dark-mode .order-action-btn.reject:hover,
+        .dark-mode .order-card:hover,
+        .dark-mode .order-status-tab:hover,
+        .dark-mode .panel:hover,
+        .dark-mode .res-interval-pill:hover,
+        .dark-mode .res-slot-chip:hover,
+        .dark-mode .res-tab-btn:hover,
+        .dark-mode .reservation-item:hover,
+        .dark-mode .rest-add-btn:hover,
+        .dark-mode .search-bar:focus-within,
+        .dark-mode .stat-box:hover,
+        .dark-mode .stat-card:hover,
+        .dark-mode .table-context-menu button.delete:hover,
+        .dark-mode .time-btn:hover,
+        .dark-mode .timeslot.has-reservation:hover,
+        .dark-mode .timeslot:hover,
+        .dark-mode .upload-format-btn.camera:hover,
+        .dark-mode .upload-format-btn.pdf:hover {
+            background: rgba(255,255,255,0.10) !important;
+        }
+
+        /* Eingabefelder brauchen beides: Grund UND Schrift. Ein dunkles
+           Feld mit dunkler Schrift ist schlimmer als ein helles -- man
+           sieht nicht einmal, dass man getippt hat. */
+        .dark-mode #reservationModal .form-input,
+        .dark-mode #reservationModal .form-input:focus,
+        .dark-mode #reservationModal .form-select,
+        .dark-mode #reservationModal .form-select:focus,
+        .dark-mode #reservationModal .form-textarea,
+        .dark-mode #reservationModal .form-textarea:focus,
+        .dark-mode .assistant-input,
+        .dark-mode .assistant-input input,
+        .dark-mode .assistant-input input:focus,
+        .dark-mode .checkout-input-glass,
+        .dark-mode .checkout-input-glass:focus,
+        .dark-mode .form-input,
+        .dark-mode .form-input:focus,
+        .dark-mode .form-multiselect,
+        .dark-mode .form-select,
+        .dark-mode .form-select:focus,
+        .dark-mode .form-textarea,
+        .dark-mode .form-textarea:focus,
+        .dark-mode .res-time-input,
+        .dark-mode .res-time-input:focus,
+        .dark-mode input:where(:not([type])),
+        .dark-mode input:where([type=checkbox]),
+        .dark-mode input:where([type=date]),
+        .dark-mode input:where([type=datetime-local]),
+        .dark-mode input:where([type=email]),
+        .dark-mode input:where([type=month]),
+        .dark-mode input:where([type=number]),
+        .dark-mode input:where([type=password]),
+        .dark-mode input:where([type=radio]),
+        .dark-mode input:where([type=search]),
+        .dark-mode input:where([type=tel]),
+        .dark-mode input:where([type=text]),
+        .dark-mode input:where([type=time]),
+        .dark-mode input:where([type=url]),
+        .dark-mode input:where([type=week]),
+        .dark-mode select,
+        .dark-mode select:where([multiple]),
+        .dark-mode textarea {
+            background: rgba(255,255,255,0.06) !important;
+            color: var(--text-primary) !important;
+            border-color: rgba(255,255,255,0.14) !important;
+        }
+        .dark-mode #reservationModal .form-input::placeholder,
+        .dark-mode #reservationModal .form-input:focus::placeholder,
+        .dark-mode #reservationModal .form-select::placeholder,
+        .dark-mode #reservationModal .form-select:focus::placeholder,
+        .dark-mode #reservationModal .form-textarea::placeholder,
+        .dark-mode #reservationModal .form-textarea:focus::placeholder,
+        .dark-mode .assistant-input::placeholder,
+        .dark-mode .assistant-input input::placeholder,
+        .dark-mode .assistant-input input:focus::placeholder,
+        .dark-mode .checkout-input-glass::placeholder,
+        .dark-mode .checkout-input-glass:focus::placeholder,
+        .dark-mode .form-input::placeholder,
+        .dark-mode .form-input:focus::placeholder,
+        .dark-mode .form-multiselect::placeholder,
+        .dark-mode .form-select::placeholder,
+        .dark-mode .form-select:focus::placeholder,
+        .dark-mode .form-textarea::placeholder,
+        .dark-mode .form-textarea:focus::placeholder,
+        .dark-mode .res-time-input::placeholder,
+        .dark-mode .res-time-input:focus::placeholder,
+        .dark-mode input:where(:not([type]))::placeholder,
+        .dark-mode input:where([type=checkbox])::placeholder,
+        .dark-mode input:where([type=date])::placeholder,
+        .dark-mode input:where([type=datetime-local])::placeholder,
+        .dark-mode input:where([type=email])::placeholder,
+        .dark-mode input:where([type=month])::placeholder,
+        .dark-mode input:where([type=number])::placeholder,
+        .dark-mode input:where([type=password])::placeholder,
+        .dark-mode input:where([type=radio])::placeholder,
+        .dark-mode input:where([type=search])::placeholder,
+        .dark-mode input:where([type=tel])::placeholder,
+        .dark-mode input:where([type=text])::placeholder,
+        .dark-mode input:where([type=time])::placeholder,
+        .dark-mode input:where([type=url])::placeholder,
+        .dark-mode input:where([type=week])::placeholder,
+        .dark-mode select::placeholder,
+        .dark-mode select:where([multiple])::placeholder,
+        .dark-mode textarea::placeholder {
+            color: rgba(232,238,236,0.45) !important;
+        }
+
+        /* --- WEISSE SCHRIFT AUF DER HAUPTFARBE ---
+           --primary ist im Hellen ein tiefes Gruen und im Dunkeln ein
+           helles Minzgruen. Weiss darauf gemessen: 1.7:1 -- der
+           "Installieren"-Knopf war praktisch leer. Auf hellem Gruen
+           gehoert dunkle Schrift. */
+        .dark-mode .install-btn-install,
+        .dark-mode [style*="background:var(--primary)"],
+        .dark-mode [style*="background: var(--primary)"],
+        .dark-mode [style*="background-color:var(--primary)"],
+        .dark-mode [style*="background-color: var(--primary)"] {
+            color: #00251e !important;
+        }
+        .dark-mode .install-btn-install .material-symbols-outlined,
+        .dark-mode [style*="background:var(--primary)"] .material-symbols-outlined,
+        .dark-mode [style*="background: var(--primary)"] .material-symbols-outlined {
+            color: #00251e !important;
         }
         /* Inline secondary Texte */
         .dark-mode [style*="color:rgba(64,73,70" i],
@@ -19092,7 +19614,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <div style="font-size: 11px; color: var(--text-secondary);">Minimum pro Bestellung</div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
+                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
                                 <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">€</span>
                             </div>
                         </div>
@@ -19102,6 +19624,13 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button onclick="document.getElementById('settingMinOrder').value='15'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">15 €</button>
                             <button onclick="document.getElementById('settingMinOrder').value='20'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">20 €</button>
                         </div>
+                        <!-- DIE ZEILE, DIE AM 27.08.2026 GEFEHLT HAT.
+                             Der Wirt sah bei Oldersum 15 EUR und fragte, warum
+                             in der Datenbank 0 steht. Antwort: der Wert lag nur
+                             in seinem Browser -- der Gast sah 0 und konnte fuer
+                             12 EUR liefern lassen. Ein Feld, das den falschen
+                             Wert anzeigt, ist schlimmer als ein leeres. -->
+                        <div id="minOrderNurLokal" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(220,38,38,0.08); color:#b91c1c; font-size:11px; font-weight:600; line-height:1.45;"></div>
                     </div>
 
                     <!-- Zahlungsarten -->
@@ -29209,12 +29738,12 @@ async function loadReservationsForRestaurant(restaurantId) {
                     html += '<span style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">table_restaurant</span>Tisch ' + tblNum + '</span>';
                     html += '</div>';
                     if (r.guest_phone) html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">phone</span><a href="tel:' + escapeHtml(r.guest_phone) + '" style="color:var(--ink-deep);text-decoration:none;font-weight:600;">' + escapeHtml(r.guest_phone) + '</a></div>';
-                    if (r.notes) html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;padding:8px 12px;background:rgba(0,61,51,0.85);border-radius:12px;font-style:italic;display:flex;align-items:flex-start;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;flex-shrink:0;">note</span>' + escapeHtml(r.notes) + '</div>';
+                    if (r.notes) html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;padding:8px 12px;background:rgba(0,61,51,0.04);border-radius:12px;font-style:italic;display:flex;align-items:flex-start;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;flex-shrink:0;">note</span>' + escapeHtml(r.notes) + '</div>';
                     html += '</div>';
 
                     // Action Buttons — groß und prominent
                     html += '<div style="display:flex;gap:10px;">';
-                    html += '<button onclick="rejectDashReservation(\'' + r.id + '\',\'' + (r.restaurant_id || '') + '\')" style="flex:1;padding:14px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.85);color:#dc2626;border-radius:9999px;font-family:Inter,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" onmouseenter="this.style.background=\'rgba(239,68,68,0.12)\'" onmouseleave="this.style.background=\'rgba(239,68,68,0.06)\'">';
+                    html += '<button onclick="rejectDashReservation(\'' + r.id + '\',\'' + (r.restaurant_id || '') + '\')" style="flex:1;padding:14px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);color:#dc2626;border-radius:9999px;font-family:Inter,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" onmouseenter="this.style.background=\'rgba(239,68,68,0.12)\'" onmouseleave="this.style.background=\'rgba(239,68,68,0.06)\'">';
                     html += '<span class="material-symbols-outlined" style="font-size:18px;">close</span>Ablehnen</button>';
                     html += '<button onclick="confirmDashReservation(\'' + r.id + '\',\'' + (r.restaurant_id || '') + '\')" style="flex:2;padding:14px;border:none;background:linear-gradient(135deg,#00251e,#003d33);color:white;border-radius:9999px;font-family:Inter,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 8px 24px -6px rgba(0,37,30,0.3);transition:all 0.2s;" onmouseenter="this.style.transform=\'scale(1.02)\'" onmouseleave="this.style.transform=\'scale(1)\'">';
                     html += '<span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>Annehmen</button>';
@@ -36680,16 +37209,43 @@ function renderProfileContent() {
         // ===== Darstellung (Hell/Dunkel Switcher) =====
         html += '<div class="profile-section">';
         html += '<h2 class="profile-section-title">Darstellung</h2>';
-        var isDark = document.body.classList.contains('dark-mode');
+        // DER AUTO-KNOPF HAT HIER GEFEHLT.
+        //
+        // Gemeldet am 27.08.2026: "Das Auto geht auch nicht". Er ging
+        // nicht, weil es ihn an dieser Stelle gar nicht gab -- nur Hell
+        // und Dunkel. (Im Darstellungs-Fenster gibt es ihn, aber dorthin
+        // kommt man ueber einen anderen Weg.)
+        //
+        // Und der zweite Fehler steckte in der Frage, welcher Knopf
+        // leuchtet: gefragt wurde der BODY ("bist du gerade dunkel?").
+        // Damit sieht "Automatisch, und draussen ist es Nacht" genauso
+        // aus wie "Dunkel fest eingestellt" -- die Einstellung war nicht
+        // wiederzuerkennen. Gefragt wird jetzt, was GESPEICHERT ist.
+        var themeWahl = 'light';
+        try { themeWahl = localStorage.getItem('kmi_theme') || 'light'; } catch (e) {}
+        var themeKnoepfe = [
+            { wert: 'light', symbol: 'light_mode',      text: 'Hell' },
+            { wert: 'dark',  symbol: 'dark_mode',       text: 'Dunkel' },
+            { wert: 'auto',  symbol: 'brightness_auto', text: 'Automatisch' }
+        ];
         html += '<div style="display:flex;gap:10px;padding:0 4px;">';
-        html += '<button onclick="setThemeSimple(\'light\'); renderProfileContent();" style="flex:1;padding:16px;border-radius:24px;border:2px solid ' + (!isDark ? '#003d33' : 'rgba(255,255,255,0.08)') + ';background:' + (!isDark ? 'rgba(0,61,51,0.06)' : 'transparent') + ';cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
-        html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + (!isDark ? '#003d33' : '#9ca8a4') + ';">light_mode</span>';
-        html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (!isDark ? '700' : '500') + ';color:' + (!isDark ? '#003d33' : '#9ca8a4') + ';">Hell</span>';
-        html += '</button>';
-        html += '<button onclick="setThemeSimple(\'dark\'); renderProfileContent();" style="flex:1;padding:16px;border-radius:24px;border:2px solid ' + (isDark ? '#FFD54F' : 'rgba(0,61,51,0.06)') + ';background:' + (isDark ? 'rgba(255,213,79,0.08)' : 'transparent') + ';cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
-        html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + (isDark ? '#FFD54F' : '#9ca8a4') + ';">dark_mode</span>';
-        html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (isDark ? '700' : '500') + ';color:' + (isDark ? '#FFD54F' : '#9ca8a4') + ';">Dunkel</span>';
-        html += '</button>';
+        themeKnoepfe.forEach(function (k) {
+            var an = themeWahl === k.wert;
+            // Gelb im Dunkeln, Gruen im Hellen -- beides hebt sich vom
+            // eigenen Grund ab. Ein Rahmen, den man nicht sieht, ist
+            // keine Rueckmeldung.
+            var ton = an ? (themeWahl === 'light' ? '#003d33' : '#FFD54F') : '#9ca8a4';
+            html += '<button onclick="setThemeSimple(\'' + k.wert + '\'); renderProfileContent();"'
+                 + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
+                 + ' style="flex:1;padding:16px;border-radius:24px;border:2px solid '
+                 + (an ? ton : 'var(--border-color)') + ';background:'
+                 + (an ? 'rgba(255,213,79,0.10)' : 'transparent')
+                 + ';cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
+            html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + ton + ';">' + k.symbol + '</span>';
+            html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (an ? '700' : '500')
+                 + ';color:' + ton + ';">' + k.text + '</span>';
+            html += '</button>';
+        });
         html += '</div></div>';
 
         // ===== Konto (Stitch: glass card with circular icons) =====
@@ -36745,16 +37301,28 @@ function renderProfileContent() {
         // Darstellung (Hell/Dunkel) — auch für Gäste
         html += '<div class="profile-section">';
         html += '<h2 class="profile-section-title">Darstellung</h2>';
-        var isDarkG = document.body.classList.contains('dark-mode');
+        // Dieselben drei Knoepfe wie oben, gleiche Begruendung: der
+        // Auto-Knopf fehlte, und geleuchtet hat der falsche, weil der
+        // BODY gefragt wurde statt der Einstellung.
+        var themeWahlG = 'light';
+        try { themeWahlG = localStorage.getItem('kmi_theme') || 'light'; } catch (e) {}
         html += '<div style="display:flex;gap:10px;padding:0 4px;">';
-        html += '<button onclick="setThemeSimple(\'light\'); renderProfileContent();" style="flex:1;padding:16px;border-radius:24px;border:2px solid ' + (!isDarkG ? '#003d33' : 'rgba(255,255,255,0.08)') + ' !important;background:' + (!isDarkG ? 'rgba(0,61,51,0.06)' : 'transparent') + ' !important;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
-        html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + (!isDarkG ? '#003d33' : '#9ca8a4') + ' !important;">light_mode</span>';
-        html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (!isDarkG ? '700' : '500') + ';color:' + (!isDarkG ? '#003d33' : '#9ca8a4') + ' !important;">Hell</span>';
-        html += '</button>';
-        html += '<button onclick="setThemeSimple(\'dark\'); renderProfileContent();" style="flex:1;padding:16px;border-radius:24px;border:2px solid ' + (isDarkG ? '#FFD54F' : 'rgba(0,61,51,0.06)') + ' !important;background:' + (isDarkG ? 'rgba(255,213,79,0.08)' : 'transparent') + ' !important;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
-        html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + (isDarkG ? '#FFD54F' : '#9ca8a4') + ' !important;">dark_mode</span>';
-        html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (isDarkG ? '700' : '500') + ';color:' + (isDarkG ? '#FFD54F' : '#9ca8a4') + ' !important;">Dunkel</span>';
-        html += '</button>';
+        [{ wert: 'light', symbol: 'light_mode',      text: 'Hell' },
+         { wert: 'dark',  symbol: 'dark_mode',       text: 'Dunkel' },
+         { wert: 'auto',  symbol: 'brightness_auto', text: 'Automatisch' }].forEach(function (k) {
+            var an = themeWahlG === k.wert;
+            var ton = an ? (themeWahlG === 'light' ? '#003d33' : '#FFD54F') : '#9ca8a4';
+            html += '<button onclick="setThemeSimple(\'' + k.wert + '\'); renderProfileContent();"'
+                 + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
+                 + ' style="flex:1;padding:16px;border-radius:24px;border:2px solid '
+                 + (an ? ton : 'var(--border-color)') + ';background:'
+                 + (an ? 'rgba(255,213,79,0.10)' : 'transparent')
+                 + ';cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.2s;">';
+            html += '<span class="material-symbols-outlined" style="font-size:24px;color:' + ton + ';">' + k.symbol + '</span>';
+            html += '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:' + (an ? '700' : '500')
+                 + ';color:' + ton + ';">' + k.text + '</span>';
+            html += '</button>';
+        });
         html += '</div></div>';
 
         html += '<div style="height:24px"></div>';
@@ -41672,13 +42240,17 @@ function applyTheme(theme) {
 
 }
 
+// DIE KENNUNGEN HIESSEN ANDERS ALS DIE KNOEPFE.
+//
+// Gesucht wurde 'themeBtnLight' -- im Quelltext steht
+// 'themeBtnLightSimple'. Kein einziger Treffer, also blieb der Aufruf
+// wirkungslos: kein Knopf wurde je als aktiv markiert. Kein Fehler in
+// der Konsole, nichts. Dieselbe Sorte Buchstabendreher wie
+// .rest-card / .restaurant-card im Dunkelmodus.
 function updateThemeButtons(activeTheme) {
-    const buttons = ['Light', 'Dark', 'Auto'];
-    buttons.forEach(btn => {
-        const el = document.getElementById('themeBtn' + btn);
-        if (el) {
-            el.classList.toggle('active', btn.toLowerCase() === activeTheme);
-        }
+    ['Light', 'Dark', 'Auto'].forEach(function (btn) {
+        var el = document.getElementById('themeBtn' + btn + 'Simple');
+        if (el) el.classList.toggle('active', btn.toLowerCase() === activeTheme);
     });
 }
 
@@ -51326,8 +51898,11 @@ function renderCartItems() {
         }
     }
     if (minHint && currentOrderRestaurant) {
-        var minVal = currentOrderRestaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + currentOrderRestaurant.id) || '0');
-        var freeDeliveryAt = currentOrderRestaurant.free_delivery_from || parseFloat(localStorage.getItem('kin_free_delivery_' + currentOrderRestaurant.id) || '0');
+        // NUR der Server. Ein Gast hat kin_min_order_* nie im Browser --
+        // fuer ihn war dieser Ersatzweg immer 0. Nur auf dem Geraet des
+        // Wirts sah es dadurch aus, als gelte die Regel.
+        var minVal = Number(currentOrderRestaurant.min_order_value) || 0;
+        var freeDeliveryAt = Number(currentOrderRestaurant.free_delivery_from) || 0;
         var deliveryFee = currentOrderRestaurant.delivery_fee || 0;
 
         if (minVal > 0 && subtotal < minVal && orderType === 'delivery') {
@@ -52090,7 +52665,7 @@ async function submitOrder() {
     var cartSubtotal = orderCart.reduce(function(sum, item) { return sum + item.total_price; }, 0);
     var minOrderVal = 0;
     if (currentOrderRestaurant) {
-        minOrderVal = currentOrderRestaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + currentOrderRestaurant.id) || '0');
+        minOrderVal = Number(currentOrderRestaurant.min_order_value) || 0;
     }
     if (minOrderVal > 0 && cartSubtotal < minOrderVal && orderType === 'delivery') {
         showToast('Mindestbestellwert für Lieferung: ' + minOrderVal.toFixed(2).replace('.', ',') + ' € (aktuell: ' + cartSubtotal.toFixed(2).replace('.', ',') + ' €)', 'error');
@@ -52252,7 +52827,30 @@ async function submitOrder() {
         // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, lehnt PostgREST
         // die GANZE Bestellung ab. Wir lesen den Spaltennamen aus der Fehlermeldung,
         // lassen die Spalte weg und versuchen erneut — bis es gespeichert ist.
-        const _resilientInsert = async (table, payload) => {
+        // WER DIE ZEILE NICHT BRAUCHT, SOLL SIE NICHT ANFORDERN.
+        //
+        // Gefunden am 27.08.2026 im Datenbank-Protokoll:
+        //     42501  new row violates row-level security policy
+        //            for table "order_items"
+        //
+        // Dieselbe Falle wie bei den Reservierungen zwei Tage vorher:
+        // auf order_items darf "anon" ANLEGEN, aber nicht LESEN. Mit
+        // "Prefer: return=representation" verlangt der Aufruf die neue
+        // Zeile zurueck, Postgres wendet dafuer die Lese-Regel an -- und
+        // der Gast ist "anon".
+        //
+        // Die Bestellung selbst geht nicht verloren: die Gerichte stehen
+        // zusaetzlich in der Spalte orders.items, und daraus baut das
+        // Dashboard den Bon. Leer bleibt nur die Tabelle order_items --
+        // und damit fehlen alle Gastbestellungen in den Auswertungen
+        // (Renner-Liste, Statistik). Ein stiller Ausfall: die Zahlen
+        // sehen aus wie Zahlen, sie sind nur zu klein.
+        //
+        // Bei order_items wird der Rueckgabewert gar nicht benutzt --
+        // nur _ir.ok. Also nicht anfordern. Bei orders dagegen schon:
+        // dort kommt das track_token zurueck, mit dem der Gast seine
+        // Bestellung spaeter verfolgt.
+        const _resilientInsert = async (table, payload, wieZurueck) => {
             var body = Object.assign({}, payload);
             var lastStatus = 0, lastText = '';
             for (var _attempt = 0; _attempt < 18; _attempt++) {
@@ -52262,7 +52860,7 @@ async function submitOrder() {
                         'apikey': SUPABASE_KEY,
                         'Authorization': 'Bearer ' + kmiToken(),
                         'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
+                        'Prefer': 'return=' + (wieZurueck || 'representation')
                     },
                     body: JSON.stringify(body)
                 });
@@ -52431,7 +53029,7 @@ async function submitOrder() {
                         total_price: item.total_price || 0,
                         notes: item.notes || '',
                         selected_options: item.selected_options || []
-                    });
+                    }, 'minimal');
                     if (!_ir.ok) _failedItems++;
                 } catch(e) { _failedItems++; }
             }
@@ -59325,11 +59923,35 @@ function loadOrderSettings() {
     var feeEl = document.getElementById('settingDeliveryFee');
     if (feeEl && restaurant) feeEl.value = (restaurant.delivery_fee || 0).toFixed(2);
 
-    // Mindestbestellwert laden
+    // Mindestbestellwert laden.
+    //
+    // HIER STAND FRUEHER:  restaurant.min_order_value || localStorage
+    //
+    // Und genau dieses ODER hat den Fehler unsichtbar gemacht. Steht in
+    // der Datenbank 0, ist das falsy -- also sprang die Anzeige auf den
+    // Wert im Browser des Wirts. Er sah 15 EUR, der Gast sah 0, und
+    // niemand konnte den Unterschied sehen.
+    //
+    // Gemeldet am 27.08.2026: "habe bei oldersum 15 stehen warum wird
+    // nicht da angezeigt?" -- In der Datenbank stand dort 0,00.
+    //
+    // Jetzt gilt: die Datenbank ist die Wahrheit. Weicht der Browser
+    // davon ab, wird das GESAGT statt verschwiegen.
     var minOrderEl = document.getElementById('settingMinOrder');
+    var minWarnEl  = document.getElementById('minOrderNurLokal');
     if (minOrderEl && restaurant) {
-        var minVal = restaurant.min_order_value || parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0');
-        minOrderEl.value = minVal > 0 ? minVal : 0;
+        var minServer = Number(restaurant.min_order_value) || 0;
+        var minLokal  = parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0') || 0;
+        minOrderEl.value = minServer;
+        if (minWarnEl) {
+            var abweichung = minLokal > 0 && minLokal !== minServer;
+            minWarnEl.style.display = abweichung ? 'block' : 'none';
+            if (abweichung) {
+                minWarnEl.textContent = 'Achtung: ' + minLokal.toFixed(0) + ' \u20AC stehen nur auf '
+                    + 'diesem Ger\u00e4t. Der Gast sieht ' + minServer.toFixed(0) + ' \u20AC. '
+                    + 'Einmal auf einen der Kn\u00f6pfe tippen, dann gilt es \u00fcberall.';
+            }
+        }
     }
 
     // Wartezeiten laden. Ohne das staenden dort immer 25/45, und der Wirt
@@ -59716,6 +60338,21 @@ async function savePrepMinutes() {
 }
 window.savePrepMinutes = savePrepMinutes;
 
+// WARUM HIER AUCH onblur STEHT.
+//
+// Gemeldet am 27.08.2026: "habe ich gemacht es steht immer nocjh 0".
+//
+// Nachgemessen in den Edge-Protokollen: seit 14 Uhr ging vom Browser
+// GENAU EIN PATCH auf restaurants raus (14:52:52, ein anderes Haus).
+// Beim Eintippen der 15 verliess also gar keine Anfrage das Geraet.
+//
+// Der Grund: onchange feuert nur, wenn sich der Wert AENDERT. Im Feld
+// stand schon 15 -- aus dem Browser-Speicher, nicht aus der Datenbank.
+// 15 ueber 15 tippen ist keine Aenderung. Kein Ereignis, keine
+// Anfrage, keine Meldung. Es sah aus, als waere gespeichert.
+//
+// Noch so ein stiller Ausfall: nichts passiert, und nichts sagt es.
+// onblur feuert auch ohne Aenderung -- einmal wegtippen genuegt jetzt.
 async function saveMinOrderValue() {
     var minOrder = parseFloat(document.getElementById('settingMinOrder')?.value) || 0;
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
@@ -59751,6 +60388,12 @@ async function saveMinOrderValue() {
         showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
         return;
     }
+
+    // Jetzt steht in der Datenbank dasselbe wie im Browser -- die
+    // Warnung hat sich erledigt. Bleibt sie stehen, glaubt ihr niemand
+    // mehr beim naechsten Mal.
+    var _minWarn = document.getElementById('minOrderNurLokal');
+    if (_minWarn) _minWarn.style.display = 'none';
 
     showToast('Mindestbestellwert: ' + (minOrder > 0 ? minOrder.toFixed(0) + ' €' : 'Kein Minimum'), 'success');
 }
@@ -70848,7 +71491,165 @@ function openKitchenDisplay() {
         '</div>' +
         '';
 
-    // Responsive CSS per JS einfügen (</style> in innerHTML bricht HTML-Parser)
+    // Responsive CSS per JS einfügen (
+        /* --- b) und ihre Hover-Zustaende, eine Spur heller --- */
+        .dark-mode #profileModal .profile-close-btn:hover,
+        .dark-mode #profileModal .profile-konto-item:hover,
+        .dark-mode #reservationModal .modal-header .modal-close:hover,
+        .dark-mode #reservationModal .res-area-btn:hover,
+        .dark-mode #reservationModal .slot-btn:hover,
+        .dark-mode .assistant-close-btn:hover,
+        .dark-mode .chip:hover:not(.active),
+        .dark-mode .cross-sell-item:hover,
+        .dark-mode .dash-btn-secondary:hover,
+        .dark-mode .dash-header .dash-btn-secondary:hover,
+        .dark-mode .dish-lightbox-close:hover,
+        .dark-mode .filter-chip:hover,
+        .dark-mode .fp-table:hover,
+        .dark-mode .glass-effect-extra .restaurant-card:hover,
+        .dark-mode .glass-effect-strong .chip:not(.active):hover,
+        .dark-mode .glass-effect-strong .restaurant-card:hover,
+        .dark-mode .hero-cta-secondary:hover,
+        .dark-mode .jobs-filter-pill:hover,
+        .dark-mode .kin-time-btn:hover,
+        .dark-mode .location-bar:hover,
+        .dark-mode .location-btn:hover,
+        .dark-mode .lp-glass-btn:hover,
+        .dark-mode .menu-category-tab:hover:not(.active),
+        .dark-mode .order-card:hover,
+        .dark-mode .order-status-tab:hover,
+        .dark-mode .panel:hover,
+        .dark-mode .res-interval-pill:hover,
+        .dark-mode .res-slot-chip:hover,
+        .dark-mode .rest-add-btn:hover,
+        .dark-mode .search-bar:focus-within,
+        .dark-mode .stat-box:hover,
+        .dark-mode .stat-card:hover,
+        .dark-mode .timeslot.has-reservation:hover,
+        .dark-mode .timeslot:hover {
+            background: rgba(255,255,255,0.10) !important;
+        }
+
+        /* --- c) Eingabefelder brauchen beides: Grund UND Schrift --- */
+        .dark-mode #reservationModal .form-input,
+        .dark-mode #reservationModal .form-input:focus,
+        .dark-mode #reservationModal .form-select,
+        .dark-mode #reservationModal .form-select:focus,
+        .dark-mode #reservationModal .form-textarea,
+        .dark-mode #reservationModal .form-textarea:focus,
+        .dark-mode .assistant-input,
+        .dark-mode .assistant-input input:focus,
+        .dark-mode .checkout-input-glass,
+        .dark-mode .form-input,
+        .dark-mode .form-multiselect,
+        .dark-mode .form-select,
+        .dark-mode .form-textarea,
+        .dark-mode .res-time-input,
+        .dark-mode .res-time-input:focus,
+        .dark-mode input:where(:not([type])),
+        .dark-mode input:where([type=checkbox]),
+        .dark-mode input:where([type=date]),
+        .dark-mode input:where([type=datetime-local]),
+        .dark-mode input:where([type=email]),
+        .dark-mode input:where([type=month]),
+        .dark-mode input:where([type=number]),
+        .dark-mode input:where([type=password]),
+        .dark-mode input:where([type=radio]),
+        .dark-mode input:where([type=search]),
+        .dark-mode input:where([type=tel]),
+        .dark-mode input:where([type=text]),
+        .dark-mode input:where([type=time]),
+        .dark-mode input:where([type=url]),
+        .dark-mode input:where([type=week]),
+        .dark-mode select,
+        .dark-mode select:where([multiple]),
+        .dark-mode textarea {
+            background: rgba(255,255,255,0.06) !important;
+            color: var(--text-primary) !important;
+            border-color: rgba(255,255,255,0.14) !important;
+        }
+        .dark-mode #reservationModal .form-input::placeholder,
+        .dark-mode #reservationModal .form-input:focus::placeholder,
+        .dark-mode #reservationModal .form-select::placeholder,
+        .dark-mode #reservationModal .form-select:focus::placeholder,
+        .dark-mode #reservationModal .form-textarea::placeholder,
+        .dark-mode #reservationModal .form-textarea:focus::placeholder,
+        .dark-mode .assistant-input input:focus::placeholder,
+        .dark-mode .assistant-input::placeholder,
+        .dark-mode .checkout-input-glass::placeholder,
+        .dark-mode .form-input::placeholder,
+        .dark-mode .form-multiselect::placeholder,
+        .dark-mode .form-select::placeholder,
+        .dark-mode .form-textarea::placeholder,
+        .dark-mode .res-time-input::placeholder,
+        .dark-mode .res-time-input:focus::placeholder,
+        .dark-mode input:where(:not([type]))::placeholder,
+        .dark-mode input:where([type=checkbox])::placeholder,
+        .dark-mode input:where([type=date])::placeholder,
+        .dark-mode input:where([type=datetime-local])::placeholder,
+        .dark-mode input:where([type=email])::placeholder,
+        .dark-mode input:where([type=month])::placeholder,
+        .dark-mode input:where([type=number])::placeholder,
+        .dark-mode input:where([type=password])::placeholder,
+        .dark-mode input:where([type=radio])::placeholder,
+        .dark-mode input:where([type=search])::placeholder,
+        .dark-mode input:where([type=tel])::placeholder,
+        .dark-mode input:where([type=text])::placeholder,
+        .dark-mode input:where([type=time])::placeholder,
+        .dark-mode input:where([type=url])::placeholder,
+        .dark-mode input:where([type=week])::placeholder,
+        .dark-mode select::placeholder,
+        .dark-mode select:where([multiple])::placeholder,
+        .dark-mode textarea::placeholder {
+            color: rgba(232,238,236,0.45) !important;
+        }
+
+        /* --- d) Und die 453 Stellen, die ihr Weiss direkt im style-
+               Attribut tragen. Eine Regel statt 453 Aenderungen -- und
+               sie greift auch bei jeder neuen Stelle, die morgen
+               dazukommt. --- */
+        .dark-mode [style*="background:rgba(255,255,255"],
+        .dark-mode [style*="background: rgba(255,255,255"],
+        .dark-mode [style*="background: rgba(255, 255, 255"],
+        .dark-mode [style*="background:rgba(255, 255, 255"],
+        .dark-mode [style*="background-color:rgba(255,255,255"],
+        .dark-mode [style*="background-color: rgba(255,255,255"],
+        .dark-mode [style*="background:#fff"],
+        .dark-mode [style*="background: #fff"],
+        .dark-mode [style*="background:white"],
+        .dark-mode [style*="background: white"] {
+            background: rgba(255,255,255,0.05) !important;
+        }
+        .dark-mode [style*="background:linear-gradient(135deg,rgba(255,255,255"],
+        .dark-mode [style*="background:linear-gradient(180deg,rgba(255,255,255"],
+        .dark-mode [style*="background: linear-gradient(135deg, rgba(255,255,255"] {
+            background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)) !important;
+        }
+
+        /* --- e) Fest eingetragene DUNKLE Schriftfarben.
+               #003d33 steht 77 mal im Quelltext, #00251e 60 mal -- das
+               Markengruen als Text. Auf dunklem Grund unlesbar, und eine
+               Variable ist es nicht, also hilft die Palette nicht.
+               Die farbigen Abzeichen (Bernstein, Rot) bleiben, wie sie
+               sind: die sitzen auf farbigem Grund und stimmen dort. --- */
+        .dark-mode [style*="color:#003d33"], .dark-mode [style*="color: #003d33"],
+        .dark-mode [style*="color:#00251e"], .dark-mode [style*="color: #00251e"],
+        .dark-mode [style*="color:#404946"], .dark-mode [style*="color: #404946"],
+        .dark-mode [style*="color:#191c1d"], .dark-mode [style*="color: #191c1d"],
+        .dark-mode [style*="color:#333"],    .dark-mode [style*="color: #333"],
+        .dark-mode [style*="color:#666"],    .dark-mode [style*="color: #666"] {
+            color: var(--text-primary) !important;
+        }
+        /* Der Rahmen darf mit -- sonst steht ein schwarzer Strich auf
+           dunklem Grund und die Karte franst aus. */
+        .dark-mode [style*="border:1px solid rgba(0,61,51"],
+        .dark-mode [style*="border: 1px solid rgba(0,61,51"],
+        .dark-mode [style*="border-top:1px solid rgba(0,61,51"],
+        .dark-mode [style*="border-bottom:1px solid rgba(0,61,51"] {
+            border-color: rgba(255,255,255,0.08) !important;
+        }
+
+    </style> in innerHTML bricht HTML-Parser)
     var kdsStyle = document.getElementById('kdsResponsiveStyle');
     if (!kdsStyle) {
         kdsStyle = document.createElement('style');

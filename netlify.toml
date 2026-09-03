@@ -39,12 +39,25 @@
 
 # Pretty URLs ohne .html
 # ==========================================================
-# Werkzeug-Ordner aus dem Netz nehmen
+# WERKZEUG-ORDNER AUS DEM NETZ NEHMEN
 #
-# publish = "." veroeffentlicht das ganze Verzeichnis. Damit lagen
-# agentur/server.js, die Bibliotheken und der Telefon-Code offen im
-# Netz abrufbar - keine Schluessel darin, aber die komplette
-# Arbeitsweise zum Nachlesen.
+# publish = "." veroeffentlicht das GANZE Verzeichnis. Damit lagen
+# offen im Netz abrufbar:
+#
+#   /agentur/        30 Dateien -- server.js, Bibliotheken, Tests
+#   /telefon-retter/ 28 Dateien -- der komplette Telefon-Code
+#   /sichtbarkeit/   18 Dateien
+#   /prospects.json  die Interessentenliste
+#
+# Keine Schluessel darin -- die liegen bei Netlify. Aber die komplette
+# Arbeitsweise zum Nachlesen, und bei prospects.json die Liste der
+# Betriebe mit Namen und Telefonnummern. Die Datei im Repo hat zwei
+# Musterzeilen; der Build (import-osm.js) schreibt sie bei JEDEM Deploy
+# neu und voll. Live lag also die echte Liste.
+#
+# Nichts in der App verweist auf diese Pfade -- nachgesehen in
+# index.html und check.html, keine einzige Fundstelle. Sperren kostet
+# also nichts.
 #
 # force = true ist noetig: ohne das gewinnt die vorhandene Datei.
 # Diese Bloecke muessen VOR allen anderen Regeln stehen.
@@ -56,9 +69,6 @@
   status = 404
   force = true
 
-# Die Interessentenliste: 1642 Betriebe mit Namen und Telefonnummern.
-# Der Build erzeugt sie im Wurzelverzeichnis, von wo aus sie ohne diese
-# Sperre unter kiekmolin.de/prospects.json zum Herunterladen bereitlaege.
 [[redirects]]
   from = "/prospects.json"
   to = "/404.html"
@@ -73,6 +83,68 @@
 
 [[redirects]]
   from = "/sichtbarkeit/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+# Beim Nachsehen fielen noch fuenf weitere auf. Nachgeprueft: KEINER
+# davon wird aus index.html, check.html oder sw.js geladen -- tools/
+# und tailwind/ stehen dort nur in Kommentaren, nicht als src oder href.
+#
+#   /tests/      143 Dateien. Die schlimmste davon: unsere Tests
+#                beschreiben mit Datum JEDE Luecke, die es je gab, und
+#                wie sie geschlossen wurde. Das ist ein Wegweiser.
+#   /datenbank/   23 SQL-Dateien -- das ganze Schema und jede
+#                RLS-Regel im Klartext.
+#   /marketing/  Gespraechsleitfaden, Anzeigentexte, Angebot.
+#   /tools/      rls-pruefen.js und die Bau-Skripte.
+#   /tailwind/, /werkzeug/  Werkzeug, kein Inhalt fuer Gaeste.
+#
+# NICHT gesperrt: /public/ -- daraus laedt index.html die
+# Allergen-Symbole. Und /logos/, die stehen auf der Wirte-Seite.
+
+[[redirects]]
+  from = "/tests/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/datenbank/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/marketing/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/tools/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/tailwind/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/werkzeug/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+# Und der Quelltext der Server-Funktionen. Aufgerufen werden sie unter
+# /.netlify/functions/... -- mit PUNKT. Diese Sperre ohne Punkt trifft
+# sie also nicht, nur das Verzeichnis, das publish = "." mit
+# veroeffentlicht.
+[[redirects]]
+  from = "/netlify/*"
   to = "/404.html"
   status = 404
   force = true
@@ -214,9 +286,9 @@
   schedule = "25 * * * *"
 
 # Bewertungs-Nachfass per E-Mail: stuendlich, sendet aber nur 11-19 Uhr.
-# Ergaenzt review-push (der erreicht nur die 36 Geraete mit Push-Erlaubnis
-# und kennt nur Bestellungen). Hier kommen vor allem die Reservierungen
-# dazu - die groesste bisher ungenutzte Quelle.
+# Ergaenzt review-push (der erreicht nur Geraete mit Push-Erlaubnis und kennt
+# nur Bestellungen). Sendet nur an Vorgaenge mit review_consent = true; fehlt
+# die Spalte, laeuft die Funktion leer.
 [functions."review-mail"]
   schedule = "45 * * * *"
 

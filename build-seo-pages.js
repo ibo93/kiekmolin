@@ -286,11 +286,21 @@ async function fetchReviews(targetId) {
     + '?target_type=eq.restaurant'
     + '&target_id=eq.' + encodeURIComponent(targetId)
     + '&is_approved=eq.true'
-    // "author_name" gibt es nicht -- der Name des Gastes steht in
-    // customer_name. Dieselbe Geschichte wie oben: 400, leeres Array,
-    // Seite ohne Bewertungen. Google bekam vom Restaurant nur den
-    // Durchschnitt zu sehen, nie einen echten Satz.
-    + '&select=rating,title,comment,customer_name,created_at'
+    // DRITTER ANLAUF, UND DIESMAL NACHGESEHEN STATT GERATEN.
+    //
+    // Hier stand zuerst author_name, dann customer_name -- beide gibt es
+    // nicht. Am 27.08.2026 stand im Protokoll 24 mal:
+    //     42703  column reviews.customer_name does not exist
+    //
+    // Der richtige Name steht dort, wo die App die Bewertung ANLEGT
+    // (index.html, POST auf /rest/v1/reviews): user_name, daneben
+    // user_id und user_avatar. Wer den Namen einer Spalte wissen will,
+    // sieht nach, was geschrieben wird -- nicht, was plausibel klingt.
+    //
+    // Die Folge war jedesmal dieselbe: 400, leeres Array, Seite ohne
+    // Bewertungen. Google bekam vom Restaurant nur den Durchschnitt zu
+    // sehen, nie einen echten Satz.
+    + '&select=rating,title,comment,user_name,created_at'
     + '&order=created_at.desc'
     + '&limit=10';
   try {
@@ -946,7 +956,7 @@ function buildRestaurantJsonLd(rest, reviews) {
         },
         'author': {
           '@type': 'Person',
-          'name': safeText(rv.customer_name, 'Gast')
+          'name': safeText(rv.user_name, 'Gast')
         }
       };
       const body = safeText(rv.comment || rv.title, '');
@@ -1395,7 +1405,7 @@ function renderReviewsHtml(rest, reviews) {
     real.length + ' ' + (real.length === 1 ? 'Bewertung' : 'Bewertungen') + '</p>\n';
   html += '<div class="reviews-seo" style="display:grid;gap:12px;margin:0 0 32px;">';
   real.slice(0, 10).forEach(function(rv) {
-    const author = escapeHtml(safeText(rv.customer_name, 'Gast'));
+    const author = escapeHtml(safeText(rv.user_name, 'Gast'));
     const text = escapeHtml(String(rv.comment || rv.title).slice(0, 500));
     const dateStr = rv.created_at
       ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })
