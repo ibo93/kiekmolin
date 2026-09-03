@@ -39,8 +39,27 @@ function mockFetch() {
     e => e && /Could not find the 'logo' column/.test(e.message) ? true : 'Meldung: ' + (e && e.message));
   await check('PostgREST: kein rohes JSON in der Meldung', 'pgrst',
     e => e && !/PGRST204|\{"code"/.test(e.message) ? true : 'rohes JSON: ' + (e && e.message));
+  // GEAENDERT AM 02.09.2026.
+  //
+  // Hier stand: die Meldung muss "Failed to fetch" enthalten. Genau das
+  // hat der Wirt beim Vorbestellen gesehen -- "failed stand da" -- und
+  // konnte nichts damit anfangen. Der Test hat die unbrauchbare Meldung
+  // festgeschrieben.
+  //
+  // Was zaehlt, ist nicht der Wortlaut, sondern dass der Fehler
+  // DURCHKOMMT und nicht verschluckt wird. Der Wortlaut ist jetzt einer,
+  // den ein Gastronom lesen kann. Details in
+  // tests/netzfehler-melden-test.js.
   await check('Netzwerkfehler wird durchgereicht', 'net',
-    e => e && /Failed to fetch/.test(e.message) ? true : 'verschluckt');
+    e => e ? true : 'verschluckt -- der Wirt merkt nichts');
+  await check('Netzwerkfehler ist als solcher gekennzeichnet', 'net',
+    e => e && e.istNetzFehler === true ? true : 'nicht gekennzeichnet');
+  // Ohne Zahl in der Meldung. Genau daran liess sich heute erkennen,
+  // dass die Anfrage nie angekommen war -- "HTTP 401" waere eine
+  // Ablehnung gewesen, "failed" ohne Zahl ist etwas anderes.
+  await check('und nennt den Grund statt der Technik', 'net',
+    e => e && /keine Verbindung/.test(e.message) && !/Failed to fetch/.test(e.message)
+      ? true : 'Meldung: ' + (e && e.message));
   await check('err.status gesetzt (fuer gezielte Behandlung)', 'plain',
     e => e && e.status === 400 ? true : 'status=' + (e && e.status));
 

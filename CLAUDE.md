@@ -79,6 +79,30 @@ Eine leere Liste ist keine Fehlermeldung, sie sieht aus wie eine Antwort:
 Bei jeder Änderung fragen: **Wie sieht das aus, wenn es kaputt ist?** Wenn
 die Antwort "wie normal, nur leer" ist, muss eine Meldung dazu.
 
+### 7. Was ich nicht sehen kann, darf ich nicht anleiten.
+
+Am 01.09.2026 bei Stripe: erst „einfach das Datum ändern“, dann „das
+geht nicht, du brauchst ein neues Abo“. Beides von mir, innerhalb von
+Minuten. Ibo dazu: *„wegen deine fehler jedes mal so“.*
+
+Der Grund war nicht Unwissen über Stripe. Der Grund war, dass ich
+**seinen Bildschirm nicht sehe** — und trotzdem drei mögliche Wege
+hingeworfen habe, statt einen zu fragen.
+
+Bei Supabase, Netlify und GitHub kann ich messen. Bei allem anderen
+nicht:
+
+| kann ich messen | kann ich **nicht** messen |
+|---|---|
+| Supabase-Protokolle | sein Stripe-Fenster |
+| Netlify-Deploys | sein Postfach bei Resend |
+| GitHub, Tests, Quelltext | sein Browser, sein Dashboard |
+| | kiekmolin.de (Proxy sperrt es) |
+
+**Regel:** Wo ich nicht messen kann, kommt zuerst EINE Frage — was
+steht da gerade? Nicht drei Wege zur Auswahl. Drei Wege sind keine
+Hilfe, sondern die Arbeit an ihn zurückgegeben.
+
 ---
 
 ## Zusammen, nicht gegeneinander
