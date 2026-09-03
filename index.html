@@ -550,6 +550,60 @@
     var SUPA_KEY = SUPABASE_KEY;
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
+    // ============ KARTENKACHELN — EINE EINZIGE STELLE ============
+    //
+    // Gemeldet am 02.09.2026 mit einem Bild der Startseite: ueber der
+    // ganzen Karte stand "API KEY REQUIRED". CARTO verlangt fuer seine
+    // Hintergrundkacheln jetzt ein Konto.
+    //
+    // Wir sind auf OpenStreetMap gewechselt. Kein Schluessel, kein
+    // Konto, kein Ablaufdatum -- und es ist dieselbe Grundlage, auf der
+    // CARTO seine Karten baut.
+    //
+    // Vorher standen diese Adressen an NEUN Stellen im Haus verteilt.
+    // Faellt der naechste Anbieter aus, ist es jetzt eine Zeile.
+    //
+    // Zum Aussehen: OSM ist bunter als das ruhige Grau von vorher. Der
+    // Ausgleich steht im CSS als Filter auf der Kachel-Ebene -- nicht
+    // hier, denn ein Filter ueber .leaflet-tile-pane trifft nur die
+    // Kacheln. Die Stecknadeln liegen in einer anderen Ebene und
+    // behalten ihre Farbe.
+    //
+    // Und der Hinweis "© OpenStreetMap" MUSS sichtbar sein. Das ist
+    // keine Zier, das ist die Bedingung, unter der die Kacheln
+    // kostenlos sind. Zwei CSS-Regeln haben ihn bisher ausgeblendet;
+    // die sind raus.
+    var KARTE = {
+        URL: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        HINWEIS: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+        MAXZOOM: 19,
+
+        // Hell oder dunkel entscheidet eine Klasse am Kartenrahmen, nicht
+        // eine andere Adresse. Vorher wurde beim Umschalten die ganze
+        // Ebene weggeworfen und neu geladen -- jede Kachel noch einmal
+        // uebers Netz. Jetzt ist es ein Klassenwechsel.
+        dunkelSetzen: function (karte, dunkel) {
+            var el = karte && karte.getContainer && karte.getContainer();
+            if (!el) return;
+            if (dunkel) el.classList.add('kmi-karte-dunkel');
+            else el.classList.remove('kmi-karte-dunkel');
+        },
+
+        istDunkel: function () {
+            return document.body.classList.contains('dark-mode');
+        },
+
+        // Legt die Kachel-Ebene an und haengt sie an die Karte.
+        ebene: function (karte, dunkel) {
+            KARTE.dunkelSetzen(karte, dunkel === undefined ? KARTE.istDunkel() : dunkel);
+            return L.tileLayer(KARTE.URL, {
+                maxZoom: KARTE.MAXZOOM,
+                attribution: KARTE.HINWEIS
+            }).addTo(karte);
+        }
+    };
+    window.KARTE = KARTE;
+
     // ==================== WER FRAGT DA EIGENTLICH? ====================
     // Bis hierher ging JEDE Anfrage an die Datenbank mit dem oeffentlichen
     // Schluessel raus -- auch die aus dem Dashboard. Fuer die Datenbank sah
@@ -4153,7 +4207,25 @@
 
         /* Fullscreen Map — hide Leaflet controls */
         #fullscreenMapContainer .leaflet-control-zoom { display: none; }
-        #fullscreenMapContainer .leaflet-control-attribution { display: none; }
+        /* KACHEL-FILTER — das ruhige Grau ohne CARTO.
+           Der Filter sitzt auf .leaflet-tile-pane, also NUR auf den
+           Kacheln. Stecknadeln und Kreise liegen in eigenen Ebenen und
+           bleiben farbig. */
+        .leaflet-tile-pane { filter: grayscale(0.82) contrast(0.94) brightness(1.04); }
+        .kmi-karte-dunkel .leaflet-tile-pane { filter: grayscale(0.9) invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88); }
+
+        /* Der Hinweis auf OpenStreetMap. Klein, aber sichtbar -- unter
+           dieser Bedingung sind die Kacheln kostenlos. Hier stand
+           vorher "display:none" fuer #fullscreenMapContainer und
+           #deliveryMap; das ging nicht mehr. */
+        .leaflet-control-attribution {
+            font-size: 9px; padding: 1px 5px; line-height: 1.5;
+            background: rgba(255,255,255,0.72); color: #5a6360;
+            border-radius: 6px 0 0 0;
+        }
+        .leaflet-control-attribution a { color: #3d6b62; }
+        .dark-mode .leaflet-control-attribution { background: rgba(0,37,30,0.6); color: #9fb3ad; }
+        .dark-mode .leaflet-control-attribution a { color: #7fc4b4; }
 
         /* Fullscreen Map Card — Mobile kompakter */
         @media (max-width: 640px) {
@@ -4840,7 +4912,7 @@
         .oc-fade-up-3 { animation: fadeUp 0.4s ease-out 0.3s both; }
         .oc-fade-up-4 { animation: fadeUp 0.4s ease-out 0.45s both; }
         .oc-glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 10px 30px -5px rgba(0,61,51,0.08); border-radius: 32px; }
-        #deliveryMap .leaflet-control-zoom, #deliveryMap .leaflet-control-attribution { display: none !important; }
+        #deliveryMap .leaflet-control-zoom { display: none !important; }
         .oc-glass-card-inner { border-radius: 16px; }
         .hero-cta-primary {
             animation: hero-glow 3s ease-in-out 1s 3;
@@ -40652,8 +40724,8 @@ async function showRestaurantLanding(rest) {
             if (typeof L === 'undefined') return;
             var lat = rest.latitude || rest.lat || 53.5018;
             var lng = rest.longitude || rest.lng || 7.0953;
-            var lpMap = L.map(mapEl, { zoomControl: false, attributionControl: false, scrollWheelZoom: false, dragging: true }).setView([lat, lng], 16);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(lpMap);
+            var lpMap = L.map(mapEl, { zoomControl: false, scrollWheelZoom: false, dragging: true }).setView([lat, lng], 16);
+            KARTE.ebene(lpMap);
             // Restaurant Marker
             var markerHtml = '<div style="width:44px;height:44px;border-radius:50%;background:#fed65b;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 20px rgba(0,37,30,0.25);"><span class="material-symbols-outlined" style="font-size:20px;color:#735c00;font-variation-settings:\'FILL\' 1;">restaurant</span></div>';
             var icon = L.divIcon({ html: markerHtml, iconSize: [44, 44], iconAnchor: [22, 22], className: '' });
@@ -42420,19 +42492,11 @@ function initMap() {
         const loc = LOCATIONS[APP_DATA.currentLocation] || LOCATIONS['Greetsiel'];
 
         guestMap = L.map('guestMap', {
-            zoomControl: false,
-            attributionControl: false
+            zoomControl: false
         }).setView([loc.lat, loc.lng], loc.zoom);
 
-        // Dark/Light Mode Tile Layer
-        const isDarkMode = document.body.classList.contains('dark-mode');
-        const tileUrl = isDarkMode 
-            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-        window.guestMapTileLayer = L.tileLayer(tileUrl, {
-            maxZoom: 19
-        }).addTo(guestMap);
+        // Hell oder dunkel: eine Klasse am Rahmen, eine Kachel-Quelle.
+        window.guestMapTileLayer = KARTE.ebene(guestMap, KARTE.istDunkel());
 
         // User Location anzeigen + Ort erkennen + Restaurants sortieren
         if (navigator.geolocation) {
@@ -42932,18 +42996,11 @@ function initFullscreenMap() {
     }
 
     fullscreenMap = L.map('fullscreenMapContainer', {
-        zoomControl: false,
-        attributionControl: false
+        zoomControl: false
     }).setView([initLat, initLng], 16);
 
-    // Stitch: light_all tiles (clean, minimal)
-    var tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
     window._mapStyleDark = false;
-
-    window.fullscreenTileLayer = L.tileLayer(tileUrl, {
-        attribution: '',
-        maxZoom: 19
-    }).addTo(fullscreenMap);
+    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, false);
 
     // Marker hinzufügen
     updateFullscreenMarkers();
@@ -42970,27 +43027,13 @@ function initFullscreenMap() {
 
 // Map Theme wechseln wenn Dark Mode sich ändert
 function updateMapTheme() {
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const lightTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    const tileUrl = isDarkMode ? darkTiles : lightTiles;
-
-    // Fullscreen Map
-    if (fullscreenMap && window.fullscreenTileLayer) {
-        fullscreenMap.removeLayer(window.fullscreenTileLayer);
-        window.fullscreenTileLayer = L.tileLayer(tileUrl, {
-            attribution: '© OpenStreetMap © CartoDB',
-            maxZoom: 19
-        }).addTo(fullscreenMap);
-    }
-
-    // Mini Map (guestMap)
-    if (guestMap && window.guestMapTileLayer) {
-        guestMap.removeLayer(window.guestMapTileLayer);
-        window.guestMapTileLayer = L.tileLayer(tileUrl, {
-            maxZoom: 19
-        }).addTo(guestMap);
-    }
+    // Hier wurden vorher BEIDE Kachel-Ebenen weggeworfen und neu
+    // angelegt -- jede einzelne Kachel noch einmal uebers Netz, nur
+    // damit die Karte dunkler wird. Jetzt ist es ein Klassenwechsel am
+    // Rahmen; die Kacheln bleiben liegen, wo sie sind.
+    var isDarkMode = KARTE.istDunkel();
+    if (fullscreenMap) { KARTE.dunkelSetzen(fullscreenMap, isDarkMode); window._mapStyleDark = isDarkMode; }
+    if (guestMap) KARTE.dunkelSetzen(guestMap, isDarkMode);
 
     // Marker neu rendern für Border-Farben
     if (fullscreenMap) updateFullscreenMarkers();
@@ -43171,13 +43214,9 @@ function filterMapBySearch(term) {
 }
 
 function toggleMapStyle() {
-    if (!fullscreenMap || !window.fullscreenTileLayer) return;
+    if (!fullscreenMap) return;
     var current = window._mapStyleDark || false;
-    fullscreenMap.removeLayer(window.fullscreenTileLayer);
-    var url = current
-        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    window.fullscreenTileLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(fullscreenMap);
+    KARTE.dunkelSetzen(fullscreenMap, !current);
     window._mapStyleDark = !current;
 }
 
@@ -60701,8 +60740,8 @@ function showDeliveryMap(restaurant, address) {
     // Alte Karte entfernen
     if (_deliveryMapInst) { try { _deliveryMapInst.remove(); } catch(e) {} }
 
-    _deliveryMapInst = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(_deliveryMapInst);
+    _deliveryMapInst = L.map(mapEl, { zoomControl: false, dragging: true, scrollWheelZoom: false });
+    KARTE.ebene(_deliveryMapInst);
 
     // Restaurant-Marker
     var restIcon = L.divIcon({ className: '', html: '<div style="width:36px;height:36px;background:#003D33;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 12px rgba(0,37,30,0.3);"><span class="material-symbols-outlined" style="color:#FFD54F;font-size:18px;font-variation-settings:\'FILL\' 1;">restaurant</span></div>', iconSize: [36, 36], iconAnchor: [18, 18] });
