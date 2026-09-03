@@ -550,6 +550,60 @@
     var SUPA_KEY = SUPABASE_KEY;
     var RESTAURANT_ID = '888dc5bc-1649-4762-a8ee-2eb1e5e1dfad';
 
+    // ============ KARTENKACHELN — EINE EINZIGE STELLE ============
+    //
+    // Gemeldet am 02.09.2026 mit einem Bild der Startseite: ueber der
+    // ganzen Karte stand "API KEY REQUIRED". CARTO verlangt fuer seine
+    // Hintergrundkacheln jetzt ein Konto.
+    //
+    // Wir sind auf OpenStreetMap gewechselt. Kein Schluessel, kein
+    // Konto, kein Ablaufdatum -- und es ist dieselbe Grundlage, auf der
+    // CARTO seine Karten baut.
+    //
+    // Vorher standen diese Adressen an NEUN Stellen im Haus verteilt.
+    // Faellt der naechste Anbieter aus, ist es jetzt eine Zeile.
+    //
+    // Zum Aussehen: OSM ist bunter als das ruhige Grau von vorher. Der
+    // Ausgleich steht im CSS als Filter auf der Kachel-Ebene -- nicht
+    // hier, denn ein Filter ueber .leaflet-tile-pane trifft nur die
+    // Kacheln. Die Stecknadeln liegen in einer anderen Ebene und
+    // behalten ihre Farbe.
+    //
+    // Und der Hinweis "© OpenStreetMap" MUSS sichtbar sein. Das ist
+    // keine Zier, das ist die Bedingung, unter der die Kacheln
+    // kostenlos sind. Zwei CSS-Regeln haben ihn bisher ausgeblendet;
+    // die sind raus.
+    var KARTE = {
+        URL: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        HINWEIS: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+        MAXZOOM: 19,
+
+        // Hell oder dunkel entscheidet eine Klasse am Kartenrahmen, nicht
+        // eine andere Adresse. Vorher wurde beim Umschalten die ganze
+        // Ebene weggeworfen und neu geladen -- jede Kachel noch einmal
+        // uebers Netz. Jetzt ist es ein Klassenwechsel.
+        dunkelSetzen: function (karte, dunkel) {
+            var el = karte && karte.getContainer && karte.getContainer();
+            if (!el) return;
+            if (dunkel) el.classList.add('kmi-karte-dunkel');
+            else el.classList.remove('kmi-karte-dunkel');
+        },
+
+        istDunkel: function () {
+            return document.body.classList.contains('dark-mode');
+        },
+
+        // Legt die Kachel-Ebene an und haengt sie an die Karte.
+        ebene: function (karte, dunkel) {
+            KARTE.dunkelSetzen(karte, dunkel === undefined ? KARTE.istDunkel() : dunkel);
+            return L.tileLayer(KARTE.URL, {
+                maxZoom: KARTE.MAXZOOM,
+                attribution: KARTE.HINWEIS
+            }).addTo(karte);
+        }
+    };
+    window.KARTE = KARTE;
+
     // ==================== WER FRAGT DA EIGENTLICH? ====================
     // Bis hierher ging JEDE Anfrage an die Datenbank mit dem oeffentlichen
     // Schluessel raus -- auch die aus dem Dashboard. Fuer die Datenbank sah
@@ -768,7 +822,65 @@
     // übersprungen und der Nutzer erfährt, dass es NICHT geklappt hat.
     // Für jeden POST/PATCH/DELETE benutzen -- nicht für reines Lesen.
     async function sbWrite(url, options) {
-        var res = await fetch(url, options);
+        // ERST DER FALL, DEN NIEMAND GESEHEN HAT.
+        //
+        // Gemeldet am 02.09.2026 beim Vorbestellen: "failed stand da".
+        // Ohne Zahl davor -- also nicht "HTTP 401", sondern
+        // "Failed to fetch". Das heisst: die Anfrage hat das Geraet nie
+        // verlassen. Verbindungsaussetzer, Erweiterung im Browser,
+        // Service Worker dazwischen.
+        //
+        // Im Supabase-Protokoll stand dazu NICHTS -- es gab dort nichts
+        // zu finden. Und der Melder unten sitzt INNERHALB von
+        // "if (!res.ok)", also im Zweig "Server hat abgelehnt". Wirft
+        // das fetch selbst, springt es daran vorbei: kein Melder, keine
+        // Zeile, nur ein Toast beim Wirt. Regel 6 -- der Fall, der am
+        // schlechtesten sichtbar ist, ist der, der bei ihm auf dem
+        // Tisch landet.
+        var res;
+        try {
+            res = await fetch(url, options);
+        } catch (netz) {
+            // EINMAL NACHFASSEN -- ABER NICHT BEI ALLEM.
+            //
+            // Ein Aussetzer von einer Sekunde soll keine Fehlermeldung
+            // sein. Aber "nie angekommen" ist nicht dasselbe wie "nie
+            // ausgefuehrt": die Anfrage kann den Server erreicht haben
+            // und nur die Antwort ging verloren.
+            //
+            // Bei PATCH/PUT/DELETE ist das egal -- zweimal dieselben
+            // features setzen oder dieselbe Zeile loeschen aendert
+            // nichts. Bei POST waere es eine zweite Bestellung. Deshalb
+            // wird POST NIE wiederholt, auch wenn es hier verlockend
+            // aussieht.
+            var art = String((options && options.method) || 'POST').toUpperCase();
+            var darfNochmal = art === 'PATCH' || art === 'PUT' || art === 'DELETE';
+            if (darfNochmal) {
+                try {
+                    await new Promise(function (f) { setTimeout(f, 800); });
+                    res = await fetch(url, options);
+                } catch (netz2) { res = null; }
+            }
+            if (!res) {
+                try {
+                    if (typeof meldeFehler === 'function') {
+                        meldeFehler({
+                            message: 'Anfrage kam nie an: ' + ((netz && netz.message) || 'unbekannt'),
+                            kind: 'network',
+                            status: 0,
+                            source: (String(url).match(/rest\/v1\/([a-z_]+)/) || [])[1] || 'unbekannt',
+                            area: art
+                        });
+                    }
+                } catch (e2) {}
+                // "Failed to fetch" sagt einem Wirt nichts. Das hier schon.
+                var netzFehler = new Error('Nicht gespeichert - keine Verbindung. Bitte noch einmal versuchen.');
+                netzFehler.status = 0;
+                netzFehler.isWriteError = true;
+                netzFehler.istNetzFehler = true;
+                throw netzFehler;
+            }
+        }
         if (!res.ok) {
             var detail = '';
             try { detail = (await res.text() || '').slice(0, 300); } catch (e) {}
@@ -4095,7 +4207,25 @@
 
         /* Fullscreen Map — hide Leaflet controls */
         #fullscreenMapContainer .leaflet-control-zoom { display: none; }
-        #fullscreenMapContainer .leaflet-control-attribution { display: none; }
+        /* KACHEL-FILTER — das ruhige Grau ohne CARTO.
+           Der Filter sitzt auf .leaflet-tile-pane, also NUR auf den
+           Kacheln. Stecknadeln und Kreise liegen in eigenen Ebenen und
+           bleiben farbig. */
+        .leaflet-tile-pane { filter: grayscale(0.82) contrast(0.94) brightness(1.04); }
+        .kmi-karte-dunkel .leaflet-tile-pane { filter: grayscale(0.9) invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88); }
+
+        /* Der Hinweis auf OpenStreetMap. Klein, aber sichtbar -- unter
+           dieser Bedingung sind die Kacheln kostenlos. Hier stand
+           vorher "display:none" fuer #fullscreenMapContainer und
+           #deliveryMap; das ging nicht mehr. */
+        .leaflet-control-attribution {
+            font-size: 9px; padding: 1px 5px; line-height: 1.5;
+            background: rgba(255,255,255,0.72); color: #5a6360;
+            border-radius: 6px 0 0 0;
+        }
+        .leaflet-control-attribution a { color: #3d6b62; }
+        .dark-mode .leaflet-control-attribution { background: rgba(0,37,30,0.6); color: #9fb3ad; }
+        .dark-mode .leaflet-control-attribution a { color: #7fc4b4; }
 
         /* Fullscreen Map Card — Mobile kompakter */
         @media (max-width: 640px) {
@@ -4782,7 +4912,7 @@
         .oc-fade-up-3 { animation: fadeUp 0.4s ease-out 0.3s both; }
         .oc-fade-up-4 { animation: fadeUp 0.4s ease-out 0.45s both; }
         .oc-glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 10px 30px -5px rgba(0,61,51,0.08); border-radius: 32px; }
-        #deliveryMap .leaflet-control-zoom, #deliveryMap .leaflet-control-attribution { display: none !important; }
+        #deliveryMap .leaflet-control-zoom { display: none !important; }
         .oc-glass-card-inner { border-radius: 16px; }
         .hero-cta-primary {
             animation: hero-glow 3s ease-in-out 1s 3;
@@ -26995,26 +27125,57 @@ function updateHeroBannerImage() {
         // Ohne Uebergang zurueck auf Anfang, sonst zoomt es sichtbar rueckwaerts.
         el.style.transition = 'none';
         el.style.transform = 'scale(1)';
+        // UND UNSICHTBAR STARTEN.
+        //
+        // Gemeldet am 02.09.2026: "das bilder stoerend ist wieder da ...
+        // beim wechsel der bilder".
+        //
+        // Hier war der Fehler. Der Wechsel machte:
+        //     ebeneVorbereiten(kommt, ...)   -> transition: none
+        //     kommt.style.opacity = '1'      -> WAEHREND transition none
+        //
+        // Also sprang das neue Bild mit einem Schlag auf volle Deckkraft,
+        // waehrend das alte darunter zwei Sekunden lang ausblendete. Kein
+        // Ueberblenden, sondern ein harter Schnitt mit einem
+        // Nachleuchten -- genau das, was man als Stoerung sieht.
+        //
+        // Die Ebene faengt jetzt unsichtbar an. Sichtbar wird sie erst in
+        // einblenden(), zusammen mit dem Uebergang.
+        el.style.opacity = '0';
     }
 
-    function zoomStarten(el) {
-        if (RUHE) return;   // Wer ruhige Bewegung eingestellt hat, bekommt keine.
-        // Ein Bild abwarten, damit der Browser den Anfangswert uebernimmt --
-        // sonst springt er direkt zum Endwert, ohne den Weg dazwischen.
+    // UEBERBLENDEN: erst den Uebergang setzen, DANN die Deckkraft.
+    //
+    // Die Reihenfolge ist der ganze Punkt. Wer opacity aendert, solange
+    // transition auf 'none' steht, bekommt einen Sprung -- der Browser hat
+    // nichts, woran er die Bewegung entlangfuehren koennte.
+    function einblenden(kommt, geht) {
+        // Zwei Bilder abwarten, damit der Browser den Anfangswert
+        // uebernimmt -- sonst springt er direkt zum Endwert, ohne den Weg
+        // dazwischen.
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                el.style.transition = 'opacity 2s ease-in-out, transform 8s ease-in-out';
-                el.style.transform = ZOOM;
+                // Wer ruhige Bewegung eingestellt hat, bekommt keinen Zoom
+                // -- aber SEHR WOHL das Ueberblenden. Vorher fiel fuer ihn
+                // beides weg, weil zoomStarten() vorher aussprang und die
+                // transition damit nie gesetzt wurde: jeder Wechsel ein
+                // harter Schnitt.
+                kommt.style.transition = RUHE
+                    ? 'opacity 2s ease-in-out'
+                    : 'opacity 2s ease-in-out, transform 8s ease-in-out';
+                kommt.style.opacity = '1';
+                if (!RUHE) kommt.style.transform = ZOOM;
+                if (geht) geht.style.opacity = '0';
             });
         });
     }
 
-    // Erstes Bild sofort setzen
+    // Erstes Bild sofort setzen -- das darf springen, es ist ja das erste.
     var currentIndex = Math.floor(Math.random() * imgs.length);
     ebeneVorbereiten(bg1, imgs[currentIndex]);
-    bg1.style.opacity = '1';
+    bg1.style.opacity = '1';        // noch mit transition: none -> sofort da
     bg2.style.opacity = '0';
-    zoomStarten(bg1);
+    einblenden(bg1, null);          // ab jetzt mit Uebergang, fuer den Zoom
 
     // Nur Slideshow starten wenn mehr als 1 Bild
     if (imgs.length <= 1) return;
@@ -27029,9 +27190,7 @@ function updateHeroBannerImage() {
         var geht  = showingFirst ? bg1 : bg2;
 
         ebeneVorbereiten(kommt, imgs[currentIndex]);
-        kommt.style.opacity = '1';
-        geht.style.opacity = '0';
-        zoomStarten(kommt);
+        einblenden(kommt, geht);
 
         showingFirst = !showingFirst;
     }, 7000);
@@ -40565,8 +40724,8 @@ async function showRestaurantLanding(rest) {
             if (typeof L === 'undefined') return;
             var lat = rest.latitude || rest.lat || 53.5018;
             var lng = rest.longitude || rest.lng || 7.0953;
-            var lpMap = L.map(mapEl, { zoomControl: false, attributionControl: false, scrollWheelZoom: false, dragging: true }).setView([lat, lng], 16);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(lpMap);
+            var lpMap = L.map(mapEl, { zoomControl: false, scrollWheelZoom: false, dragging: true }).setView([lat, lng], 16);
+            KARTE.ebene(lpMap);
             // Restaurant Marker
             var markerHtml = '<div style="width:44px;height:44px;border-radius:50%;background:#fed65b;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 20px rgba(0,37,30,0.25);"><span class="material-symbols-outlined" style="font-size:20px;color:#735c00;font-variation-settings:\'FILL\' 1;">restaurant</span></div>';
             var icon = L.divIcon({ html: markerHtml, iconSize: [44, 44], iconAnchor: [22, 22], className: '' });
@@ -42333,19 +42492,11 @@ function initMap() {
         const loc = LOCATIONS[APP_DATA.currentLocation] || LOCATIONS['Greetsiel'];
 
         guestMap = L.map('guestMap', {
-            zoomControl: false,
-            attributionControl: false
+            zoomControl: false
         }).setView([loc.lat, loc.lng], loc.zoom);
 
-        // Dark/Light Mode Tile Layer
-        const isDarkMode = document.body.classList.contains('dark-mode');
-        const tileUrl = isDarkMode 
-            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-        window.guestMapTileLayer = L.tileLayer(tileUrl, {
-            maxZoom: 19
-        }).addTo(guestMap);
+        // Hell oder dunkel: eine Klasse am Rahmen, eine Kachel-Quelle.
+        window.guestMapTileLayer = KARTE.ebene(guestMap, KARTE.istDunkel());
 
         // User Location anzeigen + Ort erkennen + Restaurants sortieren
         if (navigator.geolocation) {
@@ -42845,18 +42996,11 @@ function initFullscreenMap() {
     }
 
     fullscreenMap = L.map('fullscreenMapContainer', {
-        zoomControl: false,
-        attributionControl: false
+        zoomControl: false
     }).setView([initLat, initLng], 16);
 
-    // Stitch: light_all tiles (clean, minimal)
-    var tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
     window._mapStyleDark = false;
-
-    window.fullscreenTileLayer = L.tileLayer(tileUrl, {
-        attribution: '',
-        maxZoom: 19
-    }).addTo(fullscreenMap);
+    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, false);
 
     // Marker hinzufügen
     updateFullscreenMarkers();
@@ -42883,27 +43027,13 @@ function initFullscreenMap() {
 
 // Map Theme wechseln wenn Dark Mode sich ändert
 function updateMapTheme() {
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const lightTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    const tileUrl = isDarkMode ? darkTiles : lightTiles;
-
-    // Fullscreen Map
-    if (fullscreenMap && window.fullscreenTileLayer) {
-        fullscreenMap.removeLayer(window.fullscreenTileLayer);
-        window.fullscreenTileLayer = L.tileLayer(tileUrl, {
-            attribution: '© OpenStreetMap © CartoDB',
-            maxZoom: 19
-        }).addTo(fullscreenMap);
-    }
-
-    // Mini Map (guestMap)
-    if (guestMap && window.guestMapTileLayer) {
-        guestMap.removeLayer(window.guestMapTileLayer);
-        window.guestMapTileLayer = L.tileLayer(tileUrl, {
-            maxZoom: 19
-        }).addTo(guestMap);
-    }
+    // Hier wurden vorher BEIDE Kachel-Ebenen weggeworfen und neu
+    // angelegt -- jede einzelne Kachel noch einmal uebers Netz, nur
+    // damit die Karte dunkler wird. Jetzt ist es ein Klassenwechsel am
+    // Rahmen; die Kacheln bleiben liegen, wo sie sind.
+    var isDarkMode = KARTE.istDunkel();
+    if (fullscreenMap) { KARTE.dunkelSetzen(fullscreenMap, isDarkMode); window._mapStyleDark = isDarkMode; }
+    if (guestMap) KARTE.dunkelSetzen(guestMap, isDarkMode);
 
     // Marker neu rendern für Border-Farben
     if (fullscreenMap) updateFullscreenMarkers();
@@ -43084,13 +43214,9 @@ function filterMapBySearch(term) {
 }
 
 function toggleMapStyle() {
-    if (!fullscreenMap || !window.fullscreenTileLayer) return;
+    if (!fullscreenMap) return;
     var current = window._mapStyleDark || false;
-    fullscreenMap.removeLayer(window.fullscreenTileLayer);
-    var url = current
-        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    window.fullscreenTileLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(fullscreenMap);
+    KARTE.dunkelSetzen(fullscreenMap, !current);
     window._mapStyleDark = !current;
 }
 
@@ -59943,6 +60069,11 @@ function loadOrderSettings() {
         var minServer = Number(restaurant.min_order_value) || 0;
         var minLokal  = parseFloat(localStorage.getItem('kin_min_order_' + restId) || '0') || 0;
         minOrderEl.value = minServer;
+        // Festhalten, was in der Datenbank steht. Ohne das haelt der
+        // erste blur den DB-Wert fuer eine Aenderung und schreibt ihn
+        // noch einmal -- genau der Doppelschuss, der den Wert
+        // zurueckfallen liess.
+        if (typeof minStandMerken === 'function') minStandMerken(restId, minServer);
         if (minWarnEl) {
             var abweichung = minLokal > 0 && minLokal !== minServer;
             minWarnEl.style.display = abweichung ? 'block' : 'none';
@@ -60353,11 +60484,67 @@ window.savePrepMinutes = savePrepMinutes;
 //
 // Noch so ein stiller Ausfall: nichts passiert, und nichts sagt es.
 // onblur feuert auch ohne Aenderung -- einmal wegtippen genuegt jetzt.
+// UND WARUM DAS ONBLUR ALLEIN NICHT REICHTE.
+//
+// Gemeldet am 02.09.2026: "hab es geaendert es geht wieder auf 0 EUR
+// wieder".
+//
+// Nachgemessen in den Edge-Protokollen: jede Aenderung schickte ZWEI
+// PATCH auf restaurants, ein bis zwei Sekunden auseinander --
+// 19:44:20.338 und 19:44:22.119, 13:50:24 / :25 / :27 sogar drei, und
+// von seinem Handy um 16:29:07.999 und 16:29:09.350. Nie einer.
+//
+// Woher der zweite kam: die Knoepfe "Kein / 10 / 15 / 20" liegen neben
+// dem Feld. Ein Mausklick nimmt dem Feld ZUERST den Fokus -- blur
+// feuert also, BEVOR der Knopf seinen Wert setzt. Der Browser schickt
+// damit erst den ALTEN Wert los und gleich danach den neuen. Zwei
+// Schreibvorgaenge, die um dieselbe Zeile rennen.
+//
+// Und Anfragen kommen nicht in der Reihenfolge an, in der sie losgehen.
+// Ueberholt die erste die zweite, steht am Ende der alte Wert in der
+// Datenbank. Bei ihm also die 0. Nichts meldet einen Fehler -- beide
+// Anfragen antworten mit 204, "gespeichert" erscheint. Wieder ein
+// stiller Ausfall.
+//
+// Drei Sachen dagegen:
+//   1. Ein leeres Feld ist keine 0, sondern gar keine Angabe -> nicht
+//      schreiben. parseFloat('') ist NaN, und "|| 0" machte daraus
+//      klammheimlich eine Null.
+//   2. Was schon in der Datenbank steht, wird nicht noch einmal
+//      geschrieben -- damit faellt der blur-Schuss mit dem alten Wert
+//      weg, denn der alte Wert IST der gespeicherte.
+//   3. Die Schreibvorgaenge laufen hintereinander, nicht nebeneinander.
+//      Dann kann keiner den anderen ueberholen.
+var _minKette = Promise.resolve();   // haelt die Schreibvorgaenge in der Reihe
+var _minStand = {};                  // restId -> was zuletzt bestaetigt in der DB steht
+
+// Damit Punkt 2 greift, muss beim Laden bekannt sein, was in der
+// Datenbank steht. Sonst haelt der erste blur den DB-Wert faelschlich
+// fuer neu und schreibt ihn noch einmal.
+function minStandMerken(restId, wert) { if (restId) _minStand[restId] = Number(wert) || 0; }
+window.minStandMerken = minStandMerken;
+
 async function saveMinOrderValue() {
-    var minOrder = parseFloat(document.getElementById('settingMinOrder')?.value) || 0;
+    var _minEl = document.getElementById('settingMinOrder');
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
 
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
+
+    // 1. Leeres Feld: keine Angabe, keine Null.
+    var _roh = _minEl ? String(_minEl.value).trim() : '';
+    if (_roh === '') {
+        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        return;
+    }
+    var minOrder = parseFloat(_roh);
+    if (!isFinite(minOrder) || minOrder < 0) {
+        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        return;
+    }
+
+    // 2. Steht schon so in der Datenbank -> nichts zu tun. Das ist der
+    //    blur-Schuss mit dem alten Wert.
+    if (_minStand[restId] === minOrder) return;
 
     // In localStorage speichern (funktioniert immer)
     localStorage.setItem('kin_min_order_' + restId, minOrder);
@@ -60374,12 +60561,22 @@ async function saveMinOrderValue() {
     // Versuche in Supabase zu speichern
     // Erfolg prüfen: sonst meldet das Dashboard "gespeichert", obwohl der Wert
     // nur lokal steht und beim nächsten Gerät/Neuladen wieder weg ist.
-    try {
-        var _minRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+    // 3. In die Reihe stellen. Wer zuerst gerufen wurde, schreibt zuerst
+    //    -- und der Letzte gewinnt, so wie man es erwartet. Vorher liefen
+    //    beide gleichzeitig und der Zufall entschied.
+    var _minFertig = _minKette.then(function () {
+        return fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify({ min_order_value: minOrder })
         });
+    });
+    // Die Kette darf nie abreissen: ein Fehler hier wuerde sonst jedes
+    // weitere Speichern fuer immer blockieren.
+    _minKette = _minFertig.catch(function () {});
+
+    try {
+        var _minRes = await _minFertig;
         if (!_minRes.ok) {
             showToast('Nur auf diesem Gerät gespeichert – Server meldet Fehler ' + _minRes.status, 'warning');
             return;
@@ -60388,6 +60585,9 @@ async function saveMinOrderValue() {
         showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
         return;
     }
+
+    // Erst JETZT gilt der Wert als in der Datenbank angekommen.
+    minStandMerken(restId, minOrder);
 
     // Jetzt steht in der Datenbank dasselbe wie im Browser -- die
     // Warnung hat sich erledigt. Bleibt sie stehen, glaubt ihr niemand
@@ -60540,8 +60740,8 @@ function showDeliveryMap(restaurant, address) {
     // Alte Karte entfernen
     if (_deliveryMapInst) { try { _deliveryMapInst.remove(); } catch(e) {} }
 
-    _deliveryMapInst = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(_deliveryMapInst);
+    _deliveryMapInst = L.map(mapEl, { zoomControl: false, dragging: true, scrollWheelZoom: false });
+    KARTE.ebene(_deliveryMapInst);
 
     // Restaurant-Marker
     var restIcon = L.divIcon({ className: '', html: '<div style="width:36px;height:36px;background:#003D33;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 12px rgba(0,37,30,0.3);"><span class="material-symbols-outlined" style="color:#FFD54F;font-size:18px;font-variation-settings:\'FILL\' 1;">restaurant</span></div>', iconSize: [36, 36], iconAnchor: [18, 18] });

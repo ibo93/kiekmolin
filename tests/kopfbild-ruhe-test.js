@@ -71,7 +71,26 @@ t('zwei Bilder Vorlauf, damit der Uebergang wirklich laeuft',
 console.log('\n-- Wer Ruhe eingestellt hat, bekommt Ruhe --');
 
 t('prefers-reduced-motion wird gefragt', /prefers-reduced-motion: reduce/.test(fn));
-t('und dann gar nicht gezoomt', /if \(RUHE\) return;/.test(fn), fn.slice(fn.indexOf('function zoomStarten'), fn.indexOf('function zoomStarten') + 200));
+// HIER STAND EIN TEST, DER DEN FEHLER EINFORDERTE.
+//
+// Er verlangte woertlich `if (RUHE) return;` in zoomStarten(). Das war
+// aber genau der Defekt: die Funktion sprang aus, BEVOR sie die
+// transition setzte -- wer ruhige Bewegung eingestellt hat, bekam
+// deshalb nicht nur keinen Zoom, sondern auch kein Ueberblenden. Jeder
+// Bildwechsel ein harter Schnitt. Gemeldet am 02.09.2026.
+//
+// Der Test pruefte eine SCHREIBWEISE, nicht das Verhalten -- und hielt
+// damit den Fehler fest. Geprueft wird jetzt, was gemeint war: unter
+// RUHE wird nicht vergroessert. Dass das Ueberblenden trotzdem laeuft,
+// prueft tests/bildwechsel-test.js an nachgebauten Ebenen.
+t('und dann gar nicht gezoomt',
+  /if \(!RUHE\) [a-z]+\.style\.transform = ZOOM;/.test(fn) && !/(?<!!)\bRUHE\b[^\n]*transform = ZOOM/.test(fn),
+  (fn.match(/transform = ZOOM[^\n]*/g) || []).join(' | '));
+
+// Und der Zoom haengt wirklich an der Abfrage, nicht bloss daneben.
+t('der Zoom steht ausschliesslich hinter der RUHE-Abfrage',
+  (fn.match(/transform = ZOOM/g) || []).length === (fn.match(/if \(!RUHE\) [a-z]+\.style\.transform = ZOOM/g) || []).length,
+  (fn.match(/transform = ZOOM/g) || []).length + ' mal ZOOM');
 
 console.log('\n-- Was gleich bleibt --');
 
