@@ -38,20 +38,37 @@ t('keine einzige cartocdn-Adresse mehr',
 t('und auch sonst kein CARTO-Kachelserver',
   !/basemaps\.carto|api\.carto\.com\/v3\/maps/.test(h));
 
-console.log('\n-- 2. Nur noch EINE Stelle mit einer Kachel-Adresse --');
+console.log('\n-- 2. Alle Kachel-Adressen stehen an EINER Stelle --');
 
 // Jede Zeichenkette, die wie eine Kachel-Adresse aussieht: sie traegt
-// {z}/{x}/{y}. Danach suchen wir, nicht nach einem Anbieternamen --
-// sonst faende der Test den naechsten Umzug nicht.
-var adressen = h.match(/['"]https:\/\/[^'"]*\{z\}\/\{x\}\/\{y\}[^'"]*['"]/g) || [];
-t('genau eine Kachel-Adresse im ganzen Haus',
-  adressen.length === 1, adressen.length + ': ' + adressen.join(' | '));
-t('und die zeigt auf OpenStreetMap',
-  adressen.length === 1 && /tile\.openstreetmap\.org/.test(adressen[0]), adressen[0]);
-t('ohne {s}-Platzhalter (die Unteradressen gibt es dort nicht mehr)',
-  adressen.length === 1 && adressen[0].indexOf('{s}') < 0, adressen[0]);
-t('und ohne {r} (Retina-Kacheln liefert OSM nicht)',
-  adressen.length === 1 && adressen[0].indexOf('{r}') < 0, adressen[0]);
+// {z} und {x} und {y}. Danach suchen wir, nicht nach einem
+// Anbieternamen -- sonst faende der Test den naechsten Umzug nicht.
+var adressen = h.match(/['"]https:\/\/[^'"]*\{z\}[^'"]*\{[xy]\}[^'"]*['"]/g) || [];
+t('zwei Adressen: hell und dunkel',
+  adressen.length === 2, adressen.length + ': ' + adressen.join(' | '));
+
+// Und BEIDE muessen im KARTE-Block liegen. Sonst nuetzt "eine Stelle"
+// nichts -- genau daran hing der CARTO-Ausfall, der neun Stellen
+// gleichzeitig getroffen hat.
+var kBlock = h.slice(h.indexOf('    var KARTE = {'), h.indexOf('\n    };\n', h.indexOf('    var KARTE = {')));
+t('und beide stehen im KARTE-Block, nirgends sonst',
+  adressen.every(function (a) { return kBlock.indexOf(a) >= 0; }),
+  adressen.filter(function (a) { return kBlock.indexOf(a) < 0; }).join(' | '));
+
+t('hell ist Esri Light Gray', /World_Light_Gray_Base/.test(kBlock));
+t('dunkel ist Esri Dark Gray', /World_Dark_Gray_Base/.test(kBlock));
+
+// Esri ordnet {z}/{y}/{x}. Vertauscht liefert es Kacheln von der
+// falschen Stelle der Welt -- ohne Fehlermeldung (Regel 6).
+t('die Esri-Reihenfolge {z}/{y}/{x} stimmt',
+  adressen.every(function (a) { return /\{z\}\/\{y\}\/\{x\}/.test(a); }), adressen.join(' | '));
+t('kein {s}-Platzhalter', adressen.every(function (a) { return a.indexOf('{s}') < 0; }));
+t('kein {r}-Platzhalter', adressen.every(function (a) { return a.indexOf('{r}') < 0; }));
+
+// Weiter zoomen als der Anbieter Kacheln hat, ergibt WEISS -- und das
+// sieht aus wie eine Karte ohne Haeuser.
+t('ueber die letzte Kachel hinaus wird vergroessert statt weiss',
+  /maxNativeZoom: KARTE\.MAXNATIV/.test(h) && /MAXNATIV: 1[0-9]/.test(kBlock));
 
 // Und niemand darf an KARTE vorbei eine eigene Ebene bauen.
 var eigenbau = h.match(/L\.tileLayer\(/g) || [];
@@ -65,8 +82,8 @@ t('kein attributionControl:false mehr',
   (h.match(/attributionControl:\s*false/g) || []).length + ' mal');
 t('die Kachel-Ebene traegt den Hinweis',
   /attribution: KARTE\.HINWEIS/.test(h));
-t('und der Hinweis nennt OpenStreetMap',
-  /HINWEIS:[^\n]*OpenStreetMap/.test(h));
+t('und der Hinweis nennt beide Quellen',
+  /HINWEIS:[^\n]*Esri/.test(h) && /HINWEIS:[^\n]*OpenStreetMap/.test(h));
 t('mit Link auf die Lizenz',
   /openstreetmap\.org\/copyright/.test(h));
 
@@ -76,15 +93,17 @@ var versteckt = h.match(/\.leaflet-control-attribution[^{]*\{[^}]*display:\s*non
 t('keine CSS-Regel blendet ihn aus',
   versteckt.length === 0, versteckt.join(' | '));
 
-console.log('\n-- 4. Das ruhige Grau --');
+console.log('\n-- 4. Kein Filter mehr ueber der Karte --');
 
-t('ein Filter liegt auf der Kachel-Ebene',
-  /\.leaflet-tile-pane\s*\{[^}]*filter:[^}]*grayscale/.test(h));
-t('und NUR dort -- die Stecknadeln bleiben farbig',
-  !/\.leaflet-marker-pane\s*\{[^}]*filter:/.test(h) &&
-  !/\.leaflet-container\s*\{[^}]*filter:\s*grayscale/.test(h));
-t('dunkel wird ueber eine eigene Klasse gemacht',
-  /\.kmi-karte-dunkel\s+\.leaflet-tile-pane\s*\{[^}]*invert\(1\)/.test(h));
+// Solange die Kacheln von OSM kamen, wurden sie mit Gewalt entfaerbt.
+// Esri Light Gray ist von sich aus reduziert -- ein Filter darueber
+// macht es nur flau, und invert(1) auf grau sieht schmutzig aus.
+t('kein Graufilter mehr auf der Kachel-Ebene',
+  !/\.leaflet-tile-pane\s*\{[^}]*filter:/.test(h));
+t('und keine invert-Regel fuer dunkel',
+  !/kmi-karte-dunkel/.test(h));
+t('dunkel kommt als eigener Kartenstil vom Anbieter',
+  /karte\._kmiEbene\.setUrl\(will\)/.test(h));
 
 console.log('\n-- 5. Umschalten laedt nicht alles neu --');
 
@@ -104,48 +123,52 @@ t('toggleMapStyle genauso',
 
 console.log('\n-- 6. KARTE selbst --');
 
-// Den Block herausschneiden und wirklich laufen lassen.
 var a = h.indexOf('    var KARTE = {');
 var quelle = h.slice(a, h.indexOf('\n    };\n', a) + 7);
 t('der Block laesst sich finden', quelle.length > 200, quelle.length);
 
-var ebenen = [];
+var gebaut = [];
 var ctx = {
     document: { body: { classList: { _d: false, contains: function () { return ctx.document.body.classList._d; } } } },
-    L: { tileLayer: function (url, o) { ebenen.push({ url: url, o: o }); return { addTo: function () { return this; } }; } },
+    L: { tileLayer: function (url, o) {
+            var eb = { _url: url, o: o,
+                setUrl: function (u) { this._url = u; gebaut.push('setUrl:' + u); },
+                addTo: function () { return this; } };
+            gebaut.push('neu:' + url);
+            return eb;
+         } },
     window: {}, console: console
 };
 vm.createContext(ctx);
 vm.runInContext(quelle, ctx);
 var K = ctx.KARTE;
 
-function falscheKarte(klassen) {
-    return { getContainer: function () { return { classList: {
-        add: function (c) { if (klassen.indexOf(c) < 0) klassen.push(c); },
-        remove: function (c) { var i = klassen.indexOf(c); if (i >= 0) klassen.splice(i, 1); }
-    } }; } };
-}
+var karte = {};
+var eb = K.ebene(karte, false);
+t('hell legt die helle Ebene an', eb._url === K.HELL, eb._url);
+t('die Ebene haengt an der Karte', karte._kmiEbene === eb);
+t('mit Hinweis', /Esri/.test(eb.o.attribution), eb.o.attribution);
+t('und mit maxNativeZoom', eb.o.maxNativeZoom === K.MAXNATIV, eb.o.maxNativeZoom);
 
-var kl = [];
-K.ebene(falscheKarte(kl), true);
-t('dunkel gesetzt haengt die Klasse an', kl.indexOf('kmi-karte-dunkel') >= 0, kl.join(','));
-K.dunkelSetzen(falscheKarte(kl), false);
-t('und hell nimmt sie wieder weg', kl.indexOf('kmi-karte-dunkel') < 0, kl.join(','));
+K.dunkelSetzen(karte, true);
+t('dunkel tauscht nur die Adresse', karte._kmiEbene._url === K.DUNKEL, karte._kmiEbene._url);
+t('und legt KEINE neue Ebene an',
+  gebaut.filter(function (g) { return g.indexOf('neu:') === 0; }).length === 1,
+  gebaut.join(' | '));
 
-var kl2 = [];
-K.ebene(falscheKarte(kl2), false);
-t('hell setzt keine Klasse', kl2.length === 0, kl2.join(','));
-t('die Ebene bekommt den Hinweis mit',
-  ebenen.length > 0 && /OpenStreetMap/.test(ebenen[ebenen.length - 1].o.attribution),
-  JSON.stringify(ebenen[ebenen.length - 1] && ebenen[ebenen.length - 1].o));
+var vorher = gebaut.length;
+K.dunkelSetzen(karte, true);
+t('zweimal dasselbe schreibt nicht noch einmal', gebaut.length === vorher, gebaut.slice(vorher).join(' | '));
 
-// Ohne Rahmen darf nichts abstuerzen -- eine Karte kann schon weg sein,
+K.dunkelSetzen(karte, false);
+t('und zurueck auf hell geht auch', karte._kmiEbene._url === K.HELL);
+
+// Ohne Ebene darf nichts abstuerzen -- eine Karte kann schon weg sein,
 // wenn der Dunkelmodus umschaltet.
 var geknallt = false;
-try { K.dunkelSetzen(null, true); K.dunkelSetzen({}, true); } catch (e) { geknallt = true; }
+try { K.dunkelSetzen(null, true); K.dunkelSetzen({}, true); K.ebene(null); } catch (e) { geknallt = true; }
 t('ohne Karte stuerzt es nicht ab', geknallt === false);
 
-// istDunkel liest den Koerper, nicht eine eigene Variable.
 ctx.document.body.classList._d = true;
 t('istDunkel folgt dem Dunkelmodus der Seite', K.istDunkel() === true);
 ctx.document.body.classList._d = false;
