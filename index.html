@@ -554,54 +554,65 @@
     //
     // Gemeldet am 02.09.2026 mit einem Bild der Startseite: ueber der
     // ganzen Karte stand "API KEY REQUIRED". CARTO verlangt fuer seine
-    // Hintergrundkacheln jetzt ein Konto.
+    // Hintergrundkacheln jetzt ein Konto, und das angelegte lief in 14
+    // Tagen ab.
     //
-    // Wir sind auf OpenStreetMap gewechselt. Kein Schluessel, kein
-    // Konto, kein Ablaufdatum -- und es ist dieselbe Grundlage, auf der
-    // CARTO seine Karten baut.
+    // Erst auf OpenStreetMap gewechselt. Dazu am 03.09.: "die karte map
+    // ist garnicht modern" -- stimmte. OSM-Standard ist der klassische
+    // bunte Stil, mit Gewalt grau gefiltert. Aus sechs Vorschlaegen auf
+    // einer Auswahlseite hat er Nummer 3 genommen: Esri Light Gray.
     //
     // Vorher standen diese Adressen an NEUN Stellen im Haus verteilt.
-    // Faellt der naechste Anbieter aus, ist es jetzt eine Zeile.
+    // Deshalb hat der CARTO-Ausfall auch ueberall gleichzeitig
+    // zugeschlagen. Jetzt ist ein Umzug eine Zeile.
     //
-    // Zum Aussehen: OSM ist bunter als das ruhige Grau von vorher. Der
-    // Ausgleich steht im CSS als Filter auf der Kachel-Ebene -- nicht
-    // hier, denn ein Filter ueber .leaflet-tile-pane trifft nur die
-    // Kacheln. Die Stecknadeln liegen in einer anderen Ebene und
-    // behalten ihre Farbe.
-    //
-    // Und der Hinweis "© OpenStreetMap" MUSS sichtbar sein. Das ist
-    // keine Zier, das ist die Bedingung, unter der die Kacheln
-    // kostenlos sind. Zwei CSS-Regeln haben ihn bisher ausgeblendet;
-    // die sind raus.
+    // Der Hinweis auf die Quelle MUSS sichtbar sein. Das ist keine Zier,
+    // sondern die Bedingung, unter der die Kacheln kostenlos sind.
     var KARTE = {
-        URL: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        HINWEIS: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
-        MAXZOOM: 19,
+        // Esri Light/Dark Gray Canvas. Sehr reduziert, duenne Linien --
+        // das ist der cleane Look, den CARTO Positron hatte, und der
+        // Grund, warum Ibo am 03.09. "Nummer 3" gesagt hat. Kein
+        // Schluessel, kein Konto.
+        //
+        // ACHTUNG bei der Adresse: Esri ordnet {z}/{y}/{x}, nicht
+        // {z}/{x}/{y}. Wer das vertauscht, bekommt Kacheln von der
+        // falschen Stelle der Welt -- und zwar OHNE Fehlermeldung.
+        HELL:   'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        DUNKEL: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        HINWEIS: 'Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
 
-        // Hell oder dunkel entscheidet eine Klasse am Kartenrahmen, nicht
-        // eine andere Adresse. Vorher wurde beim Umschalten die ganze
-        // Ebene weggeworfen und neu geladen -- jede Kachel noch einmal
-        // uebers Netz. Jetzt ist es ein Klassenwechsel.
-        dunkelSetzen: function (karte, dunkel) {
-            var el = karte && karte.getContainer && karte.getContainer();
-            if (!el) return;
-            if (dunkel) el.classList.add('kmi-karte-dunkel');
-            else el.classList.remove('kmi-karte-dunkel');
-        },
+        // Weiter hineinzoomen als der Anbieter Kacheln hat, ergibt WEISS.
+        // Ein weisses Feld sieht aus wie eine Karte ohne Haeuser und
+        // meldet nichts (Regel 6). maxNativeZoom sagt Leaflet: ab hier
+        // die letzte Kachel vergroessern. Lieber etwas unscharf als leer.
+        MAXZOOM: 19,
+        MAXNATIV: 16,
 
         istDunkel: function () {
             return document.body.classList.contains('dark-mode');
         },
 
-        // Legt die Kachel-Ebene an und haengt sie an die Karte.
+        // Hell/dunkel tauscht nur die Adresse in der bestehenden Ebene.
+        // Vorher wurde die ganze Ebene weggeworfen und neu angelegt --
+        // jede Kachel noch einmal uebers Netz, nur fuer eine Farbe.
+        dunkelSetzen: function (karte, dunkel) {
+            if (!karte || !karte._kmiEbene) return;
+            var will = dunkel ? KARTE.DUNKEL : KARTE.HELL;
+            if (karte._kmiEbene._url !== will) karte._kmiEbene.setUrl(will);
+        },
+
         ebene: function (karte, dunkel) {
-            KARTE.dunkelSetzen(karte, dunkel === undefined ? KARTE.istDunkel() : dunkel);
-            return L.tileLayer(KARTE.URL, {
+            if (!karte) return null;
+            var d = dunkel === undefined ? KARTE.istDunkel() : dunkel;
+            karte._kmiEbene = L.tileLayer(d ? KARTE.DUNKEL : KARTE.HELL, {
                 maxZoom: KARTE.MAXZOOM,
+                maxNativeZoom: KARTE.MAXNATIV,
                 attribution: KARTE.HINWEIS
             }).addTo(karte);
+            return karte._kmiEbene;
         }
     };
+
     window.KARTE = KARTE;
 
     // ==================== WER FRAGT DA EIGENTLICH? ====================
@@ -4207,12 +4218,12 @@
 
         /* Fullscreen Map — hide Leaflet controls */
         #fullscreenMapContainer .leaflet-control-zoom { display: none; }
-        /* KACHEL-FILTER — das ruhige Grau ohne CARTO.
-           Der Filter sitzt auf .leaflet-tile-pane, also NUR auf den
-           Kacheln. Stecknadeln und Kreise liegen in eigenen Ebenen und
-           bleiben farbig. */
-        .leaflet-tile-pane { filter: grayscale(0.82) contrast(0.94) brightness(1.04); }
-        .kmi-karte-dunkel .leaflet-tile-pane { filter: grayscale(0.9) invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88); }
+        /* HIER STAND EIN GRAUFILTER.
+           Er war noetig, solange die Kacheln von OpenStreetMap kamen --
+           bunt, und mit Gewalt entfaerbt. Esri Light Gray ist von sich
+           aus reduziert; ein Filter darueber macht es nur flau. Und
+           dunkel kommt jetzt als eigener Kartenstil vom Anbieter statt
+           als invert(1), was auf einer grauen Karte schmutzig aussah. */
 
         /* Der Hinweis auf OpenStreetMap. Klein, aber sichtbar -- unter
            dieser Bedingung sind die Kacheln kostenlos. Hier stand
@@ -27046,9 +27057,42 @@ function initCardSlideshows(container) {
         try { images = JSON.parse(imagesStr); } catch(e) { return; }
         if (!images || images.length < 2) return;
 
-        // Crossfade-Layer erstellen
+        // DIE ZWEITE BILDERSCHLEIFE -- UND DIE, DIE AUF DEM PC STOERTE.
+        //
+        // Gemeldet am 03.09.2026: "auf dem handy kommt keine
+        // bildstoerung nur auf dem pc".
+        //
+        // Am 02.09. war der harte Schnitt im KOPFBILD dran. Hier ist die
+        // andere Schleife, die der Restaurantkarten, und sie hatte einen
+        // eigenen Fehler -- eine Zeitrechnung, die nicht aufging:
+        //
+        //     Einblenden ueber   1500 ms   (aus dem cssText)
+        //     Umschalten nach    1300 ms   (der setTimeout)
+        //
+        // Also wurde die Ebene mitten in der Bewegung abgeschnitten, bei
+        // rund 87 Prozent, und im selben Augenblick das Bild darunter
+        // ausgetauscht. Ein Sprung.
+        //
+        // Danach setzte die Zeile unten die Zeit auf 1200 ms -- ab dem
+        // ZWEITEN Wechsel passte es also (1200 < 1300) und man sah
+        // nichts mehr. Nur: autoRefreshRestaurants zeichnet die Liste
+        // ALLE 30 SEKUNDEN neu, und jedes Neuzeichnen faengt wieder mit
+        // dem kaputten ersten Wechsel an. Alle halbe Minute, auf jeder
+        // Karte gleichzeitig.
+        //
+        // Warum auf dem PC und nicht auf dem Handy: am Rechner stehen
+        // alle Karten nebeneinander im Blick. Auf dem Handy sieht man
+        // eine, und meist scrollt man gerade.
+        //
+        // Jetzt gibt es EINE Zahl fuer beides. Die kann nicht mehr
+        // auseinanderlaufen.
+        var BLENDE = 1200;          // wie lange das Ueberblenden dauert
+        var TAUSCH = BLENDE + 120;  // erst DANACH umschalten, nie vorher
+
         var fadeLayer = document.createElement('div');
-        fadeLayer.style.cssText = 'position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.5s cubic-bezier(0.4,0,0.2,1);z-index:0;pointer-events:none;will-change:opacity;transform:translateZ(0);-webkit-transform:translateZ(0);';
+        fadeLayer.style.cssText = 'position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;'
+            + 'transition:opacity ' + (BLENDE / 1000) + 's cubic-bezier(0.4,0,0.2,1);'
+            + 'z-index:0;pointer-events:none;will-change:opacity;transform:translateZ(0);-webkit-transform:translateZ(0);';
         card.insertBefore(fadeLayer, card.firstChild);
 
         var index = 0;
@@ -27064,14 +27108,16 @@ function initCardSlideshows(container) {
             fadeLayer.style.opacity = '1';
 
             setTimeout(function() {
-                // Nach Fade: Hauptbild aktualisieren, Fade-Layer zurücksetzen
+                // Die Ebene steht jetzt VOLL auf dem neuen Bild. Das
+                // gleiche Bild darunter zu legen und die Ebene dann
+                // wegzunehmen, sieht man nicht -- vorher schon.
                 card.style.backgroundImage = "url('" + images[nextIndex] + "')";
                 fadeLayer.style.transition = 'none';
                 fadeLayer.style.opacity = '0';
                 setTimeout(function() {
-                    fadeLayer.style.transition = 'opacity 1.2s ease';
+                    fadeLayer.style.transition = 'opacity ' + (BLENDE / 1000) + 's cubic-bezier(0.4,0,0.2,1)';
                 }, 50);
-            }, 1300);
+            }, TAUSCH);
 
             index = nextIndex;
             // Dots aktualisieren
