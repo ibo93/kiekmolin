@@ -48323,15 +48323,62 @@ window.ZUSATZSTOFFE = ZUSATZSTOFFE;
 // Zusatzstoffen steckt dort auch die Gerichtnummer als "nr:37" (siehe
 // getDishNumber). Wer additives roh anzeigt, schreibt dem Gast "nr:37" unter
 // die Allergene.
+//
+// WAS IN additives ALLES MITFAEHRT -- AN EINER STELLE.
+//
+// Bis zum 04.09.2026 stand hier ein einzelnes "nr:" im Filter. Als die
+// Zutatenliste dazukam (ohne:...), waere sie dem Gast als Zusatzstoff
+// unter den Allergenen erschienen -- "ohne:Gyros,Tzatziki,Pommes".
+//
+// Deshalb die Liste hier oben: wer eine neue Markierung erfindet,
+// traegt sie EINMAL ein und nicht in drei Filtern, von denen er den
+// dritten vergisst.
+var ADDITIVE_MARKIERUNGEN = ['nr:', 'ohne:'];
+
+function istMarkierung(a) {
+  var t = String(a || '');
+  return ADDITIVE_MARKIERUNGEN.some(function (m) { return t.indexOf(m) === 0; });
+}
+window.istMarkierung = istMarkierung;
+
 function zusatzstoffeVon(item) {
   var roh = (item && item.additives) || [];
   if (!Array.isArray(roh)) return [];
   return roh
-    .filter(function (a) { return typeof a === 'string' && a.indexOf('nr:') !== 0; })
+    .filter(function (a) { return typeof a === 'string' && !istMarkierung(a); })
     .map(function (a) { return ZUSATZSTOFFE[String(a).trim()] || String(a).trim(); })
     .filter(Boolean);
 }
 window.zusatzstoffeVon = zusatzstoffeVon;
+
+// DIE ZUTATEN, DIE DER WIRT SELBST EINGETRAGEN HAT.
+//
+// Ibo am 04.09.2026: "bei gerichte die zur verfuegung sind ohne
+// einfuegen damit der gast nicht soviel schreibt nur eintippt -- das
+// hatten wir gehabt irgendwie geht das nicht".
+//
+// "Bitte ohne" gab es schon, aber die Liste wurde aus dem
+// BESCHREIBUNGSTEXT geraten: mindestens drei Teile, mit Komma getrennt,
+// gross geschrieben, kein Punkt mittendrin. Bei "Unser Gyros mit
+// hausgemachtem Tzatziki" trifft das nicht zu -- und dann fehlte der
+// ganze Abschnitt, ohne dass irgendwo stand warum (Regel 6).
+//
+// Jetzt kann er die Zutaten eintragen. Steht dort etwas, wird nicht
+// mehr geraten. Steht nichts, bleibt alles wie vorher -- kein Gericht
+// verliert also seine Kaestchen.
+//
+// Gespeichert in additives als "ohne:Gyros,Tzatziki,Pommes", genau wie
+// die Gerichtnummer als "nr:37". Kein neues Datenbankfeld noetig.
+function zutatenEingetragen(item) {
+  var roh = (item && item.additives) || [];
+  if (!Array.isArray(roh)) return [];
+  var eintrag = roh.filter(function (a) { return String(a || '').indexOf('ohne:') === 0; })[0];
+  if (!eintrag) return [];
+  return String(eintrag).slice(5).split(',')
+    .map(function (x) { return x.trim(); })
+    .filter(Boolean);
+}
+window.zutatenEingetragen = zutatenEingetragen;
 
 // LMIV-Pflichtallergene (EU-Verordnung 1169/2011)
 var LMIV_ALLERGENS = [
@@ -50341,6 +50388,13 @@ var OHNE_KEINE_ZUTAT = ['paniert', 'gebacken', 'frittiert', 'gegrillt', 'gebrate
                         'nach wahl', 'wahlweise', 'je nach saison'];
 
 function zutatenZumWeglassen(item) {
+    // Was der Wirt selbst eingetragen hat, gilt. Ohne Raten, ohne
+    // Bedingungen an die Schreibweise.
+    var eigen = (typeof zutatenEingetragen === 'function') ? zutatenEingetragen(item) : [];
+    if (eigen.length) return eigen;
+
+    // Sonst wie bisher: aus der Beschreibung lesen, wenn sie wie eine
+    // Zutatenliste aussieht.
     var text = String((item && item.description) || '').trim();
     if (!text) return [];
 
@@ -51220,7 +51274,7 @@ function openCreateOptionGroupModal() {
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Komma-getrennte Kategorienamen. Leer lassen = gilt für alle Gerichte.</p></div>' +
 
 '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Gilt nur f\u00fcr Gr\u00f6\u00dfe (leer = alle)</label>' +
-        '<input type="text" id="ogSize" value="" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<input type="text" id="ogSize" aria-label="Gilt nur für diese Größe" value="" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Genau so schreiben wie die Gr\u00f6\u00dfe beim Gericht hei\u00dft \u2014 z.B. <b>klein</b>. Dann erscheint diese Gruppe nur, wenn der Gast klein w\u00e4hlt. Leer = immer sichtbar.</p></div>' +
 
         '<div id="ogChoicesContainer"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:8px;">Optionen</label>' +
@@ -51448,7 +51502,7 @@ async function openEditOptionGroupModal(groupId) {
             '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Komma-getrennte Kategorienamen. Leer lassen = gilt für alle Gerichte.</p></div>' +
 
 '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Gilt nur f\u00fcr Gr\u00f6\u00dfe (leer = alle)</label>' +
-            '<input type="text" id="ogSize" value="' + (g.size_name || '').replace(/"/g, '&quot;') + '" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+            '<input type="text" id="ogSize" aria-label="Gilt nur für diese Größe" value="' + (g.size_name || '').replace(/"/g, '&quot;') + '" placeholder="z.B. klein (leer = bei jeder Gr\u00f6\u00dfe)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
             '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Genau so schreiben wie die Gr\u00f6\u00dfe beim Gericht hei\u00dft \u2014 z.B. <b>klein</b>. Dann erscheint diese Gruppe nur, wenn der Gast klein w\u00e4hlt. Leer = immer sichtbar.</p></div>' +
 
             '<div id="ogChoicesContainer"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:8px;">Optionen</label>' +
@@ -68847,6 +68901,10 @@ function editMenuItem(itemId) {
         '<input type="text" id="editItemName" value="' + (item.name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Beschreibung</label>' +
         '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + (item.description || '') + '</textarea></div>' +
+        '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Zutaten zum Abwählen (optional)</label>' +
+        '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + (typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '').replace(/"/g, '&quot;') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Mit Komma trennen. Der Gast sieht sie als „Bitte ohne"-Kästchen und muss nichts tippen. Leer lassen = wird aus der Beschreibung gelesen, wenn die wie eine Zutatenliste aussieht.</p></div>' +
+
         '<div style="display:flex;gap:12px;">' +
         '<div style="flex:1;"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Preis (€)</label>' +
         '<input type="number" step="0.10" id="editItemPrice" value="' + (item.base_price || 0) + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div>' +
@@ -68897,8 +68955,17 @@ async function saveEditedItem(itemId) {
 
     // Gerichtenummer in additives speichern
     var currentItem = menuItems.find(function(i) { return i.id === itemId; });
-    var additives = (currentItem?.additives || []).filter(function(a) { return typeof a !== 'string' || !a.startsWith('nr:'); });
+    var additives = (currentItem?.additives || []).filter(function(a) {
+        return typeof a !== 'string' || !(a.startsWith('nr:') || a.startsWith('ohne:'));
+    });
     if (dishNr) additives.push('nr:' + dishNr);
+
+    // Zutaten zum Abwaehlen. Leer heisst leer -- dann wird wieder aus der
+    // Beschreibung gelesen, und der Wirt kann seinen Eintrag auch wieder
+    // loswerden.
+    var _ohneRoh = (document.getElementById('editItemOhne')?.value || '')
+        .split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (_ohneRoh.length) additives.push('ohne:' + _ohneRoh.join(','));
 
     try {
         var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {

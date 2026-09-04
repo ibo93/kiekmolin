@@ -48,8 +48,14 @@ function schneide(name) {
 // Die Funktionen wirklich ausfuehren.
 var lmiv = CODE.slice(CODE.indexOf('var LMIV_ALLERGENS = ['), CODE.indexOf('window.LMIV_ALLERGENS'));
 var zz = CODE.slice(CODE.indexOf('var ZUSATZSTOFFE = {'), CODE.indexOf('window.ZUSATZSTOFFE'));
+var markierungen = CODE.slice(CODE.indexOf('var ADDITIVE_MARKIERUNGEN'), CODE.indexOf('window.istMarkierung'));
 var F = new Function('escapeHtml',
-    zz + '\n' + lmiv + '\n' + schneide('zusatzstoffeVon') + '\n' + schneide('getAllergenLabel')
+    // ADDITIVE_MARKIERUNGEN + istMarkierung muessen mit hinein.
+    // Am 04.09.2026 kam "ohne:" als zweite Markierung dazu, und der
+    // Filter in zusatzstoffeVon wurde dafuer auf istMarkierung
+    // umgestellt. Ohne diese Zeile stuerzt die ganze Datei ab --
+    // ReferenceError, kein einziger Test lief noch.
+    markierungen + '\n' + zz + '\n' + lmiv + '\n' + schneide('zusatzstoffeVon') + '\n' + schneide('getAllergenLabel')
     + '\n' + schneide('allergenSatz') + '\n' + schneide('gerichtInfoHtml')
     + '\n; return { zusatzstoffeVon: zusatzstoffeVon, allergenSatz: allergenSatz, gerichtInfoHtml: gerichtInfoHtml };'
 )(function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); });
