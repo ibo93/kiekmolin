@@ -51,27 +51,58 @@ console.log('\n-- 2. Und der echte Ladecode, ausgefuehrt --');
 var anfang = h.indexOf("    var minOrderEl = document.getElementById('settingMinOrder');");
 var ende   = h.indexOf('// Wartezeiten laden', anfang);
 t('der Abschnitt liess sich finden', anfang > 0 && ende > anfang, anfang + '/' + ende);
-var code = h.slice(anfang, ende);
+// Der Ladepfad ruft seit dem 04.09.2026 minOrderHinweisBauen() auf.
+// Ohne diese Funktion stuerzt die Sandkiste ab -- und ein abgestuerzter
+// Test sieht in der Zusammenfassung aus wie ein bestandener.
+var bauAnfang = h.indexOf('function minOrderHinweisBauen(el, lokal, server) {');
+var bauEnde   = h.indexOf('window.minOrderLokalVerwerfen = minOrderLokalVerwerfen;');
+t('der Hinweis-Baumeister liess sich finden', bauAnfang > 0 && bauEnde > bauAnfang, bauAnfang + '/' + bauEnde);
+var code = h.slice(bauAnfang, bauEnde) + '\n' + h.slice(anfang, ende);
 
 function laden(inDerDatenbank, imBrowser) {
     var feld  = { value: null };
-    var warn  = { style: { display: 'none' }, textContent: '' };
+    function knoten(tag) {
+        return {
+            tag: tag, textContent: '', type: '', onclick: null,
+            style: { display: 'none', cssText: '' }, kinder: [],
+            appendChild: function (k) { this.kinder.push(k); }
+        };
+    }
+    var warn = knoten('div');
     var welt = {
         restId: 'haus-1',
         restaurant: { id: 'haus-1', min_order_value: inDerDatenbank },
-        document: { getElementById: function (id) {
-            if (id === 'settingMinOrder')   return feld;
-            if (id === 'minOrderNurLokal')  return warn;
-            return null;
-        } },
+        document: {
+            getElementById: function (id) {
+                if (id === 'settingMinOrder')   return feld;
+                if (id === 'minOrderNurLokal')  return warn;
+                return null;
+            },
+            createElement: knoten
+        },
         localStorage: { getItem: function (k) {
             return k === 'kin_min_order_haus-1' ? String(imBrowser) : null;
         } },
         Number: Number, parseFloat: parseFloat
     };
+    welt.window = welt;   // der Baumeister haengt sich an window
     vm.createContext(welt);
     vm.runInContext(code, welt);
-    return { feld: feld.value, warnung: warn.style.display === 'block', text: warn.textContent };
+
+    // Der Hinweis besteht jetzt aus Satz + Knoepfen. Alles einsammeln.
+    var texte = [], knoepfe = [];
+    (function sammeln(el) {
+        if (el.textContent) texte.push(el.textContent);
+        if (el.tag === 'button') knoepfe.push(el);
+        (el.kinder || []).forEach(sammeln);
+    })(warn);
+
+    return {
+        feld: feld.value,
+        warnung: warn.style.display === 'block',
+        text: texte.join(' | '),
+        knoepfe: knoepfe
+    };
 }
 
 // a) Der Normalfall: der Wert steht in der Datenbank. Nichts zu melden.
@@ -87,8 +118,22 @@ t('und es steht DA, dass die 15 nur auf dem Geraet liegen',
 t('mit beiden Zahlen, damit klar ist was der Gast sieht',
   /15/.test(oldersum.text) && /0/.test(oldersum.text) && /Gast/.test(oldersum.text),
   oldersum.text);
-t('und sagt, was zu tun ist',
-  /Knöpfe|tippen/.test(oldersum.text), oldersum.text);
+// DIESER TEST FORDERTE BIS ZUM 04.09.2026 DEN FEHLER EIN.
+//
+// Er verlangte /Knöpfe|tippen/ -- also genau den Rat "Einmal auf einen
+// der Knoepfe tippen, dann gilt es ueberall". Die Knoepfe heissen
+// Kein / 10 / 15 / 20. Stand im Browser 18, gab es keinen passenden.
+// Der Test hat den Rat bewacht, statt zu pruefen, ob man ihm folgen
+// kann. Genau die Sorte Test, vor der Regel 5 warnt.
+//
+// Jetzt gilt: der Hinweis muss einen Weg anbieten, den es wirklich gibt.
+t('und bietet einen Weg an, den es wirklich gibt', oldersum.knoepfe.length === 2, oldersum.knoepfe.length);
+t('einer traegt den Wert aus dem Browser',
+  oldersum.knoepfe.length > 0 && /15/.test(oldersum.knoepfe[0].textContent),
+  oldersum.knoepfe.map(function (k) { return k.textContent; }).join(' / '));
+t('und beide sind anklickbar',
+  oldersum.knoepfe.length === 2 && typeof oldersum.knoepfe[0].onclick === 'function'
+    && typeof oldersum.knoepfe[1].onclick === 'function', 'ohne onclick');
 
 // c) Nichts hinterlegt, nirgends -- das ist kein Fehler.
 var leer = laden(0, 0);

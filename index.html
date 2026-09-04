@@ -60414,11 +60414,7 @@ function loadOrderSettings() {
         if (minWarnEl) {
             var abweichung = minLokal > 0 && minLokal !== minServer;
             minWarnEl.style.display = abweichung ? 'block' : 'none';
-            if (abweichung) {
-                minWarnEl.textContent = 'Achtung: ' + minLokal.toFixed(0) + ' \u20AC stehen nur auf '
-                    + 'diesem Ger\u00e4t. Der Gast sieht ' + minServer.toFixed(0) + ' \u20AC. '
-                    + 'Einmal auf einen der Kn\u00f6pfe tippen, dann gilt es \u00fcberall.';
-            }
+            if (abweichung) minOrderHinweisBauen(minWarnEl, minLokal, minServer);
         }
     }
 
@@ -60866,6 +60862,115 @@ var _minStand = {};                  // restId -> was zuletzt bestaetigt in der 
 function minStandMerken(restId, wert) { if (restId) _minStand[restId] = Number(wert) || 0; }
 window.minStandMerken = minStandMerken;
 
+// WAEHREND DES TIPPENS SAGEN, DASS ES NOCH NICHT DRIN IST.
+//
+// Diese drei Helfer standen bis zum 04.09.2026 INNERHALB von
+// saveMinOrderValue -- und window.minOrderOffen wurde erst gesetzt,
+// wenn die Funktion einmal gelaufen war. Am Feld haengt aber
+// oninput="minOrderOffen()": das feuert beim ersten Tippen, also
+// bevor irgendein blur die Funktion je aufgerufen hat. Beim ersten
+// Mal -- genau dann, wenn der Hinweis gebraucht wird -- gab es
+// deshalb einen ReferenceError und keinen Hinweis.
+//
+// Gefragt am 04.09.2026 "warum wird der mindestbestellwert nicht
+// gespeichert?", und die Antwort war: "es geht wenn ich raus gehe".
+//
+// Es war also nie kaputt -- gespeichert wird beim Verlassen des
+// Feldes (onblur, eingebaut am 02.09., weil onchange bei
+// unveraendertem Wert gar nicht feuert). Nur sagt das niemand. Er
+// tippt 15, und bis er danebentippt sieht es aus, als passiere
+// nichts.
+//
+// Kein Fehler, aber ein Wissen, das man haben muss. Und genau die
+// Sorte Stolperstelle hat ihn schon zweimal Zeit gekostet.
+//
+// Bewusst NICHT beim Tippen gespeichert: dann stuende zwischendurch
+// die "1" von "15" in der Datenbank, und der Gast sieht Preise, die
+// so nie gemeint waren. Ein Hinweis kostet nichts und kann nichts
+// kaputt machen.
+function minOrderOffen() {
+    var k = document.getElementById('minOrderOffen');
+    if (k) k.style.display = 'block';
+}
+window.minOrderOffen = minOrderOffen;
+
+function minOrderErledigt() {
+    var k = document.getElementById('minOrderOffen');
+    if (k) k.style.display = 'none';
+}
+
+// Wird auch von minOrderLokalVerwerfen gebraucht, deshalb hier oben.
+function _minSagen(text, art) {
+    // Wer eine Antwort bekommt, wartet auf nichts mehr.
+    minOrderErledigt();
+    try { if (typeof showToast === 'function') showToast(text, art || 'info'); } catch (e) {}
+}
+
+// EIN RAT, DEN MAN NICHT BEFOLGEN KANN, IST KEINE HILFE.
+//
+// Die rote Zeile vom 27.08.2026 endete mit: "Einmal auf einen der
+// Knoepfe tippen, dann gilt es ueberall." Am 04.09.2026 stand bei
+// Pizzeria Pronto Riepe 18 EUR im Browser und 0 EUR in der Datenbank --
+// und die Knoepfe heissen Kein / 10 / 15 / 20. Einen 18er gibt es nicht.
+//
+// Wer dem Rat folgte, setzte seinen Mindestbestellwert auf eine Zahl,
+// die er nie gewollt hat. Der Hinweis benannte den Fehler richtig und
+// schickte dann in die Irre.
+//
+// Jetzt steht der eigene Wert auf dem Knopf -- und daneben der Weg
+// zurueck, falls der Browser-Wert der falsche war.
+function minOrderHinweisBauen(el, lokal, server) {
+    el.textContent = '';
+
+    var satz = document.createElement('div');
+    satz.textContent = 'Achtung: ' + Number(lokal).toFixed(0) + ' \u20AC stehen nur auf diesem Ger\u00e4t. '
+        + 'Der Gast sieht ' + Number(server).toFixed(0) + ' \u20AC.';
+    el.appendChild(satz);
+
+    var reihe = document.createElement('div');
+    reihe.style.cssText = 'display:flex; gap:6px; margin-top:8px;';
+
+    function knopf(text, aufgabe) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = text;
+        b.style.cssText = 'flex:1; padding:6px 8px; border:1px solid rgba(185,28,28,0.25); '
+            + 'background:rgba(255,255,255,0.75); border-radius:50px; font-size:11px; '
+            + 'font-weight:700; cursor:pointer; color:#b91c1c; font-family:inherit;';
+        b.onclick = aufgabe;
+        reihe.appendChild(b);
+    }
+
+    knopf(Number(lokal).toFixed(0) + ' \u20AC \u00fcberall \u00fcbernehmen', function () {
+        var f = document.getElementById('settingMinOrder');
+        if (f) f.value = lokal;
+        saveMinOrderValue();
+    });
+    knopf('Es sollen ' + Number(server).toFixed(0) + ' \u20AC gelten', function () {
+        minOrderLokalVerwerfen(server);
+    });
+
+    el.appendChild(reihe);
+}
+window.minOrderHinweisBauen = minOrderHinweisBauen;
+
+// Der Weg zurueck: der Wert im Browser war der Irrtum, in der Datenbank
+// steht der richtige. Ohne diesen Knopf bliebe die rote Zeile fuer immer
+// stehen -- und eine Warnung, die man nicht loswerden kann, liest bald
+// niemand mehr.
+function minOrderLokalVerwerfen(server) {
+    var restId = document.getElementById('ordersRestaurantSelect') ? document.getElementById('ordersRestaurantSelect').value : '';
+    if (!restId) { _minSagen('Bitte erst ein Restaurant ausw\u00e4hlen', 'error'); return; }
+    localStorage.removeItem('kin_min_order_' + restId);
+    var f = document.getElementById('settingMinOrder');
+    if (f) f.value = Number(server) || 0;
+    var w = document.getElementById('minOrderNurLokal');
+    if (w) { w.textContent = ''; w.style.display = 'none'; }
+    minStandMerken(restId, Number(server) || 0);
+    _minSagen('Es gilt jetzt \u00fcberall ' + (Number(server) || 0).toFixed(0) + ' \u20AC.', 'success');
+}
+window.minOrderLokalVerwerfen = minOrderLokalVerwerfen;
+
 async function saveMinOrderValue() {
     var _minEl = document.getElementById('settingMinOrder');
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
@@ -60887,41 +60992,6 @@ async function saveMinOrderValue() {
     // tippt, es passiert nichts, und niemand sagt warum (Regel 6). Und
     // gerade der haeufigste Fall -- der Wert stimmt bereits -- war der
     // stummste.
-    // WAEHREND DES TIPPENS SAGEN, DASS ES NOCH NICHT DRIN IST.
-    //
-    // Gefragt am 04.09.2026 "warum wird der mindestbestellwert nicht
-    // gespeichert?", und die Antwort war: "es geht wenn ich raus gehe".
-    //
-    // Es war also nie kaputt -- gespeichert wird beim Verlassen des
-    // Feldes (onblur, eingebaut am 02.09., weil onchange bei
-    // unveraendertem Wert gar nicht feuert). Nur sagt das niemand. Er
-    // tippt 15, und bis er danebentippt sieht es aus, als passiere
-    // nichts.
-    //
-    // Kein Fehler, aber ein Wissen, das man haben muss. Und genau die
-    // Sorte Stolperstelle hat ihn schon zweimal Zeit gekostet.
-    //
-    // Bewusst NICHT beim Tippen gespeichert: dann stuende zwischendurch
-    // die "1" von "15" in der Datenbank, und der Gast sieht Preise, die
-    // so nie gemeint waren. Ein Hinweis kostet nichts und kann nichts
-    // kaputt machen.
-    function minOrderOffen() {
-        var k = document.getElementById('minOrderOffen');
-        if (k) k.style.display = 'block';
-    }
-    window.minOrderOffen = minOrderOffen;
-
-    function minOrderErledigt() {
-        var k = document.getElementById('minOrderOffen');
-        if (k) k.style.display = 'none';
-    }
-
-    function _minSagen(text, art) {
-        // Wer eine Antwort bekommt, wartet auf nichts mehr.
-        minOrderErledigt();
-        try { if (typeof showToast === 'function') showToast(text, art || 'info'); } catch (e) {}
-    }
-
     // 1. Leeres Feld: keine Angabe, keine Null.
     var _roh = _minEl ? String(_minEl.value).trim() : '';
     if (_roh === '') {
@@ -60945,28 +61015,26 @@ async function saveMinOrderValue() {
         return;
     }
 
-    // In localStorage speichern (funktioniert immer)
-    localStorage.setItem('kin_min_order_' + restId, minOrder);
-
-    // Auch in APP_DATA updaten
-    if (window.APP_DATA && APP_DATA.restaurants) {
-        var r = APP_DATA.restaurants.find(function(x) { return x.id === restId; });
-        if (r) r.min_order_value = minOrder;
-    }
-    if (currentOrderRestaurant && currentOrderRestaurant.id === restId) {
-        currentOrderRestaurant.min_order_value = minOrder;
-    }
-
-    // Versuche in Supabase zu speichern
-    // Erfolg prüfen: sonst meldet das Dashboard "gespeichert", obwohl der Wert
-    // nur lokal steht und beim nächsten Gerät/Neuladen wieder weg ist.
     // 3. In die Reihe stellen. Wer zuerst gerufen wurde, schreibt zuerst
     //    -- und der Letzte gewinnt, so wie man es erwartet. Vorher liefen
     //    beide gleichzeitig und der Zufall entschied.
+    //
+    //    NICHTS wird vorher lokal gemerkt. Bis zum 04.09.2026 schrieb
+    //    diese Funktion erst localStorage und APP_DATA und danach den
+    //    Server. Lehnte der Server ab, blieb der Wert trotzdem im
+    //    Browser stehen -- und genau so entstand, was Ibo an dem Tag vor
+    //    sich hatte: 18 EUR im Dashboard, 0 EUR fuer den Gast.
+    //
+    //    'return=representation' statt 'return=minimal': mit minimal
+    //    kommt 204 zurueck, egal ob eine Zeile geschrieben wurde oder
+    //    keine. Verweigert RLS die Zeile, sieht das aus wie Erfolg --
+    //    der stillste aller Ausfaelle (Regel 6). Jetzt muss die
+    //    geaenderte Zeile zurueckkommen, sonst gilt es als nicht
+    //    gespeichert.
     var _minFertig = _minKette.then(function () {
-        return fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
+        return fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,min_order_value', {
             method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({ min_order_value: minOrder })
         });
     });
@@ -60974,19 +61042,55 @@ async function saveMinOrderValue() {
     // weitere Speichern fuer immer blockieren.
     _minKette = _minFertig.catch(function () {});
 
+    var _minRes;
     try {
-        var _minRes = await _minFertig;
-        if (!_minRes.ok) {
-            showToast('Nur auf diesem Gerät gespeichert – Server meldet Fehler ' + _minRes.status, 'warning');
-            return;
-        }
-    } catch(e) {
-        showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning');
+        _minRes = await _minFertig;
+    } catch (e) {
+        // Kein Netz. Hier ist der Notnagel im Browser richtig: der Server
+        // hat nicht abgelehnt, er war nicht erreichbar.
+        localStorage.setItem('kin_min_order_' + restId, minOrder);
+        // Der Hinweis "noch nicht gespeichert" bleibt ABSICHTLICH stehen:
+        // in der Datenbank ist wirklich nichts angekommen.
+        try { showToast('Keine Verbindung – nur auf diesem Gerät gespeichert', 'warning'); } catch (e2) {}
+        return;
+    }
+    if (!_minRes.ok) {
+        // Der Server war da und hat nein gesagt. Dann darf der Wert auch
+        // nicht im Browser stehen bleiben -- sonst zeigt das Dashboard
+        // morgen etwas anderes an als der Gast sieht.
+        try { showToast('Nicht gespeichert – Server meldet Fehler ' + _minRes.status + '. Es gilt weiter ' + (_minStand[restId] != null ? _minStand[restId] : 0) + ' €.', 'error'); } catch (e2) {}
         return;
     }
 
-    // Erst JETZT gilt der Wert als in der Datenbank angekommen.
+    // 4. 200 heisst noch nicht geschrieben. Zurueckkommen muss die Zeile.
+    var _zeilen = null;
+    try { _zeilen = await _minRes.json(); } catch (e) { _zeilen = null; }
+    if (!Array.isArray(_zeilen) || _zeilen.length === 0) {
+        try { showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen. '
+            + 'Meist fehlt dem angemeldeten Konto das Schreibrecht für dieses Restaurant.', 'error'); } catch (e2) {}
+        return;
+    }
+    var _drin = Number(_zeilen[0].min_order_value) || 0;
+    if (_drin !== minOrder) {
+        // Geschrieben, aber etwas anderes steht drin. Dann gilt, was drin steht.
+        minStandMerken(restId, _drin);
+        if (_minEl) _minEl.value = _drin;
+        _minSagen('In der Datenbank stehen jetzt ' + _drin + ' €, nicht ' + minOrder + ' €.', 'warning');
+        return;
+    }
+
+    // Erst JETZT gilt der Wert als in der Datenbank angekommen -- belegt
+    // durch die Zeile, die zurueckgekommen ist.
     minStandMerken(restId, minOrder);
+    localStorage.setItem('kin_min_order_' + restId, minOrder);
+
+    if (window.APP_DATA && APP_DATA.restaurants) {
+        var r = APP_DATA.restaurants.find(function(x) { return x.id === restId; });
+        if (r) r.min_order_value = minOrder;
+    }
+    if (currentOrderRestaurant && currentOrderRestaurant.id === restId) {
+        currentOrderRestaurant.min_order_value = minOrder;
+    }
 
     // Jetzt steht in der Datenbank dasselbe wie im Browser -- die
     // Warnung hat sich erledigt. Bleibt sie stehen, glaubt ihr niemand

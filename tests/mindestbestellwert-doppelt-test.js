@@ -28,6 +28,25 @@ var path = require('path');
 var vm = require('vm');
 var KMI = path.join(__dirname, '..');
 
+// WAS EINE ERFOLGREICHE ANTWORT AB 04.09.2026 IST.
+//
+// Vorher gab diese Attrappe { ok: true, status: 204 } zurueck -- so wie
+// PostgREST es mit 'Prefer: return=minimal' tut. Und genau da lag der
+// stille Ausfall: 204 kommt AUCH zurueck, wenn RLS die Zeile verweigert
+// und NICHTS geschrieben wurde. Erfolg und Totalausfall sahen gleich aus.
+//
+// Am 04.09.2026 stand bei Pizzeria Pronto Riepe 18 EUR im Dashboard und
+// 0 EUR fuer den Gast. Seitdem fordert der Code die geaenderte Zeile
+// zurueck ('return=representation'). Kommt sie nicht, gilt es als nicht
+// gespeichert.
+function antwort(wert) {
+    return {
+        ok: true,
+        status: 200,
+        json: function () { return Promise.resolve([{ id: HAUS, min_order_value: wert }]); }
+    };
+}
+
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -90,7 +109,7 @@ function bauen(dbWert) {
                 setTimeout(function () {
                     offen--;
                     geschrieben.push(wert);
-                    fertig({ ok: true, status: 204 });
+                    fertig(antwort(wert));
                 }, dauer);
             });
         }
@@ -180,7 +199,7 @@ Promise.all([p1, p2]).then(function () {
         var wert = JSON.parse(o.body).min_order_value;
         if (ersteWeg) { ersteWeg = false; return Promise.reject(new Error('kein Netz')); }
         y.geschrieben.push(wert);
-        return Promise.resolve({ ok: true, status: 204 });
+        return Promise.resolve(antwort(wert));
     };
     y.feld.value = '10';
     return y.ctx.saveMinOrderValue().then(function () {
