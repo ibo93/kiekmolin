@@ -19800,7 +19800,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <div style="font-size: 11px; color: var(--text-secondary);">Minimum pro Bestellung</div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
+                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" oninput="minOrderOffen()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
                                 <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">€</span>
                             </div>
                         </div>
@@ -19816,6 +19816,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                              in seinem Browser -- der Gast sah 0 und konnte fuer
                              12 EUR liefern lassen. Ein Feld, das den falschen
                              Wert anzeigt, ist schlimmer als ein leeres. -->
+                        <div id="minOrderOffen" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(180,83,9,0.09); color:#b45309; font-size:11px; font-weight:600; line-height:1.45;">Noch nicht gespeichert &mdash; einmal daneben tippen.</div>
                         <div id="minOrderNurLokal" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(220,38,38,0.08); color:#b91c1c; font-size:11px; font-weight:600; line-height:1.45;"></div>
                     </div>
 
@@ -60886,7 +60887,38 @@ async function saveMinOrderValue() {
     // tippt, es passiert nichts, und niemand sagt warum (Regel 6). Und
     // gerade der haeufigste Fall -- der Wert stimmt bereits -- war der
     // stummste.
+    // WAEHREND DES TIPPENS SAGEN, DASS ES NOCH NICHT DRIN IST.
+    //
+    // Gefragt am 04.09.2026 "warum wird der mindestbestellwert nicht
+    // gespeichert?", und die Antwort war: "es geht wenn ich raus gehe".
+    //
+    // Es war also nie kaputt -- gespeichert wird beim Verlassen des
+    // Feldes (onblur, eingebaut am 02.09., weil onchange bei
+    // unveraendertem Wert gar nicht feuert). Nur sagt das niemand. Er
+    // tippt 15, und bis er danebentippt sieht es aus, als passiere
+    // nichts.
+    //
+    // Kein Fehler, aber ein Wissen, das man haben muss. Und genau die
+    // Sorte Stolperstelle hat ihn schon zweimal Zeit gekostet.
+    //
+    // Bewusst NICHT beim Tippen gespeichert: dann stuende zwischendurch
+    // die "1" von "15" in der Datenbank, und der Gast sieht Preise, die
+    // so nie gemeint waren. Ein Hinweis kostet nichts und kann nichts
+    // kaputt machen.
+    function minOrderOffen() {
+        var k = document.getElementById('minOrderOffen');
+        if (k) k.style.display = 'block';
+    }
+    window.minOrderOffen = minOrderOffen;
+
+    function minOrderErledigt() {
+        var k = document.getElementById('minOrderOffen');
+        if (k) k.style.display = 'none';
+    }
+
     function _minSagen(text, art) {
+        // Wer eine Antwort bekommt, wartet auf nichts mehr.
+        minOrderErledigt();
         try { if (typeof showToast === 'function') showToast(text, art || 'info'); } catch (e) {}
     }
 
@@ -60961,6 +60993,10 @@ async function saveMinOrderValue() {
     // mehr beim naechsten Mal.
     var _minWarn = document.getElementById('minOrderNurLokal');
     if (_minWarn) _minWarn.style.display = 'none';
+    // Jetzt IST es gespeichert -- der Hinweis darf weg. Auf den beiden
+    // Fehlerwegen darueber bleibt er absichtlich stehen: dort ist
+    // wirklich nichts angekommen.
+    minOrderErledigt();
 
     showToast('Mindestbestellwert: ' + (minOrder > 0 ? minOrder.toFixed(0) + ' €' : 'Kein Minimum'), 'success');
 }

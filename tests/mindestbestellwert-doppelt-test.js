@@ -47,6 +47,9 @@ var HAUS = 'a004eaca-c89d-4396-bce6-884d7c9ccd2d';
 
 function bauen(dbWert) {
     var feld = { value: String(dbWert) };
+    // Der Hinweis "Noch nicht gespeichert" -- er faengt sichtbar an, so
+    // wie nach dem ersten Tastendruck.
+    var offenKasten = { style: { display: 'block' } };
     var geschrieben = [];       // was wirklich rausging, in Reihenfolge
     var toasts = [];
     var offen = 0, maxOffen = 0, gerufen = 0;
@@ -57,6 +60,7 @@ function bauen(dbWert) {
                 if (id === 'settingMinOrder') return feld;
                 if (id === 'ordersRestaurantSelect') return { value: HAUS };
                 if (id === 'minOrderNurLokal') return { style: {} };
+                if (id === 'minOrderOffen') return offenKasten;
                 return null;
             }
         },
@@ -96,7 +100,8 @@ function bauen(dbWert) {
     vm.runInContext(quelle, ctx);
     ctx.minStandMerken(HAUS, dbWert);   // so wie es das Laden tut
     return { ctx: ctx, feld: feld, geschrieben: geschrieben, toasts: toasts,
-             maxOffen: function () { return maxOffen; } };
+             maxOffen: function () { return maxOffen; },
+             offen: function () { return offenKasten.style.display; } };
 }
 
 // ---- 1. Der gemeldete Ablauf -------------------------------------------
@@ -219,7 +224,54 @@ Promise.all([p1, p2]).then(function () {
         });
     });
 }).then(function () {
-    // ---- 7. Was im Quelltext stehen muss -------------------------------
+    // ---- 7. DER HINWEIS "NOCH NICHT GESPEICHERT" -----------------------
+    console.log('\n-- Der Hinweis beim Tippen --');
+
+    // Gefragt am 04.09.2026: "warum wird der mindestbestellwert nicht
+    // gespeichert?" -- Antwort: "es geht wenn ich raus gehe".
+    //
+    // Es war nie kaputt. Gespeichert wird beim Verlassen des Feldes
+    // (onblur, seit dem 02.09., weil onchange bei unveraendertem Wert
+    // gar nicht feuert). Nur sagte das niemand: er tippt 15, und bis er
+    // danebentippt sieht es aus, als passiere nichts.
+    t('beim Tippen erscheint der Hinweis', /oninput="minOrderOffen\(\)"/.test(h));
+    t('er steht als Kasten in der Maske', /id="minOrderOffen"/.test(h));
+    t('mit klarem Text', /Noch nicht gespeichert/.test(h));
+
+    // Beim Tippen zu speichern waere schlimmer: dann stuende
+    // zwischendurch die "1" von "15" in der Datenbank, und der Gast
+    // saehe einen Mindestwert, den so nie jemand gemeint hat.
+    t('beim Tippen wird NICHT gespeichert', !/oninput="saveMinOrderValue/.test(h));
+
+    // Und jetzt wirklich durchgespielt. Ein Textvergleich zeigt nur,
+    // dass die Zeile dasteht -- nicht, dass sie wirkt (Regel 5).
+    var hw = bauen(0);
+    hw.feld.value = '15';
+    return hw.ctx.saveMinOrderValue().then(function () {
+        t('nach erfolgreichem Speichern ist er weg', hw.offen() === 'none', hw.offen());
+        t('und der Wert ging raus', hw.geschrieben.join(',') === '15', hw.geschrieben.join(','));
+
+        // Kam es NICHT an, muss er stehen bleiben. Ihn wegzunehmen waere
+        // die schlimmste Variante: es saehe aus wie gespeichert.
+        var hf = bauen(0);
+        hf.ctx.fetch = function () { return Promise.reject(new Error('kein Netz')); };
+        hf.feld.value = '15';
+        return hf.ctx.saveMinOrderValue().then(function () {
+            t('bei einem Netzfehler bleibt er stehen', hf.offen() === 'block', hf.offen());
+            t('und der Fehler wird gesagt',
+              hf.toasts.some(function (x) { return /warning/.test(x); }), hf.toasts.join(' | '));
+        });
+
+        // Und wenn nichts zu tun war, wartet auch nichts mehr.
+    }).then(function () {
+        var hg = bauen(15);
+        hg.feld.value = '15';
+        return hg.ctx.saveMinOrderValue().then(function () {
+            t('bei "steht schon so" geht er ebenfalls weg', hg.offen() === 'none', hg.offen());
+        });
+    });
+}).then(function () {
+    // ---- 8. Was im Quelltext stehen muss -------------------------------
     console.log('\n-- Der Bau selbst --');
     t('die Schreibvorgaenge haengen an einer Kette',
       /_minKette = _minFertig\.catch/.test(quelle));
