@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#0a1410" />
+    <title>Herdem · Admin</title>
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/inter-latin.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/archivo-black-latin.woff2" crossorigin="anonymous" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <!-- Login gate -->
+    <div class="gate" id="loginGate">
+      <form class="gate-card" id="loginForm">
+        <img src="../assets/logo.svg" alt="" width="64" height="64" />
+        <h1>Herdem Admin</h1>
+        <p>Nur für Betreiber. Bitte Zugangscode eingeben.</p>
+        <label>
+          <span>Code</span>
+          <input id="loginInput" type="password" autocomplete="off" required />
+        </label>
+        <button type="submit">Einloggen</button>
+        <p class="gate-hint">Demo-Code: <code>herdem2026</code></p>
+      </form>
+    </div>
+
+    <!-- Main shell -->
+    <div class="shell" id="adminShell" hidden>
+      <header class="topbar">
+        <a class="brand" href="../" title="Zur Kundenansicht">
+          <img src="../assets/logo.svg" alt="" width="36" height="36" />
+          <span class="brand-text"><strong>HERDEM</strong><small>Admin</small></span>
+        </a>
+        <div class="topbar-status" id="topStatus">
+          <span class="dot"></span>
+          <span id="storeStatusText">Shop offen</span>
+        </div>
+        <button class="t-icon" id="moreMenuBtn" type="button" aria-label="Mehr Aktionen" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg>
+        </button>
+      </header>
+
+      <!-- Action drawer (Mehr) -->
+      <div class="action-drawer" id="actionDrawer" hidden role="menu" aria-label="Aktionen">
+        <button class="ad-item" id="exportBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12 M7 11l5 5 5-5 M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Export JSON</span>
+        </button>
+        <label class="ad-item" for="importInput" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V8 M7 13l5-5 5 5 M5 4h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Import JSON</span>
+        </label>
+        <input id="importInput" type="file" accept="application/json" hidden />
+        <a class="ad-item" href="../" target="_blank" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6 M20 4l-9 9 M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Shop ansehen ↗</span>
+        </a>
+        <hr/>
+        <button class="ad-item danger" id="resetBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7 M3 4v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Auf Standard zurücksetzen</span>
+        </button>
+        <button class="ad-item danger" id="logoutBtn" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3 M11 16l-4-4 4-4 M7 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Ausloggen</span>
+        </button>
+      </div>
+      <div class="action-scrim" id="actionScrim" hidden></div>
+
+      <main class="content">
+          <!-- ============= DASHBOARD ============= -->
+          <section class="panel" data-panel="dashboard">
+            <header class="panel-head dash-head">
+              <div>
+                <p class="eyebrow" id="dashGreet">Servus</p>
+                <h2 id="dashTitle">Dashboard</h2>
+                <small class="dash-sub" id="dashDate"></small>
+              </div>
+            </header>
+
+            <div class="kpi-grid">
+              <article class="kpi-card kpi-green">
+                <span class="kpi-label">Heute Bestellungen</span>
+                <strong class="kpi-value" id="kpiOrdersToday">0</strong>
+                <small class="kpi-foot" id="kpiOrdersDelta">vs. gestern: —</small>
+              </article>
+              <article class="kpi-card kpi-amber">
+                <span class="kpi-label">Heute Umsatz</span>
+                <strong class="kpi-value" id="kpiRevenueToday">0,00 €</strong>
+                <small class="kpi-foot" id="kpiRevenueDelta">vs. gestern: —</small>
+              </article>
+              <article class="kpi-card kpi-blue">
+                <span class="kpi-label">Offene Bestellungen</span>
+                <strong class="kpi-value" id="kpiOpen">0</strong>
+                <small class="kpi-foot">Neu + Wird gepackt + Unterwegs</small>
+              </article>
+              <article class="kpi-card kpi-ink">
+                <span class="kpi-label">Aktive Produkte</span>
+                <strong class="kpi-value" id="kpiActiveProducts">0</strong>
+                <small class="kpi-foot" id="kpiInactiveProducts">Inaktiv: 0</small>
+              </article>
+            </div>
+
+            <article class="dash-chart">
+              <header>
+                <h3>Bestellungen · letzte 7 Tage</h3>
+                <span class="chart-sum" id="chartSum">—</span>
+              </header>
+              <svg id="chart7d" viewBox="0 0 320 100" preserveAspectRatio="none" aria-label="Bestellungen-Chart 7 Tage">
+                <polyline id="chartLine" fill="none" stroke="currentColor" stroke-width="2" points=""/>
+                <polygon id="chartArea" fill="currentColor" fill-opacity="0.08" stroke="none" points=""/>
+              </svg>
+              <footer class="chart-labels" id="chartLabels"></footer>
+            </article>
+
+            <article class="dash-section">
+              <header class="ds-head">
+                <h3>Neueste Bestellungen</h3>
+                <button class="link-btn" type="button" data-tab="orders">Alle ansehen →</button>
+              </header>
+              <div class="ds-list" id="dashRecentOrders"></div>
+            </article>
+
+            <article class="dash-section">
+              <header class="ds-head">
+                <h3>Schnellzugriff</h3>
+              </header>
+              <div class="quick-actions">
+                <button class="qa" type="button" id="qaAddProduct">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14 M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  <span>Neues Produkt</span>
+                </button>
+                <button class="qa" type="button" data-tab="orders">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span>Bestellungen</span>
+                </button>
+                <button class="qa" type="button" data-tab="settings">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 4v3 M12 17v3 M4 12h3 M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  <span>Einstellungen</span>
+                </button>
+                <button class="qa" type="button" data-tab="copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l4 4v12H5z M8 12h8 M8 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span>Texte</span>
+                </button>
+              </div>
+            </article>
+          </section>
+
+          <!-- ============= PRODUCTS ============= -->
+          <section class="panel" data-panel="products" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Sortiment</p>
+                <h2>Produkte verwalten</h2>
+              </div>
+              <div class="panel-actions">
+                <input class="search" id="productSearch" type="search" placeholder="Suchen…" />
+                <select id="productCategoryFilter">
+                  <option value="all">Alle Kategorien</option>
+                  <option value="fleisch">Fleisch &amp; Helal</option>
+                  <option value="obst">Obst &amp; Gemüse</option>
+                  <option value="milch">Milchprodukte</option>
+                  <option value="gewuerze">Gewürze &amp; Öl</option>
+                  <option value="snacks">Snacks &amp; Süßes</option>
+                  <option value="getraenke">Getränke</option>
+                </select>
+                <button class="cta" id="addProduct" type="button">+ Neues Produkt</button>
+              </div>
+            </header>
+
+            <div class="table-wrap">
+              <table class="data-table" id="productsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 64px">Bild</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="category">Kategorie</th>
+                    <th data-sort="price" class="num">Preis</th>
+                    <th class="num">Alt-Preis</th>
+                    <th>Tags</th>
+                    <th data-sort="popularity" class="num">Popularität</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="productsBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ============= BUNDLES ============= -->
+          <section class="panel" data-panel="bundles" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Pakete</p>
+                <h2>Bundles &amp; Pakete</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="addBundle" type="button">+ Neues Paket</button>
+              </div>
+            </header>
+            <div class="bundle-grid" id="bundleGrid"></div>
+          </section>
+
+          <!-- ============= COPY ============= -->
+          <section class="panel" data-panel="copy" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Inhalte</p>
+                <h2>Texte &amp; Storefront</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="saveCopy" type="button">Übernehmen</button>
+              </div>
+            </header>
+            <form class="copy-form" id="copyForm">
+              <fieldset>
+                <legend>Hero</legend>
+                <label>Eyebrow (DE) <input name="heroEyebrowDe" type="text" /></label>
+                <label>Eyebrow (TR) <input name="heroEyebrowTr" type="text" /></label>
+                <label class="wide">Titel (DE) <textarea name="heroTitleDe" rows="2"></textarea></label>
+                <label class="wide">Titel (TR) <textarea name="heroTitleTr" rows="2"></textarea></label>
+                <label class="wide">Lead-Text (DE) <textarea name="heroLeadDe" rows="3"></textarea></label>
+                <label class="wide">Lead-Text (TR) <textarea name="heroLeadTr" rows="3"></textarea></label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Versprechen (3 Stück)</legend>
+                <div class="three-col">
+                  <div>
+                    <label>Titel 1 (DE) <input name="p1TitleDe" type="text" /></label>
+                    <label>Titel 1 (TR) <input name="p1TitleTr" type="text" /></label>
+                    <label>Text 1 (DE) <input name="p1TextDe" type="text" /></label>
+                    <label>Text 1 (TR) <input name="p1TextTr" type="text" /></label>
+                  </div>
+                  <div>
+                    <label>Titel 2 (DE) <input name="p2TitleDe" type="text" /></label>
+                    <label>Titel 2 (TR) <input name="p2TitleTr" type="text" /></label>
+                    <label>Text 2 (DE) <input name="p2TextDe" type="text" /></label>
+                    <label>Text 2 (TR) <input name="p2TextTr" type="text" /></label>
+                  </div>
+                  <div>
+                    <label>Titel 3 (DE) <input name="p3TitleDe" type="text" /></label>
+                    <label>Titel 3 (TR) <input name="p3TitleTr" type="text" /></label>
+                    <label>Text 3 (DE) <input name="p3TextDe" type="text" /></label>
+                    <label>Text 3 (TR) <input name="p3TextTr" type="text" /></label>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Footer</legend>
+                <label class="wide">Tagline (DE) <input name="footerTaglineDe" type="text" /></label>
+                <label class="wide">Tagline (TR) <input name="footerTaglineTr" type="text" /></label>
+              </fieldset>
+            </form>
+          </section>
+
+          <!-- ============= SETTINGS ============= -->
+          <section class="panel" data-panel="settings" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Konfiguration</p>
+                <h2>Shop-Einstellungen</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="cta" id="saveSettings" type="button">Übernehmen</button>
+              </div>
+            </header>
+            <form class="settings-form" id="settingsForm">
+              <fieldset>
+                <legend>Filiale</legend>
+                <label>Markenname <input name="storeName" type="text" /></label>
+                <label>Tagline (DE) <input name="storeTaglineDe" type="text" /></label>
+                <label>Tagline (TR) <input name="storeTaglineTr" type="text" /></label>
+                <label>Straße &amp; Hausnummer <input name="addrStreet" type="text" /></label>
+                <label>PLZ <input name="addrZip" type="text" inputmode="numeric" maxlength="5" /></label>
+                <label>Stadt <input name="addrCity" type="text" /></label>
+                <label>Telefon <input name="phone" type="tel" /></label>
+                <label>E-Mail <input name="email" type="email" /></label>
+                <label class="wide">Öffnungszeiten <input name="hours" type="text" placeholder="Mo–Sa 08:00–22:00" /></label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Lieferung &amp; Kosten</legend>
+                <label>Mindestbestellwert (€) <input name="minOrder" type="number" min="0" step="0.5" /></label>
+                <label>Lieferung Gebühr (€) <input name="feeDelivery" type="number" min="0" step="0.1" /></label>
+                <label>Lieferung gratis ab (€) <input name="freeDelivery" type="number" min="0" step="1" /></label>
+                <label>Versand Gebühr (€) <input name="feeShipping" type="number" min="0" step="0.1" /></label>
+                <label>Versand gratis ab (€) <input name="freeShipping" type="number" min="0" step="1" /></label>
+                <label class="wide">Liefergebiet PLZs (eine pro Zeile)
+                  <textarea name="zipList" rows="4" placeholder="26409&#10;26427&#10;..."></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>Zahlungsmethoden</legend>
+                <label class="wide">WhatsApp-Bestellnummer
+                  <input name="whatsappNumber" type="tel" placeholder="+49 170 1234567 (leer = WhatsApp-Option ausblenden)" />
+                </label>
+                <label class="wide">PayPal.me Handle
+                  <input name="paypalHandle" type="text" placeholder="herdem (= paypal.me/herdem, leer = PayPal-Option ausblenden)" />
+                </label>
+                <label>Kontoinhaber <input name="accountHolder" type="text" placeholder="z. B. Herdem GmbH" /></label>
+                <label>IBAN <input name="iban" type="text" placeholder="DE89 3704 0044 0532 0130 00" /></label>
+                <label>BIC <input name="bic" type="text" placeholder="COBADEFFXXX" /></label>
+                <p class="hint" style="grid-column: 1/-1;">Felder leer lassen, um die jeweilige Zahlungsmethode im Shop auszublenden. WhatsApp braucht nur die Nummer, Überweisung braucht IBAN + Kontoinhaber.</p>
+              </fieldset>
+
+              <fieldset>
+                <legend>Gutscheincodes</legend>
+                <div id="promoList" class="promo-list"></div>
+                <button class="t-btn" id="addPromo" type="button">+ Code hinzufügen</button>
+              </fieldset>
+
+              <fieldset>
+                <legend>Shop-Status</legend>
+                <label class="toggle-row">
+                  <input name="storeOpen" type="checkbox" />
+                  <span>Shop ist geöffnet</span>
+                </label>
+                <p class="hint">Pausiert: Kasse gesperrt, Banner-Hinweis aktiv.</p>
+              </fieldset>
+            </form>
+          </section>
+
+          <!-- ============= ORDERS ============= -->
+          <section class="panel" data-panel="orders" hidden>
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Operations</p>
+                <h2>Bestellungen</h2>
+              </div>
+              <div class="panel-actions">
+                <select id="orderStatusFilter">
+                  <option value="all">Alle Status</option>
+                  <option value="new">Neu</option>
+                  <option value="packing">Wird gepackt</option>
+                  <option value="onway">Unterwegs</option>
+                  <option value="delivered">Geliefert</option>
+                  <option value="cancelled">Storniert</option>
+                </select>
+              </div>
+            </header>
+            <div class="orders-list" id="ordersList"></div>
+          </section>
+      </main>
+
+      <!-- Mobile-first Bottom Navigation -->
+      <nav class="bottom-nav" aria-label="Admin-Bereiche">
+        <button class="bn-item is-active" data-tab="dashboard" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h6V3H3z M11 8h10V3H11z M11 21h10V10H11z M3 21h6v-7H3z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="bn-item" data-tab="orders" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M4 9h16 M9 14h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Bestellungen</span>
+          <em class="bn-badge" id="navOrderCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="products" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z M4 7l2-4h12l2 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Sortiment</span>
+          <em class="bn-badge bn-badge-mute" id="navProductCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="bundles" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v9H3z M3 10l3-5h12l3 5 M12 5v14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Pakete</span>
+          <em class="bn-badge bn-badge-mute" id="navBundleCount" hidden>0</em>
+        </button>
+        <button class="bn-item" data-tab="settings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v3 M12 17v3 M4 12h3 M17 12h3 M6.3 6.3l2 2 M15.7 15.7l2 2 M6.3 17.7l2-2 M15.7 8.3l2-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span>Optionen</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Product edit dialog -->
+    <dialog class="adlg" id="productDialog">
+      <form method="dialog" id="productForm">
+        <header>
+          <h2 id="productDialogTitle">Produkt bearbeiten</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <input type="hidden" name="id" />
+        <div class="grid-2">
+          <label>Name (DE) <input name="nameDe" type="text" required /></label>
+          <label>Name (TR) <input name="nameTr" type="text" /></label>
+          <label>Kategorie
+            <select name="category" required>
+              <option value="fleisch">Fleisch &amp; Helal</option>
+              <option value="obst">Obst &amp; Gemüse</option>
+              <option value="milch">Milchprodukte</option>
+              <option value="gewuerze">Gewürze &amp; Öl</option>
+              <option value="snacks">Snacks &amp; Süßes</option>
+              <option value="getraenke">Getränke</option>
+            </select>
+          </label>
+          <label>Herkunft <input name="origin" type="text" placeholder="z. B. Bäckerei" /></label>
+          <label>Preis (€) <input name="price" type="number" min="0" step="0.01" required /></label>
+          <label>Alter Preis (€) <input name="oldPrice" type="number" min="0" step="0.01" placeholder="leer = ohne" /></label>
+          <label>Einheit <input name="unit" type="text" placeholder="z. B. 500 g, 7,99 € / kg" /></label>
+          <label>Beliebtheit (1–100) <input name="popularity" type="number" min="1" max="100" /></label>
+          <label class="wide">Beschreibung (DE) <textarea name="noteDe" rows="2"></textarea></label>
+          <label class="wide">Beschreibung (TR) <textarea name="noteTr" rows="2"></textarea></label>
+          <label class="wide">Tags (Komma getrennt) <input name="tags" type="text" placeholder="Helal, Angebot, Frisch" /></label>
+          <fieldset class="wide">
+            <legend>Produktbild</legend>
+            <div class="img-row">
+              <div class="img-preview" id="imgPreview"></div>
+              <div class="img-controls">
+                <label class="t-btn" for="imgFile">Bild hochladen</label>
+                <input id="imgFile" type="file" accept="image/*" hidden />
+                <button class="t-btn ghost" id="useDefaultImg" type="button">Standard-SVG verwenden</button>
+                <input name="image" type="hidden" />
+                <small id="imgHint">Empfohlen: 600×600 px, max 200 KB. Wird lokal als Daten-URI gespeichert.</small>
+              </div>
+            </div>
+          </fieldset>
+          <label class="toggle-row wide">
+            <input name="active" type="checkbox" checked />
+            <span>Aktiv (im Shop sichtbar)</span>
+          </label>
+        </div>
+        <footer>
+          <button class="t-btn ghost" type="button" id="deleteProduct">Löschen</button>
+          <button class="cta" type="submit" value="save">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Bundle edit dialog -->
+    <dialog class="adlg" id="bundleDialog">
+      <form method="dialog" id="bundleForm">
+        <header>
+          <h2>Paket bearbeiten</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <input type="hidden" name="id" />
+        <div class="grid-2">
+          <label>ID (interner Key) <input name="key" type="text" required pattern="[a-z0-9_-]+" /></label>
+          <label>Farbe
+            <select name="color">
+              <option value="green">Grün</option>
+              <option value="red">Rot</option>
+              <option value="amber">Gelb</option>
+              <option value="blue">Blau</option>
+            </select>
+          </label>
+          <label>Eyebrow <input name="eyebrow" type="text" placeholder="z. B. Grill" /></label>
+          <label>Titel (DE) <input name="titleDe" type="text" required /></label>
+          <label>Titel (TR) <input name="titleTr" type="text" /></label>
+          <label class="wide">Beschreibung (DE) <textarea name="descDe" rows="2"></textarea></label>
+          <label class="wide">Beschreibung (TR) <textarea name="descTr" rows="2"></textarea></label>
+          <fieldset class="wide">
+            <legend>Produkte im Paket</legend>
+            <div class="chip-pool" id="bundleProductPool"></div>
+          </fieldset>
+        </div>
+        <footer>
+          <button class="t-btn ghost" type="button" id="deleteBundle">Löschen</button>
+          <button class="cta" type="submit" value="save">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <!-- Order detail dialog -->
+    <dialog class="adlg" id="orderDialog">
+      <form method="dialog">
+        <header>
+          <h2 id="orderDialogTitle">Bestellung</h2>
+          <button class="x" type="submit" value="cancel" aria-label="Schließen">×</button>
+        </header>
+        <div id="orderDetail"></div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="adminToast" role="status" aria-live="polite"></div>
+    <script src="admin.js" defer></script>
+  </body>
+</html>

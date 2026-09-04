@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Herdem · Türkisch-mediterrane Frische, geliefert</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#063b29" />
+<link rel="stylesheet" href="stitch.css" />
+
+
+
+
+
+<style>
+        .view-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .hide { display: none !important; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .nav-active { color: #002417 !important; font-weight: 700; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-icon { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-surface h-full font-body-base text-on-surface select-none overflow-hidden">
+<div class="flex flex-col h-full max-w-md md:max-w-5xl xl:max-w-7xl mx-auto bg-white md:shadow-none relative overflow-hidden" id="app-container">
+<!-- Integrated Header -->
+<header class="flex items-center justify-between px-4 h-16 bg-white/95 backdrop-blur-xl border-b border-line/10 sticky top-0 z-50 shrink-0" id="top-bar">
+<div class="flex items-center gap-1 cursor-pointer active:scale-95 transition-all flex-1" id="location-picker">
+<svg class="icon-21 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+<span class="text-[11px] font-bold text-primary truncate" id="header-location-text">Wittmund, 26409</span>
+</div>
+<h1 class="font-display-hero-mobile text-2xl tracking-tighter flex-none" id="app-logo" style="color:#5BB236">HERDEM</h1>
+<div class="flex justify-end flex-1" id="header-actions">
+<button class="relative p-2 rounded-full hover:bg-soft transition-colors active:scale-95" id="cart-icon-btn" onclick="switchView('cart')">
+<svg class="icon-24 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="absolute top-1 right-1 bg-error text-white text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold" id="cart-count">3</span>
+</button>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-24 no-scrollbar" id="main-content">
+<!-- HOME VIEW -->
+<section class="view-fade-in space-y-6 pt-4" id="view-home">
+<!-- Offer Banner mit echtem HERDEM-Einkaufskorb-Foto -->
+<div class="px-4">
+<div class="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-md group">
+<img class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" src="assets/products/basket.jpg" alt="Frischer Einkaufskorb"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
+<span class="text-white/90 font-eyebrow text-[10px] mb-2 uppercase tracking-[0.2em] font-black">Frische-Garantie</span>
+<h2 class="text-white font-headline-lg-mobile text-2xl leading-tight max-w-[220px]">Frisch geliefert in 30–60 Min.</h2>
+</div>
+</div>
+</div>
+<!-- Search -->
+<div class="px-4">
+<div class="relative group">
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5 1.49-1.49-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+<input class="w-full h-14 pl-12 pr-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Suche nach Sucuk, Oliven..." type="text" id="home-search"/>
+</div>
+</div>
+<!-- Category Navigation -->
+<div class="flex overflow-x-auto no-scrollbar px-4 gap-3">
+<button class="flex-none px-5 py-2.5 bg-primary text-on-primary rounded-xl text-[13px] font-bold shadow-sm">Angebote</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Fleisch</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Obst</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Milch</button>
+<button class="flex-none px-5 py-2.5 bg-soft text-ink rounded-xl text-[13px] font-bold">Backwaren</button>
+</div>
+<!-- Beliebte Klassiker -->
+<section class="px-4">
+<div class="flex justify-between items-end mb-4">
+<h3 class="font-headline-md text-xl text-ink">Beliebte Klassiker</h3>
+<button class="text-primary font-bold text-xs hover:underline" onclick="switchView('explore')">Alle ansehen</button>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="home-popular-grid">
+<!-- Card 1: Sucuk -->
+<div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative" onclick="openProduct('sucuk')">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all duration-500" src="assets/products/sucuk.svg"/>
+</div>
+<p class="text-sm font-bold text-ink mb-0.5">Egetürk Sucuk</p>
+<div class="flex justify-between items-end">
+<p class="font-price-lg text-lg text-primary">4,99 €</p>
+<button class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md active:scale-90 transition-all"><svg class="icon-21 text-xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+</div>
+<!-- Card 2: Ayran -->
+<div class="bg-white rounded-2xl p-3 border border-line/5 shadow-sm group relative" onclick="openProduct('ayran')">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container mb-3">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all duration-500" src="assets/products/ayran.svg"/>
+</div>
+<p class="text-sm font-bold text-ink mb-0.5">Frischer Ayran</p>
+<div class="flex justify-between items-end">
+<p class="font-price-lg text-lg text-primary">1,29 €</p>
+<button class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md active:scale-90 transition-all"><svg class="icon-21 text-xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+</div>
+</div>
+</section>
+<!-- Frisch vom Bäcker -->
+<section class="px-4 pb-8 overflow-hidden">
+<h3 class="font-headline-md text-xl text-ink mb-4">Frisch vom Bäcker</h3>
+<div class="flex gap-4 overflow-x-auto no-scrollbar" id="home-fresh-scroll">
+<div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group">
+<div class="h-40 overflow-hidden">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="assets/products/sucuk.svg"/>
+</div>
+<div class="p-4">
+<span class="px-2 py-0.5 bg-primary text-white text-[9px] font-black rounded-md uppercase tracking-widest">Täglich frisch</span>
+<h4 class="font-headline-md text-lg text-ink mt-2">Klassische Pide</h4>
+<div class="flex justify-between items-center mt-3">
+<p class="font-price-lg text-lg text-primary">3,50 €</p>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs active:scale-95">Hinzufügen</button>
+</div>
+</div>
+</div>
+<div class="flex-none w-[280px] bg-cream/30 rounded-2xl overflow-hidden border border-line/20 shadow-sm group">
+<div class="h-40 overflow-hidden">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-105 transition-all duration-700" src="assets/products/sucuk.svg"/>
+</div>
+<div class="p-4">
+<span class="px-2 py-0.5 bg-primary text-white text-[9px] font-black rounded-md uppercase tracking-widest">Bestseller</span>
+<h4 class="font-headline-md text-lg text-ink mt-2">Frischer Simit</h4>
+<div class="flex justify-between items-center mt-3">
+<p class="font-price-lg text-lg text-primary">1,10 €</p>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs active:scale-95">Hinzufügen</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<!-- EXPLORE VIEW (Offers Grid) -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-explore">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary" id="explore-title">Alle Produkte</h2>
+<button class="p-2.5 bg-soft rounded-xl text-muted"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></svg></button>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" id="explore-grid">
+<div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group" onclick="openProduct('oliven')">
+<div class="relative aspect-square">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="assets/products/oliven.svg"/>
+<div class="absolute top-2 left-2 bg-error text-white text-[9px] font-black px-2 py-1 rounded-full uppercase">-20%</div>
+</div>
+<div class="p-3">
+<h4 class="text-sm font-bold text-ink truncate">Premium Oliven Mix</h4>
+<div class="flex justify-between items-center mt-2">
+<p class="font-price-lg text-lg text-primary">3,19 €</p>
+<button class="bg-primary text-white p-2 rounded-xl active:scale-90 transition-transform"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3zm-4 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg></button>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-2xl overflow-hidden border border-line/30 shadow-sm relative group" onclick="openProduct('baklava')">
+<div class="relative aspect-square">
+<img class="w-full h-full object-contain bg-soft p-2 group-hover:scale-110 transition-all" src="assets/products/baklava.svg"/>
+<div class="absolute top-2 left-2 bg-secondary-container text-on-secondary-container text-[9px] font-black px-2 py-1 rounded-full uppercase">Aktion</div>
+</div>
+<div class="p-3">
+<h4 class="text-sm font-bold text-ink truncate">Hausgemachte Baklava</h4>
+<div class="flex justify-between items-center mt-2">
+<p class="font-price-lg text-lg text-primary">6,50 €</p>
+<button class="bg-primary text-white p-2 rounded-xl active:scale-90 transition-transform"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3zm-4 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg></button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- FAVORITES VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-favorites">
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Favoriten</h2>
+<div id="favorites-content"><div class="bg-surface-container-low p-12 rounded-[32px] text-center flex flex-col items-center gap-4">
+<div class="w-20 h-20 bg-soft rounded-full flex items-center justify-center mb-2">
+<svg class="icon-24 text-4xl" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
+</div>
+<p class="text-muted text-sm font-medium">Noch keine Favoriten gespeichert.</p>
+<button class="bg-primary text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20" onclick="switchView('explore')">Jetzt entdecken</button>
+</div></div>
+</section>
+<!-- PROFILE VIEW -->
+<section class="view-fade-in hide" id="view-profile">
+<div class="p-4 bg-black flex flex-col items-center text-center">
+<img class="w-full max-w-[140px] h-auto" src="assets/logo-frischmarkt.png" alt="Herdem Frischmarkt"/>
+</div>
+<div class="p-6 bg-white flex flex-col items-center text-center border-b border-line/20 -mt-2 rounded-t-3xl">
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.2em] mt-2">Mein Konto</p>
+<h2 class="font-headline-lg text-xl text-primary font-bold mt-1">Brückstraße 5</h2>
+<p class="text-xs text-muted mt-1">26409 Wittmund · Ostfriesland</p>
+</div>
+<div class="p-6 space-y-4">
+<a class="w-full bg-primary text-on-primary p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg shadow-primary/10 active:scale-[0.98] transition-all no-underline" href="admin/" target="_blank">
+<div class="flex items-center gap-3">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M17 11c.34 0 .67.04 1 .09V6.27L10.5 3 3 6.27v4.91c0 4.54 3.2 8.79 7.5 9.82.55-.13 1.08-.32 1.6-.55-.69-.98-1.1-2.17-1.1-3.45 0-3.31 2.69-6 6-6zm0 2c-2.21 0-4 1.79-4 4 0 2.22 1.78 4 4 4s4-1.78 4-4-1.78-4-4-4zm0 6.5a1 1 0 0 1-1-1 1 1 0 0 1 1-1 1 1 0 0 1 1 1 1 1 0 0 1-1 1zm.5-3h-1V14h1v2.5z"/></svg>
+<span>Admin-Bereich öffnen ↗</span>
+</div>
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</a>
+<div class="bg-white border border-line rounded-2xl overflow-hidden divide-y divide-line shadow-sm">
+<button class="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-soft transition-colors">
+<div class="flex items-center gap-4 text-muted">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+<span>Adressverwaltung</span>
+</div>
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</button>
+<button class="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-soft transition-colors">
+<div class="flex items-center gap-4 text-muted">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M2 6h20v12H2z M22 16H2v2h20zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+<span>Zahlungsmethoden</span>
+</div>
+<svg class="icon-24 text-muted" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+</button>
+</div>
+<button class="w-full py-4 text-error font-bold text-sm bg-error/5 rounded-2xl border border-error/10 mt-4">Abmelden</button>
+</div>
+</section>
+<!-- CART VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-cart">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Warenkorb</h2>
+<span class="text-muted text-[10px] font-bold uppercase tracking-wider" id="cart-summary-label">0 Artikel</span>
+</div>
+<div class="space-y-4" id="cart-items">
+<div class="bg-white p-4 rounded-2xl border border-line/30 flex gap-4 shadow-sm items-center">
+<img class="w-16 h-16 rounded-xl object-contain bg-soft p-2" src="assets/products/oliven.svg"/>
+<div class="flex-1">
+<h4 class="font-bold text-sm">Premium Oliven Mix</h4>
+<p class="font-price-lg text-primary">3,19 €</p>
+</div>
+<div class="flex items-center gap-3 bg-soft p-1 rounded-full font-bold">
+<button class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary active:scale-90">−</button>
+<span class="text-sm">1</span>
+<button class="w-8 h-8 rounded-full bg-primary text-white shadow-sm flex items-center justify-center active:scale-90">+</button>
+</div>
+</div>
+</div>
+<div class="pt-6 border-t border-line/30 space-y-4" id="cart-footer">
+<div class="flex justify-between text-muted text-sm font-medium"><span>Zwischensumme</span><span id="cart-subtotal">0,00 €</span></div>
+<div class="flex justify-between text-xl font-headline-md text-primary font-black"><span>Gesamt</span><span id="cart-total">0,00 €</span></div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 mt-4 active:scale-95 transition-all" id="cart-checkout-btn">Zur Kasse gehen</button>
+</div>
+</section>
+<!-- PRODUCT DETAILS -->
+<section class="view-fade-in hide" id="view-product-details">
+<div class="relative">
+<button class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur p-2 rounded-full shadow-lg" onclick="switchView('home')"><svg class="icon-24 text-primary" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg></button>
+<img class="w-full aspect-square object-contain bg-soft p-2" id="detail-img" src=""/>
+</div>
+<div class="px-4 py-6 space-y-4">
+<div>
+<h2 class="font-headline-lg text-2xl text-primary font-black" id="detail-title"></h2>
+<p class="text-muted text-sm mt-1" id="detail-subtitle"></p>
+</div>
+<p class="text-on-surface-variant text-sm leading-relaxed" id="detail-desc"></p>
+<div class="flex items-center justify-between bg-soft p-4 rounded-2xl border border-line/20">
+<div class="flex items-center gap-6">
+<button class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-line text-xl font-bold text-primary active:scale-90" id="detail-dec">－</button>
+<span class="text-xl font-headline-md font-black" id="detail-qty">1</span>
+<button class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-sm text-xl font-bold active:scale-90" id="detail-inc">＋</button>
+</div>
+<span class="text-2xl font-price-lg text-primary font-black" id="detail-price"></span>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98] transition-transform" id="detail-add-btn">In den Warenkorb</button>
+</div>
+</section>
+
+<!-- CHECKOUT VIEW -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-checkout">
+<div class="flex items-center gap-3">
+<button class="bg-soft p-2 rounded-xl text-primary active:scale-90" onclick="switchView('cart')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+</button>
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Zur Kasse</h2>
+</div>
+
+<!-- Bestell-Zusammenfassung -->
+<div class="bg-soft rounded-2xl p-4">
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em] mb-2">Deine Bestellung</p>
+<div id="checkout-summary" class="space-y-1.5"></div>
+<div class="flex justify-between pt-3 mt-3 border-t border-line/40 font-headline-md text-lg text-primary font-black">
+<span>Gesamt</span><span id="checkout-total">0,00 €</span>
+</div>
+</div>
+
+<!-- Lieferadresse -->
+<form id="checkout-form" class="space-y-4">
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em]">Lieferadresse</p>
+<div class="space-y-2.5">
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Vor- und Nachname" name="name" required autocomplete="name"/>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Telefon (für Rückfragen)" name="phone" type="tel" required autocomplete="tel"/>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Straße + Hausnummer" name="street" required autocomplete="street-address"/>
+<div class="grid grid-cols-3 gap-2.5">
+<input class="col-span-1 h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="PLZ" name="zip" inputmode="numeric" maxlength="5" required autocomplete="postal-code"/>
+<input class="col-span-2 h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Stadt" name="city" required autocomplete="address-level2"/>
+</div>
+<input class="w-full h-12 px-4 bg-soft border-none rounded-2xl focus:ring-2 focus:ring-primary/20 placeholder:text-muted/60 text-sm" placeholder="Hinweis für den Fahrer (z. B. 3. Stock, Klingel Yılmaz)" name="hint"/>
+</div>
+
+<!-- Zahlungsmethode -->
+<p class="text-[10px] font-black text-muted uppercase tracking-[0.14em] pt-2">Bezahlung</p>
+<div class="grid grid-cols-2 gap-2.5" id="checkout-pay-grid">
+<button type="button" class="flex items-center gap-3 p-4 rounded-2xl bg-primary text-on-primary text-left shadow-md active:scale-[0.97]" data-pay="cash">
+<span class="flex-none w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9.5v.01M18 14.5v.01"/></svg>
+</span>
+<span class="font-bold text-sm leading-tight">Bar bei<br/>Lieferung</span>
+</button>
+<button type="button" class="flex items-center gap-3 p-4 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="whatsapp">
+<span class="flex-none w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+</span>
+<span class="font-bold text-sm leading-tight">WhatsApp<br/>Bestellung</span>
+</button>
+<button type="button" class="flex items-center gap-3 p-4 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="transfer">
+<span class="flex-none w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v10M8 10v10M12 10v10M16 10v10M20 10v10"/></svg>
+</span>
+<span class="font-bold text-sm leading-tight">Überweisung<br/>SEPA</span>
+</button>
+<button type="button" class="flex items-center gap-3 p-4 rounded-2xl bg-soft text-ink text-left active:scale-[0.97] border border-line/30" data-pay="paypal">
+<span class="flex-none w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary">
+<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+</span>
+<span class="font-bold text-sm leading-tight">PayPal.me<br/>Online</span>
+</button>
+</div>
+<p class="text-xs text-muted text-center px-2" id="checkout-pay-hint">Du bezahlst dem Fahrer bei Lieferung.</p>
+
+<button type="submit" class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">Bestellung abschicken</button>
+</form>
+</section>
+
+<!-- TRANSFER VIEW (Überweisungsdaten) -->
+<section class="view-fade-in p-4 space-y-4 hide" id="view-transfer">
+<div class="flex items-center gap-3">
+<button class="bg-soft p-2 rounded-xl text-primary active:scale-90" onclick="switchView('checkout')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+</button>
+<h2 class="font-headline-lg text-2xl text-primary font-bold">Überweisung</h2>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary p-4 rounded-r-2xl text-sm leading-relaxed">
+Bitte den Betrag auf folgendes Konto überweisen — <strong>Bestellnummer als Verwendungszweck</strong> angeben, sonst kann die Bestellung nicht zugeordnet werden.
+</div>
+<div class="space-y-2.5">
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">Kontoinhaber</p><p class="font-mono font-bold text-sm truncate" id="tr-holder">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-holder">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">IBAN</p><p class="font-mono font-bold text-sm break-all" id="tr-iban">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90 shrink-0" data-tr-copy="tr-iban">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">BIC</p><p class="font-mono font-bold text-sm" id="tr-bic">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-bic">Kopieren</button>
+</div>
+<div class="bg-soft p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-muted uppercase tracking-[0.1em]">Betrag</p><p class="font-mono font-bold text-sm" id="tr-amount">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-amount">Kopieren</button>
+</div>
+<div class="bg-primary/8 border-2 border-primary p-4 rounded-2xl flex justify-between items-center gap-2">
+<div class="min-w-0"><p class="text-[10px] font-black text-primary uppercase tracking-[0.1em]">Verwendungszweck</p><p class="font-mono font-bold text-sm text-primary" id="tr-ref">—</p></div>
+<button class="bg-primary text-white px-3 py-2 rounded-xl font-bold text-[11px] active:scale-90" data-tr-copy="tr-ref">Kopieren</button>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl shadow-primary/20 active:scale-95 transition-all" id="tr-done-btn">Überweisung erledigt</button>
+</section>
+
+<!-- SUCCESS VIEW -->
+<section class="view-fade-in p-6 space-y-5 hide" id="view-success">
+<div class="text-center pt-8">
+<div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary/30">
+<svg class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+</div>
+<p class="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-1">Bestätigt</p>
+<h2 class="font-headline-lg text-2xl text-primary font-black">Danke, deine Bestellung läuft.</h2>
+<p class="text-sm text-muted mt-2">Wir packen frisch und schicken den Fahrer los, sobald alles bereit ist.</p>
+<div class="inline-block mt-4 px-4 py-2 bg-soft rounded-full font-mono font-bold text-primary text-sm" id="success-code">HDM-0000</div>
+</div>
+<div class="space-y-2.5">
+<div class="bg-primary text-white p-4 rounded-2xl border-2 border-primary">
+<p class="font-bold text-sm">Bestätigt</p><p class="text-xs opacity-80">Warenkorb geprüft</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Wird gepackt</p><p class="text-xs text-muted">Frischetheke und Lager</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Unterwegs</p><p class="text-xs text-muted">Fahrer auf Route</p>
+</div>
+<div class="bg-soft p-4 rounded-2xl border border-line/30">
+<p class="font-bold text-sm">Geliefert</p><p class="text-xs text-muted">Afiyet olsun</p>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded-2xl font-bold shadow-xl active:scale-95 transition-all" id="success-close-btn">Weiter einkaufen</button>
+</section>
+<!-- ADMIN DASHBOARD -->
+<section class="view-fade-in space-y-6 hide" id="view-admin-dashboard">
+<div class="p-6">
+<p class="font-eyebrow text-[10px] text-secondary uppercase tracking-[0.2em] font-black">Performance Overview</p>
+<h2 class="font-headline-lg text-2xl text-ink mt-1 font-black">Willkommen, Admin</h2>
+</div>
+<div class="px-4 grid grid-cols-1 gap-4">
+<div class="bg-white p-5 rounded-2xl shadow-sm border border-line/30 group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 bg-soft text-primary rounded-xl">
+<svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M2 6h20v12H2z M22 16H2v2h20zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+</div>
+<span class="text-[10px] font-black text-primary bg-primary-fixed px-3 py-1 rounded-full uppercase">+12.5%</span>
+</div>
+<p class="text-muted text-xs font-bold uppercase tracking-wider">Umsatz heute</p>
+<p class="font-price-lg text-2xl text-ink mt-1">4.280,50 €</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white p-5 rounded-2xl border border-line/30">
+<p class="text-muted text-[10px] font-black uppercase tracking-widest">Bestellungen</p>
+<p class="text-2xl font-headline-md text-ink mt-1">24</p>
+</div>
+<div class="bg-white p-5 rounded-2xl border border-line/30">
+<p class="text-muted text-[10px] font-black uppercase tracking-widest">Neue Kunden</p>
+<p class="text-2xl font-headline-md text-ink mt-1">112</p>
+</div>
+</div>
+<!-- Chart Placeholder -->
+<div class="bg-white p-6 rounded-2xl border border-line/30">
+<h3 class="font-black text-sm mb-6 uppercase tracking-widest text-ink">Wochenumsatz</h3>
+<div class="h-40 flex items-end justify-between gap-3 px-1">
+<div class="flex-1 bg-soft rounded-t-lg h-[65%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[45%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[85%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[70%]"></div>
+<div class="flex-1 bg-primary rounded-t-lg h-[95%] shadow-lg shadow-primary/20"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[30%]"></div>
+<div class="flex-1 bg-soft rounded-t-lg h-[20%]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- ADMIN ORDERS -->
+<section class="view-fade-in p-4 space-y-4 hide" id="view-admin-orders">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Bestellungen</h2>
+<div class="space-y-3">
+<div class="bg-white p-4 rounded-2xl border border-line/30 shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<p class="text-[10px] text-muted font-black uppercase tracking-widest">#HRD-9421</p>
+<h4 class="font-bold text-sm">Markus Köhler</h4>
+</div>
+<span class="bg-primary-fixed text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Geliefert</span>
+</div>
+<div class="flex justify-between items-center pt-3 border-t border-line/10">
+<span class="text-[11px] text-muted font-medium">Heute, 14:24</span>
+<span class="font-bold text-primary">84,50 €</span>
+</div>
+</div>
+</div>
+</section>
+<!-- ADMIN SORTIMENT (Products) -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-admin-products">
+<div class="flex justify-between items-center">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Sortiment</h2>
+<button class="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all"><svg class="icon-24" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+</div>
+<div class="bg-white rounded-2xl border border-line/30 divide-y divide-line/10 overflow-hidden shadow-sm">
+<div class="p-4 flex items-center gap-4">
+<img class="w-14 h-14 rounded-xl object-contain bg-soft p-2" src="assets/products/sucuk.svg"/>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm truncate">Egetürk Sucuk</p>
+<p class="text-[10px] font-black text-muted uppercase tracking-widest">142 Einheiten auf Lager</p>
+</div>
+<div class="text-right font-bold text-primary">4,99 €</div>
+</div>
+<div class="p-4 flex items-center gap-4">
+<img class="w-14 h-14 rounded-xl object-contain bg-soft p-2" src="assets/products/oliven.svg"/>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm truncate">Premium Oliven Mix</p>
+<p class="text-[10px] font-black text-muted uppercase tracking-widest">85 Einheiten auf Lager</p>
+</div>
+<div class="text-right font-bold text-primary">3,19 €</div>
+</div>
+</div>
+</section>
+<!-- ADMIN SETTINGS -->
+<section class="view-fade-in p-4 space-y-6 hide" id="view-admin-settings">
+<h2 class="font-headline-lg text-2xl text-primary font-black">Shop-Einstellungen</h2>
+<div class="bg-white rounded-2xl border border-line/30 divide-y divide-line/10 overflow-hidden shadow-sm">
+<div class="p-4 flex items-center justify-between">
+<div>
+<p class="font-bold text-sm">Shop Geöffnet</p>
+<p class="text-[10px] text-muted">Aktueller Status: Online</p>
+</div>
+<div class="w-12 h-6 bg-primary rounded-full relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="p-4 flex items-center justify-between">
+<div>
+<p class="font-bold text-sm">Push-Benachrichtigungen</p>
+<p class="text-[10px] text-muted">Kunden bei neuen Angeboten informieren</p>
+</div>
+<div class="w-12 h-6 bg-primary rounded-full relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 text-error font-bold text-sm bg-error/5 rounded-2xl border border-error/10" onclick="toggleAdminMode()">Admin-Modus verlassen</button>
+</section>
+</main>
+<!-- Customer Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 max-w-md md:max-w-2xl mx-auto bg-white/95 backdrop-blur-xl border border-line/10 md:rounded-2xl md:mb-3 md:shadow-lg z-50 transition-all duration-300" id="customer-nav">
+<button class="flex flex-col items-center justify-center nav-active group" data-nav="home" onclick="switchView('home')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 4 9.5V21h5v-7h6v7h5V9.5z"/></svg>
+<span class="text-[10px] font-bold mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="explore" onclick="switchView('explore')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19zM12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
+<span class="text-[10px] font-bold mt-1">Entdecken</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="favorites" onclick="switchView('favorites')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C1.2 9.6 2.4 6 6 6c1.9 0 3.4 1 4 2 .6-1 2.1-2 4-2 3.6 0 4.8 3.6 3.5 6-2.5 4.5-9.5 9-9.5 9z"/></svg>
+<span class="text-[10px] font-bold mt-1">Favoriten</span>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group relative" data-nav="cart" onclick="switchView('cart')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="text-[10px] font-bold mt-1">Warenkorb</span>
+<div class="absolute top-0 right-1/4 w-1.5 h-1.5 bg-error rounded-full"></div>
+</button>
+<button class="flex flex-col items-center justify-center text-muted group" data-nav="profile" onclick="switchView('profile')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-3.3 0-9 1.6-9 5v3h18v-3c0-3.4-5.7-5-9-5z"/></svg>
+<span class="text-[10px] font-bold mt-1">Profil</span>
+</button>
+</nav>
+<!-- Admin Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 bg-primary text-white border-t border-primary z-50 hide" id="admin-nav">
+<button class="flex flex-col items-center justify-center" onclick="switchAdminView('dashboard')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('orders')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.17 14h9.45a2 2 0 0 0 1.8-1.13l3.18-6.66a1 1 0 0 0-.9-1.44H6.27L5.3 2.8A1 1 0 0 0 4.4 2H1v2h2.4l3.6 7.59L5.25 14.04A2 2 0 0 0 7 16h12v-2H7l1.1-2z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Bestellungen</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('products')">
+<svg class="icon-24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zM15 14H9v-2h6v2zm5-7H4V4l16-.02V7z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Sortiment</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="switchAdminView('settings')">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54A.48.48 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.48.42l-.36 2.54a7 7 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.48a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .32.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.39.31.59.22l2.39-.96c.5.39 1.05.7 1.62.94l.36 2.54c.05.24.25.42.48.42h3.84c.25 0 .44-.18.48-.42l.36-2.54a7 7 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Shop</span>
+</button>
+<button class="flex flex-col items-center justify-center opacity-60" onclick="toggleAdminMode()">
+<svg class="icon-26" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4z"/></svg>
+<span class="text-[9px] font-black uppercase tracking-wider mt-1">Exit</span>
+</button>
+</nav>
+</div>
+<script>
+        let isAdminMode = false;
+        const stitchProducts = {
+            sucuk: { title: "Egetürk Sucuk", subtitle: "Knoblauchwurst, ca. 500g", price: "4,99 €", desc: "Traditionell hergestellt nach altem Familienrezept. Perfekt für das Frühstück mit Eiern.", img: "assets/products/sucuk.svg" },
+            ayran: { title: "Frischer Ayran", subtitle: "Gekühlt, 0.3l", price: "1,29 €", desc: "Unser hausgemachter Ayran wird täglich frisch zubereitet mit hochwertigem Joghurt.", img: "assets/products/ayran.svg" },
+            oliven: { title: "Premium Oliven Mix", subtitle: "Bowl, ca. 250g", price: "3,19 €", desc: "Feine Auswahl an mediterranen Oliven, mariniert mit feinen Kräutern.", img: "assets/products/oliven.svg" },
+            baklava: { title: "Hausgemachte Baklava", subtitle: "Pistazie, 4er Set", price: "6,50 €", desc: "Hauchdünne Teigschichten mit edlen Pistazien und feinem Zuckersirup.", img: "assets/products/baklava.svg" }
+        };
+
+        function switchView(viewId) {
+            const customerViews = ['home', 'explore', 'favorites', 'profile', 'cart', 'product-details'];
+            customerViews.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hide');
+                
+                const navBtn = document.querySelector(`[data-nav="${v}"]`);
+                if(navBtn) {
+                    navBtn.classList.remove('nav-active');
+                    navBtn.classList.add('text-muted');
+                    navBtn.querySelector('span').classList.remove('active-icon');
+                }
+            });
+
+            const targetView = document.getElementById(`view-${viewId}`);
+            if(targetView) targetView.classList.remove('hide');
+
+            const activeBtn = document.querySelector(`[data-nav="${viewId}"]`);
+            if(activeBtn) {
+                activeBtn.classList.add('nav-active');
+                activeBtn.classList.remove('text-muted');
+                activeBtn.querySelector('span').classList.add('active-icon');
+            }
+
+            // Hide bottom nav for product details
+            const cNav = document.getElementById('customer-nav');
+            if(viewId === 'product-details') {
+                cNav.classList.add('translate-y-24');
+            } else {
+                cNav.classList.remove('translate-y-24');
+            }
+
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        function switchAdminView(viewId) {
+            const adminViews = ['dashboard', 'orders', 'products', 'settings'];
+            adminViews.forEach(v => {
+                const el = document.getElementById(`view-admin-${v}`);
+                if(el) el.classList.add('hide');
+            });
+            document.getElementById(`view-admin-${viewId}`).classList.remove('hide');
+            
+            // Highlight active admin nav
+            const adminNav = document.getElementById('admin-nav');
+            const btns = adminNav.querySelectorAll('button');
+            btns.forEach((btn, idx) => {
+                if(idx < adminViews.length) {
+                   if(adminViews[idx] === viewId) {
+                       btn.classList.remove('opacity-60');
+                   } else {
+                       btn.classList.add('opacity-60');
+                   }
+                }
+            });
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        function openProduct(key) {
+            const p = stitchProducts[key];
+            document.getElementById('detail-img').src = p.img;
+            document.getElementById('detail-title').innerText = p.title;
+            document.getElementById('detail-subtitle').innerText = p.subtitle;
+            document.getElementById('detail-price').innerText = p.price;
+            document.getElementById('detail-desc').innerText = p.desc;
+            switchView('product-details');
+        }
+
+        function toggleAdminMode() {
+            isAdminMode = !isAdminMode;
+            const logo = document.getElementById('app-logo');
+            const header = document.getElementById('top-bar');
+            const cNav = document.getElementById('customer-nav');
+            const aNav = document.getElementById('admin-nav');
+            const loc = document.getElementById('location-picker');
+            const actions = document.getElementById('header-actions');
+
+            // Reset all possible views
+            const allViews = ['home', 'explore', 'favorites', 'profile', 'cart', 'product-details', 'admin-dashboard', 'admin-orders', 'admin-products', 'admin-settings'];
+            allViews.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hide');
+            });
+
+            if(isAdminMode) {
+                logo.innerText = 'Admin Pro';
+                header.classList.add('bg-primary-container');
+                logo.classList.replace('text-primary', 'text-white');
+                loc.classList.add('opacity-0');
+                actions.classList.add('opacity-0');
+                cNav.classList.add('hide');
+                aNav.classList.remove('hide');
+                switchAdminView('dashboard');
+            } else {
+                logo.innerText = 'Herdem';
+                header.classList.remove('bg-primary-container');
+                logo.classList.replace('text-white', 'text-primary');
+                loc.classList.remove('opacity-0');
+                actions.classList.remove('opacity-0');
+                cNav.classList.remove('hide');
+                aNav.classList.add('hide');
+                switchView('profile');
+            }
+        }
+    </script>
+
+  <script src="app.js" defer></script>
+  <script src="stitch-bridge.js" defer></script>
+</body></html>
