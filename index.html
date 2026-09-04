@@ -40808,9 +40808,27 @@ async function showRestaurantLanding(rest) {
     // Overlay erstellen
     var landing = document.createElement('div');
     landing.id = 'restaurantLanding';
-    landing.style.setProperty('--marke', _marke);
-    landing.style.setProperty('--marke-dunkel', MARKE.dunkler(_marke));
-    landing.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
+    // DIE FARBE GEHOERT IN DEN cssText, NICHT DANEBEN.
+    //
+    // Gemeldet am 04.09.2026: "es ist alles da nur die lande page
+    // aendert die farbe nicht." Im Dashboard ging alles, gespeichert
+    // wurde richtig -- nur die Seite blieb gruen.
+    //
+    // Der Grund stand zwei Zeilen weiter: die beiden Variablen wurden
+    // mit setProperty gesetzt und unmittelbar danach von
+    //
+    //     landing.style.cssText = '...'
+    //
+    // wieder geloescht. Eine Zuweisung an cssText ersetzt den KOMPLETTEN
+    // Inline-Stil, eigene Eigenschaften eingeschlossen. --marke war also
+    // nie gesetzt, und jedes var(--marke,#003d33) fiel auf den
+    // Ersatzwert zurueck -- die Hausfarbe. Es sah aus, als haette der
+    // Wirt nie eine Farbe gewaehlt.
+    //
+    // Jetzt stehen sie IM cssText. Damit kann keine spaetere Zuweisung
+    // sie mehr aus Versehen mitnehmen -- es gibt nur noch eine.
+    landing.style.cssText = '--marke:' + _marke + ';--marke-dunkel:' + MARKE.dunkler(_marke) + ';'
+        + 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
 
     landing.innerHTML = `
         <!-- TopAppBar -->
