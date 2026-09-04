@@ -60795,9 +60795,20 @@ function loadOrderSettings() {
     // Die Farbe laden. Dieselbe Falle wie beim Mindestbestellwert: ohne
     // diesen Block staende im Feld immer der Standard, und der naechste
     // Klick auf einen Schnellknopf wuerde die echte Farbe ueberschreiben.
+    //
+    // NICHT an "&& restaurant" haengen. Findet der Ladepfad kein
+    // Restaurant -- weil die Liste noch nicht da ist oder die Auswahl
+    // leer -- blieben die Farbfelder sonst LEER. Der Wirt sieht dann
+    // eine Karte mit Ueberschrift und nichts darin, tippt hinein, und
+    // es passiert nichts. Genau so hat Ibo es am 04.09.2026 gemeldet:
+    // "ich gib die farben ein es passiert nichts".
+    //
+    // Eine leere Auswahl sieht aus wie eine kaputte Auswahl (Regel 6).
+    // Die Felder haengen an MARKE.PALETTE, nicht an den Daten -- sie
+    // koennen immer gezeichnet werden.
     var markeEl = document.getElementById('settingBrandColor');
-    if (markeEl && restaurant) {
-        var geprueftM = MARKE.lesbar(restaurant.brand_color || MARKE.STANDARD);
+    if (markeEl) {
+        var geprueftM = MARKE.lesbar((restaurant && restaurant.brand_color) || MARKE.STANDARD);
         markeEl.value = geprueftM.farbe;
         markeVorschauZeigen(geprueftM.farbe, false, '');
         markePaletteBauen(geprueftM.farbe);
@@ -61393,6 +61404,16 @@ function markePaletteBauen(aktuell) {
     var kasten = document.getElementById('markePalette');
     if (!kasten) return;
     kasten.textContent = '';
+
+    // Kein Farbsatz -> sagen, statt einen leeren Kasten hinzustellen.
+    // Ein leeres Feld sieht aus wie eine Auswahl, die nicht reagiert.
+    if (typeof MARKE === 'undefined' || !MARKE.PALETTE || !MARKE.PALETTE.length) {
+        var hin = document.createElement('div');
+        hin.style.cssText = 'grid-column:1/-1; font-size:11px; font-weight:600; color:#b45309;';
+        hin.textContent = 'Farben konnten nicht geladen werden — bitte die Seite neu laden.';
+        kasten.appendChild(hin);
+        return;
+    }
     MARKE.PALETTE.forEach(function (f) {
         var b = document.createElement('button');
         b.type = 'button';

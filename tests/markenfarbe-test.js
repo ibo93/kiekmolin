@@ -154,5 +154,22 @@ t('sie werden aus MARKE.PALETTE gebaut', /MARKE\.PALETTE\.forEach/.test(h), 'von
 t('die gewaehlte Farbe ist zu erkennen', /gewaehlt \?/.test(h), 'kein Ring am gewaehlten Feld');
 t('eine eigene Farbe geht weiterhin', /id="settingBrandColor"/.test(h), 'kein eigener Waehler mehr');
 
+// ---- 11. Die Felder duerfen nie leer bleiben ------------------------
+console.log('\n-- Eine leere Auswahl sieht aus wie eine kaputte --');
+//
+// Gemeldet am 04.09.2026: "ich gib die farben ein es passiert nichts".
+// Der Ladepfad haengte an "markeEl && restaurant". Ohne Restaurant --
+// Liste noch nicht da, Auswahl leer -- blieben die Farbfelder leer: eine
+// Karte mit Ueberschrift und nichts darin. Man tippt hinein, nichts
+// passiert, und niemand sagt warum (Regel 6).
+t('die Farbfelder haengen NICHT am geladenen Restaurant',
+  /var markeEl = document\.getElementById\('settingBrandColor'\);\s*\n\s*if \(markeEl\) \{/.test(h),
+  'haengt noch an "markeEl && restaurant"');
+t('ohne Restaurant wird die Hausfarbe genommen',
+  /MARKE\.lesbar\(\(restaurant && restaurant\.brand_color\) \|\| MARKE\.STANDARD\)/.test(h),
+  'wuerde bei fehlendem Restaurant stolpern');
+t('und ein fehlender Farbsatz wird gemeldet, nicht verschwiegen',
+  /Farben konnten nicht geladen werden/.test(h), 'stellt einen leeren Kasten hin');
+
 console.log('\n' + (n - ok === 0 ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 if (n - ok > 0) process.exit(1);
