@@ -102,5 +102,57 @@ t('und eine Vorschau, die zeigt was der Gast sieht', /id="markeVorschau"/.test(h
 t('der Hinweis nennt beide Farben',
   /war zu hell[\s\S]{0,200}Der Gast sieht/.test(h), 'sagt nicht, was daraus wurde');
 
+// ---- 8. Der ausgesuchte Farbsatz ------------------------------------
+console.log('\n-- Die ausgesuchten Farben --');
+//
+// Ibo am 04.09.2026: "a ist besser aber andere farben", danach "nimm
+// mehre farben". Der Satz ist der Kern der Sache -- ein freier Waehler
+// laedt zu Neonpink ein.
+t('es gibt einen Farbsatz', Array.isArray(MARKE.PALETTE), typeof MARKE.PALETTE);
+t('mit mindestens zehn Farben', MARKE.PALETTE.length >= 10, MARKE.PALETTE.length);
+
+// DAS ist der Punkt: die ausgesuchten Farben duerfen NICHT erst
+// abgedunkelt werden muessen. Muss eine, ist sie falsch gewaehlt.
+var muessenDunkeln = MARKE.PALETTE.filter(function (f) { return MARKE.lesbar(f.farbe).gedunkelt; });
+t('keine davon muss abgedunkelt werden', muessenDunkeln.length === 0,
+  muessenDunkeln.map(function (f) { return f.name; }).join(', '));
+
+MARKE.PALETTE.forEach(function (f) {
+    t(f.name + ' ist reines Hex und traegt weisse Schrift',
+      /^#[0-9a-f]{6}$/.test(f.farbe) && MARKE.kontrast(f.farbe, '#ffffff') >= 4.5,
+      f.farbe + ' / ' + MARKE.kontrast(f.farbe, '#ffffff').toFixed(2));
+});
+
+var doppelt = MARKE.PALETTE.map(function (f) { return f.farbe; })
+    .filter(function (f, i, alle) { return alle.indexOf(f) !== i; });
+t('keine Farbe doppelt', doppelt.length === 0, doppelt.join(', '));
+t('jede hat einen Namen', MARKE.PALETTE.every(function (f) { return f.name && f.name.length > 2; }), 'Name fehlt');
+
+// ---- 9. Der Verlauf, der den ersten Entwurf billig aussehen liess ----
+console.log('\n-- Der Verlauf in der Gericht-Kachel --');
+//
+// Er ging vorher IMMER von KIN-Dunkelgruen aus. Bei Gelb sah das aus wie
+// Moos, bei Rot wie Rost. Das war der Grund, nicht die Farbwahl.
+t('dunkler() gibt reines Hex', /^#[0-9a-f]{6}$/.test(MARKE.dunkler('#6b1220')), MARKE.dunkler('#6b1220'));
+t('und ist wirklich dunkler',
+  MARKE.kontrast(MARKE.dunkler('#6b1220'), '#ffffff') > MARKE.kontrast('#6b1220', '#ffffff'),
+  MARKE.dunkler('#6b1220'));
+t('bei Unsinn faellt es auf die Hausfarbe zurueck',
+  /^#[0-9a-f]{6}$/.test(MARKE.dunkler('rot')), MARKE.dunkler('rot'));
+t('Schwarz bleibt Schwarz statt negativ zu werden',
+  MARKE.dunkler('#000000') === '#000000', MARKE.dunkler('#000000'));
+t('die Kachel startet bei der EIGENEN Farbe, nicht bei KIN-Gruen',
+  /linear-gradient\(135deg,var\(--marke-dunkel,#00251e\),var\(--marke,#003d33\)\)/.test(h),
+  'startet noch bei #00251e');
+t('und --marke-dunkel wird gesetzt',
+  /setProperty\('--marke-dunkel', MARKE\.dunkler\(_marke\)\)/.test(h), 'wird nicht gesetzt');
+
+// ---- 10. Die Maske zeigt den Satz -----------------------------------
+console.log('\n-- Die Auswahl im Dashboard --');
+t('es gibt ein Feld fuer die Farbfelder', /id="markePalette"/.test(h), 'fehlt');
+t('sie werden aus MARKE.PALETTE gebaut', /MARKE\.PALETTE\.forEach/.test(h), 'von Hand aufgezaehlt');
+t('die gewaehlte Farbe ist zu erkennen', /gewaehlt \?/.test(h), 'kein Ring am gewaehlten Feld');
+t('eine eigene Farbe geht weiterhin', /id="settingBrandColor"/.test(h), 'kein eigener Waehler mehr');
+
 console.log('\n' + (n - ok === 0 ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 if (n - ok > 0) process.exit(1);

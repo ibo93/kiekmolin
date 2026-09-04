@@ -692,6 +692,48 @@
             return { farbe: this.STANDARD, gueltig: false, gedunkelt: true, kontrast: this.kontrast(this.STANDARD, '#ffffff') };
         },
 
+        // AUSGESUCHTE FARBEN STATT FREIER WAHL.
+        //
+        // Ibo am 04.09.2026, nachdem er die erste Vorschau gesehen hat:
+        // "a ist besser aber andere farben" -- die Menge stimmte, die
+        // Farbe war zufaellig gegriffen.
+        //
+        // Ein freier Farbwaehler laedt zu Neonpink ein, und dann rettet
+        // nur noch die Abdunklung. Ein ausgesuchter Satz ist besser:
+        // alle tief und satt genug, dass weisse Schrift OHNE Korrektur
+        // darauf liegt (7,3:1 bis 13,6:1 -- noetig sind 4,5). Die
+        // Abdunklung bleibt trotzdem als Notnagel fuer eigene Werte.
+        PALETTE: [
+            { name: 'Tannengrün', farbe: '#14342b' },
+            { name: 'Moosgrün',   farbe: '#244034' },
+            { name: 'Olive',      farbe: '#3d4a1f' },
+            { name: 'Petrol',     farbe: '#14494f' },
+            { name: 'Tiefblau',   farbe: '#1b3a5c' },
+            { name: 'Nachtblau',  farbe: '#16233d' },
+            { name: 'Aubergine',  farbe: '#452340' },
+            { name: 'Bordeaux',   farbe: '#6b1220' },
+            { name: 'Rostrot',    farbe: '#7c2d12' },
+            { name: 'Terracotta', farbe: '#8a3a1e' },
+            { name: 'Senfbraun',  farbe: '#6b5310' },
+            { name: 'Espresso',   farbe: '#3b2a22' },
+            { name: 'Schiefer',   farbe: '#2b3238' }
+        ],
+
+        // Eine dunklere Fassung derselben Farbe.
+        //
+        // WOFUER: der Verlauf in der Gericht-Kachel ging vorher immer
+        // von KIN-Dunkelgruen aus. Bei Gelb sah das aus wie Moos, bei
+        // Rot wie Rost -- und genau das machte den ersten Entwurf
+        // billig, nicht die Farbwahl. Jetzt startet der Verlauf bei der
+        // eigenen Farbe, nur dunkler.
+        dunkler: function (hex, anteil) {
+            var h = this.hex(hex) || this.STANDARD;
+            var f = anteil == null ? 0.45 : anteil;
+            return '#' + this._kanaele(h).map(function (v) {
+                return ('0' + Math.max(0, Math.round(v * (1 - f))).toString(16)).slice(-2);
+            }).join('');
+        },
+
         // Was die Landepage wirklich benutzt. Ohne eigene Farbe: KIN-Gruen.
         von: function (restaurant) {
             if (!restaurant || !restaurant.brand_color) return this.STANDARD;
@@ -20095,13 +20137,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 </div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">Knöpfe und Akzente auf kiekmolin.de/<span id="settingSlugHint">dein-name</span></div>
                             </div>
-                            <input type="color" id="settingBrandColor" value="#003d33" onchange="saveBrandColor()" style="width: 44px; height: 34px; padding: 2px; border: 1px solid rgba(0,61,51,0.06); border-radius: 10px; background: rgba(255,255,255,0.6); cursor: pointer;" aria-label="Farbe deiner Seite">
                         </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="markeSetzen('#003d33')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Standard</button>
-                            <button onclick="markeSetzen('#8c1c13')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Rot</button>
-                            <button onclick="markeSetzen('#1d3557')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Blau</button>
-                            <button onclick="markeSetzen('#6d4c1f')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Braun</button>
+                        <!-- Die Farbfelder werden aus MARKE.PALETTE gebaut, nicht
+                             hier von Hand aufgezaehlt. Sonst haetten wir zwei
+                             Wahrheiten: eine im Code und eine in der Maske --
+                             und beim naechsten Umbau stimmt eine davon nicht mehr. -->
+                        <div id="markePalette" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;"></div>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600;">oder eigene:</span>
+                            <input type="color" id="settingBrandColor" value="#003d33" onchange="saveBrandColor()" style="width: 38px; height: 28px; padding: 2px; border: 1px solid rgba(0,61,51,0.06); border-radius: 8px; background: rgba(255,255,255,0.6); cursor: pointer;" aria-label="Eigene Farbe deiner Seite">
                         </div>
                         <!-- Die Vorschau ist kein Schmuck: der Wirt sieht hier
                              GENAU das, was der Gast sieht -- inklusive der
@@ -40765,6 +40809,7 @@ async function showRestaurantLanding(rest) {
     var landing = document.createElement('div');
     landing.id = 'restaurantLanding';
     landing.style.setProperty('--marke', _marke);
+    landing.style.setProperty('--marke-dunkel', MARKE.dunkler(_marke));
     landing.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
 
     landing.innerHTML = `
@@ -40957,7 +41002,7 @@ async function showRestaurantLanding(rest) {
                     h += '</div></div>';
                 } else {
                     // Ohne Bild: Elegante Text-Card im Stitch-Style
-                    h += '<div style="aspect-ratio:3/4;border-radius:24px;background:linear-gradient(135deg,#00251e,var(--marke,#003d33));padding:32px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden;">';
+                    h += '<div style="aspect-ratio:3/4;border-radius:24px;background:linear-gradient(135deg,var(--marke-dunkel,#00251e),var(--marke,#003d33));padding:32px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden;">';
                     h += '<div style="position:absolute;top:-30%;right:-30%;width:200px;height:200px;background:radial-gradient(circle,rgba(117,168,155,0.15),transparent 60%);border-radius:50%;"></div>';
                     if (price) h += '<div style="position:absolute;top:20px;right:20px;background:#FFD54F;color:#003d33;padding:6px 14px;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;">' + price + '</div>';
                     h += '<div style="position:relative;z-index:1;">';
@@ -60755,6 +60800,7 @@ function loadOrderSettings() {
         var geprueftM = MARKE.lesbar(restaurant.brand_color || MARKE.STANDARD);
         markeEl.value = geprueftM.farbe;
         markeVorschauZeigen(geprueftM.farbe, false, '');
+        markePaletteBauen(geprueftM.farbe);
     }
     var slugEl = document.getElementById('settingSlugHint');
     if (slugEl && restaurant) slugEl.textContent = restaurant.slug || restaurant.id;
@@ -61338,6 +61384,30 @@ window.markeVorschauZeigen = markeVorschauZeigen;
 
 // Die Schnellknoepfe. Setzen das Feld und speichern sofort -- wie bei den
 // Mindestbestellwert-Knoepfen.
+// Die Farbfelder aus MARKE.PALETTE bauen. Einmal beim Laden.
+//
+// Das aktuell gewaehlte Feld bekommt einen Ring -- ohne den weiss der
+// Wirt nach dem Neuladen nicht, welche seine ist. Eine Auswahl, die man
+// nicht sieht, ist keine.
+function markePaletteBauen(aktuell) {
+    var kasten = document.getElementById('markePalette');
+    if (!kasten) return;
+    kasten.textContent = '';
+    MARKE.PALETTE.forEach(function (f) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.title = f.name + ' (' + f.farbe + ')';
+        b.setAttribute('aria-label', 'Farbe ' + f.name);
+        var gewaehlt = (aktuell || '').toLowerCase() === f.farbe;
+        b.style.cssText = 'height:26px; border-radius:8px; cursor:pointer; background:' + f.farbe
+            + '; border:' + (gewaehlt ? '2px solid var(--text-primary)' : '1px solid rgba(0,0,0,0.12)')
+            + '; box-shadow:' + (gewaehlt ? '0 0 0 2px rgba(255,255,255,0.9) inset' : 'none') + ';';
+        b.onclick = function () { markeSetzen(f.farbe); };
+        kasten.appendChild(b);
+    });
+}
+window.markePaletteBauen = markePaletteBauen;
+
 function markeSetzen(farbe) {
     var f = document.getElementById('settingBrandColor');
     if (f) f.value = farbe;
@@ -61408,6 +61478,7 @@ async function saveBrandColor() {
     if (feld) feld.value = farbe;
 
     markeVorschauZeigen(farbe, geprueft.gedunkelt, gewuenscht);
+    markePaletteBauen(farbe);
     showToast(geprueft.gedunkelt
         ? 'Gespeichert — etwas abgedunkelt, damit die Schrift lesbar bleibt.'
         : 'Farbe gespeichert.', 'success');
