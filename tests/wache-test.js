@@ -92,6 +92,9 @@ t('und prueft den Namen des Zwischenspeichers',
 // die alte App behalten. Genau der blinde Fleck vom 26.08., nur eine
 // Ebene tiefer.
 var swJetzt   = Number((lies(path.join(KMI, 'sw.js')).match(/kmi-shell-v(\d+)/) || [])[1]);
+// Was die Wache mindestens sehen will -- aus ihrer eigenen Datei,
+// nicht aus einer zweiten Zahl hier.
+var wacheMindestens = Number((w.match(/CACHE_MINDESTENS = (\d+)/) || [])[1]) || swJetzt;
 var wacheWill = Number((w.match(/var CACHE_MINDESTENS = (\d+);/) || [])[1]);
 t('und die geforderte Nummer ist die aus sw.js', swJetzt === wacheWill,
   'sw.js steht auf v' + swJetzt + ', die Wache fordert v' + wacheWill);
@@ -347,7 +350,16 @@ function tuerenBauen(welt) {
         }
         if (url.indexOf('/sw.js') > -1) {
             return { ok: true, text: async function () {
-                return "var CACHE = 'kmi-shell-v" + (welt.sw || 9) + "';"; } };
+                // DIE NUMMER DARF HIER NICHT FEST STEHEN.
+                //
+                // Sie stand auf 9, und beim Hochzaehlen auf v10 gingen vier
+                // Zusicherungen rot, die mit der Wache nichts zu tun haben --
+                // die Attrappe lieferte einfach eine zu alte Seite. Der Test
+                // meldete damit meine Auslieferung als Ausfall.
+                //
+                // Jetzt waechst die heile Welt mit: was die Wache mindestens
+                // fordert, das liefert sie auch.
+                return "var CACHE = 'kmi-shell-v" + (welt.sw || wacheMindestens) + "';"; } };
         }
         if (url.indexOf('/menu_items') > -1) {
             return { ok: true, json: async function () { return welt.karte === false ? [] : [{ id: 'g1', base_price: 12.5 }]; } };

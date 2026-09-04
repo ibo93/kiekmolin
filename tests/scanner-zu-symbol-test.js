@@ -89,8 +89,14 @@ var ZEIGE = (function () {
     var zz = CODE.slice(CODE.indexOf('var ZUSATZSTOFFE = {'), CODE.indexOf('window.ZUSATZSTOFFE'));
     var symTab = CODE.slice(CODE.indexOf('    var KIN_SYMBOLE = {'),
                             CODE.indexOf('window.kinSymbol = kinSymbol;'));
+    // ADDITIVE_MARKIERUNGEN + istMarkierung muessen mit hinein.
+    // Am 04.09.2026 kam "ohne:" als zweite Markierung dazu und
+    // zusatzstoffeVon ruft seitdem istMarkierung. Ohne diese Zeile
+    // stuerzt die Datei mitten im Lauf ab.
+    var markierungen = CODE.slice(CODE.indexOf('var ADDITIVE_MARKIERUNGEN'),
+                                  CODE.indexOf('window.istMarkierung'));
     return new Function('escapeHtml', 'translations', 'currentLanguage', 'autoDetectItemFlags',
-        zz + '\n' + lmiv + '\n' + symTab + '\n'
+        markierungen + '\n' + zz + '\n' + lmiv + '\n' + symTab + '\n'
         + schneide(CODE, 'zusatzstoffeVon') + '\n' + schneide(CODE, 'getAllergenLabel') + '\n'
         + schneide(CODE, 'allergenSatz') + '\n' + schneide(CODE, 'gerichtInfoHtml') + '\n'
         + schneide(CODE, 'getMenuBadgeIcons') + '\n'
