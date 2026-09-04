@@ -60871,21 +60871,47 @@ async function saveMinOrderValue() {
 
     if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
 
+    // WER ABBRICHT, MUSS ES SAGEN.
+    //
+    // Gefragt am 04.09.2026: "warum wird der mindestbestellwert nicht
+    // gespeichert?"
+    //
+    // Gemessen: die Schreibvorgaenge gehen raus und kommen mit 204
+    // zurueck, und keine andere Stelle fasst die Spalte an. Aber die
+    // drei Abbrueche hier unten kehrten STILL zurueck -- leeres Feld,
+    // Unsinn im Feld, oder "steht schon so drin". Kein Wort, keine
+    // Meldung, nichts.
+    //
+    // Fuer den Wirt sieht das genauso aus wie ein kaputtes Speichern: er
+    // tippt, es passiert nichts, und niemand sagt warum (Regel 6). Und
+    // gerade der haeufigste Fall -- der Wert stimmt bereits -- war der
+    // stummste.
+    function _minSagen(text, art) {
+        try { if (typeof showToast === 'function') showToast(text, art || 'info'); } catch (e) {}
+    }
+
     // 1. Leeres Feld: keine Angabe, keine Null.
     var _roh = _minEl ? String(_minEl.value).trim() : '';
     if (_roh === '') {
-        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        var _zurueck = _minStand[restId] != null ? _minStand[restId] : 0;
+        if (_minEl) _minEl.value = _zurueck;
+        _minSagen('Feld war leer — es bleibt bei ' + _zurueck + ' €.', 'warning');
         return;
     }
     var minOrder = parseFloat(_roh);
     if (!isFinite(minOrder) || minOrder < 0) {
-        if (_minEl) _minEl.value = _minStand[restId] != null ? _minStand[restId] : 0;
+        var _zurueck2 = _minStand[restId] != null ? _minStand[restId] : 0;
+        if (_minEl) _minEl.value = _zurueck2;
+        _minSagen('„' + _roh + '" ist kein Betrag — es bleibt bei ' + _zurueck2 + ' €.', 'warning');
         return;
     }
 
     // 2. Steht schon so in der Datenbank -> nichts zu tun. Das ist der
     //    blur-Schuss mit dem alten Wert.
-    if (_minStand[restId] === minOrder) return;
+    if (_minStand[restId] === minOrder) {
+        _minSagen('Steht schon auf ' + minOrder + ' € — nichts zu ändern.', 'success');
+        return;
+    }
 
     // In localStorage speichern (funktioniert immer)
     localStorage.setItem('kin_min_order_' + restId, minOrder);

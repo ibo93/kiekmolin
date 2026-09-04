@@ -188,7 +188,38 @@ Promise.all([p1, p2]).then(function () {
         });
     });
 }).then(function () {
-    // ---- 6. Was im Quelltext stehen muss -------------------------------
+    // ---- 6. KEIN ABBRUCH OHNE EIN WORT ---------------------------------
+    console.log('\n-- Wer abbricht, sagt es --');
+
+    // Gefragt am 04.09.2026: "warum wird der mindestbestellwert nicht
+    // gespeichert?". Gemessen: die Anfragen gehen raus und kommen mit 204
+    // zurueck. Aber die drei Abbrueche kehrten STILL zurueck -- und das
+    // sieht fuer den Wirt genauso aus wie ein kaputtes Speichern.
+    var z1 = bauen(15);
+    z1.feld.value = '';
+    return z1.ctx.saveMinOrderValue().then(function () {
+        t('leeres Feld sagt Bescheid',
+          z1.toasts.some(function (s) { return /leer/i.test(s); }), z1.toasts.join(' | '));
+
+        var z2 = bauen(15);
+        z2.feld.value = 'abc';
+        return z2.ctx.saveMinOrderValue().then(function () {
+            t('Unsinn im Feld sagt Bescheid',
+              z2.toasts.some(function (s) { return /kein Betrag/i.test(s); }), z2.toasts.join(' | '));
+
+            // Der haeufigste Fall -- und der war der stummste.
+            var z3 = bauen(15);
+            z3.feld.value = '15';
+            return z3.ctx.saveMinOrderValue().then(function () {
+                t('unveraendert sagt "steht schon so"',
+                  z3.toasts.some(function (s) { return /Steht schon/i.test(s); }), z3.toasts.join(' | '));
+                t('und schreibt trotzdem nichts',
+                  z3.geschrieben.length === 0, z3.geschrieben.join(', '));
+            });
+        });
+    });
+}).then(function () {
+    // ---- 7. Was im Quelltext stehen muss -------------------------------
     console.log('\n-- Der Bau selbst --');
     t('die Schreibvorgaenge haengen an einer Kette',
       /_minKette = _minFertig\.catch/.test(quelle));
