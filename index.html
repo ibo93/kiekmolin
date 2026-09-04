@@ -25615,6 +25615,27 @@ function mapRestaurant(r) {
         opening_time: r.opening_time || null, closing_time: r.closing_time || null,
         opening_hours: r.opening_hours || null, rest_day: r.rest_day != null ? r.rest_day : null,
         delivery_fee: r.delivery_fee || 0, delivery_radius: r.delivery_radius || 0,
+        // DIE ZEILE, DIE AM 04.09.2026 GEFEHLT HAT.
+        //
+        // mapRestaurant baut ein NEUES Objekt mit fester Feldliste. Was
+        // hier nicht steht, ist nach dem Laden weg -- egal was in der
+        // Datenbank steht. min_order_value stand nicht drin.
+        //
+        // Folge: nach jedem Anmelden war der Wert undefined,
+        // Number(undefined) || 0 ergab 0, und das Feld zeigte 0. Bei
+        // JEDEM Restaurant. Der Gast liest aus derselben Liste -- der
+        // Mindestbestellwert hat nie gegriffen, fuer niemanden.
+        //
+        // Ibo am 04.09.: "es uebernimmt die 18 aber dann wenn ich mich
+        // neu anmelden geht weg." Genau das. Geschrieben wurde richtig,
+        // gelesen wurde nie.
+        //
+        // Warum es so lange unsichtbar blieb: delivery_fee steht in der
+        // Liste und blieb darum stehen. Nur der Nachbar daneben fiel
+        // jedes Mal auf 0 zurueck -- und eine 0 sieht aus wie eine
+        // Antwort, nicht wie ein Fehler (Regel 6).
+        min_order_value: r.min_order_value != null ? Number(r.min_order_value) : 0,
+        free_delivery_from: r.free_delivery_from != null ? Number(r.free_delivery_from) : null,
         account_holder: r.account_holder || '', iban: r.iban || '',
         monthly_plan: r.monthly_plan || 59, contract_start: r.contract_start || null,
         totalTables: r.total_tables || 8,
@@ -26096,6 +26117,10 @@ async function loadFromSupabase() {
                 opening_hours: r.opening_hours || null,
                 rest_day: r.rest_day != null ? r.rest_day : null,
                 delivery_fee: r.delivery_fee || 0,
+                delivery_radius: r.delivery_radius || 0,
+                // Dieselbe Luecke wie in mapRestaurant, siehe dort.
+                min_order_value: r.min_order_value != null ? Number(r.min_order_value) : 0,
+                free_delivery_from: r.free_delivery_from != null ? Number(r.free_delivery_from) : null,
                 account_holder: r.account_holder || '',
                 iban: r.iban || '',
                 monthly_plan: r.monthly_plan || 59,
