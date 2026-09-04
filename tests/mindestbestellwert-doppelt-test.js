@@ -28,6 +28,25 @@ var path = require('path');
 var vm = require('vm');
 var KMI = path.join(__dirname, '..');
 
+// WAS EINE ERFOLGREICHE ANTWORT AB 04.09.2026 IST.
+//
+// Vorher gab diese Attrappe { ok: true, status: 204 } zurueck -- so wie
+// PostgREST es mit 'Prefer: return=minimal' tut. Und genau da lag der
+// stille Ausfall: 204 kommt AUCH zurueck, wenn RLS die Zeile verweigert
+// und NICHTS geschrieben wurde. Erfolg und Totalausfall sahen gleich aus.
+//
+// Am 04.09.2026 stand bei Pizzeria Pronto Riepe 18 EUR im Dashboard und
+// 0 EUR fuer den Gast. Seitdem fordert der Code die geaenderte Zeile
+// zurueck ('return=representation'). Kommt sie nicht, gilt es als nicht
+// gespeichert.
+function antwort(wert) {
+    return {
+        ok: true,
+        status: 200,
+        json: function () { return Promise.resolve([{ id: HAUS, min_order_value: wert }]); }
+    };
+}
+
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
@@ -47,6 +66,9 @@ var HAUS = 'a004eaca-c89d-4396-bce6-884d7c9ccd2d';
 
 function bauen(dbWert) {
     var feld = { value: String(dbWert) };
+    // Der Hinweis "Noch nicht gespeichert" -- er faengt sichtbar an, so
+    // wie nach dem ersten Tastendruck.
+    var offenKasten = { style: { display: 'block' } };
     var geschrieben = [];       // was wirklich rausging, in Reihenfolge
     var toasts = [];
     var offen = 0, maxOffen = 0, gerufen = 0;
@@ -57,6 +79,7 @@ function bauen(dbWert) {
                 if (id === 'settingMinOrder') return feld;
                 if (id === 'ordersRestaurantSelect') return { value: HAUS };
                 if (id === 'minOrderNurLokal') return { style: {} };
+                if (id === 'minOrderOffen') return offenKasten;
                 return null;
             }
         },
@@ -86,7 +109,7 @@ function bauen(dbWert) {
                 setTimeout(function () {
                     offen--;
                     geschrieben.push(wert);
-                    fertig({ ok: true, status: 204 });
+                    fertig(antwort(wert));
                 }, dauer);
             });
         }
@@ -96,7 +119,8 @@ function bauen(dbWert) {
     vm.runInContext(quelle, ctx);
     ctx.minStandMerken(HAUS, dbWert);   // so wie es das Laden tut
     return { ctx: ctx, feld: feld, geschrieben: geschrieben, toasts: toasts,
-             maxOffen: function () { return maxOffen; } };
+             maxOffen: function () { return maxOffen; },
+             offen: function () { return offenKasten.style.display; } };
 }
 
 // ---- 1. Der gemeldete Ablauf -------------------------------------------
@@ -175,7 +199,7 @@ Promise.all([p1, p2]).then(function () {
         var wert = JSON.parse(o.body).min_order_value;
         if (ersteWeg) { ersteWeg = false; return Promise.reject(new Error('kein Netz')); }
         y.geschrieben.push(wert);
-        return Promise.resolve({ ok: true, status: 204 });
+        return Promise.resolve(antwort(wert));
     };
     y.feld.value = '10';
     return y.ctx.saveMinOrderValue().then(function () {
@@ -188,7 +212,85 @@ Promise.all([p1, p2]).then(function () {
         });
     });
 }).then(function () {
-    // ---- 6. Was im Quelltext stehen muss -------------------------------
+    // ---- 6. KEIN ABBRUCH OHNE EIN WORT ---------------------------------
+    console.log('\n-- Wer abbricht, sagt es --');
+
+    // Gefragt am 04.09.2026: "warum wird der mindestbestellwert nicht
+    // gespeichert?". Gemessen: die Anfragen gehen raus und kommen mit 204
+    // zurueck. Aber die drei Abbrueche kehrten STILL zurueck -- und das
+    // sieht fuer den Wirt genauso aus wie ein kaputtes Speichern.
+    var z1 = bauen(15);
+    z1.feld.value = '';
+    return z1.ctx.saveMinOrderValue().then(function () {
+        t('leeres Feld sagt Bescheid',
+          z1.toasts.some(function (s) { return /leer/i.test(s); }), z1.toasts.join(' | '));
+
+        var z2 = bauen(15);
+        z2.feld.value = 'abc';
+        return z2.ctx.saveMinOrderValue().then(function () {
+            t('Unsinn im Feld sagt Bescheid',
+              z2.toasts.some(function (s) { return /kein Betrag/i.test(s); }), z2.toasts.join(' | '));
+
+            // Der haeufigste Fall -- und der war der stummste.
+            var z3 = bauen(15);
+            z3.feld.value = '15';
+            return z3.ctx.saveMinOrderValue().then(function () {
+                t('unveraendert sagt "steht schon so"',
+                  z3.toasts.some(function (s) { return /Steht schon/i.test(s); }), z3.toasts.join(' | '));
+                t('und schreibt trotzdem nichts',
+                  z3.geschrieben.length === 0, z3.geschrieben.join(', '));
+            });
+        });
+    });
+}).then(function () {
+    // ---- 7. DER HINWEIS "NOCH NICHT GESPEICHERT" -----------------------
+    console.log('\n-- Der Hinweis beim Tippen --');
+
+    // Gefragt am 04.09.2026: "warum wird der mindestbestellwert nicht
+    // gespeichert?" -- Antwort: "es geht wenn ich raus gehe".
+    //
+    // Es war nie kaputt. Gespeichert wird beim Verlassen des Feldes
+    // (onblur, seit dem 02.09., weil onchange bei unveraendertem Wert
+    // gar nicht feuert). Nur sagte das niemand: er tippt 15, und bis er
+    // danebentippt sieht es aus, als passiere nichts.
+    t('beim Tippen erscheint der Hinweis', /oninput="minOrderOffen\(\)"/.test(h));
+    t('er steht als Kasten in der Maske', /id="minOrderOffen"/.test(h));
+    t('mit klarem Text', /Noch nicht gespeichert/.test(h));
+
+    // Beim Tippen zu speichern waere schlimmer: dann stuende
+    // zwischendurch die "1" von "15" in der Datenbank, und der Gast
+    // saehe einen Mindestwert, den so nie jemand gemeint hat.
+    t('beim Tippen wird NICHT gespeichert', !/oninput="saveMinOrderValue/.test(h));
+
+    // Und jetzt wirklich durchgespielt. Ein Textvergleich zeigt nur,
+    // dass die Zeile dasteht -- nicht, dass sie wirkt (Regel 5).
+    var hw = bauen(0);
+    hw.feld.value = '15';
+    return hw.ctx.saveMinOrderValue().then(function () {
+        t('nach erfolgreichem Speichern ist er weg', hw.offen() === 'none', hw.offen());
+        t('und der Wert ging raus', hw.geschrieben.join(',') === '15', hw.geschrieben.join(','));
+
+        // Kam es NICHT an, muss er stehen bleiben. Ihn wegzunehmen waere
+        // die schlimmste Variante: es saehe aus wie gespeichert.
+        var hf = bauen(0);
+        hf.ctx.fetch = function () { return Promise.reject(new Error('kein Netz')); };
+        hf.feld.value = '15';
+        return hf.ctx.saveMinOrderValue().then(function () {
+            t('bei einem Netzfehler bleibt er stehen', hf.offen() === 'block', hf.offen());
+            t('und der Fehler wird gesagt',
+              hf.toasts.some(function (x) { return /warning/.test(x); }), hf.toasts.join(' | '));
+        });
+
+        // Und wenn nichts zu tun war, wartet auch nichts mehr.
+    }).then(function () {
+        var hg = bauen(15);
+        hg.feld.value = '15';
+        return hg.ctx.saveMinOrderValue().then(function () {
+            t('bei "steht schon so" geht er ebenfalls weg', hg.offen() === 'none', hg.offen());
+        });
+    });
+}).then(function () {
+    // ---- 8. Was im Quelltext stehen muss -------------------------------
     console.log('\n-- Der Bau selbst --');
     t('die Schreibvorgaenge haengen an einer Kette',
       /_minKette = _minFertig\.catch/.test(quelle));
