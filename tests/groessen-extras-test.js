@@ -170,9 +170,45 @@ console.log('\n-- 4. Beim Oeffnen gilt es sofort --');
 // Sonst saehe der Gast beim Aufmachen beide Listen, und erst ein Tippen
 // wuerde aufraeumen. Halb repariert ist nicht repariert.
 t('die erste Groesse wird beim Rendern angewandt',
-  /extrasZurGroesse\(item\.sizes\[0\]\.name \|\| ''\)/.test(h));
-t('und ohne Groessen bleibt alles sichtbar',
-  /Ohne Groessen ergibt eine an eine Groesse gebundene Gruppe/.test(h));
+  /item\.sizes\[0\]\.name \|\| ''/.test(h) && /extrasZurGroesse\(_ersteGr\)/.test(h));
+
+// HIER STAND EIN TEST, DER MEINEN EIGENEN FEHLER EINFORDERTE.
+//
+// Er verlangte den Kommentar "Ohne Groessen ergibt eine an eine Groesse
+// gebundene Gruppe keinen Sinn ... also alle zeigen". Genau diese
+// Ausnahme war der Defekt: bei einem Gericht ohne Groessen erschienen
+// ALLE groessengebundenen Gruppen untereinander. Bei Pronto Riepe waeren
+// das seit der Familienpizza vier (klein, gross, 40cm, 60x40).
+//
+// Aufgefallen ist es erst durch Ibos Frage am 03.09. -- der Test haette
+// es nie gemeldet, weil er eine Schreibweise geprueft hat statt das
+// Verhalten (Regel 5).
+t('ohne Groessen wird mit leerer Groesse gerufen',
+  /var _ersteGr =[\s\S]{0,140}: '';/.test(h),
+  (h.match(/var _ersteGr =[^\n]*/) || [])[0]);
+
+// Und jetzt wirklich durchgespielt.
+var g40   = bauKasten('g-40', '40cm', []);
+var g6040 = bauKasten('g-6040', '60x40', []);
+var gKl   = bauKasten('g-klein', 'klein', []);
+var gOhne = bauKasten('g-ohne', '', []);
+lauf('', [g40, g6040, gKl, gOhne], []);
+t('ohne Groesse verschwindet JEDE groessengebundene Gruppe',
+  g40.style.display === 'none' && g6040.style.display === 'none' && gKl.style.display === 'none',
+  JSON.stringify([g40.style, g6040.style, gKl.style]));
+t('eine Gruppe ohne Bindung bleibt aber stehen',
+  gOhne.style.display === '', JSON.stringify(gOhne.style));
+
+// Der Fall Familienpizza: 40cm gewaehlt -> nur die 40cm-Gruppe.
+var f40   = bauKasten('g-40', '40cm', []);
+var f6040 = bauKasten('g-6040', '60x40', []);
+var fKl   = bauKasten('g-klein', 'klein', []);
+var fGr   = bauKasten('g-gross', 'groß', []);
+lauf('40cm', [f40, f6040, fKl, fGr], []);
+t('Familienpizza 40cm zeigt nur ihre eigene Liste',
+  f40.style.display === '' && f6040.style.display === 'none'
+  && fKl.style.display === 'none' && fGr.style.display === 'none',
+  JSON.stringify([f40.style, f6040.style, fKl.style, fGr.style]));
 t('beim Wechsel der Groesse wird es gerufen',
   /if \(group === 'item_sizes'\) extrasZurGroesse\(option\);/.test(h));
 t('und zwar VOR der Preisberechnung',
