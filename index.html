@@ -615,6 +615,91 @@
 
     window.KARTE = KARTE;
 
+    // ===================================================================
+    // DIE FARBE DES WIRTS -- UND DER SCHUTZ DAVOR.
+    // ===================================================================
+    //
+    // Idee von Ibo am 04.09.2026: jeder Gastronom soll auf seiner
+    // Landepage seine eigene Farbe haben.
+    //
+    // Die Gefahr dabei ist nicht Geschmack, sondern Lesbarkeit. Waehlt
+    // ein Wirt ein helles Gelb, steht auf dem Bestellknopf weisse
+    // Schrift auf Gelb -- und niemand kann ihn mehr lesen. Der Wirt
+    // sieht das nicht: er kennt seinen Knopf auswendig.
+    //
+    // Deshalb wird JEDE Farbe hier durch die Kontrastpruefung geschickt
+    // (WCAG, weisse Schrift, mindestens 4.5:1). Reicht sie nicht, wird
+    // sie so lange abgedunkelt, bis sie reicht -- und es wird GESAGT,
+    // dass wir das getan haben. Stillschweigend zu korrigieren waere
+    // genau der Ausfall aus Regel 6: es sieht aus, als haette man
+    // bekommen, was man wollte.
+    //
+    // Bewusst nur ein Akzent, keine Farbwelt: Hintergrund, Schrift und
+    // Abstaende bleiben KIN. Der Gast soll die Plattform wiedererkennen
+    // -- daran haengt sein Vertrauen beim Bezahlen.
+    var MARKE = {
+        STANDARD: '#003d33',
+        MINDESTKONTRAST: 4.5,
+
+        // Nimmt "#abc", "abc", "#aabbcc" -- alles andere ist null.
+        hex: function (wert) {
+            if (!wert) return null;
+            var h = String(wert).trim().replace(/^#/, '').toLowerCase();
+            if (/^[0-9a-f]{3}$/.test(h)) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+            return /^[0-9a-f]{6}$/.test(h) ? '#' + h : null;
+        },
+
+        _kanaele: function (hex) {
+            return [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16); });
+        },
+
+        // Relative Leuchtdichte nach WCAG 2.1.
+        _leuchte: function (hex) {
+            return this._kanaele(hex).map(function (v) {
+                v = v / 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            }).reduce(function (l, v, i) { return l + v * [0.2126, 0.7152, 0.0722][i]; }, 0);
+        },
+
+        kontrast: function (a, b) {
+            var la = this._leuchte(a), lb = this._leuchte(b);
+            var hell = Math.max(la, lb), dunkel = Math.min(la, lb);
+            return (hell + 0.05) / (dunkel + 0.05);
+        },
+
+        // Dunkelt ab, bis weisse Schrift darauf lesbar ist.
+        // Gibt IMMER zurueck, ob etwas geaendert wurde -- der Wirt soll
+        // es erfahren, nicht raten.
+        lesbar: function (wert) {
+            var h = this.hex(wert);
+            if (!h) return { farbe: this.STANDARD, gueltig: false, gedunkelt: false, kontrast: this.kontrast(this.STANDARD, '#ffffff') };
+            var k = this.kontrast(h, '#ffffff');
+            if (k >= this.MINDESTKONTRAST) return { farbe: h, gueltig: true, gedunkelt: false, kontrast: k };
+
+            var rgb = this._kanaele(h), schritte = 0;
+            while (schritte < 60) {
+                rgb = rgb.map(function (v) { return Math.max(0, Math.floor(v * 0.92)); });
+                var neu = '#' + rgb.map(function (v) {
+                    return ('0' + v.toString(16)).slice(-2);
+                }).join('');
+                var kn = this.kontrast(neu, '#ffffff');
+                if (kn >= this.MINDESTKONTRAST) return { farbe: neu, gueltig: true, gedunkelt: true, kontrast: kn };
+                if (rgb[0] === 0 && rgb[1] === 0 && rgb[2] === 0) break;
+                schritte++;
+            }
+            // Sollte nie passieren -- Schwarz hat 21:1. Wenn doch, lieber
+            // die Hausfarbe als ein unlesbarer Knopf.
+            return { farbe: this.STANDARD, gueltig: false, gedunkelt: true, kontrast: this.kontrast(this.STANDARD, '#ffffff') };
+        },
+
+        // Was die Landepage wirklich benutzt. Ohne eigene Farbe: KIN-Gruen.
+        von: function (restaurant) {
+            if (!restaurant || !restaurant.brand_color) return this.STANDARD;
+            return this.lesbar(restaurant.brand_color).farbe;
+        }
+    };
+    window.MARKE = MARKE;
+
     // ============ NUR SPEISEKARTE, KEINE ONLINEBESTELLUNG ============
     //
     // Ibos Idee vom 04.09.2026: "die keine online bestellung haben wollen
@@ -20000,6 +20085,32 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <div id="minOrderNurLokal" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(220,38,38,0.08); color:#b91c1c; font-size:11px; font-weight:600; line-height:1.45;"></div>
                     </div>
 
+                    <!-- Farbe der eigenen Seite -->
+                    <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">palette</span>
+                                    Farbe deiner Seite
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Knöpfe und Akzente auf kiekmolin.de/<span id="settingSlugHint">dein-name</span></div>
+                            </div>
+                            <input type="color" id="settingBrandColor" value="#003d33" onchange="saveBrandColor()" style="width: 44px; height: 34px; padding: 2px; border: 1px solid rgba(0,61,51,0.06); border-radius: 10px; background: rgba(255,255,255,0.6); cursor: pointer;" aria-label="Farbe deiner Seite">
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="markeSetzen('#003d33')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Standard</button>
+                            <button onclick="markeSetzen('#8c1c13')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Rot</button>
+                            <button onclick="markeSetzen('#1d3557')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Blau</button>
+                            <button onclick="markeSetzen('#6d4c1f')" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif;">Braun</button>
+                        </div>
+                        <!-- Die Vorschau ist kein Schmuck: der Wirt sieht hier
+                             GENAU das, was der Gast sieht -- inklusive der
+                             Abdunklung, falls seine Farbe zu hell war. Ohne das
+                             waere die Korrektur eine stille Aenderung. -->
+                        <div id="markeVorschau" style="margin-top:10px; padding:10px 14px; border-radius:50px; background:#003d33; color:#fff; font-size:12px; font-weight:700; text-align:center; letter-spacing:0.08em; text-transform:uppercase; font-family:Epilogue,sans-serif;">Reservieren</div>
+                        <div id="markeHinweis" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(180,83,9,0.09); color:#b45309; font-size:11px; font-weight:600; line-height:1.45;"></div>
+                    </div>
+
                     <!-- Zahlungsarten -->
                     <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">
@@ -25815,6 +25926,8 @@ function mapRestaurant(r) {
         // jedes Mal auf 0 zurueck -- und eine 0 sieht aus wie eine
         // Antwort, nicht wie ein Fehler (Regel 6).
         min_order_value: r.min_order_value != null ? Number(r.min_order_value) : 0,
+        // Mit derselben Sorgfalt: was hier nicht steht, ist nach dem Laden weg.
+        brand_color: r.brand_color || null,
         free_delivery_from: r.free_delivery_from != null ? Number(r.free_delivery_from) : null,
         account_holder: r.account_holder || '', iban: r.iban || '',
         monthly_plan: r.monthly_plan || 59, contract_start: r.contract_start || null,
@@ -26300,6 +26413,7 @@ async function loadFromSupabase() {
                 delivery_radius: r.delivery_radius || 0,
                 // Dieselbe Luecke wie in mapRestaurant, siehe dort.
                 min_order_value: r.min_order_value != null ? Number(r.min_order_value) : 0,
+                brand_color: r.brand_color || null,
                 free_delivery_from: r.free_delivery_from != null ? Number(r.free_delivery_from) : null,
                 account_holder: r.account_holder || '',
                 iban: r.iban || '',
@@ -40479,6 +40593,15 @@ async function openRestaurantBySlug(slug) {
 }
 
 async function showRestaurantLanding(rest) {
+    // DIE FARBE DES WIRTS -- einmal hier, geprueft, und dann ueberall
+    // ueber die CSS-Variable --marke. Nicht 20 Stellen mit derselben
+    // Zahl: sonst faerbt der naechste Umbau die Haelfte um und die
+    // andere nicht.
+    //
+    // MARKE.von() schickt jede Farbe durch die Kontrastpruefung. Was
+    // hier herauskommt, traegt garantiert lesbare weisse Schrift.
+    var _marke = (typeof MARKE !== 'undefined') ? MARKE.von(rest) : '#003d33';
+
     // Aktuelles Landing-Page Restaurant merken (für Bestellhistorie-Filter)
     window._currentLandingRestaurantId = rest.id;
     window._currentLandingRestaurantName = rest.name;
@@ -40641,6 +40764,7 @@ async function showRestaurantLanding(rest) {
     // Overlay erstellen
     var landing = document.createElement('div');
     landing.id = 'restaurantLanding';
+    landing.style.setProperty('--marke', _marke);
     landing.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
 
     landing.innerHTML = `
@@ -40714,7 +40838,7 @@ async function showRestaurantLanding(rest) {
                 var _t = translations[currentLanguage] || translations.de;
                 var bar = '<div style="background:rgba(0,37,30,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
                 if (!noReservations) {
-                    bar += '<button onclick="openReservation(\'' + rest.id + '\')" style="background:#003d33;color:white;padding:12px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,37,30,0.3);transition:all 0.2s;text-transform:uppercase;" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>RESERVIEREN</button>';
+                    bar += '<button onclick="openReservation(\'' + rest.id + '\')" style="background:var(--marke,#003d33);color:white;padding:12px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,37,30,0.3);transition:all 0.2s;text-transform:uppercase;" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>RESERVIEREN</button>';
                 }
                 if (!noOrdering) {
                     bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">shopping_bag</span>BESTELLEN</button>';
@@ -40786,7 +40910,7 @@ async function showRestaurantLanding(rest) {
                      Einem echten Betrieb einen Satz in den Mund zu legen, den
                      er nie gesagt hat, geht nicht. Wer einen eigenen Satz
                      moechte, traegt ihn als tagline ein -- dann steht er hier. -->
-                ${rest.tagline ? '<p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid #003d33;padding-left:24px;font-family:Inter,sans-serif;">'
+                ${rest.tagline ? '<p style="color:var(--text-secondary);font-size:18px;line-height:1.6;font-style:italic;border-left:4px solid var(--marke,#003d33);padding-left:24px;font-family:Inter,sans-serif;">'
                     + escapeHtml(rest.tagline) + '</p>' : ''}
             </div>
         </section>
@@ -40833,7 +40957,7 @@ async function showRestaurantLanding(rest) {
                     h += '</div></div>';
                 } else {
                     // Ohne Bild: Elegante Text-Card im Stitch-Style
-                    h += '<div style="aspect-ratio:3/4;border-radius:24px;background:linear-gradient(135deg,#00251e,#003d33);padding:32px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden;">';
+                    h += '<div style="aspect-ratio:3/4;border-radius:24px;background:linear-gradient(135deg,#00251e,var(--marke,#003d33));padding:32px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden;">';
                     h += '<div style="position:absolute;top:-30%;right:-30%;width:200px;height:200px;background:radial-gradient(circle,rgba(117,168,155,0.15),transparent 60%);border-radius:50%;"></div>';
                     if (price) h += '<div style="position:absolute;top:20px;right:20px;background:#FFD54F;color:#003d33;padding:6px 14px;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;">' + price + '</div>';
                     h += '<div style="position:relative;z-index:1;">';
@@ -40872,7 +40996,7 @@ async function showRestaurantLanding(rest) {
         <section style="max-width:1280px;margin:0 auto;padding:0 24px 192px;">
             <div class="lp-location-wrap" style="background:#edeeef;border-radius:48px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);display:flex;flex-direction:column;position:relative;z-index:0;">
                 <div id="lpLeafletMap" style="height:400px;background:#edeeef;flex:1;min-height:400px;position:relative;z-index:0;"></div>
-                <div style="padding:48px;background:#003d33;color:white;">
+                <div style="padding:48px;background:var(--marke,#003d33);color:white;">
                     <h2 style="font-family:Epilogue,sans-serif;font-size:28px;font-weight:700;margin-bottom:32px;">Besuche uns</h2>
                     <div style="display:flex;flex-direction:column;gap:24px;">
                         ${adresse ? '<div><p style="color:#75a89b;text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Adresse</p><p style="font-size:18px;line-height:1.5;">' + adresse.replace(', ', '<br>') + '</p></div>' : ''}
@@ -60623,6 +60747,18 @@ function loadOrderSettings() {
         }
     }
 
+    // Die Farbe laden. Dieselbe Falle wie beim Mindestbestellwert: ohne
+    // diesen Block staende im Feld immer der Standard, und der naechste
+    // Klick auf einen Schnellknopf wuerde die echte Farbe ueberschreiben.
+    var markeEl = document.getElementById('settingBrandColor');
+    if (markeEl && restaurant) {
+        var geprueftM = MARKE.lesbar(restaurant.brand_color || MARKE.STANDARD);
+        markeEl.value = geprueftM.farbe;
+        markeVorschauZeigen(geprueftM.farbe, false, '');
+    }
+    var slugEl = document.getElementById('settingSlugHint');
+    if (slugEl && restaurant) slugEl.textContent = restaurant.slug || restaurant.id;
+
     // Wartezeiten laden. Ohne das staenden dort immer 25/45, und der Wirt
     // wuerde beim naechsten Speichern seinen eigenen Wert ueberschreiben.
     var pickEl = document.getElementById('settingPrepPickup');
@@ -61175,6 +61311,108 @@ function minOrderLokalVerwerfen(server) {
     _minSagen('Es gilt jetzt \u00fcberall ' + (Number(server) || 0).toFixed(0) + ' \u20AC.', 'success');
 }
 window.minOrderLokalVerwerfen = minOrderLokalVerwerfen;
+
+// DIE FARBE SPEICHERN -- nach demselben Muster wie der
+// Mindestbestellwert, aus dem am 04.09.2026 gelernt wurde:
+//
+//   1. 'return=representation' statt 'minimal'. Ein 204 beweist nichts
+//      -- es kommt auch dann, wenn die Datenbank die Zeile verwirft.
+//   2. Nichts lokal merken, bevor der Server bestaetigt hat.
+//   3. Jeder Abbruch sagt, was los ist. Stilles Zuruecklaufen sieht fuer
+//      den Wirt genauso aus wie ein kaputtes Speichern (Regel 6).
+function markeVorschauZeigen(farbe, gedunkelt, gewuenscht) {
+    var v = document.getElementById('markeVorschau');
+    if (v) v.style.background = farbe;
+    var h = document.getElementById('markeHinweis');
+    if (!h) return;
+    if (gedunkelt) {
+        h.style.display = 'block';
+        h.textContent = 'Deine Farbe ' + gewuenscht + ' war zu hell — weiße Schrift '
+            + 'wäre darauf nicht lesbar gewesen. Der Gast sieht ' + farbe + '.';
+    } else {
+        h.style.display = 'none';
+        h.textContent = '';
+    }
+}
+window.markeVorschauZeigen = markeVorschauZeigen;
+
+// Die Schnellknoepfe. Setzen das Feld und speichern sofort -- wie bei den
+// Mindestbestellwert-Knoepfen.
+function markeSetzen(farbe) {
+    var f = document.getElementById('settingBrandColor');
+    if (f) f.value = farbe;
+    saveBrandColor();
+}
+window.markeSetzen = markeSetzen;
+
+var _markeKette = Promise.resolve();
+
+async function saveBrandColor() {
+    var restId = document.getElementById('ordersRestaurantSelect')?.value;
+    if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
+
+    var feld = document.getElementById('settingBrandColor');
+    var gewuenscht = feld ? feld.value : '';
+    var geprueft = MARKE.lesbar(gewuenscht);
+
+    if (!geprueft.gueltig) {
+        showToast('„' + gewuenscht + '" ist keine Farbe — es bleibt beim Standard.', 'warning');
+        return;
+    }
+
+    // Gespeichert wird die GEPRUEFTE Farbe, nicht die gewuenschte. Sonst
+    // stuende in der Datenbank ein Wert, den die Seite nie benutzt -- und
+    // beim naechsten Umbau faellt jemand darauf herein.
+    var farbe = geprueft.farbe;
+
+    var fertig = _markeKette.then(function () {
+        return fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,brand_color', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ brand_color: farbe })
+        });
+    });
+    _markeKette = fertig.catch(function () {});
+
+    var res;
+    try {
+        res = await fertig;
+    } catch (e) {
+        showToast('Keine Verbindung – die Farbe ist nicht gespeichert', 'warning');
+        return;
+    }
+    if (!res.ok) {
+        // 400 heisst hier fast immer: die Spalte gibt es noch nicht.
+        // Das ist eine Anleitung wert statt einer Fehlernummer.
+        if (res.status === 400) {
+            showToast('Die Spalte brand_color fehlt noch — datenbank/24-markenfarbe.sql einspielen.', 'error');
+        } else {
+            showToast('Nicht gespeichert – Server meldet Fehler ' + res.status, 'error');
+        }
+        return;
+    }
+
+    var zeilen = null;
+    try { zeilen = await res.json(); } catch (e) { zeilen = null; }
+    if (!Array.isArray(zeilen) || zeilen.length === 0) {
+        showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen.', 'error');
+        return;
+    }
+
+    // Erst jetzt gilt sie.
+    if (window.APP_DATA && APP_DATA.restaurants) {
+        var r = APP_DATA.restaurants.find(function (x) { return x.id === restId; });
+        if (r) r.brand_color = farbe;
+    }
+    if (currentOrderRestaurant && currentOrderRestaurant.id === restId) currentOrderRestaurant.brand_color = farbe;
+    if (feld) feld.value = farbe;
+
+    markeVorschauZeigen(farbe, geprueft.gedunkelt, gewuenscht);
+    showToast(geprueft.gedunkelt
+        ? 'Gespeichert — etwas abgedunkelt, damit die Schrift lesbar bleibt.'
+        : 'Farbe gespeichert.', 'success');
+}
+window.saveBrandColor = saveBrandColor;
 
 async function saveMinOrderValue() {
     var _minEl = document.getElementById('settingMinOrder');
