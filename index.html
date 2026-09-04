@@ -13577,6 +13577,186 @@
             box-shadow: none;
         }
 
+
+        /* ---------------------------------------------------------------
+           HIERHER GEHOEREN DIESE REGELN.
+
+           Bis zum 04.09.2026 standen sie mitten in openKitchenDisplay():
+           rohes CSS im JavaScript, hineingeraten in #201 beim Einbau des
+           Dunkelmodus. Ein einzeiliger Kommentar war dabei aufgeschnitten
+           worden, und die 157 Zeilen dazwischen landeten im Code.
+
+           Folge: der umgebende Skript-Block (rund 2100 Zeilen) hatte einen
+           Syntaxfehler und wurde vom Browser komplett verworfen. Alles,
+           was dort steht, existierte nicht -- darunter
+           openKitchenDisplay, openDayCloseReport und
+           openTvModeForRestaurant. Kueche, Tagesabschluss und TV-Karte
+           gingen auf Klick einfach nicht auf. Ohne Meldung, ohne Spur.
+
+           Gemeldet von Ibo am 04.09.2026: "kueche geht nicht auf ist das
+           normal?" -- Nein, war es nicht.
+
+           Und die Regeln selbst haben nie gewirkt: CSS im JavaScript liest
+           niemand. 38 dieser Zeilen gab es sonst nirgends im Haus.
+           --------------------------------------------------------------- */
+        /* --- b) und ihre Hover-Zustaende, eine Spur heller --- */
+        .dark-mode #profileModal .profile-close-btn:hover,
+        .dark-mode #profileModal .profile-konto-item:hover,
+        .dark-mode #reservationModal .modal-header .modal-close:hover,
+        .dark-mode #reservationModal .res-area-btn:hover,
+        .dark-mode #reservationModal .slot-btn:hover,
+        .dark-mode .assistant-close-btn:hover,
+        .dark-mode .chip:hover:not(.active),
+        .dark-mode .cross-sell-item:hover,
+        .dark-mode .dash-btn-secondary:hover,
+        .dark-mode .dash-header .dash-btn-secondary:hover,
+        .dark-mode .dish-lightbox-close:hover,
+        .dark-mode .filter-chip:hover,
+        .dark-mode .fp-table:hover,
+        .dark-mode .glass-effect-extra .restaurant-card:hover,
+        .dark-mode .glass-effect-strong .chip:not(.active):hover,
+        .dark-mode .glass-effect-strong .restaurant-card:hover,
+        .dark-mode .hero-cta-secondary:hover,
+        .dark-mode .jobs-filter-pill:hover,
+        .dark-mode .kin-time-btn:hover,
+        .dark-mode .location-bar:hover,
+        .dark-mode .location-btn:hover,
+        .dark-mode .lp-glass-btn:hover,
+        .dark-mode .menu-category-tab:hover:not(.active),
+        .dark-mode .order-card:hover,
+        .dark-mode .order-status-tab:hover,
+        .dark-mode .panel:hover,
+        .dark-mode .res-interval-pill:hover,
+        .dark-mode .res-slot-chip:hover,
+        .dark-mode .rest-add-btn:hover,
+        .dark-mode .search-bar:focus-within,
+        .dark-mode .stat-box:hover,
+        .dark-mode .stat-card:hover,
+        .dark-mode .timeslot.has-reservation:hover,
+        .dark-mode .timeslot:hover {
+            background: rgba(255,255,255,0.10) !important;
+        }
+
+        /* --- c) Eingabefelder brauchen beides: Grund UND Schrift --- */
+        .dark-mode #reservationModal .form-input,
+        .dark-mode #reservationModal .form-input:focus,
+        .dark-mode #reservationModal .form-select,
+        .dark-mode #reservationModal .form-select:focus,
+        .dark-mode #reservationModal .form-textarea,
+        .dark-mode #reservationModal .form-textarea:focus,
+        .dark-mode .assistant-input,
+        .dark-mode .assistant-input input:focus,
+        .dark-mode .checkout-input-glass,
+        .dark-mode .form-input,
+        .dark-mode .form-multiselect,
+        .dark-mode .form-select,
+        .dark-mode .form-textarea,
+        .dark-mode .res-time-input,
+        .dark-mode .res-time-input:focus,
+        .dark-mode input:where(:not([type])),
+        .dark-mode input:where([type=checkbox]),
+        .dark-mode input:where([type=date]),
+        .dark-mode input:where([type=datetime-local]),
+        .dark-mode input:where([type=email]),
+        .dark-mode input:where([type=month]),
+        .dark-mode input:where([type=number]),
+        .dark-mode input:where([type=password]),
+        .dark-mode input:where([type=radio]),
+        .dark-mode input:where([type=search]),
+        .dark-mode input:where([type=tel]),
+        .dark-mode input:where([type=text]),
+        .dark-mode input:where([type=time]),
+        .dark-mode input:where([type=url]),
+        .dark-mode input:where([type=week]),
+        .dark-mode select,
+        .dark-mode select:where([multiple]),
+        .dark-mode textarea {
+            background: rgba(255,255,255,0.06) !important;
+            color: var(--text-primary) !important;
+            border-color: rgba(255,255,255,0.14) !important;
+        }
+        .dark-mode #reservationModal .form-input::placeholder,
+        .dark-mode #reservationModal .form-input:focus::placeholder,
+        .dark-mode #reservationModal .form-select::placeholder,
+        .dark-mode #reservationModal .form-select:focus::placeholder,
+        .dark-mode #reservationModal .form-textarea::placeholder,
+        .dark-mode #reservationModal .form-textarea:focus::placeholder,
+        .dark-mode .assistant-input input:focus::placeholder,
+        .dark-mode .assistant-input::placeholder,
+        .dark-mode .checkout-input-glass::placeholder,
+        .dark-mode .form-input::placeholder,
+        .dark-mode .form-multiselect::placeholder,
+        .dark-mode .form-select::placeholder,
+        .dark-mode .form-textarea::placeholder,
+        .dark-mode .res-time-input::placeholder,
+        .dark-mode .res-time-input:focus::placeholder,
+        .dark-mode input:where(:not([type]))::placeholder,
+        .dark-mode input:where([type=checkbox])::placeholder,
+        .dark-mode input:where([type=date])::placeholder,
+        .dark-mode input:where([type=datetime-local])::placeholder,
+        .dark-mode input:where([type=email])::placeholder,
+        .dark-mode input:where([type=month])::placeholder,
+        .dark-mode input:where([type=number])::placeholder,
+        .dark-mode input:where([type=password])::placeholder,
+        .dark-mode input:where([type=radio])::placeholder,
+        .dark-mode input:where([type=search])::placeholder,
+        .dark-mode input:where([type=tel])::placeholder,
+        .dark-mode input:where([type=text])::placeholder,
+        .dark-mode input:where([type=time])::placeholder,
+        .dark-mode input:where([type=url])::placeholder,
+        .dark-mode input:where([type=week])::placeholder,
+        .dark-mode select::placeholder,
+        .dark-mode select:where([multiple])::placeholder,
+        .dark-mode textarea::placeholder {
+            color: rgba(232,238,236,0.45) !important;
+        }
+
+        /* --- d) Und die 453 Stellen, die ihr Weiss direkt im style-
+               Attribut tragen. Eine Regel statt 453 Aenderungen -- und
+               sie greift auch bei jeder neuen Stelle, die morgen
+               dazukommt. --- */
+        .dark-mode [style*="background:rgba(255,255,255"],
+        .dark-mode [style*="background: rgba(255,255,255"],
+        .dark-mode [style*="background: rgba(255, 255, 255"],
+        .dark-mode [style*="background:rgba(255, 255, 255"],
+        .dark-mode [style*="background-color:rgba(255,255,255"],
+        .dark-mode [style*="background-color: rgba(255,255,255"],
+        .dark-mode [style*="background:#fff"],
+        .dark-mode [style*="background: #fff"],
+        .dark-mode [style*="background:white"],
+        .dark-mode [style*="background: white"] {
+            background: rgba(255,255,255,0.05) !important;
+        }
+        .dark-mode [style*="background:linear-gradient(135deg,rgba(255,255,255"],
+        .dark-mode [style*="background:linear-gradient(180deg,rgba(255,255,255"],
+        .dark-mode [style*="background: linear-gradient(135deg, rgba(255,255,255"] {
+            background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)) !important;
+        }
+
+        /* --- e) Fest eingetragene DUNKLE Schriftfarben.
+               #003d33 steht 77 mal im Quelltext, #00251e 60 mal -- das
+               Markengruen als Text. Auf dunklem Grund unlesbar, und eine
+               Variable ist es nicht, also hilft die Palette nicht.
+               Die farbigen Abzeichen (Bernstein, Rot) bleiben, wie sie
+               sind: die sitzen auf farbigem Grund und stimmen dort. --- */
+        .dark-mode [style*="color:#003d33"], .dark-mode [style*="color: #003d33"],
+        .dark-mode [style*="color:#00251e"], .dark-mode [style*="color: #00251e"],
+        .dark-mode [style*="color:#404946"], .dark-mode [style*="color: #404946"],
+        .dark-mode [style*="color:#191c1d"], .dark-mode [style*="color: #191c1d"],
+        .dark-mode [style*="color:#333"],    .dark-mode [style*="color: #333"],
+        .dark-mode [style*="color:#666"],    .dark-mode [style*="color: #666"] {
+            color: var(--text-primary) !important;
+        }
+        /* Der Rahmen darf mit -- sonst steht ein schwarzer Strich auf
+           dunklem Grund und die Karte franst aus. */
+        .dark-mode [style*="border:1px solid rgba(0,61,51"],
+        .dark-mode [style*="border: 1px solid rgba(0,61,51"],
+        .dark-mode [style*="border-top:1px solid rgba(0,61,51"],
+        .dark-mode [style*="border-bottom:1px solid rgba(0,61,51"] {
+            border-color: rgba(255,255,255,0.08) !important;
+        }
+
+
     </style>
 </head>
 <body>
@@ -72338,165 +72518,7 @@ function openKitchenDisplay() {
         '</div>' +
         '';
 
-    // Responsive CSS per JS einfügen (
-        /* --- b) und ihre Hover-Zustaende, eine Spur heller --- */
-        .dark-mode #profileModal .profile-close-btn:hover,
-        .dark-mode #profileModal .profile-konto-item:hover,
-        .dark-mode #reservationModal .modal-header .modal-close:hover,
-        .dark-mode #reservationModal .res-area-btn:hover,
-        .dark-mode #reservationModal .slot-btn:hover,
-        .dark-mode .assistant-close-btn:hover,
-        .dark-mode .chip:hover:not(.active),
-        .dark-mode .cross-sell-item:hover,
-        .dark-mode .dash-btn-secondary:hover,
-        .dark-mode .dash-header .dash-btn-secondary:hover,
-        .dark-mode .dish-lightbox-close:hover,
-        .dark-mode .filter-chip:hover,
-        .dark-mode .fp-table:hover,
-        .dark-mode .glass-effect-extra .restaurant-card:hover,
-        .dark-mode .glass-effect-strong .chip:not(.active):hover,
-        .dark-mode .glass-effect-strong .restaurant-card:hover,
-        .dark-mode .hero-cta-secondary:hover,
-        .dark-mode .jobs-filter-pill:hover,
-        .dark-mode .kin-time-btn:hover,
-        .dark-mode .location-bar:hover,
-        .dark-mode .location-btn:hover,
-        .dark-mode .lp-glass-btn:hover,
-        .dark-mode .menu-category-tab:hover:not(.active),
-        .dark-mode .order-card:hover,
-        .dark-mode .order-status-tab:hover,
-        .dark-mode .panel:hover,
-        .dark-mode .res-interval-pill:hover,
-        .dark-mode .res-slot-chip:hover,
-        .dark-mode .rest-add-btn:hover,
-        .dark-mode .search-bar:focus-within,
-        .dark-mode .stat-box:hover,
-        .dark-mode .stat-card:hover,
-        .dark-mode .timeslot.has-reservation:hover,
-        .dark-mode .timeslot:hover {
-            background: rgba(255,255,255,0.10) !important;
-        }
-
-        /* --- c) Eingabefelder brauchen beides: Grund UND Schrift --- */
-        .dark-mode #reservationModal .form-input,
-        .dark-mode #reservationModal .form-input:focus,
-        .dark-mode #reservationModal .form-select,
-        .dark-mode #reservationModal .form-select:focus,
-        .dark-mode #reservationModal .form-textarea,
-        .dark-mode #reservationModal .form-textarea:focus,
-        .dark-mode .assistant-input,
-        .dark-mode .assistant-input input:focus,
-        .dark-mode .checkout-input-glass,
-        .dark-mode .form-input,
-        .dark-mode .form-multiselect,
-        .dark-mode .form-select,
-        .dark-mode .form-textarea,
-        .dark-mode .res-time-input,
-        .dark-mode .res-time-input:focus,
-        .dark-mode input:where(:not([type])),
-        .dark-mode input:where([type=checkbox]),
-        .dark-mode input:where([type=date]),
-        .dark-mode input:where([type=datetime-local]),
-        .dark-mode input:where([type=email]),
-        .dark-mode input:where([type=month]),
-        .dark-mode input:where([type=number]),
-        .dark-mode input:where([type=password]),
-        .dark-mode input:where([type=radio]),
-        .dark-mode input:where([type=search]),
-        .dark-mode input:where([type=tel]),
-        .dark-mode input:where([type=text]),
-        .dark-mode input:where([type=time]),
-        .dark-mode input:where([type=url]),
-        .dark-mode input:where([type=week]),
-        .dark-mode select,
-        .dark-mode select:where([multiple]),
-        .dark-mode textarea {
-            background: rgba(255,255,255,0.06) !important;
-            color: var(--text-primary) !important;
-            border-color: rgba(255,255,255,0.14) !important;
-        }
-        .dark-mode #reservationModal .form-input::placeholder,
-        .dark-mode #reservationModal .form-input:focus::placeholder,
-        .dark-mode #reservationModal .form-select::placeholder,
-        .dark-mode #reservationModal .form-select:focus::placeholder,
-        .dark-mode #reservationModal .form-textarea::placeholder,
-        .dark-mode #reservationModal .form-textarea:focus::placeholder,
-        .dark-mode .assistant-input input:focus::placeholder,
-        .dark-mode .assistant-input::placeholder,
-        .dark-mode .checkout-input-glass::placeholder,
-        .dark-mode .form-input::placeholder,
-        .dark-mode .form-multiselect::placeholder,
-        .dark-mode .form-select::placeholder,
-        .dark-mode .form-textarea::placeholder,
-        .dark-mode .res-time-input::placeholder,
-        .dark-mode .res-time-input:focus::placeholder,
-        .dark-mode input:where(:not([type]))::placeholder,
-        .dark-mode input:where([type=checkbox])::placeholder,
-        .dark-mode input:where([type=date])::placeholder,
-        .dark-mode input:where([type=datetime-local])::placeholder,
-        .dark-mode input:where([type=email])::placeholder,
-        .dark-mode input:where([type=month])::placeholder,
-        .dark-mode input:where([type=number])::placeholder,
-        .dark-mode input:where([type=password])::placeholder,
-        .dark-mode input:where([type=radio])::placeholder,
-        .dark-mode input:where([type=search])::placeholder,
-        .dark-mode input:where([type=tel])::placeholder,
-        .dark-mode input:where([type=text])::placeholder,
-        .dark-mode input:where([type=time])::placeholder,
-        .dark-mode input:where([type=url])::placeholder,
-        .dark-mode input:where([type=week])::placeholder,
-        .dark-mode select::placeholder,
-        .dark-mode select:where([multiple])::placeholder,
-        .dark-mode textarea::placeholder {
-            color: rgba(232,238,236,0.45) !important;
-        }
-
-        /* --- d) Und die 453 Stellen, die ihr Weiss direkt im style-
-               Attribut tragen. Eine Regel statt 453 Aenderungen -- und
-               sie greift auch bei jeder neuen Stelle, die morgen
-               dazukommt. --- */
-        .dark-mode [style*="background:rgba(255,255,255"],
-        .dark-mode [style*="background: rgba(255,255,255"],
-        .dark-mode [style*="background: rgba(255, 255, 255"],
-        .dark-mode [style*="background:rgba(255, 255, 255"],
-        .dark-mode [style*="background-color:rgba(255,255,255"],
-        .dark-mode [style*="background-color: rgba(255,255,255"],
-        .dark-mode [style*="background:#fff"],
-        .dark-mode [style*="background: #fff"],
-        .dark-mode [style*="background:white"],
-        .dark-mode [style*="background: white"] {
-            background: rgba(255,255,255,0.05) !important;
-        }
-        .dark-mode [style*="background:linear-gradient(135deg,rgba(255,255,255"],
-        .dark-mode [style*="background:linear-gradient(180deg,rgba(255,255,255"],
-        .dark-mode [style*="background: linear-gradient(135deg, rgba(255,255,255"] {
-            background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)) !important;
-        }
-
-        /* --- e) Fest eingetragene DUNKLE Schriftfarben.
-               #003d33 steht 77 mal im Quelltext, #00251e 60 mal -- das
-               Markengruen als Text. Auf dunklem Grund unlesbar, und eine
-               Variable ist es nicht, also hilft die Palette nicht.
-               Die farbigen Abzeichen (Bernstein, Rot) bleiben, wie sie
-               sind: die sitzen auf farbigem Grund und stimmen dort. --- */
-        .dark-mode [style*="color:#003d33"], .dark-mode [style*="color: #003d33"],
-        .dark-mode [style*="color:#00251e"], .dark-mode [style*="color: #00251e"],
-        .dark-mode [style*="color:#404946"], .dark-mode [style*="color: #404946"],
-        .dark-mode [style*="color:#191c1d"], .dark-mode [style*="color: #191c1d"],
-        .dark-mode [style*="color:#333"],    .dark-mode [style*="color: #333"],
-        .dark-mode [style*="color:#666"],    .dark-mode [style*="color: #666"] {
-            color: var(--text-primary) !important;
-        }
-        /* Der Rahmen darf mit -- sonst steht ein schwarzer Strich auf
-           dunklem Grund und die Karte franst aus. */
-        .dark-mode [style*="border:1px solid rgba(0,61,51"],
-        .dark-mode [style*="border: 1px solid rgba(0,61,51"],
-        .dark-mode [style*="border-top:1px solid rgba(0,61,51"],
-        .dark-mode [style*="border-bottom:1px solid rgba(0,61,51"] {
-            border-color: rgba(255,255,255,0.08) !important;
-        }
-
-    </style> in innerHTML bricht HTML-Parser)
+    // Responsive CSS per JS einfügen (</style> in innerHTML bricht HTML-Parser)
     var kdsStyle = document.getElementById('kdsResponsiveStyle');
     if (!kdsStyle) {
         kdsStyle = document.createElement('style');
