@@ -50116,17 +50116,28 @@ function openItemOptions(itemId, item) {
         // muessen auch gleich die passenden Extras dastehen, nicht erst
         // nachdem der Gast einmal getippt hat. Sonst sieht er beim
         // Aufmachen beide Listen und das Ganze waere nur halb repariert.
-        if (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0) {
-            extrasZurGroesse(item.sizes[0].name || '');
-        } else {
-            // Ohne Groessen ergibt eine an eine Groesse gebundene Gruppe
-            // keinen Sinn -- sie waere sonst nie zu sehen und nie
-            // erklaerbar. Also alle zeigen.
-            extrasZurGroesse(null);
-            Array.prototype.forEach.call(
-                document.querySelectorAll('#itemOptionsBody .option-group[data-fuer-groesse]'),
-                function (k) { k.style.display = ''; });
-        }
+        //
+        // HIER STAND HEUTE MITTAG EINE AUSNAHME, UND SIE WAR FALSCH.
+        //
+        // Bei einem Gericht OHNE Groessen habe ich alle groessengebundenen
+        // Gruppen trotzdem gezeigt -- mit der Begruendung, sie waeren sonst
+        // "nie zu sehen".
+        //
+        // Am 03.09. hat Ibo nach der Familienpizza gefragt: die hat 40cm und
+        // 60x40 mit eigenen Zutatenpreisen. Damit gibt es im selben
+        // Restaurant vier groessengebundene Gruppen (klein, gross, 40cm,
+        // 60x40). Nach meiner Ausnahme haette ein Gericht ohne Groessen sie
+        // ALLE VIER untereinander gezeigt.
+        //
+        // Die Regel ist einfacher, als ich sie gemacht habe: eine Gruppe, die
+        // an eine Groesse gebunden ist, erscheint genau dann, wenn diese
+        // Groesse gewaehlt ist. Gibt es keine Groessen, ist keine gewaehlt --
+        // also erscheint keine. Und wer eine Gruppe an eine Groesse bindet,
+        // die es beim Gericht nicht gibt, hat sich schlicht vertippt; das
+        // faellt so wenigstens auf.
+        var _ersteGr = (item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0)
+            ? (item.sizes[0].name || '') : '';
+        extrasZurGroesse(_ersteGr);
 
         updateItemTotalPrice();
     });
