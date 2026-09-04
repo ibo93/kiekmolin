@@ -68901,6 +68901,27 @@ function editMenuItem(itemId) {
         '<input type="text" id="editItemName" value="' + (item.name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Beschreibung</label>' +
         '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + (item.description || '') + '</textarea></div>' +
+        // GROESSEN -- DAS FEHLENDE STUECK.
+        //
+        // Gemeldet am 04.09.2026: bei der Familienpizza fehlten die
+        // Extra-Zutaten. Auf dem Bild war zu sehen, warum: "Familienpizza
+        // 40 cm" ist ein EIGENES Gericht, die Groesse steckt im NAMEN.
+        // Damit hat das Gericht gar keine Groessen -- und eine
+        // groessengebundene Zutatenliste kann nie erscheinen.
+        //
+        // Der naheliegende Weg waere gewesen: ein Gericht, zwei Groessen.
+        // Nur ging das nicht. Groessen wurden bisher AUSSCHLIESSLICH vom
+        // Speisekarten-Scanner geschrieben; von Hand konnte man sie
+        // weder anlegen noch aendern noch loeschen. Was der Scanner
+        // falsch erkannt hat, blieb falsch.
+        //
+        // Das war eine halbe Sache: die Gastseite liest Groessen, der
+        // Scanner schreibt sie, und dazwischen konnte der Wirt nichts tun.
+        '<div id="editSizesBox"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Größen (optional)</label>' +
+        '<div id="editSizesList"></div>' +
+        '<button onclick="groessenZeile()" type="button" style="margin-top:6px;padding:8px 16px;background:var(--bg-secondary);color:var(--primary);border:1.5px dashed var(--primary);border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">+ Größe hinzufügen</button>' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Leer lassen = ein Preis für alle. Sonst wählt der Gast die Größe, und der Preis oben gilt nicht mehr. Genau diese Namen trägst du dann bei den Optionsgruppen unter „Gilt nur für Größe" ein.</p></div>' +
+
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Zutaten zum Abwählen (optional)</label>' +
         '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + (typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '').replace(/"/g, '&quot;') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Mit Komma trennen. Der Gast sieht sie als „Bitte ohne"-Kästchen und muss nichts tippen. Leer lassen = wird aus der Beschreibung gelesen, wenn die wie eine Zutatenliste aussieht.</p></div>' +
@@ -68931,7 +68952,59 @@ function editMenuItem(itemId) {
         '</div>';
 
     showGenericModal('Gericht bearbeiten', html);
+
+    // Vorhandene Groessen eintragen. Hat das Gericht keine, bleibt die
+    // Liste leer -- dann gilt weiter der eine Preis darueber.
+    var _vorhanden = Array.isArray(item.sizes) ? item.sizes : [];
+    _vorhanden.forEach(function (g) { groessenZeile(g && g.name, g && g.price); });
 }
+
+// Eine Zeile fuer eine Groesse. Gebaut wie addOptionChoiceRow -- dieselbe
+// Mechanik, damit sich niemand zwei merken muss.
+function groessenZeile(name, preis) {
+    var liste = document.getElementById('editSizesList');
+    if (!liste) return;
+    var zeile = document.createElement('div');
+    zeile.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+    zeile.innerHTML =
+        '<input type="text" class="groesse-name" aria-label="Name der Größe" placeholder="z.B. 40 cm" value="'
+        + String(name == null ? '' : name).replace(/"/g, '&quot;')
+        + '" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">'
+        + '<input type="number" step="0.10" min="0" class="groesse-preis" aria-label="Preis dieser Größe" placeholder="Preis" value="'
+        + (preis == null ? '' : preis)
+        + '" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">'
+        + '<button onclick="this.parentElement.remove()" type="button" aria-label="Diese Größe entfernen" style="padding:6px 10px;background:#fef2f2;color:#ef4444;border:1px solid #fecaca;border-radius:9999px;font-size:14px;cursor:pointer;line-height:1;">x</button>';
+    liste.appendChild(zeile);
+}
+window.groessenZeile = groessenZeile;
+
+// Was in den Zeilen steht, als Liste -- oder null, wenn nichts drinsteht.
+//
+// null und nicht []: ein leeres Array waere "es gibt Groessen, aber
+// keine", und der Gast bekaeme eine leere Pflicht-Auswahl, aus der er
+// nichts nehmen kann.
+function groessenAusMaske() {
+    var liste = document.getElementById('editSizesList');
+    if (!liste) return null;
+    var raus = [];
+    Array.prototype.forEach.call(liste.children, function (zeile) {
+        var n = (zeile.querySelector('.groesse-name') || {}).value || '';
+        var p = (zeile.querySelector('.groesse-preis') || {}).value || '';
+        n = String(n).trim();
+        // Eine Groesse ohne Namen kann der Gast nicht anwaehlen, und eine
+        // ohne Preis waere geschenkt. Beides gehoert nicht in die Karte.
+        if (!n) return;
+        var wert = parseFloat(p);
+        if (!isFinite(wert) || wert < 0) return;
+        raus.push({ name: n, price: Math.round(wert * 100) / 100 });
+    });
+    if (!raus.length) return null;
+    // Guenstigste zuerst -- die ist beim Gast vorausgewaehlt und steht als
+    // "ab"-Preis in der Karte. Genauso macht es der Scanner.
+    raus.sort(function (a, b) { return a.price - b.price; });
+    return raus;
+}
+window.groessenAusMaske = groessenAusMaske;
 
 async function saveEditedItem(itemId) {
     var name = document.getElementById('editItemName').value.trim();
@@ -68973,6 +69046,8 @@ async function saveEditedItem(itemId) {
             headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
             body: JSON.stringify({
                 name: name, description: desc, base_price: price, category_id: catId,
+                // Groessen aus der Maske. null = keine, dann gilt base_price.
+                sizes: groessenAusMaske(),
                 is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
