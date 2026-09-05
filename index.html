@@ -63640,6 +63640,59 @@ function onItemDrop(e, targetCatId) {
     saveItemOrder(draggedItem, catItems);
 }
 
+// EIN GERICHT NACH VORNE ZIEHEN -- AUCH AUF DEM HANDY.
+//
+// Idee von Ibo am 04.09.2026: "wenn der gastronomen ein gericht oder
+// menue mehr nach vorne zeigen wie man es besser verkaufen kann".
+//
+// Ziehen zum Sortieren gab es schon (onItemDragStart/onItemDrop,
+// saveItemOrder). Nur haengt das an der HTML5-Drag-Schnittstelle, und
+// die reagiert auf einem Touch-Bildschirm NICHT. In der ganzen
+// Speisekarten-Liste steht kein einziger touchstart -- die einzigen
+// Touch-Handler im Haus gehoeren zum Tischplan.
+//
+// Ein Wirt am Telefon konnte seine Karte also gar nicht umsortieren.
+// Und ausgerechnet die Reihenfolge ist der billigste Verkaufshebel:
+// Gaeste nehmen ueberdurchschnittlich oft aus den ersten Positionen
+// einer Kategorie. Wer sein Tagesgericht nach oben zieht, verkauft mehr
+// davon -- ohne einen Cent Rabatt.
+//
+// Zwei Pfeile tun dasselbe wie das Ziehen, funktionieren aber ueberall:
+// Maus, Finger, Tastatur. Das Ziehen bleibt, wo es geht.
+function gerichtVerschieben(itemId, catId, richtung) {
+    var inKat = menuItems.filter(function (i) { return i.category_id === catId; });
+    var pos = inKat.findIndex(function (i) { return i.id === itemId; });
+    if (pos < 0) { showToast('Gericht nicht gefunden', 'error'); return; }
+
+    var ziel = pos + richtung;
+    // Oben am Anfang, unten am Ende: nichts tun, aber es SAGEN. Ein
+    // Knopf, der stumm nichts tut, sieht kaputt aus (Regel 6).
+    if (ziel < 0)             { showToast('„' + (inKat[pos].name || 'Das Gericht') + '" steht schon ganz oben.', 'info'); return; }
+    if (ziel >= inKat.length) { showToast('„' + (inKat[pos].name || 'Das Gericht') + '" steht schon ganz unten.', 'info'); return; }
+
+    // Innerhalb der Kategorie tauschen ...
+    var bewegt = inKat[pos];
+    inKat.splice(pos, 1);
+    inKat.splice(ziel, 0, bewegt);
+    inKat.forEach(function (it, i) { it.sort_order = i + 1; });
+
+    // ... und die Gesamtliste in dieselbe Reihenfolge bringen, sonst
+    // springt die Anzeige beim naechsten Zeichnen zurueck.
+    var ohne = menuItems.filter(function (i) { return i.category_id !== catId; });
+    menuItems.length = 0;
+    Array.prototype.push.apply(menuItems, ohne.concat(inKat));
+    menuItems.sort(function (a, b) {
+        if (a.category_id === b.category_id) return (a.sort_order || 0) - (b.sort_order || 0);
+        return 0;
+    });
+
+    renderMenuCategories();
+    // Dieselbe Speicherung wie beim Ziehen -- eine Wahrheit, nicht zwei.
+    saveItemOrder(bewegt, inKat);
+    showToast('„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.', 'success');
+}
+window.gerichtVerschieben = gerichtVerschieben;
+
 function onItemDragEnd(e) {
     e.currentTarget.style.opacity = '';
     document.querySelectorAll('.menu-item-row').forEach(function(r) { r.style.borderTop = ''; });
@@ -63789,6 +63842,17 @@ function renderMenuCategories() {
                             </div>
                             <div class="menu-item-price">${formatPrice(item.base_price || item.price)}</div>
                             <div class="menu-item-actions">
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',-1)" title="Nach oben" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach oben">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">arrow_upward</span>
+                                </button>
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',1)" title="Nach unten" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach unten">
+                                    <!-- Derselbe Pfeil, gedreht. arrow_downward steckt nicht in
+                                         unserer schlanken Symbolschrift (27 KB statt Megabyte),
+                                         und dafuer die ganze Schrift neu zu erzeugen waere
+                                         unverhaeltnismaessig. symbolschrift-test.js hat das
+                                         gefunden, bevor es jemand auf der Seite gesehen haette. -->
+                                    <span class="material-symbols-outlined" style="font-size:16px;transform:rotate(180deg);">arrow_upward</span>
+                                </button>
                                 <button class="menu-item-btn" onclick="toggleSoldOut('${item.id}')" title="${item.is_available === false ? 'Wieder verfügbar' : 'Ausverkauft'}" aria-label="${item.is_available === false ? 'Wieder verfügbar' : 'Ausverkauft'}" style="${item.is_available === false ? 'background:var(--danger-500);color:white;' : ''}">
                                     <span class="material-symbols-outlined" style="font-size:18px">cancel</span>
                                 </button>
