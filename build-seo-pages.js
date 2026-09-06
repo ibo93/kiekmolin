@@ -62,7 +62,28 @@ const CITIES = [
   { slug: 'suedbrookmerland', name: 'Südbrookmerland', zipPrefix: '266', region: 'Ostfriesland' },
   { slug: 'ihlow',         name: 'Ihlow',         zipPrefix: '266', region: 'Ostfriesland' },
   { slug: 'weener',        name: 'Weener',        zipPrefix: '268', region: 'Rheiderland' },
-  { slug: 'papenburg',     name: 'Papenburg',     zipPrefix: '268', region: 'Emsland' }
+  { slug: 'papenburg',     name: 'Papenburg',     zipPrefix: '268', region: 'Emsland' },
+  // Weitere Orte, aus denen import-osm.js Betriebe zieht -- ohne eigenen
+  // Eintrag hier haetten deren Verzeichnis-Seiten kaputte Breadcrumb-Links.
+  { slug: 'hinte',            name: 'Hinte',            zipPrefix: '267', region: 'Krummhörn' },
+  { slug: 'moormerland',      name: 'Moormerland',      zipPrefix: '268', region: 'Ostfriesland' },
+  { slug: 'hesel',            name: 'Hesel',            zipPrefix: '268', region: 'Ostfriesland' },
+  { slug: 'uplengen',         name: 'Uplengen',         zipPrefix: '266', region: 'Ostfriesland' },
+  { slug: 'westoverledingen', name: 'Westoverledingen', zipPrefix: '268', region: 'Overledingerland' },
+  { slug: 'rhauderfehn',      name: 'Rhauderfehn',      zipPrefix: '268', region: 'Overledingerland' },
+  { slug: 'bunde',            name: 'Bunde',            zipPrefix: '268', region: 'Rheiderland' },
+  { slug: 'jemgum',           name: 'Jemgum',           zipPrefix: '268', region: 'Rheiderland' },
+  { slug: 'bensersiel',       name: 'Bensersiel',       zipPrefix: '264', region: 'Harlingerland' },
+  { slug: 'neuharlingersiel', name: 'Neuharlingersiel', zipPrefix: '264', region: 'Harlingerland' },
+  { slug: 'friedeburg',       name: 'Friedeburg',       zipPrefix: '264', region: 'Harlingerland' },
+  { slug: 'schortens',        name: 'Schortens',        zipPrefix: '264', region: 'Friesland' },
+  { slug: 'sande',            name: 'Sande',            zipPrefix: '264', region: 'Friesland' },
+  { slug: 'wilhelmshaven',    name: 'Wilhelmshaven',    zipPrefix: '263', region: 'Friesland' },
+  { slug: 'hooksiel',         name: 'Hooksiel',         zipPrefix: '264', region: 'Wangerland' },
+  { slug: 'horumersiel',      name: 'Horumersiel',      zipPrefix: '264', region: 'Wangerland' },
+  { slug: 'zetel',            name: 'Zetel',            zipPrefix: '263', region: 'Friesland' },
+  { slug: 'bockhorn',         name: 'Bockhorn',         zipPrefix: '263', region: 'Friesland' },
+  { slug: 'varel',            name: 'Varel',            zipPrefix: '263', region: 'Friesland' }
 ];
 
 const CATEGORIES = [
