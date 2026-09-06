@@ -52918,6 +52918,11 @@ function changeCartItemQty(itemId, delta) {
 
 // Checkout öffnen
 function openCheckout() {
+    // Beim Oeffnen sofort pruefen. Wer mit zu kleinem Warenkorb
+    // hierherkommt, soll es sehen, bevor er die Adresse eintippt.
+    setTimeout(function () {
+        try { if (typeof mindestImBezahlen === 'function') mindestImBezahlen(); } catch (e) {}
+    }, 0);
     if (orderCart.length === 0) return;
 
     // Spam-Schutz: Zeitstempel setzen
@@ -53237,6 +53242,15 @@ function setOrderType(type, btn) {
 
     renderCartItems();
     updateCheckoutTotals();
+
+    // Der haeufigste Weg zum Problem: der Gast schaltet auf Lieferung.
+    // Genau dann muss der Hinweis erscheinen -- nicht erst beim Bezahlen.
+    //
+    // Der Aufruf steht am ENDE. Direkt hinter "orderType = type" hat er
+    // knopf-zustand-test.js rot gemacht: der prueft, dass setOrderType
+    // die Klasse umschaltet, und meine vier Zeilen haben die beiden
+    // classList-Aufrufe aus seinem Suchfenster geschoben.
+    try { if (typeof mindestImBezahlen === 'function') mindestImBezahlen(); } catch (e) {}
 }
 
 // Checkout-Summen mit MwSt und Trinkgeld berechnen
@@ -53383,6 +53397,101 @@ openCheckout = function() {
     loadSavedAddressesDropdown();
     if (typeof checkTableReorder === 'function') checkTableReorder();
 };
+
+// DER MINDESTBESTELLWERT -- AN EINER STELLE GERECHNET.
+//
+// Ibo am 04.09.2026: "beim bezahlen wenn die auf lieferung klicken es
+// muss gezeigt werden und wenn die mindestbestellwert nicht erfuellen
+// es soll schreiben mindestbestellwert noch nicht erreicht".
+//
+// NACHGESEHEN STATT ANGENOMMEN: zwei von drei Stellen gab es schon.
+// Im Warenkorb steht ein Hinweis mit Fortschrittsbalken, und
+// submitOrder() blockiert die Bestellung. Neu gebaut werden musste
+// davon nichts.
+//
+// Die Luecke war der Schritt dazwischen -- und es ist der schlimmste:
+// der Gast waehlt Lieferung, tippt seine Adresse ein, drueckt BEZAHLEN,
+// und erst DANN kommt eine Meldung, die nach drei Sekunden weg ist. Er
+// hat alles ausgefuellt und weiss nicht, warum nichts passiert.
+//
+// Gerechnet wird ab jetzt an EINER Stelle. Drei Kopien derselben Formel
+// waeren drei Stellen, die beim naechsten Umbau auseinanderlaufen --
+// und der Gast bekaeme im Warenkorb eine andere Zahl als beim Bezahlen.
+function mindestPruefen(zwischensumme, restaurant, art) {
+    var minVal = Number(restaurant && restaurant.min_order_value) || 0;
+    // Nur bei Lieferung. Wer abholt, traegt keine Fahrtkosten.
+    if (minVal <= 0 || art !== 'delivery') {
+        return { greift: false, erreicht: true, minVal: minVal, fehlt: 0, prozent: 100 };
+    }
+    var summe = Number(zwischensumme) || 0;
+    var fehlt = Math.max(0, minVal - summe);
+    return {
+        greift: true,
+        erreicht: fehlt <= 0.0001,        // Cent-Rundung: 14,999999 ist erreicht
+        minVal: minVal,
+        fehlt: fehlt,
+        prozent: Math.min(100, Math.round((summe / minVal) * 100))
+    };
+}
+window.mindestPruefen = mindestPruefen;
+
+// Der Satz, den der Gast liest. Einmal formuliert, ueberall derselbe.
+function mindestSatz(pr) {
+    if (!pr.greift || pr.erreicht) return '';
+    return 'Mindestbestellwert noch nicht erreicht — es fehlen noch '
+        + pr.fehlt.toFixed(2).replace('.', ',') + ' €'
+        + ' (Minimum ' + pr.minVal.toFixed(2).replace('.', ',') + ' € bei Lieferung).';
+}
+window.mindestSatz = mindestSatz;
+
+// Im Bezahl-Schritt: Hinweis zeigen UND den Knopf sperren.
+//
+// Ein gesperrter Knopf ohne Begruendung ist selbst ein stiller Ausfall
+// (Regel 6) -- deshalb steht der Grund IM Knopf, nicht nur daneben.
+function mindestImBezahlen() {
+    var knopf = document.getElementById('submitOrderBtn');
+    var kasten = document.getElementById('checkoutMinHint');
+    // Genau wie submitOrder rechnet: total_price je Position. Erst stand
+    // hier eine erfundene Funktion cartSubtotalWert() hinter einem
+    // typeof-Schutz -- angebote-test.js hat das gefunden. Ein typeof, das
+    // auf nichts zeigt, ist eine Abzweigung, die IMMER in den anderen
+    // Zweig laeuft; die Rechnung waere still eine andere gewesen.
+    var summe = (orderCart || []).reduce(function (su, i) { return su + (Number(i.total_price) || 0); }, 0);
+    var pr = mindestPruefen(summe, currentOrderRestaurant, orderType);
+
+    if (!kasten && knopf && knopf.parentNode) {
+        kasten = document.createElement('div');
+        kasten.id = 'checkoutMinHint';
+        kasten.style.cssText = 'width:100%; margin:0 0 10px; padding:12px 16px; border-radius:14px;'
+            + 'background:rgba(217,119,6,0.10); color:#b45309; font-size:13px; font-weight:600; line-height:1.5;';
+        knopf.parentNode.insertBefore(kasten, knopf.parentNode.firstChild);
+    }
+    if (!kasten) return pr;
+
+    if (pr.greift && !pr.erreicht) {
+        kasten.style.display = 'block';
+        kasten.textContent = mindestSatz(pr);
+        if (knopf) {
+            knopf.disabled = true;
+            knopf.style.opacity = '0.5';
+            knopf.style.cursor = 'not-allowed';
+            // Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
+            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.textContent;
+            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' € bis zum Mindestbestellwert';
+        }
+    } else {
+        kasten.style.display = 'none';
+        kasten.textContent = '';
+        if (knopf) {
+            knopf.disabled = false;
+            knopf.style.opacity = '';
+            knopf.style.cursor = '';
+            if (knopf.dataset.urtext) { knopf.textContent = knopf.dataset.urtext; delete knopf.dataset.urtext; }
+        }
+    }
+    return pr;
+}
+window.mindestImBezahlen = mindestImBezahlen;
 
 // Bestellung absenden - Professionelle Validierung
 async function submitOrder() {
@@ -53580,7 +53689,17 @@ async function submitOrder() {
     if (currentOrderRestaurant) {
         minOrderVal = Number(currentOrderRestaurant.min_order_value) || 0;
     }
-    if (minOrderVal > 0 && cartSubtotal < minOrderVal && orderType === 'delivery') {
+    // Dieselbe Rechnung wie im Warenkorb und im Bezahl-Schritt --
+    // eine Wahrheit, nicht drei. Der Block bleibt: der Bezahlen-Knopf
+    // ist zwar gesperrt, aber ein gesperrter Knopf im Browser ist keine
+    // Sicherheit. Wer ihn umgeht, wird hier gestoppt.
+    var _mp = mindestPruefen(cartSubtotal, currentOrderRestaurant, orderType);
+    if (_mp.greift && !_mp.erreicht) {
+        showToast(mindestSatz(_mp), 'error');
+        try { mindestImBezahlen(); } catch (e) {}
+        return;
+    }
+    if (false) {
         showToast('Mindestbestellwert für Lieferung: ' + minOrderVal.toFixed(2).replace('.', ',') + ' € (aktuell: ' + cartSubtotal.toFixed(2).replace('.', ',') + ' €)', 'error');
         return;
     }
