@@ -47092,6 +47092,18 @@ document.addEventListener('error', function(e) {
                     <label class="form-label">Kategorie-Name *</label>
                     <input type="text" class="form-input" id="newCategoryName" required placeholder="z.B. Vorspeisen, Hauptgerichte, Desserts..." aria-label="z.B. Vorspeisen, Hauptgerichte, Desserts...">
                 </div>
+                <!-- HINWEIS FUER DIE GANZE KATEGORIE.
+                     Was fuer alle Gerichte gilt ("alle Pizzen mit
+                     Tomatensauce, Kaese und Oregano"), stand bisher in
+                     jeder einzelnen Beschreibung -- oder nirgends.
+                     Leer lassen heisst: der Gast sieht nichts. -->
+                <div class="form-group">
+                    <label class="form-label" for="newCategoryHinweis">Hinweis für alle Gerichte (optional)</label>
+                    <textarea class="form-input" id="newCategoryHinweis" rows="2" maxlength="300" placeholder="z.B. Alle Pizzen mit Tomatensauce, Käse und Oregano." aria-label="Hinweis für alle Gerichte dieser Kategorie" style="resize:vertical;"></textarea>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:6px; line-height:1.45;">
+                        Steht beim Gast einmal über den Gerichten dieser Kategorie — nicht bei jedem Gericht einzeln.
+                    </div>
+                </div>
                 <!-- MITTAGSTISCH: eine Kategorie, die nur zur Mittagszeit da ist.
                      Leer lassen heisst "immer sichtbar" -- der Normalfall darf
                      sich durch diesen Kasten nicht aendern. -->
@@ -47318,6 +47330,12 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
             };
             if (_catIcon) _catPayload.icon = _catIcon;
 
+            // Hinweis fuer die ganze Kategorie. Leer heisst leer -- dann
+            // wird das Feld gar nicht erst mitgeschickt, damit eine
+            // fehlende Spalte den Normalfall nicht kaputtmacht.
+            var _catHinweis = ((document.getElementById('newCategoryHinweis') || {}).value || '').trim();
+            if (_catHinweis) _catPayload.beschreibung = _catHinweis;
+
             // Zeitfenster. Nur mitschicken, wenn BEIDE Zeiten stehen --
             // eine halbe Angabe ("ab 11 Uhr, bis ...?") waere ein Fenster,
             // das niemand versteht, und die Kategorie koennte fuer den
@@ -47345,6 +47363,15 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
                 data = _retry.data; error = _retry.error;
                 if (!error) console.warn('Kategorie ohne Symbol angelegt – Spalte "icon" fehlt in der Tabelle menu_categories.');
             }
+            // Dasselbe fuer den Hinweis: lieber die Kategorie OHNE Hinweis
+            // anlegen als gar nicht -- aber es muss gesagt werden, sonst
+            // tippt er den Satz und niemand sieht ihn je (stiller Ausfall).
+            if (error && _catHinweis && /beschreibung/i.test(error.message || '')) {
+                delete _catPayload.beschreibung;
+                var _retryH = await client.from('menu_categories').insert(_catPayload).select();
+                data = _retryH.data; error = _retryH.error;
+                if (!error) showToast('Kategorie angelegt — der Hinweis konnte NICHT gespeichert werden (Spalte "beschreibung" fehlt in der Datenbank).', 'warning');
+            }
             if (error) throw new Error(error.message);
             // Frisch laden
             var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', rid).order('sort_order');
@@ -47354,6 +47381,8 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
         }
         document.getElementById('addCategoryModal').style.display = 'none';
         document.getElementById('newCategoryName').value = '';
+        var _hinweisFeld = document.getElementById('newCategoryHinweis');
+        if (_hinweisFeld) _hinweisFeld.value = '';
         if (typeof renderMenuCategories === 'function') renderMenuCategories();
         if (typeof updateMenuStats === 'function') updateMenuStats();
         if (typeof showToast === 'function') showToast('Kategorie "' + name + '" erstellt!', 'success');
@@ -50314,7 +50343,7 @@ function renderKarteDurchgehend(items, kategorien) {
 
     var reihen = [];
     (kategorien || []).forEach(function (c) {
-        if (proKat[c.id] && proKat[c.id].length) reihen.push({ id: c.id, name: c.name, items: proKat[c.id] });
+        if (proKat[c.id] && proKat[c.id].length) reihen.push({ id: c.id, name: c.name, hinweis: c.beschreibung || '', items: proKat[c.id] });
         delete proKat[c.id];
     });
     // Was keiner bekannten Kategorie zugeordnet ist, faellt nicht unter
@@ -50336,7 +50365,18 @@ function renderKarteDurchgehend(items, kategorien) {
         // Etwas Luft bleibt trotzdem: sonst klebt das erste Gericht der
         // Pizzen direkt an der letzten Vorspeise und man scrollt an der
         // Grenze vorbei, ohne sie zu merken.
+        // Der Hinweis der Kategorie -- einmal ueber den Gerichten statt
+        // vierzig mal in jeder einzelnen Beschreibung. Ohne Text kommt
+        // hier gar nichts, der Abstand bleibt wie er war.
+        var kopf = '';
+        if (r.hinweis) {
+            kopf = '<p class="kmi-kat-hinweis" style="margin:0 0 12px;padding:10px 14px;'
+                 + 'background:rgba(0,61,51,0.05);border-left:3px solid var(--primary,#003d33);'
+                 + 'border-radius:10px;font-size:13px;line-height:1.5;color:var(--text-secondary);'
+                 + 'font-family:Inter,sans-serif;">' + escapeHtml(String(r.hinweis)) + '</p>';
+        }
         html += '<section class="kmi-kat-abschnitt" data-kat="' + escapeHtml(String(r.id)) + '" style="scroll-margin-top:140px;padding-top:18px;">'
+              + kopf
               + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
               + '</section>';
     });
@@ -64068,18 +64108,25 @@ window.MITTAG = MITTAG;
 
 // Die sieben Wochentag-Knoepfe. Keiner gedrueckt heisst "taeglich" --
 // das ist der haeufigste Fall und braucht darum keine Klicks.
-function mittagTageBauen() {
-    var kasten = document.getElementById('newCategoryTage');
+function mittagTageBauen(kastenId, vorbelegt) {
+    var kasten = document.getElementById(kastenId || 'newCategoryTage');
     if (!kasten) return;
+    // Bereits gesetzte Tage vorbelegen -- sonst saehe eine Kategorie beim
+    // Bearbeiten so aus, als gaelte sie taeglich, und ein Speichern haette
+    // das Zeitfenster still verbreitert.
+    var _an = {};
+    (Array.isArray(vorbelegt) ? vorbelegt : []).forEach(function (t) { _an[Number(t)] = true; });
     kasten.textContent = '';
     ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].forEach(function (name, i) {
         var b = document.createElement('button');
         b.type = 'button';
         b.textContent = name;
         b.dataset.tag = String(i);
-        b.dataset.an = '0';
-        b.style.cssText = 'flex:1; padding:6px 0; border:1px solid rgba(0,61,51,0.10); background:rgba(255,255,255,0.6);'
-            + 'border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; color:var(--text-secondary);';
+        b.dataset.an = _an[i] ? '1' : '0';
+        b.style.cssText = 'flex:1; padding:6px 0; border:1px solid rgba(0,61,51,0.10);'
+            + 'background:' + (_an[i] ? 'var(--primary)' : 'rgba(255,255,255,0.6)') + ';'
+            + 'border-radius:10px; font-size:11px; font-weight:700; cursor:pointer;'
+            + 'color:' + (_an[i] ? '#fff' : 'var(--text-secondary)') + ';';
         b.onclick = function () {
             var an = b.dataset.an === '1';
             b.dataset.an = an ? '0' : '1';
@@ -64509,6 +64556,7 @@ function renderMenuCategories() {
                         </svg>
                     </div>
                 </div>
+                ${cat.beschreibung ? `<div style="padding:6px 16px 0;font-size:12px;color:var(--slate);line-height:1.45;">${escapeHtml(String(cat.beschreibung))}</div>` : ''}
                 <div class="menu-category-items" data-cat-items="${cat.id}" ondragover="onItemDragOver(event)" ondrop="onItemDrop(event,'${cat.id}')">
                     ${items.length === 0 ? `
                         <p style="text-align: center; color: var(--slate); padding: 20px;">Keine Gerichte in dieser Kategorie</p>
@@ -70330,9 +70378,129 @@ async function importScannedMenu() {
 }
 
 // Placeholder für Bearbeiten-Funktionen
+// KATEGORIE BEARBEITEN.
+//
+// Der Stift-Knopf steht seit jeher an jeder Kategorie -- und tat nichts
+// ausser einer Meldung "wird implementiert". Das ist derselbe Fall wie
+// beim Kombi-Menue ohne Knopf: die Funktion sieht fertig aus und ist
+// unerreichbar.
+//
+// Hier faellt es besonders auf, weil der Hinweis ("alle Pizzen mit
+// Tomatensauce, Kaese und Oregano") sonst NUR beim Anlegen zu setzen
+// waere -- und "Pizza" gibt es in jedem Betrieb laengst.
 function editCategory(categoryId) {
-    showToast('Kategorie bearbeiten wird implementiert', 'info');
+    var kat = (typeof menuCategories !== 'undefined' ? menuCategories : []).find(function (c) { return String(c.id) === String(categoryId); });
+    if (!kat) { showToast('Kategorie nicht gefunden', 'error'); return; }
+
+    var _v = function (x) { return escapeHtml(String(x == null ? '' : x)); };
+    var von = kat.zeit_von ? String(kat.zeit_von).slice(0, 5) : '';
+    var bis = kat.zeit_bis ? String(kat.zeit_bis).slice(0, 5) : '';
+
+    var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
+        '<div><label for="editCatName" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Name</label>' +
+        '<input type="text" id="editCatName" value="' + _v(kat.name).replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div>' +
+
+        '<div><label for="editCatHinweis" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Hinweis für alle Gerichte (optional)</label>' +
+        '<textarea id="editCatHinweis" rows="2" maxlength="300" placeholder="z.B. Alle Pizzen mit Tomatensauce, Käse und Oregano." style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:14px;font-size:13px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + _v(kat.beschreibung) + '</textarea>' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Steht beim Gast einmal über den Gerichten dieser Kategorie. Leer lassen = es wird nichts angezeigt.</p></div>' +
+
+        '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Nur zu bestimmten Zeiten zeigen (optional)</label>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="time" id="editCatVon" value="' + _v(von) + '" aria-label="Sichtbar ab" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<span style="color:var(--slate);font-size:13px;">bis</span>' +
+        '<input type="time" id="editCatBis" value="' + _v(bis) + '" aria-label="Sichtbar bis" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div>' +
+        '<div id="editCategoryTage" style="display:flex;gap:4px;margin-top:8px;"></div>' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Beide leer = immer sichtbar. Kein Tag gedrückt = täglich.</p></div>' +
+
+        '<button onclick="kategorieSpeichern(\'' + categoryId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
+        '</div>';
+
+    showGenericModal('Kategorie bearbeiten', html);
+    if (typeof mittagTageBauen === 'function') mittagTageBauen('editCategoryTage', kat.wochentage);
 }
+
+async function kategorieSpeichern(categoryId) {
+    var kat = (typeof menuCategories !== 'undefined' ? menuCategories : []).find(function (c) { return String(c.id) === String(categoryId); });
+    if (!kat) { showToast('Kategorie nicht gefunden', 'error'); return; }
+
+    var name = ((document.getElementById('editCatName') || {}).value || '').trim();
+    if (!name) { showToast('Bitte einen Namen eingeben', 'error'); return; }
+    var hinweis = ((document.getElementById('editCatHinweis') || {}).value || '').trim();
+    var von = ((document.getElementById('editCatVon') || {}).value || '').trim();
+    var bis = ((document.getElementById('editCatBis') || {}).value || '').trim();
+    // Eine halbe Zeitangabe ist schlimmer als keine: die Kategorie koennte
+    // fuer den Gast dauerhaft verschwinden, ohne dass es jemand merkt.
+    if ((von && !bis) || (bis && !von)) {
+        showToast('Bitte beide Zeiten angeben — oder beide leer lassen.', 'warning');
+        return;
+    }
+    var tage = Array.prototype.slice.call(
+        document.querySelectorAll('#editCategoryTage button[data-an="1"]')
+    ).map(function (b) { return Number(b.dataset.tag); });
+
+    var daten = {
+        name: name,
+        beschreibung: hinweis || null,
+        zeit_von: von || null,
+        zeit_bis: bis || null,
+        wochentage: (von && bis && tage.length && tage.length < 7) ? tage : null
+    };
+
+    try {
+        var res = await fetch(SUPA_URL + '/rest/v1/menu_categories?id=eq.' + categoryId + '&select=*', {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPA_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                // return=representation, weil ein 204 auch dann kommt, wenn
+                // RLS die Zeile still uebergeht -- Erfolg und Totalausfall
+                // saehen sonst gleich aus.
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(daten)
+        });
+
+        // Fehlt die Spalte 'beschreibung' in der Datenbank, wird der Rest
+        // trotzdem gespeichert -- aber es MUSS dabeistehen, sonst tippt er
+        // den Satz und niemand sieht ihn je.
+        if (!res.ok) {
+            var txt = '';
+            try { txt = await res.text(); } catch (e) { txt = ''; }
+            if (/beschreibung/i.test(txt)) {
+                delete daten.beschreibung;
+                res = await fetch(SUPA_URL + '/rest/v1/menu_categories?id=eq.' + categoryId + '&select=*', {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify(daten)
+                });
+                if (res.ok) showToast('Gespeichert — der Hinweis konnte NICHT gespeichert werden (Spalte "beschreibung" fehlt in der Datenbank).', 'warning');
+            } else {
+                showToast('Nicht gespeichert (Fehler ' + res.status + ')' + (txt ? ': ' + txt.slice(0, 120) : ''), 'error');
+                return;
+            }
+        }
+
+        var zeilen = null;
+        try { zeilen = await res.json(); } catch (e) { zeilen = null; }
+        if (!Array.isArray(zeilen) || zeilen.length === 0) {
+            showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen. '
+                + 'Meist fehlt dem angemeldeten Konto das Schreibrecht für dieses Restaurant.', 'error');
+            return;
+        }
+
+        // Erst jetzt lokal uebernehmen -- vorher waere im Dashboard etwas
+        // zu sehen, was beim Gast nie ankommt.
+        Object.keys(zeilen[0]).forEach(function (k) { kat[k] = zeilen[0][k]; });
+        closeGenericModal();
+        if (typeof renderMenuCategories === 'function') renderMenuCategories();
+        showToast('Kategorie gespeichert', 'success');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.editCategory = editCategory;
+window.kategorieSpeichern = kategorieSpeichern;
 
 async function toggleSoldOut(itemId) {
     var item = menuItems.find(function(i) { return i.id === itemId; });
