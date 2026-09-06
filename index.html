@@ -20413,6 +20413,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <span class="material-symbols-outlined" style="font-size:20px;">create_new_folder</span>
                         Kategorie
                     </button>
+                    <!-- DER KNOPF, DER AM 04.09.2026 GEFEHLT HAT.
+                         kombiAnlegen() und die Rechnung standen fertig im Code --
+                         nur rief sie niemand auf. Genau der Fehler aus #209: die
+                         Gastseite las Groessen, der Scanner schrieb sie, und
+                         dazwischen konnte der Wirt nichts tun. -->
+                    <button type="button" onclick="kombiOeffnen()" style="padding: 16px 24px; background: rgba(255,255,255,0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">restaurant_menu</span>
+                        Menü zusammenstellen
+                    </button>
                     <button type="button" id="addMenuItemBtn2" style="padding: 16px 24px; background: var(--primary); color: white; border: none; border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
                         <span class="material-symbols-outlined" style="font-size:20px;">add</span>
                         Gericht hinzufügen
@@ -64037,6 +64046,177 @@ window.KOMBI = KOMBI;
 // werden unbekannte Spalten weggenommen statt aufzugeben -- die
 // Datenbanken der Betriebe sind nicht alle gleich alt, und ein stilles
 // Scheitern hiesse "Menue angelegt", waehrend nichts da ist.
+// Die Maske zum Menue zusammenstellen.
+//
+// Sie zeigt beim Tippen BEIDE Enden: den guenstigsten und den teuersten
+// Warenkorb. Nur die Ersparnis zu zeigen waere die halbe Wahrheit -- und
+// der Wirt merkt erst an der Kasse, dass sein 24-EUR-Gericht zum
+// Menuepreis rausgeht.
+function kombiOeffnen() {
+    var restId = (document.getElementById('menuRestaurantSelect') || {}).value
+        || (typeof currentMenuRestaurant !== 'undefined' ? currentMenuRestaurant : null);
+    if (!restId) { showToast('Bitte erst ein Restaurant auswählen', 'error'); return; }
+    if (!Array.isArray(menuCategories) || menuCategories.length < 2) {
+        // Ohne zwei Kategorien gibt es nichts zu kombinieren. Das sagen,
+        // statt eine leere Maske hinzustellen.
+        showToast('Dafür brauchst du mindestens zwei Kategorien — z. B. Hauptgerichte und Getränke.', 'warning');
+        return;
+    }
+
+    var alt = document.getElementById('kombiModal');
+    if (alt) alt.remove();
+
+    var kasten = document.createElement('div');
+    kasten.id = 'kombiModal';
+    kasten.className = 'modal-overlay';
+    kasten.style.cssText = 'z-index:10012; display:flex;';
+
+    function katOptionen() {
+        return menuCategories.map(function (c) {
+            return '<option value="' + c.id + '">' + (c.name || 'Kategorie') + '</option>';
+        }).join('');
+    }
+
+    kasten.innerHTML =
+        '<div class="modal" style="max-width:520px;">' +
+          '<div class="modal-header">' +
+            '<h2 class="modal-title" style="font-family:Epilogue,sans-serif;">Menü zusammenstellen</h2>' +
+            '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'kombiModal\').remove()">×</button>' +
+          '</div>' +
+          '<div class="modal-body">' +
+            '<div class="form-group"><label class="form-label">Name des Menüs *</label>' +
+              '<input type="text" class="form-input" id="kombiName" placeholder="z. B. Mittagsmenü" aria-label="Name des Menüs"></div>' +
+            '<div class="form-group"><label class="form-label">Preis des Menüs *</label>' +
+              '<input type="number" class="form-input" id="kombiPreis" step="0.10" min="0" placeholder="13.90" oninput="kombiVorschau()" aria-label="Preis des Menüs in Euro"></div>' +
+            '<div class="form-group"><label class="form-label">In welche Kategorie soll das Menü?</label>' +
+              '<select class="form-select" id="kombiZielKat" aria-label="Kategorie für das Menü">' + katOptionen() + '</select></div>' +
+            '<div class="form-group"><label class="form-label">Bausteine — der Gast wählt aus jeder Zeile eins</label>' +
+              '<div id="kombiBausteine"></div>' +
+              '<button type="button" onclick="kombiBausteinZeile()" style="margin-top:8px; padding:8px 14px; border:1px dashed rgba(0,61,51,0.25); background:transparent; border-radius:12px; font-size:12px; font-weight:600; cursor:pointer; color:var(--text-secondary);">+ Baustein</button>' +
+            '</div>' +
+            '<div id="kombiRechnung" style="margin-top:6px;"></div>' +
+          '</div>' +
+          '<div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end; padding:16px 24px;">' +
+            '<button type="button" onclick="document.getElementById(\'kombiModal\').remove()" style="padding:12px 20px; border:1px solid rgba(0,61,51,0.10); background:transparent; border-radius:12px; font-weight:600; cursor:pointer;">Abbrechen</button>' +
+            '<button type="button" id="kombiSpeichern" onclick="kombiSpeichern()" style="padding:12px 24px; border:none; background:var(--primary); color:#fff; border-radius:12px; font-weight:700; cursor:pointer;">Menü anlegen</button>' +
+          '</div>' +
+        '</div>';
+
+    document.body.appendChild(kasten);
+    kombiBausteinZeile();
+    kombiBausteinZeile();   // zwei Bausteine sind das Mindeste
+    kombiVorschau();
+}
+window.kombiOeffnen = kombiOeffnen;
+
+function kombiBausteinZeile() {
+    var liste = document.getElementById('kombiBausteine');
+    if (!liste) return;
+    if (liste.children.length >= 4) { showToast('Vier Bausteine sind genug — mehr wird für den Gast unübersichtlich.', 'info'); return; }
+    var zeile = document.createElement('div');
+    zeile.className = 'kombi-zeile';
+    zeile.style.cssText = 'display:flex; gap:6px; margin-bottom:6px; align-items:center;';
+    zeile.innerHTML =
+        '<input type="text" class="form-input kombi-bez" placeholder="z. B. Hauptgericht" style="flex:1;" aria-label="Bezeichnung des Bausteins">' +
+        '<select class="form-select kombi-kat" onchange="kombiVorschau()" style="flex:1;" aria-label="Kategorie des Bausteins">' +
+            menuCategories.map(function (c) { return '<option value="' + c.id + '">' + (c.name || '') + '</option>'; }).join('') +
+        '</select>' +
+        '<button type="button" onclick="this.parentNode.remove(); kombiVorschau();" aria-label="Baustein entfernen" style="border:none; background:transparent; cursor:pointer; color:var(--slate); padding:4px;">×</button>';
+    liste.appendChild(zeile);
+    kombiVorschau();
+}
+window.kombiBausteinZeile = kombiBausteinZeile;
+
+function kombiBausteineLesen() {
+    return Array.prototype.slice.call(document.querySelectorAll('#kombiBausteine .kombi-zeile')).map(function (z, i) {
+        var katId = z.querySelector('.kombi-kat').value;
+        var bez = (z.querySelector('.kombi-bez').value || '').trim();
+        var kat = menuCategories.find(function (c) { return c.id === katId; });
+        return {
+            name: bez || (kat && kat.name) || ('Baustein ' + (i + 1)),
+            kategorieId: katId,
+            preise: KOMBI.preiseDerKategorie(katId, menuItems),
+            gerichte: (menuItems || []).filter(function (it) {
+                return it.category_id === katId && it.is_available !== false;
+            })
+        };
+    });
+}
+
+function kombiVorschau() {
+    var kasten = document.getElementById('kombiRechnung');
+    if (!kasten) return;
+    var bausteine = kombiBausteineLesen();
+    var preis = parseFloat((document.getElementById('kombiPreis') || {}).value);
+    var r = KOMBI.rechnen(bausteine, preis);
+
+    function euro(x) { return (Math.round(x * 100) / 100).toFixed(2).replace('.', ',') + ' €'; }
+    var teile = [];
+
+    if (r.leere.length) {
+        teile.push('<div style="padding:10px 12px;border-radius:12px;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:12px;font-weight:600;">'
+            + 'Ohne wählbares Gericht: ' + r.leere.join(', ') + '. Der Gast bekäme eine Pflicht-Auswahl, aus der er nichts nehmen kann — das Menü wäre unbestellbar.</div>');
+    }
+    if (isFinite(preis) && preis > 0 && !r.leere.length) {
+        teile.push('<div style="padding:12px 14px;border-radius:14px;background:rgba(0,0,0,0.03);font-size:12px;line-height:1.7;">'
+            + '<div>Günstigster Warenkorb: <b>' + euro(r.guenstigste) + '</b> — der Gast spart <b>' + euro(r.ersparnisMin) + '</b></div>'
+            + '<div>Teuerster Warenkorb: <b>' + euro(r.teuerste) + '</b> — der Gast spart <b>' + euro(r.ersparnisMax) + '</b></div>'
+            + '</div>');
+        // Die Zahl, die wehtut, bekommt eine eigene Zeile.
+        if (r.ersparnisMax > 0) {
+            teile.push('<div style="margin-top:6px;padding:10px 12px;border-radius:12px;background:rgba(180,83,9,0.09);color:#b45309;font-size:12px;font-weight:600;line-height:1.5;">'
+                + 'Achtung: wählt der Gast überall das teuerste, gibst du ' + euro(r.ersparnisMax) + ' ab. '
+                + 'Der Menüpreis gilt für JEDE Auswahl.</div>');
+        }
+        if (r.ersparnisMin < 0) {
+            teile.push('<div style="margin-top:6px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,0.04);color:var(--text-secondary);font-size:12px;font-weight:600;">'
+                + 'Bei der günstigsten Wahl zahlt der Gast ' + euro(-r.ersparnisMin) + ' mehr als einzeln. Dann ist es kein Angebot.</div>');
+        }
+        if (r.unterEinkauf) {
+            teile.push('<div style="margin-top:6px;padding:10px 12px;border-radius:12px;background:rgba(220,38,38,0.10);color:#b91c1c;font-size:12px;font-weight:700;">'
+                + 'Der Preis liegt weit unter allem, was drin ist — ein Tippfehler? (1,90 statt 11,90?)</div>');
+        }
+    }
+    kasten.innerHTML = teile.join('');
+}
+window.kombiVorschau = kombiVorschau;
+
+async function kombiSpeichern() {
+    var knopf = document.getElementById('kombiSpeichern');
+    var restId = (document.getElementById('menuRestaurantSelect') || {}).value
+        || (typeof currentMenuRestaurant !== 'undefined' ? currentMenuRestaurant : null);
+    var name = ((document.getElementById('kombiName') || {}).value || '').trim();
+    var preis = parseFloat((document.getElementById('kombiPreis') || {}).value);
+    var zielKat = (document.getElementById('kombiZielKat') || {}).value;
+    var bausteine = kombiBausteineLesen();
+    var r = KOMBI.rechnen(bausteine, preis);
+
+    if (!name) { showToast('Bitte einen Namen für das Menü angeben.', 'warning'); return; }
+    if (!r.gueltig) {
+        showToast(r.leere.length
+            ? ('Diese Bausteine haben kein wählbares Gericht: ' + r.leere.join(', '))
+            : 'Bitte zwei Bausteine und einen gültigen Preis angeben.', 'warning');
+        return;
+    }
+
+    // Doppelklick sperren: sonst stehen zwei Menues in der Karte, und der
+    // Wirt loescht hinterher von Hand.
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Wird angelegt …'; }
+    try {
+        await kombiAnlegen(restId, zielKat, name, preis, bausteine);
+        var m = document.getElementById('kombiModal');
+        if (m) m.remove();
+        showToast('„' + name + '" angelegt — schau es dir in der Karte an.', 'success');
+        if (typeof loadMenuForRestaurant === 'function') loadMenuForRestaurant(restId);
+    } catch (e) {
+        // Was hier schiefgeht, muss der Wirt LESEN koennen -- sonst steht
+        // ein halbes Menue in der Karte und niemand weiss warum.
+        showToast('Nicht angelegt: ' + (e && e.message ? String(e.message).slice(0, 160) : 'unbekannter Fehler'), 'error');
+        if (knopf) { knopf.disabled = false; knopf.textContent = 'Menü anlegen'; }
+    }
+}
+window.kombiSpeichern = kombiSpeichern;
+
 async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, bausteine) {
     var H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
               'Content-Type': 'application/json', 'Prefer': 'return=representation' };
