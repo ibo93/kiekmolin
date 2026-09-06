@@ -20466,6 +20466,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     }
                 });
                 document.getElementById('addCategoryBtn2').addEventListener('click', function() {
+                    if (typeof mittagTageBauen === 'function') mittagTageBauen();
                     var modal = document.getElementById('addCategoryModal');
                     if (modal) { modal.style.display = 'flex'; modal.classList.add('active'); }
                 });
@@ -47082,6 +47083,22 @@ document.addEventListener('error', function(e) {
                     <label class="form-label">Kategorie-Name *</label>
                     <input type="text" class="form-input" id="newCategoryName" required placeholder="z.B. Vorspeisen, Hauptgerichte, Desserts..." aria-label="z.B. Vorspeisen, Hauptgerichte, Desserts...">
                 </div>
+                <!-- MITTAGSTISCH: eine Kategorie, die nur zur Mittagszeit da ist.
+                     Leer lassen heisst "immer sichtbar" -- der Normalfall darf
+                     sich durch diesen Kasten nicht aendern. -->
+                <div class="form-group">
+                    <label class="form-label">Nur zu bestimmten Zeiten zeigen (optional)</label>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="time" class="form-input" id="newCategoryVon" style="flex:1;" aria-label="Sichtbar ab">
+                        <span style="color:var(--text-secondary); font-size:13px;">bis</span>
+                        <input type="time" class="form-input" id="newCategoryBis" style="flex:1;" aria-label="Sichtbar bis">
+                    </div>
+                    <div id="newCategoryTage" style="display:flex; gap:4px; margin-top:8px;"></div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:6px; line-height:1.45;">
+                        Leer = immer sichtbar. Beispiel Mittagstisch: 11:00 bis 14:00, Mo–Fr.
+                        Du selbst siehst die Kategorie hier immer — nur der Gast nicht.
+                    </div>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Icon wählen</label>
                     <div class="category-icon-grid">
@@ -47291,6 +47308,24 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
                 sort_order: (typeof menuCategories !== 'undefined' ? menuCategories.length : 0) + 1
             };
             if (_catIcon) _catPayload.icon = _catIcon;
+
+            // Zeitfenster. Nur mitschicken, wenn BEIDE Zeiten stehen --
+            // eine halbe Angabe ("ab 11 Uhr, bis ...?") waere ein Fenster,
+            // das niemand versteht, und die Kategorie koennte fuer den
+            // Gast dauerhaft verschwinden.
+            var _von = (document.getElementById('newCategoryVon') || {}).value || '';
+            var _bis = (document.getElementById('newCategoryBis') || {}).value || '';
+            if (_von && _bis) {
+                _catPayload.zeit_von = _von;
+                _catPayload.zeit_bis = _bis;
+                var _tage = Array.prototype.slice.call(
+                    document.querySelectorAll('#newCategoryTage button[data-an="1"]')
+                ).map(function (b) { return Number(b.dataset.tag); });
+                if (_tage.length && _tage.length < 7) _catPayload.wochentage = _tage;
+            } else if (_von || _bis) {
+                showToast('Bitte beide Zeiten angeben — oder beide leer lassen.', 'warning');
+                return;
+            }
 
             var { data, error } = await client.from('menu_categories').insert(_catPayload).select();
             // Falls die Spalte 'icon' in der Datenbank (noch) fehlt: ohne Symbol
@@ -48411,6 +48446,22 @@ async function loadMenuCategoriesFromDB(restaurantId) {
         // Ueber data-cat-name allein ginge es nicht -- zwei Betriebe
         // koennen dieselbe Kategorie gleich nennen, und uebersetzt heisst
         // sie ohnehin anders.
+        // MITTAGSTISCH: Kategorien mit Zeitfenster nur zeigen, wenn sie
+        // gerade gelten. Gerechnet wird in DEUTSCHER Zeit -- ein Gast im
+        // Urlaub soll dieselbe Karte sehen wie einer in Emden.
+        //
+        // Und die aktiven Zeitfenster kommen nach vorne: wer mittags
+        // aufmacht, sucht den Mittagstisch nicht hinter den Vorspeisen.
+        if (typeof MITTAG !== 'undefined') {
+            categories = categories.filter(function (c) { return MITTAG.istSichtbar(c); });
+            categories = categories.slice().sort(function (a, b) {
+                var af = MITTAG.hatFenster(a) ? 0 : 1;
+                var bf = MITTAG.hatFenster(b) ? 0 : 1;
+                if (af !== bf) return af - bf;
+                return (a.sort_order || 0) - (b.sort_order || 0);
+            });
+        }
+
         var html = '<div class="menu-category-tab active" data-kat-id="_alle" onclick="selectMenuCategory(null, this)">' + (_t.allCategory || 'Alle') + '</div>';
         categories.forEach(function(cat) {
             html += '<div class="menu-category-tab" data-kat-id="' + cat.id + '" data-cat-name="' + cat.name + '" onclick="selectMenuCategory(\'' + cat.id + '\', this)">' + translateCategory(cat.name, currentLanguage) + '</div>';
@@ -63782,6 +63833,135 @@ function katKanteAuffrischen(leiste) {
             && leiste.scrollLeft + leiste.clientWidth < leiste.scrollWidth - 2;
     leiste.classList.toggle('kmi-mehr-rechts', mehr);
 }
+
+// MITTAGSTISCH -- EINE KATEGORIE, DIE NUR ZUR MITTAGSZEIT DA IST.
+//
+// Ibo am 04.09.2026: "bei mittags ein komplettes menue mit mehre
+// gerichte das man es einfuegen -- oder einzeln bei angebot hat man nur
+// ein gericht".
+//
+// Der EINZEL-Fall existiert schon: publishDailyOffer() legt ein
+// Tagesangebot an (Titel, Preis, alter Preis, gueltig bis). Neu gebaut
+// werden muss davon nichts.
+//
+// Was fehlte: MEHRERE Gerichte, zeitlich begrenzt. Das ist eine
+// Kategorie mit Zeitfenster -- der Wirt kennt Kategorien schon, kann
+// Gerichte hineinschieben und sie mit den Pfeilen sortieren.
+//
+// DREI FALLEN, DIE HIER STECKEN:
+//
+// 1. UEBER MITTERNACHT. Ein Nachtangebot 22:00-02:00 ist kein Tippfehler.
+//    Naiv gerechnet (von <= jetzt && jetzt <= bis) waere es NIE sichtbar.
+//
+// 2. DIE ZEITZONE. Der Gast im Urlaub hat eine andere Uhr als der Wirt.
+//    Ohne feste Zeitzone saehe jemand in Spanien den Mittagstisch um
+//    10 Uhr deutscher Zeit -- und um 14 Uhr nicht mehr. Gerechnet wird
+//    darum immer in deutscher Zeit, so wie der Wirt es meint.
+//
+// 3. DER WIRT MUSS SIE IMMER SEHEN. Verschwindet die Kategorie um 14:01
+//    auch im Dashboard, kann er sie nachmittags nicht mehr pflegen --
+//    und wuerde denken, sie sei geloescht.
+var MITTAG = {
+    // Ohne Zeitfenster ist eine Kategorie immer da. Das ist der
+    // Normalfall und darf sich durch diesen Umbau nicht aendern.
+    hatFenster: function (kat) {
+        return !!(kat && kat.zeit_von && kat.zeit_bis);
+    },
+
+    // "11:30" oder "11:30:00" -> Minuten seit Mitternacht. Unsinn -> null.
+    minuten: function (hhmm) {
+        var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '').trim());
+        if (!m) return null;
+        var st = Number(m[1]), mi = Number(m[2]);
+        if (st > 23 || mi > 59) return null;
+        return st * 60 + mi;
+    },
+
+    // Uhrzeit und Wochentag in DEUTSCHER Zeit -- nicht in der des Gastes.
+    // 'de-DE' mit fester Zeitzone ist der kuerzeste verlaessliche Weg;
+    // die Sommerzeit macht der Browser dabei selbst richtig.
+    jetztInDeutschland: function (zeitpunkt) {
+        var d = zeitpunkt || new Date();
+        var teile = new Intl.DateTimeFormat('de-DE', {
+            timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit',
+            weekday: 'short', hour12: false
+        }).formatToParts(d);
+        var stunde = 0, minute = 0, tag = '';
+        teile.forEach(function (t) {
+            if (t.type === 'hour')    stunde = Number(t.value);
+            if (t.type === 'minute')  minute = Number(t.value);
+            if (t.type === 'weekday') tag = t.value;
+        });
+        // 0 = Montag, 6 = Sonntag -- so wie der Wirt zaehlt.
+        var tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+        var index = tage.indexOf(tag.replace('.', '').slice(0, 2));
+        return { minuten: stunde * 60 + minute, wochentag: index };
+    },
+
+    // Die eigentliche Frage: sieht der Gast diese Kategorie gerade?
+    istSichtbar: function (kat, zeitpunkt) {
+        if (!this.hatFenster(kat)) return true;
+
+        var von = this.minuten(kat.zeit_von);
+        var bis = this.minuten(kat.zeit_bis);
+        // Unlesbare Zeiten duerfen die Kategorie nicht verschwinden
+        // lassen. Lieber sichtbar als spurlos weg -- ein Wirt sucht sonst
+        // stundenlang nach seinen Gerichten.
+        if (von === null || bis === null) return true;
+
+        var jetzt = this.jetztInDeutschland(zeitpunkt);
+
+        // Wochentage: leer oder nicht gesetzt heisst "jeden Tag".
+        var tage = kat.wochentage;
+        if (Array.isArray(tage) && tage.length) {
+            if (tage.map(Number).indexOf(jetzt.wochentag) === -1) return false;
+        }
+
+        // Ueber Mitternacht: 22:00-02:00 heisst "ab 22 ODER bis 2".
+        if (von > bis) return jetzt.minuten >= von || jetzt.minuten <= bis;
+        return jetzt.minuten >= von && jetzt.minuten <= bis;
+    },
+
+    // Fuer den Wirt: der Satz unter der Kategorie im Dashboard. Er sieht
+    // sie immer -- aber er soll wissen, dass der Gast das nicht tut.
+    hinweis: function (kat, zeitpunkt) {
+        if (!this.hatFenster(kat)) return '';
+        var tage = Array.isArray(kat.wochentage) && kat.wochentage.length
+            ? kat.wochentage.map(Number).sort().map(function (i) {
+                  return ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][i] || '?';
+              }).join(', ')
+            : 'täglich';
+        var jetzt = this.istSichtbar(kat, zeitpunkt);
+        return (jetzt ? 'Gerade sichtbar' : 'Gerade NICHT sichtbar')
+            + ' — ' + tage + ' ' + String(kat.zeit_von).slice(0, 5) + '–' + String(kat.zeit_bis).slice(0, 5) + ' Uhr';
+    }
+};
+window.MITTAG = MITTAG;
+
+// Die sieben Wochentag-Knoepfe. Keiner gedrueckt heisst "taeglich" --
+// das ist der haeufigste Fall und braucht darum keine Klicks.
+function mittagTageBauen() {
+    var kasten = document.getElementById('newCategoryTage');
+    if (!kasten) return;
+    kasten.textContent = '';
+    ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].forEach(function (name, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = name;
+        b.dataset.tag = String(i);
+        b.dataset.an = '0';
+        b.style.cssText = 'flex:1; padding:6px 0; border:1px solid rgba(0,61,51,0.10); background:rgba(255,255,255,0.6);'
+            + 'border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; color:var(--text-secondary);';
+        b.onclick = function () {
+            var an = b.dataset.an === '1';
+            b.dataset.an = an ? '0' : '1';
+            b.style.background = an ? 'rgba(255,255,255,0.6)' : 'var(--primary)';
+            b.style.color = an ? 'var(--text-secondary)' : '#fff';
+        };
+        kasten.appendChild(b);
+    });
+}
+window.mittagTageBauen = mittagTageBauen;
 
 // KOMBI-MENUES -- OHNE EINE EINZIGE NEUE TABELLE.
 //
