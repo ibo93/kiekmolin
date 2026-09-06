@@ -106,5 +106,44 @@ t('eine leere Antwort gilt NICHT als Erfolg',
 t('es wurde keine eigene Kombi-Tabelle erfunden',
   !/rest\/v1\/(kombis|combos|menu_combos)/.test(h), 'neue Tabelle -> neuer Preis-Schutz noetig');
 
+// ---- 6. DER KNOPF, DER GEFEHLT HAT ----------------------------------
+console.log('\n-- Kann der Wirt es ueberhaupt aufrufen? --');
+//
+// Am 04.09.2026 standen Rechnung und Anlegen fertig im Code -- und
+// niemand rief sie auf. Ibo haette ein Kombi-Menue nirgends anlegen
+// koennen. Genau der Fehler aus #209: die Gastseite las Groessen, der
+// Scanner schrieb sie, und dazwischen konnte der Wirt nichts tun.
+//
+// Ein Test, der nur die Rechnung prueft, haette das nie gemerkt.
+t('es gibt einen Knopf in der Speisekarte', /onclick="kombiOeffnen\(\)"/.test(h), 'kein Knopf');
+t('und die Maske dahinter', /function kombiOeffnen\(\)/.test(h), 'keine Maske');
+t('der Knopf heisst verstaendlich', /Menü zusammenstellen/.test(h), 'unklarer Text');
+t('die Maske ruft das Anlegen wirklich auf', /await kombiAnlegen\(restId, zielKat, name, preis, bausteine\)/.test(h), 'ruft nichts auf');
+
+// ---- 7. Was die Maske dem Wirt zeigt --------------------------------
+console.log('\n-- Beide Enden, nicht nur das schoene --');
+t('der guenstigste Warenkorb steht da', /Günstigster Warenkorb/.test(h), 'fehlt');
+t('der teuerste auch', /Teuerster Warenkorb/.test(h), 'fehlt');
+// Die Zahl, die wehtut, bekommt eine eigene Warnung.
+t('und die Warnung, was der teuerste Fall kostet',
+  /gibst du .* ab[\s\S]{0,120}gilt für JEDE Auswahl/.test(h), 'keine Warnung');
+t('ein Baustein ohne Gericht wird in der Maske gemeldet',
+  /unbestellbar/.test(h), 'wird verschwiegen');
+t('ein Tippfehler beim Preis auch', /Tippfehler/.test(h), 'wird verschwiegen');
+t('und der Fall, in dem es gar kein Angebot ist',
+  /Dann ist es kein Angebot/.test(h), 'wird verschwiegen');
+
+// ---- 8. Kleinigkeiten, die sonst wehtun ------------------------------
+console.log('\n-- Doppelklick und Fehlermeldungen --');
+// Zwei Klicks = zwei Menues in der Karte, und der Wirt raeumt von Hand auf.
+t('der Knopf sperrt beim Anlegen', /knopf\.disabled = true/.test(h), 'Doppelklick moeglich');
+t('ein Fehler wird im Klartext gezeigt', /Nicht angelegt: /.test(h), 'stiller Fehlschlag');
+t('und der Knopf danach wieder freigegeben',
+  /knopf\.disabled = false/.test(h), 'Maske bleibt tot');
+// Ohne zwei Kategorien gibt es nichts zu kombinieren -- das sagen,
+// statt eine leere Maske hinzustellen.
+t('ohne zwei Kategorien wird es gesagt',
+  /mindestens zwei Kategorien/.test(h), 'leere Maske');
+
 console.log('\n' + (n - ok === 0 ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 if (n - ok > 0) process.exit(1);
