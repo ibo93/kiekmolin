@@ -63783,6 +63783,147 @@ function katKanteAuffrischen(leiste) {
     leiste.classList.toggle('kmi-mehr-rechts', mehr);
 }
 
+// KOMBI-MENUES -- OHNE EINE EINZIGE NEUE TABELLE.
+//
+// Idee von Ibo am 04.09.2026: "Pizza + Getraenk + Dessert = 15,90 statt
+// 18,40". Der staerkste Hebel auf den Bonwert.
+//
+// NACHGESEHEN STATT ANGENOMMEN: das Geruest gibt es schon. Optionsgruppen
+// koennen Pflicht-Auswahl (selection_type 'single', min_selections 1).
+// Ein Kombi-Menue ist also nichts anderes als
+//
+//     ein Gericht zum Festpreis
+//     + je Baustein eine Pflichtgruppe mit Aufpreis 0
+//
+// Damit brauchen wir keine neue Tabelle, keine neue Abfrage auf der
+// Gastseite -- und vor allem KEINEN neuen Preis-Schutz. Der bestehende
+// prueft Gerichte und Optionen bereits; eine eigene Kombi-Logik waere
+// eine zweite Stelle, an der ein Gast Preise erfinden koennte.
+//
+// DIE EIGENTLICHE ARBEIT IST DIE WARNUNG.
+//
+// Ein Kombipreis gilt fuer JEDE Auswahl. Steht in der Kategorie
+// "Hauptgericht" ein 24-EUR-Gericht, bekommt der Gast es zum Menuepreis.
+// Der Wirt sieht beim Anlegen die schoene Zahl ("du sparst dem Gast
+// 2,50") und uebersieht den teuersten Fall. Deshalb wird hier BEIDES
+// gerechnet: der guenstigste und der TEUERSTE Warenkorb. Nur die
+// Ersparnis zu zeigen waere genau die halbe Wahrheit aus Regel 6.
+var KOMBI = {
+    // Alle Preise einer Kategorie, aufsteigend. Gerichte ohne gueltigen
+    // Preis fallen raus -- sie waeren sonst eine unsichtbare 0.
+    preiseDerKategorie: function (kategorieId, alle) {
+        return (alle || [])
+            .filter(function (i) { return i.category_id === kategorieId && i.is_available !== false; })
+            .map(function (i) { return Number(i.base_price != null ? i.base_price : i.price); })
+            .filter(function (p) { return isFinite(p) && p > 0; })
+            .sort(function (a, b) { return a - b; });
+    },
+
+    // Was ein Kombi-Menue wirklich bedeutet.
+    rechnen: function (bausteine, kombiPreis) {
+        var preis = Number(kombiPreis);
+        var leere = [];
+        var guenstigste = 0, teuerste = 0;
+
+        (bausteine || []).forEach(function (b) {
+            var pr = b.preise || [];
+            if (!pr.length) { leere.push(b.name || 'Baustein'); return; }
+            guenstigste += pr[0];
+            teuerste    += pr[pr.length - 1];
+        });
+
+        return {
+            gueltig: isFinite(preis) && preis > 0 && leere.length === 0 && (bausteine || []).length >= 2,
+            leere: leere,
+            guenstigste: guenstigste,
+            teuerste: teuerste,
+            // Was der Gast im besten Fall spart ...
+            ersparnisMin: guenstigste - preis,
+            // ... und was er im teuersten Fall spart. Das ist die Zahl,
+            // die dem Wirt wehtut, und darum die wichtigere.
+            ersparnisMax: teuerste - preis,
+            // Unter dem guenstigsten Warenkorb verschenkt er bei JEDER
+            // Auswahl Geld -- das ist fast immer ein Tippfehler.
+            unterEinkauf: isFinite(preis) && preis > 0 && preis < guenstigste * 0.5
+        };
+    }
+};
+window.KOMBI = KOMBI;
+
+// Das Kombi-Menue wirklich anlegen.
+//
+// Gebaut aus vorhandenen Teilen: ein Gericht zum Festpreis, und je
+// Baustein eine Pflichtgruppe mit Aufpreis 0. Wie beim Karten-Import
+// werden unbekannte Spalten weggenommen statt aufzugeben -- die
+// Datenbanken der Betriebe sind nicht alle gleich alt, und ein stilles
+// Scheitern hiesse "Menue angelegt", waehrend nichts da ist.
+async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, bausteine) {
+    var H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
+              'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+    async function sendeMitRueckfall(tabelle, feld) {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/' + tabelle, {
+            method: 'POST', headers: H, body: JSON.stringify(feld)
+        });
+        var versuch = 0;
+        while (!res.ok && res.status === 400 && versuch < 8) {
+            versuch++;
+            var txt = await res.clone().text();
+            var m = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(txt);
+            var spalte = m && (m[1] || m[2] || m[3]);
+            if (!spalte || !(spalte in feld)) throw new Error(txt);
+            delete feld[spalte];
+            res = await fetch(SUPABASE_URL + '/rest/v1/' + tabelle, {
+                method: 'POST', headers: H, body: JSON.stringify(feld)
+            });
+        }
+        if (!res.ok) throw new Error(await res.text());
+        var zeilen = await res.json();
+        // Auch hier: eine leere Antwort ist kein Erfolg (die Lehre vom
+        // Mindestbestellwert -- 204 beweist nichts).
+        if (!Array.isArray(zeilen) || !zeilen.length || !zeilen[0].id) {
+            throw new Error('Die Datenbank hat nichts zurueckgegeben.');
+        }
+        return zeilen[0];
+    }
+
+    var gericht = await sendeMitRueckfall('menu_items', {
+        restaurant_id: restaurantId,
+        category_id: kategorieId,
+        name: name,
+        base_price: Number(kombiPreis),
+        description: bausteine.map(function (b) { return b.name; }).join(' + '),
+        is_available: true,
+        sort_order: 1
+    });
+
+    for (var i = 0; i < bausteine.length; i++) {
+        var b = bausteine[i];
+        var gruppe = await sendeMitRueckfall('menu_option_groups', {
+            restaurant_id: restaurantId,
+            item_id: gericht.id,
+            name: b.name,
+            selection_type: 'single',
+            min_selections: 1,
+            max_selections: 1,
+            is_active: true
+        });
+        for (var j = 0; j < b.gerichte.length; j++) {
+            // Aufpreis 0: der Kombipreis steht am Gericht, nicht an der
+            // Auswahl. Sonst zahlte der Gast doppelt.
+            await sendeMitRueckfall('menu_options', {
+                group_id: gruppe.id,
+                name: b.gerichte[j].name,
+                price: 0,
+                is_active: true,
+                sort_order: j + 1
+            });
+        }
+    }
+    return gericht;
+}
+window.kombiAnlegen = kombiAnlegen;
+
 // WAS SICH WIRKLICH VERKAUFT -- FUER DEN WIRT, NICHT NUR FUER DEN GAST.
 //
 // Idee von Ibo am 04.09.2026: mehr Verkaufshilfen bei der Bestellung.
