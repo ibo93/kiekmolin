@@ -40808,9 +40808,27 @@ async function showRestaurantLanding(rest) {
     // Overlay erstellen
     var landing = document.createElement('div');
     landing.id = 'restaurantLanding';
-    landing.style.setProperty('--marke', _marke);
-    landing.style.setProperty('--marke-dunkel', MARKE.dunkler(_marke));
-    landing.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
+    // DIE FARBE GEHOERT IN DEN cssText, NICHT DANEBEN.
+    //
+    // Gemeldet am 04.09.2026: "es ist alles da nur die lande page
+    // aendert die farbe nicht." Im Dashboard ging alles, gespeichert
+    // wurde richtig -- nur die Seite blieb gruen.
+    //
+    // Der Grund stand zwei Zeilen weiter: die beiden Variablen wurden
+    // mit setProperty gesetzt und unmittelbar danach von
+    //
+    //     landing.style.cssText = '...'
+    //
+    // wieder geloescht. Eine Zuweisung an cssText ersetzt den KOMPLETTEN
+    // Inline-Stil, eigene Eigenschaften eingeschlossen. --marke war also
+    // nie gesetzt, und jedes var(--marke,#003d33) fiel auf den
+    // Ersatzwert zurueck -- die Hausfarbe. Es sah aus, als haette der
+    // Wirt nie eine Farbe gewaehlt.
+    //
+    // Jetzt stehen sie IM cssText. Damit kann keine spaetere Zuweisung
+    // sie mehr aus Versehen mitnehmen -- es gibt nur noch eine.
+    landing.style.cssText = '--marke:' + _marke + ';--marke-dunkel:' + MARKE.dunkler(_marke) + ';'
+        + 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
 
     landing.innerHTML = `
         <!-- TopAppBar -->
@@ -60795,9 +60813,20 @@ function loadOrderSettings() {
     // Die Farbe laden. Dieselbe Falle wie beim Mindestbestellwert: ohne
     // diesen Block staende im Feld immer der Standard, und der naechste
     // Klick auf einen Schnellknopf wuerde die echte Farbe ueberschreiben.
+    //
+    // NICHT an "&& restaurant" haengen. Findet der Ladepfad kein
+    // Restaurant -- weil die Liste noch nicht da ist oder die Auswahl
+    // leer -- blieben die Farbfelder sonst LEER. Der Wirt sieht dann
+    // eine Karte mit Ueberschrift und nichts darin, tippt hinein, und
+    // es passiert nichts. Genau so hat Ibo es am 04.09.2026 gemeldet:
+    // "ich gib die farben ein es passiert nichts".
+    //
+    // Eine leere Auswahl sieht aus wie eine kaputte Auswahl (Regel 6).
+    // Die Felder haengen an MARKE.PALETTE, nicht an den Daten -- sie
+    // koennen immer gezeichnet werden.
     var markeEl = document.getElementById('settingBrandColor');
-    if (markeEl && restaurant) {
-        var geprueftM = MARKE.lesbar(restaurant.brand_color || MARKE.STANDARD);
+    if (markeEl) {
+        var geprueftM = MARKE.lesbar((restaurant && restaurant.brand_color) || MARKE.STANDARD);
         markeEl.value = geprueftM.farbe;
         markeVorschauZeigen(geprueftM.farbe, false, '');
         markePaletteBauen(geprueftM.farbe);
@@ -61393,6 +61422,16 @@ function markePaletteBauen(aktuell) {
     var kasten = document.getElementById('markePalette');
     if (!kasten) return;
     kasten.textContent = '';
+
+    // Kein Farbsatz -> sagen, statt einen leeren Kasten hinzustellen.
+    // Ein leeres Feld sieht aus wie eine Auswahl, die nicht reagiert.
+    if (typeof MARKE === 'undefined' || !MARKE.PALETTE || !MARKE.PALETTE.length) {
+        var hin = document.createElement('div');
+        hin.style.cssText = 'grid-column:1/-1; font-size:11px; font-weight:600; color:#b45309;';
+        hin.textContent = 'Farben konnten nicht geladen werden — bitte die Seite neu laden.';
+        kasten.appendChild(hin);
+        return;
+    }
     MARKE.PALETTE.forEach(function (f) {
         var b = document.createElement('button');
         b.type = 'button';
@@ -63491,6 +63530,9 @@ window.loadMenuForRestaurant = async function(restaurantId) {
 
     renderMenuCategories();
     updateMenuStats();
+    // Die Verkaufszahlen kommen NACH der Karte -- sie sind eine Zugabe.
+    // Wenn sie nicht kommen, steht die Speisekarte trotzdem da.
+    verkaufszahlenLaden(restaurantId);
     showToast('Speisekarte geladen', 'success');
 };
 
@@ -63601,6 +63643,59 @@ function onItemDrop(e, targetCatId) {
     saveItemOrder(draggedItem, catItems);
 }
 
+// EIN GERICHT NACH VORNE ZIEHEN -- AUCH AUF DEM HANDY.
+//
+// Idee von Ibo am 04.09.2026: "wenn der gastronomen ein gericht oder
+// menue mehr nach vorne zeigen wie man es besser verkaufen kann".
+//
+// Ziehen zum Sortieren gab es schon (onItemDragStart/onItemDrop,
+// saveItemOrder). Nur haengt das an der HTML5-Drag-Schnittstelle, und
+// die reagiert auf einem Touch-Bildschirm NICHT. In der ganzen
+// Speisekarten-Liste steht kein einziger touchstart -- die einzigen
+// Touch-Handler im Haus gehoeren zum Tischplan.
+//
+// Ein Wirt am Telefon konnte seine Karte also gar nicht umsortieren.
+// Und ausgerechnet die Reihenfolge ist der billigste Verkaufshebel:
+// Gaeste nehmen ueberdurchschnittlich oft aus den ersten Positionen
+// einer Kategorie. Wer sein Tagesgericht nach oben zieht, verkauft mehr
+// davon -- ohne einen Cent Rabatt.
+//
+// Zwei Pfeile tun dasselbe wie das Ziehen, funktionieren aber ueberall:
+// Maus, Finger, Tastatur. Das Ziehen bleibt, wo es geht.
+function gerichtVerschieben(itemId, catId, richtung) {
+    var inKat = menuItems.filter(function (i) { return i.category_id === catId; });
+    var pos = inKat.findIndex(function (i) { return i.id === itemId; });
+    if (pos < 0) { showToast('Gericht nicht gefunden', 'error'); return; }
+
+    var ziel = pos + richtung;
+    // Oben am Anfang, unten am Ende: nichts tun, aber es SAGEN. Ein
+    // Knopf, der stumm nichts tut, sieht kaputt aus (Regel 6).
+    if (ziel < 0)             { showToast('„' + (inKat[pos].name || 'Das Gericht') + '" steht schon ganz oben.', 'info'); return; }
+    if (ziel >= inKat.length) { showToast('„' + (inKat[pos].name || 'Das Gericht') + '" steht schon ganz unten.', 'info'); return; }
+
+    // Innerhalb der Kategorie tauschen ...
+    var bewegt = inKat[pos];
+    inKat.splice(pos, 1);
+    inKat.splice(ziel, 0, bewegt);
+    inKat.forEach(function (it, i) { it.sort_order = i + 1; });
+
+    // ... und die Gesamtliste in dieselbe Reihenfolge bringen, sonst
+    // springt die Anzeige beim naechsten Zeichnen zurueck.
+    var ohne = menuItems.filter(function (i) { return i.category_id !== catId; });
+    menuItems.length = 0;
+    Array.prototype.push.apply(menuItems, ohne.concat(inKat));
+    menuItems.sort(function (a, b) {
+        if (a.category_id === b.category_id) return (a.sort_order || 0) - (b.sort_order || 0);
+        return 0;
+    });
+
+    renderMenuCategories();
+    // Dieselbe Speicherung wie beim Ziehen -- eine Wahrheit, nicht zwei.
+    saveItemOrder(bewegt, inKat);
+    showToast('„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.', 'success');
+}
+window.gerichtVerschieben = gerichtVerschieben;
+
 function onItemDragEnd(e) {
     e.currentTarget.style.opacity = '';
     document.querySelectorAll('.menu-item-row').forEach(function(r) { r.style.borderTop = ''; });
@@ -63688,6 +63783,213 @@ function katKanteAuffrischen(leiste) {
     leiste.classList.toggle('kmi-mehr-rechts', mehr);
 }
 
+// KOMBI-MENUES -- OHNE EINE EINZIGE NEUE TABELLE.
+//
+// Idee von Ibo am 04.09.2026: "Pizza + Getraenk + Dessert = 15,90 statt
+// 18,40". Der staerkste Hebel auf den Bonwert.
+//
+// NACHGESEHEN STATT ANGENOMMEN: das Geruest gibt es schon. Optionsgruppen
+// koennen Pflicht-Auswahl (selection_type 'single', min_selections 1).
+// Ein Kombi-Menue ist also nichts anderes als
+//
+//     ein Gericht zum Festpreis
+//     + je Baustein eine Pflichtgruppe mit Aufpreis 0
+//
+// Damit brauchen wir keine neue Tabelle, keine neue Abfrage auf der
+// Gastseite -- und vor allem KEINEN neuen Preis-Schutz. Der bestehende
+// prueft Gerichte und Optionen bereits; eine eigene Kombi-Logik waere
+// eine zweite Stelle, an der ein Gast Preise erfinden koennte.
+//
+// DIE EIGENTLICHE ARBEIT IST DIE WARNUNG.
+//
+// Ein Kombipreis gilt fuer JEDE Auswahl. Steht in der Kategorie
+// "Hauptgericht" ein 24-EUR-Gericht, bekommt der Gast es zum Menuepreis.
+// Der Wirt sieht beim Anlegen die schoene Zahl ("du sparst dem Gast
+// 2,50") und uebersieht den teuersten Fall. Deshalb wird hier BEIDES
+// gerechnet: der guenstigste und der TEUERSTE Warenkorb. Nur die
+// Ersparnis zu zeigen waere genau die halbe Wahrheit aus Regel 6.
+var KOMBI = {
+    // Alle Preise einer Kategorie, aufsteigend. Gerichte ohne gueltigen
+    // Preis fallen raus -- sie waeren sonst eine unsichtbare 0.
+    preiseDerKategorie: function (kategorieId, alle) {
+        return (alle || [])
+            .filter(function (i) { return i.category_id === kategorieId && i.is_available !== false; })
+            .map(function (i) { return Number(i.base_price != null ? i.base_price : i.price); })
+            .filter(function (p) { return isFinite(p) && p > 0; })
+            .sort(function (a, b) { return a - b; });
+    },
+
+    // Was ein Kombi-Menue wirklich bedeutet.
+    rechnen: function (bausteine, kombiPreis) {
+        var preis = Number(kombiPreis);
+        var leere = [];
+        var guenstigste = 0, teuerste = 0;
+
+        (bausteine || []).forEach(function (b) {
+            var pr = b.preise || [];
+            if (!pr.length) { leere.push(b.name || 'Baustein'); return; }
+            guenstigste += pr[0];
+            teuerste    += pr[pr.length - 1];
+        });
+
+        return {
+            gueltig: isFinite(preis) && preis > 0 && leere.length === 0 && (bausteine || []).length >= 2,
+            leere: leere,
+            guenstigste: guenstigste,
+            teuerste: teuerste,
+            // Was der Gast im besten Fall spart ...
+            ersparnisMin: guenstigste - preis,
+            // ... und was er im teuersten Fall spart. Das ist die Zahl,
+            // die dem Wirt wehtut, und darum die wichtigere.
+            ersparnisMax: teuerste - preis,
+            // Unter dem guenstigsten Warenkorb verschenkt er bei JEDER
+            // Auswahl Geld -- das ist fast immer ein Tippfehler.
+            unterEinkauf: isFinite(preis) && preis > 0 && preis < guenstigste * 0.5
+        };
+    }
+};
+window.KOMBI = KOMBI;
+
+// Das Kombi-Menue wirklich anlegen.
+//
+// Gebaut aus vorhandenen Teilen: ein Gericht zum Festpreis, und je
+// Baustein eine Pflichtgruppe mit Aufpreis 0. Wie beim Karten-Import
+// werden unbekannte Spalten weggenommen statt aufzugeben -- die
+// Datenbanken der Betriebe sind nicht alle gleich alt, und ein stilles
+// Scheitern hiesse "Menue angelegt", waehrend nichts da ist.
+async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, bausteine) {
+    var H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
+              'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+    async function sendeMitRueckfall(tabelle, feld) {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/' + tabelle, {
+            method: 'POST', headers: H, body: JSON.stringify(feld)
+        });
+        var versuch = 0;
+        while (!res.ok && res.status === 400 && versuch < 8) {
+            versuch++;
+            var txt = await res.clone().text();
+            var m = /'([a-z_]+)' column|column "([a-z_]+)"|Could not find the '([a-z_]+)'/i.exec(txt);
+            var spalte = m && (m[1] || m[2] || m[3]);
+            if (!spalte || !(spalte in feld)) throw new Error(txt);
+            delete feld[spalte];
+            res = await fetch(SUPABASE_URL + '/rest/v1/' + tabelle, {
+                method: 'POST', headers: H, body: JSON.stringify(feld)
+            });
+        }
+        if (!res.ok) throw new Error(await res.text());
+        var zeilen = await res.json();
+        // Auch hier: eine leere Antwort ist kein Erfolg (die Lehre vom
+        // Mindestbestellwert -- 204 beweist nichts).
+        if (!Array.isArray(zeilen) || !zeilen.length || !zeilen[0].id) {
+            throw new Error('Die Datenbank hat nichts zurueckgegeben.');
+        }
+        return zeilen[0];
+    }
+
+    var gericht = await sendeMitRueckfall('menu_items', {
+        restaurant_id: restaurantId,
+        category_id: kategorieId,
+        name: name,
+        base_price: Number(kombiPreis),
+        description: bausteine.map(function (b) { return b.name; }).join(' + '),
+        is_available: true,
+        sort_order: 1
+    });
+
+    for (var i = 0; i < bausteine.length; i++) {
+        var b = bausteine[i];
+        var gruppe = await sendeMitRueckfall('menu_option_groups', {
+            restaurant_id: restaurantId,
+            item_id: gericht.id,
+            name: b.name,
+            selection_type: 'single',
+            min_selections: 1,
+            max_selections: 1,
+            is_active: true
+        });
+        for (var j = 0; j < b.gerichte.length; j++) {
+            // Aufpreis 0: der Kombipreis steht am Gericht, nicht an der
+            // Auswahl. Sonst zahlte der Gast doppelt.
+            await sendeMitRueckfall('menu_options', {
+                group_id: gruppe.id,
+                name: b.gerichte[j].name,
+                price: 0,
+                is_active: true,
+                sort_order: j + 1
+            });
+        }
+    }
+    return gericht;
+}
+window.kombiAnlegen = kombiAnlegen;
+
+// WAS SICH WIRKLICH VERKAUFT -- FUER DEN WIRT, NICHT NUR FUER DEN GAST.
+//
+// Idee von Ibo am 04.09.2026: mehr Verkaufshilfen bei der Bestellung.
+//
+// Nachgesehen statt angenommen: gezaehlt wird laengst. loadPopularItems()
+// summiert die Bestellungen der letzten 30 Tage je Gericht -- aber nur,
+// um dem GAST "Beliebt"-Raenge zu zeigen. Der Wirt sieht die Zahl
+// nirgends. Im Dashboard gab es keine einzige Verkaufszahl je Gericht;
+// die Top-Gerichte standen nur in der Abend-E-Mail.
+//
+// Ohne Zahlen ist jede Verkaufsidee Raten -- auch meine. Wer weiss, dass
+// die Pizza Tonno 3-mal lief und die Margherita 41-mal, weiss auch,
+// welches Gericht er nach oben zieht. Deshalb steht die Zahl DORT, wo
+// die Pfeile sind: direkt am Gericht.
+var _verkaufsZahlen = {};      // Name (klein) -> Anzahl, letzte 30 Tage
+var _verkaufsStand  = null;    // wann zuletzt geholt
+
+function verkaufsSchluessel(name) { return String(name || '').trim().toLowerCase(); }
+
+async function verkaufszahlenLaden(restaurantId) {
+    if (!restaurantId) return;
+    try {
+        var seit = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        var url = SUPABASE_URL + '/rest/v1/order_items'
+            + '?select=item_name,quantity,order_id!inner(restaurant_id,created_at)'
+            + '&order_id.restaurant_id=eq.' + restaurantId
+            + '&order_id.created_at=gte.' + seit
+            + '&limit=5000';
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+        if (!res.ok) throw new Error('Status ' + res.status);
+        var zeilen = await res.json();
+        if (!Array.isArray(zeilen)) throw new Error('unerwartete Antwort');
+
+        var summe = {};
+        zeilen.forEach(function (z) {
+            var k = verkaufsSchluessel(z.item_name);
+            if (!k) return;
+            summe[k] = (summe[k] || 0) + (Number(z.quantity) || 1);
+        });
+        _verkaufsZahlen = summe;
+        _verkaufsStand = new Date();
+    } catch (e) {
+        // Keine Zahlen ist kein Beinbruch -- aber es darf nicht so
+        // aussehen, als haette sich nichts verkauft. Leer heisst hier
+        // "unbekannt", und genau das zeigt verkaufsAnzeige dann auch.
+        _verkaufsZahlen = {};
+        _verkaufsStand = null;
+    }
+    if (typeof renderMenuCategories === 'function') renderMenuCategories();
+}
+window.verkaufszahlenLaden = verkaufszahlenLaden;
+
+// Die Zahl am einzelnen Gericht. NULL Verkaeufe ist eine Aussage --
+// "0x" wird darum angezeigt, nicht verschwiegen. Unbekannt dagegen
+// (noch nichts geholt) zeigt gar nichts, statt eine 0 zu erfinden.
+function verkaufsAnzeige(item) {
+    if (_verkaufsStand === null) return '';
+    var anzahl = _verkaufsZahlen[verkaufsSchluessel(item && item.name)] || 0;
+    var stark = anzahl > 0;
+    return '<span class="verkaufs-zahl" title="' + anzahl + ' mal bestellt in den letzten 30 Tagen" '
+        + 'style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;white-space:nowrap;'
+        + (stark ? 'background:rgba(14,122,79,0.10);color:#0e7a4f;' : 'background:rgba(0,0,0,0.05);color:var(--slate);')
+        + '">' + anzahl + '\u00d7</span>';
+}
+window.verkaufsAnzeige = verkaufsAnzeige;
+
 function renderMenuCategories() {
         const container = document.getElementById('menuCategoriesList');
     if (!container) return;
@@ -63748,8 +64050,19 @@ function renderMenuCategories() {
                                 </div>
                                 <div class="menu-item-desc">${item.description || ''}</div>
                             </div>
-                            <div class="menu-item-price">${formatPrice(item.base_price || item.price)}</div>
+                            <div style="display:flex;align-items:center;gap:8px;">${verkaufsAnzeige(item)}<div class="menu-item-price">${formatPrice(item.base_price || item.price)}</div></div>
                             <div class="menu-item-actions">
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',-1)" title="Nach oben" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach oben">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">arrow_upward</span>
+                                </button>
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',1)" title="Nach unten" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach unten">
+                                    <!-- Derselbe Pfeil, gedreht. arrow_downward steckt nicht in
+                                         unserer schlanken Symbolschrift (27 KB statt Megabyte),
+                                         und dafuer die ganze Schrift neu zu erzeugen waere
+                                         unverhaeltnismaessig. symbolschrift-test.js hat das
+                                         gefunden, bevor es jemand auf der Seite gesehen haette. -->
+                                    <span class="material-symbols-outlined" style="font-size:16px;transform:rotate(180deg);">arrow_upward</span>
+                                </button>
                                 <button class="menu-item-btn" onclick="toggleSoldOut('${item.id}')" title="${item.is_available === false ? 'Wieder verfügbar' : 'Ausverkauft'}" aria-label="${item.is_available === false ? 'Wieder verfügbar' : 'Ausverkauft'}" style="${item.is_available === false ? 'background:var(--danger-500);color:white;' : ''}">
                                     <span class="material-symbols-outlined" style="font-size:18px">cancel</span>
                                 </button>

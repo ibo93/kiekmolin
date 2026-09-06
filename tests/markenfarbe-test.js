@@ -84,7 +84,18 @@ console.log('\n-- Kommt die Farbe ueberhaupt an? --');
 t('brand_color steht in BEIDEN Abbildungen',
   (h.match(/brand_color: r\.brand_color \|\| null,/g) || []).length === 2,
   (h.match(/brand_color: r\.brand_color \|\| null,/g) || []).length + ' statt 2');
-t('die Landepage setzt --marke', /landing\.style\.setProperty\('--marke', _marke\)/.test(h), 'wird nicht gesetzt');
+// DIESE ZEILE FORDERTE BIS ZUM 04.09.2026 DEN FEHLER EIN.
+//
+// Sie verlangte  landing.style.setProperty('--marke', _marke)  -- also
+// genau die Form, die zwei Zeilen spaeter von cssText geloescht wurde.
+// Der Test war gruen, waehrend die Seite grau blieb. Ein Test, der eine
+// Schreibweise bewacht statt einer Wirkung, prueft nichts (Regel 5).
+//
+// Was wirklich zaehlt, steht weiter unten: der Abschnitt wird
+// ausgefuehrt und danach nachgesehen, ob die Farbe noch da ist.
+t('die Farbe wird zusammen mit dem cssText gesetzt, nicht daneben',
+  /cssText = '--marke:' \+ _marke \+ ';--marke-dunkel:'/.test(h),
+  'steht wieder neben dem cssText und wird geloescht');
 t('und holt sie ueber MARKE.von', /var _marke = .*MARKE\.von\(rest\)/.test(h), 'nicht gefunden');
 t('die Knoepfe benutzen die Variable',
   (h.match(/var\(--marke,#003d33\)/g) || []).length >= 4,
@@ -144,8 +155,8 @@ t('Schwarz bleibt Schwarz statt negativ zu werden',
 t('die Kachel startet bei der EIGENEN Farbe, nicht bei KIN-Gruen',
   /linear-gradient\(135deg,var\(--marke-dunkel,#00251e\),var\(--marke,#003d33\)\)/.test(h),
   'startet noch bei #00251e');
-t('und --marke-dunkel wird gesetzt',
-  /setProperty\('--marke-dunkel', MARKE\.dunkler\(_marke\)\)/.test(h), 'wird nicht gesetzt');
+t('und die dunklere Fassung gleich mit',
+  /--marke-dunkel:' \+ MARKE\.dunkler\(_marke\)/.test(h), 'fehlt im cssText');
 
 // ---- 10. Die Maske zeigt den Satz -----------------------------------
 console.log('\n-- Die Auswahl im Dashboard --');
@@ -153,6 +164,95 @@ t('es gibt ein Feld fuer die Farbfelder', /id="markePalette"/.test(h), 'fehlt');
 t('sie werden aus MARKE.PALETTE gebaut', /MARKE\.PALETTE\.forEach/.test(h), 'von Hand aufgezaehlt');
 t('die gewaehlte Farbe ist zu erkennen', /gewaehlt \?/.test(h), 'kein Ring am gewaehlten Feld');
 t('eine eigene Farbe geht weiterhin', /id="settingBrandColor"/.test(h), 'kein eigener Waehler mehr');
+
+// ---- 11. Die Felder duerfen nie leer bleiben ------------------------
+console.log('\n-- Eine leere Auswahl sieht aus wie eine kaputte --');
+//
+// Gemeldet am 04.09.2026: "ich gib die farben ein es passiert nichts".
+// Der Ladepfad haengte an "markeEl && restaurant". Ohne Restaurant --
+// Liste noch nicht da, Auswahl leer -- blieben die Farbfelder leer: eine
+// Karte mit Ueberschrift und nichts darin. Man tippt hinein, nichts
+// passiert, und niemand sagt warum (Regel 6).
+t('die Farbfelder haengen NICHT am geladenen Restaurant',
+  /var markeEl = document\.getElementById\('settingBrandColor'\);\s*\n\s*if \(markeEl\) \{/.test(h),
+  'haengt noch an "markeEl && restaurant"');
+t('ohne Restaurant wird die Hausfarbe genommen',
+  /MARKE\.lesbar\(\(restaurant && restaurant\.brand_color\) \|\| MARKE\.STANDARD\)/.test(h),
+  'wuerde bei fehlendem Restaurant stolpern');
+t('und ein fehlender Farbsatz wird gemeldet, nicht verschwiegen',
+  /Farben konnten nicht geladen werden/.test(h), 'stellt einen leeren Kasten hin');
+
+// ---- 12. cssText loescht alles, was daneben gesetzt wurde ------------
+console.log('\n-- Ueberlebt die Farbe den Aufbau der Seite? --');
+//
+// Gemeldet am 04.09.2026: "es ist alles da nur die lande page aendert
+// die farbe nicht." Im Dashboard ging alles -- nur die Seite blieb
+// gruen.
+//
+// Der Grund: die Variablen wurden mit setProperty gesetzt und zwei
+// Zeilen spaeter von "landing.style.cssText = '...'" wieder geloescht.
+// Eine Zuweisung an cssText ersetzt den KOMPLETTEN Inline-Stil.
+//
+// Ein Textvergleich haette das nie gefunden -- beide Zeilen sahen
+// einzeln richtig aus. Dieser Test baut cssText so nach, wie der
+// Browser es tut, und laesst den echten Abschnitt laufen.
+var la = h.indexOf("var landing = document.createElement('div');");
+var le = h.indexOf('landing.innerHTML =', la);
+t('der Aufbau-Abschnitt wurde gefunden', la > 0 && le > la, la + '/' + le);
+
+function styleAttrappe() {
+    var eigen = {};
+    var o = {
+        setProperty: function (k, v) { eigen[k] = String(v); },
+        getPropertyValue: function (k) { return eigen[k] || ''; }
+    };
+    Object.defineProperty(o, 'cssText', {
+        get: function () { return o._t || ''; },
+        set: function (txt) {
+            // Genau das tut der Browser: alles Bisherige ist weg.
+            eigen = {};
+            o._t = txt;
+            String(txt).split(';').forEach(function (paar) {
+                var i = paar.indexOf(':');
+                if (i > 0) eigen[paar.slice(0, i).trim()] = paar.slice(i + 1).trim();
+            });
+        }
+    });
+    return o;
+}
+
+var gebaut = null;
+var welt2 = {
+    _marke: '#6b1220',
+    MARKE: MARKE,
+    document: {
+        createElement: function () {
+            gebaut = { id: '', style: styleAttrappe(), appendChild: function () {} };
+            return gebaut;
+        },
+        getElementById: function () { return null; },
+        body: { appendChild: function () {} }
+    },
+    console: console
+};
+var vm2 = require('vm');
+vm2.createContext(welt2);
+try {
+    vm2.runInContext(h.slice(la, le), welt2);
+    t('nach dem Aufbau steht --marke noch da',
+      gebaut && gebaut.style.getPropertyValue('--marke') === '#6b1220',
+      gebaut ? ('"' + gebaut.style.getPropertyValue('--marke') + '"') : 'kein Element');
+    t('und --marke-dunkel ebenfalls',
+      gebaut && /^#[0-9a-f]{6}$/.test(gebaut.style.getPropertyValue('--marke-dunkel')),
+      gebaut ? ('"' + gebaut.style.getPropertyValue('--marke-dunkel') + '"') : 'kein Element');
+    t('die Grundeigenschaften stehen auch noch',
+      gebaut && gebaut.style.getPropertyValue('position') === 'fixed',
+      gebaut ? gebaut.style.getPropertyValue('position') : '-');
+} catch (e) {
+    t('nach dem Aufbau steht --marke noch da', false, e.message);
+    t('und --marke-dunkel ebenfalls', false, e.message);
+    t('die Grundeigenschaften stehen auch noch', false, e.message);
+}
 
 console.log('\n' + (n - ok === 0 ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 if (n - ok > 0) process.exit(1);
