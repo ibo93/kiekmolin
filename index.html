@@ -19828,6 +19828,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="printerStatusText" style="color:var(--ink-deep);">Drucker prüfen…</span>
                         </div>
+                        <div id="druckerMeldungZeile" onclick="openPrinterSettings()" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.35);font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#b91c1c;cursor:pointer;max-width:520px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0;">warning</span>
+                            <span id="druckerMeldungText" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                        </div>
                         <div id="kasseStatusBadge" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
                             <span id="kasseStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="kasseStatusText" style="color:var(--ink-deep);">Kasse prüfen…</span>
@@ -57831,6 +57835,57 @@ function _renderKasseStatus(lastPollIso) {
     badge.title = msg;
 }
 
+// WAS DER DRUCKER ZULETZT GESAGT HAT.
+//
+// Die Ampel beantwortet nur "meldet er sich?". Am 06.09.2026 stand sie
+// gruen, der Bon wurde Sekunden nach der Bestellung abgeholt -- und es kam
+// trotzdem kein Zettel. Der Drucker hatte den Grund genannt; er lag in den
+// Netlify-Protokollen, wo ihn nie jemand aufmacht.
+//
+// Gezeigt wird NUR ein Problem. Ein "alles gut" steht schon in der gruenen
+// Ampel; eine zweite Erfolgsmeldung waere Laerm, und Laerm wird weggeklickt.
+//
+// Und nur, solange es aktuell ist: eine Meldung von vorgestern wuerde einen
+// laengst behobenen Fehler als heutigen ausgeben.
+var DRUCKER_MELDUNG_MAX_ALTER_MS = 12 * 60 * 60 * 1000;
+
+function _renderDruckerMeldung(ereignis) {
+    var kasten = document.getElementById('druckerMeldungZeile');
+    var text = document.getElementById('druckerMeldungText');
+    if (!kasten || !text) return;
+
+    var zeigen = ereignis
+        && (ereignis.type === 'printer_failed' || ereignis.type === 'printer_rejected')
+        && ereignis.created_at
+        && (Date.now() - new Date(ereignis.created_at).getTime()) < DRUCKER_MELDUNG_MAX_ALTER_MS;
+
+    if (!zeigen) { kasten.style.display = 'none'; return; }
+
+    var wann = '';
+    try { wann = new Date(ereignis.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+    text.textContent = (wann ? wann + ' Uhr — ' : '') + String(ereignis.message || 'Drucker-Problem');
+    kasten.title = text.textContent + ' (klicken: Drucker-Einstellungen)';
+    kasten.style.display = 'flex';
+}
+
+async function refreshDruckerMeldung(restId) {
+    if (!restId) { _renderDruckerMeldung(null); return; }
+    try {
+        var url = SUPABASE_URL + '/rest/v1/restaurant_events?restaurant_id=eq.' + encodeURIComponent(restId)
+            + '&type=in.(printer_failed,printer_rejected,printer_ok)'
+            + '&order=created_at.desc&limit=1&select=type,message,created_at';
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+        // Fehlt die Tabelle oder das Leserecht, bleibt die Zeile weg -- aber
+        // die Ampel darf davon nicht mitgerissen werden.
+        if (!res.ok) { _renderDruckerMeldung(null); return; }
+        var zeilen = await res.json();
+        _renderDruckerMeldung(Array.isArray(zeilen) && zeilen.length ? zeilen[0] : null);
+    } catch (e) {
+        _renderDruckerMeldung(null);
+    }
+}
+window.refreshDruckerMeldung = refreshDruckerMeldung;
+
 async function refreshPrinterStatus() {
     var sel = document.getElementById('ordersRestaurantSelect');
     var restId = sel ? sel.value : '';
@@ -57839,6 +57894,7 @@ async function refreshPrinterStatus() {
         if (badge) badge.style.display = 'none';
         var kBadge = document.getElementById('kasseStatusBadge');
         if (kBadge) kBadge.style.display = 'none';
+        _renderDruckerMeldung(null);
         return;
     }
     try {
@@ -57859,6 +57915,9 @@ async function refreshPrinterStatus() {
             _renderPrinterStatus(data[0].printer_last_poll_at || null);
             _renderKasseStatus(data[0].pos_last_poll_at || null);
         }
+        // Bewusst NICHT im try der Ampel: eine fehlende Ereignis-Tabelle
+        // darf die Ampel nicht mit ausknipsen.
+        refreshDruckerMeldung(restId);
     } catch(e) { /* silent */ }
 }
 

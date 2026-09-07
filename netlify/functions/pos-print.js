@@ -65,6 +65,38 @@ function safeEqual(a, b) {
     return crypto.timingSafeEqual(ha, hb);
 }
 
+// EIN EREIGNIS AUFSCHREIBEN.
+//
+// Bis hierher ging jede Erkenntnis ueber den Drucker nach console.log --
+// also in die Netlify-Protokolle, die weder der Wirt noch sonst jemand im
+// Betrieb je aufmacht. Der Grund war jedes Mal da und jedes Mal weg.
+//
+// restaurant_events gibt es seit Schritt 20; der Waechter liest die Tabelle
+// ohnehin. Geschrieben wird mit dem Service-Schluessel, also an RLS vorbei --
+// das ist hier richtig, die Meldung stammt vom Server, nicht vom Browser.
+//
+// STILL IM FEHLERFALL, ABER NIE STILL IM ERFOLGSFALL: klemmt das Schreiben,
+// darf der Bon trotzdem rausgehen. Ein verlorenes Protokoll ist aergerlich,
+// eine verlorene Bestellung kostet Geld.
+async function ereignis(restaurantId, typ, text, orderId, nutzdaten) {
+    if (!restaurantId) return;
+    try {
+        await fetch(SUPABASE_URL + '/rest/v1/restaurant_events', {
+            method: 'POST',
+            headers: Object.assign({}, svcHeaders(), { 'Prefer': 'return=minimal' }),
+            body: JSON.stringify({
+                restaurant_id: restaurantId,
+                type: typ,
+                message: String(text || '').slice(0, 500),
+                order_id: orderId || null,
+                payload: nutzdaten || null
+            })
+        });
+    } catch (e) {
+        console.warn('[pos-print] Ereignis nicht geschrieben:', e.message);
+    }
+}
+
 function xmlEscape(s) {
     return String(s == null ? '' : s)
         .replace(/&/g, '&amp;')
@@ -383,6 +415,23 @@ exports.handler = async function (event) {
                 console.warn('[pos-print] DRUCK FEHLGESCHLAGEN -- Code "' + (meldung.code || 'ohne Code')
                     + '": ' + codeKlartext(meldung.code));
             }
+            // DAS IST DER SATZ, DER BISHER GEFEHLT HAT.
+            //
+            // Am 06.09.2026 gemessen: Bestellung um 16:56 rein, Bon Sekunden
+            // spaeter vom Drucker abgeholt, als gedruckt markiert -- und kein
+            // Zettel. Der Drucker hat uns in derselben Sekunde gesagt warum,
+            // und wir haben es nach console.log geworfen.
+            //
+            // Auch der ERFOLG wird aufgeschrieben. Ohne ihn waere "keine
+            // Meldung" wieder zweideutig: nichts gedruckt, oder alles gut?
+            await ereignis(restaurant,
+                meldung.erfolg ? 'printer_ok' : 'printer_failed',
+                meldung.erfolg
+                    ? 'Der Drucker meldet: Bon gedruckt.'
+                    : 'Der Drucker konnte NICHT drucken — ' + codeKlartext(meldung.code)
+                      + ' (Code ' + (meldung.code || 'ohne Code') + ').',
+                null,
+                { code: meldung.code || null, status: meldung.status || null, rumpf: meldung.rumpf });
             // BEWUSST ohne Bestellung antworten. Ein fehlgeschlagener Auftrag
             // wird NICHT von selbst wiederholt: der Drucker wuerde ihn erneut
             // ablehnen, wir wuerden ihn erneut schicken, und das ginge endlos
@@ -392,11 +441,32 @@ exports.handler = async function (event) {
 
         // Restaurant + pull_key validieren
         var rrows = await sbGet('restaurants?id=eq.' + encodeURIComponent(restaurant) +
-            '&select=id,name,pos_pull_key');
-        if (!rrows.length || !rrows[0].pos_pull_key) {
-            return xmlResponse(emptyEposResponse());
-        }
-        if (!safeEqual(key, rrows[0].pos_pull_key)) {
+            '&select=id,name,pos_pull_key,printer_last_error_at');
+
+        // EIN ABGEWIESENER DRUCKER MUSS SICH MELDEN DUERFEN.
+        //
+        // Gemessen am 06.09.2026: zwei Drucker fragen seit Stunden an --
+        // 1.437 und 342 Mal -- und kommen kein einziges Mal an dieser Stelle
+        // vorbei. Sie melden trotzdem "verbunden", weil eine leere Antwort
+        // fuer sie dasselbe ist wie "gerade nichts zu drucken".
+        //
+        // Hoechstens eine Meldung pro Stunde. Sonst staenden hier 1.437
+        // gleiche Zeilen am Tag -- und am 27.08. hat uns genau diese Art
+        // Wiederholung 96 E-Mails in einer Nacht eingebracht.
+        var abweisung = null;
+        if (!rrows.length) abweisung = 'Ein Drucker fragt fuer ein Restaurant an, das es nicht gibt.';
+        else if (!rrows[0].pos_pull_key) abweisung = 'Ein Drucker fragt an, aber fuer dieses Restaurant ist gar kein Drucker-Schluessel hinterlegt. Es kann kein Bon kommen.';
+        else if (!safeEqual(key, rrows[0].pos_pull_key)) abweisung = 'Ein Drucker fragt mit einem FALSCHEN Schluessel an. Er meldet sich als verbunden, bekommt aber nie einen Bon. Schluessel im Drucker mit dem im Dashboard vergleichen.';
+
+        if (abweisung) {
+            var zuletzt = rrows.length ? rrows[0].printer_last_error_at : null;
+            var langGenugHer = !zuletzt || (Date.now() - new Date(zuletzt).getTime()) > 60 * 60 * 1000;
+            if (rrows.length && langGenugHer) {
+                await ereignis(restaurant, 'printer_rejected', abweisung, null, { schluessel_laenge: String(key).length });
+                sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), {
+                    printer_last_error_at: new Date().toISOString()
+                }).catch(function (e) { console.warn('[pos-print] printer_last_error_at:', e.message); });
+            }
             return xmlResponse(emptyEposResponse());
         }
 
