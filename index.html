@@ -57937,6 +57937,64 @@ function openPrinterSettings() {
     openMultiPrinterSettings();
 }
 
+// EINEN TESTBON IN DIE WARTESCHLANGE LEGEN.
+//
+// Der Drucker holt sich alles selbst ab -- wir koennen ihm nichts schicken.
+// Also wird ein Merker gesetzt, den er beim naechsten Abruf mitnimmt
+// (5-15 Sekunden). pos-print.js loescht den Merker, BEVOR es druckt.
+//
+// WAS DAS ERGEBNIS BEDEUTET -- und darum gibt es zwei Knoepfe:
+//   einfach kommt, echt kommt      -> alles in Ordnung
+//   einfach kommt, echt NICHT      -> unser Bon-Inhalt. Genau so war es
+//                                     beim lang="de", das der Epson nicht
+//                                     kannte und das jeden Bon verwarf.
+//   einfach kommt AUCH NICHT       -> das Geraet. Papier, Klappe, Rolle
+//                                     falsch herum, Geraete-ID.
+async function testbonAnfordern(art) {
+    var sel = document.getElementById('ordersRestaurantSelect');
+    var restId = sel ? sel.value : '';
+    if (!restId || restId === 'default') {
+        showToast('Bitte zuerst oben ein Restaurant auswählen.', 'warning');
+        return;
+    }
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=id', {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                // Ein 204 kommt auch, wenn RLS die Zeile still uebergeht.
+                // Dann waere "Testbon angefordert" eine Luege, und er stuende
+                // vor dem Drucker und wartete auf etwas, das nie kommt.
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ printer_test_art: art === 'einfach' ? 'einfach' : 'echt' })
+        });
+        if (!res.ok) {
+            var txt = '';
+            try { txt = await res.text(); } catch (e) {}
+            if (/printer_test_art/i.test(txt)) {
+                showToast('Der Testbon braucht noch die Spalte "printer_test_art" in der Datenbank (SQL 28).', 'error');
+            } else {
+                showToast('Testbon nicht angefordert (Fehler ' + res.status + ')', 'error');
+            }
+            return;
+        }
+        var zeilen = null;
+        try { zeilen = await res.json(); } catch (e) { zeilen = null; }
+        if (!Array.isArray(zeilen) || zeilen.length === 0) {
+            showToast('Nicht angefordert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen. '
+                + 'Meist fehlt dem angemeldeten Konto das Schreibrecht für dieses Restaurant.', 'error');
+            return;
+        }
+        showToast('Testbon angefordert — der Drucker holt ihn beim nächsten Abruf ab (5–15 Sekunden).', 'success');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.testbonAnfordern = testbonAnfordern;
+
 function openMultiPrinterSettings() {
     // Ein schon offenes Fenster zuerst weg -- sonst stapeln sich zwei
     // uebereinander, wenn der Dialog sich selbst neu aufbaut.
@@ -58010,7 +58068,18 @@ function openMultiPrinterSettings() {
                     '<input type="checkbox" ' + (p.autoprint !== false ? 'checked' : '') + ' onchange="updateMultiPrinter(' + idx + ', \'autoprint\', this.checked)"> Automatisch drucken' +
                 '</label>' +
                 (p.type === 'server-direct'
-                    ? '<span style="font-size:11px;color:var(--slate);">Druck startet durch Drucker-Polling</span>'
+                    // FRUEHER STAND HIER NUR "Druck startet durch Drucker-Polling".
+                    //
+                    // Ausgerechnet der empfohlene Typ hatte damit keinen
+                    // Testdruck. Wenn der Bon nicht kommt, gibt es dann keinen
+                    // einzigen Handgriff, der weiterhilft -- man kann nur
+                    // warten, bis ein Gast bestellt, und wieder nichts sehen.
+                    //
+                    // Zwei Knoepfe, weil die Antwort erst der VERGLEICH gibt.
+                    ? '<div style="display:flex;gap:6px;">'
+                        + '<button type="button" onclick="testbonAnfordern(\'einfach\')" title="Nur das Wort TEST. Keine Schriftgrößen, kein QR-Code, keine Umlaute — alles weggelassen, was der Drucker ablehnen könnte." style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testbon einfach</button>'
+                        + '<button type="button" onclick="testbonAnfordern(\'echt\')" title="Ein vollständiger Bon wie im Betrieb — mit großer Schrift, Umlauten, Notiz und QR-Code." style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testbon echt</button>'
+                      + '</div>'
                     : '<button type="button" onclick="testMultiPrinter(' + idx + ')" style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testdruck</button>') +
             '</div>' +
         '</div>';

@@ -162,6 +162,46 @@ function codeKlartext(code) {
     return CODE_TEXT[code] || 'unbekannter Code -- bitte im Epson-Handbuch nachschlagen';
 }
 
+// DER EINFACHSTE BON, DEN ES GIBT.
+//
+// Absichtlich nackt: keine Schriftgroessen, keine Ausrichtung, kein QR,
+// keine Umlaute. Nur Text und abschneiden. Alles, was der Epson ablehnen
+// koennte, ist hier weggelassen.
+//
+// Kommt DIESER Zettel heraus, ist das Geraet in Ordnung -- Papier, Klappe,
+// Netzwerk, Server Direct Print. Dann liegt es an unserem Bon-Inhalt.
+// Kommt er NICHT heraus, brauchen wir im Code gar nicht weiterzusuchen.
+function testBonEinfach() {
+    return '<?xml version="1.0" encoding="utf-8"?>' +
+           '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">' +
+           '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">' +
+           '<text>TEST&#10;</text>' +
+           '<text>kiekmolin&#10;</text>' +
+           '<feed unit="36"/><cut type="feed"/>' +
+           '</epos-print></s:Body></s:Envelope>';
+}
+
+// Derselbe Bon wie im Betrieb -- mit allem, was darin vorkommt: doppelte
+// und dreifache Schrift, Ausrichtung, Umlaute, Notiz, QR-Code fuer die
+// Lieferadresse. Wer den vergleicht, findet die Stelle in einem Schritt.
+function testBonEcht(restaurantName) {
+    return generateEposBon({
+        order_number: 'TEST-1',
+        created_at: new Date().toISOString(),
+        order_type: 'delivery',
+        customer_name: 'Übungsbestellung Grün',
+        customer_phone: '04921 000000',
+        customer_notes: 'Das ist ein Testbon. Bitte nicht kochen.',
+        delivery_address: { street: 'Musterstraße', house_number: '1', zip: '26721', city: 'Emden' },
+        items: [
+            { quantity: 2, name: 'Pizza Salami (groß)', options: 'extra Käse', notes: 'ohne Zwiebeln' },
+            { quantity: 1, name: 'Apfelschorle 0,5' }
+        ],
+        payment_method: 'cash',
+        total: 24.5
+    }, restaurantName || 'Testdruck');
+}
+
 // Empty-Response damit der Drucker beim nächsten Poll wieder fragt.
 function emptyEposResponse() {
     return '<?xml version="1.0" encoding="utf-8"?>' +
@@ -441,7 +481,7 @@ exports.handler = async function (event) {
 
         // Restaurant + pull_key validieren
         var rrows = await sbGet('restaurants?id=eq.' + encodeURIComponent(restaurant) +
-            '&select=id,name,pos_pull_key,printer_last_error_at');
+            '&select=id,name,pos_pull_key,printer_last_error_at,printer_test_art');
 
         // EIN ABGEWIESENER DRUCKER MUSS SICH MELDEN DUERFEN.
         //
@@ -468,6 +508,33 @@ exports.handler = async function (event) {
                 }).catch(function (e) { console.warn('[pos-print] printer_last_error_at:', e.message); });
             }
             return xmlResponse(emptyEposResponse());
+        }
+
+        // HAT DER WIRT EINEN TESTBON ANGEFORDERT?
+        //
+        // Steht vor der Bestellsuche: ein Test darf niemals eine echte
+        // Bestellung verbrauchen -- die waere danach als gedruckt markiert
+        // und der Gast bekaeme sein Essen nie.
+        if (rrows[0].printer_test_art) {
+            var testArt = String(rrows[0].printer_test_art);
+
+            // ERST LOESCHEN, DANN DRUCKEN. Bliebe die Anforderung stehen,
+            // holte der Drucker sie alle paar Sekunden erneut ab und waere
+            // in einer Viertelstunde durch die ganze Rolle. Deshalb wird
+            // hier auch gewartet -- und bei einem Fehler NICHT gedruckt.
+            try {
+                await sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), { printer_test_art: null });
+            } catch (e) {
+                console.warn('[pos-print] Testbon-Anforderung nicht geloescht, darum nicht gedruckt:', e.message);
+                return xmlResponse(emptyEposResponse());
+            }
+
+            await ereignis(restaurant, 'printer_test_sent',
+                'Testbon (' + (testArt === 'einfach' ? 'einfach' : 'echt') + ') an den Drucker übergeben. '
+                + 'Kommt jetzt kein Zettel, liegt es am Gerät und nicht an den Daten.',
+                null, { art: testArt });
+
+            return xmlResponse(testArt === 'einfach' ? testBonEinfach() : testBonEcht(rrows[0].name));
         }
 
         // Älteste ungedruckte Bestellung (letzte 24h, nicht storniert)
