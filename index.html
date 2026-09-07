@@ -57511,6 +57511,31 @@ function printToSpecificQZ(order, printer) {
 // Epson ePOS-Print über Netzwerk
 async function printToEpson(order, printer) {
     if (!printer.ip) return false;
+
+    // MISCHUNG AUS HTTPS UND HTTP -- DER BROWSER LAESST DAS NICHT ZU.
+    //
+    // Bisher wurde die Anfrage trotzdem abgeschickt. Der Browser hat sie
+    // abgebrochen, der catch-Zweig gab false zurueck, und im Dashboard
+    // stand "Druckfehler" ohne einen Grund. Das sieht aus wie ein Drucker,
+    // der nicht antwortet -- und man sucht am falschen Ende: Strom, Kabel,
+    // WLAN, IP-Adresse. Alles in Ordnung, und trotzdem kein Bon.
+    //
+    // Hier wird gar nicht erst losgeschickt, sondern gesagt, was los ist.
+    try {
+        if (typeof location !== 'undefined' && location.protocol === 'https:') {
+            showToast('Dieser Drucker ist auf „Epson ePOS Direkt" gestellt. Über kiekmolin.de (HTTPS) kann der Browser '
+                + 'nicht mit dem Drucker (HTTP) sprechen — der Auftrag wird abgebrochen, bevor er ankommt. '
+                + 'Bitte in den Drucker-Einstellungen auf „Server Direct Print" umstellen.', 'error');
+            if (typeof logRestaurantEvent === 'function') {
+                logRestaurantEvent(order && order.restaurant_id, 'printer_failed',
+                    'Druck über „Epson ePOS Direkt" ist von einer HTTPS-Seite aus nicht möglich (Mixed Content). '
+                    + 'Der Auftrag hat den Browser nie verlassen. Umstellen auf Server Direct Print.',
+                    order && order.id || null, { drucker_ip: printer.ip || null });
+            }
+            return false;
+        }
+    } catch (e) { /* kein location -- dann wie bisher versuchen */ }
+
     try {
         var url = 'http://' + printer.ip + '/cgi-bin/epos/service.cgi?devid=' + (printer.devid || 'local_printer') + '&timeout=10000';
         var xml = (typeof generateEposXML === 'function') ? generateEposXML(order) : null;
@@ -58022,7 +58047,25 @@ function openMultiPrinterSettings() {
         // Konfigurations-Block je nach Typ
         var configBlock;
         if (p.type === 'epson') {
-            configBlock = '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
+            // WARUM DAS HIER SO DEUTLICH STEHT.
+            //
+            // Der Typ hiess "(HTTPS-Probleme moeglich)". Das klingt nach
+            // "kann klappen". Es kann nicht klappen: kiekmolin.de laeuft
+            // ueber HTTPS, der Drucker antwortet ueber HTTP, und der
+            // Browser bricht die Anfrage ab, BEVOR sie das Geraet
+            // verlaesst. Kein Netzwerkfehler, keine Fehlermeldung -- die
+            // Anfrage kommt nie an.
+            //
+            // Ein Wirt, der diesen Typ waehlt, traegt eine IP-Adresse ein,
+            // sieht "gespeichert" und wartet auf Bons, die es nie geben
+            // kann. Das darf die Auswahl nicht verschweigen.
+            configBlock = '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.35);border-radius:10px;font-size:11px;line-height:1.5;color:#b91c1c;">'
+                + '<strong>Dieser Weg kann über kiekmolin.de nicht funktionieren.</strong><br>'
+                + 'Die Seite läuft über HTTPS, der Drucker antwortet über HTTP. Der Browser bricht den Druckauftrag ab, bevor er das Gerät erreicht — ohne Fehlermeldung. '
+                + 'Der Drucker ist dabei völlig in Ordnung, er wird nur nie gefragt.<br>'
+                + '<button type="button" onclick="updateMultiPrinter(' + idx + ', \'type\', \'server-direct\')" style="margin-top:8px;background:#b91c1c;color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Auf Server Direct Print umstellen</button>'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker IP-Adresse</label>' +
                     '<input value="' + (p.ip || '') + '" oninput="updateMultiPrinter(' + idx + ', \'ip\', this.value)" placeholder="192.168.1.50" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Device ID</label>' +
@@ -58055,7 +58098,7 @@ function openMultiPrinterSettings() {
                     '<select onchange="updateMultiPrinter(' + idx + ', \'type\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
                         '<option value="server-direct"' + typeSDP + '>Server Direct Print (Epson, empfohlen — kein PC)</option>' +
                         '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken — PC nötig)</option>' +
-                        '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (HTTPS-Probleme möglich)</option>' +
+                        '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (funktioniert NICHT über kiekmolin.de)</option>' +
                     '</select></div>' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Rolle</label>' +
                     '<select onchange="updateMultiPrinter(' + idx + ', \'role\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
