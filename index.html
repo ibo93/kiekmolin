@@ -19828,6 +19828,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="printerStatusText" style="color:var(--ink-deep);">Drucker prüfen…</span>
                         </div>
+                        <div id="druckerMeldungZeile" onclick="openPrinterSettings()" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.35);font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#b91c1c;cursor:pointer;max-width:520px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0;">warning</span>
+                            <span id="druckerMeldungText" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                        </div>
                         <div id="kasseStatusBadge" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
                             <span id="kasseStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
                             <span id="kasseStatusText" style="color:var(--ink-deep);">Kasse prüfen…</span>
@@ -47092,6 +47096,18 @@ document.addEventListener('error', function(e) {
                     <label class="form-label">Kategorie-Name *</label>
                     <input type="text" class="form-input" id="newCategoryName" required placeholder="z.B. Vorspeisen, Hauptgerichte, Desserts..." aria-label="z.B. Vorspeisen, Hauptgerichte, Desserts...">
                 </div>
+                <!-- HINWEIS FUER DIE GANZE KATEGORIE.
+                     Was fuer alle Gerichte gilt ("alle Pizzen mit
+                     Tomatensauce, Kaese und Oregano"), stand bisher in
+                     jeder einzelnen Beschreibung -- oder nirgends.
+                     Leer lassen heisst: der Gast sieht nichts. -->
+                <div class="form-group">
+                    <label class="form-label" for="newCategoryHinweis">Hinweis für alle Gerichte (optional)</label>
+                    <textarea class="form-input" id="newCategoryHinweis" rows="2" maxlength="300" placeholder="z.B. Alle Pizzen mit Tomatensauce, Käse und Oregano." aria-label="Hinweis für alle Gerichte dieser Kategorie" style="resize:vertical;"></textarea>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:6px; line-height:1.45;">
+                        Steht beim Gast einmal über den Gerichten dieser Kategorie — nicht bei jedem Gericht einzeln.
+                    </div>
+                </div>
                 <!-- MITTAGSTISCH: eine Kategorie, die nur zur Mittagszeit da ist.
                      Leer lassen heisst "immer sichtbar" -- der Normalfall darf
                      sich durch diesen Kasten nicht aendern. -->
@@ -47318,6 +47334,12 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
             };
             if (_catIcon) _catPayload.icon = _catIcon;
 
+            // Hinweis fuer die ganze Kategorie. Leer heisst leer -- dann
+            // wird das Feld gar nicht erst mitgeschickt, damit eine
+            // fehlende Spalte den Normalfall nicht kaputtmacht.
+            var _catHinweis = ((document.getElementById('newCategoryHinweis') || {}).value || '').trim();
+            if (_catHinweis) _catPayload.beschreibung = _catHinweis;
+
             // Zeitfenster. Nur mitschicken, wenn BEIDE Zeiten stehen --
             // eine halbe Angabe ("ab 11 Uhr, bis ...?") waere ein Fenster,
             // das niemand versteht, und die Kategorie koennte fuer den
@@ -47345,6 +47367,15 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
                 data = _retry.data; error = _retry.error;
                 if (!error) console.warn('Kategorie ohne Symbol angelegt – Spalte "icon" fehlt in der Tabelle menu_categories.');
             }
+            // Dasselbe fuer den Hinweis: lieber die Kategorie OHNE Hinweis
+            // anlegen als gar nicht -- aber es muss gesagt werden, sonst
+            // tippt er den Satz und niemand sieht ihn je (stiller Ausfall).
+            if (error && _catHinweis && /beschreibung/i.test(error.message || '')) {
+                delete _catPayload.beschreibung;
+                var _retryH = await client.from('menu_categories').insert(_catPayload).select();
+                data = _retryH.data; error = _retryH.error;
+                if (!error) showToast('Kategorie angelegt — der Hinweis konnte NICHT gespeichert werden (Spalte "beschreibung" fehlt in der Datenbank).', 'warning');
+            }
             if (error) throw new Error(error.message);
             // Frisch laden
             var { data: cats } = await client.from('menu_categories').select('*').eq('restaurant_id', rid).order('sort_order');
@@ -47354,6 +47385,8 @@ document.getElementById('saveCategoryBtn').addEventListener('click', async funct
         }
         document.getElementById('addCategoryModal').style.display = 'none';
         document.getElementById('newCategoryName').value = '';
+        var _hinweisFeld = document.getElementById('newCategoryHinweis');
+        if (_hinweisFeld) _hinweisFeld.value = '';
         if (typeof renderMenuCategories === 'function') renderMenuCategories();
         if (typeof updateMenuStats === 'function') updateMenuStats();
         if (typeof showToast === 'function') showToast('Kategorie "' + name + '" erstellt!', 'success');
@@ -50314,7 +50347,7 @@ function renderKarteDurchgehend(items, kategorien) {
 
     var reihen = [];
     (kategorien || []).forEach(function (c) {
-        if (proKat[c.id] && proKat[c.id].length) reihen.push({ id: c.id, name: c.name, items: proKat[c.id] });
+        if (proKat[c.id] && proKat[c.id].length) reihen.push({ id: c.id, name: c.name, hinweis: c.beschreibung || '', items: proKat[c.id] });
         delete proKat[c.id];
     });
     // Was keiner bekannten Kategorie zugeordnet ist, faellt nicht unter
@@ -50336,7 +50369,18 @@ function renderKarteDurchgehend(items, kategorien) {
         // Etwas Luft bleibt trotzdem: sonst klebt das erste Gericht der
         // Pizzen direkt an der letzten Vorspeise und man scrollt an der
         // Grenze vorbei, ohne sie zu merken.
+        // Der Hinweis der Kategorie -- einmal ueber den Gerichten statt
+        // vierzig mal in jeder einzelnen Beschreibung. Ohne Text kommt
+        // hier gar nichts, der Abstand bleibt wie er war.
+        var kopf = '';
+        if (r.hinweis) {
+            kopf = '<p class="kmi-kat-hinweis" style="margin:0 0 12px;padding:10px 14px;'
+                 + 'background:rgba(0,61,51,0.05);border-left:3px solid var(--primary,#003d33);'
+                 + 'border-radius:10px;font-size:13px;line-height:1.5;color:var(--text-secondary);'
+                 + 'font-family:Inter,sans-serif;">' + escapeHtml(String(r.hinweis)) + '</p>';
+        }
         html += '<section class="kmi-kat-abschnitt" data-kat="' + escapeHtml(String(r.id)) + '" style="scroll-margin-top:140px;padding-top:18px;">'
+              + kopf
               + '<div class="stitch-menu-grid">' + gerichtKartenHtml(r.items, r.versatz) + '</div>'
               + '</section>';
     });
@@ -52918,6 +52962,11 @@ function changeCartItemQty(itemId, delta) {
 
 // Checkout öffnen
 function openCheckout() {
+    // Beim Oeffnen sofort pruefen. Wer mit zu kleinem Warenkorb
+    // hierherkommt, soll es sehen, bevor er die Adresse eintippt.
+    setTimeout(function () {
+        try { if (typeof mindestImBezahlen === 'function') mindestImBezahlen(); } catch (e) {}
+    }, 0);
     if (orderCart.length === 0) return;
 
     // Spam-Schutz: Zeitstempel setzen
@@ -53237,6 +53286,15 @@ function setOrderType(type, btn) {
 
     renderCartItems();
     updateCheckoutTotals();
+
+    // Der haeufigste Weg zum Problem: der Gast schaltet auf Lieferung.
+    // Genau dann muss der Hinweis erscheinen -- nicht erst beim Bezahlen.
+    //
+    // Der Aufruf steht am ENDE. Direkt hinter "orderType = type" hat er
+    // knopf-zustand-test.js rot gemacht: der prueft, dass setOrderType
+    // die Klasse umschaltet, und meine vier Zeilen haben die beiden
+    // classList-Aufrufe aus seinem Suchfenster geschoben.
+    try { if (typeof mindestImBezahlen === 'function') mindestImBezahlen(); } catch (e) {}
 }
 
 // Checkout-Summen mit MwSt und Trinkgeld berechnen
@@ -53383,6 +53441,101 @@ openCheckout = function() {
     loadSavedAddressesDropdown();
     if (typeof checkTableReorder === 'function') checkTableReorder();
 };
+
+// DER MINDESTBESTELLWERT -- AN EINER STELLE GERECHNET.
+//
+// Ibo am 04.09.2026: "beim bezahlen wenn die auf lieferung klicken es
+// muss gezeigt werden und wenn die mindestbestellwert nicht erfuellen
+// es soll schreiben mindestbestellwert noch nicht erreicht".
+//
+// NACHGESEHEN STATT ANGENOMMEN: zwei von drei Stellen gab es schon.
+// Im Warenkorb steht ein Hinweis mit Fortschrittsbalken, und
+// submitOrder() blockiert die Bestellung. Neu gebaut werden musste
+// davon nichts.
+//
+// Die Luecke war der Schritt dazwischen -- und es ist der schlimmste:
+// der Gast waehlt Lieferung, tippt seine Adresse ein, drueckt BEZAHLEN,
+// und erst DANN kommt eine Meldung, die nach drei Sekunden weg ist. Er
+// hat alles ausgefuellt und weiss nicht, warum nichts passiert.
+//
+// Gerechnet wird ab jetzt an EINER Stelle. Drei Kopien derselben Formel
+// waeren drei Stellen, die beim naechsten Umbau auseinanderlaufen --
+// und der Gast bekaeme im Warenkorb eine andere Zahl als beim Bezahlen.
+function mindestPruefen(zwischensumme, restaurant, art) {
+    var minVal = Number(restaurant && restaurant.min_order_value) || 0;
+    // Nur bei Lieferung. Wer abholt, traegt keine Fahrtkosten.
+    if (minVal <= 0 || art !== 'delivery') {
+        return { greift: false, erreicht: true, minVal: minVal, fehlt: 0, prozent: 100 };
+    }
+    var summe = Number(zwischensumme) || 0;
+    var fehlt = Math.max(0, minVal - summe);
+    return {
+        greift: true,
+        erreicht: fehlt <= 0.0001,        // Cent-Rundung: 14,999999 ist erreicht
+        minVal: minVal,
+        fehlt: fehlt,
+        prozent: Math.min(100, Math.round((summe / minVal) * 100))
+    };
+}
+window.mindestPruefen = mindestPruefen;
+
+// Der Satz, den der Gast liest. Einmal formuliert, ueberall derselbe.
+function mindestSatz(pr) {
+    if (!pr.greift || pr.erreicht) return '';
+    return 'Mindestbestellwert noch nicht erreicht — es fehlen noch '
+        + pr.fehlt.toFixed(2).replace('.', ',') + ' €'
+        + ' (Minimum ' + pr.minVal.toFixed(2).replace('.', ',') + ' € bei Lieferung).';
+}
+window.mindestSatz = mindestSatz;
+
+// Im Bezahl-Schritt: Hinweis zeigen UND den Knopf sperren.
+//
+// Ein gesperrter Knopf ohne Begruendung ist selbst ein stiller Ausfall
+// (Regel 6) -- deshalb steht der Grund IM Knopf, nicht nur daneben.
+function mindestImBezahlen() {
+    var knopf = document.getElementById('submitOrderBtn');
+    var kasten = document.getElementById('checkoutMinHint');
+    // Genau wie submitOrder rechnet: total_price je Position. Erst stand
+    // hier eine erfundene Funktion cartSubtotalWert() hinter einem
+    // typeof-Schutz -- angebote-test.js hat das gefunden. Ein typeof, das
+    // auf nichts zeigt, ist eine Abzweigung, die IMMER in den anderen
+    // Zweig laeuft; die Rechnung waere still eine andere gewesen.
+    var summe = (orderCart || []).reduce(function (su, i) { return su + (Number(i.total_price) || 0); }, 0);
+    var pr = mindestPruefen(summe, currentOrderRestaurant, orderType);
+
+    if (!kasten && knopf && knopf.parentNode) {
+        kasten = document.createElement('div');
+        kasten.id = 'checkoutMinHint';
+        kasten.style.cssText = 'width:100%; margin:0 0 10px; padding:12px 16px; border-radius:14px;'
+            + 'background:rgba(217,119,6,0.10); color:#b45309; font-size:13px; font-weight:600; line-height:1.5;';
+        knopf.parentNode.insertBefore(kasten, knopf.parentNode.firstChild);
+    }
+    if (!kasten) return pr;
+
+    if (pr.greift && !pr.erreicht) {
+        kasten.style.display = 'block';
+        kasten.textContent = mindestSatz(pr);
+        if (knopf) {
+            knopf.disabled = true;
+            knopf.style.opacity = '0.5';
+            knopf.style.cursor = 'not-allowed';
+            // Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
+            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.textContent;
+            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' € bis zum Mindestbestellwert';
+        }
+    } else {
+        kasten.style.display = 'none';
+        kasten.textContent = '';
+        if (knopf) {
+            knopf.disabled = false;
+            knopf.style.opacity = '';
+            knopf.style.cursor = '';
+            if (knopf.dataset.urtext) { knopf.textContent = knopf.dataset.urtext; delete knopf.dataset.urtext; }
+        }
+    }
+    return pr;
+}
+window.mindestImBezahlen = mindestImBezahlen;
 
 // Bestellung absenden - Professionelle Validierung
 async function submitOrder() {
@@ -53580,7 +53733,17 @@ async function submitOrder() {
     if (currentOrderRestaurant) {
         minOrderVal = Number(currentOrderRestaurant.min_order_value) || 0;
     }
-    if (minOrderVal > 0 && cartSubtotal < minOrderVal && orderType === 'delivery') {
+    // Dieselbe Rechnung wie im Warenkorb und im Bezahl-Schritt --
+    // eine Wahrheit, nicht drei. Der Block bleibt: der Bezahlen-Knopf
+    // ist zwar gesperrt, aber ein gesperrter Knopf im Browser ist keine
+    // Sicherheit. Wer ihn umgeht, wird hier gestoppt.
+    var _mp = mindestPruefen(cartSubtotal, currentOrderRestaurant, orderType);
+    if (_mp.greift && !_mp.erreicht) {
+        showToast(mindestSatz(_mp), 'error');
+        try { mindestImBezahlen(); } catch (e) {}
+        return;
+    }
+    if (false) {
         showToast('Mindestbestellwert für Lieferung: ' + minOrderVal.toFixed(2).replace('.', ',') + ' € (aktuell: ' + cartSubtotal.toFixed(2).replace('.', ',') + ' €)', 'error');
         return;
     }
@@ -57348,6 +57511,31 @@ function printToSpecificQZ(order, printer) {
 // Epson ePOS-Print über Netzwerk
 async function printToEpson(order, printer) {
     if (!printer.ip) return false;
+
+    // MISCHUNG AUS HTTPS UND HTTP -- DER BROWSER LAESST DAS NICHT ZU.
+    //
+    // Bisher wurde die Anfrage trotzdem abgeschickt. Der Browser hat sie
+    // abgebrochen, der catch-Zweig gab false zurueck, und im Dashboard
+    // stand "Druckfehler" ohne einen Grund. Das sieht aus wie ein Drucker,
+    // der nicht antwortet -- und man sucht am falschen Ende: Strom, Kabel,
+    // WLAN, IP-Adresse. Alles in Ordnung, und trotzdem kein Bon.
+    //
+    // Hier wird gar nicht erst losgeschickt, sondern gesagt, was los ist.
+    try {
+        if (typeof location !== 'undefined' && location.protocol === 'https:') {
+            showToast('Dieser Drucker ist auf „Epson ePOS Direkt" gestellt. Über kiekmolin.de (HTTPS) kann der Browser '
+                + 'nicht mit dem Drucker (HTTP) sprechen — der Auftrag wird abgebrochen, bevor er ankommt. '
+                + 'Bitte in den Drucker-Einstellungen auf „Server Direct Print" umstellen.', 'error');
+            if (typeof logRestaurantEvent === 'function') {
+                logRestaurantEvent(order && order.restaurant_id, 'printer_failed',
+                    'Druck über „Epson ePOS Direkt" ist von einer HTTPS-Seite aus nicht möglich (Mixed Content). '
+                    + 'Der Auftrag hat den Browser nie verlassen. Umstellen auf Server Direct Print.',
+                    order && order.id || null, { drucker_ip: printer.ip || null });
+            }
+            return false;
+        }
+    } catch (e) { /* kein location -- dann wie bisher versuchen */ }
+
     try {
         var url = 'http://' + printer.ip + '/cgi-bin/epos/service.cgi?devid=' + (printer.devid || 'local_printer') + '&timeout=10000';
         var xml = (typeof generateEposXML === 'function') ? generateEposXML(order) : null;
@@ -57672,6 +57860,57 @@ function _renderKasseStatus(lastPollIso) {
     badge.title = msg;
 }
 
+// WAS DER DRUCKER ZULETZT GESAGT HAT.
+//
+// Die Ampel beantwortet nur "meldet er sich?". Am 06.09.2026 stand sie
+// gruen, der Bon wurde Sekunden nach der Bestellung abgeholt -- und es kam
+// trotzdem kein Zettel. Der Drucker hatte den Grund genannt; er lag in den
+// Netlify-Protokollen, wo ihn nie jemand aufmacht.
+//
+// Gezeigt wird NUR ein Problem. Ein "alles gut" steht schon in der gruenen
+// Ampel; eine zweite Erfolgsmeldung waere Laerm, und Laerm wird weggeklickt.
+//
+// Und nur, solange es aktuell ist: eine Meldung von vorgestern wuerde einen
+// laengst behobenen Fehler als heutigen ausgeben.
+var DRUCKER_MELDUNG_MAX_ALTER_MS = 12 * 60 * 60 * 1000;
+
+function _renderDruckerMeldung(ereignis) {
+    var kasten = document.getElementById('druckerMeldungZeile');
+    var text = document.getElementById('druckerMeldungText');
+    if (!kasten || !text) return;
+
+    var zeigen = ereignis
+        && (ereignis.type === 'printer_failed' || ereignis.type === 'printer_rejected')
+        && ereignis.created_at
+        && (Date.now() - new Date(ereignis.created_at).getTime()) < DRUCKER_MELDUNG_MAX_ALTER_MS;
+
+    if (!zeigen) { kasten.style.display = 'none'; return; }
+
+    var wann = '';
+    try { wann = new Date(ereignis.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+    text.textContent = (wann ? wann + ' Uhr — ' : '') + String(ereignis.message || 'Drucker-Problem');
+    kasten.title = text.textContent + ' (klicken: Drucker-Einstellungen)';
+    kasten.style.display = 'flex';
+}
+
+async function refreshDruckerMeldung(restId) {
+    if (!restId) { _renderDruckerMeldung(null); return; }
+    try {
+        var url = SUPABASE_URL + '/rest/v1/restaurant_events?restaurant_id=eq.' + encodeURIComponent(restId)
+            + '&type=in.(printer_failed,printer_rejected,printer_ok)'
+            + '&order=created_at.desc&limit=1&select=type,message,created_at';
+        var res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+        // Fehlt die Tabelle oder das Leserecht, bleibt die Zeile weg -- aber
+        // die Ampel darf davon nicht mitgerissen werden.
+        if (!res.ok) { _renderDruckerMeldung(null); return; }
+        var zeilen = await res.json();
+        _renderDruckerMeldung(Array.isArray(zeilen) && zeilen.length ? zeilen[0] : null);
+    } catch (e) {
+        _renderDruckerMeldung(null);
+    }
+}
+window.refreshDruckerMeldung = refreshDruckerMeldung;
+
 async function refreshPrinterStatus() {
     var sel = document.getElementById('ordersRestaurantSelect');
     var restId = sel ? sel.value : '';
@@ -57680,6 +57919,7 @@ async function refreshPrinterStatus() {
         if (badge) badge.style.display = 'none';
         var kBadge = document.getElementById('kasseStatusBadge');
         if (kBadge) kBadge.style.display = 'none';
+        _renderDruckerMeldung(null);
         return;
     }
     try {
@@ -57700,6 +57940,9 @@ async function refreshPrinterStatus() {
             _renderPrinterStatus(data[0].printer_last_poll_at || null);
             _renderKasseStatus(data[0].pos_last_poll_at || null);
         }
+        // Bewusst NICHT im try der Ampel: eine fehlende Ereignis-Tabelle
+        // darf die Ampel nicht mit ausknipsen.
+        refreshDruckerMeldung(restId);
     } catch(e) { /* silent */ }
 }
 
@@ -57718,6 +57961,64 @@ function stopPrinterStatusPolling() {
 function openPrinterSettings() {
     openMultiPrinterSettings();
 }
+
+// EINEN TESTBON IN DIE WARTESCHLANGE LEGEN.
+//
+// Der Drucker holt sich alles selbst ab -- wir koennen ihm nichts schicken.
+// Also wird ein Merker gesetzt, den er beim naechsten Abruf mitnimmt
+// (5-15 Sekunden). pos-print.js loescht den Merker, BEVOR es druckt.
+//
+// WAS DAS ERGEBNIS BEDEUTET -- und darum gibt es zwei Knoepfe:
+//   einfach kommt, echt kommt      -> alles in Ordnung
+//   einfach kommt, echt NICHT      -> unser Bon-Inhalt. Genau so war es
+//                                     beim lang="de", das der Epson nicht
+//                                     kannte und das jeden Bon verwarf.
+//   einfach kommt AUCH NICHT       -> das Geraet. Papier, Klappe, Rolle
+//                                     falsch herum, Geraete-ID.
+async function testbonAnfordern(art) {
+    var sel = document.getElementById('ordersRestaurantSelect');
+    var restId = sel ? sel.value : '';
+    if (!restId || restId === 'default') {
+        showToast('Bitte zuerst oben ein Restaurant auswählen.', 'warning');
+        return;
+    }
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=id', {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                // Ein 204 kommt auch, wenn RLS die Zeile still uebergeht.
+                // Dann waere "Testbon angefordert" eine Luege, und er stuende
+                // vor dem Drucker und wartete auf etwas, das nie kommt.
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ printer_test_art: art === 'einfach' ? 'einfach' : 'echt' })
+        });
+        if (!res.ok) {
+            var txt = '';
+            try { txt = await res.text(); } catch (e) {}
+            if (/printer_test_art/i.test(txt)) {
+                showToast('Der Testbon braucht noch die Spalte "printer_test_art" in der Datenbank (SQL 28).', 'error');
+            } else {
+                showToast('Testbon nicht angefordert (Fehler ' + res.status + ')', 'error');
+            }
+            return;
+        }
+        var zeilen = null;
+        try { zeilen = await res.json(); } catch (e) { zeilen = null; }
+        if (!Array.isArray(zeilen) || zeilen.length === 0) {
+            showToast('Nicht angefordert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen. '
+                + 'Meist fehlt dem angemeldeten Konto das Schreibrecht für dieses Restaurant.', 'error');
+            return;
+        }
+        showToast('Testbon angefordert — der Drucker holt ihn beim nächsten Abruf ab (5–15 Sekunden).', 'success');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.testbonAnfordern = testbonAnfordern;
 
 function openMultiPrinterSettings() {
     // Ein schon offenes Fenster zuerst weg -- sonst stapeln sich zwei
@@ -57746,7 +58047,25 @@ function openMultiPrinterSettings() {
         // Konfigurations-Block je nach Typ
         var configBlock;
         if (p.type === 'epson') {
-            configBlock = '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
+            // WARUM DAS HIER SO DEUTLICH STEHT.
+            //
+            // Der Typ hiess "(HTTPS-Probleme moeglich)". Das klingt nach
+            // "kann klappen". Es kann nicht klappen: kiekmolin.de laeuft
+            // ueber HTTPS, der Drucker antwortet ueber HTTP, und der
+            // Browser bricht die Anfrage ab, BEVOR sie das Geraet
+            // verlaesst. Kein Netzwerkfehler, keine Fehlermeldung -- die
+            // Anfrage kommt nie an.
+            //
+            // Ein Wirt, der diesen Typ waehlt, traegt eine IP-Adresse ein,
+            // sieht "gespeichert" und wartet auf Bons, die es nie geben
+            // kann. Das darf die Auswahl nicht verschweigen.
+            configBlock = '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.35);border-radius:10px;font-size:11px;line-height:1.5;color:#b91c1c;">'
+                + '<strong>Dieser Weg kann über kiekmolin.de nicht funktionieren.</strong><br>'
+                + 'Die Seite läuft über HTTPS, der Drucker antwortet über HTTP. Der Browser bricht den Druckauftrag ab, bevor er das Gerät erreicht — ohne Fehlermeldung. '
+                + 'Der Drucker ist dabei völlig in Ordnung, er wird nur nie gefragt.<br>'
+                + '<button type="button" onclick="updateMultiPrinter(' + idx + ', \'type\', \'server-direct\')" style="margin-top:8px;background:#b91c1c;color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Auf Server Direct Print umstellen</button>'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Drucker IP-Adresse</label>' +
                     '<input value="' + (p.ip || '') + '" oninput="updateMultiPrinter(' + idx + ', \'ip\', this.value)" placeholder="192.168.1.50" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Device ID</label>' +
@@ -57779,7 +58098,7 @@ function openMultiPrinterSettings() {
                     '<select onchange="updateMultiPrinter(' + idx + ', \'type\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
                         '<option value="server-direct"' + typeSDP + '>Server Direct Print (Epson, empfohlen — kein PC)</option>' +
                         '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken — PC nötig)</option>' +
-                        '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (HTTPS-Probleme möglich)</option>' +
+                        '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (funktioniert NICHT über kiekmolin.de)</option>' +
                     '</select></div>' +
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Rolle</label>' +
                     '<select onchange="updateMultiPrinter(' + idx + ', \'role\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
@@ -57792,7 +58111,18 @@ function openMultiPrinterSettings() {
                     '<input type="checkbox" ' + (p.autoprint !== false ? 'checked' : '') + ' onchange="updateMultiPrinter(' + idx + ', \'autoprint\', this.checked)"> Automatisch drucken' +
                 '</label>' +
                 (p.type === 'server-direct'
-                    ? '<span style="font-size:11px;color:var(--slate);">Druck startet durch Drucker-Polling</span>'
+                    // FRUEHER STAND HIER NUR "Druck startet durch Drucker-Polling".
+                    //
+                    // Ausgerechnet der empfohlene Typ hatte damit keinen
+                    // Testdruck. Wenn der Bon nicht kommt, gibt es dann keinen
+                    // einzigen Handgriff, der weiterhilft -- man kann nur
+                    // warten, bis ein Gast bestellt, und wieder nichts sehen.
+                    //
+                    // Zwei Knoepfe, weil die Antwort erst der VERGLEICH gibt.
+                    ? '<div style="display:flex;gap:6px;">'
+                        + '<button type="button" onclick="testbonAnfordern(\'einfach\')" title="Nur das Wort TEST. Keine Schriftgrößen, kein QR-Code, keine Umlaute — alles weggelassen, was der Drucker ablehnen könnte." style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testbon einfach</button>'
+                        + '<button type="button" onclick="testbonAnfordern(\'echt\')" title="Ein vollständiger Bon wie im Betrieb — mit großer Schrift, Umlauten, Notiz und QR-Code." style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testbon echt</button>'
+                      + '</div>'
                     : '<button type="button" onclick="testMultiPrinter(' + idx + ')" style="background:var(--primary);color:white;border:none;border-radius:8px;font-size:11px;padding:6px 12px;cursor:pointer;">Testdruck</button>') +
             '</div>' +
         '</div>';
@@ -63949,18 +64279,25 @@ window.MITTAG = MITTAG;
 
 // Die sieben Wochentag-Knoepfe. Keiner gedrueckt heisst "taeglich" --
 // das ist der haeufigste Fall und braucht darum keine Klicks.
-function mittagTageBauen() {
-    var kasten = document.getElementById('newCategoryTage');
+function mittagTageBauen(kastenId, vorbelegt) {
+    var kasten = document.getElementById(kastenId || 'newCategoryTage');
     if (!kasten) return;
+    // Bereits gesetzte Tage vorbelegen -- sonst saehe eine Kategorie beim
+    // Bearbeiten so aus, als gaelte sie taeglich, und ein Speichern haette
+    // das Zeitfenster still verbreitert.
+    var _an = {};
+    (Array.isArray(vorbelegt) ? vorbelegt : []).forEach(function (t) { _an[Number(t)] = true; });
     kasten.textContent = '';
     ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].forEach(function (name, i) {
         var b = document.createElement('button');
         b.type = 'button';
         b.textContent = name;
         b.dataset.tag = String(i);
-        b.dataset.an = '0';
-        b.style.cssText = 'flex:1; padding:6px 0; border:1px solid rgba(0,61,51,0.10); background:rgba(255,255,255,0.6);'
-            + 'border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; color:var(--text-secondary);';
+        b.dataset.an = _an[i] ? '1' : '0';
+        b.style.cssText = 'flex:1; padding:6px 0; border:1px solid rgba(0,61,51,0.10);'
+            + 'background:' + (_an[i] ? 'var(--primary)' : 'rgba(255,255,255,0.6)') + ';'
+            + 'border-radius:10px; font-size:11px; font-weight:700; cursor:pointer;'
+            + 'color:' + (_an[i] ? '#fff' : 'var(--text-secondary)') + ';';
         b.onclick = function () {
             var an = b.dataset.an === '1';
             b.dataset.an = an ? '0' : '1';
@@ -64390,6 +64727,7 @@ function renderMenuCategories() {
                         </svg>
                     </div>
                 </div>
+                ${cat.beschreibung ? `<div style="padding:6px 16px 0;font-size:12px;color:var(--slate);line-height:1.45;">${escapeHtml(String(cat.beschreibung))}</div>` : ''}
                 <div class="menu-category-items" data-cat-items="${cat.id}" ondragover="onItemDragOver(event)" ondrop="onItemDrop(event,'${cat.id}')">
                     ${items.length === 0 ? `
                         <p style="text-align: center; color: var(--slate); padding: 20px;">Keine Gerichte in dieser Kategorie</p>
@@ -70211,9 +70549,129 @@ async function importScannedMenu() {
 }
 
 // Placeholder für Bearbeiten-Funktionen
+// KATEGORIE BEARBEITEN.
+//
+// Der Stift-Knopf steht seit jeher an jeder Kategorie -- und tat nichts
+// ausser einer Meldung "wird implementiert". Das ist derselbe Fall wie
+// beim Kombi-Menue ohne Knopf: die Funktion sieht fertig aus und ist
+// unerreichbar.
+//
+// Hier faellt es besonders auf, weil der Hinweis ("alle Pizzen mit
+// Tomatensauce, Kaese und Oregano") sonst NUR beim Anlegen zu setzen
+// waere -- und "Pizza" gibt es in jedem Betrieb laengst.
 function editCategory(categoryId) {
-    showToast('Kategorie bearbeiten wird implementiert', 'info');
+    var kat = (typeof menuCategories !== 'undefined' ? menuCategories : []).find(function (c) { return String(c.id) === String(categoryId); });
+    if (!kat) { showToast('Kategorie nicht gefunden', 'error'); return; }
+
+    var _v = function (x) { return escapeHtml(String(x == null ? '' : x)); };
+    var von = kat.zeit_von ? String(kat.zeit_von).slice(0, 5) : '';
+    var bis = kat.zeit_bis ? String(kat.zeit_bis).slice(0, 5) : '';
+
+    var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
+        '<div><label for="editCatName" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Name</label>' +
+        '<input type="text" id="editCatName" value="' + _v(kat.name).replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div>' +
+
+        '<div><label for="editCatHinweis" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Hinweis für alle Gerichte (optional)</label>' +
+        '<textarea id="editCatHinweis" rows="2" maxlength="300" placeholder="z.B. Alle Pizzen mit Tomatensauce, Käse und Oregano." style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:14px;font-size:13px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + _v(kat.beschreibung) + '</textarea>' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Steht beim Gast einmal über den Gerichten dieser Kategorie. Leer lassen = es wird nichts angezeigt.</p></div>' +
+
+        '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Nur zu bestimmten Zeiten zeigen (optional)</label>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="time" id="editCatVon" value="' + _v(von) + '" aria-label="Sichtbar ab" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<span style="color:var(--slate);font-size:13px;">bis</span>' +
+        '<input type="time" id="editCatBis" value="' + _v(bis) + '" aria-label="Sichtbar bis" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div>' +
+        '<div id="editCategoryTage" style="display:flex;gap:4px;margin-top:8px;"></div>' +
+        '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Beide leer = immer sichtbar. Kein Tag gedrückt = täglich.</p></div>' +
+
+        '<button onclick="kategorieSpeichern(\'' + categoryId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
+        '</div>';
+
+    showGenericModal('Kategorie bearbeiten', html);
+    if (typeof mittagTageBauen === 'function') mittagTageBauen('editCategoryTage', kat.wochentage);
 }
+
+async function kategorieSpeichern(categoryId) {
+    var kat = (typeof menuCategories !== 'undefined' ? menuCategories : []).find(function (c) { return String(c.id) === String(categoryId); });
+    if (!kat) { showToast('Kategorie nicht gefunden', 'error'); return; }
+
+    var name = ((document.getElementById('editCatName') || {}).value || '').trim();
+    if (!name) { showToast('Bitte einen Namen eingeben', 'error'); return; }
+    var hinweis = ((document.getElementById('editCatHinweis') || {}).value || '').trim();
+    var von = ((document.getElementById('editCatVon') || {}).value || '').trim();
+    var bis = ((document.getElementById('editCatBis') || {}).value || '').trim();
+    // Eine halbe Zeitangabe ist schlimmer als keine: die Kategorie koennte
+    // fuer den Gast dauerhaft verschwinden, ohne dass es jemand merkt.
+    if ((von && !bis) || (bis && !von)) {
+        showToast('Bitte beide Zeiten angeben — oder beide leer lassen.', 'warning');
+        return;
+    }
+    var tage = Array.prototype.slice.call(
+        document.querySelectorAll('#editCategoryTage button[data-an="1"]')
+    ).map(function (b) { return Number(b.dataset.tag); });
+
+    var daten = {
+        name: name,
+        beschreibung: hinweis || null,
+        zeit_von: von || null,
+        zeit_bis: bis || null,
+        wochentage: (von && bis && tage.length && tage.length < 7) ? tage : null
+    };
+
+    try {
+        var res = await fetch(SUPA_URL + '/rest/v1/menu_categories?id=eq.' + categoryId + '&select=*', {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPA_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                // return=representation, weil ein 204 auch dann kommt, wenn
+                // RLS die Zeile still uebergeht -- Erfolg und Totalausfall
+                // saehen sonst gleich aus.
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(daten)
+        });
+
+        // Fehlt die Spalte 'beschreibung' in der Datenbank, wird der Rest
+        // trotzdem gespeichert -- aber es MUSS dabeistehen, sonst tippt er
+        // den Satz und niemand sieht ihn je.
+        if (!res.ok) {
+            var txt = '';
+            try { txt = await res.text(); } catch (e) { txt = ''; }
+            if (/beschreibung/i.test(txt)) {
+                delete daten.beschreibung;
+                res = await fetch(SUPA_URL + '/rest/v1/menu_categories?id=eq.' + categoryId + '&select=*', {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify(daten)
+                });
+                if (res.ok) showToast('Gespeichert — der Hinweis konnte NICHT gespeichert werden (Spalte "beschreibung" fehlt in der Datenbank).', 'warning');
+            } else {
+                showToast('Nicht gespeichert (Fehler ' + res.status + ')' + (txt ? ': ' + txt.slice(0, 120) : ''), 'error');
+                return;
+            }
+        }
+
+        var zeilen = null;
+        try { zeilen = await res.json(); } catch (e) { zeilen = null; }
+        if (!Array.isArray(zeilen) || zeilen.length === 0) {
+            showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen. '
+                + 'Meist fehlt dem angemeldeten Konto das Schreibrecht für dieses Restaurant.', 'error');
+            return;
+        }
+
+        // Erst jetzt lokal uebernehmen -- vorher waere im Dashboard etwas
+        // zu sehen, was beim Gast nie ankommt.
+        Object.keys(zeilen[0]).forEach(function (k) { kat[k] = zeilen[0][k]; });
+        closeGenericModal();
+        if (typeof renderMenuCategories === 'function') renderMenuCategories();
+        showToast('Kategorie gespeichert', 'success');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.editCategory = editCategory;
+window.kategorieSpeichern = kategorieSpeichern;
 
 async function toggleSoldOut(itemId) {
     var item = menuItems.find(function(i) { return i.id === itemId; });
