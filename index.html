@@ -19288,6 +19288,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <p style="font-size: 16px; color: var(--text-secondary); margin: 0;">Erstelle attraktive Angebote für deine Gäste</p>
             </header>
 
+            <!-- DER MITTAGSTISCH GEHOERT HIERHIN.
+                 Ibo hat ihn am 07.09.2026 unter "Angebote" gesucht und
+                 nicht gefunden -- weil er dort nicht stand. Das war der
+                 naheliegende Ort, und wir haben ihn nirgends widerlegt.
+                 Ein Tagesangebot ist EIN Gericht; der Mittagstisch sind
+                 fuenf, und die aendern sich taeglich. -->
+            <div class="panel" style="margin-bottom:16px;border-left:3px solid var(--primary);">
+                <div class="panel-content" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:260px;">
+                        <div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:800;margin-bottom:4px;">Mittagstisch</div>
+                        <div style="font-size:13px;color:var(--text-secondary);line-height:1.55;">
+                            Mehrere Gerichte für <strong>einen Tag</strong> — Vorspeise, Hauptgerichte, Dessert.
+                            Jeden Tag neu, mit „Von gestern übernehmen" in zwei Minuten erledigt.
+                            Ein Tagesangebot daneben ist <strong>ein</strong> Gericht mit durchgestrichenem Preis.
+                        </div>
+                    </div>
+                    <button type="button" onclick="mittagstischOeffnen()" class="dash-btn dash-btn-primary" style="white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">restaurant</span>
+                        Mittagstisch eintragen
+                    </button>
+                </div>
+            </div>
+
             <div class="panels-grid" style="margin-top: 0;">
                 <div class="panel">
                     <div class="panel-header">
@@ -64277,6 +64300,404 @@ var MITTAG = {
 };
 window.MITTAG = MITTAG;
 
+// ====================== DER MITTAGSTISCH ======================
+//
+// Ibo am 07.09.2026: "mittagstisch was der gastronom HEUTE anbietet,
+// 5 gerichte -- vorspeise, hauptgericht, dessert oder mehrere
+// hauptgerichte -- da aendert sich staendig."
+//
+// Was vorher "Mittagstisch" hiess, war eine Kategorie mit Zeitfenster.
+// Die loest "nur von 11 bis 14 Uhr" -- nicht "heute diese fuenf, morgen
+// andere". Das Taegliche fehlte.
+//
+// NACHGESEHEN STATT NEU GEBAUT: daily_specials kann das laengst. Eine
+// date-Spalte, also eine Zeile pro Gericht pro Tag, und die Gastseite
+// liest schon mehrere davon samt Zeitfenster. Es fehlte nur der schnelle
+// Weg: das Formular legt genau EINS an und ist danach wieder leer. Fuenf
+// Gerichte hiessen fuenfmal alles tippen.
+var MITTAGSTISCH = {
+    // Wie viele der Gast wirklich sieht. Die Abfrage beim Gast hat ein
+    // Limit -- traegt er mehr ein, verschwinden die letzten lautlos.
+    // Darum steht die Zahl HIER und wird an beiden Enden benutzt.
+    MAX: 8,
+
+    // Der heutige Tag in DEUTSCHER Zeit. Nicht die Zeit des Geraets:
+    // ein Gast im Urlaub bekaeme sonst den Mittagstisch von gestern
+    // oder morgen -- und wuerde nie erfahren, warum er nichts findet.
+    heute: function (zeitpunkt) {
+        var d = zeitpunkt || new Date();
+        try {
+            var t = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(d);
+            var o = {};
+            t.forEach(function (p) { o[p.type] = p.value; });
+            if (o.year && o.month && o.day) return o.year + '-' + o.month + '-' + o.day;
+        } catch (e) { /* faellt unten auf die Geraetezeit zurueck */ }
+        return d.toLocaleDateString('sv-SE');
+    },
+
+    // Das Zeitfenster wird dem Text vorangestellt -- "[11:00-14:00] ".
+    // ABSICHTLICH so: angebotLaeuftNoch() liest genau diese Schreibweise
+    // seit jeher aus der Beschreibung. Damit gilt die Uhrzeit sofort,
+    // ohne eine einzige neue Spalte und ohne zweiten Weg, der spaeter
+    // auseinanderlaeuft.
+    fenster: function (von, bis) {
+        if (!von || !bis) return '';
+        if (!/^\d{2}:\d{2}$/.test(von) || !/^\d{2}:\d{2}$/.test(bis)) return '';
+        return '[' + von + '-' + bis + '] ';
+    },
+
+    // Aus den Formularzeilen wird eine saubere Liste. Zeilen ohne Namen
+    // fallen weg -- leere Zeilen sind der Normalfall, nicht ein Fehler.
+    lesen: function (roh) {
+        return (Array.isArray(roh) ? roh : []).map(function (z) {
+            return {
+                name: String((z && z.name) || '').trim(),
+                beschreibung: String((z && z.beschreibung) || '').trim(),
+                preis: (z && z.preis !== '' && z.preis != null && isFinite(Number(z.preis)))
+                    ? Number(z.preis) : null
+            };
+        }).filter(function (z) { return z.name !== ''; });
+    },
+
+    // WIE SIEHT DAS AUS, WENN ES KAPUTT IST? Genau darum diese Pruefung.
+    // Jeder Fall hier war sonst still: ein Gericht ohne Preis sieht beim
+    // Gast aus wie geschenkt, ein Tippfehler beim Preis wie ein Angebot,
+    // und alles ueber dem Limit ist einfach nicht da.
+    pruefen: function (zeilen, von, bis) {
+        var ohnePreis = zeilen.filter(function (z) { return z.preis == null; })
+                              .map(function (z) { return z.name; });
+        var negativ = zeilen.filter(function (z) { return z.preis != null && z.preis < 0; })
+                            .map(function (z) { return z.name; });
+        var verdaechtig = zeilen.filter(function (z) { return z.preis != null && z.preis > 0 && z.preis < 2; })
+                                .map(function (z) { return z.name; });
+        var doppelt = [];
+        var gesehen = {};
+        zeilen.forEach(function (z) {
+            var k = z.name.toLowerCase();
+            if (gesehen[k]) { if (doppelt.indexOf(z.name) < 0) doppelt.push(z.name); }
+            gesehen[k] = true;
+        });
+        // Eine halbe Zeitangabe waere ein Fenster, das niemand versteht --
+        // und der Mittagstisch koennte dauerhaft unsichtbar bleiben.
+        var halbesFenster = (!!von && !bis) || (!!bis && !von);
+        return {
+            anzahl: zeilen.length,
+            leer: zeilen.length === 0,
+            ohnePreis: ohnePreis,
+            negativ: negativ,
+            verdaechtig: verdaechtig,
+            doppelt: doppelt,
+            zuViele: Math.max(0, zeilen.length - this.MAX),
+            halbesFenster: halbesFenster,
+            gueltig: zeilen.length > 0 && ohnePreis.length === 0
+                     && negativ.length === 0 && !halbesFenster
+                     && zeilen.length <= this.MAX
+        };
+    },
+
+    // Aus einer geprueften Zeile wird die Zeile fuer daily_specials.
+    //
+    // Die id wird aus Zeitstempel UND Position gebildet. Mit blossem
+    // Date.now() bekaemen mehrere Gerichte, die im selben Millisekunden-
+    // takt gespeichert werden, dieselbe id -- und die Datenbank haette
+    // vier von fuenf Gerichten abgewiesen.
+    zeile: function (z, i, restaurantId, datum, praefix, stempel) {
+        return {
+            id: (stempel || Date.now()) + i,
+            restaurant_id: restaurantId,
+            title: z.name,
+            description: (praefix || '') + z.beschreibung,
+            price: z.preis,
+            old_price: null,
+            valid_until: null,
+            date: datum,
+            is_active: true,
+            sorte: 'mittagstisch'
+        };
+    }
+};
+window.MITTAGSTISCH = MITTAGSTISCH;
+
+// Das Fenster. Fuenf Zeilen stehen von Anfang an da -- ein leeres
+// Formular mit einem "+"-Knopf ist eine Aufgabe mehr, und der Wirt
+// macht das taeglich zwischen zwei Bestellungen.
+function mittagstischOeffnen() {
+    var restId = (document.getElementById('ordersRestaurantSelect') || {}).value
+              || (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant)
+              || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : '');
+    if (!restId || restId === 'default') { showToast('Bitte zuerst oben ein Restaurant auswählen.', 'warning'); return; }
+
+    var alt = document.getElementById('mittagstischModal');
+    if (alt) alt.remove();
+
+    var kasten = document.createElement('div');
+    kasten.id = 'mittagstischModal';
+    kasten.className = 'modal-overlay active';
+    kasten.style.zIndex = '10010';
+    kasten.innerHTML =
+        '<div class="modal" style="max-width:620px;">' +
+          '<div class="modal-header">' +
+            '<h2 class="modal-title" style="font-family:Epilogue,sans-serif;">Mittagstisch</h2>' +
+            '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'mittagstischModal\').remove()">×</button>' +
+          '</div>' +
+          '<div class="modal-body">' +
+            '<p style="font-size:12px;color:var(--slate);margin:0 0 14px;line-height:1.5;">' +
+              'Was heute auf der Tafel steht. Jeden Tag neu — die Gerichte gelten nur für das Datum unten und verschwinden danach von selbst.</p>' +
+            '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+              '<div style="flex:1;min-width:150px;"><label class="form-label" for="mtDatum">Für welchen Tag</label>' +
+                '<input type="date" class="form-input" id="mtDatum" value="' + MITTAGSTISCH.heute() + '" onchange="mittagstischVorschau()"></div>' +
+              '<div style="flex:1;min-width:180px;"><label class="form-label">Nur zu dieser Zeit zeigen</label>' +
+                '<div style="display:flex;align-items:center;gap:6px;">' +
+                  '<input type="time" class="form-input" id="mtVon" style="flex:1;" aria-label="Sichtbar ab" oninput="mittagstischVorschau()">' +
+                  '<span style="color:var(--slate);font-size:13px;">bis</span>' +
+                  '<input type="time" class="form-input" id="mtBis" style="flex:1;" aria-label="Sichtbar bis" oninput="mittagstischVorschau()">' +
+                '</div></div>' +
+            '</div>' +
+            '<label class="form-label">Die Gerichte von heute</label>' +
+            '<div id="mtZeilen"></div>' +
+            '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
+              '<button type="button" onclick="mittagstischZeile()" style="padding:8px 14px;border:1px dashed rgba(0,61,51,0.25);background:transparent;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-secondary);">+ Gericht</button>' +
+              '<button type="button" onclick="mittagstischUebernehmen()" style="padding:8px 14px;border:1px solid rgba(0,61,51,0.15);background:transparent;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-secondary);">Von gestern übernehmen</button>' +
+            '</div>' +
+            '<div id="mtHinweise" style="margin-top:12px;"></div>' +
+          '</div>' +
+          '<div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;">' +
+            '<button type="button" onclick="document.getElementById(\'mittagstischModal\').remove()" style="padding:12px 20px;border:1px solid rgba(0,61,51,0.10);background:transparent;border-radius:12px;font-weight:600;cursor:pointer;">Abbrechen</button>' +
+            '<button type="button" id="mtSpeichern" onclick="mittagstischSpeichern()" style="padding:12px 24px;border:none;background:var(--primary);color:#fff;border-radius:12px;font-weight:700;cursor:pointer;">Mittagstisch veröffentlichen</button>' +
+          '</div>' +
+        '</div>';
+    document.body.appendChild(kasten);
+    for (var i = 0; i < 5; i++) mittagstischZeile();
+    mittagstischVorschau();
+}
+window.mittagstischOeffnen = mittagstischOeffnen;
+
+function mittagstischZeile(name, preis, beschreibung) {
+    var liste = document.getElementById('mtZeilen');
+    if (!liste) return;
+    if (liste.children.length >= MITTAGSTISCH.MAX) {
+        showToast('Mehr als ' + MITTAGSTISCH.MAX + ' Gerichte zeigt die Gastseite nicht an.', 'info');
+        return;
+    }
+    var z = document.createElement('div');
+    z.className = 'mt-zeile';
+    z.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+    var esc = function (x) { return String(x == null ? '' : x).replace(/"/g, '&quot;'); };
+    z.innerHTML =
+        '<input type="text" class="form-input mt-name" value="' + esc(name) + '" placeholder="z. B. Grünkohl mit Pinkel" aria-label="Name des Gerichts" style="flex:2;" oninput="mittagstischVorschau()">' +
+        '<input type="text" class="form-input mt-besch" value="' + esc(beschreibung) + '" placeholder="Beilage (optional)" aria-label="Beschreibung des Gerichts" style="flex:2;">' +
+        '<input type="number" step="0.10" min="0" class="form-input mt-preis" value="' + esc(preis) + '" placeholder="9,90" aria-label="Preis in Euro" style="flex:1;" oninput="mittagstischVorschau()">' +
+        '<button type="button" onclick="this.parentNode.remove(); mittagstischVorschau();" aria-label="Gericht entfernen" style="border:none;background:transparent;cursor:pointer;color:var(--slate);padding:4px;">×</button>';
+    liste.appendChild(z);
+    mittagstischVorschau();
+}
+window.mittagstischZeile = mittagstischZeile;
+
+function mittagstischZeilenLesen() {
+    return MITTAGSTISCH.lesen(
+        Array.prototype.slice.call(document.querySelectorAll('#mtZeilen .mt-zeile')).map(function (z) {
+            return {
+                name: (z.querySelector('.mt-name') || {}).value,
+                beschreibung: (z.querySelector('.mt-besch') || {}).value,
+                preis: (z.querySelector('.mt-preis') || {}).value
+            };
+        })
+    );
+}
+window.mittagstischZeilenLesen = mittagstischZeilenLesen;
+
+// Was schiefgehen kann, steht da BEVOR er speichert -- nicht danach beim
+// Gast. Ein Gericht ohne Preis sieht auf der Karte aus wie geschenkt.
+function mittagstischVorschau() {
+    var kasten = document.getElementById('mtHinweise');
+    if (!kasten) return;
+    var zeilen = mittagstischZeilenLesen();
+    var von = (document.getElementById('mtVon') || {}).value || '';
+    var bis = (document.getElementById('mtBis') || {}).value || '';
+    var r = MITTAGSTISCH.pruefen(zeilen, von, bis);
+
+    function warn(text, farbe) {
+        return '<div style="margin-top:6px;padding:10px 12px;border-radius:12px;background:' + farbe[0]
+             + ';color:' + farbe[1] + ';font-size:12px;font-weight:600;line-height:1.5;">' + text + '</div>';
+    }
+    var rot = ['rgba(220,38,38,0.09)', '#b91c1c'];
+    var gelb = ['rgba(180,83,9,0.09)', '#b45309'];
+    var grau = ['rgba(0,0,0,0.04)', 'var(--text-secondary)'];
+
+    var teile = [];
+    if (r.leer) {
+        teile.push(warn('Noch kein Gericht eingetragen. Veröffentlichen würde den Mittagstisch für diesen Tag leeren.', grau));
+    }
+    if (r.ohnePreis.length) {
+        teile.push(warn('Ohne Preis: ' + r.ohnePreis.join(', ') + '. Der Gast sähe das Gericht ohne Betrag — das sieht aus wie geschenkt.', rot));
+    }
+    if (r.negativ.length) {
+        teile.push(warn('Negativer Preis: ' + r.negativ.join(', ') + '.', rot));
+    }
+    if (r.halbesFenster) {
+        teile.push(warn('Bitte beide Zeiten angeben — oder beide leer lassen. Eine halbe Angabe kann den Mittagstisch dauerhaft unsichtbar machen.', rot));
+    }
+    if (r.zuViele > 0) {
+        teile.push(warn('Der Gast sieht höchstens ' + MITTAGSTISCH.MAX + ' Gerichte. Die letzten ' + r.zuViele + ' würden nicht erscheinen.', rot));
+    }
+    if (r.verdaechtig.length) {
+        teile.push(warn('Sehr günstig: ' + r.verdaechtig.join(', ') + '. Ein Tippfehler? (9,90 statt 0,99?)', gelb));
+    }
+    if (r.doppelt.length) {
+        teile.push(warn('Zweimal derselbe Name: ' + r.doppelt.join(', ') + '.', gelb));
+    }
+    if (r.gueltig) {
+        var zeit = MITTAGSTISCH.fenster(von, bis)
+            ? ' — sichtbar von ' + von + ' bis ' + bis + ' Uhr'
+            : ' — den ganzen Tag sichtbar';
+        teile.push(warn(r.anzahl + (r.anzahl === 1 ? ' Gericht' : ' Gerichte') + zeit + '.', grau));
+    }
+    kasten.innerHTML = teile.join('');
+}
+window.mittagstischVorschau = mittagstischVorschau;
+
+function _mtRestId() {
+    return (document.getElementById('ordersRestaurantSelect') || {}).value
+        || (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant)
+        || (typeof RESTAURANT_ID !== 'undefined' ? RESTAURANT_ID : '');
+}
+function _mtKopf(extra) {
+    return Object.assign({
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + kmiToken(),
+        'Content-Type': 'application/json'
+    }, extra || {});
+}
+
+// VON GESTERN UEBERNEHMEN.
+//
+// Der haeufigste Fall ist nicht "fuenf voellig neue Gerichte", sondern
+// "drei wie gestern, zwei neu". Ohne diesen Knopf tippt er jeden Tag
+// alles neu -- und laesst es nach einer Woche bleiben.
+async function mittagstischUebernehmen() {
+    var restId = _mtRestId();
+    var datumFeld = document.getElementById('mtDatum');
+    var ziel = (datumFeld && datumFeld.value) || MITTAGSTISCH.heute();
+    var vortag = new Date(ziel + 'T12:00:00');
+    vortag.setDate(vortag.getDate() - 1);
+    var quelle = vortag.toLocaleDateString('sv-SE');
+
+    try {
+        var url = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restId)
+                + '&date=eq.' + quelle + '&order=id.asc&select=title,description,price';
+        var res = await fetch(url, { headers: _mtKopf() });
+        if (!res.ok) { showToast('Konnte den Vortag nicht laden (Fehler ' + res.status + ')', 'error'); return; }
+        var zeilen = await res.json();
+        if (!Array.isArray(zeilen) || zeilen.length === 0) {
+            showToast('Für den ' + new Date(quelle + 'T12:00:00').toLocaleDateString('de-DE') + ' ist nichts eingetragen.', 'info');
+            return;
+        }
+        var liste = document.getElementById('mtZeilen');
+        if (liste) liste.innerHTML = '';
+        zeilen.slice(0, MITTAGSTISCH.MAX).forEach(function (z) {
+            // Das Zeitfenster steckt als "[11:00-14:00] " vorne in der
+            // Beschreibung. Beim Uebernehmen muss es raus, sonst stuende
+            // es beim naechsten Speichern doppelt drin.
+            var besch = String(z.description || '').replace(/^\[\d{2}:\d{2}-\d{2}:\d{2}\]\s*/, '');
+            mittagstischZeile(z.title || '', z.price != null ? z.price : '', besch);
+        });
+        var m = String((zeilen[0] && zeilen[0].description) || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
+        if (m) {
+            var vf = document.getElementById('mtVon'); if (vf) vf.value = m[1];
+            var bf = document.getElementById('mtBis'); if (bf) bf.value = m[2];
+        }
+        mittagstischVorschau();
+        showToast(zeilen.length + ' Gerichte vom Vortag übernommen — jetzt anpassen.', 'success');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.mittagstischUebernehmen = mittagstischUebernehmen;
+
+async function mittagstischSpeichern() {
+    var restId = _mtRestId();
+    var datum = (document.getElementById('mtDatum') || {}).value || MITTAGSTISCH.heute();
+    var von = (document.getElementById('mtVon') || {}).value || '';
+    var bis = (document.getElementById('mtBis') || {}).value || '';
+    var zeilen = mittagstischZeilenLesen();
+    var r = MITTAGSTISCH.pruefen(zeilen, von, bis);
+
+    if (!r.gueltig && !r.leer) {
+        showToast('Bitte zuerst die roten Hinweise beheben.', 'error');
+        return;
+    }
+    if (r.leer && !confirm('Kein Gericht eingetragen. Soll der Mittagstisch für diesen Tag geleert werden?')) return;
+
+    var knopf = document.getElementById('mtSpeichern');
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Speichert…'; }
+
+    try {
+        // ERST DAS ALTE WEG -- aber NUR die eigene Sorte. Ein normales
+        // Tagesangebot liegt in derselben Tabelle am selben Datum und
+        // darf nicht mit verschwinden.
+        var weg = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restId)
+                + '&date=eq.' + datum + '&sorte=eq.mittagstisch';
+        var del = await fetch(weg, { method: 'DELETE', headers: _mtKopf({ 'Prefer': 'return=minimal' }) });
+        if (!del.ok) {
+            var dt = ''; try { dt = await del.text(); } catch (e) {}
+            if (/sorte/i.test(dt)) {
+                showToast('Der Mittagstisch braucht noch die Spalte "sorte" in der Datenbank (SQL 29). '
+                    + 'Ohne sie würde das Veröffentlichen auch ein normales Tagesangebot löschen — darum wird hier abgebrochen.', 'error');
+                return;
+            }
+            showToast('Der alte Mittagstisch ließ sich nicht entfernen (Fehler ' + del.status + '). Nichts geändert.', 'error');
+            return;
+        }
+
+        if (r.leer) {
+            document.getElementById('mittagstischModal').remove();
+            showToast('Mittagstisch für diesen Tag geleert.', 'success');
+            return;
+        }
+
+        var praefix = MITTAGSTISCH.fenster(von, bis);
+        var stempel = Date.now();
+        var nutz = zeilen.map(function (z, i) {
+            return MITTAGSTISCH.zeile(z, i, restId, datum, praefix, stempel);
+        });
+
+        var res = await fetch(SUPABASE_URL + '/rest/v1/daily_specials', {
+            method: 'POST',
+            // return=representation, weil ein 201 ohne Rumpf auch dann
+            // kommt, wenn RLS still nichts geschrieben hat. Erfolg und
+            // Totalausfall saehen sonst gleich aus -- und der alte
+            // Mittagstisch ist zu diesem Zeitpunkt schon weg.
+            headers: _mtKopf({ 'Prefer': 'return=representation' }),
+            body: JSON.stringify(nutz)
+        });
+        if (!res.ok) {
+            var t = ''; try { t = await res.text(); } catch (e) {}
+            showToast('Nicht gespeichert (Fehler ' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''), 'error');
+            return;
+        }
+        var zurueck = null;
+        try { zurueck = await res.json(); } catch (e) { zurueck = null; }
+        if (!Array.isArray(zurueck) || zurueck.length !== nutz.length) {
+            showToast('Nicht vollständig gespeichert: ' + (Array.isArray(zurueck) ? zurueck.length : 0)
+                + ' von ' + nutz.length + ' Gerichten sind angekommen. Bitte noch einmal versuchen.', 'error');
+            return;
+        }
+
+        document.getElementById('mittagstischModal').remove();
+        showToast(nutz.length + ' Gerichte für den '
+            + new Date(datum + 'T12:00:00').toLocaleDateString('de-DE') + ' veröffentlicht.', 'success');
+        if (typeof loadDailySpecials === 'function') { try { loadDailySpecials(); } catch (e) {} }
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    } finally {
+        var k2 = document.getElementById('mtSpeichern');
+        if (k2) { k2.disabled = false; k2.textContent = 'Mittagstisch veröffentlichen'; }
+    }
+}
+window.mittagstischSpeichern = mittagstischSpeichern;
+
 // Die sieben Wochentag-Knoepfe. Keiner gedrueckt heisst "taeglich" --
 // das ist der haeufigste Fall und braucht darum keine Klicks.
 function mittagTageBauen(kastenId, vorbelegt) {
@@ -73167,9 +73588,16 @@ window._bannerRefresh = setInterval(checkActiveOrderBanner, 15000);
 // Liefert immer ein Array -- bei Netzfehler ein leeres.
 function tagesangeboteHolen(restaurantId) {
     if (!restaurantId) return Promise.resolve([]);
-    var heute = todayStrLocal();
+    // Deutsches Datum, nicht die Zeit des Geraets. Ein Gast im Urlaub
+    // bekaeme sonst den Mittagstisch von gestern oder morgen -- und
+    // wuerde nie erfahren, warum er nichts findet.
+    var heute = (typeof MITTAGSTISCH !== 'undefined') ? MITTAGSTISCH.heute() : todayStrLocal();
+    // Das Limit steht an EINER Stelle. Traegt der Wirt mehr ein, als hier
+    // geholt wird, verschwinden die letzten lautlos -- darum warnt das
+    // Formular mit derselben Zahl.
+    var _maxSpecials = (typeof MITTAGSTISCH !== 'undefined') ? MITTAGSTISCH.MAX : 8;
     var url = SUPABASE_URL + '/rest/v1/daily_specials?restaurant_id=eq.' + encodeURIComponent(restaurantId)
-            + '&date=eq.' + heute + '&is_active=eq.true&order=created_at.desc&limit=6';
+            + '&date=eq.' + heute + '&is_active=eq.true&order=id.asc&limit=' + _maxSpecials;
     return fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } })
         .then(function (r) { return r.json(); })
         .then(function (liste) {
