@@ -70,7 +70,7 @@ console.log('\n-- Was der Wirt tatsaechlich eintippt --');
   ['paypal.me/PizzeriaPronto/12.00', 'PizzeriaPronto'],
   ['https://paypal.me/PizzeriaPronto?locale=de', 'PizzeriaPronto']
 ].forEach(function (f) {
-    t('"' + f[0] + '" wird zu "' + f[1] + '"', P.nameLesen(f[0]) === f[1], P.nameLesen(f[0]));
+    t('"' + f[0] + '" wird zu "' + f[1] + '"', P.handle(f[0]) === f[1], P.handle(f[0]));
 });
 
 // ---- 2. Was NICHT durchgehen darf -------------------------------------
@@ -83,6 +83,45 @@ t('zu lang', P.gueltig('x'.repeat(31)) === false, 'geht durch');
 t('normaler Name geht', P.gueltig('PizzeriaPronto') === true, 'abgelehnt');
 t('Bindestrich und Unterstrich gehen -- echte Namen nicht ablehnen',
   P.gueltig('Pizzeria-Pronto') === true && P.gueltig('Pizzeria_Pronto') === true, 'abgelehnt');
+
+// ---- 2b. Die PayPal-ADRESSE -- was die meisten Wirte haben -----------
+console.log('\n-- Die PayPal-Adresse (Geschaeftskonto) --');
+t('eine Adresse wird als Adresse erkannt',
+  P.lesen('payment@beispiel-betrieb.de').art === 'mail', P.lesen('payment@beispiel-betrieb.de').art);
+t('auch mit mailto: davor',
+  P.lesen('mailto:payment@beispiel-betrieb.de').mail === 'payment@beispiel-betrieb.de', 'nicht erkannt');
+t('eine halbe Adresse nicht', P.lesen('payment@').art === 'ungueltig', P.lesen('payment@').art);
+var ml = P.mailLink('payment@beispiel-betrieb.de', 24.5, 'KI-1');
+t('der Zahlungs-Link traegt den Betrag', ml.indexOf('amount=24.50') > 0, ml);
+t('und die Waehrung', ml.indexOf('currency_code=EUR') > 0, ml);
+t('die Adresse ist kodiert -- ein @ gehoert nicht roh in eine URL',
+  ml.indexOf('business=payment%40beispiel-betrieb.de') > 0, ml);
+t('die Bestellnummer steht dabei', ml.indexOf('Bestellung%20KI-1') > 0, ml);
+t('ohne Adresse kommt kein Link', P.mailLink('quatsch', 10) === '', 'baut trotzdem');
+
+// ---- 2c. PayPals eigene Link-Formen ----------------------------------
+console.log('\n-- Was PayPal selbst ausgibt --');
+t('paypal.com/paypalme/NAME wird erkannt -- das kopiert der Wirt',
+  P.lesen('https://www.paypal.com/paypalme/Pronto').name === 'Pronto',
+  P.lesen('https://www.paypal.com/paypalme/Pronto').name);
+t('auch ohne www', P.lesen('https://paypal.com/paypalme/Pronto').name === 'Pronto', 'nicht erkannt');
+t('ein fremder Bezahllink bleibt ein Link, wird nicht zum Namen verbogen',
+  P.lesen('https://sumup.me/pronto').art === 'link', P.lesen('https://sumup.me/pronto').art);
+t('http:// wird abgelehnt -- der Browser bricht es ohnehin ab',
+  P.lesen('http://beispiel.de/zahlen').art === 'ungueltig', P.lesen('http://beispiel.de/zahlen').art);
+t('javascript: kommt nie beim Gast an',
+  P.lesen('javascript:alert(1)').art === 'ungueltig', P.lesen('javascript:alert(1)').art);
+
+// ---- 2d. Welcher Weg gewinnt -----------------------------------------
+console.log('\n-- Der Weg zum Gast --');
+t('Name schlaegt alles -- Betrag ist drin',
+  P.gastLink('Pronto', 'https://x.de/y', 24.5, 'a@b.de', 'N1').betragDrin === true, 'falsch gewaehlt');
+t('ohne Namen zaehlt die Adresse -- Betrag auch drin',
+  P.gastLink('', '', 24.5, 'a@b.de', 'N1').betragDrin === true, 'kein Link');
+t('nur der eigene Link: Betrag NICHT drin, und das wird gesagt',
+  P.gastLink('', 'https://x.de/y', 24.5, '', '').betragDrin === false, 'behauptet Betrag');
+t('gar nichts hinterlegt -> gar kein Link',
+  P.gastLink('', '', 24.5, '', '').url === '', 'baut etwas zusammen');
 
 // ---- 3. Der fertige Link ----------------------------------------------
 console.log('\n-- Der Link --');
@@ -101,35 +140,47 @@ t('negativer Betrag wird nicht durchgereicht',
 console.log('\n-- Speichern im Dashboard --');
 var sp = schneide(h, 'savePaypalMe');
 t('savePaypalMe wurde gefunden', sp.length > 400, sp.length + ' Zeichen');
-t('die Eingabe wird geputzt', /PAYPAL\.nameLesen\(roh\)/.test(sp), 'roh gespeichert');
-t('Unsinn wird NICHT gespeichert', /!PAYPAL\.gueltig\(val\)/.test(sp) && /return;/.test(sp), 'speichert Muell');
+t('die Eingabe wird gelesen und einsortiert', /PAYPAL\.lesen\(roh\)/.test(sp), 'roh gespeichert');
+t('Unsinn wird NICHT gespeichert', /gelesen\.art === 'ungueltig'/.test(sp) && /return;/.test(sp), 'speichert Muell');
+t('es gilt immer genau EIN Eintrag -- die anderen fliegen raus',
+  /paypal_me:'\) !== 0/.test(sp) && /paypal_mail:'\) !== 0/.test(sp) && /zahlungslink:'\) !== 0/.test(sp),
+  'zwei Bezahlwege gleichzeitig');
 t('ein 204 gilt nicht als Beweis', /'Prefer': 'return=representation'/.test(sp), '204 gilt als Erfolg');
 t('und es wird geprueft, dass eine Zeile kam',
   /!Array\.isArray\(_ppZeilen\) \|\| _ppZeilen\.length === 0/.test(sp), 'glaubt dem Status');
 t('sonst sagt es, dass NICHT gespeichert wurde', /NICHT gespeichert/.test(sp), 'still');
-t('die Erfolgsmeldung zeigt den echten Namen',
-  /gespeichert: paypal\.me\/' \+ val/.test(sp), 'nur ein Haekchen');
+t('Entfernen wird als Entfernen gemeldet, nicht als Speichern',
+  /'PayPal-Angabe entfernt'/.test(sp), 'sagt gespeichert');
 
 // ---- 5. Die Vorschau ---------------------------------------------------
 console.log('\n-- Vorschau unter dem Feld --');
 t('es gibt einen Platz dafuer', /id="paypalMeVorschau"/.test(h), 'kein Platz');
 var vs = schneide(h, 'paypalVorschau');
 t('paypalVorschau wurde gefunden', vs.length > 200, vs.length + ' Zeichen');
-t('sie zeigt den fertigen Link', /PAYPAL\.link\(name, 24\.5\)/.test(vs), 'zeigt nichts');
+t('sie zeigt den fertigen Link', /PAYPAL\.link\(gelesen\.name, 24\.5\)/.test(vs), 'zeigt nichts');
+t('bei einer Adresse sagt sie, dass Gebuehren anfallen',
+  /Käuferschutz für den Gast, PayPal-Gebühren für dich/.test(vs), 'verschweigt die Gebuehr');
+t('bei einem fremden Link warnt sie, dass der Betrag fehlt',
+  /Betrag kann NICHT vorausgefüllt werden/.test(vs), 'verschweigt es');
 t('bei Unsinn wird es rot und sagt NICHT gespeichert',
   /#b91c1c/.test(vs) && /NICHT gespeichert/.test(vs), 'stille Ablehnung');
-t('sie wird beim Laden mitgezogen', /paypalVorschau\(input\.value, input\.value\)/.test(h), 'erst beim Tippen');
+t('sie wird beim Laden mitgezogen', /paypalVorschau\(PAYPAL\.lesen\(input\.value\), input\.value\)/.test(h), 'erst beim Tippen');
 t('als Text gesetzt, nicht als HTML',
   /kasten\.textContent =/.test(vs) && !/kasten\.innerHTML/.test(vs), 'XSS-Weg offen');
 
 // ---- 6. Was der Gast zu sehen bekommt ---------------------------------
 console.log('\n-- Beim Gast --');
-t('PayPal wird nur angeboten, wenn ein gueltiger Name da ist',
-  /features\.indexOf\('payment_paypal'\) !== -1\s*\n\s*&& \(typeof PAYPAL !== 'undefined'\)\s*\n\s*&& PAYPAL\.gueltig\(/.test(h),
-  'haengt weiter allein am Schalter');
-t('das Banner baut den Link ueber PAYPAL.link',
-  /PAYPAL\.link\(paypalMe, total\)/.test(h), 'baut ihn selbst zusammen');
-t('fehlt der Link doch, bleibt der Gast nicht ohne Wort',
+t('PayPal wird nur angeboten, wenn ein Bezahlweg hinterlegt ist',
+  /&& paypalMoeglich\(currentOrderRestaurant\);/.test(h), 'haengt weiter allein am Schalter');
+t('es gibt genau EINE Stelle, die das beantwortet',
+  /function paypalMoeglich\(restaurant\)/.test(h), 'Anzeige und Knopf koennen auseinanderlaufen');
+t('das Banner baut den Link ueber PAYPAL.gastLink',
+  /PAYPAL\.gastLink\(_ppName, _ppEigen, total, _ppMail, _ppNr\)/.test(h), 'baut ihn selbst zusammen');
+t('die Bestellnummer kommt aus der echten Variablen',
+  /typeof orderNumber !== 'undefined'/.test(h) && !/lastOrderNumber/.test(h), 'undefinierte Variable');
+t('steht der Betrag nicht im Link, wird es dem Gast gesagt',
+  /dieser Link kann den Betrag nicht mitbringen/.test(h), 'Gast ueberweist irgendwas');
+t('fehlt der Weg doch, bleibt der Gast nicht ohne Wort',
   /der PayPal-Link des Betriebs ist nicht hinterlegt/.test(h), 'stiller Ausfall');
 t('und es wird protokolliert', /'paypal_ohne_link'/.test(h), 'niemand erfaehrt es');
 
@@ -138,6 +189,10 @@ console.log('\n-- In der Bestaetigungs-Mail --');
 t('die Mail laedt die features des Restaurants',
   /select=name,google_maps_url,features/.test(mail), 'kennt den Namen nicht');
 t('sie baut einen PayPal-Bezahlknopf', /https:\/\/paypal\.me\/' \+ ppName \+ '\/' \+ ppBetrag \+ 'EUR'/.test(mail), 'kein Knopf');
+t('sie kann auch die PayPal-Adresse', /cmd=_xclick/.test(mail) && /business=' \+ encodeURIComponent\(ppMail\)/.test(mail), 'nur paypal.me');
+t('und einen eigenen Link -- aber nur https',
+  /\^https:\\\/\\\/\/i\.test\(ppEigen\)/.test(mail), 'javascript: koennte durchgehen');
+t('der Link wird escaped, bevor er in die Mail geht', /esc\(ppUrl\)/.test(mail), 'roh eingesetzt');
 t('mit derselben Pruefung wie im Browser',
   /\^\[A-Za-z0-9_-\]\{1,30\}\$/.test(mail), 'andere Regel -- laeuft auseinander');
 t('fehlt der Name, steht das drin statt gar nichts',

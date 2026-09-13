@@ -20214,10 +20214,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 </div>
                             </div>
                             <div id="paypalMeSection" style="display: none; padding: 8px 12px; background: rgba(0,112,243,0.05); border-radius: 16px; border: 1px solid rgba(0,112,243,0.2);">
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">PayPal.me Link</label>
+                                <!-- FRUEHER: "PayPal.me Link" mit festem Kaestchen
+                                     "paypal.me/" davor. Beides falsch. Wer "Link"
+                                     liest, fuegt einen Link ein -- und die meisten
+                                     Wirte haben gar keinen PayPal.Me-Namen, sondern
+                                     nur die Adresse ihres Geschaeftskontos. -->
+                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;" for="settingPaypalMe">PayPal-Adresse oder Link</label>
                                 <div style="display: flex; gap: 6px;">
-                                    <div style="display: flex; align-items: center; padding: 0 8px; background: rgba(255,255,255,0.6); border: 1px solid rgba(0,61,51,0.06); border-radius: 16px 0 0 16px; font-size: 12px; color: var(--slate); white-space: nowrap;">paypal.me/</div>
-                                    <input type="text" id="settingPaypalMe" placeholder="DeinName" oninput="savePaypalMe()" style="flex: 1; padding: 8px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 0 16px 16px 0; font-size: 13px; background: rgba(255,255,255,0.6); color: var(--text-primary); border-left: none;" aria-label="DeinName">
+                                    <input type="text" id="settingPaypalMe" placeholder="payment@dein-betrieb.de  oder  paypal.me/DeinName" oninput="savePaypalMe()" style="flex: 1; padding: 8px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 16px; font-size: 13px; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="PayPal-Adresse oder Link">
                                 </div>
                                 <p id="paypalMeVorschau" style="font-size: 10px; color: var(--slate); margin: 4px 0 0; line-height: 1.45;">Nur den Namen eintragen — nicht den ganzen Link.</p>
                             </div>
@@ -54356,13 +54360,28 @@ async function submitOrder() {
     var paypalBanner = document.getElementById('paypalPaymentBanner');
     if (paypalBanner) {
         if (paymentMethod === 'paypal' && currentOrderRestaurant) {
-            var paypalMe = typeof getPaypalMe === 'function' ? getPaypalMe(currentOrderRestaurant) : '';
-            var paypalUrl = (typeof PAYPAL !== 'undefined') ? PAYPAL.link(paypalMe, total) : '';
+            var _ppName = typeof getPaypalMe === 'function' ? getPaypalMe(currentOrderRestaurant) : '';
+            var _ppMail = typeof getPaypalMail === 'function' ? getPaypalMail(currentOrderRestaurant) : '';
+            var _ppEigen = typeof getZahlungslink === 'function' ? getZahlungslink(currentOrderRestaurant) : '';
+            var _ppNr = (typeof orderNumber !== 'undefined' && orderNumber) ? orderNumber : '';
+            var _pp = (typeof PAYPAL !== 'undefined')
+                ? PAYPAL.gastLink(_ppName, _ppEigen, total, _ppMail, _ppNr)
+                : { url: '', betragDrin: false };
+            var paypalUrl = _pp.url;
             if (paypalUrl) {
                 var paypalLink = document.getElementById('paypalPaymentLink');
                 if (paypalLink) {
                     paypalLink.href = paypalUrl;
                     paypalLink.textContent = total.toFixed(2).replace('.', ',') + ' \u20AC bezahlen';
+                }
+                // Steht der Betrag NICHT im Link, muss der Gast ihn selbst
+                // eintippen. Das darf man ihm nicht verschweigen -- sonst
+                // ueberweist er irgendetwas oder bricht ab.
+                var _ppHinweis = paypalBanner.querySelector('p');
+                if (_ppHinweis) {
+                    _ppHinweis.textContent = _pp.betragDrin
+                        ? 'Der Betrag ist schon eingetragen.'
+                        : 'Bitte bei PayPal ' + total.toFixed(2).replace('.', ',') + ' € eintragen — dieser Link kann den Betrag nicht mitbringen.';
                 }
                 paypalBanner.style.display = 'block';
             } else {
@@ -54374,8 +54393,8 @@ async function submitOrder() {
                     + 'der PayPal-Link des Betriebs ist nicht hinterlegt.', 'warning');
                 if (typeof logRestaurantEvent === 'function') {
                     logRestaurantEvent(currentOrderRestaurant && currentOrderRestaurant.id, 'paypal_ohne_link',
-                        'Gast hat mit PayPal bestellt, aber es ist kein gültiger PayPal.Me-Name hinterlegt. Die Bestellung kann nicht bezahlt werden.',
-                        null, { eingetragen: paypalMe || null });
+                        'Gast hat mit PayPal bestellt, aber es ist kein Bezahlweg hinterlegt (weder PayPal-Adresse noch paypal.me-Name noch eigener Link). Die Bestellung kann nicht bezahlt werden.',
+                        null, { name: _ppName || null, mail: _ppMail ? 'gesetzt' : null, eigener_link: _ppEigen ? 'gesetzt' : null });
                 }
             }
         } else {
@@ -62164,28 +62183,42 @@ async function savePaymentSettings() {
 // Ueber dem Feld steht "PayPal.me LINK". Wer "Link" liest, fuegt einen
 // Link ein. Das ist keine Unachtsamkeit -- das laedt dazu ein.
 var PAYPAL = {
-    // Alles wegschneiden, was kein Name ist. Egal was er einfuegt.
-    nameLesen: function (roh) {
+    // ALLES, WAS PAYPAL SELBST AUSGIBT, MUSS HIER REINPASSEN.
+    //
+    // Gemessen am 13.09.2026: die eigene Link-Form von PayPal --
+    // paypal.com/paypalme/NAME -- wurde abgelehnt. Genau die kopiert der
+    // Wirt aber aus seinem Konto. Er bekam "kein gueltiger Name" fuer
+    // einen voellig richtigen Link.
+    handle: function (roh) {
         var t = String(roh == null ? '' : roh).trim();
-        t = t.replace(/^https?:\/\//i, '');
-        t = t.replace(/^www\./i, '');
-        t = t.replace(/^paypal\.me\//i, '');
-        t = t.replace(/^@/, '');
+        if (!t) return '';
+        t = t.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+        // Die drei Schreibweisen, die PayPal ausgibt:
+        //   paypal.me/NAME
+        //   paypal.com/paypalme/NAME
+        //   NAME
+        // Schraegstriche aussen weg, BEVOR geprueft wird, ob eine fremde
+        // Adresse dasteht. Sonst waere "PizzeriaPronto/" -- ein voellig
+        // normaler Copy-Paste-Rest -- ploetzlich eine fremde Domain.
         t = t.replace(/^\/+|\/+$/g, '');
-        // Ein angehaengter Betrag oder Parameter gehoert nicht in den Namen.
+        var m = t.match(/^paypal\.me\/(.+)$/i)
+             || t.match(/^paypal\.com\/paypalme\/(.+)$/i);
+        if (m) t = m[1];
+        else if (t.indexOf('/') >= 0 || t.indexOf('.') >= 0) return '';  // fremde Adresse
+        t = t.replace(/^@/, '');
         t = t.split('?')[0].split('#')[0].split('/')[0];
         return t.trim();
     },
 
     // PayPal.Me-Namen sind Buchstaben und Ziffern. Bindestrich und
     // Unterstrich lasse ich zu, um keinen echten Namen abzulehnen --
-    // aber Leerzeichen, Umlaute und Schraegstriche nicht: die machen
-    // den Link kaputt, und zwar still.
+    // Leerzeichen, Umlaute und Schraegstriche nicht: die machen den Link
+    // kaputt, und zwar still.
     gueltig: function (name) {
         return /^[A-Za-z0-9_-]{1,30}$/.test(String(name || ''));
     },
 
-    // 24.5 -> "24.50". Punkt, nicht Komma -- PayPal.Me erwartet den Punkt.
+    // 24.5 -> "24.50". Punkt, nicht Komma -- PayPal erwartet den Punkt.
     betrag: function (n) {
         var z = Number(n);
         if (!isFinite(z) || z < 0) z = 0;
@@ -62198,6 +62231,82 @@ var PAYPAL = {
     link: function (name, betragZahl) {
         if (!this.gueltig(name)) return '';
         return 'https://paypal.me/' + name + '/' + this.betrag(betragZahl) + 'EUR';
+    },
+
+    // DER WIRT PACKT SEINEN LINK REIN -- WAS AUCH IMMER ER HAT.
+    //
+    // Ibo am 13.09.2026: "baue so das der gastronom sein link selber ein
+    // pack". Es gibt zwei Faelle, und der Unterschied ist wichtig genug,
+    // um ihn zu benennen statt zu verwischen:
+    //
+    //   'name' -- ein PayPal.Me-Konto. Wir kennen den Namen, also koennen
+    //             wir den BETRAG anhaengen. Der Gast klickt und der
+    //             Betrag steht schon drin. Der gute Fall.
+    //   'link' -- irgendein anderer Bezahllink (PayPal-Knopf, SumUp, was
+    //             auch immer). Da koennen wir nichts anhaengen, ohne zu
+    //             raten -- der Gast muss den Betrag selbst eintippen.
+    //             Geht, ist aber schlechter, und das sagen wir auch.
+    //
+    // NUR https. Ein Link vom Wirt landet als href beim Gast; javascript:
+    // oder data: duerfen dort nie ankommen.
+    lesen: function (roh) {
+        var t = String(roh == null ? '' : roh).trim();
+        if (!t) return { art: 'leer', name: '', url: '' };
+
+        var mailAdr = this.mail(t);
+        if (mailAdr) return { art: 'mail', name: '', url: '', mail: mailAdr };
+
+        var name = this.handle(t);
+        if (this.gueltig(name)) return { art: 'name', name: name, url: '' };
+
+        if (/^https:\/\/[^\s]+\.[^\s]{2,}/i.test(t) && !/[<>"']/.test(t)) {
+            return { art: 'link', name: '', url: t };
+        }
+        if (/^http:\/\//i.test(t)) {
+            return { art: 'ungueltig', name: '', url: '', grund: 'Der Link muss mit https:// anfangen — mit http:// bricht der Browser ihn ab.' };
+        }
+        return { art: 'ungueltig', name: '', url: '',
+                 grund: 'Das ist weder eine E-Mail-Adresse noch ein PayPal-Name noch ein vollständiger Link. '
+                      + 'Erwartet wird z. B. deine PayPal-Adresse, paypal.me/DeinName oder ein Link mit https://' };
+    },
+
+    // DIE PAYPAL-E-MAIL -- was die meisten Wirte tatsaechlich haben.
+    //
+    // Ibo am 13.09.2026: "seine mail link". Und er hat recht: PayPal.Me
+    // kennen die wenigsten, die eigene PayPal-Adresse jeder. Auf eine
+    // Adresse laesst sich genauso zahlen -- ueber den klassischen
+    // Zahlungs-Link, und der kann den BETRAG mitbringen.
+    //
+    // Unterschied, den der Wirt kennen muss: das ist eine Zahlung an
+    // einen Haendler (Waren/Dienstleistung). Der Gast hat Kaeuferschutz,
+    // dem Wirt zieht PayPal Gebuehren ab. Bei PayPal.Me unter Freunden
+    // faellt beides weg. Fuer ein Restaurant ist der Haendler-Weg der
+    // richtige -- aber er kostet, und das steht im Dashboard dabei.
+    mail: function (roh) {
+        var t = String(roh == null ? '' : roh).trim();
+        t = t.replace(/^mailto:/i, '');
+        return /^[^\s@<>"']+@[^\s@<>"']+\.[A-Za-z]{2,}$/.test(t) ? t : '';
+    },
+
+    mailLink: function (adresse, betragZahl, bestellNr) {
+        var m = this.mail(adresse);
+        if (!m) return '';
+        return 'https://www.paypal.com/cgi-bin/webscr'
+             + '?cmd=_xclick'
+             + '&business=' + encodeURIComponent(m)
+             + '&currency_code=EUR'
+             + '&amount=' + this.betrag(betragZahl)
+             + '&item_name=' + encodeURIComponent('Bestellung ' + (bestellNr || '') ).trim()
+             + '&no_shipping=1';
+    },
+
+    // Was der Gast am Ende anklickt -- aus dem, was gespeichert wurde.
+    gastLink: function (name, festerLink, betragZahl, mailAdresse, bestellNr) {
+        if (this.gueltig(name)) return { url: this.link(name, betragZahl), betragDrin: true };
+        var ml = this.mailLink(mailAdresse, betragZahl, bestellNr);
+        if (ml) return { url: ml, betragDrin: true };
+        if (festerLink && /^https:\/\//i.test(festerLink)) return { url: festerLink, betragDrin: false };
+        return { url: '', betragDrin: false };
     }
 };
 window.PAYPAL = PAYPAL;
@@ -62208,32 +62317,35 @@ async function savePaypalMe() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId) return;
     var roh = document.getElementById('settingPaypalMe')?.value || '';
-    var val = PAYPAL.nameLesen(roh);
+    var gelesen = PAYPAL.lesen(roh);
 
     // Sofort zeigen, was daraus wird -- bevor ein Gast darauf klickt.
-    paypalVorschau(val, roh);
+    paypalVorschau(gelesen, roh);
 
-    // Etwas eingetippt, aber es ergibt keinen gueltigen Namen: NICHT
-    // speichern. Ein halber Name waere schlimmer als keiner -- der Gast
+    // Etwas eingetippt, aber es ergibt nichts Brauchbares: NICHT
+    // speichern. Ein halber Eintrag ist schlimmer als keiner -- der Gast
     // saehe die Zahlart und landete auf einer Fehlerseite.
-    if (roh.trim() && !PAYPAL.gueltig(val)) {
+    if (gelesen.art === 'ungueltig') {
         clearTimeout(_paypalMeSaveTimeout);
         return;
     }
 
-    // Debounce: erst nach 800ms speichern
     clearTimeout(_paypalMeSaveTimeout);
-    _paypalMeSaveTimeout = setTimeout(async function() {
+    _paypalMeSaveTimeout = setTimeout(async function () {
         try {
-            // Features laden, paypal_me entfernen, neuen Wert hinzufügen
             var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             });
             var data = await resp.json();
-            var features = (data[0]?.features || []).filter(function(f) {
-                return !f.startsWith('paypal_me:');
+            // Alle drei alten Eintraege raus -- es gilt immer genau einer.
+            var features = (data[0]?.features || []).filter(function (f) {
+                return String(f).indexOf('paypal_me:') !== 0
+                    && String(f).indexOf('paypal_mail:') !== 0
+                    && String(f).indexOf('zahlungslink:') !== 0;
             });
-            if (val) features.push('paypal_me:' + val);
+            if (gelesen.art === 'name') features.push('paypal_me:' + gelesen.name);
+            else if (gelesen.art === 'mail') features.push('paypal_mail:' + gelesen.mail);
+            else if (gelesen.art === 'link') features.push('zahlungslink:' + gelesen.url);
 
             // return=representation: ein 204 kommt auch dann, wenn RLS die
             // Zeile still uebergeht. Bei einem Bezahlweg ist "vielleicht
@@ -62252,16 +62364,16 @@ async function savePaypalMe() {
             }
             // Erst nach der Bestaetigung lokal uebernehmen.
             if (window.APP_DATA && APP_DATA.restaurants) {
-                var r = APP_DATA.restaurants.find(function(x) { return x.id === restId; });
+                var r = APP_DATA.restaurants.find(function (x) { return x.id === restId; });
                 if (r) r.features = features;
             }
             if (currentOrderRestaurant && currentOrderRestaurant.id === restId) {
                 currentOrderRestaurant.features = features;
             }
-            showToast(val ? 'PayPal.me gespeichert: paypal.me/' + val : 'PayPal.me entfernt', 'success');
-        } catch(e) {
-            console.error('PayPal.me save error:', e);
-            showToast('PayPal.me konnte nicht gespeichert werden: ' + e.message, 'error');
+            showToast(gelesen.art === 'leer' ? 'PayPal-Angabe entfernt' : 'PayPal gespeichert', 'success');
+        } catch (e) {
+            console.error('PayPal save error:', e);
+            showToast('PayPal konnte nicht gespeichert werden: ' + e.message, 'error');
         }
     }, 800);
 }
@@ -62270,23 +62382,38 @@ async function savePaypalMe() {
 //
 // Ohne das merkt der Wirt einen kaputten Link erst, wenn ein Gast
 // bestellt hat und nicht zahlen konnte. Also nie.
-function paypalVorschau(name, roh) {
+function paypalVorschau(gelesen, roh) {
     var kasten = document.getElementById('paypalMeVorschau');
     if (!kasten) return;
-    var eingetippt = String(roh == null ? '' : roh).trim();
+    var rot = '#b91c1c', gruen = '#15803d', grau = 'var(--slate)', gelb = '#b45309';
 
-    if (!eingetippt) {
-        kasten.textContent = 'Nur den Namen eintragen — nicht den ganzen Link. Ohne Namen sieht der Gast PayPal gar nicht erst.';
-        kasten.style.color = 'var(--slate)';
+    if (!gelesen || gelesen.art === 'leer') {
+        kasten.textContent = 'Deine PayPal-Adresse (z. B. payment@dein-betrieb.de) oder dein paypal.me-Link. '
+            + 'Ohne Eintrag sieht der Gast PayPal gar nicht erst.';
+        kasten.style.color = grau;
         return;
     }
-    if (!PAYPAL.gueltig(name)) {
-        kasten.textContent = 'Das ergibt keinen gültigen PayPal-Namen. Erlaubt sind Buchstaben, Ziffern, - und _ — keine Leerzeichen und keine Umlaute. NICHT gespeichert.';
-        kasten.style.color = '#b91c1c';
+    if (gelesen.art === 'ungueltig') {
+        kasten.textContent = (gelesen.grund || 'Das ergibt keinen gültigen Bezahlweg.') + ' NICHT gespeichert.';
+        kasten.style.color = rot;
         return;
     }
-    kasten.textContent = 'Der Gast sieht: ' + PAYPAL.link(name, 24.5).replace('https://', '') + '  (Beispiel mit 24,50 €)';
-    kasten.style.color = '#15803d';
+    if (gelesen.art === 'mail') {
+        kasten.textContent = 'Der Gast zahlt an ' + gelesen.mail + ' — der Betrag steht schon drin. '
+            + 'Das ist eine Händler-Zahlung: Käuferschutz für den Gast, PayPal-Gebühren für dich.';
+        kasten.style.color = gruen;
+        return;
+    }
+    if (gelesen.art === 'name') {
+        kasten.textContent = 'Der Gast sieht: ' + PAYPAL.link(gelesen.name, 24.5).replace('https://', '')
+            + '  (Beispiel mit 24,50 €)';
+        kasten.style.color = gruen;
+        return;
+    }
+    // Fremder Link: geht, aber der Betrag lässt sich nicht anhängen.
+    kasten.textContent = 'Eigener Bezahllink erkannt. Achtung: der Betrag kann NICHT vorausgefüllt werden — '
+        + 'der Gast muss ihn selbst eintippen. Mit deiner PayPal-Adresse wäre er automatisch drin.';
+    kasten.style.color = gelb;
 }
 window.paypalVorschau = paypalVorschau;
 
@@ -62296,6 +62423,31 @@ function getPaypalMe(restaurant) {
     var feature = restaurant.features.find(function(f) { return f.startsWith('paypal_me:'); });
     return feature ? feature.replace('paypal_me:', '') : '';
 }
+
+// Die PayPal-Adresse des Betriebs (Geschaeftskonto).
+function getPaypalMail(restaurant) {
+    if (!restaurant || !restaurant.features) return '';
+    var f = restaurant.features.find(function (x) { return String(x).indexOf('paypal_mail:') === 0; });
+    return f ? String(f).slice('paypal_mail:'.length) : '';
+}
+// Ein eigener Bezahllink, falls der Wirt etwas anderes benutzt.
+function getZahlungslink(restaurant) {
+    if (!restaurant || !restaurant.features) return '';
+    var f = restaurant.features.find(function (x) { return String(x).indexOf('zahlungslink:') === 0; });
+    return f ? String(f).slice('zahlungslink:'.length) : '';
+}
+// Kann dieser Betrieb ueberhaupt PayPal? Genau eine Stelle, die das
+// beantwortet -- sonst laeuft die Anzeige beim Gast irgendwann anders
+// als der Bezahlknopf danach.
+function paypalMoeglich(restaurant) {
+    if (typeof PAYPAL === 'undefined' || !restaurant) return false;
+    return PAYPAL.gueltig(getPaypalMe(restaurant))
+        || !!PAYPAL.mail(getPaypalMail(restaurant))
+        || /^https:\/\//i.test(getZahlungslink(restaurant));
+}
+window.getPaypalMail = getPaypalMail;
+window.getZahlungslink = getZahlungslink;
+window.paypalMoeglich = paypalMoeglich;
 
 // PayPal.me Link laden (beim Restaurant-Wechsel in Bestellungen)
 function loadPaypalMe(restId) {
@@ -62309,9 +62461,13 @@ function loadPaypalMe(restId) {
         var r = APP_DATA.restaurants.find(function(x) { return x.id === restId; });
         if (r) features = r.features || [];
     }
-    var paypalFeature = features.find(function(f) { return f.startsWith('paypal_me:'); });
-    input.value = paypalFeature ? paypalFeature.replace('paypal_me:', '') : '';
-    paypalVorschau(input.value, input.value);
+    var eintrag = features.find(function (f) {
+        return String(f).indexOf('paypal_me:') === 0
+            || String(f).indexOf('paypal_mail:') === 0
+            || String(f).indexOf('zahlungslink:') === 0;
+    }) || '';
+    input.value = String(eintrag).replace(/^paypal_me:|^paypal_mail:|^zahlungslink:/, '');
+    paypalVorschau(PAYPAL.lesen(input.value), input.value);
 
     // Section anzeigen wenn PayPal aktiv
     var paypalOn = document.getElementById('settingPayPaypal')?.checked || false;
@@ -62651,9 +62807,14 @@ function updateCheckoutPaymentMethods() {
     // schaltete sie ein, vergass den Namen -- und der Gast bestellte mit
     // "PayPal" und bekam danach keinen einzigen Bezahlweg zu sehen. Die
     // Kueche kochte, niemand zahlte. Genau der stille Ausfall aus Regel 6.
+    // PayPal nur anbieten, wenn auch ein Bezahlweg hinterlegt ist --
+    // Adresse, paypal.me-Name oder eigener Link. Vorher hing die Zahlart
+    // allein am Schalter: der Wirt schaltete sie ein, trug nichts ein,
+    // und der Gast bestellte mit "PayPal" und bekam danach keinen
+    // einzigen Bezahlweg zu sehen. Die Kueche kochte, niemand zahlte.
     var hasPaypal = features.indexOf('payment_paypal') !== -1
-        && (typeof PAYPAL !== 'undefined')
-        && PAYPAL.gueltig(typeof getPaypalMe === 'function' ? getPaypalMe(currentOrderRestaurant) : '');
+        && typeof paypalMoeglich === 'function'
+        && paypalMoeglich(currentOrderRestaurant);
 
     // Wenn KEINE Payment-Features gesetzt → Default: Bar + Karte
     var hasAnyPaymentFeature = hasCash || hasCard || hasPaypal;

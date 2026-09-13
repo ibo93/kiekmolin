@@ -133,23 +133,48 @@ function buildEmail(o, rest) {
     // Fuer den Wirt sah das aus wie ein Gast, der nicht zahlen will.
     var paypalBlock = '';
     if (String(o.payment_method || '').toLowerCase() === 'paypal') {
-        var ppName = '';
-        try {
-            var ppFeat = ((rest && rest.features) || []).find(function (f) {
-                return String(f).indexOf('paypal_me:') === 0;
-            });
-            ppName = ppFeat ? String(ppFeat).slice('paypal_me:'.length) : '';
-        } catch (e) { ppName = ''; }
+        var feats = (rest && rest.features) || [];
+        function featWert(pref) {
+            try {
+                var f = feats.find(function (x) { return String(x).indexOf(pref) === 0; });
+                return f ? String(f).slice(pref.length) : '';
+            } catch (e) { return ''; }
+        }
+        var ppName = featWert('paypal_me:');
+        var ppMail = featWert('paypal_mail:');
+        var ppEigen = featWert('zahlungslink:');
+        var ppBetrag = (Number(o.total) || 0).toFixed(2);
 
+        // Dieselben Regeln wie im Browser. Zwei Stellen mit zwei Regeln
+        // laufen frueher oder spaeter auseinander -- und dann bekommt der
+        // Gast in der Mail einen anderen Link als auf dem Bildschirm.
+        var ppUrl = '', betragDrin = false;
         if (/^[A-Za-z0-9_-]{1,30}$/.test(ppName)) {
-            var ppBetrag = (Number(o.total) || 0).toFixed(2);
-            var ppUrl = 'https://paypal.me/' + ppName + '/' + ppBetrag + 'EUR';
+            ppUrl = 'https://paypal.me/' + ppName + '/' + ppBetrag + 'EUR';
+            betragDrin = true;
+        } else if (/^[^\s@<>"']+@[^\s@<>"']+\.[A-Za-z]{2,}$/.test(ppMail)) {
+            ppUrl = 'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick'
+                  + '&business=' + encodeURIComponent(ppMail)
+                  + '&currency_code=EUR&amount=' + ppBetrag
+                  + '&item_name=' + encodeURIComponent('Bestellung ' + (o.order_number || ''))
+                  + '&no_shipping=1';
+            betragDrin = true;
+        } else if (/^https:\/\//i.test(ppEigen) && !/[<>"']/.test(ppEigen)) {
+            ppUrl = ppEigen;
+            betragDrin = false;
+        }
+
+        if (ppUrl) {
             paypalBlock =
                 '<div style="margin:20px 0;padding:16px;background:#f0f7ff;border:1px solid #cfe4ff;border-radius:12px;text-align:center;">' +
                   '<p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#0070f3;">Noch offen: mit PayPal bezahlen</p>' +
-                  '<p style="margin:0 0 12px;color:#374151;font-size:13px;">Deine Bestellung ist eingegangen. Bitte begleiche den Betrag über PayPal.</p>' +
-                  '<a href="' + ppUrl + '" style="display:inline-block;background:#0070f3;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-weight:600;">' +
-                    ppBetrag.replace('.', ',') + ' \u20AC mit PayPal bezahlen</a>' +
+                  '<p style="margin:0 0 12px;color:#374151;font-size:13px;">' +
+                    (betragDrin
+                      ? 'Deine Bestellung ist eingegangen. Der Betrag ist schon eingetragen.'
+                      : 'Deine Bestellung ist eingegangen. Bitte trage bei PayPal ' + ppBetrag.replace('.', ',') + ' € ein.') +
+                  '</p>' +
+                  '<a href="' + esc(ppUrl) + '" style="display:inline-block;background:#0070f3;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-weight:600;">' +
+                    ppBetrag.replace('.', ',') + ' € mit PayPal bezahlen</a>' +
                 '</div>';
         } else {
             // Lieber sagen, dass etwas fehlt, als den Gast im Glauben
