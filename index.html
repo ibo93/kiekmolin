@@ -20119,6 +20119,22 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </span>
                         </label>
                     </div>
+                    <!-- Sofort bestaetigen: der Gast bekommt die Zusage direkt per Mail -->
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,61,51,0.08);">
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">check_circle</span>
+                                Bestellungen sofort bestätigen
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top:4px;">Der Gast bekommt sofort eine Bestätigungs-Mail mit deiner Wartezeit – du musst nichts mehr annehmen. <strong>Dafür kannst du eine Bestellung dann nicht mehr ablehnen.</strong> Vorbestellungen mit Wunschzeit bleiben wie bisher.</div>
+                        </div>
+                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+                            <input type="checkbox" id="settingPrepAuto" onchange="savePrepMinutes()" style="display:none;">
+                            <div id="prepAutoTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
+                                <div id="prepAutoKnob" style="width:20px;height:20px;background:var(--bg-solid);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Mindestbestellwert & Zahlungsarten -->
@@ -23602,6 +23618,26 @@ function wartezeitAn(restaurant) {
     return feats.indexOf('prep_off') < 0;
 }
 window.wartezeitAn = wartezeitAn;
+
+// Bestellung sofort bestaetigen.
+//
+// Ibo am 13.09.2026: "so haben sie eine direkte Bestaetigung, dann muessen
+// die es nicht bestaetigen."
+//
+// Gespeichert als "prep_auto" in features -- und absichtlich andersherum
+// als prep_off: FEHLT der Eintrag, passiert nichts. Jedes Restaurant hat
+// eine Wartezeit (25/45 als Vorgabe). Waere das schon die Bedingung, fiele
+// ueber Nacht auf der ganzen Plattform die Annahme weg, und kein Wirt
+// koennte eine Bestellung mehr ablehnen, weil die Kueche voll ist.
+//
+// Die Entscheidung faellt auf dem SERVER (lib/wartezeit.js). Hier steht
+// dieselbe Regel nur, damit das Dashboard den Schalter richtig anzeigt.
+function sofortBestaetigen(restaurant) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return false;
+    return feats.indexOf('prep_auto') >= 0;
+}
+window.sofortBestaetigen = sofortBestaetigen;
 
 // ==================== VORBESTELLUNG ====================
 //
@@ -54149,6 +54185,17 @@ async function submitOrder() {
                     _preisAbgelehnt = _srvj;
                 } else if (_srv.ok && _srvj && _srvj.ok) {
                     _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
+                    // Hat der Server die Bestellung gleich bestaetigt, muss
+                    // der Gast auf dem Bildschirm dasselbe sehen wie in der
+                    // Datenbank. Sonst steht hier "warte auf Bestaetigung",
+                    // waehrend die Mail schon "bestaetigt" sagt.
+                    if (_srvj.sofort_bestaetigt) {
+                        order.status = 'accepted';
+                        if (_srvj.minuten) {
+                            order.estimated_minutes = _srvj.minuten;
+                            order.estimated_time = new Date(Date.now() + _srvj.minuten * 60000).toISOString();
+                        }
+                    }
                 } else {
                     _orderRes = { ok: false, status: (_srvj && _srvj.status) || _srv.status || 0,
                                   text: (_srvj && _srvj.error) || 'Server-Speichern fehlgeschlagen' };
@@ -61396,6 +61443,11 @@ function loadOrderSettings() {
         onEl.checked = wartezeitAn(restaurant);
         if (typeof prepSchalterAnzeigen === 'function') prepSchalterAnzeigen(onEl.checked);
     }
+    var autoEl = document.getElementById('settingPrepAuto');
+    if (autoEl && typeof sofortBestaetigen === 'function') {
+        autoEl.checked = sofortBestaetigen(restaurant);
+        if (typeof prepAutoAnzeigen === 'function') prepAutoAnzeigen(autoEl.checked);
+    }
 
     // Lieferradius laden
     var radiusEl = document.getElementById('settingDeliveryRadius');
@@ -61705,6 +61757,9 @@ function prepSchalterAnzeigen(an) {
     var knob = document.getElementById('prepToggleKnob');
     if (track) track.style.background = an ? 'var(--primary)' : '#d1d5db';
     if (knob) knob.style.left = an ? '22px' : '2px';
+    // Ohne Zusage gibt es nichts zu bestaetigen, was eine Zeit nennt --
+    // aber sofort annehmen darf man trotzdem. Der Schalter bleibt also
+    // bedienbar; nur die Minuten-Felder werden ausgegraut.
     ['settingPrepPickup', 'settingPrepDelivery'].forEach(function (id) {
         var e = document.getElementById(id);
         if (!e) return;
@@ -61715,6 +61770,15 @@ function prepSchalterAnzeigen(an) {
     });
 }
 window.prepSchalterAnzeigen = prepSchalterAnzeigen;
+
+// Derselbe Schalter-Look wie oben, eigene Elemente.
+function prepAutoAnzeigen(an) {
+    var track = document.getElementById('prepAutoTrack');
+    var knob = document.getElementById('prepAutoKnob');
+    if (track) track.style.background = an ? 'var(--primary)' : '#d1d5db';
+    if (knob) knob.style.left = an ? '22px' : '2px';
+}
+window.prepAutoAnzeigen = prepAutoAnzeigen;
 
 async function savePrepMinutes() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
@@ -61727,6 +61791,10 @@ async function savePrepMinutes() {
     };
     var an = document.getElementById('settingPrepOn')?.checked !== false;
     prepSchalterAnzeigen(an);
+    // Fehlt das Kaestchen im DOM, gilt AUS -- nicht an. Ein Schalter, den
+    // niemand gesehen hat, darf keine Bestellungen durchwinken.
+    var autoAn = document.getElementById('settingPrepAuto')?.checked === true;
+    prepAutoAnzeigen(autoAn);
 
     var abholung = lese('settingPrepPickup', 25);
     var lieferung = lese('settingPrepDelivery', 45);
@@ -61742,13 +61810,15 @@ async function savePrepMinutes() {
         var features = (data[0] && Array.isArray(data[0].features)) ? data[0].features : [];
         // Alte Eintraege raus, neue rein -- sonst sammeln sich Karteileichen.
         features = features.filter(function (f) {
-            return !/^prep_(pickup|delivery):/.test(String(f)) && String(f) !== 'prep_off';
+            return !/^prep_(pickup|delivery):/.test(String(f))
+                && String(f) !== 'prep_off' && String(f) !== 'prep_auto';
         });
         features.push('prep_pickup:' + abholung, 'prep_delivery:' + lieferung);
         // Die Minuten bleiben auch im Aus-Zustand gespeichert. Wer den
         // Schalter wieder anmacht, will seine Werte wiederfinden und nicht
         // bei 25/45 anfangen.
         if (!an) features.push('prep_off');
+        if (autoAn) features.push('prep_auto');
 
         var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
@@ -61767,7 +61837,8 @@ async function savePrepMinutes() {
         }
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
         if (r) r.features = features;
-        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min', 'success');
+        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
+            + (autoAn ? ' — Bestellungen werden sofort bestätigt' : ''), 'success');
     } catch (e) {
         showToast('Keine Verbindung — Wartezeit nicht gespeichert', 'error');
     }

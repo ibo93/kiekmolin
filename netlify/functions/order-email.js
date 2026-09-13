@@ -45,6 +45,7 @@ var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var nurText = require('./lib/nur-text').nurText;
+var WARTEZEIT = require('./lib/wartezeit');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -226,6 +227,22 @@ function buildAcceptedEmail(o, rest) {
         : (o.order_type === 'dine_in' ? 'Vor Ort' + (o.table_number ? ' · Tisch ' + esc(o.table_number) : '') : 'Abholung');
 
     var min = parseInt(o.estimated_minutes, 10);
+
+    // Ibo am 13.09.2026: "bei Abholung steht 25 min, muss auf der Mail 25
+    // min stehen."
+    //
+    // Steht in der Bestellung keine Zahl, nehmen wir die, die der Wirt
+    // eingestellt hat -- dieselbe, die er in seinem Dashboard sieht.
+    // Vorher stand in der Mail dann "Das Restaurant bereitet deine
+    // Bestellung jetzt zu", obwohl im Dashboard "Abholung 25 Min" steht.
+    //
+    // ABER nur, wenn er ueberhaupt eine Zusage machen will. Steht der
+    // Schalter auf aus, bleibt die Mail ohne Zahl -- eine Zeit, die
+    // niemand versprochen hat, ist schlimmer als keine.
+    if (!(min > 0) && rest && WARTEZEIT.an(rest.features)) {
+        min = WARTEZEIT.minuten(rest.features, o.order_type);
+    }
+
     var zeitText = '';
     if (min > 0) {
         // Zusaetzlich die Uhrzeit nennen. "in 45 Minuten" muss der Gast
@@ -522,7 +539,7 @@ exports.handler = async function (event) {
             if (aOrder.restaurant_id) {
                 try {
                     var arres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone',
+                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone,features',
                         { headers: sbHeaders() });
                     if (arres.ok) { var arl = await arres.json(); aRest = arl[0] || null; }
                 } catch (e) {}
@@ -574,6 +591,31 @@ exports.handler = async function (event) {
                     { headers: sbHeaders() });
                 if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
             } catch (e) {}
+        }
+
+        // SCHON BESTAETIGT? DANN NICHT "wird gleich bestaetigt" SCHREIBEN.
+        //
+        // Wenn der Wirt "sofort bestaetigen" eingeschaltet hat, steht die
+        // Bestellung bereits auf accepted, bevor diese Mail gebaut wird.
+        // Die Eingangsmail wuerde dem Gast dann sagen, er solle warten --
+        // und die Wartezeit stuende nirgends. Also geht hier direkt die
+        // Bestaetigung raus, mit der Zahl.
+        var sofort = String(order.status || '').toLowerCase() === 'accepted';
+        if (sofort) {
+            // Den Stempel der Annahme-Mail gleich mit beanspruchen, sonst
+            // schickt ein spaeteres event:'accepted' dieselbe Mail noch
+            // einmal. Klappt das nicht, wird trotzdem gesendet -- lieber
+            // eine Mail doppelt als gar keine.
+            try {
+                await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) +
+                    '&accepted_email_sent_at=is.null', {
+                    method: 'PATCH',
+                    headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+                    body: JSON.stringify({ accepted_email_sent_at: new Date().toISOString() })
+                });
+            } catch (e) {}
+            await sendViaResend(to, buildAcceptedEmail(order, restOrder));
+            return json(200, { ok: true, sent: true, event: 'accepted', sofort: true });
         }
 
         await sendViaResend(to, buildEmail(order, restOrder));
