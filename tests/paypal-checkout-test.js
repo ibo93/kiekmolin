@@ -140,12 +140,79 @@ t('das Fenster sagt, dass erst nach der Bestaetigung bestellt wird',
 t('waehrend der Bestaetigung wird gebeten, nicht zu schliessen',
   /bitte dieses Fenster nicht schließen/.test(h), 'Gast schliesst mitten drin');
 
+// ---- 8b. Einrichten aus dem Dashboard --------------------------------
+//
+// Ibo am 13.09.2026: "muss ich sowas fuer jeden meiner Kunden machen?"
+// Vorher ja -- per SQL, also ueber ihn. Jetzt traegt es der Wirt selbst
+// ein. Die gefaehrliche Stelle dabei: wer darf das?
+console.log('\n-- Einrichten im Dashboard --');
+t('es gibt Felder fuer die zwei Schluessel',
+  /id="ppcClientId"/.test(h) && /id="ppcSecret"/.test(h), 'kein Formular');
+t('das Secret-Feld ist ein Passwortfeld -- nicht ueber die Schulter lesbar',
+  /id="ppcSecret" placeholder="Secret" autocomplete="new-password"/.test(h)
+  && /<input type="password" id="ppcSecret"/.test(h), 'steht offen da');
+t('Sandbox ist die Vorgabe, echtes Geld muss man ankreuzen',
+  /id="ppcLive" aria-label="Echtes Geld statt Testkonto">/.test(h) && !/id="ppcLive"[^>]*checked/.test(h),
+  'startet mit echtem Geld');
+t('es steht dabei, WO die Schluessel herkommen',
+  /developer\.paypal\.com/.test(h), 'Wirt sucht selbst');
+t('und was ohne sie passiert',
+  /bestellt ist bestellt, ob er zahlt oder nicht/.test(h), 'Unterschied unklar');
+t('das Secret bleibt nach dem Speichern nicht im Feld stehen',
+  /sf\.value = ''/.test(h), 'bleibt im Browser sichtbar');
+// NICHT nur pruefen, dass der Text dasteht -- die Rueckfrage muss auch
+// wirklich sperren. Ein "if (false && !confirm(...))" enthaelt denselben
+// Text und loescht trotzdem kommentarlos.
+t('Entfernen wird nachgefragt und sagt, was danach gilt',
+  /if \(!confirm\('PayPal-Zugangsdaten entfernen\?[^)]*\)\) return;/.test(h)
+  && /wieder nur einen Bezahllink/.test(h), 'loescht kommentarlos');
+// NICHT im ganzen index.html suchen: "Status unbekannt" steht auch in der
+// Drucker-Ampel ("Drucker-Status unbekannt") und der Test haette die
+// falsche Stelle geprueft. Gemeint ist der catch-Zweig von ppcStatusLaden.
+var ppcLaden = (function () {
+    var a = h.indexOf('async function ppcStatusLaden(');
+    if (a < 0) return '';
+    var tiefe = 0, i = h.indexOf('{', a);
+    for (var j = i; j < h.length; j++) {
+        if (h[j] === '{') tiefe++;
+        else if (h[j] === '}') { tiefe--; if (tiefe === 0) return h.slice(a, j + 1); }
+    }
+    return '';
+})();
+t('ppcStatusLaden wurde gefunden', ppcLaden.length > 200, ppcLaden.length + ' Zeichen');
+t('"nicht erreichbar" wird nicht als "nicht eingerichtet" ausgegeben',
+  /'Status unbekannt'/.test(ppcLaden) && !/ppcStatusZeigen\(\{ eingerichtet: false \}\)/.test(ppcLaden),
+  'behauptet etwas Falsches');
+
+console.log('\n-- Wer darf die Schluessel setzen --');
+t('es wird ein Anmelde-Token verlangt',
+  /var erlaubt = await angemeldeteBetriebe\(tok\);/.test(fn), 'jeder darf');
+t('ohne Anmeldung: 401', /return json\(401, \{ ok: false, error: 'Nicht angemeldet\.' \}\)/.test(fn), 'geht durch');
+t('und nur fuer die EIGENEN Betriebe -- sonst leitet jemand fremde Einnahmen um',
+  /erlaubt\.indexOf\(ridS\) === -1/.test(fn), 'fremdes Restaurant uebernehmbar');
+t('die Schluessel werden VOR dem Speichern bei PayPal geprueft',
+  fn.indexOf('await token({ client_id: cid') < fn.indexOf("rest/v1/paypal_konten?on_conflict"),
+  'falsche Schluessel fallen erst beim ersten Gast auf');
+t('und der Fehler sagt, dass Sandbox und Live getrennt sind',
+  /Beides wird getrennt vergeben/.test(fn), 'Wirt sucht im Falschen');
+t('abgeschnittenes Copy-Paste faellt sofort auf',
+  /Die Client-ID sieht nicht richtig aus/.test(fn) && /Das Secret sieht nicht richtig aus/.test(fn), 'erst beim Gast');
+t('das Secret kommt NIE zurueck',
+  /Das Secret geht NICHT zurueck/.test(fn) && !/secret: sec/.test(fn.slice(fn.indexOf('return json(200, { ok: true, eingerichtet: true, live: live'))),
+  'Secret wird zurueckgegeben');
+t('Entfernen ist moeglich -- wer aufhoeren will, darf das',
+  /body\.entfernen === true/.test(fn), 'nur mit SQL wieder raus');
+t('fehlt die Tabelle, wird genau das gesagt',
+  /Die Tabelle paypal_konten fehlt noch in der Datenbank \(SQL 30\)/.test(fn), 'nur eine Fehlernummer');
+t('ein 204 gilt auch hier nicht als Beweis',
+  /Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen/.test(fn), 'glaubt dem Status');
+
 // ---- 9. Auslieferung ---------------------------------------------------
 console.log('\n-- Auslieferung --');
 var sw = fs.readFileSync(path.join(KMI, 'sw.js'), 'utf8');
 var m = sw.match(/kmi-shell-v(\d+)/);
 t('sw.js hat eine Cache-Nummer', !!m, 'keine gefunden');
-t('sie ist mindestens 30', !!m && Number(m[1]) >= 30, m ? m[1] : '?');
+t('sie ist mindestens 31', !!m && Number(m[1]) >= 31, m ? m[1] : '?');
 
 console.log('\n' + (n - ok === 0 ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 if (n - ok > 0) process.exit(1);

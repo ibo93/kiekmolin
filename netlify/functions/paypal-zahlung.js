@@ -160,6 +160,29 @@ async function schonGebucht(paypalId) {
     }
 }
 
+// ---------------------------------------------------------------------
+// WER DARF DAS PAYPAL-KONTO EINES BETRIEBS SETZEN?
+//
+// Nur wer bei genau diesem Betrieb angemeldet ist. Ohne diese Pruefung
+// koennte jeder mit einem einzigen Aufruf die Zugangsdaten eines fremden
+// Restaurants ueberschreiben und dessen Einnahmen umleiten. Dieselbe
+// Pruefung wie beim Nachdruck-Knopf in pos-print.js.
+// ---------------------------------------------------------------------
+async function angemeldeteBetriebe(token) {
+    if (!token) return null;
+    var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
+        headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) return null;
+    var user = await res.json();
+    if (!user || !user.email) return null;
+    try {
+        var rows = await hol('customers?email=eq.' + encodeURIComponent(user.email)
+            + '&is_active=eq.true&select=restaurant_id');
+        return (rows || []).map(function (r) { return r.restaurant_id; }).filter(Boolean);
+    } catch (e) { return null; }
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Nur POST.' });
@@ -172,6 +195,89 @@ exports.handler = async function (event) {
     var order = body.order || {};
 
     try {
+        // ---------------- Zugangsdaten setzen (aus dem Dashboard) -------
+        //
+        // Damit muss niemand mehr SQL anfassen -- und die Schluessel
+        // laufen nie ueber Ibos Rechner. Sie gehen direkt vom Browser
+        // des Wirts in die geschuetzte Tabelle.
+        if (aktion === 'speichern') {
+            var auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
+            var tok = auth.indexOf('Bearer ') === 0 ? auth.slice(7).trim() : '';
+            var erlaubt = await angemeldeteBetriebe(tok);
+            if (!erlaubt) return json(401, { ok: false, error: 'Nicht angemeldet.' });
+
+            var ridS = String(body.restaurant_id || '');
+            if (!ridS) return json(400, { ok: false, error: 'restaurant_id fehlt.' });
+            if (erlaubt.indexOf(ridS) === -1) {
+                return json(403, { ok: false, error: 'Kein Zugriff auf dieses Restaurant.' });
+            }
+
+            // Loeschen ist ausdruecklich erlaubt -- wer aufhoeren will,
+            // muss das auch koennen, ohne uns zu fragen.
+            if (body.entfernen === true) {
+                var del = await fetch(SUPABASE_URL + '/rest/v1/paypal_konten?restaurant_id=eq.' + encodeURIComponent(ridS), {
+                    method: 'DELETE',
+                    headers: Object.assign({}, kopf(), { 'Prefer': 'return=minimal' })
+                });
+                if (!del.ok) return json(500, { ok: false, error: 'Konnte nicht entfernt werden (' + del.status + ').' });
+                return json(200, { ok: true, eingerichtet: false });
+            }
+
+            var cid = String(body.client_id || '').trim();
+            var sec = String(body.secret || '').trim();
+            var live = body.live === true;
+            // PayPal-Schluessel sind lang und haben keine Leerzeichen.
+            // Ein abgeschnittenes Copy-Paste faellt hier auf -- und nicht
+            // erst beim ersten Gast, der bezahlen will.
+            if (!/^[A-Za-z0-9_-]{20,120}$/.test(cid)) {
+                return json(400, { ok: false, error: 'Die Client-ID sieht nicht richtig aus. Sie ist lang und enthält keine Leerzeichen — bitte vollständig kopieren.' });
+            }
+            if (!/^[A-Za-z0-9_-]{20,200}$/.test(sec)) {
+                return json(400, { ok: false, error: 'Das Secret sieht nicht richtig aus. Es ist lang und enthält keine Leerzeichen — bitte vollständig kopieren.' });
+            }
+
+            // Bevor gespeichert wird: einmal bei PayPal anmelden. Falsche
+            // Schluessel jetzt zu merken ist unendlich viel besser, als
+            // sie beim ersten zahlenden Gast zu merken.
+            try {
+                await token({ client_id: cid, secret: sec, basis: live ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com' });
+            } catch (e) {
+                return json(400, {
+                    ok: false,
+                    error: 'PayPal nimmt diese Zugangsdaten nicht an. Bitte prüfen: sind es die Schlüssel aus '
+                         + (live ? 'dem LIVE-Bereich' : 'der SANDBOX') + '? Beides wird getrennt vergeben.'
+                });
+            }
+
+            var up = await fetch(SUPABASE_URL + '/rest/v1/paypal_konten?on_conflict=restaurant_id', {
+                method: 'POST',
+                headers: Object.assign({}, kopf(), {
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates,return=representation'
+                }),
+                body: JSON.stringify({
+                    restaurant_id: ridS, client_id: cid, secret: sec, live: live,
+                    aktualisiert: new Date().toISOString()
+                })
+            });
+            var upTxt = await up.text();
+            if (!up.ok) {
+                console.error('[paypal-zahlung] speichern fehlgeschlagen:', up.status, upTxt.slice(0, 300));
+                if (/paypal_konten/i.test(upTxt) && /does not exist/i.test(upTxt)) {
+                    return json(500, { ok: false, error: 'Die Tabelle paypal_konten fehlt noch in der Datenbank (SQL 30).' });
+                }
+                return json(500, { ok: false, error: 'Konnte nicht gespeichert werden (' + up.status + ').' });
+            }
+            var upZeilen = null;
+            try { upZeilen = JSON.parse(upTxt); } catch (e) { upZeilen = null; }
+            if (!Array.isArray(upZeilen) || upZeilen.length === 0) {
+                return json(500, { ok: false, error: 'Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen.' });
+            }
+            // Das Secret geht NICHT zurueck. Es hat den Browser einmal
+            // verlassen und kommt nie wieder heraus.
+            return json(200, { ok: true, eingerichtet: true, live: live, geprueft: true });
+        }
+
         // ---------------- 0. Ist PayPal eingerichtet? ----------------
         //
         // Die Client-ID ist oeffentlich -- sie steht in jedem PayPal-Knopf

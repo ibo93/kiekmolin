@@ -20224,6 +20224,34 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     <input type="text" id="settingPaypalMe" placeholder="payment@dein-betrieb.de  oder  paypal.me/DeinName" oninput="savePaypalMe()" style="flex: 1; padding: 8px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 16px; font-size: 13px; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="PayPal-Adresse oder Link">
                                 </div>
                                 <p id="paypalMeVorschau" style="font-size: 10px; color: var(--slate); margin: 4px 0 0; line-height: 1.45;">Nur den Namen eintragen — nicht den ganzen Link.</p>
+
+                                <!-- ZAHLUNG ZUERST, DANN BESTELLUNG.
+                                     Frueher mussten die zwei Schluessel per SQL in die
+                                     Datenbank -- also ueber Ibo, fuer jeden Kunden
+                                     einzeln. Jetzt traegt der Wirt sie selbst ein, und
+                                     sie gehen direkt in die geschuetzte Tabelle. Das
+                                     Secret kommt nie wieder heraus. -->
+                                <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(0,112,243,0.15);">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                        <div style="font-size:11px; font-weight:700; color:var(--text-primary);">Zahlung zuerst (empfohlen)</div>
+                                        <span id="ppcStatus" style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:9999px; background:rgba(0,0,0,0.06); color:var(--slate);">wird geprüft…</span>
+                                    </div>
+                                    <p style="font-size:10px; color:var(--slate); margin:4px 0 8px; line-height:1.45;">
+                                        Ohne das bekommt der Gast nur einen Bezahllink — bestellt ist bestellt, ob er zahlt oder nicht.
+                                        Mit den zwei Schlüsseln aus deinem PayPal-Konto entsteht die Bestellung <strong>erst nach bezahlter Zahlung</strong>.
+                                        Die Schlüssel holst du auf <strong>developer.paypal.com</strong> → Apps &amp; Credentials → Create App.
+                                    </p>
+                                    <input type="text" id="ppcClientId" placeholder="Client ID" autocomplete="off" style="width:100%; padding:8px 10px; margin-bottom:6px; border:1px solid rgba(0,61,51,0.06); border-radius:16px; font-size:12px; background:rgba(255,255,255,0.6); color:var(--text-primary); box-sizing:border-box;" aria-label="PayPal Client ID">
+                                    <input type="password" id="ppcSecret" placeholder="Secret" autocomplete="new-password" style="width:100%; padding:8px 10px; margin-bottom:6px; border:1px solid rgba(0,61,51,0.06); border-radius:16px; font-size:12px; background:rgba(255,255,255,0.6); color:var(--text-primary); box-sizing:border-box;" aria-label="PayPal Secret">
+                                    <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer; margin-bottom:8px;">
+                                        <input type="checkbox" id="ppcLive" aria-label="Echtes Geld statt Testkonto"> Echtes Geld (sonst Sandbox zum Testen)
+                                    </label>
+                                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                        <button type="button" onclick="ppcSpeichern()" style="flex:1; min-width:120px; padding:8px 12px; background:var(--primary); color:#fff; border:none; border-radius:16px; font-size:12px; font-weight:700; cursor:pointer;">Prüfen &amp; speichern</button>
+                                        <button type="button" onclick="ppcEntfernen()" style="padding:8px 12px; background:transparent; color:var(--slate); border:1px solid rgba(0,61,51,0.10); border-radius:16px; font-size:12px; font-weight:600; cursor:pointer;">Entfernen</button>
+                                    </div>
+                                    <p id="ppcMeldungDash" style="font-size:10px; margin:8px 0 0; line-height:1.45; color:var(--slate);"></p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -62356,6 +62384,101 @@ var PPC = {
 };
 window.PPC = PPC;
 
+// Die zwei Schluessel aus dem Dashboard heraus setzen.
+//
+// Ibo am 13.09.2026: "muss ich sowas fuer jeden meiner Kunden machen?"
+// Vorher ja -- per SQL, also ueber ihn, fuer jeden Betrieb einzeln.
+// Jetzt traegt der Wirt sie selbst ein. Die Schluessel laufen nie ueber
+// Ibos Rechner, und das Secret verlaesst den Browser genau einmal.
+function ppcMelden(text, farbe) {
+    var m = document.getElementById('ppcMeldungDash');
+    if (m) { m.textContent = text; m.style.color = farbe || 'var(--slate)'; }
+}
+
+function ppcStatusZeigen(zustand) {
+    var s = document.getElementById('ppcStatus');
+    if (!s) return;
+    if (zustand && zustand.eingerichtet) {
+        s.textContent = zustand.live ? 'aktiv — echtes Geld' : 'aktiv — Sandbox (Test)';
+        s.style.background = zustand.live ? 'rgba(21,128,61,0.12)' : 'rgba(180,83,9,0.12)';
+        s.style.color = zustand.live ? '#15803d' : '#b45309';
+    } else {
+        s.textContent = 'nicht eingerichtet';
+        s.style.background = 'rgba(0,0,0,0.06)';
+        s.style.color = 'var(--slate)';
+    }
+}
+
+async function ppcStatusLaden(restId) {
+    if (!restId) return;
+    try {
+        if (typeof PPC !== 'undefined') delete PPC.konten[restId];
+        var res = await fetch('/.netlify/functions/paypal-zahlung?action=konto', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restaurant_id: restId })
+        });
+        var j = await res.json();
+        ppcStatusZeigen(j && j.ok ? j : { eingerichtet: false });
+    } catch (e) {
+        // Nicht erreichbar heisst NICHT "nicht eingerichtet" -- das darf
+        // hier nicht behauptet werden.
+        var s = document.getElementById('ppcStatus');
+        if (s) { s.textContent = 'Status unbekannt'; s.style.color = 'var(--slate)'; }
+    }
+}
+window.ppcStatusLaden = ppcStatusLaden;
+
+async function ppcSpeichern() {
+    var restId = document.getElementById('ordersRestaurantSelect')?.value;
+    if (!restId || restId === 'default') { ppcMelden('Bitte zuerst oben ein Restaurant auswählen.', '#b45309'); return; }
+    var cid = (document.getElementById('ppcClientId') || {}).value || '';
+    var sec = (document.getElementById('ppcSecret') || {}).value || '';
+    var live = !!(document.getElementById('ppcLive') || {}).checked;
+    if (!cid.trim() || !sec.trim()) { ppcMelden('Beide Felder ausfüllen — Client ID und Secret.', '#b91c1c'); return; }
+
+    ppcMelden('Wird bei PayPal geprüft…');
+    try {
+        var res = await fetch('/.netlify/functions/paypal-zahlung?action=speichern', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + kmiToken() },
+            body: JSON.stringify({ restaurant_id: restId, client_id: cid.trim(), secret: sec.trim(), live: live })
+        });
+        var j = await res.json();
+        if (!res.ok || !j.ok) { ppcMelden((j && j.error) || ('Fehler ' + res.status), '#b91c1c'); return; }
+        // Das Secret nie im Feld stehen lassen.
+        var sf = document.getElementById('ppcSecret'); if (sf) sf.value = '';
+        ppcMelden(live
+            ? 'Gespeichert und von PayPal bestätigt. Ab jetzt zahlen Gäste zuerst — echtes Geld.'
+            : 'Gespeichert und von PayPal bestätigt. Sandbox: zum Testen, es fließt kein echtes Geld.', '#15803d');
+        ppcStatusZeigen({ eingerichtet: true, live: live });
+        if (typeof PPC !== 'undefined') delete PPC.konten[restId];
+    } catch (e) {
+        ppcMelden('Fehler: ' + e.message, '#b91c1c');
+    }
+}
+window.ppcSpeichern = ppcSpeichern;
+
+async function ppcEntfernen() {
+    var restId = document.getElementById('ordersRestaurantSelect')?.value;
+    if (!restId || restId === 'default') return;
+    if (!confirm('PayPal-Zugangsdaten entfernen? Danach bekommt der Gast wieder nur einen Bezahllink — die Bestellung geht dann durch, ob bezahlt wurde oder nicht.')) return;
+    try {
+        var res = await fetch('/.netlify/functions/paypal-zahlung?action=speichern', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + kmiToken() },
+            body: JSON.stringify({ restaurant_id: restId, entfernen: true })
+        });
+        var j = await res.json();
+        if (!res.ok || !j.ok) { ppcMelden((j && j.error) || ('Fehler ' + res.status), '#b91c1c'); return; }
+        ppcMelden('Entfernt. Es gilt wieder der Bezahllink.', 'var(--slate)');
+        ppcStatusZeigen({ eingerichtet: false });
+        if (typeof PPC !== 'undefined') delete PPC.konten[restId];
+    } catch (e) {
+        ppcMelden('Fehler: ' + e.message, '#b91c1c');
+    }
+}
+window.ppcEntfernen = ppcEntfernen;
+
 // ====================== PAYPAL.ME ======================
 //
 // Ibo am 13.09.2026: "der gastronom bietet paypal, es geht irgendwie
@@ -62664,6 +62787,7 @@ function loadPaypalMe(restId) {
     }) || '';
     input.value = String(eintrag).replace(/^paypal_me:|^paypal_mail:|^zahlungslink:/, '');
     paypalVorschau(PAYPAL.lesen(input.value), input.value);
+    if (typeof ppcStatusLaden === 'function') ppcStatusLaden(restId);
 
     // Section anzeigen wenn PayPal aktiv
     var paypalOn = document.getElementById('settingPayPaypal')?.checked || false;
