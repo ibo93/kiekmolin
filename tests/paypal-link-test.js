@@ -170,8 +170,16 @@ t('als Text gesetzt, nicht als HTML',
 
 // ---- 6. Was der Gast zu sehen bekommt ---------------------------------
 console.log('\n-- Beim Gast --');
+// 13.09.2026: Die Regel ist in zahlarten() gewandert, damit Landepage und
+// Bestellseite dieselbe benutzen. Die Garantie bleibt dieselbe -- sie wird
+// nur an einer Stelle geprueft statt an zweien. Darum hier BEIDES:
+// die Bestellseite fragt zahlarten, und zahlarten haelt sich an paypalMoeglich.
+t('die Bestellseite holt die Zahlarten aus der gemeinsamen Stelle',
+  /var _za = zahlarten\(currentOrderRestaurant\);/.test(h) && /var hasPaypal = _za\.paypal;/.test(h),
+  'baut wieder eine eigene Liste');
 t('PayPal wird nur angeboten, wenn ein Bezahlweg hinterlegt ist',
-  /&& paypalMoeglich\(currentOrderRestaurant\);/.test(h), 'haengt weiter allein am Schalter');
+  /if \(pp\) pp = \(typeof paypalMoeglich === 'function'\) \? paypalMoeglich\(restaurant\) : false;/.test(h),
+  'haengt weiter allein am Schalter');
 t('es gibt genau EINE Stelle, die das beantwortet',
   /function paypalMoeglich\(restaurant\)/.test(h), 'Anzeige und Knopf koennen auseinanderlaufen');
 t('das Banner baut den Link ueber PAYPAL.gastLink',
