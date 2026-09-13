@@ -323,8 +323,14 @@ function pruefe(o, daten) {
     var iDirekt = H.indexOf("_resilientInsert('orders', _orderPayload)");
     t('der Server wird VOR dem direkten Insert gefragt',
       iSrv > 0 && iDirekt > 0 && iSrv < iDirekt, iSrv + ' / ' + iDirekt);
+    // 13.09.2026: Bedingung erweitert, nicht gelockert. Der Notweg bleibt
+    // fuer den normalen Weg -- aber NICHT bei PayPal Checkout: dort hat der
+    // Server die Bestellung schon geschrieben, und ein zweiter Insert waere
+    // eine zweite Bestellung fuer dasselbe Geld.
     t('der direkte Insert bleibt als Notweg, falls Netlify nicht erreichbar ist',
-      /if \(!_orderRes\.ok\) \{\s*_orderRes = await _resilientInsert\('orders', _orderPayload\);/.test(H));
+      /if \(!_orderRes\.ok && !_ppcFertig\) \{\s*_orderRes = await _resilientInsert\('orders', _orderPayload\);/.test(H));
+    t('und er greift bei einer bezahlten PayPal-Bestellung ausdruecklich NICHT',
+      /Ein zweiter Insert waere eine\s*\n\s*\/\/ zweite Bestellung fuer dasselbe Geld\./.test(H));
     // Geprueft wird der BLOCK, nicht ein Zeichenfenster: ein Fenster waere
     // beim naechsten laengeren Kommentar zu klein und die Pruefung still weg.
     var blockStart = H.indexOf('if (_preisAbgelehnt) {');

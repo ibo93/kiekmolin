@@ -54035,23 +54035,63 @@ async function submitOrder() {
         // ueber den Notweg doch noch durch und die Prüfung waere umsonst.
         var _orderRes = { ok: false, status: 0, text: '' };
         var _preisAbgelehnt = null;
-        try {
-            var _srv = await fetch('/.netlify/functions/order-save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: _orderPayload })
-            });
-            var _srvj = null; try { _srvj = await _srv.json(); } catch (e) {}
-            if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
-                _preisAbgelehnt = _srvj;
-            } else if (_srv.ok && _srvj && _srvj.ok) {
-                _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
-            } else {
-                _orderRes = { ok: false, status: (_srvj && _srvj.status) || _srv.status || 0,
-                              text: (_srvj && _srvj.error) || 'Server-Speichern fehlgeschlagen' };
+
+        // PAYPAL CHECKOUT -- ERST DAS GELD, DANN DIE BESTELLUNG.
+        //
+        // Ist fuer diesen Betrieb ein PayPal-Geschaeftskonto hinterlegt,
+        // laeuft die Zahlung VOR dem Speichern. Der Server holt sie bei
+        // PayPal ab und schreibt die Bestellung selbst -- deshalb wird
+        // order-save hier uebersprungen.
+        //
+        // Bricht der Gast ab, passiert NICHTS: keine Bestellung, kein
+        // Geld. Er steht wieder im Warenkorb.
+        var _ppcFertig = false;
+        if (paymentMethod === 'paypal' && typeof PPC !== 'undefined') {
+            var _ppcKonto = await PPC.konto(_orderPayload.restaurant_id);
+            if (_ppcKonto && _ppcKonto.eingerichtet && _ppcKonto.client_id) {
+                var _ppcErg = await PPC.bezahlen(_orderPayload, _ppcKonto.client_id);
+                if (_ppcErg && _ppcErg.ok) {
+                    _orderRes = { ok: true, data: [{ id: _ppcErg.id, order_number: _ppcErg.order_number }] };
+                    _ppcFertig = true;
+                } else {
+                    // Abbruch oder Fehler: den Knopf zurueckgeben und den
+                    // Grund sagen. Nichts Halbes stehen lassen.
+                    if (_ppcErg && _ppcErg.bezahlt) {
+                        showToast(_ppcErg.fehler || ('Deine Zahlung ist angekommen, die Bestellung aber nicht gespeichert. '
+                            + 'Bitte ruf das Restaurant an. PayPal-Vorgang: ' + (_ppcErg.paypal_id || '')), 'error');
+                    } else if (_ppcErg && _ppcErg.abgebrochen) {
+                        showToast('Zahlung abgebrochen — es wurde nichts abgebucht und keine Bestellung ausgelöst.', 'info');
+                    } else {
+                        showToast('PayPal hat nicht geantwortet: ' + ((_ppcErg && _ppcErg.fehler) || 'unbekannt')
+                            + '. Es wurde nichts abgebucht.', 'error');
+                    }
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
+                    return;
+                }
             }
-        } catch (_srve) {
-            _orderRes = { ok: false, status: 0, text: 'Server nicht erreichbar: ' + _srve.message };
+        }
+
+        // Bei PayPal hat der Server die Bestellung schon geschrieben --
+        // order-save wuerde eine ZWEITE anlegen.
+        if (!_ppcFertig) {
+            try {
+                var _srv = await fetch('/.netlify/functions/order-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: _orderPayload })
+                });
+                var _srvj = null; try { _srvj = await _srv.json(); } catch (e) {}
+                if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
+                    _preisAbgelehnt = _srvj;
+                } else if (_srv.ok && _srvj && _srvj.ok) {
+                    _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
+                } else {
+                    _orderRes = { ok: false, status: (_srvj && _srvj.status) || _srv.status || 0,
+                                  text: (_srvj && _srvj.error) || 'Server-Speichern fehlgeschlagen' };
+                }
+            } catch (_srve) {
+                _orderRes = { ok: false, status: 0, text: 'Server nicht erreichbar: ' + _srve.message };
+            }
         }
 
         if (_preisAbgelehnt) {
@@ -54067,7 +54107,10 @@ async function submitOrder() {
             return;
         }
 
-        if (!_orderRes.ok) {
+        // Der Notweg gilt nicht fuer PayPal: dort hat der Server die
+        // Bestellung bereits geschrieben. Ein zweiter Insert waere eine
+        // zweite Bestellung fuer dasselbe Geld.
+        if (!_orderRes.ok && !_ppcFertig) {
             _orderRes = await _resilientInsert('orders', _orderPayload);
         }
 
@@ -54359,7 +54402,9 @@ async function submitOrder() {
     // PayPal-Banner anzeigen wenn PayPal als Zahlungsart gewählt
     var paypalBanner = document.getElementById('paypalPaymentBanner');
     if (paypalBanner) {
-        if (paymentMethod === 'paypal' && currentOrderRestaurant) {
+        // Nach einer echten PayPal-Zahlung ist nichts mehr offen -- dann
+        // waere ein "Jetzt bezahlen"-Banner schlicht falsch.
+        if (paymentMethod === 'paypal' && currentOrderRestaurant && !_ppcFertig) {
             var _ppName = typeof getPaypalMe === 'function' ? getPaypalMe(currentOrderRestaurant) : '';
             var _ppMail = typeof getPaypalMail === 'function' ? getPaypalMail(currentOrderRestaurant) : '';
             var _ppEigen = typeof getZahlungslink === 'function' ? getZahlungslink(currentOrderRestaurant) : '';
@@ -62159,6 +62204,157 @@ async function savePaymentSettings() {
         showToast('Fehler beim Speichern', 'error');
     }
 }
+
+// ============ PAYPAL CHECKOUT: ERST ZAHLEN, DANN BESTELLEN ============
+//
+// Ibo am 13.09.2026: "es bei paypal gehen wenn die bestellung mit paypal
+// geht und dann kommt die bestellung bei restaurant an wie bei allen
+// anderen bestellungen."
+//
+// Der Link-Weg konnte das nie -- ein Link hat keinen Rueckkanal. Hier
+// laeuft es richtig herum: der Gast bezahlt im PayPal-Fenster, PayPal
+// bestaetigt UNSEREM SERVER, und erst dann entsteht die Bestellung.
+//
+// Kein Geld, keine Bestellung. Keine Bestellung ohne Geld.
+var PPC = {
+    geladen: null,      // Versprechen auf das PayPal-Skript
+    konten: {},         // je Restaurant: { eingerichtet, client_id, live }
+
+    // Ist fuer dieses Restaurant ein PayPal-Konto hinterlegt? Die Antwort
+    // wird gemerkt -- sonst fragt jede Warenkorb-Aenderung erneut.
+    async konto(restaurantId) {
+        if (!restaurantId) return { eingerichtet: false };
+        if (this.konten[restaurantId]) return this.konten[restaurantId];
+        try {
+            var res = await fetch('/.netlify/functions/paypal-zahlung?action=konto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ restaurant_id: restaurantId })
+            });
+            var j = await res.json();
+            this.konten[restaurantId] = (j && j.ok) ? j : { eingerichtet: false };
+        } catch (e) {
+            // Nicht erreichbar heisst NICHT "nicht eingerichtet" -- aber
+            // wir koennen es hier nicht besser wissen. Der Link-Weg
+            // bleibt als Rueckfallebene bestehen.
+            this.konten[restaurantId] = { eingerichtet: false, fehler: e.message };
+        }
+        return this.konten[restaurantId];
+    },
+
+    // Das PayPal-Skript nachladen. Nur einmal, und nur wenn wirklich
+    // jemand mit PayPal bezahlen will -- nicht auf jeder Speisekarte.
+    skript(clientId) {
+        if (this.geladen) return this.geladen;
+        var self = this;
+        this.geladen = new Promise(function (fertig, daneben) {
+            if (window.paypal) return fertig(window.paypal);
+            var s = document.createElement('script');
+            s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId)
+                  + '&currency=EUR&intent=capture&components=buttons&locale=de_DE';
+            s.onload = function () { window.paypal ? fertig(window.paypal) : daneben(new Error('PayPal-Skript geladen, aber leer')); };
+            s.onerror = function () { self.geladen = null; daneben(new Error('PayPal-Skript nicht erreichbar')); };
+            document.head.appendChild(s);
+        });
+        return this.geladen;
+    },
+
+    // Das Fenster mit den PayPal-Knoepfen. Loest auf, wenn bezahlt UND
+    // die Bestellung geschrieben ist -- sonst nie.
+    bezahlen: function (payload, clientId) {
+        var self = this;
+        return new Promise(async function (fertig) {
+            var alt = document.getElementById('ppcModal');
+            if (alt) alt.remove();
+
+            var kasten = document.createElement('div');
+            kasten.id = 'ppcModal';
+            kasten.className = 'modal-overlay active';
+            kasten.style.zIndex = '10020';
+            kasten.innerHTML =
+                '<div class="modal" style="max-width:420px;">' +
+                  '<div class="modal-header">' +
+                    '<h2 class="modal-title" style="font-family:Epilogue,sans-serif;">Mit PayPal bezahlen</h2>' +
+                    '<button class="modal-close" id="ppcAbbrechen" aria-label="Abbrechen">×</button>' +
+                  '</div>' +
+                  '<div class="modal-body">' +
+                    '<p style="font-size:14px;margin:0 0 4px;">' + (Number(payload.total) || 0).toFixed(2).replace('.', ',') + ' &euro;</p>' +
+                    '<p style="font-size:12px;color:var(--slate);margin:0 0 14px;line-height:1.5;">' +
+                      'Die Bestellung wird erst an das Restaurant geschickt, wenn PayPal die Zahlung bestätigt hat.</p>' +
+                    '<div id="ppcKnoepfe"></div>' +
+                    '<p id="ppcMeldung" style="font-size:12px;margin:12px 0 0;line-height:1.5;"></p>' +
+                  '</div>' +
+                '</div>';
+            document.body.appendChild(kasten);
+
+            var fertigGemeldet = false;
+            function schliessen(erg) {
+                if (fertigGemeldet) return;
+                fertigGemeldet = true;
+                var m = document.getElementById('ppcModal');
+                if (m) m.remove();
+                fertig(erg);
+            }
+            function melden(text, farbe) {
+                var m = document.getElementById('ppcMeldung');
+                if (m) { m.textContent = text; m.style.color = farbe || 'var(--slate)'; }
+            }
+            document.getElementById('ppcAbbrechen').onclick = function () {
+                schliessen({ ok: false, abgebrochen: true });
+            };
+
+            var paypal;
+            try { paypal = await self.skript(clientId); }
+            catch (e) { schliessen({ ok: false, fehler: e.message }); return; }
+
+            try {
+                paypal.Buttons({
+                    style: { layout: 'vertical', label: 'paypal' },
+                    createOrder: async function () {
+                        var res = await fetch('/.netlify/functions/paypal-zahlung?action=anlegen', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order: payload })
+                        });
+                        var j = await res.json();
+                        if (!res.ok || !j.ok || !j.id) throw new Error(j && j.error ? j.error : 'PayPal konnte die Zahlung nicht anlegen.');
+                        return j.id;
+                    },
+                    onApprove: async function (daten) {
+                        melden('Zahlung wird bestätigt — bitte dieses Fenster nicht schließen.', 'var(--slate)');
+                        try {
+                            var res = await fetch('/.netlify/functions/paypal-zahlung?action=buchen', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ paypal_id: daten.orderID, order: payload })
+                            });
+                            var j = await res.json();
+                            if (j && j.ok) { schliessen({ ok: true, id: j.id, order_number: j.order_number, doppelt: !!j.doppelt }); return; }
+                            // Bezahlt, aber nicht gespeichert: der Gast darf
+                            // hier NICHT einfach ein "hat nicht geklappt"
+                            // sehen -- sein Geld ist weg.
+                            melden((j && j.error) || 'Die Zahlung konnte nicht abgeschlossen werden.', '#b91c1c');
+                            schliessen({ ok: false, bezahlt: !!(j && j.bezahlt), fehler: (j && j.error) || 'unbekannt', paypal_id: (j && j.paypal_id) || daten.orderID });
+                        } catch (e) {
+                            melden('Verbindungsfehler nach der Zahlung. Bitte NICHT erneut bezahlen — melde dich beim Restaurant.', '#b91c1c');
+                            schliessen({ ok: false, bezahlt: true, fehler: e.message, paypal_id: daten.orderID });
+                        }
+                    },
+                    onCancel: function () { schliessen({ ok: false, abgebrochen: true }); },
+                    onError: function (err) {
+                        melden('PayPal meldet einen Fehler. Es wurde nichts abgebucht.', '#b91c1c');
+                        schliessen({ ok: false, fehler: String((err && err.message) || err) });
+                    }
+                }).render('#ppcKnoepfe').catch(function (e) {
+                    schliessen({ ok: false, fehler: 'PayPal-Knöpfe nicht darstellbar: ' + e.message });
+                });
+            } catch (e) {
+                schliessen({ ok: false, fehler: e.message });
+            }
+        });
+    }
+};
+window.PPC = PPC;
 
 // ====================== PAYPAL.ME ======================
 //
