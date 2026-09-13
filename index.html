@@ -41235,6 +41235,42 @@ async function showRestaurantLanding(rest) {
             return socHtml;
         })()}
 
+        <!-- ZAHLARTEN. Steht unten, und das ist Absicht.
+             Ibo am 13.09.2026: "auf der Landepage muss zeigen, dass der
+             Restaurant auch PayPal und Kartenzahlung und Bar anbietet --
+             am besten unten."
+
+             Oben waere es falsch: die Landepage soll Appetit machen, nicht
+             wie eine Kasse aussehen. Unten ist es genau das, was jemand
+             sucht, der schon halb entschieden ist und noch überlegt, ob er
+             Bargeld einstecken muss.
+
+             Gezeigt wird NUR, was der Betrieb wirklich annimmt -- dieselbe
+             Funktion wie die Bestellseite. Wer "Kartenzahlung" liest und
+             ohne Bargeld losfaehrt, steht sonst blöd da. -->
+        ${(function () {
+            if (typeof zahlarten !== 'function') return '';
+            var z = zahlarten(rest);
+            var teile = [];
+            if (z.bar) teile.push(['payments', 'Bar']);
+            if (z.karte) teile.push(['credit_card', 'Kreditkarte']);
+            if (z.paypal) teile.push(['account_balance_wallet', 'PayPal']);
+            if (!teile.length) return '';
+            var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 64px;">'
+                  + '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">'
+                  + '<p style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-secondary);margin:0;font-family:Inter,sans-serif;">Zahlung möglich mit</p>'
+                  + '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">';
+            teile.forEach(function (t) {
+                h += '<span style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;'
+                   + 'background:var(--bg-card);border:1px solid #e1e3e4;border-radius:9999px;'
+                   + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--ink-deep);">'
+                   + '<span class="material-symbols-outlined" style="font-size:17px;color:var(--marke,#003d33);">'
+                   + t[0] + '</span>' + t[1] + '</span>';
+            });
+            h += '</div></div></section>';
+            return h;
+        })()}
+
         <!-- Powered by Footer -->
         <div style="text-align:center;padding:48px 24px 96px;color:var(--text-secondary);font-family:Inter,sans-serif;">
             <div style="width:60%;max-width:200px;height:1px;background:linear-gradient(90deg,transparent,#c0c8c4,transparent);margin:0 auto 32px;"></div>
@@ -62743,6 +62779,33 @@ function getPaypalMe(restaurant) {
     return feature ? feature.replace('paypal_me:', '') : '';
 }
 
+// WELCHE ZAHLARTEN HAT DIESER BETRIEB? EINE STELLE, ZWEI LESER.
+//
+// Ibo am 13.09.2026: auf der Landepage soll stehen, dass der Betrieb
+// Bar, Karte und PayPal annimmt.
+//
+// Das ist eine Zusage an den Gast, und eine falsche kostet ihn den
+// Abend: wer "Kartenzahlung" liest und ohne Bargeld losfaehrt, steht
+// bloed da. Darum entscheidet GENAU DIESE Funktion, was gilt -- und die
+// Bestellseite benutzt sie auch. Zwei Listen, die auseinanderlaufen,
+// waeren schlimmer als gar keine Anzeige.
+//
+// Der Sonderfall, der leicht untergeht: hat der Wirt NICHTS eingestellt,
+// gelten Bar und Karte. So macht es die Bestellseite seit jeher -- die
+// Landepage muss dasselbe sagen.
+function zahlarten(restaurant) {
+    var f = (restaurant && restaurant.features) || [];
+    var bar = f.indexOf('payment_cash') !== -1;
+    var karte = f.indexOf('payment_card') !== -1;
+    var pp = f.indexOf('payment_paypal') !== -1;
+    if (!bar && !karte && !pp) { bar = true; karte = true; }
+    // PayPal nur, wenn auch wirklich ein Bezahlweg hinterlegt ist.
+    // Sonst verspricht die Seite etwas, das der Gast nicht bekommt.
+    if (pp) pp = (typeof paypalMoeglich === 'function') ? paypalMoeglich(restaurant) : false;
+    return { bar: bar, karte: karte, paypal: pp };
+}
+window.zahlarten = zahlarten;
+
 // Die PayPal-Adresse des Betriebs (Geschaeftskonto).
 function getPaypalMail(restaurant) {
     if (!restaurant || !restaurant.features) return '';
@@ -63120,25 +63183,13 @@ function updateCheckoutPaymentMethods() {
     var features = currentOrderRestaurant.features || [];
 
     // Zahlungsarten-Features prüfen
-    var hasCash = features.indexOf('payment_cash') !== -1;
-    var hasCard = features.indexOf('payment_card') !== -1;
-    // PayPal nur anbieten, wenn auch ein gueltiger Name hinterlegt ist.
-    // Vorher haing die Zahlart allein an 'payment_paypal': der Wirt
-    // schaltete sie ein, vergass den Namen -- und der Gast bestellte mit
-    // "PayPal" und bekam danach keinen einzigen Bezahlweg zu sehen. Die
-    // Kueche kochte, niemand zahlte. Genau der stille Ausfall aus Regel 6.
-    // PayPal nur anbieten, wenn auch ein Bezahlweg hinterlegt ist --
-    // Adresse, paypal.me-Name oder eigener Link. Vorher hing die Zahlart
-    // allein am Schalter: der Wirt schaltete sie ein, trug nichts ein,
-    // und der Gast bestellte mit "PayPal" und bekam danach keinen
-    // einzigen Bezahlweg zu sehen. Die Kueche kochte, niemand zahlte.
-    var hasPaypal = features.indexOf('payment_paypal') !== -1
-        && typeof paypalMoeglich === 'function'
-        && paypalMoeglich(currentOrderRestaurant);
-
-    // Wenn KEINE Payment-Features gesetzt → Default: Bar + Karte
-    var hasAnyPaymentFeature = hasCash || hasCard || hasPaypal;
-    if (!hasAnyPaymentFeature) { hasCash = true; hasCard = true; hasPaypal = false; }
+    // Dieselbe Stelle wie die Landepage. Zwei Listen, die auseinander-
+    // laufen, waeren schlimmer als gar keine Anzeige: dort stuende
+    // "Kartenzahlung" und hier gaebe es sie nicht.
+    var _za = zahlarten(currentOrderRestaurant);
+    var hasCash = _za.bar;
+    var hasCard = _za.karte;
+    var hasPaypal = _za.paypal;
 
     // Buttons zeigen/verstecken
     var container = document.getElementById('paymentMethodsContainer');
