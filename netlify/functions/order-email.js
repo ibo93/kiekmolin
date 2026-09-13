@@ -124,6 +124,68 @@ function buildEmail(o, rest) {
     var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
     var payLabel = ({ cash: 'Barzahlung', card: 'Kartenzahlung', paypal: 'PayPal', online: 'Online bezahlt', stripe: 'Online bezahlt' })[String(o.payment_method || '').toLowerCase()] || esc(o.payment_method || '');
 
+    // DER BEZAHLLINK MUSS IN DIE MAIL.
+    //
+    // Bisher stand er an genau EINER Stelle: auf dem Bestaetigungsschirm
+    // nach dem Absenden. Tab zu, Handy gesperrt, versehentlich
+    // weggewischt -- und der Gast hatte keine Moeglichkeit mehr zu
+    // zahlen. Kein Link in der Mail, keiner in der Bestellverfolgung.
+    // Fuer den Wirt sah das aus wie ein Gast, der nicht zahlen will.
+    var paypalBlock = '';
+    if (String(o.payment_method || '').toLowerCase() === 'paypal') {
+        var feats = (rest && rest.features) || [];
+        function featWert(pref) {
+            try {
+                var f = feats.find(function (x) { return String(x).indexOf(pref) === 0; });
+                return f ? String(f).slice(pref.length) : '';
+            } catch (e) { return ''; }
+        }
+        var ppName = featWert('paypal_me:');
+        var ppMail = featWert('paypal_mail:');
+        var ppEigen = featWert('zahlungslink:');
+        var ppBetrag = (Number(o.total) || 0).toFixed(2);
+
+        // Dieselben Regeln wie im Browser. Zwei Stellen mit zwei Regeln
+        // laufen frueher oder spaeter auseinander -- und dann bekommt der
+        // Gast in der Mail einen anderen Link als auf dem Bildschirm.
+        var ppUrl = '', betragDrin = false;
+        if (/^[A-Za-z0-9_-]{1,30}$/.test(ppName)) {
+            ppUrl = 'https://paypal.me/' + ppName + '/' + ppBetrag + 'EUR';
+            betragDrin = true;
+        } else if (/^[^\s@<>"']+@[^\s@<>"']+\.[A-Za-z]{2,}$/.test(ppMail)) {
+            ppUrl = 'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick'
+                  + '&business=' + encodeURIComponent(ppMail)
+                  + '&currency_code=EUR&amount=' + ppBetrag
+                  + '&item_name=' + encodeURIComponent('Bestellung ' + (o.order_number || ''))
+                  + '&no_shipping=1';
+            betragDrin = true;
+        } else if (/^https:\/\//i.test(ppEigen) && !/[<>"']/.test(ppEigen)) {
+            ppUrl = ppEigen;
+            betragDrin = false;
+        }
+
+        if (ppUrl) {
+            paypalBlock =
+                '<div style="margin:20px 0;padding:16px;background:#f0f7ff;border:1px solid #cfe4ff;border-radius:12px;text-align:center;">' +
+                  '<p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#0070f3;">Noch offen: mit PayPal bezahlen</p>' +
+                  '<p style="margin:0 0 12px;color:#374151;font-size:13px;">' +
+                    (betragDrin
+                      ? 'Deine Bestellung ist eingegangen. Der Betrag ist schon eingetragen.'
+                      : 'Deine Bestellung ist eingegangen. Bitte trage bei PayPal ' + ppBetrag.replace('.', ',') + ' € ein.') +
+                  '</p>' +
+                  '<a href="' + esc(ppUrl) + '" style="display:inline-block;background:#0070f3;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-weight:600;">' +
+                    ppBetrag.replace('.', ',') + ' € mit PayPal bezahlen</a>' +
+                '</div>';
+        } else {
+            // Lieber sagen, dass etwas fehlt, als den Gast im Glauben
+            // lassen, es sei erledigt.
+            paypalBlock =
+                '<div style="margin:20px 0;padding:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;">' +
+                  '<p style="margin:0;color:#9a3412;font-size:13px;">Für die Zahlung per PayPal meldet sich das Restaurant bei dir — es ist noch kein PayPal-Link hinterlegt.</p>' +
+                '</div>';
+        }
+    }
+
     var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
         '<h1 style="font-size:20px;margin:0 0 4px;color:#003d33;">Bestellung eingegangen ✅</h1>' +
         '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(o.restaurant_name || 'Restaurant') + ' · ' + typeLabel + '</p>' +
@@ -132,6 +194,7 @@ function buildEmail(o, rest) {
         '<table style="width:100%;border-collapse:collapse;font-size:14px;">' + rows + '</table>' +
         '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">' + sums + '</table>' +
         '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Zahlung: ' + payLabel + '</p>' +
+        paypalBlock +
         addr +
         (o.delivery_notes ? '<p style="margin:8px 0 0;color:#6b7280;font-size:13px;">Hinweis: ' + esc(o.delivery_notes) + '</p>' : '') +
         bewertungsBlock(rest, o.restaurant_name) +
@@ -507,7 +570,7 @@ exports.handler = async function (event) {
         if (order.restaurant_id) {
             try {
                 var orres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                    + encodeURIComponent(order.restaurant_id) + '&select=name,google_maps_url',
+                    + encodeURIComponent(order.restaurant_id) + '&select=name,google_maps_url,features',
                     { headers: sbHeaders() });
                 if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
             } catch (e) {}
