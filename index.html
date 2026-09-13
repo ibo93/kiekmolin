@@ -54017,11 +54017,12 @@ async function submitOrder() {
     //     wuerde unbemerkt eine ganz normale.
     // Die Notiz liest die Kueche ohnehin. Sie ist die Fassung, die immer
     // ankommt.
-    if (window._vorbestellungFuer) {
-        orderData.scheduled_at = window._vorbestellungFuer;
-        var _vbText = 'VORBESTELLUNG für ' + (window._vorbestellungText || 'den nächsten Öffnungstag');
-        orderData.notes = orderData.notes ? (_vbText + ' · ' + orderData.notes) : _vbText;
-    }
+    // Der Zeitpunkt wird WEITER UNTEN in _orderPayload geschrieben, sobald
+    // es diesen gibt. Hier stand er frueher schon -- auf einer Variablen
+    // namens orderData, die es in dieser Funktion nie gab. Jede
+    // Vorbestellung ist an dieser Zeile mit einem ReferenceError
+    // abgebrochen und wurde NIE gespeichert. Nachgemessen am 13.09.2026:
+    // "ReferenceError: orderData is not defined".
 
     // In Supabase speichern
     var _saveOk = false;
@@ -54123,6 +54124,28 @@ async function submitOrder() {
             discount: couponDiscount || 0,
             requested_time: window._requestedTimeForOrder || null
         };
+
+        // VORBESTELLUNG: der Zeitpunkt, ab dem die Kueche loslegen soll.
+        //
+        // Steht er drin, ist es eine Bestellung fuer spaeter -- Dashboard
+        // und Kuechenbon zeigen das gross, damit niemand nachts um drei
+        // anfaengt zu backen.
+        //
+        // ZWEIMAL geschrieben, mit Absicht:
+        //   - scheduled_at, weil man damit rechnen und sortieren kann;
+        //   - zusaetzlich in die Notiz, weil scheduled_at je nach Datenbank
+        //     noch gar nicht existiert. Der selbstheilende Insert wirft eine
+        //     unbekannte Spalte weg und rettet damit die Bestellung -- der
+        //     Zeitpunkt waere dann aber still verschwunden, und aus der
+        //     Vorbestellung wuerde unbemerkt eine ganz normale.
+        // Die Notiz liest die Kueche ohnehin. Sie ist die Fassung, die
+        // immer ankommt.
+        if (window._vorbestellungFuer) {
+            _orderPayload.scheduled_at = window._vorbestellungFuer;
+            var _vbText = 'VORBESTELLUNG für ' + (window._vorbestellungText || 'den nächsten Öffnungstag');
+            _orderPayload.customer_notes = _orderPayload.customer_notes
+                ? (_vbText + ' · ' + _orderPayload.customer_notes) : _vbText;
+        }
         // ZUERST ueber den Server -- dort werden die Preise gegen die Karte
         // nachgerechnet. Vorher lief es andersherum: direkt in die Datenbank,
         // und der Server war nur der Notweg. Damit lief die Prüfung an fast

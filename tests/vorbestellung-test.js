@@ -17,6 +17,7 @@
 // soweit ist -- und die Kueche das deutlich sieht.
 'use strict';
 var fs = require('fs');
+var vm = require('vm');
 var path = require('path');
 
 var n = 0, ok = 0;
@@ -147,27 +148,86 @@ t('kein Restaurant: keine Vorbestellung', F.erlaubt(null) === false);
 // scheduled_at gibt es je nach Datenbank noch nicht, und der selbstheilende
 // Insert wirft unbekannte Spalten weg. Ohne zweiten Weg waere aus der
 // Vorbestellung unbemerkt eine ganz normale geworden.
-t('scheduled_at wird gesetzt', /orderData\.scheduled_at = window\._vorbestellungFuer;/.test(CODE));
-t('und zusaetzlich in die Notiz geschrieben',
-  /VORBESTELLUNG für/.test(CODE) && /orderData\.notes = orderData\.notes/.test(CODE));
+// DIESER TEST WAR GRUEN, WAEHREND DIE VORBESTELLUNG GAR NICHT LIEF.
+//
+// Er forderte woertlich die Zeile "orderData.scheduled_at = ..." ein --
+// und orderData gab es in submitOrder nie. Jede Vorbestellung brach an
+// dieser Stelle mit "ReferenceError: orderData is not defined" ab und
+// wurde NIE gespeichert. Der Test hat den Fehler nicht nur uebersehen,
+// er hat ihn verlangt. Genau der Fall aus Regel 5.
+//
+// Also wird der Block jetzt AUSGEFUEHRT statt verglichen.
+var vonVB = CODE.indexOf('if (window._vorbestellungFuer) {');
+var bisVB = CODE.indexOf('\n        }', vonVB) + 10;
+var blockVB = (vonVB > 0 && bisVB > vonVB) ? CODE.slice(vonVB, bisVB) : '';
+t('der Vorbestell-Block wurde gefunden', blockVB.length > 60, blockVB.length);
+
+function vbLauf(vorher) {
+    var welt = {
+        window: { _vorbestellungFuer: '2026-09-14T08:00:00.000Z', _vorbestellungText: 'morgen 10:00' },
+        _orderPayload: { customer_notes: vorher || '' }
+    };
+    vm.createContext(welt);
+    vm.runInContext(blockVB, welt);
+    return welt._orderPayload;
+}
+
+var vbFehler = null, vb = null;
+try { vb = vbLauf(''); } catch (e) { vbFehler = e.constructor.name + ': ' + e.message; }
+t('er laeuft ueberhaupt durch -- kein ReferenceError', vbFehler === null, vbFehler);
+t('scheduled_at wird wirklich gesetzt',
+  !!vb && vb.scheduled_at === '2026-09-14T08:00:00.000Z', vb && vb.scheduled_at);
+t('und zwar auf _orderPayload -- also auf dem Objekt, das abgeschickt wird',
+  /_orderPayload\.scheduled_at/.test(CODE) && !/orderData/.test(CODE), 'schreibt woanders hin');
+t('zusaetzlich steht es in der Notiz, die die Kueche ohnehin liest',
+  !!vb && /VORBESTELLUNG für morgen 10:00/.test(vb.customer_notes), vb && vb.customer_notes);
+t('eine vorhandene Notiz des Gastes bleibt erhalten',
+  /ohne Zwiebeln/.test(vbLauf('ohne Zwiebeln').customer_notes), 'Notiz geht verloren');
+t('und die Vorbestellung steht VORNE, nicht hinten dran',
+  vbLauf('ohne Zwiebeln').customer_notes.indexOf('VORBESTELLUNG') === 0, 'steht hinten');
+t('scheduled_at kommt auch durch order-save durch',
+  /'scheduled_at'/.test(fs.readFileSync(path.join(WURZEL, 'netlify', 'functions', 'order-save.js'), 'utf8')),
+  'ALLOWED wirft es weg');
 t('der Grund fuer die Doppelung steht dabei',
   /still verschwunden|ZWEIMAL geschrieben/.test(H));
 
 // ---- 7. Die Kueche sieht es ------------------------------------------------
 t('die Bestellkarte zeigt einen Vorbestell-Streifen',
   /if \(order\.scheduled_at\) \{/.test(CODE) && /Vorbestellung' \+ \(_vbZeit/.test(CODE));
+// Nicht die Schreibweise im Quelltext -- den gedruckten Bon ansehen.
+var _V = require('./bon-vorschau.js');
+var _vbBon = _V.alsPapier(_V.ladeBonBauer()({
+    order_number: 'B-9', order_type: 'pickup', total: 12,
+    scheduled_at: '2026-09-14T08:00:00.000Z',
+    items: [{ quantity: 1, name: 'Pizza' }]
+}, 'Test'));
+var _vbZ = _vbBon.filter(function (z) { return z.text === 'VORBESTELLUNG'; })[0];
 t('der Kuechen-Bon druckt VORBESTELLUNG gross',
-  /VORBESTELLUNG&#10;<\/text>/.test(POS));
+  !!_vbZ && (_vbZ.w > 1 || _vbZ.h > 1), _vbZ ? ('w' + _vbZ.w + 'h' + _vbZ.h) : 'steht gar nicht drauf');
+t('mit dem Zeitpunkt darunter',
+  _vbBon.some(function (z) { return /Montag|14\.09/.test(z.text); }), 'kein Termin auf dem Bon');
+t('eine normale Bestellung bekommt den Block NICHT',
+  !_V.alsPapier(_V.ladeBonBauer()({ order_number: 'B-8', order_type: 'pickup', total: 12,
+    items: [{ quantity: 1, name: 'Pizza' }] }, 'Test'))
+    .some(function (z) { return z.text === 'VORBESTELLUNG'; }), 'steht auf jedem Bon');
+t('und sagt ausdruecklich, dass jetzt NICHT gekocht wird',
+  /NICHT JETZT KOCHEN/.test(POS), 'Kueche faengt sofort an');
 t('mit dem Zeitpunkt darunter', /sd\.toLocaleDateString\('de-DE'/.test(POS));
 t('und deutlich abgesetzt', /\*{20,}/.test(POS));
 
 // Die Spalte muss abgefragt werden -- sonst weiss der Bon nichts davon.
-t('scheduled_at wird fuer den Drucker mitgelesen', /basis \+ ',scheduled_at'/.test(POS));
-// ... aber ein Fehlen darf NICHT den ganzen Druck lahmlegen.
-t('fehlt die Spalte, wird ohne sie gedruckt statt gar nicht',
-  /catch \(e\) \{[\s\S]{0,200}orders = await sbGet\(basis\);/.test(POS));
+t('scheduled_at wird fuer den Drucker mitgelesen',
+  /var zusatz = \[[^\]]*'scheduled_at'/.test(POS), 'steht nicht im select');
+// ... aber ein Fehlen darf NICHT den ganzen Druck lahmlegen. Eine
+// unbekannte Spalte laesst PostgREST die GANZE Abfrage scheitern -- aus
+// einem Zusatz wuerde ein Totalausfall.
+t('fehlt die Spalte, fliegt NUR sie raus und der Bon kommt trotzdem',
+  /zusatz\.splice\(zusatz\.indexOf\(fehlt\), 1\);/.test(POS)
+  && /orders = await sbGet\(basis\);/.test(POS), 'ganze Abfrage faellt aus');
 t('und der Grund dafuer steht dabei',
-  /waere ein Totalausfall geworden/.test(POS));
+  /waere\s*(\n\s*\/\/)?\s*ein Totalausfall geworden/.test(POS), 'Grund fehlt');
+t('geht gar nichts mehr, kommt kein Bon statt eines Absturzes',
+  /if \(orders === null\) \{[\s\S]{0,300}emptyEposResponse\(\)/.test(POS), 'stuerzt ab');
 
 // ---- 8. Der Schalter fuer den Wirt -----------------------------------------
 t('es gibt einen Schalter', /id="preorderToggle"/.test(H));

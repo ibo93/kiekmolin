@@ -214,7 +214,11 @@ t('nur bei PayPal-Bestellungen',
 console.log('\n-- Auf dem Bon --');
 t('PAYPAL ist nicht mehr so beruhigend wie BAR',
   /PAYPAL - ZAHLUNG PRUEFEN/.test(bon), 'sieht aus wie bezahlt');
-t('BAR bleibt BAR', /'cash' \? 'BAR'/.test(bon), 'Barzahlung veraendert');
+// Bar heisst jetzt ausdruecklich, dass kassiert wird -- die Zusicherung ist
+// dieselbe geblieben (Bar sieht anders aus als PayPal), sie steht nur
+// deutlicher da.
+t('BAR bleibt BAR -- und sagt, dass kassiert wird',
+  /BAR KASSIEREN/.test(bon), 'Barzahlung veraendert');
 
 // ---- 9. Auslieferung ---------------------------------------------------
 console.log('\n-- Auslieferung --');

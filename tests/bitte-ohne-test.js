@@ -179,7 +179,18 @@ t('ein Apostroph wird abgesichert',
       /options: \(item\.selected_options \|\| \[\]\)\.map/.test(CODE));
     // Und der Bon druckt genau diesen Text.
     t('und der Bon druckt sie', /if \(item\.options\) xml \+=/.test(POS));
-    t('sowie die freie Notiz daneben', /if \(item\.notes\) \{/.test(POS));
+    // Frueher wurde auf die geschweifte Klammer geprueft -- reine Form.
+    // Jetzt auf die Garantie: die Notiz landet auf dem Papier, und zwar
+    // so gross wie das Gericht.
+    t('sowie die freie Notiz daneben', /if \(item\.notes\)/.test(POS));
+    var _V = require('./bon-vorschau.js');
+    var _bon = _V.alsPapier(_V.ladeBonBauer()({
+        order_number: 'B-1', order_type: 'pickup', total: 9,
+        items: [{ quantity: 1, name: 'Pizza', notes: 'bitte ohne Zwiebeln' }]
+    }, 'Test'));
+    var _nz = _bon.filter(function (z) { return z.text.indexOf('ohne Zwiebeln') >= 0; })[0];
+    t('und sie steht wirklich auf dem gedruckten Bon', !!_nz, 'fehlt auf dem Papier');
+    t('so gross wie der Gerichtname', !!_nz && (_nz.w > 1 || _nz.h > 1), 'klein gedruckt');
 })();
 
 // ---- 10. Das Allergen bleibt stehen ----------------------------------------

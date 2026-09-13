@@ -211,15 +211,42 @@ function emptyEposResponse() {
 }
 
 // Bon-XML — identisches Format wie die bestehende generateEposXML im Frontend
+// DER BON -- DREI LESER, DREI BEDUERFNISSE.
+//
+// Ibo am 13.09.2026: "der Bondruck muss besser sein fuer Lieferung und
+// Abholer und fuer die Kueche."
+//
+// Bisher war es EIN Zettel fuer alle, in einer Reihenfolge, die keinem
+// von ihnen half:
+//
+//   KUECHE      braucht: Gerichte, Extras, Notizen, und WANN es fertig
+//               sein muss. Die Uhrzeit stand nirgends auf dem Bon --
+//               obwohl der Gast per Mail "in 25 Minuten" bekommt.
+//   FAHRER      braucht: Adresse und Telefon so gross, dass man sie im
+//               dunklen Auto liest, und den Betrag, den er kassiert.
+//               Die Adresse stand klein, in normaler Schrift, unter
+//               "Adresse:".
+//   THEKE       braucht: den NAMEN des Gastes. Der stand klein unter
+//               "Kunde:" -- an der Theke ist er das Einzige, was zaehlt.
+//
+// Und der "Hinweis" des Gastes stand ganz unten, hinter Summe, Zahlart
+// und QR-Code. Der Koch liest bis zum Ende des Gerichteblocks und hoert
+// dann auf. Jetzt steht er direkt darunter.
+//
+// Aufbau ist jetzt fuer alle drei gleich, nur die Betonung wechselt:
+//   Kopf (Name, Nummer, Zeit) -> ART + FERTIG UM -> FUER WEN ->
+//   KUECHE -> Hinweis -> Geld -> Navigation
 function generateEposBon(order, restaurantName) {
     var belegNr = order.order_number || ('B-' + (order.id || '').substring(0, 8).toUpperCase());
     var datum = new Date(order.created_at || Date.now());
-    var zeit = datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    var date = datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var zeit = datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+    var date = datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
 
-    var orderTypeLabel = order.order_type === 'dine_in' ? 'HIER ESSEN'
-        : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG';
+    var lieferung = order.order_type === 'delivery';
+    var vorOrt = order.order_type === 'dine_in';
+    var orderTypeLabel = vorOrt ? 'HIER ESSEN' : lieferung ? 'LIEFERUNG' : 'ABHOLUNG';
 
+    var LINIE = '================================';
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
     xml += '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">';
     xml += '<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">';
@@ -229,138 +256,206 @@ function generateEposBon(order, restaurantName) {
     // ohne Papier. Epson laesst bei lang nur bestimmte Werte zu:
     // en, ja, ko, zh-hans, zh-hant, th, vi, mul. "de" ist keiner davon.
     // Ein unzulaessiger Wert macht das ganze Dokument ungueltig, und der
-    // Drucker verwirft es stillschweigend. Weil die Zeile in JEDEM Bon stand,
-    // scheiterte auch jeder Bon.
-    //
-    // Weggelassen statt auf "en" gesetzt: ohne Angabe nimmt der Drucker seine
-    // Voreinstellung, und die passt fuer deutsche Texte in Latin-Schrift. Ein
-    // gesetztes "en" wuerde dasselbe tun, aber so behauptet der Bon nicht,
-    // englisch zu sein. Umlaute haengen nicht daran, sondern an der
-    // Zeichentabelle des Druckers.
+    // Drucker verwirft es stillschweigend. Weil die Zeile in JEDEM Bon
+    // stand, scheiterte auch jeder Bon.
     xml += '<text smooth="true"/>';
 
-    // Restaurant-Header groß — wichtig für Läden ohne separate Kasse,
-    // weil der Bon dann das primäre Beleg-Dokument ist.
-    if (restaurantName) {
-        xml += '<text align="center" width="2" height="2">' + xmlEscape(restaurantName) + '&#10;</text>';
-        xml += '<text>&#10;</text>';
+    function zeile(text, opt) {
+        var o = opt || {};
+        var a = ' align="' + (o.align || 'left') + '"';
+        var b = o.fett ? ' em="true"' : '';
+        var w = o.w ? ' width="' + o.w + '"' : '';
+        var hh = o.h ? ' height="' + o.h + '"' : '';
+        return '<text' + a + w + hh + b + '>' + xmlEscape(String(text)) + '&#10;</text>';
+    }
+    function leer() { return '<text>&#10;</text>'; }
+
+    // DOPPELTE BREITE HEISST HALBE ZEILE.
+    //
+    // Die Rolle hat 32 Zeichen; bei width="2" sind es 16. "Restaurant Zur
+    // Alten Muehle" oder "Familie Jansen-Ostermann" bricht darin mitten im
+    // Wort um und sieht kaputt aus. Passt es nicht, bleibt die Breite bei 1
+    // und nur die HOEHE wird verdoppelt -- dann steht es immer noch gross
+    // da, aber in einer Zeile.
+    function gross(text, align) {
+        var t = String(text == null ? '' : text);
+        return zeile(t, { align: align || 'center', w: t.length <= 16 ? 2 : 1, h: 2 });
     }
 
-    xml += '<text align="center" font="font_a" width="2" height="2">' + xmlEscape(belegNr) + '&#10;</text>';
-    xml += '<text align="center">' + date + ' ' + zeit + '&#10;&#10;</text>';
-    xml += '<text align="center" width="2" height="2">' + orderTypeLabel + '&#10;</text>';
+    // ---- 1. Kopf ------------------------------------------------------
+    if (restaurantName) {
+        xml += gross(restaurantName);
+        xml += leer();
+    }
+    xml += gross(belegNr);
+    xml += zeile(date + ' ' + zeit, { align: 'center' });
+    xml += leer();
 
-    // VORBESTELLUNG ganz gross und ganz oben.
+    // ---- 2. Art und WANN ----------------------------------------------
+    xml += gross(orderTypeLabel);
+
+    // DIE UHRZEIT IST DIE WICHTIGSTE ZAHL FUER DIE KUECHE.
     //
-    // Der Bon faellt bei einer Vorbestellung erst dann aus dem Drucker, wenn
-    // die Kueche wieder da ist -- er sieht dann aus wie jeder andere. Ohne
-    // diesen Block faengt jemand sofort an zu kochen, obwohl das Essen erst
-    // Stunden spaeter abgeholt wird. Der Zeitpunkt ist hier die wichtigste
-    // Angabe auf dem ganzen Zettel.
+    // Der Gast bekommt per Mail "in etwa 25 Minuten -- also gegen 19:20
+    // Uhr". Auf dem Bon stand diese Zusage bisher NICHT. Die Kueche
+    // konnte also gar nicht wissen, worauf sie hinarbeitet, und der
+    // Abholer stand vor einer Theke, an der niemand mit ihm rechnete.
+    var fertigUm = '';
+    if (order.estimated_time) {
+        try {
+            fertigUm = new Date(order.estimated_time)
+                .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+        } catch (e) { fertigUm = ''; }
+    }
+    var min = parseInt(order.estimated_minutes, 10);
+    if (!fertigUm && min > 0) {
+        try {
+            fertigUm = new Date(datum.getTime() + min * 60000)
+                .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+        } catch (e) { fertigUm = ''; }
+    }
+    if (fertigUm) {
+        // Beschriftung klein, Uhrzeit gross. In einer Zeile waere
+        // "LOSFAHREN UM 20:00" 18 Zeichen -- in doppelter Breite passen
+        // nur 16 auf die Rolle, es haette mitten im Wort umgebrochen.
+        xml += zeile(lieferung ? 'LOSFAHREN UM' : 'FERTIG UM', { align: 'center' });
+        xml += gross(fertigUm + ' Uhr');
+        if (min > 0) xml += zeile('(zugesagt: ' + min + ' Minuten)', { align: 'center' });
+    }
+
+    // ---- 3. Vorbestellung ----------------------------------------------
+    //
+    // Der Bon faellt bei einer Vorbestellung erst dann aus dem Drucker,
+    // wenn die Kueche wieder da ist -- er sieht dann aus wie jeder andere.
+    // Ohne diesen Block faengt jemand sofort an zu kochen, obwohl das
+    // Essen erst Stunden spaeter abgeholt wird.
     if (order.scheduled_at) {
         var wann = '';
         try {
             var sd = new Date(order.scheduled_at);
-            wann = sd.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })
-                 + ' ' + sd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+            wann = sd.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Europe/Berlin' })
+                 + ' ' + sd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) + ' Uhr';
         } catch (e) {}
-        xml += '<text>&#10;</text>';
-        xml += '<text align="center">********************************&#10;</text>';
-        xml += '<text align="center" width="2" height="2">VORBESTELLUNG&#10;</text>';
-        if (wann) xml += '<text align="center" width="1" height="2">' + xmlEscape(wann) + '&#10;</text>';
-        xml += '<text align="center">********************************&#10;</text>';
+        xml += leer();
+        xml += zeile('********************************', { align: 'center' });
+        xml += gross('VORBESTELLUNG');
+        xml += zeile('NICHT JETZT KOCHEN', { align: 'center' });
+        if (wann) xml += zeile(wann, { align: 'center', w: 1, h: 2 });
+        xml += zeile('********************************', { align: 'center' });
     }
 
-    if (order.table_number) {
-        xml += '<text align="center" width="2" height="2">Tisch ' + xmlEscape(order.table_number) + '&#10;</text>';
+    // ---- 4. Fuer wen -- je nach Art das, was zaehlt ----------------------
+    xml += leer();
+    if (vorOrt) {
+        if (order.table_number) xml += gross('Tisch ' + order.table_number);
+    } else if (lieferung) {
+        // Der Fahrer liest das im Dunkeln, im Auto, in Eile.
+        var adr = order.delivery_address;
+        var strasse = '', stadt = '';
+        if (adr && typeof adr === 'object') {
+            strasse = [adr.street, adr.house_number].filter(Boolean).join(' ');
+            stadt = [adr.zip, adr.city].filter(Boolean).join(' ');
+        } else if (typeof adr === 'string') {
+            strasse = adr;
+        }
+        if (strasse) xml += zeile(strasse, { align: 'center', w: 1, h: 2, fett: true });
+        if (stadt) xml += zeile(stadt, { align: 'center', w: 1, h: 2, fett: true });
+        if (order.customer_name) xml += zeile(order.customer_name, { align: 'center' });
+        if (order.customer_phone) xml += zeile('Tel ' + order.customer_phone, { align: 'center', w: 1, h: 2 });
+    } else {
+        // An der Theke zaehlt der Name. Er stand bisher klein ganz unten.
+        if (order.customer_name) xml += gross(order.customer_name);
+        if (order.customer_phone) xml += zeile('Tel ' + order.customer_phone, { align: 'center' });
     }
 
-    xml += '<text>&#10;</text><text>================================&#10;</text>';
-
+    // ---- 5. Die Kueche ---------------------------------------------------
+    xml += leer();
+    xml += zeile(LINIE);
     var items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+        // Eine leere Liste ist keine Antwort. Ohne diese Zeile faende die
+        // Kueche einen Bon ohne Gerichte und wuesste nicht, ob nichts
+        // bestellt wurde oder etwas verlorenging.
+        xml += zeile('!! KEINE POSITIONEN !!', { align: 'center', w: 1, h: 2 });
+        xml += zeile('Bitte im Dashboard nachsehen', { align: 'center' });
+    }
     items.forEach(function (item) {
         var qty = item.quantity || 1;
-        var name = item.name || '';
-        // Items in doppelter Höhe — besser lesbar in der Küche
-        xml += '<text width="1" height="2">' + xmlEscape(qty + 'x ' + name) + '&#10;</text>';
-        if (item.options) xml += '<text>  &gt; ' + xmlEscape(item.options) + '&#10;</text>';
+        xml += zeile(qty + 'x ' + (item.name || ''), { w: 1, h: 2 });
+        if (item.options) xml += zeile('  > ' + item.options);
         // DIE NOTIZ ZUM GERICHT MUSS AUF DEN BON.
         //
-        // Sie wurde gespeichert und im Dashboard angezeigt, aber hier fehlte
-        // sie. In index.html steht beim Speichern sogar der Satz "notes MUSS
-        // mit. Ohne diese Zeile schreibt der Gast 'ohne Zwiebeln' und die
-        // Küche erfährt es nie" -- die Korrektur ging nur bis zum Bildschirm.
-        // Der Koch arbeitet aber vom Zettel, nicht vom Bildschirm.
-        //
-        // Doppelte Höhe wie der Gerichtname: eine Sonderbestellung, die man
-        // überliest, ist dasselbe wie keine. Der Pfeil davor unterscheidet
-        // sie von den Extras darüber.
-        if (item.notes) {
-            xml += '<text width="1" height="2">' + xmlEscape('  ** ' + item.notes) + '&#10;</text>';
-        }
+        // Doppelte Hoehe wie der Gerichtname: eine Sonderbestellung, die
+        // man ueberliest, ist dasselbe wie keine.
+        if (item.notes) xml += zeile('  ** ' + item.notes, { w: 1, h: 2 });
     });
+    xml += zeile(LINIE);
 
-    xml += '<text>================================&#10;</text>';
-    xml += '<text>&#10;</text>';
+    // ---- 6. Hinweis -- direkt hinter den Gerichten -----------------------
+    //
+    // Stand bisher ganz unten, hinter Summe, Zahlart und QR-Code. Der Koch
+    // liest bis zum Ende des Gerichteblocks und hoert dann auf.
+    var hinweis = order.customer_notes || order.delivery_notes || '';
+    if (hinweis) {
+        xml += leer();
+        xml += zeile('HINWEIS', { w: 1, h: 2 });
+        xml += zeile(hinweis, { w: 1, h: 2 });
+    }
 
-    // Total — extra groß (3x), damit's nicht zu übersehen ist
+    // ---- 7. Das Geld -----------------------------------------------------
+    xml += leer();
     var total = parseFloat(order.total || 0).toFixed(2).replace('.', ',');
-    xml += '<text align="right" width="3" height="3">' + total + ' EUR&#10;</text>';
-    xml += '<text align="right">GESAMT&#10;</text>';
-    xml += '<text>&#10;</text>';
+    var art = String(order.payment_method || '').toLowerCase();
+    var bezahlt = String(order.payment_status || '').toLowerCase() === 'paid';
 
-    // Zahlart prominent
-    if (order.payment_method) {
-        // PAYPAL ist keine Zahlungsbestaetigung.
-        //
-        // Ein PayPal.Me-Link meldet uns nie, ob der Gast bezahlt hat. Auf
-        // dem Bon stand bisher schlicht "PAYPAL" -- genauso gross und
-        // genauso beruhigend wie "BAR". Der Fahrer faehrt los und niemand
-        // hat nachgesehen, ob Geld da ist.
-        var pm = order.payment_method === 'cash' ? 'BAR'
-               : order.payment_method === 'paypal' ? 'PAYPAL - ZAHLUNG PRUEFEN'
-               : String(order.payment_method).toUpperCase();
-        xml += '<text align="center" width="2" height="2">' + xmlEscape(pm) + '&#10;</text>';
-        xml += '<text>&#10;</text>';
+    if (bezahlt) {
+        // Seit PayPal Checkout gibt es einen echten Beleg: das Geld ist
+        // abgebucht und geprueft. Dann muss auf dem Bon BEZAHLT stehen und
+        // nicht "pruefen" -- sonst kassiert jemand ein zweites Mal.
+        xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+        xml += gross('BEZAHLT');
+        xml += zeile('nichts kassieren', { align: 'center' });
+    } else if (art === 'cash') {
+        // Der Fahrer und die Theke muessen EINE Zahl sehen: was kassiert
+        // wird. Bisher stand die Summe an einer Stelle und "BAR" an einer
+        // anderen.
+        xml += gross('BAR KASSIEREN');
+        xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+    } else if (art === 'paypal') {
+        // PAYPAL ohne bestaetigte Zahlung ist keine Zahlungsbestaetigung.
+        // Ein Bezahllink meldet uns nie, ob der Gast bezahlt hat.
+        xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+        xml += gross('PAYPAL - ZAHLUNG PRUEFEN');
+    } else if (art) {
+        xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+        xml += gross(String(order.payment_method).toUpperCase());
+    } else {
+        xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+        xml += zeile('GESAMT', { align: 'right' });
     }
 
-    if (order.customer_name) xml += '<text>Kunde:   ' + xmlEscape(order.customer_name) + '&#10;</text>';
-    if (order.customer_phone) xml += '<text>Telefon: ' + xmlEscape(order.customer_phone) + '&#10;</text>';
-    if (order.delivery_address && typeof order.delivery_address === 'object') {
-        var addr = order.delivery_address;
-        var addrLine = [addr.street, addr.house_number].filter(Boolean).join(' ');
-        var cityLine = [addr.zip, addr.city].filter(Boolean).join(' ');
-        if (addrLine) xml += '<text>Adresse: ' + xmlEscape(addrLine) + '&#10;</text>';
-        if (cityLine) xml += '<text>         ' + xmlEscape(cityLine) + '&#10;</text>';
-    }
-    // Bei Lieferung: QR-Code der Adresse -> Fahrer scannt = Google-Maps-Navigation
-    if (order.order_type === 'delivery') {
+    // ---- 8. Navigation, nur fuer den Fahrer ------------------------------
+    if (lieferung) {
         var _qAddr = '';
         if (order.delivery_address && typeof order.delivery_address === 'object') {
             var _da = order.delivery_address;
-            _qAddr = [[_da.street, _da.house_number].filter(Boolean).join(' '), [_da.zip, _da.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+            _qAddr = [[_da.street, _da.house_number].filter(Boolean).join(' '),
+                      [_da.zip, _da.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
         } else if (typeof order.delivery_address === 'string') {
             _qAddr = order.delivery_address;
         }
         if (_qAddr) {
             var _mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(_qAddr);
-            xml += '<text>&#10;</text>';
-            xml += '<text align="center">Navigation zur Lieferadresse:&#10;</text>';
+            xml += leer();
             xml += '<symbol type="qrcode_model_2" level="level_m" width="6" height="6" size="0">' + xmlEscape(_mapsUrl) + '</symbol>';
-            xml += '<text>&#10;</text>';
-            xml += '<text align="center">QR scannen = Navigation&#10;</text>';
+            xml += zeile('QR scannen = Navigation', { align: 'center' });
             xml += '<text align="left"/>';
         }
     }
-    if (order.customer_notes || order.delivery_notes) {
-        xml += '<text>&#10;</text>';
-        xml += '<text width="1" height="2">Hinweis:&#10;</text>';
-        xml += '<text width="1" height="2">' + xmlEscape(order.customer_notes || order.delivery_notes) + '&#10;</text>';
-    }
 
     xml += '<feed unit="30"/>';
-    xml += '<text align="center">--- Vielen Dank! ---&#10;</text>';
-    xml += '<text align="center">kiekmolin.de&#10;</text>';
+    xml += zeile('--- Vielen Dank! ---', { align: 'center' });
+    xml += zeile('kiekmolin.de', { align: 'center' });
     xml += '<feed unit="36"/><cut type="feed"/>';
     xml += '</epos-print></s:Body></s:Envelope>';
     return xml;
@@ -556,19 +651,48 @@ exports.handler = async function (event) {
                     'customer_name,customer_phone,customer_notes,delivery_address,delivery_notes,' +
                     'items,total';
 
-        // scheduled_at muss mit -- ohne das Feld weiss der Bon nicht, dass es
-        // eine Vorbestellung ist, und die Kueche faengt sofort an.
+        // DIE SPALTEN, OHNE DIE DER BON HALB BLIND IST.
         //
-        // ABER: die Spalte gibt es je nach Datenbank noch nicht, und eine
-        // unbekannte Spalte im select laesst PostgREST die GANZE Abfrage mit
-        // 400 scheitern. Dann kaeme gar kein Bon mehr -- aus einem Zusatz
-        // waere ein Totalausfall geworden. Also erst mit, bei Fehler ohne.
-        var orders;
-        try {
-            orders = await sbGet(basis + ',scheduled_at');
-        } catch (e) {
-            console.warn('[pos-print] scheduled_at nicht abfragbar, drucke ohne Vorbestell-Hinweis:', e.message);
-            orders = await sbGet(basis);
+        // Am 13.09.2026 nachgesehen: payment_method stand GAR NICHT im
+        // select. Der ganze sorgfaeltig gebaute Zahlart-Block im Bon --
+        // "BAR", "PAYPAL - ZAHLUNG PRUEFEN" -- war toter Code. Auf dem
+        // Papier stand nie ein Wort zur Zahlung. Genau die Sorte stiller
+        // Ausfall: der Bon sieht vollstaendig aus, ihm fehlt nur alles,
+        // was niemand vermisst, weil es noch nie da war.
+        //
+        // Diese Spalten gibt es je nach Datenbank noch nicht, und EINE
+        // unbekannte Spalte laesst PostgREST die GANZE Abfrage mit 400
+        // scheitern -- dann kaeme kein Bon mehr. Aus einem Zusatz waere
+        // ein Totalausfall geworden. Also: PostgREST nennt im Fehler die
+        // Spalte, die es nicht gibt. Die fliegt raus, der Rest bleibt.
+        var zusatz = ['scheduled_at', 'payment_method', 'payment_status',
+                      'estimated_minutes', 'estimated_time'];
+        var orders = null;
+        for (var vers = 0; vers < zusatz.length + 1; vers++) {
+            try {
+                orders = await sbGet(basis + (zusatz.length ? ',' + zusatz.join(',') : ''));
+                break;
+            } catch (e) {
+                var fehlt = null;
+                for (var z = 0; z < zusatz.length; z++) {
+                    if (String(e.message).indexOf(zusatz[z]) >= 0) { fehlt = zusatz[z]; break; }
+                }
+                if (fehlt) {
+                    console.warn('[pos-print] Spalte ' + fehlt + ' fehlt, Bon wird ohne sie gedruckt.');
+                    zusatz.splice(zusatz.indexOf(fehlt), 1);
+                    continue;
+                }
+                console.warn('[pos-print] Zusatzspalten nicht abfragbar, drucke mit dem Noetigsten:', e.message);
+                orders = await sbGet(basis);
+                break;
+            }
+        }
+        // Nach allen Versuchen immer noch nichts: lieber kein Bon als ein
+        // Absturz. Der Drucker bekommt eine leere Antwort und fragt in ein
+        // paar Sekunden wieder -- er tut das ohnehin 17 Mal pro Minute.
+        if (orders === null) {
+            console.error('[pos-print] Bestellungen nicht lesbar -- kein Bon in diesem Durchlauf.');
+            return xmlResponse(emptyEposResponse());
         }
 
         // Last-Poll-Tracker: bei jedem Abruf vom Drucker den Zeitstempel

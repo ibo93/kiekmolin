@@ -117,13 +117,20 @@ t('die erlaubten Werte sind mit aufgeschrieben',
     var block = POS.slice(POS.indexOf('items.forEach(function (item)'),
                           POS.indexOf('================================', POS.indexOf('items.forEach')));
     t('der Bon druckt die Notiz zum Gericht', /if \(item\.notes\)/.test(block), block.slice(0, 300));
+    // Nicht mehr die Schreibweise im Quelltext, sondern das Ergebnis:
+    // der Bon wird gebaut und nachgesehen, wie gross die Notiz gedruckt wird.
+    var _V = require('./bon-vorschau.js');
+    var _z = _V.alsPapier(_V.ladeBonBauer()({
+        order_number: 'B-1', order_type: 'pickup', total: 9,
+        items: [{ quantity: 1, name: 'Pizza', notes: 'ohne Zwiebeln' }]
+    }, 'Test')).filter(function (x) { return x.text.indexOf('ohne Zwiebeln') >= 0; })[0];
     t('und zwar so gross wie den Gerichtnamen -- eine Sonderbestellung, die '
       + 'man ueberliest, ist dasselbe wie keine',
-      /item\.notes[\s\S]{0,120}width="1" height="2"/.test(block));
+      !!_z && _z.h > 1, _z ? ('h=' + _z.h) : 'gar nicht gedruckt');
     t('mit eigenem Zeichen davor, damit man sie nicht mit den Extras verwechselt',
       /\*\* ' \+ item\.notes/.test(block), block.slice(-300));
-    t('warum sie vorher fehlte, steht dabei',
-      /Der Koch arbeitet aber vom Zettel, nicht vom Bildschirm/.test(POS));
+    t('warum sie wichtig ist, steht dabei',
+      /man ueberliest, ist dasselbe wie keine/.test(POS), 'Begruendung fehlt');
 })();
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));

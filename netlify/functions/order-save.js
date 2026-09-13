@@ -39,7 +39,7 @@ var ALLOWED = [
     'customer_name', 'customer_phone', 'customer_email',
     'delivery_address', 'delivery_notes', 'customer_notes',
     'items', 'subtotal', 'delivery_fee', 'tip', 'discount', 'total',
-    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at',
+    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at', 'scheduled_at',
     // Sofort-Bestaetigung. Fehlt eine dieser Spalten, wirft der
     // selbst-heilende Insert sie raus -- die Bestellung geht trotzdem
     // durch, nur ohne Zusage.
@@ -246,7 +246,7 @@ exports.handler = async function (event) {
         // steht eine Sekunde lang falsch in der Kueche.
         var feats = await hausFeatures(order.restaurant_id);
         var zusage = (feats === null) ? null
-            : WARTEZEIT.zusage(feats, order.order_type, !!order.requested_time);
+            : WARTEZEIT.zusage(feats, order.order_type, !!(order.requested_time || order.scheduled_at));
         if (zusage) Object.keys(zusage).forEach(function (k) { order[k] = zusage[k]; });
 
         var r = await resilientInsert(order);

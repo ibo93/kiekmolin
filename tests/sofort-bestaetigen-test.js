@@ -117,7 +117,16 @@ t('benutzt dieselbe Bibliothek', /require\('\.\/lib\/wartezeit'\)/.test(save), '
 t('holt die features des Betriebs', /select=features&limit=1/.test(save), 'raet');
 t('entscheidet VOR dem Insert -- sonst klingelt es beim Wirt und steht eine Sekunde falsch da',
   save.indexOf('WARTEZEIT.zusage(') < save.indexOf('var r = await resilientInsert(order);'), 'zu spaet');
-t('Vorbestellungen gehen den normalen Weg', /!!order\.requested_time/.test(save), 'auch Vorbestellungen');
+// Eine Vorbestellung steht in scheduled_at (Restaurant zu, Gast bestellt
+// fuer spaeter) ODER in requested_time (Wunschzeit). BEIDE muessen die
+// Sofort-Bestaetigung sperren -- sonst verspricht die Mail "in 25 Minuten"
+// fuer ein Essen von morgen.
+t('Vorbestellungen gehen den normalen Weg',
+  /!!\(order\.requested_time \|\| order\.scheduled_at\)/.test(save), 'auch Vorbestellungen');
+t('das gilt auch fuer PayPal',
+  /!!\(order\.requested_time \|\| order\.scheduled_at\)/.test(pp), 'PayPal verspricht 25 Minuten');
+t('und die Bibliothek sperrt wirklich',
+  W.zusage(['prep_auto', 'prep_pickup:25'], 'pickup', true, Date.now()) === null, 'sagt trotzdem zu');
 ['accepted_at', 'estimated_minutes', 'estimated_time'].forEach(function (sp) {
     t('ALLOWED laesst ' + sp + ' durch', new RegExp("'" + sp + "'").test(save.slice(save.indexOf('var ALLOWED'), save.indexOf('];', save.indexOf('var ALLOWED')))), 'wird verworfen');
 });

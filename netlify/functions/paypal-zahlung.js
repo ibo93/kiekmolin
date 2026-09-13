@@ -114,7 +114,7 @@ var ALLOWED = [
     'customer_name', 'customer_phone', 'customer_email',
     'delivery_address', 'delivery_notes', 'customer_notes',
     'items', 'subtotal', 'delivery_fee', 'tip', 'discount', 'total',
-    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at',
+    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at', 'scheduled_at',
     'payment_status', 'payment_reference',
     // Sofort-Bestaetigung -- dieselben Felder wie in order-save.
     'accepted_at', 'estimated_minutes', 'estimated_time'
@@ -464,7 +464,7 @@ exports.handler = async function (event) {
                 var featsPP = await hol('restaurants?id=eq.' + encodeURIComponent(order.restaurant_id)
                     + '&select=features&limit=1');
                 var zusagePP = WARTEZEIT.zusage((featsPP[0] && featsPP[0].features) || [],
-                    order.order_type, !!order.requested_time);
+                    order.order_type, !!(order.requested_time || order.scheduled_at));
                 if (zusagePP) Object.keys(zusagePP).forEach(function (k) { nutz[k] = zusagePP[k]; });
             } catch (e) {
                 console.warn('[paypal-zahlung] features nicht ladbar, keine Sofort-Bestaetigung:', e.message);
