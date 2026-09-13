@@ -168,6 +168,43 @@ async function schonGebucht(paypalId) {
 // Restaurants ueberschreiben und dessen Einnahmen umleiten. Dieselbe
 // Pruefung wie beim Nachdruck-Knopf in pos-print.js.
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// IST DER ZWEITE TEIL VON SQL 30 AUCH ANGEKOMMEN?
+//
+// Das Skript legt zuerst die Tabelle paypal_konten an und aendert ERST
+// DANACH orders. Bricht es dazwischen ab, gibt es die Tabelle -- und die
+// beiden Spalten nicht.
+//
+// Von allein merkt das niemand: bestellungSchreiben() wirft eine
+// fehlende Spalte absichtlich raus, damit eine bereits bezahlte
+// Bestellung nicht verloren geht. Die Bestellung kommt also an --
+// aber ohne Beleg der Zahlung, und ohne den Riegel gegen
+// Doppelbuchungen. Zweimal Zurueck im Browser, zwei Bestellungen,
+// einmal Geld.
+//
+// Genau die Sorte stiller Ausfall aus Regel 6. Darum wird nachgesehen.
+//
+// Rueckgabe: true = da, false = fehlt (gemessen), null = nicht messbar.
+// null ist ausdruecklich nicht false -- nicht erreichbar heisst nicht
+// "fehlt", und das Dashboard behauptet dann auch nichts.
+// ---------------------------------------------------------------------
+async function spaltenDa() {
+    try {
+        var res = await fetch(SUPABASE_URL
+            + '/rest/v1/orders?select=payment_status,payment_reference&limit=1', { headers: kopf() });
+        if (res.ok) return true;
+        // 400 mit PGRST204/"does not exist" heisst: die Spalte fehlt.
+        // Jeder andere Fehler heisst nur, dass wir es nicht wissen.
+        var t = '';
+        try { t = await res.text(); } catch (e) { t = ''; }
+        if (res.status === 400 && /payment_(status|reference)/.test(t)) return false;
+        console.warn('[paypal-zahlung] Spaltenpruefung unklar:', res.status, t.slice(0, 200));
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
 async function angemeldeteBetriebe(token) {
     if (!token) return null;
     var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
@@ -286,8 +323,13 @@ exports.handler = async function (event) {
             var rid0 = String(body.restaurant_id || '');
             if (!rid0) return json(400, { ok: false, error: 'restaurant_id fehlt.' });
             var k0 = await konto(rid0);
-            if (!k0) return json(200, { ok: true, eingerichtet: false });
-            return json(200, { ok: true, eingerichtet: true, client_id: k0.client_id, live: !!k0.live });
+            var antwort0 = k0
+                ? { ok: true, eingerichtet: true, client_id: k0.client_id, live: !!k0.live }
+                : { ok: true, eingerichtet: false };
+            // Nur das Dashboard fragt danach. Den Gast kostet das eine
+            // Anfrage, die ihm an der Kasse nichts nuetzt.
+            if (body.pruefen === true) antwort0.spalten = await spaltenDa();
+            return json(200, antwort0);
         }
 
         // ---------------- 1. Zahlung anlegen ----------------

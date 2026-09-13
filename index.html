@@ -62445,16 +62445,39 @@ function ppcStatusZeigen(zustand) {
     }
 }
 
+// Sagt es, wenn SQL 30 nur zur Haelfte angekommen ist.
+//
+// spalten === false heisst GEMESSEN: die Spalten fehlen in orders.
+// undefined oder null heisst: nicht gemessen -- dann wird hier auch
+// nichts behauptet. Eine leere Meldung ist keine Entwarnung.
+function ppcSpaltenWarnen(spalten) {
+    var m = document.getElementById('ppcMeldungDash');
+    if (!m) return;
+    if (spalten === false) {
+        m.textContent = 'Achtung: In der Datenbank fehlen bei den Bestellungen die Spalten '
+            + 'payment_status und payment_reference. Der untere Teil von 30-paypal-konto.sql '
+            + 'ist nicht durchgelaufen. Bezahlte Bestellungen kommen zwar an, aber ohne '
+            + 'Zahlungsnachweis — und dieselbe Zahlung kann zweimal eine Bestellung erzeugen. '
+            + 'Bitte das SQL noch einmal ausführen.';
+        m.style.color = '#b91c1c';
+    } else if (spalten === true && /payment_status/.test(m.textContent)) {
+        // Die Warnung stand da und ist erledigt.
+        m.textContent = '';
+        m.style.color = 'var(--slate)';
+    }
+}
+
 async function ppcStatusLaden(restId) {
     if (!restId) return;
     try {
         if (typeof PPC !== 'undefined') delete PPC.konten[restId];
         var res = await fetch('/.netlify/functions/paypal-zahlung?action=konto', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ restaurant_id: restId })
+            body: JSON.stringify({ restaurant_id: restId, pruefen: true })
         });
         var j = await res.json();
         ppcStatusZeigen(j && j.ok ? j : { eingerichtet: false });
+        ppcSpaltenWarnen(j && j.ok ? j.spalten : undefined);
     } catch (e) {
         // Nicht erreichbar heisst NICHT "nicht eingerichtet" -- das darf
         // hier nicht behauptet werden.
