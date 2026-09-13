@@ -311,7 +311,15 @@ function generateEposBon(order, restaurantName) {
 
     // Zahlart prominent
     if (order.payment_method) {
-        var pm = order.payment_method === 'cash' ? 'BAR' : String(order.payment_method).toUpperCase();
+        // PAYPAL ist keine Zahlungsbestaetigung.
+        //
+        // Ein PayPal.Me-Link meldet uns nie, ob der Gast bezahlt hat. Auf
+        // dem Bon stand bisher schlicht "PAYPAL" -- genauso gross und
+        // genauso beruhigend wie "BAR". Der Fahrer faehrt los und niemand
+        // hat nachgesehen, ob Geld da ist.
+        var pm = order.payment_method === 'cash' ? 'BAR'
+               : order.payment_method === 'paypal' ? 'PAYPAL - ZAHLUNG PRUEFEN'
+               : String(order.payment_method).toUpperCase();
         xml += '<text align="center" width="2" height="2">' + xmlEscape(pm) + '&#10;</text>';
         xml += '<text>&#10;</text>';
     }
