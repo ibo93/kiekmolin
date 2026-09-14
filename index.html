@@ -48428,6 +48428,9 @@ async function openMenuModal(restaurantId) {
     currentOrderRestaurant = restaurant;
     window.currentOrderRestaurant = restaurant;
 
+    // Schritt 1 von 3 -- siehe trichter()
+    trichter('karte', restaurant && restaurant.id);
+
     var nameEl = document.getElementById('menuRestaurantName');
     if (nameEl) nameEl.textContent = restaurant.name;
 
@@ -51546,6 +51549,10 @@ function updateItemTotalPrice() {
 
 // In den Warenkorb
 function addItemToCart() {
+    // Schritt 2 von 3 -- siehe trichter(). Steht bewusst VOR dem Rechnen:
+    // faellt calculateItemPrice() aus, ist das ein Fehler, den ich sehen
+    // will -- und nicht einer, der auch noch die Zaehlung verschluckt.
+    try { trichter('warenkorb', currentOrderRestaurant && currentOrderRestaurant.id); } catch (e) {}
     const unitPrice = calculateItemPrice();
     const notes = document.getElementById('itemNotes')?.value || '';
 
@@ -54298,6 +54305,10 @@ async function submitOrder() {
 
         if (_orderRes.ok) {
             _saveOk = true;
+            // Schritt 3 von 3 -- siehe trichter(). ERST HIER, nicht beim
+            // Absenden: eine Bestellung, die am Ende nicht gespeichert
+            // wurde, darf in der Quote nicht als Erfolg stehen.
+            try { trichter('bestellt', _orderPayload.restaurant_id); } catch (e) {}
             var _neueZeile = (_orderRes.data && _orderRes.data[0]) || null;
             order.id = (_neueZeile && _neueZeile.id) || order.id;
 
@@ -60079,6 +60090,66 @@ function logRestaurantEvent(restId, type, message, orderId, payload) {
         }).catch(function() { /* still — Logging soll nie laut sein */ });
     } catch(e) { /* still */ }
 }
+
+// DER GASTTRICHTER -- drei Schritte, damit sichtbar wird, wo Gaeste
+// abspringen. Auswertung: netlify/functions/lib/trichter.js.
+//
+// WARUM NICHT EINFACH DIE ABRUFE ZAEHLEN
+// Am 14.09.2026 standen 1.902 Speisekarten-Abrufe im Protokoll und 114
+// Bestellungen. "6 %" waere falsch gewesen: ein Gast loest mehrere
+// Abrufe aus, das Dashboard laedt die Karte mit, der Drucker fragt
+// dauernd nach. Darum zaehlt hier eine Zufallsnummer pro Sitzung.
+//
+// WAS HIER NICHT HINGEHT
+// Kein Name, keine Mail, keine Nummer. _trichterBesuch() ist Zufall,
+// liegt in sessionStorage und ist mit dem Tab weg.
+function _trichterBesuch() {
+    try {
+        var b = sessionStorage.getItem('kmi_besuch');
+        if (!b) {
+            b = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+            sessionStorage.setItem('kmi_besuch', b);
+        }
+        return b;
+    } catch (e) {
+        // Privates Fenster, Speicher aus: dann wird eben nicht gezaehlt.
+        // Eine Statistik darf nie der Grund sein, dass etwas nicht geht.
+        return null;
+    }
+}
+
+function trichter(schritt, restId) {
+    try {
+        if (!restId || ['karte', 'warenkorb', 'bestellt'].indexOf(schritt) < 0) return;
+
+        // Den Wirt NICHT mitzaehlen. Er sieht sich seine eigene Karte
+        // taeglich an -- das wuerde jede Quote verderben, und zwar genau
+        // bei den kleinen Haeusern, wo es auf jeden Gast ankommt.
+        try { if (currentUser) return; } catch (e) { /* nicht angemeldet */ }
+
+        var besuch = _trichterBesuch();
+        if (!besuch) return;
+
+        // Jeder Schritt hoechstens einmal je Besuch. Die Datenbank passt
+        // zusaetzlich auf (unique index), aber jede Anfrage, die hier
+        // wegfaellt, ist eine, die gar nicht erst rausgeht.
+        var merker = 'kmi_tr_' + schritt;
+        try { if (sessionStorage.getItem(merker)) return; } catch (e) { return; }
+        try { sessionStorage.setItem(merker, '1'); } catch (e) { return; }
+
+        fetch(SUPABASE_URL + '/rest/v1/guest_funnel', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ restaurant_id: restId, besuch: besuch, schritt: schritt })
+        }).catch(function () { /* still -- Zaehlen darf nie laut sein */ });
+    } catch (e) { /* still */ }
+}
+window.trichter = trichter;
 
 function _escEventHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
