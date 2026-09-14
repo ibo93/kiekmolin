@@ -16,6 +16,7 @@
 'use strict';
 
 var crypto = require('crypto');
+var ZAHLART = require('./lib/zahlart');
 
 // Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
 // Netlify nicht gesetzt sind, Fallback auf die ohnehin öffentlichen anon-Daten
@@ -137,7 +138,10 @@ function mapOrder(o) {
             currency: 'EUR'
         },
         coupon_code: o.coupon_code || null,
-        payment_method: o.payment_method || ''
+        // Der Rohwert bleibt -- fremde Kassen lesen ihn maschinell und
+        // duerfen nicht brechen. Der lesbare Text kommt DANEBEN dazu.
+        payment_method: o.payment_method || '',
+        payment_text: ZAHLART.text(o.payment_method)
     };
 }
 

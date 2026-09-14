@@ -23639,6 +23639,47 @@ function sofortBestaetigen(restaurant) {
 }
 window.sofortBestaetigen = sofortBestaetigen;
 
+// DIE ZAHLART ALS WORT -- dieselbe Zuordnung wie auf dem Server.
+//
+// Ibo am 14.09.2026, mit einem Foto vom WinOrder-Bon: "warum steht
+// card_on_delivery". Weil die Gastseite drei Werte erzeugt und VIER
+// Stellen sie unabhaengig voneinander uebersetzt haben -- drei davon
+// ohne card_on_delivery, alle mit einem Rueckfall auf den Rohwert.
+//
+// Server-Fassung: netlify/functions/lib/zahlart.js. Die beiden werden
+// im Test gegeneinander gerechnet; laufen sie auseinander, steht auf
+// dem Bildschirm etwas anderes als auf dem Bon.
+var ZAHLART_TEXTE = {
+    cash: 'Barzahlung',
+    bar: 'Barzahlung',
+    card_on_delivery: 'Kartenzahlung',
+    card: 'Kartenzahlung',
+    ec: 'EC-Karte',
+    paypal: 'PayPal',
+    online: 'Online bezahlt',
+    stripe: 'Online bezahlt'
+};
+
+function zahlartWort(roh) {
+    var k = String(roh == null ? '' : roh).trim().toLowerCase();
+    if (!k) return 'Barzahlung';
+    if (ZAHLART_TEXTE[k]) return ZAHLART_TEXTE[k];
+    // Unbekanntes wird NICHT roh durchgereicht.
+    return 'Sonstige Zahlung (' + k + ')';
+}
+window.zahlartWort = zahlartWort;
+
+// Kurzform fuer enge Stellen (Bestellkarte, Beleg).
+function zahlartKurz(roh) {
+    var k = String(roh == null ? '' : roh).trim().toLowerCase();
+    if (k === 'paypal') return 'PayPal';
+    if (k === 'online' || k === 'stripe') return 'Online';
+    if (k === 'card' || k === 'card_on_delivery' || k === 'ec') return 'Karte';
+    if (k === 'cash' || k === 'bar' || !k) return 'Bar';
+    return 'Sonstige';
+}
+window.zahlartKurz = zahlartKurz;
+
 // ==================== VORBESTELLUNG ====================
 //
 // Bisher wurde bei geschlossenem Restaurant schlicht abgelehnt: "hat gerade
@@ -54518,7 +54559,7 @@ async function submitOrder() {
         if (rTotal) rTotal.innerHTML = '<span style="font-size:20px;font-weight:900;font-family:Epilogue,sans-serif;color:var(--ink-strong);">Gesamt</span><span style="font-size:20px;font-weight:900;font-family:Epilogue,sans-serif;color:var(--ink-strong);">' + total.toFixed(2).replace('.', ',') + ' \u20ac</span>';
         var rFoot = document.getElementById('receiptFooter');
         if (rFoot) {
-            var zahlungsart = paymentMethod === 'cash' ? 'Bar bei Lieferung' : paymentMethod === 'card_on_delivery' ? 'Kartenzahlung' : paymentMethod === 'paypal' ? 'PayPal' : paymentMethod;
+            var zahlungsart = zahlartWort(paymentMethod);
             rFoot.textContent = 'inkl. MwSt. \u00b7 ' + zahlungsart;
         }
     } catch(e) { console.error('Receipt fill error:', e); }
@@ -56294,7 +56335,7 @@ function renderDashboardOrders() {
                             ${order.order_type === 'delivery' ? '<span class="material-symbols-outlined" style="font-size:14px;">delivery_dining</span> Lieferung' : order.order_type === 'dine_in' ? '<span class="material-symbols-outlined" style="font-size:14px;">restaurant</span> Hier essen' + (order.table_number ? ' · Tisch ' + order.table_number : '') : '<span class="material-symbols-outlined" style="font-size:14px;">takeout_dining</span> Abholung'}
                             <span style="opacity:0.5;">•</span> ${timeAgo}
                         </div>
-                        <span style="font-size:11px;color:rgba(64,73,70,0.5);">${order.payment_method === 'cash' ? 'Bar' : 'Karte'}</span>
+                        <span style="font-size:11px;color:rgba(64,73,70,0.5);">${zahlartKurz(order.payment_method)}</span>
                     </div>
                     ${order.customer_phone ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">phone</span><a href="tel:' + escapeHtml(order.customer_phone) + '" style="color:var(--ink-strong);text-decoration:none;">' + escapeHtml(order.customer_phone) + '</a></div>' : ''}
                     ${order.delivery_address ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">location_on</span>' + adresseHtml(order.delivery_address) + '</div>' : ''}
@@ -57139,11 +57180,7 @@ function printOrderBrowser(orderId) {
     }
 
     // Zahlart als Wort, nicht als Datenbankschluessel.
-    var _zahl = String(order.payment_method || '').toLowerCase();
-    var zahlartText = _zahl === 'cash' ? 'Bar'
-        : (_zahl === 'card' || _zahl === 'card_on_delivery') ? 'Karte'
-        : _zahl === 'paypal' ? 'PayPal'
-        : _zahl ? (_zahl.charAt(0).toUpperCase() + _zahl.slice(1)) : 'Bar';
+    var zahlartText = zahlartKurz(order.payment_method);
 
     // Items HTML
     // Der Gerichtname kam ungeschuetzt aus der Datenbank in den Beleg --

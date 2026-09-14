@@ -139,17 +139,32 @@ t('kein roher Name mehr im Beleg',
   BON.indexOf("+ item.name +") < 0, 'roher item.name gefunden');
 
 // ---- 5. Die Zahlart als Wort, nicht als Datenbankschluessel ---------------
-var zahl = new Function('order',
-    'var _zahl = String(order.payment_method || "").toLowerCase();'
-    + (BON.match(/var zahlartText = [\s\S]*?: 'Bar';/) || [''])[0]
-    + '; return zahlartText;');
+// Frueher wurde der inline-Dreisatz aus dem Beleg per Regex nachgebaut.
+// Seit die Zuordnung in EINER Funktion steht (zahlartKurz, Spiegel von
+// netlify/functions/lib/zahlart.js), wird DIE ausgefuehrt. Die
+// Zusicherung ist dieselbe: eine Zahlart erscheint als Wort, nie als
+// Datenbankschluessel.
+var H_ALL = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+var _vonK = H_ALL.indexOf('function zahlartKurz(roh)');
+var _bisK = H_ALL.indexOf('window.zahlartKurz');
+var zahlartKurz = new Function(H_ALL.slice(_vonK, _bisK) + '; return zahlartKurz;')();
+var zahl = function (order) { return zahlartKurz(order.payment_method); };
 t('bar wird zu "Bar"', zahl({ payment_method: 'cash' }) === 'Bar');
 t('Karte wird zu "Karte"',
   zahl({ payment_method: 'card' }) === 'Karte' && zahl({ payment_method: 'card_on_delivery' }) === 'Karte');
 t('PayPal behaelt seine Schreibweise', zahl({ payment_method: 'paypal' }) === 'PayPal');
 t('ohne Angabe steht "Bar" da, kein leeres Feld', zahl({}) === 'Bar');
-t('ein unbekannter Wert wird wenigstens grossgeschrieben, nicht roh gezeigt',
-  zahl({ payment_method: 'sofort' }) === 'Sofort');
+t('ein unbekannter Code wird NICHT roh angezeigt',
+  zahl({ payment_method: 'card_on_delivery_neu' }) === 'Sonstige',
+  zahl({ payment_method: 'card_on_delivery_neu' }));
+// Frueher wurde ein unbekannter Wert grossgeschrieben durchgereicht --
+// aus "sofort" wurde "Sofort", aus "card_on_delivery" waere
+// "Card_on_delivery" geworden. Das sah nach einem Wort aus und war doch
+// der Datenbankschluessel. Jetzt heisst Unbekanntes "Sonstige".
+t('ein unbekannter Wert wird NICHT roh durchgereicht',
+  zahl({ payment_method: 'sofort' }) === 'Sonstige', zahl({ payment_method: 'sofort' }));
+t('und enthaelt den Rohwert auch nicht verkleidet',
+  zahl({ payment_method: 'sofort' }).toLowerCase().indexOf('sofort') < 0, 'Schluessel steht drin');
 
 // ---- 6. Der Wirt findet die Einstellung ------------------------------------
 t('das Papierformat steht in den Drucker-Einstellungen',

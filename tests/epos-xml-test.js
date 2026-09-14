@@ -72,8 +72,11 @@ t('smooth="true" steht weiterhin in beiden Erzeugern',
         }
         return '';
     }
-    var f = new Function(schneide(POS, 'xmlEscape') + '\n' + schneide(POS, 'generateEposBon')
-        + '\n; return generateEposBon;')();
+    // generateEposBon benutzt lib/zahlart.js. Die Bibliothek wird ECHT
+    // hineingegeben statt nachgebaut -- ein Nachbau wuerde genau den
+    // Fehler verdecken, gegen den sie gebaut wurde.
+    var f = new Function('ZAHLART', schneide(POS, 'xmlEscape') + '\n' + schneide(POS, 'generateEposBon')
+        + '\n; return generateEposBon;')(require('../netlify/functions/lib/zahlart.js'));
 
     var bon = f({
         order_number: 'KI-260813-677719',
