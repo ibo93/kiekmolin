@@ -122,13 +122,22 @@ t('ohne Gast-E-Mail wird sauber uebersprungen',
 // ---- 6. Beide Wege loesen die Mail aus -------------------------------------
 // Der Kassen-Weg ist der wichtigere: dort oeffnet niemand das Dashboard.
 (function () {
-    var ausloeser = (CODE.match(/event: 'accepted'/g) || []).length;
-    t('es gibt zwei Ausloeser', ausloeser === 2, ausloeser);
+    // Frueher wurde die Zeichenkette "event: 'accepted'" gezaehlt. Seit es
+    // den Knopf "Zeit aendern" gibt, entscheidet der manuelle Weg zwischen
+    // zwei Ereignissen -- die Zusicherung ist dieselbe geblieben: BEIDE
+    // Wege loesen eine Mail aus, und die Annahme loest 'accepted' aus.
+    var ausloeser = (CODE.match(/\/\.netlify\/functions\/order-email/g) || []).length;
+    t('es gibt mindestens zwei Ausloeser', ausloeser >= 2, ausloeser);
 
     var manuell = schneide(CODE, 'confirmAcceptOrder');
-    t('die manuelle Annahme schickt die Mail', /event: 'accepted'/.test(manuell), manuell.length);
+    t('die manuelle Annahme schickt die Mail',
+      /\/\.netlify\/functions\/order-email/.test(manuell), manuell.length);
     t('mit der ID der angenommenen Bestellung',
-      /order_id: currentAcceptOrderId, event: 'accepted'/.test(manuell));
+      /order_id: currentAcceptOrderId/.test(manuell), 'falsche oder fehlende ID');
+    t("beim Annehmen ist es 'accepted'",
+      /_nurZeit \? 'zeit_geaendert' : 'accepted'/.test(manuell), 'falsches Ereignis');
+    t('beim blossen Aendern der Zeit NICHT -- sonst kaeme die Annahme-Mail zweimal',
+      !/event: 'accepted'\s*\}/.test(manuell), 'schickt immer die Annahme-Mail');
 
     var kasse = schneide(CODE, '_autoAcceptAfterPosPush');
     t('die Kassen-Annahme ebenfalls', /event: 'accepted'/.test(kasse), kasse.length);

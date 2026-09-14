@@ -161,8 +161,21 @@ t('der Restaurantname steht dabei',
 t('die Bestellbestaetigung enthaelt ihn', /bewertungsBlock\(rest, o\.restaurant_name\)/.test(M));
 t('das Restaurant wird dafuer nachgeladen',
   /select=name,google_maps_url/.test(M));
-t('scheitert das, geht die Bestaetigung trotzdem raus',
-  /catch \(e\) \{\}\s*\n\s*\}\s*\n\s*await sendViaResend\(to, buildEmail\(order, restOrder\)\)/.test(M));
+// Frueher stand hier ein Textvergleich auf die Zeile direkt nach dem
+// catch. Der ging rot, sobald zwischen Laden und Versand etwas dazukam --
+// obwohl die Garantie unveraendert galt. Geprueft wird jetzt die GARANTIE:
+// nach dem Laden des Restaurants darf nichts mehr den Versand verhindern,
+// und JEDER Weg schickt eine Mail.
+var _ladeEnde = M.indexOf('if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }');
+var _handlerEnde = M.indexOf('return json(e.resend ? 502 : 500, { error: e.message });', _ladeEnde);
+var nachLaden = (_ladeEnde > 0 && _handlerEnde > _ladeEnde) ? M.slice(_ladeEnde, _handlerEnde) : '';
+t('der Abschnitt nach dem Laden wurde gefunden', nachLaden.length > 50, nachLaden.length);
+t('scheitert das, geht die Bestaetigung trotzdem raus -- restOrder wird nie zur Bedingung',
+  nachLaden.length > 50 && !/if\s*\(\s*!\s*restOrder\s*\)/.test(nachLaden), 'restOrder blockiert den Versand');
+t('und JEDER Weg schickt wirklich eine Mail',
+  (nachLaden.match(/await sendViaResend\(to,/g) || []).length ===
+  (nachLaden.match(/return json\(200, \{ ok: true, sent: true/g) || []).length,
+  'ein Weg endet ohne Versand');
 
 // Bei der Reservierung nur nach der BESTAETIGUNG -- nicht bei der Anfrage
 // (da war der Gast noch nicht da) und erst recht nicht bei einer Absage.

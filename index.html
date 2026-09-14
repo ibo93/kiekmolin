@@ -20119,6 +20119,22 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </span>
                         </label>
                     </div>
+                    <!-- Sofort bestaetigen: der Gast bekommt die Zusage direkt per Mail -->
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,61,51,0.08);">
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">check_circle</span>
+                                Bestellungen sofort bestätigen
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top:4px;">Der Gast bekommt sofort eine Bestätigungs-Mail mit deiner Wartezeit – du musst nichts mehr annehmen. <strong>Dafür kannst du eine Bestellung dann nicht mehr ablehnen.</strong> Vorbestellungen mit Wunschzeit bleiben wie bisher.</div>
+                        </div>
+                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
+                            <input type="checkbox" id="settingPrepAuto" onchange="savePrepMinutes()" style="display:none;">
+                            <div id="prepAutoTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
+                                <div id="prepAutoKnob" style="width:20px;height:20px;background:var(--bg-solid);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Mindestbestellwert & Zahlungsarten -->
@@ -23602,6 +23618,26 @@ function wartezeitAn(restaurant) {
     return feats.indexOf('prep_off') < 0;
 }
 window.wartezeitAn = wartezeitAn;
+
+// Bestellung sofort bestaetigen.
+//
+// Ibo am 13.09.2026: "so haben sie eine direkte Bestaetigung, dann muessen
+// die es nicht bestaetigen."
+//
+// Gespeichert als "prep_auto" in features -- und absichtlich andersherum
+// als prep_off: FEHLT der Eintrag, passiert nichts. Jedes Restaurant hat
+// eine Wartezeit (25/45 als Vorgabe). Waere das schon die Bedingung, fiele
+// ueber Nacht auf der ganzen Plattform die Annahme weg, und kein Wirt
+// koennte eine Bestellung mehr ablehnen, weil die Kueche voll ist.
+//
+// Die Entscheidung faellt auf dem SERVER (lib/wartezeit.js). Hier steht
+// dieselbe Regel nur, damit das Dashboard den Schalter richtig anzeigt.
+function sofortBestaetigen(restaurant) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return false;
+    return feats.indexOf('prep_auto') >= 0;
+}
+window.sofortBestaetigen = sofortBestaetigen;
 
 // ==================== VORBESTELLUNG ====================
 //
@@ -47928,8 +47964,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     <span class="material-symbols-outlined" style="font-size:20px;">schedule</span>
                 </div>
                 <div>
-                    <h2 class="modal-title" style="font-family: 'Epilogue', sans-serif; font-size: 18px;">Bestellung annehmen</h2>
-                    <p style="font-size: 12px; color: var(--slate); margin: 0;">Wartezeit für den Kunden festlegen</p>
+                    <h2 class="modal-title" id="acceptModalTitel" style="font-family: 'Epilogue', sans-serif; font-size: 18px;">Bestellung annehmen</h2>
+                    <p id="acceptModalUnter" style="font-size: 12px; color: var(--slate); margin: 0;">Wartezeit für den Kunden festlegen</p>
                 </div>
             </div>
             <button class="modal-close" aria-label="Schließen" onclick="closeModal('acceptOrderModal')">×</button>
@@ -48007,7 +48043,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
             </button>
             <button onclick="confirmAcceptOrder()" style="flex: 2; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 9999px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <span class="material-symbols-outlined" style="font-size:24px;">check</span>
-                Annehmen
+                <span id="acceptModalKnopf">Annehmen</span>
             </button>
         </div>
     </div>
@@ -53981,11 +54017,12 @@ async function submitOrder() {
     //     wuerde unbemerkt eine ganz normale.
     // Die Notiz liest die Kueche ohnehin. Sie ist die Fassung, die immer
     // ankommt.
-    if (window._vorbestellungFuer) {
-        orderData.scheduled_at = window._vorbestellungFuer;
-        var _vbText = 'VORBESTELLUNG für ' + (window._vorbestellungText || 'den nächsten Öffnungstag');
-        orderData.notes = orderData.notes ? (_vbText + ' · ' + orderData.notes) : _vbText;
-    }
+    // Der Zeitpunkt wird WEITER UNTEN in _orderPayload geschrieben, sobald
+    // es diesen gibt. Hier stand er frueher schon -- auf einer Variablen
+    // namens orderData, die es in dieser Funktion nie gab. Jede
+    // Vorbestellung ist an dieser Zeile mit einem ReferenceError
+    // abgebrochen und wurde NIE gespeichert. Nachgemessen am 13.09.2026:
+    // "ReferenceError: orderData is not defined".
 
     // In Supabase speichern
     var _saveOk = false;
@@ -54087,6 +54124,28 @@ async function submitOrder() {
             discount: couponDiscount || 0,
             requested_time: window._requestedTimeForOrder || null
         };
+
+        // VORBESTELLUNG: der Zeitpunkt, ab dem die Kueche loslegen soll.
+        //
+        // Steht er drin, ist es eine Bestellung fuer spaeter -- Dashboard
+        // und Kuechenbon zeigen das gross, damit niemand nachts um drei
+        // anfaengt zu backen.
+        //
+        // ZWEIMAL geschrieben, mit Absicht:
+        //   - scheduled_at, weil man damit rechnen und sortieren kann;
+        //   - zusaetzlich in die Notiz, weil scheduled_at je nach Datenbank
+        //     noch gar nicht existiert. Der selbstheilende Insert wirft eine
+        //     unbekannte Spalte weg und rettet damit die Bestellung -- der
+        //     Zeitpunkt waere dann aber still verschwunden, und aus der
+        //     Vorbestellung wuerde unbemerkt eine ganz normale.
+        // Die Notiz liest die Kueche ohnehin. Sie ist die Fassung, die
+        // immer ankommt.
+        if (window._vorbestellungFuer) {
+            _orderPayload.scheduled_at = window._vorbestellungFuer;
+            var _vbText = 'VORBESTELLUNG für ' + (window._vorbestellungText || 'den nächsten Öffnungstag');
+            _orderPayload.customer_notes = _orderPayload.customer_notes
+                ? (_vbText + ' · ' + _orderPayload.customer_notes) : _vbText;
+        }
         // ZUERST ueber den Server -- dort werden die Preise gegen die Karte
         // nachgerechnet. Vorher lief es andersherum: direkt in die Datenbank,
         // und der Server war nur der Notweg. Damit lief die Prüfung an fast
@@ -54149,6 +54208,17 @@ async function submitOrder() {
                     _preisAbgelehnt = _srvj;
                 } else if (_srv.ok && _srvj && _srvj.ok) {
                     _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
+                    // Hat der Server die Bestellung gleich bestaetigt, muss
+                    // der Gast auf dem Bildschirm dasselbe sehen wie in der
+                    // Datenbank. Sonst steht hier "warte auf Bestaetigung",
+                    // waehrend die Mail schon "bestaetigt" sagt.
+                    if (_srvj.sofort_bestaetigt) {
+                        order.status = 'accepted';
+                        if (_srvj.minuten) {
+                            order.estimated_minutes = _srvj.minuten;
+                            order.estimated_time = new Date(Date.now() + _srvj.minuten * 60000).toISOString();
+                        }
+                    }
                 } else {
                     _orderRes = { ok: false, status: (_srvj && _srvj.status) || _srv.status || 0,
                                   text: (_srvj && _srvj.error) || 'Server-Speichern fehlgeschlagen' };
@@ -56083,6 +56153,10 @@ function renderDashboardOrders() {
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
                         Storno
                     </button>
+                    <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
+                        Zeit ändern
+                    </button>
                     <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'preparing')">
                         <span class="material-symbols-outlined" style="font-size:18px;">light_mode</span>
                         Zubereiten
@@ -56093,6 +56167,10 @@ function renderDashboardOrders() {
                 actionsHtml = `
                     <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
+                    </button>
+                    <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
+                        Zeit ändern
                     </button>
                     <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'ready')">
                         <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
@@ -56484,9 +56562,36 @@ function loadOrdersForRestaurant(restaurantId) {
 // Aktuelle Order ID für Modal
 var currentAcceptOrderId = null;
 
+// ANNEHMEN oder NUR DIE ZEIT AENDERN -- derselbe Dialog, zwei Aufgaben.
+//
+// Ibo am 14.09.2026: "das aendert sich, wenn der Gastronom die Zeit
+// aendert ... oder?"
+//
+// Fuer eine schon angenommene Bestellung gab es keinen Weg mehr an die
+// Zeit. Im Dashboard standen nur noch "Storno" und "Zubereiten". Ist die
+// Kueche voll, blieb dem Wirt nur, den Gast in seinen 25 Minuten sitzen
+// zu lassen -- oder zu stornieren. Mit "sofort bestaetigen" wiegt das
+// schwerer: er fasst die Bestellung gar nicht mehr an und hat nie den
+// Moment, in dem er "heute dauert es laenger" sagen koennte.
+var currentAcceptModus = 'annehmen';
+
+function _acceptDialogWortlaut(modus) {
+    var titel = document.getElementById('acceptModalTitel');
+    var unter = document.getElementById('acceptModalUnter');
+    var knopf = document.getElementById('acceptModalKnopf');
+    var zeit = modus === 'zeit';
+    if (titel) titel.textContent = zeit ? 'Neue Zeit sagen' : 'Bestellung annehmen';
+    if (unter) unter.textContent = zeit
+        ? 'Der Gast bekommt sofort Bescheid'
+        : 'Wartezeit für den Kunden festlegen';
+    if (knopf) knopf.textContent = zeit ? 'Neue Zeit senden' : 'Annehmen';
+}
+
 // Order annehmen - Modal öffnen
 function acceptOrder(orderId) {
     currentAcceptOrderId = orderId;
+    currentAcceptModus = 'annehmen';
+    _acceptDialogWortlaut('annehmen');
     const order = dashboardOrders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -56541,6 +56646,33 @@ function acceptOrder(orderId) {
     openModal('acceptOrderModal');
 }
 
+// Die Zeit einer laufenden Bestellung aendern.
+//
+// Baut auf acceptOrder auf, damit es EINEN Dialog gibt und nicht zwei,
+// die irgendwann auseinanderlaufen. Vorbelegt wird mit der Zahl, die dem
+// Gast bereits zugesagt wurde -- nicht mit der Voreinstellung des
+// Betriebs. Der Wirt soll sehen, wovon er weggeht.
+function zeitAendern(orderId) {
+    var order = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (o) { return o.id === orderId; });
+    if (!order) { showToast('Bestellung nicht gefunden', 'error'); return; }
+    acceptOrder(orderId);
+    currentAcceptModus = 'zeit';
+    _acceptDialogWortlaut('zeit');
+
+    var jetzige = parseInt(order.estimated_minutes, 10);
+    document.querySelectorAll('.time-option-btn').forEach(function (btn) { btn.classList.remove('selected'); });
+    var feld = document.getElementById('customTimeInput');
+    if (feld) feld.value = '';
+    if (jetzige > 0) {
+        var treffer = Array.prototype.filter.call(document.querySelectorAll('.time-option-btn'), function (b) {
+            return parseInt(b.dataset.time, 10) === jetzige;
+        })[0];
+        if (treffer) treffer.classList.add('selected');
+        else if (feld) feld.value = jetzige;
+    }
+}
+window.zeitAendern = zeitAendern;
+
 // Zeit-Option auswählen
 function selectTimeOption(btn, minutes) {
     document.querySelectorAll('.time-option-btn').forEach(b => b.classList.remove('selected'));
@@ -56572,30 +56704,48 @@ async function confirmAcceptOrder() {
         return;
     }
 
+    // Nur die Zeit aendern: Status und accepted_at bleiben, wie sie sind.
+    // Wuerde hier status:'accepted' mitgeschrieben, spraenge eine
+    // Bestellung, die schon in der Zubereitung ist, zurueck -- und die
+    // Kueche faenge von vorne an.
+    var _nurZeit = currentAcceptModus === 'zeit';
+    var _neueZeit = new Date(Date.now() + minutes * 60000).toISOString();
+    var _feld = _nurZeit
+        ? { estimated_minutes: minutes, estimated_time: _neueZeit }
+        : { status: 'accepted', estimated_minutes: minutes, estimated_time: _neueZeit,
+            accepted_at: new Date().toISOString() };
+
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${currentAcceptOrderId}`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${currentAcceptOrderId}&select=id`, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                // return=representation statt minimal: ein 204 kommt auch,
+                // wenn RLS die Aenderung still verwirft. Dann stuende
+                // "angenommen" auf dem Bildschirm und in der Datenbank
+                // nichts -- der Gast bekaeme eine Mail zu einer Bestellung,
+                // die weiter auf Annahme wartet.
+                'Prefer': 'return=representation'
             },
-            body: JSON.stringify({
-                status: 'accepted',
-                estimated_minutes: minutes,
-                estimated_time: new Date(Date.now() + minutes * 60000).toISOString(),
-                accepted_at: new Date().toISOString()
-            })
+            body: JSON.stringify(_feld)
         });
+
+        var _zeilen = null;
+        try { _zeilen = await response.json(); } catch (e) { _zeilen = null; }
+        if (response.ok && (!Array.isArray(_zeilen) || _zeilen.length === 0)) {
+            showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen.', 'error');
+            return;
+        }
 
         if (response.ok) {
             // Lokal aktualisieren
             const order = dashboardOrders.find(o => o.id === currentAcceptOrderId);
             if (order) {
-                order.status = 'accepted';
+                if (!_nurZeit) order.status = 'accepted';
                 order.estimated_minutes = minutes;
-                order.estimated_time = new Date(Date.now() + minutes * 60000).toISOString();
+                order.estimated_time = _neueZeit;
             }
 
             // Annahme-Mail mit der Wartezeit (fire-and-forget). Ohne
@@ -56606,17 +56756,22 @@ async function confirmAcceptOrder() {
                 fetch('/.netlify/functions/order-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_id: currentAcceptOrderId, event: 'accepted' })
+                    body: JSON.stringify({ order_id: currentAcceptOrderId,
+                                           event: _nurZeit ? 'zeit_geaendert' : 'accepted' })
                 }).catch(function () {});
             } catch (e) {}
 
             closeModal('acceptOrderModal');
             renderDashboardOrders();
             updateOrderStats();
-            showToast(`Bestellung angenommen • ${minutes} Min`, 'success');
+            showToast(_nurZeit
+                ? `Neue Zeit gesendet • ${minutes} Min`
+                : `Bestellung angenommen • ${minutes} Min`, 'success');
 
-            // Auto-Druck: Küchen-Bon automatisch drucken
-            if (autoPrintKitchenBon) {
+            // Auto-Druck: Küchen-Bon automatisch drucken.
+            // NICHT beim blossen Aendern der Zeit -- sonst laeuft bei jeder
+            // Korrektur ein zweiter Bon durch und die Kueche kocht doppelt.
+            if (autoPrintKitchenBon && !_nurZeit) {
                 setTimeout(function() { printKitchenBon(currentAcceptOrderId); }, 500);
             }
 
@@ -56625,7 +56780,7 @@ async function confirmAcceptOrder() {
             // nötig -- sonst würde die Bestellung doppelt in der Kasse
             // landen.
         } else {
-            showToast('Fehler beim Annehmen', 'error');
+            showToast(_nurZeit ? 'Zeit konnte nicht geändert werden' : 'Fehler beim Annehmen', 'error');
         }
     } catch (e) {
         console.error('Accept Order Error:', e);
@@ -61396,6 +61551,11 @@ function loadOrderSettings() {
         onEl.checked = wartezeitAn(restaurant);
         if (typeof prepSchalterAnzeigen === 'function') prepSchalterAnzeigen(onEl.checked);
     }
+    var autoEl = document.getElementById('settingPrepAuto');
+    if (autoEl && typeof sofortBestaetigen === 'function') {
+        autoEl.checked = sofortBestaetigen(restaurant);
+        if (typeof prepAutoAnzeigen === 'function') prepAutoAnzeigen(autoEl.checked);
+    }
 
     // Lieferradius laden
     var radiusEl = document.getElementById('settingDeliveryRadius');
@@ -61705,6 +61865,9 @@ function prepSchalterAnzeigen(an) {
     var knob = document.getElementById('prepToggleKnob');
     if (track) track.style.background = an ? 'var(--primary)' : '#d1d5db';
     if (knob) knob.style.left = an ? '22px' : '2px';
+    // Ohne Zusage gibt es nichts zu bestaetigen, was eine Zeit nennt --
+    // aber sofort annehmen darf man trotzdem. Der Schalter bleibt also
+    // bedienbar; nur die Minuten-Felder werden ausgegraut.
     ['settingPrepPickup', 'settingPrepDelivery'].forEach(function (id) {
         var e = document.getElementById(id);
         if (!e) return;
@@ -61715,6 +61878,15 @@ function prepSchalterAnzeigen(an) {
     });
 }
 window.prepSchalterAnzeigen = prepSchalterAnzeigen;
+
+// Derselbe Schalter-Look wie oben, eigene Elemente.
+function prepAutoAnzeigen(an) {
+    var track = document.getElementById('prepAutoTrack');
+    var knob = document.getElementById('prepAutoKnob');
+    if (track) track.style.background = an ? 'var(--primary)' : '#d1d5db';
+    if (knob) knob.style.left = an ? '22px' : '2px';
+}
+window.prepAutoAnzeigen = prepAutoAnzeigen;
 
 async function savePrepMinutes() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
@@ -61727,6 +61899,10 @@ async function savePrepMinutes() {
     };
     var an = document.getElementById('settingPrepOn')?.checked !== false;
     prepSchalterAnzeigen(an);
+    // Fehlt das Kaestchen im DOM, gilt AUS -- nicht an. Ein Schalter, den
+    // niemand gesehen hat, darf keine Bestellungen durchwinken.
+    var autoAn = document.getElementById('settingPrepAuto')?.checked === true;
+    prepAutoAnzeigen(autoAn);
 
     var abholung = lese('settingPrepPickup', 25);
     var lieferung = lese('settingPrepDelivery', 45);
@@ -61742,13 +61918,15 @@ async function savePrepMinutes() {
         var features = (data[0] && Array.isArray(data[0].features)) ? data[0].features : [];
         // Alte Eintraege raus, neue rein -- sonst sammeln sich Karteileichen.
         features = features.filter(function (f) {
-            return !/^prep_(pickup|delivery):/.test(String(f)) && String(f) !== 'prep_off';
+            return !/^prep_(pickup|delivery):/.test(String(f))
+                && String(f) !== 'prep_off' && String(f) !== 'prep_auto';
         });
         features.push('prep_pickup:' + abholung, 'prep_delivery:' + lieferung);
         // Die Minuten bleiben auch im Aus-Zustand gespeichert. Wer den
         // Schalter wieder anmacht, will seine Werte wiederfinden und nicht
         // bei 25/45 anfangen.
         if (!an) features.push('prep_off');
+        if (autoAn) features.push('prep_auto');
 
         var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
             method: 'PATCH',
@@ -61767,7 +61945,8 @@ async function savePrepMinutes() {
         }
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
         if (r) r.features = features;
-        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min', 'success');
+        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
+            + (autoAn ? ' — Bestellungen werden sofort bestätigt' : ''), 'success');
     } catch (e) {
         showToast('Keine Verbindung — Wartezeit nicht gespeichert', 'error');
     }
@@ -62445,16 +62624,39 @@ function ppcStatusZeigen(zustand) {
     }
 }
 
+// Sagt es, wenn SQL 30 nur zur Haelfte angekommen ist.
+//
+// spalten === false heisst GEMESSEN: die Spalten fehlen in orders.
+// undefined oder null heisst: nicht gemessen -- dann wird hier auch
+// nichts behauptet. Eine leere Meldung ist keine Entwarnung.
+function ppcSpaltenWarnen(spalten) {
+    var m = document.getElementById('ppcMeldungDash');
+    if (!m) return;
+    if (spalten === false) {
+        m.textContent = 'Achtung: In der Datenbank fehlen bei den Bestellungen die Spalten '
+            + 'payment_status und payment_reference. Der untere Teil von 30-paypal-konto.sql '
+            + 'ist nicht durchgelaufen. Bezahlte Bestellungen kommen zwar an, aber ohne '
+            + 'Zahlungsnachweis — und dieselbe Zahlung kann zweimal eine Bestellung erzeugen. '
+            + 'Bitte das SQL noch einmal ausführen.';
+        m.style.color = '#b91c1c';
+    } else if (spalten === true && /payment_status/.test(m.textContent)) {
+        // Die Warnung stand da und ist erledigt.
+        m.textContent = '';
+        m.style.color = 'var(--slate)';
+    }
+}
+
 async function ppcStatusLaden(restId) {
     if (!restId) return;
     try {
         if (typeof PPC !== 'undefined') delete PPC.konten[restId];
         var res = await fetch('/.netlify/functions/paypal-zahlung?action=konto', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ restaurant_id: restId })
+            body: JSON.stringify({ restaurant_id: restId, pruefen: true })
         });
         var j = await res.json();
         ppcStatusZeigen(j && j.ok ? j : { eingerichtet: false });
+        ppcSpaltenWarnen(j && j.ok ? j.spalten : undefined);
     } catch (e) {
         // Nicht erreichbar heisst NICHT "nicht eingerichtet" -- das darf
         // hier nicht behauptet werden.
@@ -63232,6 +63434,29 @@ async function pollOrderStatus() {
         var updatedOrder = await verfolgBestellung(customerActiveOrder.id);
 
         if (updatedOrder) {
+
+                // NUR DIE ZEIT GEAENDERT -- ohne Statuswechsel.
+                //
+                // Hier stand bisher nur die Statusabfrage darunter. Aendert
+                // der Wirt die zugesagte Zeit von 25 auf 45, bleibt der
+                // Status "accepted" -- der Gast erfuhr also gar nichts und
+                // hielt sich weiter an eine Zeit, die nicht mehr galt.
+                if (updatedOrder.status === customerActiveOrder.status &&
+                    updatedOrder.estimated_time &&
+                    updatedOrder.estimated_time !== customerActiveOrder.estimated_time) {
+                    customerActiveOrder.estimated_minutes = updatedOrder.estimated_minutes;
+                    customerActiveOrder.estimated_time = updatedOrder.estimated_time;
+                    try { localStorage.setItem('kin_active_order', JSON.stringify(customerActiveOrder)); } catch (e) {}
+                    try { updateProfileOrderStatus(); } catch (e) {}
+                    var _neueUhr = '';
+                    try {
+                        _neueUhr = new Date(updatedOrder.estimated_time)
+                            .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {}
+                    try {
+                        showToast('Neue Zeit vom Restaurant' + (_neueUhr ? ': gegen ' + _neueUhr + ' Uhr' : ''), 'info');
+                    } catch (e) {}
+                }
 
                 // Status geändert?
                 if (updatedOrder.status !== customerActiveOrder.status) {

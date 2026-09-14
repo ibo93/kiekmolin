@@ -45,6 +45,7 @@ var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var nurText = require('./lib/nur-text').nurText;
+var WARTEZEIT = require('./lib/wartezeit');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -226,6 +227,22 @@ function buildAcceptedEmail(o, rest) {
         : (o.order_type === 'dine_in' ? 'Vor Ort' + (o.table_number ? ' · Tisch ' + esc(o.table_number) : '') : 'Abholung');
 
     var min = parseInt(o.estimated_minutes, 10);
+
+    // Ibo am 13.09.2026: "bei Abholung steht 25 min, muss auf der Mail 25
+    // min stehen."
+    //
+    // Steht in der Bestellung keine Zahl, nehmen wir die, die der Wirt
+    // eingestellt hat -- dieselbe, die er in seinem Dashboard sieht.
+    // Vorher stand in der Mail dann "Das Restaurant bereitet deine
+    // Bestellung jetzt zu", obwohl im Dashboard "Abholung 25 Min" steht.
+    //
+    // ABER nur, wenn er ueberhaupt eine Zusage machen will. Steht der
+    // Schalter auf aus, bleibt die Mail ohne Zahl -- eine Zeit, die
+    // niemand versprochen hat, ist schlimmer als keine.
+    if (!(min > 0) && rest && WARTEZEIT.an(rest.features)) {
+        min = WARTEZEIT.minuten(rest.features, o.order_type);
+    }
+
     var zeitText = '';
     if (min > 0) {
         // Zusaetzlich die Uhrzeit nennen. "in 45 Minuten" muss der Gast
@@ -274,6 +291,69 @@ function buildAcceptedEmail(o, rest) {
 }
 
 // Reservierungs-E-Mail: r = reservations-Zeile, rest = {name, street, city, phone}
+// DRITTE MAIL: DIE ZEIT HAT SICH GEAENDERT.
+//
+// Ibo am 14.09.2026: "kann sein, dass er morgen 35 min hat -- da muss
+// auch 35 min in der E-Mail stehen."
+//
+// Das galt fuer NEUE Bestellungen sofort. Fuer eine LAUFENDE gab es gar
+// keinen Weg: war einmal 25 Minuten zugesagt, blieb es dabei, auch wenn
+// die Kueche voll war. Der Wirt konnte nur stornieren oder den Gast
+// warten lassen.
+//
+// Diese Mail hat bewusst KEINEN Duplikatschutz. Aendert der Wirt zweimal,
+// muss der Gast zweimal Bescheid bekommen -- sonst haelt er sich an eine
+// Zeit, die nicht mehr gilt.
+function buildZeitEmail(o, rest) {
+    var lieferung = o.order_type === 'delivery';
+    var restName = o.restaurant_name || (rest && rest.name) || 'Restaurant';
+    var min = parseInt(o.estimated_minutes, 10);
+
+    var uhr = '';
+    try {
+        var ziel = o.estimated_time ? new Date(o.estimated_time)
+                 : (min > 0 ? new Date(Date.now() + min * 60000) : null);
+        if (ziel) uhr = ziel.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+    } catch (e) {}
+
+    // Die UHRZEIT ist die Angabe, die traegt. "Noch 40 Minuten" gilt ab
+    // dem Lesen der Mail -- und wer sie zehn Minuten spaeter oeffnet,
+    // rechnet falsch.
+    var satz;
+    if (uhr) {
+        satz = lieferung
+            ? 'Deine Bestellung ist jetzt gegen <strong>' + esc(uhr) + ' Uhr</strong> bei dir'
+            : 'Du kannst sie jetzt gegen <strong>' + esc(uhr) + ' Uhr</strong> abholen';
+        if (min > 0) satz += ' – also in etwa ' + min + ' Minuten';
+        satz += '.';
+    } else if (min > 0) {
+        satz = lieferung
+            ? 'Deine Bestellung ist in etwa <strong>' + min + ' Minuten</strong> bei dir.'
+            : 'Du kannst sie in etwa <strong>' + min + ' Minuten</strong> abholen.';
+    } else {
+        satz = 'Das Restaurant hat die Zeit für deine Bestellung angepasst.';
+    }
+
+    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
+
+    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
+        '<h1 style="font-size:20px;margin:0 0 4px;color:#b45309;">Neue Zeit für deine Bestellung</h1>' +
+        '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(restName) + ' · ' +
+            (lieferung ? 'Lieferung' : 'Abholung') + '</p>' +
+        '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
+            ', ' + esc(restName) + ' hat die Zeit angepasst. ' + satz + '</p>' +
+        '<p style="margin:0 0 20px;"><a href="' + trackUrl + '" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Bestellstatus verfolgen</a></p>' +
+        (rest && rest.phone ? '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Passt das nicht? Ruf kurz an: ' + esc(rest.phone) + '</p>' : '') +
+        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
+        '<p style="margin:0;color:#9ca3af;font-size:12px;">Automatisch verschickt von kiekmolin.de.</p>' +
+    '</div>';
+
+    return {
+        subject: 'Neue Zeit #' + (o.order_number || '') + (uhr ? ' – gegen ' + uhr + ' Uhr' : '') + ' – ' + restName,
+        html: html
+    };
+}
+
 function buildReservationEmail(r, rest, eventType) {
     var restName = (rest && rest.name) || 'das Restaurant';
     var dateStr = r.reservation_date;
@@ -486,6 +566,35 @@ exports.handler = async function (event) {
     var orderId = body.order_id || body.orderId || '';
     if (!orderId || !/^[0-9a-f-]{10,}$/i.test(String(orderId))) return json(400, { error: 'order_id fehlt/ungueltig' });
 
+    // Zweig "Zeit geaendert": eigene Mail, ohne Duplikatschutz.
+    // Aendert der Wirt zweimal, muss der Gast zweimal Bescheid bekommen.
+    if (String(body.event || '').toLowerCase() === 'zeit_geaendert') {
+        try {
+            var zRead = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) + '&select=*', { headers: sbHeaders() });
+            if (!zRead.ok) return json(500, { error: 'Bestellung nicht lesbar (' + zRead.status + ')' });
+            var zData = await zRead.json();
+            if (!zData.length) return json(404, { error: 'Bestellung nicht gefunden' });
+            var zOrder = zData[0];
+
+            var zTo = String(zOrder.customer_email || '').trim();
+            if (!zTo || zTo.indexOf('@') < 1) return json(200, { ok: true, skipped: true, reason: 'keine Kunden-E-Mail' });
+
+            var zRest = null;
+            if (zOrder.restaurant_id) {
+                try {
+                    var zres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
+                        + encodeURIComponent(zOrder.restaurant_id) + '&select=name,phone', { headers: sbHeaders() });
+                    if (zres.ok) { var zl = await zres.json(); zRest = zl[0] || null; }
+                } catch (e) {}
+            }
+
+            await sendViaResend(zTo, buildZeitEmail(zOrder, zRest));
+            return json(200, { ok: true, sent: true, event: 'zeit_geaendert' });
+        } catch (e) {
+            return json(e.resend ? 502 : 500, { error: e.message });
+        }
+    }
+
     // Zweig "angenommen": eigene Mail mit der Wartezeit.
     //
     // Bewusst getrennt vom Eingangs-Zweig darunter, und mit EIGENEM
@@ -522,7 +631,7 @@ exports.handler = async function (event) {
             if (aOrder.restaurant_id) {
                 try {
                     var arres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone',
+                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone,features',
                         { headers: sbHeaders() });
                     if (arres.ok) { var arl = await arres.json(); aRest = arl[0] || null; }
                 } catch (e) {}
@@ -574,6 +683,31 @@ exports.handler = async function (event) {
                     { headers: sbHeaders() });
                 if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
             } catch (e) {}
+        }
+
+        // SCHON BESTAETIGT? DANN NICHT "wird gleich bestaetigt" SCHREIBEN.
+        //
+        // Wenn der Wirt "sofort bestaetigen" eingeschaltet hat, steht die
+        // Bestellung bereits auf accepted, bevor diese Mail gebaut wird.
+        // Die Eingangsmail wuerde dem Gast dann sagen, er solle warten --
+        // und die Wartezeit stuende nirgends. Also geht hier direkt die
+        // Bestaetigung raus, mit der Zahl.
+        var sofort = String(order.status || '').toLowerCase() === 'accepted';
+        if (sofort) {
+            // Den Stempel der Annahme-Mail gleich mit beanspruchen, sonst
+            // schickt ein spaeteres event:'accepted' dieselbe Mail noch
+            // einmal. Klappt das nicht, wird trotzdem gesendet -- lieber
+            // eine Mail doppelt als gar keine.
+            try {
+                await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(orderId) +
+                    '&accepted_email_sent_at=is.null', {
+                    method: 'PATCH',
+                    headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+                    body: JSON.stringify({ accepted_email_sent_at: new Date().toISOString() })
+                });
+            } catch (e) {}
+            await sendViaResend(to, buildAcceptedEmail(order, restOrder));
+            return json(200, { ok: true, sent: true, event: 'accepted', sofort: true });
         }
 
         await sendViaResend(to, buildEmail(order, restOrder));

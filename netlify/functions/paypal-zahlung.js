@@ -25,6 +25,7 @@
 'use strict';
 
 var preisPruefung = require('./lib/preis-pruefung');
+var WARTEZEIT = require('./lib/wartezeit');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -113,8 +114,10 @@ var ALLOWED = [
     'customer_name', 'customer_phone', 'customer_email',
     'delivery_address', 'delivery_notes', 'customer_notes',
     'items', 'subtotal', 'delivery_fee', 'tip', 'discount', 'total',
-    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at',
-    'payment_status', 'payment_reference'
+    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at', 'scheduled_at',
+    'payment_status', 'payment_reference',
+    // Sofort-Bestaetigung -- dieselben Felder wie in order-save.
+    'accepted_at', 'estimated_minutes', 'estimated_time'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte, raus damit und erneut.
@@ -168,6 +171,43 @@ async function schonGebucht(paypalId) {
 // Restaurants ueberschreiben und dessen Einnahmen umleiten. Dieselbe
 // Pruefung wie beim Nachdruck-Knopf in pos-print.js.
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// IST DER ZWEITE TEIL VON SQL 30 AUCH ANGEKOMMEN?
+//
+// Das Skript legt zuerst die Tabelle paypal_konten an und aendert ERST
+// DANACH orders. Bricht es dazwischen ab, gibt es die Tabelle -- und die
+// beiden Spalten nicht.
+//
+// Von allein merkt das niemand: bestellungSchreiben() wirft eine
+// fehlende Spalte absichtlich raus, damit eine bereits bezahlte
+// Bestellung nicht verloren geht. Die Bestellung kommt also an --
+// aber ohne Beleg der Zahlung, und ohne den Riegel gegen
+// Doppelbuchungen. Zweimal Zurueck im Browser, zwei Bestellungen,
+// einmal Geld.
+//
+// Genau die Sorte stiller Ausfall aus Regel 6. Darum wird nachgesehen.
+//
+// Rueckgabe: true = da, false = fehlt (gemessen), null = nicht messbar.
+// null ist ausdruecklich nicht false -- nicht erreichbar heisst nicht
+// "fehlt", und das Dashboard behauptet dann auch nichts.
+// ---------------------------------------------------------------------
+async function spaltenDa() {
+    try {
+        var res = await fetch(SUPABASE_URL
+            + '/rest/v1/orders?select=payment_status,payment_reference&limit=1', { headers: kopf() });
+        if (res.ok) return true;
+        // 400 mit PGRST204/"does not exist" heisst: die Spalte fehlt.
+        // Jeder andere Fehler heisst nur, dass wir es nicht wissen.
+        var t = '';
+        try { t = await res.text(); } catch (e) { t = ''; }
+        if (res.status === 400 && /payment_(status|reference)/.test(t)) return false;
+        console.warn('[paypal-zahlung] Spaltenpruefung unklar:', res.status, t.slice(0, 200));
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
 async function angemeldeteBetriebe(token) {
     if (!token) return null;
     var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
@@ -286,8 +326,13 @@ exports.handler = async function (event) {
             var rid0 = String(body.restaurant_id || '');
             if (!rid0) return json(400, { ok: false, error: 'restaurant_id fehlt.' });
             var k0 = await konto(rid0);
-            if (!k0) return json(200, { ok: true, eingerichtet: false });
-            return json(200, { ok: true, eingerichtet: true, client_id: k0.client_id, live: !!k0.live });
+            var antwort0 = k0
+                ? { ok: true, eingerichtet: true, client_id: k0.client_id, live: !!k0.live }
+                : { ok: true, eingerichtet: false };
+            // Nur das Dashboard fragt danach. Den Gast kostet das eine
+            // Anfrage, die ihm an der Kasse nichts nuetzt.
+            if (body.pruefen === true) antwort0.spalten = await spaltenDa();
+            return json(200, antwort0);
         }
 
         // ---------------- 1. Zahlung anlegen ----------------
@@ -405,6 +450,25 @@ exports.handler = async function (event) {
                 payment_reference: ppId,
                 status: order.status || 'pending'
             });
+
+            // Sofort bestaetigen, wenn der Wirt das eingeschaltet hat --
+            // genau wie in order-save. Ohne diese Zeilen waere PayPal der
+            // eine Weg in die Tabelle, auf dem der Gast keine Zusage
+            // bekommt, obwohl er schon bezahlt hat.
+            //
+            // konto() liest nur die PayPal-Schluessel, darum hier eine
+            // eigene Abfrage. Faellt sie aus, wird NICHT bestaetigt: das
+            // Geld ist da, die Bestellung geht durch, der Wirt nimmt sie
+            // von Hand an.
+            try {
+                var featsPP = await hol('restaurants?id=eq.' + encodeURIComponent(order.restaurant_id)
+                    + '&select=features&limit=1');
+                var zusagePP = WARTEZEIT.zusage((featsPP[0] && featsPP[0].features) || [],
+                    order.order_type, !!(order.requested_time || order.scheduled_at));
+                if (zusagePP) Object.keys(zusagePP).forEach(function (k) { nutz[k] = zusagePP[k]; });
+            } catch (e) {
+                console.warn('[paypal-zahlung] features nicht ladbar, keine Sofort-Bestaetigung:', e.message);
+            }
             var ins = await bestellungSchreiben(nutz);
             if (!ins.ok) {
                 // DER SCHLIMMSTE FALL: Geld ist weg, Bestellung nicht da.

@@ -39,7 +39,11 @@ var ALLOWED = [
     'customer_name', 'customer_phone', 'customer_email',
     'delivery_address', 'delivery_notes', 'customer_notes',
     'items', 'subtotal', 'delivery_fee', 'tip', 'discount', 'total',
-    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at'
+    'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at', 'scheduled_at',
+    // Sofort-Bestaetigung. Fehlt eine dieser Spalten, wirft der
+    // selbst-heilende Insert sie raus -- die Bestellung geht trotzdem
+    // durch, nur ohne Zusage.
+    'accepted_at', 'estimated_minutes', 'estimated_time'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, entfernen und erneut.
@@ -75,6 +79,7 @@ async function resilientInsert(payload) {
 // Preisprüfung: die Kartendaten holen und gegenrechnen.
 // ---------------------------------------------------------------------------
 var preisPruefung = require('./lib/preis-pruefung');
+var WARTEZEIT = require('./lib/wartezeit');
 
 function kopf() {
     return { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
@@ -110,6 +115,26 @@ async function hausDaten(rid) {
             console.warn('[order-save] Restaurant nicht ladbar:', e2.message);
             return [];
         }
+    }
+}
+
+// SOFORT BESTAETIGEN: DIE ENTSCHEIDUNG GEHOERT AUF DEN SERVER.
+//
+// Vorher lief die automatische Annahme in index.html und nur nach einem
+// Kassen-Push -- also nur, solange das Dashboard des Wirts offen war.
+// Hier laeuft sie bei JEDER Bestellung, auch nachts um elf mit
+// geschlossenem Laptop.
+//
+// Faellt die Abfrage aus, wird NICHT bestaetigt. Die Bestellung geht
+// trotzdem durch und wartet auf den Wirt -- lieber ein Klick zu viel als
+// eine Zusage, die auf einer geratenen Zahl steht.
+async function hausFeatures(rid) {
+    try {
+        var rows = await hol('restaurants?id=eq.' + encodeURIComponent(rid) + '&select=features&limit=1');
+        return (rows[0] && rows[0].features) || [];
+    } catch (e) {
+        console.warn('[order-save] features nicht ladbar, keine Sofort-Bestaetigung:', e.message);
+        return null;
     }
 }
 
@@ -215,10 +240,25 @@ exports.handler = async function (event) {
             console.warn('[order-save] nicht in der Karte gefunden', order.order_number, pruefung.ungeprueft.join(', '));
         }
 
+        // Sofort bestaetigen, wenn der Wirt das eingeschaltet hat. Muss VOR
+        // dem Insert passieren: eine Bestellung, die erst als 'received'
+        // landet und danach umgeschrieben wird, klingelt beim Wirt und
+        // steht eine Sekunde lang falsch in der Kueche.
+        var feats = await hausFeatures(order.restaurant_id);
+        var zusage = (feats === null) ? null
+            : WARTEZEIT.zusage(feats, order.order_type, !!(order.requested_time || order.scheduled_at));
+        if (zusage) Object.keys(zusage).forEach(function (k) { order[k] = zusage[k]; });
+
         var r = await resilientInsert(order);
         if (r.ok) {
             var id = (r.data && r.data[0] && r.data[0].id) || null;
-            return json(200, { ok: true, id: id, via: SERVICE_KEY ? 'service' : 'anon' });
+            return json(200, {
+                ok: true, id: id, via: SERVICE_KEY ? 'service' : 'anon',
+                // Damit der Browser dem Gast nicht "wird gleich bestaetigt"
+                // zeigt, waehrend sie schon bestaetigt ist.
+                sofort_bestaetigt: !!zusage,
+                minuten: (zusage && zusage.estimated_minutes) || null
+            });
         }
         return json(200, {
             ok: false,
