@@ -17,6 +17,7 @@
 
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
+var BESTELLART = require('./lib/bestellart');
 
 // Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
 // Netlify nicht gesetzt sind, Fallback auf die ohnehin öffentlichen anon-Daten
@@ -120,6 +121,7 @@ function mapOrder(o) {
         order_number: o.order_number || '',
         status: o.status || '',
         order_type: o.order_type || '',
+        order_type_text: BESTELLART.text(o.order_type),
         created_at: o.created_at || null,
         requested_time: o.requested_time || null,
         customer: {

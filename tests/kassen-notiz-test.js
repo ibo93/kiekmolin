@@ -55,10 +55,14 @@ var BESTELLUNG = {
 
 // ---- 1. WinOrder -- der Bon, den Ibo fotografiert hat ------------------
 console.log('\n-- WinOrder --');
-var mapOrder = new Function('parseAddress', 'ZAHLART',
+// Die gemeinsamen Bibliotheken werden ECHT hineingegeben, nicht
+// nachgebaut -- ein Nachbau wuerde genau das verdecken, wogegen sie da
+// sind: zwei Stellen, zwei Zuordnungen.
+var mapOrder = new Function('parseAddress', 'ZAHLART', 'BESTELLART',
     schneide(WO, 'function mapOrder(o, rest)') + '; return mapOrder;')(
     function () { return { street: '', houseNo: '', zip: '', city: '', note: '' }; },
-    require(path.join(KMI, 'netlify', 'functions', 'lib', 'zahlart.js')));
+    require(path.join(KMI, 'netlify', 'functions', 'lib', 'zahlart.js')),
+    require(path.join(KMI, 'netlify', 'functions', 'lib', 'bestellart.js')));
 
 var wo = mapOrder(BESTELLUNG, { id: 'r1', name: 'Pronto' });
 var artikel = wo.ArticleList.Article;

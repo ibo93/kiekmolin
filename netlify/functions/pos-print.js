@@ -20,6 +20,7 @@
 
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
+var BESTELLART = require('./lib/bestellart');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -243,9 +244,11 @@ function generateEposBon(order, restaurantName) {
     var zeit = datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
     var date = datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
 
-    var lieferung = order.order_type === 'delivery';
-    var vorOrt = order.order_type === 'dine_in';
-    var orderTypeLabel = vorOrt ? 'HIER ESSEN' : lieferung ? 'LIEFERUNG' : 'ABHOLUNG';
+    var lieferung = BESTELLART.lieferung(order.order_type);
+    var vorOrt = BESTELLART.vorOrt(order.order_type);
+    // Gross geschrieben, aber DASSELBE Wort wie in Mail und Kasse.
+    // Vorher stand hier "HIER ESSEN", in der Mail "Vor Ort".
+    var orderTypeLabel = BESTELLART.text(order.order_type).toUpperCase();
 
     var LINIE = '================================';
     var xml = '<?xml version="1.0" encoding="utf-8"?>';
