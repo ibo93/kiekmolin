@@ -46,6 +46,7 @@ var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var nurText = require('./lib/nur-text').nurText;
 var WARTEZEIT = require('./lib/wartezeit');
+var ZAHLART = require('./lib/zahlart');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -123,7 +124,9 @@ function buildEmail(o, rest) {
     }
 
     var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
-    var payLabel = ({ cash: 'Barzahlung', card: 'Kartenzahlung', paypal: 'PayPal', online: 'Online bezahlt', stripe: 'Online bezahlt' })[String(o.payment_method || '').toLowerCase()] || esc(o.payment_method || '');
+    // Auch hier stand eine eigene Liste ohne card_on_delivery -- in der
+    // Mail an den Gast stand dann "Zahlung: card_on_delivery".
+    var payLabel = esc(ZAHLART.text(o.payment_method));
 
     // DER BEZAHLLINK MUSS IN DIE MAIL.
     //

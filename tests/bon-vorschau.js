@@ -35,7 +35,11 @@ function ladeBonBauer() {
     var gen = schneide(pos, 'function generateEposBon(');
     var esc = schneide(pos, 'function xmlEscape(');
     if (!gen || !esc) throw new Error('generateEposBon oder xmlEscape nicht gefunden');
-    var welt = {};
+    // generateEposBon benutzt die gemeinsame Zahlart-Bibliothek. Sie wird
+    // hier ECHT hineingegeben -- nicht nachgebaut. Ein Nachbau wuerde
+    // genau den Fehler verdecken, gegen den die Bibliothek gebaut wurde:
+    // zwei Stellen, zwei Zuordnungen.
+    var welt = { ZAHLART: require(path.join(__dirname, '..', 'netlify', 'functions', 'lib', 'zahlart.js')) };
     vm.createContext(welt);
     vm.runInContext(esc + '\n' + gen + '\nthis.bau = generateEposBon;', welt);
     return welt.bau;

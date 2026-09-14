@@ -19,6 +19,7 @@
 'use strict';
 
 var crypto = require('crypto');
+var ZAHLART = require('./lib/zahlart');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -415,20 +416,32 @@ function generateEposBon(order, restaurantName) {
         xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
         xml += gross('BEZAHLT');
         xml += zeile('nichts kassieren', { align: 'center' });
-    } else if (art === 'cash') {
+    } else if (ZAHLART.kassieren(art, bezahlt)) {
         // Der Fahrer und die Theke muessen EINE Zahl sehen: was kassiert
         // wird. Bisher stand die Summe an einer Stelle und "BAR" an einer
-        // anderen.
-        xml += gross('BAR KASSIEREN');
+        // anderen -- und bei Kartenzahlung stand gar nichts Lesbares da,
+        // sondern "CARD_ON_DELIVERY".
+        xml += gross(ZAHLART.karte(art) ? 'KARTE KASSIEREN' : 'BAR KASSIEREN');
         xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
+        if (ZAHLART.karte(art)) xml += zeile('Kartengeraet mitnehmen', { align: 'center' });
     } else if (art === 'paypal') {
         // PAYPAL ohne bestaetigte Zahlung ist keine Zahlungsbestaetigung.
         // Ein Bezahllink meldet uns nie, ob der Gast bezahlt hat.
         xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
         xml += gross('PAYPAL - ZAHLUNG PRUEFEN');
     } else if (art) {
+        // EIN UNBEKANNTER ZAHLWEG IST EINE ANWEISUNG, KEINE ZAHLART.
+        //
+        // Frueher: toUpperCase() auf den Rohwert -- so stand
+        // "CARD_ON_DELIVERY" gross auf der Rechnung. Ihn stattdessen als
+        // "SONSTIGE ZAHLUNG (KLARNA_NEU)" zu drucken waere derselbe
+        // Fehler in huebsch: der Code stuende weiter gross da.
+        //
+        // Gross kommt darum, was zu TUN ist. Der Code selbst gehoert in
+        // die kleine Zeile darunter -- fuer den, der nachfragen will.
         xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
-        xml += gross(String(order.payment_method).toUpperCase());
+        xml += gross('ZAHLUNG PRUEFEN');
+        xml += zeile('hinterlegt: ' + art, { align: 'center' });
     } else {
         xml += zeile(total + ' EUR', { align: 'right', w: 3, h: 3 });
         xml += zeile('GESAMT', { align: 'right' });

@@ -24,6 +24,7 @@
 'use strict';
 
 var crypto = require('crypto');
+var ZAHLART = require('./lib/zahlart');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -126,12 +127,15 @@ function mapOrder(o, rest) {
     var lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : (nameParts[0] || '');
     var firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
 
-    var payMap = { cash: 'Barzahlung', bar: 'Barzahlung', card: 'Kartenzahlung', ec: 'EC-Karte', paypal: 'PayPal', online: 'Online bezahlt', stripe: 'Online bezahlt' };
 
     return {
         OrderID: String(o.id),
         AddInfo: {
-            PaymentType: payMap[String(o.payment_method || '').toLowerCase()] || String(o.payment_method || 'Barzahlung'),
+            // Die Zuordnung steht in lib/zahlart.js. Hier stand frueher eine
+            // eigene Liste OHNE card_on_delivery -- und ein Rueckfall, der
+            // den Rohwert durchreichte. So landete "card_on_delivery" auf
+            // der Rechnung eines Gastes.
+            PaymentType: ZAHLART.text(o.payment_method),
             DiscountPercent: 0,
             Total: Number(o.total) || 0,
             OrderType: o.order_type === 'delivery' ? 'Lieferung' : (o.order_type === 'dine_in' ? 'Vor Ort' : 'Abholung'),
