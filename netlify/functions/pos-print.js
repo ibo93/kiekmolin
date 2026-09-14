@@ -597,7 +597,7 @@ exports.handler = async function (event) {
 
         // Restaurant + pull_key validieren
         var rrows = await sbGet('restaurants?id=eq.' + encodeURIComponent(restaurant) +
-            '&select=id,name,pos_pull_key,printer_last_error_at,printer_test_art');
+            '&select=id,name,pos_pull_key,printer_last_error_at,printer_test_art,printer_last_poll_at');
 
         // EIN ABGEWIESENER DRUCKER MUSS SICH MELDEN DUERFEN.
         //
@@ -711,11 +711,30 @@ exports.handler = async function (event) {
         // Last-Poll-Tracker: bei jedem Abruf vom Drucker den Zeitstempel
         // updaten. Dashboard kann darauf einen 'Drucker online'-Indikator
         // bauen. Fire-and-forget -- sollte die XML-Auslieferung nicht blockieren.
-        sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), {
-            printer_last_poll_at: new Date().toISOString()
-        }).catch(function(e) {
-            console.warn('[pos-print] printer_last_poll_at update fehlgeschlagen:', e.message);
-        });
+        // HOECHSTENS EINMAL PRO MINUTE SCHREIBEN.
+        //
+        // Gemessen am 14.09.2026: 6.466 PATCH auf EIN Restaurant in 6,5
+        // Stunden -- 16,6 pro Minute, nur um "zuletzt gemeldet" zu
+        // speichern. Der Drucker fragt eben 17 Mal pro Minute.
+        //
+        // Das kostet nicht nur Schreibvorgänge. Es hat beim Suchen nach
+        // einem Fehler die echten Eintraege zugedeckt: eine gespeicherte
+        // Einstellung ging in tausenden gleicher Zeilen unter.
+        //
+        // Fuer eine "Drucker online"-Ampel reicht Minuten-Genauigkeit
+        // vollkommen. Der alte Stand steht schon in rrows[0] -- es
+        // braucht keine zusaetzliche Abfrage.
+        var jetzt = Date.now();
+        var zuletzt = 0;
+        try { zuletzt = rrows[0].printer_last_poll_at ? new Date(rrows[0].printer_last_poll_at).getTime() : 0; }
+        catch (e) { zuletzt = 0; }
+        if (!(zuletzt > 0) || (jetzt - zuletzt) >= 60000) {
+            sbPatch('restaurants?id=eq.' + encodeURIComponent(restaurant), {
+                printer_last_poll_at: new Date(jetzt).toISOString()
+            }).catch(function(e) {
+                console.warn('[pos-print] printer_last_poll_at update fehlgeschlagen:', e.message);
+            });
+        }
 
         if (!orders.length) {
             return xmlResponse(emptyEposResponse());

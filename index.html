@@ -19930,7 +19930,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <div>
                             <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Bestelloptionen</span>
-                            <span style="font-size: 11px; color: var(--text-secondary); display: block;">für Kunden sichtbar</span>
+                            <!-- DER NAME DES BETRIEBS GEHOERT HIERHIN.
+                                 Ibo am 14.09.2026: eine Bestellung kam bei Restaurant A an,
+                                 gespeichert wurde die Einstellung nie dort -- oben im
+                                 Auswahlfeld stand ein anderes. Das Feld entscheidet, und
+                                 man uebersieht es. Wer mehrere Betriebe hat, stellt sonst
+                                 beim falschen um und sieht keinen Fehler: das Speichern
+                                 hat ja geklappt. -->
+                            <span id="orderSettingsRestName" style="font-size: 11px; color: var(--text-secondary); display: block;">für Kunden sichtbar</span>
                         </div>
                     </div>
                 </div>
@@ -58153,12 +58160,19 @@ function _renderPrinterStatus(lastPollIso) {
     if (isNaN(lastMs)) { dot.style.background = '#9ca3af'; text.textContent = 'Drucker-Status unbekannt'; return; }
     var ageSec = Math.max(0, Math.round((Date.now() - lastMs) / 1000));
 
+    // DIE SCHWELLEN HAENGEN AN DER DROSSELUNG.
+    //
+    // pos-print stempelt seit dem 14.09.2026 hoechstens einmal pro
+    // Minute (vorher bei jedem Abruf -- 16,6 Schreibvorgaenge pro
+    // Minute auf EIN Restaurant). Bliebe die Grenze bei 30 Sekunden,
+    // stuende die Ampel bei einem voellig gesunden Drucker die halbe
+    // Zeit auf "langsam". 90 Sekunden = 60 Drosselung + Luft.
     var label, color, border, msg;
-    if (ageSec < 30) {
+    if (ageSec < 90) {
         color = '#16a34a'; border = 'rgba(22,163,74,0.5)';
-        label = 'Drucker online (' + ageSec + 's)';
+        label = 'Drucker online';
         msg = 'Drucker hat vor ' + ageSec + ' Sekunden angefragt — Verbindung aktiv.';
-    } else if (ageSec < 180) {
+    } else if (ageSec < 300) {
         color = '#ca8a04'; border = 'rgba(202,138,4,0.5)';
         label = 'Drucker langsam (' + ageSec + 's)';
         msg = 'Letzte Anfrage vor ' + ageSec + ' Sekunden. Falls Bons nicht kommen: Abfrage-Intervall am Drucker senken.';
@@ -58227,6 +58241,14 @@ function _renderKasseStatus(lastPollIso) {
 // laengst behobenen Fehler als heutigen ausgeben.
 var DRUCKER_MELDUNG_MAX_ALTER_MS = 12 * 60 * 60 * 1000;
 
+// Fragt der Drucker gerade an? Die Ampel weiss es schon -- sie steht
+// direkt daneben. Kein zweiter Weg, keine zweite Abfrage: waeren es
+// zwei, liefen sie irgendwann auseinander.
+function _druckerPolltAber() {
+    var t = document.getElementById('printerStatusText');
+    return !!t && /Drucker online/.test(t.textContent || '');
+}
+
 function _renderDruckerMeldung(ereignis) {
     var kasten = document.getElementById('druckerMeldungZeile');
     var text = document.getElementById('druckerMeldungText');
@@ -58236,6 +58258,24 @@ function _renderDruckerMeldung(ereignis) {
         && (ereignis.type === 'printer_failed' || ereignis.type === 'printer_rejected')
         && ereignis.created_at
         && (Date.now() - new Date(ereignis.created_at).getTime()) < DRUCKER_MELDUNG_MAX_ALTER_MS;
+
+    // ER MELDET SICH -- UND HAT NOCH NIE EINEN BON BESTAETIGT.
+    //
+    // Gemessen am 13.09.2026: 24.600 Abrufe vom Drucker in 24 Stunden,
+    // alle mit HTTP 200 -- und NULL Rueckmeldungen, bei allen fuenf
+    // Betrieben, seit es die Rueckmeldung gibt. Die Ampel stand dabei
+    // die ganze Zeit auf gruen: "Drucker online".
+    //
+    // Gruen heisst aber nur "er fragt nach Arbeit". Ob je ein Bon aus
+    // dem Geraet kam, sagt es nicht. Genau dieser Unterschied hat uns
+    // eine Woche gekostet. Also wird er hingeschrieben.
+    if (!zeigen && ereignis === null && _druckerPolltAber()) {
+        text.textContent = 'Der Drucker meldet sich, hat aber noch nie einen Bon bestätigt. '
+            + 'Bitte einmal „Testbon einfach" drücken — sonst weiß niemand, ob je etwas gedruckt wurde.';
+        kasten.title = text.textContent + ' (klicken: Drucker-Einstellungen)';
+        kasten.style.display = 'flex';
+        return;
+    }
 
     if (!zeigen) { kasten.style.display = 'none'; return; }
 
@@ -61494,6 +61534,16 @@ function startCountdown() {
 // Settings laden (aus localStorage, pro Restaurant)
 function loadOrderSettings() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value || '';
+
+    // Den Namen in die Ueberschrift der Karte. Sonst weiss niemand, fuer
+    // welchen Betrieb die Schalter darunter gelten.
+    var nameEl = document.getElementById('orderSettingsRestName');
+    if (nameEl) {
+        var _r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
+        nameEl.textContent = (_r && _r.name)
+            ? ('für Kunden sichtbar · ' + _r.name)
+            : 'für Kunden sichtbar';
+    }
     var pickupEl = document.getElementById('settingPickup');
     var deliveryEl = document.getElementById('settingDelivery');
     var dineInEl = document.getElementById('settingDineIn');
@@ -61982,8 +62032,11 @@ async function savePrepMinutes() {
         }
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
         if (r) r.features = features;
-        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
-            + (autoAn ? ' — Bestellungen werden sofort bestätigt' : ''), 'success');
+        // Der Name MUSS in die Bestaetigung. "Gespeichert" allein sagt
+        // nicht, WO gespeichert wurde -- und genau das war das Problem.
+        showToast((r && r.name ? r.name + ': ' : '')
+            + 'Wartezeit gespeichert — Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
+            + (autoAn ? ', Bestellungen werden sofort bestätigt' : ''), 'success');
     } catch (e) {
         showToast('Keine Verbindung — Wartezeit nicht gespeichert', 'error');
     }
