@@ -39,7 +39,10 @@ function ladeBonBauer() {
     // hier ECHT hineingegeben -- nicht nachgebaut. Ein Nachbau wuerde
     // genau den Fehler verdecken, gegen den die Bibliothek gebaut wurde:
     // zwei Stellen, zwei Zuordnungen.
-    var welt = { ZAHLART: require(path.join(__dirname, '..', 'netlify', 'functions', 'lib', 'zahlart.js')) };
+    var welt = {
+        ZAHLART: require(path.join(__dirname, '..', 'netlify', 'functions', 'lib', 'zahlart.js')),
+        BESTELLART: require(path.join(__dirname, '..', 'netlify', 'functions', 'lib', 'bestellart.js'))
+    };
     vm.createContext(welt);
     vm.runInContext(esc + '\n' + gen + '\nthis.bau = generateEposBon;', welt);
     return welt.bau;

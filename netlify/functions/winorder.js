@@ -25,6 +25,7 @@
 
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
+var BESTELLART = require('./lib/bestellart');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -103,12 +104,30 @@ function mapOrder(o, rest) {
         var qty = Number(it.quantity) || 1;
         var line = Number(it.price) || 0;            // Zeilensumme aus dem Checkout
         var unit = qty > 0 ? Math.round((line / qty) * 100) / 100 : line;
-        var art = { ArticleNo: String(it.sku || ''), ArticleName: String(it.name || 'Artikel'), ArticleSize: String(it.size || ''), Price: unit, Count: qty, Comment: '' };
+        // DIE NOTIZ ZUM GERICHT STAND HIER AUF LEER.
+        //
+        // Ibo am 14.09.2026: "was in den Notizen bei der Bestellung steht,
+        // steht nicht auf dem Bon."
+        //
+        // Das Feld Comment war da -- und wurde fest mit '' belegt. Der Gast
+        // schreibt "ohne Tzaziki bitte", es steht in der Datenbank, im
+        // Dashboard und auf UNSEREM Bon. Nur die Kasse bekam es nie zu
+        // sehen, und die druckt den Bon, mit dem die Kueche arbeitet.
+        // Kein Fehler, keine Meldung: ein leeres Feld sieht aus wie
+        // "keine Notiz".
+        var notiz = String(it.notes || '').trim();
+        var art = { ArticleNo: String(it.sku || ''), ArticleName: String(it.name || 'Artikel'), ArticleSize: String(it.size || ''), Price: unit, Count: qty, Comment: notiz };
+        var subs = [];
         if (it.options) {
-            var subs = String(it.options).split(',').map(function (s) { return s.trim(); }).filter(Boolean)
+            subs = String(it.options).split(',').map(function (s) { return s.trim(); }).filter(Boolean)
                 .map(function (opt) { return { ArticleName: opt, Price: 0, Count: 1, Comment: '' }; });
-            if (subs.length) art.SubArticleList = { SubArticle: subs };
         }
+        // Zusaetzlich als eigene Zeile unter dem Gericht. Die Zusatz-Zeilen
+        // (gross, Sauce Hollandaise) kommen auf dem Kassenbon nachweislich
+        // an -- vom Comment-Feld wissen wir das nicht. Eine Sonderbestellung
+        // darf nicht daran haengen, ob eine fremde Kasse ein Feld druckt.
+        if (notiz) subs.push({ ArticleName: '** ' + notiz, Price: 0, Count: 1, Comment: '' });
+        if (subs.length) art.SubArticleList = { SubArticle: subs };
         return art;
     });
 
@@ -138,7 +157,7 @@ function mapOrder(o, rest) {
             PaymentType: ZAHLART.text(o.payment_method),
             DiscountPercent: 0,
             Total: Number(o.total) || 0,
-            OrderType: o.order_type === 'delivery' ? 'Lieferung' : (o.order_type === 'dine_in' ? 'Vor Ort' : 'Abholung'),
+            OrderType: BESTELLART.text(o.order_type),
             OrderNumber: String(o.order_number || ''),
             RequestedTime: String(o.requested_time || '')
         },

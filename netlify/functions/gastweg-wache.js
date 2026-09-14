@@ -19,11 +19,19 @@
 // Quelltext. Sie haetten den Fehler NIE gefunden, weil er nicht im
 // Quelltext stand, sondern in einer Regel in der Datenbank.
 //
-// DREI PRUEFUNGEN
-// ===============
-//   1. Reservieren    -- der Weg, der am 25.08. zu war.
-//   2. Bestellen      -- derselbe Weg fuer Bestellungen.
-//   3. Preis-Schutz   -- und der ist der interessanteste.
+// SIEBEN PRUEFUNGEN
+// =================
+//   1. Ausgelieferte Seite -- ist das, was der Browser holt, die neue?
+//   2. Reservieren    -- der Weg, der am 25.08. zu war.
+//   3. Bestellen      -- derselbe Weg fuer Bestellungen.
+//   4. Preis-Schutz   -- und der ist der interessanteste.
+//   5. Mindestbestellwert
+//   6. Vorbestellung  -- behaelt sie ihren Zeitpunkt? (seit 14.09.)
+//   7. Mailversand    -- geht ueberhaupt etwas raus? (seit 14.09.)
+//
+// Zu 6 und 7: beide Wege hatten am 14.09.2026 einen Fehler, den
+// monatelang niemand gesehen hat. Vorbestellungen liefen NIE, und ohne
+// RESEND_API_KEY verschickt order-email absichtlich still gar nichts.
 //
 // Zu 3: Am selben Tag kam heraus, dass der Preis-Check bei JEDER
 // Bestellung aus war -- eine Abfrage fragte nach einer Spalte, die es
@@ -70,7 +78,7 @@ var UNPRUEFBAR = 'unpruefbar';
 //
 // tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
 // stehenbleibt.
-var CACHE_MINDESTENS = 37;
+var CACHE_MINDESTENS = 39;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -220,6 +228,84 @@ async function pruefeBestellung(haus) {
     });
     if (a.daten && a.daten.ok && a.daten.id) return null;
     return 'Bestellen: ' + grundAus(a);
+}
+
+// ---- PRUEFUNG: EINE VORBESTELLUNG BEHAELT IHREN ZEITPUNKT ----------
+//
+// Am 14.09.2026 gefunden: Vorbestellungen liefen NIE. In submitOrder
+// stand "orderData.scheduled_at = ..." -- eine Variable, die es nicht
+// gab. Jede Vorbestellung brach dort ab und wurde nie gespeichert.
+//
+// Diese Wache kann den Browser-Teil nicht sehen (dafuer gibt es
+// tests/erfundene-variablen-test.js). Sie prueft die ANDERE Haelfte,
+// die genauso still gewesen waere: kommt scheduled_at durch den Server
+// und steht es hinterher wirklich in der Bestellung?
+//
+// Der selbstheilende Insert wirft eine unbekannte Spalte weg, um die
+// Bestellung zu retten. Richtig -- aber dann waere aus der Vorbestellung
+// unbemerkt eine normale geworden, und die Kueche faengt sofort an zu
+// kochen.
+async function pruefeVorbestellung(haus) {
+    var nummer = probeNummer('VB');
+    var wann = new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString();
+    var a = await alsGast('order-save', {
+        order: {
+            order_number:  nummer,
+            restaurant_id: haus,
+            customer_name: PROBE_NAME,
+            customer_phone: '0000000000',
+            status:        'received',
+            order_type:    'pickup',
+            scheduled_at:  wann,
+            items:         [],
+            subtotal:      0,
+            total:         0
+        }
+    });
+    if (!(a.daten && a.daten.ok && a.daten.id)) return 'Vorbestellung: ' + grundAus(a);
+
+    // Nachsehen, ob der Zeitpunkt wirklich angekommen ist. "Gespeichert"
+    // allein reicht nicht -- genau das war der Fall.
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(a.daten.id)
+            + '&select=scheduled_at', { headers: kopf() });
+        if (!res.ok) return 'Vorbestellung: gespeichert, aber nicht nachlesbar (HTTP ' + res.status + ')';
+        var zeilen = await res.json();
+        if (!zeilen.length) return 'Vorbestellung: gespeichert gemeldet, aber nicht auffindbar';
+        if (!zeilen[0].scheduled_at) {
+            return 'Vorbestellung: der Zeitpunkt ist unterwegs verlorengegangen. '
+                 + 'Die Bestellung sieht aus wie eine normale -- die Kueche faengt sofort an zu kochen.';
+        }
+    } catch (e) {
+        return 'Vorbestellung: Nachlesen fehlgeschlagen (' + e.message + ')';
+    }
+    return null;
+}
+
+// ---- PRUEFUNG: GEHEN UEBERHAUPT MAILS RAUS? ------------------------
+//
+// order-email macht ohne RESEND_API_KEY gar nichts -- absichtlich, und
+// absichtlich ohne Fehler: eine Bestellung darf nicht daran scheitern,
+// dass der Mailversand klemmt. Der Preis dafuer: faellt der Schluessel
+// weg, merkt es niemand. Der Gast bekommt keine Bestaetigung, keine
+// Wartezeit, keine neue Zeit -- und im Dashboard sieht alles normal aus.
+//
+// Die Funktion hat dafuer eine Selbstauskunft (?test=1). Die kostet
+// nichts und verschickt nichts.
+async function pruefeMailversand() {
+    try {
+        var res = await fetch(SEITE + '/.netlify/functions/order-email?test=1');
+        if (!res.ok) return 'Mailversand: die Funktion antwortet mit HTTP ' + res.status;
+        var d = await res.json().catch(function () { return null; });
+        if (!d) return 'Mailversand: unlesbare Antwort';
+        if (d.key_gesetzt === false) {
+            return 'Mailversand: RESEND_API_KEY fehlt in Netlify -- es gehen KEINE '
+                 + 'Bestaetigungen an Gaeste raus. Bestellungen kommen trotzdem an.';
+        }
+        return null;
+    } catch (e) {
+        return 'Mailversand: nicht erreichbar (' + e.message + ')';
+    }
 }
 
 // ---- PRUEFUNG 0: IST DIE AUSGELIEFERTE SEITE UEBERHAUPT DIE NEUE? ---
@@ -389,7 +475,11 @@ var PRUEFUNGEN = [
     { kennung: 'wache-reservieren', fn: pruefeReservierung },
     { kennung: 'wache-bestellen',   fn: pruefeBestellung },
     { kennung: 'wache-preis',       fn: pruefePreisSchutz },
-    { kennung: 'wache-mindest',     fn: pruefeMindestbestellwert }
+    { kennung: 'wache-mindest',     fn: pruefeMindestbestellwert },
+    // Seit dem 14.09.2026 dazu: beide Wege hatten an dem Tag einen
+    // Fehler, den monatelang niemand gesehen hat.
+    { kennung: 'wache-vorbestellung', fn: pruefeVorbestellung },
+    { kennung: 'wache-mail',          fn: pruefeMailversand }
 ];
 
 exports.handler = async function () {

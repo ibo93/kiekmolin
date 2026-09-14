@@ -17,6 +17,7 @@
 
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
+var BESTELLART = require('./lib/bestellart');
 
 // Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
 // Netlify nicht gesetzt sind, Fallback auf die ohnehin öffentlichen anon-Daten
@@ -108,7 +109,10 @@ function mapOrder(o) {
             quantity: it.quantity || 1,
             unit_price: typeof it.unit_price === 'number' ? it.unit_price : (parseFloat(it.unit_price) || 0),
             line_total: typeof it.price === 'number' ? it.price : (parseFloat(it.price) || 0),
-            options: it.options || ''
+            options: it.options || '',
+            // Die Sonderbestellung des Gastes. Fehlte hier genauso wie in
+            // winorder -- die Kasse bekam "ohne Tzaziki bitte" nie zu sehen.
+            notes: it.notes || ''
         };
     }) : [];
     return {
@@ -117,6 +121,7 @@ function mapOrder(o) {
         order_number: o.order_number || '',
         status: o.status || '',
         order_type: o.order_type || '',
+        order_type_text: BESTELLART.text(o.order_type),
         created_at: o.created_at || null,
         requested_time: o.requested_time || null,
         customer: {

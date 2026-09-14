@@ -9,6 +9,8 @@
 
 'use strict';
 
+var TRICHTER = require('./lib/trichter.js');
+
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
@@ -74,6 +76,22 @@ exports.handler = async function () {
         return { statusCode: 500, body: e.message };
     }
 
+    // DER TRICHTER IN EIGENEM try.
+    //
+    // Fehlt datenbank/31-gasttrichter.sql noch, antwortet PostgREST mit
+    // 404 -- und ohne dieses try waere der GANZE Wochenbericht weg, fuer
+    // alle Haeuser, wegen einer Zusatzzahl. Der Bericht ist wichtiger als
+    // die Quote.
+    var trichterZeilen = null;
+    try {
+        trichterZeilen = await sbGet('guest_funnel?created_at=gte.' + encodeURIComponent(weekStartIso) +
+            '&created_at=lt.' + encodeURIComponent(weekEndIso) +
+            '&select=restaurant_id,besuch,schritt&limit=50000');
+    } catch (e) {
+        console.warn('[weekly-report] Gasttrichter nicht lesbar (' + e.message + '). '
+                   + 'Fehlt datenbank/31-gasttrichter.sql? Der Bericht geht ohne die Quote raus.');
+    }
+
     var sent = 0, skipped = 0;
     for (var i = 0; i < restaurants.length; i++) {
         var r = restaurants[i];
@@ -114,6 +132,12 @@ exports.handler = async function () {
         var top = Object.keys(dishCount).map(function (n) { return { name: n, qty: dishCount[n] }; })
             .sort(function (a, b) { return b.qty - a.qty; }).slice(0, 5);
 
+        // Nur die Zeilen dieses Hauses -- sonst stuende bei jedem Wirt
+        // die Quote aller Haeuser zusammen.
+        var rt = TRICHTER.fuerHaus(trichterZeilen, r.id);
+        var trichterSatz = trichterZeilen ? TRICHTER.satz(rt) : null;
+        var trichterWo   = trichterZeilen ? TRICHTER.absprung(rt) : null;
+
         function row(label, val) {
             return '<tr><td style="padding:7px 12px 7px 0;color:#6b7280;white-space:nowrap;">' + label + '</td>' +
                 '<td style="padding:7px 0;font-weight:700;text-align:right;">' + val + '</td></tr>';
@@ -129,6 +153,9 @@ exports.handler = async function () {
             '</table>' +
             (top.length ? '<p style="margin:16px 0 6px;font-weight:700;color:#003d33;">Top-Gerichte der Woche</p><ol style="margin:0;padding-left:20px;color:#374151;font-size:14px;">' +
                 top.map(function (t) { return '<li style="padding:2px 0;">' + esc(t.name) + ' <span style="color:#6b7280;">(' + t.qty + '×)</span></li>'; }).join('') + '</ol>' : '') +
+            (trichterSatz ? '<p style="margin:16px 0 6px;font-weight:700;color:#003d33;">Wie viele Gäste bestellt haben</p>' +
+                '<p style="margin:0;color:#374151;font-size:14px;line-height:1.5;">' + esc(trichterSatz) +
+                (trichterWo ? ' ' + esc(trichterWo) : '') + '</p>' : '') +
             '<p style="margin:24px 0 0;"><a href="https://kiekmolin.de/?dashboard=statistics" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Alle Statistiken ansehen</a></p>' +
             '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
             '<p style="margin:0;color:#9ca3af;font-size:12px;">Automatischer Wochenbericht von kiekmolin.de.</p>' +
@@ -141,6 +168,21 @@ exports.handler = async function () {
             console.error('[weekly-report] Mail an', r.name, 'fehlgeschlagen:', e.message);
             skipped++;
         }
+    }
+
+    // AUFRAEUMEN: was aelter als 90 Tage ist, fliegt raus.
+    //
+    // Die Tabelle waechst mit jedem Gast. Niemand schaut ein Vierteljahr
+    // zurueck, und ungefragt Daten aufzuheben, die keiner mehr braucht,
+    // ist kein Merkmal, sondern ein Versaeumnis. Schlaegt es fehl, ist
+    // das kein Grund, den Bericht als misslungen zu melden.
+    try {
+        var alt = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        var del = await fetch(SUPABASE_URL + '/rest/v1/guest_funnel?created_at=lt.'
+            + encodeURIComponent(alt), { method: 'DELETE', headers: sbHeaders() });
+        if (!del.ok) console.warn('[weekly-report] Aufraeumen guest_funnel -> HTTP ' + del.status);
+    } catch (e) {
+        console.warn('[weekly-report] Aufraeumen guest_funnel fehlgeschlagen:', e.message);
     }
 
     console.log('[weekly-report] sent=' + sent + ' skipped=' + skipped);
