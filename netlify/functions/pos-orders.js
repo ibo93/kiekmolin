@@ -108,7 +108,10 @@ function mapOrder(o) {
             quantity: it.quantity || 1,
             unit_price: typeof it.unit_price === 'number' ? it.unit_price : (parseFloat(it.unit_price) || 0),
             line_total: typeof it.price === 'number' ? it.price : (parseFloat(it.price) || 0),
-            options: it.options || ''
+            options: it.options || '',
+            // Die Sonderbestellung des Gastes. Fehlte hier genauso wie in
+            // winorder -- die Kasse bekam "ohne Tzaziki bitte" nie zu sehen.
+            notes: it.notes || ''
         };
     }) : [];
     return {
