@@ -19930,7 +19930,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <div>
                             <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Bestelloptionen</span>
-                            <span style="font-size: 11px; color: var(--text-secondary); display: block;">für Kunden sichtbar</span>
+                            <!-- DER NAME DES BETRIEBS GEHOERT HIERHIN.
+                                 Ibo am 14.09.2026: eine Bestellung kam bei Restaurant A an,
+                                 gespeichert wurde die Einstellung nie dort -- oben im
+                                 Auswahlfeld stand ein anderes. Das Feld entscheidet, und
+                                 man uebersieht es. Wer mehrere Betriebe hat, stellt sonst
+                                 beim falschen um und sieht keinen Fehler: das Speichern
+                                 hat ja geklappt. -->
+                            <span id="orderSettingsRestName" style="font-size: 11px; color: var(--text-secondary); display: block;">für Kunden sichtbar</span>
                         </div>
                     </div>
                 </div>
@@ -41051,8 +41058,14 @@ async function showRestaurantLanding(rest) {
                 }
                 if (!noOrdering) {
                     bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">shopping_bag</span>BESTELLEN</button>';
-                    bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>KARTE</button>';
                 }
+                // DER KARTE-KNOPF STAND MIT IM !noOrdering-BLOCK.
+                //
+                // Damit verschwand er zusammen mit BESTELLEN, sobald ein Wirt
+                // "Nur Speisekarte zeigen" einschaltete -- also genau der eine
+                // Knopf, der dann uebrig bleiben sollte. Er gehoert hierhin:
+                // die Karte gibt es immer.
+                bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>' + (noOrdering ? 'SPEISEKARTE' : 'KARTE') + '</button>';
                 bar += '</div>';
                 return bar;
             })()}
@@ -46488,6 +46501,10 @@ document.addEventListener('error', function(e) {
             <!-- Wird dynamisch gefüllt -->
         </div>
 
+        <!-- Anrufen-Leiste: ersetzt im Kartenmodus den Warenkorb.
+             Gefuellt von kartenmodusAnwenden(), sonst leer und aus. -->
+        <div id="menuAnrufenBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;"></div>
+
         <!-- Floating Cart Bar (Stitch) -->
         <div id="menuFloatingCartBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;">
             <div style="background:rgba(0,37,30,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
@@ -48365,19 +48382,100 @@ var orderType = 'pickup';
 var tipAmount = 1; // Standard: 1€
 var paymentMethod = 'cash';
 
+// KARTENMODUS EIN- ODER AUSSCHALTEN.
+//
+// Gehoert zum Schalter "Nur Speisekarte zeigen". Blendet jeden Weg aus, der
+// zu einer Bestellung fuehrt, und bietet stattdessen die Telefonnummer an --
+// denn genau das verspricht der Schalter: "Gaeste sehen die Karte und rufen an."
+//
+// Der Schalter wird IMMER angewandt, auch beim Ausschalten: sonst behaelt ein
+// Gast, der vorher bei einem Betrieb mit Kartenmodus war, die versteckte
+// Warenkorb-Leiste beim naechsten Betrieb bei.
+function kartenmodusAnwenden(anKartenmodus, restaurant) {
+    try {
+        var zeigen = anKartenmodus ? 'none' : '';
+
+        // Warenkorb-Symbol in der Kopfzeile
+        var korbKopf = document.getElementById('menuCartBadge');
+        if (korbKopf && korbKopf.parentElement) korbKopf.parentElement.style.display = zeigen;
+
+        // Schwebende Warenkorb-Leiste. NICHT auf '' zuruecksetzen, sondern
+        // auf 'none' -- updateCartBadges() blendet sie ein, sobald wirklich
+        // etwas drin liegt. Ein leeres '' liesse eine leere Leiste stehen.
+        var korbLeiste = document.getElementById('menuFloatingCartBar');
+        if (korbLeiste && anKartenmodus) korbLeiste.style.display = 'none';
+
+        var korbFest = document.getElementById('cartButtonFixed');
+        if (korbFest && anKartenmodus) korbFest.classList.remove('visible');
+
+        var anrufen = document.getElementById('menuAnrufenBar');
+        if (!anrufen) return;
+
+        var nummer = restaurant && (restaurant.phone || restaurant.telefon || '');
+        if (!anKartenmodus || !nummer) {
+            // OHNE NUMMER KEIN KNOPF.
+            //
+            // "Ruf uns an" ohne Nummer ist eine Sackgasse. Dann bleibt die
+            // Karte einfach eine Karte -- das ist ehrlicher als ein Knopf,
+            // der nichts tut.
+            anrufen.style.display = 'none';
+            return;
+        }
+        var sauber = String(nummer).replace(/[^\d+]/g, '');
+        anrufen.innerHTML =
+            '<a href="tel:' + sauber + '" style="display:flex;align-items:center;justify-content:center;gap:10px;'
+          + 'background:rgba(0,37,30,0.95);color:#fff;text-decoration:none;border-radius:9999px;'
+          + 'padding:14px 24px;font-family:Inter,sans-serif;font-weight:700;font-size:15px;'
+          + 'box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);border:1px solid rgba(255,255,255,0.1);">'
+          + '<span class="material-symbols-outlined" style="font-size:20px;">call</span>'
+          + 'Bestellen: ' + _escHtmlBasic(String(nummer)) + '</a>';
+        anrufen.style.display = '';
+    } catch (e) {
+        // Ein Anzeigefehler darf die Speisekarte nicht verhindern -- sie ist
+        // in diesem Modus das Einzige, was der Gast ueberhaupt bekommt.
+        console.error('Kartenmodus:', e);
+    }
+}
+
+function _escHtmlBasic(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+}
+window.kartenmodusAnwenden = kartenmodusAnwenden;
+
 //Speisekarte öffnen
 async function openMenuModal(restaurantId) {
     try {
     // Prüfe ob Online-Bestellungen aktiviert sind
     var appRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; }) : null;
-    if (appRest && appRest.features && appRest.features.indexOf('no_ordering') >= 0) {
-        var _t = translations[currentLanguage] || translations.de;
-        showToast((_t.onlineNotAvailable || 'Online-Bestellungen sind nicht verfügbar'), 'info');
-        return;
-    }
+
+    // NUR SPEISEKARTE ZEIGEN -- DER SCHALTER TAT BIS ZUM 17.09.2026 DAS GEGENTEIL.
+    //
+    // Der Schalter im Dashboard heisst "Nur Speisekarte zeigen" und darunter
+    // steht: "Keine Onlinebestellung - Gaeste sehen die Karte und rufen an."
+    //
+    // Hier stand:
+    //     ein Hinweis "Online-Bestellungen sind nicht möglich" -- und return.
+    //
+    // Also genau das Gegenteil der Beschriftung: die Karte ging gar nicht
+    // erst auf. Wer den Schalter umlegte, machte seine Speisekarte damit
+    // unsichtbar statt sie zu zeigen.
+    //
+    // Im Protokoll war es zu sehen, ohne es zu verstehen: fuer einen Betrieb
+    // standen 443 Abfragen auf menu_items und NULL auf menu_categories.
+    // Kategorien laedt nur diese Ansicht -- es kam nie jemand herein.
+    //
+    // Jetzt oeffnet die Karte, und _nurKarte schaltet den Bestellweg ab:
+    // kein Warenkorb, kein "In den Warenkorb", stattdessen die Telefonnummer.
+    var _nurKarte = !!(appRest && appRest.features && appRest.features.indexOf('no_ordering') >= 0);
+    window._nurKarte = _nurKarte;
     // Betriebsferien: keine Online-Bestellungen annehmen
+    // Betriebsferien: keine Online-Bestellungen annehmen.
+    // Im Kartenmodus wird ohnehin nicht bestellt -- da ist die Karte kein
+    // Schaden, sondern das Einzige, was der Gast noch sehen kann.
     var _vacOrder = appRest ? getVacationInfo(appRest) : null;
-    if (_vacOrder && _vacOrder.active) {
+    if (_vacOrder && _vacOrder.active && !_nurKarte) {
         showToast('Betriebsferien – ' + (appRest.name || 'das Restaurant') + ' ist bis ' + _vacOrder.toNice + ' geschlossen', 'info');
         return;
     }
@@ -48420,6 +48518,9 @@ async function openMenuModal(restaurantId) {
 
     currentOrderRestaurant = restaurant;
     window.currentOrderRestaurant = restaurant;
+
+    // Schritt 1 von 3 -- siehe trichter()
+    trichter('karte', restaurant && restaurant.id);
 
     var nameEl = document.getElementById('menuRestaurantName');
     if (nameEl) nameEl.textContent = restaurant.name;
@@ -48519,10 +48620,22 @@ async function openMenuModal(restaurantId) {
     // Sticky "Hier bestellen" verstecken
     var stickyBar = document.getElementById('lpStickyBar');
     if (stickyBar) stickyBar.style.display = 'none';
-    // URL auf Bestellen-Seite setzen
+
+    // KARTENMODUS: alles ausblenden, was nach Bestellen aussieht.
+    //
+    // Ein Warenkorb-Symbol, das zu nichts fuehrt, ist schlimmer als keins --
+    // der Gast tippt darauf und landet im Nichts.
+    kartenmodusAnwenden(_nurKarte, restaurant);
+
+    // URL auf Bestellen-Seite setzen.
+    // Im Kartenmodus wird nicht bestellt, also heisst die Adresse auch anders:
+    // /<betrieb>/speisekarte. Wer den Link weitergibt, verspricht damit nichts,
+    // was der Betrieb nicht anbietet.
     var menuSlug = restaurant.slug || restaurantId;
-    if (window.location.pathname !== '/' + menuSlug + '/bestellen') {
-        window.history.pushState({ menu: menuSlug }, restaurant.name + ' – Bestellen', '/' + menuSlug + '/bestellen');
+    var _menuPfad = '/' + menuSlug + (_nurKarte ? '/speisekarte' : '/bestellen');
+    if (window.location.pathname !== _menuPfad) {
+        window.history.pushState({ menu: menuSlug },
+            restaurant.name + (_nurKarte ? ' – Speisekarte' : ' – Bestellen'), _menuPfad);
     }
 
     // Suche zurücksetzen
@@ -51539,6 +51652,21 @@ function updateItemTotalPrice() {
 
 // In den Warenkorb
 function addItemToCart() {
+    // KARTENMODUS: hier ist Schluss.
+    //
+    // Die Knoepfe sind ausgeblendet, aber ausgeblendet ist nicht abgeschaltet --
+    // ein Klick aus der Suche, ein offenes Gericht-Fenster von vorher oder die
+    // Tastatur kommen trotzdem hier an. Ohne diese Sperre laege dann etwas im
+    // Warenkorb eines Betriebs, der gar keine Bestellungen annimmt.
+    if (window._nurKarte) {
+        showToast('Dieser Betrieb nimmt keine Online-Bestellungen an – bitte anrufen.', 'info');
+        closeModal('itemOptionsModal');
+        return;
+    }
+    // Schritt 2 von 3 -- siehe trichter(). Steht bewusst VOR dem Rechnen:
+    // faellt calculateItemPrice() aus, ist das ein Fehler, den ich sehen
+    // will -- und nicht einer, der auch noch die Zaehlung verschluckt.
+    try { trichter('warenkorb', currentOrderRestaurant && currentOrderRestaurant.id); } catch (e) {}
     const unitPrice = calculateItemPrice();
     const notes = document.getElementById('itemNotes')?.value || '';
 
@@ -52594,7 +52722,10 @@ function updateCartBadges() {
     var floatingCount = document.getElementById('floatingCartCount');
     var floatingTotal = document.getElementById('floatingCartTotal');
     if (floatingBar) {
-        if (count > 0) {
+        // Im Kartenmodus NIE -- sonst schiebt ein Rest im Warenkorb (von einem
+        // anderen Betrieb) hier eine Leiste ins Bild, die zu einer Bestellung
+        // fuehrt, die dieser Betrieb gar nicht annimmt.
+        if (count > 0 && !window._nurKarte) {
             floatingBar.style.display = 'block';
             if (floatingCount) floatingCount.textContent = count;
             if (floatingTotal) floatingTotal.innerHTML = total.toFixed(2).replace('.', ',') + ' &euro;';
@@ -54291,6 +54422,10 @@ async function submitOrder() {
 
         if (_orderRes.ok) {
             _saveOk = true;
+            // Schritt 3 von 3 -- siehe trichter(). ERST HIER, nicht beim
+            // Absenden: eine Bestellung, die am Ende nicht gespeichert
+            // wurde, darf in der Quote nicht als Erfolg stehen.
+            try { trichter('bestellt', _orderPayload.restaurant_id); } catch (e) {}
             var _neueZeile = (_orderRes.data && _orderRes.data[0]) || null;
             order.id = (_neueZeile && _neueZeile.id) || order.id;
 
@@ -58153,12 +58288,19 @@ function _renderPrinterStatus(lastPollIso) {
     if (isNaN(lastMs)) { dot.style.background = '#9ca3af'; text.textContent = 'Drucker-Status unbekannt'; return; }
     var ageSec = Math.max(0, Math.round((Date.now() - lastMs) / 1000));
 
+    // DIE SCHWELLEN HAENGEN AN DER DROSSELUNG.
+    //
+    // pos-print stempelt seit dem 14.09.2026 hoechstens einmal pro
+    // Minute (vorher bei jedem Abruf -- 16,6 Schreibvorgaenge pro
+    // Minute auf EIN Restaurant). Bliebe die Grenze bei 30 Sekunden,
+    // stuende die Ampel bei einem voellig gesunden Drucker die halbe
+    // Zeit auf "langsam". 90 Sekunden = 60 Drosselung + Luft.
     var label, color, border, msg;
-    if (ageSec < 30) {
+    if (ageSec < 90) {
         color = '#16a34a'; border = 'rgba(22,163,74,0.5)';
-        label = 'Drucker online (' + ageSec + 's)';
+        label = 'Drucker online';
         msg = 'Drucker hat vor ' + ageSec + ' Sekunden angefragt — Verbindung aktiv.';
-    } else if (ageSec < 180) {
+    } else if (ageSec < 300) {
         color = '#ca8a04'; border = 'rgba(202,138,4,0.5)';
         label = 'Drucker langsam (' + ageSec + 's)';
         msg = 'Letzte Anfrage vor ' + ageSec + ' Sekunden. Falls Bons nicht kommen: Abfrage-Intervall am Drucker senken.';
@@ -58227,6 +58369,14 @@ function _renderKasseStatus(lastPollIso) {
 // laengst behobenen Fehler als heutigen ausgeben.
 var DRUCKER_MELDUNG_MAX_ALTER_MS = 12 * 60 * 60 * 1000;
 
+// Fragt der Drucker gerade an? Die Ampel weiss es schon -- sie steht
+// direkt daneben. Kein zweiter Weg, keine zweite Abfrage: waeren es
+// zwei, liefen sie irgendwann auseinander.
+function _druckerPolltAber() {
+    var t = document.getElementById('printerStatusText');
+    return !!t && /Drucker online/.test(t.textContent || '');
+}
+
 function _renderDruckerMeldung(ereignis) {
     var kasten = document.getElementById('druckerMeldungZeile');
     var text = document.getElementById('druckerMeldungText');
@@ -58236,6 +58386,24 @@ function _renderDruckerMeldung(ereignis) {
         && (ereignis.type === 'printer_failed' || ereignis.type === 'printer_rejected')
         && ereignis.created_at
         && (Date.now() - new Date(ereignis.created_at).getTime()) < DRUCKER_MELDUNG_MAX_ALTER_MS;
+
+    // ER MELDET SICH -- UND HAT NOCH NIE EINEN BON BESTAETIGT.
+    //
+    // Gemessen am 13.09.2026: 24.600 Abrufe vom Drucker in 24 Stunden,
+    // alle mit HTTP 200 -- und NULL Rueckmeldungen, bei allen fuenf
+    // Betrieben, seit es die Rueckmeldung gibt. Die Ampel stand dabei
+    // die ganze Zeit auf gruen: "Drucker online".
+    //
+    // Gruen heisst aber nur "er fragt nach Arbeit". Ob je ein Bon aus
+    // dem Geraet kam, sagt es nicht. Genau dieser Unterschied hat uns
+    // eine Woche gekostet. Also wird er hingeschrieben.
+    if (!zeigen && ereignis === null && _druckerPolltAber()) {
+        text.textContent = 'Der Drucker meldet sich, hat aber noch nie einen Bon bestätigt. '
+            + 'Bitte einmal „Testbon einfach" drücken — sonst weiß niemand, ob je etwas gedruckt wurde.';
+        kasten.title = text.textContent + ' (klicken: Drucker-Einstellungen)';
+        kasten.style.display = 'flex';
+        return;
+    }
 
     if (!zeigen) { kasten.style.display = 'none'; return; }
 
@@ -60040,6 +60208,66 @@ function logRestaurantEvent(restId, type, message, orderId, payload) {
     } catch(e) { /* still */ }
 }
 
+// DER GASTTRICHTER -- drei Schritte, damit sichtbar wird, wo Gaeste
+// abspringen. Auswertung: netlify/functions/lib/trichter.js.
+//
+// WARUM NICHT EINFACH DIE ABRUFE ZAEHLEN
+// Am 14.09.2026 standen 1.902 Speisekarten-Abrufe im Protokoll und 114
+// Bestellungen. "6 %" waere falsch gewesen: ein Gast loest mehrere
+// Abrufe aus, das Dashboard laedt die Karte mit, der Drucker fragt
+// dauernd nach. Darum zaehlt hier eine Zufallsnummer pro Sitzung.
+//
+// WAS HIER NICHT HINGEHT
+// Kein Name, keine Mail, keine Nummer. _trichterBesuch() ist Zufall,
+// liegt in sessionStorage und ist mit dem Tab weg.
+function _trichterBesuch() {
+    try {
+        var b = sessionStorage.getItem('kmi_besuch');
+        if (!b) {
+            b = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+            sessionStorage.setItem('kmi_besuch', b);
+        }
+        return b;
+    } catch (e) {
+        // Privates Fenster, Speicher aus: dann wird eben nicht gezaehlt.
+        // Eine Statistik darf nie der Grund sein, dass etwas nicht geht.
+        return null;
+    }
+}
+
+function trichter(schritt, restId) {
+    try {
+        if (!restId || ['karte', 'warenkorb', 'bestellt'].indexOf(schritt) < 0) return;
+
+        // Den Wirt NICHT mitzaehlen. Er sieht sich seine eigene Karte
+        // taeglich an -- das wuerde jede Quote verderben, und zwar genau
+        // bei den kleinen Haeusern, wo es auf jeden Gast ankommt.
+        try { if (currentUser) return; } catch (e) { /* nicht angemeldet */ }
+
+        var besuch = _trichterBesuch();
+        if (!besuch) return;
+
+        // Jeder Schritt hoechstens einmal je Besuch. Die Datenbank passt
+        // zusaetzlich auf (unique index), aber jede Anfrage, die hier
+        // wegfaellt, ist eine, die gar nicht erst rausgeht.
+        var merker = 'kmi_tr_' + schritt;
+        try { if (sessionStorage.getItem(merker)) return; } catch (e) { return; }
+        try { sessionStorage.setItem(merker, '1'); } catch (e) { return; }
+
+        fetch(SUPABASE_URL + '/rest/v1/guest_funnel', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + kmiToken(),
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ restaurant_id: restId, besuch: besuch, schritt: schritt })
+        }).catch(function () { /* still -- Zaehlen darf nie laut sein */ });
+    } catch (e) { /* still */ }
+}
+window.trichter = trichter;
+
 function _escEventHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
         return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
@@ -61494,6 +61722,16 @@ function startCountdown() {
 // Settings laden (aus localStorage, pro Restaurant)
 function loadOrderSettings() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value || '';
+
+    // Den Namen in die Ueberschrift der Karte. Sonst weiss niemand, fuer
+    // welchen Betrieb die Schalter darunter gelten.
+    var nameEl = document.getElementById('orderSettingsRestName');
+    if (nameEl) {
+        var _r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
+        nameEl.textContent = (_r && _r.name)
+            ? ('für Kunden sichtbar · ' + _r.name)
+            : 'für Kunden sichtbar';
+    }
     var pickupEl = document.getElementById('settingPickup');
     var deliveryEl = document.getElementById('settingDelivery');
     var dineInEl = document.getElementById('settingDineIn');
@@ -61982,8 +62220,11 @@ async function savePrepMinutes() {
         }
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === restId; });
         if (r) r.features = features;
-        showToast('Wartezeit gespeichert: Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
-            + (autoAn ? ' — Bestellungen werden sofort bestätigt' : ''), 'success');
+        // Der Name MUSS in die Bestaetigung. "Gespeichert" allein sagt
+        // nicht, WO gespeichert wurde -- und genau das war das Problem.
+        showToast((r && r.name ? r.name + ': ' : '')
+            + 'Wartezeit gespeichert — Abholung ' + abholung + ' Min, Lieferung ' + lieferung + ' Min'
+            + (autoAn ? ', Bestellungen werden sofort bestätigt' : ''), 'success');
     } catch (e) {
         showToast('Keine Verbindung — Wartezeit nicht gespeichert', 'error');
     }
@@ -74878,16 +75119,16 @@ function renderRestaurantSpecials(restaurantId) {
         <a href="/greetsiler-boerse" onclick="openRestaurantBySlug('greetsiler-boerse');return false;" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:11px;">Greetsieler Börse</a>
 <!--KMI:REST-LINKS-END-->
     </div>
-    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;opacity:0.35;font-size:11px;">
-        <span>Restaurant Greetsiel</span><span>&middot;</span>
-        <span>Essen bestellen Norddeich</span><span>&middot;</span>
-        <span>Speisekarte Norden</span><span>&middot;</span>
-        <span>Tisch reservieren Ostfriesland</span><span>&middot;</span>
-        <span>Lieferservice Aurich</span><span>&middot;</span>
-        <span>Restaurant Emden</span><span>&middot;</span>
-        <span>Pizzeria Greetsiel</span><span>&middot;</span>
-        <span>Fischrestaurant Nordsee</span><span>&middot;</span>
-        <span>Online bestellen Ostfriesland</span>
+    <!-- ORTSSEITEN. Hier standen bis zum 17.09.2026 dieselben Begriffe als
+         tote <span>: "Restaurant Greetsiel", "Speisekarte Norden" ... also
+         genau die Suchbegriffe, fuer die es Seiten gibt - nur ohne Link
+         darauf. Die 902 Betriebsseiten hingen allein in der Sitemap.
+         build-seo-pages.js fuellt den Block jetzt mit den Ortsseiten, die
+         dieser Build wirklich erzeugt hat. -->
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;opacity:0.5;font-size:11px;">
+<!--KMI:ORT-LINKS-START-->
+        <a href="/restaurants-greetsiel" style="color:var(--text-primary);text-decoration:none;">Restaurants in Greetsiel</a>
+<!--KMI:ORT-LINKS-END-->
     </div>
     <p style="color:var(--text-primary);opacity:0.25;margin-top:10px;font-size:10px;">&copy; 2026 Kiek mol in &ndash; kiekmolin.de</p>
 </div>
@@ -74903,6 +75144,12 @@ function renderRestaurantSpecials(restaurantId) {
             <li><a href="/lapiazza"><strong>La Piazza Greetsiel</strong> &ndash; Italienisches Restaurant: Pizza, Pasta, Salate &amp; mehr. Speisekarte ansehen und online bestellen auf Kiek mol in.</a></li>
             <li><a href="/greetsiler-boerse"><strong>Greetsieler Börse</strong> &ndash; Norddeutsche Küche am Kutterhafen Greetsiel. Fischgerichte, Labskaus &amp; Spezialitäten. Online bestellen auf Kiek mol in.</a></li>
 <!--KMI:REST-NOSCRIPT-END-->
+        </ul>
+        <h2>Restaurants nach Ort</h2>
+        <ul>
+<!--KMI:ORT-NOSCRIPT-START-->
+            <li><a href="/restaurants-greetsiel">Restaurants in Greetsiel</a></li>
+<!--KMI:ORT-NOSCRIPT-END-->
         </ul>
         <h3>La Piazza Greetsiel &ndash; Italienisch essen in Ostfriesland</h3>
         <p>La Piazza ist ein beliebtes italienisches Restaurant in Greetsiel, Ostfriesland. Genieße Pizza, Pasta, Antipasti und italienische Spezialitäten. Bestelle jetzt online über Kiek mol in oder reserviere einen Tisch.</p>

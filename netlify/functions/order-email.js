@@ -47,6 +47,7 @@ var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de
 var nurText = require('./lib/nur-text').nurText;
 var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLART = require('./lib/zahlart');
+var BESTELLART = require('./lib/bestellart');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -92,8 +93,8 @@ function bewertungsBlock(rest, restName) {
 }
 
 function buildEmail(o, rest) {
-    var typeLabel = o.order_type === 'delivery' ? 'Lieferung'
-        : (o.order_type === 'dine_in' ? 'Vor Ort' + (o.table_number ? ' · Tisch ' + esc(o.table_number) : '') : 'Abholung');
+    var typeLabel = BESTELLART.text(o.order_type)
+        + (BESTELLART.vorOrt(o.order_type) && o.table_number ? ' · Tisch ' + esc(o.table_number) : '');
 
     var items = Array.isArray(o.items) ? o.items : [];
     var rows = items.map(function (it) {

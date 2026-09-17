@@ -1,113 +1,194 @@
-// NUR SPEISEKARTE, KEINE ONLINEBESTELLUNG.
+// "NUR SPEISEKARTE ZEIGEN" -- der Schalter tat das Gegenteil.
 //
-// Ibos Idee vom 04.09.2026: "die keine online bestellung haben wollen
-// fuer die soll die speisekarte gezeigt werden".
+// DER FEHLER, GEMESSEN AM 17.09.2026
+// Ibo legt den Schalter um. Darunter steht woertlich:
+//   "Keine Onlinebestellung - Gaeste sehen die Karte und rufen an."
+// Danach sah kein Gast mehr die Karte. In openMenuModal stand:
+//   showToast('Online-Bestellungen sind nicht verfuegbar'); return;
 //
-// WARUM DAS VORHER NICHT GING -- gemessen, nicht vermutet:
-// schaltete der Wirt alle drei Bestellarten aus, machte der Code sie
-// wieder an --
+// Im Supabase-Protokoll war es zu sehen, ohne dass man es verstand: fuer
+// einen Betrieb 443 Abfragen auf menu_items und NULL auf menu_categories.
+// Kategorien laedt ausschliesslich die Kartenansicht -- es kam nie jemand
+// hinein.
 //
-//     if (!pickupEnabled && !deliveryEnabled && !localStorage...) {
-//         pickupEnabled = true; deliveryEnabled = true;
-//     }
+// Dazu kam eine zweite Stelle: der KARTE-Knopf auf der Betriebsseite stand
+// mit im !noOrdering-Block und verschwand deshalb zusammen mit BESTELLEN.
 //
-// "alles aus" und "nie eingestellt" sahen gleich aus, und im Zweifel
-// gewann "an". Es liess sich also gar nicht abschalten.
-//
-// Deshalb ein eigenes Merkmal (nur_speisekarte) in der bestehenden
-// Spalte features -- keine neue SQL-Datei, und wer es nicht setzt,
-// merkt von der ganzen Sache nichts.
-//
-// Nebenbei aufgefallen und mit repariert: hier_essen wurde NIE in die
-// Datenbank geschrieben. Der Schalter ging um, die Meldung sagte
-// "gespeichert", und nach dem Neuladen stand der alte Stand da.
+// Dieser Test FUEHRT die Funktionen aus, mit nachgebautem DOM.
 
-var fs = require('fs');
+var fs   = require('fs');
 var path = require('path');
-var vm = require('vm');
-var KMI = path.join(__dirname, '..');
+var vm   = require('vm');
 
-var n = 0, ok = 0;
-function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
+var QUELLE = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-var h = fs.readFileSync(path.join(KMI, 'index.html'), 'utf8');
+var ok = 0, fail = 0;
+function t(label, cond, extra) {
+    if (cond) { ok++; console.log('OK   | ' + label); }
+    else { fail++; console.log('FAIL | ' + label + (extra !== undefined ? '  -> ' + extra : '')); }
+}
 
-console.log('\n-- 1. Das Merkmal, an einer Stelle --');
+// KOMMENTARE RAUS, BEVOR IM QUELLTEXT GESUCHT WIRD.
+//
+// Beim Gegenpruefen habe ich den Aufruf von kartenmodusAnwenden() mit
+// /* ... */ stillgelegt -- und der Test blieb GRUEN, weil er den Aufruf im
+// Kommentar wiederfand. Eine Zusicherung, die ein Kommentar erfuellt,
+// prueft nichts.
+function ohneKommentare(code) {
+    return String(code)
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')       // Blockkommentare
+        .replace(/^[ \t]*\/\/.*$/gm, ' ');        // ganze Zeilenkommentare
+}
 
-var a = h.indexOf("    var NUR_KARTE = 'nur_speisekarte';");
-var quelle = h.slice(a, h.indexOf('    window.nurSpeisekarte = nurSpeisekarte;', a) + 45);
-t('der Block wurde gefunden', quelle.length > 100, quelle.length);
+function schneide(name) {
+    var i = QUELLE.indexOf('function ' + name + '(');
+    if (i < 0) throw new Error(name + ' nicht gefunden');
+    var tiefe = 0;
+    for (var k = QUELLE.indexOf('{', i); k < QUELLE.length; k++) {
+        if (QUELLE[k] === '{') tiefe++;
+        else if (QUELLE[k] === '}') { tiefe--; if (tiefe === 0) return QUELLE.slice(i, k + 1); }
+    }
+    throw new Error(name + ' nicht geschlossen');
+}
 
-var ctx = { window: {}, console: console };
-vm.createContext(ctx);
-vm.runInContext(quelle, ctx);
+// ---- Ein Mini-DOM, gerade genug fuer die Anzeige-Logik ---------------
+function baueWelt() {
+    var knoten = {};
+    function neu(id, eltern) {
+        var el = { id: id, style: {}, innerHTML: '', textContent: '',
+                   classList: { _c: {}, add: function (c) { this._c[c] = 1; },
+                                remove: function (c) { delete this._c[c]; },
+                                contains: function (c) { return !!this._c[c]; } },
+                   parentElement: eltern || null };
+        knoten[id] = el;
+        return el;
+    }
+    var kopfKorb = neu('_kopfKorb');
+    neu('menuCartBadge', kopfKorb);
+    neu('menuFloatingCartBar');
+    neu('cartButtonFixed');
+    neu('menuAnrufenBar');
+    neu('floatingCartCount');
+    neu('floatingCartTotal');
 
-t('ein Betrieb mit dem Merkmal zeigt nur die Karte',
-  ctx.nurSpeisekarte({ features: ['abholung', 'nur_speisekarte'] }) === true);
-t('einer ohne das Merkmal nicht',
-  ctx.nurSpeisekarte({ features: ['abholung', 'lieferung'] }) === false);
-t('ohne features-Feld auch nicht',
-  ctx.nurSpeisekarte({}) === false);
-t('und ohne Betrieb stuerzt nichts ab',
-  ctx.nurSpeisekarte(null) === false && ctx.nurSpeisekarte(undefined) === false);
+    var meldungen = [];
+    var ctx = {
+        document: { getElementById: function (id) { return knoten[id] || null; } },
+        window: {},
+        console: console,
+        showToast: function (txt) { meldungen.push(txt); }
+    };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(schneide('_escHtmlBasic') + '\n' + schneide('kartenmodusAnwenden'), ctx);
+    return { ctx: ctx, k: knoten, meldungen: meldungen };
+}
 
-// Es liegt in features -- also braucht niemand eine SQL-Datei.
-t('kein neues Datenbankfeld noetig', !/alter table restaurants[\s\S]{0,120}nur_speisekarte/i.test(h));
+console.log('\n-- 1. KARTENMODUS AN: DER BESTELLWEG VERSCHWINDET --');
 
-console.log('\n-- 2. Der Gast kann nichts in den Korb legen --');
+var w = baueWelt();
+var betrieb = { id: 'r1', name: 'Greetsieler Börse', phone: '04926 1234' };
+w.ctx.kartenmodusAnwenden(true, betrieb);
 
-// Zwei Tueren: der Knopf an der Gerichtkarte UND openItemOptions
-// selbst, das auch aus der Suche und den Tagesangeboten gerufen wird.
-// Nur eine davon zuzumachen hiesse, die andere zu vergessen.
-var koep = h.slice(h.indexOf('// Hinzufügen Button'), h.indexOf('// Hinzufügen Button') + 1400);
-t('bei "nur Speisekarte" steht kein Hinzufuegen-Knopf da',
-  /nurSpeisekarte\(currentOrderRestaurant\)/.test(koep), koep.slice(0, 200));
-t('sondern ein Hinweis "Nur zum Ansehen"', /Nur zum Ansehen/.test(koep));
+t('das Warenkorb-Symbol in der Kopfzeile ist weg',
+  w.k._kopfKorb.style.display === 'none', w.k._kopfKorb.style.display);
+t('die schwebende Warenkorb-Leiste ist weg',
+  w.k.menuFloatingCartBar.style.display === 'none', w.k.menuFloatingCartBar.style.display);
+t('der feste Warenkorb-Knopf ist weg',
+  !w.k.cartButtonFixed.classList.contains('visible'));
 
-var oio = h.slice(h.indexOf('function openItemOptions(itemId, item)'));
-oio = oio.slice(0, 900);
-t('openItemOptions selbst ist gesperrt',
-  /nurSpeisekarte\(currentOrderRestaurant\)/.test(oio), oio.slice(0, 300));
-t('und die Sperre steht GANZ VORNE, vor jeder Zuweisung',
-  oio.indexOf('nurSpeisekarte') < oio.indexOf('currentMenuItem = item'),
-  oio.indexOf('nurSpeisekarte') + ' vs ' + oio.indexOf('currentMenuItem = item'));
-t('sie sagt dem Gast auch, warum', /telefonisch/.test(oio));
+console.log('\n-- 2. UND DIE TELEFONNUMMER KOMMT --');
+//
+// Das ist der halbe Sinn des Schalters: "Gaeste sehen die Karte und rufen an."
+t('die Anrufen-Leiste ist sichtbar', w.k.menuAnrufenBar.style.display === '',
+  w.k.menuAnrufenBar.style.display);
+t('sie enthaelt einen tel:-Link', /href="tel:/.test(w.k.menuAnrufenBar.innerHTML));
+t('mit der Nummer des Betriebs, ohne Leerzeichen',
+  /href="tel:049261234"/.test(w.k.menuAnrufenBar.innerHTML), w.k.menuAnrufenBar.innerHTML.slice(0, 90));
+t('und lesbar daneben', /04926 1234/.test(w.k.menuAnrufenBar.innerHTML));
 
-console.log('\n-- 3. Und er erfaehrt, dass es Absicht ist --');
+console.log('\n-- 3. OHNE NUMMER KEIN KNOPF --');
+//
+// "Ruf uns an" ohne Nummer ist eine Sackgasse. Dann lieber nichts.
+var ohne = baueWelt();
+ohne.ctx.kartenmodusAnwenden(true, { id: 'r2', name: 'Ohne Telefon' });
+t('keine Anrufen-Leiste ohne Telefonnummer',
+  ohne.k.menuAnrufenBar.style.display === 'none', ohne.k.menuAnrufenBar.style.display);
+t('und auch kein leerer Knopf im HTML', ohne.k.menuAnrufenBar.innerHTML === '');
+t('der Warenkorb bleibt trotzdem aus', ohne.k._kopfKorb.style.display === 'none');
 
-// Eine Karte ohne Knoepfe sieht sonst aus wie eine kaputte Karte.
-t('ein Hinweis wird eingesetzt', /id = 'nurKarteHinweis'/.test(h) || /_hinweisId = 'nurKarteHinweis'/.test(h));
-t('mit klarer Ansage', /Hier gibt es keine Onlinebestellung/.test(h));
-t('und der Telefonnummer, wenn es eine gibt', /href="tel:/.test(h) && /restaurant\.phone/.test(h));
-t('ein alter Hinweis wird vorher entfernt (kein Stapeln)',
-  /_alterHinweis\) _alterHinweis\.remove\(\)/.test(h));
+console.log('\n-- 4. KARTENMODUS AUS: ALLES WIE VORHER --');
+//
+// Wird der Schalter NICHT angewandt, behaelt ein Gast den versteckten
+// Warenkorb vom vorigen Betrieb.
+var aus = baueWelt();
+aus.ctx.kartenmodusAnwenden(true, betrieb);          // erst ein Kartenmodus-Betrieb
+aus.ctx.kartenmodusAnwenden(false, { id: 'r3', name: 'Normal', phone: '0491 999' });
+t('das Warenkorb-Symbol ist wieder da', aus.k._kopfKorb.style.display === '',
+  aus.k._kopfKorb.style.display);
+t('die Anrufen-Leiste ist wieder weg', aus.k.menuAnrufenBar.style.display === 'none');
+t('die Warenkorb-Leiste bleibt auf none -- updateCartBadges blendet sie ein',
+  aus.k.menuFloatingCartBar.style.display === 'none', aus.k.menuFloatingCartBar.style.display);
 
-console.log('\n-- 4. Der Schalter im Dashboard --');
+console.log('\n-- 5. XSS: EIN NAME IST KEIN HTML --');
+var bose = baueWelt();
+bose.ctx.kartenmodusAnwenden(true, { id: 'r4', name: 'X', phone: '0491 <img src=x onerror=alert(1)>' });
+t('kein rohes <img> in der Leiste', bose.k.menuAnrufenBar.innerHTML.indexOf('<img') < 0,
+  bose.k.menuAnrufenBar.innerHTML.slice(0, 120));
+t('aber ein Knopf entsteht trotzdem', /href="tel:/.test(bose.k.menuAnrufenBar.innerHTML));
 
-t('es gibt ihn', /id="settingNurKarte"/.test(h));
-t('er wird beim Laden gesetzt', /nurKarteEl\.checked = features\.indexOf\('nur_speisekarte'\)/.test(h));
-t('er wird gespeichert', /if \(settings\.nur_karte\) features\.push\(NUR_KARTE\)/.test(h));
-t('und vorher aus der Liste geworfen (kein doppelter Eintrag)',
-  /f !== NUR_KARTE/.test(h));
-t('er springt optisch um wie die anderen',
-  /\['Pickup', 'Delivery', 'DineIn', 'NurKarte'\]/.test(h));
+console.log('\n-- 6. EIN ANZEIGEFEHLER DARF DIE KARTE NICHT KIPPEN --');
+//
+// Im Kartenmodus ist die Karte das Einzige, was der Gast bekommt.
+var kaputt = baueWelt();
+kaputt.ctx.document.getElementById = function () { throw new Error('DOM weg'); };
+var geworfen = false;
+try { kaputt.ctx.kartenmodusAnwenden(true, betrieb); } catch (e) { geworfen = true; }
+t('kartenmodusAnwenden wirft nicht', !geworfen);
 
-// Beides gleichzeitig waere ein Widerspruch, den der Gast ausbadet.
-t('ist er an, gehen die drei Bestellarten aus',
-  /if \(settings\.nur_karte\) \{ settings\.pickup = false; settings\.delivery = false; settings\.dine_in = false; \}/.test(h));
-t('und sie sind nicht mehr anklickbar',
-  /toggle\.style\.pointerEvents = _nurAn \? 'none' : '';/.test(h));
+console.log('\n-- 7. openMenuModal OEFFNET JETZT --');
+//
+// Der eigentliche Fehler. Frueher stand hier ein return.
+var omm = ohneKommentare(schneide('openMenuModal'));
+t('openMenuModal bricht bei no_ordering NICHT mehr ab',
+  !/no_ordering'\) >= 0\) \{[\s\S]{0,200}return;/.test(omm),
+  (omm.match(/no_ordering[\s\S]{0,120}/) || [''])[0].slice(0, 110));
+t('stattdessen wird _nurKarte gesetzt', /_nurKarte = !!\(appRest/.test(omm));
+t('und der Kartenmodus angewandt', /kartenmodusAnwenden\(_nurKarte, restaurant\)/.test(omm));
+t('die Adresse heisst dann /speisekarte statt /bestellen',
+  /_nurKarte \? '\/speisekarte' : '\/bestellen'/.test(omm));
 
-console.log('\n-- 5. Der Nebenbefund: hier_essen wurde nie gespeichert --');
+console.log('\n-- 8. NICHTS IN DEN WARENKORB --');
+//
+// Ausgeblendet ist nicht abgeschaltet: aus der Suche, aus einem noch
+// offenen Gericht-Fenster oder per Tastatur kommt man trotzdem hierhin.
+var add = ohneKommentare(schneide('addItemToCart'));
+t('addItemToCart sperrt im Kartenmodus', /if \(window\._nurKarte\)/.test(add));
+t('und zwar GANZ OBEN, vor dem Rechnen',
+  add.indexOf('window._nurKarte') < add.indexOf('calculateItemPrice'),
+  add.indexOf('window._nurKarte') + ' / ' + add.indexOf('calculateItemPrice'));
+t('mit einem Hinweis, der auf das Telefon zeigt', /bitte anrufen/.test(add));
 
-var sos = h.slice(h.indexOf('async function saveOrderSettingsToSupabase'));
-sos = sos.slice(0, sos.indexOf('\n}\n') + 3);
-t('hier_essen wird jetzt aus der Liste gefiltert',
-  /f !== 'hier_essen'/.test(sos), sos.slice(0, 400));
-t('und auch wieder hineingeschrieben',
-  /if \(settings\.dine_in\) features\.push\('hier_essen'\)/.test(sos));
-t('abholung und lieferung weiterhin ebenso',
-  /features\.push\('abholung'\)/.test(sos) && /features\.push\('lieferung'\)/.test(sos));
+console.log('\n-- 9. DIE LEISTE AUF DER BETRIEBSSEITE --');
+//
+// Der KARTE-Knopf stand mit im !noOrdering-Block und verschwand deshalb
+// zusammen mit BESTELLEN -- also genau der Knopf, der bleiben sollte.
+var i = QUELLE.indexOf("var noOrdering = restFeatures.indexOf('no_ordering')");
+var leiste = ohneKommentare(QUELLE.slice(i, QUELLE.indexOf("bar += '</div>';", i)));
+var iIf    = leiste.indexOf('if (!noOrdering)');
+var iEnde  = leiste.indexOf('}', leiste.indexOf('BESTELLEN'));
+var iKarte = leiste.indexOf('restaurant_menu');
+t('BESTELLEN steht im !noOrdering-Block',
+  leiste.indexOf('BESTELLEN') > iIf && leiste.indexOf('BESTELLEN') < iEnde);
+t('der KARTE-Knopf steht AUSSERHALB davon', iKarte > iEnde, iKarte + ' > ' + iEnde);
+t('und heisst im Kartenmodus SPEISEKARTE',
+  /noOrdering \? 'SPEISEKARTE' : 'KARTE'/.test(leiste));
 
-console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
-process.exit(ok === n ? 0 : 1);
+console.log('\n-- 10. DIE WARENKORB-LEISTE KENNT DEN MODUS --');
+var ucb = ohneKommentare(schneide('updateCartBadges'));
+t('updateCartBadges blendet im Kartenmodus nicht ein',
+  /count > 0 && !window\._nurKarte/.test(ucb),
+  (ucb.match(/count > 0[^)]*/) || [''])[0]);
+
+console.log('\n' + (fail === 0 ? 'Alle ' + ok + ' Tests bestanden.' : fail + ' von ' + (ok + fail) + ' FEHLGESCHLAGEN.'));
+process.exit(fail === 0 ? 0 : 1);

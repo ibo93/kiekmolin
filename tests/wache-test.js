@@ -305,6 +305,10 @@ process.env.URL                  = 'https://probe.test';
 
 var echtesFetch = global.fetch;
 var geloescht = 0, angelegt = 0;
+// Was order-save bei der Vorbestell-Probe WIRKLICH bekommen hat.
+// Die Tuer gibt genau das zurueck -- nicht einfach 'ja, steht drin'.
+// Sonst waere die siebte Pruefung ein Stempel ohne Inhalt.
+var vbGespeichert = null;
 
 // DAS GEDAECHTNIS DER WACHE, IM SPEICHER NACHGEBAUT.
 //
@@ -368,6 +372,17 @@ function tuerenBauen(welt) {
             return { ok: true, json: async function () {
                 return [{ id: 'haus-1', min_order_value: welt.mindest === undefined ? 15 : welt.mindest }]; } };
         }
+        if (url.indexOf('/orders') > -1 && url.indexOf('id=eq.') > -1) {
+            if (vbGespeichert === 'weg') return { ok: true, status: 200, json: async function () { return []; } };
+            return { ok: true, status: 200,
+                     json: async function () { return [{ scheduled_at: vbGespeichert }]; } };
+        }
+        if (url.indexOf('/functions/order-email') > -1) {
+            if (welt.mail === null) throw new Error('ECONNREFUSED');
+            var mw = ('mail' in welt) ? welt.mail : { status: 200, body: { ok: true, key_gesetzt: true } };
+            return { ok: mw.status < 400, status: mw.status,
+                     json: async function () { return mw.body; } };
+        }
         if (url.indexOf('/functions/reservation-guest') > -1) {
             if (welt.res === null) throw new Error('ECONNREFUSED');
             return { status: welt.res.status, json: async function () { return welt.res.body; } };
@@ -382,6 +397,16 @@ function tuerenBauen(welt) {
             // Nicht mit ||, sonst laesst sich "antworte gar nicht" (null)
             // nicht von "nicht gesetzt" unterscheiden -- null || GUT waere
             // wieder GUT, und der Fall "alles zu" waere nicht alles.
+            if (nr.indexOf('PVB-') === 0) {
+                // scheduled_at NUR merken, wenn es auch mitkam. Genau das
+                // ging monatelang verloren, ohne dass es jemand sah.
+                vbGespeichert = ('vorbestellung' in welt)
+                    ? welt.vorbestellung
+                    : (rumpf.order.scheduled_at || null);
+                f = ('vorbestellAntwort' in welt) ? welt.vorbestellAntwort : welt.ord;
+                if (f === null) throw new Error('ECONNREFUSED');
+                return { status: f.status, json: async function () { return f.body; } };
+            }
             if (nr.indexOf('PMB-') === 0) {
                 f = ('mindestAntwort' in welt) ? welt.mindestAntwort : GUT_MINDEST;
             }
@@ -402,7 +427,7 @@ var GUT_MINDEST = { status: 422, body: { ok: false, preis_abgelehnt: true,
 
 var wachePfad = path.join(F, 'gastweg-wache.js');
 async function laufen(welt, gedaechtnisBehalten) {
-    alarme.length = 0; geloescht = 0; angelegt = 0;
+    alarme.length = 0; geloescht = 0; angelegt = 0; vbGespeichert = null;
     // Jeder Fall faengt bei null an -- ausser dort, wo genau der
     // Verlauf ueber mehrere Durchlaeufe geprueft wird.
     if (!gedaechtnisBehalten) tabelle = {};
@@ -489,21 +514,61 @@ async function laufen(welt, gedaechtnisBehalten) {
     // mindestAntwort MUSS hier auch null sein -- sonst antwortet die
     // nachgebaute Tuer der Mindest-Probe weiter brav mit 422, und der
     // Fall "alles zu" waere gar nicht alles.
-    var alles = await laufen({ res: null, ord: null, billig: null, mindestAntwort: null });
+    var alles = await laufen({ res: null, ord: null, billig: null, mindestAntwort: null,
+                               vorbestellAntwort: null, mail: null });
     t('alles zu -> Alarm', alles.code === 200 && alles.alarme.length === 1, alles.code);
     t('und alle drei Wege stehen in der Meldung',
       /Reservieren:/.test(alles.alarme[0]) && /Bestellen:/.test(alles.alarme[0])
       && /Preis-Schutz:/.test(alles.alarme[0]), alles.alarme[0]);
     t('die Meldung sagt, wie viele Wege klemmen',
-      /^4 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+      /^6 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
     t('und der Mindestbestellwert ist einer davon',
       /Mindestbestellwert:/.test(alles.alarme[0]), alles.alarme[0]);
+    t('und die Vorbestellung auch', /Vorbestellung:/.test(alles.alarme[0]), alles.alarme[0]);
+    t('und der Mailversand auch', /Mailversand:/.test(alles.alarme[0]), alles.alarme[0]);
 
     // g) Haus ohne Speisekarte: der Preis-Schutz ist nicht pruefbar.
     //    Das ist kein Fehler und darf keinen Alarm ausloesen.
     var ohneKarte = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG, karte: false });
     t('Haus ohne Speisekarte -> kein falscher Alarm',
       ohneKarte.code === 200 && ohneKarte.alarme.length === 0, JSON.stringify(ohneKarte.alarme));
+
+    // h) DER FEHLER VOM 14.09.2026, nachgebaut.
+    //
+    //    order-save meldete brav {ok:true, id:...} -- und der Zeitpunkt war
+    //    weg. Auf dem Bon stand nichts von "morgen", die Kueche hat sofort
+    //    angefangen. Die Wache muss das sehen, obwohl das Speichern GELANG.
+    //    Das ist der stille Ausfall aus Regel 6: sieht aus wie Erfolg.
+    var vbWeg = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                               vorbestellung: null });
+    t('Vorbestellung ohne Zeitpunkt -> Alarm, obwohl gespeichert',
+      vbWeg.code === 200 && vbWeg.alarme.length === 1, JSON.stringify(vbWeg.alarme));
+    t('und der Alarm sagt, dass die Kueche sofort anfaengt',
+      /Kueche faengt sofort an/.test(vbWeg.alarme[0] || ''), vbWeg.alarme[0]);
+
+    // h2) Gespeichert gemeldet, aber gar nicht da -- RLS, die still
+    //     nichts schreibt. Das ist ein anderer Fehler und braucht einen
+    //     anderen Satz, sonst sucht Ibo an der falschen Stelle.
+    var vbNichtDa = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                   vorbestellung: 'weg' });
+    t('Vorbestellung verschwunden -> eigener Satz',
+      vbNichtDa.alarme.length === 1 && /nicht auffindbar/.test(vbNichtDa.alarme[0] || ''),
+      vbNichtDa.alarme[0]);
+
+    // i) RESEND_API_KEY fehlt: Bestellungen kommen an, aber kein Gast
+    //    bekommt eine Bestaetigung. Auch das sieht von aussen heil aus.
+    var ohneKey = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                 mail: { status: 200, body: { ok: true, key_gesetzt: false } } });
+    t('RESEND_API_KEY fehlt -> Alarm',
+      ohneKey.alarme.length === 1 && /RESEND_API_KEY/.test(ohneKey.alarme[0] || ''),
+      JSON.stringify(ohneKey.alarme));
+    t('und es steht dabei, dass Bestellungen trotzdem ankommen',
+      /Bestellungen kommen trotzdem an/.test(ohneKey.alarme[0] || ''), ohneKey.alarme[0]);
+
+    // i2) Key gesetzt -> still. Sonst waere der Alarm oben wertlos.
+    var mitKey = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                mail: { status: 200, body: { ok: true, key_gesetzt: true } } });
+    t('Key gesetzt -> kein Alarm', mitKey.alarme.length === 0, JSON.stringify(mitKey.alarme));
 
 
     console.log('\n-- 8. WIE OFT sie meldet -- die Nacht, die 96 Mails gekostet hat --');

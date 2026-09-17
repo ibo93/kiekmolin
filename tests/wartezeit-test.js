@@ -119,9 +119,21 @@ t('der Dialog fragt jetzt das Restaurant',
     // trifft, ist fuer die Datenbank kein Fehler.
     t('es wird nachgesehen, ob die Datenbank die Aenderung angenommen hat',
       /return=representation/.test(f) && /zurueck\.length === 0/.test(f));
+    // Frueher haftete das an der Schreibweise "Wartezeit gespeichert:".
+    // Seit der Name des Betriebs in der Meldung steht, heisst sie anders --
+    // die Zusicherung ist dieselbe geblieben und wird jetzt als solche
+    // geprueft: Fehlermeldung zuerst, danach wird abgebrochen.
+    var iFehler = f.indexOf('Wartezeit NICHT gespeichert');
+    var iErfolg = f.indexOf('Wartezeit gespeichert');
+    t('beide Meldungen gibt es', iFehler > 0 && iErfolg > 0, iFehler + ' / ' + iErfolg);
     t('und ohne Bestaetigung steht KEIN "gespeichert" da',
-      f.indexOf('Wartezeit NICHT gespeichert') < f.indexOf('Wartezeit gespeichert:'),
-      f.indexOf('Wartezeit NICHT gespeichert') + ' / ' + f.indexOf('Wartezeit gespeichert:'));
+      iFehler > 0 && iErfolg > iFehler, iFehler + ' / ' + iErfolg);
+    t('nach der Fehlermeldung wird wirklich abgebrochen',
+      /Wartezeit NICHT gespeichert[\s\S]{0,140}return;/.test(f), 'laeuft weiter und meldet Erfolg');
+    // Und der Name des Betriebs gehoert in die Bestaetigung -- "gespeichert"
+    // allein sagt nicht, WO.
+    t('die Bestaetigung nennt den Betrieb',
+      /r && r\.name \? r\.name \+ ': ' : ''/.test(f), 'Wirt weiss nicht, fuer welches Haus');
 })();
 
 // ---- 7. Die Bedienoberflaeche ----------------------------------------------

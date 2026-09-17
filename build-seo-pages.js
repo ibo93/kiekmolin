@@ -28,6 +28,45 @@ const ACCENT_COLOR = '#f59e0b';
 const SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
 
+// ==================== DAS PREISMODELL ====================
+//
+// AN EINER STELLE, WEIL ES AN SECHS STELLEN FALSCH STAND.
+//
+// Gefunden am 17.09.2026: die App sagt "0% Provision - fester Monatspreis",
+// die rund 900 SEO-Seiten sagten "mit fairer Provision" und trugen einen
+// Vertrauens-Punkt "Faire Provision". Fuer einen Wirt heisst "faire
+// Provision": es gibt eine. Dann rechnet er nicht weiter und vergleicht
+// nicht -- und genau diese Seiten sind das, was neue Wirte ueber Google
+// finden. Wir haben also mit dem schwaecheren UND falschen Argument
+// geworben.
+//
+// Im selben Kasten stand ausserdem "kostenlos eintragen" NEBEN "mit fairer
+// Provision", bei tatsaechlich 59,90 EUR im Monat -- drei Aussagen, die
+// nicht zusammenpassen.
+//
+// Darum steht das Modell jetzt hier, einmal. Aendert sich der Preis, ist es
+// eine Zeile und nicht eine Suche durch 2500 Zeilen.
+//
+// KEINE ZAHLEN UEBER MITBEWERBER. Vergleichende Werbung ist erlaubt
+// (§ 6 UWG), aber nur mit nachpruefbaren, aktuellen Zahlen. Eine Spanne wie
+// "13 bis 30 %" ohne Quelle waere angreifbar -- und unser eigenes Argument
+// traegt ohne sie: 0 % ist 0 %. Am 17.09.2026 so mit Ibo entschieden.
+const PREIS_MONAT = '59,90 €';
+const PREIS_PROVISION = '0 %';
+
+// Der Eintrag ist kostenlos. Bestellungen und Reservierungen annehmen
+// kostet. Beides in EINEM Satz zu mischen war der Fehler -- "kostenlos"
+// und ein Monatspreis im selben Absatz liest sich wie eine Falle.
+function preisSatz() {
+  return PREIS_PROVISION + ' Provision. ' + PREIS_MONAT + ' im Monat, fest – '
+       + 'egal wie viel bestellt wird.';
+}
+
+function preisSatzEn() {
+  return PREIS_PROVISION + ' commission. ' + PREIS_MONAT + ' per month, fixed – '
+       + 'no matter how much is ordered.';
+}
+
 // Zielordner der generierten Seiten; fuer Tests per SEO_OUT_DIR umbiegbar
 const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
@@ -169,6 +208,72 @@ function jsonEscape(obj) {
 function cityMatches(rest, city) {
   if (!rest || !rest.city) return false;
   return normalize(rest.city) === normalize(city.name);
+}
+
+// ==================== ORTE ====================
+
+// Wie viele Eintraege ein Ort braucht, damit sich eine eigene Seite lohnt.
+//
+// Ein Ort mit zwei Eintraegen ergibt wieder eine duenne Seite, und davon
+// gibt es schon genug. AUSNAHME: wo ein Partner sitzt, entsteht die Seite
+// immer -- die steht heute bereits im Index, und sie ist die Seite, auf
+// der ein zahlender Betrieb verlinkt wird. Eine indexierte URL wieder
+// herauszunehmen kostet mehr als eine kurze Liste.
+const MIN_EINTRAEGE = 4;
+
+// DER ORTSSLUG MUSS AN BEIDEN STELLEN DERSELBE SEIN.
+//
+// Er stand frueher nur in generateProspectPage, inline. Folge, am
+// 17.09.2026 an Wilhelmshaven nachgemessen: die Betriebsseite schreibt
+// einen Breadcrumb auf /restaurants-wilhelmshaven, und diese Seite gab es
+// nicht -- weil CITIES nur 28 Orte kennt, import-osm.js aber 45 holt.
+// Google bekam strukturierte Daten mit einem Ziel, das im SPA-Fallback
+// landet (Status 200, Inhalt der Startseite). Jetzt rechnet eine Funktion
+// den Slug, und beide Seiten fragen sie.
+function ortSlug(cityRaw) {
+  const treffer = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
+  if (treffer) return treffer.slug;
+  return normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+}
+
+// Alle Orte, fuer die es ueberhaupt Daten gibt -- nicht nur die 28 aus
+// CITIES. Die handgepflegten kommen zuerst und unveraendert (sie tragen
+// Region und PLZ-Praefix, die nirgends sonst stehen); danach alles, was in
+// den Daten auftaucht und noch fehlt.
+//
+// ausDaten: true merkt sich, dass wir ueber diesen Ort NICHTS wissen
+// ausser dem Namen. Wer das ignoriert, schreibt "Wilhelmshaven liegt
+// mitten in Ostfriesland" -- das tut es nicht.
+function ermittleOrte(restaurants, prospects) {
+  const bekannt = new Set(CITIES.map(function(c) { return normalize(c.name); }));
+  const dazu = new Map();
+  (prospects || []).concat(restaurants || []).forEach(function(x) {
+    const roh = x && x.city ? String(x.city).trim() : '';
+    if (!roh) return;
+    const n = normalize(roh);
+    if (!n || bekannt.has(n) || dazu.has(n)) return;
+    const slug = ortSlug(roh);
+    if (!slug || slug.length < 2) return;
+    dazu.set(n, { slug: slug, name: roh, zipPrefix: '', region: '', ausDaten: true });
+  });
+  return CITIES.concat(Array.from(dazu.values()));
+}
+
+// Die Nicht-Partner eines Ortes. draft-Eintraege bleiben draussen -- ihre
+// eigene Seite traegt noindex, also darf hier auch kein Link hin.
+function prospectsImOrt(prospects, city) {
+  return (prospects || []).filter(function(p) {
+    return p && p.name && !p.draft && p.city && normalize(p.city) === normalize(city.name);
+  });
+}
+
+// Bekommt dieser Ort eine Seite?
+//
+// Partner-Ort: immer. Sonst erst ab MIN_EINTRAEGE. Beides zusammen ist die
+// Regel, auf die wir uns am 17.09.2026 geeinigt haben.
+function ortLohntSeite(partnerAnzahl, weitereAnzahl) {
+  if (partnerAnzahl > 0) return true;
+  return (partnerAnzahl + weitereAnzahl) >= MIN_EINTRAEGE;
 }
 
 function categoryMatches(rest, cat) {
@@ -372,7 +477,10 @@ function buildIntro(city, cat, count) {
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
          '<p>' + countText + '</p>' +
-         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gäste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne hohe Provisionen. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt das Geld in der Region.</p>';
+         // "ohne hohe Provisionen" klang nach "es gibt welche, nur kleinere".
+         // Es gibt keine -- und fuer den Gast ist genau das die Aussage:
+         // was er zahlt, bleibt beim Wirt.
+         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gäste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne Provision. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt der volle Betrag beim Betrieb und das Geld in der Region.</p>';
 }
 
 // Die Empfehlungs-Frage ist GENAU die Frage, die Gaeste (und KI-Assistenten
@@ -383,21 +491,36 @@ function buildEmpfehlungsFaq(cityName, plural, matched, isEn) {
   const top = matched.slice().sort(function(a, b) {
     return (Number(b.rating) || 0) - (Number(a.rating) || 0);
   }).slice(0, 3);
+  // STERNE NUR MIT ECHTEN BEWERTUNGEN DAHINTER.
+  //
+  // Hier stand nur "rating >= 4". In der Datenbank kann rating von Hand
+  // eingetragen sein -- dann stand hier "(4,9 von 5 Sternen)", ohne dass je
+  // jemand etwas geschrieben haette. renderCard und buildRestaurantJsonLd
+  // passen seit laengerem auf (echteBewertungen()), diese FAQ nicht --
+  // und sie geht als FAQPage-Schema an Google.
   const namen = top.map(function(r) {
     const rating = Number(r.rating);
-    return r.name + (rating >= 4 ? (isEn ? ' (' + fmtRating(rating) + ' of 5 stars)' : ' (' + fmtRating(rating) + ' von 5 Sternen)') : '');
+    const belegt = echteBewertungen(r) > 0;
+    return r.name + ((rating >= 4 && belegt)
+      ? (isEn ? ' (' + fmtRating(rating) + ' of 5 stars)' : ' (' + fmtRating(rating) + ' von 5 Sternen)')
+      : '');
   });
+  // Und der Satz am Ende behauptet "echte Gaeste-Bewertungen" fuer ALLE.
+  // Ohne eine einzige Bewertung ist das dieselbe Luege, nur in Prosa.
+  const hatBewertungen = top.some(function(r) { return echteBewertungen(r) > 0; });
   if (isEn) {
     return {
       q: 'Which ' + plural + ' in ' + cityName + ' are recommended?',
       a: 'Popular with guests on ' + BRAND + ' right now: ' + namen.join(', ') + '. ' +
-         'All with a current menu, real guest reviews and free online table booking on ' + BRAND + '.'
+         'All with a current menu' + (hatBewertungen ? ', real guest reviews' : '') +
+         ' and free online table booking on ' + BRAND + '.'
     };
   }
   return {
     q: 'Welche ' + plural + ' in ' + cityName + ' sind zu empfehlen?',
     a: 'Bei Gästen auf ' + BRAND + ' aktuell beliebt: ' + namen.join(', ') + '. ' +
-       'Alle mit aktueller Speisekarte, echten Gäste-Bewertungen und kostenloser Online-Tischreservierung auf ' + BRAND + '.'
+       'Alle mit aktueller Speisekarte' + (hatBewertungen ? ', echten Gäste-Bewertungen' : '') +
+       ' und kostenloser Online-Tischreservierung auf ' + BRAND + '.'
   };
 }
 
@@ -473,7 +596,7 @@ function buildIntroEn(city, cat, count) {
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
          '<p>' + countText + '</p>' +
-         '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no high commissions. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the money stays in the region.</p>';
+         '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no commission at all. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the full amount stays with the restaurant and the money stays in the region.</p>';
 }
 
 function buildFaqsEn(city, cat, matched) {
@@ -574,6 +697,17 @@ function pageCss() {
     .sticky-cta .lbl small{display:block;font-weight:500;color:#888;font-size:11px}
     .sticky-cta a{flex-shrink:0}
     @media(max-width:760px){.sticky-cta{display:flex}main.container{padding-bottom:80px}}
+    .weitere{margin:34px 0 0}
+    .weitere h2{margin:0 0 6px}
+    .weitere-hinweis{color:#64748b;font-size:14px;margin:0 0 14px;max-width:62ch}
+    .weitere-liste{list-style:none;margin:0;padding:0;border-top:1px solid #e2e8f0}
+    .weitere-zeile{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;padding:11px 2px;border-bottom:1px solid #e2e8f0}
+    .weitere-zeile>a:first-child{font-weight:700;color:${PRIMARY_COLOR};text-decoration:none}
+    .weitere-zeile>a:first-child:hover{text-decoration:underline}
+    .weitere-addr{color:#64748b;font-size:14px}
+    .weitere-tel{color:#64748b;font-size:14px;text-decoration:none;margin-left:auto}
+    .weitere-tel:hover{text-decoration:underline}
+    @media(max-width:560px){.weitere-tel{margin-left:0}}
     .crosslinks{background:#fff;border-radius:14px;padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
@@ -634,11 +768,72 @@ function renderCard(rest) {
     '</article>';
 }
 
-function buildItemListJsonLd(restaurants, pageUrl) {
+// EIN NICHT-PARTNER IN DER ORTSLISTE.
+//
+// Bewusst KEINE Karte wie renderCard: kein Bild, keine Sterne, kein
+// "Speisekarte ansehen". Wir haben von diesen Betrieben nur Stammdaten aus
+// OpenStreetMap -- keine Karte, keine Bewertung, keine Bestellmoeglichkeit.
+// Eine Kachel, die aussieht wie die eines Partners, wuerde genau das
+// versprechen. Der Gast klickt, findet nichts, und der Partner daneben
+// verliert seinen Vorsprung gleich mit.
+//
+// Deshalb: eine Zeile, Name verlinkt, Adresse und Telefon daneben -- mehr
+// wissen wir nicht, mehr steht da auch nicht.
+// Ein Nicht-Partner in der Form, die buildItemListJsonLd erwartet.
+//
+// Bewusst OHNE rating und rating_count: echteBewertungen() liefert dann 0,
+// und es entsteht keine aggregateRating. Dieselbe Regel wie in
+// buildRestaurantJsonLd und buildProspectJsonLd -- Sterne nur, wo echte
+// Bewertungen dahinterstehen.
+function alsListenEintrag(p) {
+  return {
+    slug: prospectSlug(p),
+    name: p.name,
+    street: p.street || '',
+    zip: p.zip || '',
+    city: p.city || '',
+    phone: p.phone || '',
+    lat: p.lat,
+    lng: p.lng,
+    _nichtPartner: true
+  };
+}
+
+function renderProspectRow(p) {
+  const slug = prospectSlug(p);
+  if (!slug) return '';
+  const name = escapeHtml(safeText(p.name, 'Betrieb'));
+  const addr = [p.street, p.zip, p.city].filter(function(x) { return x; }).map(escapeHtml).join(' ');
+  const tel = p.phone ? String(p.phone) : '';
+  return '<li class="weitere-zeile">' +
+    '<a href="/' + encodeURIComponent(slug) + '">' + name + '</a>' +
+    (addr ? '<span class="weitere-addr">' + addr + '</span>' : '') +
+    (tel ? '<a class="weitere-tel" href="tel:' + escapeAttr(tel.replace(/[^\d+]/g, '')) + '">' + escapeHtml(tel) + '</a>' : '') +
+  '</li>';
+}
+
+// Der zweite Block der Ortsseite. Die Ueberschrift sagt nuechtern, was es
+// ist -- kein "Geheimtipps", kein "Die schoensten". Es ist eine Liste.
+function renderWeitereSection(city, weitere) {
+  if (!weitere || !weitere.length) return '';
+  const zeilen = weitere.map(renderProspectRow).filter(function(z) { return z; });
+  if (!zeilen.length) return '';
+  return '<section class="weitere">' +
+    '<h2>Weitere Betriebe in ' + escapeHtml(city.name) + '</h2>' +
+    // Sagt dem Gast, warum diese Eintraege anders aussehen. Ohne den Satz
+    // wirkt die Liste wie ein schlechterer Teil derselben Sache.
+    '<p class="weitere-hinweis">Diese Betriebe sind nicht bei ' + BRAND + '. ' +
+      'Wir zeigen Name, Adresse und Telefon &ndash; Speisekarte, Bestellung und ' +
+      'Reservierung gibt es hier nicht.</p>' +
+    '<ul class="weitere-liste">' + zeilen.join('') + '</ul>' +
+  '</section>';
+}
+
+function buildItemListJsonLd(restaurants, pageUrl, max) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    'itemListElement': restaurants.slice(0, 10).map(function(rest, idx) {
+    'itemListElement': restaurants.slice(0, max || 10).map(function(rest, idx) {
       const slug = rest.slug || rest.id;
       const item = {
         '@type': 'Restaurant',
@@ -679,7 +874,10 @@ function buildItemListJsonLd(restaurants, pageUrl) {
       if (rest.cuisine) cuisines.push(rest.cuisine);
       if (Array.isArray(rest.cuisine_type)) rest.cuisine_type.forEach(function(c) { if (c) cuisines.push(c); });
       if (cuisines.length) item.servesCuisine = cuisines;
-      item.priceRange = '€€';
+      // Preisklasse nur da, wo wir ueberhaupt Speisekarten haben. Von einem
+      // Nicht-Partner kennen wir Name, Adresse und Telefon -- "€€" waere
+      // geraten, und geraten ist erfunden.
+      if (!rest._nichtPartner) item.priceRange = '€€';
       return {
         '@type': 'ListItem',
         'position': idx + 1,
@@ -767,13 +965,19 @@ function slugExists(slug) {
 // Vorab ermitteln, welche Ort-/Kategorie-Seiten ueberhaupt gebaut werden.
 // Dieselben Filter wie in den Generatoren -- eine Seite entsteht nur, wenn
 // mindestens ein Partner-Restaurant passt.
-function buildAvailableSlugs(restaurants) {
+function buildAvailableSlugs(restaurants, prospects) {
   AVAILABLE_SLUGS.clear();
   AVAILABLE_SLUGS_READY = true;
+  // Ortsseiten nach DERSELBEN Regel wie generateCityOverview. Liefe hier
+  // eine andere Bedingung, zeigten Querverweise auf Seiten, die nie gebaut
+  // werden -- und der Catch-All macht daraus Status 200 mit dem Inhalt der
+  // Startseite, also einen Soft-404. Genau dagegen gibt es slugExists().
+  ermittleOrte(restaurants, prospects).forEach(function(city) {
+    const p = (restaurants || []).filter(function(r) { return cityMatches(r, city); }).length;
+    const w = prospectsImOrt(prospects, city).length;
+    if (ortLohntSeite(p, w)) AVAILABLE_SLUGS.add('restaurants-' + city.slug);
+  });
   CITIES.forEach(function(city) {
-    if (restaurants.some(function(r) { return cityMatches(r, city); })) {
-      AVAILABLE_SLUGS.add('restaurants-' + city.slug);
-    }
     CATEGORIES.forEach(function(cat) {
       if (cat.slug === 'restaurant') return; // wird bewusst nie gebaut
       if (restaurants.some(function(r) { return cityMatches(r, city) && categoryMatches(r, cat); })) {
@@ -837,13 +1041,20 @@ function renderFaqAccordion(faqs) {
 
 function buildPage(opts) {
   // opts: { title, description, canonical, h1, intro, restaurants, faqs, breadcrumbs, city, category }
-  const itemList = buildItemListJsonLd(opts.restaurants || [], opts.canonical);
+  // Die ItemList soll die Seite abbilden, nicht nur ihren oberen Teil.
+  // opts.itemListe traegt bei Ortsseiten Partner UND weitere Betriebe.
+  const itemList = buildItemListJsonLd(opts.itemListe || opts.restaurants || [], opts.canonical,
+                                      opts.itemListe ? 50 : 10);
   const breadcrumb = buildBreadcrumbJsonLd(opts.breadcrumbs || []);
   const faqLd = buildFaqJsonLd(opts.faqs || []);
 
   const grid = (opts.restaurants && opts.restaurants.length)
     ? '<div class="grid">' + opts.restaurants.slice(0, 10).map(renderCard).join('') + '</div>'
-    : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>';
+    // Kein Partner, aber ein extraHtml-Block (die weiteren Betriebe): dann
+    // waere "keine Restaurants gelistet" schlicht gelogen -- unter dem Kasten
+    // stehen zwanzig. Der Kasten bleibt nur, wenn die Seite wirklich leer ist.
+    : (opts.extraHtml ? ''
+      : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>');
 
   const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
   const lang = opts.lang || 'de';
@@ -895,8 +1106,9 @@ function buildPage(opts) {
     '<h1>' + escapeHtml(opts.h1) + '</h1>\n' +
     (opts.subtitle ? '<p class="subtitle">' + escapeHtml(opts.subtitle) + '</p>\n' : '') +
     '<div class="intro">' + opts.intro + '</div>\n' +
-    '<h2>' + escapeHtml(opts.gridHeading || 'Top-Empfehlungen') + '</h2>\n' +
+    ((grid || !opts.extraHtml) ? '<h2>' + escapeHtml(opts.gridHeading || 'Top-Empfehlungen') + '</h2>\n' : '') +
     grid + '\n' +
+    (opts.extraHtml || '') + '\n' +
     crossLinks + '\n' +
     '<h2 id="faq">Häufig gestellte Fragen</h2>\n' +
     renderFaqAccordion(opts.faqs || []) + '\n' +
@@ -1459,7 +1671,8 @@ function renderTrustBadges(rest, menuItems) {
   badges.push({ i: '⚡', t: 'Ohne App-Download' });
   if (menuItems.length) badges.push({ i: '📋', t: menuItems.length + ' Gerichte' });
   badges.push({ i: '📍', t: 'Aus ' + escapeHtml(safeText(rest.city, 'der Region')) });
-  badges.push({ i: '🤝', t: 'Faire Provision' });
+  // "Faire Provision" hiess fuer einen Wirt: es gibt eine. Es gibt keine.
+  badges.push({ i: '🤝', t: PREIS_PROVISION + ' Provision' });
   return '<div class="trust fade d2">' + badges.map(function(b) {
     return '<span class="b"><span class="i">' + b.i + '</span>' + b.t + '</span>';
   }).join('') + '</div>';
@@ -1481,7 +1694,9 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 
   // Stadt-Slug fuer Breadcrumb-Link
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
-  const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+  // Derselbe Rechner wie in der Ortsseite -- sonst zeigt der Breadcrumb auf
+  // eine Seite, die es nicht gibt (siehe Kommentar bei ortSlug).
+  const citySlug = ortSlug(cityRaw);
 
   // DIE UEBERSCHRIFT IM GOOGLE-TREFFER.
   //
@@ -1547,10 +1762,17 @@ function generateRestaurantPage(rest, menuItems, reviews) {
   const faqs = buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems);
   const faqLd = buildFaqJsonLd(faqs);
   const breadcrumbCrumbs = [
-    { name: 'Startseite', url: SITE_URL + '/' },
-    { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
-    { name: name, url: url }
+    { name: 'Startseite', url: SITE_URL + '/' }
   ];
+    // Die Ortsstufe NUR, wenn es die Ortsseite auch gibt. Ein Ort unter der
+    // Untergrenze bekommt keine -- und ein Breadcrumb auf eine fehlende URL
+    // ist genau der Soft-404, gegen den diese ganze Aenderung gebaut ist.
+    // (Vorher stand die Stufe fest drin; gemessen am 17.09.2026 an
+    // Wilhelmshaven, wo sie ins Leere zeigte.)
+  if (slugExists('restaurants-' + citySlug)) {
+    breadcrumbCrumbs.push({ name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug });
+  }
+  breadcrumbCrumbs.push({ name: name, url: url });
   const breadcrumbLd = buildBreadcrumbJsonLd(breadcrumbCrumbs);
 
   const addrLine = [
@@ -1772,7 +1994,9 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
   const catLabel = cat.label;
 
   const cityObj = CITIES.find(function(c) { return normalize(c.name) === normalize(cityRaw); });
-  const citySlug = cityObj ? cityObj.slug : normalize(cityRaw).replace(/[^a-z0-9]/g, '');
+  // Derselbe Rechner wie in der Ortsseite -- sonst zeigt der Breadcrumb auf
+  // eine Seite, die es nicht gibt (siehe Kommentar bei ortSlug).
+  const citySlug = ortSlug(cityRaw);
 
   const title = name + ' ' + cityRaw + ' – Adresse, Telefon & Öffnungszeiten | ' + catLabel;
   let description = name + ' in ' + cityRaw + ': ' + catLabel + ' – Adresse, Telefon';
@@ -1782,10 +2006,17 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
 
   const prospectLd = buildProspectJsonLd(p, name, cityRaw, url, catLabel);
   const breadcrumbCrumbs = [
-    { name: 'Startseite', url: SITE_URL + '/' },
-    { name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug },
-    { name: name, url: url }
+    { name: 'Startseite', url: SITE_URL + '/' }
   ];
+    // Die Ortsstufe NUR, wenn es die Ortsseite auch gibt. Ein Ort unter der
+    // Untergrenze bekommt keine -- und ein Breadcrumb auf eine fehlende URL
+    // ist genau der Soft-404, gegen den diese ganze Aenderung gebaut ist.
+    // (Vorher stand die Stufe fest drin; gemessen am 17.09.2026 an
+    // Wilhelmshaven, wo sie ins Leere zeigte.)
+  if (slugExists('restaurants-' + citySlug)) {
+    breadcrumbCrumbs.push({ name: cityRaw, url: SITE_URL + '/restaurants-' + citySlug });
+  }
+  breadcrumbCrumbs.push({ name: name, url: url });
   const breadcrumbLd = buildBreadcrumbJsonLd(breadcrumbCrumbs);
 
   const addrLine = [
@@ -1875,8 +2106,19 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
   const ownerBox =
     '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
       '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
-      '<p style="margin:0 0 14px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
-      'Trag dein Restaurant <strong>kostenlos</strong> ein und nimm Online-Bestellungen & Tisch-Reservierungen entgegen – ohne App, mit fairer Provision.</p>' +
+      // ZWEI SAETZE, WEIL ES ZWEI DINGE SIND.
+      //
+      // Vorher stand "kostenlos eintragen" und "mit fairer Provision" im
+      // selben Satz. Beides zusammen liest sich wie eine Falle: erst gratis,
+      // dann zieht jemand mit. Getrennt stimmt es und klingt auch besser --
+      // der Eintrag IST frei, und der Preis danach ist eine feste Zahl
+      // statt eines Prozentsatzes vom Umsatz.
+      '<p style="margin:0 0 10px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
+      'Der Eintrag ist <strong>kostenlos</strong>.</p>' +
+      '<p style="margin:0 0 14px;color:#444;">Wer Online-Bestellungen und Tisch-Reservierungen annehmen will, ' +
+      'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt wird. ' +
+      '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
+      'Ohne App, jederzeit kündbar.</p>' +
       '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
     '</div>';
 
@@ -2023,10 +2265,95 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
   return { filename: relpath, url: url, count: matched.length };
 }
 
-function generateCityOverview(city, restaurants, lang) {
+// VORSPANN DER ORTSSEITE -- SACHLICH, NICHT SCHOEN.
+//
+// buildIntro() schreibt 200-300 Woerter Prosa ("die Krabbenbroetchen sind
+// oft in einer Liga, die Tagesgaeste sich gar nicht vorstellen koennen").
+// Das ist fuer die Kategorie-Seiten gebaut und steht dort weiter. Auf der
+// Ortsseite hat es zwei Probleme:
+//
+//   1. Eine Ortsseite ist eine Liste, kein Aufsatz.
+//   2. Der Zweig am Ende lautet "<Ort> liegt mitten in Ostfriesland". Fuer
+//      die Orte, die erst ueber die Daten dazugekommen sind -- Wilhelmshaven,
+//      Varel, Bockhorn -- stimmt das nicht. Ein erfundener Satz ueber einen
+//      Ort ist schlimmer als gar keiner.
+//
+// Hier steht deshalb nur, was zaehlbar ist.
+function buildOrtsIntro(city, matched, weitere, isEn) {
+  const gesamt = matched.length + weitere.length;
+  const n = escapeHtml(city.name);
+  if (isEn) {
+    return '<p>' + gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + n +
+      ' – with address and phone number.' +
+      (matched.length
+        ? ' <strong>' + matched.length + '</strong> of them are on ' + BRAND +
+          ': menu, online ordering and table booking.'
+        : ' None of them is on ' + BRAND + ' yet.') +
+      '</p>';
+  }
+  return '<p>' + gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + n +
+    ' – mit Adresse und Telefonnummer.' +
+    (matched.length
+      ? ' Davon sind <strong>' + matched.length + '</strong> bei ' + BRAND +
+        ': mit Speisekarte, Online-Bestellung und Tischreservierung.'
+      : ' Davon ist noch keiner bei ' + BRAND + '.') +
+    '</p>';
+}
+
+// FAQ DER ORTSSEITE -- AUS ZAHLEN, NICHT AUS WERBUNG.
+//
+// buildFaqs() verspricht Lieferung und Reservierung ("Ja - viele bieten
+// online Tisch-Reservierung an"). In einem Ort ohne einen einzigen Partner
+// ist jeder dieser Saetze falsch. Google straft das nicht nur ab, es steht
+// auch einfach nicht.
+function buildOrtsFaqs(city, matched, weitere, isEn) {
+  const n = city.name;
+  const gesamt = matched.length + weitere.length;
+  const faqs = [];
+
+  // Die Empfehlungs-Frage nennt Betriebe beim Namen, ehrlich nach
+  // Bewertung sortiert. Sie kommt nur, wenn es Partner gibt.
+  const empf = buildEmpfehlungsFaq(n, isEn ? 'restaurants' : 'Restaurants', matched, isEn);
+  if (empf) faqs.push(empf);
+
+  faqs.push(isEn ? {
+    q: 'How many restaurants are there in ' + n + '?',
+    a: BRAND + ' lists ' + gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + n + '.'
+  } : {
+    q: 'Wie viele Restaurants gibt es in ' + n + '?',
+    a: 'Auf ' + BRAND + ' sind ' + gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + n + ' gelistet.'
+  });
+
+  faqs.push(isEn ? {
+    q: 'Can I order online in ' + n + '?',
+    a: matched.length
+      ? 'Yes – ' + matched.length + ' ' + (matched.length === 1 ? 'restaurant' : 'restaurants') +
+        ' in ' + n + ' can be ordered from on ' + BRAND + '. For the others we only hold address and phone number.'
+      : 'Not yet. For the restaurants in ' + n + ' we currently only hold address and phone number – you can call them directly.'
+  } : {
+    q: 'Kann ich in ' + n + ' online bestellen?',
+    a: matched.length
+      ? 'Ja – bei ' + matched.length + ' ' + (matched.length === 1 ? 'Betrieb' : 'Betrieben') +
+        ' in ' + n + ' geht das über ' + BRAND + '. Von den übrigen haben wir nur Adresse und Telefonnummer.'
+      : 'Noch nicht. Von den Betrieben in ' + n + ' haben wir aktuell nur Adresse und Telefonnummer – anrufen geht natürlich.'
+  });
+
+  return faqs;
+}
+
+function generateCityOverview(city, restaurants, lang, prospects) {
   const matched = restaurants.filter(function(r) { return cityMatches(r, city); });
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
-  if (matched.length === 0) return null;
+
+  // Die Nicht-Partner desselben Ortes. Ohne sie war diese Seite eine Liste
+  // von drei Betrieben, waehrend nebenan 40 eigene Seiten lagen, auf die
+  // nichts verlinkte ausser der Sitemap.
+  const weitere = prospectsImOrt(prospects, city);
+  weitere.sort(function(a, b) {
+    return String(a.name || '').localeCompare(String(b.name || ''), 'de');
+  });
+
+  if (!ortLohntSeite(matched.length, weitere.length)) return null;
 
   lang = lang || 'de';
   const isEn = lang === 'en';
@@ -2036,12 +2363,29 @@ function generateCityOverview(city, restaurants, lang) {
   const enUrl = SITE_URL + '/en/' + slug;
   const url = isEn ? enUrl : deUrl;
 
-  const title = isEn
-    ? 'Restaurants in ' + city.name + ' – order & book online | ' + BRAND
-    : 'Restaurants in ' + city.name + ' – online bestellen & reservieren | ' + BRAND;
+  // DER TITEL DARF NUR VERSPRECHEN, WAS DIE SEITE HAELT.
+  //
+  // Hier stand "online bestellen & reservieren" fest. Seit die Ortsseite
+  // auch Orte ohne einen einzigen Partner abdeckt, waere das genau in dem
+  // Fall gelogen, in dem es am meisten auffaellt: in der Google-Zeile.
+  // Wer daraufhin klickt und nur Telefonnummern findet, geht wieder --
+  // und Google merkt sich das.
+  const title = matched.length
+    ? (isEn
+        ? 'Restaurants in ' + city.name + ' – order & book online | ' + BRAND
+        : 'Restaurants in ' + city.name + ' – online bestellen & reservieren | ' + BRAND)
+    : (isEn
+        ? 'Restaurants in ' + city.name + ' – addresses & phone numbers | ' + BRAND
+        : 'Restaurants in ' + city.name + ' – Adressen & Telefonnummern | ' + BRAND);
+  // Die Zahl in Title und Description muss die Zahl auf der Seite sein.
+  // Stand hier frueher matched.length -- mit den weiteren Betrieben waere
+  // das eine Description, die weniger verspricht, als die Seite zeigt.
+  const gesamt = matched.length + weitere.length;
   const description = isEn
-    ? 'All ' + matched.length + ' restaurants in ' + city.name + ' at a glance. Pizzerias, kebabs, fish restaurants & more. Menus, reviews, order online & book a table.'
-    : 'Alle ' + matched.length + ' Restaurants in ' + city.name + ' auf einen Blick. Pizzerien, Doener, Fischrestaurants & mehr. Speisekarte, Bewertungen, online bestellen & reservieren.';
+    ? gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + city.name + ' at a glance – with address and phone number.'
+      + (matched.length ? ' ' + matched.length + ' of them with menu, online ordering and table booking.' : '')
+    : gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + city.name + ' auf einen Blick – mit Adresse und Telefonnummer.'
+      + (matched.length ? ' Davon ' + matched.length + ' mit Speisekarte und Online-Bestellung.' : '');
 
   const html = buildPage({
     lang: lang,
@@ -2050,20 +2394,26 @@ function generateCityOverview(city, restaurants, lang) {
     title: title,
     description: description.length > 160 ? description.slice(0, 157) + '...' : description,
     canonical: url,
-    h1: 'Restaurants in ' + city.name,
+    h1: (isEn ? 'Restaurants in ' : 'Restaurants in ') + city.name,
     subtitle: isEn
-      ? matched.length + ' restaurants, pizzerias, snack bars & cafés in ' + city.name
-      : matched.length + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
-    intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
+      ? gesamt + ' restaurants, pizzerias, snack bars & cafés in ' + city.name
+      : gesamt + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
+    intro: buildOrtsIntro(city, matched, weitere, isEn),
     restaurants: matched,
-    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildFaqs(city, cat, matched),
+    // Die ItemList bildet die ganze Seite ab, nicht nur die Partner. Sonst
+    // stuende im Schema eine Liste mit 3 Eintraegen unter einer Seite, auf
+    // der 40 stehen.
+    itemListe: matched.concat(weitere.map(alsListenEintrag)),
+    extraHtml: renderWeitereSection(city, weitere),
+    faqs: buildOrtsFaqs(city, matched, weitere, isEn),
     breadcrumbs: [
       { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
       { name: city.name, url: url }
     ],
     city: city,
-    category: cat,
-    gridHeading: (isEn ? 'Popular restaurants in ' : 'Beliebte Restaurants in ') + city.name
+    // KEINE category: renderCrossLinks wuerde sonst Kategorie-Seiten
+    // verlinken, die es fuer die neu dazugekommenen Orte nicht gibt.
+    gridHeading: (isEn ? 'Order online in ' : 'Online bestellen in ') + city.name
   });
 
   if (isEn) {
@@ -2072,7 +2422,8 @@ function generateCityOverview(city, restaurants, lang) {
   }
   const relpath = (isEn ? 'en/' : '') + slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
-  return { filename: relpath, url: url, count: matched.length };
+  return { filename: relpath, url: url, count: matched.length,
+           weitere: weitere.length, ort: city.name };
 }
 
 function generateCategoryOverview(cat, restaurants, lang) {
@@ -2101,11 +2452,11 @@ function generateCategoryOverview(cat, restaurants, lang) {
     ? '<p>East Frisia is more than tea, the Wadden Sea and twin windmills — the region has a surprisingly diverse food scene. ' +
       descLocal.charAt(0).toUpperCase() + descLocal.slice(1) + ' can be found in every larger town.</p>' +
       '<p>Right now ' + BRAND + ' lists <strong>' + matched.length + ' ' + pluralL + '</strong> in East Frisia. You can order online, view a menu or book a table directly.</p>' +
-      '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no high commissions. What you order comes from the region, and the money stays here.</p>'
+      '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no commission. What you order comes from the region, and the money stays here.</p>'
     : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmühlen – die Region hat eine erstaunlich vielfältige Gastro-Szene. ' +
       cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder größeren Stadt.</p>' +
       '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfügbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
-      '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
+      '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne Provision. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
 
   const faqs = isEn ? [
     { q: 'Where do I find the best ' + pluralL + ' in East Frisia?', a: 'On ' + BRAND + ' you can find a selection of the best ' + pluralL + ' in Greetsiel, Norden, Norddeich, Aurich and Emden — sorted by rating so you immediately see where it is worth going.' },
@@ -2200,6 +2551,11 @@ function writeRobots() {
 // llms.txt - kompakte, maschinenlesbare Uebersicht fuer KI-Assistenten
 // (ChatGPT, Claude, Perplexity & Co. lesen diese Datei bevorzugt).
 // Nur Fakten aus der Datenbank, keine Werbetexte.
+// Die Orte, fuer die dieser Build wirklich Seiten erzeugt hat. Wird in
+// main() gesetzt; bleibt sie leer (Aufruf aus einem Test), faellt
+// writeLlmsTxt auf CITIES zurueck wie frueher.
+var LLMS_ORTE = [];
+
 function writeLlmsTxt(restaurants) {
   const zeilen = [
     '# Kiek mol in – Restaurants in Ostfriesland',
@@ -2207,6 +2563,16 @@ function writeLlmsTxt(restaurants) {
     '> kiekmolin.de ist das regionale Restaurant-Portal für Ostfriesland (Nordwest-Deutschland):',
     '> Speisekarten, Online-Bestellung (Abholung/Lieferung) und kostenlose Tisch-Reservierung',
     '> mit Sofort-Bestätigung – ohne Preisaufschlag für Gäste.',
+    '',
+    // FUER WIRTE, NICHT FUER GAESTE.
+    //
+    // Fragt jemand einen KI-Assistenten "was kostet Kiek mol in fuer
+    // Gastronomen", stand hier bisher nichts -- und die Antwort kam dann
+    // aus den SEO-Seiten, wo "faire Provision" stand. Also aus der
+    // falschen Quelle. Jetzt steht es hier, in einem Satz.
+    '## Für Gastronomen',
+    '',
+    'Eintrag kostenlos. ' + preisSatz(),
     '',
     '## Restaurants'
   ];
@@ -2225,8 +2591,24 @@ function writeLlmsTxt(restaurants) {
     teile.push('Online bestellen & Tisch reservieren');
     zeilen.push('- [' + name + '](' + SITE_URL + '/' + r.slug + '): ' + teile.join('. ') + '.');
   });
+  // NUR ORTE, DIE ES ALS SEITE GIBT.
+  //
+  // Hier stand CITIES -- also die 28 handgepflegten. Seit die Ortsseiten
+  // aus den Daten kommen (17.09.2026) stimmt das in beide Richtungen
+  // nicht: Orte unter der Untergrenze bekommen keine Seite und stuenden
+  // hier trotzdem, und die 19 Orte, die erst ueber die Daten dazukamen,
+  // fehlten. Ein Verzeichnis fuer KI-Assistenten, das auf den
+  // SPA-Fallback zeigt, ist schlimmer als ein kuerzeres.
   zeilen.push('', '## Orte');
-  CITIES.forEach(function(c) {
+  // slugExists() gilt IMMER, auch im Rueckfallweg auf CITIES.
+  //
+  // Erst stand die Pruefung nur im LLMS_ORTE-Zweig -- der Rueckfallweg
+  // druckte alle 28 Orte ungeprueft, also auch die ohne Seite. Genau der
+  // Soft-404, gegen den die Ortsseiten-Aenderung von heute gebaut ist, nur
+  // eine Datei weiter. Ist die Liste nicht ermittelt, sagt slugExists()
+  // ohnehin zu allem ja -- dann verhaelt es sich wie frueher.
+  (LLMS_ORTE.length ? LLMS_ORTE : CITIES).forEach(function(c) {
+    if (!slugExists('restaurants-' + c.slug)) return;
     zeilen.push('- [Restaurants in ' + c.name + '](' + SITE_URL + '/restaurants-' + c.slug + ')');
   });
   zeilen.push('', '## Kategorien');
@@ -2268,6 +2650,60 @@ async function pingIndexNow(generated) {
 // Injiziert ALLE aktiven Restaurants als crawlbare Links in index.html
 // (Footer-Liste + noscript-Liste). Faellt still zurueck auf die fest
 // verdrahteten Links, wenn keine Daten/Marker vorhanden sind.
+// DIE STARTSEITE AUF DIE ORTSSEITEN VERLINKEN.
+//
+// Gemessen am 17.09.2026: die Startseite hatte genau 5 interne Links -- die
+// 5 Partnerseiten. Die uebrigen Seiten hingen allein in der Sitemap, also
+// an nichts. Im Footer standen die passenden Begriffe sogar schon da
+// ("Restaurant Greetsiel", "Speisekarte Norden"), nur als tote <span>.
+//
+// Verlinkt wird NUR, was dieser Build wirklich gebaut hat. Sonst zeigt die
+// Startseite auf eine URL, die der Catch-All in netlify.toml mit Status 200
+// und dem Inhalt der Startseite beantwortet -- ein Soft-404, und das
+// ausgerechnet von der wichtigsten Seite der Domain aus.
+function injectHomepageCityLinks(ortsseiten) {
+  const indexPath = path.join(OUT_DIR, 'index.html');
+  if (!fs.existsSync(indexPath)) return;
+
+  const orte = (ortsseiten || [])
+    .filter(function(o) { return o && o.ort && o.slug; })
+    .sort(function(a, b) { return String(a.ort).localeCompare(String(b.ort), 'de'); });
+
+  // Nichts gebaut -> Marker in Ruhe lassen. Ein leerer Block waere
+  // schlechter als der alte Stand.
+  if (!orte.length) {
+    console.warn('[seo] WARN: keine Ortsseiten - Startseiten-Links unveraendert');
+    return;
+  }
+
+  const footer = orte.map(function(o) {
+    return '        <a href="/' + escapeAttr(o.slug) + '" style="color:var(--text-primary);text-decoration:none;">Restaurants in ' +
+      escapeHtml(o.ort) + '</a>';
+  }).join('\n');
+
+  const noscript = orte.map(function(o) {
+    return '            <li><a href="/' + escapeAttr(o.slug) + '">Restaurants in ' + escapeHtml(o.ort) +
+      '</a> &ndash; ' + o.gesamt + ' ' + (o.gesamt === 1 ? 'Betrieb' : 'Betriebe') +
+      (o.count ? ', davon ' + o.count + ' mit Speisekarte und Online-Bestellung' : '') + '</li>';
+  }).join('\n');
+
+  let html = fs.readFileSync(indexPath, 'utf8');
+  const before = html;
+  html = html.replace(/<!--KMI:ORT-LINKS-START-->[\s\S]*?<!--KMI:ORT-LINKS-END-->/, function() {
+    return '<!--KMI:ORT-LINKS-START-->\n' + footer + '\n<!--KMI:ORT-LINKS-END-->';
+  });
+  html = html.replace(/<!--KMI:ORT-NOSCRIPT-START-->[\s\S]*?<!--KMI:ORT-NOSCRIPT-END-->/, function() {
+    return '<!--KMI:ORT-NOSCRIPT-START-->\n' + noscript + '\n<!--KMI:ORT-NOSCRIPT-END-->';
+  });
+
+  if (html !== before) {
+    fs.writeFileSync(indexPath, html, 'utf8');
+    console.log('[seo] index.html: ' + orte.length + ' Ortsseiten-Links injiziert (Footer + noscript)');
+  } else {
+    console.warn('[seo] WARN: index.html ORT-Marker nicht gefunden - Links unveraendert');
+  }
+}
+
 function injectHomepageRestaurantLinks(restaurants) {
   const indexPath = path.join(OUT_DIR, 'index.html');
   if (!fs.existsSync(indexPath)) return;
@@ -2346,13 +2782,22 @@ async function main() {
   // Ermitteln, welche Ort-/Kategorie-Seiten dieser Build ueberhaupt erzeugt.
   // MUSS vor der ersten Seite laufen -- auch Prospect-Seiten rendern
   // Cross-Links und duerfen nur auf real existierende Ziele zeigen.
-  buildAvailableSlugs(restaurants);
+  // Die Prospects muessen JETZT schon dastehen: buildAvailableSlugs
+  // entscheidet mit ihnen, welche Ortsseiten es geben wird, und jede
+  // Prospect-Seite verlinkt darauf.
+  let prospects = [];
+  try {
+    prospects = loadProspects();
+  } catch (e) {
+    console.warn('[seo] WARN: prospects.json nicht lesbar -', e.message);
+  }
+
+  buildAvailableSlugs(restaurants, prospects);
   console.log('[seo] Verlinkbare Verzeichnis-Seiten:', AVAILABLE_SLUGS.size);
 
   // Verzeichnis-/Prospect-Seiten (Nicht-Partner) - unabhaengig von Supabase
   let prospectCount = 0, prospectDraft = 0;
   try {
-    const prospects = loadProspects();
     for (const p of prospects) {
       const result = generateProspectPage(p, restaurants, prospects);
       if (result) {
@@ -2392,15 +2837,36 @@ async function main() {
     }
   }
 
-  for (const city of CITIES) {
+  // Ortsseiten ueber ALLE Orte, fuer die es Daten gibt -- nicht nur die 28
+  // aus CITIES. import-osm.js holt 45; die 19 dazwischen hatten bisher
+  // keine Ortsseite, obwohl ihre Betriebe eine eigene Seite bekamen und im
+  // Breadcrumb darauf zeigten.
+  const alleOrte = ermittleOrte(restaurants, prospects);
+  const ortsListe = [];
+  let ortsseiten = 0, ortsseitenUebersprungen = 0;
+  for (const city of alleOrte) {
     for (const lng of LANGS) {
-      const result = generateCityOverview(city, restaurants, lng);
+      const result = generateCityOverview(city, restaurants, lng, prospects);
       if (result) {
-        console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+        console.log('[seo] +', result.filename,
+          '(' + result.count + ' Partner, ' + result.weitere + ' weitere)');
         generated.push(result);
+        if (lng === 'de') {
+          ortsseiten++;
+          ortsListe.push({ slug: 'restaurants-' + city.slug, ort: city.name,
+                           count: result.count, gesamt: result.count + result.weitere });
+        }
+      } else if (lng === 'de') {
+        // Die Zahl steht im Log, damit die Untergrenze nach dem ersten
+        // echten Build mit echten Zahlen nachjustiert werden kann.
+        const w = prospectsImOrt(prospects, city).length;
+        console.log('[seo] - restaurants-' + city.slug + ' uebersprungen (' + w + ' Betriebe, Untergrenze ' + MIN_EINTRAEGE + ')');
+        ortsseitenUebersprungen++;
       }
     }
   }
+  console.log('[seo] Ortsseiten:', ortsseiten, '· uebersprungen (zu duenn):', ortsseitenUebersprungen,
+              '· Orte gesamt:', alleOrte.length);
 
   for (const cat of CATEGORIES) {
     for (const lng of LANGS) {
@@ -2445,11 +2911,18 @@ async function main() {
     console.warn('[seo] WARN: injectHomepageRestaurantLinks failed -', e.message);
   }
 
+  try {
+    injectHomepageCityLinks(ortsListe);
+  } catch (e) {
+    console.warn('[seo] WARN: injectHomepageCityLinks failed -', e.message);
+  }
+
   writeSitemap(generated);
   writeRobots();
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
   console.log('[seo] + robots.txt (KI-Crawler ausdruecklich erlaubt)');
   try {
+    LLMS_ORTE = alleOrte;
     const llmsCount = writeLlmsTxt(restaurants);
     console.log('[seo] + llms.txt (' + llmsCount + ' Betriebe fuer KI-Assistenten)');
   } catch (e) {
@@ -2478,6 +2951,20 @@ if (require.main === module) {
     buildRestaurantJsonLd: buildRestaurantJsonLd,
     generateRestaurantPage: generateRestaurantPage,
     generateCityCategoryPage: generateCityCategoryPage,
+    // Die Ortsseite war bisher von keinem Test erreichbar -- sie stand
+    // nicht in den Exporten, obwohl sie 28 Seiten erzeugt.
+    generateCityOverview: generateCityOverview,
+    // Die Regionen-Uebersicht war wie die Ortsseite in keinem Export --
+    // eine Gegenprobe an ihrem englischen Text blieb deshalb gruen.
+    generateCategoryOverview: generateCategoryOverview,
+    generateProspectPage: generateProspectPage,
+    injectHomepageCityLinks: injectHomepageCityLinks,
+    buildAvailableSlugs: buildAvailableSlugs,
+    ermittleOrte: ermittleOrte,
+    ortSlug: ortSlug,
+    ortLohntSeite: ortLohntSeite,
+    prospectSlug: prospectSlug,
+    MIN_EINTRAEGE: MIN_EINTRAEGE,
     writeLlmsTxt: writeLlmsTxt,
     writeSitemap: writeSitemap,
     writeRobots: writeRobots,
