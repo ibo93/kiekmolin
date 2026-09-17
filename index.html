@@ -41058,8 +41058,14 @@ async function showRestaurantLanding(rest) {
                 }
                 if (!noOrdering) {
                     bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">shopping_bag</span>BESTELLEN</button>';
-                    bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>KARTE</button>';
                 }
+                // DER KARTE-KNOPF STAND MIT IM !noOrdering-BLOCK.
+                //
+                // Damit verschwand er zusammen mit BESTELLEN, sobald ein Wirt
+                // "Nur Speisekarte zeigen" einschaltete -- also genau der eine
+                // Knopf, der dann uebrig bleiben sollte. Er gehoert hierhin:
+                // die Karte gibt es immer.
+                bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>' + (noOrdering ? 'SPEISEKARTE' : 'KARTE') + '</button>';
                 bar += '</div>';
                 return bar;
             })()}
@@ -46495,6 +46501,10 @@ document.addEventListener('error', function(e) {
             <!-- Wird dynamisch gefüllt -->
         </div>
 
+        <!-- Anrufen-Leiste: ersetzt im Kartenmodus den Warenkorb.
+             Gefuellt von kartenmodusAnwenden(), sonst leer und aus. -->
+        <div id="menuAnrufenBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;"></div>
+
         <!-- Floating Cart Bar (Stitch) -->
         <div id="menuFloatingCartBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;">
             <div style="background:rgba(0,37,30,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
@@ -48372,19 +48382,100 @@ var orderType = 'pickup';
 var tipAmount = 1; // Standard: 1€
 var paymentMethod = 'cash';
 
+// KARTENMODUS EIN- ODER AUSSCHALTEN.
+//
+// Gehoert zum Schalter "Nur Speisekarte zeigen". Blendet jeden Weg aus, der
+// zu einer Bestellung fuehrt, und bietet stattdessen die Telefonnummer an --
+// denn genau das verspricht der Schalter: "Gaeste sehen die Karte und rufen an."
+//
+// Der Schalter wird IMMER angewandt, auch beim Ausschalten: sonst behaelt ein
+// Gast, der vorher bei einem Betrieb mit Kartenmodus war, die versteckte
+// Warenkorb-Leiste beim naechsten Betrieb bei.
+function kartenmodusAnwenden(anKartenmodus, restaurant) {
+    try {
+        var zeigen = anKartenmodus ? 'none' : '';
+
+        // Warenkorb-Symbol in der Kopfzeile
+        var korbKopf = document.getElementById('menuCartBadge');
+        if (korbKopf && korbKopf.parentElement) korbKopf.parentElement.style.display = zeigen;
+
+        // Schwebende Warenkorb-Leiste. NICHT auf '' zuruecksetzen, sondern
+        // auf 'none' -- updateCartBadges() blendet sie ein, sobald wirklich
+        // etwas drin liegt. Ein leeres '' liesse eine leere Leiste stehen.
+        var korbLeiste = document.getElementById('menuFloatingCartBar');
+        if (korbLeiste && anKartenmodus) korbLeiste.style.display = 'none';
+
+        var korbFest = document.getElementById('cartButtonFixed');
+        if (korbFest && anKartenmodus) korbFest.classList.remove('visible');
+
+        var anrufen = document.getElementById('menuAnrufenBar');
+        if (!anrufen) return;
+
+        var nummer = restaurant && (restaurant.phone || restaurant.telefon || '');
+        if (!anKartenmodus || !nummer) {
+            // OHNE NUMMER KEIN KNOPF.
+            //
+            // "Ruf uns an" ohne Nummer ist eine Sackgasse. Dann bleibt die
+            // Karte einfach eine Karte -- das ist ehrlicher als ein Knopf,
+            // der nichts tut.
+            anrufen.style.display = 'none';
+            return;
+        }
+        var sauber = String(nummer).replace(/[^\d+]/g, '');
+        anrufen.innerHTML =
+            '<a href="tel:' + sauber + '" style="display:flex;align-items:center;justify-content:center;gap:10px;'
+          + 'background:rgba(0,37,30,0.95);color:#fff;text-decoration:none;border-radius:9999px;'
+          + 'padding:14px 24px;font-family:Inter,sans-serif;font-weight:700;font-size:15px;'
+          + 'box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);border:1px solid rgba(255,255,255,0.1);">'
+          + '<span class="material-symbols-outlined" style="font-size:20px;">call</span>'
+          + 'Bestellen: ' + _escHtmlBasic(String(nummer)) + '</a>';
+        anrufen.style.display = '';
+    } catch (e) {
+        // Ein Anzeigefehler darf die Speisekarte nicht verhindern -- sie ist
+        // in diesem Modus das Einzige, was der Gast ueberhaupt bekommt.
+        console.error('Kartenmodus:', e);
+    }
+}
+
+function _escHtmlBasic(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+}
+window.kartenmodusAnwenden = kartenmodusAnwenden;
+
 //Speisekarte öffnen
 async function openMenuModal(restaurantId) {
     try {
     // Prüfe ob Online-Bestellungen aktiviert sind
     var appRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; }) : null;
-    if (appRest && appRest.features && appRest.features.indexOf('no_ordering') >= 0) {
-        var _t = translations[currentLanguage] || translations.de;
-        showToast((_t.onlineNotAvailable || 'Online-Bestellungen sind nicht verfügbar'), 'info');
-        return;
-    }
+
+    // NUR SPEISEKARTE ZEIGEN -- DER SCHALTER TAT BIS ZUM 17.09.2026 DAS GEGENTEIL.
+    //
+    // Der Schalter im Dashboard heisst "Nur Speisekarte zeigen" und darunter
+    // steht: "Keine Onlinebestellung - Gaeste sehen die Karte und rufen an."
+    //
+    // Hier stand:
+    //     ein Hinweis "Online-Bestellungen sind nicht möglich" -- und return.
+    //
+    // Also genau das Gegenteil der Beschriftung: die Karte ging gar nicht
+    // erst auf. Wer den Schalter umlegte, machte seine Speisekarte damit
+    // unsichtbar statt sie zu zeigen.
+    //
+    // Im Protokoll war es zu sehen, ohne es zu verstehen: fuer einen Betrieb
+    // standen 443 Abfragen auf menu_items und NULL auf menu_categories.
+    // Kategorien laedt nur diese Ansicht -- es kam nie jemand herein.
+    //
+    // Jetzt oeffnet die Karte, und _nurKarte schaltet den Bestellweg ab:
+    // kein Warenkorb, kein "In den Warenkorb", stattdessen die Telefonnummer.
+    var _nurKarte = !!(appRest && appRest.features && appRest.features.indexOf('no_ordering') >= 0);
+    window._nurKarte = _nurKarte;
     // Betriebsferien: keine Online-Bestellungen annehmen
+    // Betriebsferien: keine Online-Bestellungen annehmen.
+    // Im Kartenmodus wird ohnehin nicht bestellt -- da ist die Karte kein
+    // Schaden, sondern das Einzige, was der Gast noch sehen kann.
     var _vacOrder = appRest ? getVacationInfo(appRest) : null;
-    if (_vacOrder && _vacOrder.active) {
+    if (_vacOrder && _vacOrder.active && !_nurKarte) {
         showToast('Betriebsferien – ' + (appRest.name || 'das Restaurant') + ' ist bis ' + _vacOrder.toNice + ' geschlossen', 'info');
         return;
     }
@@ -48529,10 +48620,22 @@ async function openMenuModal(restaurantId) {
     // Sticky "Hier bestellen" verstecken
     var stickyBar = document.getElementById('lpStickyBar');
     if (stickyBar) stickyBar.style.display = 'none';
-    // URL auf Bestellen-Seite setzen
+
+    // KARTENMODUS: alles ausblenden, was nach Bestellen aussieht.
+    //
+    // Ein Warenkorb-Symbol, das zu nichts fuehrt, ist schlimmer als keins --
+    // der Gast tippt darauf und landet im Nichts.
+    kartenmodusAnwenden(_nurKarte, restaurant);
+
+    // URL auf Bestellen-Seite setzen.
+    // Im Kartenmodus wird nicht bestellt, also heisst die Adresse auch anders:
+    // /<betrieb>/speisekarte. Wer den Link weitergibt, verspricht damit nichts,
+    // was der Betrieb nicht anbietet.
     var menuSlug = restaurant.slug || restaurantId;
-    if (window.location.pathname !== '/' + menuSlug + '/bestellen') {
-        window.history.pushState({ menu: menuSlug }, restaurant.name + ' – Bestellen', '/' + menuSlug + '/bestellen');
+    var _menuPfad = '/' + menuSlug + (_nurKarte ? '/speisekarte' : '/bestellen');
+    if (window.location.pathname !== _menuPfad) {
+        window.history.pushState({ menu: menuSlug },
+            restaurant.name + (_nurKarte ? ' – Speisekarte' : ' – Bestellen'), _menuPfad);
     }
 
     // Suche zurücksetzen
@@ -51549,6 +51652,17 @@ function updateItemTotalPrice() {
 
 // In den Warenkorb
 function addItemToCart() {
+    // KARTENMODUS: hier ist Schluss.
+    //
+    // Die Knoepfe sind ausgeblendet, aber ausgeblendet ist nicht abgeschaltet --
+    // ein Klick aus der Suche, ein offenes Gericht-Fenster von vorher oder die
+    // Tastatur kommen trotzdem hier an. Ohne diese Sperre laege dann etwas im
+    // Warenkorb eines Betriebs, der gar keine Bestellungen annimmt.
+    if (window._nurKarte) {
+        showToast('Dieser Betrieb nimmt keine Online-Bestellungen an – bitte anrufen.', 'info');
+        closeModal('itemOptionsModal');
+        return;
+    }
     // Schritt 2 von 3 -- siehe trichter(). Steht bewusst VOR dem Rechnen:
     // faellt calculateItemPrice() aus, ist das ein Fehler, den ich sehen
     // will -- und nicht einer, der auch noch die Zaehlung verschluckt.
@@ -52608,7 +52722,10 @@ function updateCartBadges() {
     var floatingCount = document.getElementById('floatingCartCount');
     var floatingTotal = document.getElementById('floatingCartTotal');
     if (floatingBar) {
-        if (count > 0) {
+        // Im Kartenmodus NIE -- sonst schiebt ein Rest im Warenkorb (von einem
+        // anderen Betrieb) hier eine Leiste ins Bild, die zu einer Bestellung
+        // fuehrt, die dieser Betrieb gar nicht annimmt.
+        if (count > 0 && !window._nurKarte) {
             floatingBar.style.display = 'block';
             if (floatingCount) floatingCount.textContent = count;
             if (floatingTotal) floatingTotal.innerHTML = total.toFixed(2).replace('.', ',') + ' &euro;';
