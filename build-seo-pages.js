@@ -28,6 +28,45 @@ const ACCENT_COLOR = '#f59e0b';
 const SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
 
+// ==================== DAS PREISMODELL ====================
+//
+// AN EINER STELLE, WEIL ES AN SECHS STELLEN FALSCH STAND.
+//
+// Gefunden am 17.09.2026: die App sagt "0% Provision - fester Monatspreis",
+// die rund 900 SEO-Seiten sagten "mit fairer Provision" und trugen einen
+// Vertrauens-Punkt "Faire Provision". Fuer einen Wirt heisst "faire
+// Provision": es gibt eine. Dann rechnet er nicht weiter und vergleicht
+// nicht -- und genau diese Seiten sind das, was neue Wirte ueber Google
+// finden. Wir haben also mit dem schwaecheren UND falschen Argument
+// geworben.
+//
+// Im selben Kasten stand ausserdem "kostenlos eintragen" NEBEN "mit fairer
+// Provision", bei tatsaechlich 59,90 EUR im Monat -- drei Aussagen, die
+// nicht zusammenpassen.
+//
+// Darum steht das Modell jetzt hier, einmal. Aendert sich der Preis, ist es
+// eine Zeile und nicht eine Suche durch 2500 Zeilen.
+//
+// KEINE ZAHLEN UEBER MITBEWERBER. Vergleichende Werbung ist erlaubt
+// (§ 6 UWG), aber nur mit nachpruefbaren, aktuellen Zahlen. Eine Spanne wie
+// "13 bis 30 %" ohne Quelle waere angreifbar -- und unser eigenes Argument
+// traegt ohne sie: 0 % ist 0 %. Am 17.09.2026 so mit Ibo entschieden.
+const PREIS_MONAT = '59,90 €';
+const PREIS_PROVISION = '0 %';
+
+// Der Eintrag ist kostenlos. Bestellungen und Reservierungen annehmen
+// kostet. Beides in EINEM Satz zu mischen war der Fehler -- "kostenlos"
+// und ein Monatspreis im selben Absatz liest sich wie eine Falle.
+function preisSatz() {
+  return PREIS_PROVISION + ' Provision. ' + PREIS_MONAT + ' im Monat, fest – '
+       + 'egal wie viel bestellt wird.';
+}
+
+function preisSatzEn() {
+  return PREIS_PROVISION + ' commission. ' + PREIS_MONAT + ' per month, fixed – '
+       + 'no matter how much is ordered.';
+}
+
 // Zielordner der generierten Seiten; fuer Tests per SEO_OUT_DIR umbiegbar
 const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
@@ -438,7 +477,10 @@ function buildIntro(city, cat, count) {
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
          '<p>' + countText + '</p>' +
-         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gäste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne hohe Provisionen. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt das Geld in der Region.</p>';
+         // "ohne hohe Provisionen" klang nach "es gibt welche, nur kleinere".
+         // Es gibt keine -- und fuer den Gast ist genau das die Aussage:
+         // was er zahlt, bleibt beim Wirt.
+         '<p>' + BRAND + ' ist die ostfriesische Gastro-Plattform – wir verbinden Gäste mit lokalen Wirten und Wirtinnen, ohne Ketten, ohne Konzern, ohne Provision. Wenn du bei einem ' + escapeHtml(cat.label) + ' in ' + escapeHtml(cityName) + ' bestellst, bleibt der volle Betrag beim Betrieb und das Geld in der Region.</p>';
 }
 
 // Die Empfehlungs-Frage ist GENAU die Frage, die Gaeste (und KI-Assistenten
@@ -554,7 +596,7 @@ function buildIntroEn(city, cat, count) {
 
   return '<p>' + escapeHtml(regionText) + ' ' + escapeHtml(categoryText) + '</p>' +
          '<p>' + countText + '</p>' +
-         '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no high commissions. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the money stays in the region.</p>';
+         '<p>' + BRAND + ' is the East Frisian gastronomy platform — we connect guests directly with local hosts, with no chains, no corporations and no commission at all. When you order from a ' + escapeHtml(label) + ' in ' + escapeHtml(cityName) + ', the full amount stays with the restaurant and the money stays in the region.</p>';
 }
 
 function buildFaqsEn(city, cat, matched) {
@@ -1629,7 +1671,8 @@ function renderTrustBadges(rest, menuItems) {
   badges.push({ i: '⚡', t: 'Ohne App-Download' });
   if (menuItems.length) badges.push({ i: '📋', t: menuItems.length + ' Gerichte' });
   badges.push({ i: '📍', t: 'Aus ' + escapeHtml(safeText(rest.city, 'der Region')) });
-  badges.push({ i: '🤝', t: 'Faire Provision' });
+  // "Faire Provision" hiess fuer einen Wirt: es gibt eine. Es gibt keine.
+  badges.push({ i: '🤝', t: PREIS_PROVISION + ' Provision' });
   return '<div class="trust fade d2">' + badges.map(function(b) {
     return '<span class="b"><span class="i">' + b.i + '</span>' + b.t + '</span>';
   }).join('') + '</div>';
@@ -2063,8 +2106,19 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
   const ownerBox =
     '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
       '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
-      '<p style="margin:0 0 14px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
-      'Trag dein Restaurant <strong>kostenlos</strong> ein und nimm Online-Bestellungen & Tisch-Reservierungen entgegen – ohne App, mit fairer Provision.</p>' +
+      // ZWEI SAETZE, WEIL ES ZWEI DINGE SIND.
+      //
+      // Vorher stand "kostenlos eintragen" und "mit fairer Provision" im
+      // selben Satz. Beides zusammen liest sich wie eine Falle: erst gratis,
+      // dann zieht jemand mit. Getrennt stimmt es und klingt auch besser --
+      // der Eintrag IST frei, und der Preis danach ist eine feste Zahl
+      // statt eines Prozentsatzes vom Umsatz.
+      '<p style="margin:0 0 10px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
+      'Der Eintrag ist <strong>kostenlos</strong>.</p>' +
+      '<p style="margin:0 0 14px;color:#444;">Wer Online-Bestellungen und Tisch-Reservierungen annehmen will, ' +
+      'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt wird. ' +
+      '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
+      'Ohne App, jederzeit kündbar.</p>' +
       '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
     '</div>';
 
@@ -2398,11 +2452,11 @@ function generateCategoryOverview(cat, restaurants, lang) {
     ? '<p>East Frisia is more than tea, the Wadden Sea and twin windmills — the region has a surprisingly diverse food scene. ' +
       descLocal.charAt(0).toUpperCase() + descLocal.slice(1) + ' can be found in every larger town.</p>' +
       '<p>Right now ' + BRAND + ' lists <strong>' + matched.length + ' ' + pluralL + '</strong> in East Frisia. You can order online, view a menu or book a table directly.</p>' +
-      '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no high commissions. What you order comes from the region, and the money stays here.</p>'
+      '<p>' + BRAND + ' is the regional platform for East Frisian gastronomy — no chains, no commission. What you order comes from the region, and the money stays here.</p>'
     : '<p>Ostfriesland ist mehr als Tee, Wattenmeer und Zwillingsmühlen – die Region hat eine erstaunlich vielfältige Gastro-Szene. ' +
       cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) + ' findest du hier in jeder größeren Stadt.</p>' +
       '<p>Aktuell sind <strong>' + matched.length + ' ' + cat.plural + '</strong> in Ostfriesland auf ' + BRAND + ' verfügbar. Du kannst direkt online bestellen, eine Speisekarte ansehen oder einen Tisch reservieren.</p>' +
-      '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne hohe Provisionen. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
+      '<p>' + BRAND + ' ist die regionale Plattform fuer ostfriesische Gastronomie – ohne Konzern, ohne Provision. Was du bestellst, kommt aus der Region und das Geld bleibt hier.</p>';
 
   const faqs = isEn ? [
     { q: 'Where do I find the best ' + pluralL + ' in East Frisia?', a: 'On ' + BRAND + ' you can find a selection of the best ' + pluralL + ' in Greetsiel, Norden, Norddeich, Aurich and Emden — sorted by rating so you immediately see where it is worth going.' },
@@ -2497,6 +2551,11 @@ function writeRobots() {
 // llms.txt - kompakte, maschinenlesbare Uebersicht fuer KI-Assistenten
 // (ChatGPT, Claude, Perplexity & Co. lesen diese Datei bevorzugt).
 // Nur Fakten aus der Datenbank, keine Werbetexte.
+// Die Orte, fuer die dieser Build wirklich Seiten erzeugt hat. Wird in
+// main() gesetzt; bleibt sie leer (Aufruf aus einem Test), faellt
+// writeLlmsTxt auf CITIES zurueck wie frueher.
+var LLMS_ORTE = [];
+
 function writeLlmsTxt(restaurants) {
   const zeilen = [
     '# Kiek mol in – Restaurants in Ostfriesland',
@@ -2504,6 +2563,16 @@ function writeLlmsTxt(restaurants) {
     '> kiekmolin.de ist das regionale Restaurant-Portal für Ostfriesland (Nordwest-Deutschland):',
     '> Speisekarten, Online-Bestellung (Abholung/Lieferung) und kostenlose Tisch-Reservierung',
     '> mit Sofort-Bestätigung – ohne Preisaufschlag für Gäste.',
+    '',
+    // FUER WIRTE, NICHT FUER GAESTE.
+    //
+    // Fragt jemand einen KI-Assistenten "was kostet Kiek mol in fuer
+    // Gastronomen", stand hier bisher nichts -- und die Antwort kam dann
+    // aus den SEO-Seiten, wo "faire Provision" stand. Also aus der
+    // falschen Quelle. Jetzt steht es hier, in einem Satz.
+    '## Für Gastronomen',
+    '',
+    'Eintrag kostenlos. ' + preisSatz(),
     '',
     '## Restaurants'
   ];
@@ -2522,8 +2591,24 @@ function writeLlmsTxt(restaurants) {
     teile.push('Online bestellen & Tisch reservieren');
     zeilen.push('- [' + name + '](' + SITE_URL + '/' + r.slug + '): ' + teile.join('. ') + '.');
   });
+  // NUR ORTE, DIE ES ALS SEITE GIBT.
+  //
+  // Hier stand CITIES -- also die 28 handgepflegten. Seit die Ortsseiten
+  // aus den Daten kommen (17.09.2026) stimmt das in beide Richtungen
+  // nicht: Orte unter der Untergrenze bekommen keine Seite und stuenden
+  // hier trotzdem, und die 19 Orte, die erst ueber die Daten dazukamen,
+  // fehlten. Ein Verzeichnis fuer KI-Assistenten, das auf den
+  // SPA-Fallback zeigt, ist schlimmer als ein kuerzeres.
   zeilen.push('', '## Orte');
-  CITIES.forEach(function(c) {
+  // slugExists() gilt IMMER, auch im Rueckfallweg auf CITIES.
+  //
+  // Erst stand die Pruefung nur im LLMS_ORTE-Zweig -- der Rueckfallweg
+  // druckte alle 28 Orte ungeprueft, also auch die ohne Seite. Genau der
+  // Soft-404, gegen den die Ortsseiten-Aenderung von heute gebaut ist, nur
+  // eine Datei weiter. Ist die Liste nicht ermittelt, sagt slugExists()
+  // ohnehin zu allem ja -- dann verhaelt es sich wie frueher.
+  (LLMS_ORTE.length ? LLMS_ORTE : CITIES).forEach(function(c) {
+    if (!slugExists('restaurants-' + c.slug)) return;
     zeilen.push('- [Restaurants in ' + c.name + '](' + SITE_URL + '/restaurants-' + c.slug + ')');
   });
   zeilen.push('', '## Kategorien');
@@ -2837,6 +2922,7 @@ async function main() {
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
   console.log('[seo] + robots.txt (KI-Crawler ausdruecklich erlaubt)');
   try {
+    LLMS_ORTE = alleOrte;
     const llmsCount = writeLlmsTxt(restaurants);
     console.log('[seo] + llms.txt (' + llmsCount + ' Betriebe fuer KI-Assistenten)');
   } catch (e) {
@@ -2868,6 +2954,9 @@ if (require.main === module) {
     // Die Ortsseite war bisher von keinem Test erreichbar -- sie stand
     // nicht in den Exporten, obwohl sie 28 Seiten erzeugt.
     generateCityOverview: generateCityOverview,
+    // Die Regionen-Uebersicht war wie die Ortsseite in keinem Export --
+    // eine Gegenprobe an ihrem englischen Text blieb deshalb gruen.
+    generateCategoryOverview: generateCategoryOverview,
     generateProspectPage: generateProspectPage,
     injectHomepageCityLinks: injectHomepageCityLinks,
     buildAvailableSlugs: buildAvailableSlugs,
