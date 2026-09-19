@@ -14515,6 +14515,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     <span class="material-symbols-outlined" style="font-size:15px;">mail</span>
                                     An diese Adresse schicken wir dir die Reservierungs&shy;bestätigung.
                                 </p>
+                                <!-- Leer voreingestellt. Siehe Bestellformular. -->
+                                <label for="resReviewConsent" style="display:flex;align-items:flex-start;gap:9px;margin:-2px 2px 4px;font-size:12px;line-height:1.35;color:var(--slate,#6b7280);cursor:pointer;">
+                                    <input type="checkbox" id="resReviewConsent" style="margin:1px 0 0;width:15px;height:15px;flex:0 0 auto;accent-color:var(--brand,#003d33);">
+                                    <span>Fragt mich nach dem Besuch einmal per E-Mail, wie es war. Genau eine Mail, kein Newsletter – widerrufen kannst du jederzeit an info@kiekmolin.de.</span>
+                                </label>
                                 <select class="form-select" id="reservationOccasion" aria-label="Anlass der Reservierung (optional)">
                                     <option value="">Anlass (optional)</option>
                                     <option value="birthday">Geburtstag</option>
@@ -26728,7 +26733,8 @@ async function saveReservationToSupabase(reservation) {
                 notes: reservation.notes || '',
                 table_id: (reservation.tableId && String(reservation.tableId).includes('-')) ? reservation.tableId : null,
                 guest_email: reservation.guestEmail || null,
-                occasion: reservation.occasion || null
+                occasion: reservation.occasion || null,
+                review_consent: reservation.reviewConsent === true
             })
         });
 
@@ -29784,6 +29790,9 @@ function submitReservation(e) {
         guestName: document.getElementById('guestName').value,
         guestPhone: document.getElementById('guestPhone').value,
         guestEmail: document.getElementById('guestEmail')?.value || '',
+        // Siehe Bestellung: nur mit Haken UND mit Adresse.
+        reviewConsent: !!(document.getElementById('resReviewConsent')?.checked
+                          && document.getElementById('guestEmail')?.value),
         date: document.getElementById('reservationDate').value,
         time: document.getElementById('reservationTime').value,
         partySize: parseInt(document.getElementById('partySize').value),
@@ -45823,7 +45832,8 @@ document.addEventListener('error', function(e) {
             <p style="margin-bottom: 8px;"><strong>Bestellungen:</strong> Name, Kontaktdaten, Bestelldetails, Lieferadresse – zur Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).</p>
             <p style="margin-bottom: 8px;"><strong>Reservierungen:</strong> Name, Telefonnummer, Personenzahl, Datum/Uhrzeit – zur Vertragserfüllung und Weitergabe an das gewählte Restaurant.</p>
             <p style="margin-bottom: 8px;"><strong>Lokale Speicherung:</strong> Einstellungen wie Dark Mode, Sprache und Favoriten werden ausschließlich lokal auf Ihrem Gerät (localStorage) gespeichert.</p>
-            <p style="margin-bottom: 16px;"><strong>Push-Benachrichtigungen:</strong> Nur nach Ihrer ausdrücklichen Zustimmung. Sie können diese jederzeit in den Browser-Einstellungen widerrufen.</p>
+            <p style="margin-bottom: 8px;"><strong>Push-Benachrichtigungen:</strong> Nur nach Ihrer ausdrücklichen Zustimmung. Sie können diese jederzeit in den Browser-Einstellungen widerrufen.</p>
+            <p style="margin-bottom: 16px;"><strong>Bewertungsanfrage:</strong> Wenn Sie beim Bestellen oder Reservieren das entsprechende Häkchen setzen, fragen wir Sie einmalig per E-Mail, wie es war – 18 bis 72 Stunden danach, genau eine Nachricht, danach nichts weiter. Rechtsgrundlage: Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO und § 7 Abs. 2 Nr. 3 UWG. Ohne dieses Häkchen erhalten Sie keine solche Nachricht. Widerruf jederzeit an info@kiekmolin.de.</p>
 
             <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary);">8. Wetter- und Kartendaten</h3>
             <p style="margin-bottom: 8px;"><strong>Open-Meteo:</strong> Wetterdaten werden ohne Übermittlung persönlicher Daten abgerufen.</p>
@@ -46741,6 +46751,13 @@ document.addEventListener('error', function(e) {
                         <input type="email" class="checkout-input-glass" id="checkoutEmail" placeholder=" " style="background:rgba(255,255,255,0.9);-webkit-backdrop-filter: blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(0,61,51,0.1);border-radius:9999px;width:100%;padding:16px 16px 12px;font-size:14px;color:var(--ink-strong);box-sizing:border-box;outline:none;font-family:Inter,sans-serif;">
                         <label class="checkout-floating-label" for="checkoutEmail">E-Mail *</label>
                         <div style="font-size:11px;color:rgba(0,61,51,0.6);margin:6px 0 0 18px;line-height:1.4;">Für deine Bestellbestätigung und die Live-Verfolgung</div>
+                        <!-- Bewertungsanfrage: leer voreingestellt, und das muss so
+                             bleiben. Ohne dieses Häkchen verschickt review-mail
+                             nichts (BGH VI ZR 225/17, § 7 Abs. 3 UWG). -->
+                        <label for="checkoutReviewConsent" style="display:flex;align-items:flex-start;gap:9px;margin:10px 0 0 4px;font-size:11px;line-height:1.45;color:rgba(0,61,51,0.75);cursor:pointer;">
+                            <input type="checkbox" id="checkoutReviewConsent" style="margin:1px 0 0;width:15px;height:15px;flex:0 0 auto;accent-color:var(--brand,#003d33);">
+                            <span>Fragt mich später einmal per E-Mail, wie es war. Genau eine Mail, kein Newsletter – widerrufen kannst du jederzeit an info@kiekmolin.de.</span>
+                        </label>
                     </div>
                 </div>
                 <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
@@ -54121,6 +54138,11 @@ async function submitOrder() {
         customer_name: name,
         customer_phone: phone,
         customer_email: document.getElementById('checkoutEmail')?.value.trim() || null,
+        // Bewertungsanfrage nur mit Haken UND mit Adresse. Ein true ohne
+        // E-Mail waere eine Einwilligung ins Leere -- und review-mail
+        // suchte dann nach Zeilen, die es nie verschicken kann.
+        review_consent: !!(document.getElementById('checkoutReviewConsent')?.checked
+                           && document.getElementById('checkoutEmail')?.value.trim()),
         table_number: tableNumber,
         delivery_address: deliveryAddress,
         delivery_notes: document.getElementById('checkoutDeliveryNotes')?.value.trim() || null,

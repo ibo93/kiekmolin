@@ -77,6 +77,12 @@ function kopf() {
 // Nur diese Felder kommen in die Datenbank. Alles andere aus dem Aufruf
 // wird stillschweigend fallengelassen -- niemand soll von aussen status,
 // source oder track_token setzen koennen.
+/* Ohne diese Spalten ist eine Reservierung keine Reservierung. Fehlt eine
+   davon, darf NICHT stillschweigend ohne sie gespeichert werden -- dann
+   stimmt etwas an der Tabelle nicht, und das muss auffallen. */
+var PFLICHTFELDER = ['restaurant_id', 'guest_name', 'guest_phone',
+    'party_size', 'reservation_date', 'reservation_time', 'status'];
+
 function sauber(r) {
     function text(x, max) {
         return String(x == null ? '' : x)
@@ -98,7 +104,13 @@ function sauber(r) {
         notes:            text(r.notes, 500),
         occasion:         text(r.occasion, 60) || null,
         table_id:         (tisch.indexOf('-') > 0) ? tisch : null,
-        source:           'app'
+        source:           'app',
+        /* Einwilligung in die EINE Bewertungsanfrage per Mail. Nur true,
+           wenn der Gast das Haekchen gesetzt UND eine Adresse angegeben
+           hat -- eine Einwilligung ohne Adresse ist keine.
+           === true, nicht !!: aus dem Browser kommt sonst jeder wahre
+           Wert durch, etwa der Text "nein". */
+        review_consent:   (r.review_consent === true) && !!text(r.guest_email, 160)
     };
 }
 
@@ -184,14 +196,43 @@ exports.handler = async function (event) {
         }
 
         // ---- 4. Schreiben
-        var res = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
-            method: 'POST',
-            headers: Object.assign({ 'Prefer': 'return=representation' }, kopf()),
-            body: JSON.stringify(r)
-        });
+        //
+        // Selbst-heilend, wie bei order-save. Fehlt eine Spalte in der
+        // Tabelle -- weil eine SQL-Datei noch nicht eingespielt ist --,
+        // wird das Feld herausgenommen und es wird erneut versucht. Eine
+        // Reservierung darf nicht daran scheitern, dass eine
+        // Nebensaechlichkeit wie review_consent noch fehlt: am 25.08.2026
+        // wurden vier Gaeste abgewiesen, und niemand hat es bemerkt.
+        //
+        // Absichtlich nur fuer Spalten, die es nicht gibt (400 mit
+        // Spaltennamen). Jeder andere Fehler -- Regel, Datentyp, Netz --
+        // bleibt ein Fehler und wird gemeldet.
+        var res, rohtext = '';
+        var koerper = {};
+        Object.keys(r).forEach(function (k) { koerper[k] = r[k]; });
+        for (var versuch = 0; versuch < 6; versuch++) {
+            res = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+                method: 'POST',
+                headers: Object.assign({ 'Prefer': 'return=representation' }, kopf()),
+                body: JSON.stringify(koerper)
+            });
+            if (res.ok) break;
+            rohtext = '';
+            try { rohtext = await res.text(); } catch (e) {}
+            var fehlt = rohtext.match(/Could not find the '([^']+)'/)
+                     || rohtext.match(/column "?([a-zA-Z_]+)"? .*does not exist/i);
+            if (res.status === 400 && fehlt && fehlt[1]
+                && Object.prototype.hasOwnProperty.call(koerper, fehlt[1])
+                && PFLICHTFELDER.indexOf(fehlt[1]) < 0) {
+                console.warn('[reservation-guest] Spalte ' + fehlt[1]
+                    + ' fehlt in reservations -- ohne sie gespeichert.');
+                delete koerper[fehlt[1]];
+                continue;
+            }
+            break;
+        }
         if (!res.ok) {
-            var text = '';
-            try { text = await res.text(); } catch (e) {}
+            var text = rohtext || '';
             console.error('[reservation-guest] Speichern fehlgeschlagen', res.status, text.slice(0, 300));
 
             // HIER STAND FRUEHER NICHTS AUSSER EINER PROTOKOLLZEILE.

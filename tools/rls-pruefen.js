@@ -57,6 +57,10 @@ var TABELLEN = [
   { name: 'review_photos',      stufe: 'person',      was: 'Fotos zu Bewertungen' },
   { name: 'helpful_votes',      stufe: 'person',      was: 'Wer welche Bewertung hilfreich fand' },
   { name: 'vertraege',          stufe: 'person',      was: 'Unterschriebene Vertraege samt Unterschriftsbild' },
+  // Steht hier, obwohl es die Tabelle vielleicht noch nicht gibt
+  // (datenbank/34-rueckrufe.sql ist optional). Dann meldet der Bericht
+  // "Veraltete Liste" -- und das ist die Wahrheit, nicht ein Fehlalarm.
+  { name: 'callbacks',          stufe: 'person',      was: 'Rueckruf-Wuensche mit Telefonnummer' },
 
   { name: 'restaurants',        stufe: 'betrieb',     was: 'Stammdaten der Betriebe' },
   { name: 'menu_items',         stufe: 'betrieb',     was: 'Gerichte und Preise' },
