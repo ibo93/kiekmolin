@@ -43,7 +43,12 @@ var ALLOWED = [
     // Sofort-Bestaetigung. Fehlt eine dieser Spalten, wirft der
     // selbst-heilende Insert sie raus -- die Bestellung geht trotzdem
     // durch, nur ohne Zusage.
-    'accepted_at', 'estimated_minutes', 'estimated_time'
+    'accepted_at', 'estimated_minutes', 'estimated_time',
+    // Einwilligung in die EINE Bewertungsanfrage per Mail. Ohne true
+    // verschickt review-mail nichts (BGH VI ZR 225/17). Fehlt die Spalte
+    // noch, wirft der selbst-heilende Insert sie raus -- eine Bestellung
+    // darf nicht an einer Bewertungsspalte scheitern.
+    'review_consent'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, entfernen und erneut.

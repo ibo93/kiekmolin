@@ -67,6 +67,26 @@ function preisSatzEn() {
        + 'no matter how much is ordered.';
 }
 
+// "1 Gerichte" stand monatelang auf jeder Seite eines Betriebs mit einem
+// einzigen Gericht -- und auf einer Ortsseite mit genau einem Partner stand
+// "1 Restaurants, Pizzerien, Imbisse und Cafes". Das liest der Wirt, und es
+// steht im Google-Ergebnis. Ab hier gibt es dafuer zwei Stellen und nicht
+// acht.
+function gerichteZahl(anzahl) {
+  return anzahl + (anzahl === 1 ? ' Gericht' : ' Gerichte');
+}
+
+// Bei genau einem Betrieb ist die Aufzaehlung falsch: es ist EINER, und
+// welcher von den vier Arten, steht auf seiner Karte. "Ein Betrieb" ist
+// kuerzer und stimmt immer.
+function betriebeZahl(anzahl, isEn, verbinder) {
+  var v = verbinder || (isEn ? 'and' : 'und');
+  if (anzahl === 1) return isEn ? 'One business' : 'Ein Betrieb';
+  return isEn
+    ? anzahl + ' restaurants, pizzerias, snack bars ' + v + ' cafés'
+    : anzahl + ' Restaurants, Pizzerien, Imbisse ' + v + ' Cafés';
+}
+
 // Zielordner der generierten Seiten; fuer Tests per SEO_OUT_DIR umbiegbar
 const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
@@ -1463,7 +1483,7 @@ function buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems) {
       .map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
     faqs.push({
       q: 'Was steht bei ' + name + ' auf der Speisekarte?',
-      a: 'Die Speisekarte von ' + name + ' umfasst online ' + menuItems.length + ' Gerichte' +
+      a: 'Die Speisekarte von ' + name + ' umfasst online ' + gerichteZahl(menuItems.length) +
         (beliebt.length ? ' – besonders beliebt: ' + beliebt.join(', ') + '.' : '.') +
         ' Alle Preise und Optionen stehen auf der Profilseite bei ' + BRAND + '.'
     });
@@ -1644,7 +1664,7 @@ function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
   if (ratingTxt) metaParts.push('<span class="hstars">' + stars + '</span> ' + ratingTxt + ' / 5');
   metaParts.push(escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw));
   if (rest.cuisine) metaParts.push(escapeHtml(rest.cuisine));
-  if (menuItems.length) metaParts.push(menuItems.length + ' Gerichte online');
+  if (menuItems.length) metaParts.push(gerichteZahl(menuItems.length) + ' online');
   const meta = metaParts.join('<span class="dot"> · </span>');
 
   return '<section class="hero' + (img ? '' : ' hero-fallback') + ' fade">' +
@@ -1669,7 +1689,7 @@ function renderTrustBadges(rest, menuItems) {
   const badges = [];
   badges.push({ i: '✓', t: 'Kostenlos bestellen' });
   badges.push({ i: '⚡', t: 'Ohne App-Download' });
-  if (menuItems.length) badges.push({ i: '📋', t: menuItems.length + ' Gerichte' });
+  if (menuItems.length) badges.push({ i: '📋', t: gerichteZahl(menuItems.length) });
   badges.push({ i: '📍', t: 'Aus ' + escapeHtml(safeText(rest.city, 'der Region')) });
   // "Faire Provision" hiess fuer einen Wirt: es gibt eine. Es gibt keine.
   badges.push({ i: '🤝', t: PREIS_PROVISION + ' Provision' });
@@ -2283,7 +2303,7 @@ function buildOrtsIntro(city, matched, weitere, isEn) {
   const gesamt = matched.length + weitere.length;
   const n = escapeHtml(city.name);
   if (isEn) {
-    return '<p>' + gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + n +
+    return '<p>' + betriebeZahl(gesamt, true) + ' in ' + n +
       ' – with address and phone number.' +
       (matched.length
         ? ' <strong>' + matched.length + '</strong> of them are on ' + BRAND +
@@ -2291,7 +2311,7 @@ function buildOrtsIntro(city, matched, weitere, isEn) {
         : ' None of them is on ' + BRAND + ' yet.') +
       '</p>';
   }
-  return '<p>' + gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + n +
+  return '<p>' + betriebeZahl(gesamt, false) + ' in ' + n +
     ' – mit Adresse und Telefonnummer.' +
     (matched.length
       ? ' Davon sind <strong>' + matched.length + '</strong> bei ' + BRAND +
@@ -2318,10 +2338,11 @@ function buildOrtsFaqs(city, matched, weitere, isEn) {
 
   faqs.push(isEn ? {
     q: 'How many restaurants are there in ' + n + '?',
-    a: BRAND + ' lists ' + gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + n + '.'
+    a: BRAND + ' lists ' + betriebeZahl(gesamt, true).replace(/^One business$/, 'one business') + ' in ' + n + '.'
   } : {
     q: 'Wie viele Restaurants gibt es in ' + n + '?',
-    a: 'Auf ' + BRAND + ' sind ' + gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + n + ' gelistet.'
+    a: (gesamt === 1 ? 'Auf ' + BRAND + ' ist ein Betrieb in ' + n + ' gelistet.'
+         : 'Auf ' + BRAND + ' sind ' + betriebeZahl(gesamt, false) + ' in ' + n + ' gelistet.')
   });
 
   faqs.push(isEn ? {
@@ -2382,9 +2403,9 @@ function generateCityOverview(city, restaurants, lang, prospects) {
   // das eine Description, die weniger verspricht, als die Seite zeigt.
   const gesamt = matched.length + weitere.length;
   const description = isEn
-    ? gesamt + ' restaurants, pizzerias, snack bars and cafés in ' + city.name + ' at a glance – with address and phone number.'
+    ? betriebeZahl(gesamt, true) + ' in ' + city.name + ' at a glance – with address and phone number.'
       + (matched.length ? ' ' + matched.length + ' of them with menu, online ordering and table booking.' : '')
-    : gesamt + ' Restaurants, Pizzerien, Imbisse und Cafés in ' + city.name + ' auf einen Blick – mit Adresse und Telefonnummer.'
+    : betriebeZahl(gesamt, false) + ' in ' + city.name + ' auf einen Blick – mit Adresse und Telefonnummer.'
       + (matched.length ? ' Davon ' + matched.length + ' mit Speisekarte und Online-Bestellung.' : '');
 
   const html = buildPage({
@@ -2396,8 +2417,8 @@ function generateCityOverview(city, restaurants, lang, prospects) {
     canonical: url,
     h1: (isEn ? 'Restaurants in ' : 'Restaurants in ') + city.name,
     subtitle: isEn
-      ? gesamt + ' restaurants, pizzerias, snack bars & cafés in ' + city.name
-      : gesamt + ' Restaurants, Pizzerien, Imbisse & Cafés in ' + city.name,
+      ? betriebeZahl(gesamt, true, '&') + ' in ' + city.name
+      : betriebeZahl(gesamt, false, '&') + ' in ' + city.name,
     intro: buildOrtsIntro(city, matched, weitere, isEn),
     restaurants: matched,
     // Die ItemList bildet die ganze Seite ab, nicht nur die Partner. Sonst
@@ -2964,7 +2985,9 @@ if (require.main === module) {
     ortSlug: ortSlug,
     ortLohntSeite: ortLohntSeite,
     prospectSlug: prospectSlug,
-    MIN_EINTRAEGE: MIN_EINTRAEGE,
+    gerichteZahl,
+  betriebeZahl,
+  MIN_EINTRAEGE: MIN_EINTRAEGE,
     writeLlmsTxt: writeLlmsTxt,
     writeSitemap: writeSitemap,
     writeRobots: writeRobots,

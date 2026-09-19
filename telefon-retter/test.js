@@ -392,8 +392,21 @@ function test(name, fn) { tests++; return Promise.resolve().then(fn).then(() => 
     const namen = (stufe, kann) => baueTools(stufe, kann).map((t) => t.name);
 
     // Ohne Angabe: wie bisher - Reservierungen ab Stufe 1, Bestellungen ab 3
-    assert.deepStrictEqual(baueFaehigkeiten(1, null), { reservierung: true, bestellung: false, infos: false });
-    assert.deepStrictEqual(baueFaehigkeiten(3, null), { reservierung: true, bestellung: true, infos: true });
+    //
+    // weiterleitung gehoert seit dem Durchstellen mit dazu. Ohne Restaurant
+    // ist es false -- durchgestellt wird nur, wenn im CRM eine Nummer
+    // hinterlegt ist. Diese zwei Zeilen forderten bis zum 19.09.2026 die
+    // alte Rueckgabe OHNE das Feld ein und waren deshalb rot, auf main wie
+    // auf jedem Zweig.
+    assert.deepStrictEqual(baueFaehigkeiten(1, null),
+      { reservierung: true, bestellung: false, infos: false, weiterleitung: false });
+    assert.deepStrictEqual(baueFaehigkeiten(3, null),
+      { reservierung: true, bestellung: true, infos: true, weiterleitung: false });
+
+    // Mit hinterlegter Nummer steht das Feld auf true -- sonst pruefte das
+    // oben nur, dass immer false rauskommt.
+    assert.deepStrictEqual(baueFaehigkeiten(3, null, { weiterleitung: '+4949311234' }),
+      { reservierung: true, bestellung: true, infos: true, weiterleitung: true });
     assert.ok(namen(1, null).includes('reserviere_tisch'));
     assert.ok(!namen(1, null).includes('speichere_bestellung'));
 
