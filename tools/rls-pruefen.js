@@ -56,6 +56,7 @@ var TABELLEN = [
   { name: 'reviews',            stufe: 'person',      was: 'Bewertungen mit Verfasser' },
   { name: 'review_photos',      stufe: 'person',      was: 'Fotos zu Bewertungen' },
   { name: 'helpful_votes',      stufe: 'person',      was: 'Wer welche Bewertung hilfreich fand' },
+  { name: 'vertraege',          stufe: 'person',      was: 'Unterschriebene Vertraege samt Unterschriftsbild' },
 
   { name: 'restaurants',        stufe: 'betrieb',     was: 'Stammdaten der Betriebe' },
   { name: 'menu_items',         stufe: 'betrieb',     was: 'Gerichte und Preise' },
@@ -73,8 +74,9 @@ var TABELLEN = [
   { name: 'settings',           stufe: 'betrieb',     was: 'Einstellungen' },
   { name: 'target_stats',       stufe: 'betrieb',     was: 'Zielwerte' },
   { name: 'jobs',               stufe: 'betrieb',     was: 'Stellenanzeigen' },
+  { name: 'vertrag_fassungen',  stufe: 'betrieb',     was: 'Vertragstexte und Fassungen' },
+  { name: 'guest_funnel',       stufe: 'betrieb',     was: 'Gasttrichter: Karte, Warenkorb, Bestellung' },
 
-  { name: 'google_reviews',     stufe: 'oeffentlich', was: 'Google-Bewertungen' },
   { name: 'attractions',        stufe: 'oeffentlich', was: 'Ausflugsziele' },
   { name: 'accommodations',     stufe: 'oeffentlich', was: 'Unterkuenfte' },
   { name: 'tourist_routes',     stufe: 'oeffentlich', was: 'Routen' }
@@ -125,9 +127,17 @@ function urteil(antwort) {
   if (s === 401 || s === 403) {
     return { wert: 'zu', grund: 'HTTP ' + s + (antwort.code ? ' (' + antwort.code + ')' : '') };
   }
-  if (s === 400 || s === 404) {
-    // 400 kommt z.B. wenn die Spalte id einen anderen Typ hat, 404 wenn
-    // es die Tabelle nicht gibt. Beides sagt nichts ueber RLS aus.
+  if (s === 404) {
+    // 404 heisst: diese Tabelle gibt es nicht. Ueber RLS sagt das nichts --
+    // aber es ist ein Befund fuer sich, und zwar ein wichtiger. Frueher
+    // stand das hier zusammen mit 400 unter "unklar", und "unklar" liest
+    // man weg. Genau so hat google_reviews ueberlebt: die App fragte die
+    // Tabelle bei jedem Start ab, es gab sie nie, 148 x 404 an einem Tag.
+    return { wert: 'fehlt', grund: 'HTTP 404 -- diese Tabelle gibt es nicht' };
+  }
+  if (s === 400) {
+    // 400 kommt z.B. wenn die Spalte id einen anderen Typ hat. Sagt
+    // nichts ueber RLS aus.
     return { wert: 'unklar', grund: 'HTTP ' + s + (antwort.nachricht ? ': ' + antwort.nachricht : '') };
   }
   return { wert: 'unklar', grund: 'HTTP ' + s };
@@ -216,6 +226,46 @@ async function tabellePruefen(hole, zugang, tabelle) {
 }
 
 // ---------------------------------------------------------------------
+// Welche Tabellen fragt die App wirklich ab
+// ---------------------------------------------------------------------
+// Die Liste oben ist von Hand gepflegt und damit nur so gut wie ihr
+// letzter Pfleger. Deshalb wird zusaetzlich aus index.html gelesen, was
+// dort tatsaechlich an /rest/v1/... geht. Zwei Faelle sollen auffallen:
+//
+//   * Die App fragt eine Tabelle ab, die es nicht gibt (404). Das ist
+//     nie Absicht -- die Antwort ist ein leeres Ergebnis oder ein
+//     catch-Zweig, und beides sieht aus wie "da ist halt nichts".
+//   * Die App fragt eine Tabelle ab, die in der Liste oben fehlt. Dann
+//     ist sie nie auf RLS geprueft worden.
+//
+// Ausgenommen sind rpc-Aufrufe -- das sind Funktionen, keine Tabellen.
+//
+// WAS DAS NICHT KANN, und das gehoert dazugesagt: an sechs Stellen baut
+// index.html den Pfad zusammen ('/rest/v1/' + tabelle). Diese Tabellen
+// sieht das Verfahren nicht, weil der Name erst zur Laufzeit entsteht.
+// Die Liste oben bleibt also noetig -- sie wird hier nur gegengeprueft,
+// nicht ersetzt.
+
+function tabellenAusHtml(html) {
+  // Kommentare zuerst raus. Sonst zaehlt eine Notiz wie "hier stand mal
+  // /rest/v1/google_reviews" als Abfrage, und der Bericht warnt ewig vor
+  // einer Zeile, die es nicht mehr gibt. Genau diese Verwechslung hat
+  // dieses Projekt schon dreimal Tests gekostet, die nichts geprueft haben.
+  var code = String(html)
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^[ \t]*\/\/[^\n]*$/gm, ' ');
+
+  var gefunden = {}, re = /\/rest\/v1\/([a-z_][a-z0-9_]*)/gi, m;
+  while ((m = re.exec(code)) !== null) {
+    var name = m[1].toLowerCase();
+    if (name === 'rpc') continue;
+    gefunden[name] = true;
+  }
+  return Object.keys(gefunden).sort();
+}
+
+// ---------------------------------------------------------------------
 // Bewertung: was davon ist wirklich schlimm
 // ---------------------------------------------------------------------
 
@@ -232,19 +282,21 @@ function istFremdgesteuert(zeile) {
 function bericht(zeilen) {
   var pannen = zeilen.filter(istDatenpanne);
   var schreib = zeilen.filter(istFremdgesteuert);
+  var fehlen = zeilen.filter(function (z) { return z.lesen.wert === 'fehlt'; });
   var unklar = zeilen.filter(function (z) {
     return z.lesen.wert === 'unklar' && z.aendern.wert === 'unklar';
   });
-  return { pannen: pannen, schreib: schreib, unklar: unklar };
+  return { pannen: pannen, schreib: schreib, fehlen: fehlen, unklar: unklar };
 }
 
 // ---------------------------------------------------------------------
 // Ausgabe
 // ---------------------------------------------------------------------
 
-var ZEICHEN = { offen: 'OFFEN', zu: 'zu', unklar: '?' };
+var ZEICHEN = { offen: 'OFFEN', zu: 'zu', unklar: '?', fehlt: 'FEHLT' };
 
-function ausgeben(zeilen, schreibe) {
+function ausgeben(zeilen, schreibe, abgefragt) {
+  var ausHtml = abgefragt || [];
   var stufen = [
     ['person', 'PERSONENDATEN -- hier waere ein offener Zugriff eine meldepflichtige Datenpanne'],
     ['betrieb', 'BETRIEBSDATEN -- aergerlich und aus dem Backup zu heilen'],
@@ -266,7 +318,7 @@ function ausgeben(zeilen, schreibe) {
         ' loeschen: ' + ZEICHEN[z.loeschen.wert].padEnd(6) +
         zahl
       );
-      if (z.lesen.wert === 'unklar') schreibe('      ' + z.lesen.grund);
+      if (z.lesen.wert === 'unklar' || z.lesen.wert === 'fehlt') schreibe('      ' + z.lesen.grund);
     });
   });
 
@@ -309,12 +361,48 @@ function ausgeben(zeilen, schreibe) {
     });
   }
 
+  // Tabellen, die die App abfragt, die es aber nicht gibt. Das ist der
+  // Befund, der google_reviews vier Monate lang durchgelassen hat.
+  var totAbgefragt = b.fehlen.filter(function (z) {
+    return ausHtml.indexOf(z.tabelle.name) > -1;
+  });
+  if (totAbgefragt.length) {
+    schreibe('');
+    schreibe('TOTE ABFRAGE: ' + totAbgefragt.length + ' Tabelle(n) fragt die App ab, obwohl es sie nicht gibt:');
+    totAbgefragt.forEach(function (z) {
+      schreibe('  - ' + z.tabelle.name + ' -- jeder Aufruf der App laeuft hier in einen 404');
+    });
+    schreibe('');
+    schreibe('Entweder die Tabelle anlegen oder die Abfrage entfernen. Nichts von');
+    schreibe('beidem heisst: ein stiller Ausfall, der im Protokoll die echten');
+    schreibe('Fehler zudeckt.');
+  }
+
+  var fehltNurInListe = b.fehlen.filter(function (z) {
+    return ausHtml.indexOf(z.tabelle.name) < 0;
+  });
+  if (fehltNurInListe.length) {
+    schreibe('');
+    schreibe('Veraltete Liste: ' + fehltNurInListe.map(function (z) { return z.tabelle.name; }).join(', ') +
+      ' -- oben gelistet, in der Datenbank nicht vorhanden.');
+  }
+
+  // Der umgekehrte Fall: die App fragt etwas ab, das nie geprueft wurde.
+  var gelistet = {};
+  zeilen.forEach(function (z) { gelistet[z.tabelle.name] = true; });
+  var ungeprueft = ausHtml.filter(function (name) { return !gelistet[name]; });
+  if (ungeprueft.length) {
+    schreibe('');
+    schreibe('Nicht geprueft, obwohl die App sie abfragt: ' + ungeprueft.join(', '));
+    schreibe('Diese Tabellen fehlen in der Liste oben. Bitte dort ergaenzen.');
+  }
+
   if (b.unklar.length) {
     schreibe('');
     schreibe('Ohne Urteil geblieben: ' + b.unklar.map(function (z) { return z.tabelle.name; }).join(', '));
   }
 
-  return (b.pannen.length || b.schreib.length) ? 2 : 0;
+  return (b.pannen.length || b.schreib.length || totAbgefragt.length) ? 2 : 0;
 }
 
 // ---------------------------------------------------------------------
@@ -339,8 +427,20 @@ async function lauf(optionen) {
     zeilen.push(await tabellePruefen(hole, zugang, tabellen[i]));
   }
 
-  var code = ausgeben(zeilen, schreibe);
-  return { zeilen: zeilen, code: code };
+  // Was die App wirklich abfragt. Schlaegt das Lesen fehl, bleibt die
+  // Liste leer -- dann faellt dieser Teil des Berichts weg, der Rest
+  // laeuft weiter.
+  var abgefragt = o.abgefragt;
+  if (!abgefragt) {
+    try {
+      abgefragt = tabellenAusHtml(fs.readFileSync(htmlPfad, 'utf8'));
+    } catch (e) {
+      abgefragt = [];
+    }
+  }
+
+  var code = ausgeben(zeilen, schreibe, abgefragt);
+  return { zeilen: zeilen, code: code, abgefragt: abgefragt };
 }
 
 module.exports = {
@@ -351,6 +451,8 @@ module.exports = {
   istDatenpanne: istDatenpanne,
   istFremdgesteuert: istFremdgesteuert,
   bericht: bericht,
+  tabellenAusHtml: tabellenAusHtml,
+  ausgeben: ausgeben,
   tabellePruefen: tabellePruefen,
   lauf: lauf
 };
