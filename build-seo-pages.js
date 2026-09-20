@@ -121,17 +121,30 @@ const PREIS_MONAT_SPAETER = '79,90 \u20ac';
 
 // Derselbe Preis, nur anders gerechnet. Die Zahl wird NICHT hingeschrieben,
 // sondern aus PREIS_MONAT ausgerechnet -- aendert sich der Preis, aendert
-// sich der Satz mit. "Weniger als" statt einer gerundeten Zahl: 59,90 durch
-// 30 sind 1,9967, und daraus "1,99" zu machen waere schoengerechnet.
+// sich der Satz mit.
+//
+// WARUM DIE 30 UND NICHT 365, und warum das trotzdem nicht schoengerechnet
+// ist (am 20.09.2026 nachgerechnet):
+//
+//     59,90 / 30 Tage    = 1,9967  -> 1,99 rundet AB, um 0,3 Cent
+//     59,90 * 12 / 365   = 1,9693  -> 1,99 rundet AUF, um 2 Cent
+//
+// Auf ein ganzes Jahr gerechnet kostet der Tag also 1,97 Euro. Mit "1,99"
+// sagen wir MEHR, als es wirklich kostet -- die sichere Richtung. Genau
+// das haelt preisProTagMindestens() fest: die angezeigte Zahl darf nie
+// unter den echten Tageskosten liegen.
+function preisMonatCent() {
+  return Math.round(parseFloat(String(PREIS_MONAT).replace(/[^0-9,]/g, '').replace(',', '.')) * 100);
+}
+
+// Was der Tag ueber ein volles Jahr wirklich kostet, in Cent.
+function preisProTagEcht() {
+  return preisMonatCent() * 12 / 365;
+}
+
 function preisProTag() {
-  var cent = Math.round(parseFloat(String(PREIS_MONAT).replace(/[^0-9,]/g, '').replace(',', '.')) * 100);
-  var proTag = cent / 30;                      // 30 Tage, nicht 30,4 -- zu unseren Ungunsten
-  var grenze = Math.ceil(proTag / 100) * 100;  // auf den naechsten vollen Euro
-  // Volle Euro ohne ",00" -- "weniger als 2 EUR" liest sich wie ein Satz,
-  // "weniger als 2,00 EUR" wie ein Kassenbon.
-  var euro = grenze / 100;
-  var text = (euro % 1 === 0) ? String(euro) : euro.toFixed(2).replace('.', ',');
-  return 'weniger als ' + text + ' \u20ac am Tag';
+  var cent = Math.floor(preisMonatCent() / 30);   // 199 Cent
+  return (cent / 100).toFixed(2).replace('.', ',') + ' \u20ac am Tag';
 }
 
 function einstiegSatz() {
@@ -2810,12 +2823,17 @@ function generateGastroPage() {
           + '<span class="je">im Monat, fest</span></p>'
         + '<p style="margin:14px 0 0;color:var(--schiefer);">' + preisSatz() + '</p>'
         + '<ul class="rechnung">'
-          + '<li><strong>' + preisProTag().charAt(0).toUpperCase() + preisProTag().slice(1) + '.</strong> '
+          + '<li><strong>' + preisProTag() + '.</strong> '
             + 'So viel kostet eine Tasse Kaffee im Einkauf.</li>'
           + '<li><strong>Der Betrag \u00e4ndert sich nie.</strong> Bei 500 \u20ac Online-Umsatz im Monat '
             + 'zahlst du dasselbe wie bei 15.000 \u20ac \u2014 weil wir nichts vom Umsatz nehmen.</li>'
           + '<li><strong>Bei 30 \u20ac Rechnungsdurchschnitt sind das zwei G\u00e4ste im Monat.</strong> '
             + 'Wer den dritten \u00fcber die Seite bekommt, hat es wieder drin.</li>'
+          // Bewusst OHNE Druckpreis: was eine Karte kostet, weiss der Wirt
+          // besser als wir, und eine erfundene Zahl waere angreifbar.
+          + '<li><strong>Preise \u00e4ndern kostet nichts mehr.</strong> Du tippst sie einmal, '
+            + 'und sie stehen \u00fcberall richtig \u2014 auf deiner Seite, im Bestellweg und bei Google. '
+            + 'Ohne neu zu drucken.</li>'
         + '</ul>'
         + '<p class="band">' + einstiegSatz() + '</p>'
         + '<p class="klein">Nur in die \u00dcbersicht eingetragen zu werden \u2014 mit Adresse, '
@@ -3423,6 +3441,7 @@ if (require.main === module) {
   buildGastroFaqs,
   einstiegSatz,
   preisProTag,
+  preisProTagEcht,
   EINSTEIGER_PLAETZE,
   PREIS_MONAT_SPAETER,
   GASTRO_SLUG,

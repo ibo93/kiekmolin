@@ -77,14 +77,34 @@ t('der kuenftige Preis auch', H.indexOf('79,90') > -1, 'fehlt');
 // Die Zahl darf nicht hingeschrieben sein -- sie muss aus PREIS_MONAT
 // fallen, sonst steht dort irgendwann 2 EUR neben einem Preis von 79,90.
 t('der Tagespreis wird gerechnet, nicht getippt',
-  B.preisProTag() === 'weniger als 2 \u20ac am Tag', B.preisProTag());
-t('und er steht auf der Seite', /[Ww]eniger als 2 \u20ac am Tag/.test(H), 'fehlt');
-t('er ist nicht schoengerechnet: 59,90/30 sind 1,9967, also NICHT "1,99"',
-  !/1,99\s*\u20ac am Tag/.test(H), 'da steht eine zu freundliche Zahl');
+  B.preisProTag() === '1,99 \u20ac am Tag', B.preisProTag());
+t('und er steht auf der Seite', /1,99 \u20ac am Tag/.test(H), 'fehlt');
+
+// HIER STAND BIS ZUM 20.09.2026 DAS GEGENTEIL: "er ist nicht
+// schoengerechnet, also NICHT 1,99". Das war zu vorsichtig gedacht --
+// ich hatte nur durch 30 geteilt. Ueber ein ganzes Jahr kostet der Tag
+// 59,90 * 12 / 365 = 1,9693 Euro. Mit "1,99" sagen wir also MEHR, als es
+// wirklich kostet.
+//
+// Das ist die Zusicherung, auf die es wirklich ankommt, und sie ist
+// gerechnet statt verglichen: die angezeigte Zahl darf NIE unter den
+// echten Tageskosten liegen. Aendert jemand den Monatspreis so, dass das
+// Abrunden zu weit greift, wird diese Zeile rot.
+var angezeigt = Math.round(parseFloat(B.preisProTag().replace(',', '.')) * 100);
+t('die angezeigte Zahl liegt nicht unter den echten Tageskosten',
+  angezeigt >= B.preisProTagEcht(),
+  'angezeigt ' + angezeigt + ' Cent, echt ' + B.preisProTagEcht().toFixed(2) + ' Cent');
+t('und weicht um hoechstens einen Cent vom Monatsdrittel ab',
+  Math.abs(angezeigt - B.preisProTagEcht()) <= 5,
+  'die Zahl passt nicht mehr zum Preis');
 t('dass der Betrag umsatzunabhaengig ist, steht dabei',
   /Der Betrag \u00e4ndert sich nie/.test(H), 'fehlt');
 t('der Vergleich in Gaesten ist als Annahme gekennzeichnet',
   /Bei 30 \u20ac Rechnungsdurchschnitt/.test(H), 'ohne "bei" waere es eine Behauptung');
+t('die gedruckte Karte kommt vor',
+  /Ohne neu zu drucken/.test(H), 'fehlt');
+t('aber OHNE erfundenen Druckpreis',
+  !/[Dd]ruck[^<]{0,40}\d+\s*\u20ac/.test(H), 'da steht ein Betrag fuer einen Druck');
 
 // --- Bezahlen: Stripe gehoert NICHT in den Gastweg -------------------
 // 20.09.2026: Auf der Seite stand "Karte ueber Stripe". Falsch. Stripe ist
