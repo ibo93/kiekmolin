@@ -63330,17 +63330,24 @@ window.ppcStatusLaden = ppcStatusLaden;
 async function ppcSpeichern() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId || restId === 'default') { ppcMelden('Bitte zuerst oben ein Restaurant auswählen.', '#b45309'); return; }
-    var cid = (document.getElementById('ppcClientId') || {}).value || '';
-    var sec = (document.getElementById('ppcSecret') || {}).value || '';
+    // Leerraum raus -- auch MITTEN drin. Beim Markieren mit der Maus bricht
+    // der Wert im PayPal-Dashboard um, und dann steht ein Leerzeichen im
+    // Schluessel, das man nicht sieht. In einem PayPal-Schluessel kommt
+    // keines vor, also kann das Entfernen nichts kaputtmachen.
+    var cid = ((document.getElementById('ppcClientId') || {}).value || '').replace(/\s+/g, '');
+    var sec = ((document.getElementById('ppcSecret') || {}).value || '').replace(/\s+/g, '');
     var live = !!(document.getElementById('ppcLive') || {}).checked;
-    if (!cid.trim() || !sec.trim()) { ppcMelden('Beide Felder ausfüllen — Client ID und Secret.', '#b91c1c'); return; }
+    // Das Geputzte auch anzeigen -- sonst steht im Feld weiter, was nicht
+    // gesendet wurde, und beim naechsten Blick stimmt die Erklaerung nicht.
+    var cidFeld = document.getElementById('ppcClientId'); if (cidFeld) cidFeld.value = cid;
+    if (!cid || !sec) { ppcMelden('Beide Felder ausfüllen — Client ID und Secret.', '#b91c1c'); return; }
 
     ppcMelden('Wird bei PayPal geprüft…');
     try {
         var res = await fetch('/.netlify/functions/paypal-zahlung?action=speichern', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + kmiToken() },
-            body: JSON.stringify({ restaurant_id: restId, client_id: cid.trim(), secret: sec.trim(), live: live })
+            body: JSON.stringify({ restaurant_id: restId, client_id: cid, secret: sec, live: live })
         });
         var j = await res.json();
         if (!res.ok || !j.ok) { ppcMelden((j && j.error) || ('Fehler ' + res.status), '#b91c1c'); return; }

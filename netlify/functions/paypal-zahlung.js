@@ -223,6 +223,50 @@ async function angemeldeteBetriebe(token) {
     } catch (e) { return null; }
 }
 
+/* Sagt, WAS an einem Schluessel nicht stimmt -- nicht nur DASS.
+   Die alte Meldung lautete "sieht nicht richtig aus, bitte vollstaendig
+   kopieren". Sie stimmte, half aber niemandem: Ibo hat den Wert dreimal
+   geprueft und dreimal fuer richtig befunden, weil das stoerende Zeichen
+   unsichtbar war. Eine Meldung, die den Menschen suchen laesst, was sie
+   selbst schon weiss, ist eine schlechte Meldung.
+
+   Der Wert selbst taucht in der Antwort NIE auf -- das Secret ist ein
+   Geheimnis, auch im Fehlerfall. Nur Laenge und Art des Zeichens. */
+var ZEICHEN_NAME = {
+    ' ': 'ein Leerzeichen', '\t': 'ein Tabulator', '\n': 'ein Zeilenumbruch',
+    '\r': 'ein Zeilenumbruch', '\u00a0': 'ein geschuetztes Leerzeichen',
+    '\u2026': 'drei Puenktchen (…)', '"': 'ein Anfuehrungszeichen',
+    "'": 'ein Hochkomma', '.': 'ein Punkt', ',': 'ein Komma'
+};
+
+function schluesselKlage(wert, was, min, max) {
+    if (!wert) return was + ' fehlt.';
+
+    var fremd = [];
+    for (var i = 0; i < wert.length; i++) {
+        var c = wert.charAt(i);
+        if (!/[A-Za-z0-9_-]/.test(c) && fremd.indexOf(c) === -1) fremd.push(c);
+    }
+    if (fremd.length) {
+        var liste = fremd.slice(0, 3).map(function (c) {
+            return ZEICHEN_NAME[c] || ('das Zeichen U+' + c.codePointAt(0).toString(16).toUpperCase());
+        }).join(', ');
+        return was + ' enthält ' + liste + '. In einem PayPal-Schlüssel kommt so etwas'
+             + ' nicht vor — hol ihn bei PayPal mit dem Kopier-Knopf neben dem Feld,'
+             + ' nicht mit der Maus markiert.';
+    }
+    if (wert.length < min) {
+        return was + ' ist zu kurz: ' + wert.length + ' Zeichen. Ein echter Schlüssel hat'
+             + ' etwa 80. Wahrscheinlich stammt er aus der App-Übersicht — die kürzt ihn ab.'
+             + ' Öffne die App selbst und nimm den Kopier-Knopf.';
+    }
+    if (wert.length > max) {
+        return was + ' ist zu lang: ' + wert.length + ' Zeichen (erlaubt sind bis ' + max
+             + '). Vermutlich sind zwei Werte aneinandergeraten.';
+    }
+    return null;
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Nur POST.' });
@@ -263,18 +307,25 @@ exports.handler = async function (event) {
                 return json(200, { ok: true, eingerichtet: false });
             }
 
-            var cid = String(body.client_id || '').trim();
-            var sec = String(body.secret || '').trim();
+            /* Leerraum RAUS, nicht nur vorne und hinten.
+               Am 20.09.2026 hat Ibo eine Stunde an dieser Stelle verloren.
+               Er hatte die Client-ID bei PayPal mit der Maus markiert; im
+               Dashboard bricht der Wert um, und beim Kopieren kam ein
+               Leerzeichen MITTEN in den Schluessel. .trim() raeumt nur die
+               Raender -- innen blieb es stehen, die Pruefung sagte "sieht
+               nicht richtig aus", und er hat dreimal nachgesehen und
+               dreimal nichts gefunden. Ein Leerzeichen sieht man nicht.
+
+               In einem PayPal-Schluessel kommt kein Leerraum vor. Ihn zu
+               entfernen kann also keinen gueltigen Schluessel zerstoeren
+               -- nur eine verunglueckte Zwischenablage retten. */
+            var cid = String(body.client_id || '').replace(/\s+/g, '');
+            var sec = String(body.secret || '').replace(/\s+/g, '');
             var live = body.live === true;
-            // PayPal-Schluessel sind lang und haben keine Leerzeichen.
-            // Ein abgeschnittenes Copy-Paste faellt hier auf -- und nicht
-            // erst beim ersten Gast, der bezahlen will.
-            if (!/^[A-Za-z0-9_-]{20,120}$/.test(cid)) {
-                return json(400, { ok: false, error: 'Die Client-ID sieht nicht richtig aus. Sie ist lang und enthält keine Leerzeichen — bitte vollständig kopieren.' });
-            }
-            if (!/^[A-Za-z0-9_-]{20,200}$/.test(sec)) {
-                return json(400, { ok: false, error: 'Das Secret sieht nicht richtig aus. Es ist lang und enthält keine Leerzeichen — bitte vollständig kopieren.' });
-            }
+
+            var klage = schluesselKlage(cid, 'Die Client-ID', 20, 120)
+                     || schluesselKlage(sec, 'Das Secret', 20, 200);
+            if (klage) return json(400, { ok: false, error: klage });
 
             // Bevor gespeichert wird: einmal bei PayPal anmelden. Falsche
             // Schluessel jetzt zu merken ist unendlich viel besser, als
@@ -282,10 +333,23 @@ exports.handler = async function (event) {
             try {
                 await token({ client_id: cid, secret: sec, basis: live ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com' });
             } catch (e) {
+                /* Wenn PayPal ablehnt UND der Schluessel auffaellig kurz ist,
+                   ist die Ursache fast immer dieselbe: kopiert aus der
+                   App-Uebersicht, die den Wert abschneidet. Das gehoert in
+                   die Meldung -- sonst sucht der Wirt beim Bereich, und der
+                   war gar nicht das Problem. */
+                var kurzHinweis = '';
+                if (cid.length < 70) {
+                    kurzHinweis = ' Ausserdem: die Client-ID ist mit ' + cid.length
+                        + ' Zeichen auffällig kurz — echte haben etwa 80. Stammt sie aus der'
+                        + ' App-Übersicht? Die kürzt den Wert ab. Öffne die App selbst und nimm'
+                        + ' den Kopier-Knopf neben dem Feld.';
+                }
                 return json(400, {
                     ok: false,
                     error: 'PayPal nimmt diese Zugangsdaten nicht an. Bitte prüfen: sind es die Schlüssel aus '
                          + (live ? 'dem LIVE-Bereich' : 'der SANDBOX') + '? Beides wird getrennt vergeben.'
+                         + kurzHinweis
                 });
             }
 

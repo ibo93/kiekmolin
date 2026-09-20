@@ -195,8 +195,18 @@ t('die Schluessel werden VOR dem Speichern bei PayPal geprueft',
   'falsche Schluessel fallen erst beim ersten Gast auf');
 t('und der Fehler sagt, dass Sandbox und Live getrennt sind',
   /Beides wird getrennt vergeben/.test(fn), 'Wirt sucht im Falschen');
-t('abgeschnittenes Copy-Paste faellt sofort auf',
-  /Die Client-ID sieht nicht richtig aus/.test(fn) && /Das Secret sieht nicht richtig aus/.test(fn), 'erst beim Gast');
+// FRUEHER stand hier ein Vergleich auf den Satz "sieht nicht richtig aus".
+// Der Satz ist weg, weil er niemandem geholfen hat -- Ibo hat am 20.09.2026
+// eine Stunde daran verloren. Geprueft wird jetzt die Eigenschaft, nicht der
+// Wortlaut: Leerraum wird ueberall entfernt (nicht nur an den Raendern), und
+// eine Klage nennt Laenge und Zeichen. Was dabei herauskommt, prueft
+// tests/paypal-leerzeichen-test.js durch Ausfuehren.
+t('Leerraum wird ueberall entfernt, nicht nur an den Raendern',
+  /client_id \|\| ''\)\.replace\(\/\\s\+\/g, ''\)/.test(fn)
+  && /secret \|\| ''\)\.replace\(\/\\s\+\/g, ''\)/.test(fn),
+  'nur .trim() -- ein Leerzeichen mitten drin bleibt stehen');
+t('und die Klage nennt Laenge und Zeichen statt "sieht nicht richtig aus"',
+  /function schluesselKlage/.test(fn) && /' Zeichen/.test(fn), 'wieder nur ein Vorwurf');
 t('das Secret kommt NIE zurueck',
   /Das Secret geht NICHT zurueck/.test(fn) && !/secret: sec/.test(fn.slice(fn.indexOf('return json(200, { ok: true, eingerichtet: true, live: live'))),
   'Secret wird zurueckgegeben');
