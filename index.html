@@ -53827,12 +53827,23 @@ function mindestImBezahlen() {
     var summe = (orderCart || []).reduce(function (su, i) { return su + (Number(i.total_price) || 0); }, 0);
     var pr = mindestPruefen(summe, currentOrderRestaurant, orderType);
 
+    /* WOHIN DER KASTEN GEHOERT.
+       Er stand bis zum 20.09.2026 als erstes Kind der Knopf-Zeile -- und die
+       ist ein display:flex mit Gesamtbetrag und Knopf nebeneinander. Also
+       quetschten sich DREI Dinge in eine Reihe: Kasten, Betrag, Knopf. Auf
+       dem Handy lief der Knopftext rechts aus dem Bild.
+       Ibo dazu: "es ist so draufgeklatscht, ist unsauber".
+       Der Kasten gehoert UEBER die Zeile, ueber die ganze Breite. */
     if (!kasten && knopf && knopf.parentNode) {
         kasten = document.createElement('div');
         kasten.id = 'checkoutMinHint';
-        kasten.style.cssText = 'width:100%; margin:0 0 10px; padding:12px 16px; border-radius:14px;'
-            + 'background:rgba(217,119,6,0.10); color:#b45309; font-size:13px; font-weight:600; line-height:1.5;';
-        knopf.parentNode.insertBefore(kasten, knopf.parentNode.firstChild);
+        kasten.style.cssText = 'box-sizing:border-box; width:100%; max-width:640px;'
+            + 'margin:0 auto 12px; padding:12px 16px; border-radius:14px;'
+            + 'background:rgba(217,119,6,0.10); color:#b45309;'
+            + 'font-size:13px; font-weight:600; line-height:1.5;';
+        var zeile = knopf.parentNode;
+        if (zeile.parentNode) zeile.parentNode.insertBefore(kasten, zeile);
+        else zeile.insertBefore(kasten, zeile.firstChild);   // Rueckfallebene
     }
     if (!kasten) return pr;
 
@@ -53843,9 +53854,13 @@ function mindestImBezahlen() {
             knopf.disabled = true;
             knopf.style.opacity = '0.5';
             knopf.style.cursor = 'not-allowed';
-            // Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
-            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.textContent;
-            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' € bis zum Mindestbestellwert';
+            /* Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
+               Aber KURZ: der ganze Satz stand vorher im Knopf UND im Kasten
+               darueber, zweimal dieselbe Zahl, und im Knopf passte er nicht.
+               Der Kasten erklaert, der Knopf nennt nur noch den Betrag. */
+            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.innerHTML;
+            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' €';
+            knopf.style.fontSize = '15px';
         }
     } else {
         kasten.style.display = 'none';
@@ -53854,7 +53869,11 @@ function mindestImBezahlen() {
             knopf.disabled = false;
             knopf.style.opacity = '';
             knopf.style.cursor = '';
-            if (knopf.dataset.urtext) { knopf.textContent = knopf.dataset.urtext; delete knopf.dataset.urtext; }
+            knopf.style.fontSize = '';
+            // innerHTML, nicht textContent: im Knopf steht ein <span> mit
+            // data-i18n. Mit textContent waere es nach dem ersten Mal weg --
+            // und die Sprachumstellung haette den Knopf nicht mehr gefunden.
+            if (knopf.dataset.urtext) { knopf.innerHTML = knopf.dataset.urtext; delete knopf.dataset.urtext; }
         }
     }
     return pr;
