@@ -26,7 +26,14 @@
 
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || '';
-var AGENTUR_EMAIL = process.env.AGENTUR_EMAIL || '';
+/* Ausweichadresse, und zwar bewusst fest verdrahtet.
+   Ibo hat zweimal gefragt "wo bekomme ich den Antrag". Die ehrliche
+   Antwort war bis eben: "an die Adresse in der Netlify-Variablen
+   AGENTUR_EMAIL -- und ob die dort gesetzt ist, kann ich nicht sehen".
+   Eine Anfrage, die von einer Variablen abhaengt, an die sich niemand
+   erinnert, ist eine verlorene Anfrage. info@kiekmolin.de steht im
+   Impressum und in der Datenschutzerklaerung -- die gibt es. */
+var AGENTUR_EMAIL = process.env.AGENTUR_EMAIL || 'info@kiekmolin.de';
 
 // Optional: ohne diese beiden laeuft alles wie vorher, nur ohne CRM-Eintrag.
 var SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');

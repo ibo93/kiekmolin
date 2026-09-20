@@ -72,6 +72,33 @@ t('Bestandsschutz ist zugesagt',
 
 t('der Preis steht auf der Seite', H.indexOf('59,90') > -1, 'fehlt');
 t('der kuenftige Preis auch', H.indexOf('79,90') > -1, 'fehlt');
+// --- Der Preis aus der Sicht des Wirts -------------------------------
+// Ibo: "wie muss es noch besser verkaufen, wie Beispiel pro Tag 2 EUR".
+// Die Zahl darf nicht hingeschrieben sein -- sie muss aus PREIS_MONAT
+// fallen, sonst steht dort irgendwann 2 EUR neben einem Preis von 79,90.
+t('der Tagespreis wird gerechnet, nicht getippt',
+  B.preisProTag() === 'weniger als 2 \u20ac am Tag', B.preisProTag());
+t('und er steht auf der Seite', /[Ww]eniger als 2 \u20ac am Tag/.test(H), 'fehlt');
+t('er ist nicht schoengerechnet: 59,90/30 sind 1,9967, also NICHT "1,99"',
+  !/1,99\s*\u20ac am Tag/.test(H), 'da steht eine zu freundliche Zahl');
+t('dass der Betrag umsatzunabhaengig ist, steht dabei',
+  /Der Betrag \u00e4ndert sich nie/.test(H), 'fehlt');
+t('der Vergleich in Gaesten ist als Annahme gekennzeichnet',
+  /Bei 30 \u20ac Rechnungsdurchschnitt/.test(H), 'ohne "bei" waere es eine Behauptung');
+
+// --- Bezahlen: Stripe gehoert NICHT in den Gastweg -------------------
+// 20.09.2026: Auf der Seite stand "Karte ueber Stripe". Falsch. Stripe ist
+// bei uns ausschliesslich das Abo zwischen uns und dem Betrieb
+// (stripe-create-customer / -manage / -webhook). Der Gast zahlt bar, mit
+// Karte am Geraet des Betriebs oder ueber dessen eigenes PayPal-Konto.
+t('Stripe wird dem Gastronom nicht als Gast-Zahlart verkauft',
+  H.indexOf('Stripe') < 0, 'Stripe steht wieder drauf');
+t('die Kartenzahlung laeuft ueber das Geraet des Betriebs',
+  /eigenen Ger\u00e4t des Betriebs/.test(H), 'fehlt');
+t('PayPal ueber das eigene Konto', /eigene[ns]? PayPal-Konto/.test(H), 'fehlt');
+t('und dass das Geld nicht ueber uns laeuft',
+  /l\u00e4uft nicht \u00fcber uns/.test(H) || /fassen dein Geld nicht an/i.test(H), 'fehlt');
+
 t('nirgends ein durchgestrichener Preis',
   !/<s>|<del>|text-decoration:\s*line-through/.test(H), 'da ist ein Streichpreis');
 t('die Provision steht dabei', /0 % Provision/.test(H), 'fehlt');
