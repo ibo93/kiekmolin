@@ -99,6 +99,13 @@ function betriebeZahl(anzahl, isEn, verbinder) {
 // gastro" kann sich jemand merken, waehrend er die Haende voll hat.
 const GASTRO_SLUG = 'gastro';
 
+// Die Nummer steht an genau EINER Stelle. Angezeigt wird sie so, wie Ibo
+// sie schreibt; der Anruf-Link braucht die internationale Form ohne
+// Leerzeichen, sonst waehlt das Handy nichts.
+const KONTAKT_TEL = '0152 04132343';
+const KONTAKT_TEL_LINK = 'tel:+4915204132343';
+const KONTAKT_MAIL = 'info@kiekmolin.de';
+
 // Einfuehrungspreis fuer die ersten Betriebe.
 //
 // BEWUSST KEIN STREICHPREIS. Ein durchgestrichenes "statt 79,90" wuerde
@@ -2600,8 +2607,10 @@ function gastroLeistungen() {
       text: 'Was bei dir l\u00e4uft und wen du suchst \u2014 im selben System.' },
     { z: 'sprechblase', kopf: 'Bewertungen',
       text: 'G\u00e4ste bewerten direkt bei dir. Auf Wunsch fragst du nach dem Besuch einmal per Mail nach.' },
+    { z: 'lupe', kopf: 'Sichtbarkeits-Bericht',
+      text: 'Ein Bericht, was bei Google und bei den KI-Assistenten \u00fcber dich zu finden ist \u2014 und was sich verbessern l\u00e4sst. Ohne Aufpreis.' },
     { z: 'preis', kopf: 'Alles in einem Preis',
-      text: 'Kein Baukasten, keine Zusatzmodule. Was hier steht, ist drin.' }
+      text: 'Kein Baukasten, keine Zusatzmodule. Alles, was hier steht, ist im Monatspreis drin.' }
   ];
 }
 
@@ -2620,6 +2629,7 @@ function gastroSymbol(z) {
     welt:          '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.2 2.3 3.4 5.3 3.4 8.5s-1.2 6.2-3.4 8.5c-2.2-2.3-3.4-5.3-3.4-8.5S9.8 5.8 12 3.5z"/>',
     megafon:       '<path d="M4 10v4a1.5 1.5 0 0 0 1.5 1.5H8l6 4V4.5l-6 4H5.5A1.5 1.5 0 0 0 4 10z"/><path d="M17.5 9.5a4 4 0 0 1 0 5"/>',
     sprechblase:   '<path d="M20.5 11.5c0 4-3.8 7.2-8.5 7.2-1 0-2-.15-2.9-.42L4 20.5l1.4-3.6C4.1 15.5 3.5 13.6 3.5 11.5c0-4 3.8-7.2 8.5-7.2s8.5 3.2 8.5 7.2z"/>',
+    lupe:          '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.4 15.4l5.1 5.1"/><path d="M8 10.5h5M10.5 8v5"/>',
     preis:         '<path d="M3.5 11.2V5.5A2 2 0 0 1 5.5 3.5h5.7a2 2 0 0 1 1.4.6l7.3 7.3a2 2 0 0 1 0 2.8l-5.7 5.7a2 2 0 0 1-2.8 0L4.1 12.6a2 2 0 0 1-.6-1.4z"/><path d="M8 8h.01"/>'
   };
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
@@ -2657,6 +2667,14 @@ function buildGastroFaqs() {
       a: 'Nein. Der Gast \u00f6ffnet einen Link oder scannt den QR-Code am Tisch. Es gibt nichts zu installieren.' },
     { q: 'Wie lange bin ich gebunden?',
       a: 'Monatlich k\u00fcndbar, keine Mindestlaufzeit.' },
+    { q: 'Was ist der Sichtbarkeits-Bericht, und kostet der was?',
+      a: 'Er kostet nichts \u2014 jeder Betrieb bei ' + BRAND + ' bekommt ihn. Darin steht, ob dich die '
+       + 'KI-Assistenten nennen, was in deinem Google-Profil fehlt, was an deiner Karte bremst, ob deine '
+       + 'Texte maschinenlesbar sind, und wie das im Vergleich zum Vormonat aussieht.' },
+    { q: 'Was kostet der Telefonassistent?',
+      a: 'Der ist nicht im Monatspreis drin, er kostet extra. Was genau, h\u00e4ngt davon ab, wie viel bei dir '
+       + 'angerufen wird \u2014 sag uns Bescheid, dann rechnen wir es dir aus. Er meldet sich \u00fcbrigens von '
+       + 'sich aus als digitaler Assistent, er tut nicht so, als w\u00e4re er ein Mensch.' },
     { q: 'Wer steckt dahinter?',
       a: BRAND + ' wird in Ostfriesland gemacht und betreut. Wenn etwas klemmt, ist jemand da, der vorbeikommen kann.' }
   ];
@@ -2678,7 +2696,7 @@ function buildGastroFaqs() {
 // es waere auf einer Verkaufsseite auch billig. Stattdessen Strich-Symbole
 // aus gastroSymbol(), die sich mit dem Text einfaerben.
 
-var GASTRO_CSS = "\n:root{\n  --gr:#003D33;--gr-hell:#1a5f4a;--gr-tief:#00251e;\n  --gold:#C5A233;--gold-hell:#FFD54F;\n  --creme:#f8f9fa;--sand:#edeeef;--kohle:#191c1d;--schiefer:#404946;\n  --flaeche:#ffffff;--grund:#f8f9fa;--linie:rgba(0,37,30,.10);\n  --s-sm:0 2px 8px rgba(0,37,30,.04);--s-md:0 8px 24px -4px rgba(0,37,30,.07);\n  --s-lg:0 24px 48px -8px rgba(0,37,30,.10);--s-xl:0 32px 64px -12px rgba(0,37,30,.14);\n  --r-sm:12px;--r-md:16px;--r-lg:32px;--r-xl:48px;\n  --weich:all .22s cubic-bezier(.4,0,.2,1);--pille-schrift:#ffffff;\n}\n@media (prefers-color-scheme:dark){:root{\n  --gr:#9cd1c3;--gr-hell:#b8eddf;--gr-tief:#003D33;--gold:#FFD54F;\n  --creme:#0a1612;--sand:#111f1a;--kohle:#e8eeec;--schiefer:#9ca8a4;\n  --flaeche:#1a2e27;--grund:#0a1612;--linie:rgba(255,255,255,.08);\n  --s-sm:0 2px 8px rgba(0,0,0,.4);--s-md:0 8px 24px -4px rgba(0,0,0,.45);\n  --s-lg:0 24px 48px -8px rgba(0,0,0,.5);--s-xl:0 32px 64px -12px rgba(0,0,0,.55);--pille-schrift:#00251e;\n}}\n*{box-sizing:border-box}\nhtml{scroll-behavior:smooth}\nbody{margin:0;background:var(--grund);color:var(--kohle);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}\nh1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.06;margin:0}\np{margin:0 0 14px}\na{color:inherit}\n.huelle{max-width:1080px;margin:0 auto;padding:0 20px}\n.eng{max-width:760px}\n.schmal{max-width:760px;margin-right:auto}\n.kopf{position:sticky;top:0;z-index:20;background:var(--grund);border-bottom:1px solid var(--linie)}\n.kopf .huelle{display:flex;align-items:center;justify-content:space-between;height:64px;gap:14px}\n.wortmarke{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}\n.pille{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:13px 28px;border-radius:9999px;font-weight:700;font-size:16px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:var(--weich);font-family:inherit}\n.pille.voll{background:var(--gr);color:var(--pille-schrift);box-shadow:var(--s-md)}\n.pille.voll:hover{transform:translateY(-2px);box-shadow:var(--s-lg)}\n.pille.gold{background:var(--gold-hell);color:#00251e;box-shadow:0 10px 26px -8px rgba(197,162,51,.55)}\n.pille.gold:hover{transform:translateY(-2px);box-shadow:0 16px 34px -10px rgba(197,162,51,.65)}\n.pille.geist{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}\n.pille.geist:hover{background:rgba(255,255,255,.12)}\n.pille:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}\n.held{position:relative;background:linear-gradient(160deg,#00352c 0%,#00251e 62%,#001a15 100%);color:#f2f7f5;padding:78px 0 132px;overflow:hidden}\n.held::after{content:'';position:absolute;inset:auto -10% -55% 38%;height:72%;background:radial-gradient(ellipse at center,rgba(197,162,51,.22),transparent 68%);pointer-events:none}\n.held .huelle{position:relative;z-index:1}\n.held h1{font-size:clamp(34px,6.4vw,62px);color:#fff;max-width:15ch}\n.held .unter{font-size:clamp(17px,2.2vw,21px);color:rgba(255,255,255,.80);max-width:46ch;margin:20px 0 30px}\n.marken{display:flex;flex-wrap:wrap;gap:10px;margin:32px 0 0;padding:0;list-style:none}\n.marken li{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:9999px;padding:9px 17px;font-size:14px;font-weight:600;color:rgba(255,255,255,.94)}\n.knopfreihe{display:flex;flex-wrap:wrap;gap:12px}\n.preis{margin:-86px auto 0;position:relative;z-index:5;background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-xl);box-shadow:var(--s-xl);padding:36px 32px}\n.preis .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:clamp(46px,9vw,72px);line-height:1;letter-spacing:-.05em;color:var(--gr)}\n.preis .je{font-size:17px;font-weight:600;color:var(--schiefer);margin-left:8px;letter-spacing:0}\n.preis .band{margin:22px 0 0;background:var(--sand);border-left:4px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:16px 19px;font-weight:600}\n.preis .klein{margin:14px 0 0;font-size:15px;color:var(--schiefer)}\nsection{padding:62px 0}\n.titel{font-size:clamp(25px,4vw,36px);margin-bottom:8px}\n.vorsatz{color:var(--schiefer);margin-bottom:32px;max-width:52ch}\n.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}\n.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:26px;box-shadow:var(--s-sm);transition:var(--weich)}\n.karte:hover{transform:translateY(-3px);box-shadow:var(--s-lg)}\n.karte h3{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:16px 0 7px}\n.karte p{margin:0;font-size:15.5px;color:var(--schiefer);line-height:1.6}\n.zeichen{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;background:rgba(0,61,51,.09);color:var(--gr)}\n.zeichen svg{width:23px;height:23px}\n.nicht{background:var(--sand)}\n.nicht .karte{background:transparent;border:0;box-shadow:none;padding:0}\n.nicht .karte:hover{transform:none;box-shadow:none}\n.nicht .zeichen{background:rgba(197,162,51,.22);color:var(--gr)}\n@media (min-width:900px){.nicht .raster{grid-template-columns:1fr 1fr;gap:26px 34px}}\n.anmelden{background:linear-gradient(165deg,#00352c,#00251e);color:#f2f7f5;border-radius:var(--r-xl);padding:44px 34px;box-shadow:var(--s-xl)}\n.anmelden .titel{color:#fff}\n.anmelden .vorsatz{color:rgba(255,255,255,.78)}\n.feldsatz{display:grid;gap:15px;max-width:560px;border:0;padding:0;margin:0}\n.feld{display:grid;gap:6px;font-size:14px;font-weight:600;color:rgba(255,255,255,.88)}\n.feld input,.feld textarea{font:inherit;font-weight:400;padding:14px 16px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;transition:var(--weich);width:100%}\n.feld input::placeholder,.feld textarea::placeholder{color:rgba(255,255,255,.42)}\n.feld input:focus,.feld textarea:focus{background:rgba(255,255,255,.14);border-color:var(--gold-hell);outline:0}\n.hinweis{min-height:22px;margin:0;font-size:15px;font-weight:600}\n.klein-weiss{font-size:13px;color:rgba(255,255,255,.62);margin:0}\n.klein-weiss a{color:rgba(255,255,255,.88)}\n.topf{position:absolute;left:-9999px;top:-9999px;width:1px;height:0;overflow:hidden}\n.frage{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden}\n.frage summary{cursor:pointer;padding:19px 22px;font-weight:700;font-size:16.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;transition:var(--weich)}\n.frage summary::-webkit-details-marker{display:none}\n.frage summary::after{content:'';width:10px;height:10px;flex:0 0 auto;border-right:2px solid var(--gr);border-bottom:2px solid var(--gr);transform:rotate(45deg) translateY(-2px);transition:var(--weich)}\n.frage[open] summary::after{transform:rotate(225deg) translateY(2px)}\n.frage summary:hover{background:rgba(0,61,51,.05)}\n.frage .antwort{padding:0 22px 20px;color:var(--schiefer);margin:0}\n.fuss{border-top:1px solid var(--linie);padding:34px 0 50px;color:var(--schiefer);font-size:14.5px}\n.fuss a{margin-right:18px;text-decoration:none;font-weight:600}\n.fuss a:hover{text-decoration:underline}\n@media (max-width:640px){\n  body{font-size:16px}\n  .held{padding:54px 0 110px}\n  section{padding:46px 0}\n  .preis{padding:28px 22px;border-radius:var(--r-lg)}\n  .anmelden{padding:32px 22px;border-radius:var(--r-lg)}\n  .knopfreihe .pille{flex:1 1 100%}\n}\n@media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto}}\n";
+var GASTRO_CSS = "\n:root{\n  --gr:#003D33;--gr-hell:#1a5f4a;--gr-tief:#00251e;\n  --gold:#C5A233;--gold-hell:#FFD54F;\n  --creme:#f8f9fa;--sand:#edeeef;--kohle:#191c1d;--schiefer:#404946;\n  --flaeche:#ffffff;--grund:#f8f9fa;--linie:rgba(0,37,30,.10);\n  --s-sm:0 2px 8px rgba(0,37,30,.04);--s-md:0 8px 24px -4px rgba(0,37,30,.07);\n  --s-lg:0 24px 48px -8px rgba(0,37,30,.10);--s-xl:0 32px 64px -12px rgba(0,37,30,.14);\n  --r-sm:12px;--r-md:16px;--r-lg:32px;--r-xl:48px;\n  --weich:all .22s cubic-bezier(.4,0,.2,1);--pille-schrift:#ffffff;\n}\n@media (prefers-color-scheme:dark){:root{\n  --gr:#9cd1c3;--gr-hell:#b8eddf;--gr-tief:#003D33;--gold:#FFD54F;\n  --creme:#0a1612;--sand:#111f1a;--kohle:#e8eeec;--schiefer:#9ca8a4;\n  --flaeche:#1a2e27;--grund:#0a1612;--linie:rgba(255,255,255,.08);\n  --s-sm:0 2px 8px rgba(0,0,0,.4);--s-md:0 8px 24px -4px rgba(0,0,0,.45);\n  --s-lg:0 24px 48px -8px rgba(0,0,0,.5);--s-xl:0 32px 64px -12px rgba(0,0,0,.55);--pille-schrift:#00251e;\n}}\n*{box-sizing:border-box}\nhtml{scroll-behavior:smooth}\nbody{margin:0;background:var(--grund);color:var(--kohle);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}\nh1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.06;margin:0}\np{margin:0 0 14px}\na{color:inherit}\n.huelle{max-width:1080px;margin:0 auto;padding:0 20px}\n.eng{max-width:760px}\n/* Die klebende Kopfzeile ist 64px hoch. Ohne das hier verdeckt sie\n   beim Sprung auf einen Anker dessen obere Kante. */\n#anmelden,#drin{scroll-margin-top:84px}\n.schmal{max-width:760px;margin-right:auto}\n.kopf{position:sticky;top:0;z-index:20;background:var(--grund);border-bottom:1px solid var(--linie)}\n.kopf .huelle{display:flex;align-items:center;justify-content:space-between;height:64px;gap:14px}\n.wortmarke{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}\n.pille{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:13px 28px;border-radius:9999px;font-weight:700;font-size:16px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:var(--weich);font-family:inherit}\n.pille.voll{background:var(--gr);color:var(--pille-schrift);box-shadow:var(--s-md)}\n.pille.voll:hover{transform:translateY(-2px);box-shadow:var(--s-lg)}\n.pille.gold{background:var(--gold-hell);color:#00251e;box-shadow:0 10px 26px -8px rgba(197,162,51,.55)}\n.pille.gold:hover{transform:translateY(-2px);box-shadow:0 16px 34px -10px rgba(197,162,51,.65)}\n.pille.geist{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}\n.pille.geist:hover{background:rgba(255,255,255,.12)}\n.pille:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}\n.held{position:relative;background:linear-gradient(160deg,#00352c 0%,#00251e 62%,#001a15 100%);color:#f2f7f5;padding:78px 0 132px;overflow:hidden}\n.held::after{content:'';position:absolute;inset:auto -10% -55% 38%;height:72%;background:radial-gradient(ellipse at center,rgba(197,162,51,.22),transparent 68%);pointer-events:none}\n.held .huelle{position:relative;z-index:1}\n.held h1{font-size:clamp(34px,6.4vw,62px);color:#fff;max-width:15ch}\n.held .unter{font-size:clamp(17px,2.2vw,21px);color:rgba(255,255,255,.80);max-width:46ch;margin:20px 0 30px}\n.marken{display:flex;flex-wrap:wrap;gap:10px;margin:32px 0 0;padding:0;list-style:none}\n.marken li{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:9999px;padding:9px 17px;font-size:14px;font-weight:600;color:rgba(255,255,255,.94)}\n.knopfreihe{display:flex;flex-wrap:wrap;gap:12px}\n.preis{margin:-86px auto 0;position:relative;z-index:5;background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-xl);box-shadow:var(--s-xl);padding:36px 32px}\n.preis .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:clamp(46px,9vw,72px);line-height:1;letter-spacing:-.05em;color:var(--gr)}\n.preis .je{font-size:17px;font-weight:600;color:var(--schiefer);margin-left:8px;letter-spacing:0}\n.preis .band{margin:22px 0 0;background:var(--sand);border-left:4px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:16px 19px;font-weight:600}\n.preis .klein{margin:14px 0 0;font-size:15px;color:var(--schiefer)}\nsection{padding:62px 0}\n.titel{font-size:clamp(25px,4vw,36px);margin-bottom:8px}\n.vorsatz{color:var(--schiefer);margin-bottom:32px;max-width:52ch}\n.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}\n.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:26px;box-shadow:var(--s-sm);transition:var(--weich)}\n.karte:hover{transform:translateY(-3px);box-shadow:var(--s-lg)}\n.karte h3{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:16px 0 7px}\n.karte p{margin:0;font-size:15.5px;color:var(--schiefer);line-height:1.6}\n.zeichen{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;background:rgba(0,61,51,.09);color:var(--gr)}\n.zeichen svg{width:23px;height:23px}\n.dazu{background:var(--flaeche);border:2px solid var(--gold);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-md)}\n.extra{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-sm)}\n.marke-gold{display:inline-block;background:var(--gold-hell);color:#00251e;border-radius:9999px;padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px;letter-spacing:.01em}\n.marke-still{display:inline-block;background:rgba(0,61,51,.09);color:var(--gr);border-radius:9999px;padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px}\n.haken{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:11px}\n.haken li{position:relative;padding-left:32px;color:var(--schiefer)}\n.haken li::before{content:\"\";position:absolute;left:4px;top:.5em;width:9px;height:5px;border-left:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(-45deg)}\n.dazu .klein{font-size:14px;color:var(--schiefer)}\n@media (max-width:640px){.dazu,.extra{padding:26px 22px}}\n.nicht{background:var(--sand)}\n.nicht .karte{background:transparent;border:0;box-shadow:none;padding:0}\n.nicht .karte:hover{transform:none;box-shadow:none}\n.nicht .zeichen{background:rgba(197,162,51,.22);color:var(--gr)}\n@media (min-width:900px){.nicht .raster{grid-template-columns:1fr 1fr;gap:26px 34px}}\n.anmelden{background:linear-gradient(165deg,#00352c,#00251e);color:#f2f7f5;border-radius:var(--r-xl);padding:44px 34px;box-shadow:var(--s-xl)}\n.anmelden .titel{color:#fff}\n.anmelden .vorsatz{color:rgba(255,255,255,.78)}\n.feldsatz{display:grid;gap:15px;max-width:560px;border:0;padding:0;margin:0}\n.feld{display:grid;gap:6px;font-size:14px;font-weight:600;color:rgba(255,255,255,.88)}\n.feld input,.feld textarea{font:inherit;font-weight:400;padding:14px 16px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;transition:var(--weich);width:100%}\n.feld input::placeholder,.feld textarea::placeholder{color:rgba(255,255,255,.42)}\n.feld input:focus,.feld textarea:focus{background:rgba(255,255,255,.14);border-color:var(--gold-hell);outline:0}\n.hinweis{min-height:22px;margin:0;font-size:15px;font-weight:600}\n.klein-weiss{font-size:13px;color:rgba(255,255,255,.62);margin:0}\n.klein-weiss a{color:rgba(255,255,255,.88)}\n.direkt{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:26px 0 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.14)}\n.oder{font-size:14px;font-weight:600;color:rgba(255,255,255,.7)}\n.anmelden .pille.geist{border-color:rgba(255,255,255,.35);color:#fff;font-size:15px;padding:11px 20px;min-height:44px}\n.anmelden .pille.geist:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}\n.topf{position:absolute;left:-9999px;top:-9999px;width:1px;height:0;overflow:hidden}\n.frage{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden}\n.frage summary{cursor:pointer;padding:19px 22px;font-weight:700;font-size:16.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;transition:var(--weich)}\n.frage summary::-webkit-details-marker{display:none}\n.frage summary::after{content:'';width:10px;height:10px;flex:0 0 auto;border-right:2px solid var(--gr);border-bottom:2px solid var(--gr);transform:rotate(45deg) translateY(-2px);transition:var(--weich)}\n.frage[open] summary::after{transform:rotate(225deg) translateY(2px)}\n.frage summary:hover{background:rgba(0,61,51,.05)}\n.frage .antwort{padding:0 22px 20px;color:var(--schiefer);margin:0}\n.fuss{border-top:1px solid var(--linie);padding:34px 0 50px;color:var(--schiefer);font-size:14.5px}\n.fuss a{margin-right:18px;text-decoration:none;font-weight:600}\n.fuss a:hover{text-decoration:underline}\n@media (max-width:640px){\n  body{font-size:16px}\n  .held{padding:54px 0 110px}\n  section{padding:46px 0}\n  .preis{padding:28px 22px;border-radius:var(--r-lg)}\n  .anmelden{padding:32px 22px;border-radius:var(--r-lg)}\n  .knopfreihe .pille{flex:1 1 100%}\n}\n@media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto}}\n";
 
 var GASTRO_JS = "(function(){\n  var f=document.getElementById('gastroForm');if(!f)return;\n  var h=document.getElementById('gastroHinweis'),b=document.getElementById('gastroSenden');\n  function sag(txt,farbe){h.textContent=txt;h.style.color=farbe;}\n  f.addEventListener('submit',function(e){\n    e.preventDefault();\n    var d={quelle:'gastro'};\n    Array.prototype.forEach.call(f.elements,function(el){if(el.name)d[el.name]=el.value;});\n    b.disabled=true;sag('Wird gesendet \\u2026','rgba(255,255,255,.75)');\n    fetch('/.netlify/functions/agentur-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})\n      .then(function(r){return r.json().catch(function(){return null;});})\n      .then(function(a){\n        if(a&&a.ok){f.reset();sag('Angekommen. Wir melden uns \\u2014 meistens noch heute.','#9ee7c8');}\n        else if(a&&a.mailAus&&a.imCrm){f.reset();sag('Angekommen \\u2014 wir melden uns. Falls es eilt: info@kiekmolin.de','#9ee7c8');}\n        else{b.disabled=false;sag('Das hat gerade nicht geklappt. Schreib uns bitte an info@kiekmolin.de','#ffb4a8');}\n      })\n      .catch(function(){b.disabled=false;sag('Keine Verbindung. Schreib uns bitte an info@kiekmolin.de','#ffb4a8');});\n  });\n})();";
 function gastroFormular() {
@@ -2714,6 +2732,18 @@ function gastroFormular() {
               '<a href="/?page=datenschutz">Datenschutz</a></p>' +
           '</fieldset>' +
         '</form>' +
+        // Viele Wirte tippen kein Formular aus. Der direkte Weg steht
+        // deshalb gleich daneben und nicht im Kleingedruckten.
+        '<div class="direkt">' +
+          '<span class="oder">Lieber direkt?</span>' +
+          '<a class="pille geist" href="' + KONTAKT_TEL_LINK + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+            'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:19px;height:19px;">' +
+            '<path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/>' +
+            '</svg>' + KONTAKT_TEL +
+          '</a>' +
+          '<a class="pille geist" href="mailto:' + KONTAKT_MAIL + '">' + KONTAKT_MAIL + '</a>' +
+        '</div>' +
       '</div>' +
     '</section>';
 }
@@ -2774,6 +2804,37 @@ function generateGastroPage() {
       + '</div>'
     + '</section>';
 
+  // Zwei Bloecke, die nicht in das Raster oben gehoeren: einer, der ohne
+  // Aufpreis dazukommt, und einer, der extra kostet. Beides muss auf den
+  // ersten Blick unterscheidbar sein -- sonst wird aus "alles in einem
+  // Preis" eine Falle.
+  const dazu = ''
+    + '<section class="huelle"><div class="dazu">'
+      + '<p class="marke-gold">Ohne Aufpreis dabei</p>'
+      + '<h2 class="titel">Der Sichtbarkeits-Bericht</h2>'
+      + '<p class="vorsatz">Jeder Betrieb bei ' + escapeHtml(BRAND) + ' bekommt ihn. '
+      + 'Er zeigt schwarz auf wei\u00df, wo du im Netz stehst \u2014 und was sich daran drehen l\u00e4sst.</p>'
+      + '<ul class="haken">'
+        + '<li>Wirst du genannt, wenn jemand einen KI-Assistenten nach Essen in deinem Ort fragt? Und bei welchen?</li>'
+        + '<li>Was fehlt in deinem Google-Profil \u2014 Fotos, Kategorien, Beitr\u00e4ge.</li>'
+        + '<li>Was an deiner Karte bremst: tote Gerichte, fehlende Beschreibungen, Reihenfolge, L\u00e4nge.</li>'
+        + '<li>Ob deine Texte f\u00fcr Maschinen lesbar sind \u2014 danach richten sich die Assistenten.</li>'
+        + '<li>Und der Vergleich zum Vormonat: besser oder schlechter geworden.</li>'
+      + '</ul>'
+      + '<p class="klein" style="margin-top:6px;">Keine Zahlen ohne Beleg. Was nicht messbar ist, steht als nicht messbar drin.</p>'
+    + '</div></section>';
+
+  const extra = ''
+    + '<section class="huelle"><div class="extra">'
+      + '<p class="marke-still">Kostet extra</p>'
+      + '<h2 class="titel">Der Telefonassistent</h2>'
+      + '<p class="vorsatz">Wenn mitten im Mittagsgesch\u00e4ft niemand rangehen kann, geht er ran. '
+      + 'Er nimmt Reservierungen und Bestellungen auf, notiert R\u00fcckrufe und stellt auf Wunsch zu dir durch.</p>'
+      + '<p style="margin:0 0 18px;color:var(--schiefer);">Und er sagt von sich aus, dass er ein digitaler Assistent ist \u2014 '
+      + 'kein Mensch, der so tut als ob. Das ist uns wichtig und seit 2026 auch Vorschrift.</p>'
+      + '<a class="pille voll" href="#anmelden">Was das kostet, sagen wir dir</a>'
+    + '</div></section>';
+
   const nicht = ''
     + '<section class="nicht"><div class="huelle">'
       + '<h2 class="titel">Was wir nicht tun</h2>'
@@ -2833,14 +2894,15 @@ function generateGastroPage() {
       + '<a class="wortmarke" href="/">' + escapeHtml(BRAND) + '</a>'
       + '<a class="pille voll" href="#anmelden" style="padding:9px 20px;min-height:40px;font-size:15px;">Eintragen</a>'
     + '</div></div>'
-    + held + preis + drin + nicht + fragen + gastroFormular()
+    + held + preis + drin + dazu + extra + nicht + fragen + gastroFormular()
     + '<footer class="fuss"><div class="huelle">'
       + '<p style="margin:0 0 10px;">'
       + '<a href="/">Zur\u00fcck zu ' + escapeHtml(BRAND) + '</a>'
       + '<a href="/?page=impressum">Impressum</a>'
       + '<a href="/?page=datenschutz">Datenschutz</a>'
       + '</p>'
-      + '<p style="margin:0;">Gemacht in Ostfriesland.</p>'
+      + '<p style="margin:0;">Gemacht in Ostfriesland. Fragen? '
+      + '<a href="' + KONTAKT_TEL_LINK + '">' + KONTAKT_TEL + '</a></p>'
     + '</div></footer>'
     + '<script>' + GASTRO_JS + '<\/script>\n'
     + '</body>\n</html>\n';

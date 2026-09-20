@@ -110,6 +110,17 @@ t('und sagt dabei, woher es kommt',
   /quelle\s*:\s*['"]gastro['"]/.test(H), 'ohne Herkunft');
 t('der Datenschutz ist verlinkt', /page=datenschutz/.test(H), 'kein Hinweis');
 
+// Viele Wirte tippen kein Formular aus. Der Anruf muss ein echter Link
+// sein -- auf dem Handy drueckt man drauf und es waehlt.
+t('die Telefonnummer steht auf der Seite', /0152 04132343/.test(H), 'fehlt');
+t('und zwar als anwaehlbarer Link',
+  /href="tel:\+4915204132343"/.test(H), 'nur Text, das Handy waehlt nichts');
+t('die Nummer im Link hat keine Leerzeichen und kein fuehrendes 0',
+  !/href="tel:[^"]*\s/.test(H) && !/href="tel:0/.test(H),
+  (H.match(/href="tel:[^"]*"/) || [''])[0]);
+t('die E-Mail ist ebenfalls anklickbar',
+  /href="mailto:info@kiekmolin\.de"/.test(H), 'fehlt');
+
 // Der Honigtopf MUSS unsichtbar sein.
 var umfeld = H.slice(Math.max(0, H.indexOf('firmen_webseite') - 260), H.indexOf('firmen_webseite'));
 t('es gibt einen Honigtopf', H.indexOf('firmen_webseite') > -1, 'fehlt');
@@ -197,6 +208,49 @@ var krumen = schemata.filter(function (x) { return x['@type'] === 'BreadcrumbLis
 t('der Breadcrumb ist da', !!krumen, 'fehlt');
 t('und zeigt auf die Startseite', !!krumen && krumen.itemListElement[0].item === 'https://kiekmolin.de/',
   krumen && krumen.itemListElement[0].item);
+
+// ====================================================================
+console.log('\n-- 3c. Was dazukommt und was extra kostet --');
+// ====================================================================
+// Der Sichtbarkeits-Bericht ist ohne Aufpreis dabei, der Telefonassistent
+// kostet extra. Wenn das auf der Seite verschwimmt, wird aus "alles in
+// einem Preis" eine Falle -- und der Wirt merkt es erst auf der Rechnung.
+function block(html, klasse) {
+    var i = html.indexOf('class="' + klasse + '"');
+    if (i < 0) return '';
+    return html.slice(i, html.indexOf('</section>', i));
+}
+var kasten = block(H, 'dazu');
+var extra = block(H, 'extra');
+
+t('der Sichtbarkeits-Bericht hat einen eigenen Block', kasten.length > 200, kasten.length);
+t('er ist als OHNE AUFPREIS gekennzeichnet', /Ohne Aufpreis/.test(kasten), kasten.slice(0, 160));
+t('und nennt die KI-Assistenten', /KI-Assistenten/.test(kasten), 'fehlt');
+t('und das Google-Profil', /Google-Profil/.test(kasten), 'fehlt');
+t('und den Vergleich zum Vormonat', /Vormonat/.test(kasten), 'fehlt');
+t('im Bericht-Block steht kein Preis',
+  !/\d+,\d\d\s*\u20ac/.test(kasten), 'da steht ein Betrag, obwohl er nichts kostet');
+
+t('der Telefonassistent hat einen eigenen Block', extra.length > 200, extra.length);
+t('er ist als KOSTET EXTRA gekennzeichnet', /Kostet extra/.test(extra), extra.slice(0, 160));
+t('mit dem Hinweis, dass er sich als Assistent zu erkennen gibt',
+  /digitaler Assistent/.test(extra), 'fehlt');
+t('und OHNE erfundenen Preis',
+  !/\d+,\d\d\s*\u20ac/.test(extra) && !/\d+\s*\u20ac/.test(extra),
+  'da steht ein Betrag, den mir niemand gesagt hat');
+
+t('die Leistungsliste behauptet nicht mehr, ALLES sei drin',
+  /im Monatspreis drin/.test(H) && !/Was hier steht, ist drin/.test(H),
+  'der Satz vertraegt sich nicht mit einem Zusatz, der extra kostet');
+
+var f = B.buildGastroFaqs();
+t('es gibt eine Frage zum Bericht',
+  f.some(function (x) { return /Sichtbarkeits-Bericht/.test(x.q); }), 'fehlt');
+t('und eine zum Preis des Telefonassistenten',
+  f.some(function (x) { return /Telefonassistent/.test(x.q); }), 'fehlt');
+t('die Antwort dazu sagt klar, dass er NICHT im Monatspreis ist',
+  f.some(function (x) { return /Telefonassistent/.test(x.q) && /nicht im Monatspreis/.test(x.a); }),
+  'die Antwort ist nicht eindeutig');
 
 // ====================================================================
 console.log('\n-- 4. Der Weg dorthin --');
