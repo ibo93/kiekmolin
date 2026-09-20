@@ -76,6 +76,16 @@ t('nirgends ein durchgestrichener Preis',
   !/<s>|<del>|text-decoration:\s*line-through/.test(H), 'da ist ein Streichpreis');
 t('die Provision steht dabei', /0 % Provision/.test(H), 'fehlt');
 
+// Ibo am 20.09.2026 beim Lesen: "es steht nur fuer bestellen, nicht fuer
+// reservieren". Ein Gasthaus ohne Lieferung las daraus, der Preis betreffe
+// es nicht.
+t('der Preis gilt sichtbar auch fuer Reservierungen',
+  /egal wie viel bestellt oder reserviert wird/.test(H),
+  (H.match(/egal wie viel[^<.]{0,40}/) || [''])[0]);
+t('die Reservierung steht auch in der Kurzbeschreibung fuer Google',
+  /name="description"[^>]*Tischreservierung/.test(H),
+  (H.match(/name="description" content="[^"]{0,120}/) || [''])[0]);
+
 // Nichts erfinden: keine Kundenzahl, keine Sterne.
 t('keine erfundene Kundenzahl',
   !/(über|mehr als)\s+\d+\s+(Betriebe|Restaurants|Kunden)/i.test(H), 'da steht eine Zahl');
@@ -144,7 +154,7 @@ t('mit hoher Gewichtung',
 console.log('\n-- 5. Der Briefkasten, mit gestellter Post --');
 // ====================================================================
 
-function briefkasten(nutzlast) {
+function briefkasten(nutzlast, ohne) {
     var gesendet = [];
     var altFetch = global.fetch;
     var alt = {};
@@ -154,6 +164,7 @@ function briefkasten(nutzlast) {
     process.env.RESEND_API_KEY = 'k'; process.env.EMAIL_FROM = 'a@b.de';
     process.env.AGENTUR_EMAIL = 'ibo@example.de';
     process.env.SUPABASE_URL = 'https://test.supabase.co'; process.env.SUPABASE_ANON_KEY = 'anon';
+    (ohne || []).forEach(function (k) { delete process.env[k]; });
     delete require.cache[require.resolve(path.join(KMI, 'netlify', 'functions', 'agentur-lead.js'))];
 
     global.fetch = function (url, opt) {
@@ -216,7 +227,24 @@ var BASIS = { betrieb: 'Testhaus', ort: 'Greetsiel', name: 'Ibo', kontakt: 'ibo@
           'gesendet: ' + e.gesendet.length);
     }
 
-    // f) Ohne Betrieb geht nichts
+    // f) Der Mailweg klemmt -- die Anfrage darf trotzdem NICHT verloren gehen.
+    //    Vorher stand an dieser Stelle ein return VOR dem Schreiben ins CRM:
+    //    fehlte eine einzige Netlify-Variable, verschwand jede Anfrage
+    //    spurlos, und gemerkt haette man es erst, wenn sich jemand
+    //    beschwert, dass nie eine Antwort kam.
+    var mailAus = await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS), ['RESEND_API_KEY']);
+    t('ohne Mail-Schluessel antwortet die Function trotzdem mit 200',
+      mailAus.antwort.statusCode === 200, mailAus.antwort.statusCode);
+    var kOhne = JSON.parse(mailAus.antwort.body);
+    t('und sagt ehrlich, dass keine Mail rausging', kOhne.mailAus === true, kOhne);
+    t('die Anfrage liegt aber im CRM', kOhne.imCrm === true, kOhne);
+    t('es wurde wirklich geschrieben',
+      mailAus.gesendet.filter(function (r) { return /anfragen/.test(r.url); }).length === 1,
+      mailAus.gesendet.map(function (r) { return r.url; }).join(', '));
+    t('und keine Mail versucht',
+      mailAus.gesendet.filter(function (r) { return /resend/.test(r.url); }).length === 0, 'doch');
+
+    // g) Ohne Betrieb geht nichts
     var f = await briefkasten({ quelle: 'gastro', kontakt: 'a@b.de' });
     t('ohne Betrieb: 400 und nichts verschickt',
       f.antwort.statusCode === 400 && f.gesendet.length === 0, f.antwort.statusCode);

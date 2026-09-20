@@ -82,7 +82,11 @@ var kasten = pros.slice(pros.indexOf('Ist das dein Restaurant'),
 t('der Kasten ist da', kasten.length > 50, kasten.slice(0, 60));
 t('0 % Provision steht drin', /0 % Provision/.test(kasten), kasten);
 t('der Monatspreis steht drin', /59,90 €/.test(kasten));
-t('und dass er FEST ist', /fest, egal wie viel bestellt wird/.test(kasten));
+// 20.09.2026 ergaenzt: Der Preis gilt auch fuer Betriebe, die NUR Tische
+// vergeben. Vorher stand hier nur "egal wie viel bestellt wird" -- ein
+// Gasthaus ohne Lieferung las daraus, der Preis betreffe es nicht.
+t('und dass er FEST ist, fuer Bestellungen wie fuer Reservierungen',
+  /fest, egal wie viel bestellt oder reserviert wird/.test(kasten), kasten.slice(0, 300));
 t('mit der Folge daraus, nicht nur dem Schlagwort',
   /bleibt der volle Betrag beim Betrieb/.test(kasten), kasten.slice(0, 260));
 

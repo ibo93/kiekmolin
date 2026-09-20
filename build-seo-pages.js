@@ -57,9 +57,16 @@ const PREIS_PROVISION = '0 %';
 // Der Eintrag ist kostenlos. Bestellungen und Reservierungen annehmen
 // kostet. Beides in EINEM Satz zu mischen war der Fehler -- "kostenlos"
 // und ein Monatspreis im selben Absatz liest sich wie eine Falle.
+//
+// 20.09.2026: "egal wie viel bestellt wird" stand hier allein. Ibo beim
+// Lesen der Gastro-Seite: "es steht nur fuer bestellen, nicht fuer
+// reservieren". Ein Gasthaus, das gar nicht liefert und nur Tische
+// vergibt, las daraus, dass der Preis es nicht betrifft. Jetzt stehen
+// beide Wege drin -- und zwar an der EINEN Stelle, von der die ~900
+// Betriebsseiten und die Gastro-Seite es holen.
 function preisSatz() {
   return PREIS_PROVISION + ' Provision. ' + PREIS_MONAT + ' im Monat, fest – '
-       + 'egal wie viel bestellt wird.';
+       + 'egal wie viel bestellt oder reserviert wird.';
 }
 
 function preisSatzEn() {
@@ -2166,7 +2173,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       '<p style="margin:0 0 10px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
       'Der Eintrag ist <strong>kostenlos</strong>.</p>' +
       '<p style="margin:0 0 14px;color:#444;">Wer Online-Bestellungen und Tisch-Reservierungen annehmen will, ' +
-      'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt wird. ' +
+      'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt oder reserviert wird. ' +
       '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
       'Ohne App, jederzeit kündbar.</p>' +
       '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
@@ -2606,7 +2613,7 @@ function gastroNichtDas() {
 function buildGastroFaqs() {
   return [
     { q: 'Was kostet ' + BRAND + '?',
-      a: PREIS_MONAT + ' im Monat, fest \u2014 egal wie viel bestellt wird. ' + einstiegSatz()
+      a: PREIS_MONAT + ' im Monat, fest \u2014 egal wie viel bestellt oder reserviert wird. ' + einstiegSatz()
        + ' Nur in die \u00dcbersicht eingetragen zu werden, kostet nichts.' },
     { q: 'Nehmt ihr Provision?',
       a: 'Nein. ' + PREIS_PROVISION + '. Von jeder Bestellung bleibt der volle Betrag beim Betrieb. '
@@ -2669,7 +2676,11 @@ function gastroFormular() {
         '.then(function(r){return r.json().catch(function(){return null;});})' +
         '.then(function(a){' +
           'if(a&&a.ok){f.reset();h.style.color="#166534";h.textContent="Angekommen. Wir melden uns.";}' +
-          'else{b.disabled=false;h.style.color="#b91c1c";h.textContent=(a&&a.fehler)?a.fehler:"Das hat nicht geklappt. Schreib uns an info@kiekmolin.de.";}' +
+          // Der Mailweg klemmt, die Anfrage liegt aber im CRM: dann ist sie
+          // NICHT weg, und der Gastronom soll das erfahren -- samt einem
+          // zweiten Weg, falls er nicht warten will.
+          'else if(a&&a.mailAus&&a.imCrm){f.reset();h.style.color="#166534";h.textContent="Angekommen \u2013 wir melden uns. Falls es dir eilig ist: info@kiekmolin.de.";}' +
+          'else{b.disabled=false;h.style.color="#b91c1c";h.textContent="Das hat gerade nicht geklappt. Schreib uns bitte an info@kiekmolin.de.";}' +
         '})' +
         '.catch(function(){b.disabled=false;h.style.color="#b91c1c";h.textContent="Keine Verbindung. Schreib uns an info@kiekmolin.de.";});' +
       '});' +

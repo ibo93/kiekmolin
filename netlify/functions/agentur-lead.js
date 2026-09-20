@@ -129,7 +129,29 @@ exports.handler = async function (event) {
     if (!RESEND_API_KEY || !EMAIL_FROM || !AGENTUR_EMAIL) {
         console.warn('agentur-lead: RESEND_API_KEY/EMAIL_FROM/AGENTUR_EMAIL fehlen - Anfrage von "' +
             betrieb + '" konnte nicht gemailt werden.');
-        return json(200, { ok: false, mailAus: true, fehler: 'Der E-Mail-Versand ist nicht eingerichtet.' });
+
+        // HIER STAND FRUEHER NUR EIN RETURN.
+        //
+        // Damit war die Anfrage weg: keine Mail, und das Schreiben ins CRM
+        // kommt erst weiter unten. Fehlt eine einzige Netlify-Variable --
+        // und das merkt man erst, wenn jemand sich beschwert, dass er nie
+        // eine Antwort bekommen hat --, verschwand jede Anfrage spurlos.
+        // Genau die Sorte stiller Ausfall, die am meisten kostet: die Seite
+        // sagte "hat nicht geklappt", der Gastronom ging weiter, und
+        // niemand erfuhr davon.
+        //
+        // Jetzt wird sie wenigstens gespeichert. Die Antwort sagt mit
+        // imCrm, ob das geklappt hat -- die Seite kann daraufhin etwas
+        // Brauchbares anbieten statt einer technischen Fehlermeldung.
+        var gerettet = await inDieDatenbank({
+            betrieb: betrieb, ort: ort, person: name, kontakt: kontakt,
+            nachricht: anliegen, website: website, selbsttest: selbsttest,
+            herkunft: HERKUNFT[quelle].pfad
+        });
+        return json(200, {
+            ok: false, mailAus: true, imCrm: gerettet,
+            fehler: 'Der E-Mail-Versand ist gerade nicht eingerichtet.'
+        });
     }
 
     try {
