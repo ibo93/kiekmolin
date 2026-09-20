@@ -41322,6 +41322,24 @@ async function showRestaurantLanding(rest) {
         ${(function () {
             if (typeof zahlarten !== 'function') return '';
             var z = zahlarten(rest);
+            /* Steht PayPal auf AN, ist aber (noch) nicht bekannt, ob die zwei
+               Schluessel hinterlegt sind, fragen wir nach und haengen die
+               Kachel danach an. Ohne das stuende hier "Bar, Kreditkarte" und
+               beim Bestellen gaebe es zusaetzlich PayPal -- zwei Listen, die
+               auseinanderlaufen, ist genau das, was dieser Block vermeiden
+               soll. */
+            if (!z.paypal && (rest.features || []).indexOf('payment_paypal') !== -1
+                && typeof ppcKontoPruefen === 'function') {
+                setTimeout(function () {
+                    ppcKontoPruefen(rest).then(function (da) {
+                        if (!da) return;
+                        var leiste = document.getElementById('zahlartenLeiste');
+                        if (!leiste || leiste.dataset.rest !== String(rest.id)) return;
+                        if (leiste.textContent.indexOf('PayPal') !== -1) return;
+                        leiste.insertAdjacentHTML('beforeend', zahlartKachel('account_balance_wallet', 'PayPal'));
+                    });
+                }, 0);
+            }
             var teile = [];
             if (z.bar) teile.push(['payments', 'Bar']);
             if (z.karte) teile.push(['credit_card', 'Kreditkarte']);
@@ -41330,14 +41348,8 @@ async function showRestaurantLanding(rest) {
             var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 64px;">'
                   + '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">'
                   + '<p style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-secondary);margin:0;font-family:Inter,sans-serif;">Zahlung möglich mit</p>'
-                  + '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">';
-            teile.forEach(function (t) {
-                h += '<span style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;'
-                   + 'background:var(--bg-card);border:1px solid #e1e3e4;border-radius:9999px;'
-                   + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--ink-deep);">'
-                   + '<span class="material-symbols-outlined" style="font-size:17px;color:var(--marke,#003d33);">'
-                   + t[0] + '</span>' + t[1] + '</span>';
-            });
+                  + '<div id="zahlartenLeiste" data-rest="' + rest.id + '" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">';
+            teile.forEach(function (t) { h += zahlartKachel(t[0], t[1]); });
             h += '</div></div></section>';
             return h;
         })()}
@@ -63330,12 +63342,16 @@ window.ppcStatusLaden = ppcStatusLaden;
 async function ppcSpeichern() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId || restId === 'default') { ppcMelden('Bitte zuerst oben ein Restaurant auswählen.', '#b45309'); return; }
-    // Leerraum raus -- auch MITTEN drin. Beim Markieren mit der Maus bricht
-    // der Wert im PayPal-Dashboard um, und dann steht ein Leerzeichen im
-    // Schluessel, das man nicht sieht. In einem PayPal-Schluessel kommt
-    // keines vor, also kann das Entfernen nichts kaputtmachen.
-    var cid = ((document.getElementById('ppcClientId') || {}).value || '').replace(/\s+/g, '');
-    var sec = ((document.getElementById('ppcSecret') || {}).value || '').replace(/\s+/g, '');
+    // Alles Unsichtbare raus -- auch MITTEN drin. Beim Markieren mit der Maus
+    // bricht der Wert im PayPal-Dashboard um, und dann steht ein Leerzeichen
+    // im Schluessel. Schlimmer noch sind Zero-Width-Zeichen (U+200B): die
+    // haben die Breite null, der Wert sieht Zeichen fuer Zeichen richtig aus
+    // und wird trotzdem abgewiesen. \s erwischt sie NICHT.
+    // In einem PayPal-Schluessel kommt nichts davon vor, also kann das
+    // Entfernen nichts Gueltiges kaputtmachen.
+    var UNSICHTBAR = /[\s\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0]/g;
+    var cid = ((document.getElementById('ppcClientId') || {}).value || '').replace(UNSICHTBAR, '');
+    var sec = ((document.getElementById('ppcSecret') || {}).value || '').replace(UNSICHTBAR, '');
     var live = !!(document.getElementById('ppcLive') || {}).checked;
     // Das Geputzte auch anzeigen -- sonst steht im Feld weiter, was nicht
     // gesendet wurde, und beim naechsten Blick stimmt die Erklaerung nicht.
@@ -63663,6 +63679,17 @@ function getPaypalMe(restaurant) {
 // Der Sonderfall, der leicht untergeht: hat der Wirt NICHTS eingestellt,
 // gelten Bar und Karte. So macht es die Bestellseite seit jeher -- die
 // Landepage muss dasselbe sagen.
+// Eine Zahlart-Kachel. Als eigene Funktion, damit die nachtraeglich
+// angehaengte PayPal-Kachel nicht anders aussieht als die anderen.
+function zahlartKachel(symbol, text) {
+    return '<span style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;'
+         + 'background:var(--bg-card);border:1px solid #e1e3e4;border-radius:9999px;'
+         + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--ink-deep);">'
+         + '<span class="material-symbols-outlined" style="font-size:17px;color:var(--marke,#003d33);">'
+         + symbol + '</span>' + text + '</span>';
+}
+window.zahlartKachel = zahlartKachel;
+
 function zahlarten(restaurant) {
     var f = (restaurant && restaurant.features) || [];
     var bar = f.indexOf('payment_cash') !== -1;
@@ -63688,15 +63715,51 @@ function getZahlungslink(restaurant) {
     var f = restaurant.features.find(function (x) { return String(x).indexOf('zahlungslink:') === 0; });
     return f ? String(f).slice('zahlungslink:'.length) : '';
 }
+/* Hat dieser Betrieb die zwei Schluessel ("Zahlung zuerst")?
+   Das steht NICHT in features. Die Schluessel liegen in paypal_konten,
+   einer Tabelle mit RLS und ohne Leserecht -- der Browser des Gastes
+   kommt da nicht heran, und das soll auch so bleiben, es steht ein
+   Secret drin. Die Auskunft "ja/nein" holt die Function, die dabei nur
+   die oeffentliche Client-ID herausgibt.
+
+   Weil paypalMoeglich() an vielen Stellen synchron gefragt wird, merken
+   wir uns die Antwort hier. Vorher gefragt wird in
+   updateCheckoutPaymentMethods(). */
+var _ppcKontoDa = {};
+
 // Kann dieser Betrieb ueberhaupt PayPal? Genau eine Stelle, die das
 // beantwortet -- sonst laeuft die Anzeige beim Gast irgendwann anders
 // als der Bezahlknopf danach.
+//
+// 20.09.2026: Ibo hat fuer Pizzeria Pronto PayPal eingeschaltet und die
+// zwei Schluessel hinterlegt. Der Gast sah trotzdem kein PayPal. Grund:
+// diese Funktion kannte nur die DREI ALTEN Wege -- PayPal.me-Name,
+// PayPal-Adresse, eigener Zahlungslink. Der neue Weg, der seit heute der
+// beste ist, kam hier gar nicht vor. Ergebnis: eingerichtet, bezahlt,
+// funktioniert -- und unsichtbar. Genau die Sorte stiller Ausfall, die
+// wie eine normale Seite aussieht.
 function paypalMoeglich(restaurant) {
     if (typeof PAYPAL === 'undefined' || !restaurant) return false;
-    return PAYPAL.gueltig(getPaypalMe(restaurant))
+    return _ppcKontoDa[restaurant.id] === true
+        || PAYPAL.gueltig(getPaypalMe(restaurant))
         || !!PAYPAL.mail(getPaypalMail(restaurant))
         || /^https:\/\//i.test(getZahlungslink(restaurant));
 }
+
+/* Fragt einmal nach und meldet sich, wenn sich die Antwort geaendert hat.
+   Ein Netzfehler zaehlt NICHT als "nicht eingerichtet" -- dann bleibt die
+   Frage offen und wird beim naechsten Mal neu gestellt. Sonst haette ein
+   einziger Aussetzer die Zahlart fuer den Rest des Besuchs versteckt. */
+async function ppcKontoPruefen(restaurant) {
+    if (!restaurant || !restaurant.id) return false;
+    if (_ppcKontoDa[restaurant.id] !== undefined) return _ppcKontoDa[restaurant.id];
+    if (typeof PPC === 'undefined') return false;
+    var k = await PPC.konto(restaurant.id);
+    if (k && k.fehler) return false;              // offen lassen, nicht merken
+    _ppcKontoDa[restaurant.id] = !!(k && k.eingerichtet && k.client_id);
+    return _ppcKontoDa[restaurant.id];
+}
+window.ppcKontoPruefen = ppcKontoPruefen;
 window.getPaypalMail = getPaypalMail;
 window.getZahlungslink = getZahlungslink;
 window.paypalMoeglich = paypalMoeglich;
@@ -64071,6 +64134,20 @@ function updateCheckoutPaymentMethods() {
     if (cashEl) cashEl.style.display = hasCash ? 'flex' : 'none';
     if (cardEl) cardEl.style.display = hasCard ? 'flex' : 'none';
     if (paypalEl) paypalEl.style.display = hasPaypal ? 'flex' : 'none';
+
+    /* PayPal ist eingeschaltet, aber kein alter Bezahlweg hinterlegt?
+       Dann kann es trotzdem gehen -- naemlich ueber die zwei Schluessel.
+       Einmal nachfragen und, wenn die Antwort ja lautet, neu zeichnen.
+       Ohne das bleibt die Zahlart unsichtbar, obwohl sie funktioniert. */
+    if (!hasPaypal && features.indexOf('payment_paypal') !== -1
+        && _ppcKontoDa[currentOrderRestaurant.id] === undefined) {
+        var _rest = currentOrderRestaurant;
+        ppcKontoPruefen(_rest).then(function (da) {
+            if (da && currentOrderRestaurant && currentOrderRestaurant.id === _rest.id) {
+                updateCheckoutPaymentMethods();
+            }
+        });
+    }
 
     // Wenn aktive Zahlungsart nicht verfügbar → erste verfügbare wählen
     var currentPayment = paymentMethod;

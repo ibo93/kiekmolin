@@ -223,6 +223,20 @@ async function angemeldeteBetriebe(token) {
     } catch (e) { return null; }
 }
 
+/* Alles, was man NICHT SIEHT und was in keinem Schluessel vorkommt:
+   Leerraum, Zero-Width-Zeichen, Soft Hyphen, Steuerzeichen fuer
+   Schreibrichtung, Variantenselektoren, BOM. Web-Oberflaechen streuen so
+   etwas beim Kopieren ein; im Feld sieht man davon nichts.
+
+   Sichtbar Falsches (ein Punkt, ein Anfuehrungszeichen) bleibt absichtlich
+   stehen -- das kann der Mensch sehen und selbst wegnehmen, und die
+   Meldung nennt es beim Namen. */
+var UNSICHTBAR = /[\s\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0]/g;
+
+function putzen(wert) {
+    return String(wert == null ? '' : wert).replace(UNSICHTBAR, '');
+}
+
 /* Sagt, WAS an einem Schluessel nicht stimmt -- nicht nur DASS.
    Die alte Meldung lautete "sieht nicht richtig aus, bitte vollstaendig
    kopieren". Sie stimmte, half aber niemandem: Ibo hat den Wert dreimal
@@ -307,7 +321,7 @@ exports.handler = async function (event) {
                 return json(200, { ok: true, eingerichtet: false });
             }
 
-            /* Leerraum RAUS, nicht nur vorne und hinten.
+            /* Leerraum UND unsichtbare Zeichen RAUS, nicht nur vorne und hinten.
                Am 20.09.2026 hat Ibo eine Stunde an dieser Stelle verloren.
                Er hatte die Client-ID bei PayPal mit der Maus markiert; im
                Dashboard bricht der Wert um, und beim Kopieren kam ein
@@ -318,9 +332,19 @@ exports.handler = async function (event) {
 
                In einem PayPal-Schluessel kommt kein Leerraum vor. Ihn zu
                entfernen kann also keinen gueltigen Schluessel zerstoeren
-               -- nur eine verunglueckte Zwischenablage retten. */
-            var cid = String(body.client_id || '').replace(/\s+/g, '');
-            var sec = String(body.secret || '').replace(/\s+/g, '');
+               -- nur eine verunglueckte Zwischenablage retten.
+
+               NACHTRAG vom selben Tag: .replace(/\s+/g,'') war noch zu
+               eng. Ein Zero-Width Space (U+200B) ist fuer \s KEIN
+               Leerraum, und er hat die Breite null -- der Wert sieht
+               vollstaendig und richtig aus, Zeichen fuer Zeichen, und
+               wird trotzdem abgewiesen. Genau so sah Ibos Feld aus:
+               38 erlaubte Zeichen, sichtbar zu Ende, und trotzdem rot.
+               Deshalb fliegt jetzt alles Unsichtbare raus, nicht nur
+               Leerraum. Sichtbar Falsches bleibt stehen und wird
+               gemeldet -- was man sieht, kann man selbst beheben. */
+            var cid = putzen(body.client_id);
+            var sec = putzen(body.secret);
             var live = body.live === true;
 
             var klage = schluesselKlage(cid, 'Die Client-ID', 20, 120)

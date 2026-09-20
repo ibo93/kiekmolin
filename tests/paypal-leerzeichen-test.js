@@ -91,7 +91,15 @@ async function speichern(nutzlast, paypalLehntAb) {
         { name: 'ein Leerzeichen in der Mitte', mach: function (v) { return v.slice(0, 40) + ' ' + v.slice(40); } },
         { name: 'ein Zeilenumbruch in der Mitte', mach: function (v) { return v.slice(0, 40) + '\n' + v.slice(40); } },
         { name: 'ein geschuetztes Leerzeichen', mach: function (v) { return v.slice(0, 40) + ' ' + v.slice(40); } },
-        { name: 'Leerzeichen vorne und hinten', mach: function (v) { return '  ' + v + '\n'; } }
+        { name: 'Leerzeichen vorne und hinten', mach: function (v) { return '  ' + v + '\n'; } },
+        // Die gemeinsten: Breite null. Der Wert sieht Zeichen fuer Zeichen
+        // richtig aus -- und \s erwischt sie NICHT. Genau so sah Ibos Feld
+        // aus: 38 erlaubte Zeichen, sichtbar zu Ende, und trotzdem rot.
+        { name: 'ein Zero-Width Space (U+200B)', mach: function (v) { return v.slice(0, 20) + '\u200b' + v.slice(20); } },
+        { name: 'ein Soft Hyphen (U+00AD)', mach: function (v) { return v.slice(0, 20) + '\u00ad' + v.slice(20); } },
+        { name: 'ein Zero-Width Joiner (U+200D)', mach: function (v) { return v.slice(0, 20) + '\u200d' + v.slice(20); } },
+        { name: 'ein BOM (U+FEFF) am Anfang', mach: function (v) { return '\ufeff' + v; } },
+        { name: 'ein Links-nach-rechts-Zeichen (U+200E)', mach: function (v) { return v + '\u200e'; } }
     ];
     for (const fall of FAELLE) {
         const r = await speichern({ client_id: fall.mach(ECHTE_ID), secret: ECHTES_SECRET });
@@ -147,6 +155,14 @@ async function speichern(nutzlast, paypalLehntAb) {
     const langS = await speichern({ client_id: ECHTE_ID, secret: 'x'.repeat(250) });
     t('ein zu langes Secret wird als zu lang gemeldet',
       /zu lang/.test(langS.koerper.error) && /250/.test(langS.koerper.error), langS.koerper.error);
+
+    // Die Grenze: was man SIEHT, wird nicht heimlich weggeputzt. Sonst
+    // entstuende aus einem falschen Wert ein anderer falscher Wert, und die
+    // Meldung koennte nicht mehr sagen, was los war.
+    const sichtbar = await speichern({ client_id: ECHTE_ID.slice(0, 40) + '.', secret: ECHTES_SECRET });
+    t('ein sichtbarer Punkt wird NICHT heimlich entfernt, sondern gemeldet',
+      sichtbar.antwort.statusCode === 400 && /Punkt/.test(sichtbar.koerper.error),
+      sichtbar.koerper.error);
 
     console.log('\n-- Das Geheimnis bleibt geheim --');
     // Eine hilfreiche Meldung darf kein Secret ausplaudern -- auch nicht
