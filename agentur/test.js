@@ -329,7 +329,21 @@ test('Bewertungs-Journal: Erfolgs-Bilanz zaehlt Status korrekt', () => {
   assert.strictEqual(b.gesamt, 6);
   assert.strictEqual(b.geloescht, 2);
   assert.strictEqual(b.gemeldet, 1);
-  assert.deepStrictEqual(journalBilanz([]), { gesamt: 0, gemeldet: 0, geloescht: 0, abgelehnt: 0, beantwortet: 0, offen: 0 });
+  // ueberfaellig gehoert seit dem Nachfassen mit dazu. Diese Zeile forderte
+  // bis zum 19.09.2026 die alte Bilanz OHNE das Feld ein und war deshalb rot,
+  // auf main wie auf jedem Zweig.
+  assert.deepStrictEqual(journalBilanz([]),
+    { gesamt: 0, gemeldet: 0, geloescht: 0, abgelehnt: 0, beantwortet: 0, offen: 0, ueberfaellig: 0 });
+
+  // Und das Feld muss auch mal auf etwas anderes als 0 kommen, sonst
+  // prueft das oben nur, dass immer 0 rauskommt.
+  const alt = new Date(Date.now() - 20 * 864e5).toISOString();
+  const frisch = new Date(Date.now() - 2 * 864e5).toISOString();
+  assert.strictEqual(journalBilanz([{ status: 'gemeldet', statusSeit: alt }]).ueberfaellig, 1);
+  assert.strictEqual(journalBilanz([{ status: 'gemeldet', statusSeit: frisch }]).ueberfaellig, 0);
+  // Nur "gemeldet" kann ueberfaellig werden -- ein offener Fall wartet auf uns,
+  // nicht auf Google.
+  assert.strictEqual(journalBilanz([{ status: 'offen', statusSeit: alt }]).ueberfaellig, 0);
   assert.ok(JOURNAL_STATUS.includes('geloescht') && JOURNAL_STATUS.includes('gemeldet'));
 });
 

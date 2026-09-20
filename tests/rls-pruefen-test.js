@@ -50,7 +50,16 @@ async function haupt() {
   t('und sagt auch, warum', /Netzsperre|Proxy/.test(proxy.grund), proxy.grund);
 
   t('400 (falscher Spaltentyp) ist unklar, nicht "zu"', W.urteil({ status: 400, vonPostgrest: true }).wert === 'unklar');
-  t('404 (Tabelle gibt es nicht) ist unklar', W.urteil({ status: 404, vonPostgrest: true }).wert === 'unklar');
+  // Am 19.09.2026 geaendert. Hier stand: 404 ist "unklar". Das war die
+  // Zusicherung, die google_reviews vier Monate gedeckt hat -- die App
+  // fragte die Tabelle bei jedem Start ab, es gab sie nie, 148 x 404 an
+  // einem Tag, und im Bericht stand "unklar". Das liest man weg.
+  // 404 ist jetzt ein eigener Befund: 'fehlt'. Siehe tote-tabelle-test.js.
+  t('404 (Tabelle gibt es nicht) ist ein eigener Befund, nicht unklar',
+    W.urteil({ status: 404, vonPostgrest: true }).wert === 'fehlt',
+    W.urteil({ status: 404, vonPostgrest: true }).wert);
+  t('ein 404, das nicht von Supabase kam, bleibt unklar',
+    W.urteil({ status: 404, vonPostgrest: false }).wert === 'unklar');
 
   t('Anzahl kommt aus dem Content-Range', W.anzahlAus('0-0/4711') === 4711);
   t('Stern-Anzahl gibt null', W.anzahlAus('*/*') === null);

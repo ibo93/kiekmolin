@@ -26,7 +26,14 @@
 
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || '';
-var AGENTUR_EMAIL = process.env.AGENTUR_EMAIL || '';
+/* Ausweichadresse, und zwar bewusst fest verdrahtet.
+   Ibo hat zweimal gefragt "wo bekomme ich den Antrag". Die ehrliche
+   Antwort war bis eben: "an die Adresse in der Netlify-Variablen
+   AGENTUR_EMAIL -- und ob die dort gesetzt ist, kann ich nicht sehen".
+   Eine Anfrage, die von einer Variablen abhaengt, an die sich niemand
+   erinnert, ist eine verlorene Anfrage. info@kiekmolin.de steht im
+   Impressum und in der Datenschutzerklaerung -- die gibt es. */
+var AGENTUR_EMAIL = process.env.AGENTUR_EMAIL || 'info@kiekmolin.de';
 
 // Optional: ohne diese beiden laeuft alles wie vorher, nur ohne CRM-Eintrag.
 var SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
@@ -55,6 +62,14 @@ function sauber(wert, maxLaenge) {
         .slice(0, maxLaenge || 120);
 }
 
+// Die erlaubten Herkuenfte. /check ist der Sichtbarkeits-Check, /gastro die
+// Seite fuer Gastronomen. Steht etwas anderes drin, gilt 'check' -- so wie
+// es war, bevor es diese Unterscheidung gab.
+var HERKUNFT = {
+    check:  { pfad: 'kiekmolin.de/check' },
+    gastro: { pfad: 'kiekmolin.de/gastro' }
+};
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, fehler: 'Nur POST' });
@@ -68,7 +83,14 @@ exports.handler = async function (event) {
 
     // Honigtopf: ein fuer Menschen unsichtbares Feld. Ist es ausgefuellt,
     // war es ein Bot - wir antworten freundlich und tun nichts.
-    if (sauber(daten.webseite_bestaetigung, 40)) return json(200, { ok: true });
+    //
+    // Zwei Namen, weil zwei Seiten senden: /check heisst das Feld seit jeher
+    // "webseite_bestaetigung", /gastro nennt es "firmen_webseite" -- der alte
+    // Name enthaelt ae/ue und faellt damit dem Umlaut-Test zur Last, der
+    // sichtbaren Text prueft. Beide gelten, damit die aeltere Seite laeuft.
+    if (sauber(daten.webseite_bestaetigung, 40) || sauber(daten.firmen_webseite, 40)) {
+        return json(200, { ok: true });
+    }
 
     var betrieb = sauber(daten.betrieb, 90);
     var ort = sauber(daten.ort, 60);
@@ -76,6 +98,11 @@ exports.handler = async function (event) {
     var kontakt = sauber(daten.kontakt, 90);
     var anliegen = sauber(daten.anliegen, 400);
     var website = sauber(daten.website, 200);
+
+    // Woher kam die Anfrage? Bewusst eine feste Liste und kein freier Text:
+    // der Wert landet in einer Mail und in der Datenbank, und was von aussen
+    // kommt, darf dort nichts hinschreiben duerfen, was wir nicht kennen.
+    var quelle = HERKUNFT[sauber(daten.quelle, 20)] ? sauber(daten.quelle, 20) : 'check';
     // Der Selbsttest von der Seite: {punkte:2, antworten:{...}}. Rein zur
     // Information - fehlt er, aendert das nichts.
     var selbsttest = null;
@@ -88,7 +115,7 @@ exports.handler = async function (event) {
     }
 
     var zeilen = [
-        'Neue Anfrage ueber kiekmolin.de/check',
+        'Neue Anfrage ueber ' + HERKUNFT[quelle].pfad,
         '',
         'Betrieb:  ' + betrieb,
         'Ort:      ' + (ort || '-'),
@@ -109,7 +136,29 @@ exports.handler = async function (event) {
     if (!RESEND_API_KEY || !EMAIL_FROM || !AGENTUR_EMAIL) {
         console.warn('agentur-lead: RESEND_API_KEY/EMAIL_FROM/AGENTUR_EMAIL fehlen - Anfrage von "' +
             betrieb + '" konnte nicht gemailt werden.');
-        return json(200, { ok: false, mailAus: true, fehler: 'Der E-Mail-Versand ist nicht eingerichtet.' });
+
+        // HIER STAND FRUEHER NUR EIN RETURN.
+        //
+        // Damit war die Anfrage weg: keine Mail, und das Schreiben ins CRM
+        // kommt erst weiter unten. Fehlt eine einzige Netlify-Variable --
+        // und das merkt man erst, wenn jemand sich beschwert, dass er nie
+        // eine Antwort bekommen hat --, verschwand jede Anfrage spurlos.
+        // Genau die Sorte stiller Ausfall, die am meisten kostet: die Seite
+        // sagte "hat nicht geklappt", der Gastronom ging weiter, und
+        // niemand erfuhr davon.
+        //
+        // Jetzt wird sie wenigstens gespeichert. Die Antwort sagt mit
+        // imCrm, ob das geklappt hat -- die Seite kann daraufhin etwas
+        // Brauchbares anbieten statt einer technischen Fehlermeldung.
+        var gerettet = await inDieDatenbank({
+            betrieb: betrieb, ort: ort, person: name, kontakt: kontakt,
+            nachricht: anliegen, website: website, selbsttest: selbsttest,
+            herkunft: HERKUNFT[quelle].pfad
+        });
+        return json(200, {
+            ok: false, mailAus: true, imCrm: gerettet,
+            fehler: 'Der E-Mail-Versand ist gerade nicht eingerichtet.'
+        });
     }
 
     try {
@@ -139,7 +188,8 @@ exports.handler = async function (event) {
     // aendert ein Fehler hier die Antwort an den Wirt nicht.
     var imCrm = await inDieDatenbank({
         betrieb: betrieb, ort: ort, person: name, kontakt: kontakt,
-        nachricht: anliegen, website: website, selbsttest: selbsttest
+        nachricht: anliegen, website: website, selbsttest: selbsttest,
+        herkunft: HERKUNFT[quelle].pfad
     });
 
     return json(200, { ok: true, imCrm: imCrm });
@@ -168,7 +218,7 @@ async function inDieDatenbank(a) {
                 website: a.website || null,
                 nachricht: a.nachricht || null,
                 selbsttest: a.selbsttest,
-                herkunft: 'kiekmolin.de/check'
+                herkunft: a.herkunft || 'kiekmolin.de/check'
             })
         });
         if (!antwort.ok) {
