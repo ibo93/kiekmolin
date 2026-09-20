@@ -41058,7 +41058,7 @@ async function showRestaurantLanding(rest) {
         </section>
 
         <!-- Glassmorphic Action Bar -->
-        <div style="position:sticky;top:96px;z-index:40;display:flex;justify-content:center;padding:0 24px;margin-top:-64px;margin-bottom:80px;">
+        <div style="position:sticky;top:96px;z-index:40;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px;margin-top:-64px;margin-bottom:80px;">
             ${(function(){
                 var restFeatures = rest.features || [];
                 var noOrdering = restFeatures.indexOf('no_ordering') >= 0;
@@ -41079,6 +41079,12 @@ async function showRestaurantLanding(rest) {
                 // die Karte gibt es immer.
                 bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>' + (noOrdering ? 'SPEISEKARTE' : 'KARTE') + '</button>';
                 bar += '</div>';
+                // Nur wenn ueberhaupt bestellt werden kann. Auf einer reinen
+                // Speisekartenseite waere die Zeile Laerm -- da zahlt niemand.
+                if (!noOrdering) {
+                    bar += zahlartenZeile(rest);
+                    setTimeout(function () { zahlartenNachtragen(rest); }, 0);
+                }
                 return bar;
             })()}
         </div>
@@ -41353,24 +41359,11 @@ async function showRestaurantLanding(rest) {
         ${(function () {
             if (typeof zahlarten !== 'function') return '';
             var z = zahlarten(rest);
-            /* Steht PayPal auf AN, ist aber (noch) nicht bekannt, ob die zwei
-               Schluessel hinterlegt sind, fragen wir nach und haengen die
-               Kachel danach an. Ohne das stuende hier "Bar, Kreditkarte" und
-               beim Bestellen gaebe es zusaetzlich PayPal -- zwei Listen, die
-               auseinanderlaufen, ist genau das, was dieser Block vermeiden
-               soll. */
-            if (!z.paypal && (rest.features || []).indexOf('payment_paypal') !== -1
-                && typeof ppcKontoPruefen === 'function') {
-                setTimeout(function () {
-                    ppcKontoPruefen(rest).then(function (da) {
-                        if (!da) return;
-                        var leiste = document.getElementById('zahlartenLeiste');
-                        if (!leiste || leiste.dataset.rest !== String(rest.id)) return;
-                        if (leiste.textContent.indexOf('PayPal') !== -1) return;
-                        leiste.insertAdjacentHTML('beforeend', zahlartKachel('account_balance_wallet', 'PayPal'));
-                    });
-                }, 0);
-            }
+            /* Die Nachfrage nach dem PayPal-Konto steht jetzt EINMAL oben bei
+               der Knopfleiste (zahlartenNachtragen) und traegt beide Stellen
+               nach -- diese Leiste und die kurze Zeile. Zwei getrennte
+               Nachfragen waeren zwei Gelegenheiten, dass eine vergessen wird
+               und die Seite sich selbst widerspricht. */
             var teile = [];
             if (z.bar) teile.push(['payments', 'Bar']);
             if (z.karte) teile.push(['credit_card', 'Kreditkarte']);
@@ -63725,6 +63718,62 @@ function getPaypalMe(restaurant) {
 // Der Sonderfall, der leicht untergeht: hat der Wirt NICHTS eingestellt,
 // gelten Bar und Karte. So macht es die Bestellseite seit jeher -- die
 // Landepage muss dasselbe sagen.
+/* Die kurze Zeile unter dem Bestellknopf: "Bar · Karte · PayPal".
+   Ibo am 20.09.2026: "Ich will das der Restaurant auf seine Seite das man
+   sieht das er Paypal hat."
+
+   Die ausfuehrliche Leiste steht weiter GANZ UNTEN -- so wollte er es am
+   13.09., und die Begruendung gilt: oben soll die Seite Appetit machen und
+   nicht wie eine Kasse aussehen. Hier steht deshalb nur eine schmale Zeile,
+   und zwar genau da, wo der Gast sich die Frage wirklich stellt: direkt
+   unter dem Knopf, den er gleich drueckt. */
+function zahlartenZeile(rest) {
+    if (typeof zahlarten !== 'function') return '';
+    var z = zahlarten(rest);
+    var worte = [];
+    if (z.bar) worte.push('Bar');
+    if (z.karte) worte.push('Karte');
+    if (z.paypal) worte.push('PayPal');
+    if (!worte.length) return '';
+    /* Dunkle Pille statt grauer Schrift. Die Knopfleiste liegt mit
+       margin-top:-64px UEBER dem Hero-Bild -- und was direkt darunter haengt,
+       landet je nach Bildhoehe ebenfalls auf dem Foto. Graue Schrift auf einem
+       Foto ist Glueckssache, und hinter ein Bild kann kein Textvergleich
+       schauen. Dieselbe Familie wie die Leiste darueber: dunkel, leicht
+       durchscheinend, heller Text -- das liest sich auf jedem Untergrund. */
+    return '<div id="zahlartenZeile" data-rest="' + rest.id + '" style="font-family:Inter,sans-serif;'
+         + 'font-size:12px;font-weight:600;letter-spacing:0.02em;text-align:center;'
+         + 'color:rgba(255,255,255,0.92);background:rgba(0,37,30,0.72);'
+         + 'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);'
+         + 'padding:5px 14px;border-radius:9999px;">Zahlung: ' + worte.join(' · ') + '</div>';
+}
+window.zahlartenZeile = zahlartenZeile;
+
+/* Die Antwort auf "gibt es ein PayPal-Konto?" kommt erst vom Server, beide
+   Stellen zeichnen aber sofort. Also EINE Nachfrage, die danach BEIDE
+   nachtraegt -- zwei getrennte waeren zwei Gelegenheiten, dass eine davon
+   vergessen wird und die Seite sich selbst widerspricht. */
+function zahlartenNachtragen(rest) {
+    if (!rest || !rest.id) return;
+    if (typeof ppcKontoPruefen !== 'function') return;
+    if ((rest.features || []).indexOf('payment_paypal') === -1) return;
+    if (typeof zahlarten === 'function' && zahlarten(rest).paypal) return;   // steht schon da
+    ppcKontoPruefen(rest).then(function (da) {
+        if (!da) return;
+        var leiste = document.getElementById('zahlartenLeiste');
+        if (leiste && leiste.dataset.rest === String(rest.id)
+            && leiste.textContent.indexOf('PayPal') === -1) {
+            leiste.insertAdjacentHTML('beforeend', zahlartKachel('account_balance_wallet', 'PayPal'));
+        }
+        var zeile = document.getElementById('zahlartenZeile');
+        if (zeile && zeile.dataset.rest === String(rest.id)
+            && zeile.textContent.indexOf('PayPal') === -1) {
+            zeile.textContent = zeile.textContent + ' · PayPal';
+        }
+    });
+}
+window.zahlartenNachtragen = zahlartenNachtragen;
+
 // Eine Zahlart-Kachel. Als eigene Funktion, damit die nachtraeglich
 // angehaengte PayPal-Kachel nicht anders aussieht als die anderen.
 function zahlartKachel(symbol, text) {
