@@ -117,6 +117,16 @@ const KONTAKT_MAIL = 'info@kiekmolin.de';
 // ausdruecklich zugesagt -- nach den ersten Plaetzen wird wirklich erhoeht.
 // Bleibt der Preis danach stehen, wird die Aussage nachtraeglich zur Luege.
 const EINSTEIGER_PLAETZE = 20;
+
+// Kleinunternehmerregelung. Am 20.09.2026 von Ibo bestaetigt: der Betrieb
+// zahlt genau den genannten Betrag, es kommt nichts obendrauf.
+//
+// ACHTUNG BEIM SPAETEREN AENDERN: Paragraf 19 haengt am Umsatz. Faellt die
+// Regelung weg, stimmt dieser Satz auf ~900 Seiten nicht mehr -- deshalb
+// steht er hier an EINER Stelle. Dann hier aendern, nicht suchen und
+// ersetzen.
+const PREIS_UST = 'Keine Umsatzsteuer (\u00a7 19 UStG).';
+const PREIS_UST_KURZ = 'keine USt (\u00a7 19)';
 const PREIS_MONAT_SPAETER = '79,90 \u20ac';
 
 // Derselbe Preis, nur anders gerechnet. Die Zahl wird NICHT hingeschrieben,
@@ -2210,7 +2220,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       '<p style="margin:0 0 14px;color:#444;">Wer Online-Bestellungen und Tisch-Reservierungen annehmen will, ' +
       'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt oder reserviert wird. ' +
       '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
-      'Ohne App, jederzeit kündbar.</p>' +
+      'Ohne App, jederzeit kündbar, ' + PREIS_UST_KURZ + '.</p>' +
       '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
     '</div>';
 
@@ -2693,7 +2703,7 @@ function buildGastroFaqs() {
   return [
     { q: 'Was kostet ' + BRAND + '?',
       a: PREIS_MONAT + ' im Monat, fest \u2014 egal wie viel bestellt oder reserviert wird. ' + einstiegSatz()
-       + ' Nur in die \u00dcbersicht eingetragen zu werden, kostet nichts.' },
+       + ' ' + PREIS_UST + ' Nur in die \u00dcbersicht eingetragen zu werden, kostet nichts.' },
     { q: 'Nehmt ihr Provision?',
       a: 'Nein. ' + PREIS_PROVISION + '. Von jeder Bestellung bleibt der volle Betrag beim Betrieb. '
        + 'Deshalb ist der Monatspreis eine feste Zahl und kein Anteil.' },
@@ -2836,6 +2846,8 @@ function generateGastroPage() {
             + 'Ohne neu zu drucken.</li>'
         + '</ul>'
         + '<p class="band">' + einstiegSatz() + '</p>'
+        + '<p class="klein"><strong>' + PREIS_UST + '</strong> Auf der Rechnung steht ' + PREIS_MONAT
+          + ', und genau das wird abgebucht.</p>'
         + '<p class="klein">Nur in die \u00dcbersicht eingetragen zu werden \u2014 mit Adresse, '
           + '\u00d6ffnungszeiten und Telefonnummer \u2014 kostet nichts.</p>'
       + '</section>'
@@ -3461,6 +3473,8 @@ if (require.main === module) {
   preisProTagEcht,
   EINSTEIGER_PLAETZE,
   PREIS_MONAT_SPAETER,
+  PREIS_UST,
+  PREIS_UST_KURZ,
   GASTRO_SLUG,
   PROSPECT_OWNER_CTA_URL,
   gerichteZahl,

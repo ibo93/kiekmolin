@@ -123,6 +123,22 @@ t('nirgends ein durchgestrichener Preis',
   !/<s>|<del>|text-decoration:\s*line-through/.test(H), 'da ist ein Streichpreis');
 t('die Provision steht dabei', /0 % Provision/.test(H), 'fehlt');
 
+// --- Umsatzsteuer ----------------------------------------------------
+// Am 20.09.2026 von Ibo bestaetigt: Kleinunternehmerregelung, der Betrieb
+// zahlt genau den genannten Betrag. Ohne diesen Hinweis rechnet ein Wirt
+// selbst 19 % drauf -- und 71,28 statt 59,90 kostet den Abschluss.
+t('die Umsatzsteuer ist geklaert', /Keine Umsatzsteuer \(\u00a7 19 UStG\)/.test(H), 'fehlt');
+t('und es steht dabei, dass genau der Betrag abgebucht wird',
+  /genau das wird abgebucht/.test(H), 'fehlt');
+t('nirgends "zzgl" oder "netto" \u2014 das waere das Gegenteil',
+  !/zzgl\.?\s*(USt|MwSt)/i.test(H) && !/zuz\u00fcglich\s*(USt|MwSt)/i.test(H),
+  (H.match(/zzgl[^<]{0,30}/i) || [''])[0]);
+t('auch die FAQ-Antwort zum Preis nennt es',
+  B.buildGastroFaqs().some(function (f) {
+      return /Was kostet/.test(f.q) && /\u00a7 19 UStG/.test(f.a); }), 'fehlt in der FAQ');
+t('der Hinweis kommt aus EINER Quelle',
+  B.PREIS_UST === 'Keine Umsatzsteuer (\u00a7 19 UStG).', B.PREIS_UST);
+
 // Ibo am 20.09.2026 beim Lesen: "es steht nur fuer bestellen, nicht fuer
 // reservieren". Ein Gasthaus ohne Lieferung las daraus, der Preis betreffe
 // es nicht.
