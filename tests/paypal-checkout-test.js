@@ -202,9 +202,12 @@ t('und der Fehler sagt, dass Sandbox und Live getrennt sind',
 // eine Klage nennt Laenge und Zeichen. Was dabei herauskommt, prueft
 // tests/paypal-leerzeichen-test.js durch Ausfuehren.
 t('Leerraum wird ueberall entfernt, nicht nur an den Raendern',
-  /client_id \|\| ''\)\.replace\(\/\\s\+\/g, ''\)/.test(fn)
-  && /secret \|\| ''\)\.replace\(\/\\s\+\/g, ''\)/.test(fn),
+  /var cid = putzen\(body\.client_id\)/.test(fn) && /var sec = putzen\(body\.secret\)/.test(fn),
   'nur .trim() -- ein Leerzeichen mitten drin bleibt stehen');
+// \s allein reicht NICHT: ein Zero-Width Space (U+200B) ist fuer \s kein
+// Leerraum und hat die Breite null -- unsichtbar UND nicht entfernt.
+t('und zwar auch Zeichen der Breite null, nicht nur \\s',
+  /var UNSICHTBAR = /.test(fn) && /\\u200b/.test(fn), 'U+200B rutscht durch');
 t('und die Klage nennt Laenge und Zeichen statt "sieht nicht richtig aus"',
   /function schluesselKlage/.test(fn) && /' Zeichen/.test(fn), 'wieder nur ein Vorwurf');
 t('das Secret kommt NIE zurueck',

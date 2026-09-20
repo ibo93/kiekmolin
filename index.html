@@ -63330,12 +63330,16 @@ window.ppcStatusLaden = ppcStatusLaden;
 async function ppcSpeichern() {
     var restId = document.getElementById('ordersRestaurantSelect')?.value;
     if (!restId || restId === 'default') { ppcMelden('Bitte zuerst oben ein Restaurant auswählen.', '#b45309'); return; }
-    // Leerraum raus -- auch MITTEN drin. Beim Markieren mit der Maus bricht
-    // der Wert im PayPal-Dashboard um, und dann steht ein Leerzeichen im
-    // Schluessel, das man nicht sieht. In einem PayPal-Schluessel kommt
-    // keines vor, also kann das Entfernen nichts kaputtmachen.
-    var cid = ((document.getElementById('ppcClientId') || {}).value || '').replace(/\s+/g, '');
-    var sec = ((document.getElementById('ppcSecret') || {}).value || '').replace(/\s+/g, '');
+    // Alles Unsichtbare raus -- auch MITTEN drin. Beim Markieren mit der Maus
+    // bricht der Wert im PayPal-Dashboard um, und dann steht ein Leerzeichen
+    // im Schluessel. Schlimmer noch sind Zero-Width-Zeichen (U+200B): die
+    // haben die Breite null, der Wert sieht Zeichen fuer Zeichen richtig aus
+    // und wird trotzdem abgewiesen. \s erwischt sie NICHT.
+    // In einem PayPal-Schluessel kommt nichts davon vor, also kann das
+    // Entfernen nichts Gueltiges kaputtmachen.
+    var UNSICHTBAR = /[\s\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0]/g;
+    var cid = ((document.getElementById('ppcClientId') || {}).value || '').replace(UNSICHTBAR, '');
+    var sec = ((document.getElementById('ppcSecret') || {}).value || '').replace(UNSICHTBAR, '');
     var live = !!(document.getElementById('ppcLive') || {}).checked;
     // Das Geputzte auch anzeigen -- sonst steht im Feld weiter, was nicht
     // gesendet wurde, und beim naechsten Blick stimmt die Erklaerung nicht.
