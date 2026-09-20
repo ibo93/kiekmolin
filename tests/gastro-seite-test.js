@@ -282,6 +282,19 @@ t('der Telefonassistent hat einen eigenen Block', extra.length > 200, extra.leng
 t('er ist als KOSTET EXTRA gekennzeichnet', /Kostet extra/.test(extra), extra.slice(0, 160));
 t('mit dem Hinweis, dass er sich als Assistent zu erkennen gibt',
   /digitaler Assistent/.test(extra), 'fehlt');
+
+// Der Block fragt nach der Zahl, statt eine zu behaupten. Ibo kennt aus
+// der Praxis "10 bis 20 verpasste Anrufe am Tag" -- das ist vermutlich
+// richtig, aber nicht gemessen, und messbar ist es auch nicht: wer nicht
+// rangeht, erzeugt keinen Datensatz. Eine ungepruefte Zahl auf einer
+// Werbeseite ist nach Paragraf 5 UWG angreifbar.
+t('der Block fragt nach der Zahl, statt eine zu behaupten',
+  /Wie viele Anrufe gehen bei dir ins Leere/.test(extra), 'die Frage fehlt');
+t('und nennt KEINE Zahl verpasster Anrufe',
+  !/\d+\s*(bis|-|\u2013)\s*\d+\s*(verpasste\s*)?Anrufe/i.test(H),
+  (H.match(/\d+\s*(bis|-|\u2013)\s*\d+\s*[^<]{0,20}Anrufe/i) || [''])[0]);
+t('sondern schickt den Wirt in seine eigene Anrufliste',
+  /Anrufliste deines Telefons/.test(extra), 'fehlt');
 t('und OHNE erfundenen Preis',
   !/\d+,\d\d\s*\u20ac/.test(extra) && !/\d+\s*\u20ac/.test(extra),
   'da steht ein Betrag, den mir niemand gesagt hat');

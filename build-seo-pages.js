@@ -2879,10 +2879,27 @@ function generateGastroPage() {
   const extra = ''
     + '<section class="huelle"><div class="extra">'
       + '<p class="marke-still">Kostet extra</p>'
-      + '<h2 class="titel">Der Telefonassistent</h2>'
-      + '<p class="vorsatz">Wenn mitten im Mittagsgesch\u00e4ft niemand rangehen kann, geht er ran. '
+      + '<h2 class="titel">Wie viele Anrufe gehen bei dir ins Leere?</h2>'
+      // BEWUSST EINE FRAGE UND KEINE ZAHL.
+      //
+      // Ibo aus der Praxis: an Ruhetagen verpasst ein Betrieb ungefaehr
+      // 10 bis 20 Anrufe am Tag. Das ist seine Erfahrung, und sie ist
+      // vermutlich richtig -- aber sie ist NICHT gemessen, und messen
+      // koennen wir sie auch nicht: Wenn niemand rangeht, erfaehrt
+      // Kiek mol in davon nichts. telefonzahlen.js zaehlt nur, was der
+      // Assistent GEBRACHT hat, nicht was ohne ihn verloren ging.
+      //
+      // Eine ungepruefte Zahl auf einer Werbeseite ist nach Paragraf 5
+      // UWG angreifbar -- und nach unserer eigenen Regel 1 duerfen wir
+      // eine Vermutung nicht wie einen Befund hinschreiben. Die Frage
+      // wirkt ohnehin staerker: der Wirt nennt sich seine eigene Zahl,
+      // und der glaubt er.
+      + '<p class="vorsatz">Am Ruhetag. Mitten im Mittagsgesch\u00e4ft. Wenn alle H\u00e4nde voll sind. '
+      + 'Guck heute Abend einmal in die Anrufliste deines Telefons \u2014 die Zahl \u00fcberrascht die meisten. '
+      + 'Jeder davon war jemand, der einen Tisch wollte.</p>'
+      + '<p style="margin:0 0 18px;color:var(--schiefer);"><strong>Der Telefonassistent geht ran, wenn ihr nicht k\u00f6nnt.</strong> '
       + 'Er nimmt Reservierungen und Bestellungen auf, notiert R\u00fcckrufe und stellt auf Wunsch zu dir durch.</p>'
-      + '<p style="margin:0 0 18px;color:var(--schiefer);">Und er sagt von sich aus, dass er ein digitaler Assistent ist \u2014 '
+      + '<p style="margin:0 0 18px;color:var(--schiefer);">Er sagt von sich aus, dass er ein digitaler Assistent ist \u2014 '
       + 'kein Mensch, der so tut als ob. Das ist uns wichtig und seit 2026 auch Vorschrift.</p>'
       + '<a class="pille voll" href="#anmelden">Was das kostet, sagen wir dir</a>'
     + '</div></section>';
