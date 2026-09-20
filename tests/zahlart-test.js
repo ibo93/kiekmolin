@@ -111,8 +111,15 @@ t('bar -> Bar', kurz('cash') === 'Bar');
 t('Karte -> Karte', kurz('card_on_delivery') === 'Karte');
 t('PayPal -> PayPal, NICHT "Karte"', kurz('paypal') === 'PayPal', kurz('paypal'));
 t('Unbekanntes -> Sonstige', kurz('klarna_neu') === 'Sonstige', kurz('klarna_neu'));
+// Seit dem 20.09.2026 geht die Karte ueber zahlartStand() -- das beantwortet
+// zusaetzlich, ob das Geld schon da ist. Die Uebersetzung selbst macht
+// weiter zahlartKurz(); geprueft wird die Eigenschaft, nicht der Wortlaut:
+// nirgends ein zweiter, eigener Dreisatz.
 t('in der Bestellkarte wird die Funktion auch benutzt',
-  /\$\{zahlartKurz\(order\.payment_method\)\}/.test(h), 'wieder ein eigener Dreisatz');
+  /var art = zahlartKurz\(order && order\.payment_method\);/.test(h)
+  && /zahlartStand\(order\)/.test(h), 'wieder ein eigener Dreisatz');
+t('und die Karte uebersetzt nicht selbst',
+  !/order\.payment_method === 'paypal' \? 'PayPal'/.test(h), 'eigene Uebersetzung in der Karte');
 
 // ---- 5. Der Bon sagt, was zu tun ist -----------------------------------
 console.log('\n-- Der Bon --');

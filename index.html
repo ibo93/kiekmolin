@@ -23696,6 +23696,37 @@ function zahlartKurz(roh) {
 }
 window.zahlartKurz = zahlartKurz;
 
+/* IST DAS GELD SCHON DA? Genau eine Stelle, die das beantwortet.
+   Seit dem 20.09.2026 heisst "PayPal" zwei entgegengesetzte Dinge:
+
+     Zahlung zuerst (die zwei Schluessel)  -> Geld IMMER da. Ohne Zahlung
+                                              gaebe es die Bestellung nicht.
+     alter Bezahllink                      -> vielleicht. Bestellt ist
+                                              bestellt, ob gezahlt oder nicht.
+
+   Am Tresen stand bei beiden dasselbe Wort, in 11 Pixel Grau. Daraus
+   werden zwei Arten, Geld zu verlieren: Essen rausgeben, das nie bezahlt
+   wurde -- oder einen Gast ein zweites Mal zahlen lassen. Das Zweite ist
+   schlimmer, das erzaehlt er weiter.
+
+   Bar und Karte bekommen bewusst KEINE Marke: dort wird bei der Uebergabe
+   kassiert, das weiss jeder. Eine Marke an jeder Bestellung waere Laerm,
+   und Laerm liest niemand mehr. */
+function zahlartStand(order) {
+    var art = zahlartKurz(order && order.payment_method);
+    var vorkasse = art === 'PayPal' || art === 'Online';
+    if (!vorkasse) return { text: art, marke: false };
+    var bezahlt = String((order && order.payment_status) || '').toLowerCase() === 'paid';
+    return {
+        text: art + (bezahlt ? ' · bezahlt' : ' · offen'),
+        marke: true,
+        bezahlt: bezahlt,
+        farbe: bezahlt ? '#15803d' : '#b45309',
+        hintergrund: bezahlt ? 'rgba(21,128,61,0.12)' : 'rgba(180,83,9,0.12)'
+    };
+}
+window.zahlartStand = zahlartStand;
+
 // ==================== VORBESTELLUNG ====================
 //
 // Bisher wurde bei geschlossenem Restaurant schlicht abgelehnt: "hat gerade
@@ -56476,7 +56507,13 @@ function renderDashboardOrders() {
                             ${order.order_type === 'delivery' ? '<span class="material-symbols-outlined" style="font-size:14px;">delivery_dining</span> Lieferung' : order.order_type === 'dine_in' ? '<span class="material-symbols-outlined" style="font-size:14px;">restaurant</span> Hier essen' + (order.table_number ? ' · Tisch ' + order.table_number : '') : '<span class="material-symbols-outlined" style="font-size:14px;">takeout_dining</span> Abholung'}
                             <span style="opacity:0.5;">•</span> ${timeAgo}
                         </div>
-                        <span style="font-size:11px;color:rgba(64,73,70,0.5);">${zahlartKurz(order.payment_method)}</span>
+                        ${(function () {
+                            // Geld gehoert nicht in 11-Pixel-Grau.
+                            var st = zahlartStand(order);
+                            if (!st.marke) return '<span style="font-size:11px;color:rgba(64,73,70,0.5);">' + st.text + '</span>';
+                            return '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:9999px;'
+                                 + 'color:' + st.farbe + ';background:' + st.hintergrund + ';">' + st.text + '</span>';
+                        })()}
                     </div>
                     ${order.customer_phone ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">phone</span><a href="tel:' + escapeHtml(order.customer_phone) + '" style="color:var(--ink-strong);text-decoration:none;">' + escapeHtml(order.customer_phone) + '</a></div>' : ''}
                     ${order.delivery_address ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">location_on</span>' + adresseHtml(order.delivery_address) + '</div>' : ''}
@@ -57790,10 +57827,15 @@ async function printKitchenBon(orderId) {
     }
 
     // Zahlungsart
+    // Der Bon haengt in der Kueche und der Tresen greift danach. Steht da
+    // nur "PAYPAL", weiss niemand, ob noch zu kassieren ist.
     var zahlStr = '';
     if (order.payment_method === 'cash') zahlStr = 'BAR';
     else if (order.payment_method === 'card' || order.payment_method === 'card_on_delivery') zahlStr = 'KARTE';
-    else if (order.payment_method === 'paypal') zahlStr = 'PAYPAL';
+    else if (order.payment_method === 'paypal') {
+        zahlStr = String(order.payment_status || '').toLowerCase() === 'paid'
+            ? 'PAYPAL - BEZAHLT' : 'PAYPAL - NOCH ZU ZAHLEN';
+    }
     else zahlStr = (order.payment_method || 'BAR').toUpperCase();
 
     var printContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
@@ -58205,7 +58247,11 @@ function generateESCPOS(order) {
     // Zahlungsart
     var zahlStr = 'BAR';
     if (order.payment_method === 'card' || order.payment_method === 'card_on_delivery') zahlStr = 'KARTE';
-    else if (order.payment_method === 'paypal') zahlStr = 'PAYPAL';
+    else if (order.payment_method === 'paypal') {
+        // 32 Zeichen pro Zeile -- "PAYPAL - NOCH ZU ZAHLEN" passt mit Klammern.
+        zahlStr = String(order.payment_status || '').toLowerCase() === 'paid'
+            ? 'PAYPAL - BEZAHLT' : 'PAYPAL - NOCH ZU ZAHLEN';
+    }
     cmd += CENTER + '[' + zahlStr + ']' + LF;
     cmd += LEFT;
 
