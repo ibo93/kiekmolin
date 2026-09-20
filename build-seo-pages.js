@@ -87,6 +87,30 @@ function betriebeZahl(anzahl, isEn, verbinder) {
     : anzahl + ' Restaurants, Pizzerien, Imbisse ' + v + ' Cafés';
 }
 
+// Die Seite fuer Gastronomen. Kurz, weil Ibo sie laut aussprechen wird --
+// in einer Kueche, am Telefon, ueber den Tresen. "kiekmolin.de schraegstrich
+// gastro" kann sich jemand merken, waehrend er die Haende voll hat.
+const GASTRO_SLUG = 'gastro';
+
+// Einfuehrungspreis fuer die ersten Betriebe.
+//
+// BEWUSST KEIN STREICHPREIS. Ein durchgestrichenes "statt 79,90" wuerde
+// behaupten, dieser Preis sei einmal verlangt worden -- wurde er nie. Das
+// waere ein Mondpreis und nach Paragraf 5 UWG abmahnbar.
+//
+// Was hier steht, ist etwas anderes: der kuenftige regulaere Preis. Das ist
+// zulaessig, hat aber eine Bedingung, und die hat Ibo am 20.09.2026
+// ausdruecklich zugesagt -- nach den ersten Plaetzen wird wirklich erhoeht.
+// Bleibt der Preis danach stehen, wird die Aussage nachtraeglich zur Luege.
+const EINSTEIGER_PLAETZE = 20;
+const PREIS_MONAT_SPAETER = '79,90 \u20ac';
+
+function einstiegSatz() {
+  return 'Die ersten ' + EINSTEIGER_PLAETZE + ' Betriebe zahlen ' + PREIS_MONAT
+       + ' im Monat \u2013 dauerhaft, solange der Vertrag l\u00e4uft. '
+       + 'Danach kostet ' + BRAND + ' ' + PREIS_MONAT_SPAETER + '.';
+}
+
 // Zielordner der generierten Seiten; fuer Tests per SEO_OUT_DIR umbiegbar
 const OUT_DIR = process.env.SEO_OUT_DIR || __dirname;
 
@@ -988,6 +1012,8 @@ function slugExists(slug) {
 function buildAvailableSlugs(restaurants, prospects) {
   AVAILABLE_SLUGS.clear();
   AVAILABLE_SLUGS_READY = true;
+  // Wird immer gebaut, haengt an keinen Daten.
+  AVAILABLE_SLUGS.add(GASTRO_SLUG);
   // Ortsseiten nach DERSELBEN Regel wie generateCityOverview. Liefe hier
   // eine andere Bedingung, zeigten Querverweise auf Seiten, die nie gebaut
   // werden -- und der Catch-All macht daraus Status 200 mit dem Inhalt der
@@ -1929,7 +1955,11 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 // Opt-out im Footer. Quelle = prospects.json (vom Betreiber gepflegt).
 
 // Wohin der "Bist du der Inhaber?"-Button zeigt (Partner-Anmeldung/Kontakt).
-const PROSPECT_OWNER_CTA_URL = '/?page=kontakt';
+// Zeigte bis zum 19.09.2026 auf '/?page=kontakt' -- ein Fenster in der
+// Gaeste-App. Ein Gastronom, der dort landete, sah ein Kontaktformular und
+// nirgends, was ihm eigentlich angeboten wird. Jetzt auf die Seite, die
+// genau das erklaert und unten das Eintragen-Formular hat.
+const PROSPECT_OWNER_CTA_URL = '/' + GASTRO_SLUG;
 
 function loadProspects() {
   const file = path.join(OUT_DIR, 'prospects.json');
@@ -2522,6 +2552,184 @@ function generateCategoryOverview(cat, restaurants, lang) {
 
 // ==================== SITEMAP + ROBOTS ====================
 
+// ---------------------------------------------------------------------
+// Die Seite fuer Gastronomen: kiekmolin.de/gastro
+// ---------------------------------------------------------------------
+// WARUM ES SIE GIBT (19.09.2026): kiekmolin.de ist die Gaeste-App. Wer den
+// Namen hoert und nachschaut, landete bisher in einer Bestell-App und wusste
+// danach nicht, was ihm eigentlich angeboten wird -- die sichtbare
+// Ueberschrift der Startseite lautet "Willkommen!". Fuer den Betrieb gab es
+// keine einzige Seite.
+//
+// WAS HIER NICHT STEHT: keine erfundene Kundenzahl, keine Bewertung ohne
+// Deckung, kein Streichpreis. Jeder Punkt unten ist eine Funktion, die
+// wirklich im Code steht -- am 19.09.2026 einzeln nachgesehen.
+
+function gastroLeistungen() {
+  return [
+    { kopf: 'Speisekarte online',
+      text: 'Kategorien, Gr\u00f6\u00dfen, Extras und Preise. \u00c4nderst du etwas, ist es sofort \u00fcberall aktuell \u2014 auch auf deiner Seite bei Google.' },
+    { kopf: 'Online bestellen',
+      text: 'Abholung und Lieferung, mit eigenem Lieferradius und Mindestbestellwert. Auch vorbestellen f\u00fcr sp\u00e4ter.' },
+    { kopf: 'Tisch reservieren',
+      text: 'Mit Tischplan, Best\u00e4tigung per Mail und einer Erinnerung f\u00fcr den Gast am Tag davor.' },
+    { kopf: 'QR-Code am Tisch',
+      text: 'F\u00fcr jeden Tisch ein eigener Code. Der Gast scannt, bestellt und zahlt \u2014 ohne dass jemand an den Tisch muss. Auf der Terrasse im August ist das der Unterschied.' },
+    { kopf: 'Bezahlen',
+      text: 'Bar bei Abholung, PayPal, Karte \u00fcber Stripe. Trinkgeld kann der Gast dazugeben.' },
+    { kopf: 'Bon-Drucker',
+      text: 'Bestellungen laufen direkt auf den Bondrucker in der K\u00fcche. Kein Tablet, das jemand im Blick behalten muss.' },
+    { kopf: 'Mittagstisch und Tagesangebote',
+      text: 'T\u00e4glich wechselnd, mit eigener Woche im Voraus.' },
+    { kopf: 'Stempelkarte und Gutscheine',
+      text: 'Digitale Stempel, Pr\u00e4mien und Gutscheincodes \u2014 ohne Pappkarte, die der Gast verliert.' },
+    { kopf: 'Eigene Seite bei Google',
+      text: 'Mit Speisekarte, \u00d6ffnungszeiten, Adresse und Telefonnummer. So gebaut, dass auch KI-Assistenten sie lesen k\u00f6nnen.' },
+    { kopf: 'Veranstaltungen und Stellenanzeigen',
+      text: 'Was bei dir l\u00e4uft und wen du suchst \u2014 im selben System.' },
+    { kopf: 'Bewertungen',
+      text: 'G\u00e4ste bewerten direkt bei dir. Auf Wunsch fragst du nach dem Besuch einmal per Mail nach.' },
+    { kopf: 'Alles in einem Preis',
+      text: 'Kein Baukasten, keine Zusatzmodule. Was hier steht, ist drin.' }
+  ];
+}
+
+function gastroNichtDas() {
+  return [
+    'Wir nehmen nichts vom Umsatz. ' + PREIS_PROVISION + ' Provision \u2014 von jeder Bestellung bleibt der volle Betrag im Haus.',
+    'Keine Mindestlaufzeit. Monatlich k\u00fcndbar.',
+    'Deine G\u00e4ste sind deine G\u00e4ste. Name, Telefon und E-Mail stehen in deinem Dashboard, nicht nur in unserem.',
+    'Kein App-Download. Der Gast \u00f6ffnet einen Link \u2014 fertig.'
+  ];
+}
+
+function buildGastroFaqs() {
+  return [
+    { q: 'Was kostet ' + BRAND + '?',
+      a: PREIS_MONAT + ' im Monat, fest \u2014 egal wie viel bestellt wird. ' + einstiegSatz()
+       + ' Nur in die \u00dcbersicht eingetragen zu werden, kostet nichts.' },
+    { q: 'Nehmt ihr Provision?',
+      a: 'Nein. ' + PREIS_PROVISION + '. Von jeder Bestellung bleibt der volle Betrag beim Betrieb. '
+       + 'Deshalb ist der Monatspreis eine feste Zahl und kein Anteil.' },
+    { q: 'Muss ich meine Kasse wechseln?',
+      a: 'Nein. Deine Kasse bleibt, wo sie ist. Bestellungen k\u00f6nnen als Bon gedruckt oder \u00fcber eine Schnittstelle abgeholt werden.' },
+    { q: 'Brauchen meine G\u00e4ste eine App?',
+      a: 'Nein. Der Gast \u00f6ffnet einen Link oder scannt den QR-Code am Tisch. Es gibt nichts zu installieren.' },
+    { q: 'Wie lange bin ich gebunden?',
+      a: 'Monatlich k\u00fcndbar, keine Mindestlaufzeit. Wer aufh\u00f6ren will, h\u00f6rt auf.' },
+    { q: 'Wer steckt dahinter?',
+      a: BRAND + ' wird in Ostfriesland gemacht und betreut. Wenn etwas klemmt, ist jemand da, der vorbeikommen kann.' }
+  ];
+}
+
+// Das Anmeldeformular. Es schickt an dieselbe Function wie die Check-Seite
+// (agentur-lead) -- Mail zuerst, dann ins CRM. Neu ist nur die Herkunft.
+//
+// Das Feld "firmen_webseite" ist ein Honigtopf: fuer Menschen
+// unsichtbar, fuer Bots verlockend. Ist es ausgefuellt, tut die Function
+// freundlich nichts.
+function gastroFormular() {
+  return '' +
+    '<section id="anmelden" style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:12px;padding:24px 22px;margin:34px 0;">' +
+      '<h2 style="margin:0 0 6px;font-size:22px;">Jetzt eintragen</h2>' +
+      '<p style="margin:0 0 18px;color:#444;">Trag deinen Betrieb ein. Wir melden uns \u2014 meistens noch am selben Tag. Kein Vertrag, kein Verkaufsgespr\u00e4ch am Telefon.</p>' +
+      '<form id="gastroForm" style="display:grid;gap:12px;max-width:520px;">' +
+        '<label style="display:grid;gap:4px;font-size:14px;font-weight:600;color:#333;">Betrieb *' +
+          '<input name="betrieb" required maxlength="90" style="padding:11px 13px;border:1px solid #ccc;border-radius:8px;font-size:15px;">' +
+        '</label>' +
+        '<label style="display:grid;gap:4px;font-size:14px;font-weight:600;color:#333;">Ort' +
+          '<input name="ort" maxlength="60" style="padding:11px 13px;border:1px solid #ccc;border-radius:8px;font-size:15px;">' +
+        '</label>' +
+        '<label style="display:grid;gap:4px;font-size:14px;font-weight:600;color:#333;">Dein Name' +
+          '<input name="name" maxlength="70" style="padding:11px 13px;border:1px solid #ccc;border-radius:8px;font-size:15px;">' +
+        '</label>' +
+        '<label style="display:grid;gap:4px;font-size:14px;font-weight:600;color:#333;">Telefon oder E-Mail *' +
+          '<input name="kontakt" required maxlength="90" style="padding:11px 13px;border:1px solid #ccc;border-radius:8px;font-size:15px;">' +
+        '</label>' +
+        '<label style="display:grid;gap:4px;font-size:14px;font-weight:600;color:#333;">Was brauchst du?' +
+          '<textarea name="anliegen" rows="3" maxlength="400" style="padding:11px 13px;border:1px solid #ccc;border-radius:8px;font-size:15px;font-family:inherit;"></textarea>' +
+        '</label>' +
+        '<div style="position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden;" aria-hidden="true">' +
+          '<input name="firmen_webseite" tabindex="-1" autocomplete="off">' +
+        '</div>' +
+        '<button type="submit" id="gastroSenden" style="background:' + PRIMARY_COLOR + ';color:#fff;border:0;padding:14px 26px;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Eintragen</button>' +
+        '<p id="gastroHinweis" role="status" style="margin:0;font-size:14px;min-height:20px;color:#444;"></p>' +
+        '<p style="margin:0;font-size:12px;color:#666;">Wir nutzen deine Angaben nur, um dir zu antworten. ' +
+          '<a href="/?page=datenschutz">Datenschutz</a></p>' +
+      '</form>' +
+    '</section>' +
+    '<script>(function(){' +
+      'var f=document.getElementById("gastroForm");if(!f)return;' +
+      'var h=document.getElementById("gastroHinweis"),b=document.getElementById("gastroSenden");' +
+      'f.addEventListener("submit",function(e){e.preventDefault();' +
+        'var d={quelle:"gastro"};' +
+        'Array.prototype.forEach.call(f.elements,function(el){if(el.name)d[el.name]=el.value;});' +
+        'b.disabled=true;h.style.color="#444";h.textContent="Wird gesendet\u2026";' +
+        'fetch("/.netlify/functions/agentur-lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)})' +
+        '.then(function(r){return r.json().catch(function(){return null;});})' +
+        '.then(function(a){' +
+          'if(a&&a.ok){f.reset();h.style.color="#166534";h.textContent="Angekommen. Wir melden uns.";}' +
+          'else{b.disabled=false;h.style.color="#b91c1c";h.textContent=(a&&a.fehler)?a.fehler:"Das hat nicht geklappt. Schreib uns an info@kiekmolin.de.";}' +
+        '})' +
+        '.catch(function(){b.disabled=false;h.style.color="#b91c1c";h.textContent="Keine Verbindung. Schreib uns an info@kiekmolin.de.";});' +
+      '});' +
+    '})();<\/script>';
+}
+
+function generateGastroPage() {
+  const url = SITE_URL + '/' + GASTRO_SLUG;
+
+  const preisKasten =
+    '<section style="border:2px solid ' + PRIMARY_COLOR + ';border-radius:12px;padding:22px;margin:28px 0;">' +
+      '<h2 style="margin:0 0 12px;font-size:22px;">Was es kostet</h2>' +
+      '<p style="margin:0 0 8px;font-size:30px;font-weight:800;color:' + PRIMARY_COLOR + ';">' + PREIS_MONAT + ' <span style="font-size:16px;font-weight:600;color:#444;">im Monat, fest</span></p>' +
+      '<p style="margin:0 0 8px;color:#444;">' + preisSatz() + '</p>' +
+      '<p style="margin:0 0 8px;color:#444;"><strong>' + einstiegSatz() + '</strong></p>' +
+      '<p style="margin:0;color:#444;">Nur in die \u00dcbersicht eingetragen zu werden \u2014 mit Adresse, \u00d6ffnungszeiten und Telefonnummer \u2014 kostet nichts.</p>' +
+    '</section>';
+
+  const leistungen =
+    '<section><h2 style="font-size:22px;margin:30px 0 4px;">Was drin ist</h2>' +
+    '<p style="margin:0 0 16px;color:#666;">Alles in einem Preis. Kein Baukasten.</p>' +
+    '<div class="links" style="display:grid;gap:14px;">' +
+    gastroLeistungen().map(function(l) {
+      return '<div style="border-left:3px solid ' + PRIMARY_COLOR + ';padding:2px 0 2px 14px;">' +
+        '<strong style="display:block;font-size:16px;margin-bottom:3px;">' + escapeHtml(l.kopf) + '</strong>' +
+        '<span style="color:#444;">' + escapeHtml(l.text) + '</span></div>';
+    }).join('') +
+    '</div></section>';
+
+  const nichtDas =
+    '<section><h2 style="font-size:22px;margin:34px 0 12px;">Was wir nicht tun</h2><ul style="margin:0;padding-left:20px;color:#444;line-height:1.7;">' +
+    gastroNichtDas().map(function(t) { return '<li>' + escapeHtml(t) + '</li>'; }).join('') +
+    '</ul></section>';
+
+  const html = buildPage({
+    lang: 'de',
+    title: 'Bestellen, reservieren und bezahlen \u2014 ohne Provision | ' + BRAND,
+    description: 'Das komplette G\u00e4stesystem f\u00fcr Gastronomie in Ostfriesland: Speisekarte, '
+      + 'Online-Bestellung, Tischreservierung, QR am Tisch. ' + PREIS_MONAT + ' im Monat, '
+      + PREIS_PROVISION + ' Provision.',
+    canonical: url,
+    h1: 'Bestellen, reservieren, bezahlen \u2014 ohne Provision.',
+    subtitle: 'Das ganze G\u00e4stesystem f\u00fcr deinen Betrieb in Ostfriesland.',
+    intro: '<p>Speisekarte, Online-Bestellung, Tischreservierung, QR-Code am Tisch, Bon-Drucker, '
+      + 'Stempelkarte und eine eigene Seite bei Google \u2014 in einem System und zu einem festen Preis. '
+      + 'Ohne Provision, ohne App, ohne Mindestlaufzeit.</p>',
+    restaurants: [],
+    extraHtml: preisKasten + leistungen + nichtDas + gastroFormular(),
+    faqs: buildGastroFaqs(),
+    breadcrumbs: [
+      { name: 'Start', url: SITE_URL + '/' },
+      { name: 'F\u00fcr Gastronomie', url: url }
+    ]
+  });
+
+  const filename = GASTRO_SLUG + '.html';
+  fs.writeFileSync(path.join(OUT_DIR, filename), html, 'utf8');
+  return { filename: filename, url: url, gastro: true };
+}
+
 function writeSitemap(generated) {
   const today = new Date().toISOString().slice(0, 10);
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -2532,8 +2740,10 @@ function writeSitemap(generated) {
   // die von selbst reinkommen.
   xml += '  <url><loc>' + SITE_URL + '/check</loc><lastmod>' + today + '</lastmod><priority>0.7</priority><changefreq>monthly</changefreq></url>\n';
   generated.forEach(function(g) {
-    const prio = g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8');
-    const freq = g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly');
+    // Die Gastro-Seite ist die einzige, die etwas verkauft. Sie steht so
+    // weit oben wie eine Betriebsseite und aendert sich selten.
+    const prio = g.gastro ? '0.9' : (g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8'));
+    const freq = g.gastro ? 'monthly' : (g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly'));
     xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
   });
   xml += '</urlset>\n';
@@ -2938,6 +3148,12 @@ async function main() {
     console.warn('[seo] WARN: injectHomepageCityLinks failed -', e.message);
   }
 
+  // Die Seite fuer Gastronomen. Eine einzige, deutsch, ohne Betriebsdaten --
+  // sie muss deshalb nicht in die Schleifen oben.
+  const gastro = generateGastroPage();
+  console.log('[seo] +', gastro.filename, '(Seite fuer Gastronomen)');
+  generated.push(gastro);
+
   writeSitemap(generated);
   writeRobots();
   console.log('[seo] + sitemap.xml (' + (generated.length + 1) + ' urls)');
@@ -2981,11 +3197,20 @@ if (require.main === module) {
     generateProspectPage: generateProspectPage,
     injectHomepageCityLinks: injectHomepageCityLinks,
     buildAvailableSlugs: buildAvailableSlugs,
+    slugExists: slugExists,
     ermittleOrte: ermittleOrte,
     ortSlug: ortSlug,
     ortLohntSeite: ortLohntSeite,
     prospectSlug: prospectSlug,
-    gerichteZahl,
+    generateGastroPage,
+  gastroLeistungen,
+  buildGastroFaqs,
+  einstiegSatz,
+  EINSTEIGER_PLAETZE,
+  PREIS_MONAT_SPAETER,
+  GASTRO_SLUG,
+  PROSPECT_OWNER_CTA_URL,
+  gerichteZahl,
   betriebeZahl,
   MIN_EINTRAEGE: MIN_EINTRAEGE,
     writeLlmsTxt: writeLlmsTxt,
