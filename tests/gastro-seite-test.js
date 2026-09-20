@@ -103,16 +103,100 @@ t('Betrieb ist Pflicht', /name="betrieb"[^>]*required|required[^>]*name="betrieb
 t('eine Rueckmeldung ist Pflicht', /name="kontakt"[^>]*required|required[^>]*name="kontakt"/.test(H), 'nicht pflicht');
 t('es schickt an den vorhandenen Briefkasten',
   /\/\.netlify\/functions\/agentur-lead/.test(H), 'schickt nirgendwo hin');
-t('und sagt dabei, woher es kommt', /quelle:"gastro"/.test(H), 'ohne Herkunft');
+// Nicht an der Anfuehrungszeichen-Sorte festmachen -- beim Umbau wurde
+// aus "gastro" ein 'gastro' und die Zusicherung war rot, obwohl sich
+// nichts Inhaltliches geaendert hatte.
+t('und sagt dabei, woher es kommt',
+  /quelle\s*:\s*['"]gastro['"]/.test(H), 'ohne Herkunft');
 t('der Datenschutz ist verlinkt', /page=datenschutz/.test(H), 'kein Hinweis');
 
 // Der Honigtopf MUSS unsichtbar sein.
-var topf = (H.match(/<div[^>]*>\s*<input name="firmen_webseite"[^>]*>/) || [''])[0];
 var umfeld = H.slice(Math.max(0, H.indexOf('firmen_webseite') - 260), H.indexOf('firmen_webseite'));
 t('es gibt einen Honigtopf', H.indexOf('firmen_webseite') > -1, 'fehlt');
-t('und er ist fuer Menschen unsichtbar',
-  /left:-9999px/.test(umfeld) && /aria-hidden="true"/.test(umfeld),
-  'ein sichtbares Bot-Feld fuellen echte Menschen aus: ' + umfeld.slice(-120));
+t('er ist vor Screenreadern verborgen', /aria-hidden="true"/.test(umfeld), umfeld.slice(-140));
+
+// GEAENDERT 20.09.2026. Hier stand /left:-9999px/ gegen den umgebenden
+// style="". Das prueft die UMSETZUNG, nicht die Eigenschaft: mit dem
+// Umbau auf eine CSS-Klasse wurde der Test rot, obwohl das Feld genauso
+// unsichtbar war. Jetzt wird die Regel gesucht, die es wirklich versteckt
+// -- egal ob sie inline steht oder im Stylesheet.
+function verstecktDas(quelle, huelle) {
+    // Die LETZTE class= vor dem Feld ist die des umschliessenden Elements.
+    // Ein $-Anker geht hier nicht: der Ausschnitt endet mitten im Tag.
+    var alle = huelle.match(/class="([^"]*)"/g) || [];
+    var letzte = alle.length ? alle[alle.length - 1] : '';
+    var klasse = (letzte.match(/class="([^"]*)"/) || ['', ''])[1].split(/\s+/)[0];
+    var regel = klasse
+        ? (quelle.match(new RegExp('\\.' + klasse + '\\s*\\{[^}]*\\}')) || [''])[0]
+        : '';
+    var text = regel + ' ' + huelle;
+    return /left:\s*-9999px/.test(text) || /display:\s*none/.test(text)
+        || /visibility:\s*hidden/.test(text);
+}
+t('und fuer Menschen unsichtbar',
+  verstecktDas(H, umfeld) === true,
+  'ein sichtbares Bot-Feld fuellen echte Menschen aus: ' + umfeld.slice(-140));
+
+// ====================================================================
+console.log('\n-- 3a. Stil und Skript kommen VOLLSTAENDIG an --');
+// ====================================================================
+// Beim Umbau auf das neue Design sind mir CSS und Skript ZWEIMAL
+// abgeschnitten im Dokument gelandet -- eine Kodier-Panne beim Einsetzen.
+// Die Seite sah fast normal aus, aber das Formular warf beim Absenden
+// einen SyntaxError, und die halbe Gestaltung fehlte. Kein einziger Test
+// hat das gemerkt, weil alle nur nach Textstuecken gesucht haben.
+// Gefunden habe ich es erst im echten Browser.
+var skript = (H.match(/<script>([\s\S]*?)<\/script>/) || ['', ''])[1];
+t('die Seite bringt ein eigenes Skript mit', skript.length > 200, skript.length);
+var skriptOk = true, skriptFehler = '';
+try { new (require('vm').Script)(skript); }
+catch (e) { skriptOk = false; skriptFehler = e.message; }
+t('und es laesst sich fehlerfrei einlesen', skriptOk, skriptFehler);
+t('es haengt am Formular', /addEventListener\("submit"|addEventListener\('submit'/.test(skript), 'kein Absende-Haken');
+
+var stil = (H.match(/<style>([\s\S]*?)<\/style>/) || ['', ''])[1];
+t('der Stil ist vollstaendig da', stil.length > 3000, stil.length);
+t('die Klammern im Stil gehen auf und zu',
+  (stil.match(/\{/g) || []).length === (stil.match(/\}/g) || []).length,
+  (stil.match(/\{/g) || []).length + ' auf, ' + (stil.match(/\}/g) || []).length + ' zu');
+t('auch die LETZTE Regel ist drin (nichts abgeschnitten)',
+  /prefers-reduced-motion/.test(stil), 'der Stil hoert vorzeitig auf');
+t('die Handy-Ansicht ist dabei', /max-width:640px/.test(stil), 'keine Medienabfrage');
+t('der Dunkelmodus ist dabei', /prefers-color-scheme:dark/.test(stil), 'fehlt');
+
+// ====================================================================
+console.log('\n-- 3b. Was Google und die Assistenten lesen --');
+// ====================================================================
+// Beim Umbau auf das neue Design war das Schema WEG: die Helfer geben ein
+// Objekt zurueck, und ohne script-Rahmen stand das JSON nackt im Kopf.
+// Gemerkt habe ich es nur, weil ich es von Hand ausgegeben habe -- es gab
+// dafuer keine Zusicherung. Jetzt gibt es eine.
+function schemaBloecke(html) {
+    var re = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, m, raus = [];
+    while ((m = re.exec(html)) !== null) {
+        try { raus.push(JSON.parse(m[1].replace(/\\u003c/g, '<').replace(/\\u003e/g, '>').replace(/\\u0026/g, '&'))); }
+        catch (e) { raus.push({ kaputt: m[1].slice(0, 60) }); }
+    }
+    return raus;
+}
+var schemata = schemaBloecke(H);
+t('es gibt Schema-Bloecke im Kopf', schemata.length >= 2, schemata.length);
+t('jeder ist gueltiges JSON', schemata.every(function (x) { return !x.kaputt; }),
+  JSON.stringify(schemata.filter(function (x) { return x.kaputt; })));
+
+var faqLd = schemata.filter(function (x) { return x['@type'] === 'FAQPage'; })[0];
+t('das FAQ-Schema ist da', !!faqLd, schemata.map(function (x) { return x['@type']; }).join(','));
+t('und enthaelt alle Fragen der Seite',
+  !!faqLd && faqLd.mainEntity.length === B.buildGastroFaqs().length,
+  faqLd && faqLd.mainEntity.length);
+t('darunter die Frage nach reinen Reservierungen',
+  !!faqLd && faqLd.mainEntity.some(function (f) { return /nur Reservierungen/.test(f.name); }),
+  'fehlt');
+
+var krumen = schemata.filter(function (x) { return x['@type'] === 'BreadcrumbList'; })[0];
+t('der Breadcrumb ist da', !!krumen, 'fehlt');
+t('und zeigt auf die Startseite', !!krumen && krumen.itemListElement[0].item === 'https://kiekmolin.de/',
+  krumen && krumen.itemListElement[0].item);
 
 // ====================================================================
 console.log('\n-- 4. Der Weg dorthin --');
