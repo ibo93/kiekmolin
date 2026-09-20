@@ -78,7 +78,15 @@ t('die Symbole gibt es in der Schrift',
   && /'account_balance_wallet', 'PayPal'/.test(h), 'anderes Symbol');
 t('die Beschriftung heisst wie in der Bestellung -- Kreditkarte, nicht "Karte"',
   /'credit_card', 'Kreditkarte'/.test(h), 'zwei Woerter fuer dieselbe Sache');
-t('es traegt die Farbe des Betriebs', /color:var\(--marke,#003d33\);">'\s*\n?\s*\+ t\[0\]/.test(h), 'feste Farbe');
+// Die Kachel wird seit dem 20.09.2026 in zahlartKachel() gebaut -- damit
+// eine nachtraeglich angehaengte PayPal-Kachel nicht anders aussieht.
+// Geprueft wird weiter die Eigenschaft (Farbe des Betriebs), nur an der
+// Stelle, an der die Kachel jetzt entsteht.
+var kachel = h.slice(h.indexOf('function zahlartKachel('), h.indexOf('window.zahlartKachel'));
+t('es traegt die Farbe des Betriebs',
+  /color:var\(--marke,#003d33\);">'\s*\n?\s*\+ symbol/.test(kachel), 'feste Farbe');
+t('und die Landepage benutzt wirklich diese eine Bauweise',
+  /h \+= zahlartKachel\(t\[0\], t\[1\]\);/.test(h), 'baut die Kachel selbst nach');
 
 // ---- Auslieferung ------------------------------------------------------
 console.log('\n-- Auslieferung --');

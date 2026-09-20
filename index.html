@@ -41322,6 +41322,24 @@ async function showRestaurantLanding(rest) {
         ${(function () {
             if (typeof zahlarten !== 'function') return '';
             var z = zahlarten(rest);
+            /* Steht PayPal auf AN, ist aber (noch) nicht bekannt, ob die zwei
+               Schluessel hinterlegt sind, fragen wir nach und haengen die
+               Kachel danach an. Ohne das stuende hier "Bar, Kreditkarte" und
+               beim Bestellen gaebe es zusaetzlich PayPal -- zwei Listen, die
+               auseinanderlaufen, ist genau das, was dieser Block vermeiden
+               soll. */
+            if (!z.paypal && (rest.features || []).indexOf('payment_paypal') !== -1
+                && typeof ppcKontoPruefen === 'function') {
+                setTimeout(function () {
+                    ppcKontoPruefen(rest).then(function (da) {
+                        if (!da) return;
+                        var leiste = document.getElementById('zahlartenLeiste');
+                        if (!leiste || leiste.dataset.rest !== String(rest.id)) return;
+                        if (leiste.textContent.indexOf('PayPal') !== -1) return;
+                        leiste.insertAdjacentHTML('beforeend', zahlartKachel('account_balance_wallet', 'PayPal'));
+                    });
+                }, 0);
+            }
             var teile = [];
             if (z.bar) teile.push(['payments', 'Bar']);
             if (z.karte) teile.push(['credit_card', 'Kreditkarte']);
@@ -41330,14 +41348,8 @@ async function showRestaurantLanding(rest) {
             var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 64px;">'
                   + '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">'
                   + '<p style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-secondary);margin:0;font-family:Inter,sans-serif;">Zahlung möglich mit</p>'
-                  + '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">';
-            teile.forEach(function (t) {
-                h += '<span style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;'
-                   + 'background:var(--bg-card);border:1px solid #e1e3e4;border-radius:9999px;'
-                   + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--ink-deep);">'
-                   + '<span class="material-symbols-outlined" style="font-size:17px;color:var(--marke,#003d33);">'
-                   + t[0] + '</span>' + t[1] + '</span>';
-            });
+                  + '<div id="zahlartenLeiste" data-rest="' + rest.id + '" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">';
+            teile.forEach(function (t) { h += zahlartKachel(t[0], t[1]); });
             h += '</div></div></section>';
             return h;
         })()}
@@ -63667,6 +63679,17 @@ function getPaypalMe(restaurant) {
 // Der Sonderfall, der leicht untergeht: hat der Wirt NICHTS eingestellt,
 // gelten Bar und Karte. So macht es die Bestellseite seit jeher -- die
 // Landepage muss dasselbe sagen.
+// Eine Zahlart-Kachel. Als eigene Funktion, damit die nachtraeglich
+// angehaengte PayPal-Kachel nicht anders aussieht als die anderen.
+function zahlartKachel(symbol, text) {
+    return '<span style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;'
+         + 'background:var(--bg-card);border:1px solid #e1e3e4;border-radius:9999px;'
+         + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:var(--ink-deep);">'
+         + '<span class="material-symbols-outlined" style="font-size:17px;color:var(--marke,#003d33);">'
+         + symbol + '</span>' + text + '</span>';
+}
+window.zahlartKachel = zahlartKachel;
+
 function zahlarten(restaurant) {
     var f = (restaurant && restaurant.features) || [];
     var bar = f.indexOf('payment_cash') !== -1;

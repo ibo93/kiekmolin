@@ -131,6 +131,25 @@ function stube(kontoAntwort) {
     t('gefragt wird nur bei eingeschaltetem PayPal',
       /features\.indexOf\('payment_paypal'\) !== -1/.test(anzeige), 'fragt bei jedem Betrieb');
 
+    console.log('\n-- Landepage und Bestellablauf duerfen nicht auseinanderlaufen --');
+    // Der Kommentar im Quelltext sagt es selbst: wer "Kartenzahlung" liest
+    // und ohne Bargeld losfaehrt, steht bloed da. Genauso falsch herum:
+    // unten steht "Bar, Kreditkarte", und beim Bestellen gibt es auf einmal
+    // auch PayPal.
+    var leiste = H.slice(H.indexOf('Zahlung möglich mit') - 3000,
+                         H.indexOf('Zahlung möglich mit') + 1500);
+    t('die Landepage fragt beim neuen Weg ebenfalls nach',
+      /ppcKontoPruefen\(rest\)/.test(leiste), 'nur der Bestellablauf weiss davon');
+    t('und haengt die Kachel danach an',
+      /zahlartKachel\('account_balance_wallet', 'PayPal'\)/.test(leiste), 'holt die Antwort und tut nichts');
+    t('nur beim richtigen Betrieb -- sonst landet sie auf der naechsten Seite',
+      /leiste\.dataset\.rest !== String\(rest\.id\)/.test(leiste), 'kein Abgleich');
+    t('und nicht doppelt',
+      /indexOf\('PayPal'\) !== -1\) return;/.test(leiste), 'zweimal PayPal moeglich');
+    t('beide Kacheln kommen aus derselben Funktion',
+      /teile\.forEach\(function \(t\) \{ h \+= zahlartKachel\(t\[0\], t\[1\]\); \}\);/.test(leiste),
+      'zwei Bauweisen, die auseinanderlaufen koennen');
+
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })();
