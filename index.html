@@ -63692,15 +63692,51 @@ function getZahlungslink(restaurant) {
     var f = restaurant.features.find(function (x) { return String(x).indexOf('zahlungslink:') === 0; });
     return f ? String(f).slice('zahlungslink:'.length) : '';
 }
+/* Hat dieser Betrieb die zwei Schluessel ("Zahlung zuerst")?
+   Das steht NICHT in features. Die Schluessel liegen in paypal_konten,
+   einer Tabelle mit RLS und ohne Leserecht -- der Browser des Gastes
+   kommt da nicht heran, und das soll auch so bleiben, es steht ein
+   Secret drin. Die Auskunft "ja/nein" holt die Function, die dabei nur
+   die oeffentliche Client-ID herausgibt.
+
+   Weil paypalMoeglich() an vielen Stellen synchron gefragt wird, merken
+   wir uns die Antwort hier. Vorher gefragt wird in
+   updateCheckoutPaymentMethods(). */
+var _ppcKontoDa = {};
+
 // Kann dieser Betrieb ueberhaupt PayPal? Genau eine Stelle, die das
 // beantwortet -- sonst laeuft die Anzeige beim Gast irgendwann anders
 // als der Bezahlknopf danach.
+//
+// 20.09.2026: Ibo hat fuer Pizzeria Pronto PayPal eingeschaltet und die
+// zwei Schluessel hinterlegt. Der Gast sah trotzdem kein PayPal. Grund:
+// diese Funktion kannte nur die DREI ALTEN Wege -- PayPal.me-Name,
+// PayPal-Adresse, eigener Zahlungslink. Der neue Weg, der seit heute der
+// beste ist, kam hier gar nicht vor. Ergebnis: eingerichtet, bezahlt,
+// funktioniert -- und unsichtbar. Genau die Sorte stiller Ausfall, die
+// wie eine normale Seite aussieht.
 function paypalMoeglich(restaurant) {
     if (typeof PAYPAL === 'undefined' || !restaurant) return false;
-    return PAYPAL.gueltig(getPaypalMe(restaurant))
+    return _ppcKontoDa[restaurant.id] === true
+        || PAYPAL.gueltig(getPaypalMe(restaurant))
         || !!PAYPAL.mail(getPaypalMail(restaurant))
         || /^https:\/\//i.test(getZahlungslink(restaurant));
 }
+
+/* Fragt einmal nach und meldet sich, wenn sich die Antwort geaendert hat.
+   Ein Netzfehler zaehlt NICHT als "nicht eingerichtet" -- dann bleibt die
+   Frage offen und wird beim naechsten Mal neu gestellt. Sonst haette ein
+   einziger Aussetzer die Zahlart fuer den Rest des Besuchs versteckt. */
+async function ppcKontoPruefen(restaurant) {
+    if (!restaurant || !restaurant.id) return false;
+    if (_ppcKontoDa[restaurant.id] !== undefined) return _ppcKontoDa[restaurant.id];
+    if (typeof PPC === 'undefined') return false;
+    var k = await PPC.konto(restaurant.id);
+    if (k && k.fehler) return false;              // offen lassen, nicht merken
+    _ppcKontoDa[restaurant.id] = !!(k && k.eingerichtet && k.client_id);
+    return _ppcKontoDa[restaurant.id];
+}
+window.ppcKontoPruefen = ppcKontoPruefen;
 window.getPaypalMail = getPaypalMail;
 window.getZahlungslink = getZahlungslink;
 window.paypalMoeglich = paypalMoeglich;
@@ -64075,6 +64111,20 @@ function updateCheckoutPaymentMethods() {
     if (cashEl) cashEl.style.display = hasCash ? 'flex' : 'none';
     if (cardEl) cardEl.style.display = hasCard ? 'flex' : 'none';
     if (paypalEl) paypalEl.style.display = hasPaypal ? 'flex' : 'none';
+
+    /* PayPal ist eingeschaltet, aber kein alter Bezahlweg hinterlegt?
+       Dann kann es trotzdem gehen -- naemlich ueber die zwei Schluessel.
+       Einmal nachfragen und, wenn die Antwort ja lautet, neu zeichnen.
+       Ohne das bleibt die Zahlart unsichtbar, obwohl sie funktioniert. */
+    if (!hasPaypal && features.indexOf('payment_paypal') !== -1
+        && _ppcKontoDa[currentOrderRestaurant.id] === undefined) {
+        var _rest = currentOrderRestaurant;
+        ppcKontoPruefen(_rest).then(function (da) {
+            if (da && currentOrderRestaurant && currentOrderRestaurant.id === _rest.id) {
+                updateCheckoutPaymentMethods();
+            }
+        });
+    }
 
     // Wenn aktive Zahlungsart nicht verfügbar → erste verfügbare wählen
     var currentPayment = paymentMethod;
