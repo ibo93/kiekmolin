@@ -131,34 +131,34 @@ exports.handler = async function (event) {
         'hat ein Problem, das gerade weh tut - da zaehlen Stunden.'
     ].join('\n');
 
-    // Ohne Versand-Schluessel nichts vortaeuschen: Die Seite bekommt gesagt,
-    // dass sie den WhatsApp-Weg anbieten soll.
-    if (!RESEND_API_KEY || !EMAIL_FROM || !AGENTUR_EMAIL) {
-        console.warn('agentur-lead: RESEND_API_KEY/EMAIL_FROM/AGENTUR_EMAIL fehlen - Anfrage von "' +
-            betrieb + '" konnte nicht gemailt werden.');
+    /* EINE Anfrage darf NIE verloren gehen -- egal woran der Mailweg
+       scheitert.
 
-        // HIER STAND FRUEHER NUR EIN RETURN.
-        //
-        // Damit war die Anfrage weg: keine Mail, und das Schreiben ins CRM
-        // kommt erst weiter unten. Fehlt eine einzige Netlify-Variable --
-        // und das merkt man erst, wenn jemand sich beschwert, dass er nie
-        // eine Antwort bekommen hat --, verschwand jede Anfrage spurlos.
-        // Genau die Sorte stiller Ausfall, die am meisten kostet: die Seite
-        // sagte "hat nicht geklappt", der Gastronom ging weiter, und
-        // niemand erfuhr davon.
-        //
-        // Jetzt wird sie wenigstens gespeichert. Die Antwort sagt mit
-        // imCrm, ob das geklappt hat -- die Seite kann daraufhin etwas
-        // Brauchbares anbieten statt einer technischen Fehlermeldung.
+       Am 20.09.2026 um 12:04 hat Ibo das Formular auf /gastro ausgefuellt.
+       Die Seite sagte "Das hat gerade nicht geklappt". Gemessen in den
+       edge_logs: NULL Schreibzugriffe auf die Tabelle anfragen. Die
+       Eingabe war weg.
+
+       Der Grund: unten gab es DREI Ausgaenge, an denen der Mailweg endet
+       -- Schluessel fehlt, Resend antwortet mit Fehler, Resend wirft --
+       und nur der erste schrieb vorher ins CRM. Ich hatte zwei uebersehen.
+
+       Deshalb gibt es jetzt genau eine Stelle, die das erledigt. Wer hier
+       einen weiteren Ausgang einbaut, muss sie benutzen. */
+    var ohneMail = async function (grund, protokoll) {
+        if (protokoll) console.warn('agentur-lead: ' + protokoll);
         var gerettet = await inDieDatenbank({
             betrieb: betrieb, ort: ort, person: name, kontakt: kontakt,
             nachricht: anliegen, website: website, selbsttest: selbsttest,
             herkunft: HERKUNFT[quelle].pfad
         });
-        return json(200, {
-            ok: false, mailAus: true, imCrm: gerettet,
-            fehler: 'Der E-Mail-Versand ist gerade nicht eingerichtet.'
-        });
+        return json(200, { ok: false, mailAus: true, imCrm: gerettet, fehler: grund });
+    };
+
+    if (!RESEND_API_KEY || !EMAIL_FROM || !AGENTUR_EMAIL) {
+        return await ohneMail(
+            'Der E-Mail-Versand ist gerade nicht eingerichtet.',
+            'RESEND_API_KEY/EMAIL_FROM/AGENTUR_EMAIL fehlen - Anfrage von "' + betrieb + '"');
     }
 
     try {
@@ -175,12 +175,12 @@ exports.handler = async function (event) {
         });
         if (!antwort.ok) {
             var text = await antwort.text();
-            console.error('agentur-lead: Resend ' + antwort.status + ' - ' + text.slice(0, 200));
-            return json(200, { ok: false, mailAus: true, fehler: 'Der Versand hat gerade nicht geklappt.' });
+            return await ohneMail('Der Versand hat gerade nicht geklappt.',
+                'Resend ' + antwort.status + ' - ' + text.slice(0, 200));
         }
     } catch (e) {
-        console.error('agentur-lead: ' + (e && e.message));
-        return json(200, { ok: false, mailAus: true, fehler: 'Der Versand hat gerade nicht geklappt.' });
+        return await ohneMail('Der Versand hat gerade nicht geklappt.',
+            'Resend warf: ' + (e && e.message));
     }
 
     // Erst jetzt, nachdem die Mail sicher raus ist: ins CRM legen.

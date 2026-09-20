@@ -368,9 +368,17 @@ t('mit hoher Gewichtung',
 console.log('\n-- 5. Der Briefkasten, mit gestellter Post --');
 // ====================================================================
 
-function briefkasten(nutzlast, ohne) {
+/* mailWeg steuert, wie sich Resend verhaelt:
+   undefined -> antwortet freundlich (der Normalfall)
+   'fehler'  -> antwortet mit 422 (Absender nicht verifiziert o.ae.)
+   'wirft'   -> die Verbindung bricht weg
+   Genau diese zwei Faelle waren am 20.09.2026 die Loecher, durch die
+   Ibos Anfrage gefallen ist. */
+function briefkasten(nutzlast, ohne, mailWeg) {
     var gesendet = [];
+    var protokoll = [];
     var altFetch = global.fetch;
+    var altWarn = console.warn;
     var alt = {};
     ['RESEND_API_KEY', 'EMAIL_FROM', 'AGENTUR_EMAIL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'].forEach(function (k) {
         alt[k] = process.env[k];
@@ -381,8 +389,22 @@ function briefkasten(nutzlast, ohne) {
     (ohne || []).forEach(function (k) { delete process.env[k]; });
     delete require.cache[require.resolve(path.join(KMI, 'netlify', 'functions', 'agentur-lead.js'))];
 
+    console.warn = function () {
+        protokoll.push(Array.prototype.join.call(arguments, ' '));
+    };
+
     global.fetch = function (url, opt) {
         gesendet.push({ url: String(url), body: JSON.parse((opt || {}).body || '{}') });
+        if (/resend/.test(String(url))) {
+            if (mailWeg === 'wirft') return Promise.reject(new Error('socket hang up'));
+            if (mailWeg === 'fehler') {
+                return Promise.resolve({
+                    ok: false, status: 422,
+                    json: function () { return Promise.resolve({}); },
+                    text: function () { return Promise.resolve('{"message":"from not verified"}'); }
+                });
+            }
+        }
         return Promise.resolve({
             ok: true, status: 200,
             json: function () { return Promise.resolve({}); },
@@ -391,9 +413,10 @@ function briefkasten(nutzlast, ohne) {
     };
     var modul = require(path.join(KMI, 'netlify', 'functions', 'agentur-lead.js'));
     return modul.handler({ httpMethod: 'POST', body: JSON.stringify(nutzlast) })
-        .then(function (e) { return { antwort: e, gesendet: gesendet }; })
+        .then(function (e) { return { antwort: e, gesendet: gesendet, protokoll: protokoll }; })
         .finally(function () {
             global.fetch = altFetch;
+            console.warn = altWarn;
             Object.keys(alt).forEach(function (k) {
                 if (alt[k] === undefined) delete process.env[k]; else process.env[k] = alt[k];
             });
@@ -442,26 +465,112 @@ var BASIS = { betrieb: 'Testhaus', ort: 'Greetsiel', name: 'Ibo', kontakt: 'ibo@
     }
 
     // f) Der Mailweg klemmt -- die Anfrage darf trotzdem NICHT verloren gehen.
-    //    Vorher stand an dieser Stelle ein return VOR dem Schreiben ins CRM:
-    //    fehlte eine einzige Netlify-Variable, verschwand jede Anfrage
-    //    spurlos, und gemerkt haette man es erst, wenn sich jemand
-    //    beschwert, dass nie eine Antwort kam.
-    var mailAus = await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS), ['RESEND_API_KEY']);
-    t('ohne Mail-Schluessel antwortet die Function trotzdem mit 200',
-      mailAus.antwort.statusCode === 200, mailAus.antwort.statusCode);
-    var kOhne = JSON.parse(mailAus.antwort.body);
-    t('und sagt ehrlich, dass keine Mail rausging', kOhne.mailAus === true, kOhne);
-    t('die Anfrage liegt aber im CRM', kOhne.imCrm === true, kOhne);
-    t('es wurde wirklich geschrieben',
-      mailAus.gesendet.filter(function (r) { return /anfragen/.test(r.url); }).length === 1,
-      mailAus.gesendet.map(function (r) { return r.url; }).join(', '));
-    t('und keine Mail versucht',
-      mailAus.gesendet.filter(function (r) { return /resend/.test(r.url); }).length === 0, 'doch');
+    //
+    //    Am 20.09.2026 um 12:04 hat Ibo das Formular auf /gastro ausgefuellt
+    //    und bekam "Das hat gerade nicht geklappt". In den edge_logs: NULL
+    //    Schreibzugriffe auf anfragen. Die Eingabe war weg.
+    //
+    //    Der Grund waren DREI Ausgaenge, an denen der Mailweg endet, und nur
+    //    einer schrieb vorher ins CRM. Deshalb wird hier jeder einzeln
+    //    durchgespielt -- wer einen vierten einbaut, faellt hier auf.
+    var MAILAUS = [
+        { name: 'ohne Mail-Schluessel', ohne: ['RESEND_API_KEY'], weg: undefined,
+          versuche: 0, spur: /RESEND_API_KEY/ },
+        { name: 'wenn Resend mit einem Fehler antwortet', ohne: [], weg: 'fehler',
+          versuche: 1, spur: /Resend 422/ },
+        { name: 'wenn die Verbindung zu Resend wegbricht', ohne: [], weg: 'wirft',
+          versuche: 1, spur: /socket hang up/ }
+    ];
+    for (const fall of MAILAUS) {
+        var mailAus = await briefkasten(
+            Object.assign({ quelle: 'gastro' }, BASIS), fall.ohne, fall.weg);
+        t(fall.name + ': antwortet trotzdem mit 200',
+          mailAus.antwort.statusCode === 200, mailAus.antwort.statusCode);
+        var kOhne = JSON.parse(mailAus.antwort.body);
+        t(fall.name + ': sagt ehrlich, dass keine Mail rausging',
+          kOhne.ok === false && kOhne.mailAus === true, kOhne);
+        t(fall.name + ': die Anfrage liegt aber im CRM', kOhne.imCrm === true, kOhne);
+        var db = mailAus.gesendet.filter(function (r) { return /anfragen/.test(r.url); });
+        t(fall.name + ': es wurde genau einmal geschrieben', db.length === 1,
+          mailAus.gesendet.map(function (r) { return r.url; }).join(', '));
+        t(fall.name + ': und zwar mit den echten Daten',
+          db[0] && db[0].body.betrieb === BASIS.betrieb && db[0].body.mail === BASIS.kontakt,
+          db[0] && db[0].body);
+        t(fall.name + ': Mailversuche wie erwartet',
+          mailAus.gesendet.filter(function (r) { return /resend/.test(r.url); }).length
+            === fall.versuche, mailAus.gesendet.map(function (r) { return r.url; }).join(', '));
+        // Ohne Grund im Protokoll steht spaeter niemand vor der Frage, WARUM
+        // keine Mail kam -- und die Ursache waere wieder nicht messbar.
+        t(fall.name + ': der Grund steht im Netlify-Protokoll',
+          mailAus.protokoll.some(function (z) { return fall.spur.test(z); }),
+          mailAus.protokoll.join(' | ') || '(nichts protokolliert)');
+    }
 
     // g) Ohne Betrieb geht nichts
     var f = await briefkasten({ quelle: 'gastro', kontakt: 'a@b.de' });
     t('ohne Betrieb: 400 und nichts verschickt',
       f.antwort.statusCode === 400 && f.gesendet.length === 0, f.antwort.statusCode);
+
+    // ================================================================
+    console.log('\n-- 6. Was der Wirt danach auf dem Bildschirm liest --');
+    // ================================================================
+    // Die Kette hoert nicht bei der Function auf. Ibo hat am 20.09. nicht
+    // "imCrm:false" gesehen, sondern einen roten Satz. Also wird hier das
+    // ECHTE Seitenskript mit der ECHTEN Antwort der Function gefuettert.
+    // Ein Test, der nur die Function prueft, haette den Tag nicht gerettet.
+    function seiteAntwortetAuf(antwort) {
+        var haken = null;
+        var hinweis = { textContent: '', style: {} };
+        var knopf = { disabled: false, id: 'gastroSenden' };
+        var formular = {
+            id: 'gastroForm', elements: [], zurueckgesetzt: false,
+            reset: function () { formular.zurueckgesetzt = true; },
+            addEventListener: function (art, fn) { if (art === 'submit') haken = fn; }
+        };
+        var stube = {
+            document: { getElementById: function (id) {
+                return id === 'gastroForm' ? formular
+                     : id === 'gastroHinweis' ? hinweis
+                     : id === 'gastroSenden' ? knopf : null;
+            } },
+            fetch: function () {
+                return Promise.resolve({ json: function () { return Promise.resolve(antwort); } });
+            },
+            JSON: JSON, Promise: Promise, Array: Array, console: console
+        };
+        require('vm').runInNewContext(skript, stube);
+        if (!haken) return Promise.resolve(null);
+        haken({ preventDefault: function () {} });
+        // zwei Runden durch die Warteschlange: .then(json) und .then(antwort)
+        return Promise.resolve().then(function () {}).then(function () {})
+            .then(function () { return { hinweis: hinweis, knopf: knopf, formular: formular }; });
+    }
+
+    var GRUEN = '#9ee7c8';
+    var lief = await seiteAntwortetAuf(JSON.parse(
+        (await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS))).antwort.body));
+    t('geht alles gut, steht da "Angekommen"',
+      lief && /Angekommen/.test(lief.hinweis.textContent) && lief.hinweis.style.color === GRUEN,
+      lief && lief.hinweis.textContent);
+
+    for (const fall of MAILAUS) {
+        var koerper = JSON.parse((await briefkasten(
+            Object.assign({ quelle: 'gastro' }, BASIS), fall.ohne, fall.weg)).antwort.body);
+        var z = await seiteAntwortetAuf(koerper);
+        t(fall.name + ': der Wirt liest "Angekommen", nicht den roten Satz',
+          z && /Angekommen/.test(z.hinweis.textContent)
+            && !/nicht geklappt/.test(z.hinweis.textContent),
+          z && z.hinweis.textContent);
+        t(fall.name + ': und das Formular ist leer, er tippt nichts doppelt',
+          z && z.formular.zurueckgesetzt === true, z && z.formular.zurueckgesetzt);
+    }
+
+    // Und wenn wirklich nichts ging, muss der rote Satz auch wirklich kommen --
+    // sonst haetten wir den stillen Ausfall nur auf die andere Seite geschoben.
+    var schlimm = await seiteAntwortetAuf({ ok: false, mailAus: true, imCrm: false });
+    t('ist auch das CRM aus, sagt die Seite ehrlich, dass es nicht klappte',
+      schlimm && /nicht geklappt/.test(schlimm.hinweis.textContent)
+        && schlimm.knopf.disabled === false, schlimm && schlimm.hinweis.textContent);
 
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
