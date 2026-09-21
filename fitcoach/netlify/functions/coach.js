@@ -1,0 +1,150 @@
+// Ernährungs-Coach: schlägt konkrete Gerichte vor, die in die restlichen
+// Kalorien und Makros des Tages passen.
+// Bewusst OHNE npm-Paket (nur fetch) – läuft auch bei Netlify-Drag-&-Drop.
+
+const VORSCHLAG_SCHEMA = {
+  type: 'object',
+  properties: {
+    vorschlaege: {
+      type: 'array',
+      description: 'Genau 3 konkrete Gericht-Vorschläge',
+      items: {
+        type: 'object',
+        properties: {
+          gericht: { type: 'string', description: 'Name des Gerichts auf Deutsch' },
+          beschreibung: { type: 'string', description: 'Ein Satz: was genau, grobe Mengen, warum es jetzt passt' },
+          kalorien: { type: 'integer' },
+          protein_g: { type: 'integer' },
+          carbs_g: { type: 'integer' },
+          fett_g: { type: 'integer' },
+        },
+        required: ['gericht', 'beschreibung', 'kalorien', 'protein_g', 'carbs_g', 'fett_g'],
+        additionalProperties: false,
+      },
+    },
+    hinweis: { type: 'string', description: 'Ein motivierender Satz zur Tagesbilanz' },
+  },
+  required: ['vorschlaege', 'hinweis'],
+  additionalProperties: false,
+};
+
+const SYSTEM_PROMPT = `Du bist ein pragmatischer Ernährungs-Coach für eine deutsche Fitness-App.
+Der Nutzer fragt: "Was soll ich heute noch essen?" Du bekommst seine restlichen Kalorien und Makros für heute.
+
+Regeln für deine 3 Vorschläge:
+- Alltagstauglich: normale Supermarkt-Zutaten oder schnell zubereitet (auch Imbiss/Kantine okay), keine exotischen Rezepte
+- Die Vorschläge sollen gut in die RESTLICHEN Kalorien passen und vor allem die Protein-Lücke schließen
+- Abwechslung: ein schnelles/kaltes Gericht, ein warmes Gericht, eine leichte Option
+- Wenn kaum noch Kalorien übrig sind: kleine, proteinreiche Snacks (Magerquark, Skyr, Eier, Gemüse)
+- Wenn das Tagesziel überschritten ist: ehrlich sagen, nur sehr leichte Optionen oder "heute reicht es" empfehlen
+- Mengenangaben konkret in Gramm/Stück, Kalorien realistisch
+- Schlage NICHTS vor, was der Nutzer heute schon gegessen hat – sorge für Abwechslung
+- Deutsch, direkt, motivierend ohne Floskeln`;
+
+// Einfacher App-Schlüssel statt Login: Der Client schickt x-app-key,
+// das muss zur Netlify-Variable APP_KEY passen.
+function autorisiert(event) {
+  const key = event.headers['x-app-key'];
+  return Boolean(key && process.env.APP_KEY && key === process.env.APP_KEY);
+}
+
+// Beide Schreibweisen akzeptieren – robust gegen Tippfehler beim Eintragen
+const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY;
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-app-key',
+};
+
+exports.handler = async (event) => {
+  // Preflight (kommt z. B. von der Standalone-Testdatei)
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: CORS, body: '' };
+  }
+  if (event.httpMethod !== 'POST') {
+    return { headers: CORS, statusCode: 405, body: JSON.stringify({ error: 'Nur POST erlaubt' }) };
+  }
+  if (!API_KEY) {
+    return { headers: CORS, statusCode: 503, body: JSON.stringify({ error: 'KI ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt)' }) };
+  }
+
+  if (!autorisiert(event)) {
+    return { headers: CORS, statusCode: 401, body: JSON.stringify({ error: 'App-Schlüssel fehlt oder falsch' }) };
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(event.body);
+  } catch {
+    return { headers: CORS, statusCode: 400, body: JSON.stringify({ error: 'Ungültiger Request-Body' }) };
+  }
+
+  const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+  const lage = {
+    ziel: ['abnehmen', 'muskelaufbau', 'rekomposition'].includes(payload.ziel) ? payload.ziel : 'abnehmen',
+    kalorienziel: zahl(payload.kalorienziel),
+    rest_kalorien: zahl(payload.rest_kalorien),
+    rest_protein: zahl(payload.rest_protein),
+    rest_carbs: zahl(payload.rest_carbs),
+    rest_fett: zahl(payload.rest_fett),
+    uhrzeit: zahl(payload.uhrzeit),
+    gegessen: Array.isArray(payload.heute_gegessen)
+      ? payload.heute_gegessen.filter((x) => typeof x === 'string').map((x) => x.slice(0, 60)).slice(0, 6)
+      : [],
+  };
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content:
+              `Mein Ziel: ${lage.ziel}. Tagesziel ${lage.kalorienziel} kcal. ` +
+              `Heute noch übrig: ${lage.rest_kalorien} kcal, ${lage.rest_protein} g Protein, ` +
+              `${lage.rest_carbs} g Carbs, ${lage.rest_fett} g Fett. Es ist ${lage.uhrzeit} Uhr. ` +
+              (lage.gegessen.length ? `Heute habe ich schon gegessen: ${lage.gegessen.join(', ')}. ` : '') +
+              'Was soll ich heute noch essen?',
+          },
+        ],
+        output_config: { format: { type: 'json_schema', schema: VORSCHLAG_SCHEMA } },
+      }),
+    });
+
+    if (res.status === 429) {
+      return { headers: CORS, statusCode: 429, body: JSON.stringify({ error: 'Zu viele Anfragen – bitte kurz warten' }) };
+    }
+    if (!res.ok) {
+      const fehlerText = await res.text();
+      console.error('Claude-API-Fehler:', res.status, fehlerText);
+      if (/credit balance/i.test(fehlerText)) {
+        return { headers: CORS, statusCode: 402, body: JSON.stringify({ error: 'Kein Guthaben auf dem Anthropic-Konto – auf console.anthropic.com unter Billing aufladen' }) };
+      }
+      return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
+    }
+
+    const data = await res.json();
+    const textBlock = (data.content || []).find((b) => b.type === 'text');
+    if (!textBlock) {
+      return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Keine Antwort vom KI-Modell' }) };
+    }
+    return {
+      statusCode: 200,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+      body: textBlock.text,
+    };
+  } catch (err) {
+    console.error('Fehler:', err);
+    return { headers: CORS, statusCode: 502, body: JSON.stringify({ error: 'Coach nicht erreichbar' }) };
+  }
+};
