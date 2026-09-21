@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#063b29" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="Herdem · Türkisch-mediterrane Frische, geliefert in 38 Minuten. Helal Fleisch, knackiges Gemüse, türkische Klassiker. Lieferung, Abholung und Versand in Frankfurt und Offenbach." />
+
+    <title>Herdem · Türkisch-mediterrane Frische, geliefert</title>
+
+    <link rel="canonical" href="https://herdem.example.com/" />
+    <link rel="alternate" hreflang="de" href="https://herdem.example.com/" />
+    <link rel="alternate" hreflang="tr" href="https://herdem.example.com/?lang=tr" />
+    <link rel="alternate" hreflang="x-default" href="https://herdem.example.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:site_name" content="Herdem" />
+    <meta property="og:title" content="Herdem · Türkisch-mediterrane Frische, geliefert" />
+    <meta property="og:description" content="Helal Fleisch, frisches Gemüse und türkische Klassiker. Lieferung in 38 Minuten." />
+    <meta property="og:url" content="https://herdem.example.com/" />
+    <meta property="og:image" content="https://herdem.example.com/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+
+    <link rel="preload" as="image" href="assets/illustrations/hero.svg" fetchpriority="high" />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-black-latin.woff2" crossorigin="anonymous" />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/inter-latin.woff2" crossorigin="anonymous" />
+    <link rel="stylesheet" href="styles.css" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "GroceryStore",
+      "name": "Herdem",
+      "image": "https://herdem.example.com/assets/og-image.png",
+      "description": "Türkisch-mediterraner Online-Supermarkt mit Lieferung, Abholung und Versand.",
+      "url": "https://herdem.example.com/",
+      "telephone": "+49-69-0000-0000",
+      "priceRange": "€",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Beispielstraße 1",
+        "postalCode": "60311",
+        "addressLocality": "Frankfurt am Main",
+        "addressCountry": "DE"
+      },
+      "openingHoursSpecification": [{
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+        "opens": "08:00",
+        "closes": "22:00"
+      }],
+      "areaServed": ["Frankfurt am Main", "Offenbach am Main"],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "312"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#shop">Zum Sortiment springen</a>
+
+    <div class="service-bar" role="region" aria-label="Service">
+      <button class="addr-btn" id="addressButton" type="button">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s-7-7.58-7-13a7 7 0 1 1 14 0c0 5.42-7 13-7 13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span>
+          <small data-i18n="addressLabel">Lieferadresse</small>
+          <strong id="addressLabel" data-i18n="addressEmpty">Adresse wählen</strong>
+        </span>
+      </button>
+
+      <div class="service-tabs" role="tablist" aria-label="Bestellart">
+        <button class="service-tab is-active" type="button" role="tab" aria-selected="true" data-service="delivery" data-i18n="serviceDelivery">Lieferung</button>
+        <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pickup" data-i18n="servicePickup">Abholung</button>
+        <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="shipping" data-i18n="serviceShipping">Versand</button>
+      </div>
+
+      <div class="service-meta">
+        <span class="status-pill" id="storeStatus" data-i18n="storeOpen">
+          <span class="dot" aria-hidden="true"></span>
+          Heute bis 22 Uhr
+        </span>
+        <button class="lang-toggle" id="langToggle" type="button" aria-label="Sprache wechseln">TR</button>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <a class="brand" href="#" aria-label="Herdem Startseite">
+        <img class="brand-mark" src="assets/logo.svg" width="44" height="44" alt="" />
+        <span class="brand-text">
+          <strong>Herdem</strong>
+          <small data-i18n="tagline">Türkisch-mediterrane Frische</small>
+        </span>
+      </a>
+
+      <form class="search-shell" role="search" id="searchForm" onsubmit="return false">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="search" data-i18n-attr="placeholder:searchPlaceholder" placeholder="Sucuk, Oliven, Bulgur suchen…" autocomplete="off" enterkeyhint="search" />
+        <button class="search-clear" id="searchClear" type="button" hidden aria-label="Suche löschen">×</button>
+      </form>
+
+      <div class="header-actions">
+        <button class="icon-action" id="openAccount" type="button" aria-label="Konto">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <button class="cart-pill" id="openCart" type="button" aria-label="Warenkorb öffnen">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.7H8.5A2 2 0 0 1 6.5 18z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 7V5a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          <span class="cart-label" data-i18n="cart">Warenkorb</span>
+          <em id="cartCountBadge" hidden>0</em>
+          <strong id="cartTotalPill">0,00 €</strong>
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-label="Willkommen">
+        <canvas class="hero-canvas" aria-hidden="true"></canvas>
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="heroEyebrow">Heute frisch gepackt</p>
+          <h1 id="heroTitle" data-i18n="heroTitle">Türkisch-mediterrane Frische, geliefert in 38 Minuten.</h1>
+          <p class="lead" id="heroLead" data-i18n="heroLead">Helal-Fleisch von der Theke, knackiges Gemüse vom Tagesmarkt, Baklava aus der Süßwarenecke — eine App, ein sauberer Flow.</p>
+          <div class="hero-cta">
+            <button class="btn-primary" type="button" data-jump="shop" data-i18n="heroCtaPrimary">Jetzt einkaufen</button>
+            <button class="btn-ghost" type="button" data-category-jump="angebote" data-i18n="heroCtaSecondary">Angebote ansehen</button>
+          </div>
+          <ul class="hero-trust" aria-label="Vorteile">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustHelal">Helal geprüft</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustCold">Kühlkette gesichert</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="trustLocal">Frankfurt &amp; Offenbach</span></li>
+          </ul>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-grid">
+            <div class="hero-tile"><img src="assets/products/gemuese.svg" alt="" width="220" height="220" loading="eager" decoding="async" /></div>
+            <div class="hero-tile"><img src="assets/products/baklava.svg" alt="" width="220" height="220" loading="eager" decoding="async" /></div>
+            <div class="hero-tile"><img src="assets/products/oliven.svg" alt="" width="220" height="220" loading="eager" decoding="async" /></div>
+            <div class="hero-tile"><img src="assets/products/sucuk.svg" alt="" width="220" height="220" loading="eager" decoding="async" /></div>
+          </div>
+          <div class="hero-float">
+            <strong>38 Min.</strong>
+            <span>Ø Lieferung in Frankfurt</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="activity-ticker" id="activityTicker" aria-label="Live-Aktivität">
+        <span class="at-pulse" aria-hidden="true"></span>
+        <p id="activityMsg">&nbsp;</p>
+      </section>
+
+      <section class="promise" aria-label="Versprechen">
+        <div><strong data-i18n="promise1Title">Frischetheke</strong><span data-i18n="promise1Text">Fleisch, Brot und Gemüse täglich vorbereitet</span></div>
+        <div><strong data-i18n="promise2Title">Helal Sortiment</strong><span data-i18n="promise2Text">Klare Kennzeichnung, ausgewählte Marken</span></div>
+        <div><strong data-i18n="promise3Title">Drei Wege, ein Flow</strong><span data-i18n="promise3Text">Lieferung, Abholung oder Versand in einem Klick</span></div>
+      </section>
+
+      <section class="quick-jump" aria-label="Schnellzugriff">
+        <button type="button" data-query="sucuk">Sucuk</button>
+        <button type="button" data-query="baklava">Baklava</button>
+        <button type="button" data-query="oliven">Oliven</button>
+        <button type="button" data-query="ayran">Ayran</button>
+        <button type="button" data-query="bulgur">Bulgur</button>
+        <button type="button" data-query="tee">Tee</button>
+        <button type="button" data-category-jump="favorites" data-i18n="favorites">Gemerkte</button>
+      </section>
+
+      <section class="shop" id="shop" aria-label="Sortiment">
+        <aside class="categories" aria-label="Kategorien">
+          <button class="cat is-active" type="button" data-category="all"><span data-i18n="catAll">Alle</span><small data-i18n="catAllSub">Shop</small></button>
+          <button class="cat" type="button" data-category="angebote"><span data-i18n="catOffers">Angebote</span><small data-i18n="catOffersSub">heute</small></button>
+          <button class="cat" type="button" data-category="obst"><span data-i18n="catProduce">Obst &amp; Gemüse</span><small data-i18n="catProduceSub">frisch</small></button>
+          <button class="cat" type="button" data-category="fleisch"><span data-i18n="catMeat">Fleisch &amp; Helal</span><small data-i18n="catMeatSub">Theke</small></button>
+          <button class="cat" type="button" data-category="milch"><span data-i18n="catDairy">Milchprodukte</span><small data-i18n="catDairySub">Kühlung</small></button>
+          <button class="cat" type="button" data-category="gewuerze"><span data-i18n="catPantry">Gewürze &amp; Öl</span><small data-i18n="catPantrySub">Vorrat</small></button>
+          <button class="cat" type="button" data-category="snacks"><span data-i18n="catSnacks">Snacks &amp; Süßes</span><small data-i18n="catSnacksSub">Baklava</small></button>
+          <button class="cat" type="button" data-category="getraenke"><span data-i18n="catDrinks">Getränke</span><small data-i18n="catDrinksSub">Ayran &amp; Tee</small></button>
+          <button class="cat" type="button" data-category="favorites"><span data-i18n="catSaved">Gemerkte</span><small id="favoriteCount">0</small></button>
+        </aside>
+
+        <section class="market" aria-live="polite">
+          <header class="market-head">
+            <div>
+              <p class="eyebrow" id="resultKicker" data-i18n="catAll">Alle Kategorien</p>
+              <h2 id="resultTitle" data-i18n="resultPopular">Beliebt heute</h2>
+            </div>
+            <div class="market-tools">
+              <div class="filter-row" role="group" aria-label="Filter">
+                <button class="is-active" type="button" data-filter="all" data-i18n="filterAll">Alle</button>
+                <button type="button" data-filter="Helal">Helal</button>
+                <button type="button" data-filter="Vegan">Vegan</button>
+                <button type="button" data-filter="Frisch" data-i18n="filterFresh">Frisch</button>
+                <button type="button" data-filter="Angebot" data-i18n="filterDeals">Deals</button>
+              </div>
+              <label class="sort">
+                <span class="sr-only" data-i18n="sortLabel">Sortierung</span>
+                <select id="sortSelect" aria-label="Sortierung">
+                  <option value="popular" data-i18n="sortPopular">Beliebtheit</option>
+                  <option value="price-asc" data-i18n="sortAsc">Preis aufsteigend</option>
+                  <option value="price-desc" data-i18n="sortDesc">Preis absteigend</option>
+                </select>
+              </label>
+            </div>
+          </header>
+
+          <div class="grid" id="productGrid"></div>
+
+          <section class="bundles" aria-label="Pakete">
+            <header>
+              <p class="eyebrow" data-i18n="bundlesEyebrow">Schnell ein ganzer Tisch</p>
+              <h2 data-i18n="bundlesTitle">Pakete für den Anlass</h2>
+            </header>
+            <div class="bundles-grid">
+              <article data-bundle="grillTable">
+                <span class="badge-soft">Grill</span>
+                <h3 data-i18n="bundleGrillTitle">Grillabend</h3>
+                <p data-i18n="bundleGrillText">Sucuk, Hähnchen, Salatgemüse, Ayran &amp; Joghurt.</p>
+                <button class="btn-add" type="button" data-bundle="grillTable" data-i18n="bundleAdd">Paket hinzufügen</button>
+              </article>
+              <article data-bundle="mezzeTable">
+                <span class="badge-soft">Mezze</span>
+                <h3 data-i18n="bundleMezzeTitle">Mezze-Tisch</h3>
+                <p data-i18n="bundleMezzeText">Fladenbrot, Oliven, Feta, Gemüse, Olivenöl.</p>
+                <button class="btn-add" type="button" data-bundle="mezzeTable" data-i18n="bundleAdd">Paket hinzufügen</button>
+              </article>
+              <article data-bundle="sweetTable">
+                <span class="badge-soft">Tee&shy;zeit</span>
+                <h3 data-i18n="bundleTeaTitle">Teezeit</h3>
+                <p data-i18n="bundleTeaText">Baklava, Çay, Joghurt, Granatapfel.</p>
+                <button class="btn-add" type="button" data-bundle="sweetTable" data-i18n="bundleAdd">Paket hinzufügen</button>
+              </article>
+              <article data-bundle="breakfast">
+                <span class="badge-soft">Kahvaltı</span>
+                <h3 data-i18n="bundleBreakfastTitle">Frühstück</h3>
+                <p data-i18n="bundleBreakfastText">Fladenbrot, Feta, Oliven und Çay.</p>
+                <button class="btn-add" type="button" data-bundle="breakfast" data-i18n="bundleAdd">Paket hinzufügen</button>
+              </article>
+            </div>
+          </section>
+
+          <section class="recent" id="recentSection" hidden aria-label="Zuletzt angesehen">
+            <header>
+              <p class="eyebrow" data-i18n="recentEyebrow">Weiter einkaufen</p>
+              <h2 data-i18n="recentTitle">Zuletzt angesehen</h2>
+            </header>
+            <div class="recent-row" id="recentGrid"></div>
+          </section>
+        </section>
+
+        <aside class="cart-panel" id="cartPanel" aria-label="Warenkorb">
+          <header class="cart-head">
+            <div>
+              <p class="eyebrow" data-i18n="cartEyebrow">Deine Bestellung</p>
+              <h2 id="cartHeading" data-i18n="cart">Warenkorb</h2>
+            </div>
+            <div class="cart-tools">
+              <button class="link-btn" id="clearCart" type="button" data-i18n="clearCart">Leeren</button>
+              <button class="icon-action mobile-only" id="closeCart" type="button" aria-label="Schließen">×</button>
+            </div>
+          </header>
+
+          <div class="cart-delivery">
+            <label>
+              <span data-i18n="slotLabel">Lieferzeit</span>
+              <select id="slotSelect"></select>
+            </label>
+            <div class="cart-prefs">
+              <label><input id="substituteToggle" type="checkbox" checked /> <span data-i18n="prefSubstitute">Ersatzartikel erlauben</span></label>
+              <label><input id="contactlessToggle" type="checkbox" /> <span data-i18n="prefContactless">Kontaktlos liefern</span></label>
+            </div>
+            <label class="note-label">
+              <span data-i18n="noteLabel">Hinweis für den Fahrer</span>
+              <textarea id="orderNote" rows="2" data-i18n-attr="placeholder:notePlaceholder" placeholder="z. B. Bitte nicht klingeln."></textarea>
+            </label>
+          </div>
+
+          <div class="cart-items" id="cartItems"></div>
+          <div class="cart-empty" id="emptyCart">
+            <strong data-i18n="cartEmptyTitle">Noch nichts im Korb</strong>
+            <span data-i18n="cartEmptyText">Tippe bei einem Produkt auf das Plus.</span>
+          </div>
+
+          <section class="upsell" id="cartUpsell" hidden></section>
+
+          <div class="cart-summary">
+            <div class="line line-meta"><span id="cartCountText">0 Artikel</span><strong id="cartSavings">0,00 € gespart</strong></div>
+            <div class="progress" aria-hidden="true"><span id="progressFill"></span></div>
+            <p class="progress-text" id="freeLine" data-i18n="freeBase">Kostenlose Lieferung ab dem Mindestwert</p>
+            <div class="promo">
+              <input id="promoInput" type="text" placeholder="HERDEM10" aria-label="Gutscheincode" />
+              <button id="applyPromo" type="button" data-i18n="apply">Einlösen</button>
+            </div>
+            <p class="promo-msg" id="promoMessage" data-i18n="promoHint">Codes: HERDEM10 (10 %) oder FRISCH5 (5 € ab 25 €)</p>
+            <div class="tip">
+              <span data-i18n="tipLabel">Trinkgeld für den Fahrer</span>
+              <div class="tip-row">
+                <button class="is-active" type="button" data-tip="0">0 €</button>
+                <button type="button" data-tip="1">1 €</button>
+                <button type="button" data-tip="2">2 €</button>
+              </div>
+            </div>
+            <div class="line"><span data-i18n="subtotal">Zwischensumme</span><strong id="subtotal">0,00 €</strong></div>
+            <div class="line"><span data-i18n="discount">Gutschein</span><strong id="discountTotal">0,00 €</strong></div>
+            <div class="line"><span data-i18n="tipShort">Trinkgeld</span><strong id="tipTotal">0,00 €</strong></div>
+            <div class="line"><span data-i18n="serviceFee">Service &amp; Lieferung</span><strong id="deliveryFee">3,90 €</strong></div>
+            <div class="line line-total"><span data-i18n="grandTotal">Gesamt</span><strong id="grandTotal">0,00 €</strong></div>
+            <button class="btn-checkout" id="checkoutButton" type="button" disabled data-i18n="toCheckout">Zur Kasse</button>
+            <p class="secure-note" data-i18n="secureNote">Sicher: Preise, Ersatzartikel und Slot bleiben bis zur Bestellung sichtbar.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="trust-strip" aria-label="Qualität">
+        <article>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <strong data-i18n="trust1Title">Helal geprüft</strong>
+          <span data-i18n="trust1Text">Markierte Fleisch- und Wurstwaren. Nachweis im Filialaushang.</span>
+        </article>
+        <article>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <strong data-i18n="trust2Title">Kühlkette</strong>
+          <span data-i18n="trust2Text">Frischeprodukte werden separat in Isolierboxen verpackt.</span>
+        </article>
+        <article>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 12c0-4 4-8 8-8s8 4 8 8M4 12c0 4 4 8 8 8s8-4 8-8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          <strong data-i18n="trust3Title">Lokale Auswahl</strong>
+          <span data-i18n="trust3Text">Bäcker, Metzger und Hofläden aus dem Rhein-Main-Gebiet.</span>
+        </article>
+        <article>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <strong data-i18n="trust4Title">Live-Status</strong>
+          <span data-i18n="trust4Text">Vom Korb bis an die Tür: jeder Schritt sichtbar.</span>
+        </article>
+      </section>
+
+      <section class="market-pulse" aria-label="Live-Zahlen">
+        <div><strong data-count="32">0</strong><span data-i18n="pulse1">frische Körbe heute</span></div>
+        <div><strong data-count="98" data-suffix="%">0</strong><span data-i18n="pulse2">Verfügbarkeit im Sortiment</span></div>
+        <div><strong><span data-count="38">0</span><em>min</em></strong><span data-i18n="pulse3">Ø Ankunft</span></div>
+        <div><strong>4,8<em>★</em></strong><span data-i18n="pulse4">aus 312 Bewertungen</span></div>
+      </section>
+
+      <section class="delivery" aria-label="Liefergebiet">
+        <div class="delivery-copy">
+          <p class="eyebrow" data-i18n="deliveryEyebrow">Liefergebiet</p>
+          <h2 data-i18n="deliveryTitle">Wir liefern dort, wo der Kunde wirklich wohnt.</h2>
+          <p data-i18n="deliveryText">Frankfurt Innenstadt, Westend, Nordend und Offenbach Zentrum. Mindestbestellwert 15&nbsp;€. Servicegebühr 3,90&nbsp;€ — ab 39&nbsp;€ gratis.</p>
+          <form class="zip-check" onsubmit="return false">
+            <input id="zipInput" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="PLZ z. B. 60311" aria-label="Postleitzahl" />
+            <button class="btn-primary" id="checkZip" type="submit" data-i18n="check">Prüfen</button>
+          </form>
+          <p class="zip-result" id="zipResult" data-i18n="zipDefault">Frankfurt und Offenbach sind aktiv. Heute lieferbar bis 22 Uhr.</p>
+          <ul class="address-info">
+            <li><strong>Filiale:</strong> Beispielstraße 1, 60311 Frankfurt am Main</li>
+            <li><strong>Telefon:</strong> <a href="tel:+4969000000">+49 69 0000 0000</a></li>
+            <li><strong>Öffnungszeiten:</strong> Mo–Sa 08:00–22:00 Uhr</li>
+          </ul>
+        </div>
+        <div class="delivery-map" aria-hidden="true">
+          <img src="assets/illustrations/map.svg" alt="" width="400" height="280" loading="lazy" />
+        </div>
+      </section>
+
+      <section class="install" id="installSection" aria-label="App-Installation">
+        <div>
+          <p class="eyebrow">Herdem als App</p>
+          <strong data-i18n="installTitle">Auf dem Homescreen, ohne Store</strong>
+          <span data-i18n="installText">Schneller Start, Offline-Hülle und Bestell-Verlauf direkt in der App.</span>
+        </div>
+        <button class="btn-primary" id="installButton" type="button" data-i18n="installCta">App installieren</button>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-cols">
+        <div>
+          <img class="footer-mark" src="assets/logo.svg" width="42" height="42" alt="" />
+          <strong>Herdem</strong>
+          <p data-i18n="footerTagline">Türkisch-mediterrane Frische, geliefert in 38&nbsp;Minuten.</p>
+        </div>
+        <div>
+          <strong data-i18n="footerService">Service</strong>
+          <a href="#shop" data-i18n="footerShop">Sortiment</a>
+          <a href="#" data-action="openSupport" data-i18n="footerHelp">Hilfe &amp; Kontakt</a>
+          <a href="#" data-action="openAccount" data-i18n="footerAccount">Konto</a>
+        </div>
+        <div>
+          <strong data-i18n="footerLegal">Rechtliches</strong>
+          <a href="legal/impressum.html">Impressum</a>
+          <a href="legal/datenschutz.html">Datenschutz</a>
+          <a href="legal/agb.html">AGB</a>
+          <a href="legal/widerruf.html">Widerrufsrecht</a>
+        </div>
+        <div>
+          <strong data-i18n="footerContact">Kontakt</strong>
+          <span>Beispielstraße 1<br />60311 Frankfurt am Main</span>
+          <a href="tel:+4969000000">+49 69 0000 0000</a>
+          <a href="mailto:hallo@herdem.example.com">hallo@herdem.example.com</a>
+        </div>
+      </div>
+      <div class="footer-base">
+        <span>© <span id="copyYear">2026</span> Herdem · <span data-i18n="footerNote">Frische, ehrlich gepackt.</span></span>
+        <span class="footer-payments" aria-label="Zahlungsarten">Karte · PayPal · Klarna · Bar</span>
+      </div>
+    </footer>
+
+    <nav class="mobile-dock" aria-label="Navigation mobil">
+      <button type="button" data-dock="top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 11 8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span data-i18n="dockHome">Start</span></button>
+      <button type="button" data-dock="categories"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span data-i18n="dockCategories">Kategorien</span></button>
+      <button type="button" class="dock-cart" data-dock="cart" aria-label="Warenkorb">
+        <span class="dock-fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 11a2 2 0 0 1-2 1.7H8.5A2 2 0 0 1 6.5 18z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 7V5a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><em id="dockCartCount" hidden>0</em></span>
+        <span data-i18n="dockCart">Korb</span>
+      </button>
+      <button type="button" data-dock="orders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 11h7M8.5 15h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span data-i18n="dockOrders">Bestellungen</span></button>
+      <button type="button" data-dock="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span data-i18n="dockAccount">Konto</span></button>
+    </nav>
+
+    <!-- Sticky cart bar (mobile, when cart not empty + scrolled) -->
+    <div class="sticky-cart-bar" id="stickyCartBar" hidden>
+      <div class="scb-info">
+        <strong id="scbCount">0 Artikel</strong>
+        <span id="scbTotal">0,00 €</span>
+      </div>
+      <button class="scb-go" type="button" id="scbGo">
+        <span data-i18n="toCheckout">Zur Kasse</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Active delivery tracker (after order placed) -->
+    <aside class="delivery-tracker" id="deliveryTracker" hidden aria-label="Aktive Bestellung">
+      <div class="dt-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z M14 10h4l3 3v3h-7z M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="dt-body">
+        <strong id="dtTitle">Bestellung unterwegs</strong>
+        <span id="dtSub">Ankunft in <em id="dtMin">18</em> min</span>
+      </div>
+      <button class="dt-track" type="button" id="dtTrack" data-i18n="trackOrder">Verfolgen</button>
+      <button class="dt-close" type="button" id="dtClose" aria-label="Ausblenden">×</button>
+    </aside>
+
+    <!-- Backdrop for mobile cart drawer -->
+    <div class="backdrop" id="cartBackdrop" hidden></div>
+
+    <!-- ===== Dialogs ===== -->
+    <dialog class="dlg dlg-address" id="addressDialog" aria-labelledby="addrTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="addrTitle" data-i18n="addrDialogTitle">Wohin liefern wir?</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <label><span data-i18n="addrStreet">Straße &amp; Hausnummer</span><input id="streetInput" type="text" placeholder="Kaiserstraße 12" /></label>
+        <label><span data-i18n="addrCity">PLZ &amp; Stadt</span><input id="cityInput" type="text" placeholder="60311 Frankfurt" /></label>
+        <div class="presets">
+          <button type="button" data-address="Frankfurt">Frankfurt</button>
+          <button type="button" data-address="Offenbach">Offenbach</button>
+          <button type="button" data-address="Abholung" data-i18n="servicePickup">Abholung</button>
+        </div>
+        <button class="btn-primary full" id="saveAddress" value="default" type="submit" data-i18n="addrSave">Adresse übernehmen</button>
+      </form>
+    </dialog>
+
+    <dialog class="dlg dlg-account" id="accountDialog" aria-labelledby="accTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="accTitle" data-i18n="accTitle">Mein Herdem</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <div class="account-grid">
+          <article class="club-card">
+            <span class="eyebrow" data-i18n="clubLabel">Herdem Club</span>
+            <strong>1.240</strong>
+            <span data-i18n="clubPoints">Punkte gesammelt</span>
+            <p data-i18n="clubReward">Bei der nächsten Bestellung 5,00 € Bonus.</p>
+          </article>
+          <ul class="account-list">
+            <li><strong data-i18n="savedAddress">Gespeicherte Adresse</strong><span id="accountAddress" data-i18n="noAddress">Noch keine Adresse</span></li>
+            <li><strong data-i18n="favService">Lieblings-Service</strong><span data-i18n="evening">Lieferung am Abend</span></li>
+            <li><strong data-i18n="lastOrder">Letzte Bestellung</strong><span>Köfte-Set · Baklava &amp; Çay</span></li>
+          </ul>
+        </div>
+        <button class="btn-primary full" id="reorderLast" type="submit" value="default" data-i18n="reorder">Bestellung erneut</button>
+      </form>
+    </dialog>
+
+    <dialog class="dlg dlg-support" id="supportDialog" aria-labelledby="supTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="supTitle" data-i18n="supTitle">Wir helfen weiter</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <div class="sup-msgs" id="supportMessages" aria-live="polite">
+          <div class="bubble" data-i18n="supWelcome">Merhaba! Wähle ein Thema — Lieferzeit, Zahlung, Frische oder Reklamation.</div>
+        </div>
+        <div class="sup-quick">
+          <button type="button" data-support="delivery" data-i18n="supDelivery">Lieferzeit</button>
+          <button type="button" data-support="payment" data-i18n="supPayment">Zahlung</button>
+          <button type="button" data-support="fresh" data-i18n="supFresh">Frische</button>
+          <button type="button" data-support="refund" data-i18n="supRefund">Reklamation</button>
+        </div>
+        <p class="sup-contact">
+          <span data-i18n="supContactText">Lieber persönlich?</span>
+          <a href="tel:+4969000000">+49 69 0000 0000</a>
+          ·
+          <a href="mailto:hallo@herdem.example.com">hallo@herdem.example.com</a>
+        </p>
+      </form>
+    </dialog>
+
+    <dialog class="dlg dlg-product" id="productDialog" aria-labelledby="prodTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="prodTitle" class="sr-only">Produkt</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <div id="productDetail"></div>
+      </form>
+    </dialog>
+
+    <dialog class="dlg dlg-checkout" id="checkoutDialog" aria-labelledby="coTitle">
+      <form method="dialog" id="checkoutForm">
+        <header class="dlg-head">
+          <h2 id="coTitle" data-i18n="coTitle">Bestellung abschließen</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <ol class="steps" aria-label="Schritte">
+          <li class="done" data-i18n="stepCart">Warenkorb</li>
+          <li class="active" data-i18n="stepAddr">Adresse</li>
+          <li data-i18n="stepPay">Zahlung</li>
+        </ol>
+        <div class="co-layout">
+          <div class="co-fields">
+            <label><span data-i18n="coName">Name</span><input type="text" name="name" required autocomplete="name" placeholder="Vor- und Nachname" /></label>
+            <label><span data-i18n="coPhone">Telefon</span><input type="tel" name="phone" required autocomplete="tel" placeholder="+49 …" /></label>
+            <label class="wide"><span data-i18n="coHint">Hinweis für den Fahrer</span><input type="text" name="hint" placeholder="z. B. 3. Stock, Klingel Yılmaz" /></label>
+            <div class="pay-row" role="radiogroup" aria-label="Zahlungsart">
+              <button type="button" class="is-selected" data-pay="card" data-i18n="payCard">Karte</button>
+              <button type="button" data-pay="paypal">PayPal</button>
+              <button type="button" data-pay="klarna">Klarna</button>
+              <button type="button" data-pay="cash" data-i18n="payCash">Bar bei Lieferung</button>
+            </div>
+          </div>
+          <aside class="co-summary">
+            <p class="eyebrow" data-i18n="coOverview">Übersicht</p>
+            <div id="checkoutSummary"></div>
+            <button class="btn-checkout full" id="placeOrder" type="button" data-i18n="coPlace">Bestellung abschicken</button>
+            <p class="legal-mini" data-i18n="coLegal">Mit der Bestellung akzeptierst du die AGB.</p>
+          </aside>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="dlg dlg-success" id="successDialog" aria-labelledby="okTitle">
+      <form method="dialog">
+        <header class="dlg-head">
+          <h2 id="okTitle" class="sr-only">Bestellt</h2>
+          <button class="icon-action" value="cancel" aria-label="Schließen" type="submit">×</button>
+        </header>
+        <div class="ok-body">
+          <span class="ok-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <p class="eyebrow" data-i18n="okEyebrow">Bestätigt</p>
+          <h2 data-i18n="okTitle">Danke, deine Bestellung läuft.</h2>
+          <p data-i18n="okText">Wir packen frisch und schicken den Fahrer los, sobald alles bereit ist.</p>
+          <div class="order-code" id="orderCode">HDM-0000</div>
+          <ol class="timeline">
+            <li class="active"><strong data-i18n="tlConfirmed">Bestätigt</strong><span data-i18n="tlConfirmedSub">Warenkorb geprüft</span></li>
+            <li><strong data-i18n="tlPacking">Wird gepackt</strong><span data-i18n="tlPackingSub">Frischetheke und Lager</span></li>
+            <li><strong data-i18n="tlOnway">Unterwegs</strong><span data-i18n="tlOnwaySub">Fahrer auf Route</span></li>
+            <li><strong data-i18n="tlDelivered">Geliefert</strong><span data-i18n="tlDeliveredSub">Afiyet olsun</span></li>
+          </ol>
+          <button class="link-btn" id="downloadReceipt" type="button" data-i18n="receipt">Beleg als Datei</button>
+          <button class="btn-checkout full" id="finishOrder" type="submit" value="default" data-i18n="finish">Schließen</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
