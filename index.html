@@ -23553,6 +23553,57 @@ function getVacationInfo(restaurant) {
     return null;
 }
 
+/* ZAHLSPERRE -- wenn eine Rechnung offen bleibt.
+
+   Vier Stufen, von Hand vom Verwalter gesetzt (Function zahlsperre):
+
+       keine     alles normal
+       hinweis   roter Balken im Dashboard. NUR der Wirt sieht ihn,
+                 der Gast merkt nichts.
+       pause     der Gast kann nicht mehr BESTELLEN. Reservierungen
+                 laufen weiter, das Dashboard bleibt offen -- damit der
+                 Wirt die letzten Bestellungen abarbeiten kann.
+       aus       Bestellen und Reservieren zu.
+
+   WARUM DAS DASHBOARD NIE ZUGEHT: Bestellungen kaemen weiter herein, der
+   Gast saehe eine normale Seite -- und niemand wuerde kochen. Der Gast
+   wartet auf Essen, das nie kommt, und schreibt die Bewertung ueber das
+   Restaurant UND ueber kiekmolin.de.
+
+   IM ZWEIFEL OFFEN. Fehlt die Spalte, steht etwas Unbekanntes drin oder
+   ist das Feld leer, gilt "keine". Ein Fehler, der einen ZAHLENDEN Kunden
+   am Freitagabend aussperrt, kostet diesen Kunden. Ein Nichtzahler, der
+   eine Woche laenger laeuft, kostet 15 Euro. */
+var ZAHLSPERRE_STUFEN = ['keine', 'hinweis', 'pause', 'aus'];
+
+function zahlsperreStufe(restaurant) {
+    var roh = restaurant && restaurant.zahlsperre;
+    var s = String(roh == null ? '' : roh).trim().toLowerCase();
+    return ZAHLSPERRE_STUFEN.indexOf(s) > 0 ? s : 'keine';
+}
+// Darf der Gast hier bestellen?
+function zahlsperreBestellenAus(restaurant) {
+    var s = zahlsperreStufe(restaurant);
+    return s === 'pause' || s === 'aus';
+}
+// Und reservieren? Bei "pause" ausdruecklich JA -- ein Tisch kostet den
+// Betrieb nichts und der Gast wird nicht weggeschickt.
+function zahlsperreReservierenAus(restaurant) {
+    return zahlsperreStufe(restaurant) === 'aus';
+}
+// Was der Gast liest. Kein Wort ueber Rechnungen: das geht ihn nichts an,
+// und es beschaedigt den Betrieb vor seinen eigenen Gaesten.
+function zahlsperreGastText(restaurant) {
+    var s = zahlsperreStufe(restaurant);
+    if (s === 'pause') return 'Dieser Betrieb nimmt gerade keine Online-Bestellungen an. Tisch reservieren geht weiter.';
+    if (s === 'aus') return 'Dieser Betrieb ist gerade nicht über Kiek mol in erreichbar.';
+    return '';
+}
+window.zahlsperreStufe = zahlsperreStufe;
+window.zahlsperreBestellenAus = zahlsperreBestellenAus;
+window.zahlsperreReservierenAus = zahlsperreReservierenAus;
+window.zahlsperreGastText = zahlsperreGastText;
+
 // Minuten bis Ladenschluss -- oder null, wenn nicht bestimmbar.
 // Grundlage für den Bestellschluss: Eine Bestellung, die 2 Minuten vor
 // Feierabend reinkommt, ärgert beide Seiten (Küche ist aus, Gast wartet).
