@@ -2013,6 +2013,39 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 // genau das erklaert und unten das Eintragen-Formular hat.
 const PROSPECT_OWNER_CTA_URL = '/' + GASTRO_SLUG;
 
+/* DER ZAEHLER AUF DEN RESTAURANTSEITEN.
+   Zwei Zahlen, mehr nicht: wurde die Seite geladen, und hat jemand den
+   Inhaber-Knopf gedrueckt. Daraus ergibt sich zusammen mit "gesendet"
+   aus dem Formular die ganze Strecke.
+
+   Vier Dinge, die hier absichtlich so sind:
+
+   1. sendBeacon, nicht fetch. Der Klick fuehrt sofort weg von der Seite --
+      ein fetch wird dabei abgebrochen, ein Beacon nicht. Genau der Klick,
+      der zaehlt, waere sonst der, der verloren geht.
+   2. try/catch um alles. Ein Zaehler darf NIE eine Verkaufsseite
+      kaputtmachen.
+   3. Kein Cookie, keine Kennung, keine IP. Damit braucht es keine
+      Einwilligung -- und die einzige Frage, auf die es ankommt, wird
+      trotzdem beantwortet: kommt da jemand an?
+   4. Automaten zaehlen nicht mit. Googlebot & Co. wuerden die Zahl
+      aufblaehen, und Ibo wuerde Werbebudget an einer Zahl ausrichten,
+      die aus Maschinen besteht. */
+function zaehlSkript(slug) {
+  const ziel = '/.netlify/functions/lead-zaehler';
+  return '<script>(function(){try{' +
+    'if(/bot|crawl|spider|slurp|bingpreview|headless/i.test(navigator.userAgent))return;' +
+    'var s=' + JSON.stringify(slug) + ';' +
+    'function z(t){try{var d=JSON.stringify({slug:s,schritt:t});' +
+      'if(navigator.sendBeacon){navigator.sendBeacon(' + JSON.stringify(ziel) + ',new Blob([d],{type:"application/json"}));}' +
+      'else{fetch(' + JSON.stringify(ziel) + ',{method:"POST",headers:{"Content-Type":"application/json"},body:d,keepalive:true});}' +
+    '}catch(e){}}' +
+    'z("gesehen");' +
+    'var k=document.getElementById("inhaberKnopf");' +
+    'if(k)k.addEventListener("click",function(){z("geklickt");});' +
+  '}catch(e){}})();</script>\n';
+}
+
 function loadProspects() {
   const file = path.join(OUT_DIR, 'prospects.json');
   if (!fs.existsSync(file)) {
@@ -2221,7 +2254,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt oder reserviert wird. ' +
       '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
       'Ohne App, jederzeit kündbar, ' + PREIS_UST_KURZ + '.</p>' +
-      '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
+      '<a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberKnopf" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
     '</div>';
 
   const partnerBox = partners.length
@@ -2289,6 +2322,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
         (p.source === 'osm' ? ' · © OpenStreetMap-Mitwirkende' : '') +
         '. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
     '</div></footer>\n' +
+    zaehlSkript(slug) +
     '</body></html>\n';
 
   const filename = slug + '.html';
@@ -3477,6 +3511,7 @@ if (require.main === module) {
   PREIS_UST_KURZ,
   GASTRO_SLUG,
   PROSPECT_OWNER_CTA_URL,
+  zaehlSkript,
   gerichteZahl,
   betriebeZahl,
   MIN_EINTRAEGE: MIN_EINTRAEGE,
