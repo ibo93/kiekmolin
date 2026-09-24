@@ -2041,8 +2041,10 @@ function zaehlSkript(slug) {
       'else{fetch(' + JSON.stringify(ziel) + ',{method:"POST",headers:{"Content-Type":"application/json"},body:d,keepalive:true});}' +
     '}catch(e){}}' +
     'z("gesehen");' +
-    'var k=document.getElementById("inhaberKnopf");' +
-    'if(k)k.addEventListener("click",function(){z("geklickt");});' +
+    '["inhaberKnopf","inhaberZeile"].forEach(function(id){' +
+      'var k=document.getElementById(id);' +
+      'if(k)k.addEventListener("click",function(){z("geklickt");});' +
+    '});' +
   '}catch(e){}})();</script>\n';
 }
 
@@ -2238,6 +2240,33 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
     ? '<a class="cta-primary" href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">📞 ' + escapeHtml(String(p.phone)) + '</a>'
     : '';
 
+  /* DER WIRT SCROLLT NICHT BIS UNTEN.
+     Gemessen am 24.09.2026 an einer echten Seite: der gruene Kasten
+     beginnt auf dem Handy bei Pixel 1333 von 3497 -- anderthalb
+     Bildschirme weit weg. Ibo: "da kommt keine Anfrage rein".
+
+     Der Kasten BLEIBT wo er ist. Diese Seite gehoert zuerst dem Gast,
+     der etwas essen will -- deshalb rankt sie ueberhaupt. Eine
+     Verkaufskachel ganz oben wuerde den Gast vertreiben und damit den
+     Weg zerstoeren, auf dem der Wirt herkommt.
+
+     Stattdessen eine schmale Zeile direkt unter den Stammdaten: Wer
+     seinen eigenen Betrieb sucht, liest genau dort weiter -- Adresse,
+     Telefon, Oeffnungszeiten -- und sieht sie. Ein Gast ueberliest sie.
+
+     Sie zaehlt auf denselben Schritt wie der Kasten. Zuerst muss die
+     Frage beantwortet werden, OB jemand klickt; welche von beiden
+     Stellen es war, ist die uebernaechste Frage. */
+  const inhaberZeile =
+    '<p style="margin:18px 0 0;padding:12px 14px;background:#f0fdf4;' +
+      'border-left:3px solid ' + PRIMARY_COLOR + ';border-radius:0 8px 8px 0;' +
+      'font-size:15px;color:#2b4a42;">' +
+      'Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberZeile" ' +
+      'style="color:' + PRIMARY_COLOR + ';font-weight:700;">' +
+      'Diesen Eintrag kostenlos übernehmen</a> – Karte, Bestellungen und ' +
+      'Reservierungen selbst verwalten.' +
+    '</p>';
+
   const ownerBox =
     '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
       '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
@@ -2309,6 +2338,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       (hoursLine ? '<p><strong>Öffnungszeiten:</strong> ' + hoursLine + ' <span style="color:#888;font-size:13px;">(laut OpenStreetMap – bitte bestätigen)</span></p>' : '') +
       (p.cuisine ? '<p><strong>Küche:</strong> ' + eCuisine + '</p>' : '') +
       (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
+      inhaberZeile +
     '</div>\n' +
     faqHtml + '\n' +
     ownerBox + '\n' +

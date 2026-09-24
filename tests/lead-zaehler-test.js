@@ -144,6 +144,13 @@ async function ruf(koerper, opt) {
     const geklickt = spielen('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)', true);
     t('der Klick auf den Inhaber-Knopf zaehlt zusaetzlich',
       geklickt.length === 2 && geklickt[1].daten.schritt === 'geklickt', JSON.stringify(geklickt));
+    // Seit dem 24.09.2026 gibt es ZWEI Stellen: die schmale Zeile oben bei
+    // den Stammdaten und den Kasten unten. Beide muessen zaehlen -- sonst
+    // sieht die Zahl nach der Umstellung schlechter aus, obwohl mehr
+    // geklickt wurde, und man wuerde die Verbesserung zurueckdrehen.
+    t('auch die Zeile oben zaehlt', /inhaberZeile/.test(skript), 'nur der Knopf unten');
+    t('und beide ueber dieselbe Schleife -- keine zweite Fassung',
+      /\["inhaberKnopf","inhaberZeile"\]\.forEach/.test(skript), 'zweimal ausgeschrieben');
 
     // Automaten wuerden die Zahl aufblaehen -- und Ibo richtete sein
     // Werbebudget an Maschinen aus.
