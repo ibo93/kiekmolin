@@ -156,7 +156,20 @@ function stube(kontoAntwort) {
     t('gibt es gar keine Zahlart, kommt gar keine Zeile',
       wz.zahlartenZeile({ id: 'r9', features: [] }) !== '' , 'Standard Bar/Karte fehlt');
 
-    var quelleZeile = H.slice(H.indexOf('Glassmorphic Action Bar'), H.indexOf('Glassmorphic Action Bar') + 4000);
+    // BIS ZUM ECHTEN ENDE DES BLOCKS, nicht 4000 Zeichen weit.
+    //
+    // Vorher stand hier + 4000. Am 25.09.2026 kam der Zahlsperre-Hinweis in
+    // dieselbe Leiste, und die Zeile mit zahlartenZeile(rest) rutschte um
+    // ein paar hundert Zeichen nach hinten -- aus dem Fenster heraus. Der
+    // Test meldete "steht woanders", obwohl sie genau dort stand.
+    //
+    // Ein Test, der von einer Zeichenzahl abhaengt, prueft den Abstand und
+    // nicht die Sache. Deshalb jetzt die Marke, die den Block wirklich
+    // abschliesst.
+    var _lAnf = H.indexOf('Glassmorphic Action Bar');
+    var _lEnd = H.indexOf('<div id="lpSpecials">', _lAnf);
+    if (_lEnd < 0) _lEnd = _lAnf + 8000;
+    var quelleZeile = H.slice(_lAnf, _lEnd);
     t('sie haengt unter der Knopfleiste',
       /bar \+= zahlartenZeile\(rest\);/.test(quelleZeile), 'steht woanders');
     t('nur wenn bestellt werden kann -- sonst ist sie Laerm',
