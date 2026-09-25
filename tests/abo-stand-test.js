@@ -368,7 +368,14 @@ function fetchMitKunden(kunden, gemerkt) {
       /=== 'ueberfaellig' \|\| m === 'offen'/.test(br), 'auch bei bezahlt');
     t('aber eine bestehende Sperre bleibt immer erreichbar -- sonst kaeme er nicht mehr an den Aufmach-Knopf',
       /!faellig && jetzt === 'keine'/.test(br), 'nach der Zahlung eingesperrt');
-    t('der Hilfetext ist escapt', /escapeHtml\(k\.hilfe\)/.test(br), 'roh eingesetzt');
+    // Geprueft wird die EIGENSCHAFT, nicht der Wortlaut des Ausdrucks.
+    //
+    // Vorher stand hier /escapeHtml\(k\.hilfe\)/. Am 25.09.2026 kam die
+    // Verriegelung dazu und daraus wurde escapeHtml(zu ? grund : k.hilfe)
+    // -- dieselbe Absicht, anderes Muster, Test rot. Ein Test, der an
+    // einer Schreibweise haengt, prueft die Schreibweise.
+    t('was in title= landet, geht durch escapeHtml',
+      /title="' \+ escapeHtml\(/.test(br), 'roh eingesetzt');
     t('und nach dem Setzen wird die Kundenliste mit aufgefrischt',
       /renderCustomers === 'function'[\s\S]{0,80}renderCustomers\(\)/.test(H), 'zwei Wahrheiten');
     t('der Rechnungslink oeffnet in einem neuen Fenster mit noopener',

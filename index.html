@@ -36413,6 +36413,223 @@ async function deleteAccommodation(id, name) {
 // ==================== CUSTOMER MANAGEMENT ====================
 let customers = [];
 
+/* ==================== MAHNUNG ====================
+
+   Ibo am 25.09.2026: "das muss selber was steuern ich kann es dann
+   klicken."
+
+   Also: die App schreibt den Brief -- Absender, Betrag, Rechnungsnummer,
+   Frist, Bankverbindung -- und er drueckt auf Senden. Getippt wird
+   nichts. Aendern darf er den Text trotzdem; Betrag, Frist und
+   Empfaenger kommen aber aus der Messung und nicht aus dem Feld, damit
+   keine falsche Zahl in ein Schreiben rutscht, auf das sich spaeter
+   jemand beruft. */
+window._mahnStand = {};
+
+async function _mahnRuf(aktion, koerper) {
+    var token = null;
+    try {
+        if (window.supabaseClient && supabaseClient.auth) {
+            var sess = await supabaseClient.auth.getSession();
+            token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        }
+    } catch (e) {}
+    if (!token) throw new Error('Bitte neu anmelden');
+    var res = await fetch('/.netlify/functions/mahnung?action=' + encodeURIComponent(aktion), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(koerper || {})
+    });
+    var j = null; try { j = await res.json(); } catch (e) {}
+    return { status: res.status, j: j || {} };
+}
+
+// Alle Mahnungs-Staende in EINEM Ruf. Daran haengen die Sperr-Knoepfe.
+async function mahnStaendeHolen() {
+    try {
+        var a = await _mahnRuf('staende', {});
+        window._mahnStand = (a.j && a.j.staende) || {};
+        window._mahnTabelleFehlt = !!(a.j && a.j.tabelle_fehlt);
+    } catch (e) {
+        // Nicht erreichbar heisst NICHT "darf sperren". Der Stand bleibt
+        // leer, die harten Knoepfe bleiben zu. Hier gilt ausdruecklich
+        // NICHT "im Zweifel offen" -- im Zweifel wird nicht abgeschaltet.
+        window._mahnStand = {};
+    }
+}
+window.mahnStaendeHolen = mahnStaendeHolen;
+
+function _mahnFenster(inhalt, breit) {
+    var alt = document.getElementById('mahnModal');
+    if (alt) alt.remove();
+    var k = document.createElement('div');
+    k.id = 'mahnModal';
+    k.className = 'modal-overlay active';
+    k.style.zIndex = '10030';
+    k.innerHTML = '<div class="modal" style="max-width:' + (breit || 680) + 'px;width:94%;">' + inhalt + '</div>';
+    k.addEventListener('click', function (e) { if (e.target === k) k.remove(); });
+    document.body.appendChild(k);
+    return k;
+}
+function mahnSchliessen() {
+    var k = document.getElementById('mahnModal');
+    if (k) k.remove();
+}
+window.mahnSchliessen = mahnSchliessen;
+
+async function mahnungOeffnen(customerId) {
+    _mahnFenster('<div class="modal-header"><h3 style="margin:0;">Mahnung</h3></div>'
+        + '<div style="padding:28px;text-align:center;color:var(--slate);'
+        + 'font-family:Inter,sans-serif;">Hole den Stand bei Stripe …</div>');
+    var a;
+    try { a = await _mahnRuf('vorschau', { customer_id: customerId }); }
+    catch (e) { mahnSchliessen(); showToast(e.message, 'error'); return; }
+
+    // Absender unvollstaendig -> gar nicht erst den Brief zeigen,
+    // sondern das Formular. Ein Schreiben mit einer Luecke im Absender
+    // ist keins.
+    if (a.j && a.j.absender_unvollstaendig) { absenderFormular(a.j.fehlende_felder, customerId); return; }
+
+    if (!a.j || !a.j.ok) {
+        _mahnFenster('<div class="modal-header"><h3 style="margin:0;">Keine Mahnung</h3></div>'
+            + '<div style="padding:24px;font-family:Inter,sans-serif;font-size:14px;line-height:1.6;color:var(--text-primary);">'
+            + escapeHtml((a.j && a.j.fehler) || ('Fehler ' + a.status)) + '</div>'
+            + '<div style="padding:0 24px 24px;display:flex;justify-content:flex-end;">'
+            + '<button onclick="mahnSchliessen()" class="btn btn-secondary">Schließen</button></div>');
+        return;
+    }
+
+    var m = a.j;
+    var frist = '';
+    try { frist = new Date(m.frist_bis + 'T12:00:00')
+        .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) {}
+
+    _mahnFenster(
+        '<div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">'
+      +   '<h3 style="margin:0;">' + escapeHtml(m.betreff) + '</h3>'
+      +   '<button onclick="mahnSchliessen()" aria-label="Schließen" style="border:none;background:none;cursor:pointer;">'
+      +   '<span class="material-symbols-outlined">close</span></button>'
+      + '</div>'
+      + '<div style="padding:0 24px 8px;font-family:Inter,sans-serif;font-size:13px;color:var(--slate);">'
+      +   'Geht an <strong>' + escapeHtml(m.kunde.email) + '</strong> · Frist bis <strong>' + escapeHtml(frist) + '</strong>'
+      + '</div>'
+      // Der Text steht so da, wie er rausgeht. Kein "Vorschau kann
+      // abweichen" -- was er liest, bekommt der Wirt.
+      + '<textarea id="mahnText" spellcheck="false" aria-label="Text der Mahnung" style="width:calc(100% - 48px);margin:0 24px;height:320px;'
+      +   'font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;padding:14px;'
+      +   'border:1px solid var(--border-color);border-radius:12px;background:var(--bg-secondary);'
+      +   'color:var(--text-primary);resize:vertical;">' + escapeHtml(m.text) + '</textarea>'
+      + '<div style="padding:12px 24px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+      +   '<span style="font-family:Inter,sans-serif;font-size:11px;color:var(--slate);max-width:320px;line-height:1.5;">'
+      +     'Betrag und Fälligkeit kommen direkt von Stripe. Nach dem Senden wird die Frist gezählt.'
+      +   '</span>'
+      +   '<div style="display:flex;gap:8px;">'
+      +     '<button onclick="mahnSchliessen()" class="btn btn-secondary">Abbrechen</button>'
+      +     '<button id="mahnSendenKnopf" onclick="mahnungSenden(\'' + customerId + '\')" class="btn btn-primary"'
+      +     ' style="display:flex;align-items:center;gap:6px;">'
+      +     '<span class="material-symbols-outlined" style="font-size:18px;">send</span>Jetzt senden</button>'
+      +   '</div>'
+      + '</div>');
+}
+window.mahnungOeffnen = mahnungOeffnen;
+
+async function mahnungSenden(customerId) {
+    var knopf = document.getElementById('mahnSendenKnopf');
+    var feld = document.getElementById('mahnText');
+    var text = feld ? feld.value : '';
+    if (!text.trim()) { showToast('Der Text ist leer', 'error'); return; }
+    if (knopf) { knopf.disabled = true; knopf.style.opacity = '0.6'; knopf.textContent = 'Wird gesendet …'; }
+    try {
+        var a = await _mahnRuf('senden', { customer_id: customerId, text: text });
+        if (!a.j || !a.j.ok) {
+            showToast((a.j && a.j.fehler) || ('Nicht gesendet (' + a.status + ')'), 'error');
+            if (knopf) { knopf.disabled = false; knopf.style.opacity = '1'; knopf.textContent = 'Jetzt senden'; }
+            return;
+        }
+        mahnSchliessen();
+        await mahnStaendeHolen();
+        if (typeof renderCustomers === 'function') renderCustomers();
+        var bis = '';
+        try { bis = new Date(a.j.frist_bis + 'T12:00:00').toLocaleDateString('de-DE'); } catch (e) {}
+        showToast('Mahnung ist raus an ' + a.j.empfaenger + ' · Frist bis ' + bis, 'success');
+    } catch (e) {
+        showToast(e.message, 'error');
+        if (knopf) { knopf.disabled = false; knopf.style.opacity = '1'; knopf.textContent = 'Jetzt senden'; }
+    }
+}
+window.mahnungSenden = mahnungSenden;
+
+/* Das Absender-Formular. Es erscheint von selbst, wenn etwas fehlt --
+   nicht versteckt in den Einstellungen, wo es niemand sucht. Im ganzen
+   Projekt standen Ibos Firmendaten vorher nirgends; im Vertrag klafft
+   dafuer zweimal [[ANBIETER: ...]]. */
+async function absenderFormular(fehlend, weiterMitKunde) {
+    var a;
+    try { a = await _mahnRuf('absender', {}); } catch (e) { showToast(e.message, 'error'); return; }
+    var v = (a.j && a.j.absender) || {};
+    function zeile(id, name, wert, breit) {
+        var fehlt = (fehlend || []).indexOf(name) >= 0;
+        return '<label style="display:block;' + (breit ? 'grid-column:1/-1;' : '') + '">'
+            + '<span style="display:block;font-family:Inter,sans-serif;font-size:11px;font-weight:600;'
+            + 'color:' + (fehlt ? '#b91c1c' : 'var(--slate)') + ';margin-bottom:4px;">' + escapeHtml(name)
+            + (fehlt ? ' · fehlt' : '') + '</span>'
+            + '<input id="abs_' + id + '" value="' + escapeHtml(wert || '') + '" '
+            + 'aria-label="' + escapeHtml(name) + '" '
+            + 'style="width:100%;padding:9px 12px;border:1px solid ' + (fehlt ? '#fecaca' : 'var(--border-color)')
+            + ';border-radius:10px;font-family:Inter,sans-serif;font-size:13px;'
+            + 'background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;"></label>';
+    }
+    _mahnFenster(
+        '<div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">'
+      +   '<h3 style="margin:0;">Dein Absender</h3>'
+      +   '<button onclick="mahnSchliessen()" aria-label="Schließen" style="border:none;background:none;cursor:pointer;">'
+      +   '<span class="material-symbols-outlined">close</span></button></div>'
+      + '<div style="padding:0 24px 12px;font-family:Inter,sans-serif;font-size:13px;line-height:1.6;color:var(--text-secondary);">'
+      +   'Steht einmal hier und gilt für jede Mahnung. Ohne Anschrift und IBAN ist ein '
+      +   'Mahnschreiben wirkungslos — der Empfänger weiß nicht, an wen er zahlen soll.'
+      + '</div>'
+      + '<div style="padding:0 24px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      +   zeile('firmierung', 'Firmierung', v.firmierung, true)
+      +   zeile('inhaber', 'Inhaber', v.inhaber, true)
+      +   zeile('strasse', 'Straße', v.strasse, true)
+      +   zeile('plz', 'PLZ', v.plz) + zeile('ort', 'Ort', v.ort)
+      +   zeile('email', 'E-Mail', v.email) + zeile('telefon', 'Telefon', v.telefon)
+      +   zeile('iban', 'IBAN', v.iban, true)
+      +   zeile('bic', 'BIC', v.bic) + zeile('bank', 'Bank', v.bank)
+      +   zeile('steuernummer', 'Steuernummer', v.steuernummer, true)
+      + '</div>'
+      + '<div style="padding:16px 24px 24px;display:flex;justify-content:flex-end;gap:8px;">'
+      +   '<button onclick="mahnSchliessen()" class="btn btn-secondary">Abbrechen</button>'
+      +   '<button onclick="absenderSpeichern(' + (weiterMitKunde ? "'" + weiterMitKunde + "'" : 'null') + ')"'
+      +   ' class="btn btn-primary">Speichern</button>'
+      + '</div>');
+}
+window.absenderFormular = absenderFormular;
+
+async function absenderSpeichern(weiterMitKunde) {
+    var k = {};
+    ['firmierung', 'inhaber', 'strasse', 'plz', 'ort', 'email', 'telefon',
+     'iban', 'bic', 'bank', 'steuernummer'].forEach(function (f) {
+        var el = document.getElementById('abs_' + f);
+        if (el) k[f] = el.value;
+    });
+    try {
+        var a = await _mahnRuf('absender-speichern', k);
+        if (!a.j || !a.j.ok) { showToast((a.j && a.j.fehler) || 'Nicht gespeichert', 'error'); return; }
+        var fehlt = a.j.fehlende_felder || [];
+        if (fehlt.length) {
+            showToast('Es fehlt noch: ' + fehlt.join(', '), 'info');
+            absenderFormular(fehlt, weiterMitKunde);
+            return;
+        }
+        showToast('Absender gespeichert', 'success');
+        mahnSchliessen();
+        // Direkt weiter, wo er hinwollte -- nicht "jetzt nochmal klicken".
+        if (weiterMitKunde) mahnungOeffnen(weiterMitKunde);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+window.absenderSpeichern = absenderSpeichern;
+
 /* ==================== ABO-STAND (Stripe) ====================
 
    Ibo am 25.09.2026: "stripe ist besser so komme ich auch rein dann
@@ -36530,6 +36747,11 @@ async function aboStandHolen() {
         (j.kunden || []).forEach(function (k) { nachId[k.id] = k; });
         (customers || []).forEach(function (c) { c._aboStand = nachId[c.id] || null; });
 
+        // Die Mahnungs-Staende gehoeren dazu: an ihnen haengen die
+        // Sperr-Knoepfe. Getrennt geholt waere die Liste einen Moment
+        // lang in einem Zustand, den es nicht gibt.
+        await mahnStaendeHolen();
+
         renderCustomers();
         updateCustomerStats();
 
@@ -36568,6 +36790,10 @@ async function loadCustomers() {
 
         if (response.ok) {
             customers = await response.json();
+            // Erst den Mahnungs-Stand, dann zeichnen: sonst stuenden die
+            // Sperr-Knoepfe einen Wimpernschlag lang frei da, obwohl sie
+            // verriegelt sind.
+            try { await mahnStaendeHolen(); } catch (e) {}
             renderCustomers();
             updateCustomerStats();
             populateRestaurantDropdown();
@@ -36608,21 +36834,73 @@ function zahlsperreBeimKunden(c) {
     // er nach einer Zahlung nicht mehr an den Knopf, der sie aufmacht.
     if (!faellig && jetzt === 'keine') return '';
 
+    /* DIE VERRIEGELUNG.
+
+       "Pause" und "Aus" gehen erst, wenn eine Mahnung raus ist UND ihre
+       Frist abgelaufen ist. Vorher sind die Knoepfe tot.
+
+       Das ist der Kern dessen, worum Ibo am 25.09.2026 gebeten hat:
+       "das muss selber was steuern ich kann es dann klicken". Bis dahin
+       stand die Reihenfolge nur als Satz in einem Bestaetigungsfenster --
+       und einen Satz klickt man weg.
+
+       "Offen" und "Hinweis" bleiben IMMER erreichbar: Offen macht auf
+       (das darf nie verriegelt sein), und Hinweis sieht nur der Wirt. */
+    var mahn = (window._mahnStand && window._mahnStand[c.id]) || null;
+    var frei = !!(mahn && mahn.abgelaufen);
+    var grund = !mahn
+        ? 'Erst eine Mahnung schicken — dann wird dieser Knopf frei.'
+        : (!mahn.frist_bis ? 'Die letzte Mahnung ging nicht raus.'
+                           : 'Die Frist läuft noch bis ' + mahn.frist_bis + '.');
+
     var html = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
         + '<span style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;color:var(--slate);'
         + 'letter-spacing:0.06em;width:100%;">ZAHLSPERRE</span>';
     ZAHLSPERRE_KNOEPFE.forEach(function (k) {
         var an = k.stufe === jetzt;
-        html += '<button onclick="zahlsperreSetzen(\'' + c.restaurant_id + '\',\'' + k.stufe + '\')"'
-            + ' title="' + escapeHtml(k.hilfe) + '"'
+        var hart = (k.stufe === 'pause' || k.stufe === 'aus');
+        var zu = hart && !frei && !an;
+        html += '<button ' + (zu ? 'disabled ' : '')
+            + 'onclick="zahlsperreSetzen(\'' + c.restaurant_id + '\',\'' + k.stufe + '\')"'
+            + ' title="' + escapeHtml(zu ? grund : k.hilfe) + '"'
             + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
-            + ' style="padding:4px 10px;border-radius:9999px;cursor:pointer;font-family:Inter,sans-serif;'
+            + ' style="padding:4px 10px;border-radius:9999px;font-family:Inter,sans-serif;'
             + 'font-size:11px;font-weight:600;'
-            + (an ? 'background:' + k.farbe + ';color:white;border:1px solid ' + k.farbe + ';'
-                  : 'background:var(--bg-card);color:' + k.farbe + ';border:1px solid var(--border-color);')
+            + (zu ? 'cursor:not-allowed;opacity:0.4;background:var(--bg-secondary);color:var(--slate);border:1px solid var(--border-color);'
+                  : 'cursor:pointer;' + (an ? 'background:' + k.farbe + ';color:white;border:1px solid ' + k.farbe + ';'
+                                            : 'background:var(--bg-card);color:' + k.farbe + ';border:1px solid var(--border-color);'))
             + '">' + k.text + '</button>';
     });
+    html += mahnungZeile(c, mahn);
     return html + '</div>';
+}
+
+/* Der Mahnung-Knopf und der Stand daneben. Er steht direkt unter den
+   Sperr-Knoepfen, weil er der Schritt davor ist -- und weil man dort
+   sieht, WARUM sie grau sind. */
+function mahnungZeile(c, mahn) {
+    var NAMEN = { 1: 'Zahlungserinnerung', 2: '1. Mahnung', 3: 'Letzte Mahnung' };
+    var stand = '';
+    if (mahn && mahn.frist_bis) {
+        var d = '';
+        try { d = new Date(mahn.frist_bis + 'T12:00:00')
+            .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) {}
+        stand = (NAMEN[mahn.stufe] || 'Mahnung') + ' · Frist '
+              + (mahn.abgelaufen ? 'abgelaufen am ' : 'bis ') + d;
+    } else if (mahn) {
+        stand = 'Letzter Versand fehlgeschlagen';
+    }
+    return '<div style="width:100%;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        + '<button onclick="mahnungOeffnen(\'' + c.id + '\')"'
+        + ' style="padding:4px 12px;border-radius:9999px;cursor:pointer;font-family:Inter,sans-serif;'
+        + 'font-size:11px;font-weight:600;background:var(--bg-card);color:var(--text-primary);'
+        + 'border:1px solid var(--border-color);display:flex;align-items:center;gap:4px;">'
+        + '<span class="material-symbols-outlined" style="font-size:14px;">mail</span>'
+        + (mahn ? 'Erneut mahnen' : 'Mahnung schreiben') + '</button>'
+        + (stand ? '<span style="font-family:Inter,sans-serif;font-size:11px;color:'
+                 + (mahn && mahn.abgelaufen ? '#b91c1c' : 'var(--slate)') + ';">'
+                 + escapeHtml(stand) + '</span>' : '')
+        + '</div>';
 }
 
 function renderCustomers() {
