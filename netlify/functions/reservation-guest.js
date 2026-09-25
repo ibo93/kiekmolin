@@ -53,6 +53,7 @@
 'use strict';
 
 var alarmModul = require('./lib/alarm');
+var ZAHLSPERRE = require('./lib/zahlsperre');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -168,6 +169,21 @@ exports.handler = async function (event) {
         var merkmale = Array.isArray(haus.features) ? haus.features : [];
         if (merkmale.indexOf('no_reservations') >= 0) {
             return json(403, { ok: false, error: 'Online-Reservierungen sind hier nicht verfuegbar' });
+        }
+
+        // ZAHLSPERRE. Nur die Stufe "aus" sperrt Reservierungen -- bei
+        // "pause" geht der Tisch weiter. Ein Tisch kostet den Betrieb
+        // nichts, und der Gast wird nicht weggeschickt.
+        //
+        // ABSICHTLICH EINE EIGENE ABFRAGE und nicht mit in den select
+        // oben: fehlt die Spalte (SQL 36 noch nicht eingespielt), waere
+        // rRes nicht ok -- und dann wuerde die 502 drei Zeilen weiter oben
+        // JEDE Reservierung abweisen. Genau dieser Fehler hat am 25.08.2026
+        // vier Gaeste gekostet.
+        var _sperre = await ZAHLSPERRE.pruefe(r.restaurant_id, 'reservieren', SERVICE_KEY);
+        if (!_sperre.erlaubt) {
+            console.warn('[reservation-guest] Zahlsperre ' + _sperre.stufe + ' -- abgewiesen.');
+            return ZAHLSPERRE.abweisung(_sperre, CORS);
         }
 
         // ---- 2. Der Server entscheidet ueber den Status, nicht der Browser

@@ -725,9 +725,28 @@ function buildFaqsEn(city, cat, matched) {
 
 function pageCss() {
   return `
+    /* EIN Token-Satz, derselbe wie in der App und auf /gastro.
+       Bis zum 24.09.2026 hatten die Restaurantseiten ihr eigenes Design:
+       Ueberschriften in Inter statt Epilogue, und SECHS verschiedene
+       Eckenrundungen (8, 10, 12, 14, 20, 99px), jede einzeln hingeschrieben.
+       Ibo hat am 24.09.2026 gesagt, die Seite muesse im Kiek-mol-in-Stil
+       aussehen. Er hatte recht: ein Wirt klickte von einer fremd
+       wirkenden Seite auf ein poliertes /gastro und sah unbewusst zwei
+       Firmen. */
+    :root{
+      --gr:#003D33;--gr-hell:#1a5f4a;--gr-tief:#00251e;
+      --gold:#C5A233;--gold-hell:#FFD54F;
+      --kohle:#191c1d;--schiefer:#404946;--linie:rgba(0,37,30,.10);
+      --flaeche:#ffffff;--grund:#f8f9fa;--sand:#edeeef;
+      --s-sm:0 2px 8px rgba(0,37,30,.04);--s-md:0 8px 24px -4px rgba(0,37,30,.07);
+      --s-lg:0 24px 48px -8px rgba(0,37,30,.10);
+      --r-sm:12px;--r-md:16px;--r-lg:32px;--r-voll:9999px;
+    }
     *,*::before,*::after{box-sizing:border-box}
     html{scroll-behavior:smooth}
-    body{margin:0;font-family:'Inter','Epilogue',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;background:#fafaf7;line-height:1.6;-webkit-font-smoothing:antialiased}
+    body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--kohle);background:var(--grund);line-height:1.62;-webkit-font-smoothing:antialiased}
+    /* Ueberschriften wie ueberall sonst: Epilogue, schwer, eng gesetzt. */
+    h1,h2,h3{font-family:Epilogue,Inter,sans-serif;letter-spacing:-.035em;line-height:1.08}
     a{color:${PRIMARY_COLOR};text-decoration:none}
     a:hover{text-decoration:underline}
     img{max-width:100%;height:auto;display:block}
@@ -735,26 +754,26 @@ function pageCss() {
     @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
     .fade{animation:fadeUp .5s ease both}
     .fade.d1{animation-delay:.06s}.fade.d2{animation-delay:.12s}.fade.d3{animation-delay:.18s}
-    header.site{background:${PRIMARY_COLOR};color:#fff;padding:14px 0;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+    header.site{background:var(--gr);color:#fff;padding:14px 0;position:sticky;top:0;z-index:50;box-shadow:var(--s-md)}
     header.site .row{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    header.site .logo{font-weight:800;font-size:21px;color:#fff;text-decoration:none;letter-spacing:-.02em}
+    header.site .logo{font-family:Epilogue,Inter,sans-serif;font-weight:900;font-size:21px;color:#fff;text-decoration:none;letter-spacing:-.03em}
     header.site .logo span{color:${ACCENT_COLOR}}
     header.site nav a{color:#fff;margin-left:18px;font-size:14px;opacity:.92}
     header.site nav a:hover{opacity:1}
-    .breadcrumb{font-size:13px;color:#666;padding:14px 0 0}
+    .breadcrumb{font-size:13px;color:var(--schiefer);padding:14px 0 0}
     .breadcrumb a{color:#666}
     .breadcrumb .sep{margin:0 6px;color:#bbb}
-    h1{font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:18px 0 8px;color:${PRIMARY_COLOR};font-weight:800;letter-spacing:-.02em}
-    .subtitle{font-size:18px;color:#555;margin:0 0 28px}
-    .intro{background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    h1{font-size:clamp(30px,5vw,46px);margin:18px 0 8px;color:var(--gr);font-weight:900}
+    .subtitle{font-size:18px;color:var(--schiefer);margin:0 0 28px}
+    .intro{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:26px;margin:0 0 32px;box-shadow:var(--s-sm)}
     .intro p{margin:0 0 12px}
     .intro p:last-child{margin-bottom:0}
-    h2{font-size:26px;margin:36px 0 18px;color:${PRIMARY_COLOR};font-weight:700;letter-spacing:-.01em}
+    h2{font-size:clamp(24px,3.4vw,30px);margin:38px 0 18px;color:var(--gr);font-weight:800}
     .grid{display:grid;grid-template-columns:1fr;gap:18px}
     @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
     @media(min-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
-    .card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s;display:flex;flex-direction:column}
-    .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,40,30,.12)}
+    .card{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--s-sm);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s;display:flex;flex-direction:column}
+    .card:hover{transform:translateY(-3px);box-shadow:var(--s-lg)}
     .card .img{aspect-ratio:16/10;background:#eee linear-gradient(135deg,#e6f0ee,#cfe0dc);background-size:cover;background-position:center;transition:transform .3s}
     .card:hover .img{transform:scale(1.04)}
     .card .body{padding:16px;flex:1;display:flex;flex-direction:column;gap:8px}
@@ -763,11 +782,11 @@ function pageCss() {
     .card .stars .num{color:#666;font-size:13px;margin-left:6px;letter-spacing:0}
     .card .addr{color:#666;font-size:14px;margin:0}
     .card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
-    .card .tag{font-size:11px;background:#eef5f3;color:${PRIMARY_COLOR};padding:3px 9px;border-radius:99px;font-weight:500}
-    .card .btn{margin-top:10px;display:inline-block;background:${PRIMARY_COLOR};color:#fff;padding:10px 14px;border-radius:8px;text-align:center;font-weight:600;font-size:14px}
+    .card .tag{font-size:11px;background:#eef5f3;color:${PRIMARY_COLOR};padding:3px 9px;border-radius:var(--r-voll);font-weight:500}
+    .card .btn{margin-top:10px;display:inline-block;background:${PRIMARY_COLOR};color:#fff;padding:10px 14px;border-radius:var(--r-sm);text-align:center;font-weight:600;font-size:14px}
     .card .btn:hover{background:#002a23;text-decoration:none;color:#fff}
     /* Restaurant-Hero */
-    .hero{position:relative;border-radius:20px;overflow:hidden;margin:18px 0 22px;min-height:300px;display:flex;align-items:flex-end;box-shadow:0 8px 30px rgba(0,40,30,.14)}
+    .hero{position:relative;border-radius:var(--r-lg);overflow:hidden;margin:18px 0 22px;min-height:300px;display:flex;align-items:flex-end;box-shadow:0 8px 30px rgba(0,40,30,.14)}
     .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center;transform:scale(1.02)}
     .hero .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,40,33,.12) 0%,rgba(0,40,33,.55) 55%,rgba(0,40,33,.86) 100%)}
     .hero .inner{position:relative;padding:28px 26px;color:#fff;width:100%}
@@ -778,15 +797,15 @@ function pageCss() {
     .hero-fallback{background:linear-gradient(135deg,${PRIMARY_COLOR},#00574a)}
     /* Trust-Badges */
     .trust{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
-    .trust .b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e8efed;border-radius:99px;padding:8px 15px;font-size:13px;font-weight:600;color:${PRIMARY_COLOR};box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .trust .b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e8efed;border-radius:var(--r-voll);padding:8px 15px;font-size:13px;font-weight:600;color:${PRIMARY_COLOR};box-shadow:0 1px 2px rgba(0,0,0,.03)}
     .trust .b .i{font-size:15px}
     /* CTA-Buttons */
-    .cta-primary{display:inline-flex;align-items:center;gap:8px;background:${PRIMARY_COLOR};color:#fff;padding:15px 30px;border-radius:12px;font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(0,40,30,.22);transition:transform .15s,box-shadow .15s}
+    .cta-primary{display:inline-flex;align-items:center;gap:8px;background:${PRIMARY_COLOR};color:#fff;padding:15px 30px;border-radius:var(--r-sm);font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(0,40,30,.22);transition:transform .15s,box-shadow .15s}
     .cta-primary:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,40,30,.3);text-decoration:none;color:#fff}
-    .cta-ghost{display:inline-flex;align-items:center;gap:8px;background:#fff;color:${PRIMARY_COLOR};border:2px solid ${PRIMARY_COLOR};padding:12px 26px;border-radius:12px;font-weight:700;font-size:15px;transition:background .15s,color .15s}
+    .cta-ghost{display:inline-flex;align-items:center;gap:8px;background:#fff;color:${PRIMARY_COLOR};border:2px solid ${PRIMARY_COLOR};padding:12px 26px;border-radius:var(--r-sm);font-weight:700;font-size:15px;transition:background .15s,color .15s}
     .cta-ghost:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
     /* Reviews */
-    .reviews-seo .rv{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid #f0f3f1}
+    .reviews-seo .rv{background:#fff;border-radius:var(--r-md);padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid #f0f3f1}
     /* Sticky mobile bestellen-Leiste */
     .sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #e6ece9;padding:10px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
     .sticky-cta .lbl{font-size:13px;font-weight:700;color:${PRIMARY_COLOR};line-height:1.2}
@@ -804,12 +823,12 @@ function pageCss() {
     .weitere-tel{color:#64748b;font-size:14px;text-decoration:none;margin-left:auto}
     .weitere-tel:hover{text-decoration:underline}
     @media(max-width:560px){.weitere-tel{margin-left:0}}
-    .crosslinks{background:#fff;border-radius:14px;padding:22px;margin:32px 0}
+    .crosslinks{background:#fff;border-radius:var(--r-md);padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
-    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:99px;font-size:14px;transition:background .15s,color .15s}
+    .crosslinks .links a{display:inline-block;background:#eef5f3;color:${PRIMARY_COLOR};padding:6px 12px;border-radius:var(--r-voll);font-size:14px;transition:background .15s,color .15s}
     .crosslinks .links a:hover{background:${PRIMARY_COLOR};color:#fff;text-decoration:none}
-    details.faq{background:#fff;border-radius:10px;padding:14px 18px;margin:0 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    details.faq{background:#fff;border-radius:var(--r-sm);padding:14px 18px;margin:0 0 8px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
     details.faq summary{cursor:pointer;font-weight:600;color:${PRIMARY_COLOR};list-style:none}
     details.faq summary::-webkit-details-marker{display:none}
     details.faq summary::after{content:'+';float:right;font-size:20px;color:${PRIMARY_COLOR};font-weight:300}
@@ -818,7 +837,7 @@ function pageCss() {
     footer.site{background:${PRIMARY_COLOR};color:#fff;padding:30px 0;margin-top:50px;font-size:14px}
     footer.site a{color:#fff;text-decoration:underline}
     footer.site .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
-    .empty{padding:30px;text-align:center;color:#666;background:#fff;border-radius:14px}
+    .empty{padding:30px;text-align:center;color:var(--schiefer);background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-md)}
   `.replace(/\n\s+/g, '');
 }
 
@@ -1193,6 +1212,15 @@ function buildPage(opts) {
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
     '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
     '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
+    /* Die Schriften wurden hier NIE geladen -- 'Epilogue' stand zwar im
+       font-family, kam aber nie an, also rannen alle Ueberschriften in
+       Inter. Auf /gastro wurden sie geladen, deshalb sahen die beiden
+       Seiten verschieden aus, ohne dass jemand sagen konnte warum.
+       display=swap: der Text ist sofort lesbar und wechselt nach, statt
+       die Seite bis zum Eintreffen der Schrift leer zu lassen. */
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@800;900&family=Inter:wght@400;500;600;700&display=swap">\n' +
     '<style>' + pageCss() + '</style>\n' +
     '<script type="application/ld+json">' + jsonEscape(breadcrumb) + '</script>\n' +
     (opts.restaurants && opts.restaurants.length ? '<script type="application/ld+json">' + jsonEscape(itemList) + '</script>\n' : '') +
@@ -1670,7 +1698,7 @@ function renderMenuListHtml(menuItems) {
     sections[catName].push(it);
   });
 
-  let html = '<div class="menu-list" style="background:#fff;border-radius:14px;padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
+  let html = '<div class="menu-list" style="background:#fff;border-radius:var(--r-md);padding:24px;margin:0 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
   Object.keys(sections).forEach(function(secName) {
     html += '<h3 style="margin:18px 0 12px;color:' + PRIMARY_COLOR + ';font-size:18px;font-weight:700;border-bottom:2px solid #eef5f3;padding-bottom:6px;">' + escapeHtml(secName) + '</h3>';
     html += '<ul style="list-style:none;padding:0;margin:0;">';
@@ -1680,7 +1708,7 @@ function renderMenuListHtml(menuItems) {
       const itPrice = escapeHtml(fmtPrice(it));
       html += '<li style="padding:10px 0;border-bottom:1px solid #f4f4f0;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">';
       html +=   '<div style="flex:1;min-width:0;">';
-      html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:99px;font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
+      html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:var(--r-voll);font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
       if (itDesc) html += '<div style="color:#666;font-size:13px;margin-top:2px;line-height:1.4;">' + itDesc + '</div>';
       html +=   '</div>';
       if (itPrice) html += '<div style="font-weight:700;color:' + PRIMARY_COLOR + ';font-size:15px;white-space:nowrap;">' + itPrice + '</div>';
@@ -1720,7 +1748,7 @@ function renderReviewsHtml(rest, reviews) {
     const dateStr = rv.created_at
       ? new Date(rv.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })
       : '';
-    html += '<div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
+    html += '<div style="background:#fff;border-radius:var(--r-sm);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px;">';
     html += '<strong style="color:#1a1a1a;font-size:14px;">' + author + '</strong>';
     html += '<span style="color:' + ACCENT_COLOR + ';font-size:15px;white-space:nowrap;">' + renderStars(rv.rating) + '</span>';
@@ -1942,7 +1970,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
       (rest.email ? '<p><strong>E-Mail:</strong> <a href="mailto:' + escapeAttr(rest.email) + '">' + escapeHtml(rest.email) + '</a></p>' : '') +
       (rest.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(rest.website) + '" rel="nofollow">' + escapeHtml(rest.website) + '</a></p>' : '') +
     '</div>\n' +
-    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:8px;font-weight:600;text-decoration:none;">'
+    '<p style="margin:18px 0 32px;"><a href="/?r=' + escapeAttr(slug) + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:14px 28px;border-radius:var(--r-sm);font-weight:600;text-decoration:none;">'
       + (kannBestellen(rest) ? 'Online bestellen bei ' : 'Speisekarte von ') + escapeHtml(name) + '</a></p>\n' +
     (menuItems.length
       ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
@@ -1954,7 +1982,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     (kannReservieren(rest)
       ? '<h2>Tisch reservieren bei ' + escapeHtml(name) + '</h2>\n' +
         '<p>Direkt online einen Tisch reservieren – kostenlos, ohne Anmeldung, mit Sofort-Bestätigung per E-Mail. Wähle Datum, Uhrzeit und Personenzahl, fertig.</p>\n' +
-        '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:8px;font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n'
+        '<p style="margin:18px 0;"><a href="/?r=' + escapeAttr(slug) + '&action=reserve" style="display:inline-block;background:#fff;color:' + PRIMARY_COLOR + ';border:2px solid ' + PRIMARY_COLOR + ';padding:12px 26px;border-radius:var(--r-sm);font-weight:600;text-decoration:none;">Tisch reservieren</a></p>\n'
       : '') +
     renderOeffnungszeitenHtml(rest, name) +
     (faqs.length
@@ -2012,6 +2040,41 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 // nirgends, was ihm eigentlich angeboten wird. Jetzt auf die Seite, die
 // genau das erklaert und unten das Eintragen-Formular hat.
 const PROSPECT_OWNER_CTA_URL = '/' + GASTRO_SLUG;
+
+/* DER ZAEHLER AUF DEN RESTAURANTSEITEN.
+   Zwei Zahlen, mehr nicht: wurde die Seite geladen, und hat jemand den
+   Inhaber-Knopf gedrueckt. Daraus ergibt sich zusammen mit "gesendet"
+   aus dem Formular die ganze Strecke.
+
+   Vier Dinge, die hier absichtlich so sind:
+
+   1. sendBeacon, nicht fetch. Der Klick fuehrt sofort weg von der Seite --
+      ein fetch wird dabei abgebrochen, ein Beacon nicht. Genau der Klick,
+      der zaehlt, waere sonst der, der verloren geht.
+   2. try/catch um alles. Ein Zaehler darf NIE eine Verkaufsseite
+      kaputtmachen.
+   3. Kein Cookie, keine Kennung, keine IP. Damit braucht es keine
+      Einwilligung -- und die einzige Frage, auf die es ankommt, wird
+      trotzdem beantwortet: kommt da jemand an?
+   4. Automaten zaehlen nicht mit. Googlebot & Co. wuerden die Zahl
+      aufblaehen, und Ibo wuerde Werbebudget an einer Zahl ausrichten,
+      die aus Maschinen besteht. */
+function zaehlSkript(slug) {
+  const ziel = '/.netlify/functions/lead-zaehler';
+  return '<script>(function(){try{' +
+    'if(/bot|crawl|spider|slurp|bingpreview|headless/i.test(navigator.userAgent))return;' +
+    'var s=' + JSON.stringify(slug) + ';' +
+    'function z(t){try{var d=JSON.stringify({slug:s,schritt:t});' +
+      'if(navigator.sendBeacon){navigator.sendBeacon(' + JSON.stringify(ziel) + ',new Blob([d],{type:"application/json"}));}' +
+      'else{fetch(' + JSON.stringify(ziel) + ',{method:"POST",headers:{"Content-Type":"application/json"},body:d,keepalive:true});}' +
+    '}catch(e){}}' +
+    'z("gesehen");' +
+    '["inhaberKnopf","inhaberZeile"].forEach(function(id){' +
+      'var k=document.getElementById(id);' +
+      'if(k)k.addEventListener("click",function(){z("geklickt");});' +
+    '});' +
+  '}catch(e){}})();</script>\n';
+}
 
 function loadProspects() {
   const file = path.join(OUT_DIR, 'prospects.json');
@@ -2194,7 +2257,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
     : '<meta name="robots" content="index,follow,max-image-preview:large">';
 
   const draftBanner = isDraft
-    ? '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 16px;border-radius:8px;margin:16px 0;font-size:14px;">' +
+    ? '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 16px;border-radius:var(--r-sm);margin:16px 0;font-size:14px;">' +
       '⚠️ <strong>Vorschau / Beispiel-Eintrag.</strong> Diese Seite ist als <code>draft</code> markiert (noindex) und noch nicht veröffentlicht. ' +
       'Setze in <code>prospects.json</code> <code>"draft": false</code> sobald die Daten geprüft sind.' +
       '</div>'
@@ -2205,8 +2268,35 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
     ? '<a class="cta-primary" href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">📞 ' + escapeHtml(String(p.phone)) + '</a>'
     : '';
 
+  /* DER WIRT SCROLLT NICHT BIS UNTEN.
+     Gemessen am 24.09.2026 an einer echten Seite: der gruene Kasten
+     beginnt auf dem Handy bei Pixel 1333 von 3497 -- anderthalb
+     Bildschirme weit weg. Ibo: "da kommt keine Anfrage rein".
+
+     Der Kasten BLEIBT wo er ist. Diese Seite gehoert zuerst dem Gast,
+     der etwas essen will -- deshalb rankt sie ueberhaupt. Eine
+     Verkaufskachel ganz oben wuerde den Gast vertreiben und damit den
+     Weg zerstoeren, auf dem der Wirt herkommt.
+
+     Stattdessen eine schmale Zeile direkt unter den Stammdaten: Wer
+     seinen eigenen Betrieb sucht, liest genau dort weiter -- Adresse,
+     Telefon, Oeffnungszeiten -- und sieht sie. Ein Gast ueberliest sie.
+
+     Sie zaehlt auf denselben Schritt wie der Kasten. Zuerst muss die
+     Frage beantwortet werden, OB jemand klickt; welche von beiden
+     Stellen es war, ist die uebernaechste Frage. */
+  const inhaberZeile =
+    '<p style="margin:18px 0 0;padding:12px 14px;background:#f0fdf4;' +
+      'border-left:3px solid ' + PRIMARY_COLOR + ';border-radius:0 var(--r-sm) var(--r-sm) 0;' +
+      'font-size:15px;color:#2b4a42;">' +
+      'Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberZeile" ' +
+      'style="color:' + PRIMARY_COLOR + ';font-weight:700;">' +
+      'Diesen Eintrag kostenlos übernehmen</a> – Karte, Bestellungen und ' +
+      'Reservierungen selbst verwalten.' +
+    '</p>';
+
   const ownerBox =
-    '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:10px;padding:18px 20px;margin:28px 0;">' +
+    '<div style="background:#f0fdf4;border:1px solid ' + PRIMARY_COLOR + ';border-radius:var(--r-sm);padding:18px 20px;margin:28px 0;">' +
       '<h2 style="margin:0 0 6px;font-size:19px;">Ist das dein Restaurant?</h2>' +
       // ZWEI SAETZE, WEIL ES ZWEI DINGE SIND.
       //
@@ -2221,7 +2311,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt oder reserviert wird. ' +
       '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
       'Ohne App, jederzeit kündbar, ' + PREIS_UST_KURZ + '.</p>' +
-      '<a href="' + PROSPECT_OWNER_CTA_URL + '" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
+      '<a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberKnopf" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:var(--r-sm);font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
     '</div>';
 
   const partnerBox = partners.length
@@ -2276,6 +2366,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       (hoursLine ? '<p><strong>Öffnungszeiten:</strong> ' + hoursLine + ' <span style="color:#888;font-size:13px;">(laut OpenStreetMap – bitte bestätigen)</span></p>' : '') +
       (p.cuisine ? '<p><strong>Küche:</strong> ' + eCuisine + '</p>' : '') +
       (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
+      inhaberZeile +
     '</div>\n' +
     faqHtml + '\n' +
     ownerBox + '\n' +
@@ -2289,6 +2380,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
         (p.source === 'osm' ? ' · © OpenStreetMap-Mitwirkende' : '') +
         '. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
     '</div></footer>\n' +
+    zaehlSkript(slug) +
     '</body></html>\n';
 
   const filename = slug + '.html';
@@ -2745,7 +2837,7 @@ function buildGastroFaqs() {
 // es waere auf einer Verkaufsseite auch billig. Stattdessen Strich-Symbole
 // aus gastroSymbol(), die sich mit dem Text einfaerben.
 
-var GASTRO_CSS = "\n:root{\n  --gr:#003D33;--gr-hell:#1a5f4a;--gr-tief:#00251e;\n  --gold:#C5A233;--gold-hell:#FFD54F;\n  --creme:#f8f9fa;--sand:#edeeef;--kohle:#191c1d;--schiefer:#404946;\n  --flaeche:#ffffff;--grund:#f8f9fa;--linie:rgba(0,37,30,.10);\n  --s-sm:0 2px 8px rgba(0,37,30,.04);--s-md:0 8px 24px -4px rgba(0,37,30,.07);\n  --s-lg:0 24px 48px -8px rgba(0,37,30,.10);--s-xl:0 32px 64px -12px rgba(0,37,30,.14);\n  --r-sm:12px;--r-md:16px;--r-lg:32px;--r-xl:48px;\n  --weich:all .22s cubic-bezier(.4,0,.2,1);--pille-schrift:#ffffff;\n}\n@media (prefers-color-scheme:dark){:root{\n  --gr:#9cd1c3;--gr-hell:#b8eddf;--gr-tief:#003D33;--gold:#FFD54F;\n  --creme:#0a1612;--sand:#111f1a;--kohle:#e8eeec;--schiefer:#9ca8a4;\n  --flaeche:#1a2e27;--grund:#0a1612;--linie:rgba(255,255,255,.08);\n  --s-sm:0 2px 8px rgba(0,0,0,.4);--s-md:0 8px 24px -4px rgba(0,0,0,.45);\n  --s-lg:0 24px 48px -8px rgba(0,0,0,.5);--s-xl:0 32px 64px -12px rgba(0,0,0,.55);--pille-schrift:#00251e;\n}}\n*{box-sizing:border-box}\nhtml{scroll-behavior:smooth}\nbody{margin:0;background:var(--grund);color:var(--kohle);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}\nh1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.06;margin:0}\np{margin:0 0 14px}\na{color:inherit}\n.huelle{max-width:1080px;margin:0 auto;padding:0 20px}\n.eng{max-width:760px}\n/* Die klebende Kopfzeile ist 64px hoch. Ohne das hier verdeckt sie\n   beim Sprung auf einen Anker dessen obere Kante. */\n#anmelden,#drin{scroll-margin-top:84px}\n.schmal{max-width:760px;margin-right:auto}\n.kopf{position:sticky;top:0;z-index:20;background:var(--grund);border-bottom:1px solid var(--linie)}\n.kopf .huelle{display:flex;align-items:center;justify-content:space-between;height:64px;gap:14px}\n.wortmarke{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}\n.pille{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:13px 28px;border-radius:9999px;font-weight:700;font-size:16px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:var(--weich);font-family:inherit}\n.pille.voll{background:var(--gr);color:var(--pille-schrift);box-shadow:var(--s-md)}\n.pille.voll:hover{transform:translateY(-2px);box-shadow:var(--s-lg)}\n.pille.gold{background:var(--gold-hell);color:#00251e;box-shadow:0 10px 26px -8px rgba(197,162,51,.55)}\n.pille.gold:hover{transform:translateY(-2px);box-shadow:0 16px 34px -10px rgba(197,162,51,.65)}\n.pille.geist{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}\n.pille.geist:hover{background:rgba(255,255,255,.12)}\n.pille:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}\n.held{position:relative;background:linear-gradient(160deg,#00352c 0%,#00251e 62%,#001a15 100%);color:#f2f7f5;padding:78px 0 132px;overflow:hidden}\n.held::after{content:'';position:absolute;inset:auto -10% -55% 38%;height:72%;background:radial-gradient(ellipse at center,rgba(197,162,51,.22),transparent 68%);pointer-events:none}\n.held .huelle{position:relative;z-index:1}\n.held h1{font-size:clamp(34px,6.4vw,62px);color:#fff;max-width:15ch}\n.held .unter{font-size:clamp(17px,2.2vw,21px);color:rgba(255,255,255,.80);max-width:46ch;margin:20px 0 30px}\n.marken{display:flex;flex-wrap:wrap;gap:10px;margin:32px 0 0;padding:0;list-style:none}\n.marken li{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:9999px;padding:9px 17px;font-size:14px;font-weight:600;color:rgba(255,255,255,.94)}\n.knopfreihe{display:flex;flex-wrap:wrap;gap:12px}\n.preis{margin:-86px auto 0;position:relative;z-index:5;background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-xl);box-shadow:var(--s-xl);padding:36px 32px}\n.preis .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:clamp(46px,9vw,72px);line-height:1;letter-spacing:-.05em;color:var(--gr)}\n.preis .je{font-size:17px;font-weight:600;color:var(--schiefer);margin-left:8px;letter-spacing:0}\n.rechnung{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:12px}\n.rechnung li{position:relative;padding-left:26px;font-size:15.5px;color:var(--schiefer);line-height:1.55}\n.rechnung li::before{content:\"\";position:absolute;left:2px;top:.62em;width:8px;height:8px;border-radius:50%;background:var(--gold)}\n.rechnung strong{color:var(--kohle)}\n.preis .band{margin:22px 0 0;background:var(--sand);border-left:4px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:16px 19px;font-weight:600}\n.preis .klein{margin:14px 0 0;font-size:15px;color:var(--schiefer)}\nsection{padding:62px 0}\n.titel{font-size:clamp(25px,4vw,36px);margin-bottom:8px}\n.vorsatz{color:var(--schiefer);margin-bottom:32px;max-width:52ch}\n.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}\n.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:26px;box-shadow:var(--s-sm);transition:var(--weich)}\n.karte:hover{transform:translateY(-3px);box-shadow:var(--s-lg)}\n.karte h3{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:16px 0 7px}\n.karte p{margin:0;font-size:15.5px;color:var(--schiefer);line-height:1.6}\n.zeichen{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;background:rgba(0,61,51,.09);color:var(--gr)}\n.zeichen svg{width:23px;height:23px}\n.dazu{background:var(--flaeche);border:2px solid var(--gold);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-md)}\n.extra{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-sm)}\n.marke-gold{display:inline-block;background:var(--gold-hell);color:#00251e;border-radius:9999px;padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px;letter-spacing:.01em}\n.marke-still{display:inline-block;background:rgba(0,61,51,.09);color:var(--gr);border-radius:9999px;padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px}\n.haken{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:11px}\n.haken li{position:relative;padding-left:32px;color:var(--schiefer)}\n.haken li::before{content:\"\";position:absolute;left:4px;top:.5em;width:9px;height:5px;border-left:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(-45deg)}\n.dazu .klein{font-size:14px;color:var(--schiefer)}\n@media (max-width:640px){.dazu,.extra{padding:26px 22px}}\n.nicht{background:var(--sand)}\n.nicht .karte{background:transparent;border:0;box-shadow:none;padding:0}\n.nicht .karte:hover{transform:none;box-shadow:none}\n.nicht .zeichen{background:rgba(197,162,51,.22);color:var(--gr)}\n@media (min-width:900px){.nicht .raster{grid-template-columns:1fr 1fr;gap:26px 34px}}\n.anmelden{background:linear-gradient(165deg,#00352c,#00251e);color:#f2f7f5;border-radius:var(--r-xl);padding:44px 34px;box-shadow:var(--s-xl)}\n.anmelden .titel{color:#fff}\n.anmelden .vorsatz{color:rgba(255,255,255,.78)}\n.feldsatz{display:grid;gap:15px;max-width:560px;border:0;padding:0;margin:0}\n.feld{display:grid;gap:6px;font-size:14px;font-weight:600;color:rgba(255,255,255,.88)}\n.feld input,.feld textarea{font:inherit;font-weight:400;padding:14px 16px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;transition:var(--weich);width:100%}\n.feld input::placeholder,.feld textarea::placeholder{color:rgba(255,255,255,.42)}\n.feld input:focus,.feld textarea:focus{background:rgba(255,255,255,.14);border-color:var(--gold-hell);outline:0}\n.hinweis{min-height:22px;margin:0;font-size:15px;font-weight:600}\n.klein-weiss{font-size:13px;color:rgba(255,255,255,.62);margin:0}\n.klein-weiss a{color:rgba(255,255,255,.88)}\n.direkt{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:26px 0 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.14)}\n.oder{font-size:14px;font-weight:600;color:rgba(255,255,255,.7)}\n.anmelden .pille.geist{border-color:rgba(255,255,255,.35);color:#fff;font-size:15px;padding:11px 20px;min-height:44px}\n.anmelden .pille.geist:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}\n.topf{position:absolute;left:-9999px;top:-9999px;width:1px;height:0;overflow:hidden}\n.frage{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden}\n.frage summary{cursor:pointer;padding:19px 22px;font-weight:700;font-size:16.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;transition:var(--weich)}\n.frage summary::-webkit-details-marker{display:none}\n.frage summary::after{content:'';width:10px;height:10px;flex:0 0 auto;border-right:2px solid var(--gr);border-bottom:2px solid var(--gr);transform:rotate(45deg) translateY(-2px);transition:var(--weich)}\n.frage[open] summary::after{transform:rotate(225deg) translateY(2px)}\n.frage summary:hover{background:rgba(0,61,51,.05)}\n.frage .antwort{padding:0 22px 20px;color:var(--schiefer);margin:0}\n.fuss{border-top:1px solid var(--linie);padding:34px 0 50px;color:var(--schiefer);font-size:14.5px}\n.fuss a{margin-right:18px;text-decoration:none;font-weight:600}\n.fuss a:hover{text-decoration:underline}\n@media (max-width:640px){\n  body{font-size:16px}\n  .held{padding:54px 0 110px}\n  section{padding:46px 0}\n  .preis{padding:28px 22px;border-radius:var(--r-lg)}\n  .anmelden{padding:32px 22px;border-radius:var(--r-lg)}\n  .knopfreihe .pille{flex:1 1 100%}\n}\n@media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto}}\n";
+var GASTRO_CSS = "\n:root{\n  --gr:#003D33;--gr-hell:#1a5f4a;--gr-tief:#00251e;\n  --gold:#C5A233;--gold-hell:#FFD54F;\n  --creme:#f8f9fa;--sand:#edeeef;--kohle:#191c1d;--schiefer:#404946;\n  --flaeche:#ffffff;--grund:#f8f9fa;--linie:rgba(0,37,30,.10);\n  --s-sm:0 2px 8px rgba(0,37,30,.04);--s-md:0 8px 24px -4px rgba(0,37,30,.07);\n  --s-lg:0 24px 48px -8px rgba(0,37,30,.10);--s-xl:0 32px 64px -12px rgba(0,37,30,.14);\n  --r-sm:12px;--r-md:16px;--r-lg:32px;--r-xl:48px;--r-voll:9999px;\n  --weich:all .22s cubic-bezier(.4,0,.2,1);--pille-schrift:#ffffff;\n}\n@media (prefers-color-scheme:dark){:root{\n  --gr:#9cd1c3;--gr-hell:#b8eddf;--gr-tief:#003D33;--gold:#FFD54F;\n  --creme:#0a1612;--sand:#111f1a;--kohle:#e8eeec;--schiefer:#9ca8a4;\n  --flaeche:#1a2e27;--grund:#0a1612;--linie:rgba(255,255,255,.08);\n  --s-sm:0 2px 8px rgba(0,0,0,.4);--s-md:0 8px 24px -4px rgba(0,0,0,.45);\n  --s-lg:0 24px 48px -8px rgba(0,0,0,.5);--s-xl:0 32px 64px -12px rgba(0,0,0,.55);--pille-schrift:#00251e;\n}}\n*{box-sizing:border-box}\nhtml{scroll-behavior:smooth}\nbody{margin:0;background:var(--grund);color:var(--kohle);font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}\nh1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.06;margin:0}\np{margin:0 0 14px}\na{color:inherit}\n.huelle{max-width:1080px;margin:0 auto;padding:0 20px}\n.eng{max-width:760px}\n/* Die klebende Kopfzeile ist 64px hoch. Ohne das hier verdeckt sie\n   beim Sprung auf einen Anker dessen obere Kante. */\n#anmelden,#drin{scroll-margin-top:84px}\n.schmal{max-width:760px;margin-right:auto}\n.kopf{position:sticky;top:0;z-index:20;background:var(--grund);border-bottom:1px solid var(--linie)}\n.kopf .huelle{display:flex;align-items:center;justify-content:space-between;height:64px;gap:14px}\n.wortmarke{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}\n.pille{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:13px 28px;border-radius:var(--r-voll);font-weight:700;font-size:16px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:var(--weich);font-family:inherit}\n.pille.voll{background:var(--gr);color:var(--pille-schrift);box-shadow:var(--s-md)}\n.pille.voll:hover{transform:translateY(-2px);box-shadow:var(--s-lg)}\n.pille.gold{background:var(--gold-hell);color:#00251e;box-shadow:0 10px 26px -8px rgba(197,162,51,.55)}\n.pille.gold:hover{transform:translateY(-2px);box-shadow:0 16px 34px -10px rgba(197,162,51,.65)}\n.pille.geist{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}\n.pille.geist:hover{background:rgba(255,255,255,.12)}\n.pille:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}\n.held{position:relative;background:linear-gradient(160deg,#00352c 0%,#00251e 62%,#001a15 100%);color:#f2f7f5;padding:78px 0 132px;overflow:hidden}\n.held::after{content:'';position:absolute;inset:auto -10% -55% 38%;height:72%;background:radial-gradient(ellipse at center,rgba(197,162,51,.22),transparent 68%);pointer-events:none}\n.held .huelle{position:relative;z-index:1}\n.held h1{font-size:clamp(34px,6.4vw,62px);color:#fff;max-width:15ch}\n.held .unter{font-size:clamp(17px,2.2vw,21px);color:rgba(255,255,255,.80);max-width:46ch;margin:20px 0 30px}\n.marken{display:flex;flex-wrap:wrap;gap:10px;margin:32px 0 0;padding:0;list-style:none}\n.marken li{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:var(--r-voll);padding:9px 17px;font-size:14px;font-weight:600;color:rgba(255,255,255,.94)}\n.knopfreihe{display:flex;flex-wrap:wrap;gap:12px}\n.preis{margin:-86px auto 0;position:relative;z-index:5;background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-xl);box-shadow:var(--s-xl);padding:36px 32px}\n.preis .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:clamp(46px,9vw,72px);line-height:1;letter-spacing:-.05em;color:var(--gr)}\n.preis .je{font-size:17px;font-weight:600;color:var(--schiefer);margin-left:8px;letter-spacing:0}\n.rechnung{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:12px}\n.rechnung li{position:relative;padding-left:26px;font-size:15.5px;color:var(--schiefer);line-height:1.55}\n.rechnung li::before{content:\"\";position:absolute;left:2px;top:.62em;width:8px;height:8px;border-radius:50%;background:var(--gold)}\n.rechnung strong{color:var(--kohle)}\n.preis .band{margin:22px 0 0;background:var(--sand);border-left:4px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:16px 19px;font-weight:600}\n.preis .klein{margin:14px 0 0;font-size:15px;color:var(--schiefer)}\nsection{padding:62px 0}\n.titel{font-size:clamp(25px,4vw,36px);margin-bottom:8px}\n.vorsatz{color:var(--schiefer);margin-bottom:32px;max-width:52ch}\n.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}\n.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:26px;box-shadow:var(--s-sm);transition:var(--weich)}\n.karte:hover{transform:translateY(-3px);box-shadow:var(--s-lg)}\n.karte h3{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:16px 0 7px}\n.karte p{margin:0;font-size:15.5px;color:var(--schiefer);line-height:1.6}\n.zeichen{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;background:rgba(0,61,51,.09);color:var(--gr)}\n.zeichen svg{width:23px;height:23px}\n.dazu{background:var(--flaeche);border:2px solid var(--gold);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-md)}\n.extra{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-lg);padding:34px 32px;box-shadow:var(--s-sm)}\n.marke-gold{display:inline-block;background:var(--gold-hell);color:#00251e;border-radius:var(--r-voll);padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px;letter-spacing:.01em}\n.marke-still{display:inline-block;background:rgba(0,61,51,.09);color:var(--gr);border-radius:var(--r-voll);padding:6px 15px;font-size:13px;font-weight:700;margin:0 0 14px}\n.haken{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:11px}\n.haken li{position:relative;padding-left:32px;color:var(--schiefer)}\n.haken li::before{content:\"\";position:absolute;left:4px;top:.5em;width:9px;height:5px;border-left:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(-45deg)}\n.dazu .klein{font-size:14px;color:var(--schiefer)}\n@media (max-width:640px){.dazu,.extra{padding:26px 22px}}\n.nicht{background:var(--sand)}\n.nicht .karte{background:transparent;border:0;box-shadow:none;padding:0}\n.nicht .karte:hover{transform:none;box-shadow:none}\n.nicht .zeichen{background:rgba(197,162,51,.22);color:var(--gr)}\n@media (min-width:900px){.nicht .raster{grid-template-columns:1fr 1fr;gap:26px 34px}}\n.anmelden{background:linear-gradient(165deg,#00352c,#00251e);color:#f2f7f5;border-radius:var(--r-xl);padding:44px 34px;box-shadow:var(--s-xl)}\n.anmelden .titel{color:#fff}\n.anmelden .vorsatz{color:rgba(255,255,255,.78)}\n.feldsatz{display:grid;gap:15px;max-width:560px;border:0;padding:0;margin:0}\n.feld{display:grid;gap:6px;font-size:14px;font-weight:600;color:rgba(255,255,255,.88)}\n.feld input,.feld textarea{font:inherit;font-weight:400;padding:14px 16px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;transition:var(--weich);width:100%}\n.feld input::placeholder,.feld textarea::placeholder{color:rgba(255,255,255,.42)}\n.feld input:focus,.feld textarea:focus{background:rgba(255,255,255,.14);border-color:var(--gold-hell);outline:0}\n.hinweis{min-height:22px;margin:0;font-size:15px;font-weight:600}\n.klein-weiss{font-size:13px;color:rgba(255,255,255,.62);margin:0}\n.klein-weiss a{color:rgba(255,255,255,.88)}\n.direkt{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:26px 0 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.14)}\n.oder{font-size:14px;font-weight:600;color:rgba(255,255,255,.7)}\n.anmelden .pille.geist{border-color:rgba(255,255,255,.35);color:#fff;font-size:15px;padding:11px 20px;min-height:44px}\n.anmelden .pille.geist:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}\n.topf{position:absolute;left:-9999px;top:-9999px;width:1px;height:0;overflow:hidden}\n.frage{background:var(--flaeche);border:1px solid var(--linie);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden}\n.frage summary{cursor:pointer;padding:19px 22px;font-weight:700;font-size:16.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:14px;transition:var(--weich)}\n.frage summary::-webkit-details-marker{display:none}\n.frage summary::after{content:'';width:10px;height:10px;flex:0 0 auto;border-right:2px solid var(--gr);border-bottom:2px solid var(--gr);transform:rotate(45deg) translateY(-2px);transition:var(--weich)}\n.frage[open] summary::after{transform:rotate(225deg) translateY(2px)}\n.frage summary:hover{background:rgba(0,61,51,.05)}\n.frage .antwort{padding:0 22px 20px;color:var(--schiefer);margin:0}\n.fuss{border-top:1px solid var(--linie);padding:34px 0 50px;color:var(--schiefer);font-size:14.5px}\n.fuss a{margin-right:18px;text-decoration:none;font-weight:600}\n.fuss a:hover{text-decoration:underline}\n@media (max-width:640px){\n  body{font-size:16px}\n  .held{padding:54px 0 110px}\n  section{padding:46px 0}\n  .preis{padding:28px 22px;border-radius:var(--r-lg)}\n  .anmelden{padding:32px 22px;border-radius:var(--r-lg)}\n  .knopfreihe .pille{flex:1 1 100%}\n}\n@media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto}}\n";
 
 var GASTRO_JS = "(function(){\n  var f=document.getElementById('gastroForm');if(!f)return;\n  var h=document.getElementById('gastroHinweis'),b=document.getElementById('gastroSenden');\n  function sag(txt,farbe){h.textContent=txt;h.style.color=farbe;}\n  f.addEventListener('submit',function(e){\n    e.preventDefault();\n    var d={quelle:'gastro'};\n    Array.prototype.forEach.call(f.elements,function(el){if(el.name)d[el.name]=el.value;});\n    b.disabled=true;sag('Wird gesendet \\u2026','rgba(255,255,255,.75)');\n    fetch('/.netlify/functions/agentur-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})\n      .then(function(r){return r.json().catch(function(){return null;});})\n      .then(function(a){\n        if(a&&a.ok){f.reset();sag('Angekommen. Wir melden uns \\u2014 meistens noch heute.','#9ee7c8');}\n        else if(a&&a.mailAus&&a.imCrm){f.reset();sag('Angekommen \\u2014 wir melden uns. Falls es eilt: info@kiekmolin.de','#9ee7c8');}\n        else{b.disabled=false;sag('Das hat gerade nicht geklappt. Schreib uns bitte an info@kiekmolin.de','#ffb4a8');}\n      })\n      .catch(function(){b.disabled=false;sag('Keine Verbindung. Schreib uns bitte an info@kiekmolin.de','#ffb4a8');});\n  });\n})();";
 function gastroFormular() {
@@ -3477,6 +3569,7 @@ if (require.main === module) {
   PREIS_UST_KURZ,
   GASTRO_SLUG,
   PROSPECT_OWNER_CTA_URL,
+  zaehlSkript,
   gerichteZahl,
   betriebeZahl,
   MIN_EINTRAEGE: MIN_EINTRAEGE,

@@ -16236,6 +16236,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
         <!-- DASHBOARD SECTION -->
         <div id="sectionDashboard" class="dash-section active">
+            <!-- ZAHLSPERRE. Bleibt leer, solange nichts offen ist, und
+                 steht deshalb GANZ OBEN: wer eine offene Rechnung hat,
+                 soll sie vor den Bestellungen sehen und nicht darunter.
+                 Gefuellt von zahlsperreBalkenPflegen(). -->
+            <div id="zahlsperreBalken"></div>
             <!-- Connection Status Banner -->
             <div id="dashboardConnectionBanner" style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;margin-bottom:24px;">
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -19447,8 +19452,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <!-- Kundenliste -->
             <div class="panel">
-                <div class="panel-header">
+                <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                     <h3 class="panel-title">Alle Kunden</h3>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <!-- Die Uhrzeit gehoert NEBEN die Zahl. Ein Stand ohne
+                             Zeitpunkt ist eine Behauptung. -->
+                        <span id="aboStandZeit" style="font-family:Inter,sans-serif;font-size:12px;color:var(--slate);"></span>
+                        <button onclick="aboStandHolen()" id="aboStandKnopf"
+                                style="padding:8px 16px;background:rgba(99,91,255,0.12);color:#635BFF;border:none;border-radius:9999px;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>Stand bei Stripe holen
+                        </button>
+                    </div>
                 </div>
                 <div class="panel-content" id="customersList" style="padding: 0;">
                     <p style="padding: 20px; color: var(--slate); text-align: center;">Lade Kunden...</p>
@@ -23553,6 +23567,57 @@ function getVacationInfo(restaurant) {
     return null;
 }
 
+/* ZAHLSPERRE -- wenn eine Rechnung offen bleibt.
+
+   Vier Stufen, von Hand vom Verwalter gesetzt (Function zahlsperre):
+
+       keine     alles normal
+       hinweis   roter Balken im Dashboard. NUR der Wirt sieht ihn,
+                 der Gast merkt nichts.
+       pause     der Gast kann nicht mehr BESTELLEN. Reservierungen
+                 laufen weiter, das Dashboard bleibt offen -- damit der
+                 Wirt die letzten Bestellungen abarbeiten kann.
+       aus       Bestellen und Reservieren zu.
+
+   WARUM DAS DASHBOARD NIE ZUGEHT: Bestellungen kaemen weiter herein, der
+   Gast saehe eine normale Seite -- und niemand wuerde kochen. Der Gast
+   wartet auf Essen, das nie kommt, und schreibt die Bewertung ueber das
+   Restaurant UND ueber kiekmolin.de.
+
+   IM ZWEIFEL OFFEN. Fehlt die Spalte, steht etwas Unbekanntes drin oder
+   ist das Feld leer, gilt "keine". Ein Fehler, der einen ZAHLENDEN Kunden
+   am Freitagabend aussperrt, kostet diesen Kunden. Ein Nichtzahler, der
+   eine Woche laenger laeuft, kostet 15 Euro. */
+var ZAHLSPERRE_STUFEN = ['keine', 'hinweis', 'pause', 'aus'];
+
+function zahlsperreStufe(restaurant) {
+    var roh = restaurant && restaurant.zahlsperre;
+    var s = String(roh == null ? '' : roh).trim().toLowerCase();
+    return ZAHLSPERRE_STUFEN.indexOf(s) > 0 ? s : 'keine';
+}
+// Darf der Gast hier bestellen?
+function zahlsperreBestellenAus(restaurant) {
+    var s = zahlsperreStufe(restaurant);
+    return s === 'pause' || s === 'aus';
+}
+// Und reservieren? Bei "pause" ausdruecklich JA -- ein Tisch kostet den
+// Betrieb nichts und der Gast wird nicht weggeschickt.
+function zahlsperreReservierenAus(restaurant) {
+    return zahlsperreStufe(restaurant) === 'aus';
+}
+// Was der Gast liest. Kein Wort ueber Rechnungen: das geht ihn nichts an,
+// und es beschaedigt den Betrieb vor seinen eigenen Gaesten.
+function zahlsperreGastText(restaurant) {
+    var s = zahlsperreStufe(restaurant);
+    if (s === 'pause') return 'Dieser Betrieb nimmt gerade keine Online-Bestellungen an. Tisch reservieren geht weiter.';
+    if (s === 'aus') return 'Dieser Betrieb ist gerade nicht über Kiek mol in erreichbar.';
+    return '';
+}
+window.zahlsperreStufe = zahlsperreStufe;
+window.zahlsperreBestellenAus = zahlsperreBestellenAus;
+window.zahlsperreReservierenAus = zahlsperreReservierenAus;
+window.zahlsperreGastText = zahlsperreGastText;
+
 // Minuten bis Ladenschluss -- oder null, wenn nicht bestimmbar.
 // Grundlage für den Bestellschluss: Eine Bestellung, die 2 Minuten vor
 // Feierabend reinkommt, ärgert beide Seiten (Küche ist aus, Gast wartet).
@@ -26169,7 +26234,23 @@ function mapRestaurant(r) {
         account_holder: r.account_holder || '', iban: r.iban || '',
         monthly_plan: r.monthly_plan || 59, contract_start: r.contract_start || null,
         totalTables: r.total_tables || 8,
-        is_active: r.is_active !== false
+        is_active: r.is_active !== false,
+        // ZAHLSPERRE -- und sie MUSS hier stehen.
+        //
+        // Ohne diese drei Zeilen waere die ganze Sperre auf der
+        // Gaesteseite ein stiller Ausfall: zahlsperreStufe() liest
+        // restaurant.zahlsperre, das Feld waere nach mapRestaurant immer
+        // undefined, "keine" waere immer die Antwort -- und niemand haette
+        // eine Fehlermeldung gesehen. Genau der Fehler, der am 04.09.2026
+        // beim Mindestbestellwert einen Tag gekostet hat, drei
+        // Bildschirmseiten weiter oben nachzulesen.
+        //
+        // Absichtlich kein Ersatzwert: fehlt die Spalte in der Datenbank
+        // (SQL 36 noch nicht eingespielt), kommt undefined an, und
+        // zahlsperreStufe() macht daraus "keine". Im Zweifel offen.
+        zahlsperre: r.zahlsperre,
+        zahlsperre_seit: r.zahlsperre_seit || null,
+        zahlsperre_notiz: r.zahlsperre_notiz || null
     };
 }
 
@@ -27439,6 +27520,14 @@ function renderRestaurants(filter) {
                             var _rfeat = r.features || [];
                             var _noRes = _rfeat.indexOf('no_reservations') >= 0;
                             var _noOrd = _rfeat.indexOf('no_ordering') >= 0;
+                            // ZAHLSPERRE: die Knoepfe gehen weg, das Haus
+                            // bleibt in der Liste. Kein rotes Abzeichen --
+                            // ein Haus in der Liste oeffentlich als gesperrt
+                            // zu kennzeichnen waere eine Strafe fuer seine
+                            // Gaeste, nicht fuer den Wirt. "Speisekarte"
+                            // bleibt immer stehen: der Gast kann anrufen.
+                            if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(r)) _noOrd = true;
+                            if (typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(r)) _noRes = true;
                             var _btns = '';
                             if (!_noRes) {
                                 _btns += '<button onclick="event.stopPropagation(); openReservation(\'' + r.id + '\')" style="flex:1;padding:12px 8px;border-radius:9999px;border:none;font-family:\'Inter\',sans-serif;font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:all 0.2s;background:linear-gradient(135deg,#00251e,#003d33);color:white;box-shadow:0 4px 16px rgba(0,37,30,0.15);"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span>' + (currentLanguage === 'en' ? 'Reserve' : (currentLanguage === 'nl' ? 'Reserveren' : 'Reservieren')) + '</button>';
@@ -28665,6 +28754,12 @@ function openReservation(restaurantId) {
     // Guard: Online-Reservierungen deaktiviert?
     if (restaurant.features && restaurant.features.indexOf('no_reservations') >= 0) {
         showToast('Online-Reservierungen sind bei ' + restaurant.name + ' nicht verfügbar', 'info');
+        return;
+    }
+    // ZAHLSPERRE: nur die Stufe "aus" sperrt den Tisch. Bei "pause"
+    // ausdruecklich nicht -- ein Tisch kostet den Betrieb nichts.
+    if (typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(restaurant)) {
+        showToast(zahlsperreGastText(restaurant), 'info');
         return;
     }
     // Für den Kalender merken (resCalRender braucht rest_day + opening_hours,
@@ -31238,6 +31333,8 @@ function renderRestaurantsDash() {
                     </label>
                 </div>
 
+                ${istVerwalter() && !isGastro ? zahlsperreKartenZeile(r) : ''}
+
                 <div style="padding:10px 20px;display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(0,61,51,0.06);">
                     <div style="display:flex;align-items:center;justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:${_ordOn ? 'var(--primary)' : 'var(--slate)'};"><span class="material-symbols-outlined" style="font-size:16px;">shopping_bag</span>Online-Bestellungen</span>
@@ -31406,6 +31503,137 @@ async function deleteRestaurant(restaurantId) {
         showToast('Fehler beim Löschen', 'error');
     }
 }
+
+/* ==================== ZAHLSPERRE (Verwaltung) ====================
+
+   NUR IBO SIEHT DAS. Nicht, weil der Wirt es nicht duerfte -- er KANN es
+   nicht: SQL 36 entzieht anon und authenticated das Schreibrecht auf
+   diese drei Spalten, und die Function prueft die Rolle noch einmal
+   gegen die echte Supabase-Sitzung. Der Grund, es hier auch zu
+   verstecken, ist ein anderer: ein Knopf, den man sieht, wird
+   ausprobiert. Wer ihn nicht sieht, ruft nicht an, weil er nicht
+   funktioniert hat.
+
+   Absichtlich direkt unter "Sichtbar fuer Gaeste" -- denselben Platz,
+   dieselbe Machart. Das ist der Schalter, den Ibo schon kennt.
+
+   WARUM NICHT EINFACH "Sichtbar fuer Gaeste" AUS: weil das das Haus aus
+   der Liste UND aus der Gastansicht nimmt. Die Seite waere weg, Google
+   findet eine Leerstelle, und der Wirt verliert Gaeste, die nie etwas
+   mit einer Rechnung zu tun hatten. Die Zahlsperre nimmt nur den
+   Bestellweg -- Karte, Adresse und Telefonnummer bleiben stehen. */
+function istVerwalter() {
+    try {
+        if (typeof currentUser !== 'undefined' && currentUser
+            && String(currentUser.role || '').trim().toLowerCase() === 'superadmin') return true;
+    } catch (e) {}
+    return false;
+}
+window.istVerwalter = istVerwalter;
+
+var ZAHLSPERRE_KNOEPFE = [
+    { stufe: 'keine',   text: 'Offen',    farbe: '#15803d', hilfe: 'Alles normal.' },
+    { stufe: 'hinweis', text: 'Hinweis',  farbe: '#b45309', hilfe: 'Nur der Wirt sieht einen roten Balken. Der Gast merkt nichts.' },
+    { stufe: 'pause',   text: 'Pause',    farbe: '#c2410c', hilfe: 'Keine Online-Bestellungen. Reservieren geht weiter.' },
+    { stufe: 'aus',     text: 'Aus',      farbe: '#b91c1c', hilfe: 'Bestellen und Reservieren zu. Karte und Telefon bleiben.' }
+];
+
+function zahlsperreKartenZeile(r) {
+    var jetzt = zahlsperreStufe(r);
+    var html = '<div style="padding:12px 20px;border-top:1px solid rgba(0,61,51,0.06);'
+        + (jetzt === 'keine' ? '' : 'background:#fef2f2;') + '">'
+        + '<div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;'
+        + 'color:' + (jetzt === 'keine' ? 'var(--slate)' : '#b91c1c') + ';margin-bottom:8px;">'
+        + '<span class="material-symbols-outlined" style="font-size:16px;">receipt_long</span>Rechnung / Zahlsperre</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    ZAHLSPERRE_KNOEPFE.forEach(function (k) {
+        var an = k.stufe === jetzt;
+        html += '<button onclick="zahlsperreSetzen(\'' + r.id + '\',\'' + k.stufe + '\')"'
+            + ' title="' + escapeHtml(k.hilfe) + '"'
+            + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
+            + ' style="flex:1;min-width:64px;padding:8px 6px;border-radius:9999px;cursor:pointer;'
+            + 'font-family:Inter,sans-serif;font-size:12px;font-weight:600;'
+            + (an ? 'background:' + k.farbe + ';color:white;border:1px solid ' + k.farbe + ';'
+                  : 'background:var(--bg-card);color:' + k.farbe + ';border:1px solid var(--border-color);')
+            + '">' + k.text + '</button>';
+    });
+    html += '</div>';
+    if (jetzt !== 'keine' && r.zahlsperre_seit) {
+        var seit = '';
+        try { seit = new Date(r.zahlsperre_seit).toLocaleDateString('de-DE',
+            { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) {}
+        html += '<div style="font-family:Inter,sans-serif;font-size:11px;color:#991b1b;margin-top:8px;">'
+             + 'gesetzt am ' + escapeHtml(seit)
+             + (r.zahlsperre_notiz ? ' · ' + escapeHtml(r.zahlsperre_notiz) : '') + '</div>';
+    }
+    return html + '</div>';
+}
+
+async function zahlsperreSetzen(restaurantId, stufe) {
+    var rest = (APP_DATA.restaurants || []).find(function (x) { return x.id === restaurantId; });
+    var name = (rest && rest.name) || 'dieser Betrieb';
+    if (zahlsperreStufe(rest) === stufe) return;
+
+    // NACHFRAGEN, ABER NUR WO ES WEHTUT. Bei "Offen" und "Hinweis" merkt
+    // kein Gast etwas -- da ist eine Nachfrage nur Klickarbeit. Ab "Pause"
+    // wird jemand weggeschickt, der nichts dafuer kann.
+    var k = ZAHLSPERRE_KNOEPFE.find(function (x) { return x.stufe === stufe; }) || { hilfe: '' };
+    if (stufe === 'pause' || stufe === 'aus') {
+        if (!confirm(name + ' — Stufe „' + stufe + '"?\n\n' + k.hilfe
+            + '\n\nDas merken echte Gäste sofort. Vorher muss eine Mahnung mit Frist raus sein.')) return;
+    }
+
+    var notiz = '';
+    if (stufe !== 'keine') {
+        // Freiwillig. Sie steht spaeter im Balken beim Wirt und in der
+        // Verwaltungskarte -- in vier Wochen weiss sonst niemand mehr,
+        // warum hier etwas zu ist.
+        notiz = prompt('Notiz (der Wirt liest sie in seinem Dashboard):',
+            (rest && rest.zahlsperre_notiz) || '') || '';
+    }
+
+    try {
+        var token = null;
+        try {
+            if (window.supabaseClient && supabaseClient.auth) {
+                var s = await supabaseClient.auth.getSession();
+                token = s && s.data && s.data.session && s.data.session.access_token;
+            }
+        } catch (e) {}
+        if (!token) { showToast('Bitte neu anmelden', 'error'); return; }
+
+        var res = await fetch('/.netlify/functions/zahlsperre', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ action: 'setzen', restaurant_id: restaurantId, stufe: stufe, notiz: notiz })
+        });
+        var j = null; try { j = await res.json(); } catch (e) {}
+        if (!res.ok || !j || !j.ok) {
+            showToast((j && j.fehler) || ('Nicht gesetzt (' + res.status + ')'), 'error');
+            return;
+        }
+
+        // Erst nach dem OK vom Server. Vorher haette die Karte eine Stufe
+        // gezeigt, die in der Datenbank nicht steht -- und Ibo haette
+        // geglaubt, es sei zu.
+        if (rest) {
+            rest.zahlsperre = stufe;
+            rest.zahlsperre_seit = (stufe === 'keine') ? null : new Date().toISOString();
+            rest.zahlsperre_notiz = (stufe === 'keine') ? null : (notiz || null);
+        }
+        if (typeof renderRestaurantsDash === 'function') renderRestaurantsDash();
+        try { zahlsperreBalkenPflegen(); } catch (e) {}
+        // Die Kundenliste zeigt dieselben Knoepfe. Ohne das stuende dort
+        // noch die alte Stufe -- zwei Bildschirme, zwei Wahrheiten.
+        try { if (typeof renderCustomers === 'function' && document.getElementById('customersList')) renderCustomers(); } catch (e) {}
+        showToast(stufe === 'keine' ? (name + ' ist wieder offen') : (name + ': Stufe ' + stufe + ' gesetzt'),
+                  stufe === 'keine' ? 'success' : 'info');
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+    }
+}
+window.zahlsperreSetzen = zahlsperreSetzen;
+window.zahlsperreKartenZeile = zahlsperreKartenZeile;
 
 // ==================== RESTAURANT SICHTBARKEIT ====================
 async function toggleRestaurantVisibility(restaurantId, isVisible) {
@@ -33006,6 +33234,10 @@ function updateDashboard() {
 
     // Feature Toggles initialisieren
     initFeatureToggles();
+    // Der rote Balken haengt an derselben Zeile aus restaurants wie die
+    // Schalter -- also an derselben Stelle pflegen, sonst steht er beim
+    // ersten Aufbau noch leer da.
+    try { zahlsperreBalkenPflegen(); } catch (e) { console.warn('Zahlsperre-Balken:', e && e.message); }
 
     // Lade Echtzeit-Statistiken aus Supabase
     loadDashboardStats();
@@ -33812,6 +34044,65 @@ function updateFeatureToggles(features) {
     // Betriebsferien-Felder mitpflegen
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
 }
+
+/* DER ROTE BALKEN IM DASHBOARD DES WIRTS.
+
+   Er steht bei JEDER Stufe ausser "keine" -- auch bei "hinweis", wo der
+   Gast noch gar nichts merkt. Das ist der Sinn dieser Stufe: eine
+   Vorwarnung, die nur er sieht, bevor irgendetwas abgeschaltet wird.
+
+   ER IST NICHT WEGZUKLICKEN. Ein Balken mit einem X wird weggeklickt und
+   danach nie wieder gesehen -- und dann steht spaeter "davon wusste ich
+   nichts" gegen "das stand da". Kein X.
+
+   UND ER SPERRT NICHTS. Das Dashboard bleibt vollstaendig bedienbar.
+   Kaemen Bestellungen herein, waehrend der Wirt nicht hineinkommt,
+   wartet der Gast auf Essen, das nie kommt -- und die Bewertung
+   trifft den Betrieb UND kiekmolin.de. */
+function zahlsperreBalkenPflegen() {
+    var platz = document.getElementById('zahlsperreBalken');
+    if (!platz) return;
+    var restId = getControlRestaurantId();
+    var rest = (restId && APP_DATA.restaurants)
+        ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+    var stufe = zahlsperreStufe(rest);
+    if (stufe === 'keine') { platz.innerHTML = ''; return; }
+
+    var WAS = {
+        hinweis: { titel: 'Rechnung offen',
+                   text: 'Deine Gäste merken davon nichts. Sobald die Zahlung eingegangen ist, verschwindet dieser Hinweis.' },
+        pause:   { titel: 'Online-Bestellungen pausiert',
+                   text: 'Gäste können gerade nicht online bestellen. Tischreservierungen laufen weiter, und dein Dashboard bleibt offen.' },
+        aus:     { titel: 'Online-Bestellungen und Reservierungen aus',
+                   text: 'Gäste können gerade nicht online bestellen und keinen Tisch reservieren. Deine Speisekarte und deine Telefonnummer sind weiter zu sehen.' }
+    };
+    var w = WAS[stufe];
+
+    var seit = '';
+    if (rest && rest.zahlsperre_seit) {
+        try {
+            var tage = Math.floor((Date.now() - new Date(rest.zahlsperre_seit).getTime()) / 86400000);
+            if (tage >= 1) seit = ' · seit ' + tage + ' Tag' + (tage === 1 ? '' : 'en');
+        } catch (e) {}
+    }
+
+    platz.innerHTML =
+        '<div role="alert" style="display:flex;align-items:flex-start;gap:12px;padding:16px 20px;margin-bottom:16px;'
+        + 'background:#fef2f2;border:1px solid #fecaca;border-left:5px solid #b91c1c;border-radius:16px;">'
+        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:22px;color:#b91c1c;flex:0 0 auto;">error</span>'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="font-family:Epilogue,Inter,sans-serif;font-weight:700;font-size:15px;color:#7f1d1d;">'
+        +     escapeHtml(w.titel) + escapeHtml(seit) + '</div>'
+        +   '<div style="font-family:Inter,sans-serif;font-size:13px;line-height:1.5;color:#991b1b;margin-top:4px;">'
+        +     escapeHtml(w.text) + '</div>'
+        + (rest && rest.zahlsperre_notiz
+            ?  '<div style="font-family:Inter,sans-serif;font-size:13px;line-height:1.5;color:#7f1d1d;margin-top:8px;'
+             + 'padding:8px 12px;background:rgba(185,28,28,0.07);border-radius:12px;">'
+             + escapeHtml(rest.zahlsperre_notiz) + '</div>'
+            : '')
+        + '</div></div>';
+}
+window.zahlsperreBalkenPflegen = zahlsperreBalkenPflegen;
 
 function initFeatureToggles() {
     var restId = getControlRestaurantId();
@@ -36122,6 +36413,150 @@ async function deleteAccommodation(id, name) {
 // ==================== CUSTOMER MANAGEMENT ====================
 let customers = [];
 
+/* ==================== ABO-STAND (Stripe) ====================
+
+   Ibo am 25.09.2026: "stripe ist besser so komme ich auch rein dann
+   laeuft es auf eine ebene".
+
+   WAS HIER VORHER FALSCH WAR
+   --------------------------
+   Die Kundenliste faerbte sich nach customers.payment_status. Diese
+   Spalte wird gesetzt, wenn ein Kunde angelegt wird ('pending') und wenn
+   Ibo von Hand "Zahlung erfasst" drueckt ('paid'). Auf 'overdue' hat sie
+   NIRGENDS jemand gesetzt -- im ganzen Projekt nicht. Der Zaehler
+   "Ueberfaellig" stand deshalb immer auf 0, und wer einmal als bezahlt
+   eingetragen war, blieb fuer immer gruen. next_payment_date wurde
+   einmal geschrieben und nie gelesen.
+
+   WAS JETZT GILT
+   --------------
+   Auf Knopfdruck fragt abo-stand.js bei Stripe nach. Was zurueckkommt,
+   steht in c._aboStand und hat eine Uhrzeit.
+
+   UND WAS ES NICHT TUT: raten. Ohne Messung steht der gespeicherte Wert
+   da, aber mit dem Zusatz "ungeprueft" -- damit sieht man den
+   Unterschied zwischen "Stripe sagt bezahlt" und "das hat mal jemand
+   eingetragen". Ein Kunde ohne Abo heisst "Kein Abo", nicht "Bezahlt". */
+var ABO_ANZEIGE = {
+    bezahlt:      { text: 'Bezahlt',     farbe: 'var(--success)', grund: 'rgba(52,199,89,0.15)' },
+    testphase:    { text: 'Testphase',   farbe: '#635BFF',        grund: 'rgba(99,91,255,0.12)' },
+    offen:        { text: 'Offen',       farbe: 'var(--warning)', grund: 'rgba(255,149,0,0.15)' },
+    ueberfaellig: { text: 'Überfällig',  farbe: 'var(--danger)',  grund: 'rgba(255,59,48,0.15)' },
+    pausiert:     { text: 'Pausiert',    farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    gekuendigt:   { text: 'Gekündigt',   farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    kein_abo:     { text: 'Kein Abo',    farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    unbekannt:    { text: 'Unbekannt',   farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' }
+};
+
+// Fuer die drei Zaehler: paid | pending | overdue | null.
+// null heisst ausdruecklich "zaehlt nirgends mit" -- ein gekuendigter
+// Kunde ist weder bezahlt noch ueberfaellig, und ihn irgendwo
+// mitzuzaehlen macht eine der drei Zahlen falsch.
+function aboStandWort(c) {
+    var st = c && c._aboStand && c._aboStand.stand;
+    if (st) {
+        if (st === 'bezahlt' || st === 'testphase') return 'paid';
+        if (st === 'ueberfaellig') return 'overdue';
+        if (st === 'offen') return 'pending';
+        return null;
+    }
+    // OHNE ABO ZAEHLT ER NIRGENDS MIT -- auch wenn im Feld 'paid' steht.
+    //
+    // Am 25.09.2026 im Browser gemessen: drei Kunden, einer ueberfaellig,
+    // einer bezahlt, einer ohne Abo. In der Zeile stand "Kein Abo", im
+    // Kasten oben stand "Bezahlt: 2". Die Zeile und die Zahl haben
+    // dasselbe ueber denselben Kunden behauptet und sich widersprochen.
+    //
+    // Es zaehlt die Anzeige: was nicht ueberpruefbar ist, ist keine 1 in
+    // einem gruenen Kasten. Bei Ueberweisern faellt das auf -- und genau
+    // das ist richtig, wenn alles auf eine Ebene soll.
+    if (c && !c.stripe_subscription_id) return null;
+    var p = c && c.payment_status;
+    return (p === 'paid' || p === 'pending' || p === 'overdue') ? p : null;
+}
+
+function aboAnzeige(c) {
+    var m = c && c._aboStand;
+    if (m && ABO_ANZEIGE[m.stand]) {
+        var a = ABO_ANZEIGE[m.stand];
+        var zusatz = '';
+        if (m.offen_seit_tagen != null && m.offen_seit_tagen > 0) {
+            zusatz = ' · ' + m.offen_seit_tagen + ' Tag' + (m.offen_seit_tagen === 1 ? '' : 'e');
+        }
+        return { text: a.text + zusatz, farbe: a.farbe, grund: a.grund, gemessen: true, grundText: m.grund || '' };
+    }
+    // Nicht gemessen. Der gespeicherte Wert darf stehen bleiben -- aber
+    // nicht so aussehen, als haette ihn jemand geprueft.
+    if (c && !c.stripe_subscription_id) {
+        var k = ABO_ANZEIGE.kein_abo;
+        return { text: k.text, farbe: k.farbe, grund: k.grund, gemessen: false, grundText: 'kein Stripe-Abo hinterlegt' };
+    }
+    var p = (c && c.payment_status) || '';
+    var w = p === 'paid' ? ABO_ANZEIGE.bezahlt : p === 'overdue' ? ABO_ANZEIGE.ueberfaellig : ABO_ANZEIGE.offen;
+    return { text: w.text + ' (ungeprüft)', farbe: 'var(--slate)', grund: 'rgba(120,120,128,0.12)',
+             gemessen: false, grundText: 'aus der Datenbank, nicht bei Stripe nachgefragt' };
+}
+
+async function aboStandHolen() {
+    var knopf = document.getElementById('aboStandKnopf');
+    var zeit = document.getElementById('aboStandZeit');
+    if (knopf) { knopf.disabled = true; knopf.style.opacity = '0.6'; }
+    if (zeit) zeit.textContent = 'frage bei Stripe nach…';
+    try {
+        var token = null;
+        try {
+            if (window.supabaseClient && supabaseClient.auth) {
+                var sess = await supabaseClient.auth.getSession();
+                token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+            }
+        } catch (e) {}
+        if (!token) { showToast('Bitte neu anmelden', 'error'); if (zeit) zeit.textContent = ''; return; }
+
+        var res = await fetch('/.netlify/functions/abo-stand', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({})
+        });
+        var j = null; try { j = await res.json(); } catch (e) {}
+        if (!res.ok || !j || !j.ok) {
+            showToast((j && j.fehler) || ('Stand nicht abrufbar (' + res.status + ')'), 'error');
+            if (zeit) zeit.textContent = '';
+            return;
+        }
+
+        // Das Gemessene an die Kunden haengen -- ueber die id, nicht ueber
+        // die Reihenfolge: die Liste kann zwischendurch neu geladen sein.
+        var nachId = {};
+        (j.kunden || []).forEach(function (k) { nachId[k.id] = k; });
+        (customers || []).forEach(function (c) { c._aboStand = nachId[c.id] || null; });
+
+        renderCustomers();
+        updateCustomerStats();
+
+        var uhr = new Date(j.gemessen_am || Date.now())
+            .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        if (zeit) zeit.textContent = j.stripe_erreichbar ? ('Stand ' + uhr + ' Uhr') : ('Stripe stumm · ' + uhr + ' Uhr');
+
+        // EIN HINWEIS IST KEINE NEBENSACHE. Fehlt der Stripe-Schluessel,
+        // sagt die Function das -- und dann muss es auf dem Bildschirm
+        // stehen und nicht nur im Protokoll. Sonst sieht "alles grau" aus
+        // wie "alle haben kein Abo".
+        if (j.hinweis) showToast(j.hinweis, 'error');
+        else {
+            var faellig = (j.kunden || []).filter(function (k) { return k.stand === 'ueberfaellig'; }).length;
+            showToast(faellig ? (faellig + ' überfällig') : 'Alle bezahlt', faellig ? 'info' : 'success');
+        }
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+        if (zeit) zeit.textContent = '';
+    } finally {
+        if (knopf) { knopf.disabled = false; knopf.style.opacity = '1'; }
+    }
+}
+window.aboStandHolen = aboStandHolen;
+window.aboStandWort = aboStandWort;
+window.aboAnzeige = aboAnzeige;
+
 async function loadCustomers() {
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
@@ -36140,6 +36575,54 @@ async function loadCustomers() {
     } catch (e) {
         console.error('Fehler beim Laden der Kunden:', e);
     }
+}
+
+// "so komme ich auch rein" -- ein Klick in die echte Rechnung bei
+// Stripe. Nur wenn Stripe uns die Adresse gegeben hat; eine selbst
+// zusammengebaute Stripe-URL waere geraten.
+function aboRechnungLink(c) {
+    var m = c && c._aboStand;
+    if (!m || !m.rechnung_url) return '';
+    var betrag = (m.betrag != null) ? (' · ' + formatPrice(m.betrag)) : '';
+    return '<div style="margin-top:6px;"><a href="' + escapeHtml(m.rechnung_url) + '" target="_blank" rel="noopener"'
+        + ' style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;color:#635BFF;text-decoration:none;">'
+        + 'Rechnung bei Stripe öffnen' + escapeHtml(betrag) + ' →</a></div>';
+}
+
+/* DIE BRUECKE. Hier sieht Ibo, wer nicht bezahlt hat -- und hier steht
+   auch der Schalter dafuer. Vorher war das zwei Bildschirme
+   auseinander: die Kundenliste sagte wer, die Restaurantkarten hatten
+   die Knoepfe, und dazwischen musste er sich den Namen merken.
+
+   NUR bei "offen" und "ueberfaellig". Bei einem bezahlten Kunden waere
+   ein Abschaltknopf eine Einladung zum Verklicken -- und der teuerste
+   Fehlklick, den es in dieser App gibt. */
+function zahlsperreBeimKunden(c) {
+    if (typeof istVerwalter !== 'function' || !istVerwalter()) return '';
+    if (!c || !c.restaurant_id) return '';
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === c.restaurant_id; });
+    var jetzt = (typeof zahlsperreStufe === 'function') ? zahlsperreStufe(rest) : 'keine';
+    var m = c._aboStand && c._aboStand.stand;
+    var faellig = (m === 'ueberfaellig' || m === 'offen');
+    // Steht schon eine Sperre, gehoert sie immer hierhin -- sonst kaeme
+    // er nach einer Zahlung nicht mehr an den Knopf, der sie aufmacht.
+    if (!faellig && jetzt === 'keine') return '';
+
+    var html = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+        + '<span style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;color:var(--slate);'
+        + 'letter-spacing:0.06em;width:100%;">ZAHLSPERRE</span>';
+    ZAHLSPERRE_KNOEPFE.forEach(function (k) {
+        var an = k.stufe === jetzt;
+        html += '<button onclick="zahlsperreSetzen(\'' + c.restaurant_id + '\',\'' + k.stufe + '\')"'
+            + ' title="' + escapeHtml(k.hilfe) + '"'
+            + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
+            + ' style="padding:4px 10px;border-radius:9999px;cursor:pointer;font-family:Inter,sans-serif;'
+            + 'font-size:11px;font-weight:600;'
+            + (an ? 'background:' + k.farbe + ';color:white;border:1px solid ' + k.farbe + ';'
+                  : 'background:var(--bg-card);color:' + k.farbe + ';border:1px solid var(--border-color);')
+            + '">' + k.text + '</button>';
+    });
+    return html + '</div>';
 }
 
 function renderCustomers() {
@@ -36174,12 +36657,8 @@ function renderCustomers() {
     }
 
     activeCustomers.forEach(c => {
-        const statusColor = c.payment_status === 'paid' ? 'var(--success)' :
-                           c.payment_status === 'overdue' ? 'var(--danger)' : 'var(--warning)';
-        const statusBg = c.payment_status === 'paid' ? 'rgba(52,199,89,0.15)' :
-                        c.payment_status === 'overdue' ? 'rgba(255,59,48,0.15)' : 'rgba(255,149,0,0.15)';
-        const statusText = c.payment_status === 'paid' ? 'Bezahlt' :
-                          c.payment_status === 'overdue' ? 'Überfällig' : 'Ausstehend';
+        const _ab = aboAnzeige(c);
+        const statusColor = _ab.farbe, statusBg = _ab.grund, statusText = _ab.text;
 
         const restaurant = APP_DATA.restaurants.find(r => r.id === c.restaurant_id);
 
@@ -36198,10 +36677,13 @@ function renderCustomers() {
                 <td style="padding: 16px; cursor:pointer;" onclick="openEditCustomerPricing('${c.id}')" title="Konditionen bearbeiten">${formatPricingCell(c)}</td>
                 <td style="padding: 16px;">
                     <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${statusBg}; color: ${statusColor};">${statusText}</span>
+                    ${_ab.grundText ? '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--slate);margin-top:4px;">' + escapeHtml(_ab.grundText) + '</div>' : ''}
                     ${c.stripe_subscription_id ?
                         '<div style="margin-top:4px;"><span style="padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; background: rgba(99,91,255,0.12); color: #635BFF;">Stripe ' + (c.stripe_status === 'active' ? 'Aktiv' : c.stripe_status === 'trialing' ? 'Testphase' : c.stripe_status === 'canceled' ? 'Gekündigt' : c.stripe_status || 'Verbunden') + '</span></div>'
                         : ''
                     }
+                    ${aboRechnungLink(c)}
+                    ${zahlsperreBeimKunden(c)}
                 </td>
                 <td style="padding: 16px;">
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -36225,9 +36707,17 @@ function renderCustomers() {
 
 function updateCustomerStats() {
     const total = customers.length;
-    const paid = customers.filter(c => c.payment_status === 'paid').length;
-    const pending = customers.filter(c => c.payment_status === 'pending').length;
-    const overdue = customers.filter(c => c.payment_status === 'overdue').length;
+    // AUS DEM GEMESSENEN STAND, wenn einer da ist -- sonst aus dem
+    // gespeicherten Feld.
+    //
+    // Bis zum 25.09.2026 zaehlte das hier nur payment_status. Diese
+    // Spalte wurde aber nirgends im ganzen Projekt auf 'overdue'
+    // gesetzt: der Zaehler "Ueberfaellig" stand deshalb IMMER auf 0,
+    // egal wie viele nicht zahlten. Und wer einmal von Hand als bezahlt
+    // eingetragen war, blieb fuer immer gruen.
+    const paid = customers.filter(c => aboStandWort(c) === 'paid').length;
+    const pending = customers.filter(c => aboStandWort(c) === 'pending').length;
+    const overdue = customers.filter(c => aboStandWort(c) === 'overdue').length;
 
     const totalEl = document.getElementById('totalCustomers');
     const paidEl = document.getElementById('paidCustomers');
@@ -41063,6 +41553,12 @@ async function showRestaurantLanding(rest) {
                 var restFeatures = rest.features || [];
                 var noOrdering = restFeatures.indexOf('no_ordering') >= 0;
                 var noReservations = restFeatures.indexOf('no_reservations') >= 0;
+                // ZAHLSPERRE. Ein Knopf, der da steht und nichts tut, ist
+                // schlimmer als keiner: der Gast tippt, es passiert nichts,
+                // und er glaubt, die Seite sei kaputt.
+                var _zsp = (typeof zahlsperreStufe === 'function') ? zahlsperreStufe(rest) : 'keine';
+                if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(rest)) noOrdering = true;
+                if (typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(rest)) noReservations = true;
                 var _t = translations[currentLanguage] || translations.de;
                 var bar = '<div style="background:rgba(0,37,30,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
                 if (!noReservations) {
@@ -41079,6 +41575,22 @@ async function showRestaurantLanding(rest) {
                 // die Karte gibt es immer.
                 bar += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="background:rgba(255,255,255,0.2);color:white;padding:12px 16px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;text-transform:uppercase;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.2)\'"><span class="material-symbols-outlined" style="font-size:16px;">restaurant_menu</span>' + (noOrdering ? 'SPEISEKARTE' : 'KARTE') + '</button>';
                 bar += '</div>';
+                // Der Satz fuer den Gast -- ruhig, nicht rot, und ohne ein
+                // Wort ueber Rechnungen. Er soll wissen, dass der
+                // Online-Weg gerade zu ist, und nicht, dass der Wirt nicht
+                // gezahlt hat. Das wuerde den Betrieb vor seinen eigenen
+                // Gaesten beschaedigen -- und uns gleich mit.
+                if (_zsp === 'pause' || _zsp === 'aus') {
+                    bar += '<div id="zahlsperreGastHinweis" style="max-width:520px;text-align:center;font-family:Inter,sans-serif;'
+                        + 'font-size:13px;line-height:1.5;color:var(--text-secondary);background:rgba(255,255,255,0.85);'
+                        + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(0,61,51,0.08);'
+                        + 'border-radius:16px;padding:12px 18px;">'
+                        + escapeHtml(zahlsperreGastText(rest))
+                        + (rest.phone ? ' <a href="tel:' + escapeHtml(String(rest.phone).replace(/[^0-9+]/g, ''))
+                            + '" style="color:var(--marke,#003d33);font-weight:600;text-decoration:none;white-space:nowrap;">'
+                            + escapeHtml(rest.phone) + '</a>' : '')
+                        + '</div>';
+                }
                 // Nur wenn ueberhaupt bestellt werden kann. Auf einer reinen
                 // Speisekartenseite waere die Zeile Laerm -- da zahlt niemand.
                 if (!noOrdering) {
@@ -48494,6 +49006,14 @@ async function openMenuModal(restaurantId) {
     // Jetzt oeffnet die Karte, und _nurKarte schaltet den Bestellweg ab:
     // kein Warenkorb, kein "In den Warenkorb", stattdessen die Telefonnummer.
     var _nurKarte = !!(appRest && appRest.features && appRest.features.indexOf('no_ordering') >= 0);
+    // ZAHLSPERRE: bei "pause" und "aus" gilt derselbe Kartenmodus wie bei
+    // "Nur Speisekarte zeigen" -- kein Warenkorb, kein "In den Warenkorb",
+    // stattdessen die Telefonnummer. Absichtlich derselbe Weg und kein
+    // eigener: der ist seit Monaten in Betrieb und getestet, ein zweiter
+    // Bestell-Aus-Zustand daneben waere eine zweite Stelle, die kaputt
+    // gehen kann. Und die Karte selbst bleibt sichtbar -- der Gast kann
+    // anrufen, der Betrieb verliert nicht den Gast, nur den Online-Weg.
+    if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(appRest)) _nurKarte = true;
     window._nurKarte = _nurKarte;
     // Betriebsferien: keine Online-Bestellungen annehmen
     // Betriebsferien: keine Online-Bestellungen annehmen.
@@ -53827,12 +54347,23 @@ function mindestImBezahlen() {
     var summe = (orderCart || []).reduce(function (su, i) { return su + (Number(i.total_price) || 0); }, 0);
     var pr = mindestPruefen(summe, currentOrderRestaurant, orderType);
 
+    /* WOHIN DER KASTEN GEHOERT.
+       Er stand bis zum 20.09.2026 als erstes Kind der Knopf-Zeile -- und die
+       ist ein display:flex mit Gesamtbetrag und Knopf nebeneinander. Also
+       quetschten sich DREI Dinge in eine Reihe: Kasten, Betrag, Knopf. Auf
+       dem Handy lief der Knopftext rechts aus dem Bild.
+       Ibo dazu: "es ist so draufgeklatscht, ist unsauber".
+       Der Kasten gehoert UEBER die Zeile, ueber die ganze Breite. */
     if (!kasten && knopf && knopf.parentNode) {
         kasten = document.createElement('div');
         kasten.id = 'checkoutMinHint';
-        kasten.style.cssText = 'width:100%; margin:0 0 10px; padding:12px 16px; border-radius:14px;'
-            + 'background:rgba(217,119,6,0.10); color:#b45309; font-size:13px; font-weight:600; line-height:1.5;';
-        knopf.parentNode.insertBefore(kasten, knopf.parentNode.firstChild);
+        kasten.style.cssText = 'box-sizing:border-box; width:100%; max-width:640px;'
+            + 'margin:0 auto 12px; padding:12px 16px; border-radius:14px;'
+            + 'background:rgba(217,119,6,0.10); color:#b45309;'
+            + 'font-size:13px; font-weight:600; line-height:1.5;';
+        var zeile = knopf.parentNode;
+        if (zeile.parentNode) zeile.parentNode.insertBefore(kasten, zeile);
+        else zeile.insertBefore(kasten, zeile.firstChild);   // Rueckfallebene
     }
     if (!kasten) return pr;
 
@@ -53843,9 +54374,13 @@ function mindestImBezahlen() {
             knopf.disabled = true;
             knopf.style.opacity = '0.5';
             knopf.style.cursor = 'not-allowed';
-            // Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
-            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.textContent;
-            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' € bis zum Mindestbestellwert';
+            /* Der Grund steht IM Knopf -- ein grauer Knopf allein sagt nichts.
+               Aber KURZ: der ganze Satz stand vorher im Knopf UND im Kasten
+               darueber, zweimal dieselbe Zahl, und im Knopf passte er nicht.
+               Der Kasten erklaert, der Knopf nennt nur noch den Betrag. */
+            if (!knopf.dataset.urtext) knopf.dataset.urtext = knopf.innerHTML;
+            knopf.textContent = 'Noch ' + pr.fehlt.toFixed(2).replace('.', ',') + ' €';
+            knopf.style.fontSize = '15px';
         }
     } else {
         kasten.style.display = 'none';
@@ -53854,7 +54389,11 @@ function mindestImBezahlen() {
             knopf.disabled = false;
             knopf.style.opacity = '';
             knopf.style.cursor = '';
-            if (knopf.dataset.urtext) { knopf.textContent = knopf.dataset.urtext; delete knopf.dataset.urtext; }
+            knopf.style.fontSize = '';
+            // innerHTML, nicht textContent: im Knopf steht ein <span> mit
+            // data-i18n. Mit textContent waere es nach dem ersten Mal weg --
+            // und die Sprachumstellung haette den Knopf nicht mehr gefunden.
+            if (knopf.dataset.urtext) { knopf.innerHTML = knopf.dataset.urtext; delete knopf.dataset.urtext; }
         }
     }
     return pr;
@@ -54360,6 +54899,7 @@ async function submitOrder() {
         // ueber den Notweg doch noch durch und die Prüfung waere umsonst.
         var _orderRes = { ok: false, status: 0, text: '' };
         var _preisAbgelehnt = null;
+        var _zahlsperreAbgelehnt = null;
 
         // PAYPAL CHECKOUT -- ERST DAS GELD, DANN DIE BESTELLUNG.
         //
@@ -54381,7 +54921,12 @@ async function submitOrder() {
                 } else {
                     // Abbruch oder Fehler: den Knopf zurueckgeben und den
                     // Grund sagen. Nichts Halbes stehen lassen.
-                    if (_ppcErg && _ppcErg.bezahlt) {
+                    if (_ppcErg && _ppcErg.zahlsperre) {
+                        // Der Betrieb ist gesperrt, seit die Seite offen
+                        // steht. Kein PayPal-Fehler, kein "nochmal
+                        // versuchen" -- der Weg ist zu.
+                        showToast(_ppcErg.fehler, 'info');
+                    } else if (_ppcErg && _ppcErg.bezahlt) {
                         showToast(_ppcErg.fehler || ('Deine Zahlung ist angekommen, die Bestellung aber nicht gespeichert. '
                             + 'Bitte ruf das Restaurant an. PayPal-Vorgang: ' + (_ppcErg.paypal_id || '')), 'error');
                     } else if (_ppcErg && _ppcErg.abgebrochen) {
@@ -54406,7 +54951,13 @@ async function submitOrder() {
                     body: JSON.stringify({ order: _orderPayload })
                 });
                 var _srvj = null; try { _srvj = await _srv.json(); } catch (e) {}
-                if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
+                if (_srv.status === 423 && _srvj && _srvj.zahlsperre) {
+                    // ZAHLSPERRE vom Server. Hier landet, wer sie in der App
+                    // nicht gesehen hat -- eine alte Fassung aus dem
+                    // Zwischenspeicher. Kein Notweg: der wuerde die Sperre
+                    // umgehen, genau wie beim abgelehnten Preis.
+                    _zahlsperreAbgelehnt = _srvj;
+                } else if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
                     _preisAbgelehnt = _srvj;
                 } else if (_srv.ok && _srvj && _srvj.ok) {
                     _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
@@ -54428,6 +54979,16 @@ async function submitOrder() {
             } catch (_srve) {
                 _orderRes = { ok: false, status: 0, text: 'Server nicht erreichbar: ' + _srve.message };
             }
+        }
+
+        if (_zahlsperreAbgelehnt) {
+            // Der Satz kommt vom Server, damit der Gast nicht zwei
+            // verschiedene liest -- je nachdem, wer ihn abgewiesen hat.
+            showToast(_zahlsperreAbgelehnt.error
+                || 'Dieser Betrieb nimmt gerade keine Online-Bestellungen an.', 'info');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            return;
         }
 
         if (_preisAbgelehnt) {
@@ -63272,6 +63833,17 @@ var PPC = {
                             body: JSON.stringify({ order: payload })
                         });
                         var j = await res.json();
+                        // ZAHLSPERRE (423). Ohne diesen Zweig faengt das
+                        // PayPal-Skript den Wurf ab und ruft onError -- der
+                        // Gast liest dann "PayPal meldet einen Fehler",
+                        // obwohl PayPal gar nichts damit zu tun hat. Also
+                        // hier abfangen und das Fenster mit dem echten
+                        // Grund zumachen. Es ist nichts abgebucht.
+                        if (res.status === 423) {
+                            schliessen({ ok: false, zahlsperre: (j && j.zahlsperre) || 'aus',
+                                         fehler: (j && j.error) || 'Dieser Betrieb nimmt gerade keine Online-Bestellungen an.' });
+                            throw new Error('zahlsperre');
+                        }
                         if (!res.ok || !j.ok || !j.id) throw new Error(j && j.error ? j.error : 'PayPal konnte die Zahlung nicht anlegen.');
                         return j.id;
                     },
