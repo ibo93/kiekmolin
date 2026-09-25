@@ -1,5 +1,19 @@
 // Stripe Webhook: schreibt den Abo-Status zurück nach Supabase.
 //
+// AM 25.09.2026 DAZUGEKOMMEN: invoice.paid und invoice.payment_failed.
+//
+// Vorher hörte diese Function NUR auf Abo-Ereignisse und schrieb nur
+// stripe_status. payment_status -- die Spalte, aus der die Kundenliste
+// ihre Farbe nimmt und die drei Zähler auf dem Dashboard ihre Zahl --
+// wurde von hier nie angefasst. Auf 'overdue' hat sie nirgends im
+// Projekt jemand gesetzt. Der Zähler "Überfällig" stand deshalb immer
+// auf 0, und ein einmal von Hand als bezahlt eingetragener Kunde blieb
+// für immer grün.
+//
+// Der Webhook ist der SCHNELLE Weg. Die Wahrheit holt abo-stand.js
+// direkt bei Stripe ab -- ob dieser Webhook im Stripe-Fenster überhaupt
+// eingerichtet ist, kann von außen niemand nachsehen.
+//
 // MUSS im Git-Repo liegen (siehe stripe-create-customer.js).
 //
 // Stripe ruft diese URL nach Ereignissen auf (Checkout abgeschlossen, Abo
@@ -11,7 +25,9 @@
 //   Endpoint:  https://kiekmolin.de/.netlify/functions/stripe-webhook
 //   Events:    checkout.session.completed,
 //              customer.subscription.updated,
-//              customer.subscription.deleted
+//              customer.subscription.deleted,
+//              invoice.paid,
+//              invoice.payment_failed
 //   Signing secret -> als ENV-Var STRIPE_WEBHOOK_SECRET in Netlify hinterlegen.
 //
 // ENV-Vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (Pflicht),
@@ -94,6 +110,36 @@ exports.handler = async function (event) {
             await sbPatch('stripe_subscription_id=eq.' + encodeURIComponent(obj.id), { stripe_status: status });
         } else if (stripeEvent.type === 'customer.subscription.deleted') {
             await sbPatch('stripe_subscription_id=eq.' + encodeURIComponent(obj.id), { stripe_status: 'canceled' });
+
+        // ---- Die Rechnung ist bezahlt -------------------------------
+        // Gefiltert wird über stripe_customer_id, nicht über das Abo:
+        // eine Rechnung kann auch ohne Abo entstehen, und obj.customer
+        // steht immer drin.
+        } else if (stripeEvent.type === 'invoice.paid'
+                || stripeEvent.type === 'invoice.payment_succeeded') {
+            if (obj.customer) {
+                var bezahltPatch = { payment_status: 'paid' };
+                var heute = new Date();
+                bezahltPatch.last_payment_date = heute.toISOString().slice(0, 10);
+                // Das nächste Fälligkeitsdatum sagt Stripe selbst -- nicht
+                // "heute plus ein Monat" rechnen, das geht bei Jahresabos
+                // und verschobenen Perioden daneben.
+                if (obj.period_end) {
+                    bezahltPatch.next_payment_date = new Date(obj.period_end * 1000).toISOString().slice(0, 10);
+                }
+                await sbPatch('stripe_customer_id=eq.' + encodeURIComponent(obj.customer), bezahltPatch);
+            }
+
+        // ---- Die Zahlung ist fehlgeschlagen --------------------------
+        // DAS WAR DER BLINDE FLECK. Genau dieses Ereignis hat bis heute
+        // niemand gehört -- deshalb gab es nie einen überfälligen Kunden.
+        } else if (stripeEvent.type === 'invoice.payment_failed') {
+            if (obj.customer) {
+                await sbPatch('stripe_customer_id=eq.' + encodeURIComponent(obj.customer),
+                              { payment_status: 'overdue' });
+                console.warn('[stripe-webhook] Zahlung fehlgeschlagen bei ' + obj.customer
+                    + ' -- Kunde steht jetzt auf overdue.');
+            }
         }
 
         return { statusCode: 200, body: JSON.stringify({ received: true }) };

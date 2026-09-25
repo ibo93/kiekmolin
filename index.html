@@ -19452,8 +19452,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <!-- Kundenliste -->
             <div class="panel">
-                <div class="panel-header">
+                <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                     <h3 class="panel-title">Alle Kunden</h3>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <!-- Die Uhrzeit gehoert NEBEN die Zahl. Ein Stand ohne
+                             Zeitpunkt ist eine Behauptung. -->
+                        <span id="aboStandZeit" style="font-family:Inter,sans-serif;font-size:12px;color:var(--slate);"></span>
+                        <button onclick="aboStandHolen()" id="aboStandKnopf"
+                                style="padding:8px 16px;background:rgba(99,91,255,0.12);color:#635BFF;border:none;border-radius:9999px;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>Stand bei Stripe holen
+                        </button>
+                    </div>
                 </div>
                 <div class="panel-content" id="customersList" style="padding: 0;">
                     <p style="padding: 20px; color: var(--slate); text-align: center;">Lade Kunden...</p>
@@ -31614,6 +31623,9 @@ async function zahlsperreSetzen(restaurantId, stufe) {
         }
         if (typeof renderRestaurantsDash === 'function') renderRestaurantsDash();
         try { zahlsperreBalkenPflegen(); } catch (e) {}
+        // Die Kundenliste zeigt dieselben Knoepfe. Ohne das stuende dort
+        // noch die alte Stufe -- zwei Bildschirme, zwei Wahrheiten.
+        try { if (typeof renderCustomers === 'function' && document.getElementById('customersList')) renderCustomers(); } catch (e) {}
         showToast(stufe === 'keine' ? (name + ' ist wieder offen') : (name + ': Stufe ' + stufe + ' gesetzt'),
                   stufe === 'keine' ? 'success' : 'info');
     } catch (e) {
@@ -36401,6 +36413,150 @@ async function deleteAccommodation(id, name) {
 // ==================== CUSTOMER MANAGEMENT ====================
 let customers = [];
 
+/* ==================== ABO-STAND (Stripe) ====================
+
+   Ibo am 25.09.2026: "stripe ist besser so komme ich auch rein dann
+   laeuft es auf eine ebene".
+
+   WAS HIER VORHER FALSCH WAR
+   --------------------------
+   Die Kundenliste faerbte sich nach customers.payment_status. Diese
+   Spalte wird gesetzt, wenn ein Kunde angelegt wird ('pending') und wenn
+   Ibo von Hand "Zahlung erfasst" drueckt ('paid'). Auf 'overdue' hat sie
+   NIRGENDS jemand gesetzt -- im ganzen Projekt nicht. Der Zaehler
+   "Ueberfaellig" stand deshalb immer auf 0, und wer einmal als bezahlt
+   eingetragen war, blieb fuer immer gruen. next_payment_date wurde
+   einmal geschrieben und nie gelesen.
+
+   WAS JETZT GILT
+   --------------
+   Auf Knopfdruck fragt abo-stand.js bei Stripe nach. Was zurueckkommt,
+   steht in c._aboStand und hat eine Uhrzeit.
+
+   UND WAS ES NICHT TUT: raten. Ohne Messung steht der gespeicherte Wert
+   da, aber mit dem Zusatz "ungeprueft" -- damit sieht man den
+   Unterschied zwischen "Stripe sagt bezahlt" und "das hat mal jemand
+   eingetragen". Ein Kunde ohne Abo heisst "Kein Abo", nicht "Bezahlt". */
+var ABO_ANZEIGE = {
+    bezahlt:      { text: 'Bezahlt',     farbe: 'var(--success)', grund: 'rgba(52,199,89,0.15)' },
+    testphase:    { text: 'Testphase',   farbe: '#635BFF',        grund: 'rgba(99,91,255,0.12)' },
+    offen:        { text: 'Offen',       farbe: 'var(--warning)', grund: 'rgba(255,149,0,0.15)' },
+    ueberfaellig: { text: 'Überfällig',  farbe: 'var(--danger)',  grund: 'rgba(255,59,48,0.15)' },
+    pausiert:     { text: 'Pausiert',    farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    gekuendigt:   { text: 'Gekündigt',   farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    kein_abo:     { text: 'Kein Abo',    farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' },
+    unbekannt:    { text: 'Unbekannt',   farbe: 'var(--slate)',   grund: 'rgba(120,120,128,0.12)' }
+};
+
+// Fuer die drei Zaehler: paid | pending | overdue | null.
+// null heisst ausdruecklich "zaehlt nirgends mit" -- ein gekuendigter
+// Kunde ist weder bezahlt noch ueberfaellig, und ihn irgendwo
+// mitzuzaehlen macht eine der drei Zahlen falsch.
+function aboStandWort(c) {
+    var st = c && c._aboStand && c._aboStand.stand;
+    if (st) {
+        if (st === 'bezahlt' || st === 'testphase') return 'paid';
+        if (st === 'ueberfaellig') return 'overdue';
+        if (st === 'offen') return 'pending';
+        return null;
+    }
+    // OHNE ABO ZAEHLT ER NIRGENDS MIT -- auch wenn im Feld 'paid' steht.
+    //
+    // Am 25.09.2026 im Browser gemessen: drei Kunden, einer ueberfaellig,
+    // einer bezahlt, einer ohne Abo. In der Zeile stand "Kein Abo", im
+    // Kasten oben stand "Bezahlt: 2". Die Zeile und die Zahl haben
+    // dasselbe ueber denselben Kunden behauptet und sich widersprochen.
+    //
+    // Es zaehlt die Anzeige: was nicht ueberpruefbar ist, ist keine 1 in
+    // einem gruenen Kasten. Bei Ueberweisern faellt das auf -- und genau
+    // das ist richtig, wenn alles auf eine Ebene soll.
+    if (c && !c.stripe_subscription_id) return null;
+    var p = c && c.payment_status;
+    return (p === 'paid' || p === 'pending' || p === 'overdue') ? p : null;
+}
+
+function aboAnzeige(c) {
+    var m = c && c._aboStand;
+    if (m && ABO_ANZEIGE[m.stand]) {
+        var a = ABO_ANZEIGE[m.stand];
+        var zusatz = '';
+        if (m.offen_seit_tagen != null && m.offen_seit_tagen > 0) {
+            zusatz = ' · ' + m.offen_seit_tagen + ' Tag' + (m.offen_seit_tagen === 1 ? '' : 'e');
+        }
+        return { text: a.text + zusatz, farbe: a.farbe, grund: a.grund, gemessen: true, grundText: m.grund || '' };
+    }
+    // Nicht gemessen. Der gespeicherte Wert darf stehen bleiben -- aber
+    // nicht so aussehen, als haette ihn jemand geprueft.
+    if (c && !c.stripe_subscription_id) {
+        var k = ABO_ANZEIGE.kein_abo;
+        return { text: k.text, farbe: k.farbe, grund: k.grund, gemessen: false, grundText: 'kein Stripe-Abo hinterlegt' };
+    }
+    var p = (c && c.payment_status) || '';
+    var w = p === 'paid' ? ABO_ANZEIGE.bezahlt : p === 'overdue' ? ABO_ANZEIGE.ueberfaellig : ABO_ANZEIGE.offen;
+    return { text: w.text + ' (ungeprüft)', farbe: 'var(--slate)', grund: 'rgba(120,120,128,0.12)',
+             gemessen: false, grundText: 'aus der Datenbank, nicht bei Stripe nachgefragt' };
+}
+
+async function aboStandHolen() {
+    var knopf = document.getElementById('aboStandKnopf');
+    var zeit = document.getElementById('aboStandZeit');
+    if (knopf) { knopf.disabled = true; knopf.style.opacity = '0.6'; }
+    if (zeit) zeit.textContent = 'frage bei Stripe nach…';
+    try {
+        var token = null;
+        try {
+            if (window.supabaseClient && supabaseClient.auth) {
+                var sess = await supabaseClient.auth.getSession();
+                token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+            }
+        } catch (e) {}
+        if (!token) { showToast('Bitte neu anmelden', 'error'); if (zeit) zeit.textContent = ''; return; }
+
+        var res = await fetch('/.netlify/functions/abo-stand', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({})
+        });
+        var j = null; try { j = await res.json(); } catch (e) {}
+        if (!res.ok || !j || !j.ok) {
+            showToast((j && j.fehler) || ('Stand nicht abrufbar (' + res.status + ')'), 'error');
+            if (zeit) zeit.textContent = '';
+            return;
+        }
+
+        // Das Gemessene an die Kunden haengen -- ueber die id, nicht ueber
+        // die Reihenfolge: die Liste kann zwischendurch neu geladen sein.
+        var nachId = {};
+        (j.kunden || []).forEach(function (k) { nachId[k.id] = k; });
+        (customers || []).forEach(function (c) { c._aboStand = nachId[c.id] || null; });
+
+        renderCustomers();
+        updateCustomerStats();
+
+        var uhr = new Date(j.gemessen_am || Date.now())
+            .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        if (zeit) zeit.textContent = j.stripe_erreichbar ? ('Stand ' + uhr + ' Uhr') : ('Stripe stumm · ' + uhr + ' Uhr');
+
+        // EIN HINWEIS IST KEINE NEBENSACHE. Fehlt der Stripe-Schluessel,
+        // sagt die Function das -- und dann muss es auf dem Bildschirm
+        // stehen und nicht nur im Protokoll. Sonst sieht "alles grau" aus
+        // wie "alle haben kein Abo".
+        if (j.hinweis) showToast(j.hinweis, 'error');
+        else {
+            var faellig = (j.kunden || []).filter(function (k) { return k.stand === 'ueberfaellig'; }).length;
+            showToast(faellig ? (faellig + ' überfällig') : 'Alle bezahlt', faellig ? 'info' : 'success');
+        }
+    } catch (e) {
+        showToast('Fehler: ' + e.message, 'error');
+        if (zeit) zeit.textContent = '';
+    } finally {
+        if (knopf) { knopf.disabled = false; knopf.style.opacity = '1'; }
+    }
+}
+window.aboStandHolen = aboStandHolen;
+window.aboStandWort = aboStandWort;
+window.aboAnzeige = aboAnzeige;
+
 async function loadCustomers() {
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
@@ -36419,6 +36575,54 @@ async function loadCustomers() {
     } catch (e) {
         console.error('Fehler beim Laden der Kunden:', e);
     }
+}
+
+// "so komme ich auch rein" -- ein Klick in die echte Rechnung bei
+// Stripe. Nur wenn Stripe uns die Adresse gegeben hat; eine selbst
+// zusammengebaute Stripe-URL waere geraten.
+function aboRechnungLink(c) {
+    var m = c && c._aboStand;
+    if (!m || !m.rechnung_url) return '';
+    var betrag = (m.betrag != null) ? (' · ' + formatPrice(m.betrag)) : '';
+    return '<div style="margin-top:6px;"><a href="' + escapeHtml(m.rechnung_url) + '" target="_blank" rel="noopener"'
+        + ' style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;color:#635BFF;text-decoration:none;">'
+        + 'Rechnung bei Stripe öffnen' + escapeHtml(betrag) + ' →</a></div>';
+}
+
+/* DIE BRUECKE. Hier sieht Ibo, wer nicht bezahlt hat -- und hier steht
+   auch der Schalter dafuer. Vorher war das zwei Bildschirme
+   auseinander: die Kundenliste sagte wer, die Restaurantkarten hatten
+   die Knoepfe, und dazwischen musste er sich den Namen merken.
+
+   NUR bei "offen" und "ueberfaellig". Bei einem bezahlten Kunden waere
+   ein Abschaltknopf eine Einladung zum Verklicken -- und der teuerste
+   Fehlklick, den es in dieser App gibt. */
+function zahlsperreBeimKunden(c) {
+    if (typeof istVerwalter !== 'function' || !istVerwalter()) return '';
+    if (!c || !c.restaurant_id) return '';
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === c.restaurant_id; });
+    var jetzt = (typeof zahlsperreStufe === 'function') ? zahlsperreStufe(rest) : 'keine';
+    var m = c._aboStand && c._aboStand.stand;
+    var faellig = (m === 'ueberfaellig' || m === 'offen');
+    // Steht schon eine Sperre, gehoert sie immer hierhin -- sonst kaeme
+    // er nach einer Zahlung nicht mehr an den Knopf, der sie aufmacht.
+    if (!faellig && jetzt === 'keine') return '';
+
+    var html = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+        + '<span style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;color:var(--slate);'
+        + 'letter-spacing:0.06em;width:100%;">ZAHLSPERRE</span>';
+    ZAHLSPERRE_KNOEPFE.forEach(function (k) {
+        var an = k.stufe === jetzt;
+        html += '<button onclick="zahlsperreSetzen(\'' + c.restaurant_id + '\',\'' + k.stufe + '\')"'
+            + ' title="' + escapeHtml(k.hilfe) + '"'
+            + ' aria-pressed="' + (an ? 'true' : 'false') + '"'
+            + ' style="padding:4px 10px;border-radius:9999px;cursor:pointer;font-family:Inter,sans-serif;'
+            + 'font-size:11px;font-weight:600;'
+            + (an ? 'background:' + k.farbe + ';color:white;border:1px solid ' + k.farbe + ';'
+                  : 'background:var(--bg-card);color:' + k.farbe + ';border:1px solid var(--border-color);')
+            + '">' + k.text + '</button>';
+    });
+    return html + '</div>';
 }
 
 function renderCustomers() {
@@ -36453,12 +36657,8 @@ function renderCustomers() {
     }
 
     activeCustomers.forEach(c => {
-        const statusColor = c.payment_status === 'paid' ? 'var(--success)' :
-                           c.payment_status === 'overdue' ? 'var(--danger)' : 'var(--warning)';
-        const statusBg = c.payment_status === 'paid' ? 'rgba(52,199,89,0.15)' :
-                        c.payment_status === 'overdue' ? 'rgba(255,59,48,0.15)' : 'rgba(255,149,0,0.15)';
-        const statusText = c.payment_status === 'paid' ? 'Bezahlt' :
-                          c.payment_status === 'overdue' ? 'Überfällig' : 'Ausstehend';
+        const _ab = aboAnzeige(c);
+        const statusColor = _ab.farbe, statusBg = _ab.grund, statusText = _ab.text;
 
         const restaurant = APP_DATA.restaurants.find(r => r.id === c.restaurant_id);
 
@@ -36477,10 +36677,13 @@ function renderCustomers() {
                 <td style="padding: 16px; cursor:pointer;" onclick="openEditCustomerPricing('${c.id}')" title="Konditionen bearbeiten">${formatPricingCell(c)}</td>
                 <td style="padding: 16px;">
                     <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${statusBg}; color: ${statusColor};">${statusText}</span>
+                    ${_ab.grundText ? '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--slate);margin-top:4px;">' + escapeHtml(_ab.grundText) + '</div>' : ''}
                     ${c.stripe_subscription_id ?
                         '<div style="margin-top:4px;"><span style="padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; background: rgba(99,91,255,0.12); color: #635BFF;">Stripe ' + (c.stripe_status === 'active' ? 'Aktiv' : c.stripe_status === 'trialing' ? 'Testphase' : c.stripe_status === 'canceled' ? 'Gekündigt' : c.stripe_status || 'Verbunden') + '</span></div>'
                         : ''
                     }
+                    ${aboRechnungLink(c)}
+                    ${zahlsperreBeimKunden(c)}
                 </td>
                 <td style="padding: 16px;">
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -36504,9 +36707,17 @@ function renderCustomers() {
 
 function updateCustomerStats() {
     const total = customers.length;
-    const paid = customers.filter(c => c.payment_status === 'paid').length;
-    const pending = customers.filter(c => c.payment_status === 'pending').length;
-    const overdue = customers.filter(c => c.payment_status === 'overdue').length;
+    // AUS DEM GEMESSENEN STAND, wenn einer da ist -- sonst aus dem
+    // gespeicherten Feld.
+    //
+    // Bis zum 25.09.2026 zaehlte das hier nur payment_status. Diese
+    // Spalte wurde aber nirgends im ganzen Projekt auf 'overdue'
+    // gesetzt: der Zaehler "Ueberfaellig" stand deshalb IMMER auf 0,
+    // egal wie viele nicht zahlten. Und wer einmal von Hand als bezahlt
+    // eingetragen war, blieb fuer immer gruen.
+    const paid = customers.filter(c => aboStandWort(c) === 'paid').length;
+    const pending = customers.filter(c => aboStandWort(c) === 'pending').length;
+    const overdue = customers.filter(c => aboStandWort(c) === 'overdue').length;
 
     const totalEl = document.getElementById('totalCustomers');
     const paidEl = document.getElementById('paidCustomers');

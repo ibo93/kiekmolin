@@ -24,6 +24,8 @@ var SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.su
     .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
 var KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
+var VERWALTER = require('./lib/verwalter');
+
 var STUFEN = ['keine', 'hinweis', 'pause', 'aus'];
 
 var CORS = {
@@ -35,28 +37,10 @@ var CORS = {
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
 function kopf() { return { apikey: KEY, Authorization: 'Bearer ' + KEY }; }
 
-// Ist der Anrufer wirklich der Superadmin? Ueber die Sitzung, nicht ueber
-// ein Feld, das der Browser mitschickt.
-async function istSuperadmin(token) {
-    if (!token) return false;
-    try {
-        var u = await fetch(SUPABASE_URL + '/auth/v1/user', {
-            headers: { apikey: KEY, Authorization: 'Bearer ' + token }
-        });
-        if (!u.ok) return false;
-        var nutzer = await u.json();
-        if (!nutzer || !nutzer.email) return false;
-        var r = await fetch(SUPABASE_URL + '/rest/v1/customers?role=eq.superadmin&select=email&email=eq.'
-            + encodeURIComponent(nutzer.email) + '&limit=1', { headers: kopf() });
-        if (!r.ok) return false;
-        return ((await r.json()) || []).length > 0;
-    } catch (e) {
-        // Nicht erreichbar heisst NICHT "darf". Im Zweifel nein -- hier
-        // geht es darum, wer abschalten darf.
-        console.warn('zahlsperre: Admin-Pruefung fehlgeschlagen: ' + (e && e.message));
-        return false;
-    }
-}
+// Die Pruefung, wer verwalten darf, steht seit dem 25.09.2026 in
+// lib/verwalter.js -- abo-stand.js braucht sie genauso. Zwei Fassungen
+// einer Sicherheitspruefung heissen: eine wird nachgebessert und die
+// andere nicht.
 
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -68,9 +52,7 @@ exports.handler = async function (event) {
         return json(400, { ok: false, fehler: 'Konnte die Anfrage nicht lesen.' });
     }
 
-    var auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
-    var token = auth.indexOf('Bearer ') === 0 ? auth.slice(7).trim() : '';
-    if (!(await istSuperadmin(token))) {
+    if (!(await VERWALTER.darfVerwalten(event, KEY))) {
         return json(403, { ok: false, fehler: 'Nur der Verwalter darf das.' });
     }
 
