@@ -78,7 +78,9 @@ var APP = fs.readFileSync(KMI + '/index.html', 'utf8')
 // Zwei Ausnahmen bleiben, beide abzaehlbar und darum als Liste vertretbar:
 // Fremdwoerter auf -uell (aktuell, individuell, eventuell) und eine
 // Handvoll englischer Woerter auf -ue.
-var ENGLISCH = /^(Epilogue|Segoe|Bluetooth|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst)s?$/i;
+// Tuesday, PropertyValue: schema.org-Bezeichner (OpeningHoursSpecification,
+// additionalProperty) -- Englisch, kein Umlaut.
+var ENGLISCH = /^(Epilogue|Segoe|Bluetooth|value|true|blue|due|issue|argue|league|revenue|continue|venue|avenue|statue|virtue|tissue|rescue|guest|guide|does|goes|shoes|toes|poem|picturesque|zuerst|Tuesday|PropertyValue)s?$/i;
 // "ue" nach q ist nie ein Umlaut: question, queue, request, frequent,
 // sequence, unique. Eine Regel statt sechs Listeneintraege.
 // Bezeichner aus dem Quelltext, die zufaellig im Text stehen koennen.

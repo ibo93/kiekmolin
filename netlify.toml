@@ -143,6 +143,15 @@
 # /.netlify/functions/... -- mit PUNKT. Diese Sperre ohne Punkt trifft
 # sie also nicht, nur das Verzeichnis, das publish = "." mit
 # veroeffentlicht.
+# KI-Assistenten: Anleitung und Registry-Eintrag (server.json) sind
+# Werkzeug, kein Inhalt. Der MCP-Server selbst liegt unter /mcp, die
+# oeffentliche Server-Karte unter /.well-known/mcp/ -- beide NICHT hier.
+[[redirects]]
+  from = "/ki-assistent/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/netlify/*"
   to = "/404.html"
@@ -221,6 +230,16 @@
   from = "/wo/*"
   to = "/.netlify/functions/winorder/:splat"
   status = 200
+
+# KI-Assistenten (ChatGPT, Claude, Gemini ...): oeffentlicher MCP-Server.
+# kiekmolin.de/mcp ist die Adresse, die man im Assistenten eintraegt --
+# die Funktion selbst heisst mcp.js. MUSS vor dem Catch-All stehen, sonst
+# bekommt der Assistent die Gaeste-App als HTML zurueck.
+[[redirects]]
+  from = "/mcp"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
 
 # Restaurant-Slug -> generierte SEO-Page (falls vorhanden), sonst SPA
 # Pretty URLs: Netlify serviert automatisch /lapiazza.html bei Aufruf /lapiazza

@@ -70,7 +70,7 @@ exports.handler = async function () {
             '&select=restaurant_id,total,status&limit=5000');
         reservations = await sbGet('reservations?reservation_date=gte.' + berlinDateStr(-7) +
             '&reservation_date=lt.' + todayStr +
-            '&select=restaurant_id,status&limit=2000');
+            '&select=restaurant_id,status,source,party_size&limit=2000');
     } catch (e) {
         console.error('[weekly-report] Laden fehlgeschlagen:', e.message);
         return { statusCode: 500, body: e.message };
@@ -138,6 +138,17 @@ exports.handler = async function () {
         var trichterSatz = trichterZeilen ? TRICHTER.satz(rt) : null;
         var trichterWo   = trichterZeilen ? TRICHTER.absprung(rt) : null;
 
+        // UEBER KI-ASSISTENTEN (ChatGPT, Claude, Gemini -- kiekmolin.de/mcp).
+        // Gezaehlt wird, was der Wirt bestaetigt hat: "gekommen" ist erst,
+        // wer eine feste Reservierung hatte. Nur anzeigen, wenn es welche gab.
+        var ki = rres.filter(function (x) { return x.source === 'ki-assistent'; });
+        var kiFest = ki.filter(function (x) { return ['confirmed', 'seated', 'completed'].indexOf(x.status) >= 0; });
+        var kiGaeste = kiFest.reduce(function (s, x) { return s + (Number(x.party_size) || 0); }, 0);
+        var kiSatz = ki.length
+            ? kiFest.length + ' bestätigt' + (kiGaeste ? ' · ' + kiGaeste + ' Gäste' : '')
+              + ' <span style="color:#6b7280;font-weight:400;">(' + ki.length + ' Anfragen)</span>'
+            : '';
+
         function row(label, val) {
             return '<tr><td style="padding:7px 12px 7px 0;color:#6b7280;white-space:nowrap;">' + label + '</td>' +
                 '<td style="padding:7px 0;font-weight:700;text-align:right;">' + val + '</td></tr>';
@@ -150,6 +161,7 @@ exports.handler = async function () {
                 row('Bestellungen', String(ro.length)) +
                 (bestDay ? row('Stärkster Tag', esc(bestDay) + ' <span style="color:#6b7280;font-weight:400;">(' + eur(byDay[bestDay]) + ')</span>') : '') +
                 row('Reservierungen', String(rres.length)) +
+                (kiSatz ? row('davon über KI-Assistenten', kiSatz) : '') +
             '</table>' +
             (top.length ? '<p style="margin:16px 0 6px;font-weight:700;color:#003d33;">Top-Gerichte der Woche</p><ol style="margin:0;padding-left:20px;color:#374151;font-size:14px;">' +
                 top.map(function (t) { return '<li style="padding:2px 0;">' + esc(t.name) + ' <span style="color:#6b7280;">(' + t.qty + '×)</span></li>'; }).join('') + '</ol>' : '') +

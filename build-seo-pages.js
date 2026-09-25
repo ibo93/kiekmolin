@@ -459,23 +459,41 @@ async function fetchMenuItems(restaurantId) {
     //
     // 134 Fehlversuche in knapp einem Tag -- fuer jeden Betrieb bei
     // jedem Bau.
-    + '&select=name,description,base_price,image_url,is_popular,menu_categories(name)'
+    + '&select=name,description,base_price,image_url,is_popular,menu_categories(name),' + MENU_FELDER_KI
     + '&order=is_popular.desc,sort_order.asc'
     + '&limit=30';
+  const kopf = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Accept': 'application/json'
+  };
   try {
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Accept': 'application/json'
-      }
-    });
+    let res = await fetch(url, { headers: kopf });
+    // ALLERGENE SIND EIN ZUSATZ, KEINE BEDINGUNG.
+    //
+    // Fehlt eine der neuen Spalten (oder darf der Schluessel sie nicht
+    // lesen), antwortet PostgREST mit 400 -- und ohne diesen Rueckweg
+    // stuende die Seite wieder OHNE GERICHTE da, genau der Fehler aus dem
+    // Kommentar oben. Also: einmal mit der alten Auswahl nachfragen, und
+    // laut sagen, dass die Allergene fehlen.
+    if (res.status === 400) {
+      console.warn('[seo] Allergen-Spalten nicht lesbar -- Karte ohne Allergene (' + restaurantId + ')');
+      res = await fetch(url.replace(',' + MENU_FELDER_KI, ''), { headers: kopf });
+    }
     if (!res.ok) return [];
     return await res.json();
   } catch (e) {
     return [];
   }
 }
+
+// Die Felder, die fuer KI-Assistenten und Google dazukommen
+// (datenbank/35 prueft, ob es sie gibt).
+const MENU_FELDER_KI = 'allergens,additives,is_vegan,is_vegetarian';
+
+// Allergene nach LMIV -- dieselbe Zuordnung wie netlify/functions/lib/ki-agent.js,
+// damit Seite und Assistent dieselben Buchstaben nennen.
+const KI_AGENT = require('./netlify/functions/lib/ki-agent.js');
 
 async function fetchReviews(targetId) {
   // Bis zu 10 freigegebene Bewertungen mit Text, neueste zuerst.
@@ -1279,7 +1297,11 @@ function buildRestaurantJsonLd(rest, reviews) {
     const avg = ratingVals.reduce(function(a, b) { return a + b; }, 0) / ratingVals.length;
     item.aggregateRating = {
       '@type': 'AggregateRating',
-      'ratingValue': Number((rest.rating ? Number(rest.rating) : avg).toFixed(1)),
+      // rest.rating nur, wenn dahinter MEHR Bewertungen stehen als die
+      // Texte hier. Bei der Greetsieler Boerse stand 4,2 neben einer
+      // einzigen 5-Sterne-Bewertung -- ein Wert, den keine ausgezeichnete
+      // Bewertung hergibt.
+      'ratingValue': Number((rest.rating && echteBewertungen(rest) > realReviews.length ? Number(rest.rating) : avg).toFixed(1)),
       'bestRating': 5,
       'reviewCount': realReviews.length,
       // Nicht ueber das hinaus, was wirklich da ist: Math.max mit
@@ -1300,10 +1322,21 @@ function buildRestaurantJsonLd(rest, reviews) {
       'ratingCount': echteBewertungen(rest)
     };
   }
-  const cuisines = [];
-  if (rest.cuisine) cuisines.push(rest.cuisine);
-  if (Array.isArray(rest.cuisine_type)) rest.cuisine_type.forEach(function(c) { if (c) cuisines.push(c); });
+  // Lesbar statt Kuerzel: auf der Seite der Boerse stand ["fisch","bar"].
+  const cuisines = KI_AGENT.kuechen(rest);
   if (cuisines.length) item.servesCuisine = cuisines;
+  // Ausstattung aus den Tags, die der Wirt anklickt (hunde_erlaubt,
+  // terrasse ...). Genau danach fragen Gaeste den Assistenten.
+  const ausstattung = [];
+  const tags = KI_AGENT.liste(rest.tags).map(KI_AGENT.normalize);
+  Object.keys(KI_AGENT.AUSSTATTUNG).forEach(function(k) {
+    const a = KI_AGENT.AUSSTATTUNG[k];
+    if (a.tags.some(function(t) { return tags.indexOf(t) >= 0; })) {
+      ausstattung.push({ '@type': 'LocationFeatureSpecification', 'name': a.name, 'value': true });
+    }
+  });
+  if (ausstattung.length) item.amenityFeature = ausstattung;
+  if (tags.indexOf('hunde_erlaubt') >= 0) item.petsAllowed = true;
   item.priceRange = rest.price_range || '€€';
   item.currenciesAccepted = 'EUR';
   item.acceptsReservations = kannReservieren(rest);
@@ -1351,8 +1384,40 @@ function buildRestaurantJsonLd(rest, reviews) {
     });
   if (aktionen.length) item.potentialAction = aktionen;
   const oeff = parseOeffnungszeiten(rest);
-  if (oeff.specs.length) item.openingHours = oeff.specs;
+  if (oeff.specs.length) {
+    item.openingHours = oeff.specs;
+    // Dieselben Zeiten noch einmal in der Form, die Google empfiehlt.
+    const spec = alsOeffnungsSpezifikation(oeff.specs);
+    if (spec.length) item.openingHoursSpecification = spec;
+  }
   return item;
+}
+
+// 'Mo,Tu,We 12:00-14:00' -> OpeningHoursSpecification. Nur Specs, die
+// sich sauber lesen lassen; der Rest bleibt im openingHours-Text.
+const TAG_URI = { Mo: 'Monday', Tu: 'Tuesday', We: 'Wednesday', Th: 'Thursday', Fr: 'Friday', Sa: 'Saturday', Su: 'Sunday' };
+function alsOeffnungsSpezifikation(specs) {
+  const r = [];
+  (specs || []).forEach(function(s) {
+    const m = /^([A-Za-z,\-]+)\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(String(s).trim());
+    if (!m) return;
+    let tage = [];
+    m[1].split(',').forEach(function(t) {
+      const bis = t.split('-');
+      if (bis.length === 2 && TAG_URI[bis[0]] && TAG_URI[bis[1]]) {
+        const keys = Object.keys(TAG_URI);
+        for (let i = keys.indexOf(bis[0]); i <= keys.indexOf(bis[1]); i++) tage.push(keys[i]);
+      } else if (TAG_URI[t]) tage.push(t);
+    });
+    if (!tage.length) return;
+    r.push({
+      '@type': 'OpeningHoursSpecification',
+      'dayOfWeek': tage.map(function(t) { return 'https://schema.org/' + TAG_URI[t]; }),
+      'opens': m[2],
+      'closes': m[3]
+    });
+  });
+  return r;
 }
 
 // Oeffnungszeiten aus BEIDEN Datenformaten lesen:
@@ -1554,7 +1619,13 @@ function buildRestaurantFaqs(rest, name, cityRaw, catLabel, menuItems) {
   }
   faqs.push({
     q: 'Kann man bei ' + name + ' online einen Tisch reservieren?',
-    a: 'Ja – auf ' + BRAND + ' reservierst du kostenlos und ohne Anmeldung einen Tisch bei ' + name + ': Datum, Uhrzeit und Personenzahl wählen, Bestätigung kommt sofort per E-Mail.'
+    // "Bestaetigung kommt sofort" stimmt nur, wenn das Haus Reservierungen
+    // automatisch bestaetigt. Sonst bestaetigt der Wirt -- und ein
+    // Assistent, der den Satz zitiert, verspricht dem Gast etwas Falsches.
+    a: 'Ja – auf ' + BRAND + ' reservierst du kostenlos und ohne Anmeldung einen Tisch bei ' + name + ': Datum, Uhrzeit und Personenzahl wählen, '
+      + (featureListe(rest).indexOf('auto_confirm_reservations') >= 0
+        ? 'Bestätigung kommt sofort per E-Mail.'
+        : 'das Restaurant bestätigt die Anfrage persönlich.')
   });
   if (menuItems.length) {
     const beliebt = menuItems.filter(function(it) { return it.is_popular; }).slice(0, 3)
@@ -1653,6 +1724,27 @@ function buildMenuJsonLd(rest, menuItems) {
             };
           }
           if (it.image_url) item.image = it.image_url;
+          // FUER KI-ASSISTENTEN: vegetarisch/vegan und Allergene.
+          //
+          // suitableForDiet ist schema.org-Standard. Fuer Allergene gibt es
+          // keine Eigenschaft -- ueblich ist additionalProperty. NUR was der
+          // Wirt eingetragen hat; ein leeres Feld wird NICHT zu "frei von".
+          if (it.is_vegan === true) item.suitableForDiet = ['https://schema.org/VeganDiet', 'https://schema.org/VegetarianDiet'];
+          else if (it.is_vegetarian === true) item.suitableForDiet = 'https://schema.org/VegetarianDiet';
+          const g = KI_AGENT.gerichtFuerAgent(it);
+          const zusatz = [];
+          if (g.allergene_angegeben) {
+            zusatz.push({
+              '@type': 'PropertyValue',
+              'name': 'Allergene (LMIV)',
+              'value': g.allergene.map(function(a) { return a.code; }).join(', '),
+              'description': g.allergene.map(function(a) { return a.code + ' = ' + a.name; }).join(', ')
+            });
+          }
+          if (g.zusatzstoffe.length) {
+            zusatz.push({ '@type': 'PropertyValue', 'name': 'Zusatzstoffe', 'value': g.zusatzstoffe.join(', ') });
+          }
+          if (zusatz.length) item.additionalProperty = zusatz;
           return item;
         })
       };
@@ -3056,7 +3148,7 @@ function writeLlmsTxt(restaurants) {
     '',
     '> kiekmolin.de ist das regionale Restaurant-Portal für Ostfriesland (Nordwest-Deutschland):',
     '> Speisekarten, Online-Bestellung (Abholung/Lieferung) und kostenlose Tisch-Reservierung',
-    '> mit Sofort-Bestätigung – ohne Preisaufschlag für Gäste.',
+    '> (je nach Restaurant sofort oder vom Restaurant bestätigt) – ohne Preisaufschlag für Gäste.',
     '',
     // FUER WIRTE, NICHT FUER GAESTE.
     //
@@ -3067,6 +3159,18 @@ function writeLlmsTxt(restaurants) {
     '## Für Gastronomen',
     '',
     'Eintrag kostenlos. ' + preisSatz(),
+    '',
+    // FUER KI-ASSISTENTEN, DIE HANDELN SOLLEN.
+    //
+    // Wer nicht nur lesen, sondern fuer den Gast einen Tisch anfragen will,
+    // findet hier den Weg: den MCP-Server. Die Anfrage ist eine ANFRAGE --
+    // das steht hier ausdruecklich, damit kein Assistent "gebucht" sagt.
+    '## Für KI-Assistenten',
+    '',
+    '- MCP-Server (Streamable HTTP, ohne Anmeldung): ' + SITE_URL + '/mcp',
+    '- Werkzeuge: search_restaurants (Ort, Küche, Hunde erlaubt, draußen sitzen, heute offen), get_menu (Preise, vegetarisch/vegan, Allergene nach LMIV A–R), check_availability, request_reservation',
+    '- request_reservation legt eine Anfrage an. Fest ist die Reservierung erst, wenn das Restaurant sie bestätigt.',
+    '- Allergen-Angaben stammen vom Restaurant; "keine Angabe" heißt unbekannt, nicht allergenfrei.',
     '',
     '## Restaurants'
   ];
