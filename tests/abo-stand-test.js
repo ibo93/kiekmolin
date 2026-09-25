@@ -48,21 +48,41 @@ process.env.SUPABASE_SERVICE_KEY = 'test-dienst';
 
 // ---- Stripe durch eine Attrappe ersetzen, BEVOR abo-stand geladen wird.
 // Sonst braeuchte der Test einen echten Schluessel und ein Netz.
+//
+// UND OHNE DAS ECHTE PAKET. Am 25.09.2026 stand hier zuerst
+// require.resolve('stripe') und der Cache-Trick darauf. Bei mir lief das
+// -- node_modules/stripe lag auf der Platte. Auf dem Bauserver nicht:
+// die Reihe wird dort mit "node tests/run-all.js" gestartet, ohne npm
+// install. Ergebnis:
+//
+//     abo-stand-test.js  -  ABGESTUERZT (kein einziger Test gelaufen)
+//     Error: Cannot find module 'stripe'
+//
+// 74 Tests, die bei mir gruen waren und dort nie liefen. Ein Test, der
+// nur auf einem Rechner laeuft, ist kein Test.
+//
+// Deshalb wird jetzt das LADEN abgefangen, nicht der Cache gefuellt:
+// require('stripe') bekommt die Attrappe, egal ob das Paket existiert.
 let STRIPE_ANTWORT = { data: [] };
 let STRIPE_WIRFT = null;
-const stripePfad = require.resolve('stripe', { paths: [path.join(KMI, 'netlify', 'functions')] });
-require.cache[stripePfad] = new Module(stripePfad, null);
-require.cache[stripePfad].filename = stripePfad;
-require.cache[stripePfad].loaded = true;
-require.cache[stripePfad].exports = function () {
+const STRIPE_ATTRAPPE = function () {
     return { subscriptions: { list: async function () {
         if (STRIPE_WIRFT) throw new Error(STRIPE_WIRFT);
         return STRIPE_ANTWORT;
     } } };
 };
+let attrappeBenutzt = false;
+const echtesLaden = Module._load;
+Module._load = function (anfrage) {
+    if (anfrage === 'stripe') { attrappeBenutzt = true; return STRIPE_ATTRAPPE; }
+    return echtesLaden.apply(this, arguments);
+};
 
 const AS = require(path.join(KMI, 'netlify', 'functions', 'abo-stand.js'));
 const VERWALTER = require(path.join(KMI, 'netlify', 'functions', 'lib', 'verwalter.js'));
+
+t('der Test laeuft OHNE das echte stripe-Paket (der Bauserver hat keines)',
+  attrappeBenutzt === true, 'echtes Paket geladen -- faellt in CI aus');
 
 // ===========================================================================
 console.log('-- 1. Die Uebersetzung: Stripe-Zustand -> Entscheidung --');
