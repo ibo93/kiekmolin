@@ -216,7 +216,10 @@ console.log('\n-- 3. DER ABDRUCK BELEGT, WAS DASTAND --');
       /zwischen dem Gast und dem Betrieb zustande/.test(nv));
     t('und verspricht KEINE Bestellmengen',
       /KEINE bestimmte Anzahl von Bestellungen/.test(nv));
-    t('und laesst monatlich kuendigen', /Kalendermonats kuendigen/.test(nv));
+    // Am 25.09.2026 bekam der Vertragstext echte Umlaute. Die
+    // Eigenschaft ist dieselbe geblieben -- monatlich kuendbar --,
+    // nur das gesuchte Wort heisst jetzt richtig.
+    t('und laesst monatlich kuendigen', /Kalendermonats kündigen/.test(nv));
 
     var avv = SQL.slice(SQL.indexOf('VERTRAG ZUR AUFTRAGSVERARBEITUNG'));
     t('der AVV nennt Art. 28 DSGVO', /Art\. 28 DSGVO/.test(avv));
@@ -228,8 +231,8 @@ console.log('\n-- 3. DER ABDRUCK BELEGT, WAS DASTAND --');
      ['Vertraulichkeit',    /6\. Vertraulichkeit/],
      ['TOM nach Art. 32',   /7\. Technische und organisatorische/],
      ['Unterauftragsverarbeiter', /8\. Unterauftragsverarbeiter/],
-     ['Betroffenenrechte',  /9\. Unterstuetzung/],
-     ['Loeschung',          /10\. Loeschung/],
+     ['Betroffenenrechte',  /9\. Unterstützung/],
+     ['Loeschung',          /10\. Löschung/],
      ['Nachweise',          /11\. Nachweise/]].forEach(function (pflicht) {
         t('AVV hat: ' + pflicht[0], pflicht[1].test(avv));
     });

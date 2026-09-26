@@ -61847,6 +61847,10 @@ async function vertragListeZeigen() {
                  +  '</strong> (Fassung ' + vertragEsc(x.f.fassung) + '): ' + vertragEsc(x.grund) + '</div>';
         });
         html += '<div style="color:var(--text-secondary);margin-top:10px;">Die Texte sind ein Entwurf. Erst prüfen lassen, Platzhalter ersetzen, dann in der Datenbank auf <code>aktiv</code> setzen.</div>'
+             // Den Weg dahin gleich hier anbieten. Drei der Stellen --
+             // Firmierung, Umsatzsteuer, Gerichtsstand -- stehen laengst
+             // in deinen Firmendaten; die muss niemand abtippen.
+             +  '<button onclick="vertragFassungBauen(true)" style="margin-top:12px;padding:8px 16px;border-radius:9999px;border:none;background:var(--primary);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Fassung mit meinen Daten vorbereiten</button>'
              +  '</div>';
     }
 
@@ -61871,9 +61875,14 @@ async function vertragListeZeigen() {
                 var wann = new Date(da.unterzeichnet_am).toLocaleDateString('de-DE',
                     { year:'numeric', month:'2-digit', day:'2-digit' });
                 html += '<span style="font-size:13px;color:#16a34a;font-weight:600;">✓ ' + vertragEsc(da.unterzeichner_name) + ' · ' + wann + '</span>'
-                     +  '<button onclick="vertragAnsehen(\'' + da.id + '\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:13px;cursor:pointer;">Ansehen</button>';
+                     +  '<button onclick="vertragAnsehen(\'' + da.id + '\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:13px;cursor:pointer;">Ansehen</button>'
+                     +  '<button onclick="vertragDrucken(\'' + f.id + '\',\'' + da.id + '\')" title="Drucken oder als PDF sichern" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:13px;cursor:pointer;">PDF</button>';
             } else {
-                html += '<button onclick="vertragOeffnen(\'' + r.id + '\',\'' + f.id + '\')" style="padding:6px 12px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Öffnen</button>';
+                html += '<button onclick="vertragOeffnen(\'' + r.id + '\',\'' + f.id + '\')" style="padding:6px 12px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Öffnen</button>'
+                     // Auch OHNE Unterschrift ausdruckbar -- das ist die
+                     // Fassung, die der Anwalt liest und die der Wirt
+                     // mitnimmt, bevor er unterschreibt.
+                     +  '<button onclick="vertragDrucken(\'' + f.id + '\')" title="Drucken oder als PDF sichern" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:13px;cursor:pointer;">PDF</button>';
             }
             html += '</div>';
         });
@@ -62001,7 +62010,10 @@ function vertragAnsehen(vertragId) {
 
     var wann = new Date(v.unterzeichnet_am).toLocaleString('de-DE');
     kasten.innerHTML =
-        '<button onclick="vertragListeZeigen()" style="background:none;border:none;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:14px;">← Zurück</button>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+        '<button onclick="vertragListeZeigen()" style="background:none;border:none;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer;padding:0;">← Zurück</button>' +
+        '<button onclick="vertragDrucken(\'' + f.id + '\',\'' + v.id + '\')" style="padding:6px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">print</span>Als PDF</button>' +
+        '</div>' +
         '<div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:16px;margin-bottom:16px;font-size:14px;line-height:1.7;">' +
             '<div><strong>' + vertragEsc(v.unterzeichner_name) + '</strong>' +
             (v.unterzeichner_funktion ? ' · ' + vertragEsc(v.unterzeichner_funktion) : '') + '</div>' +
@@ -62013,6 +62025,184 @@ function vertragAnsehen(vertragId) {
             vertragEsc(f.inhalt) + '</div>';
 }
 window.vertragAnsehen = vertragAnsehen;
+
+/* ==================== VERTRAG ALS PDF ====================
+
+   Ibo am 25.09.2026: "vertrag als Pdf".
+
+   ES WIRD KEINE PDF-BIBLIOTHEK GELADEN.
+   Der Browser kann das laengst: Drucken -> "Als PDF sichern" (Mac) bzw.
+   Teilen -> Drucken -> zusammenziehen (iPhone). Das Ergebnis ist ein
+   echtes PDF mit auswaehlbarem Text.
+
+   Eine Bibliothek dafuer waeren mehrere hundert Kilobyte in einer Datei,
+   die ohnehin schon gross ist -- und sie wuerde bei jedem Gast
+   mitgeladen, der nie einen Vertrag sieht.
+
+   DIE DRUCKREGELN STEHEN NUR WAEHREND DES DRUCKENS DA.
+   Sie werden vor dem Drucken eingehaengt und danach wieder entfernt.
+   Eine dauerhafte @media-print-Regel in einer 75.000-Zeilen-Datei ist
+   eine Regel, die irgendwann irgendetwas anderes versteckt. */
+function vertragDruckRegeln() {
+    var alt = document.getElementById('kmiDruckRegeln');
+    if (alt) return alt;
+    var st = document.createElement('style');
+    st.id = 'kmiDruckRegeln';
+    st.textContent =
+        '@page { size: A4; margin: 20mm 18mm; }'
+      + '@media print {'
+      +   'body.kmi-drucken > * { display: none !important; }'
+      +   'body.kmi-drucken > #kmiDruckblatt { display: block !important; }'
+      +   '#kmiDruckblatt { position: static !important; color: #000 !important;'
+      +     'background: #fff !important; font-family: Georgia, "Times New Roman", serif;'
+      +     'font-size: 11pt; line-height: 1.55; }'
+      +   '#kmiDruckblatt .kmi-text { white-space: pre-wrap; }'
+      // Ein Seitenumbruch mitten durch den Unterschriftenblock waere das
+      // Erste, was bei einem Vertrag auffaellt.
+      +   '#kmiDruckblatt .kmi-unterschrift { break-inside: avoid; page-break-inside: avoid; }'
+      +   '#kmiDruckblatt h1 { font-size: 15pt; margin: 0 0 4mm; }'
+      +   '#kmiDruckblatt .kmi-fuss { font-size: 8pt; color: #444; }'
+      + '}'
+      + '#kmiDruckblatt { display: none; }';
+    document.head.appendChild(st);
+    return st;
+}
+
+function vertragDruckblatt(fassung, unterschrift) {
+    var z = '<h1>' + vertragEsc(fassung.titel) + '</h1>'
+          + '<div class="kmi-fuss" style="margin-bottom:6mm;">Fassung '
+          + vertragEsc(fassung.fassung) + ' · Stand '
+          + vertragEsc(new Date(fassung.erstellt_am || Date.now()).toLocaleDateString('de-DE'))
+          + (fassung.status !== 'aktiv' ? ' · ENTWURF, nicht zum Unterschreiben' : '')
+          + '</div>'
+          + '<div class="kmi-text">' + vertragEsc(fassung.inhalt) + '</div>';
+
+    if (unterschrift) {
+        var wann = new Date(unterschrift.unterzeichnet_am).toLocaleString('de-DE');
+        z += '<div class="kmi-unterschrift" style="margin-top:10mm;padding-top:4mm;border-top:1px solid #000;">'
+          +    '<div style="font-weight:700;margin-bottom:3mm;">Unterschrift</div>'
+          +    '<img src="' + vertragEsc(unterschrift.unterschrift) + '" alt="Unterschrift"'
+          +      ' style="max-width:70mm;max-height:30mm;display:block;margin-bottom:3mm;">'
+          +    '<div>' + vertragEsc(unterschrift.unterzeichner_name)
+          +      (unterschrift.unterzeichner_funktion
+                   ? ' · ' + vertragEsc(unterschrift.unterzeichner_funktion) : '')
+          +    '</div>'
+          +    '<div class="kmi-fuss">Unterzeichnet am ' + vertragEsc(wann) + '</div>'
+          // Der Abdruck gehoert MIT aufs Papier. Sonst belegt das
+          // Ausgedruckte nur, dass irgendwer unterschrieben hat -- nicht,
+          // WAS dastand. Genau dafuer gibt es ihn.
+          +    '<div class="kmi-fuss" style="margin-top:2mm;word-break:break-all;">'
+          +      'Prüfsumme des unterzeichneten Textes (SHA-256): '
+          +      vertragEsc(unterschrift.text_abdruck) + '</div>'
+          +  '</div>';
+    } else {
+        z += '<div class="kmi-unterschrift" style="margin-top:14mm;">'
+          +    '<div style="display:flex;gap:14mm;">'
+          +      '<div style="flex:1;border-top:1px solid #000;padding-top:2mm;" class="kmi-fuss">Ort, Datum</div>'
+          +      '<div style="flex:1;border-top:1px solid #000;padding-top:2mm;" class="kmi-fuss">Unterschrift Betrieb</div>'
+          +    '</div></div>';
+    }
+    return z;
+}
+
+function vertragDrucken(fassungId, vertragId) {
+    var f = (window._vertragFassungen || []).find(function (x) { return x.id === fassungId; });
+    var u = vertragId
+        ? (window._vertragUnterschriften || []).find(function (x) { return x.id === vertragId; })
+        : null;
+    if (u && !f) f = (window._vertragFassungen || []).find(function (x) { return x.id === u.fassung_id; });
+    if (!f) { showToast('Diese Fassung ist nicht geladen.', 'error'); return; }
+
+    vertragDruckRegeln();
+    var alt = document.getElementById('kmiDruckblatt');
+    if (alt) alt.remove();
+    var blatt = document.createElement('div');
+    blatt.id = 'kmiDruckblatt';
+    blatt.innerHTML = vertragDruckblatt(f, u);
+    document.body.appendChild(blatt);
+    document.body.classList.add('kmi-drucken');
+
+    // Aufraeumen -- auch wenn der Nutzer den Druckdialog abbricht.
+    // Ohne das bliebe die Klasse am body haengen und die naechste echte
+    // Druckseite waere leer.
+    var fertig = function () {
+        document.body.classList.remove('kmi-drucken');
+        var b = document.getElementById('kmiDruckblatt');
+        if (b) b.remove();
+        window.removeEventListener('afterprint', fertig);
+    };
+    window.addEventListener('afterprint', fertig);
+    setTimeout(function () { window.print(); setTimeout(fertig, 1500); }, 60);
+}
+window.vertragDrucken = vertragDrucken;
+window.vertragDruckblatt = vertragDruckblatt;
+
+/* ==================== FASSUNG MIT ECHTEN DATEN ====================
+
+   Der Entwurf aus 32-vertrag.sql hat fuenf Stellen, die nur Ibo kennt.
+   Hier wird daraus eine NEUE Fassung mit seinen Daten -- nie ein Update
+   der alten: eine Unterschrift zeigt ueber den SHA-256-Abdruck auf den
+   Text, der damals wirklich dastand. */
+async function vertragFassungBauen(nurAnsehen) {
+    var kasten = document.getElementById('vertragInhalt');
+    var token = null;
+    try {
+        if (window.supabaseClient && supabaseClient.auth) {
+            var sess = await supabaseClient.auth.getSession();
+            token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        }
+    } catch (e) {}
+    if (!token) { showToast('Bitte neu anmelden', 'error'); return; }
+
+    var res, j = null;
+    try {
+        res = await fetch('/.netlify/functions/vertrag-fassung?action='
+            + (nurAnsehen ? 'vorschau' : 'erstellen'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({})
+        });
+        try { j = await res.json(); } catch (e) {}
+    } catch (e) { showToast('Nicht erreichbar: ' + e.message, 'error'); return; }
+
+    if (!j || !j.ok) {
+        showToast((j && j.fehler) || ('Fehler ' + (res && res.status)), 'error');
+        return;
+    }
+
+    if (!nurAnsehen) {
+        showToast('Fassung ' + j.fassung + ' angelegt — als Entwurf.', 'success');
+        vertragListeZeigen();
+        return;
+    }
+
+    // Vorschau: zeigen, was rauskaeme, UND was danach noch offen bleibt.
+    var html = '<button onclick="vertragListeZeigen()" style="background:none;border:none;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer;padding:0;margin-bottom:14px;">← Zurück</button>';
+    (j.fassungen || []).forEach(function (f) {
+        html += '<div style="margin-bottom:18px;">'
+             +  '<div style="font-weight:700;margin-bottom:6px;">' + vertragEsc(f.titel) + '</div>'
+             +  '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">'
+             +    'vorher ' + f.vorher_offen + ' offene Stellen, nachher ' + f.nachher_offen.length + '</div>'
+             +  '<div style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;'
+             +    'line-height:1.6;background:var(--bg-secondary);border:1px solid var(--border-color);'
+             +    'border-radius:12px;padding:14px;max-height:280px;overflow:auto;">'
+             +    vertragEsc(f.inhalt) + '</div>';
+        if (f.nachher_offen.length) {
+            html += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;'
+                 +  'padding:12px;margin-top:8px;font-size:13px;line-height:1.6;">'
+                 +  '<strong>Das musst du noch eintragen:</strong><ul style="margin:6px 0 0 18px;padding:0;">';
+            f.nachher_offen.forEach(function (o) {
+                html += '<li style="margin-bottom:4px;">' + vertragEsc(o) + '</li>';
+            });
+            html += '</ul></div>';
+        }
+        html += '</div>';
+    });
+    html += '<button onclick="vertragFassungBauen(false)" class="btn btn-primary">'
+         +  'Fassung ' + vertragEsc(j.naechste_nummer) + ' anlegen</button>';
+    if (kasten) kasten.innerHTML = html;
+}
+window.vertragFassungBauen = vertragFassungBauen;
 
 function selbstcheckErlaubt() {
     return !!(typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.isAdmin);
