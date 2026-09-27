@@ -79,7 +79,7 @@ export interface Api {
   tagesgericht(sprache: Sprache): Promise<{ gericht: string; grund: string } | null>;
   hinweise(): Promise<Hinweis[]>;
   hinweisErledigt(id: string): Promise<void>;
-  spracheZuText(audio: Blob, sprache: Sprache): Promise<{ text: string }>;
+  spracheZuText(audio: Blob, sprache: Sprache, dauerSekunden?: number): Promise<{ text: string }>;
   pushSpeichern(abo: PushSubscriptionJSON): Promise<void>;
 
   // Auswertung

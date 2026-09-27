@@ -120,6 +120,7 @@ export function MikroKnopf({ onText, gross, label }: { onText(text: string): voi
   const fehlerText = useFehlerText();
   const [zustand, setZustand] = useState<'bereit' | 'aufnahme' | 'wandelt'>('bereit');
   const rec = useRef<Aufnahme | null>(null);
+  const start = useRef(0);
   useEffect(() => () => rec.current?.abbrechen(), []);
 
   async function tippen() {
@@ -128,7 +129,7 @@ export function MikroKnopf({ onText, gross, label }: { onText(text: string): voi
       setZustand('wandelt');
       try {
         const blob = await rec.current!.stopp();
-        const r = await api.spracheZuText(blob, sprache);
+        const r = await api.spracheZuText(blob, sprache, (Date.now() - start.current) / 1000);
         if (!r.text.trim()) toast(t('sprache.nichts_verstanden'));
         else onText(r.text);
       } catch (e) {
@@ -141,6 +142,7 @@ export function MikroKnopf({ onText, gross, label }: { onText(text: string): voi
     }
     try {
       rec.current = await aufnehmen();
+      start.current = Date.now();
       haptik();
       setZustand('aufnahme');
     } catch (e) {

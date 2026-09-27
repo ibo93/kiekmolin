@@ -282,11 +282,12 @@ export function supabaseApi(url: string, anonKey: string): Api {
     async hinweisErledigt(id) {
       pruefeOhne(await sb.from('hinweise').update({ erledigt: true }).eq('id', id), 'Hinweis');
     },
-    async spracheZuText(audio, sprache) {
+    async spracheZuText(audio, sprache, dauerSekunden) {
       const { data } = await sb.auth.getSession();
       const form = new FormData();
       form.append('audio', audio, 'aufnahme');
       form.append('sprache', sprache);
+      if (dauerSekunden) form.append('dauer_sekunden', String(Math.round(dauerSekunden)));
       const r = await fetch(`${url}/functions/v1/sprache`, {
         method: 'POST', body: form,
         headers: { Authorization: `Bearer ${data.session?.access_token ?? anonKey}`, apikey: anonKey },
