@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Sprache wählen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;font-family:-apple-system,"SF Pro Text","Helvetica Neue",sans-serif;background:#F4F3EF;color:#141413}
+a{color:#1F4FD1}a:hover{color:#173C9E}
+button,a{transition:transform .15s ease}
+button:active,a:active{transform:scale(.97)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(31,79,209,.28)}50%{box-shadow:0 0 0 18px rgba(31,79,209,0)}}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div dir="{{dir}}" style="width: 390px; height: 844px; position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box; padding: 110px 20px 0 20px; background: #F4F3EF; display: flex; flex-direction: column; gap: 18px; font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif; color: #141413">
+  <div style="position: absolute; left: -120px; top: -140px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(31,79,209,0.16), rgba(31,79,209,0) 70%); z-index: -1"></div>
+  <div style="font-family: 'Bricolage Grotesque', -apple-system, sans-serif; font-size: 46px; font-weight: 800; letter-spacing: -1.4px; line-height: 1.05; color: {{accent}}; animation: rise .5s cubic-bezier(.2,.8,.2,1) both">{{welcome}}</div>
+  <div style="font-size: 17px; line-height: 1.45; color: #5F5E5A">{{sub}}</div>
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px">
+    <sc-for list="{{langs}}" as="l" hint-placeholder-count="5">
+      <button onClick="{{l.pick}}" style="height: 64px; border: none; border-radius: 22px; padding: 0 18px; font: inherit; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: {{l.bg}}; box-shadow: {{l.shadow}}; color: #141413">
+        <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 1px"><span style="font-size: 19px; font-weight: 700">{{l.native}}</span><span style="font-size: 13px; color: #5F5E5A">{{l.de}}</span></span>
+        <span style="width: 28px; height: 28px; border-radius: 14px; box-sizing: border-box; border: {{l.radioBorder}}; background: {{l.radioBg}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <sc-if value="{{l.sel}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+        </span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="position: absolute; left: 20px; right: 20px; bottom: 34px">
+    <a href="Main.dc.html" style="height: 64px; border-radius: 32px; text-decoration: none; background: radial-gradient(90% 70% at 30% 10%, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%), {{accent}}; color: #FFFFFF; font-size: 19px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.5), 0 12px 26px rgba(31,79,209,0.3)">{{next}}</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#1F4FD1","options":["#1F4FD1","#0E7A4E","#C25A06","#6A2FB8"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { lang: 0 };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#1F4FD1';
+    const L = [
+      { native: 'Deutsch', de: 'Deutsch', welcome: 'Willkommen', sub: 'In welcher Sprache möchtest du die App nutzen?', next: 'Weiter', dir: 'ltr' },
+      { native: 'Türkçe', de: 'Türkisch', welcome: 'Hoş geldin', sub: 'Uygulamayı hangi dilde kullanmak istersin?', next: 'Devam', dir: 'ltr' },
+      { native: 'Kurdî (Kurmancî)', de: 'Kurdisch', welcome: 'Bi xêr hatî', sub: 'Tu dixwazî sepanê bi kîjan zimanî bi kar bînî?', next: 'Berdewam', dir: 'ltr' },
+      { native: 'العربية', de: 'Arabisch', welcome: 'أهلاً وسهلاً', sub: 'بأي لغة تريد استخدام التطبيق؟', next: 'متابعة', dir: 'rtl' },
+      { native: 'English', de: 'Englisch', welcome: 'Welcome', sub: 'Which language would you like to use?', next: 'Continue', dir: 'ltr' }
+    ];
+    const cur = L[this.state.lang];
+    const langs = L.map((l, i) => {
+      const sel = i === this.state.lang;
+      return {
+        native: l.native, de: l.de, sel,
+        bg: sel ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+        shadow: sel
+          ? 'inset 1.5px 1.5px 0 rgba(255,255,255,1), 0 0 0 2.5px ' + accent + ', 0 8px 20px rgba(20,20,19,0.10)'
+          : 'inset 1.5px 1.5px 0 rgba(255,255,255,0.95), inset -1px -1px 0 rgba(255,255,255,0.5), 0 4px 14px rgba(20,20,19,0.06)',
+        radioBorder: sel ? 'none' : '1.5px solid #C7C7CC',
+        radioBg: sel ? accent : 'transparent',
+        pick: () => this.setState({ lang: i })
+      };
+    });
+    return { accent, langs, welcome: cur.welcome, sub: cur.sub, next: cur.next, dir: cur.dir };
+  }
+}
+</script>
+</body>
+</html>
