@@ -1,5 +1,16 @@
 # The Chef – Server einrichten (einmalig)
 
+**Am schnellsten:** zwei Befehle im Terminal auf dem Mac, der Rest läuft von selbst.
+
+```bash
+supabase login                 # Enter drücken, im Browser „Authorize“
+bash werkzeug/einrichten.sh    # legt Projekt, Datenbank, Funktionen an, verbindet die App
+```
+
+Das Skript fragt vor dem Anlegen des Projekts (kann Geld kosten) und lässt dich
+den Anthropic-Schlüssel selbst eintippen. Die Schritte unten sind dasselbe von Hand.
+
+
 Was ich (Claude) von hier aus **nicht** kann: ein Supabase-Projekt anlegen, Secrets setzen, Netlify erreichen (Netzwerk der Cloud-Umgebung sperrt `api.netlify.com`). Diese Schritte machst du – jeder mit einem Satz, woran du siehst, dass er geklappt hat.
 
 ## 1. Supabase-Projekt (NEU, nicht das von Kiek mol in)

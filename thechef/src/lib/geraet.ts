@@ -67,6 +67,23 @@ export async function mitteilungenOeffnen() {
   });
 }
 
+export const APNS_GESPEICHERT = 'thechef-apns-gespeichert';
+
+/** Ist DIESES Gerät für Push angemeldet? `push_an` in der Datenbank steht
+ *  standardmäßig auf an – ohne Abo auf dem Gerät kommt trotzdem nichts an. */
+export async function pushAufGeraet(): Promise<boolean> {
+  // iPhone-App: kein Web-Push. Angemeldet = Apple erlaubt UND ein Token wurde gespeichert.
+  if (istNativ()) {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    if ((await PushNotifications.checkPermissions()).receive !== 'granted') return false;
+    try { return localStorage.getItem(APNS_GESPEICHERT) === '1'; } catch { return false; }
+  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
+  if (Notification.permission !== 'granted') return false;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return !!(await reg?.pushManager.getSubscription());
+}
+
 export function whatsappLink(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

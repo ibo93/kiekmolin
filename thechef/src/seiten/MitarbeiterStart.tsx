@@ -6,10 +6,12 @@ import type { Bereich, Scan } from '../../supabase/functions/_shared/logik/typen
 import { useApp, useIch, useLaden } from '../app/kontext.tsx';
 import { useT } from '../i18n/i18n.tsx';
 import { abonnieren, abgleichen, wegAbgleichen, wegAbonnieren, wegMelden } from '../lib/abgleich.ts';
+import { istInstalliert, istIos } from '../lib/geraet.ts';
 import { geheZu } from '../lib/router.ts';
 import { wegEntfernen, wegAktualisieren, type WarteScan, type WarteWeg } from '../lib/warteschlange.ts';
 import { Fehler, Laden } from '../ui/bausteine.tsx';
 import { Icon } from '../ui/Icon.tsx';
+import { usePush } from '../ui/push.tsx';
 
 type Zustand = { art: 'fertig'; zeit: string } | { art: 'bestaetigen'; scanId: string } | { art: 'wartet' } | { art: 'fehler'; lokal: WarteScan } | { art: 'offen' };
 
@@ -17,6 +19,7 @@ export function MitarbeiterStart() {
   const { t, name, uhrzeit, sprache } = useT();
   const { nutzer, betrieb } = useIch();
   const { api } = useApp();
+  const push = usePush();
   const [warte, setWarte] = useState<WarteScan[]>([]);
   const [online, setOnline] = useState(navigator.onLine);
   const [wegWarte, setWegWarte] = useState<WarteWeg[]>([]);
@@ -119,6 +122,18 @@ export function MitarbeiterStart() {
           );
         })}
       </div>
+
+      {/* Scan-Erinnerung (Standard 22 Uhr) kommt nur an, wenn DIESES Handy angemeldet ist.
+          In der Xcode-App läuft das über Apple (APNs), sonst über Web-Push. */}
+      {push.geprueft && !push.aktiv && (
+        <div className="karte einblenden" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, animationDelay: '.15s' }}>
+          <span className="icon-rund"><Icon name="vorlesen" groesse={20} /></span>
+          <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>{t('mitarbeiter.erinnerung', { zeit: betrieb.scan_erinnerung_uhrzeit.slice(0, 5) })}</span>
+          {istIos() && !istInstalliert()
+            ? <a className="knopf klein" href="#/installieren">{t('mitarbeiter.erinnerung_an')}</a>
+            : <button className="knopf klein" disabled={push.laedt} onClick={() => push.setzen(true)}>{push.laedt ? <span className="laden" /> : t('mitarbeiter.erinnerung_an')}</button>}
+        </div>
+      )}
 
       <a href="#/weggeworfen" className="knopf weg-knopf einblenden" style={{ animationDelay: '.2s' }}>
         <Icon name="muell" /> {t('mitarbeiter.etwas_weg')}

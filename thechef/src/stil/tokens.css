@@ -67,6 +67,9 @@
   --schrift-marke: 'Bricolage Grotesque Variable', -apple-system, sans-serif; /* nur die Wortmarke "Chef" */
   --federn: cubic-bezier(0.2, 0.8, 0.2, 1);
   --massstab: 0.88;
+  /* iOS zoomt beim Antippen jedes Feld heran, dessen Schrift unter 16 px liegt –
+     gemessen NACH dem Maßstab. Felder daher nie kleiner als 16 px auf dem Gerät. */
+  --feld-min: calc(16px / var(--massstab));
 
   color-scheme: light;
 }
@@ -117,6 +120,7 @@ body {
   overscroll-behavior-y: none;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { font-size: var(--feld-min); }
 button { cursor: pointer; }
 a { color: var(--akzent); }
 img { display: block; max-width: 100%; }

@@ -56,7 +56,7 @@ export function Gespraech() {
         </div>
       ))}
       <div ref={ende} />
-      <form className="frage-leiste glas" style={{ position: 'fixed', left: 16, right: 16, bottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', maxWidth: 528, margin: '0 auto', zIndex: 20 }}
+      <form className="frage-leiste glas unten-allein"
         onSubmit={(e) => { e.preventDefault(); fragen(frage); }}>
         <input value={frage} onChange={(e) => setFrage(e.target.value)} placeholder={t('assistent.frag_mich')} aria-label={t('assistent.frag_mich')} enterKeyHint="send" />
         {frage.trim()
