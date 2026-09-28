@@ -4,7 +4,7 @@ import { lagerLaden } from './lager.ts';
 import { briefingPunkte, fehlendeBereiche } from './logik/lager.ts';
 import type { Betrieb } from './logik/typen.ts';
 import { einmal, pushAn } from './push.ts';
-import { name, text } from './texte.ts';
+import { briefingPushText, name, text } from './texte.ts';
 
 export async function briefingSenden(db: SupabaseClient, betrieb: Betrieb) {
   const l = await lagerLaden(db, betrieb);
@@ -20,7 +20,8 @@ export async function briefingSenden(db: SupabaseClient, betrieb: Betrieb) {
   const bereichNamen = (s: Parameters<typeof text>[0]) => fehlen.map((id) => name(l.bereiche.find((b) => b.id === id)?.namen ?? {}, s)).join(', ');
   await pushAn(db, betrieb.id, 'chef', (s) => ({
     titel: text(s, 'briefing_titel'),
-    text: fehlen.length ? text(s, 'briefing_nicht_gescannt', { bereiche: bereichNamen(s) }) : `1 · 2 · 3`,
+    text: fehlen.length ? text(s, 'briefing_nicht_gescannt', { bereiche: bereichNamen(s) })
+      : briefingPushText(punkte, s, (id) => name(l.staende.find((x) => x.produkt.id === id)?.produkt.namen ?? {}, s)),
     ziel: '#/c', tag: 'briefing',
   }));
   return { gesendet: true, gescannt: fehlen.length === 0 };

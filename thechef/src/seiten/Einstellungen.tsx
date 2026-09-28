@@ -1,15 +1,13 @@
 // Einstellungen.dc.html – Darstellung (Hell/Dunkel/Automatisch, Akzent, Glas, Bewegungen) + Betrieb + Einrichtung.
-import { useState } from 'react';
 import type { Darstellung } from '../../supabase/functions/_shared/logik/typen.ts';
 import { useApp, useFehlerText, useIch } from '../app/kontext.tsx';
 import { demoZuruecksetzen } from '../daten/demo.ts';
 import { SPRACHEN, useT } from '../i18n/i18n.tsx';
 import { AKZENTE } from '../lib/darstellung.ts';
-import { istNativ, pushAbonnieren } from '../lib/geraet.ts';
+import { istNativ } from '../lib/geraet.ts';
 import { KopfMitte, Schalter, Umschalter } from '../ui/bausteine.tsx';
 import { Icon } from '../ui/Icon.tsx';
-
-const VAPID = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+import { usePush } from '../ui/push.tsx';
 
 export function Einstellungen() {
   const { t, geld, sprache } = useT();
@@ -17,7 +15,7 @@ export function Einstellungen() {
   const { nutzer, betrieb } = useIch();
   const fehlerText = useFehlerText();
   const d = nutzer.darstellung;
-  const [pushLaedt, setPushLaedt] = useState(false);
+  const push = usePush();
 
   async function darstellung(p: Partial<Darstellung>) {
     try { await api.profilAendern({ darstellung: { ...d, ...p } }); await neuLaden(); } catch (e) { toast(fehlerText(e)); }
@@ -25,18 +23,6 @@ export function Einstellungen() {
   async function betriebSetzen(p: Parameters<typeof api.betriebAendern>[0]) {
     try { await api.betriebAendern(p); await neuLaden(); toast(t('allg.gespeichert')); } catch (e) { toast(fehlerText(e)); }
   }
-  async function push(an: boolean) {
-    setPushLaedt(true);
-    try {
-      if (an) {
-        if (!VAPID) throw new Error('push_nicht_eingerichtet');
-        await api.pushSpeichern(await pushAbonnieren(VAPID));
-      }
-      await api.profilAendern({ push_an: an });
-      await neuLaden();
-    } catch (e) { toast(fehlerText(e)); } finally { setPushLaedt(false); }
-  }
-
   return (
     <main className="seite ohne-nav">
       <KopfMitte titel={t('einstellungen.titel')} ziel="/c" />
@@ -75,7 +61,7 @@ export function Einstellungen() {
         <div className="zeile">
           <Icon name="vorlesen" />
           <span className="mitte"><span className="name">{t('einstellungen.push')}</span><span className="klein">{t('einstellungen.push_unter')}</span></span>
-          {pushLaedt ? <span className="laden" /> : <Schalter an={nutzer.push_an} setAn={push} label={t('einstellungen.push')} />}
+          {push.laedt || !push.geprueft ? <span className="laden" /> : <Schalter an={push.aktiv} setAn={push.setzen} label={t('einstellungen.push')} />}
         </div>
         {!istNativ() && <a className="zeile" href="#/installieren"><Icon name="telefon" /><span className="mitte"><span className="name">{t('installieren.titel')}</span></span><Icon name="weiter" spiegeln /></a>}
       </section>

@@ -95,7 +95,7 @@ t = {
  "mhd.abgelaufen":"expired","mhd.heute":"today","mhd.morgen":"tomorrow","mhd.tage":P("{n} day","{n} days"),"mhd.in_tagen":P("in {n} day","in {n} days"),
  "mitarbeiter.hallo":"Hi, {name}","mitarbeiter.sprache_waehlen":"Choose language","mitarbeiter.heute":"Scan today","mitarbeiter.fortschritt":"{n} of {von} done",
  "mitarbeiter.jetzt_dran":"Up next","mitarbeiter.erledigt":"Done · {zeit}","mitarbeiter.offen":"Open","mitarbeiter.bitte_bestaetigen":"Please confirm",
- "mitarbeiter.weggeworfen":"Thrown away","mitarbeiter.keine_bereiche":"No areas yet","mitarbeiter.keine_bereiche_unter":"The boss sets them up in the setup.",
+ "mitarbeiter.weggeworfen":"Thrown away","mitarbeiter.erinnerung":"Reminder on your phone at {zeit}","mitarbeiter.erinnerung_an":"Turn on","mitarbeiter.keine_bereiche":"No areas yet","mitarbeiter.keine_bereiche_unter":"The boss sets them up in the setup.",
  "monat.1":"January","monat.2":"February","monat.3":"March","monat.4":"April","monat.5":"May","monat.6":"June","monat.7":"July","monat.8":"August","monat.9":"September","monat.10":"October","monat.11":"November","monat.12":"December",
  "nav.titel":"Main navigation","nav.assistent":"Assistant","nav.bestand":"Stock","nav.einkauf":"Shopping","nav.einkaufsliste":"Shopping list","nav.scannen":"Scan storage",
  "offline.kein_netz":"No signal. You can still scan.","offline.wird_hochgeladen":"Will upload as soon as there is signal","offline.titel":"Saved on the phone",

@@ -95,7 +95,7 @@ t = {
  "mhd.abgelaufen":"bozulmuş","mhd.heute":"bugün","mhd.morgen":"yarın","mhd.tage":S("{n} gün"),"mhd.in_tagen":S("{n} gün içinde"),
  "mitarbeiter.hallo":"Merhaba, {name}","mitarbeiter.sprache_waehlen":"Dil seç","mitarbeiter.heute":"Bugün taranacak","mitarbeiter.fortschritt":"{von} alandan {n} tamam",
  "mitarbeiter.jetzt_dran":"Sıradaki","mitarbeiter.erledigt":"Tamamlandı · {zeit}","mitarbeiter.offen":"Açık","mitarbeiter.bitte_bestaetigen":"Lütfen onayla",
- "mitarbeiter.weggeworfen":"Çöpe atıldı","mitarbeiter.keine_bereiche":"Henüz alan yok","mitarbeiter.keine_bereiche_unter":"Patron bunları kurulumda ekler.",
+ "mitarbeiter.weggeworfen":"Çöpe atıldı","mitarbeiter.erinnerung":"Saat {zeit} hatırlatması telefona gelsin","mitarbeiter.erinnerung_an":"Aç","mitarbeiter.keine_bereiche":"Henüz alan yok","mitarbeiter.keine_bereiche_unter":"Patron bunları kurulumda ekler.",
  "monat.1":"Ocak","monat.2":"Şubat","monat.3":"Mart","monat.4":"Nisan","monat.5":"Mayıs","monat.6":"Haziran","monat.7":"Temmuz","monat.8":"Ağustos","monat.9":"Eylül","monat.10":"Ekim","monat.11":"Kasım","monat.12":"Aralık",
  "nav.titel":"Ana menü","nav.assistent":"Asistan","nav.bestand":"Stok","nav.einkauf":"Alışveriş","nav.einkaufsliste":"Alışveriş listesi","nav.scannen":"Depoyu tara",
  "offline.kein_netz":"İnternet yok. Yine de tarayabilirsin.","offline.wird_hochgeladen":"İnternet gelince yüklenecek","offline.titel":"Telefona kaydedildi",

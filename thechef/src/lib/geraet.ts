@@ -23,6 +23,15 @@ export async function pushAbonnieren(vapid: string): Promise<PushSubscriptionJSO
   return abo.toJSON();
 }
 
+/** Ist DIESES Gerät für Push angemeldet? `push_an` in der Datenbank steht
+ *  standardmäßig auf an – ohne Abo auf dem Gerät kommt trotzdem nichts an. */
+export async function pushAufGeraet(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
+  if (Notification.permission !== 'granted') return false;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return !!(await reg?.pushManager.getSubscription());
+}
+
 export function whatsappLink(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

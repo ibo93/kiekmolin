@@ -96,7 +96,7 @@ de = {
  "mhd.abgelaufen":"abgelaufen","mhd.heute":"heute","mhd.morgen":"morgen","mhd.tage":P("{n} Tag","{n} Tage"),"mhd.in_tagen":P("in {n} Tag","in {n} Tagen"),
  "mitarbeiter.hallo":"Hallo, {name}","mitarbeiter.sprache_waehlen":"Sprache wählen","mitarbeiter.heute":"Heute scannen","mitarbeiter.fortschritt":"{n} von {von} erledigt",
  "mitarbeiter.jetzt_dran":"Jetzt dran","mitarbeiter.erledigt":"Erledigt · {zeit}","mitarbeiter.offen":"Offen","mitarbeiter.bitte_bestaetigen":"Bitte bestätigen",
- "mitarbeiter.weggeworfen":"Weggeworfen","mitarbeiter.keine_bereiche":"Noch keine Bereiche","mitarbeiter.keine_bereiche_unter":"Der Chef legt sie in der Einrichtung an.",
+ "mitarbeiter.weggeworfen":"Weggeworfen","mitarbeiter.erinnerung":"Erinnerung um {zeit} aufs Handy","mitarbeiter.erinnerung_an":"Einschalten","mitarbeiter.keine_bereiche":"Noch keine Bereiche","mitarbeiter.keine_bereiche_unter":"Der Chef legt sie in der Einrichtung an.",
  "monat.1":"Januar","monat.2":"Februar","monat.3":"März","monat.4":"April","monat.5":"Mai","monat.6":"Juni","monat.7":"Juli","monat.8":"August","monat.9":"September","monat.10":"Oktober","monat.11":"November","monat.12":"Dezember",
  "nav.titel":"Hauptnavigation","nav.assistent":"Assistent","nav.bestand":"Bestand","nav.einkauf":"Einkauf","nav.einkaufsliste":"Einkaufsliste","nav.scannen":"Lager scannen",
  "offline.kein_netz":"Kein Netz. Du kannst trotzdem scannen.","offline.wird_hochgeladen":"Wird hochgeladen, sobald Netz da ist","offline.titel":"Auf dem Handy gespeichert",

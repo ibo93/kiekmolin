@@ -404,7 +404,7 @@ export function demoApi(): Api {
       const liste = einkaufsliste(s, z.einkauf.filter((e) => e.datum === heute()));
       tools.push({ einkaufsliste: liste.map((e) => ({ produkt: e.produkt.id, menge: e.menge, anzeige: anzeigeMenge(e.produkt, e.menge).zahl })), anzahl: liste.length, letzter_scan: letzter });
       a = {
-        satz: t.t('demo.einkauf_satz', { n: liste.length }), text: liste.slice(0, 4).map((e) => `${t.name(e.produkt.namen)} +${t.menge(anzeigeMenge(e.produkt, e.menge).zahl, anzeigeMenge(e.produkt, e.menge).einheit)}`).join(' · '),
+        satz: t.t('demo.einkauf_satz', { n: liste.length }), text: liste.map((e) => `${t.name(e.produkt.namen)} +${t.menge(anzeigeMenge(e.produkt, e.menge).zahl, anzeigeMenge(e.produkt, e.menge).einheit)}`).join(' · '),
         kacheln: [], quelle: t.t('demo.quelle_bestand'), stand: letzter, schaetzung: false, daten_alt: false, aktion: { typ: 'einkauf' },
       };
     } else if (produkt && /reicht|genug|yeter|bes e|têr|يكفي|enough|last/.test(f)) {

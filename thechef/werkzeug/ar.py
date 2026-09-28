@@ -100,7 +100,7 @@ t = {
  "mhd.abgelaufen":"منتهي","mhd.heute":"اليوم","mhd.morgen":"غداً","mhd.tage":A("يوم واحد","يومان","{n} أيام","{n} يوماً"),"mhd.in_tagen":A("بعد يوم","بعد يومين","بعد {n} أيام","بعد {n} يوماً"),
  "mitarbeiter.hallo":"مرحباً، {name}","mitarbeiter.sprache_waehlen":"اختر اللغة","mitarbeiter.heute":"المسح اليوم","mitarbeiter.fortschritt":"تم {n} من {von}",
  "mitarbeiter.jetzt_dran":"الآن دورك","mitarbeiter.erledigt":"تم · {zeit}","mitarbeiter.offen":"مفتوح","mitarbeiter.bitte_bestaetigen":"أكّد من فضلك",
- "mitarbeiter.weggeworfen":"هدر","mitarbeiter.keine_bereiche":"لا توجد أقسام بعد","mitarbeiter.keine_bereiche_unter":"المدير يضيفها في الإعداد.",
+ "mitarbeiter.weggeworfen":"هدر","mitarbeiter.erinnerung":"تذكير على الهاتف الساعة {zeit}","mitarbeiter.erinnerung_an":"تفعيل","mitarbeiter.keine_bereiche":"لا توجد أقسام بعد","mitarbeiter.keine_bereiche_unter":"المدير يضيفها في الإعداد.",
  "monat.1":"يناير","monat.2":"فبراير","monat.3":"مارس","monat.4":"أبريل","monat.5":"مايو","monat.6":"يونيو","monat.7":"يوليو","monat.8":"أغسطس","monat.9":"سبتمبر","monat.10":"أكتوبر","monat.11":"نوفمبر","monat.12":"ديسمبر",
  "nav.titel":"التنقل الرئيسي","nav.assistent":"المساعد","nav.bestand":"المخزون","nav.einkauf":"المشتريات","nav.einkaufsliste":"قائمة المشتريات","nav.scannen":"امسح المخزن",
  "offline.kein_netz":"لا توجد شبكة. يمكنك المسح رغم ذلك.","offline.wird_hochgeladen":"سيُرفع عند توفر الشبكة","offline.titel":"محفوظ على الهاتف",
