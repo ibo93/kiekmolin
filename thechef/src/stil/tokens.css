@@ -43,13 +43,14 @@
   --r-karte-gross: 28px;
   --r-kachel: 20px;
   --r-mini: 14px;
-  --touch: 44px;
-  --haupt: 64px;
+  --touch: 50px;   /* × Maßstab 0,88 = 44 pt – Mindestmaß aus der Spec */
+  --haupt: 68px;   /* × 0,88 ≈ 60 pt */
   --rand: 16px;
 
   --schrift: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Geeza Pro', 'Helvetica Neue', sans-serif;
   --schrift-zahl: 'Bricolage Grotesque', -apple-system, 'SF Pro Display', sans-serif;
   --federn: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --massstab: 0.88;
 
   color-scheme: light;
 }
@@ -86,6 +87,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* Maßstab der ganzen App. Die Mockups sind für 390 px gezeichnet; 1:1 übernommen
+   wirkte alles zu groß (Rückmeldung 28.09.2026). Eine Stelle für Schrift, Abstände,
+   Karten und Knöpfe gleichermaßen – Verhältnisse aus dem Design bleiben erhalten. */
+html { zoom: var(--massstab); }
 body {
   font-family: var(--schrift);
   background: var(--bg);
