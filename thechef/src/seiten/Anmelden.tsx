@@ -10,7 +10,7 @@ import { Icon } from '../ui/Icon.tsx';
 import { Umschalter } from '../ui/bausteine.tsx';
 
 export function Anmelden({ sitzung, fehler }: { sitzung: Sitzung | null; fehler: string | null }) {
-  const { t } = useT();
+  const { t, sprache } = useT();
   const { api } = useApp();
   const p = pfad();
   const codeAusLink = p[0] === 'beitreten' ? p[1] ?? '' : '';
@@ -34,7 +34,7 @@ export function Anmelden({ sitzung, fehler }: { sitzung: Sitzung | null; fehler:
             <span className="mitte"><strong>{t('anmelden.ich_chef')}</strong><small>{t('anmelden.ich_chef_unter')}</small></span>
             <Icon name="weiter" spiegeln />
           </button>
-          <button className="start-karte" onClick={() => (api.demo ? api.beitreten('', 'Halil', 'de').then(() => location.reload()) : setWeg('code'))}>
+          <button className="start-karte" onClick={() => (api.demo ? api.beitreten('', 'Halil', sprache).then(() => location.reload()) : setWeg('code'))}>
             <span className="icon-rund gross"><Icon name="team" groesse={28} /></span>
             <span className="mitte"><strong>{t('anmelden.ich_mitarbeiter')}</strong><small>{t('anmelden.ich_mitarbeiter_unter')}</small></span>
             <Icon name="weiter" spiegeln />

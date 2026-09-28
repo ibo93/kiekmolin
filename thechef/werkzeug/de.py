@@ -15,7 +15,7 @@ de = {
  "assistent.gescannt":"Heute gescannt · {zeit} · {wer}","assistent.teilweise":"Heute {n} von {von} gescannt",
  "assistent.nicht_gescannt":"Heute nicht gescannt","assistent.es_fehlt":"Es fehlt: {bereiche}","assistent.zahlen_alt":"Die Zahlen sind vom letzten Scan: {wann}.",
  "assistent.selbst_scannen":"Jetzt scannen","assistent.briefing":"Abend-Briefing","assistent.stand_jetzt":"Stand jetzt","assistent.vorlesen":"Vorlesen",
- "assistent.zum_bestand":"Zum Bestand","assistent.hinweise":"Hinweise","assistent.tagesgericht":"Tagesgericht-Idee",
+ "assistent.zum_bestand":"Zum Bestand","assistent.wichtig":P("{n} Ding ist wichtig","{n} Dinge sind wichtig"),"assistent.hinweise":"Hinweise","assistent.tagesgericht":"Tagesgericht-Idee",
  "assistent.tagesgericht_fehler":"Gerade keine Idee abrufbar.","assistent.frag_mich":"Frag mich etwas …",
  "assistent.verworfen":"Das kann ich gerade nicht sicher sagen. Bitte neu scannen oder anders fragen.",
  "bestaetigen.titel":"Das habe ich erkannt","bestaetigen.unter":"Stimmt alles? Tippe auf eine Kachel zum Ändern.",

@@ -6,15 +6,15 @@ type T = Record<'erinnerung_titel' | 'erinnerung_text' | 'briefing_titel' | 'bri
 
 const TEXTE: Record<string, T> = {
   de: { erinnerung_titel: 'Zeit zum Scannen', erinnerung_text: 'Noch offen: {bereiche}', briefing_titel: 'Abend-Briefing', briefing_nicht_gescannt: 'Heute nicht gescannt: {bereiche}',
-    wichtig_titel: 'Wichtig im Lager', laeuft_ab: '{produkt} läuft {wann} ab', leer: '{produkt} ist leer', abgelaufen: '{produkt} ist abgelaufen' },
+    wichtig_titel: '{n} Dinge sind wichtig', laeuft_ab: '{produkt} läuft {wann} ab', leer: '{produkt} ist leer', abgelaufen: '{produkt} ist abgelaufen' },
   tr: { erinnerung_titel: 'Tarama zamanı', erinnerung_text: 'Açık: {bereiche}', briefing_titel: 'Akşam özeti', briefing_nicht_gescannt: 'Bugün taranmadı: {bereiche}',
-    wichtig_titel: 'Depoda önemli', laeuft_ab: '{produkt} {wann} bozuluyor', leer: '{produkt} bitti', abgelaufen: '{produkt} bozulmuş' },
+    wichtig_titel: '{n} önemli konu', laeuft_ab: '{produkt} {wann} bozuluyor', leer: '{produkt} bitti', abgelaufen: '{produkt} bozulmuş' },
   ku: { erinnerung_titel: 'Dema skankirinê ye', erinnerung_text: 'Hîn vekirî: {bereiche}', briefing_titel: 'Kurteya êvarê', briefing_nicht_gescannt: 'Îro nehate skankirin: {bereiche}',
-    wichtig_titel: 'Girîng di depoyê de', laeuft_ab: '{produkt} {wann} xera dibe', leer: '{produkt} qediya', abgelaufen: '{produkt} xera bûye' },
+    wichtig_titel: '{n} tiştên girîng', laeuft_ab: '{produkt} {wann} xera dibe', leer: '{produkt} qediya', abgelaufen: '{produkt} xera bûye' },
   ar: { erinnerung_titel: 'وقت المسح', erinnerung_text: 'لم يُمسح بعد: {bereiche}', briefing_titel: 'ملخص المساء', briefing_nicht_gescannt: 'لم يتم المسح اليوم: {bereiche}',
-    wichtig_titel: 'مهم في المخزن', laeuft_ab: 'تنتهي صلاحية {produkt} {wann}', leer: 'نفد {produkt}', abgelaufen: 'انتهت صلاحية {produkt}' },
+    wichtig_titel: 'أمور مهمة: {n}', laeuft_ab: 'تنتهي صلاحية {produkt} {wann}', leer: 'نفد {produkt}', abgelaufen: 'انتهت صلاحية {produkt}' },
   en: { erinnerung_titel: 'Time to scan', erinnerung_text: 'Still open: {bereiche}', briefing_titel: 'Evening briefing', briefing_nicht_gescannt: 'Not scanned today: {bereiche}',
-    wichtig_titel: 'Important in storage', laeuft_ab: '{produkt} expires {wann}', leer: '{produkt} is empty', abgelaufen: '{produkt} has expired' },
+    wichtig_titel: '{n} things matter', laeuft_ab: '{produkt} expires {wann}', leer: '{produkt} is empty', abgelaufen: '{produkt} has expired' },
 };
 const WANN: Record<string, [string, string, string]> = {
   de: ['heute', 'morgen', 'in {n} Tagen'], tr: ['bugün', 'yarın', '{n} gün içinde'], ku: ['îro', 'sibê', 'di {n} rojan de'], ar: ['اليوم', 'غداً', 'بعد {n} أيام'], en: ['today', 'tomorrow', 'in {n} days'],

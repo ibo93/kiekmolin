@@ -46,4 +46,4 @@ Dann `supabase/migrations/0003_zeitplan.sql` im SQL Editor ausführen.
 
 `thechef/.env` (siehe `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`.
 In Netlify dieselben drei als Umgebungsvariablen; Base directory `thechef`.
-*Geklappt, wenn* das orangefarbene DEMO-Band oben weg ist.
+*Geklappt, wenn* auf der Startseite der Hinweis „Demo: Ohne Server …“ weg ist und „Ich bin der Chef“ nach E-Mail und Passwort fragt.

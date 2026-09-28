@@ -139,6 +139,11 @@ function startZustand(): Zustand {
   };
 }
 
+/** Die auf dem Sprach-Screen gewählte Sprache (vor der Anmeldung). */
+function gewaehlteSprache(): Sprache | null {
+  try { return (localStorage.getItem('thechef-sprache') as Sprache) || null; } catch { return null; }
+}
+
 export function demoApi(): Api {
   let z: Zustand;
   try {
@@ -181,8 +186,8 @@ export function demoApi(): Api {
       if (!z.rolle) return null;
       return { art: 'fertig', nutzer: nutzer(), betrieb: z.betrieb };
     },
-    async anmelden() { z.rolle = 'chef'; sichern(); },
-    async registrieren() { z.rolle = 'chef'; sichern(); return { mailBestaetigen: false }; },
+    async anmelden() { z.rolle = 'chef'; z.sprache = gewaehlteSprache() ?? z.sprache; sichern(); },
+    async registrieren() { z.rolle = 'chef'; z.sprache = gewaehlteSprache() ?? z.sprache; sichern(); return { mailBestaetigen: false }; },
     async abmelden() { z.rolle = null; sichern(); },
     async betriebAnlegen(name, _n, sprache) { z.betrieb.name = name; z.sprache = sprache; z.rolle = 'chef'; sichern(); },
     async beitreten(_c, _n, sprache) { z.sprache = sprache; z.rolle = 'mitarbeiter'; sichern(); },
@@ -348,12 +353,14 @@ export function demoApi(): Api {
     },
     async verlauf() { return z.verlauf.slice(-20); },
     async briefing(d) {
-      if (d !== heute()) return null;
+      // Wie im echten Betrieb: erst ab der Briefing-Zeit gibt es ein gesendetes Briefing
+      if (d !== heute() || new Date().toTimeString().slice(0, 5) < z.betrieb.briefing_spaetestens.slice(0, 5)) return null;
       const s = staende();
       const offen = fehlendeBereiche(z.bereiche.filter((b) => b.aktiv).map((b) => b.id), z.scans, ZZ, d);
       return {
         datum: d, gescannt: offen.length === 0, fehlende_bereiche: offen,
         punkte: briefingPunkte(s, einkaufsliste(s, z.einkauf.filter((e) => e.datum === d))), tagesgericht: {},
+        gesendet_am: new Date().toISOString(),
       };
     },
     async tagesgericht(sprache) {

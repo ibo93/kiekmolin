@@ -17,7 +17,7 @@ Beim ersten Mal lädt Xcode die Capacitor-Pakete (Swift Package Manager) – das
 
 Direkt ohne Xcode-Fenster: `npm run ios:sim` (fragt nach dem Simulator).
 
-**Ohne Supabase-Zugang läuft die App im Demo-Modus** (orangefarbenes Band oben):
+**Ohne Supabase-Zugang läuft die App im Demo-Modus** (zu erkennen an den zwei Knöpfen „Ich bin der Chef / Ich arbeite hier“ ohne Anmeldung und dem Hinweis darunter):
 Daten von „ÖZ KEBAB“, Erkennung und Assistent sind simuliert. Mit echtem Server:
 `.env` anlegen (siehe `.env.example`), dann `npm run ios`.
 

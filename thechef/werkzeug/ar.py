@@ -19,7 +19,7 @@ t = {
  "assistent.gescannt":"تم المسح اليوم · {zeit} · {wer}","assistent.teilweise":"تم مسح {n} من {von} اليوم",
  "assistent.nicht_gescannt":"لم يتم المسح اليوم","assistent.es_fehlt":"ينقص: {bereiche}","assistent.zahlen_alt":"الأرقام من آخر مسح: {wann}.",
  "assistent.selbst_scannen":"امسح الآن","assistent.briefing":"ملخص المساء","assistent.stand_jetzt":"الوضع الآن","assistent.vorlesen":"قراءة بصوت عالٍ",
- "assistent.zum_bestand":"إلى المخزون","assistent.hinweise":"تنبيهات","assistent.tagesgericht":"فكرة طبق اليوم",
+ "assistent.zum_bestand":"إلى المخزون","assistent.wichtig":A("أمر واحد مهم","أمران مهمان","{n} أمور مهمة","{n} أمراً مهماً"),"assistent.hinweise":"تنبيهات","assistent.tagesgericht":"فكرة طبق اليوم",
  "assistent.tagesgericht_fehler":"لا توجد فكرة الآن.","assistent.frag_mich":"اسألني شيئاً …",
  "assistent.verworfen":"لا أستطيع قول ذلك بثقة الآن. امسح من جديد أو اسأل بطريقة أخرى.",
  "bestaetigen.titel":"هذا ما تعرّفت عليه","bestaetigen.unter":"هل كل شيء صحيح؟ اضغط على مربع لتغييره.",

@@ -87,17 +87,12 @@ export function App() {
   return (
     <SprachRahmen sprache={aktiveSprache}>
       <AppRahmen api={api} sitzung={sitzung ?? null} neuLaden={neuLaden}>
-        {api.demo && <DemoBand />}
         {inhalt}
       </AppRahmen>
     </SprachRahmen>
   );
 }
 
-function DemoBand() {
-  useEffect(() => { document.documentElement.dataset.demo = '1'; }, []);
-  return <div className="demo-band" role="note">DEMO · KEINE ECHTE KI · DATEN NUR AUF DIESEM GERÄT</div>;
-}
 
 function Seiten({ rolle, pfad }: { rolle: 'chef' | 'mitarbeiter'; pfad: string[] }) {
   const [a, b, c] = pfad;

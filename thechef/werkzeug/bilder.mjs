@@ -55,5 +55,7 @@ await seite('11-bestand-dunkel', true, '#/c/bestand', { dunkel: true, warte: 150
 await seite('12-frage', true, '#/c/frage?q=' + encodeURIComponent('Reicht das Hähnchen fürs Wochenende?'), { warte: 2500 });
 await seite('13-produkte', true, '#/c/katalog/produkte');
 await seite('14-mitarbeiter-arabisch', true, '#/m', { rolle: 'mitarbeiter', sprache: 'ar' });
+await seite('15-chef-arabisch', true, '#/c/bestand', { sprache: 'ar', warte: 1500 });
+await seite('16-produkt-sheet', true, '#/c/katalog/produkte', { warte: 1200 });
 await browser.close();
 console.log(fehler.length ? 'FEHLER:\n' + fehler.join('\n') : 'keine JS-Fehler');

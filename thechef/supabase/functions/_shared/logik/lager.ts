@@ -235,3 +235,27 @@ export function fehlendeBereiche(
   );
   return bereichIds.filter((id) => !erledigt.has(id));
 }
+
+// ───────────────────────────────────────────── Nach dem Scan
+
+const hinweisSchluessel = (h: Pick<Hinweis, 'art' | 'daten'>) => `${h.art}:${h.daten.produkt_id ?? ''}`;
+
+/** Was der Chef heute schon als erledigt markiert hat, kommt heute nicht wieder. */
+export function hinweiseOhneErledigte(neu: Hinweis[], erledigtHeute: Array<Pick<Hinweis, 'art' | 'daten'>>): Hinweis[] {
+  const weg = new Set(erledigtHeute.map(hinweisSchluessel));
+  return neu.filter((h) => !weg.has(hinweisSchluessel(h)));
+}
+
+/** Ab dieser Priorität ist ein Hinweis eine Push-Nachricht wert (abgelaufen, heute, leer). */
+export const PUSH_AB = 85;
+
+/**
+ * EINE Nachricht nach dem Scan ("3 Dinge sind wichtig: …") statt einer je Produkt.
+ * Nur Wichtiges, das heute noch nicht gemeldet wurde; die wichtigsten 3 zuerst.
+ * Nichts Neues → null (dann keine Nachricht).
+ */
+export function pushZusammenfassung(hinweise: Hinweis[], schonGemeldet: Set<string>): { neu: Hinweis[]; schluessel: string[] } | null {
+  const neu = hinweise.filter((h) => h.prioritaet >= PUSH_AB && !schonGemeldet.has(hinweisSchluessel(h)));
+  if (!neu.length) return null;
+  return { neu: neu.slice(0, 3), schluessel: neu.map(hinweisSchluessel) };
+}

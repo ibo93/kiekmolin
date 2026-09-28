@@ -14,7 +14,7 @@ t = {
  "assistent.gescannt":"Scanned today · {zeit} · {wer}","assistent.teilweise":"Today {n} of {von} scanned",
  "assistent.nicht_gescannt":"Not scanned today","assistent.es_fehlt":"Missing: {bereiche}","assistent.zahlen_alt":"The numbers are from the last scan: {wann}.",
  "assistent.selbst_scannen":"Scan now","assistent.briefing":"Evening briefing","assistent.stand_jetzt":"Right now","assistent.vorlesen":"Read aloud",
- "assistent.zum_bestand":"To stock","assistent.hinweise":"Notices","assistent.tagesgericht":"Dish of the day idea",
+ "assistent.zum_bestand":"To stock","assistent.wichtig":P("{n} thing matters","{n} things matter"),"assistent.hinweise":"Notices","assistent.tagesgericht":"Dish of the day idea",
  "assistent.tagesgericht_fehler":"No idea available right now.","assistent.frag_mich":"Ask me something …",
  "assistent.verworfen":"I can't say that for sure right now. Please scan again or ask differently.",
  "bestaetigen.titel":"This is what I found","bestaetigen.unter":"All correct? Tap a tile to change it.",

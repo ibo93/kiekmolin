@@ -14,7 +14,7 @@ t = {
  "assistent.gescannt":"Bugün tarandı · {zeit} · {wer}","assistent.teilweise":"Bugün {von} alandan {n} tarandı",
  "assistent.nicht_gescannt":"Bugün taranmadı","assistent.es_fehlt":"Eksik: {bereiche}","assistent.zahlen_alt":"Rakamlar son taramadan: {wann}.",
  "assistent.selbst_scannen":"Şimdi tara","assistent.briefing":"Akşam özeti","assistent.stand_jetzt":"Şu anki durum","assistent.vorlesen":"Sesli oku",
- "assistent.zum_bestand":"Stoka git","assistent.hinweise":"Uyarılar","assistent.tagesgericht":"Günün yemeği fikri",
+ "assistent.zum_bestand":"Stoka git","assistent.wichtig":S("{n} önemli konu"),"assistent.hinweise":"Uyarılar","assistent.tagesgericht":"Günün yemeği fikri",
  "assistent.tagesgericht_fehler":"Şu an fikir alınamıyor.","assistent.frag_mich":"Bana bir şey sor …",
  "assistent.verworfen":"Bunu şu an kesin söyleyemem. Lütfen yeniden tara veya farklı sor.",
  "bestaetigen.titel":"Bunları tanıdım","bestaetigen.unter":"Hepsi doğru mu? Değiştirmek için bir kutuya dokun.",

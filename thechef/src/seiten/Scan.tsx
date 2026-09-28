@@ -5,7 +5,7 @@
 // Jedes Foto landet SOFORT auf dem Gerät (IndexedDB) – erst dann im Netz.
 import { useEffect, useRef, useState } from 'react';
 import type { Position } from '../../supabase/functions/_shared/logik/typen.ts';
-import { useApp, useFehlerText, useLaden } from '../app/kontext.tsx';
+import { useApp, useFehlerText, useIch, useLaden } from '../app/kontext.tsx';
 import { useT } from '../i18n/i18n.tsx';
 import { abgleichen } from '../lib/abgleich.ts';
 import { SCAN_KANTE, verkleinern } from '../lib/bild.ts';
@@ -21,6 +21,7 @@ type Foto = { id: string; position_id: string | null; url: string };
 export function ScanSeite({ bereichId }: { bereichId: string }) {
   const { t, name } = useT();
   const { api } = useApp();
+  const { betrieb } = useIch();
   const fehlerText = useFehlerText();
   const video = useRef<HTMLVideoElement>(null);
   const kamera = useRef<Kamera | null>(null);
@@ -62,14 +63,14 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
     setGeist(null);
     if (!position) return;
     (async () => {
-      const lokal = await geisterbild(position.id).catch(() => null);
+      const lokal = await geisterbild(position.id, betrieb.foto_loeschfrist_tage).catch(() => null);
       if (lokal) { objektUrl = URL.createObjectURL(lokal); if (!aus) setGeist(objektUrl); return; }
       const netz = await api.letztesFotoUrl(position.id).catch(() => null);
       if (netz) { if (!aus) setGeist(netz); return; }
       if (position.referenzfoto_pfad) { const r = await api.bildUrl(position.referenzfoto_pfad).catch(() => null); if (!aus) setGeist(r); }
     })();
     return () => { aus = true; if (objektUrl) URL.revokeObjectURL(objektUrl); };
-  }, [api, position]);
+  }, [api, position, betrieb.foto_loeschfrist_tage]);
 
   async function ausloesen() {
     const k = kamera.current;

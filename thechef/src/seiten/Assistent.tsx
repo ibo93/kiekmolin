@@ -114,6 +114,7 @@ export function AssistentStart() {
 
       {(z?.hinweise.length ?? 0) > 0 && (
         <section className="stapel einblenden" style={{ gap: 8, animationDelay: '.1s' }} aria-label={t('assistent.hinweise')}>
+          <h2 className="abschnitt" style={{ margin: '4px 4px 0', fontSize: 17 }}>{t('assistent.wichtig', { n: Math.min(5, z!.hinweise.length) })}</h2>
           {z!.hinweise.slice(0, 5).map((h) => {
             const x = hinweisText(tt, h, d?.produkte ?? [], bereichName);
             return (

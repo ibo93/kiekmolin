@@ -16,7 +16,7 @@ t = {
  "assistent.gescannt":"Îro hate skankirin · {zeit} · {wer}","assistent.teilweise":"Îro {n} ji {von} hate skankirin",
  "assistent.nicht_gescannt":"Îro nehate skankirin","assistent.es_fehlt":"Kêm e: {bereiche}","assistent.zahlen_alt":"Hejmar ji skana dawî ne: {wann}.",
  "assistent.selbst_scannen":"Niha skan bike","assistent.briefing":"Kurteya êvarê","assistent.stand_jetzt":"Rewş niha","assistent.vorlesen":"Bi deng bixwîne",
- "assistent.zum_bestand":"Ber bi stokê","assistent.hinweise":"Hişyarî","assistent.tagesgericht":"Ramana xwarina rojê",
+ "assistent.zum_bestand":"Ber bi stokê","assistent.wichtig":S("{n} tiştên girîng"),"assistent.hinweise":"Hişyarî","assistent.tagesgericht":"Ramana xwarina rojê",
  "assistent.tagesgericht_fehler":"Niha ti raman nayê.","assistent.frag_mich":"Tiştekî ji min bipirse …",
  "assistent.verworfen":"Niha ez nikarim vê bi ewlehî bibêjim. Ji kerema xwe dîsa skan bike an cuda bipirse.",
  "bestaetigen.titel":"Min ev nas kirin","bestaetigen.unter":"Hemû rast e? Ji bo guhertinê li qutîkê bitikîne.",

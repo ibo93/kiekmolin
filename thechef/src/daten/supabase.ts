@@ -20,6 +20,28 @@ function pruefeOhne(r: { error: { message: string } | null }, was: string) {
 }
 const zahl = (x: unknown) => (x == null ? null : Number(x));
 
+/**
+ * Offline-Rückfall für das, was man zum SCANNEN braucht (Bereiche, Positionen,
+ * Produkte, heutige Scans). Im Kühlhaus ist oft kein Netz – ohne diesen Speicher
+ * bliebe die Startseite leer und niemand käme bis zur Kamera.
+ * Nur bei fehlendem Netz wird der letzte Stand genutzt; die Seite zeigt dann
+ * "Kein Netz" (MitarbeiterStart). Jeder andere Fehler wird weiter geworfen.
+ */
+export async function mitSpeicher<T>(schluessel: string, holen: () => Promise<T>): Promise<T> {
+  const k = `thechef-offline:${schluessel}`;
+  try {
+    const d = await holen();
+    try { localStorage.setItem(k, JSON.stringify(d)); } catch { /* voll/privat */ }
+    return d;
+  } catch (e) {
+    const offline = !navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(String((e as Error)?.message));
+    if (offline) {
+      try { const alt = localStorage.getItem(k); if (alt) return JSON.parse(alt) as T; } catch { /* nichts gespeichert */ }
+    }
+    throw e;
+  }
+}
+
 export function supabaseApi(url: string, anonKey: string): Api {
   const sb: SupabaseClient = createClient(url, anonKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -60,11 +82,16 @@ export function supabaseApi(url: string, anonKey: string): Api {
       const { data } = await sb.auth.getSession();
       const user = data.session?.user;
       if (!user) { aktuell = null; return null; }
-      const n = await sb.from('nutzer').select('*').eq('id', user.id).maybeSingle();
-      if (n.error) throw new DatenFehler('fehler.laden', n.error.message);
-      if (!n.data) { aktuell = null; return { art: 'ohne_betrieb', email: user.email ?? null } satisfies Sitzung; }
-      const b = pruefe(await sb.from('betriebe').select('*').eq('id', n.data.betrieb_id).single(), 'Betrieb');
-      aktuell = { nutzer: n.data as Nutzer, betrieb: b as unknown as Betrieb };
+      // Offline (Kühlhaus): mit dem zuletzt geladenen Profil weiter, statt auf der Anmeldeseite zu landen.
+      const profil = await mitSpeicher(`profil:${user.id}`, async () => {
+        const n = await sb.from('nutzer').select('*').eq('id', user.id).maybeSingle();
+        if (n.error) throw new DatenFehler('fehler.laden', n.error.message);
+        if (!n.data) return null;
+        const b = pruefe(await sb.from('betriebe').select('*').eq('id', n.data.betrieb_id).single(), 'Betrieb');
+        return { nutzer: n.data as Nutzer, betrieb: b as unknown as Betrieb };
+      });
+      if (!profil) { aktuell = null; return { art: 'ohne_betrieb', email: user.email ?? null } satisfies Sitzung; }
+      aktuell = profil;
       return { art: 'fertig', ...aktuell } satisfies Sitzung;
     },
 
@@ -114,7 +141,8 @@ export function supabaseApi(url: string, anonKey: string): Api {
     },
 
     async bereiche() {
-      return pruefe(await sb.from('bereiche').select('*').eq('aktiv', true).order('reihenfolge'), 'Bereiche') as Bereich[];
+      return mitSpeicher(`bereiche:${betriebId()}`, async () =>
+        pruefe(await sb.from('bereiche').select('*').eq('aktiv', true).order('reihenfolge'), 'Bereiche') as Bereich[]);
     },
     async bereichSpeichern(b) {
       const zeile = { ...b, betrieb_id: betriebId() };
@@ -124,7 +152,8 @@ export function supabaseApi(url: string, anonKey: string): Api {
       pruefeOhne(await sb.from('bereiche').update({ aktiv: false }).eq('id', id), 'Bereich');
     },
     async positionen() {
-      return pruefe(await sb.from('scan_positionen').select('*').eq('aktiv', true).order('reihenfolge'), 'Positionen') as Position[];
+      return mitSpeicher(`positionen:${betriebId()}`, async () =>
+        pruefe(await sb.from('scan_positionen').select('*').eq('aktiv', true).order('reihenfolge'), 'Positionen') as Position[]);
     },
     async positionSpeichern(p, foto) {
       const id = p.id ?? crypto.randomUUID();
@@ -140,13 +169,15 @@ export function supabaseApi(url: string, anonKey: string): Api {
       pruefeOhne(await sb.from('scan_positionen').update({ aktiv: false }).eq('id', id), 'Position');
     },
     async produkte() {
-      const r = pruefe(await sb.from('produkte').select('*').order('erstellt_am'), 'Produkte') as Produkt[];
-      return r.map((p) => ({
-        ...p,
-        mindestbestand: Number(p.mindestbestand),
-        menge_pro_einheit: zahl(p.menge_pro_einheit),
-        preis_pro_einheit: zahl(p.preis_pro_einheit),
-      }));
+      return mitSpeicher(`produkte:${betriebId()}`, async () => {
+        const r = pruefe(await sb.from('produkte').select('*').order('erstellt_am'), 'Produkte') as Produkt[];
+        return r.map((p) => ({
+          ...p,
+          mindestbestand: Number(p.mindestbestand),
+          menge_pro_einheit: zahl(p.menge_pro_einheit),
+          preis_pro_einheit: zahl(p.preis_pro_einheit),
+        }));
+      });
     },
     async produktSpeichern(p, foto) {
       const id = p.id ?? crypto.randomUUID();
@@ -178,7 +209,8 @@ export function supabaseApi(url: string, anonKey: string): Api {
     },
 
     async scansSeit(iso) {
-      return pruefe(await sb.from('scans').select('*').gte('zeitpunkt', iso).order('zeitpunkt', { ascending: false }), 'Scans') as Scan[];
+      return mitSpeicher(`scans:${betriebId()}`, async () =>
+        pruefe(await sb.from('scans').select('*').gte('zeitpunkt', iso).order('zeitpunkt', { ascending: false }), 'Scans') as Scan[]);
     },
     async scanHochladen(scan: LokalerScan, fotos: LokalesFoto[]) {
       const b = betriebId();

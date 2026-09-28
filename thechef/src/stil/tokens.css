@@ -4,6 +4,17 @@
 
 @import '@fontsource/bricolage-grotesque/latin-800.css';
 
+/* Zahlen-Schrift NUR für Ziffern (THECHEF.md): dieselbe Datei, aber nur für
+   0–9 und Zahlzeichen. "12 kg", "4 Kisten", "٤ صناديق": die Ziffern in
+   Bricolage, jedes Wort in der Systemschrift – auch Arabisch bleibt sauber. */
+@font-face {
+  font-family: 'Chef Ziffern';
+  src: url('../../node_modules/@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-800-normal.woff2') format('woff2');
+  font-weight: 800;
+  font-display: swap;
+  unicode-range: U+0030-0039, U+002B-002E, U+0025, U+20AC, U+2212;
+}
+
 :root {
   --bg: #F4F3EF;
   --karte: #FFFFFF;
@@ -35,6 +46,7 @@
   --glas-aktiv: rgba(255, 255, 255, 0.6);
   --glas-aktiv-schatten: inset 1px 1px 0 rgba(255, 255, 255, 1), inset -1px -1px 0 rgba(255, 255, 255, 0.6), 0 2px 10px rgba(20, 20, 19, 0.1);
   --glanz: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%);
+  --sheet-bg: rgba(250, 249, 246, 0.9);
 
   --fleck-blau: rgba(31, 79, 209, 0.14);
   --fleck-orange: rgba(255, 149, 0, 0.10);
@@ -48,7 +60,8 @@
   --rand: 16px;
 
   --schrift: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Geeza Pro', 'Helvetica Neue', sans-serif;
-  --schrift-zahl: 'Bricolage Grotesque', -apple-system, 'SF Pro Display', sans-serif;
+  --schrift-zahl: 'Chef Ziffern', -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
+  --schrift-marke: 'Bricolage Grotesque', -apple-system, sans-serif; /* nur die Wortmarke "Chef" */
   --federn: cubic-bezier(0.2, 0.8, 0.2, 1);
   --massstab: 0.88;
 
@@ -77,6 +90,7 @@
   --glas-aktiv: rgba(255, 255, 255, 0.14);
   --glas-aktiv-schatten: inset 1px 1px 0 rgba(255, 255, 255, 0.3), 0 2px 10px rgba(0, 0, 0, 0.3);
   --glanz: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 55%);
+  --sheet-bg: rgba(28, 28, 30, 0.88);
   --fleck-blau: rgba(47, 107, 255, 0.16);
   --fleck-orange: rgba(255, 159, 10, 0.08);
   color-scheme: dark;

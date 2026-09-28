@@ -3,7 +3,12 @@
 export function istIos() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
+/** Läuft als echte iPhone-App (Capacitor/Xcode)? */
+export function istNativ() {
+  return !!(window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+}
 export function istInstalliert() {
+  if (istNativ()) return true;
   return matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 }
 

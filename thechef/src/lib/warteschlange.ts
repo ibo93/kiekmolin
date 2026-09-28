@@ -62,7 +62,7 @@ export async function alleScans(): Promise<WarteScan[]> {
 export async function fotoSpeichern(lokalId: string, f: LokalesFoto) {
   await laden('fotos', (st) => st.put({ ...f, lokal_id: lokalId }), 'readwrite');
   // Das eigene letzte Foto ist das Geisterbild fürs nächste Mal – auch offline.
-  if (f.position_id) await laden('geister', (st) => st.put({ position_id: f.position_id, blob: f.blob }), 'readwrite');
+  if (f.position_id) await laden('geister', (st) => st.put({ position_id: f.position_id, blob: f.blob, zeit: Date.now() }), 'readwrite');
 }
 export async function fotoLoeschen(id: string) {
   await laden('fotos', (st) => st.delete(id), 'readwrite');
@@ -70,9 +70,19 @@ export async function fotoLoeschen(id: string) {
 export async function fotosVon(lokalId: string): Promise<LokalesFoto[]> {
   return laden('fotos', (st) => st.index('lokal_id').getAll(lokalId));
 }
-export async function geisterbild(positionId: string): Promise<Blob | null> {
-  const r = await laden<{ blob: Blob } | undefined>('geister', (st) => st.get(positionId));
-  return r?.blob ?? null;
+/**
+ * Das eigene letzte Foto einer Stelle. Auf Fotos können Mitarbeiter zu sehen
+ * sein: Die Kopie auf dem Handy gilt nur so lange wie die Löschfrist des
+ * Betriebs – danach wird sie gelöscht, genau wie auf dem Server.
+ */
+export async function geisterbild(positionId: string, fristTage: number): Promise<Blob | null> {
+  const r = await laden<{ blob: Blob; zeit?: number } | undefined>('geister', (st) => st.get(positionId));
+  if (!r) return null;
+  if (!r.zeit || Date.now() - r.zeit > fristTage * 864e5) {
+    await laden('geister', (st) => st.delete(positionId), 'readwrite');
+    return null;
+  }
+  return r.blob;
 }
 
 /** Speicher dauerhaft anfragen, damit der Browser Fotos nicht still wegräumt. */

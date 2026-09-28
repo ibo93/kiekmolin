@@ -5,7 +5,7 @@ import { useApp, useFehlerText, useIch } from '../app/kontext.tsx';
 import { demoZuruecksetzen } from '../daten/demo.ts';
 import { SPRACHEN, useT } from '../i18n/i18n.tsx';
 import { AKZENTE } from '../lib/darstellung.ts';
-import { pushAbonnieren } from '../lib/geraet.ts';
+import { istNativ, pushAbonnieren } from '../lib/geraet.ts';
 import { KopfMitte, Schalter, Umschalter } from '../ui/bausteine.tsx';
 import { Icon } from '../ui/Icon.tsx';
 
@@ -77,7 +77,7 @@ export function Einstellungen() {
           <span className="mitte"><span className="name">{t('einstellungen.push')}</span><span className="klein">{t('einstellungen.push_unter')}</span></span>
           {pushLaedt ? <span className="laden" /> : <Schalter an={nutzer.push_an} setAn={push} label={t('einstellungen.push')} />}
         </div>
-        <a className="zeile" href="#/installieren"><Icon name="telefon" /><span className="mitte"><span className="name">{t('installieren.titel')}</span></span><Icon name="weiter" spiegeln /></a>
+        {!istNativ() && <a className="zeile" href="#/installieren"><Icon name="telefon" /><span className="mitte"><span className="name">{t('installieren.titel')}</span></span><Icon name="weiter" spiegeln /></a>}
       </section>
 
       <h2 className="abschnitt">{t('einstellungen.betrieb')}</h2>
