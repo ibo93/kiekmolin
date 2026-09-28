@@ -31,15 +31,17 @@ export function EinkaufSeite() {
 
   return (
     <main className="seite" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 200px)' }}>
-      <div className="stapel einblenden" style={{ gap: 6, padding: '0 4px' }}>
-        <h1 className="titel">{t('einkauf.titel')}</h1>
-        <div className="leise" style={{ fontSize: 15, fontWeight: 600 }}><Icon name="funkeln" groesse={15} style={{ verticalAlign: '-2px' }} /> {t('einkauf.erstellt', { wann: wann(d?.letzterScan) })}</div>
+      {/* Einkauf.dc.html: die offene Anzahl groß neben dem Titel, keine eigene Karte. */}
+      <div className="reihe einblenden" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, padding: '0 4px' }}>
+        <div className="stapel" style={{ gap: 6, minWidth: 0 }}>
+          <h1 className="titel">{t('einkauf.titel')}</h1>
+          <div className="leise" style={{ fontSize: 15, fontWeight: 600 }}><Icon name="funkeln" groesse={15} style={{ verticalAlign: '-2px' }} /> {t('einkauf.erstellt', { wann: wann(d?.letzterScan) })}</div>
+        </div>
+        <span className="zahl" style={{ fontSize: 44, lineHeight: 1, color: offen.length ? 'var(--akzent)' : 'var(--gruen-text)' }}
+          aria-label={offen.length ? t('einkauf.muessen', { n: offen.length }) : t('einkauf.nichts')}>{offen.length}</span>
       </div>
       {fehler != null && <Fehler fehler={fehler} nochmal={nochmal} />}
-      <div className="karte einblenden" style={{ flexDirection: 'row', alignItems: 'center', gap: 16, animationDelay: '.05s' }}>
-        <span className="zahl" style={{ fontSize: 56, lineHeight: 1, color: offen.length ? 'var(--akzent)' : 'var(--gruen-text)' }}>{offen.length}</span>
-        <span style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3 }}>{offen.length ? t('einkauf.muessen', { n: offen.length }) : t('einkauf.nichts')}</span>
-      </div>
+      {offen.length === 0 && d && <div className="meldung ok" role="status"><Icon name="haken" />{t('einkauf.nichts')}</div>}
       {liste.length > 0 && (
         <section className="karte einblenden" style={{ gap: 0, paddingTop: 6, paddingBottom: 6, animationDelay: '.1s' }}>
           {liste.map((e) => (

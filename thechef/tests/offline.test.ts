@@ -41,3 +41,49 @@ describe('Offline-Rückfall', () => {
     await expect(mitSpeicher('neu', async () => { throw new Error('Failed to fetch'); })).rejects.toThrow('Failed to fetch');
   });
 });
+
+// Weggeworfen ohne Netz: die Warteschlange darf nichts verlieren, nichts doppelt
+// zählen und einen echten Fehler weder endlos wiederholen noch still wegwerfen.
+const { wegAbgleichen } = await import('../src/lib/abgleich.ts');
+type W = { lokal_id: string; produkt_id: string; menge: number; zeitpunkt: string; fehler?: string };
+function speicherMit(liste: W[]) {
+  const s = new Map(liste.map((w) => [w.lokal_id, { ...w }]));
+  return {
+    s,
+    alle: async () => [...s.values()],
+    entfernen: async (id: string) => void s.delete(id),
+    markieren: async (id: string, fehler: string) => void s.set(id, { ...s.get(id)!, fehler }),
+  };
+}
+const w1: W = { lokal_id: 'a', produkt_id: 'p1', menge: 2, zeitpunkt: '2026-09-28T06:10:00Z' };
+const w2: W = { lokal_id: 'b', produkt_id: 'p2', menge: 1, zeitpunkt: '2026-09-28T06:11:00Z' };
+
+describe('Weggeworfen-Warteschlange', () => {
+  beforeEach(() => { netz.onLine = true; });
+
+  it('Netz da: hochgeladen – mit eigener Kennung und dem Zeitpunkt vom Handy – und aus der Schlange', async () => {
+    const sp = speicherMit([w1]);
+    const gesendet: unknown[] = [];
+    await wegAbgleichen({ wegwerfen: async (...a) => void gesendet.push(a) }, sp);
+    expect(gesendet).toEqual([['p1', 2, { lokal_id: 'a', zeitpunkt: '2026-09-28T06:10:00Z' }]]);
+    expect(sp.s.size).toBe(0);
+  });
+  it('kein Netz: alles bleibt liegen, ohne Fehlertext', async () => {
+    const sp = speicherMit([w1, w2]);
+    await wegAbgleichen({ wegwerfen: async () => { throw new Error('TypeError: Load failed'); } }, sp);
+    expect([...sp.s.values()]).toEqual([w1, w2]);
+  });
+  it('echter Fehler: bleibt MIT Fehlertext liegen, die nächste Meldung geht trotzdem raus', async () => {
+    const sp = speicherMit([w1, w2]);
+    await wegAbgleichen({ wegwerfen: async (pid) => { if (pid === 'p1') throw new Error('Weggeworfen: permission denied'); } }, sp);
+    expect(sp.s.get('a')?.fehler).toBe('Weggeworfen: permission denied');
+    expect(sp.s.has('b')).toBe(false);
+  });
+  it('markierte Meldung wird nicht endlos wiederholt', async () => {
+    const sp = speicherMit([{ ...w1, fehler: 'x' }]);
+    let aufrufe = 0;
+    await wegAbgleichen({ wegwerfen: async () => { aufrufe++; } }, sp);
+    expect(aufrufe).toBe(0);
+    expect(sp.s.size).toBe(1);
+  });
+});

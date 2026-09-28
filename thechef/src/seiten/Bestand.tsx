@@ -30,29 +30,28 @@ export function BestandSeite() {
       </div>
       {fehler != null && <Fehler fehler={fehler} nochmal={nochmal} />}
 
-      <div className="raster-2 einblenden" style={{ animationDelay: '.04s' }}>
-        <div className="wert-kachel gross">
-          <span className="klein">{t('bestand.ware_im_lager')}</span>
-          <span className="zahl">{wert ? geld(wert.eur) : '–'}</span>
-          {wert && wert.produkte_ohne_preis > 0 && <span className="klein" style={{ fontWeight: 600 }}>{t('bestand.ohne_preis', { n: wert.produkte_ohne_preis })}</span>}
+      {/* Bestand.dc.html: eine Kopfkarte – Warenwert groß, Weggeworfen daneben, Ampel als Filter darunter. */}
+      <section className="karte kopf-karte einblenden" style={{ animationDelay: '.04s' }}>
+        <div className="reihe" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
+          <span className="stapel" style={{ gap: 2, minWidth: 0 }}>
+            <span className="klein">{t('bestand.ware_im_lager')}</span>
+            <span className="zahl gross">{wert ? geld(wert.eur) : '–'}</span>
+          </span>
+          <a href="#/c/verlust" className="stapel weg-wert" style={{ gap: 2 }}>
+            <span className="klein">{t('bestand.weggeworfen_monat', { monat: tt.monat(new Date().getMonth() + 1) })}</span>
+            <span className="zahl" style={{ color: 'var(--rot-text)' }}>{d ? geld(d.wegMonat) : '–'}</span>
+          </a>
         </div>
-        <a href="#/c/verlust" className="wert-kachel gross">
-          <span className="klein">{t('bestand.weggeworfen_monat', { monat: tt.monat(new Date().getMonth() + 1) })}</span>
-          <span className="zahl" style={{ color: 'var(--rot-text)' }}>{d ? geld(d.wegMonat) : '–'}</span>
-        </a>
-      </div>
-
-      <div className="raster-3 einblenden" style={{ animationDelay: '.08s' }} role="group" aria-label={t('bestand.ampel')}>
-        {(['gut', 'knapp', 'sofort'] as Ampel[]).map((a) => (
-          <button key={a} className={`ampel-kachel ${a}`} aria-pressed={filter === a} onClick={() => setFilter(filter === a ? null : a)}>
-            <span className="reihe" style={{ gap: 6, justifyContent: 'space-between', width: '100%' }}>
+        {wert && wert.produkte_ohne_preis > 0 && <span className="klein" style={{ fontWeight: 600 }}>{t('bestand.ohne_preis', { n: wert.produkte_ohne_preis })}</span>}
+        <div className="raster-3" role="group" aria-label={t('bestand.ampel')}>
+          {(['gut', 'knapp', 'sofort'] as Ampel[]).map((a) => (
+            <button key={a} className={`ampel-pille ${a}`} aria-pressed={filter === a} aria-label={`${t(`ampel.${a}`)}: ${zaehl[a]}`} onClick={() => setFilter(filter === a ? null : a)}>
+              <span className="wort" aria-hidden="true">{SYMBOL[a]} {t(`ampel.kurz.${a}`)}</span>
               <span className="zahl">{zaehl[a]}</span>
-              <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 800 }}>{SYMBOL[a]}</span>
-            </span>
-            <span className="wort">{t(`ampel.${a}`)}</span>
-          </button>
-        ))}
-      </div>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {bald.length > 0 && !filter && (
         <section className="einblenden" style={{ animationDelay: '.12s' }}>

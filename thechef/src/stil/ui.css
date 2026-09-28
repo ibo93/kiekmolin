@@ -102,13 +102,18 @@ h2.abschnitt small { font-size: 14px; font-weight: 600; color: var(--text2); }
 .mini-kachel.gruen .klein, .mini-kachel.gruen .zahl { color: var(--gruen-text); }
 
 /* Ampel-Kacheln: Farbe + Symbol + Wort */
-.ampel-kachel { border: none; border-radius: var(--r-kachel); padding: 12px; text-align: start; display: flex; flex-direction: column; gap: 6px; min-height: 96px; }
-.ampel-kachel .zahl { font-size: 30px; line-height: 1; }
-.ampel-kachel .wort { font-size: 14px; font-weight: 700; }
-.ampel-kachel.gut { background: var(--gruen-bg); color: var(--gruen-text); }
-.ampel-kachel.knapp { background: var(--gelb-bg); color: var(--gelb-text); }
-.ampel-kachel.sofort { background: var(--rot-bg); color: var(--rot-text); }
-.ampel-kachel[aria-pressed='true'] { outline: 2.5px solid currentColor; outline-offset: -2.5px; }
+.kopf-karte { gap: 12px; }
+.kopf-karte .klein { font-size: 13px; font-weight: 700; color: var(--text2); }
+.kopf-karte .zahl.gross { font-size: 44px; line-height: 1.05; letter-spacing: -0.5px; }
+.kopf-karte .zahl { font-size: 24px; line-height: 1.1; }
+.kopf-karte .weg-wert { text-decoration: none; color: var(--text); text-align: end; align-items: flex-end; }
+.ampel-pille { border: none; border-radius: 14px; min-height: 44px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ampel-pille .wort { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ampel-pille .zahl { font-size: 18px; }
+.ampel-pille.gut { background: var(--gruen-bg); color: var(--gruen-text); }
+.ampel-pille.knapp { background: var(--gelb-bg); color: var(--gelb-text); }
+.ampel-pille.sofort { background: var(--rot-bg); color: var(--rot-text); }
+.ampel-pille[aria-pressed='true'] { outline: 2.5px solid currentColor; outline-offset: -2.5px; }
 
 /* Plaketten ("heute", "2 Tage", "knapp") */
 .plakette { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 12px; font-size: 12px; font-weight: 800; white-space: nowrap; }
@@ -291,12 +296,17 @@ textarea.eingabe { padding: 14px 16px; min-height: 96px; resize: vertical; }
 :root[data-modus='dunkel'] .bereich-karte .icon-rund { background: var(--flaeche) !important; color: var(--text2) !important; }
 .bereich-jetzt {
   position: relative; overflow: hidden; border: none; width: 100%; text-align: start; color: #fff;
-  display: flex; align-items: center; gap: 14px; padding: 18px; min-height: 128px; border-radius: var(--r-karte-gross);
+  display: flex; flex-direction: column; align-items: stretch; gap: 18px; padding: 18px; border-radius: var(--r-karte-gross);
   background: radial-gradient(90% 80% at 15% 0%, rgba(255,255,255,.32), rgba(255,255,255,0) 55%), var(--akzent);
   box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,.5), 0 18px 36px var(--akzent-schatten);
 }
-.kamera-puls { width: 72px; height: 72px; border-radius: 36px; background: #fff; color: var(--akzent); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  box-shadow: 0 8px 20px rgba(0,0,0,.18); animation: breathe 3.2s ease-in-out 1.2s infinite; }
+.scan-starten { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch); border-radius: calc(var(--touch) / 2);
+  background: #fff; color: var(--akzent); font-size: 17px; font-weight: 700; animation: breathe 3.2s ease-in-out 1.2s infinite; }
+.fortschritt-teil { height: 6px; border-radius: 3px; background: var(--leer); }
+.fortschritt-teil.fertig { background: var(--gruen); }
+.fortschritt-teil.dran { background: var(--akzent); opacity: .4; }
+/* Main.dc.html: unten, volle Breite – Weggeworfen ist immer mit einem Tipp erreichbar. */
+.weg-knopf { margin-top: auto; width: 100%; min-height: var(--touch); border-radius: calc(var(--touch) / 2); background: var(--karte); font-size: 16px; box-shadow: 0 1px 2px rgba(20,20,19,.06); }
 .status-kreis { width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
 .status-kreis.gruen { background: var(--gruen); }
 .status-kreis.akzent { background: var(--akzent); }

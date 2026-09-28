@@ -2,6 +2,7 @@
 // Wird aus der geführten Einrichtung UND aus den Einstellungen benutzt.
 import { useEffect, useRef, useState } from 'react';
 import type { Basiseinheit, Bereich, Kategorie, Namen, Position, Produkt, Sprache, Zaehleinheit } from '../../supabase/functions/_shared/logik/typen.ts';
+import { mindestbestandVorschlag, REICHWEITE_TAGE, verbrauchSchaetzen } from '../../supabase/functions/_shared/logik/verbrauch.ts';
 import { useApp, useFehlerText, useLaden } from '../app/kontext.tsx';
 import { SPRACHEN, useT } from '../i18n/i18n.tsx';
 import { KATALOG_KANTE, verkleinern } from '../lib/bild.ts';
@@ -279,6 +280,7 @@ export function ProdukteBearbeiten() {
               {zahlFeld(p.mindestbestand, (n) => setP({ ...p, mindestbestand: n ?? 0 }), t('katalog.mindestbestand', { einheit: einheit(p.zaehleinheit ?? 'stueck', 2) }))}
               {zahlFeld(p.standard_haltbarkeit_tage, (n) => setP({ ...p, standard_haltbarkeit_tage: n }), t('katalog.haltbarkeit'))}
             </div>
+            {p.id && <MindestVorschlag produktId={p.id} zaehleinheit={p.zaehleinheit ?? 'stueck'} aktuell={p.mindestbestand ?? 0} setzen={(n) => setP({ ...p, mindestbestand: n })} />}
             {zahlFeld(p.preis_pro_einheit, (n) => setP({ ...p, preis_pro_einheit: n }), t('katalog.preis', { einheit: einheit(p.zaehleinheit ?? 'stueck', 1) }), '0.01')}
 
             <span className="etikett leise">{t('katalog.wo')}</span>
@@ -293,6 +295,27 @@ export function ProdukteBearbeiten() {
           </>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+/** Mindestbestand aus dem echten Verbrauch – mit der Rechnung dazu, damit der Chef sie prüfen kann. */
+function MindestVorschlag({ produktId, zaehleinheit, aktuell, setzen }: { produktId: string; zaehleinheit: Zaehleinheit; aktuell: number; setzen(n: number): void }) {
+  const tt = useT();
+  const { t } = tt;
+  const fehlerText = useFehlerText();
+  const { daten, fehler, laedt } = useLaden(async (a) => {
+    const v = await a.produktVerlauf(produktId, new Date(Date.now() - 28 * 864e5).toISOString());
+    return mindestbestandVorschlag(verbrauchSchaetzen(v.bestand, v.weggeworfen));
+  }, [produktId]);
+  if (laedt) return null;
+  if (fehler != null) return <span className="leise" style={{ fontSize: 13 }}>{fehlerText(fehler)}</span>;
+  if (daten === null) return <span className="leise" style={{ fontSize: 13 }}>{t('katalog.mindest_zu_wenig')}</span>;
+  return (
+    <div className="meldung info" style={{ alignItems: 'center' }}>
+      <Icon name="funkeln" />
+      <span style={{ flex: 1 }}>{t('katalog.mindest_vorschlag', { menge: tt.menge(daten.menge, zaehleinheit), pro_tag: tt.menge(Math.round(daten.pro_tag * 10) / 10, zaehleinheit), tage: Math.round(daten.tage), reichweite: REICHWEITE_TAGE })}</span>
+      {daten.menge !== aktuell && <button type="button" className="knopf klein" onClick={() => setzen(daten.menge)}>{t('katalog.uebernehmen')}</button>}
     </div>
   );
 }

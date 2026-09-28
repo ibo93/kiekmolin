@@ -28,10 +28,7 @@ export function Einstellungen() {
   async function push(an: boolean) {
     setPushLaedt(true);
     try {
-      if (an) {
-        if (!VAPID) throw new Error('push_nicht_eingerichtet');
-        await api.pushSpeichern(await pushAbonnieren(VAPID));
-      }
+      if (an) await api.pushSpeichern(await pushAbonnieren(VAPID));
       await api.profilAendern({ push_an: an });
       await neuLaden();
     } catch (e) { toast(fehlerText(e)); } finally { setPushLaedt(false); }

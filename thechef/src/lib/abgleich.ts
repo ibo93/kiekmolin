@@ -4,7 +4,8 @@
 // iPhones haben keine Hintergrund-Synchronisation im Browser: hochgeladen
 // wird, sobald die App offen ist. Das steht so auch in der Anzeige.
 import type { Api } from '../daten/api.ts';
-import { alleScans, fotosVon, scanAktualisieren, type WarteScan } from './warteschlange.ts';
+import { istNetzFehler } from './netz.ts';
+import { alleScans, alleWeg, fotosVon, scanAktualisieren, wegAktualisieren, wegEntfernen, type WarteScan, type WarteWeg } from './warteschlange.ts';
 
 type Zuhoerer = (s: WarteScan[]) => void;
 const zuhoerer = new Set<Zuhoerer>();
@@ -52,12 +53,49 @@ export async function abgleichen(api: Api, nur?: string): Promise<string | null>
   return ergebnis;
 }
 
+// ── Weggeworfen ohne Netz ──────────────────────────────────────────────
+type WegZuhoerer = (w: WarteWeg[]) => void;
+const wegZuhoerer = new Set<WegZuhoerer>();
+export function wegAbonnieren(f: WegZuhoerer) {
+  wegZuhoerer.add(f);
+  alleWeg().then(f).catch(() => {});
+  return () => { wegZuhoerer.delete(f); };
+}
+export async function wegMelden() {
+  const w = await alleWeg().catch(() => []);
+  wegZuhoerer.forEach((f) => f(w));
+}
+type WegSpeicher = { alle(): Promise<WarteWeg[]>; entfernen(id: string): Promise<void>; markieren(id: string, fehler: string): Promise<void> };
+const idb: WegSpeicher = { alle: alleWeg, entfernen: wegEntfernen, markieren: (id, fehler) => wegAktualisieren(id, { fehler }) };
+
+/**
+ * Wartende Weggeworfen-Meldungen hochladen.
+ *  - kein Netz → bleibt liegen, nächster Versuch später
+ *  - geklappt → weg aus der Warteschlange
+ *  - echter Fehler → bleibt liegen MIT Fehlertext; wird nicht endlos wiederholt
+ *    und nicht still gelöscht, sondern auf der Startseite gezeigt.
+ */
+export async function wegAbgleichen(api: Pick<Api, 'wegwerfen'>, speicher: WegSpeicher = idb): Promise<void> {
+  for (const w of await speicher.alle()) {
+    if (w.fehler) continue;
+    try {
+      await api.wegwerfen(w.produkt_id, w.menge, { lokal_id: w.lokal_id, zeitpunkt: w.zeitpunkt });
+      await speicher.entfernen(w.lokal_id);
+    } catch (e) {
+      if (istNetzFehler(e)) break;
+      await speicher.markieren(w.lokal_id, String((e as Error)?.message ?? e));
+    }
+  }
+  if (speicher === idb) await wegMelden();
+}
+
 export function abgleichStarten(api: Api) {
-  const los = () => { abgleichen(api).catch(() => {}); };
+  const los = () => { abgleichen(api).catch(() => {}); wegAbgleichen(api).catch(() => {}); };
   window.addEventListener('online', los);
   const t = setInterval(async () => {
     const s = await alleScans().catch(() => []);
-    if (s.some((x) => x.status !== 'erkannt')) los();
+    const w = await alleWeg().catch(() => []);
+    if (s.some((x) => x.status !== 'erkannt') || w.some((x) => !x.fehler)) los();
   }, 30_000);
   los();
   return () => { window.removeEventListener('online', los); clearInterval(t); };

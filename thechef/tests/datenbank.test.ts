@@ -66,6 +66,8 @@ beforeAll(async () => {
   // pgcrypto fehlt in PGlite; gen_random_uuid() ist in Postgres 13+ eingebaut.
   await db.exec(MIG('0001_grundlage.sql').replace('create extension if not exists pgcrypto;', ''));
   await db.exec(MIG('0002_speicher.sql'));
+  await db.exec(MIG('0004_ios_push.sql'));
+  await db.exec(MIG('0005_weggeworfen_offline.sql'));
   for (const id of Object.values(ID)) await db.query('insert into auth.users (id) values ($1)', [id]);
 
   betriebA = (await als<{ id: string }>(ID.chefA, `select betrieb_anlegen('ÖZ KEBAB', 'Mehmet', 'tr') as id`))[0].id;
@@ -192,6 +194,35 @@ describe('Scan bestätigen → Bestand', () => {
     const f = await fehlerText(als(ID.halil,
       `insert into scans (betrieb_id, bereich_id, lokal_id) values ($1, $2, 's1')`, [betriebA, kuehlhausA]));
     expect(f).toMatch(/duplicate key|unique/);
+  });
+});
+
+describe('Push-Abos (Web und iPhone-App)', () => {
+  it('iPhone-App: Geräte-Token ohne Web-Schlüssel wird gespeichert', async () => {
+    await als(ID.chefA, `insert into push_abos (betrieb_id, nutzer_id, art, endpoint) values ($1, $2, 'apns', 'a1b2c3')`, [betriebA, ID.chefA]);
+    const r = await als<{ art: string }>(ID.chefA, `select art from push_abos where endpoint = 'a1b2c3'`);
+    expect(r).toEqual([{ art: 'apns' }]);
+  });
+  it('Web-Abo ohne Schlüssel wird abgelehnt – es käme nie an', async () => {
+    const f = await fehlerText(als(ID.chefA, `insert into push_abos (betrieb_id, nutzer_id, endpoint) values ($1, $2, 'https://push.example/x')`, [betriebA, ID.chefA]));
+    expect(f).toMatch(/push_web_hat_schluessel/);
+  });
+  it('fremder Betrieb: kein Abo auf fremden Namen', async () => {
+    const f = await fehlerText(als(ID.chefA, `insert into push_abos (betrieb_id, nutzer_id, art, endpoint) values ($1, $2, 'apns', 'x9')`, [betriebB, ID.chefA]));
+    expect(f).toMatch(/row-level security/);
+  });
+});
+
+describe('Weggeworfen aus der Offline-Warteschlange', () => {
+  it('dieselbe Meldung zweimal hochgeladen zählt nur einmal', async () => {
+    const neu = `insert into weggeworfen (betrieb_id, produkt_id, menge_einheiten, lokal_id, zeitpunkt)
+      values ($1, $2, 2, '11111111-2222-3333-4444-555555555555', '2026-09-28T06:10:00Z') on conflict (lokal_id) do nothing`;
+    await als(ID.chefA, neu, [betriebA, tomatenA]);
+    await als(ID.chefA, neu, [betriebA, tomatenA]);
+    const r = await als<{ n: number; z: string }>(ID.chefA,
+      `select count(*)::int as n, min(zeitpunkt)::text as z from weggeworfen where lokal_id = '11111111-2222-3333-4444-555555555555'`);
+    expect(r[0].n).toBe(1);
+    expect(r[0].z).toMatch(/^2026-09-28 06:10:00/);
   });
 });
 
