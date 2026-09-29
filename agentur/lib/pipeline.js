@@ -192,18 +192,30 @@ function baueListe(quellen, optionen) {
 
   const liste = [];
   for (const e of nachSchluessel.values()) {
-    if (istSchonPartner({ name: e.name }, kundenNamen)) continue;
+    // Wird ein Interessent Kunde, flog er hier frueher komplett raus. Damit
+    // war in dem Moment, in dem sie wertvoll wird, die ganze Vorgeschichte
+    // weg: der Betriebs-Check, die Notizen, der Verlauf der Stufen. Vor dem
+    // ersten Gespraech wusste man alles ueber ihn, danach nichts mehr.
+    //
+    // Jetzt bleibt er in der Liste, wird als Kunde gekennzeichnet und
+    // rutscht ans Ende - eine durchgehende Akte statt zweier Welten.
+    const istKunde = istSchonPartner({ name: e.name }, kundenNamen);
     const bewertung = leadScore({
       name: e.name, city: e.stadt, phone: e.telefon,
       website: e.website, category: e.kategorie, street: e.quelle === 'verzeichnis' ? 'ja' : ''
     });
     const s = stand[e.schluessel] || { stufe: 'neu', notiz: '', wiedervorlage: '', zuletzt: '', befund: null };
-    const faellig = !!(s.wiedervorlage && s.wiedervorlage <= heuteText && !istErledigt(s.stufe));
+    // Ist er Kunde, gilt das - egal was in der Pipeline steht. Die Tatsache
+    // schlaegt die Notiz: sonst stuende bei einem zahlenden Kunden noch
+    // wochenlang "Angerufen", weil niemand die Stufe nachgezogen hat.
+    const stufe = istKunde ? 'kunde' : s.stufe;
+    const faellig = !!(s.wiedervorlage && s.wiedervorlage <= heuteText && !istErledigt(stufe));
     liste.push(Object.assign({}, e, {
       heat: bewertung.heat, score: bewertung.score, gruende: bewertung.gruende,
-      stufe: s.stufe, notiz: s.notiz, wiedervorlage: s.wiedervorlage,
-      zuletzt: s.zuletzt, faellig, erledigt: istErledigt(s.stufe),
-      befund: s.befund || null
+      stufe, notiz: s.notiz, wiedervorlage: s.wiedervorlage,
+      zuletzt: s.zuletzt, faellig, erledigt: istErledigt(stufe),
+      befund: s.befund || null,
+      istKunde, verlauf: s.verlauf || []
     }));
   }
 
