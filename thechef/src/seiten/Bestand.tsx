@@ -45,9 +45,14 @@ export function BestandSeite() {
         {wert && wert.produkte_ohne_preis > 0 && <span className="klein" style={{ fontWeight: 600 }}>{t('bestand.ohne_preis', { n: wert.produkte_ohne_preis })}</span>}
         <div className="raster-3" role="group" aria-label={t('bestand.ampel')}>
           {(['gut', 'knapp', 'sofort'] as Ampel[]).map((a) => (
-            <button key={a} className={`ampel-pille ${a}`} aria-pressed={filter === a} aria-label={`${t(`ampel.${a}`)}: ${zaehl[a]}`} onClick={() => setFilter(filter === a ? null : a)}>
-              <span className="wort" aria-hidden="true">{SYMBOL[a]} {t(`ampel.kurz.${a}`)}</span>
-              <span className="zahl">{zaehl[a]}</span>
+            // THECHEF.md: "Drei Ampel-Kacheln: Alles gut / Wird knapp / Sofort (mit Anzahl)" – die vollen Wörter,
+            // Zahl oben, Wort darunter: passt so auch in schmale Kacheln, ohne abgeschnitten zu werden.
+            <button key={a} className={`ampel-pille ${a}`} aria-pressed={filter === a} onClick={() => setFilter(filter === a ? null : a)}>
+              <span className="reihe" style={{ justifyContent: 'space-between', width: '100%' }}>
+                <span className="zahl">{zaehl[a]}</span>
+                <span aria-hidden="true" style={{ fontWeight: 800 }}>{SYMBOL[a]}</span>
+              </span>
+              <span className="wort">{t(`ampel.${a}`)}</span>
             </button>
           ))}
         </div>
