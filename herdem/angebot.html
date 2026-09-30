@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Angebot · Herdem Online-Shop</title>
+<style>
+  /* ============ Print-optimiertes A4-Angebot ============ */
+  :root {
+    --ink: #14241c;
+    --muted: #5a6b63;
+    --line: #d9dfdb;
+    --soft: #f3f6f4;
+    --green: #12784e;
+    --green-deep: #063b29;
+    --amber: #f0b429;
+    --red: #c33d2e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #eef0ed; color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5pt;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 24px auto;
+    padding: 22mm 22mm 18mm;
+    background: #fff;
+    box-shadow: 0 8px 30px rgba(20, 36, 28, 0.08);
+  }
+  .page + .page { margin-top: 12px; }
+
+  header.doc {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 14mm;
+    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 10mm;
+  }
+  .brand-block strong {
+    display: block;
+    font-size: 22pt;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .brand-block small {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 10pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .meta {
+    text-align: right;
+    font-size: 9.5pt;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .meta strong { color: var(--ink); font-weight: 700; }
+
+  .parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14mm;
+    margin-bottom: 10mm;
+  }
+  .parties h3 {
+    font-size: 9pt;
+    font-weight: 800;
+    color: var(--green);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 4px;
+  }
+  .parties p { margin: 0; font-size: 10.5pt; line-height: 1.5; }
+  .parties strong { display: block; font-size: 12pt; }
+
+  h1.title {
+    font-size: 20pt;
+    font-weight: 900;
+    letter-spacing: -0.015em;
+    margin: 0 0 6mm;
+  }
+
+  h2 {
+    font-size: 11.5pt;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 8mm 0 3mm;
+    padding-bottom: 2mm;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num {
+    display: inline-block;
+    width: 22px;
+    color: var(--green);
+    font-weight: 900;
+  }
+
+  ul.clean { list-style: none; padding: 0; margin: 0 0 4mm; }
+  ul.clean li {
+    position: relative;
+    padding-left: 16px;
+    margin-bottom: 1.5mm;
+  }
+  ul.clean li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 8px;
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+  }
+  ul.clean li.x::before { background: var(--red); border-radius: 0; transform: rotate(45deg); }
+  ul.clean li strong { font-weight: 700; }
+
+  table.price {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4mm 0;
+    font-size: 10.5pt;
+  }
+  table.price th, table.price td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+  }
+  table.price th {
+    font-size: 9pt;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--soft);
+  }
+  table.price td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.price tr.sum td {
+    border-top: 2px solid var(--ink);
+    border-bottom: 0;
+    padding-top: 12px;
+    font-weight: 800;
+    font-size: 12pt;
+  }
+  table.price tr.sum td.num { color: var(--green-deep); }
+
+  .callout {
+    padding: 12px 16px;
+    background: var(--soft);
+    border-left: 4px solid var(--green);
+    margin: 4mm 0;
+    font-size: 10.5pt;
+  }
+  .callout.warn { border-left-color: var(--amber); background: #fff8e8; }
+  .callout strong { font-weight: 800; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+  }
+  .grid-2 h3 {
+    font-size: 10pt;
+    font-weight: 800;
+    margin: 0 0 2mm;
+  }
+
+  .timeline {
+    list-style: none;
+    padding: 0;
+    margin: 4mm 0;
+    counter-reset: step;
+  }
+  .timeline li {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 10px;
+    padding: 6px 0;
+    counter-increment: step;
+    align-items: baseline;
+  }
+  .timeline li::before {
+    content: counter(step);
+    display: inline-grid;
+    place-items: center;
+    width: 24px; height: 24px;
+    background: var(--green-deep);
+    color: #fff;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 10pt;
+  }
+  .timeline strong { display: block; font-weight: 700; }
+  .timeline span { color: var(--muted); font-size: 10pt; }
+
+  .sign {
+    margin-top: 16mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14mm;
+  }
+  .sign-block {
+    border-top: 1px solid var(--ink);
+    padding-top: 4px;
+    font-size: 9.5pt;
+    color: var(--muted);
+  }
+  .sign-block strong { display: block; color: var(--ink); font-size: 10.5pt; font-weight: 700; margin-bottom: 1mm; }
+  .sign-block .line-space { height: 18mm; }
+
+  footer.doc {
+    margin-top: 12mm;
+    padding-top: 4mm;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 8.5pt;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .small { font-size: 9.5pt; color: var(--muted); }
+  em { font-style: normal; font-weight: 700; color: var(--green-deep); }
+
+  .print-only { display: none; }
+  .no-print {
+    position: fixed;
+    top: 16px; right: 16px;
+    z-index: 10;
+    display: flex;
+    gap: 6px;
+  }
+  .no-print button {
+    padding: 8px 14px;
+    background: var(--green);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .no-print button.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+
+  @media print {
+    body { background: #fff; }
+    .page {
+      width: auto;
+      min-height: 0;
+      margin: 0;
+      padding: 18mm 18mm 14mm;
+      box-shadow: none;
+      page-break-after: always;
+    }
+    .page:last-of-type { page-break-after: auto; }
+    .no-print { display: none !important; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()">Drucken / PDF</button>
+  <button class="ghost" onclick="document.querySelectorAll('input[contenteditable], [contenteditable=true]').forEach(el=>el.blur())">Bearbeiten</button>
+</div>
+
+<!-- ============= PAGE 1 ============= -->
+<section class="page">
+  <header class="doc">
+    <div class="brand-block">
+      <strong contenteditable="true">[Dein Name / Firma]</strong>
+      <small contenteditable="true">Web-Entwicklung &amp; Digital</small>
+      <div class="small" style="margin-top: 6mm;" contenteditable="true">
+        [Straße Hausnummer]<br>
+        [PLZ Ort]<br>
+        Tel. [Telefon]<br>
+        [E-Mail]<br>
+        USt-ID: [DE…]
+      </div>
+    </div>
+    <div class="meta">
+      <strong>Angebot Nr.</strong> <span contenteditable="true">2026-001</span><br>
+      <strong>Datum:</strong> <span contenteditable="true">[heutiges Datum]</span><br>
+      <strong>Gültig bis:</strong> <span contenteditable="true">[+ 30 Tage]</span><br>
+      <strong>Leistungszeit:</strong> <span contenteditable="true">ca. 4–5 Wochen ab Auftragserteilung</span>
+    </div>
+  </header>
+
+  <div class="parties">
+    <div>
+      <h3>Auftragnehmer</h3>
+      <p>
+        <strong contenteditable="true">[Dein Name]</strong>
+        <span contenteditable="true">[Straße Hausnummer]</span><br>
+        <span contenteditable="true">[PLZ Ort]</span>
+      </p>
+    </div>
+    <div>
+      <h3>Auftraggeber</h3>
+      <p>
+        <strong contenteditable="true">Herdem · [Rechtsform]</strong>
+        <span contenteditable="true">[Straße Hausnummer]</span><br>
+        <span contenteditable="true">[PLZ Ort]</span><br>
+        <span contenteditable="true">Ansprechpartner: [Name]</span>
+      </p>
+    </div>
+  </div>
+
+  <h1 class="title">Angebot · Herdem Online-Shop &amp; Bestell-App</h1>
+
+  <p class="small">
+    Sehr geehrte Damen und Herren, gerne biete ich Ihnen die Entwicklung und
+    Bereitstellung des Online-Shops „Herdem" zu folgenden Konditionen an.
+    Dieses Angebot beinhaltet eine einmalige Erstellungs-Pauschale sowie eine
+    sechsmonatige Betreuung nach Live-Gang.
+  </p>
+
+  <h2><span class="num">1</span> Leistungsbeschreibung — Einmalige Erstellung</h2>
+
+  <div class="grid-2">
+    <div>
+      <h3>Im Festpreis inkludiert</h3>
+      <ul class="clean">
+        <li>Responsive Web-App mit Premium-Design (Hero, Sortiment, Pakete, Warenkorb, Checkout)</li>
+        <li>Mehrsprachig <strong>Deutsch / Türkisch</strong> mit Sprach-Umschalter</li>
+        <li><strong>Admin-Bereich</strong> zur Selbstpflege: Produkte, Pakete, Texte, Öffnungszeiten, Liefergebiet, Gutscheincodes, Bestellungen</li>
+        <li>Bild-Upload für eigene Produktfotos (über Admin)</li>
+        <li><strong>Bezahlung</strong> via Stripe Payment Links (Karte) + PayPal (Käuferkonten via Stripe oder direkter PayPal-Link)</li>
+        <li><strong>Bestell-Benachrichtigung</strong> per E-Mail an Filiale, mit allen Bestelldaten und Lieferadresse</li>
+        <li>Lieferzonen-Prüfung per Postleitzahl, dynamische Versandkosten</li>
+        <li>PWA: installierbar auf Handy-Homescreen, Offline-Hülle</li>
+        <li>Rechtssichere Grundlage: Impressum, AGB, Datenschutz, Widerruf — Vorlagen, die der Auftraggeber mit eigenen Daten füllt</li>
+        <li>SEO-Basics: Meta-Tags, Strukturierte Daten, Sitemap, Robots</li>
+        <li><strong>Schulung</strong> (4 Stunden, vor Ort oder Video-Call) zur Bedienung des Admin-Panels, inkl. Screen-Aufzeichnung</li>
+        <li>Übergabe-Protokoll mit allen Zugangsdaten</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color: var(--red)">Nicht inkludiert</h3>
+      <ul class="clean">
+        <li class="x">Produktfotografie (kann vermittelt werden, ca. <span contenteditable="true">€400–€800</span>)</li>
+        <li class="x">Texte und Beschreibungen der Produkte (liefert Auftraggeber)</li>
+        <li class="x">Rechtsberatung oder Anwalts-Check der Pflichtangaben</li>
+        <li class="x">Eigene Logo-Erstellung (Vorlage liefert Auftraggeber, oder optional als Zusatz <span contenteditable="true">€350</span>)</li>
+        <li class="x">Marketing-Kampagnen, Google-Ads, Social-Media-Konfiguration</li>
+        <li class="x">Eigene Fahrer-/Logistik-Software, Anbindung an Wolt/Lieferando/Uber</li>
+        <li class="x">Anbindung an externe Warenwirtschaft / ERP</li>
+        <li class="x">Konkurrenz-Funktionen (Treuepunkte mit Auszahlung, Multi-Filialen-System)</li>
+        <li class="x">App im Apple App Store / Google Play (PWA reicht für Homescreen-Installation; native Apps wären Zusatzauftrag)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="num">2</span> Preise</h2>
+
+  <table class="price">
+    <thead>
+      <tr><th>Position</th><th>Beschreibung</th><th class="num">Netto</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1.1</strong></td>
+        <td>Einmalige Erstellung &amp; Live-Gang (gem. § 1)</td>
+        <td class="num">4.201,68 €</td>
+      </tr>
+      <tr>
+        <td><strong>1.2</strong></td>
+        <td>Betreuung 6 Monate nach Live-Gang, monatlich (gem. § 4)</td>
+        <td class="num">125,21 € / Monat</td>
+      </tr>
+      <tr>
+        <td colspan="2">Zwischensumme netto</td>
+        <td class="num">4.952,94 €</td>
+      </tr>
+      <tr>
+        <td colspan="2">zzgl. 19 % USt.</td>
+        <td class="num">941,06 €</td>
+      </tr>
+      <tr class="sum">
+        <td colspan="2">Gesamt inkl. USt. (Setup + 6 Monate)</td>
+        <td class="num">5.894,00 €</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Aufgeschlüsselt:</strong>
+    Einmalig <em>5.000&nbsp;€ brutto</em> (inkl. USt.) für die Erstellung
+    + 6 Monate Betreuung à <em>149&nbsp;€ brutto</em> = 894&nbsp;€.
+    <strong>Gesamt: 5.894&nbsp;€ brutto.</strong>
+  </div>
+
+  <h2><span class="num">3</span> Zahlungsplan</h2>
+
+  <table class="price">
+    <tbody>
+      <tr>
+        <td>Anzahlung bei Auftragserteilung</td>
+        <td class="num">50 %</td>
+        <td class="num">2.500,00 €</td>
+      </tr>
+      <tr>
+        <td>Restzahlung bei Live-Gang &amp; Übergabe</td>
+        <td class="num">50 %</td>
+        <td class="num">2.500,00 €</td>
+      </tr>
+      <tr>
+        <td>Monatliche Betreuung 1.–6. Monat (jeweils zum Monatsanfang)</td>
+        <td class="num">6 ×</td>
+        <td class="num">149,00 €</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="small">
+    Zahlungsziel: 14 Tage netto ohne Abzug nach Rechnungsstellung.
+    Bei Zahlungsverzug behält sich der Auftragnehmer das Recht vor,
+    Arbeiten und Wartung bis zum Zahlungseingang ruhen zu lassen.
+  </p>
+</section>
+
+<!-- ============= PAGE 2 ============= -->
+<section class="page">
+
+  <h2><span class="num">4</span> Betreuung 6 Monate · was im monatlichen Betrag enthalten ist</h2>
+
+  <div class="grid-2">
+    <div>
+      <h3>Inkludiert</h3>
+      <ul class="clean">
+        <li><strong>Hosting</strong> auf Netlify (oder gleichwertig) inkl. SSL und Domain-Routing</li>
+        <li>Bugfixes an der ausgelieferten App (Fehler, die nicht durch Eingriffe des Auftraggebers entstanden sind)</li>
+        <li>Sicherheits-Updates der eingesetzten Bibliotheken</li>
+        <li><strong>Bis zu 1 Stunde</strong> Klein-Anpassungen pro Monat
+          (Text-Korrekturen, Farb-Feintuning, neue PLZ-Bereiche, Banner-Texte)</li>
+        <li>Erreichbarkeit per E-Mail innerhalb von <strong>48 Stunden</strong> an Werktagen</li>
+        <li>Monatliches Backup der CMS-Konfiguration</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color: var(--red)">Nicht inkludiert in der Wartung</h3>
+      <ul class="clean">
+        <li class="x">Neue Features oder größere Designänderungen (separat zu beauftragen, <strong>80&nbsp;€/Std netto</strong>)</li>
+        <li class="x">24/7-Notdienst, Wochenend-Support</li>
+        <li class="x">Schulung weiterer Mitarbeiter (Erstschulung gem. §&nbsp;1 enthalten)</li>
+        <li class="x">Fehler durch fremde Eingriffe in Code, Domain, Hosting-Account, Stripe oder PayPal</li>
+        <li class="x">Datenwiederherstellung bei vom Auftraggeber verursachten Lösch-Aktionen</li>
+        <li class="x">Marketing- oder SEO-Beratung</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>Nach 6 Monaten endet die Wartung automatisch.</strong>
+    Eine Verlängerung ist möglich und wird rechtzeitig (4 Wochen vor Ablauf)
+    schriftlich angeboten. Ohne neue Vereinbarung übernimmt der Auftraggeber
+    den vollständigen Betrieb in Eigenverantwortung. Spätere Anfragen werden
+    nach Stundensatz (80&nbsp;€ netto) abgerechnet.
+  </div>
+
+  <h2><span class="num">5</span> Mitwirkungspflicht des Auftraggebers</h2>
+
+  <p class="small">
+    Folgendes wird vom Auftraggeber spätestens 1 Woche nach Auftragserteilung
+    zur Verfügung gestellt. Verzögerungen bei der Lieferung dieser Inhalte
+    verlängern den Liefertermin entsprechend.
+  </p>
+  <ul class="clean">
+    <li>Firmenname, Rechtsform, vollständige Adresse, USt-ID, HRB-Nummer (für Pflichtangaben)</li>
+    <li>Ansprechperson für E-Mail-Bestellbenachrichtigung</li>
+    <li>Stripe-Account-Anmeldung (kostenfrei einrichtbar) oder PayPal-Business-Konto</li>
+    <li>Domain auf Wunsch (z. B. <em>herdem.de</em>) — Registrierung kann der Auftragnehmer übernehmen (Kosten ca. 12&nbsp;€/Jahr werden weiterverrechnet)</li>
+    <li>Produkt-Liste mit Namen (DE und nach Möglichkeit TR), Preisen, Einheiten, Kategorien</li>
+    <li>Produktfotos (alternativ werden Premium-SVG-Illustrationen als Platzhalter geliefert; ein Foto-Termin kann vermittelt werden)</li>
+    <li>Liefergebiet: Liste der gewünschten Postleitzahlen</li>
+    <li>Inhalte für Impressum, Datenschutz, AGB (Vorlagen werden mitgeliefert; rechtssichere Anpassung erfolgt durch den Auftraggeber)</li>
+  </ul>
+
+  <h2><span class="num">6</span> Zeitplan</h2>
+
+  <ol class="timeline">
+    <li>
+      <div>
+        <strong>Auftragserteilung &amp; Anzahlung</strong>
+        <span>Vertrags-Rücksendung unterschrieben, 50 % netto auf Konto</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Woche 1–2 · Backend-Anbindung</strong>
+        <span>Hosting, Domain, Stripe, PayPal, E-Mail-Bestellroute, Pflichtangaben-Daten</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Woche 2–3 · Inhalts-Einpflege</strong>
+        <span>Produkte, Texte, Fotos, Liefergebiet, Gutscheincodes</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Woche 3–4 · Test &amp; Abnahme</strong>
+        <span>Test-Bestellungen Ende-zu-Ende, Abnahme-Workshop, finale Korrekturen</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <strong>Woche 4–5 · Schulung &amp; Live-Gang</strong>
+        <span>4 Std. Schulung Admin-Panel, Restzahlung, Live-Schaltung, Beginn der 6-monatigen Betreuung</span>
+      </div>
+    </li>
+  </ol>
+
+  <h2><span class="num">7</span> Eigentum, Quellcode &amp; Übergabe</h2>
+
+  <p class="small">
+    Nach vollständiger Bezahlung des Setup-Betrags geht das Nutzungsrecht am
+    erstellten Code an den Auftraggeber über (einfaches, übertragbares,
+    zeitlich und örtlich unbeschränktes Nutzungsrecht). Der Quellcode wird
+    in einem privaten Git-Repository übergeben, zu dem der Auftraggeber
+    vollständigen Zugang erhält. Verwendete Open-Source-Komponenten bleiben
+    bei ihren jeweiligen Autoren (Schriften unter SIL Open Font License,
+    Bibliotheken unter MIT/Apache, Hinweise siehe README).
+  </p>
+
+  <h2><span class="num">8</span> Gewährleistung &amp; Haftung</h2>
+
+  <p class="small">
+    Es gilt die gesetzliche Gewährleistung. Während der 6-monatigen Betreuung
+    werden Mängel an der ursprünglich gelieferten Software ohne Mehrkosten
+    behoben. Eine Haftung für entgangenen Gewinn, mittelbare Schäden,
+    Datenverlust durch Eingriffe Dritter oder durch Ausfall externer Dienste
+    (Stripe, PayPal, Hosting, Internet) ist ausgeschlossen, soweit gesetzlich
+    zulässig. Der Auftragnehmer ist nicht Vertragspartner für Zahlungen
+    zwischen Endkunden und Auftraggeber.
+  </p>
+
+  <h2><span class="num">9</span> Was der Auftraggeber selbst kann nach Übergabe</h2>
+
+  <p class="small">Nach erfolgter Schulung kann der Auftraggeber eigenständig:</p>
+  <ul class="clean">
+    <li>Produkte anlegen, ändern, deaktivieren, löschen — inkl. eigene Fotos hochladen</li>
+    <li>Preise, Einheiten, Beschreibungen und Tags pflegen</li>
+    <li>Pakete (Bundles) zusammenstellen und anpassen</li>
+    <li>Hero-Texte, Werbe-Banner, Promise-Sektionen ändern (Deutsch und Türkisch)</li>
+    <li>Filialdaten, Öffnungszeiten, Liefer-Postleitzahlen, Gebühren ändern</li>
+    <li>Gutscheincodes (Prozent oder Festbetrag) selbst anlegen und befristen</li>
+    <li>Bestellungen einsehen, Status setzen, Belege exportieren</li>
+    <li>Shop pausieren (z. B. wenn die Filiale geschlossen ist)</li>
+    <li>Komplette Konfiguration als JSON-Datei sichern und einspielen</li>
+  </ul>
+
+  <h2><span class="num">10</span> Vertragsannahme</h2>
+
+  <p class="small">
+    Dieses Angebot ist freibleibend und gültig bis zu dem oben genannten
+    Datum. Die Annahme erfolgt durch Unterschrift dieses Dokuments und
+    Rücksendung. Mit der Anzahlung wird der Auftrag verbindlich.
+  </p>
+
+  <div class="sign">
+    <div class="sign-block">
+      <div class="line-space"></div>
+      <strong>Ort, Datum, Unterschrift Auftragnehmer</strong>
+      <span contenteditable="true">[Dein Name]</span>
+    </div>
+    <div class="sign-block">
+      <div class="line-space"></div>
+      <strong>Ort, Datum, Unterschrift Auftraggeber</strong>
+      <span contenteditable="true">Herdem · [Inhaber]</span>
+    </div>
+  </div>
+
+  <footer class="doc">
+    <span>Angebot · Herdem Online-Shop</span>
+    <span contenteditable="true">Seite 2 von 2 · Stand [Datum]</span>
+  </footer>
+</section>
+
+</body>
+</html>
