@@ -55,8 +55,11 @@ empfehlen, nicht drei hinwerfen.
    Löschfrist. Beides pro Betrieb abschaltbar. Nur speichern, was für
    Bestellung/Reservierung nötig ist.
 8. **iOS ist erst fertig mit Simulator-Bild.** iOS 27, hell und dunkel,
-   iPhone und iPad, im Chat gezeigt — und `STAND.md` im Zweig
-   `simulator-bilder` nennt genau den Commit, über den wir reden.
+   iPhone und iPad, im Chat gezeigt. **iOS-Arbeit gehört in eine lokale
+   Sitzung auf Ibos Mac** — nur dort gibt es das iOS-Simulator-Fenster der
+   Claude-App, in dem Ibo live zusieht (so will er es, 01.10.2026). In einer
+   Cloud-Sitzung gibt es nur Bilder vom GitHub-Mac; dann muss `STAND.md` im
+   Zweig `simulator-bilder` genau den Commit nennen, über den wir reden.
 9. **Ein Gehirn, viele Kanäle.** Telefon, Text-Simulator und später
    WhatsApp nutzen denselben Dialog-Kern (Werkzeuge, Regeln, Texte). Die
    ≥ 20 Testgespräche laufen automatisch gegen diesen Kern.
@@ -74,10 +77,21 @@ empfehlen, nicht drei hinwerfen.
 | Supabase-Protokolle (sobald das Projekt existiert) | Ibos iPhone, sein Xcode, seine Konten |
 | Preise auf öffentlichen Seiten (teils gesperrt) | Verträge/Preise hinter einem Login |
 
-Die Cloud-Sitzungen laufen auf **Linux — dort gibt es kein Xcode**. Darum
-baut `.github/workflows/ios-simulator.yml` die App auf einem GitHub-Mac
-(Runner `xcode-27`, iOS-27-Simulator) und legt Bilder in den Zweig
-`simulator-bilder`. Das Repo ist öffentlich, die Mac-Minuten kosten nichts.
+**Wo läuft die Sitzung?** Das entscheidet, was beim iOS-Teil geht:
+
+| | lokale Sitzung auf Ibos Mac | Cloud-Sitzung (Linux) |
+|---|---|---|
+| Xcode, `xcodebuild`, `simctl` | ja | **nein** |
+| iOS-Simulator-Fenster in der Claude-App (live, Claude bedient es) | **ja** — „Simulator verbinden“ | nein |
+| Simulator-Bilder | direkt | über den GitHub-Mac, ~10 Min |
+
+Darum: **iOS-Phasen lokal auf dem Mac**, Datenbank/Agent/Doku gehen auch in
+der Cloud. Als Netz für jede Sitzung baut `.github/workflows/ios-simulator.yml`
+die App bei jedem Push auf einem GitHub-Mac (Runner `xcode-27`) und legt
+Bilder in den Zweig `simulator-bilder`. Das Repo ist öffentlich, die
+Mac-Minuten kosten nichts. Am 01.10.2026 gemessen: Lauf 2 grün, iPhone 18 Pro
+und iPad Pro 13″ mit iOS 27.0, Xcode 27.0 (27A266a). Noch offen: auf dem iPad
+greift die 9:41-Statusleiste nicht, und die Systemsprache steht auf Englisch.
 
 ---
 
@@ -139,7 +153,7 @@ Ausführlich mit Diagramm: `docs/architektur.md`.
 |---|---|---|---|
 | E1 | 01.10.2026 | Kompletter Neubau, kein Code aus v1 | entschieden (Ibo) |
 | E2 | 01.10.2026 | Xcode-Projekt aus `project.yml` (XcodeGen) statt eingecheckter `.xcodeproj` — Cloud-Sitzungen können Text sicher ändern | vorgeschlagen |
-| E3 | 01.10.2026 | Bauen + Simulator-Bilder auf GitHub-Mac `xcode-27` | Build gemessen grün (Xcode 27, 26 s); Fotos: erster Lauf hing, zweiter mit Zeitgrenzen |
+| E3 | 01.10.2026 | iOS lokal auf Ibos Mac mit dem Simulator-Fenster der Claude-App; GitHub-Mac `xcode-27` baut und fotografiert bei jedem Push als Netz | Ibo will das Live-Fenster (01.10.2026); GitHub-Mac gemessen: Lauf 2 grün, 4 Bilder |
 | E4 | 01.10.2026 | Mindest-iOS 26, gebaut mit iOS-27-SDK, getestet im iOS-27-Simulator — damit ältere Restaurant-iPads mitlaufen | vorgeschlagen |
 | E5 | 01.10.2026 | Voice-Stack: **eigene Kaskade** (Spracherkennung → Claude → Stimme) statt Sprache-zu-Sprache oder fertiger Plattform — Preise wortgenau aus der Datenbank, EU-Hosting, ~0,055 $/Min | vorgeschlagen → `docs/phase-0-stack.md` |
 | E6 | 01.10.2026 | Telefonie: Start mit **Twilio (Region Irland)**, Wechsel zu sipgate ohne Umbau möglich (gleiches Protokoll über die sipgate-Brücke) | vorgeschlagen |
@@ -154,6 +168,15 @@ Ausführlich mit Diagramm: `docs/architektur.md`.
 ---
 
 ## Kurzbefehle
+
+Lokale Sitzung auf dem Mac starten (Claude-App → Neu → Ordner kiekmolin),
+dann als erste Nachricht:
+
+> git fetch origin claude/api-529-overload-uk9lbk && git checkout
+> claude/api-529-overload-uk9lbk — lies telefon-retter-v2/CLAUDE.md und
+> starte die Probe-App im verbundenen Simulator.
+
+Im Simulator-Fenster der App: **Simulator verbinden** (iPhone, iOS 27).
 
 ```bash
 # iOS auf dem Mac öffnen (einmalig: brew install xcodegen)
