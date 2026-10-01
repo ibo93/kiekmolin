@@ -12,6 +12,10 @@ const config: CapacitorConfig = {
     // Kamera & Mikrofon laufen über den WebView (getUserMedia); die Texte dafür stehen in Info.plist.
     limitsNavigationsToAppBoundDomains: false,
   },
+  plugins: {
+    // Auch zeigen, wenn die App gerade offen ist (sonst schluckt iOS die Mitteilung still).
+    PushNotifications: { presentationOptions: ['badge', 'sound', 'alert'] },
+  },
 };
 
 export default config;

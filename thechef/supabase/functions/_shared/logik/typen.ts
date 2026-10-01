@@ -96,7 +96,7 @@ export type Scan = {
   status: 'offline' | 'hochgeladen' | 'erkannt' | 'bestaetigt' | 'fehler';
   bestaetigt_am: string | null;
   fehler: string | null;
-  /** Was die KI zu den Fotos sagt – angezeigt beim Bestätigen (0004_scan_hinweise.sql). */
+  /** Was die KI zu den Fotos sagt – angezeigt beim Bestätigen (0006_scan_hinweise.sql). */
   erkennung_hinweise?: ScanHinweise | null;
 };
 

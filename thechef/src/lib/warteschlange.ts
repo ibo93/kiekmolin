@@ -18,13 +18,17 @@ let offen: Promise<IDBDatabase> | null = null;
 function db(): Promise<IDBDatabase> {
   if (offen) return offen;
   offen = new Promise((ok, fehl) => {
-    const r = indexedDB.open(DB, 1);
-    r.onupgradeneeded = () => {
+    const r = indexedDB.open(DB, 2);
+    r.onupgradeneeded = (e) => {
       const d = r.result;
-      d.createObjectStore('scans', { keyPath: 'lokal_id' });
-      const f = d.createObjectStore('fotos', { keyPath: 'id' });
-      f.createIndex('lokal_id', 'lokal_id');
-      d.createObjectStore('geister', { keyPath: 'position_id' });
+      // Stufenweise: Geräte mit Version 1 behalten ihre wartenden Scans.
+      if (e.oldVersion < 1) {
+        d.createObjectStore('scans', { keyPath: 'lokal_id' });
+        const f = d.createObjectStore('fotos', { keyPath: 'id' });
+        f.createIndex('lokal_id', 'lokal_id');
+        d.createObjectStore('geister', { keyPath: 'position_id' });
+      }
+      if (e.oldVersion < 2) d.createObjectStore('weg', { keyPath: 'lokal_id' });
     };
     r.onsuccess = () => ok(r.result);
     r.onerror = () => fehl(r.error);
@@ -83,6 +87,22 @@ export async function geisterbild(positionId: string, fristTage: number): Promis
     return null;
   }
   return r.blob;
+}
+
+/** Weggeworfen ohne Netz: wartet hier, bis es hochgeladen ist. fehler = echter Fehler, wartet auf eine Entscheidung. */
+export type WarteWeg = { lokal_id: string; produkt_id: string; menge: number; zeitpunkt: string; fehler?: string };
+export async function wegAnlegen(w: WarteWeg) {
+  await laden('weg', (st) => st.put(w), 'readwrite');
+}
+export async function wegAktualisieren(lokalId: string, p: Partial<WarteWeg>) {
+  const alt = await laden<WarteWeg | undefined>('weg', (st) => st.get(lokalId));
+  if (alt) await laden('weg', (st) => st.put({ ...alt, ...p }), 'readwrite');
+}
+export async function wegEntfernen(lokalId: string) {
+  await laden('weg', (st) => st.delete(lokalId), 'readwrite');
+}
+export async function alleWeg(): Promise<WarteWeg[]> {
+  return laden('weg', (st) => st.getAll());
 }
 
 /** Speicher dauerhaft anfragen, damit der Browser Fotos nicht still wegräumt. */

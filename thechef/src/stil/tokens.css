@@ -2,15 +2,18 @@
    Eine Stelle für Farben, Glas, Radien, Bewegung. Hell/Dunkel/Glas/Bewegung
    werden über data-Attribute an <html> geschaltet (siehe src/lib/darstellung.ts). */
 
-@import '@fontsource/bricolage-grotesque/latin-800.css';
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
 
 /* Zahlen-Schrift NUR für Ziffern (THECHEF.md): dieselbe Datei, aber nur für
    0–9 und Zahlzeichen. "12 kg", "4 Kisten", "٤ صناديق": die Ziffern in
    Bricolage, jedes Wort in der Systemschrift – auch Arabisch bleibt sauber. */
 @font-face {
   font-family: 'Chef Ziffern';
-  src: url('../../node_modules/@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-800-normal.woff2') format('woff2');
-  font-weight: 800;
+  /* Variable Datei mit Optik-Achse (opsz) wie im Design: große Zahlen werden
+     schmaler und straffer, kleine bleiben lesbar. Die feste 800er-Datei war
+     überall auf der kleinsten Optik – dadurch breit gezogen. */
+  src: url('../../node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2') format('woff2-variations');
+  font-weight: 200 800;
   font-display: swap;
   unicode-range: U+0030-0039, U+002B-002E, U+0025, U+20AC, U+2212;
 }
@@ -61,7 +64,7 @@
 
   --schrift: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Geeza Pro', 'Helvetica Neue', sans-serif;
   --schrift-zahl: 'Chef Ziffern', -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
-  --schrift-marke: 'Bricolage Grotesque', -apple-system, sans-serif; /* nur die Wortmarke "Chef" */
+  --schrift-marke: 'Bricolage Grotesque Variable', -apple-system, sans-serif; /* nur die Wortmarke "Chef" */
   --federn: cubic-bezier(0.2, 0.8, 0.2, 1);
   --massstab: 0.88;
   /* iOS zoomt beim Antippen jedes Feld heran, dessen Schrift unter 16 px liegt –

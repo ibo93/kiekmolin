@@ -336,10 +336,17 @@ export function demoApi(): Api {
     },
 
     async bestand() { return aktuellerBestand(); },
+    async produktVerlauf(pid, seit) {
+      return {
+        bestand: z.bestand.filter((b) => b.produkt_id === pid && b.zeitpunkt >= seit),
+        weggeworfen: z.weggeworfen.filter((w) => w.produkt_id === pid && w.zeitpunkt >= seit),
+      };
+    },
     async weggeworfen(von, bis) { return z.weggeworfen.filter((w) => w.zeitpunkt >= von && w.zeitpunkt < bis); },
-    async wegwerfen(pid, menge) {
+    async wegwerfen(pid, menge, lokal) {
       const p = z.produkte.find((x) => x.id === pid);
-      z.weggeworfen.push({ id: id(), produkt_id: pid, menge_einheiten: menge, wert_eur: p?.preis_pro_einheit == null ? null : Math.round(menge * p.preis_pro_einheit * 100) / 100, zeitpunkt: new Date().toISOString(), nutzer_id: nutzer().id });
+      if (lokal && z.weggeworfen.some((w) => w.id === lokal.lokal_id)) return;
+      z.weggeworfen.push({ id: lokal?.lokal_id ?? id(), produkt_id: pid, menge_einheiten: menge, wert_eur: p?.preis_pro_einheit == null ? null : Math.round(menge * p.preis_pro_einheit * 100) / 100, zeitpunkt: lokal?.zeitpunkt ?? new Date().toISOString(), nutzer_id: nutzer().id });
       sichern();
     },
     async einkaufEintraege(d) { return z.einkauf.filter((e) => e.datum === d); },

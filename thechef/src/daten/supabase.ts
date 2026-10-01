@@ -7,6 +7,7 @@ import type {
   Bereich, BestandZeile, Betrieb, Briefing, EinkaufEintrag, Erkennung, Hinweis, Namen, Nutzer, Position, Produkt, Scan, Weggeworfen,
 } from '../../supabase/functions/_shared/logik/typen.ts';
 import { DatenFehler, type Api, type AssistentAntwort, type LokalerScan, type LokalesFoto, type Sitzung } from './api.ts';
+import { istNetzFehler } from '../lib/netz.ts';
 
 type Antwort<T> = { data: T | null; error: { message: string; code?: string } | null };
 
@@ -34,8 +35,7 @@ export async function mitSpeicher<T>(schluessel: string, holen: () => Promise<T>
     try { localStorage.setItem(k, JSON.stringify(d)); } catch { /* voll/privat */ }
     return d;
   } catch (e) {
-    const offline = !navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(String((e as Error)?.message));
-    if (offline) {
+    if (istNetzFehler(e)) {
       try { const alt = localStorage.getItem(k); if (alt) return JSON.parse(alt) as T; } catch { /* nichts gespeichert */ }
     }
     throw e;
@@ -273,16 +273,32 @@ export function supabaseApi(url: string, anonKey: string): Api {
         chargen: (z.chargen ?? []).map((c) => ({ ...c, menge: Number(c.menge) })),
       }));
     },
+    async produktVerlauf(pid, seit) {
+      const [b, w] = await Promise.all([
+        sb.from('bestand').select('bereich_id, menge_einheiten, zeitpunkt').eq('produkt_id', pid).gte('zeitpunkt', seit),
+        sb.from('weggeworfen').select('menge_einheiten, zeitpunkt').eq('produkt_id', pid).gte('zeitpunkt', seit),
+      ]);
+      const zahlen = <T extends { menge_einheiten: unknown }>(r: T[]) => r.map((z) => ({ ...z, menge_einheiten: Number(z.menge_einheiten) }));
+      return {
+        bestand: zahlen(pruefe(b, 'Bestand') as Array<{ bereich_id: string; menge_einheiten: number; zeitpunkt: string }>),
+        weggeworfen: zahlen(pruefe(w, 'Weggeworfen') as Array<{ menge_einheiten: number; zeitpunkt: string }>),
+      };
+    },
     async weggeworfen(von, bis) {
       const r = pruefe(await sb.from('weggeworfen').select('*').gte('zeitpunkt', von).lt('zeitpunkt', bis), 'Weggeworfen') as Weggeworfen[];
       return r.map((w) => ({ ...w, menge_einheiten: Number(w.menge_einheiten), wert_eur: zahl(w.wert_eur) }));
     },
-    async wegwerfen(produktId, menge) {
+    async wegwerfen(produktId, menge, lokal) {
       const p = pruefe(await sb.from('produkte').select('preis_pro_einheit').eq('id', produktId).single(), 'Produkt') as { preis_pro_einheit: number | null };
-      pruefeOhne(await sb.from('weggeworfen').insert({
+      const zeile = {
         betrieb_id: betriebId(), produkt_id: produktId, menge_einheiten: menge, nutzer_id: aktuell!.nutzer.id,
         wert_eur: p.preis_pro_einheit == null ? null : Math.round(menge * Number(p.preis_pro_einheit) * 100) / 100,
-      }), 'Weggeworfen');
+        ...(lokal ? { lokal_id: lokal.lokal_id, zeitpunkt: lokal.zeitpunkt } : {}),
+      };
+      // Aus der Warteschlange: ein zweites Ankommen derselben Meldung zählt nicht doppelt.
+      pruefeOhne(lokal
+        ? await sb.from('weggeworfen').upsert(zeile, { onConflict: 'lokal_id', ignoreDuplicates: true })
+        : await sb.from('weggeworfen').insert(zeile), 'Weggeworfen');
     },
     async einkaufEintraege(datum) {
       const r = pruefe(await sb.from('einkauf_eintraege').select('*').eq('datum', datum), 'Einkauf') as EinkaufEintrag[];
@@ -328,10 +344,12 @@ export function supabaseApi(url: string, anonKey: string): Api {
       if (!r.ok) throw new DatenFehler('fehler.sprache', j.fehler ?? String(r.status));
       return { text: String(j.text ?? '') };
     },
-    async pushSpeichern(abo) {
+    async pushSpeichern(p) {
+      const zeile = p.art === 'apns'
+        ? { art: 'apns', endpoint: p.token, p256dh: null, auth: null }
+        : { art: 'web', endpoint: p.abo.endpoint, p256dh: p.abo.keys?.p256dh, auth: p.abo.keys?.auth };
       pruefeOhne(await sb.from('push_abos').upsert({
-        betrieb_id: betriebId(), nutzer_id: aktuell!.nutzer.id, endpoint: abo.endpoint,
-        p256dh: abo.keys?.p256dh, auth: abo.keys?.auth,
+        betrieb_id: betriebId(), nutzer_id: aktuell!.nutzer.id, ...zeile,
       }, { onConflict: 'endpoint' }), 'Push');
     },
 

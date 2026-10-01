@@ -62,7 +62,7 @@ export function AssistentStart() {
       <div className="stapel einblenden" style={{ gap: 10, padding: '0 4px' }}>
         <div className="kopf" style={{ padding: 0 }}>
           <h1>{gruss}</h1>
-          <a href="#/c/einstellungen" className="glas glas-knopf" aria-label={t('einstellungen.titel')}><Icon name="darstellung" /></a>
+          <a href="#/c/einstellungen" className="glas glas-knopf" aria-label={t('einstellungen.titel')}><Icon name="regler" /></a>
         </div>
         <div className="glas glas-pille" role="status">
           <span className={`punkt ${fehlen.length === 0 ? '' : nichtGescannt ? 'rot' : 'gelb'}`} />

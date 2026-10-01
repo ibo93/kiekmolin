@@ -18,11 +18,11 @@ export async function briefingSenden(db: SupabaseClient, betrieb: Betrieb) {
   }, { onConflict: 'betrieb_id,datum' });
   if (r.error) throw new Error(r.error.message);
   const bereichNamen = (s: Parameters<typeof text>[0]) => fehlen.map((id) => name(l.bereiche.find((b) => b.id === id)?.namen ?? {}, s)).join(', ');
-  await pushAn(db, betrieb.id, 'chef', (s) => ({
+  const push = await pushAn(db, betrieb.id, 'chef', (s) => ({
     titel: text(s, 'briefing_titel'),
     text: fehlen.length ? text(s, 'briefing_nicht_gescannt', { bereiche: bereichNamen(s) })
       : briefingPushText(punkte, s, (id) => name(l.staende.find((x) => x.produkt.id === id)?.produkt.namen ?? {}, s)),
     ziel: '#/c', tag: 'briefing',
   }));
-  return { gesendet: true, gescannt: fehlen.length === 0 };
+  return { gesendet: true, gescannt: fehlen.length === 0, push };
 }

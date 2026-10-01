@@ -158,7 +158,7 @@ export function Bestaetigen({ scanId }: { scanId: string }) {
         <div className="leise" style={{ fontSize: 16 }}>{test ? t('bestaetigen.test_unter') : t('bestaetigen.unter')}</div>
       </div>
       {liste.length === 0 && <div className="meldung warnung"><Icon name="warnung" />{t('bestaetigen.nichts_erkannt')}</div>}
-      {/* Was die KI zu den Fotos gesagt hat – vorher weggeworfen (0004_scan_hinweise.sql) */}
+      {/* Was die KI zu den Fotos gesagt hat – vorher weggeworfen (0006_scan_hinweise.sql) */}
       {qualitaet}
       {hinweise.unbekannt.length > 0 && (
         <div className="meldung info" role="status"><Icon name="funkeln" />

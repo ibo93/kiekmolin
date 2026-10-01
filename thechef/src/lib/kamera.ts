@@ -1,13 +1,6 @@
 // Kamera über eine eigene Schicht – später in Capacitor gegen die native
 // Kamera tauschbar, ohne die Seiten anzufassen.
-import { registerPlugin } from '@capacitor/core';
 import { istNativ } from './geraet.ts';
-
-/** In der iPhone-App: Taschenlampe nativ (ios/App/App/SceneDelegate.swift → LampePlugin). */
-const Lampe = registerPlugin<{
-  verfuegbar(): Promise<{ verfuegbar: boolean }>;
-  setzen(o: { an: boolean }): Promise<{ an: boolean }>;
-}>('Lampe');
 export type Kamera = {
   video: HTMLVideoElement;
   taschenlampe: boolean; // wird vom Gerät unterstützt?
@@ -27,24 +20,19 @@ export async function kameraStarten(video: HTMLVideoElement): Promise<Kamera> {
   video.muted = true;
   await video.play();
   const spur = stream.getVideoTracks()[0];
-  // Taschenlampe: Android/Chrome ja. iPhone im Browser: nicht zugesichert –
-  // der Knopf erscheint nur, wenn das Gerät "torch" meldet.
-  const webLampe = (spur.getCapabilities?.() as { torch?: boolean } | undefined)?.torch === true;
-  // iPhone-App: der WebView meldet nie "torch" – dort fragt die App iOS selbst.
-  const nativLampe = !webLampe && istNativ() && (await Lampe.verfuegbar().then((r) => r.verfuegbar, () => false));
-  let lampeAn = false;
+  // Taschenlampe: Android/Chrome über die Videospur. iPhone im Browser: nicht
+  // zugesichert – der Knopf erscheint nur, wenn das Gerät "torch" meldet.
+  // In der iPhone-App (Xcode) meldet WKWebView nie "torch" – dort schaltet ein
+  // natives Plugin das Licht direkt über AVCaptureDevice.
+  const nativ = istNativ() ? await nativeLampe() : null;
+  const kann = nativ ? nativ.da : (spur.getCapabilities?.() as { torch?: boolean } | undefined)?.torch === true;
   return {
     video,
-    taschenlampe: webLampe || nativLampe,
+    taschenlampe: kann,
     async lampe(an) {
       try {
-        if (nativLampe) {
-          const r = await Lampe.setzen({ an });
-          lampeAn = r.an;
-          return r.an === an;
-        }
-        await spur.applyConstraints({ advanced: [{ torch: an } as MediaTrackConstraintSet] });
-        lampeAn = an;
+        if (nativ) await (an ? nativ.plugin.enable() : nativ.plugin.disable());
+        else await spur.applyConstraints({ advanced: [{ torch: an } as MediaTrackConstraintSet] });
         return true;
       } catch {
         return false;
@@ -58,10 +46,18 @@ export async function kameraStarten(video: HTMLVideoElement): Promise<Kamera> {
       return c;
     },
     stopp() {
-      // Die native Lampe hängt nicht an der Kamera-Spur – sonst brennt sie weiter.
-      if (nativLampe && lampeAn) Lampe.setzen({ an: false }).catch(() => {});
+      if (nativ) nativ.plugin.disable().catch(() => {}); // Licht nie anlassen
       stream.getTracks().forEach((t) => t.stop());
       video.srcObject = null;
     },
   };
+}
+
+async function nativeLampe() {
+  try {
+    const { Torch } = await import('@capawesome/capacitor-torch');
+    return { plugin: Torch, da: (await Torch.isAvailable()).available };
+  } catch {
+    return null;
+  }
 }

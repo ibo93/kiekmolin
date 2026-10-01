@@ -3,7 +3,7 @@
 // ins Leere, ohne Fehlermeldung (CLAUDE.md, Regel 6).
 import { useEffect, useState } from 'react';
 import { useApp, useFehlerText, useIch } from '../app/kontext.tsx';
-import { pushAbonnieren, pushAufGeraet } from '../lib/geraet.ts';
+import { APNS_GESPEICHERT, pushAbonnieren, pushAufGeraet } from '../lib/geraet.ts';
 
 const VAPID = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
@@ -20,8 +20,10 @@ export function usePush() {
     setLaedt(true);
     try {
       if (an && !api.demo) {
-        if (!VAPID) throw new Error('push_nicht_eingerichtet');
-        await api.pushSpeichern(await pushAbonnieren(VAPID));
+        // Web braucht VAPID, die iPhone-App geht über Apple – das entscheidet pushAbonnieren.
+        const abo = await pushAbonnieren(VAPID);
+        await api.pushSpeichern(abo);
+        if (abo.art === 'apns') try { localStorage.setItem(APNS_GESPEICHERT, '1'); } catch { /* privat */ }
         setGeraet(true);
       }
       await api.profilAendern({ push_an: an });

@@ -82,3 +82,15 @@ export function bedarf(v: Verbrauch, wochentage: number[]): { menge: number | nu
   const menge = wochentage.reduce((s, d) => s + (mitWt ? v.pro_wochentag[d]! : v.pro_tag!), 0);
   return { menge: runde(menge, 2), grundlage: mitWt ? 'wochentag' : 'durchschnitt' };
 }
+
+/** Wie lange der Mindestbestand reichen soll – bis zur nächsten Lieferung, mit Luft. */
+export const REICHWEITE_TAGE = 3;
+
+/**
+ * Vorschlag für den Mindestbestand: Verbrauch pro Tag × Reichweite, auf ganze
+ * Einheiten aufgerundet. Nur mit genug Verlauf – sonst null und KEINE geratene Zahl.
+ */
+export function mindestbestandVorschlag(v: Verbrauch, reichweite = REICHWEITE_TAGE): { menge: number; pro_tag: number; tage: number } | null {
+  if (!v.zuverlaessig || v.pro_tag == null || v.pro_tag <= 0) return null;
+  return { menge: Math.max(1, Math.ceil(v.pro_tag * reichweite - 1e-9)), pro_tag: v.pro_tag, tage: v.tage_abgedeckt };
+}

@@ -67,8 +67,11 @@ export interface Api {
 
   // Bestand
   bestand(): Promise<BestandZeile[]>;
+  /** Verlauf eines Produkts – Grundlage für Verbrauch und Mindestbestand-Vorschlag. */
+  produktVerlauf(produktId: string, seitIso: string): Promise<{ bestand: Array<{ bereich_id: string; menge_einheiten: number; zeitpunkt: string }>; weggeworfen: Array<{ menge_einheiten: number; zeitpunkt: string }> }>;
   weggeworfen(vonIso: string, bisIso: string): Promise<Weggeworfen[]>;
-  wegwerfen(produktId: string, menge: number): Promise<void>;
+  /** lokal: aus der Offline-Warteschlange – mit eigener Kennung und dem Zeitpunkt auf dem Handy. */
+  wegwerfen(produktId: string, menge: number, lokal?: { lokal_id: string; zeitpunkt: string }): Promise<void>;
   einkaufEintraege(datum: string): Promise<EinkaufEintrag[]>;
   einkaufSetzen(e: EinkaufEintrag): Promise<void>;
 
@@ -80,12 +83,15 @@ export interface Api {
   hinweise(): Promise<Hinweis[]>;
   hinweisErledigt(id: string): Promise<void>;
   spracheZuText(audio: Blob, sprache: Sprache, dauerSekunden?: number): Promise<{ text: string }>;
-  pushSpeichern(abo: PushSubscriptionJSON): Promise<void>;
+  /** Web-Push-Abo ODER – in der iPhone-App – ein Apple-Geräte-Token. */
+  pushSpeichern(abo: PushAbo): Promise<void>;
 
   // Auswertung
   kosten(seitIso: string): Promise<Kosten[]>;
   genauigkeit(seitIso: string): Promise<GenauigkeitsZeile[]>;
 }
+
+export type PushAbo = { art: 'web'; abo: PushSubscriptionJSON } | { art: 'apns'; token: string };
 
 /** Fehler, die der Nutzer sehen soll – nie still schlucken. */
 export class DatenFehler extends Error {
