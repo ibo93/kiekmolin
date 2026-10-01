@@ -23,7 +23,7 @@ dabei (1 $ ≈ 0,86 € — **Kurs nicht geprüft**).
 |---|---|---|---|
 | Wie | Spracherkennung → Sprachmodell mit Werkzeugen → Stimme, jedes Teil austauschbar | Ein Modell hört und spricht direkt (OpenAI Realtime, Gemini Live) | Anbieter macht alles, wir liefern Prompt + Werkzeuge (ElevenLabs Agents, Vapi, Retell, sipgate Flow) |
 | Kosten / Gesprächsminute | **≈ 0,02–0,055 $** | ≈ 0,02–0,11 $ | ≈ 0,10–0,25 $ |
-| Antwortzeit | 0,8–1,3 s (**Schätzung**, Budget unten) | 1,18–1,21 s bis zum ersten Ton (Artificial Analysis, Benchmark mit Reasoning) | laut Anbieter < 0,5–0,7 s (**Herstellerangabe**) |
+| Antwortzeit | 0,7–1,6 s (**Schätzung**, Budget unten) | 1,18–1,21 s bis zum ersten Ton (Artificial Analysis, Benchmark mit Reasoning) | laut Anbieter < 0,5–0,7 s (**Herstellerangabe**) |
 | Preise wortgenau | **Ja** — die Zusammenfassung kommt als fester Text aus der Datenbank, die Stimme liest nur vor | **Nein** — das Modell formuliert immer selbst | je nach Plattform |
 | EU-Hosting | **Ja**, für jedes Teil möglich | OpenAI: EU nur mit Freigabe und +10 %; Gemini: Vertex EU | meist nur im Enterprise-Vertrag |
 | Stimme frei wählbar | Ja | Nein (feste Stimmen) | Ja / teils |
@@ -36,9 +36,12 @@ dabei (1 $ ≈ 0,86 € — **Kurs nicht geprüft**).
    Auftrag. In der Kaskade spricht die Stimme bei der Zusammenfassung einen
    Text, den die Datenbank erzeugt hat. Ein Sprache-zu-Sprache-Modell
    formuliert immer selbst — es kann sich versprechen.
-2. **Sie ist nicht langsamer.** Die Sprache-zu-Sprache-Modelle liegen im
-   Benchmark bei ~1,2 s bis zum ersten Ton. Die Kaskade schafft das auch,
-   mit Tricks unter 1 s (siehe Latenz-Budget). Gemessen wird in Phase 2.
+2. **Bei der Antwortzeit gibt es keinen klaren Sieger.** Die
+   Sprache-zu-Sprache-Modelle liegen im Benchmark bei ~1,2 s bis zum
+   ersten Ton (mit hoher Denkstufe; mit niedriger vermutlich schneller —
+   nicht gemessen). Die Kaskade liegt geschätzt bei 0,7–1,6 s; unter 1 s
+   nur, wenn die Tricks unten greifen. Das entscheidet Phase 2 mit echten
+   Anrufen, nicht diese Tabelle.
 3. **Alles in der EU** — Server in Frankfurt, Spracherkennung mit
    EU-Endpunkt, Claude über AWS in der EU, Stimme wahlweise Azure in
    Frankfurt.
@@ -171,9 +174,10 @@ einer gut laufenden Pizzeria; nicht gemessen — im Pilot messen wir das).
 | Variante | $/Min | 750 Min | ≈ € (Kurs-Annahme) |
 |---|---|---|---|
 | **A Qualität** — Twilio + Deepgram + Haiku + ElevenLabs | 0,054 | 41 $ | ≈ 35 € |
-| A Sparsam — sipgate + Soniox + Haiku + Azure | 0,023 (+ Kanalpauschale) | 17 $ + Anteil 16,77 € | ≈ 16–20 € |
+| A Sparsam — sipgate + Soniox + Haiku + Azure | 0,023 (+ Kanalpauschale) | 17 $ + Anteil an 16,77 €, die sich alle Betriebe teilen | ≈ 16–20 € (ab ~4 Betrieben) |
 | B OpenAI gpt-realtime-2.1 (+ SIP) | 0,06 (Dritte: bis 0,11) | 45–83 $ | ≈ 39–71 € |
-| C ElevenLabs Agents | ≈ 0,10 | 77 $ | ≈ 66 € |
+| B Gemini 3.8 Live (Vertex EU) + Twilio | 0,035–0,045 | 26–33 $ | ≈ 22–29 € |
+| C ElevenLabs Agents (0,08 + KI 0,01 + Twilio 0,0144) | ≈ 0,104 | 78 $ | ≈ 67 € |
 | C sipgate Flow (eigenes LLM) | ≈ 0,10 € | – | ≈ 75–85 € |
 | C Vapi / Retell / Synthflow | 0,11–0,25 | 82–188 $ | ≈ 70–160 € |
 
@@ -195,7 +199,10 @@ abschaltbar; ab Phase 4 WhatsApp als günstigere Bestätigung.
 | Claude Haiku: erstes Wort (Karte aus dem Zwischenspeicher) | 300–700 ms |
 | Stimme: erster Ton | 75–300 ms |
 | Telefonnetz hin und zurück | 100–200 ms |
-| **Summe** | **≈ 0,8–1,3 s** |
+| **Summe** (ohne den parallelen Schritt) | **≈ 0,7–1,6 s** |
+
+Unter 1 s kommen wir nur im günstigen Teil dieser Spanne. Darum sind die
+Tricks unten keine Kür, sondern Pflicht.
 
 Tricks, die wir einbauen: Antwort satzweise sprechen, Begrüßung
 vorproduziert, „Einen Moment, ich schaue nach“ wenn ein Werkzeug länger
