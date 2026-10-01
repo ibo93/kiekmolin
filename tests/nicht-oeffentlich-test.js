@@ -71,7 +71,7 @@ t('publish veroeffentlicht das ganze Verzeichnis',
 
 console.log('\n-- 2. Jeder Werkzeug-Ordner ist gesperrt --');
 // Alles hier liegt im Repo und wird von der App NICHT geladen.
-var ZU = ['/agentur/*', '/telefon-retter/*', '/sichtbarkeit/*', '/tests/*',
+var ZU = ['/agentur/*', '/telefon-retter/*', '/telefon-retter-v2/*', '/sichtbarkeit/*', '/tests/*',
           '/datenbank/*', '/marketing/*', '/tools/*', '/tailwind/*',
           '/werkzeug/*', '/netlify/*', '/prospects.json'];
 ZU.forEach(function (pfad) {
