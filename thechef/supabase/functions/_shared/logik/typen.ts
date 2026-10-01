@@ -96,7 +96,31 @@ export type Scan = {
   status: 'offline' | 'hochgeladen' | 'erkannt' | 'bestaetigt' | 'fehler';
   bestaetigt_am: string | null;
   fehler: string | null;
+  /** Was die KI zu den Fotos sagt – angezeigt beim Bestätigen (0004_scan_hinweise.sql). */
+  erkennung_hinweise?: ScanHinweise | null;
 };
+
+export type Bildproblem = 'dunkel' | 'unscharf' | 'zu_weit' | 'verdeckt' | 'spiegelung';
+export type ScanHinweise = {
+  bildqualitaet: Bildproblem[];
+  unbekannt: Array<{ beschreibung: string }>;
+};
+
+/** Hinweise aus den Antworten der KI (je Stelle eine) zusammenfassen: jedes Problem einmal. */
+export function hinweiseZusammen(
+  antworten: Array<{ bildqualitaet: { ok: boolean; problem: string | null }; unbekannt: Array<{ beschreibung: string }> }>,
+): ScanHinweise {
+  const bekannt: Bildproblem[] = ['dunkel', 'unscharf', 'zu_weit', 'verdeckt', 'spiegelung'];
+  const probleme = antworten
+    .filter((a) => !a.bildqualitaet.ok && a.bildqualitaet.problem)
+    .map((a) => a.bildqualitaet.problem as Bildproblem)
+    .filter((p) => bekannt.includes(p));
+  const unbekannt = antworten.flatMap((a) => a.unbekannt)
+    .map((u) => ({ beschreibung: u.beschreibung.trim().slice(0, 80) }))
+    .filter((u, i, l) => u.beschreibung && l.findIndex((x) => x.beschreibung.toLowerCase() === u.beschreibung.toLowerCase()) === i)
+    .slice(0, 5);
+  return { bildqualitaet: [...new Set(probleme)], unbekannt };
+}
 
 export type Box = { x: number; y: number; b: number; h: number };
 

@@ -9,6 +9,7 @@ import { useApp, useFehlerText, useIch, useLaden } from '../app/kontext.tsx';
 import { useT } from '../i18n/i18n.tsx';
 import { abgleichen } from '../lib/abgleich.ts';
 import { SCAN_KANTE, verkleinern } from '../lib/bild.ts';
+import { bildHelligkeit, blobHelligkeit, zuDunkel } from '../lib/bildpruefung.ts';
 import { haptik } from '../lib/geraet.ts';
 import { kameraStarten, type Kamera } from '../lib/kamera.ts';
 import { geheZu } from '../lib/router.ts';
@@ -37,6 +38,10 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
   const [blitz, setBlitz] = useState(false);
   const [phase, setPhase] = useState<'kamera' | 'erkennt' | 'offline'>('kamera');
   const [erkennFehler, setErkennFehler] = useState<string | null>(null);
+  // Letztes Foto zu dunkel? Sofort sagen – nicht erst nach dem Hochladen.
+  const [dunkel, setDunkel] = useState(false);
+  // Ausweichweg, wenn die Live-Kamera nicht geht: die Kamera-App des Handys.
+  const kameraApp = useRef<HTMLInputElement>(null);
 
   const { daten } = useLaden(async (a) => {
     const [bereiche, positionen] = await Promise.all([a.bereiche(), a.positionen()]);
@@ -74,12 +79,24 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
 
   async function ausloesen() {
     const k = kamera.current;
-    if (!k) return;
+    // Live-Kamera geht nicht → Kamera-App des Handys; startet sie noch → warten.
+    if (!k) { if (kameraFehler) kameraApp.current?.click(); return; }
     haptik(15);
     setBlitz(true);
     setTimeout(() => setBlitz(false), 180);
     const roh = k.foto();
-    const { blob, breite, hoehe } = await verkleinern(roh, SCAN_KANTE);
+    setDunkel(zuDunkel(bildHelligkeit(roh)));
+    await fotoAufnehmen(roh);
+  }
+
+  async function ausKameraApp(datei: File | undefined) {
+    if (!datei) return;
+    setDunkel(zuDunkel(await blobHelligkeit(datei).catch(() => 255)));
+    await fotoAufnehmen(datei);
+  }
+
+  async function fotoAufnehmen(quelle: HTMLCanvasElement | Blob) {
+    const { blob, breite, hoehe } = await verkleinern(quelle, SCAN_KANTE);
     const id = crypto.randomUUID();
     if (!angelegt.current) {
       await scanAnlegen({ lokal_id: lokalId.current, bereich_id: bereichId, aufgenommen_am: new Date().toISOString() });
@@ -160,8 +177,15 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
         ) : <span style={{ width: 44 }} />}
       </div>
 
+      <input ref={kameraApp} type="file" accept="image/*" capture="environment" hidden
+        onChange={(e) => { ausKameraApp(e.target.files?.[0]); e.target.value = ''; }} />
       {kameraFehler ? (
-        <div className="scan-hinweis"><div className="meldung fehler" role="alert"><Icon name="warnung" />{kameraFehler}</div></div>
+        <div className="scan-hinweis">
+          <div className="meldung fehler" role="alert"><Icon name="warnung" /><div>{kameraFehler}<br /><small>{t('scan.kamera_app')}</small></div></div>
+          {dunkel && <div className="meldung warnung" role="status" style={{ marginTop: 8 }}><Icon name="warnung" />{t('scan.zu_dunkel')}</div>}
+        </div>
+      ) : dunkel ? (
+        <div className="scan-hinweis"><div className="meldung warnung" role="status"><Icon name="warnung" />{kannLampe && !lampe ? t('scan.zu_dunkel_lampe') : t('scan.zu_dunkel')}</div></div>
       ) : (
         <div className="scan-hinweis">
           {geist ? t('scan.geist_hinweis') : t('scan.hinweis')}
@@ -179,7 +203,7 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
           {fotos.at(-1) ? <img src={fotos.at(-1)!.url} alt="" /> : <span />}
           <span>{t('scan.fotos', { n: fotosHier })}</span>
         </button>
-        <button className="scan-ausloeser" aria-label={t('scan.foto')} onClick={ausloesen} disabled={!!kameraFehler}><span /></button>
+        <button className="scan-ausloeser" aria-label={t('scan.foto')} onClick={ausloesen}><span /></button>
         <button className="scan-fertig" onClick={fertig} disabled={fotosHier === 0}>
           {posIndex < positionen.length - 1 ? t('scan.naechste') : t('scan.fertig')}
         </button>

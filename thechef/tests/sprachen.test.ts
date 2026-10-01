@@ -25,6 +25,7 @@ const DYNAMISCH = [
   ...['scan', 'assistent', 'briefing', 'sprache', 'uebersetzung', 'tagesgericht'].map((x) => `kosten.${x}`),
   ...['einkaufsliste', 'bestand', 'verlust', 'einkauf', 'neu_scannen'].map((x) => `aktion.${x}`),
   ...['chef', 'mitarbeiter'].map((x) => `team.${x}`),
+  ...['dunkel', 'unscharf', 'zu_weit', 'verdeckt', 'spiegelung'].map((x) => `bestaetigen.qualitaet_${x}`),
   ...['bereiche', 'produkte', 'team', 'iphone'].map((x) => `einrichtung.${x}_titel`),
   ...Array.from({ length: 12 }, (_, i) => `monat.${i + 1}`),
   ...['laden', 'speichern', 'nicht_angemeldet', 'server', 'foto', 'anmelden', 'registrieren', 'beitreten', 'code_ungueltig', 'sprache', 'sprache_demo', 'demo',

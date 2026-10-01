@@ -112,6 +112,14 @@ export function Bestaetigen({ scanId }: { scanId: string }) {
   }
 
   // ─── Rückfrage (eine nach der anderen)
+  const hinweise = daten?.scan?.erkennung_hinweise ?? { bildqualitaet: [], unbekannt: [] };
+  const nochFoto = `#/scan/${daten?.scan?.bereich_id ?? ''}`;
+  const qualitaet = hinweise.bildqualitaet.map((p) => (
+    <div key={p} className="meldung warnung" role="status"><Icon name="warnung" />
+      <div>{t(`bestaetigen.qualitaet_${p}`)}{' '}<a href={nochFoto} style={{ fontWeight: 700 }}>{t('bestaetigen.noch_foto')}</a></div>
+    </div>
+  ));
+
   if (frage) {
     const p = frage.p;
     const g = Math.round(p.anzahl ?? 0);
@@ -123,6 +131,7 @@ export function Bestaetigen({ scanId }: { scanId: string }) {
         </div>
         <div className="rueckfrage-blatt">
           <div className="griff" />
+          {qualitaet}
           <div>
             <div className="etikett" style={{ color: 'var(--akzent)' }}>{t('rueckfrage.kurze_frage')}{fragen.length > 1 && ` · ${frageNr + 1}/${fragen.length + frageNr}`}</div>
             <h1 style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 700, letterSpacing: -0.5, lineHeight: 1.2 }}>
@@ -149,6 +158,13 @@ export function Bestaetigen({ scanId }: { scanId: string }) {
         <div className="leise" style={{ fontSize: 16 }}>{test ? t('bestaetigen.test_unter') : t('bestaetigen.unter')}</div>
       </div>
       {liste.length === 0 && <div className="meldung warnung"><Icon name="warnung" />{t('bestaetigen.nichts_erkannt')}</div>}
+      {/* Was die KI zu den Fotos gesagt hat – vorher weggeworfen (0004_scan_hinweise.sql) */}
+      {qualitaet}
+      {hinweise.unbekannt.length > 0 && (
+        <div className="meldung info" role="status"><Icon name="funkeln" />
+          {t('bestaetigen.unbekannt', { liste: hinweise.unbekannt.map((u) => u.beschreibung).join(', '), knopf: t('bestaetigen.fehlt_etwas') })}
+        </div>
+      )}
       <div className="raster-2 einblenden" style={{ animationDelay: '.08s' }}>
         {liste.map((p, i) => {
           const tage = p.mhd ? tageZwischen(heute, p.mhd) : null;

@@ -3,6 +3,7 @@
 // Deutlich markiert (orangefarbenes Band oben): Die Erkennung ist hier
 // SIMULIERT, keine echte KI. Die Rechenlogik (Chargen, Ampel, Einkauf,
 // Prüfung der Assistenten-Antworten) ist dieselbe wie im echten Betrieb.
+import { blobHelligkeit, zuDunkel } from '../lib/bildpruefung.ts';
 import { chargenFortschreiben, fruehestesMhd } from '../../supabase/functions/_shared/logik/chargen.ts';
 import { antwortPruefen, type Antwort } from '../../supabase/functions/_shared/logik/antwort.ts';
 import {
@@ -279,6 +280,9 @@ export function demoApi(): Api {
           anzahl_bestaetigt: null, von_hand: false,
         });
       });
+      // Wie der Server: ein zu dunkles Foto melden (dort sagt es die KI).
+      const hell = await Promise.all(fotoListe.map((f) => fetch(f.url).then((r) => r.blob()).then(blobHelligkeit).catch(() => 255)));
+      s.erkennung_hinweise = { bildqualitaet: hell.some(zuDunkel) ? ['dunkel'] : [], unbekannt: [] };
       s.status = 'erkannt';
       kostenBuchen('scan', 0, 0);
       sichern();

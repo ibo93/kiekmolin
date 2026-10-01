@@ -66,6 +66,8 @@ beforeAll(async () => {
   // pgcrypto fehlt in PGlite; gen_random_uuid() ist in Postgres 13+ eingebaut.
   await db.exec(MIG('0001_grundlage.sql').replace('create extension if not exists pgcrypto;', ''));
   await db.exec(MIG('0002_speicher.sql'));
+  // 0003 (Zeitplan) braucht pg_cron – das gibt es in PGlite nicht; 0004 hängt nicht davon ab.
+  await db.exec(MIG('0004_scan_hinweise.sql'));
   for (const id of Object.values(ID)) await db.query('insert into auth.users (id) values ($1)', [id]);
 
   betriebA = (await als<{ id: string }>(ID.chefA, `select betrieb_anlegen('ÖZ KEBAB', 'Mehmet', 'tr') as id`))[0].id;
@@ -240,5 +242,46 @@ describe('Chargen (FIFO) – SQL und TypeScript rechnen gleich', () => {
       { menge: 1, eingang: '2026-09-20', mhd: '2026-09-23', quelle: 'berechnet' },
       { menge: 3, eingang: '2026-09-25', mhd: '2026-09-28', quelle: 'berechnet' },
     ]);
+  });
+});
+
+describe('Löschfrist gilt auch für schon hochgeladene Fotos (0004)', () => {
+  // Vorher bekam nur ein NEUES Foto die neue Frist: von 30 auf 7 Tage
+  // gestellt, blieben die alten Fotos trotzdem 30 Tage liegen.
+  let fotoA = '', fotoAweg = '', fotoB = '';
+  beforeAll(async () => {
+    await db.exec('reset role');
+    const q = async (sql: string, p: unknown[] = []) => (await db.query<{ id: string }>(sql, p)).rows[0]?.id;
+    const bereichB = await q(`insert into bereiche (betrieb_id, namen, art) values ($1, '{"de":"Keller"}', 'trocken') returning id`, [betriebB]);
+    const scanA = await q(`insert into scans (betrieb_id, bereich_id, lokal_id) values ($1, $2, 'frist-a') returning id`, [betriebA, kuehlhausA]);
+    const scanB = await q(`insert into scans (betrieb_id, bereich_id, lokal_id) values ($1, $2, 'frist-b') returning id`, [betriebB, bereichB]);
+    const foto = (b: string, sc: string, weg: boolean) => q(
+      `insert into scan_fotos (betrieb_id, scan_id, foto_pfad, aufgenommen_am, loeschen_am, geloescht)
+       values ($1, $2, 'x.jpg', '2026-09-01T10:00:00Z', '2026-10-01T10:00:00Z', $3) returning id`, [b, sc, weg]);
+    fotoA = await foto(betriebA, scanA, false);
+    fotoAweg = await foto(betriebA, scanA, true);
+    fotoB = await foto(betriebB, scanB, false);
+  });
+  const loeschenAm = async (id: string) =>
+    new Date((await db.query<{ l: string }>('select loeschen_am as l from scan_fotos where id = $1', [id])).rows[0].l).toISOString();
+
+  it('Chef stellt 30 → 7 Tage: das alte Foto wird nach 7 Tagen gelöscht', async () => {
+    await als(ID.chefA, 'update betriebe set foto_loeschfrist_tage = 7 where id = $1', [betriebA]);
+    expect(await loeschenAm(fotoA)).toBe('2026-09-08T10:00:00.000Z');
+  });
+  it('schon gelöschte Fotos und andere Betriebe bleiben unberührt', async () => {
+    expect(await loeschenAm(fotoAweg)).toBe('2026-10-01T10:00:00.000Z');
+    expect(await loeschenAm(fotoB)).toBe('2026-10-01T10:00:00.000Z');
+  });
+  it('ein Mitarbeiter darf die Frist nicht ändern (und damit nichts verschieben)', async () => {
+    await als(ID.halil, 'update betriebe set foto_loeschfrist_tage = 365 where id = $1', [betriebA]).catch(() => {});
+    expect(await loeschenAm(fotoA)).toBe('2026-09-08T10:00:00.000Z');
+  });
+  it('die Hinweise der KI zum Scan sind für den Betrieb lesbar', async () => {
+    await db.exec('reset role');
+    await db.query(`update scans set erkennung_hinweise = '{"bildqualitaet":["dunkel"],"unbekannt":[]}' where lokal_id = 'frist-a'`);
+    const r = await als<{ h: { bildqualitaet: string[] } }>(ID.chefA, `select erkennung_hinweise as h from scans where lokal_id = 'frist-a'`);
+    expect(r[0].h.bildqualitaet).toEqual(['dunkel']);
+    expect((await als(ID.chefB, `select 1 from scans where lokal_id = 'frist-a'`)).length).toBe(0);
   });
 });

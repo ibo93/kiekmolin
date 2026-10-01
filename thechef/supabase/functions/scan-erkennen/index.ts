@@ -10,7 +10,7 @@
 // laufen parallel und werden erst beim Bestätigen summiert.
 import { admin, aufrufer, bedienen, fehler, json } from '../_shared/http.ts';
 import { addieren, anfrage, base64, kostenBuchen, MODELL, NULL_NUTZUNG, textAus, type Nutzung } from '../_shared/claude.ts';
-import type { Produkt } from '../_shared/logik/typen.ts';
+import { hinweiseZusammen, type Produkt } from '../_shared/logik/typen.ts';
 
 /** Referenzfotos im Katalog: höchstens so viele pro Aufruf (Kosten). */
 const MAX_REFERENZEN = 24;
@@ -160,7 +160,10 @@ bedienen(async (req) => {
     const ins = await db.from('scan_erkennungen').insert(zeilen);
     if (ins.error) throw new Error(ins.error.message);
   }
-  await db.from('scans').update({ status: 'erkannt', fehler: null }).eq('id', scan_id);
+  // Bildqualität und Unbekanntes MERKEN: der Bestätigen-Bildschirm zeigt es
+  // an – auch wenn der Scan offline gemacht und später im Hintergrund erkannt wurde.
+  const hinweise = hinweiseZusammen(ergebnisse.map(({ r }) => r));
+  await db.from('scans').update({ status: 'erkannt', fehler: null, erkennung_hinweise: hinweise }).eq('id', scan_id);
   await kostenBuchen(db, betrieb.id, 'scan', nutzung, scan_id, MODELL);
 
   return json({
