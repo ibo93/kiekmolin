@@ -22,9 +22,10 @@ on:
 permissions:
   contents: write
 
+# Ein neuer Push ersetzt einen laufenden Durchgang desselben Zweigs.
 concurrency:
-  group: ios-simulator
-  cancel-in-progress: false
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   simulator:
@@ -82,31 +83,50 @@ jobs:
           grep -c "warning:" build.log || true
           tail -5 build.log
 
+      # Erster Lauf am 01.10.2026: dieser Schritt hing ueber 15 Minuten, ohne
+      # dass man sah, an welchem Befehl. Darum jetzt: jeder simctl-Befehl mit
+      # Uhrzeit und eigener Zeitgrenze (perl-alarm, macOS hat kein timeout).
+      # Bricht einer ab, steht im Protokoll genau welcher.
       - name: Im Simulator starten und fotografieren
+        timeout-minutes: 20
         run: |
           mkdir -p bilder
           APP=build/Build/Products/Debug-iphonesimulator/TelefonRetter.app
           BUNDLE=de.kuranidesign.telefonretter
+          mit_frist() {
+            local frist=$1; shift
+            echo "[$(date -u +%H:%M:%S)] $* (max ${frist}s)"
+            perl -e 'alarm shift; exec @ARGV' "$frist" "$@"
+            local rc=$?
+            [ $rc -eq 142 ] && echo "::error::Zeitgrenze ${frist}s: $*"
+            echo "[$(date -u +%H:%M:%S)] fertig, Code $rc"
+            return $rc
+          }
           fotografiere() {
             local id=$1 name=$2
-            xcrun simctl boot "$id" || true
-            xcrun simctl bootstatus "$id" -b
-            xcrun simctl status_bar "$id" override --time "9:41" \
+            mit_frist 120 xcrun simctl boot "$id" || true
+            mit_frist 600 xcrun simctl bootstatus "$id" || return 1
+            mit_frist 60 xcrun simctl status_bar "$id" override --time "9:41" \
               --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
-            xcrun simctl install "$id" "$APP"
+            mit_frist 180 xcrun simctl install "$id" "$APP" || return 1
             for modus in light dark; do
-              xcrun simctl ui "$id" appearance "$modus"
-              xcrun simctl terminate "$id" "$BUNDLE" 2>/dev/null || true
-              xcrun simctl launch "$id" "$BUNDLE" -AppleLanguages "(de)" -AppleLocale de_DE
+              local datei="bilder/$name-$( [ "$modus" = light ] && echo hell || echo dunkel ).png"
+              mit_frist 60 xcrun simctl ui "$id" appearance "$modus" || true
+              mit_frist 30 xcrun simctl terminate "$id" "$BUNDLE" 2>/dev/null || true
+              mit_frist 120 xcrun simctl launch "$id" "$BUNDLE" -AppleLanguages "(de)" -AppleLocale de_DE || return 1
               sleep 6
-              xcrun simctl io "$id" screenshot "bilder/$name-$( [ "$modus" = light ] && echo hell || echo dunkel ).png"
+              mit_frist 60 xcrun simctl io "$id" screenshot "$datei" || return 1
             done
+            mit_frist 120 xcrun simctl shutdown "$id" || true
           }
-          fotografiere "$IPHONE" iphone
-          if [ -n "$IPAD" ]; then fotografiere "$IPAD" ipad; fi
+          fotografiere "$IPHONE" iphone || echo "::error::iPhone-Bilder unvollstaendig"
+          if [ -n "$IPAD" ]; then fotografiere "$IPAD" ipad || echo "::error::iPad-Bilder unvollstaendig"; fi
           ls -la bilder
+          ls bilder/*.png >/dev/null 2>&1 || { echo "::error::Kein einziges Bild"; exit 1; }
 
+      # Auch wenn das iPad scheitert: was da ist, wird gezeigt.
       - name: Bilder in den Zweig simulator-bilder legen
+        if: always() && hashFiles('telefon-retter-v2/ios/bilder/*.png') != ''
         env:
           TOKEN: ${{ github.token }}
           QUELLE: ${{ github.ref_name }}

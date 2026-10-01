@@ -139,12 +139,17 @@ Ausführlich mit Diagramm: `docs/architektur.md`.
 |---|---|---|---|
 | E1 | 01.10.2026 | Kompletter Neubau, kein Code aus v1 | entschieden (Ibo) |
 | E2 | 01.10.2026 | Xcode-Projekt aus `project.yml` (XcodeGen) statt eingecheckter `.xcodeproj` — Cloud-Sitzungen können Text sicher ändern | vorgeschlagen |
-| E3 | 01.10.2026 | Bauen + Simulator-Bilder auf GitHub-Mac `xcode-27` | vorgeschlagen, Probe läuft |
+| E3 | 01.10.2026 | Bauen + Simulator-Bilder auf GitHub-Mac `xcode-27` | Build gemessen grün (Xcode 27, 26 s); Fotos: erster Lauf hing, zweiter mit Zeitgrenzen |
 | E4 | 01.10.2026 | Mindest-iOS 26, gebaut mit iOS-27-SDK, getestet im iOS-27-Simulator — damit ältere Restaurant-iPads mitlaufen | vorgeschlagen |
-| E5 | – | Voice-Stack (Kaskade vs. Sprache-zu-Sprache) | offen → `docs/phase-0-stack.md` |
-| E6 | – | Telefonie-Anbieter | offen → `docs/phase-0-stack.md` |
-| E7 | – | Eigenes Supabase-Projekt in Frankfurt | vorgeschlagen |
+| E5 | 01.10.2026 | Voice-Stack: **eigene Kaskade** (Spracherkennung → Claude → Stimme) statt Sprache-zu-Sprache oder fertiger Plattform — Preise wortgenau aus der Datenbank, EU-Hosting, ~0,055 $/Min | vorgeschlagen → `docs/phase-0-stack.md` |
+| E6 | 01.10.2026 | Telefonie: Start mit **Twilio (Region Irland)**, Wechsel zu sipgate ohne Umbau möglich (gleiches Protokoll über die sipgate-Brücke) | vorgeschlagen |
+| E7 | 01.10.2026 | Eigenes Supabase-Projekt in Frankfurt | vorgeschlagen |
 | E8 | – | Eigenes Repo statt Unterordner in kiekmolin | offen |
+| E9 | 01.10.2026 | Sprachmodell: **Claude Haiku 4.5** über AWS Bedrock (EU-Profil); Sonnet 5.5 läuft in den Testgesprächen zum Vergleich | vorgeschlagen |
+| E10 | 01.10.2026 | Pipeline-Framework: **Pipecat** (Python) auf eigenem Server in Frankfurt | vorgeschlagen |
+| E11 | 01.10.2026 | Spracherkennung Deepgram Nova-3, Soniox im Vergleich messen; Stimme per Hörprobe (ElevenLabs / Cartesia / Azure) — Ibo entscheidet nach Gehör | vorgeschlagen, Messung Phase 2 |
+| E12 | 01.10.2026 | Pilot mit „Umleitung beim Restaurant“ (Weg 1), „wir steuern“ (Weg 2) später | vorgeschlagen → `docs/architektur.md` |
+| E13 | 01.10.2026 | Allergene als Wort (`gluten` …) wie in Kiek mol in, Geld in Cent | vorgeschlagen |
 
 ---
 
