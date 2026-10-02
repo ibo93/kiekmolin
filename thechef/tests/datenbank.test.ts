@@ -70,6 +70,7 @@ beforeAll(async () => {
   await db.exec(MIG('0004_ios_push.sql'));
   await db.exec(MIG('0005_weggeworfen_offline.sql'));
   await db.exec(MIG('0006_scan_hinweise.sql'));
+  await db.exec(MIG('0007_push_geraet.sql'));
   for (const id of Object.values(ID)) await db.query('insert into auth.users (id) values ($1)', [id]);
 
   betriebA = (await als<{ id: string }>(ID.chefA, `select betrieb_anlegen('ÖZ KEBAB', 'Mehmet', 'tr') as id`))[0].id;
@@ -316,5 +317,39 @@ describe('Löschfrist gilt auch für schon hochgeladene Fotos (0006)', () => {
     const r = await als<{ h: { bildqualitaet: string[] } }>(ID.chefA, `select erkennung_hinweise as h from scans where lokal_id = 'frist-a'`);
     expect(r[0].h.bildqualitaet).toEqual(['dunkel']);
     expect((await als(ID.chefB, `select 1 from scans where lokal_id = 'frist-a'`)).length).toBe(0);
+  });
+});
+
+describe('Ein Gerät gehört dem, der zuletzt darauf angemeldet ist (0007)', () => {
+  const ziel = 'apns-token-kuechen-ipad';
+  const besitzer = async () => {
+    await db.exec('reset role');
+    return (await db.query<{ n: string }>('select nutzer_id as n from push_abos where endpoint = $1', [ziel])).rows.map((r) => r.n);
+  };
+  it('Chef meldet das Küchen-iPad an', async () => {
+    await als(ID.chefA, `select push_abo_speichern('apns', $1, null, null)`, [ziel]);
+    expect(await besitzer()).toEqual([ID.chefA]);
+  });
+  it('so ging es vorher schief: der direkte upsert auf fremdes Gerät scheitert an RLS', async () => {
+    const f = await fehlerText(als(ID.halil,
+      `insert into push_abos (betrieb_id, nutzer_id, art, endpoint) values ($1, $2, 'apns', $3)
+       on conflict (endpoint) do update set nutzer_id = excluded.nutzer_id`, [betriebA, ID.halil, ziel]));
+    expect(f).toMatch(/row-level security|violates/);
+    expect(await besitzer()).toEqual([ID.chefA]);
+  });
+  it('Halil meldet sich auf demselben iPad an: das Gerät wechselt zu ihm (vorher: Fehler durch RLS)', async () => {
+    await als(ID.halil, `select push_abo_speichern('apns', $1, null, null)`, [ziel]);
+    expect(await besitzer()).toEqual([ID.halil]);
+  });
+  it('Web-Abo ohne Schlüssel bleibt verboten – auch über die Funktion', async () => {
+    const f = await fehlerText(als(ID.halil, `select push_abo_speichern('web', 'https://push.example/y', null, null)`));
+    expect(f).toMatch(/push_web_hat_schluessel/);
+  });
+  it('ohne Betrieb oder ohne Anmeldung: nichts', async () => {
+    expect(await fehlerText(als(ID.fremd, `select push_abo_speichern('apns', 'z1', null, null)`))).toMatch(/nicht_angemeldet/);
+    expect(await fehlerText(als(null, `select push_abo_speichern('apns', 'z2', null, null)`))).toMatch(/nicht_angemeldet/);
+  });
+  it('ohne Ziel: abgelehnt statt einer leeren Zeile', async () => {
+    expect(await fehlerText(als(ID.chefA, `select push_abo_speichern('apns', '  ', null, null)`))).toMatch(/push_ohne_ziel/);
   });
 });

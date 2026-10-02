@@ -29,7 +29,7 @@ const DYNAMISCH = [
   ...['bereiche', 'produkte', 'team', 'iphone'].map((x) => `einrichtung.${x}_titel`),
   ...Array.from({ length: 12 }, (_, i) => `monat.${i + 1}`),
   ...['laden', 'speichern', 'nicht_angemeldet', 'server', 'foto', 'anmelden', 'registrieren', 'beitreten', 'code_ungueltig', 'sprache', 'sprache_demo', 'demo',
-    'keine_kamera', 'kein_mikrofon', 'push_ios_installieren', 'push_nicht_moeglich', 'push_abgelehnt', 'push_nicht_eingerichtet', 'unbekannt', 'verbindung'].map((x) => `fehler.${x}`),
+    'keine_kamera', 'kein_mikrofon', 'push_ios_installieren', 'push_nicht_moeglich', 'push_abgelehnt', 'push_nicht_eingerichtet', 'unbekannt', 'verbindung', 'speicher_blockiert'].map((x) => `fehler.${x}`),
 ];
 const imCode = [...code.matchAll(/\bt\(\s*'([a-z_]+\.[a-z0-9_]+)'/g), ...code.matchAll(/'((?:vorlage|vorschlag|installieren|katalog|team|kosten|genauigkeit)\.[a-z0-9_]+)'/g)].map((m) => m[1]);
 const benutzt = [...new Set([...imCode, ...DYNAMISCH])];

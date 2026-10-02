@@ -30,10 +30,11 @@ export async function pushAbonnieren(vapid: string | undefined): Promise<PushAbo
   return { art: 'web', abo: abo.toJSON() };
 }
 
-async function applePush(): Promise<PushAbo> {
+/** fragen=false: beim App-Start nur auffrischen, NIE nach der Erlaubnis fragen. */
+async function applePush(fragen = true): Promise<PushAbo> {
   const { PushNotifications } = await import('@capacitor/push-notifications');
   let recht = await PushNotifications.checkPermissions();
-  if (recht.receive !== 'granted' && recht.receive !== 'denied') recht = await PushNotifications.requestPermissions();
+  if (fragen && recht.receive !== 'granted' && recht.receive !== 'denied') recht = await PushNotifications.requestPermissions();
   if (recht.receive !== 'granted') throw new Error('push_abgelehnt');
   return new Promise<PushAbo>((ok, nein) => {
     const hoerer: Array<Promise<{ remove(): Promise<void> }>> = [];
@@ -67,21 +68,50 @@ export async function mitteilungenOeffnen() {
   });
 }
 
-export const APNS_GESPEICHERT = 'thechef-apns-gespeichert';
+// Merker JE NUTZER: welches Ziel (Apple-Token / Browser-Abo) für ihn gespeichert
+// ist. Vorher galt ein Merker fürs ganze Gerät – auf einem geteilten Küchen-iPad
+// hielt die App Push für den zweiten Mitarbeiter für „an“, und nichts kam an.
+const MERKER = 'thechef-push:';
+export function pushGemerkt(nutzerId: string): string | null {
+  try { return localStorage.getItem(MERKER + nutzerId); } catch { return null; }
+}
+export function pushMerken(nutzerId: string, ziel: string | null) {
+  try { if (ziel) localStorage.setItem(MERKER + nutzerId, ziel); else localStorage.removeItem(MERKER + nutzerId); } catch { /* privat */ }
+}
+export function pushZiel(abo: PushAbo): string {
+  return abo.art === 'apns' ? abo.token : abo.abo.endpoint ?? '';
+}
 
-/** Ist DIESES Gerät für Push angemeldet? `push_an` in der Datenbank steht
+/** Ist DIESES Gerät für DIESEN Nutzer angemeldet? `push_an` steht in der Datenbank
  *  standardmäßig auf an – ohne Abo auf dem Gerät kommt trotzdem nichts an. */
-export async function pushAufGeraet(): Promise<boolean> {
-  // iPhone-App: kein Web-Push. Angemeldet = Apple erlaubt UND ein Token wurde gespeichert.
+export async function pushAufGeraet(nutzerId: string): Promise<boolean> {
+  const gemerkt = pushGemerkt(nutzerId);
   if (istNativ()) {
     const { PushNotifications } = await import('@capacitor/push-notifications');
     if ((await PushNotifications.checkPermissions()).receive !== 'granted') return false;
-    try { return localStorage.getItem(APNS_GESPEICHERT) === '1'; } catch { return false; }
+    return !!gemerkt;
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
   if (Notification.permission !== 'granted') return false;
   const reg = await navigator.serviceWorker.getRegistration();
-  return !!(await reg?.pushManager.getSubscription());
+  const abo = await reg?.pushManager.getSubscription();
+  return !!abo && abo.endpoint === gemerkt;
+}
+
+/** iPhone-App, bei jedem Start: Apple kann das Token wechseln (Backup, neues Gerät).
+ *  Ohne Auffrischen zeigte die App „an“, während Apple das alte Token verwarf. */
+export async function pushAuffrischen(nutzerId: string, speichern: (a: PushAbo) => Promise<void>) {
+  if (!istNativ()) return;
+  const alt = pushGemerkt(nutzerId);
+  if (!alt) return; // nie eingeschaltet – nicht von selbst fragen
+  try {
+    const abo = await applePush(false);
+    const neu = pushZiel(abo);
+    if (neu && neu !== alt) { await speichern(abo); pushMerken(nutzerId, neu); }
+  } catch (e) {
+    // Erlaubnis entzogen o. Ä.: Merker weg, dann zeigt die App wieder „Einschalten“.
+    if ((e as Error)?.message === 'push_abgelehnt') pushMerken(nutzerId, null);
+  }
 }
 
 export function whatsappLink(text: string) {

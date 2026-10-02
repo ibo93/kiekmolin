@@ -82,7 +82,10 @@ export async function wegAbgleichen(api: Pick<Api, 'wegwerfen'>, speicher: WegSp
       await api.wegwerfen(w.produkt_id, w.menge, { lokal_id: w.lokal_id, zeitpunkt: w.zeitpunkt });
       await speicher.entfernen(w.lokal_id);
     } catch (e) {
-      if (istNetzFehler(e)) break;
+      // Kein Netz – oder die Anmeldung lädt noch (App gerade geöffnet): später
+      // nochmal. Beides ist kein Fehler der Meldung; rot markiert bliebe sie
+      // liegen, bis jemand „Verwerfen“ drückt – und dann wäre sie weg.
+      if (istNetzFehler(e) || String((e as Error)?.message ?? e).startsWith('fehler.nicht_angemeldet')) break;
       await speicher.markieren(w.lokal_id, String((e as Error)?.message ?? e));
     }
   }

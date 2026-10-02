@@ -3,7 +3,7 @@
 // ins Leere, ohne Fehlermeldung (CLAUDE.md, Regel 6).
 import { useEffect, useState } from 'react';
 import { useApp, useFehlerText, useIch } from '../app/kontext.tsx';
-import { APNS_GESPEICHERT, pushAbonnieren, pushAufGeraet } from '../lib/geraet.ts';
+import { pushAbonnieren, pushAufGeraet, pushMerken, pushZiel } from '../lib/geraet.ts';
 
 const VAPID = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
@@ -14,7 +14,7 @@ export function usePush() {
   // Demo: kein Server, nichts zu abonnieren – dort zählt nur der Schalter.
   const [geraet, setGeraet] = useState<boolean | null>(api.demo ? true : null);
   const [laedt, setLaedt] = useState(false);
-  useEffect(() => { if (!api.demo) pushAufGeraet().then(setGeraet, () => setGeraet(false)); }, [api.demo]);
+  useEffect(() => { if (!api.demo) pushAufGeraet(nutzer.id).then(setGeraet, () => setGeraet(false)); }, [api.demo, nutzer.id]);
 
   async function setzen(an: boolean) {
     setLaedt(true);
@@ -23,7 +23,7 @@ export function usePush() {
         // Web braucht VAPID, die iPhone-App geht über Apple – das entscheidet pushAbonnieren.
         const abo = await pushAbonnieren(VAPID);
         await api.pushSpeichern(abo);
-        if (abo.art === 'apns') try { localStorage.setItem(APNS_GESPEICHERT, '1'); } catch { /* privat */ }
+        pushMerken(nutzer.id, pushZiel(abo));
         setGeraet(true);
       }
       await api.profilAendern({ push_an: an });

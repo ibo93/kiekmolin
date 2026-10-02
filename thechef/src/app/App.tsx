@@ -9,6 +9,7 @@ import { abgleichStarten } from '../lib/abgleich.ts';
 import { darstellungAnwenden } from '../lib/darstellung.ts';
 import { geheZu, usePfad } from '../lib/router.ts';
 import { speicherSichern } from '../lib/warteschlange.ts';
+import { pushAuffrischen } from '../lib/geraet.ts';
 import { AppRahmen } from './kontext.tsx';
 import { Splash, splashGesehen } from '../seiten/Splash.tsx';
 import { SpracheWaehlen } from '../seiten/SpracheWaehlen.tsx';
@@ -60,7 +61,14 @@ export function App() {
   }, [api]);
 
   useEffect(() => { neuLaden(); }, [neuLaden]);
-  useEffect(() => { speicherSichern(); return abgleichStarten(api); }, [api]);
+  useEffect(() => { speicherSichern(); }, []);
+  // Hochladen erst, wenn die Anmeldung steht – sonst fehlt der Betrieb und
+  // wartende Meldungen würden als Fehler markiert (gefunden 02.10.2026).
+  const angemeldet = sitzung?.art === 'fertig';
+  useEffect(() => (angemeldet ? abgleichStarten(api) : undefined), [api, angemeldet]);
+  // iPhone-App: Apple-Token bei jedem Start auffrischen (es kann wechseln).
+  const ichId = sitzung?.art === 'fertig' ? sitzung.nutzer.id : null;
+  useEffect(() => { if (ichId && !api.demo) pushAuffrischen(ichId, (a) => api.pushSpeichern(a)).catch(() => {}); }, [api, ichId]);
 
   const nutzer = sitzung?.art === 'fertig' ? sitzung.nutzer : null;
   const aktiveSprache: Sprache = nutzer?.sprache ?? sprache ?? 'de';

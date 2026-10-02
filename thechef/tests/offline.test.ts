@@ -79,6 +79,17 @@ describe('Weggeworfen-Warteschlange', () => {
     expect(sp.s.get('a')?.fehler).toBe('Weggeworfen: permission denied');
     expect(sp.s.has('b')).toBe(false);
   });
+  it('App gerade geöffnet, Anmeldung lädt noch: bleibt liegen, OHNE Fehlertext', async () => {
+    const sp = speicherMit([w1, w2]);
+    await wegAbgleichen({ wegwerfen: async () => { throw new Error('fehler.nicht_angemeldet'); } }, sp);
+    expect([...sp.s.values()]).toEqual([w1, w2]);
+  });
+  it('der Abgleich startet erst nach der Anmeldung', async () => {
+    const { readFileSync } = await import('node:fs');
+    const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+    expect(app).toContain("const angemeldet = sitzung?.art === 'fertig';");
+    expect(app).toMatch(/useEffect\(\(\) => \(angemeldet \? abgleichStarten\(api\) : undefined\), \[api, angemeldet\]\)/);
+  });
   it('markierte Meldung wird nicht endlos wiederholt', async () => {
     const sp = speicherMit([{ ...w1, fehler: 'x' }]);
     let aufrufe = 0;

@@ -2,6 +2,7 @@
 //
 // Regel für jede Abfrage: Fehler werfen, nie still [] zurückgeben.
 // Eine leere Liste sieht aus wie eine Antwort (CLAUDE.md, Regel 6).
+import { pushGemerkt, pushMerken } from '../lib/geraet.ts';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   Bereich, BestandZeile, Betrieb, Briefing, EinkaufEintrag, Erkennung, Hinweis, Namen, Nutzer, Position, Produkt, Scan, Weggeworfen,
@@ -105,6 +106,13 @@ export function supabaseApi(url: string, anonKey: string): Api {
       return { mailBestaetigen: !r.data.session };
     },
     async abmelden() {
+      // Dieses Gerät soll die Mitteilungen des Abgemeldeten nicht weiter bekommen.
+      const ich = aktuell?.nutzer.id;
+      const ziel = ich ? pushGemerkt(ich) : null;
+      if (ich && ziel) {
+        await sb.from('push_abos').delete().eq('endpoint', ziel).then(() => {}, () => {});
+        pushMerken(ich, null);
+      }
       await sb.auth.signOut();
       aktuell = null;
     },
@@ -348,9 +356,12 @@ export function supabaseApi(url: string, anonKey: string): Api {
       const zeile = p.art === 'apns'
         ? { art: 'apns', endpoint: p.token, p256dh: null, auth: null }
         : { art: 'web', endpoint: p.abo.endpoint, p256dh: p.abo.keys?.p256dh, auth: p.abo.keys?.auth };
-      pruefeOhne(await sb.from('push_abos').upsert({
-        betrieb_id: betriebId(), nutzer_id: aktuell!.nutzer.id, ...zeile,
-      }, { onConflict: 'endpoint' }), 'Push');
+      // Über die Datenbank-Funktion: ein Gerät wechselt so zum Nutzer, der jetzt
+      // darauf angemeldet ist (0007_push_geraet.sql) – ein upsert scheiterte an RLS.
+      betriebId();
+      pruefeOhne(await sb.rpc('push_abo_speichern', {
+        p_art: zeile.art, p_endpoint: zeile.endpoint, p_p256dh: zeile.p256dh ?? null, p_auth: zeile.auth ?? null,
+      }), 'Push');
     },
 
     async kosten(seit) {

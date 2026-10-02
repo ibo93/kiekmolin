@@ -125,6 +125,21 @@ if [ -n "$OKEY" ]; then
   { echo "OPENAI_API_KEY=$OKEY"; echo "STT_ANBIETER=openai"; } >> "$TMP"
 fi
 unset OKEY
+echo
+echo "  Mitteilungen in der iPhone-App laufen über Apple (APNs) und brauchen ein"
+echo "  bezahltes Apple-Developer-Konto (EINRICHTEN.md, Schritt 6). Später nachholbar."
+read -r -p "  Apple-Mitteilungen jetzt einrichten? (j/n) " APPLE
+if [ "$APPLE" = "j" ]; then
+  read -r -p "  Pfad zur .p8-Datei (z. B. ~/Downloads/AuthKey_ABC123.p8): " P8
+  P8="${P8/#\~/$HOME}"
+  [ -f "$P8" ] || stopp "Datei nicht gefunden: $P8"
+  read -r -p "  Key ID (10 Zeichen, steht im Dateinamen): " KID
+  read -r -p "  Team ID (developer.apple.com → Membership): " TEAM
+  # Inhalt einzeilig mit \n – so liest apns.ts ihn wieder ein. Erscheint nirgends auf dem Schirm.
+  { printf 'APNS_KEY_P8=%s\n' "$(awk '{printf "%s\\n", $0}' "$P8")"
+    echo "APNS_KEY_ID=$KID"; echo "APNS_TEAM_ID=$TEAM"; echo "APNS_UMGEBUNG=sandbox"; } >> "$TMP"
+  ok "Apple-Mitteilungen vorbereitet (sandbox = Xcode; für TestFlight/App Store später production)"
+fi
 supabase secrets set --project-ref "$REF" --env-file "$TMP" >/dev/null
 rm -f "$TMP"
 ok "Schlüssel eingetragen"

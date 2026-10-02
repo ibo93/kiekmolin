@@ -30,8 +30,15 @@ function db(): Promise<IDBDatabase> {
       }
       if (e.oldVersion < 2) d.createObjectStore('weg', { keyPath: 'lokal_id' });
     };
-    r.onsuccess = () => ok(r.result);
-    r.onerror = () => fehl(r.error);
+    r.onsuccess = () => {
+      const d = r.result;
+      // Neue Fassung in einem anderen Tab: diesen Zugang schließen, sonst wartet der andere ewig.
+      d.onversionchange = () => { d.close(); offen = null; };
+      ok(d);
+    };
+    r.onerror = () => { offen = null; fehl(r.error); };
+    // Ein alter Tab hält die Datenbank noch: klare Meldung statt endlos drehendem Knopf.
+    r.onblocked = () => { offen = null; fehl(new Error('speicher_blockiert')); };
   });
   return offen;
 }
