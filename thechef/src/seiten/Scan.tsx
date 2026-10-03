@@ -190,7 +190,7 @@ export function ScanSeite({ bereichId }: { bereichId: string }) {
         <div className="scan-hinweis">
           {geist ? t('scan.geist_hinweis') : t('scan.hinweis')}
           {geist && (
-            <button className="scan-glas" style={{ marginTop: 10, minHeight: 36, padding: '0 14px', borderRadius: 18, color: '#fff', fontSize: 14, fontWeight: 700 }}
+            <button className="scan-glas" style={{ marginTop: 10, minHeight: 'var(--touch)', padding: '0 16px', borderRadius: 25, color: '#fff', fontSize: 14, fontWeight: 700 }}
               aria-pressed={geistAn} onClick={() => setGeistAn(!geistAn)}>
               {geistAn ? t('scan.geist_aus') : t('scan.geist_an')}
             </button>

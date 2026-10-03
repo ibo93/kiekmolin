@@ -49,7 +49,8 @@ export function AssistentStart() {
   const punkte = briefing?.punkte?.length ? briefing.punkte : d ? briefingPunkte(d.staende, d.einkauf) : [];
   const bereichName = (id: string) => name(d?.bereiche.find((b) => b.id === id)?.namen);
   const texte = punkte.map((p) => briefingText(tt, p, d?.produkte ?? []));
-  const farben = ['var(--rot)', 'var(--gelb)', 'var(--akzent)'];
+  // Text-Farben der Ampel, nicht die Flächen-Farben: Orange #FF9F0A auf Weiß hat 2,1:1 (gemessen 03.10.2026).
+  const farben = ['var(--rot-text)', 'var(--gelb-text)', 'var(--akzent)'];
   const wert = d ? warenwert(d.staende) : null;
 
   function fragen(q: string) {
@@ -92,7 +93,7 @@ export function AssistentStart() {
             <Icon name="funkeln" groesse={16} /> {briefing ? t('assistent.briefing') : t('assistent.stand_jetzt')}
           </span>
           {stimme && (
-            <button className="icon-rund" style={{ width: 40, height: 40, borderRadius: 20, border: 'none' }} aria-label={t('assistent.vorlesen')}
+            <button className="icon-rund" style={{ width: 'var(--touch)', height: 'var(--touch)', borderRadius: 25, border: 'none' }} aria-label={t('assistent.vorlesen')}
               onClick={() => vorlesen(texte.map((x, i) => `${i + 1}. ${x.stark} ${x.leise}`).join(' '), sprache)}>
               <Icon name="vorlesen" groesse={20} />
             </button>
@@ -148,7 +149,7 @@ export function AssistentStart() {
       <div className="frage-bereich">
         <div className="wisch" style={{ margin: 0 }}>
           {['vorschlag.bestellen', 'vorschlag.haehnchen', 'vorschlag.weggeworfen', 'vorschlag.tagesgericht'].map((k) => (
-            <button key={k} className="chip" style={{ flexShrink: 0, minHeight: 40 }} onClick={() => fragen(t(k))}>{t(k)}</button>
+            <button key={k} className="chip" style={{ flexShrink: 0 }} onClick={() => fragen(t(k))}>{t(k)}</button>
           ))}
         </div>
         <form className="frage-leiste glas" onSubmit={(e) => { e.preventDefault(); fragen(frage); }}>

@@ -74,7 +74,8 @@ h2.abschnitt small { font-size: 14px; font-weight: 600; color: var(--text2); }
 }
 .knopf-haupt.gruen { background: var(--glanz), #1B7A45; box-shadow: inset 1.5px 1.5px 0 rgba(255, 255, 255, 0.5), 0 12px 26px rgba(27, 122, 69, 0.3); }
 .knopf {
-  min-height: 46px; border: none; border-radius: 23px; padding: 0 18px;
+  /* --touch statt 46 px: × Maßstab 0,88 wären das nur 40 pt (gemessen 03.10.2026) */
+  min-height: var(--touch); min-width: var(--touch); border: none; border-radius: 25px; padding: 0 18px;
   background: var(--flaeche); color: var(--text); font-size: 15px; font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
 }
@@ -87,7 +88,7 @@ h2.abschnitt small { font-size: 14px; font-weight: 600; color: var(--text2); }
 .fuss-knoepfe { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 8px; }
 
 /* ─────────────────────────────── Kacheln / Zahlen */
-.wert-kachel { background: var(--karte); border-radius: var(--r-kachel); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--text); }
+.wert-kachel { min-height: var(--touch); background: var(--karte); border-radius: var(--r-kachel); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--text); }
 .wert-kachel .klein { font-size: 12px; font-weight: 700; color: var(--text2); }
 .wert-kachel .zahl { font-size: 22px; }
 .wert-kachel.gross .zahl { font-size: 40px; line-height: 1.05; }
@@ -106,7 +107,7 @@ h2.abschnitt small { font-size: 14px; font-weight: 600; color: var(--text2); }
 .kopf-karte .klein { font-size: 13px; font-weight: 700; color: var(--text2); }
 .kopf-karte .zahl.gross { font-size: 44px; line-height: 1.05; letter-spacing: -0.5px; }
 .kopf-karte .zahl { font-size: 24px; line-height: 1.1; }
-.kopf-karte .weg-wert { text-decoration: none; color: var(--text); text-align: end; align-items: flex-end; }
+.kopf-karte .weg-wert { min-height: var(--touch); text-decoration: none; color: var(--text); text-align: end; align-items: flex-end; }
 .ampel-pille { border: none; border-radius: 16px; min-height: 64px; padding: 10px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; text-align: start; }
 .ampel-pille .wort { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .ampel-pille .zahl { font-size: 22px; line-height: 1; }
@@ -159,7 +160,7 @@ textarea.eingabe { padding: 14px 16px; min-height: 96px; resize: vertical; }
 }
 .chip[aria-pressed='true'] { background: var(--akzent); color: #fff; }
 .umschalter { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 24px; }
-.umschalter button { min-height: 40px; border: none; border-radius: 20px; background: transparent; font-size: 15px; font-weight: 600; color: var(--text3); }
+.umschalter button { min-height: var(--touch); border: none; border-radius: 20px; background: transparent; font-size: 15px; font-weight: 600; color: var(--text3); }
 .umschalter button[aria-pressed='true'] { background: var(--glas-aktiv); box-shadow: var(--glas-aktiv-schatten); color: var(--text); font-weight: 700; }
 
 /* Große +/- Tasten – mit Handschuhen bedienbar */
@@ -171,9 +172,11 @@ textarea.eingabe { padding: 14px 16px; min-height: 96px; resize: vertical; }
 .stepper .wert .einheit { font-size: 16px; font-weight: 700; color: var(--text2); }
 
 /* Schalter */
-.schalter { position: relative; width: 52px; height: 32px; flex-shrink: 0; border-radius: 16px; border: none; background: var(--leer); padding: 0; }
-.schalter::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 26px; height: 26px; border-radius: 13px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); transition: inset-inline-start 0.2s var(--federn); }
-.schalter[aria-checked='true'] { background: var(--gruen); }
+.schalter { position: relative; width: 52px; height: var(--touch); flex-shrink: 0; border: none; background: transparent; padding: 0; }
+/* Spur 32 px wie im Design, die Tippfläche darum herum ist 44 pt hoch (nasse Hände) */
+.schalter::before { content: ''; position: absolute; inset-inline: 0; top: calc(50% - 16px); height: 32px; border-radius: 16px; background: var(--leer); transition: background 0.2s; }
+.schalter::after { content: ''; position: absolute; top: calc(50% - 13px); inset-inline-start: 3px; width: 26px; height: 26px; border-radius: 13px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); transition: inset-inline-start 0.2s var(--federn); }
+.schalter[aria-checked='true']::before { background: var(--gruen); }
 .schalter[aria-checked='true']::after { inset-inline-start: 23px; }
 
 /* ─────────────────────────────── Navigation Chef */
