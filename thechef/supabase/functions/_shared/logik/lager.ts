@@ -172,8 +172,9 @@ export function zeigtBasis(p: Pick<Produkt, 'basiseinheit' | 'menge_pro_einheit'
 
 /** Einheiten → angezeigte Zahl + Einheit ("12" + "kg" oder "4" + "kiste"). */
 export function anzeigeMenge(p: Pick<Produkt, 'basiseinheit' | 'menge_pro_einheit' | 'zaehleinheit'>, einheiten: number) {
-  if (zeigtBasis(p)) return { zahl: runde(einheiten * p.menge_pro_einheit!, 1), einheit: p.basiseinheit as string, basis: true };
-  return { zahl: runde(einheiten, 1), einheit: p.zaehleinheit as string, basis: false };
+  // Zwei Stellen: 3 Flaschen à 0,25 l sind 0,75 l – mit einer Stelle stand „0,8 l“ da (gemessen 04.10.2026).
+  if (zeigtBasis(p)) return { zahl: runde(einheiten * p.menge_pro_einheit!, 2), einheit: p.basiseinheit as string, basis: true };
+  return { zahl: runde(einheiten, 2), einheit: p.zaehleinheit as string, basis: false };
 }
 
 export function runde(x: number, stellen = 3): number {

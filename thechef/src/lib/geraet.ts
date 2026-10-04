@@ -114,6 +114,16 @@ export async function pushAuffrischen(nutzerId: string, speichern: (a: PushAbo) 
   }
 }
 
+/** Adresse, unter der andere die App im Browser öffnen können – oder null.
+ *  VITE_APP_URL (z. B. die Netlify-Adresse) hat Vorrang; sonst nur eine echte
+ *  http(s)-Adresse, nie „capacitor://localhost“ aus der iPhone-App. */
+export function oeffentlicheAdresse(): string | null {
+  const fest = (import.meta.env?.VITE_APP_URL as string | undefined)?.trim();
+  if (fest) return fest.replace(/\/+$/, '');
+  if (istNativ() || !/^https?:$/.test(location.protocol)) return null;
+  return location.origin;
+}
+
 export function whatsappLink(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

@@ -124,6 +124,8 @@ t = {
  "team.titel":"Ekip","team.chef":"Patron","team.mitarbeiter":"Çalışan","team.einladen":"Çalışan davet et","team.code_ist":"Kod:","team.code_gueltig":"14 gün geçerli, bir kişi için.",
  "team.per_whatsapp":"WhatsApp ile gönder","team.link_kopieren":"Bağlantıyı kopyala","team.kopiert":"Kopyalandı.","team.entfernen":"Çıkar","team.wirklich_entfernen":"{name} gerçekten çıkarılsın mı?",
  "team.einladung_text":"Merhaba! The Chef'te {betrieb} ekibine davet edildin. Bağlantıyı aç: {link} – veya {code} kodunu gir.",
+ "team.einladung_text_code":"Merhaba! The Chef'te {betrieb} ekibine davet edildin. Uygulamayı aç ve {code} kodunu gir.","team.code_kopieren":"Kodu kopyala",
+ 
  "verlust.wert":"Çöpe atılan değer","verlust.vergleich":"{monat} ayına göre {betrag}","verlust.am_meisten":"En çok çöpe atılan","verlust.tipp":"Asistandan ipucu",
  "verlust.tipp_holen":"İpucu al","verlust.tipp_frage":"Bu ay en çok ne çöpe atıldı ve neyi daha iyi yapabilirim?","verlust.ohne_preis":S("fiyatsız {n} kayıt sayılmadı"),
  "vorlage.kuehlhaus":"Soğuk oda","vorlage.tiefkuehler":"Derin dondurucu","vorlage.trocken":"Kuru depo",

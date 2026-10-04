@@ -125,6 +125,8 @@ de = {
  "team.titel":"Team","team.chef":"Chef","team.mitarbeiter":"Mitarbeiter","team.einladen":"Mitarbeiter einladen","team.code_ist":"Der Code ist","team.code_gueltig":"14 Tage gültig, für eine Person.",
  "team.per_whatsapp":"Per WhatsApp schicken","team.link_kopieren":"Link kopieren","team.kopiert":"Kopiert.","team.entfernen":"Entfernen","team.wirklich_entfernen":"{name} wirklich entfernen?",
  "team.einladung_text":"Hallo! Du bist bei {betrieb} in The Chef eingeladen. Öffne den Link: {link} – oder gib den Code {code} ein.",
+ "team.einladung_text_code":"Hallo! Du bist bei {betrieb} in The Chef eingeladen. Öffne die App und gib den Code {code} ein.","team.code_kopieren":"Code kopieren",
+ 
  "verlust.wert":"Wert weggeworfen","verlust.vergleich":"{betrag} zum {monat}","verlust.am_meisten":"Am meisten weggeworfen","verlust.tipp":"Tipp vom Assistenten",
  "verlust.tipp_holen":"Tipp holen","verlust.tipp_frage":"Was wurde diesen Monat am meisten weggeworfen und was kann ich besser machen?","verlust.ohne_preis":P("{n} Meldung ohne Preis nicht mitgezählt","{n} Meldungen ohne Preis nicht mitgezählt"),
  "vorlage.kuehlhaus":"Kühlhaus","vorlage.tiefkuehler":"Tiefkühler","vorlage.trocken":"Trockenlager",

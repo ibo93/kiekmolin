@@ -59,7 +59,10 @@ function bauen(sprache: Sprache, texte: Texte, rueckfall: Texte) {
     return (v as string).replace(/\{(\w+)\}/g, (_, k) => (k in vars ? String(vars[k]) : `{${k}}`));
   }
 
-  const zahlFmt = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  // Bis zu zwei Stellen, Nullen fallen weg: 12 kg bleibt 12 kg, 0,75 l wird nicht zu 0,8 l.
+  const zahlFmt = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+  // Für festgelegte Werte (Inhalt einer Flasche): 0,25 l bleibt 0,25 l – zahlFmt machte 0,3 l daraus.
+  const zahlGenauFmt = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
   const geldFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
   const geldGenau = new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
 
@@ -116,6 +119,7 @@ function bauen(sprache: Sprache, texte: Texte, rueckfall: Texte) {
   return {
     t, sprache, dir, locale, name, einheit, menge, wann, uhrzeit, mhdText, mhdWann, monat,
     zahl: (x: number) => zahlFmt.format(x),
+    zahlGenau: (x: number) => zahlGenauFmt.format(x),
     geld: (x: number) => geldFmt.format(x),
     geldGenau: (x: number) => geldGenau.format(x),
   };

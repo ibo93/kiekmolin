@@ -225,7 +225,7 @@ export function ProdukteBearbeiten() {
             <span className="mitte">
               <span className="name">{name(x.namen)}</span>
               <span className="klein">
-                {einheit(x.zaehleinheit, 1)}{x.menge_pro_einheit ? ` à ${tt.zahl(x.menge_pro_einheit)} ${x.basiseinheit}` : ''} · {t('bestand.mindestens', { menge: tt.menge(x.mindestbestand, x.zaehleinheit) })}
+                {einheit(x.zaehleinheit, 1)}{x.menge_pro_einheit ? ` à ${tt.zahlGenau(x.menge_pro_einheit)} ${einheit(x.basiseinheit, x.menge_pro_einheit)}` : ''} · {t('bestand.mindestens', { menge: tt.menge(x.mindestbestand, x.zaehleinheit) })}
                 {x.preis_pro_einheit != null && ` · ${geldGenau(x.preis_pro_einheit)}`}
               </span>
             </span>
@@ -265,14 +265,14 @@ export function ProdukteBearbeiten() {
                   {EINHEITEN.map((e) => <option key={e} value={e}>{einheit(e, 1)}</option>)}
                 </select></label>
               <div className="raster-2">
-                {zahlFeld(p.menge_pro_einheit, (n) => setP({ ...p, menge_pro_einheit: n }), t('katalog.inhalt'), '0.1')}
+                {zahlFeld(p.menge_pro_einheit, (n) => setP({ ...p, menge_pro_einheit: n }), t('katalog.inhalt'), 'any')}
                 <label className="feld"><span>{t('katalog.basiseinheit')}</span>
                   <select className="eingabe" value={p.basiseinheit} onChange={(e) => setP({ ...p, basiseinheit: e.target.value as Basiseinheit })}>
                     <option value="kg">kg</option><option value="l">l</option><option value="stueck">{einheit('stueck', 2)}</option>
                   </select></label>
               </div>
               {p.menge_pro_einheit && p.basiseinheit !== 'stueck' && (
-                <span className="meldung info" style={{ padding: '8px 12px' }}>{t('katalog.beispiel', { einheit: einheit(p.zaehleinheit ?? 'kiste', 1), menge: tt.zahl(p.menge_pro_einheit), basis: p.basiseinheit ?? '' })}</span>
+                <span className="meldung info" style={{ padding: '8px 12px' }}>{t('katalog.beispiel', { einheit: einheit(p.zaehleinheit ?? 'kiste', 1), menge: tt.zahlGenau(p.menge_pro_einheit), basis: p.basiseinheit ? einheit(p.basiseinheit, p.menge_pro_einheit) : '' })}</span>
               )}
             </div>
 

@@ -126,6 +126,8 @@ t = {
  "team.titel":"Tîm","team.chef":"Serok","team.mitarbeiter":"Karmend","team.einladen":"Karmend vexwîne","team.code_ist":"Kod ev e","team.code_gueltig":"14 rojan derbasdar e, ji bo kesekî.",
  "team.per_whatsapp":"Bi WhatsApp bişîne","team.link_kopieren":"Girêdanê kopî bike","team.kopiert":"Hate kopîkirin.","team.entfernen":"Rake","team.wirklich_entfernen":"Bi rastî {name} rakî?",
  "team.einladung_text":"Silav! Tu li The Chef ji bo {betrieb} hatî vexwendin. Girêdanê veke: {link} – an koda {code} binivîse.",
+ "team.einladung_text_code":"Silav! Tu li The Chef ji bo {betrieb} hatî vexwendin. Sepanê veke û koda {code} binivîse.","team.code_kopieren":"Kodê kopî bike",
+ 
  "verlust.wert":"Nirxê avêtî","verlust.vergleich":"{betrag} li hember {monat}","verlust.am_meisten":"Herî zêde hate avêtin","verlust.tipp":"Şîreta alîkar",
  "verlust.tipp_holen":"Şîretê bistîne","verlust.tipp_frage":"Vê mehê herî zêde çi hate avêtin û ez dikarim çi baştir bikim?","verlust.ohne_preis":S("{n} qeyd bê biha nehatin hesibandin"),
  "vorlage.kuehlhaus":"Odeya sar","vorlage.tiefkuehler":"Cemidok","vorlage.trocken":"Depoya hişk",

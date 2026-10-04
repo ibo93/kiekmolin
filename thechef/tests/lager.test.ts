@@ -52,6 +52,14 @@ describe('Ampel', () => {
 describe('Einheiten', () => {
   it('Hähnchen: 2,4 Kisten à 5 kg = 12 kg', () => expect(anzeigeMenge(haehnchen, 2.4)).toEqual({ zahl: 12, einheit: 'kg', basis: true }));
   it('Tomaten bleiben Kisten', () => expect(anzeigeMenge(tomaten, 4)).toEqual({ zahl: 4, einheit: 'kiste', basis: false }));
+  it('Ayran: 3 Flaschen à 0,25 l = 0,75 l – nicht 0,8 l', () => {
+    const ayran = { zaehleinheit: 'flasche', basiseinheit: 'l', menge_pro_einheit: 0.25 } as Parameters<typeof anzeigeMenge>[0];
+    expect(anzeigeMenge(ayran, 3)).toEqual({ zahl: 0.75, einheit: 'l', basis: true });
+  });
+  it('Dose 0,33 l: 7 Dosen = 2,31 l', () => {
+    const dose = { zaehleinheit: 'dose', basiseinheit: 'l', menge_pro_einheit: 0.33 } as Parameters<typeof anzeigeMenge>[0];
+    expect(anzeigeMenge(dose, 7).zahl).toBe(2.31);
+  });
 });
 
 describe('Warenwert', () => {

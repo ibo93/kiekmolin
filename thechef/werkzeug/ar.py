@@ -129,6 +129,8 @@ t = {
  "team.titel":"الفريق","team.chef":"المدير","team.mitarbeiter":"موظف","team.einladen":"ادعُ موظفاً","team.code_ist":"الرمز هو","team.code_gueltig":"صالح 14 يوماً، لشخص واحد.",
  "team.per_whatsapp":"أرسل عبر واتساب","team.link_kopieren":"انسخ الرابط","team.kopiert":"تم النسخ.","team.entfernen":"إزالة","team.wirklich_entfernen":"هل تريد إزالة {name} فعلاً؟",
  "team.einladung_text":"مرحباً! أنت مدعو إلى {betrieb} في The Chef. افتح الرابط: {link} – أو أدخل الرمز {code}.",
+ "team.einladung_text_code":"مرحباً! أنت مدعو إلى {betrieb} في The Chef. افتح التطبيق وأدخل الرمز {code}.","team.code_kopieren":"انسخ الرمز",
+ 
  "verlust.wert":"قيمة الهدر","verlust.vergleich":"{betrag} مقارنة بـ{monat}","verlust.am_meisten":"الأكثر هدراً","verlust.tipp":"نصيحة من المساعد",
  "verlust.tipp_holen":"احصل على نصيحة","verlust.tipp_frage":"ما الذي هُدر أكثر هذا الشهر وماذا أستطيع أن أحسّن؟","verlust.ohne_preis":A("بلاغ بدون سعر لم يُحتسب","بلاغان بدون سعر لم يُحتسبا","{n} بلاغات بدون سعر لم تُحتسب","{n} بلاغاً بدون سعر لم يُحتسب"),
  "vorlage.kuehlhaus":"غرفة التبريد","vorlage.tiefkuehler":"المجمّد","vorlage.trocken":"المخزن الجاف",

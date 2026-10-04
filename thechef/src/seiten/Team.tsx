@@ -5,6 +5,7 @@ import { SPRACHEN, useT } from '../i18n/i18n.tsx';
 import { whatsappLink } from '../lib/geraet.ts';
 import { Fehler, KopfMitte, Laden } from '../ui/bausteine.tsx';
 import { Icon } from '../ui/Icon.tsx';
+import { oeffentlicheAdresse } from '../lib/geraet.ts';
 
 export function Team() {
   const { t } = useT();
@@ -24,8 +25,13 @@ export function TeamInhalt() {
     setLaedtCode(true);
     try { setCode(await api.einladungErstellen()); } catch (e) { toast(fehlerText(e)); } finally { setLaedtCode(false); }
   }
-  const link = code ? `${location.origin}/#/beitreten/${code}` : '';
-  const text = code ? t('team.einladung_text', { betrieb: betrieb.name, code, link }) : '';
+  // In der iPhone-App ist location.origin „capacitor://localhost“ – ein Link
+  // dorthin führt auf keinem anderen Handy irgendwohin. Dann nur der Code.
+  const adresse = oeffentlicheAdresse();
+  const link = code && adresse ? `${adresse}/#/beitreten/${code}` : '';
+  const text = !code ? '' : link
+    ? t('team.einladung_text', { betrieb: betrieb.name, code, link })
+    : t('team.einladung_text_code', { betrieb: betrieb.name, code });
 
   return (
     <div className="stapel">
@@ -53,7 +59,7 @@ export function TeamInhalt() {
           <span className="zahl" style={{ fontSize: 44, letterSpacing: 6 }}>{code}</span>
           <span className="leise" style={{ fontSize: 14 }}>{t('team.code_gueltig')}</span>
           <a className="knopf-haupt gruen" href={whatsappLink(text)} target="_blank" rel="noopener"><Icon name="whatsapp" /> {t('team.per_whatsapp')}</a>
-          <button className="knopf" onClick={() => navigator.clipboard?.writeText(link).then(() => toast(t('team.kopiert')))}>{t('team.link_kopieren')}</button>
+          <button className="knopf" onClick={() => navigator.clipboard?.writeText(link || code || '').then(() => toast(t('team.kopiert')))}>{link ? t('team.link_kopieren') : t('team.code_kopieren')}</button>
         </section>
       )}
     </div>

@@ -124,6 +124,8 @@ t = {
  "team.titel":"Team","team.chef":"Boss","team.mitarbeiter":"Staff","team.einladen":"Invite staff","team.code_ist":"The code is","team.code_gueltig":"Valid for 14 days, for one person.",
  "team.per_whatsapp":"Send via WhatsApp","team.link_kopieren":"Copy link","team.kopiert":"Copied.","team.entfernen":"Remove","team.wirklich_entfernen":"Really remove {name}?",
  "team.einladung_text":"Hi! You've been invited to {betrieb} on The Chef. Open the link: {link} – or enter the code {code}.",
+ "team.einladung_text_code":"Hi! You've been invited to {betrieb} on The Chef. Open the app and enter the code {code}.","team.code_kopieren":"Copy code",
+ 
  "verlust.wert":"Value thrown away","verlust.vergleich":"{betrag} vs. {monat}","verlust.am_meisten":"Thrown away the most","verlust.tipp":"Tip from the assistant",
  "verlust.tipp_holen":"Get a tip","verlust.tipp_frage":"What was thrown away most this month and what can I do better?","verlust.ohne_preis":P("{n} report without price not counted","{n} reports without price not counted"),
  "vorlage.kuehlhaus":"Cold room","vorlage.tiefkuehler":"Freezer","vorlage.trocken":"Dry storage",
