@@ -13,6 +13,11 @@
   p{ color:#5A6460; line-height:1.7; margin:0 0 26px; max-width:34em; }
   a{ display:inline-block; background:#003D33; color:#fff; text-decoration:none;
      padding:14px 26px; border-radius:10px; font-weight:600; }
+  /* Die Pflichtangaben sind KEIN Knopf -- sonst stehen drei gleich aussehende
+     Schaltflaechen da und die Startseite geht unter. */
+  .pflicht{ margin-top:30px; font-size:13px; color:#5A6460; }
+  .pflicht a{ display:inline; background:none; color:#5A6460; padding:0;
+              font-weight:400; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -20,6 +25,22 @@
     <h1>Hier ist nichts.</h1>
     <p>Die Seite gibt es nicht – oder sie ist umgezogen.</p>
     <a href="/">Zur Startseite</a>
+    <!-- IMPRESSUM UND DATENSCHUTZ GEHOEREN AUCH HIERHIN.
+         Diese Seite ist oeffentlich erreichbar, also gilt die
+         Impressumspflicht nach § 5 DDG auch fuer sie -- bis zu 50.000 Euro
+         Bussgeld. Bis zum 05.10.2026 stand hier nur der Weg zur Startseite.
+         tests/pflichtangaben-404-test.js macht die Datei sonst rot.
+
+         WARUM HIER KEIN LINK AUF DIE DATENSCHUTZERKLAERUNG STEHT:
+         Es gibt sie nur als Fenster in der App, nicht als eigene Seite --
+         und ihr Text behauptet am 05.10.2026 noch "kein Google Analytics",
+         waehrend die App Google Analytics laedt. Eine neue Seite zu bauen,
+         die diesen Satz weitertraegt, waere schlimmer als der fehlende
+         Link. Sobald entschieden ist, ob Analytics bleibt oder geht,
+         gehoert hier eine /datenschutz.html daneben. -->
+    <p class="pflicht">
+      <a href="/impressum.html">Impressum</a>
+    </p>
   </div>
 </body>
 </html>
