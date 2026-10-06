@@ -28,7 +28,23 @@
 //     Verbindungsanzeige 2,0, dunkel "Speichern" 1,2 und "Angebot" 2,37,
 //     Kennzahl-Beschriftungen 4,45
 //
+// DRITTER SCHRITT -- MEIN EIGENER FEHLER. Die erste Fassung schaltete den
+// Weichzeichner UEBERALL ab. Ibo, Foto aus der Vorschau: das Selbstcheck-
+// Fenster war durchsichtig, das Dashboard stand mitten im Text.
+// werkzeug/durchsicht-messen.js zaehlt Flaechen mit halb durchsichtigem
+// Grund ohne Weichzeichner ueber fremdem Inhalt (alle Elemente, auch
+// versteckte Fenster):
+//   vor dem Umbau 13 / 12  ->  erste Fassung 576 / 96  ->  jetzt 8 / 8
+//   (hell / dunkel; uebrig nur kleine Symbol-Knoepfe auf Bannern und Fotos,
+//   die es vorher schon gab). Mitbehoben: Optionen-Fenster beim Bestellen
+//   (dunkel 8 % Grund), Cookie-Hinweis (hell 45 %), Offline-Banner (dunkel 5 %).
+//
+// Die Regel jetzt: Glas bleibt, wo es war. Weg nur bei Pillen, Feldern und
+// Meldungen -- dort liegt darunter immer eine ruhige Flaeche.
+//
 // GEGENPROBEN (06.10.2026) -- jede wurde rot:
+//   - die alte Pauschal-Regel "body * { backdrop-filter: none }" zurueck
+//   - Knoepfe wieder in die Abschalt-Liste (das "x" liegt ueber Fotos)
 //   - #kmi-glas aus der Abschalt-Regel entfernt
 //   - die Ausnahme fuer das Dashboard wieder eingebaut
 //   - in "Transparenz reduzieren" die Leisten-Liste weggelassen
@@ -42,9 +58,15 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + JSON.stringify(x))); }
 
 console.log('\n-- 1. Glas aus, ausser auf den Leisten --');
-t('jeder Weichzeichner aus, mit dem Gewicht einer Kennung',
-  /\n        :is\(html, #kmi-glas\) body \* \{\s*backdrop-filter: none !important;\s*-webkit-backdrop-filter: none !important;/.test(H), null);
-t('ohne Ausnahme -- auch das Dashboard (keine :not(#dashboardView)-Luecke mehr)', H.indexOf('body *:not(#dashboardView') < 0, null);
+t('KEINE Pauschal-Regel mehr: sie machte 576 Flaechen durchsichtig',
+  !/:is\(html, #kmi-glas\) body \*[^{]*\{\s*backdrop-filter: none/.test(H), null);
+var aus = (H.match(/:is\(html, #kmi-glas\) :is\(([^{]*)\) \{\s*backdrop-filter: none !important;\s*-webkit-backdrop-filter: none !important;\s*\}/) || [])[1] || '';
+t('Weichzeichner weg nur bei Pillen, Feldern und Meldungen',
+  ['.chip', 'input', 'select', 'textarea', '.form-input', '.toast'].every(function (x) { return aus.indexOf(x) >= 0; }), aus);
+t('Knoepfe behalten ihr Glas (das "x" liegt ueber Fotos und Inhalt)',
+  !/(^|[\s,])button[\s,]|\.btn[\s,]|\[class\*="btn"\]/.test(aus), aus);
+t('Fenster, Karten und Panels werden nicht angefasst',
+  !/\.modal|\.panel|\.glass-card|\.stat-box/.test(aus), aus);
 var LEISTEN = ['#guestTopNav', '.bottom-nav', '.kmi-glas-leiste', '#menuModal header', '#menuCategoryTabs', '.cart-button-fixed', '.install-banner', '.ptr-indicator', '#mapSection [style*="backdrop-filter"]', '.dash-sidebar', '.dash-header', '.dash-mobile-menu-btn'];
 var frei = H.match(/:is\(html, #kmi-glas\) :is\(([^{]*)\) \{\s*backdrop-filter: blur\(20px\) saturate\(180%\) !important;/);
 t('die Leisten bekommen EINEN gemeinsamen Glas-Look', !!frei, null);
@@ -104,6 +126,24 @@ t('Dashboard-Grund im Dunkeln dunkel (gegen ".liquid-glass #dashboardView" #f8f9
   /:is\(html, #kmi-glas\)\.dark-mode #dashboardView \{\s*background: #121414 !important;\s*background-image: none !important;/.test(H), null);
 t('die Leiste selbst dicht und dunkel, mit feiner Kante',
   /:is\(html, #kmi-glas\)\.dark-mode \.dash-sidebar \{\s*background-color: rgba\(18,20,20,0\.92\) !important;/.test(H), null);
+
+console.log('\n-- 6. Schon vorher durchsichtig, mitbehoben --');
+t('Optionen-Fenster beim Bestellen: dunkel deckend', /\.dark-mode #itemOptionsModal > div \{ background-color: #1a1a1a !important; \}/.test(H), null);
+t('Cookie-Hinweis: hell deckend', /:not\(\.dark-mode\) #cookieConsent \{ background-color: #ffffff !important; \}/.test(H), null);
+t('Offline-Banner: dunkel deckend und lesbar (' + k(hx('#fecaca'), hx('#3a1212')) + ' : 1)',
+  /\.dark-mode #offlineBanner \{ background: #3a1212 !important; color: #fecaca !important; \}/.test(H) && k(hx('#fecaca'), hx('#3a1212')) >= 4.5, null);
+
+console.log('\n-- 7. Die Kartenfarbe ist deckend (die Ursache von "zu glasig") --');
+// applyGlassEffect setzt --bg-card auf 45 % Weiss; die Farbe steht 199-mal
+// im Code (Fenster, Karten, Cookie-Hinweis, Felder). Gegenprobe: Regel weg
+// -> rot. Gemessen am Selbstcheck: Fenstergrund 0,45 -> 255,255,255.
+t('hell: --bg-card deckend weiss, mit Gewicht ueber dem Laufzeit-Stil',
+  /:is\(html, #kmi-glas\)\.liquid-glass:not\(\.dark-mode\) \{\s*--bg-card: #ffffff;\s*--bg-secondary: #f3f4f5;/.test(H), null);
+t('dunkel: --bg-card deckend dunkelgruen',
+  /:is\(html, #kmi-glas\)\.liquid-glass\.dark-mode \{\s*--bg-card: #1a2e27;/.test(H), null);
+t('Selbstcheck dunkel: Statusfarben hell (Fehler ' + k(hx('#ff8a80'), hx('#1a2e27')) + ' : 1)',
+  /\.dark-mode #selbstcheckOverlay \[style\*="color:#b91c1c"\] \{ color: #ff8a80 !important; \}/.test(H) && k(hx('#ff8a80'), hx('#1a2e27')) >= 4.5, null);
+t('linke Leiste dunkel: Gruppen-Ueberschriften 55 % statt 20 % Weiss', /\.dark-mode \.dash-nav-group-label \{[^}]*color: rgba\(255,255,255,0\.55\) !important;/.test(H), null);
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

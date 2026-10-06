@@ -2652,7 +2652,8 @@
         }
 
         .dark-mode .dash-logo .restaurant-label {
-            color: rgba(255,255,255,0.4) !important;
+            /* 0,4 ergab 3,83 : 1 auf der dunklen Leiste (06.10.2026) */
+            color: rgba(255,255,255,0.62) !important;
         }
 
         .dark-mode .dash-logo::after {
@@ -2684,7 +2685,8 @@
         }
 
         .dark-mode .dash-nav-group-label {
-            color: rgba(255,255,255,0.2) !important;
+            /* 0,2 ergab 1,86 : 1 -- "Hauptmenue", "Inhalte" kaum zu sehen */
+            color: rgba(255,255,255,0.55) !important;
         }
 
         .dark-mode .dash-sidebar-bottom {
@@ -13999,11 +14001,9 @@
            Weichzeichner Rechenzeit -- auf einem guenstigen Handy ruckelt
            die Speisekarte beim Scrollen.
 
-           1. Jeder Weichzeichner aus -- seit dem zweiten Schritt (Ibo: "Mach
-              die ganze App") auch im Dashboard. Dort gezaehlt: 88 Glas-
-              flaechen ueber 16 Ansichten (4 Bereiche, hell/dunkel, Handy/
-              Rechner), echt schwebend nur Seitenleiste, Kopfzeile und der
-              Menue-Knopf am Handy.
+           1. Weichzeichner weg von Pillen, Feldern und Meldungen
+              (siehe "ZWEITE FASSUNG" unten -- die erste Fassung schaltete
+              alles ab und machte Fenster durchsichtig).
            2. Die schwebenden Leisten bekommen EINEN gemeinsamen Glas-Look,
               mit Grund, der auch ohne Weichzeichner lesbar bleibt.
            3. "Transparenz reduzieren" am Handy: gar kein Glas, deckende
@@ -14012,7 +14012,24 @@
            :is(html, #kmi-glas) wie bei den Knoepfen: die Kennung gibt das
            Gewicht, um ~700 Stellen mit Weichzeichner (Regeln, style-
            Attribute, Skripte) zu ueberstimmen. */
-        :is(html, #kmi-glas) body * {
+        /* ZWEITE FASSUNG (06.10.2026, am selben Abend). Die erste schaltete
+           den Weichzeichner UEBERALL ab. Ibo schickte ein Foto aus der
+           Vorschau: das Selbstcheck-Fenster war durchsichtig, "Willkommen!"
+           und das Rechnungs-Banner standen mitten im Text. Nachgezaehlt:
+           575 Flaechen (dunkel 380) hatten einen halb durchsichtigen Grund,
+           der NUR mit Weichzeichner lesbar war -- fast alle Fenster, Panels,
+           Kacheln. Ich hatte nur die Ansichten gemessen, die ich kannte.
+
+           Deshalb jetzt umgekehrt: Glas bleibt, wo es war. Es kommt nur dort
+           weg, wo darunter sicher eine ruhige, feste Flaeche liegt --
+           Pillen, Eingabefelder, Meldungen. Knoepfe behalten es: das "x"
+           in Fenstern und die schwebenden Knoepfe am Tisch liegen ueber
+           Fotos und Inhalt (gemessen). Fenster und Karten
+           behalten ihren Weichzeichner. tests/glas-leisten-test.js und
+           werkzeug/durchsicht-messen.js pruefen, dass keine Flaeche mehr
+           durchsichtig ueber fremdem Inhalt liegt. */
+        :is(html, #kmi-glas) :is(.chip, .filter-chip, .jobs-filter-pill, .res-interval-pill, .res-slot-chip,
+            input, select, textarea, .form-input, .form-select, .form-textarea, .toast) {
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
         }
@@ -14106,10 +14123,55 @@
             border-right: 1px solid rgba(255,255,255,0.08) !important;
         }
 
+        /* KARTENFARBE DECKEND -- DIE EIGENTLICHE URSACHE VON "ZU GLASIG".
+           Ibo (06.10.2026, Foto aus der Vorschau): "Bei vielen ist es zu
+           glasig geworden ... es muss lesbar sein ueberall".
+           Der Glas-Modus (bei allen eingeschaltet, applyGlassEffect) setzt
+           --bg-card auf rgba(255,255,255,0.45) und --bg-secondary auf 0.3.
+           --bg-card steht 199-mal im Code: Fenster (Selbstcheck), Karten,
+           Cookie-Hinweis, Auswahlfelder. Ueberall 45 % Weiss -- lesbar nur,
+           solange dahinter zufaellig nichts steht. Gemessen am Selbstcheck:
+           Fenstergrund 0,45, das Dashboard schimmerte durch.
+           Die Kennung im :is() hebt diese Regel ueber den Stil, den
+           applyGlassEffect erst zur Laufzeit anhaengt. Dunkel: die Werte,
+           die der Code fuer .dark-mode ohnehin vorsieht. */
+        :is(html, #kmi-glas).liquid-glass:not(.dark-mode) {
+            --bg-card: #ffffff;
+            --bg-secondary: #f3f4f5;
+        }
+        :is(html, #kmi-glas).liquid-glass.dark-mode {
+            --bg-card: #1a2e27;
+            --bg-secondary: #111f1a;
+        }
+
+        /* SELBSTCHECK IM DUNKELN. Seit das Fenster deckend ist (s. o.),
+           liegen seine Statusfarben auf dunklem Gruen -- gemessen:
+           "1 Sache braucht deine Aufmerksamkeit" 2,22 : 1, "Fehler" 2,11 : 1
+           (#b91c1c). Im Dunkeln die hellen Toene derselben Farben. */
+        :is(html, #kmi-glas).dark-mode #selbstcheckOverlay [style*="color:#b91c1c"] { color: #ff8a80 !important; }
+        :is(html, #kmi-glas).dark-mode #selbstcheckOverlay [style*="color:#b45309"] { color: #fdba74 !important; }
+        :is(html, #kmi-glas).dark-mode #selbstcheckOverlay [style*="color:#047857"] { color: #6ee7b7 !important; }
+        :is(html, #kmi-glas).dark-mode #selbstcheckOverlay [style*="color:#475569"] { color: #cbd5e1 !important; }
+
+        /* SCHON VORHER DURCHSICHTIG -- beim Nachmessen mitgefunden
+           (werkzeug/durchsicht-messen.js, Stand vor dem Glas-Umbau):
+           - Optionen-Fenster beim Bestellen (Groesse, Extras), dunkel: 8 %
+             Grund -- die Speisekarte schien durch. Gaesteweg.
+           - Cookie-Hinweis, hell: 45 % ohne Weichzeichner -- das Erste, was
+             ein neuer Besucher sieht.
+           - Offline-Banner, dunkel: 5 %. Karte/Liste-Umschalter, hell: 45 %. */
+        :is(html, #kmi-glas).dark-mode #itemOptionsModal > div { background-color: #1a1a1a !important; }
+        :is(html, #kmi-glas):not(.dark-mode) #cookieConsent { background-color: #ffffff !important; }
+        :is(html, #kmi-glas):not(.dark-mode) .view-toggle { background-color: #ffffff !important; }
+        :is(html, #kmi-glas).dark-mode .view-toggle { background-color: #1a1a1a !important; }
+        :is(html, #kmi-glas).dark-mode #offlineBanner { background: #3a1212 !important; color: #fecaca !important; }
+
         @media (prefers-reduced-transparency: reduce) {
             /* Dieselbe Liste wie oben, sonst gewinnt die Freigabe der
-               Leisten (gemessen: ohne das blieben 8 Glasflaechen). */
-            :is(html, #kmi-glas) body *,
+               Leisten (gemessen: ohne das blieben 8 Glasflaechen).
+               Fenster und Karten behalten hier ihren Weichzeichner: ihr
+               Grund ist halb durchsichtig, ohne ihn waeren sie unlesbar --
+               lesbar geht vor "weniger Glas". */
             :is(html, #kmi-glas) :is(#guestTopNav, .bottom-nav, .kmi-glas-leiste, #menuModal header,
                 #menuCategoryTabs, .cart-button-fixed, .install-banner, .ptr-indicator,
                 #mapSection [style*="backdrop-filter"],
