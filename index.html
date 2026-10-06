@@ -1,28 +1,36 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <!-- Google Analytics + Consent Mode v2 (DSGVO-konform) -->
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        // Consent Mode: Standardmäßig alles verweigern
-        gtag('consent', 'default', {
-            analytics_storage: 'denied',
-            ad_storage: 'denied',
-            ad_user_data: 'denied',
-            ad_personalization: 'denied',
-            wait_for_update: 500
-        });
-        // Wenn bereits eingewilligt, Consent sofort gewähren
-        if (localStorage.getItem('kin_cookie_consent') === 'accepted') {
-            gtag('consent', 'update', { analytics_storage: 'granted' });
-        }
-    </script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E2J0WW6NCN"></script>
-    <script>
-        gtag('js', new Date());
-        gtag('config', 'G-E2J0WW6NCN', { anonymize_ip: true });
-    </script>
+    <!-- ===================================================================
+         HIER LIEF BIS ZUM 06.10.2026 GOOGLE ANALYTICS (G-E2J0WW6NCN).
+
+         Entfernt, weil die eigene Datenschutzerklaerung woertlich sagte:
+         "Es werden keine Tracking-Cookies, kein Google Analytics und keine
+         Werbepixel verwendet." Das stimmte nicht. Eine Erklaerung, die das
+         Gegenteil von dem sagt, was die App tut, macht jedes andere
+         Dokument angreifbar -- schwerer als das Tracking selbst.
+
+         WAS DABEI VERLOREN GING: nichts, was jemand gebraucht hat. Im
+         ganzen Haus stand kein einziges gtag('event', ...) -- gezaehlt
+         wurden nur rohe Seitenaufrufe, und auch die nur von Gaesten, die
+         im Banner "Alles akzeptieren" gedrueckt hatten.
+
+         WAS DIE FRAGEN BEANTWORTET, DIE WIRKLICH DA SIND:
+           kommt ueber die Restaurantseiten jemand? -> lead-zaehler.js
+             (gesehen -> geklickt -> gesendet, ohne IP, ohne Cookie,
+              deshalb ohne Einwilligung)
+           Bestellungen, Reservierungen, Umsatz?     -> Supabase
+           zahlt der Kunde?                          -> Stripe
+
+         Das Einwilligungsbanner bleibt: Karten, Wetter und die Datenbank
+         sind weiterhin externe Dienste, ueber die der Gast informiert
+         wird. Nur die Analytics-Zeile darin ist weg.
+
+         WER ANALYTICS WIEDER EINBAUEN WILL: dann bitte mit Ereignissen,
+         die eine Frage beantworten -- und VORHER den Satz in der
+         Datenschutzerklaerung aendern, nicht danach.
+         tests/kein-analytics-test.js macht die Datei sonst rot.
+         =================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -14329,7 +14337,6 @@ function _cookieEntscheidung(alles) {
     localStorage.setItem('kmi_consent_date', new Date().toISOString());
     localStorage.setItem('kin_cookie_consent', alles ? 'accepted' : 'declined');
     try {
-        if (alles && typeof gtag === 'function') gtag('consent', 'update', { analytics_storage: 'granted' });
     } catch (e) {}
     var el = document.getElementById('cookieConsent');
     if (el) el.style.display = 'none';

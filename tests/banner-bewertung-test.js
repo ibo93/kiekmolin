@@ -37,17 +37,32 @@ t('der zweite Banner ist weg', H.indexOf('cookieConsentBanner') < 0);
 t('der tote dritte ebenfalls', !/<div id="cookieBanner"/.test(H));
 t('und die alte cookieConsent()-Funktion dazu', !/function cookieConsent\(choice\)/.test(H));
 
-// ---- 2. Der eine Banner deckt jetzt BEIDES ab ------------------------------
-// Google Analytics läuft wirklich (G-...), also braucht es die Einwilligung.
-t('Google Analytics ist tatsaechlich eingebunden', /googletagmanager\.com\/gtag\/js\?id=G-/.test(H));
-t('Consent Mode steht standardmaessig auf verweigert',
-  /analytics_storage: 'denied'/.test(H));
-t('"Akzeptieren" schaltet die Analyse frei',
-  /gtag\('consent', 'update', \{ analytics_storage: 'granted' \}\)/.test(H));
-t('und schreibt den Schluessel, den der Kopfbereich liest',
+// ---- 2. Der eine Banner, jetzt ohne Analytics ------------------------------
+//
+// HIER STANDEN BIS ZUM 06.10.2026 FUENF ZUSICHERUNGEN, DIE VERLANGTEN,
+// DASS GOOGLE ANALYTICS EINGEBUNDEN IST.
+//
+// Die erste hiess woertlich "Google Analytics ist tatsaechlich
+// eingebunden" und suchte nach googletagmanager.com. Wer Analytics
+// ausgebaut haette -- aus genau dem Grund, aus dem es am 06.10.2026
+// ausgebaut wurde: die eigene Datenschutzerklaerung sagte "kein Google
+// Analytics" -- waere hier rot geworden und haette es zurueckgesetzt.
+//
+// Der zweite Test in einer Woche mit diesem Muster. Der erste war
+// symbolschrift-test.js, der die Google-Schriften einforderte. CLAUDE.md
+// Regel 5 nennt genau das: "Ein Test, der den Fehler einfordert, ist
+// schlimmer als keiner."
+//
+// WAS JETZT GEPRUEFT WIRD: nicht mehr, OB ein Zaehldienst da ist -- das
+// ist eine Entscheidung und gehoert keinem Test. Sondern, dass der
+// Banner weiter tut, wofuer er da ist: zwei Schluessel schreiben, keine
+// Vorbelegung, Bestandsgaeste nicht erneut fragen. Ob Analytics laeuft
+// und ob die Datenschutzerklaerung dazu passt, prueft
+// tests/kein-analytics-test.js -- und zwar in beide Richtungen.
+t('der Banner schreibt beide Schluessel, auch den alten',
   /localStorage\.setItem\('kin_cookie_consent', alles \? 'accepted' : 'declined'\)/.test(H));
-t('"Nur Notwendige" schaltet sie NICHT frei',
-  /if \(alles && typeof gtag === 'function'\)/.test(H));
+t('und haelt fest, WANN entschieden wurde',
+  /localStorage\.setItem\('kmi_consent_date'/.test(H));
 
 var F = new Function('localStorage', 'document', 'gtag',
     H.slice(H.indexOf('function _cookieEntscheidung('), H.indexOf('function _cookieBannerZeigen('))
@@ -70,13 +85,16 @@ t('vor der Entscheidung gilt: noch nicht gefragt', w.api.schon() === false);
 w.api.ent(true);
 t('Akzeptieren setzt beide Schluessel',
   w.sp.kmi_consent === 'all' && w.sp.kin_cookie_consent === 'accepted', JSON.stringify(w.sp));
-t('und meldet die Einwilligung an Google', w.gtag.length === 1, JSON.stringify(w.gtag));
+// Frueher: "meldet die Einwilligung an Google" (genau ein Ruf). Seit dem
+// Ausbau darf der Banner gar nichts mehr nach draussen melden -- weder
+// bei Akzeptieren noch bei Ablehnen.
+t('Akzeptieren meldet nichts mehr nach draussen', w.gtag.length === 0, JSON.stringify(w.gtag));
 
 var w2 = welt();
 w2.api.ent(false);
 t('Nur Notwendige setzt "declined"',
   w2.sp.kin_cookie_consent === 'declined' && w2.sp.kmi_consent === 'essential', JSON.stringify(w2.sp));
-t('und meldet NICHTS an Google', w2.gtag.length === 0, JSON.stringify(w2.gtag));
+t('Nur Notwendige erst recht nicht', w2.gtag.length === 0, JSON.stringify(w2.gtag));
 
 // Wer den ALTEN Banner schon beantwortet hatte, darf nicht erneut gefragt
 // werden -- sonst sieht jeder Bestandsgast den Banner noch einmal.
