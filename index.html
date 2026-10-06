@@ -13938,6 +13938,49 @@
         }
 
 
+
+        /* =============== KNOEPFE UND HINWEISE OHNE SCHATTEN ===============
+           06.10.2026, Ibo: "Der Schatten soll weg" -- dann: "mach das
+           ueberall weg". Gemeint sind Schatten und Schein an KNOEPFEN und
+           der Schleier hinter Hinweis-Meldungen. Karten und Fenster behalten
+           ihre Tiefe; das war nicht gefragt.
+
+           Vorher im Browser gezaehlt (Startseite, Lokalseite, Speisekarte,
+           Reservierung, hell und dunkel): 42 sichtbare Knoepfe mit Schatten,
+           dazu ein pulsierender Schein am Installieren-Knopf.
+
+           WARUM :is(html, #kmi-flach): Knoepfe bekommen ihren Schatten aus
+           ueber 50 Regeln, aus style-Attributen und aus Skripten beim
+           Darueberfahren. :is() zaehlt mit der staerksten Angabe darin --
+           die Kennung #kmi-flach (es gibt kein Element mit ihr) hebt diese
+           Regel ueber jede andere. Nur so gilt "ueberall" wirklich. */
+        :is(html, #kmi-flach) :is(button, .btn, [class*="btn"], [role="button"], .toast),
+        :is(html, #kmi-flach) :is(button, .btn, [class*="btn"], [role="button"]):hover,
+        :is(html, #kmi-flach) :is(button, .btn, [class*="btn"], [role="button"]):active,
+        :is(html, #kmi-flach) :is(button, .btn, [class*="btn"], [role="button"]):focus {
+            box-shadow: none !important;
+        }
+        /* Wer mit der Tastatur bedient, muss sehen, wo er ist. Ein Ring ist
+           kein Schatten -- er sitzt eng am Knopf und blendet nichts aus. */
+        :is(html, #kmi-flach) :is(button, .btn, [class*="btn"], [role="button"]):focus-visible {
+            box-shadow: 0 0 0 3px rgba(0,61,51,0.35) !important;
+        }
+        :is(html, #kmi-flach).dark-mode :is(button, .btn, [class*="btn"], [role="button"]):focus-visible {
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.45) !important;
+        }
+        /* Hinweis-Meldungen: deckend, kein Weichzeichner -- sonst scheint
+           durch, was darunter liegt, und sieht aus wie ein Schatten. */
+        :is(html, #kmi-flach) .toast {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .toast { background: #1c1c1e; }
+        [data-theme="dark"] .toast { background: #323234; }
+        /* Deckend und dunkel genug fuer weisse Schrift: #15803d 5,02 : 1,
+           #dc2626 4,83 : 1 (die alten Toene schafften 3,3 und 3,8). */
+        .toast.success { background: #15803d; }
+        .toast.error { background: #dc2626; }
+
     </style>
 </head>
 <body>
