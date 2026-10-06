@@ -14090,6 +14090,22 @@
             background-color: #FFD54F !important;
         }
 
+        /* DIE LINKE LEISTE IM DUNKELN (06.10.2026, Ibo: "Das linke Leiste
+           ist zu hell"). Gemessen an den Bildpunkten: Leiste rgb(60,61,63),
+           Inhalt daneben rgb(26,26,26). Ursache: ".liquid-glass
+           #dashboardView" setzt den Grund des Dashboards fest auf #f8f9fa
+           -- auch im Dunkeln. Die Leiste ist nur zu 85 % deckend, also
+           schien das Hellgrau durch. Nicht die Leiste war falsch, sondern
+           der Grund dahinter. */
+        :is(html, #kmi-glas).dark-mode #dashboardView {
+            background: #121414 !important;
+            background-image: none !important;
+        }
+        :is(html, #kmi-glas).dark-mode .dash-sidebar {
+            background-color: rgba(18,20,20,0.92) !important;
+            border-right: 1px solid rgba(255,255,255,0.08) !important;
+        }
+
         @media (prefers-reduced-transparency: reduce) {
             /* Dieselbe Liste wie oben, sonst gewinnt die Freigabe der
                Leisten (gemessen: ohne das blieben 8 Glasflaechen). */

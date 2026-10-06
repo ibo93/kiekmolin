@@ -96,5 +96,14 @@ t('dunkel: "Angebot" behaelt sein Gold (' + k(hx('#5c4600'), hx('#fed65b')) + ' 
   && /class="dash-btn dash-btn-primary dash-btn-gold" onclick="showDashboardSection\('offers'\)"/.test(H), null);
 t('dunkel: Kennzahl-Beschriftung 62 % statt 45 % Weiss', /\.dark-mode \.stat-box-label \{[^}]*color: rgba\(255,255,255,0\.62\) !important;/.test(H), null);
 
+console.log('\n-- 5. Die linke Leiste im Dunkeln --');
+// Gemessen (Bildpunkte): Leiste rgb(60,61,63) neben Inhalt rgb(26,26,26) --
+// der Grund des Dashboards blieb im Dunkeln #f8f9fa und schien durch.
+// Danach: Leiste rgb(18,19,19). Gegenprobe: Regel entfernt -> rot.
+t('Dashboard-Grund im Dunkeln dunkel (gegen ".liquid-glass #dashboardView" #f8f9fa)',
+  /:is\(html, #kmi-glas\)\.dark-mode #dashboardView \{\s*background: #121414 !important;\s*background-image: none !important;/.test(H), null);
+t('die Leiste selbst dicht und dunkel, mit feiner Kante',
+  /:is\(html, #kmi-glas\)\.dark-mode \.dash-sidebar \{\s*background-color: rgba\(18,20,20,0\.92\) !important;/.test(H), null);
+
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
