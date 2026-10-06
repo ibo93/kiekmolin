@@ -14582,6 +14582,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <!-- Gilt fuer diesen Termin eine Aktion? Siehe aktionHinweisZeigen(). -->
                 <div id="resAktionHinweis" role="status" style="display:none;align-items:center;gap:8px;margin:0 0 12px;padding:12px 16px;border-radius:16px;background:#fff4cc;color:#5c4600;font-size:14px;font-weight:600;line-height:1.4;"></div>
 
+                <!-- Nur bei Lokalen mit "Zutritt ab 18". Siehe abAchtzehnPruefen(). -->
+                <label id="resAb18" class="res-ab18" style="display:none;">
+                    <input type="checkbox" id="resAb18Check">
+                    <span>Alle Gäste sind mindestens 18 Jahre alt und bringen einen Ausweis mit. Ohne Ausweis kein Einlass.</span>
+                </label>
+
                 <!-- Footer: Zusammenfassung + Button -->
                 <div class="res-footer-summary">
                     <div id="resSummaryInfo">
@@ -20195,6 +20201,21 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <div class="toggle-switch off" id="kohleRufToggle" onclick="toggleFeature('kohle_ruf')" style="width:44px;height:24px;flex-shrink:0;"></div>
                     </div>
                     <div style="font-size: 11px; color: var(--text-secondary);">Gäste am Tisch sehen zusätzlich „Kohle bitte“. Euer Handy zeigt dann „Tisch 5 möchte neue Kohle“ – ihr wisst sofort, was gebraucht wird.</div>
+                </div>
+
+                <!-- AB 18 (seit 06.10.2026). Shisha ist Tabak: unter 18 kein
+                     Zutritt (Jugendschutzgesetz §10). Der Schalter sagt es dem
+                     Gast VOR dem Weg -- die Ausweiskontrolle an der Tuer
+                     ersetzt er nicht. Siehe abAchtzehn(). -->
+                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">badge</span>
+                            Zutritt ab 18
+                        </div>
+                        <div class="toggle-switch off" id="abAchtzehnToggle" onclick="toggleFeature('ab_18')" style="width:44px;height:24px;flex-shrink:0;"></div>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Eure Seite zeigt „Ab 18“, und wer reserviert, bestätigt, dass alle Gäste volljährig sind und einen Ausweis mitbringen. Die Kontrolle an der Tür bleibt bei euch.</div>
                 </div>
 
                 <!-- VORBESTELLUNG: darf der Gast bestellen, wenn zu ist?
@@ -26985,18 +27006,32 @@ function sendReservationEmail(reservationId, eventType) {
 }
 
 async function saveReservationToSupabase(reservation) {
-    if (!useSupabase) {
-        console.error('Supabase nicht aktiv');
-        return;
-    }
+    // ZWEI STILLE AUSGAENGE, GEFUNDEN AM 06.10.2026.
+    //
+    // Hier stand:
+    //     if (!useSupabase) { console.error(...); return; }
+    // und beim Spam-Schutz ebenfalls ein blankes return. Ein return ist
+    // fuer submitReservation ein ERFOLG -- es zeigte die gruene
+    // Bestaetigung, und gespeichert war nichts. Derselbe Fehler wie am
+    // 25.08.2026, nur durch eine andere Tuer.
+    //
+    // useSupabase wird false, wenn beim START die Restaurantliste nicht
+    // kam (schlechter Empfang, die Liste kommt dann aus dem Speicher).
+    // Mit der Reservierung hat das nichts zu tun: die geht ueber
+    // reservation-guest, nicht ueber die Verbindung von damals. Also
+    // einfach versuchen -- scheitert es, sagt der catch-Zweig es dem Gast.
+    //
+    // Gemessen im Browser: ohne Verbindung beim Start gingen 0 Anfragen an
+    // reservation-guest, und die Reservierung stand als bestaetigt da.
 
     // ===== SPAM-SCHUTZ =====
     var now = Date.now();
     var resTimes = JSON.parse(sessionStorage.getItem('kmi_res_times') || '[]');
     resTimes = resTimes.filter(function(t) { return now - t < 600000; });
     if (resTimes.length >= 5) {
-        showToast('Zu viele Reservierungen. Bitte warte einige Minuten.', 'error');
-        return;
+        var _zuViele = new Error('Zu viele Reservierungen in kurzer Zeit');
+        _zuViele.gastText = 'Zu viele Reservierungen. Bitte warte einige Minuten.';
+        throw _zuViele;
     }
     // ===== ENDE SPAM-SCHUTZ =====
 
@@ -29970,6 +30005,7 @@ function updateResSummary() {
     }
     if (summaryArea) summaryArea.textContent = areaText;
     try { aktionHinweisZeigen(); } catch (e) {}
+    try { abAchtzehnZeigen(); } catch (e) {}
 }
 
 // ==================== WARTELISTE (ECHT) ====================
@@ -30171,6 +30207,9 @@ function submitReservation(e) {
     const restaurantId = document.getElementById('reservationRestaurantId').value;
     const restaurant = APP_DATA.restaurants.find(r => r.id == restaurantId);
 
+    // Zutritt ab 18: VOR allem anderen -- auch vor dem lokalen Speichern.
+    if (!abAchtzehnPruefen(restaurant)) return;
+
     // Prüfen ob Auto-Confirm aktiviert ist
     var resFeatures = (restaurant && restaurant.features) ? restaurant.features : [];
     var isAutoConfirm = resFeatures.indexOf('auto_confirm_reservations') >= 0;
@@ -30252,8 +30291,9 @@ function submitReservation(e) {
         // Das Formular bleibt offen und ausgefuellt -- der Gast soll es
         // noch einmal versuchen koennen, ohne alles neu einzutippen.
         console.error('Reservierung fehlgeschlagen:', err);
-        showToast('Die Reservierung konnte nicht gespeichert werden. '
-                + 'Bitte noch einmal versuchen oder im Restaurant anrufen.', 'error');
+        showToast((err && err.gastText) ? err.gastText
+                : ('Die Reservierung konnte nicht gespeichert werden. '
+                + 'Bitte noch einmal versuchen oder im Restaurant anrufen.'), 'error');
     });
 }
 
@@ -34248,6 +34288,14 @@ async function toggleFeature(feature) {
             else features.push('look_dunkel');
             var label = 'Dunkler Auftritt';
             var wasEnabled = hatLook;
+        } else if (feature === 'ab_18') {
+            // Positives Flag -- nicht in die Standardregel fallen lassen,
+            // die baut daraus "no_reservations".
+            var hatAb18 = features.indexOf('ab_18') >= 0;
+            if (hatAb18) features = features.filter(function (f) { return f !== 'ab_18'; });
+            else features.push('ab_18');
+            var label = 'Zutritt ab 18';
+            var wasEnabled = hatAb18;
         } else if (feature === 'kohle_ruf') {
             // Positives Flag wie preorder -- NICHT in die Standardregel unten
             // fallen lassen, die baut daraus sonst "no_reservations".
@@ -34337,6 +34385,11 @@ function updateFeatureToggles(features) {
     if (lookDunkelToggle) {
         if (features.indexOf('look_dunkel') >= 0) lookDunkelToggle.classList.remove('off');
         else lookDunkelToggle.classList.add('off');
+    }
+    var abAchtzehnToggle = document.getElementById('abAchtzehnToggle');
+    if (abAchtzehnToggle) {
+        if (features.indexOf('ab_18') >= 0) abAchtzehnToggle.classList.remove('off');
+        else abAchtzehnToggle.classList.add('off');
     }
     var kohleRufToggle = document.getElementById('kohleRufToggle');
     if (kohleRufToggle) {
@@ -42119,6 +42172,7 @@ async function showRestaurantLanding(rest) {
                     </div>
                     <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
+                    ${abAchtzehn(rest) ? '<div class="lp-ab18"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Ab 18 · Ausweis mitbringen</div>' : ''}
                     <p style="color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
                         <!-- Ohne das Wort "Küche": "Fisch und Bar Küche" ist
                              keine, und "Fisch Küche" schreibt man zusammen.
@@ -43835,6 +43889,47 @@ function applyLiquidGlass(enable) {
         .dark-mode .lp-marke-feld a {
             color: #ffffff !important;
         }
+        /* "Laeuft gerade" oben in der Speisekarte (Tisch-QR-Gaeste).
+           Hell: #5c4600 auf #fff4cc. Dunkel: #fed65b auf Goldschimmer. */
+        .menu-aktion-jetzt {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 10px; padding: 12px 16px; border-radius: 16px;
+            background: #fff4cc; color: #5c4600;
+            border: 1px solid rgba(115,92,0,0.18);
+        }
+        .menu-aktion-jetzt .material-symbols-outlined { font-size: 24px; flex-shrink: 0; font-variation-settings: 'FILL' 1; }
+        .menu-aktion-jetzt-titel { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 15px; line-height: 1.25; }
+        .menu-aktion-jetzt-unter { font-size: 13px; font-weight: 600; margin-top: 2px; }
+        .dark-mode .menu-aktion-jetzt {
+            background: rgba(254,214,91,0.12); color: #fed65b;
+            border-color: rgba(254,214,91,0.25);
+        }
+        #menuAktionJetzt { margin-bottom: 6px; }
+
+        /* Zutritt ab 18 -- Abzeichen auf der Lokalseite (dreht mit den
+           --lp-Farben) und Pflicht-Haken bei der Reservierung. */
+        .lp-ab18 {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin: -12px auto 20px; padding: 6px 14px; border-radius: 9999px;
+            background: var(--lp-akzent-hell, #fff4cc); color: var(--lp-akzent-text, #5c4600);
+            font-family: Inter, sans-serif; font-size: 13px; font-weight: 700;
+        }
+        .lp-ab18 .material-symbols-outlined { font-size: 17px; }
+        .res-ab18 {
+            display: flex; align-items: flex-start; gap: 10px;
+            margin: 0 0 12px; padding: 12px 16px; border-radius: 16px;
+            background: rgba(0,61,51,0.06); color: var(--text-primary, #1a1d1c);
+            font-size: 14px; font-weight: 600; line-height: 1.4; cursor: pointer;
+            border: 1px solid transparent; transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .res-ab18 input { margin: 2px 0 0; width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--brand, #003d33); }
+        .res-ab18.res-ab18-fehlt { border-color: #c62828; background: rgba(198,40,40,0.08); }
+        /* !important, weil ".dark-mode label" das allgemeine Grau erzwingt */
+        .dark-mode .res-ab18,
+        .dark-mode .res-ab18 span { background: rgba(255,255,255,0.06); color: #f0f2f1 !important; }
+        .dark-mode .res-ab18 span { background: transparent; }
+        .dark-mode .res-ab18.res-ab18-fehlt { border-color: #ff8a80; background: rgba(255,138,128,0.10); }
+
         /* Die kleinen Ueberschriften im Feld: beim Standard-Gruen das
            Mint wie bisher (4,57 : 1), bei jeder anderen Farbe Weiss --
            Mint auf Bernstein waren 1,87 : 1, auch im Hellen. */
@@ -49866,6 +49961,7 @@ async function openMenuModal(restaurantId) {
     // Nicht mit await: die Gerichte sollen nicht darauf warten.
     if (typeof zeigeVorbestellBanner === 'function') zeigeVorbestellBanner(restaurantId);
     if (typeof showDailySpecialInMenu === 'function') showDailySpecialInMenu(restaurantId);
+    if (typeof zeigeAktionenJetztInKarte === 'function') zeigeAktionenJetztInKarte(restaurantId);
     if (typeof showReorderBanner === 'function') showReorderBanner(restaurantId);
     } catch(e) {
         console.error('openMenuModal Fehler:', e);
@@ -77222,11 +77318,14 @@ window.aktionenLaden = aktionenLaden;
 
 // Eine Karte -- auf der Lokalseite. Alles, was der Wirt eingetippt hat,
 // laeuft durch escapeHtml: der Text kommt aus der Datenbank, nicht von uns.
-function aktionKarteHtml(a) {
+function aktionKarteHtml(a, laeuft) {
+    var jetzt = laeuft ? '<span style="float:right;margin:-4px -6px 0 8px;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:9999px;background:var(--lp-akzent-hell,#fff4cc);color:var(--lp-akzent-text,#5c4600);font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">'
+        + '<span class="material-symbols-outlined" style="font-size:14px;">local_fire_department</span>Läuft gerade</span>' : '';
     var vorteil = a.vorteil ? '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9999px;background:var(--lp-akzent-hell,#fff4cc);color:var(--lp-akzent-text,#5c4600);font-size:13px;font-weight:700;">'
         + '<span class="material-symbols-outlined" style="font-size:16px;">redeem</span>' + escapeHtml(a.vorteil)
         + (a.gilt_fuer === 'reservierung' ? ' · bei Online-Reservierung' : '') + '</div>' : '';
     return '<div style="background:var(--lp-karte,#ffffff);border:1px solid var(--lp-rand,rgba(0,0,0,0.06));border-radius:24px;padding:22px 22px 20px;box-shadow:0 4px 18px rgba(0,0,0,0.05);">'
+        + jetzt
         + '<div style="font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--lp-gedaempft,#6b7280);margin-bottom:8px;">'
         + '<span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:4px;">' + (a.art === 'vorteil' ? 'local_offer' : 'event_upcoming') + '</span>'
         + escapeHtml(aktionZeitplanText(a)) + '</div>'
@@ -77246,13 +77345,127 @@ function renderRestaurantAktionen(restaurantId) {
         h += '<span style="color:var(--lp-akzent,#735c00);font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Bei uns</span>';
         h += '<h2 style="font-family:Epilogue,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;color:var(--lp-tinte,var(--ink-deep));margin-bottom:24px;line-height:1.1;">Aktionen &amp; Events</h2>';
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">';
-        liste.forEach(function (a) { h += aktionKarteHtml(a); });
+        // Was gerade laeuft, steht vorn -- wer um 18 Uhr nachschaut, will
+        // die Happy Hour sehen, nicht zuerst die Party am Samstag.
+        var jetzt = new Date();
+        liste.map(function (a, i) { return { a: a, i: i, laeuft: aktionLaeuftJetzt(a, jetzt) }; })
+            .sort(function (x, y) { return (y.laeuft - x.laeuft) || (x.i - y.i); })
+            .forEach(function (e) { h += aktionKarteHtml(e.a, e.laeuft); });
         h += '</div></section>';
         ziel.innerHTML = h;
         return liste.length;
     });
 }
 window.renderRestaurantAktionen = renderRestaurantAktionen;
+
+// ---- LAEUFT GERADE -------------------------------------------------------
+//
+// Seit dem 06.10.2026. Wer per Tisch-QR kommt, landet DIREKT in der
+// Speisekarte -- die Lokalseite mit den Aktionen sieht er nie. Genau der
+// Gast, der schon am Tisch sitzt, erfuhr also nicht, dass gerade Happy
+// Hour ist. Jetzt steht oben in der Karte, was in diesem Moment gilt.
+//
+// UEBER MITTERNACHT. aktionPasst beantwortet "gilt sie fuer einen Termin
+// an DIESEM Tag?" -- eine Ladies Night Do 21-03 gilt fuer Freitag 01:00
+// nicht (sie gehoert dem Donnerstag). Fuer "laeuft sie JETZT?" ist das
+// falsch: Freitag um 01:00 laeuft die Ladies Night vom Donnerstag noch.
+// Deshalb fragt aktionLaeuftJetzt auch den Vortag.
+//
+// "ab 22:00" ohne Ende gilt bis Mitternacht. Wie lange danach, weiss nur
+// der Wirt -- wer es weiss, traegt ein Ende ein.
+function aktionDatumVon(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function aktionLaeuftJetzt(a, jetzt) {
+    if (!a) return false;
+    jetzt = jetzt || new Date();
+    var uhr = String(jetzt.getHours()).padStart(2, '0') + ':' + String(jetzt.getMinutes()).padStart(2, '0');
+    if (aktionPasst(a, aktionDatumVon(jetzt), uhr)) return true;
+    var von = aktionMinuten(a.von), bis = aktionMinuten(a.bis);
+    if (von == null || bis == null || bis >= von) return false;
+    if (aktionMinuten(uhr) > bis) return false;
+    var gestern = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() - 1);
+    return aktionPasst(a, aktionDatumVon(gestern), a.von);
+}
+window.aktionLaeuftJetzt = aktionLaeuftJetzt;
+
+// Nur Aktionen fuer ALLE. "Nur bei Online-Reservierung" geht den Gast, der
+// schon am Tisch sitzt, nichts mehr an -- er wuerde nach einem Rabatt
+// fragen, den er nicht bekommt.
+function aktionenJetztFuerTisch(liste, jetzt) {
+    return (Array.isArray(liste) ? liste : []).filter(function (a) {
+        return a && a.gilt_fuer === 'alle' && aktionLaeuftJetzt(a, jetzt);
+    });
+}
+
+// Sitzt wie die Tagesangebote VOR der Gerichteliste (die wird bei jedem
+// Kategoriewechsel neu gesetzt). Alle fuenf Minuten nachsehen, solange die
+// Karte offen ist: wer um 18:55 bestellt, soll nicht mehr "Happy Hour"
+// lesen, wenn sie um 19:00 vorbei ist.
+var _aktionJetztUhr = null;
+function zeigeAktionenJetztInKarte(restaurantId) {
+    var menuList = document.getElementById('menuItemsList');
+    var alt = document.getElementById('menuAktionJetzt');
+    if (alt) alt.remove();
+    if (!menuList || !restaurantId) return Promise.resolve(0);
+    if (_aktionJetztUhr) { clearInterval(_aktionJetztUhr); _aktionJetztUhr = null; }
+    _aktionJetztUhr = setInterval(function () {
+        var mm = document.getElementById('menuModal');
+        var offen = mm && (mm.classList.contains('active') || mm.style.display === 'flex');
+        var haus = (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant) ? currentOrderRestaurant.id : null;
+        if (!offen || haus !== restaurantId) { clearInterval(_aktionJetztUhr); _aktionJetztUhr = null; return; }
+        aktionenStreifenSetzen(restaurantId);
+    }, 5 * 60 * 1000);
+    return aktionenStreifenSetzen(restaurantId);
+}
+function aktionenStreifenSetzen(restaurantId) {
+    return aktionenLaden(restaurantId, false).then(function (liste) {
+        var haus = (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant) ? currentOrderRestaurant.id : restaurantId;
+        if (haus !== restaurantId) return 0;
+        var menuList = document.getElementById('menuItemsList');
+        var alt = document.getElementById('menuAktionJetzt');
+        if (alt) alt.remove();
+        var jetzt = aktionenJetztFuerTisch(liste, new Date());
+        if (!menuList || !jetzt.length) return 0;
+        var box = document.createElement('div');
+        box.id = 'menuAktionJetzt';
+        box.setAttribute('role', 'status');
+        jetzt.slice(0, 2).forEach(function (a) {
+            var zeile = document.createElement('div');
+            zeile.className = 'menu-aktion-jetzt';
+            var sym = document.createElement('span');
+            sym.className = 'material-symbols-outlined';
+            sym.setAttribute('aria-hidden', 'true');
+            sym.textContent = 'local_fire_department';
+            var text = document.createElement('div');
+            text.className = 'menu-aktion-jetzt-text';
+            var kopf = document.createElement('div');
+            kopf.className = 'menu-aktion-jetzt-titel';
+            kopf.textContent = 'Läuft gerade: ' + (a.titel || 'Aktion');
+            text.appendChild(kopf);
+            var unter = [a.vorteil || '', a.bis ? 'bis ' + String(a.bis).slice(0, 5) : ''].filter(Boolean).join(' · ');
+            if (unter) {
+                var u = document.createElement('div');
+                u.className = 'menu-aktion-jetzt-unter';
+                u.textContent = unter;
+                text.appendChild(u);
+            }
+            zeile.appendChild(sym); zeile.appendChild(text);
+            box.appendChild(zeile);
+        });
+        // Dieselben Raender wie die Gerichteliste -- die Liste bringt ihren
+        // Abstand selbst mit, ihr Elternteil nicht. Ohne das klebte der
+        // Streifen im Browser am linken Bildschirmrand.
+        try {
+            var st = getComputedStyle(menuList);
+            box.style.marginLeft = (parseFloat(st.marginLeft) + parseFloat(st.paddingLeft)) + 'px';
+            box.style.marginRight = (parseFloat(st.marginRight) + parseFloat(st.paddingRight)) + 'px';
+        } catch (e) {}
+        menuList.parentElement.insertBefore(box, menuList);
+        return jetzt.length;
+    });
+}
+window.zeigeAktionenJetztInKarte = zeigeAktionenJetztInKarte;
 
 // Im Reservierungsfenster: gilt fuer Tag und Uhrzeit etwas? Der Gast soll
 // es VOR dem Absenden lesen -- "Donnerstag ist Ladies Night" ist oft genau
@@ -77281,6 +77494,44 @@ function aktionHinweisZeigen() {
     });
 }
 window.aktionHinweisZeigen = aktionHinweisZeigen;
+
+// ---- ZUTRITT AB 18 -------------------------------------------------------
+//
+// Seit dem 06.10.2026. Shisha ist Tabak, und Rauchen in der Oeffentlichkeit
+// ist unter 18 nicht erlaubt (Jugendschutzgesetz §10) -- Shisha-Bars lassen
+// deshalb erst ab 18 herein. Ohne Hinweis reserviert eine Gruppe mit einem 17-Jaehrigen, steht vor der
+// Tuer und wird weggeschickt. Das kostet den Tisch und eine Bewertung.
+//
+// WAS DAS IST UND WAS NICHT: ein Hinweis und eine Bestaetigung. Ein Haken
+// beweist kein Alter -- die Kontrolle an der Tuer bleibt beim Wirt. Darum
+// sperrt der SERVER nichts: eine abgewiesene Reservierung kostet einen
+// Gast, und ein Haken, den ein Skript setzen kann, schuetzt niemanden.
+function abAchtzehn(r) {
+    var f = (r && r.features) || [];
+    return Array.isArray(f) && f.indexOf('ab_18') >= 0;
+}
+function abAchtzehnZeigen() {
+    var box = document.getElementById('resAb18');
+    if (!box) return;
+    var rid = (document.getElementById('reservationRestaurantId') || {}).value || '';
+    var r = (window.APP_DATA && APP_DATA.restaurants || []).find(function (x) { return x && x.id == rid; });
+    var an = abAchtzehn(r);
+    box.style.display = an ? 'flex' : 'none';
+    if (!an) { var c = document.getElementById('resAb18Check'); if (c) c.checked = false; }
+}
+// true = darf weiter. Ohne Schalter immer true.
+function abAchtzehnPruefen(r) {
+    if (!abAchtzehn(r)) return true;
+    var c = document.getElementById('resAb18Check');
+    if (c && c.checked) return true;
+    var box = document.getElementById('resAb18');
+    if (box) { box.style.display = 'flex'; box.classList.add('res-ab18-fehlt'); setTimeout(function () { box.classList.remove('res-ab18-fehlt'); }, 2400); }
+    if (c) { try { c.focus(); } catch (e) {} }
+    if (typeof showToast === 'function') showToast('Bitte bestätigen: alle Gäste sind mindestens 18 und bringen einen Ausweis mit.', 'error');
+    return false;
+}
+window.abAchtzehn = abAchtzehn;
+window.abAchtzehnZeigen = abAchtzehnZeigen;
 
 // ---- AKTIONEN VERWALTEN (Dashboard -> Angebote) -------------------------
 //
