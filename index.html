@@ -16853,9 +16853,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         renderCalendar();
                         if (typeof renderDayReservations === 'function') renderDayReservations();
                     }
-                    if (tabName === 'floorplan' && typeof renderFloorplan === 'function') {
-                        renderFloorplan();
-                        if (typeof initFloorplanDragDrop === 'function') initFloorplanDragDrop();
+                    // Neuer Tischplan (tp3). Die alten Teile renderFloorplan /
+                    // initFloorplanDragDrop zeichneten Demo-Zustaende auf acht feste
+                    // Tische und haengten bei jedem Oeffnen weitere Listener an.
+                    if (tabName === 'floorplan' && typeof window.tp3Oeffnen === 'function') {
+                        window.tp3Oeffnen();
                     }
                     if (tabName === 'list' && typeof renderReservationList === 'function') {
                         renderReservationList();
@@ -18095,330 +18097,744 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <!-- TISCHPLAN TAB -->
             <div id="resTabFloorplan" class="res-tab-content" style="display: none;">
-                <!-- Compact Toolbar -->
-                <div class="fp-toolbar">
-                    <div class="fp-toolbar-date">
-                        <span class="fp-toolbar-date-label" id="floorplanSelectedDate">Heute</span>
-                        <input type="date" id="fpToolbarDateInput" onchange="(function(v){var d=new Date(v+'T12:00:00');window.fpSelectedDate=d;if(typeof updateFloorplanDisplay==='function')updateFloorplanDisplay();if(typeof renderFloorplanCalendar==='function')renderFloorplanCalendar();})(this.value)" aria-label="Datum">
+            <!-- TISCHPLAN (06.10.2026, neu fuer das iPad)
+                 Zwei Ansichten derselben Daten: 3D fuer den laufenden Abend,
+                 "Von oben" zum Bearbeiten und fuer grosse Lokale. Die Tische
+                 kommen aus restaurant_tables, der Zustand aus Reservierungen,
+                 offenen Bestellungen und Tischrufen. Hier standen vorher acht
+                 fest eingebaute Tische, die fuer jedes Lokal gleich waren und
+                 deren "Speichern" nichts speicherte. -->
+            <style>
+                .tp3 { --tp3-grund: #edeeef; --tp3-karte: #ffffff; --tp3-zweit: #edeeef; --tp3-text: #191c1d; --tp3-leise: #404946; --tp3-sehrleise: #5f6b68; --tp3-tief: #00251e; --tp3-rand: rgba(0,37,30,0.14); --tp3-buehne: #e4e8e6; --tp3-boden: #efe6d6; --tp3-fuge: rgba(110,80,40,0.10); --tp3-wand: #f6f6f4; --tp3-wandkante: #d3d9d6; --tp3-sockel: #c9b89c;
+                    font-family: Inter, system-ui, sans-serif; color: var(--tp3-text); display: flex; flex-direction: column; gap: 12px; }
+                .dark-mode .tp3 { --tp3-grund: #121414; --tp3-karte: #1a1d1c; --tp3-zweit: #262a29; --tp3-text: #f3f4f4; --tp3-leise: #c9cfcd; --tp3-sehrleise: #a9b2af; --tp3-tief: #b8eddf; --tp3-rand: rgba(255,255,255,0.14); --tp3-buehne: #161918; --tp3-boden: #3a3127; --tp3-fuge: rgba(255,230,190,0.07); --tp3-wand: #2a2e2d; --tp3-wandkante: #3d4241; --tp3-sockel: #2b241c; }
+                .tp3-kopf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+                .tp3-kopf .tp3-titel { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+                .tp3-titel b { font-family: Epilogue, sans-serif; font-size: 26px; font-weight: 800; color: var(--tp3-tief); line-height: 1.1; }
+                .tp3-titel span { font-size: 13px; color: var(--tp3-leise); }
+                .tp3-pille { height: 44px; padding: 4px; box-sizing: border-box; border-radius: 9999px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); display: flex; gap: 2px; }
+                .tp3-pille button { height: 34px; padding: 0 13px; border: 0; border-radius: 9999px; background: transparent; color: var(--tp3-text); font: 600 14px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
+                .tp3-pille button[aria-pressed="true"] { background: #003d33; color: #ffffff; font-weight: 700; }
+                .tp3-knopf { height: 44px; min-width: 44px; padding: 0 16px; border-radius: 9999px; background: var(--tp3-karte); color: var(--tp3-text); border: 1px solid var(--tp3-rand); font: 700 14px Inter, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+                .tp3-knopf.haupt { background: #003d33; color: #ffffff; border-color: #003d33; }
+                .tp3-knopf.rot { color: #b91c1c; }
+                .dark-mode .tp3-knopf.rot { color: #fca5a5; }
+                .tp3-knopf:disabled { opacity: 0.5; cursor: default; }
+                .tp3 input[type="date"], .tp3 .tp3-feld { height: 44px; border-radius: 12px; border: 1px solid var(--tp3-rand); padding: 0 12px; font: 15px Inter, sans-serif; color: var(--tp3-text); background: var(--tp3-karte); box-sizing: border-box; }
+                .tp3-zeile2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+                .tp3-bereiche { display: flex; gap: 6px; flex-wrap: wrap; }
+                .tp3-bereiche button { height: 40px; padding: 0 16px; border: 0; border-radius: 9999px; background: transparent; color: var(--tp3-leise); font: 600 14px Inter, sans-serif; cursor: pointer; }
+                .tp3-bereiche button[aria-pressed="true"] { background: var(--tp3-tief); color: var(--tp3-karte); font-weight: 700; }
+                .tp3-zahlen { display: flex; gap: 14px; font-size: 13px; font-weight: 600; color: var(--tp3-leise); }
+                .tp3-zahlen b.frei { color: #15803d; } .tp3-zahlen b.res { color: #1d4ed8; } .tp3-zahlen b.bes { color: var(--tp3-tief); } .tp3-zahlen b.ruft { color: #b45309; }
+                .dark-mode .tp3-zahlen b.frei { color: #86efac !important; } .dark-mode .tp3-zahlen b.res { color: #93c5fd !important; } .dark-mode .tp3-zahlen b.ruft { color: #fdba74 !important; } .dark-mode .tp3-zahlen b.bes { color: #b8eddf !important; }
+                .tp3-haupt { display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; }
+                .tp3-buehne { position: relative; flex: 999 1 440px; min-width: 0; height: 620px; border-radius: 28px; background: var(--tp3-buehne); overflow: hidden; perspective: 1700px; perspective-origin: 50% 20%; touch-action: pan-y; }
+                .tp3[data-bearbeiten="1"] .tp3-buehne { touch-action: none; outline: 2px dashed rgba(0,61,51,0.35); outline-offset: -2px; }
+                .tp3-boden { position: absolute; left: 50%; top: 50%; width: 560px; height: 420px; transform-style: preserve-3d; background-color: var(--tp3-boden); background-image: repeating-linear-gradient(90deg, var(--tp3-fuge) 0 1px, transparent 1px 56px), repeating-linear-gradient(0deg, var(--tp3-fuge) 0 1px, transparent 1px 14px); }
+                .tp3[data-ansicht="oben"] .tp3-boden { border-radius: 18px; }
+                .tp3[data-bearbeiten="1"] .tp3-boden { background-image: linear-gradient(rgba(0,61,51,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(0,61,51,0.10) 1px, transparent 1px); background-size: 14px 14px; }
+                .tp3-boden div, .tp3-boden button, .tp3-boden span { box-sizing: border-box; }
+                .tp3-b { position: absolute; transform-style: preserve-3d; }
+                .tp3-f { position: absolute; }
+                .tp3-tisch { position: absolute; transform-style: preserve-3d; }
+                .tp3-tisch .tp3-tipp { position: absolute; inset: -10px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 16px; z-index: 2; }
+                .tp3[data-ansicht="3d"] .tp3-tisch .tp3-tipp { transform: translateZ(26px); }
+                .tp3-tipp:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+                .tp3-schild { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
+                .tp3-schild > span { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 9999px; white-space: nowrap; font: 700 13px Inter, sans-serif; pointer-events: auto; cursor: pointer; min-height: 30px; box-sizing: border-box; }
+                .tp3-schild b { font-family: Epilogue, sans-serif; font-weight: 800; color: inherit !important; }
+                .tp3[data-ansicht="oben"] .tp3-schild > span { bottom: auto; top: 0; transform: translate(-50%, -50%); }
+                .tp3-schild.frei > span { background: #ffffff; color: #191c1d; border: 1px solid rgba(0,37,30,0.16); }
+                .tp3-schild.frei i { color: #15803d; font-style: normal; }
+                .tp3-schild.res > span { background: #dbe7fb; color: #1e3a8a; border: 1px solid #93b4ef; }
+                .tp3-schild.bes > span { background: #003d33; color: #ffffff; }
+                .tp3-schild.ruft > span { background: #a34a06; color: #ffffff; font-weight: 800; }
+                .dark-mode .tp3-schild.frei > span { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.22); }
+                .dark-mode .tp3-schild.frei i { color: #86efac; }
+                .dark-mode .tp3-schild.res > span { background: #1e2b45; color: #dbe7fb; border-color: #3b5bab; }
+                .dark-mode .tp3-karte.res { background: #1e2b45; color: #dbe7fb; }
+                .dark-mode .tp3-karte.res strong { color: #ffffff; }
+                .dark-mode .tp3-karte.frei { background: #12321f; color: #bbf7d0; }
+                .dark-mode .tp3-karte.frei strong { color: #dcfce7; }
+                .tp3-schild.gewaehlt > span { background: #00251e; color: #ffffff; border-color: #00251e; padding: 7px 13px; font-size: 14px; }
+                .tp3-legende { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 9px 16px; border-radius: 9999px; background: var(--tp3-karte); font-size: 12px; font-weight: 600; color: var(--tp3-leise); }
+                .tp3-legende span { display: flex; align-items: center; gap: 6px; }
+                .tp3-legende i { width: 14px; height: 14px; border-radius: 5px; box-sizing: border-box; display: inline-block; }
+                .tp3-legende i.tp3-leg-frei { background: #fbfcfb; border: 2px solid #b9c3bf; }
+                /* bleibt im Dunkeln hell: das Feld zeigt die Farbe der freien Tischplatte */
+                .dark-mode .tp3-legende i.tp3-leg-frei { background: #fbfcfb; border-color: #8a9692; }
+                .tp3-drehen { position: absolute; right: 16px; bottom: 16px; display: flex; border-radius: 9999px; background: var(--tp3-karte); overflow: hidden; }
+                .tp3-drehen button { width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--tp3-tief); }
+                .tp3[data-ansicht="oben"] .tp3-drehen { display: none; }
+                .tp3-leer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; background: var(--tp3-karte); border-radius: 22px; padding: 22px; color: var(--tp3-leise); font-size: 14px; line-height: 1.45; }
+                .tp3-leer b { color: var(--tp3-text); font-size: 16px; }
+                .tp3-leiste { position: absolute; left: 16px; right: 16px; bottom: 16px; display: none; align-items: center; gap: 8px; overflow-x: auto; padding: 10px 12px; border-radius: 22px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); }
+                .tp3[data-bearbeiten="1"] .tp3-leiste { display: flex; }
+                .tp3[data-bearbeiten="1"] .tp3-legende { display: none; }
+                .tp3-leiste > span { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tp3-sehrleise); flex-shrink: 0; }
+                .tp3-leiste button { flex-shrink: 0; width: 76px; height: 66px; border: 0; border-radius: 16px; background: var(--tp3-zweit); color: var(--tp3-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font: 700 11px Inter, sans-serif; cursor: pointer; }
+                .tp3-leiste button i { display: block; border: 2px solid currentColor; box-sizing: border-box; }
+                .tp3-seite { flex: 1 1 280px; max-width: 340px; min-height: 620px; box-sizing: border-box; border-radius: 28px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+                @media (max-width: 760px) { .tp3-seite { max-width: none; min-height: 0; } }
+                .tp3-seite h3 { margin: 0; font-family: Epilogue, sans-serif; font-size: 28px; font-weight: 800; color: var(--tp3-tief); line-height: 1.05; }
+                .tp3-seite .tp3-unter { font-size: 14px; color: var(--tp3-leise); margin-top: 4px; }
+                .tp3-karte { border-radius: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+                .tp3-karte.res { background: #dbe7fb; color: #1e3a8a; }
+                .tp3-karte.bes { background: #003d33; color: #ffffff; }
+                .tp3-karte.ruft { background: #b45309; color: #ffffff; }
+                .tp3-karte.frei { background: #dcfce7; color: #14532d; }
+                .tp3-karte small { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+                .tp3-karte strong { font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; }
+                .tp3-karte.res strong { color: #00251e; } .tp3-karte.frei strong { color: #14532d; }
+                .tp3-reihe { display: flex; gap: 8px; } .tp3-reihe > * { flex: 1; }
+                .tp3-ueber { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tp3-sehrleise); }
+                .tp3-heute { display: flex; flex-direction: column; }
+                .tp3-heute div { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--tp3-rand); font-size: 14px; color: var(--tp3-text); }
+                .tp3-heute div:last-child { border-bottom: 0; }
+                .tp3-heute b { font-family: Epilogue, sans-serif; font-size: 15px; min-width: 48px; color: var(--tp3-tief); }
+                .tp3-heute .vorbei { color: var(--tp3-sehrleise); } .tp3-heute .vorbei b { color: var(--tp3-sehrleise); }
+                .tp3-form { display: flex; flex-direction: column; gap: 10px; }
+                .tp3-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--tp3-leise); }
+                .tp3-schritt { display: flex; align-items: center; gap: 12px; }
+                .tp3-schritt output { font-family: Epilogue, sans-serif; font-size: 24px; font-weight: 800; color: var(--tp3-tief); min-width: 32px; text-align: center; }
+                .tp3-meldung { display: none; border-radius: 16px; padding: 12px 16px; font-size: 14px; font-weight: 600; line-height: 1.4; }
+                .tp3-meldung.zeigen { display: block; }
+                .tp3-meldung.fehler { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+                .tp3-meldung.hinweis { background: #fff4cc; color: #5c4600; border: 1px solid #f5d77a; }
+                .dark-mode .tp3-meldung.fehler { background: #3b1414; color: #fecaca; border-color: #7f1d1d; }
+                .dark-mode .tp3-meldung.hinweis { background: #3a2f0b; color: #fde68a; border-color: #6b5413; }
+                .tp3-ruft-hof { position: absolute; border-radius: 20px; background: rgba(180,83,9,0.24); animation: tp3Puls 1.6s ease-in-out infinite; }
+                @keyframes tp3Puls { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+                @media (prefers-reduced-motion: reduce) { .tp3-ruft-hof { animation: none; } }
+            </style>
+            <div id="tp3" class="tp3" data-ansicht="3d" data-bearbeiten="0">
+                <div class="tp3-kopf">
+                    <div class="tp3-titel"><b id="tp3Titel">Tischplan</b><span id="tp3Unter">wird geladen …</span></div>
+                    <input type="date" id="tp3Datum" aria-label="Tag">
+                    <div class="tp3-pille" id="tp3Zeiten" role="group" aria-label="Uhrzeit"></div>
+                    <div class="tp3-pille" role="group" aria-label="Ansicht">
+                        <button type="button" id="tp3Ansicht3d" aria-pressed="true">3D</button>
+                        <button type="button" id="tp3AnsichtOben" aria-pressed="false">Von oben</button>
                     </div>
-                    <div class="fp-toolbar-divider"></div>
-                    <div id="floorplanTimeSlots" style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        <!-- Wird dynamisch aus Restaurant-Config generiert -->
+                    <button type="button" class="tp3-knopf" id="tp3Bearbeiten">Bearbeiten</button>
+                    <button type="button" class="tp3-knopf" id="tp3Rueck" style="display:none;">Rückgängig</button>
+                    <button type="button" class="tp3-knopf haupt" id="tp3Fertig" style="display:none;">Fertig · speichern</button>
+                </div>
+                <div id="tp3Meldung" class="tp3-meldung" role="status" aria-live="polite"></div>
+                <div class="tp3-zeile2">
+                    <div class="tp3-bereiche" id="tp3Bereiche" role="group" aria-label="Bereich"></div>
+                    <div class="tp3-zahlen" id="tp3Zahlen"></div>
+                </div>
+                <div class="tp3-haupt">
+                    <div class="tp3-buehne" id="tp3Buehne">
+                        <div class="tp3-boden" id="tp3Boden"></div>
+                        <div class="tp3-legende">
+                            <span><i class="tp3-leg-frei"></i>Frei</span>
+                            <span><i style="background:#dbe7fb;border:2px dashed #2563eb;"></i>Reserviert</span>
+                            <span><i style="background:#003d33;"></i>Besetzt</span>
+                            <span><i style="background:#b45309;"></i>Ruft</span>
+                        </div>
+                        <div class="tp3-drehen">
+                            <button type="button" id="tp3DrehLinks" aria-label="Ansicht nach links drehen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6"></path><path d="M4 4v5h5"></path></svg></button>
+                            <button type="button" id="tp3DrehRechts" aria-label="Ansicht nach rechts drehen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg></button>
+                        </div>
+                        <div class="tp3-leiste" id="tp3Leiste">
+                            <span>Neu<br>antippen</span>
+                            <button type="button" data-neu="rund2"><i style="width:26px;height:26px;border-radius:9999px;"></i>Rund 2</button>
+                            <button type="button" data-neu="rund4"><i style="width:30px;height:30px;border-radius:9999px;"></i>Rund 4</button>
+                            <button type="button" data-neu="eckig4"><i style="width:28px;height:28px;border-radius:7px;"></i>Eckig 4</button>
+                            <button type="button" data-neu="lang6"><i style="width:42px;height:24px;border-radius:7px;"></i>Lang 6</button>
+                            <button type="button" data-neu="lang8"><i style="width:52px;height:22px;border-radius:7px;"></i>Lang 8</button>
+                            <button type="button" id="tp3NeuBereich"><i style="width:30px;height:22px;border-radius:7px;border-style:dashed;"></i>Bereich</button>
+                        </div>
                     </div>
-                    <script>
-                    (function() {
-                        function populateFloorplanTimeSlots() {
-                            var container = document.getElementById('floorplanTimeSlots');
-                            if (!container) return;
-                            var slots = generateReservationSlots(window.resCurrentRestaurant);
-                            // Nur volle Stunden für Floorplan
-                            var hourSlots = slots.filter(function(t) { return t.endsWith(':00'); });
-                            if (hourSlots.length === 0) hourSlots = slots;
-                            container.innerHTML = '';
-                            hourSlots.forEach(function(t, i) {
-                                var btn = document.createElement('button');
-                                btn.type = 'button';
-                                btn.className = 'time-btn' + (i === 0 ? ' active' : '');
-                                btn.setAttribute('data-time', t);
-                                btn.textContent = t;
-                                container.appendChild(btn);
-                            });
-                            if (typeof initTimeSlots === 'function') initTimeSlots();
+                    <aside class="tp3-seite" id="tp3Seite" aria-live="polite"></aside>
+                </div>
+            </div>
+            <script>
+            // ==================== TISCHPLAN (tp3) ====================
+            (function () {
+                var GRUND_B = 560, GRUND_T = 420, NEIGUNG = 56, DREH0 = -40, RASTER = 2.5;
+                var BEREICH_NAME = { main: 'Gastraum', window: 'Fenster', terrace: 'Terrasse', terrasse: 'Terrasse', saal: 'Saal', bar: 'Bar', garden: 'Garten' };
+                var tp = {
+                    rid: null, tische: [], res: [], offen: {}, ruft: {}, bereich: null,
+                    ansicht: 'oben', drehung: 0, datum: null, zeit: 'jetzt', bearbeiten: false,
+                    gewaehlt: null, verlauf: [], geaendert: {}, ohnePosSpalten: false, laedt: false, ladeFehler: null,
+                    ansichtVorBearbeiten: null
+                };
+                try { tp.ansicht = localStorage.getItem('kmi_tp3_ansicht') === 'oben' ? 'oben' : '3d'; } catch (e) { tp.ansicht = '3d'; }
+                window.tp3 = tp;
+
+                function $(id) { return document.getElementById(id); }
+                function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+                function kopf(mehr) { var k = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }; for (var x in (mehr || {})) k[x] = mehr[x]; return k; }
+                function heute() { return localDayStr(new Date()); }
+                function minuten(hhmm) { var p = String(hhmm || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }
+                function hhmm(min) { min = ((min % 1440) + 1440) % 1440; return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+                function jetztMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+                function bereichName(a) { a = a || 'main'; return BEREICH_NAME[a] || (a.charAt(0).toUpperCase() + a.slice(1)); }
+
+                function melden(text, art) {
+                    var m = $('tp3Meldung'); if (!m) return;
+                    if (!text) { m.className = 'tp3-meldung'; m.textContent = ''; return; }
+                    m.className = 'tp3-meldung zeigen ' + (art || 'hinweis');
+                    m.textContent = text;
+                }
+
+                // ---------- Form und Groesse aus Plaetzen ----------
+                function form(t) {
+                    var p = t.plaetze, f = String(t.form || '').toLowerCase();
+                    if (f === 'round' || f === 'rund') return p <= 2 ? { art: 'rund', b: 56, t: 56 } : { art: 'rund', b: 64, t: 64 };
+                    if (p <= 2) return { art: 'rund', b: 56, t: 56 };
+                    if (p <= 4) return { art: 'eckig', b: 72, t: 72 };
+                    if (p <= 6) return { art: 'lang', b: 130, t: 70 };
+                    return { art: 'lang', b: Math.min(320, 180 + (p - 8) * 22), t: 64 };
+                }
+                function stuehle(g, p) {
+                    var s = [], B = g.b, T = g.t;
+                    function oben(n) { for (var i = 0; i < n; i++) { var x = (B / (n + 1)) * (i + 1) - 11; s.push([x, -16, 22, 10]); s.push([x, T + 6, 22, 10]); } }
+                    if (g.art === 'rund' && p <= 2) { s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s; }
+                    if (g.art !== 'lang') { s.push([B / 2 - 11, -16, 22, 10]); s.push([B / 2 - 11, T + 6, 22, 10]); s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s; }
+                    var lang = Math.max(1, Math.floor((p - 2) / 2)); oben(lang);
+                    s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s;
+                }
+
+                // ---------- Seiten eines Koerpers: nur die zum Betrachter ----------
+                function nahKanten(winkel) {
+                    var r = winkel * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+                    function y(nx, ny) { return nx * s + ny * c; }
+                    return { oben: y(0, -1) > 0.01, unten: y(0, 1) > 0.01, links: y(-1, 0) > 0.01, rechts: y(1, 0) > 0.01 };
+                }
+                function seiten(w, d, h, f1, f2, winkel) {
+                    var n = nahKanten(winkel), o = '';
+                    if (n.unten) o += '<div class="tp3-f" style="left:0;top:100%;width:' + w + 'px;height:' + h + 'px;background:' + f1 + ';transform-origin:top;transform:rotateX(90deg);"></div>';
+                    if (n.oben) o += '<div class="tp3-f" style="left:0;top:-' + h + 'px;width:' + w + 'px;height:' + h + 'px;background:' + f1 + ';transform-origin:bottom;transform:rotateX(-90deg);"></div>';
+                    if (n.links) o += '<div class="tp3-f" style="left:-' + h + 'px;top:0;width:' + h + 'px;height:' + d + 'px;background:' + f2 + ';transform-origin:right;transform:rotateY(90deg);"></div>';
+                    if (n.rechts) o += '<div class="tp3-f" style="left:100%;top:0;width:' + h + 'px;height:' + d + 'px;background:' + f2 + ';transform-origin:left;transform:rotateY(-90deg);"></div>';
+                    return o;
+                }
+                function kasten(x, y, w, d, h, oben, f1, f2, winkel, radius, rand) {
+                    var drei = tp.ansicht === '3d';
+                    return '<div class="tp3-b" style="left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + d + 'px;">'
+                        + '<div class="tp3-f" style="inset:0;border-radius:' + (radius || 6) + 'px;background:' + oben + ';' + (rand ? 'border:' + rand + ';' : '') + (drei ? 'transform:translateZ(' + h + 'px);' : '') + '"></div>'
+                        + (drei ? seiten(w, d, h, f1, f2, winkel) : '') + '</div>';
+                }
+                function zylinder(w, h, oben, seite, rand) {
+                    var o = '';
+                    if (tp.ansicht === '3d') for (var z = 6; z < h; z += 6) o += '<div class="tp3-f" style="inset:0;border-radius:9999px;background:' + seite + ';transform:translateZ(' + z + 'px);"></div>';
+                    return o + '<div class="tp3-f" style="inset:0;border-radius:9999px;background:' + oben + ';' + (rand ? 'border:' + rand + ';' : '') + (tp.ansicht === '3d' ? 'transform:translateZ(' + h + 'px);' : '') + '"></div>';
+                }
+
+                var FARBE = {
+                    // #fbfcfb statt #ffffff: der Dunkelmodus faerbt jedes fest eingetragene
+                    // Weiss um -- die freien Tische waren dann schwarz.
+                    frei: { oben: '#fbfcfb', f1: '#d9dfdc', f2: '#c9d0cd', rand: '2px solid #c4ccc8' },
+                    res: { oben: '#dbe7fb', f1: '#b4c9f0', f2: '#a1bbea', rand: '2px dashed #2563eb' },
+                    bes: { oben: '#003d33', f1: '#00251e', f2: '#001b16', rand: '' },
+                    ruft: { oben: '#b45309', f1: '#8f4207', f2: '#7a3806', rand: '' },
+                    neutral: { oben: '#fbfcfb', f1: '#d9dfdc', f2: '#c9d0cd', rand: '2px solid #b9c3bf' }
+                };
+
+                // ---------- Zustand zu einem Zeitpunkt ----------
+                function zeitpunkt() { return tp.zeit === 'jetzt' ? jetztMin() : minuten(tp.zeit); }
+                function istJetzt() { return tp.zeit === 'jetzt' && tp.datum === heute(); }
+                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id); }); }
+                function zustand(t) {
+                    var T = zeitpunkt(), z = { art: 'frei', text: 'frei' };
+                    var rs = resFuerTisch(t), aktiv = null;
+                    rs.forEach(function (r) {
+                        var a = minuten(r.reservation_time), e = a + (+r.duration_minutes || 120);
+                        if (T >= a - 30 && T < e && !aktiv) aktiv = r;
+                    });
+                    if (aktiv) {
+                        if (aktiv.status === 'seated') z = { art: 'bes', text: 'seit ' + String(aktiv.reservation_time).slice(0, 5), res: aktiv };
+                        else z = { art: 'res', text: String(aktiv.reservation_time).slice(0, 5), res: aktiv };
+                    }
+                    if (istJetzt()) {
+                        var nr = String(t.nummer), off = tp.offen[nr];
+                        if (off) z = { art: 'bes', text: 'seit ' + hhmm(new Date(off.seit).getHours() * 60 + new Date(off.seit).getMinutes()), offen: off, res: z.res };
+                        else if (t.status === 'occupied' || t.status === 'besetzt') z = { art: 'bes', text: 'besetzt', res: z.res };
+                        if (tp.ruft[nr]) z = { art: 'ruft', text: tp.ruft[nr] === 'pay' ? 'möchte zahlen' : 'ruft', grund: tp.ruft[nr], res: z.res, offen: z.offen };
+                    }
+                    return z;
+                }
+
+                // ---------- Laden ----------
+                async function laden() {
+                    tp.rid = window.resCurrentRestaurant || window._gastroOnlyRestaurantId || null;
+                    if (!tp.rid) { tp.tische = []; tp.ladeFehler = 'kein-lokal'; zeichnen(); return; }
+                    if (!tp.datum) tp.datum = heute();
+                    tp.laedt = true;
+                    try {
+                        var basis = SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + encodeURIComponent(tp.rid) + '&is_active=eq.true&order=table_number';
+                        var felder = 'id,table_number,table_name,max_capacity,status,area,table_shape';
+                        var zeilen;
+                        try {
+                            zeilen = await (await sbRead(basis + '&select=' + felder + ',pos_x,pos_y,rotation', { headers: kopf() })).json();
+                            tp.ohnePosSpalten = false;
+                        } catch (e) {
+                            // Spalten aus datenbank/39-tischplan.sql fehlen noch: der
+                            // Plan funktioniert trotzdem, nur ohne gespeicherte Lage.
+                            if (!/pos_x|pos_y|rotation|column/i.test(String(e && e.message))) throw e;
+                            tp.ohnePosSpalten = true;
+                            zeilen = await (await sbRead(basis + '&select=' + felder, { headers: kopf() })).json();
                         }
-                        window.populateFloorplanTimeSlots = populateFloorplanTimeSlots;
-                        setTimeout(populateFloorplanTimeSlots, 2500);
-                    })();
-                    </script>
-                    <div class="fp-toolbar-right">
-                        <div class="fp-toolbar-stats" id="floorplanStats">
-                            <span>9 frei</span>
-                            <span>0 reserviert</span>
-                        </div>
-                        <div class="fp-toolbar-divider"></div>
-                        <button type="button" onclick="toggleFloorplanEditMode()" class="dash-btn" id="fpEditBtn" style="padding: 6px 14px; font-size: 12px; border-radius: 50px;">
-                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                            Bearbeiten
-                        </button>
-                        <button type="button" onclick="saveFloorplanChanges()" class="dash-btn dash-btn-primary" id="fpSaveBtn" style="padding: 6px 14px; font-size: 12px; border-radius: 50px; display: none;">
-                            <span class="material-symbols-outlined" style="font-size:14px;">save</span>
-                            Speichern
-                        </button>
-                    </div>
-                </div>
+                        tp.tische = (Array.isArray(zeilen) ? zeilen : []).map(function (z) {
+                            return { id: z.id, nummer: z.table_number, name: z.table_name || ('Tisch ' + z.table_number), plaetze: +z.max_capacity || 4,
+                                status: z.status, bereich: z.area || 'main', form: z.table_shape, x: z.pos_x, y: z.pos_y, drehung: +z.rotation || 0 };
+                        });
+                        verteilen();
+                        var res = await (await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + encodeURIComponent(tp.rid)
+                            + '&reservation_date=eq.' + tp.datum + '&status=not.in.(cancelled,no_show)'
+                            + '&select=id,guest_name,guest_phone,party_size,reservation_time,duration_minutes,status,table_id,notes&order=reservation_time', { headers: kopf() })).json();
+                        tp.res = Array.isArray(res) ? res : [];
+                        tp.offen = {}; tp.ruft = {};
+                        if (tp.datum === heute()) {
+                            try {
+                                var o = await (await sbRead(SUPABASE_URL + '/rest/v1/orders?restaurant_id=eq.' + encodeURIComponent(tp.rid)
+                                    + '&order_type=eq.dine_in&status=in.(pending,confirmed,preparing,ready)&select=table_number,total,created_at', { headers: kopf() })).json();
+                                (o || []).forEach(function (b) { var n = String(b.table_number || ''); if (!n) return; var e = tp.offen[n] || (tp.offen[n] = { summe: 0, seit: b.created_at });
+                                    e.summe += parseFloat(b.total) || 0; if (new Date(b.created_at) < new Date(e.seit)) e.seit = b.created_at; });
+                            } catch (e) { melden('Offene Bestellungen konnten nicht geladen werden – „besetzt“ ist deshalb vielleicht nicht vollständig.', 'hinweis'); }
+                            try {
+                                var rr = await fetch('/.netlify/functions/waiter-pending?restaurant=' + encodeURIComponent(tp.rid));
+                                if (rr.ok) { var rj = await rr.json(); (rj && rj.rufe || []).forEach(function (r) { if (r.tisch) tp.ruft[String(r.tisch)] = r.grund; }); }
+                            } catch (e) {}
+                        }
+                        tp.ladeFehler = null;
+                    } catch (e) {
+                        tp.ladeFehler = (e && e.message) || 'unbekannt';
+                    }
+                    tp.laedt = false;
+                    var namen = bereiche();
+                    if (!tp.bereich || namen.indexOf(tp.bereich) < 0) tp.bereich = namen[0] || 'main';
+                    zeichnen();
+                }
+                function verteilen() {
+                    var ohne = tp.tische.filter(function (t) { return t.x == null || t.y == null; });
+                    var proReihe = Math.max(3, Math.ceil(Math.sqrt(ohne.length || 1)));
+                    ohne.forEach(function (t, i) {
+                        var sp = i % proReihe, ze = Math.floor(i / proReihe);
+                        t.x = 16 + sp * (68 / Math.max(1, proReihe - 1)); t.y = 18 + ze * 24;
+                        t.ohneLage = true;
+                    });
+                }
+                function bereiche() {
+                    var m = []; tp.tische.forEach(function (t) { if (m.indexOf(t.bereich) < 0) m.push(t.bereich); });
+                    if (tp.bereich && m.indexOf(tp.bereich) < 0 && tp.bearbeiten) m.push(tp.bereich);
+                    return m;
+                }
 
-                <div class="panels-grid fp-layout" style="grid-template-columns: 1fr;">
+                // ---------- Zeichnen ----------
+                function winkel() { return DREH0 + tp.drehung; }
+                function massstab() {
+                    var b = $('tp3Buehne'); if (!b) return 1;
+                    var W = b.clientWidth || 700, H = b.clientHeight || 620;
+                    if (tp.ansicht === '3d') return Math.max(0.5, Math.min((W - 16) / 690, (H - 60) / 520));
+                    return Math.max(0.5, Math.min((W - 40) / GRUND_B, (H - (tp.bearbeiten ? 120 : 90)) / GRUND_T));
+                }
+                function bodenStellen() {
+                    var boden = $('tp3Boden'); if (!boden) return;
+                    var s = massstab();
+                    boden.style.transform = tp.ansicht === '3d'
+                        ? 'translate(-50%,-46%) scale(' + s + ') rotateX(' + NEIGUNG + 'deg) rotateZ(' + winkel() + 'deg)'
+                        : 'translate(-50%,' + (tp.bearbeiten ? '-58%' : '-54%') + ') scale(' + s + ')';
+                }
+                function waende() {
+                    if (tp.ansicht !== '3d') return '';
+                    var n = nahKanten(winkel()), o = '', H = 84, S = 14;
+                    var wand = 'background:var(--tp3-wand);', sockel = 'background:var(--tp3-sockel);';
+                    // Ferne Kanten: Wand nach oben. Nahe Kanten: nur die Bodenplatte.
+                    o += n.oben ? '<div class="tp3-f" style="left:0;top:-' + S + 'px;width:100%;height:' + S + 'px;' + sockel + 'transform-origin:bottom;transform:rotateX(90deg);"></div>'
+                                : '<div class="tp3-f" style="left:0;top:-' + H + 'px;width:100%;height:' + H + 'px;' + wand + 'border-top:5px solid var(--tp3-wandkante);transform-origin:bottom;transform:rotateX(-90deg);"></div>';
+                    o += n.unten ? '<div class="tp3-f" style="left:0;top:100%;width:100%;height:' + S + 'px;' + sockel + 'transform-origin:top;transform:rotateX(-90deg);"></div>'
+                                 : '<div class="tp3-f" style="left:0;top:100%;width:100%;height:' + H + 'px;' + wand + 'border-bottom:5px solid var(--tp3-wandkante);transform-origin:top;transform:rotateX(90deg);"></div>';
+                    o += n.links ? '<div class="tp3-f" style="left:-' + S + 'px;top:0;width:' + S + 'px;height:100%;' + sockel + 'transform-origin:right;transform:rotateY(-90deg);"></div>'
+                                 : '<div class="tp3-f" style="left:-' + H + 'px;top:0;width:' + H + 'px;height:100%;' + wand + 'border-left:5px solid var(--tp3-wandkante);transform-origin:right;transform:rotateY(90deg);"></div>';
+                    o += n.rechts ? '<div class="tp3-f" style="left:100%;top:0;width:' + S + 'px;height:100%;' + sockel + 'transform-origin:left;transform:rotateY(90deg);"></div>'
+                                  : '<div class="tp3-f" style="left:100%;top:0;width:' + H + 'px;height:100%;' + wand + 'border-right:5px solid var(--tp3-wandkante);transform-origin:left;transform:rotateY(-90deg);"></div>';
+                    return o;
+                }
+                function tischHtml(t) {
+                    var g = form(t), z = tp.bearbeiten ? { art: 'neutral', text: t.plaetze + ' Plätze' } : zustand(t);
+                    var f = FARBE[z.art] || FARBE.frei, w = winkel() + (t.drehung || 0);
+                    var cx = t.x / 100 * GRUND_B, cy = t.y / 100 * GRUND_T;
+                    var gew = tp.gewaehlt === t.id;
+                    var o = '<div class="tp3-tisch" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b / 2) + 'px;top:' + (cy - g.t / 2) + 'px;width:' + g.b + 'px;height:' + g.t + 'px;">';
+                    if (z.art === 'ruft') o += '<div class="tp3-ruft-hof" style="left:-16px;top:-16px;right:-16px;bottom:-16px;' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
+                    if (gew) o += '<div class="tp3-f" style="left:-12px;top:-12px;right:-12px;bottom:-12px;border-radius:16px;border:3px solid ' + '#003d33' + ';' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
+                    o += '<div class="tp3-b" style="inset:0;' + (t.drehung ? 'transform:rotateZ(' + t.drehung + 'deg);' : '') + '">';
+                    stuehle(g, t.plaetze).forEach(function (s) { o += kasten(s[0], s[1], s[2], s[3], 14, '#9aa5a1', '#7d8885', '#6c7774', w, 4); });
+                    if (g.art === 'rund') o += zylinder(g.b, 24, f.oben, f.f1, f.rand);
+                    else o += kasten(0, 0, g.b, g.t, 24, f.oben, f.f1, f.f2, w, 8, f.rand);
+                    o += '</div>';
+                    o += '<button type="button" class="tp3-tipp" data-id="' + esc(t.id) + '" aria-label="' + esc(t.name + ', ' + (z.art === 'frei' ? 'frei' : z.text)) + '"></button>';
+                    // Schilder behalten ihre Schriftgroesse: die Szene wird auf schmalen
+                    // Bildschirmen verkleinert, die Schrift darf es nicht (13 px statt 8).
+                    var k = Math.min(1.8, 1 / (tp.s || 1));
+                    var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (gew ? 62 : 58) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
+                    var klasse = tp.bearbeiten ? 'frei' : (gew ? 'gewaehlt' : z.art);
+                    var inhalt = '<b>' + esc(t.nummer) + '</b>';
+                    if (tp.bearbeiten) inhalt += esc(t.plaetze) + ' Pl.';
+                    else if (z.art === 'frei') inhalt += '<i>frei' + (g.art === 'lang' ? ' · ' + t.plaetze : '') + '</i>';
+                    else if (z.art === 'res' && gew && z.res) inhalt += esc(z.text + ' · ' + (z.res.guest_name || ''));
+                    else inhalt += esc(z.text);
+                    o += '<div class="tp3-schild ' + klasse + '" style="' + schild + '"><span data-id="' + esc(t.id) + '">' + inhalt + '</span></div>';
+                    return o + '</div>';
+                }
+                function zeichnen() {
+                    var wurzel = $('tp3'); if (!wurzel) return;
+                    wurzel.setAttribute('data-ansicht', tp.ansicht);
+                    wurzel.setAttribute('data-bearbeiten', tp.bearbeiten ? '1' : '0');
+                    $('tp3Ansicht3d').setAttribute('aria-pressed', tp.ansicht === '3d' ? 'true' : 'false');
+                    $('tp3AnsichtOben').setAttribute('aria-pressed', tp.ansicht === 'oben' ? 'true' : 'false');
+                    $('tp3Bearbeiten').style.display = tp.bearbeiten ? 'none' : '';
+                    $('tp3Rueck').style.display = tp.bearbeiten ? '' : 'none';
+                    $('tp3Rueck').disabled = !tp.verlauf.length;
+                    $('tp3Fertig').style.display = tp.bearbeiten ? '' : 'none';
+                    $('tp3Titel').textContent = tp.bearbeiten ? 'Tischplan bearbeiten' : 'Tischplan';
+                    var r = (typeof APP_DATA !== 'undefined' && APP_DATA.restaurants || []).find(function (x) { return x.id === tp.rid; });
+                    $('tp3Unter').textContent = tp.bearbeiten ? 'Tische mit dem Finger ziehen · sie rasten auf dem Raster ein'
+                        : ((r ? r.name + ' · ' : '') + tp.tische.length + ' Tische');
+                    zeitenZeichnen(); bereicheZeichnen();
+                    var boden = $('tp3Boden');
+                    tp.s = massstab();
+                    var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
+                    var h = waende();
+                    liste.forEach(function (t) { h += tischHtml(t); });
+                    boden.innerHTML = h;
+                    var leer = $('tp3Leer'); if (leer) leer.remove();
+                    var text = null;
+                    if (tp.ladeFehler === 'kein-lokal') text = '<b>Kein Restaurant gewählt</b>Bitte oben ein Restaurant auswählen.';
+                    else if (tp.ladeFehler) text = '<b>Tische konnten nicht geladen werden</b>' + esc(tp.ladeFehler) + '<button type="button" class="tp3-knopf haupt" id="tp3Neu">Nochmal versuchen</button>';
+                    else if (!tp.tische.length && !tp.laedt) text = '<b>Noch keine Tische</b>Tippe oben auf „Bearbeiten“ und dann unten auf eine Tischform.';
+                    if (text && !(tp.bearbeiten && !tp.ladeFehler)) {
+                        var d = document.createElement('div'); d.id = 'tp3Leer'; d.className = 'tp3-leer'; d.innerHTML = text; $('tp3Buehne').appendChild(d);
+                        var n = $('tp3Neu'); if (n) n.onclick = laden;
+                    }
+                    bodenStellen(); entzerren(); zahlenZeichnen(); seiteZeichnen();
+                    if (tp.bearbeiten && tp.ohnePosSpalten) melden('Die Lage der Tische kann erst gespeichert werden, wenn die Datei datenbank/39-tischplan.sql in Supabase eingespielt ist. Name, Plätze und Bereich werden schon gespeichert.', 'hinweis');
+                }
+                // Schilder, die sich ueberdecken (in 3D stehen Tische hintereinander),
+                // ruecken auseinander: das hintere (weiter oben) weicht nach oben aus.
+                function entzerren() {
+                    var sp = Array.prototype.slice.call(document.querySelectorAll('#tp3Boden .tp3-schild > span'));
+                    sp.forEach(function (x) { x.dataset.hoch = '0'; x.style.marginBottom = ''; x.style.marginTop = ''; });
+                    for (var runde = 0; runde < 40; runde++) {
+                        var r = sp.map(function (x) { return x.getBoundingClientRect(); }), treffer = false;
+                        for (var i = 0; i < sp.length && !treffer; i++) for (var j = i + 1; j < sp.length; j++) {
+                            var a = r[i], b = r[j];
+                            if (!(a.left < b.right - 2 && b.left < a.right - 2 && a.top < b.bottom - 2 && b.top < a.bottom - 2)) continue;
+                            var oben = (a.top + a.bottom) <= (b.top + b.bottom) ? i : j, unten = oben === i ? j : i;
+                            var noetig = r[oben].bottom - r[unten].top + 4, f = r[oben].height / (sp[oben].offsetHeight || r[oben].height) || 1;
+                            var neu = (+sp[oben].dataset.hoch || 0) + noetig / f;
+                            sp[oben].dataset.hoch = String(neu);
+                            if (tp.ansicht === '3d') sp[oben].style.marginBottom = neu + 'px'; else sp[oben].style.marginTop = (-neu) + 'px';
+                            treffer = true; break;
+                        }
+                        if (!treffer) break;
+                    }
+                }
+                function zeitenZeichnen() {
+                    var z = $('tp3Zeiten'); if (!z) return;
+                    var opt = [];
+                    if (tp.datum === heute()) {
+                        opt.push(['jetzt', 'Jetzt · ' + hhmm(jetztMin())]);
+                        var start = Math.ceil((jetztMin() + 1) / 30) * 30;
+                        for (var i = 0; i < 4; i++) opt.push([hhmm(start + i * 30), hhmm(start + i * 30)]);
+                    } else ['12:00', '18:00', '19:00', '20:00', '21:00'].forEach(function (x) { opt.push([x, x]); });
+                    if (tp.zeit !== 'jetzt' && !opt.some(function (o) { return o[0] === tp.zeit; })) tp.zeit = opt[0][0];
+                    z.innerHTML = opt.map(function (o) { return '<button type="button" data-zeit="' + o[0] + '" aria-pressed="' + (tp.zeit === o[0]) + '">' + o[1] + '</button>'; }).join('');
+                    z.style.display = tp.bearbeiten ? 'none' : '';
+                    $('tp3Datum').style.display = tp.bearbeiten ? 'none' : '';
+                    $('tp3Datum').value = tp.datum;
+                }
+                function bereicheZeichnen() {
+                    var b = $('tp3Bereiche'); if (!b) return;
+                    b.innerHTML = bereiche().map(function (a) {
+                        var n = tp.tische.filter(function (t) { return t.bereich === a; }).length;
+                        return '<button type="button" data-bereich="' + esc(a) + '" aria-pressed="' + (a === tp.bereich) + '">' + esc(bereichName(a)) + ' · ' + n + '</button>';
+                    }).join('');
+                }
+                function zahlenZeichnen() {
+                    var z = $('tp3Zahlen'); if (!z) return;
+                    if (tp.bearbeiten) { z.innerHTML = ''; return; }
+                    var c = { frei: 0, res: 0, bes: 0, ruft: 0 };
+                    tp.tische.filter(function (t) { return t.bereich === tp.bereich; }).forEach(function (t) { c[zustand(t).art]++; });
+                    z.innerHTML = '<span><b class="frei">' + c.frei + '</b> frei</span><span><b class="res">' + c.res + '</b> reserviert</span><span><b class="bes">' + c.bes + '</b> besetzt</span><span><b class="ruft">' + c.ruft + '</b> ruft</span>';
+                }
 
-                    <!-- LINKE SPALTE: Mini-Kalender + Zeitslots -->
-                    <div class="panel">
-                        <div class="panel-header" style="padding: 12px;">
-                            <button type="button" class="cal-nav-btn" onclick="changeFloorplanMonth(-1)">
-                                <span class="material-symbols-outlined" style="font-size:16px;">chevron_left</span>
-                            </button>
-                            <h3 class="panel-title" id="floorplanMonthYear" style="font-size: 14px;">Januar 2026</h3>
-                            <button type="button" class="cal-nav-btn" onclick="changeFloorplanMonth(1)">
-                                <span class="material-symbols-outlined" style="font-size:16px;">chevron_right</span>
-                            </button>
-                        </div>
-                        <div class="panel-content" style="padding: 8px;">
-                            <!-- Mini Kalender -->
-                            <div class="mini-calendar">
-                                <div class="mini-cal-header">
-                                    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
-                                </div>
-                                <div class="mini-cal-days" id="floorplanCalendarDays">
-                                    <!-- Wird gefüllt -->
-                                </div>
-                            </div>
+                // ---------- Seitenleiste ----------
+                function tischVon(id) { return tp.tische.find(function (t) { return String(t.id) === String(id); }); }
+                function seiteZeichnen() {
+                    var s = $('tp3Seite'); if (!s) return;
+                    var t = tischVon(tp.gewaehlt);
+                    if (!t) {
+                        s.innerHTML = '<h3>' + (tp.bearbeiten ? 'Tisch wählen' : 'Heute') + '</h3><div class="tp3-unter">'
+                            + (tp.bearbeiten ? 'Tippe einen Tisch an, um Name, Plätze, Form und Bereich zu ändern. Ziehen verschiebt ihn.' : 'Tippe einen Tisch an für Reservierungen, Status und Schnell-Reservierung.') + '</div>'
+                            + (tp.bearbeiten ? '' : heuteListe(null));
+                        return;
+                    }
+                    var g = form(t), formName = { rund: 'rund', eckig: 'eckig', lang: 'lang' }[g.art];
+                    var o = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>' + esc(t.name) + '</h3><div class="tp3-unter">'
+                        + esc(t.plaetze) + ' Plätze · ' + formName + ' · ' + esc(bereichName(t.bereich)) + '</div></div>'
+                        + '<button type="button" class="tp3-knopf" data-aktion="schliessen" aria-label="Schließen" style="padding:0;width:44px;">✕</button></div>';
+                    if (tp.bearbeiten) { s.innerHTML = o + bearbeitenForm(t); return; }
+                    var z = zustand(t);
+                    if (z.art === 'res' && z.res) {
+                        var r = z.res, ende = hhmm(minuten(r.reservation_time) + (+r.duration_minutes || 120));
+                        o += '<div class="tp3-karte res"><small>Reserviert · ' + esc(String(r.reservation_time).slice(0, 5)) + '–' + ende + '</small><strong>' + esc(r.guest_name || 'Gast') + '</strong>'
+                            + '<span>' + esc(r.party_size || '?') + ' Personen' + (r.guest_phone ? ' · ' + esc(r.guest_phone) : '') + '</span>'
+                            + (r.notes ? '<span>Notiz: ' + esc(r.notes) + '</span>' : '') + '</div>'
+                            + '<button type="button" class="tp3-knopf haupt" data-aktion="da" style="height:52px;font-size:16px;">Gäste sind da</button>'
+                            + '<div class="tp3-reihe"><button type="button" class="tp3-knopf" data-aktion="absagen">Absagen</button><button type="button" class="tp3-knopf rot" data-aktion="noshow">Nicht gekommen</button></div>';
+                    } else if (z.art === 'bes' || z.art === 'ruft') {
+                        o += '<div class="tp3-karte ' + z.art + '"><small>' + (z.art === 'ruft' ? (z.grund === 'pay' ? 'Möchte zahlen' : 'Ruft die Bedienung') : 'Besetzt') + '</small>'
+                            + '<strong>' + esc(z.res ? (z.res.guest_name || 'Gast') : (z.text.indexOf('seit') === 0 ? z.text : 'Gäste am Tisch')) + '</strong>'
+                            + (z.offen ? '<span>Offene Bestellung: ' + z.offen.summe.toFixed(2).replace('.', ',') + ' €</span>' : '') + '</div>';
+                        if (istJetzt()) o += '<button type="button" class="tp3-knopf" data-aktion="frei" style="height:48px;">Tisch ist wieder frei</button>'
+                            + (z.offen ? '<div class="tp3-unter" style="margin-top:-6px;">Die offene Bestellung bleibt bestehen – erst abrechnen.</div>' : '');
+                    } else {
+                        o += '<div class="tp3-karte frei"><small>Frei' + (istJetzt() ? ' · jetzt' : ' · ' + esc(tp.zeit)) + '</small><strong>' + esc(t.plaetze) + ' Plätze</strong></div>';
+                        if (istJetzt()) o += '<button type="button" class="tp3-knopf" data-aktion="besetzen" style="height:48px;">Gäste ohne Reservierung setzen</button>';
+                        o += schnellForm(t);
+                    }
+                    o += heuteListe(t);
+                    s.innerHTML = o;
+                }
+                function heuteListe(t) {
+                    var rs = t ? resFuerTisch(t) : tp.res.slice();
+                    var T = zeitpunkt();
+                    var titel = t ? (tp.datum === heute() ? 'Heute an diesem Tisch' : 'An diesem Tag') : (tp.datum === heute() ? 'Reservierungen heute' : 'Reservierungen');
+                    if (!rs.length) return '<div class="tp3-ueber">' + titel + '</div><div class="tp3-unter" style="margin-top:-6px;">Keine Reservierung' + (t ? ' an diesem Tisch.' : '.') + '</div>';
+                    return '<div class="tp3-ueber">' + titel + '</div><div class="tp3-heute">' + rs.map(function (r) {
+                        var a = minuten(r.reservation_time), vorbei = tp.datum === heute() && a + (+r.duration_minutes || 120) <= jetztMin();
+                        var tisch = !t && r.table_id ? tischVon(r.table_id) : null;
+                        return '<div class="' + (vorbei ? 'vorbei' : '') + '"><b>' + esc(String(r.reservation_time).slice(0, 5)) + '</b><span style="flex:1;">' + esc(r.guest_name || 'Gast') + ' · ' + esc(r.party_size || '?') + ' P.'
+                            + (tisch ? ' · ' + esc(tisch.name) : (!t && !r.table_id ? ' · ohne Tisch' : '')) + '</span>' + (r.status === 'seated' ? '<small>sitzt</small>' : (vorbei ? '<small>vorbei</small>' : '')) + '</div>';
+                    }).join('') + '</div>';
+                }
+                function schnellForm(t) {
+                    var zeit = tp.zeit === 'jetzt' ? hhmm(Math.ceil(jetztMin() / 15) * 15) : tp.zeit;
+                    return '<div class="tp3-ueber" style="margin-top:4px;">Hier reservieren</div><div class="tp3-form">'
+                        + '<label>Name<input class="tp3-feld" id="tp3sName" autocomplete="off"></label>'
+                        + '<div class="tp3-reihe"><label>Uhrzeit<input class="tp3-feld" id="tp3sZeit" type="time" value="' + zeit + '"></label>'
+                        + '<label>Personen<input class="tp3-feld" id="tp3sPers" type="number" min="1" max="' + Math.max(t.plaetze, 20) + '" value="' + Math.min(2, t.plaetze) + '"></label></div>'
+                        + '<label>Telefon (freiwillig)<input class="tp3-feld" id="tp3sTel" type="tel" autocomplete="off"></label>'
+                        + '<button type="button" class="tp3-knopf haupt" data-aktion="reservieren" style="height:48px;">Reservieren</button></div>';
+                }
+                function bearbeitenForm(t) {
+                    var g = form(t);
+                    var formen = [['round', 'Rund'], ['square', 'Eckig'], ['rectangle', 'Lang']];
+                    var aktuell = g.art === 'rund' ? 'round' : (g.art === 'eckig' ? 'square' : 'rectangle');
+                    return '<div class="tp3-form">'
+                        + '<div class="tp3-reihe"><label>Name<input class="tp3-feld" id="tp3eName" value="' + esc(t.name) + '"></label><label>Nummer<input class="tp3-feld" id="tp3eNr" value="' + esc(t.nummer) + '"></label></div>'
+                        + '<label>Plätze<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-aktion="weniger" aria-label="Weniger Plätze" style="padding:0;width:44px;">−</button><output id="tp3ePl">' + esc(t.plaetze) + '</output><button type="button" class="tp3-knopf" data-aktion="mehr" aria-label="Mehr Plätze" style="padding:0;width:44px;">+</button></div></label>'
+                        + '<label>Form<div class="tp3-pille" role="group">' + formen.map(function (f) { return '<button type="button" data-form="' + f[0] + '" aria-pressed="' + (f[0] === aktuell) + '" style="flex:1;">' + f[1] + '</button>'; }).join('') + '</div></label>'
+                        + '<label>Bereich<input class="tp3-feld" id="tp3eBereich" list="tp3BereichListe" value="' + esc(bereichName(t.bereich)) + '"><datalist id="tp3BereichListe">' + bereiche().map(function (a) { return '<option value="' + esc(bereichName(a)) + '">'; }).join('') + '</datalist></label>'
+                        + '<button type="button" class="tp3-knopf" data-aktion="drehen">Um 90° drehen</button>'
+                        + '<button type="button" class="tp3-knopf rot" data-aktion="entfernen" style="margin-top:8px;">Tisch entfernen</button></div>';
+                }
+                function bereichSchluessel(name) {
+                    name = String(name || '').trim(); if (!name) return 'main';
+                    for (var k in BEREICH_NAME) if (BEREICH_NAME[k].toLowerCase() === name.toLowerCase()) return k === 'terrasse' ? 'terrace' : k;
+                    return name.toLowerCase();
+                }
 
-                            <!-- Ausgewähltes Datum -->
-                            <div style="background: var(--cream); border-radius: 16px; padding: 12px; margin-top: 12px; text-align: center;">
-                                <div style="font-size: 11px; color: var(--slate); text-transform: uppercase;">Ausgewählt</div>
-                                <div style="font-size: 16px; font-weight: 700; color: var(--dark);">Heute</div>
-                            </div>
+                // ---------- Bearbeiten: Ziehen mit dem Finger ----------
+                var zug = null;
+                function merken() { tp.verlauf.push(JSON.stringify(tp.tische)); if (tp.verlauf.length > 40) tp.verlauf.shift(); }
+                function geaendert(t) { tp.geaendert[t.id] = true; }
+                function zugStart(e) {
+                    if (!tp.bearbeiten || tp.ansicht !== 'oben') return;
+                    var el = e.target.closest('.tp3-tisch'); if (!el) return;
+                    var t = tischVon(el.getAttribute('data-id')); if (!t) return;
+                    e.preventDefault();
+                    zug = { t: t, el: el, x0: e.clientX, y0: e.clientY, tx: t.x, ty: t.y, s: massstab(), bewegt: false, id: e.pointerId };
+                    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+                }
+                function zugBewegen(e) {
+                    if (!zug || e.pointerId !== zug.id) return;
+                    var dx = (e.clientX - zug.x0) / zug.s / GRUND_B * 100, dy = (e.clientY - zug.y0) / zug.s / GRUND_T * 100;
+                    if (!zug.bewegt && Math.abs(dx) + Math.abs(dy) < 1) return;
+                    if (!zug.bewegt) { merken(); zug.bewegt = true; }
+                    var nx = Math.round((zug.tx + dx) / RASTER) * RASTER, ny = Math.round((zug.ty + dy) / RASTER) * RASTER;
+                    zug.t.x = Math.max(4, Math.min(96, nx)); zug.t.y = Math.max(5, Math.min(95, ny));
+                    var g = form(zug.t);
+                    zug.el.style.left = (zug.t.x / 100 * GRUND_B - g.b / 2) + 'px';
+                    zug.el.style.top = (zug.t.y / 100 * GRUND_T - g.t / 2) + 'px';
+                }
+                function zugEnde(e) {
+                    if (!zug || e.pointerId !== zug.id) return;
+                    var z = zug; zug = null;
+                    if (z.bewegt) { geaendert(z.t); z.t.ohneLage = false; tp.gewaehlt = z.t.id; zeichnen(); }
+                    else { tp.gewaehlt = z.t.id; zeichnen(); }
+                }
 
-                            <!-- Zeitslot Auswahl -->
-                            <div style="margin-top: 12px;">
-                                <div style="font-size: 11px; color: var(--slate); text-transform: uppercase; margin-bottom: 8px;">Uhrzeit</div>
-                                <div class="timeslot-buttons">
-                                    <button type="button" class="time-btn active" data-time="11:00">11:00</button>
-                                    <button type="button" class="time-btn" data-time="12:00">12:00</button>
-                                    <button type="button" class="time-btn" data-time="13:00">13:00</button>
-                                    <button type="button" class="time-btn" data-time="14:00">14:00</button>
-                                    <button type="button" class="time-btn" data-time="17:00">17:00</button>
-                                    <button type="button" class="time-btn" data-time="18:00">18:00</button>
-                                    <button type="button" class="time-btn" data-time="19:00">19:00</button>
-                                    <button type="button" class="time-btn" data-time="20:00">20:00</button>
-                                    <button type="button" class="time-btn" data-time="21:00">21:00</button>
-                                </div>
-                            </div>
+                // ---------- Speichern ----------
+                async function speichern() {
+                    var ids = Object.keys(tp.geaendert);
+                    var knopf = $('tp3Fertig'); knopf.disabled = true; knopf.textContent = 'Speichert …';
+                    var fehler = [];
+                    for (var i = 0; i < ids.length; i++) {
+                        var t = tischVon(ids[i]); if (!t) continue;
+                        var daten = { table_name: t.name, table_number: String(t.nummer), max_capacity: t.plaetze, min_capacity: Math.max(1, Math.floor(t.plaetze / 2)), area: t.bereich, table_shape: t.form || 'rectangle' };
+                        if (!tp.ohnePosSpalten) { daten.pos_x = Math.round(t.x * 10) / 10; daten.pos_y = Math.round(t.y * 10) / 10; daten.rotation = t.drehung || 0; }
+                        try {
+                            var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), {
+                                method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(daten) });
+                            var zeilen = await r.json().catch(function () { return []; });
+                            // Leere Antwort = die Datenbank hat still nichts geaendert (RLS).
+                            if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung, diesen Tisch zu ändern');
+                            delete tp.geaendert[t.id];
+                        } catch (e) {
+                            var m = String(e && e.message || e);
+                            if (/pos_x|pos_y|rotation/.test(m)) { tp.ohnePosSpalten = true; i--; continue; }
+                            fehler.push(t.name + ': ' + m);
+                        }
+                    }
+                    knopf.disabled = false; knopf.textContent = 'Fertig · speichern';
+                    if (fehler.length) { melden('Nicht gespeichert – ' + fehler.join(' · '), 'fehler'); return false; }
+                    if (typeof showToast === 'function') showToast(ids.length ? 'Tischplan gespeichert' : 'Keine Änderungen', 'success');
+                    return true;
+                }
+                async function neuerTisch(art) {
+                    var vorlage = { rund2: [2, 'round'], rund4: [4, 'round'], eckig4: [4, 'square'], lang6: [6, 'rectangle'], lang8: [8, 'rectangle'] }[art];
+                    if (!vorlage || !tp.rid) return;
+                    var nr = tp.tische.reduce(function (m, t) { var n = parseInt(t.nummer, 10); return isNaN(n) ? m : Math.max(m, n); }, 0) + 1;
+                    var daten = { restaurant_id: tp.rid, table_name: 'Tisch ' + nr, table_number: String(nr), min_capacity: Math.max(1, Math.floor(vorlage[0] / 2)), max_capacity: vorlage[0], area: tp.bereich || 'main', status: 'available', is_active: true, table_shape: vorlage[1] };
+                    if (!tp.ohnePosSpalten) { daten.pos_x = 50; daten.pos_y = 50; daten.rotation = 0; }
+                    try {
+                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(daten) });
+                        var z = (await r.json())[0];
+                        if (!z) throw new Error('die Datenbank hat den Tisch nicht angelegt');
+                        tp.tische.push({ id: z.id, nummer: z.table_number, name: z.table_name, plaetze: +z.max_capacity, status: 'available', bereich: z.area || 'main', form: z.table_shape, x: 50, y: 50, drehung: 0 });
+                        tp.gewaehlt = z.id; geaendert(tischVon(z.id)); melden('');
+                        zeichnen();
+                    } catch (e) {
+                        var m = String(e && e.message || e);
+                        if (/pos_x|pos_y|rotation/.test(m) && !tp.ohnePosSpalten) { tp.ohnePosSpalten = true; return neuerTisch(art); }
+                        melden('Tisch nicht angelegt – ' + (/23505|duplicate/i.test(m) ? 'die Nummer ' + nr + ' gibt es schon.' : m), 'fehler');
+                    }
+                }
 
-                            <!-- Tisch-Statistik -->
-                            <div style="margin-top: 12px; padding: 10px; background: var(--bg-secondary); border-radius: 16px;">
-                                <div style="display: flex; gap: 12px; font-size: 11px;">
-                                    <span style="color: #10b981;">● 9 frei</span>
-                                    <span style="color: #f59e0b;">● 0 reserviert</span>
-                                </div>
-                            </div>
+                // ---------- Aktionen im Live-Plan ----------
+                async function tischStatus(t, status) {
+                    try {
+                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), { method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify({ status: status }) });
+                        var z = await r.json().catch(function () { return []; });
+                        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung, diesen Tisch zu ändern');
+                        t.status = status; zeichnen();
+                    } catch (e) { melden('Nicht gespeichert – ' + (e && e.message || e), 'fehler'); }
+                }
+                async function resStatus(r, status) {
+                    var ok = await updateReservationStatus(r.id, status);
+                    if (ok === false) { melden('Die Reservierung konnte nicht geändert werden. Bitte die Seite neu laden und nochmal versuchen.', 'fehler'); return; }
+                    await laden();
+                }
+                async function reservieren(t) {
+                    var name = ($('tp3sName').value || '').trim(), zeit = $('tp3sZeit').value, pers = parseInt($('tp3sPers').value, 10), tel = ($('tp3sTel').value || '').trim();
+                    if (!name) { melden('Bitte einen Namen eintragen.', 'fehler'); $('tp3sName').focus(); return; }
+                    if (!zeit || !pers) { melden('Bitte Uhrzeit und Personen eintragen.', 'fehler'); return; }
+                    var a = minuten(zeit), konflikt = resFuerTisch(t).find(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; });
+                    if (konflikt) { melden(t.name + ' ist um ' + String(konflikt.reservation_time).slice(0, 5) + ' schon für ' + (konflikt.guest_name || 'einen Gast') + ' reserviert.', 'fehler'); return; }
+                    try {
+                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+                            body: JSON.stringify({ restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' }) });
+                        var z = await r.json().catch(function () { return []; });
+                        if (!Array.isArray(z) || !z.length) throw new Error('die Datenbank hat die Reservierung nicht angenommen');
+                        melden('');
+                        if (typeof showToast === 'function') showToast('Reserviert: ' + esc(name) + ', ' + zeit + ', ' + esc(t.name), 'success');
+                        if (typeof window.resLoadReservations === 'function') try { window.resLoadReservations(); } catch (x) {}
+                        await laden();
+                    } catch (e) { melden('Nicht reserviert – ' + (e && e.message || e), 'fehler'); }
+                }
 
-                            <!-- Reservierungen für Zeitslot -->
-                            <div style="margin-top: 16px;">
-                                <div style="font-size: 11px; color: var(--slate); text-transform: uppercase; margin-bottom: 8px;">Reservierungen heute</div>
-                                <div id="floorplanReservationsList" style="max-height: 150px; overflow-y: auto;">
-                                    <div style="color: var(--slate); font-size: 12px; text-align: center; padding: 10px;">Keine Reservierungen</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- MITTE: Tischplan -->
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3 class="panel-title">Restaurant Grundriss</h3>
-                            <div style="display: flex; gap: 8px;">
-                                <button type="button" onclick="toggleFloorplanEditMode()" class="dash-btn" style="padding: 6px 12px; font-size: 12px;">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                                    Bearbeiten
-                                </button>
-                                <button type="button" onclick="saveFloorplanChanges()" class="dash-btn dash-btn-primary" style="padding: 6px 12px; font-size: 12px; display: none;">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">save</span>
-                                    Speichern
-                                </button>
-                            </div>
-                        </div>
-                        <div class="panel-content" style="padding: 0; overflow: hidden;">
-                            <div class="floorplan-container" id="floorplanContainer">
-                                <div class="floorplan-grid" id="floorplanGrid">
-                                    <!-- Eingang -->
-                                    <div class="fp-element fp-entrance" style="left: 45%; top: 2%;">
-                                        <span class="material-symbols-outlined" style="font-size:20px;">login</span>
-                                        Eingang
-                                    </div>
-                                    <!-- Küche -->
-                                    <div class="fp-element fp-kitchen" style="right: 2%; top: 40%;">
-                                        <span class="material-symbols-outlined" style="font-size:20px;">restaurant</span>
-                                        Küche
-                                    </div>
-                                    <!-- Pflanzen -->
-                                    <div class="fp-element fp-plant" style="left: 3%; top: 3%;">
-                                        <span class="material-symbols-outlined" style="font-size:22px;color:#16a34a;">potted_plant</span>
-                                    </div>
-                                    <div class="fp-element fp-plant" style="right: 3%; top: 3%;">
-                                        <span class="material-symbols-outlined" style="font-size:22px;color:#16a34a;">potted_plant</span>
-                                    </div>
-
-                                    <!-- Tische -->
-                                    <div class="fp-table fp-table-round available" style="left: 10%; top: 25%;" data-table="1" data-seats="2">
-                                        <span class="table-number">1</span><span class="table-seats">2P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-round available" style="left: 10%; top: 50%;" data-table="2" data-seats="2">
-                                        <span class="table-number">2</span><span class="table-seats">2P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-square available" style="left: 10%; top: 75%;" data-table="3" data-seats="4">
-                                        <span class="table-number">3</span><span class="table-seats">4P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-rect available" style="left: 35%; top: 30%;" data-table="4" data-seats="6">
-                                        <span class="table-number">4</span><span class="table-seats">6P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-rect available" style="left: 35%; top: 60%;" data-table="5" data-seats="6">
-                                        <span class="table-number">5</span><span class="table-seats">6P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-round available" style="left: 60%; top: 25%;" data-table="6" data-seats="4">
-                                        <span class="table-number">6</span><span class="table-seats">4P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-square available" style="left: 60%; top: 55%;" data-table="7" data-seats="4">
-                                        <span class="table-number">7</span><span class="table-seats">4P</span>
-                                    </div>
-                                    <div class="fp-table fp-table-long available" style="left: 60%; top: 80%;" data-table="8" data-seats="8">
-                                        <span class="table-number">8</span><span class="table-seats">8P</span>
-                                    </div>
-                                </div>
-
-                                <!-- Legende -->
-                                <div class="floorplan-legend">
-                                    <div class="legend-item"><span class="legend-dot available"></span> Frei</div>
-                                    <div class="legend-item"><span class="legend-dot reserved"></span> Reserviert</div>
-                                    <div class="legend-item"><span class="legend-dot occupied"></span> Besetzt</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- RECHTE SPALTE: Tisch Details / Element Palette -->
-                    <div class="panel fp-detail-panel" id="fpDetailPanel">
-                        <button type="button" class="fp-detail-close" onclick="document.querySelector('.fp-layout').classList.remove('fp-sidebar-open');" title="Schließen" aria-label="Schließen">
-                            <span class="material-symbols-outlined" style="font-size:16px;">close</span>
-                        </button>
-                        <div class="panel-header">
-                            <h3 class="panel-title" id="fpSidebarTitle">Tisch auswählen</h3>
-                        </div>
-                        <div class="panel-content" id="fpSidebarContent">
-                            <!-- Standard: Tisch auswählen Hinweis -->
-                            <div id="fpSelectHint" style="text-align: center; padding: 20px; color: var(--slate);">
-                                <span class="material-symbols-outlined" style="font-size:48px;opacity:0.5;margin-bottom:12px;display:block;">touch_app</span>
-                                <p style="font-size: 13px;">Klicke auf einen Tisch um Details zu sehen und zu reservieren</p>
-                            </div>
-
-                            <!-- Tisch Details -->
-                            <div id="fpTableDetails" style="display: none;">
-                                <div style="background: var(--cream); border-radius: 16px; padding: 16px; margin-bottom: 16px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                        <span style="font-size: 20px; font-weight: 700;" id="fpDetailTableNum">Tisch 1</span>
-                                        <span class="status-badge available" id="fpDetailStatus">Frei</span>
-                                    </div>
-                                    <div style="display: flex; gap: 16px; font-size: 13px; color: var(--slate);">
-                                        <span><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">group</span> <strong id="fpDetailSeats">2</strong> Plätze</span>
-                                    </div>
-                                </div>
-
-                                <!-- Aktuelle Reservierung - KIN DESIGN -->
-                                <div id="fpCurrentReservation" style="display: none; background: var(--bg-secondary); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(0,61,51,0.06);">
-                                    <div style="font-size: 10px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;">Reserviert</div>
-                                    <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;" id="fpResName">Gast</div>
-                                    <div style="font-size: 14px; color: var(--slate);" id="fpResTime">19:00 Uhr · 4 Personen</div>
-                                </div>
-
-                                <!-- Schnell-Reservierung -->
-                                <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
-                                    <div style="font-size: 11px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--slate);">Schnell-Reservierung</div>
-                                    <input type="text" id="fpQuickName" placeholder="Name" style="width: 100%; padding: 12px; border: 1px solid rgba(0,61,51,0.06); border-radius:9999px; margin-bottom: 8px; font-size: 14px; background: var(--bg-secondary); color: var(--text-primary);" aria-label="Name">
-                                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                                        <select id="fpQuickPersons" style="flex: 1; padding: 12px; border: 1px solid rgba(0,61,51,0.06); border-radius:9999px; font-size: 14px; background: var(--bg-secondary); color: var(--text-primary);" aria-label="Anzahl Personen">
-                                            <option value="1">1 Person</option>
-                                            <option value="2" selected>2 Personen</option>
-                                            <option value="3">3 Personen</option>
-                                            <option value="4">4 Personen</option>
-                                            <option value="5">5 Personen</option>
-                                            <option value="6">6 Personen</option>
-                                            <option value="7">7 Personen</option>
-                                            <option value="8">8 Personen</option>
-                                        </select>
-                                    </div>
-                                    <input type="tel" id="fpQuickPhone" placeholder="Telefon (optional)" style="width: 100%; padding: 12px; border: 1px solid rgba(0,61,51,0.06); border-radius:9999px; margin-bottom: 12px; font-size: 14px; background: var(--bg-secondary); color: var(--text-primary);" aria-label="Telefon (optional)">
-                                    <button type="button" onclick="if(typeof quickReserveTable==='function')quickReserveTable();" class="dash-btn dash-btn-primary" style="width: 100%; padding: 14px; font-size: 14px; font-weight: 600;">
-                                        Jetzt reservieren
-                                    </button>
-                                </div>
-
-                                <!-- Tisch Aktionen -->
-                                <div style="display: flex; gap: 8px; margin-top: 12px;">
-                                    <button type="button" onclick="setTableStatus('occupied')" class="dash-btn" style="flex: 1; padding: 10px; font-size: 12px;">
-                                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444"></span> Besetzen
-                                    </button>
-                                    <button type="button" onclick="setTableStatus('available')" class="dash-btn" style="flex: 1; padding: 10px; font-size: 12px;">
-                                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> Freigeben
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Element Palette (Edit Mode) -->
-                            <div id="fpElementPalette" style="display: none;">
-                                <p style="font-size: 12px; color: var(--slate); margin-bottom: 12px;">Ziehe Elemente auf den Grundriss:</p>
-
-                                <div style="margin-bottom: 16px;">
-                                    <div style="font-size: 11px; color: var(--slate); text-transform: uppercase; margin-bottom: 8px;">Tische</div>
-                                    <div class="element-palette-grid">
-                                        <div class="palette-item" draggable="true" data-element="table-round-2">
-                                            <div class="palette-preview table-round"></div>
-                                            <span>Rund 2P</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="table-round-4">
-                                            <div class="palette-preview table-round-lg"></div>
-                                            <span>Rund 4P</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="table-square-4">
-                                            <div class="palette-preview table-square"></div>
-                                            <span>Quadrat 4P</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="table-rect-6">
-                                            <div class="palette-preview table-rect"></div>
-                                            <span>Rechteck 6P</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="table-long-8">
-                                            <div class="palette-preview table-long"></div>
-                                            <span>Lang 8P</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style="margin-bottom: 16px;">
-                                    <div style="font-size: 11px; color: var(--slate); text-transform: uppercase; margin-bottom: 8px;">Dekoration</div>
-                                    <div class="element-palette-grid">
-                                        <div class="palette-item" draggable="true" data-element="plant">
-                                            <div class="palette-preview"><span class="material-symbols-outlined" style="font-size:20px;color:#16a34a;">potted_plant</span></div>
-                                            <span>Pflanze</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="divider">
-                                            <div class="palette-preview divider"></div>
-                                            <span>Wand</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="bar">
-                                            <div class="palette-preview bar"></div>
-                                            <span>Theke</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div style="font-size: 11px; color: var(--slate); text-transform: uppercase; margin-bottom: 8px;">Bereiche</div>
-                                    <div class="element-palette-grid">
-                                        <div class="palette-item" draggable="true" data-element="entrance">
-                                            <div class="palette-preview"><span class="material-symbols-outlined" style="font-size:20px;">door_front</span></div>
-                                            <span>Eingang</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="kitchen">
-                                            <div class="palette-preview"><span class="material-symbols-outlined" style="font-size:20px;">restaurant</span></div>
-                                            <span>Küche</span>
-                                        </div>
-                                        <div class="palette-item" draggable="true" data-element="wc">
-                                            <div class="palette-preview"><span class="material-symbols-outlined" style="font-size:20px;">wc</span></div>
-                                            <span>WC</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                // ---------- Ereignisse ----------
+                function verbinden() {
+                    var w = $('tp3'); if (!w || w.dataset.verbunden) return; w.dataset.verbunden = '1';
+                    $('tp3Ansicht3d').onclick = function () { ansichtSetzen('3d'); };
+                    $('tp3AnsichtOben').onclick = function () { ansichtSetzen('oben'); };
+                    $('tp3DrehLinks').onclick = function () { tp.drehung -= 90; zeichnen(); };
+                    $('tp3DrehRechts').onclick = function () { tp.drehung += 90; zeichnen(); };
+                    $('tp3Datum').onchange = function () { tp.datum = this.value || heute(); tp.zeit = tp.datum === heute() ? 'jetzt' : '19:00'; tp.gewaehlt = null; laden(); };
+                    $('tp3Zeiten').onclick = function (e) { var b = e.target.closest('[data-zeit]'); if (!b) return; tp.zeit = b.getAttribute('data-zeit'); zeichnen(); };
+                    $('tp3Bereiche').onclick = function (e) { var b = e.target.closest('[data-bereich]'); if (!b) return; tp.bereich = b.getAttribute('data-bereich'); tp.gewaehlt = null; zeichnen(); };
+                    $('tp3Bearbeiten').onclick = function () { tp.bearbeiten = true; tp.ansichtVorBearbeiten = tp.ansicht; tp.ansicht = 'oben'; tp.verlauf = []; tp.gewaehlt = null; melden(''); zeichnen(); };
+                    $('tp3Rueck').onclick = function () { var v = tp.verlauf.pop(); if (!v) return; var alt = JSON.parse(v); alt.forEach(function (t) { geaendert(t); }); tp.tische = alt; zeichnen(); };
+                    $('tp3Fertig').onclick = async function () { if (await speichern()) { tp.bearbeiten = false; tp.ansicht = tp.ansichtVorBearbeiten || tp.ansicht; tp.gewaehlt = null; melden(''); await laden(); } };
+                    $('tp3Leiste').onclick = function (e) { var b = e.target.closest('[data-neu]'); if (b) neuerTisch(b.getAttribute('data-neu')); };
+                    $('tp3NeuBereich').onclick = async function () {
+                        var name = window.prompt('Name des neuen Bereichs (z. B. Terrasse, Saal):'); if (!name || !name.trim()) return;
+                        tp.bereich = bereichSchluessel(name); tp.gewaehlt = null; zeichnen();
+                        melden('Neuer Bereich „' + name.trim() + '“ – tippe unten eine Tischform an. Er bleibt, sobald ein Tisch darin steht.', 'hinweis');
+                    };
+                    var buehne = $('tp3Buehne');
+                    buehne.addEventListener('pointerdown', zugStart);
+                    buehne.addEventListener('pointermove', zugBewegen);
+                    buehne.addEventListener('pointerup', zugEnde);
+                    buehne.addEventListener('pointercancel', zugEnde);
+                    buehne.addEventListener('click', function (e) {
+                        if (tp.bearbeiten && tp.ansicht === 'oben') return;
+                        var el = e.target.closest('[data-id]');
+                        if (!el) { if (e.target === buehne || e.target.id === 'tp3Boden') { tp.gewaehlt = null; zeichnen(); } return; }
+                        tp.gewaehlt = el.getAttribute('data-id'); zeichnen();
+                    });
+                    $('tp3Seite').addEventListener('click', async function (e) {
+                        var t = tischVon(tp.gewaehlt);
+                        var f = e.target.closest('[data-form]');
+                        if (f && t) { merken(); t.form = f.getAttribute('data-form'); geaendert(t); zeichnen(); return; }
+                        var b = e.target.closest('[data-aktion]'); if (!b) return;
+                        var a = b.getAttribute('data-aktion');
+                        if (a === 'schliessen') { tp.gewaehlt = null; zeichnen(); return; }
+                        if (!t) return;
+                        var z = zustand(t);
+                        if (a === 'mehr' || a === 'weniger') { merken(); t.plaetze = Math.max(1, Math.min(30, t.plaetze + (a === 'mehr' ? 1 : -1))); geaendert(t); zeichnen(); }
+                        else if (a === 'drehen') { merken(); t.drehung = ((t.drehung || 0) + 90) % 180; geaendert(t); zeichnen(); }
+                        else if (a === 'entfernen') {
+                            if (!await kinConfirm(t.name + ' entfernen?\n\nAlte Reservierungen bleiben erhalten.')) return;
+                            try {
+                                var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), { method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify({ is_active: false }) });
+                                var zz = await r.json().catch(function () { return []; });
+                                if (!Array.isArray(zz) || !zz.length) throw new Error('keine Berechtigung, diesen Tisch zu ändern');
+                                tp.tische = tp.tische.filter(function (x) { return x.id !== t.id; }); delete tp.geaendert[t.id]; tp.gewaehlt = null; zeichnen();
+                            } catch (x) { melden('Nicht entfernt – ' + (x && x.message || x), 'fehler'); }
+                        }
+                        else if (a === 'da' && z.res) resStatus(z.res, 'seated');
+                        else if (a === 'noshow' && z.res) { if (await kinConfirm('„' + (z.res.guest_name || 'Gast') + '“ als nicht erschienen markieren?')) resStatus(z.res, 'no_show'); }
+                        else if (a === 'absagen' && z.res) { if (await kinConfirm('Reservierung von „' + (z.res.guest_name || 'Gast') + '“ absagen?\n\nDer Gast bekommt eine E-Mail, wenn eine Adresse hinterlegt ist.')) resStatus(z.res, 'cancelled'); }
+                        else if (a === 'besetzen') tischStatus(t, 'occupied');
+                        else if (a === 'frei') { if (z.res && z.res.status === 'seated') await resStatus(z.res, 'finished'); tischStatus(t, 'available'); }
+                        else if (a === 'reservieren') reservieren(t);
+                    });
+                    $('tp3Seite').addEventListener('change', function (e) {
+                        var t = tischVon(tp.gewaehlt); if (!t || !tp.bearbeiten) return;
+                        if (e.target.id === 'tp3eName') { merken(); t.name = e.target.value.trim() || t.name; geaendert(t); zeichnen(); }
+                        if (e.target.id === 'tp3eNr') { merken(); t.nummer = e.target.value.trim() || t.nummer; geaendert(t); zeichnen(); }
+                        if (e.target.id === 'tp3eBereich') { merken(); t.bereich = bereichSchluessel(e.target.value); tp.bereich = t.bereich; geaendert(t); zeichnen(); }
+                    });
+                    window.addEventListener('resize', function () { if ($('tp3') && $('tp3').offsetParent && !zug) zeichnen(); });
+                    setInterval(function () {
+                        var w = $('tp3'); if (!w || !w.offsetParent || document.hidden || tp.bearbeiten || tp.laedt) return;
+                        if (document.activeElement && /^tp3s/.test(document.activeElement.id || '')) return;
+                        laden();
+                    }, 30000);
+                }
+                function ansichtSetzen(a) {
+                    if (tp.bearbeiten && a === '3d') { melden('Zum Verschieben bleibt die Ansicht von oben. Nach „Fertig“ geht es zurück in 3D.', 'hinweis'); return; }
+                    tp.ansicht = a; try { localStorage.setItem('kmi_tp3_ansicht', a); } catch (e) {}
+                    zeichnen();
+                }
+                window.tp3Oeffnen = function () { verbinden(); laden(); };
+                // Restaurant gewechselt -> neu laden, wenn der Plan gerade offen ist.
+                var letzte = null;
+                setInterval(function () {
+                    var rid = window.resCurrentRestaurant || window._gastroOnlyRestaurantId || null;
+                    if (rid !== letzte) { letzte = rid; var w = $('tp3'); if (w && w.offsetParent) { tp.gewaehlt = null; laden(); } }
+                }, 1500);
+            })();
+            </script>
             </div>
 
             <!-- TISCHPLAN INTEGRIERTES SYSTEM SCRIPT -->
@@ -18639,6 +19055,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // Display aktualisieren - GLOBAL & PROFESSIONELL
                 window.updateFloorplanDisplay = function() {
+                    if (!document.getElementById('floorplanGrid')) return;
                     // Nutze globale Variable für Synchronisation
                     var currentFpDate = window.fpSelectedDate || window.resSelectedDate || new Date();
                     var currentFpTime = window.fpSelectedTime || '18:00';
@@ -19381,6 +19798,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // Initialisierung
                 function init() {
+                    // Die alte Oberflaeche (#floorplanGrid) gibt es seit dem neuen
+                    // Tischplan nicht mehr. Der Block bleibt, weil die Reservierungs-
+                    // details seine Funktionen (resMarkAsSeated ...) benutzen.
+                    if (!document.getElementById('floorplanGrid')) return;
                     renderFloorplanCalendar();
                     initTimeSlots();
                     initTableClicks();
@@ -29911,7 +30332,6 @@ async function saveResSettings() {
             showToast('Reservierungszeiten gespeichert!', 'success');
             // Andere Tabs aktualisieren
             if (typeof populateResTimeSelect === 'function') populateResTimeSelect();
-            if (typeof populateFloorplanTimeSlots === 'function') populateFloorplanTimeSlots();
             if (typeof window.resRenderDaySlots === 'function') window.resRenderDaySlots();
         } else {
             showToast('Fehler beim Speichern', 'error');
@@ -40966,7 +41386,7 @@ async function updateReservationStatus(reservationId, newStatus) {
                 if (customer.restaurant_id) loadGastroReservations(customer.restaurant_id);
                 if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
                 if (typeof renderFloorplanCalendar === 'function') renderFloorplanCalendar();
-                return;
+                return true;
             }
         }
 
@@ -40982,19 +41402,26 @@ async function updateReservationStatus(reservationId, newStatus) {
             },
             body: JSON.stringify({ status: newStatus })
         });
-        if (patchResp.ok) {
+        // 200 mit leerer Liste heisst: die Zeilen-Regeln (RLS) haben die Zeile
+        // nicht freigegeben, geaendert wurde NICHTS. Vorher stand hier trotzdem
+        // "Status aktualisiert" -- der Gast war im Plan "da", in der Datenbank nicht.
+        var patchZeilen = patchResp.ok ? await patchResp.json().catch(function() { return []; }) : [];
+        if (patchResp.ok && Array.isArray(patchZeilen) && patchZeilen.length) {
             showToast('Status aktualisiert', 'success');
             if (newStatus === 'confirmed' || newStatus === 'cancelled') {
                 if (typeof sendReservationEmail === 'function') sendReservationEmail(reservationId, newStatus);
             }
             var customer2 = JSON.parse(localStorage.getItem('gastro_customer') || '{}');
             if (customer2.restaurant_id) loadGastroReservations(customer2.restaurant_id);
+            return true;
         } else {
-            showToast('Fehler beim Aktualisieren', 'error');
+            showToast('Status nicht gespeichert – keine Berechtigung oder Verbindung weg', 'error');
+            return false;
         }
     } catch (e) {
         console.error('Status-Update Fehler:', e);
         showToast('Fehler beim Aktualisieren', 'error');
+        return false;
     }
 }
 
