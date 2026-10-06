@@ -23663,6 +23663,12 @@ window.zahlsperreGastText = zahlsperreGastText;
 // Feierabend reinkommt, ärgert beide Seiten (Küche ist aus, Gast wartet).
 function minutesUntilClose(restaurant) {
     if (!restaurant) return null;
+    // Laeuft gerade eine Schicht, zaehlt IHR Ende -- auch wenn sie gestern
+    // angefangen hat. Vorher rechnete der Bestellschluss Samstagnacht um
+    // 01:30 mit Sonntag 22 Uhr als Schluss: ueber 20 Stunden statt 90
+    // Minuten, und der Bestellschluss griff nie. Siehe aktiveSchicht().
+    var _laeuft = (typeof aktiveSchicht === 'function') ? aktiveSchicht(restaurant, new Date()) : null;
+    if (_laeuft) return _laeuft.minutenBisEnde;
     var now = new Date();
     var day = now.getDay();
     var cur = now.getHours() * 60 + now.getMinutes();
@@ -23944,68 +23950,107 @@ function getOrderStopMinutes(restaurant) {
     return 15; // Standard
 }
 
+// UEBER MITTERNACHT: WELCHE SCHICHT LAEUFT GERADE?
+//
+// Gefunden am 06.10.2026 fuer eine Shisha-Bar -- Montag Ruhetag, Di bis So
+// 18:00 bis 03:00. Mit der echten checkIfOpen und gestellter Uhr:
+//
+//     Sonntagnacht 01:30 (ist schon Mo)   App sagte: geschlossen   -- Bar offen
+//     Montagnacht  01:30 (ist schon Di)   App sagte: offen         -- Bar zu
+//
+// Der Grund: nach Mitternacht schaute die App auf den HEUTIGEN Tag. Um
+// 01:30 am Montag ist heute Montag, und Montag ist Ruhetag -- also "zu",
+// obwohl die Sonntagsschicht noch bis drei laeuft. Und umgekehrt: am
+// Dienstag um 01:30 galt die Dienstagsschicht 18:00-03:00 schon, obwohl
+// am Montag gar keine Schicht war, die bis in den Dienstag reicht.
+//
+// Das war nicht nur ein falsches Schild. Die Kasse fragt checkIfOpen, und
+// bei "zu" sperrt sie: der Gast sitzt in der Bar, scannt den Tisch-QR,
+// bestellt -- und liest "hat gerade geschlossen". Und es betraf nicht nur
+// Ruhetage: JEDE Nacht, auf die ein Tag folgt, der vor Mitternacht
+// schliesst. Samstag bis 03:00, Sonntag 14-22 Uhr -> ab Samstag 0:00 zu.
+//
+// DIE REGEL JETZT: eine Schicht gehoert dem Tag, an dem sie ANFAENGT.
+// Nach Mitternacht zaehlt die Nachtschicht von GESTERN -- und nur, wenn
+// gestern kein Ruhetag war. Die heutige Nachtschicht zaehlt erst ab ihrem
+// Beginn.
+//
+// WELCHE Zeiten an einem Tag gelten, ist genau wie vorher: Tageszeiten
+// aus opening_hours, sonst opening_time/closing_time, sonst 11-22 Uhr.
+// Nur die Rechnung mit der Uhrzeit ist neu.
+//
+// Gibt die laufende Schicht zurueck oder null:
+//   { tag, start, ende, ueberNacht, vonGestern, minutenBisEnde }
+function aktiveSchicht(restaurant, jetzt) {
+    if (!restaurant) return null;
+    jetzt = jetzt || new Date();
+    var TAGE = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
+    var heute = jetzt.getDay();
+    var gestern = (heute + 6) % 7;
+    var min = jetzt.getHours() * 60 + jetzt.getMinutes();
+
+    // rest_day zaehlt ab Montag (0=Mo), JS ab Sonntag (0=So).
+    var ruheJs = -1;
+    var rd = restaurant.rest_day;
+    if (rd !== null && rd !== undefined && rd !== '') {
+        var rdn = Number(rd);
+        if (Number.isInteger(rdn) && rdn >= 0 && rdn <= 6) ruheJs = ({ 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 })[rdn];
+    }
+
+    // Die Schichten EINES Tages -- in derselben Reihenfolge wie bisher.
+    function schichtenAm(js) {
+        if (js === ruheJs) return [];
+        var oh = restaurant.opening_hours;
+        var k = TAGE[js];
+        if (oh && typeof oh === 'object' && oh[k + '_start']) {
+            var liste = [];
+            [['_start', '_end'], ['_start2', '_end2']].forEach(function (p) {
+                if (oh[k + p[0]] && oh[k + p[1]]) {
+                    liste.push({ s: parseTime(oh[k + p[0]]), e: parseTime(oh[k + p[1]]),
+                                 start: String(oh[k + p[0]]).slice(0, 5), ende: String(oh[k + p[1]]).slice(0, 5) });
+                }
+            });
+            return liste;
+        }
+        if (restaurant.opening_time && restaurant.closing_time) {
+            return [{ s: parseTime(restaurant.opening_time), e: parseTime(restaurant.closing_time),
+                      start: String(restaurant.opening_time).slice(0, 5), ende: String(restaurant.closing_time).slice(0, 5) }];
+        }
+        return [{ s: 660, e: 1320, start: '11:00', ende: '22:00' }];
+    }
+
+    // Erst die Nachtschicht von gestern: laeuft sie noch, ist SIE es.
+    var vorher = schichtenAm(gestern);
+    for (var i = 0; i < vorher.length; i++) {
+        var g = vorher[i];
+        if (g.e <= g.s && min <= g.e) {
+            return { tag: TAGE[gestern], start: g.start, ende: g.ende, ueberNacht: true,
+                     vonGestern: true, minutenBisEnde: g.e - min };
+        }
+    }
+    var jetztTag = schichtenAm(heute);
+    for (var j = 0; j < jetztTag.length; j++) {
+        var h = jetztTag[j];
+        if (h.e > h.s) {
+            if (min >= h.s && min <= h.e) {
+                return { tag: TAGE[heute], start: h.start, ende: h.ende, ueberNacht: false,
+                         vonGestern: false, minutenBisEnde: h.e - min };
+            }
+        } else if (min >= h.s) {
+            // Heutige Nachtschicht, der Teil vor Mitternacht.
+            return { tag: TAGE[heute], start: h.start, ende: h.ende, ueberNacht: true,
+                     vonGestern: false, minutenBisEnde: (1440 - min) + h.e };
+        }
+    }
+    return null;
+}
+window.aktiveSchicht = aktiveSchicht;
+
 function checkIfOpen(restaurant) {
     // Betriebsferien: Restaurant ist zu, egal was die Öffnungszeiten sagen
     var _vac = getVacationInfo(restaurant);
     if (_vac && _vac.active) return false;
-
-    const now = new Date();
-    const currentDay = now.getDay(); // 0 = Sonntag, 1 = Montag, ...
-    const currentTime = now.getHours() * 60 + now.getMinutes(); // Minuten seit Mitternacht
-
-    // Ruhetag prüfen
-    if (restaurant.rest_day !== null && restaurant.rest_day !== undefined) {
-        const restDayMap = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 }; // 0=Mo→JS 1, 6=So→JS 0
-        if (currentDay === restDayMap[restaurant.rest_day]) return false;
-    }
-
-    // Option 1: opening_hours Objekt mit Tages-spezifischen Zeiten
-    const hours = restaurant.opening_hours;
-    if (hours && typeof hours === 'object') {
-        const dayNames = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
-        const dayKey = dayNames[currentDay];
-
-        // Prüfe 1. Schicht
-        var inShift1 = false;
-        if (hours[dayKey + '_start'] && hours[dayKey + '_end']) {
-            const openTime = parseTime(hours[dayKey + '_start']);
-            const closeTime = parseTime(hours[dayKey + '_end']);
-            if (closeTime > openTime) {
-                inShift1 = currentTime >= openTime && currentTime <= closeTime;
-            } else {
-                // Über Mitternacht (z.B. 18:00 - 02:00)
-                inShift1 = currentTime >= openTime || currentTime <= closeTime;
-            }
-        }
-        // Prüfe optionale 2. Schicht (z.B. nach Mittagspause)
-        var inShift2 = false;
-        if (hours[dayKey + '_start2'] && hours[dayKey + '_end2']) {
-            const openTime2 = parseTime(hours[dayKey + '_start2']);
-            const closeTime2 = parseTime(hours[dayKey + '_end2']);
-            if (closeTime2 > openTime2) {
-                inShift2 = currentTime >= openTime2 && currentTime <= closeTime2;
-            } else {
-                inShift2 = currentTime >= openTime2 || currentTime <= closeTime2;
-            }
-        }
-        if (hours[dayKey + '_start']) return inShift1 || inShift2;
-    }
-
-    // Option 2: Einfache opening_time / closing_time Felder
-    const openStr = restaurant.opening_time;
-    const closeStr = restaurant.closing_time;
-    if (openStr && closeStr) {
-        const openTime = parseTime(openStr);
-        const closeTime = parseTime(closeStr);
-        if (closeTime > openTime) {
-            return currentTime >= openTime && currentTime <= closeTime;
-        } else {
-            return currentTime >= openTime || currentTime <= closeTime;
-        }
-    }
-
-    // Option 3: Kein Zeitdaten → Standard 11:00 - 22:00
-    return currentTime >= 660 && currentTime <= 1320;
+    return !!aktiveSchicht(restaurant, new Date());
 }
 
 function parseTime(timeStr) {
@@ -24026,6 +24071,10 @@ function getOpeningTimeToday(restaurant) {
 }
 
 function getClosingTimeToday(restaurant) {
+    // Samstagnacht um 01:30 schliesst die Bar um 03:00 -- nicht um das,
+    // was fuer Sonntag eingetragen ist.
+    var _laeuft = (typeof aktiveSchicht === 'function') ? aktiveSchicht(restaurant, new Date()) : null;
+    if (_laeuft && _laeuft.vonGestern) return _laeuft.ende;
     var now = new Date();
     var dayNames = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
     var dayKey = dayNames[now.getDay()];
@@ -29009,7 +29058,59 @@ function resGuestRender() {
 // ============================================================================
 
 // Zentrale Funktion: Reservierungsslots aus Restaurant-Config generieren
-function generateReservationSlots(restaurantId) {
+// RESERVIERUNGS-UHRZEITEN -- FUER DEN TAG, DER GEWAEHLT IST.
+//
+// Am 06.10.2026 mit der echten Funktion gemessen:
+//
+//     Shisha-Bar 18:00 - 03:00              -> 0 Uhrzeiten
+//     Bar 20:00 - 01:00                     -> 0 Uhrzeiten
+//     Lokal bis Mitternacht 17:00 - 00:00   -> 0 Uhrzeiten
+//     normales Lokal 11:30 - 22:00          -> 21 Uhrzeiten
+//
+// Die Schleife lief "von Oeffnung bis Schluss minus 30" -- von Minute 1080
+// bis Minute 150. Kein einziger Durchlauf. Wer nach Mitternacht schliesst
+// (oder genau um Mitternacht: 00:00 minus 30 ergab 00:00), konnte online
+// keinen Tisch vergeben. Keine Fehlermeldung, nur "keine Zeiten frei".
+//
+// UND DIE UHRZEITEN KAMEN VOM FALSCHEN TAG.
+// Beim Speichern wird opening_time aus den MONTAGSzeiten genommen
+// (opening_time: openingHours.mo_start). Wer montags Ruhetag hat, hat
+// dort nichts stehen -- und bekam den Standard: 11:00 bis 21:30. Eine Bar,
+// die um 18 Uhr aufmacht, haette Reservierungen fuer 11:30 angenommen.
+//
+// JETZT:
+//   - Mit Datum zaehlen die Zeiten DIESES Wochentags, beide Schichten.
+//     Steht fuer den Tag nichts eigenes drin, gilt alles wie vorher.
+//   - Ruhetag -> keine Uhrzeiten.
+//   - Ueber Mitternacht: die letzte Uhrzeit ist 23:30, nicht null Stueck.
+//     Spaeter nicht, mit Absicht: eine Reservierung traegt das gewaehlte
+//     Datum. "Samstag 01:00" waere Samstag FRUEH -- vor dem Abend, an dem
+//     der Gast kommen will. Wer nach Mitternacht kommt, kommt ohne
+//     Reservierung; so arbeiten Bars ohnehin.
+//
+// Ohne Datum (das Sperr-Formular im Dashboard) bleibt es bei den
+// allgemeinen Zeiten -- nur ueber Mitternacht stimmt es jetzt auch dort.
+function reservierSchichtenAm(restaurant, datum) {
+    var t = String(datum || '').split('-').map(Number);
+    if (t.length !== 3 || !t[0] || !t[1] || !t[2]) return null;
+    var js = new Date(t[0], t[1] - 1, t[2]).getDay();
+    var rd = restaurant.rest_day;
+    if (rd !== null && rd !== undefined && rd !== '') {
+        var rdn = Number(rd);
+        if (Number.isInteger(rdn) && rdn >= 0 && rdn <= 6 && ({ 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 })[rdn] === js) return [];
+    }
+    var oh = restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var k = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'][js];
+    if (!oh || typeof oh !== 'object' || !oh[k + '_start']) return null;    // nichts Eigenes -> wie bisher
+    var liste = [];
+    [['_start', '_end'], ['_start2', '_end2']].forEach(function (p) {
+        if (oh[k + p[0]] && oh[k + p[1]]) liste.push({ s: parseTime(oh[k + p[0]]), e: parseTime(oh[k + p[1]]) });
+    });
+    return liste;
+}
+
+function generateReservationSlots(restaurantId, datum) {
     var restaurant = null;
     if (APP_DATA && APP_DATA.restaurants) {
         restaurant = APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; });
@@ -29045,18 +29146,37 @@ function generateReservationSlots(restaurantId) {
     var pauseStartMin = pauseEnabled ? parseInt(pauseStart.split(':')[0]) * 60 + parseInt(pauseStart.split(':')[1]) : -1;
     var pauseEndMin = pauseEnabled ? parseInt(pauseEnd.split(':')[0]) * 60 + parseInt(pauseEnd.split(':')[1]) : -1;
 
-    for (var m = startMin; m <= endMin; m += interval) {
-        // Pause überspringen
-        if (pauseEnabled && m >= pauseStartMin && m < pauseEndMin) continue;
-        var h = Math.floor(m / 60);
-        var min = m % 60;
-        var timeStr = (h < 10 ? '0' + h : h) + ':' + (min < 10 ? '0' + min : min);
-        // Manuell deaktivierte Slots überspringen
-        if (disabledSlots.indexOf(timeStr) > -1) continue;
-        slots.push(timeStr);
+    // Ueber Mitternacht (auch genau um Mitternacht): bis 23:30, nicht null.
+    if (restaurant && restaurant.closing_time) {
+        var _schlussRoh = parseTime(String(restaurant.closing_time));
+        if (_schlussRoh <= startMin) endMin = Math.min(_schlussRoh + 1440 - 30, 1439);
     }
 
-    return slots;
+    // Die Bereiche, aus denen Uhrzeiten werden: die Schichten des
+    // gewaehlten Tages -- oder, ohne eigene Zeiten, der allgemeine Bereich.
+    var bereiche = [{ von: startMin, bis: endMin }];
+    var _tag = (restaurant && datum) ? reservierSchichtenAm(restaurant, datum) : null;
+    if (_tag) {
+        bereiche = _tag.map(function (sch) {
+            var ende = sch.e <= sch.s ? sch.e + 1440 : sch.e;
+            return { von: sch.s, bis: Math.min(ende - 30, 1439) };
+        });
+    }
+
+    bereiche.forEach(function (b) {
+        for (var m = b.von; m <= b.bis; m += interval) {
+            // Pause überspringen
+            if (pauseEnabled && m >= pauseStartMin && m < pauseEndMin) continue;
+            var h = Math.floor(m / 60);
+            var min = m % 60;
+            var timeStr = (h < 10 ? '0' + h : h) + ':' + (min < 10 ? '0' + min : min);
+            // Manuell deaktivierte Slots überspringen
+            if (disabledSlots.indexOf(timeStr) > -1) continue;
+            if (slots.indexOf(timeStr) === -1) slots.push(timeStr);
+        }
+    });
+
+    return slots.sort();
 }
 
 // Echtzeit Tischverfügbarkeit pro Zeitslot für ein Restaurant
@@ -29089,8 +29209,8 @@ async function getTableAvailabilityByTime(restaurantId) {
     var currentHour = now.getHours();
     var currentMin = now.getMinutes();
 
-    // Alle Zeitslots des Restaurants
-    var allTimes = generateReservationSlots(restaurantId);
+    // Alle Zeitslots des Restaurants -- fuer heute.
+    var allTimes = generateReservationSlots(restaurantId, today);
     if (!allTimes || allTimes.length === 0) return [];
 
     // Tische zählen
@@ -29428,8 +29548,8 @@ async function loadAvailableSlots() {
             return r.status === 'blocked' && !r.table_id && r.reservation_time && r.reservation_time.substring(0,5) === '00:00';
         });
 
-        // Zeitslots aus Restaurant-Config generieren
-        var allTimes = generateReservationSlots(restaurantId);
+        // Zeitslots aus Restaurant-Config generieren -- fuer DIESEN Tag.
+        var allTimes = generateReservationSlots(restaurantId, date);
 
         if (fullDayBlock) {
             // Ganzer Tag gesperrt — keine Slots anzeigen
@@ -29600,7 +29720,8 @@ function getDemandStyle(demand) {
 
 function renderFallbackSlots() {
     var restaurantId = document.getElementById('reservationRestaurantId').value;
-    var times = generateReservationSlots(restaurantId);
+    var _fDatum = (document.getElementById('reservationDate') || {}).value || '';
+    var times = generateReservationSlots(restaurantId, _fDatum);
     renderSlots(times);
 }
 
