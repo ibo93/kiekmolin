@@ -4113,6 +4113,19 @@
             transform: scale(0.97);
         }
 
+        /* OHNE SCHEIN (06.10.2026, Ibo: "Der Schatten soll weg"). Die
+           allgemeinen Knopf-Regeln (Glas, Dunkelmodus) legten einen gruenen
+           Schein um den Knopf -- im Dunkeln deutlich sichtbar. Mit zwei
+           Kennungen und !important gewinnt diese Regel gegen alle. */
+        #reservationModal #submitReservationBtn,
+        #reservationModal #submitReservationBtn:hover,
+        #reservationModal #submitReservationBtn:focus {
+            box-shadow: none !important;
+        }
+        #reservationModal #submitReservationBtn:focus-visible {
+            box-shadow: 0 0 0 3px rgba(0,61,51,0.35) !important;
+        }
+
         /* --- Occasion select dropdown arrow --- */
         #reservationModal .form-select {
             appearance: none;
@@ -43613,12 +43626,22 @@ function applyLiquidGlass(enable) {
             -webkit-backdrop-filter: blur(12px) saturate(1.3) !important;
             border: 1px solid rgba(255,255,255,0.5) !important;
         }
+        /* HINWEISE OHNE SCHLEIER (06.10.2026, Ibo: "Der Schatten soll weg").
+           Vorher 70 % weiss mit Weichzeichner: was darunter lag, schien
+           verschwommen durch -- im Reservierungsfenster der dunkelgruene
+           Knopf "Reservierung bestaetigen" als grauer Fleck unter dem Text.
+           Das sah aus wie ein Schatten. Jetzt deckend, ohne Schatten. */
         .liquid-glass .toast {
-            background: rgba(255,255,255,0.7) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            border: 1px solid rgba(255,255,255,0.5) !important;
+            background: #ffffff !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
+            border: 1px solid rgba(0,0,0,0.10) !important;
             color: var(--text-primary) !important;
+        }
+        .liquid-glass.dark-mode .toast {
+            background: #2a2a2a !important;
+            border-color: rgba(255,255,255,0.12) !important;
         }
         .liquid-glass .form-input,
         .liquid-glass select {
